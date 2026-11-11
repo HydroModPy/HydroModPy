@@ -1023,7 +1023,7 @@ def test_a_calibration_with_changes_runs_as_a_project_held_in_memory(
 
 def _draft_collaborators(monkeypatch: pytest.MonkeyPatch, *, is_sites: bool) -> list[Any]:
     import hydromodpy.config.sites as sites
-    import hydromodpy.project.launch.sites.expansion as expansion
+    import hydromodpy.project.launch.plan as expansion
     import hydromodpy.workflow.dispatch as wdispatch
 
     seen: list[Any] = []

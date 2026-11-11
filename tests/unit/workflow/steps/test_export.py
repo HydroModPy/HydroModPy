@@ -339,14 +339,16 @@ def test_a_folder_another_run_owns_stays_in_the_scratch(tmp_path: Path) -> None:
     assert not (run_dir / RUN_SOLVER_DIRNAME).exists()
 
 
-# --- test_the_export_step_runs_requests_around_the_seal ---
-# The data requests are written before the seal and the metadata views after it.
+# --- test_the_exports_follow_the_seal ---
+# The data requests and the metadata views are both written after the seal.
 #
-# A data request (a field, a series, a layer) reads the fields of the run, so
-# the export step writes it. A metadata view (STAC, RO-Crate, PROV) renders the
-# seal, so :func:`step_after_seal` writes it once the run is sealed, from the
-# directory alone. Every file lands under ``runs/<run>/exports/`` and the
-# console says how many files were written and where.
+# The export step only cleans. A data request (a field, a series, a layer)
+# reads the sealed run through a store opened on its directory, as hmp export
+# does, so its file carries the label of the day. A metadata view (STAC,
+# RO-Crate, PROV) renders the seal from the directory alone. Every file lands
+# under ``runs/<run>/exports/`` and the console says how many files were
+# written and where. An export that fails leaves the run sealed and names
+# hmp export.
 
 
 def _requests_ctx(run_dir: Path, requests) -> SimpleNamespace:
@@ -366,7 +368,7 @@ def _requests_ctx(run_dir: Path, requests) -> SimpleNamespace:
     )
 
 
-def test_the_export_step_writes_the_data_requests_only(monkeypatch, tmp_path: Path) -> None:
+def test_the_export_step_writes_no_export(monkeypatch, tmp_path: Path) -> None:
     seen: list = []
     requests = load_export_requests(
         [{"variables": "head", "time": "last"}, {"variables": "all", "format": "rocrate"}]
@@ -391,9 +393,8 @@ def test_the_export_step_writes_the_data_requests_only(monkeypatch, tmp_path: Pa
         PipelineState(run_id="run-1", step_index=7, data={"ctx": _requests_ctx(tmp_path, requests)})
     )
 
-    assert seen == [requests]
-    lines = read_profile(tmp_path).lines
-    assert [(line.kind, line.name, line.attempt) for line in lines] == [("export", "data", 1)]
+    assert seen == []
+    assert read_profile(tmp_path) is None
 
 
 @pytest.mark.parametrize("keep", [False, True])
@@ -438,31 +439,113 @@ def test_the_export_step_cleans_each_solver_run_under_the_retention_of_the_run(
     assert retention.budget == BudgetKeep.of_terms(("drain",))
 
 
-def test_the_views_are_written_after_the_seal_from_the_directory(tmp_path: Path, caplog) -> None:
+def _sealed_run_dir(tmp_path: Path) -> tuple[Path, object]:
     record = make_record()
     run_dir = tmp_path / record.run.rel_dir
     run_dir.mkdir(parents=True)
     record.write(run_dir)
-    requests = load_export_requests(
-        [
-            {"variables": "head", "time": "last"},
-            {"variables": "all", "format": "rocrate", "folder": "crate"},
-        ]
-    )
+    return run_dir, record
+
+
+_HEAD_AND_CRATE = [
+    {"variables": "head", "time": "last"},
+    {"variables": "all", "format": "rocrate", "folder": "crate"},
+]
+
+
+def _fake_sealed_store(monkeypatch, opened: list) -> None:
+    @contextmanager
+    def fake_store(ctx):
+        opened.append(Path(ctx.run_dir))
+        yield SimpleNamespace()
+
+    monkeypatch.setattr(export_module, "sealed_run_store", fake_store)
+
+
+def test_the_exports_are_written_after_the_seal(monkeypatch, tmp_path: Path, caplog) -> None:
+    run_dir, record = _sealed_run_dir(tmp_path)
+    requests = load_export_requests(_HEAD_AND_CRATE)
+    opened: list[Path] = []
+    seen: list = []
+    _fake_sealed_store(monkeypatch, opened)
+    head = run_dir / "exports" / "head_last.tif"
+
+    def fake_data(_store, sim_id, data_requests):
+        seen.append((sim_id, list(data_requests)))
+        return [head]
+
+    monkeypatch.setattr(request_module, "export_data_requests", fake_data)
     caplog.set_level(logging.INFO, logger=export_module.logger.name)
 
     written = export_module.step_after_seal(_requests_ctx(run_dir, requests))
 
     crate = run_dir / "exports" / "crate" / "ro-crate-metadata.json"
-    assert written == [crate]
+    assert written == [head, crate]
+    assert opened == [run_dir]
+    assert seen == [("0123456789abcdef", [requests[0]])]
     assert read_identity_from(crate).sim_id == record.run.sim_id
     assert [entry.file for entry in Ledger.read(run_dir / "exports").entries] == [
         "crate/ro-crate-metadata.json"
     ]
-    assert [(line.kind, line.name) for line in read_profile(run_dir).lines] == [("export", "views")]
+    assert [(line.kind, line.name) for line in read_profile(run_dir).lines] == [
+        ("export", "data"),
+        ("export", "views"),
+    ]
     announced = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Exported")]
     assert announced == [announced[0]]
-    assert announced[0].startswith("Exported 1 file(s) -> ")
+    assert announced[0].startswith("Exported 2 file(s) -> ")
+
+
+@pytest.mark.parametrize(
+    ("requests", "level", "opens_the_store"),
+    [
+        pytest.param([_HEAD_AND_CRATE[1]], None, False, id="views only open no store"),
+        pytest.param(_HEAD_AND_CRATE, "research", False, id="a research run writes no data"),
+        pytest.param(_HEAD_AND_CRATE, "result", True, id="a result run writes its data"),
+    ],
+)
+def test_the_store_opens_only_for_a_data_request_of_a_run_that_renders(
+    monkeypatch, tmp_path: Path, requests, level, opens_the_store
+) -> None:
+    run_dir, _record = _sealed_run_dir(tmp_path)
+    opened: list[Path] = []
+    _fake_sealed_store(monkeypatch, opened)
+    monkeypatch.setattr(request_module, "export_data_requests", lambda *_a: [])
+    ctx = _requests_ctx(run_dir, load_export_requests(requests))
+    ctx.level = level
+
+    export_module.step_after_seal(ctx)
+
+    assert bool(opened) is opens_the_store
+
+
+def test_an_export_that_fails_after_the_seal_names_hmp_export(
+    monkeypatch, tmp_path: Path, caplog
+) -> None:
+    from hydromodpy.core.exceptions import ExportError
+
+    run_dir, record = _sealed_run_dir(tmp_path)
+    requests = load_export_requests(_HEAD_AND_CRATE)
+    _fake_sealed_store(monkeypatch, [])
+
+    def failing(*_a):
+        raise ExportError("Export failed for run x: no field head")
+
+    monkeypatch.setattr(request_module, "export_data_requests", failing)
+    caplog.set_level(logging.INFO, logger="hydromodpy")
+
+    with pytest.raises(ExportError) as raised:
+        export_module.step_after_seal(_requests_ctx(run_dir, requests))
+
+    name = record.run.name
+    assert str(raised.value).startswith(
+        f"run {name} is sealed; write the exports again with hmp export {name}: "
+    )
+    assert "no field head" in str(raised.value)
+    # The views still had their turn, and the recap of a completed run waits.
+    assert (run_dir / "exports" / "crate" / "ro-crate-metadata.json").is_file()
+    assert (run_dir / "manifest.json").is_file()
+    assert _recap_lines(caplog) == []
 
 
 # --- test_preprocessing_scratch_lifecycle ---

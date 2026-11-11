@@ -148,31 +148,31 @@ class _Store:
 
 class TestCatchmentResolveTimeIndex:
     def test_prefers_solver_axis(self):
-        from hydromodpy.results.derive.catchment_aggregation import _resolve_time_index
+        from hydromodpy.results.derive.catchment_aggregation import series_time_index
 
         store = _Store(_SzWithTime(_axis(5)), window=("2019-01-01", "2019-12-31", "DAYS"))
-        idx = _resolve_time_index(store, "sim", 5)
+        idx = series_time_index(store, "sim", 5)
         # Solver axis (clean 86400s), not the drifting date_range over the window.
         assert set(idx.to_series().diff().dropna().dt.total_seconds()) == {86400.0}
 
     def test_falls_back_to_period_bounds_when_axis_absent(self):
-        from hydromodpy.results.derive.catchment_aggregation import _resolve_time_index
+        from hydromodpy.results.derive.catchment_aggregation import series_time_index
 
         # The window end is exclusive and each period is stamped at its end,
         # as the solvers write it. The fallback used to put the first stamp on
         # the window start.
         store = _Store(_SzWithTime(None), window=("2019-01-01", "2019-01-06", "day"))
-        idx = _resolve_time_index(store, "sim", 5)
+        idx = series_time_index(store, "sim", 5)
         assert len(idx) == 5
         assert idx[0] == pd.Timestamp("2019-01-02")
         assert idx[-1] == pd.Timestamp("2019-01-06")
 
     def test_raises_when_no_axis_and_no_period(self):
-        from hydromodpy.results.derive.catchment_aggregation import _resolve_time_index
+        from hydromodpy.results.derive.catchment_aggregation import series_time_index
 
         store = _Store(_SzWithTime(None), window=(None, None, None))
         with pytest.raises(RuntimeError, match="period_start/period_end"):
-            _resolve_time_index(store, "sim", 5)
+            series_time_index(store, "sim", 5)
 
 
 # ---------------------------------------------------------------------------

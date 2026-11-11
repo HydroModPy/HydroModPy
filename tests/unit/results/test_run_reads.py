@@ -22,7 +22,6 @@ from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.core.time.time_method import OBSERVABLE_TIME_METHODS
-from hydromodpy.display.calibration_report import session_summary
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive import views
@@ -54,8 +53,10 @@ from hydromodpy.results.run.descent import (
 from hydromodpy.results.run.geographic import field_range, field_steps
 from hydromodpy.results.run.periods import RunPeriods
 from hydromodpy.results.run.timeseries import RunTimeseriesMixin
-from hydromodpy.results.session.descriptor import SessionDescriptor
+from hydromodpy.results.session.descriptor import SessionDescriptor, write_session
 from hydromodpy.results.session.phase import PhaseDescriptor
+from hydromodpy.results.session.summary import session_summary, summary_rows
+from hydromodpy.results.session.view import Session
 from hydromodpy.results.source_runs import resolve_source_runs, source_run_id
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
@@ -77,12 +78,13 @@ from tests._helpers.sealed_runs import make_project, seal_run
 from tests._helpers.session_documents import session_descriptor
 from tests._helpers.ugrid_meshes import quad_mesh
 
-# ``views.catchment_total`` sums a per-cell budget term over the catchment, each
-# face counted by ``mesh/catchment_fraction``. A run that stores the basin of D
-# but no fraction counts the basin whole and says so. A run with no catchment
-# (no basin, or only the largest basin of a synthetic domain) has no catchment
-# total. The outlet discharge is not one of these totals: it stays the
-# ``catchment`` row of the budget, whole cells.
+# ``views.budget_over`` sums a per-cell budget term over a polygon, the
+# catchment by default, each face counted by ``mesh/catchment_fraction``. A run
+# that stores the basin of D but no fraction counts the basin whole and says so.
+# A run with no catchment (no basin, or only the largest basin of a synthetic
+# domain) has no catchment total. Inflow and outflow are split per element. The
+# outlet discharge is not one of these totals: it stays the ``catchment`` row of
+# the budget, whole cells.
 NROW, NCOL = 2, 3
 
 
@@ -112,17 +114,47 @@ DRAIN = -np.array(
 )
 
 
-def _store(tmp_path, *, rule: str = "near_point", fraction: np.ndarray | None = FRACTION):
+STORAGE_SS = np.array(
+    [
+        [0.5, -0.25, 0.0, 1.0, 0.0, 0.0],
+        [-1.0, 0.5, 0.0, 0.0, 2.0, 0.0],
+    ]
+)
+
+
+STORAGE_SY = np.array(
+    [
+        [-0.5, 1.0, 0.0, -2.0, 0.0, 0.0],
+        [0.25, 0.0, 0.0, 0.0, -1.0, 0.0],
+    ]
+)
+
+
+def _store(
+    tmp_path,
+    *,
+    rule: str = "near_point",
+    fraction: np.ndarray | None = FRACTION,
+    crs: str | None = "EPSG:2154",
+    storage: bool = False,
+    outside: dict[str | None, dict[str, np.ndarray]] | None = None,
+):
     path = tmp_path / "run.zarr"
     store = SimulationZarr.create(path, n_cells=N_CELLS, n_layers=1)
+    vertices, connectivity = quad_mesh(NROW, NCOL, cell_size=10.0)
+    terms = [("recharge", RECHARGE), ("drain", DRAIN)]
+    if storage:
+        terms += [("storage_ss", STORAGE_SS), ("storage_sy", STORAGE_SY)]
     try:
-        vertices, connectivity = quad_mesh(NROW, NCOL, cell_size=10.0)
         store.write_mesh(vertices, connectivity, np.array([0.0, -10.0]))
         store.write_time(np.array([86400.0, 2 * 86400.0]))
-        for name, values in (("recharge", RECHARGE), ("drain", DRAIN)):
+        for name, values in terms:
             store.write_field_stack(
                 name, values[:, None, :], n_timesteps=2, timestep_offset=0, subgroup="budget"
             )
+        for group, stacks in (outside or {}).items():
+            for name, values in stacks.items():
+                store.write_field_stack(name, values, n_timesteps=2, subgroup=group)
         if rule is not None:
             store.write_descent(
                 receiver=np.full(N_CELLS, -1, dtype=np.int64),
@@ -139,10 +171,18 @@ def _store(tmp_path, *, rule: str = "near_point", fraction: np.ndarray | None = 
             )
     finally:
         store.close()
+    mesh = Mesh(
+        vertices=vertices,
+        face_node_connectivity=connectivity,
+        z_interfaces=np.array([[0.0] * N_CELLS, [-10.0] * N_CELLS]),
+        crs=crs,
+    )
     return SimpleNamespace(
         sim_id="sim-total",
         _sim_id="sim-total",
         n_timesteps=2,
+        mesh=mesh,
+        has_field=lambda name, **_: name in dict(terms),
         _catalog=SimpleNamespace(open_zarr=lambda sim_id: SimulationZarr(path)),
     )
 
@@ -150,8 +190,8 @@ def _store(tmp_path, *, rule: str = "near_point", fraction: np.ndarray | None = 
 def test_a_boundary_cell_counts_by_its_share_in_the_polygon(tmp_path) -> None:
     run = _store(tmp_path)
 
-    recharge = views.catchment_total(run, "recharge")
-    seepage = -views.catchment_total(run, "drain", name="seepage")
+    recharge = views.budget_over(run, "recharge")
+    seepage = -views.budget_over(run, "drain", name="seepage")
 
     np.testing.assert_allclose(recharge.to_numpy(), RECHARGE @ FRACTION)
     np.testing.assert_allclose(seepage.to_numpy(), -DRAIN @ FRACTION)
@@ -172,7 +212,7 @@ def test_a_run_without_a_fraction_counts_the_basin_whole(tmp_path, caplog) -> No
     run = _store(tmp_path, fraction=None)
 
     with caplog.at_level(logging.INFO):
-        recharge = views.catchment_total(run, "recharge")
+        recharge = views.budget_over(run, "recharge")
 
     assert read_catchment_fraction(run) is None
     np.testing.assert_allclose(recharge.to_numpy(), RECHARGE @ BASIN.astype(float))
@@ -184,11 +224,109 @@ def test_a_run_without_a_fraction_counts_the_basin_whole(tmp_path, caplog) -> No
     [("largest_basin", "only the largest one of its domain"), (None, "is missing")],
     ids=["synthetic_domain", "no_basin"],
 )
-def test_a_run_with_no_catchment_has_no_catchment_total(tmp_path, rule, message) -> None:
+def test_a_run_with_no_catchment_has_no_total_over_it(tmp_path, rule, message) -> None:
     run = _store(tmp_path, rule=rule, fraction=None)
 
     with pytest.raises(ValueError, match=message):
-        views.catchment_total(run, "recharge")
+        views.budget_over(run, "recharge")
+
+
+def test_a_polygon_over_two_cells_counts_their_area_inside(tmp_path) -> None:
+    from shapely.geometry import box
+
+    run = _store(tmp_path)
+    # Cells 0 and 1 are the squares [0, 10] and [10, 20] of the first row; the
+    # box holds all of cell 0 and half of cell 1.
+    total = views.budget_over(run, "recharge", box(0.0, 0.0, 15.0, 10.0))
+
+    np.testing.assert_allclose(total.to_numpy(), RECHARGE[:, 0] + 0.5 * RECHARGE[:, 1])
+
+
+def test_a_polygon_in_another_crs_is_placed_on_the_mesh(tmp_path) -> None:
+    from pyproj import Transformer
+    from shapely.geometry import box
+    from shapely.ops import transform
+
+    run = _store(tmp_path, crs="EPSG:2154")
+    to_wgs84 = Transformer.from_crs("EPSG:2154", "EPSG:4326", always_xy=True).transform
+    polygon = transform(to_wgs84, box(0.0, 0.0, 10.0, 10.0))
+
+    total = views.budget_over(run, "recharge", polygon, crs="EPSG:4326")
+
+    np.testing.assert_allclose(total.to_numpy(), RECHARGE[:, 0], rtol=1e-6)
+
+
+@pytest.mark.parametrize(
+    ("crs", "refused"), [(None, False), ("EPSG:4326", True)], ids=["mesh_frame", "foreign_crs"]
+)
+def test_a_run_without_a_crs_takes_a_polygon_only_in_mesh_coordinates(tmp_path, crs, refused):
+    from shapely.geometry import box
+
+    run = _store(tmp_path, crs=None)
+    if refused:
+        with pytest.raises(ValueError, match="stores no CRS, so a polygon in EPSG:4326"):
+            views.budget_over(run, "recharge", box(0.0, 0.0, 10.0, 10.0), crs=crs)
+        return
+    total = views.budget_over(run, "recharge", box(0.0, 0.0, 10.0, 10.0), crs=crs)
+    np.testing.assert_allclose(total.to_numpy(), RECHARGE[:, 0])
+
+
+def test_storage_sums_the_members_of_its_family(tmp_path) -> None:
+    run = _store(tmp_path, storage=True)
+
+    storage = views.budget_over(run, "storage")
+    split = views.budget_over(run, "storage", split=True)
+
+    cells = STORAGE_SS + STORAGE_SY
+    np.testing.assert_allclose(storage.to_numpy(), cells @ FRACTION)
+    assert storage.name == "storage"
+    elements = np.stack([STORAGE_SS, STORAGE_SY])
+    np.testing.assert_allclose(split["inflow"], np.maximum(elements, 0).sum(axis=0) @ FRACTION)
+    np.testing.assert_allclose(split["outflow"], np.maximum(-elements, 0).sum(axis=0) @ FRACTION)
+
+
+def test_split_gives_the_positive_inflow_and_outflow(tmp_path) -> None:
+    run = _store(tmp_path)
+
+    split = views.budget_over(run, "drain", split=True)
+
+    assert list(split.columns) == ["inflow", "outflow"]
+    np.testing.assert_allclose(split["inflow"], [0.0, 0.0])
+    np.testing.assert_allclose(split["outflow"], -DRAIN @ FRACTION)
+    assert list(split.index) == list(pd.to_datetime(["1970-01-02", "1970-01-03"]))
+
+
+def test_a_budget_term_is_read_from_budget_when_another_group_holds_its_name(tmp_path) -> None:
+    run = _store(tmp_path, outside={None: {"recharge": 10.0 * RECHARGE}})
+
+    total = views.budget_over(run, "recharge")
+
+    np.testing.assert_allclose(total.to_numpy(), RECHARGE @ FRACTION)
+
+
+def test_a_field_in_m3_per_second_outside_budget_is_summed_too(tmp_path) -> None:
+    release = np.abs(DRAIN)
+    run = _store(tmp_path, outside={"derived": {"release_flux": release}})
+
+    total = views.budget_over(run, "release_flux")
+    split = views.budget_over(run, "release_flux", split=True)
+
+    np.testing.assert_allclose(total.to_numpy(), release @ FRACTION)
+    np.testing.assert_allclose(split["outflow"], [0.0, 0.0])
+
+
+def test_a_field_outside_budget_in_another_unit_is_refused(tmp_path) -> None:
+    run = _store(tmp_path, outside={"derived": {"watertable_depth": np.abs(DRAIN)}})
+
+    with pytest.raises(FieldNotFoundError, match="as a budget term or a field in m3/s"):
+        views.budget_over(run, "watertable_depth")
+
+
+def test_a_term_the_run_does_not_store_is_refused_by_name(tmp_path) -> None:
+    run = _store(tmp_path)
+
+    with pytest.raises(FieldNotFoundError, match="'storage' is not stored per cell"):
+        views.budget_over(run, "storage")
 
 
 # ``Run.field`` reads one step and opens the store for it. Counting the flowing
@@ -2246,12 +2384,14 @@ def test_the_run_readme_says_why_the_search_that_promoted_it_stopped() -> None:
     ) in lines
 
 
-def test_the_html_report_says_why_the_search_stopped() -> None:
-    session = _descriptor(
-        stop_state="budget_spent", stopping_rule="xatol", stop_note=None
-    ).model_dump(mode="json", by_alias=True)
+def test_the_html_report_says_why_the_search_stopped(tmp_path: Path) -> None:
+    directory = tmp_path / "sessions" / "J0014010-calage"
+    directory.mkdir(parents=True)
+    write_session(
+        directory, _descriptor(stop_state="budget_spent", stopping_rule="xatol", stop_note=None)
+    )
 
-    summary = dict(session_summary(session))
+    summary = dict(summary_rows(session_summary(Session(directory))))
 
     assert summary["search stopped"] == (
         "spent its budget before its rule (xatol) was met, not converged"

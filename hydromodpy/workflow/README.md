@@ -54,9 +54,9 @@ The modules and their helpers are listed in `steps/README.md`.
 | `run_solver` | `steps/run_solver.py` | the plan, executed by `SimulationRunner` |
 | `extract` | `steps/extract.py` | the solver files read into the store of the run, the observations ingested (the shared functions are in `steps/run_outputs.py`) |
 | `derive` | `steps/derive.py` | the catchment aggregates, the observation points and the fit metrics |
-| `display` | `steps/display.py` | the figures of `[display]`, drawn from the store of the run |
-| `export` | `steps/export.py` | the `[[export]]` requests; `step_after_seal` writes the metadata views once the seal exists |
+| `export` | `steps/export.py` | the solver files dropped and the scratch cleaned; `step_after_seal` writes the `[[export]]` data requests and the views from the sealed run |
 | `seal` | `steps/export.py` | the seal: `simulation.parquet`, `parameters.parquet`, `provenance.json`, `inputs.json`, `manifest.json` last, `README.md`; the outcome and `<run>/.hmp/` belong to the attempt protocol, after the pipeline |
+| `display` | `steps/display.py` | after the seal, the figures of `[display]`, drawn from the sealed run with its label |
 
 ## Import rules
 
@@ -134,8 +134,11 @@ hydromodpy/workflow/
 6. Seal. `SealStep` writes the seal from the facts. The pipeline then writes
    the journal row of the seal and its checkpoint, and the attempt protocol
    around the pipeline (`record/attempt.py`) finds the seal, flips the outcome
-   to `completed` and removes `<run>/.hmp/`. A run that stops before the seal
-   keeps the outcome the attempt protocol wrote (`failed`, `aborted`, or
+   to `completed` and removes `<run>/.hmp/`. The data exports and the views (`step_after_seal`) and
+   then the figures (`DisplayStep`) follow the seal and carry its label. A render
+   that raises after the seal leaves the run sealed and `completed`: the attempt
+   protocol closes it by `close_sealed_attempt` and the error goes up. A run that
+   stops before the seal keeps the outcome the attempt protocol wrote (`failed`, `aborted`, or
    `partial` for a window ended by `--until`) and its attempt state.
 7. Window. `ProjectRunner.execute` bounds the step window with `from_step` and
    `until_step`. A calibration trial skips the shared steps: it asks

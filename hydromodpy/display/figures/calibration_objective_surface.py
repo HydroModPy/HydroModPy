@@ -14,14 +14,14 @@ from typing import TYPE_CHECKING, Annotated
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
-from hydromodpy.display.figure_options import ObjectiveName, Opt, TrialsSessionId
-from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
+from hydromodpy.display.figure_options import ObjectiveName, Opt
+from hydromodpy.display.figures._trial_diagnostics import TrialTable, no_trial_reason, trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 
 def _pair(table: TrialTable, parameters: tuple[str, ...] | list[str] | None) -> tuple[str, str]:
@@ -70,13 +70,17 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         name="calibration_objective_surface",
         title="Calibration objective surface",
         kind="comparison",
-        required_tables=("calibration_iterations",),
+        subject="session",
         default_figsize=(7.5, 6.0),
     )
 
+    def unavailable_reason(self, session: Session) -> str | None:
+        """Refuse a session that recorded no trial, before drawing."""
+        return no_trial_reason(session)
+
     def render(
         self,
-        sim: Run,
+        session: Session,
         ax: Axes,
         *,
         parameters: Annotated[
@@ -87,13 +91,12 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
             ),
         ] = None,
         objective: ObjectiveName = None,
-        session_id: TrialsSessionId = None,
         grid_size: Annotated[
             int, Opt("Points per side of the interpolation grid, at least 25.")
         ] = 120,
         **_,
     ) -> Axes:
-        table = trial_table(sim, session_id=session_id)
+        table = trial_table(session)
         first, second = _pair(table, parameters)
         _, px = table.parameter_values(first)
         _, py = table.parameter_values(second)
@@ -136,16 +139,16 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         fig.colorbar(pcm, ax=ax, label=cost_name)
         ax.set_xlabel(first)
         ax.set_ylabel(second)
-        ax.set_title(f"Objective surface ({method}){run_suffix(sim)}")
+        ax.set_title(f"Objective surface ({method}){run_suffix(session)}")
         return ax
 
     def plot(
         self,
-        sim: Run,
+        session: Session,
         *,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
         **opts,
     ) -> MplFigure:
-        return super().plot(sim, figsize=figsize, dpi=dpi, save_path=save_path, **opts)
+        return super().plot(session, figsize=figsize, dpi=dpi, save_path=save_path, **opts)

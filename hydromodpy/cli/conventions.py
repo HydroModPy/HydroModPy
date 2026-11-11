@@ -145,6 +145,17 @@ _FORMS_REFUSED_AT_2_1: tuple[tuple[str, str], ...] = (
         "kept under inputs/",
     ),
     ("hmp config validate-field", "hmp config check --partial"),
+    # A report reads a sealed run: one verb, hmp run, plays a model.
+    ("hmp report catchment --run-overview", "hmp run <toml>, then hmp report catchment RUN"),
+    ("hmp report catchment --run-simulation", "hmp run <toml>, then hmp report catchment RUN"),
+    ("hmp report catchment --context-only", "hmp run <toml>, then hmp report catchment RUN"),
+    ("hmp report catchment --report-only", "hmp report catchment RUN"),
+    ("hmp report catchment --stream-run-logs", "hmp run <toml>"),
+    ("hmp report catchment --strict-figure-postflight", "hmp report catchment RUN --strict"),
+    ("hmp report catchment --no-run-overview", "hmp report catchment RUN"),
+    ("hmp report catchment --no-run-simulation", "hmp report catchment RUN"),
+    ("hmp report catchment --no-stream-run-logs", "hmp report catchment RUN"),
+    ("hmp report catchment --no-strict-figure-postflight", "hmp report catchment RUN"),
 )
 
 OLD_CLI_FORMS: tuple[OldCliForm, ...] = tuple(

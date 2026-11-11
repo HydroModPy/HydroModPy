@@ -61,6 +61,7 @@ from hydromodpy.core.exceptions import NetworkError, SolverBinaryError
 from hydromodpy.core.io.fetch import fetch_pinned
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import cache_dir
+from hydromodpy.core.workspace.workspace import resolve_bin_path
 
 logger = get_logger(__name__)
 
@@ -117,7 +118,11 @@ def ensure_platform_executable(path: str | Path) -> Path:
 
 
 def managed_bin_dir() -> Path:
-    """Return the managed flat ``<cache>/bin/`` directory, creating it on demand."""
+    """Return the managed flat ``<cache>/bin/`` directory, creating it on demand.
+
+    Only a download into the managed cache needs it. Every lookup reads
+    :func:`resolve_bin_path`, which gives ``HMP_BIN`` when it is set.
+    """
     target = cache_dir() / "bin"
     target.mkdir(parents=True, exist_ok=True)
     return target
@@ -156,9 +161,9 @@ def exe_filename(solver: str) -> str:
 
 
 def is_managed_cache(bin_path: str | os.PathLike[str]) -> bool:
-    """Return True when ``bin_path`` resolves to the HydroModPy cache."""
+    """Return True when ``bin_path`` resolves to the HydroModPy cache; creates nothing."""
     try:
-        return Path(bin_path).expanduser().resolve() == managed_bin_dir().resolve()
+        return Path(bin_path).expanduser().resolve() == (cache_dir() / "bin").resolve()
     except OSError:
         return False
 
@@ -176,7 +181,7 @@ def _manifest_path(bindir: Path) -> Path:
 
 def read_manifest(bindir: str | os.PathLike[str] | None = None) -> dict | None:
     """Return the cache manifest dict, or ``None`` if missing/unreadable."""
-    target = Path(bindir).expanduser() if bindir else managed_bin_dir()
+    target = Path(bindir).expanduser() if bindir else Path(resolve_bin_path())
     path = _manifest_path(target)
     if not path.is_file():
         return None
@@ -245,12 +250,12 @@ def download_solver_binaries(
 ) -> Path:
     """Install solver binaries from the zip of ``release``, verified against its sha256.
 
-    ``bindir`` defaults to the managed cache. ``subset`` defaults to the
+    ``bindir`` defaults to :func:`resolve_bin_path`. ``subset`` defaults to the
     full set of solvers this module knows about. The zip stays in the cache, so
     another subset costs no second download. When ``force`` is True it is
     fetched again. ``release`` pins the MODFLOW-ORG/executables tag.
     """
-    target = Path(bindir).expanduser() if bindir else managed_bin_dir()
+    target = Path(bindir).expanduser() if bindir else Path(resolve_bin_path())
     target.mkdir(parents=True, exist_ok=True)
 
     names = list(subset) if subset is not None else list(available_solvers())
@@ -325,28 +330,29 @@ def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = 
 
     Behavior matrix:
 
-    * ``bin_path`` is ``None`` or matches the managed cache **and** the
-      binary is present → return its path.
-    * ``bin_path`` is ``None`` or managed cache, binary missing → fetch
+    * ``bin_path`` is ``None`` and means ``resolve_bin_path()``: ``HMP_BIN`` when
+      it is set, else the managed cache.
+    * the folder is the managed cache and the binary is present → return its path.
+    * the folder is the managed cache and the binary is missing → fetch
       it via :func:`download_solver_binaries`, then return the path
       (raises :class:`FileNotFoundError` if the download failed to
       produce the expected file).
-    * ``bin_path`` is user-supplied and the binary is present → return
+    * the folder is not the managed cache and the binary is present → return
       its path; we never touch an external directory with a download.
-    * ``bin_path`` is user-supplied and the binary is missing → log a
+    * the folder is not the managed cache and the binary is missing → log a
       warning and return the *expected* path. Solver execution will
       surface the missing-file error with its own diagnostics. This
       preserves the permissive pre-v0.6 behavior for callers that
       instantiate solvers without running them (e.g. unit tests for
       config validation).
     """
-    target = Path(bin_path).expanduser() if bin_path else managed_bin_dir()
+    target = Path(bin_path).expanduser() if bin_path else Path(resolve_bin_path())
 
     located = locate_solver_binary(target, solver)
     if located is not None:
         return Path(ensure_platform_executable(located))
 
-    if bin_path is None or is_managed_cache(target):
+    if is_managed_cache(target):
         with progress.status(f"Fetching {solver} binary"):
             download_solver_binaries(target, subset=[solver], quiet=True)
         located = locate_solver_binary(target, solver)
@@ -376,13 +382,13 @@ def ensure_solver_library(
 
     Mirrors :func:`ensure_solver_binary`: on a managed-cache miss the library is
     installed from the same zip before failing, keeping the api runner as zero-setup
-    as the subprocess runner. ``bin_path`` defaults to the managed cache.
+    as the subprocess runner. ``bin_path`` defaults to :func:`resolve_bin_path`.
     """
-    bindir = Path(bin_path).expanduser() if bin_path else managed_bin_dir()
+    bindir = Path(bin_path).expanduser() if bin_path else Path(resolve_bin_path())
     found = locate_solver_binary(bindir, solver)
     if found is not None:
         return ensure_platform_executable(found)
-    if bin_path is None or is_managed_cache(bindir):
+    if is_managed_cache(bindir):
         with progress.status(f"Fetching {solver} library"):
             download_solver_binaries(bindir, subset=[solver], quiet=True)
         found = locate_solver_binary(bindir, solver)

@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.budget.flux import select_budget_zone
+from hydromodpy.core.budget.terms import TERM_FAMILIES
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
@@ -51,8 +52,9 @@ _COMPONENT_COLORS: dict[str, str] = {
     "constant_head": "slateblue",
     "general_head": "orchid",
 }
-# Storage is an accounting term, not a flux across the domain boundary.
-_STORAGE_PREFIX = "storage"
+# Storage is an accounting term, not a flux across the domain boundary. MODFLOW 6
+# splits it into its family members, the other solvers write one ``storage``.
+_STORAGE_TERMS = frozenset({"storage", *TERM_FAMILIES["storage"]})
 # Managed point extractions. These are a sparse discrete schedule (pumping
 # happens on a few periods), not a distributed flux, so they read as bars,
 # not as a step line that flattens to zero between pumping periods.
@@ -102,7 +104,7 @@ class FluxTimeseries(BaseFigure):
             .sort_index()
         )
         if not include_storage:
-            net = net.drop(columns=[c for c in net.columns if c.startswith(_STORAGE_PREFIX)])
+            net = net.drop(columns=[c for c in net.columns if c in _STORAGE_TERMS])
         if net.empty or not len(net.columns):
             raise ValueError("budget holds no boundary flux component to plot")
 

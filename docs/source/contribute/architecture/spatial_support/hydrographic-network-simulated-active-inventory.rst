@@ -77,7 +77,7 @@ drainage density is 6.2 % on the basin against 5.3 % on the domain. ``run.cell_f
 and the maps keep the active domain, the cells whose model top is finite, so the simulated network
 maps do not change. ``saturated_fraction`` and ``recharge_forcing`` read the active domain too.
 ``catchment_mean`` averages a variable over the delineated catchment, weighted by the area of each
-face inside the polygon, and ``catchment_total`` sums a term per cell with the share of each face
+face inside the polygon, and ``budget_over`` sums a term per cell with the share of each face
 inside it (``catchment_weights``, :doc:`/theory/mesh`).
 
 The figures ``simulated_active_network`` and ``simulated_active_network_reference_overlay``

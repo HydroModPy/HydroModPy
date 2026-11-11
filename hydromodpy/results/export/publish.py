@@ -67,7 +67,6 @@ import io
 import json
 import os
 import shutil
-import socket
 import tarfile
 import tomllib
 import uuid
@@ -85,6 +84,7 @@ from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.payload import PayloadBundle, sidecar_name, stored_name, write_index
 from hydromodpy.core.payload.install import sha256_of as file_sha256
+from hydromodpy.core.state.host import host_name
 from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
     SUMMARY_DIRNAME,
@@ -835,7 +835,7 @@ def _write_crate(staging: Path) -> None:
 
 def _refuse_leaks(staging: Path, prefixes: tuple[str, ...]) -> None:
     """Refuse a copy that still names the machine: a private path, the host, a Parquet path."""
-    host = socket.gethostname()
+    host = host_name()
     for path in _files(staging):
         suffix = path.suffix.lower()
         relative = path.relative_to(staging).as_posix()

@@ -103,7 +103,7 @@ if TYPE_CHECKING:
     from hydromodpy.model.initial_config import SpinupConfig
     from hydromodpy.project.environment import Environment
     from hydromodpy.project.launch import LaunchReport, StatusReport
-    from hydromodpy.project.launch.sites.expansion import PlanDraft
+    from hydromodpy.project.launch.plan import PlanDraft
     from hydromodpy.project.launch.summary import SummaryPaths
     from hydromodpy.project.request import RunOutcome
     from hydromodpy.project.spinup import SpinupResult
@@ -857,6 +857,7 @@ class Project:
         project_label: str | None = None,
         metric_fn: Any = None,
         objective: str | None = None,
+        report: bool = True,
     ):
         """Run a calibration campaign on this project.
 
@@ -932,6 +933,9 @@ class Project:
             Runner options: the project root, the project name written in the session
             (``project_label`` wins), a metric extractor, and ``"module:callable"``
             naming one.
+        report
+            Write the report of each session directory once the search is over.
+            ``False`` skips it, as ``hmp calibrate --no-report`` does.
 
         Returns
         -------
@@ -976,6 +980,7 @@ class Project:
             project_label=project_label,
             metric_fn=metric_fn,
             objective=objective,
+            report=report,
         )
 
     def spinup(
@@ -1111,7 +1116,7 @@ def configure_opened(project: Project) -> None:
     """
     from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.core.toml_io.loader import read_toml_chain
-    from hydromodpy.project.launch.sites.expansion import SitesProjectError, find_sites_file
+    from hydromodpy.project.launch.plan import SitesProjectError, find_sites_file
 
     state = project.__dict__["_state"]
     marker = state.root / PROJECT_MARKER_FILENAME

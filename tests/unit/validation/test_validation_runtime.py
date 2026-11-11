@@ -176,7 +176,7 @@ def test_resolve_validation_results_dir_uses_deterministic_solver_specific_names
     run_name: str,
     expected_dir_name: str,
 ) -> None:
-    monkeypatch.setattr(runtime, "_WINDOWS_VALIDATION_PATH_LIMIT", 10_000)
+    monkeypatch.setattr(runtime, "WINDOWS_PATH_LIMIT", 10_000)
     out_root = tmp_path / "validation_root"
     monkeypatch.setenv("HMP_OUT_PATH", str(out_root))
 
@@ -194,7 +194,7 @@ def test_resolve_validation_results_dir_reuses_existing_run_dir(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr(runtime, "_WINDOWS_VALIDATION_PATH_LIMIT", 10_000)
+    monkeypatch.setattr(runtime, "WINDOWS_PATH_LIMIT", 10_000)
     out_root = tmp_path / "validation_root"
     monkeypatch.setenv("HMP_OUT_PATH", str(out_root))
 
@@ -234,7 +234,7 @@ def test_resolve_validation_results_dir_falls_back_from_long_windows_output_root
 
     assert long_root.resolve() not in out_dir.parents
     scratch_probe = out_dir / PREPROCESSING_DIR / "geographic"
-    assert len(str(scratch_probe)) < runtime._WINDOWS_VALIDATION_PATH_LIMIT
+    assert len(str(scratch_probe)) < runtime.WINDOWS_PATH_LIMIT
 
 
 def test_load_case_tolerances_prefers_solver_specific_file(tmp_path: Path) -> None:
@@ -580,10 +580,10 @@ def test_budgeted_validation_dir_keeps_every_run_path_under_the_windows_limit(
         # No length fits: the shortest is kept, and the solver guard names the
         # path it cannot open.
         assert len(out_dir.name) == min(runtime._VALIDATION_COMPONENT_LENGTHS)
-        assert len(str(out_dir)) + headroom > runtime._WINDOWS_VALIDATION_PATH_LIMIT
+        assert len(str(out_dir)) + headroom > runtime.WINDOWS_PATH_LIMIT
     else:
         assert len(out_dir.name) == component_length
-        assert len(str(out_dir)) + headroom <= runtime._WINDOWS_VALIDATION_PATH_LIMIT
+        assert len(str(out_dir)) + headroom <= runtime.WINDOWS_PATH_LIMIT
 
 
 def test_budgeted_validation_dir_shortens_names_only_on_windows() -> None:

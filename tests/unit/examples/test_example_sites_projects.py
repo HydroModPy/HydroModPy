@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.project.api import check
-from hydromodpy.project.launch.sites.expansion import expand_plan
+from hydromodpy.project.launch.plan import expand_plan
 from tests._helpers.cli_runner import CliRunner
 
 pytestmark = pytest.mark.fast

@@ -22,6 +22,7 @@ from hydromodpy.core.budget.flux import (
     find_drain_budget_key,
     first_finite_layer,
     has_release_budget,
+    inflow_outflow,
     networks_route_drainage,
     release_flux_stack,
     seepage_mask,
@@ -352,3 +353,75 @@ def test_a_column_of_no_finite_layer_is_nan_head() -> None:
     water_table = first_finite_layer(head)
 
     assert np.isnan(water_table).tolist() == [[True]]
+
+
+# ``inflow_outflow`` splits each (layer, cell) element on its own. A positive
+# element enters, a negative one leaves, and both sums come back positive.
+_T, _F = True, False
+
+
+@pytest.mark.parametrize(
+    ("stack", "support", "inflow", "outflow"),
+    [
+        pytest.param([[-3.0, 4.0]], None, [4.0], [3.0], id="sign"),
+        pytest.param([[5.0, 100.0, 7.0, 200.0]], [_T, _F, _T, _F], [12.0], [0.0], id="mask_in"),
+        pytest.param([[-3.0, -1000.0, 4.0, 9999.0]], [_T, _F, _T, _F], [4.0], [3.0], id="mask_out"),
+        pytest.param([[10.0, -9999.0, 30.0]], None, [40.0], [0.0], id="sentinel_whole"),
+        pytest.param([[10.0, -9999.0, 30.0]], [_T, _T, _T], [40.0], [0.0], id="sentinel_mask"),
+        pytest.param([[1.0, np.nan, -2.0]], None, [1.0], [2.0], id="nan_skipped"),
+        pytest.param([[-9999.0, np.nan]], None, [np.nan], [np.nan], id="no_flux_is_nan"),
+        pytest.param([[np.nan, 1.0]], [_T, _F], [np.nan], [np.nan], id="none_on_support"),
+        pytest.param([[[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]]], None, [66.0], [0.0], id="two_layers"),
+        pytest.param([[[1.0], [-0.4]]], None, [1.0], [0.4], id="mixed_layers_split"),
+        pytest.param([[[1.0], [-0.4]]], [0.5], [0.5], [0.2], id="mixed_layers_weighted"),
+        pytest.param([[1.0, -2.0, 4.0, np.nan]], [1.0, 0.5, 0.25, 1.0], [2.0], [1.0], id="weights"),
+        pytest.param([[np.nan, 4.0]], [1.0, 0.0], [np.nan], [np.nan], id="weight_none_counted"),
+        pytest.param([[-1.0, -2.0], [3.0, -9999.0]], None, [0.0, 3.0], [3.0, 0.0], id="steps"),
+    ],
+)
+def test_inflow_outflow_splits_each_element(stack, support, inflow, outflow) -> None:
+    support = None if support is None else np.asarray(support)
+    got_in, got_out = inflow_outflow(np.asarray(stack, dtype=float), support)
+
+    np.testing.assert_allclose(got_in, inflow)
+    np.testing.assert_allclose(got_out, outflow)
+
+
+@pytest.mark.parametrize(
+    ("stack", "support", "match"),
+    [
+        (np.zeros(3), None, "budget stack"),
+        (np.zeros((1, 1, 1, 3)), None, "budget stack"),
+        (np.zeros((1, 3)), np.ones(2, dtype=bool), "support holds 2 cells"),
+    ],
+    ids=["one_dim", "four_dim", "support_size"],
+)
+def test_inflow_outflow_refuses_a_shape_it_cannot_read(stack, support, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        inflow_outflow(stack, support)
+
+
+def test_a_boolean_support_sums_one_layer_bit_for_bit_as_before() -> None:
+    # The catchment series summed a one-layer field as nansum(max(-valid, 0))
+    # over the finite cells of the mask. The kernel keeps that order.
+    rng = np.random.default_rng(7)
+    stack = rng.normal(scale=3.0, size=(5, 1, 400))
+    stack[:, :, rng.integers(0, 400, 40)] = np.nan
+    mask = rng.random(400) > 0.3
+
+    inflow, outflow = inflow_outflow(stack, mask)
+
+    for step in range(5):
+        field = np.where(mask, stack[step].sum(axis=0), np.nan)
+        valid = field[np.isfinite(field)]
+        assert outflow[step] == float(np.nansum(np.maximum(-valid, 0.0)))
+        assert inflow[step] == float(np.nansum(np.maximum(valid, 0.0)))
+
+
+def test_the_net_does_not_move_when_layers_are_split() -> None:
+    stack = np.array([[[1.0, -3.0], [-0.4, 2.0]]])
+
+    inflow, outflow = inflow_outflow(stack)
+
+    assert inflow[0] - outflow[0] == pytest.approx(stack.sum())
+    assert (inflow[0], outflow[0]) == pytest.approx((3.0, 3.4))

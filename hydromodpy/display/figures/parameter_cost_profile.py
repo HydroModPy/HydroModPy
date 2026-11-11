@@ -32,11 +32,10 @@ from typing import TYPE_CHECKING, Annotated, Any
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
-from hydromodpy.display.figure_options import OneParameter, Opt, ParameterUnits, SessionId
+from hydromodpy.display.figure_options import OneParameter, Opt, ParameterUnits
 from hydromodpy.display.figures._calibration_session import (
     Interval,
     Tolerance,
-    chosen_session,
     cost_blocks,
     cost_label,
     float_or,
@@ -57,7 +56,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 _PROFILE_COLOR = HIGH_CONTRAST_TRIPLET[0]
 _BAND_COLOR = HIGH_CONTRAST_TRIPLET[1]
@@ -125,13 +124,21 @@ class ParameterCostProfileFigure(BaseFigure):
         name="parameter_cost_profile",
         title="Parameter cost profile",
         kind="timeseries",
-        required_tables=("calibration_iterations",),
+        subject="session",
         default_figsize=(7.6, 5.0),
     )
 
+    def unavailable_reason(self, session: Session) -> str | None:
+        """Refuse a session that journaled no trial."""
+        try:
+            trial_table(session)
+        except ValueError as exc:
+            return str(exc)
+        return None
+
     def render(
         self,
-        sim: Run,
+        session: Session,
         ax: Axes,
         *,
         parameter: OneParameter = None,
@@ -151,7 +158,6 @@ class ParameterCostProfileFigure(BaseFigure):
                 'cost is, else "-".'
             ),
         ] = None,
-        session_id: SessionId = None,
         log_scale: Annotated[
             bool | None,
             Opt(
@@ -161,9 +167,8 @@ class ParameterCostProfileFigure(BaseFigure):
         ] = None,
         **_,
     ) -> Axes:
-        chosen = chosen_session(sim, session_id)
-        table = trial_table(sim, session_id=chosen)
-        descriptor = session_descriptor(sim, chosen)
+        table = trial_table(session)
+        descriptor = session_descriptor(session)
         name, values = table.parameter_values(parameter)
         cost = _completed_cost(table.diagnostic(objective), table.frame)
         blocks = cost_blocks(table, session_config(descriptor))
@@ -223,7 +228,7 @@ class ParameterCostProfileFigure(BaseFigure):
             label = f"{objective} ({objective_units or '-'})"
         ax.set_ylabel(label)
         ax.grid(True, which="both", ls=":", lw=0.4)
-        ax.set_title(f"Parameter cost profile{run_suffix(sim)}")
+        ax.set_title(f"Parameter cost profile{run_suffix(session)}")
 
         # The note sits in a band kept free of trials at the top, and the
         # legend is placed underneath, so neither covers a trial or the other.

@@ -81,7 +81,6 @@ from __future__ import annotations
 import os
 import shutil
 import signal as signals
-import socket
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
@@ -90,12 +89,14 @@ from pathlib import Path
 from typing import Literal
 
 from hydromodpy.core.exceptions import NothingThereError, ResumeError, WriteConflictError
+from hydromodpy.core.io.filesystem import check_project_root
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.interrupts import (
     STOP_FLAG_SCHEMA,
     StopRequested,
     TerminationRequested,
 )
+from hydromodpy.core.state.host import host_name
 from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
     RUN_INTERNAL_SCRATCH_DIRNAME,
@@ -266,13 +267,15 @@ def claim_run_directory(
     version of *name* is held. A retry of an unfinished attempt reuses its
     directory and gives out no name.
 
-    A name that breaks the rule of a run name is refused with
-    :class:`~hydromodpy.core.exceptions.ConfigError` before anything is written.
+    A name that breaks the rule of a run name, or a project folder too long for
+    Windows (:func:`~hydromodpy.core.io.filesystem.check_project_root`), is refused
+    with :class:`~hydromodpy.core.exceptions.ConfigError` before anything is written.
     """
+    check_project_root(project_root)
     check_name(name, what="run")
     root = Path(project_root)
     when = now if now is not None else datetime.now(UTC)
-    host = socket.gethostname()
+    host = host_name()
     pid = os.getpid()
     stem, version = split_stem_version(name)
     latest = live_version_dir(root, name) if version is not None else latest_version_dir(root, name)
@@ -415,7 +418,7 @@ def _first_attempt(
         attempt_id=uuid.uuid4().hex,
         resumed=False,
         started_at=when,
-        host=socket.gethostname(),
+        host=host_name(),
         pid=os.getpid(),
         created=created,
     )
@@ -579,7 +582,7 @@ def request_stop(directory: Path, *, now: datetime | None = None) -> Path:
     flag.parent.mkdir(parents=True, exist_ok=True)
     write_json_atomic(
         flag,
-        {"schema": STOP_FLAG_SCHEMA, "at": when.isoformat(), "host": socket.gethostname()},
+        {"schema": STOP_FLAG_SCHEMA, "at": when.isoformat(), "host": host_name()},
     )
     return flag
 

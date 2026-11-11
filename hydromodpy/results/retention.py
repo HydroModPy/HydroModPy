@@ -49,13 +49,13 @@ run weight; ``gc`` reports the project weight before and after.
 from __future__ import annotations
 
 import shutil
-import socket
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.host import death_is_proven, host_name
 from hydromodpy.core.state.layout import (
     CATALOG_FILENAME,
     INTERNAL_DIRNAME,
@@ -72,7 +72,6 @@ from hydromodpy.results.field_registry import CONNECTION_CELLS, FACE_FLOW
 from hydromodpy.results.outcome import (
     Outcome,
     OutcomeError,
-    death_is_proven,
     effective_status,
     read_outcome,
     write_outcome,
@@ -495,7 +494,7 @@ def mark_aborted(run_dir: Path, *, now: datetime) -> Outcome:
                 type="stale",
                 message=(
                     f"no heartbeat since the attempt on {outcome.host} (pid {outcome.pid}); "
-                    f"closed by gc on {socket.gethostname()}"
+                    f"closed by gc on {host_name()}"
                 ),
             ),
         }

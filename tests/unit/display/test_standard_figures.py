@@ -315,6 +315,8 @@ def test_ensemble_band_uses_quantiles_and_observed_overlay(mpl) -> None:
 
     assert [line.get_label() for line in ax.lines] == ["median", "observed"]
     assert "2 runs" in ax.get_title()
+    # The subject is a set of runs: the display layer refuses a single run.
+    assert EnsembleBandFigure.spec.subject == "runset"
     mpl.close(fig)
 
 

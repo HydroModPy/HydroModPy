@@ -10,7 +10,6 @@ from unittest.mock import MagicMock
 import pytest
 
 import hydromodpy.display.runs as display_runs
-import hydromodpy.workflow.steps.display as display_step_module
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
@@ -18,7 +17,7 @@ from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.display import DisplayStep
 
 # --- test_pipeline_display_step ---
-# Unit tests for :class:`DisplayStep` - the 12th pipeline step.
+# Unit tests for :class:`DisplayStep` - the 13th pipeline step, after the seal.
 #
 # Heavy I/O (catalog open, figure rendering) is kept out of this unit test
 # via monkey-patching. We verify the *policy* layer:
@@ -66,8 +65,10 @@ def _make_ctx(
 
 @pytest.fixture
 def catalog_handle(monkeypatch):
-    """Hand the step a stand-in for the run store it opens for its own span."""
+    """Hand the step a stand-in for the sealed run store it opens for its own span."""
     from contextlib import contextmanager
+
+    import hydromodpy.workflow.steps.export as export_step_module
 
     handle = MagicMock()
 
@@ -75,7 +76,7 @@ def catalog_handle(monkeypatch):
     def _fake_scope(_ctx):
         yield handle
 
-    monkeypatch.setattr(display_step_module, "run_store", _fake_scope)
+    monkeypatch.setattr(export_step_module, "sealed_run_store", _fake_scope)
     return handle
 
 
@@ -138,9 +139,9 @@ def test_display_step_says_out_loud_that_it_drew_nothing(monkeypatch, tmp_path, 
 
 
 def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path, catalog_handle):
-    # The figures open the run store for their own span and read the live run,
-    # before the export step drops the intermediates and seals it. They land
-    # in the figures directory of the run the context names.
+    # The figures open the store of the sealed run for their own span, as
+    # hmp viz show does. They land in the figures directory of the run the
+    # context names.
     catalog_handle.__getitem__.return_value = SimpleNamespace(name="baseline")
     ctx = _make_ctx(
         enabled=True,
@@ -228,10 +229,10 @@ def test_display_step_summary_names_a_figure_the_run_could_not_produce(
     ]
 
 
-def test_display_step_renders_before_the_export_step_and_the_seal():
-    # Figures draw from the store of the run, export writes its views, then
-    # the seal is the last write of the run.
+def test_display_step_renders_after_the_export_step_and_the_seal():
+    # The export step cleans, the seal certifies the run, then the figures
+    # render the sealed run and carry its label.
     from hydromodpy.workflow.steps.sequence import standard_steps
 
     names = [type(s).__name__ for s in standard_steps()]
-    assert names[-3:] == ["DisplayStep", "ExportStep", "SealStep"]
+    assert names[-3:] == ["ExportStep", "SealStep", "DisplayStep"]

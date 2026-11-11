@@ -17,6 +17,7 @@ import zarr
 import hydromodpy.results.zarr_store.zarr_schema as zarr_schema
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.core.io.document_version import NEWER_REMEDY, OLDER_REMEDY
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import (
     BALANCED_TARGET_BYTES,
@@ -241,7 +242,7 @@ def test_store_keeps_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
 
     # The store writes through the extended-length form, so read it back the
     # same way: a bare path over 259 chars is invisible to the Win32 API.
-    array_dir = zarr_schema.windows_long_path(store_path) / "derived" / "watertable_elevation"
+    array_dir = Path(native_io_path(store_path)) / "derived" / "watertable_elevation"
     assert (array_dir / "zarr.json").is_file()
     assert any(path.is_file() for path in (array_dir / "c").rglob("*"))
 
@@ -431,3 +432,23 @@ def test_a_per_step_write_under_a_subgroup_uses_the_group_path(
     fresh_store.write_field("release_flux", 0, np.ones((2, 100)), n_timesteps=1, subgroup="derived")
 
     assert "derived/release_flux" in fresh_store.field_digests
+
+
+@pytest.mark.parametrize(
+    ("windows", "prefixed"),
+    [pytest.param(True, True, id="on Windows"), pytest.param(False, False, id="elsewhere")],
+)
+def test_the_local_store_argument_takes_the_long_prefix_only_on_windows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, windows: bool, prefixed: bool
+) -> None:
+    from hydromodpy.core.io import filesystem
+    from tests._helpers.windows_os import WindowsOs
+
+    if windows:
+        monkeypatch.setattr(zarr_schema, "os", WindowsOs())
+        monkeypatch.setattr(filesystem, "os", WindowsOs())
+
+    argument = zarr_schema.local_store_path_arg(tmp_path / "fields.zarr")
+
+    assert argument.startswith("\\\\?\\") is prefixed
+    assert argument.endswith("fields.zarr")

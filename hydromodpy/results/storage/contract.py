@@ -321,11 +321,9 @@ PUBLICATION_FILENAME = "PUBLICATION.json"
 PLAN_FILENAME = "plan.json"
 """Fingerprints, version, date, case count and budget of one immutable plan."""
 
-PLAN_SITES_FILENAME = "sites.parquet"
-"""Resolved site table of one plan."""
-
-PLAN_CASES_FILENAME = "cases.parquet"
-"""Cases of one plan: case_id, site, recipe, config_hash, config_path. No status."""
+PLAN_CASES_FILENAME = "cases.csv"
+"""Cases of one plan, one row each: case_id, site, recipe, config_hash, config_path, then the
+columns of the sites table. No status."""
 
 
 def session_trial_series_filename(trial: int) -> str:
@@ -403,7 +401,6 @@ __all__ = [
     "PARQUET_FILE_SUFFIX",
     "PLAN_CASES_FILENAME",
     "PLAN_FILENAME",
-    "PLAN_SITES_FILENAME",
     "PROJECT_STORAGE_LAYER_NAMES",
     "PUBLICATION_FILENAME",
     "PURGEABLE_TRIAL_ENTRIES",

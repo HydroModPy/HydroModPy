@@ -11,8 +11,10 @@ Sub-actions:
   write a folder with its README under ``summary/report/compare/`` of the
   project, or ``--to``; ``--by site`` writes one folder per site and joins the
   scores of the references.
-- ``hmp report catchment <report_config>``: build a catchment HTML report from
-  one catchment report TOML configuration.
+- ``hmp report catchment RUN [--overview RUN] [--preset research|management]
+  [--lang en|fr] [--station ID] [--strict]``: write the report of a sealed run,
+  the three-level ``report/`` or the one-page sheet. It runs no model: ``hmp run``
+  does.
 """
 
 from __future__ import annotations
@@ -22,7 +24,6 @@ import hashlib
 import re
 import sys
 from pathlib import Path
-from typing import Any
 
 from hydromodpy.cli.conventions import (
     add_destination,
@@ -34,6 +35,8 @@ from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_VALIDATION,
+    exit_code_for,
+    project_root_of,
     refuse,
 )
 from hydromodpy.cli.output import emit
@@ -41,16 +44,22 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.state.layout import summary_dir_for
 from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.results.storage.contract import RUN_REPORT_DIRNAME
+from hydromodpy.schema.phrases import LANGS
 
 NAME: str = "report"
 HELP: str = "Render HTML reports and compare sealed runs"
 
-CATCHMENT_PRESETS: tuple[str, ...] = ("generic", "generic_catchment_report")
-"""The keys of ``PRESETS_BY_NAME`` in ``hydromodpy/display/catchment_report/presets.py``.
+REPORT_PRESETS: tuple[str, ...] = ("research", "management")
+"""The keys of ``PRESETS`` in ``hydromodpy/display/report/presets.py``.
 
-Written out so that building the ``hmp`` parser does not import the catchment
-report, and with it ``matplotlib.pyplot``. A test keeps the two lists equal.
+Written out so that building the ``hmp`` parser does not import the report
+engine, and with it ``matplotlib.pyplot``. A test keeps the two lists equal.
 """
+
+REFUSED_REPORT_FILE = (
+    "hmp report catchment reads a sealed run: play the overview and the simulation with "
+    "hmp run, then hmp report catchment <run> [--overview <run>]."
+)
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -128,9 +137,12 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     catchment_p = sub.add_parser(
         "catchment",
-        help="Build a catchment HTML report from one TOML configuration",
-        parents=[workspace_parser(reads_none=True), format_parser(), verbosity_parser()],
-        epilog="Examples:\n  hmp report catchment report.toml\n  hmp report catchment report.toml --report-only",
+        help="Write the report of a sealed run",
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
+        epilog=(
+            "Examples:\n  hmp report catchment base.v2\n"
+            "  hmp report catchment base.v2 --overview selune --preset management --lang fr"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     _add_catchment_arguments(catchment_p)
@@ -146,17 +158,21 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _cmd_render(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
-    from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+    from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, DisplayError
+    from hydromodpy.project.report import report_session
+    from hydromodpy.results.session.descriptor import resolve_session_dir
 
-    workspace_root = args.workspace or resolve_project_root(Path.cwd())
+    project_root = project_root_of(args)
     try:
+        directory = resolve_session_dir(project_root, args.sim_ref)
         with progress.status("Rendering calibration report"):
-            out_path = hmp.report(args.sim_ref, workspace=workspace_root)
+            out_path = report_session(directory)
     except ConfigMissingError as exc:
         refuse(str(exc), EXIT_NOT_FOUND, cause=exc)
     except ConfigError as exc:
         refuse(str(exc), EXIT_CONFIG, cause=exc)
+    except DisplayError as exc:
+        refuse(str(exc), exit_code_for(exc), cause=exc)
     emit(
         args,
         "report render",
@@ -224,109 +240,88 @@ def _cmd_compare(args: argparse.Namespace) -> None:
 def _add_catchment_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the ``hmp report catchment`` arguments to its parser."""
     parser.add_argument(
-        "report_config",
-        type=Path,
-        metavar="REPORT_CONFIG",
-        help="Catchment report TOML configuration.",
+        "run",
+        metavar="RUN",
+        help="A sealed run: its directory, its name under runs/, or a prefix of its id.",
     )
     parser.add_argument(
-        "--run-overview",
-        action=argparse.BooleanOptionalAction,
+        "--overview",
         default=None,
-        help="Run the configured overview before building report artifacts.",
-    )
-    parser.add_argument(
-        "--run-simulation",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Run the configured simulation before building report artifacts.",
-    )
-    parser.add_argument(
-        "--context-only",
-        action="store_true",
-        help="Build only the context artifacts, not the final HTML report.",
-    )
-    parser.add_argument(
-        "--report-only",
-        action="store_true",
-        help="Build only the final HTML report from existing context artifacts.",
-    )
-    parser.add_argument(
-        "--stream-run-logs",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Stream logs from optional hydromodpy run steps.",
-    )
-    parser.add_argument(
-        "--strict-figure-postflight",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Fail when post-render figure completeness checks find missing figures.",
+        metavar="RUN",
+        help="The sealed overview of the site. Default: the overview of the same site in the project.",
     )
     parser.add_argument(
         "--preset",
-        choices=CATCHMENT_PRESETS,
+        choices=REPORT_PRESETS,
+        default="research",
+        help="research writes report/ with three levels, management a one-page sheet.",
+    )
+    parser.add_argument(
+        "--lang",
+        choices=LANGS,
+        default="en",
+        help="Language of the method text and of the sheet.",
+    )
+    parser.add_argument(
+        "--station",
         default=None,
-        help="Override the catchment report preset declared in the TOML.",
+        metavar="ID",
+        help="Station the page reads its series and metrics from. Default: the gauge of the site.",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail when the page misses a figure it requires, once it is written.",
     )
 
 
-def _catchment_overrides(args: argparse.Namespace) -> dict[str, Any]:
-    """Resolve the command flags into the pipeline's optional override values."""
-    if args.context_only and args.report_only:
-        raise ValueError("--context-only and --report-only are mutually exclusive.")
+def _run_dir_of(args: argparse.Namespace, reference: str) -> Path:
+    """Return the folder of the run *reference* names: a directory, else a run of the project."""
+    from hydromodpy.results.catalog.discovery import resolve_rel_dir
 
-    run_overview = args.run_overview
-    run_simulation = args.run_simulation
-    build_context_artifacts = None
-    build_report_html = None
-    if args.context_only:
-        build_context_artifacts = True
-        build_report_html = False
-    elif args.report_only:
-        run_overview = False if run_overview is None else run_overview
-        run_simulation = False if run_simulation is None else run_simulation
-        build_context_artifacts = False
-        build_report_html = True
-
-    return {
-        "run_overview": run_overview,
-        "run_simulation": run_simulation,
-        "build_context_artifacts": build_context_artifacts,
-        "build_report_html": build_report_html,
-        "stream_run_logs": args.stream_run_logs,
-        "strict_figure_postflight": args.strict_figure_postflight,
-    }
+    named = Path(reference).expanduser()
+    if named.is_file():
+        refuse(REFUSED_REPORT_FILE, EXIT_CONFIG)
+    if named.is_dir():
+        return named.resolve()
+    project_root = project_root_of(args)
+    try:
+        return project_root / resolve_rel_dir(project_root, reference)
+    except Exception as exc:  # noqa: BLE001 - map resolver errors to typed exit codes
+        refuse(str(exc), exit_code_for(exc), cause=exc)
 
 
 def _cmd_catchment(args: argparse.Namespace) -> None:
-    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
-    from hydromodpy.core.exceptions import ConfigError
-    from hydromodpy.display.catchment_report import preset_from_name
-    from hydromodpy.display.catchment_report.pipeline import run_catchment_report_pipeline
+    import json
 
+    from hydromodpy.core.exceptions import ConfigError, DisplayError
+    from hydromodpy.project.report import report_run
+
+    run_dir = _run_dir_of(args, args.run)
+    overview = None if args.overview is None else _run_dir_of(args, args.overview)
     try:
-        overrides = _catchment_overrides(args)
-        result = run_catchment_report_pipeline(
-            args.report_config,
-            preset=preset_from_name(args.preset) if args.preset else None,
-            root=ROOT_CONFIG,
-            **overrides,
-        )
+        with progress.status("Writing the report"):
+            page = report_run(
+                run_dir,
+                preset=args.preset,
+                lang=args.lang,
+                overview_dir=overview,
+                station=args.station,
+                strict=args.strict,
+            )
     except (ValueError, ConfigError) as exc:
         refuse(str(exc), EXIT_CONFIG, cause=exc)
+    except DisplayError as exc:
+        refuse(str(exc), exit_code_for(exc), cause=exc)
 
-    written = {
-        "overview_config": result.overview_config,
-        "simulation_config": result.simulation_config,
-        "context_summary": result.context_summary,
-        "html_report": result.html_report,
-        "postflight_report": result.postflight_report,
-    }
+    report_json = page.parent / "report.json"
+    missing = json.loads(report_json.read_text(encoding="utf-8")).get("missing", [])
+    written = {"html_report": page, "report_json": report_json, "missing": missing}
 
     def table() -> None:
-        for key, value in written.items():
-            if value is not None:
-                print(f"{key}={value}")
+        print(f"html_report={page}")
+        print(f"report_json={report_json}")
+        if missing:
+            print(f"missing={', '.join(missing)}")
 
     emit(args, "report catchment", written, table=table)

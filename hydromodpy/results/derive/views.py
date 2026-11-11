@@ -15,9 +15,10 @@ Module-level functions are the canonical implementation. ``Run`` exposes
 thin lazy wrappers for notebook ergonomics.
 
 A view whose name says catchment reads the catchment. A total or a mean of a
-spatial quantity (:func:`catchment_total`, :func:`catchment_mean`) weighs each
+spatial quantity (:func:`budget_over`, :func:`catchment_mean`) weighs each
 cell by the share of its area inside the delineated catchment polygon
-(:func:`catchment_weights`), the area-weighted overlay of GSFLOW. A hydraulic
+(:func:`catchment_weights`), the area-weighted overlay of GSFLOW, or inside any
+polygon given to :func:`budget_over`. A hydraulic
 flux keeps the basin of D as its support: the outlet discharge stays the
 ``catchment`` row of the budget, whole cells that drain to the outlet.
 
@@ -35,7 +36,7 @@ the basin of D taken whole. ``catchment_cell_count`` is their number.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -48,6 +49,7 @@ from hydromodpy.results.derive.time_alignment import solver_time_index
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
+    from hydromodpy.core.io.crs import CrsLike
     from hydromodpy.results.run import Run
     from hydromodpy.results.run.contracts import Mesh
 
@@ -86,8 +88,8 @@ __all__ = [
     "cell_field_network_distance_metrics",
     "release_flux_network_overlap_metrics",
     "release_flux_network_distance_metrics",
+    "budget_over",
     "catchment_mean",
-    "catchment_total",
     "catchment_weights",
     "recharge_forcing",
 ]
@@ -971,51 +973,113 @@ def catchment_weights(sim: Run) -> np.ndarray:
     return np.asarray(stored.mask, dtype="float64")
 
 
-def catchment_total(sim: Run, variable: str, *, name: str | None = None) -> pd.Series:
-    """Total over the catchment of a per-cell volumetric field, per timestep.
+def budget_over(
+    sim: Run,
+    term: str,
+    polygon: BaseGeometry | None = None,
+    *,
+    crs: CrsLike | None = None,
+    split: bool = False,
+    name: str | None = None,
+) -> pd.Series | pd.DataFrame:
+    """Total of a per-cell budget term over a polygon, per time step, in m3/s.
 
-    For a budget term stored per cell in m3/s, such as ``recharge`` or
-    ``drain``, the series is the sum over the layers and the faces of the
-    field times :func:`catchment_weights`. It is the recharge or the seepage
-    over the catchment polygon, with the sign the budget gives (an outflow is
-    negative). It is not the outlet discharge, which is a hydraulic flux and
-    stays the ``catchment`` row of ``run.budget()``.
+    ``polygon=None`` is the catchment, each face weighted by
+    :func:`catchment_weights`. A polygon weighs each face by the share of its
+    area inside it, the polygon given in ``crs``, or in the CRS of the run when
+    ``crs`` is None. ``term`` is a term of ``budget/`` or a family of
+    ``core.budget.terms.TERM_FAMILIES``: ``"storage"`` sums ``storage_ss`` and
+    ``storage_sy`` under MODFLOW 6. Inflow and outflow are split per element
+    (layer, cell). The series is the net, inflow minus outflow, with the budget
+    sign; ``split=True`` gives the two positive columns ``inflow`` and
+    ``outflow``. A term that is not in ``budget/`` may be a field in m3/s
+    stored per cell elsewhere, such as ``release_flux`` under ``derived/``,
+    and is summed the same way. It is not the outlet discharge, which is a
+    hydraulic flux and stays the ``catchment`` row of ``run.budget()``.
     """
+    from hydromodpy.core.budget.flux import inflow_outflow
+    from hydromodpy.core.budget.terms import family_terms
     from hydromodpy.results.derive.config_flags import missing_field_explanation
     from hydromodpy.results.errors import FieldNotFoundError
 
-    weights = catchment_weights(sim)
+    weights = catchment_weights(sim) if polygon is None else _polygon_weights(sim, polygon, crs)
     n = sim.n_timesteps or 1
-    totals = np.empty(n, dtype="float64")
+    inflow, outflow = np.zeros(n, dtype="float64"), np.zeros(n, dtype="float64")
+    where = "the catchment" if polygon is None else "the polygon"
     sz = sim._catalog.open_zarr(sim._sim_id)
     try:
-        with progress.status(f"Summing {variable} over the catchment"):
-            for t0 in range(0, n, _TOTAL_SLAB_STEPS):
-                t1 = min(t0 + _TOTAL_SLAB_STEPS, n)
-                try:
-                    stack = sz.read_field_range(variable, t0, t1)
-                except KeyError:
-                    explanation = missing_field_explanation([variable], sim)
-                    raise FieldNotFoundError(
-                        f"Field '{variable}' is not stored per cell in simulation "
-                        f"'{sim.sim_id}', so it has no catchment total. {explanation}".rstrip(),
-                        sim_id=sim.sim_id,
-                        variable=variable,
-                    ) from None
-                cells = np.nansum(stack.reshape(t1 - t0, -1, stack.shape[-1]), axis=1)
-                if cells.shape[1] != weights.size:
-                    raise ValueError(
-                        f"Field '{variable}' holds {cells.shape[1]} cells and the catchment "
-                        f"fraction {weights.size}."
-                    )
-                totals[t0:t1] = cells @ weights
+        budget = sz.root.get("budget")
+        group: str | None = "budget"
+        members = family_terms(term, () if budget is None else budget.array_keys())
+        if not members:
+            group, members = _stored_volume_flux(sz.root, term)
+        if not members:
+            explanation = missing_field_explanation([term], sim)
+            raise FieldNotFoundError(
+                f"Field '{term}' is not stored per cell in simulation '{sim.sim_id}' "
+                f"as a budget term or a field in m3/s, so it has no total over {where}. "
+                f"{explanation}".rstrip(),
+                sim_id=sim.sim_id,
+                variable=term,
+            )
+        with progress.status(f"Summing {term} over {where}"):
+            for member in members:
+                for t0 in range(0, n, _TOTAL_SLAB_STEPS):
+                    t1 = min(t0 + _TOTAL_SLAB_STEPS, n)
+                    stack = sz.read_field_range(member, t0, t1, subgroup=group)
+                    stack = stack.reshape(t1 - t0, -1, stack.shape[-1])
+                    if stack.shape[-1] != weights.size:
+                        raise ValueError(
+                            f"Field '{member}' holds {stack.shape[-1]} cells and the "
+                            f"weights of {where} {weights.size}."
+                        )
+                    step_in, step_out = inflow_outflow(stack, weights)
+                    inflow[t0:t1] += step_in
+                    outflow[t0:t1] += step_out
     finally:
         sz.close()
-    return pd.Series(totals, index=_time_index(sim, n), name=name or variable)
+    index = _time_index(sim, n)
+    if split:
+        return pd.DataFrame({"inflow": inflow, "outflow": outflow}, index=index)
+    return pd.Series(inflow - outflow, index=index, name=name or term)
+
+
+def _stored_volume_flux(root: Any, term: str) -> tuple[str | None, tuple[str, ...]]:
+    """Return the group and the name of ``term`` when it is a field in m3/s stored per cell."""
+    from hydromodpy.results import field_registry
+
+    if not field_registry.has(term) or field_registry.get(term).units != "m3 s-1":
+        return None, ()
+    group, _, key = field_registry.get(term).zarr_path.rpartition("/")
+    node = root.get(group) if group else root
+    if node is None or key not in node:
+        return None, ()
+    return group or None, (key,)
 
 
 _TOTAL_SLAB_STEPS = 256
-"""Time steps read in one slice by :func:`catchment_total`."""
+"""Time steps read in one slice by :func:`budget_over`."""
+
+_MESH_COORDINATES = (
+    'ENGCRS["mesh coordinates",EDATUM["mesh"],CS[Cartesian,2],'
+    'AXIS["x",east,ORDER[1],LENGTHUNIT["metre",1]],'
+    'AXIS["y",north,ORDER[2],LENGTHUNIT["metre",1]]]'
+)
+"""The frame of a run that stores no CRS, named on both sides so a polygon stays where it is."""
+
+
+def _polygon_weights(sim: Run, polygon: BaseGeometry, crs: CrsLike | None) -> np.ndarray:
+    """Share of the area of each face inside ``polygon``, placed on the mesh of the run."""
+    from hydromodpy.mesh.cells.in_polygons import cell_area_fraction
+
+    mesh, polygons = _mesh_cell_polygons(sim)
+    if mesh.crs is None and crs is not None:
+        raise ValueError(
+            f"Run {sim.sim_id} stores no CRS, so a polygon in {crs} cannot be placed on its "
+            "mesh. Pass the polygon in the coordinates of the mesh and crs=None."
+        )
+    mesh_crs = mesh.crs or _MESH_COORDINATES
+    return cell_area_fraction(polygons, [polygon], mesh_crs=mesh_crs, geometry_crs=crs or mesh_crs)
 
 
 def recharge_forcing(sim: Run) -> pd.Series:
@@ -1025,7 +1089,7 @@ def recharge_forcing(sim: Run) -> pd.Series:
     constant within a period by the forcing contract, and returns the mean of
     the stored per-cell term (m3/s) over the active cells of the model domain.
     The support is the active domain, not the catchment: for a catchment total
-    of the recharge use :func:`catchment_total`.
+    of the recharge use :func:`budget_over`.
     """
     sz = sim._catalog.open_zarr(sim._sim_id)
     try:

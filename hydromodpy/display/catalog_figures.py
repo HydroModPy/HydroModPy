@@ -35,7 +35,10 @@ def render_figure(
     index. A figure the run cannot feed raises ``ValueError`` with its reason
     and writes no PNG. ``options`` are figure options, such as the ones
     :func:`parse_figure_options` reads from ``--opt``: they replace the ones
-    the run gave the figure.
+    the run gave the figure. A session figure draws the calibration session
+    that promoted the run, and is refused with its reason when no session
+    did. The PNG carries the identity block of the run: its label, the rules
+    it follows and the day, once the run is sealed.
     """
     from hydromodpy.display.runs import figure_options_from_run, figures_dir_of, record_figure
     from hydromodpy.display.runs import render_figure as render_one_figure
@@ -142,7 +145,9 @@ def _typed_option(figure: str, name: str, raw: str, annotation: Any) -> Any:
 def figure_availability(sim_ref: str, *, workspace: Any = None) -> list[tuple[Any, str | None]]:
     """Return every registered figure with the reason the run cannot feed it.
 
-    ``None`` marks a figure the run supports. The index is opened read-only.
+    ``None`` marks a figure the run supports. A session figure is available
+    when a session promoted the run, and a runset figure never is: it draws
+    several runs. The index is opened read-only.
     """
     from hydromodpy.display.runs import figure_availability as availability_of
     from hydromodpy.results.catalog import Catalog

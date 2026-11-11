@@ -21,7 +21,7 @@ root of the package.
 | `optim/` | how the search runs: parameter space, objective, optimizer protocol and registry, engine, stopping, params-hash cache, uncertainty (FOSM, cost margin) |
 | `optim/adapters/` | the search methods themselves: grid, random, scipy, CMA-ES, Optuna, bisection, GP mapping, DA-MH-GP |
 | `persistence.py` | how a session is written: `sessions/<case>/` and its journal, nothing else |
-| `report.py` | how a finished session is read back for the report, from its directory |
+| `report.py` | what a calibration returns (`CalibrationReport`, `CalibrationResult`) and the words about it; the session page is not written here |
 | `evaluation/` | what one trial must answer: the evaluator port, its registry, and `analytic_bowl`, the evaluator that needs nothing from the calibration document |
 | `config.py` | what the modeller wrote: every `[calibration.*]` table, protocol options included |
 | `protocols/` | which published recipe a calibration follows, and how it expands into phases and objective blocks |
@@ -243,8 +243,11 @@ is read rather than inside the adapter.
    reopens the latest session of the case: a phase that completed with the
    same fingerprint is read back (`runners/resume.py`), the cut phase is
    solved again with its trials preloading the cache.
-10. **Report.** `report.py` reads the session directory back;
-    `display/calibration_report.py` renders it.
+10. **Report.** The session report is written by
+    `hydromodpy.project.report.report_session`, from the rows of
+    `results/session/summary.py`. `hmp calibrate` writes it (`--no-report`
+    skips it) and `hmp report render` writes it again. `promotion.py` reads
+    `BOUND_TOLERANCE` and `on_bound` from `results/session/journal.py`.
 
 ## Storage rule
 
@@ -284,7 +287,9 @@ A calibration runs as one or more **phases**. A phase says which parameters it
 moves, in which flow regime, and against which objective blocks with which
 share for each. The search method follows from what is scored: a signed
 criterion (`distance_gap`) on one parameter in log space is a zero to find,
-searched by bisection; anything else is a cost to minimize, by Nelder-Mead.
+searched by bisection (the stopping rule, the two roots and the budget arithmetic are on
+`docs/source/theory/downslope-distance.md`, section "How a search reaches the zero");
+anything else is a cost to minimize, by Nelder-Mead.
 That choice applies to a phase and, the same way, to a calibration with no
 phases at all (`optim.optimizer.choose_method`, read through
 `CalibrationConfig.method_for`). `method` is written only to choose otherwise

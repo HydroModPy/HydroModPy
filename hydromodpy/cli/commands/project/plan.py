@@ -61,7 +61,7 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.core.state.result_dirs import sites_project_root
     from hydromodpy.core.toml_io.overrides import set_overrides
     from hydromodpy.project.launch import plan_project
-    from hydromodpy.project.launch.sites.issues import PlanError, group_issues
+    from hydromodpy.project.launch.plan import PlanError, group_issues
     from hydromodpy.results.plan_store import current_plan_hash, plan_path
 
     try:

@@ -1,7 +1,7 @@
-"""What the overview reads off the loaded data: stats card, stations, outlet, titles.
+"""What the panels read: stats card, station table, outlet, titles.
 
-The panels (``report.py``) and the web page (``web.py``) draw from the same
-readings here, so a station or a title is worked out once.
+The counts come from the rows of the data inventory, the same rows the seal
+writes to ``data_inventory.parquet``, so the card and the page cannot differ.
 """
 
 from __future__ import annotations
@@ -31,8 +31,10 @@ class OverviewSummary:
     date_end: str
 
 
-def compute_overview_summary(state: DataOverviewState) -> OverviewSummary:
-    """Compute the summary metrics from ``state``."""
+def compute_overview_summary(
+    state: DataOverviewState, inventory: list[dict[str, Any]]
+) -> OverviewSummary:
+    """Compute the summary metrics from ``state`` and the rows of the inventory."""
     ld = state.loaded_data
     dg = state.domain_geographic
     overview = state.cfg.overview
@@ -47,20 +49,18 @@ def compute_overview_summary(state: DataOverviewState) -> OverviewSummary:
         watershed_name=name,
         catchment_area_km2=(float(dg.catchment_area_km2) if dg is not None else None),
         outlet_xy=outlet_xy(dg),
-        n_hydrometry=_count_points(ld.hydrometry),
-        n_piezometry=_count_points(ld.piezometry),
-        n_intermittency=_count_points(ld.intermittency),
-        n_water_quality=_count_points(ld.water_quality),
+        n_hydrometry=_station_count(inventory, "hydrometry"),
+        n_piezometry=_station_count(inventory, "piezometry"),
+        n_intermittency=_station_count(inventory, "intermittency"),
+        n_water_quality=_station_count(inventory, "water_quality"),
         n_streams=_count_streams(ld.hydrography),
         date_start=str(overview.date_start) if overview and overview.date_start else "",
         date_end=str(overview.date_end) if overview and overview.date_end else "",
     )
 
 
-def _count_points(lr) -> int:
-    if lr is None:
-        return 0
-    return len(getattr(lr, "points", []) or [])
+def _station_count(inventory: list[dict[str, Any]], family: str) -> int:
+    return sum(1 for row in inventory if row["row_kind"] == "station" and row["family"] == family)
 
 
 def _count_streams(hydro) -> int:
@@ -111,48 +111,32 @@ def regional_context_title(label: str | None, candidates: Iterable[object]) -> s
     return "Regional setting"
 
 
-_STATION_FAMILIES = (
-    ("Hydrometry", "hydrometry"),
-    ("Piezometry", "piezometry"),
-    ("Intermittency", "intermittency"),
-    ("Water quality", "water_quality"),
-)
+_STATION_LABELS = {
+    "hydrometry": "Hydrometry",
+    "piezometry": "Piezometry",
+    "intermittency": "Intermittency",
+    "water_quality": "Water quality",
+}
 
 
-def station_inventory(state: DataOverviewState) -> list[dict[str, Any]]:
-    """List every loaded station once: type, id, x, y, start and end dates.
+def station_table(inventory: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """List the station rows of the inventory for the station panel.
 
-    Stations are deduped by ``(type, station_id)`` so that variables like
-    water_quality, which emit one record per (station, parameter), do not blow
-    up the inventory into thousands of rows. The period is the union of the
-    periods of all records of a station. ``x`` and ``y`` are None for a
-    station without a location.
+    Each entry has the type label, id, x, y, and the first and last day as
+    text. ``x`` and ``y`` are None for a station without a location.
     """
-    seen: dict[tuple[str, str], dict[str, Any]] = {}
-    for label, attr in _STATION_FAMILIES:
-        load_result = getattr(state.loaded_data, attr, None)
-        for record in getattr(load_result, "points", ()) or ():
-            station_id = str(getattr(record, "station_id", ""))
-            loc = getattr(record, "location", None)
-            start = _date_text(getattr(record, "date_start", None))
-            end = _date_text(getattr(record, "date_end", None))
-            key = (label, station_id)
-            if key not in seen:
-                seen[key] = {
-                    "type": label,
-                    "id": station_id,
-                    "x": getattr(loc, "x", None),
-                    "y": getattr(loc, "y", None),
-                    "start": start,
-                    "end": end,
-                }
-                continue
-            row = seen[key]
-            if start and (not row["start"] or start < row["start"]):
-                row["start"] = start
-            if end and (not row["end"] or end > row["end"]):
-                row["end"] = end
-    return list(seen.values())
+    return [
+        {
+            "type": _STATION_LABELS.get(row["family"], row["family"]),
+            "id": row["item_id"],
+            "x": row["x"],
+            "y": row["y"],
+            "start": _date_text(row["first"]),
+            "end": _date_text(row["last"]),
+        }
+        for row in inventory
+        if row["row_kind"] == "station"
+    ]
 
 
 def _date_text(value: Any) -> str:

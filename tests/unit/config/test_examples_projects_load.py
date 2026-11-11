@@ -17,7 +17,7 @@ from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.project.api import check
-from hydromodpy.project.launch.sites.expansion import expand_plan
+from hydromodpy.project.launch.plan import expand_plan
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_PROJECTS = Path("examples/projects")

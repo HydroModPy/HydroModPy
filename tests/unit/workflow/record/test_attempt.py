@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
+from hydromodpy.core.exceptions import DisplayError, ExportError, StepError
 from hydromodpy.core.runtime.interrupts import StopRequested
 from hydromodpy.core.state.layout import (
     INTERNAL_DIRNAME,
@@ -124,6 +125,64 @@ def test_the_seal_step_ends_a_real_pipeline_and_the_bracket_closes_the_run(
     assert outcome is not None and outcome.status == "completed" and outcome.attempt == 1
     assert effective_status(run_dir) == "completed"
     assert not (project / INTERNAL_DIRNAME / "index.duckdb").exists()
+
+
+class _FailsAfterTheSeal:
+    """A render after the seal that raises, as a figure or an export may."""
+
+    name = "display"
+
+    def __init__(self, error: BaseException, seen: dict) -> None:
+        self.error = error
+        self.seen = seen
+
+    def run(self, state: PipelineState) -> PipelineState:
+        run_dir = state.get("ctx").run_dir
+        self.seen["readme"] = (run_dir / "README.md").read_text(encoding="utf-8")
+        raise self.error
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(DisplayError("run x is sealed; draw the figure again"), id="a figure"),
+        pytest.param(ExportError("run x is sealed; write the exports again"), id="an export"),
+        pytest.param(KeyboardInterrupt(), id="a stop while the figures draw"),
+    ],
+)
+def test_a_render_that_fails_after_the_seal_leaves_the_run_sealed_and_completed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: BaseException
+) -> None:
+    _refuse_the_index(monkeypatch)
+    project = _project(tmp_path)
+    seen: dict = {}
+
+    # The pipeline names the step that failed; the CLI exits by the category of the cause.
+    expected = KeyboardInterrupt if isinstance(error, KeyboardInterrupt) else StepError
+    with pytest.raises(expected) as raised:
+        with run_attempt(project, CASE, case_id=CASE, project="demo", site=None) as handle:
+            _fill(project, handle.claim)
+            ctx = _ctx(project, handle.run_dir, handle.claim.sim_id)
+            pipeline = Pipeline(
+                [_Solved(), SealStep(), _FailsAfterTheSeal(error, seen)],
+                workspace=project,
+                run_dir=handle.run_dir,
+            )
+            pipeline.run(
+                PipelineState(run_id=CASE, data={"ctx": ctx}),
+                heartbeat=handle.heartbeat,
+            )
+
+    if expected is StepError:
+        assert raised.value.cause is error
+    run_dir = handle.run_dir
+    assert is_sealed(run_dir)
+    outcome = read_outcome(run_dir)
+    assert outcome is not None and outcome.status == "completed"
+    assert outcome.error is None
+    assert effective_status(run_dir) == "completed"
+    assert not (run_dir / INTERNAL_DIRNAME).exists(), "the seal consumes the attempt state"
+    assert (run_dir / "README.md").read_text(encoding="utf-8") == seen["readme"]
 
 
 class _AsksToStop:

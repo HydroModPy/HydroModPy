@@ -52,7 +52,7 @@ Catalog.worst	method	(self, project: str, metric: str = 'nse', *, site: str | No
 Project.best_runs	method	(self, metric: str = 'nse', *, by: Literal['site', 'recipe'] | None = 'site', label: str | Sequence[str] | None = ('calibrated', 'evaluated'), mixed_windows: bool = False) -> pd.DataFrame
 Project.build_geographic	method	(self, *, reuse_dem: bool = False) -> None
 Project.build_mesh	method	(self, **overrides) -> None
-Project.calibrate	method	(self, *, config_path: str | Path | None = None, parameters: dict[str, dict] | None = None, outputs: dict[str, dict] | None = None, objective_blocks: list[dict] | None = None, phases: list[dict] | None = None, protocol: str | dict | None = None, method: str | None = None, max_trials: int | None = None, save_runs: str | None = None, seed: int | None = None, phase: str | None = None, case: str | None = None, resume: bool = False, force: bool = False, dry_run: bool = False, workspace: str | Path | None = None, project: str | None = None, project_label: str | None = None, metric_fn: Any = None, objective: str | None = None)
+Project.calibrate	method	(self, *, config_path: str | Path | None = None, parameters: dict[str, dict] | None = None, outputs: dict[str, dict] | None = None, objective_blocks: list[dict] | None = None, phases: list[dict] | None = None, protocol: str | dict | None = None, method: str | None = None, max_trials: int | None = None, save_runs: str | None = None, seed: int | None = None, phase: str | None = None, case: str | None = None, resume: bool = False, force: bool = False, dry_run: bool = False, workspace: str | Path | None = None, project: str | None = None, project_label: str | None = None, metric_fn: Any = None, objective: str | None = None, report: bool = True)
 Project.cases	property	pd.DataFrame
 Project.close	method	(self) -> None
 Project.collect	method	(self, *, write_sites: bool = False, mixed_windows: bool = False) -> SummaryPaths
@@ -153,6 +153,7 @@ Session.config	property	dict[str, Any]
 Session.descriptor	property	SessionDescriptor
 Session.dir	property	Path
 Session.name	property	str
+Session.of_run	classmethod	(run: Any) -> Session | None
 Session.phases	property	list[PhaseDescriptor]
 Session.profile	method	(self) -> pd.DataFrame
 Session.sites	property	tuple[str, ...]

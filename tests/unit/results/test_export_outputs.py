@@ -1261,6 +1261,24 @@ def test_a_figure_carries_the_block_and_its_ledger_entry(exported) -> None:
         assert ledger.entry_for(path.name) is not None
 
 
+@pytest.mark.parametrize("key", [*sorted(REQUESTS), "figure"])
+def test_what_renders_a_sealed_run_carries_its_label_rule_and_date(exported, key) -> None:
+    # Exports and figures are written from the sealed run, so their block is
+    # labelled the day it is written; the field store and the tables are not.
+    from datetime import UTC, datetime
+
+    run_dir, written, figures = exported
+    paths = figures if key == "figure" else written[key]
+    assert paths
+    for path in paths:
+        found = read_identity_from(path)
+        assert found is not None, path.name
+        assert found.label is not None, path.name
+        assert found.rule_version, path.name
+        assert found.label_date == datetime.now(UTC).date()
+    assert _identity(run_dir).label is None
+
+
 def test_the_field_store_and_the_tables_carry_the_block(exported) -> None:
     run_dir, _written, _figures = exported
     assert _identity(run_dir).sim_id == _sim_id(run_dir)

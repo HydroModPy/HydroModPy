@@ -1,4 +1,8 @@
-"""Ensemble envelope band for a RunSet."""
+"""Ensemble envelope band for a RunSet.
+
+The subject is a ``RunSet``. A member without the series is left out while
+drawing, and a set with no member that has it is an error.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +18,8 @@ from hydromodpy.display.figure_options import Opt, Station, Variable
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
+    from hydromodpy.results.run.group import RunSet
+
 
 class EnsembleBandFigure(BaseFigure):
     """Median and a quantile band across an ensemble of simulations."""
@@ -22,23 +28,13 @@ class EnsembleBandFigure(BaseFigure):
         name="ensemble_band",
         title="Ensemble envelope",
         kind="comparison",
-        required_tables=("timeseries",),
+        subject="runset",
         default_figsize=(8.5, 4.5),
     )
 
-    def unavailable_reason(self, sim: Any) -> str | None:
-        """Require a set of runs: one run has no envelope.
-
-        A ``RunSet`` is checked member by member while drawing, where a member
-        without the series is left out.
-        """
-        if not hasattr(sim, "__iter__"):
-            return "draws the envelope of several runs, and a run is one; pass a RunSet"
-        return None
-
     def render(
         self,
-        sim: Any,
+        runset: RunSet,
         ax: Axes,
         *,
         station: Station = CATCHMENT,
@@ -56,11 +52,8 @@ class EnsembleBandFigure(BaseFigure):
     ) -> Axes:
         import pandas as pd
 
-        # ``sim`` is expected to be a RunSet (iterable of Run).
-        if not hasattr(sim, "__iter__"):
-            raise TypeError("ensemble_band: 'sim' must be a RunSet (iterable)")
         series: list[pd.Series] = []
-        for member in sim:
+        for member in runset:
             try:
                 series.append(member.timeseries(variable, station=station))
             except KeyError:

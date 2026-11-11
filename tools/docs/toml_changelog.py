@@ -13,8 +13,9 @@ the move, so a changed default still shows. A key that is new in the moved table
 added.
 
 Pseudo-nodes (named instances such as ``flow.param.K``) are not fields of the
-file and never count as a change. Nor do the keys of another file (the
-catchment report file), which the project file does not hold.
+file and never count as a change. Nor do the keys of another file, which the
+project file does not hold: the registry of 2.0.0 still lists the keys of the
+report file that ``hmp report catchment`` read then.
 """
 
 from __future__ import annotations

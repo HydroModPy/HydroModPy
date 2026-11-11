@@ -8,7 +8,6 @@
 # this table cannot allow a cycle.
 allowed:
   figure_table:     []
-  report_blocks:    []
   style:            []
   maps:             []
   png_metadata:     []
@@ -23,9 +22,8 @@ allowed:
   "<init>":         []
   runs:             ["<init>", config, figure, figure_registry, figure_table, png_metadata, style]
   catalog_figures:  [figure_registry, figure_table, runs]
-  overview:         [report_blocks, style]
-  catchment_report: [config, figure_registry, figure_table, overview, report_blocks, runs]
-  calibration_report: [figure_registry, figure_table, report_blocks, runs]
+  overview:         [style]
+  report:           [config, figure_registry, figure_table, runs]
 
 # The registry imports hydromodpy.display.figures by name on first lookup, so
 # that importing the registry stays light. Only this file may name a module so.
@@ -43,14 +41,12 @@ public:
   - hydromodpy.display.catalog_figures
   - hydromodpy.display.cohort
   - hydromodpy.display.run_comparison
-  - hydromodpy.display.calibration_report
   - hydromodpy.display.quicklook.viz
   - hydromodpy.display.maps.axes
   - hydromodpy.display.maps.ugrid
   - hydromodpy.display.maps.geo
-  - hydromodpy.display.report_blocks
   - hydromodpy.display.overview
   - hydromodpy.display.overview.config
-  - hydromodpy.display.catchment_report
-  - hydromodpy.display.catchment_report.pipeline
+  - hydromodpy.display.overview.location
+  - hydromodpy.display.report.*
   - hydromodpy.display.figures.lake_level_fit

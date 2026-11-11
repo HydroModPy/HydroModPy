@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,9 +12,6 @@ import pytest
 from pydantic import ValidationError
 
 import hydromodpy.workflow.overview as overview_module
-from hydromodpy.core.contracts.overview import DataOverviewState
-from hydromodpy.data.contracts.load_result import LoadResult
-from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.display.overview import panels, report
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.display.overview.location import (
@@ -25,15 +21,11 @@ from hydromodpy.display.overview.location import (
 )
 from hydromodpy.display.overview.panels import render_timeseries_multi
 from hydromodpy.display.overview.report import (
+    PANEL_FILES,
     _piezo_altitude_hlines,
     _records_to_timeseries_df,
 )
-from hydromodpy.display.overview.summary import compute_overview_summary, station_inventory
-from hydromodpy.display.overview.web import (
-    build_overview_blocks,
-    write_overview_review_web_reports,
-    write_overview_web_report,
-)
+from hydromodpy.display.overview.summary import compute_overview_summary, station_table
 from hydromodpy.display.style import apply_theme
 from hydromodpy.project.dispatch.workflow import run_overview
 from hydromodpy.project.request import request_of
@@ -209,44 +201,69 @@ def test_piezo_altitude_hlines_keep_valid_station_altitudes_only() -> None:
     ]
 
 
-def test_station_inventory_deduplicates_water_quality_periods() -> None:
-    loaded = SimpleNamespace(
-        hydrometry=SimpleNamespace(
-            points=[
-                _record("H1", date_start="2020-01-02", date_end="2020-01-03"),
-            ]
-        ),
-        piezometry=None,
-        intermittency=None,
-        water_quality=SimpleNamespace(
-            points=[
-                _record("WQ1", variable="nitrate", date_start="2020-02-01", date_end="2020-02-10"),
-                _record("WQ1", variable="chloride", date_start="2020-01-01", date_end="2020-03-01"),
-            ]
-        ),
-    )
-    state = SimpleNamespace(loaded_data=loaded)
+def _station(family: str, item_id: str, first: str | None, last: str | None, **extra):
+    row = {
+        "row_kind": "station",
+        "family": family,
+        "item_id": item_id,
+        "x": 1.0,
+        "y": 2.0,
+        "first": None if first is None else pd.Timestamp(first, tz="UTC"),
+        "last": None if last is None else pd.Timestamp(last, tz="UTC"),
+    }
+    row.update(extra)
+    return row
 
-    inventory = station_inventory(state)
 
-    assert inventory == [
-        {
-            "type": "Hydrometry",
-            "id": "H1",
-            "x": 1.0,
-            "y": 2.0,
-            "start": "2020-01-02",
-            "end": "2020-01-03",
-        },
-        {
-            "type": "Water quality",
-            "id": "WQ1",
-            "x": 1.0,
-            "y": 2.0,
-            "start": "2020-01-01",
-            "end": "2020-03-01",
-        },
-    ]
+@pytest.mark.parametrize(
+    ("rows", "expected"),
+    [
+        pytest.param(
+            [
+                {"row_kind": "family", "family": "hydrometry", "item_id": ""},
+                _station("hydrometry", "H1", "2020-01-02", "2020-01-03"),
+                _station("water_quality", "WQ1", "2020-01-01", "2020-03-01"),
+            ],
+            [
+                {
+                    "type": "Hydrometry",
+                    "id": "H1",
+                    "x": 1.0,
+                    "y": 2.0,
+                    "start": "2020-01-02",
+                    "end": "2020-01-03",
+                },
+                {
+                    "type": "Water quality",
+                    "id": "WQ1",
+                    "x": 1.0,
+                    "y": 2.0,
+                    "start": "2020-01-01",
+                    "end": "2020-03-01",
+                },
+            ],
+            id="stations-only-with-day-text",
+        ),
+        pytest.param(
+            [_station("piezometry", "P1", None, None, x=None, y=None)],
+            [{"type": "Piezometry", "id": "P1", "x": None, "y": None, "start": "", "end": ""}],
+            id="no-location-no-period",
+        ),
+        pytest.param(
+            [{"row_kind": "well", "family": "pumping", "item_id": "w"}], [], id="no-station"
+        ),
+    ],
+)
+def test_station_table_lists_the_station_rows_of_the_inventory(rows, expected) -> None:
+    assert station_table(rows) == expected
+
+
+def test_panel_files_name_one_png_per_panel_field() -> None:
+    fields = set(type(OverviewConfig().panels).model_fields)
+
+    assert set(PANEL_FILES) == fields
+    assert len(set(PANEL_FILES.values())) == len(PANEL_FILES)
+    assert all(name.endswith(".png") for name in PANEL_FILES.values())
 
 
 def test_render_timeseries_multi_applies_bounds_hlines_and_empty_states() -> None:
@@ -299,6 +316,13 @@ def test_compute_overview_summary_counts_loaded_records_and_dates() -> None:
             fields=[SimpleNamespace(metadata={"vector_path": "/missing.gpkg"})]
         ),
     )
+    inventory = [
+        _station("hydrometry", "H1", None, None),
+        _station("hydrometry", "H2", None, None),
+        _station("piezometry", "P1", None, None),
+        _station("water_quality", "WQ1", None, None),
+        _station("water_quality", "WQ2", None, None),
+    ]
     state = SimpleNamespace(
         loaded_data=loaded,
         domain_geographic=SimpleNamespace(
@@ -316,7 +340,7 @@ def test_compute_overview_summary_counts_loaded_records_and_dates() -> None:
         workspace=None,
     )
 
-    summary = compute_overview_summary(state)
+    summary = compute_overview_summary(state, inventory)
 
     assert summary.watershed_name == "Naizin"
     assert summary.catchment_area_km2 == 12.5
@@ -778,7 +802,7 @@ def test_generate_overview_report_writes_enabled_panel_pngs(tmp_path, mpl) -> No
         workspace=SimpleNamespace(project_root=tmp_path),
     )
 
-    paths = report.generate_overview_report(state)
+    paths = report.generate_overview_report(state, [])
 
     assert [path.name for path in paths] == ["timeseries_discharge.png", "stats_card.png"]
     assert all(path.parent == tmp_path / "runs" / "Naizin" / "figures" for path in paths)
@@ -834,11 +858,20 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(
         launcher, "_resolve_geographic_inputs", lambda self, state: (None, root / "dem.tif")
     )
+    monkeypatch.setattr(launcher, "_write_page", staticmethod(_write_index))
     return root
 
 
+def _write_index(run_dir: Path) -> Path:
+    index = run_dir / "report" / "index.html"
+    index.parent.mkdir(parents=True, exist_ok=True)
+    index.write_text("<html></html>", encoding="utf-8")
+    return index
+
+
 def _draw_one_panel(monkeypatch: pytest.MonkeyPatch, seen: dict) -> None:
-    def generate(state) -> list[Path]:
+    def generate(state, inventory) -> list[Path]:
+        seen["inventory"] = inventory
         run_dir = overview_run_dir_of(state)
         seen["outcome"] = read_outcome(run_dir)
         figures = overview_figures_dir(run_dir)
@@ -863,6 +896,8 @@ def test_an_overview_claims_writes_and_seals_its_run_directory(
     run_dir = project / "runs" / "nancon"
     assert summary["run_dir"] == str(run_dir)
     assert summary["name"] == "nancon"
+    assert summary["web_report"] == str(run_dir / "report" / "index.html")
+    assert seen["inventory"] == []
     assert seen["outcome"] is not None and seen["outcome"].status == "running"
     assert (run_dir / "figures" / "location.png").is_file()
     assert effective_status(run_dir) == "completed"
@@ -876,6 +911,42 @@ def test_an_overview_claims_writes_and_seals_its_run_directory(
     assert (run_dir / "config.toml").is_file()
     assert not (run_dir / ".hmp").exists()
     assert not (run_dir / "fields.zarr").exists()
+
+
+def test_the_seal_holds_the_inventory_and_lists_the_loaded_inputs(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hydromodpy.results.record.manifest import InputEntry
+
+    _draw_one_panel(monkeypatch, {})
+    row = {
+        "row_kind": "family",
+        "family": "recharge",
+        "source": "synthetic",
+        "item_id": "",
+        "name": None,
+        "x": None,
+        "y": None,
+        "crs_epsg": None,
+        "first": None,
+        "last": None,
+        "records": 2,
+        "mean_value": 365.25,
+        "unit": "mm/year",
+    }
+    entry = InputEntry(variable="recharge:recharge", provider="synthetic", path="data/r.csv")
+    monkeypatch.setattr(overview_module, "inventory_rows", lambda state: [row])
+    monkeypatch.setattr(overview_module, "loaded_inputs", lambda state, root: [entry])
+
+    run_overview(request_of(project / "overview.toml"), base=project)
+
+    run_dir = project / "runs" / "nancon"
+    table = pd.read_parquet(run_dir / "tables.parquet" / "data_inventory.parquet")
+    assert table[["family", "records", "unit"]].to_dict("records") == [
+        {"family": "recharge", "records": 2, "unit": "mm/year"}
+    ]
+    inputs = json.loads((run_dir / "inputs.json").read_text(encoding="utf-8"))
+    assert [item["variable"] for item in inputs["inputs"]] == ["recharge:recharge"]
 
 
 def test_a_second_overview_of_the_same_site_takes_the_next_version(
@@ -894,7 +965,7 @@ def test_a_second_overview_of_the_same_site_takes_the_next_version(
 def test_a_failed_overview_leaves_a_failed_outcome_and_no_manifest(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def broken(state) -> list[Path]:
+    def broken(state, inventory) -> list[Path]:
         raise RuntimeError("no panel today")
 
     monkeypatch.setattr(
@@ -909,139 +980,3 @@ def test_a_failed_overview_leaves_a_failed_outcome_and_no_manifest(
     assert outcome is not None and outcome.status == "failed"
     assert outcome.error is not None and outcome.error.message == "no panel today"
     assert not (run_dir / "manifest.json").exists()
-
-
-def test_overview_web_report_uses_canonical_blocks(tmp_path: Path) -> None:
-    figure = tmp_path / "figures" / "overview" / "map_dem.png"
-    figure.parent.mkdir(parents=True)
-    figure.write_bytes(b"fake-png")
-
-    state = _overview_state(tmp_path)
-    output = write_overview_web_report(state, figure_paths=[figure])
-
-    html = output.read_text(encoding="utf-8")
-    assert output == tmp_path / "runs" / "Test basin" / "report" / "index.html"
-    assert "Location" in html
-    assert "Data inventory" in html
-    assert "Recharge and pumping" in html
-    assert "map_dem.png" in html
-    assert "report-level" not in html
-    assert "workflow_header" not in html
-    assert "Maillage" not in html
-    assert "Solveur" not in html
-    assert "365.25 mm/year" in html
-    assert "8640 m3/day" in html
-
-
-def test_overview_blocks_skip_absent_sections(tmp_path: Path) -> None:
-    blocks = build_overview_blocks(_overview_state(tmp_path), figure_paths=[])
-    by_id = {block.block_id: block for block in blocks}
-
-    assert "mesh_context" not in by_id
-    assert "solver_context" not in by_id
-    assert "observation_inventory" not in by_id
-    assert "hydrographic_network" not in by_id
-    assert by_id["forcing_context"].level == "standard"
-
-
-def test_overview_has_explicit_hydrographic_network_block(tmp_path: Path) -> None:
-    figure = tmp_path / "figures" / "overview" / "map_hydrography.png"
-    figure.parent.mkdir(parents=True)
-    figure.write_bytes(b"fake-png")
-    state = _overview_state(tmp_path)
-    state.loaded_data.hydrography = LoadResult(fields=[SimpleNamespace(metadata={})])
-    state.cfg.data.types = ["hydrography", "recharge"]
-    state.cfg.data.hydrography = SimpleNamespace(
-        date_start="",
-        date_end="",
-        sources=[SimpleNamespace(source="bdtopage", path="hydro.gpkg")],
-    )
-
-    blocks = build_overview_blocks(state, figure_paths=[figure])
-    by_id = {block.block_id: block for block in blocks}
-
-    assert by_id["hydrographic_network"].title == "Hydrographic network"
-    assert by_id["hydrographic_network"].figures[0].figure_id == "map_hydrography"
-
-
-def test_overview_review_pages_write_three_levels(tmp_path: Path) -> None:
-    state = _overview_state(tmp_path)
-    paths = write_overview_review_web_reports(state, figure_paths=[])
-
-    assert paths == [
-        tmp_path / "runs" / "Test basin" / "report" / "review" / "compact" / "index.html",
-        tmp_path / "runs" / "Test basin" / "report" / "review" / "standard" / "index.html",
-        tmp_path / "runs" / "Test basin" / "report" / "review" / "audit" / "index.html",
-    ]
-    for level, path in zip(("compact", "standard", "audit"), paths, strict=True):
-        html = path.read_text(encoding="utf-8")
-        assert f"{level} level" in html
-        assert "report-level" in html
-
-
-def _overview_state(tmp_path: Path) -> DataOverviewState:
-    recharge_record = PointRecord(
-        station_id="synthetic",
-        variable="recharge",
-        source="synthetic",
-        unit="mm/day",
-        frequency="D",
-        data=pd.DataFrame(
-            {
-                "datetime": pd.date_range("2020-01-01", periods=2, freq="D"),
-                "value": [1.0, 1.0],
-            }
-        ),
-        date_start=datetime(2020, 1, 1),
-        date_end=datetime(2020, 1, 2),
-    )
-    loaded_data = SimpleNamespace(
-        dem=None,
-        geology=None,
-        hydrography=None,
-        hydrometry=None,
-        piezometry=None,
-        intermittency=None,
-        water_quality=None,
-        recharge=LoadResult(points=[recharge_record]),
-    )
-    cfg = SimpleNamespace(
-        overview=SimpleNamespace(
-            name="Test basin",
-            date_start="2020-01-01",
-            date_end="2020-01-02",
-        ),
-        geographic=SimpleNamespace(kind="from_outlet_coord", dem_correc_type="breach"),
-        data=SimpleNamespace(
-            types=["recharge"],
-            recharge=SimpleNamespace(
-                date_start="2020-01-01",
-                date_end="2020-01-02",
-                sources=[SimpleNamespace(source="synthetic", path="")],
-            ),
-        ),
-        flow=SimpleNamespace(
-            sinks_sources=SimpleNamespace(
-                wells={
-                    "well_a": SimpleNamespace(
-                        location=SimpleNamespace(kind="absolute_xy", x=1.0, y=2.0),
-                        flux=-0.1,
-                        units="m3/s",
-                    )
-                }
-            )
-        ),
-    )
-    workspace = SimpleNamespace(project_root=tmp_path)
-    domain_geographic = SimpleNamespace(
-        catchment_area_km2=12.3,
-        x_outlet=1.0,
-        y_outlet=2.0,
-        crs="EPSG:2154",
-    )
-    return DataOverviewState(
-        cfg=cfg,
-        workspace=workspace,
-        domain_geographic=domain_geographic,
-        loaded_data=loaded_data,
-    )

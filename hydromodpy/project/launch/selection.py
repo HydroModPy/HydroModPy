@@ -25,7 +25,7 @@ without ``force``.
 Budget
 ------
 :func:`effective_parallel` and :func:`effective_prepare_parallel` refuse a
-launch above the ceilings of :mod:`hydromodpy.project.launch.sites.budget` without
+launch above the ceilings of :mod:`hydromodpy.project.launch.plan` without
 ``force``.
 """
 
@@ -43,12 +43,11 @@ from hydromodpy.config.sites import (
     SitesRunConfig,
 )
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.state.host import death_is_proven
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.project.launch.children import PlannedCase
-from hydromodpy.project.launch.sites.budget import CALIBRATION_PARALLEL_CEILING, BudgetError
-from hydromodpy.project.launch.sites.expansion import case_is_done
+from hydromodpy.project.launch.plan import CALIBRATION_PARALLEL_CEILING, BudgetError, case_is_done
 from hydromodpy.project.launch.status import CaseState, case_state
-from hydromodpy.results.outcome import death_is_proven
 
 UNFINISHED_STATES = frozenset({"partial", "failed", "aborted"})
 """States of an attempt ``resume`` picks up."""
@@ -160,7 +159,7 @@ def effective_parallel(
 ) -> int:
     """Return the budget of solves the launch uses, or refuse it.
 
-    Raises :class:`~hydromodpy.project.launch.sites.budget.BudgetError` above the
+    Raises :class:`~hydromodpy.project.launch.plan.BudgetError` above the
     ceilings, or for a case that solves more side by side than the budget,
     unless *force*.
     """

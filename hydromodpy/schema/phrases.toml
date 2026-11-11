@@ -380,3 +380,99 @@ fr = "L'étiquette est en échec, donc le registre des bogues connus n'a pas ét
 [method.limits_issue]
 en = "Known issue {id}, fixed in {since}: {text}"
 fr = "Bogue connu {id}, corrigé en {since} : {text}"
+
+[report.label]
+en = "Label"
+fr = "Étiquette"
+
+[report.method]
+en = "Method"
+fr = "Méthode"
+
+[report.figures]
+en = "Figures"
+fr = "Figures"
+
+[report.scores]
+en = "Scores"
+fr = "Scores"
+
+[report.inputs]
+en = "Inputs"
+fr = "Entrées"
+
+[report.licence_unknown]
+en = "licence not determined, check it before reuse"
+fr = "licence non déterminée, à vérifier avant toute réutilisation"
+
+[report.page_eyebrow]
+en = "HydroModPy report"
+fr = "Rapport HydroModPy"
+
+[report.page_contents]
+en = "Contents"
+fr = "Sommaire"
+
+[report.figure_missing]
+en = "Required figure missing"
+fr = "Figure attendue absente"
+
+[report.figure_watershed_id_card]
+en = "Catchment identity card"
+fr = "Carte d'identité du bassin"
+
+[report.figure_hydrograph_sim_obs]
+en = "Simulated and observed hydrograph"
+fr = "Hydrogramme simulé et observé"
+
+[report.figure_seepage_map]
+en = "Seepage map"
+fr = "Carte des zones de suintement"
+
+[report.column_station]
+en = "Station"
+fr = "Station"
+
+[report.column_variable]
+en = "Variable"
+fr = "Variable"
+
+[report.column_metric]
+en = "Metric"
+fr = "Critère"
+
+[report.column_window]
+en = "Window"
+fr = "Fenêtre"
+
+[report.column_value]
+en = "Value"
+fr = "Valeur"
+
+[report.column_samples]
+en = "Samples"
+fr = "Échantillons"
+
+[report.column_input]
+en = "Input"
+fr = "Entrée"
+
+[report.column_provider]
+en = "Provider"
+fr = "Fournisseur"
+
+[report.column_path]
+en = "Path"
+fr = "Chemin"
+
+[report.column_licence]
+en = "Licence"
+fr = "Licence"
+
+[report.no_score]
+en = "No score on this run."
+fr = "Aucun score pour ce run."
+
+[report.no_input]
+en = "No input recorded."
+fr = "Aucune entrée enregistrée."

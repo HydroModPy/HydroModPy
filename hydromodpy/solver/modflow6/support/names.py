@@ -1,13 +1,11 @@
 """The names MODFLOW 6 gives a model and its output files.
 
-MODFLOW 6 caps a model name at 16 characters and refuses a space in it, and on
-Windows its Fortran runtime cannot open a path past ``MAX_PATH``.
+MODFLOW 6 caps a model name at 16 characters and refuses a space in it.
 """
 
 from __future__ import annotations
 
 import hashlib
-import os
 import re
 
 
@@ -31,14 +29,13 @@ def mf6_safe_name(name: str, max_len: int = 16) -> str:
 
 
 def mf6_output_name(model, extension: str = ".cbc") -> str:
-    """Return an output file stem that keeps MF6 paths usable on Windows."""
-    requested = str(getattr(model, "model_name", "") or "model")
-    if os.name != "nt":
-        return requested
-    candidate = os.path.join(str(model.full_path), f"{requested}{extension}")
-    if len(os.path.abspath(candidate)) < 240:
-        return requested
-    return str(getattr(model, "model_name_mf6", "") or mf6_safe_name(requested))
+    """Return the output file stem, which is the requested model name.
+
+    The length of the path is held by the reservation of the run folder
+    (``check_project_root``) and by the exact check of ``windows_paths``, so the
+    name is the same on every system. ``extension`` is kept for the callers.
+    """
+    return str(getattr(model, "model_name", "") or "model")
 
 
 __all__ = ["mf6_output_name", "mf6_safe_name"]

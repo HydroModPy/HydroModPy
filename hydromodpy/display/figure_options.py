@@ -55,13 +55,11 @@ __all__ = [
     "SectionOrientation",
     "SectionSamples",
     "SectionThrough",
-    "SessionId",
     "ShowRunName",
     "Station",
     "TauSpecificRatio",
     "Timestep",
     "Title",
-    "TrialsSessionId",
     "Variable",
     "VisibleFlow",
     "Vmax",
@@ -193,17 +191,6 @@ Variable = Annotated[
 LogY = Annotated[
     bool,
     Opt("Draw the vertical axis on a logarithmic scale."),
-]
-SessionId = Annotated[
-    str | None,
-    Opt("Calibration session to read, by id. Left out, the latest session the run belongs to."),
-]
-TrialsSessionId = Annotated[
-    str | None,
-    Opt(
-        "Calibration session to read, by id. Left out, every trial the catalog "
-        "holds for this run, all sessions together."
-    ),
 ]
 OutputName = Annotated[
     str | None,

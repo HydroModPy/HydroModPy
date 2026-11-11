@@ -35,7 +35,7 @@ from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.workflow.steps import ResolveStep, ValidateStep
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.fake_solvers import fake_adapter
-from tests.unit.project.launch.test_sites_plan import write_sites_project
+from tests.unit.project.launch.test_plan import write_sites_project
 
 WRITTEN_LOGGER = "hydromodpy.core.config_kit.written"
 
@@ -393,7 +393,7 @@ def test_a_sites_check_lists_the_keys_of_its_cases_once(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path, extra=wall)
 
     from hydromodpy.core.state.result_dirs import resolve_project_root
-    from hydromodpy.project.launch.sites.expansion import expand_plan
+    from hydromodpy.project.launch.plan import expand_plan
 
     diagnostics = check(project / "project.toml")
 

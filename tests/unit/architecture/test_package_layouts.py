@@ -47,7 +47,7 @@ TEXT_KINDS = frozenset({"import_module", "lazy_map"})
 SEEN_PARTS = {
     "data": {"contracts", "families", "variables", "loading", "provenance"},
     "calibration": {"optim", "runners", "config", "criteria", "metrics"},
-    "display": {"figures", "figure", "figure_registry", "maps", "runs", "catchment_report"},
+    "display": {"figures", "figure", "figure_registry", "maps", "runs", "report"},
     "solver": {"base", "modflow6", "modflow_nwt", "boussinesq", "modflow_common"},
     "mesh": {"planar", "cells", "engines", "planning", "io"},
     "catchment": {"terrain", "delineation", "drainage", "algorithms", "synthetic", "preprocess"},

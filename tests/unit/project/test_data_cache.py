@@ -291,7 +291,7 @@ def test_the_cases_of_the_current_plan_of_a_sites_project_lock_their_user_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A ``[sites]`` project.toml is not loaded alone; the cases of its plan stand for it."""
-    import pyarrow as pa
+    import pandas as pd
 
     from hydromodpy.results.plan_store import Plan, PlanCase, write_plan
 
@@ -317,7 +317,7 @@ def test_the_cases_of_the_current_plan_of_a_sites_project_lock_their_user_files(
         )
         for n, case_id in enumerate(tomls)
     ]
-    write_plan(demo, plan, pa.table({"site": ["S1", "S2"]}), cases, tomls)
+    write_plan(demo, plan, pd.DataFrame({"site": ["S1", "S2"]}, dtype=str), cases, tomls)
     seen: list[tuple[object, object]] = []
 
     def load(source, base=None, **_):

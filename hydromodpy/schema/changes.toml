@@ -753,3 +753,59 @@ since = "2.1.0"
 effect = "refusal"
 quantities = []
 text = "hmp publish --public warns instead of refusing when the project declares no [publication] license, and when the copy carries its inputs it warns and names each input that has no licence. The copy is written and states LicenseRef-undetermined for what has no licence. hmp replay of a published copy installs the files a provider delivered by their sha256 in the workspace of the project, where it used to refuse them. A delivered file whose destination holds other bytes is still refused, and nothing is written. A run states the roll-up of the licences its inputs.json entries carry, read from the sidecar of each file when the run recorded it, where it used to look a loaded record up by provider. A source that reads no file (constant, synthetic, a record built in memory) and a record read from a product of the run write no entry, so they add no licence. A run that read such a source beside files that all carry one licence states that licence, where it used to state LicenseRef-undetermined."
+
+[[recipe]]
+id = "basin_budget_split_per_element"
+since = "2.1.0"
+effect = "numbers"
+quantities = ["fluxes@modflow6", "fluxes@modflow_nwt", "fluxes@boussinesq"]
+text = "The catchment series and budget_over count the inflow and the outflow of each element (layer, cell) on its own, as the extractors do, where the catchment series summed the layers of a cell first. A drain only leaves the aquifer, so the discharge does not move: 0 on the six reference runs and on two runs of example 04, all one layer. On a multilayer run the inflow and the outflow of a term whose sign changes between layers move, and their difference does not."
+
+[[recipe]]
+id = "plan_in_one_table"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "A plan keeps its cases and the cells of their sites in plan/<hash>/cases.csv beside plan.json (schema hydromodpy.plan.v2), where 2.0 wrote sites.parquet and cases.parquet. The hash of a plan now starts from its schema, so every project gets a new hash. A plan written by 2.0 is refused with the command that writes it again, hmp project plan."
+
+[[recipe]]
+id = "basin_budget_non_finite_elements"
+since = "2.1.0"
+effect = "numbers"
+quantities = ["fluxes@modflow6", "fluxes@modflow_nwt", "fluxes@boussinesq"]
+text = "The catchment series and budget_over drop a non-finite element (layer, cell) alone, where 2.0 dropped the whole cell when one of its layers held a NaN, so the discharge of a multilayer run whose drain cell holds a NaN in one layer now counts its finite layers. A time step with no finite element under the weights gives NaN, where 2.0 gave 0, and a family such as storage is NaN on a step where one of its terms is NaN. A run of one layer with finite fluxes does not move: 0 on the six reference runs."
+
+[[recipe]]
+id = "root_interval_counts_points"
+since = "2.1.0"
+effect = "numbers"
+quantities = ["metrics"]
+text = "The root interval of a bisection counts in n_trials and n_within the distinct points of the search variable that solved, where 2.0 counted the solved trials, so a point solved twice counts once and keeps its first cost. 0 cases out of 3,000 searches move."
+
+[[recipe]]
+id = "renders_carry_the_label"
+since = "2.1.0"
+effect = "label"
+quantities = []
+text = "The figures and the data exports of a run are written after its seal, from the sealed run, so each one carries the label of the day. The steps of a run end with derive, export, seal, display: the export step only drops the solver files and cleans the scratch, the data exports and the metadata views follow the seal, then the figures. The footer of a figure reads the site, the period, the HydroModPy version, then the label, the rule it follows and the date, as calibrated, rule 3, 2026-11-11, and stays unlabelled on a directory without a seal. A figure or an export that fails after the seal leaves the run sealed and completed, and the command exits with the category of the display or export error and names hmp viz show or hmp export. The seal no longer lists figures/, exports/ and report/, and the STAC view of a run no longer carries a figure asset. No value of a result changes."
+
+[[recipe]]
+id = "catchment_report_reads_a_sealed_run"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "hmp report catchment reads a sealed run, and an overview run of the same site for the context panels, with the options --preset research or management, --lang, --station and --strict. The report is written by one engine that replaces the two block renderers, in two presets. The research preset writes a Method block first, then the page at three levels with the figures the preset names, all registered figures, and report.json, which replaces block_report_manifest.json and block_report_postflight.json and lists each figure with its file or null and the required figures that are missing. The figures the run did not draw are drawn from the [display] it sealed. The management preset writes one page, report/sheet-en or report/sheet-fr, with the label and its reasons, the method text, three figures, the headline score of each station and the inputs with a warning for each one whose licence is undetermined. A report TOML, with its [report] and [layout] tables, and the flags --run-overview, --run-simulation, --context-only, --report-only, --stream-run-logs and --strict-figure-postflight are refused with a sentence that names hmp run and hmp report catchment RUN. The preset generic is gone. The variable HMP_OVERVIEW_HTML_REVIEW_LEVELS is gone and the pages of the levels are always written. No value of a result changes."
+
+[[recipe]]
+id = "overview_keeps_its_inventory"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "The seal of a data overview writes tables.parquet/data_inventory.parquet, with one row per data family, per station and per well (row_kind, family, source, item_id, name, x, y, crs_epsg, first, last, records, mean_value, unit), and lists the inputs it loaded in inputs.json as a simulation does. The stats card, the station table and the page are drawn from these rows, so a count the page shows can be read from the sealed directory. The page is written after the seal from the sealed run, and the review pages are always written, so the variable HMP_OVERVIEW_HTML_REVIEW_LEVELS is no longer read. No simulation value changes and no run of a simulation writes the new table."
+
+[[recipe]]
+id = "windows_project_folder_is_bounded"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "On Windows a project folder longer than 99 characters is refused when the project is created and when a run or a calibration session takes its folder, before anything is computed: a project writes paths up to 160 characters below its folder, and MODFLOW 6 and DuckDB open no path longer than 259. A geographic feature file keeps its name on every system instead of a hash under a long Windows path. Nothing changes on Linux or macOS, and no value of a run changes."

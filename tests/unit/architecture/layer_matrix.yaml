@@ -61,7 +61,6 @@ transitional:
         - hydromodpy/cli/commands/calibrate.py
         - hydromodpy/cli/commands/example/add.py
         - hydromodpy/cli/commands/export.py
-        - hydromodpy/cli/commands/report.py
         - hydromodpy/cli/commands/spinup.py
       reason: >-
         These commands call the verbs through the facade. They call project

@@ -20,6 +20,7 @@ import zarr
 from upath import UPath
 
 from hydromodpy.core.io.document_version import check_version
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.zarr_store.constants import (
     _SUBGROUPS,
@@ -67,21 +68,9 @@ class RetryingLocalStore(zarr.storage.LocalStore):
                 await asyncio.sleep(LOCAL_STORE_WRITE_RETRY_BASE_DELAY_SECONDS * (attempt + 1))
 
 
-def windows_long_path(path: Path) -> Path:
-    """Return a Windows extended-length path when needed by local stores."""
-    if os.name != "nt":
-        return path
-    text = str(path.resolve())
-    if text.startswith("\\\\?\\"):
-        return Path(text)
-    if text.startswith("\\\\"):
-        return Path("\\\\?\\UNC\\" + text.lstrip("\\"))
-    return Path("\\\\?\\" + text)
-
-
 def local_store_path_arg(path: Path) -> str:
     """Format a local-store path argument for :class:`zarr.storage.LocalStore`."""
-    return str(windows_long_path(path)) if os.name == "nt" else str(path)
+    return native_io_path(path) if os.name == "nt" else str(path)
 
 
 def local_store(path: Path, *, read_only: bool = False) -> RetryingLocalStore:
@@ -95,7 +84,7 @@ def ensure_local_zarr_node_dir(store_path: Path, zarr_path: str | None = None) -
         target = store_path.joinpath(*zarr_path.split("/"))
     else:
         target = store_path
-    windows_long_path(target).mkdir(parents=True, exist_ok=True)
+    Path(native_io_path(target) if os.name == "nt" else target).mkdir(parents=True, exist_ok=True)
 
 
 def child_zarr_path(target: zarr.Group, name: str) -> str:
@@ -200,5 +189,4 @@ __all__ = [
     "local_store_path_arg",
     "open_root_strict",
     "update_attrs",
-    "windows_long_path",
 ]

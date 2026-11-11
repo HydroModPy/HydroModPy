@@ -62,7 +62,6 @@ import os
 import re
 import shlex
 import shutil
-import socket
 import sys
 import uuid
 from collections.abc import Sequence
@@ -73,8 +72,8 @@ from typing import Final
 
 from hydromodpy.core.exceptions import ConfigError, JobUsageError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.host import death_is_proven
 from hydromodpy.core.state.layout import jobs_dir_for
-from hydromodpy.core.state.scratch import process_is_alive
 from hydromodpy.data.provenance.lockfile import project_lockfile_path
 from hydromodpy.project.launch.children import (
     PlannedCase,
@@ -385,7 +384,7 @@ def _dead_outcome(directory: Path) -> Outcome | None:
     outcome = readable(read_outcome, directory)
     if outcome is None or outcome.status != "running":
         return None
-    if outcome.host != socket.gethostname() or process_is_alive(outcome.pid):
+    if not death_is_proven(outcome.host, outcome.pid):
         return None
     return outcome
 

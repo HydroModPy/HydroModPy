@@ -10,21 +10,13 @@ import flopy
 import pytest
 
 from hydromodpy.core.exceptions import SolverEnvironmentError
+from hydromodpy.core.io.filesystem import WINDOWS_PATH_LIMIT
 from hydromodpy.solver.modflow6.support import windows_paths
 from hydromodpy.solver.modflow6.support.windows_paths import (
-    WINDOWS_SOLVER_PATH_LIMIT,
     check_mf6_workspace_paths,
     mf6_workspace_files,
 )
-
-
-class _WindowsOs:
-    """Stand-in for ``os`` that reads as Windows, for the guard module only."""
-
-    name = "nt"
-
-    def __getattr__(self, attr: str):
-        return getattr(os, attr)
+from tests._helpers.windows_os import WindowsOs
 
 
 def _simulation(workspace: Path) -> flopy.mf6.MFSimulation:
@@ -95,9 +87,9 @@ def test_a_path_mf6_cannot_open_is_named_with_its_length(
     tmp_path: Path,
 ) -> None:
     # Only the observation table, the longest name, ends past the limit.
-    workspace = _workspace_of_length(tmp_path, WINDOWS_SOLVER_PATH_LIMIT - 20)
+    workspace = _workspace_of_length(tmp_path, WINDOWS_PATH_LIMIT - 20)
     sim = _simulation(workspace)
-    monkeypatch.setattr(windows_paths, "os", _WindowsOs())
+    monkeypatch.setattr(windows_paths, "os", WindowsOs())
 
     with pytest.raises(SolverEnvironmentError) as caught:
         check_mf6_workspace_paths(sim)
@@ -116,16 +108,16 @@ def test_a_workspace_mf6_can_open_passes(
     tmp_path: Path,
 ) -> None:
     longest_name = len("/abc_drain_observations.csv")
-    workspace = _workspace_of_length(tmp_path, WINDOWS_SOLVER_PATH_LIMIT - longest_name)
+    workspace = _workspace_of_length(tmp_path, WINDOWS_PATH_LIMIT - longest_name)
     sim = _simulation(workspace)
-    monkeypatch.setattr(windows_paths, "os", _WindowsOs())
+    monkeypatch.setattr(windows_paths, "os", WindowsOs())
 
     check_mf6_workspace_paths(sim)
 
-    assert max(len(path) for path in mf6_workspace_files(sim)) == WINDOWS_SOLVER_PATH_LIMIT
+    assert max(len(path) for path in mf6_workspace_files(sim)) == WINDOWS_PATH_LIMIT
 
 
 def test_the_guard_does_not_run_off_windows(tmp_path: Path) -> None:
-    workspace = _workspace_of_length(tmp_path, WINDOWS_SOLVER_PATH_LIMIT + 40)
+    workspace = _workspace_of_length(tmp_path, WINDOWS_PATH_LIMIT + 40)
 
     check_mf6_workspace_paths(_simulation(workspace))

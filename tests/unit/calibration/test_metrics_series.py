@@ -36,7 +36,7 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.forcing.soil_forcing import compute_soil_forcings
-from hydromodpy.results.derive.catchment_aggregation import _add_runoff_to_discharge_series
+from hydromodpy.results.derive.catchment_aggregation import with_runoff
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
 from hydromodpy.workflow.steps.prepare_solver.forcings import watershed_mean_series
 from tests.unit.calibration._factories_scoring import (
@@ -147,12 +147,6 @@ def _stored_run(runoff: LoadResult):
     return store, grp
 
 
-@pytest.fixture()
-def _fresh_warnings(monkeypatch):
-    monkeypatch.setattr(series_module, "_RUNOFF_WARNING_EMITTED", set())
-
-
-@pytest.mark.usefixtures("_fresh_warnings")
 def test_a_gridded_runoff_is_added_as_its_watershed_mean() -> None:
     baseflow = pd.Series(0.0, index=_SIM_INDEX, name="discharge")
 
@@ -161,7 +155,6 @@ def test_a_gridded_runoff_is_added_as_its_watershed_mean() -> None:
     assert scored.tolist() == pytest.approx([3.5, 6.5, 10.5])
 
 
-@pytest.mark.usefixtures("_fresh_warnings")
 def test_a_gridded_runoff_is_scored_as_the_run_reports_it(caplog) -> None:
     runoff = _gridded_runoff()
     baseflow = pd.Series([0.4, 0.7, 1.1], index=_SIM_INDEX, name="discharge")
@@ -169,14 +162,13 @@ def test_a_gridded_runoff_is_scored_as_the_run_reports_it(caplog) -> None:
 
     with caplog.at_level(logging.WARNING, logger=series_module.__name__):
         scored = add_runoff_to_discharge(baseflow, _context(runoff))
-    reported = _add_runoff_to_discharge_series(baseflow, "sim-0", store=store, grp=grp)
+    reported = with_runoff(baseflow, "sim-0", store=store, grp=grp)
 
     assert scored.tolist() == pytest.approx(reported.tolist())
     assert scored.tolist() == pytest.approx([3.9, 7.2, 11.6])
     assert not [r for r in caplog.records if "no runoff" in r.getMessage()]
 
 
-@pytest.mark.usefixtures("_fresh_warnings")
 def test_a_gauge_scales_the_gridded_runoff_by_the_area_it_drains() -> None:
     baseflow = pd.Series(0.0, index=_SIM_INDEX, name="discharge")
 
@@ -187,7 +179,6 @@ def test_a_gauge_scales_the_gridded_runoff_by_the_area_it_drains() -> None:
     assert scored.tolist() == pytest.approx([1.75, 3.25, 5.25])
 
 
-@pytest.mark.usefixtures("_fresh_warnings")
 def test_a_runoff_day_without_a_valid_pixel_is_refused_by_name() -> None:
     runoff = _gridded_runoff()
     runoff.fields[0].data["runoff"][5] = np.nan
@@ -197,7 +188,6 @@ def test_a_runoff_day_without_a_valid_pixel_is_refused_by_name() -> None:
         add_runoff_to_discharge(baseflow, _context(runoff))
 
 
-@pytest.mark.usefixtures("_fresh_warnings")
 def test_no_runoff_at_all_still_says_so(caplog) -> None:
     baseflow = pd.Series([0.4, 0.7, 1.1], index=_SIM_INDEX, name="discharge")
 
@@ -236,7 +226,6 @@ def _runoff_ending_before_the_last_period() -> LoadResult:
     return LoadResult(fields=[record])
 
 
-@pytest.mark.usefixtures("_fresh_warnings")
 def test_a_period_without_runoff_is_a_gap_in_the_scored_discharge() -> None:
     baseflow = pd.Series([0.4, 0.7, 1.1], index=_SIM_INDEX, name="discharge")
 
@@ -246,8 +235,7 @@ def test_a_period_without_runoff_is_a_gap_in_the_scored_discharge() -> None:
     assert np.isnan(scored.iloc[2])
 
 
-@pytest.mark.usefixtures("_fresh_warnings")
-def test_the_periods_that_lost_their_runoff_are_counted_once(caplog) -> None:
+def test_the_periods_that_lost_their_runoff_are_counted_at_each_call(caplog) -> None:
     baseflow = pd.Series([0.4, 0.7, 1.1], index=_SIM_INDEX, name="discharge")
     context = _context(_runoff_ending_before_the_last_period())
 
@@ -256,8 +244,8 @@ def test_the_periods_that_lost_their_runoff_are_counted_once(caplog) -> None:
         add_runoff_to_discharge(baseflow, context)
 
     messages = [r.getMessage() for r in caplog.records if "no runoff" in r.getMessage()]
-    assert len(messages) == 1
-    assert "1 of 3" in messages[0]
+    assert len(messages) == 2
+    assert all("1 of 3" in message for message in messages)
 
 
 # From test_runoff_period_alignment.py
@@ -372,7 +360,7 @@ def test_a_steady_period_followed_by_short_ones_is_averaged_on_both_paths() -> N
     store, grp = _derived_paths_inputs(runoff)
 
     scored = add_runoff_to_discharge(baseflow, _calibration_context(runoff))
-    reported = _add_runoff_to_discharge_series(baseflow, "sim-0", store=store, grp=grp)
+    reported = with_runoff(baseflow, "sim-0", store=store, grp=grp)
 
     assert scored.tolist() == pytest.approx(reported.tolist())
     # The first period reaches back over the 2 mm/day block and the 5 mm/day
@@ -399,7 +387,7 @@ def _both_writings(runoff, index, start, area_m2):
         ctx.setup.time_grid = SimpleNamespace(boundaries=(start, index[-1]))
     scored = add_runoff_to_discharge(baseflow, ctx, area_m2=area_m2)
     # A nested gauge is a trial's business: the run reports the whole catchment.
-    reported = _add_runoff_to_discharge_series(baseflow, "sim-0", store=store, grp=grp, start=start)
+    reported = with_runoff(baseflow, "sim-0", store=store, grp=grp, start=start)
     return scored, reported
 
 
@@ -497,12 +485,6 @@ def _context__calibration_discharge(
     )
 
 
-@pytest.fixture()
-def _fresh_warnings__calibration_discharge(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(series_module, "_RUNOFF_WARNING_EMITTED", set())
-
-
-@pytest.mark.usefixtures("_fresh_warnings__calibration_discharge")
 def test_the_soil_runoff_is_added_instead_of_the_loaded_one() -> None:
     baseflow = pd.Series(0.0, index=_SIM_INDEX, name="discharge")
     ctx = _context__calibration_discharge(
@@ -514,7 +496,6 @@ def test_the_soil_runoff_is_added_instead_of_the_loaded_one() -> None:
     assert scored.tolist() == pytest.approx([1.0, 1.0, 1.0])
 
 
-@pytest.mark.usefixtures("_fresh_warnings__calibration_discharge")
 def test_no_add_runoff_warning_fires_in_soil_mode(caplog: pytest.LogCaptureFixture) -> None:
     baseflow = pd.Series([0.4, 0.7, 1.1], index=_SIM_INDEX, name="discharge")
     ctx = _context__calibration_discharge(
@@ -527,7 +508,6 @@ def test_no_add_runoff_warning_fires_in_soil_mode(caplog: pytest.LogCaptureFixtu
     assert not [r for r in caplog.records if "runoff" in r.getMessage().lower()]
 
 
-@pytest.mark.usefixtures("_fresh_warnings__calibration_discharge")
 def test_without_soil_forcings_the_loaded_runoff_is_used_as_before() -> None:
     baseflow = pd.Series(0.0, index=_SIM_INDEX, name="discharge")
     ctx = _context__calibration_discharge(

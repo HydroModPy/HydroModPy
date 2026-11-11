@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.project.environment import Environment
-    from hydromodpy.project.launch.sites.expansion import PlanDraft
+    from hydromodpy.project.launch.plan import PlanDraft
     from hydromodpy.project.request import RunOutcome, RunRequest
     from hydromodpy.results.exporters.export_spec import ExportRequest
     from hydromodpy.results.publication import PublishedLine
@@ -756,7 +756,7 @@ def draft_of_a_file_or_config(
     from hydromodpy.core.state.result_dirs import resolve_project_root
     from hydromodpy.core.toml_io.paths import assign, parse
     from hydromodpy.project import Project
-    from hydromodpy.project.launch.sites.expansion import expand_plan, single_case_draft
+    from hydromodpy.project.launch.plan import expand_plan, single_case_draft
     from hydromodpy.workflow.dispatch import load_raw_toml
 
     path = Path(source) if isinstance(source, (str, Path)) else None

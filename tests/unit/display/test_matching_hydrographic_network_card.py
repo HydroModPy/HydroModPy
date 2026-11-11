@@ -23,6 +23,7 @@ from hydromodpy.results.run import Run
 from hydromodpy.results.session.descriptor import ParameterBound
 from hydromodpy.results.session.journal import append_trial
 from hydromodpy.results.session.phase import PhaseDescriptor, write_phase
+from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.contract import (
     RUN_RESOLVED_CONFIG_FILENAME,
     SESSION_CONFIG_FILENAME,
@@ -30,6 +31,7 @@ from hydromodpy.results.storage.contract import (
 from tests._helpers.sealed_runs import make_project, seal_run, sealed_search, write_session_dir
 from tests._helpers.session_documents import trial_line
 
+from ._calibration_journal import journal_session
 from ._render_helpers import labelled_patch, rgba
 
 # The one-page card of a two-stage downslope-distance calibration.
@@ -45,7 +47,7 @@ OUTPUT = "net"
 SESSION_ID = "s-cal"
 
 
-ROOT_PHASE = "root search"
+ROOT_PHASE = "root_search"
 
 
 STORAGE_PHASE = "storage"
@@ -151,7 +153,7 @@ def _root_rows(
         else:
             components[f"{OUTPUT}.J_signed"] = residual
         row = {
-            "trial": index,
+            "trial": index + 1,
             "parameters": {"K_over_R": {"value": value}},
             "components": components,
             "cost": abs(residual) if residual is not None else None,
@@ -169,11 +171,12 @@ def _storage_rows(
     objectives: list[float] | None = None,
     session_id: str = SESSION_ID,
     phase: str = STORAGE_PHASE,
+    first: int = 5,
 ) -> list[dict]:
     """Stage two: the storage parameter against the objective of its phase."""
     return [
         {
-            "trial": index,
+            "trial": first + index,
             "session_id": session_id,
             "phase": phase,
             "parameters": {"specific_yield": {"value": value}},
@@ -187,47 +190,46 @@ def _storage_rows(
     ]
 
 
-def _sessions(*, staged: bool = True) -> pd.DataFrame:
-    rows = [
-        {
-            "session_id": SESSION_ID,
-            "phase_name": ROOT_PHASE,
-            "phase_index": 0,
-            "cost_name": "distance_gap",
-            "best_trial": 3,
-            "best_cost": 40.0,
-        }
-    ]
+def _sessions(*, staged: bool = True) -> list[dict]:
+    """The phases of the chain, in rank order, with the trial each one holds as its best."""
+    phases = [{"phase_name": ROOT_PHASE, "best_trial": 4}]
     if staged:
-        rows.append(
-            {
-                "session_id": SESSION_ID,
-                "phase_name": STORAGE_PHASE,
-                "phase_index": 1,
-                "cost_name": "nse",
-                "best_trial": 1,
-                "best_cost": 0.11,
-            }
-        )
-    return pd.DataFrame(rows)
+        phases.append({"phase_name": STORAGE_PHASE, "best_trial": 6})
+    return phases
 
 
-def _run(rows: list[dict], sessions: pd.DataFrame | None, name: str = "cheze") -> SimpleNamespace:
-    return SimpleNamespace(
-        sim_id="sim-cheze",
+def _run(
+    project: Path,
+    rows: list[dict],
+    sessions: list[dict] | None,
+    name: str = "cheze",
+    *,
+    best_trial: int | None = None,
+    **kwargs,
+) -> Session:
+    """Write the session a staged calibration writes: its trials, phases and best trials."""
+    first = (sessions or [{"phase_name": ROOT_PHASE}])[0]["phase_name"]
+    rows = [{"phase": first, **row} for row in rows]
+    return journal_session(
+        project / uuid.uuid4().hex,
+        rows,
         name=name,
-        calibration_iterations=pd.DataFrame(rows),
-        calibration_sessions=sessions,
-        has_table=lambda table: table == "calibration_iterations",
+        phases=None if sessions is None else [row["phase_name"] for row in sessions],
+        phase_best={
+            row["phase_name"]: row["best_trial"] for row in sessions or () if "best_trial" in row
+        },
+        named_phases=sessions is not None,
+        best_trial=best_trial,
+        **kwargs,
     )
 
 
-def _staged_run(**kwargs) -> SimpleNamespace:
-    return _run(_root_rows(**kwargs) + _storage_rows(), _sessions())
+def _staged_run(project: Path, **kwargs) -> Session:
+    return _run(project, _root_rows(**kwargs) + _storage_rows(), _sessions())
 
 
-def _single_phase_run(**kwargs) -> SimpleNamespace:
-    return _run(_root_rows(**kwargs), _sessions(staged=False))
+def _single_phase_run(project: Path, **kwargs) -> Session:
+    return _run(project, _root_rows(**kwargs), _sessions(staged=False))
 
 
 # --------------------------------------------------------------------------- #
@@ -256,8 +258,8 @@ def _line(ax, prefix: str):
 # --------------------------------------------------------------------------- #
 
 
-def test_the_card_lays_out_the_four_panels_of_the_method(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
+def test_the_card_lays_out_the_four_panels_of_the_method(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
 
     try:
         titles = [str(ax.get_title()) for ax in fig.axes]
@@ -276,14 +278,14 @@ def test_the_card_lays_out_the_four_panels_of_the_method(mpl) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_stage_one_reports_the_value_it_closed_on_and_the_bracket(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
+def test_stage_one_reports_the_value_it_closed_on_and_the_bracket(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
 
     try:
         ax = _panel(fig, "Stage 1")
         assert ax.get_xscale() == "log"
         assert ax.get_xlabel() == "K_over_R (-)"
-        assert "root search" in ax.get_title()
+        assert "root_search" in ax.get_title()
 
         marker = _line(ax, "K_over_R =")
         assert marker.get_xdata()[0] == pytest.approx(CLOSED_VALUE)
@@ -299,8 +301,8 @@ def test_stage_one_reports_the_value_it_closed_on_and_the_bracket(mpl) -> None:
         mpl.close(fig)
 
 
-def test_stage_one_keeps_every_evaluation_it_walked(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
+def test_stage_one_keeps_every_evaluation_it_walked(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
 
     try:
         ax = _panel(fig, "Stage 1")
@@ -310,8 +312,8 @@ def test_stage_one_keeps_every_evaluation_it_walked(mpl) -> None:
         mpl.close(fig)
 
 
-def test_stage_one_says_so_when_no_sign_change_was_sampled(mpl) -> None:
-    run = _staged_run(residuals=[300.0, 120.0, 80.0, 40.0])
+def test_stage_one_says_so_when_no_sign_change_was_sampled(mpl, tmp_path) -> None:
+    run = _staged_run(tmp_path, residuals=[300.0, 120.0, 80.0, 40.0])
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
@@ -324,10 +326,10 @@ def test_stage_one_says_so_when_no_sign_change_was_sampled(mpl) -> None:
         mpl.close(fig)
 
 
-def test_a_point_with_no_root_reports_no_calibrated_diagnostics(mpl) -> None:
+def test_a_point_with_no_root_reports_no_calibrated_diagnostics(mpl, tmp_path) -> None:
     # Reading the least-bad point as the answer would be a minimized mean
     # distance in disguise, so its r_optim and its counts are not the card's.
-    run = _staged_run(residuals=[300.0, 120.0, 80.0, 40.0])
+    run = _staged_run(tmp_path, residuals=[300.0, 120.0, 80.0, 40.0])
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
@@ -339,8 +341,8 @@ def test_a_point_with_no_root_reports_no_calibrated_diagnostics(mpl) -> None:
         mpl.close(fig)
 
 
-def test_stage_one_refuses_a_non_positive_ratio(mpl) -> None:
-    run = _staged_run(values=[0.0, 1e-3, 1e-4, 3.2e-5])
+def test_stage_one_refuses_a_non_positive_ratio(mpl, tmp_path) -> None:
+    run = _staged_run(tmp_path, values=[0.0, 1e-3, 1e-4, 3.2e-5])
 
     with pytest.raises(ValueError, match="non-positive"):
         MatchingHydrographicNetworkCard().plot(run)
@@ -351,8 +353,8 @@ def test_stage_one_refuses_a_non_positive_ratio(mpl) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_stage_two_reports_the_storage_value_and_its_metric(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
+def test_stage_two_reports_the_storage_value_and_its_metric(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
 
     try:
         ax = _panel(fig, "Stage 2")
@@ -369,8 +371,8 @@ def test_stage_two_reports_the_storage_value_and_its_metric(mpl) -> None:
         mpl.close(fig)
 
 
-def test_a_single_phase_session_still_draws_with_stage_two_marked_not_run(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_single_phase_run())
+def test_a_single_phase_session_still_draws_with_stage_two_marked_not_run(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_single_phase_run(tmp_path))
 
     try:
         assert len(fig.axes) == 4
@@ -386,8 +388,8 @@ def test_a_single_phase_session_still_draws_with_stage_two_marked_not_run(mpl) -
         mpl.close(fig)
 
 
-def test_a_failed_storage_trial_is_counted_and_never_drawn_as_zero(mpl) -> None:
-    run = _run(_root_rows() + _storage_rows(objectives=[0.42, 0.11, None]), _sessions())
+def test_a_failed_storage_trial_is_counted_and_never_drawn_as_zero(mpl, tmp_path) -> None:
+    run = _run(tmp_path, _root_rows() + _storage_rows(objectives=[0.42, 0.11, None]), _sessions())
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
@@ -406,8 +408,8 @@ def test_a_failed_storage_trial_is_counted_and_never_drawn_as_zero(mpl) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_the_validity_panel_shows_doptim_against_the_trial_validity_length(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
+def test_the_validity_panel_shows_doptim_against_the_trial_validity_length(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
 
     try:
         ax = _panel(fig, "Validity")
@@ -426,8 +428,9 @@ def test_the_validity_panel_shows_doptim_against_the_trial_validity_length(mpl) 
         mpl.close(fig)
 
 
-def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl) -> None:
+def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl, tmp_path) -> None:
     run = _staged_run(
+        tmp_path,
         diagnostics={
             **PUBLISHED,
             "D_optim": 2360.0,
@@ -436,7 +439,7 @@ def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl) -> None:
             "n_valid": 4.0,
             "n_excess": 210.0,
             "n_missing": 190.0,
-        }
+        },
     )
 
     fig = MatchingHydrographicNetworkCard().plot(run)
@@ -457,18 +460,19 @@ def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl) -> None:
         mpl.close(fig)
 
 
-def test_a_widened_validity_length_is_the_bound_not_two_cells(mpl) -> None:
+def test_a_widened_validity_length_is_the_bound_not_two_cells(mpl, tmp_path) -> None:
     # r_optim = 2.4 breaks the paper's r_optim <= 2, but a declared positional
     # accuracy of 400 m widened the trial's bound to 800 m: the trial is valid,
     # and the card says so with the run's own verdict.
     run = _staged_run(
+        tmp_path,
         diagnostics={
             **PUBLISHED,
             "D_optim": 600.0,
             "r_optim": 2.4,
             "validity_length_m": 800.0,
             "validity_length_provenance": 2.0,
-        }
+        },
     )
 
     fig = MatchingHydrographicNetworkCard().plot(run)
@@ -485,8 +489,9 @@ def test_a_widened_validity_length_is_the_bound_not_two_cells(mpl) -> None:
         mpl.close(fig)
 
 
-def test_an_unpublished_doptim_is_drawn_as_absent_never_as_zero(mpl) -> None:
+def test_an_unpublished_doptim_is_drawn_as_absent_never_as_zero(mpl, tmp_path) -> None:
     run = _staged_run(
+        tmp_path,
         diagnostics={"n_valid": 120.0, "n_excess": 30.0, "n_missing": 18.0},
     )
 
@@ -500,10 +505,10 @@ def test_an_unpublished_doptim_is_drawn_as_absent_never_as_zero(mpl) -> None:
         mpl.close(fig)
 
 
-def test_an_unpublished_validity_length_is_never_replaced_by_two_cells(mpl) -> None:
+def test_an_unpublished_validity_length_is_never_replaced_by_two_cells(mpl, tmp_path) -> None:
     published = {key: value for key, value in PUBLISHED.items() if key != "validity_length_m"}
 
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(diagnostics=published))
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path, diagnostics=published))
 
     try:
         ax = _panel(fig, "Validity")
@@ -518,8 +523,8 @@ def test_an_unpublished_validity_length_is_never_replaced_by_two_cells(mpl) -> N
 # --------------------------------------------------------------------------- #
 
 
-def test_the_three_counts_are_drawn_apart_so_they_cannot_cancel(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
+def test_the_three_counts_are_drawn_apart_so_they_cannot_cancel(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
 
     try:
         ax = _panel(fig, "Cells at the calibrated point")
@@ -537,8 +542,9 @@ def test_the_three_counts_are_drawn_apart_so_they_cannot_cancel(mpl) -> None:
         mpl.close(fig)
 
 
-def test_an_absent_count_is_named_absent_and_gets_no_bar(mpl) -> None:
+def test_an_absent_count_is_named_absent_and_gets_no_bar(mpl, tmp_path) -> None:
     run = _staged_run(
+        tmp_path,
         diagnostics={"r_optim": 0.87, "r_optim_valid": 1.0, "n_valid": 120.0, "n_missing": 18.0},
     )
 
@@ -565,8 +571,8 @@ def test_the_three_classes_stay_apart_in_greyscale() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_the_mean_recharge_is_carried_on_the_card(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(), mean_recharge=3.2e-8)
+def test_the_mean_recharge_is_carried_on_the_card(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path), mean_recharge=3.2e-8)
 
     try:
         note = _texts(_panel(fig, "Stage 1"))
@@ -576,13 +582,13 @@ def test_the_mean_recharge_is_carried_on_the_card(mpl) -> None:
         mpl.close(fig)
 
 
-def test_a_recharge_the_session_published_is_read_from_the_trials(mpl) -> None:
+def test_a_recharge_the_session_published_is_read_from_the_trials(mpl, tmp_path) -> None:
     # The trial publishes what the criterion publishes, under the name the
     # criterion gives it, prefixed by the output the way a scored output is.
     published = {**PUBLISHED, **_criterion_diagnostics(4.5e-8)}
     assert 4.5e-8 in published.values()
 
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(diagnostics=published))
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path, diagnostics=published))
 
     try:
         assert "4.5e-08" in _texts(_panel(fig, "Stage 1"))
@@ -590,8 +596,8 @@ def test_a_recharge_the_session_published_is_read_from_the_trials(mpl) -> None:
         mpl.close(fig)
 
 
-def test_an_undeclared_recharge_says_the_ratio_is_not_a_conductivity(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run())
+def test_an_undeclared_recharge_says_the_ratio_is_not_a_conductivity(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
 
     try:
         note = _texts(_panel(fig, "Stage 1"))
@@ -605,22 +611,22 @@ def test_an_undeclared_recharge_says_the_ratio_is_not_a_conductivity(mpl) -> Non
 # --------------------------------------------------------------------------- #
 
 
-def test_the_phases_are_ordered_by_the_chain_not_by_the_table(mpl) -> None:
+def test_the_phases_are_ordered_by_the_chain_not_by_the_table(mpl, tmp_path) -> None:
     # The storage trials come first in the table; the chain still puts the
     # root search on stage one.
-    run = _run(_storage_rows() + _root_rows(), _sessions())
+    run = _run(tmp_path, _storage_rows() + _root_rows(), _sessions())
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
-        assert "root search" in _panel(fig, "Stage 1").get_title()
+        assert "root_search" in _panel(fig, "Stage 1").get_title()
         assert "storage" in _panel(fig, "Stage 2").get_title()
     finally:
         mpl.close(fig)
 
 
-def test_a_run_without_a_session_table_reads_its_trials_as_one_phase(mpl) -> None:
-    run = _run(_root_rows(session_id=None), None)
+def test_a_run_without_a_session_table_reads_its_trials_as_one_phase(mpl, tmp_path) -> None:
+    run = _run(tmp_path, _root_rows(session_id=None), None)
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
@@ -633,13 +639,12 @@ def test_a_run_without_a_session_table_reads_its_trials_as_one_phase(mpl) -> Non
         mpl.close(fig)
 
 
-def test_a_chain_longer_than_two_phases_says_which_one_is_drawn(mpl) -> None:
-    sessions = _sessions()
-    third = sessions.iloc[1].to_dict()
-    third.update({"phase_index": 2, "phase_name": "polish"})
+def test_a_chain_longer_than_two_phases_says_which_one_is_drawn(mpl, tmp_path) -> None:
+    sessions = [*_sessions(), {"phase_name": "polish", "best_trial": 9}]
     run = _run(
-        _root_rows() + _storage_rows() + _storage_rows(phase="polish"),
-        pd.concat([sessions, pd.DataFrame([third])], ignore_index=True),
+        tmp_path,
+        _root_rows() + _storage_rows() + _storage_rows(phase="polish", first=8),
+        sessions,
     )
 
     fig = MatchingHydrographicNetworkCard().plot(run)
@@ -650,41 +655,19 @@ def test_a_chain_longer_than_two_phases_says_which_one_is_drawn(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_card_reads_the_json_blocks_the_index_hands_back(mpl) -> None:
-    run = _staged_run()
-    frame = run.calibration_iterations
-    frame["parameters"] = [json.dumps(block) for block in frame["parameters"]]
-    frame["components"] = [json.dumps(block) for block in frame["components"]]
-
-    fig = MatchingHydrographicNetworkCard().plot(run)
-
-    try:
-        assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(
-            CLOSED_VALUE
-        )
-        assert labelled_patch(_panel(fig, "Validity"), "D_optim").get_width() == pytest.approx(
-            217.5
-        )
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # the gallery
 # --------------------------------------------------------------------------- #
 
 
-def test_a_run_that_never_calibrated_is_skipped_with_its_reason() -> None:
-    barren = SimpleNamespace(
-        sim_id="sim-plain",
-        name="plain",
-        has_table=lambda table: False,
-    )
+def test_a_session_that_journaled_no_trial_is_skipped_with_its_reason(tmp_path) -> None:
+    barren = journal_session(tmp_path, [], name="plain")
 
     reason = MatchingHydrographicNetworkCard().unavailable_reason(barren)
 
     assert reason is not None
-    assert "calibration_iterations" in reason
+    assert "no trial recorded" in reason
+    assert MatchingHydrographicNetworkCard.spec.subject == "session"
 
 
 # --------------------------------------------------------------------------- #
@@ -704,7 +687,8 @@ TWO_RESIDUALS = {
 }
 
 
-COMBINED_TRIAL = 5
+COMBINED_INDEX = 5
+COMBINED_TRIAL = COMBINED_INDEX + 1
 
 
 AT_THE_RETURNED_TRIAL = {
@@ -738,7 +722,7 @@ ROOTS = {
     "parameter": "K_over_R",
     "minimal": {
         "k_star": 3.2e-5,
-        "trial_id": 3,
+        "trial_id": 4,
         "residual": 30.0,
         "weight": 0.5,
         "low": 3.2e-5,
@@ -747,7 +731,7 @@ ROOTS = {
     },
     "maximal": {
         "k_star": 3.2e-4,
-        "trial_id": 4,
+        "trial_id": 5,
         "residual": 20.0,
         "weight": 0.5,
         "low": 3.2e-4,
@@ -772,11 +756,11 @@ def _two_bound_rows(*, weights: tuple[float, float] = (0.5, 0.5)) -> list[dict]:
             components[f"{OUTPUT}.J_signed_{bound}"] = TWO_RESIDUALS[bound][index]
             components[f"{OUTPUT}.weight_{bound}"] = weight
             for key, number in AT_THE_RETURNED_TRIAL[bound].items():
-                published = number if index == COMBINED_TRIAL else 999.0
+                published = number if index == COMBINED_INDEX else 999.0
                 components[f"{OUTPUT}.{key}_{bound}"] = published
         rows.append(
             {
-                "trial": index,
+                "trial": index + 1,
                 "session_id": SESSION_ID,
                 "parameters": {"K_over_R": {"value": value}},
                 "components": components,
@@ -787,14 +771,13 @@ def _two_bound_rows(*, weights: tuple[float, float] = (0.5, 0.5)) -> list[dict]:
     return rows
 
 
-def _two_bound_run(*, best_trial: int | None = COMBINED_TRIAL, **kwargs) -> SimpleNamespace:
-    sessions = _sessions(staged=False)
-    sessions.loc[0, "best_trial"] = best_trial
-    return _run(_two_bound_rows(**kwargs), sessions)
+def _two_bound_run(project: Path, *, best_trial: int | None = COMBINED_TRIAL, **kwargs) -> Session:
+    sessions = [{"phase_name": ROOT_PHASE, "best_trial": best_trial}]
+    return _run(project, _two_bound_rows(**kwargs), sessions, best_trial=best_trial)
 
 
-def test_two_bounds_draw_one_bracket_per_bound_from_the_trials(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run())
+def test_two_bounds_draw_one_bracket_per_bound_from_the_trials(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path))
 
     try:
         ax = _panel(fig, "Stage 1")
@@ -815,8 +798,10 @@ def test_two_bounds_draw_one_bracket_per_bound_from_the_trials(mpl) -> None:
         mpl.close(fig)
 
 
-def test_two_bounds_write_the_roots_delta_and_the_combined_value_of_the_report(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(), roots=ROOTS)
+def test_two_bounds_write_the_roots_delta_and_the_combined_value_of_the_report(
+    mpl, tmp_path
+) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path), roots=ROOTS)
 
     try:
         ax = _panel(fig, "Stage 1")
@@ -831,10 +816,10 @@ def test_two_bounds_write_the_roots_delta_and_the_combined_value_of_the_report(m
         mpl.close(fig)
 
 
-def test_an_unsolved_combined_value_is_said_not_drawn(mpl) -> None:
+def test_an_unsolved_combined_value_is_said_not_drawn(mpl, tmp_path) -> None:
     roots = {**ROOTS, "value": None, "combined_trial_id": None, "closed": False}
 
-    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(), roots=roots)
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path), roots=roots)
 
     try:
         ax = _panel(fig, "Stage 1")
@@ -848,8 +833,8 @@ def test_an_unsolved_combined_value_is_said_not_drawn(mpl) -> None:
         mpl.close(fig)
 
 
-def test_two_bounds_qualify_each_bound_at_the_returned_trial(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run())
+def test_two_bounds_qualify_each_bound_at_the_returned_trial(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path))
 
     try:
         ax = _panel(fig, "Validity")
@@ -873,8 +858,8 @@ def test_two_bounds_qualify_each_bound_at_the_returned_trial(mpl) -> None:
         mpl.close(fig)
 
 
-def test_two_bounds_split_the_cells_of_each_bound_side_by_side(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run())
+def test_two_bounds_split_the_cells_of_each_bound_side_by_side(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path))
 
     try:
         ax = _panel(fig, "Cells at the calibrated point")
@@ -901,8 +886,10 @@ def test_two_bounds_split_the_cells_of_each_bound_side_by_side(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_combined_trial_of_the_report_wins_over_the_session_best(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(best_trial=0), roots=ROOTS)
+def test_the_combined_trial_of_the_report_wins_over_the_session_best(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(
+        _two_bound_run(tmp_path, best_trial=1), roots=ROOTS
+    )
 
     try:
         validity = _panel(fig, "Validity")
@@ -917,9 +904,7 @@ def test_a_run_drawn_on_its_own_reads_the_roots_and_the_returned_trial_from_the_
     # The auto-render of [display].figures passes no roots record, and the
     # index keeps no best trial: the card read "roots record not passed" and
     # left both lower panels empty. The session journal holds both.
-    from ._calibration_journal import journal_run
-
-    run = journal_run(
+    run = journal_session(
         tmp_path,
         _two_bound_rows(),
         method="bisection",
@@ -960,9 +945,7 @@ def test_a_run_drawn_on_its_own_reads_the_roots_and_the_returned_trial_from_the_
 def test_the_axis_unit_is_read_from_the_journal_bounds_first(
     mpl, tmp_path, config, bound_units, expected
 ) -> None:
-    from ._calibration_journal import journal_run
-
-    run = journal_run(
+    run = journal_session(
         tmp_path,
         _two_bound_rows(),
         method="bisection",
@@ -985,8 +968,8 @@ def test_the_axis_unit_is_read_from_the_journal_bounds_first(
         mpl.close(fig)
 
 
-def test_two_bounds_without_a_returned_trial_qualify_nothing(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(best_trial=None))
+def test_two_bounds_without_a_returned_trial_qualify_nothing(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path, best_trial=None))
 
     try:
         for title in ("Validity", "Cells at the calibrated point"):
@@ -999,8 +982,8 @@ def test_two_bounds_without_a_returned_trial_qualify_nothing(mpl) -> None:
         mpl.close(fig)
 
 
-def test_a_bound_weighted_zero_is_drawn_outside_the_verdict(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(weights=(0.0, 1.0)))
+def test_a_bound_weighted_zero_is_drawn_outside_the_verdict(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path, weights=(0.0, 1.0)))
 
     try:
         note = _texts(_panel(fig, "Validity"))
@@ -1038,8 +1021,10 @@ def _with_validation() -> dict[str, float]:
     }
 
 
-def test_a_validation_map_is_drawn_beside_the_scored_map(mpl) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(diagnostics=_with_validation()))
+def test_a_validation_map_is_drawn_beside_the_scored_map(mpl, tmp_path) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(
+        _staged_run(tmp_path, diagnostics=_with_validation())
+    )
 
     try:
         # One bound in the cost: the root search reads as it always did.
@@ -1064,13 +1049,13 @@ def test_a_validation_map_is_drawn_beside_the_scored_map(mpl) -> None:
         mpl.close(fig)
 
 
-def test_a_permanent_validation_is_drawn_beside_the_complete_map_in_the_cost(mpl) -> None:
+def test_a_permanent_validation_is_drawn_beside_the_complete_map_in_the_cost(mpl, tmp_path) -> None:
     diagnostics = {
         **PUBLISHED,
         **{f"{key}_maximal": value for key, value in PUBLISHED.items()},
         **{f"{key}_minimal_validation": value for key, value in VALIDATION.items()},
     }
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(diagnostics=diagnostics))
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path, diagnostics=diagnostics))
 
     try:
         ax = _panel(fig, "Validity")
@@ -1086,12 +1071,12 @@ def test_a_permanent_validation_is_drawn_beside_the_complete_map_in_the_cost(mpl
         mpl.close(fig)
 
 
-def test_one_map_with_its_bound_suffix_reads_as_one_map(mpl) -> None:
+def test_one_map_with_its_bound_suffix_reads_as_one_map(mpl, tmp_path) -> None:
     # A one-state output on the maximal map alone publishes its set twice,
     # unsuffixed and _maximal: that is one map, not two.
     published = {**PUBLISHED, **{f"{key}_maximal": value for key, value in PUBLISHED.items()}}
 
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(diagnostics=published))
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path, diagnostics=published))
 
     try:
         ax = _panel(fig, "Validity")
@@ -1269,7 +1254,7 @@ def test_the_run_of_the_second_phase_draws_the_first_one(chain, mpl) -> None:
     )
     catalog, run = _open(project, storage_run)
 
-    fig = MatchingHydrographicNetworkCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(Session.of_run(run), promoted=run)
 
     try:
         stage_one = _panel(fig, "Stage 1")
@@ -1290,7 +1275,7 @@ def test_the_run_of_the_first_phase_says_the_second_comes_next(chain, mpl) -> No
     project, steady_run = chain
     catalog, run = _open(project, steady_run)
 
-    fig = MatchingHydrographicNetworkCard().plot(run)
+    fig = MatchingHydrographicNetworkCard().plot(Session.of_run(run), promoted=run)
 
     try:
         assert _panel(fig, "Stage 1").get_title() == "Stage 1 - steady_conductivity"

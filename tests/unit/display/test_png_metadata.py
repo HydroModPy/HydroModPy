@@ -107,3 +107,71 @@ def test_png_extra_chunks_round_trip(tmp_path) -> None:
     info = read_png_metadata(out_path)
     assert info["experiment"] == "calib_2025"
     assert info["notes"] == "diagnostic"
+
+
+# --- the identity block of a figure ---
+# A figure of a sealed run is stamped after the seal: its footer reads the
+# label, the rules it follows and the day; a figure of a directory without a
+# seal reads "unlabelled". The strip under the image has one height for one
+# width, so the body above it compares pixel by pixel across two renders.
+
+
+def _labelled(label: str | None):
+    from datetime import date
+
+    from tests._helpers.run_records import make_identity
+
+    identity = make_identity()
+    if label is None:
+        return identity
+    return identity.labelled(label, label_date=date(2026, 11, 11), rule_version="1")
+
+
+@pytest.mark.parametrize(
+    ("label", "footer_tail"),
+    [
+        ("calibrated", "calibrated, rule 1, 2026-11-11"),
+        ("exploratory", "exploratory, rule 1, 2026-11-11"),
+        (None, "unlabelled"),
+    ],
+)
+def test_a_stamped_figure_carries_the_block_and_a_strip_of_one_height(
+    tmp_path, label, footer_tail
+) -> None:
+    pytest.importorskip("PIL")
+    from PIL import Image
+
+    from hydromodpy.display.png_metadata import stamp_png_identity
+    from hydromodpy.results.identity import read_identity_from
+
+    width, height = 900, 300
+    out_path = write_png_with_metadata(np.zeros((height, width)), tmp_path / "map.png")
+    identity = _labelled(label)
+
+    stamp_png_identity(out_path, identity)
+
+    assert identity.footer_text().endswith(footer_tail)
+    found = read_identity_from(out_path)
+    assert found == identity
+    assert found.label == label
+    with Image.open(out_path) as image:
+        assert image.size == (width, height + 2 * max(10, min(18, width // 90)))
+
+
+def test_stamping_again_replaces_the_block_and_keeps_one_strip(tmp_path) -> None:
+    pytest.importorskip("PIL")
+    from PIL import Image
+
+    from hydromodpy.display.png_metadata import stamp_png_identity
+    from hydromodpy.results.identity import read_identity_from
+
+    out_path = write_png_with_metadata(np.zeros((100, 400)), tmp_path / "map.png")
+    stamp_png_identity(out_path, _labelled(None))
+    with Image.open(out_path) as image:
+        first = image.size
+
+    stamp_png_identity(out_path, _labelled("evaluated"))
+
+    with Image.open(out_path) as image:
+        assert image.size == first
+    assert read_identity_from(out_path).label == "evaluated"

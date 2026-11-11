@@ -1,4 +1,12 @@
-"""Export step - write the data exports of the run, clean the scratch; the views follow the seal.
+"""Export step - clean the solver files and the scratch; the exports follow the seal.
+
+The data exports and the metadata views of the ``[[export]]`` blocks are
+written right after the seal (:func:`step_after_seal`), from the sealed run,
+as ``hmp export <run>`` writes them. Each file carries the identity block of
+the run with its label of the day, the rules it follows and the date. An
+export that fails after the seal leaves the run sealed and ``completed``, and
+raises :class:`~hydromodpy.core.exceptions.ExportError` naming
+``hmp export <run>``.
 
 Every export lands under ``runs/<run>/exports/``: the run directory holds
 everything the run produced. A copy out of the project is ``hmp publish``.
@@ -7,6 +15,8 @@ everything the run produced. A copy out of the project is ``hmp publish``.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
@@ -14,7 +24,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from hydromodpy.core.console import progress
 from hydromodpy.core.console.progress import HINT, MILESTONE
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.stopwatch import measured
 from hydromodpy.core.state.portable import display_path
@@ -38,23 +48,90 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def step_after_seal(ctx: WorkflowContext) -> list[Path]:
-    """Write the metadata views the ``[[export]]`` blocks ask for, then schedule the recap.
+@contextmanager
+def sealed_run_store(ctx: WorkflowContext) -> Iterator[RunStore]:
+    """Open the store of the sealed run of ``ctx``, as ``hmp export <run>`` opens it.
 
-    Called right after the seal of the run: a view (STAC, RO-Crate, PROV)
-    renders ``manifest.json`` and reads the directory alone. The recap is
-    read from the seal and printed once the enclosing phase has printed its
-    checkmark, as the last lines of the run. Returns the views written. The
-    views are one ``export`` line of ``profile.json``.
+    The store is opened on the run directory alone, without the persistence
+    of the pipeline: what is read after the seal is what the seal certifies.
     """
-    from hydromodpy.results.exporters.request import export_views
+    from hydromodpy.results.storage.run_store import RunStore
+
+    workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
+    store = RunStore.open(Path(ctx.run_dir), workspace=getattr(workspace, "project_root", None))
+    try:
+        yield store
+    finally:
+        store.close()
+
+
+def sealed_run_name(run_dir: Path) -> str | None:
+    """Return the name the seal gives the run; None when the directory has no seal."""
+    from hydromodpy.results.record.label import read_sealed_manifest
+    from hydromodpy.results.record.manifest import is_sealed
+
+    try:
+        manifest = read_sealed_manifest(run_dir)
+    except (OSError, ValueError):
+        return run_dir.name if is_sealed(run_dir) else None
+    return manifest.run.name if manifest is not None else None
+
+
+def step_after_seal(ctx: WorkflowContext) -> list[Path]:
+    """Write the data exports, then the metadata views, then schedule the recap.
+
+    Called right after the seal of the run. The data requests of the
+    ``[[export]]`` blocks read the sealed run, as ``hmp export <run>`` does,
+    and each file carries the identity block of the run labelled today. A run
+    at the ``research`` level writes no data export. A view (STAC, RO-Crate,
+    PROV) renders ``manifest.json`` and reads the directory alone. The recap
+    is read from the seal and printed once the enclosing phase has printed
+    its checkmark, as the last lines of the run. Returns the files written.
+    The data exports and the views are one ``export`` line each of
+    ``profile.json``.
+
+    Raises
+    ------
+    ExportError
+        When a request fails. The run stays sealed and ``completed``; the
+        message names ``hmp export <run>``, which writes the exports again.
+        Every request had its turn first, the views included.
+    """
+    from hydromodpy.results.exporters.registry import run_formats
+    from hydromodpy.results.exporters.request import export_data_requests, export_views
     from hydromodpy.workflow.runner import record_measure
 
     run_dir = Path(ctx.run_dir)
+    requests = list(ctx.cfg.export)
+    views = run_formats()
+    data_requests = [request for request in requests if request.output_format not in views]
+    written: list[Path] = []
+    failures: list[Exception] = []
+    if (
+        data_requests
+        and ctx.sim_id is not None
+        and renders(getattr(ctx, "level", None) or "result")
+    ):
+        with measured("export", "data") as measure:
+            try:
+                with sealed_run_store(ctx) as store:
+                    written.extend(export_data_requests(store, ctx.sim_id, data_requests))
+            except Exception as exc:  # noqa: BLE001 - the views still have their turn
+                failures.append(exc)
+        record_measure(run_dir, measure, attempt=ctx.attempt)
     with measured("export", "views") as measure:
-        written = export_views(run_dir, list(ctx.cfg.export))
+        try:
+            written.extend(export_views(run_dir, requests))
+        except Exception as exc:  # noqa: BLE001 - raised below with the data failure
+            failures.append(exc)
     record_measure(run_dir, measure, attempt=ctx.attempt)
     _announce_exports(written)
+    if failures:
+        name = sealed_run_name(run_dir) or run_dir.name
+        reasons = "; ".join(str(exc) for exc in failures)
+        raise ExportError(
+            f"run {name} is sealed; write the exports again with hmp export {name}: {reasons}"
+        ) from failures[0]
     lines = _run_epilogue_lines(ctx, run_dir=run_dir)
     progress.after_phase(partial(_log_run_epilogue, lines))
     return written
@@ -166,19 +243,16 @@ def step_drop_empty_scratch(ctx: WorkflowContext) -> None:
 
 
 class ExportStep:
-    """Write the data exports, drop the solver files, clean the scratch.
+    """Drop the solver files and clean the scratch, before the seal.
 
-    Composed of two concerns: the ``[[export]]`` data requests
-    (:func:`hydromodpy.results.exporters.request.export_data_requests`) and
-    scratch cleanup
-    (:func:`step_cleanup_scratch`, :func:`step_cleanup_preprocessing`). Each
-    remains addressable from notebooks via its function-based helper. The
-    seal comes next (``SealStep``), and the metadata views after it
-    (:func:`step_after_seal`): a view renders the seal.
-
-    A run at the ``research`` level writes no export: the ``[[export]]``
-    blocks are rendered only where the run draws. The scratch cleanup still
-    runs.
+    The solver outputs the retention does not keep are dropped, then the
+    scratch (:func:`step_cleanup_scratch`, :func:`step_cleanup_preprocessing`).
+    Each remains addressable from notebooks via its function-based helper.
+    The seal comes next (``SealStep``), then the data exports and the
+    metadata views (:func:`step_after_seal`), then the figures
+    (``DisplayStep``): what renders the run is written from the seal and
+    carries its label. The fields stay in ``fields.zarr`` after the cleanup,
+    so an export after the seal reads the same values.
 
     Everything the store does happens inside one scope this step opens and
     closes; the scratch is cleaned after it, when no handle is left to pin a
@@ -199,7 +273,7 @@ class ExportStep:
     config_sections: ClassVar[tuple[str, ...]] = ()
 
     def depends_on(self) -> tuple[str, ...]:
-        return ("display",)
+        return ("derive",)
 
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
@@ -209,20 +283,12 @@ class ExportStep:
         results_cfg = ctx.cfg.simulation.results
         plan = ctx.execution.simulation_plan if run_is_persisted(ctx) else None
         if plan is not None and ctx.sim_id is not None:
-            from hydromodpy.results.exporters.request import export_data_requests
             from hydromodpy.solver.base.plan import RunContext
-            from hydromodpy.workflow.runner import record_measure
             from hydromodpy.workflow.steps.extract import retention_of
             from hydromodpy.workflow.steps.run_outputs import cleanup_solver_outputs
 
             retention = retention_of(ctx, plan)
-            exported: list[Path] = []
             with run_store(ctx) as store:
-                # The data requests read the fields of the run, not its seal.
-                if renders(getattr(ctx, "level", None) or "result"):
-                    with measured("export", "data") as measure:
-                        exported = export_data_requests(store, ctx.sim_id, list(ctx.cfg.export))
-                    record_measure(ctx.run_dir, measure, attempt=ctx.attempt)
                 for run in plan.runs:
                     if not run.is_solver_backed:
                         continue
@@ -230,7 +296,6 @@ class ExportStep:
                         ctx=RunContext.of(ctx, plan=plan, run=run, store=store),
                         retention=retention,
                     )
-            _announce_exports(exported)
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
@@ -296,14 +361,16 @@ class ExportStep:
 
 
 class SealStep:
-    """Step 13 - write the seal of the run from its store; the attempt protocol closes the outcome after it.
+    """Step 12 - write the seal of the run from its store; the exports follow it.
 
     The seal is ``simulation.parquet``, ``parameters.parquet``, ``provenance.json``,
-    ``inputs.json`` and ``manifest.json`` last, then ``README.md``. The metadata
-    views the ``[[export]]`` blocks ask for render the seal, so they are written
-    right after it (:func:`step_after_seal`). The outcome is not touched here: the
-    attempt protocol around the pipeline flips ``outcome.json`` to ``completed``
-    and removes ``<run>/.hmp/`` when it finds the seal.
+    ``inputs.json`` and ``manifest.json`` last, then ``README.md``. The data
+    exports and the metadata views the ``[[export]]`` blocks ask for render the
+    sealed run, so they are written right after it (:func:`step_after_seal`),
+    and the figures after them (``DisplayStep``). The outcome is not touched
+    here: the attempt protocol around the pipeline flips ``outcome.json`` to
+    ``completed`` and removes ``<run>/.hmp/`` when it finds the seal, also
+    when an export or a figure raised after it.
     """
 
     name = "seal"

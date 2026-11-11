@@ -519,8 +519,8 @@ change ({ref}`streams-route-drainage`). It stays all or nothing, and it still gi
 `catchment` line of the budget and the discharge at the outlet, which are hydraulic quantities.
 
 A total over the catchment of a quantity that varies in space sums the cell values with the
-shares. `catchment_total` does it for a term of the budget stored per cell, such as the recharge
-or the seepage. `catchment_mean` averages a variable with the share times the area of the cell,
+shares. `budget_over` does it for a term of the budget stored per cell, such as the recharge
+or the seepage, over the catchment or over any polygon. `catchment_mean` averages a variable with the share times the area of the cell,
 so a small cell counts less than a large one. A run with no stored share counts the whole cells
 of the basin of D and logs it. The shares also cover the cells outside the basin that the polygon
 touches. A distorted disc over a grid of 75 m shows why. A mask by cell center gives the area of
@@ -537,7 +537,7 @@ the outlet that the polygon leaves out. A cut cell needs a triangle or a Voronoi
 coarser than the DEM.
 
 A synthetic domain has no catchment polygon and no outlet. It stores no share, its basin of D
-is the largest basin of the domain, and `catchment_total` and `catchment_mean` refuse it.
+is the largest basin of the domain, and `budget_over` without a polygon and `catchment_mean` refuse it.
 
 ## Assumptions
 
@@ -669,7 +669,7 @@ hydromodpy.solver.modflow6.builders.solver_options
 | The size field and the gap term | `hydromodpy/mesh/planning/size_field.py` (`build_size_field`), `hydromodpy/mesh/planning/gap_size.py` (`gap_terms`) |
 | The refinement zones drawn by a field | `hydromodpy/mesh/refinement_config.py` (`RefinementZoneConfig`), `hydromodpy/mesh/planning/height_above_stream.py`, `hydromodpy/mesh/planning/refinement_zones.py` (`RunFieldEnvelope`), `hydromodpy/results/run/field_envelope.py` (the read of a run), `hydromodpy/workflow/steps/mesh.py` (`zone_runs`), `hydromodpy/workflow/steps/prepare_solver/freeze.py` (`frozen_config_document`) |
 | The size of a triangle | `hydromodpy/mesh/engines/triangle/gmsh_triangulation.py` (`MESH_SIZE_PER_CELL_SIZE`) |
-| The catchment fraction and the weighted totals | `hydromodpy/mesh/cells/in_polygons.py` (`cell_area_fraction`, `watershed_cell_mask`), `hydromodpy/solver/modflow_common/catchment_basin.py` (`run_basin`), `hydromodpy/catchment/preprocess/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `catchment_total`, `catchment_mean`) |
+| The catchment fraction and the weighted totals | `hydromodpy/mesh/cells/in_polygons.py` (`cell_area_fraction`, `watershed_cell_mask`), `hydromodpy/solver/modflow_common/catchment_basin.py` (`run_basin`), `hydromodpy/catchment/preprocess/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `budget_over`, `catchment_mean`) |
 | The centroid sample | `hydromodpy/catchment/surface_sampling.py` (`PreparedSurfaceSampler.sample`) |
 | The zonal top | `hydromodpy/mesh/cells/zonal_stats.py` (`zonal_top`), `hydromodpy/solver/modflow_grid/top_sampling.py` (`zonal_top_flat`, `zonal_structured_top`, `bottom_under_lowered_top`, `cells_cover_pixels`) |
 | The channel mask | `hydromodpy/solver/modflow6/build.py` (`_resolve_channel_mask_for_zonal`) |

@@ -6,7 +6,9 @@ step. The project index (``results/catalog/index_file.py``) and the ledger of a
 ``figures/`` or ``exports/`` directory (``results/ledger.py``) take it so two
 writers never read the same file and drop each other's change.
 
-The file carries ``{pid, host, created}``. A lock is stale when its holder died
+The file carries ``{pid, host, created, token}``. The token is drawn at each
+acquire, so a holder knows its lock by these bytes alone, even when a take-back
+put it back by a copy with another inode (a volume without hard links). A lock is stale when its holder died
 on this host, or when it is older than ``stale_after_s``. A holder that works
 longer than that calls :meth:`LockFile.renew` now and then, which dates the
 file again. A file that does not read (empty, or JSON cut short) is stale once
@@ -16,7 +18,13 @@ between, or of an older release. A stale file is taken back in one step: it
 is renamed aside, and removed only when the file moved is the one judged
 stale (same inode and date). Any other file is put back. Before it writes, a
 holder checks :meth:`LockFile.still_held`: the lock may have been taken back
-meanwhile. The
+meanwhile.
+
+Windows refuses to rename or remove a file a reader holds open, and such a
+reader holds the lock file a few microseconds. There each rename and removal
+is retried for up to 310 ms. A release that still fails leaves the lock in
+place with a warning, and the lock is taken back once stale. Elsewhere a
+``PermissionError`` is permanent and raised at once. The
 launcher keeps a lease of another kind (``project/launch/lease.py``): that one
 is never taken back on age alone, an operator forces it. This module takes no lock of the
 operating system: the file alone is the lock, on every system.
@@ -26,14 +34,17 @@ from __future__ import annotations
 
 import json
 import os
-import socket
 import time
 import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Final
 
-from hydromodpy.core.state.scratch import process_is_alive
+from hydromodpy.core.io.filesystem import link_or_copy, replace_when_free, unlink_when_free
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.host import death_is_proven, host_name
+
+logger = get_logger(__name__)
 
 DEFAULT_STALE_AFTER_S = 6 * 3600.0
 """Age past which a lock is stale, even when its holder still runs."""
@@ -55,6 +66,7 @@ class LockInfo:
     pid: int
     host: str
     created: float
+    token: str = ""
 
 
 class LockFile:
@@ -72,7 +84,6 @@ class LockFile:
         self.wait_s = wait_s
         self.held = False
         self._mine: LockInfo | None = None
-        self._inode: tuple[int, int] | None = None
 
     def read(self) -> LockInfo | None:
         """Return the holder, or ``None`` when the file is absent or half written."""
@@ -95,7 +106,7 @@ class LockFile:
             return age > TORN_AFTER_S
         if time.time() - info.created > self.stale_after_s:
             return True
-        return info.host == socket.gethostname() and not process_is_alive(info.pid)
+        return death_is_proven(info.host, info.pid)
 
     def acquire(self) -> bool:
         """Take the lock, waiting up to ``wait_s``. Return False past it."""
@@ -115,12 +126,10 @@ class LockFile:
                 if not self._take_back_if_stale():
                     return False
                 continue
-            info = LockInfo(os.getpid(), socket.gethostname(), time.time())
-            stat = os.fstat(fd)
+            info = LockInfo(os.getpid(), host_name(), time.time(), uuid.uuid4().hex)
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(asdict(info), handle)
             self._mine = info
-            self._inode = (stat.st_dev, stat.st_ino)
             self.held = True
             return True
         return False
@@ -147,16 +156,21 @@ class LockFile:
         try:
             if self._look() != judged:
                 return False
-            aside = self._move_aside()
+            try:
+                aside = self._move_aside()
+            except PermissionError:
+                if os.name != "nt":
+                    raise
+                return False  # A Windows reader still holds the stale file: try again later.
             if aside is None:
                 return True
             if (_identity(os.stat(aside)), aside.read_bytes()) == judged:
-                aside.unlink(missing_ok=True)
+                _discard(aside)
                 return True
             self._put_back(aside)
             return False
         finally:
-            guard.unlink(missing_ok=True)
+            _discard(guard)
 
     def _look(self) -> tuple[tuple[int, int, int], bytes] | None:
         """The identity and bytes of the lock file, or None when it is gone."""
@@ -167,24 +181,32 @@ class LockFile:
             return None
 
     def _move_aside(self) -> Path | None:
-        """Rename the lock file to a name of its own, or return None when it is gone."""
+        """Rename the lock file to a name of its own, or return None when it is gone.
+
+        A ``PermissionError`` that outlasts the retries of
+        :func:`replace_when_free` is raised, and the lock file stays in place.
+        """
         aside = self.path.with_name(f"{self.path.name}.aside-{os.getpid()}-{uuid.uuid4().hex[:8]}")
         try:
-            os.replace(self.path, aside)
+            replace_when_free(self.path, aside)
         except FileNotFoundError:
             return None
         return aside
 
     def _put_back(self, aside: Path) -> None:
-        """Put a file moved aside back in place, unless a new lock took its place."""
+        """Put a file moved aside back in place, unless a new lock took its place.
+
+        The file is linked back, or copied where the volume has no hard link.
+        Neither overwrites a lock taken meanwhile.
+        """
         try:
-            os.link(aside, self.path)
+            link_or_copy(aside, self.path)
         except FileExistsError:
             pass  # A newer lock holds the path: the file moved aside lost its turn.
-        aside.unlink(missing_ok=True)
+        _discard(aside)
 
     def still_held(self) -> bool:
-        """Whether the file still carries the pid, host and date this object wrote.
+        """Whether the file still carries the pid, host, date and token this object wrote.
 
         False when the lock was never taken, was released, or was taken back
         by another process (or by another lock object of this process).
@@ -194,9 +216,10 @@ class LockFile:
     def renew(self) -> None:
         """Date the lock again, when this object still holds it.
 
-        The JSON is written in place, into the very file this object created,
-        so a lock taken back meanwhile is left to its new holder. A reader that
-        sees it half written takes it for torn but young, so not stale.
+        The JSON is written in place, into the file that carries the token of
+        this object, so a lock taken back meanwhile is left to its new holder. A
+        reader that sees it half written takes it for torn but young, so not
+        stale.
         """
         if not self.still_held():
             return
@@ -205,10 +228,9 @@ class LockFile:
         except FileNotFoundError:
             return
         try:
-            stat = os.fstat(fd)
-            if (stat.st_dev, stat.st_ino) != self._inode or not self._carries_mine(fd):
+            if self._mine is None or not self._carries_mine(fd):
                 return
-            info = LockInfo(os.getpid(), socket.gethostname(), time.time())
+            info = LockInfo(os.getpid(), host_name(), time.time(), self._mine.token)
             os.ftruncate(fd, 0)
             os.lseek(fd, 0, os.SEEK_SET)
             os.write(fd, json.dumps(asdict(info)).encode("utf-8"))
@@ -224,17 +246,24 @@ class LockFile:
     def release(self) -> None:
         """Remove the lock when this object still holds it, and nothing otherwise."""
         if self.still_held():
-            aside = self._move_aside()
+            try:
+                aside = self._move_aside()
+            except PermissionError as error:
+                if os.name != "nt":
+                    raise
+                aside = None
+                logger.warning(
+                    "The lock %s could not be removed (%s). It stays in place until it is stale.",
+                    self.path,
+                    error,
+                )
             if aside is not None:
-                moved = os.stat(aside)
-                mine = (moved.st_dev, moved.st_ino) == self._inode
-                if mine and _parse(aside.read_bytes()) == self._mine:
-                    aside.unlink(missing_ok=True)
+                if _parse(aside.read_bytes()) == self._mine:
+                    _discard(aside)
                 else:
                     self._put_back(aside)
         self.held = False
         self._mine = None
-        self._inode = None
 
     def __enter__(self) -> LockFile:
         self.acquire()
@@ -252,6 +281,20 @@ def _parse(raw: bytes) -> LockInfo | None:
         return None
 
 
+def _discard(path: Path) -> None:
+    """Remove a file moved aside or a guard, with a warning when Windows keeps it.
+
+    A file moved aside left behind blocks nobody. A guard left behind delays
+    every take-back of its lock by :data:`TORN_AFTER_S`.
+    """
+    try:
+        unlink_when_free(path)
+    except PermissionError as error:
+        if os.name != "nt":
+            raise
+        logger.warning("The file %s could not be removed (%s).", path, error)
+
+
 def _clear_dead_guard(guard: Path) -> None:
     """Remove a takeover guard left by a process that died while it held it.
 
@@ -260,7 +303,7 @@ def _clear_dead_guard(guard: Path) -> None:
     """
     try:
         if time.time() - guard.stat().st_mtime > TORN_AFTER_S:
-            guard.unlink(missing_ok=True)
+            _discard(guard)
     except FileNotFoundError:
         return
 

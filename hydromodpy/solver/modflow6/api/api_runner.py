@@ -47,6 +47,7 @@ import numpy as np
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import SolverDivergedError, SolverError, SolverInputError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.workspace.workspace import resolve_bin_path
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_library
 
 logger = get_logger(__name__)
@@ -494,7 +495,7 @@ def run_mf6_api(
         if not resolved_lib.is_file():
             raise FileNotFoundError(f"MODFLOW 6 shared library not found: {resolved_lib}")
     else:
-        resolved_lib = ensure_solver_library("libmf6").resolve()
+        resolved_lib = ensure_solver_library("libmf6", resolve_bin_path()).resolve()
 
     if _tdis_uses_ats(workspace):
         raise SolverInputError(

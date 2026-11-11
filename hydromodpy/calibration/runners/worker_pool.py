@@ -34,6 +34,7 @@ import os
 import pickle
 import queue
 import signal
+import subprocess
 import threading
 import time
 from collections.abc import Mapping
@@ -137,8 +138,9 @@ def _serve(conn: Connection) -> None:
 
 def _worker_main(conn: Connection) -> None:
     """Entry point of a worker, at module scope so that ``spawn`` can import it."""
-    # Its own group, so that a limit also kills the solver this worker started.
-    os.setsid()
+    if os.name != "nt":
+        # Its own group, so that a limit also kills the solver this worker started.
+        os.setsid()
     # The limit lives in the parent. Without it a worker would outlive a parent
     # killed hard (OOM, kill -9, closed terminal), and so would the solver it started.
     threading.Thread(target=_die_with_the_parent, daemon=True).start()
@@ -147,9 +149,18 @@ def _worker_main(conn: Connection) -> None:
     _serve(conn)
 
 
+def _end_group(pid: int) -> None:
+    """Kill a worker and every process it started."""
+    if os.name == "nt":
+        # taskkill /T walks the tree of children, which Windows has no group for.
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, check=False)
+    else:
+        os.killpg(pid, signal.SIGKILL)
+
+
 def _die_with_the_parent() -> None:
     wait([mp.parent_process().sentinel])
-    os.killpg(0, signal.SIGKILL)
+    _end_group(os.getpid())
 
 
 class TrialWorkerPool:
@@ -268,7 +279,7 @@ class TrialWorkerPool:
         with self._lock:
             self._processes.discard(process)
         try:
-            os.killpg(process.pid, signal.SIGKILL)
+            _end_group(process.pid)
         except ProcessLookupError:
             # Gone already, or killed before it could open its group.
             process.kill()

@@ -12,6 +12,7 @@ holds the path rules of a project and the runtime objects the launcher and the w
 5. `run_state.py` has the mutable state of a run: `SetupContext` (built once), `LoadedDataContext` (support data), `ExecutionRegistry` and `WorkflowContext`.
 6. `rng.py` is `RngManager`, which derives one deterministic seed per consumer from a single master seed.
 7. `names.py` is the rule of a project name and of a run name, written once. A name holds `[a-z0-9_-]`, at most 40 characters without the `.vN` of a run version, and is not a device name Windows reserves (`con`, `prn`, `aux`, `nul`, `com1` to `com9`, `lpt1` to `lpt9`). `check_name(name, what=)` returns a name that follows the rule or raises a `ConfigError` (exit code 14) with a sentence that proposes the folded name. It refuses a long name, because a cut would put two names with one prefix in one folder. `fold_name(text)` folds a text the code made (a case of a plan, a file stem) into the letters of a name, and the caller passes the result through `check_name`. A person's name is checked when a project is created, when a run takes its folder, and when a case is renamed.
+8. `host.py` is the host name and the proof of death, written once. `host_name()` is the only place that reads `socket.gethostname()`. `death_is_proven(host, pid)` is true when the record comes from this host and its process is gone. `alive_here(host, pid)` is true when the record comes from this host and its process lives. The host name comes from the deployment, so a container needs a fixed `--hostname`, or every interrupted run stays `stale`.
 
 The data overview state is not here: it is `DataOverviewState` in `core/contracts/overview.py`.
 
@@ -23,6 +24,7 @@ Almost all of them: `cli`, `results`, `workflow`, `project`, `data`, `calibratio
 
 - A new folder name under a project: `layout.py`, with its `*_dir_for` helper.
 - A new thing a step must hand to the next: a field of the matching context in `run_state.py`.
+- A host name or a test that a process died: `host.py`, never `socket.gethostname()` or a pid test in the caller.
 - A new random consumer: ask `RngManager` for its seed, never seed globally.
 
 The layer rules are checked by `tests/unit/architecture/`.

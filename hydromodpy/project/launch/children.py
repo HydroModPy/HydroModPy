@@ -14,7 +14,6 @@ one (and the descriptor of its session, for a calibration).
 from __future__ import annotations
 
 import os
-import socket
 import subprocess
 import sys
 import tomllib
@@ -24,6 +23,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.state.host import host_name
 from hydromodpy.project.launch.env import LAUNCHED_ENV, child_environment
 from hydromodpy.project.launch.journal import CASE_LOGS_DIRNAME
 from hydromodpy.project.launch.status import CaseState, case_state
@@ -241,7 +241,7 @@ def close_dead_child(project_root: Path, child: Child, exit_code: int, signal: i
         return
     directory = Path(project_root) / state.rel_dir
     tail = read_log_tail(directory) or log_tail(child.log_path)
-    host = socket.gethostname()
+    host = host_name()
     if session_descriptor_path(directory).is_file():
         previous = readable(read_outcome, directory)
         if (

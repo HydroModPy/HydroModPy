@@ -70,7 +70,8 @@ guides imports a module that is neither listed nor in the facade.
   ``resolve``, ``names``, ``figure_option_names``.
 - ``hydromodpy.display.figures.scalar_face_map``: the base of a map of one value per
   face.
-- ``hydromodpy.display.report_blocks``: the static HTML blocks of a report.
+- ``hydromodpy.display.report.engine``: the report engine with no domain: ``Block``,
+  ``Metric``, ``Picture``, ``Table``, ``Link``, ``Prose`` and ``write_pages``.
 - ``hydromodpy.results.run``: ``Run``.
 - ``hydromodpy.results.zarr_store``: ``SimulationZarr``, the field store an exporter reads.
 - ``hydromodpy.results.exporters.fields``: what every field exporter reads the same

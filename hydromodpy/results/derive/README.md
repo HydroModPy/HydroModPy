@@ -12,11 +12,13 @@ directory.
    and depth, seepage and release flux are of that kind.
 3. `accumulation.py` routes drain and release fluxes down the descent of the run, range by range.
 4. `views.py` reduces a field over the catchment or the active domain to a series (`saturated_fraction`,
-   `drainage_density`, `persistence`, `catchment_mean`).
+   `drainage_density`, `persistence`, `catchment_mean`), and `budget_over` totals a per-cell budget term over the
+   catchment or a polygon.
 5. `time_alignment.py` puts observed and simulated series on the same time axis. `run_period_edges` gives the
    edges of the periods of a run and `naive_utc` gives a timestamp in UTC without a time zone.
 6. `config_flags.py` tells a reader which option to switch on when a field is missing.
-7. `catchment_aggregation.py` gives the catchment series of the stored fields of one run. The `derive` step of the workflow calls it.
+7. `catchment_aggregation.py` writes the discharge and well_pumping series of one run, each term from the catchment row,
+   its per-cell field or the domain row. The `derive` step of the workflow calls it.
    It reads the stored basin through `basin_of_group` of `results/run/descent.py`, the one reader the run views use too.
 8. `stream/` reads the stream criterion on a finished run. The kernels on arrays live in `catchment/stream_network`,
    and `stream/criterion_inputs.py` holds the inputs a trial and a redrawn figure both read. It has its own `README.md`.
@@ -30,7 +32,7 @@ derive/
 ├── derived.py          pure formulas for water table and flux per area
 ├── views.py            reductions over the catchment or the active domain
 ├── accumulation.py     drain and release accumulation on the descent
-├── catchment_aggregation.py   catchment series from the spatial fields of one run
+├── catchment_aggregation.py   catchment series from the budget of one run
 ├── time_alignment.py   observed and simulated series on one axis
 ├── downsample.py       LTTB downsampling of dense series
 ├── recession.py        recession cloud on the Brutsaert-Nieber plane

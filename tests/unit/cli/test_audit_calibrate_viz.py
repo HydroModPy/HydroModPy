@@ -95,27 +95,31 @@ def test_viz_family_help_lists_actions(monkeypatch, capsys) -> None:
     assert "serve" not in out
 
 
-def test_report_render_calls_api_and_opens_browser_after_success(
+def test_report_render_writes_the_session_report_and_opens_browser_after_success(
     monkeypatch,
     tmp_path,
     capsys,
 ) -> None:
-    import hydromodpy as hmp
-
     html = tmp_path / "report.html"
     html.write_text("<html></html>", encoding="utf-8")
+    session_dir = tmp_path / "sessions" / "session-1"
     calls: dict[str, object] = {}
 
-    def fake_report(session_id: str, *, workspace: Path):
-        calls["session_id"] = session_id
-        calls["workspace"] = workspace
+    def fake_resolve(project_root: Path, reference: str | None) -> Path:
+        calls["reference"] = reference
+        calls["project_root"] = project_root
+        return session_dir
+
+    def fake_report(directory: Path, **_options):
+        calls["session_dir"] = directory
         return html
 
     def fake_open(uri: str) -> bool:
         calls["opened"] = uri
         return True
 
-    monkeypatch.setattr(hmp, "report", fake_report)
+    monkeypatch.setattr("hydromodpy.results.session.descriptor.resolve_session_dir", fake_resolve)
+    monkeypatch.setattr("hydromodpy.project.report.report_session", fake_report)
     monkeypatch.setattr("webbrowser.open", fake_open)
 
     code = _run(
@@ -124,10 +128,32 @@ def test_report_render_calls_api_and_opens_browser_after_success(
     )
 
     assert code == 0
-    assert calls["session_id"] == "session-1"
-    assert Path(calls["workspace"]) == tmp_path
+    assert calls["reference"] == "session-1"
+    assert Path(calls["project_root"]) == tmp_path.resolve()
+    assert calls["session_dir"] == session_dir
     assert calls["opened"] == html.as_uri()
     assert f"wrote {html}" in capsys.readouterr().err
+
+
+def test_calibrate_no_report_tells_the_api_to_skip_the_session_report(
+    monkeypatch, tmp_path
+) -> None:
+    import hydromodpy as hmp
+
+    config = tmp_path / "calib.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def fake_calibrate(path: Path, *, phase=None, **kwargs):
+        captured.update(kwargs)
+        return _report()
+
+    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+
+    code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--no-report"])
+
+    assert code == 0
+    assert captured["report"] is False
 
 
 def test_privacy_verify_missing_certificate_returns_not_found(monkeypatch, tmp_path) -> None:

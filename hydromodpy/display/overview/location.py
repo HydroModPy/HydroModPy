@@ -1,7 +1,7 @@
 """Where an overview writes: the run directory of the overview, like any producer.
 
 An overview is a producer of the project: its panels go to
-``runs/<overview>/figures/`` and its web pages to
+``runs/<overview>/figures/`` and its pages, written after the seal, to
 ``runs/<overview>/report/``. ``<overview>`` is the ``[site] name`` of the
 configuration, else ``[overview] name``. An overview claims its directory
 through the attempt protocol, so a second overview of the same name is
@@ -11,26 +11,16 @@ of its name.
 
 from __future__ import annotations
 
-import os
-from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.core.state.layout import runs_dir_for
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.results.storage.attempt import latest_version_dir
-from hydromodpy.results.storage.contract import (
-    REPORT_INDEX_FILENAME,
-    RUN_FIGURES_DIRNAME,
-    RUN_REPORT_DIRNAME,
-)
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 if TYPE_CHECKING:
-    from hydromodpy.core.config_kit.root import RootConfig
-
-REVIEW_DIRNAME = "review"
-"""Folder of ``report/`` holding the compact, standard and audit review pages."""
+    from hydromodpy.core.contracts.overview import DataOverviewState
 
 
 def overview_name(site_name: str | None, overview_name: str | None) -> str:
@@ -43,19 +33,7 @@ def overview_name(site_name: str | None, overview_name: str | None) -> str:
     return str(name)
 
 
-def overview_name_of_file(config_path: Path, *, root: RootConfig | None) -> str:
-    """Return the directory name of the overview a TOML file configures, its base included.
-
-    The caller passes the ``RootConfig`` it holds; ``None`` reads the file the way
-    it is written, which is what a report built outside a session does.
-    """
-    tables: Mapping[str, Any] = load_toml_with_base_config(Path(config_path), root=root)
-    return overview_name(
-        (tables.get("site") or {}).get("name"), (tables.get("overview") or {}).get("name")
-    )
-
-
-def overview_run_dir_of(state: Any) -> Path:
+def overview_run_dir_of(state: DataOverviewState) -> Path:
     """Return the directory of the overview an overview state runs."""
     cfg = state.cfg
     name = overview_name(
@@ -76,30 +54,9 @@ def overview_figures_dir(run_dir: Path) -> Path:
     return Path(run_dir) / RUN_FIGURES_DIRNAME
 
 
-def overview_report_path(run_dir: Path) -> Path:
-    """Return the web page of an overview."""
-    return Path(run_dir) / RUN_REPORT_DIRNAME / REPORT_INDEX_FILENAME
-
-
-def overview_review_dir(run_dir: Path) -> Path:
-    """Return the folder of the review pages of an overview."""
-    return Path(run_dir) / RUN_REPORT_DIRNAME / REVIEW_DIRNAME
-
-
-def review_pages_enabled() -> bool:
-    """Say whether ``HMP_OVERVIEW_HTML_REVIEW_LEVELS`` asks for the review pages."""
-    value = os.environ.get("HMP_OVERVIEW_HTML_REVIEW_LEVELS", "")
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
 __all__ = [
-    "REVIEW_DIRNAME",
     "overview_figures_dir",
     "overview_name",
-    "overview_name_of_file",
-    "overview_report_path",
-    "overview_review_dir",
     "overview_run_dir",
     "overview_run_dir_of",
-    "review_pages_enabled",
 ]

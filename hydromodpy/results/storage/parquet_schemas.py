@@ -860,6 +860,102 @@ index finds the points again with the files themselves.
 """
 
 
+DATA_INVENTORY_SCHEMA: Final[pa.Schema] = pa.schema(
+    [
+        pa.field("sim_id", pa.string(), nullable=False),
+        pa.field(
+            "row_kind",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="One of family, station or well"),
+        ),
+        pa.field(
+            "family",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Data family: hydrometry, recharge, pumping..."),
+        ),
+        pa.field(
+            "source",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Sources of the family, comma separated, or empty"),
+        ),
+        pa.field(
+            "item_id",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Station or well id, empty for a family row"),
+        ),
+        pa.field(
+            "name",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Name of the station or the well when it has one"),
+        ),
+        pa.field(
+            "x",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(description="Easting of a station or a well, in crs_epsg"),
+        ),
+        pa.field(
+            "y",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(description="Northing of a station or a well, in crs_epsg"),
+        ),
+        pa.field(
+            "crs_epsg",
+            pa.int32(),
+            nullable=True,
+            metadata=_field_meta(description="EPSG code of x and y when known"),
+        ),
+        pa.field(
+            "first",
+            pa.timestamp("ms", tz="UTC"),
+            nullable=True,
+            metadata=_field_meta(description="First instant covered, UTC"),
+        ),
+        pa.field(
+            "last",
+            pa.timestamp("ms", tz="UTC"),
+            nullable=True,
+            metadata=_field_meta(description="Last instant covered, UTC"),
+        ),
+        pa.field(
+            "records",
+            pa.int64(),
+            nullable=False,
+            metadata=_field_meta(description="Objects loaded: points and fields, or 1 for a row"),
+        ),
+        pa.field(
+            "mean_value",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Mean recharge in mm/year, or mean pumping flux in unit"
+            ),
+        ),
+        pa.field(
+            "unit",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Unit of mean_value"),
+        ),
+    ],
+    metadata=_schema_metadata(
+        "data_inventory",
+        pk=("sim_id", "row_kind", "family", "source", "item_id"),
+    ),
+)
+"""What a data overview loaded: one row per family, per station and per well.
+
+Only the overview seal writes it. Its page and its counts are read from
+this view, so the sealed directory holds every figure the page shows.
+"""
+
+
 SFR_REACHES_SCHEMA: Final[pa.Schema] = pa.schema(
     [
         pa.field("sim_id", pa.string(), nullable=False),
@@ -1299,6 +1395,7 @@ VIEW_SCHEMAS: Final[dict[str, pa.Schema]] = {
     "metrics": METRICS_SCHEMA,
     "provenance": PROVENANCE_SCHEMA,
     "observation_points": OBSERVATION_POINTS_SCHEMA,
+    "data_inventory": DATA_INVENTORY_SCHEMA,
     "sfr_reaches": SFR_REACHES_SCHEMA,
     "soil_budget": SOIL_BUDGET_SCHEMA,
     "mesh_cell_families": MESH_CELL_FAMILIES_SCHEMA,
@@ -1342,6 +1439,7 @@ def check_schema_version(metadata: dict[bytes, bytes] | None, *, document: objec
 
 __all__ = [
     "BUDGETS_SCHEMA",
+    "DATA_INVENTORY_SCHEMA",
     "PARQUET_CONVENTIONS",
     "CHECK_COLUMNS",
     "CLOCK_ROWS",

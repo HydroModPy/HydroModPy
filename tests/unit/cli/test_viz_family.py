@@ -72,8 +72,8 @@ def test_viz_list_run_says_which_figures_the_run_supports(monkeypatch) -> None:
 
     assert result.exit_code == 0
     lines = result.stdout.splitlines()
-    assert lines[0].split() == ["piezometric_map", "spatial", "available"]
-    assert lines[1].split()[:2] == ["particle_tracks", "particles"]
+    assert lines[0].split() == ["piezometric_map", "spatial", "run", "available"]
+    assert lines[1].split()[:3] == ["particle_tracks", "particles", "run"]
     assert lines[1].endswith("missing result field(s): particles")
     assert "2 figure(s), 1 available for abc123" in result.stdout
 

@@ -1,11 +1,17 @@
 """Figure protocol and base class shared by every HydroModPy figure.
 
-A figure is a class with a ``spec`` (static metadata) and a ``render(sim, ax)``
-method (the only thing subclasses must implement). The ABC provides ``plot()``
-which builds the matplotlib Figure, applies styling and handles saving.
+A figure is a class with a ``spec`` (static metadata) and a
+``render(subject, ax)`` method (the only thing subclasses must implement). The
+ABC provides ``plot()`` which builds the matplotlib Figure, applies styling and
+handles saving.
 
-All figures consume ``Run`` (catalog interface). They never touch a
-solver, a raw output file or a ``ProjectState``.
+A figure draws one subject, named by ``FigureSpec.subject``: a ``Run``, the
+``Session`` of a calibration, or a ``RunSet``. ``render``, ``plot`` and
+``unavailable_reason`` receive that object. The display layer resolves the
+subject once (``_subject_for`` in :mod:`hydromodpy.display.runs`): a session figure
+asked for on a run receives the session that promoted the run, and the run
+itself as the option ``promoted``. Figures never touch a solver, a raw output
+file or a ``ProjectState``.
 """
 
 from __future__ import annotations
@@ -13,7 +19,7 @@ from __future__ import annotations
 import functools
 import inspect
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +44,66 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure as MplFigure
 
     from hydromodpy.results.run import Run
+
+
+FigureSubject = Literal["run", "session", "runset"]
+"""What a figure draws: one run, one calibration session, or a set of runs."""
+
+SUBJECTS: tuple[FigureSubject, ...] = ("run", "session", "runset")
+"""Every subject a figure may declare."""
+
+PROMOTED_OPTION = "promoted"
+"""The option that hands a session figure the run the session promoted.
+
+The display layer fills it, never a user: a session figure asked for on a run
+receives the session as its subject and the run under this name.
+"""
+
+NOT_PROMOTED_REASON = (
+    "draws the calibration session that promoted a run; this run was not promoted by a session"
+)
+"""Why a session figure skips a run no session promoted."""
+
+NOT_A_RUNSET_REASON = "draws the envelope of several runs; pass a RunSet"
+"""Why a runset figure refuses anything but a ``RunSet``."""
+
+NOT_A_SESSION_REASON = "draws one calibration session; pass a Session or the run it promoted"
+"""Why a session figure refuses anything but a ``Session``."""
+
+NOT_A_RUN_REASON = "draws one run; pass a Run, such as the best run of a session"
+"""Why a run figure refuses a ``Session`` or a ``RunSet``."""
+
+
+def subject_refusal(subject: FigureSubject, obj: Any) -> str | None:
+    """Return why a figure that draws ``subject`` cannot take ``obj``, else None.
+
+    A session figure takes a ``Session`` and a runset figure a ``RunSet``,
+    nothing else. A run figure takes anything but those two, so a test double
+    of a run is a run. The display layer turns a promoted run into its
+    session before it asks, so a run reaches a session figure only from a
+    caller that skipped that step.
+    """
+    from hydromodpy.results.run.group import RunSet
+    from hydromodpy.results.session.view import Session
+
+    if subject == "session":
+        return None if isinstance(obj, Session) else NOT_A_SESSION_REASON
+    if subject == "runset":
+        return None if isinstance(obj, RunSet) else NOT_A_RUNSET_REASON
+    return NOT_A_RUN_REASON if isinstance(obj, (Session, RunSet)) else None
+
+
+def _checks_subject(reason: Callable[..., str | None]) -> Callable[..., str | None]:
+    """Make a figure's own ``unavailable_reason`` refuse the wrong subject first."""
+
+    @functools.wraps(reason)
+    def wrapper(self: BaseFigure, subject: Any) -> str | None:
+        refusal = subject_refusal(self.spec.subject, subject)
+        if refusal is not None:
+            return refusal
+        return reason(self, subject)
+
+    return wrapper
 
 
 FigureKind = Literal[
@@ -82,6 +148,12 @@ class FigureSpec:
     family of packages needs the family computed, not every member of it, so
     it declares the family here and its own ``unavailable_reason`` decides
     what a run missing all of them is told.
+
+    ``subject`` names what the figure draws: ``"run"`` (the default), a
+    calibration ``"session"`` or a ``"runset"``. ``render``, ``plot`` and
+    ``unavailable_reason`` receive that object. A figure that compares a run
+    with its reference stays a ``"run"`` figure and takes ``reference=``: a
+    pair has an order and a ``RunSet`` has none.
     """
 
     name: str
@@ -96,6 +168,7 @@ class FigureSpec:
     """
 
     kind: FigureKind = "spatial"
+    subject: FigureSubject = "run"
     required_fields: tuple[str, ...] = ()
     optional_fields: tuple[str, ...] = ()
     required_tables: tuple[str, ...] = ()
@@ -185,25 +258,30 @@ def _titled(plot: Callable[..., MplFigure]) -> Callable[..., MplFigure]:
     @functools.wraps(plot)
     def wrapper(
         self: BaseFigure,
-        sim: Run,
+        subject: Any,
         *args: Any,
         title: str | None = _UNSET,
         show_run_name: bool = _UNSET,
         **kwargs: Any,
     ) -> MplFigure:
         if title is _UNSET and show_run_name is _UNSET:
-            return plot(self, sim, *args, **kwargs)
+            return plot(self, subject, *args, **kwargs)
         save_path = kwargs.pop("save_path", None)
         token = _SHOW_RUN_NAME.set(bool(show_run_name)) if show_run_name is not _UNSET else None
         try:
-            fig = plot(self, sim, *args, **kwargs)
+            fig = plot(self, subject, *args, **kwargs)
         finally:
             if token is not None:
                 _SHOW_RUN_NAME.reset(token)
         if title is not _UNSET and title is not None:
             _apply_title(fig, title)
         if save_path is not None:
-            self._save(fig, Path(save_path), dpi=int(kwargs.get("dpi", 150)), sim=sim)
+            self._save(
+                fig,
+                Path(save_path),
+                dpi=int(kwargs.get("dpi", 150)),
+                sim=_provenance_run(subject, kwargs),
+            )
         return fig
 
     return wrapper
@@ -211,15 +289,19 @@ def _titled(plot: Callable[..., MplFigure]) -> Callable[..., MplFigure]:
 
 @runtime_checkable
 class Figure(Protocol):
-    """The unique figure contract."""
+    """The unique figure contract.
+
+    ``subject`` is the object ``spec.subject`` names: a ``Run``, a
+    ``Session`` or a ``RunSet``.
+    """
 
     spec: FigureSpec
 
-    def render(self, sim: Run, ax: Axes, **opts) -> Axes: ...
+    def render(self, subject: Any, ax: Axes, **opts) -> Axes: ...
 
-    def plot(self, sim: Run, **opts) -> MplFigure: ...
+    def plot(self, subject: Any, **opts) -> MplFigure: ...
 
-    def unavailable_reason(self, sim: Run) -> str | None: ...
+    def unavailable_reason(self, subject: Any) -> str | None: ...
 
 
 class BaseFigure(ABC):
@@ -237,22 +319,33 @@ class BaseFigure(ABC):
         if own_plot is not None:
             # A figure that lays out its own figure still takes the common options.
             cls.plot = _titled(own_plot)  # type: ignore[method-assign]
+        own_reason = cls.__dict__.get("unavailable_reason")
+        if own_reason is not None:
+            # A figure that checks its own subject still refuses the wrong kind first.
+            cls.unavailable_reason = _checks_subject(own_reason)  # type: ignore[method-assign]
 
     @abstractmethod
-    def render(self, sim: Run, ax: Axes, **opts) -> Axes:
+    def render(self, subject: Any, ax: Axes, **opts) -> Axes:
         raise NotImplementedError(
             "render must be implemented by subclasses (defines how the figure draws itself onto the given axes)."
         )
 
-    def unavailable_reason(self, sim: Run) -> str | None:
-        """Return why this figure cannot render ``sim``, or None when it can.
+    def unavailable_reason(self, subject: Any) -> str | None:
+        """Return why this figure cannot render ``subject``, or None when it can.
 
-        Checks the declared ``spec`` requirements against what the run
-        actually persisted. This is what lets a project list every figure it
-        may want and get only the ones its solver and processes produced: a
-        run without particle tracking reports ``particle_tracks`` as
-        unavailable rather than drawing an empty axes.
+        For a run figure, checks the declared ``spec`` requirements against
+        what the run actually persisted. This is what lets a project list
+        every figure it may want and get only the ones its solver and
+        processes produced: a run without particle tracking reports
+        ``particle_tracks`` as unavailable rather than drawing an empty axes.
+        Any figure first refuses an object of the wrong kind
+        (:func:`subject_refusal`). A session or a runset figure declares no
+        field or table of a run, so it checks what it reads in its own override.
         """
+        refusal = subject_refusal(self.spec.subject, subject)
+        if refusal is not None or self.spec.subject != "run":
+            return refusal
+        sim = subject
         missing_fields = [name for name in self.spec.required_fields if not sim.has_field(name)]
         if missing_fields:
             return f"missing result field(s): {', '.join(missing_fields)}"
@@ -267,7 +360,7 @@ class BaseFigure(ABC):
 
     def plot(
         self,
-        sim: Run,
+        subject: Any,
         *,
         figsize: Figsize = None,
         title: Title = None,
@@ -286,7 +379,7 @@ class BaseFigure(ABC):
         # A figure's own plot that calls this one has already set the switch.
         token = _SHOW_RUN_NAME.set(bool(show_run_name) and _SHOW_RUN_NAME.get())
         try:
-            self.render(sim, ax, **opts)
+            self.render(subject, ax, **opts)
         except FigureNotApplicable:
             # A skipped figure must not stay open: a batch skips one per run.
             plt.close(fig)
@@ -296,13 +389,14 @@ class BaseFigure(ABC):
         if title is not None:
             _apply_title(fig, title)
         if save_path is not None:
+            run = _provenance_run(subject, opts)
             self._save(
                 fig,
                 Path(save_path),
                 dpi=dpi,
-                sim=sim,
+                sim=run,
                 field=opts.get("variable") or opts.get("field"),
-                time=_period_drawn(sim, opts.get("timestep")),
+                time=_period_drawn(run, opts.get("timestep")),
             )
         return fig
 
@@ -355,12 +449,22 @@ class BaseFigure(ABC):
         return f"{desc.long_name} ({desc.units})"
 
 
+def _provenance_run(subject: Any, opts: Mapping[str, Any]) -> Any:
+    """Return the run whose provenance a saved PNG carries.
+
+    A session figure drawn for a promoted run carries that run's id and CRS.
+    Any other figure carries its own subject: a run, or a session or a set of
+    runs, which have no sim id and get a PNG without one.
+    """
+    promoted = opts.get(PROMOTED_OPTION)
+    return promoted if promoted is not None else subject
+
+
 def _extract_crs_epsg(sim: Run) -> int | None:
     """Return the EPSG code the catalog recorded for ``sim``, or ``None``.
 
-    PNG provenance is optional. A run-shaped object with no catalog behind it
-    (the calibration report builds one from a session journal) still gets its
-    PNG, without an EPSG.
+    PNG provenance is optional. A subject with no catalog behind it (a
+    session, a set of runs) still gets its PNG, without an EPSG.
     """
     from hydromodpy.results.run.geographic import crs_epsg
 
@@ -371,14 +475,17 @@ def _extract_crs_epsg(sim: Run) -> int | None:
 
 
 # Arguments a caller of ``plot`` fills itself, never an option a user writes.
-_NOT_OPTIONS = frozenset({"self", "sim", "ax", "dpi", "save_path", "timestep"})
+_NOT_OPTIONS = frozenset(
+    {"self", "sim", "subject", "ax", "dpi", "save_path", "timestep", PROMOTED_OPTION}
+)
 
 
 def _walk_keywords(cls: type, method: str) -> tuple[set[str], bool]:
     """Collect the keyword names ``method`` accepts along the MRO of ``cls``.
 
     A ``**`` parameter named other than ``_`` forwards to the next definition
-    up the MRO, so the walk goes on. A ``**_`` swallows what is left, so the
+    up the MRO, so the walk goes on. The subject a figure draws, named ``sim``,
+    ``session`` or ``runset``, is never an option. A ``**_`` swallows what is left, so the
     walk stops there. Returns the names and whether the walk reached
     :meth:`BaseFigure.plot`, which forwards its ``**opts`` to ``render``.
     """
@@ -388,7 +495,8 @@ def _walk_keywords(cls: type, method: str) -> tuple[set[str], bool]:
         if func is None:
             continue
         rest: str | None = None
-        for param in inspect.signature(func).parameters.values():
+        # The first two parameters are ``self`` and the subject, whatever its name.
+        for param in list(inspect.signature(func).parameters.values())[2:]:
             if param.kind is inspect.Parameter.VAR_KEYWORD:
                 rest = param.name
             elif param.kind in (

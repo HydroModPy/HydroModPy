@@ -20,7 +20,6 @@ the background; ``beat`` writes it once, at entry and at every step change.
 from __future__ import annotations
 
 import os
-import socket
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,6 +29,7 @@ from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.state.host import host_name
 from hydromodpy.results.storage.contract import HEARTBEAT_FILENAME, RUN_LOGS_DIRNAME
 from hydromodpy.results.storage.json_io import read_transient_json, write_json_atomic
 
@@ -103,7 +103,7 @@ class HeartbeatThread(threading.Thread):
         self._attempt_id = attempt_id
         self._interval_s = float(interval_s)
         self._step = step
-        self._host = host if host is not None else socket.gethostname()
+        self._host = host if host is not None else host_name()
         self._pid = pid if pid is not None else os.getpid()
         self._stop_requested = threading.Event()
         self._lock = threading.Lock()

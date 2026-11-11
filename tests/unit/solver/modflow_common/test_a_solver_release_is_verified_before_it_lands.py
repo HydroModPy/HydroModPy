@@ -108,10 +108,28 @@ def test_the_lazy_path_refuses_the_same_way(
 ) -> None:
     _pin(monkeypatch, b"the zip of the release")
     serve_assets(monkeypatch, {ASSET: _zip_of("mf6")})
-    monkeypatch.setattr(binaries, "managed_bin_dir", lambda: tmp_path / "bin")
+    monkeypatch.setattr(binaries, "resolve_bin_path", lambda: str(cache / "bin"))
 
     with pytest.raises(CacheCorruptionError):
         binaries.ensure_solver_binary("mf6")
+
+
+def test_a_folder_named_by_hmp_bin_is_never_downloaded_into(
+    cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "shared_bin"
+    folder.mkdir()
+    monkeypatch.setattr(binaries, "resolve_bin_path", lambda: str(folder))
+    _pin(monkeypatch, b"the zip of the release")
+    served = serve_assets(monkeypatch, {ASSET: _zip_of("mf6")})
+
+    expected = binaries.ensure_solver_binary("mf6")
+
+    assert expected.parent == folder
+    assert not expected.exists()
+    assert not binaries.is_managed_cache(folder)
+    assert not (cache / "bin").exists()
+    assert served == []
 
 
 @pytest.mark.parametrize("release", ["24.0", "latest"])

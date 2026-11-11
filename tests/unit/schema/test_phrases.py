@@ -30,11 +30,41 @@ REASON_CODES = frozenset(
 )
 CHECK_STATES = frozenset({"passed", "failed", "unknown"})
 
+REPORT_KEYS = frozenset(
+    {
+        "label",
+        "method",
+        "figures",
+        "scores",
+        "inputs",
+        "licence_unknown",
+        "page_eyebrow",
+        "page_contents",
+        "figure_missing",
+        "figure_watershed_id_card",
+        "figure_hydrograph_sim_obs",
+        "figure_seepage_map",
+        "column_station",
+        "column_variable",
+        "column_metric",
+        "column_window",
+        "column_value",
+        "column_samples",
+        "column_input",
+        "column_provider",
+        "column_path",
+        "column_licence",
+        "no_score",
+        "no_input",
+    }
+)
+
 CLOSED = {
     "check": CHECK_CODES,
     "label": LABEL_VALUES,
     "label_reason": REASON_CODES,
     "check_state": CHECK_STATES,
+    "report": REPORT_KEYS,
 }
 
 

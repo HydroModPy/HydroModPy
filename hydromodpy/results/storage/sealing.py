@@ -33,7 +33,6 @@ the attempt is the bracket around every step.
 from __future__ import annotations
 
 import json
-import os
 import shutil
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -42,6 +41,7 @@ from typing import Any, Final
 
 from hydromodpy.core.budget.terms import kept_budget
 from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
+from hydromodpy.core.io.filesystem import link_or_copy
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME, internal_dir
@@ -444,10 +444,7 @@ def _seal_mesh(store: RunStore, replay_of: str | Path | None = None) -> None:
     target.mkdir(parents=True)
     for source in sources:
         destination = target / source.name
-        try:
-            os.link(source, destination)
-        except OSError:
-            shutil.copy2(source, destination)
+        link_or_copy(source, destination)
     facts.put_input(
         InputEntry(
             variable=MESH_DIRNAME,

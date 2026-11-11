@@ -753,9 +753,8 @@ def emit(path: str, level: int, lines: list[str], *, top: bool, here: str) -> No
 def gen_file_pages(srcdir: Path) -> list[Path]:
     """One page for each file other than the project file, from its model.
 
-    The catchment report file has its own tables (``[report]``, ``[layout]``,
-    ``[context]``, ``[pipeline]``), read by ``hmp report catchment``. Returns
-    the pages written.
+    A file registered in ``EXTRA_FILES`` has its own tables, read by its command.
+    Returns the pages written.
     """
     written = []
     for info in H.S["meta"].get("files", {}).values():

@@ -21,6 +21,7 @@ from pathlib import Path
 import platformdirs
 import pytest
 
+from hydromodpy.core.io.filesystem import link_or_copy
 from tests.scenarios.factory import write_project
 
 TIMEOUT_CODE = 124
@@ -89,8 +90,9 @@ def tree_root() -> Path:
 def link_binaries(cache_home: Path, needs: Iterable[str]) -> Path:
     """Link the files of ``needs`` into ``cache_home/bin`` and return that folder.
 
-    Each file is linked on its own. A missing file would otherwise be downloaded
-    into the real cache, so the test is skipped instead.
+    Each file is hard linked on its own, or copied where a link is refused, so
+    the scenarios run on Windows without symbolic links. A missing file would
+    otherwise be downloaded into the real cache, so the test is skipped instead.
     """
     source = machine_bin_dir()
     names = tuple(needs)
@@ -101,8 +103,8 @@ def link_binaries(cache_home: Path, needs: Iterable[str]) -> Path:
     target.mkdir(parents=True, exist_ok=True)
     for name in names:
         link = target / name
-        if not link.is_symlink():
-            link.symlink_to(source / name)
+        if not link.exists():
+            link_or_copy(source / name, link)
     if (source / MANIFEST).is_file():
         shutil.copyfile(source / MANIFEST, target / MANIFEST)
     return target

@@ -22,7 +22,7 @@ from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverError
 from hydromodpy.model.domain.geometry import CatchmentGeometry
 from hydromodpy.model.model import Geometry
-from hydromodpy.results.derive.catchment_aggregation import _build_catchment_mask
+from hydromodpy.results.derive.catchment_aggregation import catchment_support
 from hydromodpy.solver.base.plan import SolverRun
 from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter, _published_support
 from tests._helpers.model_factory import make_model
@@ -226,7 +226,7 @@ def test_a_trial_and_its_run_read_one_mask(tmp_path: Path) -> None:
         "mesh": {"vertices": vertices, "face_node_connectivity": faces},
         "crs": SimpleNamespace(attrs={"crs_wkt": "EPSG:2154"}),
     }
-    published = _build_catchment_mask(store, "sim", group, np.ones(4, dtype=bool))
+    published = catchment_support(store, "sim", group, np.ones(4, dtype=bool))
 
     np.testing.assert_array_equal(_published_support(run), published)
 

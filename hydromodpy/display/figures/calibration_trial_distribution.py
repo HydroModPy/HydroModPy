@@ -5,14 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Annotated
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
-from hydromodpy.display.figure_options import ObjectiveName, Opt, ParameterNames, TrialsSessionId
-from hydromodpy.display.figures._trial_diagnostics import trial_table
+from hydromodpy.display.figure_options import ObjectiveName, Opt, ParameterNames
+from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 
 class CalibrationTrialDistributionFigure(BaseFigure):
@@ -22,13 +22,17 @@ class CalibrationTrialDistributionFigure(BaseFigure):
         name="calibration_trial_distribution",
         title="Calibration trial distribution",
         kind="comparison",
-        required_tables=("calibration_iterations",),
+        subject="session",
         default_figsize=(8.0, 6.0),
     )
 
+    def unavailable_reason(self, session: Session) -> str | None:
+        """Refuse a session that recorded no trial, before drawing."""
+        return no_trial_reason(session)
+
     def render(
         self,
-        sim: Run,
+        session: Session,
         ax: Axes,
         **_,
     ) -> Axes:
@@ -46,11 +50,10 @@ class CalibrationTrialDistributionFigure(BaseFigure):
 
     def plot(
         self,
-        sim: Run,
+        session: Session,
         *,
         parameters: ParameterNames = None,
         objective: ObjectiveName = None,
-        session_id: TrialsSessionId = None,
         bins: Annotated[int, Opt("Number of bins of each histogram.")] = 20,
         cmap: Annotated[
             str, Opt("Matplotlib colormap of the mean cost shading the bars, by name.")
@@ -65,7 +68,7 @@ class CalibrationTrialDistributionFigure(BaseFigure):
         from matplotlib import cm
         from matplotlib.colors import Normalize
 
-        table = trial_table(sim, session_id=session_id)
+        table = trial_table(session)
         names = list(parameters) if parameters is not None else list(table.parameters)
         if not names:
             raise ValueError(
@@ -117,7 +120,7 @@ class CalibrationTrialDistributionFigure(BaseFigure):
                 label=f"mean {cost_name}",
                 shrink=0.7,
             )
-        fig.suptitle(f"Parameter distribution{run_suffix(sim)}")
+        fig.suptitle(f"Parameter distribution{run_suffix(session)}")
         if save_path is not None:
             from pathlib import Path
 

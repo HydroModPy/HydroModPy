@@ -24,6 +24,7 @@ from hydromodpy.cli.commands import (
     replay,
     report,
     run,
+    show,
     site,
     spinup,
     stop,
@@ -51,6 +52,7 @@ ALL_COMMANDS = (
     stop,
     site,
     report,
+    show,
     doctor,
     install_binaries,
 )

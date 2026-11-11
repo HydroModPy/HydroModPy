@@ -1,13 +1,13 @@
 build_geographic	02
 build_mesh	04
 derive	09
-display	10
-export	11
+display	12
+export	10
 extract	08
 load_data	03
 prepare_solver	06
 resolve	01
 run_solver	07
-seal	12
+seal	11
 setup_process	05
 validate	00

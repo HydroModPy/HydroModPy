@@ -5,14 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Annotated
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
-from hydromodpy.display.figure_options import ObjectiveName, Opt, ParameterNames, TrialsSessionId
-from hydromodpy.display.figures._trial_diagnostics import trial_table
+from hydromodpy.display.figure_options import ObjectiveName, Opt, ParameterNames
+from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 
 class CalibrationLandscapeFigure(BaseFigure):
@@ -27,13 +27,17 @@ class CalibrationLandscapeFigure(BaseFigure):
         name="calibration_landscape",
         title="Calibration objective landscape",
         kind="comparison",
-        required_tables=("calibration_iterations",),
+        subject="session",
         default_figsize=(8.0, 7.0),
     )
 
+    def unavailable_reason(self, session: Session) -> str | None:
+        """Refuse a session that recorded no trial, before drawing."""
+        return no_trial_reason(session)
+
     def render(
         self,
-        sim: Run,
+        session: Session,
         ax: Axes,
         **_,
     ) -> Axes:
@@ -51,11 +55,10 @@ class CalibrationLandscapeFigure(BaseFigure):
 
     def plot(
         self,
-        sim: Run,
+        session: Session,
         *,
         parameters: ParameterNames = None,
         objective: ObjectiveName = None,
-        session_id: TrialsSessionId = None,
         cmap: Annotated[str, Opt("Matplotlib colormap of the cost, by name.")] = "viridis",
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
@@ -64,7 +67,7 @@ class CalibrationLandscapeFigure(BaseFigure):
     ) -> MplFigure:
         import matplotlib.pyplot as plt
 
-        table = trial_table(sim, session_id=session_id)
+        table = trial_table(session)
         names = list(parameters) if parameters is not None else list(table.parameters)
         if len(names) < 2:
             raise ValueError(
@@ -99,7 +102,7 @@ class CalibrationLandscapeFigure(BaseFigure):
             ax.grid(True, ls=":", lw=0.4)
             if obj is not None:
                 fig.colorbar(sc, ax=ax, label=cost_name)
-            fig.suptitle(f"Objective landscape{run_suffix(sim)}")
+            fig.suptitle(f"Objective landscape{run_suffix(session)}")
             if save_path is not None:
                 from pathlib import Path
 
@@ -136,7 +139,7 @@ class CalibrationLandscapeFigure(BaseFigure):
                 ax.grid(True, ls=":", lw=0.3)
         if sc is not None and obj is not None:
             fig.colorbar(sc, ax=axes[:, -1], label=cost_name)
-        fig.suptitle(f"Objective landscape{run_suffix(sim)}")
+        fig.suptitle(f"Objective landscape{run_suffix(session)}")
         if save_path is not None:
             from pathlib import Path
 

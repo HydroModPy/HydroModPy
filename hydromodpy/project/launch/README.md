@@ -16,11 +16,25 @@ do not import each other: what they share lives in `selection.py`. The module
 scripts in `templates/*.sh` (and the copies users keep in `jobs/`) call it with
 `python -m hydromodpy.project.launch.slurm`.
 
+## The plan
+
+`plan.py` turns the `[sites]` section (`SitesConfig` in `config/sites.py`) into one case per
+site and recipe. The site table is CSV, Parquet or GeoPackage, and `[sites.bind]` binds its
+columns to dotted keys. The precedence of a case, lowest first, is the schema defaults, the base
+chain of the recipe, the site row, `site_overrides/<site>.toml`, the keys of the recipe file, its
+`set` table, its row of the recipe table, `--set`, then `HMP_SET_*`. A key that belongs to one
+catchment may not keep a literal value that every site would share. An error names its cell and
+is grouped over the cases it touches. The plan is written once through `results/plan_store.py`
+as `plan.json`, `cases.csv` and one TOML per case. A case is done when a sealed run, or a
+completed session for a calibration, holds its solution key. A calibration compares the hash of
+its sessions, never the one of the run it promoted, whose parameters the best trial replaced.
+`--dry-run` and the launcher both ask `case_is_done`, so they say the same thing.
+
 ## Modules, in the order a launch calls them
 
 | module | what it answers |
 |---|---|
-| `sites/` | the plan, sites x recipes resolved into cases, written once under `plan/<hash>/`, and its budget. See [sites/README.md](sites/README.md) |
+| `plan.py` | the plan, sites x recipes resolved into cases, written once under `plan/<hash>/`, and its budget (`expand_plan`, `write_plan_draft`, `case_is_done`, `plan_budget`, `dry_run_lines`) |
 | `lease.py` | who holds the project right now: `.hmp/launcher.lease`, one launcher per project (`acquire_lease`, `launcher_lease`) |
 | `selection.py` | which cases start, with which worker flags, within which budget of solves (`select_cases`, `worker_flags`, `effective_parallel`) |
 | `env.py` | the environment and thread budget of a case process (`child_environment`, `apply_thread_budget`) |
@@ -44,6 +58,7 @@ that `slurm_script.py` fills.
 
 ```
 launch/
+  plan.py                                            the cases of the plan and its budget
   lease.py  selection.py  env.py  children.py        who runs, which cases, how
   prepare.py  lockfile.py                            data before any solve
   local.py  journal.py                               the local launch and its trace
@@ -56,6 +71,7 @@ launch/
 
 | to add | where |
 |---|---|
+| a table format, a binding rule or a budget ceiling of the plan | `plan.py`; a check of the section alone, without reading a file, goes to `SitesConfig` in `config/sites.py` |
 | a rule that picks cases or sets a worker flag | `selection.py`, so the local and the SLURM launch agree |
 | a variable of a case process environment | `env.py` |
 | a state a case can be in | `status.py` (`case_state`) |

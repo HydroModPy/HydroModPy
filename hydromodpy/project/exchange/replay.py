@@ -25,13 +25,12 @@ digest is refused by the install, and nothing is written.
 
 from __future__ import annotations
 
-import os
-import shutil
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.io.filesystem import link_or_copy
 from hydromodpy.core.payload import (
     INSTALL_FILENAME,
     InstallIndex,
@@ -164,10 +163,7 @@ def _rebuilt_folder(
         target = workdir / key
         target.parent.mkdir(parents=True, exist_ok=True)
         stored = copy / INPUTS_DIRNAME / stored_name(item.sha256, item.dest)
-        try:
-            os.link(stored, target)
-        except OSError:
-            shutil.copyfile(stored, target)
+        link_or_copy(stored, target)
     rows = [station for station in index.stations if station.dest.startswith(f"{path}/")]
     write_stations(plan_stations(workdir, rows))
     return workdir / path

@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from hydromodpy.core.io.filesystem import check_project_root
 from hydromodpy.core.state.layout import CONFIGS_DIRNAME, PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.names import check_name
 
@@ -658,11 +659,13 @@ def create_project(workspace_root: Path, name: str) -> Path:
     The name is the name of a folder: lower case letters, digits, ``_`` and
     ``-``, forty characters at most, no name Windows reserves. A name that breaks
     the rule is refused with a :class:`~hydromodpy.core.exceptions.ConfigError`
-    that proposes one. Returns the project directory path.
+    that proposes one. A project folder too long for Windows is refused the
+    same way, before anything is created. Returns the project directory path.
     """
     check_name(name, what="project")
     workspace_root = Path(workspace_root).expanduser().resolve()
     project_dir = workspace_root / "projects" / name
+    check_project_root(project_dir)
     project_dir.mkdir(parents=True, exist_ok=True)
     (project_dir / INPUTS_DIRNAME).mkdir(exist_ok=True)
     (project_dir / CONFIGS_DIRNAME).mkdir(exist_ok=True)

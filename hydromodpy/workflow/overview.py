@@ -10,24 +10,40 @@ Orchestrates four phases:
 An overview is a run like any other: the caller claims ``runs/<name>/``
 through the attempt protocol and hands the claim over; the launcher writes
 its panels and pages there, then seals the directory with a record that
-holds no solver table (:meth:`DataOverviewLauncher.seal`).
+holds no solver table (:meth:`DataOverviewLauncher.seal`). The seal also
+writes what the page counts, ``tables.parquet/data_inventory.parquet``
+(:func:`inventory_rows`), and lists the inputs it loaded in ``inputs.json``.
+The page itself is written after the seal, from the sealed directory.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
+from datetime import UTC, datetime
 from pathlib import Path
+from statistics import fmean
 from typing import Any
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.console import progress
 from hydromodpy.core.contracts.overview import DataOverviewState
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
-from hydromodpy.core.state.run_state import SetupContext, WorkflowContext
-from hydromodpy.results.storage.attempt import RunClaim
+from hydromodpy.core.state.portable import encode_workspace_path
+from hydromodpy.core.state.run_state import LoadedDataContext, SetupContext, WorkflowContext
+from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
+from hydromodpy.results.record.manifest import InputEntry
+from hydromodpy.results.storage.attempt import RunClaim, is_run_product
+from hydromodpy.results.storage.digests import path_size_bytes
+from hydromodpy.schema.sources import input_licence
+from hydromodpy.workflow.steps.data_description import (
+    iter_loaded_records,
+    record_source_path,
+    sha256_file_or_none,
+)
 from hydromodpy.workflow.steps.setup import resolve_geographic_inputs
 
 logger = get_logger(__name__)
@@ -117,15 +133,16 @@ class DataOverviewLauncher:
         with progress.phase("Loading data"):
             self._load_data(state)
 
-        # Phase 4: Report generation
+        # Phase 4: panels, drawn from the state in memory
         with progress.phase("Drawing the report"):
-            report_paths = self._generate_report(state)
+            inventory = inventory_rows(state)
+            report_paths = self._generate_report(state, inventory)
 
-        from hydromodpy.display.overview import overview_web_report_path
-
-        web_report = overview_web_report_path(state) if report_paths else None
+        web_report = None
         if claim is not None:
-            self.seal(state, claim, solution_key=solution_key)
+            self.seal(state, claim, solution_key=solution_key, inventory=inventory)
+            if report_paths:
+                web_report = self._write_page(Path(claim.run_dir))
         return OverviewResult(
             name=claim.name if claim is not None else getattr(self.cfg.overview, "name", None),
             run_dir=None if claim is None else Path(claim.run_dir),
@@ -133,15 +150,23 @@ class DataOverviewLauncher:
                 state.domain_geographic.catchment_area_km2 if state.domain_geographic else None
             ),
             report_paths=tuple(Path(path) for path in report_paths),
-            web_report=Path(web_report) if web_report and Path(web_report).is_file() else None,
+            web_report=web_report,
         )
 
-    def seal(self, state: DataOverviewState, claim: RunClaim, *, solution_key: str | None) -> Any:
+    def seal(
+        self,
+        state: DataOverviewState,
+        claim: RunClaim,
+        *,
+        solution_key: str | None,
+        inventory: list[dict[str, Any]] | None = None,
+    ) -> Any:
         """Seal the run directory of the overview and return its record.
 
         The record carries the identity of the overview (site, solution key,
         period, catchment) and no solver table: no field store, no budget, no
-        series. ``config.toml`` is frozen first, ``manifest.json`` is written
+        series. It holds the inventory of the loaded data and lists the loaded
+        inputs. ``config.toml`` is frozen first, ``manifest.json`` is written
         last, then ``README.md``; the attempt protocol flips the outcome.
         """
         from hydromodpy.core.io.atomic_replace import staged_path
@@ -190,6 +215,10 @@ class DataOverviewLauncher:
             geographic_metadata={} if area is None else {"catchment_area_km2": float(area)},
         )
         store = RunStore.open(run_dir, facts=facts, workspace=project_root)
+        rows = inventory_rows(state) if inventory is None else inventory
+        store.write_view(claim.sim_id, "data_inventory", rows)
+        for entry in loaded_inputs(state, project_root):
+            store.record_input(claim.sim_id, entry)
         return seal_completed(store)
 
     # ------------------------------------------------------------------
@@ -357,20 +386,363 @@ class DataOverviewLauncher:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _generate_report(state: DataOverviewState) -> list[Path]:
+    def _generate_report(state: DataOverviewState, inventory: list[dict[str, Any]]) -> list[Path]:
         from hydromodpy.display.overview import generate_overview_report
 
-        return generate_overview_report(state)
+        return generate_overview_report(state, inventory)
+
+    @staticmethod
+    def _write_page(run_dir: Path) -> Path | None:
+        """Write the page of the sealed overview and return its ``index.html``."""
+        from datetime import date
+
+        from hydromodpy.display.report.engine import write_pages
+        from hydromodpy.display.report.pages import overview_blocks
+        from hydromodpy.results.run import open_run_dir
+        from hydromodpy.results.storage.contract import RUN_REPORT_DIRNAME
+
+        run = open_run_dir(run_dir)
+        index = write_pages(
+            run_dir / RUN_REPORT_DIRNAME,
+            title=run.name or "Catchment data view",
+            subtitle="Catchment data view",
+            blocks=overview_blocks(run),
+            rendered=date.today(),
+        )
+        return Path(index) if Path(index).is_file() else None
 
 
-def _instant(value: Any) -> Any:
+def _instant(value: Any) -> datetime | None:
     """Return a date of the overview window as a UTC instant, or None."""
     if value is None:
         return None
-    from datetime import UTC, datetime
-
     import pandas as pd
 
     stamp = pd.Timestamp(value)
     moment: datetime = stamp.to_pydatetime()
     return moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
+
+
+# ----------------------------------------------------------------------
+# What the overview counts: the rows of data_inventory and inputs.json
+# ----------------------------------------------------------------------
+
+_POINT_FAMILIES = ("hydrometry", "piezometry", "intermittency", "water_quality")
+"""Families whose points are stations: one ``station`` row per station."""
+
+_PER_DAY_UNITS = frozenset({"mm/day", "mm d-1", "mm/d"})
+
+
+def inventory_rows(state: DataOverviewState) -> list[dict[str, Any]]:
+    """Return the rows of ``data_inventory`` for the loaded data of *state*.
+
+    One ``family`` row per family requested or loaded (``records`` is 0 for a
+    family that was requested and not loaded), one ``station`` row per station
+    of a point family and one ``well`` row per well of ``[flow.sinks_sources]``.
+    A station seen in several records (water quality emits one per parameter)
+    is one row whose period is the union of its records.
+    """
+    data_cfg = getattr(state.cfg, "data", None)
+    requested = {str(item).strip().lower() for item in getattr(data_cfg, "types", ()) or ()}
+    rows: list[dict[str, Any]] = []
+    for family in _family_order(data_cfg):
+        loaded = getattr(state.loaded_data, family, None)
+        if family not in requested and not loaded:
+            continue
+        section = getattr(data_cfg, family, None)
+        first, last = _section_window(section) if section is not None else (None, None)
+        if first is None and last is None:
+            first, last = _records_window(loaded)
+        mean_value, unit = _family_mean(family, loaded)
+        rows.append(
+            _row(
+                "family",
+                family,
+                source=", ".join(_source_names(section)),
+                first=first,
+                last=last,
+                records=_object_count(loaded),
+                mean_value=mean_value,
+                unit=unit,
+            )
+        )
+        if family in _POINT_FAMILIES:
+            rows.extend(_station_rows(family, loaded))
+    rows.extend(_well_rows(state))
+    return rows
+
+
+def _row(row_kind: str, family: str, **values: Any) -> dict[str, Any]:
+    """Return a full row: every column of the schema except ``sim_id``."""
+    row: dict[str, Any] = {
+        "row_kind": row_kind,
+        "family": family,
+        "source": "",
+        "item_id": "",
+        "name": None,
+        "x": None,
+        "y": None,
+        "crs_epsg": None,
+        "first": None,
+        "last": None,
+        "records": 0,
+        "mean_value": None,
+        "unit": None,
+    }
+    row.update(values)
+    return row
+
+
+def _family_order(data_cfg: Any) -> tuple[str, ...]:
+    """Return the families in the order of ``[data].types``, then the others."""
+    ordered: list[str] = []
+    for family in getattr(data_cfg, "types", ()) or ():
+        name = str(family).strip().lower()
+        if name and name not in ordered:
+            ordered.append(name)
+    ordered.extend(f.name for f in fields(LoadedDataContext) if f.name not in ordered)
+    return tuple(ordered)
+
+
+def _source_names(section: Any) -> list[str]:
+    names = (getattr(source, "source", "") for source in getattr(section, "sources", ()) or ())
+    return [str(name) for name in names if name]
+
+
+def _section_window(section: Any) -> tuple[datetime | None, datetime | None]:
+    return _instant(getattr(section, "date_start", None) or None), _instant(
+        getattr(section, "date_end", None) or None
+    )
+
+
+def _records_window(load_result: Any) -> tuple[datetime | None, datetime | None]:
+    """Return the union of the periods of the records of a load result."""
+    starts, ends = [], []
+    for record in getattr(load_result, "all_records", ()) or ():
+        start, end = getattr(record, "date_start", None), getattr(record, "date_end", None)
+        if start is not None:
+            starts.append(_instant(start))
+        if end is not None:
+            ends.append(_instant(end))
+    return (min(starts) if starts else None, max(ends) if ends else None)
+
+
+def _object_count(load_result: Any) -> int:
+    """Count the points and the fields a family loaded."""
+    if not load_result:
+        return 0
+    count = len(getattr(load_result, "points", ()) or ()) + len(
+        getattr(load_result, "fields", ()) or ()
+    )
+    return count or 1
+
+
+def _family_mean(family: str, load_result: Any) -> tuple[float | None, str | None]:
+    """Return the mean of the recharge in mm/year, else the mean in its own unit."""
+    if family != "recharge" or not load_result:
+        return None, None
+    values: list[float] = []
+    units: list[str] = []
+    for record in getattr(load_result, "points", ()) or ():
+        data = getattr(record, "data", None)
+        if data is None or "value" not in data:
+            continue
+        series = data["value"].dropna()
+        if not series.empty:
+            values.append(float(series.mean()))
+            units.append(str(getattr(record, "unit", "") or ""))
+    for record in getattr(load_result, "fields", ()) or ():
+        mean_value = _field_mean(record)
+        if mean_value is not None:
+            values.append(mean_value)
+            units.append(str(getattr(record, "unit", "") or ""))
+    if not values:
+        return None, None
+    unit = units[0]
+    mean_value = fmean(values)
+    if unit.lower() in _PER_DAY_UNITS:
+        return mean_value * 365.25, "mm/year"
+    return mean_value, unit or None
+
+
+def _field_mean(record: Any) -> float | None:
+    """Return the mean of a field over space and time, or None when it cannot be read."""
+    import numpy as np
+
+    try:
+        dataset = record.dataset
+        if hasattr(dataset, "data_vars"):
+            arrays = [np.asarray(dataset[name].values, dtype=float) for name in dataset.data_vars]
+        else:
+            arrays = [np.asarray(dataset, dtype=float)]
+    except Exception:
+        # A field that cannot be opened has no mean; the row keeps its count.
+        return None
+    means = [float(np.nanmean(array)) for array in arrays if array.size]
+    finite = [value for value in means if np.isfinite(value)]
+    return fmean(finite) if finite else None
+
+
+def _station_rows(family: str, load_result: Any) -> list[dict[str, Any]]:
+    """Return one row per station of a point family, deduplicated by station id."""
+    stations: dict[str, dict[str, Any]] = {}
+    for record in getattr(load_result, "points", ()) or ():
+        station = str(getattr(record, "station_id", ""))
+        location = getattr(record, "location", None)
+        start, end = getattr(record, "date_start", None), getattr(record, "date_end", None)
+        start, end = (_instant(start), _instant(end))
+        row = stations.get(station)
+        if row is None:
+            metadata = getattr(location, "metadata", None)
+            name = metadata.get("station_name") or metadata.get("name") if metadata else None
+            stations[station] = _row(
+                "station",
+                family,
+                source=str(getattr(record, "source", "") or ""),
+                item_id=station,
+                name=None if not name else str(name),
+                x=_float_or_none(getattr(location, "x", None)),
+                y=_float_or_none(getattr(location, "y", None)),
+                crs_epsg=_epsg(getattr(location, "crs", None)),
+                first=start,
+                last=end,
+                records=1,
+            )
+            continue
+        row["records"] += 1
+        if start is not None and (row["first"] is None or start < row["first"]):
+            row["first"] = start
+        if end is not None and (row["last"] is None or end > row["last"]):
+            row["last"] = end
+    return list(stations.values())
+
+
+def _well_rows(state: DataOverviewState) -> list[dict[str, Any]]:
+    """Return the ``pumping`` family row and one row per well of the configuration."""
+    sinks = getattr(getattr(state.cfg, "flow", None), "sinks_sources", None)
+    wells = getattr(sinks, "wells", None) or {}
+    if not wells:
+        return []
+    rows: list[dict[str, Any]] = []
+    total = 0.0
+    units = "m3/s"
+    for well_id, well in wells.items():
+        flux = _mean_flux(getattr(well, "flux", None))
+        units = str(getattr(well, "units", units) or units)
+        if flux is not None and flux < 0:
+            total += -flux
+        location = getattr(well, "location", None)
+        rows.append(
+            _row(
+                "well",
+                "pumping",
+                item_id=str(well_id),
+                x=_float_or_none(getattr(location, "x", None)),
+                y=_float_or_none(getattr(location, "y", None)),
+                records=1,
+                mean_value=flux,
+                unit=units,
+            )
+        )
+    family = _row("family", "pumping", records=len(rows), mean_value=total, unit=units)
+    return [family, *rows]
+
+
+def _mean_flux(flux: Any) -> float | None:
+    if isinstance(flux, bool) or flux is None:
+        return None
+    if isinstance(flux, (int, float)):
+        return float(flux)
+    if isinstance(flux, (list, tuple)) and flux:
+        return fmean(float(item) for item in flux)
+    return None
+
+
+def _float_or_none(value: Any) -> float | None:
+    return None if value is None else float(value)
+
+
+def _epsg(crs: Any) -> int | None:
+    """Return the EPSG code of a CRS given as a code, a string or an object, else None."""
+    if crs in (None, ""):
+        return None
+    from pyproj import CRS
+    from pyproj.exceptions import CRSError
+
+    try:
+        return CRS.from_user_input(crs).to_epsg()
+    except CRSError:
+        return None
+
+
+def loaded_inputs(state: DataOverviewState, project_root: Path) -> list[InputEntry]:
+    """Return the ``inputs.json`` entries of the records the overview loaded.
+
+    Same rule as a simulation: one entry per file a record was read from, with
+    its provider, request, digest and licence. A product of the run itself is
+    no input.
+    """
+    anchor = Path(getattr(state.workspace, "root", None) or project_root)
+    entries: list[InputEntry] = []
+    for item in iter_loaded_records(state.loaded_data):
+        record = item.record
+        source_path = record_source_path(record)
+        for path, provider in _input_files(record, source_path):
+            if is_run_product(path, project_root):
+                continue
+            entries.append(
+                _input_entry(item.scope, item.variable, record, path, provider, anchor=anchor)
+            )
+    return entries
+
+
+def _input_files(record: Any, source_path: Path | None) -> list[tuple[Path, str | None]]:
+    """Return the files a record was read from, each with its provider when it names one."""
+    metadata = getattr(record, "metadata", None)
+    listed = metadata.get(INPUT_FILES_KEY) if isinstance(metadata, dict) else None
+    if listed:
+        return [(Path(str(entry["path"])), str(entry["provider"])) for entry in listed]
+    return [] if source_path is None else [(source_path, None)]
+
+
+def _input_entry(
+    scope: str,
+    variable: str,
+    record: Any,
+    path: Path,
+    provider: str | None,
+    *,
+    anchor: Path,
+) -> InputEntry:
+    request: dict[str, Any] = {}
+    station = getattr(record, "station_id", None)
+    if station not in (None, ""):
+        request["station"] = str(station)
+    start, end = getattr(record, "date_start", None), getattr(record, "date_end", None)
+    if start is not None or end is not None:
+        request["period"] = [_iso(start), _iso(end)]
+    bbox = getattr(record, "bbox", None)
+    if bbox is not None:
+        request["bbox"] = [float(value) for value in bbox]
+    exists = path.exists()
+    try:
+        located = encode_workspace_path(anchor, path)
+    except ValueError:
+        located = str(path)
+    return InputEntry(
+        variable=f"{scope}:{variable}",
+        provider=provider or str(getattr(record, "source", "") or "") or "unknown",
+        request=request,
+        fetched_at=datetime.fromtimestamp(path.stat().st_mtime, tz=UTC) if exists else None,
+        path=located,
+        sha256=sha256_file_or_none(path),
+        bytes=path_size_bytes(path) if exists else None,
+        license=input_licence(path).spdx if exists else UNDETERMINED_LICENSE,
+    )
+
+
+def _iso(value: Any) -> str | None:
+    if value is None:
+        return None
+    isoformat = getattr(value, "isoformat", None)
+    return isoformat() if callable(isoformat) else str(value)

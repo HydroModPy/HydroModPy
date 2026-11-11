@@ -14,7 +14,9 @@ run and keeps what `[simulation.results]` asks. `retention.py` weighs a project 
 `Project.gc()` or `hmp catalog gc` removes what its policy allows and reports the bytes before and after. The
 package reads `core`, `schema`, `catchment`, `mesh`, `model` and itself, and never `data`,
 `solver`, `config` or `display`. `tests/unit/architecture/layer_matrix.yaml` holds the edges, and
-`tests/unit/results/test_run_layout_contract.py` the names of a run directory. The answers
+`tests/unit/results/test_run_layout_contract.py` the names of a run directory. The plan of a
+project is `plan.json`, `cases.csv` and one TOML per case under `plan/<hash>/`, written once by
+`plan_store.py` and read back by `read_plan`, whose `sites` is a table of text. The answers
 column below is the first line of each module docstring.
 
 | module | answers |
@@ -44,7 +46,7 @@ column below is the first line of each module docstring.
 | `retention.py` | What `hmp catalog gc` collects in a project, read from the tree alone. |
 | `run/` | Per-simulation and multi-simulation views over the results catalog. |
 | `score.py` | The one pairing of a simulated series with its observations, and the score of a run. |
-| `session/` | The formats of a calibration session directory, `sessions/<case>/`: the trial journal in events (`proposed`, `finished`, `linked`) read as one line per trial, and the versioned trial series. |
+| `session/` | The formats of a calibration session directory, `sessions/<case>/`: the trial journal in events (`proposed`, `finished`, `linked`) read as one line per trial, and the versioned trial series. `session/summary.py` holds `SessionSummary`, `session_summary(session)` and `summary_rows(summary)`, the one writer of the rows that the session page and `hmp show` print. `session/journal.py` holds `BOUND_TOLERANCE` and `on_bound`, which say that a value ended on a bound of its range. `Session.of_run(run)` (`session/view.py`) returns the `Session` a run was promoted from, or `None`, reading the lineage through `session_dir_of`. |
 | `source_runs.py` | The earlier run a configuration reads, named by its `sim_id`. |
 | `spatial_index.py` | Point-in-cell lookup on unstructured meshes, cached per mesh geometry. |
 | `storage/` | The layout contract, the store of one run, the seal and the attempt protocol. |

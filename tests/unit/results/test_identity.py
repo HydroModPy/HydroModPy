@@ -106,16 +106,26 @@ def test_png_text_chunk_carries_the_block_and_the_footer_is_drawn(tmp_path):
     assert read_identity_from(path) == identity
 
 
-def test_the_footer_names_site_period_version_and_label():
-    labelled = make_identity().labelled(
-        "calibrated", label_date=date(2026, 10, 15), rule_version="1"
-    )
+@pytest.mark.parametrize(
+    ("label", "rule", "day", "tail"),
+    [
+        ("calibrated", "1", date(2026, 10, 15), "calibrated, rule 1, 2026-10-15"),
+        ("evaluated", "2", date(2026, 11, 11), "evaluated, rule 2, 2026-11-11"),
+        ("exploratory", "1", date(2027, 1, 2), "exploratory, rule 1, 2027-01-02"),
+    ],
+)
+def test_the_footer_names_site_period_version_label_rule_and_date(label, rule, day, tail):
+    labelled = make_identity().labelled(label, label_date=day, rule_version=rule)
     assert labelled.footer_text() == (
-        "J0014010 · 2016-01-01 to 2020-12-31 · HydroModPy 2.0.0a5 · calibrated (2026-10-15)"
+        f"J0014010 · 2016-01-01 to 2020-12-31 · HydroModPy 2.0.0a5 · {tail}"
     )
+
+
+def test_a_block_without_a_label_reads_unlabelled():
     steady = make_identity(period=None)
     assert "steady state, no period" in steady.footer_text()
     assert steady.footer_text().endswith("unlabelled")
+    assert "rule" not in steady.footer_text()
 
 
 def test_a_csv_gets_a_meta_json_sidecar_next_to_it(tmp_path):

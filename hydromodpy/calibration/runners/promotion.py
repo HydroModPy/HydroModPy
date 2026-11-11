@@ -29,7 +29,6 @@ moved. ``hmp campaign prune <case> --keep best`` trashes the other kept trials.
 
 from __future__ import annotations
 
-import os
 import uuid
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -47,7 +46,8 @@ from hydromodpy.calibration.optim.cache import context_fingerprints, differing_m
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.trial import promote_prepared_trial
 from hydromodpy.core.console import progress
-from hydromodpy.core.exceptions import CalibrationError
+from hydromodpy.core.exceptions import CalibrationError, WriteConflictError
+from hydromodpy.core.io.filesystem import rename_onto_empty_dir
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.state.layout import TRIALS_DIRNAME
@@ -67,6 +67,7 @@ from hydromodpy.results.session.descriptor import (
 from hydromodpy.results.session.journal import (
     TrialCase,
     TrialLine,
+    on_bound,
     physical_parameters,
     trial_rows,
 )
@@ -412,10 +413,6 @@ def _promote_rows(
     )
 
 
-BOUND_TOLERANCE = 1e-6
-"""Share of the searched range within which a value counts as on its bound."""
-
-
 def promotion_facts(row: Mapping[str, Any]) -> PromotionFacts:
     """Return what the session says about the run its trial ``row`` becomes.
 
@@ -427,7 +424,7 @@ def promotion_facts(row: Mapping[str, Any]) -> PromotionFacts:
     parameters = row.get("parameters") or {}
     return PromotionFacts(
         converged=row.get("status") == "completed",
-        bounds_hit=sorted(name for name, payload in parameters.items() if _on_bound(payload)),
+        bounds_hit=sorted(name for name, payload in parameters.items() if on_bound(payload)),
         calibrated=[_calibrated_parameter(name, payload) for name, payload in parameters.items()],
     )
 
@@ -476,24 +473,6 @@ def calibrated_by_of(
             for name, window in windows.items()
         },
     )
-
-
-def _on_bound(payload: Any) -> bool:
-    """Whether a journaled parameter ended on a bound of its searched range.
-
-    Read in the space the search moved in (``transformed_*``), where the
-    range is the one the optimizer saw; a bare value carries no bounds.
-    """
-    if not isinstance(payload, Mapping):
-        return False
-    value, bounds = payload.get("transformed_value"), payload.get("transformed_bounds")
-    if value is None or not bounds:
-        value, bounds = payload.get("value"), payload.get("bounds")
-    if value is None or not bounds or len(bounds) != 2:
-        return False
-    lower, upper = float(bounds[0]), float(bounds[1])
-    margin = BOUND_TOLERANCE * abs(upper - lower)
-    return abs(float(value) - lower) <= margin or abs(float(value) - upper) <= margin
 
 
 def _calibrated_parameter(name: str, payload: Any) -> CalibratedParameter:
@@ -736,8 +715,15 @@ def promote_trial_from_session(
     if kept_dir.is_dir() and read_purged(kept_dir) is None:
         target = _reserve_after_the_fact(project_root, session_dir, as_name)
         # The reserved directory is empty: one rename moves the kept trial onto
-        # it, and the claim its mkdir made is never released in between.
-        os.replace(kept_dir, target)
+        # it. Windows refuses a folder onto a folder, so there the reservation
+        # is removed first; a process that takes the name in between keeps it.
+        try:
+            rename_onto_empty_dir(kept_dir, target)
+        except FileExistsError as error:
+            raise WriteConflictError(
+                f"{target} was taken by another process while the trial moved into it; "
+                "promote again."
+            ) from error
         rel_dir = run_dir_rel(target.name)
         linked = persistence.link_trial(
             int(trial), sim_id=None if case is None else case.sim_id, rel_dir=rel_dir

@@ -5,14 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
-from hydromodpy.display.figure_options import ObjectiveName, ParameterNames, TrialsSessionId
-from hydromodpy.display.figures._trial_diagnostics import trial_table
+from hydromodpy.display.figure_options import ObjectiveName, ParameterNames
+from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 
 class CalibrationPairplotFigure(BaseFigure):
@@ -22,13 +22,17 @@ class CalibrationPairplotFigure(BaseFigure):
         name="calibration_pairplot",
         title="Calibration parameter pairs",
         kind="comparison",
-        required_tables=("calibration_iterations",),
+        subject="session",
         default_figsize=(8.0, 8.0),
     )
 
+    def unavailable_reason(self, session: Session) -> str | None:
+        """Refuse a session that recorded no trial, before drawing."""
+        return no_trial_reason(session)
+
     def render(
         self,
-        sim: Run,
+        session: Session,
         ax: Axes,
         **_,
     ) -> Axes:
@@ -45,11 +49,10 @@ class CalibrationPairplotFigure(BaseFigure):
 
     def plot(
         self,
-        sim: Run,
+        session: Session,
         *,
         parameters: ParameterNames = None,
         objective: ObjectiveName = None,
-        session_id: TrialsSessionId = None,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
@@ -57,7 +60,7 @@ class CalibrationPairplotFigure(BaseFigure):
     ) -> MplFigure:
         import matplotlib.pyplot as plt
 
-        table = trial_table(sim, session_id=session_id)
+        table = trial_table(session)
         names = list(parameters) if parameters is not None else list(table.parameters)
         if len(names) < 2:
             raise ValueError(

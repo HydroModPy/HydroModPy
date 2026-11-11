@@ -24,6 +24,7 @@ is version 1 for good.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import shutil
@@ -36,6 +37,7 @@ from typing import Literal
 
 from hydromodpy.core.exceptions import ImportConflictError, WriteConflictError
 from hydromodpy.core.io.file_digest import sha256_of
+from hydromodpy.core.io.filesystem import check_project_root, rename_onto_empty_dir
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import internal_dir, runs_dir_for, sessions_dir_for
 from hydromodpy.core.state.names import check_name
@@ -118,7 +120,11 @@ def reserve_version_dirname(
     the session directory. The run then takes the very same directory name
     under ``runs/``, whatever the version space says, and the claim fails
     with :class:`VersionPairingError` when that directory already exists.
+
+    A project folder too long for Windows is refused with
+    :class:`~hydromodpy.core.exceptions.ConfigError` before any directory is made.
     """
+    check_project_root(project_root)
     stem, version = split_stem_version(name)
     if version is not None:
         raise ValueError(f"reserve the bare name {stem!r}, not the version {name!r}")
@@ -396,9 +402,14 @@ def import_publication(
         target = reserve_version_dirname(root, "run", bare)
         try:
             # One rename onto the empty reserved directory: the run appears whole or not at all.
-            os.rename(copy, target)
+            rename_onto_empty_dir(copy, target)
+        except FileExistsError:
+            # Another process took the reserved name: the folder is its own.
+            raise
         except BaseException:
-            target.rmdir()
+            # The helper may already have removed the empty reserved folder.
+            with contextlib.suppress(FileNotFoundError):
+                target.rmdir()
             raise
         return run_dir_rel(target.name)
     finally:

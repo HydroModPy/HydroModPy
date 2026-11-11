@@ -94,7 +94,7 @@ that does not match is refused.
 The other options are in {doc}`the command reference <../reference/cli/install-binaries>`.
 The environment variable `HMP_BIN` points HydroModPy at a folder of your own binaries, flat,
 with the file names `mf6`, `mfnwt` and so on. When it is set, HydroModPy reads that folder
-and downloads nothing. The data still need the network once: a first run fills the cache of
+and downloads nothing, and `hmp install-binaries` without `--to` fills it. The data still need the network once: a first run fills the cache of
 the workspace, and {doc}`hmp run --frozen <../reference/cli/run>` then refuses any new
 download.
 
@@ -145,6 +145,28 @@ The image ships no solver binary. They download into `/home/hmp/.cache/hydromodp
 first run and are lost when the container stops, so add `-v hmp-cache:/home/hmp/.cache/hydromodpy`
 to keep them. The run folder, `request.json` included, is written under `/project/runs/`. The
 request itself is described in {doc}`../contribute/architecture/how-to/build-a-frontend`.
+
+## On a Windows server
+
+Put the projects under a short root such as `D:\hmp\`. A project writes paths up to 160
+characters below its folder, and MODFLOW 6 and DuckDB open no path longer than 259 characters,
+so the project folder may hold 99 characters at most. A longer folder is refused when the project
+is created and when a run or a calibration session takes its folder, before anything is computed.
+A root like `D:\hmp\<organisation>\projects\<name>` with names of 40 characters is 97 characters long.
+
+Fill `HMP_BIN` once, from the service account, with `hmp install-binaries`. The runs only read that
+folder, so it can be read-only for the account that starts them.
+
+Give the server a fixed host name of 35 characters at most, and with Docker pass
+`docker run --hostname hmp-<code>` with a short code. A product being written carries the host
+name in its path, 125 characters plus the host name below the project folder, so a name of 35
+characters reaches the 160 of the budget. `hmp-` and an organisation name of 40 characters would
+reach 169.
+A run that was interrupted is recognised as dead from its host name and its process id. A container
+that gets a new name at each start leaves every interrupted run `stale` until you use `--force`.
+
+A delivery destination on a network share is written as a UNC path, `\\server\share\folder`,
+like a local one. Keep the project itself on a local disk and use the share only as a destination.
 
 ## Tested platforms
 

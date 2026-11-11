@@ -40,11 +40,12 @@ from the same parsers.
 | `completion` | a shell completion script |
 | `privacy` | `purge` a run for good (its name stays taken) with a certificate, and `verify` that certificate |
 | `run` | execute the workflow a TOML file or a JSON run request names in `[workflow].mode`, or the one its sections imply |
-| `calibrate` | run a calibration workflow from a TOML file or a JSON run request |
+| `calibrate` | run a calibration workflow from a TOML file or a JSON run request; it writes the session report, `--no-report` skips it |
 | `spinup` | cyclic spin-up until heads and lake stage converge |
 | `stop` | ask a running run or calibration session to stop, by its flag `.hmp/stop.json` |
 | `site` | the sites of a workspace (`data/sites/catalog.csv`): `add`, `import`, `ls`, `show` |
-| `report` | `render` a calibration report, `compare` sealed runs of one case, build a `catchment` report |
+| `show` | the summary of a calibration session (a run goes to `hmp catalog show`) |
+| `report` | `catchment RUN` builds the report of a sealed run (`--overview RUN`, `--preset research\|management`, `--lang en\|fr`, `--station ID`, `--strict`), `render` writes again the report of a calibration session, `compare` sealed runs of one case |
 | `doctor` | diagnose Python, dependencies, solver binaries and the workspace; it reads and reports, it rewrites no file |
 | `install-binaries` | download the MODFLOW, MODPATH and MT3D-USGS binaries |
 

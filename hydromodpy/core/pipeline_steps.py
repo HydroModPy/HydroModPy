@@ -13,9 +13,9 @@ STEP_NAMES: tuple[str, ...] = (
     "run_solver",
     "extract",
     "derive",
-    "display",
     "export",
     "seal",
+    "display",
 )
 """The steps of a simulation in order. ``from_step``, ``until_step``, ``--from``, ``--until``
 and the ``step`` of ``outcome.json`` read these words.

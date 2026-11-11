@@ -135,6 +135,26 @@ class TestCreateProject:
 
         assert [path.name for path in (root / "projects").iterdir()] == ["README.md"]
 
+    def test_a_folder_too_long_for_windows_is_refused_and_creates_nothing(
+        self, tmp_path, monkeypatch
+    ):
+        from hydromodpy.core.exceptions import ConfigError
+        from hydromodpy.core.io import filesystem
+        from tests._helpers.windows_os import WindowsOs
+
+        root = scaffold(tmp_path / ("w" * 90), with_examples=False)
+        monkeypatch.setattr(filesystem, "os", WindowsOs())
+
+        with pytest.raises(ConfigError, match="may hold 99 characters at most"):
+            create_project(root, "my_project")
+
+        assert [path.name for path in (root / "projects").iterdir()] == ["README.md"]
+
+    def test_the_same_folder_is_taken_off_windows(self, tmp_path):
+        root = scaffold(tmp_path / ("w" * 90), with_examples=False)
+
+        assert create_project(root, "my_project").is_dir()
+
     @pytest.mark.parametrize("name", ["canut", "a" * 40, "k_1-b", "com10", "console"])
     def test_a_name_that_follows_the_rule_is_taken(self, tmp_path, name):
         root = scaffold(tmp_path / "hydromodpy", with_examples=False)

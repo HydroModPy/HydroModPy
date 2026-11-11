@@ -42,7 +42,6 @@ manifest: its status is ``read_session(dir).status``, read from its
 
 from __future__ import annotations
 
-import socket
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Final, Literal
@@ -53,7 +52,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, dump_stored, read_stored
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.pipeline_steps import STEP_NAMES
-from hydromodpy.core.state.scratch import process_is_alive
+from hydromodpy.core.state.host import death_is_proven
 from hydromodpy.results.heartbeat import heartbeat_age_s
 from hydromodpy.results.record.manifest import read_seal
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
@@ -168,11 +167,6 @@ def read_outcome(run_dir: str | Path) -> Outcome | None:
     return read_stored(Outcome, payload)
 
 
-def death_is_proven(host: str | None, pid: int | None) -> bool:
-    """Whether the process of an attempt is gone: it ran on this host and its pid is absent."""
-    return host == socket.gethostname() and pid is not None and not process_is_alive(pid)
-
-
 def effective_status(
     run_dir: str | Path,
     *,
@@ -221,7 +215,6 @@ __all__ = [
     "OutcomeError",
     "OutcomeStatus",
     "WrittenBy",
-    "death_is_proven",
     "effective_status",
     "outcome_path",
     "read_outcome",

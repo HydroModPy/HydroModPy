@@ -37,13 +37,12 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.scoring.metric_table import NETWORK_METRIC_NAMES
-from hydromodpy.display.figure import BaseFigure, FigureSpec
-from hydromodpy.display.figure_options import OutputName, SessionId
+from hydromodpy.display.figure import PROMOTED_OPTION, BaseFigure, FigureSpec
+from hydromodpy.display.figure_options import OutputName
 from hydromodpy.display.figures._calibration_session import (
     RESIDUAL_COSTS,
     CostBlock,
     as_mapping,
-    chosen_session,
     cost_blocks,
     cost_label,
     frozen_values,
@@ -70,7 +69,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure as MplFigure
     from matplotlib.figure import SubFigure
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 _BLUE, _SAND, _RED = HIGH_CONTRAST_TRIPLET
 _GREY = "0.55"
@@ -224,7 +223,6 @@ def _best_so_far(cost: np.ndarray) -> np.ndarray:
 class CalibrationProgressFigure(BaseFigure):
     """How a calibration search converged, run after run, for any method.
 
-    ``session_id`` picks one session when the run belongs to several.
     ``output`` names the network output to count when the phase scores more
     than one. ``render`` draws the cost panel alone; ``plot`` draws the slide.
     """
@@ -233,17 +231,14 @@ class CalibrationProgressFigure(BaseFigure):
         name="calibration_progress",
         title="How the search converged",
         kind="timeseries",
-        required_tables=("calibration_iterations",),
+        subject="session",
         default_figsize=(16.0, 9.0),
     )
 
-    def unavailable_reason(self, sim: Run) -> str | None:
-        """Refuse a run whose session recorded no cost, before drawing."""
-        reason = super().unavailable_reason(sim)
-        if reason is not None:
-            return reason
+    def unavailable_reason(self, session: Session) -> str | None:
+        """Refuse a session that recorded no cost, before drawing."""
         try:
-            table = trial_table(sim, session_id=chosen_session(sim, None))
+            table = trial_table(session)
         except ValueError as exc:
             return str(exc)
         if not table.has_objective():
@@ -252,33 +247,31 @@ class CalibrationProgressFigure(BaseFigure):
 
     def render(
         self,
-        sim: Run,
+        session: Session,
         ax: Axes,
         *,
-        session_id: SessionId = None,
         output: OutputName = None,
         **_,
     ) -> Axes:
-        search = _read_search(sim, session_id=session_id, output=output)
+        search = _read_search(session, output=output)
         norm, cmap = _cost_colors(search.cost)
         _draw_cost(ax, search, norm=norm, cmap=cmap)
         return ax
 
     def plot(
         self,
-        sim: Run,
+        session: Session,
         *,
-        session_id: SessionId = None,
         output: OutputName = None,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
-        **_,
+        **opts,
     ) -> MplFigure:
         import matplotlib as mpl
         import matplotlib.pyplot as plt
 
-        search = _read_search(sim, session_id=session_id, output=output)
+        search = _read_search(session, output=output)
         with mpl.rc_context(_SLIDE_RC):
             fig = plt.figure(
                 figsize=figsize or self.spec.default_figsize,
@@ -289,7 +282,7 @@ class CalibrationProgressFigure(BaseFigure):
             if save_path is not None:
                 from pathlib import Path
 
-                self._save(fig, Path(save_path), dpi=dpi, sim=sim)
+                self._save(fig, Path(save_path), dpi=dpi, sim=opts.get(PROMOTED_OPTION) or session)
         return fig
 
 
@@ -298,11 +291,10 @@ class CalibrationProgressFigure(BaseFigure):
 # ---------------------------------------------------------------------------
 
 
-def _read_search(sim: Run, *, session_id: str | None, output: str | None) -> _Search:
+def _read_search(session: Session, *, output: str | None) -> _Search:
     """Read one session into what the slide draws."""
-    chosen = chosen_session(sim, session_id)
-    table = trial_table(sim, session_id=chosen)
-    descriptor = session_descriptor(sim, chosen)
+    table = trial_table(session)
+    descriptor = session_descriptor(session)
     config = session_config(descriptor)
 
     cost = table.cost_values()[1]
@@ -314,11 +306,11 @@ def _read_search(sim: Run, *, session_id: str | None, output: str | None) -> _Se
     search = _Search(
         runs=table.iterations(),
         cost=cost,
-        parameters=_parameters(table, descriptor, frozen_values(sim, chosen)),
+        parameters=_parameters(table, descriptor, frozen_values(session)),
         blocks=blocks,
         network=_network(table, config, output),
         method=str(descriptor.get("method") or config.get("method") or ""),
-        phase=text(descriptor.get("phase_name")),
+        phase=session.phases[-1].name if session.phases else None,
         output_variable=_series_variable(config, blocks),
         returned=returned_row(table, descriptor),
     )
