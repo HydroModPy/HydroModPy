@@ -4,6 +4,10 @@ Each diagnostic writer turns runtime records into CSV rows and JSON values the
 same way: missing values become empty cells, numpy values become plain Python,
 non-finite floats become null, and a value that does not parse takes its
 default.
+
+``vi_obstacle_diagnostics.py``, ``ts_vi_obstacle_diagnostics.py`` and
+``stationary_failure_diagnostics.py`` write the CSV and JSON diagnostics of a run
+through these helpers, under the file names of ``diagnostic_files.py``.
 """
 
 from __future__ import annotations

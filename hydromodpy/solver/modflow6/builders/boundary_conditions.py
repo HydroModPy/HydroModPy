@@ -1,4 +1,7 @@
-"""MF6 boundary-condition builders (CHD, DRN, side/ocean/stream support)."""
+"""MF6 boundary-condition builders (CHD, DRN, side/ocean/stream support).
+
+It builds the ocean, stream and side constant heads, and the drains.
+"""
 
 from __future__ import annotations
 

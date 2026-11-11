@@ -15,6 +15,17 @@ without re-reading or re-interpreting the original configuration file.
 
 ``RunSlot``, ``SolverRun`` and ``RunContext`` live here so that the runner,
 the adapter Protocol and the adapters share one import source without a cycle.
+
+Who reads ``stop_flag`` depends on what can be stopped without harm. The runner reads it
+between two runs of the plan. MODFLOW 6 through libmf6 reads it at the end of each time
+step and Boussinesq between two periods, and both raise ``StopRequested``. A backend
+that solves through an executable reads nothing, because killing the child would leave
+half-written files. A calibration trial has no run folder, so its flag is ``None``, and
+it asks for the name, the early stop and the folder through ``SlotRequest``.
+
+``shared_forcing_dir`` keeps the forcing files that do not change between trials, a
+recharge series included. The file a ``rerun`` copies keeps its absolute reference to
+that folder, so a long series is written once for the whole search.
 """
 
 from __future__ import annotations

@@ -18,6 +18,8 @@ is not rotated with a square pixel, a routed resolution in bounds, and an
 outlet that falls on a valid cell. Any other raster has to open and to declare
 a CRS, unless its table gives a ``default_crs``. A file that is not a raster
 has to exist, and a URL has to answer.
+
+Only ``check(inputs=True)`` imports this module, because rasterio is slow to import.
 """
 
 from __future__ import annotations

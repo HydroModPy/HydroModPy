@@ -14,7 +14,8 @@ Every source is one class of the ``DataSource`` port
 networks, Hub'Eau, SIM2, Explore2, the IGN DEM, the two BRGM products, the
 SHOM, BD TOPO, ROE and the two computed sources are classes of the port, the
 same as a third-party plugin. The contract of the port, member by member, is
-``hydromodpy/data/source/README.md``.
+``hydromodpy/data/source/README.md``. The ports of every layer share the recipe of
+:doc:`plug-into-a-port`.
 
 An in-tree provider
 -------------------

@@ -4,6 +4,11 @@
 ``campaign array`` share these three options. The command builds the object
 and hands it to the verb it wraps; the library reads no environment variable
 for this.
+
+The options are ``--credentials``, ``--allow-host`` and ``--max-download-bytes``.
+``add_environment_arguments(parser)`` registers them, ``environment_from_args(args)``
+builds the ``Environment``, and ``environment_flags_of(args)`` serializes them onto the
+command line of a launched case. The environment is never written into the request.
 """
 
 from __future__ import annotations

@@ -19,6 +19,9 @@ station series; the cache row of every file a provider delivered, read from
 its sidecar; the
 ``[site]`` of the run. A declared folder is never copied whole: the files the
 run read in it are.
+
+``inputs_of`` is what ``hmp publish`` passes along by default, and ``--without inputs``
+leaves it out.
 """
 
 from __future__ import annotations
@@ -89,7 +92,10 @@ def run_bundle(run_dir: str | Path, *, project_root: str | Path) -> PayloadBundl
             )
         located = _located(entry.path, entry.variable, workspace, project)
         item = _payload_file(entry, located, workspace, project, cache)
-        _add(files, blobs, item, located)
+        # A registry is shared by the workspace: the rows a run reads travel as
+        # stations and are merged, the file itself never replaces the registry.
+        if not located.name.endswith(_LOC_SUFFIX):
+            _add(files, blobs, item, located)
         station = _station_row(item, located, workspace)
         if station is not None:
             stations[(station.dest, station.id)] = station

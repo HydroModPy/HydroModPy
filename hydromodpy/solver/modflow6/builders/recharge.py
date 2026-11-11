@@ -1,4 +1,7 @@
-"""MF6 recharge / EVT stress-period data builders."""
+"""MF6 recharge / EVT stress-period data builders.
+
+It builds RCH, the routed negative recharge and the soil ETP on EVT.
+"""
 
 from __future__ import annotations
 

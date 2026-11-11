@@ -405,7 +405,7 @@ def test_a_refused_release_off_windows_raises_at_once(
     assert waited == []
 
 
-@pytest.mark.skipif(os.name != "nt", reason="the real Windows kernel only")
+@pytest.mark.windows
 def test_windows_renews_and_releases_while_a_reader_holds_the_lock(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     lock = LockFile(path)

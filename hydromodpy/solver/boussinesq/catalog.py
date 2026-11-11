@@ -6,6 +6,20 @@ one time scheme per regime. An engine is the nonlinear and linear solver that
 runs a method. ``resolve_runtime_backend`` turns the ``[solver.boussinesq]`` backend
 and surface model into one method, one engine, and the runtime module that
 solves it. The descriptions and labels feed the runtime summary of a run.
+
+A run picks its method and engine in four reads. ``Model.time.regime`` chooses a steady
+or a transient problem. ``[solver.boussinesq] backend`` chooses the execution family,
+``local``, ``scipy``, ``scipy_sparse`` or ``petsc``. ``surface_interaction_model``
+chooses the surface closure, ``auto``, ``regularized_partition``, ``complementarity``,
+``vi_obstacle`` or ``ts_vi_obstacle``. Then ``resolve_runtime_backend`` resolves the
+method and the engine and loads the runtime module.
+
+Seven engines are declared: dense Newton (``local``), SciPy hybrid root (``scipy``),
+sparse SciPy Newton (``scipy_sparse``), and four PETSc engines, regularized partition,
+mixed complementarity, SNESVI obstacle and TS with SNESVI obstacle. Each runtime module
+exposes ``solve_steady_problem`` and ``solve_transient_step``. The Picard and L-scheme
+initializer of steady obstacle problems is in
+``hydromodpy_annex/solver/boussinesq_picard/``, because no ``backend`` selects it.
 """
 
 from __future__ import annotations

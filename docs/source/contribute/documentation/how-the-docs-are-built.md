@@ -27,13 +27,13 @@ written pages. The layer matrix fragment is committed: a build rewrites it, and
 CI fails if the committed copy is stale
 (`HMP_SKIP_CONTRACT_TABLES_GEN=1` skips that step).
 
-A key or a table that the loader moves, such as `modflow6` to `solver.modflow6`, appears under
+A key or a table that the loader moves, such as `modflow6` to {toml}`solver.modflow6`, appears under
 Renamed on the changes page, with the note that it still loads. The loader and the page read the
 same rows, the `[[migration]]` rows of `hydromodpy/schema/changes.toml`, so they cannot disagree.
 A new move is one row there. The keys of the moved table keep their names, so the page compares
 them from one release to the next, and a change of default, profile or unit shows under Changed.
 A key that only a pre-release wrote shows under Renamed or Removed with the note that 2.1.0
-refuses it and that the doctor of a 2.0.x release rewrites the file. The page reads that list from
+refuses it. The page reads that list from
 `hydromodpy/config/prerelease_forms.txt`.
 
 The page `reference/changes-register` lists every row of the register, one table per kind, with

@@ -1,5 +1,10 @@
 """``domain-build``, executed: a terrain and a depth model in, a geometry out.
 
+The job is a capability for outside tools. No ``hmp`` command and no step of a run starts it. A
+tool stages a job directory, whose contract is in ``hydromodpy/schema/job/``, and calls
+``worker.run(job, exit_code_for=...)``. Only the tests in ``tests/integration/domain/`` call it
+inside this repository. It stays on purpose, so keep it when you tidy the package.
+
 The body calls :func:`hydromodpy.model.domain.build.build_domain`, the
 constructor a run uses, so the sealed geometry is the one a run builds.
 

@@ -10,6 +10,14 @@ required key not written yet among them, and the exception the loader raised for
 it alone, so the loader raises the first fault in the order it always did and
 the check returns them all. The rules that read several sections together run
 on the built document (``config/cross_checks.py``).
+
+``SECTIONS`` is the table of the root sections, with the loader, the default and whether
+the section is required, and ``validate_sections`` walks it and keeps every fault. The
+loaders ``load_standard_section``, ``load_optional_section`` and
+``load_geographic_section`` resolve paths against the project root and serve a TOML file
+and a mapping alike. ``RETIRED_SECTIONS`` is the one table of the retired root sections,
+each with the sentence that names its replacement, read by the root and by a direct
+``model_validate`` alike. A new top-level section is a row of ``SECTIONS``.
 """
 
 from __future__ import annotations

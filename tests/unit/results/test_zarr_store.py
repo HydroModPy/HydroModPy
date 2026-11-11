@@ -202,7 +202,7 @@ def test_consolidate_metadata_written_on_finalize(tmp_path: Path) -> None:
         sz2.close()
 
 
-@pytest.mark.skipif(os.name != "nt", reason="Windows long-path regression")
+@pytest.mark.windows
 def test_store_keeps_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
     long_dir = tmp_path
     idx = 0

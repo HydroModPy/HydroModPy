@@ -2,6 +2,9 @@
 
 Renders commented examples for the dynamic ``[flow.param.*]``,
 ``[flow.bc.*]`` and ``[flow.sinks_sources.*]`` blocks.
+
+``flow_examples(threshold, section_renderer)`` is what an app that writes the TOML
+template passes to ``generate_toml``.
 """
 
 from __future__ import annotations

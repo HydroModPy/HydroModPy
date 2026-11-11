@@ -3,6 +3,8 @@
 Splits the heavy ``ModflowNwt.pre_processing`` body into a free
 function that mutates the solver instance in place. The solver class
 stays a thin lifecycle facade.
+
+It scales the rates to the solver time unit and checks that the layers connect.
 """
 
 from __future__ import annotations

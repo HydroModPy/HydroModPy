@@ -1,4 +1,10 @@
-"""Abstract base class for the grid-data (field) variables."""
+"""Abstract base class for the grid-data (field) variables.
+
+A fetched grid is written beside its name and renamed in place, then its sidecar is written
+through ``CacheIndex.record``. A grid that the new one contains replaces the smaller ones. A
+download needs the data folder of the call, and without one it is refused and nothing is written
+under the cache of the user.
+"""
 
 from __future__ import annotations
 

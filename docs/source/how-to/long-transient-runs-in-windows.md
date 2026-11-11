@@ -8,6 +8,7 @@ a run, how I play it, how I stop it and how I start it again.
 ## Cut the run
 
 I add a length to `[simulation.time]`. The length is a calendar length written with its unit.
+The steady first period takes the recharge of the first period, for the reason given below.
 
 ```toml
 [flow]
@@ -18,6 +19,9 @@ start_datetime = "2010-01-01"
 end_datetime = "2019-12-31"
 step_value = "1 day"
 window_length = "1 year"
+
+[flow.sinks_sources.recharge]
+first_clim = "first"
 ```
 
 The windows start at `start_datetime` and follow one another. The last one ends with the
@@ -33,7 +37,7 @@ A run in windows needs a transient flow and a backend that can start from a save
 is MODFLOW 6 today. It cannot carry a transport process and it is not a calibration trial. A
 steady first period that takes the mean recharge or ETP (`first_clim = "mean"`, the default)
 would average window 1 only, so it is refused too. I set `first_clim` to `"first"` or a number,
-or I turn `flow.first_period_steady` off and start from `[flow.ic] kind = "steady_state"`, which
+or I turn {toml}`flow.first_period_steady` off and start from `[flow.ic] kind = "steady_state"`, which
 the chain computes over the whole simulation. The file is refused with the reason when it is
 read.
 

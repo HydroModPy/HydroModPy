@@ -37,27 +37,24 @@ FROM_FILE = (
 class CalibrationPlan:
     """What a calibration declares, with nothing run and nothing written.
 
-    Attributes
-    ----------
-    phases
-        The declared phases, empty for a file with one search. Each names the
-        method it runs, and a phase that names none gets the one its criteria
-        call for, with ``method_reason`` saying why. ``interval_width`` gives the
-        width the phase reads its interval with and where it comes from. A phase
-        that moves again a parameter an earlier phase passes on also names that
-        phase, and says whether its engine starts from the passed value.
-    calibration
-        The whole ``[calibration]`` section a protocol unfolds into, without
-        the ``protocol`` key, so it can be pasted in its place. A file naming no
-        protocol gets its own section back, a configuration its section as it is.
-    protocol
-        ``None`` for a declaration naming no protocol, else ``name``, ``version``,
-        ``citation`` (the first reference, short form) and ``inherited`` (true
-        when the protocol comes from the ``base_config``).
-    plan
-        For a file, what a launch would write: its ``case``, ``session_dir``,
-        ``run_dir``, ``version``, ``phases``, ``solves_in_parallel`` and
-        ``save_runs``. ``None`` for a configuration object.
+    ``phases`` holds the declared phases, empty for a file with one search. Each names the
+    method it runs, and a phase that names none gets the one its criteria call for, with
+    ``method_reason`` saying why. ``interval_width`` gives the width the phase reads its
+    interval with and where it comes from. A phase that moves again a parameter an earlier
+    phase passes on also names that phase, and says whether its engine starts from the
+    passed value.
+
+    ``calibration`` is the whole ``[calibration]`` section a protocol unfolds into, without
+    the ``protocol`` key, so it can be pasted in its place. A file naming no protocol gets
+    its own section back, a configuration its section as it is.
+
+    ``protocol`` is ``None`` for a declaration naming no protocol, else ``name``,
+    ``version``, ``citation`` (the first reference, short form) and ``inherited`` (true when
+    the protocol comes from the ``base_config``).
+
+    ``plan`` gives, for a file, what a launch would write: its ``case``, ``session_dir``,
+    ``run_dir``, ``version``, ``phases``, ``solves_in_parallel`` and ``save_runs``. ``None``
+    for a configuration object.
     """
 
     phases: list[dict[str, Any]]

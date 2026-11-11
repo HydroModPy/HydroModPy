@@ -1424,6 +1424,7 @@ def test_a_public_exception_derives_from_the_root() -> None:
 
 
 _PARALLEL_RE = re.compile(r"-n\s+(auto|\d+)")
+_MARKER_RE = re.compile(r"""(?:^|\s)-m\s+(?:"([^"]*)"|'([^']*)'|(\S+))""")
 
 
 def _whitebox_test_paths() -> list[Path]:
@@ -1467,7 +1468,19 @@ def _collects(command: str, path: Path) -> bool:
     return False
 
 
+def _leaves_out_whitebox(command: str) -> bool:
+    """Whether a ``-m`` expression of a command leaves out the ``whitebox`` marker.
+
+    ``python -m pytest`` also matches, and its ``pytest`` never says ``not whitebox``.
+    """
+    expressions = ("".join(match.groups(default="")) for match in _MARKER_RE.finditer(command))
+    return any(re.search(r"\bnot\s+whitebox\b", text) for text in expressions)
+
+
 def _ignored(command: str, path: Path) -> bool:
+    """Whether a command leaves ``path`` out, by ``--ignore`` or by ``-m "not whitebox"``."""
+    if _leaves_out_whitebox(command):
+        return True
     relative = path.relative_to(REPO_ROOT).as_posix()
     for token in command.split():
         if not token.startswith("--ignore="):
@@ -1499,7 +1512,7 @@ def test_no_parallel_step_collects_a_whitebox_test(workflow: Path) -> None:
     assert not offenders, (
         f"{workflow.name} runs Whitebox tests inside an xdist worker, which kills it:\n  "
         + "\n  ".join(offenders)
-        + "\nAdd an --ignore for them and a serial step that runs them."
+        + '\nAdd -m "not whitebox" to that step and a serial step with -m whitebox.'
     )
 
 
@@ -1518,7 +1531,9 @@ def test_what_a_parallel_step_ignores_is_run_somewhere_serially(workflow: Path) 
             _PARALLEL_RE.search(command) and _collects(command, path) and _ignored(command, path)
             for command in commands
         )
-        if excluded and not any(_collects(command, path) for command in serial):
+        if excluded and not any(
+            _collects(command, path) and not _ignored(command, path) for command in serial
+        ):
             missing.append(path.relative_to(REPO_ROOT).as_posix())
 
     assert not missing, f"{workflow.name} excludes these but never runs them serially: {missing}"

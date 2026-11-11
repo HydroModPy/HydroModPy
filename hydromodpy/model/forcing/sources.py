@@ -1,5 +1,9 @@
 """Readers of a gridded or located source, shared by the forcing discretizers.
 
+A nodata pixel under a cell is refused with the cell and the period
+(``refuse_nodata_under_cells``). The values are multiplied by the unit factor of the record, so
+they come out in m/s, and several records of one period are averaged with equal weights.
+
 The source is whatever the data managers return: an xarray dataset, a NetCDF or
 GeoTIFF file, station series. The target is always a flat list of cell centers,
 whatever the mesh engine. The ``"area"`` method also reads the cell polygons of

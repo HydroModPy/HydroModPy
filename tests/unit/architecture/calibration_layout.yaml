@@ -1,5 +1,5 @@
-# Import rules inside hydromodpy/calibration, described in
-# hydromodpy/calibration/README.md ("Import rules").
+# Import rules inside hydromodpy/calibration, described on the page
+# docs/source/contribute/architecture/packages/calibration.rst ("Inside the package").
 # Checked by test_package_layouts.py.
 
 # Each part of hydromodpy/calibration lists the parts of hydromodpy/calibration
@@ -120,8 +120,7 @@ solver_access:
 
 # Rule 2: what another layer of hydromodpy may import from
 # hydromodpy/calibration. None of these names a subtree: each is one
-# module, exactly as calibration-README-cible.md "What other layers import"
-# lists it. Everything else is private to hydromodpy/calibration.
+# module, exactly as the page packages/calibration.rst lists it. Everything else is private to hydromodpy/calibration.
 public:
   - hydromodpy.calibration
   - hydromodpy.calibration.config

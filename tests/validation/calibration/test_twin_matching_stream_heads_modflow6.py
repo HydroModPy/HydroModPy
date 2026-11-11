@@ -167,6 +167,10 @@ crs_project = "{crs}"
 
 [geographic.catchment]
 kind = "dem"
+
+[[data.dem.sources]]
+source = "file"
+path = "{dem}"
 """
 
 _LAYERS_TOML = """\

@@ -11,6 +11,8 @@ typed by hand: a wrong row is fixed in its source, never in a page.
   markers of ``pytest.ini`` (no test is collected or run);
 - packages and counts: the package folders, their ``README.md`` and the
   registries of the code (variables, figures, solvers, sources, steps);
+- module tables: the first docstring line of each module of a package;
+- ports: the ``PluginRegistry`` instances, their members, names and tests;
 - storage tree: ``hydromodpy.results.storage.contract`` and
   ``hydromodpy.core.state.layout``, ``hydromodpy.core.state.scratch``;
 - environment variables: ``hydromodpy.core.runtime.env`` and a scan of the code;
@@ -23,6 +25,8 @@ from __future__ import annotations
 
 import ast
 import configparser
+import importlib
+import json
 import re
 import tomllib
 from collections import Counter, defaultdict
@@ -31,6 +35,9 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+from tools.docs.check_readmes import plugin_registries
+from tools.docs.tests_index import TIERS
 
 ROOT = Path(__file__).resolve().parents[2]
 ROOT_LAYER = "<root>"
@@ -321,16 +328,8 @@ def ci_workflows(repo: Path = ROOT) -> list[dict[str, Any]]:
 # -- test inventory ------------------------------------------------------------
 
 
-TIER_ORDER = (
-    "unit",
-    "integration",
-    "regression",
-    "validation",
-    "e2e",
-    "characterization",
-    "contract",
-    "performance",
-)
+# Kernels first, then the other families, as the contributor pages list them.
+TIER_ORDER = ("unit", *(tier for tier in TIERS if tier != "unit"))
 
 
 def _decorator_marks(decorators: list[ast.expr]) -> list[str]:
@@ -438,7 +437,7 @@ def suite_inventory(repo: Path = ROOT) -> dict[str, Any]:
 # -- packages and registry counts ----------------------------------------------
 
 
-def _readme_summary(readme: Path) -> str:
+def readme_summary(readme: Path) -> str:
     text = readme.read_text(encoding="utf-8")
     body = re.sub(r"\A\s*#[^\n]*\n", "", text, count=1)
     summary = first_paragraph(body)
@@ -457,11 +456,91 @@ def package_map(repo: Path = ROOT) -> list[dict[str, Any]]:
         rows.append(
             {
                 "package": folder.name,
-                "summary": _readme_summary(readme) if readme.exists() else "",
+                "summary": readme_summary(readme) if readme.exists() else "",
                 "readme": _rel(readme, repo) if readme.exists() else None,
                 "modules": len(modules),
                 "lines": sum(len(p.read_text(encoding="utf-8").splitlines()) for p in modules),
                 "layer": folder.name in layers,
+            }
+        )
+    return rows
+
+
+def module_table(package: str, repo: Path = ROOT) -> list[dict[str, Any]]:
+    """One row per module of ``hydromodpy/<package>``, sorted by path.
+
+    The keys are ``path`` (relative to the package), ``summary`` (the first line
+    of the module docstring), ``lines`` and ``readme`` (the README of the folder
+    when the folder is a port folder and not the package itself, else ``None``).
+    A module without a docstring is refused, so a strict build fails instead of
+    showing a gap.
+    """
+    base = repo / "hydromodpy" / package
+    rows = []
+    for path in _py_files(base):
+        if path.name == "__init__.py":
+            continue
+        text = path.read_text(encoding="utf-8")
+        doc = (ast.get_docstring(ast.parse(text)) or "").strip()
+        if not doc:
+            raise ValueError(
+                f"{_rel(path, repo)} has no docstring; "
+                "its first line is the row of the module table"
+            )
+        folder_readme = path.parent / "README.md"
+        rows.append(
+            {
+                "path": path.relative_to(base).as_posix(),
+                "summary": doc.splitlines()[0].strip(),
+                "lines": len(text.splitlines()),
+                "readme": _rel(folder_readme, repo)
+                if path.parent != base and folder_readme.is_file()
+                else None,
+            }
+        )
+    return rows
+
+
+def _tests_importing(module: str, imports: dict[str, Any]) -> list[str]:
+    return sorted(
+        f
+        for f, info in imports.items()
+        if any(m == module or m.startswith(module + ".") for m in info["modules"])
+    )
+
+
+def port_table(repo: Path = ROOT, imports: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """One row per ``PluginRegistry`` of ``hydromodpy``: what a plugin declares and how it joins.
+
+    The keys are ``registry`` (module and name), ``kind``, ``names`` (served
+    now), ``group`` (entry-point group, ``None`` for a closed list), ``members``,
+    ``readme`` (path and first paragraph of the README of the port, found from
+    the folder of the registry upwards, or ``None``) and ``tests`` (the test
+    files that import the module of the registry). *imports* is the ``imports``
+    part of ``_data/tests.json``, read from the build data when not given.
+    """
+    if imports is None:
+        data = repo / "docs" / "source" / "_data" / "tests.json"
+        imports = json.loads(data.read_text(encoding="utf-8"))["imports"] if data.is_file() else {}
+    rows = []
+    for ref in sorted(plugin_registries(repo)):
+        registry = getattr(importlib.import_module(ref.module), ref.name)
+        folder = ref.folder
+        readme = None
+        while folder != Path("hydromodpy") and readme is None:
+            if (repo / folder / "README.md").is_file():
+                path = repo / folder / "README.md"
+                readme = {"path": _rel(path, repo), "summary": readme_summary(path)}
+            folder = folder.parent
+        rows.append(
+            {
+                "registry": f"{ref.module}.{ref.name}",
+                "kind": registry.kind,
+                "names": list(registry.names()),
+                "group": registry.group,
+                "members": list(registry.members()),
+                "readme": readme,
+                "tests": _tests_importing(ref.module, imports),
             }
         )
     return rows
@@ -876,8 +955,11 @@ __all__ = [
     "layer_graph",
     "layer_label",
     "layout_contracts",
+    "module_table",
     "package_map",
+    "port_table",
     "pytest_markers",
+    "readme_summary",
     "registry_counts",
     "storage_tree",
     "suite_inventory",

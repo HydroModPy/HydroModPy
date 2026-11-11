@@ -14,6 +14,9 @@ polygon, a family named twice, a line without length, zones that do not match
 the lines, an index outside the vertices. It does not check the type of the
 other members, which their annotation states: the config refuses what a user
 writes, and the planner fills each member.
+
+The planner gives ``catchment`` to a lumped engine only, so the hash of every other
+request is unchanged.
 """
 
 from __future__ import annotations

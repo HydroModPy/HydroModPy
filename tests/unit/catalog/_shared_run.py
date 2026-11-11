@@ -2,7 +2,8 @@
 
 The Hub'Eau series sits in ``data/hydrometry/`` with its sidecar, its row in
 ``hydrometry_hubeau_LOC.csv``, the cache row the sidecar holds; the user
-series has its row in ``hydrometry_custom_LOC.csv``; the DEM is a file the
+series has its row in ``hydrometry_custom_LOC.csv``, which the run
+records as an input too; the DEM is a file the
 configuration declared. The folder ``data/hydrometry`` also holds a station
 the run never read.
 """
@@ -76,6 +77,15 @@ def make_shared_run(root: Path) -> Path:
                 path=f"data/hydrometry/{CUSTOM_FILE}",
                 sha256=sha256_of(custom),
                 bytes=custom.stat().st_size,
+                license="LicenseRef-undetermined",
+            ),
+            InputEntry(
+                variable="hydrometry:discharge",
+                provider="file",
+                request={"station": "NANCON"},
+                path="data/hydrometry/hydrometry_custom_LOC.csv",
+                sha256=sha256_of(hydrometry / "hydrometry_custom_LOC.csv"),
+                bytes=(hydrometry / "hydrometry_custom_LOC.csv").stat().st_size,
                 license="LicenseRef-undetermined",
             ),
         ],

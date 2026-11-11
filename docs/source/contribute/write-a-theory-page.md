@@ -70,6 +70,12 @@ cites.
 - A field in `hmp-params` that does not exist fails the build.
 - A module in `hmp-tested-by` that no test imports: the box says so in red,
   so an untested model shows on its own page.
+- A theory page without a `hmp-tested-by` block fails the build. The block is
+  required, and it puts the page in the {doc}`../theory/science-map`. Only the
+  pages that hold a `toctree`, the notation, the bibliography and the validation
+  page are exempt.
+- A prefix in `hmp-tested-by` that is not a module of `hydromodpy` fails the
+  build, so a renamed module shows at once.
 
 ## Example
 

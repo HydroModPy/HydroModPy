@@ -1,4 +1,17 @@
-"""Resolution of the workspace, the project and the TOML file a command is given."""
+"""Resolution of the workspace, the project and the TOML file a command is given.
+
+``resolve_workspace``, ``resolve_project``, ``project_root_of`` and ``toml_target``
+serve what a verb is given. Every verb takes ``-w/--workspace``, which names a workspace
+root or a project directory, after the verb or before it, and a verb that reads no
+workspace accepts it too, so that a script can always write it. Without it the verb uses
+``HMP_WORKSPACE``, then the workspace or project that holds the current directory, and
+it stops with exit code 10 naming ``-w`` when it finds none. No verb falls back on
+``~/hydromodpy``, and only ``hmp workspace init`` creates it when no path is given.
+``hmp run``, ``calibrate`` and ``spinup`` also read their relative paths from a base.
+``-w`` gives it when it names a project, and ``--base DIR`` gives it too and wins. No
+environment variable carries the base, so a sub-process receives ``-w`` on its command
+line.
+"""
 
 from __future__ import annotations
 

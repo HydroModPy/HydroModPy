@@ -33,7 +33,7 @@ Each result directory is keyed by its relative directory and by what it
 carries: ``manifest.json`` names a ``sim_id``, ``outcome.json`` an
 ``attempt_id``, ``session.json`` a ``session_id``. The stamp of a directory is
 the newest mtime of those files, of ``annotations.json``, of ``purged.json``
-(``hmp gc`` removed fields, so the size changed) and of the trial journal. A directory that is new, or whose key or stamp changed, is read
+(``hmp catalog gc`` removed fields, so the size changed) and of the trial journal. A directory that is new, or whose key or stamp changed, is read
 again; one that disappeared loses its rows; the others are left as they are.
 A renamed directory is a removal and an insertion under the new name, with
 the same ``sim_id``: the links by id do not move. A retry writes a new

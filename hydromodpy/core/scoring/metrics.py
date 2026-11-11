@@ -10,6 +10,11 @@ References
 - Gupta, H. V., et al. (2009). Journal of Hydrology, 377(1-2), 80-91.
 - Moriasi, D. N., et al. (2007). Trans. ASABE, 50(3), 885-900. (PBIAS, with the
   opposite sign: here ``pbias`` has the sign of ``bias``, positive = overestimation)
+
+A caller runs ``align`` first, which drops the pairs with NaN, then ``nse``,
+``log_nse``, ``kge``, ``rmse``, ``mae``, ``bias``, ``pbias``, ``correlation``, or the
+variants ``nse_delta``, ``kge_delta`` and ``nse_seasonal``. A new metric goes here in
+NumPy only, a float out, and its name is a row of ``metric_table.py``.
 """
 
 from __future__ import annotations

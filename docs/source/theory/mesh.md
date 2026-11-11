@@ -27,7 +27,7 @@ The code builds the cells in this order.
 | Engine | Cells | Center | Connections | Lines it follows |
 |---|---|---|---|---|
 | `regular` | squares, one per DEM pixel or larger | cell center | orthogonal | rivers as chains of cells, contacts and shores as staircases |
-| `triangle` | triangles | mean of the vertices | not orthogonal, XT3D on by default | rivers, contacts and shores as edges |
+| `triangle` | triangles | mean of the vertices | not orthogonal, XT3D set by {toml}`solver.modflow6.runtime.mf6_enable_xt3d` | rivers, contacts and shores as edges |
 | `voronoi` | polygons | the generator | orthogonal | rivers as chains of cells, contacts and shores as faces |
 
 ::::{dropdown} Notation of this page

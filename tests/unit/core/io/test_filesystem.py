@@ -359,7 +359,7 @@ def test_replacing_an_absent_file_raises_at_once(
 # --- Real Windows cases, played by the weekly job on windows-latest.
 
 
-@pytest.mark.skipif(os.name != "nt", reason="the real Windows kernel only")
+@pytest.mark.windows
 def test_windows_renames_onto_an_empty_reserved_folder(tmp_path: Path) -> None:
     source, reserved = _trial(tmp_path)
     with pytest.raises(OSError):
@@ -369,7 +369,7 @@ def test_windows_renames_onto_an_empty_reserved_folder(tmp_path: Path) -> None:
     assert not source.exists()
 
 
-@pytest.mark.skipif(os.name != "nt", reason="the real Windows kernel only")
+@pytest.mark.windows
 def test_windows_links_on_ntfs(tmp_path: Path) -> None:
     source = tmp_path / "source.bin"
     source.write_bytes(b"lock")
@@ -378,7 +378,7 @@ def test_windows_links_on_ntfs(tmp_path: Path) -> None:
     assert os.path.samefile(source, target)
 
 
-@pytest.mark.skipif(os.name != "nt", reason="the real Windows kernel only")
+@pytest.mark.windows
 def test_windows_prefixes_a_unc_path(tmp_path: Path) -> None:
     drive, tail = os.path.splitdrive(str(tmp_path))
     unc = f"\\\\localhost\\{drive[0]}$" + tail + "\\deep"

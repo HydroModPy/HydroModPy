@@ -1,3 +1,9 @@
+"""The kinds of spatial support a parameter can be zoned by, as config models.
+
+A support is a map (geology, catchment zones, generated bands or rings) on which a parameter
+such as K can vary. ``spatial_support.py`` holds a provider for each kind.
+"""
+
 from __future__ import annotations
 
 import math

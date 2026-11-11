@@ -15,6 +15,16 @@ spoil each other whatever the solver are one row of ``CONTAMINATIONS``.
 A sealed document, the frozen config of a run already on disk, is read as it ran:
 every refusal here only warns there, so a run sealed before a refusal existed
 still reads back.
+
+``CROSS_RULES`` is the table of every rule that reads several sections, one
+``CrossRule(rule, reads)`` per row, named by its function and run in the order of the
+table. ``reads`` names the sections that a rule needs, and a test holds it equal to what
+the function reads. The rules that cross the file with the solvers are functions of
+``solver_supports.py``, and the table names them. The checks of the ``[[export]]`` names
+and of the dates of ``[[export]]`` and ``[display]`` are rows of the same table. A rule
+on one section belongs in the model of that section. A rule that depends on the flow
+solver is not written by hand: the solver lists the trait in ``supports``, and the
+solver rows refuse it.
 """
 
 from __future__ import annotations

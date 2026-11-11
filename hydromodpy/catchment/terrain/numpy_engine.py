@@ -21,6 +21,10 @@ Where it can differ from Whitebox, by construction and not by accident:
 - **ties**. The steepest-descent search walks the pointer codes in ascending
   order and keeps a neighbor only on a strict improvement, so an exact tie
   goes to the lowest code. Whitebox breaks ties its own way.
+
+The two engines agree cell for cell on the valley of the conformance suite. On
+``DEM_gouville_25m.tif`` they differ by a factor 2.5 on the area of a catchment, because
+they resolve flat areas at different stages.
 """
 
 from __future__ import annotations

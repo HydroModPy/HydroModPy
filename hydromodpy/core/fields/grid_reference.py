@@ -1,4 +1,7 @@
-"""Plain geometric description of a solver grid (kernel-level POPO)."""
+"""Plain geometric description of a solver grid (kernel-level POPO).
+
+A new fact about a solver grid is a field of ``GridReference``.
+"""
 
 from __future__ import annotations
 

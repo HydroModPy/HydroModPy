@@ -21,6 +21,11 @@ Canonical access is explicit:
 :class:`RunState` is the reduced view of that context a solver adapter is
 handed. The workflow context is the state of a whole pipeline; an adapter
 executes one run inside it and must not be able to reach the rest.
+
+Four contexts carry what a step hands to the next: ``SetupContext`` is built once,
+``LoadedDataContext`` holds the support data, and ``ExecutionRegistry`` and
+``WorkflowContext`` hold the rest. A new thing a step must hand on is a field of the
+matching context.
 """
 
 from __future__ import annotations

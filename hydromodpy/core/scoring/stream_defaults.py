@@ -24,6 +24,11 @@ A named protocol does not read these defaults for a version it has frozen: its
 own table says what each version runs
 (:data:`hydromodpy.calibration.protocols.matching_hydrographic_network.DEFAULTS_BY_VERSION`),
 and a test holds the last line of that table equal to this object.
+
+A new default of the stream criterion goes here, never as a literal in a caller.
+Calibration scores the criterion per trial with ``catchment/stream_network``,
+``results`` redraws it, and ``display`` reads only ``core`` and ``results``, so the
+words it shares with the kernels live here.
 """
 
 from __future__ import annotations

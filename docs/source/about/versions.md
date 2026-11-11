@@ -36,11 +36,11 @@ and the new one, once per key and per file. `hmp doctor --fix-config <file>` rew
 and the files it inherits, and keeps your comments. The changelog lists the rename under
 `Changed` with both names, and later its removal under `Removed`.
 
-A key or a table that only a pre-release wrote (an alpha, a beta or `2.0.0rc1`) still loads in
-2.0.x, with the same warning, and `hmp doctor --fix-config <file>` rewrites it. From 2.1.0 it is
-refused. The message names every such key the file holds, at once, and gives the way out: run
-`pip install "hydromodpy~=2.0.0"`, then `hmp doctor --fix-config <file>`, then come back to the
-new version. A run stored by a pre-release is refused the same way. The keys are listed in
+A key or a table that only a pre-release wrote (an alpha, a beta or `2.0.0rc1`) is refused
+from 2.1.0. The message names every such key the file holds, at once. HydroModPy does not
+rewrite the file. The {doc}`list of key changes </reference/changes>` shows each such key with the
+version that refuses it and the name that replaces it. A run stored by a pre-release is refused
+the same way. The keys are listed in
 `hydromodpy/config/prerelease_forms.txt`, and the list leaves in 2.3.0. One key is not on it.
 In 2.0.0, `hmp project new` wrote `type` in `[[simulation.process]]`. So a project it made still
 loads in 2.1 with the warning, and `hmp doctor --fix-config` writes `kind`.
@@ -61,9 +61,10 @@ objects. `hmp.read`, `hmp.index` and `hmp.Catalog` stay beside them, because the
 are read through them. `hmp.figure`, `hmp.report`, `hmp.calibration_phases`, `hmp.compare_pair`,
 `hmp.example_add`, `hmp.example_list`, `hmp.example_show`, `hmp.Workspace` and seven exceptions of
 `results` and `project` are refused with the call that replaces them, such as
-`hmp.show(ref, what='figure', name=...)` for `hmp.figure`. The reading commands of `hmp catalog`, `hmp viz`, `hmp report`,
-`hmp config check`, `hmp project show` and `hmp project status` are refused the same way, with
-`hmp ls`, `hmp show`, `hmp diff` or `hmp check`.
+`hmp.show(ref, what='figure', name=...)` for `hmp.figure`. The reading commands that left the
+command line (the reading actions of `catalog`, then `viz`, `report`, `config check`, `project
+show` and `project status`) are refused the same way, with `hmp ls`, `hmp show`, `hmp diff` or
+`hmp check`. `hydromodpy/cli/conventions.py` lists them.
 
 ### Numbers
 
@@ -87,9 +88,9 @@ version does not know is refused, with the list of the editions it knows. Each d
 moves is a `default` row of the register of changes, and the page of each key in the
 parameter reference lists its default by edition.
 
-Edition `"2.1"` changes one default. `calibration.persist_trial_series` is `false` in edition
+Edition `"2.1"` changes one default. {toml}`calibration.persist_trial_series` is `false` in edition
 2.0 and `true` in edition 2.1, so a calibration of that edition writes the series of every
-trial, one file per trial in `trial_series/`, about 2 kB for each trial of the example. `hmp init`
+trial, one file per trial in `trial_series/`, about 2 kB for each trial of the example. `hmp project new`
 writes `edition = "2.1"` in the project file it creates. A file without an edition stays in
 edition 2.0 and keeps writing no series. No number of a run moves. Because the identity of a
 calibration document counts the fields it writes, a calibration document of edition 2.0 that
@@ -102,7 +103,7 @@ compute it. A run asks for its configuration as a file writes it, the bytes and 
 input file it reads, and the edition of its defaults. A URL counts by its pinned sha256 and a file
 by its bytes, so the address or the path of an input does not count. What computes is the code of
 the layers that change a number, the mesh engine with its version, the sha256 of each solver
-binary and the versions of the numeric packages. `[workspace]`, `[workflow]`, `simulation.name`,
+binary and the versions of the numeric packages. `[workspace]`, `[workflow]`, {toml}`simulation.name`,
 every `deliver_to` key, the name of the run and its `sim_id` are not part of the identity.
 
 A release that only touches figures, commands or this documentation keeps that identity, so an
@@ -139,12 +140,12 @@ that writes an old key of `[calibration]` is refused with the new name, and
 - In a TOML file: the whole `[calibration]` section, the VI and TS runtimes of Boussinesq with
   their settings, `partition_release_depth_m`, `transport.modflow6prt`, the MODPATH block, the
   HFB barriers, the parameters of the soil reservoir beyond its budget,
-  `geographic.domain_extent` and the `custom` backend. The
+  {toml}`geographic.domain_extent` and the `custom` backend. The
   {doc}`parameter reference </reference/parameters/index>` marks each key. A run lists the
   experimental keys its file writes in one line of its log, and `hmp check` shows them.
 - On the command line: the result of `hmp calibrate --format json`, with the report it reads.
 - In Python: the shape of `CalibrationReport`, and the `solver`, `solver.extractor` and
-  `calibration.evaluator` plugin ports, as {doc}`the contracts page
+  {toml}`calibration.evaluator` plugin ports, as {doc}`the contracts page
   </contribute/architecture/contracts>` details.
 - The sidecars of `validity_frame`.
 

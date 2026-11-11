@@ -1,5 +1,8 @@
 """DEM variable, in the standard variable pattern.
 
+The cache is indexed by box, with no time dimension. The department lookup is imported inside
+the functions that use it, so geopandas loads only for a French source.
+
 Caches and serves DEM data from the port source the configuration names, or
 from the user's own files. Returns a ``LoadResult`` containing ``FieldRecord``
 objects pointing to cached GeoTIFF files.

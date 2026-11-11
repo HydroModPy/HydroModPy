@@ -7,6 +7,8 @@ already-built package through that ``.ts`` protocol. It imports nothing
 package-specific so any builder can reuse it: emit a series NAME string into a
 stress-period row and accumulate a :class:`Ts6Series`, then call
 :func:`attach_time_series` right after the package is constructed.
+
+It writes the TS6 files of a non-constant lake or stream forcing.
 """
 
 from __future__ import annotations

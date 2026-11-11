@@ -11,6 +11,9 @@ Every particle counts once. The extractors write no release weight on the
 ``particles`` group, so the density is the distribution of the release the run
 asked for, not a recharge-weighted one: read it as such when the release zone
 does not cover the domain uniformly.
+
+The travel times come from ``results/run/particles.py``, because a figure never computes
+a hydrological quantity itself.
 """
 
 from __future__ import annotations

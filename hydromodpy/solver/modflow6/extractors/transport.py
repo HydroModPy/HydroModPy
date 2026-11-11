@@ -5,6 +5,9 @@ The file itself is the MODFLOW 6 head layout in double precision, not the
 MT3DMS one: read as MT3DMS, its header gives a grid of 538 976 334 columns
 (the text ``N   `` taken as an integer). The adapter adds the GWT solute
 mass balance on top.
+
+It reads the GWT concentrations from the ``.ucn`` files of the flow folder and the
+solute mass balance.
 """
 
 from __future__ import annotations

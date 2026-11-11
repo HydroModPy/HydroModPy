@@ -18,6 +18,9 @@ rendered into both documents from the same records.
 The 2.0.0 wrote ``schema = "hmp-manifest/v2"``, ``job_id`` and ``mediaType``.
 :func:`read_job_seal` converts that document in memory, under the one name each
 key now carries, and never rewrites the file.
+
+The seal carries ``request_id``, the content address of the request, and
+``outcome.json`` keeps that value under its field ``job_id``.
 """
 
 from __future__ import annotations

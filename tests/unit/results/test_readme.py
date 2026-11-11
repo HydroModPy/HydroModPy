@@ -8,6 +8,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.results.outcome import Outcome, OutcomeError
 from hydromodpy.results.readme import (
     SummaryFacts,
@@ -28,6 +29,7 @@ from hydromodpy.results.session.descriptor import (
 from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine
 from hydromodpy.results.validity_rules import LabelResult, Reason, label_for, run_quantities
+from hydromodpy.schema.lineage import Lineage
 from tests._helpers.run_records import NOW, WINDOW, make_record
 from tests._helpers.session_documents import best_trial, session_descriptor, trial_line
 
@@ -90,6 +92,131 @@ def test_a_steady_run_says_it_has_no_period(tmp_path):
     text = render_run_readme(record, None, LABEL, manifest_sha256="0" * 64)
     assert "Steady state, no period." in text
     assert "## Outcome" not in text
+
+
+IN_TIME = "- The state inside a stress period: fields are stored once per period, at its end."
+ONE_STATE = "- A change in time: the run is one steady state."
+NO_FLOW = "- The flow between two cells. Set `keep_face_flows = true` under `[simulation.results]` to keep it."
+NO_PARTICLES = "- A residence time: the run has no particle tracking."
+
+
+@pytest.mark.parametrize(
+    ("period", "regime", "stored", "expected"),
+    [
+        pytest.param(
+            ManifestPeriod(),
+            "transient",
+            frozenset({"fields/head"}),
+            [ONE_STATE, NO_FLOW, NO_PARTICLES],
+            id="no_period_is_one_state",
+        ),
+        pytest.param(
+            None,
+            "steady",
+            frozenset({"fields/head"}),
+            [ONE_STATE, NO_FLOW, NO_PARTICLES],
+            id="steady_regime_with_dates_is_one_state",
+        ),
+        pytest.param(
+            None,
+            "transient",
+            frozenset({"fields/head", "fields/face_flow"}),
+            [IN_TIME, NO_PARTICLES],
+            id="transient_with_the_flow_between_cells",
+        ),
+        pytest.param(
+            None,
+            "transient",
+            frozenset({"fields/head", "fields/particles/x"}),
+            [IN_TIME, NO_FLOW],
+            id="transient_with_pathlines",
+        ),
+        pytest.param(
+            None,
+            "transient",
+            frozenset({"fields/face_flow", "fields/particles/x"}),
+            [IN_TIME],
+            id="transient_with_both",
+        ),
+        pytest.param(
+            None,
+            "transient",
+            frozenset({"final_state/head", "tables/budget/flow", "fields/mesh/open_water"}),
+            [IN_TIME, NO_FLOW, NO_PARTICLES],
+            id="other_keys_prove_nothing",
+        ),
+    ],
+)
+def test_the_run_readme_says_what_the_run_does_not_give(period, regime, stored, expected) -> None:
+    record = make_record()
+    record = record.model_copy(
+        update={
+            "run": record.run.model_copy(update={"flow_regime": regime}),
+            **({} if period is None else {"period": period}),
+        }
+    )
+
+    text = render_run_readme(
+        record, None, LABEL, manifest_sha256="0" * 64, stored=stored, writes_face_flow=True
+    )
+
+    start = text.index("## What this run does not give")
+    section = text[start : text.index("## Cost of a replay")].strip().splitlines()
+    assert section == ["## What this run does not give", "", *expected]
+
+
+@pytest.mark.parametrize(
+    ("writes_face_flow", "lineage_kind", "expected"),
+    [
+        pytest.param(True, None, NO_FLOW, id="the_setting_keeps_it"),
+        pytest.param(
+            False,
+            None,
+            "- The flow between two cells: the solver of this run does not compute it.",
+            id="the_solver_does_not_write_it",
+        ),
+        pytest.param(
+            True,
+            "trial",
+            "- The flow between two cells: a kept calibration trial keeps none.",
+            id="a_kept_trial_keeps_none",
+        ),
+        pytest.param(
+            None,
+            None,
+            "- The flow between two cells: the run did not keep it.",
+            id="the_caller_does_not_say",
+        ),
+    ],
+)
+def test_the_run_readme_gives_the_face_flow_setting_only_when_it_works(
+    writes_face_flow, lineage_kind, expected
+) -> None:
+    record = make_record()
+    record = record.model_copy(update={"lineage": Lineage(kind=lineage_kind)})
+
+    text = render_run_readme(
+        record,
+        None,
+        LABEL,
+        manifest_sha256="0" * 64,
+        stored=frozenset({"fields/head"}),
+        writes_face_flow=writes_face_flow,
+    )
+
+    flow_lines = [line for line in text.splitlines() if "flow between two cells" in line]
+    assert flow_lines == [expected]
+
+
+def test_the_setting_the_run_readme_names_is_a_key_of_the_configuration() -> None:
+    found = re.search(r"Set `(\w+) = true` under `\[([\w.]+)\]`", NO_FLOW)
+    assert found is not None
+    setting, table = found.groups()
+    model = HydroModPyConfig
+    for part in table.split("."):
+        model = model.model_fields[part].annotation
+
+    assert model.model_fields[setting].annotation is bool
 
 
 def test_the_label_of_the_day_is_the_one_rendered(tmp_path):

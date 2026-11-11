@@ -26,7 +26,7 @@ The rules
 ---------
 
 **Held by the gate.** A pull request that breaks one of these fails
-``Architecture / layer matrix``.
+``Architecture / layers, surface and two threads``.
 
 1. One layer per top-level subpackage, and one row per package in the matrix.
 2. An import is an edge, and the edge must be in the matrix or in its list of

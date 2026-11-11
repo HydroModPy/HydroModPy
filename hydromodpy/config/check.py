@@ -20,6 +20,12 @@ turns each ``to_fill`` into an ``error`` at the same code and changes nothing el
 The phrase of a code, in English and in French, is read from
 ``hydromodpy/schema/phrases.toml`` by :func:`phrase` when a diagnostic is written
 for a reader.
+
+``CHECK_CODES`` is the closed set of the codes a check gives, and ``phrase(code, lang)``
+reads the sentence of a code from ``schema/phrases.toml``. ``base`` has no default,
+because a document has no folder of its own, and ``check`` reads no file unless
+``inputs`` is true. ``HydroModPyConfig.from_toml`` is this check with ``partial=False``,
+followed by the building of the root.
 """
 
 from __future__ import annotations

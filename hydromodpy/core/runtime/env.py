@@ -250,6 +250,13 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "without changing a tracked file.",
     ),
     EnvVar(
+        "HMP_MUTMUT_PYTHON",
+        "unset",
+        "test",
+        "The Python that has mutmut 3.8.0. The two real proofs of "
+        "``tests/unit/tools/test_ci_proof.py`` skip when it is unset.",
+    ),
+    EnvVar(
         "HMP_REPLAY_REPORT",
         "unset, the frozen replay writes no report",
         "test",
@@ -277,6 +284,13 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "test",
         "Any non-empty value makes the test of the Python blocks of Get started fail when "
         "sybil is not installed, instead of skipping.",
+    ),
+    EnvVar(
+        "HMP_REQUIRE_WINDOWS",
+        "unset, a Windows test is skipped on another system",
+        "test",
+        "Any non-empty value makes a test marked ``windows`` fail instead of skipping, "
+        "so the Windows job cannot go green without playing every Windows proof.",
     ),
     EnvVar(
         "HMP_RUN_HUBEAU_NETWORK_TESTS",

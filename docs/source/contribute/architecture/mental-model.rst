@@ -157,11 +157,11 @@ separate concepts for:
 The canonical persisted names are now:
 
 - ``hydrographic_network_reference`` for the network loaded from
-  ``data.hydrography``
+  :toml:`data.hydrography`
 - ``hydrographic_network_reference_permanent`` for the reaches of that network
   that flow all year, when the loader can tell them
 - ``hydrographic_network_generated`` for the network derived from
-  ``geographic.river_network``
+  :toml:`geographic.river_network`
 
 The feature-store contract keeps only the canonical names. Historical filenames
 may still exist on disk, but they are not feature aliases:
@@ -191,7 +191,7 @@ The key distinction is:
 - ``HydrographicNetworks`` is only a bundle of available roles for one site/run.
 - ``HydrographicNetworkComparison`` is the result of comparing two networks.
 - ``RiverNetworkProducts`` remains the technical output bundle of the
-  ``geographic.river_network`` preprocessing step.
+  :toml:`geographic.river_network` preprocessing step.
 
 Put differently:
 
@@ -236,9 +236,9 @@ what each view returns.
 Where to start reading
 ----------------------
 
-For a package, open its README: ``hydromodpy/<package>/README.md`` holds the
-parts, the import rules and a "where to add what" table, and the same text is
-the page of :doc:`packages/index`. For a path through the code, start here.
+For a package, open its page under :doc:`packages/index`: the README of the
+package, the table of its modules, then the parts, the import rules and where to
+add what. For a path through the code, start here.
 
 **One TOML to solver outputs**
 

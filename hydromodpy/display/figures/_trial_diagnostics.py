@@ -10,6 +10,11 @@ one place that flattening happens.
 Nothing here drops a trial. A trial that failed keeps its row with an empty
 diagnostic, because a distance that was never measured is a gap in a curve and
 never a zero.
+
+``trial_table(session, *, phase=None)`` gives one row per trial and case. A network
+output prefixes its diagnostics with its own name (``<output>.D_so``), so a diagnostic
+is read by its bare name or under ``output=``. A trial that failed keeps its row with an
+empty diagnostic, because a distance never measured is a gap in a curve, never a zero.
 """
 
 from __future__ import annotations

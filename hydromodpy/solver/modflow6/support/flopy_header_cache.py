@@ -19,6 +19,8 @@ the cache so a rebind can never serve a stale key. Calls passing
 keys are never cached.
 
 Remove this module once the fix lands in a flopy release.
+
+This patch and the one of ``flopy_structure_warmup.py`` go once FloPy fixes both.
 """
 
 from __future__ import annotations

@@ -8,6 +8,13 @@ named functions at the bottom (``factor_to_m``, ``parse_to_m3_per_s``, ...) fix
 that first argument and are the public API.
 
 This module does not import pint, so the common path stays light.
+
+``SECONDS_PER_DAY`` lives here. ``time.py`` keeps what only time has: the MODFLOW ITMUNI
+codes, the pandas ``Timedelta`` alias, ``timedelta_to_seconds`` and the CF time axis. A
+new unit of an existing quantity is one row of ``QUANTITIES``, and its factor is written
+again in the table of ``tests/unit/core/units/test_quantities.py``, which the property
+tests also compare with pint. A new quantity is one entry of ``QUANTITIES`` and its
+named functions at the bottom of this module.
 """
 
 from __future__ import annotations

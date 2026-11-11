@@ -31,6 +31,11 @@ variable ``"stage"`` and the *solved* post-solve stage as ``"xnewpak"``.
 so the change forces the solution. Both validate the variable name against
 the package's ``advanced_vars`` at runtime and raise a clear error rather
 than failing deep in xmipy.
+
+A run takes this path when it must act between two steps, for example to pass the runoff
+of the exposed band of a lake back into the lake. The callback receives an
+``Mf6ApiContext`` once per time step, which reads and writes the lake stage and gives
+raw access to the other variables.
 """
 
 from __future__ import annotations

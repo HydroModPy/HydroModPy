@@ -3,6 +3,8 @@
 The helpers in this module are deliberately small and PETSc-free. They are used
 to distinguish a physically dry lower-obstacle equilibrium from a failed Newton
 iterate that merely collapsed near the bottom bound.
+
+It detects a dry steady equilibrium before the solve.
 """
 
 from __future__ import annotations

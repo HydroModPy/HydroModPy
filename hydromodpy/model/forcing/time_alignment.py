@@ -1,5 +1,7 @@
 """Temporal alignment helpers for forcing series.
 
+Each monthly or yearly sample is weighed by its length. The module reads only ``core.time``.
+
 Provides stress-period aggregation for any datetime-indexed series
 against a simulation time window.
 """

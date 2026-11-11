@@ -258,7 +258,7 @@ def test_a_toctree_given_as_text_is_returned_as_it_is(ext_path) -> None:
 def test_a_validation_table_that_scrolls_takes_the_keyboard_focus(ext_path) -> None:
     source = (EXT / "hmp_validation.py").read_text(encoding="utf-8")
     assert source.count('<div class="hmp-val-scroll">') == 0
-    assert source.count('<div class="hmp-val-scroll" tabindex="0" role="region" aria-label="') == 4
+    assert source.count('<div class="hmp-val-scroll" tabindex="0" role="region" aria-label="') == 5
 
 
 def test_the_door_filter_of_the_search_page_is_named() -> None:

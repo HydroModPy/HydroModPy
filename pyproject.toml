@@ -115,7 +115,7 @@ fair = [
 sftp = ["paramiko>=3.4,<5"]
 # Every functional extra. The test, docs, ide and dev extras are for contributors.
 all = ["hydromodpy[calibration,mesh,mf6api,viz,fair,metrics,sftp]"]
-test = ["pytest<9.2", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml", "jsonschema>=4.0", "pyinstrument>=5.0,<6", "hypothesis>=6.100,<7"]
+test = ["pytest<9.2", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.10", "pyyaml", "jsonschema>=4.0", "pyinstrument>=5.0,<6", "hypothesis>=6.100,<7"]
 performance = ["pytest-benchmark>=5.0,<6", "uuid-utils>=0.10,<1", "polars>=1.0,<2"]
 profiling = ["pyinstrument>=5.0,<6"]
 docs = [

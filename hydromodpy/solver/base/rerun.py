@@ -7,6 +7,13 @@ input files they touch, which is ``rerun``. ``changed_properties`` says what
 differs between two models, and ``chooses_rerun`` is the rule the runner
 applies before it calls ``rerun``. The backend still refuses, by returning
 ``None``, what only it can see, such as a steady start that depends on K.
+
+The calibration is the only caller of ``rerun``. Its trials that change ``K`` or ``Sy``
+alone go through it, one lane per trial in flight, and the result is the same to the bit
+as a build. ``rerun`` returns ``None`` when the simulation of the earlier run already
+carries a model of another process, so it never replays a transport. It consumes the
+earlier run, so only the returned ``SolverRun`` serves as a parent. ``hmp catalog
+rerun`` replays a sealed run from its configuration, and the two share only the word.
 """
 
 from __future__ import annotations

@@ -9,9 +9,7 @@ Usage::
 
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
-    cfg = HydroModPyConfig.from_toml(
-        "examples/projects/01_simplified_example_presented_in_the_paper/project.toml"
-    )
+    cfg = HydroModPyConfig.from_toml("project.toml")
     cfg.workspace.project_root
     cfg.geographic.catch_def
     cfg.data.dem.sources
@@ -19,6 +17,17 @@ Usage::
     cfg.data.geology.id
     cfg.flow.param["K"]
     cfg.solver.options_of("modflow_nwt").process_specific.vka
+
+``from_toml`` is the check of ``config/check.py`` with ``partial=False``, followed by the
+building of the root. ``from_dict`` and ``from_json`` read their document the way a file is
+read, with ``context="api"``, so they migrate it and refuse it like a file. They need a
+``base_dir``, which has no default because a mapping has no folder. ``from_snapshot``
+rebuilds a config from the JSON snapshot stored with a run, whose paths are absolute.
+``ROOT_CONFIG`` hands the root class and its two migrations to the core helpers as an
+argument. The root builds its sections through ``section_loader.py`` and runs the rows of
+``CROSS_RULES``, so it holds no rule of its own. ``[workflow].mode`` is optional: unset, the
+sections of the file say what ``hmp run`` does, and a retired mode is refused with its
+replacement (``RETIRED_WORKFLOW_MODES``). ``[site]`` and ``[sites]`` never coexist.
 """
 
 from __future__ import annotations

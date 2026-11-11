@@ -10,7 +10,11 @@ of reference are checked, in every file git tracks:
 
 - a path that starts with ``docs/`` must exist in the tree, a folder included;
 - a link to ``docs.hydromodpy.fr/<version>/<page>.html`` must name a page whose
-  source exists under ``docs/source``.
+  source exists under ``docs/source``;
+- in a README of ``hydromodpy*/`` or a page of ``docs/source/contribute``, a
+  repository path between backticks (``hydromodpy/``, ``hydromodpy_server/``,
+  ``hydromodpy_annex/``, ``tests/``, ``tools/``) must exist, a folder included.
+  A name that starts with ``my`` is a placeholder of a recipe and is not read.
 
 A path that a build writes (the generated reference, the data of the build, the
 build folder itself) is not in the tree: ``GENERATED`` lists those prefixes.
@@ -37,7 +41,7 @@ SKIP_FILES = (
     "tools/docs/check_refs.py",
     "tests/unit/docs/test_check_refs.py",
 )
-SKIP_DIRS = ("docs/build/", "docs/_build/", "docs/_dev_notes/", "tools/vendor/")
+SKIP_DIRS = ("docs/build/", "docs/_build/", "tools/vendor/")
 # Written by the build or by a tool, never tracked.
 GENERATED = (
     "docs/build",
@@ -52,8 +56,6 @@ GENERATED = (
     "docs/source/reference/catalogs",
     "docs/source/theory/_generated",
 )
-# Written by a script of an example into its output folder.
-WRITTEN_BY_SCRIPTS = ("docs/_dev_notes/diagnostics",)
 # A path that is not a reference to a file: (file, text) -> why.
 NOT_REFERENCES = {
     ("docs/source/contribute/handbook.rst", "docs/release-recipe"): "a branch name",
@@ -69,6 +71,11 @@ STATIC_LINK = re.compile(
 )
 # A pattern, a placeholder or a sentence end is not a path.
 NOT_A_PATH = re.compile(r"[*<>{}$]|\.\.\.")
+# A repository path between backticks, read in the files that describe the code.
+REPO_PATH = re.compile(
+    r"(?<![\w/.~-])((?:hydromodpy|hydromodpy_server|hydromodpy_annex|tests|tools)/"
+    r"[A-Za-z0-9_./-]*[A-Za-z0-9_/-])(?=`)"
+)
 
 
 def tracked_files(root: Path = ROOT) -> list[str]:
@@ -85,8 +92,8 @@ def tracked_files(root: Path = ROOT) -> list[str]:
 
 
 def is_generated(path: str) -> bool:
-    """Tell whether a build or a script writes ``path``."""
-    return any(path == g or path.startswith(g + "/") for g in GENERATED + WRITTEN_BY_SCRIPTS)
+    """Tell whether a build writes ``path``."""
+    return any(path == g or path.startswith(g + "/") for g in GENERATED)
 
 
 def path_exists(path: str, root: Path = ROOT) -> bool:
@@ -107,6 +114,17 @@ def page_source_exists(page: str, root: Path = ROOT) -> bool:
     )
 
 
+def describes_code(name: str) -> bool:
+    """Tell whether ``name`` is a README of a package folder or a contributor page."""
+    in_package = name.startswith("hydromodpy") and name.endswith("/README.md")
+    return in_package or name.startswith("docs/source/contribute/")
+
+
+def is_placeholder(path: str) -> bool:
+    """Tell whether a part of ``path`` is a recipe placeholder such as ``myverb.py``."""
+    return any(part.startswith("my") for part in path.split("/"))
+
+
 def check(site: Path | None = None, root: Path = ROOT, files: list[str] | None = None) -> list[str]:
     """Return one line per dead reference, in ``files`` or in the files git tracks."""
     problems: list[str] = []
@@ -125,6 +143,13 @@ def check(site: Path | None = None, root: Path = ROOT, files: list[str] | None =
                     continue
                 if not path_exists(path, root):
                     problems.append(f"{name}:{number}: no such path: {path}")
+            if describes_code(name):
+                for match in REPO_PATH.finditer(line):
+                    path = match.group(1)
+                    if NOT_A_PATH.search(path) or is_placeholder(path):
+                        continue
+                    if not (root / path.rstrip("/")).exists():
+                        problems.append(f"{name}:{number}: no such path: {path}")
             for match in SITE_LINK.finditer(line):
                 page = match.group(1)
                 if not page_source_exists(page, root):

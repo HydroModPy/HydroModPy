@@ -219,7 +219,7 @@ def test_resolve_validation_results_dir_reuses_existing_run_dir(
     assert not stale_out_dir.exists()
 
 
-@pytest.mark.skipif(os.name != "nt", reason="Windows path budget regression")
+@pytest.mark.windows
 def test_resolve_validation_results_dir_falls_back_from_long_windows_output_root(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

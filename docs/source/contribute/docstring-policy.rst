@@ -22,6 +22,15 @@ Document an object when it is one of these:
 Do not document every helper. A private helper stays private unless it becomes part of a clear
 external workflow.
 
+The first line of a module
+--------------------------
+
+Every module of ``hydromodpy/`` opens with a docstring. Its first line is the row of the
+module in the table of its package, which :doc:`architecture/packages/index` generates at
+each build, so it says in one sentence what the module holds. A module without a docstring
+fails the strict build. A fact that holds for one module, such as its invariant, its unit or
+why it exists, goes in the same docstring after the first line, and not in a README.
+
 Docstring shape
 ---------------
 
@@ -81,8 +90,8 @@ Checks
 
 CI builds the reference with the rest of the site (``make -C docs html-strict``), so a docstring
 that Sphinx cannot parse stops the build. The ``unit`` job of ``Main Gate`` also runs the
-doctests of the modules that carry examples (``pytest --doctest-modules`` on a list kept in
-``main-ci.yml``). ``tests/unit/docs/`` pins other facts of the documentation, such as the fact
+doctests of the modules that carry examples (``pytest --doctest-modules`` on every module of
+``hydromodpy/`` that ``git grep`` finds with a ``>>>`` line, so no list is kept). ``tests/unit/docs/`` pins other facts of the documentation, such as the fact
 that every ``hmp`` command named in a page exists.
 
 A tutorial does not belong in a docstring. It belongs in Get started or the theory pages.

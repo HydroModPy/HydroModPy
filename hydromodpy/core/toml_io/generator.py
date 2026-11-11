@@ -21,6 +21,11 @@ Usage::
         output_path="config.toml",
         root=HydroModPyConfig,
     )
+
+The caller passes the root class and, when it wants the dynamic example blocks, a
+``flow_examples`` function that the layer owning the section provides. The shapes of the
+models are read through ``model_types.py``, one table is written by ``section.py``, and
+``render.py`` formats keys, values and comments.
 """
 
 from __future__ import annotations

@@ -16,7 +16,8 @@ They are intentionally limited to four views:
 
 The mathematical derivation lives in the theory notes
 (:doc:`/theory/boussinesq`). These pages cover structure, responsibilities and
-handoff boundaries. ``hydromodpy/solver/boussinesq/README.md`` is the map of the package.
+handoff boundaries. ``hydromodpy/solver/boussinesq/README.md`` is the contract of the port, and
+:doc:`../packages/solver` lists the modules of the package.
 
 Package context
 ---------------

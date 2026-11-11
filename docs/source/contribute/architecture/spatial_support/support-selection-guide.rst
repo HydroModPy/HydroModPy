@@ -49,7 +49,7 @@ Declare a ``geology`` support when the zones come from the geology dataset
 managed by the domain workflow. This is the right choice when the support is
 not synthetic and should be derived from geology loading/binding.
 
-Declare one or more non-geology supports in ``domain.supports`` for synthetic
+Declare one or more non-geology supports in :toml:`domain.supports` for synthetic
 or user-defined zonations.
 
 Choose ``generated_bands`` when the domain is partitioned along one axis:
@@ -85,7 +85,7 @@ Prefer ``catchment_zones`` if the support already exists as a watershed or
 management partition.
 
 It is valid to mix geology-backed and synthetic supports in the same
-``domain.supports`` mapping. Each heterogeneous ``FieldParam`` simply points to
+:toml:`domain.supports` mapping. Each heterogeneous ``FieldParam`` simply points to
 the support it needs through ``field_spatial_id``.
 
 Minimal configuration patterns
@@ -166,7 +166,7 @@ Using ``field_spatial_id`` for a heterogeneous parameter without registering a
 support under the same identifier.
 
 Expecting geology supports to be inferred implicitly. Geology-backed supports
-must now be declared explicitly under ``domain.supports``.
+must now be declared explicitly under :toml:`domain.supports`.
 
 Choosing ``generated_bands`` for a truly radial case, or ``generated_rings``
 for a zoning that is really tied to catchment data rather than geometry.

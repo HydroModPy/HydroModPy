@@ -5,13 +5,13 @@ The data layer is the orchestration boundary for data loading. Before solver wor
 begins it answers three questions:
 
 - which data families are active for this run;
-- which manager loads each family;
+- which variable class loads each family;
 - which external providers or local inputs those managers depend on.
 
 This logic is centralized under ``hydromodpy.data``, so the project facade and the
 simulation runner do not repeat the activation rules or the provider-specific code.
-``hydromodpy/data/README.md`` is the map of the package: the variables, the
-subpackages, the import rules and where to add what.
+:doc:`../packages/data` is the map of the package: the subpackages and their modules, the variables,
+the import rules and where to add what.
 
 Code map
 --------
@@ -21,15 +21,15 @@ Code map
 - ``hydromodpy/data/loading/planner.py`` and ``plan.py``: activation inference
   (``DataPlanner``) and the immutable ``DataLoadPlan``.
 - ``hydromodpy/data/loading/_dispatch.py``: ``VARIABLE_SPECS``, the one list that maps a
-  variable name to its config class and its manager.
+  variable name to its config class and its variable class.
 - ``hydromodpy/data/loading/loader.py``: ``DataLoader``, the dispatcher
   used after planning.
 - ``hydromodpy/core/state/run_state.py``: ``LoadedDataContext``, one field per variable,
   which the loader fills and the project facade and the structure binders read.
 - ``hydromodpy/data/variables/*``: one package per variable, with its typed config,
-  manager and I/O.
+  variable class and I/O.
 
-Recommended reading path: ``hydromodpy/data/README.md``, ``loading/config_schema.py``,
+Recommended reading path: :doc:`../packages/data`, ``loading/config_schema.py``,
 ``loading/planner.py``, ``loading/loader.py``, then one package under
 ``hydromodpy/data/variables/``.
 
@@ -38,7 +38,7 @@ Responsibilities
 
 ``config_schema.py`` validates ``[data]`` and normalizes its typed sections.
 ``planner.py`` merges the explicit types with the inference rules. ``plan.py`` stores
-the immutable ``DataLoadPlan``. ``loader.py`` sends each activated type to its manager
+the immutable ``DataLoadPlan``. ``loader.py`` sends each activated type to its variable class
 and writes what it loaded into ``LoadedDataContext``. The facade stays focused on
 execution order, and the data layer owns activation, validation and loading.
 
@@ -47,12 +47,12 @@ Activation and inference
 
 The activation contract is deterministic:
 
-- an explicit ``data.types`` always wins, and the planner never infers over it;
+- an explicit :toml:`data.types` always wins, and the planner never infers over it;
 - other types are inferred from the domain and flow configuration;
 - the decision is stored in ``DataLoadPlan`` with one reason per inferred type.
 
 The rules are in ``DataPlanner.build``. For example, a ``geology`` support in
-``domain.supports`` activates ``geology``, a ``stream`` boundary condition activates
+:toml:`domain.supports` activates ``geology``, a ``stream`` boundary condition activates
 ``hydrography``, an ``ocean`` one activates ``oceanic``, a lake or reservoir activates
 the lake geometry, abacus, inflow and withdrawal families, and a soil reservoir
 activates ``precipitation`` and ``etp``.
@@ -67,15 +67,14 @@ Runtime dispatch
 ``DataLoader`` dispatches each activated type through ``VARIABLE_SPECS``.
 A variable with a side effect of its own (``dem``, ``geology``, ``hydrography``) names a
 dedicated loader method. The others go through the generic load path. Each family keeps
-its own config and manager package, and the root layer only decides activation and calls
+its own config and variable package, and the root layer only decides activation and calls
 the right loader.
 
 Providers
 ---------
 
-Which provider serves which variable is in the data README (the table of variables, with
-their sources) and in the generated catalog of data sources
-(:doc:`/reference/data-sources`). Do not copy them into a page.
+Which provider serves which variable is in :doc:`../packages/data` (the section on the variables) and in
+the generated catalog of data sources (:doc:`/reference/data-sources`). Do not copy them into a page.
 
 What a provider call needs
 --------------------------

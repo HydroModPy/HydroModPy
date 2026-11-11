@@ -1,4 +1,10 @@
-"""Geometry, abacus, bathymetry, cutoff wall and forcings put on the lakes of a Flow."""
+"""Geometry, abacus, bathymetry, cutoff wall and forcings put on the lakes of a Flow.
+
+It puts on each lake its geometry, abacus, bathymetry, cutoff wall, inflow and
+withdrawal, and its meteo forcings. It reads ``streams.py``, because a runoff routed by
+an active SFR is not given to a lake twice, ``barriers.py`` for the wall trace, and
+``climate.py``.
+"""
 
 from __future__ import annotations
 

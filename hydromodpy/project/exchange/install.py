@@ -16,6 +16,10 @@ or an outlet close to a site of another name, is refused by name.
 Everything is planned first and refused as a whole: a refused install writes
 nothing. A replay of a published copy installs only the files a provider
 delivered, through the ``files`` argument.
+
+``install_index`` places files, station rows, cache rows and sites, and it names every
+conflict before anything is written. ``import_run`` serves ``hmp catalog import`` and
+``import_project`` serves ``hmp project import``.
 """
 
 from __future__ import annotations

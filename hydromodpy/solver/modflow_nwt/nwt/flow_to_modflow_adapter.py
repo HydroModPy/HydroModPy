@@ -19,6 +19,10 @@ The class is a thin facade. Concerns are split across:
 
 The adapter does not instantiate FLOPY packages. Package construction is done
 by ``ModflowNwt`` after adaptation is complete.
+
+The payloads of ``payloads/`` build the CHD, recharge, ETP, well and drain records. They
+are not shared with MODFLOW 6, because NWT is to be removed once the lakes run on
+MODFLOW 6.
 """
 
 from __future__ import annotations

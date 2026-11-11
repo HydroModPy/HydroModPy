@@ -69,43 +69,33 @@ jobs:
         shell: bash
         run: python -m hydromodpy install-binaries --subset mf6,libmf6,mfnwt,mp6,mt3dusgs --quiet
 
-      # Split whitebox backend out of the parallel run; the native library
-      # segfaults under pytest-xdist.
-      # No marker filter here on purpose: the push gate runs `-m "not slow"`,
-      # so this weekly job is the only place the `slow` unit tests execute.
+      # The tests marked `whitebox` run in their own serial session: the native
+      # library dies when several DEM workflows share one long-lived xdist worker.
+      # The only marker filter is `whitebox` on purpose: the push gate runs
+      # `-m "not slow"`, so this weekly job is the only place the `slow` unit
+      # tests execute. This job does not set HMP_REQUIRE_WINDOWS: a Windows
+      # proof fails once a week, in the windows-server job that names it.
       - name: Run unit tests (parallel, without whitebox backend)
         shell: bash
         run: |
           python -m pytest tests/unit/ tests/processes/ \
-            --ignore=tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            --ignore=tests/unit/catchment/algorithms/test_catchment_from_point.py \
-            --ignore=tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
+            -m "not whitebox" \
             -n auto --dist loadgroup -q
 
       - name: Run whitebox backend tests (serial)
         shell: bash
-        run: |
-          python -m pytest \
-            tests/unit/catchment/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
-            tests/unit/catchment/algorithms/test_catchment_from_point.py \
-            tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
-            -q
+        run: python -m pytest tests/unit/ tests/processes/ -m whitebox -q
 
-      # The Whitebox native binding dies outright when several DEM workflows run
-      # in one long-lived xdist worker, and --dist loadgroup is what puts them
-      # there: tests/conftest.py groups every Whitebox test under one name, so
-      # they all land on the same node. Run them in their own serial session
-      # instead, like the weekly job already does for the backend unit tests.
       - name: Run fast regression
         shell: bash
         run: |
           python -m pytest tests/regression/fast/ \
-            --ignore=tests/regression/fast/geographic \
+            -m "not whitebox" \
             -n auto --dist loadgroup -q
 
       - name: Run Whitebox-backed fast regression (serial)
         shell: bash
-        run: python -m pytest tests/regression/fast/geographic -q
+        run: python -m pytest tests/regression/fast/ -m whitebox -q
 
       - name: Run analytical validation
         shell: bash
@@ -192,22 +182,16 @@ jobs:
       - name: Install solver binaries
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
 
-      # Same Whitebox split as the fast regression job above: the native binding
-      # dies when several DEM workflows share one long-lived xdist worker, and
-      # the xdist group is what puts them there.
+      # Same Whitebox split as the cross-OS job above: the native binding dies
+      # when several DEM workflows share one long-lived xdist worker.
       - name: Run full regression
         run: |
           python -m pytest tests/regression/ \
-            --ignore=tests/regression/fast/geographic \
-            --ignore=tests/regression/extensive/test_run_geographic_case_regression.py \
+            -m "not whitebox" \
             -n auto --dist loadgroup -q
 
       - name: Run Whitebox-backed regression (serial)
-        run: |
-          python -m pytest \
-            tests/regression/fast/geographic \
-            tests/regression/extensive/test_run_geographic_case_regression.py \
-            -q
+        run: python -m pytest tests/regression/ -m whitebox -q
 
   # The two ends of the declared dependency ranges. Low bounds installs each
   # direct dependency at its lower bound, uncapped drops every upper bound and
@@ -220,13 +204,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        bounds: [low, uncapped]
+        include:
+          - bounds: low
+            python-version: "3.11"
+          - bounds: uncapped
+            python-version: "3.13"
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.bounds == 'low' && '3.11' || '3.13' }}
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install Linux system libraries
@@ -271,3 +259,152 @@ jobs:
           python -m pytest tests/unit/core tests/unit/results tests/processes/results tests/unit/config \
             tests/regression/frozen_runs tests/regression/frozen_documents \
             -n auto --dist loadgroup -q
+
+  # The frozen MODFLOW 6 run on gmsh triangles, XT3D off, replayed against its
+  # seal with one BLAS thread, then with four. HMP_REPLAY_REPORT makes the test
+  # write the class, the field-scale gaps, the platform, Python, numpy and mf6
+  # before any assertion, and the test fails unless the class is bit. A red on
+  # a deviation is the expected signal of a new processor: the measures are the
+  # artifact, and the tolerance class is written by hand from them.
+  frozen-mf6-gmsh:
+    name: Weekly / frozen MODFLOW 6 gmsh run and its tolerance
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package, test and mesh extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,mesh]"
+
+      - name: Install the solver binary of the frozen run
+        run: python -m hydromodpy install-binaries --subset mf6 --quiet
+
+      - name: Replay the frozen run with one BLAS thread
+        run: |
+          OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+          HMP_REPLAY_REPORT="$RUNNER_TEMP/tolerance-threads-1.json" \
+          python -m pytest tests/regression/frozen_replay/test_the_frozen_mf6_run_replays.py -q
+
+      - name: Replay the frozen run with four BLAS threads
+        if: always()
+        run: |
+          OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 MKL_NUM_THREADS=4 \
+          HMP_REPLAY_REPORT="$RUNNER_TEMP/tolerance-threads-4.json" \
+          python -m pytest tests/regression/frozen_replay/test_the_frozen_mf6_run_replays.py -q
+
+      - name: Write the processor and the numpy build beside the measures
+        if: always()
+        run: |
+          lscpu > "$RUNNER_TEMP/tolerance-lscpu.txt"
+          python -c "import numpy; numpy.show_config()" > "$RUNNER_TEMP/tolerance-numpy.txt"
+
+      - name: Keep the measures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tolerance-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/tolerance-*.json
+            ${{ runner.temp }}/tolerance-*.txt
+          if-no-files-found: warn
+
+  # Each commit of the week that removes test functions, proved against its
+  # parent at the package scope, 300 minutes in all. A commit that also edits
+  # hydromodpy/ is listed as changed without a proof, a commit past the budget
+  # as left. The report lists proved, lost, changed, left and refused commits.
+  proof-package:
+    name: Weekly / package proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package, test extras and mutmut
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,mesh,mf6api]" "mutmut==3.8.0"
+
+      - name: Install external validity_frame package
+        run: pip install -e validity_frame
+
+      - name: Install solver binaries for the proof
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet
+
+      - name: Prove the test removals of the week
+        run: |
+          python tools/ci/proof.py week --since "7 days ago" --head "${{ github.sha }}" \
+            --work "$RUNNER_TEMP/proof" --out proof/report.json \
+            --budget-minutes 300 --processes 4 --workers 4
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-package
+          path: proof/
+          if-no-files-found: ignore
+
+  # Every test marked `windows` runs here or fails: HMP_REQUIRE_WINDOWS turns a
+  # skipped Windows proof into a failure. Then the server path and two runs in
+  # two processes, on the system where file locks and paths differ most.
+  # PYTHONPATH lets hydromodpy_server import from the checkout.
+  windows-server:
+    name: Weekly / Windows server path and two processes
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      HMP_REQUIRE_WINDOWS: "1"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Put the test scratch in the runner temp folder
+        run: echo "HMP_TEST_SCRATCH_ROOT=$RUNNER_TEMP" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install package, test and calibration extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration]"
+
+      - name: Install solver binaries
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet
+
+      - name: Run every Windows proof
+        run: python -m pytest -m windows tests/ -q
+
+      - name: Run the server and two-process tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m pytest tests/unit/server tests/processes \
+            tests/scenarios/test_a_run_over_http.py \
+            tests/scenarios/test_two_runs_in_two_processes.py \
+            tests/unit/architecture/test_two_runs_in_two_threads.py \
+            -q

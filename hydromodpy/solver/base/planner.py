@@ -13,6 +13,9 @@ with explicit backward dependencies and a deterministic order. The planner
 deliberately does not reorder anything: the user-declared order is kept, and it
 simply validates that every required dependency is already provided by an
 earlier run.
+
+The planner binds a dependency only to a run declared earlier in the file, so a file
+that lists ``transport`` before the flow it needs is refused and never reordered.
 """
 
 from __future__ import annotations

@@ -2,10 +2,12 @@ Packages
 ========
 
 One page per top-level subpackage of ``hydromodpy/``. Each page is the
-``README.md`` of the package, so the page and the folder cannot disagree. A README
-gives the parts of the package in dependency order, its import rules, how the
-main flow goes through it, and a "where to add what" table. A package that has a
-layout contract also has an ``*_layout.yaml`` beside the architecture gate.
+README of the package, then the table of its modules generated from their first
+docstring line, then what holds the package together: the parts in dependency
+order, the import rules inside it, the main flow and where to add what. A package
+that has a layout contract also has an ``*_layout.yaml`` beside the architecture
+gate. ``python -m tools.docs.check_readmes`` checks that a README sits only in a
+package or a port folder.
 
 The cards, with the role of each package and the counts read from the code
 (variables, figures, steps), are generated: :doc:`../generated/packages`. For the

@@ -775,7 +775,7 @@ def _format_subprocess_failure(
 
 
 def _absolute_input_paths(node: Any, case_dir: Path) -> Any:
-    """Return ``node`` with each relative ``path`` or ``*_path`` value made absolute.
+    """Return ``node`` with each relative ``path``, ``path_file`` or ``*_path`` value made absolute.
 
     ``hmp run --base <out>`` resolves a relative path against the output folder,
     while a case writes its input paths relative to its own folder, toward a
@@ -785,7 +785,7 @@ def _absolute_input_paths(node: Any, case_dir: Path) -> Any:
     if isinstance(node, Mapping):
         fixed: dict[str, Any] = {}
         for key, value in node.items():
-            is_path_key = key == "path" or key.endswith("_path")
+            is_path_key = key in ("path", "path_file") or key.endswith("_path")
             if is_path_key and isinstance(value, str) and value and not Path(value).is_absolute():
                 fixed[key] = (case_dir / value).resolve().as_posix()
             else:

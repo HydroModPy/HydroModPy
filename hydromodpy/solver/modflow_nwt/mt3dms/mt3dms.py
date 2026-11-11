@@ -1,7 +1,6 @@
-"""
-Created on Thu Apr  3 13:06:53 2025
+"""The MT3DMS transport model on a MODFLOW-NWT flow, and its transport adapter.
 
-@author: rabherve
+Created on Thu Apr  3 13:06:53 2025 by rabherve.
 """
 
 # -*- coding: utf-8 -*-

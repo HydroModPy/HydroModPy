@@ -2,9 +2,8 @@
 
 All HydroModPy configuration classes inherit from :class:`HydroModelBase`
 rather than :class:`pydantic.BaseModel` directly. This centralizes the
-strictness defaults (``extra="forbid"``, ``validate_assignment=True``)
-that the architecture spec (``architecture_cible/02_config_pydantic.md``
-§3.1) requires to be uniform across the codebase.
+strictness defaults (``extra="forbid"``, ``validate_assignment=True``),
+which are uniform across the codebase.
 
 The root base also validates any :class:`VisibleWhen` metadata attached to
 fields: a ``VisibleWhen("sibling", ...)`` tag must reference an existing

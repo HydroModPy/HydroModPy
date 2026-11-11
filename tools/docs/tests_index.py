@@ -32,7 +32,20 @@ import re
 import tomllib
 from pathlib import Path
 
-TIERS = ("validation", "integration", "unit", "regression", "e2e", "contract")
+# The folders of tests/ that hold test files, in the order the pages list them.
+TIERS = (
+    "validation",
+    "integration",
+    "regression",
+    "e2e",
+    "scenarios",
+    "refusals",
+    "ports",
+    "processes",
+    "unit",
+    "characterization",
+    "performance",
+)
 
 # The columns of the "Case by solver" matrix, in display order.
 SOLVER_ORDER = (

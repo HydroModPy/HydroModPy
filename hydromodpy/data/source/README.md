@@ -1,68 +1,27 @@
-# `data/source`
+# Data source port
 
-This folder holds the `DataSource` port (`port.py`) and its registry
-(`registry.py`). A source answers one question about one provider: what may it
-be asked for, and what does it hand back. Every provider of this tree is a
-class of the port, from BD Topage to Hub'Eau and SIM2, so one form covers all
-of them. The port has no registry inside it and no cache: a source receives
-its request and owns its `out_dir`, and asks nothing about the catalog, the
-workspace, a lock or a run.
+A data source answers one question about one provider: what may it be asked for, and what does it hand back. Every provider of this tree is a class of the port, from BD Topage to Hub'Eau and SIM2, so one form covers all of them. The port has no cache: a source receives its request, owns its `out_dir`, and asks nothing about the catalog, the workspace, a lock or a run. `port.py` holds the Protocol and its value types, and `registry.py` holds `data_sources`.
 
-## The declaration
+## What a source receives
 
-A source class declares `section` (the `[data.<section>]` it serves, one
-only) and `source_id` (the word written in `source =`), both `ClassVar`. It
-declares `payload_kind` (`points`, `fields`, `features` or `files`),
-`extent_crs`, `selectors` (`extent`, `station_ids`, or an empty tuple),
-`period_need` and `writes_out_dir` on the class. Two members belong to the
-instance: `variables`, because a source configured one way may serve fewer
-variables than the class can, and `hosts`, every host the source contacts. A
-shipped source reads its hosts from `hydromodpy.schema.sources` through
-`shipped_hosts` instead of writing them, so no host is named twice.
+A `FetchRequest` carries an `out_dir`, an `Extent` (a box and its CRS), `station_ids`, a `Period` and `bounds`. A request with neither an extent nor stations is accepted only from a source that declares `selectors = ()`, and `require_selectors` holds that rule. `extent_for`, `require_period` and `require_declared_variables` read the request the way the source declared it.
 
-## The request and the result
+## What a source returns
 
-A `FetchRequest` carries an `out_dir`, an `Extent` (a box and the CRS it is
-expressed in), `station_ids`, a `Period` and `bounds`. A request with neither
-an extent nor stations is accepted only from a source that declares
-`selectors = ()`, and `require_selectors` enforces that: a content of plain
-files has no extent to ask for. The helpers `extent_for`, `require_period` and
-`require_declared_variables` read the request the way the source declared it.
+A `FetchResult` carries the one payload its `kind` names: `points` and `fields` records, `features` (one GeoDataFrame, the river networks), or `files` as `FileRecord` entries with `path`, `sha256`, `state` (`"raw"`, `"conditioned"` or `None`), `nodata` and `origin`. A files answer that cached an empty file declares `records = 0`, and `is_empty` then says the provider held nothing. Values stay in the unit their record carries, because `core/units` converts to SI at the entry of the `Model`. The port converts no value.
 
-The generic sources `file` and `url` both declare `payload_kind = "files"` and
-`selectors = ()`, asking for no extent and no station. A `file` source reads
-local files already on disk without caching. A `FileSource` built with `locked`, the
-lockfile of a frozen run, refuses a file that `hydromodpy.lock` does not pin by path
-and digest, and one built without it reads any file. An `url` source downloads
-a remote file to fill the data cache, verified by a pinned sha256 or remote
-headers, and writes its sidecar through the `CacheIndex` it is given (by default
-the one of the parent of `out_dir`), so the file is a row of the cache.
+## What a source declares
 
-A `FetchResult` carries the one payload its `kind` names: `points` and
-`fields` records, `features` (one GeoDataFrame, the river networks), or
-`files` as `FileRecord` entries: `path`, `sha256`, `state`, `nodata` and
-`origin`, built by `FileRecord.of`, which hashes with
-`core.io.file_digest.sha256_of`. `state` is `"raw"` or `"conditioned"`, the
-vocabulary of `schema/job/inputset.py`, or `None`. A files answer that cached
-an empty file alongside (the sources that write one) declares `records = 0`,
-and `is_empty` then answers that the provider held nothing. Points and fields
-are written in the unit their record carries, and the SI is reached at the
-entry of the Model, where `core/units` converts and refuses a unit it cannot
-read. The port converts no value.
+On the class, `section` (the one `[data.<section>]` it serves) and `source_id` (the word written in `source =`), both `ClassVar`, then `payload_kind` (`points`, `fields`, `features` or `files`), `extent_crs`, `selectors` (`extent`, `station_ids`, or an empty tuple), `period_need`, `writes_out_dir` and the method `fetch`. On the instance, `variables`, because a source configured one way may serve fewer variables than its class, and `hosts`, every host it contacts. A shipped source reads its hosts from `hydromodpy.schema.sources` through `shipped_hosts`, so no host is named twice.
 
-## The registry
+## How a source registers
 
-`data_sources` keys a class on its section and its name:
-`data_sources.get("hydrometry", "hubeau")`. The shipped classes are dotted
-paths in `_BUILTIN_PATHS`, 26 today, imported on the first lookup. A
-third-party source publishes an entry point named `<section>_<source_id>` on
-the `hydromodpy.data.source` group; under the `installed` member of a data
-request, a source resolves by its name, and a name two sections share is
-refused with both. `names(section)` answers what one section accepts and the
-config validates `source =` against it, so the list is written once.
-`build_from_section(source_cls, section, **resolved)` binds the fields of a
-section to the constructor of the class that section names.
+`data_sources` keys a class on its section and its id, as in `data_sources.get("hydrometry", "hubeau")`. The shipped classes are dotted paths in `_BUILTIN_PATHS`, imported on first lookup. A third-party source publishes an entry point named `<section>_<source_id>` in the `hydromodpy.data.source` group, and the `installed` member of a data request resolves it by its id. `build_from_section` binds the fields of a section to the constructor of the class it names.
 
-A source is held to all of this by
-`tests/ports/test_data_source.py`, one `SourceCase` per shipped
-source, with a real or recorded fetch.
+## What is refused
+
+`names(section)` answers what one section accepts, and `check_registered_name` refuses any other `source =` with the names this installation serves and the entry-point group. An installed id that two sections share is refused with both keys, and an unknown key at lookup raises `DataRequestError`.
+
+## What tests it
+
+`tests/ports/test_data_source.py` runs on every source the registry serves, an installed one too, with a `SourceCase` for what reaches the provider.

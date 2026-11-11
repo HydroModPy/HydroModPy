@@ -1,4 +1,9 @@
-"""Abstract base class for the station variables (gauges, wells, quality points)."""
+"""Abstract base class for the station variables (gauges, wells, quality points).
+
+A station chronicle is written inside ``index.chronicle(folder, stem)``, which holds the lock of
+that station, and the old file of the station leaves in the same lock. The variable asks a
+provider only for the periods the cache misses.
+"""
 
 from __future__ import annotations
 

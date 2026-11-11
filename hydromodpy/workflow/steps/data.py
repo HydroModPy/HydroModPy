@@ -1,4 +1,8 @@
-"""Data step - load external forcings, bind to runtime, expose ``LoadDataStep``."""
+"""Data step - load external forcings, bind to runtime, expose ``LoadDataStep``.
+
+A way to bind loaded data is a function of this module that calls the binder of
+``model/boundaries/`` or ``model/domain/``, the ``apply_*`` functions of ``model``.
+"""
 
 from __future__ import annotations
 

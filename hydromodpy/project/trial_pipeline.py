@@ -9,6 +9,12 @@ This module implements that contract in :class:`WorkflowTrialPipeline` and
 registers it through :func:`fill_trial_pipeline`. Heavy dependencies are
 imported inside method bodies so filling the pipeline only imports the trial
 primitives.
+
+One global crosses to a lower layer: the trial pipeline of
+``calibration/runners/trial.py``, filled here by ``fill_trial_pipeline``. No other
+adapter is wired through a global. Each entry of ``calibrate.py`` that reads the
+pipeline fills it first, and so do the calibration adapter of ``dispatch/workflow.py``,
+``rerun_config`` and the check of ``check_source.py``. The command line fills nothing.
 """
 
 from __future__ import annotations

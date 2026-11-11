@@ -280,7 +280,7 @@ input files that a changed K or Sy touches, and it is bit-identical to a new bui
 nothing to do with ``hmp catalog rerun``, which replays a sealed run from its configuration.
 
 The TOML meets this port in three places, and none of them names a backend.
-``solver.backend`` is a string checked against the registry while the file is read, and an
+:toml:`solver.backend` is a string checked against the registry while the file is read, and an
 unknown name is refused with the names the installation serves. The table
 ``[solver.<name>]`` is validated by the ``options`` class of the adapter. And
 ``hydromodpy/config/cross_checks.py`` refuses a key the chosen backend leaves out of

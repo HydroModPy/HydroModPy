@@ -1,39 +1,23 @@
-# solver/modflow6
+# MODFLOW 6 backend
 
-MODFLOW 6 through FloPy: a GWF flow model, and GWT or PRT transport on the same simulation.
+MODFLOW 6 through FloPy: a GWF flow model, and GWT or PRT transport on the same simulation. It is a backend of the solver port of `solver/base`. It reads `base`, `modflow_common` and `modflow_grid`, never `modflow_nwt` or `boussinesq`.
 
-## Parts
+## What it receives
 
-1. `modflow6.py` is `Modflow6`, the object a run builds, writes and solves, in the folder and under the name of its `RunSlot`. It keeps the frozen `Model` it builds from as `inputs` and does not change it. `modflow6_config.py` is the `[solver.modflow6]` table.
-2. `build.py` assembles the flow model from `inputs`: geometry, properties, boundaries, sinks and sources, start state, time and options. `run_pre_processing` runs its steps in the order MODFLOW 6 needs: inputs, time, grid, properties, simulation, lakes, constant heads, streams, grid packages, recharge and EVT, drains, CHD and wells, LAK, HFB, SFR, MVR and OC. The steps of the packages are functions of the builder that makes each package (`build_recharge_and_evt` in `builders/recharge.py`, `build_drains` and `build_sfr` in `builders/sfr.py`, `build_constant_heads_and_wells` in `builders/wells.py`, `build_lakes` in `builders/lake.py`, `build_flow_barriers` in `builders/flow_barrier.py`, `build_mover_and_output` in `builders/mvr.py`, `build_storage_package` in `builders/period_forcing.py`), and `build.py` keeps the order of the calls.
-3. `builders/` holds one module per package or subject, see its README.
-4. `run.py` writes the input files unless the run already holds them, lists them, and solves, with the `mf6` executable or in process through `libmf6` (`api/`), after a steady initialization or a cyclic spin-up when `Model.initial` asks for one. Each auxiliary solve builds a new `Modflow6` on a variant of the model (`steady_variant`, `cycle_variant`) and hands its last heads to the main model.
-5. `transport.py` and `prt.py` hold one transport each, its engine model and its adapter. `transport.py` builds the GWT model, solver `modflow6` of the transport registry, `prt.py` the PRT model, solver `modflow6_prt`. The adapter of each lives in the file of its engine, and both build from the frozen `Model` of their flow, the `SolverRun` of that flow, and the options of their `[transport.<name>]` table, received in `build(model, options, slot, upstream)`. Each transport names its models after the flow model, `<name>_mt_s1` for GWT and `<name>_prt` for PRT.
-6. `adapter.py` is the flow adapter of the registry, with `build`, `run`, `rerun`, `extract`, `cleanup`, `observables` and `locate_cell`.
-7. `rerun.py` solves a solved model again for a new K or a new Sy, see below.
-8. `extractors/` read the binary files and the observation CSVs into the store, see its README.
-9. `support/` holds what the build and the run share: names, the computational top, the property mapping on the solver mesh, time series files, the steady initialization and the cyclic spin-up, two FloPy patches.
+The flow adapter (`adapter.py`) receives the frozen `Model`, the `[solver.modflow6]` table of `modflow6_config.py` and a `RunSlot`, and builds `Modflow6` in the folder and under the name of the slot. `Modflow6` keeps the `Model` as `inputs` and never changes it. The start heads of a restart arrive on the model as a `PriorState`. The two transports, GWT in `transport.py` and PRT in `prt.py`, receive the `Model` of their flow, the `SolverRun` of that flow and the options of their `[transport.<name>]` table, and they add their model to the simulation of the flow, in its folder.
 
-`modflow6` imports `base`, `modflow_common` and `modflow_grid`, never `modflow_nwt` or `boussinesq`.
+## What it returns
 
-The start heads of a restart are read before the solve, by the `prepare_solver` step, into a `PriorState` on the model. The builder fills its inactive cells with the top of the grid and takes the lake stages from it. It writes the start head of a `PriorState` as a binary float64 array and its lake and reach stages with all their digits, so a chain of windows gives back the run in one piece to the bit. A cyclic spin-up starts each cycle from the final lake stages of the cycle before, and settles only when the heads and the lake stages have settled. The extractor writes `final_state/`, the last head in float64 and the last lake and reach stages, which the next run or window reads first. Through `libmf6` the run reads the stop flag of its slot at the end of each time step. Through the `mf6` executable it reads nothing, and the runner checks the flag after the solve.
+`run` writes the input files unless the run already holds them, solves with the `mf6` executable or in process through `libmf6`, and returns the `SolverRun`. The extractor writes the heads, the per-cell budget, the listing balance, the lake and stream series, and `final_state/`, the last head in float64 and the last lake and reach stages, which the next run or window reads first. A chain of windows gives back the run in one piece to the bit. A run with `keep_face_flows` writes `face_flow/` beside `connection_cells/`. GWT writes concentrations and PRT particle tracks.
 
-## Rerun
+## What it declares
 
-`rerun` solves a model that differs from a solved run by K, by Sy or by both. It copies the input files of that run into the new run folder under their old names, because `mfsim.nam` and the header of the `.cbc` cite them. It changes the FloPy objects in place and writes only the packages whose values changed: NPF for K, DRN too when its conductance follows K, STO for Sy, and the properties file the extractor reads. The DISV grid, the start heads, the recharge and the other packages stay as copied. Compared with a new build, the input files, the `.hds` and the `.cbc` are equal byte for byte, once the dated first line `# File generated by Flopy` is set aside.
+The flow is `name = "modflow6"`, `process_type = "flow"`, `accepted_meshes` the `regular`, `triangle` and `voronoi` engines and any planar engine that is not lumped, `geometry = "cells"`, `category = "distributed"`, no `native_step`, `mutable = {"K", "Sy"}` and no `requires`. Its `supports` covers every boundary of the closed table, the drain options, the `head_rule`, `steady_start`, `cyclic_start` and `prior_state` starts, recharge, wells, ETP, the flow barriers and the cutoff wall, the soil reservoir, the K tensor and the layering. The transports are `modflow6` and `modflow6_prt` of `process_type = "transport"`, with `requires = (("flow", "modflow6"),)`.
 
-It returns `None`, and the runner builds, in four cases. The earlier run is not solved, not written, or no longer owns its solver model. The model starts from a steady or a cyclic solve, which depend on K and Sy. The change turns XT3D on or off, which changes IMS and HFB. The drain cells or the MVR lines are no longer the ones of the earlier run. A fifth refusal guards the transports: the simulation of the earlier run carries a model other than the GWF flow, so the rerun stops, because a rerun that copied it would rewrite the packages of a transport and solve them again without saying so. Because `rerun` changes the solver model of `previous` in place, only the `SolverRun` it returns can serve as the next parent.
+## How it registers and what it refuses
 
-## Face flow
+The built-in paths are `flow_modflow6`, `transport_modflow6` and `transport_modflow6_prt` of `_BUILTIN_PATHS` in `solver/base/registry.py`, each with its extractor. `rerun` (`rerun.py`) solves a model that differs by K, Sy or both, and returns `None` so the runner builds when the change needs a build, when the start is a steady or cyclic solve, or when the simulation carries a transport. On Windows, a workspace whose paths `mf6` cannot open is refused before the solve. Through `libmf6` the run reads the stop flag at the end of each time step, and through `mf6` it reads nothing.
 
-A run that keeps its face flows writes `face_flow/`: one value per connection
-between two active cells, the mean of the period steps weighted by their
-`delt`, in m3/s. The smaller flat index of the pair comes first and the flow
-is positive from it to the other. The diagonal of `FLOW-JA-FACE` is never
-kept, because it is the residual of the cell, which `budget/` already carries.
-`connection_cells/` names the two cells of each connection, smaller first. A
-run without `keep_face_flows` keeps no inter-cell flow.
+## What tests it
 
-## Transport
-
-GWT and PRT work in the folder of the flow run, on the simulation FloPy built for it. The engine of each adds its GWT or PRT model to that simulation, couples it to the GWF flow model with a `GWF6-GWT6` or `GWF6-PRT6` exchange, writes the whole simulation again and solves it. The flow is then solved twice, once between the two, in the same folder, and the two solves are equal to the bit. The concentration is read from the `.ucn` files of the folder, the particle tracks from the CSV of PRT. The IMS of the transport model is the one the flow solved with, read on the options of `[solver.modflow6]`. A transport run reads nothing of the setup and no store; whatever it needs beyond its options arrives through the arguments of `build`.
+`tests/ports/test_solver.py` holds the three classes to the port, and `tests/unit/solver/modflow6/` holds the builders, the extractors and the rerun.

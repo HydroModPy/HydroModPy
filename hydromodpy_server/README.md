@@ -8,4 +8,4 @@ A verb is a POST to `/v1/<org>/<project>/<verb>` with its keyword arguments as a
 
 A file goes by `PUT /v1/<org>/<project>/inputs/<name>`. It is written under `inputs/` as `<sha256[:8]>_<name>` through `ROOT/.inbox/`, so the same bytes give the same file.
 
-The server warms `check` with `warm.json` before it prints `serving on http://<host>:<port>`. The start takes 3 to 6 s and a child process is ready in about 3 s. After the warm-up a `check` of a full document of example 04 takes under 10 ms inside the process, and the HTTP round trip adds the JSON of the document. In a container image the server refuses to start without `HMP_IMAGE_DIGEST`, so each run seals the image it ran in.
+The server warms `check` with `warm.json` before it prints `serving on http://<host>:<port>`. The start takes 3 to 6 s and a child process is ready in about 3 s. After the warm-up a `check` of a full document of example 04 takes about 8 ms at the median inside the process, and the first one at most 19 ms. The HTTP round trip adds the JSON of the document. In a container image the server refuses to start without `HMP_IMAGE_DIGEST`, so each run seals the image it ran in.

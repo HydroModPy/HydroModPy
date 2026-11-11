@@ -38,6 +38,7 @@ I/O::
 
     from hydromodpy.mesh.io.vtu import read_vtu, write_vtu
 
-The package map is ``hydromodpy/mesh/README.md``. The architecture pages
-live in ``docs/source/contribute/architecture/mesh/``.
+The contract of the mesh port is ``hydromodpy/mesh/README.md``, and the steps and
+folders of the package are told on its page of the developer docs, beside the
+pages of ``docs/source/contribute/architecture/mesh/``.
 """

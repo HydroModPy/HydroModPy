@@ -21,6 +21,12 @@ digest, or it is refused before anything runs. A file a provider delivered
 project the replay writes into, with its sidecar and its data cache row, so the
 run reads the cache and fetches nothing. A file already there with another
 digest is refused by the install, and nothing is written.
+
+A replay of a published copy installs the files that a provider delivered by their
+sha256 in the workspace of the project (``install_index`` with ``files=``), and it
+refuses a file whose destination already holds another digest. User files are read in
+``inputs/``. ``ReplayInputError`` names an input that is missing or altered, and
+``checked_index`` is where a new check on a copy goes.
 """
 
 from __future__ import annotations

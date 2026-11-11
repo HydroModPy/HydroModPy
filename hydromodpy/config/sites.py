@@ -19,6 +19,9 @@ TOML form::
 
     [sites.bind]
     "geographic.catchment.x_outlet" = "x_outlet"            # quoted: one key
+
+``is_sites_project`` tells a ``[sites]`` project from the others. The plan of a campaign
+built from the section lives in ``project/launch/plan.py``.
 """
 
 from __future__ import annotations

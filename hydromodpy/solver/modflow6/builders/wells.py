@@ -1,4 +1,7 @@
-"""MF6 well stress-period data builder."""
+"""MF6 well stress-period data builder.
+
+It builds WEL, with the flow reduction under Newton.
+"""
 
 from __future__ import annotations
 

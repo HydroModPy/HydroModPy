@@ -163,7 +163,12 @@ For a new flow backend called ``mysolver``:
    |-- extractors/
    |   |-- __init__.py
    |   `-- flow.py                   # MysolverOutputAdapter (extract())
-   `-- README.md                     # short rationale and code map
+   `-- README.md                     # the contract of the backend on the solver port
+
+The README says what the backend receives, what it returns, what it declares, how it
+registers and what it refuses, in that order, as :doc:`plug-into-a-port` describes.
+``python -m tools.docs.check_readmes`` counts a backend folder as a port and checks its
+README.
 
 A transport adapter is filed beside its engine, in the module of
 ``hydromodpy/solver/<backend>/`` that holds the engine model, the way

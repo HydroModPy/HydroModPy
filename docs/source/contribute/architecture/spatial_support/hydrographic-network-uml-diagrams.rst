@@ -7,8 +7,8 @@ Scope
 These diagrams document the software architecture around the hydrographic
 network concept introduced to unify:
 
-- the loaded reference network from ``data.hydrography``,
-- the DEM-derived generated network from ``geographic.river_network``,
+- the loaded reference network from :toml:`data.hydrography`,
+- the DEM-derived generated network from :toml:`geographic.river_network`,
 - the persisted run features used later by display and comparison layers.
 
 They focus on responsibilities, runtime handoffs, and the difference between
@@ -93,7 +93,7 @@ Persistence and Run API notes
 From a developer point of view, the most important operational split is:
 
 - The ``prepare_solver`` step (``hydromodpy/workflow/steps/prepare_solver/``) persists
-  the loaded reference role when ``data.hydrography`` produced one usable vector network.
+  the loaded reference role when :toml:`data.hydrography` produced one usable vector network.
 - ``store_ingestion.py`` persists the generated role when the geographic
   preprocessing produced one usable DEM-derived network.
 - ``Catalog`` stores those features under canonical names only.

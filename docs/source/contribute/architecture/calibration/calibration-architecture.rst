@@ -9,9 +9,9 @@ reading path, the loop of one session and the core classes. For the operational 
 Architecture map
 ----------------
 
-The package is split into parts that import in one direction. The README of the package
-(:doc:`../packages/calibration`) lists them in dependency order, with the import rules and
-a "where to add what" table. The rules are held by
+The package is split into parts that import in one direction. The page of the package
+(:doc:`../packages/calibration`) lists the modules, the parts in dependency order, the import
+rules and a "where to add what" list. The rules are held by
 ``tests/unit/architecture/calibration_layout.yaml``.
 
 - ``hydromodpy/calibration/runners/`` runs a calibration. ``cli_runner.py`` is the
@@ -48,8 +48,8 @@ Recommended reading path
 How a calibration flows
 -----------------------
 
-The README of the package gives the nine steps, from loading the ``[calibration]`` table to
-the report. The sequence below shows the loop.
+The page of the package (:doc:`../packages/calibration`) gives the ten steps, from loading the
+``[calibration]`` table to the report. The sequence below shows the loop.
 
 .. uml:: diagrams/calibration_sequence.wsd
 

@@ -7,6 +7,9 @@ every one of them the same options: timestep, layer, color scale and
 declarative overlays.
 
 Subclasses only declare ``spec`` plus the class attributes below.
+
+A map of one value per mesh face subclasses this base and writes no ``render``.
+``figures/piezometric_map.py`` is the model to copy.
 """
 
 from __future__ import annotations

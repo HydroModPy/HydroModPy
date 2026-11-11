@@ -120,7 +120,7 @@ do not match, because it reads the state the step before it produced.
    * - 2
      - ``build_geographic``
      - once
-     - ``geographic``, ``data.dem``
+     - ``geographic``, :toml:`data.dem`
    * - 3
      - ``load_data``
      - once
@@ -128,11 +128,11 @@ do not match, because it reads the state the step before it produced.
    * - 4
      - ``build_mesh``
      - once
-     - ``domain.supports``, ``mesh``
+     - :toml:`domain.supports`, ``mesh``
    * - 5
      - ``setup_process``
      - once, or per trial for a depth-model parameter
-     - ``domain.depth_model``, ``flow.ic``, ``simulation``
+     - :toml:`domain.depth_model`, :toml:`flow.ic`, ``simulation``
    * - 6
      - ``prepare_solver``
      - per trial
@@ -150,8 +150,8 @@ do not match, because it reads the state the step before it produced.
      - promoted runs only
      - ``postprocess``, ``display``, none
 
-A trial of ``flow.param.K.field.value`` therefore replays steps 6 to 8. A trial
-of ``domain.depth_model.thickness`` replays from step 5. The mesh step reads
+A trial of :toml:`flow.param.K.field.value` therefore replays steps 6 to 8. A trial
+of :toml:`domain.depth_model.thickness` replays from step 5. The mesh step reads
 its sections from the raw file once, so a mesh setting is refused as a
 calibration parameter: refining the mesh also moves the yardstick the network
 criterion is normalized by.

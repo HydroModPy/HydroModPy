@@ -1,30 +1,15 @@
-# core/scoring
+# Metric table
 
-This folder answers: how well does a simulated series match an observed one, and when are two costs
-a tie? Every layer must compute these the same way, so they live here.
+This folder answers how well a simulated series matches an observed one, and when two costs are a tie. Every layer must compute these the same way, so they live in `core`, and `display`, `calibration`, `results` and `catchment` read them. The metric names form a closed table, `METRIC_SPECS` of `metric_table.py`, where a new metric is a row added in the code and never a plugin.
 
-## Modules, in the order a caller uses them
+## What a row holds
 
-1. `metrics.py` has the fit metrics in pure NumPy: `align` first (it drops pairs with NaN), then `nse`, `log_nse`, `kge`, `rmse`, `mae`, `bias`, `pbias`, `correlation`, and the variants `nse_delta`, `kge_delta` and `nse_seasonal`. They return plain floats.
-2. `cost_margin.py` reads the margin that a cost may sit from the best before a trial stops being tied with it (`parse_cost_margin`, `CostMargin`). A margin has a unit: `"5%"` is a share of the best cost, `"75 m"` is an absolute distance.
-3. `stream_defaults.py` has the numeric defaults of the stream-network criterion in one model (`StreamCriterionDefaults`, `STREAM_CRITERION_DEFAULTS`), and `D8_DESCENT_BY_DEFAULT`. It also holds the words of the criterion that `display` reads: the visible flow (`VisibleFlow`, `parse_visible_flow`, `DEFAULT_VISIBLE_FLOW`, `GEOMETRIC`, where a share such as `"5%"` and a discharge such as `"1 L/s"` are both read) and the provenance codes of a validity map (`VALIDITY_PROVENANCE_CODE`, `VALIDITY_PROVENANCE_BY_CODE`). Calibration scores the criterion per trial with `catchment/stream_network`, `results` redraws it, and `display` reads only `core` and `results`, so the words it shares with the kernels live here.
+A `MetricSpec` row holds the name, the direction (`max`, `min`, `zero` or `one`), the sentence that documents the name, and flags for the clipping of negatives, a cost without a unit and a stream network. The table has sixteen rows: ten that calibration scores a trial on, eleven that a sealed run is scored on, five in both. `TRIAL_METRIC_NAMES`, `RUN_METRIC_NAMES`, `NETWORK_METRIC_NAMES` and `METRIC_SENSE` are cut from the rows, and the `Literal` of the names a TOML may write is built from them, so a name is written once. The two orders differ on purpose, since the files that read them keep the order they had.
 
-4. `metric_table.py` has one row per metric name in `METRIC_SPECS`, sixteen in all: ten that calibration scores a trial on, eleven that a sealed run is scored on, five in both. A row holds the direction (`max`, `min`, `zero` or `one`), the sentence that documents the name, and flags for clipping of negatives, a cost without a unit, and a stream network. `TRIAL_METRIC_NAMES`, `RUN_METRIC_NAMES`, `NETWORK_METRIC_NAMES` and `METRIC_SENSE` are cut from the rows, and the `Literal` of the names a TOML may write is built from them. The two orders differ on purpose, since the files that read them keep the order they had.
+## How a metric is added
 
-## What other layers import from it
+A new metric is a row in `metric_table.py`, then its kernel where it is scored, `calibration/criteria/series.py` for a trial and `results/score.py` for a run. The kernel itself is a NumPy function of `metrics.py` that returns a float. A score that needs a solver or a configuration lives in the layer that owns it.
 
-`display`, `calibration`, `results` and `catchment`.
+## What is refused and what tests it
 
-## Where to add what
-
-- A metric: `metrics.py`, NumPy only, a float out.
-- A metric name: one row in `metric_table.py`, then its kernel where it is scored (`calibration/criteria/series.py` for a trial, `results/score.py` for a run). `tests/unit/core/scoring/test_metric_table.py` fails when a kernel and a row disagree.
-- A new kind of margin: `cost_margin.py`, with its unit check.
-- A new default of the stream criterion: `stream_defaults.py`, never a literal in a caller.
-- A score that needs a solver or a config: in the layer that owns it.
-
-This is a science folder under rule 6 of the repository. The imports it still needs outside numpy and one neighbour,
-`pydantic`, `core/config_kit` and `core/units` for `stream_defaults.py` and `core/units` for `cost_margin.py`, are listed in the table
-`ALLOWED_OUTSIDE` of `tests/unit/architecture/test_science_module_imports.py`, which can only shrink.
-
-The tests are in `tests/unit/`. The layer rules are checked by `tests/unit/architecture/`.
+A metric name outside the rows is refused when the file is read, by the `Literal` built from the table, with the names it accepts. `tests/unit/core/scoring/test_metric_table.py` fails when a kernel and a row disagree. This is a science folder under rule 6, and the imports it needs beyond numpy and one neighbour are listed in `ALLOWED_OUTSIDE` of `tests/unit/architecture/test_science_module_imports.py`, a table that only shrinks.

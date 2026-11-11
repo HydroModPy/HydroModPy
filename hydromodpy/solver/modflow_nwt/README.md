@@ -1,30 +1,19 @@
-# solver/modflow_nwt
+# MODFLOW-NWT backend
 
-MODFLOW-NWT through FloPy, on a structured grid, with MODPATH and MT3DMS for transport. `flow_to_modflow_adapter.py` says that NWT is to be removed once the lakes run on MODFLOW 6, so its payload builders are not shared with MODFLOW 6.
+MODFLOW-NWT through FloPy, on a structured grid, with MODPATH and MT3DMS for transport. It is a backend of the solver port of `solver/base`, kept until the lakes run on MODFLOW 6, so its payload builders are not shared with MODFLOW 6. It reads `base`, `modflow_common` and `modflow_grid`, never `modflow6` or `boussinesq`.
 
-## Parts
+## What it receives
 
-1. `nwt/` is the flow model. `nwt_solver.py` is `ModflowNwt` (pre-processing and processing), `nwt_config.py` is the `[solver.modflow_nwt]` table, `flow_to_modflow_adapter.py` turns the `Model` of the run into the NWT inputs, `payloads/` builds the CHD, recharge, ETP, well and drain records, `_pre_processing.py` assembles the FloPy packages, scales the rates to the solver time unit and checks that the layers connect, and `steady_initial_conditions.py` runs the steady initialization on `steady_variant` of the model.
-2. `adapter.py` is the flow adapter. The transport adapters live in the files of their engine: the MT3DMS adapter, solver `mt3dms` of the transport registry, in `mt3dms/mt3dms.py`, and the MODPATH adapter, solver `modpath`, in `modpath/modpath.py`. Each answers `validate`, `build`, `run`, `extract` and `cleanup`, and builds from the frozen `Model` of its flow, the `SolverRun` of that flow and its own options, received in `build(model, options, slot, upstream)`. NWT has no `rerun`, because nothing in its model can change between two solves without a build.
-3. `extractors/` read the flow, MODPATH and MT3DMS outputs into the store. The flow extractor takes the dry-cell sentinels from the options of the run, and the start date and the vertical layout from its `Model`. It also writes `final_state/`, the last head in float64 with the sentinels as NaN. NWT runs an executable, so a stop asked during the solve waits for its end.
-4. `modpath/` and `mt3dms/` are the transport models. `mt3dms/masstransfer.py` is the downslope accumulation that MT3DMS reads. `modpath/resolvers.py` holds the raster and shapefile lookups of the MODPATH inputs, public because the annex reads them. They read the DEM grid and the catchment from `Model.geometry` through the solver's `inputs`.
+The flow adapter (`adapter.py`) receives the frozen `Model`, the `[solver.modflow_nwt]` table of `nwt/nwt_config.py` and a `RunSlot`, and builds `ModflowNwt` in the folder and under the name of the slot, with a name made safe for the Fortran solver. `ModflowNwt.pre_processing` keeps the `Model` in `inputs` and never changes it. It extrudes its grid from `Model.geometry.cells` and reads the DEM and the routing settings from `Model.geometry.raster`. MT3DMS (`mt3dms/mt3dms.py`) and MODPATH (`modpath/modpath.py`) receive the `Model` of their flow, its `SolverRun` and their own options, work in the folder of the flow and read its head and budget files on disk.
 
-The historical TIFF maps and the MODPATH post-processing are in `hydromodpy_annex/solver/nwt_postprocess/` and `hydromodpy_annex/solver/modpath_post/`. No adapter called them: a run reads its results through the extractors.
+## What it returns
 
-The adapter builds `ModflowNwt` in the folder and under the name of the `RunSlot`, and makes the name safe for the Fortran solver. `processing` lists the input files it wrote in `input_files`, and writes none when the run says they are written.
+`processing` lists the input files it wrote in `input_files`, and writes none when the run says they are written. The flow extractor writes the heads, the budget, the listing balance and `final_state/`, the last head in float64 with the dry-cell sentinels as NaN. A run with `keep_face_flows` writes `face_flow/` beside `connection_cells/`, built from `FLOW RIGHT FACE`, `FLOW FRONT FACE` and `FLOW LOWER FACE`, each positive towards the larger flat index `k * nrow * ncol + i * ncol + j`, and a pair that touches a cell with `ibound = 0` is left out. NWT writes the flow-transport link file of MT3DMS when a later transport reads `face_flow` off it, a fact the runner puts in `hand_off`.
 
-`ModflowNwt.pre_processing` receives the frozen `Model` and keeps it in `inputs`. It extrudes its grid from `Model.geometry.cells`, reads the DEM and the routing settings from `Model.geometry.raster`, and never changes the model. The transport models build the same way: MT3DMS and MODPATH work in the folder of the flow run, read its grid and its time steps on the `Model` of that flow, and read its head and budget files on disk. NWT writes the flow-transport link file of MT3DMS when a later transport run reads `face_flow` off it, a fact the runner puts in the `hand_off` member of the slot of the run. The seepage raster that MODPATH releases particles from, `zone_partic = "seepage_clip"`, is built by the MODPATH adapter from the head file of the flow, with the seepage rule the run store derives, and never by a read of the store during the solve.
+## What it declares
 
-## Face flow
+The flow is `name = "modflow_nwt"`, `process_type = "flow"`, `accepted_meshes = {"regular"}`, `geometry = "raster"`, `category = "distributed"`, no `native_step`, an empty `mutable` (no `rerun`, because nothing in its model changes between two solves without a build) and no `requires`. Its `supports` lists the side, ocean and drainage boundaries, the drain options, `head_rule` and `steady_start`, recharge, wells, ETP, the properties and the layering. The transports are `mt3dms` and `modpath`, with `requires = (("flow", "modflow_nwt"),)`.
 
-A run that keeps its face flows writes `face_flow/`: one value per connection
-between two active cells, the mean of the period steps weighted by their
-`delt`, in m3/s. `FLOW RIGHT FACE` links a cell to the one after it in its row,
-`FLOW FRONT FACE` to the one after it in its column and `FLOW LOWER FACE` to
-the one below it, each positive towards the larger flat index
-`k * nrow * ncol + i * ncol + j`. The smaller flat index of the pair comes
-first, and `connection_cells/` names the two cells of each connection. A pair
-that touches a cell with `ibound = 0` is left out. A run without
-`keep_face_flows` keeps no inter-cell flow.
+## How it registers and what it refuses
 
-`modflow_nwt` imports `base`, `modflow_common` and `modflow_grid`, never `modflow6` or `boussinesq`.
+The built-in paths are `flow_modflow_nwt`, `transport_mt3dms` and `transport_modpath` of `_BUILTIN_PATHS` in `solver/base/registry.py`, each with its extractor. A file that asks for a lake, SFR, a stream boundary or any trait outside `supports` is refused when it is read. NWT runs an executable, so a stop asked during the solve waits for its end. `tests/ports/test_solver.py` holds the three classes to the port.

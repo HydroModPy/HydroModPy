@@ -1,86 +1,29 @@
-# catchment/terrain
+# Terrain port
 
-This package is the terrain port. It routes water over a DEM for the rest of HydroModPy and hides the library that does
-the routing. An engine is a class with `engine_id`, `engine_version`, `engine_digest()` and five members.
+The terrain port routes water over a DEM for the rest of HydroModPy and hides the library that does the routing. `port.py` holds the Protocol, the product types and the checks the engines share, and `registry.py` holds `terrain_engines`. An engine needs `port.py` and `core.exceptions` and nothing else of HydroModPy.
 
-- `condition_dem(dem, method, extent, out)` removes the depressions and returns a `ConditionedDem`.
-- `drainage_directions(conditioned, out)` writes the D8 pointer, a `DrainageDirections`.
-- `flow_accumulation(directions, units, transform, out)` writes a `FlowAccumulation`.
-- `stream_network(accumulation, threshold, out)` keeps the cells above a threshold, a `StreamNetwork`.
-- `delineate(accumulation, outlets, out_dir, snap_distance_m, snap, layout)` snaps each outlet and writes its mask and
-  boundary, one `Catchment` per outlet.
+## What an engine receives and returns
 
-Every member writes where the caller says. Every product carries what a reader needs to use it, which is the units,
-the transform, the pointer convention and the CRS. An option an engine cannot serve raises `TerrainCapabilityError`.
-A product it cannot use raises `TerrainProductError`, and a request that makes no sense raises `TerrainRequestError`.
+`condition_dem(dem, method, extent, out)` removes the depressions and returns a `ConditionedDem`. `drainage_directions(conditioned, out)` writes the D8 pointer, a `DrainageDirections`. `flow_accumulation(directions, units, transform, out)` writes a `FlowAccumulation`. `stream_network(accumulation, threshold, out)` keeps the cells above a threshold, a `StreamNetwork`. `delineate(accumulation, outlets, out_dir, snap_distance_m, snap, layout)` snaps each outlet and writes its mask and boundary, one `Catchment` per outlet.
 
-The conditioning method is `fill`, `breach`, a `CappedBreach`, or `provided`. A `provided` DEM is one that another tool
-conditioned, declared on its `[[data.dem.sources]]` entry with `state = "conditioned"`. No engine runs for it.
-`ConditionedDem.provided(path)` wraps the file and reads its CRS, and the four other members route it like any
-conditioned DEM. `condition_dem` refuses `provided` with `TerrainRequestError`, and nothing here checks that the DEM
-has no depression left.
+Every member writes where the caller says, and every product carries its units, its transform, its pointer convention and its CRS. The conditioning method is `fill`, `breach`, a `CappedBreach` or `provided`. A `provided` DEM was conditioned by another tool and declared with `state = "conditioned"` on its `[[data.dem.sources]]` entry, so `ConditionedDem.provided(path)` wraps it and no engine conditions it, and `condition_dem` refuses `provided`.
 
-Before the terrain chain, `dem_contract.py` checks the DEM the run will route: a declared projected CRS in metres, a
-grid that is not rotated, pixels square within 1 % on the source header, a cell size from 1 to 250 m on the grid the
-chain routes, elevations from -500 to 9000 m on the valid cells, and an outlet on a valid cell. `read_dem_header`,
-`check_dem_header`, `check_dem_outlet` and `check_dem_values` apply these, and a DEM that fails one is refused with
-`DataContractViolation` (HMPY.E201).
+## What an engine declares and how it registers
 
-Two engines ship. `whitebox_workflows` is the default, because every number of the repository was produced with it, and
-it calls the Whitebox backend of `catchment/delineation`. `numpy_d8` is a reference engine written as Python loops, with
-fill only. The two are substitutable. They agree cell for cell on the valley of the contract suite. On `DEM_gouville_25m.tif`
-they differ by a factor 2.5 on the area of a catchment, because they resolve flat areas at different stages.
+An engine is a class with `engine_id`, `engine_version`, `engine_digest()` and the five members. Raise `engine_version` when the products of an engine change for one request. The two built-in engines are dotted paths in `_BUILTIN_PATHS`: `whitebox_workflows`, the default because every number of the repository was produced with it, and `numpy_d8`, a reference engine in Python loops with fill only. A third party publishes an entry point named like its `engine_id` in the `hydromodpy.terrain.engine` group. A built-in name is refused, and a plug-in that fails to load is skipped with a warning.
 
-`registry.py` resolves an engine id to a class. A third party adds an engine on the entry point group
-`hydromodpy.terrain.engine`, with an entry point named like the `engine_id`. A built-in name is refused, and a plug-in
-that fails to load is skipped with a warning. Such an engine needs `port.py` and `core.exceptions` and nothing else of
-HydroModPy. `tests/ports/test_terrain.py` runs on every engine the registry resolves.
+## What is refused
+
+`[geographic] terrain_engine` is read by `check_registered_name`, which refuses a name nothing serves with the names served and the group. An option an engine cannot serve raises `TerrainCapabilityError`, a product it cannot use `TerrainProductError`, and a request that makes no sense `TerrainRequestError`. `tests/ports/test_terrain.py` runs on every engine the registry resolves.
 
 ## Facts a caller must not guess
 
-- `ln` is the natural logarithm. A threshold in cells on an `ln` raster selects nothing, so `stream_network` refuses a
-  transformed accumulation.
-- An accumulation counts the cell itself, so a headwater reads 1 and an outlet that drains the whole grid reads the
-  number of cells.
-- `snap_distance_m` is the width of a square window, with a half-width of `floor(d / (2 * cell))` cells on each axis.
-  A value of one cell snaps nowhere, and 100 m on a 25 m grid can move an outlet 70.7 m on the diagonal.
-- The D8 table is `D8_WBT_OFFSETS`. It starts at the north-east. The ESRI table is one octant away from it, and a mix-up
-  gives plausible paths that run beside the talweg. `tests/unit/catchment/algorithms/test_stream_dem_agreement.py`
-  tilts a plane in each direction and reads back the code Whitebox writes.
-- Masks and pointers use `-32768` for an absent cell, as Whitebox writes it. An accumulation uses the same value as
-  nodata, and never 0, because `ln(1)` is 0 and a headwater would read as a hole.
-- A transformed accumulation is refused where an outlet snaps and the window holds a stored value of `ln(1 049 558)` or
-  more. From that count float32 gives the same `ln` to two neighbouring counts, and a snap would tie on cells of
-  different areas. The bound was found by scanning every integer. A 25 m grid reaches it at about 656 km2 of upstream
-  area. It was measured for bare counts only, so a transformed accumulation has to be in cells.
-- A nodata hole is no drainage target. A depression whose only low way out crosses a hole stays a depression, on both
-  engines.
-- `max_depth_m` of a capped breach is the cumulative lowering along one path, and `max_distance_m` counts cells along
-  the path. A diagonal path can be 1.41 times longer than the distance says. A cell can be cut deeper than `max_depth_m`,
-  and `ConditionedDem.breach_report` says by how much.
-- A DEM declared `conditioned` may still keep cells D8 cannot route. `undrained.py` counts them once per product: the
-  cells with no strictly lower neighbour (the edge and the nodata rim excluded) and, among them, the strict pits. A
-  `fill` leaves 0 and 0. A Whitebox `breach` leaves 13 strict pits and 18 cells without descent on the Nançon 25 m, and
-  30 and 873 on the massif 75 m. A QGIS fill without a minimal slope leaves 0 strict pits and 14 274 flat cells on the
-  Nançon. A run that reads a product with such cells warns with the two counts.
-
-## Files
-
-| file | holds |
-|------|-------|
-| `port.py` | the Protocol, the product types and the checks both engines share |
-| `registry.py` | `terrain_engines`, the registry of engines |
-| `artifacts.py` | the readbacks of the files an engine wrote, and the writer of the two outlet point layers |
-| `d8.py` | the receiver of each cell of a D8 pointer raster |
-| `numpy_engine.py` | `NumpyTerrainEngine` and its kernels, the priority flood, the steepest descent and the Kahn sweep |
-| `whitebox_engine.py` | `WhiteboxTerrainEngine`, and the measure of a capped breach |
-| `dem_contract.py` | `DEMContract`, `validate_dem` and the header, value and outlet checks of a DEM |
-| `undrained.py` | `undrained_cells`, the count of cells a conditioned DEM leaves without descent |
-
-`port.py` imports `core.exceptions`, and `artifacts.py` inside three functions. `artifacts.py` reads the constants of
-`port.py`, so a module-level import the other way would be a cycle. `WhiteboxTerrainEngine.__init__` imports
-`catchment.delineation` when it is given no backend, so a third-party engine and the numpy engine never load Whitebox.
-`tests/unit/architecture/test_layers.py` checks these imports.
-
-The tests are in `tests/unit/catchment/terrain/`, one file per module. A new member of the port is a method of the
-Protocol, and both engines must serve it. Raise `engine_version` when the products of an engine change for one request.
+- `ln` is the natural logarithm, and `stream_network` refuses a transformed accumulation, because a threshold in cells on an `ln` raster selects nothing.
+- An accumulation counts the cell itself, so a headwater reads 1 and an outlet that drains the whole grid reads the number of cells.
+- `snap_distance_m` is the width of a square window, with a half-width of `floor(d / (2 * cell))` cells on each axis. One cell snaps nowhere, and 100 m on a 25 m grid can move an outlet 70.7 m on the diagonal.
+- The D8 table is `D8_WBT_OFFSETS` and starts at the north-east. The ESRI table is one octant away, and a mix-up gives plausible paths beside the talweg.
+- Masks and pointers use `-32768` for an absent cell, as Whitebox writes it. An accumulation uses it as nodata too, never 0, because `ln(1)` is 0.
+- A transformed accumulation is refused where a snap window holds `ln(1 049 558)` or more, because from that count float32 gives the same `ln` to two neighbouring counts. A 25 m grid reaches it at about 656 km2 of upstream area.
+- A nodata hole is no drainage target, so a depression whose only low way out crosses a hole stays a depression on both engines.
+- `max_depth_m` of a capped breach is the cumulative lowering along one path and `max_distance_m` counts cells, so a diagonal path can be 1.41 times longer. `ConditionedDem.breach_report` says how much deeper a cell was cut.
+- A DEM declared `conditioned` may keep cells D8 cannot route. `undrained.py` counts them, and a run that reads such a product warns with the two counts.

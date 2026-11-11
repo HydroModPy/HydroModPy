@@ -3,6 +3,11 @@
 A per-cell budget flux has one sign for every solver, the one MODFLOW gives it:
 positive when water enters the aquifer, negative when it leaves. Each solver
 writes that sign, so a reader never guesses it.
+
+``budget_outflow``, ``drain_stack_with_mover`` and ``find_drain_budget_key`` stack the
+drain and release keys, and ``inflow_outflow`` is the one split of a per-cell budget
+into inflow and outflow, each element on its own. A solver that writes fluxes writes the
+MODFLOW sign and never converts it later.
 """
 
 from __future__ import annotations

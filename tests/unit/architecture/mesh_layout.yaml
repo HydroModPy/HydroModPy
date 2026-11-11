@@ -1,4 +1,5 @@
-# Import rules inside hydromodpy/mesh, described in hydromodpy/mesh/README.md.
+# Import rules inside hydromodpy/mesh, described on the page
+# docs/source/contribute/architecture/packages/mesh.rst.
 # Checked by test_package_layouts.py. A part is a root module or a subpackage of
 # hydromodpy/mesh; it may always import itself. "<init>" is the package facade,
 # a docstring only. ``from hydromodpy.mesh import registry`` counts as an import

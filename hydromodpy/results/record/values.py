@@ -49,6 +49,9 @@ from hydromodpy.schema.seal import ValueDigests
 QUANTIZATION_ATTR: Final[str] = "quantization"
 """Attribute a rounded array carries; the writer records its float64 digests."""
 
+FIELD_KEY_PREFIX: Final[str] = "fields/"
+"""Prefix of the value key of an array of ``fields.zarr``."""
+
 
 def run_value_digests(
     run_dir: str | Path,
@@ -70,9 +73,9 @@ def run_value_digests(
         for path, array in _arrays(fields):
             steps = registry.get(path)
             if steps is not None and QUANTIZATION_ATTR in array.attrs:
-                digests[f"fields/{path}"] = _fold_rounded(array, steps)
+                digests[f"{FIELD_KEY_PREFIX}{path}"] = _fold_rounded(array, steps)
             else:
-                digests[f"fields/{path}"] = _array_digest(array)
+                digests[f"{FIELD_KEY_PREFIX}{path}"] = _array_digest(array)
     digests.update(_final_state_digests(root))
     digests.update(_table_digests(root, skip_columns))
     return ValueDigests(rule=VALUES_RULE, digests=dict(sorted(digests.items())))
@@ -87,7 +90,7 @@ def stored_value_digests(
     fields = root / FIELDS_STORE_NAME
     if fields.is_dir():
         for path, array in _arrays(fields):
-            digests[f"fields/{path}"] = _array_digest(array)
+            digests[f"{FIELD_KEY_PREFIX}{path}"] = _array_digest(array)
     digests.update(_final_state_digests(root))
     digests.update(_table_digests(root, skip_columns))
     return ValueDigests(rule=VALUES_RULE, digests=dict(sorted(digests.items())))
@@ -240,8 +243,8 @@ def _identity_columns() -> frozenset[str]:
 
 
 def _values_of(root: Path, key: str) -> tuple[np.ndarray, str] | None:
-    if key.startswith("fields/"):
-        return _array_values(root / FIELDS_STORE_NAME, key.removeprefix("fields/"))
+    if key.startswith(FIELD_KEY_PREFIX):
+        return _array_values(root / FIELDS_STORE_NAME, key.removeprefix(FIELD_KEY_PREFIX))
     if key.startswith("final_state/"):
         return _array_values(root / FINAL_STATE_DIRNAME, key.removeprefix("final_state/"))
     if key.startswith("tables/"):
@@ -265,4 +268,10 @@ def _array_values(root: Path, path: str) -> tuple[np.ndarray, str] | None:
     return np.asarray(array[...]), precision
 
 
-__all__ = ["QUANTIZATION_ATTR", "run_value_digests", "stored_value_digests", "value_deltas"]
+__all__ = [
+    "FIELD_KEY_PREFIX",
+    "QUANTIZATION_ATTR",
+    "run_value_digests",
+    "stored_value_digests",
+    "value_deltas",
+]

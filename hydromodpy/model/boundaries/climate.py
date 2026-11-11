@@ -1,4 +1,10 @@
-"""Sea level, recharge and ETP put on a Flow, from loaded forcings."""
+"""Sea level, recharge and ETP put on a Flow, from loaded forcings.
+
+It puts the sea level on the ocean boundary and the recharge and ETP on the flow
+(``apply_oceanic_to_flow``, ``apply_recharge_load_result_to_flow``,
+``apply_etp_load_result_to_flow``). ``watershed_mean_rates`` gives the catchment mean of
+a loaded series, which the lakes and the streams also read.
+"""
 
 from __future__ import annotations
 

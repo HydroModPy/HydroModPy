@@ -4,6 +4,8 @@ The two relative forms of a result directory, ``runs/<name>`` and
 ``sessions/<name>/trials/<nnnn>``, are spelled by :func:`run_dir_rel`,
 :func:`session_dir_rel` and :func:`trial_dir_rel`, and read back by
 :func:`parse_rel_dir`. They are the only declared holders of the two forms.
+
+``resolve_project_root`` anchors a project from a run, a session or a trial folder.
 """
 
 from __future__ import annotations

@@ -1,8 +1,37 @@
 """The two phases of a downslope-distance calibration, on one page.
 
 The subject is the ``Session`` of a staged calibration: a root search closes a
-bracket on ``K/R``, then a storage phase fits a second parameter. The reading
-rules of the four panels are in ``display/figures/README.md``.
+bracket on ``K/R``, then a storage phase fits a second parameter.
+
+The first panel shows the value the root search closed on and the bracket it closed
+it in, because the stopping rule of the search is the width of that bracket, never
+the size of the residual. The second shows the storage value and its metric. The
+third puts ``D_optim`` against the validity length the trial itself bounded it by
+(Eq. 4). It qualifies the result and never withholds it, so the value and the breach
+are drawn together. The fourth splits the cells into valid, excess and missing,
+because a residual near zero is either a good fit or a large excess cancelling a
+large gap.
+
+Nothing is fabricated. A session with one phase draws the second panel as not run,
+or names the phase that comes next when the frozen configuration declares it. A
+diagnostic no trial published is drawn as absent, never as zero. A search that never
+changed sign says so and points at no point. The reported value is an evaluated
+trial, the end of the tightest sign-changing bracket with the smaller residual, and
+every diagnostic is read at that trial.
+
+The keys depend on the maps the output was scored on. One bound in the cost
+publishes its components unsuffixed. A one-state output scored on the minimal map
+may publish the maximal one as a validation (``<key>_maximal_validation``), drawn
+beside it and kept out of its verdict. Two bounds publish only ``<key>_minimal`` and
+``<key>_maximal``. The first panel then draws one bracket per bound, and the lower
+panels show both bounds read at the trial the search returned, the combined trial of
+the roots record or else the best trial of the session. A bound weighted zero is
+drawn and gets no verdict. The roots, their spread ``Delta`` and the combined value
+come from the ``roots`` option, else from ``root_search`` of ``session.json``. The
+mean recharge is the ``mean_recharge`` option, else the median ``R_mean_m_s`` the
+trials published. Without it the card says the ratio is not a conductivity. The unit
+of the parameter axis is ``parameter_units``, else ``bounds.<name>.units`` of the
+journal, else ``calibration.parameters.<name>.units`` of the frozen configuration.
 """
 
 from __future__ import annotations

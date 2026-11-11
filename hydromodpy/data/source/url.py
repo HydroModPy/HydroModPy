@@ -6,6 +6,8 @@ from, its ETag and its licence. The data folder is the one of the
 :class:`~hydromodpy.data.provenance.sidecars.CacheIndex` the caller hands in,
 or else the parent of ``out_dir``, where the source builds one that carries the
 ``locked`` lockfile of a frozen run.
+
+A downloaded file is verified by a pinned sha256 or by the remote headers.
 """
 
 from __future__ import annotations

@@ -6,6 +6,9 @@ request declared, and everything it writes is under this root. That is what
 makes "wrote nothing outside the job directory" a single assertion rather than
 a hope, and it is why this type resolves every path instead of the callers
 joining strings.
+
+Nothing in the job folder opens a database, a socket or a workspace, so one directory is
+the whole interface between a caller and a capability.
 """
 
 from __future__ import annotations

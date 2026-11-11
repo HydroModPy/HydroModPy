@@ -24,6 +24,9 @@ A failed or aborted attempt writes no seal. The document is the promise
 another process acts on without opening the files, so it is written only once
 every file it names is on disk, through a temporary file, an ``fsync`` and one
 rename.
+
+``results/record/manifest.py`` extends this seal for a run, because the blocks of a run
+are types of ``results``.
 """
 
 from __future__ import annotations

@@ -1,4 +1,5 @@
-# Import rules inside hydromodpy/catchment, described in hydromodpy/catchment/README.md.
+# Import rules inside hydromodpy/catchment, described on the page
+# docs/source/contribute/architecture/packages/catchment.rst.
 # Checked by test_package_layouts.py.
 
 # Each part of hydromodpy/catchment lists the parts of hydromodpy/catchment it

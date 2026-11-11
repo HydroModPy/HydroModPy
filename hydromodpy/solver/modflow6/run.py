@@ -1,4 +1,13 @@
-"""MODFLOW 6 processing: write and run simulation."""
+"""MODFLOW 6 processing: write and run simulation.
+
+A steady initialization or a cyclic spin-up runs first when ``Model.initial`` asks for
+one. Each auxiliary solve builds a new ``Modflow6`` on a variant of the model
+(``steady_variant``, ``cycle_variant``) and hands its last heads to the main model. A
+cyclic spin-up starts each cycle from the final lake stages of the cycle before, and
+settles only when the heads and the lake stages have settled. Through ``libmf6`` the run
+reads the stop flag of its slot at the end of each time step. Through the ``mf6``
+executable it reads nothing, and the runner checks the flag after the solve.
+"""
 
 from __future__ import annotations
 

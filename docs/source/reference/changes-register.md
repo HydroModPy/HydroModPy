@@ -12,7 +12,7 @@ and the recipes that change a number. Nobody writes this page: a row added to th
 here at the next build.
 
 A key that only a pre-release of 2.0 wrote has no row. It is refused since 2.1.0 with a message
-that names the doctor of a 2.0.x release, as {doc}`/about/versions` says.
+that names every such key of the file, as {doc}`/about/versions` says.
 
 ## Bugs
 

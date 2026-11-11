@@ -6,6 +6,10 @@ The files are read where they lie: this source writes nothing, and a file of the
 user is no row of the data cache. A source built with the ``locked`` lockfile of a
 frozen run accepts only a file that ``hydromodpy.lock`` pins, by its path and then
 its digest.
+
+The ``file`` and ``url`` sources both declare ``payload_kind = "files"`` and ``selectors
+= ()``, so they ask for no extent and no station. A ``FileSource`` built without a
+lockfile reads any file.
 """
 
 from __future__ import annotations

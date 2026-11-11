@@ -265,15 +265,18 @@ Numerical tolerances live in exactly one place, never inline-duplicated:
   example ``atol=1e-12`` on an exact linear solve) may stay inline with a
   one-line rationale comment; do not force them through the table.
 
-Coverage is gated by Codecov, not by ``pyproject``:
+Coverage is gated per sub-package. The job ``Coverage / floors per
+sub-package`` of ``.github/workflows/main-ci.yml`` combines the data of the
+``unit`` and ``scenarios`` jobs and runs ``python tools/ci/coverage_floors.py
+check tools/ci/coverage_floors.toml``. The table holds one floor for each
+sub-package of ``hydromodpy/`` and one for the modules at the top of each
+package. A floor only goes up, through ``coverage_floors.py measure --write``,
+and goes down only when files enter or leave its sub-package, with the reason
+on its line. Codecov still receives the report on a push and posts its own
+status (``codecov.yml``) beside the job, as an indication. ``fail_under = 80``
+in ``pyproject.toml`` is a local hint, since the pytest steps of the CI pass
+``--cov-fail-under=0``.
 
-- The real gate is ``codecov.yml``: ``patch`` target 80 % (the diff you
-  add must be >= 80 % covered) and ``project`` target ``auto`` (overall
-  coverage must not drop). One Codecov flag per tier, ``carryforward:
-  true``, so moving a test between tiers keeps its coverage.
-- ``[tool.coverage] fail_under = 80`` in ``pyproject.toml`` is **not** a
-  CI gate (the unit job runs with ``--cov-fail-under=0``); treat it as a
-  local hint only.
 - New tests should raise coverage by asserting real behavior or a
   physical/mathematical invariant. Never add a test purely to move the
   number.

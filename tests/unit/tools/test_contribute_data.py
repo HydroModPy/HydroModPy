@@ -106,6 +106,89 @@ def test_the_inventory_counts_every_test_file_once() -> None:
         assert sum(f["files"] for f in folders) == tier["files"]
         assert sum(f["functions"] for f in folders) == tier["functions"]
     assert {m["name"] for m in inv["markers"]} == set(C.pytest_markers())
+    assert [t["tier"] for t in inv["tiers"]][0] == "unit"
+    assert set(tiers) <= set(C.TIER_ORDER)
+
+
+# -- module tables and ports ---------------------------------------------------
+
+
+def write_package(tmp_path: Path, files: dict[str, str | None]) -> None:
+    for name, doc in files.items():
+        path = tmp_path / "hydromodpy" / "pkg" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        body = "x = 1\n"
+        path.write_text(f'"""{doc}"""\n{body}' if doc is not None else body, encoding="utf-8")
+
+
+def test_the_module_table_is_sorted_and_reads_the_first_docstring_line(tmp_path: Path) -> None:
+    write_package(
+        tmp_path,
+        {
+            "__init__.py": "The package.",
+            "zeta.py": "Last module.\n\nMore words that the row leaves out.",
+            "alpha.py": "First module.",
+            "port/impl.py": "A member of the port.",
+        },
+    )
+    (tmp_path / "hydromodpy" / "pkg" / "port" / "README.md").write_text("# port\n\nText.\n")
+    rows = C.module_table("pkg", tmp_path)
+    assert rows == [
+        {"path": "alpha.py", "summary": "First module.", "lines": 2, "readme": None},
+        {
+            "path": "port/impl.py",
+            "summary": "A member of the port.",
+            "lines": 2,
+            "readme": "hydromodpy/pkg/port/README.md",
+        },
+        {"path": "zeta.py", "summary": "Last module.", "lines": 4, "readme": None},
+    ]
+
+
+@pytest.mark.parametrize("doc", [None, "", "   "])
+def test_a_module_without_a_docstring_fails_the_table(tmp_path: Path, doc: str | None) -> None:
+    write_package(tmp_path, {"bare.py": doc})
+    with pytest.raises(ValueError, match="has no docstring; its first line is the row"):
+        C.module_table("pkg", tmp_path)
+
+
+def test_every_module_of_hydromodpy_has_a_first_docstring_line() -> None:
+    packages = [p.name for p in (ROOT / "hydromodpy").iterdir() if (p / "__init__.py").exists()]
+    assert packages
+    for package in packages:
+        for row in C.module_table(package):
+            assert row["summary"], f"{package}/{row['path']}"
+
+
+def test_the_port_table_holds_the_nine_registries_of_the_code() -> None:
+    rows = C.port_table(ROOT, imports={})
+    assert len(rows) == 9
+    assert len({r["registry"] for r in rows}) == 9
+    for row in rows:
+        assert row["kind"], row["registry"]
+        assert row["names"], row["registry"]
+        assert row["members"], row["registry"]
+    solvers = next(r for r in rows if r["registry"].endswith(".registry.solvers"))
+    assert {"flow_modflow6", "flow_boussinesq"} <= set(solvers["names"])
+    assert solvers["group"] == "hydromodpy.solver"
+    figures = next(r for r in rows if r["registry"].endswith(".figures"))
+    assert figures["group"] is None
+
+
+def test_the_port_table_finds_the_readme_of_the_port_and_the_tests_that_import_it() -> None:
+    imports = {
+        "tests/ports/test_x.py": {"modules": ["hydromodpy.mesh.registry"]},
+        "tests/unit/test_y.py": {"modules": ["hydromodpy.mesh.registry_other"]},
+        "tests/unit/test_z.py": {"modules": ["hydromodpy.core.time"]},
+    }
+    rows = {r["registry"]: r for r in C.port_table(ROOT, imports=imports)}
+    mesh = rows["hydromodpy.mesh.registry.mesh_engines"]
+    assert mesh["tests"] == ["tests/ports/test_x.py"]
+    assert mesh["readme"]["path"] == "hydromodpy/mesh/README.md"
+    assert mesh["readme"]["summary"]
+    # A registry in a folder of its own finds the README of that folder first.
+    solvers = rows["hydromodpy.solver.base.registry.solvers"]
+    assert solvers["readme"]["path"] == "hydromodpy/solver/base/README.md"
 
 
 # -- packages, storage, environment, extras ------------------------------------

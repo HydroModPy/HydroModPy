@@ -14,6 +14,11 @@ to. It never names a host, a user or an absolute path.
 Format
 ------
 Markdown, one section per topic, a footer ``sha256(manifest.json) = <hex>``.
+The section "What this run does not give" is read from the keys of the values
+the run stored, which the seal passes in ``stored``, so it names only a limit
+the store really has. For the flow between cells it gives the setting that
+keeps it only when that setting would work: the solver writes the flow and the
+run is not a kept calibration trial.
 
 A run that did not complete has no manifest, so no record and no footer:
 :func:`render_unsealed_run_readme` renders its README from ``outcome.json``
@@ -31,11 +36,14 @@ from pyproj import Transformer
 
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.io.file_digest import sha256_of
+from hydromodpy.results import field_registry
+from hydromodpy.results.derive.reading import PARTICLES
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.outcome import Outcome
 from hydromodpy.results.record.checks import Checks, stop_line, stop_text
 from hydromodpy.results.record.manifest import ManifestSite
 from hydromodpy.results.record.record import RunRecord
+from hydromodpy.results.record.values import FIELD_KEY_PREFIX
 from hydromodpy.results.session.descriptor import (
     ParameterBound,
     SessionDescriptor,
@@ -61,8 +69,15 @@ from hydromodpy.results.storage.contract import (
     SESSION_TRIALS_FILENAME,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.kept import level_of
 from hydromodpy.results.storage.run_profile import Profile
-from hydromodpy.results.validity_rules import LabelResult
+from hydromodpy.results.validity_rules import STEADY_REGIME, LabelResult
+
+# The setting that keeps the flow between cells is a field of the solver package,
+# which this package cannot import, so the sentence of the README names it here.
+# tests/unit/results/test_readme.py checks it against the configuration.
+_FACE_FLOW_SETTING = "keep_face_flows"
+_FACE_FLOW_TABLE = "simulation.results"
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,11 +120,17 @@ def render_run_readme(
     *,
     manifest_sha256: str,
     profile: Profile | None = None,
+    stored: frozenset[str] = frozenset(),
+    writes_face_flow: bool | None = None,
 ) -> str:
     """Return the README of a sealed run.
 
     ``profile`` is the ``profile.json`` of the run as it stands when the seal is
     written, and gives the cost of a replay. ``None`` is a run that has none.
+    ``stored`` is the set of value keys the run stores (``fields/<path>``, as the
+    seal digests them) and tells which limits the section "What this run does not
+    give" states. ``writes_face_flow`` says whether the flow solver of the run
+    writes the flow between cells, and ``None`` is a caller that does not know.
     """
     run = record.run
     lines = [
@@ -136,6 +157,7 @@ def render_run_readme(
     lines += _lineage_section(record)
     if outcome is not None:
         lines += _outcome_section(outcome)
+    lines += _limits_section(record, stored, writes_face_flow)
     lines += _replay_section(profile)
     lines += [
         "## Where is what",
@@ -365,6 +387,46 @@ def _period_section(record: RunRecord) -> list[str]:
             f", {period.n_timesteps} {period.time_unit or 'steps'}" if period.n_timesteps else ""
         )
         lines.append(f"{period.start.date()} to {period.end.date()}{steps}.")
+    lines.append("")
+    return lines
+
+
+def _is_steady(record: RunRecord) -> bool:
+    """Return whether the run is one steady state, as its regime or its empty period say."""
+    period = record.period
+    return record.run.flow_regime == STEADY_REGIME or period.start is None or period.end is None
+
+
+def _face_flow_line(record: RunRecord, writes_face_flow: bool | None) -> str:
+    """Say why the run has no flow between cells, and the remedy only when it holds."""
+    if writes_face_flow is None:
+        return "- The flow between two cells: the run did not keep it."
+    if not writes_face_flow:
+        return "- The flow between two cells: the solver of this run does not compute it."
+    if level_of(record.lineage) == "research":
+        return "- The flow between two cells: a kept calibration trial keeps none."
+    return (
+        "- The flow between two cells. "
+        f"Set `{_FACE_FLOW_SETTING} = true` under `[{_FACE_FLOW_TABLE}]` to keep it."
+    )
+
+
+def _limits_section(
+    record: RunRecord, stored: frozenset[str], writes_face_flow: bool | None
+) -> list[str]:
+    """Say what the run cannot answer, from what its store holds."""
+    lines = ["## What this run does not give", ""]
+    if _is_steady(record):
+        lines.append("- A change in time: the run is one steady state.")
+    else:
+        lines.append(
+            "- The state inside a stress period: fields are stored once per period, at its end."
+        )
+    face_flow = FIELD_KEY_PREFIX + field_registry.get(field_registry.FACE_FLOW).zarr_path
+    if face_flow not in stored:
+        lines.append(_face_flow_line(record, writes_face_flow))
+    if not any(key.startswith(f"{FIELD_KEY_PREFIX}{PARTICLES}/") for key in stored):
+        lines.append("- A residence time: the run has no particle tracking.")
     lines.append("")
     return lines
 

@@ -10,7 +10,8 @@ Two sources, both written from the repository:
   the nightly job: what each test measured, its outcome, the run date and
   commit.
 
-Nothing here is written by hand per test.
+The science map joins the theory pages to those tests through
+``tools/docs/science_map.py``. Nothing here is written by hand per test.
 """
 
 from __future__ import annotations
@@ -30,7 +31,8 @@ from docutils.statemachine import StringList
 from sphinx.util import logging
 from sphinx.util.docutils import SphinxDirective
 
-from tools.docs.tests_index import MARK_SOLVER, SOLVER_ORDER, column_of, solvers_of
+from tools.docs.science_map import missing_blocks, read_pages, science_map, unknown_prefixes
+from tools.docs.tests_index import MARK_SOLVER, SOLVER_ORDER, TIERS, column_of, solvers_of
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +63,7 @@ COLUMN_LABELS = {
     "boussinesq_local": "Boussinesq default",
     "other": "other",
 }
-TIER_ORDER = ["validation", "integration", "regression", "e2e", "contract", "unit", "other"]
+TIER_ORDER = [*TIERS, "other"]
 PREFIXES = (
     "Validation benchmark for ",
     "Validate the ",
@@ -1384,6 +1386,8 @@ class TestedByDirective(SphinxDirective):
 
     def run(self):
         prefixes = [ln.strip() for ln in self.content if ln.strip()]
+        for warning in unknown_prefixes({self.env.docname: ("", prefixes)}):
+            logger.warning(warning, location=self.get_location())
         hits = {
             f: info
             for f, info in DATA.get("imports", {}).items()
@@ -1426,6 +1430,67 @@ class TestedByDirective(SphinxDirective):
         return [H.raw("".join(out))]
 
 
+class ScienceMapDirective(SphinxDirective):
+    """One row per theory page: its modules, their unit tests, scenarios and validation cases.
+
+    Read from the pages and from ``_data/tests.json`` each time the site is
+    built. A page without a ``hmp-tested-by`` block and a prefix that is not a
+    module are warnings, so a strict build fails on a rename.
+    """
+
+    def run(self):
+        srcdir = Path(self.env.srcdir)
+        pages, indexes = read_pages(srcdir)
+        for warning in [*missing_blocks(pages, indexes), *unknown_prefixes(pages)]:
+            logger.warning(warning, location=self.get_location())
+        for page in pages:
+            if page in self.env.found_docs:
+                self.env.note_dependency(self.env.doc2path(page))
+        self.env.note_dependency(str(srcdir / "_data" / "tests.json"))
+        builder = H.current_builder()
+        val_doc = builder.get_relative_uri(self.env.docname, "theory/validation")
+
+        def files(items: list[str]) -> str:
+            if not items:
+                return "-"
+            names = "".join(
+                f'<li title="{esc(f)}">{esc(sentence(Path(f).stem))}</li>' for f in items
+            )
+            return f"<details><summary>{len(items)}</summary><ul>{names}</ul></details>"
+
+        def cases(items: list[dict]) -> str:
+            if not items:
+                return "-"
+            names = "".join(
+                f'<li><a href="{esc(val_doc)}#{anchor_of(i["file"])}">'
+                f"{esc(sentence(Path(i['file']).stem))}</a>"
+                + (f" ({esc(', '.join(i['cases']))})" if i["cases"] else "")
+                + "</li>"
+                for i in items
+            )
+            return f"<details><summary>{len(items)}</summary><ul>{names}</ul></details>"
+
+        body = []
+        for row in science_map(pages, DATA):
+            href = builder.get_relative_uri(self.env.docname, row["page"])
+            mods = "<br>".join(f"<code>{esc(m)}</code>" for m in row["modules"])
+            body.append(
+                f'<tr><td><a href="{esc(href)}">{esc(row["concept"])}</a></td><td>{mods}</td>'
+                f"<td>{files(row['kernel_tests'])}</td><td>{files(row['scenarios'])}</td>"
+                f"<td>{cases(row['validation'])}</td></tr>"
+            )
+        head = "".join(
+            f"<th>{t}</th>"
+            for t in ("Page", "Modules", "Unit tests", "Scenarios", "Validation cases")
+        )
+        return [
+            H.raw(
+                '<div class="hmp-val-scroll" tabindex="0" role="region" aria-label="Science map"><table class="hmp-val-sched hmp-val-map">'
+                f"<thead><tr>{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div>"
+            )
+        ]
+
+
 def _page_css(app, pagename, templatename, context, doctree) -> None:
     """Load the validation styles only on the pages that show a check."""
     if doctree is not None and any(
@@ -1439,4 +1504,5 @@ def setup_validation(app) -> None:
     app.connect("builder-inited", lambda a: FIG.set_output(Path(a.outdir)))
     app.add_directive("hmp-validation", ValidationDirective)
     app.add_directive("hmp-tested-by", TestedByDirective)
+    app.add_directive("hmp-science-map", ScienceMapDirective)
     app.connect("html-page-context", _page_css)

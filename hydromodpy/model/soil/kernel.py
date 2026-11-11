@@ -1,5 +1,8 @@
 """Daily soil reservoir, vectorized over columns, looped over days.
 
+The module follows rule 6 of the repository. It reads from top to bottom, needs only numpy and
+imports no neighbour.
+
 Each day the rain reaches the soil before it evaporates. ETR falls linearly
 below alpha x RU: alpha is 1 - p of FAO-56 (Allen et al. 1998) and LP of HBV
 (Seibert and Vis 2012). The default alpha = 0.45 is our choice: it means p = 0.55,

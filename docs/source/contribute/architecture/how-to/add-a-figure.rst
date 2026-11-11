@@ -9,8 +9,8 @@ generated table ``display/figure_table.py`` is what the registry reads.
 carries the generated inventory: ``hydrograph``, ``piezometric_map``,
 ``water_budget``, ``calibration_convergence``,
 ``hydrographic_network_comparison``, ``simulated_active_network``,
-``side_by_side``, and the others. The map of the package, with its import
-rules, is ``hydromodpy/display/README.md``.
+``side_by_side``, and the others. The modules of the package and its import
+rules are on its page, :doc:`../packages/display`.
 
 Contract
 --------

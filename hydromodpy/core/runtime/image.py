@@ -4,6 +4,11 @@ This is the one reader of ``HMP_IMAGE_TAG`` and ``HMP_IMAGE_DIGEST``. The
 ``Dockerfile`` sets the tag. The operator sets the digest when the container
 starts, because an image cannot hold its own digest. A run seals both in
 ``provenance.json``, so a replay in another image can say so.
+
+``image_of()`` returns an empty dict outside a container image. A digest that is not
+``sha256:`` followed by 64 hex characters raises ``ConfigError``, which the server does
+when it starts. A run calls ``image_of(refuse=False)``, so a bad digest found late is
+sealed under ``digest_refused`` and does not stop the run.
 """
 
 from __future__ import annotations

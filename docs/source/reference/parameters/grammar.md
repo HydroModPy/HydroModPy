@@ -87,7 +87,7 @@ HMP_SET_simulation__name=my_run hmp run run.toml
 A `--set` value is read as TOML when it can be, and as a plain string otherwise: `200` is
 a number and `my_run` is a string. In an environment variable name, two underscores stand
 for a dot and the case is the case of the key: `HMP_SET_flow__param__K__field__value=3e-5`
-sets `flow.param.K.field.value`.
+sets {toml}`flow.param.K.field.value`.
 
 Each file, each overlay and each `--set` value is read under today's key names before the
 merge. So a key an overlay writes under an old name wins over the same key its base writes
@@ -347,7 +347,7 @@ match a name written elsewhere.
 | {toml}`flow.param.<id>` | a parameter name: `K`, `Sy`, `Ss` | an entry of {toml}`flow.param_list`; `field.id`, if written, is the same name |
 | {toml}`flow.bc.<name>` | one of `drainage`, `ocean`, `stream`, `north_side`, `south_side`, `east_side`, `west_side` | nothing: the table turns the boundary on, even empty, and `enabled = false` in it turns it off |
 | {toml}`flow.sinks_sources.wells.<name>`, `lakes`, `sfr`, `flow_barriers` | a name you choose | for a lake, the `lake_id` of a calibration output with `support = "lake"` |
-| {toml}`domain.supports.<name>` | a name you choose | `field_spatial_id` of the parameters that use it, and `data.geology.id` for a geology support |
+| {toml}`domain.supports.<name>` | a name you choose | `field_spatial_id` of the parameters that use it, and {toml}`data.geology.id` for a geology support |
 | {toml}`calibration.parameters.<name>` | `K`, `Sy`, `Ss`, `thickness` or `drainage` resolve to their target; any other name needs `path` | `parameters` of a calibration phase |
 | {toml}`calibration.outputs.<name>` | a name you choose | `uses_outputs` of an objective block, `outputs` of a phase |
 | `[display.overrides.<figure>]`, see {toml}`display.overrides` | the name of a registered figure | `hmp config figures` prints the names; another name is refused with the list |
@@ -379,8 +379,8 @@ values = { zone_1 = 1e-5, zone_2 = 3e-4 }
 value__delete = true
 ```
 
-The links of this site accept both spellings: `flow.param.K.field.value` and
-`flow.param.<id>.field.value` lead to the same card. {doc}`explorer` shows every key of
+The links of this site accept both spellings: {toml}`flow.param.K.field.value` and
+{toml}`flow.param.<id>.field.value` lead to the same card. {doc}`explorer` shows every key of
 the file as a tree.
 
 ## One rule switches a boundary on

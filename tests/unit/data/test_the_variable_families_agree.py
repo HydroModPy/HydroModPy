@@ -2,9 +2,10 @@
 
 ``VARIABLE_SPECS`` is the one registry: it holds the config and variable classes
 and the columns of the workspace folder. Adding a variable still touches a few
-other lists (``hydromodpy/data/README.md``, "Where to add what"). This test
-compares them to ``VARIABLE_SPECS`` and names the list that is incomplete, so a
-forgotten entry fails here rather than at run time. The sources agree through the registry: what a section may name in
+other lists (the page ``docs/source/contribute/architecture/packages/data.rst``,
+section "Inside the package"). This test compares them to ``VARIABLE_SPECS`` and
+names the list that is incomplete, so a forgotten entry fails here rather than
+at run time. The sources agree through the registry: what a section may name in
 ``source =`` is what ``data_sources`` serves for that section, plus ``custom``,
 and the sections this phase still guards behind an discriminated union name the
 exception and the lot that lifts it.

@@ -145,6 +145,8 @@ def seal_completed(
             label,
             manifest_sha256=manifest_sha256(run_dir),
             profile=read_profile(run_dir),
+            stored=frozenset(digests.digests),
+            writes_face_flow=facts.writes_face_flow,
         ),
     )
     store.close()

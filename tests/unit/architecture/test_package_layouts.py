@@ -1,9 +1,9 @@
 """Enforce the import rules inside the packages that carry a ``<package>_layout.yaml``.
 
 ``layer_matrix.yaml`` declares each layer as one block, so an import between two
-parts of the same layer is an edge it allows. A package whose map
-(``hydromodpy/<package>/README.md``) orders its parts gets a
-``<package>_layout.yaml`` beside this module, which says who may import whom,
+parts of the same layer is an edge it allows. A package whose page
+(``docs/source/contribute/architecture/packages/<package>.rst``) orders its
+parts gets a ``<package>_layout.yaml`` beside this module, which says who may import whom,
 and one set of rules checks it with the scanner the layer matrix uses. Every
 import counts: at module level, inside a function, under ``TYPE_CHECKING``, as
 an ``import_module`` on a literal, or as a dotted path written in a
@@ -348,7 +348,7 @@ def test_the_calibration_evaluator_registry_names_only_its_builtin_evaluators() 
 
 def test_config_reads_the_upper_parts_only_inside_its_validators() -> None:
     """``config`` may import criteria, evaluation and optim, but only from
-    inside a validator (hydromodpy/calibration/README.md, "Import rules":
+    inside a validator (packages/calibration.rst, "Inside the package":
     "inside validators only"), never at module level, so the schema classes
     stay importable without validating anything.
 
@@ -370,7 +370,7 @@ def test_config_reads_the_upper_parts_only_inside_its_validators() -> None:
 
 def test_evaluation_reads_optim_only_for_types() -> None:
     """``evaluation`` may import optim, but only for type hints
-    (hydromodpy/calibration/README.md, "Import rules": "optim (types only)").
+    (packages/calibration.rst, "Inside the package": "optim (types only)").
 
     The scanner has no notion of "a type hint"; the closest thing it can see
     is whether the import sits under ``if TYPE_CHECKING:``.
@@ -390,7 +390,7 @@ def test_evaluation_reads_optim_only_for_types() -> None:
 def test_preflight_reads_the_other_parts_only_inside_its_checks() -> None:
     """``preflight`` may import criteria, metrics, observations, optim,
     parameter_resolution, runners and targets, but only from inside one of its
-    checks (hydromodpy/calibration/README.md, "Import rules": "inside its
+    checks (packages/calibration.rst, "Inside the package": "inside its
     checks"), never at module level: ``hmp check`` runs every check
     and reports once, and a module-level import would pull in the whole upper
     half of the package before any check runs.

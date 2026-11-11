@@ -9,6 +9,16 @@ writes, its ``set`` table, the row of the recipe table, ``--set``, then ``HMP_SE
 is CSV, Parquet or GeoPackage. A key that belongs to one catchment may not hold a literal value
 that every site would share. The hash of a plan starts from its schema, then its cases and the
 files it was made from. Which cases are sealed is read from ``runs/``, never written.
+
+The plan is written once through ``results/plan_store.py`` as ``plan.json``,
+``cases.csv`` and one TOML per case. A case is done when a sealed run, or a completed
+session for a calibration, holds its solution key. A calibration compares the hash of
+its sessions, never the one of the run it promoted, whose parameters the best trial
+replaced. ``--dry-run`` and the launcher both ask ``case_is_done``, so they say the same
+thing, and ``plan_budget`` gives the numbers of ``hmp run --dry-run``. An error names
+its cell, such as ``sites.csv:37 column x_outlet``, and is grouped over the cases it
+touches. A check of the section alone, without reading a file, goes to ``SitesConfig``
+in ``config/sites.py``.
 """
 
 from __future__ import annotations
