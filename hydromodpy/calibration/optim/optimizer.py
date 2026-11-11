@@ -235,6 +235,12 @@ class EngineTraits:
     takes_width: bool = False
     """Whether the engine is built knowing the ``parallel`` of the search, as ``width``."""
 
+    libraries: tuple[str, ...] = ()
+    """The distributions the engine runs on, by distribution name.
+
+    A session writes their installed versions beside the method, so a search
+    says what it ran on. An engine that names none records none."""
+
     announced: bool = True
     """Whether the method is in the list the docs and the refusals print.
 

@@ -19,8 +19,8 @@ from hydromodpy.core.units.quantities import SECONDS_PER_DAY
 from hydromodpy.core.units.time import factor_to_seconds
 from hydromodpy.model.model import Model
 from hydromodpy.model.transport.transport_config import Modflow6PrtParametersConfig
+from hydromodpy.results.field_registry import FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
-from hydromodpy.solver.base.adapter_protocol import HANDOFF_PRODUCTS
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.base.protocols import FlowModelLike
@@ -473,7 +473,7 @@ class Modflow6PrtTransportAdapter:
         "particles/status",
         "particles/reason",
     )
-    reads: ClassVar[tuple[str, ...]] = HANDOFF_PRODUCTS
+    reads: ClassVar[tuple[str, ...]] = (FACE_FLOW,)
     supports: ClassVar[frozenset[str]] = frozenset()
     options: ClassVar[type[BaseModel] | None] = Modflow6PrtParametersConfig
     category: ClassVar[str] = "distributed"

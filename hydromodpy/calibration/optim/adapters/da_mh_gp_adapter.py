@@ -134,7 +134,12 @@ class DaMhGpOptimizer:
     # The chain proposes its next point once the previous one is told, so a
     # batch holds one trial. It samples a posterior, but its chain is neither
     # persisted nor diagnosed, so the list of methods leaves it out.
-    traits = EngineTraits(reads_cost_as="rmse", supports_parallel=False, announced=False)
+    traits = EngineTraits(
+        libraries=("numpy", "scikit-learn", "scipy"),
+        reads_cost_as="rmse",
+        supports_parallel=False,
+        announced=False,
+    )
 
     def __init__(
         self,

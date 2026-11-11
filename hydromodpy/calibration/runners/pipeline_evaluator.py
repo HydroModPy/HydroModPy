@@ -81,6 +81,7 @@ class PipelineTrialEvaluator:
             duration_s=result.duration_s,
             components=dict(result.metrics) if result.metrics else {},
             error=result.error,
+            profile=tuple(result.profile),
         )
 
 

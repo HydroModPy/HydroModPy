@@ -9,7 +9,7 @@ that flow from the registry.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -920,6 +920,17 @@ def _stamp_quantization(store_obj: SimulationZarr, array: zarr.Array) -> None:
     )
 
 
+def _field_dimensions(
+    variable: str, ndim: int, fallback: Callable[[int], tuple[str, ...]]
+) -> tuple[str, ...]:
+    """Return the axis names of ``variable``, the registry ones when they fit its rank."""
+    if field_registry.has(variable):
+        dimensions = field_registry.get(variable).dimensions
+        if len(dimensions) == ndim:
+            return dimensions
+    return fallback(ndim)
+
+
 def _field_path(variable: str, subgroup: str | None) -> str:
     """Return the path of the array inside the store, the key of its value digests."""
     return variable if not subgroup else f"{subgroup.strip('/')}/{variable}"
@@ -1026,7 +1037,9 @@ def _create_field_array(
         shape=full_shape,
         chunks=chunk_shape,
         dtype=dtype,
-        dimension_names=field_registry.timed_field_dimensions(len(full_shape)),
+        dimension_names=_field_dimensions(
+            variable, len(full_shape), field_registry.timed_field_dimensions
+        ),
         compressors=BLOSC_ZSTD,
         # Derive the fill from the dtype so the array fill and the CF _FillValue
         # attr agree: NaN for floats, iinfo(dtype).min for ints (NaN is invalid
@@ -1119,7 +1132,9 @@ def write_static_field(
             target,
             variable,
             data,
-            dimension_names=field_registry.static_field_dimensions(data.ndim),
+            dimension_names=_field_dimensions(
+                variable, data.ndim, field_registry.static_field_dimensions
+            ),
         )
         update_attrs(arr, attrs_for_field(variable, arr.dtype))
 

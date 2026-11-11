@@ -21,6 +21,7 @@ from hydromodpy.core.contracts.observables import ObservableRequest, ObservableR
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
 from hydromodpy.model.sinks_sources.wells import WELLS_PUMPED_METRIC
+from hydromodpy.results.field_registry import CONNECTION_CELLS, FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cell_lookup import (
     locate_cell_on_solver_mesh,
@@ -91,7 +92,8 @@ class Modflow6FlowAdapter:
     )
     geometry: ClassVar[str] = "cells"
     writes: ClassVar[tuple[str, ...]] = (
-        "face_flow",
+        CONNECTION_CELLS,
+        FACE_FLOW,
         "head",
         "budget/constant_head",
         "budget/constant_head_stream",
@@ -199,7 +201,7 @@ class Modflow6FlowAdapter:
             modflow_config=options,
             preprocess_options=preprocess_options,
         )
-        solver_model.link_mt3dms = "face_flow" in slot.hand_off
+        solver_model.link_mt3dms = FACE_FLOW in slot.hand_off
         return build_flow_model(solver_model, model, options, slot, preprocess_options)
 
     def run(self, solver_run: SolverRun) -> SolverRun:

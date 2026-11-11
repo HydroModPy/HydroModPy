@@ -94,7 +94,7 @@ def test_a_committed_schema_allows_what_a_later_version_adds(schema_id: str) -> 
     [
         ("session.v4.json", "status", "partial"),
         ("phase.v2.json", "status", "aborted"),
-        ("trial.v2.json", "status", "crashed"),
+        ("trial.v3.json", "status", "crashed"),
         ("outcome.v1.json", "written_by", "trap"),
         ("publication.v1.json", "kind", "project"),
     ],

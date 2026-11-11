@@ -915,7 +915,14 @@ def test_calibration_phases_expand_returns_the_whole_section(tmp_path: Path) -> 
 
     result = hmp.calibration_phases(config)
 
-    assert set(result["calibration"]) == {"parameters", "outputs", "objective_blocks", "phases"}
+    # A file of no edition keeps the default of 2.0, written out.
+    assert set(result["calibration"]) == {
+        "parameters",
+        "outputs",
+        "objective_blocks",
+        "phases",
+        "persist_trial_series",
+    }
     phases = result["calibration"]["phases"]
     assert [phase["name"] for phase in phases] == ["steady_conductivity", "transient_storage"]
     assert result["calibration"]["objective_blocks"] == [
@@ -1008,7 +1015,7 @@ def test_calibration_phases_expand_on_a_file_without_a_protocol_returns_its_own_
 
     result = hmp.calibration_phases(config)
 
-    assert result["calibration"] == {"seed": 7}
+    assert result["calibration"] == {"seed": 7, "persist_trial_series": False}
     assert result["protocol"] is None
 
 

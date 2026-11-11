@@ -553,3 +553,27 @@ class TestWhatItIsBuiltWith:
         assert registry.evaluators.get("analytic_bowl") is AnalyticBowlEvaluator
         assert registry.needs_prepared_model("analytic_bowl") is False
         assert "analytic_bowl" in registry.evaluators.names(shipped_only=True)
+
+
+def test_an_outcome_without_a_profile_stays_valid_and_a_surrogate_returns_none() -> None:
+    from datetime import UTC, datetime
+
+    from hydromodpy.results.storage.run_profile import ProfileLine
+
+    plain = TrialOutcome(cost=1.0, status="completed", duration_s=0.1)
+    assert plain.profile == ()
+
+    outcome = _bowl(POROSITY).evaluate(TrialRequest(trial_id=1, values={"porosity": 0.2}))
+    assert outcome.status == "completed"
+    assert outcome.profile == ()
+
+    line = ProfileLine(
+        kind="solve",
+        name="flow",
+        attempt=1,
+        started_at=datetime(2026, 11, 11, tzinfo=UTC),
+        duration_s=0.2,
+        reused="rerun",
+    )
+    timed = TrialOutcome(cost=1.0, status="completed", duration_s=0.1, profile=(line,))
+    assert timed.profile == (line,)

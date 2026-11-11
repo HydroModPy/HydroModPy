@@ -17,9 +17,12 @@ left, and each moved key carries the size of the move. On the ``stored`` basis
 the source keys are first renamed by the ``fields`` migration rows of the
 register (the flat ``concentration`` of the 2.0.0 is the one species of 2.1),
 and a key the 2.0.0 format cannot hold (``final_state/``) is listed in
-``added`` without making the replay a deviation. Under ``--strict`` a
-deviation is refused before the seal with :class:`ReplayDeviationError`, so the
-attempt fails, keeps its fields and tables for reading, and writes no seal.
+``added`` without making the replay a deviation. A source written below the
+``result`` level, a kept calibration trial, keeps less: a key it lacks is
+listed in ``added`` and no deviation. A key the replay drops stays one, at
+every level. Under ``--strict`` a deviation is refused before the seal with
+:class:`ReplayDeviationError`, so the attempt fails, keeps its fields and
+tables for reading, and writes no seal.
 """
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ from hydromodpy.results.storage.contract import (
     PUBLICATION_FILENAME,
     RUN_CONFIG_FILENAME,
 )
+from hydromodpy.results.storage.kept import at_least
 from hydromodpy.results.validity_rules import run_quantities
 from hydromodpy.schema.changes import REGISTER, Register, migrations_of
 from hydromodpy.schema.lineage import ProducerSide, Replay, ReplayDifference
@@ -60,6 +64,7 @@ def classify_replay(
     strict: bool,
     producer: Mapping[str, ProducerSide] | None = None,
     register: Register = REGISTER,
+    source_level: str | None = None,
 ) -> Replay:
     """Compare *replay_dir* to the run sealed in *source*, and return its class.
 
@@ -68,6 +73,9 @@ def classify_replay(
     is read for a version 4 source only; a version 3 source and its replay are
     read from the disk, because neither seal holds a value digest. *producer*
     is the provenance entries the replay found otherwise than its source.
+    *source_level* is the level of the source, read by
+    :func:`~hydromodpy.results.storage.kept.level_of`; below ``result``, a key
+    the replay adds is no deviation.
     """
     source_dir, replay_root = Path(source), Path(replay_dir)
     seal = read_seal(source_dir)
@@ -97,8 +105,11 @@ def classify_replay(
         }
         added = sorted(set(replay_digests) - set(sealed_digests))
         removed = sorted(set(sealed_digests) - set(replay_digests))
+        lower_source = source_level is not None and not at_least(source_level, "result")
         counted = [
-            key for key in added if basis != "stored" or not key.startswith(FORMAT_ADDITIONS)
+            key
+            for key in added
+            if not lower_source and (basis != "stored" or not key.startswith(FORMAT_ADDITIONS))
         ]
         replay = Replay(
             of=seal.identity.sim_id,

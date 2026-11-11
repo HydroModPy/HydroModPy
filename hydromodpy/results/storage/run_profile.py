@@ -13,11 +13,17 @@ The document is outside the seal and the identity: it describes one machine,
 not what the run computed. It is rewritten through a temporary file and one
 rename, about 0.2 ms for forty lines, so a process killed while it writes
 leaves the previous document whole.
+
+A pipeline without a run directory, a calibration trial, writes no document.
+Its lines go to the collector :func:`collected_profile` opened in the same
+context, and the session writes them in the journal line of the trial.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
@@ -31,10 +37,12 @@ from hydromodpy.results.storage.json_io import read_transient_json, write_json_a
 PROFILE_SCHEMA = "hydromodpy.profile.v1"
 """Schema of ``profile.json``."""
 
-REUSED_KINDS: tuple[str, ...] = ("no", "prefix", "store", "sealed")
+REUSED_KINDS: tuple[str, ...] = ("no", "prefix", "store", "sealed", "rerun")
 """Whether a line was computed (``no``), rebuilt from an earlier attempt
-(``prefix``), read from the project store (``store``) or read from the
-``mesh/`` sealed beside the source of a replay (``sealed``)."""
+(``prefix``), read from the project store (``store``), read from the
+``mesh/`` sealed beside the source of a replay (``sealed``), or solved by
+rerunning the run of the previous calibration trial with new properties
+(``rerun``, written only on the solve line of a trial)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,11 +206,45 @@ def read_profile(run_dir: Path) -> Profile | None:
     return Profile.from_dict(read_transient_json(path, PROFILE_SCHEMA))
 
 
+_COLLECTED: ContextVar[list[ProfileLine] | None] = ContextVar("collected_profile", default=None)
+"""Lines of a pipeline without a run directory, in the context that opened a collector.
+
+A context variable belongs to its context, so two trials played in two threads
+never mix their lines.
+"""
+
+
+@contextmanager
+def collected_profile() -> Iterator[list[ProfileLine]]:
+    """Collect, in this context, the profile lines of a pipeline that has no run directory.
+
+    The yielded list fills as the blocks end. A collector opened inside another
+    one hides it until it closes.
+    """
+    lines: list[ProfileLine] = []
+    token = _COLLECTED.set(lines)
+    try:
+        yield lines
+    finally:
+        _COLLECTED.reset(token)
+
+
+def collect_line(line: ProfileLine) -> bool:
+    """Add ``line`` to the collector open in this context; return whether one was open."""
+    collector = _COLLECTED.get()
+    if collector is None:
+        return False
+    collector.append(line)
+    return True
+
+
 __all__ = [
     "PROFILE_SCHEMA",
     "REUSED_KINDS",
     "Profile",
     "ProfileLine",
+    "collect_line",
+    "collected_profile",
     "profile_path",
     "read_profile",
     "write_profile",

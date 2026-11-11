@@ -94,14 +94,18 @@ def seal_completed(
     replay_of: str | Path | None = None,
     strict: bool = False,
     producer: Mapping[str, ProducerSide] | None = None,
+    source_level: str | None = None,
 ) -> RunRecord:
     """Seal the run of *store* as completed and return its record.
 
     *replay_of* is the sealed run or published copy the run replays, and
-    *producer* the provenance entries that differ from it. The tables of the
-    record are written first, so the value digests cover every table; the class
-    is computed from them before ``manifest.json`` is written; under ``strict`` a
-    deviation raises
+    *producer* the provenance entries that differ from it. *source_level* is
+    the level the replayed source was written at, read there by
+    :func:`~hydromodpy.results.storage.kept.level_of`; a source below
+    ``result`` lets the replay add keys without making a deviation. The tables
+    of the record are written first, so the value digests cover every table;
+    the class is computed from them before ``manifest.json`` is written; under
+    ``strict`` a deviation raises
     :class:`~hydromodpy.results.record.replay_class.ReplayDeviationError` at
     that point, and the attempt keeps its fields and tables with no seal.
 
@@ -122,7 +126,12 @@ def seal_completed(
     digests = run_value_digests(run_dir, facts)
     if replay_of is not None:
         replay = classify_replay(
-            replay_of, run_dir, digests, strict=strict, producer=producer or {}
+            replay_of,
+            run_dir,
+            digests,
+            strict=strict,
+            producer=producer or {},
+            source_level=source_level,
         )
         facts.lineage = facts.lineage.model_copy(update={"replay": replay})
         record = record.model_copy(update={"lineage": facts.lineage})

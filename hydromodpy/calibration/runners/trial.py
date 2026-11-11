@@ -25,6 +25,21 @@ store. Only promotion creates run artifacts. A trial the session may
 promote leaves its solver folder in the run scratch
 (:mod:`~hydromodpy.calibration.runners.kept_solves`).
 
+When every calibrated path is a property profile (``flow.param.<id>``) and
+the earliest step a trial touches is ``prepare_solver``, the preparation builds
+the ``Model`` once on the base configuration and the trials start at
+``run_solver``. The fork of such a trial derives its ``Model`` from the prepared
+one by :meth:`~hydromodpy.model.model.Model.with_profiles`, with the profiles
+:func:`~hydromodpy.model.flow.flow_profiles` builds from its configuration, so
+every other member is the object of the prepared model. The runner can then
+rerun the last solved trial of the lane of the trial
+(:mod:`~hydromodpy.calibration.runners.lanes`) instead of building, and the
+fork neither rebuilds the ``Flow`` nor binds the forcings again.
+
+A trial measures each of its steps and solves into a collector of profile
+lines, returned in :attr:`TrialResult.profile` and written by the session in
+the journal line of the trial.
+
 A fork shares the prepared soil reservoir outputs and their input digests
 on ``setup`` by reference, so a trial that leaves the soil parameters
 alone reuses the soil in memory. The soil kernel and its digests run once,
@@ -64,6 +79,7 @@ from hydromodpy.calibration.runners.kept_solves import (
     RecordingLauncher,
     TrialSolveRetention,
 )
+from hydromodpy.calibration.runners.lanes import Lane, TrialParents
 from hydromodpy.calibration.runners.sandbox import sandbox_of
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
 from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
@@ -77,9 +93,11 @@ from hydromodpy.model.domain.spatial_support import (
     collect_requested_support_ids,
     resolve_support_configs,
 )
+from hydromodpy.model.flow import flow_profiles
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.storage.attempt import close_sealed_attempt, finish_attempt
+from hydromodpy.results.storage.run_profile import ProfileLine, collected_profile
 from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC, WATER_BUDGET_WORST_METRIC
 
 if TYPE_CHECKING:
@@ -216,6 +234,11 @@ class TrialResult:
     ``nan`` and ``error`` carries the exception string. That string starts
     with ``INFEASIBLE_PREFIX`` when the candidate puts a quantity the search
     moves outside its physical range, see :func:`_failure_text`.
+
+    ``profile`` is where the time of the trial went: one ``step`` line per step
+    played, one ``solve`` line per run, ``reused = "rerun"`` on a run rerun
+    from the lane of the trial. It is empty for a trial that failed before its
+    pipeline ran.
     """
 
     values: Mapping[str, float]
@@ -224,6 +247,7 @@ class TrialResult:
     status: Literal["completed", "failed", "crashed"]
     duration_s: float
     error: str | None = None
+    profile: tuple[ProfileLine, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +293,16 @@ class TrialContext:
     kept_solves : TrialSolveRetention or None
         Which trial solves stay on disk for their promotion. The calibration
         core sets it for the span of one session; a fork never carries it.
+    parents : TrialParents or None
+        The lanes whose last solved trial the next trial reruns from. Set for
+        the span of one search when the trials derive their ``Model``; a fork
+        never carries it, and it is never pickled.
+    model_from_profiles : bool
+        True when every calibrated path is a property profile and the
+        preparation built the ``Model`` once: ``ctx.setup.model``,
+        ``ctx.execution.simulation_plan`` and ``ctx.budget_terms`` hold what
+        ``prepare_solver`` gave on the base configuration, and ``earliest``
+        is the ``run_solver`` step.
     """
 
     base_cfg: BaseModel
@@ -284,12 +318,25 @@ class TrialContext:
     requested_domain_supports: Mapping[str, object] = field(default_factory=dict)
     spatial_support_registry: Any = None
     kept_solves: TrialSolveRetention | None = None
+    parents: TrialParents | None = None
+    model_from_profiles: bool = False
+
+    def profile_ids(self) -> tuple[str, ...]:
+        """Return the ``[flow.param]`` ids the calibrated paths move, in the order first seen."""
+        return _profile_ids(self.calibrated_paths(), self.base_cfg)
+
+    def calibrated_paths(self) -> list[str]:
+        """Return the configuration path each calibrated value is written to."""
+        if self.parameter_space is not None:
+            return [param.effective_path for param in self.parameter_space if param.effective_path]
+        return list(self.override_paths.values())
 
     def fork(
         self,
         values: Mapping[str, float],
         *,
         slot_request: SlotRequest | None = None,
+        derive_model: bool = False,
     ) -> TrialContext:
         """Return a new trial context isolated for one evaluation.
 
@@ -312,6 +359,14 @@ class TrialContext:
           ``lightweight=True``.
         - ``store`` / ``sim_id`` / ``parent_sim_id`` are left unset so
           no Zarr / Parquet / DuckDB rows are written.
+        - ``derive_model`` on a context whose trials derive their ``Model``
+          (``model_from_profiles``) puts on ``setup.model`` the prepared model
+          with the profiles of the moved ids rebuilt from the patched ``cfg``,
+          and carries the prepared plan and budget policy over. The ``Flow``
+          stays ``None`` and no forcing is bound again: the steps from
+          ``run_solver`` on read the ``Model``. Without it, the fork rebuilds
+          the ``Flow`` and the caller plays ``prepare_solver`` again, as a
+          promotion does.
         """
         from hydromodpy.core.state.run_state import WorkflowContext
 
@@ -329,10 +384,15 @@ class TrialContext:
                 if path:
                     set_by_path(new_cfg, path, pvalue)
 
+        derived = derive_model and self.model_from_profiles
         new_setup = _copy.copy(self.ctx.setup)
         new_setup.flow = None
         new_setup.model = None
         new_setup.slot_request = slot_request
+        if derived:
+            new_setup.model = self.ctx.setup.model.with_profiles(
+                flow_profiles(new_cfg.flow, ids=self.profile_ids())
+            )
 
         new_ctx = WorkflowContext(
             cfg=new_cfg,
@@ -347,6 +407,9 @@ class TrialContext:
             lightweight=True,
             rng=getattr(self.ctx.execution, "rng", None),
         )
+        if derived:
+            new_ctx.execution.simulation_plan = self.ctx.execution.simulation_plan
+            new_ctx.budget_terms = self.ctx.budget_terms
 
         # Rebuild the flow from the patched cfg and re-bind the
         # loaded forcings (recharge, oceanic) to the fresh objects. Without
@@ -354,7 +417,8 @@ class TrialContext:
         # rebuild is skipped when ``loaded_data`` has no real forcings
         # attached (e.g. unit tests using stub contexts).
         if (
-            hasattr(new_ctx.loaded_data, "recharge")
+            not derived
+            and hasattr(new_ctx.loaded_data, "recharge")
             and getattr(new_setup, "domain", None) is not None
         ):
             trial_pipeline().apply_structural_updates_from_data(new_ctx)
@@ -372,7 +436,60 @@ class TrialContext:
             requested_spatial_support_ids=self.requested_spatial_support_ids,
             requested_domain_supports=self.requested_domain_supports,
             spatial_support_registry=self.spatial_support_registry,
+            model_from_profiles=self.model_from_profiles,
         )
+
+
+_PROFILE_PREFIX = ("flow", "param")
+
+
+def _profile_ids(paths: Iterable[str], cfg: Any) -> tuple[str, ...]:
+    """Return the ``[flow.param]`` ids under ``paths``, empty when one path is no profile.
+
+    A path is a profile when it reads ``flow.param.<id>...`` for an id that
+    ``[flow] param_list`` declares, a free id of a plugin included.
+    """
+    declared = set(getattr(getattr(cfg, "flow", None), "param_list", None) or ())
+    ids: list[str] = []
+    for path in paths:
+        parts = str(path).split(".")
+        if tuple(parts[:2]) != _PROFILE_PREFIX or len(parts) < 3 or parts[2] not in declared:
+            return ()
+        if parts[2] not in ids:
+            ids.append(parts[2])
+    return tuple(ids)
+
+
+def _with_the_model_built(prepared: TrialContext, pipeline: Any) -> TrialContext:
+    """Build the ``Model`` of the base configuration once, when the trials move profiles only.
+
+    ``prepare_solver`` runs on a fork of the prepared context, the fork a
+    trial would get, and the model, the plan and the budget policy it gives go
+    on the prepared context. The trials then start at ``run_solver`` and
+    derive their ``Model`` (:meth:`TrialContext.fork`). Any other context is
+    returned unchanged.
+    """
+    steps = prepared.downstream_steps
+    earliest = prepared.earliest
+    if (
+        earliest >= _TRIAL_END
+        or steps[earliest].name != "prepare_solver"
+        or not prepared.profile_ids()
+    ):
+        return prepared
+    seed = prepared.fork({})
+    with progress.suppressed():
+        pipeline.make_pipeline(steps[earliest : earliest + 1]).run(
+            _trial_state(pipeline, seed, "calibration-prepare-model")
+        )
+    model = seed.ctx.setup.model
+    if model is None:
+        return prepared
+    ctx = prepared.ctx
+    ctx.setup.model = model
+    ctx.execution.simulation_plan = seed.ctx.execution.simulation_plan
+    ctx.budget_terms = seed.ctx.budget_terms
+    return replace(prepared, earliest=earliest + 1, model_from_profiles=True)
 
 
 # ---------------------------------------------------------------------------
@@ -468,9 +585,8 @@ def prepare_trials(
         steps if steps is not None else pipeline.standard_steps()
     )
     # Cap at 9 (extract) - the trial primitive never runs derive/export/display.
-    max_downstream = 9
     earliest = pipeline.earliest_affected_step(path_set, pipeline_steps)
-    earliest = min(earliest, max_downstream)
+    earliest = min(earliest, _TRIAL_END)
 
     prep_slice = pipeline_steps[:earliest]
     state = pipeline.make_state(
@@ -511,7 +627,7 @@ def prepare_trials(
     workspace_obj = getattr(ctx.setup, "workspace", None)
     workspace = Path(workspace_obj.project_root) if workspace_obj is not None else cfg_path.parent
 
-    return TrialContext(
+    prepared = TrialContext(
         base_cfg=cfg,
         ctx=ctx,
         earliest=earliest,
@@ -525,11 +641,15 @@ def prepare_trials(
         requested_domain_supports=requested_domain_supports,
         spatial_support_registry=spatial_support_registry,
     )
+    return _with_the_model_built(prepared, pipeline)
 
 
 # ---------------------------------------------------------------------------
 # Lightweight evaluation
 # ---------------------------------------------------------------------------
+
+_TRIAL_END = 9
+"""End of the slice of steps a trial plays: through ``extract``, never derive, export or display."""
 
 _RECHARGE_PREFIX = "flow.sinks_sources.recharge."
 
@@ -569,7 +689,7 @@ def built_model(trial_ctx: TrialContext, values: Mapping[str, float]) -> Iterato
         owns_recharge=_phase_samples_the_recharge(trial_ctx), stop_before_solve=True
     )
     with progress.suppressed(), sandbox:
-        forked = trial_ctx.fork(values, slot_request=request)
+        forked = trial_ctx.fork(values, slot_request=request, derive_model=True)
         sandbox.track(forked.ctx.execution)
         names = [step.name for step in forked.downstream_steps]
         through_the_launcher = names.index("run_solver") + 1
@@ -641,8 +761,13 @@ def run_trial_light(
         so concurrent trials never share solver input/output files, and the
         trial's solver output is cleaned up afterwards, unless the session
         retention (``trial_ctx.kept_solves``) keeps it for a promotion.
+
+    With lanes (``trial_ctx.parents``), the trial takes a lane, hands its
+    parent runs to the recording launcher, which passes them to the runner as
+    ``previous``, and gives the lane back with its runs once it completed,
+    before the sandbox exits, or empty when it failed. The steps and solves
+    the trial plays are measured into :attr:`TrialResult.profile`.
     """
-    pipeline = trial_pipeline()
     sandbox = sandbox_of(trial_ctx, trial_id) if trial_id is not None else None
     request = (
         sandbox.slot_request(owns_recharge=_phase_samples_the_recharge(trial_ctx))
@@ -651,16 +776,67 @@ def run_trial_light(
     )
     retention = trial_ctx.kept_solves if sandbox is not None else None
     keeps_solves = retention is not None and retention.keeps_any
+    parents = trial_ctx.parents if sandbox is not None else None
+    lane = parents.take() if parents is not None else None
     # The water-balance gate reads the figure the solver reported for the run, and
-    # only the recording launcher hands the run results back to the trial.
+    # only the recording launcher hands the run results back to the trial. A
+    # lane hands the runner the runs of its previous trial through it too.
     recorder = (
-        RecordingLauncher() if keeps_solves or reject_water_budget_above is not None else None
+        RecordingLauncher(previous=None if lane is None else lane.runs)
+        if keeps_solves or reject_water_budget_above is not None or lane is not None
+        else None
     )
 
     t0 = time.monotonic()
+    with collected_profile() as profile:
+        try:
+            result = _play_trial(
+                trial_ctx,
+                values,
+                objective=objective,
+                variable=variable,
+                metric_fn=metric_fn,
+                trial_id=trial_id,
+                reject_water_budget_above=reject_water_budget_above,
+                sandbox=sandbox,
+                request=request,
+                retention=retention if keeps_solves else None,
+                recorder=recorder,
+                parents=parents,
+                lane=lane,
+                t0=t0,
+            )
+        finally:
+            # A lane a completed trial did not give back stays empty: its parent
+            # may have been consumed by a rerun of the trial that failed.
+            if parents is not None and lane is not None and lane.busy:
+                parents.give(lane, None)
+    return replace(result, profile=tuple(profile))
+
+
+def _play_trial(
+    trial_ctx: TrialContext,
+    values: Mapping[str, float],
+    *,
+    objective: str,
+    variable: str,
+    metric_fn: TrialMetricFn | None,
+    trial_id: int | None,
+    reject_water_budget_above: float | None,
+    sandbox: Any,
+    request: SlotRequest | None,
+    retention: TrialSolveRetention | None,
+    recorder: RecordingLauncher | None,
+    parents: TrialParents | None,
+    lane: Lane | None,
+    t0: float,
+) -> TrialResult:
+    """Fork, play and score one trial in its sandbox; the body of :func:`run_trial_light`."""
+    pipeline = trial_pipeline()
+    keeps_solves = retention is not None
     with progress.suppressed(), sandbox or nullcontext():
         try:
-            forked = trial_ctx.fork(values, slot_request=request)
+            forked = trial_ctx.fork(values, slot_request=request, derive_model=True)
             if sandbox is not None:
                 sandbox.track(forked.ctx.execution)
         except Exception as exc:
@@ -677,7 +853,7 @@ def run_trial_light(
         # for promotion (steps 09-11). ``skip_display`` says so to results
         # planning: a trial draws nothing, so under ``keep_per_cell_budget =
         # false`` no figure adds a term to the per-cell budget it keeps.
-        downstream_slice = forked.downstream_steps[forked.earliest : 9]
+        downstream_slice = forked.downstream_steps[forked.earliest : _TRIAL_END]
         if recorder is not None:
             downstream_slice = pipeline.with_solver_launcher(downstream_slice, recorder)
         state = _trial_state(pipeline, forked, "calibration-trial")
@@ -745,6 +921,10 @@ def run_trial_light(
             and retention.offer(trial_id, float(primary), sandbox.output_dirs(), recorder.results)
         ):
             sandbox.keep_outputs()
+        # Given back while the sandbox is still open: the lane copies the input
+        # files of the trial folder, which the exit below may delete.
+        if parents is not None and lane is not None and recorder is not None:
+            parents.give(lane, recorder.results)
 
     return TrialResult(
         values=dict(values),
@@ -864,7 +1044,6 @@ def promote_prepared_trial(
     promotion: PromotionFacts | None = None,
     kept: KeptSolve | None = None,
     spared: Sequence[Path] = (),
-    keep_per_cell_budget: bool | None = None,
     outputs: Mapping[str, Any] | None = None,
 ) -> str:
     """Run a full promoted simulation from an already prepared trial context.
@@ -898,19 +1077,13 @@ def promote_prepared_trial(
     which the derive step reads the series of the stations with. Left ``None``, it
     reads those of the calibration of the run.
 
-    ``keep_per_cell_budget`` overrides ``[simulation.results] keep_per_cell_budget``
-    for this run only. ``None`` leaves what the project file says. The override is
-    set on the results section of the forked configuration, a copy: the base
-    configuration of the session is never touched.
+    The level of the run comes from ``lineage``: a kept trial is a research run
+    and keeps the ``consumers`` budget policy, a promoted run keeps what
+    ``[simulation.results] keep_per_cell_budget`` asks.
     """
     pipeline = trial_pipeline()
     forked = trial_ctx.fork(values)
     ctx = forked.ctx
-    if keep_per_cell_budget is not None:
-        simulation = ctx.cfg.simulation
-        simulation.results = simulation.results.model_copy(
-            update={"keep_per_cell_budget": keep_per_cell_budget}
-        )
     ctx.execution.lightweight = False
     ctx.execution.simulation_plan = None
     ctx.setup.run_id = name or "promoted"

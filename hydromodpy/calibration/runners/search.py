@@ -8,11 +8,14 @@ The verdicts, intervals and ratios the report carries are computed beside the lo
 
 from __future__ import annotations
 
+import inspect
+import itertools
 import math
 import threading
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import replace
+from importlib import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -52,6 +55,7 @@ from hydromodpy.calibration.optim.optimizer import (
     ParamSuggestion,
     build_optimizer,
     engine_traits,
+    optimizers,
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.stopping import (
@@ -63,6 +67,7 @@ from hydromodpy.calibration.persistence import (
     DEFAULT_PHASE,
     CalibrationPersistence,
     PhaseContext,
+    scored_window,
 )
 from hydromodpy.calibration.report import (
     NO_OTHER_TRIAL,
@@ -127,6 +132,8 @@ from hydromodpy.calibration.runners.document import (
     session_cost_name,
     with_its_method,
 )
+from hydromodpy.calibration.runners.lanes import open_trial_lanes
+from hydromodpy.calibration.runners.session import search_windows
 from hydromodpy.calibration.runners.session_scope import (
     SessionScope,
     closing_session,
@@ -770,7 +777,7 @@ def attach_a_linearized_width(
     # declaration. A record that failed to load, or an output naming no
     # station, still leaves loudly the way it always did.
     # These runs keep no solve: they are not trials, and retention ranks by cost.
-    options = {"cfg": cfg, "trial_ctx": replace(trial_ctx, kept_solves=None)}
+    options = {"cfg": cfg, "trial_ctx": replace(trial_ctx, kept_solves=None, parents=None)}
     try:
         evaluator = _DerivativeEvaluator(**options)
     except UncertaintyNotAvailableError as exc:
@@ -869,6 +876,54 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     return kwargs
 
 
+_OPTIMIZER_ARGUMENTS_APART = frozenset({"self", "space", "seed", "start_at"})
+"""Constructor arguments of a method that are no option: the space, the seed and the start."""
+
+
+def resolved_optimizer_options(method: str, given: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the options a method is built with, each default of its constructor written out.
+
+    ``given`` are the keyword arguments the session passes beside the space and
+    the seed. The start point of a restart is left out: it is a point, not an
+    option, and the seed of the restart says where it came from.
+    """
+    options: dict[str, Any] = {}
+    for name, param in inspect.signature(optimizers.get(method)).parameters.items():
+        if name in _OPTIMIZER_ARGUMENTS_APART or param.kind in (
+            param.VAR_POSITIONAL,
+            param.VAR_KEYWORD,
+        ):
+            continue
+        if param.default is not param.empty:
+            options[name] = param.default
+    options.update({k: v for k, v in given.items() if k not in _OPTIMIZER_ARGUMENTS_APART})
+    return {name: _plain(value) for name, value in sorted(options.items())}
+
+
+def _plain(value: Any) -> Any:
+    """Return ``value`` as JSON holds it; an object without a JSON form is written by its repr."""
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, Mapping):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return [_plain(item) for item in value]
+    if hasattr(value, "tolist"):
+        return _plain(value.tolist())
+    return repr(value)
+
+
+def optimizer_libraries(method: str) -> dict[str, str]:
+    """Return the installed version of each distribution the engine of ``method`` names."""
+    libraries: dict[str, str] = {}
+    for distribution in engine_traits(method).libraries:
+        try:
+            libraries[distribution] = metadata.version(distribution)
+        except metadata.PackageNotFoundError:
+            continue
+    return libraries
+
+
 def _score_a_trial(
     sugg: ParamSuggestion,
     *,
@@ -899,6 +954,9 @@ def _score_a_trial(
         logger.warning("Calibration trial %d %s: %s", sugg.trial_id, db_status, result.error)
     if cfg.persist_iteration_detail == "full":
         meta["block_costs"] = dict(result.components)
+    # Where the time of the trial went, which the finished line of the journal keeps.
+    if result.profile:
+        meta["profile"] = list(result.profile)
     # Drained unconditionally, win or lose: the sink is a thread-local
     # owned by the shared evaluator, and the worker thread that just ran
     # this trial will be reused for another one. Only a completed trial's
@@ -1131,11 +1189,13 @@ def run_calibration_core(
     if cfg.parallel > 1 and trial_ctx is not None:
         evaluator = pool_for(type(evaluator), evaluator_options, width=cfg.parallel)
 
-    optimizer = build_optimizer(
-        cfg.method,
-        space,
-        seed=cfg.seed,
-        **_engine_kwargs(cfg, space, start_at=start_at),
+    engine_kwargs = _engine_kwargs(cfg, space, start_at=start_at)
+    optimizer = build_optimizer(cfg.method, space, seed=cfg.seed, **engine_kwargs)
+    persistence.record_optimizer(
+        context.name,
+        options=resolved_optimizer_options(cfg.method, engine_kwargs),
+        restart_seeds={} if cfg.seed is None else {str(context.restart): int(cfg.seed)},
+        libraries=optimizer_libraries(cfg.method),
     )
     cache_context = build_cache_context(
         cfg=cfg,
@@ -1200,6 +1260,15 @@ def run_calibration_core(
             error=str((result.metadata or {}).get("error") or ""),
         )
 
+    # Each ask of the optimizer is one batch: numbered in the order the optimizer
+    # gave it and written as proposed lines before any of its trials runs.
+    batches = itertools.count(1)
+
+    def propose_batch(batch: list[ParamSuggestion]) -> None:
+        persistence.propose(
+            batch, batch=next(batches), phase=context, parameters=space.describe_values
+        )
+
     # "auto" becomes the count the engine publishes, so the log and the progress
     # bar show what the run will spend.
     budget = resolve_budget(optimizer, cfg.max_trials)
@@ -1216,9 +1285,7 @@ def run_calibration_core(
         space=space,
         optimizer=optimizer,
         evaluator=wrapped_evaluator,
-        before_batch=lambda batch: persistence.assign_trial_numbers(
-            [sugg.trial_id for sugg in batch], context
-        ),
+        before_batch=propose_batch,
         max_trials=budget,
         batch_size=cfg.batch_size,
         parallel=cfg.parallel,
@@ -1320,6 +1387,8 @@ def run_one_search(
             pool_for=shared_pool,
         )
 
+    # The seed as the session received it: each restart records the one it was given.
+    persistence.record_optimizer(phase.name, seed=cfg.seed)
     try:
         uncertainty = getattr(cfg, "uncertainty", None)
         if getattr(uncertainty, "method", None) == "multistart":
@@ -1446,6 +1515,7 @@ def run_single_search(
         objective=objective,
     )
     keep_trial_solves(cfg, trial_ctx)
+    open_trial_lanes(trial_ctx)
     scope = SessionScope(
         cfg=cfg, project_root=project_root, persistence=persistence, trial_ctx=trial_ctx
     )
@@ -1459,7 +1529,7 @@ def run_single_search(
             cfg_path=cfg_path,
             metric_fn=metric_fn,
             objective=objective,
-            phase=PhaseContext(DEFAULT_PHASE, 0, 0),
+            phase=PhaseContext(DEFAULT_PHASE, 0, 0, window=scored_window(search_windows(cfg, raw))),
         )
         report = _with_linearized_width(report, cfg, trial_ctx, space)
         report = promote_and_close(

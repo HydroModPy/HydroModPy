@@ -73,6 +73,7 @@ from hydromodpy.calibration.optim.sampling import search_space_center
 from hydromodpy.calibration.persistence import (
     CalibrationPersistence,
     PhaseContext,
+    scored_window,
 )
 from hydromodpy.calibration.protocols import (
     deviations_in_force,
@@ -92,6 +93,7 @@ from hydromodpy.calibration.runners.document import (
     refuse_an_objective_that_is_not_an_entry_point,
     session_cost_name,
 )
+from hydromodpy.calibration.runners.lanes import open_trial_lanes, release_trial_lanes
 from hydromodpy.calibration.runners.phase_regime import phase_overrides, regime_overrides
 from hydromodpy.calibration.runners.prepared_model import check_the_prepared_model
 from hydromodpy.calibration.runners.promotion import promote_phase_best, promotion_name_check
@@ -1378,17 +1380,19 @@ def run_staged_calibration(
                     )
             else:
                 restart_of = persistence.phase(decl.name)
+                phase_windows = search_windows(cfg, raw, phase=decl)
                 context = PhaseContext(
                     decl.name,
                     index,
                     restart=0 if restart_of is None else restart_of.restarts + 1,
+                    window=scored_window(phase_windows),
                 )
                 persistence.start_phase(
                     context,
                     frozen=_frozen_payload(held, persistence.case_id),
                     cost_name=session_cost_name(cfg, decl),
                     cost_label=cost_metric_label(cfg, decl),
-                    windows=search_windows(cfg, raw, phase=decl),
+                    windows=phase_windows,
                 )
                 logger.info(
                     "Calibration phase %d/%d %s | method=%s parameters=%s",
@@ -1400,6 +1404,7 @@ def run_staged_calibration(
                 )
                 passed_start = _passed_start(decl.name, phase_cfg.method, space, reopened_values)
                 keep_trial_solves(phase_cfg, trial_ctx)
+                open_trial_lanes(trial_ctx)
                 report, spread = run_one_search(
                     phase_cfg,
                     trial_ctx,
@@ -1414,6 +1419,9 @@ def run_staged_calibration(
                     interval_width=plan.width,
                 )
                 restart_spreads.extend(spread)
+                # The lanes of this phase go before its width runs and its
+                # promotion: the next phase prepares and derives its own model.
+                release_trial_lanes(trial_ctx)
                 report = _attach_linearized_width(
                     report,
                     phase_cfg=phase_cfg,

@@ -18,6 +18,7 @@ below is the first line of each module or sub-package docstring.
 | `compare.py` | Compare sealed runs of one site: what differs, when, where, against the gauge. |
 | `credentials.py` | The reader of `credentials.toml`, one identity per address prefix. |
 | `data_cache.py` | The data cache seen from a project: the lockfile, and what a prune must keep. |
+| `deliver.py` | Deliver the export files of a sealed run to folders and remote servers. |
 | `dispatch/` | The adapters that need `Project` and that lower layers must not import. |
 | `environment.py` | The environment of one verb call: its credentials file and its bounds. |
 | `examples/` | The shipped examples behind `hmp example`. |

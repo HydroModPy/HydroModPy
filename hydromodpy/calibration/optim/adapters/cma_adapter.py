@@ -72,6 +72,7 @@ class CmaEsAdapter:
     options = CmaEsMethodConfig
 
     traits = EngineTraits(
+        libraries=("cma", "numpy"),
         accepts_a_start_point=True,
         takes_max_trials=True,
         reach=lambda options, dim: options.get("popsize", _POPSIZE),

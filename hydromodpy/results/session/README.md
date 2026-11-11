@@ -7,11 +7,17 @@ the index, so a session copied out of its project reads the same.
 ## How the work flows
 
 1. The search writes `session.json`, the descriptor of the session (`descriptor.py`).
-2. Each trial is appended as one line to `trials.jsonl` (`journal.py`). The trial number is unique in the session.
-   A trial written twice, started then completed, is one trial and the last line wins.
+2. Each trial is appended to `trials.jsonl` as events (`journal.py`): `proposed` when the optimizer asks,
+   `finished` with the cost and its components, `linked` when the trial is promoted. The trial number is unique
+   in the session. A reader keeps one line per trial, the event of the highest rank (`linked`, `finished`,
+   `proposed`), and the last line at equal rank. A trial with a `proposed` line only, from a killed session,
+   reads as `running` with no cost. The reader takes `hydromodpy.trial.v2` lines, as `finished`, and
+   `hydromodpy.trial.v3` lines, one by one, so a journal that mixes both reads.
 3. A staged search writes one descriptor per phase in `phases/<phase>/session.json` (`phase.py`). A phase has no
    journal of its own. Its trials are the lines of the session journal that carry its name.
-4. The scored series of a trial go to `trial_series/trial-NNNNNN.parquet` (`trial_series.py`).
+4. The scored series of a trial go to `trial_series/trial-NNNNNN.parquet`, one file per trial (`trial_series.py`).
+   The file carries `hmp.schema_version = hydromodpy.trial_series.v1`. A file without the key reads as `v1`,
+   and an unknown version is refused by name.
 5. `Session` (`view.py`) reads all of it. It gives the trials, the best trial, the phases, the frozen
    configuration and the run the best trial was promoted to.
 6. The indexer reads the same files to fill the session tables of the index.

@@ -9,6 +9,8 @@ taking the run. ``Run`` stays at its 50 public attributes.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -233,3 +235,30 @@ def test_a_component_missing_from_the_store_is_refused_by_name() -> None:
     with pytest.raises(ValueError, match="'drain' budget is not an array"):
         acting_faces_over_run(run, ["drain"], 4)
     assert run.opened[0].closed
+
+
+# -- deliveries --------------------------------------------------------------
+
+
+def test_a_run_reads_the_latest_delivery_of_each_pair(tmp_path: Path) -> None:
+    """``Run.deliveries`` reads ``published.jsonl`` and keeps the last line of a pair."""
+    from hydromodpy.results.publication import PublishedLine, append_published
+    from hydromodpy.results.run.view import Run
+
+    for state, attempts in (("pending", 0), ("delivered", 1)):
+        append_published(
+            tmp_path,
+            PublishedLine(
+                kind="delivery",
+                file="exports/head_last.tif",
+                destination="/data/depot/head_last.tif",
+                state=state,
+                sha256="a" * 64,
+                bytes=3,
+                attempts=attempts,
+                published_at=datetime(2026, 11, 10, tzinfo=UTC),
+            ),
+        )
+    run = Run("sim", SimpleNamespace(run_dir_for=lambda sim_id: tmp_path))  # type: ignore[arg-type]
+
+    assert [(line.state, line.attempts) for line in run.deliveries] == [("delivered", 1)]

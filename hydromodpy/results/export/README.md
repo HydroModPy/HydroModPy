@@ -19,7 +19,10 @@ to the view and the stored layout names them.
    writer receives the context in its `ExportJob`, so every view describes the same seal.
 3. `context.to_json` writes every FAIR view atomically, whole, through a temporary file and one rename.
 4. `publish.py` copies a run or a summary out of the tree, as a directory or a tar. It writes `PUBLICATION.json`
-   and redacts the host, the user and the absolute paths. `verify` checks a copy.
+   and redacts the host, the user and the absolute paths. A copy also drops the `deliver_to` key of every
+   `[[export]]` block, so a copy names no destination. `verify` checks a copy. The source records the copy
+   with `kind = "copy"` in `published.jsonl`. A line with `kind = "delivery"` is written by `project/deliver.py`
+   for each file sent to a `deliver_to` destination.
 5. `project_package.py` writes a whole project with its data for `hmp publish --package`.
 6. `summary_tables.py` and `campaign_summary.py` write the table, the page, the README and the crate of a summary.
 7. `zenodo.py` renders the Zenodo deposit metadata of one sealed run: title, creators, licence, keywords,

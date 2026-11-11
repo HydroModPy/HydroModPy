@@ -81,6 +81,7 @@ from hydromodpy.project.launch.sites.tables import (
     read_table,
     table_from_site_rows,
 )
+from hydromodpy.results.exporters.destination import DELIVER_TO_KEY
 
 CaseKind = Literal["simulation", "calibration", "overview"]
 
@@ -236,6 +237,14 @@ def _issue(exc: Exception, *, case_id: str | None = None) -> PlanIssue:
             case_id=case_id,
         )
     return PlanIssue(message=str(exc), case_id=case_id)
+
+
+def _deliver_to_written(document: Mapping[str, Any]) -> bool:
+    """Whether one ``[[export]]`` block of a case names ``deliver_to``."""
+    blocks = document.get("export")
+    if not isinstance(blocks, list):
+        return False
+    return any(isinstance(block, Mapping) and DELIVER_TO_KEY in block for block in blocks)
 
 
 def _relative_label(path: Path, root: Path) -> str:
@@ -832,7 +841,21 @@ def _resolve_case(
         )
         return None
     assign(document, _SIMULATION_NAME_PATH, case_id)
-
+    if _deliver_to_written(document):
+        # Every case would send its files to the same destination, one over the other.
+        errors.append(
+            PlanIssue(
+                message=(
+                    "deliver_to is refused in a [sites] project, because every case would "
+                    "send its files to the same destination. Remove it from [[export]], "
+                    "and take files out with hmp publish."
+                ),
+                origin=recipe.file.name,
+                target=f"export.{DELIVER_TO_KEY}",
+                case_id=case_id,
+            )
+        )
+        return None
     varying = leaf_paths(site_payload) | leaf_paths(site.override)
     literal = literal_site_scoped_keys(document, varying)
     if literal:
@@ -960,7 +983,9 @@ def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKi
         return False
     from hydromodpy.results.catalog.registration import split_stem_version
     from hydromodpy.results.record.manifest import is_sealed, read_seal
+    from hydromodpy.results.retention import level_at
     from hydromodpy.results.storage.json_io import readable
+    from hydromodpy.results.storage.kept import at_least
 
     if kind == "calibration":
         from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
@@ -987,7 +1012,13 @@ def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKi
         if split_stem_version(entry.name)[0] != case_id or not is_sealed(entry):
             continue
         seal = readable(read_seal, entry)
-        if seal is not None and seal.identity.solution_key == config_hash:
+        if seal is None or seal.identity.solution_key != config_hash:
+            continue
+        try:
+            level = level_at(entry)
+        except (ValueError, OSError):
+            continue
+        if at_least(level, "result"):
             return True
     return False
 

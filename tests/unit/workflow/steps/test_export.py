@@ -351,7 +351,9 @@ def test_a_folder_another_run_owns_stays_in_the_scratch(tmp_path: Path) -> None:
 
 def _requests_ctx(run_dir: Path, requests) -> SimpleNamespace:
     results_cfg = SimpleNamespace(
-        keep_solver_files=True, persistence=SimpleNamespace(save_catalog=True)
+        keep_solver_files=True,
+        keep_face_flows=False,
+        persistence=SimpleNamespace(save_catalog=True),
     )
     return SimpleNamespace(
         sim_id="0123456789abcdef",

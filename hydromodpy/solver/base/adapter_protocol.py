@@ -40,23 +40,6 @@ CATEGORIES: tuple[str, ...] = ("distributed", "integrated", "lumped")
 NULLABLE_ATTRIBUTES: tuple[str, ...] = ("options", "native_step")
 """The two attributes a backend may set to ``None``. Their presence is checked on the class."""
 
-HANDOFF_PRODUCTS: tuple[str, ...] = ("face_flow",)
-"""The products a flow hands a transport that follows it, in the native files of the solver.
-
-``face_flow`` is the flow between two cells, at every time step, as the solver
-files of the flow carry it: ``FLOW-JA-FACE`` in the ``.cbc`` of MODFLOW 6, the
-face flows of the ``.cbc`` of MODFLOW-NWT, and its flow-transport link file
-when a transport of the plan reads ``face_flow`` of it. A transport of this
-build reads it through the ``SolverRun`` of its flow, which keeps those files
-and the live solver object.
-
-The name has no shape in the field registry yet: the stored form, an axis of
-connections unlike the ``face`` axis that is a UGRID cell, and the transport
-path that reads it from the store alone, come with ``keep_face_flows``. When
-that form exists, the name moves to ``results/field_registry.py`` and leaves
-this tuple, so it never stands in both (one name, one place).
-"""
-
 RERUN_MEMBERS: tuple[str, ...] = ("rerun",)
 """The members a backend carries if and only if its ``mutable`` is not empty.
 
@@ -145,9 +128,9 @@ class SolverAdapter(Protocol):
     reads: ClassVar[tuple[str, ...]]
     """The products of an earlier run the backend reads: ``face_flow`` for a transport, none for a flow.
 
-    Every name is one :data:`HANDOFF_PRODUCTS` holds, or one the field registry
-    describes, and no name is in both. Until the stored form exists a transport
-    reads its product from the ``SolverRun`` of its flow.
+    Every name is one :data:`hydromodpy.results.field_registry.FIELD_REGISTRY`
+    describes, and ``face_flow`` comes with ``connection_cells`` beside it in
+    the store. A transport reads the flow of the run that precedes it.
     """
 
     supports: ClassVar[frozenset[str]]
@@ -308,7 +291,6 @@ def extractor_members() -> tuple[str, ...]:
 __all__ = [
     "CATEGORIES",
     "GEOMETRIES",
-    "HANDOFF_PRODUCTS",
     "NULLABLE_ATTRIBUTES",
     "OPTIONAL_MEMBERS",
     "RERUN_MEMBERS",

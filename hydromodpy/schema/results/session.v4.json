@@ -730,6 +730,53 @@
       "title": "SessionCase",
       "type": "object"
     },
+    "SessionOptimizer": {
+      "additionalProperties": true,
+      "description": "What the search of one phase ran with. Its method stays in ``method``.",
+      "properties": {
+        "libraries": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Version of each library the method object runs on, by distribution name",
+          "title": "Libraries",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "options": {
+          "additionalProperties": true,
+          "description": "Options the method was built with, each default it took written out",
+          "title": "Options",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "restart_seeds": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Seed given to each restart of the phase, by restart number",
+          "title": "Restart Seeds",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seed the session received, null when none was given: such a search is not played again",
+          "title": "Seed",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SessionOptimizer",
+      "type": "object"
+    },
     "SessionProtocol": {
       "additionalProperties": true,
       "description": "The published method a session follows and where it leaves it.",
@@ -890,6 +937,23 @@
       ],
       "title": "Method",
       "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "optimizer": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/SessionOptimizer"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the search of each phase ran with, by phase name; none on a 2.0 descriptor and before the first search",
+      "title": "Optimizer",
       "x-hmp-profile": "user"
     },
     "protocol": {

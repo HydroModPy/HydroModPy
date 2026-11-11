@@ -71,6 +71,7 @@ from hydromodpy.results.session.journal import (
     trial_rows,
 )
 from hydromodpy.results.session.phase import PhaseDescriptor, phase_dir
+from hydromodpy.results.storage.kept import read_purged
 from hydromodpy.results.storage.run_facts import CalibratedParameter, PromotionFacts
 from hydromodpy.results.trash import trash_run
 from hydromodpy.schema.lineage import Lineage
@@ -254,7 +255,8 @@ def promote_session(
     with the session, keeps the project's ``keep_per_cell_budget`` and carries
     ``checks.calibrated_by``, with why the search of that phase stopped, and the
     facts of :func:`promotion_facts`. Every other kept trial takes
-    ``sessions/<case>/trials/<n>/`` with the ``consumers`` budget policy.
+    ``sessions/<case>/trials/<n>/``; its ``trial`` lineage puts it at the
+    research level, which keeps the ``consumers`` budget policy.
     """
     rows = select_trials_to_promote(cfg, persistence, phase, answered=answered)
     if not rows:
@@ -395,7 +397,6 @@ def _promote_rows(
             lineage=lineage,
             calibrated_by=calibrated_by,
             promotion=promotion,
-            keep_per_cell_budget=None if is_best else False,
             retention=trial_ctx.kept_solves,
             outputs=outputs,
             failures=failures,
@@ -568,9 +569,9 @@ def promote_phase_best(
     ``outputs`` are the outputs of that phase, which the series of its stations
     are read with.
 
-    The run keeps the ``consumers`` budget policy: the permanent model of a
-    phase is read, not analyzed term by term. Returns its ``sim_id``, or None
-    when the phase scored nothing or the promotion failed.
+    The run has the ``promoted`` lineage, so the result level, and keeps the
+    project's ``keep_per_cell_budget``. Returns its ``sim_id``, or None when
+    the phase scored nothing or the promotion failed.
     """
     best = persistence.held_trial(phase)
     if best is None:
@@ -597,7 +598,6 @@ def promote_phase_best(
         ),
         calibrated_by=None,
         promotion=None,
-        keep_per_cell_budget=False,
         retention=trial_ctx.kept_solves,
         outputs=outputs,
         failures=failures,
@@ -620,7 +620,6 @@ def _promote_one(
     lineage: Lineage,
     calibrated_by: CalibratedBy | None,
     promotion: PromotionFacts | None,
-    keep_per_cell_budget: bool | None,
     retention: Any,
     outputs: Mapping[str, CalibOutputDecl] | None,
     failures: list[str],
@@ -648,7 +647,6 @@ def _promote_one(
                 promotion=promotion,
                 kept=kept,
                 spared=spared,
-                keep_per_cell_budget=keep_per_cell_budget,
                 outputs=outputs,
             )
     except Exception as exc:
@@ -703,7 +701,9 @@ def promote_trial_from_session(
     with it, the next version of ``as_name``. A trial already kept under
     ``trials/<n>/`` is moved, in one rename, onto the directory reserved for
     it; its seal is the one it was written with, a trial of the session
-    (``lineage.kind = "trial"``, no ``calibrated_by``). Any other trial is
+    (``lineage.kind = "trial"``, no ``calibrated_by``). A kept trial whose
+    fields ``hmp catalog gc`` removed (``purged.json``) stays under the
+    session and is solved again like any other trial. Any other trial is
     replayed from ``sessions/<case>/config.toml`` with the values of its
     journal line, on the model its phase scored it under
     (:func:`replay_context`), after its fingerprint (``params_hash``) is
@@ -726,7 +726,7 @@ def promote_trial_from_session(
     stem = as_name or split_stem_version(session_dir.name)[0]
     kept_dir = project_root / trial_dir_rel(session_dir.name, int(trial))
     case = line.only_case
-    if kept_dir.is_dir():
+    if kept_dir.is_dir() and read_purged(kept_dir) is None:
         target = _reserve_after_the_fact(project_root, session_dir, as_name)
         # The reserved directory is empty: one rename moves the kept trial onto
         # it, and the claim its mkdir made is never released in between.

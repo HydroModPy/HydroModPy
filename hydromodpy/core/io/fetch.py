@@ -158,12 +158,33 @@ def guard_url(
             if key.lower() in SIGNATURE_QUERY_KEYS:
                 raise BoundsError(f"URL {url!r} carries forbidden signature parameter {key!r}.")
 
-    host = parsed.hostname
-    if not host:
-        raise BoundsError(f"URL {url!r} has no host name.")
+    guard_host(
+        parsed.hostname or "",
+        bounds,
+        what=f"fetch guard for {url}",
+        resolve_dns=resolve_dns,
+    )
 
+
+def guard_host(
+    host: str,
+    bounds: Bounds | None = None,
+    *,
+    what: str,
+    resolve_dns: bool = True,
+) -> None:
+    """Check one host name against the host list and the addresses it resolves to.
+
+    *what* names the caller and opens the sentence of a refusal, so a fetch
+    and a delivery say which one is speaking. Refuses a host outside
+    ``bounds.allowed_hosts`` when specified, and a private, loopback,
+    multicast or non-global address unless the host is explicitly named
+    there. ``resolve_dns=False`` keeps only the host-list check.
+    """
+    if not host:
+        raise BoundsError(f"{what} names no host.")
     if bounds is not None and bounds.allowed_hosts is not None:
-        bounds.require_hosts([host], why=f"fetch guard for {url}")
+        bounds.require_hosts([host], why=what)
 
     if not resolve_dns:
         return
@@ -176,7 +197,7 @@ def guard_url(
     try:
         addrinfo = socket.getaddrinfo(host, None)
     except socket.gaierror as exc:
-        raise NetworkError(f"Could not resolve host {host!r}: {exc}", url=url) from exc
+        raise NetworkError(f"Could not resolve host {host!r}: {exc}", url=what) from exc
 
     for entry in addrinfo:
         ip_str = entry[4][0]

@@ -197,6 +197,10 @@ class SolverRun:
     in ``metrics`` because the catalog stores what is there and a new row would
     change the table of every run. The runner reads it before it starts a
     transport run that follows the flow, and refuses when it is ``False``.
+
+    ``reran`` says the run came from ``rerun`` of a previous run and not from
+    ``build``. The runner sets it, and the ``run_solver`` step writes the solve
+    line of the profile with ``reused = "rerun"`` when it is true.
     """
 
     slot: RunSlot
@@ -210,6 +214,7 @@ class SolverRun:
     metrics: Mapping[str, Any] = field(default_factory=dict)
     solve_s: float | None = None
     initial_state_converged: bool | None = None
+    reran: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.slot, RunSlot):

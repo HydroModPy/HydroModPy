@@ -37,6 +37,7 @@ DOCUMENT: dict[str, Any] = {
         },
     },
     "mesh": {"engine": "regular", "refinement_zone": [{"run": "spinup", "cell_size": 25}]},
+    "export": [{"variables": ["head"], "file": "head_last.tif"}],
 }
 INPUTS = {input_role("dem", 0): ("a" * 64, "raw"), input_role("recharge", 0): ("b" * 64, None)}
 EDITION = "2.0"
@@ -57,13 +58,20 @@ def _id(document: dict[str, Any] = DOCUMENT, inputs=INPUTS, **keywords: Any) -> 
     return request_id(document, inputs, **keywords)
 
 
+def _delivered(address: str) -> dict[str, Any]:
+    """Return the document with one export block that delivers *address*."""
+    document = copy.deepcopy(DOCUMENT)
+    document["export"][0]["deliver_to"] = [address]
+    return document
+
+
 @pytest.mark.parametrize(
     "document",
     [
         pytest.param(_changed("workspace.data_dir", "/elsewhere/data"), id="[workspace]"),
         pytest.param(_changed("workflow.verbosity", "debug"), id="[workflow]"),
         pytest.param(_changed("simulation.name", "renamed"), id="simulation.name"),
-        pytest.param(_changed("flow.deliver_to", "s3://bucket/out"), id="deliver_to anywhere"),
+        pytest.param(_delivered("/data/depot/"), id="deliver_to in an export block"),
         pytest.param(
             _changed("data.dem.sources.0.path", "/somewhere/else/dem.tif"),
             id="the path of a resolved file",
@@ -82,8 +90,13 @@ def test_what_does_not_change_the_answer_keeps_the_request_id(document: dict[str
     assert _id(document) == _id()
 
 
+def test_deliver_to_moves_the_file_and_not_the_request() -> None:
+    """A study sent to two places is one request, so no address enters its id."""
+    assert _id(_delivered("/data/depot/")) == _id(_delivered("ftp://depot.example.org/out/"))
+
+
 def test_the_excluded_keys_are_the_table_of_the_module() -> None:
-    assert REQUEST_EXCLUDED == ("workspace", "workflow", "simulation.name", "*.deliver_to")
+    assert REQUEST_EXCLUDED == ("workspace", "workflow", "simulation.name")
 
 
 @pytest.mark.parametrize(

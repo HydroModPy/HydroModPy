@@ -195,13 +195,22 @@ is read rather than inside the adapter.
    one, `runners/pipeline_evaluator.py`, sets the values, runs the solver
    (`run_trial_light`), extracts the outputs (`metrics/solver_extract.py`,
    `metrics/composite.py`) and pairs them with the observations
-   (`metrics/observed_pairing.py`).
+   (`metrics/observed_pairing.py`). When every calibrated path is a property
+   profile (`K` or `Sy`), the first trial builds the solver model and the next
+   ones of the lane go through `rerun` (`runners/lanes.py`): the input files of
+   the previous solved trial are copied, the property file is rewritten and
+   only the solve runs again. A lane serves one trial at a time, a failed trial
+   leaves nothing to reuse, and the cost is the same to the bit as a build.
 6. **Score.** `optim/objective.py` turns the paired series into one cost with
    the kernels of `criteria/`, block by block, and the engine tells the
    optimizer.
 7. **Write.** Each trial goes to `sessions/<case>/trials.jsonl`
-   (`persistence.py`), with a number unique in the session across phases and
-   restarts. Nothing opens the index: it is rebuilt from the session files.
+   (`persistence.py`) as events, with a number unique in the session across
+   phases and restarts: a `proposed` line when the optimizer asks (in the order
+   of `ask`, with its `batch`), a `finished` line with the cost, its
+   components, the `rule` and `window` of each case and the `profile`, and a
+   `linked` line when the trial is promoted. Only the session, in the parent
+   process, writes the journal. Nothing opens the index: it is rebuilt from the session files.
 8. **Promote.** Once per phase, after its last restart, `runners/promotion.py`
    promotes what `save_runs` names: the best trial of the last phase to
    `runs/<case>/`, the directory paired with the session (same version), with
@@ -246,9 +255,11 @@ trial writes depends on `save_runs` (`CalibrationConfig`: `best_n` with
 
 - Inside the loop a trial lives in RAM: the aligned simulated series and the
   scalar metrics. `run_trial_light` never writes to the store of runs.
-- Every trial leaves one line in `sessions/<case>/trials.jsonl`
+- Every trial leaves its events in `sessions/<case>/trials.jsonl`
   (`results/session/journal.py`), numbered once across phases and restarts.
-  `session.json` is the descriptor, `phases/<phase>/session.json` one per
+  A reader folds them to one line per trial, the highest event wins.
+  `session.json` is the descriptor (it names the optimizer, its options, its
+  seed and the versions of its libraries), `phases/<phase>/session.json` one per
   phase, `outcome.json` the issue, `config.toml` the frozen document the
   promotion replays from. The index is rebuilt from these files; the
   calibration never opens it.

@@ -216,7 +216,8 @@ def _default_errors(row: dict[str, Any], where: str) -> list[str]:
         errors.append(f"{where}: old and new must be TOML values, not tables")
     if row.get("old") == row.get("new"):
         errors.append(f"{where}: old and new are the same value")
-    return errors + _quantity_errors(row, where, needed=True) + _text_errors(row, where)
+    # A default lists the quantities it moves, none when it only changes what is written.
+    return errors + _quantity_errors(row, where, needed=False) + _text_errors(row, where)
 
 
 def _recipe_errors(row: dict[str, Any], where: str) -> list[str]:

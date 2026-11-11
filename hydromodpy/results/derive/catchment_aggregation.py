@@ -12,7 +12,9 @@ from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
 from hydromodpy.core.time.period_aggregation import period_end_stamps, runoff_m3_s_on_index
+from hydromodpy.results.derive.config_flags import KEEP_BUDGET_OPTION, enable_options_hint
 from hydromodpy.results.field_registry import series_unit
+from hydromodpy.results.storage.kept import level_of
 
 logger = get_logger(__name__)
 
@@ -505,13 +507,17 @@ def _warn_lumped_budget_is_domain_wide(
     sim_id: str,
     component: str,
     catchment_fraction: float | None,
+    *,
+    level: str,
 ) -> None:
     """Say once that a catchment series is carrying a domain-wide budget.
 
     Silent when the catchment covers the whole active domain: its domain row
     already has the catchment for support and there is nothing to warn about.
     Silent too when the share is unknown, because ``_build_catchment_mask`` has already said why it could not
-    place the watershed.
+    place the watershed. The remedy is the one the missing-field messages give
+    at the same ``level``: a kept calibration trial is ``research`` and no
+    option of it would have kept the term, so it names ``hmp replay``.
     """
     if catchment_fraction is None or catchment_fraction >= 1.0:
         return
@@ -524,14 +530,13 @@ def _warn_lumped_budget_is_domain_wide(
         "row and no per-cell field, so the '%s' series is the whole model domain, "
         "of which the catchment covers %.0f%% of the active cells. The value is "
         "NOT rescaled: it is a domain total, not what a gauge at the outlet sees. "
-        "The run kept no per-cell drain: set [simulation.results] "
-        "keep_per_cell_budget = true (the default) to get the catchment "
-        "support back.",
+        "The run kept no per-cell drain. %s",
         sim_id,
         component,
         CATCHMENT,
         CATCHMENT,
         100.0 * catchment_fraction,
+        enable_options_hint((KEEP_BUDGET_OPTION,), level=level),
     )
 
 
@@ -583,7 +588,9 @@ def _aggregate_from_lumped_budget(
     if not rows:
         return None
     if not on_catchment:
-        _warn_lumped_budget_is_domain_wide(sim_id, store_var, catchment_fraction)
+        _warn_lumped_budget_is_domain_wide(
+            sim_id, store_var, catchment_fraction, level=level_of(store.facts.lineage)
+        )
     # NaN, not zero, for timesteps with no budget row: a gap must stay
     # missing instead of biasing the metrics toward a null flux.
     values = [float("nan")] * n_timesteps

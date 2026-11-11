@@ -218,8 +218,9 @@ class WorkflowContext:
     ``run_dir`` it writes into with the ``attempt`` that writes it, the
     ``parent_sim_id`` a run is pinned to - whether it descends
     from a calibration promotion or from a rerun, which pin it the same way -
-    the ``reserved_sim_id`` minted before the pipeline starts, and the
-    ``lineage`` and ``calibrated_by`` blocks a promotion hands its run.
+    the ``reserved_sim_id`` minted before the pipeline starts, the
+    ``lineage`` and ``calibrated_by`` blocks a promotion hands its run, and the
+    ``level`` the run is kept at, read from that lineage at planning.
 
     It carries no live handle. The store a run writes to is opened by
     whoever writes, for the span of that write, through
@@ -273,6 +274,12 @@ class WorkflowContext:
     # the store-opening step. Calibration promotion reserves it so the row
     # linking the run to its session exists before the run draws its figures.
     reserved_sim_id: str | None = None
+
+    # The level of this run, read from its lineage at planning: ``research``
+    # for a kept calibration trial, ``result`` for every other run. It decides
+    # what the run keeps, draws and exports. ``core`` carries the word, never
+    # the rule that reads it.
+    level: str | None = None
 
     # The per-cell budget this run keeps, decided at planning (or read back
     # from the store on a resume after extraction). The extraction reads it.

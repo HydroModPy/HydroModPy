@@ -2,7 +2,8 @@
 
 ``changed_properties`` compares the members of two ``Model`` objects by the
 objects they hold. A model made by ``with_properties`` gets new read-only
-mappings over the same values, so it must differ only by the properties it set.
+mappings over the same values, so it must differ only by the properties it set,
+and a model made by ``with_profiles`` only by the profiles it replaced.
 """
 
 from __future__ import annotations
@@ -70,9 +71,25 @@ CHANGES: tuple[tuple[str, Any, Any, frozenset[str] | None], ...] = (
     ),
     ("another start", BASE, BASE.with_initial(HeadRule("top")), None),
     (
-        "another profile",
+        "every profile replaced",
         BASE,
         replace(BASE, properties=Properties(profiles={"K": object(), "Sy": object()})),
+        frozenset({"K", "Sy"}),
+    ),
+    ("the K profile replaced", BASE, BASE.with_profiles({"K": object()}), frozenset({"K"})),
+    (
+        "the K profile replaced and Sy set",
+        BASE,
+        BASE.with_profiles({"K": object()}).with_properties(Sy=0.1),
+        frozenset({"K", "Sy"}),
+    ),
+    (
+        "a profile more",
+        BASE,
+        replace(
+            BASE,
+            properties=Properties(profiles={**BASE.properties.profiles, "Ss": object()}),
+        ),
         None,
     ),
     (
@@ -135,6 +152,13 @@ CHOICES: tuple[tuple[str, object, SolverRun | None, Any, bool], ...] = (
     ("no previous run", _Rerunning(), None, BASE, False),
     ("K within mutable", _Rerunning(), _solved(BASE), BASE.with_properties(K=_k(2.0)), True),
     ("no change", _Rerunning(), _solved(BASE), BASE, True),
+    (
+        "a K profile within mutable",
+        _Rerunning(),
+        _solved(BASE),
+        BASE.with_profiles({"K": object()}),
+        True,
+    ),
     ("Ss outside mutable", _Rerunning(), _solved(BASE), BASE.with_properties(Ss=1e-5), False),
     (
         "another geometry",

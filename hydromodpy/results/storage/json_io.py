@@ -108,17 +108,20 @@ def check_sealed(
     path: str | Path,
     key: str = "schema",
     line: int | None = None,
+    remedy: str | None = None,
 ) -> Any:
     """Return a sealed *payload* read from *path*; refuse it unless its *key* lies in *window*.
 
-    *line* names the line of a JSON Lines document in the message.
+    *line* names the line of a JSON Lines document in the message. *remedy*
+    replaces what a document outside the window is told to do, for a file
+    whose record can start again.
     """
     found = payload.get(key) if isinstance(payload, Mapping) else None
     if not window.holds(found):
         target = Path(path)
         document = str(target) if line is None else f"{target}:{line}"
         writer = writer_version(payload, target)
-        check_version(found, window, document=document, key=key, writer=writer)
+        check_version(found, window, document=document, key=key, writer=writer, remedy=remedy)
     return payload
 
 

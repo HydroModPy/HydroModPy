@@ -89,6 +89,7 @@ from hydromodpy.results.catalog.constants import SIMULATIONS_FROM
 from hydromodpy.results.errors import RunNotFoundError, RunNotSealedError
 from hydromodpy.results.ledger import Ledger
 from hydromodpy.results.outcome import effective_status
+from hydromodpy.results.publication import deliveries_of
 from hydromodpy.results.record.label import label_of
 from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.record.record import RunRecord
@@ -116,6 +117,7 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.publication import PublishedLine
     from hydromodpy.results.record.checks import Checks
     from hydromodpy.results.record.manifest import InputEntry
 
@@ -416,6 +418,11 @@ class Run(
     def exports(self) -> list[Path]:
         """Files under ``exports/`` that ``exports/index.json`` records, by path."""
         return _ledger_files(self.dir / RUN_EXPORTS_DIRNAME)
+
+    @property
+    def deliveries(self) -> tuple[PublishedLine, ...]:
+        """Latest delivery line of each file and destination, in the order they first appear."""
+        return deliveries_of(self.dir)
 
     @property
     def figures(self) -> list[Path]:

@@ -496,6 +496,9 @@ CFG = SimpleNamespace(
     outputs={},
     objective_blocks=[],
     window=None,
+    phases=[],
+    validation_window=None,
+    validation_scored_by=lambda phase: False,
     aggregate=SimpleNamespace(min_samples=1),
     objective="nse",
     variable="discharge",
@@ -602,11 +605,15 @@ def test_restarts_run_on_one_pool_that_the_search_closes(monkeypatch, restarts, 
         {"uncertainty": {"method": "multistart", "restarts": restarts}} if restarts else {}
     )
     cfg = make_config(method="scipy_nelder_mead", parallel=2, **uncertainty)
+    recorded: list[tuple[str, dict]] = []
+    persistence = SimpleNamespace(
+        record_optimizer=lambda phase, **fields: recorded.append((phase, fields))
+    )
 
     run_one_search(
         cfg,
         bare_trial_ctx(),
-        persistence=None,
+        persistence=persistence,
         space=space_from_config(cfg),
         project_root=Path("."),
         cfg_path=Path("."),
@@ -619,6 +626,7 @@ def test_restarts_run_on_one_pool_that_the_search_closes(monkeypatch, restarts, 
     [pool] = pools
     assert (pool.width, pool.closed) == (2, True)
     assert all(shared is pool for _, shared in seen)
+    assert recorded == [(PhaseContext().name, {"seed": cfg.seed})]
 
 
 # From test_a_patch_release_keeps_the_cache.py
@@ -2634,6 +2642,11 @@ class TestWhatIsReadBack:
             "rel_dir",
             "speculative_unused",
             "duration_s",
+            "batch",
+            "rule",
+            "window",
+            "solve_s",
+            "reused",
         }
         assert (rows[0]["case_id"], rows[0]["case_cost"]) == ("calage", 0.9)
 
@@ -3489,7 +3502,9 @@ def test_a_single_search_hands_each_step_what_the_one_before_made(
     monkeypatch, tmp_path, extra, status, note
 ) -> None:
     """The sequence is read through strict fakes: each step gets exactly what it names."""
-    cfg = SimpleNamespace(evaluator="model")
+    cfg = SimpleNamespace(
+        evaluator="model", phases=[], window=None, validation_scored_by=lambda phase: False
+    )
     space, trial_ctx, session = object(), object(), object()
     searched, spread = make_report(extra=extra), ("spread",)
     widened = make_report(extra=extra, n_trials=7)

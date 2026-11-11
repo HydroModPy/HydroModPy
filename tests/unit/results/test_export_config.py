@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 import textwrap
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -104,6 +106,102 @@ def test_results_config_has_no_export() -> None:
     from hydromodpy.solver.base.results_config import ResultsConfig
 
     assert "export" not in ResultsConfig.model_fields
+
+
+def test_a_destination_written_as_a_string_reads_as_the_list_of_one(tmp_path: Path) -> None:
+    cfg = _load(tmp_path, '[[export]]\nvariables = "head"\ndeliver_to = "/srv/depot/"\n')
+
+    assert cfg.export[0].deliver_to == ["/srv/depot/"]
+
+
+def test_the_resolved_config_writes_no_destination_at_its_default(tmp_path: Path) -> None:
+    cfg = _load(tmp_path, '[[export]]\nvariables = "head"\n')
+    frozen = cfg.to_toml(tmp_path / "resolved.toml", profile="expert")
+
+    resolved = tomllib.loads(frozen.read_text(encoding="utf-8"))
+    assert "deliver_to" not in resolved["export"][0]
+    assert HydroModPyConfig.from_toml(frozen).export[0].deliver_to is None
+
+
+def test_deliver_to_survives_the_resolved_config_round_trip(tmp_path: Path) -> None:
+    cfg = _load(tmp_path, '[[export]]\nvariables = "head"\ndeliver_to = "/srv/depot/"\n')
+    frozen = cfg.to_toml(tmp_path / "resolved.toml", profile="expert")
+
+    assert HydroModPyConfig.from_toml(frozen).export == cfg.export
+
+
+DELIVERY_REFUSED = [
+    pytest.param('"livrables/nancon"', "is a relative path", id="relative path"),
+    pytest.param(
+        '"https://zenodo.org/deposit/1"',
+        "uses https://, which HydroModPy does not deliver to",
+        id="other scheme",
+    ),
+    pytest.param(
+        '"ftp://bb:secret@data.example.org/depot/"',
+        "carries a user or a password",
+        id="identity in the address",
+    ),
+    pytest.param(
+        '"ftp://data.example.org/depot/?case=a"',
+        "carries a query or a fragment",
+        id="query",
+    ),
+    pytest.param('"ftp:///depot/"', "names no host", id="no host"),
+    pytest.param("[]", "deliver_to is empty", id="empty list"),
+]
+
+
+@pytest.mark.parametrize(("written", "phrase"), DELIVERY_REFUSED)
+def test_a_destination_no_delivery_reaches_is_refused_with_its_phrase(
+    tmp_path: Path, written: str, phrase: str
+) -> None:
+    body = f'[[export]]\nvariables = "head"\ndeliver_to = {written}\n'
+
+    with pytest.raises(ConfigValidationError, match=re.escape(phrase)):
+        _load(tmp_path, body)
+
+
+DELIVERY_UNANSWERABLE = [
+    pytest.param(
+        '[[export]]\nvariables = "head"\ndeliver_to = ["/srv/depot/", "/srv/depot/"]\n',
+        "deliver_to names '/srv/depot/' twice.",
+        id="same destination twice",
+    ),
+    pytest.param(
+        '[[export]]\nvariables = "head"\ndeliver_to = "/srv/depot/head.tif"\n',
+        "names one remote file",
+        id="file destination without file",
+    ),
+    pytest.param(
+        '[[export]]\nvariables = "all"\nformat = "rocrate"\ndeliver_to = "/srv/depot/"\n',
+        "a view is delivered from exports",
+        id="view without folder or file",
+    ),
+]
+
+
+@pytest.mark.parametrize(("body", "phrase"), DELIVERY_UNANSWERABLE)
+def test_a_delivery_the_block_cannot_answer_is_refused(
+    tmp_path: Path, body: str, phrase: str
+) -> None:
+    with pytest.raises(ConfigValidationError, match=re.escape(phrase)):
+        _load(tmp_path, body)
+
+
+def test_a_view_with_a_folder_delivers_the_files_it_writes(tmp_path: Path) -> None:
+    cfg = _load(
+        tmp_path,
+        """\
+        [[export]]
+        variables = "all"
+        format = "rocrate"
+        folder = "views"
+        deliver_to = "/srv/depot/"
+        """,
+    )
+
+    assert cfg.export[0].deliver_to == ["/srv/depot/"]
 
 
 def test_the_requests_survive_the_resolved_config_round_trip(tmp_path: Path) -> None:

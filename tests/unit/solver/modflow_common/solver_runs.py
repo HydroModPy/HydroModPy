@@ -42,7 +42,9 @@ def solved_run(
 def retention(budget: BudgetKeep | None = None, *, solver_files: bool = False) -> Retention:
     """Return a ``Retention`` that keeps ``budget``, every term by default."""
     return Retention(
-        budget=BudgetKeep.everything() if budget is None else budget, solver_files=solver_files
+        level="result",
+        budget=BudgetKeep.everything() if budget is None else budget,
+        solver_files=solver_files,
     )
 
 

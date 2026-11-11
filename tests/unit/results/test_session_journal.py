@@ -11,11 +11,14 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
 from hydromodpy.calibration.runners.session_scope import write_session_readme
+from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.session.descriptor import (
     ParameterBound,
@@ -25,7 +28,12 @@ from hydromodpy.results.session.descriptor import (
 )
 from hydromodpy.results.session.journal import TrialParam, read_trials
 from hydromodpy.results.session.phase import FrozenValue
-from hydromodpy.results.session.trial_series import read_trial_series, write_trial_series
+from hydromodpy.results.session.trial_series import (
+    TRIAL_SERIES_SCHEMA,
+    read_trial_series,
+    write_trial_series,
+)
+from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.contract import (
     README_FILENAME,
     RUN_OUTCOME_FILENAME,
@@ -124,7 +132,7 @@ def test_the_descriptor_carries_identity_bounds_cost_and_best_trial(project) -> 
     assert descriptor.root_search == {"roots": {"parameter": "K", "delta_log10": 1.8}}
 
 
-def test_one_line_per_trial_carries_the_whole_trial(project) -> None:
+def test_the_last_line_of_a_trial_carries_the_whole_trial(project) -> None:
     trials = read_trials(project / "sessions" / "calage")
 
     assert [t.trial for t in trials] == [1, 2, 3]
@@ -136,6 +144,26 @@ def test_one_line_per_trial_carries_the_whole_trial(project) -> None:
     assert (case.cost, case.components, case.status) == (0.19, {"rmse": 0.19}, "completed")
     assert case.params_hash == f"v2:{1:064x}"
     assert (trials[1].ended_at - trials[1].started_at).total_seconds() == pytest.approx(1.5)
+
+
+def test_the_trials_are_counted_folded_not_by_line(tmp_path) -> None:
+    root = tmp_path / "demo"
+    root.mkdir()
+    persistence = _session(root)
+    pairs = [_trial(number, objective) for number, objective in enumerate((0.42, 0.19, 0.31))]
+    persistence.propose([sugg for sugg, _ in pairs], batch=1)
+    for pair in pairs[:2]:
+        persistence.append_iteration(*pair)
+
+    raw = (persistence.directory / SESSION_TRIALS_FILENAME).read_text().splitlines()
+    trials = read_trials(persistence.directory)
+
+    assert len(raw) == 5
+    assert [t.trial for t in trials] == [1, 2, 3]
+    assert [t.event for t in trials] == ["finished", "finished", "proposed"]
+    assert [t.status for t in trials] == ["completed", "completed", "running"]
+    assert trials[2].cost is None
+    assert len(Session(persistence.directory).trials) == 3
 
 
 def test_the_outcome_is_that_of_a_completed_session(project) -> None:
@@ -266,3 +294,56 @@ def test_the_reader_concatenates_every_trial_and_is_typed_when_empty(tmp_path) -
 
     assert sorted(table["trial"].tolist()) == [1, 2]
     assert list(table.columns) == ["trial", "output", "station", "time", "simulated", "observed"]
+
+
+def _rewrite_footer(path: Path, footer: dict[str, str] | None) -> None:
+    """Replace the footer of a series file, ``None`` dropping every key."""
+    table = pq.read_table(path).replace_schema_metadata(footer)
+    pq.write_table(table, path)
+
+
+def test_a_series_file_carries_its_version_and_its_writer(tmp_path) -> None:
+    target = write_trial_series(tmp_path, 1, _ROWS)
+
+    footer = pq.read_schema(target).metadata
+    assert (
+        footer[b"hmp.schema_version"].decode()
+        == TRIAL_SERIES_SCHEMA
+        == "hydromodpy.trial_series.v1"
+    )
+    assert footer[b"hydromodpy_version"]
+
+
+@pytest.mark.parametrize(
+    ("footer", "reads"),
+    [
+        pytest.param({"hmp.schema_version": TRIAL_SERIES_SCHEMA}, True, id="current"),
+        pytest.param(None, True, id="no key, the 2.0.0 form, reads as v1"),
+        pytest.param({"hmp.schema_version": "hydromodpy.trial_series.v2"}, False, id="newer"),
+        pytest.param({"hmp.schema_version": "v3"}, False, id="a table of a run"),
+        pytest.param({"hmp.schema_version": "garbage"}, False, id="not a version"),
+    ],
+)
+def test_the_reader_takes_a_missing_key_as_v1_and_refuses_the_rest_by_name(
+    tmp_path, footer, reads
+) -> None:
+    target = write_trial_series(tmp_path, 1, _ROWS)
+    _rewrite_footer(target, footer)
+
+    if reads:
+        assert read_trial_series(tmp_path)["trial"].tolist() == [1, 1]
+        return
+    with pytest.raises(SchemaVersionMismatchError) as caught:
+        read_trial_series(tmp_path)
+    assert "hmp.schema_version" in str(caught.value)
+    assert target.name in str(caught.value)
+
+
+def test_a_series_file_is_not_a_table_of_a_run(tmp_path) -> None:
+    from hydromodpy.results.storage.parquet_io import read_checked_table
+
+    target = write_trial_series(tmp_path, 1, _ROWS)
+
+    with pytest.raises(SchemaVersionMismatchError):
+        read_checked_table(target)
+    assert isinstance(pa.Table.from_pandas(read_trial_series(tmp_path)), pa.Table)

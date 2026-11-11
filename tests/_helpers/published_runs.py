@@ -144,6 +144,7 @@ def make_summary(project: Path, *, error_message: str, parquet_error: str | None
     append_published(
         summary,
         PublishedLine(
+            kind="copy",
             to=str(project.parent.parent.parent / "deliverables" / "first"),
             format="dir",
             published_at="2026-10-15T00:00:00Z",

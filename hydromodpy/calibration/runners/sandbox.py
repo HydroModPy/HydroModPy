@@ -17,6 +17,11 @@ It is a context manager (RAII): on exit it removes the trial's solver output
 directories, unless the session retention took them over for a promotion
 (:meth:`TrialSandbox.keep_outputs`). Set ``HMP_KEEP_TRIAL_SCRATCH=1`` to retain
 them all for debugging.
+
+:func:`lane_dir` names the folder of a lane, ``<scratch>/<model>_lane<key>``,
+beside the trial folders: the input files of the last solved trial of the lane,
+which the next trial of the lane reruns from
+(:mod:`~hydromodpy.calibration.runners.lanes`).
 """
 
 from __future__ import annotations
@@ -162,19 +167,53 @@ class TrialSandbox:
         return False
 
 
-def sandbox_of(trial_ctx: Any, trial_id: int) -> TrialSandbox:
-    """Return the sandbox of one trial of a prepared context, whichever process asks."""
+def _scratch_of(trial_ctx: Any) -> tuple[str, Path | None]:
+    """Return the base model name and the solver scratch of a prepared context."""
     setup = getattr(getattr(trial_ctx, "ctx", None), "setup", None)
     base_model_name = str(getattr(setup, "run_id", "") or "trial")
     scratch_root = getattr(getattr(setup, "workspace", None), "solver_scratch_folder", None)
+    return base_model_name, None if scratch_root is None else Path(scratch_root)
+
+
+def sandbox_of(trial_ctx: Any, trial_id: int) -> TrialSandbox:
+    """Return the sandbox of one trial of a prepared context, whichever process asks."""
+    base_model_name, scratch_root = _scratch_of(trial_ctx)
     return TrialSandbox(base_model_name, trial_id, scratch_root=scratch_root)
+
+
+LANE_INFIX = "_lane"
+"""What sets the folder of a lane apart from the folder of a trial, after the model name."""
+
+
+def lane_dir(trial_ctx: Any, key: str) -> Path | None:
+    """Return the folder of the lane ``key`` of a prepared context, ``None`` without a scratch.
+
+    ``key`` is unique among the lanes of every process of the session: a worker
+    process puts its own id in it, so two workers never share a folder.
+    """
+    base_model_name, scratch_root = _scratch_of(trial_ctx)
+    if scratch_root is None:
+        return None
+    return scratch_root / f"{_sanitize(base_model_name)}{LANE_INFIX}{_sanitize(key)}"
+
+
+def lane_dirs(trial_ctx: Any) -> list[Path]:
+    """Return the lane folders of a prepared context on disk, those of every process."""
+    base_model_name, scratch_root = _scratch_of(trial_ctx)
+    if scratch_root is None or not scratch_root.is_dir():
+        return []
+    stem = f"{_sanitize(base_model_name)}{LANE_INFIX}"
+    return sorted(path for path in scratch_root.glob(f"{stem}*") if path.is_dir())
 
 
 __all__ = [
     "KEEP_ENV_VAR",
+    "LANE_INFIX",
     "SHARED_RECHARGE_DIRNAME",
     "TRIAL_RECHARGE_DIRNAME",
     "TrialSandbox",
     "keep_trial_scratch",
+    "lane_dir",
+    "lane_dirs",
     "sandbox_of",
 ]

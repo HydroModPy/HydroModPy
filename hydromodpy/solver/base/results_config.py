@@ -35,6 +35,16 @@ class ResultsConfig(HydroModelBase):
             "once their results are stored."
         ),
     )
+    keep_face_flows: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Keep the flow between each pair of connected cells, at every saved time, in "
+            "fields.zarr. The flow solver of the run must write it: MODFLOW 6 and MODFLOW-NWT "
+            "do. It is the heaviest group a run can keep: about 350 MB in float32 for six daily "
+            "years on about 21 000 cells, beside 312 MB for the whole per-cell budget. A kept "
+            "calibration trial never keeps it."
+        ),
+    )
     keep_per_cell_budget: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description=(
@@ -43,7 +53,8 @@ class ResultsConfig(HydroModelBase):
             "(hmp export, hmp viz show, the Python API), and every derived field is rebuilt "
             "on read. False keeps only the terms the run's own consumers read: the figures "
             "of [display].figures, the [[export]] blocks, the calibration criterion and the "
-            "seepage mask of a surface-excess solver. A later read of anything else then "
+            "seepage mask of a surface-excess solver. A kept calibration trial keeps only the "
+            "terms its criterion reads. A later read of anything else then "
             "needs a new run. On a daily run, true is the heaviest group of the store: about "
             "300 MB for six daily years on about 21 000 cells, 3.7 times the head."
         ),

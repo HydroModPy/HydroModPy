@@ -31,6 +31,7 @@ from hydromodpy.solver.modflow6.build import FLOW_PROPERTY_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow6.builders.lake import LAK_STAGE_SUFFIX, read_final_lake_stages
 from hydromodpy.solver.modflow6.builders.sfr import SFR_STAGE_SUFFIX, read_final_sfr_stages
 from hydromodpy.solver.modflow6.extractors.budget import extract_budget
+from hydromodpy.solver.modflow6.extractors.face_flow import extract_face_flows
 from hydromodpy.solver.modflow6.extractors.grid_check import (
     grb_geometry,
     verify_grid_against_store,
@@ -347,6 +348,16 @@ class Modflow6OutputAdapter:
                         solver_output_dir, model_name, n_cells=n_cells
                     ),
                 )
+                if retention.face_flows:
+                    extract_face_flows(
+                        sim_id,
+                        store,
+                        cbc_path,
+                        solver_output_dir,
+                        stamps=[(int(kstp) + 1, int(kper) + 1) for kstp, kper in kstpkpers],
+                        seconds_per_time_unit=seconds_per_time_unit,
+                        precision=store.persistence.field_precision,
+                    )
             else:
                 record_budget_policy(store, sim_id, budget_terms, ())
 

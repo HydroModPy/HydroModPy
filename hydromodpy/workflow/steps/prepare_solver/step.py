@@ -39,17 +39,22 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _resolve_plan_and_results(ctx, *, store=None) -> None:
-    """Populate the simulation plan and the per-cell budget the run keeps.
+def _resolve_plan_and_results(ctx, lineage=None, *, store=None) -> None:
+    """Populate the simulation plan, the level and the per-cell budget of the run.
 
-    The plan is a deterministic derivation of the config. The budget policy
-    is decided once, at planning: a resumed run whose store already says what
-    its extraction kept (the ``budget/`` attributes) takes it from there.
-    ``store`` is the open store of a resume; a fresh run passes none.
+    The plan is a deterministic derivation of the config. The level is read
+    from *lineage* once, at planning: the extraction, the figures and the
+    exports read it back from the context. A call that passes no lineage reads
+    the run at the ``result`` level, like a run whose lineage is empty. The
+    budget policy is decided once here too: a resumed run whose store already
+    says what its extraction kept (the ``budget/`` attributes) takes it from
+    there. ``store`` is the open store of a resume; a fresh run passes none.
     """
+    from hydromodpy.results.storage.kept import level_of
     from hydromodpy.solver.base.planner import SimulationPlanner
     from hydromodpy.workflow.steps.planning import step_configure_results
 
+    ctx.level = level_of(lineage)
     if ctx.execution.simulation_plan is None:
         sim_cfg = getattr(ctx.cfg, "simulation", None)
         if sim_cfg is not None:
@@ -65,6 +70,7 @@ def _resolve_plan_and_results(ctx, *, store=None) -> None:
         ctx.cfg.simulation.results,
         ctx.execution.simulation_plan,
         ctx.cfg.display,
+        level=ctx.level,
         display_active=not ctx.execution.lightweight,
         export_requests=ctx.cfg.export,
         calibration=ctx.cfg.calibration,
@@ -129,7 +135,7 @@ class PrepareSolverStep:
         if ctx is None:
             raise ConfigError("PrepareSolverStep requires 'ctx' in state.data")
 
-        _resolve_plan_and_results(ctx)
+        _resolve_plan_and_results(ctx, state.get("lineage"))
         # The data step may have bound new forcings to the flow since the last run
         # of this context, so the model of that run is not this run's.
         ctx.setup.model = None
@@ -213,7 +219,7 @@ class PrepareSolverStep:
             )
 
         if not run_is_persisted(ctx):
-            _resolve_plan_and_results(ctx)
+            _resolve_plan_and_results(ctx, prior_state.get("lineage"))
             step_build_model(ctx, window_source=prior_state.get("window_source"))
         else:
             run_dir = prior_state.get("run_dir") or getattr(ctx, "run_dir", None)
@@ -230,7 +236,7 @@ class PrepareSolverStep:
             ctx.attempt = outcome.attempt
             write_products(ctx)
             with run_store(ctx) as store:
-                _resolve_plan_and_results(ctx, store=store)
+                _resolve_plan_and_results(ctx, prior_state.get("lineage"), store=store)
                 step_build_model(ctx, store=store, window_source=prior_state.get("window_source"))
 
         return prior_state.advance(

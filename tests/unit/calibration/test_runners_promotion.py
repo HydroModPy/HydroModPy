@@ -46,6 +46,7 @@ from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import FrozenValue
+from hydromodpy.results.storage.kept import Purged, write_purged
 from tests._helpers.session_documents import calibration_window, session_opening
 from tests.unit.calibration._factories_runners import (
     STEADY_K,
@@ -428,7 +429,8 @@ class TestWhereThePromotedRunsGo:
         assert call["run_dir"].is_dir()
         assert call["name"] == "calage"
         assert call["values"] == {"K": pytest.approx(1e-2)}
-        assert call["keep_per_cell_budget"] is None
+        assert call["lineage"].kind == "promoted"
+        assert "keep_per_cell_budget" not in call
 
     def test_the_run_is_told_its_session_phase_and_trial(self, tmp_path, recorder) -> None:
         persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1})
@@ -477,7 +479,7 @@ class TestWhereThePromotedRunsGo:
             tmp_path / "sessions" / "calage" / "trials" / "0001",
         ]
         assert all(path.is_dir() for path in dirs)
-        assert [call["keep_per_cell_budget"] for call in recorder.calls] == [None, False, False]
+        assert all("keep_per_cell_budget" not in call for call in recorder.calls)
         assert [call["lineage"].kind for call in recorder.calls] == ["promoted", "trial", "trial"]
         assert [call["calibrated_by"] is None for call in recorder.calls] == [False, True, True]
 
@@ -660,7 +662,8 @@ class TestThePromotionOfAnEarlierPhase:
         (call,) = recorder.calls
         assert sim_id == call["sim_id"]
         assert call["run_dir"] == persistence.directory / "phases" / "steady_k" / "best"
-        assert call["keep_per_cell_budget"] is False
+        assert "keep_per_cell_budget" not in call
+        assert call["lineage"].kind == "promoted"
         assert call["calibrated_by"] is None
         assert call["lineage"].trial == 2
         lines = {line.trial: line for line in read_trials(persistence.directory)}
@@ -747,6 +750,28 @@ class TestAfterTheFact:
         assert (line.only_case.sim_id, line.only_case.rel_dir) == (call["sim_id"], "runs/calage")
         run = read_session(persistence.directory).only_run
         assert (run.sim_id, run.rel_dir) == (call["sim_id"], "runs/calage")
+
+    def test_a_purged_trial_is_solved_again_and_stays_under_the_session(
+        self, tmp_path, recorder, monkeypatch
+    ) -> None:
+        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1}, hashed_under="v1")
+        persistence.finalize_session(
+            status="completed", best=persistence.best_pointer(persistence.best_trial())
+        )
+        _freeze(persistence)
+        _replay_under(monkeypatch, "v1")
+        kept = tmp_path / "sessions" / "calage" / "trials" / "0002"
+        kept.mkdir(parents=True)
+        (kept / "manifest.json").write_text("{}", encoding="utf-8")
+        write_purged(kept, Purged(at=datetime.now(UTC), entries={"fields.zarr": 10}))
+
+        target = promote_trial_from_session(tmp_path, "calage", 2)
+
+        assert target == tmp_path / "runs" / "calage"
+        (call,) = recorder.calls
+        assert call["run_dir"] == target and call["lineage"].kind == "promoted"
+        assert (kept / "manifest.json").is_file()
+        assert not (target / "manifest.json").exists()
 
     def test_a_second_promotion_of_the_case_takes_the_next_version(
         self, tmp_path, recorder, monkeypatch

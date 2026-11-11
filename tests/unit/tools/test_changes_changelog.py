@@ -114,6 +114,13 @@ def test_a_refusal_and_a_migration_are_not_bullets(register: Register) -> None:
     assert "a.b" not in joined
 
 
+def test_a_default_without_a_quantity_is_not_a_bullet() -> None:
+    quiet = DEFAULT.replace('id = "d"', 'id = "quiet"').replace('["metrics"]', "[]")
+    register = read(HEAD + quiet.replace("A default.", "A default that moves nothing."))
+
+    assert numbers.bullets(register, "2.0.0") == []
+
+
 def test_the_section_is_made_at_the_end_of_unreleased(register: Register) -> None:
     out = numbers.rewrite(CHANGELOG, register)
 

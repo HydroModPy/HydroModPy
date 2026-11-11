@@ -60,14 +60,40 @@ def option_hint(option: str) -> str:
     return f"[simulation.results] {option} = true"
 
 
-def enable_options_hint(options: Iterable[str]) -> str:
-    """One actionable sentence naming what to declare or set, and the re-run."""
+def enable_options_hint(options: Iterable[str], *, level: str = "result") -> str:
+    """One actionable sentence naming what to declare or set, and the re-run.
+
+    A kept calibration trial is ``research``: it keeps only the terms its
+    criterion reads whatever its configuration sets, so the sentence names
+    ``hmp replay`` instead of an option a run of it never left aside.
+    """
+    if level == "research":
+        return (
+            "This run is a kept calibration trial: it keeps only the budget terms "
+            "its criterion reads. hmp replay <run> writes it at the result level."
+        )
     lines = ", ".join(option_hint(option) for option in options)
     return (
         "Declare a figure or an [[export]] that reads the field, or set "
         f"{lines} (the default), and run the simulation again: the per-cell budget "
         "is kept during the run, not on read."
     )
+
+
+def _level_of_run(run: SupportsHasField) -> str:
+    """Return the level of the run a message talks about.
+
+    A ``Run`` reads it from its lineage. A lighter stand-in that only answers
+    ``has_field`` carries no lineage and is read at the ``result`` level, like
+    a run with no lineage.
+    """
+    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.sealed import lineage_of
+    from hydromodpy.results.storage.kept import level_of
+
+    if not isinstance(run, Run):
+        return "result"
+    return level_of(lineage_of(run))
 
 
 def diagnose_missing(fields: Iterable[str], run: SupportsHasField) -> MissingBudget | None:
@@ -122,7 +148,7 @@ def missing_field_explanation(fields: Iterable[str], run: SupportsHasField) -> s
     problem = diagnose_missing(fields, run)
     if problem is None:
         return ""
-    hint = enable_options_hint([KEEP_BUDGET_OPTION])
+    hint = enable_options_hint([KEEP_BUDGET_OPTION], level=_level_of_run(run))
     if problem.kept is None:
         return (
             "This run was written before the per-cell budget was kept by default, so the "

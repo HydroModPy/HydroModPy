@@ -9,15 +9,18 @@ follows the data unless ``--as`` or the extension of ``--to`` names one.
 unknown one is refused with the formats this installation serves. ``--format``
 is what the command prints, as on every verb. ``--list`` prints
 what the run can export, by kind; ``--regen`` writes again what the ledgers of
-the run record, its exports, its figures or both. A copy out of the project is
-``hmp publish``.
+the run record, its exports, its figures or both; ``--deliver`` sends once more
+the files the ``[[export]]`` blocks of the sealed run name, and every file whose
+bytes changed since. A copy out of the project is ``hmp publish``.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hydromodpy.cli.conventions import (
     add_destination,
@@ -34,6 +37,9 @@ from hydromodpy.cli.helpers import (
     refuse,
 )
 from hydromodpy.cli.output import emit
+
+if TYPE_CHECKING:
+    from hydromodpy.results.publication import PublishedLine
 
 NAME: str = "export"
 HELP: str = "Export data of a run: fields, series, layers, the budget, or the whole run"
@@ -90,6 +96,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=(
             "Write again what the run recorded: its exports (exports/index.json), its "
             "figures (figures/index.json), or both, the default"
+        ),
+    )
+    parser.add_argument(
+        "--deliver",
+        action="store_true",
+        help=(
+            "Send once more the files the [[export]] blocks of the sealed run name, and "
+            "every file whose bytes changed since. Takes no variable and no export option"
         ),
     )
     parser.add_argument(
@@ -160,6 +174,9 @@ def run(args: argparse.Namespace) -> None:
     import hydromodpy as hmp
 
     workspace = project_root_of(args)
+    if args.deliver:
+        _deliver(hmp, workspace, args)
+        return
     if args.regen and (args.list or args.variables):
         refuse("--regen writes again what the ledgers record: name no variable.", EXIT_USAGE)
     if not args.list and not args.regen and not args.variables:
@@ -200,6 +217,70 @@ def run(args: argparse.Namespace) -> None:
         print(f"Exported {len(written)} file(s){again}", file=sys.stderr)
 
     emit(args, "export", {"files": written, "regenerated": args.regen}, table=table)
+
+
+def _deliver(hmp: object, workspace: Path, args: argparse.Namespace) -> None:
+    """Send again what the sealed run records as not delivered, and say what became of it."""
+    _refuse_deliver_with_other_words(args)
+    from hydromodpy.cli.environment import environment_from_args
+
+    with hmp.open(workspace).store as catalog:  # type: ignore[attr-defined]
+        deliveries = hmp.export(  # type: ignore[attr-defined]
+            catalog[args.sim_ref], deliver=True, environment=environment_from_args(args)
+        )
+    _emit_deliveries(args, deliveries)
+
+
+def _refuse_deliver_with_other_words(args: argparse.Namespace) -> None:
+    """Refuse every selection word beside ``--deliver``: the blocks of the run name them."""
+    if args.variables or args.list or args.regen is not None:
+        refuse(
+            "--deliver sends what the [[export]] blocks of the run name: give no variable, "
+            "no --list and no --regen.",
+            EXIT_USAGE,
+        )
+    if any(
+        value is not None
+        for value in (
+            args.time,
+            args.period,
+            args.file_format,
+            args.to,
+            args.crs,
+            args.resolution,
+            args.layer,
+            args.nodata,
+        )
+    ):
+        refuse(
+            "--deliver takes no export option: the [[export]] blocks of the run name what, "
+            "when, where and in which format.",
+            EXIT_USAGE,
+        )
+
+
+def _emit_deliveries(args: argparse.Namespace, deliveries: Sequence[PublishedLine]) -> None:
+    """Print one line per file, then the count, and leave with 1 when one failed."""
+    total = len(deliveries)
+    failed = sum(1 for line in deliveries if line.state == "failed")
+
+    def table() -> None:
+        for line in deliveries:
+            print(f"{line.state} {line.file} {line.destination}")
+        print(f"Delivered {total - failed} of {total} file(s)", file=sys.stderr)
+
+    emit(
+        args,
+        "export deliver",
+        {"deliveries": [line.model_dump(mode="json", exclude_none=True) for line in deliveries]},
+        table=table,
+    )
+    if failed:
+        refuse(
+            f"{failed} of {total} file(s) did not arrive. The run is sealed; run "
+            f"hmp export {args.sim_ref} --deliver again once the destination answers.",
+            EXIT_GENERIC,
+        )
 
 
 def _destination(to: str | None) -> tuple[str | None, str | None]:

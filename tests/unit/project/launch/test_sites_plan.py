@@ -375,6 +375,43 @@ def test_simulation_name_is_refused_in_a_sites_project(tmp_path: Path) -> None:
     assert line.startswith("4 cases: project.toml -> simulation.name: [simulation] name is refused")
 
 
+def test_deliver_to_is_refused_in_a_sites_project(tmp_path: Path) -> None:
+    """Every case would send its files to the same destination, one over the other."""
+    project = write_sites_project(tmp_path)
+    (project / "project.toml").write_text(
+        (project / "project.toml").read_text(encoding="utf-8") + '\n[[export]]\nvariables = "all"\n'
+        'deliver_to = "ftp://example.org/incoming/"\n',
+        encoding="utf-8",
+    )
+
+    draft = expand_plan(project, project / "project.toml")
+
+    [line] = group_issues(draft.errors)
+    assert line.startswith(
+        "4 cases: project.toml -> export.deliver_to: deliver_to is refused in a [sites] project"
+    )
+    assert draft.cases == ()
+
+
+def test_an_export_block_without_deliver_to_is_planned(tmp_path: Path) -> None:
+    project = write_sites_project(tmp_path)
+    (project / "project.toml").write_text(
+        (project / "project.toml").read_text(encoding="utf-8")
+        + '\n[[export]]\nvariables = "all"\n',
+        encoding="utf-8",
+    )
+
+    draft = expand_plan(project, project / "project.toml")
+
+    assert not draft.errors, group_issues(draft.errors)
+    assert {case.case_id for case in draft.cases} == {
+        "nancon-base",
+        "nancon-k2e_5",
+        "couesnon-base",
+        "couesnon-k2e_5",
+    }
+
+
 def test_a_site_declared_beside_sites_is_refused(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path, extra='[site]\nname = "nancon"\n')
 

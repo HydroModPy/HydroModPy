@@ -40,7 +40,9 @@ from hydromodpy.model.flow import Flow
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_reserved_directory
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
+from hydromodpy.results.storage.kept import level_of
 from hydromodpy.results.storage.run_facts import PromotionFacts
+from hydromodpy.schema.lineage import Lineage
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.solver.modflow6.builders.solver_options import resolve_xt3d_decision
 from hydromodpy.solver.modflow6.support.property_mapping import (
@@ -389,6 +391,7 @@ def session(tmp_path: Path, monkeypatch):
             export_requests=(),
             calibration=None,
             observation=None,
+            level=level_of(state.get("lineage")),
         )
 
     def _export(state: PipelineState) -> None:
@@ -464,7 +467,7 @@ def test_the_best_run_keeps_everything_and_the_others_keep_what_they_read(
     assert kept["best"].policy == POLICY_ALL
     assert flags["best"] is True
     assert [policy.policy for policy in kept.values()][1:] == [POLICY_CONSUMERS, POLICY_CONSUMERS]
-    assert list(flags.values())[1:] == [False, False]
+    assert list(flags.values())[1:] == [True, True]
 
 
 def test_the_best_run_follows_the_project_file(session) -> None:
@@ -496,16 +499,21 @@ def test_a_saved_run_never_changes_the_shared_configuration(session) -> None:
     assert trial_ctx.ctx.cfg.simulation.results.keep_per_cell_budget is True
 
 
-def test_the_override_is_set_on_a_copy_of_the_results_section(session) -> None:
+def test_the_lineage_sets_the_level_and_the_results_section_is_left_alone(session) -> None:
     trial_ctx, kept, flags = session
     shared = trial_ctx.base_cfg.simulation.results
 
-    promote_prepared_trial(
-        trial_ctx, {"K": 2.0}, name="lean", sim_id="a" * 32, keep_per_cell_budget=False
-    )
-    promote_prepared_trial(trial_ctx, {"K": 3.0}, name="whole", sim_id="b" * 32)
+    def lineage(kind: str) -> Lineage:
+        return Lineage(session_id="s", phase="p", trial=1, kind=kind)
 
-    assert kept["lean"].policy == POLICY_CONSUMERS and flags["lean"] is False
+    promote_prepared_trial(
+        trial_ctx, {"K": 2.0}, name="lean", sim_id="a" * 32, lineage=lineage("trial")
+    )
+    promote_prepared_trial(
+        trial_ctx, {"K": 3.0}, name="whole", sim_id="b" * 32, lineage=lineage("promoted")
+    )
+
+    assert kept["lean"].policy == POLICY_CONSUMERS and flags["lean"] is True
     assert kept["whole"] == BudgetKeep.everything() and flags["whole"] is True
     assert trial_ctx.base_cfg.simulation.results is shared
     assert shared.keep_per_cell_budget is True

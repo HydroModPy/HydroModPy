@@ -148,7 +148,7 @@ class GPMappingOptimizer:
     name = "gp_mapping"
     options = GPMappingMethodConfig
 
-    traits = EngineTraits(takes_max_trials=True)
+    traits = EngineTraits(libraries=("numpy", "scikit-learn", "scipy"), takes_max_trials=True)
 
     def __init__(
         self,

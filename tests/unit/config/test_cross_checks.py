@@ -24,6 +24,7 @@ from hydromodpy.config.cross_checks import (
     refuse_a_transport_its_flow_does_not_feed,
     refuse_a_window_chain_the_run_cannot_carry,
     refuse_an_export_that_cannot_be_written,
+    refuse_face_flows_the_flow_does_not_write,
     refuse_the_contaminations,
     refuse_the_reads_the_flow_does_not_write,
     refuse_the_traits_the_solver_ignores,
@@ -420,6 +421,35 @@ def test_a_shipped_transport_whose_reads_the_shipped_flow_writes_passes_the_read
 
 
 @pytest.mark.parametrize(
+    ("backend", "refused"),
+    [
+        ("boussinesq", True),
+        ("linear_reservoir", True),
+        ("modflow6", False),
+        ("modflow_nwt", False),
+    ],
+)
+def test_keep_face_flows_needs_a_flow_that_writes_them(
+    tmp_path: Path, backend: str, refused: bool
+) -> None:
+    extra = {"simulation": {"results": {"keep_face_flows": True}}}
+    cfg = _under(_load(tmp_path, extra), backend)
+
+    if not refused:
+        refuse_face_flows_the_flow_does_not_write(cfg, sealed=False)
+        return
+
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+        refuse_face_flows_the_flow_does_not_write(cfg, sealed=False)
+
+    assert str(excinfo.value) == (
+        "[simulation.results] keep_face_flows = true keeps the flow between cells, and "
+        f"solver.backend = {backend!r} does not write it. Run the flow with a solver that "
+        "writes it (modflow6, modflow_nwt), or set keep_face_flows = false."
+    )
+
+
+@pytest.mark.parametrize(
     ("row", "extra", "fragment"),
     [
         (
@@ -782,6 +812,7 @@ SOLVER_ROWS = frozenset(
     {
         "refuse_the_traits_the_solver_ignores",
         "refuse_the_reads_the_flow_does_not_write",
+        "refuse_face_flows_the_flow_does_not_write",
         "refuse_an_ignored_family_written",
         "refuse_a_point_method_under_a_lumped_mesh",
         "refuse_a_native_step_finer_than_the_time_grid",
@@ -805,6 +836,7 @@ ORDER = (
     "refuse_a_calibration_without_parameters",
     "refuse_the_traits_the_solver_ignores",
     "refuse_the_reads_the_flow_does_not_write",
+    "refuse_face_flows_the_flow_does_not_write",
     "refuse_an_ignored_family_written",
     "refuse_a_point_method_under_a_lumped_mesh",
     "refuse_a_native_step_finer_than_the_time_grid",

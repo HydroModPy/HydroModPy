@@ -1,7 +1,8 @@
 """When the runner solves a model again from a solved run instead of building it.
 
 A calibration trial changes a few properties of one ``Model`` between two
-solves. A backend whose ``mutable`` names those properties can rewrite only the
+solves, by its profiles (``Model.with_profiles``) or by values per cell
+(``Model.with_properties``). A backend whose ``mutable`` names those properties can rewrite only the
 input files they touch, which is ``rerun``. ``changed_properties`` says what
 differs between two models, and ``chooses_rerun`` is the rule the runner
 applies before it calls ``rerun``. The backend still refuses, by returning
@@ -52,15 +53,18 @@ def _changed_overrides(left: Mapping[str, Any], right: Mapping[str, Any]) -> fro
 
 
 def changed_properties(previous: Any, model: Any) -> frozenset[str] | None:
-    """Return the property names whose per-cell overrides differ between two models.
+    """Return the property names whose profile or per-cell overrides differ between two models.
 
-    The names are the keys of ``Model.properties.overrides``, as
-    ``Model.with_properties`` was given them, and their values are compared
-    with ``numpy.array_equal``. The answer is ``None`` as soon as any other
-    member differs: the profiles, a boundary condition, the recharge, the wells,
-    the time, the initial state, the geometry or the options. A member is the
-    same when it holds the same objects, so two models built apart from the
-    same files differ. That is the safe side, because the runner then builds.
+    A profile differs when its ``[flow.param]`` id holds another object, as
+    ``Model.with_profiles`` replaces it, and the name is that id. An override
+    name is a key of ``Model.properties.overrides``, as ``Model.with_properties``
+    was given it, and its values are compared with ``numpy.array_equal``. The
+    answer is ``None`` as soon as any other member differs: the set of profile
+    ids, a boundary condition, the recharge, the wells, the time, the initial
+    state, the geometry or the options. A member is the same when it holds the
+    same objects, so two models built apart from the same files differ in every
+    profile. That is the safe side, because a backend reruns only the names its
+    ``mutable`` holds and builds otherwise.
     """
     if previous is None or model is None or type(previous) is not type(model):
         return None
@@ -72,9 +76,11 @@ def changed_properties(previous: Any, model: Any) -> frozenset[str] | None:
     left, right = previous.boundaries, model.boundaries
     if not (_same(left.conditions, right.conditions) and _same(left.active_ids, right.active_ids)):
         return None
-    if not _same(previous.properties.profiles, model.properties.profiles):
+    profiles, others = previous.properties.profiles, model.properties.profiles
+    if profiles.keys() != others.keys():
         return None
-    return _changed_overrides(previous.properties.overrides, model.properties.overrides)
+    replaced = frozenset(name for name in profiles if profiles[name] is not others[name])
+    return replaced | _changed_overrides(previous.properties.overrides, model.properties.overrides)
 
 
 def chooses_rerun(adapter: object, previous: SolverRun | None, model: Any) -> bool:

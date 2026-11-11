@@ -2,8 +2,9 @@
 
 The request id says what a run asks for. It is the sha256 of the document the
 run was given, as a file writes it, without what does not change the answer:
-``[workspace]``, ``[workflow]``, ``simulation.name`` and every ``deliver_to``
-key (:data:`REQUEST_EXCLUDED`). Each input resolved before the run enters by the
+``[workspace]``, ``[workflow]``, ``simulation.name`` (:data:`REQUEST_EXCLUDED`)
+and every ``deliver_to`` key (:func:`~hydromodpy.results.exporters.destination.without_delivery`).
+Each input resolved before the run enters by the
 digest of its bytes and its state, and its path or its URL leaves the document,
 so two addresses that give the same bytes ask the same thing. An earlier run the
 configuration reads (``[flow] restart_from``, the ``run`` of a refinement zone)
@@ -43,6 +44,7 @@ from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.model.initial.state import PriorState
+from hydromodpy.results.exporters.destination import without_delivery
 from hydromodpy.results.record.manifest import KEY_PACKAGES
 
 logger = get_logger(__name__)
@@ -57,14 +59,14 @@ REQUEST_EXCLUDED: Final[tuple[str, ...]] = (
     "workspace",
     "workflow",
     "simulation.name",
-    "*.deliver_to",
 )
 """The keys of a document that never enter a request id.
 
-A dotted key is left out where it is; ``*.<key>`` is left out at every depth.
-``[workspace]`` says where the project lives, ``[workflow]`` what ``hmp run``
-does with the file, ``simulation.name`` the folder of the run, and
-``deliver_to`` where a copy goes: none of them changes a number.
+A dotted key is left out where it is. ``[workspace]`` says where the project
+lives, ``[workflow]`` what ``hmp run`` does with the file, and
+``simulation.name`` the folder of the run: none of them changes a number.
+``deliver_to`` leaves by :func:`without_delivery`, which reads the blocks of
+``[[export]]`` rather than a name at any depth.
 """
 
 INPUT_ADDRESS_KEYS: Final[Mapping[str, tuple[str, ...]]] = {
@@ -293,7 +295,7 @@ def _requested(
     document: Mapping[str, Any], inputs: InputDigests, source_states: Mapping[str, str]
 ) -> dict[str, Any]:
     """Return *document* as the request id reads it."""
-    payload = json.loads(json.dumps(dict(document), default=str))
+    payload = without_delivery(json.loads(json.dumps(dict(document), default=str)))
     workspace = payload.get("workspace")
     root = workspace.get("project_root") if isinstance(workspace, dict) else None
     if root:

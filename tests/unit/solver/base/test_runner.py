@@ -581,6 +581,41 @@ def test_solve_one_reruns_only_when_the_change_fits_mutable(
     assert result.solved
 
 
+REUSED: tuple[tuple[str, Any, Any, bool, bool], ...] = (
+    ("a rerun", lambda: _Mutable(), MODEL.with_properties(K=2e-5), False, True),
+    ("a build outside mutable", lambda: _Mutable(), MODEL.with_properties(Ss=1e-5), False, False),
+    (
+        "a declined rerun",
+        lambda: _Mutable(declines=True),
+        MODEL.with_properties(K=2e-5),
+        False,
+        False,
+    ),
+    (
+        "a rerun stopped before its solve",
+        lambda: _Mutable(),
+        MODEL.with_properties(K=2e-5),
+        True,
+        True,
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "adapter_of", "model", "stop", "reran"), REUSED, ids=[c for c, *_ in REUSED]
+)
+def test_solve_one_says_whether_the_run_came_from_rerun(
+    case: str, adapter_of: Any, model: Any, stop: bool, reran: bool, tmp_path: Path
+) -> None:
+    """The run_solver step writes ``reused = "rerun"`` on the solve line of such a run."""
+    del case
+    previous = SolverRun(slot=_slot(tmp_path), model=MODEL, written=True, solved=True)
+
+    result = solve_one(adapter_of(), model, None, _slot(tmp_path, stop=stop), (), previous=previous)
+
+    assert result.reran is reran
+
+
 def test_solve_one_without_a_previous_run_builds(tmp_path: Path) -> None:
     adapter = _Mutable()
 

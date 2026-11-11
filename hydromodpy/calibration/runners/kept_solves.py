@@ -9,7 +9,9 @@ solves write the same MODFLOW files from the same inputs.
 This module keeps the first solve instead:
 
 - :class:`RecordingLauncher` runs the plan of a trial like the default launcher
-  and remembers what each run produced.
+  and remembers what each run produced. Given the runs of the previous trial of
+  the lane (:mod:`~hydromodpy.calibration.runners.lanes`), it hands them to the
+  runner, which reruns them when only K or Sy moved.
 - :class:`TrialSolveRetention` decides which trial solves stay on disk while
   they may still be promoted, deletes the others as soon as they can no longer
   be, and deletes the rest when the session ends.
@@ -19,6 +21,12 @@ This module keeps the first solve instead:
 
 ``HMP_KEEP_TRIAL_SCRATCH`` still means "keep everything": retention never
 deletes a folder, neither the solves it drops nor the ones left at the end.
+
+A kept solve holds its solver object, which the promotion reads for the series
+at the stations, the grid metadata and the recharge of the run. A lane may
+adopt the same object and rerun it in place, which changes only the properties
+the backend calls ``mutable`` (K and Sy) and the folder it points to, and the
+promotion reads neither from the object: it reads the files of the kept folder.
 """
 
 from __future__ import annotations
@@ -83,10 +91,15 @@ class RecordingLauncher:
     The run-solver step of a lightweight trial throws the results of the
     launcher away: nothing is written. A promotion needs them, the execution
     metrics in particular, which a replay records beside the run.
+
+    ``previous`` are the runs of the previous trial of the lane, by run id,
+    handed to :meth:`SimulationRunner.execute`, which chooses between ``rerun``
+    and ``build`` for each run.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, previous: Mapping[str, SolverRun] | None = None) -> None:
         self.results: dict[str, SolverRun] = {}
+        self.previous: dict[str, SolverRun] = dict(previous or {})
 
     def execute(
         self,
@@ -98,7 +111,8 @@ class RecordingLauncher:
         """Execute ``plan`` like :class:`SimulationRunner` and keep its results."""
         from hydromodpy.solver.base.runner import SimulationRunner
 
-        executed = SimulationRunner().execute(plan, state, callbacks=callbacks)
+        given = {"previous": self.previous} if self.previous else {}
+        executed = SimulationRunner().execute(plan, state, callbacks=callbacks, **given)
         for run, result in executed or ():
             self.results[str(run.id)] = result
         return tuple(executed or ())

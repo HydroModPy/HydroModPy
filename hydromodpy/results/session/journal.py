@@ -12,12 +12,18 @@ and ``--trial 4`` name one thing.
 Format
 ------
 See :class:`TrialLine`; every line carries the schema id
-:data:`TRIAL_SCHEMA`. What a trial gave in each case sits under ``cases``, keyed
-by ``case_id``, one entry for a session of one case. ``cost`` is the number the
-search minimized, null on a failed trial or when the search keeps no single
-cost. A trial number appearing twice is one trial written twice (started, then
-completed): the last line wins. A trailing line without its newline is the
-remnant of a crash and is ignored; any other unreadable line is an error.
+:data:`TRIAL_SCHEMA` and one event of :data:`TRIAL_EVENTS`. A trial is written
+once when the optimizer asks for it (``proposed``), once when its cost is known
+(``finished``) and once more when it becomes a run (``linked``). Each line is
+the whole trial as it is known at that instant, so the reader keeps one line
+per trial number: the highest event, then the last line of the file. What a
+trial gave in each case sits under ``cases``, keyed by ``case_id``. ``cost`` is
+the number the search minimized, null on a failed trial, on a proposed one or
+when the search keeps no single cost. A trial with only its ``proposed`` line
+was cut by a stop: it reads ``running``, without a cost. A ``hydromodpy.trial.v2``
+line, written by 2.0, reads as a ``finished`` line without the fields v3 added.
+A trailing line without its newline is the remnant of a crash and is ignored;
+any other unreadable line is an error.
 """
 
 from __future__ import annotations
@@ -29,17 +35,29 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Final
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, dump_stored, read_stored
+from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import SESSION_TRIALS_FILENAME
 from hydromodpy.results.storage.json_io import check_sealed
+from hydromodpy.results.storage.run_profile import ProfileLine
+from hydromodpy.schema.changes import prerelease_refusal
 
-TRIAL_SCHEMA: Final[str] = "hydromodpy.trial.v2"
+TRIAL_SCHEMA: Final[str] = "hydromodpy.trial.v3"
 """Schema id of one line of ``trials.jsonl``."""
+
+_PRERELEASE_SCHEMA: Final[str] = "hydromodpy.trial.v1"
+"""Schema id only a pre-release of 2.0 wrote, refused by name."""
+
+TRIAL_EVENTS: Final[dict[str, int]] = {"proposed": 0, "finished": 1, "linked": 2}
+"""The events of a trial and their rank: the reader keeps the highest one."""
+
+TrialEvent = Annotated[str, Vocabulary(*TRIAL_EVENTS)]
+"""What a line of the journal records: the trial asked for, scored or made a run."""
 
 TRIAL_VERSIONS: Final[VersionWindow] = VersionWindow(
     oldest="hydromodpy.trial.v2", current=TRIAL_SCHEMA
@@ -93,6 +111,14 @@ class TrialCase(HydroModelBase):
         default_factory=dict,
         description="Free diagnostics, such as materialized_overlay and block_costs",
     )
+    rule: str | None = Field(
+        default=None,
+        description="Version of the scoring rule the cost was computed under, null on a 2.0 line",
+    )
+    window: str | None = Field(
+        default=None,
+        description="Name of the scored period of role calibration, null on a 2.0 line",
+    )
 
     @field_validator("rel_dir")
     @classmethod
@@ -101,14 +127,28 @@ class TrialCase(HydroModelBase):
 
 
 class TrialLine(HydroModelBase):
-    """One evaluated trial, one line of the journal."""
+    """One event of one trial, one line of the journal: the whole trial as known then."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     schema_: str = Field(default=TRIAL_SCHEMA, alias="schema", description="Schema id")
+    event: TrialEvent = Field(
+        default="finished",
+        description="proposed when the optimizer asks, finished when the cost is known, "
+        "linked when the trial became a run. A 2.0 line has none and reads as finished",
+    )
     trial: int = Field(ge=1, description="Trial number, unique in the session")
     phase: str = Field(description="Phase the trial belongs to")
     restart: int = Field(default=0, ge=0, description="Restart of that phase")
+    batch: int | None = Field(
+        default=None,
+        ge=1,
+        description="Rank of the optimizer call that proposed the trial in its phase and "
+        "restart, from 1. Null on a 2.0 line",
+    )
+    proposed_at: datetime | None = Field(
+        default=None, description="When the optimizer proposed the trial, UTC"
+    )
     params: dict[str, TrialParam] = Field(
         default_factory=dict, description="Values the search proposed, by parameter"
     )
@@ -126,8 +166,26 @@ class TrialLine(HydroModelBase):
         description="True for a trial a speculative engine solved and did not read: it is "
         "kept and it leaves the ranking",
     )
-    started_at: datetime = Field(description="Start of the trial, UTC")
+    started_at: datetime | None = Field(
+        default=None, description="Start of the trial, UTC, null on a proposed line"
+    )
     ended_at: datetime | None = Field(default=None, description="End of the trial, UTC")
+    profile: list[ProfileLine] = Field(
+        default_factory=list,
+        description="Where the time of the trial went, in the form of the lines of "
+        "profile.json: one step line per step the trial played, one solve line per run of "
+        "its plan, reused = rerun when the run was rerun from the previous trial of its "
+        "lane. Empty for a trial read from the cost cache",
+    )
+
+    @model_validator(mode="after")
+    def _linked_names_its_case(self) -> TrialLine:
+        if self.event == "linked" and not self.cases:
+            raise ValueError(
+                f"trial {self.trial} is linked to a run and names no case: a linked line "
+                "carries the case of the run it became."
+            )
+        return self
 
     @property
     def only_case(self) -> TrialCase | None:
@@ -172,7 +230,13 @@ def cut_remnant(session_dir: str | Path) -> bool:
 
 
 def read_trials(session_dir: str | Path) -> list[TrialLine]:
-    """Return the trials of a session, one per number, the last line of each winning."""
+    """Return the trials of a session, one per number.
+
+    Of the lines of one number the highest event wins (``linked``, then
+    ``finished``, then ``proposed``), and the last line of the file at an equal
+    rank. The writer puts ``proposed`` before ``finished`` and ``linked`` after,
+    so this keeps the same lines as the last line of each number would.
+    """
     target = trials_path(session_dir)
     if not target.is_file():
         return []
@@ -186,15 +250,34 @@ def read_trials(session_dir: str | Path) -> list[TrialLine]:
             payload = json.loads(text)
         except json.JSONDecodeError as exc:
             raise ValueError(f"{target}:{number} is not a trial line: {exc}") from exc
-        line = read_stored(
-            TrialLine, check_sealed(payload, TRIAL_VERSIONS, path=target, line=number)
-        )
-        latest[line.trial] = line
+        line = _read_line(payload, target, number)
+        held = latest.get(line.trial)
+        if held is None or TRIAL_EVENTS[line.event] >= TRIAL_EVENTS[held.event]:
+            latest[line.trial] = line
     return [latest[number] for number in sorted(latest)]
 
 
+def _read_line(payload: Any, target: Path, number: int) -> TrialLine:
+    """Return one line of the journal; refuse a pre-release line and an unknown event."""
+    if isinstance(payload, dict) and payload.get("schema") == _PRERELEASE_SCHEMA:
+        where = f"{target}:{number}"
+        raise SchemaVersionMismatchError(
+            prerelease_refusal(where, [f"schema = {_PRERELEASE_SCHEMA!r}"], rewritable=False),
+            document=where,
+            found=_PRERELEASE_SCHEMA,
+            expected=TRIAL_SCHEMA,
+        )
+    line = read_stored(TrialLine, check_sealed(payload, TRIAL_VERSIONS, path=target, line=number))
+    if line.event not in TRIAL_EVENTS:
+        raise ValueError(
+            f"{target}:{number} records the event {line.event!r}; a trial line records one of "
+            f"{', '.join(TRIAL_EVENTS)}."
+        )
+    return line
+
+
 def next_trial_number(session_dir: str | Path) -> int:
-    """Return the number the next trial takes: one above the highest journaled."""
+    """Return the number the next trial takes: one above the highest journaled, proposed included."""
     trials = read_trials(session_dir)
     return 1 if not trials else trials[-1].trial + 1
 
@@ -210,9 +293,23 @@ def trial_rows(line: TrialLine) -> Iterator[dict[str, Any]]:
     ``cost`` is the number the search minimized and ``case_cost`` the cost of the
     case of the row; ``status`` and ``case_status`` go the same way. A line that
     names no case gives one row with a null ``case_id``.
-    ``duration_s`` is the time between the two stamps of the line.
+    ``duration_s`` is the time between the two stamps of the line. ``batch`` is
+    the optimizer call that proposed the trial, ``rule`` and ``window`` say how
+    and on which period the case was scored, ``solve_s`` is the sum of the solve
+    lines of the profile and ``reused`` is ``rerun`` when one run of the trial was
+    rerun from its lane, ``no`` when every run was built. The three are null on a
+    trial without a solve line, a cached one or a 2.0 line.
     """
-    duration = (line.ended_at - line.started_at).total_seconds() if line.ended_at else 0.0
+    duration = (
+        (line.ended_at - line.started_at).total_seconds()
+        if line.ended_at and line.started_at
+        else 0.0
+    )
+    solves = [entry for entry in line.profile if entry.kind == "solve"]
+    solve_s = sum(entry.duration_s or 0.0 for entry in solves) if solves else None
+    reused = None
+    if solves:
+        reused = "rerun" if any(entry.reused == "rerun" for entry in solves) else "no"
     cases: dict[str | None, TrialCase | None] = dict(line.cases) or {None: None}
     for case_id, case in cases.items():
         yield {
@@ -234,13 +331,20 @@ def trial_rows(line: TrialLine) -> Iterator[dict[str, Any]]:
             "rel_dir": None if case is None else case.rel_dir,
             "speculative_unused": line.speculative_unused,
             "duration_s": duration,
+            "batch": line.batch,
+            "rule": None if case is None else case.rule,
+            "window": None if case is None else case.window,
+            "solve_s": solve_s,
+            "reused": reused,
         }
 
 
 __all__ = [
+    "TRIAL_EVENTS",
     "TRIAL_SCHEMA",
     "TRIAL_VERSIONS",
     "TrialCase",
+    "TrialEvent",
     "TrialLine",
     "TrialParam",
     "TrialStatus",

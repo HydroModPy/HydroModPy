@@ -13,7 +13,7 @@ with its class; a site without a row and a row without a site both fail, so
 the file only shrinks. This test also refuses a row in the files that carry
 the bounds themselves, a variable named after a credential or a ceiling, an
 environment write outside the classes that do it once per process, and a
-network client beyond the one of ``core/io/fetch.py``.
+network client the table does not name.
 """
 
 from __future__ import annotations
@@ -248,10 +248,11 @@ def _default_of_kwonly(function: ast.FunctionDef, parameter: ast.arg) -> str | N
 def _network_clients() -> Counter[tuple[str, str]]:
     """Return every network client site, counted per (file, kind).
 
-    ``requests.Session()`` and the two ``urllib.request`` calls are the forms
-    a client site can take. Every one is counted: a second client in a file
-    that already carries a row fails the gate, not just a client in a new file.
-    The fetch client of core/io/fetch.py trusts no environment.
+    ``requests.Session()``, the two ``urllib.request`` calls, ``ftplib.FTP``,
+    ``ftplib.FTP_TLS`` and ``paramiko.Transport`` are the forms a client site
+    can take. Every one is counted: a second client in a file that already
+    carries a row fails the gate, not just a client in a new file. The fetch
+    client of core/io/fetch.py trusts no environment.
     """
     found: Counter[tuple[str, str]] = Counter()
     for path in sorted(PACKAGE.rglob("*.py")):
@@ -267,6 +268,12 @@ def _network_clients() -> Counter[tuple[str, str]]:
                 found[(client, "requests-session")] += 1
             elif attribute in ("urlopen", "urlretrieve") and _is_urllib_request(value):
                 found[(client, "urllib")] += 1
+            elif attribute == "FTP" and _object_name(value) == "ftplib":
+                found[(client, "ftplib-ftp")] += 1
+            elif attribute == "FTP_TLS" and _object_name(value) == "ftplib":
+                found[(client, "ftplib-ftps")] += 1
+            elif attribute == "Transport" and _object_name(value) == "paramiko":
+                found[(client, "paramiko-sftp")] += 1
     return found
 
 
@@ -283,7 +290,7 @@ def _is_urllib_request(value: ast.AST) -> bool:
     )
 
 
-def test_the_fetch_client_is_the_only_network_client() -> None:
+def test_the_network_clients_are_the_ones_declared() -> None:
     found = _network_clients()
     carried = Counter((row["file"], row["client"]) for row in TABLE["network"])
     unexpected = sorted(found - carried)
@@ -293,6 +300,11 @@ def test_the_fetch_client_is_the_only_network_client() -> None:
         f"site: clients without a row {unexpected}, rows without a client "
         f"{stale}. Every download goes through core/io/fetch.py."
     )
-    assert list(carried) == [("hydromodpy/core/io/fetch.py", "requests-session")]
+    assert list(carried) == [
+        ("hydromodpy/core/io/fetch.py", "requests-session"),
+        ("hydromodpy/project/deliver.py", "ftplib-ftp"),
+        ("hydromodpy/project/deliver.py", "ftplib-ftps"),
+        ("hydromodpy/project/deliver.py", "paramiko-sftp"),
+    ]
     source = (REPO / "hydromodpy" / "core" / "io" / "fetch.py").read_text(encoding="utf-8")
     assert "trust_env = False" in source, "the fetch client must not read the environment"

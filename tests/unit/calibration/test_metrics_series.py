@@ -917,8 +917,8 @@ EXPECTED_PAIR = align_observed_simulated(
 )
 
 
-def test_the_key_defaults_off() -> None:
-    assert CalibrationConfig().persist_trial_series is False
+def test_the_key_defaults_on() -> None:
+    assert CalibrationConfig().persist_trial_series is True
 
 
 def test_a_sink_drains_only_what_was_recorded_on_the_calling_thread() -> None:
@@ -1003,7 +1003,7 @@ def test_a_network_output_never_reaches_the_sink() -> None:
 class TestThePipelineEvaluatorWiring:
     def test_a_sink_is_built_only_when_the_key_is_on(self) -> None:
         on = CalibrationConfig.model_validate({"persist_trial_series": True})
-        off = CalibrationConfig()
+        off = CalibrationConfig.model_validate({"persist_trial_series": False})
         metric_fn = lambda ctx, **kwargs: (0.0, {})  # noqa: E731 - bypasses _extractor_for
 
         evaluator_on = PipelineTrialEvaluator(cfg=on, trial_ctx=object(), metric_fn=metric_fn)

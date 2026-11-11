@@ -27,7 +27,7 @@ import importlib
 import platform
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 from hydromodpy.core.version import __version__
 
@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from hydromodpy.project.facade import Project
     from hydromodpy.project.launch.sites.expansion import PlanDraft
     from hydromodpy.project.spinup import SpinupResult
+    from hydromodpy.results.publication import PublishedLine
     from hydromodpy.results.run import Run
     from hydromodpy.results.session.view import Session
     from hydromodpy.workflow.overview import OverviewResult
@@ -1183,9 +1184,10 @@ def figure(
     )
 
 
+@overload
 def export(
     run: Run,
-    variables: str | list[str],
+    variables: str | list[str] | None = None,
     *,
     time: str | int | list[str | int] | None = None,
     period: tuple[str, str] | None = None,
@@ -1196,9 +1198,52 @@ def export(
     resolution: float | None = None,
     layer: int | None = None,
     nodata: float = -9999.0,
+    deliver: Literal[False] = False,
     environment: Environment | None = None,
-) -> list[Path]:
+) -> list[Path]: ...
+
+
+@overload
+def export(
+    run: Run,
+    variables: None = None,
+    *,
+    time: None = None,
+    period: None = None,
+    format: None = None,
+    folder: None = None,
+    file: None = None,
+    crs: None = None,
+    resolution: None = None,
+    layer: None = None,
+    nodata: float = -9999.0,
+    deliver: Literal[True] = True,
+    environment: Environment | None = None,
+) -> tuple[PublishedLine, ...]: ...
+
+
+def export(
+    run: Run,
+    variables: str | list[str] | None = None,
+    *,
+    time: str | int | list[str | int] | None = None,
+    period: tuple[str, str] | None = None,
+    format: str | None = None,
+    folder: PathLike | None = None,
+    file: PathLike | None = None,
+    crs: str | None = None,
+    resolution: float | None = None,
+    layer: int | None = None,
+    nodata: float = -9999.0,
+    deliver: bool = False,
+    environment: Environment | None = None,
+) -> list[Path] | tuple[PublishedLine, ...]:
     """Export data of a simulation to files; return the files written.
+
+    With ``deliver=True`` it sends instead: the files the ``[[export]]`` blocks
+    of the sealed run name go to their ``deliver_to`` destinations, each file
+    whose bytes changed since it was delivered going again, and the
+    ``delivery`` lines the run wrote come back. That word takes no other.
 
     The words of an ``[[export]]`` block and of ``hmp export``: ``variables``
     says what (a name, a list, or ``"all"``: ``hmp export <run> --list``
@@ -1230,13 +1275,43 @@ def export(
     >>> hmp.export(
     ...     run, "discharge", period=("2001-01-01", "2002-12-31")
     ... )  # doctest: +SKIP
+    >>> hmp.export(run, deliver=True)  # doctest: +SKIP
     """
+    from hydromodpy.core.exceptions import ExportError
     from hydromodpy.results.run import Run
 
     if not isinstance(run, Run):
         raise TypeError(
             f"hmp.export expects a Run object as first argument, got {type(run).__name__}. "
             f"Obtain one with hmp.open(project)[ref] or hmp.open(<run dir>)."
+        )
+    if deliver:
+        if (
+            any(
+                value is not None
+                for value in (variables, time, period, format, folder, file, crs, resolution, layer)
+            )
+            or nodata != -9999.0
+        ):
+            raise ExportError(
+                "deliver=True sends what the [[export]] blocks of the run name and takes "
+                "no other word."
+            )
+        from hydromodpy.project.deliver import deliver_pending
+        from hydromodpy.project.environment import Environment as CallEnvironment
+        from hydromodpy.results.run.view import project_root_of
+
+        located = project_root_of(run.dir)
+        return deliver_pending(
+            run.dir,
+            environment or CallEnvironment.default(),
+            project_root=located[0] if located is not None else run.dir,
+        )
+    if variables is None:
+        raise ExportError(
+            'variables is missing: name what to export, e.g. variables = "head", '
+            'variables = ["head", "discharge"], or variables = "all". '
+            "deliver=True sends what the [[export]] blocks of the run name instead."
         )
     if environment is not None:
         # A folder or a file the caller names must sit under the roots the

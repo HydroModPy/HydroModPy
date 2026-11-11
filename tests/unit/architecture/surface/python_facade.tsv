@@ -49,7 +49,7 @@ doctor	function	() -> dict
 example_add	function	(example_id: str, *, workspace: PathLike | None = None, ref: str | None = None, force: bool = False) -> InstallReport
 example_list	function	() -> tuple[ExampleEntry, ...]
 example_show	function	(example_id: str) -> ExampleEntry
-export	function	(run: Run, variables: str | list[str], *, time: str | int | list[str | int] | None = None, period: tuple[str, str] | None = None, format: str | None = None, folder: PathLike | None = None, file: PathLike | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0, environment: Environment | None = None) -> list[Path]
+export	function	(run: Run, variables: str | list[str] | None = None, *, time: str | int | list[str | int] | None = None, period: tuple[str, str] | None = None, format: str | None = None, folder: PathLike | None = None, file: PathLike | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0, deliver: bool = False, environment: Environment | None = None) -> list[Path] | tuple[PublishedLine, ...]
 figure	function	(run: Run, name: str, *, save: PathLike | None = None, dpi: int = 150, time: str | date | None = None, **opts: Any) -> Figure
 index	function	(workspace: PathLike | None = None) -> Workspace
 open	function	(path: PathLike) -> Project | Run | Session | Workspace

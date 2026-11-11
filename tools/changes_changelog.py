@@ -61,7 +61,8 @@ def bullets(register: Register, after: str) -> list[str]:
     """Return the bullets of the rows that moved a number since the release *after*."""
     rows = [
         *register.bugs,
-        *register.defaults,
+        # A default that moves no quantity only changes what is written.
+        *(default for default in register.defaults if default.quantities),
         *(recipe for recipe in register.recipes if recipe.effect == "numbers"),
     ]
     return [f"- {row.text.strip()}" for row in rows if Version(row.since) > Version(after)]

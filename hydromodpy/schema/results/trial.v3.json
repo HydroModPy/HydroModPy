@@ -1,5 +1,77 @@
 {
   "$defs": {
+    "ProfileLine": {
+      "additionalProperties": true,
+      "description": "One measured block of one attempt.\n\n``kind`` is ``step``, ``solve``, ``figure`` or ``export``. ``started_at``\nis a UTC instant, ``duration_s`` the wall time in seconds and\n``max_rss_mb`` the peak memory of the process in MiB when the block ended,\n``None`` where the platform does not say. ``reused`` is one of\n:data:`REUSED_KINDS`, and ``key`` the store key of a ``store`` line,\n``None`` on any other line.",
+      "properties": {
+        "attempt": {
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "duration_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Duration S"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "max_rss_mb": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Rss Mb"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "reused": {
+          "default": "no",
+          "title": "Reused",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "attempt",
+        "started_at",
+        "duration_s"
+      ],
+      "title": "ProfileLine",
+      "type": "object"
+    },
     "TrialCase": {
       "additionalProperties": true,
       "description": "What one trial gave in one case.",
@@ -86,6 +158,20 @@
           "title": "Rel Dir",
           "x-hmp-profile": "user"
         },
+        "rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Version of the scoring rule the cost was computed under, null on a 2.0 line",
+          "title": "Rule",
+          "x-hmp-profile": "user"
+        },
         "sim_id": {
           "anyOf": [
             {
@@ -116,6 +202,20 @@
             "infeasible",
             "aborted"
           ]
+        },
+        "window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of the scored period of role calibration, null on a 2.0 line",
+          "title": "Window",
+          "x-hmp-profile": "user"
         }
       },
       "required": [
@@ -273,8 +373,23 @@
     }
   },
   "additionalProperties": true,
-  "description": "One evaluated trial, one line of the journal.",
+  "description": "One event of one trial, one line of the journal: the whole trial as known then.",
   "properties": {
+    "batch": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Rank of the optimizer call that proposed the trial in its phase and restart, from 1. Null on a 2.0 line",
+      "title": "Batch",
+      "x-hmp-profile": "user"
+    },
     "cases": {
       "additionalProperties": {
         "$ref": "#/$defs/TrialCase"
@@ -313,6 +428,21 @@
       "title": "Ended At",
       "x-hmp-profile": "user"
     },
+    "event": {
+      "default": "finished",
+      "description": "proposed when the optimizer asks, finished when the cost is known, linked when the trial became a run. A 2.0 line has none and reads as finished",
+      "examples": [
+        "finished"
+      ],
+      "title": "Event",
+      "type": "string",
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "proposed",
+        "finished",
+        "linked"
+      ]
+    },
     "params": {
       "additionalProperties": {
         "$ref": "#/$defs/TrialParam"
@@ -331,6 +461,30 @@
       "type": "string",
       "x-hmp-profile": "user"
     },
+    "profile": {
+      "description": "Where the time of the trial went, in the form of the lines of profile.json: one step line per step the trial played, one solve line per run of its plan, reused = rerun when the run was rerun from the previous trial of its lane. Empty for a trial read from the cost cache",
+      "items": {
+        "$ref": "#/$defs/ProfileLine"
+      },
+      "title": "Profile",
+      "type": "array",
+      "x-hmp-profile": "user"
+    },
+    "proposed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When the optimizer proposed the trial, UTC",
+      "title": "Proposed At",
+      "x-hmp-profile": "user"
+    },
     "restart": {
       "default": 0,
       "description": "Restart of that phase",
@@ -343,7 +497,7 @@
       "x-hmp-profile": "user"
     },
     "schema": {
-      "default": "hydromodpy.trial.v2",
+      "default": "hydromodpy.trial.v3",
       "description": "Schema id",
       "title": "Schema",
       "type": "string"
@@ -359,10 +513,18 @@
       "x-hmp-profile": "user"
     },
     "started_at": {
-      "description": "Start of the trial, UTC",
-      "format": "date-time",
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Start of the trial, UTC, null on a proposed line",
       "title": "Started At",
-      "type": "string",
       "x-hmp-profile": "user"
     },
     "status": {
@@ -396,8 +558,7 @@
   "required": [
     "trial",
     "phase",
-    "status",
-    "started_at"
+    "status"
   ],
   "title": "TrialLine",
   "type": "object"

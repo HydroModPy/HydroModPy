@@ -18,7 +18,7 @@ from hydromodpy.calibration.optim.sampling import physical_sample
 class RandomSearchAdapter:
     """Random sampling using each parameter's sampling declaration."""
 
-    traits = EngineTraits(fixed_plan=True)
+    traits = EngineTraits(libraries=("numpy",), fixed_plan=True)
 
     name = "random_search"
     options = RandomSearchMethodConfig

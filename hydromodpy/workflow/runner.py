@@ -41,6 +41,9 @@ the journal, and a resume plays it again from its start. Each step is timed by
 :func:`~hydromodpy.core.runtime.stopwatch.measured` and its line is added to
 ``profile.json`` as soon as it ends, so a stopped run keeps the profile of what it
 did. A step rebuilt from the artifacts of an earlier attempt is a ``prefix`` line.
+A pipeline without a run directory writes no profile; its lines go to the
+collector ``collected_profile`` of ``results.storage.run_profile`` opened around it, when there is one, which
+is how a calibration trial keeps the time of each of its steps.
 """
 
 from __future__ import annotations
@@ -48,6 +51,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Sequence
+from contextvars import copy_context
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -60,6 +64,7 @@ from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.results.storage.run_profile import (
     Profile,
     ProfileLine,
+    collect_line,
     read_profile,
     write_profile,
 )
@@ -90,11 +95,13 @@ def record_measure(
     A step, a solve, a figure and an export all come through here. ``reused`` says
     whether the work was done (``no``), rebuilt from an earlier attempt (``prefix``)
     or read from the project store (``store``, with its ``key``). Without a run
-    directory there is no profile and nothing is written.
+    directory there is no profile: the line goes to the collector opened in this
+    context, and nowhere when none is open.
     """
-    if run_dir is None:
-        return
     line = ProfileLine.of(measure, attempt=attempt, reused=reused, key=key)
+    if run_dir is None:
+        collect_line(line)
+        return
     with _PROFILE_LOCK:
         profile = read_profile(run_dir) or Profile()
         write_profile(run_dir, profile.with_line(line))
@@ -522,7 +529,12 @@ class Pipeline:
                 previous_hashes=scratch_prev,
             )
 
-        outcomes = executor.map(_worker, list(cohort_indices))
+        # A thread of the cohort starts in an empty context: each step runs in a
+        # copy of this one, so its profile line reaches the collector opened here.
+        context = copy_context()
+        outcomes = executor.map(
+            lambda index: context.copy().run(_worker, index), list(cohort_indices)
+        )
         merged_data = dict(base_state.data)
         last_index = base_state.step_index
         last_name = base_state.step_name

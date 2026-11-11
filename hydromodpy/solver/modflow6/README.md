@@ -24,6 +24,16 @@ The start heads of a restart are read before the solve, by the `prepare_solver` 
 
 It returns `None`, and the runner builds, in four cases. The earlier run is not solved, not written, or no longer owns its solver model. The model starts from a steady or a cyclic solve, which depend on K and Sy. The change turns XT3D on or off, which changes IMS and HFB. The drain cells or the MVR lines are no longer the ones of the earlier run. A fifth refusal guards the transports: the simulation of the earlier run carries a model other than the GWF flow, so the rerun stops, because a rerun that copied it would rewrite the packages of a transport and solve them again without saying so. Because `rerun` changes the solver model of `previous` in place, only the `SolverRun` it returns can serve as the next parent.
 
+## Face flow
+
+A run that keeps its face flows writes `face_flow/`: one value per connection
+between two active cells, the mean of the period steps weighted by their
+`delt`, in m3/s. The smaller flat index of the pair comes first and the flow
+is positive from it to the other. The diagonal of `FLOW-JA-FACE` is never
+kept, because it is the residual of the cell, which `budget/` already carries.
+`connection_cells/` names the two cells of each connection, smaller first. A
+run without `keep_face_flows` keeps no inter-cell flow.
+
 ## Transport
 
 GWT and PRT work in the folder of the flow run, on the simulation FloPy built for it. The engine of each adds its GWT or PRT model to that simulation, couples it to the GWF flow model with a `GWF6-GWT6` or `GWF6-PRT6` exchange, writes the whole simulation again and solves it. The flow is then solved twice, once between the two, in the same folder, and the two solves are equal to the bit. The concentration is read from the `.ucn` files of the folder, the particle tracks from the CSV of PRT. The IMS of the transport model is the one the flow solved with, read on the options of `[solver.modflow6]`. A transport run reads nothing of the setup and no store; whatever it needs beyond its options arrives through the arguments of `build`.

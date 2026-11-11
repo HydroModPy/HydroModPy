@@ -31,6 +31,11 @@ of the phase whose best the session holds stopped
 phases of a staged session that froze the best of a budget-only search or
 closed a root outside its declared bounds.
 
+``optimizer`` names, for each phase, the search method with its options
+resolved to their defaults, the seed the session received, the seed each
+restart was given and the versions of the libraries the method runs on, so a
+reader can tell whether the search can be played again. A 2.0 descriptor has
+none.
 A check across fields runs at writing only: a read keeps what a later 2.x wrote.
 """
 
@@ -230,6 +235,28 @@ class SessionProtocol(HydroModelBase):
     )
 
 
+class SessionOptimizer(HydroModelBase):
+    """What the search of one phase ran with. Its method stays in ``method``."""
+
+    options: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Options the method was built with, each default it took written out",
+    )
+    seed: int | None = Field(
+        default=None,
+        description="Seed the session received, null when none was given: such a search "
+        "is not played again",
+    )
+    restart_seeds: dict[str, int] = Field(
+        default_factory=dict,
+        description="Seed given to each restart of the phase, by restart number",
+    )
+    libraries: dict[str, str] = Field(
+        default_factory=dict,
+        description="Version of each library the method object runs on, by distribution name",
+    )
+
+
 class SessionDescriptor(HydroModelBase):
     """Identity, search and outcome of one calibration session."""
 
@@ -275,6 +302,13 @@ class SessionDescriptor(HydroModelBase):
     protocol: SessionProtocol | None = Field(
         default=None,
         description="The protocol the session follows; none when it names no protocol",
+    )
+    # Left out of the file while None, so a 2.0 descriptor written again keeps its keys.
+    optimizer: dict[str, SessionOptimizer] | None = Field(
+        default=None,
+        description="What the search of each phase ran with, by phase name; none on a 2.0 "
+        "descriptor and before the first search",
+        exclude_if=lambda value: value is None,
     )
     status: SessionStatus = Field(default="running")
     started_at: datetime = Field(description="Start of the session, UTC")
@@ -467,6 +501,7 @@ __all__ = [
     "ScoredSamples",
     "SessionCase",
     "SessionDescriptor",
+    "SessionOptimizer",
     "SessionProtocol",
     "SessionStatus",
     "check_case_tables",

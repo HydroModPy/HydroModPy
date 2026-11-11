@@ -196,15 +196,29 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         Raises
         ------
         FileNotFoundError
-            If the run has no ``fields.zarr``.
+            If the run has no ``fields.zarr``, with the purge date when ``gc``
+            removed it from a kept trial.
         """
         fields = self._paths.fields_path_for(sim_id)
         if not fields.is_dir():
-            raise FileNotFoundError(f"Run {str(sim_id)[:8]} has no {FIELDS_STORE_NAME} at {fields}")
+            raise FileNotFoundError(self._missing_fields_message(sim_id, fields))
         handle = SimulationZarr(fields)
         handle._on_close = self._untrack_zarr_handle
         self._open_zarr_handles.append(handle)
         return handle
+
+    def _missing_fields_message(self, sim_id: str | UUID, fields: Path) -> str:
+        """Say why a field store is absent, naming the purge when gc made it leave."""
+        from hydromodpy.results.storage.json_io import readable
+        from hydromodpy.results.storage.kept import read_purged
+
+        purged = readable(read_purged, self.run_dir_for(sim_id))
+        if purged is None:
+            return f"Run {str(sim_id)[:8]} has no {FIELDS_STORE_NAME} at {fields}"
+        return (
+            f"Run {str(sim_id)[:8]} had its {FIELDS_STORE_NAME} removed by gc on "
+            f"{purged.at.date().isoformat()}; its seal, tables and final state stay."
+        )
 
     def _untrack_zarr_handle(self, handle: SimulationZarr) -> None:
         try:

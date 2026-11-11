@@ -19,6 +19,7 @@ class TestResultsConfigDefaults:
         assert cfg.persistence.save_zarr is True
         assert cfg.persistence.save_parquet is True
         assert cfg.keep_solver_files is False
+        assert cfg.keep_face_flows is False
         assert cfg.keep_per_cell_budget is True
 
     def test_from_dict(self):
@@ -48,6 +49,44 @@ class TestResultsConfigDefaults:
         with pytest.raises(ValidationError):
             ResultsConfig.model_validate({retired: {}})
         assert retired not in ResultsConfig.model_fields
+
+
+class TestKeepFaceFlows:
+    def test_off_by_default(self):
+        assert ResultsConfig().keep_face_flows is False
+
+    def test_can_be_turned_on(self):
+        cfg = ResultsConfig.model_validate({"keep_face_flows": True})
+        assert cfg.keep_face_flows is True
+
+    def test_is_a_user_boolean(self):
+        from hydromodpy.core.config_kit.profile import Profile
+
+        field = ResultsConfig.model_fields["keep_face_flows"]
+        assert field.annotation is bool
+        assert Profile.USER in field.metadata
+        assert field.is_required() is False
+
+    def test_a_non_boolean_is_refused(self):
+        with pytest.raises(ValidationError):
+            ResultsConfig.model_validate({"keep_face_flows": "yes"})
+
+    def test_the_description_names_the_two_solvers_and_what_it_weighs(self):
+        text = ResultsConfig.model_fields["keep_face_flows"].description
+        assert "MODFLOW 6 and MODFLOW-NWT" in text
+        assert "about 350 MB in float32" in text
+        assert "A kept calibration trial never keeps it." in text
+
+    def test_the_description_passes_the_documentation_gates(self):
+        from tools.docs import field_registry
+
+        nodes = [
+            node
+            for path, node in field_registry.build().items()
+            if path.endswith(".keep_face_flows")
+        ]
+        assert nodes
+        assert field_registry.gate_hits(nodes[0]) == []
 
 
 class TestKeepPerCellBudget:

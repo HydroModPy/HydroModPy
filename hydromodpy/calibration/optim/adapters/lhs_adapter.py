@@ -65,7 +65,12 @@ class LhsAdapter:
     # The design is exhausted after one draw: repeating it with a different
     # seed gives a different design, but the same seed is the same computation
     # twice.
-    traits = EngineTraits(draws_a_normal=False, restarts_explore_differently=True, fixed_plan=True)
+    traits = EngineTraits(
+        libraries=("numpy", "scipy"),
+        draws_a_normal=False,
+        restarts_explore_differently=True,
+        fixed_plan=True,
+    )
 
     name = "lhs"
     options = LhsMethodConfig

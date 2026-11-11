@@ -7,8 +7,11 @@ import pytest
 from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results import field_registry
 from hydromodpy.results.field_registry import (
+    FACE_FLOW,
     FIELD_REGISTRY,
+    SHAPE_CONNECTION_PAIR,
     SHAPE_TIME,
+    SHAPE_TIME_CONNECTION,
     TIME_SERIES_REGISTRY,
     FieldDescriptor,
     TimeSeriesDescriptor,
@@ -109,6 +112,31 @@ class TestFieldDescriptor:
         wt = get("watertable_depth")
         assert wt.shape == field_registry.SHAPE_TIME_FACE
         assert wt.coordinates == "time face"
+
+
+class TestConnectionFields:
+    def test_the_face_flow_is_a_series_on_the_connection_axis(self):
+        desc = get(FACE_FLOW)
+        assert desc.shape == SHAPE_TIME_CONNECTION
+        assert desc.zarr_path == FACE_FLOW
+        assert desc.dimensions == ("time", "connection")
+        assert desc.units == "m3 s-1"
+        assert desc.cell_methods == "time: mean"
+        assert desc.derived_by == "solver"
+
+    def test_the_connection_cells_pair_two_flat_indices_per_connection(self):
+        desc = get("connection_cells")
+        assert desc.shape == SHAPE_CONNECTION_PAIR
+        assert desc.dimensions == ("connection", "two")
+        assert desc.units == "1"
+        assert "the smaller first" in desc.long_name
+        assert desc.derived_by == "solver"
+
+    def test_a_connection_is_not_a_ugrid_face(self):
+        assert SHAPE_TIME_CONNECTION not in field_registry._FACE_SHAPES
+        assert SHAPE_CONNECTION_PAIR not in field_registry._FACE_SHAPES
+        assert "connection" not in get("head").coordinates.split()
+        assert FACE_FLOW in all_names()
 
 
 class TestPublicAPI:

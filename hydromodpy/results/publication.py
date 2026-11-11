@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import date, datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Annotated, Any, Final
@@ -76,13 +76,19 @@ PUBLICATION_VERSIONS: Final[VersionWindow] = VersionWindow(
 )
 """Versions of ``PUBLICATION.json`` this code reads."""
 
-PUBLISHED_SCHEMA: Final[str] = "hydromodpy.published.v1"
+PUBLISHED_SCHEMA: Final[str] = "hydromodpy.published.v2"
 """Schema id of one line of ``published.jsonl``."""
 
 PUBLISHED_VERSIONS: Final[VersionWindow] = VersionWindow(
-    oldest="hydromodpy.published.v1", current=PUBLISHED_SCHEMA
+    oldest="hydromodpy.published.v2", current=PUBLISHED_SCHEMA
 )
 """Versions of one line of ``published.jsonl`` this code reads."""
+
+PUBLISHED_REMEDY: Final[str] = (
+    'HydroModPy 2.1 reads lines that say kind = "copy" or "delivery". Move this file '
+    "aside to keep its record; the next copy or delivery starts a new one."
+)
+"""What to do with a line of ``published.jsonl`` written by HydroModPy 2.0."""
 
 REDACTED_PATH: Final[str] = "<absolute path>"
 """What an absolute path outside the project becomes."""
@@ -98,6 +104,8 @@ PROJECT_REL_DIR: Final[str] = "."
 PublicationFormat = Annotated[str, Vocabulary("dir", "tar")]
 PublicationExtra = Annotated[str, Vocabulary("results", "inputs")]
 PublicationKind = Annotated[str, Vocabulary("run", "summary", "project")]
+PublishedKind = Annotated[str, Vocabulary("copy", "delivery")]
+DeliveryState = Annotated[str, Vocabulary("pending", "delivered", "failed")]
 
 
 class PublicationSource(HydroModelBase):
@@ -208,18 +216,138 @@ class Publication(HydroModelBase):
         return self
 
 
+DELIVERY_ATTEMPTS: Final = 3
+"""Tries of one file on one destination; a final delivery line counts 1 to this."""
+
+_UNREAD_FIELDS: Final[tuple[str, ...]] = ("sha256", "bytes")
+"""What a failed delivery line omits when its file could not be read."""
+
+_COPY_FIELDS: Final[tuple[str, ...]] = ("to", "format", "publication_sha256")
+"""The fields a ``copy`` line carries: where a copy went."""
+
+_DELIVERY_FIELDS: Final[tuple[str, ...]] = (
+    "file",
+    "destination",
+    "state",
+    "sha256",
+    "bytes",
+    "attempts",
+)
+"""The fields a ``delivery`` line carries: where one file of the run goes."""
+
+
 class PublishedLine(HydroModelBase):
-    """One line of ``published.jsonl``: where a copy went."""
+    """One line of ``published.jsonl``: where a copy went, or where a file goes.
+
+    A ``copy`` line records a copy of the run or the summary, once it is
+    written. A ``delivery`` line records one file of the run sent to one
+    destination, and what became of it.
+    """
 
     model_config = ConfigDict(populate_by_name=True)
 
     schema_: str = Field(default=PUBLISHED_SCHEMA, alias="schema", description="Schema id")
-    to: str = Field(description="Destination of the copy, as given")
-    format: PublicationFormat
-    published_at: datetime = Field(description="Instant of the copy, UTC")
-    publication_sha256: str = Field(
-        pattern=r"^[0-9a-f]{64}$", description="Digest of the PUBLICATION.json written there"
+    kind: PublishedKind = Field(description='What the line records: "copy" or "delivery"')
+    published_at: datetime = Field(description="Instant of the line, UTC")
+    to: str | None = Field(default=None, description="Destination of the copy, as given")
+    format: PublicationFormat | None = Field(default=None, description="Format of the copy")
+    publication_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="Digest of the PUBLICATION.json written there",
     )
+    file: str | None = Field(
+        default=None, description="File delivered, its path relative to the run directory"
+    )
+    destination: str | None = Field(
+        default=None, description="Address the file was delivered to, without identity"
+    )
+    state: DeliveryState | None = Field(default=None, description="What became of the delivery")
+    sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="Digest of the file pushed; absent on a failed line whose file was not read",
+    )
+    bytes: int | None = Field(
+        default=None,
+        ge=0,
+        description="Size of the file pushed, in bytes; absent on a failed line whose file was not read",
+    )
+    attempts: int | None = Field(
+        default=None,
+        description=f"Attempts made: 0 while pending, 1 to {DELIVERY_ATTEMPTS} otherwise",
+    )
+    error: str | None = Field(
+        default=None, description="Why the last attempt failed; only on a failed delivery"
+    )
+
+    @property
+    def pair(self) -> tuple[str, str]:
+        """Return what the line is the latest state of: a delivered file, or a copy."""
+        if self.kind == "delivery":
+            return (self.file or "", self.destination or "")
+        return ("", self.to or "")
+
+    @model_validator(mode="after")
+    def _check_kind(self) -> PublishedLine:
+        if self.kind == "copy":
+            self._require(_COPY_FIELDS, "a copy")
+            self._refuse(_DELIVERY_FIELDS, "a copy")
+            if self.error is not None:
+                raise ValueError("only a failed delivery line carries error.")
+            return self
+        needed = _DELIVERY_FIELDS
+        if self.state == "failed":
+            needed = tuple(name for name in needed if name not in _UNREAD_FIELDS)
+            if (self.sha256 is None) != (self.bytes is None):
+                raise ValueError(
+                    "a failed delivery line carries both sha256 and bytes, or neither."
+                )
+        self._require(needed, "a delivery")
+        self._refuse(_COPY_FIELDS, "a delivery")
+        if self.state == "failed":
+            if self.error is None:
+                raise ValueError(
+                    "a failed delivery line carries error, the reason of the last attempt."
+                )
+        elif self.error is not None:
+            raise ValueError("only a failed delivery line carries error.")
+        if self.state == "pending" and self.attempts != 0:
+            raise ValueError("a pending delivery line has attempts = 0.")
+        if self.state != "pending" and not 1 <= (self.attempts or 0) <= DELIVERY_ATTEMPTS:
+            raise ValueError(
+                f"a delivered or failed delivery line has attempts = 1 to {DELIVERY_ATTEMPTS}, "
+                "the tries made."
+            )
+        return self
+
+    def _require(self, names: tuple[str, ...], what: str) -> None:
+        missing = [name for name in names if getattr(self, name) is None]
+        if missing:
+            raise ValueError(f"{what} line requires {', '.join(missing)}.")
+
+    def _refuse(self, names: tuple[str, ...], what: str) -> None:
+        given = [name for name in names if getattr(self, name) is not None]
+        if given:
+            raise ValueError(f"{what} line carries no {', '.join(given)}.")
+
+
+def latest_by_pair(lines: Iterable[PublishedLine]) -> dict[tuple[str, str], PublishedLine]:
+    """Return the last line of each pair, in the order the pairs first appear.
+
+    A pair is the file and the destination of a delivery, or the destination
+    of a copy. This is the only reader of the state of ``published.jsonl``.
+    """
+    latest: dict[tuple[str, str], PublishedLine] = {}
+    for line in lines:
+        latest[line.pair] = line
+    return latest
+
+
+def deliveries_of(run_dir: str | Path) -> tuple[PublishedLine, ...]:
+    """Return the latest delivery line of each pair of a run, in the order they appear."""
+    deliveries = (line for line in read_published(run_dir) if line.kind == "delivery")
+    return tuple(latest_by_pair(deliveries).values())
 
 
 def publication_path(directory: str | Path) -> Path:
@@ -268,7 +396,13 @@ def read_published(source_dir: str | Path) -> list[PublishedLine]:
     return [
         read_stored(
             PublishedLine,
-            check_sealed(json.loads(text), PUBLISHED_VERSIONS, path=target, line=number),
+            check_sealed(
+                json.loads(text),
+                PUBLISHED_VERSIONS,
+                path=target,
+                line=number,
+                remedy=PUBLISHED_REMEDY,
+            ),
         )
         for number, text in enumerate(complete, start=1)
         if text.strip()
@@ -328,13 +462,16 @@ def _relative_or_redacted(path: PurePosixPath | PureWindowsPath, root: Path | No
 
 
 __all__ = [
+    "DELIVERY_ATTEMPTS",
     "PUBLICATION_SCHEMA",
     "PUBLICATION_VERSIONS",
     "PROJECT_REL_DIR",
+    "PUBLISHED_REMEDY",
     "PUBLISHED_SCHEMA",
     "PUBLISHED_VERSIONS",
     "REDACTED_KEYS",
     "REDACTED_PATH",
+    "DeliveryState",
     "Publication",
     "PublicationConfig",
     "PublicationExtra",
@@ -342,8 +479,11 @@ __all__ = [
     "PublicationKind",
     "PublicationMember",
     "PublicationSource",
+    "PublishedKind",
     "PublishedLine",
     "append_published",
+    "deliveries_of",
+    "latest_by_pair",
     "publication_path",
     "published_path",
     "read_publication",

@@ -68,6 +68,7 @@ from hydromodpy.model.sinks_sources.container import (
     WELLS,
 )
 from hydromodpy.model.supports import INITIAL_STATE_TRAITS
+from hydromodpy.results.field_registry import FACE_FLOW
 from hydromodpy.solver.base.registry import solvers
 
 logger = get_logger(__name__)
@@ -309,6 +310,38 @@ def refuse_the_reads_the_flow_does_not_write(cfg: Any, *, sealed: bool) -> None:
                 IncompatibleCapabilitiesError,
                 sealed=sealed,
             )
+
+
+def refuse_face_flows_the_flow_does_not_write(cfg: Any, *, sealed: bool) -> None:
+    """Refuse ``keep_face_flows`` when the flow of the run does not write it.
+
+    A run that keeps the flow between cells asks the flow solver for
+    ``face_flow``. A solver that does not write it keeps nothing, so the run
+    stops while the file is read and names the solvers that write it.
+
+    Raises
+    ------
+    IncompatibleCapabilitiesError
+        Naming the backend and the flow solvers that write ``face_flow``.
+    """
+    if not cfg.simulation.results.keep_face_flows:
+        return
+    backend = cfg.solver.backend_name
+    if FACE_FLOW in solvers.get("flow", backend).writes:
+        return
+    flows = _flows_writing(FACE_FLOW)
+    remedy = (
+        f"Run the flow with a solver that writes it ({', '.join(flows)}), or set "
+        "keep_face_flows = false."
+        if flows
+        else "No flow solver of this installation writes it; set keep_face_flows = false."
+    )
+    _refuse(
+        "[simulation.results] keep_face_flows = true keeps the flow between cells, "
+        f"and solver.backend = {backend!r} does not write it. {remedy}",
+        IncompatibleCapabilitiesError,
+        sealed=sealed,
+    )
 
 
 def refuse_the_traits_the_solver_ignores(cfg: Any, *, sealed: bool) -> None:
@@ -1483,6 +1516,11 @@ CROSS_RULES: dict[str, CrossRule] = {
         CrossRule(
             refuse_the_reads_the_flow_does_not_write, _reads("solver", "simulation"), "incompatible"
         ),
+        CrossRule(
+            refuse_face_flows_the_flow_does_not_write,
+            _reads("solver", "simulation"),
+            "incompatible",
+        ),
         CrossRule(refuse_an_ignored_family_written, _reads("mesh"), "incompatible"),
         CrossRule(
             refuse_a_point_method_under_a_lumped_mesh, _reads("mesh", "flow"), "incompatible"
@@ -1605,6 +1643,7 @@ __all__ = [
     "refuse_a_transport_its_flow_does_not_feed",
     "refuse_a_window_chain_the_run_cannot_carry",
     "refuse_conditioning_choices_on_a_conditioned_dem",
+    "refuse_face_flows_the_flow_does_not_write",
     "refuse_an_angle_with_a_depth_profile",
     "refuse_an_export_that_cannot_be_written",
     "refuse_an_ignored_family_written",

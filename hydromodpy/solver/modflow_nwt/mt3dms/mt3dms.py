@@ -39,6 +39,7 @@ from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
 from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
+from hydromodpy.results.field_registry import FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
@@ -560,7 +561,7 @@ class Mt3dmsTransportAdapter:
     accepted_meshes: ClassVar[frozenset[str]] = frozenset()
     geometry: ClassVar[str] = "raster"
     writes: ClassVar[tuple[str, ...]] = ("concentration/*",)
-    reads: ClassVar[tuple[str, ...]] = ("face_flow",)
+    reads: ClassVar[tuple[str, ...]] = (FACE_FLOW,)
     supports: ClassVar[frozenset[str]] = frozenset()
     options: ClassVar[type[BaseModel] | None] = ConcentrationTransportParametersConfig
     category: ClassVar[str] = "distributed"

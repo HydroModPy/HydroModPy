@@ -150,6 +150,12 @@ def test_a_faulty_register_is_refused_with_its_fault(text: str, fault: str) -> N
         read(text)
 
 
+def test_a_default_that_only_changes_what_is_written_needs_no_quantity() -> None:
+    register = read(HEAD + DEFAULT.replace('["metrics"]', "[]"))
+
+    assert register.defaults[0].quantities == ()
+
+
 def test_every_fault_is_told_at_once() -> None:
     text = HEAD + BUG.replace('id = "b"', 'id = "B"') + MOVE + 'rule = "_f"\n'
 

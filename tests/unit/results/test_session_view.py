@@ -16,10 +16,11 @@ from hydromodpy.results.errors import SeveralCasesError
 from hydromodpy.results.record.checks import CalibratedBy
 from hydromodpy.results.session.descriptor import BestCase, BestTrial, write_session
 from hydromodpy.results.session.journal import append_trial
-from hydromodpy.results.session.view import TRIAL_COLUMNS, Session
+from hydromodpy.results.session.view import PROFILE_COLUMNS, TRIAL_COLUMNS, Session
 from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
+from hydromodpy.results.storage.run_profile import ProfileLine
 from tests._helpers.sealed_runs import make_project, seal_run, write_session_dir
-from tests._helpers.session_documents import NOW, joint_session, joint_trial
+from tests._helpers.session_documents import NOW, joint_session, joint_trial, trial_line
 
 pytestmark = pytest.mark.fast
 
@@ -140,3 +141,100 @@ def test_the_best_of_several_cases_is_refused_and_best_by_case_names_each(tmp_pa
     by_case = session.best_by_case
     assert by_case["a"] is not None and by_case["a"].sim_id == sim_id
     assert by_case["b"] is None
+
+
+def _line(kind: str, name: str, seconds: float, reused: str = "no") -> ProfileLine:
+    return ProfileLine(
+        kind=kind, name=name, attempt=1, started_at=NOW, duration_s=seconds, reused=reused
+    )
+
+
+def _journal(tmp_path: Path) -> Path:
+    directory = tmp_path / "sessions" / "calage"
+    directory.mkdir(parents=True)
+    write_session(directory, joint_session())
+    # Trial 1 is proposed, finished and linked, trial 2 finished with a rerun, trial 3 only proposed.
+    append_trial(directory, trial_line(1, event="proposed", cost=None, status="running", batch=1))
+    append_trial(directory, trial_line(2, event="proposed", cost=None, status="running", batch=1))
+    append_trial(directory, trial_line(3, event="proposed", cost=None, status="running", batch=2))
+    append_trial(
+        directory,
+        trial_line(
+            1,
+            batch=1,
+            rule="2",
+            window="calibration",
+            profile=[
+                _line("step", "run_solver", 3.0),
+                _line("solve", "run", 2.5),
+            ],
+        ),
+    )
+    append_trial(
+        directory,
+        trial_line(
+            2,
+            batch=1,
+            rule="2",
+            window="calibration",
+            profile=[
+                _line("step", "run_solver", 1.0),
+                _line("solve", "run", 0.5, "rerun"),
+            ],
+        ),
+    )
+    append_trial(
+        directory,
+        trial_line(
+            1,
+            event="linked",
+            batch=1,
+            rule="2",
+            window="calibration",
+            sim_id="x" * 12,
+            profile=[_line("step", "run_solver", 3.0), _line("solve", "run", 2.5)],
+        ),
+    )
+    return directory
+
+
+def test_the_trial_frame_counts_folded_trials_and_reads_the_new_columns(tmp_path: Path) -> None:
+    session = Session(_journal(tmp_path))
+
+    trials = session.trials.set_index("trial")
+
+    assert list(trials.index) == [1, 2, 3]
+    assert list(trials["batch"]) == [1, 1, 2]
+    assert list(trials.loc[[1, 2], "rule"]) == ["2", "2"]
+    assert list(trials.loc[[1, 2], "window"]) == ["calibration", "calibration"]
+    assert list(trials.loc[[1, 2], "solve_s"]) == [2.5, 0.5]
+    assert list(trials.loc[[1, 2], "reused"]) == ["no", "rerun"]
+    assert trials.loc[3, "status"] == "running"
+    assert trials.loc[3, ["rule", "window", "solve_s", "reused"]].isna().all()
+
+
+def test_the_profile_adds_the_lines_of_the_last_line_of_each_trial(tmp_path: Path) -> None:
+    profile = Session(_journal(tmp_path)).profile()
+
+    assert list(profile.columns) == list(PROFILE_COLUMNS)
+    rows = {
+        (row.kind, row.name, row.reused): (row.lines, row.duration_s)
+        for row in profile.itertuples(index=False)
+    }
+    assert rows == {
+        ("solve", "run", "no"): (1, 2.5),
+        ("solve", "run", "rerun"): (1, 0.5),
+        ("step", "run_solver", "no"): (2, 4.0),
+    }
+
+
+def test_a_session_without_a_profile_gives_an_empty_typed_frame(tmp_path: Path) -> None:
+    directory = tmp_path / "sessions" / "old"
+    directory.mkdir(parents=True)
+    write_session(directory, joint_session())
+    append_trial(directory, trial_line(1))
+
+    profile = Session(directory).profile()
+
+    assert profile.empty
+    assert list(profile.columns) == list(PROFILE_COLUMNS)

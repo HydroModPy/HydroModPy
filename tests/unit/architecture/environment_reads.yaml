@@ -302,10 +302,17 @@ rows:
   class: diagnostic
   why: silences one mismatch warning, never a result
 
-# The one network client of the tree, counted by the arbiter: the
-# requests.Session() of core/io/fetch.py, made per call with trust_env off, so
-# that the netrc, the proxies and the CA bundle of the environment are never
-# read behind a download. A second site fails the gate.
+# The network clients of the tree, counted by the gate. The download client of
+# core/io/fetch.py is made per call with trust_env off, so that the netrc, the
+# proxies and the CA bundle of the environment are never read behind it. The
+# delivery client of project/deliver.py connects to the destination the caller
+# named, with the [[host]] block it read, and reaches no other address.
 network:
 - file: hydromodpy/core/io/fetch.py
   client: requests-session
+- file: hydromodpy/project/deliver.py
+  client: ftplib-ftp
+- file: hydromodpy/project/deliver.py
+  client: ftplib-ftps
+- file: hydromodpy/project/deliver.py
+  client: paramiko-sftp

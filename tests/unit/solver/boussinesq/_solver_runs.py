@@ -44,5 +44,7 @@ def extract_run(
     store: Any, output_dir: Path, *, budget: BudgetKeep | None = None, start: object = None
 ) -> None:
     """Extract the run of ``output_dir`` into ``store``, keeping every budget term by default."""
-    retention = Retention(budget=BudgetKeep.everything() if budget is None else budget)
+    retention = Retention(
+        level="result", budget=BudgetKeep.everything() if budget is None else budget
+    )
     BoussinesqOutputAdapter().extract(solver_run_of(output_dir, start=start), store, retention)

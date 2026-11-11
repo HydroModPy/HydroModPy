@@ -27,14 +27,14 @@ In the order `standard_steps()` calls them. Helpers follow the step that uses th
 | `data_description.py` | what a data load read, and the `data_description` document that says so |
 | `mesh.py` | step `build_mesh`: plan one request, build the cell mesh, cache it |
 | `mesh_inputs.py` | what the mesh planner reads besides `[mesh]` from the run context |
-| `planning.py` | the `SimulationPlan` and the per-cell budget it keeps |
+| `planning.py` | the `SimulationPlan` and the per-cell budget the run's level keeps |
 | `prepare_solver/` | step `prepare_solver`: opens the run (see its README) |
 | `run_solver.py` | step `run_solver`: executes the plan with `SimulationRunner`, and puts back the `SolverRun` of each run when a resume starts after it |
-| `extract.py` | step `extract`: solver files read into the store, observations ingested, and `retention_of`, what the run keeps |
+| `extract.py` | step `extract`: solver files read into the store, observations ingested, and `retention_of`, what the run's level keeps |
 | `run_outputs.py` | what happens after a solve, each on the `RunContext` of one run: `extract_run_outputs` calls the `extract` of the adapter with the `SolverRun` and the `Retention`, `derive_run_outputs` and `cleanup_solver_outputs` follow, and `extract.py`, `derive.py` and `export.py` call them |
 | `derive.py` | step `derive`: catchment aggregates, observation points, fit metrics |
-| `display.py` | step `display`: the figures of `[display]` |
-| `export.py` | steps `export` and `seal`: the `[[export]]` requests, the scratch cleanup, then the seal |
+| `display.py` | step `display`: the figures of `[display]`, none for a research run |
+| `export.py` | steps `export` and `seal`: the `[[export]]` requests, none for a research run, the scratch cleanup, then the seal |
 | `dependencies.py` | `earliest_affected_step`: the first step a set of overrides reaches |
 | `calibration.py` | the calibration session report and the trial pipeline provider |
 

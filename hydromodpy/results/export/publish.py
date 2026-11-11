@@ -81,6 +81,7 @@ from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.export.context import AssetEntry
 from hydromodpy.results.export.directory import context_from_directory, publication_of
 from hydromodpy.results.export.rocrate import write_ro_crate_view
+from hydromodpy.results.exporters.destination import without_delivery
 from hydromodpy.results.publication import (
     PROJECT_REL_DIR,
     PUBLICATION_VERSIONS,
@@ -385,6 +386,7 @@ def _publish_one(
         if staging.exists():
             shutil.rmtree(staging)
     return PublishedLine(
+        kind="copy",
         to=str(recorded_as or target),
         format=format,
         published_at=publication.published_at,
@@ -557,10 +559,13 @@ def _copy_file(source: Path, dest: Path, *, prefixes: tuple[str, ...], project_r
 
 
 def _redacted_document(path: Path, project_root: Path) -> str:
-    """Return a JSON or TOML document without host, user or absolute path."""
+    """Return a JSON or TOML document without host, user, absolute path or delivery address."""
     if path.suffix.lower() == ".toml":
         with path.open("rb") as handle:
-            return tomlkit.dumps(redact(tomllib.load(handle), project_root=project_root))
+            document = tomllib.load(handle)
+        if path.name in (RUN_CONFIG_FILENAME, RUN_RESOLVED_CONFIG_FILENAME):
+            document = without_delivery(document)
+        return tomlkit.dumps(redact(document, project_root=project_root))
     payload = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(payload, dict):
         cleaned: Any = redact(payload, project_root=project_root)

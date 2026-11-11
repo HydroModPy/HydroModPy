@@ -28,6 +28,8 @@ def test_field_descriptor_rank_matches_its_shape_signature() -> None:
         field_registry.SHAPE_LAYER_FACE: 2,
         field_registry.SHAPE_FACE: 1,
         field_registry.SHAPE_PARTICLES: 2,
+        field_registry.SHAPE_TIME_CONNECTION: 2,
+        field_registry.SHAPE_CONNECTION_PAIR: 2,
     }
     for name, descriptor in field_registry.FIELD_REGISTRY.items():
         assert len(descriptor.dimensions) == expected[descriptor.shape], name

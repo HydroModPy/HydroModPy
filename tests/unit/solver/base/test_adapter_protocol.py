@@ -5,12 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, ClassVar
 
-import pytest
 from pydantic import BaseModel
 
-from hydromodpy.results.field_registry import all_zarr_paths
+from hydromodpy.results.field_registry import FACE_FLOW, FIELD_REGISTRY, all_zarr_paths
+from hydromodpy.solver.base import adapter_protocol
 from hydromodpy.solver.base.adapter_protocol import (
-    HANDOFF_PRODUCTS,
     NULLABLE_ATTRIBUTES,
     OPTIONAL_MEMBERS,
     RERUN_MEMBERS,
@@ -76,14 +75,11 @@ def test_build_takes_the_model_the_options_the_slot_and_the_upstream_runs() -> N
     assert parameters == ["model", "options", "slot", "upstream"]
 
 
-def test_hand_off_names_the_products_a_flow_hands_a_transport() -> None:
-    assert HANDOFF_PRODUCTS == ("face_flow",)
-
-
-@pytest.mark.parametrize("product", HANDOFF_PRODUCTS)
-def test_no_hand_off_product_is_known_to_the_field_registry(product: str) -> None:
-    """One name, one place: the product leaves the tuple when the registry takes it."""
-    assert product not in all_zarr_paths()
+def test_the_face_flow_a_transport_reads_is_a_field_of_the_registry() -> None:
+    """One name, one place: the stored form of the hand-off lives in the registry."""
+    assert FACE_FLOW in FIELD_REGISTRY
+    assert FACE_FLOW in all_zarr_paths()
+    assert not hasattr(adapter_protocol, "HANDOFF_PRODUCTS")
 
 
 class _Options(BaseModel):

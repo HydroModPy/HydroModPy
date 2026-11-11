@@ -21,6 +21,7 @@ from hydromodpy.results.catalog.listing import (
     show_simulation,
     solve_seconds,
 )
+from hydromodpy.results.publication import PublishedLine, append_published
 from hydromodpy.results.record.manifest import MetricRow
 from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
@@ -88,6 +89,33 @@ def test_show_simulation_returns_the_facts(tmp_path: Path) -> None:
     assert payload["label"] == "exploratory"
     assert payload["nse"] == 0.6
     assert payload["exports"] == []
+    assert payload["deliveries"] == []
+
+
+def test_show_simulation_lists_the_latest_delivery_of_each_pair(tmp_path: Path) -> None:
+    _workspace, project, _sim_id = _seed_workspace(tmp_path)
+    run_dir = project / "runs" / "baseline"
+    for state, attempts in (("pending", 0), ("delivered", 1)):
+        append_published(
+            run_dir,
+            PublishedLine(
+                kind="delivery",
+                file="exports/head_last.tif",
+                destination="/data/depot/head_last.tif",
+                state=state,
+                sha256="a" * 64,
+                bytes=3,
+                attempts=attempts,
+                published_at=datetime(2026, 11, 10, tzinfo=UTC),
+            ),
+        )
+
+    payload = show_simulation("baseline", workspace=project)
+
+    assert [(entry["state"], entry["attempts"]) for entry in payload["deliveries"]] == [
+        ("delivered", 1)
+    ]
+    assert payload["deliveries"][0]["file"] == "exports/head_last.tif"
 
 
 def test_show_simulation_detail_adds_the_zarr_layout(tmp_path: Path) -> None:

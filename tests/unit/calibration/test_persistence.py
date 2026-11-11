@@ -1,20 +1,27 @@
-"""Tests of `persistence`."""
+"""Tests of `persistence`: the session documents and the trial journal it writes."""
 
 from __future__ import annotations
 
+import json
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
 
+from hydromodpy.calibration.optim.optimizer import ParamSuggestion
 from hydromodpy.calibration.persistence import (
     DEFAULT_PHASE,
     CalibrationPersistence,
     PersistDetail,
     PhaseContext,
+    scored_window,
 )
+from hydromodpy.results.metric_rule import METRIC_RULE_VERSION, PeriodWindow
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.session.descriptor import ParameterWidth, ScoredSamples, read_session
+from hydromodpy.results.session.journal import trials_path
 from hydromodpy.results.session.phase import read_phase
+from hydromodpy.results.storage.run_profile import ProfileLine
 from tests.unit.calibration._factories_runners import journal_trial, make_session
 
 # From test_the_best_trial_is_on_the_path_of_the_search.py
@@ -167,3 +174,140 @@ def test_the_closing_of_a_session_and_of_a_phase_keeps_every_field_it_is_given(
     assert closed.root_search == {"bracket": 1}
     assert closed.ended_at is not None and closed.ended_at.tzinfo is not None
     assert closed.ended_at == read_outcome(session.directory).ended_at
+
+
+# -- the trial journal in events ------------------------------------------------
+
+
+def _describe(values):
+    return {name: {"value": value, "units": "m/s"} for name, value in values.items()}
+
+
+def _batch(*trial_ids: int) -> list[ParamSuggestion]:
+    return [
+        ParamSuggestion(trial_id=trial_id, values={"K": 1e-5 * trial_id}) for trial_id in trial_ids
+    ]
+
+
+def _events(persistence: CalibrationPersistence) -> list[dict]:
+    text = trials_path(persistence.directory).read_text(encoding="utf-8")
+    return [json.loads(line) for line in text.splitlines()]
+
+
+def test_propose_numbers_a_batch_in_its_order_and_writes_one_line_per_trial(
+    tmp_path: Path,
+) -> None:
+    persistence = make_session(tmp_path)
+    numbers = persistence.propose(_batch(7, 3), batch=1, parameters=_describe)
+    numbers += persistence.propose(_batch(9), batch=2, parameters=_describe)
+
+    assert numbers == [1, 2, 3]
+    lines = _events(persistence)
+    assert [(line["event"], line["trial"], line["batch"]) for line in lines] == [
+        ("proposed", 1, 1),
+        ("proposed", 2, 1),
+        ("proposed", 3, 2),
+    ]
+    assert all(line["status"] == "running" and line["cost"] is None for line in lines)
+    assert lines[0]["params"]["K"]["value"] == pytest.approx(7e-5)
+    assert lines[0]["params"]["K"]["units"] == "m/s"
+    assert lines[0]["proposed_at"] == lines[1]["proposed_at"]
+
+
+def test_a_trial_proposed_twice_is_written_once(tmp_path: Path) -> None:
+    persistence = make_session(tmp_path)
+    persistence.propose(_batch(1), batch=1)
+    persistence.propose(_batch(1), batch=2)
+    assert [line["batch"] for line in _events(persistence)] == [1]
+
+
+def test_the_finished_line_reads_the_batch_and_the_instant_of_its_proposal(
+    tmp_path: Path,
+) -> None:
+    persistence = make_session(tmp_path)
+    persistence.propose(_batch(1, 2), batch=4)
+    proposed_at = _events(persistence)[0]["proposed_at"]
+
+    line = journal_trial(persistence, 2, 0.3)
+
+    assert (line.event, line.trial, line.batch) == ("finished", 2, 4)
+    assert line.proposed_at == datetime.fromisoformat(proposed_at)
+    folded = persistence.trials()
+    assert [(t.trial, t.event, t.status) for t in folded] == [
+        (1, "proposed", "running"),
+        (2, "finished", "completed"),
+    ]
+    assert persistence.best_trial().trial == 2
+
+
+def test_a_trial_never_proposed_finishes_without_a_batch(tmp_path: Path) -> None:
+    line = journal_trial(make_session(tmp_path), 1)
+    assert (line.batch, line.proposed_at) == (None, None)
+
+
+WINDOWS: tuple[tuple[str, PhaseContext, str], ...] = (
+    ("the default phase", PhaseContext(), "calibration"),
+    ("a named window", PhaseContext("transient", 1, window="spring"), "spring"),
+)
+
+
+@pytest.mark.parametrize(("case", "phase", "window"), WINDOWS, ids=[c for c, *_ in WINDOWS])
+def test_each_case_carries_the_rule_and_the_window_of_its_phase(
+    tmp_path: Path, case: str, phase: PhaseContext, window: str
+) -> None:
+    del case
+    line = journal_trial(make_session(tmp_path), 1, phase=phase)
+    assert (line.only_case.rule, line.only_case.window) == (METRIC_RULE_VERSION, window)
+    assert METRIC_RULE_VERSION == "2"
+
+
+def test_scored_window_names_the_period_of_role_calibration() -> None:
+    day = date(2020, 1, 1)
+    windows = {
+        "check": PeriodWindow(role="validation", start=day, end=day),
+        "spring": PeriodWindow(role="calibration", start=day, end=day),
+    }
+    assert scored_window(windows) == "spring"
+    assert scored_window({}) == "calibration"
+
+
+def test_the_profile_of_a_trial_goes_in_its_finished_line(tmp_path: Path) -> None:
+    from tests._helpers.session_documents import NOW
+
+    solve = ProfileLine(kind="solve", name="flow", attempt=1, started_at=NOW, duration_s=0.2)
+    line = journal_trial(make_session(tmp_path), 1, metadata={"profile": [solve]})
+    assert line.profile == [solve]
+
+
+def test_a_trial_read_from_the_cache_has_an_empty_profile(tmp_path: Path) -> None:
+    from tests._helpers.session_documents import NOW
+
+    solve = ProfileLine(kind="solve", name="flow", attempt=1, started_at=NOW, duration_s=0.2)
+    line = journal_trial(make_session(tmp_path), 1, from_cache=True, metadata={"profile": [solve]})
+    assert line.profile == []
+
+
+def test_link_trial_writes_a_linked_line_that_wins(tmp_path: Path) -> None:
+    persistence = make_session(tmp_path)
+    persistence.propose(_batch(1), batch=1)
+    journal_trial(persistence, 1)
+    persistence.link_trial(1, sim_id="c" * 32, rel_dir="runs/calage")
+
+    assert [line["event"] for line in _events(persistence)] == ["proposed", "finished", "linked"]
+    (trial,) = persistence.trials()
+    assert (trial.event, trial.only_case.sim_id) == ("linked", "c" * 32)
+
+
+def test_record_optimizer_keeps_the_seed_and_adds_each_restart_seed(tmp_path: Path) -> None:
+    persistence = make_session(tmp_path)
+    persistence.record_optimizer("main", seed=11)
+    persistence.record_optimizer("main", options={"sampler": "tpe"}, restart_seeds={"0": 11})
+    persistence.record_optimizer("main", restart_seeds={"1": 12})
+
+    block = read_session(persistence.directory).optimizer["main"]
+    assert (block.seed, block.options) == (11, {"sampler": "tpe"})
+    assert block.restart_seeds == {"0": 11, "1": 12}
+
+
+def test_a_descriptor_without_optimizer_reads_none(tmp_path: Path) -> None:
+    assert read_session(make_session(tmp_path).directory).optimizer is None
