@@ -354,7 +354,7 @@ def _read_settings(root: Path) -> _Settings:
     from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
     from hydromodpy.config.sites import RecipeSpec, SitesConfig, SitesSummaryConfig
     from hydromodpy.core.toml_io.loader import merge_toml_chain, read_toml_chain
-    from hydromodpy.project.launch.sites.expansion import declares_sites
+    from hydromodpy.project.launch.plan import declares_sites
     from hydromodpy.results.publication import PublicationConfig
 
     document = merge_toml_chain(

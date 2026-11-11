@@ -13,7 +13,6 @@ import json
 import os
 import re
 import shutil
-import socket
 import time
 import uuid
 from collections.abc import Callable, Iterable
@@ -22,8 +21,8 @@ from pathlib import Path
 
 from hydromodpy.core.io.lock_file import LockFile
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.host import death_is_proven, host_name
 from hydromodpy.core.state.layout import PRODUCTS_DIRNAME, internal_dir
-from hydromodpy.results.outcome import death_is_proven
 
 logger = get_logger(__name__)
 
@@ -188,11 +187,11 @@ class ProductStore:
 
     def _tmp_path(self, key: str) -> Path:
         suffix = uuid.uuid4().hex[:8]
-        return self.root / TMP_DIRNAME / f"{key}.{socket.gethostname()}.{os.getpid()}.{suffix}"
+        return self.root / TMP_DIRNAME / f"{key}.{host_name()}.{os.getpid()}.{suffix}"
 
     def _trash_path(self, key: str) -> Path:
         suffix = uuid.uuid4().hex[:8]
-        return self.root / TRASH_DIRNAME / f"{key}.{socket.gethostname()}.{os.getpid()}.{suffix}"
+        return self.root / TRASH_DIRNAME / f"{key}.{host_name()}.{os.getpid()}.{suffix}"
 
     def _sweep(self) -> None:
         """Remove temporary and trash folders of a dead writer, or older than a day."""
@@ -214,11 +213,13 @@ def _tree_size(path: Path) -> int:
 
 
 def _writer(name: str) -> tuple[str | None, int | None]:
-    parts = name.rsplit(".", 3)
-    if len(parts) != 4:
+    """The host and pid of ``<key>.<host>.<pid>.<suffix>``; a host may carry dots."""
+    _key, _, rest = name.partition(".")
+    parts = rest.rsplit(".", 2)
+    if len(parts) != 3:
         return None, None
     try:
-        return parts[1], int(parts[2])
+        return parts[0], int(parts[1])
     except ValueError:
         return None, None
 

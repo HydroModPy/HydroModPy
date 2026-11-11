@@ -161,7 +161,13 @@ class Identity(HydroModelBase):
         }
 
     def footer_text(self) -> str:
-        """Return the visible footer of a figure: site, period, version, label."""
+        """Return the visible footer of a figure: site, period, version, label.
+
+        A labelled block reads ``"<label>, rule <n>, <date>"``: the label is a
+        dated render of the sealed scores, so the footer names the rules it
+        follows and the day it was computed. A block without a label (a
+        directory without a seal) reads ``"unlabelled"``.
+        """
         site = self.site or self.case_id
         if self.period is None:
             period = "steady state, no period"
@@ -171,7 +177,7 @@ class Identity(HydroModelBase):
         if self.label is None:
             label = "unlabelled"
         else:
-            label = f"{self.label} ({self.label_date})"
+            label = f"{self.label}, rule {self.rule_version}, {self.label_date}"
         return " · ".join((site, period, version, label))
 
     def write_gpkg_metadata(self, path: str | Path) -> None:

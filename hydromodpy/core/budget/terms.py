@@ -61,6 +61,26 @@ PER_CELL_BUDGET_TERMS: frozenset[str] = frozenset(
     }
 )
 
+#: A reader's name for a budget term -> the per-cell terms a solver may write for
+#: it. MODFLOW 6 splits the storage of a cell into its specific storage and its
+#: specific yield, MODFLOW-NWT and Boussinesq write one ``storage``. Nothing is
+#: summed on write: a reader sums the members it finds.
+TERM_FAMILIES: dict[str, tuple[str, ...]] = {"storage": ("storage_ss", "storage_sy")}
+
+
+def family_terms(name: str, kept: Iterable[str]) -> tuple[str, ...]:
+    """Return the per-cell terms a reader sums for ``name``, among the terms a run kept.
+
+    ``name`` itself when the run kept it, else the members of its family the run
+    kept (one is enough: a confined model may write only ``storage_ss``), else
+    an empty tuple.
+    """
+    kept_names = set(kept)
+    if name in kept_names:
+        return (name,)
+    return tuple(member for member in TERM_FAMILIES.get(name, ()) if member in kept_names)
+
+
 # Synthetic term -> the CBC term its slab is built from.
 _SYNTHETIC_SOURCES: dict[str, str] = {STREAM_CONSTANT_HEAD_BUDGET: "constant_head"}
 
@@ -166,9 +186,11 @@ __all__ = [
     "POLICY_ALL",
     "POLICY_CONSUMERS",
     "SURFACE_EXCESS_TERM",
+    "TERM_FAMILIES",
     "BudgetKeep",
     "KeptBudget",
     "budget_terms_for",
     "budget_terms_for_fields",
+    "family_terms",
     "kept_budget",
 ]

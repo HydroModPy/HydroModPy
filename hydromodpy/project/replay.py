@@ -28,6 +28,7 @@ before the seal, and leaves the attempt with its fields and no seal.
 
 from __future__ import annotations
 
+import math
 import shutil
 import tomllib
 from dataclasses import dataclass
@@ -35,7 +36,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.config.config_migration import migrate_sealed_config_doc
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, WriteConflictError
+from hydromodpy.core.io.lock_file import LockFile
 from hydromodpy.results.record.manifest import read_seal
 from hydromodpy.results.storage.contract import (
     PUBLICATION_FILENAME,
@@ -217,13 +219,29 @@ def _play_copy(
     strict: bool,
     payload: Any,
 ) -> Any:
-    """Play a published copy from the bytes under ``inputs/``, and clean the rebuilt folders."""
+    """Play a published copy from the bytes under ``inputs/``, and clean the rebuilt folders.
+
+    The rebuilt folders live in ``.hmp/replay/<copy>``, held by the lock
+    ``<copy>.lock`` beside it. A folder left by a replay that was killed is
+    removed when its lock is judged stale (its pid is gone on this host), and
+    a replay of the same copy that still runs refuses this one.
+    """
     from hydromodpy.project.dispatch.workflow import run_simulation
     from hydromodpy.project.request import RunRequest
 
     folder = project_root / ".hmp" / "replay"
     workdir = folder / source.name
+    lock = LockFile(folder / f"{source.name}.lock", stale_after_s=math.inf, wait_s=0.0)
+    if not lock.acquire():
+        holder = lock.read()
+        who = "another replay" if holder is None else f"pid {holder.pid} on {holder.host}"
+        raise WriteConflictError(
+            f"{source.name} is being replayed into {project_root} by {who}; "
+            "wait for it to end, then replay again."
+        )
     try:
+        # A folder there is the leftover of a replay that died: its lock was stale.
+        shutil.rmtree(workdir, ignore_errors=True)
         pointed = payload(source, document, workdir=workdir, project_root=project_root)
         request = RunRequest(config=pointed, name=read_seal(source).run.name_stem)
         return run_simulation(
@@ -235,6 +253,7 @@ def _play_copy(
         )
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+        lock.release()
         if folder.is_dir() and not any(folder.iterdir()):
             folder.rmdir()
 

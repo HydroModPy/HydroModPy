@@ -72,8 +72,8 @@ def _rows(verb: str, *fields: str, open_fields: bool = False, version: int = 1) 
     return Output(verb, fields, rows=True, open_fields=open_fields, version=version)
 
 
-def _object(verb: str, *fields: str, experimental: bool = False) -> Output:
-    return Output(verb, fields, experimental=experimental)
+def _object(verb: str, *fields: str, experimental: bool = False, version: int = 1) -> Output:
+    return Output(verb, fields, experimental=experimental, version=version)
 
 
 _RUN_LISTING = (
@@ -346,16 +346,25 @@ OUTPUTS: tuple[Output, ...] = (
     # Reports and figures
     _object("report render", "path"),
     _object("report compare", "folder"),
+    _object("report catchment", "html_report", "report_json", "missing", version=2),
     _object(
-        "report catchment",
-        "overview_config",
-        "simulation_config",
-        "context_summary",
-        "html_report",
-        "postflight_report",
+        "show",
+        "name",
+        "method",
+        "status",
+        "trials_by_status",
+        "best_trial",
+        "best_cost",
+        "cost_label",
+        "scored_on",
+        "stop",
+        "bounds_reached",
+        "calibrated_variable",
+        "report",
+        "profile",
     ),
-    _rows("viz list", "name", "kind", "required_fields", "required_tables"),
-    _rows("viz list run", "name", "kind", "available", "reason"),
+    _rows("viz list", "name", "kind", "subject", "required_fields", "required_tables", version=2),
+    _rows("viz list run", "name", "kind", "subject", "available", "reason", version=2),
     _object("viz show", "path"),
     # Configuration
     _object(

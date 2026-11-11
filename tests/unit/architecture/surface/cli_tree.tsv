@@ -11,6 +11,7 @@ hmp calibrate --expand	nargs=0
 hmp calibrate --format	choices=['csv', 'json', 'table'] default='table'
 hmp calibrate --list-phases	nargs=0
 hmp calibrate --max-download-bytes	
+hmp calibrate --no-report	nargs=0
 hmp calibrate --overlay	default=[]
 hmp calibrate --phase	
 hmp calibrate --profile	nargs=?
@@ -565,20 +566,18 @@ hmp replay --workspace,-w
 hmp replay <ref>	required
 hmp report	command
 hmp report catchment	command
-hmp report catchment --context-only	nargs=0
 hmp report catchment --debug	nargs=0
 hmp report catchment --format	choices=['csv', 'json', 'table'] default='table'
-hmp report catchment --no-run-overview,--run-overview	nargs=0
-hmp report catchment --no-run-simulation,--run-simulation	nargs=0
-hmp report catchment --no-stream-run-logs,--stream-run-logs	nargs=0
-hmp report catchment --no-strict-figure-postflight,--strict-figure-postflight	nargs=0
-hmp report catchment --preset	choices=['generic', 'generic_catchment_report']
+hmp report catchment --lang	choices=['en', 'fr'] default='en'
+hmp report catchment --overview	
+hmp report catchment --preset	choices=['management', 'research'] default='research'
 hmp report catchment --quiet,-q	nargs=0
-hmp report catchment --report-only	nargs=0
+hmp report catchment --station	
+hmp report catchment --strict	nargs=0
 hmp report catchment --verbose,-v	nargs=0
 hmp report catchment --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp report catchment --workspace,-w	
-hmp report catchment <report_config>	required
+hmp report catchment <run>	required
 hmp report compare	command
 hmp report compare --by	choices=['site']
 hmp report compare --debug	nargs=0
@@ -626,6 +625,14 @@ hmp run --verbose,-v	nargs=0
 hmp run --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp run --workspace,-w	
 hmp run <config>	nargs=?
+hmp show	command
+hmp show --debug	nargs=0
+hmp show --format	choices=['csv', 'json', 'table'] default='table'
+hmp show --quiet,-q	nargs=0
+hmp show --verbose,-v	nargs=0
+hmp show --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
+hmp show --workspace,-w	
+hmp show <sim_ref>	required
 hmp site	command
 hmp site add	command
 hmp site add --crs	default='EPSG:2154'

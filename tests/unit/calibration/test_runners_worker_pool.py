@@ -482,7 +482,70 @@ def test_a_worker_kills_its_group_when_the_parent_goes(monkeypatch) -> None:
 
     worker_pool._die_with_the_parent()
 
-    assert kills == [["s"], (0, signal.SIGKILL)]
+    assert kills == [["s"], (os.getpid(), signal.SIGKILL)]
+
+
+def test_end_group_under_windows_asks_taskkill_for_the_whole_tree(monkeypatch) -> None:
+    runs = []
+    monkeypatch.setattr(worker_pool.os, "name", "nt")
+    monkeypatch.setattr(
+        worker_pool.subprocess, "run", lambda args, **kwargs: runs.append((args, kwargs))
+    )
+    monkeypatch.setattr(
+        worker_pool.os,
+        "killpg",
+        lambda *_: pytest.fail("no process group under Windows"),
+        raising=False,
+    )
+
+    worker_pool._end_group(4242)
+
+    assert runs == [
+        (["taskkill", "/F", "/T", "/PID", "4242"], {"capture_output": True, "check": False})
+    ]
+
+
+def test_a_worker_under_windows_does_not_open_a_session(monkeypatch) -> None:
+    monkeypatch.setattr(worker_pool.os, "name", "nt")
+    monkeypatch.setattr(
+        worker_pool.os, "setsid", lambda: pytest.fail("no session under Windows"), raising=False
+    )
+    monkeypatch.setattr(worker_pool.os, "open", lambda path, flags: 7)
+    monkeypatch.setattr(worker_pool.os, "dup2", lambda fd, target: None)
+    monkeypatch.setattr(worker_pool, "_serve", lambda conn: None)
+    monkeypatch.setattr(
+        worker_pool.threading, "Thread", lambda target, daemon: SimpleNamespace(start=lambda: None)
+    )
+
+    worker_pool._worker_main("conn")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="process groups are POSIX")
+def test_end_group_under_posix_kills_the_leader_and_its_child() -> None:
+    code = (
+        "import os, subprocess, sys, time\n"
+        "os.setsid()\n"
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+        "print(child.pid, flush=True)\n"
+        "time.sleep(60)\n"
+    )
+    leader = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, text=True)
+    try:
+        child_pid = int(leader.stdout.readline())
+        worker_pool._end_group(leader.pid)
+        assert leader.wait(timeout=10) == -signal.SIGKILL
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                os.kill(child_pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.05)
+        else:
+            pytest.fail("the child of the group is still alive")
+    finally:
+        leader.kill()
+        leader.stdout.close()
 
 
 class _Laned(_Scripted):

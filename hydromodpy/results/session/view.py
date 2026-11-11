@@ -130,6 +130,25 @@ class Session:
         self._read_config = read_config
         self._descriptor: SessionDescriptor | None = None
 
+    @classmethod
+    def of_run(cls, run: Any) -> Session | None:
+        """Return the session that promoted ``run``, or None when no session did.
+
+        The session is found from the lineage of the run (its ``session_id``)
+        among the ``sessions/*/`` of its project, and a kept trial under
+        ``sessions/<case>/trials/<n>`` is in its own session. A session figure
+        asked for on a run draws this session. The session opened here keeps
+        the ``read_config`` of the run, so its best run validates its
+        configuration as the run does.
+        """
+        # Imported here: calibration_trials reads this module at import time.
+        from hydromodpy.results.calibration_trials import session_dir_of
+
+        directory = session_dir_of(run)
+        if directory is None or not session_descriptor_path(directory).is_file():
+            return None
+        return cls(directory, read_config=getattr(run, "_read_config", None))
+
     @property
     def dir(self) -> Path:
         """The session directory."""

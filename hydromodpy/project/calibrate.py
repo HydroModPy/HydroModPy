@@ -14,6 +14,10 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.project.environment import Environment
@@ -37,8 +41,11 @@ def calibrate_a_file(
     resume: bool = False,
     force: bool = False,
     environment: Environment | None = None,
+    report: bool = True,
 ):
     """Run the calibration a TOML file declares. It needs no :class:`Project`.
+
+    ``report=False`` skips the session report written once the search is over.
 
     ``environment`` is the :class:`~hydromodpy.project.environment.Environment`
     of the call: ``None`` builds the default of the machine. It is checked
@@ -105,10 +112,12 @@ def calibrate_a_file(
         "resume": resume,
     }
     if declared_phases:
-        return run_staged_calibration(target, phase=phase, bounds=environment.bounds, **options)
-    # Same descent for the search of a calibration without phases: its trials
-    # load their data under the bounds of the call, never through os.environ.
-    return run_calibration_cli(target, bounds=environment.bounds, **options)
+        result = run_staged_calibration(target, phase=phase, bounds=environment.bounds, **options)
+    else:
+        # Same descent for the search of a calibration without phases: its trials
+        # load their data under the bounds of the call, never through os.environ.
+        result = run_calibration_cli(target, bounds=environment.bounds, **options)
+    return write_session_reports(result) if report else result
 
 
 def calibrate_project(
@@ -134,11 +143,12 @@ def calibrate_project(
     project_label: str | None = None,
     metric_fn: Any = None,
     objective: str | None = None,
+    report: bool = True,
 ):
     """Route :meth:`Project.calibrate` to the runner its declaration calls for.
 
     The arguments are those of :meth:`Project.calibrate`, whose docstring says
-    what each mode does and raises.
+    what each mode does and raises. ``report=False`` skips the session report.
     """
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.project.trial_pipeline import fill_trial_pipeline
@@ -168,7 +178,13 @@ def calibrate_project(
         if case is not None:
             raise ConfigError(FROM_FILE)
         return calibrate_a_file(
-            config_path, phase=phase, dry_run=dry_run, project=label, force=force, **options
+            config_path,
+            phase=phase,
+            dry_run=dry_run,
+            project=label,
+            force=force,
+            report=report,
+            **options,
         )
     if not (parameters or protocol is not None or dry_run or force or resume or phase is not None):
         identical = _identical_session(proj, case)
@@ -178,12 +194,41 @@ def calibrate_project(
         proj, dry_run=dry_run, label=label, phase=phase, case=case, options=options
     )
     if protocol is not None:
-        return run(_protocol_calibration(proj, protocol))
-    if not parameters:
-        return _calibrate_embedded(
+        result = run(_protocol_calibration(proj, protocol))
+    elif not parameters:
+        result = _calibrate_embedded(
             proj, run, phase=phase, case=case, dry_run=dry_run, label=label, options=options
         )
-    return run(_declared_calibration(proj, parameters, python_mode, phase=phase))
+    else:
+        result = run(_declared_calibration(proj, parameters, python_mode, phase=phase))
+    return write_session_reports(result) if report and not dry_run else result
+
+
+def write_session_reports(result: Any) -> Any:
+    """Write the report of each session directory of a finished calibration, and return it.
+
+    The directories are the one of ``result`` and the one of each phase. A report is a
+    render: one that fails warns and does not fail the calibration.
+    """
+    from hydromodpy.project.report import report_session
+    from hydromodpy.results.session.descriptor import session_descriptor_path
+
+    directories: list[Path] = []
+    top = getattr(result, "session_dir", None)
+    if top is not None:
+        directories.append(Path(top))
+    for phase in getattr(result, "phases", None) or ():
+        phase_dir = getattr(phase.report, "session_dir", None)
+        if phase_dir is not None:
+            directories.append(Path(phase_dir))
+    for directory in dict.fromkeys(directories):
+        if not session_descriptor_path(directory).is_file():
+            continue
+        try:
+            report_session(directory)
+        except Exception as exc:  # a render never fails a finished search
+            logger.warning("session report of %s not written: %s", directory.name, exc)
+    return result
 
 
 def _identical_session(proj: Project, case: str | None):

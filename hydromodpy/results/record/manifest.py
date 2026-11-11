@@ -57,12 +57,14 @@ from hydromodpy.results.storage.contract import (
     PARQUET_FILE_SUFFIX,
     RUN_ANNOTATIONS_FILENAME,
     RUN_CONFIG_FILENAME,
+    RUN_EXPORTS_DIRNAME,
     RUN_FIGURES_DIRNAME,
     RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,
     RUN_PRODUCTS_FILENAME,
     RUN_PROVENANCE_FILENAME,
     RUN_PURGED_FILENAME,
+    RUN_REPORT_DIRNAME,
     RUN_RESOLVED_CONFIG_FILENAME,
     RUN_SCRATCH_ENTRIES,
     TABLES_DIRNAME,
@@ -533,6 +535,16 @@ def is_sealed(run_dir: Path | str) -> bool:
     return (Path(run_dir) / RUN_MANIFEST_FILENAME).is_file()
 
 
+_RENDERED_AFTER_THE_SEAL: frozenset[str] = frozenset(
+    {RUN_FIGURES_DIRNAME, RUN_EXPORTS_DIRNAME, RUN_REPORT_DIRNAME}
+)
+"""Folders of a run written after its seal: figures, data exports and the report.
+
+They render the sealed run with its label of the day, so the seal never
+inventories them, on a first attempt as on a resume.
+"""
+
+
 def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
     """Inventory the run directory: relative path, role, format and size of each item.
 
@@ -546,7 +558,9 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
     changes after the seal, so any size recorded for it would be wrong by the
     next ``hmp catalog tag``. The
     generated views are left out for the same reason: they are rendered from
-    the seal, after it, and rendered again on request. The
+    the seal, after it, and rendered again on request. So are the figures,
+    the data exports and the report (:data:`_RENDERED_AFTER_THE_SEAL`): they
+    are written after the seal and carry its label of the day. The
     runtime scratch of :data:`RUN_SCRATCH_ENTRIES` is left out too, and for a
     different reason: it is not a result. Everything else found in the
     directory is inventoried, named or not, so a stray file stays visible.
@@ -558,7 +572,7 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
         name = path.name
         if name in (RUN_MANIFEST_FILENAME, RUN_ANNOTATIONS_FILENAME):
             continue
-        if name in GENERATED_VIEWS:
+        if name in GENERATED_VIEWS or name in _RENDERED_AFTER_THE_SEAL:
             continue
         if name in RUN_SCRATCH_ENTRIES:
             continue
@@ -591,8 +605,6 @@ def list_artifacts(run_dir: Path) -> list[dict[str, Any]]:
             )
         elif name == TABLES_DIRNAME and path.is_dir():
             entries.extend(_table_artifacts(run_dir, path))
-        elif name == RUN_FIGURES_DIRNAME and path.is_dir():
-            entries.extend(_figure_artifacts(run_dir, path))
         elif path.is_file():
             entries.append(
                 {
@@ -640,20 +652,6 @@ def _table_artifacts(run_dir: Path, tables_dir: Path) -> list[dict[str, Any]]:
             "bytes": path.stat().st_size,
         }
         for path in sorted(tables_dir.glob(f"*{PARQUET_FILE_SUFFIX}"))
-        if path.is_file()
-    ]
-
-
-def _figure_artifacts(run_dir: Path, figures_dir: Path) -> list[dict[str, Any]]:
-    """List the figures rendered for a run."""
-    return [
-        {
-            "path": path.relative_to(run_dir).as_posix(),
-            "role": "figure",
-            "format": path.suffix.lstrip(".") or "unknown",
-            "bytes": path.stat().st_size,
-        }
-        for path in sorted(figures_dir.rglob("*"))
         if path.is_file()
     ]
 

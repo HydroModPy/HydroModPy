@@ -1,13 +1,14 @@
-"""Orchestrate artifact generation for the data-overview report.
+"""Draw the panels of the data-overview report, one PNG per enabled panel.
 
-The report produces canonical block figures, legacy panel PNGs and a static
-HTML page under the workspace output root.
+The panels are drawn before the seal from the state in memory and from the
+rows of the data inventory, which the seal then writes. The page is written
+after the seal by ``display.report``, from the sealed directory.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import numpy as np
 
@@ -15,7 +16,6 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.display.overview.location import (
     overview_figures_dir,
     overview_run_dir_of,
-    review_pages_enabled,
 )
 from hydromodpy.display.overview.panels import (
     render_climatic_summary,
@@ -34,11 +34,7 @@ from hydromodpy.display.overview.summary import (
     hydrography_vector_path,
     outlet_xy,
     regional_context_title,
-    station_inventory,
-)
-from hydromodpy.display.overview.web import (
-    write_overview_review_web_reports,
-    write_overview_web_report,
+    station_table,
 )
 
 logger = get_logger(__name__)
@@ -47,12 +43,33 @@ if TYPE_CHECKING:
     from hydromodpy.core.contracts.overview import DataOverviewState
 
 
-def generate_overview_report(state: DataOverviewState) -> list[Path]:
-    """Generate overview report artifacts and return their paths."""
-    import matplotlib
+PANEL_FILES: Final[dict[str, str]] = {
+    "map_dem": "map_dem.png",
+    "map_geology": "map_geology.png",
+    "map_hydrography": "map_hydrography.png",
+    "stats_card": "stats_card.png",
+    "timeseries_discharge": "timeseries_discharge.png",
+    "timeseries_piezometry": "timeseries_piezometry.png",
+    "climatic_summary": "climatic_summary.png",
+    "timeseries_intermittency": "timeseries_intermittency.png",
+    "timeseries_water_quality": "timeseries_water_quality.png",
+    "station_inventory": "station_inventory.png",
+}
+"""PNG each field of ``[overview.panels]`` draws, in ``runs/<overview>/figures/``."""
 
-    matplotlib.use("Agg")
+REGIONAL_PANEL_FILE: Final = "map_regional_context.png"
+"""The regional map has no switch: it is drawn whenever a regional DEM is found."""
 
+
+def generate_overview_report(
+    state: DataOverviewState, inventory: list[dict[str, Any]]
+) -> list[Path]:
+    """Draw the panels of the overview and return their paths.
+
+    *inventory* is the list of rows of ``data_inventory`` (see
+    :func:`hydromodpy.workflow.overview.inventory_rows`): the stats card and
+    the station table read their counts from it.
+    """
     if state.cfg.overview is None:
         logger.info("[overview] No [overview] section - skipping report generation.")
         return []
@@ -61,7 +78,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     output_dir = _resolve_output_dir(state)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    summary = compute_overview_summary(state)
+    summary = compute_overview_summary(state, inventory)
     ld = state.loaded_data
     dg = state.domain_geographic
 
@@ -83,7 +100,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     if regional_dem_path and watershed_shp:
         paths.append(
             _render_panel(
-                output_dir / "map_regional_context.png",
+                output_dir / REGIONAL_PANEL_FILE,
                 figsize=(8, 6.4),
                 render_fn=render_regional_context_map,
                 regional_dem_path=str(regional_dem_path),
@@ -98,7 +115,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     if panels_cfg.map_dem and dem_path:
         paths.append(
             _render_panel(
-                output_dir / "map_dem.png",
+                output_dir / PANEL_FILES["map_dem"],
                 figsize=(7, 6),
                 render_fn=render_dem_map,
                 dem_path=str(dem_path),
@@ -115,7 +132,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         geology_gdf = _load_geology_gdf(ld.geology)
         paths.append(
             _render_panel(
-                output_dir / "map_geology.png",
+                output_dir / PANEL_FILES["map_geology"],
                 figsize=(9, 6),
                 render_fn=render_geology_map,
                 dem_path=str(dem_path),
@@ -129,7 +146,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     if panels_cfg.map_hydrography and dem_path:
         paths.append(
             _render_panel(
-                output_dir / "map_hydrography.png",
+                output_dir / PANEL_FILES["map_hydrography"],
                 figsize=(7, 6),
                 render_fn=render_hydrography_map,
                 dem_path=str(dem_path),
@@ -148,7 +165,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         )
         paths.append(
             _render_panel(
-                output_dir / "timeseries_discharge.png",
+                output_dir / PANEL_FILES["timeseries_discharge"],
                 figsize=(10, 4),
                 render_fn=render_timeseries_multi,
                 df=obs_df,
@@ -166,7 +183,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         piezo_hlines = _piezo_altitude_hlines(piezo_records)
         paths.append(
             _render_panel(
-                output_dir / "timeseries_piezometry.png",
+                output_dir / PANEL_FILES["timeseries_piezometry"],
                 figsize=(10, 4),
                 render_fn=render_timeseries_multi,
                 df=obs_df,
@@ -185,7 +202,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         n_rows = 1 if onde_df is None else len(onde_df.columns)
         paths.append(
             _render_panel(
-                output_dir / "timeseries_intermittency.png",
+                output_dir / PANEL_FILES["timeseries_intermittency"],
                 figsize=(9, 0.9 + 1.9 * n_rows),
                 render_fn=render_intermittency,
                 df=onde_df,
@@ -201,7 +218,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         series_by_param = _wq_series_by_parameter(wq_records)
         paths.append(
             _render_panel(
-                output_dir / "timeseries_water_quality.png",
+                output_dir / PANEL_FILES["timeseries_water_quality"],
                 figsize=(10, 0.9 + 2.6 * max(1, len(series_by_param))),
                 render_fn=render_water_quality,
                 series_by_param=series_by_param,
@@ -218,7 +235,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         monthly_etp = _monthly_mean_from_result(ld.etp)
         paths.append(
             _render_panel(
-                output_dir / "climatic_summary.png",
+                output_dir / PANEL_FILES["climatic_summary"],
                 figsize=(8, 4),
                 render_fn=render_climatic_summary,
                 monthly_precip=monthly_precip,
@@ -230,7 +247,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     if panels_cfg.stats_card:
         paths.append(
             _render_panel(
-                output_dir / "stats_card.png",
+                output_dir / PANEL_FILES["stats_card"],
                 figsize=(6, 5),
                 render_fn=render_stats_card,
                 summary=summary,
@@ -238,19 +255,15 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
         )
 
     if panels_cfg.station_inventory:
-        inventory = station_inventory(state)
+        stations = station_table(inventory)
         paths.append(
             _render_panel(
-                output_dir / "station_inventory.png",
-                figsize=(10, max(3, 0.35 * len(inventory) + 1)),
+                output_dir / PANEL_FILES["station_inventory"],
+                figsize=(10, max(3, 0.35 * len(stations) + 1)),
                 render_fn=render_station_inventory,
-                inventory=inventory,
+                inventory=stations,
             )
         )
-
-    write_overview_web_report(state, figure_paths=paths)
-    if review_pages_enabled():
-        write_overview_review_web_reports(state, figure_paths=paths)
 
     logger.info("[overview] Generated %d panel artifact(s) in %s", len(paths), output_dir)
     return paths
@@ -267,15 +280,19 @@ def _resolve_output_dir(state: DataOverviewState) -> Path:
 
 
 def _render_panel(save_path: Path, *, figsize: tuple[float, float], render_fn, **kwargs) -> Path:
-    """Create a figure, call the render function, save, close."""
-    import matplotlib.pyplot as plt
+    """Create a figure on its own Agg canvas, call the render function, save.
 
-    fig, ax = plt.subplots(figsize=figsize, dpi=200, constrained_layout=True)
-    try:
-        render_fn(ax, **kwargs)
-        fig.savefig(save_path, dpi=200, bbox_inches="tight")
-    finally:
-        plt.close(fig)
+    The figure never enters the pyplot registry and no backend is switched, so
+    a panel drawn in one thread leaves the others alone.
+    """
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    fig = Figure(figsize=figsize, dpi=200, layout="constrained")
+    FigureCanvasAgg(fig)
+    ax = fig.subplots()
+    render_fn(ax, **kwargs)
+    fig.savefig(save_path, dpi=200, bbox_inches="tight")
     return save_path
 
 

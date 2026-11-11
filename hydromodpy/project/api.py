@@ -30,13 +30,13 @@ from hydromodpy.core.toml_io.loader import (
     read_toml_chain,
 )
 from hydromodpy.project.environment import Environment
-from hydromodpy.project.launch.sites.expansion import (
+from hydromodpy.project.launch.plan import (
     PlanDraft,
     SitesProjectError,
     expand_plan,
     find_sites_file,
+    group_diagnostics,
 )
-from hydromodpy.project.launch.sites.issues import group_diagnostics
 from hydromodpy.results.session.descriptor import resolve_session_dir
 from hydromodpy.results.storage.attempt import request_stop, run_dir_for_name
 from hydromodpy.workflow.dispatch import (

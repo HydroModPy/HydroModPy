@@ -193,6 +193,29 @@ def test_an_entry_the_roles_do_not_name_stays_other(tmp_path: Path):
     assert roles["tables.parquet/simulation.parquet"] == "table:simulation"
 
 
+@pytest.mark.parametrize(
+    ("folder", "file"),
+    [
+        ("figures", "seepage_map.png"),
+        ("exports", "head_last.tif"),
+        ("report", "index.html"),
+    ],
+)
+def test_what_renders_the_run_after_its_seal_is_never_inventoried(
+    tmp_path: Path, folder: str, file: str
+):
+    (tmp_path / "fields.zarr").mkdir()
+    (tmp_path / folder).mkdir()
+    (tmp_path / folder / file).write_bytes(b"rendered")
+    (tmp_path / folder / "index.json").write_text("{}", encoding="utf-8")
+
+    paths = [entry["path"] for entry in list_artifacts(tmp_path)]
+
+    assert "fields.zarr" in paths
+    assert not [path for path in paths if path == folder or path.startswith(f"{folder}/")]
+    assert all(entry["role"] != "figure" for entry in list_artifacts(tmp_path))
+
+
 def _purged_trial(run_dir: Path, *, kind: str = "trial", mesh_sha256: str | None = None) -> None:
     artifacts = [
         {"path": "fields.zarr", "role": "fields"},

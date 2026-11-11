@@ -15,15 +15,15 @@ import pytest
 from hydromodpy.calibration.report import (
     FrozenParameter,
     PhaseRun,
-    load_session_report_data,
     promotion_failures,
     unfinished_session,
 )
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.results.errors import SeveralCasesError
 from hydromodpy.results.metric_rule import PeriodWindow
-from hydromodpy.results.session.descriptor import BestCase, BestTrial
-from hydromodpy.results.session.view import TRIAL_COLUMNS
+from hydromodpy.results.session.descriptor import BestCase, BestTrial, read_session
+from hydromodpy.results.session.summary import session_summary
+from hydromodpy.results.session.view import TRIAL_COLUMNS, Session
 from hydromodpy.results.storage.contract import TABLES_DIRNAME
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
@@ -197,7 +197,7 @@ def test_a_session_closed_short_of_completed_is_told_with_its_reason(tmp_path: P
 
 
 @pytest.mark.parametrize("variable", ["discharge", "lake_level"])
-def test_the_report_data_names_the_promoted_run_and_the_calibrated_variable(
+def test_the_summary_names_the_calibrated_variable_and_the_descriptor_the_promoted_run(
     tmp_path: Path, variable: str
 ) -> None:
     session = make_session(tmp_path)
@@ -205,14 +205,15 @@ def test_the_report_data_names_the_promoted_run_and_the_calibrated_variable(
     case = BestCase(sim_id="r1", rel_dir="runs/r1", cost=0.1)
     session.set_best(BestTrial(trial=1, cost=0.1, parameters={"K": 1e-4}, cases={"calage": case}))
 
-    data = load_session_report_data(session.directory)
+    summary = session_summary(Session(session.directory))
+    run = read_session(session.directory).only_run
 
-    assert (data.variable, data.best_sim_id, data.best_rel_dir) == (variable, "r1", "runs/r1")
+    assert (summary.calibrated_variable, run.sim_id, run.rel_dir) == (variable, "r1", "runs/r1")
 
 
 def test_a_session_without_frozen_config_or_variable_reads_the_discharge(tmp_path: Path) -> None:
     session = make_session(tmp_path)
-    assert load_session_report_data(session.directory).variable == "discharge"
+    assert session_summary(Session(session.directory)).calibrated_variable == "discharge"
 
     (session.directory / "config.toml").write_text("[flow]\n")
-    assert load_session_report_data(session.directory).variable == "discharge"
+    assert session_summary(Session(session.directory)).calibrated_variable == "discharge"

@@ -21,7 +21,7 @@ def test_config_check_refuses_a_retired_mode_with_its_replacement(tmp_path) -> N
 
 
 def test_config_check_expands_a_sites_project_and_finds_no_error(tmp_path) -> None:
-    from tests.unit.project.launch.test_sites_plan import write_sites_project
+    from tests.unit.project.launch.test_plan import write_sites_project
 
     project = write_sites_project(tmp_path)
 
@@ -35,7 +35,7 @@ def test_config_check_expands_a_sites_project_and_finds_no_error(tmp_path) -> No
 
 
 def test_config_check_names_the_cell_of_a_sites_project_error(tmp_path) -> None:
-    from tests.unit.project.launch.test_sites_plan import write_sites_project
+    from tests.unit.project.launch.test_plan import write_sites_project
 
     project = write_sites_project(tmp_path, k_cells=("5e-5", "not_a_number"))
 
@@ -169,7 +169,7 @@ def test_config_resolve_names_a_broken_chain(tmp_path) -> None:
 
 
 def test_config_check_names_a_recipe_that_cannot_be_read(tmp_path) -> None:
-    from tests.unit.project.launch.test_sites_plan import write_sites_project
+    from tests.unit.project.launch.test_plan import write_sites_project
 
     project = write_sites_project(tmp_path)
     (project / "bad.toml").write_text('base_config = "project.toml"\n[flow\n', encoding="utf-8")

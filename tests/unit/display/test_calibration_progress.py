@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import json
-import uuid
 import warnings
-from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,8 +11,19 @@ import pandas as pd
 import pytest
 
 from hydromodpy.display.figure_registry import get, names
+from hydromodpy.display.figures._calibration_session import frozen_values
 from hydromodpy.display.figures._trial_diagnostics import trial_table
 from hydromodpy.display.figures.calibration_progress import CalibrationProgressFigure, _with_frozen
+from hydromodpy.results.session.descriptor import ParameterBound
+from hydromodpy.results.session.view import Session
+
+from ._calibration_journal import (
+    K_BOUNDS,
+    TWO_ROOT_CONFIG,
+    TWO_ROOTS,
+    journal_session,
+    two_root_rows,
+)
 
 # The calibration progress slide draws any search, labeled with its metric.
 #
@@ -34,17 +42,20 @@ SY_BEST = 0.06
 MAPPED = 500.0
 
 
-class _SessionRun:
-    """A run-shaped carrier of one session: its trials and its session row."""
-
-    def __init__(self, rows: list[dict], session: dict, *, name: str) -> None:
-        self.calibration_iterations = rows
-        self.calibration_sessions = pd.DataFrame([session])
-        self.name = name
-        self.sim_id = session["session_id"]
-
-    def has_table(self, table: str) -> bool:
-        return table == "calibration_iterations" and bool(self.calibration_iterations)
+def _written(project: Path, rows: list[dict], method: str, phase: str, config: dict, name: str):
+    """Write the trials and the frozen configuration of one synthetic search as a session."""
+    bounds = {
+        key: ParameterBound(
+            lower=value["bounds"][0],
+            upper=value["bounds"][1],
+            search_space=value["search_space"],
+            units=value["units"],
+        )
+        for key, value in config["parameters"].items()
+    }
+    return journal_session(
+        project, rows, method=method, phase=phase, config=config, bounds=bounds, name=name
+    )
 
 
 def _parameter(value: float, *, bounds: list[float], units: str) -> dict:
@@ -72,17 +83,7 @@ def _network_metrics(k: float, output: str = "seepage_network") -> dict:
     }
 
 
-def _session(method: str, phase: str, config: dict) -> dict:
-    return {
-        "session_id": uuid.uuid4().hex,
-        "method": method,
-        "phase_name": phase,
-        "started_at": datetime(2026, 9, 28, tzinfo=UTC).isoformat(),
-        "config": json.dumps(config),
-    }
-
-
-def bisection_session() -> _SessionRun:
+def bisection_session(project: Path) -> Session:
     """A bisection on K: walk up from the lower bound, then halve the bracket."""
     values = [1e-7, 1e-6, 1e-5, 1e-4, 1e-3]
     low, high = 1e-5, 1e-4
@@ -107,7 +108,6 @@ def bisection_session() -> _SessionRun:
             }
         ],
     }
-    session = _session("bisection", "steady_conductivity", config)
     rows = []
     for trial, k in enumerate(values, start=1):
         metrics = _network_metrics(k)
@@ -116,7 +116,6 @@ def bisection_session() -> _SessionRun:
         metrics["network_extension.normalized_cost"] = cost
         rows.append(
             {
-                "session_id": session["session_id"],
                 "trial": trial,
                 "status": "completed",
                 "cost": cost,
@@ -124,14 +123,16 @@ def bisection_session() -> _SessionRun:
                 "components": metrics,
             }
         )
-    return _SessionRun(rows, session, name="synthetic_bisection")
+    return _written(
+        project, rows, "bisection", "steady_conductivity", config, "synthetic_bisection"
+    )
 
 
 def _nse_log_cost(sy: float) -> float:
     return 0.08 + 0.06 * np.log10(sy / SY_BEST) ** 2
 
 
-def nelder_mead_session() -> _SessionRun:
+def nelder_mead_session(project: Path, *, log_transform: bool = False) -> Session:
     """A simplex on Sy, one run failing along the way."""
     values = [0.04, 0.045, 0.05, 0.06, 0.055, 0.065, 0.059, 0.061, 0.0605, 0.0598]
     config = {
@@ -148,14 +149,14 @@ def nelder_mead_session() -> _SessionRun:
             }
         ],
     }
-    session = _session("scipy_nelder_mead", "transient_storage", config)
+    if log_transform:
+        config["objective_blocks"][0]["cost_transform"] = "log"
     rows = []
     for trial, sy in enumerate(values, start=1):
         failed = trial == 5
         cost = None if failed else _nse_log_cost(sy)
         rows.append(
             {
-                "session_id": session["session_id"],
                 "trial": trial,
                 "status": "failed" if failed else "completed",
                 "cost": cost,
@@ -163,10 +164,12 @@ def nelder_mead_session() -> _SessionRun:
                 "components": {} if failed else {"hydrograph.raw_cost": cost},
             }
         )
-    return _SessionRun(rows, session, name="synthetic_nelder_mead")
+    return _written(
+        project, rows, "scipy_nelder_mead", "transient_storage", config, "synthetic_nelder_mead"
+    )
 
 
-def optuna_session(n_runs: int = 40, seed: int = 7) -> _SessionRun:
+def optuna_session(project: Path, n_runs: int = 40, seed: int = 7) -> Session:
     """A sampler on K and Sy: wide exploration, then concentration on the optimum."""
     rng = np.random.default_rng(seed)
     config = {
@@ -196,7 +199,6 @@ def optuna_session(n_runs: int = 40, seed: int = 7) -> _SessionRun:
             },
         ],
     }
-    session = _session("optuna", "conductivity_and_storage", config)
     rows = []
     for trial in range(1, n_runs + 1):
         if trial <= 12:
@@ -227,7 +229,6 @@ def optuna_session(n_runs: int = 40, seed: int = 7) -> _SessionRun:
         )
         rows.append(
             {
-                "session_id": session["session_id"],
                 "trial": trial,
                 "status": "completed",
                 "cost": 0.3 * network + 0.7 * hydrograph,
@@ -238,7 +239,7 @@ def optuna_session(n_runs: int = 40, seed: int = 7) -> _SessionRun:
                 "components": metrics,
             }
         )
-    return _SessionRun(rows, session, name="synthetic_optuna")
+    return _written(project, rows, "optuna", "conductivity_and_storage", config, "synthetic_optuna")
 
 
 def _ylabels(fig) -> list[str]:
@@ -265,17 +266,17 @@ def _texts(fig) -> str:
     return "\n".join(str(text) for text in found)
 
 
-def test_the_figure_is_registered_and_skips_a_plain_run() -> None:
+def test_the_figure_is_registered_and_skips_a_session_without_trials(tmp_path) -> None:
     assert "calibration_progress" in names()
     figure = get("calibration_progress")
-    assert figure.spec.required_tables == ("calibration_iterations",)
+    assert figure.spec.subject == "session"
     assert figure.spec.title == "How the search converged"
-    plain = _SessionRun([], {"session_id": "x"}, name="plain")
-    assert "calibration_iterations" in figure.unavailable_reason(plain)
+    assert "no trial recorded" in figure.unavailable_reason(journal_session(tmp_path, []))
+    assert figure.unavailable_reason(bisection_session(tmp_path)) is None
 
 
-def test_a_bisection_on_the_network_draws_with_the_distance_metric(mpl) -> None:
-    fig = CalibrationProgressFigure().plot(bisection_session())
+def test_a_bisection_on_the_network_draws_with_the_distance_metric(mpl, tmp_path: Path) -> None:
+    fig = CalibrationProgressFigure().plot(bisection_session(tmp_path))
 
     assert "|D_so - D_os| (m)" in _ylabels(fig)
     assert "Stream cells (-)" in _ylabels(fig)
@@ -292,8 +293,8 @@ def test_a_bisection_on_the_network_draws_with_the_distance_metric(mpl) -> None:
         assert np.all(np.diff(finite) <= 0.0)
 
 
-def test_a_broken_bar_keeps_its_rank_and_the_cost_keeps_the_panel(mpl) -> None:
-    run = bisection_session()
+def test_a_broken_bar_keeps_its_rank_and_the_cost_keeps_the_panel(mpl, tmp_path: Path) -> None:
+    run = bisection_session(tmp_path)
     fig = CalibrationProgressFigure().plot(run)
 
     network_ax = next(ax for ax in fig.get_axes() if ax.get_ylabel() == "Stream cells (-)")
@@ -301,24 +302,19 @@ def test_a_broken_bar_keeps_its_rank_and_the_cost_keeps_the_panel(mpl) -> None:
         artist for artist in network_ax.collections if artist.get_label().startswith("broken bar")
     )
     tops = np.asarray(marks.get_offsets())[:, 1]
-    totals = np.array(
-        [
-            row["components"]["seepage_network.n_valid"]
-            + row["components"]["seepage_network.n_excess"]
-            for row in run.calibration_iterations
-        ]
-    )
+    frame = trial_table(run).frame
+    totals = (frame["seepage_network.n_valid"] + frame["seepage_network.n_excess"]).to_numpy()
     cut = np.sort(totals[totals > 2.2 * MAPPED])
     assert tops.size == cut.size >= 2
     # A bar ten times taller than another stands visibly taller, not at one cap.
     assert np.all(np.diff(np.sort(tops)) > 0.05 * MAPPED)
     cost_ax = _cost_axis(fig)
-    costs = np.array([row["cost"] for row in run.calibration_iterations])
+    costs = trial_table(run).frame["cost"].to_numpy(dtype=float)
     assert cost_ax.get_ylim()[1] <= 10.0 * costs.max()
 
 
-def test_a_nelder_mead_on_nse_log_draws_the_efficiency_rising(mpl) -> None:
-    fig = CalibrationProgressFigure().plot(nelder_mead_session())
+def test_a_nelder_mead_on_nse_log_draws_the_efficiency_rising(mpl, tmp_path: Path) -> None:
+    fig = CalibrationProgressFigure().plot(nelder_mead_session(tmp_path))
 
     labels = _ylabels(fig)
     assert "1 - NSElog (-)" in labels
@@ -341,8 +337,8 @@ def test_a_nelder_mead_on_nse_log_draws_the_efficiency_rising(mpl) -> None:
     assert np.all(np.diff(rising[np.isfinite(rising)]) >= 0.0)
 
 
-def test_a_two_parameter_sampler_adds_the_parameter_plane(mpl) -> None:
-    fig = CalibrationProgressFigure().plot(optuna_session())
+def test_a_two_parameter_sampler_adds_the_parameter_plane(mpl, tmp_path: Path) -> None:
+    fig = CalibrationProgressFigure().plot(optuna_session(tmp_path))
 
     titles = [ax.get_title() for ax in fig.get_axes()]
     assert "The search in the K - Sy plane" in titles
@@ -364,29 +360,21 @@ def test_a_two_parameter_sampler_adds_the_parameter_plane(mpl) -> None:
     assert np.all(np.diff(values[np.isfinite(values)]) <= 0.0)
 
 
-def test_render_draws_the_cost_panel_alone(mpl) -> None:
+def test_render_draws_the_cost_panel_alone(mpl, tmp_path: Path) -> None:
     fig, ax = mpl.subplots()
-    CalibrationProgressFigure().render(nelder_mead_session(), ax)
+    CalibrationProgressFigure().render(nelder_mead_session(tmp_path), ax)
     assert ax.get_ylabel() == "1 - NSElog (-)"
 
 
 def test_the_slide_saves_a_png(mpl, tmp_path: Path) -> None:
     target = tmp_path / "progress.png"
-    CalibrationProgressFigure().plot(optuna_session(), save_path=target)
+    CalibrationProgressFigure().plot(optuna_session(tmp_path), save_path=target)
     assert target.stat().st_size > 0
 
 
 def test_a_value_combined_from_two_roots_is_marked_and_gets_no_interval(mpl, tmp_path) -> None:
     """The slide agrees with the summary: the returned run, and no interval of runs."""
-    from ._calibration_journal import (
-        K_BOUNDS,
-        TWO_ROOT_CONFIG,
-        TWO_ROOTS,
-        journal_run,
-        two_root_rows,
-    )
-
-    run = journal_run(
+    run = journal_session(
         tmp_path,
         two_root_rows(),
         method="bisection",
@@ -421,17 +409,16 @@ def test_a_run_of_a_phase_that_froze_a_parameter_reads_the_frozen_value(
     np.testing.assert_array_equal(filled, np.array(expected))
 
 
-def test_the_frozen_values_are_read_from_the_phase_journals(monkeypatch, tmp_path: Path) -> None:
-    from hydromodpy.display.figures import _calibration_session as session
-    from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor, write_phase
+def test_the_frozen_values_are_read_from_the_phase_journals(tmp_path: Path) -> None:
+    rows = [
+        {"trial": 1, "phase": "a", "cost": 1.0, "parameters": {"K": 1e-5}},
+        {"trial": 2, "phase": "b", "cost": 0.5, "parameters": {"Sy": 0.1}},
+    ]
+    staged = journal_session(tmp_path / "a", rows, phases=["a", "b"], frozen={"b": {"K": 8e-5}})
+    unstaged = journal_session(tmp_path / "b", rows, named_phases=False)
 
-    frozen = FrozenValue(value=8e-5, mode="replace", from_phase="a")
-    write_phase(tmp_path, PhaseDescriptor(phase_id="p0", name="a", index=0))
-    write_phase(tmp_path, PhaseDescriptor(phase_id="p1", name="b", index=1, frozen={"K": frozen}))
-    monkeypatch.setattr(session, "session_dir_of", lambda sim, session_id: tmp_path)
-
-    assert session.frozen_values(None, "s") == {"a": {}, "b": {"K": 8e-5}}
-    assert session.frozen_values(None, None) == {}
+    assert frozen_values(staged) == {"a": {}, "b": {"K": 8e-5}}
+    assert frozen_values(unstaged) == {}
 
 
 # The fit panel of a transformed efficiency frames the values it draws.
@@ -444,16 +431,8 @@ def test_the_frozen_values_are_read_from_the_phase_journals(monkeypatch, tmp_pat
 pytestmark = pytest.mark.unit
 
 
-def _with_log_transform(run):
-    session = run.calibration_sessions.iloc[0].to_dict()
-    config = json.loads(session["config"])
-    config["objective_blocks"][0]["cost_transform"] = "log"
-    run.calibration_sessions.loc[0, "config"] = json.dumps(config)
-    return run
-
-
-def test_a_transformed_efficiency_is_drawn_inside_its_range(mpl) -> None:
-    fig = CalibrationProgressFigure().plot(_with_log_transform(nelder_mead_session()))
+def test_a_transformed_efficiency_is_drawn_inside_its_range(mpl, tmp_path: Path) -> None:
+    fig = CalibrationProgressFigure().plot(nelder_mead_session(tmp_path, log_transform=True))
 
     fit_ax = next(ax for ax in fig.get_axes() if ax.get_title().startswith("Fit to the"))
     low, high = fit_ax.get_ylim()
@@ -473,18 +452,18 @@ def test_a_transformed_efficiency_is_drawn_inside_its_range(mpl) -> None:
 # PerformanceWarning on the console of every promoted run.
 
 
-def test_two_hundred_diagnostics_raise_no_performance_warning() -> None:
+def test_two_hundred_diagnostics_raise_no_performance_warning(tmp_path: Path) -> None:
     components = {f"net.diag_{index:03d}": float(index) for index in range(200)}
     rows = [
         {
             "trial": trial,
-            "parameters": {"K": {"value": 10.0 ** -(trial + 4)}},
+            "parameters": {"K": {"value": 10.0 ** -(trial + 3)}},
             "components": dict(components),
             "cost": float(trial),
         }
-        for trial in range(5)
+        for trial in range(1, 6)
     ]
-    run = SimpleNamespace(calibration_iterations=pd.DataFrame(rows))
+    run = journal_session(tmp_path, rows)
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", pd.errors.PerformanceWarning)

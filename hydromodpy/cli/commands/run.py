@@ -441,7 +441,7 @@ def _run_toml(
 
     profile_output = resolve_profile_output(getattr(args, "profile", None), config_path)
 
-    from hydromodpy.project.launch.sites.plan import refuse_env_overrides
+    from hydromodpy.project.launch.plan import refuse_env_overrides
 
     refuse_env_overrides(os.environ, config_path)
     try:
@@ -915,8 +915,7 @@ def _close_dead_attempt(project_root: Path, exc: BaseException) -> None:
     refused our claim, is left exactly as it is. The run is found by that
     claim, never by the name the command guessed.
     """
-    import socket
-
+    from hydromodpy.core.state.host import host_name
     from hydromodpy.core.state.layout import runs_dir_for
     from hydromodpy.results.outcome import read_outcome
     from hydromodpy.results.storage.attempt import finish_dead_attempt, signal_of
@@ -926,7 +925,7 @@ def _close_dead_attempt(project_root: Path, exc: BaseException) -> None:
     runs = runs_dir_for(project_root)
     if not runs.is_dir():
         return
-    host, pid = socket.gethostname(), os.getpid()
+    host, pid = host_name(), os.getpid()
     for run_dir in sorted(runs.iterdir()):
         # An outcome that cannot be read (corrupt, or of another schema) is not the
         # attempt of this process, and reading it must never hide the error of the run.
@@ -976,9 +975,7 @@ def _resolve_project_root(config_path: Path) -> Path:
 
 def _print_sites_dry_run(config_path: Path, *, args: argparse.Namespace) -> None:
     """Print the plan of a ``[sites]`` project and its grouped issues; write nothing."""
-    from hydromodpy.project.launch.sites.budget import dry_run_lines, plan_budget
-    from hydromodpy.project.launch.sites.expansion import expand_plan
-    from hydromodpy.project.launch.sites.issues import group_issues
+    from hydromodpy.project.launch.plan import dry_run_lines, expand_plan, group_issues, plan_budget
 
     try:
         cli_payload = set_overrides(list(getattr(args, "set_overrides", []) or []))

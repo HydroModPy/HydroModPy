@@ -31,6 +31,7 @@ import pytest
 modflowapi = pytest.importorskip("modflowapi")
 pytest.importorskip("xmipy")
 
+from hydromodpy.core.workspace.workspace import resolve_bin_path  # noqa: E402
 from hydromodpy.solver.modflow6.api.api_runner import (  # noqa: E402
     Mf6ApiContext,
     Mf6ApiStep,
@@ -39,14 +40,13 @@ from hydromodpy.solver.modflow6.api.api_runner import (  # noqa: E402
 from hydromodpy.solver.modflow_common.binaries import (  # noqa: E402
     ensure_solver_binary,
     locate_solver_binary,
-    managed_bin_dir,
 )
 
 # Reuse the proven single-lake DISV builder from the extractor e2e test.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_modflow6_lake_extractor_e2e import _build_single_lake_disv  # noqa: E402
 
-_no_lib = locate_solver_binary(managed_bin_dir(), "libmf6") is None
+_no_lib = locate_solver_binary(Path(resolve_bin_path()), "libmf6") is None
 
 pytestmark = [
     pytest.mark.mf6,

@@ -201,9 +201,9 @@ def validate_toml(text: str, reg: Registry) -> list[str]:
 def validate_file_block(fragment: dict, reg: Registry) -> list[str]:
     """Problems of a block that writes a file other than the project file.
 
-    A block whose tables are those of the catchment report file is validated by
-    its own model, as the command does. It must be a whole file: a fragment
-    that leaves out a required table starts with ``# not checked``.
+    A block whose tables are those of such a file is validated by its own model,
+    as the command does. It must be a whole file: a fragment that leaves out a
+    required table starts with ``# not checked``.
     """
     from tools.docs.field_registry import EXTRA_FILES, _load_model
 

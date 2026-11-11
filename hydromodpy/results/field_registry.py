@@ -276,17 +276,6 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         valid_min=0.0,
         valid_max=1.0,
     ),
-    "storage_change": FieldDescriptor(
-        public_name="storage_change",
-        zarr_path="derived/storage_change",
-        standard_name="",
-        csdms_standard_name="subsurface_water_storage__derivative_of_volume",
-        long_name="Change in groundwater storage per unit time",
-        units="m s-1",
-        shape=SHAPE_TIME_FACE,
-        cell_methods="time: mean area: mean",
-        derived_by="core",
-    ),
     # -- Budget fluxes (written from solver budget output) -------------------
     "recharge": FieldDescriptor(
         public_name="recharge",

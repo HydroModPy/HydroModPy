@@ -73,35 +73,23 @@ def test_build_preprocess_options_reads_the_time_grid_and_the_options_of_the_mod
     assert options.drain_conductance_floor_m2_s == 1e-9
 
 
-def test_mf6_output_name_shortens_long_windows_paths(monkeypatch) -> None:
-    import hydromodpy.solver.modflow6.build as build_module
+@pytest.mark.parametrize(
+    ("root", "name"),
+    [
+        pytest.param(
+            "C:\\" + "\\".join(["hydromodpy_regression_outputs"] * 8),
+            "natural_mesh_10km2_transient_pulse_mf6_vs_bouss__mf6_ref",
+            id="a Windows folder far past the limit",
+        ),
+        pytest.param("C:\\hmp\\scratch", "demo", id="a short Windows folder"),
+        pytest.param("/home/user/run", "demo", id="a POSIX folder"),
+    ],
+)
+def test_mf6_output_name_is_the_requested_name_on_every_system(root: str, name: str) -> None:
+    """The path length is held by the reservation, so the stem never depends on the folder."""
+    model = SimpleNamespace(full_path=root, model_name=name, model_name_mf6=mf6_safe_name(name))
 
-    long_name = "natural_mesh_10km2_transient_pulse_mf6_vs_bouss__mf6_ref"
-    safe_name = mf6_safe_name(long_name)
-    long_root = "C:\\" + "\\".join(["hydromodpy_regression_outputs"] * 8)
-    model = SimpleNamespace(
-        full_path=long_root,
-        model_name=long_name,
-        model_name_mf6=safe_name,
-    )
-
-    monkeypatch.setattr(build_module.os, "name", "nt")
-
-    assert mf6_output_name(model) == safe_name
-
-
-def test_mf6_output_name_preserves_short_windows_paths(monkeypatch) -> None:
-    import hydromodpy.solver.modflow6.build as build_module
-
-    model = SimpleNamespace(
-        full_path="C:\\hmp\\scratch",
-        model_name="demo",
-        model_name_mf6="demo",
-    )
-
-    monkeypatch.setattr(build_module.os, "name", "nt")
-
-    assert mf6_output_name(model) == "demo"
+    assert mf6_output_name(model) == name
 
 
 def test_mf6_safe_name_replaces_whitespace() -> None:

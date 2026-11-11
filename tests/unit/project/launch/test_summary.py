@@ -18,7 +18,6 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pandas as pd
-import pyarrow as pa
 import pytest
 from pydantic import ValidationError
 
@@ -91,7 +90,7 @@ def _plan(root: Path, case_ids: list[str]) -> None:
         created_at=datetime(2026, 10, 15, tzinfo=UTC),
         n_cases=len(cases),
     )
-    sites = pa.table({"site": sorted({case.site for case in cases})})
+    sites = pd.DataFrame({"site": sorted({case.site for case in cases})}, dtype=str)
     write_plan(root, plan, sites, cases, {case.case_id: "[flow]\n" for case in cases})
 
 

@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import json
-from types import SimpleNamespace
-
-import pandas as pd
 import pytest
 
+from hydromodpy.display.figures._trial_diagnostics import trial_table
 from hydromodpy.display.figures.calibration_convergence import CalibrationConvergenceFigure
 from hydromodpy.display.figures.calibration_landscape import CalibrationLandscapeFigure
 from hydromodpy.display.figures.calibration_objective_surface import (
@@ -19,21 +16,21 @@ from hydromodpy.display.figures.calibration_trial_distribution import (
     CalibrationTrialDistributionFigure,
 )
 
+from ._calibration_journal import flat_session, journal_session
 
-class _ConvergenceRun:
-    sim_id = "sim-a"
-    name = "calibration-a"
-
-    def timeseries(self, variable: str, *, station: str):
-        assert variable == "rmse"
-        assert station == "_calibration"
-        return pd.Series([5.0, 3.0, 4.0, 2.0], name=variable)
+NAN = float("nan")
 
 
-def test_calibration_convergence_plots_iteration_and_best_so_far(mpl) -> None:
+def test_calibration_convergence_plots_iteration_and_best_so_far(mpl, tmp_path) -> None:
+    session = flat_session(
+        tmp_path,
+        {"trial": [1, 2, 3, 4], "kh": [1.0, 2.0, 3.0, 4.0], "cost": [9.0] * 4},
+        name="calibration-a",
+        components=[{"rmse": value} for value in (5.0, 3.0, 4.0, 2.0)],
+    )
     fig, ax = mpl.subplots()
 
-    CalibrationConvergenceFigure().render(_ConvergenceRun(), ax, objective="rmse")
+    CalibrationConvergenceFigure().render(session, ax, objective="rmse")
 
     try:
         assert [line.get_label() for line in ax.lines] == ["iteration", "best so far"]
@@ -45,179 +42,104 @@ def test_calibration_convergence_plots_iteration_and_best_so_far(mpl) -> None:
         mpl.close(fig)
 
 
-def test_calibration_convergence_falls_back_to_iteration_table(mpl) -> None:
-    run = SimpleNamespace(
-        sim_id="sim-a",
-        name=None,
-        calibration_iterations=pd.Series([4.0, 1.0, 2.0]),
-        timeseries=lambda *_args, **_kwargs: (_ for _ in ()).throw(KeyError("missing")),
+@pytest.mark.parametrize(
+    ("cost", "status", "best"),
+    [
+        ([4.0, 1.0, 2.0], ["ok"] * 3, [4.0, 1.0, 1.0]),
+        ([2.0, 0.5, 1.5], ["ok"] * 3, [2.0, 0.5, 0.5]),
+        # A trial that failed publishes no cost. Carrying its NaN forward would
+        # flatten the best-so-far curve from that trial on.
+        ([2.0, NAN, 1.5], ["ok", "failed", "ok"], [2.0, 2.0, 1.5]),
+    ],
+    ids=["falls-back-to-the-cost-column", "real-trial-table", "keeps-best-across-a-failed-trial"],
+)
+def test_calibration_convergence_reads_the_cost_column_of_the_trial_table(
+    mpl, tmp_path, cost, status, best
+) -> None:
+    session = flat_session(
+        tmp_path, {"trial": [1, 2, 3], "kh": [1.0, 2.0, 3.0], "cost": cost, "status": status}
     )
     fig, ax = mpl.subplots()
 
-    CalibrationConvergenceFigure().render(run, ax)
+    CalibrationConvergenceFigure().render(session, ax)
 
     try:
-        assert ax.lines[0].get_ydata().tolist() == [4.0, 1.0, 2.0]
-        assert ax.lines[1].get_ydata().tolist() == [4.0, 1.0, 1.0]
-    finally:
-        mpl.close(fig)
-
-
-def test_calibration_convergence_reads_the_cost_column_of_a_real_trial_table(mpl) -> None:
-    # What a calibration actually records: one row per trial, carrying the
-    # session and simulation ids alongside the cost. Casting the whole frame
-    # to float raised on the UUIDs and the figure was lost on every run.
-    import uuid
-
-    run = SimpleNamespace(
-        sim_id="sim-a",
-        name="grid_iter_0002",
-        calibration_iterations=pd.DataFrame(
-            {
-                "trial": [1, 2, 3],
-                "sim_id": [str(uuid.uuid4()) for _ in range(3)],
-                "status": ["completed"] * 3,
-                "cost": [2.0, 0.5, 1.5],
-            }
-        ),
-        timeseries=lambda *_args, **_kwargs: (_ for _ in ()).throw(KeyError("missing")),
-    )
-    fig, ax = mpl.subplots()
-
-    CalibrationConvergenceFigure().render(run, ax)
-
-    try:
-        assert ax.lines[0].get_ydata().tolist() == [2.0, 0.5, 1.5]
-        assert ax.lines[1].get_ydata().tolist() == [2.0, 0.5, 0.5]
+        values = ax.lines[0].get_ydata().tolist()
+        assert [v for v in values if v == v] == [v for v in cost if v == v]
+        assert ax.lines[1].get_ydata().tolist() == best
         assert ax.get_ylabel() == "cost"
         assert ax.lines[0].get_xdata().tolist() == [1.0, 2.0, 3.0]
     finally:
         mpl.close(fig)
 
 
-def test_calibration_convergence_keeps_the_best_across_a_failed_trial(mpl) -> None:
-    # A trial that failed publishes no cost. Carrying its NaN forward would
-    # flatten the best-so-far curve from that trial on.
-    run = SimpleNamespace(
-        sim_id="sim-a",
-        name=None,
-        calibration_iterations=pd.DataFrame({"trial": [1, 2, 3], "cost": [2.0, float("nan"), 1.5]}),
-        timeseries=lambda *_args, **_kwargs: (_ for _ in ()).throw(KeyError("missing")),
-    )
+def test_calibration_convergence_rejects_a_session_with_no_trial(mpl, tmp_path) -> None:
+    session = journal_session(tmp_path, [])
     fig, ax = mpl.subplots()
 
-    CalibrationConvergenceFigure().render(run, ax)
-
     try:
-        best = ax.lines[1].get_ydata().tolist()
-        assert best == [2.0, 2.0, 1.5]
+        # The one trial reader names what it could not read from.
+        with pytest.raises(ValueError, match="no trial recorded"):
+            CalibrationConvergenceFigure().render(session, ax)
     finally:
         mpl.close(fig)
 
 
-def test_calibration_convergence_rejects_missing_iteration_data(mpl) -> None:
-    run = SimpleNamespace(
-        sim_id="sim-a",
-        name=None,
-        timeseries=lambda *_args, **_kwargs: (_ for _ in ()).throw(KeyError("missing")),
-    )
-    fig, ax = mpl.subplots()
-
-    try:
-        # Neither an objective series nor a trial table: the one trial reader
-        # names what it could not read from.
-        with pytest.raises(ValueError, match="no calibration trial can be read"):
-            CalibrationConvergenceFigure().render(run, ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_calibration_trace_filters_session_and_saves_png(tmp_path, mpl) -> None:
-    run = SimpleNamespace(
-        sim_id="sim-a",
+def test_calibration_trace_draws_every_trial_and_saves_png(tmp_path, mpl) -> None:
+    session = flat_session(
+        tmp_path,
+        {
+            "trial": [10, 11, 12],
+            "kh": [1.0, 9.0, 2.0],
+            "sy": [0.1, 0.9, 0.2],
+            "objective": [5.0, 4.0, 3.0],
+            "status": ["ok", "failed", "ok"],
+        },
         name="calibration-a",
-        calibration_iterations=pd.DataFrame(
-            {
-                "iter": [10, 11, 12],
-                "session_id": ["accepted", "rejected", "accepted"],
-                "kh": [1.0, 9.0, 2.0],
-                "sy": [0.1, 0.9, 0.2],
-                "objective": [5.0, 4.0, 3.0],
-                "status": ["ok", "failed", "ok"],
-            }
-        ),
     )
     out = tmp_path / "trace.png"
 
     fig = CalibrationTraceFigure().plot(
-        run,
-        parameters=["kh"],
-        objective="objective",
-        session_id="accepted",
-        save_path=out,
-        dpi=80,
+        session, parameters=["kh"], objective="cost", save_path=out, dpi=80
     )
 
     try:
         assert out.exists() and out.stat().st_size > 0
         assert len(fig.axes) == 2
         assert fig.axes[0].get_ylabel() == "kh"
-        assert fig.axes[0].lines[0].get_xdata().tolist() == [10, 12]
-        assert fig.axes[0].lines[0].get_ydata().tolist() == [1.0, 2.0]
-        assert fig.axes[1].get_ylabel() == "objective"
-        assert fig.axes[1].lines[0].get_ydata().tolist() == [5.0, 3.0]
+        assert fig.axes[0].lines[0].get_xdata().tolist() == [10, 11, 12]
+        assert fig.axes[0].lines[0].get_ydata().tolist() == [1.0, 9.0, 2.0]
+        assert fig.axes[1].get_ylabel() == "cost"
+        assert fig.axes[1].lines[0].get_ydata().tolist() == [5.0, 4.0, 3.0]
     finally:
         mpl.close(fig)
 
 
-def test_calibration_trace_rejects_empty_or_parameterless_iteration_rows() -> None:
-    parameterless = SimpleNamespace(
-        sim_id="sim-a",
-        name=None,
-        calibration_iterations=pd.DataFrame({"iter": [0], "objective": [1.0], "status": ["ok"]}),
-    )
+def test_calibration_trace_rejects_empty_or_parameterless_sessions(tmp_path) -> None:
+    parameterless = flat_session(tmp_path / "a", {"trial": [1], "objective": [1.0]})
     with pytest.raises(ValueError, match="no parameter columns found"):
         CalibrationTraceFigure().plot(parameterless)
 
-    rows = SimpleNamespace(
-        sim_id="sim-a",
-        name=None,
-        calibration_iterations=pd.DataFrame(
-            {
-                "iter": [0],
-                "session_id": ["present"],
-                "kh": [1.0],
-                "objective": [2.0],
-            }
-        ),
-    )
-    # The one trial reader owns the refusal, and it names the session it
-    # could not find rather than the figure that asked for it.
-    with pytest.raises(ValueError, match="no trial recorded for session 'missing'"):
-        CalibrationTraceFigure().plot(rows, session_id="missing")
+    empty = journal_session(tmp_path / "b", [])
+    with pytest.raises(ValueError, match="no trial recorded"):
+        CalibrationTraceFigure().plot(empty)
 
 
-def _calibration_run(name="calibration-c", session_col=False, status_col=True):
-    """Fake Run carrying a calibration_iterations table with two parameters.
+def _calibration_run(project, name="calibration-c", status_col=True):
+    """Session of six trials with two parameters.
 
     Parameter samples and objective values are chosen so the minimum
     objective sits at the known point (kh=2.0, sy=0.20).
     """
     data = {
-        "iter": [0, 1, 2, 3, 4, 5],
+        "trial": [1, 2, 3, 4, 5, 6],
         "kh": [1.0, 1.0, 2.0, 2.0, 3.0, 3.0],
         "sy": [0.10, 0.30, 0.20, 0.40, 0.15, 0.35],
         "objective": [5.0, 4.0, 1.0, 6.0, 3.0, 7.0],
     }
     if status_col:
         data["status"] = ["ok"] * 6
-    if session_col:
-        data["session_id"] = ["s1", "s1", "s1", "s2", "s2", "s2"]
-    return SimpleNamespace(
-        sim_id="sim-c",
-        name=name,
-        calibration_iterations=pd.DataFrame(data),
-    )
+    return flat_session(project, data, name=name)
 
 
 # --------------------------------------------------------------------------- #
@@ -225,8 +147,8 @@ def _calibration_run(name="calibration-c", session_col=False, status_col=True):
 # --------------------------------------------------------------------------- #
 
 
-def test_calibration_trial_distribution_builds_one_histogram_per_parameter(mpl) -> None:
-    run = _calibration_run()
+def test_calibration_trial_distribution_builds_one_histogram_per_parameter(mpl, tmp_path) -> None:
+    run = _calibration_run(tmp_path)
 
     fig = CalibrationTrialDistributionFigure().plot(run, bins=4, dpi=80)
 
@@ -246,14 +168,14 @@ def test_calibration_trial_distribution_builds_one_histogram_per_parameter(mpl) 
         mpl.close(fig)
 
 
-def test_calibration_trial_distribution_colors_bins_by_mean_objective(mpl) -> None:
-    run = _calibration_run()
+def test_calibration_trial_distribution_colors_bins_by_mean_objective(mpl, tmp_path) -> None:
+    run = _calibration_run(tmp_path)
 
     fig = CalibrationTrialDistributionFigure().plot(run, bins=4, cmap="viridis", dpi=80)
 
     try:
         # A colorbar axis appears only when the objective is finite.
-        colorbar_axes = [ax for ax in fig.axes if "mean objective" in (ax.get_ylabel() or "")]
+        colorbar_axes = [ax for ax in fig.axes if "mean cost" in (ax.get_ylabel() or "")]
         assert len(colorbar_axes) == 1
 
         kh_ax = next(ax for ax in fig.axes if ax.get_xlabel() == "kh")
@@ -267,8 +189,8 @@ def test_calibration_trial_distribution_colors_bins_by_mean_objective(mpl) -> No
         mpl.close(fig)
 
 
-def test_calibration_trial_distribution_respects_explicit_parameter_list(mpl) -> None:
-    run = _calibration_run()
+def test_calibration_trial_distribution_respects_explicit_parameter_list(mpl, tmp_path) -> None:
+    run = _calibration_run(tmp_path)
 
     fig = CalibrationTrialDistributionFigure().plot(run, parameters=["sy"], bins=3, dpi=80)
 
@@ -280,20 +202,12 @@ def test_calibration_trial_distribution_respects_explicit_parameter_list(mpl) ->
         mpl.close(fig)
 
 
-def test_calibration_trial_distribution_rejects_missing_and_empty_tables() -> None:
-    no_table = SimpleNamespace(sim_id="sim-c", name=None, calibration_iterations=None)
-    with pytest.raises(ValueError, match="no calibration_iterations"):
-        CalibrationTrialDistributionFigure().plot(no_table)
+def test_calibration_trial_distribution_rejects_empty_and_parameterless_sessions(tmp_path) -> None:
+    empty = journal_session(tmp_path / "a", [])
+    with pytest.raises(ValueError, match="no trial recorded"):
+        CalibrationTrialDistributionFigure().plot(empty)
 
-    empty_session = _calibration_run(session_col=True)
-    with pytest.raises(ValueError, match="no trial recorded for session 'missing'"):
-        CalibrationTrialDistributionFigure().plot(empty_session, session_id="missing")
-
-    no_params = SimpleNamespace(
-        sim_id="sim-c",
-        name=None,
-        calibration_iterations=pd.DataFrame({"iter": [0], "objective": [1.0]}),
-    )
+    no_params = flat_session(tmp_path / "b", {"trial": [1], "objective": [1.0]})
     with pytest.raises(ValueError, match="no parameter columns found"):
         CalibrationTrialDistributionFigure().plot(no_params)
 
@@ -301,17 +215,18 @@ def test_calibration_trial_distribution_rejects_missing_and_empty_tables() -> No
 def test_calibration_trial_distribution_pads_grid_and_saves_png(tmp_path, mpl) -> None:
     # Four parameters with ncols=3 -> a 2x3 grid, so two trailing cells stay
     # empty (axis off). Exercises both the padding loop and the save path.
-    df = pd.DataFrame(
+    run = flat_session(
+        tmp_path,
         {
-            "iter": list(range(6)),
+            "trial": list(range(1, 7)),
             "a": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
             "b": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
             "c": [10.0, 11.0, 12.0, 13.0, 14.0, 15.0],
             "d": [0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
             "objective": [5.0, 4.0, 1.0, 6.0, 3.0, 7.0],
-        }
+        },
+        name="cal-4p",
     )
-    run = SimpleNamespace(sim_id="sim-e", name="cal-4p", calibration_iterations=df)
     out = tmp_path / "posterior.png"
 
     fig = CalibrationTrialDistributionFigure().plot(run, bins=3, save_path=out, dpi=80)
@@ -332,10 +247,10 @@ def test_calibration_trial_distribution_pads_grid_and_saves_png(tmp_path, mpl) -
 # --------------------------------------------------------------------------- #
 
 
-def test_calibration_pairplot_grid_shape_and_diagonal_vs_offdiagonal(mpl) -> None:
-    run = _calibration_run(status_col=False)
-    kh = run.calibration_iterations["kh"].to_numpy(dtype=float)
-    sy = run.calibration_iterations["sy"].to_numpy(dtype=float)
+def test_calibration_pairplot_grid_shape_and_diagonal_vs_offdiagonal(mpl, tmp_path) -> None:
+    run = _calibration_run(tmp_path, status_col=False)
+    kh = trial_table(run).frame["kh"].to_numpy(dtype=float)
+    sy = trial_table(run).frame["sy"].to_numpy(dtype=float)
 
     fig = CalibrationPairplotFigure().plot(run, dpi=80)
 
@@ -362,9 +277,9 @@ def test_calibration_pairplot_grid_shape_and_diagonal_vs_offdiagonal(mpl) -> Non
         mpl.close(fig)
 
 
-def test_calibration_pairplot_colors_scatter_by_objective(mpl) -> None:
-    run = _calibration_run(status_col=False)
-    obj = run.calibration_iterations["objective"].to_numpy(dtype=float)
+def test_calibration_pairplot_colors_scatter_by_objective(mpl, tmp_path) -> None:
+    run = _calibration_run(tmp_path, status_col=False)
+    obj = trial_table(run).frame["cost"].to_numpy(dtype=float)
 
     fig = CalibrationPairplotFigure().plot(run, dpi=80)
 
@@ -378,22 +293,18 @@ def test_calibration_pairplot_colors_scatter_by_objective(mpl) -> None:
         mpl.close(fig)
 
 
-def test_calibration_pairplot_rejects_too_few_parameters() -> None:
-    no_table = SimpleNamespace(sim_id="sim-c", name=None, calibration_iterations=None)
-    with pytest.raises(ValueError, match="no calibration_iterations"):
-        CalibrationPairplotFigure().plot(no_table)
+def test_calibration_pairplot_rejects_empty_and_too_few_parameters(tmp_path) -> None:
+    empty = journal_session(tmp_path / "a", [])
+    with pytest.raises(ValueError, match="no trial recorded"):
+        CalibrationPairplotFigure().plot(empty)
 
-    one_param = SimpleNamespace(
-        sim_id="sim-c",
-        name=None,
-        calibration_iterations=pd.DataFrame({"iter": [0, 1], "kh": [1.0, 2.0]}),
-    )
+    one_param = flat_session(tmp_path / "b", {"trial": [1, 2], "kh": [1.0, 2.0]})
     with pytest.raises(ValueError, match="at least two parameter columns"):
         CalibrationPairplotFigure().plot(one_param)
 
 
 def test_calibration_pairplot_saves_png(tmp_path, mpl) -> None:
-    run = _calibration_run(status_col=False)
+    run = _calibration_run(tmp_path, status_col=False)
     out = tmp_path / "pairplot.png"
 
     fig = CalibrationPairplotFigure().plot(run, save_path=out, dpi=80)
@@ -410,10 +321,10 @@ def test_calibration_pairplot_saves_png(tmp_path, mpl) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_calibration_landscape_two_params_single_scatter_carries_minimum(mpl) -> None:
-    run = _calibration_run()
-    df = run.calibration_iterations
-    obj = df["objective"].to_numpy(dtype=float)
+def test_calibration_landscape_two_params_single_scatter_carries_minimum(mpl, tmp_path) -> None:
+    run = _calibration_run(tmp_path)
+    df = trial_table(run).frame
+    obj = df["cost"].to_numpy(dtype=float)
     best = int(obj.argmin())
     best_kh = df["kh"].to_numpy(dtype=float)[best]
     best_sy = df["sy"].to_numpy(dtype=float)[best]
@@ -438,23 +349,24 @@ def test_calibration_landscape_two_params_single_scatter_carries_minimum(mpl) ->
         assert min(c) == 1.0
 
         assert coll.get_cmap().name == "viridis"
-        assert any("objective" in (a.get_ylabel() or "") for a in fig.axes)
+        assert any("cost" in (a.get_ylabel() or "") for a in fig.axes)
         assert f"landscape - {run.name}" in fig._suptitle.get_text()
     finally:
         mpl.close(fig)
 
 
 def test_calibration_landscape_three_params_upper_triangle_grid(tmp_path, mpl) -> None:
-    df = pd.DataFrame(
+    run = flat_session(
+        tmp_path,
         {
-            "iter": list(range(6)),
+            "trial": list(range(1, 7)),
             "kh": [1.0, 1.0, 2.0, 2.0, 3.0, 3.0],
             "sy": [0.1, 0.3, 0.2, 0.4, 0.15, 0.35],
             "rech": [10.0, 20.0, 15.0, 25.0, 12.0, 22.0],
             "objective": [5.0, 4.0, 1.0, 6.0, 3.0, 7.0],
-        }
+        },
+        name="cal-3p",
     )
-    run = SimpleNamespace(sim_id="sim-d", name="cal-3p", calibration_iterations=df)
     out = tmp_path / "landscape_grid.png"
 
     fig = CalibrationLandscapeFigure().plot(run, save_path=out, dpi=80)
@@ -468,48 +380,48 @@ def test_calibration_landscape_three_params_upper_triangle_grid(tmp_path, mpl) -
         assert len(scatter_axes) == 3
         # The three scatter cells each carry all six iteration points.
         assert all(len(ax.collections[0].get_offsets()) == 6 for ax in scatter_axes)
-        # Bottom row carries x labels for the first two parameters.
+        # Parameters are ordered by name: the bottom row labels the first two.
         xlabels = {ax.get_xlabel() for ax in scatter_axes}
-        assert {"kh", "sy"} <= xlabels
+        assert {"kh", "rech"} <= xlabels
     finally:
         mpl.close(fig)
 
 
-def test_calibration_landscape_filters_session(mpl) -> None:
-    run = _calibration_run(session_col=True)
+def test_calibration_landscape_reads_the_trials_of_one_phase_of_the_session(tmp_path, mpl) -> None:
+    rows = [
+        {
+            "trial": number,
+            "phase": phase,
+            "cost": cost,
+            "parameters": {"kh": kh, "sy": sy},
+        }
+        for number, phase, cost, kh, sy in [
+            (1, "p1", 5.0, 1.0, 0.1),
+            (2, "p1", 4.0, 1.0, 0.3),
+            (3, "p1", 1.0, 2.0, 0.2),
+            (4, "p2", 6.0, 2.0, 0.4),
+        ]
+    ]
+    session = journal_session(tmp_path, rows, phases=["p1", "p2"])
+    table = trial_table(session, phase="p1")
 
-    fig = CalibrationLandscapeFigure().plot(run, session_id="s1", dpi=80)
-
-    try:
-        ax = next(a for a in fig.axes if a.collections)
-        offsets = ax.collections[0].get_offsets()
-        # Only the three s1 rows survive the session filter.
-        assert len(offsets) == 3
-        assert sorted(offsets[:, 0].tolist()) == [1.0, 1.0, 2.0]
-    finally:
-        mpl.close(fig)
+    assert table.frame["kh"].tolist() == [1.0, 1.0, 2.0]
+    with pytest.raises(ValueError, match="no trial recorded in phase 'missing'"):
+        trial_table(session, phase="missing")
 
 
-def test_calibration_landscape_rejects_missing_empty_and_too_few_params() -> None:
-    no_table = SimpleNamespace(sim_id="sim-c", name=None, calibration_iterations=None)
-    with pytest.raises(ValueError, match="no calibration_iterations"):
-        CalibrationLandscapeFigure().plot(no_table)
+def test_calibration_landscape_rejects_empty_and_too_few_params(tmp_path) -> None:
+    empty = journal_session(tmp_path / "a", [])
+    with pytest.raises(ValueError, match="no trial recorded"):
+        CalibrationLandscapeFigure().plot(empty)
 
-    empty_session = _calibration_run(session_col=True)
-    with pytest.raises(ValueError, match="no trial recorded for session 'missing'"):
-        CalibrationLandscapeFigure().plot(empty_session, session_id="missing")
-
-    one_param = SimpleNamespace(
-        sim_id="sim-c",
-        name=None,
-        calibration_iterations=pd.DataFrame({"iter": [0, 1], "kh": [1.0, 2.0]}),
-    )
+    one_param = flat_session(tmp_path / "b", {"trial": [1, 2], "kh": [1.0, 2.0]})
     with pytest.raises(ValueError, match="need at least two parameter columns"):
         CalibrationLandscapeFigure().plot(one_param)
 
 
 def test_calibration_landscape_saves_png(tmp_path, mpl) -> None:
-    run = _calibration_run()
+    run = _calibration_run(tmp_path)
     out = tmp_path / "landscape.png"
 
     fig = CalibrationLandscapeFigure().plot(run, save_path=out, dpi=80)
@@ -520,7 +432,7 @@ def test_calibration_landscape_saves_png(tmp_path, mpl) -> None:
         mpl.close(fig)
 
 
-def test_calibration_trial_distribution_and_pairplot_render_is_placeholder(mpl) -> None:
+def test_calibration_trial_distribution_and_pairplot_render_is_placeholder(mpl, tmp_path) -> None:
     # The grid figures override plot(); render() is a documented no-op that
     # only draws a placeholder note onto a single axis.
     for figure_cls in (
@@ -529,7 +441,7 @@ def test_calibration_trial_distribution_and_pairplot_render_is_placeholder(mpl) 
         CalibrationLandscapeFigure,
     ):
         fig, ax = mpl.subplots()
-        figure_cls().render(_calibration_run(), ax)
+        figure_cls().render(_calibration_run(tmp_path), ax)
         try:
             assert not ax.get_frame_on() or not ax.axison
             assert ax.texts and "own plot()" in ax.texts[0].get_text()
@@ -551,33 +463,24 @@ CATALOG_SY = [0.05, 0.30, 0.15, 0.20, 0.10, 0.25]
 CATALOG_COST = [5.0, 4.0, 1.0, 6.0, 3.0, 7.0]
 
 
-def _catalog_run(name: str = "calibration-real") -> SimpleNamespace:
+def _catalog_run(project, name: str = "calibration-real"):
     rows = [
         {
-            "session_id": "s-real",
             "trial": index,
-            "sim_id": f"sim-{index}",
-            "params_hash": f"hash-{index}",
-            "parameters": json.dumps({"kh": {"value": kh}, "sy": {"value": sy}}),
+            "parameters": {"kh": kh, "sy": sy},
             "cost": cost,
-            "components": json.dumps({"nse": 0.5}),
+            "components": {"nse": 0.5},
             "status": "completed",
-            "from_cache": False,
-            "duration_s": 1.5,
         }
         for index, (kh, sy, cost) in enumerate(
-            zip(CATALOG_KH, CATALOG_SY, CATALOG_COST, strict=True)
+            zip(CATALOG_KH, CATALOG_SY, CATALOG_COST, strict=True), start=1
         )
     ]
-    return SimpleNamespace(
-        sim_id="sim-real",
-        name=name,
-        calibration_iterations=pd.DataFrame(rows),
-    )
+    return journal_session(project, rows, name=name)
 
 
-def test_calibration_trace_traces_the_sampled_parameters_not_the_cost(mpl) -> None:
-    fig = CalibrationTraceFigure().plot(_catalog_run(), dpi=80)
+def test_calibration_trace_traces_the_sampled_parameters_not_the_cost(mpl, tmp_path) -> None:
+    fig = CalibrationTraceFigure().plot(_catalog_run(tmp_path), dpi=80)
 
     try:
         # Two parameters were sampled, so two parameter panels then the cost.
@@ -585,13 +488,15 @@ def test_calibration_trace_traces_the_sampled_parameters_not_the_cost(mpl) -> No
         assert fig.axes[0].lines[0].get_ydata().tolist() == CATALOG_KH
         assert fig.axes[1].lines[0].get_ydata().tolist() == CATALOG_SY
         assert fig.axes[2].lines[0].get_ydata().tolist() == CATALOG_COST
-        assert fig.axes[0].lines[0].get_xdata().tolist() == [0, 1, 2, 3, 4, 5]
+        assert fig.axes[0].lines[0].get_xdata().tolist() == [1, 2, 3, 4, 5, 6]
     finally:
         mpl.close(fig)
 
 
-def test_calibration_trial_distribution_histograms_the_parameters_not_the_cost(mpl) -> None:
-    fig = CalibrationTrialDistributionFigure().plot(_catalog_run(), bins=3, dpi=80)
+def test_calibration_trial_distribution_histograms_the_parameters_not_the_cost(
+    mpl, tmp_path
+) -> None:
+    fig = CalibrationTrialDistributionFigure().plot(_catalog_run(tmp_path), bins=3, dpi=80)
 
     try:
         assert {ax.get_xlabel() for ax in fig.axes if ax.get_xlabel()} == {"kh", "sy"}
@@ -606,8 +511,8 @@ def test_calibration_trial_distribution_histograms_the_parameters_not_the_cost(m
         mpl.close(fig)
 
 
-def test_calibration_landscape_spans_the_two_sampled_parameters(mpl) -> None:
-    fig = CalibrationLandscapeFigure().plot(_catalog_run(), dpi=80)
+def test_calibration_landscape_spans_the_two_sampled_parameters(mpl, tmp_path) -> None:
+    fig = CalibrationLandscapeFigure().plot(_catalog_run(tmp_path), dpi=80)
 
     try:
         ax = next(a for a in fig.axes if a.collections)
@@ -621,8 +526,8 @@ def test_calibration_landscape_spans_the_two_sampled_parameters(mpl) -> None:
         mpl.close(fig)
 
 
-def test_calibration_pairplot_reads_the_nested_parameter_block(mpl) -> None:
-    fig = CalibrationPairplotFigure().plot(_catalog_run(), dpi=80)
+def test_calibration_pairplot_reads_the_nested_parameter_block(mpl, tmp_path) -> None:
+    fig = CalibrationPairplotFigure().plot(_catalog_run(tmp_path), dpi=80)
 
     try:
         assert {ax.get_xlabel() for ax in fig.axes if ax.get_xlabel()} == {"kh", "sy"}
@@ -634,10 +539,10 @@ def test_calibration_pairplot_reads_the_nested_parameter_block(mpl) -> None:
         mpl.close(fig)
 
 
-def test_calibration_objective_surface_spans_the_nested_parameters(mpl) -> None:
+def test_calibration_objective_surface_spans_the_nested_parameters(mpl, tmp_path) -> None:
     pytest.importorskip("scipy")
 
-    fig = CalibrationObjectiveSurfaceFigure().plot(_catalog_run(), dpi=80)
+    fig = CalibrationObjectiveSurfaceFigure().plot(_catalog_run(tmp_path), dpi=80)
 
     try:
         surface = fig.axes[0]
@@ -655,20 +560,15 @@ def test_calibration_objective_surface_spans_the_nested_parameters(mpl) -> None:
         mpl.close(fig)
 
 
-def test_a_calibration_that_sampled_nothing_is_refused_by_every_grid_figure() -> None:
+def test_a_calibration_that_sampled_nothing_is_refused_by_every_grid_figure(tmp_path) -> None:
     # A trial table whose only numeric column is the cost: the figures must
     # say so instead of drawing the cost under a parameter label.
-    costs_only = SimpleNamespace(
-        sim_id="sim-real",
-        name=None,
-        calibration_iterations=pd.DataFrame(
-            {
-                "trial": [0, 1],
-                "parameters": [json.dumps({}), json.dumps({})],
-                "cost": [2.0, 1.0],
-                "status": ["completed", "completed"],
-            }
-        ),
+    costs_only = journal_session(
+        tmp_path,
+        [
+            {"trial": 1, "parameters": {}, "cost": 2.0},
+            {"trial": 2, "parameters": {}, "cost": 1.0},
+        ],
     )
 
     with pytest.raises(ValueError, match="no parameter columns found"):
@@ -683,21 +583,20 @@ def test_a_calibration_that_sampled_nothing_is_refused_by_every_grid_figure() ->
         CalibrationObjectiveSurfaceFigure().plot(costs_only)
 
 
-def test_a_run_promoted_from_a_session_feeds_the_calibration_figures(monkeypatch, tmp_path) -> None:
-    """The trials are the journal of the session, not a table of the run."""
-    run = SimpleNamespace(
-        sim_id="sim-d",
-        solver="modflow6",
-        has_field=lambda *_a, **_k: True,
-        has_table=lambda _name: False,
-    )
-    figure = CalibrationConvergenceFigure()
-    monkeypatch.setattr(
-        "hydromodpy.results.calibration_trials.session_dir_of", lambda _source, **_: None
-    )
-    assert "calibration_iterations" in (figure.unavailable_reason(run) or "")
-
-    monkeypatch.setattr(
-        "hydromodpy.results.calibration_trials.session_dir_of", lambda _source, **_: tmp_path
-    )
-    assert figure.unavailable_reason(run) is None
+@pytest.mark.parametrize(
+    "figure",
+    [
+        CalibrationConvergenceFigure,
+        CalibrationTraceFigure,
+        CalibrationLandscapeFigure,
+        CalibrationPairplotFigure,
+        CalibrationTrialDistributionFigure,
+        CalibrationObjectiveSurfaceFigure,
+    ],
+)
+def test_the_calibration_figures_draw_a_session_and_refuse_one_without_trials(
+    figure, tmp_path
+) -> None:
+    """The subject is the session, and its journal is the only source of trials."""
+    assert figure.spec.subject == "session"
+    assert figure().unavailable_reason(_calibration_run(tmp_path)) is None

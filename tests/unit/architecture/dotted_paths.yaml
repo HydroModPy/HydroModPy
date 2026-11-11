@@ -64,6 +64,19 @@ not_modules:
     - {text: hydromodpy.data.variables.water_quality.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy._lazy}
     - {text: hydromodpy.data.variables.wind.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy._lazy}
     - {text: hydromodpy.project.lock, why: a module retired with the data cache database, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.calibration_report, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.catchment_report, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.catchment_report.artifacts, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.catchment_report.blocks, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.catchment_report.builder, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.catchment_report.context, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.catchment_report.inputs, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.catchment_report.pipeline, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.catchment_report.settings, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.catchment_report.simulation_source, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.overview.web, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.display.report_blocks, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
+    - {text: hydromodpy.workflow.steps.calibration, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy._lazy}
     - {text: hydromodpy.display.figures.cohort_, why: the start of the cohort figure module names, prefix: true}
 
 # Strings that point at nothing today. Each one stays until the lot named in

@@ -209,3 +209,21 @@ def test_the_field_store_shares_the_value_digests_of_the_facts(run_dir: Path) ->
             handle.close()
 
     assert read_facts(run_dir).field_digests == {"head": {"0": "ab" * 32}}
+
+
+@pytest.mark.parametrize(
+    "feature_name",
+    [
+        pytest.param("catchment", id="a short name"),
+        pytest.param("hydrographic_network_reference_permanent", id="the longest name of the code"),
+    ],
+)
+def test_a_layer_file_keeps_its_name_whole_on_every_system(
+    run_dir: Path, feature_name: str
+) -> None:
+    """The layer name is read back from the file name, so it is never hashed."""
+    with RunStore.open(run_dir, facts=_facts()) as store:
+        path = store.geographic_feature_path(SIM_ID, feature_name)
+
+    assert path.name == f"geographic_{feature_name}{PARQUET_FILE_SUFFIX}"
+    assert path.parent == run_dir / TABLES_DIRNAME

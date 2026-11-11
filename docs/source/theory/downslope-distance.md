@@ -370,12 +370,96 @@ follow $K$ (see the limits).
 (downslope-search)=
 ## How a search reaches the zero
 
-The masks are discrete, so $J_{signed}$ steps over zero instead of reaching it,
-and the zero is a plateau whose width sets how precisely the parameter is known.
-A bisection therefore stops on the width of its bracket, on a logarithmic
-transform, never on the size of the residual. A coarse sweep runs first and sees
-every crossing; a bracket with no sign change is reported, not closed. The
-options are on {doc}`../reference/calibration-methods`.
+The masks are discrete, so $J_{signed}$ steps over zero instead of reaching it.
+On a real catchment $|J|$ never drops below three meters while the root is
+bracketed to a factor 1.0015. The zero is a plateau whose width sets how
+precisely the parameter is known. A bisection therefore stops on the width of its
+bracket, on a logarithmic transform, never on the size of the residual. A search
+that stops on $|J| < \epsilon$ may never stop at all.
+
+Monotonicity is not proven, since the direction of variation was established on
+three points. A coarse sweep runs first, checks it instead of assuming it and
+sees every crossing. Its solves are the same ones that draw the diagnostic
+curves. A bracket with no sign change is reported, never closed: returning the
+better end would be a minimized mean distance in disguise, which is the drift
+this criterion exists to correct. The search raises and prints both residuals.
+The options are on {doc}`../reference/calibration-methods`.
+
+### Two roots
+
+A network output scored on two bounds ($n_{bounds} = 2$, a transient extent
+table and a minimal map) publishes one residual per bound, `J_signed_minimal` and
+`J_signed_maximal`, and no `J_signed`. The search sweeps once, keeps one bracket
+per bound on the same trials, and halves each until its width reaches the
+tolerance. The value it returns is the weighted geometric mean of the two roots
+
+$$\log K = w_\mathrm{min} \log K^*_\mathrm{min} + w_\mathrm{max} \log K^*_\mathrm{max},$$
+
+with the weights the output publishes. This value is solved once more, so every
+number published beside it comes from a real solve. The two roots and their
+spread $\Delta = \log_{10}(K^*_\mathrm{max} / K^*_\mathrm{min})$ are published
+in `roots_record`. A bound weighted zero is not searched, because its root would
+move nothing and a missing sign change on it would refuse a search that does not
+depend on it.
+
+### Points asked together
+
+An engine that asks for $n$ points at once gets $n$. The sweep is fixed in
+advance, so it is handed out $n$ points at a time. A bracket is cut by $n$ points
+into $n + 1$ equal parts in the log variable, all solved together, and the part
+whose ends change sign is kept. A round that needs fewer points to reach the
+tolerance places only those. With two roots the $n$ points of a round are shared
+between the two brackets, one each first, then one at a time to the bracket that
+would stay widest, and a bracket both bounds share is cut once. One point per ask
+is the binary search, trial for trial.
+
+When one round leaves several parts that change sign, the residual is not
+monotone there. The part kept is the one binary bisection keeps. Its halvings are
+followed through the points evaluated, as far as each midpoint is one of them,
+which is all the way when $n + 1$ is a power of two. Past the last midpoint
+evaluated, the lowest crossing left is kept, the rule the sweep applies to
+crossings of one width.
+
+### The budget before the first solve
+
+The budget is known before the first solve, from `root_search_budget`. Let $d$ be
+the declared interval in decades, $t = \log_{10}(1 + \mathrm{rel\_tol})$, $S$ the
+sweep points (two when `sweep_points` is zero), $s = d / (S - 1)$ the sweep step,
+$h(w) = \lceil \log_2 (w / t) \rceil$ the halvings of a bracket $w$ decades wide
+and $E$ the `bracket_expand`. Then
+
+- one root inside the declared bounds costs $N_\mathrm{nominal} = S + h(s)$,
+- one root found after $e$ expansions costs $S + 2e + h(1)$, since each expansion
+  solves two new ends and leaves a bracket one decade wide,
+- two roots inside the bounds cost $S + 2 h(s) + 1$, the last one being the solve
+  at the combined value,
+- two roots of which one needed $e$ expansions cost
+  $S + 2e + h(1) + \max(h(s), h(1)) + 1$,
+- $N_\mathrm{worst}$ is the largest of these, reached at $e = E$ whenever the
+  sweep step is at most a decade.
+
+On the Nançon, $[10^{-7}, 10^{-3}]$ m/s, seven sweep points and one per cent, one
+root costs 15 evaluations inside the bounds and 17, 19, 21 and 23 after one to
+four expansions. Two roots cost 24 inside the bounds and 26 to 32 after
+expansions. `max_trials = "auto"` budgets the worst case, and a declared budget
+below the nominal case is refused before the first solve. When a budget still
+runs out, the search publishes the halvings its brackets still need
+(`evaluations_remaining`), and the engine grants exactly those, once.
+
+With $n$ points per ask, $h(w)$ becomes the number of evaluations that close the
+bracket $n$ cuts at a time, and the two brackets of a two-root search are closed
+together. With $n = 1$ the counts above hold. There are more evaluations and far
+fewer rounds. On the Nançon with four points, one root costs 20 evaluations in 6
+rounds instead of 15 in 15, and two roots cost 26 in 8 instead of 24 in 24.
+
+### The interval around the root
+
+The interval reported beside the root is read on the cost curve. The trials give
+one cost per point of the search variable, the first solved cost when a point was
+asked twice, and none on a point that did not solve. From the root the cost is
+followed on each side to its first crossing of the margin, by a straight line
+between two points, so no solve is added. A point with no cost stops the walk,
+since a line drawn to it would claim a crossing no solve showed.
 
 ## Assumptions
 

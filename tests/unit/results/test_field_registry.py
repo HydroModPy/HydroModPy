@@ -38,7 +38,9 @@ class TestRegistryContents:
             "watertable_elevation",
             "watertable_depth",
             "seepage_mask",
-            "storage_change",
+            "storage",
+            "storage_ss",
+            "storage_sy",
             "recharge",
             "drain",
             "outflow_drain",
@@ -147,6 +149,13 @@ class TestPublicAPI:
         assert err.name == "unknown_field_xyz"
         assert "head" in err.available
         assert "not registered" in err.message
+
+    def test_storage_change_is_refused_with_the_terms_of_the_storage(self):
+        # No solver writes it: the storage is read as its budget terms.
+        with pytest.raises(UnknownFieldError) as exc_info:
+            get("storage_change")
+        assert {"storage", "storage_ss", "storage_sy"} <= set(exc_info.value.available)
+        assert "storage_ss" in exc_info.value.message
 
     def test_has(self):
         assert has("head") is True

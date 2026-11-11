@@ -24,6 +24,13 @@ THUMB_SUFFIXES = (".webp", ".png")
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
+def figure_subjects() -> dict[str, str]:
+    """Return the subject of each figure that does not draw a run, from the figure table."""
+    from hydromodpy.display.figure_table import SUBJECTS
+
+    return dict(SUBJECTS)
+
+
 def load(srcdir: Path) -> None:
     DATA.clear()
     SRCDIR[:] = [srcdir]
@@ -220,6 +227,7 @@ class FiguresDirective(SphinxDirective):
             by_kind[r["kind"]].append(r)
         figures_uri = H.uri(builder, doc, "display.figures")
         overrides_uri = H.uri(builder, doc, "display.overrides")
+        subjects = figure_subjects()
         kinds = sorted(by_kind)
         chips = "".join(
             f'<button type="button" class="hmp-chip hmp-chip-btn" data-kind="{esc(k)}" aria-pressed="false">'
@@ -250,8 +258,10 @@ class FiguresDirective(SphinxDirective):
                     reads.append("if present " + code_list(r["optional_fields"]))
                 if r["required_tables"]:
                     reads.append("tables " + code_list(r["required_tables"]))
+                subject = subjects.get(r["name"], "run")
                 facts = [
-                    f"<li><b>Reads</b> {'; '.join(reads) or '<span class=hmp-muted>nothing fixed</span>'}</li>"
+                    f"<li><b>Subject</b> <code>{esc(subject)}</code></li>",
+                    f"<li><b>Reads</b> {'; '.join(reads) or '<span class=hmp-muted>nothing fixed</span>'}</li>",
                 ]
                 if r["availability_rule"]:
                     facts.append(
@@ -272,6 +282,7 @@ class FiguresDirective(SphinxDirective):
                         r["name"],
                         r["title"],
                         r["kind"],
+                        subject,
                         r["summary"],
                         *r["required_fields"],
                         *r["optional_fields"],

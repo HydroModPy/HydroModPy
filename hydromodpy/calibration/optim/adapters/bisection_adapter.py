@@ -1,92 +1,15 @@
-"""One-dimensional root search driven by the sign of a residual.
+"""One-dimensional root search on the sign of a residual, as one flat module.
 
-Every other adapter here minimizes a cost. This one brackets a sign change and
-closes the bracket, because the criterion it serves has a root rather than a
-minimum: the balance between an excess of simulated stream and a missing one is
-where the signed gap crosses zero, and a cost that only knows ``abs`` of it
-cannot tell which side it is on.
+Same optimizer as ``hydromodpy.calibration.optim.adapters.bisection_adapter``,
+written on the public ask/tell/best contract. It does the whole job: a coarse
+log sweep, bracket expansion by decades, one or two roots (one per bound of a
+network output) with a weighted geometric mean solved once, ``n`` cut points
+per ask, the counted budget, the evaluations still needed, the records for the
+report and the interval around the root.
 
-Three things follow from the measured shape of that residual, and each one is a
-line of code here.
-
-The function is not continuous. The masks are discrete, so the two averages
-jump when a cell switches, and the residual steps over zero rather than
-reaching it: on a real catchment ``abs(J)`` never drops below three meters
-while the root is bracketed to a factor 1.0015. **The stopping rule is
-therefore the width of the bracket, never the size of the residual.** A search
-that stops on ``abs(J) < eps`` may never stop at all.
-
-Monotonicity is not proven. The paper establishes the direction of variation on
-three points and generalizes it; the coarse sweep run before the bisection
-checks it instead of assuming it, sees every crossing rather than one, and
-comes out of the same solves as the diagnostic curves the method publishes.
-
-A bracket that never changes sign is a result, not an accident to paper over.
-Returning the better of the two ends would be a minimized mean distance in
-disguise, which is exactly the drift this whole criterion exists to correct, so
-the adapter raises and prints both residuals.
-
-**Two roots.** A network output scored on two bounds (``n_bounds_scored = 2``:
-a transient extent table and a minimal map) publishes one residual per bound,
-``J_signed_minimal`` and ``J_signed_maximal``, and no ``J_signed``. The search
-then sweeps once, keeps one bracket per bound on the same trials, and halves
-each until its width reaches the tolerance. The value it returns is the
-weighted geometric mean of the two roots,
-``log K = w_min log K*_min + w_max log K*_max``, with the weights the output
-publishes (``weight_minimal``, ``weight_maximal``). That value is evaluated
-once more, so every number published beside it comes from a real solve; the
-two roots and their spread ``Delta = log10(K*_max / K*_min)`` are published in
-:meth:`BisectionAdapter.roots_record`. A bound weighted zero is not searched:
-its root would move nothing, and a missing sign change on it would refuse a
-search that does not depend on it.
-
-**Side by side.** An engine that asks for ``n`` points at once gets ``n``.
-The sweep is fixed in advance, so it is handed out ``n`` points at a time, in
-order. A bracket is then cut by ``n`` points into ``n + 1`` equal parts in the
-log variable, all solved together, and the part whose ends change sign is kept;
-a round that needs fewer points to reach the tolerance places only those. With
-two roots the ``n`` points of a round are shared between the two brackets: one
-each first, then one at a time to the bracket that would stay widest, and a
-bracket both bounds share is cut once. One point per ask is the binary search,
-trial for trial: the midpoint, and one root after the other.
-
-When one round leaves several parts that change sign, the residual is not
-monotone there. The part kept is the one binary bisection keeps: its halvings
-are followed through the points evaluated, as far as each midpoint is one of
-them, which is all the way when ``n + 1`` is a power of two. Past the last
-midpoint evaluated, the lowest crossing left is kept, the rule the sweep
-already applies to crossings of one width.
-
-The budget is known before the first solve (:func:`root_search_budget`). With
-``d`` the declared interval in decades, ``t = log10(1 + rel_tol)``, ``S`` sweep
-points (two when ``sweep_points`` is zero), ``s = d / (S - 1)`` the sweep step,
-``h(w) = ceil(log2(w / t))`` the halvings of a bracket ``w`` decades wide and
-``E = bracket_expand``:
-
-- one root inside the declared bounds costs ``N_nominal = S + h(s)``;
-- one root found after ``e`` expansions costs ``S + 2e + h(1)``, since each
-  expansion evaluates two new ends and leaves a bracket one decade wide;
-- two roots inside the bounds cost ``S + 2 h(s) + 1``, the last one the solve
-  at the combined value;
-- two roots of which one needed ``e`` expansions cost
-  ``S + 2e + h(1) + max(h(s), h(1)) + 1``;
-- ``N_worst`` is the largest of those, reached at ``e = E`` whenever the sweep
-  step is at most a decade.
-
-On the Nancon, [1e-7, 1e-3] m/s, seven sweep points and one per cent: 15
-evaluations inside the bounds, 17, 19, 21 and 23 after one to four expansions;
-two roots cost 24 inside the bounds and 26 to 32 after expansions.
-``max_trials = "auto"`` budgets the worst case; a declared budget below the
-nominal case is refused before the first solve. When a budget still runs out,
-the adapter publishes the halvings its brackets still need
-(:attr:`BisectionAdapter.evaluations_remaining`), and the engine grants exactly
-those, once.
-
-With ``n`` points per ask, ``h(w)`` becomes the evaluations that close the
-bracket ``n`` cuts at a time, and the two brackets of a two-root search are
-closed together; ``n = 1`` gives the counts above. More evaluations, far fewer
-rounds: on the Nancon with four points, one root costs 20 evaluations in 6
-rounds instead of 15 in 15, two roots 26 in 8 instead of 24 in 24.
+The stopping rule is the width of the bracket, never the size of the residual,
+because the residual steps over zero. A bracket that never changes sign is
+refused, never answered with the better end.
 """
 
 from __future__ import annotations
@@ -112,138 +35,70 @@ from hydromodpy.core.scoring.cost_margin import MarginKind
 logger = get_logger(__name__)
 
 LOG10_ONE_PERCENT = 4.32137e-3
-"""``log10(1.01)``: the paper's "K/R varies by less than one per cent", written
-in the log variable the search actually walks."""
-
 DEFAULT_REL_TOL = 0.01
-"""The paper's one per cent on K/R."""
-
 DEFAULT_SWEEP_POINTS = 7
-"""Points of the coarse log sweep run before the bisection."""
-
 DEFAULT_BRACKET_EXPAND = 4
-"""Decade-wide expansions on both sides allowed before a missing root is refused."""
-
 BOUNDS_COMPONENT = "n_bounds_scored"
-"""The component saying how many bounds of a network output are in the cost."""
-
-ROOT_BOUNDS: tuple[str, ...] = ("minimal", "maximal")
-"""The bounds a two-root search closes one root on each, in this order."""
-
-_DEFAULT_SIGNED_COMPONENT = "J_signed"
-
-_SAME_POINT = 1e-12
-"""Two points of the log variable this close are one point."""
+ROOT_BOUNDS = ("minimal", "maximal")
+_SIGNED = "J_signed"
+_EPS = 1e-12
 
 
-def _same_cost(first: float, second: float) -> bool:
-    """Two costs a float round-off apart are one cost."""
-    return math.isclose(first, second, rel_tol=1e-9, abs_tol=1e-12)
+def _same(a: float, b: float) -> bool:
+    return math.isclose(a, b, rel_tol=1e-9, abs_tol=_EPS)
 
 
-def _halvings(width: float, tolerance: float) -> int:
-    """Return how many halvings bring a bracket *width* wide to *tolerance*."""
-    if width <= tolerance:
-        return 0
-    return math.ceil(math.log2(width / tolerance))
+def _at_least(value: int, low: int, what: str) -> int:
+    if int(value) < low:
+        raise OptimizerError(what.format(value))
+    return int(value)
 
 
-def _points_to_close(width: float, tolerance: float) -> int:
-    """Return the fewest cut points that close a bracket *width* wide in one round."""
-    if width <= tolerance:
-        return 0
-    return max(1, math.ceil(width / tolerance) - 1)
+def _check_batch(batch: int) -> int:
+    return _at_least(batch, 1, "a root search asks at least one point at a time, got {!r}.")
 
 
-def _share(widths: Sequence[float], tolerance: float, points: int) -> list[int]:
-    """Share one round of *points* cut points between brackets *widths* wide.
+def _check_roots(roots: int) -> int:
+    if int(roots) not in (1, 2):
+        raise OptimizerError(f"a root search closes one or two roots, got roots = {roots!r}.")
+    return int(roots)
 
-    Each open bracket takes one point in turn, so a single point goes to the
-    first open bracket, as the binary search always did. The rest go one at a
-    time to the bracket that would stay widest after the round, the first on a
-    tie. A bracket never takes more points than closing it this round needs.
-    """
-    needs = [_points_to_close(width, tolerance) for width in widths]
-    shares = [0] * len(needs)
-    left = max(0, int(points))
-    for index, need in enumerate(needs):
+
+# -- the count of evaluations, known before the first solve --------------------------------- #
+def _share(widths: Sequence[float], tol: float, points: int) -> list[int]:
+    """Share one round of cut points: one each first, then to the bracket left widest."""
+    needs = [0 if w <= tol else max(1, math.ceil(w / tol) - 1) for w in widths]
+    shares, left = [0] * len(needs), max(0, int(points))
+    for i, need in enumerate(needs):
         if left and need:
-            shares[index] = 1
-            left -= 1
+            shares[i], left = 1, left - 1
     while left:
-        wanting = [index for index, need in enumerate(needs) if shares[index] < need]
+        wanting = [i for i, need in enumerate(needs) if shares[i] < need]
         if not wanting:
             break
-        widest = max(wanting, key=lambda index: widths[index] / (shares[index] + 1))
-        shares[widest] += 1
+        shares[max(wanting, key=lambda i: widths[i] / (shares[i] + 1))] += 1
         left -= 1
     return shares
 
 
-def _cut_evaluations(widths: Sequence[float], tolerance: float, batch: int) -> int:
-    """Return the evaluations that close brackets *widths* wide, *batch* cuts per round.
-
-    The rounds share their points as :func:`_share` shares them. One point per
-    round is the binary search: ``h(w)`` halvings per bracket.
-    """
-    if batch <= 1:
-        return sum(_halvings(width, tolerance) for width in widths)
-    current = [float(width) for width in widths]
-    evaluations = 0
-    while True:
-        shares = _share(current, tolerance, batch)
-        if not any(shares):
-            return evaluations
-        current = [width / (share + 1) for width, share in zip(current, shares, strict=True)]
-        evaluations += sum(shares)
+def _cut_evaluations(widths: Sequence[float], tol: float, batch: int) -> int:
+    """Evaluations that close brackets *widths* wide, *batch* cuts per round."""
+    current, spent = [float(w) for w in widths], 0
+    while any(shares := _share(current, tol, batch)):
+        current = [w / (s + 1) for w, s in zip(current, shares, strict=True)]
+        spent += sum(shares)
+    return spent
 
 
-def _check_batch(batch: int) -> int:
-    """Return *batch* when it is at least one point per ask, raise otherwise."""
-    count = int(batch)
-    if count < 1:
-        raise OptimizerError(f"a root search asks at least one point at a time, got {batch!r}.")
-    return count
-
-
-def _sweep_size(sweep_points: int) -> int:
-    """Return how many points the sweep evaluates: the two bounds when it is zero."""
-    return 2 if sweep_points <= 0 else max(2, int(sweep_points))
-
-
-def _check_roots(roots: int) -> int:
-    """Return *roots* when the search can close that many, raise otherwise."""
-    count = int(roots)
-    if count not in (1, 2):
-        raise OptimizerError(f"a root search closes one or two roots, got roots = {roots!r}.")
-    return count
-
-
-def _budget_in_log_space(
-    width: float,
-    tolerance: float,
-    sweep_points: int,
-    bracket_expand: int,
-    roots: int = 1,
-    batch: int = 1,
-) -> CountedBudget:
-    """Count the evaluations for an interval *width* decades wide, per expansion.
-
-    *batch* is the points asked at once; one gives the binary search's count.
-    """
-    points = _sweep_size(sweep_points)
-    sweep_step = width / (points - 1)
-    expansions = range(1, max(0, int(bracket_expand)) + 1)
+def _budget(width: float, tol: float, sweep: int, expand: int, roots: int, batch: int):
+    n = 2 if sweep <= 0 else max(2, int(sweep))
+    step = width / (n - 1)
+    cut = lambda *w: _cut_evaluations(w, tol, batch)  # noqa: E731
+    steps = range(1, max(0, int(expand)) + 1)
     if roots == 1:
-        nominal = points + _cut_evaluations((sweep_step,), tolerance, batch)
-        after = _cut_evaluations((1.0,), tolerance, batch)
-        expanded = [points + 2 * step + after for step in expansions]
-    else:
-        # One more solve, at the combined value, once both brackets are closed.
-        nominal = points + _cut_evaluations((sweep_step, sweep_step), tolerance, batch) + 1
-        after = _cut_evaluations((1.0, max(sweep_step, 1.0)), tolerance, batch)
-        expanded = [points + 2 * step + after + 1 for step in expansions]
-    return CountedBudget(counts=(nominal, *expanded))
+        return CountedBudget((n + cut(step), *(n + 2 * e + cut(1.0) for e in steps)))
+    after = cut(1.0, max(step, 1.0))
+    return CountedBudget((n + cut(step, step) + 1, *(n + 2 * e + after + 1 for e in steps)))
 
 
 def root_search_budget(
@@ -256,31 +111,15 @@ def root_search_budget(
     roots: int = 1,
     batch: int = 1,
 ) -> CountedBudget:
-    """Return the evaluations the root search needs, per bracket expansion.
-
-    ``lower`` and ``upper`` are the declared bounds in physical units. With ``d``
-    the interval in decades, ``t = log10(1 + rel_tol)``, ``S`` the sweep points
-    (two when zero), ``s = d / (S - 1)`` and ``h(w) = ceil(log2(w / t))``: one
-    root costs ``S + h(s)`` inside the bounds and ``S + 2e + h(1)`` after ``e``
-    expansions; two roots cost ``S + 2 h(s) + 1`` and
-    ``S + 2e + h(1) + max(h(s), h(1)) + 1``, the last solve at the combined
-    value. ``worst`` is the largest count. On the Nancon, [1e-7, 1e-3] with
-    seven points and one per cent, one root counts 15, 17, 19, 21 and 23, two
-    roots 24, 26, 28, 30 and 32.
-
-    ``batch`` is the points the engine asks at once, ``max(batch_size,
-    parallel)``. Each bracket is then cut ``batch`` points at a time and the
-    halvings become those rounds' evaluations; one gives the counts above.
-    """
-    low, high = float(lower), float(upper)
-    if not (0.0 < low < high):
+    """Evaluations per bracket expansion, for bounds in physical units."""
+    if not 0.0 < float(lower) < float(upper):
         raise ValueError(
-            f"a root search on a log parameter needs 0 < lower < upper, got [{low}, {high}]."
+            f"a root search on a log parameter needs 0 < lower < upper, got [{lower}, {upper}]."
         )
     if float(rel_tol) <= 0.0:
         raise ValueError(f"rel_tol must be strictly positive, got {rel_tol}.")
-    return _budget_in_log_space(
-        math.log10(high) - math.log10(low),
+    return _budget(
+        math.log10(upper) - math.log10(lower),
         math.log10(1.0 + float(rel_tol)),
         int(sweep_points),
         int(bracket_expand),
@@ -289,73 +128,41 @@ def root_search_budget(
     )
 
 
-def _within(pair: tuple[float, float], low: float, high: float) -> bool:
-    """Whether the interval *pair* lies inside ``[low, high]``, ends included."""
-    return pair[0] >= low - _SAME_POINT and pair[1] <= high + _SAME_POINT
-
-
-def _residual_near(pairs: Sequence[tuple[float, float]], x: float) -> float | None:
-    """Return the residual evaluated at *x*, None when no point there was evaluated."""
-    return next((value for point, value in pairs if abs(point - x) <= _SAME_POINT), None)
-
-
-def roots_scored(outputs: Iterable[Any]) -> int:
-    """Return how many roots a root search on these network outputs closes: 1 or 2.
-
-    Two when an output declares both a ``model.extent`` table and a permanent map,
-    and weighs both bounds above zero: the criterion then publishes one residual
-    per bound. One otherwise, which is the paper's search. Read off the
-    declarations, before any solve, so the budget can count both roots.
-    """
-    for output in outputs:
-        if output.model.extent is None or output.map.permanent is None:
-            continue
-        weights = output.map.bound_weights
-        if float(weights.permanent) > 0.0 and float(weights.complete) > 0.0:
-            return 2
-    return 1
-
-
+# -- reading the residuals ------------------------------------------------------------------ #
 def _component(components: Mapping[str, float] | None, name: str) -> float | None:
-    """Read one component, bare or ``<output>.<name>``; two outputs publishing it is an error."""
+    """Read a component, bare or ``<output>.<name>``; two outputs publishing it is an error."""
     if not components:
         return None
     if name in components:
         return float(components[name])
-    suffix = f".{name}"
-    matches = [key for key in components if key.endswith(suffix)]
-    if not matches:
-        return None
-    if len(matches) > 1:
+    found = [key for key in components if key.endswith(f".{name}")]
+    if len(found) > 1:
         raise OptimizerError(
-            f"several outputs publish a {name!r} residual ({sorted(matches)}); a root "
+            f"several outputs publish a {name!r} residual ({sorted(found)}); a root "
             "search needs exactly one."
         )
-    return float(components[matches[0]])
+    return float(components[found[0]]) if found else None
 
 
-def signed_residual(
-    components: Mapping[str, float] | None,
-    *,
-    name: str = _DEFAULT_SIGNED_COMPONENT,
-) -> float | None:
-    """Read the signed residual out of a trial's components.
-
-    A network output prefixes its diagnostics with its own name, so the lookup
-    accepts both the bare key and any ``<output>.<key>`` form; two outputs
-    publishing the same residual is a declaration error and says so.
-    """
+def signed_residual(components: Mapping[str, float] | None, *, name: str = _SIGNED):
+    """Read the signed residual of a trial, None when absent."""
     return _component(components, name)
+
+
+def roots_scored(outputs: Iterable[Any]) -> int:
+    """Roots a search closes on these outputs: two when one scores both bounds, else one."""
+    for out in outputs:
+        if out.model.extent is None or out.map.permanent is None:
+            continue
+        w = out.map.bound_weights
+        if float(w.permanent) > 0.0 and float(w.complete) > 0.0:
+            return 2
+    return 1
 
 
 @dataclass(frozen=True)
 class RootTarget:
-    """One residual the search closes a bracket on.
-
-    ``bound`` is ``None`` for the single root of the paper, else the bound of
-    a network output scored on two (``"minimal"`` or ``"maximal"``).
-    ``weight`` is that root's share of the returned value in log space.
-    """
+    """One residual a bracket is closed on. ``bound`` is None for the single root."""
 
     component: str
     bound: str | None = None
@@ -363,20 +170,14 @@ class RootTarget:
 
     @property
     def label(self) -> str:
-        """How the root is named in a message."""
         return self.component if self.bound is None else f"{self.bound} bound ({self.component})"
 
 
 class BisectionAdapter:
-    """Bracket the sign change of a residual, or of two, then close each bracket.
-
-    ``batch`` is the points the engine asks at once, which the budget is counted
-    for before the first ask. From the first ask on, the widest ask seen counts.
-    """
+    """Bracket the sign change of a residual (or two), then close each bracket."""
 
     name = "bisection"
     options = BisectionMethodConfig
-
     traits = EngineTraits(
         max_parameters=1,
         required_search_space="log",
@@ -386,7 +187,6 @@ class BisectionAdapter:
         precision_option="rel_tol",
         precision_reads="relative_value",
     )
-    """The same three refusals the constructor makes, readable before it runs."""
 
     def __init__(
         self,
@@ -394,83 +194,66 @@ class BisectionAdapter:
         *,
         seed: int | None = None,
         rel_tol: float = DEFAULT_REL_TOL,
-        signed_component: str = _DEFAULT_SIGNED_COMPONENT,
+        signed_component: str = _SIGNED,
         sweep_points: int = DEFAULT_SWEEP_POINTS,
         bracket_expand: int = DEFAULT_BRACKET_EXPAND,
         roots: int = 1,
         batch: int = 1,
     ) -> None:
-        del seed  # a root search is deterministic
+        del seed  # deterministic
         if space.dim != 1:
             raise OptimizerError(
                 "the bisection adapter searches one parameter; the space declares "
                 f"{space.dim} ({', '.join(space.names)}). A two-parameter space silently "
                 "bisected along its first axis is the worst failure this method has."
             )
-        parameter = space.parameters[0]
-        if parameter.search_space != "log":
+        p = space.parameters[0]
+        if p.search_space != "log":
             raise OptimizerError(
-                f"the bisection adapter walks a log10 variable, but parameter "
-                f"{parameter.name!r} declares search_space = {parameter.search_space!r}. Its "
-                "stopping rule is a width in that variable, so on any other search space it "
-                "reads as an absolute width and reports convergence on a bracket orders "
-                'of magnitude wide. Declare search_space = "log" for this parameter.'
+                f"the bisection adapter walks a log10 variable, but parameter {p.name!r} "
+                f"declares search_space = {p.search_space!r}. Its stopping rule is a width in "
+                "that variable, so on any other search space it reads as an absolute width "
+                "and reports convergence on a bracket orders of magnitude wide. "
+                'Declare search_space = "log" for this parameter.'
             )
         if float(rel_tol) <= 0.0:
             raise OptimizerError(f"rel_tol must be strictly positive, got {rel_tol}.")
-        if int(sweep_points) < 0:
-            raise OptimizerError(f"sweep_points must be positive or zero, got {sweep_points}.")
-
-        self.space = space
-        self._parameter = parameter
+        _at_least(sweep_points, 0, "sweep_points must be positive or zero, got {}.")
+        self.space, self._parameter = space, p
         self._signed_component = str(signed_component)
         self._sweep_points = int(sweep_points)
         self._max_expansions = max(0, int(bracket_expand))
-        # A residual named by hand is one root, whatever the outputs score.
-        self._declared_roots = (
-            _check_roots(roots) if self._signed_component == _DEFAULT_SIGNED_COMPONENT else 1
-        )
-        self._batch = _check_batch(batch)
-        self._widest_ask: int | None = None
-        # The paper's relative criterion on K/R becomes an absolute width in the
-        # log variable, which is what the search actually halves.
+        by_hand = self._signed_component != _SIGNED  # a residual named by hand is one root
+        self._declared_roots = 1 if by_hand else _check_roots(roots)
+        self._batch, self._widest = _check_batch(batch), None
         self._tolerance = math.log10(1.0 + float(rel_tol))
-
-        self._declared = (
-            float(self._parameter.lower_transformed),
-            float(self._parameter.upper_transformed),
-        )
-        self._low = float(self._parameter.lower_transformed)
-        self._high = float(self._parameter.upper_transformed)
+        self._declared = (float(p.lower_transformed), float(p.upper_transformed))
+        self._low, self._high = self._declared
         self._history: list[EvaluationResult] = []
         self._residuals: dict[int, dict[str, float]] = {}
         self._points: dict[int, float] = {}
-        self._pending: list[float] = self._initial_points()
-        self._pending_kind = "sweep"
-        self._expansions = 0
+        self._ok: set[int] = set()
+        n = max(2, self._sweep_points) if self._sweep_points > 0 else 2
+        step = (self._high - self._low) / (n - 1)
+        self._pending = (
+            [self._low + step * i for i in range(n)]
+            if self._sweep_points > 0
+            else [self._low, self._high]
+        )
+        self._kind = "sweep"
+        self._expansions, self._trial_id = 0, 0
         self._targets: tuple[RootTarget, ...] | None = None
         self._brackets: dict[str, tuple[float, float]] = {}
         self._combined_trial: int | None = None
-        self._round_due = False
-        self._done = False
-        self._trial_id = 0
+        self._round_due = self._done = False
 
-    # -- the residuals ------------------------------------------------------ #
-
+    # -- targets and residuals ------------------------------------------------------------- #
     def _decide_targets(self, components: Mapping[str, float]) -> tuple[RootTarget, ...]:
-        """Say which residuals the search closes, from the first trial that scored.
-
-        A declared ``signed_component`` other than the default is taken as
-        written. Otherwise an output scoring two bounds publishes one residual
-        per bound and their weights; a bound weighted zero is dropped.
-        """
         single = (RootTarget(self._signed_component),)
-        if self._signed_component != _DEFAULT_SIGNED_COMPONENT:
-            return single
         n_bounds = _component(components, BOUNDS_COMPONENT)
-        if n_bounds is None or int(round(n_bounds)) < 2:
+        if self._signed_component != _SIGNED or n_bounds is None or round(n_bounds) < 2:
             return single
-        targets: list[RootTarget] = []
+        targets = []
         for bound in ROOT_BOUNDS:
             weight = _component(components, f"weight_{bound}")
             if weight is None:
@@ -479,22 +262,21 @@ class BisectionAdapter:
                     "two roots cannot be combined."
                 )
             if weight > 0.0:
-                targets.append(RootTarget(f"{_DEFAULT_SIGNED_COMPONENT}_{bound}", bound, weight))
+                targets.append(RootTarget(f"{_SIGNED}_{bound}", bound, weight))
         if not targets:
             raise ObjectiveError("the output weighs both of its bounds zero: nothing to search.")
-        if len(targets) == 1:
-            # The other bound moves nothing: one root, read on its own residual.
+        if len(targets) == 1:  # the other bound moves nothing
             return (RootTarget(targets[0].component, targets[0].bound, 1.0),)
         return tuple(targets)
 
     def _set_targets(self, targets: tuple[RootTarget, ...]) -> None:
-        """Fix the residuals once, and say it when the budget counted another number."""
         self._targets = targets
         if len(targets) == 2:
             logger.info(
-                "The outputs score two bounds: one root per bound, on %s, combined as "
+                "The outputs score two bounds: one root per bound, on %s and %s, combined as "
                 "log K = %.3g log K*_minimal + %.3g log K*_maximal.",
-                " and ".join(target.component for target in targets),
+                targets[0].component,
+                targets[1].component,
                 targets[0].weight,
                 targets[1].weight,
             )
@@ -508,56 +290,24 @@ class BisectionAdapter:
                 len(targets),
             )
 
-    def _read_residuals(self, result: EvaluationResult) -> dict[str, float] | None:
-        """Return every residual this trial publishes, None when one is missing."""
-        if self._targets is None:
-            return None
-        found: dict[str, float] = {}
-        for target in self._targets:
-            value = signed_residual(result.components, name=target.component)
-            if value is None:
-                if result.status == "completed":
-                    raise ObjectiveError(
-                        f"trial {result.trial_id} published no {target.component!r} "
-                        "component, so its sign is unknown and a root search is blind. "
-                        "Declare a network output, whose criterion emits it."
-                    )
-                return None
-            found[target.component] = float(value)
-        return found
-
     def _evaluated(self, component: str) -> list[tuple[float, float]]:
-        """Return ``(x, residual)`` for every usable evaluation, x ascending."""
-        pairs = [
-            (self._points[trial], residuals[component])
-            for trial, residuals in self._residuals.items()
-            if trial in self._points and math.isfinite(residuals[component])
-        ]
-        return sorted(pairs)
+        """``(x, residual)`` of every usable evaluation, x ascending."""
+        return sorted(
+            (self._points[t], r[component])
+            for t, r in self._residuals.items()
+            if t in self._points and math.isfinite(r[component])
+        )
 
-    # -- planning ----------------------------------------------------------- #
-
-    def _initial_points(self) -> list[float]:
-        """The first points to evaluate: a coarse sweep, or the two bounds."""
-        if self._sweep_points <= 0:
-            return [self._low, self._high]
-        count = max(2, self._sweep_points)
-        step = (self._high - self._low) / (count - 1)
-        return [self._low + step * index for index in range(count)]
-
+    # -- planning --------------------------------------------------------------------------- #
     def _find_bracket(self, target: RootTarget) -> tuple[float, float] | None:
-        """Return the tightest pair of consecutive points that change sign.
-
-        Crossings of one width inside the bracket the last round cut are
-        settled as binary bisection settles them (:meth:`_as_bisection_keeps`).
-        """
+        """Tightest pair of consecutive points that change sign."""
         pairs = self._evaluated(target.component)
-        found: list[tuple[float, float]] = []
-        for (x_low, r_low), (x_high, r_high) in zip(pairs[:-1], pairs[1:], strict=False):
-            if r_low == 0.0:
-                return (x_low, x_low)
-            if r_low * r_high < 0.0:
-                found.append((x_low, x_high))
+        found = []
+        for (xl, rl), (xh, rh) in zip(pairs[:-1], pairs[1:], strict=False):
+            if rl == 0.0:
+                return (xl, xl)
+            if rl * rh < 0.0:
+                found.append((xl, xh))
         if not found:
             return None
         if len(found) > 1:
@@ -569,49 +319,36 @@ class BisectionAdapter:
                 len(found),
             )
         tightest = min(found, key=lambda pair: pair[1] - pair[0])
-        return self._as_bisection_keeps(target, pairs, found, tightest)
+        return self._as_bisection_keeps(pairs, found, tightest, target)
 
-    def _as_bisection_keeps(
-        self,
-        target: RootTarget,
-        pairs: list[tuple[float, float]],
-        found: list[tuple[float, float]],
-        tightest: tuple[float, float],
-    ) -> tuple[float, float]:
-        """Return the crossing binary bisection keeps among several of one width.
+    def _as_bisection_keeps(self, pairs, found, tightest, target):
+        """Among crossings of one width in the last bracket, keep the one binary bisection keeps.
 
-        One round of cuts can leave several parts of the last bracket that
-        change sign, when the residual is not monotone there. Binary bisection
-        evaluates the midpoint, keeps the half whose ends change sign, and goes
-        on. Those halvings are followed here through the points evaluated, as
-        long as each midpoint is one of them. Past the last one, the lowest
-        crossing left is kept, as the sweep keeps the first of its crossings.
-        Any other case keeps the tightest crossing, the first on a tie.
+        The halvings are followed through the points evaluated while each midpoint is one of
+        them. Past the last one, the lowest crossing left is kept.
         """
         previous = self._brackets.get(target.component)
         if previous is None:
             return tightest
-        span = tightest[1] - tightest[0]
         low, high = previous
+        span = tightest[1] - tightest[0]
         tied = [
-            pair
-            for pair in found
-            if math.isclose(pair[1] - pair[0], span, rel_tol=1e-9, abs_tol=_SAME_POINT)
-            and _within(pair, low, high)
+            c
+            for c in found
+            if math.isclose(c[1] - c[0], span, rel_tol=1e-9, abs_tol=_EPS)
+            and c[0] >= low - _EPS
+            and c[1] <= high + _EPS
         ]
         if len(tied) < 2:
             return tightest
+        near = lambda x: next((r for p, r in pairs if abs(p - x) <= _EPS), None)  # noqa: E731
         while len(tied) > 1:
             middle = 0.5 * (low + high)
-            at_low = _residual_near(pairs, low)
-            at_middle = _residual_near(pairs, middle)
-            if at_low is None or at_middle is None or at_middle == 0.0:
+            at_low, at_mid = near(low), near(middle)
+            if at_low is None or at_mid is None or at_mid == 0.0:
                 break
-            if at_low * at_middle < 0.0:
-                high = middle
-            else:
-                low = middle
-            kept = [pair for pair in tied if _within(pair, low, high)]
+            low, high = (low, middle) if at_low * at_mid < 0.0 else (middle, high)
+            kept = [c for c in tied if c[0] >= low - _EPS and c[1] <= high + _EPS]
             if not kept:
                 break
             tied = kept
@@ -622,10 +359,8 @@ class BisectionAdapter:
         if self._expansions >= self._max_expansions:
             return False
         self._expansions += 1
-        self._low -= 1.0
-        self._high += 1.0
-        self._pending = [self._low, self._high]
-        self._pending_kind = "sweep"
+        self._low, self._high = self._low - 1.0, self._high + 1.0
+        self._pending, self._kind = [self._low, self._high], "sweep"
         logger.info(
             "No sign change yet: widening the bracket to [%.3f, %.3f] in log space "
             "(expansion %d of %d).",
@@ -637,20 +372,20 @@ class BisectionAdapter:
         return True
 
     def _refuse(self, target: RootTarget | None) -> None:
-        """Raise, naming both ends, rather than returning the better of the two."""
+        """Raise naming both ends, never returning the better of the two."""
         pairs = self._evaluated(target.component) if target is not None else []
         if not pairs:
             raise OptimizerError(
                 "the bisection adapter has no usable residual: every evaluation failed or "
-                "was infeasible. "
-                f"Check that the outputs publish a {self._signed_component!r} component."
+                f"was infeasible. Check that the outputs publish a {self._signed_component!r} "
+                "component."
             )
-        (x_low, r_low), (x_high, r_high) = pairs[0], pairs[-1]
-        name = self._parameter.name
+        (xl, rl), (xh, rh) = pairs[0], pairs[-1]
+        name, p = self._parameter.name, self._parameter
         unsolved = ", ".join(
-            f"{name} = {self._physical_of(result.trial_id):.4g} ({result.status})"
-            for result in self._history
-            if result.status != "completed"
+            f"{name} = {self._physical_of(r.trial_id):.4g} ({r.status})"
+            for r in self._history
+            if r.status != "completed"
         )
         infeasible = (
             f" It does not widen: a bracket end is infeasible, {unsolved}." if unsolved else ""
@@ -658,148 +393,108 @@ class BisectionAdapter:
         which = "" if target.bound is None else f" of the {target.bound} bound"
         raise OptimizerError(
             f"the residual{which} keeps the same sign over the whole bracket: "
-            f"{target.component} = {r_low:+.4g} at {name} = "
-            f"{self._parameter.to_physical(x_low):.4g}, and {r_high:+.4g} at {name} = "
-            f"{self._parameter.to_physical(x_high):.4g}. There is no root to close here. "
+            f"{target.component} = {rl:+.4g} at {name} = {p.to_physical(xl):.4g}, and "
+            f"{rh:+.4g} at {name} = {p.to_physical(xh):.4g}. There is no root to close here. "
             "Returning the better of the two ends would be a minimised mean distance in "
             f"disguise, so the search stops instead.{infeasible}"
         )
 
     def _plan_after_batch(self) -> None:
-        """Decide what to evaluate next, once a batch has been told.
-
-        The sweep, an expansion and the combined value are evaluated whole.
-        Brackets are recomputed after every batch: with two brackets, a point
-        cutting one may fall in the other and narrow it too. The cut points of
-        the next round are placed at the next ask, once its width is known.
-        """
-        if self._pending and self._pending_kind != "bisect":
+        """Decide what to evaluate next, once a batch has been told."""
+        if self._pending and self._kind != "bisect":
             return
-        self._pending = []
-        self._round_due = False
-        if self._combined_trial is not None:
-            # The combined value is the last solve; its residuals move no bracket.
+        self._pending, self._round_due = [], False
+        if self._combined_trial is not None:  # the combined solve is the last one
             self._done = True
             return
         if self._targets is None:
             self._done = True
             self._refuse(None)
-        brackets = {target.component: self._find_bracket(target) for target in self._targets}
-        missing = [target for target in self._targets if brackets[target.component] is None]
+        found = {t.component: self._find_bracket(t) for t in self._targets}
+        missing = [t for t in self._targets if found[t.component] is None]
         if missing:
-            if any(result.status != "completed" for result in self._history):
-                # A failed end means the surface, not the interval: widening it
-                # would only buy more failures.
-                self._done = True
-                self._refuse(missing[0])
-            if not self._expand():
+            # A failed end means the surface, not the interval: widening buys more failures.
+            if any(r.status != "completed" for r in self._history) or not self._expand():
                 self._done = True
                 self._refuse(missing[0])
             return
-        self._brackets = {key: value for key, value in brackets.items() if value is not None}
+        self._brackets = found
         if self._open_spans():
-            self._pending_kind = "bisect"
-            self._round_due = True
-            return
-        self._plan_the_combined_value()
+            self._kind, self._round_due = "bisect", True
+        else:
+            self._plan_the_combined_value()
 
     def _open_spans(self) -> list[tuple[float, float]]:
-        """Return the brackets still wider than the tolerance, a shared one once."""
+        """Brackets still wider than the tolerance, a bracket both roots share once."""
         spans: list[tuple[float, float]] = []
         for low, high in self._brackets.values():
             if high - low > self._tolerance and not any(
-                abs(low - seen_low) <= _SAME_POINT and abs(high - seen_high) <= _SAME_POINT
-                for seen_low, seen_high in spans
+                abs(low - a) <= _EPS and abs(high - b) <= _EPS for a, b in spans
             ):
                 spans.append((low, high))
         return spans
 
     def _cuts(self, points: int) -> list[float]:
-        """Place one round of at most *points* cut points in the open brackets.
-
-        Each bracket takes its share of the round (:func:`_share`) as equal
-        parts in the log variable. A single point is the midpoint, computed as
-        the binary search always computed it. A point already placed in
-        another bracket is not proposed twice.
-        """
+        """Place one round of at most *points* cuts, as equal parts in the log variable."""
         spans = self._open_spans()
         shares = _share([high - low for low, high in spans], self._tolerance, points)
         placed: list[float] = []
         for (low, high), share in zip(spans, shares, strict=True):
-            for index in range(1, share + 1):
-                x = ((share + 1 - index) * low + index * high) / (share + 1)
-                if not any(abs(x - seen) <= _SAME_POINT for seen in placed):
+            for i in range(1, share + 1):
+                x = ((share + 1 - i) * low + i * high) / (share + 1)
+                if not any(abs(x - seen) <= _EPS for seen in placed):
                     placed.append(x)
         return placed
 
     def _plan_the_combined_value(self) -> None:
-        """Every bracket is closed: evaluate the combined value, or stop."""
+        """Every bracket is closed: solve the weighted mean of the roots, or stop."""
         if len(self._targets or ()) < 2 or self._combined_trial is not None:
             self._done = True
             return
         stars = self._root_trials()
-        if any(trial is None for trial in stars.values()):
-            # No completed trial inside a bracket: nothing real to combine.
-            self._done = True
+        if any(t is None for t in stars.values()):
+            self._done = True  # no completed trial inside a bracket: nothing real to combine
             return
-        combined = self._combined_point(stars)
+        total = sum(t.weight for t in self._targets) or 1.0
+        combined = sum(t.weight * self._points[stars[t.component]] for t in self._targets) / total
         logger.info(
             "Both roots closed: %s. The returned value is their weighted geometric mean, "
             "%s = %.6g, evaluated once so every number beside it comes from a solve.",
             ", ".join(
-                f"K*_{target.bound} = {self._physical_of(stars[target.component]):.6g}"
-                for target in self._targets or ()
+                f"K*_{t.bound} = {self._physical_of(stars[t.component]):.6g}" for t in self._targets
             ),
             self._parameter.name,
             self._parameter.to_physical(combined),
         )
         existing = next(
-            (
-                trial
-                for trial, x in self._points.items()
-                if abs(x - combined) <= _SAME_POINT and self._completed(trial)
-            ),
+            (t for t, x in self._points.items() if abs(x - combined) <= _EPS and t in self._ok),
             None,
         )
         if existing is not None:
-            self._combined_trial = existing
-            self._done = True
+            self._combined_trial, self._done = existing, True
             return
-        self._pending = [combined]
-        self._pending_kind = "combined"
+        self._pending, self._kind = [combined], "combined"
 
-    # -- the ask / tell contract -------------------------------------------- #
-
+    # -- ask / tell ------------------------------------------------------------------------- #
     def ask(self, n: int = 1) -> list[ParamSuggestion]:
-        """Return up to ``n`` points, or nothing when every bracket is closed.
-
-        Sweep and expansion points come ``n`` at a time, in order. A round of
-        cuts places at most ``n`` points, once per told batch.
-        """
+        """Up to *n* points, or nothing when every bracket is closed."""
         if self._done:
             return []
-        points = max(1, int(n))
-        self._widest_ask = max(self._widest_ask or 0, points)
+        n = max(1, int(n))
+        self._widest = max(self._widest or 0, n)
         if self._round_due:
-            self._round_due = False
-            self._pending = self._cuts(points)
-        out: list[ParamSuggestion] = []
-        while self._pending and len(out) < points:
+            self._round_due, self._pending = False, self._cuts(n)
+        out = []
+        while self._pending and len(out) < n:
             x = self._pending.pop(0)
             self._trial_id += 1
             self._points[self._trial_id] = x
-            if self._pending_kind == "combined":
-                self._combined_trial = self._trial_id
-                source = "combined"
+            if self._kind == "combined":
+                self._combined_trial, source = self._trial_id, "combined"
             else:
                 source = "bisect" if self._brackets else "sweep"
-            out.append(
-                ParamSuggestion(
-                    trial_id=self._trial_id,
-                    values={self._parameter.name: float(self._parameter.to_physical(x))},
-                    source=source,
-                )
-            )
+            values = {self._parameter.name: float(self._parameter.to_physical(x))}
+            out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source=source))
         return out
 
     def suggest_next(self) -> ParamSuggestion:
@@ -810,158 +505,107 @@ class BisectionAdapter:
 
     def tell(self, results: Sequence[EvaluationResult]) -> None:
         """Record the residuals of each evaluation, then plan the next batch."""
-        for result in results:
-            self._history.append(result)
-            if self._targets is None and result.components:
-                self._set_targets(self._decide_targets(result.components))
-            if self._targets is None:
-                if result.status == "completed":
+        for r in results:
+            self._history.append(r)
+            if r.status == "completed":
+                self._ok.add(r.trial_id)
+            if self._targets is None and r.components:
+                self._set_targets(self._decide_targets(r.components))
+            names = (
+                [t.component for t in self._targets] if self._targets else [self._signed_component]
+            )
+            values = [signed_residual(r.components, name=c) for c in names]
+            if None in values:
+                if r.status == "completed":
                     raise ObjectiveError(
-                        f"trial {result.trial_id} published no {self._signed_component!r} "
+                        f"trial {r.trial_id} published no {names[values.index(None)]!r} "
                         "component, so its sign is unknown and a root search is blind. "
                         "Declare a network output, whose criterion emits it."
                     )
-                continue
-            residuals = self._read_residuals(result)
-            if residuals is not None:
-                self._residuals[result.trial_id] = residuals
+            elif self._targets is not None:
+                self._residuals[r.trial_id] = dict(zip(names, map(float, values), strict=True))
         self._plan_after_batch()
 
-    # -- the answer --------------------------------------------------------- #
-
+    # -- the answer ------------------------------------------------------------------------- #
     def best(self) -> EvaluationResult | None:
-        """Return the evaluated trial the search answers with.
+        """The evaluated trial the search answers with, never a midpoint.
 
-        One root: the trial closest to the root, inside the bracket. The cost
-        carries ``abs`` of the residual, so the lowest cost is the trial nearest
-        zero. What is returned is a point that was really evaluated, never the
-        middle of the last interval: every quantity the method publishes beside
-        the value has to come from a real solve.
-
-        The bracket is where the root is, so the answer is taken inside it.
-        The residual steps rather than slides, so two trials often share one
-        ``abs(J)`` to the last digit, and ``min`` then returned the first one
-        evaluated, which can sit outside the final bracket: on the Nancon,
-        trial 13 tied with trial 15 and was returned 0.6 % outside
-        [2.0783e-4, 2.0908e-4]. Among trials inside the bracket the lowest cost
-        wins, and a tie goes to the trial nearest its middle, the best estimate
-        of the root the search holds. A trial outside is returned only when no
-        completed trial lies inside, which happens when a rejected trial set an
-        end, and that says so.
-
-        Two roots: the trial at the combined value, once it solved. Before
-        that, or when it failed, the search has not converged and the lowest
-        cost stands in, as for any search stopped by its budget.
+        One root: inside the bracket, the lowest cost, a tie going to the trial nearest the
+        middle. Two roots: the trial at the combined value, else the lowest cost.
         """
-        valid = [result for result in self._history if result.status == "completed"]
+        valid = [r for r in self._history if r.status == "completed"]
         if not valid:
             return None
         if len(self._targets or ()) == 2:
-            winner = self._combined_result()
-            if winner is None:
-                winner = min(valid, key=lambda result: result.cost)
+            winner = self._combined_result() or min(valid, key=lambda r: r.cost)
         else:
             winner = self._pick(valid)
         self._warn_if_outside_the_declared_bounds()
         return winner
 
     def _pick(self, valid: list[EvaluationResult]) -> EvaluationResult:
-        """Choose among completed trials, preferring those inside the bracket."""
         bracket = self.bracket
-        inside = [result for result in valid if self._inside(result.trial_id, bracket)]
+        inside = [r for r in valid if self._inside(r.trial_id, bracket)]
         pool = inside or valid
-        lowest = min(result.cost for result in pool)
-        tied = [result for result in pool if _same_cost(result.cost, lowest)]
+        lowest = min(r.cost for r in pool)
+        tied = [r for r in pool if _same(r.cost, lowest)]
         if bracket is None:
             return tied[0]
         middle = 0.5 * (bracket[0] + bracket[1])
-        winner = min(
-            tied, key=lambda result: abs(self._points.get(result.trial_id, middle) - middle)
-        )
+        winner = min(tied, key=lambda r: abs(self._points.get(r.trial_id, middle) - middle))
         if not inside:
-            low, high = bracket
             logger.warning(
                 "No completed trial lies inside the final bracket [%.4g, %.4g] of %s: its "
                 "ends come from rejected trials. Trial %d, outside it, is returned.",
-                self._parameter.to_physical(low),
-                self._parameter.to_physical(high),
+                self._parameter.to_physical(bracket[0]),
+                self._parameter.to_physical(bracket[1]),
                 self._parameter.name,
                 winner.trial_id,
             )
         return winner
 
     def _inside(self, trial_id: int, bracket: tuple[float, float] | None) -> bool:
-        """Whether a trial was evaluated inside *bracket*, ends included."""
-        if bracket is None:
-            return False
         x = self._points.get(trial_id)
-        if x is None:
+        if bracket is None or x is None:
             return False
-        low, high = bracket
-        slack = 1e-12 * max(1.0, abs(low), abs(high))
-        return low - slack <= x <= high + slack
-
-    def _completed(self, trial_id: int) -> bool:
-        """Whether this trial solved."""
-        return any(
-            result.trial_id == trial_id and result.status == "completed" for result in self._history
-        )
+        slack = 1e-12 * max(1.0, abs(bracket[0]), abs(bracket[1]))
+        return bracket[0] - slack <= x <= bracket[1] + slack
 
     def _root_trials(self) -> dict[str, int | None]:
-        """Return, per residual, the completed trial nearest its root.
-
-        Inside the bracket, the smallest residual in absolute value wins, and
-        a tie goes to the trial nearest the middle of the bracket. None when
-        no completed trial lies inside.
-        """
+        """Per residual, the completed trial nearest its root inside its bracket."""
         stars: dict[str, int | None] = {}
-        for target in self._targets or ():
-            bracket = self._brackets.get(target.component)
-            if bracket is None:
-                stars[target.component] = None
-                continue
-            candidates = [
-                (abs(residuals[target.component]), trial)
-                for trial, residuals in self._residuals.items()
-                if self._completed(trial)
-                and math.isfinite(residuals[target.component])
+        for t in self._targets or ():
+            bracket = self._brackets.get(t.component)
+            cands = [
+                (abs(r[t.component]), trial)
+                for trial, r in self._residuals.items()
+                if trial in self._ok
+                and math.isfinite(r[t.component])
                 and self._inside(trial, bracket)
             ]
-            if not candidates:
-                stars[target.component] = None
+            if bracket is None or not cands:
+                stars[t.component] = None
                 continue
-            lowest = min(value for value, _ in candidates)
-            middle = 0.5 * (bracket[0] + bracket[1])
-            stars[target.component] = min(
-                (trial for value, trial in candidates if _same_cost(value, lowest)),
+            lowest, middle = min(v for v, _ in cands), 0.5 * (bracket[0] + bracket[1])
+            stars[t.component] = min(
+                (trial for v, trial in cands if _same(v, lowest)),
                 key=lambda trial: abs(self._points[trial] - middle),
             )
         return stars
 
-    def _combined_point(self, stars: Mapping[str, int | None]) -> float:
-        """Return ``sum w x*`` over the roots, the weighted mean in log space."""
-        targets = self._targets or ()
-        total = sum(target.weight for target in targets)
-        return sum(
-            target.weight * self._points[int(stars[target.component])]  # type: ignore[arg-type]
-            for target in targets
-        ) / (total or 1.0)
-
     def _combined_result(self) -> EvaluationResult | None:
-        """Return the completed trial at the combined value, None before or on failure."""
         if self._combined_trial is None:
             return None
         return next(
             (
-                result
-                for result in self._history
-                if result.trial_id == self._combined_trial and result.status == "completed"
+                r
+                for r in self._history
+                if r.trial_id == self._combined_trial and r.status == "completed"
             ),
             None,
         )
 
     def _physical_of(self, trial_id: int | None) -> float:
-        """Return a trial's parameter value in physical units, NaN when absent."""
         if trial_id is None or trial_id not in self._points:
             return float("nan")
         return float(self._parameter.to_physical(self._points[trial_id]))
@@ -969,71 +613,51 @@ class BisectionAdapter:
     def root_outside_bounds(self) -> str | None:
         """Name the roots whose bracket lies outside the declared bounds, or None."""
         low, high = self._declared
-        to_physical = self._parameter.to_physical
+        phys = self._parameter.to_physical
         outside = []
-        for target in self._targets or ():
-            bracket = self._brackets.get(target.component)
-            middle = None if bracket is None else 0.5 * (bracket[0] + bracket[1])
-            if middle is not None and not low <= middle <= high:
-                outside.append(f"the root of {target.label} at {to_physical(middle):.4g}")
+        for t in self._targets or ():
+            b = self._brackets.get(t.component)
+            mid = None if b is None else 0.5 * (b[0] + b[1])
+            if mid is not None and not low <= mid <= high:
+                outside.append(f"the root of {t.label} at {phys(mid):.4g}")
         if not outside:
             return None
         return (
             f"{' and '.join(outside)} closed OUTSIDE the declared bounds of "
-            f"{self._parameter.name}, [{to_physical(low):.4g}, {to_physical(high):.4g}], "
+            f"{self._parameter.name}, [{phys(low):.4g}, {phys(high):.4g}], "
             f"after {self._expansions} bracket expansion(s)"
         )
 
     def _warn_if_outside_the_declared_bounds(self) -> None:
-        """Say it when the root only exists outside the interval that was declared.
-
-        The search widens its bracket by a decade at a time, which is what lets
-        it find a sign change a cautious prior missed. But a root several decades
-        outside the declared bounds is usually not a surprising conductivity: it
-        is the residual failing to respond to the parameter at all. Measured on
-        the Nancon with the streams in SFR, the simulated network holds the
-        reaches by construction whatever the conductivity, the residual stays
-        positive across the whole declared interval, and the search closes on a
-        value three decades above it that means nothing.
-        """
         reason = self.root_outside_bounds()
-        if reason is None:
-            return
-        logger.warning(
-            "%s. Either the prior was too narrow, or the residual does "
-            "not respond to this parameter over the declared range: a simulated network "
-            "holding cells that are prescribed rather than computed never retracts, and the "
-            "search then balances against that fixed skeleton. Check n_excess at the low end "
-            "of the sweep: it should collapse as the parameter rises.",
-            reason,
-        )
+        if reason:
+            logger.warning(
+                "%s. Either the prior was too narrow, or the residual does not respond to "
+                "this parameter over the declared range: a simulated network holding cells "
+                "that are prescribed rather than computed never retracts, and the search then "
+                "balances against that fixed skeleton. Check n_excess at the low end of the "
+                "sweep: it should collapse as the parameter rises.",
+                reason,
+            )
 
     def converged(self) -> bool:
-        """Whether every bracket is closed, and with two roots the combined value solved.
-
-        ``_done`` alone is not enough. A refusal also sets it before raising, with
-        no bracket ever found, and a caller that catches that error must not read
-        the search as converged.
-        """
+        """Every bracket closed, and with two roots the combined value solved."""
         if not self._done or self._targets is None:
             return False
-        if any(target.component not in self._brackets for target in self._targets):
+        if any(t.component not in self._brackets for t in self._targets):
             return False
-        if len(self._targets) == 2:
-            return self._combined_result() is not None
-        return True
+        return len(self._targets) < 2 or self._combined_result() is not None
+
+    # -- budget and progress ---------------------------------------------------------------- #
+    @property
+    def _points_per_round(self) -> int:
+        return self._widest if self._widest is not None else self._batch
 
     @property
     def counted_budget(self) -> CountedBudget:
-        """Evaluations the declared bounds, sweep, tolerance and roots need, per expansion.
-
-        Read by the engine before the first solve: ``"auto"`` budgets its worst
-        case, a budget below its nominal case is refused. Counted for the
-        declared ``batch`` until the first ask, then for the widest ask seen.
-        See :func:`root_search_budget`.
-        """
+        """Evaluations the bounds, sweep, tolerance and roots need, per expansion."""
         low, high = self._declared
-        return _budget_in_log_space(
+        return _budget(
             high - low,
             self._tolerance,
             self._sweep_points,
@@ -1043,66 +667,56 @@ class BisectionAdapter:
         )
 
     @property
-    def _points_per_round(self) -> int:
-        """The points a round may place: the widest ask seen, else the declared batch."""
-        return self._widest_ask if self._widest_ask is not None else self._batch
-
-    @property
     def evaluations_remaining(self) -> int | None:
-        """Evaluations the current brackets still need, or None before they are found.
-
-        ``ceil(log2(width / t))`` per open bracket with one point per ask, the
-        evaluations of the rounds of cuts with more; plus the solve at the
-        combined value with two roots; zero once the search is done. Before
-        every sign change is found the sweep or an expansion is still running,
-        and what follows it is not known yet.
-        """
-        if self._targets is None or any(
-            target.component not in self._brackets for target in self._targets
-        ):
+        """Evaluations the open brackets still need, None before every sign change is found."""
+        if self._targets is None or any(t.component not in self._brackets for t in self._targets):
             return None
         if self._done:
             return 0
         widths = [high - low for low, high in self._open_spans()]
         needed = _cut_evaluations(widths, self._tolerance, self._points_per_round)
-        if len(self._targets) == 2 and self._combined_result() is None:
-            needed += 1
-        return needed
+        return needed + (1 if len(self._targets) == 2 and self._combined_result() is None else 0)
 
     @property
     def bracket(self) -> tuple[float, float] | None:
-        """The latest bracket of a one-root search, in the transformed variable.
-
-        Set as soon as a sign change is found and narrowed by each step;
-        :meth:`converged` says whether it reached the tolerance. None with two
-        roots, whose brackets are :attr:`brackets`.
-        """
+        """The latest bracket of a one-root search, in the transformed variable."""
         if self._targets is None or len(self._targets) != 1:
             return None
         return self._brackets.get(self._targets[0].component)
 
     @property
     def brackets(self) -> dict[str, tuple[float, float]]:
-        """The latest bracket per bound of a two-root search, in the transformed variable.
-
-        Keyed ``"minimal"`` and ``"maximal"``; empty before both are found and
-        for a one-root search.
-        """
+        """The latest bracket per bound of a two-root search."""
         if self._targets is None or len(self._targets) != 2:
             return {}
         return {
-            str(target.bound): self._brackets[target.component]
-            for target in self._targets
-            if target.component in self._brackets
+            str(t.bound): self._brackets[t.component]
+            for t in self._targets
+            if t.component in self._brackets
         }
 
     @property
     def roots(self) -> int:
-        """The roots the search closes: those the outputs score, else those declared."""
         return len(self._targets) if self._targets is not None else self._declared_roots
 
-    def _bracket_entry(self, bracket: tuple[float, float], *, closed: bool) -> dict[str, Any]:
-        """Return one bracket in physical units, with its relative width."""
+    def progress_label(self) -> str:
+        """What the live progress line shows: the bracket, not a cost."""
+        name = self._parameter.name
+        combined = self._combined_result()
+        if combined is not None:
+            return f"root {name} = {self._physical_of(combined.trial_id):.4g}"
+        parts = []
+        for t in self._targets or ():
+            if t.component in self._brackets:
+                lo, hi = (
+                    float(self._parameter.to_physical(e)) for e in self._brackets[t.component]
+                )
+                side = "" if t.bound is None else f"{t.bound} "
+                parts.append(f"{side}root {name} in [{lo:.4g}, {hi:.4g}]")
+        return ", ".join(parts) if parts else f"bracketing {name}"
+
+    # -- records ---------------------------------------------------------------------------- #
+    def _entry(self, bracket: tuple[float, float], *, closed: bool) -> dict[str, Any]:
         low, high = bracket
         return {
             "low": float(self._parameter.to_physical(low)),
@@ -1111,102 +725,57 @@ class BisectionAdapter:
             "closed": closed,
         }
 
-    def progress_label(self) -> str:
-        """Return what the live progress line shows: the bracket, not a cost.
-
-        A root search answers with a root. The lowest cost seen is often a trial
-        far from it, so a progress line naming it contradicts the answer. The
-        line names the bracket, or the brackets on two bounds, and once solved
-        the combined value.
-        """
-        name = self._parameter.name
-        combined = self._combined_result()
-        if combined is not None:
-            return f"root {name} = {self._physical_of(combined.trial_id):.4g}"
-        if self._targets is None or not self._brackets:
-            return f"bracketing {name}"
-        parts = []
-        for target in self._targets:
-            bracket = self._brackets.get(target.component)
-            if bracket is None:
-                continue
-            low, high = (float(self._parameter.to_physical(end)) for end in bracket)
-            side = "" if target.bound is None else f"{target.bound} "
-            parts.append(f"{side}root {name} in [{low:.4g}, {high:.4g}]")
-        return ", ".join(parts) if parts else f"bracketing {name}"
-
     def bracket_record(self) -> dict[str, Any] | None:
-        """Return the final bracket for the report, or None before a sign change.
-
-        ``low`` and ``high`` are in the parameter's physical units and
-        ``relative_width`` is ``high / low - 1``, the number ``rel_tol`` is read
-        against. ``closed`` is False when the budget ran out first: the root is
-        still inside, only less precisely than asked. The paper publishes no
-        such interval; it is what the search itself proved, which the tolerance
-        interval on the trials does not. None for a two-root search, whose
-        record is :meth:`roots_record`.
-        """
-        bracket = self.bracket
-        if bracket is None:
+        """The final bracket of a one-root search for the report, None before a sign change."""
+        if self.bracket is None:
             return None
         return {
             "parameter": self._parameter.name,
-            **self._bracket_entry(bracket, closed=self.converged()),
+            **self._entry(self.bracket, closed=self.converged()),
         }
 
     def root_interval(self, *, margin: float, kind: MarginKind) -> ParameterInterval | None:
-        """Return the width of the answer on the cost curve, None before a trial solved."""
+        """Width of the answer on the cost curve, None before a trial solved."""
         best = self.best()
         if best is None:
             return None
-        curve = [
-            (self._points[result.trial_id], result.cost if result.status == "completed" else None)
-            for result in self._history
-            if result.trial_id in self._points
-        ]
+        curve: dict[float, float | None] = {}
+        for r in self._history:
+            if r.trial_id not in self._points:
+                continue
+            solved = r.status == "completed" and math.isfinite(r.cost)
+            x = self._points[r.trial_id]
+            if curve.get(x) is None:
+                curve[x] = r.cost if solved else None
         root = (self._points[best.trial_id], best.cost)
         return root_interval(curve, root, margin, kind, self._parameter, self._declared)
 
     def roots_record(self) -> dict[str, Any] | None:
-        """Return the two roots, their spread and the combined value, or None.
-
-        None unless the search closes two roots and found both sign changes.
-        Per bound: ``k_star``, the completed trial nearest its root
-        (``trial_id``, ``residual`` there), its final bracket in physical
-        units and whether it closed, and its ``weight``. Then
-        ``delta_log10 = log10(K*_maximal / K*_minimal)``, the combined
-        ``value`` and ``combined_trial_id``, the trial that solved it, None
-        when it did not. ``closed`` is :meth:`converged`.
-        """
+        """Both roots, their spread and the combined value, None unless two roots were found."""
         if self._targets is None or len(self._targets) != 2:
             return None
-        if any(target.component not in self._brackets for target in self._targets):
+        if any(t.component not in self._brackets for t in self._targets):
             return None
         stars = self._root_trials()
         record: dict[str, Any] = {"parameter": self._parameter.name}
-        for target in self._targets:
-            bracket = self._brackets[target.component]
-            trial = stars[target.component]
+        for t in self._targets:
+            trial, b = stars[t.component], self._brackets[t.component]
             residual = (
-                self._residuals.get(trial, {}).get(target.component) if trial is not None else None
+                self._residuals.get(trial, {}).get(t.component) if trial is not None else None
             )
-            record[str(target.bound)] = {
+            record[str(t.bound)] = {
                 "k_star": self._physical_of(trial),
                 "trial_id": trial,
                 "residual": float(residual) if residual is not None else None,
-                "weight": float(target.weight),
-                **self._bracket_entry(bracket, closed=bracket[1] - bracket[0] <= self._tolerance),
+                "weight": float(t.weight),
+                **self._entry(b, closed=b[1] - b[0] <= self._tolerance),
             }
-        k_min = record["minimal"]["k_star"]
-        k_max = record["maximal"]["k_star"]
-        record["delta_log10"] = (
-            float(math.log10(k_max / k_min))
-            if math.isfinite(k_min) and math.isfinite(k_max) and k_min > 0.0 and k_max > 0.0
-            else None
-        )
+        lo, hi = record["minimal"]["k_star"], record["maximal"]["k_star"]
+        ok = math.isfinite(lo) and math.isfinite(hi) and lo > 0.0 and hi > 0.0
+        record["delta_log10"] = float(math.log10(hi / lo)) if ok else None
         combined = self._combined_result()
-        record["value"] = self._physical_of(combined.trial_id) if combined is not None else None
-        record["combined_trial_id"] = combined.trial_id if combined is not None else None
+        record["value"] = self._physical_of(combined.trial_id) if combined else None
+        record["combined_trial_id"] = combined.trial_id if combined else None
         record["closed"] = self.converged()
         return record
 

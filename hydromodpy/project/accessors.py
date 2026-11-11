@@ -201,7 +201,7 @@ def sites_frame(catalog: Catalog, project_root: Path) -> gpd.GeoDataFrame:
     import geopandas as gpd
 
     stored = readable(read_plan, project_root) if current_plan_hash(project_root) else None
-    frame = catalog.sites if stored is None else stored.sites.to_pandas()
+    frame = catalog.sites if stored is None else stored.sites
     if not {"x_outlet", "y_outlet"} <= set(frame.columns):
         return gpd.GeoDataFrame(frame)
     x = pd.to_numeric(frame["x_outlet"], errors="coerce")

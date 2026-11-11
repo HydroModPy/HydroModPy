@@ -16,13 +16,11 @@ pytestmark = pytest.mark.fast
 def _capture_render(monkeypatch) -> dict:
     captured: dict = {}
 
-    def fake_render(*, session_dir: Path) -> Path:
+    def fake_render(session_dir: Path, **_options) -> Path:
         captured["session_dir"] = session_dir
         return session_dir / "report" / "index.html"
 
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.calibration.step_render_calibration_report", fake_render
-    )
+    monkeypatch.setattr("hydromodpy.project.report.report_session", fake_render)
     return captured
 
 

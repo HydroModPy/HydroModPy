@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import math
@@ -342,6 +343,61 @@ def test_the_width_of_a_root_stops_at_a_trial_that_did_not_solve() -> None:
     assert (interval.lower_crossed, interval.upper_crossed) == (True, False)
     # K = 1 and K = 10 solved above the margin; K = 1e4 did not solve.
     assert interval.n_trials == interval.n_within + 2
+
+
+def _converged_search() -> BisectionAdapter:
+    """A one-root search on J = log10(K) - 2.5, closed, with every trial solved."""
+    adapter = BisectionAdapter(_space(1.0, 1.0e4), sweep_points=5)
+    while not adapter._done:
+        (sugg,) = adapter.ask(1)
+        residual = math.log10(float(sugg.values["K"])) - 2.5
+        adapter.tell([result_of(sugg, abs(residual), components={"net.J_signed": residual})])
+    return adapter
+
+
+def _with_a_trial_asked_again(adapter, position: int, x: float, cost, status: str):
+    """A copy of a closed search, with one more trial at ``x`` placed at ``position``."""
+    again = copy.deepcopy(adapter)
+    trial_id = max(again._points) + 1
+    again._points[trial_id] = x
+    extra = EvaluationResult(trial_id=trial_id, sim_id=None, cost=cost, status=status)
+    again._history = [*again._history[:position], extra, *again._history[position:]]
+    return again
+
+
+@pytest.mark.parametrize(
+    ("below_the_root", "cost", "status"),
+    [
+        # A cut point that failed, then solved when asked again, above the root.
+        (False, math.inf, "infeasible"),
+        # The same below the root, and with a cost that is not finite.
+        (True, math.nan, "completed"),
+    ],
+)
+def test_a_failed_trial_asked_again_and_solved_reads_like_the_solved_one(
+    below_the_root, cost, status
+) -> None:
+    adapter = _converged_search()
+    expected = adapter.root_interval(margin=0.5, kind="absolute").to_dict()
+    root = adapter._points[adapter.best().trial_id]
+    candidates = [x for x in adapter._points.values() if (x < root) is below_the_root]
+    x = min(candidates, key=lambda value: abs(value - root))
+
+    for position in range(len(adapter._history) + 1):
+        again = _with_a_trial_asked_again(adapter, position, x, cost, status)
+
+        assert again.root_interval(margin=0.5, kind="absolute").to_dict() == expected
+
+
+def test_a_point_solved_twice_keeps_its_first_cost() -> None:
+    adapter = _converged_search()
+    expected = adapter.root_interval(margin=1.0, kind="absolute").to_dict()
+    # K = 1e3 costs 0.5, under the margin. A later cost of 1e6 there would cross it.
+    x = min(adapter._points.values(), key=lambda value: abs(value - 3.0))
+
+    again = _with_a_trial_asked_again(adapter, len(adapter._history), x, 1.0e6, "completed")
+
+    assert again.root_interval(margin=1.0, kind="absolute").to_dict() == expected
 
 
 def test_a_refusal_on_an_infeasible_end_says_that_word() -> None:

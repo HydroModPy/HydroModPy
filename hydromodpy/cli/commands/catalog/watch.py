@@ -53,7 +53,7 @@ def run(args: argparse.Namespace) -> None:
     project_root = project_root_of(args)
     if not project_root.is_dir():
         refuse(f"No project at {project_root}", EXIT_NOT_FOUND)
-    from hydromodpy.results.outcome import death_is_proven
+    from hydromodpy.core.state.host import death_is_proven
 
     # A worker of this host whose pid is gone died without a word (OOM, SIGKILL).
     rows = [

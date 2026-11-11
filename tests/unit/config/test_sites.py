@@ -16,10 +16,8 @@ from hydromodpy.core.site import SiteRow
 from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.data.sites.catalog import write_catalog
 from hydromodpy.data.sites.single_site import SiteMismatchError, match_site
-from hydromodpy.project.launch.sites.expansion import expand_plan
-from hydromodpy.project.launch.sites.issues import group_issues
-from hydromodpy.project.launch.sites.tables import is_empty_cell, read_table
-from tests.unit.project.launch.test_sites_plan import write_sites_project
+from hydromodpy.project.launch.plan import expand_plan, group_issues, is_empty_cell, read_table
+from tests.unit.project.launch.test_plan import write_sites_project
 
 
 def _validate(payload: dict[str, Any]) -> HydroModPyConfig:

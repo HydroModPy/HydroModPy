@@ -94,6 +94,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Say which case, which session folder and which phases would run, and write nothing.",
     )
     parser.add_argument(
+        "--no-report",
+        action="store_true",
+        help="Do not write the report of each session once the search is over. "
+        "hmp report render SESSION writes it later.",
+    )
+    parser.add_argument(
         "--list-phases",
         action="store_true",
         help="List the declared phases and exit without running anything. A file "
@@ -471,6 +477,8 @@ def _calibrate(
                 options["base"] = base
             if case is not None:
                 options["case"] = case
+            if getattr(args, "no_report", False):
+                options["report"] = False
             result = hmp.calibrate(source, environment=environment_from_args(args), **options)
     except (ConfigError, ValidationError) as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)

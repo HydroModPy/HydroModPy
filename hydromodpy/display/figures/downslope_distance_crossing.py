@@ -26,10 +26,8 @@ from hydromodpy.display.figure_options import (
     Opt,
     OutputName,
     ParameterUnits,
-    SessionId,
 )
 from hydromodpy.display.figures._calibration_session import (
-    chosen_session,
     declared_units,
     session_descriptor,
 )
@@ -39,7 +37,7 @@ from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, place_legend
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 _SIMULATED_TO_MAPPED = HIGH_CONTRAST_TRIPLET[0]
 _MAPPED_TO_SIMULATED = HIGH_CONTRAST_TRIPLET[2]
@@ -58,11 +56,11 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
         name="downslope_distance_crossing",
         title="Downslope distance crossing",
         kind="timeseries",
-        required_tables=("calibration_iterations",),
+        subject="session",
         default_figsize=(7.6, 5.0),
     )
 
-    def unavailable_reason(self, sim: Run) -> str | None:
+    def unavailable_reason(self, session: Session) -> str | None:
         """Refuse a session that measured no distance, before drawing.
 
         The two curves are the network criterion's own pair, and only a stage
@@ -73,10 +71,10 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
         so an ambiguity between two outputs reads as an ambiguity rather than
         as an absence.
         """
-        reason = super().unavailable_reason(sim)
-        if reason is not None:
-            return reason
-        table = trial_table(sim)
+        try:
+            table = trial_table(session)
+        except ValueError as exc:
+            return str(exc)
         for diagnostic in ("D_so", "D_os"):
             try:
                 table.diagnostic_column(diagnostic)
@@ -86,12 +84,11 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
 
     def render(
         self,
-        sim: Run,
+        session: Session,
         ax: Axes,
         *,
         parameter: OneParameter = None,
         parameter_units: ParameterUnits = None,
-        session_id: SessionId = None,
         output: OutputName = None,
         band_m: Annotated[
             float | None,
@@ -105,10 +102,9 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
     ) -> Axes:
         from matplotlib.patches import Patch
 
-        chosen = chosen_session(sim, session_id)
-        table = trial_table(sim, session_id=chosen)
+        table = trial_table(session)
         name, values = table.parameter_values(parameter)
-        units = parameter_units or declared_units(table, session_descriptor(sim, chosen), name)
+        units = parameter_units or declared_units(table, session_descriptor(session), name)
         d_so = table.diagnostic("D_so", output=output)
         d_os = table.diagnostic("D_os", output=output)
 
@@ -210,7 +206,7 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
         ax.set_ylabel("Downslope distance (m)")
         ax.set_ylim(bottom=0.0)
         ax.grid(True, which="both", ls=":", lw=0.4)
-        ax.set_title(f"Downslope distance crossing{run_suffix(sim)}")
+        ax.set_title(f"Downslope distance crossing{run_suffix(session)}")
         handles, _labels = ax.get_legend_handles_labels()
         if band is not None:
             handles.append(

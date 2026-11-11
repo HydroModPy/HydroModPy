@@ -20,6 +20,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.io.filesystem import WINDOWS_PATH_LIMIT
 from hydromodpy.core.state.names import MAX_NAME_LENGTH, fold_name
 from validation_cases.shared.loaders import load_case_metadata
 
@@ -35,12 +36,6 @@ spread of a steady case then reads 2.4e-5 m or more against thresholds of
 5e-6 m to 2e-5 m.
 """
 
-_WINDOWS_VALIDATION_PATH_LIMIT = 259
-"""Longest path mf6.exe and mfnwt.exe open on Windows.
-
-MAX_PATH is 260 with the terminating NUL. The Fortran runtime of the solvers
-is not long-path aware, even where Python is.
-"""
 _VALIDATION_SIM_NAME_LENGTH = MAX_NAME_LENGTH
 """Cap of the ``[simulation] name`` a validation run gets, which names its model folder.
 
@@ -56,9 +51,8 @@ _SCRATCH_ROOT_PART = len("/.hmp/scratch")
 # process id is a DWORD, 10 digits at most.
 _RUN_FOLDER_PART = len("/") + 24 + len(".p") + 10
 # "/<model>/<model>.flow_properties.npz": the solver folder is named after the
-# model, and MODFLOW-NWT names every file after it. MODFLOW 6 does too while the
-# path is short; past 240 characters support.names.mf6_output_name collapses the stem to
-# the 16-character MF6 name, which only shortens it. The flow property sidecar
+# model, and both solvers name every file after it: mf6_output_name gives the
+# requested name on every system. The flow property sidecar
 # (build.FLOW_PROPERTY_SIDECAR_SUFFIX) is the longest suffix put after the name.
 _MODEL_FILE_SUFFIX = len(".flow_properties.npz")
 # "/_cyc49/cyc49/cyc49.flow_properties.npz": the deepest file of a MODFLOW 6
@@ -442,7 +436,7 @@ def _windows_path_budget_exceeded(path: Path, *, headroom: int = 0) -> bool:
     """Return True when *path* plus *headroom* characters is too long on Windows."""
     if os.name != "nt":
         return False
-    return len(str(path)) + int(headroom) > _WINDOWS_VALIDATION_PATH_LIMIT
+    return len(str(path)) + int(headroom) > WINDOWS_PATH_LIMIT
 
 
 def budgeted_dir_name(parent: Path, name: str, *, generated_length: int) -> str:

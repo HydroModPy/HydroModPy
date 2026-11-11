@@ -205,15 +205,15 @@ def _warn_mf6_version_parity(lib_path: str, bin_path: object) -> None:
     """Warn once when the resolved libmf6 and the mf6 executable versions differ."""
     from pathlib import Path
 
+    from hydromodpy.core.workspace.workspace import resolve_bin_path
     from hydromodpy.solver.modflow_common.binaries import (
         exe_filename,
         locate_solver_binary,
-        managed_bin_dir,
         warn_on_mf6_version_mismatch,
     )
 
     try:
-        bindir = Path(bin_path).expanduser() if bin_path else managed_bin_dir()
+        bindir = Path(bin_path or resolve_bin_path()).expanduser()
         exe = locate_solver_binary(bindir, "mf6") or (bindir / exe_filename("mf6"))
         warn_on_mf6_version_mismatch(exe, lib_path)
     except Exception:  # pragma: no cover - a version probe must never break a solve

@@ -14,7 +14,7 @@ from hydromodpy.project.launch.children import calibration_width
 
 
 def test_a_calibration_counts_its_own_parallel_in_the_budget(tmp_path: Path) -> None:
-    import pyarrow as pa
+    import pandas as pd
 
     from hydromodpy.results.plan_store import PlanCase, StoredPlan
 
@@ -30,7 +30,7 @@ def test_a_calibration_counts_its_own_parallel_in_the_budget(tmp_path: Path) -> 
         )
         for name in ("a-base", "a-cal")
     )
-    stored = StoredPlan(directory=directory, plan=None, sites=pa.table({}), cases=cases)  # type: ignore[arg-type]
+    stored = StoredPlan(directory=directory, plan=None, sites=pd.DataFrame(), cases=cases)  # type: ignore[arg-type]
 
     planned = {case.case_id: case for case in launch_local.planned_cases(stored)}
 

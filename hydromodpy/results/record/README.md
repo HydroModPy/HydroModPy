@@ -18,7 +18,7 @@ The answers column below is the first line of each module docstring.
 | `checks.py` | The `checks` block of a seal: the facts a label is derived from. |
 | `forms.py` | The forms of the 2.0.0, converted in memory when a reader meets them. |
 | `label.py` | The identity block a derived file of a run carries, and the label of the day. |
-| `manifest.py` | The run manifest: the schema of the seal and its reader. |
+| `manifest.py` | The run manifest: the schema of the seal and its reader. `figures/`, `exports/` and `report/` are written after the seal and never inventoried (`list_artifacts`). |
 | `record.py` | The run record: the seal of a run, built in memory and written without the index. |
 | `replay_class.py` | The class of a replay: whether it reproduced the sealed values, and by how much. |
 | `request_identity.py` | The two fingerprints of a run: what it asks, and what computes it. |

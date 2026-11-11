@@ -28,7 +28,7 @@ from typing import Final
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from hydromodpy.core.io.filesystem import native_io_path as _native_io_path
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
 from hydromodpy.results.storage.parquet_schemas import check_schema_version
 
@@ -94,8 +94,8 @@ def write_table_atomic(
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_name(f"{target.name}.tmp-{uuid.uuid4().hex[:8]}")
-    tmp_io = _native_io_path(tmp)
-    target_io = _native_io_path(target)
+    tmp_io = native_io_path(tmp)
+    target_io = native_io_path(target)
     if os.path.exists(tmp_io):
         os.unlink(tmp_io)
 

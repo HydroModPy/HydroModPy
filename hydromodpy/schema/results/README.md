@@ -9,4 +9,5 @@ The files are generated from the Pydantic models with `model_json_schema()`.
 `tests/unit/schema/test_results_schemas_match_models.py` refuses a committed file
 the model no longer reproduces, and run as a script it writes them again.
 `__init__.py` reads and writes the files and imports no model: the caller pairs a
-file with its model, because `schema` has no edge towards `results`.
+file with its model, because `schema` has no edge towards `results`. The plan is
+`plan.v2.json`, because a plan of 2.1 keeps its cases in `cases.csv`.

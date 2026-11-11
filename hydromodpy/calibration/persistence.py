@@ -26,7 +26,6 @@ opens the index.
 from __future__ import annotations
 
 import os
-import socket
 import threading
 import uuid
 from collections.abc import Callable, Mapping, Sequence
@@ -37,7 +36,7 @@ from typing import Any, Literal
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.core.exceptions import CalibrationError
-from hydromodpy.core.state.scratch import process_is_alive
+from hydromodpy.core.state.host import alive_here, host_name
 from hydromodpy.results.heartbeat import HeartbeatThread
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE, METRIC_RULE_VERSION, PeriodWindow
 from hydromodpy.results.outcome import Outcome, OutcomeError, read_outcome, write_outcome
@@ -238,7 +237,7 @@ class CalibrationPersistence:
             status="running",
             written_by="worker",
             started_at=now,
-            host=socket.gethostname(),
+            host=host_name(),
             pid=os.getpid(),
             scheduler_job_id=scheduler_job_id_from_env(),
         )
@@ -278,7 +277,7 @@ class CalibrationPersistence:
             status="running",
             written_by="worker",
             started_at=datetime.now(UTC),
-            host=socket.gethostname(),
+            host=host_name(),
             pid=os.getpid(),
             scheduler_job_id=scheduler_job_id_from_env(),
         )
@@ -707,11 +706,7 @@ class CalibrationPersistence:
 
 def _another_live_writer(outcome: Outcome) -> bool:
     """Whether an outcome names a live process of this host other than this one."""
-    return (
-        outcome.host == socket.gethostname()
-        and outcome.pid != os.getpid()
-        and process_is_alive(outcome.pid)
-    )
+    return alive_here(outcome.host, outcome.pid) and outcome.pid != os.getpid()
 
 
 def _trial_params(

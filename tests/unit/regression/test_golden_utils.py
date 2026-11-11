@@ -199,7 +199,7 @@ def test_resolve_tiered_results_dir_shortens_the_run_name_to_fit_on_windows(
     run_name = "intercomparison_dupuit_irregular_mf6_bouss_outputs"
     tier_root = tmp_path.resolve() / "fast"
     # Room for a 20-character folder name, not for the 50-character one.
-    generated = runtime._WINDOWS_VALIDATION_PATH_LIMIT - len(str(tier_root)) - 1 - 20
+    generated = runtime.WINDOWS_PATH_LIMIT - len(str(tier_root)) - 1 - 20
 
     resolved = golden_utils.resolve_tiered_results_dir(
         test_file=tmp_path / "tests" / "regression" / "fast" / "test_dummy.py",
@@ -209,7 +209,7 @@ def test_resolve_tiered_results_dir_shortens_the_run_name_to_fit_on_windows(
 
     assert resolved.parent == tier_root
     assert resolved.name == runtime._short_validation_name(run_name, max_length=20)
-    assert len(str(resolved)) + generated <= runtime._WINDOWS_VALIDATION_PATH_LIMIT
+    assert len(str(resolved)) + generated <= runtime.WINDOWS_PATH_LIMIT
 
 
 def test_resolve_tiered_results_dir_keeps_the_run_name_off_windows(tmp_path, monkeypatch) -> None:

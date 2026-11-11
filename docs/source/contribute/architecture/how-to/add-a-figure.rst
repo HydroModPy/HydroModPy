@@ -28,6 +28,7 @@ dataclass and a ``render`` method, and nothing registers it by hand:
        title: str
        former_names: tuple[str, ...] = ()
        kind: FigureKind = "spatial"         # one of the eight kinds below
+       subject: FigureSubject = "run"       # "run", "session" or "runset"
        required_fields: tuple[str, ...] = ()
        optional_fields: tuple[str, ...] = ()
        required_tables: tuple[str, ...] = ()
@@ -37,9 +38,9 @@ dataclass and a ``render`` method, and nothing registers it by hand:
    class Figure(Protocol):
        spec: FigureSpec
 
-       def render(self, sim: "Run", ax: "Axes", **opts) -> "Axes": ...
-       def plot(self, sim: "Run", **opts) -> "Figure": ...
-       def unavailable_reason(self, sim: "Run") -> str | None: ...
+       def render(self, subject: Any, ax: "Axes", **opts) -> "Axes": ...
+       def plot(self, subject: Any, **opts) -> "Figure": ...
+       def unavailable_reason(self, subject: Any) -> str | None: ...
 
    class BaseFigure(ABC):
        """Implements ``plot()`` boilerplate (subplots + render + save)."""
@@ -98,9 +99,9 @@ gets. Skeleton:
            default_figsize=(7.0, 5.0),
        )
 
-       def render(self, sim: Run, ax: Axes, **opts) -> Axes:
+       def render(self, subject: Run, ax: Axes, **opts) -> Axes:
            timestep = opts.get("timestep", -1)
-           head = sim.field("head", time=timestep)
+           head = subject.field("head", time=timestep)
            im = ax.imshow(head, origin="lower")
            ax.set_title(self.spec.title)
            ax.figure.colorbar(im, ax=ax, label="head [m]")
@@ -113,9 +114,17 @@ Then regenerate the table:
    python -m tools.figure_table
 
 ``hydromodpy/display/figure_table.py`` holds ``FIGURES`` (each name to its
-module and class), ``FORMER_NAMES``, ``OPTIONS`` and ``PYTHON_ONLY_OPTIONS``,
+module and class), ``SUBJECTS``, ``FORMER_NAMES``, ``OPTIONS`` and ``PYTHON_ONLY_OPTIONS``,
 literals only. A test regenerates it in memory and fails while the file is
 stale, so a figure added without the command never passes the suite.
+
+The ``subject`` field says what the figure draws. ``"run"`` is the default, ``"session"`` is a
+calibration session and ``"runset"`` is a set of runs. ``render``, ``plot`` and
+``unavailable_reason`` receive the object the subject names. ``display/runs.py`` resolves it once
+(``_subject_for``). A session figure asked on a run receives ``Session.of_run(run)`` and the option
+``promoted=run``, and a run that no session promoted is refused. A figure that compares a run with
+a reference stays a ``"run"`` figure and takes ``reference=``. The generated table also holds
+``SUBJECTS``, which maps each name to its subject, and ``hmp viz list`` shows it in a column.
 
 The base ``BaseFigure.plot`` method creates the matplotlib subplots with
 ``default_figsize``, calls ``render`` and, when asked, saves the PNG with its

@@ -15,10 +15,14 @@ How the bracket closes
 A run that reached its seal (``manifest.json`` on disk) is closed by
 :func:`~hydromodpy.results.storage.attempt.close_sealed_attempt`: outcome
 ``completed`` and ``<run>/.hmp/`` removed, after the pipeline wrote its last
-journal row. A window that stopped before the seal ends ``completed``
-without a manifest, which reads as ``partial``, and keeps its attempt state
-for a later resume. An exception ends the attempt ``failed``, a signal
-``aborted``, both with the signal number and the end of the run log. A stop
+journal row. It is closed so however the block exits: the figures and the
+exports are written after the seal and are not part of it, so a render that
+raises, or a stop asked while the figures draw, leaves a sealed and
+``completed`` run, and the error still goes up to the caller. A window that
+stopped before the seal ends ``completed`` without a manifest, which reads
+as ``partial``, and keeps its attempt state for a later resume. An exception
+before the seal ends the attempt ``failed``, a signal ``aborted``, both with
+the signal number and the end of the run log. A stop
 asked through the flag of the run (``StopRequested``, a ``KeyboardInterrupt``)
 ends the attempt ``aborted`` with no signal and an error of that type: it is
 caught here as a signal is, and ``hmp run --resume`` continues it.
@@ -174,11 +178,24 @@ def run_attempt(
 def _close_if_running(
     run_dir: Path, *, status: OutcomeStatus, step: str | None, error: BaseException | None
 ) -> None:
+    """Close the outcome of a running attempt with how its block exited.
+
+    A sealed directory closes ``completed`` whatever ``status`` says: what
+    can fail after the seal (a figure, an export) is outside it, and the
+    caller raises the error itself. No README of an unsealed run is written
+    over the sealed one.
+    """
     outcome = read_outcome(run_dir)
     if outcome is None or outcome.status != "running":
         return
     try:
-        if status == "completed" and is_sealed(run_dir):
+        if is_sealed(run_dir):
+            if error is not None:
+                logger.warning(
+                    "Run %s is sealed and completed; what failed after the seal: %s",
+                    run_dir.name,
+                    error,
+                )
             close_sealed_attempt(run_dir)
             return
         finish_attempt(

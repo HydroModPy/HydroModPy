@@ -16,6 +16,7 @@ from pydantic import ValidationError
 from hydromodpy.display import figure_registry
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figure import (
+    NOT_A_RUNSET_REASON,
     BaseFigure,
     Figure,
     FigureSpec,
@@ -34,6 +35,7 @@ from hydromodpy.display.figures.difference_map import DifferenceMap
 from hydromodpy.display.figures.piezometric_map import PiezometricMap
 from hydromodpy.display.figures.side_by_side_map import SideBySideMapFigure
 from hydromodpy.display.runs import figure_options_from_run, render_figure
+from hydromodpy.results.run.group import RunSet
 
 from .test_standard_figures import _Run
 
@@ -752,5 +754,25 @@ def test_the_piezometer_figure_applies_to_head_series_and_asks_which_one(mpl) ->
         figure.render(run, ax)
 
 
+class _RunSetOf(RunSet):
+    """A RunSet over runs held in memory, with no catalog behind it."""
+
+    def __init__(self, runs: list) -> None:
+        self._runs = runs
+        self._sim_ids = [run.sim_id for run in runs]
+
+    def __iter__(self):
+        return iter(self._runs)
+
+
 def test_the_ensemble_figure_applies_to_a_set_of_runs() -> None:
-    assert get("ensemble_band").unavailable_reason([_TransientRun(), _TransientRun()]) is None
+    assert (
+        get("ensemble_band").unavailable_reason(_RunSetOf([_TransientRun(), _TransientRun()]))
+        is None
+    )
+
+
+def test_the_ensemble_figure_refuses_a_plain_list_of_runs() -> None:
+    reason = get("ensemble_band").unavailable_reason([_TransientRun(), _TransientRun()])
+
+    assert reason == NOT_A_RUNSET_REASON

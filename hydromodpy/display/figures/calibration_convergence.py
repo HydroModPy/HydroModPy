@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
-from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figures._trial_diagnostics import trial_table
+from hydromodpy.display.figure_options import ObjectiveName
+from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 
 class CalibrationConvergenceFigure(BaseFigure):
@@ -23,51 +23,37 @@ class CalibrationConvergenceFigure(BaseFigure):
         name="calibration_convergence",
         title="Calibration convergence",
         kind="timeseries",
-        required_tables=("calibration_iterations",),
+        subject="session",
         default_figsize=(8.0, 4.5),
     )
 
+    def unavailable_reason(self, session: Session) -> str | None:
+        """Refuse a session that recorded no trial, before drawing."""
+        return no_trial_reason(session)
+
     def render(
         self,
-        sim: Run,
+        session: Session,
         ax: Axes,
         *,
-        objective: Annotated[
-            str,
-            Opt(
-                "Name of the cost series the session recorded. When the run holds no "
-                "such series, the cost column of the trial table is read."
-            ),
-        ] = "objective",
+        objective: ObjectiveName = None,
         **_,
     ) -> Axes:
-        try:
-            df = sim.timeseries(objective, station="_calibration")
-        except (KeyError, AttributeError):
-            df = None
-        if df is not None and len(df) > 0:
-            label = objective
-            values = np.asarray(getattr(df, "values", df), dtype=float)
-            iters = np.arange(values.size, dtype="float64")
+        table = trial_table(session)
+        iters = table.iterations()
+        if objective is not None or table.has_objective():
+            label, values = table.cost_values(objective)
         else:
-            # No objective series was recorded: read the trials, and take the
-            # cost BY COLUMN. The frame also carries the session and simulation
-            # ids, which are UUIDs, so casting the whole frame raises.
-            table = trial_table(sim)
-            iters = table.iterations()
-            if table.has_objective():
-                label, values = table.cost_values()
-            else:
-                # A bare column of costs, under no name the table knows.
-                numeric = table.frame.select_dtypes("number")
-                if numeric.shape[1] != 1:
-                    raise ValueError(
-                        "calibration_convergence: no trial recorded an objective, and "
-                        f"the session holds {numeric.shape[1]} numeric columns. Name "
-                        "the one to read with objective=."
-                    )
-                label = str(numeric.columns[0])
-                values = np.asarray(numeric.iloc[:, 0], dtype=float)
+            # A bare column of costs, under no name the table knows.
+            numeric = table.frame.select_dtypes("number")
+            if numeric.shape[1] != 1:
+                raise ValueError(
+                    "calibration_convergence: no trial recorded an objective, and "
+                    f"the session holds {numeric.shape[1]} numeric columns. Name "
+                    "the one to read with objective=."
+                )
+            label = str(numeric.columns[0])
+            values = np.asarray(numeric.iloc[:, 0], dtype=float)
         if values.ndim > 1:
             values = values.ravel()
         if values.size == 0:
@@ -81,6 +67,6 @@ class CalibrationConvergenceFigure(BaseFigure):
         ax.set_xlabel("Iteration")
         ax.set_ylabel(label)
         ax.grid(True, ls=":", lw=0.4)
-        ax.set_title(f"Calibration convergence{run_suffix(sim)}")
+        ax.set_title(f"Calibration convergence{run_suffix(session)}")
         ax.legend()
         return ax

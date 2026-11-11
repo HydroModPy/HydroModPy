@@ -18,12 +18,20 @@ month on a monthly, a daily or a one-period steady run.
 
 A figure of a run is written under ``runs/<run>/figures/``. Each file carries
 the identity block of the run (a visible footer and a PNG text chunk) and an
-entry in ``figures/index.json``, which :func:`regen_figures` replays.
+entry in ``figures/index.json``, which :func:`regen_figures` replays. Figures
+are drawn after the seal, so the block of a sealed run carries its label, the
+rules it follows and the day it was computed.
+
+A figure declares its subject (``FigureSpec.subject``): a run, a calibration
+session or a set of runs. ``_subject_for`` resolves it once, before any
+refusal is asked: a session figure asked for on a run draws the session that
+promoted the run, and receives the run as the option ``promoted``. A run the
+figure cannot take is refused with a sentence naming what to pass.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,7 +41,14 @@ from hydromodpy.core.console.progress import MILESTONE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import display_path
 from hydromodpy.core.time.selection import TimeSelectionError
-from hydromodpy.display.figure import FigureNotApplicable
+from hydromodpy.display.figure import (
+    NOT_A_RUN_REASON,
+    NOT_A_RUNSET_REASON,
+    NOT_A_SESSION_REASON,
+    NOT_PROMOTED_REASON,
+    PROMOTED_OPTION,
+    FigureNotApplicable,
+)
 from hydromodpy.display.figure_registry import get as _get_figure
 from hydromodpy.display.figure_registry import list_figures as _list_figures
 from hydromodpy.display.png_metadata import stamp_png_identity
@@ -46,6 +61,8 @@ from hydromodpy.results.identity import Identity
 from hydromodpy.results.ledger import Ledger, record_derived_file
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.record.label import identity_of_run_dir
+from hydromodpy.results.run.group import RunSet
+from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 if TYPE_CHECKING:
@@ -59,6 +76,68 @@ logger = get_logger(__name__)
 
 FIGURE_PRODUCER_PREFIX = "display:"
 """What a figure ledger entry names as producer, followed by the figure name."""
+
+
+@dataclass(frozen=True, slots=True)
+class _Subject:
+    """What one figure draws, resolved from the object a caller passed.
+
+    ``drawn`` is what ``render`` and ``plot`` receive. ``run`` is the run the
+    figure belongs to: the run itself, or the run a session promoted. It
+    places ``time``, gives the period of the identity block and the field
+    checks; it is ``None`` for a session or a set of runs passed directly.
+    ``options`` carry the promoted run to a session figure. ``reason`` says
+    why the figure cannot take the object, else ``None``.
+    """
+
+    drawn: Any
+    run: Any
+    options: Mapping[str, Any]
+    reason: str | None = None
+
+
+def _subject_for(
+    fig: BaseFigure,
+    obj: Any,
+    *,
+    session_of: Callable[[Any], Session | None] = Session.of_run,
+) -> _Subject:
+    """Resolve the subject ``fig`` draws from ``obj``, once, before any refusal.
+
+    ``session_of`` finds the session that promoted a run; a batch passes a
+    memoised one so a run is looked up once for all its session figures.
+    """
+    subject = getattr(getattr(fig, "spec", None), "subject", "run")
+    if subject == "session":
+        if isinstance(obj, Session):
+            return _Subject(drawn=obj, run=None, options={})
+        if isinstance(obj, RunSet):
+            return _Subject(drawn=obj, run=None, options={}, reason=NOT_A_SESSION_REASON)
+        session = session_of(obj)
+        if session is None:
+            return _Subject(drawn=obj, run=obj, options={}, reason=NOT_PROMOTED_REASON)
+        return _Subject(drawn=session, run=obj, options={PROMOTED_OPTION: obj})
+    if subject == "runset":
+        if isinstance(obj, RunSet):
+            return _Subject(drawn=obj, run=None, options={})
+        run = None if isinstance(obj, Session) else obj
+        return _Subject(drawn=obj, run=run, options={}, reason=NOT_A_RUNSET_REASON)
+    if isinstance(obj, (Session, RunSet)):
+        return _Subject(drawn=obj, run=None, options={}, reason=NOT_A_RUN_REASON)
+    return _Subject(drawn=obj, run=obj, options={})
+
+
+def _memoised_session_of() -> Callable[[Any], Session | None]:
+    """Return ``Session.of_run`` remembering its answer for the last run asked."""
+    seen: dict[int, Session | None] = {}
+
+    def session_of(run: Any) -> Session | None:
+        key = id(run)
+        if key not in seen:
+            seen[key] = Session.of_run(run)
+        return seen[key]
+
+    return session_of
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,24 +316,54 @@ def _resolve_time(sim: Run, options: dict[str, Any]) -> str | None:
     return None
 
 
-def unavailable_reason(fig: BaseFigure, sim: Run) -> str | None:
+def unavailable_reason(fig: BaseFigure, sim: Any) -> str | None:
     """Return why ``fig`` cannot draw ``sim``, or None when it can.
 
-    The figure's own answer, preceded by the one reason no figure can work
-    around: a field built on the surface outflow of a model that has none.
+    ``sim`` is a run, a session or a set of runs. The subject of the figure
+    is resolved first (a session figure on a run reads the session that
+    promoted it), then the figure gives its own answer.
     """
+    return _reason_for(fig, _subject_for(fig, sim))
+
+
+def _reason_for(fig: BaseFigure, subject: _Subject) -> str | None:
+    """Return why ``fig`` cannot draw its resolved ``subject``, or None.
+
+    The refusal of the subject first, then for a run figure the one reason no
+    figure can work around (a field built on the surface outflow of a model
+    that has none), then the figure's own answer.
+    """
+    if subject.reason is not None:
+        return subject.reason
     spec = getattr(fig, "spec", None)
-    exit_reason = None if spec is None else no_surface_exit_reason(sim, spec.required_fields)
-    return exit_reason or fig.unavailable_reason(sim)
+    if spec is not None and getattr(spec, "subject", "run") == "run":
+        exit_reason = no_surface_exit_reason(subject.run, spec.required_fields)
+        if exit_reason is not None:
+            return exit_reason
+    return fig.unavailable_reason(subject.drawn)
 
 
-def _log_skipped_figure(name: str, fig: BaseFigure, sim: Run, reason: str) -> bool:
+def _time_reason(subject: _Subject, options: dict[str, Any]) -> str | None:
+    """Place ``time`` on the run of the subject; a subject without a run takes none."""
+    if subject.run is None:
+        if options.pop("time", None) is not None:
+            return "time names an instant of a run, and this figure draws no single run"
+        return None
+    return _resolve_time(subject.run, options)
+
+
+def _log_skipped_figure(name: str, fig: BaseFigure, sim: Any, reason: str) -> bool:
     """Log one skipped figure, loudly when a field it needs was not kept.
 
     Returns whether the skip is actionable, which the batch summary reads.
+    A session or a runset figure reads no field of a run, so its skip is
+    never a field the configuration dropped.
     """
 
     spec = fig.spec
+    if getattr(spec, "subject", "run") != "run" or sim is None:
+        logger.debug("Figure '%s' not applicable: %s.", name, reason.rstrip("."))
+        return False
     # A figure that requires nothing and reads optional fields (any one of them
     # draws it) is explained over those.
     fields = spec.required_fields or spec.optional_fields
@@ -308,7 +417,10 @@ def render_figure(
     options, as in ``[display.overrides]``: ``time`` names the instant a
     map draws, a date, ``"first"`` or ``"last"``. ``run_dir`` is the
     directory of the run: a PNG saved with it is stamped with the identity of
-    the run (a visible footer and a text chunk).
+    the run (a visible footer and a text chunk). ``sim`` is a run, a session
+    or a set of runs, as the figure's subject says; a session figure given a
+    run draws the session that promoted it. A session or a set of runs has no
+    identity block: it is not a run and carries no label.
 
     Raises
     ------
@@ -322,10 +434,11 @@ def render_figure(
     fig = _get_figure(figure_name)
     if opts:
         _check_options(figure_name, fig, opts)
-    reason = unavailable_reason(fig, sim)
+    subject = _subject_for(fig, sim)
+    reason = _reason_for(fig, subject)
     if reason is None:
         opts = dict(opts)
-        reason = _resolve_time(sim, opts)
+        reason = _time_reason(subject, opts)
     if reason is not None:
         raise ValueError(f"figure '{figure_name}' does not apply to this run: {reason}")
     save_path: Path | None
@@ -338,9 +451,14 @@ def render_figure(
         save_path = target / f"{figure_name}.png" if target.suffix == "" else target
     if dpi is not None:
         opts["dpi"] = dpi
-    figure = fig.plot(sim, save_path=save_path, **opts)
-    if save_path is not None and run_dir is not None and save_path.suffix.lower() == ".png":
-        identity = figure_identity(sim, run_dir)
+    figure = fig.plot(subject.drawn, save_path=save_path, **subject.options, **opts)
+    if (
+        save_path is not None
+        and run_dir is not None
+        and subject.run is not None
+        and save_path.suffix.lower() == ".png"
+    ):
+        identity = figure_identity(subject.run, run_dir)
         if identity is not None:
             stamp_png_identity(save_path, identity)
     return figure
@@ -439,7 +557,7 @@ def figure_options_from_run(sim: Run, figure_name: str) -> dict[str, Any]:
     return _figure_options(display_cfg, figure_name)
 
 
-def figure_availability(sim: Run) -> list[tuple[FigureSpec, str | None]]:
+def figure_availability(sim: Any) -> list[tuple[FigureSpec, str | None]]:
     """Return every registered figure with the reason ``sim`` cannot feed it.
 
     The reason is ``None`` for a figure the run supports. Each figure answers
@@ -447,7 +565,12 @@ def figure_availability(sim: Run) -> list[tuple[FigureSpec, str | None]]:
     ``render_figure`` apply before drawing, so the list says in advance what
     those would skip or refuse. Nothing is drawn.
     """
-    return [(spec, unavailable_reason(_get_figure(spec.name), sim)) for spec in _list_figures()]
+    session_of = _memoised_session_of()
+    rows = []
+    for spec in _list_figures():
+        fig = _get_figure(spec.name)
+        rows.append((spec, _reason_for(fig, _subject_for(fig, sim, session_of=session_of))))
+    return rows
 
 
 def figures_dir_of(run_dir: Path) -> Path:
@@ -479,17 +602,19 @@ def regen_figures(sim: Run, run_dir: Path, *, dpi: int = 150) -> FigureRenderRep
     rendered: list[str] = []
     written: list[Path] = []
     skipped: list[SkippedFigure] = []
+    session_of = _memoised_session_of()
     with matplotlib_backend(dpi=dpi):
         for entry in entries:
             name = entry.producer.removeprefix(FIGURE_PRODUCER_PREFIX)
             target = figures_dir / entry.file
             fig = _get_figure(name)
             options = dict(entry.options)
-            reason = unavailable_reason(fig, sim) or _resolve_time(sim, options)
+            subject = _subject_for(fig, sim, session_of=session_of)
+            reason = _reason_for(fig, subject) or _time_reason(subject, options)
             if reason is not None:
                 skipped.append(SkippedFigure(name=name, reason=reason))
                 continue
-            fig.plot(sim, dpi=dpi, save_path=target, **options)
+            fig.plot(subject.drawn, dpi=dpi, save_path=target, **subject.options, **options)
             record_figure(
                 target, name=name, options=entry.options, sim=sim, figures_dir=figures_dir
             )
@@ -519,7 +644,8 @@ def render_figures_for_run(
     Honors ``display_cfg.enabled`` and ``display_cfg.save``. A figure whose
     declared requirements are not met by this run (no particle process, no
     calibration, a solver that does not produce the field) is reported as
-    not applicable and skipped. A figure that fails while rendering raises
+    not applicable and skipped. A session figure draws the session that
+    promoted ``sim``, and is skipped with its reason when none did. A figure that fails while rendering raises
     or is logged depending on ``display_cfg.on_error``. Returns the
     :class:`FigureRenderReport` of the pass: the caller owns the summary, so
     a per-figure loop can render one at a time and still report as one batch.
@@ -540,11 +666,13 @@ def render_figures_for_run(
 
     with matplotlib_backend(interactive=_backend_is_interactive(display_cfg), dpi=display_cfg.dpi):
         apply_theme(display_cfg.preset)
+        session_of = _memoised_session_of()
         for name in wanted:
             fig = _get_figure(name)
             options = _figure_options(display_cfg, name)
             recorded = dict(options)
-            reason = unavailable_reason(fig, sim) or _resolve_time(sim, options)
+            subject = _subject_for(fig, sim, session_of=session_of)
+            reason = _reason_for(fig, subject) or _time_reason(subject, options)
             if reason is not None:
                 actionable = _log_skipped_figure(name, fig, sim, reason)
                 skipped.append(SkippedFigure(name=name, reason=reason, actionable=actionable))
@@ -552,9 +680,10 @@ def render_figures_for_run(
             save_path = output_dir / f"{name}.png" if display_cfg.save else None
             try:
                 fig.plot(
-                    sim,
+                    subject.drawn,
                     dpi=display_cfg.dpi,
                     save_path=save_path,
+                    **subject.options,
                     **options,
                 )
             except FigureNotApplicable as exc:

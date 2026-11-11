@@ -4,19 +4,18 @@
 (`hydromodpy.results.run.Run`) or data that is already loaded, and writes PNG
 figures and HTML pages. It never runs a solver, never reads a raw solver file and
 never writes into the storage of a run (Zarr, Parquet, DuckDB). Everything a
-figure reads from a run goes through the public API of `results`. One reader is
-left over: the catchment report context (`catchment_report/context.py`) still
-queries three Parquet tables of the run directory with DuckDB (runtime,
-provenance counts, network segment counts).
+figure reads from a run goes through the public API of `results`. No module of `display` queries
+the run directory by hand.
 
 It holds three things of unequal weight:
 
 1. the figure catalog of a run: the contract `figure.py`, the registry
    `figure_registry.py` and the figures of `figures/` (`hmp viz list` prints
    them);
-2. two reports: `overview/` (data before any simulation) and `catchment_report/`
-   (catchment report, `hmp report catchment`), which share the HTML engine
-   `report_blocks.py`;
+2. the report engine `report/` (blocks to static HTML pages, the pages of a
+   sealed run, of a data overview and of a calibration session, and the
+   presets) and `overview/` (data before any simulation). The texts shown
+   come from `project/report.py`, never from `display`;
 3. shared plotting tools: `maps/` (map axes, mesh, overlays, sections) and
    `style.py` (theme, colormaps, legend placement).
 
@@ -76,18 +75,18 @@ never in a figure.
 
 | unit | may import inside `display` |
 |---|---|
-| `report_blocks`, `style`, `maps`, `png_metadata`, `quicklook` | nothing |
-| `figure` | `png_metadata` |
-| `figure_registry` | `figure`; the names come from the generated `figure_table`, which imports nothing (no exception left: no module of `figures/` is imported to answer a name) |
+| `figure_table`, `style`, `maps`, `png_metadata`, `quicklook`, `figure_options` | nothing |
+| `figure` | `png_metadata`, `figure_options` |
+| `figure_registry` | `figure`, `figure_table`; the names come from the generated `figure_table`, which imports nothing (no exception left: no module of `figures/` is imported to answer a name) |
+| `figures` | `figure`, `figure_options`, `maps`, `style` |
+| `config` | `figure_registry`, `figure_table` |
+| `cohort` | `figure_registry`, `figure_table` |
 | `run_comparison` | `maps` |
-| `calibration_report` | `figure_registry`, `report_blocks`, `runs` |
-| `figures` | `figure`, `maps`, `style` |
-| `config` | `figure_registry` |
 | `<init>` (the `__init__.py` docstring) | nothing |
-| `runs` | `<init>`, `config`, `figure`, `png_metadata`, `style` |
-| `catalog_figures` | `figure_registry`, `runs` (it parses `--opt NAME=VALUE` against the registry, so it cannot sit under `figure_options`, which the registry already reads) |
-| `overview` | `report_blocks`, `style` |
-| `catchment_report` | `config`, `figure_registry`, `overview`, `report_blocks`, `runs` (it draws the run figures the report needs and the run did not draw) |
+| `runs` | `<init>`, `config`, `figure`, `figure_registry`, `figure_table`, `png_metadata`, `style` |
+| `catalog_figures` | `figure_registry`, `figure_table`, `runs` (it parses `--opt NAME=VALUE` against the registry, so it cannot sit under `figure_options`, which the registry already reads) |
+| `overview` | `style` |
+| `report` | `config`, `figure_registry`, `figure_table`, `runs` (it draws the run figures a page needs and the run did not draw; it never imports `schema`) |
 
 Every import counts: module level, inside a function, under `TYPE_CHECKING`.
 `tests/unit/architecture/display_layout.yaml` holds the table and
@@ -130,10 +129,10 @@ hydromodpy/display/
 │                          render one figure, draw again what a run recorded, list what it can feed,
 │                          parse_figure_options
 ├── cohort.py              cohort figures of a campaign summary: names, draw_cohort_figures, ledger entry
-├── calibration_report.py  the HTML page of a calibration session: render_session, session_summary
 ├── run_comparison.py      the series and map figures of `hmp report compare`: draw_series, draw_maps
 ├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version,
-│                          identity block of the run and its visible footer)
+│                          identity block of the run and its visible footer, which names the
+│                          label, the rule and the date, or "unlabelled" without a seal)
 │
 │   shared tools
 ├── style.py               how every figure looks: default, print and dark themes (apply_theme),
@@ -147,9 +146,14 @@ hydromodpy/display/
 │   └── geo.py                 scale_bar and north_arrow for a vector map on metric axes
 │
 │   reports
-├── report_blocks.py       HTML engine with no domain: blocks, figures, tables, detail levels
-├── overview/              report on the data before any simulation ([overview])
-├── catchment_report/      catchment report (hmp report catchment <toml>)
+├── report/                the report engine (an `__init__` docstring, no README)
+│   ├── engine.py              no domain: Metric, Picture, Table, Link, Prose, Block, LEVELS,
+│   │                          write_pages (index.html, review/{compact,standard,audit,by_block}/,
+│   │                          figures/, report.json)
+│   ├── pages.py               run_blocks, sheet_blocks, overview_blocks, session_blocks,
+│   │                          draw_named_figures; builds blocks, writes no HTML
+│   └── presets.py             ReportTexts, PRESETS (research, management), preset_figures
+├── overview/              panels of the data before any simulation ([overview])
 │
 └── quicklook/             a quick look at data, outside the catalogue; unrelated to `hmp viz`
     ├── viz.py                 viz.show(data): an xarray array, a series or a GeoDataFrame
@@ -189,8 +193,14 @@ class PiezometricMap(ScalarFaceMap):
     default_overlays = ("watershed", "outlet")
 ```
 
-Time series, chart and anything else is a `BaseFigure` and a `render(sim, ax, **opts)`
+Time series, chart and anything else is a `BaseFigure` and a `render(subject, ax, **opts)`
 method that draws on the axes it gets and returns them. Model: `figures/hydrograph.py`.
+`FigureSpec.subject` says what the figure draws: `run` (the default),
+`session` (a calibration session) or `runset` (several runs). `runs._subject_for`
+resolves it once, before any refusal. A session figure asked on a run receives
+`Session.of_run(run)` and `promoted=run`. When the run was not promoted, or the
+subject is of the wrong kind, the figure is refused with `NOT_PROMOTED_REASON`,
+`NOT_A_RUNSET_REASON` or `NOT_A_RUN_REASON`. `hmp viz list` shows the subject.
 `BaseFigure.plot` builds the matplotlib figure, calls `render` and writes the PNG
 with its provenance. A figure that lays out its own figure may define its own
 `plot`: `BaseFigure.__init_subclass__` wraps it so that it still takes the common
@@ -218,9 +228,9 @@ the base first and returns a sentence (model: `figures/lake_abacus_comparison.py
 | `maps/overlays.py` | which named layer to draw on this map? |
 | `maps/geo.py` | how to put a scale bar and a north arrow on a vector map? |
 | `style.py` | which theme, which color, where does the legend go? |
-| `report_blocks.py` | how to assemble blocks, figures and tables into one HTML page? |
+| `report/` | how to assemble blocks, figures and tables into one HTML page? |
 | `overview/` | what does the catchment look like before any simulation? |
-| `catchment_report/` | which catchment report to build from a report TOML? |
+| `project/report.py` (outside `display`) | which texts and pages make the report of a run or a session? |
 | `quicklook/viz.py`, `quicklook/scalable.py` | how to look quickly at an xarray array, a series or a GeoDataFrame? |
 | `quicklook/animation.py` | how to chain PNG into an animation? |
 
@@ -232,8 +242,8 @@ Figures of a run.
 TOML [display]  ->  DisplayConfig (config.py; names checked by figure_registry.resolve)
 finished run    ->  runs.render_figures_for_run(run, DisplayConfig)
                       for each name: figure_registry.get(name)
-                      unavailable_reason(run)? skipped, reason kept in FigureRenderReport
-                      else BaseFigure.plot(run) -> render(run, ax) -> PNG + provenance
+                      unavailable_reason(subject)? skipped, reason kept in FigureRenderReport
+                      else BaseFigure.plot(subject) -> render(subject, ax) -> PNG + provenance
                       png_metadata.stamp_png_identity: footer + identity text chunk
                 ->  runs/<run>/figures/<name>.png, recorded in runs/<run>/figures/index.json
 ```
@@ -249,22 +259,27 @@ renders one figure after the same applicability check and stamps a saved PNG
 with the identity of its run. `hmp viz list --run <ref>` calls
 `runs.figure_availability(run)`.
 
+The figures are drawn after the seal (step order: derive, export, seal,
+display). `DisplayStep` opens the run by `open_run_dir`, so every figure carries
+the labelled identity in its footer: `<site> · <period> · HydroModPy <v> · <label>,
+rule <n>, <date>`, or `unlabelled` without a seal.
+
 Overview. `workflow/overview.py` builds a `DataOverviewState`
 (geography and loaded data, no run); `overview.generate_overview_report` renders
-one PNG per panel enabled in `[overview.panels]`, under `runs/<overview>/figures/`,
-and its web pages under `runs/<overview>/report/` (`overview/location.py`).
+one PNG per panel enabled in `[overview.panels]`, under `runs/<overview>/figures/`.
+The inventory of the loaded data is written at the seal to
+`tables.parquet/data_inventory.parquet`. The page is written after the seal
+under `runs/<overview>/report/` by `report.pages.overview_blocks` and
+`report.engine.write_pages`.
 
-Catchment report. `hmp report catchment <toml>` (options in
-`hydromodpy/cli/commands/report.py`) calls
-`catchment_report.pipeline.run_catchment_report_pipeline`. When asked, the pipeline
-runs the overview and the simulation (subprocess `hydromodpy run`). It then builds
-the context (`context.py`), copies the expected figures (`artifacts.py`), fills the
-blocks (`blocks.py`) and writes the page with `report_blocks`. A
-context figure that cannot be drawn is logged with its reason. Everything lands in
-the run the report describes, read on disk without the index
-(`simulation_source.py`): `runs/<run>/report/index.html`, its review pages under
-`report/review/`, the gathered figures under `report/figures/` and the context
-under `report/context/` (`inputs.py`).
+Reports. `hmp report catchment RUN` reads a sealed run. `project/report.py`
+(`report_run`, `report_session`) is the one place that assembles the texts
+(`results/method.py`, `schema/phrases.py`) and the pages: it hands `display.report`
+the texts and the blocks, and `engine.write_pages` writes
+`runs/<run>/report/index.html`, its review pages under `report/review/`, the
+figures under `report/figures/` and `report.json`. A figure of the preset that
+cannot be drawn is logged with its reason. `hmp report render` and
+`hmp calibrate` call `report_session` for a calibration session.
 
 ## Where to add what
 
@@ -288,10 +303,10 @@ under `report/context/` (`inputs.py`).
 6. A panel of the overview: a boolean in `OverviewPanelsConfig`
    (`overview/config.py`), the drawing function in `overview/panels.py`, its
    conditional call in `overview/report.py:generate_overview_report`.
-7. A block or a figure of the catchment report: in
-   `catchment_report/blocks.py`, the declaration (`ReportBlockSpec`, and one
-   `BlockFigureSpec` per figure) and the content (a function in
-   `_CONTENT_BUILDERS`); the expected PNG in `artifacts.py` (`artifact_spec`).
+7. A block of a report page: a function of `report/pages.py` that returns
+   `Block` objects, called by `run_blocks`, `session_blocks` or
+   `overview_blocks`. The figures a preset draws are in `report/presets.py`.
+   The words shown are a field of `ReportTexts`, filled in `project/report.py`.
 8. A read of a run that a figure needs goes in `results`, never in `display`: an
    existing public method of `Run`, else a module function of `results` that takes
    the run (models: `results/run/particles.py`, `results/calibration_trials.py`,
@@ -315,32 +330,29 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 | `hydromodpy.display.figure_registry` | `get`, `resolve`, `names`, `figure_option_names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
 | `hydromodpy.display.cohort` | the cohort figures `hmp campaign collect` draws under `summary/figures/` |
-| `hydromodpy.display.calibration_report` | the HTML report of a calibration session (`hmp report render`) |
 | `hydromodpy.display.run_comparison` | the figures of `hmp report compare` (`analysis`) |
 | `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by other layers |
-| `hydromodpy.display.report_blocks` | HTML engine of the reports |
+| `hydromodpy.display.report.*` | the report engine, the pages and the presets (`project/report.py`) |
 | `hydromodpy.display.overview`, `hydromodpy.display.overview.config` | overview and `OverviewConfig` |
-| `hydromodpy.display.catchment_report`, `...catchment_report.pipeline` | catchment report |
 | `hydromodpy.display.figures.lake_level_fit` | lake-level fit chart from two series |
 
 `calibration` does not import `display`. Tests and examples are not checked.
 
 ## HTML block reports
 
-`report_blocks.py` is the common renderer of static reports built from reusable
-blocks. The workflow code builds `ReportBlock` objects (with `ReportMetric`,
-`ReportFigure`, `ReportTable` and `ReportLink` inside them), and the renderer
-writes the page. A domain report keeps its scientific logic in its own
-`blocks.py` and calls one of:
+`report/engine.py` is the common renderer of static reports built from reusable
+blocks. It knows no run. `report/pages.py` builds `Block` objects (with `Metric`,
+`Picture`, `Table`, `Link` and `Prose` inside them) from a sealed run, a data
+overview or a calibration session. `report/presets.py` holds `ReportTexts` and the
+two presets, `research` and `management`, with the figures each one names.
+`write_pages(out, *, title, subtitle, blocks, levels=True, lang="en", label="",
+rendered)` writes `index.html`, `review/{compact,standard,audit,by_block}/`,
+`figures/` and `report.json`. With `levels=True` each page shows the detail
+levels `compact`, `standard` and `audit` of `LEVELS`.
 
-- `write_report_page(...)` for one static page;
-- `write_report_page_with_block_variants(...)` for a page where each block
-  switches between the detail levels `compact`, `standard` and `audit`.
-
-`render_report_page` and `render_report_page_with_block_variants` return the HTML
-instead of writing it. The renderer is used by the overview (`overview/web.py`),
-the catchment report, and
-the network and transient calibration page of
+The words on a page come from `project/report.py`, because `display` never
+imports `schema`. The engine is used by the overview, the catchment report, the
+calibration session report and the network and transient calibration page of
 `validation_cases/calibration/network_transient_b0/`.
 
 ## Figure contract
@@ -357,6 +369,7 @@ class FigureSpec:
     optional_fields: tuple[str, ...] = ()
     required_tables: tuple[str, ...] = ()
     default_figsize: tuple[float, float] = (7.0, 5.0)
+    subject: FigureSubject = "run"  # run, session or runset
 
 
 class BaseFigure(ABC):
@@ -364,9 +377,9 @@ class BaseFigure(ABC):
     spec: FigureSpec
 
     @abstractmethod
-    def render(self, sim: Run, ax: Axes, **opts) -> Axes: ...
+    def render(self, subject: Run | Session | RunSet, ax: Axes, **opts) -> Axes: ...
 
-    def unavailable_reason(self, sim: Run) -> str | None: ...
+    def unavailable_reason(self, subject: Run | Session | RunSet) -> str | None: ...
 ```
 
 `optional_fields` lists fields the figure reads when they are there. The rule
@@ -387,7 +400,8 @@ generated from the table into the figures page of the documentation, and
 | unavailable | a figure the run cannot feed; it is refused or skipped with a sentence |
 | overlay | a named drawing put on an existing map, skipped when the run lacks the data |
 | panel | one image of the overview, drawn without a run |
-| block | one section of a `report_blocks` HTML page: text, figures, tables |
+| block | one section of a `report/engine.py` HTML page: text, figures, tables |
+| subject | what a figure draws: `run`, `session` or `runset` |
 | detail level | `compact`, `standard` or `audit`: what a block shows depending on the reader |
 | face | one cell of the 2D mesh; `ugrid` draws one value per face |
 
@@ -401,9 +415,11 @@ generated from the table into the figures page of the documentation, and
 - `hydromodpy.display.runs.{render_figures_for_run, render_figure,
   figure_availability}`
 - `hydromodpy.display.config.DisplayConfig`
-- `hydromodpy.display.report_blocks.{ReportBlock, ReportMetric, ReportFigure,
-  ReportTable, ReportLink, write_report_page,
-  write_report_page_with_block_variants}`
+- `hydromodpy.display.report.engine.{Block, Metric, Picture, Table, Link, Prose,
+  LEVELS, write_pages}`
+- `hydromodpy.display.report.pages.{run_blocks, sheet_blocks, overview_blocks,
+  session_blocks, draw_named_figures}`
+- `hydromodpy.display.report.presets.{ReportTexts, PRESETS, preset_figures}`
 
 ## Layer neighbors
 
@@ -421,5 +437,6 @@ the network, the extents, the routing surface and the depression floods are comp
    `figure_table.py`.
 2. One simple figure, `figures/hydrograph.py`, and one map,
    `figures/piezometric_map.py`.
-3. `report_blocks.py` for the HTML contract.
-4. `catchment_report/builder.py` for a complete block-based report producer.
+3. `report/engine.py` for the HTML contract.
+4. `report/pages.py` for the blocks of a run, then `project/report.py` for the
+   texts and the call that writes a whole report.

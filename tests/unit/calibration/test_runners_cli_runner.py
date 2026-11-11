@@ -26,7 +26,6 @@ import pytest
 from pydantic import ValidationError
 
 import hydromodpy.calibration.runners.state as state
-from hydromodpy.calibration import persistence as persistence_module
 from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig, validate_calib_output
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
@@ -97,6 +96,7 @@ from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSect
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ObjectiveError
 from hydromodpy.core.runtime.interrupts import StopRequested, TerminationRequested
 from hydromodpy.core.scoring.stream_defaults import VALIDITY_PROVENANCE_CODE
+from hydromodpy.core.state import host as host_module
 from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.project import Project
@@ -705,7 +705,9 @@ def test_a_new_release_number_reads_every_trial_from_the_cache(
 def test_an_edited_docstring_moves_no_digest_and_an_edited_statement_does(tmp_path: Path) -> None:
     plain = _copy_as_shipped(tmp_path, "calibration")
     docstring = _edited_layer(
-        tmp_path / "doc", "calibration", ('"""Calibration session', '"""A reworded session')
+        tmp_path / "doc",
+        "calibration",
+        ('"""What a calibration returns', '"""A reworded calibration'),
     )
     statement = _edited_layer(
         tmp_path / "code", "calibration", ("logger = get_logger(__name__)", "logger = None")
@@ -921,7 +923,7 @@ class TestAWriterStillAlive:
     def test_a_session_whose_writer_is_gone_is_resumed(self, tmp_path, monkeypatch) -> None:
         persistence = make_session(tmp_path)
         self._claimed_by(persistence, os.getppid())
-        monkeypatch.setattr(persistence_module, "process_is_alive", lambda pid: False)
+        monkeypatch.setattr(host_module, "process_is_alive", lambda pid: False)
 
         descriptor = CalibrationPersistence(persistence.directory).resume_session()
 

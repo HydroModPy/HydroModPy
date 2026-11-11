@@ -51,10 +51,10 @@ if TYPE_CHECKING:
     from hydromodpy.project.examples.install import InstallReport
     from hydromodpy.project.examples.manifest import ExampleEntry
     from hydromodpy.project.facade import Project
-    from hydromodpy.project.launch.sites.expansion import PlanDraft
+    from hydromodpy.project.launch.plan import PlanDraft
     from hydromodpy.project.spinup import SpinupResult
     from hydromodpy.results.publication import PublishedLine
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run import Run, RunSet
     from hydromodpy.results.session.view import Session
     from hydromodpy.workflow.overview import OverviewResult
 
@@ -304,7 +304,7 @@ def run(
       keeps nothing to read: a window that stops before ``setup_process``, or
       ``save_catalog = false``;
     - an overview gives a :class:`~hydromodpy.workflow.overview.OverviewResult`;
-    - ``dry_run=True`` gives a :class:`~hydromodpy.project.launch.sites.expansion.PlanDraft`,
+    - ``dry_run=True`` gives a :class:`~hydromodpy.project.launch.plan.PlanDraft`,
       with nothing run and nothing written.
 
     A calibration is refused: :func:`calibrate` runs it. A ``[sites]`` project is
@@ -482,6 +482,7 @@ def calibrate(
     base: PathLike | None = None,
     phase: str | None = None,
     environment: Environment | None = None,
+    report: bool = True,
     **kwargs: Any,
 ) -> CalibrationReport:
     """Run a calibration workflow from a TOML file or config object.
@@ -522,6 +523,11 @@ def calibrate(
         the credentials file it names is read once, and its bounds ride on the
         workflow context. ``None`` builds the default of the machine, which
         allows every host and checks nothing.
+    report
+        Write the report of each session directory once the search is over
+        (``sessions/<s>/report/``). ``False`` skips it, as
+        ``hmp calibrate --no-report`` does. A report that fails warns and leaves
+        the calibration as it is.
     **kwargs
         Options of the route, the same keys ``hmp calibrate`` takes.
 
@@ -570,7 +576,9 @@ def calibrate(
 
     if _is_a_path(config) and base is None:
         kwargs.pop("headless", None)
-        return calibrate_a_file(config, phase=phase, environment=environment, **kwargs)
+        return calibrate_a_file(
+            config, phase=phase, environment=environment, report=report, **kwargs
+        )
 
     config = _held(config, base)
     calibration = getattr(config, "calibration", None)
@@ -581,6 +589,8 @@ def calibrate(
     headless = bool(kwargs.pop("headless", True))
     if phase is not None:
         kwargs["phase"] = phase
+    if not report:
+        kwargs["report"] = False
     with Project(config, headless=headless, environment=environment) as project:
         return project.calibrate(**kwargs)
 
@@ -982,12 +992,16 @@ def compare(
 
 
 def report(session: str | None = None, *, workspace: PathLike | None = None) -> Path:
-    """Render the HTML report of a calibration session.
+    """Write the HTML report of a calibration session again.
 
     ``session`` names one session of the project by its directory:
     ``<case>[.vN]`` or ``sessions/<case>[.vN]``. ``None`` selects the session
     that started last. The report reads the session directory alone, never
-    the index, and is written to ``sessions/<session>/report/index.html``.
+    the index. It draws the calibration figures of the session and those of
+    its promoted best run into ``sessions/<session>/figures/``, then writes
+    ``sessions/<session>/report/index.html``. ``hmp calibrate`` already writes
+    it once the search is over; this call writes it again, as
+    ``hmp report render`` does.
 
     Parameters
     ----------
@@ -1007,7 +1021,8 @@ def report(session: str | None = None, *, workspace: PathLike | None = None) -> 
     hydromodpy.core.exceptions.ConfigMissingError
         If no calibration session matches ``session``.
     hydromodpy.core.exceptions.DisplayError
-        If the report template or one of its figures fails to render.
+        If the page cannot be written. A figure that does not fit the session
+        is skipped with its reason in the log.
 
     Examples
     --------
@@ -1018,12 +1033,12 @@ def report(session: str | None = None, *, workspace: PathLike | None = None) -> 
     ... )  # doctest: +SKIP
     """
     from hydromodpy.core.state.result_dirs import resolve_project_root
+    from hydromodpy.project.report import report_session
     from hydromodpy.results.session.descriptor import resolve_session_dir
-    from hydromodpy.workflow.steps.calibration import step_render_calibration_report
 
     start = Path(workspace).expanduser().resolve() if workspace is not None else Path.cwd()
     session_dir = resolve_session_dir(resolve_project_root(start), session)
-    return step_render_calibration_report(session_dir=session_dir)
+    return report_session(session_dir)
 
 
 def read(
@@ -1116,7 +1131,7 @@ def read(
 
 
 def figure(
-    run: Run,
+    run: Run | Session | RunSet,
     name: str,
     *,
     save: PathLike | None = None,
@@ -1124,7 +1139,7 @@ def figure(
     time: str | date | None = None,
     **opts: Any,
 ) -> Figure:
-    """Render one registered figure for a simulation Run.
+    """Render one registered figure for a run, a session or a set of runs.
 
     The Python counterpart of ``[display].figures``: the same registry, the
     same names, the same options, so a figure produced by ``hmp run`` can be
@@ -1133,10 +1148,18 @@ def figure(
     :func:`hydromodpy.display.list_figures`. The options are the figure's
     own; the run's ``[display]`` is not applied (``hmp viz show`` applies it).
 
+    Each figure declares its subject, listed by ``hmp viz list``. A ``run``
+    figure draws a :class:`~hydromodpy.results.run.Run`. A ``session`` figure
+    draws a :class:`~hydromodpy.results.session.view.Session`; given a run, it
+    draws the session that promoted the run, and a run no session promoted is
+    refused. A ``runset`` figure (``ensemble_band``) draws a
+    :class:`~hydromodpy.results.run.group.RunSet` and refuses a single run.
+
     Parameters
     ----------
     run
-        A :class:`~hydromodpy.results.run.Run` (e.g. ``proj[ref]``).
+        The subject of the figure: a :class:`~hydromodpy.results.run.Run`
+        (e.g. ``proj[ref]``), a session or a set of runs.
     name
         Registered figure name, for example ``"piezometric_map"``.
     save
@@ -1179,9 +1202,9 @@ def figure(
 
     if time is not None:
         opts["time"] = time
-    return render_figure(
-        name, run, save=save, dpi=dpi, run_dir=run.dir if save is not None else None, **opts
-    )
+    # A set of runs has no directory; only a run stamps its identity on the PNG.
+    run_dir = getattr(run, "dir", None) if save is not None else None
+    return render_figure(name, run, save=save, dpi=dpi, run_dir=run_dir, **opts)
 
 
 @overload

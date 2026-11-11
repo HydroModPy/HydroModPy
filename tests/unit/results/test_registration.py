@@ -15,12 +15,14 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError, ImportConflictError
+from hydromodpy.core.io import filesystem
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.results.catalog.registration import (
     NameTakenError,
     check_name_free,
     import_publication,
     rename_case,
+    reserve_version_dirname,
     run_dir_holding,
     split_stem_version,
 )
@@ -34,6 +36,7 @@ from hydromodpy.results.record.request_identity import request_id
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_MANIFEST_FILENAME
 from hydromodpy.results.trash import DirectoryInUseError, gc_trash, read_tombstones, trash_run
 from tests._helpers.sealed_runs import manifest_document
+from tests._helpers.windows_os import PatchedOs, WindowsOs
 
 AT = datetime(2026, 10, 15, 9, 0, tzinfo=UTC)
 SIM_ID = "9a4f0c1e-0000-4000-8000-000000000001"
@@ -286,6 +289,7 @@ def test_an_interrupted_import_leaves_no_partial_directory(tmp_path: Path, monke
     def _crash(*_args, **_kwargs):
         raise OSError("disk unplugged")
 
+    monkeypatch.setattr(os, "replace", _crash)
     monkeypatch.setattr(os, "rename", _crash)
     with pytest.raises(OSError, match="disk unplugged"):
         import_publication(project, copy)
@@ -293,3 +297,82 @@ def test_an_interrupted_import_leaves_no_partial_directory(tmp_path: Path, monke
     assert list((project / "runs").iterdir()) == []
     assert list((project / ".hmp").iterdir()) == []
     assert import_publication(project, copy) == "runs/x"
+
+
+LONG_ROOT_SENTENCE = (
+    "The project folder {root} is {length} characters long. On Windows a project writes paths "
+    "up to 160 characters below its folder, and MODFLOW 6 and DuckDB open no path longer than "
+    "259, so the folder may hold 99 characters at most. Move the project to a shorter folder, "
+    "for example D:\\hmp\\<organisation>\\projects\\<name>."
+)
+
+
+def _long_root(tmp_path: Path, length: int) -> Path:
+    """A folder of at least ``length`` characters (the scratch root is already long)."""
+    root = tmp_path / "p"
+    return Path(str(root) + "x" * max(length - len(str(root)), 0))
+
+
+def test_a_reservation_in_a_folder_too_long_for_windows_is_refused_and_leaves_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _long_root(tmp_path, 120)
+    monkeypatch.setattr(filesystem, "os", WindowsOs())
+
+    with pytest.raises(ConfigError) as caught:
+        reserve_version_dirname(root, "run", "case")
+
+    assert str(caught.value) == LONG_ROOT_SENTENCE.format(root=root, length=len(str(root)))
+    assert not root.exists()
+
+
+def test_the_same_long_folder_is_reserved_on_linux(tmp_path: Path) -> None:
+    root = _long_root(tmp_path, 120)
+
+    assert reserve_version_dirname(root, "run", "case").is_dir()
+
+
+def _published_copy(tmp_path: Path) -> tuple[Path, Path]:
+    source = _make_run(tmp_path / "lab", "x", sim_id=SIM_ID)
+    copy = _publish(source, tmp_path / "copy", rel_dir="runs/x", sim_id=SIM_ID)
+    return copy, tmp_path / "home"
+
+
+def test_an_import_lands_when_the_rename_onto_the_reserved_folder_is_refused_as_on_windows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    copy, project = _published_copy(tmp_path)
+
+    def refuse(source: object, target: object) -> None:
+        raise PermissionError(5, "Access is denied")
+
+    monkeypatch.setattr(filesystem, "os", PatchedOs(name="nt", replace=refuse))
+    monkeypatch.setattr(filesystem, "WINDOWS_PATH_LIMIT", 10**6)  # tmp_path is long
+
+    assert import_publication(project, copy) == "runs/x"
+    assert (project / "runs" / "x" / RUN_MANIFEST_FILENAME).is_file()
+
+
+def test_a_neighbour_that_takes_the_reserved_name_keeps_its_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    copy, project = _published_copy(tmp_path)
+    real_rmdir = os.rmdir
+
+    def refuse(source: object, target: object) -> None:
+        raise PermissionError(5, "Access is denied")
+
+    def rmdir_then_neighbour_creates(path: object) -> None:
+        real_rmdir(path)
+        os.mkdir(path)
+        (Path(str(path)) / "theirs.txt").write_text("theirs", encoding="utf-8")
+
+    monkeypatch.setattr(
+        filesystem, "os", PatchedOs(name="nt", replace=refuse, rmdir=rmdir_then_neighbour_creates)
+    )
+    monkeypatch.setattr(filesystem, "WINDOWS_PATH_LIMIT", 10**6)  # tmp_path is long
+
+    with pytest.raises(FileExistsError):
+        import_publication(project, copy)
+
+    assert (project / "runs" / "x" / "theirs.txt").read_text(encoding="utf-8") == "theirs"

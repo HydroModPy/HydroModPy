@@ -389,7 +389,7 @@ def test_publish_copies_the_summary_once_it_is_collected(tmp_path: Path) -> None
 
 
 def test_a_sites_project_is_never_configured_as_one_model(tmp_path: Path) -> None:
-    from hydromodpy.project.launch.sites.expansion import SitesProjectError
+    from hydromodpy.project.launch.plan import SitesProjectError
 
     project = _campaign(tmp_path)
 

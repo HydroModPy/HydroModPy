@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Final
@@ -86,6 +86,30 @@ class TrialParam(HydroModelBase):
     targets: dict[str, str] = Field(
         default_factory=dict, description="Address of the value in each case, by case id"
     )
+
+
+BOUND_TOLERANCE: Final[float] = 1e-6
+"""Share of the searched range within which a value counts as on its bound."""
+
+
+def on_bound(payload: Any) -> bool:
+    """Whether a journaled parameter ended on a bound of its searched range.
+
+    Read in the space the search moved in (``transformed_*``), where the
+    range is the one the optimizer saw; a bare value carries no bounds.
+    """
+    if isinstance(payload, TrialParam):
+        payload = payload.model_dump(exclude_defaults=True)
+    if not isinstance(payload, Mapping):
+        return False
+    value, bounds = payload.get("transformed_value"), payload.get("transformed_bounds")
+    if value is None or not bounds:
+        value, bounds = payload.get("value"), payload.get("bounds")
+    if value is None or not bounds or len(bounds) != 2:
+        return False
+    lower, upper = float(bounds[0]), float(bounds[1])
+    margin = BOUND_TOLERANCE * abs(upper - lower)
+    return abs(float(value) - lower) <= margin or abs(float(value) - upper) <= margin
 
 
 class TrialCase(HydroModelBase):
@@ -340,6 +364,7 @@ def trial_rows(line: TrialLine) -> Iterator[dict[str, Any]]:
 
 
 __all__ = [
+    "BOUND_TOLERANCE",
     "TRIAL_EVENTS",
     "TRIAL_SCHEMA",
     "TRIAL_VERSIONS",
@@ -351,6 +376,7 @@ __all__ = [
     "append_trial",
     "cut_remnant",
     "next_trial_number",
+    "on_bound",
     "physical_parameters",
     "read_trials",
     "trial_rows",

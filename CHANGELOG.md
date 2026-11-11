@@ -112,6 +112,12 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The trial frame of a session (`Session.trials`) gains `batch`, `rule`, `window`, `solve_s` and `reused`, and `Session.profile()` sums where the search spent its time, by step and by `reused`.
 - The method text of a run, `hydromodpy.results.method.method_text`, and its label sentence, `label_text`, in English and in French. The text has five paragraphs: the run, its data with each licence, its calibration, its quality with each check passed, failed or unknown, and its limits. Every sentence is a row of `phrases.toml`.
 - A sealed run keeps `mesh/open_water` and `mesh/catchment_cells` beside the mean recharge it already kept. They are the open water and the outline cells the stream criterion read.
+- `hydromodpy.results.derive.views.budget_over(run, term, polygon=None, *, crs=None, split=False, name=None)` totals a per-cell budget term over the catchment or any polygon, per time step. With `split=True` it gives the inflow and the outflow, each element counted on its own. A field in m3/s stored per cell outside `budget/`, such as `release_flux`, is summed the same way.
+- `TERM_FAMILIES` and `family_terms` of `hydromodpy.core.budget.terms`, so `budget_over(run, "storage")` sums `storage_ss` and `storage_sy` under MODFLOW 6 and reads `storage` under MODFLOW-NWT and Boussinesq.
+- `inflow_outflow` of `hydromodpy.core.budget.flux`, the one split of a per-cell budget into inflow and outflow.
+- `hmp show SESSION` prints the summary of a calibration session: the trials by status, the best trial, the bounds it reached, why the search stopped and the path of its report. A run goes to `hmp catalog show`.
+- `hmp calibrate` writes the report of each session directory it leaves, `sessions/<s>/report/`. `hmp calibrate --no-report` and `hmp.calibrate(..., report=False)` skip it, and a report that fails warns without failing the calibration.
+- The seal of a data overview writes `tables.parquet/data_inventory.parquet` and lists the loaded inputs in `inputs.json`. Its stats card, station table and page are drawn from those rows.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -538,6 +544,27 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp publish` of a run with its inputs prints `hmp replay <copy> -w <project>` as the line that replays the copy.
 - `Project.publish` takes no `with_` any more: a summary carries no results and no inputs.
 - The trash warns only for a run that has published copies; a delivery alone does not count.
+- The catchment series count the inflow and the outflow of each element (layer, cell) on its own, where they summed the layers of a cell first. The discharge does not move (register entry `basin_budget_split_per_element`).
+- A plan keeps its cases and the cells of their sites in `plan/<hash>/cases.csv` beside `plan.json` (schema `hydromodpy.plan.v2`), where 2.0 wrote `sites.parquet` and `cases.parquet`. The hash of a plan now starts from its schema, so every project gets a new hash. A plan of 2.0 is refused with the command that writes it again, `hmp project plan`.
+- The eight modules of `hydromodpy/project/launch/sites/` are one module, `hydromodpy.project.launch.plan`, with the same public names. `BindingError` and `TableError` are now `SitesProjectError`.
+- A column of the sites table named like a column the plan writes for each case (`case_id`, `recipe`, `config_hash`, `config_path`) is refused with the name to change.
+- `cost_margin.root_interval` of `hydromodpy.calibration.optim` takes a mapping from the search variable to its cost instead of a list of pairs.
+- The runoff warnings of a calibration discharge and of the catchment series are logged at each call, so a calibration logs them once per trial.
+- Figures and data exports of a run are written after its seal and carry the label of the day. The steps end with `derive`, `export`, `seal`, `display`.
+- The footer of a figure reads `<label>, rule <n>, <date>` after the site, period and version, and `unlabelled` for a directory without a seal.
+- A figure or an export that fails after the seal leaves the run sealed and `completed`. The command exits with the display or export error and names `hmp viz show` or `hmp export`.
+- A figure declares its subject, `run`, `session` or `runset`. A session figure asked for on a run draws the session that promoted it. `hmp.figure` takes a run, a session or a set of runs, and `hmp viz list` shows the subject, so the JSON output of `viz list` and `viz list run` is at version 2.
+- The calibration figures (convergence, trace, landscape, pairplot, trial distribution, objective surface, progress, bisection bracket trace, parameter cost profile, downslope distance crossing, matching card) draw a `Session`, and `ensemble_band` draws a `RunSet`. The y label of `calibration_convergence` reads `cost`, the name of the cost column of the trial journal.
+- A figure handed an object of the wrong kind, a run for a session figure or a list of runs for `ensemble_band`, is refused with a sentence that says what to pass, and a session figure refuses a session that recorded no trial before drawing. The subject is never listed as an option of a figure.
+- `hmp report catchment RUN [--overview RUN] [--preset research|management] [--lang en|fr] [--station ID] [--strict]` reads a sealed run. `report.json` replaces `block_report_manifest.json` and `block_report_postflight.json`, and the JSON output of the command is at version 2 (`html_report`, `report_json`, `missing`).
+- `hmp.report` and `hmp report render` write the session report through `hydromodpy.project.report.report_session`.
+- The session report is written for a session of several cases and when a best run does not open. A table lists each case with its best run, and a best run that does not open is named there with the reason. The figures of the best run of each case are drawn, named `<case>_<figure>.png` when the session holds several cases.
+- `hmp show SESSION` and the session report print again the project, the cost name, the best run, the stop note, the start, the end and the duration of the session.
+- The management sheet takes its headline score from the seal (`record.score`), not from the first row of `metrics.parquet`. Its table and figure titles, its headings and its frame are in the language of the sheet, and the sample count is an integer. The score tables of the reports say the window of each score.
+- The method block of a report shows the label once. The research report lists again the reference configuration, the geological codes of the catchment, the reference segments, the DEM extraction threshold, the forcing origin and the four comparison figures of the reference and the DEM network.
+- The data overview page shows again the workflow, period, workspace, catchment area and definition, the hydrography objects, sources and period, a station count per family, the mean recharge, the pumping, the wells, the sources of the hydrography and of the recharge, the series of piezometry, intermittency and water quality, and the paths of its files.
+- The data identity card of the overview counts each station once. A station that gives one record per parameter, in water quality most of all, used to count once per record.
+- The report engine removes from `figures/` only the copies it made on a former call, listed under `copied` in `report.json`. A figure already in `figures/` stays in place, and a copy never overwrites a file it did not write.
 
 ### Removed
 
@@ -647,9 +674,31 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hydromodpy.results.fit_metrics`. Its functions are in `hydromodpy.results.score`.
 - The `LANGUAGES` constant of `hydromodpy.config.check`. The languages are `LANGS` in `hydromodpy.schema.phrases`.
 - The lineage kind `published`: a copy has no seal of its own and names its source in `PUBLICATION.json`.
+- `hydromodpy.results.derive.views.catchment_total`. Use `budget_over(run, term)`.
+- The field `storage_change`, which no solver wrote. Read the storage with `budget_over(run, "storage")`.
+- `figures/`, `exports/` and `report/` from the artifact list of `manifest.json`, and the figure asset of the STAC view of a run.
+- The `session_id` option of the calibration figures (a `Session` is one session), the figure options `SessionId` and `TrialsSessionId`, and the objective series that `calibration_convergence` read from the station `_calibration`.
+- The report TOML of `hmp report catchment` and the flags `--run-overview`, `--run-simulation`, `--context-only`, `--report-only`, `--stream-run-logs` and `--strict-figure-postflight`, with their `--no-` forms. Write `hmp run`, then `hmp report catchment RUN`. The preset `generic` is refused.
+- `SessionReportData` and `load_session_report_data` of `hydromodpy.calibration.report`, `step_render_calibration_report`, and `CATCHMENT_PRESETS` of `hydromodpy.cli.commands.report`. The summary of a session is `hydromodpy.results.session.summary`, its report `hydromodpy.project.report.report_session`.
+- The modules `hydromodpy.display.report_blocks`, `hydromodpy.display.catchment_report`, `hydromodpy.display.calibration_report`, `hydromodpy.display.overview.web` and `hydromodpy.workflow.steps.calibration`. The report engine is `hydromodpy.display.report` (`engine`, `pages`, `presets`) and its caller `hydromodpy.project.report`. An import of an old path is refused with the new one.
+- The variable `HMP_OVERVIEW_HTML_REVIEW_LEVELS`. The review pages of a data overview are always written.
 
 ### Fixed
 
+- `hmp replay` of a published copy that was killed once no longer makes every later replay of that copy fail with
+  `FileExistsError`. The folder it left in `.hmp/replay/` is removed once its process is gone, and a second replay of
+  the same copy into the same project while the first one runs is refused with a write conflict.
+- A local delivery whose destination file is a symbolic link replaces the link again, as in 2.0.0, and no longer the
+  file it points to.
+- On Linux and macOS a `PermissionError` on a lock file, a launcher lease or a folder rename is raised at once again,
+  as in 2.0.0. Only Windows tries again, for up to 310 ms.
+- A lock file put back by a copy, on a volume without hard links, stays with its holder, which can still renew and
+  release it. A lock file now carries a `token` drawn at each take.
+- A file linked or copied by `link_or_copy` keeps the dates of its source when it is copied, as `shutil.copy2` did.
+- The temporary folder of a product written on a host whose name holds dots is swept once its writer is dead, and no
+  longer only after a day.
+- On Windows, a JSON document or the project index published while a reader holds the old file is tried again for up
+  to 310 ms before the error is raised.
 - A run with `zone_partic = "seepage_clip"` stopped with a KeyError since the outputs of the solver are extracted after every run. MODPATH now builds the seepage raster from the heads of its flow run, with the seepage rule of the run store, and finds those heads under the NWT name of a run whose name holds spaces.
 - Hub'Eau clients report dropped stations via report_dropped instead of silently ignoring empty chronicles.
 - Hub'Eau product QIXM discharge conversion (l/s to m3/s).
@@ -660,6 +709,9 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The frozen config of a run whose catchment reads its DEM from `[[data.dem.sources]]` validates again.
 - MODPATH and MT3DMS build their deck again, and the `seepage_clip` release raster reads the water table cell by cell.
 - `hmp run --frozen` replays a station that answered nothing. `hydromodpy.lock` pins it as an input with `empty = true` and no sha256, and an empty answer the lockfile does not pin is refused. In 2.0.0 every such station was refused, because the lockfile could not pin it.
+- The root search of a calibration keeps one cost per point of its search variable, so a point that failed and was solved when asked again no longer breaks the interval around the root.
+- The catchment series and the calibration discharge keep no module state between runs. A reused id of an earlier context no longer silenced the runoff warning of a new one.
+- The matching card names the unit of a parameter from the session journal first, so `K (m/s)` instead of `K (-)`.
 
 ### Numbers
 
@@ -672,6 +724,9 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The auxiliary steady solve that sets the initial heads of a MODFLOW 6 or MODFLOW-NWT run with [flow.ic] kind = "steady_state" always starts from the top of the model. It used to start 0.01 m below the top when [flow.runtime] set backend = "petsc" and surface_interaction_model = "vi_obstacle", two Boussinesq settings that MODFLOW does not use. Only that combination changes, by the order of the head closure of the auxiliary solve (at least 1e-3 m for MODFLOW 6, headtol, 1e-4 m by default, for NWT); no example, reference or validation case uses it.
 - The start head of a run that restarts from another one is written to MODFLOW 6 as a double precision binary array, and its lake stages with all their digits, no longer rounded as text. Heads move by about 1e-9 m and lake stages by up to 5e-9 m.
 - MODFLOW 6 with SFR storage: a run that restarts from another one, and each window of a chain, gives each reach the stage it ended on as INITIALSTAGES, read from final_state, where the reach used to start from the stage the package computes. On a two-window chain the head of window 2 moves by about 1e-4 m, and the chain then differs from the run in one piece by 6e-10 m. A source run of 2.0 has no final_state, and its reaches start as before.
+- The catchment series and budget_over count the inflow and the outflow of each element (layer, cell) on its own, as the extractors do, where the catchment series summed the layers of a cell first. A drain only leaves the aquifer, so the discharge does not move: 0 on the six reference runs and on two runs of example 04, all one layer. On a multilayer run the inflow and the outflow of a term whose sign changes between layers move, and their difference does not.
+- The catchment series and budget_over drop a non-finite element (layer, cell) alone, where 2.0 dropped the whole cell when one of its layers held a NaN, so the discharge of a multilayer run whose drain cell holds a NaN in one layer now counts its finite layers. A time step with no finite element under the weights gives NaN, where 2.0 gave 0, and a family such as storage is NaN on a step where one of its terms is NaN. A run of one layer with finite fluxes does not move: 0 on the six reference runs.
+- The root interval of a bisection counts in n_trials and n_within the distinct points of the search variable that solved, where 2.0 counted the solved trials, so a point solved twice counts once and keeps its first cost. 0 cases out of 3,000 searches move.
 <!-- numbers:end -->
 
 ## [v2.0.0] - 2026-11-07

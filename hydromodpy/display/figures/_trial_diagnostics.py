@@ -14,7 +14,6 @@ never a zero.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -23,10 +22,9 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.display.figure import FigureNotApplicable
-from hydromodpy.results.calibration_trials import calibration_trials
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 _ORDER_COLUMNS: tuple[str, ...] = ("trial", "iteration", "iter", "i")
 
@@ -180,23 +178,34 @@ class TrialTable:
         return matches[0]
 
 
-def trial_table(sim: Run, *, session_id: str | None = None, phase: str | None = None) -> TrialTable:
-    """Read the calibration trials of one run into a flat trial table.
+def trial_table(session: Session, *, phase: str | None = None) -> TrialTable:
+    """Read the trials of one calibration session into a flat trial table.
 
-    The rows come from :func:`hydromodpy.results.calibration_trials`, which
-    reads them on the same key ``Run.has_table`` answers on. Reading them any
-    other way makes the availability gate and the render disagree, and the
-    figure then reports itself available and raises mid-render. ``phase``
-    keeps the trials of that phase only.
+    The rows come from ``Session.trials``, the journal of the session, one row
+    per trial and case. ``phase`` keeps the trials of that phase only. A
+    session with no trial, or none in the phase, is an error that says which.
     """
-    frame = calibration_trials(sim, session_id=session_id, phase=phase)
-
-    frame, parameters = _expand_parameters(frame)
+    frame = session.trials
+    if phase is not None:
+        frame = frame[frame["phase"] == phase]
+    if frame.empty:
+        scope = "" if phase is None else f" in phase {phase!r}"
+        raise ValueError(f"no trial recorded{scope} by session {session.name!r}.")
+    frame, parameters = _expand_parameters(frame.reset_index(drop=True))
     frame = _expand_components(frame)
     order = next((column for column in _ORDER_COLUMNS if column in frame.columns), None)
     if order is not None:
         frame = frame.sort_values(order, kind="stable")
     return TrialTable(frame=frame.reset_index(drop=True), parameters=parameters)
+
+
+def no_trial_reason(session: Session) -> str | None:
+    """Return why ``session`` holds no trial to draw, or None when it holds some."""
+    try:
+        trial_table(session)
+    except ValueError as exc:
+        return str(exc)
+    return None
 
 
 def _expand_parameters(frame: pd.DataFrame) -> tuple[pd.DataFrame, tuple[str, ...]]:
@@ -256,21 +265,8 @@ def _joined(frame: pd.DataFrame, columns: Mapping[str, list[float]]) -> pd.DataF
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:
-    """Read one nested block, which the index hands back as a JSON string.
-
-    The journal keeps it a dict and DuckDB keeps it text, and both are the
-    same block; a figure has to read either without knowing which side of the
-    storage it came from.
-    """
-    if isinstance(value, Mapping):
-        return value
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-        except json.JSONDecodeError:
-            return {}
-        return parsed if isinstance(parsed, Mapping) else {}
-    return {}
+    """Read one nested block of the journal, empty when it is not a mapping."""
+    return value if isinstance(value, Mapping) else {}
 
 
 def _parameter_value(value: Any) -> float:

@@ -227,11 +227,12 @@ def test_a_run_that_builds_no_constant_head_leaves_no_sidecar(tmp_path: Path) ->
 def test_the_output_stem_is_settled_before_any_file_is_named_after_it() -> None:
     """The ordering the sidecar depends on, pinned where it can be seen.
 
-    ``mf6_output_name`` collapses a stem that would push the solver path past
-    the Windows limit to a hashed one. A sidecar written before that collapse
-    carries the long name, the extractor asks for the short one, and the stream
-    role silently reads as absent -- a real seepage becomes 0.0 with no error.
-    The build therefore settles the stem once, before anything names a file.
+    ``mf6_output_name`` gives the requested model name on every system, so the
+    stem no longer depends on the folder. The order stays pinned: a sidecar
+    written before the stem is set would carry another name than the extractor
+    asks for, and the stream role would read as absent -- a real seepage becomes
+    0.0 with no error. The build therefore settles the stem once, before
+    anything names a file.
     """
     import ast
     import inspect

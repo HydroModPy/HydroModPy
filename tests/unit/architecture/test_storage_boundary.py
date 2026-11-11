@@ -49,7 +49,6 @@ INDEX_OPENERS = {
 
 DUCKDB_CONNECT_FILES = {
     "hydromodpy/core/io/db_retry.py",
-    "hydromodpy/display/catchment_report/context.py",
 }
 """Every module allowed to call ``duckdb.connect``; a new one is a new DuckDB scope to justify."""
 

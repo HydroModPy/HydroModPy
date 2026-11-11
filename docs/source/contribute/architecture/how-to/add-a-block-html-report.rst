@@ -1,233 +1,162 @@
-Add a block HTML report
-=======================
+Add a block to the HTML report
+==============================
 
-Use this recipe when a workflow must emit a static HTML report composed of
-reusable blocks: metrics, figures, tables, artifact links, and warnings.
+Use this recipe to add a block to a report page, or to change which figures a
+preset shows. A report is a static HTML page built from blocks. A block holds
+metrics, tables, pictures, links and prose.
 
-The shared renderer lives in ``hydromodpy.display.report_blocks``. Workflow
-code owns the scientific content; the shared renderer owns the HTML shell,
-anchors, level navigation, per-block level switches, relative artifact links,
-and missing-figure placeholders.
+The engine lives in ``hydromodpy.display.report``. It has three modules.
+
+- ``engine.py`` holds the frozen dataclasses and ``write_pages``. It writes the
+  HTML shell, the anchors, the level navigation and the per-block level
+  switches. It copies the figures and frames a missing required figure.
+- ``pages.py`` builds blocks and nothing else (``run_blocks``, ``sheet_blocks``,
+  ``overview_blocks``, ``session_blocks``, ``draw_named_figures``).
+- ``presets.py`` holds ``ReportTexts`` and ``PRESETS``.
+
+``hydromodpy/project/report.py`` (``report_run`` and ``report_session``) is the
+one place that assembles the texts and the pages. ``hydromodpy.display`` never
+imports the schema, so the texts reach it as a ``ReportTexts`` value.
 
 Where to document it
 --------------------
 
-There are three useful places for report documentation. Keep them separate:
+- The descriptions of the keys and the help of ``hmp report`` say when a report
+  is produced, its output paths and how to read it. The reference pages are
+  generated from them. Example: :doc:`/reference/cli/report`.
+- This page is the contributor recipe.
+- :doc:`/contribute/architecture/packages/display` summarizes the ownership.
 
-- **User reference**: the descriptions of the keys and the help of the
-  command that produce the report say when it is produced, its stable output
-  paths and how to read it. The reference pages are generated from them.
-  Example: :doc:`/reference/cli/report`.
-- **Developer recipe**: describe how to add or migrate a report producer. This
-  page is the canonical contributor recipe.
-- **Package reference**: summarize ownership and reading paths in
-  :doc:`/contribute/architecture/packages/display`.
+Audits and working notes stay out of the repository.
 
-Audits, migration logs and working notes stay out of the repository. The
-pages above are the source of truth.
-
-Contract
---------
-
-A block report is built from immutable dataclasses:
+The items of a block
+--------------------
 
 .. code-block:: python
 
-   from hydromodpy.display.report_blocks import (
-       ReportBlock,
-       ReportFigure,
-       ReportLink,
-       ReportMetric,
-       ReportTable,
-       key_value_table,
-       write_report_page,
-       write_report_page_with_block_variants,
+   from hydromodpy.display.report.engine import (
+       Block,
+       Link,
+       Metric,
+       Picture,
+       Prose,
+       Table,
+       pairs_table,
    )
 
-   block = ReportBlock(
-       block_id="run_identity",
-       title="Run identity",
-       level="compact",
-       lead="Short human-readable context.",
-       metrics=(
-           ReportMetric("Sites", 6),
-           ReportMetric("Failed runs", 0),
+   block = Block(
+       "run_identity",
+       "Run identity",
+       "Short human-readable context.",
+       min_level="compact",
+       items=(
+           ("compact", Metric("Sites", 6)),
+           ("standard", Metric("Failed runs", 0)),
+           ("standard", Picture("catchment_map", "Map", map_path, required=True)),
+           ("audit", pairs_table("strategy", "Strategy", (("Profile", "gauged"),))),
+           ("audit", Link("manifest", manifest_path, "manifest")),
        ),
-       figures=(
-           ReportFigure(
-               "catchment_map",
-               "Review map",
-               map_path,
-               "DEM background, basins, outlets, and observation stations.",
-               embed=True,
-           ),
-       ),
-       tables=(
-           key_value_table(
-               "strategy",
-               "Strategy",
-               (("Profile", "gauged_downstream_station"),),
-           ),
-       ),
-       links=(ReportLink("manifest", manifest_path, "manifest"),),
    )
 
-The stable detail levels are ``compact``, ``standard``, and ``audit``.
-``compact`` should be enough to decide whether the run looks plausible,
-``standard`` should explain the main scientific interpretation, and ``audit``
-should expose provenance, detailed tables, hashes, and artifact links.
+The levels are ``compact``, ``standard`` and ``audit``, in that order, and
+``LEVELS`` lists them. Each item carries the first level that shows it, and a
+page at a higher level shows it too. ``min_level`` is the first level that
+shows the block at all. ``compact`` should be enough to decide whether the run
+looks plausible, ``standard`` explains the main interpretation, and ``audit``
+exposes provenance, detailed tables and links.
 
-Files to create or edit
------------------------
+``Picture`` takes a path, or ``None`` when the file does not exist. With
+``required=True`` a missing file is shown as "Required figure missing" and is
+listed under ``missing`` in ``report.json``. With ``required=False`` it just
+does not appear.
 
-A typical workflow report has two workflow-owned modules:
+Add a block
+-----------
 
-.. code-block:: text
+A block is a function of a ``Run`` in ``pages.py``. Add it to the list that
+``run_blocks`` returns, or to ``sheet_blocks``, ``overview_blocks`` or
+``session_blocks`` for the other pages. Read the sealed run, never the solver
+folder. A block holds no HTML, only items. Text the reader sees in a sentence
+is not written there: it comes from ``ReportTexts``, which ``project/report.py``
+fills from the phrase table.
 
-   hydromodpy/<domain>/<workflow>/reports/blocks.py
-   hydromodpy/<domain>/<workflow>/reports/html.py
+Keep the ``id`` stable. It drives the anchors, the table of contents and the
+local-storage key of the per-block level selector.
 
-``blocks.py`` converts validated manifests or run artifacts into
-``ReportBlock`` instances. It contains workflow knowledge, but no low-level
-HTML.
+Name a figure in a preset
+-------------------------
 
-``html.py`` resolves paths, validates required artifacts, calls the block
-builder, and writes the HTML files.
-
-For a simple single-level report:
-
-.. code-block:: python
-
-   def render_my_report(manifest_path: Path, output_path: Path) -> Path:
-       manifest = load_manifest(manifest_path)
-       blocks = build_my_report_blocks(manifest, manifest_path=manifest_path)
-       return write_report_page(
-           output_path=output_path,
-           title=str(manifest["run_id"]),
-           subtitle="Static review report.",
-           blocks=blocks,
-       )
-
-For global levels plus a per-block switch page:
+``PRESETS`` maps a preset name to a ``Preset``. Its ``figures`` field names the
+run figures by level, and its ``panels`` field names the overview panels that
+fill the context blocks.
 
 .. code-block:: python
 
-   DETAIL_LEVELS = ("compact", "standard", "audit")
+   "research": Preset(
+       name="research",
+       levels=True,
+       figures={"compact": ("watershed_id_card",), "standard": ("water_budget",), "audit": ()},
+       panels=("map_dem",),
+   )
 
-
-   def _level_links(destination: Path) -> dict[str, Path]:
-       return {
-           "compact": destination.parent / "compact" / destination.name,
-           "standard": destination.parent / "standard" / destination.name,
-           "audit": destination.parent / "audit" / destination.name,
-           "by_block": destination,
-       }
-
-
-   def render_my_report(manifest_path: Path, output_path: Path) -> Path:
-       manifest = load_manifest(manifest_path)
-       blocks = build_my_report_blocks(manifest, manifest_path=manifest_path)
-       variants = build_my_report_block_variants(blocks)
-       links = _level_links(output_path)
-
-       for level in DETAIL_LEVELS:
-           write_report_page(
-               output_path=links[level],
-               title=str(manifest["run_id"]),
-               subtitle=f"{level} view",
-               blocks=blocks_for_detail_level(blocks, level),
-               current_level=level,
-               level_links=links,
-           )
-
-       return write_report_page_with_block_variants(
-           output_path=output_path,
-           title=str(manifest["run_id"]),
-           subtitle="Per-block detail view",
-           block_variants=variants,
-           current_level="by_block",
-           default_level="standard",
-           level_links=links,
-       )
+A name must be a registered figure (see :doc:`add-a-figure`). ``run_blocks``
+turns each name into a required ``Picture`` at its level. The same names are
+drawn by ``draw_named_figures`` after the seal, so a figure named here appears
+in ``figures/`` of the run and on the page. The ``research`` preset writes three
+levels. The ``management`` preset writes one page, ``levels=False``.
 
 Output layout
 -------------
 
-Keep one stable user-facing entry point, then add optional level pages around
-it. Existing reports use these patterns:
+``write_pages`` writes under the folder it is given, ``runs/<run>/report/`` for
+a run and ``sessions/<s>/report/`` for a session.
 
-- ``review/compact/index.html``, ``review/standard/index.html`` and
-  ``review/audit/index.html`` for global detail levels;
-- ``runs/<run>/report/index.html`` for the catchment report's standard page,
-  written into the run it describes;
-- ``runs/<run>/report/review/by_block/index.html`` for a catchment report page
-  where each block can choose its own detail level.
+- ``index.html`` is the standard page.
+- ``review/compact/``, ``review/standard/``, ``review/audit/`` and
+  ``review/by_block/``, each with an ``index.html``, when ``levels=True``.
+  ``by_block`` lets each block choose its own level.
+- ``sheet-<lang>/index.html`` is the one page of the management preset, in
+  ``en`` or ``fr``.
+- ``figures/`` holds the copied pictures.
+- ``report.json`` (schema ``hydromodpy.report.v1``) lists the preset, the
+  language, the label, the render date and each figure with its title, its file
+  or null, and whether it was required, plus ``missing`` and ``copied``, the
+  files the engine copied under ``figures/``. A new render removes only those.
 
-Do not make generated HTML the source of truth. The source of truth is the
-manifest, TOML, run catalog, and regenerated figure artifacts.
+The generated HTML is not a source of truth. The sealed run and the figure
+code are. The report is not in the seal inventory and can be written again with
+``hmp report catchment`` or ``hmp report render``.
 
-Updateable documentation illustrations
---------------------------------------
+Documentation illustrations
+---------------------------
 
-Documentation illustrations for block reports should be generated from a
-small, versioned source rather than edited by hand. The goal is that a layout
-or contract change can be refreshed by one command.
-
-Use this decision rule:
-
-- **Static workflow examples**: produce the image with the example or the
-  fixture the page describes, commit the reviewed PNG under
-  ``docs/source/_static/``, and name in the page source the command that
-  produced it.
-- **Lightweight inventories or diagrams derived from Python constants**:
-  generate them at build time from the code, like the reference pages
-  (``tools/docs``, wired through ``docs/source/_ext``). They rebuild without
-  solvers or network access.
-- **Heavy solver or provider examples**: generate artifacts explicitly before
-  the docs build, commit the reviewed outputs, and keep Sphinx as a reader
-  only. Do not make the docs build execute hydrological providers, MODFLOW
-  binaries, PETSc jobs, or long campaigns just to draw one illustration.
-
-For ``catchment_report``, the minimum updateable illustration should come from
-a tiny report fixture or one short basin example that writes, under
-``runs/<run>/report/``, ``index.html``, ``review/by_block/index.html`` and
-``block_report_postflight.json``. Keep the screenshot or mosaic under
-``docs/source/_static/`` only if it can be regenerated from the fixture.
-
-Avoid images whose only source is a local browser screenshot. If a screenshot
-is needed, keep a script that rebuilds the report, opens the
-stable HTML entry point, captures the viewport, and writes the committed image.
-The committed image is then a build artifact, not a hand-maintained source.
+Generate an illustration from a small versioned source. Commit the reviewed
+image under ``docs/source/_static/`` and name in the page the command that
+produced it. Do not make the docs build run a solver, a provider or a long job.
+Avoid an image whose only source is a local browser screenshot.
 
 Tests to add
 ------------
 
-Add focused tests at two levels:
-
-- renderer tests under ``tests/unit/display`` for escaping, anchors, missing
-  figures, links, and per-block level controls;
-- workflow tests next to the report producer for manifest loading, output path
-  stability, expected block IDs, and generated file existence.
-
-When the report consumes a figure inventory, add a small postflight or contract
-test that fails when required figures are missing or stale links are emitted.
+- Engine tests under ``tests/unit/display/report`` for escaping, anchors,
+  missing figures, links, levels and ``report.json``.
+- A test of the new block on a small sealed run, for its ids and its items at
+  each level.
 
 Pitfalls
 --------
 
-- Do not build large workflow-specific HTML templates when ``ReportBlock`` can
-  express the content.
-- Do not put business rules in ``hydromodpy.display.report_blocks``. Keep them
-  in the workflow-specific ``blocks.py`` module.
-- Mark optional figures as ``required=False``. Required missing figures are
-  rendered as placeholders instead of disappearing silently.
-- Keep ``block_id`` stable. It drives anchors, table of contents entries, and
-  local-storage keys for the per-block level selector.
-- Keep generated HTML and copied figures out of version control unless a test
-  fixture deliberately needs a tiny frozen artifact.
+- Do not write a large HTML template when a ``Block`` can express the content.
+- Do not put business rules in ``engine.py``. A block reads the run in
+  ``pages.py``.
+- Do not import the schema from ``display``. Pass what is needed through
+  ``ReportTexts`` from ``project/report.py``.
+- Mark an optional picture ``required=False``, so that a figure the run could
+  not draw does not look like a failure.
+- Keep generated HTML and copied figures out of version control.
 
 See also
 --------
 
-- :doc:`../packages/display` for ownership of ``display/report_blocks``.
-- :doc:`/reference/cli/report` for the user-facing catchment report.
+- :doc:`../packages/display` for the ownership of ``display/report``.
+- :doc:`/reference/cli/report` for the user-facing reports.

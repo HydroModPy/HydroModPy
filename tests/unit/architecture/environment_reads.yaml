@@ -215,11 +215,6 @@ rows:
   lifted_by: 4.19
   class: transitional
   why: a development switch of the schema validation
-- file: hydromodpy/display/overview/location.py
-  variable: HMP_OVERVIEW_HTML_REVIEW_LEVELS
-  kind: read
-  class: diagnostic
-  why: which review levels the overview page shows, never what a run writes
 - file: hydromodpy/project/examples/blobs.py
   variable: HMP_EXAMPLES_SOURCE
   kind: read
@@ -245,11 +240,11 @@ rows:
   kind: pass
   class: child
   why: the environment of the parent becomes the environment of the launched case
-- file: hydromodpy/project/launch/sites/expansion.py
+- file: hydromodpy/project/launch/plan.py
   variable: <whole>
   kind: pass
   class: cli
-  why: the sites expansion composes the HMP_SET_* overrides of the environment
+  why: the plan expansion composes the HMP_SET_* overrides of the environment
 - file: hydromodpy/results/run/environment.py
   variable: LOGNAME
   kind: read

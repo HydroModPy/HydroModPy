@@ -326,12 +326,13 @@ def test_a_cell_count_that_is_not_the_stored_one_is_refused_after_a_run(regular_
 
 
 def _mf6_binary() -> Path | None:
-    from hydromodpy.solver.modflow_common.binaries import locate_solver_binary, managed_bin_dir
+    from hydromodpy.core.workspace.workspace import resolve_bin_path
+    from hydromodpy.solver.modflow_common.binaries import locate_solver_binary
 
     found = shutil.which("mf6")
     if found:
         return Path(found)
-    return locate_solver_binary(managed_bin_dir(), "mf6")
+    return locate_solver_binary(Path(resolve_bin_path()), "mf6")
 
 
 def test_a_real_disv_grid_file_round_trips_through_the_check(tmp_path) -> None:

@@ -89,15 +89,73 @@ def find_drain_budget_key(mapping: Any) -> str | None:
     return None
 
 
+_NO_FLUX_BELOW = -9000.0
+"""A budget element at or below this value is a no-data sentinel, not a flux."""
+
+
+def _holds_flux(signed: np.ndarray) -> np.ndarray:
+    """Say which elements of a signed budget hold a flux: finite and above the sentinel.
+
+    The one validity rule of a per-cell budget element, read by every sum of
+    this module.
+    """
+    return np.isfinite(signed) & (signed > _NO_FLUX_BELOW)
+
+
 def _outflow_from_signed(signed: np.ndarray) -> np.ndarray:
     """Sum signed ``(time, layer, cell)`` budgets into positive per-cell outflow.
 
     Water leaves where the flux is negative. A positive flux enters and adds
     nothing to the outflow, and a missing value counts as no flow.
     """
-    finite = np.isfinite(signed) & (signed > -9000.0)
-    outflow = np.where(finite, np.maximum(-signed, 0.0), 0.0)
+    outflow = np.where(_holds_flux(signed), np.maximum(-signed, 0.0), 0.0)
     return outflow.sum(axis=1).astype("float64", copy=False)
+
+
+def inflow_outflow(
+    stack: np.ndarray, support: np.ndarray | None = None
+) -> tuple[np.ndarray, np.ndarray]:
+    """Inflow and outflow per time step of a per-cell budget stack, each element on its own.
+
+    ``stack`` is ``(time, layer, cell)`` or ``(time, cell)``, in m3/s with the
+    MODFLOW sign. A positive element enters the aquifer, a negative one leaves
+    it, and both sums come back positive. Each (layer, cell) element is split on
+    its own, so a cell at +1 in one layer and -0.4 in the next gives an inflow
+    of 1.0 and an outflow of 0.4.
+
+    ``support`` is None (every cell whole), a boolean per cell (the cells taken
+    whole) or a weight per cell in [0, 1]. On a boolean support the elements
+    that hold a flux are taken in layer then cell order and summed as one
+    array, so a one-layer stack sums in the order of the cells. On a weight an
+    element without a flux counts zero. A step where no element of the support
+    holds a flux gives NaN on both sides.
+    """
+    signed = np.asarray(stack, dtype="float64")
+    if signed.ndim == 2:
+        signed = signed[:, None, :]
+    if signed.ndim != 3:
+        raise ValueError(f"Expected a (time, layer, cell) budget stack, got shape {signed.shape}")
+    n_steps, _, n_cells = signed.shape
+    cells = np.ones(n_cells, dtype=bool) if support is None else np.asarray(support)
+    if cells.shape != (n_cells,):
+        raise ValueError(f"The support holds {cells.size} cells and the budget stack {n_cells}.")
+    inflow = np.full(n_steps, np.nan, dtype="float64")
+    outflow = np.full(n_steps, np.nan, dtype="float64")
+    if cells.dtype == bool:
+        for step in range(n_steps):
+            kept = signed[step][:, cells]
+            values = kept[_holds_flux(kept)]
+            if values.size:
+                inflow[step] = np.sum(np.maximum(values, 0.0))
+                outflow[step] = np.sum(np.maximum(-values, 0.0))
+        return inflow, outflow
+    weights = cells.astype("float64")
+    valid = _holds_flux(signed)
+    clean = np.where(valid, signed, 0.0)
+    counted = (valid & (weights > 0.0)).any(axis=(1, 2))
+    inflow[counted] = (np.maximum(clean, 0.0).sum(axis=1) @ weights)[counted]
+    outflow[counted] = (np.maximum(-clean, 0.0).sum(axis=1) @ weights)[counted]
+    return inflow, outflow
 
 
 def budget_outflow(component_field: Any, *, n_cells: int | None = None) -> np.ndarray:
@@ -387,6 +445,7 @@ __all__ = [
     "find_drain_budget_key",
     "first_finite_layer",
     "has_release_budget",
+    "inflow_outflow",
     "release_flux_stack",
     "seepage_mask",
 ]

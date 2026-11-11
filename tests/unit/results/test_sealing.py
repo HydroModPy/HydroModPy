@@ -11,6 +11,7 @@ the identity and the ACDD attributes; the whole thing is read back by
 
 from __future__ import annotations
 
+import errno
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -51,6 +52,7 @@ from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed, sealed_solution_key
 from hydromodpy.results.validity_rules import RULE_VERSION
 from tests._helpers.run_stores import open_run_store
+from tests._helpers.windows_os import PatchedOs
 
 SOLUTION_KEY = "c0ffee" * 10 + "c0ff"
 
@@ -366,7 +368,7 @@ def test_an_unexpected_directory_is_inventoried_rather_than_dropped(tmp_path: Pa
     assert entries["mystery"]["bytes"] == 3
 
 
-def test_figures_are_inventoried_but_never_sealed(tmp_path: Path) -> None:
+def test_figures_are_neither_inventoried_nor_sealed(tmp_path: Path) -> None:
     from hydromodpy.results.record.record import sealed_artifacts
 
     run_dir = tmp_path / "runs" / "r"
@@ -377,7 +379,8 @@ def test_figures_are_inventoried_but_never_sealed(tmp_path: Path) -> None:
     inventory = {entry["path"] for entry in list_artifacts(run_dir)}
     sealed = {entry.path for entry in sealed_artifacts(run_dir)}
 
-    assert f"{RUN_FIGURES_DIRNAME}/heads.png" in inventory
+    # Figures are rendered after the seal, so the inventory leaves them out.
+    assert f"{RUN_FIGURES_DIRNAME}/heads.png" not in inventory
     assert f"{RUN_FIGURES_DIRNAME}/heads.png" not in sealed
     assert FIELDS_STORE_NAME in sealed
 
@@ -463,28 +466,44 @@ def test_the_mesh_the_run_read_is_sealed_under_the_run(filled: RunStore) -> None
     assert product.is_dir()
 
 
+LINK_REFUSALS = [
+    pytest.param(OSError(errno.EXDEV, "cross-device link"), id="EXDEV"),
+    pytest.param(PermissionError(1, "not permitted"), id="PermissionError (Windows)"),
+    pytest.param(OSError(errno.ENOTSUP, "not supported"), id="ENOTSUP"),
+]
+
+
+@pytest.mark.parametrize("refusal", LINK_REFUSALS)
 def test_the_mesh_copy_falls_back_to_a_copy_when_a_link_is_refused(
-    filled: RunStore, monkeypatch
+    filled: RunStore, monkeypatch, refusal: OSError
 ) -> None:
+    from hydromodpy.core.io import filesystem
     from hydromodpy.results.storage.contract import MESH_DIRNAME
 
     product = _cited_mesh(filled)
 
-    link = sealing.os.link
-
     def refuse(source, destination, *args, **kwargs):
-        # Only the mesh copy is refused: the field store links its own files too.
-        if Path(destination).parent.name == MESH_DIRNAME:
-            raise OSError("cross-device link")
-        return link(source, destination, *args, **kwargs)
+        raise refusal
 
-    monkeypatch.setattr(sealing.os, "link", refuse)
+    # Only the mesh copy goes through link_or_copy: the field store links its own files.
+    monkeypatch.setattr(filesystem, "os", PatchedOs(link=refuse))
     seal_completed(filled)
 
     source = product / "mesh.npz"
     copy = filled.run_dir / MESH_DIRNAME / "mesh.npz"
     assert copy.read_bytes() == source.read_bytes()
     assert copy.stat().st_ino != source.stat().st_ino
+
+
+def test_the_mesh_is_linked_when_the_link_is_allowed(filled: RunStore) -> None:
+    from hydromodpy.results.storage.contract import MESH_DIRNAME
+
+    product = _cited_mesh(filled)
+
+    seal_completed(filled)
+
+    source = product / "mesh.npz"
+    assert (filled.run_dir / MESH_DIRNAME / "mesh.npz").stat().st_ino == source.stat().st_ino
 
 
 def test_a_cited_mesh_the_store_no_longer_holds_leaves_the_run_sealed(filled: RunStore) -> None:

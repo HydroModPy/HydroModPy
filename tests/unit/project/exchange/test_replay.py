@@ -14,6 +14,7 @@ refused and names the verb. The full chain, a solve included, is
 
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
 
@@ -279,3 +280,86 @@ def test_two_inputs_of_one_role_keep_their_own_bytes(
     found = replay.input_files_by_role(tmp_path, tmp_path / "work")
     assert found["data/a.tif"] != found["data/b.tif"]
     assert "dem" not in found
+
+
+def test_a_folder_is_rebuilt_with_the_same_bytes_when_os_link_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    copy = _published(tmp_path)
+    linked = tmp_path / "linked"
+    payload = replay_payload(copy, tomllib.loads(_CONFIG), workdir=linked, project_root=tmp_path)
+    expected = {
+        path.name: path.read_bytes()
+        for path in Path(payload["data"]["hydrometry"]["sources"][0]["path"]).iterdir()
+    }
+
+    def refused(source: object, target: object) -> None:
+        raise PermissionError("no hard link here")
+
+    monkeypatch.setattr(os, "link", refused)
+    copied = tmp_path / "copied"
+    payload = replay_payload(copy, tomllib.loads(_CONFIG), workdir=copied, project_root=tmp_path)
+
+    folder = Path(payload["data"]["hydrometry"]["sources"][0]["path"])
+    assert {path.name: path.read_bytes() for path in folder.iterdir()} == expected
+
+
+_KILLED_REPLAY = """\
+import os, signal, sys, tomllib
+from pathlib import Path
+from hydromodpy.project import replay
+from hydromodpy.project.exchange.replay import replay_payload
+
+def build_then_die(*args, **kwargs):
+    replay_payload(*args, **kwargs)
+    os.kill(os.getpid(), signal.SIGKILL)
+
+replay._play_copy(
+    Path(sys.argv[1]), tomllib.loads(sys.argv[3]), project_root=Path(sys.argv[2]),
+    environment=None, strict=False, payload=build_then_die,
+)
+"""
+
+
+@pytest.mark.allow_subprocess
+@pytest.mark.skipif(os.name == "nt", reason="SIGKILL is POSIX")
+def test_a_replay_killed_once_leaves_nothing_that_blocks_the_next(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import signal
+    import subprocess
+    import sys
+
+    import hydromodpy.project.dispatch.workflow as workflow
+    import hydromodpy.project.request as request
+    from hydromodpy.project import replay
+
+    copy = _published(tmp_path)
+    project = tmp_path / "replay"
+    project.mkdir()
+    root = Path(__file__).resolve().parents[4]
+    killed = subprocess.run(
+        [sys.executable, "-c", _KILLED_REPLAY, str(copy), str(project), _CONFIG],
+        cwd=root,
+        env={**os.environ, "PYTHONPATH": str(root)},
+        capture_output=True,
+        check=False,
+    )
+    assert killed.returncode == -signal.SIGKILL, killed.stderr.decode()[-2000:]
+    left = project / ".hmp" / "replay" / copy.name
+    assert (left / "data" / "hydrometry" / CUSTOM_FILE).is_file()
+
+    played: list[object] = []
+    monkeypatch.setattr(request, "RunRequest", lambda **kwargs: kwargs)
+    monkeypatch.setattr(workflow, "run_simulation", lambda req, **kwargs: played.append(req))
+    replay._play_copy(
+        copy,
+        tomllib.loads(_CONFIG),
+        project_root=project,
+        environment=None,
+        strict=False,
+        payload=replay_payload,
+    )
+
+    assert len(played) == 1
+    assert not (project / ".hmp" / "replay").exists()

@@ -62,16 +62,16 @@ def _install_binaries(
     release: str | None = None,
 ) -> dict:
     """Pre-warm the MODFLOW / MODPATH / MT3D-USGS binary cache."""
+    from hydromodpy.core.workspace.workspace import resolve_bin_path
     from hydromodpy.solver.modflow_common.binaries import (
         DEFAULT_RELEASE,
         available_solvers,
         download_solver_binaries,
         locate_solver_binary,
-        managed_bin_dir,
         read_manifest,
     )
 
-    target = Path(bindir).expanduser().resolve() if bindir else managed_bin_dir()
+    target = Path(bindir).expanduser().resolve() if bindir else Path(resolve_bin_path())
     resolved_release = release or DEFAULT_RELEASE
 
     if mf6_prt:

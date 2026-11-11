@@ -21,7 +21,7 @@ section model, never to the root.
 | `cross_checks.py` | which keys of a file spoil each other, and which does the flow solver of the run leave unread? `CROSS_RULES` is the table of every rule that reads several sections, one `CrossRule(rule, reads)` per row, named by its function and run in the order of the table. `reads` names the sections the rule needs, and a test holds it equal to what the function reads. The solver rows read the traits the file uses against the `supports` of the solver, a transport solver against the `requires` it names, and the rows of `CONTAMINATIONS`. They name no solver, so a plugin solver is checked like the shipped ones. The checks of the `[[export]]` names and of the dates of `[[export]]` and `[display]` are rows of the same table |
 | `section_loader.py` | how is a raw document turned into validated sections? `SECTIONS` is the table of the root sections (loader, default, required or not), and `validate_sections` walks it and keeps every fault. The steps that run before it are here too: the old forms of a key, the retired sections, `[workspace]` by default, the calibration defaults. `from_toml` and `check` walk the same table, so they cannot disagree. The loaders (`load_standard_section`, `load_optional_section`, `load_geographic_section`) resolve paths against the project root and serve a TOML file and a mapping alike |
 | `input_headers.py` | do the input files open, and do they hold their contract? `read_input_headers(sections, *, base, bounds)` opens the header of each raster or vector the document names, from a local path or from the final URL of a remote file through `/vsicurl/`, in a `rasterio.Env` of its own. Only `check(inputs=True)` imports it, because rasterio is slow to import |
-| `sites.py` | the `[sites]` section as the TOML declares it, checked without reading any file, and `is_sites_project`. The plan of a campaign built from it lives in `project/launch/sites/` |
+| `sites.py` | the `[sites]` section as the TOML declares it, checked without reading any file, and `is_sites_project`. The plan of a campaign built from it lives in `project/launch/plan.py` |
 | `user_files.py` | which user files do the configurations of a project read? `user_file_inputs(project_root)` lists and hashes each `source = "file"` of `project.toml`, of `configs/*.toml` and of each case of the current plan, through `FileSource`, which writes nothing. A configuration that does not load is returned with its reason. `hmp data lock` and the launcher pin these files in `hydromodpy.lock` |
 | `toml_examples.py` | `flow_examples(threshold, section_renderer)`, the commented example blocks of the dynamic `[flow.param.*]`, `[flow.bc.*]` and `[flow.sinks_sources.*]` tables. An app that writes the TOML template passes it to `generate_toml` |
 | `config_migration.py` | how does a file written against an earlier schema still load? It applies the `document = "config"` rows of `schema/changes.toml` in the order of the file, and `RULES` holds the three functions a row names when it cannot say the whole change. `migrate_config_doc_on_load` rewrites the parsed payload in memory, with a warning for two minor versions and then a refusal with the new name. `fix_config_file` (called by `hmp doctor --fix-config <file>`) rewrites the file in place, and `migrate_sealed_config_doc` reads the frozen config of a run on disk in silence. The 175 keys and values only a pre-release of 2.0 wrote are listed in `prerelease_forms.txt` and refused with every such key at once, with the way to the doctor of a 2.0.x release. `apply_edition` fills a key a file leaves out with the default of the edition it writes, except a root section the document does not write and `HydroModPyConfig` leaves `None`, such as `[calibration]`, which it never creates (`optional_sections`, `optional_root_sections()`) |
@@ -131,7 +131,7 @@ sections once every section it reads is complete. `partial=False` turns each
 
 ## A campaign: `[sites]` x `[sites.recipes]`
 
-`project/launch/sites/expansion.expand_plan(project_root, config_path)` resolves one
+`project/launch/plan.expand_plan(project_root, config_path)` resolves one
 case per (site, recipe): the site table (`[sites] table`, or the site catalog
 of the workspace) rendered through `[sites.bind]`, `site_overrides/<site>.toml`,
 the recipe's own keys, then `--set` and `HMP_SET_*`. Precedence, lowest first:
@@ -139,10 +139,10 @@ defaults < the base of the recipe < the rendered row < the site overlay < the
 recipe's own keys (its file, its inline `set`, its row of `recipes_table`) <
 `--set`. Each case is loaded by `load(document, base)`, gets the key of its solution from
 `planned_request_id` and `solution_key`, and is refused when a site scoped
-key keeps a literal value (`project/launch/sites/site_scoped.py`). An error names its
+key keeps a literal value (`project/launch/plan.py`). An error names its
 cell: `sites.csv:37 column x_outlet -> geographic.catchment.x_outlet: ...`,
-grouped over the cases it touches. `plan.write_plan_draft` writes the plan once
-under `plan/<hash>/` through `results/plan_store.py`; `budget.plan_budget`
+grouped over the cases it touches. `write_plan_draft` writes the plan once
+under `plan/<hash>/` through `results/plan_store.py`; `plan_budget`
 gives the numbers of `hmp run --dry-run`; `hmp.check` (`project/api.py`) is the one
 check of `hmp config check` for a run, a calibration or a whole project, and it
 gives each case of a `[sites]` project the diagnostic `sites_case`. A `[site]` alone is resolved against the site catalog of

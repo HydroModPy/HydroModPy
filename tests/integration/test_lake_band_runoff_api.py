@@ -16,6 +16,7 @@ import pytest
 pytest.importorskip("modflowapi")
 pytest.importorskip("xmipy")
 
+from hydromodpy.core.workspace.workspace import resolve_bin_path  # noqa: E402
 from hydromodpy.solver.modflow6.api.api_runner import (  # noqa: E402
     Mf6ApiContext,
     Mf6ApiStep,
@@ -28,10 +29,9 @@ from hydromodpy.solver.modflow6.support.lake_band_runoff import (  # noqa: E402
 from hydromodpy.solver.modflow_common.binaries import (  # noqa: E402
     ensure_solver_binary,
     locate_solver_binary,
-    managed_bin_dir,
 )
 
-_no_lib = locate_solver_binary(managed_bin_dir(), "libmf6") is None
+_no_lib = locate_solver_binary(Path(resolve_bin_path()), "libmf6") is None
 
 pytestmark = [
     pytest.mark.mf6,

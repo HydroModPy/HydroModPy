@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import hydromodpy.results.outcome as outcome_module
+import hydromodpy.core.state.host as host_module
 import hydromodpy.results.storage.attempt as attempt_module
 from hydromodpy.core.exceptions import (
     ConfigError,
@@ -21,6 +21,7 @@ from hydromodpy.core.exceptions import (
     ResumeError,
     WriteConflictError,
 )
+from hydromodpy.core.io import filesystem
 from hydromodpy.core.runtime.interrupts import (
     STOP_FLAG_SCHEMA,
     StopRequested,
@@ -59,6 +60,7 @@ from hydromodpy.results.storage.run_facts import RunFacts, read_facts
 from hydromodpy.results.storage.run_store import RunStore
 from tests._helpers.run_stores import claim_run
 from tests._helpers.sealed_runs import make_project, seal_run
+from tests._helpers.windows_os import WindowsOs  # noqa: I001
 
 # An OOM kill writes nothing: the outcome still says ``running`` with a fresh
 # pulse. On the host of the worker the process table proves the death, so the
@@ -86,7 +88,7 @@ def _running(run_dir: Path, *, host: str, pid: int) -> None:
 
 
 def _dead_pid(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(outcome_module, "process_is_alive", lambda pid: pid != DEAD_PID)
+    monkeypatch.setattr(host_module, "process_is_alive", lambda pid: pid != DEAD_PID)
 
 
 def test_a_dead_pid_of_this_host_reads_stale_with_a_fresh_pulse(
@@ -246,7 +248,7 @@ def _written_by_another_worker(run_dir: Path, *, host: str | None = None) -> Non
 
 def _process_table(monkeypatch: pytest.MonkeyPatch, *, alive: bool) -> None:
     # The claim and the reader of the outcome both ask the process table.
-    for module in (attempt_module, outcome_module):
+    for module in (attempt_module, host_module):
         monkeypatch.setattr(
             module, "process_is_alive", lambda pid: alive if pid == WORKER_PID else True
         )
@@ -695,3 +697,29 @@ def test_an_attempt_that_continues_nothing_is_never_refused(tmp_path: Path, fres
         claim = claim_run_directory(project, "case", case_id="case", project="demo", fresh=True)
 
     refuse_resume_if_changed(claim, "b" * 64)
+
+
+def _long_project(tmp_path: Path, length: int) -> Path:
+    """A project folder of at least ``length`` characters (the scratch root is already long)."""
+    base = str(tmp_path / "p")
+    return Path(base + "x" * max(length - len(base), 0))
+
+
+def test_a_claim_in_a_folder_too_long_for_windows_is_refused_and_creates_no_runs(
+    tmp_path, monkeypatch
+):
+    project = _long_project(tmp_path, 120)
+    monkeypatch.setattr(filesystem, "os", WindowsOs())
+
+    with pytest.raises(ConfigError, match="is \\d+ characters long.*99 characters at most"):
+        claim_run_directory(project, "case", case_id="case", project="p")
+
+    assert not project.exists()
+
+
+def test_the_same_long_folder_is_claimed_on_linux(tmp_path):
+    project = _long_project(tmp_path, 120)
+
+    claim = claim_run_directory(project, "case", case_id="case", project="p")
+
+    assert claim.run_dir.is_dir()

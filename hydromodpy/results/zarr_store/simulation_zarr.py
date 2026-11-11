@@ -30,14 +30,14 @@ from hydromodpy.results.zarr_store.zarr_finalizer import (
 from hydromodpy.results.zarr_store.zarr_schema import (
     initialise_root,
     local_store,
+    local_store_path_arg,
     open_root_strict,
-    windows_long_path,
 )
 
 
 def _file_lock_for_store(path: Path) -> FileLock:
     """Build the store lock using extended-length paths on Windows."""
-    return FileLock(str(windows_long_path(lock_path_for_store(path))))
+    return FileLock(local_store_path_arg(lock_path_for_store(path)))
 
 
 class SimulationZarr:

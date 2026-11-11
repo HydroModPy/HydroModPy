@@ -12,10 +12,12 @@ from hydromodpy.core.budget.terms import (
     PER_CELL_BUDGET_TERMS,
     POLICY_ALL,
     POLICY_CONSUMERS,
+    TERM_FAMILIES,
     BudgetKeep,
     KeptBudget,
     budget_terms_for,
     budget_terms_for_fields,
+    family_terms,
     kept_budget,
 )
 from hydromodpy.solver.modflow_common.budget_components import CANONICAL_BUDGET_TERMS
@@ -126,3 +128,29 @@ def test_a_budget_group_that_kept_all_lists_no_term() -> None:
     root = zarr.group()
     root.create_group("budget").attrs[BUDGET_POLICY_ATTR] = POLICY_ALL
     assert kept_budget(root) == KeptBudget(POLICY_ALL, ())
+
+
+@pytest.mark.parametrize(
+    ("name", "kept", "terms"),
+    [
+        pytest.param(
+            "storage",
+            ["storage_ss", "storage_sy", "drain"],
+            ("storage_ss", "storage_sy"),
+            id="ss_sy",
+        ),
+        pytest.param("storage", ["storage", "drain"], ("storage",), id="storage_alone"),
+        pytest.param("storage", ["storage", "storage_ss"], ("storage",), id="name_wins"),
+        pytest.param("storage", ["storage_ss"], ("storage_ss",), id="one_member"),
+        pytest.param("storage", ["drain"], (), id="none"),
+        pytest.param("drain", ["drain", "storage_ss"], ("drain",), id="outside_a_family"),
+        pytest.param("drain", ["recharge"], (), id="outside_and_missing"),
+    ],
+)
+def test_family_terms_reads_what_the_run_kept(name, kept, terms) -> None:
+    assert family_terms(name, kept) == terms
+
+
+def test_every_family_member_is_a_per_cell_term() -> None:
+    for name, members in TERM_FAMILIES.items():
+        assert {name, *members} <= PER_CELL_BUDGET_TERMS

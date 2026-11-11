@@ -16,7 +16,8 @@ and, for a run that may be skipped, looks for a completed run of the same soluti
 A run that one answers undoes its claim without a trace and gives that run back.
 
 The attempt protocol (claim of ``runs/<case>/``, pulse, outcome) is
-:mod:`hydromodpy.workflow.record.attempt`; the seal is the last step of the pipeline.
+:mod:`hydromodpy.workflow.record.attempt`. The seal comes after the data steps, and the
+data exports, the views and the figures are written after it from the sealed run.
 """
 
 from __future__ import annotations
@@ -64,7 +65,7 @@ from hydromodpy.workflow.window import model_phase_index, step_window
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.project.facade import Project
-    from hydromodpy.project.launch.sites.expansion import PlanDraft
+    from hydromodpy.project.launch.plan import PlanDraft
     from hydromodpy.results.run import Run
 
 logger = get_logger(__name__)
@@ -252,7 +253,7 @@ class ProjectRunner:
         window.
         """
         from hydromodpy.project.dispatch.workflow import completed_identical_run
-        from hydromodpy.project.launch.sites.expansion import single_case_draft
+        from hydromodpy.project.launch.plan import single_case_draft
         from hydromodpy.workflow.solution_key import planned_solution_key
         from hydromodpy.workflow.steps.sequence import standard_steps
 

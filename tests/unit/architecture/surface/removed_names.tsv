@@ -69,6 +69,16 @@ hmp lock verify --project	2.1.0
 hmp lock verify --strict	2.1.0
 hmp lock verify --workspace	2.1.0
 hmp lock verify -w	2.1.0
+hmp report catchment --context-only	2.1.0
+hmp report catchment --no-run-overview	2.1.0
+hmp report catchment --no-run-simulation	2.1.0
+hmp report catchment --no-stream-run-logs	2.1.0
+hmp report catchment --no-strict-figure-postflight	2.1.0
+hmp report catchment --report-only	2.1.0
+hmp report catchment --run-overview	2.1.0
+hmp report catchment --run-simulation	2.1.0
+hmp report catchment --stream-run-logs	2.1.0
+hmp report catchment --strict-figure-postflight	2.1.0
 hydromodpy.core.contracts.data_cache_backend	2.1.0
 hydromodpy.core.io.http_client	2.1.0
 hydromodpy.core.io.pinned_download	2.1.0
@@ -110,4 +120,17 @@ hydromodpy.data.variables.temperature.manager	2.1.0
 hydromodpy.data.variables.water_quality.manager	2.1.0
 hydromodpy.data.variables.wind.manager	2.1.0
 hydromodpy.data.workspace.custom_scan	2.1.0
+hydromodpy.display.calibration_report	2.1.0
+hydromodpy.display.catchment_report	2.1.0
+hydromodpy.display.catchment_report.artifacts	2.1.0
+hydromodpy.display.catchment_report.blocks	2.1.0
+hydromodpy.display.catchment_report.builder	2.1.0
+hydromodpy.display.catchment_report.context	2.1.0
+hydromodpy.display.catchment_report.inputs	2.1.0
+hydromodpy.display.catchment_report.pipeline	2.1.0
+hydromodpy.display.catchment_report.settings	2.1.0
+hydromodpy.display.catchment_report.simulation_source	2.1.0
+hydromodpy.display.overview.web	2.1.0
+hydromodpy.display.report_blocks	2.1.0
 hydromodpy.project.lock	2.1.0
+hydromodpy.workflow.steps.calibration	2.1.0

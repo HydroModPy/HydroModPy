@@ -36,7 +36,7 @@ interval says what it is: ``crossed`` when the cost was seen to cross the margin
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from typing import Any, Literal
 
@@ -275,7 +275,7 @@ def _walk_the_curve(
 
 
 def root_interval(
-    curve: Sequence[tuple[float, float | None]],
+    curve: Mapping[float, float | None],
     root: tuple[float, float],
     margin: float,
     kind: MarginKind,
@@ -284,31 +284,20 @@ def root_interval(
 ) -> ParameterInterval:
     """Return the interval around a root, read on the curve the trials trace.
 
-    ``curve`` holds ``(x, cost)`` per trial in the search variable, the cost None
-    on a trial that did not solve, and ``declared`` is the search interval in that
+    ``curve`` holds one cost per point of the search variable, the cost None on a
+    point that did not solve, and ``declared`` is the search interval in that
     variable. ``root`` is the answer of the search. The margin is read from its
     cost, since the lowest cost may be a trial elsewhere. From the root the cost is
     followed on each side up to its first crossing of the margin, by a straight
-    line between two trials, so no solve is added. A trial with no cost whose point
-    was asked again and solved does not count: that point holds a cost.
+    line between two points, so no solve is added.
     """
     root_x, root_cost = root
     threshold = _cost_threshold(root_cost, margin, kind)
-    seen = {x for x, cost in curve if _solved(cost)}
-    points = [(x, cost) for x, cost in curve if _solved(cost) or x not in seen]
-    # The sort keys never compare a missing cost. On solved points they order
-    # as the (x, cost) pairs do: x then cost, both reversed below the root.
-    below = sorted(
-        (point for point in points if point[0] < root_x),
-        key=lambda p: (-p[0], not _solved(p[1]), -p[1] if _solved(p[1]) else 0.0),
-    )
-    above = sorted(
-        (point for point in points if point[0] > root_x),
-        key=lambda p: (p[0], not _solved(p[1]), p[1] if _solved(p[1]) else 0.0),
-    )
+    below = [(x, curve[x]) for x in sorted((x for x in curve if x < root_x), reverse=True)]
+    above = [(x, curve[x]) for x in sorted(x for x in curve if x > root_x)]
     lower, lower_crossed = _walk_the_curve(below, root_x, root_cost, threshold)
     upper, upper_crossed = _walk_the_curve(above, root_x, root_cost, threshold)
-    solved = [(x, cost) for x, cost in points if _solved(cost)]
+    solved = [(x, cost) for x, cost in curve.items() if _solved(cost)]
     return ParameterInterval(
         name=parameter.name,
         best=float(parameter.to_physical(root_x)),

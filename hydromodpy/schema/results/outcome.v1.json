@@ -267,9 +267,9 @@
         "run_solver",
         "extract",
         "derive",
-        "display",
         "export",
-        "seal"
+        "seal",
+        "display"
       ],
       "x-hmp-vocabulary-open": true
     },

@@ -19,7 +19,7 @@ In the order a run meets them.
 
 | module | what it answers |
 |---|---|
-| `attempt.py` | one attempt of a run, from the claim of its directory to its outcome (`run_attempt`, `AttemptHandle`, `SealedRun`). The claim holds no identity. The handle restarts a resumed attempt when the `request_id` changed (`start_over_if_changed`), and `withdraw()` marks an attempt to be undone instead of closed, so a run identical to a sealed one leaves no directory and no outcome behind |
+| `attempt.py` | one attempt of a run, from the claim of its directory to its outcome (`run_attempt`, `AttemptHandle`, `SealedRun`). The claim holds no identity. The handle restarts a resumed attempt when the `request_id` changed (`start_over_if_changed`), and `withdraw()` marks an attempt to be undone instead of closed, so a run identical to a sealed one leaves no directory and no outcome behind. A sealed directory always closes `completed` through `close_sealed_attempt`, even when a figure, an export or a stop raised after the seal; the error still goes up |
 | `run_store.py` | the `RunStore` of a run, opened for the span of one caller (`run_store`, `run_is_persisted`, `run_dir_of_state`) |
 | `journal.py` | the step journal `<run>/.hmp/checkpoints/steps.json` (`WorkflowJournal`, `WorkflowStepRow`) |
 | `manifest.py` | the resolved run manifest: the step blueprint and the config digest that a resume must match (`ResolvedRunManifest`) |

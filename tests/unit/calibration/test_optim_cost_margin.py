@@ -601,13 +601,12 @@ def test_a_ridge_shows_under_the_margin_on_a_grid_that_hides_it(tmp_path) -> Non
     assert widths["b"].correlated == {"a": pytest.approx(1.0)}
 
 
-_BOWL = ((0.0, 10.0), (1.0, 4.0), (2.0, 1.0), (3.0, 2.0), (4.0, 9.0))
-_TWO_BASINS = ((1.0, 1.0), (2.0, 9.0), (3.0, 1.0))
-_ROOT_AT_THE_BOUND = ((0.0, 1.0), (1.0, 2.0), (2.0, 9.0))
-_UNSOLVED_BESIDE_THE_ROOT = ((0.0, 10.0), (1.0, None), (2.0, 1.0), (3.0, 2.0), (4.0, 9.0))
-# A cost equal to the threshold is not a crossing, and two trials may share one x.
-_ON_THE_THRESHOLD = ((0.0, 9.0), (1.0, 1.0), (2.0, 3.0))
-_SAME_X = ((1.0, 1.0), (2.0, 1.0), (2.0, 9.0))
+_BOWL = {0.0: 10.0, 1.0: 4.0, 2.0: 1.0, 3.0: 2.0, 4.0: 9.0}
+_TWO_BASINS = {1.0: 1.0, 2.0: 9.0, 3.0: 1.0}
+_ROOT_AT_THE_BOUND = {0.0: 1.0, 1.0: 2.0, 2.0: 9.0}
+_UNSOLVED_BESIDE_THE_ROOT = {0.0: 10.0, 1.0: None, 2.0: 1.0, 3.0: 2.0, 4.0: 9.0}
+# A cost equal to the threshold is not a crossing.
+_ON_THE_THRESHOLD = {0.0: 9.0, 1.0: 1.0, 2.0: 3.0}
 _SCALES = {"log": lambda x: 10.0**x, "identity": lambda x: x}
 
 
@@ -615,14 +614,14 @@ _SCALES = {"log": lambda x: 10.0**x, "identity": lambda x: x}
     ("curve", "root", "margin", "kind", "scale", "ends", "expected"),
     [
         # Each crossing is interpolated between the two trials around it.
-        (_BOWL, 2, 2.0, "absolute", "log", ("crossed", "crossed"), (4 / 3, 22 / 7, 3.0, 2, 5)),
-        (_BOWL, 2, 0.5, "relative", "log", ("crossed", "crossed"), (11 / 6, 2.5, 1.5, 1, 5)),
+        (_BOWL, 2.0, 2.0, "absolute", "log", ("crossed", "crossed"), (4 / 3, 22 / 7, 3.0, 2, 5)),
+        (_BOWL, 2.0, 0.5, "relative", "log", ("crossed", "crossed"), (11 / 6, 2.5, 1.5, 1, 5)),
         # A second basin past the crossing stays out, where an envelope would take it.
-        (_TWO_BASINS, 2, 1.0, "absolute", "log", ("crossed", "bound"), (2.875, 3.0, 2.0, 1, 3)),
+        (_TWO_BASINS, 3.0, 1.0, "absolute", "log", ("crossed", "bound"), (2.875, 3.0, 2.0, 1, 3)),
         # A root on the declared bound has no lower side to walk, in a linear variable.
         (
             _ROOT_AT_THE_BOUND,
-            0,
+            0.0,
             2.0,
             "absolute",
             "identity",
@@ -632,7 +631,7 @@ _SCALES = {"log": lambda x: 10.0**x, "identity": lambda x: x}
         # A trial that did not solve stops the walk where it stands.
         (
             _UNSOLVED_BESIDE_THE_ROOT,
-            2,
+            2.0,
             2.0,
             "absolute",
             "log",
@@ -641,27 +640,26 @@ _SCALES = {"log": lambda x: 10.0**x, "identity": lambda x: x}
         ),
         (
             _ON_THE_THRESHOLD,
-            1,
+            1.0,
             2.0,
             "absolute",
             "identity",
             ("crossed", "bound"),
             (0.75, 2.0, 3.0, 2, 3),
         ),
-        (_SAME_X, 1, 2.0, "absolute", "identity", ("open", "bound"), (1.0, 2.0, 3.0, 3, 3)),
     ],
 )
 def test_the_root_interval_walks_the_curve(
     curve, root, margin, kind, scale, ends, expected
 ) -> None:
     parameter = SimpleNamespace(name="K", to_physical=_SCALES[scale])
-    declared = (0.0, curve[-1][0])
+    declared = (0.0, max(curve))
 
-    found = root_interval(curve, curve[root], margin, kind, parameter, declared).to_dict()
+    found = root_interval(curve, (root, curve[root]), margin, kind, parameter, declared).to_dict()
 
     lower, upper, *counts = expected
     assert (found["name"], found["lower_end"], found["upper_end"]) == ("K", *ends)
-    assert found["best"] == pytest.approx(_SCALES[scale](curve[root][0]))
+    assert found["best"] == pytest.approx(_SCALES[scale](root))
     assert (found["lower"], found["upper"]) == pytest.approx(
         (_SCALES[scale](lower), _SCALES[scale](upper))
     )
@@ -673,34 +671,10 @@ def test_the_root_interval_walks_the_curve(
 def test_a_crossing_past_the_declared_bound_is_still_a_crossing() -> None:
     parameter = SimpleNamespace(name="K", to_physical=_SCALES["identity"])
 
-    found = root_interval(
-        ((0.0, 1.0), (1.0, 9.0)), (0.0, 1.0), 1.0, "absolute", parameter, (-1.0, 0.1)
-    )
+    found = root_interval({0.0: 1.0, 1.0: 9.0}, (0.0, 1.0), 1.0, "absolute", parameter, (-1.0, 0.1))
 
     assert found.upper == pytest.approx(0.125)
     assert (found.upper_crossed, found.reaches_upper_bound) == (True, False)
-
-
-@pytest.mark.parametrize(
-    ("curve", "retried"),
-    [
-        # A cut point that failed, then solved when asked again, above the root.
-        (((0.0, 1.0), (1.0, 1.5), (2.0, 3.0)), (2.0, None)),
-        # The same below the root, and with a cost that is not finite.
-        (((-2.0, 3.0), (-1.0, 1.5), (0.0, 1.0)), (-2.0, float("nan"))),
-    ],
-)
-def test_a_failed_trial_asked_again_and_solved_reads_like_the_solved_one(curve, retried) -> None:
-    parameter = SimpleNamespace(name="K", to_physical=_SCALES["identity"])
-    root = (0.0, 1.0)
-    declared = (-4.0, 4.0)
-    expected = root_interval(curve, root, 0.5, "absolute", parameter, declared).to_dict()
-
-    for position in range(len(curve) + 1):
-        with_retry = (*curve[:position], retried, *curve[position:])
-        found = root_interval(with_retry, root, 0.5, "absolute", parameter, declared)
-
-        assert found.to_dict() == expected
 
 
 # From test_margin_intervals.py

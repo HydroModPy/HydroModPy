@@ -21,7 +21,6 @@ from __future__ import annotations
 import hashlib
 import os
 import platform as _platform
-import socket
 import subprocess
 import sys
 from functools import cache
@@ -29,6 +28,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.host import host_name
 
 logger = get_logger(__name__)
 
@@ -265,7 +265,7 @@ def capture_environment(
         "python_version": _python_version(),
         "hydromodpy_version": _hydromodpy_version(),
         "platform": _platform.platform(),
-        "hostname": socket.gethostname(),
+        "hostname": host_name(),
         "user_name": _user_name() or "",
         # Copy the memoized mutable probes so a caller mutating the snapshot
         # cannot corrupt the process-level cache.

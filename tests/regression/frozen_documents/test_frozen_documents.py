@@ -138,20 +138,18 @@ def test_install_index(corpus: Path, folder: str) -> None:
     assert [item.site for item in index.sites] == expected["sites"]
 
 
-def test_plan_and_its_tables(corpus: Path) -> None:
+def test_a_plan_of_2_0_is_refused_with_the_command_that_rewrites_it(corpus: Path) -> None:
+    """The plan of 2.0.0 is schema v1, with sites.parquet and cases.parquet, which 2.1 does not read."""
     expected = EXPECTED["plan"]
     project = corpus / "campaign"
     assert current_plan_hash(project) == expected["plan_hash"]
-    stored = read_plan(project)
-    assert (stored.plan.schema_, stored.plan.plan_hash) == (
-        expected["schema"],
-        expected["plan_hash"],
-    )
-    assert (stored.plan.n_cases, stored.plan.budget) == (expected["n_cases"], expected["budget"])
-    assert sorted(case.case_id for case in stored.cases) == expected["cases"]
-    assert sorted(stored.sites.column("site").to_pylist()) == expected["sites"]
-    for case_id in expected["cases"]:
-        assert tomllib.loads(stored.case_toml(case_id))["simulation"]["name"] == case_id
+    with pytest.raises(SchemaVersionMismatchError) as caught:
+        read_plan(project)
+    message = str(caught.value)
+    assert expected["schema"] in message
+    assert "hydromodpy.plan.v2" in message
+    assert "cases.csv" in message
+    assert "hmp project plan" in message
 
 
 def test_lockfile(corpus: Path) -> None:

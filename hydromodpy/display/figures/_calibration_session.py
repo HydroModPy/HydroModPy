@@ -6,12 +6,12 @@ trial the calibration returned, the record of a root search, and the width
 the calibration reads its interval with. Every calibration figure has to agree
 on those, so they are read here and nowhere else.
 
-The rows of :func:`~hydromodpy.results.calibration_trials.calibration_sessions`
-carry one phase each. ``session.json`` carries the session as a whole (its
-best trial, its root search, its search space), so a figure drawn from a run
-completes the row from the descriptor of the session directory the run was
-promoted from. A run-shaped carrier with no directory behind it, such as the
-one the calibration report builds, keeps what it carries.
+A figure draws a :class:`~hydromodpy.results.session.view.Session`.
+``session.json`` carries the session as a whole (its best trial, its root
+search, its search space), ``config.toml`` the configuration it ran and
+``phases/*/session.json`` one row per phase of a staged search. The dict
+returned by :func:`session_descriptor` joins the first two under the keys the
+figures read.
 
 The interval is the calibration's own rule, restated here because ``display``
 may not import ``calibration`` (``optim.cost_margin``): the ``cost_margin`` written in
@@ -24,7 +24,6 @@ the roots, ``Delta``, and the calibration reports no interval of trials.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -34,18 +33,10 @@ import pandas as pd
 
 from hydromodpy.core.scoring.cost_margin import CostMargin, parse_cost_margin
 from hydromodpy.core.scoring.metric_table import METRIC_SENSE, NETWORK_METRIC_NAMES
-from hydromodpy.results.calibration_trials import (
-    calibration_sessions,
-    calibration_trials,
-    session_dir_of,
-)
-from hydromodpy.results.session.descriptor import read_session
-from hydromodpy.results.session.phase import list_phases
-from hydromodpy.results.storage.json_io import readable
 
 if TYPE_CHECKING:
     from hydromodpy.display.figures._trial_diagnostics import TrialTable
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 METRIC_LABELS: dict[str, str] = {
     "nse": "NSE",
@@ -69,96 +60,63 @@ DEFAULT_TOLERANCE = 0.05
 
 
 # ---------------------------------------------------------------------------
-# the session row, completed by its journal
+# the session descriptor
 # ---------------------------------------------------------------------------
 
 
-def session_rows(sim: Run) -> dict[str, dict[str, Any]]:
-    """Return the index rows of the sessions reachable from a run, keyed by bare id."""
-    frame = calibration_sessions(sim)
-    if frame.empty or "session_id" not in frame.columns:
-        return {}
-    return {bare_id(row["session_id"]): dict(row) for row in frame.to_dict("records")}
+def session_descriptor(session: Session) -> dict[str, Any]:
+    """Return what the session recorded: ``session.json`` and the calibration block.
 
-
-def chosen_session(sim: Run, session_id: str | None) -> str | None:
-    """Return the session a figure draws, the latest one the run belongs to.
-
-    A run reused from the cache can belong to several sessions of the same
-    phase. The one that started last is the calibration the run was promoted
-    from; drawing them all together would mix two searches on one axis.
+    The best trial is flattened into ``best_trial`` and ``best_sim_id``, and
+    the ``[calibration]`` table of the frozen configuration is under
+    ``config``.
     """
-    if session_id is not None:
-        return str(session_id)
-    frame = calibration_trials(sim)
-    if "session_id" not in frame.columns:
-        return None
-    seen = list(dict.fromkeys(str(value) for value in frame["session_id"] if text(value)))
-    if len(seen) <= 1:
-        return seen[0] if seen else None
-    rows = session_rows(sim)
-    started = {sid: str(rows.get(bare_id(sid), {}).get("started_at") or "") for sid in seen}
-    return max(seen, key=lambda sid: (started[sid], seen.index(sid)))
-
-
-def session_descriptor(sim: Run, session_id: Any) -> dict[str, Any]:
-    """Return what one session recorded: its index row, completed by its journal."""
-    if session_id is None:
-        return {}
-    row = session_rows(sim).get(bare_id(session_id), {})
-    return completed_descriptor(sim, session_id, row)
-
-
-def completed_descriptor(sim: Run, session_id: Any, row: Mapping[str, Any]) -> dict[str, Any]:
-    """Return ``row`` with every key the session journal holds a value for.
-
-    The journal is written first and the index mirrors it, so a value the
-    journal holds wins. The session id keeps the spelling of the row, which
-    is the one the trials name.
-    """
-    merged = dict(row)
-    for key, value in journal_descriptor(sim, session_id).items():
-        if key != "session_id" and value is not None:
-            merged[key] = value
-    return merged
-
-
-def journal_descriptor(sim: Run, session_id: Any) -> dict[str, Any]:
-    """Return ``session.json`` of one session, empty when no session directory is reachable.
-
-    The best trial is flattened into ``best_trial`` and ``best_sim_id``, the
-    keys the rows of :func:`calibration_sessions` use.
-    """
-    if session_id is None:
-        return {}
-    directory = session_dir_of(sim, session_id=str(session_id))
-    if directory is None:
-        return {}
-    # A descriptor that no longer reads leaves the row to speak alone.
-    descriptor = readable(read_session, directory)
-    if descriptor is None:
-        return {}
+    descriptor = session.descriptor
     payload = descriptor.model_dump(mode="json")
     best = descriptor.best
     payload["best_trial"] = best.trial if best is not None else None
     run = descriptor.only_run
     payload["best_sim_id"] = None if run is None else run.sim_id
+    payload["config"] = dict(as_mapping(session.config.get("calibration")))
     return payload
 
 
-def frozen_values(sim: Run, session_id: Any) -> dict[str, dict[str, float]]:
+def phase_descriptors(session: Session) -> dict[str | None, dict[str, Any]]:
+    """Return one descriptor per phase of a staged search, keyed by phase name.
+
+    Each row is the descriptor of the session with the status, the best trial
+    and the frozen values of its phase. A search that ran no phase gives the
+    descriptor under the key ``None``.
+    """
+    base = session_descriptor(session)
+    phases = session.phases
+    if not phases:
+        return {None: base}
+    rows: dict[str | None, dict[str, Any]] = {}
+    for phase in phases:
+        best = phase.best
+        only = None if best is None or len(best.cases) != 1 else next(iter(best.cases.values()))
+        rows[phase.name] = {
+            **base,
+            "status": phase.status,
+            "phase_name": phase.name,
+            "phase_index": phase.index,
+            "frozen": {name: value.model_dump(mode="json") for name, value in phase.frozen.items()},
+            "best_trial": None if best is None else best.trial,
+            "best_sim_id": None if only is None else only.sim_id,
+        }
+    return rows
+
+
+def frozen_values(session: Session) -> dict[str, dict[str, float]]:
     """Return the values each phase carried from earlier ones, by phase then parameter.
 
     A phase journals only the parameters it samples, so a figure reads the
     others from here.
     """
-    directory = None if session_id is None else session_dir_of(sim, session_id=str(session_id))
-    if directory is None:
-        return {}
-    phases = readable(list_phases, directory) or []
     return {
         phase.name: {name: float(frozen.value) for name, frozen in phase.frozen.items()}
-        for phase in phases
+        for phase in session.phases
     }
 
 
@@ -192,7 +150,7 @@ def returned_row(table: TrialTable, descriptor: Mapping[str, Any]) -> int | None
     promoted = [
         index
         for index, value in enumerate(table.frame["sim_id"])
-        if text(value) is not None and bare_id(value) == bare_id(best_sim)
+        if text(value) is not None and _bare(value) == _bare(best_sim)
     ]
     return promoted[0] if promoted else None
 
@@ -207,8 +165,8 @@ def parameter_declaration(
 ) -> dict[str, Any]:
     """Return what the session declared about one parameter: unit, bounds, search space.
 
-    Read from the search space of the journal, the parameters of the recorded
-    configuration and the block the first trial wrote, the last one winning.
+    Read from the parameters of the recorded configuration, the search space
+    of the journal and the block the first trial wrote, the last one winning.
     """
     space = dict(as_mapping(as_mapping(descriptor.get("bounds")).get(name)))
     if "lower" in space:
@@ -221,7 +179,7 @@ def parameter_declaration(
             if block:
                 meta = as_mapping(block.get(name))
                 break
-    return {**space, **as_mapping(declared), **meta}
+    return {**as_mapping(declared), **space, **meta}
 
 
 def declared_units(table: TrialTable, descriptor: Mapping[str, Any], name: str) -> str:
@@ -461,22 +419,14 @@ def tolerance_interval(values: np.ndarray, cost: np.ndarray, threshold: float) -
 # ---------------------------------------------------------------------------
 
 
-def bare_id(session_id: Any) -> str:
-    """Return a session id as bare hex, whichever way a table wrote it."""
-    return str(session_id).replace("-", "").lower()
+def _bare(sim_id: Any) -> str:
+    """Return a run id as bare lower-case hex, whichever way a table wrote it."""
+    return str(sim_id).replace("-", "").lower()
 
 
 def as_mapping(value: Any) -> Mapping[str, Any]:
-    """Read one nested block, a dict in the journal and JSON text in the index."""
-    if isinstance(value, Mapping):
-        return value
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-        except json.JSONDecodeError:
-            return {}
-        return parsed if isinstance(parsed, Mapping) else {}
-    return {}
+    """Read one nested block of the journal, empty when it is not a mapping."""
+    return value if isinstance(value, Mapping) else {}
 
 
 def float_or(value: Any, default: float) -> float:
@@ -489,15 +439,7 @@ def float_or(value: Any, default: float) -> float:
 
 
 def search_bounds(value: Any) -> tuple[float, float] | None:
-    """Return the declared search bounds as two finite floats, None otherwise.
-
-    A session may store them as a pair or as the JSON text of one.
-    """
-    if isinstance(value, str):
-        try:
-            value = json.loads(value)
-        except json.JSONDecodeError:
-            return None
+    """Return the declared search bounds as two finite floats, None otherwise."""
     if not isinstance(value, Sequence) or len(value) != 2:
         return None
     low, high = float_or(value[0], np.nan), float_or(value[1], np.nan)
@@ -528,6 +470,7 @@ def text(value: Any) -> str | None:
 __all__ = [
     "search_bounds",
     "frozen_values",
+    "phase_descriptors",
     "DEFAULT_TOLERANCE",
     "NETWORK_COSTS",
     "METRIC_LABELS",
@@ -536,16 +479,12 @@ __all__ = [
     "Interval",
     "Tolerance",
     "as_mapping",
-    "bare_id",
     "cell_spacing",
-    "chosen_session",
-    "completed_descriptor",
     "cost_blocks",
     "cost_label",
     "declared_units",
     "float_or",
     "int_or_none",
-    "journal_descriptor",
     "metric_cost",
     "metric_unit",
     "parameter_declaration",
@@ -556,7 +495,6 @@ __all__ = [
     "scored_on_distances",
     "session_config",
     "session_descriptor",
-    "session_rows",
     "text",
     "tolerance_interval",
     "two_roots",

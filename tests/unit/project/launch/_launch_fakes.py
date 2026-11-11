@@ -153,14 +153,14 @@ mode = behavior.get("run", "complete")
 if mode == "refuse":
     sys.exit(14)
 if mode.startswith("session_"):
-    import pyarrow.parquet as pq
+    import csv
     from hydromodpy.calibration.runners.session import open_session_dir
     from hydromodpy.results.session.descriptor import (
         SessionCase, SessionDescriptor, read_session, write_session,
     )
 
-    planned = {row["case_id"]: row["config_hash"]
-               for row in pq.read_table(case.parent / "cases.parquet").to_pylist()}
+    with open(case.parent / "cases.csv", newline="", encoding="utf-8") as handle:
+        planned = {row["case_id"]: row["config_hash"] for row in csv.DictReader(handle)}
     session_dir, reopened = open_session_dir(root, case_id, resume="--resume" in flags)
     started = datetime.now(UTC)
     if reopened:
@@ -208,11 +208,11 @@ if mode == "fail":
                    error={"type": "SolverError", "message": "boom"}, log_tail=["boom"])
     (run_dir / "outcome.json").write_text(json.dumps(outcome))
     sys.exit(15)
-import pyarrow.parquet as pq
+import csv
 
 # The seal holds the hash of the plan, as a real worker of the plan seals it.
-planned = {row["case_id"]: row["config_hash"]
-           for row in pq.read_table(case.parent / "cases.parquet").to_pylist()}
+with open(case.parent / "cases.csv", newline="", encoding="utf-8") as handle:
+    planned = {row["case_id"]: row["config_hash"] for row in csv.DictReader(handle)}
 manifest = json.loads(@MANIFEST@)
 manifest["identity"]["solution_key"] = planned[case_id]
 (run_dir / "manifest.json").write_text(json.dumps(manifest))

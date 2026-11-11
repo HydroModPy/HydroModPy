@@ -548,6 +548,26 @@ def test_deliver_run_copies_to_one_local_file(tmp_path: Path) -> None:
     assert _no_parts(depot)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="a POSIX symbolic link")
+def test_a_local_file_that_is_a_symbolic_link_is_replaced_itself(tmp_path: Path) -> None:
+    pointed = tmp_path / "elsewhere" / "kept.tif"
+    pointed.parent.mkdir()
+    pointed.write_bytes(b"kept")
+    depot = tmp_path / "depot"
+    depot.mkdir()
+    target = depot / "one.tif"
+    target.symlink_to(pointed)
+    request = _request(file="one.tif", deliver_to=[str(target)])
+    run_dir = _make_run(tmp_path, request, {"head_last.tif": HEAD})
+
+    deliver_run(run_dir, [request], Environment(), project_root=_project(tmp_path), delays=(0, 0))
+
+    assert not target.is_symlink()
+    assert target.read_bytes() == HEAD
+    assert pointed.read_bytes() == b"kept"
+    assert _no_parts(depot)
+
+
 def test_the_pairs_follow_the_block_the_file_and_the_destination_order(tmp_path: Path) -> None:
     first = tmp_path / "first"
     second = tmp_path / "second"
@@ -1146,3 +1166,43 @@ def test_a_password_quoted_by_a_failure_never_reaches_a_line(
     written = (run_dir / "published.jsonl").read_text(encoding="utf-8")
     assert SECRET not in written
     assert "<secret>" in written
+
+
+@pytest.mark.parametrize("windows", [True, False])
+def test_the_path_pusher_writes_and_renames_through_the_native_io_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, windows: bool
+) -> None:
+    """On Windows the ``.part`` copy, its rename and the size check use the long form; elsewhere
+    the paths stay as given."""
+    from hydromodpy.project import deliver as deliver_module
+    from hydromodpy.results.exporters.destination import Destination
+    from tests._helpers.windows_os import WindowsOs
+
+    if windows:
+        monkeypatch.setattr(deliver_module, "os", WindowsOs())
+    seen: list[str] = []
+    real = deliver_module.native_io_path
+
+    def record(path: Path | str) -> str:
+        seen.append(Path(path).name)
+        return real(path)
+
+    monkeypatch.setattr(deliver_module, "native_io_path", record)
+    source = tmp_path / "report.html"
+    source.write_text("body", encoding="utf-8")
+    folder = tmp_path / "out"
+    folder.mkdir()
+    destination = Destination(
+        text=str(folder) + "/", scheme="path", host=None, port=None, path=str(folder), folder=True
+    )
+    bounds = Bounds.__new__(Bounds)
+
+    PUSHERS["path"](source, destination, "sub/report.html", None, bounds)
+
+    assert (folder / "sub" / "report.html").read_text(encoding="utf-8") == "body"
+    if windows:
+        assert "report.html" + PART_SUFFIX in seen
+        assert "report.html" in seen
+    else:
+        assert seen == []
+    assert not list(folder.rglob("*" + PART_SUFFIX))

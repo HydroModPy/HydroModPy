@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import multiprocessing
 import os
@@ -11,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+import hydromodpy.results.products.store as store_module
 from hydromodpy.core.state.layout import PRODUCTS_DIRNAME, internal_dir
 from hydromodpy.results.products.store import META_FILENAME, ProductStore, products_root
 
@@ -88,25 +90,58 @@ def test_two_spawned_writers_build_one_product(tmp_path: Path) -> None:
     assert json.loads((store.path(key) / META_FILENAME).read_text(encoding="utf-8"))["key"] == key
 
 
-def test_a_rename_lost_to_a_neighbour_returns_the_neighbours_folder(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+RENAME_ERRORS = [
+    pytest.param(OSError("a neighbour finished first"), id="plain OSError"),
+    pytest.param(FileExistsError(errno.EEXIST, "exists"), id="FileExistsError"),
+    pytest.param(PermissionError(errno.EACCES, "denied"), id="PermissionError (Windows)"),
+    pytest.param(OSError(errno.ENOTEMPTY, "not empty"), id="ENOTEMPTY (POSIX)"),
+]
+
+
+@pytest.mark.parametrize("error", RENAME_ERRORS)
+@pytest.mark.parametrize("neighbour", [True, False], ids=["with neighbour", "without neighbour"])
+def test_a_refused_rename_is_read_by_the_folder_that_stands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: OSError, neighbour: bool
 ) -> None:
     store = ProductStore(tmp_path / "products")
     key = _key("a")
     target = store.path(key)
-    target.mkdir(parents=True)
-    (target / "value.txt").write_text("theirs", encoding="utf-8")
-    (target / META_FILENAME).write_text(
-        json.dumps({"key": key, "kind": "mesh", "bytes": 6, "written_at": 0.0}),
-        encoding="utf-8",
-    )
+
+    def build_neighbour() -> None:
+        target.mkdir(parents=True)
+        (target / "value.txt").write_text("theirs", encoding="utf-8")
+        (target / META_FILENAME).write_text(
+            json.dumps({"key": key, "kind": "mesh", "bytes": 6, "written_at": 0.0}),
+            encoding="utf-8",
+        )
+
+    def write(folder: Path) -> None:
+        # The neighbour finishes while this writer holds no lock.
+        if neighbour:
+            build_neighbour()
+        (folder / "value.txt").write_text("mine")
 
     def fail_rename(source: object, destination: object) -> None:
-        raise OSError("a neighbour finished first")
+        raise error
 
     monkeypatch.setattr(os, "rename", fail_rename)
-    assert store.put(key, "mesh", lambda d: (d / "value.txt").write_text("mine")) == target
-    assert (target / "value.txt").read_text(encoding="utf-8") == "theirs"
+    if neighbour:
+        assert store.put(key, "mesh", write) == target
+        assert (target / "value.txt").read_text(encoding="utf-8") == "theirs"
+    else:
+        with pytest.raises(OSError):
+            store.put(key, "mesh", write)
+        assert not target.exists()
+    assert list((store.root / ".tmp").iterdir()) == []
+
+
+def test_the_temporary_folder_carries_the_host_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(store_module, "host_name", lambda: "node-7")
+    store = ProductStore(tmp_path / "products")
+
+    assert f".node-7.{os.getpid()}." in store._tmp_path(_key("b")).name
 
 
 def test_eviction_removes_the_oldest_first(tmp_path: Path) -> None:
@@ -230,3 +265,16 @@ def test_a_key_that_is_not_a_sha256_is_refused(tmp_path: Path, key: str) -> None
         store.get(key)
     with pytest.raises(ValueError, match="not a product key"):
         store.discard(key)
+
+
+@pytest.mark.parametrize(
+    ("name", "writer"),
+    [
+        ("abc.node1.cluster.local.42.deadbeef", ("node1.cluster.local", 42)),
+        ("abc.host.42.deadbeef", ("host", 42)),
+        ("abc.host.notapid.deadbeef", (None, None)),
+        ("abc.deadbeef", (None, None)),
+    ],
+)
+def test_the_writer_of_a_temporary_name_keeps_a_dotted_host(name: str, writer: tuple) -> None:
+    assert store_module._writer(name) == writer

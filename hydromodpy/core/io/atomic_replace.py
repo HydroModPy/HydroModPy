@@ -15,6 +15,11 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from hydromodpy.core.io.filesystem import _retried_while_in_use
+
+_ATTEMPTS = 6
+"""Tries of a rename refused on Windows while a reader holds the target."""
+
 # Win32 constants used by the POSIX-semantics rename, from winbase.h and winnt.h.
 _FILE_RENAME_INFO_EX = 22
 _RENAME_REPLACE_IF_EXISTS = 0x1
@@ -37,17 +42,23 @@ def rename_over_open_file(source: Path, target: Path) -> None:
     is on it. The rename is then asked of the kernel directly with
     ``FILE_RENAME_POSIX_SEMANTICS``, which unlinks the target instead of
     deleting it and so behaves like ``rename(2)``. It needs Windows 10 1709 or
-    later on NTFS, and the open handles must have allowed ``FILE_SHARE_DELETE``;
-    anywhere else it raises ``OSError`` and the target is left untouched.
+    later on NTFS, and the open handles must have allowed ``FILE_SHARE_DELETE``,
+    which ``open()`` of Python does not. Such a reader holds a file for a short
+    while, so a ``PermissionError`` of both renames is retried with the
+    schedule of :func:`~hydromodpy.core.io.filesystem.unlink_when_free` (310 ms
+    in all), and the error of the last try is raised with the target untouched.
     """
-    try:
+    if os.name != "nt":
         os.replace(source, target)
         return
-    except PermissionError:
-        if os.name != "nt":
-            raise
 
-    _rename_with_posix_semantics(source, target)
+    def rename() -> None:
+        try:
+            os.replace(source, target)
+        except PermissionError:
+            _rename_with_posix_semantics(source, target)
+
+    _retried_while_in_use(rename, _ATTEMPTS)
 
 
 @contextmanager

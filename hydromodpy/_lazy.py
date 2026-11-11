@@ -239,6 +239,21 @@ _REFUSED_IN_2_1_0: dict[str, str] = {
     "hydromodpy.data.variables.water_quality.manager": "hydromodpy.data.variables.water_quality.variable",
     "hydromodpy.data.variables.wind.manager": "hydromodpy.data.variables.wind.variable",
     "hydromodpy.project.lock": "hydromodpy.project.data_cache",
+    # A report reads a sealed run: one engine writes every page, project/report.py
+    # assembles the texts and the pages.
+    "hydromodpy.display.calibration_report": "hydromodpy.project.report",
+    "hydromodpy.display.catchment_report": "hydromodpy.project.report",
+    "hydromodpy.display.catchment_report.artifacts": "hydromodpy.display.report.pages",
+    "hydromodpy.display.catchment_report.blocks": "hydromodpy.display.report.pages",
+    "hydromodpy.display.catchment_report.builder": "hydromodpy.display.report.pages",
+    "hydromodpy.display.catchment_report.context": "hydromodpy.display.report.pages",
+    "hydromodpy.display.catchment_report.inputs": "hydromodpy.display.report.pages",
+    "hydromodpy.display.catchment_report.pipeline": "hydromodpy.project.report",
+    "hydromodpy.display.catchment_report.settings": "hydromodpy.display.report.presets",
+    "hydromodpy.display.catchment_report.simulation_source": "hydromodpy.display.report.pages",
+    "hydromodpy.display.overview.web": "hydromodpy.display.report.pages",
+    "hydromodpy.display.report_blocks": "hydromodpy.display.report.engine",
+    "hydromodpy.workflow.steps.calibration": "hydromodpy.project.report",
 }
 
 OLD_NAMES: dict[str, OldName] = {

@@ -70,8 +70,7 @@ from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.runs import figures_dir_of, regen_figures, render_figures_for_run
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, PlanarCellMesh
 from hydromodpy.project.launch.lease import LEASE_SCHEMA, acquire_lease, lease_path, read_lease
-from hydromodpy.project.launch.sites.expansion import case_is_done
-from hydromodpy.project.launch.sites.plan import running_cases
+from hydromodpy.project.launch.plan import case_is_done, running_cases
 from hydromodpy.project.launch.status import case_state, project_status
 from hydromodpy.results import field_registry
 from hydromodpy.results.annotations import (
@@ -107,7 +106,14 @@ from hydromodpy.results.identity import (
 )
 from hydromodpy.results.ledger import LEDGER_SCHEMA, Ledger, LedgerEntry, ledger_path
 from hydromodpy.results.outcome import OUTCOME_SCHEMA, Outcome, effective_status, read_outcome
-from hydromodpy.results.plan_store import PLAN_SCHEMA, Plan, PlanCase, read_plan, write_plan
+from hydromodpy.results.plan_store import (
+    PLAN_REMEDY,
+    PLAN_SCHEMA,
+    Plan,
+    PlanCase,
+    read_plan,
+    write_plan,
+)
 from hydromodpy.results.publication import (
     PUBLICATION_SCHEMA,
     PUBLISHED_REMEDY,
@@ -594,7 +600,7 @@ def test_the_index_lists_the_lost_session_as_running(tmp_path) -> None:
 # - ``config.toml`` of a run and the case TOMLs of a plan: a configuration.
 #   Its grammar is the one thing that is migrated, by
 #   ``config/config_migration.py`` on load and ``hmp doctor --fix-config``.
-# - ``plan/<hash>/sites.parquet`` and ``cases.parquet``: read only by
+# - ``plan/<hash>/cases.csv``: read only by
 #   ``read_plan``, after ``plan.json``, whose schema versions the directory.
 # - ``plan/current``: a pointer, the hash of a plan directory that carries its
 #   version.
@@ -694,7 +700,7 @@ def pristine(tmp_path_factory: pytest.TempPathFactory) -> Tree:
     write_plan(
         project,
         Plan(plan_hash="0123abcd", hydromodpy_version=WRITER, created_at=NOW, n_cases=1),
-        pa.table({"site": ["J0014010"]}),
+        pd.DataFrame({"site": ["J0014010"]}, dtype=str),
         [PlanCase(case_id="J0014010-base", config_hash="h", config_path="J0014010-base.toml")],
         {"J0014010-base": "[flow]\nK = 1e-5\n"},
     )
@@ -926,6 +932,7 @@ DOCUMENTS: tuple[Document, ...] = (
         "schema",
         PLAN_SCHEMA,
         lambda t: read_plan(t.project),
+        remedy=PLAN_REMEDY,
     ),
     Document(
         "PUBLICATION.json",
@@ -1080,7 +1087,6 @@ WINDOWS: dict[str, tuple[str, str]] = {
     "session.json": ("hydromodpy.results.session.descriptor", "SESSION_VERSIONS"),
     "phases/<p>/session.json": ("hydromodpy.results.session.phase", "PHASE_VERSIONS"),
     "trials.jsonl": ("hydromodpy.results.session.journal", "TRIAL_VERSIONS"),
-    "plan/<hash>/plan.json": ("hydromodpy.results.plan_store", "PLAN_VERSIONS"),
     "PUBLICATION.json": ("hydromodpy.results.publication", "PUBLICATION_VERSIONS"),
     "INSTALL.toml": ("hydromodpy.core.payload.index", "INSTALL_VERSIONS"),
 }
@@ -1662,7 +1668,7 @@ def test_the_seal_stands_beside_an_outcome_this_code_cannot_read(
     write_plan(
         tree.project,
         Plan(plan_hash="fedc3210", hydromodpy_version=WRITER, created_at=NOW, n_cases=1),
-        pa.table({"site": ["J0014010"]}),
+        pd.DataFrame({"site": ["J0014010"]}, dtype=str),
         [PlanCase(case_id=RUN, config_hash="h", config_path=f"{RUN}.toml")],
         {RUN: "[flow]\nK = 1e-5\n"},
     )
@@ -1711,7 +1717,7 @@ def test_project_status_refuses_a_plan_it_cannot_read(tree: Tree) -> None:
     plan = next(item for item in DOCUMENTS if item.name == "plan/<hash>/plan.json")
     _rewrite(plan, tree, _bumped(PLAN_SCHEMA))
 
-    with pytest.raises(SchemaVersionMismatchError, match=NEWER_REMEDY):
+    with pytest.raises(SchemaVersionMismatchError, match=re.escape(PLAN_REMEDY)):
         project_status(tree.project)
 
 

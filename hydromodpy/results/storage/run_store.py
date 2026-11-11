@@ -22,9 +22,7 @@ earlier one recorded.
 
 from __future__ import annotations
 
-import hashlib
 import json
-import os
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -104,7 +102,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-_FEATURE_NAME_MAX_LEN = 128
+_FEATURE_NAME_MAX_LEN = 40
 """Longest vector layer name kept whole in its file name."""
 
 SOLVER_DIAGNOSTICS_DIRNAME = "solver_diagnostics"
@@ -750,9 +748,6 @@ class RunStore:
         # listing and the indexer read the feature name back from.
         safe_name = sanitize_segment(feature_name, max_len=_FEATURE_NAME_MAX_LEN)
         target = self.tables_dir / f"{GEOGRAPHIC_FEATURE_PREFIX}{safe_name}{PARQUET_FILE_SUFFIX}"
-        if os.name == "nt" and len(str(target.resolve())) >= 240:
-            digest = hashlib.sha1(safe_name.encode("utf-8")).hexdigest()[:16]
-            return self.tables_dir / f"{GEOGRAPHIC_FEATURE_PREFIX}{digest}{PARQUET_FILE_SUFFIX}"
         return target
 
     def write_metric(self, sim_id: str | UUID, row: MetricRow) -> None:

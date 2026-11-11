@@ -1,5 +1,9 @@
 """``hmp viz list`` - print the registered figure names and their requirements.
 
+Each figure is listed with its kind and its subject: what it draws, one
+``run``, a calibration ``session`` or a ``runset``. A session figure asked
+for on a run draws the session that promoted the run.
+
 With ``--run``, print for each figure whether that run supports it, or the
 reason it does not.
 """
@@ -59,7 +63,7 @@ def run(args: argparse.Namespace) -> None:
             if spec.required_tables:
                 requirements.append("tables " + ", ".join(spec.required_tables))
             needs = "; ".join(requirements) or "no declared requirement"
-            print(f"{spec.name:44s} {spec.kind:11s} {needs}")
+            print(f"{spec.name:44s} {spec.kind:11s} {spec.subject:8s} {needs}")
         print(f"\n{len(specs)} figure(s)")
 
     emit(
@@ -69,6 +73,7 @@ def run(args: argparse.Namespace) -> None:
             {
                 "name": spec.name,
                 "kind": spec.kind,
+                "subject": spec.subject,
                 "required_fields": list(spec.required_fields),
                 "required_tables": list(spec.required_tables),
             }
@@ -86,7 +91,8 @@ def _list_for_run(args: argparse.Namespace) -> None:
 
     def table() -> None:
         for spec, reason in rows:
-            print(f"{spec.name:44s} {spec.kind:11s} {'available' if reason is None else reason}")
+            state = "available" if reason is None else reason
+            print(f"{spec.name:44s} {spec.kind:11s} {spec.subject:8s} {state}")
         supported = sum(reason is None for _, reason in rows)
         print(f"\n{len(rows)} figure(s), {supported} available for {args.sim_ref}")
 
@@ -94,7 +100,13 @@ def _list_for_run(args: argparse.Namespace) -> None:
         args,
         "viz list run",
         [
-            {"name": spec.name, "kind": spec.kind, "available": reason is None, "reason": reason}
+            {
+                "name": spec.name,
+                "kind": spec.kind,
+                "subject": spec.subject,
+                "available": reason is None,
+                "reason": reason,
+            }
             for spec, reason in rows
         ],
         table=table,

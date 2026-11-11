@@ -8,7 +8,6 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.report import load_session_report_data
 from hydromodpy.calibration.runners.recap import (
     cost_metric_label,
     parameter_units,
@@ -21,7 +20,8 @@ from hydromodpy.calibration.runners.recap import (
 )
 from hydromodpy.calibration.runners.session_scope import open_calibration_session
 from hydromodpy.calibration.runners.state import space_from_config
-from hydromodpy.display.calibration_report import session_summary
+from hydromodpy.results.session.summary import SessionSummary, session_summary, summary_rows
+from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.contract import SESSION_METHODS_FILENAME
 from tests._helpers.session_documents import best_trial
 
@@ -168,16 +168,25 @@ def test_the_session_records_the_label_of_its_cost(tmp_path: Path) -> None:
 
 
 def test_the_html_report_prints_the_label_beside_the_cost() -> None:
-    session = {
-        "session_id": "abc",
-        "cost_name": "nse_log",
-        "cost_label": "1 - nse_log",
-        "best_cost": 0.083984,
-    }
+    summary = SessionSummary(
+        name="calage",
+        method="nelder_mead",
+        status="completed",
+        trials_by_status={"completed": 3},
+        best_trial=3,
+        best_cost=0.083984,
+        cost_label="1 - nse_log",
+        scored_on=None,
+        stop=None,
+        bounds_reached=(),
+        calibrated_variable="discharge",
+        report=None,
+        profile=(),
+    )
 
-    summary = dict(session_summary(session))
+    rows = dict(summary_rows(summary))
 
-    assert summary["best_cost"] == "0.083984 (1 - nse_log)"
+    assert rows["best trial"] == "3, cost 0.083984 (1 - nse_log)"
 
 
 def test_the_report_of_a_closed_session_shows_its_best_cost_and_label(tmp_path: Path) -> None:
@@ -194,9 +203,9 @@ def test_the_report_of_a_closed_session_shows_its_best_cost_and_label(tmp_path: 
     )
     persistence.finalize_session(status="completed", best=best_trial(3, cost=0.083984))
 
-    summary = dict(session_summary(load_session_report_data(persistence.directory).session))
+    rows = dict(summary_rows(session_summary(Session(persistence.directory))))
 
-    assert summary["best_cost"] == "0.083984 (1 - nse_log)"
+    assert rows["best trial"] == "3, cost 0.083984 (1 - nse_log)"
 
 
 # The console lines of a finished calibration, one row per fact the report carries.

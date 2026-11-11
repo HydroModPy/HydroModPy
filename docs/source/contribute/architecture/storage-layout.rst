@@ -66,7 +66,7 @@ with a recipe, named ``<site>-<recipe>``:
    ├── hydromodpy.lock
    ├── plan/
    │   ├── current             text: the hash of the plan in force
-   │   └── a3f9c2e1/           plan.json, sites.parquet, cases.parquet, <case>.toml
+   │   └── a3f9c2e1/           plan.json, cases.csv, <case>.toml
    ├── runs/
    │   ├── J0014010-base/
    │   ├── J0014010-k2e-5/
@@ -174,8 +174,8 @@ Classes of artifacts
      - no
      - yes (``hmp export``)
    * - report
-     - ``report/index.html``
-     - ``report/index.html``
+     - ``report/index.html``, ``report/report.json``
+     - ``report/index.html``, ``report/report.json``
      - ``summary/report/index.html``
      - no
      - yes (``hmp report``)
@@ -241,9 +241,9 @@ A run folder
    ├── final_state/        sealed: last head, lake and reach stages in float64, read by a restart and the next window
    ├── profile.json        time and memory of each step, solve, figure and export; outside the seal and the identity
    ├── tables.parquet/     the tabular payloads
-   ├── figures/            index.json + the figures of this run
-   ├── exports/            index.json + the files of each [[export]]
-   ├── report/             index.html
+   ├── figures/            index.json + the figures of this run; written after the seal
+   ├── exports/            index.json + the files of each [[export]]; written after the seal
+   ├── report/             index.html, report.json, review/ or sheet-<lang>/; written by hmp report
    ├── logs/               run.log, heartbeat.json
    ├── published.jsonl     one line per copy and per delivered file; absent until one is made
    ├── purged.json         gc removed the field store of this kept trial; what left, and when; outside the seal
@@ -255,6 +255,28 @@ A run folder
 Those names are the whole vocabulary: ``ALLOWED_RUN_ENTRIES`` in
 ``hydromodpy/results/storage/contract.py`` lists them as the union of the certified entries and
 the unsealed ones, and no other name is a run artifact.
+
+Step order ends with ``derive``, ``export``, ``seal`` and ``display``. The figures, the data
+exports and the views are written after the seal, from the sealed run, and carry the label of the
+day in their footer, or "unlabelled" for a directory without a seal. ``figures/``, ``exports/``
+and ``report/`` are not in the inventory of ``manifest.json`` (``artifacts``), and the STAC view
+has no figure asset. A figure or an export that fails after the seal leaves the run sealed and
+completed. The command then exits with an error that names ``hmp viz show <run> <figure>`` or
+``hmp export <run>``.
+
+``report/`` holds what ``hmp report catchment`` writes from a sealed run. The research preset
+writes ``index.html`` and the pages ``review/compact/``, ``review/standard/``, ``review/audit/``
+and ``review/by_block/``, each with its own ``index.html``, and copies the figures it shows under
+``figures/``. The management preset writes one page, ``sheet-<lang>/index.html``, in English or
+French. Both write ``report.json`` (schema ``hydromodpy.report.v1``), which lists the preset, the
+language, the label, the render date and each figure with its title, its file or null, and whether
+it was required. A required figure that is missing is listed under ``missing`` and shown on the
+page as "Required figure missing". ``copied`` lists the files the engine copied under ``figures/``.
+A new render removes those and no other file, so a figure drawn there by someone else stays.
+
+The seal of a data overview writes ``tables.parquet/data_inventory.parquet``, with the columns of
+``DATA_INVENTORY_SCHEMA`` in ``hydromodpy/results/storage/parquet_schemas.py``, and lists the loaded
+inputs in ``inputs.json``. Its page is written after the seal, in ``runs/<overview>/report/``.
 
 ``mesh/`` holds the product ``mesh`` of a run whose engine caches one, copied at the seal from
 the product store into the run, as ``mesh.json`` and ``mesh.npz`` and certified by the digest of
@@ -439,8 +461,8 @@ A session folder
    ├── trials/<nnnn>/      kept trials, each shaped like a run; <nnnn>/<case_id>/ with several cases
    ├── trial_series/       scored series, one file per trial (persist_trial_series, true by default from edition 2.1)
    ├── candidates/         TOML overlays of the candidates (materialize_candidates)
-   ├── figures/            trajectory, cost profile
-   ├── report/             index.html
+   ├── figures/            trajectory, cost profile, and the figures of a session
+   ├── report/             index.html, report.json, review/; written by hmp calibrate or hmp report render
    └── logs/
 
 ``session.json`` and ``trials.jsonl`` are written while the calibration runs: the descriptor
@@ -505,10 +527,13 @@ Above the run
      - Form
      - Written by
      - Regenerable
-   * - ``plan/<hash>/plan.json``, ``sites.parquet``, ``cases.parquet``, ``<case>.toml``
-     - immutable, addressed by the fingerprint of ``project.toml``, the recipes, the table and
-       the overrides; ``plan/current`` names the plan in force; ``cases.parquet`` has no
-       ``status`` column, the state comes from the outcomes
+   * - ``plan/<hash>/plan.json``, ``cases.csv``, ``<case>.toml``
+     - immutable, schema ``hydromodpy.plan.v2``, addressed by a fingerprint that starts from
+       the schema, then ``project.toml``, the recipes, the table and the overrides;
+       ``cases.csv`` holds one row of text per case, the columns ``case_id``, ``site``,
+       ``recipe``, ``config_hash`` and ``config_path`` then the columns of the sites table;
+       ``plan/current`` names the plan in force; ``cases.csv`` has no ``status`` column, the
+       state comes from the outcomes; a plan of 2.0 is refused with ``hmp project plan``
      - ``hmp project plan``
      - yes, never rewritten in place
    * - ``hydromodpy.lock``
@@ -940,7 +965,9 @@ extractor produces, under the canonical CBC name: the exchange terms
 ``evapotranspiration``, ...) and the storage terms (``storage`` under
 MODFLOW-NWT and Boussinesq, ``storage_ss`` and ``storage_sy`` under MODFLOW 6). Each term has
 a descriptor in :mod:`hydromodpy.results.field_registry`, so it can be listed,
-exported and read with ``run.field``. A kept calibration trial is a research run and writes only
+exported and read with ``run.field``. The storage terms stay raw, so ``storage_ss`` and
+``storage_sy`` are never summed on write, and a reader that asks for ``storage`` sums the
+members its run kept, by ``TERM_FAMILIES`` of :mod:`hydromodpy.core.budget.terms`. A kept calibration trial is a research run and writes only
 the terms its criterion reads, about 170 MB on the island case instead of the whole budget. The
 group carries two attributes that
 say what the run kept (:mod:`hydromodpy.core.budget.terms`):
@@ -1108,7 +1135,7 @@ polygon, the store also holds ``mesh/catchment_fraction``: a float64 value per f
 share of the area of the face that lies inside the polygon, with ``units = "1"``. A cell inside the
 polygon has 1. The build writes it with ``descent_basin`` and the sidecar of D carries it. It does
 not change the basin, which stays all or nothing, and it weights the total over the catchment of a
-quantity that varies in space (``hydromodpy.results.derive.views.catchment_total``, see
+quantity that varies in space (``hydromodpy.results.derive.views.budget_over``, see
 :doc:`/theory/mesh`). The sidecar and the store refuse a fraction with no basin, a value outside
 [0, 1] and an array of another size than the mesh. A run sealed without it, or without a polygon,
 counts the whole cells of its basin of D, and its readers say so. A synthetic domain has no polygon and no outlet,
@@ -1207,14 +1234,30 @@ Concurrency and atomic writes
   ``annotations.json``, the ledgers and ``logs/heartbeat.json`` are written through a temporary
   file and a rename.
 - The ledger ``index.json`` of ``figures/`` and ``exports/`` is written under
-  ``index.json.lock`` beside it, a lock file that names its process, its host and its date, the
-  same kind as the lock of the index, on every system and without ``fcntl``.
+  ``index.json.lock`` beside it, a lock file that names its process, its host, its date and a
+  token drawn at each take, the same kind as the lock of the index, on every system and without ``fcntl``.
 - Zarr field writes hold a cross-process ``filelock`` under ``<run>/.hmp/locks/`` and append in
   place. The store directory is promoted with a rename when it is created.
 - Parquet writes use a temporary file plus ``os.replace``.
 - A run directory and an attempt are claimed with ``os.mkdir``, which fails for the loser.
+- A folder moved onto a name a ``mkdir`` reserved, the promotion of a kept trial or the import
+  of a published copy, goes through ``rename_onto_empty_dir``. POSIX renames a folder onto an
+  empty one in one step. Windows refuses it because ``os.replace`` never replaces a folder there,
+  so a second step removes the empty reservation and renames without replacing, tried again for
+  up to 310 ms while a reader holds the folder. A process that takes the name in between keeps
+  it, and the move fails with a sentence that says so.
+- The replay of a published copy rebuilds its declared folders in ``.hmp/replay/<copy>`` under
+  the lock ``.hmp/replay/<copy>.lock``. A folder left by a replay that was killed is removed by
+  the next one once the lock names a process that is gone on this host.
+- On Windows a project folder holds 99 characters at most, because a project writes paths up to
+  160 characters below it and MODFLOW 6 and DuckDB open no path longer than 259.
+  ``check_project_root`` refuses a longer folder when the project is created and when a run or a
+  session reserves its folder, before anything is written, and the solver still checks the exact
+  length of each path it is given.
 - The launcher of a project holds ``.hmp/launcher.lease``, created with ``O_EXCL``; a lease of a
-  dead process is taken over by the same proof of death as an attempt.
+  dead process is taken over by the same proof of death as an attempt. The hand-over puts the
+  lease back by a hard link, and where a link is refused (another volume, FAT, a network share,
+  Windows) by a copy created with ``O_EXCL``, so neither way ever overwrites a lease.
 - A fetched file is written through ``<name>.part`` and ``os.replace``, then its sidecar the
   same way. A station chronicle is written under a ``filelock`` named after the station
   (``.<prefix>_<source>_<id>.lock`` in the folder of the variable), so two cases that fetch the
@@ -1226,8 +1269,9 @@ Concurrency and atomic writes
   that on POSIX. On Windows the same rename is asked of the kernel through
   ``SetFileInformationByHandle`` with ``FILE_RENAME_INFO_EX`` and
   ``FILE_RENAME_POSIX_SEMANTICS``, which unlinks the target from its directory instead of
-  deleting it. Where the kernel supports neither, the write fails and says so: the previous index
-  is untouched.
+  deleting it. A reader that opened the file without ``FILE_SHARE_DELETE``, as ``open()`` of
+  Python does, refuses both renames, so they are tried again for up to 310 ms. Where the kernel
+  supports neither, the write fails and says so: the previous index is untouched.
 
 Lockfile and reproducibility
 ----------------------------

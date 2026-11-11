@@ -13,9 +13,7 @@ import os
 from typing import Any
 
 from hydromodpy.core.exceptions import SolverEnvironmentError
-
-WINDOWS_SOLVER_PATH_LIMIT = 259
-"""Longest path MODFLOW 6 opens on Windows: ``MAX_PATH`` is 260 with the NUL."""
+from hydromodpy.core.io.filesystem import WINDOWS_PATH_LIMIT
 
 _GRID_PACKAGE_TYPES = frozenset({"dis", "disv", "disu"})
 
@@ -67,18 +65,18 @@ def check_mf6_workspace_paths(sim: Any) -> None:
     Raises
     ------
     SolverEnvironmentError
-        The longest path is over :data:`WINDOWS_SOLVER_PATH_LIMIT`. The message
+        The longest path is over :data:`WINDOWS_PATH_LIMIT`. The message
         names the path, its length and the remedy.
     """
     if os.name != "nt":
         return
     longest = max(mf6_workspace_files(sim), key=len)
-    if len(longest) <= WINDOWS_SOLVER_PATH_LIMIT:
+    if len(longest) <= WINDOWS_PATH_LIMIT:
         return
     raise SolverEnvironmentError(
         f"[HMPY.E406] MODFLOW 6 cannot open {longest}: the path is {len(longest)} "
         f"characters, and on Windows mf6 opens no path longer than "
-        f"{WINDOWS_SOLVER_PATH_LIMIT}. Move the project to a shorter folder "
+        f"{WINDOWS_PATH_LIMIT}. Move the project to a shorter folder "
         f"(for example C:\\hmp\\<project>) or give the simulation a shorter name.",
         path=longest,
         length=len(longest),

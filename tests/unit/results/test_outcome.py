@@ -239,3 +239,18 @@ def test_an_outcome_written_without_the_key_reads_without_request_id(tmp_path):
 
     assert outcome is not None
     assert outcome.request_id is None
+
+
+def test_death_is_proven_is_no_name_of_the_outcome_module():
+    import hydromodpy.results.outcome as outcome_module
+
+    assert "death_is_proven" not in outcome_module.__all__
+
+
+def test_a_dead_process_of_this_host_reads_stale_at_once(tmp_path):
+    from hydromodpy.core.state.host import host_name
+
+    dead_pid = 2**22 + 12345
+    write_outcome(tmp_path, _outcome("running", host=host_name(), pid=dead_pid))
+
+    assert effective_status(tmp_path, now=NOW) == "stale"

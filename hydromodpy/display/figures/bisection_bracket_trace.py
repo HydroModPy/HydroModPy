@@ -29,9 +29,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
-from hydromodpy.display.figure_options import OneParameter, OutputName, SessionId
+from hydromodpy.display.figure_options import OneParameter, OutputName
 from hydromodpy.display.figures._calibration_session import (
-    chosen_session,
     float_or,
     int_or_none,
     session_descriptor,
@@ -47,7 +46,7 @@ from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, place_legend
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
 _EXCESS_COLOR = HIGH_CONTRAST_TRIPLET[0]
 _MISSING_COLOR = HIGH_CONTRAST_TRIPLET[2]
@@ -88,11 +87,11 @@ class BisectionBracketTraceFigure(BaseFigure):
         name="bisection_bracket_trace",
         title="Bisection bracket trace",
         kind="timeseries",
-        required_tables=("calibration_iterations",),
+        subject="session",
         default_figsize=(8.0, 4.8),
     )
 
-    def unavailable_reason(self, sim: Run) -> str | None:
+    def unavailable_reason(self, session: Session) -> str | None:
         """Refuse a session that published no signed residual, before drawing.
 
         A staged calibration promotes a run per stage, and only the root
@@ -104,10 +103,10 @@ class BisectionBracketTraceFigure(BaseFigure):
         rather than as an absence. A search on two bounds publishes one
         residual per bound and is traced as such.
         """
-        reason = super().unavailable_reason(sim)
-        if reason is not None:
-            return reason
-        table = trial_table(sim)
+        try:
+            table = trial_table(session)
+        except ValueError as exc:
+            return str(exc)
         if _two_bounds(table, output=None):
             return None
         try:
@@ -118,18 +117,16 @@ class BisectionBracketTraceFigure(BaseFigure):
 
     def render(
         self,
-        sim: Run,
+        session: Session,
         ax: Axes,
         *,
         parameter: OneParameter = None,
-        session_id: SessionId = None,
         output: OutputName = None,
         **_,
     ) -> Axes:
         from matplotlib.ticker import MaxNLocator
 
-        chosen = chosen_session(sim, session_id)
-        table = trial_table(sim, session_id=chosen)
+        table = trial_table(session)
         name, values = table.parameter_values(parameter)
         if np.any(np.isfinite(values) & (values <= 0.0)):
             raise ValueError(
@@ -145,7 +142,7 @@ class BisectionBracketTraceFigure(BaseFigure):
                 values,
                 name=name,
                 output=output,
-                roots=two_roots(session_descriptor(sim, chosen)),
+                roots=two_roots(session_descriptor(session)),
             )
         else:
             residual = table.diagnostic("J_signed", output=output)
@@ -156,7 +153,7 @@ class BisectionBracketTraceFigure(BaseFigure):
         ax.set_xlim(0.5, float(size) + 0.5)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.grid(True, ls=":", lw=0.4)
-        ax.set_title(f"Bisection bracket trace{run_suffix(sim)}")
+        ax.set_title(f"Bisection bracket trace{run_suffix(session)}")
 
         # The note sits in a band kept free of evaluations at the bottom, and
         # the legend is placed above it, so neither covers a marker.

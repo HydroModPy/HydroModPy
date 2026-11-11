@@ -13,11 +13,12 @@ from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.analytic_bowl import BOWL_OPTIMUM, AnalyticBowlEvaluator
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.calibration.report import CalibrationReport, load_session_report_data
+from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 from hydromodpy.calibration.runners.recap import result_lines
-from hydromodpy.display.calibration_report import session_summary
 from hydromodpy.results.session.descriptor import ScoredSamples, read_session
+from hydromodpy.results.session.summary import session_summary, summary_rows
+from hydromodpy.results.session.view import Session
 from tests._helpers.session_documents import calibration_window
 
 # From test_a_session_partial_for_a_failed_trial_names_it.py
@@ -324,7 +325,7 @@ def test_the_pairs_of_the_best_trial_sit_beside_it(closed_session: Path) -> None
 
 
 def test_the_html_report_prints_the_window_and_the_pairs(closed_session: Path) -> None:
-    summary = dict(session_summary(load_session_report_data(closed_session).session))
+    summary = dict(summary_rows(session_summary(Session(closed_session))))
 
     assert summary["scored on"] == (
         "hydrograph 1827 pair(s), period ends 2016-01-02 to "

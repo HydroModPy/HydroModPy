@@ -1,23 +1,14 @@
-"""Calibration session data structures and loaders.
+"""What a calibration returns, and the words about it.
 
-Two concerns live here, both purely data-side:
-
-1. :class:`CalibrationReport` - what ``hmp.calibrate`` and ``Project.calibrate``
-   always return, with or without phases. Its names read the stored documents,
-   and its ``best`` and ``trials`` read the session on disk.
-2. :class:`SessionReportData` + :func:`load_session_report_data` - read
-   one calibration session back from ``sessions/<case>/`` and return a plain
-   dataclass ready to be handed to the display layer for HTML rendering. The
-   rendering itself lives in :mod:`hydromodpy.display.calibration_report`;
-   this module never imports ``hydromodpy.display``.
-
-Everything is read from the disk: the session descriptor, the trial journal and
-the frozen configuration of the session. The index is never opened.
+:class:`CalibrationReport` is what ``hmp.calibrate`` and ``Project.calibrate``
+always return, with or without phases. Its names read the stored documents, and
+its ``best`` and ``trials`` read the session on disk. The session page is written
+by :mod:`hydromodpy.project.report`, from the rows of
+:mod:`hydromodpy.results.session.summary`.
 """
 
 from __future__ import annotations
 
-import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,9 +27,6 @@ from hydromodpy.results.session.descriptor import (
     session_descriptor_path,
 )
 from hydromodpy.results.session.view import TRIAL_COLUMNS, Session
-from hydromodpy.results.storage.contract import (
-    SESSION_CONFIG_FILENAME,
-)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -435,106 +423,6 @@ class CalibrationResult(BaseModel):
     extra: dict[str, Any] | None = Field(default=None, description="Free-form metadata.")
 
 
-# ---------------------------------------------------------------------------
-# SessionReportData - data handed to the display layer
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class SessionReportData:
-    """Plain data extracted from one calibration session.
-
-    Carries everything
-    :func:`hydromodpy.display.calibration_report.render_session` needs to
-    produce the HTML report; no live handle on anything. Constructed by
-    :func:`load_session_report_data`.
-
-    Attributes
-    ----------
-    session_id
-        Id of the session.
-    session_name
-        Name of the session directory on disk (``<case>[.vN]``), so the
-        report sits under the same name.
-    session
-        The descriptor as a mapping, plus ``n_trials``, ``best_cost``
-        (the cost of the best trial), ``best_sim_id`` and ``phase_name``.
-    iterations
-        The trials as plain rows, one per trial number.
-    workspace_root
-        Project root the session was written to.
-    best_sim_id
-        Id of the promoted best run, or ``None`` when no run was promoted.
-    best_rel_dir
-        Directory of that run relative to the project root, or ``None``.
-    """
-
-    session_id: str
-    session_name: str
-    session: dict[str, Any]
-    iterations: list[dict[str, Any]]
-    workspace_root: Path
-    best_sim_id: str | None
-    best_rel_dir: str | None
-    variable: str = "discharge"
-
-
-# ---------------------------------------------------------------------------
-# Loader
-# ---------------------------------------------------------------------------
-
-
-def load_session_report_data(session_dir: Path) -> SessionReportData:
-    """Load all data needed to render an HTML report for one session.
-
-    Reads the descriptor, the trial journal, and (when a best run was
-    promoted) the simulated and observed series of the calibrated variable
-    from the tables of that run. The return value is a plain dataclass, so the
-    caller is free to render it through any backend.
-    """
-    from hydromodpy.calibration.persistence import CalibrationPersistence
-
-    directory = Path(session_dir)
-    project_root = directory.parent.parent
-    descriptor = read_session(directory)
-    persistence = CalibrationPersistence(directory)
-    iterations = persistence.load_iterations()
-    variable = _calibration_variable(directory)
-    best = descriptor.best
-    run = descriptor.only_run
-    best_rel_dir = None if run is None else run.rel_dir
-    best_sim_id = None if run is None else run.sim_id
-    phases = persistence.phases()
-    session_row = descriptor.model_dump(mode="json", by_alias=True)
-    session_row["n_trials"] = len({row["trial"] for row in iterations})
-    session_row["best_cost"] = best.cost if best is not None else None
-    session_row["best_sim_id"] = best_sim_id
-    session_row["phase_name"] = phases[-1].name if phases else None
-    return SessionReportData(
-        session_id=descriptor.session_id,
-        session_name=directory.name,
-        session=session_row,
-        iterations=iterations,
-        workspace_root=project_root,
-        best_sim_id=best_sim_id,
-        best_rel_dir=best_rel_dir,
-        variable=variable,
-    )
-
-
-def _calibration_variable(session_dir: Path) -> str:
-    """Return the calibrated variable from the frozen configuration of the session."""
-    target = session_dir / SESSION_CONFIG_FILENAME
-    if not target.is_file():
-        return "discharge"
-    with target.open("rb") as handle:
-        document = tomllib.load(handle)
-    calibration = document.get("calibration")
-    if isinstance(calibration, Mapping):
-        return str(calibration.get("variable", "discharge"))
-    return "discharge"
-
-
 def samples_text(samples: Mapping[str, Mapping[str, Any]]) -> str:
     """Return the pairs of ``extra["cost_samples"]`` in words, one clause per output."""
     return scored_samples_text(
@@ -627,10 +515,8 @@ __all__ = (
     "CalibrationResult",
     "FrozenParameter",
     "PhaseRun",
-    "SessionReportData",
     "interval_best_is_on_a_bound",
     "interval_is_degenerate",
-    "load_session_report_data",
     "promotion_failures",
     "samples_text",
     "scored_entry",

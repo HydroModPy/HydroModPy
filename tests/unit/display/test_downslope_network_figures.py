@@ -12,11 +12,11 @@ whose partition is known before the criterion is ever called.
 
 from __future__ import annotations
 
-import json
+import uuid
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from hydromodpy.display.figures._stream_comparison import (
@@ -37,7 +37,15 @@ from hydromodpy.results.derive.stream.comparison import (
     AGREEMENT_VALID,
     agreement_label,
 )
+from hydromodpy.results.session.view import Session
 
+from ._calibration_journal import (
+    K_BOUNDS,
+    TWO_ROOT_CONFIG,
+    TWO_ROOTS,
+    journal_session,
+    two_root_rows,
+)
 from ._network_comparison_run import (
     AXIS_COLUMN,
     CELL_M,
@@ -56,37 +64,44 @@ H_OBS = 250.0
 
 
 def _session_run(
+    project: Path,
     parameter_values: list[float],
     diagnostics: list[dict[str, float | None]],
     *,
     name: str = "cheze-bisection",
     output: str = "streams",
-) -> SimpleNamespace:
-    """A Run carrying one calibration session, in the shape a journal writes."""
+    parameter: str = "K_over_R",
+    block: dict | None = None,
+    other_output: bool = False,
+) -> Session:
+    """One calibration session, in the shape a journal writes.
+
+    ``block`` adds keys to the block of the sampled parameter and
+    ``other_output`` adds the same two distances under a second output.
+    """
     rows = []
     for index, (value, diagnostic) in enumerate(zip(parameter_values, diagnostics, strict=True)):
         payload = {
             f"{output}.{key}": number for key, number in diagnostic.items() if number is not None
         }
         payload[f"{output}.h_obs"] = H_OBS
+        if other_output:
+            payload.update({"other.D_so": 1.0, "other.D_os": 2.0})
         rows.append(
             {
-                "trial": index,
-                "parameters": {"K_over_R": {"value": value}},
+                "trial": index + 1,
+                "parameters": {parameter: {"value": value, **(block or {})}},
                 "components": payload,
                 "status": "completed" if diagnostic.get("D_os") is not None else "failed",
             }
         )
-    return SimpleNamespace(
-        sim_id="sim-cheze",
-        name=name,
-        calibration_iterations=pd.DataFrame(rows),
-    )
+    return journal_session(project / uuid.uuid4().hex, rows, name=name)
 
 
-def _crossing_run(**kwargs) -> SimpleNamespace:
+def _crossing_run(project: Path, **kwargs) -> Session:
     """Two straight lines meeting once, at a value the test can predict."""
     return _session_run(
+        project,
         [1e-4, 1e-3],
         [
             {"D_so": 100.0, "D_os": 300.0},
@@ -105,10 +120,10 @@ def _line(ax, label_prefix: str):
 # --------------------------------------------------------------------------- #
 
 
-def test_crossing_draws_both_distances_on_a_log_axis_in_metres(mpl) -> None:
+def test_crossing_draws_both_distances_on_a_log_axis_in_metres(mpl, tmp_path) -> None:
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceCrossingFigure().render(_crossing_run(), ax)
+    DownslopeDistanceCrossingFigure().render(_crossing_run(tmp_path), ax)
 
     try:
         assert ax.get_xscale() == "log"
@@ -121,12 +136,12 @@ def test_crossing_draws_both_distances_on_a_log_axis_in_metres(mpl) -> None:
         mpl.close(fig)
 
 
-def test_crossing_marks_the_intersection_with_its_parameter_value(mpl) -> None:
+def test_crossing_marks_the_intersection_with_its_parameter_value(mpl, tmp_path) -> None:
     # The residual goes -200 m to +200 m over one decade, so the zero sits at
     # the middle of that decade in log space.
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceCrossingFigure().render(_crossing_run(), ax)
+    DownslopeDistanceCrossingFigure().render(_crossing_run(tmp_path), ax)
 
     try:
         marker = _line(ax, "crossing")
@@ -138,8 +153,9 @@ def test_crossing_marks_the_intersection_with_its_parameter_value(mpl) -> None:
         mpl.close(fig)
 
 
-def test_crossing_leaves_a_gap_where_a_trial_failed(mpl) -> None:
+def test_crossing_leaves_a_gap_where_a_trial_failed(mpl, tmp_path) -> None:
     run = _session_run(
+        tmp_path,
         [1e-5, 1e-4, 1e-3],
         [
             {"D_so": 100.0, "D_os": 300.0},
@@ -161,10 +177,10 @@ def test_crossing_leaves_a_gap_where_a_trial_failed(mpl) -> None:
         mpl.close(fig)
 
 
-def test_crossing_bands_are_one_reference_length_either_side(mpl) -> None:
+def test_crossing_bands_are_one_reference_length_either_side(mpl, tmp_path) -> None:
     fig, ax = mpl.subplots()
 
-    DownslopeDistanceCrossingFigure().render(_crossing_run(), ax)
+    DownslopeDistanceCrossingFigure().render(_crossing_run(tmp_path), ax)
 
     try:
         assert len(ax.collections) == 2, "one band per curve"
@@ -178,8 +194,9 @@ def test_crossing_bands_are_one_reference_length_either_side(mpl) -> None:
         mpl.close(fig)
 
 
-def test_crossing_reports_a_range_that_never_changes_sign(mpl) -> None:
+def test_crossing_reports_a_range_that_never_changes_sign(mpl, tmp_path) -> None:
     run = _session_run(
+        tmp_path,
         [1e-4, 1e-3],
         [
             {"D_so": 300.0, "D_os": 100.0},
@@ -197,8 +214,9 @@ def test_crossing_reports_a_range_that_never_changes_sign(mpl) -> None:
         mpl.close(fig)
 
 
-def test_crossing_refuses_a_non_positive_parameter(mpl) -> None:
+def test_crossing_refuses_a_non_positive_parameter(mpl, tmp_path) -> None:
     run = _session_run(
+        tmp_path,
         [0.0, 1e-3],
         [{"D_so": 100.0, "D_os": 300.0}, {"D_so": 300.0, "D_os": 100.0}],
     )
@@ -211,12 +229,8 @@ def test_crossing_refuses_a_non_positive_parameter(mpl) -> None:
         mpl.close(fig)
 
 
-def test_crossing_names_the_output_when_two_publish_the_same_diagnostic(mpl) -> None:
-    run = _crossing_run()
-    frame = run.calibration_iterations
-    frame["components"] = [
-        {**payload, "other.D_so": 1.0, "other.D_os": 2.0} for payload in frame["components"]
-    ]
+def test_crossing_names_the_output_when_two_publish_the_same_diagnostic(mpl, tmp_path) -> None:
+    run = _crossing_run(tmp_path, other_output=True)
     fig, ax = mpl.subplots()
 
     try:
@@ -224,24 +238,7 @@ def test_crossing_names_the_output_when_two_publish_the_same_diagnostic(mpl) -> 
             DownslopeDistanceCrossingFigure().render(run, ax)
         DownslopeDistanceCrossingFigure().render(run, ax, output="streams")
         assert _line(ax, "D_so").get_ydata().tolist() == [100.0, 300.0]
-    finally:
-        mpl.close(fig)
-
-
-def test_crossing_reads_the_json_blocks_the_index_hands_back(mpl) -> None:
-    # The journal keeps the two nested blocks as dicts and DuckDB keeps them
-    # as text; the figure must read the same session either way.
-    run = _crossing_run()
-    frame = run.calibration_iterations
-    frame["parameters"] = [json.dumps(block) for block in frame["parameters"]]
-    frame["components"] = [json.dumps(block) for block in frame["components"]]
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceCrossingFigure().render(run, ax)
-
-    try:
         assert ax.get_xlabel() == "K_over_R (-)"
-        assert _line(ax, "D_so").get_ydata().tolist() == [100.0, 300.0]
         assert _line(ax, "crossing").get_xdata()[0] == pytest.approx(10.0**-3.5)
     finally:
         mpl.close(fig)
@@ -610,9 +607,10 @@ def test_confusion_map_names_what_it_needs_when_the_run_kept_no_release_flux() -
 # --------------------------------------------------------------------------- #
 
 
-def _bracket_run(**kwargs) -> SimpleNamespace:
+def _bracket_run(project: Path, **kwargs) -> Session:
     """A sweep that changes sign once, then two bisection steps closing on it."""
     return _session_run(
+        project,
         [1e-5, 1e-3, 1e-4, 3.2e-5],
         [
             {"D_so": 0.0, "D_os": 0.0, "J_signed": 300.0},
@@ -624,10 +622,10 @@ def _bracket_run(**kwargs) -> SimpleNamespace:
     )
 
 
-def test_bracket_trace_plots_every_evaluation_in_order_around_a_zero_line(mpl) -> None:
+def test_bracket_trace_plots_every_evaluation_in_order_around_a_zero_line(mpl, tmp_path) -> None:
     fig, ax = mpl.subplots()
 
-    BisectionBracketTraceFigure().render(_bracket_run(), ax)
+    BisectionBracketTraceFigure().render(_bracket_run(tmp_path), ax)
 
     try:
         assert ax.get_xlabel() == "Evaluation order (-)"
@@ -651,7 +649,7 @@ def test_bracket_trace_plots_every_evaluation_in_order_around_a_zero_line(mpl) -
         mpl.close(fig)
 
 
-def test_bracket_trace_closes_the_band_onto_zero(mpl) -> None:
+def test_bracket_trace_closes_the_band_onto_zero(mpl, tmp_path) -> None:
     from hydromodpy.display.figures.bisection_bracket_trace import _running_bracket
 
     values = np.array([1e-5, 1e-3, 1e-4, 3.2e-5])
@@ -671,10 +669,10 @@ def test_bracket_trace_closes_the_band_onto_zero(mpl) -> None:
     assert trace.is_closed
 
 
-def test_bracket_trace_names_the_closed_bracket(mpl) -> None:
+def test_bracket_trace_names_the_closed_bracket(mpl, tmp_path) -> None:
     fig, ax = mpl.subplots()
 
-    BisectionBracketTraceFigure().render(_bracket_run(), ax)
+    BisectionBracketTraceFigure().render(_bracket_run(tmp_path), ax)
 
     try:
         note = ax.texts[0].get_text()
@@ -684,8 +682,9 @@ def test_bracket_trace_names_the_closed_bracket(mpl) -> None:
         mpl.close(fig)
 
 
-def test_bracket_trace_names_the_failure_when_no_sign_change(mpl) -> None:
+def test_bracket_trace_names_the_failure_when_no_sign_change(mpl, tmp_path) -> None:
     run = _session_run(
+        tmp_path,
         [1e-5, 1e-4, 1e-3],
         [
             {"D_so": 0.0, "D_os": 0.0, "J_signed": 300.0},
@@ -705,8 +704,9 @@ def test_bracket_trace_names_the_failure_when_no_sign_change(mpl) -> None:
         mpl.close(fig)
 
 
-def test_bracket_trace_keeps_a_failed_evaluation_on_the_zero_line(mpl) -> None:
+def test_bracket_trace_keeps_a_failed_evaluation_on_the_zero_line(mpl, tmp_path) -> None:
     run = _session_run(
+        tmp_path,
         [1e-5, 1e-4, 1e-3],
         [
             {"D_so": 0.0, "D_os": 0.0, "J_signed": 300.0},
@@ -729,12 +729,13 @@ def test_bracket_trace_keeps_a_failed_evaluation_on_the_zero_line(mpl) -> None:
         mpl.close(fig)
 
 
-def test_bracket_trace_keeps_every_marker_clear_of_its_note(mpl) -> None:
+def test_bracket_trace_keeps_every_marker_clear_of_its_note(mpl, tmp_path) -> None:
     # Example 04: trial 7 of the steady bisection sits at -1468 m, the lowest
     # residual, and the note in the lower left corner covered its marker.
     from ._calibration_journal import STEADY_J, STEADY_K
 
     run = _session_run(
+        tmp_path,
         STEADY_K,
         [{"D_so": 0.0, "D_os": 0.0, "J_signed": residual} for residual in STEADY_J],
     )
@@ -762,15 +763,7 @@ def test_bracket_trace_keeps_every_marker_clear_of_its_note(mpl) -> None:
 
 
 def _two_root_run(tmp_path):
-    from ._calibration_journal import (
-        K_BOUNDS,
-        TWO_ROOT_CONFIG,
-        TWO_ROOTS,
-        journal_run,
-        two_root_rows,
-    )
-
-    return journal_run(
+    return journal_session(
         tmp_path,
         two_root_rows(),
         method="bisection",
@@ -826,12 +819,8 @@ def test_bracket_trace_draws_both_residuals_both_brackets_and_each_root(mpl, tmp
         mpl.close(fig)
 
 
-def test_crossing_labels_the_parameter_with_the_unit_the_session_declared(mpl) -> None:
-    run = _crossing_run()
-    run.calibration_iterations["parameters"] = [
-        {"K": {"value": block["K_over_R"]["value"], "units": "m/s"}}
-        for block in run.calibration_iterations["parameters"]
-    ]
+def test_crossing_labels_the_parameter_with_the_unit_the_session_declared(mpl, tmp_path) -> None:
+    run = _crossing_run(tmp_path, parameter="K", block={"units": "m/s"})
     fig, ax = mpl.subplots()
 
     DownslopeDistanceCrossingFigure().render(run, ax)
@@ -904,7 +893,6 @@ class TestTheHeavyRebuildIsShared:
 
     def test_a_run_that_cannot_be_weakly_referenced_is_simply_not_cached(self) -> None:
         # A speed difference, never an answer difference.
-        from types import SimpleNamespace
 
         from hydromodpy.results.derive.run_memo import RunMemo
 
@@ -985,7 +973,7 @@ class TestTheLegendDoesNotSearchOnADenseMap:
 # --------------------------------------------------------------------------- #
 
 
-def _storage_stage_run() -> SimpleNamespace:
+def _storage_stage_run(project: Path) -> Session:
     """The second stage of a staged calibration: a cost per trial, nothing else.
 
     It promotes a run of its own, so the figures listed for the whole file are
@@ -999,24 +987,13 @@ def _storage_stage_run() -> SimpleNamespace:
             "cost": 0.2 + 0.01 * index,
             "status": "completed",
         }
-        for index, value in enumerate((0.05, 0.08))
+        for index, value in enumerate((0.05, 0.08), start=1)
     ]
-    return SimpleNamespace(
-        sim_id="sim-storage",
-        name="storage-stage",
-        solver="modflow6",
-        has_table=lambda _name: True,
-        has_field=lambda _name: True,
-        calibration_iterations=pd.DataFrame(rows),
-    )
+    return journal_session(project, rows, name="storage-stage")
 
 
-def _available_run(diagnostics: list[dict[str, float]]) -> SimpleNamespace:
-    run = _session_run([1e-4, 1e-3], diagnostics)
-    run.solver = "modflow6"
-    run.has_table = lambda _name: True
-    run.has_field = lambda _name: True
-    return run
+def _available_run(project: Path, diagnostics: list[dict[str, float]]) -> Session:
+    return _session_run(project, [1e-4, 1e-3], diagnostics)
 
 
 @pytest.mark.parametrize(
@@ -1026,10 +1003,12 @@ def _available_run(diagnostics: list[dict[str, float]]) -> SimpleNamespace:
         (DownslopeDistanceCrossingFigure(), "D_so"),
     ],
 )
-def test_a_stage_without_the_diagnostic_reports_itself_unavailable(figure, diagnostic) -> None:
+def test_a_stage_without_the_diagnostic_reports_itself_unavailable(
+    figure, diagnostic, tmp_path
+) -> None:
     # Raising here instead cost a converged stage its promoted run: the display
     # step could only read a render failure, and on_error = "raise" propagated it.
-    reason = figure.unavailable_reason(_storage_stage_run())
+    reason = figure.unavailable_reason(_storage_stage_run(tmp_path))
 
     assert reason is not None
     assert diagnostic in reason
@@ -1051,5 +1030,5 @@ def test_a_stage_without_the_diagnostic_reports_itself_unavailable(figure, diagn
         ),
     ],
 )
-def test_the_stage_that_published_them_stays_available(figure, diagnostics) -> None:
-    assert figure.unavailable_reason(_available_run(diagnostics)) is None
+def test_the_stage_that_published_them_stays_available(figure, diagnostics, tmp_path) -> None:
+    assert figure.unavailable_reason(_available_run(tmp_path, diagnostics)) is None

@@ -114,9 +114,6 @@ def time_grid_boundaries(ctx: Any) -> tuple[Any, ...] | None:
     return tuple(boundaries)
 
 
-_RUNOFF_WARNING_EMITTED: set[int] = set()
-
-
 def _station_runoff_mm_per_day(points: Any) -> pd.Series | None:
     """Return the mean of the runoff station series, in mm/day, or None."""
     series_list: list[pd.Series] = []
@@ -153,14 +150,6 @@ def _gridded_runoff_mm_per_day(runoff: Any) -> pd.Series | None:
     return pd.Series(series.to_numpy(dtype="float64"), index=idx)
 
 
-def _warn_once_without_runoff(ctx: Any, message: str) -> None:
-    """Log one runoff warning per loaded-data context."""
-    ctx_id = id(getattr(ctx, "loaded_data", None))
-    if ctx_id not in _RUNOFF_WARNING_EMITTED:
-        logger.warning(message)
-        _RUNOFF_WARNING_EMITTED.add(ctx_id)
-
-
 def add_runoff_to_discharge(
     simulated: pd.Series,
     ctx: Any,
@@ -175,7 +164,7 @@ def add_runoff_to_discharge(
     discharge reads. :func:`~hydromodpy.core.time.period_aggregation.runoff_m3_s_on_index`
     turns that rate into ``m³/s``, by the rule the derived catchment discharge also
     calls, on the catchment area read from the geographic runtime. When no runoff is
-    loaded, a one-shot warning is emitted and the baseflow is returned unchanged.
+    loaded, each call logs a warning and returns the baseflow unchanged.
 
     ``area_m2`` overrides that catchment area, which is what a gauge away from
     the outlet needs: it sees the runoff of the area it drains, not of the whole
@@ -190,8 +179,7 @@ def add_runoff_to_discharge(
     points = getattr(runoff, "points", None) if runoff is not None else None
     fields = getattr(runoff, "fields", None) if runoff is not None else None
     if not points and not fields:
-        _warn_once_without_runoff(
-            ctx,
+        logger.warning(
             "calibration discharge: no runoff data loaded — comparing "
             "DRN baseflow only against total streamflow observations. "
             "Add 'runoff' to [data.types] for an apples-to-apples fit.",
@@ -215,8 +203,7 @@ def add_runoff_to_discharge(
     else:
         runoff_mm_per_d = _gridded_runoff_mm_per_day(runoff)
         if runoff_mm_per_d is None:
-            _warn_once_without_runoff(
-                ctx,
+            logger.warning(
                 "calibration discharge: the gridded runoff could not be reduced to a "
                 "watershed mean — comparing DRN baseflow only against total streamflow "
                 "observations.",
@@ -238,8 +225,7 @@ def add_runoff_to_discharge(
     # discharge, and the score drops the pair.
     n_missing = int(runoff_m3_per_s.isna().sum())
     if n_missing:
-        _warn_once_without_runoff(
-            ctx,
+        logger.warning(
             f"calibration discharge: {n_missing} of {len(runoff_m3_per_s)} periods "
             "have no runoff sample and are left out of the score.",
         )

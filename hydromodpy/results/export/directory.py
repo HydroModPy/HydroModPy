@@ -75,7 +75,7 @@ _RUN_FORMAT_MEDIA_TYPES: dict[str, str] = {
 }
 """The ``format`` labels of a run manifest that name a type the table holds.
 
-Any other label, a figure's ``png`` included, is written as an octet stream:
+Any other label is written as an octet stream:
 the run manifest records a suffix, not a type, and a view does not guess one.
 """
 
@@ -278,8 +278,6 @@ def _stac_role(role: str) -> str:
     """Map a run artifact role onto the STAC asset role vocabulary."""
     if role in ("fields", "data") or role.startswith("table:"):
         return "data"
-    if role == "figure":
-        return "visual"
     return "metadata"
 
 

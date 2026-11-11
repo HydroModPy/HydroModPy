@@ -378,13 +378,18 @@ class Drawer:
         return self._runs[name]
 
     def can_draw(self, name: str, figure: str, **extra) -> str | None:
-        """Return why ``figure`` cannot be drawn from run ``name``, or None."""
-        from hydromodpy.display.runs import _get_figure
+        """Return why ``figure`` cannot be drawn from run ``name``, or None.
+
+        The subject is resolved as ``render_figure`` resolves it: a session figure
+        reads the session that promoted the run.
+        """
+        from hydromodpy.display.runs import _get_figure, _reason_for, _subject_for
 
         sim = self.run(name)
         if sim is None:
             return f"run {name} does not exist"
-        return _get_figure(figure).unavailable_reason(sim)
+        fig = _get_figure(figure)
+        return _reason_for(fig, _subject_for(fig, sim))
 
     def draw(
         self,

@@ -60,7 +60,8 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "HMP_BIN",
         "``bin/`` under the cache folder",
         "user",
-        "Folder of the solver binaries. Replaces the managed folder under ``HMP_CACHE_HOME``.",
+        "Folder of the solver binaries, read by every run and never written by one. "
+        "``hmp install-binaries`` fills it when it is set.",
     ),
     EnvVar(
         "HMP_CACHE_HOME",
@@ -169,13 +170,6 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "dev",
         "Output root of the validation cases and of the investigation scripts under "
         "``tools/``. The validation results land under ``<HMP_OUT_PATH>/validation``.",
-    ),
-    EnvVar(
-        "HMP_OVERVIEW_HTML_REVIEW_LEVELS",
-        "unset",
-        "dev",
-        "``1``, ``true``, ``yes`` or ``on`` also writes the review pages of the data "
-        "overview report (compact, standard, audit) and links them.",
     ),
     EnvVar(
         "HMP_PANDERA_STRICT",

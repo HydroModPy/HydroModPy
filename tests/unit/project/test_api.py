@@ -288,7 +288,7 @@ def test_the_preflight_waits_for_a_key_to_fill(
 
 
 def test_a_sites_project_gives_its_issues_at_the_key_they_reach(tmp_path: Path) -> None:
-    from tests.unit.project.launch.test_sites_plan import write_sites_project
+    from tests.unit.project.launch.test_plan import write_sites_project
 
     project = write_sites_project(tmp_path, k_cells=("5e-5", "not_a_number"))
 
@@ -303,7 +303,7 @@ def test_a_sites_project_gives_its_issues_at_the_key_they_reach(tmp_path: Path) 
 
 
 def test_a_sound_sites_project_has_no_error(tmp_path: Path) -> None:
-    from tests.unit.project.launch.test_sites_plan import write_sites_project
+    from tests.unit.project.launch.test_plan import write_sites_project
 
     project = write_sites_project(tmp_path)
 
@@ -313,7 +313,7 @@ def test_a_sound_sites_project_has_no_error(tmp_path: Path) -> None:
 def test_a_sites_project_reads_the_inputs_of_its_cases_once_each(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from tests.unit.project.launch.test_sites_plan import write_sites_project
+    from tests.unit.project.launch.test_plan import write_sites_project
 
     seen: list[dict[str, object]] = []
     unreachable = Diagnostic(
@@ -339,7 +339,7 @@ def test_a_sites_project_reads_the_inputs_of_its_cases_once_each(
 def test_a_sites_project_without_inputs_reads_no_header(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from tests.unit.project.launch.test_sites_plan import write_sites_project
+    from tests.unit.project.launch.test_plan import write_sites_project
 
     monkeypatch.setattr(
         "hydromodpy.config.check.check", lambda *_a, **_k: pytest.fail("no case is checked")

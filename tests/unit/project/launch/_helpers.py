@@ -7,7 +7,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
-import pyarrow as pa
+import pandas as pd
 
 from hydromodpy.results.plan_store import Plan, PlanCase, StoredPlan, read_plan, write_plan
 
@@ -63,7 +63,7 @@ def planned_project(
         )
         for case_id in cases
     ]
-    sites = pa.table({"site": sorted({c.split("-")[0] for c in cases})})
+    sites = pd.DataFrame({"site": sorted({c.split("-")[0] for c in cases})}, dtype=str)
     write_plan(root, plan, sites, plan_cases, tomls)
     return read_plan(root)
 

@@ -87,7 +87,8 @@ nothing. It counts the cases, the solves and the peak of solves running together
 estimates the scratch space.
 
 `hmp project plan .` writes the plan under `plan/<hash>/`: one resolved TOML file per case,
-which replays alone from any folder, and the tables of the sites and the cases. A plan is
+which replays alone from any folder, and `cases.csv`, one row per case with the cells of its
+site. A plan is
 never rewritten in place: an edited table or recipe makes a new hash, and `plan/current`
 names the plan in force. `hmp run` writes the plan itself when the current one is out of
 date.

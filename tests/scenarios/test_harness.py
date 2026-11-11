@@ -145,18 +145,21 @@ def test_a_scenario_needs_one_way_to_run():
         Scenario(name="both", covers="nothing", files={}, argv=("run",), python="pass")
 
 
-@pytest.mark.skipif(not hasattr(os, "symlink"), reason="no symbolic links on this platform")
 def test_binaries_are_linked_one_by_one(tmp_path, monkeypatch):
     machine = tmp_path / "machine"
     machine.mkdir()
     for name in ("mf6", "libmf6.so", "mfnwt"):
-        (machine / name).write_text("", encoding="utf-8")
+        (machine / name).write_text(f"binary {name}", encoding="utf-8")
     (machine / ".manifest.json").write_text("{}", encoding="utf-8")
     monkeypatch.setenv("HMP_BIN", str(machine))
     target = link_binaries(tmp_path / "cache", ("mf6", "libmf6.so"))
     assert sorted(p.name for p in target.iterdir()) == [".manifest.json", "libmf6.so", "mf6"]
-    assert (target / "mf6").is_symlink()
+    assert (target / "mf6").read_text(encoding="utf-8") == "binary mf6"
+    assert not (target / "mf6").is_symlink()
     assert not target.is_symlink()
+    if os.name == "posix":
+        # Linux hard-links the file: same inode as the installed binary.
+        assert (target / "mf6").stat().st_ino == (machine / "mf6").stat().st_ino
     with pytest.raises(pytest.skip.Exception):
         link_binaries(tmp_path / "cache", ("mf6", "mt3dusgs"))
 

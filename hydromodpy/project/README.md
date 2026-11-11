@@ -14,7 +14,7 @@ below is the first line of each module or sub-package docstring.
 |---|---|
 | `accessors.py` | Read-only views of a project, its sessions and its workspace. |
 | `api.py` | The public verbs that the facade `hydromodpy` imports from `project`. |
-| `calibrate.py` | The routing of a calibration: which runner a declaration goes to. |
+| `calibrate.py` | The routing of a calibration: which runner a declaration goes to. `write_session_reports` writes the session reports once the search is over; `report=False` skips it. |
 | `compare.py` | Compare sealed runs of one site: what differs, when, where, against the gauge. |
 | `credentials.py` | The reader of `credentials.toml`, one identity per address prefix. |
 | `data_cache.py` | The data cache seen from a project: the lockfile, and what a prune must keep. |
@@ -27,6 +27,7 @@ below is the first line of each module or sub-package docstring.
 | `launch/` | The launcher of a `[sites]` project: plan, lease, launch, status, collect. |
 | `phases.py` | Model-phase adapter verbs used by `Project`. |
 | `replay.py` | Replay a sealed run or a published copy, and class what it compared. |
+| `report.py` | The reports of a sealed run and of a calibration session: `report_run` and `report_session`. It is the one place that assembles the texts (`results/method.py`, `schema/phrases.py`) and the pages (`display/report/`). |
 | `request.py` | The request of a run: one form for a TOML file, a dict, JSON, a server and Docker. |
 | `run_overrides.py` | The `set=` of a run, as changes of its configuration. |
 | `runner.py` | Run-phase orchestration for `hydromodpy.project.Project`. |

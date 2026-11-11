@@ -39,6 +39,7 @@ from typing import Final
 from hydromodpy.core.exceptions import ConfigError, CredentialsError, ExportError, NetworkError
 from hydromodpy.core.io.fetch import guard_host
 from hydromodpy.core.io.file_digest import sha256_and_size, sha256_of
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.workspace.resolve import find_data_workspace
@@ -578,15 +579,19 @@ def _push_path(
         _make_subfolders(Path(destination.path), relative)
     part = target.with_name(target.name + PART_SUFFIX)
     try:
-        shutil.copyfile(source, part)
-        os.replace(part, target)
-        size = target.stat().st_size
+        # Only Windows needs the long path prefix; elsewhere the paths stay as
+        # given, so a destination that is a symbolic link is replaced itself.
+        part_io: Path | str = native_io_path(part) if os.name == "nt" else part
+        target_io: Path | str = native_io_path(target) if os.name == "nt" else target
+        shutil.copyfile(source, part_io)
+        os.replace(part_io, target_io)
+        size = os.stat(target_io).st_size
         expected = source.stat().st_size
         if size != expected:
             raise OSError(f"{target} holds {size} bytes, not {expected}.")
     except Exception:
         with contextlib.suppress(OSError):
-            part.unlink()
+            os.unlink(native_io_path(part) if os.name == "nt" else part)
         raise
 
 

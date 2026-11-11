@@ -1,9 +1,16 @@
-"""Step 11 - auto-render the figures listed in ``[display].figures``.
+"""Step 13 - auto-render the figures listed in ``[display].figures``, after the seal.
 
-Runs after :class:`DeriveStep` and before :class:`ExportStep`, which seals
-the store. Figures open the store for their own span. Each figure declared
-in the TOML is written into ``runs/<run>/figures/``, stamped with the
-identity of the run and recorded in ``figures/index.json``.
+Runs last, after :class:`SealStep` and the exports that follow it. The
+figures render the sealed run: they open its store on the run directory, as
+``hmp viz show <run>`` does, for their own span. Each figure declared in the
+TOML is written into ``runs/<run>/figures/``, stamped with the identity of
+the run (its label of the day, the rules it follows and the date) and
+recorded in ``figures/index.json``. A session figure draws the calibration
+session that promoted the run.
+
+A figure that fails under ``on_error = "raise"`` leaves the run sealed and
+``completed``: the step raises :class:`~hydromodpy.core.exceptions.DisplayError`
+naming ``hmp viz show <run> <figure>``, which draws it again.
 
 Skipped silently when ``display.enabled`` is false, when ``display.figures``
 is empty, when the run is a kept calibration trial (the ``research`` level,
@@ -28,11 +35,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.console import progress
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, DisplayError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.stopwatch import Measure, measured
 from hydromodpy.results.storage.kept import renders
-from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
+from hydromodpy.workflow.record.run_store import run_is_persisted
 from hydromodpy.workflow.runner import record_measure
 from hydromodpy.workflow.state import PipelineState
 
@@ -52,6 +59,7 @@ def _render_figures_tracked(
     output_dir: Path,
     figure_names: list[str],
     on_measure: Callable[[Measure], None] | None = None,
+    run_name: str | None = None,
 ) -> list[Path]:
     """Render figures one at a time so the progress bar advances per figure.
 
@@ -59,6 +67,9 @@ def _render_figures_tracked(
     warning aside); this emits a single summary line for the whole batch,
     naming every requested figure that produced nothing. ``on_measure`` receives
     the time of each figure once it ends, a figure that failed included.
+    ``run_name`` names a sealed run: a figure that raises is raised again as a
+    :class:`DisplayError` that says the run is sealed and how to draw the
+    figure again.
     """
     from hydromodpy.display.runs import (
         FigureRenderReport,
@@ -68,15 +79,25 @@ def _render_figures_tracked(
 
     report = FigureRenderReport()
     for figure_name in progress.track(figure_names, "Rendering figures"):
-        with measured("figure", figure_name) as measure:
-            report = report.merged_with(
-                render_figures_for_run(
-                    run,
-                    display_cfg,
-                    output_dir=output_dir,
-                    figure_names=[figure_name],
+        try:
+            with measured("figure", figure_name) as measure:
+                report = report.merged_with(
+                    render_figures_for_run(
+                        run,
+                        display_cfg,
+                        output_dir=output_dir,
+                        figure_names=[figure_name],
+                    )
                 )
-            )
+        except Exception as exc:
+            if on_measure is not None:
+                on_measure(measure)
+            if run_name is None:
+                raise
+            raise DisplayError(
+                f"run {run_name} is sealed; draw the figure again with "
+                f"hmp viz show {run_name} {figure_name}: {exc}"
+            ) from exc
         if on_measure is not None:
             on_measure(measure)
     log_render_summary(report, destination=output_dir)
@@ -84,7 +105,7 @@ def _render_figures_tracked(
 
 
 class DisplayStep:
-    """Render the figures declared in ``[display].figures`` before export."""
+    """Render the figures declared in ``[display].figures`` from the sealed run."""
 
     name = "display"
     reads: ClassVar[tuple[str, ...]] = (
@@ -98,7 +119,7 @@ class DisplayStep:
     config_sections: ClassVar[tuple[str, ...]] = ("display",)
 
     def depends_on(self) -> tuple[str, ...]:
-        return ("derive",)
+        return ("seal",)
 
     def rebuild_state(
         self,
@@ -157,16 +178,19 @@ class DisplayStep:
                 )
             else:
                 from hydromodpy.results.run import Run
+                from hydromodpy.workflow.steps.export import sealed_run_name, sealed_run_store
 
-                with run_store(ctx) as store:
+                run_dir = Path(ctx.run_dir)
+                with sealed_run_store(ctx) as store:
                     sim = Run(sim_id, store)
-                    out_dir = figures_dir_of(Path(ctx.run_dir))
+                    out_dir = figures_dir_of(run_dir)
                     rendered = _render_figures_tracked(
                         sim,
                         display_cfg,
                         output_dir=out_dir,
                         figure_names=list(display_cfg.figures),
                         on_measure=partial(record_measure, ctx.run_dir, attempt=ctx.attempt),
+                        run_name=sealed_run_name(run_dir),
                     )
                 if rendered:
                     logger.debug(
