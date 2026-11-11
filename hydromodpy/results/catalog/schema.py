@@ -56,7 +56,7 @@ class SchemaDiscoveryMixin:
 
     def metrics(self) -> list[str]:
         """Distinct metric names recorded in the catalog."""
-        rows = self._rows("SELECT DISTINCT metric_name FROM metrics ORDER BY metric_name")
+        rows = self._rows("SELECT DISTINCT metric FROM metrics ORDER BY metric")
         return [str(r[0]) for r in rows]
 
     def stations(self) -> list[str]:

@@ -64,6 +64,78 @@ def test_reading_an_opened_project_never_configures_it(
 
 
 @pytest.mark.fast
+def test_a_held_index_lock_costs_a_warning_and_keeps_the_open_handle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import hydromodpy.results.catalog.indexer as indexer
+    from hydromodpy.core.exceptions import WriteConflictError
+
+    project = make_project(tmp_path / "p")
+    seal_run(project, "baseline")
+
+    with open_project(project / "project.toml") as proj:
+        first = proj._index()
+
+        def held(root: Path, **_kwargs: object) -> None:
+            raise WriteConflictError("The index is being written by process 1.")
+
+        monkeypatch.setattr(indexer, "index_new_runs", held)
+        with caplog.at_level("WARNING"):
+            assert proj._index() is first
+        assert "Index not refreshed" in caplog.text
+
+
+@pytest.mark.fast
+def test_a_first_read_under_a_held_index_lock_opens_the_published_index_at_once(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    import time
+
+    from hydromodpy.core.io.lock_file import LockFile
+    from hydromodpy.results.catalog.index_file import index_lock_path
+
+    project = make_project(tmp_path / "p")
+    seal_run(project, "baseline")
+    with open_project(project / "project.toml") as proj:
+        assert list(proj.cases["rel_dir"]) == ["runs/baseline"]
+    seal_run(project, "second")
+
+    writer = LockFile(index_lock_path(project))
+    assert writer.acquire() is True
+    try:
+        with open_project(project / "project.toml") as proj, caplog.at_level("WARNING"):
+            started = time.monotonic()
+            rel_dirs = list(proj.cases["rel_dir"])
+            assert time.monotonic() - started < 10
+        assert "runs/baseline" in rel_dirs
+        assert "Index not refreshed" in caplog.text
+    finally:
+        writer.release()
+
+
+@pytest.mark.fast
+def test_project_publish_copies_the_summary_and_takes_no_with(tmp_path: Path) -> None:
+    import inspect
+    import json
+
+    project = make_project(tmp_path / "p")
+    (project / "summary").mkdir()
+    (project / "summary" / "notes.md").write_text("# Summary\n", encoding="utf-8")
+
+    with open_project(project / "project.toml") as proj:
+        assert "with_" not in inspect.signature(proj.publish).parameters
+        with pytest.raises(TypeError):
+            proj.publish(tmp_path / "refused", with_=("results",))  # type: ignore[call-arg]
+        copy = proj.publish(tmp_path / "copy")
+
+    assert (copy / "notes.md").read_text(encoding="utf-8") == "# Summary\n"
+    publication = json.loads((copy / "PUBLICATION.json").read_text(encoding="utf-8"))
+    assert publication["kind"] == "summary"
+    assert publication["with"] == []
+    assert not (tmp_path / "refused").exists()
+
+
+@pytest.mark.fast
 def test_the_first_model_read_configures_from_project_toml_once(
     tmp_path: Path, configure_calls: list[Path]
 ) -> None:

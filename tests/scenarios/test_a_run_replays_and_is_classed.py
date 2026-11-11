@@ -128,9 +128,9 @@ def test_a_run_replays_and_is_classed(
     assert played.source_version == "2.0.0rc1"
     # Measured on the stored values of both directories, every table included and
     # the wall-clock row of metrics left out: the frozen demo is exact, so its
-    # replay reproduces it. The two final_state arrays are what the 2.0.0 could
-    # not write; they are listed and do not make a deviation.
+    # replay reproduces it. The two final_state arrays and the open water mask are
+    # what the 2.0.0 did not write; they are listed and do not make a deviation.
     assert played.class_ == "bit", played.model_dump(mode="json", by_alias=True)
     assert played.differs == {}
     assert played.removed == []
-    assert played.added == ["final_state/head", "final_state/lake_stage"]
+    assert played.added == ["fields/mesh/open_water", "final_state/head", "final_state/lake_stage"]

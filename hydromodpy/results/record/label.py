@@ -78,7 +78,8 @@ def label_of(seal: RunSeal | RunRecord, run_dir: str | Path) -> LabelResult:
     *run_dir* is the folder of the run. A run has metrics for the register when its
     headline score holds a value, and a source for each one its sealed
     ``config.toml`` declares, and a start token for how its heads start. A run
-    without that file declares none.
+    without that file declares none. The flow regime of the seal tells a steady
+    run, whose single state is scored by the cost of its session.
     """
     score = seal.score
     config = Path(run_dir) / RUN_CONFIG_FILENAME
@@ -96,6 +97,7 @@ def label_of(seal: RunSeal | RunRecord, run_dir: str | Path) -> LabelResult:
             sources=sources,
             starts=starts,
         ),
+        flow_regime=seal.run.flow_regime,
     )
 
 

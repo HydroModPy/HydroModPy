@@ -62,7 +62,7 @@ import numpy as np
 import pyproj
 import pytest
 
-from hydromodpy.results.derive.stream.geometry import neighbour_spacing_m
+from hydromodpy.catchment.stream_network.geometry import neighbour_spacing_m
 from tests._helpers.tolerances import tol
 from tests.validation.calibration.helpers import (
     MODFLOW6_RUNTIME_TOML,

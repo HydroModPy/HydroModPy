@@ -37,6 +37,13 @@ from hydromodpy.calibration.config import (
 from hydromodpy.calibration.optim.optimizer import announced_optimizers, optimizers
 from hydromodpy.calibration.protocols import options_the_recipe_already_runs
 from hydromodpy.catchment.drainage.distance import build_downslope_metric
+from hydromodpy.catchment.stream_network.extent import (
+    dry_steps,
+    flowing_steps,
+    parse_extent_duration,
+)
+from hydromodpy.catchment.stream_network.geometry import build_network_geometry
+from hydromodpy.catchment.stream_network.network import build_simulated_network
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.exceptions import ConfigValidationError
@@ -50,9 +57,6 @@ from hydromodpy.results.derive.stream.criterion_settings import (
     DEFAULT_EXTENT_RULES,
     network_criterion_settings,
 )
-from hydromodpy.results.derive.stream.extent import dry_steps, flowing_steps, parse_extent_duration
-from hydromodpy.results.derive.stream.geometry import build_network_geometry
-from hydromodpy.results.derive.stream.network import build_simulated_network
 from hydromodpy.results.derive.stream.routing_surface import routing_surface_from_run
 from hydromodpy.results.derive.stream.run_extent import network_extents_from_run
 from hydromodpy.results.metric_rule import MetricsWindow

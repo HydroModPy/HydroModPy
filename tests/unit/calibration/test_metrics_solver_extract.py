@@ -68,12 +68,12 @@ from hydromodpy.calibration.observations.observed_network import ObservedNetwork
 from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.catchment.drainage.descent import DescentBasin
 from hydromodpy.catchment.drainage.distance import resolve_outlet
+from hydromodpy.catchment.stream_network.geometry import build_network_geometry
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObjectiveError, ObservableNotAvailableError
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.results.derive.stream.geometry import build_network_geometry
 from hydromodpy.solver.base.cell_lookup import (
     locate_cell_on_solver_mesh,
     top_active_layer_on_solver_mesh,

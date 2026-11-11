@@ -1,6 +1,6 @@
 """The bridge between one run and the static geometry of its stream criterion.
 
-The construction itself lives in :mod:`hydromodpy.results.derive.stream.geometry`, so the
+The construction itself lives in :mod:`hydromodpy.catchment.stream_network.geometry`, so the
 criterion and the results layer that redraws a run afterwards share one
 derivation. What is left here is what only a calibration knows: which model a
 trial produced, what recharge it received, and where its mapped network was
@@ -10,21 +10,26 @@ declared.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
-from hydromodpy.core.logging import get_logger
-from hydromodpy.mesh.planar.geometry import padded_rows
-from hydromodpy.model.forcing.recharge_rates import mean_recharge_m_s
-from hydromodpy.results.derive.stream.geometry import NetworkGeometry, build_network_geometry
-from hydromodpy.results.derive.stream.heads import (
+from hydromodpy.catchment.stream_network.geometry import (
+    NetworkGeometry,
+    build_network_geometry,
+    open_water_mask,
+    share_outside,
+)
+from hydromodpy.catchment.stream_network.heads import (
     HeadsSettings,
     concat_candidates,
     trace_from_heads,
 )
+from hydromodpy.core.logging import get_logger
+from hydromodpy.mesh.planar.geometry import padded_rows
+from hydromodpy.model.forcing.recharge_rates import mean_recharge_m_s
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibOutputNetwork
@@ -134,16 +139,6 @@ def union_projection(
     )
 
 
-def share_outside(inner: np.ndarray, outer: np.ndarray, within: np.ndarray) -> float:
-    """Return the share of ``inner`` cells of ``within`` that ``outer`` misses, NaN if none."""
-    inside = np.asarray(inner, dtype=bool).reshape(-1) & np.asarray(within, dtype=bool).reshape(-1)
-    total = int(inside.sum())
-    if total == 0:
-        return float("nan")
-    missed = inside & ~np.asarray(outer, dtype=bool).reshape(-1)
-    return float(missed.sum() / total)
-
-
 def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> NetworkMaps:
     """Build the static geometry of every map the output declares, from the model a trial ran.
 
@@ -175,7 +170,6 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
         delineated_outlet_xy,
         observed_network_mask,
         resolve_minimal_network,
-        water_body_mask,
     )
 
     model = run_ctx.solver_run.solver_model
@@ -219,7 +213,9 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     vertices = np.asarray(planar_mesh.vertices, dtype=float)
     areas = np.asarray(solver_mesh.cell_areas(), dtype=float).reshape(-1)
     recharge = mean_recharge_m_s(model)
-    excluded = water_body_mask(model, n_cells=int(solver_mesh.n_cells))
+    excluded = open_water_mask(
+        getattr(model, "open_water_cell_ids", None), int(solver_mesh.n_cells)
+    )
     polygon = delineated_catchment_mask(run_ctx, planar_mesh, connectivity)
     outline = catchment_outline_mask(run_ctx, planar_mesh, connectivity)
     outlet_xy = delineated_outlet_xy(run_ctx)
@@ -297,7 +293,7 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     union = union_projection(projection, minimal_projection)
     maximal = on_map(union.mask)
     minimal = on_map(minimal_projection.mask)
-    outside = share_outside(minimal_projection.mask, projection.mask, maximal.catchment)
+    outside = share_outside(minimal_projection.mask, projection.mask, maximal)
     if np.isfinite(outside) and outside > 0.0:
         logger.warning(
             "The minimal map holds %.1f%% of its catchment cells outside the maximal map. "
@@ -350,7 +346,7 @@ def _heads_maps(
 
     settings = heads_settings(output)
     dam_foot = dam_foot_cells_of_model(run_ctx.solver_run.solver_model)
-    candidates = replace(observed_head_candidates(run_ctx, resolved), forced_cells=dam_foot)
+    candidates = observed_head_candidates(run_ctx, resolved, dam_foot=dam_foot)
     if minimal_source is None:
         maximal = on_map(heads=(candidates, settings))
         return NetworkMaps(
@@ -358,13 +354,11 @@ def _heads_maps(
             maximal_source=resolved,
             maximal_projection=ObservedNetworkMask(mask=maximal.observed, rasterization="heads"),
         )
-    minimal_candidates = replace(
-        observed_head_candidates(run_ctx, minimal_source), forced_cells=dam_foot
-    )
+    minimal_candidates = observed_head_candidates(run_ctx, minimal_source, dam_foot=dam_foot)
     maximal = on_map(heads=(concat_candidates(candidates, minimal_candidates), settings))
     minimal = on_map(heads=(minimal_candidates, settings))
     own = trace_from_heads(maximal.metric, candidates, cell_area_m2=cell_area_m2, settings=settings)
-    outside = share_outside(minimal.observed, own.traced, maximal.catchment)
+    outside = share_outside(minimal.observed, own.traced, maximal)
     if np.isfinite(outside) and outside > 0.0:
         logger.warning(
             "The minimal map traces %.1f%% of its catchment cells outside the trace of the "
@@ -413,5 +407,4 @@ __all__ = (
     "heads_settings",
     "mesh_cell_m",
     "network_maps_from_run",
-    "share_outside",
 )

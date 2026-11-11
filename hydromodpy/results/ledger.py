@@ -7,7 +7,10 @@ run. What cannot be recovered is how it was made: by which producer, with
 which options, under which version, and what the run was called that day.
 The ledger keeps one entry per file so ``hmp export --regen`` replays it, and so a reader knows what a file is
 without opening it. :func:`record_derived_file` adds the entry of a file a
-figure or an export just wrote, under a lock on its directory.
+figure or an export just wrote, under ``index.json.lock`` beside it: a
+:class:`~hydromodpy.core.io.lock_file.LockFile` that names its process, its
+host and its date, taken back when that process died on this host or after
+60 s. The same lock holds on every system.
 
 Format
 ------
@@ -20,7 +23,6 @@ file the ledger already names replaces it: one file, one entry.
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -31,8 +33,10 @@ from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import dump_stored, read_stored
+from hydromodpy.core.exceptions import WriteConflictError
 from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.io.file_digest import sha256_of
+from hydromodpy.core.io.lock_file import LockFile
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.storage.contract import LEDGER_FILENAME
@@ -45,6 +49,15 @@ LEDGER_VERSIONS: Final[VersionWindow] = VersionWindow(
     oldest="hydromodpy.ledger.v1", current=LEDGER_SCHEMA
 )
 """Versions of the document this code reads."""
+
+LEDGER_LOCK_SUFFIX: Final[str] = ".lock"
+"""Suffix of the lock file, beside the ledger."""
+
+LEDGER_LOCK_STALE_S: Final[float] = 60.0
+"""Age past which the lock of a ledger is stale. Reading and writing a ledger lasts milliseconds."""
+
+LEDGER_LOCK_WAIT_S: Final[float] = 90.0
+"""How long a writer waits. Longer than the staleness, so a lock left behind is always taken back."""
 
 
 class LedgerEntry(HydroModelBase):
@@ -143,33 +156,42 @@ def record_derived_file(
         sha256=sha256_of(target),
         identity=identity,
     )
-    with _locked(root):
+    with _locked(root) as lock:
         ledger = Ledger.read(root)
         ledger.append(entry)
+        if not lock.still_held():
+            raise WriteConflictError(
+                f"The lock of the ledger {ledger_path(root)} was taken back while "
+                f"{target.name} was recorded. Record it again.",
+                ledger=str(ledger_path(root)),
+            )
         ledger.write(root)
     return entry
 
 
 @contextmanager
-def _locked(directory: Path) -> Iterator[None]:
-    """Hold an exclusive lock on *directory* while a ledger is read, changed and written.
+def _locked(directory: Path) -> Iterator[LockFile]:
+    """Hold the lock of the ledger of *directory* while it is read, changed and written.
 
     Two writers would otherwise read the same ledger and the later write would
-    drop the entry of the earlier one. Where ``fcntl`` is missing (Windows) no
-    lock is taken.
+    drop the entry of the earlier one.
     """
+    path = ledger_path(directory)
+    lock = LockFile(
+        path.with_name(f"{path.name}{LEDGER_LOCK_SUFFIX}"),
+        stale_after_s=LEDGER_LOCK_STALE_S,
+        wait_s=LEDGER_LOCK_WAIT_S,
+    )
+    if not lock.acquire():
+        raise WriteConflictError(
+            f"The ledger {path} is being written by another process past "
+            f"{LEDGER_LOCK_WAIT_S:.0f} s. Remove {lock.path.name} once that process is gone.",
+            ledger=str(path),
+        )
     try:
-        import fcntl
-    except ImportError:
-        yield
-        return
-    directory.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(directory, os.O_RDONLY)
-    try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
-        yield
+        yield lock
     finally:
-        os.close(descriptor)
+        lock.release()
 
 
 __all__ = ["LEDGER_SCHEMA", "Ledger", "LedgerEntry", "ledger_path", "record_derived_file"]

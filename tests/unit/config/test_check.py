@@ -23,7 +23,7 @@ from pydantic import Field, ValidationError
 from pydantic_core.core_schema import ErrorType
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.check import CHECK_CODES, LANGUAGES, check, phrase
+from hydromodpy.config.check import CHECK_CODES, check, phrase
 from hydromodpy.config.config_migration import migrate_config_doc
 from hydromodpy.config.section_loader import PYDANTIC_CODES, code_of, severity_of
 from hydromodpy.core.config_kit.base import HydroModelBase
@@ -34,6 +34,7 @@ from hydromodpy.core.state.result_dirs import is_sealed_run_config
 from hydromodpy.core.toml_io.loader import config_base_dir, merge_toml_chain, read_toml_chain
 from hydromodpy.core.toml_io.paths import bare_name_refusal
 from hydromodpy.schema.changes import prerelease_refusal
+from hydromodpy.schema.phrases import LANGS
 from tests._helpers.fake_solvers import fake_adapter
 
 REPO = Path(__file__).resolve().parents[3]
@@ -473,7 +474,7 @@ def test_a_check_of_display_imports_no_figure_module(tmp_path: Path) -> None:
 def test_there_are_twenty_two_codes_each_with_a_phrase_in_both_languages() -> None:
     assert len(CHECK_CODES) == 22
     for code in CHECK_CODES:
-        for lang in LANGUAGES:
+        for lang in LANGS:
             assert phrase(code, lang).strip(), (code, lang)
 
 

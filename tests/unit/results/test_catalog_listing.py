@@ -127,11 +127,49 @@ def test_show_simulation_detail_adds_the_zarr_layout(tmp_path: Path) -> None:
     assert payload["zarr_exists"] is False
 
 
-def test_show_simulation_without_an_index_raises(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "demo")
+def test_show_simulation_lists_the_latest_copy_of_each_destination(tmp_path: Path) -> None:
+    _workspace, project, _sim_id = _seed_workspace(tmp_path)
+    run_dir = project / "runs" / "baseline"
+    for day, to in ((9, "/data/a"), (10, "/data/b"), (11, "/data/a")):
+        append_published(
+            run_dir,
+            PublishedLine(
+                kind="copy",
+                to=to,
+                format="dir",
+                publication_sha256="b" * 64,
+                published_at=datetime(2026, 11, day, tzinfo=UTC),
+            ),
+        )
 
-    with pytest.raises(FileNotFoundError, match="reindex"):
-        show_simulation("baseline", workspace=project)
+    payload = show_simulation("baseline", workspace=project)
+
+    assert [(entry["to"], entry["published_at"][:10]) for entry in payload["copies"]] == [
+        ("/data/a", "2026-11-11"),
+        ("/data/b", "2026-11-10"),
+    ]
+
+
+def test_show_simulation_without_a_copy_lists_none(tmp_path: Path) -> None:
+    _workspace, project, _sim_id = _seed_workspace(tmp_path)
+
+    assert show_simulation("baseline", workspace=project)["copies"] == []
+
+
+def test_opening_a_project_without_an_index_builds_it(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "demo")
+    seal_run(project, "baseline")
+    assert not (project / ".hmp" / "index.duckdb").exists()
+
+    payload = show_simulation("baseline", workspace=project)
+
+    assert payload["rel_dir"] == "runs/baseline"
+    assert (project / ".hmp" / "index.duckdb").is_file()
+
+
+def test_show_simulation_in_a_folder_that_is_no_project_raises(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="not a project directory"):
+        show_simulation("baseline", workspace=tmp_path / "nowhere")
 
 
 def test_query_catalog_reads_the_views(tmp_path: Path) -> None:

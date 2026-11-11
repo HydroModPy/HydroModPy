@@ -51,7 +51,7 @@ changed. The generated reference lists every key: {doc}`../reference/parameters/
 | Plot functions of `visualization_results` | `hmp viz`, and the `figures` list of `[display]` |
 | Reload a pickle of models | `hmp catalog ls`, `hmp catalog show <run>` and `hmp.read(...)` in Python |
 | Calibration scripts | `hmp calibrate file.toml`, see {doc}`../reference/cli/calibrate` |
-| Copy a folder of results to a colleague | `hmp publish <run> --to <folder> --with inputs` |
+| Copy a folder of results to a colleague | `hmp publish <run> --to <folder>` |
 
 Every command takes `-w <workspace>`, and prints JSON with `--format json`. The full list is in
 {doc}`../reference/cli/index`.

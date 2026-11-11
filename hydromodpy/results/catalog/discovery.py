@@ -490,7 +490,7 @@ class DiscoveryMixin:
             f"SELECT CAST(s.sim_id AS VARCHAR), s.rel_dir, {rule} FROM simulations s "
             "JOIN statuses st ON s.status_id = st.id "
             "JOIN metrics m ON s.sim_id = m.sim_id "
-            "WHERE st.code = 'completed' AND m.metric_name = ? "
+            "WHERE st.code = 'completed' AND m.metric = ? "
             "AND m.value IS NOT NULL AND isfinite(m.value) "
         )
         params: list = [metric]
@@ -617,7 +617,7 @@ class DiscoveryMixin:
                 alias = f"m_{len(joins)}"
                 joins.append(
                     f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
-                    f"AND {alias}.metric_name = ? "
+                    f"AND {alias}.metric = ? "
                     f"AND {RULE_METRIC_SQL.replace('m.', f'{alias}.')}"
                 )
                 join_params.append(metric)
@@ -725,7 +725,7 @@ class DiscoveryMixin:
     def _headline_metrics(self, sid: str) -> dict:
         """Map ``(metric, station, variable)`` to the headline score of run *sid*."""
         rows = self._backend.fetch_all(
-            "SELECT metric_name, station_id, variable, value, "
+            "SELECT metric, station_id, variable, value, "
             "window_start, window_end, n_samples FROM metrics "
             "WHERE sim_id = ? AND window_name = ?",
             [sid, HEADLINE_WINDOW],

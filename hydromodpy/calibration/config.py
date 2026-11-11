@@ -61,6 +61,7 @@ from pydantic import (
     model_validator,
 )
 
+from hydromodpy.catchment.stream_network.extent import parse_extent_duration
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
@@ -83,15 +84,12 @@ from hydromodpy.core.scoring.metric_table import (
     TRIAL_METRIC_NAMES,
 )
 from hydromodpy.core.scoring.stream_defaults import (
+    DEFAULT_VISIBLE_FLOW,
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
-)
-from hydromodpy.core.units import Length
-from hydromodpy.results.derive.stream.extent import (
-    DEFAULT_VISIBLE_FLOW,
-    parse_extent_duration,
     parse_visible_flow,
 )
+from hydromodpy.core.units import Length
 from hydromodpy.schema.changes import prerelease_refusal
 
 
@@ -1527,7 +1525,7 @@ class CalibOutputNetwork(HydroModelBase):
         """Refuse a selector that reads more than one state, and read a date.
 
         The extraction serves ``build_simulated_network``
-        (``hydromodpy/results/derive/stream/network.py``) the one row this names, so 'last',
+        (``hydromodpy/catchment/stream_network/network.py``) the one row this names, so 'last',
         'first' and a date are each scored at the state the file names. 'all' or
         a list would name several states for one mask.
 

@@ -115,7 +115,7 @@ def _metrics_at_rule_station(
 ) -> pd.DataFrame:
     """One ``metric_<name>`` column per metric, read at the station of the run's rule."""
     frame = catalog.backend.query(
-        f"SELECT m.sim_id, m.metric_name, m.value "
+        f"SELECT m.sim_id, m.metric, m.value "
         f"FROM metrics m JOIN simulations s ON s.sim_id = m.sim_id "
         f"WHERE m.sim_id IN ({placeholders}) "
         f"AND m.window_name = ? "
@@ -126,7 +126,7 @@ def _metrics_at_rule_station(
     if frame.empty:
         return frame
     wide = frame.pivot_table(
-        index="sim_id", columns="metric_name", values="value", aggfunc="first"
+        index="sim_id", columns="metric", values="value", aggfunc="first"
     ).reset_index()
     return _prefixed(wide, "metric_")
 

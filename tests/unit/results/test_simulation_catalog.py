@@ -46,6 +46,36 @@ def test_zarr_is_created_at_its_final_path_without_staging(runs):
     assert fields_path.is_dir()
 
 
+class TestOpeningBuildsTheIndex:
+    def test_a_missing_index_is_built_on_open(self, runs):
+        sid = runs.open(project="test_project").sim_id
+        runs.catalog()
+        runs.close_catalog()
+        index = runs.project_root / ".hmp" / "index.duckdb"
+        index.unlink()
+
+        with Catalog(runs.project_root) as catalog:
+            assert _one(catalog, _SIM_SELECT, sid)[:3] == ("test_project", "modflow6", "completed")
+        assert index.is_file()
+
+    def test_an_index_of_another_schema_version_is_rebuilt_on_open(self, runs):
+        import duckdb
+
+        from hydromodpy.results.catalog.index_schema import INDEX_META_TABLE, META_SCHEMA_VERSION
+
+        sid = runs.open(project="test_project").sim_id
+        runs.catalog()
+        runs.close_catalog()
+        index = runs.project_root / ".hmp" / "index.duckdb"
+        with duckdb.connect(str(index)) as conn:
+            conn.execute(
+                f"UPDATE {INDEX_META_TABLE} SET value = '0' WHERE key = ?", [META_SCHEMA_VERSION]
+            )
+
+        with Catalog(runs.project_root) as catalog:
+            assert _one(catalog, _SIM_SELECT, sid)[:3] == ("test_project", "modflow6", "completed")
+
+
 class TestSealAndIndex:
     def test_a_sealed_run_is_indexed_completed(self, runs):
         sid = runs.open(project="test_project").sim_id
@@ -280,8 +310,7 @@ class TestWriteMethods:
         rows = (
             runs.catalog()
             .connection.execute(
-                "SELECT value FROM metrics "
-                "WHERE CAST(sim_id AS VARCHAR) = ? AND metric_name = 'nse'",
+                "SELECT value FROM metrics WHERE CAST(sim_id AS VARCHAR) = ? AND metric = 'nse'",
                 [store.sim_id],
             )
             .fetchall()

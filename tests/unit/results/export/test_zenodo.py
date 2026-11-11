@@ -9,7 +9,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from hydromodpy.results.export.zenodo import ZENODO_UPLOAD_TYPE, zenodo_metadata
+import pytest
+
+from hydromodpy.results.export.zenodo import (
+    ZENODO_UPLOAD_TYPE,
+    zenodo_metadata,
+    zenodo_metadata_of_project,
+)
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.publication import PublicationConfig
 from hydromodpy.results.record.checks import Checks
@@ -185,3 +191,52 @@ def test_the_keywords_of_a_seal_without_a_site_leave_it_out():
 
     assert "kerouer" not in metadata["keywords"]
     assert metadata["keywords"][0] == "HydroModPy"
+
+
+@pytest.mark.parametrize(
+    ("publication", "expected"),
+    [
+        pytest.param(
+            {},
+            {"upload_type": "dataset", "title": "lake", "version": "3"},
+            id="nothing_declared",
+        ),
+        pytest.param(
+            {"license": "etalab-2.0"},
+            {
+                "upload_type": "dataset",
+                "title": "lake",
+                "version": "3",
+                "license": "etalab-2.0",
+            },
+            id="licence_only",
+        ),
+        pytest.param(
+            {"creators": ["Ada L.", "Bo K."]},
+            {
+                "upload_type": "dataset",
+                "title": "lake",
+                "version": "3",
+                "creators": [{"name": "Ada L."}, {"name": "Bo K."}],
+            },
+            id="creators_only",
+        ),
+        pytest.param(
+            {"license": "CC-BY-4.0", "creators": ["Ada L."]},
+            {
+                "upload_type": "dataset",
+                "title": "lake",
+                "version": "3",
+                "creators": [{"name": "Ada L."}],
+                "license": "CC-BY-4.0",
+            },
+            id="both",
+        ),
+    ],
+)
+def test_the_metadata_of_a_project_comes_from_the_publication_table(publication, expected):
+    metadata = zenodo_metadata_of_project(
+        PublicationConfig(**publication), title="lake", version="3"
+    )
+
+    assert metadata == expected

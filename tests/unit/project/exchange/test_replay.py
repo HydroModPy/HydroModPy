@@ -5,8 +5,9 @@ against ``inputs/`` and points the field of each recorded role at those bytes:
 a declared file is read where it is stored, a declared folder is rebuilt from
 the files of the index that sit in it, with its station rows, and never holds
 a station the run did not read. A missing file, bytes with another digest or
-a file a provider delivered refuse the replay before anything runs. The run
-goes to the project ``-w`` names; ``hmp run --frozen`` on the same file is
+a file a provider delivered with other bytes at its destination refuse the replay
+before anything runs. A file a provider delivered is installed by its digest in the
+workspace of the project. The run goes to the project ``-w`` names; ``hmp run --frozen`` on the same file is
 refused and names the verb. The full chain, a solve included, is
 ``tests/e2e/test_replay_from_archive_without_workspace.py``.
 """
@@ -19,7 +20,12 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.helpers import EXIT_CONFIG
-from hydromodpy.core.payload import INSTALL_FILENAME, read_index, stored_name
+from hydromodpy.core.payload import (
+    INSTALL_FILENAME,
+    PayloadConflictError,
+    read_index,
+    stored_name,
+)
 from hydromodpy.project.exchange.replay import (
     ReplayInputError,
     published_copy_of,
@@ -33,6 +39,7 @@ from tests._helpers.run_records import make_record
 from tests.unit.catalog._shared_run import (
     CUSTOM_FILE,
     CUSTOM_LOC,
+    HUBEAU_FILE,
     SERIES,
     UNREAD_FILE,
     make_shared_run,
@@ -131,7 +138,7 @@ def test_a_declared_file_points_at_its_bytes_and_a_folder_is_rebuilt(tmp_path: P
     copy = _published(tmp_path)
     workdir = tmp_path / "work"
 
-    payload = replay_payload(copy, tomllib.loads(_CONFIG), workdir=workdir)
+    payload = replay_payload(copy, tomllib.loads(_CONFIG), workdir=workdir, project_root=tmp_path)
 
     (dem_source,) = payload["data"]["dem"]["sources"]
     dem = Path(dem_source["path"])
@@ -159,18 +166,20 @@ def test_bytes_with_another_digest_or_no_index_refuse_the_replay(tmp_path: Path)
     (copy / INPUTS_DIRNAME / stored_name(dem.sha256, dem.dest)).write_bytes(b"other bytes")
 
     with pytest.raises(ReplayInputError, match="does not have the digest"):
-        replay_payload(copy, tomllib.loads(_CONFIG), workdir=tmp_path / "work")
+        replay_payload(
+            copy, tomllib.loads(_CONFIG), workdir=tmp_path / "work", project_root=tmp_path
+        )
     (copy / INSTALL_FILENAME).unlink()
-    with pytest.raises(ReplayInputError, match="--with inputs"):
-        replay_payload(copy, tomllib.loads(_CONFIG), workdir=tmp_path / "work")
+    with pytest.raises(ReplayInputError, match="published with --without inputs"):
+        replay_payload(
+            copy, tomllib.loads(_CONFIG), workdir=tmp_path / "work", project_root=tmp_path
+        )
 
 
-def test_a_file_a_provider_delivered_refuses_the_replay_and_names_the_import(
-    tmp_path: Path,
-) -> None:
+def _published_with_a_delivered_file(tmp_path: Path) -> Path:
     run_dir = make_shared_run(tmp_path / "ws")
     project = run_dir.parent.parent
-    copy = publish(
+    return publish(
         run_dir,
         tmp_path / "published" / run_dir.name,
         project_root=project,
@@ -178,9 +187,36 @@ def test_a_file_a_provider_delivered_refuses_the_replay_and_names_the_import(
         inputs=inputs_of(project),
     )
 
-    with pytest.raises(ReplayInputError, match="fed by hubeau") as refused:
-        replay_payload(copy, {}, workdir=tmp_path / "work")
-    assert "hmp catalog import" in str(refused.value)
+
+def test_a_file_a_provider_delivered_is_installed_by_its_digest(tmp_path: Path) -> None:
+    copy = _published_with_a_delivered_file(tmp_path)
+    project = make_workspace(tmp_path / "colleague", project="lab")
+    delivered = read_index(copy).file_at(f"data/hydrometry/{HUBEAU_FILE}")
+
+    replay_payload(copy, {}, workdir=tmp_path / "work", project_root=project)
+
+    installed = tmp_path / "colleague" / delivered.dest
+    assert sha256_of(installed) == delivered.sha256
+    assert installed.with_name(installed.name + ".json").is_file()
+    assert (installed.parent / "hydrometry_hubeau_LOC.csv").is_file()
+    assert not (tmp_path / "colleague" / "data" / "dem").exists()
+    assert not (installed.parent / CUSTOM_FILE).exists()
+
+
+def test_a_delivered_file_with_another_digest_at_its_destination_is_refused(
+    tmp_path: Path,
+) -> None:
+    copy = _published_with_a_delivered_file(tmp_path)
+    project = make_workspace(tmp_path / "colleague", project="lab")
+    held = tmp_path / "colleague" / "data" / "hydrometry" / HUBEAU_FILE
+    held.parent.mkdir(parents=True)
+    held.write_text("other bytes\n", encoding="utf-8")
+
+    with pytest.raises(PayloadConflictError, match=HUBEAU_FILE):
+        replay_payload(copy, {}, workdir=tmp_path / "work", project_root=project)
+
+    assert held.read_text(encoding="utf-8") == "other bytes\n"
+    assert sorted(path.name for path in held.parent.iterdir()) == [HUBEAU_FILE]
 
 
 def test_hmp_run_frozen_on_a_copy_is_refused_and_names_the_replay_verb(tmp_path: Path) -> None:
@@ -210,7 +246,7 @@ def test_hmp_replay_of_a_copy_without_its_inputs_is_refused(tmp_path: Path) -> N
     result = CliRunner().invoke(["replay", str(copy), "-q", "-w", str(project)])
 
     assert result.exit_code == EXIT_CONFIG
-    assert "--with inputs" in result.stderr
+    assert "published with --without inputs" in result.stderr
     assert not (project / "runs").exists()
     assert not (project / ".hmp" / "replay").exists()
 
@@ -233,7 +269,6 @@ def test_two_inputs_of_one_role_keep_their_own_bytes(
         {"role": "dem", "path": item.dest, "declared_path": f"{item.dest}"} for item in items
     ]
     monkeypatch.setattr(replay, "checked_index", lambda _copy: index)
-    monkeypatch.setattr(replay, "_refuse_delivered_inputs", lambda *_: None)
     monkeypatch.setattr(manifest, "read_manifest", lambda _copy: {"inputs": entries})
     monkeypatch.setattr(
         publication,

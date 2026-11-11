@@ -38,7 +38,7 @@ from tests._helpers.descent_cases import grid_descent
 from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests.unit.results.stream._heads_dam import (
+from tests.unit.catchment.stream_network._heads_dam import (
     AXIS,
     CELL,
     DAM_FOOT_ROW,

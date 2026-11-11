@@ -57,7 +57,6 @@ from hydromodpy.results.derive.stream.run_extent import (
     FLOW_FIELD,
     NetworkExtents,
     network_extents_from_run,
-    scored_cells,
     unavailable_reason_for_extents,
 )
 
@@ -214,7 +213,7 @@ class NetworkExtentBoundsMap(BaseFigure):
         )
         chosen_year = _chosen_year(extents, year, figure=self.spec.name)
         polygons = face_polygons(sim)
-        scope = scored_cells(extents.geometry) if extent == "catchment" else None
+        scope = extents.scored if extent == "catchment" else None
         if bound == "both":
             handles = _draw_both(ax, polygons, extents, chosen_year, scope)
         else:

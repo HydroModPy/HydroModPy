@@ -17,6 +17,7 @@ from hydromodpy.display.figures.lake_level_sim_obs import LakeStageSimObs
 from hydromodpy.display.figures.piezo_timeseries_sim_obs import PiezoTimeseriesSimObs
 from hydromodpy.display.figures.residuals import Residuals
 from hydromodpy.display.figures.sfr_reach_timeseries import SfrReachTimeseries
+from hydromodpy.results.run.descent import StoredBasin
 from tests._helpers.ugrid_meshes import quad_mesh
 
 # A flux drawn in mm/period is divided by the area of the zone its rows sum over.
@@ -72,7 +73,11 @@ def _budget(zones: tuple[str, ...]) -> pd.DataFrame:
 
 def _run(zones: tuple[str, ...], *, basin: np.ndarray | None = BASIN) -> SimpleNamespace:
     vertices, connectivity = quad_mesh(NROW, NCOL, cell_size=CELL)
-    stored = None if basin is None else (basin, {"basin_rule": "near_point"})
+    stored = (
+        None
+        if basin is None
+        else StoredBasin(mask=basin, area_m2=float(basin.sum()) * CELL**2, rule="near_point")
+    )
     return SimpleNamespace(
         sim_id="sim-zone",
         name="zone",

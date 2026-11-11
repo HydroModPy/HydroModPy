@@ -13,7 +13,7 @@ at its true width breaks up under its own rasterization.
 
 The persistence mode counts the timesteps a cell flows, and "flows" is then
 the definition the network criterion scores
-(:func:`hydromodpy.results.derive.stream.extent.flowing_cells`): the downstream closure
+(:func:`hydromodpy.catchment.stream_network.extent.flowing_cells`): the downstream closure
 of the cells releasing above ``tau * R * A`` on the criterion graph, above the
 visible flow, with the settings the run's sealed network output scored with.
 A persistence drawn on ``drain_accumulation_flux > 0`` would color another network
@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Annotated
 import numpy as np
 
 from hydromodpy.core.io.crs import project_gdf_for_metric_operations
+from hydromodpy.core.scoring.stream_defaults import VisibleFlow, parse_visible_flow
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Extent, Opt
 from hydromodpy.display.figures._stream_comparison import (
@@ -64,7 +65,6 @@ from hydromodpy.results.derive.stream.criterion_settings import (
     NetworkCriterionSettings,
     network_criterion_settings,
 )
-from hydromodpy.results.derive.stream.extent import VisibleFlow, parse_visible_flow
 from hydromodpy.results.derive.stream.run_extent import (
     flow_geometry_from_run,
     flowing_share,

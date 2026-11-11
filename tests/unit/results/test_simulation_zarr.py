@@ -111,6 +111,67 @@ class TestMesh:
         np.testing.assert_array_equal(mesh["source_cell_indices"][:], source)
 
 
+class TestCriterionCells:
+    """The two per-face masks the stream criterion read are kept beside the mesh."""
+
+    @staticmethod
+    def _water(n: int) -> np.ndarray:
+        mask = np.zeros(n, dtype=bool)
+        mask[[1, 2]] = True
+        return mask
+
+    def test_both_masks_are_written_as_booleans_per_face(self, sz):
+        verts, conn, z = _make_mesh(4)
+        sz.write_mesh(verts, conn, z)
+        outline = np.array([True, False, True, True])
+
+        sz.write_criterion_cells(open_water=self._water(4), catchment_cells=outline)
+
+        mesh = sz.root["mesh"]
+        assert mesh["open_water"][:].dtype == bool
+        np.testing.assert_array_equal(mesh["open_water"][:], self._water(4))
+        np.testing.assert_array_equal(mesh["catchment_cells"][:], outline)
+        assert list(mesh["open_water"].metadata.dimension_names) == ["face"]
+
+    def test_a_run_with_no_outline_keeps_open_water_alone(self, sz):
+        verts, conn, z = _make_mesh(4)
+        sz.write_mesh(verts, conn, z)
+
+        sz.write_criterion_cells(open_water=np.zeros(4, dtype=bool))
+
+        assert "open_water" in sz.root["mesh"]
+        assert "catchment_cells" not in sz.root["mesh"]
+
+    def test_a_second_write_replaces_the_first(self, sz):
+        verts, conn, z = _make_mesh(4)
+        sz.write_mesh(verts, conn, z)
+        sz.write_criterion_cells(open_water=self._water(4))
+
+        sz.write_criterion_cells(open_water=np.zeros(4, dtype=bool))
+
+        assert not sz.root["mesh"]["open_water"][:].any()
+
+    @pytest.mark.parametrize(
+        ("values", "match"),
+        [
+            (np.zeros(3, dtype=bool), "one value per cell"),
+            (np.zeros((2, 4), dtype=bool), "one value per cell"),
+        ],
+        ids=["wrong size", "not flat"],
+    )
+    def test_a_mask_that_does_not_fit_the_stored_mesh_is_refused(self, sz, values, match):
+        verts, conn, z = _make_mesh(4)
+        sz.write_mesh(verts, conn, z)
+
+        with pytest.raises(ValueError, match=match):
+            sz.write_criterion_cells(open_water=values)
+
+    def test_a_store_without_a_mesh_takes_the_masks_as_given(self, sz):
+        sz.write_criterion_cells(open_water=np.zeros(7, dtype=bool))
+
+        assert sz.root["mesh"]["open_water"].shape == (7,)
+
+
 class TestField:
     def test_3d_roundtrip(self, sz):
         rng = np.random.default_rng(42)

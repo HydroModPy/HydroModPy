@@ -41,7 +41,7 @@ from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.field_registry import FIELD_REGISTRY
 from hydromodpy.results.readme import _checks_section, render_session_readme
 from hydromodpy.results.record.checks import BUDGET_RULE, FROZE_BUDGET_ONLY, CalibratedBy
-from hydromodpy.results.record.manifest import read_manifest
+from hydromodpy.results.record.manifest import InputEntry, read_manifest
 from hydromodpy.results.record.request_identity import RESTART_KEY, ZONE_RUN_KEY, request_id
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.contracts import Mesh, polygon_areas
@@ -60,7 +60,6 @@ from hydromodpy.results.source_runs import resolve_source_runs, source_run_id
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.storage.parquet_io import read_kv_metadata
-from hydromodpy.results.storage.run_facts import LicenceSource
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.results.trash import list_trash
@@ -930,7 +929,15 @@ def test_a_window_over_a_series_reads_the_same_in_every_reader(
 
 def test_a_table_written_after_the_seal_keeps_the_licence_of_the_seal(tmp_path: Path) -> None:
     store = _monthly_store(tmp_path / "p")
-    store.facts.licence_sources.append(LicenceSource(source="hubeau"))
+    store.record_input(
+        store.sim_id,
+        InputEntry(
+            variable="discharge:J0014010",
+            provider="hubeau",
+            path="data/hubeau/discharge.csv",
+            license="etalab-2.0",
+        ),
+    )
     run_dir = store.run_dir
     seal_completed(store)
     close_sealed_attempt(run_dir)
@@ -1606,11 +1613,11 @@ def test_the_basin_is_read_alone_without_loading_or_rebuilding_d(store, monkeypa
     for name in ("load_descent", "_rebuild", "_read_stored"):
         monkeypatch.setattr(module, name, refuse)
 
-    mask, attrs = read_basin(_run_over(store, vertices, connectivity))
+    basin = read_basin(_run_over(store, vertices, connectivity))
 
-    np.testing.assert_array_equal(mask, _basin_mask())
-    assert not mask.flags.writeable
-    assert attrs["descent_outlet"] == BASIN_OUTLET
+    np.testing.assert_array_equal(basin.mask, _basin_mask())
+    assert not basin.mask.flags.writeable
+    assert basin.attrs["descent_outlet"] == BASIN_OUTLET
 
 
 def test_the_holder_reads_the_basin_alone_and_a_run_without_one_is_not_rebuilt(
@@ -1631,9 +1638,9 @@ def test_the_holder_reads_the_basin_alone_and_a_run_without_one_is_not_rebuilt(
 
     _write_with_basin(store, _basin_mask(), _basin_attrs())
     holder = RunDescent.of_run(run)
-    mask, attrs = holder.stored_basin()
-    np.testing.assert_array_equal(mask, _basin_mask())
-    assert attrs["descent_outlet"] == BASIN_OUTLET
+    basin = holder.stored_basin()
+    np.testing.assert_array_equal(basin.mask, _basin_mask())
+    assert basin.attrs["descent_outlet"] == BASIN_OUTLET
 
 
 def test_a_descent_stored_before_the_basin_reads_back_without_one(store) -> None:
@@ -2260,15 +2267,18 @@ def test_a_budget_only_search_promotes_a_calibrated_run_and_never_a_failed_one()
                 session_status=status,
                 stop_state="budget_spent",
                 stopping_rule=BUDGET_RULE,
+                cost=0.25,
             ),
             score_window=None,
             n_samples=None,
         )
-        return label_for(checks, hydromodpy_version="2.0.0a5", issues=()).label
+        return label_for(
+            checks, hydromodpy_version="2.0.0a5", issues=(), flow_regime="steady"
+        ).label
 
     assert label("completed") == "calibrated"
     assert label("partial") == "exploratory"
-    assert RULE_VERSION == "2"
+    assert RULE_VERSION == "3"
 
 
 # ``[flow] restart_from`` and the ``run`` of a ``[[mesh.refinement_zone]]`` name an

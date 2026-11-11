@@ -6,7 +6,7 @@ seals. Building that object twice is how two maps printed side by side come to
 contradict each other, so both figures build it here.
 
 The neighbor graph is the same one
-:func:`hydromodpy.results.derive.stream.geometry.build_network_geometry` walks, and the
+:func:`hydromodpy.catchment.stream_network.geometry.build_network_geometry` walks, and the
 choice between shared edges and shared nodes is the one knob that changes it. A
 flood conditioning a surface over one neighborhood while a descent walks the
 other leaves every filled cell spilling over a link the descent cannot take,

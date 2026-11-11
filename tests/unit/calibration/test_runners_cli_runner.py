@@ -96,10 +96,10 @@ from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ObjectiveError
 from hydromodpy.core.runtime.interrupts import StopRequested, TerminationRequested
+from hydromodpy.core.scoring.stream_defaults import VALIDITY_PROVENANCE_CODE
 from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.project import Project
-from hydromodpy.results.derive.stream.geometry import VALIDITY_PROVENANCE_CODE
 from hydromodpy.results.heartbeat import read_heartbeat
 from hydromodpy.results.metric_rule import MetricsConfig, PeriodWindow
 from hydromodpy.results.outcome import effective_status, outcome_path, read_outcome, write_outcome

@@ -25,7 +25,7 @@ from hydromodpy.core.scoring.metric_table import (
     RUN_METRIC_NAMES,
     TRIAL_METRIC_NAMES,
 )
-from hydromodpy.results.metric_rule import _KERNELS, HEADLINE_METRICS
+from hydromodpy.results.score import _KERNELS, HEADLINE_METRICS
 
 pytestmark = pytest.mark.unit
 

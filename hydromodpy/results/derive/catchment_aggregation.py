@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -14,42 +13,12 @@ from hydromodpy.core.scope import CATCHMENT, OBSERVED, SIMULATED
 from hydromodpy.core.time.period_aggregation import period_end_stamps, runoff_m3_s_on_index
 from hydromodpy.results.derive.config_flags import KEEP_BUDGET_OPTION, enable_options_hint
 from hydromodpy.results.field_registry import series_unit
+from hydromodpy.results.run.descent import basin_of_group
 from hydromodpy.results.storage.kept import level_of
 
 logger = get_logger(__name__)
 
 _SLAB_TARGET_BYTES = 64 * 1024 * 1024
-
-_BASIN_ARRAY = "descent_basin"
-_LARGEST_BASIN_RULE = "largest_basin"
-
-
-@dataclass(frozen=True, slots=True)
-class _StoredBasin:
-    """The basin of D a run stored under ``mesh/descent_basin``."""
-
-    mask: np.ndarray
-    area_m2: float
-    rule: str
-
-    @property
-    def is_catchment(self) -> bool:
-        """False for the largest basin of a domain with neither outlet nor polygon."""
-        return self.rule != _LARGEST_BASIN_RULE
-
-
-def _stored_basin(mesh: Any) -> _StoredBasin | None:
-    """The basin of D stored with the mesh, None for a run that stored none."""
-    if mesh is None or _BASIN_ARRAY not in mesh:
-        return None
-    node = mesh[_BASIN_ARRAY]
-    attrs = node.attrs
-    return _StoredBasin(
-        mask=np.asarray(node[:], dtype=bool).ravel(),
-        area_m2=float(attrs["basin_area_m2"]),
-        rule=str(attrs["basin_rule"]),
-    )
-
 
 # (source_variables, output_variable, reducer)
 # Each source variable is looked up in derived/ then budget/ then root, and the
@@ -406,8 +375,13 @@ def _runoff_area_m2(store: Any, sim_id: str, grp: Any) -> float:
     same surface. A run that stored no basin keeps the old support
     ``catch_area`` (the area of the delineated polygon raster) and says so.
     """
-    basin = _stored_basin(grp.get("mesh"))
+    basin = basin_of_group(grp.get("mesh"))
     if basin is not None and basin.is_catchment:
+        if not np.isfinite(basin.area_m2):
+            raise ExtractError(
+                f"the basin of D stored by run {sim_id} states no area (basin_area_m2), "
+                "so the runoff has no surface to be scaled by."
+            )
         return basin.area_m2
     area_m2 = _read_catchment_area_m2(store, sim_id)
     if basin is None:
@@ -682,7 +656,7 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
     synthetic domain legitimately has no catchment and refusing would abort it.
     """
     mesh = grp.get("mesh")
-    basin = _stored_basin(mesh)
+    basin = basin_of_group(mesh)
     if basin is not None and basin.is_catchment:
         mask = basin.mask
         if active is not None and mask.size == active.size:

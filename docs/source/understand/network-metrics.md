@@ -144,6 +144,16 @@ Before you compare two scores, check that they were computed the same way.
   as flowing above a {term}`visible flow`.
 - **The map.** The permanent network of a map does not hold the temporary streams. An "excess"
   can be a real stream the map ignores.
+- **The cells that are scored.** Only the cells inside the catchment, active, and off open water
+  enter a score. The share of the minimal map outside the maximal one
+  (`frac_minimal_outside_maximal` in the trial journal) is read on these cells too.
+
+A figure redrawn from a sealed run takes the same inputs as the trial: the solver centers, the
+open water, the outline and the mean recharge the run kept. Its numbers are the ones the trial
+scored. A run that kept no mean recharge is refused when the seepage threshold is above zero, with
+the sentence "This run kept no criterion mean recharge, so a seepage threshold cannot be read on
+it. Replay it with hmp replay, or set tau_specific_ratio = 0." A run that kept no `mesh/open_water`
+is refused too, and told to replay.
 
 ## Where to go next
 

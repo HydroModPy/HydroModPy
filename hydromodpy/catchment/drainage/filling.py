@@ -24,7 +24,7 @@ from typing import Any
 
 import numpy as np
 
-__all__ = ("DepressionFillReport", "fill_depressions_on_graph")
+__all__ = ("DepressionFillReport", "fill_depressions_on_graph", "priority_flood")
 
 #: Slope added at each step inside a filled depression, in the unit of the
 #: surface. It keeps the filled floor draining instead of flat, which a
@@ -44,6 +44,87 @@ class DepressionFillReport:
     def filled_fraction(self) -> float:
         """Share of the surface that was raised."""
         return float(self.n_filled) / float(self.surface.size) if self.surface.size else 0.0
+
+
+def priority_flood(
+    values: Any,
+    adjacency: list[set[int]],
+    seeds: Any,
+    *,
+    step: Any,
+    pin: np.ndarray | None = None,
+    tolerance: float = 0.0,
+    every_cell: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Flood ``values`` from the seeds, always through the lowest rim, and return it with the raised cells.
+
+    The one flood of the package: :func:`fill_depressions_on_graph` and the
+    descent of :mod:`hydromodpy.catchment.drainage.descent` both call it.
+
+    Parameters
+    ----------
+    values
+        One elevation per cell. A non-finite value marks an inactive cell: it is
+        never raised and never crossed. Seeds must be finite cells.
+    adjacency
+        Neighbor indices per cell.
+    seeds
+        Boolean mask of the cells the flood starts from.
+    step
+        Slope added above the rim, a number or one value per cell, taken at the
+        cell that is raised.
+    pin
+        One receiver per cell, ``-1`` for none. A pinned cell is entered from its
+        pin only, and every pinned cell is also reached from its pin.
+    tolerance
+        A cell within ``tolerance`` above the level is raised like a cell below it.
+    every_cell
+        Raise ``ValueError`` when a finite cell is never reached from a seed.
+
+    Returns
+    -------
+    surface, raised
+        The flooded copy and the mask of the cells set to ``level + step``.
+    """
+    surface = np.array(values, dtype="float64").reshape(-1)
+    n_cells = surface.size
+    visited = ~np.isfinite(surface)
+    raised = np.zeros(n_cells, dtype=bool)
+    rise = np.broadcast_to(np.asarray(step, dtype="float64"), surface.shape)
+    donors: dict[int, list[int]] = {}
+    if pin is not None:
+        for cell in np.flatnonzero(pin >= 0).tolist():
+            donors.setdefault(int(pin[cell]), []).append(cell)
+
+    frontier: list[tuple[float, int]] = []
+    for cell in np.flatnonzero(np.asarray(seeds, dtype=bool).reshape(-1)).tolist():
+        visited[cell] = True
+        heapq.heappush(frontier, (float(surface[cell]), cell))
+    while frontier:
+        level, cell = heapq.heappop(frontier)
+        neighbours = adjacency[cell]
+        if donors and cell in donors:
+            neighbours = [*neighbours, *donors[cell]]
+        for neighbour in neighbours:
+            if visited[neighbour]:
+                continue
+            if pin is not None and pin[neighbour] >= 0 and pin[neighbour] != cell:
+                continue
+            visited[neighbour] = True
+            if surface[neighbour] <= level + tolerance:
+                surface[neighbour] = level + rise[neighbour]
+                raised[neighbour] = True
+            heapq.heappush(frontier, (float(surface[neighbour]), neighbour))
+
+    if every_cell:
+        unreached = np.flatnonzero(~visited)
+        if unreached.size:
+            raise ValueError(
+                f"{unreached.size} cell(s) are never reached from a seed "
+                f"(first: {int(unreached[0])}): the pinned cells around them are entered "
+                "only from pins that lie beyond them."
+            )
+    return surface, raised
 
 
 def fill_depressions_on_graph(
@@ -92,22 +173,7 @@ def fill_depressions_on_graph(
         raise ValueError(f"the adjacency holds {len(adjacency)} cells, the surface {surface.size}.")
 
     original = surface.copy()
-    visited = np.zeros(surface.size, dtype=bool)
-    frontier: list[tuple[float, int]] = []
-    for cell in np.flatnonzero(seeds):
-        index = int(cell)
-        visited[index] = True
-        heapq.heappush(frontier, (surface[index], index))
-
-    while frontier:
-        level, cell = heapq.heappop(frontier)
-        for neighbour in adjacency[cell]:
-            if visited[neighbour] or not finite[neighbour]:
-                continue
-            visited[neighbour] = True
-            if surface[neighbour] <= level:
-                surface[neighbour] = level + epsilon
-            heapq.heappush(frontier, (surface[neighbour], neighbour))
+    surface, _ = priority_flood(surface, adjacency, seeds, step=epsilon)
 
     raised = finite & (surface > original + epsilon / 2.0)
     return DepressionFillReport(

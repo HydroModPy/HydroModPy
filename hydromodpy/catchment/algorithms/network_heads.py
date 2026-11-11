@@ -1,7 +1,7 @@
 """The free ends of a mapped stream network, where its heads may lie.
 
 The heads rule of the network criterion keeps only where the map says a
-stream starts (:mod:`hydromodpy.results.derive.stream.heads`). A head is found
+stream starts (:mod:`hydromodpy.catchment.stream_network.heads`). A head is found
 geometrically, for every source alike: no provider reads node codes, and the
 direction a line was digitized in is never trusted. This module only finds the
 free ends and the other end of each merged reach; which end is upstream is

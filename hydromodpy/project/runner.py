@@ -30,7 +30,12 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from hydromodpy.core.config_kit.written import log_experimental_keys
-from hydromodpy.core.exceptions import ConfigError, ResumeError
+from hydromodpy.core.exceptions import (
+    CatalogError,
+    ConfigError,
+    ResumeError,
+    SchemaVersionMismatchError,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project.request import RunOutcome, RunRequest, write_request_file
 from hydromodpy.project.run_overrides import override_changes
@@ -198,11 +203,18 @@ class ProjectRunner:
         if sealed is None:
             return None
         from hydromodpy.project import phases as project_phases
-        from hydromodpy.results.catalog.indexer import index_new_runs
+        from hydromodpy.results.catalog.indexer import index_after_run
 
         project = self._project
-        index_new_runs(sealed.project_root)
-        project_phases.open_catalog(project)
+        if index_after_run(sealed.project_root) is not None:
+            try:
+                project_phases.open_catalog(project)
+            except (CatalogError, SchemaVersionMismatchError) as exc:
+                logger.warning(
+                    "Index not opened after the run: %s. hmp catalog reindex rebuilds it; "
+                    "the run is read from its directory.",
+                    str(exc).rstrip("."),
+                )
         run_view = run_view_of(
             sealed.run_dir, project_root=sealed.project_root, sim_id=str(sealed.sim_id)
         )

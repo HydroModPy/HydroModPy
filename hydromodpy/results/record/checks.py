@@ -99,7 +99,12 @@ class Validity:
 
 
 class CalibratedBy(HydroModelBase):
-    """The session, phase and trial a promoted run comes from."""
+    """The session, phase and trial a promoted run comes from, and the objective it met.
+
+    ``metric``, ``cost``, ``rule`` and ``components`` are the objective of the
+    case of this run at that trial, so the seal says what the search minimized
+    and how it read it.
+    """
 
     session_id: str = Field(description="Session that promoted the run")
     phase: str | None = Field(default=None, description="Phase of that session")
@@ -128,6 +133,16 @@ class CalibratedBy(HydroModelBase):
     windows: dict[str, PeriodWindow] = Field(
         default_factory=dict,
         description="Periods of the search as the case of this run read them, by name",
+    )
+    rule: str | None = Field(
+        default=None,
+        description="Version of the metric rule the cost of the case was read under; "
+        "null when not recorded",
+    )
+    components: dict[str, float] = Field(
+        default_factory=dict,
+        description="Parts of the cost of the case at that trial, by name, without the "
+        "validation cost, which has its own field",
     )
 
 

@@ -874,3 +874,50 @@ def test_the_request_of_a_project_carries_its_document_and_refuses_a_name_that_b
     )
     with pytest.raises(ConfigError, match="Write 'two_words'"):
         runner.request_of(name="two words")
+
+
+@pytest.mark.parametrize("error", ["conflict", "unreadable"])
+def test_a_sealed_run_is_returned_when_its_index_does_not_open(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, error: str
+) -> None:
+    import hydromodpy.project.phases as phases
+    import hydromodpy.project.runner as runner_module
+    import hydromodpy.results.catalog.indexer as indexer
+    from hydromodpy.core.exceptions import CatalogUnreadableError, WriteConflictError
+
+    raised = (
+        WriteConflictError("lock held") if error == "conflict" else CatalogUnreadableError("torn")
+    )
+
+    def refuse(project) -> None:
+        raise raised
+
+    sealed = SimpleNamespace(project_root=tmp_path, run_dir=tmp_path / "runs" / "r", sim_id="sid")
+    project = SimpleNamespace(_run_history=[])
+    runner = ProjectRunner(project)  # type: ignore[arg-type]
+    monkeypatch.setattr(runner, "execute", lambda *a, **k: sealed)
+    monkeypatch.setattr(indexer, "index_after_run", lambda root: object())
+    monkeypatch.setattr(phases, "open_catalog", refuse)
+    monkeypatch.setattr(runner_module, "run_view_of", lambda run_dir, **k: "V")
+
+    assert runner.run() == "V"
+    assert project._run_history == ["V"]
+
+
+def test_a_run_whose_index_pass_failed_does_not_open_the_index(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import hydromodpy.project.phases as phases
+    import hydromodpy.project.runner as runner_module
+    import hydromodpy.results.catalog.indexer as indexer
+
+    opened: list[object] = []
+    sealed = SimpleNamespace(project_root=tmp_path, run_dir=tmp_path / "runs" / "r", sim_id="sid")
+    runner = ProjectRunner(SimpleNamespace(_run_history=[]))  # type: ignore[arg-type]
+    monkeypatch.setattr(runner, "execute", lambda *a, **k: sealed)
+    monkeypatch.setattr(indexer, "index_after_run", lambda root: None)
+    monkeypatch.setattr(phases, "open_catalog", opened.append)
+    monkeypatch.setattr(runner_module, "run_view_of", lambda run_dir, **k: "V")
+
+    assert runner.run() == "V"
+    assert opened == []

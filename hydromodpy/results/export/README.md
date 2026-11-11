@@ -18,7 +18,9 @@ to the view and the stored layout names them.
 2. A FAIR view is one format of the export port: `rocrate` here, `stac` and `prov` in the annex. The view
    writer receives the context in its `ExportJob`, so every view describes the same seal.
 3. `context.to_json` writes every FAIR view atomically, whole, through a temporary file and one rename.
-4. `publish.py` copies a run or a summary out of the tree, as a directory or a tar. It writes `PUBLICATION.json`
+4. `publish.py` copies a run or a summary out of the tree, as a directory or a tar. A run copy holds the results,
+   the final state, the inputs, `mesh/` and `products.json` by default, and `--without` removes a part. It refuses
+   a replay not classed bit. It writes `PUBLICATION.json`
    and redacts the host, the user and the absolute paths. A copy also drops the `deliver_to` key of every
    `[[export]]` block, so a copy names no destination. `verify` checks a copy. The source records the copy
    with `kind = "copy"` in `published.jsonl`. A line with `kind = "delivery"` is written by `project/deliver.py`
@@ -26,7 +28,7 @@ to the view and the stored layout names them.
 5. `project_package.py` writes a whole project with its data for `hmp publish --package`.
 6. `summary_tables.py` and `campaign_summary.py` write the table, the page, the README and the crate of a summary.
 7. `zenodo.py` renders the Zenodo deposit metadata of one sealed run: title, creators, licence, keywords,
-   version and related identifiers. It writes nothing; the publication writes `.zenodo.json` beside the crate.
+   version and related identifiers. It writes nothing; the publication writes `.zenodo.json` at the root of each copy, from the seal or from `[publication]`.
 
 ## The folder map
 

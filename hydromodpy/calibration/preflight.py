@@ -1598,13 +1598,13 @@ def _check_the_extent_durations_fit_the_timestep(
     on the nominal year of the step the search runs, before any budget is spent.
     A phase that overrides the step is left to that first trial.
     """
-    from hydromodpy.core.time.window import nominal_step_days
-    from hydromodpy.results.derive.stream.extent import (
+    from hydromodpy.catchment.stream_network.extent import (
         dry_steps,
         extent_step_problems,
         flowing_steps,
         parse_extent_duration,
     )
+    from hydromodpy.core.time.window import nominal_step_days
 
     findings: list[Diagnostic] = []
     for phase, _where, _ in _search_candidates(calibration):

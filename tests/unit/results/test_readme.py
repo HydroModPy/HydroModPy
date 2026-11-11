@@ -27,11 +27,13 @@ from hydromodpy.results.session.descriptor import (
 )
 from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine
-from hydromodpy.results.validity_rules import LabelResult, label_for, run_quantities
+from hydromodpy.results.validity_rules import LabelResult, Reason, label_for, run_quantities
 from tests._helpers.run_records import NOW, WINDOW, make_record
 from tests._helpers.session_documents import best_trial, session_descriptor, trial_line
 
-LABEL = LabelResult("calibrated", "2", ("promoted by session sess0001, completed",), ())
+LABEL = LabelResult(
+    "calibrated", "3", (Reason.of("promoted", session_id="sess0001", status="completed"),), ()
+)
 
 
 def _outcome() -> Outcome:
@@ -66,7 +68,7 @@ def test_the_run_readme_says_site_period_version_checks_label_and_score(tmp_path
     assert "HydroModPy 2.0.0a5, solver `modflow6`, mesh engine `voronoi`" in text
     assert "code reproducible: no" in text
     assert "water budget 0.8 % (accepted up to 2 %)" in text
-    assert "**calibrated** under rules 2." in text
+    assert "**calibrated** under rules 3." in text
     assert "NSE 0.81 on 2016-01-01 to 2020-12-31, 1827 samples, rule 1." in text
     assert "SolverError: mf6 did not converge at stress period 51" in text
     assert text.rstrip().endswith(f"sha256(manifest.json) = {digest}")
@@ -96,7 +98,7 @@ def test_the_label_of_the_day_is_the_one_rendered(tmp_path):
         record.checks, hydromodpy_version="2.0.0a4", quantities=run_quantities(solver="modflow6")
     )
     text = render_run_readme(record, None, result, manifest_sha256="0" * 64)
-    assert "**exploratory** under rules 2." in text
+    assert "**exploratory** under rules 3." in text
     assert "known issues: mf6_computation_top" in text
 
 

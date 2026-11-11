@@ -66,10 +66,10 @@ from hydromodpy.calibration.optim.stopping import (
     stop_state,
     stopping_rule,
 )
+from hydromodpy.catchment.stream_network.geometry import recharge_session
 from hydromodpy.core.exceptions import OptimizerError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.interrupts import raise_if_stop_requested
-from hydromodpy.results.derive.stream.geometry import recharge_session
 from hydromodpy.results.record.checks import BUDGET_RULE, StopState, stop_text
 
 logger = get_logger(__name__)

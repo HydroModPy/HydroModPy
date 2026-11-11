@@ -443,9 +443,10 @@ def calibrated_by_of(
 ) -> CalibratedBy:
     """Return what the seal of a promoted run says of the session and the trial it comes from.
 
-    ``metric`` and ``cost`` are those of the case of this run, and ``windows`` the
-    periods that case read: a run of a joint search never carries the total. The
-    phase of the trial names its cost and its windows when it wrote them, and
+    ``metric``, ``cost``, ``rule`` and ``components`` are those of the case of this
+    run, and ``windows`` the periods that case read: a run of a joint search never
+    carries the total. The validation cost leaves ``components`` for its own field.
+    The phase of the trial names its cost and its windows when it wrote them, and
     ``metric`` is then the cost of that phase.
     """
     case_id = row["case_id"]
@@ -462,6 +463,12 @@ def calibrated_by_of(
         metric=phase.cost_name if phase_named else (None if case is None else case.cost_name),
         cost=row["case_cost"],
         validation_cost=row["components"].get(VALIDATION_COST),
+        rule=row.get("rule"),
+        components={
+            str(key): float(value)
+            for key, value in row["components"].items()
+            if key != VALIDATION_COST
+        },
         windows={
             name: PeriodWindow(
                 role=window.role, start=window.of(case_id).start, end=window.of(case_id).end

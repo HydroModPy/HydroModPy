@@ -124,6 +124,7 @@ class SimulationZarr:
 
     write_mesh = zarr_writer.write_mesh
     write_descent = zarr_writer.write_descent
+    write_criterion_cells = zarr_writer.write_criterion_cells
     write_topography = zarr_writer.write_topography
     write_time = zarr_writer.write_time
     write_crs = zarr_writer.write_crs

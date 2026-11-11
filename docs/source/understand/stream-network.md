@@ -193,6 +193,14 @@ network spreads and the excess grows. The calibration looks for the value of K w
 mean walks are equal. {doc}`network-metrics` says how to read these scores, and
 {doc}`../theory/downslope-distance` defines the distances.
 
+A figure drawn from a finished run reads what the calibration trial read: the cell centers of the
+solver, the cells of open water, the outline of the catchment and the mean recharge the run kept.
+Lake cells leave both networks, because a line drawn across a lake is no stream and a lake cell is
+no hillslope seepage. So the map of a run shows the partition behind the score it reports. A run
+that kept no mean recharge cannot show a seepage threshold above zero, and a run that kept no cells
+of open water cannot be drawn. Both are refused with a sentence that says to replay the run with
+`hmp replay`, or to set `tau_specific_ratio = 0` for the first.
+
 Calibrating on the map is not {term}`validating <validation>` against it. The agreement of a calibrated run with
 the map is what the calibration looked for.
 

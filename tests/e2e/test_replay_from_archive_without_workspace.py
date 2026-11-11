@@ -1,7 +1,7 @@
 """A run published with its results and its inputs replays without the workspace it came from.
 
-Step 1 of example 04 runs in a first workspace and is published with
-``--with results --with inputs``. Under a second disposable HOME, with no
+Step 1 of example 04 runs in a first workspace and is published, which takes
+its results and its inputs by default. Under a second disposable HOME, with no
 workspace and no data cache, the frozen configuration of the copy runs again
 from the copy alone, its inputs read from ``inputs/`` by content. The head
 field comes out the same, to the 16-bit rounding of the stored fields.
@@ -40,10 +40,6 @@ def test_a_published_run_replays_alone_with_the_same_heads(tmp_path) -> None:
         RUN_NAME,
         "--to",
         str(copy),
-        "--with",
-        "results",
-        "--with",
-        "inputs",
         cwd=project,
         env=first,
     )

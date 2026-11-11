@@ -2,10 +2,12 @@
 
 Three guards. An AST guard on ``duckdb.connect``: it is called in a short
 list of modules, the public API and the user-facing commands are not on it,
-and the reader and the indexer of the project index open it through
-``connect_with_retry``. An AST guard on writing: a DuckDB file is opened
-without ``read_only=True`` by its owner only, the indexer for
-``.hmp/index.duckdb``; every other opener, the diagnostics included, reads.
+and ``results/catalog/index_file.py``, the one module that opens the project
+index, opens it through ``connect_with_retry``; every other module, the
+reader, the indexer, the doctor and the diagnostics included, goes through
+it. An AST guard on writing: a DuckDB file is opened without
+``read_only=True`` by its owner only, ``index_file.py`` for the staging copy
+of ``.hmp/index.duckdb``; every other opener reads.
 ``hydromodpy/data`` opens no DuckDB file at all: the data cache is the sidecars
 next to the files, and the database of HydroModPy 2.0.0 is refused by name.
 A runtime guard: the verbs that watch a project read its ``outcome.json``
@@ -37,21 +39,17 @@ CLI_DIAGNOSTIC_FILES = (
     PACKAGE / "results" / "catalog" / "privacy.py",
 )
 
-ALLOWED_DIRECT_DUCKDB_FILES = {
-    "hydromodpy/cli/commands/doctor.py",
-}
+ALLOWED_DIRECT_DUCKDB_FILES: set[str] = set()
+"""Public API and command modules allowed to call ``duckdb.connect``: none."""
 
 INDEX_OPENERS = {
-    "hydromodpy/results/catalog/facade.py",
-    "hydromodpy/results/catalog/indexer.py",
+    "hydromodpy/results/catalog/index_file.py",
 }
-"""The reader and the indexer of ``.hmp/index.duckdb``: they open it through ``connect_with_retry``."""
+"""The one module that opens ``.hmp/index.duckdb``, through ``connect_with_retry``."""
 
 DUCKDB_CONNECT_FILES = {
     "hydromodpy/core/io/db_retry.py",
     "hydromodpy/display/catchment_report/context.py",
-    "hydromodpy/results/storage/diagnostics.py",
-    "hydromodpy/cli/commands/doctor.py",
 }
 """Every module allowed to call ``duckdb.connect``; a new one is a new DuckDB scope to justify."""
 
@@ -60,11 +58,12 @@ RETRY_HELPER = "hydromodpy/core/io/db_retry.py"
 
 WRITE_CAPABLE_OPENERS = {
     "hydromodpy/results/catalog/adapters/duckdb.py",
-    "hydromodpy/results/catalog/indexer.py",
+    "hydromodpy/results/catalog/index_file.py",
 }
 """The modules that may open a DuckDB file without ``read_only=True``.
 
-The indexer owns ``.hmp/index.duckdb`` and writes its staging copy;
+``index_file.py`` owns ``.hmp/index.duckdb``: it writes its staging copy and
+attaches the published file read-only to an in-memory connection;
 ``DuckDBBackend(path)`` owns the connection it opens. Nothing else writes.
 """
 
@@ -196,12 +195,28 @@ def test_duckdb_is_opened_only_where_a_scope_is_declared() -> None:
 
 
 def test_the_index_is_opened_through_the_retry_helper_by_its_openers() -> None:
-    """The reader and the indexer open the index through ``connect_with_retry``, never raw."""
+    """The opener of the index goes through ``connect_with_retry``, never raw."""
     for rel in sorted(INDEX_OPENERS):
         path = REPO_ROOT / rel
         text = path.read_text(encoding="utf-8")
         assert "connect_with_retry(" in text, rel
         assert _duckdb_connect_lines(path) == [], rel
+
+
+def test_the_catalog_opens_duckdb_only_through_the_index_file() -> None:
+    """Under ``results/catalog``, only the index file and the backend call ``connect_with_retry``.
+
+    The reader, the indexer and the listings open the index by
+    ``open_index`` or write it by ``open_staging``.
+    """
+    offenders: list[str] = []
+    for path in sorted((PACKAGE / "results" / "catalog").rglob("*.py")):
+        rel = _rel(path)
+        if rel in INDEX_OPENERS or rel in WRITE_CAPABLE_OPENERS:
+            continue
+        for call in _retry_helper_calls(_parse(path)):
+            offenders.append(f"{rel}:{call.lineno}")
+    assert offenders == []
 
 
 def test_a_duckdb_file_is_opened_for_writing_by_its_owner_only() -> None:

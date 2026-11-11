@@ -6,9 +6,12 @@ reference is a run (its directory name under ``runs/``, an id or an
 summary, each in its own folder under ``--to``, written all at once by
 :func:`hydromodpy.results.export.publish.publish_project`. ``--container tar``
 writes the same copy as an archive, which ``hmp catalog import`` reads back.
-``--with inputs`` takes along every file the run read with its install index
+A copy takes along its results (``fields.zarr``, ``tables.parquet``,
+``final_state/``) and every file the run read with its install index
 (:func:`hydromodpy.project.exchange.share.run_bundle`), and the command then says how to
-run the copy again.
+replay the copy. ``--without results`` or ``--without inputs`` leaves one out.
+``--with`` goes with ``--package`` only. A replay not classed ``bit`` is
+refused; ``hmp publish .`` leaves it out and names it under ``left_out``.
 
 ``--package`` writes a project with its data in one package instead
 (:func:`hydromodpy.results.export.project_package.export_project`), which
@@ -58,7 +61,8 @@ PACKAGE_EXTRAS: tuple[str, ...] = ("runs", "sessions", "mesh", "fetched")
 _EPILOG = """\
 Examples:
   hmp publish calibration --to ~/deliverables/my_catchment
-  hmp publish baseline_monthly --to baseline.tar --container tar --with results --with inputs
+  hmp publish baseline_monthly --to baseline.tar --container tar
+  hmp publish baseline_monthly --to light --without results
   hmp publish . --to /srv/deliverables/bretagne --public
   hmp publish my_catchment --package --to my_catchment.tar --with runs --with mesh
   hmp publish --verify ~/deliverables/my_catchment
@@ -101,23 +105,35 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Write the project with its data in one package, which 'hmp project import' installs",
     )
     parser.add_argument(
+        "--without",
+        action="append",
+        choices=COPY_EXTRAS,
+        default=[],
+        help=(
+            "Leave 'results' (fields.zarr, tables.parquet, final_state/) or 'inputs' (every "
+            "file the run read, with INSTALL.toml) out of a copy; repeatable. A copy takes "
+            "both by default"
+        ),
+    )
+    parser.add_argument(
         "--with",
         dest="with_",
         action="append",
         choices=(*COPY_EXTRAS, *PACKAGE_EXTRAS),
         default=[],
         help=(
-            "Take along 'results' (fields.zarr, tables.parquet, mesh) or 'inputs' (every file "
-            "the run read, with INSTALL.toml, which 'hmp catalog import' installs); repeatable. "
-            "With --package: 'runs' (the sealed runs with their results), 'sessions', 'mesh' "
-            "(the mesh products the runs cite) or 'fetched' (the files a provider "
-            "delivered to the runs)"
+            "With --package only: take along 'runs' (the sealed runs with their results), "
+            "'sessions', 'mesh' (the mesh products the runs cite) or 'fetched' (the files a "
+            "provider delivered to the runs); repeatable"
         ),
     )
     parser.add_argument(
         "--public",
         action="store_true",
-        help="Refuse to publish unless [publication] license is declared",
+        help=(
+            "Mark the copy public. Warn when the project declares no [publication] license "
+            "or an input has no known licence."
+        ),
     )
     parser.add_argument(
         "--verify",
@@ -135,12 +151,21 @@ def run(args: argparse.Namespace) -> None:
         return
     if args.to is None or (args.ref is None and not args.package):
         refuse("Name what to publish and where: hmp publish <ref> --to DEST", EXIT_USAGE)
-    extras = PACKAGE_EXTRAS if args.package else COPY_EXTRAS
-    wrong = [name for name in args.with_ if name not in extras]
+    if args.with_ and not args.package:
+        refuse(
+            "a copy takes its results and its inputs by default. Write --without results or "
+            "--without inputs to leave one out; --with goes with --package only.",
+            EXIT_USAGE,
+        )
+    if args.without and args.package:
+        refuse(
+            "--without leaves something out of a copy; a package takes what --with names.",
+            EXIT_USAGE,
+        )
+    wrong = [name for name in args.with_ if name not in PACKAGE_EXTRAS]
     if wrong:
         refuse(
-            f"--with {wrong[0]} does not go with {'--package' if args.package else 'a copy'}: "
-            f"it takes {', '.join(extras)}.",
+            f"--with {wrong[0]} does not go with --package: it takes {', '.join(PACKAGE_EXTRAS)}.",
             EXIT_USAGE,
         )
     if args.package:
@@ -157,17 +182,20 @@ def _publish_copy(args: argparse.Namespace) -> None:
     project_root = project_root_of(args)
     destination = Path(args.to).expanduser()
     container = args.container or "dir"
+    carried = tuple(name for name in COPY_EXTRAS if name not in args.without)
     source = None if args.ref == PROJECT_REF else _source(project_root, args.ref)
+    left_out: list[tuple[str, str]] = []
     if source is None:
-        written = publish_project(
+        published = publish_project(
             project_root,
             destination,
             format=container,
-            with_=tuple(args.with_),
+            with_=carried,
             public=args.public,
             inputs=inputs_of(project_root),
             dry_run=args.dry_run,
         )
+        written, left_out = published.copies, published.left_out
     else:
         written = [
             publish(
@@ -175,14 +203,14 @@ def _publish_copy(args: argparse.Namespace) -> None:
                 destination,
                 project_root=project_root,
                 format=container,
-                with_=tuple(args.with_),
+                with_=carried,
                 public=args.public,
                 inputs=inputs_of(project_root),
                 dry_run=args.dry_run,
             )
         ]
     replay = None
-    if source is not None and container == "dir" and "inputs" in args.with_ and not args.dry_run:
+    if source is not None and container == "dir" and "inputs" in carried and not args.dry_run:
         replay = _how_to_run_it_again(source, written[0], project_root)
 
     def table() -> None:
@@ -190,6 +218,8 @@ def _publish_copy(args: argparse.Namespace) -> None:
             print(path)
         done = "Would publish" if args.dry_run else "Published"
         print(f"{done} {len(written)} copy(ies)", file=sys.stderr)
+        for rel_dir, reason in left_out:
+            print(f"left out {rel_dir}: {reason}", file=sys.stderr)
         if replay is not None:
             print(f"next: {replay[0]}", file=sys.stderr)
             print(f"The run was sealed with HydroModPy {replay[1]}.", file=sys.stderr)
@@ -200,6 +230,7 @@ def _publish_copy(args: argparse.Namespace) -> None:
         {
             "applied": not args.dry_run,
             "copies": written,
+            "left_out": [{"rel_dir": rel_dir, "reason": reason} for rel_dir, reason in left_out],
             "package": False,
             "next": None if replay is None else replay[0],
         },
@@ -210,8 +241,8 @@ def _publish_copy(args: argparse.Namespace) -> None:
 def _how_to_run_it_again(source: Path, copy: Path, project_root: Path) -> tuple[str, str] | None:
     """Return the line that replays a copy and the version the run was sealed with.
 
-    A copy of a run with its inputs replays from its own bytes. A summary, or a
-    run without a frozen configuration, has no such line.
+    A copy of a run with its inputs replays from its own bytes by ``hmp
+    replay``. A summary, or a run without a frozen configuration, has no such line.
     """
     from hydromodpy.results.record.label import read_sealed_manifest
     from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
@@ -219,8 +250,7 @@ def _how_to_run_it_again(source: Path, copy: Path, project_root: Path) -> tuple[
     seal = read_sealed_manifest(source)
     if seal is None or not (source / RUN_CONFIG_FILENAME).is_file():
         return None
-    config = shlex.quote(str(copy.resolve() / RUN_CONFIG_FILENAME))
-    line = f"hmp run {config} --frozen -w {shlex.quote(str(project_root))}"
+    line = f"hmp replay {shlex.quote(str(copy.resolve()))} -w {shlex.quote(str(project_root))}"
     return line, seal.identity.hydromodpy_version
 
 

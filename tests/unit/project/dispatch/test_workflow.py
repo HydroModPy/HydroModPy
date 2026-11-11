@@ -562,7 +562,7 @@ def test_completed_run_view_indexes_then_reads_the_run_directory(
     import hydromodpy.results.catalog.indexer as indexer
 
     order: list[Any] = []
-    monkeypatch.setattr(indexer, "index_new_runs", lambda root: order.append(("index", root)))
+    monkeypatch.setattr(indexer, "index_after_run", lambda root: order.append(("index", root)))
     monkeypatch.setattr(
         runner,
         "run_view_of",

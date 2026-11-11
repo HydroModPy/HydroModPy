@@ -16,7 +16,7 @@ phase is the one of the calibration session the run's trial belongs to.
 The results layer may not import the calibration layer, so the output is read
 as the plain mapping the snapshot holds, with the defaults of
 :mod:`hydromodpy.core.scoring.stream_defaults` and
-:mod:`hydromodpy.results.derive.stream.extent` where a key is absent. A run that sealed
+:mod:`hydromodpy.catchment.stream_network.extent` where a key is absent. A run that sealed
 no network output reads the defaults, and says so.
 """
 
@@ -29,19 +29,17 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+from hydromodpy.catchment.stream_network.extent import parse_extent_duration
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scoring.stream_defaults import (
+    DEFAULT_VISIBLE_FLOW,
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
+    parse_visible_flow,
 )
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.units.quantities import parse_to_m
 from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
-from hydromodpy.results.derive.stream.extent import (
-    DEFAULT_VISIBLE_FLOW,
-    parse_extent_duration,
-    parse_visible_flow,
-)
 from hydromodpy.results.derive.time_alignment import NO_TIME_AXIS, run_period_edges
 from hydromodpy.results.run.sealed import search_of
 

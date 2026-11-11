@@ -25,14 +25,9 @@ import pandas as pd
 
 from hydromodpy.calibration.config import CalibOutputDecl
 from hydromodpy.calibration.metrics.series import load_observed
-from hydromodpy.core.time.period_aggregation import periods_in_window
 from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD
-from hydromodpy.results.derive.time_alignment import (
-    align_observed_simulated,
-    normalize_datetime_series,
-    simulated_nan_stamps,
-    time_method_for,
-)
+from hydromodpy.results.derive.time_alignment import time_method_for
+from hydromodpy.results.score import pair
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
@@ -148,10 +143,10 @@ def pair_outputs_with_observations(
 
     ``window`` bounds the dates kept. It is applicable here and nowhere
     else in the block route: these series carry timestamps, which is exactly
-    what a window needs to cut on. It is read as the run reads its own
-    (:func:`~hydromodpy.core.time.period_aggregation.periods_in_window`): a
-    mean counts when its whole period lies in it, a state when its stamp does.
-    The pairs stay indexed by their end stamps.
+    what a window needs to cut on. The pairing is the one of the run,
+    :func:`hydromodpy.results.score.pair`: a mean counts when its whole period
+    lies in the window, a state when its stamp does. The pairs stay indexed by
+    their end stamps.
 
     ``min_samples`` is the fewest pairs a member may be scored on. An overlap
     that collapses to three days still produces a number, and a weight of 65 per
@@ -186,37 +181,14 @@ def pair_outputs_with_observations(
             )
         method = (time_methods or {}).get(name, DEFAULT_TIME_METHOD)
         period_start = (period_starts or {}).get(name)
-        frame = align_observed_simulated(record, series, method=method, start=period_start)
-        dry = simulated_nan_stamps(record, series, method=method, start=period_start)
-        if window is not None and len(dry):
-            dry = dry[
-                periods_in_window(
-                    dry,
-                    method=method,
-                    start=window[0],
-                    end=window[1],
-                    grid=normalize_datetime_series(series).index,
-                    period_start=period_start,
-                )
-            ]
-        lost[name] = len(dry)
+        paired = pair(series, record, method=method, window=window, period_start=period_start)
+        frame = paired.frame
+        lost[name] = paired.n_simulated_nan
         nan_clause = (
-            f", after {len(dry)} period(s) were dropped because the simulated value is NaN"
-            if len(dry)
+            f", after {lost[name]} period(s) were dropped because the simulated value is NaN"
+            if lost[name]
             else ""
         )
-        if window is not None:
-            start, end = window
-            frame = frame.loc[
-                periods_in_window(
-                    frame.index,
-                    method=method,
-                    start=start,
-                    end=end,
-                    grid=normalize_datetime_series(series).dropna().index,
-                    period_start=period_start,
-                )
-            ]
         if frame.empty:
             inside = ""
             if window is not None and any(bound is not None for bound in window):

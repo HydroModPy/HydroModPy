@@ -7,10 +7,10 @@ is overwritten.
 
 ## A run, in four commands
 
-On your machine, publish the run with its inputs:
+On your machine, publish the run. A copy takes its results and its inputs by default:
 
 ```bash
-hmp publish nancon_step5_export --to sim.tar --container tar --with inputs --with results
+hmp publish nancon_step5_export --to sim.tar --container tar
 ```
 
 On the other machine, import it into a project, rerun it, and compare the rerun with the copy:
@@ -25,10 +25,14 @@ hmp catalog diff nancon_step5_export nancon_step5_export.v2 -w ~/hydromodpy/proj
 On step 5 of example 04, the diff says `params: identical`, and the only metric that moves is
 the solve time. The heads of the two runs are the same.
 
-`--with results` takes the stores of the run (`fields.zarr`, `tables.parquet`) along, so the
-copy can be compared. Leave it out to send the configuration and the data only.
+The results are the stores of the run (`fields.zarr`, `tables.parquet`) and its
+`final_state/`, so the copy can be compared. `--without results` sends the configuration and
+the data only, and `--without inputs` sends the run without the files it read. The copy also
+holds the sealed mesh, `products.json` and a `.zenodo.json` that a Zenodo deposit reads.
+A replay that is not classed `bit` is not published, because a published copy states that it
+gives the sealed numbers: publish the source run, or a replay classed `bit`.
 
-## What `--with inputs` takes
+## What the inputs are
 
 Every file the run read, as `inputs.json` names it, and nothing else:
 
@@ -48,6 +52,11 @@ A file a provider delivered is installed with its sidecar, which `INSTALL.toml` 
 file is a row of the data cache of the other workspace and a rerun reads it there instead of
 downloading it again. A run of example 04 that read Hub'Eau and BD
 Topage reruns with no network at all.
+
+`hmp replay <copy> -w <project>` does the same for the files a provider delivered. It installs
+them by their sha256 in the workspace of the project, with their sidecars and their station
+rows, then plays the run from the data cache. A file already at that path with other bytes
+refuses the replay and nothing is written.
 
 ## The rules of an import
 
@@ -74,8 +83,10 @@ Topage. A file of your own is `LicenseRef-undetermined` until you declare its li
 {"source": "file", "license": "CC-BY-4.0"}
 ```
 
-`hmp publish --public --with inputs` refuses an archive that would carry an input whose licence
-does not allow redistribution, and names each one.
+`hmp publish --public` warns when the project declares no `[publication] license`, and when
+the copy carries its inputs it warns and names each input that has no licence. The copy is
+written anyway. It states `LicenseRef-undetermined` for what has no licence, and `INSTALL.toml`
+and the RO-Crate state the licence of each input as it stands.
 
 ## The configuration travels without your paths
 
@@ -108,13 +119,14 @@ names.
 
 ## Without importing
 
-`hmp run <copy>/config.toml --frozen -w <project>` replays a published copy from the bytes it
-carries, without touching `data/` of your workspace. It reads your own files only: a copy fed
-by Hub'Eau, SIM2 or BD Topage is refused, and the refusal names the import that installs them.
+`hmp replay <copy> -w <project>` replays a published copy from the bytes it carries and
+writes the new run in that project. Your own files are read under `inputs/` of the copy, and
+the files a provider delivered are installed in the workspace first, as above. Without `-w`
+a copy is refused.
 
-A run folder you copied by hand carries no such bytes. The same command reads its inputs from
-the project `-w` names and writes the new run there. Nothing is ever written in the copy, and
-without `-w` the command refuses to start.
+A run folder you copied by hand carries no such bytes. `hmp replay <folder> -w <project>`
+reads its inputs from the project `-w` names, each at the digest its seal records, and writes
+the new run there. Nothing is ever written in the copy.
 
 ## Check an archive
 

@@ -148,6 +148,54 @@ def test_a_shared_run_installs_every_file_row_cache_entry_and_site(tmp_path) -> 
     assert [row.site for row in read_catalog(workspace)] == ["J0014010"]
 
 
+def test_files_restricts_the_install_to_those_files_and_their_registries(tmp_path) -> None:
+    folder = _shared_run_folder(tmp_path)
+    workspace, _ = _colleague(tmp_path)
+    delivered = read_index(folder).file_at(f"data/hydrometry/{HUBEAU_FILE}")
+
+    report = _install(folder, workspace, files=[delivered])
+
+    assert report.written == [delivered.dest]
+    assert report.cache_registered == [delivered.dest]
+    assert report.sites_added == []
+    assert len(report.stations_written) == 1
+    registries = sorted(p.name for p in (workspace / "data" / "hydrometry").glob("*_LOC.csv"))
+    assert registries == ["hydrometry_hubeau_LOC.csv"]
+    assert sorted(p.name for p in (workspace / "data").rglob("*") if p.is_file()) == sorted(
+        [HUBEAU_FILE, f"{HUBEAU_FILE}.json", "hydrometry_hubeau_LOC.csv"]
+    )
+
+
+def test_files_still_refuses_a_conflict_on_its_own_files_only(tmp_path) -> None:
+    folder = _shared_run_folder(tmp_path)
+    workspace, _ = _colleague(tmp_path)
+    delivered = read_index(folder).file_at(f"data/hydrometry/{HUBEAU_FILE}")
+    other = workspace / DEM
+    other.parent.mkdir(parents=True)
+    other.write_bytes(b"another DEM")
+    held = workspace / delivered.dest
+    held.parent.mkdir(parents=True)
+    held.write_text("other bytes\n", encoding="utf-8")
+
+    with pytest.raises(PayloadConflictError) as refused:
+        _install(folder, workspace, files=[delivered])
+
+    assert HUBEAU_FILE in str(refused.value)
+    assert DEM not in str(refused.value)
+    assert other.read_bytes() == b"another DEM"
+
+
+def test_files_names_a_file_the_index_does_not_list(tmp_path) -> None:
+    folder = _shared_run_folder(tmp_path)
+    workspace, _ = _colleague(tmp_path)
+    unlisted = dataclasses.replace(read_index(folder).files[0], dest="data/dem/unlisted.tif")
+
+    with pytest.raises(ValueError, match="unlisted.tif"):
+        _install(folder, workspace, files=[unlisted])
+
+    assert not (workspace / "data" / "dem").exists()
+
+
 def test_installing_twice_the_second_time_changes_nothing(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
@@ -448,6 +496,7 @@ def test_a_run_published_without_inputs_installs_nothing(tmp_path) -> None:
         tmp_path / "bare" / RUN_NAME,
         project_root=project,
         format="dir",
+        with_=("results",),
     )
     workspace, target = _colleague(tmp_path)
 

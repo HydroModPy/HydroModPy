@@ -27,12 +27,12 @@ column below is the first line of each module docstring.
 | `export/` | FAIR views of a sealed run or job directory, read from the directory alone. |
 | `exporters/` | One writer per exported format, with the request and the vocabulary it reads. |
 | `field_registry.py` | Canonical field registry for HydroModPy simulation outputs. |
-| `fit_metrics.py` | Goodness of fit of a run against the observations stored beside it. |
 | `grid.py` | Scalar metadata of the DEM raster a simulation was built from. |
 | `heartbeat.py` | The pulse of a running attempt: `logs/heartbeat.json`. |
 | `identity.py` | The `identity` block: what every file that leaves a run says about itself. |
 | `importers/` | Importers symmetric to `hydromodpy.results.exporters`. |
 | `ledger.py` | The ledger of a `figures/` or `exports/` directory: `index.json`. |
+| `method.py` | The method text and the label sentence of a sealed run, in English or in French. |
 | `metric_rule.py` | The metric of a run is a complete rule: a station, a window, a version. |
 | `outcome.py` | The issue of an attempt: `outcome.json`, and the status a reader derives. |
 | `plan_store.py` | The immutable plan of a project: `plan/<hash>/` and `plan/current`. |
@@ -43,10 +43,11 @@ column below is the first line of each module docstring.
 | `rel_dir.py` | One check for every `rel_dir` a result document carries. |
 | `retention.py` | What `hmp catalog gc` collects in a project, read from the tree alone. |
 | `run/` | Per-simulation and multi-simulation views over the results catalog. |
+| `score.py` | The one pairing of a simulated series with its observations, and the score of a run. |
 | `session/` | The formats of a calibration session directory, `sessions/<case>/`: the trial journal in events (`proposed`, `finished`, `linked`) read as one line per trial, and the versioned trial series. |
 | `source_runs.py` | The earlier run a configuration reads, named by its `sim_id`. |
 | `spatial_index.py` | Point-in-cell lookup on unstructured meshes, cached per mesh geometry. |
 | `storage/` | The layout contract, the store of one run, the seal and the attempt protocol. |
 | `trash.py` | Project trash: deleting a run moves its directory, it never flips a flag. |
-| `validity_rules.py` | Derives the label of a run on read, from the rules and the bugs of its version. |
+| `validity_rules.py` | The label of a run is a function of reading, not a value of the seal. |
 | `zarr_store/` | Zarr v3 per-simulation store (CF-1.11 + ACDD-1.3 + UGRID-1.0). |

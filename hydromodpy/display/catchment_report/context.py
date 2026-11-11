@@ -350,8 +350,7 @@ def _read_runtime_seconds(run_dir: Path, parquet_dir: Path | None) -> float | No
         _parquet_scalar(
             parquet_dir,
             "metrics.parquet",
-            "select value from read_parquet(?) "
-            f"where metric_name = '{SEALED_SOLVE_METRIC}' limit 1",
+            f"select value from read_parquet(?) where metric = '{SEALED_SOLVE_METRIC}' limit 1",
         )
     )
 

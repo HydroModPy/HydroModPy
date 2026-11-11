@@ -46,6 +46,23 @@ Earth System Sciences*, 30, 5571-5592), but it describes version 1.0. The review
 the code of version 2 that this site documents. A published method does not make a particular
 run right, and a run is no more reliable for being made with a reviewed method.
 
+## The label of a run
+
+A sealed run also carries a {term}`run label`, one of four words computed when the run is read:
+exploratory, calibrated, evaluated or failed. It follows rule 3 of `hydromodpy.results.validity_rules`.
+A run promoted by a calibration session is calibrated only when a window was scored. That window is
+a calibration period the seal records, the headline window of the run with at least one sample, or
+the single state of a steady run whose cost the session read. A transient run promoted without any
+of them is exploratory, with the reason "no scored window". A calibrated run scored on days the
+calibration never saw is evaluated. A run whose solver did not converge is failed.
+
+Each label comes with its reasons, in English or in French. A parameter that ended on a bound of
+its range adds the reason "a parameter reached its bound", whatever the label. This does not change
+the label, but it says that the search wanted to go further than the range allowed, so the value
+found is a limit and not a best estimate. The method text of a run
+(`hydromodpy.results.method.method_text`) writes the label, its rule, its reasons and the state of
+each check, passed, failed or unknown.
+
 ## What this means for a decision
 
 - A result labeled **Numerical check** is safe to read as a statement about the solver.

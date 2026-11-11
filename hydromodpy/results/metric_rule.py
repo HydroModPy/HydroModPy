@@ -24,7 +24,8 @@ The headline score of a run is the period :data:`HEADLINE_WINDOW`, the one
 that name, and any other period (a validation, a split-sample) stays beside it.
 
 Without a window there is no score: ``value`` is ``None`` and ``n_samples`` is 0.
-A window is inclusive of both days. The kernels are the ones of
+A window is inclusive of both days. The scores are computed by
+:mod:`hydromodpy.results.score` with the kernels of
 :mod:`hydromodpy.core.scoring.metrics`; a value they cannot compute (constant
 observations, empty overlap) is ``None`` too, never ``NaN``.
 
@@ -41,21 +42,16 @@ headline NSE stands for.
 
 from __future__ import annotations
 
-import math
-from collections.abc import Callable, Mapping, Sequence
-from datetime import date, datetime, time, timedelta
+from collections.abc import Mapping
+from datetime import date
 from typing import Annotated, Final, Protocol
 
-import numpy as np
-import pandas as pd
 from pydantic import Field, ValidationInfo, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.stored import Vocabulary, reading_stored
 from hydromodpy.core.config_kit.types import StationName
-from hydromodpy.core.scoring import metrics as kernels
-from hydromodpy.core.scoring.metric_table import METRIC_SPECS, RUN_METRIC_NAMES
 from hydromodpy.core.site import SiteConfig
 
 METRIC_RULE_VERSION: Final[str] = "2"
@@ -233,124 +229,9 @@ class MetricScore(HydroModelBase):
     metric_rule_version: str = Field(description="Version of the rule the score follows")
 
 
-_KERNELS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
-    "nse": kernels.nse,
-    "kge": lambda sim, obs: kernels.kge(sim, obs)["kge"],
-    "rmse": kernels.rmse,
-    "nse_log": kernels.log_nse,
-    "mae": kernels.mae,
-    "bias": kernels.bias,
-    "pbias": kernels.pbias,
-    "correlation": kernels.correlation,
-    "kge_r": lambda sim, obs: kernels.kge(sim, obs)["r"],
-    "kge_alpha": lambda sim, obs: kernels.kge(sim, obs)["alpha"],
-    "kge_beta": lambda sim, obs: kernels.kge(sim, obs)["beta"],
-}
-
-HEADLINE_METRICS: Final[tuple[str, ...]] = ("nse", "kge", "rmse", "nse_log")
-"""The metrics :func:`score_run` computes unless told otherwise."""
-
-
-def score(
-    simulated: pd.Series,
-    observed: pd.Series,
-    rule: MetricRule,
-    metric: str,
-    *,
-    station: str | None = None,
-    variable: str | None = None,
-) -> MetricScore:
-    """Score *simulated* against *observed* under *rule*.
-
-    Both series are indexed by time. Only the days of ``rule.window`` count,
-    and only the instants both series carry a finite value at. Without a
-    window the score is ``None`` with zero samples: a run nobody declared a
-    window for has no rank. *station* and *variable* name where the series
-    were read; they are recorded, not checked.
-    """
-    kernel = _KERNELS.get(metric)
-    if kernel is None:
-        raise ValueError(f"unknown metric {metric!r}; known: {', '.join(RUN_METRIC_NAMES)}")
-    clips = METRIC_SPECS[metric].clips_negatives
-    if rule.window is None:
-        return MetricScore(
-            metric=metric,
-            value=None,
-            station=station,
-            variable=variable,
-            window_name=rule.window_name,
-            window_role=rule.window_role,
-            window_start=None,
-            window_end=None,
-            n_samples=0,
-            n_clipped=0 if clips else None,
-            metric_rule_version=rule.version,
-        )
-    sim = _within(simulated, rule.window)
-    obs = _within(observed, rule.window)
-    paired = pd.concat([sim.rename("sim"), obs.rename("obs")], axis=1, join="inner").dropna()
-    n = int(len(paired))
-    value: float | None = None
-    n_clipped = 0 if clips else None
-    if n > 0:
-        sim_values, obs_values = paired["sim"].to_numpy(), paired["obs"].to_numpy()
-        if clips:
-            n_clipped = kernels.clip_negatives(sim_values, obs_values)[2]
-        raw = float(kernel(sim_values, obs_values))
-        value = None if math.isnan(raw) else raw
-    return MetricScore(
-        metric=metric,
-        value=value,
-        station=station,
-        variable=variable,
-        window_name=rule.window_name,
-        window_role=rule.window_role,
-        window_start=rule.window.start,
-        window_end=rule.window.end,
-        n_samples=n,
-        n_clipped=n_clipped,
-        metric_rule_version=rule.version,
-    )
-
-
-def score_run(
-    simulated: pd.Series,
-    observed: pd.Series,
-    rule: MetricRule,
-    metrics: Sequence[str] = HEADLINE_METRICS,
-    *,
-    station: str | None = None,
-    variable: str | None = None,
-) -> list[MetricScore]:
-    """Score one simulated series against its observations on every metric of *metrics*.
-
-    Each score follows :func:`score`: same window, same samples, same rule
-    version. The order of *metrics* is kept.
-    """
-    return [
-        score(simulated, observed, rule, metric, station=station, variable=variable)
-        for metric in metrics
-    ]
-
-
-def _within(series: pd.Series, window: DateWindow) -> pd.Series:
-    """Return the entries of *series* dated inside *window*, both days included."""
-    index = series.index
-    if not isinstance(index, pd.DatetimeIndex):
-        raise TypeError(f"a scored series is indexed by time, not by {type(index).__name__}")
-    start = pd.Timestamp(datetime.combine(window.start, time.min))
-    end_exclusive = pd.Timestamp(datetime.combine(window.end + timedelta(days=1), time.min))
-    if index.tz is not None:
-        start = start.tz_localize(index.tz)
-        end_exclusive = end_exclusive.tz_localize(index.tz)
-    mask = (index >= start) & (index < end_exclusive)
-    return series[mask]
-
-
 __all__ = [
     "CALIBRATION_ROLE",
     "EVALUATION_ROLE",
-    "HEADLINE_METRICS",
     "HEADLINE_WINDOW",
     "METRIC_RULE_VERSION",
     "DateWindow",
@@ -362,6 +243,4 @@ __all__ = [
     "ScoringDeclaration",
     "WindowRole",
     "calibration_extent",
-    "score",
-    "score_run",
 ]

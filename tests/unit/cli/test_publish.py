@@ -1,10 +1,18 @@
-"""``hmp publish``: every sealed run and the summary at once, a copy that says how to replay it."""
+"""``hmp publish``: every sealed run and the summary at once, a copy that says how to replay it.
+
+A copy takes its results and its inputs by default and ``--without`` leaves one
+out; ``--with`` goes with ``--package`` only. ``hmp publish .`` leaves a replay
+not classed bit out and names it under ``left_out``.
+"""
 
 from __future__ import annotations
 
 import json
 import shlex
+import shutil
 from pathlib import Path
+
+import pytest
 
 from hydromodpy.cli.helpers import EXIT_OK, EXIT_USAGE
 from hydromodpy.results.publication import read_publication, read_published
@@ -36,7 +44,9 @@ def test_the_project_is_published_with_its_summary(tmp_path: Path) -> None:
         RUN_NAME,
         "summary",
         "PUBLICATION.json",
+        ".zenodo.json",
     }
+    assert (destination / RUN_NAME / "INSTALL.toml").is_file()
     assert "runs/a/mfsim.lst" in (destination / "summary" / "by_case.csv").read_text()
     assert "Published 2 copy(ies)" in result.stderr
 
@@ -64,20 +74,19 @@ def _demo_project(tmp_path: Path, *, config: bool = True) -> Path:
     return root
 
 
-def test_a_copy_with_its_inputs_says_how_to_run_it_again(tmp_path: Path) -> None:
+def test_a_copy_with_its_inputs_says_how_to_replay_it(tmp_path: Path) -> None:
     project = _demo_project(tmp_path)
     into = tmp_path / "copy"
 
-    result = _invoke(DEMO_RUN, "--to", str(into), "--with", "inputs", "-w", str(project))
+    result = _invoke(DEMO_RUN, "--to", str(into), "-w", str(project))
 
     assert result.exit_code == EXIT_OK, result.stderr
-    assert read_publication(into).with_ == ["inputs"]
+    assert read_publication(into).with_ == ["results", "inputs"]
     line = next(text for text in result.stderr.splitlines() if text.startswith("next: "))
     assert shlex.split(line.removeprefix("next: ")) == [
         "hmp",
-        "run",
-        str(into.resolve() / "config.toml"),
-        "--frozen",
+        "replay",
+        str(into.resolve()),
         "-w",
         str(project.resolve()),
     ]
@@ -90,8 +99,7 @@ def test_a_run_without_a_frozen_config_has_no_line_to_replay_it(tmp_path: Path) 
     (project / "runs" / DEMO_RUN / "config.toml").unlink(missing_ok=True)
 
     result = _invoke(
-        DEMO_RUN, "--to", str(tmp_path / "copy"), "--with", "inputs", "-w", str(project),
-        "--format", "json",
+        DEMO_RUN, "--to", str(tmp_path / "copy"), "-w", str(project), "--format", "json",
     )  # fmt: skip
 
     assert result.exit_code == EXIT_OK, result.stderr
@@ -114,25 +122,125 @@ def test_an_input_the_run_derived_in_its_scratch_is_named_as_such(tmp_path: Path
     )
     (run_dir / "inputs.json").write_text(json.dumps(inputs), encoding="utf-8")
 
-    result = _invoke(
-        DEMO_RUN, "--to", str(tmp_path / "copy"), "--with", "inputs", "-w", str(project)
-    )
+    result = _invoke(DEMO_RUN, "--to", str(tmp_path / "copy"), "-w", str(project))
 
     assert result.exit_code != EXIT_OK
     assert "a product the run derived in its scratch" in result.stderr
     assert not (tmp_path / "copy").exists()
 
 
+@pytest.mark.parametrize(
+    ("without", "present", "absent"),
+    [
+        pytest.param("results", {"inputs", "INSTALL.toml"}, {"fields.zarr"}, id="results"),
+        pytest.param("inputs", {"fields.zarr"}, {"inputs", "INSTALL.toml"}, id="inputs"),
+    ],
+)
+def test_without_leaves_one_part_out_of_a_copy(
+    tmp_path: Path, without: str, present: set[str], absent: set[str]
+) -> None:
+    project = _demo_project(tmp_path)
+    into = tmp_path / "copy"
+
+    result = _invoke(DEMO_RUN, "--to", str(into), "--without", without, "-w", str(project))
+
+    assert result.exit_code == EXIT_OK, result.stderr
+    names = {entry.name for entry in into.iterdir()}
+    assert present <= names
+    assert not absent & names
+    assert without not in read_publication(into).with_
+    assert ("next: " in result.stderr) is (without == "results")
+
+
+COPY_WITH_REFUSAL = (
+    "a copy takes its results and its inputs by default. Write --without results or "
+    "--without inputs to leave one out; --with goes with --package only."
+)
+PACKAGE_WITHOUT_REFUSAL = (
+    "--without leaves something out of a copy; a package takes what --with names."
+)
+
+
+@pytest.mark.parametrize("extra", ["results", "inputs", "runs"])
+def test_with_on_a_copy_is_refused_with_a_sentence_that_names_without(
+    tmp_path: Path, extra: str
+) -> None:
+    project = _demo_project(tmp_path)
+
+    result = _invoke(DEMO_RUN, "--to", str(tmp_path / "c"), "--with", extra, "-w", str(project))
+
+    assert result.exit_code == EXIT_USAGE
+    assert COPY_WITH_REFUSAL in result.stderr
+    assert not (tmp_path / "c").exists()
+
+
+def test_without_on_a_package_is_refused(tmp_path: Path) -> None:
+    project = _demo_project(tmp_path)
+
+    result = _invoke(
+        "--package", "--to", str(tmp_path / "p.tar"), "--without", "inputs", "-w", str(project)
+    )
+
+    assert result.exit_code == EXIT_USAGE
+    assert PACKAGE_WITHOUT_REFUSAL in result.stderr
+    assert not (tmp_path / "p.tar").exists()
+
+
+def test_a_package_takes_what_with_names(tmp_path: Path) -> None:
+    project = _demo_project(tmp_path)
+
+    result = _invoke(
+        "--package", "--to", str(tmp_path / "p.tar"), "--with", "runs", "-w", str(project)
+    )
+
+    assert result.exit_code == EXIT_OK, result.stderr
+    assert (tmp_path / "p.tar").is_file()
+
+
 def test_the_extras_of_a_copy_and_of_a_package_do_not_mix(tmp_path: Path) -> None:
     project = _demo_project(tmp_path)
 
-    copy = _invoke(DEMO_RUN, "--to", str(tmp_path / "c"), "--with", "runs", "-w", str(project))
     package = _invoke(
         "--package", "--to", str(tmp_path / "p"), "--with", "inputs", "-w", str(project)
     )
     public = _invoke("--package", "--to", str(tmp_path / "p"), "--public", "-w", str(project))
 
-    assert (copy.exit_code, package.exit_code, public.exit_code) == (EXIT_USAGE,) * 3
-    assert "results, inputs" in copy.stderr
+    assert (package.exit_code, public.exit_code) == (EXIT_USAGE,) * 2
     assert "runs, sessions, mesh, fetched" in package.stderr
     assert "--public" in public.stderr
+
+
+def test_the_help_of_public_says_it_warns_and_does_not_refuse() -> None:
+    result = _invoke("--help")
+
+    text = " ".join(result.stdout.split())
+    assert result.exit_code == EXIT_OK
+    assert "Mark the copy public. Warn when the project declares no [publication] license" in text
+    assert "Refuse to publish" not in text
+
+
+def test_the_project_copy_names_the_replay_it_left_out(tmp_path: Path) -> None:
+    project = make_project(tmp_path)
+    run_dir = make_sealed_run(project)
+    shutil.copytree(run_dir, project / "runs" / "source")
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    manifest["lineage"] = {
+        **manifest["lineage"],
+        "kind": "replay",
+        "replay": {"of": "f" * 32, "source": "copy", "source_version": "2.1.0", "basis": "none"},
+    }
+    manifest["run"]["sim_id"] = "1b2c0000-0000-4000-8000-000000000002"
+    (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    destination = tmp_path / "out"
+
+    result = _invoke(
+        ".", "--to", str(destination), "--without", "inputs", "-w", str(project),
+        "--format", "json",
+    )  # fmt: skip
+
+    assert result.exit_code == EXIT_OK, result.stderr
+    data = json.loads(result.stdout)["data"]
+    assert [entry["rel_dir"] for entry in data["left_out"]] == [f"runs/{RUN_NAME}"]
+    assert "replays a copy that carried no values" in data["left_out"][0]["reason"]
+    assert not (destination / RUN_NAME).exists()
+    assert (destination / "source").is_dir()

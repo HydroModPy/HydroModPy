@@ -95,6 +95,9 @@ def _ctx(sim_id: str, loaded: _Loaded, workspace_root: Path) -> SimpleNamespace:
 def test_a_loaded_record_lands_in_the_inputs_with_its_provider_and_licence(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     csv = _series_file(workspace / "data" / "hydrometry" / "hubeau_J0014010.csv")
+    csv.with_name(csv.name + ".json").write_text(
+        json.dumps({"source": "hubeau", "license": "etalab-2.0"}), encoding="utf-8"
+    )
     own = _series_file(workspace / "data" / "file" / "recharge.csv")
     own.with_name(own.name + ".json").write_text(
         json.dumps({"source": "file", "license": "CC-BY-4.0"}), encoding="utf-8"
@@ -199,6 +202,9 @@ def test_a_network_read_from_its_sources_names_them_with_their_provider(
     delivered = workspace / "data" / "hydrography" / "hydrography_bdtopage_5347fa22.gpkg"
     delivered.parent.mkdir(parents=True)
     delivered.write_bytes(b"the BD Topage answer")
+    delivered.with_name(delivered.name + ".json").write_text(
+        json.dumps({"source": "bdtopage", "license": "etalab-2.0"}), encoding="utf-8"
+    )
     raster = tmp_path / "scratch" / "demo" / "run.p1" / "_preprocessing" / "streams.tif"
     raster.parent.mkdir(parents=True)
     raster.write_bytes(b"rasterised in the scratch")

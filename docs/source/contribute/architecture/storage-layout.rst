@@ -19,8 +19,8 @@ The placement rule
 **An artifact is written in the directory of what produced it, under a fixed name per class.
 There is no other destination inside a project.** A figure of a run is in that run, a report
 of a session is in that session, a table over N cases is in ``summary/``. Publishing is a copy
-out of the tree (``hmp publish``); nothing in the project points at the copy except the
-``published.jsonl`` line of its source.
+out of the tree (``hmp publish``), with its results and its inputs by default; nothing in the
+project points at the copy except the ``published.jsonl`` line of its source.
 
 The directory names of the project are declared in :mod:`hydromodpy.core.state.layout`. The names
 inside a run or a session directory are declared in :mod:`hydromodpy.results.storage.contract`.
@@ -354,7 +354,12 @@ the bounds hit, whether the code was reproducible. The label (``exploratory``, `
 ``evaluated``, ``failed``) is derived on read by :mod:`hydromodpy.results.validity_rules` and the
 ``[[bug]]`` rows of the register of changes, ``hydromodpy/schema/changes.toml``, shipped in the
 wheel, so a run sealed by a version with a known defect is downgraded without rewriting its
-seal. Every file that leaves a run carries the ``identity`` block (site, case, ``sim_id``,
+seal. The rule version is ``RULE_VERSION = "3"``: a promoted run is ``calibrated`` or
+``evaluated`` only when a window was scored, a period of role ``calibration`` in
+``calibrated_by.windows``, the headline window with enough samples, or the state of a steady run
+whose cost the session read. A transient run promoted without one is ``exploratory`` with the
+reason ``no_scored_window``, and a parameter on a bound adds the reason ``bound_reached``. Every
+file that leaves a run carries the ``identity`` block (site, case, ``sim_id``,
 period, score window, label, label date, rule version, version, ``request_id``,
 ``solution_key`` and ``solver``): root attributes of the Zarr store, ``schema.metadata`` of each
 Parquet file, ``gpkg_metadata`` of a GeoPackage, metadata and a visible footer of a figure, and a
@@ -628,8 +633,10 @@ Deleting a run or a session moves its directory, it never flips a status.
 :func:`~hydromodpy.results.trash.trash_run` moves ``<rel_dir>`` to
 ``trash/<rel_dir with / replaced by __>@<YYYYmmddTHHMMSS>/``, for instance
 ``trash/runs__daily@20261014T093000/``; ``restore`` moves it back; ``list_trash`` reads the
-trash. A run that holds ``published.jsonl`` is trashed with a warning, because its published
-copies now point at a trashed source. Deleting is by exact name: a bare name that has several
+trash. A run that has published copies (``kind = "copy"`` among the last lines of its
+``published.jsonl``) is trashed with a warning that counts them, because its published copies now
+point at a trashed source; a delivery alone does not count. A ``published.jsonl`` this version
+cannot read gives a general warning, and the trash acts anyway. Deleting is by exact name: a bare name that has several
 versions is refused with the list.
 
 ``gc_trash`` frees the bytes of the directories trashed before a cut-off and leaves one line per
@@ -809,7 +816,25 @@ The index
 
 One index per project, ``.hmp/index.duckdb``, derived, built by the launcher and the reader,
 never by a run nor by a calibration. Every write of the index is a fresh file installed with one
-rename, so a reader always opens a snapshot and never blocks the writer.
+rename, so a reader always opens a snapshot and never blocks the writer. Writing in place is not
+an option, because DuckDB refuses to open a file for writing while another process holds it read
+only, and an open project holds it for its whole life.
+
+**One writer at a time.** A pass that has something to write takes ``.hmp/index.duckdb.lock``,
+which names its process, its host and its date. It reads the build, the scan and the diff again
+under the lock, so a diff computed before it never writes, and a pass no longer drops a run that
+another pass indexed meanwhile. A pass with nothing to write never takes the lock. The holder
+renews the date every 100 entries; a lock is taken over when its process died on this host, or
+after 10 minutes without renewal, and a lock file that cannot be read (empty or cut) is stale
+after 5 seconds. A pass waits up to 2 minutes for the lock, then says which process holds it.
+Before it renames its file into place the writer checks that the lock is still its own, else its
+file is dropped. A run that seals while another process holds the lock stays sealed and
+successful, with a warning that ``hmp catalog reindex`` brings the index up to date.
+
+**Opening builds.** Opening a project builds its index when it is missing or of another schema
+version, which costs 0.2 s for one run and about 6 s for a hundred. A new index is written in
+DuckDB blocks of 16 KiB: 2.6 MB for a hundred runs instead of 14.7 MB at the default 256 KiB. It
+is never compacted between two rebuilds, and its size holds at about twice the minimum.
 
 **What the reindex reads.** A run directory is indexed from ``tables.parquet/simulation.parquet``,
 ``parameters.parquet``, ``metrics.parquet``, the geographic payloads, ``manifest.json``,
@@ -825,8 +850,10 @@ attempt to ``attempts`` before inserting the new one. Its trigger is the latest 
 of the ``outcome.json`` and ``session.json`` files.
 
 **A schema change is a full reindex.** There are no SQL migrations: the index is derived, so it is
-rebuilt from the directories. Besides the run tables, the index holds ``sites``, ``cases`` and
-``attempts``, and the view ``v_cases`` joins cases, runs, parameters and the metric at the gauge
+rebuilt from the directories. The columns of ``simulations``, ``parameters``, ``metrics`` and
+``provenance`` are generated from the Parquet schemas they mirror, so ``metrics.metric`` has the
+name it has in ``metrics.parquet``. Besides the run tables, the index holds ``sites``, ``cases``
+(with ``bytes``, the size of each directory at indexing time) and ``attempts``, and the view ``v_cases`` joins cases, runs, parameters and the metric at the gauge
 of the site within the declared window. ``cases.status`` holds only what the disk says of an
 attempt, the effective status at indexing time: ``running``, ``completed``, ``partial``,
 ``failed``, ``aborted`` or ``stale``. The states of the plan (``planned``, ``invalid``,
@@ -1088,6 +1115,14 @@ counts the whole cells of its basin of D, and its readers say so. A synthetic do
 so it stores no fraction, its basin is the largest one of the domain, and its budget has the
 domain row only.
 
+**Criterion cells.** ``run_outputs`` writes two boolean arrays per face for every run with a
+cell mesh, beside ``catchment_fraction``. ``mesh/open_water`` holds the cells of open water, all
+false without a lake: the stream criterion leaves them out of both its supports.
+``mesh/catchment_cells`` holds the cells whose center the outline covers, and is written only when
+an outline exists. They are what a calibration trial reads, so a figure drawn from the run reads
+them back. A run sealed before them shows both as new fields at replay, adopted with
+``--adopt-new`` on two passes, and a redraw of its stream criterion is refused until it is replayed.
+
 **Soil reservoir.** A run whose recharge comes from
 ``[flow.sinks_sources.recharge.soil]`` writes its daily columns under
 ``forcing/soil/``: ``etr``, ``residual_etp``, ``recharge`` and ``runoff`` in
@@ -1102,9 +1137,10 @@ grid MODFLOW receives is written the same way a SIM2 recharge would be, as
 
 A gridded recharge also keeps its spatial mean as a station-shaped series under
 ``forcing/recharge/catchment``, like a gridded runoff, so a reader of
-``forcing/recharge`` finds a series whatever the source is. A run whose solver holds
-its recharge on the model stamps ``criterion_mean_recharge_m_s`` on the ``forcing``
-group: the mean recharge its trials score with, which a figure reads back.
+``forcing/recharge`` finds a series whatever the source is. Every run for which the
+criterion finds a mean recharge (on the built model, else on the stored station forcing placed on
+the period edges, else on the recharge budget) stamps ``criterion_mean_recharge_m_s`` on the
+``forcing`` group: the mean recharge its trials score with, which a figure reads back.
 
 Per-run Parquet directory
 -------------------------
@@ -1154,7 +1190,12 @@ declared gauge and window, ``nse`` is null.
 ``station_id``, ``variable``, ``metric`` and ``window_name``. The scores of a run and the numbers of
 the run itself (``variable = "runtime"``, with no period) both land there, through one writer. The
 period ``metrics`` is ``[metrics] window``, of role ``evaluation``, and it is the headline: a reader
-that wants one row per metric filters on it, so a validation period can sit beside it.
+that wants one row per metric filters on it, so a validation period can sit beside it. A run a
+session promoted also carries rows of ``window_role = "calibration"``, one set per calibration
+period of ``calibrated_by.windows``, named after the period and written before the seal by the
+same writer, with ``metric_rule_version``. In the seal, ``checks.calibrated_by`` gains ``rule``,
+the metric rule version of the cost (a string, or null), and ``components``, a table of floats that
+holds the parts of the cost without ``validation_cost``. The block keeps ``hydromodpy.checks.v2``.
 ``parameters.parquet`` carries ``calibrated`` and ``origin`` (``declared``, ``site_table``,
 ``site_override``, ``recipe`` or ``calibrated``).
 
@@ -1165,6 +1206,9 @@ Concurrency and atomic writes
   file and of its directory, and a rename. ``provenance.json``, ``inputs.json``,
   ``annotations.json``, the ledgers and ``logs/heartbeat.json`` are written through a temporary
   file and a rename.
+- The ledger ``index.json`` of ``figures/`` and ``exports/`` is written under
+  ``index.json.lock`` beside it, a lock file that names its process, its host and its date, the
+  same kind as the lock of the index, on every system and without ``fcntl``.
 - Zarr field writes hold a cross-process ``filelock`` under ``<run>/.hmp/locks/`` and append in
   place. The store directory is promoted with a rename when it is created.
 - Parquet writes use a temporary file plus ``os.replace``.
@@ -1175,7 +1219,8 @@ Concurrency and atomic writes
   same way. A station chronicle is written under a ``filelock`` named after the station
   (``.<prefix>_<source>_<id>.lock`` in the folder of the variable), so two cases that fetch the
   same station write the same bytes in turn and no case needs a private cache.
-- The index is written as a staging file next to it and installed with one atomic rename. The
+- The index is written by one process at a time under ``.hmp/index.duckdb.lock``, as a staging
+  file next to it, and installed with one atomic rename. The
   invariant is that ``index.duckdb`` is never absent nor half-written: a reader that was reading
   keeps reading the file it opened, and the next opener gets the new one. ``os.replace`` delivers
   that on POSIX. On Windows the same rename is asked of the kernel through
@@ -1264,20 +1309,27 @@ Publishing and packages
 -----------------------
 
 ``hmp publish <ref> --to <dir>`` copies ``README.md``, ``config.toml``,
-``config.resolved.toml``, a redacted ``provenance.json``, ``inputs.json``, ``manifest.json``, ``figures/``, ``exports/`` and
-``report/``, generates ``ro-crate-metadata.json`` and writes ``PUBLICATION.json`` (the source
-project, relative directory and ``sim_id``, the SHA-256 of the manifest and of every copied file,
-the label and its date, the version, the date). ``--with results`` adds the stores and
-``--with inputs`` the install index ``INSTALL.toml`` (``hydromodpy/core/payload/``) and the bytes
-of every file the run read, addressed by content under ``inputs/``, sidecars included. The source
-receives one line in ``published.jsonl``. A line says ``kind = "copy"`` for a published copy
+``config.resolved.toml``, a redacted ``provenance.json``, ``inputs.json``, ``manifest.json``,
+``products.json``, the sealed ``mesh/``, ``figures/``, ``exports/`` and ``report/``, writes
+``.zenodo.json`` from the seal and ``[publication]``, generates ``ro-crate-metadata.json``, which
+lists it, and writes ``PUBLICATION.json`` (the source project, relative directory and ``sim_id``,
+the SHA-256 of the manifest and of every copied file, the label and its date, the version, the
+date). By default the copy also carries its results, the stores and ``final_state/``, and its
+inputs, the install index ``INSTALL.toml`` (``hydromodpy/core/payload/``) and the bytes of every
+file the run read, addressed by content under ``inputs/``, sidecars included. ``--without
+results`` and ``--without inputs`` leave one out; ``--with`` goes with ``--package`` only.
+``request.json``, ``profile.json``, a ``*.lock`` and a ``*.part`` file are never copied. A replay
+that is not classed ``bit``, a deviation or a replay of a copy without values, is refused,
+because a published copy states that it gives the sealed numbers; ``hmp publish .`` leaves such a
+replay out and names it, and a package carries it. The source receives one line in
+``published.jsonl``. A line says ``kind = "copy"`` for a published copy
 or ``kind = "delivery"`` for a delivered file. A delivery line carries the file, its address,
 its state ``pending``, ``delivered`` or ``failed``, its SHA-256, its size and its attempts. The
 state of a delivery is its last line for the (file, destination) pair. ``deliver_to`` is
 removed from ``config.toml`` and ``config.resolved.toml`` of a copy. ``.hmp/``, ``logs/``,
 host, user and absolute paths never leave: one function redacts every copy.
 
-The portable package **is** ``hmp publish --with results --with inputs --container tar``. Importing
+The portable package **is** ``hmp publish --container tar``. Importing
 it (``hmp catalog import``) installs every file of ``INSTALL.toml`` into ``data/`` of the
 workspace (identical bytes cost nothing, other bytes at one path are refused by name), merges the
 station rows, completes the sidecar of each delivered file from the table of the index and

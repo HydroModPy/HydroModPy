@@ -70,8 +70,8 @@ def _capture_state(catalog: Catalog, sim_id: str) -> dict[str, Any]:
         [sim_id],
     ).fetchall()
     metrics = catalog.connection.execute(
-        "SELECT sim_id, station_id, variable, metric_name, value "
-        "FROM metrics WHERE sim_id = ? ORDER BY metric_name",
+        "SELECT sim_id, station_id, variable, metric, value "
+        "FROM metrics WHERE sim_id = ? ORDER BY metric",
         [sim_id],
     ).fetchall()
     run_env = catalog.connection.execute(

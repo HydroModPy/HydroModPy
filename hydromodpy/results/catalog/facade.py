@@ -16,23 +16,25 @@ reader never creates one.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import duckdb
 
-from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.io.document_version import check_exact
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import catalog_path_for, runs_dir_for
 from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
+from hydromodpy.results.catalog.index_file import open_index
 from hydromodpy.results.catalog.index_schema import (
     INDEX_SCHEMA_VERSION,
     read_index_schema_version,
 )
+from hydromodpy.results.catalog.indexer import index_new_runs
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.reads import ReadsMixin
@@ -50,7 +52,14 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-REINDEX_HINT = "Run `hmp catalog reindex` to build the index from the run directories."
+
+def _file_identity(path: Path) -> tuple[int, int] | None:
+    """Return the device and inode of *path*, or None when it is missing."""
+    try:
+        stat = os.stat(path)
+    except OSError:
+        return None
+    return (stat.st_dev, stat.st_ino)
 
 
 class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
@@ -69,7 +78,9 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
     Raises
     ------
     FileNotFoundError
-        If the project has no index yet.
+        If the directory is not a project.
+    hydromodpy.core.exceptions.WriteConflictError
+        If the index had to be built and another process keeps its lock.
     hydromodpy.core.exceptions.SchemaVersionMismatchError
         If the index was written under another schema version.
     hydromodpy.core.exceptions.CatalogUnreadableError
@@ -89,6 +100,29 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         Multi-run view returned by cohort queries.
     """
 
+    def _open_current_index(self, root: Path) -> duckdb.DuckDBPyConnection:
+        """Open the index, building it first when it is missing or of another build."""
+        if not self._db_path.is_file():
+            index_new_runs(root)
+        self._opened_file = _file_identity(self._db_path)
+        connection = open_index(root)
+        if read_index_schema_version(connection) != INDEX_SCHEMA_VERSION:
+            connection.close()
+            index_new_runs(root)
+            self._opened_file = _file_identity(self._db_path)
+            connection = open_index(root)
+        version = read_index_schema_version(connection)
+        if version != INDEX_SCHEMA_VERSION:
+            connection.close()
+            check_exact(
+                version,
+                INDEX_SCHEMA_VERSION,
+                document=self._db_path,
+                key="schema_version",
+                remedy="hmp catalog reindex rebuilds it from the run directories",
+            )
+        return connection
+
     def __init__(
         self,
         project_root: Path | str,
@@ -100,19 +134,9 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         self._read_config = read_config
         self._db_path = catalog_path_for(root)
         self._runs_dir = runs_dir_for(root)
-        if not self._db_path.is_file():
-            raise FileNotFoundError(f"No index at {self._db_path}. {REINDEX_HINT}")
-        connection = connect_with_retry(str(self._db_path), read_only=True)
-        version = read_index_schema_version(connection)
-        if version != INDEX_SCHEMA_VERSION:
-            connection.close()
-            check_exact(
-                version,
-                INDEX_SCHEMA_VERSION,
-                document=self._db_path,
-                key="schema_version",
-                remedy=REINDEX_HINT,
-            )
+        if not (self._runs_dir.is_dir() or self._db_path.parent.is_dir()):
+            raise FileNotFoundError(f"{root} is not a project directory: it has no runs/ or .hmp/.")
+        connection = self._open_current_index(root)
         # The payload views name the run directories of this project, so they
         # are session-local and installed on the connection, never in the file.
         ensure_parquet_views(connection, self._runs_dir, temporary=True)
@@ -296,6 +320,15 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         """True once :meth:`close` ran."""
         return self._closed
 
+    @property
+    def reads_the_published_index(self) -> bool:
+        """True while the file this handle reads is still the published index.
+
+        A rebuild publishes a new file by rename, and an open handle keeps
+        reading the file it opened. Its owner then opens the index again.
+        """
+        return _file_identity(self._db_path) == self._opened_file
+
     def _reopen(self) -> Catalog:
         """Return a new handle on the same index, for a run that outlives this one."""
         return type(self)(self._workspace, read_config=self._read_config)
@@ -345,7 +378,7 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
 def compare_pair(ref_a: str, ref_b: str, *, workspace: str | Path | None = None) -> pd.DataFrame:
     """Return the headline scores of two runs side by side.
 
-    One row per ``(metric_name, station_id, variable)`` carries the score of each
+    One row per ``(metric, station_id, variable)`` carries the score of each
     run (``A`` for ``ref_a``, ``B`` for ``ref_b``), the window it was scored on
     (``A_window``, as ``start/end``) and its samples (``A_n``). Empty when
     neither run holds a score. ``workspace`` defaults to the project around the
@@ -355,9 +388,7 @@ def compare_pair(ref_a: str, ref_b: str, *, workspace: str | Path | None = None)
 
     start = Path(workspace).expanduser().resolve() if workspace else Path.cwd()
     root = resolve_project_root(start)
-    if not catalog_path_for(root).exists():
-        raise FileNotFoundError(f"No catalog at {root}")
-    keys = ["metric_name", "station_id", "variable"]
+    keys = ["metric", "station_id", "variable"]
     sides = []
     with Catalog(root) as catalog:
         for label, ref in (("A", ref_a), ("B", ref_b)):
@@ -379,4 +410,4 @@ def compare_pair(ref_a: str, ref_b: str, *, workspace: str | Path | None = None)
     return sides[0].join(sides[1], how="outer").sort_index()
 
 
-__all__ = ["REINDEX_HINT", "Catalog", "compare_pair"]
+__all__ = ["Catalog", "compare_pair"]

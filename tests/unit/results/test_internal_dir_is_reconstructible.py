@@ -31,7 +31,7 @@ _PARAMETER_STATE_SQL = (
     "FROM parameters p JOIN simulations s ON s.sim_id = p.sim_id"
 )
 _METRIC_STATE_SQL = (
-    "SELECT s.rel_dir, m.station_id, m.variable, m.metric_name, m.value, m.n_samples "
+    "SELECT s.rel_dir, m.station_id, m.variable, m.metric, m.value, m.n_samples "
     "FROM metrics m JOIN simulations s ON s.sim_id = m.sim_id"
 )
 _SESSION_STATE_SQL = (

@@ -11,7 +11,7 @@ import pytest
 import hydromodpy.workflow.steps.derive as derive_module
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.run_state import ExecutionRegistry
-from hydromodpy.results.fit_metrics import score_run_under_its_rule
+from hydromodpy.results.score import score_run_under_its_rule
 from hydromodpy.solver.base.plan import ProcessRun, RunSlot, SimulationPlan, SolverRun
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.workflow.state import PipelineState

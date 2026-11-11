@@ -2,19 +2,37 @@
 
 from __future__ import annotations
 
+import functools
 import json
+import logging
+import os
 import shutil
+import socket
+import threading
+import time
+from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
 
-import duckdb
 import pytest
 
+import hydromodpy.results.catalog.index_file as index_file_module
 import hydromodpy.results.catalog.indexer as indexer_module
-from hydromodpy.core.exceptions import SchemaVersionMismatchError
+from hydromodpy.core.io.db_retry import HMP_DUCKDB_BLOCK_SIZE
+from hydromodpy.core.io.lock_file import LockFile
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import catalog_path_for, runs_dir_for
 from hydromodpy.results.annotations import Annotations, write_annotations
 from hydromodpy.results.catalog import Catalog, index_new_runs, rebuild_index
+from hydromodpy.results.catalog.index_file import (
+    INDEX_ALIAS,
+    index_lock,
+    index_lock_path,
+    new_staging,
+    open_index,
+    open_staging,
+    publish_staging,
+)
 from hydromodpy.results.catalog.index_schema import (
     INDEX_META_TABLE,
     INDEX_SCHEMA_VERSION,
@@ -22,7 +40,13 @@ from hydromodpy.results.catalog.index_schema import (
     META_RULE_VERSION,
     META_SCHEMA_VERSION,
 )
-from hydromodpy.results.catalog.indexer import index_is_current, known_issues_digest, scan_tree
+from hydromodpy.results.catalog.indexer import (
+    index_after_run,
+    index_is_current,
+    known_issues_digest,
+    reindex_if_indexed,
+    scan_tree,
+)
 from hydromodpy.results.catalog.views import V_CASES_FIXED_COLUMNS
 from hydromodpy.results.record.checks import CalibratedBy
 from hydromodpy.results.record.manifest import read_seal
@@ -32,8 +56,10 @@ from hydromodpy.results.storage.contract import (
     RUN_ATTEMPTS_DIRNAME,
     RUN_MANIFEST_FILENAME,
     RUN_OUTCOME_FILENAME,
+    RUN_PURGED_FILENAME,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.digests import path_size_bytes
 from hydromodpy.results.validity_rules import RULE_VERSION
 from hydromodpy.schema.changes import REGISTER, Bug
 from tests._helpers.sealed_runs import (
@@ -78,6 +104,53 @@ def project(tmp_path) -> Path:
 def _rows(root: Path, sql: str) -> list[tuple]:
     with Catalog(root) as catalog:
         return sorted(tuple(row) for row in catalog.backend.fetch_all(sql))
+
+
+def _restamp(root: Path, key: str, value: str) -> None:
+    """Change one ``index_meta`` value of the published index, the way a pass writes it."""
+    index_path = catalog_path_for(root)
+    with index_lock(root) as lock:
+        staging = new_staging(index_path, copy_of=index_path)
+        connection = open_staging(staging)
+        connection.execute(f"UPDATE {INDEX_META_TABLE} SET value = ? WHERE key = ?", [value, key])
+        connection.execute("CHECKPOINT")
+        connection.close()
+        publish_staging(staging, index_path, lock)
+
+
+def _block_size(root: Path) -> int:
+    connection = open_index(root)
+    try:
+        row = connection.execute(
+            "SELECT block_size FROM pragma_database_size() WHERE database_name = ?",
+            [INDEX_ALIAS],
+        ).fetchone()
+    finally:
+        connection.close()
+    return int(row[0])
+
+
+def _hold_the_lock_from_another_process(root: Path) -> None:
+    """Write a fresh lock in the name of a live process of this host that is not this one."""
+    path = index_lock_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"pid": os.getppid(), "host": socket.gethostname(), "created": time.time()}),
+        encoding="utf-8",
+    )
+
+
+@pytest.fixture
+def warnings_said(caplog: pytest.LogCaptureFixture) -> Iterator[pytest.LogCaptureFixture]:
+    """Let ``caplog`` see the ``hydromodpy`` warnings, which stop propagating by default."""
+    parent = get_logger("hydromodpy")
+    propagate = parent.propagate
+    parent.propagate = True
+    caplog.set_level(logging.WARNING, logger="hydromodpy")
+    try:
+        yield caplog
+    finally:
+        parent.propagate = propagate
 
 
 def _index_content(root: Path, tables: tuple[str, ...]) -> dict[str, list[str]]:
@@ -183,10 +256,10 @@ def test_the_label_is_computed_and_dated_at_indexing(project):
 
     rows = _rows(project, "SELECT name, label, rule_version FROM simulations")
     assert rows == [
-        ("alpha", "exploratory", "2"),
-        ("beta", "exploratory", "2"),
-        ("calib", "calibrated", "2"),
-        ("calib_t2", "exploratory", "2"),
+        ("alpha", "exploratory", "3"),
+        ("beta", "exploratory", "3"),
+        ("calib", "calibrated", "3"),
+        ("calib_t2", "exploratory", "3"),
     ]
     assert _rows(project, "SELECT COUNT(*) FROM simulations WHERE label_date IS NULL") == [(0,)]
 
@@ -512,11 +585,7 @@ def test_without_an_index_the_pass_is_a_full_rebuild(project):
 
 def test_an_index_of_another_schema_version_is_rebuilt_whole(project):
     rebuild_index(project)
-    connection = duckdb.connect(str(catalog_path_for(project)))
-    connection.execute(
-        f"UPDATE {INDEX_META_TABLE} SET value = '0' WHERE key = ?", [META_SCHEMA_VERSION]
-    )
-    connection.close()
+    _restamp(project, META_SCHEMA_VERSION, "0")
 
     report = index_new_runs(project)
 
@@ -532,9 +601,7 @@ def test_an_index_of_another_schema_version_is_rebuilt_whole(project):
 )
 def test_an_index_labelled_by_another_build_is_rebuilt_whole(project, key, current):
     rebuild_index(project)
-    connection = duckdb.connect(str(catalog_path_for(project)))
-    connection.execute(f"UPDATE {INDEX_META_TABLE} SET value = 'other' WHERE key = ?", [key])
-    connection.close()
+    _restamp(project, key, "other")
     assert not index_is_current(project)
 
     report = index_new_runs(project)
@@ -554,26 +621,27 @@ def test_the_scan_keys_a_directory_by_its_seal_or_its_attempt(project):
     assert entries["sessions/calib/trials/0002"].kind == "trial"
 
 
-# -- the reader refuses what it cannot read ---------------------------------
+# -- the reader builds what it needs ----------------------------------------
 
 
-def test_a_project_without_an_index_names_the_command_that_builds_it(tmp_path):
+def test_opening_a_project_builds_its_missing_index(tmp_path):
     root = make_project(tmp_path / "demo")
+    seal_run(root, "alpha")
 
-    with pytest.raises(FileNotFoundError, match="hmp catalog reindex"):
-        Catalog(root)
+    with Catalog(root) as catalog:
+        assert sorted(catalog.list_simulations()["name"]) == ["alpha"]
+    assert catalog_path_for(root).is_file()
 
 
-def test_an_index_of_another_schema_version_is_refused_by_the_reader(project):
+def test_the_reader_rebuilds_an_index_of_another_schema_version(project):
     rebuild_index(project)
-    connection = duckdb.connect(str(catalog_path_for(project)))
-    connection.execute(
-        f"UPDATE {INDEX_META_TABLE} SET value = '0' WHERE key = ?", [META_SCHEMA_VERSION]
-    )
-    connection.close()
+    _restamp(project, META_SCHEMA_VERSION, "0")
 
-    with pytest.raises(SchemaVersionMismatchError, match="hmp catalog reindex"):
-        Catalog(project)
+    with Catalog(project) as catalog:
+        assert "alpha" in set(catalog.list_simulations()["name"])
+    assert _rows(
+        project, f"SELECT value FROM {INDEX_META_TABLE} WHERE key = '{META_SCHEMA_VERSION}'"
+    ) == [(INDEX_SCHEMA_VERSION,)]
 
 
 # -- the live index survives ------------------------------------------------
@@ -586,25 +654,25 @@ def test_the_previous_index_survives_a_failed_publish(project, monkeypatch):
     def _boom(*_args, **_kwargs):
         raise OSError("publish refused")
 
-    monkeypatch.setattr(indexer_module, "rename_over_open_file", _boom)
+    monkeypatch.setattr(index_file_module, "rename_over_open_file", _boom)
     with pytest.raises(OSError, match="publish refused") as refused:
         rebuild_index(project)
 
     assert "still readable" in str(refused.value)
     assert catalog_path_for(project).read_bytes() == index_before
     assert list(catalog_path_for(project).parent.glob("*.rebuild-*")) == []
+    assert not index_lock_path(project).exists()
 
 
 def test_a_reader_keeps_reading_across_the_swap(project, monkeypatch):
     rebuild_index(project)
     reader = Catalog(project)
-    publish = indexer_module._publish
 
-    def _publish_under_a_live_reader(staging: Path, target: Path) -> None:
+    def _publish_under_a_live_reader(staging: Path, target: Path, lock: LockFile) -> None:
         reader.list_simulations()
-        publish(staging, target)
+        publish_staging(staging, target, lock)
 
-    monkeypatch.setattr(indexer_module, "_publish", _publish_under_a_live_reader)
+    monkeypatch.setattr(indexer_module, "publish_staging", _publish_under_a_live_reader)
     try:
         before = sorted(reader.list_simulations()["name"])
         seal_run(project, "epsilon")
@@ -629,6 +697,160 @@ def test_the_index_is_replaced_in_one_step(project):
 
     assert index_path.stat().st_ino != file_id_before
     assert list(index_path.parent.glob("*.rebuild-*")) == []
+
+
+# -- one writer at a time ---------------------------------------------------
+
+
+def test_a_pass_with_nothing_to_write_does_not_take_the_lock(project, monkeypatch):
+    rebuild_index(project)
+
+    def _refuse(*_args, **_kwargs):
+        raise AssertionError("the lock was taken")
+
+    monkeypatch.setattr(indexer_module, "index_lock", _refuse)
+
+    assert index_new_runs(project).unchanged
+    assert not index_lock_path(project).exists()
+
+
+def test_two_passes_at_once_lose_no_run(project, monkeypatch):
+    """A slow pass holds the lock; the fast one waits, reads the diff again and adds its run."""
+    rebuild_index(project)
+    seal_run(project, "slow")
+    holding = threading.Event()
+    index_entry = indexer_module._IndexWriter.index_entry
+
+    def _slow_index_entry(self, entry):
+        if entry.rel_dir == "runs/slow":
+            holding.set()
+            time.sleep(1.0)
+        return index_entry(self, entry)
+
+    monkeypatch.setattr(indexer_module._IndexWriter, "index_entry", _slow_index_entry)
+    reports: dict[str, object] = {}
+
+    def _pass(name: str) -> None:
+        reports[name] = index_new_runs(project)
+
+    slow = threading.Thread(target=_pass, args=("slow",))
+    slow.start()
+    assert holding.wait(30)
+    seal_run(project, "fast")
+    fast = threading.Thread(target=_pass, args=("fast",))
+    fast.start()
+    slow.join(60)
+    fast.join(60)
+
+    assert reports["slow"].indexed == ("runs/slow",)
+    assert reports["fast"].indexed == ("runs/fast",)
+    names = {name for (name,) in _rows(project, "SELECT name FROM simulations")}
+    assert {"slow", "fast"} <= names
+    assert index_is_current(project)
+    assert not index_lock_path(project).exists()
+
+
+def test_an_old_empty_lock_does_not_block_a_pass(project):
+    lock = index_lock_path(project)
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_bytes(b"")
+    yesterday = time.time() - 86400
+    os.utime(lock, (yesterday, yesterday))
+
+    started = time.monotonic()
+    report = index_new_runs(project)
+
+    assert report.full
+    assert time.monotonic() - started < 30
+    assert not lock.exists()
+
+
+@pytest.mark.parametrize("refresh", [reindex_if_indexed, index_after_run])
+def test_a_held_lock_costs_a_warning_on_the_quiet_paths(
+    project, monkeypatch, warnings_said, refresh
+):
+    rebuild_index(project)
+    seal_run(project, "epsilon")
+    _hold_the_lock_from_another_process(project)
+    monkeypatch.setattr(indexer_module, "index_lock", functools.partial(index_lock, wait_s=0.05))
+
+    assert refresh(project) is None
+    said = " ".join(record.getMessage() for record in warnings_said.records)
+    assert "Index not refreshed" in said
+    assert f"process {os.getppid()}" in said
+    assert "hmp catalog reindex brings it up to date" in said
+    assert not index_is_current(project)
+
+
+def test_index_after_run_builds_a_missing_index(project):
+    report = index_after_run(project)
+
+    assert report is not None and report.full
+    assert index_is_current(project)
+
+
+def test_a_published_index_has_blocks_of_16_kib(project):
+    rebuild_index(project)
+    assert _block_size(project) == HMP_DUCKDB_BLOCK_SIZE == 16384
+
+    seal_run(project, "epsilon")
+    index_new_runs(project)
+    assert _block_size(project) == 16384
+
+
+# -- what a case carries ------------------------------------------------------
+
+
+def test_cases_bytes_is_the_size_of_the_directory(project):
+    rebuild_index(project)
+
+    rows = dict(_rows(project, "SELECT rel_dir, bytes FROM cases"))
+
+    assert rows["runs/alpha"] == path_size_bytes(project / "runs" / "alpha")
+    assert rows["runs/gamma"] == path_size_bytes(project / "runs" / "gamma")
+    assert rows["sessions/calib"] == path_size_bytes(project / "sessions" / "calib")
+
+
+def test_bytes_after_figures_and_exports_match_a_reindex_from_scratch(project):
+    import time
+
+    run_dir = project / "runs" / "alpha"
+    (run_dir / "figures").mkdir(exist_ok=True)
+    index_new_runs(project)
+    time.sleep(0.05)
+    (run_dir / "figures" / "heads.png").write_bytes(b"x" * 1000)
+    (run_dir / "exports").mkdir(exist_ok=True)
+    (run_dir / "exports" / "heads.csv").write_bytes(b"y" * 500)
+    index_new_runs(project)
+    live = dict(_rows(project, "SELECT rel_dir, bytes FROM cases"))
+
+    catalog_path_for(project).unlink()
+    rebuild_index(project)
+
+    assert dict(_rows(project, "SELECT rel_dir, bytes FROM cases")) == live
+    assert live["runs/alpha"] == path_size_bytes(run_dir)
+
+
+def test_a_purged_json_changes_the_stamp_of_a_run(project):
+    before = scan_tree(project)["runs/alpha"].mtime_ns
+    purged = project / "runs" / "alpha" / RUN_PURGED_FILENAME
+    purged.write_text("{}", encoding="utf-8")
+    later = time.time() + 60
+    os.utime(purged, (later, later))
+
+    assert scan_tree(project)["runs/alpha"].mtime_ns > before
+
+
+def test_metrics_are_indexed_under_the_parquet_column_name(project):
+    rebuild_index(project)
+
+    connection = open_index(project)
+    try:
+        columns = {row[0] for row in connection.execute("DESCRIBE metrics").fetchall()}
+    finally:
+        connection.close()
+    assert "metric" in columns
+    assert "metric_name" not in columns
 
 
 def test_the_two_identifiers_are_read_from_the_seal(project):

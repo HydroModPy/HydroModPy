@@ -1,7 +1,7 @@
 """The mapped network drawn from its heads, and how each head landed.
 
 The heads rule keeps only where the map says a stream starts and lets the
-criterion graph draw the rest (:mod:`hydromodpy.results.derive.stream.heads`), so the
+criterion graph draw the rest (:mod:`hydromodpy.catchment.stream_network.heads`), so the
 map carried on the page is not the mapped linework but the trace: the cells
 a head's descent actually walked. This figure exists to show that trace,
 never the rule the run happened to be scored under, so it always redraws

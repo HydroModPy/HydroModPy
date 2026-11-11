@@ -34,6 +34,7 @@ Catalog.read	method	(self, ref: str, variable: str, *, time: Any = None, layer: 
 Catalog.read_config	property	Callable[[Mapping[str, Any]], BaseModel] | None
 Catalog.read_geographic_feature	method	(self, sim_id: str | UUID, feature_name: str) -> gpd.GeoDataFrame
 Catalog.read_geographic_metadata	method	(self, sim_id: str | UUID) -> dict[str, str]
+Catalog.reads_the_published_index	property	bool
 Catalog.rel_dir_of	method	(self, sim_id: str | UUID) -> str
 Catalog.resolve	method	(self, ref: str | UUID, *, project: str | None = None, site: str | None = None, mixed_windows: bool = False) -> str
 Catalog.run_dir_for	method	(self, sim_id: str | UUID) -> Path
@@ -67,7 +68,7 @@ Project.load_data	method	(self, *, types: list[str] | None = None) -> None
 Project.loaded_data	property	LoadedDataContext
 Project.plan	method	(self, *, set: Mapping[str, Any] | None = None, force: bool = False) -> PlanDraft
 Project.prepare	method	(self) -> Project
-Project.publish	method	(self, to: str | Path, *, format: PublicationFormat = 'dir', with_: Sequence[PublicationExtra] = (), public: bool = False) -> Path
+Project.publish	method	(self, to: str | Path, *, format: PublicationFormat = 'dir', public: bool = False) -> Path
 Project.rebuild_geographic	method	(self, *, reuse_dem: bool = False) -> None
 Project.reload_data	method	(self, *, types: list[str]) -> None
 Project.rerun	classmethod	(run: Run, *, name: str | None = None, set: Mapping[str, Any] | None = None, solver: str | None = None, headless: bool = False, no_display: bool = False) -> Run

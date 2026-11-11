@@ -82,7 +82,6 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.old_members import refuse_old_member
-from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.results.annotations import add_note, add_tag, read_annotations, remove_tag
 from hydromodpy.results.catalog.constants import SIMULATIONS_FROM
@@ -544,11 +543,9 @@ class Run(
     @staticmethod
     def _refresh_index(project_root: Path) -> None:
         """Re-index the project after a change on disk, when it keeps an index."""
-        if not catalog_path_for(project_root).is_file():
-            return
-        from hydromodpy.results.catalog.indexer import index_new_runs
+        from hydromodpy.results.catalog.indexer import reindex_if_indexed
 
-        index_new_runs(project_root)
+        reindex_if_indexed(project_root)
 
     # -- Metadata properties -------------------------------------------------
 

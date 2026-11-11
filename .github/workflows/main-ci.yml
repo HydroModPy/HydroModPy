@@ -350,8 +350,10 @@ jobs:
       # came from the old spatial package, on the same files as before the move. The
       # algorithms, preprocess and synthetic line gates the old geographic files as one set.
       # The line before the last gates the modules at the top of catchment/ and the job
-      # inputs of model/domain, the old top of spatial. The last one gates
-      # results/derive/stream, which no other job measures: its tests run in this unit tier.
+      # inputs of model/domain, the old top of spatial. The last one gates the stream
+      # criterion as one set, the kernels in catchment/stream_network and the readers of
+      # a run in results/derive/stream. No other job measures them. Their tests run in
+      # this unit tier, under tests/unit/catchment/stream_network and tests/unit/results.
       - name: Gate the catchment coverage
         run: |
           coverage combine || true
@@ -366,7 +368,7 @@ jobs:
           coverage report --include='hydromodpy/model/domain/lake_bed_*' --precision=2 --fail-under=98.9
           coverage report --include='hydromodpy/catchment/terrain/*' --precision=2 --fail-under=94.6
           coverage report --include='hydromodpy/catchment/*.py,hydromodpy/model/domain/job_inputs.py' --precision=2 --fail-under=99.2
-          coverage report --include='hydromodpy/results/derive/stream/*' --precision=2 --fail-under=92.66
+          coverage report --include='hydromodpy/results/derive/stream/*,hydromodpy/catchment/stream_network/*' --precision=2 --fail-under=92.66
 
   core-coverage:
     name: Coverage / core gate py3.13

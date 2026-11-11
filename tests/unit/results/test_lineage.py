@@ -49,9 +49,23 @@ def test_an_unknown_key_is_refused_by_name():
         Lineage.model_validate({"parent_name": "nancon"})
 
 
-@pytest.mark.parametrize("kind", ["replay", "published"])
-def test_a_replay_and_a_published_run_are_known_kinds(kind):
+@pytest.mark.parametrize("kind", ["rerun", "promoted", "trial", "version", "replay"])
+def test_the_known_kinds_are_accepted(kind):
     assert Lineage(kind=kind).kind == kind
+
+
+def test_published_is_no_lineage_kind():
+    with pytest.raises(ValidationError, match="published"):
+        Lineage(kind="published")
+
+
+def test_a_seal_written_with_the_word_published_still_reads():
+    from hydromodpy.core.config_kit.stored import dump_stored, read_stored
+
+    lineage = read_stored(Lineage, {"kind": "published"})
+
+    assert lineage.kind == "published"
+    assert dump_stored(lineage)["kind"] == "published"
 
 
 def test_a_replay_round_trips_under_the_word_class():

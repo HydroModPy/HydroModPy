@@ -1,4 +1,8 @@
-"""The label is a function of reading: calibrated, evaluated, failed, or declassed by a known issue."""
+"""The label is a function of reading: calibrated, evaluated, failed, or declassed by a known issue.
+
+Under rule 3 a promoted run is calibrated only when a window was scored, and a
+parameter on a bound of its range adds a reason to any label.
+"""
 
 from __future__ import annotations
 
@@ -16,13 +20,18 @@ from hydromodpy.results.record.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.validity_rules import (
     CYCLIC_LAKE_START,
+    REASON_CODES,
     RESTART_START,
+    RULE_VERSION,
+    LabelResult,
+    Reason,
     ValidityRules,
     known_issues_hitting,
     label_for,
     run_quantities,
 )
 from hydromodpy.schema.changes import REGISTER, Bug, read
+from hydromodpy.schema.phrases import LANGS, keys
 from hydromodpy.schema.sources import declared_source_tokens, source_entry
 from hydromodpy.solver.base import registry as solver_registry
 from tests._helpers.run_records import (
@@ -346,7 +355,7 @@ def test_a_bug_of_a_source_declasses_only_the_runs_that_declared_it(
 
 def test_the_label_carries_the_rule_version_a_reader_can_cite():
     result = label_for(make_checks(), hydromodpy_version=CURRENT, issues=())
-    assert result.rule_version == "2"
+    assert result.rule_version == RULE_VERSION == "3"
     assert (
         make_identity()
         .labelled(result.label, label_date=WINDOW.end, rule_version=result.rule_version)
@@ -378,3 +387,189 @@ def test_a_restart_bug_declasses_a_restarted_run_and_not_a_plain_one():
     restarted = {i.id for i in known_issues_hitting("2.0.0a5", (*MF6, RESTART_START))}
     assert "restart_read_the_rounded_head" not in plain
     assert "restart_read_the_rounded_head" in restarted
+
+
+def _codes(result: LabelResult) -> tuple[str, ...]:
+    return tuple(cause.code for cause in result.causes)
+
+
+STEADY = "steady"
+TRANSIENT = "transient"
+
+RULE_3 = {
+    "a calibration window": (
+        {"score_window": None, "n_samples": 0},
+        {"window": CALIBRATION_WINDOW, "cost": 0.4},
+        TRANSIENT,
+        ("calibrated", ("promoted",)),
+    ),
+    "the headline window": (
+        {},
+        {"cost": 0.4},
+        TRANSIENT,
+        ("calibrated", ("promoted",)),
+    ),
+    "a steady run with a finite cost": (
+        {"score_window": None, "n_samples": 0},
+        {"cost": 0.0029},
+        STEADY,
+        ("calibrated", ("promoted",)),
+    ),
+    "a steady run without a cost": (
+        {"score_window": None, "n_samples": 0},
+        {"cost": None},
+        STEADY,
+        ("exploratory", ("promoted", "no_scored_window")),
+    ),
+    "a steady run with an infinite cost": (
+        {"score_window": None, "n_samples": 0},
+        {"cost": float("inf")},
+        STEADY,
+        ("exploratory", ("promoted", "no_scored_window")),
+    ),
+    "a transient run promoted without a window": (
+        {"score_window": None, "n_samples": 0},
+        {"cost": 0.4},
+        TRANSIENT,
+        ("exploratory", ("promoted", "no_scored_window")),
+    ),
+    "a regime that was not recorded": (
+        {"score_window": None, "n_samples": 0},
+        {"cost": 0.4},
+        None,
+        ("exploratory", ("promoted", "no_scored_window")),
+    ),
+    "a headline window without a sample": (
+        {"n_samples": 0},
+        {"cost": 0.4},
+        STEADY,
+        ("calibrated", ("promoted",)),
+    ),
+    "a headline window without a sample, transient": (
+        {"n_samples": 0},
+        {"cost": 0.4},
+        TRANSIENT,
+        ("exploratory", ("promoted", "no_scored_window")),
+    ),
+    "a bound reached on a calibrated run": (
+        {"bounds_hit": ["K", "Sy"]},
+        {"cost": 0.4},
+        TRANSIENT,
+        ("calibrated", ("promoted", "bound_reached")),
+    ),
+    "a bound reached on a run that scored nothing": (
+        {"score_window": None, "n_samples": 0, "bounds_hit": ["K"]},
+        {"cost": 0.4},
+        TRANSIENT,
+        ("exploratory", ("promoted", "no_scored_window", "bound_reached")),
+    ),
+    "a bound reached on a failed run": (
+        {"converged": False, "bounds_hit": ["K"]},
+        {"cost": 0.4},
+        STEADY,
+        ("failed", ("not_converged", "bound_reached")),
+    ),
+    "nothing scored and no session": (
+        {"score_window": None, "n_samples": 0, "calibrated_by": None},
+        None,
+        STEADY,
+        ("exploratory", ("no_score_window",)),
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("checks", "promoted", "regime", "expected"), RULE_3.values(), ids=RULE_3.keys()
+)
+def test_rule_3_calibrates_a_promoted_run_only_on_a_scored_window(
+    checks, promoted, regime, expected
+):
+    fields = dict(checks)
+    if promoted is not None:
+        fields.setdefault("calibrated_by", make_calibrated_by(**promoted))
+    result = label_for(
+        make_checks(**fields), hydromodpy_version=CURRENT, flow_regime=regime, issues=()
+    )
+    assert (result.label, _codes(result)) == expected
+
+
+def test_a_bound_reason_names_the_parameters_in_both_languages():
+    checks = make_checks(bounds_hit=["K", "Sy"])
+    result = label_for(checks, hydromodpy_version=CURRENT, issues=())
+
+    assert result.reasons[-1] == "a parameter reached its bound: K, Sy"
+    assert result.texts("fr")[-1] == "un paramètre a atteint sa borne : K, Sy"
+
+
+def test_the_reasons_are_the_english_sentences_of_the_causes():
+    checks = _promoted("completed", window=CALIBRATION_WINDOW)
+    result = label_for(checks, hydromodpy_version=CURRENT, issues=())
+
+    assert result.reasons == result.texts("en") == tuple(c.text("en") for c in result.causes)
+    assert result.texts("fr")[0] == "promu par la session s, completed"
+    assert result.causes[1].values == (
+        ("start", "2010-01-01"),
+        ("end", "2015-12-31"),
+        ("window_start", "2016-01-01"),
+        ("window_end", "2020-12-31"),
+        ("samples", "1827"),
+    )
+
+
+def test_the_reason_codes_are_the_keys_of_the_phrases():
+    assert REASON_CODES == keys("label_reason")
+    assert len(REASON_CODES) == 12
+    for code in REASON_CODES:
+        assert Reason(code).code == code
+    assert LANGS == ("en", "fr")
+
+
+def test_a_reason_with_an_unknown_code_is_refused():
+    with pytest.raises(ValueError, match="no_such_code"):
+        Reason.of("no_such_code")
+
+
+def test_every_reason_code_is_one_a_label_can_give():
+    issue = Bug(id="x", since="2.0.0", versions="<3", quantities=("heads@modflow6",), text="d")
+    fatal = [Validity("water_budget", False, 12.0, "no", True)]
+    cases = [
+        (make_checks(validities=fatal), ()),
+        (make_checks(converged=False), ()),
+        (make_checks(), (issue,)),
+        (_promoted("completed", window=CALIBRATION_WINDOW), ()),
+        (
+            _promoted("completed", window=DateWindow(start=date(2018, 1, 1), end=date(2025, 1, 1))),
+            (),
+        ),
+        (make_checks(score_window=None, n_samples=0, bounds_hit=["K"]), ()),
+        (_promoted("partial", score_window=None), ()),
+        (_promoted("partial", n_samples=0), ()),
+        (Checks(score_window=WINDOW, n_samples=1827), ()),
+    ]
+    given = {
+        cause.code
+        for checks, issues in cases
+        for cause in label_for(
+            checks,
+            hydromodpy_version="2.0.0a4",
+            quantities=MF6,
+            flow_regime=TRANSIENT,
+            issues=issues,
+        ).causes
+    }
+    assert given == REASON_CODES
+
+
+@pytest.mark.parametrize(
+    ("regime", "label"), [("steady", "calibrated"), ("transient", "exploratory")]
+)
+def test_label_of_reads_the_flow_regime_of_the_seal(tmp_path, regime, label):
+    unscored = make_checks(score_window=None, n_samples=0)
+    base = make_record(checks=unscored)
+    record = make_record(checks=unscored, run=base.run.model_copy(update={"flow_regime": regime}))
+    record.write(tmp_path)
+
+    result = label_of(record, tmp_path)
+
+    assert result.label == label
+    assert result.rule_version == RULE_VERSION

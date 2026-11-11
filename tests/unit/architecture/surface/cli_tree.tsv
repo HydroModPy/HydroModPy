@@ -548,6 +548,7 @@ hmp publish --verbose,-v	nargs=0
 hmp publish --verbosity	choices=['debug', 'normal', 'quiet', 'verbose']
 hmp publish --verify	
 hmp publish --with	choices=['fetched', 'inputs', 'mesh', 'results', 'runs', 'sessions'] default=[]
+hmp publish --without	choices=['inputs', 'results'] default=[]
 hmp publish --workspace,-w	
 hmp publish <ref>	nargs=?
 hmp replay	command

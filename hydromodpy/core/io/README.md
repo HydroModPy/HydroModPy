@@ -20,6 +20,7 @@ low-level primitives; nothing here knows a hydrogeological rule.
 
 - A new file format: one module, writing through `atomic_replace.py`.
 - A new stored document: a `schema` id and a check through `document_version.py`.
+- A lock file that is empty or torn JSON for more than 5 s is stale (`TORN_AFTER_S`); a younger one is held.
 - A DuckDB open: through `db_retry.py`, never `duckdb.connect` directly.
 
 The layer rules are checked by `tests/unit/architecture/`.

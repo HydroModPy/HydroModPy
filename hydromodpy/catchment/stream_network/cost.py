@@ -12,7 +12,7 @@ network averages to ``D_os``. The criterion is
     D_optim  <= validity_length    Eq. 4, the validity bound, in meters
 
 ``r_optim`` is the paper's ratio, published for comparison with its Table 1.
-The bound is a length (:func:`hydromodpy.results.derive.stream.geometry.
+The bound is a length (:func:`hydromodpy.catchment.stream_network.geometry.
 resolve_validity_length`): two cells ``2 h_obs`` by default, the paper's
 ``r_optim <= 2``, widened by a declared positional accuracy, or set by the
 output.
@@ -51,13 +51,13 @@ from hydromodpy.catchment.drainage.distance import (
     downslope_distance_to_mask,
     mean_downslope_distance,
 )
-from hydromodpy.results.derive.stream.geometry import (
+from hydromodpy.catchment.stream_network.geometry import (
     CriterionSupports,
     NetworkGeometry,
     ValidityLength,
     criterion_supports,
 )
-from hydromodpy.results.derive.stream.network import SimulatedNetwork
+from hydromodpy.catchment.stream_network.network import SimulatedNetwork
 
 Weighting = Literal["cell", "area"]
 
@@ -396,7 +396,7 @@ def score_on_geometry(
     ``validity_length_m`` is the output's declared ``validity_length`` in
     meters, None for ``"auto"``, which the geometry resolves from its own
     ``h_obs`` and declared accuracy
-    (:meth:`~hydromodpy.results.derive.stream.geometry.NetworkGeometry.validity_length`).
+    (:meth:`~hydromodpy.catchment.stream_network.geometry.NetworkGeometry.validity_length`).
     Each map resolves its own, so the two bounds of an output may differ.
     """
     return seepage_distance_cost(

@@ -86,7 +86,7 @@ def distance_mean(simulated: Sequence[float] | Any) -> float:
 
     NaN when a bound's simulated network is empty: its ``D_optim`` is undefined.
     That bound's ``D_so`` is rebuilt from the residual, ``D_os - L_cap``
-    (:func:`~hydromodpy.calibration.metrics.downslope_network.weighted_pair`),
+    (:func:`~hydromodpy.catchment.stream_network.cost.weighted_pair`),
     and is negative, which no measured distance is. Summed, it would rank the
     empty network below every real one.
     """

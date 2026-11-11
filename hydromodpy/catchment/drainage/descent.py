@@ -11,8 +11,9 @@ The fill runs on the very graph that is descended. A flood only guarantees a
 strictly lower neighbor among the cells it walked, so a fill on one
 neighborhood and a descent on another leave filled cells spilling over a link
 the descent cannot take (see the comment in
-:func:`hydromodpy.results.derive.stream.geometry.build_network_geometry`). D floods like
-the stream criterion's fill, with four differences: its seeds include the
+:func:`hydromodpy.catchment.stream_network.geometry.build_network_geometry`). D floods with the
+same :func:`~hydromodpy.catchment.drainage.filling.priority_flood` as the stream criterion's
+fill, with four differences: its seeds include the
 constant-head cells the caller declares, its lakes are traversed, its channel
 cells follow the channel tree A by pinned receivers (principle P3), and a cell a
 hair above the flood level is raised too, so the receiver graph never meets a
@@ -66,7 +67,6 @@ criterion.
 
 from __future__ import annotations
 
-import heapq
 from dataclasses import dataclass, replace
 from typing import Literal
 
@@ -79,7 +79,7 @@ from hydromodpy.catchment.drainage.distance import (
     resolve_outlet,
     shared_node_adjacency,
 )
-from hydromodpy.catchment.drainage.filling import DEFAULT_EPSILON_M
+from hydromodpy.catchment.drainage.filling import DEFAULT_EPSILON_M, priority_flood
 from hydromodpy.catchment.drainage.graph import (
     DownhillGraph,
     active_surface_mask,
@@ -348,7 +348,15 @@ def build_descent(
 
     step = np.where(channel_mask | ~np.any(channel_mask), float(epsilon), 2.0 * float(epsilon))
     tolerance = _flood_tolerance(surface_in[on_graph])
-    surface, raised = _flood(surface_in, on_graph, adjacency, seeds, pin, step, tolerance=tolerance)
+    surface, raised = priority_flood(
+        np.where(on_graph, surface_in, np.nan),
+        adjacency,
+        seeds,
+        step=step,
+        pin=pin,
+        tolerance=tolerance,
+        every_cell=True,
+    )
 
     metric = build_downslope_metric(
         surface,
@@ -463,57 +471,6 @@ def _rim_seeds(
     seeds = domain_edge_cells(face_node_connectivity, on_graph) & ~reached
     seeds[outlet] = True
     return seeds
-
-
-def _flood(
-    top: np.ndarray,
-    on_graph: np.ndarray,
-    adjacency: list[set[int]],
-    seeds: np.ndarray,
-    pin: np.ndarray,
-    step: np.ndarray,
-    *,
-    tolerance: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Priority flood from the seeds, pinned cells entered from their pin only.
-
-    The key is (level, cell), the order of the stream criterion's fill, so
-    without pins and channel the copy is the criterion's own.
-    """
-    surface = np.where(on_graph, top, np.nan)
-    raised = np.zeros(top.size, dtype=bool)
-    visited = ~on_graph
-    donors: dict[int, list[int]] = {}
-    for cell in np.flatnonzero(pin >= 0).tolist():
-        donors.setdefault(int(pin[cell]), []).append(cell)
-
-    frontier: list[tuple[float, int]] = []
-    for cell in np.flatnonzero(seeds).tolist():
-        visited[cell] = True
-        heapq.heappush(frontier, (float(surface[cell]), cell))
-    while frontier:
-        level, cell = heapq.heappop(frontier)
-        candidates = list(adjacency[cell])
-        candidates.extend(donors.get(cell, ()))
-        for neighbour in candidates:
-            if visited[neighbour] or (pin[neighbour] >= 0 and pin[neighbour] != cell):
-                continue
-            visited[neighbour] = True
-            # Within the receiver tolerance a cell would not see this one as
-            # lower, so it is raised like a cell below the level.
-            if surface[neighbour] <= level + tolerance:
-                surface[neighbour] = level + step[neighbour]
-                raised[neighbour] = True
-            heapq.heappush(frontier, (float(surface[neighbour]), neighbour))
-
-    unreached = np.flatnonzero(~visited)
-    if unreached.size:
-        raise ValueError(
-            f"{unreached.size} cell(s) of the descent are never reached from a seed "
-            f"(first: {int(unreached[0])}): the pinned cells around them are entered "
-            "only from pins that lie beyond them."
-        )
-    return surface, raised
 
 
 def _flood_tolerance(values: np.ndarray) -> float:

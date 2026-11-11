@@ -110,6 +110,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - An `sftp://` `key_file` may hold an ed25519, ECDSA or RSA private key.
 - `session.json` names, for each phase, the options, the seed, the seed of each restart and the libraries of its optimizer, in an optional `optimizer` block. A 2.0 `session.json` has none and still reads.
 - The trial frame of a session (`Session.trials`) gains `batch`, `rule`, `window`, `solve_s` and `reused`, and `Session.profile()` sums where the search spent its time, by step and by `reused`.
+- The method text of a run, `hydromodpy.results.method.method_text`, and its label sentence, `label_text`, in English and in French. The text has five paragraphs: the run, its data with each licence, its calibration, its quality with each check passed, failed or unknown, and its limits. Every sentence is a row of `phrases.toml`.
+- A sealed run keeps `mesh/open_water` and `mesh/catchment_cells` beside the mean recharge it already kept. They are the open water and the outline cells the stream criterion read.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -501,7 +503,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp run <run>/config.toml --frozen` no longer replays a run; use `hmp replay <run>`.
 - The results modules manifest, record, run_identity and checks live under `hydromodpy.results.record`, and lineage under `hydromodpy.schema`. `hydromodpy.results.identity` stays where it was.
 - The value digests of a seal cover `simulation.parquet` and `parameters.parquet` too, and leave out the solve-time row of `metrics.parquet`, which is a wall clock.
-- A replay of a run sealed by 2.0.0 lists the `final_state/` arrays that version could not write under `added` without classing the replay as a deviation, and reads its flat `concentration` as the one species of the replay.
+- A replay of a run sealed by 2.0.0 lists the `final_state/` arrays and the `mesh/open_water` and `mesh/catchment_cells` masks that version did not write under `added` without classing the replay as a deviation, and reads its flat `concentration` as the one species of the replay.
 - A difference a replay cannot measure (two shapes, two NaN masks, a zero norm) is written with null measures and its reason, never as `Infinity`. A seal is strict JSON.
 - A replay that read the mesh sealed beside its source seals those bytes in its own `mesh/`, and a sealed mesh whose bytes no longer match its seal is rebuilt. A run with a sealed mesh is still found identical to a later request, and can still be shared.
 - A job seal of a later or an earlier `manifest_version` is refused with the sentence that says to upgrade or to run again.
@@ -517,6 +519,25 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A kept calibration trial keeps only the budget terms of its criterion and draws no figure; the best of an earlier phase keeps what the project asks.
 - `hmp campaign promote <case> --trial N` solves a kept trial again when `hmp catalog gc` removed its fields, and leaves its folder under the session.
 - A run is skipped only for an identical run of its level or above.
+- The four criterion modules of `results/derive/stream` (`network`, `extent`, `heads`, `geometry`) and `calibration/metrics/downslope_network` are now `hydromodpy.catchment.stream_network.{network,extent,heads,geometry,cost}`. The visible-flow words and the provenance codes of a validity map are in `hydromodpy.core.scoring.stream_defaults`.
+- `routed_discharge` and the private flood of the descent are gone. `route_release_to_discharge` and `priority_flood` of `hydromodpy.catchment.drainage` are the one routing and the one flood.
+- Rule 6 of the repository now holds `catchment/stream_network` and `core/scoring`, with a table of exceptions that can only shrink.
+- The stream criterion reads each of its inputs once, through `hydromodpy.results.derive.stream.criterion_inputs`. A figure drawn from a run takes the solver centers, the open water, the outline and the mean recharge the trial scored, so it draws the partition behind the reported number. A run that kept no mean recharge, or no `mesh/open_water`, is refused with a sentence that says to replay it, or to set `tau_specific_ratio = 0`.
+- `frac_minimal_outside_maximal` in the trial journal is read on the scored cells, inside the catchment, active and off open water. With 1 % of open water it goes from 0.6883 to 0.6842. No value of `metrics.parquet` changes.
+- `StoredBasin` is a frozen dataclass read by one function, `basin_of_group`, for the run views and for the catchment aggregation alike.
+- `hydromodpy.results.score` is the one pairing of a simulated series with its observations: `pair`, `score`, `score_metric`, `score_timeseries`, `read_timeseries`, `calibration_rules` and `score_run_under_its_rule`. The calibration trial and the sealed run both call it, so they pair the same series bit for bit. `score`, `score_run` and `HEADLINE_METRICS` leave `hydromodpy.results.metric_rule`, which keeps the rule and score types.
+- A run a session promoted gains in `metrics.parquet` one set of rows per calibration period of its seal, with `window_role = calibration` and `metric_rule_version`, written before the seal. The headline rows do not change.
+- `calibrated_by` in the seal gains `rule`, the metric rule version of the cost, and `components`, the parts of that cost without the validation cost. The block keeps `hydromodpy.checks.v2`.
+- Labels follow rule 3. A promoted run is calibrated or evaluated only when a window was scored: a calibration period, the headline window with enough samples, or the state of a steady run with a finite cost. A transient run promoted without one is exploratory, with the reason `no_scored_window`. A parameter on a bound adds the reason `bound_reached` to any label. `LabelResult.causes` holds coded reasons with an English and a French sentence, and `LabelResult.reasons` gives the English ones.
+- The licence of a run is the roll-up of the licences of its `inputs.json` entries, each read from the sidecar of its file. A loaded record no longer takes the licence of its provider by slug. A checkpoint written by an earlier build, whose `facts.json` holds `licence_sources`, is refused.
+- `phrases.toml` also holds the label, label reason and check state phrases, and `hydromodpy.schema.phrases` is its one reader, with the languages in `LANGS`.
+- The project index `.hmp/index.duckdb` is written by one process at a time under `.hmp/index.duckdb.lock`, in DuckDB blocks of 16 KiB. Opening a project builds a missing or older index instead of refusing. `metrics.metric_name` is now `metrics.metric` in the index, the catalog rank output (now `hmp.catalog.rank.v2`) and the pair comparison, and `cases.bytes` holds the size of each directory, measured again when `figures/`, `exports/` or `report/` gains a file. A sealed run no longer fails when another process holds the index lock or the index does not open: it warns, names `hmp catalog reindex` and is read from its directory. A read of a `Project` never waits for a writer of the index: it opens the published index at once, and opens it again when another process rebuilt it since. `hmp catalog show` lists the copies of a run.
+- The ledger of `figures/` and `exports/` is locked on every system, without `fcntl`, and a record whose lock was taken back meanwhile is refused instead of written. A stale lock is taken back by one process at a time and only when it is still the file judged stale, so a fresh lock is never removed.
+- `hmp publish` takes the results (`fields.zarr`, `tables.parquet`, `final_state/`), the inputs with `INSTALL.toml`, the sealed mesh and `products.json` along by default and writes `.zenodo.json` beside the RO-Crate. `--without results` and `--without inputs` leave them out; `--with` goes with `--package` only and is refused for a copy. `publish` and `publish_project` carry both by default, and `publish_project` returns a `PublishedProject` with its copies and the runs it left out.
+- `hmp publish` refuses a replay that is not classed bit, and `hmp publish .` leaves it out and names it under `left_out`.
+- `hmp publish` of a run with its inputs prints `hmp replay <copy> -w <project>` as the line that replays the copy.
+- `Project.publish` takes no `with_` any more: a summary carries no results and no inputs.
+- The trash warns only for a run that has published copies; a delivery alone does not count.
 
 ### Removed
 
@@ -623,6 +644,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hydromodpy.results.geographic_cache`, which nothing called.
 - `hydromodpy.catchment.preprocess.regional_flow_job`, which nothing called once `reg_fold` left. To share a conditioned DEM between projects, declare `state = "conditioned"` on its `[data.dem.sources]` entry.
 - `HANDOFF_PRODUCTS` of `hydromodpy.solver.base.adapter_protocol`; `face_flow` is a name of the field registry.
+- `hydromodpy.results.fit_metrics`. Its functions are in `hydromodpy.results.score`.
+- The `LANGUAGES` constant of `hydromodpy.config.check`. The languages are `LANGS` in `hydromodpy.schema.phrases`.
+- The lineage kind `published`: a copy has no seal of its own and names its source in `PUBLICATION.json`.
+
 ### Fixed
 
 - A run with `zone_partic = "seepage_clip"` stopped with a KeyError since the outputs of the solver are extracted after every run. MODPATH now builds the seepage raster from the heads of its flow run, with the seepage rule of the run store, and finds those heads under the NWT name of a run whose name holds spaces.

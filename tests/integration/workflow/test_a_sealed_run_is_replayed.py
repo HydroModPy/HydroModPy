@@ -218,7 +218,7 @@ def test_the_run_seals_its_whole_configuration_portable(demo: Path) -> None:
 def _copy_entries(run_dir: Path, project: Path) -> set[str]:
     from hydromodpy.results.export.publish import publish
 
-    copy = publish(run_dir, project.parent / "copy", project_root=project)
+    copy = publish(run_dir, project.parent / "copy", project_root=project, with_=("results",))
     return {entry.name for entry in Path(copy).iterdir()}
 
 

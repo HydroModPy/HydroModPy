@@ -726,9 +726,9 @@ def completed_run_view(outcome: RunOutcome) -> Run | None:
     through it.
     """
     from hydromodpy.project.runner import run_view_of
-    from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.results.catalog.indexer import index_after_run
 
-    index_new_runs(outcome.project_root)
+    index_after_run(outcome.project_root)
     return run_view_of(
         outcome.run_dir, project_root=outcome.project_root, sim_id=str(outcome.sim_id)
     )

@@ -17,6 +17,7 @@ from hydromodpy.results.metric_rule import EVALUATION_ROLE, HEADLINE_WINDOW
 from hydromodpy.results.record.checks import Validity
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.sealed import lineage_of
+from hydromodpy.results.validity_rules import RULE_VERSION
 from tests._helpers.metric_rows import headline_score
 from tests._helpers.run_records import (
     CASE_ID,
@@ -145,7 +146,7 @@ def test_a_run_reads_its_checks_and_its_label_of_the_day(tmp_path) -> None:
     assert run.record.checks.score_window == WINDOW
     label = run.label()
     assert label.label == "calibrated"
-    assert label.rule_version == "2"
+    assert label.rule_version == RULE_VERSION
 
 
 def test_a_failed_fatal_validity_labels_the_run_failed(tmp_path) -> None:

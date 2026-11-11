@@ -4,7 +4,7 @@ A transient run holds one release field per timestep. Where the network flowed,
 how often, and the maximal and minimal extents the two-bound mode of the
 network criterion scores, are all counts over that stack. This module counts
 them on a stored run, through the one definition of "flowing" of
-:mod:`hydromodpy.results.derive.stream.extent`, on the criterion graph that
+:mod:`hydromodpy.catchment.stream_network.extent`, on the criterion graph that
 :func:`hydromodpy.results.derive.stream.comparison.network_comparison_from_run`
 rebuilds. A figure drawn from here therefore cuts the network where a trial
 cuts it: seepage above ``tau * R * A``, closed downstream on the conditioned
@@ -25,25 +25,11 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.core.scoring.stream_defaults import (
-    STREAM_CRITERION_DEFAULTS,
-    ObservedRasterization,
-)
-from hydromodpy.core.time import nominal_step_days, parse_step_spec
-from hydromodpy.results.derive.stream.comparison import (
-    has_recharge_source,
-    network_comparison_from_run,
-    no_recharge_reason,
-    no_release_flux_reason,
-    unavailable_reason_for_comparison,
-)
-from hydromodpy.results.derive.stream.extent import (
+from hydromodpy.catchment.stream_network.extent import (
     CHUNK_ELEMENTS,
-    DEFAULT_VISIBLE_FLOW,
     Bound,
     CalendarYears,
     ExtentMasks,
-    VisibleFlow,
     YearlyFlowCounts,
     calendar_years,
     dry_steps,
@@ -52,12 +38,28 @@ from hydromodpy.results.derive.stream.extent import (
     flowing_cells,
     flowing_steps,
     parse_extent_duration,
-    parse_visible_flow,
 )
-from hydromodpy.results.derive.stream.geometry import (
+from hydromodpy.catchment.stream_network.geometry import (
     CriterionSupports,
     NetworkGeometry,
     criterion_supports,
+    scored_cells,
+    share_outside,
+)
+from hydromodpy.core.scoring.stream_defaults import (
+    DEFAULT_VISIBLE_FLOW,
+    STREAM_CRITERION_DEFAULTS,
+    ObservedRasterization,
+    VisibleFlow,
+    parse_visible_flow,
+)
+from hydromodpy.core.time import nominal_step_days, parse_step_spec
+from hydromodpy.results.derive.stream.comparison import (
+    has_recharge_source,
+    network_comparison_from_run,
+    no_recharge_reason,
+    no_release_flux_reason,
+    unavailable_reason_for_comparison,
 )
 
 if TYPE_CHECKING:
@@ -77,7 +79,6 @@ __all__ = (
     "network_extents_from_run",
     "run_step_days",
     "run_step_edges",
-    "scored_cells",
     "unavailable_reason_for_extents",
     "unavailable_reason_for_flow",
 )
@@ -134,7 +135,7 @@ def unavailable_reason_for_flow(
     if reason is not None:
         return reason
     if float(tau_specific_ratio) > 0.0 and not has_recharge_source(sim):
-        return no_recharge_reason(sim, tau_specific_ratio)
+        return no_recharge_reason()
     return None
 
 
@@ -328,7 +329,7 @@ def block_flow_counts(
 ) -> BlockFlowCounts:
     """Count, per block of timesteps and per cell, the timesteps the cell flows.
 
-    "Flows" is :func:`hydromodpy.results.derive.stream.extent.flowing_cells` on the
+    "Flows" is :func:`hydromodpy.catchment.stream_network.extent.flowing_cells` on the
     criterion ``geometry``: in the downstream closure of the cells releasing
     above their threshold and, unless ``visible_flow`` is ``"0 L/s"``, carrying
     at least that routed discharge. The release field is read at most
@@ -413,10 +414,14 @@ class NetworkExtents:
     criterion scores it; ``minimal_observed`` is the minimal map, or None when
     the run stored none.
     ``frac_minimal_outside_maximal`` is the share of the minimal map, on the
-    scored cells (:func:`scored_cells`), that the maximal map does not cover.
+    scored cells, that the maximal map does not cover. ``scored`` is that support:
+    the catchment, active, minus the water bodies (``scored_cells``), the one the
+    valid, excess and missing counts of :meth:`supports` are read on, and which a
+    figure reads here because it cannot reach the catchment layer.
     """
 
     geometry: NetworkGeometry
+    scored: np.ndarray
     maximal_observed: np.ndarray
     minimal_observed: np.ndarray | None
     frac_minimal_outside_maximal: float
@@ -452,7 +457,7 @@ class NetworkExtents:
                 bound, threshold_m3_s=self.geometry.threshold_m3_s, year=year
             ),
             observed=self.observed(bound),
-            catchment=scored_cells(self.geometry),
+            catchment=self.scored,
             active=self.geometry.metric.graph.active,
         )
 
@@ -555,7 +560,7 @@ def network_extents_from_run(
             flow_geometry_from_run(sim, role=MINIMAL_ROLE, **settings).observed,
             dtype=bool,
         )
-        outside = _share_outside(minimal, maximal, scored_cells(geometry))
+        outside = share_outside(minimal, maximal, geometry)
         maximal = maximal | minimal
 
     visible = parse_visible_flow(visible_flow)
@@ -573,6 +578,7 @@ def network_extents_from_run(
     )
     return NetworkExtents(
         geometry=geometry,
+        scored=scored_cells(geometry),
         maximal_observed=maximal,
         minimal_observed=minimal,
         frac_minimal_outside_maximal=outside,
@@ -587,26 +593,3 @@ def network_extents_from_run(
         year_quorum=float(year_quorum),
         tau_specific_ratio=float(tau_specific_ratio),
     )
-
-
-def scored_cells(geometry: NetworkGeometry) -> np.ndarray:
-    """Return the cells the criterion scores: catchment, active, not a water body.
-
-    This is the ``keep`` mask of :func:`criterion_supports`. The share of the
-    minimal map outside the maximal one and the valid, excess and missing
-    counts of :meth:`NetworkExtents.supports` are both read on it.
-    """
-    keep = np.asarray(geometry.catchment, dtype=bool).reshape(-1) & np.asarray(
-        geometry.metric.graph.active, dtype=bool
-    ).reshape(-1)
-    if geometry.excluded is not None:
-        keep = keep & ~np.asarray(geometry.excluded, dtype=bool).reshape(-1)
-    return keep
-
-
-def _share_outside(inner: np.ndarray, outer: np.ndarray, within: np.ndarray) -> float:
-    """Return the share of ``inner`` inside ``within`` that ``outer`` leaves out."""
-    scored = np.asarray(inner, dtype=bool) & np.asarray(within, dtype=bool)
-    if not scored.any():
-        return float("nan")
-    return float(np.mean(~np.asarray(outer, dtype=bool)[scored]))

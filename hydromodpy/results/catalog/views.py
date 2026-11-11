@@ -41,7 +41,7 @@ def _wide_metric_columns() -> str:
     lines = []
     for name in RUN_METRIC_NAMES:
         safe = name.replace("'", "''")
-        lines.append(f"    MAX(CASE WHEN metric_name = '{safe}' THEN value END) AS {name}")
+        lines.append(f"    MAX(CASE WHEN metric = '{safe}' THEN value END) AS {name}")
     return ",\n".join(lines)
 
 

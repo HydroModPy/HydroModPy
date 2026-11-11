@@ -8,14 +8,32 @@ and no calibration ever writes it. The launcher calls :func:`index_new_runs`
 after a worker exits, ``hmp catalog reindex`` calls :func:`rebuild_index`,
 and both write a staging database that is published in one rename: a reader
 holding the previous file keeps reading it, the next opener gets the new one.
+The file itself, its lock and its staging copy belong to :mod:`index_file`.
+
+One writer at a time
+--------------------
+A pass first compares the tree with the index without any lock: when nothing
+moved, it returns at once and never takes the lock (``Project`` makes such a
+pass on every read). Otherwise it takes ``.hmp/index.duckdb.lock``, then reads
+the build, the tree and the diff again under it: a diff computed before the
+lock never serves to write, so a pass never drops a run another pass indexed
+meanwhile. The writer renews its lease every
+:data:`~hydromodpy.results.catalog.index_file.RENEW_EVERY` entries, and checks
+that it still holds the lock before it publishes.
+
+:func:`rebuild_index`, :func:`index_new_runs` and :func:`reindex_project`
+raise when the lock stays held or the index does not read. The paths where the
+disk is the truth do not: :func:`index_after_run` (after a sealed run) and
+:func:`reindex_if_indexed` (after a command changed a run) log a warning and
+leave the index for the next pass.
 
 The incremental refresh is a diff
 ---------------------------------
 Each result directory is keyed by its relative directory and by what it
 carries: ``manifest.json`` names a ``sim_id``, ``outcome.json`` an
 ``attempt_id``, ``session.json`` a ``session_id``. The stamp of a directory is
-the newest mtime of those files, of ``annotations.json`` and of the trial
-journal. A directory that is new, or whose key or stamp changed, is read
+the newest mtime of those files, of ``annotations.json``, of ``purged.json``
+(``hmp gc`` removed fields, so the size changed) and of the trial journal. A directory that is new, or whose key or stamp changed, is read
 again; one that disappeared loses its rows; the others are left as they are.
 A renamed directory is a removal and an insertion under the new name, with
 the same ``sim_id``: the links by id do not move. A retry writes a new
@@ -28,7 +46,8 @@ What one directory gives back
 Index table              Rebuilt from
 =======================  =======================================================
 cases, attempts          ``outcome.json``, ``attempts/<n>/outcome.json``,
-                         ``logs/heartbeat.json``, the presence of the seal
+                         ``logs/heartbeat.json``, the presence of the seal;
+                         ``cases.bytes`` is the size of the directory
 simulations              ``tables.parquet/simulation.parquet`` and ``manifest.json``
                          (``geometry.mesh_engine``); ``config.toml`` for the
                          frozen configuration
@@ -58,7 +77,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import tomllib
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
@@ -69,8 +87,8 @@ from uuid import uuid4
 
 import duckdb
 
-from hydromodpy.core.io.atomic_replace import rename_over_open_file
-from hydromodpy.core.io.db_retry import connect_with_retry
+from hydromodpy.core.exceptions import CatalogUnreadableError, WriteConflictError
+from hydromodpy.core.io.lock_file import LockFile
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import (
     TRIALS_DIRNAME,
@@ -82,6 +100,15 @@ from hydromodpy.core.state.portable import encode_workspace_path
 from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel, trial_dir_rel
 from hydromodpy.core.version import __version__
 from hydromodpy.results.annotations import read_annotations
+from hydromodpy.results.catalog.index_file import (
+    RENEW_EVERY,
+    discard_staging,
+    index_lock,
+    new_staging,
+    open_index,
+    open_staging,
+    publish_staging,
+)
 from hydromodpy.results.catalog.index_schema import (
     INDEX_META_TABLE,
     INDEX_SCHEMA_VERSION,
@@ -113,6 +140,7 @@ from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_OUTCOME_FILENAME,
     RUN_PROVENANCE_FILENAME,
+    RUN_PURGED_FILENAME,
     SESSION_DESCRIPTOR_FILENAME,
     SESSION_PHASES_DIRNAME,
     SESSION_TRIALS_FILENAME,
@@ -120,6 +148,7 @@ from hydromodpy.results.storage.contract import (
     TABLES_DIRNAME,
     geographic_feature_files,
 )
+from hydromodpy.results.storage.digests import path_size_bytes
 from hydromodpy.results.storage.json_io import beside_seal, read_json, readable, reason_text
 from hydromodpy.results.storage.parquet_io import read_checked_table
 from hydromodpy.results.validity_rules import RULE_VERSION
@@ -173,56 +202,83 @@ class IndexReport:
 
 
 def rebuild_index(project_root: Path | str) -> IndexReport:
-    """Rebuild the whole index from ``runs/`` and ``sessions/`` and publish it."""
+    """Rebuild the whole index from ``runs/`` and ``sessions/`` and publish it.
+
+    Raises :class:`WriteConflictError` when another process keeps the lock.
+    """
     root = Path(project_root).expanduser().resolve()
-    return _write_index(root, scan_tree(root), incremental=False)
+    with index_lock(root) as lock:
+        return _write_index(root, lock, scan_tree(root), incremental=False)
 
 
-def index_new_runs(project_root: Path | str, *, incremental: bool = True) -> IndexReport:
+def index_new_runs(
+    project_root: Path | str, *, incremental: bool = True, wait_s: float | None = None
+) -> IndexReport:
     """Bring the index up to date with the tree, by a diff when it can.
 
     Without an index, with an index of another schema version, with an index
     labeled by other rules or another known issues register, or with
     ``incremental=False``, the index is rebuilt whole. Otherwise only the
     directories that appeared, changed or disappeared since the last pass are
-    written, and a tree that did not move writes nothing.
+    written, and a tree that did not move writes nothing and takes no lock.
+    Raises :class:`WriteConflictError` when another process keeps the lock
+    past ``wait_s`` seconds, ``INDEX_WAIT_S`` by default.
     """
     root = Path(project_root).expanduser().resolve()
-    disk = scan_tree(root)
-    index_path = catalog_path_for(root)
-    if not incremental or not _index_is_of_this_build(index_path):
-        return _write_index(root, disk, incremental=False)
-    current = _read_indexed(index_path)
-    changed = {
-        rel_dir
-        for rel_dir, entry in disk.items()
-        if current.get(rel_dir) != (entry.key, entry.mtime_ns)
-    }
-    removed = set(current) - set(disk)
-    if not changed and not removed:
-        return IndexReport(index_path, False, (), (), (), (), {})
-    return _write_index(root, disk, incremental=True, changed=changed, removed=removed)
+    if incremental:
+        unchanged = _unchanged_report(root)
+        if unchanged is not None:
+            return unchanged
+    with index_lock(root) if wait_s is None else index_lock(root, wait_s=wait_s) as lock:
+        disk = scan_tree(root)
+        index_path = catalog_path_for(root)
+        if not incremental or not _index_is_of_this_build(root, warn=True):
+            return _write_index(root, lock, disk, incremental=False)
+        changed, removed = _diff(disk, _read_indexed(root))
+        if not changed and not removed:
+            return IndexReport(index_path, False, (), (), (), (), {})
+        return _write_index(root, lock, disk, incremental=True, changed=changed, removed=removed)
 
 
 def index_is_current(project_root: Path | str) -> bool:
     """Return whether the index describes the tree as it stands."""
     root = Path(project_root).expanduser().resolve()
-    index_path = catalog_path_for(root)
-    if not _index_is_of_this_build(index_path):
+    if not _index_is_of_this_build(root, warn=False):
         return False
     disk = scan_tree(root)
-    current = _read_indexed(index_path)
+    current = _read_indexed(root)
     return {rel: (e.key, e.mtime_ns) for rel, e in disk.items()} == current
 
 
 def reindex_if_indexed(project_root: Path) -> None:
     """Index the runs a command just changed, when the project has an index.
 
-    A project without an index is left so: it is read from disk until
-    ``hmp catalog reindex`` builds one.
+    A project without an index is left so: opening it builds one. A lock held
+    by another process or an index that does not read costs a warning, never
+    the command: the runs on disk are the truth.
     """
     if catalog_path_for(project_root).is_file():
-        index_new_runs(project_root)
+        _index_quietly(project_root)
+
+
+def index_after_run(project_root: Path | str) -> IndexReport | None:
+    """Index a project after a run sealed, building the index when it is missing.
+
+    Returns ``None`` and logs a warning when the lock stays held or the index
+    does not read: a sealed run never fails on its index.
+    """
+    return _index_quietly(project_root)
+
+
+def _index_quietly(project_root: Path | str) -> IndexReport | None:
+    try:
+        return index_new_runs(project_root)
+    except (WriteConflictError, CatalogUnreadableError) as exc:
+        logger.warning(
+            "Index not refreshed: %s. hmp catalog reindex brings it up to date.",
+            str(exc).rstrip("."),
+        )
+        return None
 
 
 def reindex_project(workspace: Any, *, incremental: bool = False) -> dict:
@@ -299,13 +355,33 @@ def _newest(paths: Iterable[Path]) -> int:
     return max(stamps) if stamps else 0
 
 
+def _tree_stamps(path: Path) -> list[Path]:
+    """The directory and its subdirectories, whose dates move when a file lands in them.
+
+    ``figures/``, ``exports/`` and ``report/`` are written after the seal, so
+    ``cases.bytes`` is measured again when one of them gains or loses a file.
+    """
+    try:
+        return [path, *(child for child in path.iterdir() if child.is_dir())]
+    except OSError:
+        return [path]
+
+
 def _run_entry(rel_dir: str, kind: EntryKind, path: Path) -> DiskEntry | None:
     manifest = path / RUN_MANIFEST_FILENAME
     outcome = path / RUN_OUTCOME_FILENAME
     if not manifest.is_file() and not outcome.is_file():
         return None
     key = _run_key(path, manifest, outcome)
-    stamp = _newest((manifest, outcome, path / RUN_ANNOTATIONS_FILENAME))
+    stamp = _newest(
+        (
+            manifest,
+            outcome,
+            path / RUN_ANNOTATIONS_FILENAME,
+            path / RUN_PURGED_FILENAME,
+            *_tree_stamps(path),
+        )
+    )
     return DiskEntry(rel_dir, kind, path, key, stamp)
 
 
@@ -334,7 +410,9 @@ def _session_entry(rel_dir: str, path: Path) -> DiskEntry | None:
         key = f"unreadable:{uuid4().hex}"
     phases = path / SESSION_PHASES_DIRNAME
     phase_files = list(phases.glob(f"*/{SESSION_DESCRIPTOR_FILENAME}")) if phases.is_dir() else []
-    stamp = _newest((descriptor, outcome, path / SESSION_TRIALS_FILENAME, *phase_files))
+    stamp = _newest(
+        (descriptor, outcome, path / SESSION_TRIALS_FILENAME, *phase_files, *_tree_stamps(path))
+    )
     return DiskEntry(rel_dir, "session", path, key, stamp)
 
 
@@ -349,14 +427,19 @@ def known_issues_digest() -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
-def _index_is_of_this_build(index_path: Path) -> bool:
-    """Return whether the index at ``index_path`` has this schema and these labeling rules."""
-    if not index_path.is_file():
+def _index_is_of_this_build(project_root: Path, *, warn: bool) -> bool:
+    """Return whether the index has this schema and these labeling rules.
+
+    An index that does not open is rebuilt, never repaired; ``warn`` says so
+    in the log.
+    """
+    if not catalog_path_for(project_root).is_file():
         return False
     try:
-        connection = connect_with_retry(str(index_path), read_only=True)
-    except Exception as exc:  # noqa: BLE001 - an unreadable index is rebuilt, not repaired
-        logger.warning("Index at %s cannot be opened, it is rebuilt: %s", index_path, exc)
+        connection = open_index(project_root)
+    except (CatalogUnreadableError, OSError) as exc:
+        if warn:
+            logger.warning("Index of %s cannot be opened, it is rebuilt: %s", project_root, exc)
         return False
     try:
         if read_index_schema_version(connection) != INDEX_SCHEMA_VERSION:
@@ -375,9 +458,9 @@ def _index_is_of_this_build(index_path: Path) -> bool:
     }
 
 
-def _read_indexed(index_path: Path) -> dict[str, tuple[str, int]]:
+def _read_indexed(project_root: Path) -> dict[str, tuple[str, int]]:
     """Return ``{rel_dir: (source_key, source_mtime_ns)}`` of the cases the index holds."""
-    connection = connect_with_retry(str(index_path), read_only=True)
+    connection = open_index(project_root)
     try:
         rows = connection.execute(
             "SELECT rel_dir, source_key, source_mtime_ns FROM cases"
@@ -387,8 +470,35 @@ def _read_indexed(index_path: Path) -> dict[str, tuple[str, int]]:
     return {str(rel): (str(key), int(stamp)) for rel, key, stamp in rows}
 
 
+def _diff(
+    disk: dict[str, DiskEntry], current: dict[str, tuple[str, int]]
+) -> tuple[set[str], set[str]]:
+    """Return the directories to write again and those to forget."""
+    changed = {
+        rel_dir
+        for rel_dir, entry in disk.items()
+        if current.get(rel_dir) != (entry.key, entry.mtime_ns)
+    }
+    return changed, set(current) - set(disk)
+
+
+def _unchanged_report(project_root: Path) -> IndexReport | None:
+    """Return the report of a pass with nothing to write, or ``None`` when one must write.
+
+    It runs without the lock: it only reads, and a pass that writes reads
+    everything again under the lock.
+    """
+    if not _index_is_of_this_build(project_root, warn=False):
+        return None
+    changed, removed = _diff(scan_tree(project_root), _read_indexed(project_root))
+    if changed or removed:
+        return None
+    return IndexReport(catalog_path_for(project_root), False, (), (), (), (), {})
+
+
 def _write_index(
     root: Path,
+    lock: LockFile,
     disk: dict[str, DiskEntry],
     *,
     incremental: bool,
@@ -396,8 +506,6 @@ def _write_index(
     removed: set[str] | None = None,
 ) -> IndexReport:
     index_path = catalog_path_for(root)
-    staging = index_path.with_name(f"{index_path.name}.rebuild-{uuid4().hex[:8]}")
-    staging.parent.mkdir(parents=True, exist_ok=True)
     indexed_at = datetime.now(UTC)
     to_write = sorted(changed) if incremental and changed is not None else sorted(disk)
     to_remove = sorted(removed or ()) if incremental else []
@@ -407,17 +515,23 @@ def _write_index(
     skipped: list[SkippedEntry] = []
     rows: dict[str, int] = {}
 
+    staging = new_staging(index_path, copy_of=index_path if incremental else None)
     try:
-        if incremental:
-            shutil.copy2(index_path, staging)
-        connection = connect_with_retry(str(staging))
+        connection = open_staging(staging)
         try:
             if not incremental:
                 create_index_schema(connection, hydromodpy_version=__version__)
             writer = _IndexWriter(connection, root, indexed_at)
+            handled = 0
             for rel_dir in to_remove:
                 writer.forget(rel_dir)
+                handled += 1
+                if handled % RENEW_EVERY == 0:
+                    lock.renew()
             for rel_dir in to_write:
+                handled += 1
+                if handled % RENEW_EVERY == 0:
+                    lock.renew()
                 entry = disk[rel_dir]
                 if incremental:
                     writer.forget(rel_dir)
@@ -438,10 +552,9 @@ def _write_index(
             connection.execute("CHECKPOINT")
         finally:
             connection.close()
-        _publish(staging, index_path)
-        _forget_write_ahead_log(index_path)
+        publish_staging(staging, index_path, lock)
     finally:
-        _discard(staging)
+        discard_staging(staging)
     logger.info(
         "indexed %d run(s), %d session(s), removed %d into %s",
         len(written),
@@ -577,6 +690,7 @@ class _IndexWriter:
             "source_key": entry.key,
             "source_mtime_ns": entry.mtime_ns,
             "indexed_at": self._at,
+            "bytes": path_size_bytes(path),
         }
         if outcome is not None:
             case.update(_outcome_columns(outcome))
@@ -689,7 +803,7 @@ class _IndexWriter:
                     "sim_id": sim_id,
                     "station_id": metric.station,
                     "variable": metric.variable,
-                    "metric_name": metric.metric,
+                    "metric": metric.metric,
                     "value": metric.value,
                     "window_name": metric.window_name,
                     "window_role": metric.window_role,
@@ -872,6 +986,7 @@ class _IndexWriter:
             "source_key": entry.key,
             "source_mtime_ns": entry.mtime_ns,
             "indexed_at": self._at,
+            "bytes": path_size_bytes(path),
         }
         if outcome is not None:
             case.update(_outcome_columns(outcome))
@@ -1183,42 +1298,11 @@ def _describe_geoparquet(payload: Path) -> tuple[str | None, str, dict[str, Any]
     return geometry_kind, crs, properties
 
 
-# ---------------------------------------------------------------------------
-# Publishing
-# ---------------------------------------------------------------------------
-
-
-def _publish(staging: Path, index_path: Path) -> None:
-    """Install the staged database at ``index_path`` in one filesystem step."""
-    try:
-        rename_over_open_file(staging, index_path)
-    except OSError as refused:
-        raise OSError(
-            f"Could not publish the index at {index_path}: {refused}. "
-            "The previous index is untouched and still readable; close the "
-            "processes reading this project and index again."
-        ) from refused
-
-
-def _forget_write_ahead_log(index_path: Path) -> None:
-    """Drop the write-ahead log of the index that was just replaced."""
-    wal_path = index_path.with_name(f"{index_path.name}.wal")
-    try:
-        wal_path.unlink(missing_ok=True)
-    except OSError as exc:
-        logger.warning("Left the stale write-ahead log %s behind: %s", wal_path, exc)
-
-
-def _discard(staging: Path) -> None:
-    """Remove the staging database and its companions."""
-    for suffix in ("", ".wal", ".lock"):
-        staging.with_name(f"{staging.name}{suffix}").unlink(missing_ok=True)
-
-
 __all__ = [
     "DiskEntry",
     "IndexReport",
     "SkippedEntry",
+    "index_after_run",
     "index_is_current",
     "index_new_runs",
     "known_issues_digest",

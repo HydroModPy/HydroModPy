@@ -56,13 +56,14 @@ from hydromodpy.core.state.layout import TOMBSTONES_FILENAME, trash_dir_for
 from hydromodpy.core.state.result_dirs import parse_rel_dir
 from hydromodpy.results.annotations import read_annotations
 from hydromodpy.results.outcome import effective_status, read_outcome
+from hydromodpy.results.publication import latest_by_pair, read_published
 from hydromodpy.results.record.manifest import read_seal
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.storage.contract import (
     RUN_PUBLISHED_FILENAME,
     SESSION_DESCRIPTOR_FILENAME,
 )
-from hydromodpy.results.storage.json_io import fsync_directory, readable
+from hydromodpy.results.storage.json_io import UNREADABLE_ERRORS, fsync_directory, readable
 
 logger = get_logger(__name__)
 
@@ -158,6 +159,49 @@ def is_protected(directory: Path) -> bool:
     return annotations is None or PROTECTED_TAG in annotations.tags
 
 
+def _copies_of(directory: Path) -> int | None:
+    """Return how many copies of *directory* were published, or ``None`` when unreadable.
+
+    Only the last line of each destination counts, and a delivery is not a copy.
+    """
+    try:
+        lines = read_published(directory)
+    except UNREADABLE_ERRORS:
+        return None
+    return sum(1 for line in latest_by_pair(lines).values() if line.kind == "copy")
+
+
+def _warn_about_copies(directory: Path, rel: str, consequence: str) -> None:
+    """Warn when *directory* has published copies, or when it cannot tell."""
+    if not (directory / RUN_PUBLISHED_FILENAME).is_file():
+        return
+    copies = _copies_of(directory)
+    if copies is None:
+        logger.warning(
+            "%s has a %s this version cannot read (%s): copies of it may exist elsewhere",
+            rel,
+            RUN_PUBLISHED_FILENAME,
+            _unreadable_reason(directory),
+        )
+    elif copies:
+        logger.warning(
+            "%s was published as %d copy(ies) (see %s): %s",
+            rel,
+            copies,
+            RUN_PUBLISHED_FILENAME,
+            consequence,
+        )
+
+
+def _unreadable_reason(directory: Path) -> str:
+    """Return why ``published.jsonl`` of *directory* cannot be read."""
+    try:
+        read_published(directory)
+    except UNREADABLE_ERRORS as exc:
+        return str(exc)
+    return "unknown"
+
+
 def trash_run(project_root: Path, rel_dir: str, *, now: datetime, force: bool = False) -> Path:
     """Move ``<project>/<rel_dir>`` into ``trash/`` and return its new path.
 
@@ -176,12 +220,7 @@ def trash_run(project_root: Path, rel_dir: str, *, now: datetime, force: bool = 
     if not source.is_dir():
         raise FileNotFoundError(f"{rel} is not a directory of the project {root}")
     _check_movable(source, rel, force=force)
-    if (source / RUN_PUBLISHED_FILENAME).is_file():
-        logger.warning(
-            "%s was published (see %s): the published copies now point at a trashed source",
-            rel,
-            RUN_PUBLISHED_FILENAME,
-        )
+    _warn_about_copies(source, rel, "the published copies now point at a trashed source")
     trash_dir = trash_dir_for(root)
     trash_dir.mkdir(parents=True, exist_ok=True)
     target = trash_dir / trashed_dirname(rel, now)
@@ -294,12 +333,9 @@ def purge_trashed(
     ]
     _write_tombstones(root, [*read_tombstones(root), *new])
     for entry in entries:
-        if (entry.path / RUN_PUBLISHED_FILENAME).is_file():
-            logger.warning(
-                "%s was published (see %s): its published copies lose their source for good",
-                entry.rel_dir,
-                RUN_PUBLISHED_FILENAME,
-            )
+        _warn_about_copies(
+            entry.path, entry.rel_dir, "the published copies lose their source for good"
+        )
         shutil.rmtree(entry.path)
     return new
 

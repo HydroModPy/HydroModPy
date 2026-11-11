@@ -15,6 +15,11 @@ seepage threshold, ``diagonal_neighbors`` the graph the descent walks,
 refuses a search and computes nothing. The other three decide only what gets
 logged.
 
+The module also holds the few words that ``display`` reads and that ``display`` may not
+take from ``catchment``: the visible-flow threshold (:class:`VisibleFlow`,
+:func:`parse_visible_flow`, ``DEFAULT_VISIBLE_FLOW``, ``GEOMETRIC``) and the numbers a
+trial publishes for the provenance of the validity length.
+
 A named protocol does not read these defaults for a version it has frozen: its
 own table says what each version runs
 (:data:`hydromodpy.calibration.protocols.matching_hydrographic_network.DEFAULTS_BY_VERSION`),
@@ -23,12 +28,16 @@ and a test holds the last line of that table equal to this object.
 
 from __future__ import annotations
 
+import math
+import re
+from dataclasses import dataclass
 from typing import Annotated, Literal
 
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.units.quantities import parse_to_m3_per_s
 
 #: The descent walks shared nodes, the eight D8 neighbours of a quad mesh, unless told
 #: otherwise. The criterion takes its ``diagonal_neighbors`` default from here, and the
@@ -163,4 +172,106 @@ STREAM_CRITERION_DEFAULTS = StreamCriterionDefaults()
 """The one instance every layer reads, so a default exists in a single object."""
 
 
-__all__ = ["STREAM_CRITERION_DEFAULTS", "ObservedRasterization", "StreamCriterionDefaults"]
+DEFAULT_VISIBLE_FLOW = "1 L/s"
+"""The routed discharge a cell must carry to flow in the two-bound mode.
+
+No value is agreed in the literature. The closest precedent thresholds a
+simulated discharge at 10 L/s (Zanetti et al., 2024, doi:10.1029/2023WR035631),
+and field zero-flow thresholds of about 1 to 3 L/s are in use (Zimmer et al.,
+2020, doi:10.1002/wat2.1436). One litre per second is the low end of both."""
+
+
+@dataclass(frozen=True, slots=True)
+class VisibleFlow:
+    """The routed discharge below which a cell of the closure does not flow.
+
+    Exactly one of the two is positive, or neither: ``discharge_m3_s`` is an
+    absolute discharge, ``outlet_share`` a share of the routed discharge at the
+    outlet at the same timestep. Neither positive is the geometric definition,
+    the downstream closure alone. A cell size never enters it: the size of a
+    cell is a numerical choice, the discharge a cartographer sees is not.
+    """
+
+    discharge_m3_s: float = 0.0
+    outlet_share: float = 0.0
+
+    def __post_init__(self) -> None:
+        for name in ("discharge_m3_s", "outlet_share"):
+            value = float(getattr(self, name))
+            if not math.isfinite(value) or value < 0.0:
+                raise ValueError(f"visible flow {name} must be finite and positive, got {value}.")
+        if self.discharge_m3_s > 0.0 and self.outlet_share > 0.0:
+            raise ValueError("a visible flow is either a discharge or an outlet share, not both.")
+        if self.outlet_share > 1.0:
+            raise ValueError(
+                f"a visible flow share of the outlet discharge is at most 100%, got "
+                f"{100.0 * self.outlet_share:g}%."
+            )
+
+    @property
+    def geometric(self) -> bool:
+        """True when no discharge is required: the downstream closure alone."""
+        return self.discharge_m3_s == 0.0 and self.outlet_share == 0.0
+
+    def label(self) -> str:
+        """Return the threshold as a user would write it."""
+        if self.outlet_share > 0.0:
+            return f"{100.0 * self.outlet_share:g}%"
+        return f"{1000.0 * self.discharge_m3_s:g} L/s"
+
+
+GEOMETRIC = VisibleFlow()
+"""No visible-flow threshold: a cell flows when it is in the closure."""
+
+_SHARE = re.compile(r"^\s*([0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)\s*%\s*$")
+_HAS_UNIT = re.compile(r"[A-Za-z]")
+
+
+def parse_visible_flow(value: str | VisibleFlow) -> VisibleFlow:
+    """Read ``"1 L/s"``, ``"0.002 m3/s"`` or ``"1%"`` into a :class:`VisibleFlow`.
+
+    A percentage is a share of the routed discharge at the outlet at the same
+    timestep. A discharge needs its unit: a bare number would be read in
+    litres by one user and in cubic meters by the next. ``"0 L/s"`` is the
+    geometric definition.
+    """
+    if isinstance(value, VisibleFlow):
+        return value
+    text = str(value).strip()
+    share = _SHARE.match(text)
+    if share is not None:
+        return VisibleFlow(outlet_share=float(share.group(1)) / 100.0)
+    if not _HAS_UNIT.search(text):
+        raise ValueError(
+            f"visible_flow = {value!r} carries no unit. Write a discharge with its unit, "
+            "such as '1 L/s', or a share of the outlet discharge, such as '1%'."
+        )
+    discharge, _ = parse_to_m3_per_s(text, location="visible_flow", default_unit="m3/s")
+    return VisibleFlow(discharge_m3_s=float(discharge))
+
+
+VALIDITY_PROVENANCE_CODE: dict[str, float] = {
+    "auto": 0.0,
+    "declared_accuracy": 2.0,
+    "user": 3.0,
+}
+"""The number a trial publishes as ``validity_length_provenance``, since
+components are floats."""
+
+VALIDITY_PROVENANCE_BY_CODE: dict[float, str] = {
+    code: name for name, code in VALIDITY_PROVENANCE_CODE.items()
+}
+"""The provenance a published code stands for."""
+
+
+__all__ = (
+    "DEFAULT_VISIBLE_FLOW",
+    "GEOMETRIC",
+    "STREAM_CRITERION_DEFAULTS",
+    "VALIDITY_PROVENANCE_BY_CODE",
+    "VALIDITY_PROVENANCE_CODE",
+    "ObservedRasterization",
+    "StreamCriterionDefaults",
+    "VisibleFlow",
+    "parse_visible_flow",
+)

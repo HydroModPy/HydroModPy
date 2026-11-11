@@ -25,10 +25,8 @@ for a reader.
 from __future__ import annotations
 
 import copy
-import tomllib
 import warnings
 from collections.abc import Mapping, Sequence
-from importlib.resources import files
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -52,20 +50,10 @@ from hydromodpy.core.exceptions import HydroModPyError
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.toml_io.error_locator import format_loc
 from hydromodpy.data.sites.gauge import apply_site_gauge
+from hydromodpy.schema.phrases import keys
+from hydromodpy.schema.phrases import phrase as read_phrase
 
-LANGUAGES: tuple[str, ...] = ("en", "fr")
-"""The languages every phrase of a code is written in."""
-
-
-def _read_phrases() -> dict[str, dict[str, str]]:
-    """Read the ``[check]`` table of ``schema/phrases.toml``, once, at import."""
-    text = files("hydromodpy.schema").joinpath("phrases.toml").read_text(encoding="utf-8")
-    return tomllib.loads(text)["check"]
-
-
-_PHRASES: dict[str, dict[str, str]] = _read_phrases()
-
-CHECK_CODES: frozenset[str] = frozenset(_PHRASES)
+CHECK_CODES: frozenset[str] = keys("check")
 """The closed set of the codes a check gives, the keys of ``[check]`` in ``schema/phrases.toml``."""
 
 
@@ -77,11 +65,9 @@ def phrase(code: str, lang: str = "en") -> str:
     KeyError
         When *code* is not a check code.
     ValueError
-        When *lang* is not one of ``LANGUAGES``.
+        When *lang* is not one of ``LANGS``.
     """
-    if lang not in LANGUAGES:
-        raise ValueError(f"lang {lang!r} is not one of {', '.join(LANGUAGES)}")
-    return _PHRASES[code][lang]
+    return read_phrase("check", code, lang)
 
 
 def check(
@@ -302,4 +288,4 @@ def _said_by_the_sections(caught: Sequence[warnings.WarningMessage]) -> list[Dia
     return list(found.values())
 
 
-__all__ = ["CHECK_CODES", "LANGUAGES", "check", "phrase"]
+__all__ = ["CHECK_CODES", "check", "phrase"]

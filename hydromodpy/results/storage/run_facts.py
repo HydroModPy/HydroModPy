@@ -51,13 +51,6 @@ FACTS_SCHEMA: Final[str] = "hydromodpy.run_facts.v1"
 """Schema id of the document."""
 
 
-class LicenceSource(HydroModelBase):
-    """One loaded record that contributes to the licence of the run."""
-
-    source: str = Field(description="Provider slug, or custom for a user file")
-    sha256: str | None = Field(default=None, description="Digest of the bytes read")
-
-
 class CalibratedParameter(HydroModelBase):
     """One parameter a calibration set, as the rows of the run name it."""
 
@@ -151,7 +144,6 @@ class RunFacts(HydroModelBase):
     environment: dict[str, Any] = Field(
         default_factory=dict, description="Host snapshot, solver engine and dispatch, seed"
     )
-    licence_sources: list[LicenceSource] = Field(default_factory=list)
     licence: str | None = Field(
         default=None, description="Licence the seal stated; None before the seal"
     )
@@ -349,7 +341,6 @@ __all__ = [
     "FACTS_FILENAME",
     "FACTS_SCHEMA",
     "CalibratedParameter",
-    "LicenceSource",
     "PromotionFacts",
     "RunFacts",
     "facts_path",
