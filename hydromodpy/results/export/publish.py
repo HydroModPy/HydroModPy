@@ -12,22 +12,35 @@ there is no second packer.
 What a copy holds
 -----------------
 Always: ``README.md``, ``config.toml``, ``config.resolved.toml``, ``provenance.json`` (redacted),
-``inputs.json``, ``manifest.json``, ``figures/``, ``exports/``, ``report/``,
-a generated ``ro-crate-metadata.json`` and ``PUBLICATION.json``
-(:mod:`hydromodpy.results.publication`). ``with_ = ("results",)`` adds
-``fields.zarr/`` and ``tables.parquet/``; ``with_ = ("inputs",)``
-adds the install index ``INSTALL.toml`` and the bytes of every file it lists
+``inputs.json``, ``manifest.json``, ``products.json``, the sealed ``mesh/``,
+``figures/``, ``exports/``, ``report/``, a generated ``.zenodo.json``, a
+generated ``ro-crate-metadata.json`` that lists it, and ``PUBLICATION.json``
+(:mod:`hydromodpy.results.publication`). By default a copy also carries its
+results and its inputs, ``with_ = ("results", "inputs")``. ``"results"`` is
+``fields.zarr/``, ``tables.parquet/`` and ``final_state/``. ``"inputs"`` is
+the install index ``INSTALL.toml`` and the bytes of every file it lists
 under ``inputs/<sha256><suffix>``, with their sidecars under
 ``inputs/<sha256>.json``, addressed by content
-(:mod:`hydromodpy.core.payload`). The caller builds that index, from the
-workspace the run read
+(:mod:`hydromodpy.core.payload`). An explicit ``with_`` names exactly what is
+carried, so ``hmp publish --without inputs`` passes ``("results",)``. The
+caller builds the install index, from the workspace the run read
 (:func:`hydromodpy.project.exchange.share.run_bundle`): this module never reads the
 data layer. Never: ``.hmp/``, ``logs/``, ``attempts/``, ``outcome.json``,
-``published.jsonl``.
+``request.json``, ``profile.json``, ``published.jsonl``, a ``*.lock`` or a
+``*.part`` file.
 
-A public copy (``public = True``) needs a ``[publication] license``, and,
-with its inputs, a licence that allows redistribution for each of them: an
-input without one is refused by name.
+A replay that is not classed ``bit`` is never published: a published copy
+states that it gives the sealed numbers. :func:`publish` refuses it, and
+:func:`publish_project` leaves it out and names it in
+:attr:`PublishedProject.left_out`. A project package
+(:mod:`hydromodpy.results.export.project_package`) is not a publication and
+carries such a replay.
+
+A public copy (``public = True``) states the ``[publication] license`` of its
+project. A project that declares none gets a warning and the copy states
+``LicenseRef-undetermined``. With its inputs, an input whose sidecar names no
+licence gets a warning that names it, and ``INSTALL.toml`` and the RO-Crate
+state the licence of each input as it stands.
 
 Every JSON, JSON Lines and TOML document and every cell of a CSV or TSV
 table goes through :func:`hydromodpy.results.publication.redact`: no host,
@@ -59,6 +72,7 @@ import tarfile
 import tomllib
 import uuid
 from collections.abc import Callable, Iterator, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
@@ -66,8 +80,9 @@ from typing import Any, Final
 import tomlkit
 
 from hydromodpy.core.config_kit.stored import read_stored
-from hydromodpy.core.exceptions import ConfigMissingError, ExportError
+from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.file_digest import sha256_of
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.payload import PayloadBundle, sidecar_name, stored_name, write_index
 from hydromodpy.core.payload.install import sha256_of as file_sha256
 from hydromodpy.core.state.layout import (
@@ -81,6 +96,7 @@ from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.export.context import AssetEntry
 from hydromodpy.results.export.directory import context_from_directory, publication_of
 from hydromodpy.results.export.rocrate import write_ro_crate_view
+from hydromodpy.results.export.zenodo import zenodo_metadata, zenodo_metadata_of_project
 from hydromodpy.results.exporters.destination import without_delivery
 from hydromodpy.results.publication import (
     PROJECT_REL_DIR,
@@ -101,6 +117,8 @@ from hydromodpy.results.record.label import label_of, read_sealed_manifest
 from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
+    FINAL_STATE_DIRNAME,
+    MESH_DIRNAME,
     PUBLICATION_FILENAME,
     README_FILENAME,
     RUN_CONFIG_FILENAME,
@@ -108,6 +126,7 @@ from hydromodpy.results.storage.contract import (
     RUN_FIGURES_DIRNAME,
     RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,
+    RUN_PRODUCTS_FILENAME,
     RUN_PROVENANCE_FILENAME,
     RUN_PUBLISHED_FILENAME,
     RUN_REPORT_DIRNAME,
@@ -115,8 +134,14 @@ from hydromodpy.results.storage.contract import (
     TABLES_DIRNAME,
 )
 from hydromodpy.results.storage.json_io import check_sealed
-from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
+from hydromodpy.schema.generated_views import (
+    GENERATED_VIEWS,
+    RO_CRATE_VIEW_FILENAME,
+    ZENODO_VIEW_FILENAME,
+)
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE, OCTET_STREAM_MEDIA_TYPE
+
+logger = get_logger(__name__)
 
 INPUTS_DIRNAME: Final[str] = "inputs"
 """Directory of a copy holding the input bytes, each named by its sha256."""
@@ -131,14 +156,22 @@ RUN_COPY_ENTRIES: Final[tuple[str, ...]] = (
     RUN_PROVENANCE_FILENAME,
     RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,
+    RUN_PRODUCTS_FILENAME,
+    MESH_DIRNAME,
     RUN_FIGURES_DIRNAME,
     RUN_EXPORTS_DIRNAME,
     RUN_REPORT_DIRNAME,
 )
 """What every copy of a run holds, when the run has it."""
 
-RESULTS_ENTRIES: Final[tuple[str, ...]] = (FIELDS_STORE_NAME, TABLES_DIRNAME)
-"""What ``with results`` adds to the copy of a run."""
+RESULTS_ENTRIES: Final[tuple[str, ...]] = (FIELDS_STORE_NAME, TABLES_DIRNAME, FINAL_STATE_DIRNAME)
+"""What ``results`` adds to the copy of a run."""
+
+DEFAULT_EXTRAS: Final[tuple[PublicationExtra, ...]] = ("results", "inputs")
+"""What a copy carries beyond :data:`RUN_COPY_ENTRIES` when the caller names nothing."""
+
+_SKIPPED_SUFFIXES: Final[frozenset[str]] = frozenset({".lock", ".part"})
+"""A lock or a partial download is never copied."""
 
 _STRUCTURED_SUFFIXES: Final[frozenset[str]] = frozenset({".json", ".jsonld", ".toml"})
 _LINES_SUFFIX: Final[str] = ".jsonl"
@@ -150,13 +183,21 @@ _SCANNED_SUFFIXES: Final[frozenset[str]] = (
 _PARQUET_SUFFIX: Final[str] = ".parquet"
 
 
+@dataclass(frozen=True)
+class PublishedProject:
+    """What :func:`publish_project` wrote, and the runs it left out with the reason."""
+
+    copies: list[Path]
+    left_out: list[tuple[str, str]] = field(default_factory=list)
+
+
 def publish(
     source: str | Path,
     to: str | Path,
     *,
     project_root: str | Path,
     format: PublicationFormat = "dir",
-    with_: Sequence[PublicationExtra] = (),
+    with_: Sequence[PublicationExtra] = DEFAULT_EXTRAS,
     public: bool = False,
     inputs: InputsOf | None = None,
     dry_run: bool = False,
@@ -177,11 +218,12 @@ def publish(
     format
         ``"dir"`` or ``"tar"``.
     with_
-        ``"results"`` adds the field store, the tables and the mesh;
-        ``"inputs"`` adds the install index and the bytes of every input.
+        Exactly what the copy carries beyond the run record: ``"results"``
+        is the field store, the tables and ``final_state/``; ``"inputs"`` is
+        the install index and the bytes of every input. Both by default.
     public
-        Refuse to publish without a ``[publication] license``, and an input
-        whose licence does not allow redistribution.
+        Warn when the project declares no ``[publication] license`` and when an
+        input names no licence; the copy is written either way.
     inputs
         How to build the install index of the run; required with ``"inputs"``.
     dry_run
@@ -190,10 +232,9 @@ def publish(
     Raises
     ------
     ExportError
-        An unsealed run, a destination that holds something, a copy that
-        would name the machine, an input that cannot be carried.
-    ConfigMissingError
-        ``public`` without a licence, or with an input that has none.
+        An unsealed run, a replay not classed ``bit``, a destination that
+        holds something, a copy that would name the machine, an input that
+        cannot be carried.
     """
     source_dir = Path(source).resolve()
     root = Path(project_root).resolve()
@@ -220,27 +261,28 @@ def publish_project(
     to: str | Path,
     *,
     format: PublicationFormat = "dir",
-    with_: Sequence[PublicationExtra] = (),
+    with_: Sequence[PublicationExtra] = DEFAULT_EXTRAS,
     public: bool = False,
     inputs: InputsOf | None = None,
     dry_run: bool = False,
-) -> list[Path]:
+) -> PublishedProject:
     """Copy every sealed run and the summary of a project, each in its own folder under *to*.
 
     The members are staged together beside *to* and renamed into place at
     once. A member that is refused leaves nothing in *to* and no line in any
     ``published.jsonl``. With ``format = "tar"`` each member is an archive
     ``<member>.tar`` under *to*. *to* gets its own ``PUBLICATION.json``, of
-    kind ``project``, that lists every member. With *dry_run* every check runs, the
-    copies it would write are returned, and nothing is written.
+    kind ``project``, and a ``.zenodo.json``, that list every member. A replay
+    not classed ``bit`` is left out, logged as a warning and named in
+    ``left_out`` with the reason; the rest of the project is published. With
+    *dry_run* every check runs, the copies it would write are returned, and
+    nothing is written.
 
     Raises
     ------
     ExportError
         A project with nothing to publish, a destination that holds
         something, a member that would name the machine.
-    ConfigMissingError
-        ``public`` without a licence.
     """
     root = Path(project_root).resolve()
     sources = project_members(root)
@@ -248,17 +290,34 @@ def publish_project(
         raise ExportError(
             f"{root} holds no sealed run and no {SUMMARY_DIRNAME}/: nothing to publish."
         )
-    checked = [(source, _checked_source(source, root, public=public)) for source in sources]
+    checked: list[tuple[Path, Any]] = []
+    left_out: list[tuple[str, str]] = []
+    for source in sources:
+        manifest = _sealed_source(source, root, public=public)
+        reason = _unpublishable_replay(source, root, manifest)
+        if reason is None:
+            checked.append((source, manifest))
+            continue
+        logger.warning(reason)
+        left_out.append((_source_rel_dir(source, manifest), reason))
+    if not checked:
+        raise ExportError(
+            f"{root} holds nothing to publish once its replays not classed bit are left out: "
+            + "; ".join(reason for _, reason in left_out)
+        )
     bundles = {
         source: _bundle_of(source, manifest, with_, inputs, public=public)
         for source, manifest in checked
     }
     destination = _target_path(Path(to).expanduser().resolve(), "dir", root.name, dry_run=dry_run)
     if dry_run:
-        return [
-            destination / (f"{source.name}.tar" if format == "tar" else source.name)
-            for source in sources
-        ]
+        return PublishedProject(
+            copies=[
+                destination / (f"{source.name}.tar" if format == "tar" else source.name)
+                for source, _ in checked
+            ],
+            left_out=left_out,
+        )
     staging = destination.parent / f".{destination.name}.staging-{uuid.uuid4().hex[:8]}"
     staging.mkdir(parents=True)
     extras = list(dict.fromkeys(with_))
@@ -300,13 +359,19 @@ def publish_project(
                 members=members,
             ),
         )
+        _write_zenodo(
+            staging,
+            zenodo_metadata_of_project(
+                _project_publication(root), title=root.name, version=HYDROMODPY_VERSION
+            ),
+        )
         os.replace(staging, destination)
     finally:
         if staging.exists():
             shutil.rmtree(staging)
     for source, line in lines:
         append_published(source, line)
-    return [Path(line.to) for _, line in lines]
+    return PublishedProject(copies=[Path(line.to) for _, line in lines], left_out=left_out)
 
 
 def project_members(project_root: str | Path) -> list[Path]:
@@ -319,6 +384,15 @@ def project_members(project_root: str | Path) -> list[Path]:
 
 def _checked_source(source_dir: Path, root: Path, *, public: bool) -> Any:
     """Return the seal of a run source, ``None`` for the summary; refuse what cannot leave."""
+    manifest = _sealed_source(source_dir, root, public=public)
+    reason = _unpublishable_replay(source_dir, root, manifest)
+    if reason is not None:
+        raise ExportError(reason)
+    return manifest
+
+
+def _sealed_source(source_dir: Path, root: Path, *, public: bool) -> Any:
+    """Return the seal of a run source, ``None`` for the summary; refuse an unsealed run."""
     is_summary = source_dir == (root / SUMMARY_DIRNAME)
     manifest = None if is_summary else read_sealed_manifest(source_dir)
     if not is_summary and manifest is None:
@@ -327,8 +401,41 @@ def _checked_source(source_dir: Path, root: Path, *, public: bool) -> Any:
             "published. Its outcome.json and logs/ say why it did not finish."
         )
     if public:
-        _require_licence(source_dir if not is_summary else root, is_summary=is_summary)
+        _warn_without_licence(source_dir if not is_summary else root, is_summary=is_summary)
     return manifest
+
+
+def _unpublishable_replay(source_dir: Path, root: Path, manifest: Any) -> str | None:
+    """Return why a replay cannot be published, ``None`` when it can or is no replay."""
+    lineage = None if manifest is None else manifest.lineage
+    if lineage is None or lineage.kind != "replay":
+        return None
+    rel_dir = _source_rel_dir(source_dir, manifest)
+    replay = lineage.replay
+    if replay is not None and replay.class_ == "bit":
+        return None
+    if replay is None or replay.class_ is None:
+        return (
+            f"{rel_dir} replays a copy that carried no values, so it was never compared with "
+            "the seal. A published copy states that it gives the sealed numbers: replay a copy "
+            "that carries its results, or publish the source run itself."
+        )
+    source = _replayed_name(root, replay.of)
+    keys = ", ".join(sorted({*replay.differs, *replay.added, *replay.removed})) or "none named"
+    return (
+        f"{rel_dir} replays {source} and its values differ from the seal (class "
+        f"{replay.class_}: {keys}). A published copy states that it gives the sealed numbers, "
+        f"so it is not published. Publish {source} itself, or a replay classed bit."
+    )
+
+
+def _replayed_name(root: Path, sim_id: str) -> str:
+    """Return ``runs/<run>`` of the run whose seal has *sim_id*, or ``run <sim_id>``."""
+    for path in sorted(runs_dir_for(root).glob("*")):
+        seal = read_sealed_manifest(path)
+        if seal is not None and str(seal.run.sim_id) == str(sim_id):
+            return run_dir_rel(path.name)
+    return f"run {sim_id}"
 
 
 def _publish_one(
@@ -350,7 +457,16 @@ def _publish_one(
     try:
         prefixes = _private_prefixes(root)
         if is_summary:
+            extras = ()
             _copy_tree(source_dir, staging, prefixes=prefixes, project_root=root)
+            _write_zenodo(
+                staging,
+                zenodo_metadata_of_project(
+                    _project_publication(root),
+                    title=f"{root.name} {SUMMARY_DIRNAME}",
+                    version=HYDROMODPY_VERSION,
+                ),
+            )
         else:
             for name in RUN_COPY_ENTRIES:
                 _copy_entry(source_dir / name, staging / name, prefixes=prefixes, project_root=root)
@@ -361,6 +477,7 @@ def _publish_one(
                     )
             if bundle is not None:
                 _copy_bundle(bundle, staging)
+            _write_zenodo(staging, zenodo_metadata(manifest, publication_of(source_dir)))
             _write_crate(staging)
         _refuse_leaks(staging, prefixes)
         publication = Publication(
@@ -451,7 +568,9 @@ def _verify_project(target: Path, publication: Publication) -> list[str]:
     problems += [
         f"{entry.name}: not listed in {PUBLICATION_FILENAME}"
         for entry in sorted(target.iterdir())
-        if entry.name not in listed and entry.name != PUBLICATION_FILENAME
+        if entry.name not in listed
+        and entry.name != PUBLICATION_FILENAME
+        and entry.name not in GENERATED_VIEWS
     ]
     return problems
 
@@ -471,13 +590,13 @@ def _member_publication_sha256(entry: Path) -> str | None:
     return None
 
 
-def _require_licence(source: Path, *, is_summary: bool) -> None:
-    """Refuse a public copy whose project declares no licence."""
+def _warn_without_licence(source: Path, *, is_summary: bool) -> None:
+    """Warn that a public copy states no licence when its project declares none."""
     licence = _project_publication(source).license if is_summary else publication_of(source).license
     if not licence:
-        raise ConfigMissingError(
-            "hmp publish --public needs a licence: declare it in project.toml, e.g. "
-            '[publication] license = "CC-BY-4.0", then run again.'
+        logger.warning(
+            "hmp publish --public: this project declares no [publication] license, so the copy "
+            "states LicenseRef-undetermined. Declare one in project.toml to state it."
         )
 
 
@@ -528,12 +647,13 @@ def _copy_entry(source: Path, dest: Path, *, prefixes: tuple[str, ...], project_
 
 
 def _copy_tree(source: Path, dest: Path, *, prefixes: tuple[str, ...], project_root: Path) -> None:
-    """Copy a directory, skipping the internal state, redacting its documents."""
+    """Copy a directory, skipping the internal state, locks and partial files, redacting."""
     for path in sorted(source.rglob("*")):
         relative = path.relative_to(source)
         if (
             INTERNAL_DIRNAME in relative.parts
             or relative.name == RUN_PUBLISHED_FILENAME
+            or path.suffix in _SKIPPED_SUFFIXES
             or not path.is_file()
         ):
             continue
@@ -614,7 +734,7 @@ class MissingInputError(ExportError):
 
     def __init__(self, detail: str, *, derived: bool = False) -> None:
         self.detail = detail
-        advice = "Publish without --with inputs" + ("." if derived else ", or fetch it again.")
+        advice = "Publish with --without inputs" + ("." if derived else ", or fetch it again.")
         super().__init__(f"{detail} {advice}")
 
 
@@ -631,29 +751,33 @@ def _bundle_of(
         return None
     if inputs is None:
         raise ExportError(
-            "with inputs needs the install index of the run: pass inputs=run_bundle "
+            "a copy carries its inputs unless with_ leaves out 'inputs', and that needs the "
+            "install index of the run: pass inputs=run_bundle "
             "(hydromodpy.project.exchange.share), as hmp publish does."
         )
     bundle = inputs(source)
     if public:
-        _require_redistributable(bundle)
+        _warn_unlicensed_inputs(bundle)
     return bundle
 
 
-def _require_redistributable(bundle: PayloadBundle) -> None:
-    """Refuse a public copy that would carry an input whose licence does not allow it."""
+def _warn_unlicensed_inputs(bundle: PayloadBundle) -> None:
+    """Warn that a public copy carries inputs whose licence is not stated, and name them."""
     from hydromodpy.schema.sources import is_determined
 
-    refused = [item for item in bundle.index.files if not is_determined(item.license)]
-    if refused:
+    unlicensed = [item for item in bundle.index.files if not is_determined(item.license)]
+    if unlicensed:
         names = "\n".join(
-            f"  {item.dest} ({item.provider or 'custom'}): {item.license or 'no licence'}"
-            for item in refused
+            f"  {item.dest} ({item.provider or 'file'}): {item.license or 'no licence'}"
+            for item in unlicensed
         )
-        raise ConfigMissingError(
-            f"hmp publish --public carries {len(refused)} input(s) whose licence does not "
-            f"allow redistribution:\n{names}\nDeclare the licence of a file you supplied in "
-            "its sidecar (<file>.json, key 'license'), or publish without --with inputs."
+        logger.warning(
+            "hmp publish --public carries %d input(s) whose licence is not stated:\n%s\n"
+            "INSTALL.toml and the RO-Crate state LicenseRef-undetermined for each. Declare the "
+            "licence of a file you supplied in its sidecar (<file>.json, key 'license') to state it, "
+            "or publish with --without inputs.",
+            len(unlicensed),
+            names,
         )
 
 
@@ -679,6 +803,13 @@ def _copy_bundle(bundle: PayloadBundle, staging: Path) -> None:
         if file_sha256(dest) != sha256:
             raise ExportError(f"{located.name} changed while it was copied: publish again.")
     write_index(staging, bundle.index)
+
+
+def _write_zenodo(staging: Path, metadata: dict[str, Any]) -> None:
+    """Write the Zenodo deposit metadata of a copy at its top level."""
+    (staging / ZENODO_VIEW_FILENAME).write_text(
+        json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
 
 
 def _write_crate(staging: Path) -> None:

@@ -20,7 +20,7 @@ from hydromodpy.catchment.drainage.distance import (
 )
 from hydromodpy.catchment.drainage.filling import fill_depressions_on_graph
 from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph, domain_edge_cells
-from hydromodpy.results.derive.stream.network import downstream_closure
+from hydromodpy.catchment.stream_network.network import downstream_closure
 
 N, SIZE, THICKNESS = 60, 20.0, 30.0  # cells per side, cell size (m), B (m)
 

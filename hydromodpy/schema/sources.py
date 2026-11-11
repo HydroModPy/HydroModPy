@@ -2,8 +2,10 @@
 
 A run used to tell a reader it may be reused under ``CC-BY-4.0``, a licence
 nobody chose. The honest answer comes from the inputs: each source states its
-licence here as an SPDX id, a run rolls up the licences of what it read, and a
-single unknown member makes the whole run ``LicenseRef-undetermined``.
+licence here as an SPDX id, a fetch writes it in the sidecar of the file, and
+the sidecar is what carries it from then on. A run rolls up the licences the
+sidecars of what it read state, and a single unknown member makes the whole
+run ``LicenseRef-undetermined``.
 
 A claim is written here only when the publisher states it, on a page this
 module names (``licence_pages``) and was read on the date it names
@@ -26,9 +28,10 @@ field of a data section, of a catalog entry and of a sidecar. The three
 sources of the data-source port (``bdtopage``, ``euhydro``, ``osm``) carry the
 same slugs.
 
-This module lives in ``schema`` because both ends need it: ``data`` stamps a
-licence on a sidecar at fetch time, ``results`` rolls it up at seal time, and
-both may import ``schema`` without a new edge in the layer matrix.
+This module lives in ``schema`` because both ends need it: ``data`` fills the
+licence of a sidecar at fetch time, ``results`` rolls up what the sidecars
+state at seal time, and both may import ``schema`` without a new edge in the
+layer matrix.
 """
 
 from __future__ import annotations

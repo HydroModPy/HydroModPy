@@ -134,8 +134,14 @@ HILLSIDE = 10
 
 def _run(cells):
     run = comparison_run()
-    stored = replace(run.descent.view(), dam_foot=np.asarray(cells, dtype=np.int64))
-    run.descent = RunDescent(lambda: stored)
+    kept = run.descent
+    stored = replace(kept.view(), dam_foot=np.asarray(cells, dtype=np.int64))
+    run.descent = RunDescent(
+        lambda: stored,
+        load_open_water=kept.open_water,
+        load_catchment_cells=kept.catchment_cells,
+        load_recharge=kept.criterion_recharge,
+    )
     return run
 
 

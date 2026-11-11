@@ -697,6 +697,48 @@ def write_descent(
             )
 
 
+def write_criterion_cells(
+    store_obj: SimulationZarr,
+    *,
+    open_water: np.ndarray,
+    catchment_cells: np.ndarray | None = None,
+) -> None:
+    """Write the two per-face masks the stream criterion read, under ``mesh/``.
+
+    ``open_water`` holds the cells whose water extent the model was told (a
+    lake), all false when the run has none. ``catchment_cells`` holds the cells
+    whose center the catchment outline covers, and is left out when the run has no
+    outline. A figure redrawn from the store reads both back, so it scores the
+    cells the trials scored. Both must hold one value per cell of the stored mesh.
+    """
+    masks = {"open_water": open_water, "catchment_cells": catchment_cells}
+    values = {
+        name: np.asarray(mask, dtype=bool) for name, mask in masks.items() if mask is not None
+    }
+    stored = store_obj._root.get("mesh")
+    n_cells = None
+    if stored is not None and "face_node_connectivity" in stored:
+        n_cells = int(stored["face_node_connectivity"].shape[0])
+    for name, mask in values.items():
+        if mask.ndim != 1 or (n_cells is not None and mask.size != n_cells):
+            raise ValueError(f"{name} must hold one value per cell ({n_cells}), got {mask.shape}.")
+    long_names = {
+        "open_water": "Cells whose surface-water extent is an input of the model",
+        "catchment_cells": "Cells whose center the catchment outline covers",
+    }
+    with store_obj._guard_write():
+        mesh = store_obj._root.require_group("mesh")
+        for name, mask in values.items():
+            _write_array(
+                store_obj,
+                mesh,
+                name,
+                mask,
+                dimension_names=(field_registry.AXIS_FACE,),
+                attrs={"long_name": long_names[name]},
+            )
+
+
 def _checked_basin(
     basin: np.ndarray | None, basin_attrs: Mapping[str, object] | None, *, n_cells: int
 ) -> np.ndarray | None:

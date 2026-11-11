@@ -57,6 +57,28 @@ def zenodo_metadata(seal: RunSeal, record: PublicationConfig | None = None) -> d
     return metadata
 
 
+def zenodo_metadata_of_project(
+    publication: PublicationConfig, *, title: str, version: str
+) -> dict[str, Any]:
+    """Return the Zenodo deposit metadata of a project summary or a project copy.
+
+    It has no seal to read, so it names the *title* and the *version* it is
+    given and takes the creators and the licence from the ``[publication]``
+    table. A fact the table does not declare is left out.
+    """
+    metadata: dict[str, Any] = {
+        "upload_type": ZENODO_UPLOAD_TYPE,
+        "title": title,
+        "version": version,
+    }
+    creators = [{"name": name} for name in publication.creators]
+    if creators:
+        metadata["creators"] = creators
+    if publication.license:
+        metadata["license"] = publication.license
+    return metadata
+
+
 def _description(seal: RunSeal) -> str:
     """Return what the run says of itself, or one sentence naming it."""
     run = seal.run
@@ -98,4 +120,4 @@ def _related_identifiers(seal: RunSeal) -> list[dict[str, str]]:
     return identifiers
 
 
-__all__ = ["ZENODO_UPLOAD_TYPE", "zenodo_metadata"]
+__all__ = ["ZENODO_UPLOAD_TYPE", "zenodo_metadata", "zenodo_metadata_of_project"]

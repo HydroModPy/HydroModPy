@@ -9,10 +9,16 @@ distances are measured on.
 
 from __future__ import annotations
 
+import heapq
+
 import numpy as np
 import pytest
 
-from hydromodpy.catchment.drainage.filling import DEFAULT_EPSILON_M, fill_depressions_on_graph
+from hydromodpy.catchment.drainage.filling import (
+    DEFAULT_EPSILON_M,
+    fill_depressions_on_graph,
+    priority_flood,
+)
 
 
 def _chain(n: int) -> list[set[int]]:
@@ -101,3 +107,137 @@ class TestRefused:
         outlets[0] = True
         with pytest.raises(ValueError, match="the adjacency holds"):
             fill_depressions_on_graph(np.zeros(4), _chain(3), outlets)
+
+
+def _grid_adjacency(n_rows: int, n_cols: int) -> list[set[int]]:
+    """Eight neighbors of each cell of a rows x cols grid."""
+    out: list[set[int]] = []
+    for row in range(n_rows):
+        for col in range(n_cols):
+            near = {
+                (r, c)
+                for r in range(row - 1, row + 2)
+                for c in range(col - 1, col + 2)
+                if 0 <= r < n_rows and 0 <= c < n_cols and (r, c) != (row, col)
+            }
+            out.append({r * n_cols + c for r, c in near})
+    return out
+
+
+def _reference_fill(
+    values: np.ndarray, adjacency: list[set[int]], seeds: np.ndarray, epsilon: float
+):
+    """The flood without pins, written out, the way the fill ran before it shared its loop."""
+    surface = values.copy()
+    finite = np.isfinite(surface)
+    visited = np.zeros(surface.size, dtype=bool)
+    frontier: list[tuple[float, int]] = []
+    for cell in np.flatnonzero(seeds & finite):
+        visited[int(cell)] = True
+        heapq.heappush(frontier, (surface[int(cell)], int(cell)))
+    while frontier:
+        level, cell = heapq.heappop(frontier)
+        for neighbour in adjacency[cell]:
+            if visited[neighbour] or not finite[neighbour]:
+                continue
+            visited[neighbour] = True
+            if surface[neighbour] <= level:
+                surface[neighbour] = level + epsilon
+            heapq.heappush(frontier, (surface[neighbour], neighbour))
+    return surface
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2, 3])
+@pytest.mark.parametrize("epsilon", [0.0, DEFAULT_EPSILON_M, 0.25])
+def test_the_flood_without_a_pin_is_the_plain_priority_flood_to_the_bit(
+    seed: int, epsilon: float
+) -> None:
+    rng = np.random.default_rng(seed)
+    n_rows, n_cols = 20, 15
+    values = rng.normal(100.0, 5.0, n_rows * n_cols)
+    values[rng.random(values.size) < 0.05] = np.nan
+    seeds = np.zeros(values.size, dtype=bool)
+    seeds[:n_cols] = True
+    seeds &= np.isfinite(values)
+    adjacency = _grid_adjacency(n_rows, n_cols)
+
+    surface, raised = priority_flood(values, adjacency, seeds, step=epsilon)
+
+    expected = _reference_fill(values, adjacency, seeds, epsilon)
+    assert np.array_equal(surface, expected, equal_nan=True)
+    assert raised.sum() > 0 or epsilon == 0.0
+    report = fill_depressions_on_graph(values, adjacency, seeds, epsilon=epsilon)
+    assert np.array_equal(report.surface, expected, equal_nan=True)
+
+
+# Cells 0..3, a square: 0-1, 0-2, 1-3, 2-3. The seed is cell 3.
+SQUARE = [{1, 2}, {0, 3}, {0, 3}, {1, 2}]
+LOW = np.array([0.0, 0.0, 0.0, 10.0])
+SEED_3 = np.array([False, False, False, True])
+
+FLOOD_CASES = (
+    (
+        "one step for every cell",
+        {"step": 0.5},
+        [11.0, 10.5, 10.5, 10.0],
+    ),
+    (
+        "a step per cell is read at the cell that is raised",
+        {"step": np.array([0.1, 0.2, 0.3, 0.4])},
+        [10.3, 10.2, 10.3, 10.0],
+    ),
+    (
+        "a pinned cell is entered from its pin only, so it sits above the pin",
+        {"step": np.array([0.1, 0.2, 0.3, 0.4]), "pin": np.array([-1, 0, -1, -1])},
+        [10.4, 10.6, 10.3, 10.0],
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "kwargs", "expected"), FLOOD_CASES, ids=[case for case, _, _ in FLOOD_CASES]
+)
+def test_the_flood_raises_each_cell_onto_its_rim_by_its_step(
+    case: str, kwargs: dict, expected: list[float]
+) -> None:
+    del case
+    surface, raised = priority_flood(LOW, SQUARE, SEED_3, **kwargs)
+
+    np.testing.assert_allclose(surface, expected, rtol=0.0, atol=1e-12)
+    assert raised.tolist() == [True, True, True, False]
+
+
+def test_a_cell_within_the_tolerance_above_the_level_is_raised_like_one_below_it() -> None:
+    values = np.array([5.0, 1.0 + 1e-10, 1.0])
+    seeds = np.array([False, False, True])
+
+    kept, kept_mask = priority_flood(values, _chain(3), seeds, step=0.1)
+    raised, raised_mask = priority_flood(values, _chain(3), seeds, step=0.1, tolerance=1e-9)
+
+    assert np.array_equal(kept, values)
+    assert not kept_mask.any()
+    np.testing.assert_allclose(raised, [5.0, 1.1, 1.0], atol=1e-12)
+    assert raised_mask.tolist() == [False, True, False]
+
+
+def test_a_cell_the_seeds_never_reach_is_left_alone_or_refused_on_request() -> None:
+    values = np.array([3.0, 2.0, 1.0, 7.0])
+    adjacency = [{1}, {0, 2}, {1}, set()]
+    seeds = np.array([False, False, True, False])
+
+    surface, _ = priority_flood(values, adjacency, seeds, step=0.1)
+    assert surface[3] == 7.0
+
+    with pytest.raises(ValueError, match=r"1 cell\(s\) are never reached from a seed \(first: 3\)"):
+        priority_flood(values, adjacency, seeds, step=0.1, every_cell=True)
+
+
+def test_a_pinned_cell_whose_pin_is_cut_off_from_the_seeds_is_refused() -> None:
+    # Cell 0 is reachable only through cell 1, which is entered from cell 0 alone.
+    values = np.array([1.0, 2.0, 3.0, 0.0])
+    adjacency = [{1}, {0, 2}, {1, 3}, {2}]
+    seeds = np.array([False, False, False, True])
+    pin = np.array([-1, 0, -1, -1])
+
+    with pytest.raises(ValueError, match="never reached from a seed"):
+        priority_flood(values, adjacency, seeds, step=0.1, pin=pin, every_cell=True)

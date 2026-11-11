@@ -17,7 +17,9 @@ directory.
    edges of the periods of a run and `naive_utc` gives a timestamp in UTC without a time zone.
 6. `config_flags.py` tells a reader which option to switch on when a field is missing.
 7. `catchment_aggregation.py` gives the catchment series of the stored fields of one run. The `derive` step of the workflow calls it.
-8. `stream/` holds the stream criterion read on a finished run. It has its own `README.md`.
+   It reads the stored basin through `basin_of_group` of `results/run/descent.py`, the one reader the run views use too.
+8. `stream/` reads the stream criterion on a finished run. The kernels on arrays live in `catchment/stream_network`,
+   and `stream/criterion_inputs.py` holds the inputs a trial and a redrawn figure both read. It has its own `README.md`.
 
 ## The folder map
 
@@ -35,7 +37,7 @@ derive/
 ├── mesh_quality.py     quality of the stored mesh, one value per cell
 ├── config_flags.py     what a run kept of the budget, and the hint for a missing field
 ├── run_memo.py         per-run memo for heavy rebuilds shared by figures
-└── stream/             the stream criterion on a finished run
+└── stream/             the stream criterion read on a finished run, and its inputs
 ```
 
 ## Where to add what
@@ -47,4 +49,5 @@ derive/
 | a formula on stored arrays | `derived.py` |
 | a rule to align two series in time | `time_alignment.py` |
 | a message about a missing option | `config_flags.py` |
-| something about the stream criterion | `stream/` |
+| a reader of the stream criterion on a run | `stream/` |
+| a kernel of the stream criterion on arrays | `catchment/stream_network` |

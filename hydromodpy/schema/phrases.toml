@@ -92,3 +92,291 @@ fr = "L'en-tête de ce fichier d'entrée ne respecte pas son contrat. Le détail
 [check.input_unreachable]
 en = "This input file cannot be opened: it is absent, its host is outside the bounds of the call, or it does not answer."
 fr = "Ce fichier d'entrée ne s'ouvre pas : il est absent, son hôte est hors des bornes de l'appel, ou il ne répond pas."
+
+# The label a run gets from the validity rules, and why. A reason is a code with
+# the values its phrase needs, written in {name} fields. The set of codes is
+# closed, and a test holds every code and every label value to one row here.
+
+[label.exploratory]
+en = "exploratory"
+fr = "exploratoire"
+
+[label.calibrated]
+en = "calibrated"
+fr = "calibré"
+
+[label.evaluated]
+en = "evaluated"
+fr = "évalué"
+
+[label.failed]
+en = "failed"
+fr = "en échec"
+
+[label_reason.fatal_validity]
+en = "fatal validity failed: {names}"
+fr = "validité fatale en échec : {names}"
+
+[label_reason.not_converged]
+en = "solver did not converge"
+fr = "le solveur n'a pas convergé"
+
+[label_reason.known_issue]
+en = "known issue {id} touches {version}: {text}"
+fr = "le bogue connu {id} touche {version} : {text}"
+
+[label_reason.promoted]
+en = "promoted by session {session_id}, {status}"
+fr = "promu par la session {session_id}, {status}"
+
+[label_reason.overlaps_calibration]
+en = "scored on a window that overlaps the calibration window {start} to {end} (run window {window_start} to {window_end}, {samples} samples)"
+fr = "scoré sur une fenêtre qui recouvre la fenêtre de calage {start} à {end} (fenêtre du run {window_start} à {window_end}, {samples} échantillons)"
+
+[label_reason.scored_outside_calibration]
+en = "scored on {window_start} to {window_end} with {samples} samples, outside the calibration window {start} to {end}"
+fr = "scoré sur {window_start} à {window_end} avec {samples} échantillons, hors de la fenêtre de calage {start} à {end}"
+
+[label_reason.no_scored_window]
+en = "no scored window"
+fr = "aucune fenêtre scorée"
+
+[label_reason.session_ended]
+en = "session {session_id} ended {status}"
+fr = "la session {session_id} s'est terminée {status}"
+
+[label_reason.no_score_window]
+en = "no score window"
+fr = "aucune fenêtre de score"
+
+[label_reason.too_few_samples]
+en = "{samples} samples scored"
+fr = "{samples} échantillons scorés"
+
+[label_reason.not_promoted]
+en = "scored on {window_start} to {window_end}, not promoted by a session"
+fr = "scoré sur {window_start} à {window_end}, non promu par une session"
+
+[label_reason.bound_reached]
+en = "a parameter reached its bound: {names}"
+fr = "un paramètre a atteint sa borne : {names}"
+
+# The three states a check of a run is shown in.
+
+[check_state.passed]
+en = "passed"
+fr = "réussi"
+
+[check_state.failed]
+en = "failed"
+fr = "échoué"
+
+[check_state.unknown]
+en = "unknown"
+fr = "inconnu"
+
+# The sentences of the method text of a run, in the order of its five paragraphs:
+# the run, the data, the calibration, the quality and the limits. A phrase takes
+# its values in {name} fields. Dates are written as ISO days and numbers as the
+# run holds them. A key with no use in results/method.py fails the test of that
+# module.
+
+[method.label]
+en = "This run is labelled {label} on {date}, under the validity rules {rule_version}."
+fr = "Ce run est étiqueté {label} au {date}, selon les règles de validité {rule_version}."
+
+[method.run]
+en = "The run {name} was computed with the {solver} solver, using HydroModPy {version}."
+fr = "Le run {name} a été calculé avec le solveur {solver}, par HydroModPy {version}."
+
+[method.mesh]
+en = "Its {engine} mesh has {n_cells} cells in {n_layers} layers."
+fr = "Son maillage {engine} compte {n_cells} mailles sur {n_layers} couches."
+
+[method.mesh_one_layer]
+en = "Its {engine} mesh has {n_cells} cells in one layer."
+fr = "Son maillage {engine} compte {n_cells} mailles sur une couche."
+
+[method.mesh_cells]
+en = "Its {engine} mesh has {n_cells} cells."
+fr = "Son maillage {engine} compte {n_cells} mailles."
+
+[method.period]
+en = "It covers {start} to {end} in {n_timesteps} time steps."
+fr = "Il couvre du {start} au {end} en {n_timesteps} pas de temps."
+
+[method.period_bounds]
+en = "It covers {start} to {end}."
+fr = "Il couvre du {start} au {end}."
+
+[method.period_steady]
+en = "It is a steady state, with no period."
+fr = "C'est un état permanent, sans période."
+
+[method.data_input]
+en = "The input {variable} comes from {source}, under the licence {license}."
+fr = "L'entrée {variable} vient de {source}, sous la licence {license}."
+
+[method.data_input_unlicensed]
+en = "The input {variable} comes from {source}, and no licence is stated for it."
+fr = "L'entrée {variable} vient de {source}, et aucune licence n'est indiquée pour elle."
+
+[method.data_none]
+en = "The run recorded no input."
+fr = "Le run n'a enregistré aucune entrée."
+
+[method.calib_none]
+en = "No calibration session promoted this run, so its parameters are the ones its configuration declares."
+fr = "Aucune session de calage n'a promu ce run, donc ses paramètres sont ceux que sa configuration déclare."
+
+[method.calib_session]
+en = "It was promoted by trial {trial} of session {session_id} (final status: {status})."
+fr = "Il a été promu par l'essai {trial} de la session {session_id} (état final : {status})."
+
+[method.calib_phase]
+en = "The search ran in the phase {phase}."
+fr = "La recherche a tourné dans la phase {phase}."
+
+[method.calib_stop_rule_met]
+en = "The search converged: it met its own rule, {rule}."
+fr = "La recherche a convergé : elle a atteint sa propre règle, {rule}."
+
+[method.calib_stop_plan_exhausted]
+en = "The search converged: it solved every point of its plan, {rule}."
+fr = "La recherche a convergé : elle a résolu chaque point de son plan, {rule}."
+
+[method.calib_stop_budget_spent]
+en = "The search did not converge: it spent its budget before its rule, {rule}, was met."
+fr = "La recherche n'a pas convergé : elle a épuisé son budget avant d'atteindre sa règle, {rule}."
+
+[method.calib_stop_budget_only]
+en = "The search did not converge: it has a budget and no rule of its own, and it spent the budget."
+fr = "La recherche n'a pas convergé : elle a un budget et aucune règle propre, et elle a épuisé le budget."
+
+[method.calib_stop_unknown]
+en = "The way the search stopped is not recorded."
+fr = "La façon dont la recherche s'est arrêtée n'est pas enregistrée."
+
+[method.calib_cost]
+en = "Its {metric} cost at that trial is {cost}."
+fr = "Son coût {metric} à cet essai vaut {cost}."
+
+[method.calib_cost_unnamed]
+en = "Its cost at that trial is {cost}."
+fr = "Son coût à cet essai vaut {cost}."
+
+[method.calib_validation_cost]
+en = "On the validation period it costs {cost}."
+fr = "Sur la période de validation il coûte {cost}."
+
+[method.calib_components]
+en = "The cost has these components: {components}."
+fr = "Le coût a pour composantes : {components}."
+
+[method.calib_rule]
+en = "The rule of that cost is {rule}."
+fr = "La règle de ce coût est {rule}."
+
+[method.calib_window]
+en = "The {role} period {name} runs from {start} to {end}."
+fr = "La période de {role} {name} va du {start} au {end}."
+
+[method.calib_no_windows]
+en = "The search did not record its periods."
+fr = "La recherche n'a pas enregistré ses périodes."
+
+[method.calib_parameters]
+en = "The calibration set these parameters: {parameters}."
+fr = "Le calage a posé ces paramètres : {parameters}."
+
+[method.calib_bounds]
+en = "Parameters on a bound: {names}. The best value of each may lie outside the range declared for it."
+fr = "Paramètres en butée : {names}. La meilleure valeur de chacun peut se trouver hors de la plage déclarée pour lui."
+
+[method.score]
+en = "Its headline score is {metric} {value} on {start} to {end}, from {n_samples} samples."
+fr = "Son score de tête est {metric} {value} du {start} au {end}, sur {n_samples} échantillons."
+
+[method.score_unavailable]
+en = "Its headline score {metric} could not be computed on {start} to {end}."
+fr = "Son score de tête {metric} n'a pas pu être calculé du {start} au {end}."
+
+[method.score_none]
+en = "No score is recorded for this run."
+fr = "Aucun score n'est enregistré pour ce run."
+
+[method.score_coverage]
+en = "The observations cover {share} of that window."
+fr = "Les observations couvrent {share} de cette fenêtre."
+
+[method.role_calibration]
+en = "calibration"
+fr = "calage"
+
+[method.role_validation]
+en = "validation"
+fr = "validation"
+
+[method.role_evaluation]
+en = "evaluation"
+fr = "évaluation"
+
+[method.status_completed]
+en = "completed"
+fr = "terminé"
+
+[method.status_partial]
+en = "partial"
+fr = "partiel"
+
+[method.status_aborted]
+en = "aborted"
+fr = "interrompu"
+
+[method.control_converged]
+en = "solver convergence"
+fr = "convergence du solveur"
+
+[method.control_budget]
+en = "water budget"
+fr = "bilan hydrique"
+
+[method.control_reproducible]
+en = "reproducible code"
+fr = "code reproductible"
+
+[method.check]
+en = "{control}: {state}."
+fr = "{control} : {state}."
+
+[method.check_detail]
+en = "{control}: {state}, {detail}."
+fr = "{control} : {state}, {detail}."
+
+[method.check_fatal]
+en = "The failure of {control} is fatal, so the numbers of this run are not to be used."
+fr = "L'échec de {control} est fatal, donc les nombres de ce run ne sont pas à utiliser."
+
+[method.budget_detail]
+en = "the discrepancy is {pct} % and {threshold} % is accepted"
+fr = "l'écart est de {pct} % et {threshold} % sont acceptés"
+
+[method.budget_no_threshold]
+en = "the discrepancy is {pct} % and no threshold was declared"
+fr = "l'écart est de {pct} % et aucun seuil n'a été déclaré"
+
+[method.reproducible_failed]
+en = "the code came from a modified checkout or an editable install"
+fr = "le code venait d'une copie modifiée ou d'une installation éditable"
+
+[method.limits_none]
+en = "No known issue of the register touches this run."
+fr = "Aucun bogue connu du registre ne touche ce run."
+
+[method.limits_unread]
+en = "The label is failed, so the register of known issues was not read for this run."
+fr = "L'étiquette est en échec, donc le registre des bogues connus n'a pas été lu pour ce run."
+
+[method.limits_issue]
+en = "Known issue {id}, fixed in {since}: {text}"
+fr = "Bogue connu {id}, corrigé en {since} : {text}"

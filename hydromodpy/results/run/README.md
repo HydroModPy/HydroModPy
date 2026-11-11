@@ -14,7 +14,9 @@ files and its arrays from its own Zarr store. The index is only used to find the
 4. Its mixins add the rest. `geographic.py` serves features, rasters, grid, mesh and field reads. `timeseries.py`
    serves parameters, metrics, budgets, series and the time index. `hydrographic.py` serves the network roles.
 5. Providers hang on the run. `run.array` is the xarray reader, `run.probe` reads one place, `run.periods` places
-   the stress periods on the calendar and `run.descent` gives the routing descent.
+   the stress periods on the calendar and `run.descent` gives the routing descent, with the open water, the
+   outline cells and the mean recharge the stream criterion read. `read_basin` and `basin_of_group` return the
+   stored basin as a `StoredBasin`, for the run views and the catchment aggregation alike.
 6. `sealed.py` reads what the seal says about the run, such as its lineage, inputs, label and metrics.
 7. `RunSet` (`group.py`) ranks and compares runs, using `ranking.py` and the facts of `sealed_facts.py`.
 
@@ -34,7 +36,7 @@ run/
 ├── array.py            RunArrayProvider, xarray reads
 ├── point.py            one cell, one variable, one series
 ├── periods.py          stress periods on the calendar
-├── descent.py          the routing descent of a run
+├── descent.py          the routing descent of a run, and the criterion inputs kept beside it
 ├── particles.py        particle pathlines
 ├── mesh_families.py    line families of the mesh
 ├── observation_points.py  declared points sampled and kept on disk

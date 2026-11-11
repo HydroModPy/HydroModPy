@@ -229,13 +229,13 @@ def _basin_cells(sim: Run, n_cells: int) -> np.ndarray | None:
     from hydromodpy.results.run.descent import read_basin
 
     stored = read_basin(sim)
-    if stored is None or stored[1].get("basin_rule") == "largest_basin":
+    if stored is None or not stored.is_catchment:
         logger.info(
             "Run %s stores no catchment, so its catchment cell counts read the active domain.",
             sim.sim_id,
         )
         return None
-    basin = np.asarray(stored[0], dtype=bool).ravel()
+    basin = np.asarray(stored.mask, dtype=bool).ravel()
     if basin.size != n_cells:
         raise ValueError(
             f"Basin of D holds {basin.size} faces and the cell field {n_cells}: "
@@ -957,7 +957,7 @@ def catchment_weights(sim: Run) -> np.ndarray:
     if fraction is not None:
         return fraction
     stored = read_basin(sim)
-    if stored is None or stored[1].get("basin_rule") == "largest_basin":
+    if stored is None or not stored.is_catchment:
         raise ValueError(
             f"Run {sim.sim_id} stores no catchment: its basin of D "
             f"{'is missing' if stored is None else 'is only the largest one of its domain'}, "
@@ -968,7 +968,7 @@ def catchment_weights(sim: Run) -> np.ndarray:
         "the basin of D whole.",
         sim.sim_id,
     )
-    return np.asarray(stored[0], dtype="float64")
+    return np.asarray(stored.mask, dtype="float64")
 
 
 def catchment_total(sim: Run, variable: str, *, name: str | None = None) -> pd.Series:

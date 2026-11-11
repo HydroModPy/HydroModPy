@@ -5,6 +5,14 @@ finds numpy and at most one other file beside it. The gate reads the syntax tree
 of every module of each folder in the table, ``TYPE_CHECKING`` blocks and
 function bodies included, because an import hidden there is still a dependency.
 A folder of rule 6 joins the table with one row.
+
+Two folders hold the rule with exceptions, ``catchment/stream_network`` and
+``core/scoring``. Their modules read the kernel, the receiver graph of
+``catchment/drainage`` and Pydantic, and keeping them to numpy and one neighbour would
+mean folding ``catchment/drainage`` into the folder, which is the work of lot 4.19.
+``ALLOWED_OUTSIDE`` names each import that is let through, with its reason. The table
+can only shrink: an import it does not list fails the gate, a line that no module
+uses any more fails it too, and the table cannot grow past its ceiling.
 """
 
 from __future__ import annotations
@@ -20,10 +28,71 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 SCIENCE_FOLDERS = (
     "hydromodpy/model/soil",
     "hydromodpy/model/initial",
+    "hydromodpy/catchment/stream_network",
+    "hydromodpy/core/scoring",
 )
 """The folders that rule 6 holds, one per row."""
 
 ALLOWED_THIRD_PARTY = frozenset({"numpy"})
+
+_KERNEL = "the kernel, which every layer reads"
+_DRAINAGE = (
+    "the receiver graph, the distances and the flood live in catchment/drainage until lot 4.19"
+)
+_NEIGHBOUR = "the criterion modules read each other's types until lot 4.19 folds the folder"
+_STREAM = "hydromodpy/catchment/stream_network/"
+_SCORING = "hydromodpy/core/scoring/"
+_CATCHMENT = "hydromodpy.catchment.stream_network."
+
+ALLOWED_OUTSIDE: tuple[tuple[str, str, str], ...] = (
+    (_STREAM + "cost.py", "hydromodpy.catchment.drainage.distance", _DRAINAGE),
+    (_STREAM + "cost.py", _CATCHMENT + "geometry", _NEIGHBOUR),
+    (_STREAM + "cost.py", _CATCHMENT + "network", _NEIGHBOUR),
+    (_STREAM + "extent.py", "hydromodpy.catchment.drainage.distance", _DRAINAGE),
+    (_STREAM + "extent.py", "hydromodpy.catchment.drainage.graph", _DRAINAGE),
+    (_STREAM + "extent.py", "hydromodpy.catchment.drainage.routing", _DRAINAGE),
+    (_STREAM + "extent.py", "hydromodpy.core.logging", _KERNEL),
+    (_STREAM + "extent.py", "hydromodpy.core.scoring.stream_defaults", _KERNEL),
+    (_STREAM + "extent.py", "hydromodpy.core.units.parse", _KERNEL),
+    (
+        _STREAM + "geometry.py",
+        "hydromodpy.catchment.algorithms.network_heads",
+        "the heads candidates come from catchment/algorithms",
+    ),
+    (_STREAM + "geometry.py", "hydromodpy.catchment.drainage.distance", _DRAINAGE),
+    (_STREAM + "geometry.py", "hydromodpy.catchment.drainage.filling", _DRAINAGE),
+    (_STREAM + "geometry.py", "hydromodpy.catchment.drainage.graph", _DRAINAGE),
+    (_STREAM + "geometry.py", "hydromodpy.core.logging", _KERNEL),
+    (_STREAM + "geometry.py", "hydromodpy.core.scoring.stream_defaults", _KERNEL),
+    (_STREAM + "geometry.py", _CATCHMENT + "heads", _NEIGHBOUR),
+    (_STREAM + "geometry.py", _CATCHMENT + "network", _NEIGHBOUR),
+    (
+        _STREAM + "heads.py",
+        "hydromodpy.catchment.algorithms.network_heads",
+        "the heads candidates come from catchment/algorithms",
+    ),
+    (_STREAM + "heads.py", "hydromodpy.catchment.drainage.distance", _DRAINAGE),
+    (_STREAM + "heads.py", "hydromodpy.catchment.drainage.graph", _DRAINAGE),
+    (_STREAM + "heads.py", "hydromodpy.core.logging", _KERNEL),
+    (
+        _STREAM + "heads.py",
+        "scipy.spatial",
+        "the nearest landing cell of a head is a KD-tree query",
+    ),
+    (_STREAM + "network.py", "hydromodpy.catchment.drainage.distance", _DRAINAGE),
+    (_STREAM + "network.py", "hydromodpy.catchment.drainage.graph", _DRAINAGE),
+    (_SCORING + "cost_margin.py", "hydromodpy.core.units.quantities", _KERNEL),
+    (_SCORING + "stream_defaults.py", "pydantic", "the defaults are one Pydantic model"),
+    (_SCORING + "stream_defaults.py", "hydromodpy.core.config_kit.base", _KERNEL),
+    (_SCORING + "stream_defaults.py", "hydromodpy.core.config_kit.profile", _KERNEL),
+    (_SCORING + "stream_defaults.py", "hydromodpy.core.units.quantities", _KERNEL),
+)
+"""``(module, import, reason)`` for each import of rule 6 that is let through.
+
+``import`` is the module as the file writes it, for a neighbour too."""
+
+ALLOWED_OUTSIDE_CEILING = 29
+"""The table may shrink and never grow: lower this number with every line removed."""
 
 
 def _dotted(path: pathlib.Path) -> str:
@@ -64,27 +133,55 @@ def _neighbours_named(module: str, folder: str) -> str | None:
     return prefix + module[len(prefix) :].split(".")[0]
 
 
-def violations_of(path: pathlib.Path, source: str, folder: str) -> list[str]:
-    """What breaks rule 6 in one module of ``folder``."""
+def _scan(
+    path: pathlib.Path,
+    source: str,
+    folder: str,
+    allowed: frozenset[tuple[str, str]],
+) -> tuple[list[str], set[tuple[str, str]]]:
+    """What breaks rule 6 in one module of ``folder``, and which exemptions it used."""
     own = _dotted(path) if path.name != "__init__.py" else _dotted(path.parent)
+    where = path.relative_to(REPO_ROOT).as_posix()
     tree = ast.parse(source)
     found: list[str] = []
+    used: set[tuple[str, str]] = set()
     neighbours: set[str] = set()
     for line, module in _imported_modules(tree, package=folder):
         top = module.split(".")[0]
         if top == "hydromodpy":
             neighbour = _neighbours_named(module, folder)
             if neighbour is None:
-                found.append(f"line {line} imports {module}, outside {folder}")
+                if (where, module) in allowed:
+                    used.add((where, module))
+                else:
+                    found.append(f"line {line} imports {module}, outside {folder}")
             elif neighbour != own:
-                neighbours.add(neighbour)
+                if (where, neighbour) in allowed:
+                    used.add((where, neighbour))
+                else:
+                    neighbours.add(neighbour)
         elif top in ALLOWED_THIRD_PARTY or top in sys.stdlib_module_names:
             continue
+        elif (where, module) in allowed:
+            used.add((where, module))
         else:
             found.append(f"line {line} imports {module}, a third-party module other than numpy")
     if len(neighbours) > 1:
         found.append(f"imports {len(neighbours)} neighbours: {', '.join(sorted(neighbours))}")
-    return found
+    return found, used
+
+
+def violations_of(
+    path: pathlib.Path,
+    source: str,
+    folder: str,
+    allowed: frozenset[tuple[str, str]] = frozenset(),
+) -> list[str]:
+    """What breaks rule 6 in one module of ``folder``."""
+    return _scan(path, source, folder, allowed)[0]
+
+
+_DECLARED = frozenset((where, module) for where, module, _ in ALLOWED_OUTSIDE)
 
 
 def _modules(folder: str) -> list[pathlib.Path]:
@@ -99,10 +196,30 @@ def test_every_module_of_a_science_folder_keeps_rule_6(folder: str) -> None:
     offenders = [
         f"{path.relative_to(REPO_ROOT)}: {problem}"
         for path in modules
-        for problem in violations_of(path, path.read_text(encoding="utf-8"), dotted_folder)
+        for problem in violations_of(
+            path, path.read_text(encoding="utf-8"), dotted_folder, _DECLARED
+        )
     ]
 
     assert not offenders, "Rule 6 is broken:\n" + "\n".join(offenders)
+
+
+def test_the_table_of_exceptions_only_shrinks() -> None:
+    """Every line is used by a module, none is written twice, and the table stays under its ceiling."""
+    used: set[tuple[str, str]] = set()
+    for folder in SCIENCE_FOLDERS:
+        dotted_folder = folder.replace("/", ".")
+        for path in _modules(folder):
+            used |= _scan(path, path.read_text(encoding="utf-8"), dotted_folder, _DECLARED)[1]
+
+    assert len(_DECLARED) == len(ALLOWED_OUTSIDE), "a line of ALLOWED_OUTSIDE is written twice"
+    stale = sorted(_DECLARED - used)
+    assert not stale, (
+        "Lines of ALLOWED_OUTSIDE no module uses any more, delete them:\n"
+        + "\n".join(f"{where}: {module}" for where, module in stale)
+    )
+    assert len(ALLOWED_OUTSIDE) <= ALLOWED_OUTSIDE_CEILING, "ALLOWED_OUTSIDE grew past its ceiling"
+    assert all(reason.strip() for _, _, reason in ALLOWED_OUTSIDE), "a line has no reason"
 
 
 FOLDER = "hydromodpy.model.initial"
@@ -138,3 +255,40 @@ def test_the_gate_sees_each_kind_of_import(case: str, source: str, expected: int
     """The gate's own angles, so a blind spot shows here before it shows in the tree."""
     del case
     assert len(violations_of(HERE, source, FOLDER)) == expected
+
+
+EXEMPTION_CASES = (
+    (
+        "a listed outside import",
+        "from hydromodpy.core.logging import get_logger\n",
+        "hydromodpy.core.logging",
+        0,
+    ),
+    ("a listed third party", "from scipy.spatial import cKDTree\n", "scipy.spatial", 0),
+    (
+        "an outside import the table does not list",
+        "from hydromodpy.core.units import x\n",
+        "hydromodpy.core.logging",
+        1,
+    ),
+    (
+        "two neighbours, one of them listed",
+        "from hydromodpy.model.initial.state import HeadRule\nfrom .other import x\n",
+        "hydromodpy.model.initial.other",
+        0,
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "source", "listed", "expected"),
+    EXEMPTION_CASES,
+    ids=[case for case, _, _, _ in EXEMPTION_CASES],
+)
+def test_the_table_lets_through_only_what_it_lists(
+    case: str, source: str, listed: str, expected: int
+) -> None:
+    """A listed import passes for its own module, an unlisted one still fails."""
+    del case
+    allowed = frozenset({(HERE.relative_to(REPO_ROOT).as_posix(), listed)})
+    assert len(violations_of(HERE, source, FOLDER, allowed)) == expected

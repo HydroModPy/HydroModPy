@@ -1110,14 +1110,11 @@ def test_one_map_with_its_bound_suffix_reads_as_one_map(mpl) -> None:
 
 
 def test_the_suffixes_the_card_reads_are_the_ones_the_criterion_writes() -> None:
-    from hydromodpy.calibration.metrics.downslope_network import (
-        MAXIMAL_SUFFIX,
-        MINIMAL_SUFFIX,
-    )
-    from hydromodpy.calibration.metrics.downslope_network import (
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import ROOT_BOUNDS
+    from hydromodpy.catchment.stream_network.cost import MAXIMAL_SUFFIX, MINIMAL_SUFFIX
+    from hydromodpy.catchment.stream_network.cost import (
         VALIDATION_SUFFIX as CRITERION_VALIDATION_SUFFIX,
     )
-    from hydromodpy.calibration.optim.adapters.bisection_adapter import ROOT_BOUNDS
     from hydromodpy.display.figures.matching_hydrographic_network_card import (
         BOUNDS,
         VALIDATION_SUFFIX,

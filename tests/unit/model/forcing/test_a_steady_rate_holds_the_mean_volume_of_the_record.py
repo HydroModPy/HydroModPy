@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.catchment.stream_network.geometry import RECHARGE_MOVE_TOLERANCE
 from hydromodpy.core.time.coverage import calendar_sample_days
 from hydromodpy.core.time.period_aggregation import period_mean_on_index
 from hydromodpy.core.time.steady_initialization import single_period_mean_forcing_time_grid
@@ -36,7 +37,6 @@ from hydromodpy.model.forcing.steady_periods import (
 from hydromodpy.model.forcing.time_alignment import align_forcing_series_to_simulation_window
 from hydromodpy.model.model import ModelTime
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.results.derive.stream.geometry import RECHARGE_MOVE_TOLERANCE
 from hydromodpy.solver.boussinesq.forcing.common import ForcingCommonMixin
 from hydromodpy.solver.boussinesq.forcing.recharge_resolution import RechargeResolutionMixin
 from hydromodpy.solver.modflow6.builders.recharge import recharge_to_spd

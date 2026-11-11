@@ -90,7 +90,8 @@ def _the_format_help(schema: dict[str, Any]) -> None:
 RETIRED_FORMATS: dict[str, str] = {
     "package": (
         'format = "package" is retired: the portable archive of a run is '
-        "'hmp publish <run> --to DEST --container tar --with results --with inputs'. "
+        "'hmp publish <run> --to DEST --container tar' (a copy carries its inputs unless it "
+        "was published with --without inputs). "
         "Drop this [[export]] block."
     ),
 }

@@ -23,6 +23,18 @@ What the index holds
   the sessions, read from ``session.json``, ``phases/*/session.json`` and
   ``trials.jsonl``.
 
+Four tables copy a Parquet table of the run: ``simulations``
+(``simulation.parquet``), ``parameters``, ``metrics`` and ``provenance``. Their
+DDL is not written here but read off those schemas by :func:`table_ddl`: one
+column per Arrow field, in the schema order, with the DuckDB type of
+:data:`ARROW_TO_DUCKDB` and ``NOT NULL`` where the field is not nullable. A
+:class:`MirroredTable` only says what the index does differently: a column
+typed otherwise, a code joined on a dimension table, a field left out, and the
+columns the index alone carries. A column added to a Parquet schema reaches
+the index with no line here.
+
+``cases.bytes`` is the size of the directory on disk when it was indexed.
+
 The dimension tables (``solvers``, ``statuses``, ``flow_regimes``,
 ``mesh_topologies``) hold the codes the readers join on. ``solvers`` and
 ``mesh_topologies`` start empty: every row comes from the run itself, the
@@ -35,12 +47,24 @@ files (:mod:`parquet_views`).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
+
+import pyarrow as pa
+
+from hydromodpy.results.storage.parquet_schemas import (
+    METRICS_SCHEMA,
+    PARAMETERS_SCHEMA,
+    PROVENANCE_SCHEMA,
+    SIMULATION_SCHEMA,
+)
 
 if TYPE_CHECKING:
     import duckdb
 
-INDEX_SCHEMA_VERSION: Final[str] = "12"
+INDEX_SCHEMA_VERSION: Final[str] = "13"
 """Version of the index schema. A different value in a file means: rebuild it."""
 
 INDEX_META_TABLE: Final[str] = "index_meta"
@@ -138,7 +162,8 @@ CREATE TABLE cases (
     heartbeat_at     TIMESTAMPTZ,
     source_key       VARCHAR NOT NULL,
     source_mtime_ns  BIGINT NOT NULL,
-    indexed_at       TIMESTAMPTZ NOT NULL
+    indexed_at       TIMESTAMPTZ NOT NULL,
+    bytes            BIGINT NOT NULL
 );
 
 CREATE INDEX ix_cases_case_id ON cases(case_id);
@@ -166,85 +191,8 @@ CREATE TABLE attempts (
 CREATE UNIQUE INDEX ux_attempts_rel_dir_attempt ON attempts(rel_dir, attempt_id);
 """
 
-_SIMULATIONS = """
-CREATE TABLE simulations (
-    sim_id                        UUID PRIMARY KEY,
-    name                          VARCHAR NOT NULL,
-    name_stem                     VARCHAR NOT NULL,
-    version_int                   INTEGER NOT NULL,
-    project                       VARCHAR NOT NULL,
-    site                          VARCHAR,
-    site_fingerprint              VARCHAR,
-    recipe                        VARCHAR,
-    case_id                       VARCHAR NOT NULL,
-    rel_dir                       VARCHAR NOT NULL,
-    attempt                       INTEGER NOT NULL,
-    attempt_id                    VARCHAR NOT NULL,
-    solver_id                     SMALLINT NOT NULL REFERENCES solvers(id),
-    status_id                     SMALLINT NOT NULL REFERENCES statuses(id),
-    flow_regime_id                SMALLINT REFERENCES flow_regimes(id),
-    mesh_topology_id              SMALLINT REFERENCES mesh_topologies(id),
-    mesh_hash                     VARCHAR,
-    mesh_engine                   VARCHAR,
-    n_cells                       INTEGER,
-    n_layers                      INTEGER,
-    n_timesteps                   INTEGER,
-    crs_wkt                       VARCHAR,
-    crs_epsg                      INTEGER,
-    bbox_xmin                     DOUBLE,
-    bbox_ymin                     DOUBLE,
-    bbox_xmax                     DOUBLE,
-    bbox_ymax                     DOUBLE,
-    period_start                  TIMESTAMPTZ,
-    period_end                    TIMESTAMPTZ,
-    time_unit                     VARCHAR,
-    config_toml                   VARCHAR,
-    config_snapshot               JSON,
-    solution_key                  VARCHAR,
-    request_id                    VARCHAR,
-    config_source                 VARCHAR,
-    parent_sim_id                 UUID,
-    lineage_kind                  VARCHAR,
-    session_id                    VARCHAR,
-    hydromodpy_version            VARCHAR NOT NULL,
-    duration_s                    DOUBLE,
-    started_at                    TIMESTAMPTZ,
-    ended_at                      TIMESTAMPTZ,
-    created_at                    TIMESTAMPTZ NOT NULL,
-    description                   VARCHAR,
-    scientific_objective          VARCHAR,
-    contact_email                 VARCHAR,
-    doi                           VARCHAR,
-    budget_pct                    DOUBLE,
-    budget_threshold_pct          DOUBLE,
-    converged                     BOOLEAN,
-    obs_coverage                  DOUBLE,
-    score_window_start            DATE,
-    score_window_end              DATE,
-    n_samples                     BIGINT,
-    calibrated_by_session_id      VARCHAR,
-    calibrated_by_phase           VARCHAR,
-    calibrated_by_trial           BIGINT,
-    calibrated_by_session_status  VARCHAR,
-    calibrated_by_window_start    DATE,
-    calibrated_by_window_end      DATE,
-    calibrated_by_metric          VARCHAR,
-    calibrated_by_cost            DOUBLE,
-    validities_failed             VARCHAR,
-    fatal_failed                  BOOLEAN NOT NULL,
-    bounds_hit                    VARCHAR,
-    code_reproducible             BOOLEAN,
-    nse                           DOUBLE,
-    score_station                 VARCHAR,
-    score_variable                VARCHAR,
-    metric_rule_version           VARCHAR,
-    label                         VARCHAR NOT NULL
-                                  CHECK (label IN ('exploratory', 'calibrated', 'evaluated', 'failed')),
-    label_date                    DATE NOT NULL,
-    rule_version                  VARCHAR NOT NULL,
-    label_reasons                 VARCHAR,
-    known_issues                  VARCHAR
-);
+_SIMULATIONS_TEMPLATE = """
+{simulations}
 
 CREATE UNIQUE INDEX ux_sim_rel_dir     ON simulations(rel_dir);
 CREATE INDEX ix_sim_project            ON simulations(project);
@@ -256,38 +204,14 @@ CREATE INDEX ix_sim_solution_key       ON simulations(solution_key);
 CREATE INDEX ix_sim_name_stem          ON simulations(project, name_stem, version_int);
 CREATE INDEX ix_sim_label              ON simulations(label);
 
-CREATE TABLE parameters (
-    sim_id           UUID NOT NULL,
-    param_name       VARCHAR NOT NULL,
-    zone_id          VARCHAR NOT NULL,
-    value            DOUBLE,
-    unit             VARCHAR,
-    parameterization VARCHAR,
-    valid_from       TIMESTAMPTZ,
-    origin           VARCHAR NOT NULL,
-    calibrated       BOOLEAN NOT NULL
-);
+{parameters}
 
 CREATE INDEX ix_param_sim  ON parameters(sim_id);
 CREATE INDEX ix_param_name ON parameters(param_name);
 
-CREATE TABLE metrics (
-    sim_id               UUID NOT NULL,
-    station_id           VARCHAR,
-    variable             VARCHAR,
-    metric_name          VARCHAR NOT NULL,
-    value                DOUBLE,
-    window_name          VARCHAR,
-    window_role          VARCHAR,
-    window_start         DATE,
-    window_end           DATE,
-    n_samples            BIGINT,
-    n_clipped            BIGINT,
-    n_sim_nan            BIGINT,
-    metric_rule_version  VARCHAR
-);
+{metrics}
 
-CREATE INDEX ix_metrics_sim_metric ON metrics(sim_id, metric_name, window_name);
+CREATE INDEX ix_metrics_sim_metric ON metrics(sim_id, metric, window_name);
 
 CREATE TABLE runs_environment (
     sim_id                UUID PRIMARY KEY,
@@ -313,22 +237,7 @@ CREATE TABLE runs_environment (
     recorded_at           TIMESTAMPTZ
 );
 
-CREATE TABLE provenance (
-    sim_id         UUID NOT NULL,
-    variable       VARCHAR NOT NULL,
-    source_type    VARCHAR,
-    source_ref     VARCHAR NOT NULL,
-    source_sha256  VARCHAR,
-    payload_sha256 VARCHAR,
-    loader_name    VARCHAR,
-    loader_version VARCHAR,
-    fetched_at     TIMESTAMPTZ,
-    period_start   TIMESTAMPTZ,
-    period_end     TIMESTAMPTZ,
-    n_records      BIGINT,
-    stats          JSON,
-    valid_from     TIMESTAMPTZ
-);
+{provenance}
 
 CREATE INDEX ix_prov_sim ON provenance(sim_id);
 
@@ -471,6 +380,134 @@ CREATE UNIQUE INDEX ux_cal_trial_case ON calibration_trial_cases(session_id, tri
 CREATE INDEX ix_cal_trial_case_sim ON calibration_trial_cases(sim_id);
 """
 
+ARROW_TO_DUCKDB: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "string": "VARCHAR",
+        "double": "DOUBLE",
+        "float": "FLOAT",
+        "int16": "SMALLINT",
+        "int32": "INTEGER",
+        "int64": "BIGINT",
+        "bool": "BOOLEAN",
+        "date32[day]": "DATE",
+        "timestamp[*, tz=UTC]": "TIMESTAMPTZ",
+    }
+)
+"""DuckDB type of each Arrow type a mirrored Parquet schema uses.
+
+A UTC timestamp of any unit is ``timestamp[*, tz=UTC]``.
+"""
+
+
+def arrow_type_key(arrow_type: pa.DataType) -> str:
+    """Return the key of ``arrow_type`` in :data:`ARROW_TO_DUCKDB`."""
+    if pa.types.is_timestamp(arrow_type):
+        return f"timestamp[*, tz={arrow_type.tz}]"
+    return str(arrow_type)
+
+
+@dataclass(frozen=True, slots=True)
+class MirroredTable:
+    """An index table that copies a Parquet schema, and what it does differently.
+
+    ``types`` gives a column its own DuckDB type (constraints included).
+    ``coded`` maps a field to the dimension table it is coded on: the column
+    becomes ``<field>_id SMALLINT REFERENCES <table>(id)``. ``leave_out`` names
+    the fields the index does not keep. ``extra`` lists the columns the index
+    alone carries, as ``(name, DuckDB definition)``, written after the others.
+    """
+
+    name: str
+    schema: pa.Schema
+    types: Mapping[str, str] = field(default_factory=dict)
+    coded: Mapping[str, str] = field(default_factory=dict)
+    leave_out: frozenset[str] = frozenset()
+    extra: tuple[tuple[str, str], ...] = ()
+
+
+def _column(table: MirroredTable, arrow_field: pa.Field) -> str:
+    nullity = "" if arrow_field.nullable else " NOT NULL"
+    if arrow_field.name in table.coded:
+        dimension = table.coded[arrow_field.name]
+        return f"{arrow_field.name}_id SMALLINT{nullity} REFERENCES {dimension}(id)"
+    if arrow_field.name in table.types:
+        return f"{arrow_field.name} {table.types[arrow_field.name]}{nullity}"
+    key = arrow_type_key(arrow_field.type)
+    try:
+        duckdb_type = ARROW_TO_DUCKDB[key]
+    except KeyError:
+        raise KeyError(
+            f"{table.name}.{arrow_field.name} has Arrow type {arrow_field.type}, "
+            "which ARROW_TO_DUCKDB does not map"
+        ) from None
+    return f"{arrow_field.name} {duckdb_type}{nullity}"
+
+
+def table_ddl(table: MirroredTable) -> str:
+    """Return the ``CREATE TABLE`` statement of a mirrored table.
+
+    Raises ``KeyError`` naming the field and its type when an Arrow type is not
+    in :data:`ARROW_TO_DUCKDB`.
+    """
+    columns = [
+        _column(table, arrow_field)
+        for arrow_field in table.schema
+        if arrow_field.name not in table.leave_out
+    ]
+    columns.extend(f"{name} {definition}" for name, definition in table.extra)
+    body = ",\n".join(f"    {column}" for column in columns)
+    return f"CREATE TABLE {table.name} (\n{body}\n);"
+
+
+MIRRORED_TABLES: Final[tuple[MirroredTable, ...]] = (
+    MirroredTable(
+        name="simulations",
+        schema=SIMULATION_SCHEMA,
+        types={"sim_id": "UUID PRIMARY KEY", "parent_sim_id": "UUID"},
+        coded={
+            "solver": "solvers",
+            "status": "statuses",
+            "flow_regime": "flow_regimes",
+            "mesh_topology": "mesh_topologies",
+        },
+        leave_out=frozenset({"solver_category"}),
+        extra=(
+            ("mesh_engine", "VARCHAR"),
+            ("config_toml", "VARCHAR"),
+            ("config_snapshot", "JSON"),
+            ("solution_key", "VARCHAR"),
+            ("request_id", "VARCHAR"),
+            (
+                "label",
+                "VARCHAR NOT NULL "
+                "CHECK (label IN ('exploratory', 'calibrated', 'evaluated', 'failed'))",
+            ),
+            ("label_date", "DATE NOT NULL"),
+            ("rule_version", "VARCHAR NOT NULL"),
+            ("label_reasons", "VARCHAR"),
+            ("known_issues", "VARCHAR"),
+        ),
+    ),
+    MirroredTable(name="parameters", schema=PARAMETERS_SCHEMA, types={"sim_id": "UUID"}),
+    MirroredTable(
+        name="metrics",
+        schema=METRICS_SCHEMA,
+        types={"sim_id": "UUID"},
+        leave_out=frozenset({"valid_from"}),
+    ),
+    MirroredTable(
+        name="provenance",
+        schema=PROVENANCE_SCHEMA,
+        types={"sim_id": "UUID", "stats": "JSON"},
+        extra=(("valid_from", "TIMESTAMPTZ"),),
+    ),
+)
+"""The index tables whose columns are read off a Parquet schema of the run."""
+
+_SIMULATIONS = _SIMULATIONS_TEMPLATE.format_map(
+    {table.name: table_ddl(table) for table in MIRRORED_TABLES}
+)
+
 INDEX_DDL: Final[str] = _DIMENSIONS + _CASES + _SIMULATIONS + _SESSIONS
 """The whole DDL of an index, applied to an empty database."""
 
@@ -528,7 +565,9 @@ def read_index_schema_version(connection: duckdb.DuckDBPyConnection) -> str | No
 
 
 __all__ = [
+    "ARROW_TO_DUCKDB",
     "CASE_KINDS",
+    "MIRRORED_TABLES",
     "INDEX_DDL",
     "INDEX_META_TABLE",
     "INDEX_SCHEMA_VERSION",
@@ -539,6 +578,9 @@ __all__ = [
     "META_SCHEMA_VERSION",
     "SESSION_CHILD_TABLES",
     "SIMULATION_CHILD_TABLES",
+    "MirroredTable",
+    "arrow_type_key",
     "create_index_schema",
     "read_index_schema_version",
+    "table_ddl",
 ]

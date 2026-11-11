@@ -61,7 +61,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from hydromodpy.core.config_kit.base import frozen_copy
-from hydromodpy.core.exceptions import ConfigMissingError, PipelineError
+from hydromodpy.core.exceptions import ConfigMissingError, PipelineError, WriteConflictError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.old_members import refuse_old_member
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, summary_dir_for
@@ -108,7 +108,7 @@ if TYPE_CHECKING:
     from hydromodpy.project.request import RunOutcome
     from hydromodpy.project.spinup import SpinupResult
     from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.publication import PublicationExtra, PublicationFormat
+    from hydromodpy.results.publication import PublicationFormat
     from hydromodpy.results.record.checks import CalibratedBy
     from hydromodpy.results.retention import GcReport
     from hydromodpy.results.run import Run
@@ -447,14 +447,35 @@ class Project:
         """Bring the index up to date with the run directories and return it, open.
 
         The index is derived from the disk: a pass that finds nothing new
-        writes nothing and keeps the open handle.
+        writes nothing and keeps the open handle, unless another process
+        published a new index since it was opened. A read never waits for a
+        writer: when another process holds the index lock, the pass warns and
+        the handle already open is kept, or the published index is opened.
         """
+        from hydromodpy.core.state.layout import catalog_path_for
         from hydromodpy.results.catalog import Catalog
         from hydromodpy.results.catalog.indexer import index_new_runs
 
-        report = index_new_runs(self.root)
         store = self._store
-        if store is not None and not store.closed and report.unchanged:
+        try:
+            report = index_new_runs(self.root, wait_s=0.0)
+        except WriteConflictError as exc:
+            if (store is None or store.closed) and not catalog_path_for(self.root).is_file():
+                raise
+            logger.warning(
+                "Index not refreshed: %s. hmp catalog reindex brings it up to date.",
+                str(exc).rstrip("."),
+            )
+            if store is None or store.closed:
+                self._store = Catalog(self.root, read_config=read_sealed_config)
+                return self._store
+            return store
+        if (
+            store is not None
+            and not store.closed
+            and report.unchanged
+            and store.reads_the_published_index
+        ):
             return store
         if store is not None:
             store.close()
@@ -602,13 +623,14 @@ class Project:
         to: str | Path,
         *,
         format: PublicationFormat = "dir",
-        with_: Sequence[PublicationExtra] = (),
         public: bool = False,
     ) -> Path:
         """Copy ``summary/`` out of the tree, for a reader without HydroModPy.
 
-        The words of ``hmp publish . --to DEST``. Returns the copy. Raises
-        ``FileNotFoundError`` before :meth:`collect` wrote ``summary/``.
+        The words of ``hmp publish summary --to DEST``. A summary carries no
+        results and no inputs, so there is nothing to leave out. Returns the
+        copy. Raises ``FileNotFoundError`` before :meth:`collect` wrote
+        ``summary/``.
         """
         from hydromodpy.results.export.publish import publish
 
@@ -617,9 +639,7 @@ class Project:
             raise FileNotFoundError(
                 f"{summary} does not exist: write it with proj.collect() before publishing"
             )
-        return publish(
-            summary, to, project_root=self.root, format=format, with_=with_, public=public
-        )
+        return publish(summary, to, project_root=self.root, format=format, public=public)
 
     def gc(
         self,

@@ -1062,6 +1062,10 @@ def test_the_document_carries_the_version_its_reader_reads(
 
 
 SEALED_DOCUMENTS = [document for document in DOCUMENTS if document.remedy is None]
+# The reader of the index rebuilds an index of another version instead of
+# refusing it (tests/unit/results/test_reindex.py), so only the other
+# documents are refused on their version.
+REFUSED_DOCUMENTS = [document for document in DOCUMENTS if document.kind != "index"]
 
 
 WINDOWS: dict[str, tuple[str, str]] = {
@@ -1119,7 +1123,7 @@ def _older(version: object) -> object:
     return f"{text[: match.start()]}{int(match.group(1)) - 1}"
 
 
-@pytest.mark.parametrize("document", DOCUMENTS, ids=IDS)
+@pytest.mark.parametrize("document", REFUSED_DOCUMENTS, ids=lambda document: document.name)
 def test_a_version_above_what_the_reader_reads_is_refused_naming_its_writer(
     document: Document, tree: Tree
 ) -> None:
@@ -1156,7 +1160,7 @@ def test_a_version_below_the_window_says_a_pre_release_wrote_it(
     assert remedy in str(refused.value)
 
 
-@pytest.mark.parametrize("document", DOCUMENTS, ids=IDS)
+@pytest.mark.parametrize("document", REFUSED_DOCUMENTS, ids=lambda document: document.name)
 def test_a_document_without_its_version_is_refused_by_name(document: Document, tree: Tree) -> None:
     _rewrite(document, tree, None)
 

@@ -28,9 +28,7 @@ from pydantic import ConfigDict, Field, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary
 
-LineageKind = Annotated[
-    str, Vocabulary("rerun", "promoted", "trial", "version", "replay", "published")
-]
+LineageKind = Annotated[str, Vocabulary("rerun", "promoted", "trial", "version", "replay")]
 """The relation a run has with what it comes from."""
 
 ReplaySource = Annotated[str, Vocabulary("run", "copy")]

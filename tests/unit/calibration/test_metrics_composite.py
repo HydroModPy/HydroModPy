@@ -42,8 +42,8 @@ from hydromodpy.calibration.runners.recap import scored_samples
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import CalibrationError, UncertaintyNotAvailableError
 from hydromodpy.core.time.period_aggregation import period_edges
-from hydromodpy.results.fit_metrics import score_timeseries
 from hydromodpy.results.metric_rule import DateWindow, MetricRule
+from hydromodpy.results.score import score_timeseries
 from hydromodpy.solver.base.observables import series_observable
 from tests.unit.calibration._factories import one_state
 from tests.unit.calibration._factories_scoring import (

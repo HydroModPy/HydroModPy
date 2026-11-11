@@ -21,25 +21,31 @@ from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     TRANSIENT_STAGE,
 )
 from hydromodpy.catchment.algorithms import network_heads
-from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.catchment.stream_network import geometry as stream_geometry
+from hydromodpy.catchment.stream_network.geometry import build_network_geometry, scored_cells
+from hydromodpy.core.scoring.stream_defaults import (
+    DEFAULT_VISIBLE_FLOW,
+    STREAM_CRITERION_DEFAULTS,
+    parse_visible_flow,
+)
 from hydromodpy.core.time.selection import resolve_state
 from hydromodpy.core.units import factor_to_m_per_s
 from hydromodpy.display.figures._stream_comparison import compared_timestep, dated_title
+from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.model.forcing.recharge_rates import (
     CRITERION_MEAN_RECHARGE_ATTR,
     criterion_mean_recharge,
     forcing_period_rates,
     mean_recharge_m_s,
 )
-from hydromodpy.results.derive.stream import geometry as stream_geometry
-from hydromodpy.results.derive.stream import run_extent
+from hydromodpy.results.derive.stream import criterion_inputs, run_extent
 from hydromodpy.results.derive.stream.comparison import (
-    _delineated_catchment,
-    _watershed_catchment,
     has_recharge_source,
     network_comparison_from_run,
+    no_recharge_reason,
     unavailable_reason_for_comparison,
 )
+from hydromodpy.results.derive.stream.criterion_inputs import catchment_cells
 from hydromodpy.results.derive.stream.criterion_settings import (
     DEFAULT_CRITERION_SETTINGS,
     DEFAULT_EXTENT_RULES,
@@ -47,8 +53,6 @@ from hydromodpy.results.derive.stream.criterion_settings import (
     network_criterion_settings,
     network_outputs_of_run,
 )
-from hydromodpy.results.derive.stream.extent import DEFAULT_VISIBLE_FLOW, parse_visible_flow
-from hydromodpy.results.derive.stream.geometry import build_network_geometry
 from hydromodpy.results.derive.stream.heads_view import network_heads_view_from_run
 from hydromodpy.results.derive.stream.run_extent import (
     block_flow_counts,
@@ -56,7 +60,6 @@ from hydromodpy.results.derive.stream.run_extent import (
     graph_role,
     network_extents_from_run,
     run_step_edges,
-    scored_cells,
     unavailable_reason_for_extents,
     unavailable_reason_for_flow,
 )
@@ -65,7 +68,7 @@ from hydromodpy.results.derive.virtual_fields import (
     field_descriptor,
     simulated_active_network_stack,
 )
-from hydromodpy.results.run.descent import RunDescent
+from hydromodpy.results.run.descent import RunDescent, StoredBasin
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from tests._helpers.sealed_runs import sealed_search
 from tests._helpers.transient_network_run import (
@@ -241,36 +244,6 @@ def _trial_build(model) -> None:
     )
 
 
-def _promoted_run(tmp_path, *, forcing_mm_d=FORCING_MM_D, edges=EDGES, store=True):
-    """A promoted transient run: a spin-up budget, and the forcing it stored."""
-    budget = [RECORD_MEAN_M_S, *RATES_M_S[1:]]
-    run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, row) for row in range(NY)])
-    fields = {"release_flux": run.field("release_flux"), "topography": run.field("topography")}
-    run.n_timesteps = len(budget)
-    run.periods = SimpleNamespace(edges=edges)
-
-    def field(variable, *, time=-1, **_):
-        if variable == "recharge":
-            return np.full(NX * NY, budget[time] * CELL_AREA_M2)
-        return fields[variable]
-
-    run.field = field
-    if store:
-        path = tmp_path / "fields.zarr"
-        SimulationZarr.create(path, n_cells=0, n_layers=1).close()
-        writer = SimulationZarr(path)
-        writer.write_forcing_timeseries(
-            "recharge",
-            "NANCON",
-            forcing_mm_d.index.values,
-            forcing_mm_d.to_numpy(),
-            unit="mm/day",
-        )
-        writer.close()
-        run._catalog.open_zarr = lambda sim_id: SimulationZarr(path)
-    return run
-
-
 def test_a_period_takes_the_mean_of_its_samples_or_carries_the_last() -> None:
     samples = pd.Series(
         [1.0, 3.0, -2.0], index=pd.DatetimeIndex(["2000-01-05", "2000-01-20", "2000-03-10"])
@@ -313,18 +286,13 @@ def test_a_series_as_long_as_the_mesh_stays_one_rate_per_period() -> None:
     assert mean_recharge_m_s(model) == pytest.approx(1.5)
 
 
-def test_the_run_gives_back_the_number_its_trials_read(tmp_path) -> None:
-    run = _promoted_run(tmp_path)
-    writer = SimulationZarr(tmp_path / "fields.zarr")
-    writer.write_forcing_attrs({CRITERION_MEAN_RECHARGE_ATTR: 1.25e-8})
-    writer.close()
-
-    comparison = network_comparison_from_run(run)
+def test_the_run_gives_back_the_number_its_trials_read() -> None:
+    comparison = network_comparison_from_run(comparison_run(kept_recharge=1.25e-8))
 
     assert comparison.geometry.mean_recharge_m_s == pytest.approx(1.25e-8)
 
 
-def test_the_redraw_reads_the_recharge_the_trials_scored(tmp_path, caplog) -> None:
+def test_the_redraw_reads_the_recharge_the_trials_scored(caplog) -> None:
     steady = SimpleNamespace(recharge=pd.Series([RECORD_MEAN_M_S]))
 
     with (
@@ -332,13 +300,15 @@ def test_the_redraw_reads_the_recharge_the_trials_scored(tmp_path, caplog) -> No
         stream_geometry.recharge_session("session"),
     ):
         _trial_build(steady)
-        comparison = network_comparison_from_run(_promoted_run(tmp_path))
+        comparison = network_comparison_from_run(
+            comparison_run(kept_recharge=mean_recharge_m_s(steady))
+        )
 
     assert comparison.geometry.mean_recharge_m_s == pytest.approx(RECORD_MEAN_M_S, rel=1e-9)
     assert _moves(caplog) == []
 
 
-def test_other_data_still_warns(tmp_path, caplog) -> None:
+def test_other_data_still_warns(caplog) -> None:
     steady = SimpleNamespace(recharge=pd.Series([RECORD_MEAN_M_S]))
 
     with (
@@ -346,29 +316,9 @@ def test_other_data_still_warns(tmp_path, caplog) -> None:
         stream_geometry.recharge_session("session"),
     ):
         _trial_build(steady)
-        network_comparison_from_run(_promoted_run(tmp_path, forcing_mm_d=FORCING_MM_D * 0.8))
+        network_comparison_from_run(comparison_run(kept_recharge=0.8 * RECORD_MEAN_M_S))
 
     assert len(_moves(caplog)) == 1
-
-
-def test_another_window_still_warns(tmp_path, caplog) -> None:
-    steady = SimpleNamespace(recharge=pd.Series([RECORD_MEAN_M_S]))
-
-    with (
-        caplog.at_level(logging.INFO, logger=stream_geometry.__name__),
-        stream_geometry.recharge_session("session"),
-    ):
-        _trial_build(steady)
-        network_comparison_from_run(_promoted_run(tmp_path, edges=EDGES[1:]))
-
-    assert len(_moves(caplog)) == 1
-
-
-def test_a_run_without_a_stored_forcing_reads_its_budget(tmp_path) -> None:
-    comparison = network_comparison_from_run(_promoted_run(tmp_path, store=False))
-
-    spin_up_budget = np.average([RECORD_MEAN_M_S, *RATES_M_S[1:]], weights=PERIOD_DAYS)
-    assert comparison.geometry.mean_recharge_m_s == pytest.approx(spin_up_budget, rel=1e-9)
 
 
 def _monthly_window(start: str, end: str):
@@ -423,29 +373,6 @@ def test_the_criterion_rates_are_the_rates_the_model_is_forced_with(samples: pd.
 # without summing the layer axis doubles the row width instead of collapsing it,
 # so the next array op against a ``(cell,)`` array of areas breaks. That is the
 # ``(72930,) (36465,)`` broadcast a two-layer Flume run hit.
-def test_recharge_split_over_two_layers_scores_the_same_threshold() -> None:
-    single = comparison_run(seepage_cells=[7])
-    layered = comparison_run(seepage_cells=[7])
-
-    per_cell = np.full(NX * NY, CELL_RECHARGE_M3_S)
-    two_layers = np.stack([per_cell, np.zeros_like(per_cell)])
-    original_field = layered.field
-
-    def field(variable, **kwargs):
-        if variable == "recharge":
-            return two_layers
-        return original_field(variable, **kwargs)
-
-    layered.field = field
-
-    one_layer = network_comparison_from_run(single)
-    two_layer = network_comparison_from_run(layered)
-
-    assert two_layer.geometry.mean_recharge_m_s == pytest.approx(
-        one_layer.geometry.mean_recharge_m_s, rel=1e-12
-    )
-
-
 # The run is the monthly V-valley of :mod:`tests._helpers.transient_network_run`:
 # the outlet flows every month, the two upper axis cells five months of twelve,
 # and the run covers 2001 and 2002 whole and 2003 up to March. Every count below
@@ -668,128 +595,68 @@ class TestRefusals:
 
 
 # The criterion cuts the network at ``tau * R * A`` and reads the mean recharge R
-# from the station forcing the run stores, and from the budget only when it stores
-# none. The gate used to ask the budget alone, so a run forced by stations and
-# holding no ``budget/recharge`` was refused for a term the computation never
-# read. Both now ask one predicate, ``has_recharge_source``.
-FORCING_MM_D_2 = pd.Series(
-    [2.0, 1.0, 0.5], index=pd.DatetimeIndex(["2000-01-31", "2000-02-29", "2000-03-31"])
-)
-
-
-MEAN_M_S = float(np.average(FORCING_MM_D_2, weights=[31, 29, 31])) * factor_to_m_per_s("mm/day")
-
-
-def _run_2(tmp_path, *, budget_recharge: bool, forcing: bool, dates: bool = True, policy=None):
-    """A run with or without a recharge budget and with or without a station forcing.
-
-    ``policy`` is what the ``budget/`` group of the store declares it kept,
-    None for a group with no attributes.
-    """
+# the run kept. A run that kept none is refused by one sentence, which says how to
+# get one, and a zero ratio asks for none. The gate and the computation ask one
+# predicate, ``has_recharge_source``. The three places a number is found when the
+# run is written are the cases of ``test_criterion_inputs.py``.
+def test_a_run_that_kept_its_recharge_passes_the_gate() -> None:
     run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, row) for row in range(NY)])
-    fields = {name: run.field(name) for name in ("release_flux", "topography", "recharge")}
-    if not budget_recharge:
-        del fields["recharge"]
-    run.has_field = lambda variable, **_: variable in fields
-    run.field = lambda variable, **_: fields[variable]
-    run.periods = SimpleNamespace(edges=EDGES if dates else None)
-    run.time_index = None
-    if not (forcing or policy is not None):
-        # A stand-in whose catalog opens no store: the budget is read step by step.
-        return run
-    path = tmp_path / "fields.zarr"
-    SimulationZarr.create(path, n_cells=0, n_layers=1).close()
-    writer = SimulationZarr(path)
-    if forcing:
-        writer.write_forcing_timeseries(
-            "recharge",
-            "STATION",
-            FORCING_MM_D_2.index.values,
-            FORCING_MM_D_2.to_numpy(),
-            unit="mm/day",
-        )
-    if policy is not None:
-        budget = writer.root.require_group("budget")
-        budget.attrs.update({"policy": policy[0], "kept_terms": list(policy[1])})
-    writer.close()
-    run._catalog.open_zarr = lambda sim_id: SimulationZarr(path)
-    return run
-
-
-def test_a_station_forced_run_without_a_recharge_budget_passes_the_gate(tmp_path) -> None:
-    run = _run_2(tmp_path, budget_recharge=False, forcing=True)
-
-    assert has_recharge_source(run)
-    assert unavailable_reason_for_flow(run, tau_specific_ratio=1e-4) is None
-
-
-def test_a_station_forced_run_without_a_recharge_budget_computes_the_criterion(tmp_path) -> None:
-    run = _run_2(tmp_path, budget_recharge=False, forcing=True)
-
-    comparison = network_comparison_from_run(run, tau_specific_ratio=1e-4)
-
-    assert comparison.geometry.mean_recharge_m_s == pytest.approx(MEAN_M_S, rel=1e-9)
-    assert comparison.simulated.any()
-
-
-def test_a_run_with_the_recharge_budget_passes_the_gate(tmp_path) -> None:
-    run = _run_2(tmp_path, budget_recharge=True, forcing=False)
 
     assert has_recharge_source(run)
     assert unavailable_reason_for_flow(run, tau_specific_ratio=1e-4) is None
     assert network_comparison_from_run(run, tau_specific_ratio=1e-4).simulated.any()
 
 
-def test_a_grid_forced_run_without_a_recharge_budget_is_refused(tmp_path) -> None:
-    run = _run_2(tmp_path, budget_recharge=False, forcing=False)
+def test_a_run_that_kept_no_recharge_is_refused_with_the_way_out() -> None:
+    run = comparison_run(kept_recharge=False)
 
     reason = unavailable_reason_for_flow(run, tau_specific_ratio=1e-4)
 
     assert not has_recharge_source(run)
-    assert reason is not None
-    assert "tau = 0.0001" in reason
-    assert "persisted no recharge budget and no dated recharge forcing" in reason
-    with pytest.raises(ValueError, match="persisted no recharge budget"):
+    assert reason == no_recharge_reason()
+    assert reason == (
+        "This run kept no criterion mean recharge, so a seepage threshold cannot be read on it. "
+        "Replay it with hmp replay, or set tau_specific_ratio = 0."
+    )
+    with pytest.raises(ValueError, match="kept no criterion mean recharge"):
         network_comparison_from_run(run, tau_specific_ratio=1e-4)
 
 
-def test_a_forcing_with_no_dates_to_place_it_on_is_not_a_source(tmp_path) -> None:
-    run = _run_2(tmp_path, budget_recharge=False, forcing=True, dates=False)
-
-    assert not has_recharge_source(run)
-    assert unavailable_reason_for_flow(run, tau_specific_ratio=1e-4) is not None
-
-
-def test_a_zero_ratio_asks_for_no_recharge(tmp_path) -> None:
-    run = _run_2(tmp_path, budget_recharge=False, forcing=False)
+def test_a_zero_ratio_asks_for_no_recharge() -> None:
+    run = comparison_run(kept_recharge=False)
 
     assert unavailable_reason_for_flow(run, tau_specific_ratio=0.0) is None
     comparison = network_comparison_from_run(run, tau_specific_ratio=0.0)
     assert comparison.geometry.mean_recharge_m_s == 0.0
 
 
-def test_the_refusal_names_the_terms_a_consumers_run_left_out(tmp_path) -> None:
-    run = _run_2(tmp_path, budget_recharge=False, forcing=False, policy=("consumers", ("drain",)))
+def test_a_run_that_kept_no_open_water_mask_is_refused_by_name() -> None:
+    run = comparison_run()
+    run.descent = RunDescent(lambda: None)
 
-    reason = unavailable_reason_for_flow(run, tau_specific_ratio=1e-4)
-
-    assert "kept only the per-cell budget terms its consumers read (drain)" in reason
-    assert "recharge" in reason.split("also needs")[1]
-    assert "keep_per_cell_budget" in reason
-
-
-def test_a_run_that_kept_the_whole_budget_gets_no_option_it_cannot_use(tmp_path) -> None:
-    run = _run_2(tmp_path, budget_recharge=False, forcing=False, policy=("all", ("drain",)))
-
-    reason = unavailable_reason_for_flow(run, tau_specific_ratio=1e-4)
+    reason = unavailable_reason_for_comparison(run)
 
     assert reason is not None
-    assert "keep_per_cell_budget" not in reason
+    assert "mesh/open_water" in reason
+    assert "hmp replay" in reason
+
+
+def _run_with_budget_policy(tmp_path, policy):
+    """A run whose store says which per-cell budget terms it kept, and no release flux."""
+    run = comparison_run(kept_recharge=False)
+    run.has_field = lambda variable, **_: variable in {"recharge", "topography"}
+    path = tmp_path / "fields.zarr"
+    SimulationZarr.create(path, n_cells=0, n_layers=1).close()
+    writer = SimulationZarr(path)
+    budget = writer.root.require_group("budget")
+    budget.attrs.update({"policy": policy[0], "kept_terms": list(policy[1])})
+    writer.close()
+    run._catalog.open_zarr = lambda sim_id: SimulationZarr(path)
+    return run
 
 
 def test_a_run_without_release_flux_is_refused_without_the_retired_key(tmp_path) -> None:
-    run = _run_2(tmp_path, budget_recharge=True, forcing=False, policy=("consumers", ("recharge",)))
-    run.has_field = lambda variable, **_: variable in {"recharge", "topography"}
+    run = _run_with_budget_policy(tmp_path, ("consumers", ("recharge",)))
 
     reason = unavailable_reason_for_flow(run)
 
@@ -798,15 +665,12 @@ def test_a_run_without_release_flux_is_refused_without_the_retired_key(tmp_path)
     assert "keep_per_cell_budget" in reason
 
 
-def test_the_budget_recharge_is_the_cell_rate_over_the_cell_area(tmp_path) -> None:
-    run = _run_2(tmp_path, budget_recharge=True, forcing=False)
-    area = float(run.mesh.vertices[:, 0].max() / NX) ** 2
+@pytest.mark.parametrize("policy", [("consumers", ("drain",)), ("all", ("drain",))])
+def test_the_recharge_refusal_is_the_same_whatever_budget_the_run_kept(tmp_path, policy) -> None:
+    run = _run_with_budget_policy(tmp_path, policy)
+    run.has_field = lambda variable, **_: variable in {"release_flux", "topography"}
 
-    comparison = network_comparison_from_run(run, tau_specific_ratio=1e-4)
-
-    assert comparison.geometry.mean_recharge_m_s == pytest.approx(
-        run.field("recharge")[0] / area, rel=1e-9
-    )
+    assert unavailable_reason_for_flow(run, tau_specific_ratio=1e-4) == no_recharge_reason()
 
 
 # A calibration can score the mapped network (``"reference"``) or the one the
@@ -917,31 +781,39 @@ def test_touch_replays_the_corner_cells_of_each_diagonal_step() -> None:
 # basin was stored keeps the delineated polygon for both and says so. The grid is
 # the 5 x 3 valley of ``tests.unit.display._network_comparison_run``, whose graph
 # catchment is the whole grid.
-NO_BASIN_WARNING = "stores no basin of D"
+NO_BASIN_WARNING = "carries no basin of D"
 
 
-def _run_3(*, basin: np.ndarray | None, rule: str = "near_point"):
+def _run_3(*, basin: np.ndarray | None, rule: str = "near_point", outline: bool = True):
     """A run whose delineated polygon spans columns 1 to 3 and whose graph closes on the grid."""
     run = comparison_run()
     narrow = gpd.GeoDataFrame(
         geometry=[box(1 * CELL_M, -0.1 * CELL_M, 4 * CELL_M, (NY + 0.1) * CELL_M)], crs=run.mesh.crs
     )
-
-    def geographic(feature):
-        assert feature == "watershed"
-        return narrow
-
-    run.geographic = geographic
-    mesh = run.mesh
-    attrs = {} if basin is None else {"basin_rule": rule}
-    run.descent = RunDescent(
-        lambda: replace(
-            stored_descent(mesh.topography, mesh.face_node_connectivity, mesh.vertices),
-            basin=basin,
-            basin_attrs=attrs,
-        )
+    cells = catchment_cells(
+        cell_polygons(run.mesh.vertices, run.mesh.face_node_connectivity),
+        narrow,
+        mesh_crs=run.mesh.crs,
     )
+    run.descent = _descent_with(run, basin=basin, rule=rule, outline=cells if outline else None)
     return run
+
+
+def _descent_with(run, *, basin, rule="near_point", outline=None) -> RunDescent:
+    """The descent of ``run`` with a stored basin and a stored outline, as a store gives them."""
+    mesh = run.mesh
+    stored = (
+        None
+        if basin is None
+        else StoredBasin(mask=basin, area_m2=float(basin.sum()) * CELL_M**2, rule=rule)
+    )
+    return RunDescent(
+        lambda: stored_descent(mesh.topography, mesh.face_node_connectivity, mesh.vertices),
+        load_basin=lambda: stored,
+        load_open_water=lambda: np.zeros(NX * NY, dtype=bool),
+        load_catchment_cells=lambda: outline,
+        load_recharge=lambda: 1.0e-8,
+    )
 
 
 def _geometry(run):
@@ -964,27 +836,14 @@ def test_the_outline_and_the_stored_basin_each_have_their_mismatch(caplog) -> No
     assert NO_BASIN_WARNING not in caplog.text
 
 
-def test_a_stored_basin_without_a_watershed_measures_against_the_basin(caplog) -> None:
-    run = _run_3(basin=np.ones(NX * NY, dtype=bool))
+def test_a_stored_basin_without_an_outline_measures_against_the_basin() -> None:
+    run = _run_3(basin=np.ones(NX * NY, dtype=bool), outline=False)
 
-    def missing(feature):
-        raise FileNotFoundError(feature)
-
-    run.geographic = missing
-
-    with caplog.at_level(logging.WARNING):
-        assert _mismatch(run) == pytest.approx(0.0)
-    assert (
-        "Stream comparison: run sim-network carries no delineated watershed (FileNotFoundError), "
-        "so catchment_mismatch has no outline to read, and a run without a basin of D "
-        "re-derives its catchment by descending the model top to its own largest basin. "
-        "On a real surface that basin is an internal depression."
-    ) in caplog.text
+    assert _mismatch(run) == pytest.approx(0.0)
 
 
 def test_a_synthetic_domain_has_no_outline_as_in_a_trial() -> None:
-    run = _run_3(basin=np.ones(NX * NY, dtype=bool), rule="largest_basin")
-    run._catalog = SimpleNamespace(read_geographic_metadata=lambda _sim: {"catch_def": "synthetic"})
+    run = _run_3(basin=np.ones(NX * NY, dtype=bool), rule="largest_basin", outline=False)
 
     geometry = _geometry(run)
 
@@ -999,9 +858,8 @@ def test_a_run_without_a_stored_basin_keeps_the_polygon_and_says_so(caplog) -> N
     # The polygon spans 9 of the 15 cells the graph closes: 6 of them lie outside it.
     assert mismatch == pytest.approx(6 / 9)
     assert (
-        "Stream comparison: run sim-network stores no basin of D, so the catchment mismatch "
-        "is measured against the old reference 'polygon_centroid', as its trials were."
-        in caplog.text
+        "Network criterion: run sim-network carries no basin of D, so the catchment mismatch "
+        "is measured against the old reference 'polygon_centroid'." in caplog.text
     )
 
 
@@ -1019,7 +877,14 @@ def test_a_run_sealed_without_d_is_not_rebuilt_to_learn_it_has_no_basin(caplog) 
     def refuse() -> None:
         raise AssertionError("D was loaded or rebuilt to read a basin that is not there")
 
-    run.descent = RunDescent(refuse, load_basin=lambda: None)
+    run.descent = RunDescent(
+        refuse,
+        load_basin=lambda: None,
+        load_open_water=lambda: np.zeros(NX * NY, dtype=bool),
+        load_catchment_cells=lambda: run_outline,
+        load_recharge=lambda: 1.0e-8,
+    )
+    run_outline = np.isin(np.arange(NX * NY), [1, 2, 3, 6, 7, 8, 11, 12, 13])
 
     with caplog.at_level(logging.WARNING):
         mismatch = _mismatch(run)
@@ -1028,22 +893,10 @@ def test_a_run_sealed_without_d_is_not_rebuilt_to_learn_it_has_no_basin(caplog) 
     assert NO_BASIN_WARNING in caplog.text
 
 
-def test_a_stored_basin_comes_back_as_booleans_of_its_first_member() -> None:
-    stored = (np.array([1, 0, 1], dtype=np.int8), {"basin_rule": "near_point"})
-    sim = SimpleNamespace(descent=SimpleNamespace(stored_basin=lambda: stored))
-
-    catchment = _delineated_catchment(sim, None)
-
-    assert catchment.dtype == bool
-    assert catchment.tolist() == [True, False, True]
-
-
+# A watershed with nothing in it gives no outline, whatever the file held.
 @pytest.mark.parametrize("watershed", [None, gpd.GeoDataFrame(geometry=[], crs="EPSG:2154")])
 def test_a_watershed_with_nothing_in_it_gives_no_outline(watershed) -> None:
-    run = _run_3(basin=None)
-    run.geographic = lambda feature: watershed
-
-    assert _watershed_catchment(run, np.empty((0, 4)), "EPSG:2154") is None
+    assert catchment_cells(np.empty((0, 4)), watershed, mesh_crs="EPSG:2154") is None
 
 
 # A figure redraws what a trial scored, so it reads the settings of the network
@@ -1211,26 +1064,12 @@ AREA_M2 = CELL_M * CELL_M
 RECHARGE_BY_STEP_M3_S = (1.0e-4, 1.0e-4, 7.0e-4)
 
 
-def _transient_run(**kwargs):
-    run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, NY - 1)], **kwargs)
-    release = run.field("release_flux")
-    stacks = {
-        "recharge": [np.full(NX * NY, value) for value in RECHARGE_BY_STEP_M3_S],
-        "release_flux": [release] * len(RECHARGE_BY_STEP_M3_S),
-    }
-
-    def field(variable, time=-1, **_):
-        return stacks[variable][time]
-
-    run.n_timesteps = len(RECHARGE_BY_STEP_M3_S)
-    run.field = field
-    return run
-
-
-def test_the_threshold_reads_the_time_mean_recharge() -> None:
-    comparison = network_comparison_from_run(_transient_run(), tau_specific_ratio=1.0e-2)
-
+def test_the_threshold_reads_the_kept_recharge() -> None:
     mean_rate = float(np.mean(RECHARGE_BY_STEP_M3_S)) / AREA_M2
+    run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, NY - 1)], kept_recharge=mean_rate)
+
+    comparison = network_comparison_from_run(run, tau_specific_ratio=1.0e-2)
+
     last_rate = RECHARGE_BY_STEP_M3_S[-1] / AREA_M2
     assert comparison.geometry.mean_recharge_m_s == pytest.approx(mean_rate)
     assert comparison.geometry.mean_recharge_m_s != pytest.approx(last_rate)
@@ -1334,14 +1173,14 @@ def test_the_sealed_radius_loses_a_head_the_default_would_keep() -> None:
 def test_the_redraw_takes_no_end_of_the_cut_for_a_head_unless_the_run_did(
     monkeypatch, sealed, cut
 ) -> None:
-    real = network_heads.network_head_candidates
+    real = criterion_inputs.network_head_candidates
     outlines = []
 
     def spy(lines, **kwargs):
         outlines.append(kwargs.get("cut_outline"))
         return real(lines, **kwargs)
 
-    monkeypatch.setattr(network_heads, "network_head_candidates", spy)
+    monkeypatch.setattr(criterion_inputs, "network_head_candidates", spy)
 
     _redraw(_sealed_run(heads={"radius": 50.0, "min_drained_area": 0.04}, **sealed))
 
@@ -1357,8 +1196,14 @@ HILLSIDE = 10  # column 0 of the north row: it drains along the row to the axis
 
 def _run_with_dam_foot(cells):
     run = comparison_run()
-    stored = replace(run.descent.view(), dam_foot=np.asarray(cells, dtype=np.int64))
-    run.descent = RunDescent(lambda: stored)
+    kept = run.descent
+    stored = replace(kept.view(), dam_foot=np.asarray(cells, dtype=np.int64))
+    run.descent = RunDescent(
+        lambda: stored,
+        load_open_water=kept.open_water,
+        load_catchment_cells=kept.catchment_cells,
+        load_recharge=kept.criterion_recharge,
+    )
     return run
 
 

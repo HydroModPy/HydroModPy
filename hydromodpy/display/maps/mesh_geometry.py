@@ -69,7 +69,7 @@ def basin_area_m2(sim: Run) -> float:
             f"Run {sim.sim_id} stores no basin of D, so the area of its catchment budget "
             "row is unknown. Draw the fluxes in m3/s."
         )
-    return float(face_areas(sim)[np.asarray(stored[0], dtype=bool)].sum())
+    return float(face_areas(sim)[np.asarray(stored.mask, dtype=bool)].sum())
 
 
 __all__ = ["basin_area_m2", "domain_area_m2", "face_areas", "face_centroids", "face_polygons"]

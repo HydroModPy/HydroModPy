@@ -265,14 +265,12 @@ def test_the_redraw_is_built_once_per_run_and_settings(captured) -> None:
 
 
 def _without_recharge():
-    run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, 2)])
-    run.has_field = lambda variable, **_: variable in {"release_flux", "topography"}
-    return run
+    return comparison_run(seepage_cells=[cell(AXIS_COLUMN, 2)], kept_recharge=False)
 
 
 def test_the_sealed_threshold_reaches_the_partition() -> None:
     """A trial scored at tau = 0 needed no recharge, and neither does its redraw."""
-    with pytest.raises(ValueError, match="persisted no recharge budget"):
+    with pytest.raises(ValueError, match="kept no criterion mean recharge"):
         comparison_from_run(_without_recharge())
 
     run = _without_recharge()

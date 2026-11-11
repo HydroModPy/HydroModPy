@@ -15,6 +15,7 @@ from hydromodpy.display.figures.network_extent_bounds_map import (  # noqa: F401
     NetworkExtentBoundsMap,
     _draw_both,
 )
+from hydromodpy.results.run.descent import RunDescent
 from tests._helpers.sealed_runs import sealed_search
 from tests._helpers.transient_network_run import transient_run
 from tests.unit.display._network_comparison_run import legend_labels, legend_note
@@ -40,7 +41,13 @@ def test_a_run_with_one_map_is_told_which_one_is_missing() -> None:
 
 def _without_recharge():
     run = transient_run()
-    run.has_field = lambda variable, **_: variable in {"release_flux", "topography"}
+    kept = run.descent
+    run.descent = RunDescent(
+        kept.view,
+        load_open_water=kept.open_water,
+        load_catchment_cells=kept.catchment_cells,
+        load_recharge=lambda: None,
+    )
     return run
 
 
@@ -54,7 +61,7 @@ def test_a_geometric_threshold_draws_a_run_without_recharge(mpl) -> None:
 
 def test_the_default_threshold_on_a_run_without_recharge_is_told_so(mpl) -> None:
     fig, ax = mpl.subplots()
-    with pytest.raises(ValueError, match="persisted no recharge budget"):
+    with pytest.raises(ValueError, match="kept no criterion mean recharge"):
         NetworkExtentBoundsMap().render(_without_recharge(), ax)
 
 

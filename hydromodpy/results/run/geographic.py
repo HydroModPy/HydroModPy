@@ -176,9 +176,9 @@ class RunGeographicMixin:
         ``hydromodpy.results.derive.views.catchment_weights(run)``.
         """
         stored = read_basin(self)
-        synthetic = stored is not None and stored[1].get("basin_rule") == "largest_basin"
+        synthetic = stored is not None and not stored.is_catchment
         if stored is not None and not synthetic:
-            return stored[0]
+            return stored.mask
         raster = self.geographic_raster("watershed_dem")
         dem = raster.data.astype(float)
         logger.info(

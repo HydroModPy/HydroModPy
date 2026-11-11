@@ -57,7 +57,7 @@ the saturation cap alike.
 
 The map is given as exactly one of ``observed``, the cells a rasterization rule
 drew, and ``heads``, the free ends of the map with where they may land
-(:mod:`hydromodpy.results.derive.stream.heads`). The heads are traced down the graph built
+(:mod:`hydromodpy.catchment.stream_network.heads`). The heads are traced down the graph built
 here, once the outlet and the catchment are resolved.
 
 The length scale is ``h_obs`` (:func:`observed_cell_size_m`), read on the mapped
@@ -67,7 +67,7 @@ validity length only (:meth:`NetworkGeometry.validity_length`).
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -92,17 +92,16 @@ from hydromodpy.catchment.drainage.graph import (
     cell_adjacency_from_face_connectivity,
     domain_edge_cells,
 )
-from hydromodpy.core.logging import get_logger
-from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
-from hydromodpy.results.derive.stream.heads import (
-    HeadsSettings,
-    HeadTrace,
-    trace_from_heads,
-)
-from hydromodpy.results.derive.stream.network import (
+from hydromodpy.catchment.stream_network.heads import HeadsSettings, HeadTrace, trace_from_heads
+from hydromodpy.catchment.stream_network.network import (
     SimulatedNetwork,
     downstream_closure,
     specific_seepage_threshold,
+)
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scoring.stream_defaults import (
+    STREAM_CRITERION_DEFAULTS,
+    VALIDITY_PROVENANCE_CODE,
 )
 
 logger = get_logger(__name__)
@@ -113,19 +112,6 @@ _ONE_MAP_ONLY = (
 )
 
 ValidityProvenance = Literal["auto", "declared_accuracy", "user"]
-
-VALIDITY_PROVENANCE_CODE: dict[str, float] = {
-    "auto": 0.0,
-    "declared_accuracy": 2.0,
-    "user": 3.0,
-}
-"""The number a trial publishes as ``validity_length_provenance``, since
-components are floats."""
-
-VALIDITY_PROVENANCE_BY_CODE: dict[float, str] = {
-    code: name for name, code in VALIDITY_PROVENANCE_CODE.items()
-}
-"""The provenance a published code stands for."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -873,6 +859,66 @@ class CriterionSupports:
         }
 
 
+def _keep_mask(
+    catchment: np.ndarray, active: np.ndarray, excluded: np.ndarray | None
+) -> np.ndarray:
+    """Return the catchment, active, minus the water bodies, as one flat mask."""
+    keep = np.asarray(catchment, dtype=bool).reshape(-1) & np.asarray(active, dtype=bool).reshape(
+        -1
+    )
+    if excluded is not None:
+        keep = keep & ~np.asarray(excluded, dtype=bool).reshape(-1)
+    return keep
+
+
+def scored_cells(geometry: NetworkGeometry) -> np.ndarray:
+    """Return the cells the criterion scores: catchment, active, not a water body.
+
+    This is the ``keep`` mask of :func:`criterion_supports`. A cell of open
+    water observes no stream, so it leaves the support of both maps and of
+    :func:`share_outside` alike.
+    """
+    return _keep_mask(geometry.catchment, geometry.metric.graph.active, geometry.excluded)
+
+
+def share_outside(inner: np.ndarray, outer: np.ndarray, geometry: NetworkGeometry) -> float:
+    """Return the share of ``inner`` cells, on the scored cells, that ``outer`` misses.
+
+    NaN when ``inner`` holds no scored cell.
+    """
+    inside = np.asarray(inner, dtype=bool).reshape(-1) & scored_cells(geometry)
+    total = int(inside.sum())
+    if total == 0:
+        return float("nan")
+    missed = inside & ~np.asarray(outer, dtype=bool).reshape(-1)
+    return float(missed.sum() / total)
+
+
+def open_water_mask(ids: Iterable[int] | None, n_cells: int) -> np.ndarray | None:
+    """Return the cells whose surface-water extent is an input of the model, or ``None``.
+
+    ``ids`` is the footprint the backend publishes as ``open_water_cell_ids``:
+    every lake cell of the run, whether the lake is solved as an inactive
+    fixed-area reservoir or kept active for its varying level. The cells stay in
+    the graph, because a hillslope cell upstream of a reservoir has to descend
+    through it, and they stay in the target, because open water is surface water
+    and absorbs the path. They leave both supports (:func:`criterion_supports`):
+    a trace of hydrography drawn across a reservoir is no stream observation, and
+    a lake cell exchanging water is no hillslope seepage. The simulated network
+    already cuts a reach at the lake cell, so this is one rule for two readers.
+    Ids outside the mesh are dropped. ``None`` when no id is left.
+    """
+    if ids is None:
+        return None
+    limit = int(n_cells)
+    inside = sorted({int(cell) for cell in ids if 0 <= int(cell) < limit})
+    if not inside:
+        return None
+    mask = np.zeros(limit, dtype=bool)
+    mask[inside] = True
+    return mask
+
+
 def criterion_supports(
     *,
     simulated: SimulatedNetwork,
@@ -884,18 +930,12 @@ def criterion_supports(
     """Intersect the criterion's masks into the partition it scores.
 
     ``excluded`` holds the cells whose surface-water extent is an input rather
-    than an output. They leave both supports here and stay in the graph and in
-    the target, which the geometry does on its own side: keeping them in the
-    support of ``D_so`` would inject one zero per lake cell and move the root
-    with the size of the reservoir rather than with the hydrogeology.
+    than an output (:func:`open_water_mask`). Keeping them in the support of
+    ``D_so`` would inject one zero per lake cell and move the root with the size
+    of the reservoir rather than with the hydrogeology.
     """
     observed_mask = np.asarray(observed, dtype=bool).reshape(-1)
-    keep = np.asarray(catchment, dtype=bool).reshape(-1) & np.asarray(active, dtype=bool).reshape(
-        -1
-    )
-    if excluded is not None:
-        keep = keep & ~np.asarray(excluded, dtype=bool).reshape(-1)
-
+    keep = _keep_mask(catchment, active, excluded)
     support_so = simulated.network & keep
     support_os = observed_mask & keep
     return CriterionSupports(
@@ -910,8 +950,6 @@ def criterion_supports(
 
 
 __all__ = (
-    "VALIDITY_PROVENANCE_BY_CODE",
-    "VALIDITY_PROVENANCE_CODE",
     "CriterionSupports",
     "NetworkGeometry",
     "ValidityLength",
@@ -920,5 +958,8 @@ __all__ = (
     "criterion_supports",
     "neighbour_spacing_m",
     "observed_cell_size_m",
+    "open_water_mask",
     "resolve_validity_length",
+    "scored_cells",
+    "share_outside",
 )

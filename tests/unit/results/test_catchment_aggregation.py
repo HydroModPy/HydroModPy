@@ -177,7 +177,8 @@ def _with_mesh(get, *, area_m2, rule):
     mesh = zarr.group().require_group("mesh")
     node = mesh.create_array("descent_basin", data=np.ones(4, dtype=bool))
     node.attrs["basin_rule"] = rule
-    node.attrs["basin_area_m2"] = area_m2
+    if area_m2 is not None:
+        node.attrs["basin_area_m2"] = area_m2
 
     def wrapped(key):
         return mesh if key == "mesh" else get(key)
@@ -333,6 +334,17 @@ class TestAddRunoffToDischarge:
         out = _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)
 
         np.testing.assert_allclose(out.values, [2.0, 2.0])
+
+    def test_a_stored_basin_that_states_no_area_is_refused_by_name(self, monkeypatch):
+        _patch_area(monkeypatch, 86_400_000.0)
+        idx = pd.date_range("2020-01-01", periods=2, freq="D")
+        discharge = pd.Series([0.0, 0.0], index=idx, name="discharge")
+        runoff_idx = pd.date_range("2019-12-31", periods=2, freq="D")
+        grp = _make_grp_with_runoff(values=[1.0, 1.0], timestamps=runoff_idx.values)
+        grp.get = _with_mesh(grp.get, area_m2=None, rule="near_point")
+
+        with pytest.raises(ExtractError, match="states no area"):
+            _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)
 
     def test_the_runoff_area_does_not_compute_the_basin_again(self, monkeypatch):
         from hydromodpy.catchment.drainage import descent as core_descent

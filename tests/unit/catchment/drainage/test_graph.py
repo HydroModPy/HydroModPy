@@ -7,17 +7,17 @@ import pytest
 
 import hydromodpy.catchment.drainage.distance as topographic_distance_module
 import hydromodpy.catchment.drainage.graph as field_routing_module
-import hydromodpy.results.derive.stream.geometry as stream_geometry_module
+import hydromodpy.catchment.stream_network.geometry as stream_geometry_module
 from hydromodpy.catchment.drainage.distance import shared_node_adjacency
 from hydromodpy.catchment.drainage.graph import (
     accumulate_on_downhill_graph,
     build_downhill_graph,
     cell_adjacency_from_face_connectivity,
 )
+from hydromodpy.catchment.stream_network.geometry import NetworkGeometry, build_network_geometry
 from hydromodpy.core.budget.flux import budget_outflow, budget_outflow_stack
-from hydromodpy.results.derive.stream.geometry import NetworkGeometry, build_network_geometry
 from tests._helpers.ugrid_meshes import king_adjacency, quad_mesh
-from tests.unit.results.stream._heads_valley import (
+from tests.unit.catchment.stream_network._heads_valley import (
     AXIS,
     CELL,
     N_COLS,

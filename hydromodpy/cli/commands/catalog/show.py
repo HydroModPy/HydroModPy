@@ -10,8 +10,8 @@ Both views end with a Profile block read from ``profile.json`` in the run
 folder: the total time, the start-up, the solve of each run of the plan, the
 longest steps and what was reused. A run of HydroModPy 2.0 has no profile, and
 the block says so and prints the solve time its seal holds. A run of
-HydroModPy 2.1 also lists where its files were delivered, read from its
-``published.jsonl``.
+HydroModPy 2.1 also lists where its files were delivered and where a copy of
+it was published, read from its ``published.jsonl``.
 """
 
 from __future__ import annotations
@@ -27,13 +27,11 @@ from hydromodpy.cli.conventions import (
     workspace_parser,
 )
 from hydromodpy.cli.helpers import (
-    EXIT_NOT_FOUND,
     exit_code_for,
     project_root_of,
     refuse,
 )
 from hydromodpy.cli.output import emit
-from hydromodpy.core.state.layout import catalog_path_for
 
 NAME: str = "show"
 HELP: str = "Print the README of a run, or its facts, metrics and parameters from the index"
@@ -68,9 +66,6 @@ def run(args: argparse.Namespace) -> None:
         and _print_readme(project_root, args.sim_ref, named)
     ):
         return
-    if not catalog_path_for(project_root).is_file():
-        refuse(f"No index at {project_root}; run `hmp catalog reindex` first", EXIT_NOT_FOUND)
-
     payload = show_simulation(args.sim_ref, workspace=project_root, detail=args.detail)
     _replay_block(project_root, payload)
 
@@ -110,6 +105,13 @@ def _print_deliveries(deliveries: list[dict[str, Any]]) -> None:
             f"  - {entry['file']} -> {entry['destination']}"
             f"  ({state}, {entry['attempts']} attempt(s))"
         )
+
+
+def _print_copies(copies: list[dict[str, Any]]) -> None:
+    """Print where a copy of the run was published, and when."""
+    print(f"Copies ({len(copies)}):")
+    for entry in copies:
+        print(f"  - {entry['to']}  ({entry['published_at']})")
 
 
 def _print_profile(profile: dict[str, Any]) -> None:
@@ -185,6 +187,9 @@ def _print_facts(project_root: Path, payload: dict[str, Any], args: argparse.Nam
     deliveries = payload.get("deliveries") or []
     if deliveries:
         _print_deliveries(deliveries)
+    copies = payload.get("copies") or []
+    if copies:
+        _print_copies(copies)
 
     with Catalog(project_root) as catalog:
         sim = catalog[payload["sim_id"]]
@@ -221,7 +226,7 @@ def _print_readme(project_root: Path, ref: str, named: bool) -> bool:
     """
     from hydromodpy.results.annotations import read_annotations
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
-    from hydromodpy.results.catalog.listing import delivery_entries, profile_of_run
+    from hydromodpy.results.catalog.listing import copy_entries, delivery_entries, profile_of_run
     from hydromodpy.results.storage.contract import README_FILENAME
 
     try:
@@ -244,6 +249,9 @@ def _print_readme(project_root: Path, ref: str, named: bool) -> bool:
     deliveries = delivery_entries(run_dir)
     if deliveries:
         _print_deliveries(deliveries)
+    copies = copy_entries(run_dir)
+    if copies:
+        _print_copies(copies)
     _print_profile(profile_of_run(run_dir))
     print(f"\nnext: hmp catalog show {rel_dir} --detail | hmp catalog diff {rel_dir} <other>")
     return True

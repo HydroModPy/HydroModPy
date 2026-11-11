@@ -48,11 +48,23 @@ from tests._helpers.v_valley import (
 
 
 def test_the_cell_projection_refuses_the_heads_rule() -> None:
+    run_ctx = SimpleNamespace(
+        state=SimpleNamespace(
+            setup=SimpleNamespace(geographic=SimpleNamespace(crs_project="EPSG:2154"))
+        )
+    )
+    observed = SimpleNamespace(
+        geometry=gpd.GeoDataFrame(geometry=[LineString([(0, 0), (1, 1)])], crs="EPSG:2154"),
+        crs="EPSG:2154",
+        source="file",
+    )
+    planar_mesh = SimpleNamespace(vertices=np.zeros((4, 3)))
+
     with pytest.raises(ValueError, match="criterion graph"):
         observed_network_mask(
-            SimpleNamespace(),
-            SimpleNamespace(),
-            SimpleNamespace(),
+            run_ctx,
+            observed,
+            planar_mesh,
             np.zeros((1, 4), dtype=int),
             rasterization="heads",
         )

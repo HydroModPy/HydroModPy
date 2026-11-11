@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.tables import global_parameters
 from tests._helpers.run_builders import RunBuilder, runs
@@ -391,3 +392,73 @@ class TestOutlet:
         run = Run(sid, runs.reader())
         with pytest.raises(RuntimeError, match="Outlet coordinates missing"):
             _ = run.outlet
+
+
+class TestTheCriterionInputsTheRunKept:
+    """The run holds what the stream criterion read, and its descent reads it back alone."""
+
+    @staticmethod
+    def _keep(runs, sid, *, open_water=(), outline=None, recharge=None, n=20):
+        water = np.zeros(n, dtype=bool)
+        water[list(open_water)] = True
+        sz = runs.store(sid).open_zarr(sid)
+        try:
+            sz.write_criterion_cells(
+                open_water=water, catchment_cells=None if outline is None else np.asarray(outline)
+            )
+            if recharge is not None:
+                sz.write_forcing_attrs({CRITERION_MEAN_RECHARGE_ATTR: recharge})
+        finally:
+            sz.close()
+
+    def test_open_water_and_the_outline_come_back_as_read_only_booleans(self, runs):
+        sid = _register_sim(runs, nrow=5, ncol=4)
+        outline = np.zeros(20, dtype=bool)
+        outline[[5, 6, 9, 10]] = True
+        self._keep(runs, sid, open_water=[6], outline=outline)
+
+        holder = Run(sid, runs.reader()).descent
+
+        assert np.flatnonzero(holder.open_water()).tolist() == [6]
+        assert np.flatnonzero(holder.catchment_cells()).tolist() == [5, 6, 9, 10]
+        for mask in (holder.open_water(), holder.catchment_cells()):
+            assert mask.dtype == bool
+            assert not mask.flags.writeable
+
+    def test_a_run_that_kept_none_gives_none(self, runs):
+        sid = _register_sim(runs, nrow=5, ncol=4)
+
+        holder = Run(sid, runs.reader()).descent
+
+        assert holder.open_water() is None
+        assert holder.catchment_cells() is None
+        assert holder.criterion_recharge() is None
+
+    def test_a_run_without_an_outline_has_open_water_alone(self, runs):
+        sid = _register_sim(runs, nrow=5, ncol=4)
+        self._keep(runs, sid, open_water=[1])
+
+        holder = Run(sid, runs.reader()).descent
+
+        assert holder.open_water() is not None
+        assert holder.catchment_cells() is None
+
+    def test_the_recharge_is_the_number_the_run_kept(self, runs):
+        sid = _register_sim(runs, nrow=5, ncol=4)
+        self._keep(runs, sid, recharge=1.25e-8)
+
+        assert Run(sid, runs.reader()).descent.criterion_recharge() == pytest.approx(1.25e-8)
+
+    def test_each_input_is_read_once_and_without_loading_d(self, runs, monkeypatch):
+        sid = _register_sim(runs, nrow=5, ncol=4)
+        self._keep(runs, sid, open_water=[1], recharge=1.0e-8)
+        holder = Run(sid, runs.reader()).descent
+        from hydromodpy.results.run import descent as module
+
+        first = holder.open_water()
+        monkeypatch.setattr(
+            module, "read_open_water", lambda run: pytest.fail("the mask was read twice")
+        )
+
+        assert holder.open_water() is first
+        assert holder.criterion_recharge() == pytest.approx(1.0e-8)

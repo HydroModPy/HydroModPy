@@ -25,7 +25,7 @@ root of the package.
 | `evaluation/` | what one trial must answer: the evaluator port, its registry, and `analytic_bowl`, the evaluator that needs nothing from the calibration document |
 | `config.py` | what the modeller wrote: every `[calibration.*]` table, protocol options included |
 | `protocols/` | which published recipe a calibration follows, and how it expands into phases and objective blocks |
-| `observations/` | what is observed: the observed stream network and its geometry |
+| `observations/` | what is observed: the observed stream network and its geometry, read through `results/derive/stream/criterion_inputs.py` and scored by the kernels of `catchment/stream_network` |
 | `metrics/` | how the outputs of one trial are extracted and paired with observations |
 | `runners/` | how a calibration runs: the three entry points, the phases and what they hand to each other, the trial primitive, the default evaluator, restarts, resume, promotion of the best trials |
 | `preflight.py` | every check of a calibration before anything is prepared, run at the start of every launch and printed by `hmp config check` |
@@ -96,7 +96,6 @@ hydromodpy/calibration/
   observations/ network_source.py  observed_network.py  network_geometry.py
   metrics/      solver_extract.py  composite.py  observed_pairing.py  observable_scoring.py
                 scalar.py  series.py (observed series by role)  gauge_snap.py
-                downslope_network.py
   runners/      cli_runner.py (entry)  document.py (read the TOML)  search.py (one search)
                 session_scope.py (open, close, promote)  staged_runner.py  programmatic_runner.py
                 trial.py (prepare once, evaluate many, TrialPipeline)  sandbox.py  verdict.py  materialize.py
@@ -195,7 +194,8 @@ is read rather than inside the adapter.
    one, `runners/pipeline_evaluator.py`, sets the values, runs the solver
    (`run_trial_light`), extracts the outputs (`metrics/solver_extract.py`,
    `metrics/composite.py`) and pairs them with the observations
-   (`metrics/observed_pairing.py`). When every calibrated path is a property
+   (`metrics/observed_pairing.py`, which calls `results/score.py:pair`, the
+   pairing a sealed run is scored with). When every calibrated path is a property
    profile (`K` or `Sy`), the first trial builds the solver model and the next
    ones of the lane go through `rerun` (`runners/lanes.py`): the input files of
    the previous solved trial are copied, the property file is rewritten and

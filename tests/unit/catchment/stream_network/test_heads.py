@@ -15,11 +15,11 @@ import numpy as np
 import pytest
 
 from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
-from hydromodpy.results.derive.stream import geometry as stream_geometry
-from hydromodpy.results.derive.stream.geometry import build_network_geometry
-from hydromodpy.results.derive.stream.heads import concat_candidates
-from tests.unit.results.stream import _heads_dam as dam
-from tests.unit.results.stream._heads_valley import (
+from hydromodpy.catchment.stream_network import geometry as stream_geometry
+from hydromodpy.catchment.stream_network.geometry import build_network_geometry
+from hydromodpy.catchment.stream_network.heads import concat_candidates
+from tests.unit.catchment.stream_network import _heads_dam as dam
+from tests.unit.catchment.stream_network._heads_valley import (
     AXIS,
     N_ROWS,
     candidates,
@@ -126,7 +126,7 @@ def test_a_forced_cell_off_the_mesh_is_dropped() -> None:
 def test_a_forced_cell_off_the_graph_is_logged(caplog: pytest.LogCaptureFixture) -> None:
     heads = replace(_axis_head(), forced_cells=np.asarray([HILLSIDE, 10**6]))
 
-    with caplog.at_level("INFO", logger="hydromodpy.results.derive.stream.heads"):
+    with caplog.at_level("INFO", logger="hydromodpy.catchment.stream_network.heads"):
         valley_geometry(heads)
 
     assert "1 of 2 forced head(s) dropped" in caplog.text
@@ -181,7 +181,7 @@ def test_a_lost_head_warns_once_with_what_to_check(
     junction = centre(15, AXIS)
     heads = candidates([(centre(5, AXIS), junction), ((-200.0, 155.0), junction)])
 
-    with caplog.at_level("WARNING", logger="hydromodpy.results.derive.stream.geometry"):
+    with caplog.at_level("WARNING", logger="hydromodpy.catchment.stream_network.geometry"):
         valley_geometry(heads, snap_radius_m=100.0)
         valley_geometry(heads, snap_radius_m=100.0)
 

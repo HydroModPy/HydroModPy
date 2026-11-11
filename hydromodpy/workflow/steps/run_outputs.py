@@ -13,15 +13,25 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
+from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outline
+from hydromodpy.catchment.stream_network.geometry import open_water_mask
 from hydromodpy.core.budget.flux import networks_route_drainage
 from hydromodpy.core.exceptions import ConfigError, NothingThereError, SolverInputError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR, mean_recharge_m_s
+from hydromodpy.core.time.period_aggregation import period_edges
+from hydromodpy.mesh.planar.geometry import cell_polygons, padded_rows
+from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR
 from hydromodpy.model.sinks_sources.wells import (
     WELL_THROTTLE_WARNING_FRACTION,
     WELLS_PUMPED_CHECK,
     WELLS_PUMPED_METRIC,
 )
+from hydromodpy.results.derive.stream.criterion_inputs import (
+    catchment_cells,
+    criterion_recharge_of_run,
+    declared_crs,
+)
+from hydromodpy.results.derive.time_alignment import naive_utc
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.plan import RunContext, SolverRun
 from hydromodpy.solver.base.registry import solvers
@@ -113,37 +123,87 @@ def extract_run_outputs(*, ctx: RunContext, store: Any, retention: Retention) ->
 
     solvers.create(ctx.run.process_type, ctx.run.solver).extract(solver_run, store, retention)
 
-    _keep_the_criterion_recharge(solver_run=solver_run, sim_id=store.sim_id, store=store)
+    _keep_what_the_criterion_reads(ctx=ctx, sim_id=store.sim_id, store=store)
     _finalize_run_provenance(solver_run=solver_run, sim_id=store.sim_id, store=store)
 
 
 def record_what_the_model_says(*, ctx: RunContext, sim_id: str, store: Any) -> None:
-    """Write what only the built solver model knows: its mean recharge, its grid, its binary.
+    """Write what only the built solver model knows: what the criterion reads, its grid, its binary.
 
     The solver step calls this as soon as the solve ends, because a run resumed
     from its extract step has no solver model in memory. A run whose extractor
-    creates the field store gets the recharge from the extraction, as before.
+    creates the field store gets what the criterion reads from the extraction.
     """
-    if store.fields_path.exists():
-        _keep_the_criterion_recharge(solver_run=ctx.solver_run, sim_id=sim_id, store=store)
+    _keep_what_the_criterion_reads(ctx=ctx, sim_id=sim_id, store=store)
     _finalize_run_provenance(solver_run=ctx.solver_run, sim_id=sim_id, store=store)
 
 
-def _keep_the_criterion_recharge(*, solver_run: SolverRun | None, sim_id: str, store: Any) -> None:
-    """Keep on the run the mean recharge its trials read, for a later redraw to read back."""
-    model = None if solver_run is None else solver_run.solver_model
-    if getattr(model, "recharge", None) is None:
+def _keep_what_the_criterion_reads(*, ctx: RunContext, sim_id: str, store: Any) -> None:
+    """Keep on the run what the stream criterion read, for a later redraw to read back.
+
+    That is the mean recharge its seepage threshold is a fraction of, the cells of
+    open water that leave its supports, and the cells inside the catchment
+    outline. Each comes from the one function a trial calls
+    (:mod:`hydromodpy.results.derive.stream.criterion_inputs`), so a figure scores
+    the cells the trials scored. Only the flow run keeps them, because the
+    trials read its heads and its recharge. A transport run of the same
+    simulation would write the stored forcing over the rate the flow model held.
+    A run that keeps no field store gets none here.
+    """
+    if ctx.run.process_type != "flow":
         return
-    try:
-        mean_recharge = mean_recharge_m_s(model)
-    except ValueError:
-        logger.debug("The model of sim %s holds no finite recharge rate.", sim_id)
+    solver_run = ctx.solver_run
+    model = None if solver_run is None else solver_run.solver_model
+    if model is None or not store.save_zarr or not store.fields_path.exists():
         return
     fields = store.open_zarr(sim_id)
     try:
-        fields.write_forcing_attrs({CRITERION_MEAN_RECHARGE_ATTR: mean_recharge})
+        recharge = criterion_recharge_of_run(model, fields, _period_edges(store, fields))
+        if recharge is None:
+            logger.debug("Sim %s: no source gives the criterion a mean recharge.", sim_id)
+        else:
+            fields.write_forcing_attrs({CRITERION_MEAN_RECHARGE_ATTR: recharge})
+        _keep_the_cells_the_criterion_reads(ctx, model, fields)
     finally:
         fields.close()
+
+
+def _period_edges(store: Any, fields: Any) -> Any:
+    """Return the ``n + 1`` period edges of the run, or ``None`` when it carries no dates."""
+    stamps = fields.read_time()
+    if stamps is None:
+        return None
+    start = getattr(getattr(store, "facts", None), "period_start", None)
+    try:
+        return period_edges(stamps, start=None if start is None else naive_utc(start))
+    except ValueError:
+        return None
+
+
+def _keep_the_cells_the_criterion_reads(ctx: RunContext, model: Any, fields: Any) -> None:
+    """Write ``mesh/open_water`` and, when an outline exists, ``mesh/catchment_cells``."""
+    import numpy as np
+
+    mesh = getattr(model, "solver_mesh", None)
+    planar = getattr(mesh, "planar_mesh", None)
+    if mesh is None or planar is None:
+        return
+    n_cells = int(mesh.n_cells)
+    water = open_water_mask(getattr(model, "open_water_cell_ids", None), n_cells)
+    setup = ctx.state.setup
+    geographic = getattr(setup, "geographic", None)
+    outline = catchment_outline(geographic, getattr(setup, "cell_mesh", None))
+    cells = None
+    if outline is not None:
+        vertices = np.asarray(planar.vertices, dtype=float)
+        connectivity = padded_rows(planar.flat_connectivity, n_nodes=len(vertices))
+        cells = catchment_cells(
+            cell_polygons(vertices, connectivity), outline, mesh_crs=declared_crs(geographic)
+        )
+    fields.write_criterion_cells(
+        open_water=np.zeros(n_cells, dtype=bool) if water is None else water,
+        catchment_cells=cells,
+    )
 
 
 def _finalize_run_provenance(*, solver_run: SolverRun | None, sim_id: str, store: Any) -> None:

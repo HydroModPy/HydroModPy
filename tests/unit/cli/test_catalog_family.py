@@ -317,10 +317,10 @@ def test_a_reader_refuses_to_write(project) -> None:
             catalog.backend.execute("DELETE FROM simulations")
 
 
-def test_a_reader_never_creates_an_index(tmp_path) -> None:
+def test_a_reader_builds_no_index_where_no_run_was_ever_written(tmp_path) -> None:
     empty = make_project(tmp_path / "empty")
 
-    with pytest.raises(FileNotFoundError, match="reindex"):
+    with pytest.raises(FileNotFoundError, match="has no runs/ or .hmp/"):
         Catalog(empty)
     assert not catalog_path_for(empty).exists()
 

@@ -27,10 +27,25 @@ Labels, in order of precedence
    the run stays ``calibrated``.
 5. ``calibrated``: the run was promoted by a session whose status is one of
    ``ValidityRules.calibrated_session_statuses`` (``completed`` only, by
-   default), and the solver did not report a failed convergence.
+   default), the solver did not report a failed convergence, and a window was
+   scored. A scored window is a period of role ``calibration`` in
+   ``calibrated_by.windows``, or the headline window with at least
+   ``min_scored_samples`` samples, or the single state of a steady run whose
+   cost the session read (``flow_regime`` is ``steady`` and
+   ``calibrated_by.cost`` is finite). A steady run is sealed without a score
+   window and with no sample, so the cost stands for them. A promoted run with
+   no scored window is ``exploratory``, with the reason ``no_scored_window``.
 6. ``exploratory``: anything else. A run scored on its own window without a
-   promoting session stays here, with the reason ``scored on ..., not promoted
-   by a session``: a score alone does not qualify a run.
+   promoting session stays here, with the reason ``not_promoted``: a score
+   alone does not qualify a run.
+
+A parameter that ended on a bound of its range (``checks.bounds_hit``) adds the
+reason ``bound_reached`` to any label, last. It does not change the label.
+
+A reason is a :class:`Reason`, a code of :data:`REASON_CODES` with the values
+its phrase needs. Its sentence is read from ``phrases.toml``
+(:func:`hydromodpy.schema.phrases.phrase`), in English or in French, so the
+same label reads in both languages.
 
 The water budget is not a label: ``checks.budget_pct`` stays a column, and
 only a failed *fatal* validity (which the calibration raises on a budget it
@@ -70,6 +85,7 @@ so a fix of one changes what an old run reads: the fix bumps
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Annotated, Final
@@ -81,8 +97,9 @@ from hydromodpy.core.config_kit.stored import Vocabulary
 from hydromodpy.results.metric_rule import CALIBRATION_ROLE, DateWindow
 from hydromodpy.results.record.checks import CalibrationSessionStatus, Checks
 from hydromodpy.schema.changes import REGISTER, Bug
+from hydromodpy.schema.phrases import keys, phrase
 
-RULE_VERSION: Final[str] = "2"
+RULE_VERSION: Final[str] = "3"
 """Version of the labeling rules. Bump it when a label changes meaning."""
 
 Label = Annotated[str, Vocabulary("exploratory", "calibrated", "evaluated", "failed")]
@@ -114,14 +131,52 @@ class ValidityRules(HydroModelBase):
     )
 
 
+REASON_CODES: Final[frozenset[str]] = keys("label_reason")
+"""The closed set of reason codes, the keys of ``[label_reason]`` in ``phrases.toml``."""
+
+STEADY_REGIME: Final[str] = "steady"
+"""The flow regime of a run with one state, scored by its cost alone."""
+
+
+@dataclass(frozen=True, slots=True)
+class Reason:
+    """Why a run has its label: a code of :data:`REASON_CODES` and the values of its phrase."""
+
+    code: str
+    values: tuple[tuple[str, str], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.code not in REASON_CODES:
+            known = ", ".join(sorted(REASON_CODES))
+            raise ValueError(f"reason code {self.code!r} is not one of {known}")
+
+    @classmethod
+    def of(cls, code: str, **values: object) -> Reason:
+        """Return the reason *code* with its values, each written as text."""
+        return cls(code, tuple((name, str(value)) for name, value in values.items()))
+
+    def text(self, lang: str = "en") -> str:
+        """Return the sentence of the reason in *lang*."""
+        return phrase("label_reason", self.code, lang, **dict(self.values))
+
+
 @dataclass(frozen=True, slots=True)
 class LabelResult:
     """A label, the rules it came from and why."""
 
     label: Label
     rule_version: str
-    reasons: tuple[str, ...]
+    causes: tuple[Reason, ...]
     known_issues: tuple[str, ...]
+
+    def texts(self, lang: str = "en") -> tuple[str, ...]:
+        """Return the sentence of each reason in *lang*, in order."""
+        return tuple(cause.text(lang) for cause in self.causes)
+
+    @property
+    def reasons(self) -> tuple[str, ...]:
+        """The reasons in English, as the index and the README of a run print them."""
+        return self.texts("en")
 
 
 def known_issues_hitting(
@@ -172,81 +227,103 @@ def label_for(
     *,
     hydromodpy_version: str,
     quantities: Sequence[str] = (),
+    flow_regime: str | None = None,
     rules: ValidityRules | None = None,
     issues: Sequence[Bug] | None = None,
 ) -> LabelResult:
     """Return the label of a run today, with the reasons.
 
-    *issues* overrides the bugs of the shipped register, for a caller that reads
-    another build's register or a test. The rules are those of the module docstring.
+    *flow_regime* is ``run.flow_regime`` of the seal; a steady run is scored by
+    the cost of its session. *issues* overrides the bugs of the shipped
+    register, for a caller that reads another build's register or a test. The
+    rules are those of the module docstring.
     """
     active = ValidityRules() if rules is None else rules
+    label, causes, known = _label(
+        checks, hydromodpy_version, quantities, flow_regime, active, issues
+    )
+    if checks.bounds_hit:
+        causes = (*causes, Reason.of("bound_reached", names=", ".join(checks.bounds_hit)))
+    return LabelResult(label, active.rule_version, causes, known)
+
+
+def _label(
+    checks: Checks,
+    hydromodpy_version: str,
+    quantities: Sequence[str],
+    flow_regime: str | None,
+    active: ValidityRules,
+    issues: Sequence[Bug] | None,
+) -> tuple[Label, tuple[Reason, ...], tuple[str, ...]]:
+    """Return the label, its reasons and the known issues, before the bound reason."""
     if checks.fatal_failed():
         failed = [v.name for v in checks.failed_validities() if v.fatal]
-        return LabelResult(
-            "failed",
-            active.rule_version,
-            (f"fatal validity failed: {', '.join(failed)}",),
-            (),
-        )
+        return "failed", (Reason.of("fatal_validity", names=", ".join(failed)),), ()
     if checks.converged is False:
-        return LabelResult("failed", active.rule_version, ("solver did not converge",), ())
+        return "failed", (Reason.of("not_converged"),), ()
     hitting: tuple[Bug, ...] = ()
     if active.declass_on_known_issue:
         hitting = known_issues_hitting(hydromodpy_version, quantities, issues)
     if hitting:
-        return LabelResult(
+        return (
             "exploratory",
-            active.rule_version,
             tuple(
-                f"known issue {issue.id} touches {hydromodpy_version}: {issue.text}"
+                Reason.of("known_issue", id=issue.id, version=hydromodpy_version, text=issue.text)
                 for issue in hitting
             ),
             tuple(issue.id for issue in hitting),
         )
     by = checks.calibrated_by
     window = checks.score_window
-    scored = window is not None and (checks.n_samples or 0) >= active.min_scored_samples
+    samples = checks.n_samples or 0
+    scored = window is not None and samples >= active.min_scored_samples
     if by is not None and by.session_status in active.calibrated_session_statuses:
-        promoted = f"promoted by session {by.session_id}, {by.session_status}"
+        promoted = Reason.of("promoted", session_id=by.session_id, status=by.session_status)
         searched = [
             DateWindow(start=period.start, end=period.end)
             for period in by.windows.values()
             if period.role == CALIBRATION_ROLE
         ]
+        steady = flow_regime == STEADY_REGIME and by.cost is not None and math.isfinite(by.cost)
+        if not (searched or scored or steady):
+            return "exploratory", (promoted, Reason.of("no_scored_window")), ()
         if scored and searched and window not in searched:
             assert window is not None
-            scoring = f"scored on {window.start} to {window.end} with {checks.n_samples} samples"
-            start, end = min(p.start for p in searched), max(p.end for p in searched)
-            calibration = f"the calibration window {start} to {end}"
+            span = {
+                "start": min(p.start for p in searched),
+                "end": max(p.end for p in searched),
+                "window_start": window.start,
+                "window_end": window.end,
+                "samples": samples,
+            }
             if any(_share_a_day(window, period) for period in searched):
-                reason = (
-                    f"scored on a window that overlaps {calibration} "
-                    f"(run window {window.start} to {window.end}, {checks.n_samples} samples)"
-                )
-                return LabelResult("calibrated", active.rule_version, (promoted, reason), ())
-            reason = f"{scoring}, outside {calibration}"
-            return LabelResult("evaluated", active.rule_version, (promoted, reason), ())
-        return LabelResult("calibrated", active.rule_version, (promoted,), ())
-    reasons: list[str] = []
+                return "calibrated", (promoted, Reason.of("overlaps_calibration", **span)), ()
+            return "evaluated", (promoted, Reason.of("scored_outside_calibration", **span)), ()
+        return "calibrated", (promoted,), ()
+    reasons: list[Reason] = []
     if by is not None:
-        reasons.append(f"session {by.session_id} ended {by.session_status}")
+        reasons.append(
+            Reason.of("session_ended", session_id=by.session_id, status=by.session_status)
+        )
     if window is None:
-        reasons.append("no score window")
+        reasons.append(Reason.of("no_score_window"))
     elif not scored:
-        reasons.append(f"{checks.n_samples or 0} samples scored")
+        reasons.append(Reason.of("too_few_samples", samples=samples))
     elif by is None:
-        reasons.append(f"scored on {window.start} to {window.end}, not promoted by a session")
-    return LabelResult("exploratory", active.rule_version, tuple(reasons), ())
+        reasons.append(Reason.of("not_promoted", window_start=window.start, window_end=window.end))
+    return "exploratory", tuple(reasons), ()
 
 
 __all__ = [
     "CALIBRATED_LABELS",
     "CYCLIC_LAKE_START",
+    "REASON_CODES",
     "RESTART_START",
     "RULE_VERSION",
+    "STEADY_REGIME",
     "Label",
     "LabelResult",
+    "Reason",
     "ValidityRules",
     "known_issues_hitting",
     "label_for",

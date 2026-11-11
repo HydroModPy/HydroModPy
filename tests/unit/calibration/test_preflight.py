@@ -38,6 +38,11 @@ from hydromodpy.calibration.preflight import (
 )
 from hydromodpy.calibration.runners import document, search, staged_runner
 from hydromodpy.calibration.runners.document import load_toml_calibration
+from hydromodpy.catchment.stream_network.extent import (
+    dry_steps,
+    flowing_steps,
+    parse_extent_duration,
+)
 from hydromodpy.cli.helpers import EXIT_CONFIG
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
@@ -49,7 +54,6 @@ from hydromodpy.display.figures.network_extent_bounds_map import extents_from_ru
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.project import Project
 from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
-from hydromodpy.results.derive.stream.extent import dry_steps, flowing_steps, parse_extent_duration
 from hydromodpy.results.derive.stream.run_extent import network_extents_from_run, run_step_days
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.cli_runner import CliRunner

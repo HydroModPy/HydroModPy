@@ -1,4 +1,4 @@
-"""The descent D of a run, read from its store or rebuilt for an old one.
+"""The descent D of a run and what the stream criterion reads beside it.
 
 The solver build stores D under ``fields.zarr/mesh/`` (``descent_*`` arrays),
 with the basin of D at the catchment outlet (``descent_basin``). A run sealed
@@ -9,18 +9,25 @@ The share of each cell's area inside the delineated catchment polygon lands
 beside the basin as ``catchment_fraction`` (:func:`read_catchment_fraction`).
 Display reaches D through ``run.descent`` and never imports ``catchment`` or
 ``solver``.
+
+The run keeps three more things the criterion read when it ran, so a figure reads
+back what the trials scored: the cells of open water (``mesh/open_water``), the
+cells inside the catchment outline (``mesh/catchment_cells``) and the mean
+recharge the seepage threshold is a fraction of
+(:func:`read_criterion_recharge`).
 """
 
 from __future__ import annotations
 
-from dataclasses import fields
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field, fields
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.catchment.drainage.descent import descent_from_stored_mesh, descent_graph
 from hydromodpy.catchment.drainage.filling import DEFAULT_EPSILON_M
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR
 from hydromodpy.results.run.contracts import MeshDescent
 
 if TYPE_CHECKING:
@@ -30,8 +37,29 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-StoredBasin = tuple[np.ndarray, dict[str, object]]
-"""The basin of D (bool per face) and its stored attributes."""
+_LARGEST_BASIN_RULE = "largest_basin"
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class StoredBasin:
+    """The basin of D a run stored under ``mesh/descent_basin``."""
+
+    mask: np.ndarray
+    """(n_faces,) bool, read-only: the faces of the basin."""
+
+    area_m2: float
+    rule: str
+    """How the outlet was found (``basin_rule``)."""
+
+    attrs: dict[str, object] = field(default_factory=dict)
+    """The stored attributes: ``descent_outlet``, ``basin_rule``, ``basin_area_m2``,
+    ``basin_seeded_at_outlet`` and ``basin_version``, as far as the run holds them."""
+
+    @property
+    def is_catchment(self) -> bool:
+        """False for the largest basin of a domain with neither outlet nor polygon."""
+        return self.rule != _LARGEST_BASIN_RULE
+
 
 _REPORT_KEYS = (
     "n_raised",
@@ -41,6 +69,7 @@ _REPORT_KEYS = (
     "n_pinned_raised",
     "max_pinned_raise_m",
 )
+_BASIN_ARRAY = "descent_basin"
 _BASIN_ATTRS = (
     "descent_outlet",
     "basin_rule",
@@ -63,10 +92,20 @@ class RunDescent:
         load: Callable[[], MeshDescent],
         load_dam_foot: Callable[[], np.ndarray] | None = None,
         load_basin: Callable[[], StoredBasin | None] | None = None,
+        *,
+        load_open_water: Callable[[], np.ndarray | None] | None = None,
+        load_catchment_cells: Callable[[], np.ndarray | None] | None = None,
+        load_recharge: Callable[[], float | None] | None = None,
     ) -> None:
         self._load = load
         self._load_dam_foot = load_dam_foot
         self._load_basin = load_basin
+        self._criterion_loaders = {
+            "open_water": load_open_water,
+            "catchment_cells": load_catchment_cells,
+            "recharge": load_recharge,
+        }
+        self._criterion_inputs: dict[str, Any] = {}
         self._view: MeshDescent | None = None
         self._dam_foot: np.ndarray | None = None
         self._basin: StoredBasin | None = None
@@ -75,7 +114,14 @@ class RunDescent:
     @classmethod
     def of_run(cls, run: Run) -> RunDescent:
         """The holder for ``run``: its stored D, else one rebuilt from its top."""
-        return cls(lambda: load_descent(run), lambda: read_dam_foot(run), lambda: read_basin(run))
+        return cls(
+            lambda: load_descent(run),
+            lambda: read_dam_foot(run),
+            lambda: read_basin(run),
+            load_open_water=lambda: read_open_water(run),
+            load_catchment_cells=lambda: read_catchment_cells(run),
+            load_recharge=lambda: read_criterion_recharge(run),
+        )
 
     @property
     def dam_foot(self) -> np.ndarray:
@@ -104,7 +150,28 @@ class RunDescent:
                 self._basin_read = True
             return self._basin
         view = self.view()
-        return None if view.basin is None else (view.basin, view.basin_attrs)
+        if view.basin is None:
+            return None
+        return _basin_of(view.basin, view.basin_attrs)
+
+    def open_water(self) -> np.ndarray | None:
+        """The cells of open water the criterion left out, ``None`` when the run kept none."""
+        return self._criterion_input("open_water")
+
+    def catchment_cells(self) -> np.ndarray | None:
+        """The cells inside the catchment outline, ``None`` when the run has no outline."""
+        return self._criterion_input("catchment_cells")
+
+    def criterion_recharge(self) -> float | None:
+        """The mean recharge the trials read, in m/s, ``None`` when the run kept none."""
+        return self._criterion_input("recharge")
+
+    def _criterion_input(self, name: str) -> Any:
+        """Read one criterion input once, alone: D is neither loaded nor rebuilt."""
+        if name not in self._criterion_inputs:
+            load = self._criterion_loaders[name]
+            self._criterion_inputs[name] = None if load is None else load()
+        return self._criterion_inputs[name]
 
     def view(self) -> MeshDescent:
         """Return the loaded descent."""
@@ -146,10 +213,71 @@ def read_basin(run: Run) -> StoredBasin | None:
     """
     sz = run._catalog.open_zarr(run._sim_id)
     try:
+        return basin_of_group(sz.root.get("mesh"))
+    finally:
+        sz.close()
+
+
+def basin_of_group(mesh: Any) -> StoredBasin | None:
+    """Read the basin of D in a ``mesh/`` group, ``None`` for a group that holds none.
+
+    The one reader of ``descent_basin``: a run view and the catchment
+    aggregation, which holds a Zarr group and no run, both call it.
+    """
+    if mesh is None or _BASIN_ARRAY not in mesh:
+        return None
+    array = mesh[_BASIN_ARRAY]
+    attrs = dict(array.attrs)
+    return _basin_of(
+        _read_only(array[:], bool), {key: attrs[key] for key in _BASIN_ATTRS if key in attrs}
+    )
+
+
+def _basin_of(mask: np.ndarray, attrs: dict[str, object]) -> StoredBasin:
+    """Return the basin of a read-only ``mask`` and its stored attributes."""
+    return StoredBasin(
+        mask=mask,
+        area_m2=float(attrs["basin_area_m2"]) if "basin_area_m2" in attrs else float("nan"),
+        rule=str(attrs.get("basin_rule", "")),
+        attrs=attrs,
+    )
+
+
+def read_open_water(run: Run) -> np.ndarray | None:
+    """Read ``mesh/open_water`` alone: the cells whose water extent the model was told.
+
+    ``None`` when the run stored none, which a run sealed before the criterion
+    inputs were kept does not.
+    """
+    return _read_mesh_mask(run, "open_water")
+
+
+def read_catchment_cells(run: Run) -> np.ndarray | None:
+    """Read ``mesh/catchment_cells`` alone: the cells inside the catchment outline.
+
+    ``None`` when the run has no outline to read (a synthetic domain).
+    """
+    return _read_mesh_mask(run, "catchment_cells")
+
+
+def read_criterion_recharge(run: Run) -> float | None:
+    """Read the mean recharge the trials read, in m/s, or ``None`` when the run kept none."""
+    sz = run._catalog.open_zarr(run._sim_id)
+    try:
+        forcing = sz.root.get("forcing")
+        kept = None if forcing is None else forcing.attrs.get(CRITERION_MEAN_RECHARGE_ATTR)
+    finally:
+        sz.close()
+    return None if kept is None else float(kept)
+
+
+def _read_mesh_mask(run: Run, name: str) -> np.ndarray | None:
+    sz = run._catalog.open_zarr(run._sim_id)
+    try:
         mesh = sz.root.get("mesh")
-        if mesh is None or "descent_basin" not in mesh:
+        if mesh is None or name not in mesh:
             return None
-        return _stored_basin(mesh)
+        return _read_only(mesh[name][:], bool)
     finally:
         sz.close()
 
@@ -164,13 +292,6 @@ def read_catchment_fraction(run: Run) -> np.ndarray | None:
         return _read_only(mesh["catchment_fraction"][:], "float64")
     finally:
         sz.close()
-
-
-def _stored_basin(mesh) -> StoredBasin:
-    """Return the read-only basin of the ``mesh/`` group and its attributes."""
-    array = mesh["descent_basin"]
-    attrs = dict(array.attrs)
-    return _read_only(array[:], bool), {key: attrs[key] for key in _BASIN_ATTRS if key in attrs}
 
 
 def _read_only(values: np.ndarray, dtype: str | type) -> np.ndarray:
@@ -197,7 +318,7 @@ def _read_stored(run: Run) -> MeshDescent | None:
             name: _read_only(mesh[f"descent_{name}"][:], bool)
             for name in ("base_level", "constant_head", "raised", "channel", "pinned")
         }
-        basin, basin_attrs = _stored_basin(mesh) if "descent_basin" in mesh else (None, {})
+        stored_basin = basin_of_group(mesh)
     finally:
         sz.close()
     epsilon = attrs.get("epsilon")
@@ -210,8 +331,8 @@ def _read_stored(run: Run) -> MeshDescent | None:
         report={key: float(attrs[key]) for key in _REPORT_KEYS if key in attrs},
         rebuilt=False,
         dam_foot=dam_foot,
-        basin=basin,
-        basin_attrs=basin_attrs,
+        basin=None if stored_basin is None else stored_basin.mask,
+        basin_attrs={} if stored_basin is None else stored_basin.attrs,
         **masks,
     )
 
@@ -260,9 +381,14 @@ def rebuilt_view(
 
 __all__ = (
     "RunDescent",
+    "StoredBasin",
+    "basin_of_group",
     "load_descent",
     "read_basin",
+    "read_catchment_cells",
     "read_catchment_fraction",
+    "read_criterion_recharge",
     "read_dam_foot",
+    "read_open_water",
     "rebuilt_view",
 )

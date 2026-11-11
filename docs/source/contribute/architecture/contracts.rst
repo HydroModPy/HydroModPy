@@ -201,8 +201,8 @@ The data cache has no database and no Protocol. Each fetched file has a sidecar
 ``hydromodpy.lock`` freezes the data cache and the files of the user of a project before a
 run. The launcher of a ``[sites]`` project writes it, and ``hmp data lock`` writes it by hand
 for a single project. ``hmp run --frozen`` on a project TOML verifies it and refuses without one. No
-other run needs it, because the manifest of a run records the inputs of that run: on the
-``config.toml`` of a run, ``--frozen`` reads that record. See
+other run needs it, because the manifest of a run records the inputs of that run: ``hmp
+replay <run>`` reads that record. See
 :ref:`artifact-policy` for the sidecar formats that are allowed.
 
 Storage Protocol: ``CatalogBackend``

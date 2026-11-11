@@ -66,17 +66,18 @@ def diagnose_result_storage(
     if not db.is_file():
         return []
 
-    import duckdb
+    from hydromodpy.core.exceptions import CatalogUnreadableError
+    from hydromodpy.results.catalog.index_file import open_index
 
     try:
-        conn = duckdb.connect(str(db), read_only=True)
-    except duckdb.IOException as exc:
+        conn = open_index(root)
+    except CatalogUnreadableError as exc:
         return [
             StorageDiagnostic(
                 "results:catalog",
                 "WARN",
-                f"catalog busy: {exc}",
-                "Close other HydroModPy sessions and retry.",
+                f"index unreadable: {exc}",
+                "Rebuild it with hmp catalog reindex.",
             )
         ]
 

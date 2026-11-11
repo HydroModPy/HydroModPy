@@ -181,7 +181,7 @@ OUTPUTS: tuple[Output, ...] = (
     _object("export", "files", "regenerated"),
     _rows("export list", "name", "kind"),
     _object("export deliver", "deliveries"),
-    _object("publish", "applied", "copies", "package", "next"),
+    _object("publish", "applied", "copies", "left_out", "package", "next"),
     _object("publish verify", "copy", "members", "problems"),
     # Workspace
     _object("workspace init", "path", "workspace_toml"),
@@ -303,11 +303,12 @@ OUTPUTS: tuple[Output, ...] = (
         "solver",
         "station",
         "variable",
-        "metric_name",
+        "metric",
         "value",
         "window_start",
         "window_end",
         "metric_rule_version",
+        version=2,
     ),
     _object(
         "catalog gc", "applied", "keep_versions", "max_age_days", "trial_fields_days", "projects"

@@ -8,9 +8,10 @@ aggregates. It writes the simulated series of each observed station
 samples the points declared in ``[observation]``
 (:func:`~hydromodpy.results.run.observation_points.sample_observation_points`).
 Then it scores the run under
-its metric rule (:func:`~hydromodpy.results.fit_metrics.fit_metrics`,
-``[metrics] window`` at ``[metrics] station``, default ``[site] gauge``) and
-puts the rows and the headline NSE in the facts the seal reads. The score
+its metric rule (:func:`~hydromodpy.results.score.score_run_under_its_rule`,
+``[metrics] window`` at ``[metrics] station``, default ``[site] gauge``, and each
+calibration period of a promoted run) and puts the rows and the headline NSE in
+the facts the seal reads. The score
 comes after the aggregates because the catchment discharge is one of them.
 
 Inputs
@@ -29,8 +30,8 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.fit_metrics import score_run_under_its_rule
 from hydromodpy.results.run.observation_points import sample_declared_points
+from hydromodpy.results.score import score_run_under_its_rule
 from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
 from hydromodpy.workflow.state import PipelineState
 

@@ -11,8 +11,8 @@ figures share:
    release exceeds ``tau * R * A``. It flows when it lies in the downstream
    closure of the seeping cells and, when a visible flow is set, when its
    routed discharge reaches it. The routed discharge
-   (:func:`routed_discharge`) is the release of the seeping cells accumulated
-   down the criterion graph. It never falls downstream, so the flowing mask
+   (:func:`~hydromodpy.catchment.drainage.routing.route_release_to_discharge`)
+   is the release of the seeping cells accumulated down the criterion graph. It never falls downstream, so the flowing mask
    stays closed downstream whatever the threshold.
 2. Calendar years (:func:`calendar_years`). A timestep belongs to the year its
    middle falls in; a year the run does not cover from 1 January to
@@ -50,22 +50,15 @@ import numpy as np
 
 from hydromodpy.catchment.drainage.distance import DownslopeMetric
 from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
+from hydromodpy.catchment.drainage.routing import route_release_to_discharge
+from hydromodpy.catchment.stream_network.network import SimulatedNetwork
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scoring.stream_defaults import GEOMETRIC, VisibleFlow
 from hydromodpy.core.units.parse import parse_to_canonical_magnitude
-from hydromodpy.core.units.quantities import parse_to_m3_per_s
-from hydromodpy.results.derive.stream.network import SimulatedNetwork
 
 logger = get_logger(__name__)
 
 Bound = Literal["minimal", "maximal"]
-
-DEFAULT_VISIBLE_FLOW = "1 L/s"
-"""The routed discharge a cell must carry to flow in the two-bound mode.
-
-No value is agreed in the literature. The closest precedent thresholds a
-simulated discharge at 10 L/s (Zanetti et al., 2024, doi:10.1029/2023WR035631),
-and field zero-flow thresholds of about 1 to 3 L/s are in use (Zimmer et al.,
-2020, doi:10.1002/wat2.1436). One litre per second is the low end of both."""
 
 CHUNK_ELEMENTS = 8_000_000
 """Cells times timesteps accumulated in one pass, 64 MB of float64."""
@@ -73,75 +66,6 @@ CHUNK_ELEMENTS = 8_000_000
 FEW_YEARS_WARNING = 3
 """Below this many scored years the quorum is warned about: with two years a
 quorum of one half is the union of the two."""
-
-
-@dataclass(frozen=True, slots=True)
-class VisibleFlow:
-    """The routed discharge below which a cell of the closure does not flow.
-
-    Exactly one of the two is positive, or neither: ``discharge_m3_s`` is an
-    absolute discharge, ``outlet_share`` a share of the routed discharge at the
-    outlet at the same timestep. Neither positive is the geometric definition,
-    the downstream closure alone. A cell size never enters it: the size of a
-    cell is a numerical choice, the discharge a cartographer sees is not.
-    """
-
-    discharge_m3_s: float = 0.0
-    outlet_share: float = 0.0
-
-    def __post_init__(self) -> None:
-        for name in ("discharge_m3_s", "outlet_share"):
-            value = float(getattr(self, name))
-            if not math.isfinite(value) or value < 0.0:
-                raise ValueError(f"visible flow {name} must be finite and positive, got {value}.")
-        if self.discharge_m3_s > 0.0 and self.outlet_share > 0.0:
-            raise ValueError("a visible flow is either a discharge or an outlet share, not both.")
-        if self.outlet_share > 1.0:
-            raise ValueError(
-                f"a visible flow share of the outlet discharge is at most 100%, got "
-                f"{100.0 * self.outlet_share:g}%."
-            )
-
-    @property
-    def geometric(self) -> bool:
-        """True when no discharge is required: the downstream closure alone."""
-        return self.discharge_m3_s == 0.0 and self.outlet_share == 0.0
-
-    def label(self) -> str:
-        """Return the threshold as a user would write it."""
-        if self.outlet_share > 0.0:
-            return f"{100.0 * self.outlet_share:g}%"
-        return f"{1000.0 * self.discharge_m3_s:g} L/s"
-
-
-GEOMETRIC = VisibleFlow()
-"""No visible-flow threshold: a cell flows when it is in the closure."""
-
-_SHARE = re.compile(r"^\s*([0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)\s*%\s*$")
-_HAS_UNIT = re.compile(r"[A-Za-z]")
-
-
-def parse_visible_flow(value: str | VisibleFlow) -> VisibleFlow:
-    """Read ``"1 L/s"``, ``"0.002 m3/s"`` or ``"1%"`` into a :class:`VisibleFlow`.
-
-    A percentage is a share of the routed discharge at the outlet at the same
-    timestep. A discharge needs its unit: a bare number would be read in
-    litres by one user and in cubic meters by the next. ``"0 L/s"`` is the
-    geometric definition.
-    """
-    if isinstance(value, VisibleFlow):
-        return value
-    text = str(value).strip()
-    share = _SHARE.match(text)
-    if share is not None:
-        return VisibleFlow(outlet_share=float(share.group(1)) / 100.0)
-    if not _HAS_UNIT.search(text):
-        raise ValueError(
-            f"visible_flow = {value!r} carries no unit. Write a discharge with its unit, "
-            "such as '1 L/s', or a share of the outlet discharge, such as '1%'."
-        )
-    discharge, _ = parse_to_m3_per_s(text, location="visible_flow", default_unit="m3/s")
-    return VisibleFlow(discharge_m3_s=float(discharge))
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,23 +79,6 @@ class FlowingCells:
 
     seepage: np.ndarray
     flowing: np.ndarray
-
-
-def routed_discharge(
-    metric: DownslopeMetric, release_flux: np.ndarray, seepage: np.ndarray
-) -> np.ndarray:
-    """Return the release of the seeping cells accumulated down the criterion graph.
-
-    ``release_flux`` and ``seepage`` are ``(n_cells,)`` or ``(n_times,
-    n_cells)``, in m3/s. The result has the same shape, in m3/s, NaN on the
-    inactive cells. It is a routed seepage discharge, not a river discharge:
-    no runoff and no loss in the bed enter it. It never decreases downstream.
-    """
-    flux = np.asarray(release_flux, dtype=float)
-    mask = np.asarray(seepage, dtype=bool)
-    if flux.shape != mask.shape:
-        raise ValueError(f"release_flux has shape {flux.shape} and the seepage mask {mask.shape}.")
-    return accumulate_on_downhill_graph(metric.graph, np.where(mask, flux, 0.0))
 
 
 def flowing_cells(
@@ -190,7 +97,7 @@ def flowing_cells(
     the visible flow. A share of the outlet discharge reads the routed
     discharge at ``outlet`` at the same timestep, so ``outlet`` is required
     then. With the geometric definition this is exactly the network
-    :func:`hydromodpy.results.derive.stream.network.build_simulated_network` builds.
+    :func:`hydromodpy.catchment.stream_network.network.build_simulated_network` builds.
     """
     flux = np.asarray(release_flux, dtype=float)
     single = flux.ndim == 1
@@ -208,7 +115,10 @@ def flowing_cells(
         reached = accumulate_on_downhill_graph(metric.graph, seepage.astype(float))
         flowing = np.nan_to_num(reached, nan=0.0) > 0.0
     else:
-        discharge = np.nan_to_num(routed_discharge(metric, stack, seepage), nan=0.0)
+        routed = route_release_to_discharge(
+            np.where(seepage, stack, 0.0), metric.graph, catchment_mask=active
+        )
+        discharge = np.nan_to_num(routed, nan=0.0)
         if visible_flow.outlet_share > 0.0:
             if outlet is None:
                 raise ValueError("a visible flow given as an outlet share needs the outlet cell.")
@@ -607,13 +517,10 @@ def extent_masks(
 
 __all__ = (
     "CHUNK_ELEMENTS",
-    "DEFAULT_VISIBLE_FLOW",
-    "GEOMETRIC",
     "Bound",
     "CalendarYears",
     "ExtentMasks",
     "FlowingCells",
-    "VisibleFlow",
     "YearlyFlowCounts",
     "calendar_years",
     "dry_steps",
@@ -623,8 +530,6 @@ __all__ = (
     "flowing_cells",
     "flowing_steps",
     "parse_extent_duration",
-    "parse_visible_flow",
     "quorum_count",
-    "routed_discharge",
     "yearly_flow_counts",
 )

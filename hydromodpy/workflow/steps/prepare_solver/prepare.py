@@ -23,13 +23,14 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.core.exceptions import MeshError, PipelineError
+from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import encode_workspace_path
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
 from hydromodpy.results.record.manifest import InputEntry
 from hydromodpy.results.storage.attempt import is_run_product
 from hydromodpy.results.storage.digests import path_size_bytes
-from hydromodpy.schema.sources import input_licence, licence_for_source
+from hydromodpy.schema.sources import input_licence
 from hydromodpy.workflow.steps.data_description import (
     LoadedRecord,
     iter_loaded_records,
@@ -301,8 +302,8 @@ def _loaded_input_entry(
     """Return the ``inputs.json`` entry of one file a loaded record was read from.
 
     The provider is *provider*, else the source slug of the record; its
-    licence comes from the registry of sources, or from the sidecar of the
-    file for a user file. The request is what the record covers: its station,
+    licence is the one the sidecar of the file states, undetermined for a
+    record with no file. The request is what the record covers: its station,
     its period, its box. The path is written relative to the workspace when
     the file sits under it.
     """
@@ -318,10 +319,7 @@ def _loaded_input_entry(
     bbox = getattr(rec, "bbox", None)
     if bbox is not None:
         request["bbox"] = [float(value) for value in bbox]
-    if source in ("file", "custom") and source_path is not None:
-        licence = input_licence(source_path).spdx
-    else:
-        licence = licence_for_source(source).spdx
+    licence = UNDETERMINED_LICENSE if source_path is None else input_licence(source_path).spdx
     exists = source_path is not None and source_path.exists()
     return InputEntry(
         variable=f"{item.scope}:{item.variable}",

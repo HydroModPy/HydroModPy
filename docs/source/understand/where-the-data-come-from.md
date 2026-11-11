@@ -57,6 +57,9 @@ Public data do not all carry the same licence. The licence of each source, when 
 it, is listed on the generated page {doc}`/reference/data-sources`. Where the code does not know
 it, the page says so. It does not guess.
 
+A file keeps its licence in its companion file, the sidecar. A download writes the licence of its
+source there, and a run reads it back from there when it records the file.
+
 Three rules follow from the way the code records licences.
 
 - **A file you provide has the licence you declare.** The model cannot know the licence of your
@@ -66,7 +69,9 @@ Three rules follow from the way the code records licences.
   no known licence, the run states *undetermined*. A run cannot promise more than its least known
   input allows.
 - **Undetermined is not forbidden.** It means that nobody recorded the terms. Read the terms of
-  the producer before you reuse or redistribute a result.
+  the producer before you reuse or redistribute a result. `hmp publish --public` warns when the
+  project declares no licence or an input has none, writes the copy anyway, and states
+  *undetermined* for what has no licence.
 
 This page is not legal advice. Cite the producer of the data that a result relies on.
 

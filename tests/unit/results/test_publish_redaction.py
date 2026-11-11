@@ -57,7 +57,12 @@ def test_the_provenance_keeps_what_it_says_and_loses_who_and_where(tmp_path) -> 
     import json
 
     project = make_project(tmp_path)
-    copy = publish(make_sealed_run(project), tmp_path / "out" / "nancon", project_root=project)
+    copy = publish(
+        make_sealed_run(project),
+        tmp_path / "out" / "nancon",
+        project_root=project,
+        inputs=inputs_of(project),
+    )
 
     provenance = json.loads((copy / "provenance.json").read_text())
     assert "hostname" not in provenance["platform"]
@@ -71,7 +76,12 @@ def test_the_frozen_config_keeps_its_tables_with_paths_made_relative(tmp_path) -
     import tomllib
 
     project = make_project(tmp_path)
-    copy = publish(make_sealed_run(project), tmp_path / "out" / "nancon", project_root=project)
+    copy = publish(
+        make_sealed_run(project),
+        tmp_path / "out" / "nancon",
+        project_root=project,
+        inputs=inputs_of(project),
+    )
 
     config = tomllib.loads((copy / "config.toml").read_text())
     assert config["publication"]["license"] == "etalab-2.0"
@@ -81,7 +91,11 @@ def test_the_frozen_config_keeps_its_tables_with_paths_made_relative(tmp_path) -
 def test_a_tar_is_swept_like_a_directory(tmp_path) -> None:
     project = make_project(tmp_path)
     archive = publish(
-        make_sealed_run(project), tmp_path / "out" / "nancon", project_root=project, format="tar"
+        make_sealed_run(project),
+        tmp_path / "out" / "nancon",
+        project_root=project,
+        format="tar",
+        inputs=inputs_of(project),
     )
     extracted = tmp_path / "extracted"
     with tarfile.open(archive) as handle:
@@ -93,7 +107,11 @@ def test_a_tar_is_swept_like_a_directory(tmp_path) -> None:
 def test_a_tar_destination_with_a_dot_in_its_name_still_gets_the_tar_suffix(tmp_path) -> None:
     project = make_project(tmp_path)
     archive = publish(
-        make_sealed_run(project), tmp_path / "out" / "nancon.v2", project_root=project, format="tar"
+        make_sealed_run(project),
+        tmp_path / "out" / "nancon.v2",
+        project_root=project,
+        format="tar",
+        inputs=inputs_of(project),
     )
 
     assert archive.name == "nancon.v2.tar"
@@ -111,7 +129,9 @@ def test_a_copy_that_would_still_leak_is_refused_whole(tmp_path) -> None:
     )
 
     with pytest.raises(ExportError, match=r"exports/where.parquet: the column 'path'"):
-        publish(run_dir, tmp_path / "out" / "nancon", project_root=project)
+        publish(
+            run_dir, tmp_path / "out" / "nancon", project_root=project, inputs=inputs_of(project)
+        )
     assert not (tmp_path / "out" / "nancon").exists()
     assert not any(p.name.startswith(".nancon") for p in (tmp_path / "out").iterdir())
     assert read_published(run_dir) == []
@@ -127,7 +147,9 @@ def test_a_csv_cell_holding_a_path_is_redacted_like_a_document(tmp_path) -> None
         json.dumps({"file": f"{project}/runs/x/a.nc"}) + "\n"
     )
 
-    copy = publish(run_dir, tmp_path / "out" / "nancon", project_root=project)
+    copy = publish(
+        run_dir, tmp_path / "out" / "nancon", project_root=project, inputs=inputs_of(project)
+    )
 
     assert (copy / "exports" / "where.csv").read_text().splitlines() == [
         "site,path,note",

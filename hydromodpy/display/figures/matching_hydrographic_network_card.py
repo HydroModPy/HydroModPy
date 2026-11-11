@@ -48,6 +48,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.scoring.stream_defaults import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, OutputName, ParameterUnits
 from hydromodpy.display.figures._calibration_session import (
@@ -72,7 +73,6 @@ from hydromodpy.display.figures.network_extent_bounds_map import (
 )
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, place_legend
 from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
-from hydromodpy.results.derive.stream.geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.results.run.sealed import search_of
 
 if TYPE_CHECKING:

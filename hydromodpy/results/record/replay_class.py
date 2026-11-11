@@ -16,8 +16,9 @@ is present on one side only. ``deviation`` means one value moved, appeared or
 left, and each moved key carries the size of the move. On the ``stored`` basis
 the source keys are first renamed by the ``fields`` migration rows of the
 register (the flat ``concentration`` of the 2.0.0 is the one species of 2.1),
-and a key the 2.0.0 format cannot hold (``final_state/``) is listed in
-``added`` without making the replay a deviation. A source written below the
+and a key the 2.0.0 did not write (``final_state/``, ``mesh/open_water``,
+``mesh/catchment_cells``) is listed in ``added`` without making the replay a
+deviation. A source written below the
 ``result`` level, a kept calibration trial, keeps less: a key it lacks is
 listed in ``added`` and no deviation. A key the replay drops stays one, at
 every level. Under ``--strict`` a deviation is refused before the seal with
@@ -48,8 +49,16 @@ from hydromodpy.schema.lineage import ProducerSide, Replay, ReplayDifference
 from hydromodpy.schema.seal import ValueDigests
 from hydromodpy.schema.sources import declared_source_tokens
 
-FORMAT_ADDITIONS: Final[tuple[str, ...]] = (f"{FINAL_STATE_DIRNAME}/",)
-"""Key prefixes a version 3 seal cannot hold: a replay writing them is no deviation."""
+FORMAT_ADDITIONS: Final[tuple[str, ...]] = (
+    f"{FINAL_STATE_DIRNAME}/",
+    "fields/mesh/open_water",
+    "fields/mesh/catchment_cells",
+)
+"""Keys a 2.0.0 run did not write: a replay writing them is no deviation.
+
+A version 3 seal cannot hold the final state, and the 2.0.0 did not keep the
+two cell masks the stream criterion reads.
+"""
 
 
 class ReplayDeviationError(ResultsError):

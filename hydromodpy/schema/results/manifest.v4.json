@@ -89,8 +89,17 @@
     },
     "CalibratedBy": {
       "additionalProperties": true,
-      "description": "The session, phase and trial a promoted run comes from.",
+      "description": "The session, phase and trial a promoted run comes from, and the objective it met.\n\n``metric``, ``cost``, ``rule`` and ``components`` are the objective of the\ncase of this run at that trial, so the seal says what the search minimized\nand how it read it.",
       "properties": {
+        "components": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Parts of the cost of the case at that trial, by name, without the validation cost, which has its own field",
+          "title": "Components",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
         "cost": {
           "anyOf": [
             {
@@ -131,6 +140,20 @@
           "default": null,
           "description": "Phase of that session",
           "title": "Phase",
+          "x-hmp-profile": "user"
+        },
+        "rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Version of the metric rule the cost of the case was read under; null when not recorded",
+          "title": "Rule",
           "x-hmp-profile": "user"
         },
         "session_id": {
@@ -648,8 +671,7 @@
                 "promoted",
                 "trial",
                 "version",
-                "replay",
-                "published"
+                "replay"
               ]
             },
             {

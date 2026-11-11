@@ -691,3 +691,65 @@ old = false
 new = true
 quantities = []
 text = "Under edition 2.1, a calibration writes the scored series of every trial to sessions/<case>/trial_series/ by default, about 2 kB per trial on the island case. A document without edition is of edition 2.0 and keeps false, and a calibration document of that edition receives false as a written value, so the value enters its identity. A document with no [calibration] section, a simulation for one, keeps none."
+
+
+# Edition 2.1 writes the project index under its lock and publishes a copy with its results and inputs.
+
+[[recipe]]
+id = "index_written_under_its_lock"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "One process at a time writes the project index .hmp/index.duckdb, under .hmp/index.duckdb.lock, which names its process, its host and its date and is taken over when that process died on this host or after 10 minutes without renewal; a pass no longer drops a run another pass indexed meanwhile. The index is written in DuckDB blocks of 16 KiB, 2.6 MB for a project of 100 runs instead of 14.7 MB, opening a project builds a missing index, metrics.metric_name is now metric as in metrics.parquet, and cases.bytes holds the size of each directory. The ledger of figures/ and exports/ takes the same kind of lock on every system. No value of a run changes."
+
+[[recipe]]
+id = "publish_carries_inputs_and_results"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "hmp publish takes along the results (fields.zarr, tables.parquet, final_state/), the inputs with INSTALL.toml, the sealed mesh and products.json by default, and writes .zenodo.json beside the RO-Crate; --without results and --without inputs leave them out, and --with is refused for a copy with a sentence that names --without. No value changes."
+
+[[recipe]]
+id = "replay_deviation_is_not_published"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "hmp publish refuses a replay that is not classed bit, a deviation or a replay of a copy without values, because a published copy states that it gives the sealed numbers; hmp publish . leaves such a replay out and names it."
+
+
+# Edition 2.1 reads the stream criterion once, scores a promoted run by its rule, labels by rule 3 and carries licences as facts.
+
+[[recipe]]
+id = "stream_criterion_read_once"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "The stream criterion reads each of its inputs once, for a trial and for the figure drawn from the run. The run keeps mesh/open_water, the cells of open water the criterion leaves out of both supports, and mesh/catchment_cells, the cells whose center the catchment outline covers, beside the mean recharge it already kept. A figure takes the centers of the solver, the open water and the outline of the trial, not the polygon centroids and the delineated polygon, so on a mesh whose seeds are not the centroids it draws the partition the trial scored (5 cells of 56 moved with seeds 3 m off on cells of 25 m, none on a quad grid). It refuses a run that kept no mean recharge when the seepage threshold is above zero, and a run that kept no mesh/open_water, with a sentence that says to replay it. frac_minimal_outside_maximal, a diagnostic of the journal, is read on the scored cells and moves from 0.6883 to 0.6842 with 1 % of open water. No value of metrics.parquet changes."
+
+[[recipe]]
+id = "one_pairing_scores_the_promoted_run"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "A calibration trial and the run it promotes pair their series by one function, so on the same series they keep the same periods and give the same score, bit for bit (647, 19 and 727 pairs on a daily discharge, a monthly discharge and a daily head). A run a session promoted also gets the rows of each calibration period of its seal in metrics.parquet, with window_role calibration and metric_rule_version, written before the seal. These rows score the station of [metrics] on the days of the case, or every paired station when [metrics] names none, and not the observations the search fitted. The headline rows of [metrics] do not change, so the new rows are values a replay adds and no existing value moves."
+
+[[recipe]]
+id = "promoted_run_seals_its_objective"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "The calibrated_by block of the seal of a promoted run gains rule, the version of the metric rule the cost of its case was read under, and components, the parts of that cost without the validation cost, which keeps its own field. The block keeps the schema hydromodpy.checks.v2, since both fields are optional, and a seal written before carries null and an empty table. No value changes."
+
+[[recipe]]
+id = "label_rule_3"
+since = "2.1.0"
+effect = "label"
+quantities = []
+text = "Labels follow rule 3. A promoted run is calibrated or evaluated only when a window was scored: a calibration period of its seal, the headline window with enough samples, or the single state of a steady run whose session read a finite cost. A transient run promoted without a scored window is now exploratory, with the reason no_scored_window, and a steady calibration stays calibrated. A parameter on a bound of its range adds the reason bound_reached to any label, last, without changing it. Each reason is a code with a sentence in English and in French, and the English sentences are those of rule 2."
+
+[[recipe]]
+id = "licence_is_a_carried_fact"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "hmp publish --public warns instead of refusing when the project declares no [publication] license, and when the copy carries its inputs it warns and names each input that has no licence. The copy is written and states LicenseRef-undetermined for what has no licence. hmp replay of a published copy installs the files a provider delivered by their sha256 in the workspace of the project, where it used to refuse them. A delivered file whose destination holds other bytes is still refused, and nothing is written. A run states the roll-up of the licences its inputs.json entries carry, read from the sidecar of each file when the run recorded it, where it used to look a loaded record up by provider. A source that reads no file (constant, synthetic, a record built in memory) and a record read from a product of the run write no entry, so they add no licence. A run that read such a source beside files that all carry one licence states that licence, where it used to state LicenseRef-undetermined."

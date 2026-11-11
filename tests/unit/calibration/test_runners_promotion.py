@@ -43,6 +43,7 @@ from hydromodpy.calibration.runners.session_scope import promote_and_close
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.results.catalog.registration import reserve_version_dirname
+from hydromodpy.results.metric_rule import METRIC_RULE_VERSION
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import FrozenValue
@@ -454,6 +455,7 @@ class TestWhereThePromotedRunsGo:
         )
         assert (by.metric, by.cost, by.windows) == ("nse", 0.1, WINDOW)
         assert by.validation_cost is None
+        assert by.rule == METRIC_RULE_VERSION
 
     def test_the_run_carries_the_validation_score_of_its_trial(self, tmp_path, recorder) -> None:
         persistence = _session(tmp_path, costs={1: 0.9})
@@ -463,6 +465,22 @@ class TestWhereThePromotedRunsGo:
 
         (call,) = recorder.calls
         assert (call["calibrated_by"].cost, call["calibrated_by"].validation_cost) == (0.1, 0.4)
+
+    def test_the_run_seals_the_objective_of_its_trial(self, tmp_path, recorder) -> None:
+        persistence = _session(tmp_path, costs={1: 0.9})
+        parts = {"discharge.nse": 0.1, "discharge.n_paired": 24.0, VALIDATION_COST: 0.4}
+        journal_trial(persistence, 2, 0.1, k=1e-2, components=parts)
+
+        _promote(tmp_path, persistence, cfg=_cfg(save_best_n=1))
+
+        (call,) = recorder.calls
+        by = call["calibrated_by"]
+        assert by.rule == METRIC_RULE_VERSION
+        assert VALIDATION_COST not in by.components
+        assert {key: by.components[key] for key in parts if key != VALIDATION_COST} == {
+            "discharge.nse": 0.1,
+            "discharge.n_paired": 24.0,
+        }
 
     def test_the_other_kept_trials_go_under_the_session_with_the_consumers_budget(
         self, tmp_path, recorder

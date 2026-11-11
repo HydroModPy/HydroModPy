@@ -32,7 +32,7 @@ ALLOWED_CALLS: dict[str, dict[str, int]] = {
         "catchment/drainage/descent.py": 1,
         "solver/modflow_common/flow_directions.py": 1,
         # B4: the stream criterion keeps its own flood on T and its own outlet.
-        "results/derive/stream/geometry.py": 1,
+        "catchment/stream_network/geometry.py": 1,
     },
 }
 """Call sites of each name, by module relative to ``hydromodpy/``, and their count."""

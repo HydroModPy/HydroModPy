@@ -13,7 +13,7 @@ from typing import Any
 
 from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.core.state.result_dirs import project_root_at
-from hydromodpy.results.publication import deliveries_of
+from hydromodpy.results.publication import deliveries_of, latest_by_pair, read_published
 from hydromodpy.results.storage.run_profile import Profile, read_profile
 
 SEALED_SOLVE_METRIC = "flow_solve_time_seconds"
@@ -49,15 +49,10 @@ _LISTING_COLUMNS: tuple[str, ...] = (
 
 
 def _open_catalog(workspace: Any) -> Any:
-    """Open the index of the project at ``workspace`` or raise ``FileNotFoundError``."""
+    """Open the project at ``workspace``, building its index when it is missing."""
     from hydromodpy.results.catalog import Catalog
 
-    root = Path(workspace).expanduser().resolve()
-    if not catalog_path_for(root).is_file():
-        raise FileNotFoundError(
-            f"No index at {catalog_path_for(root)}. Run `hmp catalog reindex` first."
-        )
-    return Catalog(root)
+    return Catalog(Path(workspace).expanduser().resolve())
 
 
 def list_simulations(
@@ -234,13 +229,22 @@ def delivery_entries(run_dir: str | Path) -> list[dict[str, Any]]:
     ]
 
 
+def copy_entries(run_dir: str | Path) -> list[dict[str, Any]]:
+    """Return the latest line of each destination a copy of the run went to."""
+    copies = (line for line in read_published(run_dir) if line.kind == "copy")
+    return [
+        {"to": line.to, "published_at": line.published_at.isoformat()}
+        for line in latest_by_pair(copies).values()
+    ]
+
+
 def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> dict:
     """Return the facts of one sealed run: its row, its label, its files and its profile.
 
-    ``exports`` and ``deliveries`` are read from the run folder, not from the
-    index, and ``profile`` with them (:func:`profile_of_run`).
+    ``exports``, ``deliveries`` and ``copies`` are read from the run folder, not
+    from the index, and ``profile`` with them (:func:`profile_of_run`).
 
-    Raises ``FileNotFoundError`` without an index and
+    Opening the project builds its index when it is missing. Raises
     :class:`~hydromodpy.results.catalog.SimulationNotFoundError` when
     ``sim_ref`` names nothing.
     """
@@ -279,6 +283,7 @@ def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> di
                 for entry in Ledger.read(run_dir / RUN_FIGURES_DIRNAME).entries
             ],
             "deliveries": delivery_entries(run_dir),
+            "copies": copy_entries(run_dir),
             "profile": profile_of_run(run_dir),
         }
         if detail:
@@ -380,7 +385,7 @@ def rank_simulations(
     with Catalog(workspace_root) as catalog:
         sql = (
             "SELECT s.sim_id, s.name, s.rel_dir, sv.code AS solver, m.station_id AS station, "
-            "m.variable, m.metric_name, m.value, m.window_start, m.window_end, "
+            "m.variable, m.metric, m.value, m.window_start, m.window_end, "
             "m.metric_rule_version "
             "FROM simulations s "
             "JOIN solvers sv ON s.solver_id = sv.id "
@@ -388,7 +393,7 @@ def rank_simulations(
             "JOIN metrics m ON s.sim_id = m.sim_id "
             "WHERE s.project = ? AND st.code = 'completed' "
             f"AND m.window_name = '{HEADLINE_WINDOW}' "
-            f"AND m.metric_name = ? {station_clause}"
+            f"AND m.metric = ? {station_clause}"
             "AND m.value IS NOT NULL AND isfinite(m.value) "
             f"ORDER BY {order}"
         )
@@ -408,6 +413,7 @@ def rank_simulations(
 
 
 __all__ = [
+    "copy_entries",
     "delivery_entries",
     "diff_simulations",
     "list_simulations",

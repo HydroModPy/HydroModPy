@@ -18,6 +18,7 @@ from hydromodpy.core.state.layout import (
     TOMBSTONES_FILENAME,
     TRASH_DIRNAME,
 )
+from hydromodpy.results.publication import PublishedLine, append_published
 from hydromodpy.results.session.descriptor import write_session
 from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
@@ -140,16 +141,99 @@ def test_a_restore_onto_an_existing_directory_is_refused(tmp_path):
     assert trashed.is_dir()
 
 
-def test_trashing_a_published_run_warns(tmp_path, warnings_said):
+def _copy_line(to: str) -> PublishedLine:
+    return PublishedLine(
+        kind="copy", published_at=AT, to=to, format="dir", publication_sha256="a" * 64
+    )
+
+
+def _delivery_line(destination: str) -> PublishedLine:
+    return PublishedLine(
+        kind="delivery",
+        published_at=AT,
+        file="tables.parquet/simulation.parquet",
+        destination=destination,
+        state="delivered",
+        sha256="b" * 64,
+        bytes=15,
+        attempts=1,
+    )
+
+
+def _warnings_of(said) -> list[str]:
+    return [r.getMessage() for r in said.records if r.levelno == logging.WARNING]
+
+
+@pytest.mark.parametrize(
+    ("lines", "expected"),
+    [
+        pytest.param([_copy_line("/srv/a")], "published as 1 copy(ies)", id="one_copy"),
+        pytest.param(
+            [_copy_line("/srv/a"), _copy_line("/srv/b"), _copy_line("/srv/a")],
+            "published as 2 copy(ies)",
+            id="same_destination_counts_once",
+        ),
+        pytest.param(
+            [_copy_line("/srv/a"), _delivery_line("s3://x")],
+            "published as 1 copy(ies)",
+            id="a_delivery_does_not_count",
+        ),
+        pytest.param([_delivery_line("s3://x")], None, id="delivery_alone_is_silent"),
+    ],
+)
+def test_trashing_warns_with_the_number_of_copies(tmp_path, warnings_said, lines, expected):
     run_dir = _make_run(tmp_path, "nancon_daily")
-    (run_dir / RUN_PUBLISHED_FILENAME).write_text('{"to": "/srv/out"}\n', encoding="utf-8")
+    for line in lines:
+        append_published(run_dir, line)
 
     trash_run(tmp_path, "runs/nancon_daily", now=AT)
 
+    messages = _warnings_of(warnings_said)
+    if expected is None:
+        assert messages == []
+    else:
+        assert any(expected in m and "point at a trashed source" in m for m in messages)
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param('{"to": "/srv/out"}\n', id="v1_line"),
+        pytest.param("not json\n", id="no_json"),
+    ],
+)
+def test_an_unreadable_journal_warns_and_the_trash_acts(tmp_path, warnings_said, content):
+    run_dir = _make_run(tmp_path, "nancon_daily")
+    (run_dir / RUN_PUBLISHED_FILENAME).write_text(content, encoding="utf-8")
+
+    trashed = trash_run(tmp_path, "runs/nancon_daily", now=AT)
+
+    assert trashed.is_dir()
+    assert not run_dir.exists()
     assert any(
-        "published" in record.getMessage() and record.levelno == logging.WARNING
-        for record in warnings_said.records
+        "this version cannot read" in m and "may exist elsewhere" in m
+        for m in _warnings_of(warnings_said)
     )
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        pytest.param(None, "lose their source for good", id="copy"),
+        pytest.param("{}\n", "this version cannot read", id="unreadable"),
+    ],
+)
+def test_the_purge_warns_like_the_trash(tmp_path, warnings_said, content, expected):
+    run_dir = _make_run(tmp_path, "nancon_daily")
+    if content is None:
+        append_published(run_dir, _copy_line("/srv/a"))
+    else:
+        (run_dir / RUN_PUBLISHED_FILENAME).write_text(content, encoding="utf-8")
+    trash_run(tmp_path, "runs/nancon_daily", now=AT)
+
+    gc_trash(tmp_path, older_than=timedelta(0), now=AT)
+
+    assert any(expected in m for m in _warnings_of(warnings_said))
 
 
 def test_trashing_an_unpublished_run_is_silent(tmp_path, warnings_said):
@@ -379,11 +463,11 @@ def test_trash_lists_and_empty_leaves_tombstones_and_spares_pinned(tmp_path, mon
 def test_trashing_a_published_run_through_the_cli_warns(tmp_path, monkeypatch, capsys):
     project = _project(tmp_path)
     run_dir = _make_run(project, "handed_out")
-    (run_dir / RUN_PUBLISHED_FILENAME).write_text("{}\n", encoding="utf-8")
+    append_published(run_dir, _copy_line("/srv/a"))
 
     assert _hmp(monkeypatch, "catalog", "delete", "handed_out", "-y", "-w", str(project)) == 0
 
-    assert "published copies now point at a trashed source" in capsys.readouterr().err
+    assert "published as 1 copy(ies)" in capsys.readouterr().err
 
 
 def test_a_verb_that_moves_a_directory_refreshes_an_index_that_exists(tmp_path, monkeypatch):

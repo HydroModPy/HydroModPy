@@ -77,7 +77,7 @@ from hydromodpy.results.storage.geo_metadata import (
     geographic_feature_description,
     run_parquet_footer,
 )
-from hydromodpy.results.storage.licence import LicenceMember, TrackedPath, run_licence
+from hydromodpy.results.storage.licence import run_licence
 from hydromodpy.results.storage.parquet_io import read_checked_table, write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import (
     BUDGETS_SCHEMA,
@@ -89,7 +89,6 @@ from hydromodpy.results.storage.parquet_schemas import (
     schema_for,
 )
 from hydromodpy.results.storage.run_facts import (
-    LicenceSource,
     RunFacts,
     identity_of,
     read_facts,
@@ -282,11 +281,45 @@ class RunStore:
         """
         if self._facts.licence is not None:
             return self._facts.licence
-        return run_licence(
-            [LicenceMember(s.source, s.sha256) for s in self._facts.licence_sources],
-            [TrackedPath(t.path, t.sha256) for t in self._facts.tracked_inputs],
-            self.data_root,
-        )
+        return run_licence(self.inputs())
+
+    def inputs(self) -> list[InputEntry]:
+        """Return the inputs of ``inputs.json``: every loaded input, then every declared file.
+
+        A file the configuration declares and no loaded record names (the DEM a
+        catchment is cut from, a mapped network) is an input the run read too. It
+        enters with its role as variable, the provider its sidecar names
+        (``file`` without one) and the licence its sidecar states. A declared
+        folder is not an input: the files the run read in it are.
+        """
+        from hydromodpy.core.state.portable import decode_workspace_path
+        from hydromodpy.schema.sources import input_licence, sidecar_source
+
+        facts = self._facts
+        entries = list(facts.inputs)
+        named = {entry.path for entry in entries}
+        for tracked in facts.tracked_inputs:
+            if tracked.path in named:
+                continue
+            located = (
+                Path(tracked.path)
+                if self.data_root is None
+                else decode_workspace_path(self.data_root, tracked.path)
+            )
+            if not located.is_file():
+                continue
+            entries.append(
+                InputEntry(
+                    variable=tracked.role,
+                    provider=sidecar_source(located) or "file",
+                    path=tracked.path,
+                    sha256=tracked.sha256,
+                    bytes=tracked.bytes,
+                    license=input_licence(located).spdx,
+                )
+            )
+            named.add(tracked.path)
+        return entries
 
     # -- Zarr ------------------------------------------------------------------
 
@@ -799,9 +832,6 @@ class RunStore:
                 f"Unknown provenance source_type {source_type!r}. "
                 f"Expected one of {_PROVENANCE_SOURCE_TYPES}."
             )
-        member = LicenceSource(source=str(source_ref or ""), sha256=source_sha256)
-        if member not in self._facts.licence_sources:
-            self._facts.licence_sources.append(member)
         if not self._persistence.save_parquet:
             return
         digest = fingerprint(data)

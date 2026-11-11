@@ -14,15 +14,16 @@ bytes is refused. Each site is merged into
 or an outlet close to a site of another name, is refused by name.
 
 Everything is planned first and refused as a whole: a refused install writes
-nothing.
+nothing. A replay of a published copy installs only the files a provider
+delivered, through the ``files`` argument.
 """
 
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass, field, replace
+from pathlib import Path, PurePosixPath
 from typing import Any, Final
 
 from hydromodpy.core.payload import (
@@ -85,18 +86,28 @@ def install_index(
     workspace: Path,
     project: Path | None = None,
     dry_run: bool = False,
+    files: Sequence[PayloadFile] | None = None,
 ) -> InstallReport:
     """Install *index* into *workspace*, its bytes read from the folder *blobs*.
 
     With *dry_run* every check runs, the conflicts are refused as usual, and nothing is
     written: the report lists what a real install would write.
 
+    With *files*, only those files of the index are installed, with their sidecars, their
+    cache rows and the station rows of their registries. The other files, the other station
+    rows and the sites stay out, and only the blobs of the files are checked. A replay uses
+    it to install what a provider delivered and nothing else.
+
     Raises
     ------
     PayloadConflictError
         A file, a station row, a data cache key or a site would replace
         another one; nothing was written.
+    ValueError
+        A file of *files* the index does not list.
     """
+    if files is not None:
+        index = _restricted(index, files)
     roots = {"workspace": Path(workspace).resolve()}
     if project is not None:
         roots["project"] = Path(project).resolve()
@@ -132,6 +143,30 @@ def install_index(
     report.cache_registered = _register(roots["workspace"], cache_rows)
     report.sites_added = _write_sites(roots["workspace"], sites)
     return report
+
+
+def _restricted(index: InstallIndex, files: Sequence[PayloadFile]) -> InstallIndex:
+    """Return *index* cut down to *files*, the station rows of their registries and no site."""
+    wanted = {(item.root, item.dest) for item in files}
+    kept = tuple(item for item in index.files if (item.root, item.dest) in wanted)
+    unknown = wanted - {(item.root, item.dest) for item in kept}
+    if unknown:
+        raise ValueError(f"the index lists no file at {sorted(dest for _, dest in unknown)}")
+    registries = {
+        (PurePosixPath(item.dest).parent, f"_{item.provider}_LOC.csv")
+        for item in kept
+        if item.provider is not None
+    }
+    stations = tuple(
+        station
+        for station in index.stations
+        if any(
+            PurePosixPath(station.dest).parent == folder
+            and PurePosixPath(station.dest).name.endswith(suffix)
+            for folder, suffix in registries
+        )
+    )
+    return replace(index, files=kept, stations=stations, sites=())
 
 
 def _check_blobs(index: InstallIndex, blobs: Path) -> None:

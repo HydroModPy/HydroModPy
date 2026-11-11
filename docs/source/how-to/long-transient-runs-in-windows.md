@@ -72,9 +72,9 @@ something changed since the stop, an input or a key of the file. The refusal say
 `hmp run --resume island_w3` reads the configuration the window froze in its folder, resumes it
 and plays the windows after it.
 
-The `config.toml` of a sealed window is the request of that window alone. `hmp run
-runs/island_w2/config.toml --frozen` replays window 2 from the final state of the run its
-`inputs.json` names, so window 1 must still be in the project.
+The `config.toml` of a sealed window is the request of that window alone. `hmp replay
+island_w2` replays window 2 from the final state of the run its `inputs.json` names, so
+window 1 must still be in the project.
 
 ## Read the time of each window
 

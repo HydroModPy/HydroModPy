@@ -111,8 +111,8 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
+from hydromodpy.core.scoring.stream_defaults import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.core.state.layout import stop_flag_for
-from hydromodpy.results.derive.stream.geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.results.session.descriptor import (
     CostInterval,
     ParameterWidth,

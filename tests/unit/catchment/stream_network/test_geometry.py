@@ -10,21 +10,27 @@ every build of a calibration.
 from __future__ import annotations
 
 import logging
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
 from hydromodpy.catchment.drainage.distance import CATCHMENT_MISMATCH_WARNING_SHARE, resolve_outlet
-from hydromodpy.results.derive.stream import geometry as stream_geometry
-from hydromodpy.results.derive.stream.geometry import (
-    VALIDITY_PROVENANCE_BY_CODE,
-    VALIDITY_PROVENANCE_CODE,
+from hydromodpy.catchment.stream_network import geometry as stream_geometry
+from hydromodpy.catchment.stream_network.geometry import (
     build_network_geometry,
     criterion_supports,
     observed_cell_size_m,
+    open_water_mask,
     resolve_validity_length,
+    scored_cells,
+    share_outside,
 )
-from hydromodpy.results.derive.stream.network import build_simulated_network
+from hydromodpy.catchment.stream_network.network import build_simulated_network
+from hydromodpy.core.scoring.stream_defaults import (
+    VALIDITY_PROVENANCE_BY_CODE,
+    VALIDITY_PROVENANCE_CODE,
+)
 from tests._helpers.ugrid_meshes import quad_mesh
 
 N_ROWS = 12
@@ -434,3 +440,134 @@ def test_the_alpha_warning_says_it_in_two_sentences(caplog) -> None:
     (message,) = _warnings(caplog)
     assert message.count(". ") == 1
     assert message.endswith(".")
+
+
+# The scored cells, the share of a map outside another one and the open-water mask
+# are one definition of "what the criterion scores", read by the trial and by the
+# figure drawn from the run. The geometry is a stand-in holding the three masks the
+# definition reads.
+def _scored_geometry(catchment, active, excluded=None) -> SimpleNamespace:
+    return SimpleNamespace(
+        catchment=np.asarray(catchment, dtype=bool),
+        metric=SimpleNamespace(graph=SimpleNamespace(active=np.asarray(active, dtype=bool))),
+        excluded=None if excluded is None else np.asarray(excluded, dtype=bool),
+    )
+
+
+@pytest.mark.parametrize(
+    ("catchment", "active", "excluded", "expected"),
+    [
+        ([1, 1, 1, 0], [1, 1, 1, 1], None, [1, 1, 1, 0]),
+        ([1, 1, 1, 0], [1, 0, 1, 1], None, [1, 0, 1, 0]),
+        ([1, 1, 1, 0], [1, 1, 1, 1], [0, 1, 0, 0], [1, 0, 1, 0]),
+        ([1, 1, 1, 1], [1, 1, 0, 1], [1, 0, 0, 1], [0, 1, 0, 0]),
+        ([0, 0, 0, 0], [1, 1, 1, 1], None, [0, 0, 0, 0]),
+    ],
+    ids=["catchment", "inactive cell", "open water", "both leave", "empty catchment"],
+)
+def test_the_scored_cells_are_the_catchment_active_and_off_the_water(
+    catchment, active, excluded, expected
+) -> None:
+    geometry = _scored_geometry(catchment, active, excluded)
+
+    assert scored_cells(geometry).tolist() == [bool(value) for value in expected]
+
+
+def test_the_scored_cells_are_the_keep_mask_of_the_partition() -> None:
+    geometry = _scored_geometry([1, 1, 1, 0], [1, 1, 1, 1], [0, 1, 0, 0])
+    simulated = SimpleNamespace(
+        network=np.array([True, True, False, False]), seepage=np.zeros(4, dtype=bool)
+    )
+
+    supports = criterion_supports(
+        simulated=simulated,
+        observed=np.array([True, False, True, False]),
+        catchment=geometry.catchment,
+        active=geometry.metric.graph.active,
+        excluded=geometry.excluded,
+    )
+
+    assert supports.keep.tolist() == scored_cells(geometry).tolist()
+
+
+@pytest.mark.parametrize(
+    ("inner", "outer", "geometry", "expected"),
+    [
+        ([1, 1, 1, 0], [1, 0, 0, 0], _scored_geometry([1, 1, 1, 1], [1] * 4), 2 / 3),
+        ([1, 1, 1, 0], [1, 1, 1, 0], _scored_geometry([1, 1, 1, 1], [1] * 4), 0.0),
+        # A cell off the catchment is not counted in either term.
+        ([1, 1, 1, 0], [1, 0, 0, 0], _scored_geometry([1, 1, 0, 0], [1] * 4), 0.5),
+        # Open water leaves the support: the missed cell goes, the share moves.
+        ([1, 1, 1, 0], [1, 0, 1, 0], _scored_geometry([1] * 4, [1] * 4, [0, 1, 0, 0]), 0.0),
+        # An inactive cell leaves it too.
+        ([1, 1, 1, 0], [1, 0, 1, 0], _scored_geometry([1] * 4, [1, 0, 1, 1]), 0.0),
+        ([1, 1, 1, 0], [1, 0, 0, 0], _scored_geometry([0] * 4, [1] * 4), float("nan")),
+        # An empty map has no cell to miss.
+        ([0, 0, 0, 0], [1, 0, 0, 0], _scored_geometry([1] * 4, [1] * 4), float("nan")),
+    ],
+    ids=[
+        "two of three missed",
+        "none missed",
+        "off the catchment",
+        "open water",
+        "inactive cell",
+        "no scored cell",
+        "empty map",
+    ],
+)
+def test_the_share_a_map_misses_is_read_on_the_scored_cells(
+    inner, outer, geometry, expected
+) -> None:
+    share = share_outside(np.array(inner, dtype=bool), np.array(outer, dtype=bool), geometry)
+
+    if np.isnan(expected):
+        assert np.isnan(share)
+    else:
+        assert share == pytest.approx(expected)
+
+
+def test_one_per_cent_of_open_water_moves_the_share_it_used_to_ignore() -> None:
+    n_cells = 1200
+    inner = np.zeros(n_cells, dtype=bool)
+    inner[:100] = True
+    outer = np.zeros(n_cells, dtype=bool)
+    outer[:30] = True
+    lake = np.zeros(n_cells, dtype=bool)
+    lake[60:72] = True
+    everywhere = _scored_geometry(np.ones(n_cells), np.ones(n_cells))
+    off_the_lake = _scored_geometry(np.ones(n_cells), np.ones(n_cells), lake)
+
+    assert share_outside(inner, outer, everywhere) == pytest.approx(0.7)
+    assert share_outside(inner, outer, off_the_lake) == pytest.approx(58 / 88)
+
+
+@pytest.mark.parametrize(
+    ("ids", "n_cells", "expected"),
+    [
+        ([2, 3, 4], 8, [2, 3, 4]),
+        ([4, 2, 2, 3], 8, [2, 3, 4]),
+        ([3, 8, -1], 8, [3]),
+        ((i for i in (1, 5)), 8, [1, 5]),
+        ([], 8, None),
+        (None, 8, None),
+        ([8, -1], 8, None),
+    ],
+    ids=[
+        "lake",
+        "repeated ids",
+        "outside the mesh",
+        "a generator",
+        "no lake",
+        "no attribute",
+        "all outside",
+    ],
+)
+def test_the_open_water_mask_marks_the_cells_the_model_was_told(ids, n_cells, expected) -> None:
+    mask = open_water_mask(ids, n_cells)
+
+    if expected is None:
+        assert mask is None
+    else:
+        assert mask.dtype == bool
+        assert mask.shape == (n_cells,)
+        assert np.flatnonzero(mask).tolist() == expected

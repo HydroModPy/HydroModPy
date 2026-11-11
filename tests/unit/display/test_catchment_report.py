@@ -116,7 +116,7 @@ def test_the_solve_time_is_read_from_the_profile_before_metrics_parquet(
     tables = tmp_path / "tables"
     tables.mkdir()
     if metrics_s is not None:
-        pd.DataFrame({"metric_name": [SEALED_SOLVE_METRIC], "value": [metrics_s]}).to_parquet(
+        pd.DataFrame({"metric": [SEALED_SOLVE_METRIC], "value": [metrics_s]}).to_parquet(
             tables / "metrics.parquet"
         )
     if profile_s is not None:

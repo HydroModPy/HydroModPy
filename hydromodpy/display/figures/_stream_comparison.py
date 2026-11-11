@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from matplotlib.collections import PolyCollection
     from matplotlib.legend import Legend
 
-    from hydromodpy.results.derive.stream.extent import VisibleFlow
+    from hydromodpy.core.scoring.stream_defaults import VisibleFlow
     from hydromodpy.results.run import Run
 
 GROUND_COLOR = "#EDEDED"

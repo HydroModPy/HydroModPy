@@ -16,9 +16,9 @@ from hydromodpy.calibration.observations.network_geometry import (
     dam_foot_cells_of_model,
     dense_face_connectivity,
     network_maps_from_run,
-    share_outside,
 )
 from hydromodpy.calibration.observations.observed_network import delineated_outlet_xy
+from hydromodpy.catchment.stream_network.geometry import scored_cells
 from tests._helpers.v_valley import (
     AXIS_COL,
     CELL_SIZE,
@@ -289,12 +289,29 @@ def test_a_mesh_with_no_cell_and_a_model_with_no_mesh_are_refused() -> None:
             )
 
 
-def test_the_share_of_a_map_a_second_one_misses_is_nan_without_cells() -> None:
-    inner = np.array([True, True, True, False])
-    outer = np.array([True, False, False, False])
+class TestTheOpenWaterOfTheModel:
+    """The cells the model was told are water leave the scored cells of a trial."""
 
-    assert share_outside(inner, outer, np.ones(4)) == pytest.approx(2 / 3)
-    assert np.isnan(share_outside(inner, outer, np.zeros(4)))
+    LAKE = [cell_id(30, AXIS_COL), cell_id(31, AXIS_COL), cell_id(31, AXIS_COL + 1)]
+
+    def _maps(self, output, ids):
+        ctx = _run_ctx()
+        ctx.solver_run.solver_model.open_water_cell_ids = ids
+        return network_maps_from_run(ctx, output)
+
+    def test_the_footprint_of_the_lake_is_the_excluded_mask(self, output) -> None:
+        geometry = self._maps(output, list(self.LAKE)).maximal
+
+        assert np.flatnonzero(geometry.excluded).tolist() == sorted(self.LAKE)
+        assert not scored_cells(geometry)[self.LAKE].any()
+        assert scored_cells(geometry).sum() == geometry.catchment.sum() - len(self.LAKE)
+
+    @pytest.mark.parametrize("ids", [None, []], ids=["no attribute value", "no lake"])
+    def test_a_model_without_open_water_excludes_nothing(self, output, ids) -> None:
+        geometry = self._maps(output, ids).maximal
+
+        assert geometry.excluded is None
+        np.testing.assert_array_equal(scored_cells(geometry), geometry.catchment)
 
 
 def test_a_length_is_taken_in_metres_from_a_quantity_or_a_number() -> None:

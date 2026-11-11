@@ -15,7 +15,8 @@ What it refuses
 A directory with no seal, a run without ``inputs.json``, a configuration the
 migration refuses, and an input whose bytes moved. A published copy is read
 from its own ``inputs/``, checked against its install index, and replays into
-the project *base* names.
+the project *base* names. The files a provider delivered are installed by their
+digest in the workspace of that project first.
 
 What it records
 ---------------
@@ -223,7 +224,7 @@ def _play_copy(
     folder = project_root / ".hmp" / "replay"
     workdir = folder / source.name
     try:
-        pointed = payload(source, document, workdir=workdir)
+        pointed = payload(source, document, workdir=workdir, project_root=project_root)
         request = RunRequest(config=pointed, name=read_seal(source).run.name_stem)
         return run_simulation(
             request,

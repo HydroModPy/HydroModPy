@@ -26,6 +26,7 @@ holds the same order.
 | `synthetic/` | analytic catchments with no DEM, for validation, and `[geographic.synthetic]` |
 | `preprocess/` | the pipeline before the simulation: the run, the geographic tree, the `[geographic]` configuration and the runtime objects others read |
 | `drainage/` | where water goes on the cells of the model top: the receiver graph, depression filling, the descent D, the downslope distance, the channel tree of the river network A (`channel_tree.py`) and the routing of a release to a discharge (`routing.py`) |
+| `stream_network/` | the stream-network criterion on arrays: the simulated network, the flowing cells and the extent masks, the mapped network drawn from its heads, the geometry of a comparison and its partition, and the signed cost a trial is scored on |
 
 ## The Whitebox backend
 
@@ -135,12 +136,18 @@ catchment/
 │   └── ...                    domain rasters, sub-basins, store ingestion, cleanup
 └── drainage/                  where water goes on the model top
     ├── graph.py               receiver graph and accumulation
-    ├── filling.py             depression filling
+    ├── filling.py             depression filling, and `priority_flood`, the one flood of the criterion and of D
     ├── pins.py                pinned cells a descent passes through
     ├── descent.py             the descent D
     ├── distance.py            downslope distance to a mask
     ├── channel_tree.py        the river network A read around a mesh, and its projection on the cells
     └── routing.py             a per-cell release routed downstream, and the area upstream of a cell
+└── stream_network/            the stream-network criterion on arrays
+    ├── network.py             what the model calls a stream, from a per-cell release flux
+    ├── extent.py              when a cell flows, how often in a year, and the two extent masks
+    ├── heads.py               the mapped network drawn from its heads, down the descent
+    ├── geometry.py            the static geometry of a comparison, its partition and its supports
+    └── cost.py                the signed gap between an excess of simulated stream and a missing one
 ```
 
 The `__init__.py` files hold a docstring and export no name. A name is imported from the module that defines it, for
@@ -159,7 +166,7 @@ cannot be declared. Another layer of HydroModPy may import only the modules list
 inside of the pipeline stays private (`preprocess/pipeline.py`, `pipeline_steps.py`, `domain_rasters.py`,
 `subbasin.py` and the small configurations it composes).
 
-Four more rules hold inside.
+Five more rules hold inside.
 
 1. `terrain/` imports `core` and itself, and one thing more. `WhiteboxTerrainEngine.__init__` imports
    `catchment.delineation` inside the function, and only when it is given no backend. A third-party engine needs
@@ -171,6 +178,10 @@ Four more rules hold inside.
    `GeographicConfig`, under `TYPE_CHECKING`, and the other modules take the config as an argument.
 4. A third-party terrain engine joins through the entry-point group `hydromodpy.terrain.engine`. The conformance suite
    `tests/contract/test_terrain_engine_contract.py` runs on every engine the registry resolves.
+5. `stream_network/` imports `core`, itself, `drainage/` and `algorithms/`. It is a science folder under rule 6 of the
+   repository, and the imports it still needs outside numpy and one neighbour are listed one by one in the table
+   `ALLOWED_OUTSIDE` of `tests/unit/architecture/test_science_module_imports.py`. That table can only shrink. The
+   readers of the criterion on a stored run stay in `results/derive/stream/`.
 
 Who imports `catchment`: `solver` and `workflow` (most), `model`, `mesh`, `results`, `calibration`, `config`,
 `project` and `data`. The demos that load a whole project TOML live outside the package, in `tools/cases/`.
@@ -186,6 +197,7 @@ Who imports `catchment`: `solver` and `workflow` (most), `model`, `mesh`, `resul
 | a name or place of an output file | `algorithms/geographic_paths.py`, and the tree list of `preprocess/geographic_tree.py` when a resume must find it |
 | a synthetic topography | `synthetic/synthetic_config.py`, then `synthetic/topography.py` |
 | a routing rule or a distance on the model top | `drainage/graph.py`, `drainage/descent.py`, `drainage/distance.py` or `drainage/routing.py` |
+| a rule of the stream-network criterion | the module of `stream_network/` that owns it, with its defaults in `core/scoring/stream_defaults.py` |
 | how the river network A is read or pinned on the cells | `drainage/channel_tree.py` |
 | another country for the departments | a new module beside `administrative/france.py` |
 | a mesh engine | a class that satisfies the port in `hydromodpy/mesh/port.py`, see `docs/source/contribute/architecture/mesh/mesh-engines.rst` |

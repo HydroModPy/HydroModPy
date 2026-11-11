@@ -51,17 +51,16 @@ from hydromodpy.results.derive.virtual_fields import (
     read_field_range_or_virtual,
 )
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.fit_metrics import score_timeseries
 from hydromodpy.results.metric_rule import (
     HEADLINE_WINDOW,
     METRIC_RULE_VERSION,
     DateWindow,
     MetricRule,
-    score,
 )
 from hydromodpy.results.record.manifest import MetricRow, ParameterRow
 from hydromodpy.results.run import Run, ranking
 from hydromodpy.results.run.sealed import MixedWindowsError, metrics_frame
+from hydromodpy.results.score import score_metric, score_timeseries
 from hydromodpy.results.storage.parquet_schemas import primary_key_for
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
@@ -192,8 +191,8 @@ def test_compare_pair_gives_the_scores_the_diff_gives(project) -> None:
         assert (row["A_n"], row["B_n"]) == (side_a["n"], side_b["n"])
 
 
-def test_compare_pair_needs_an_index(tmp_path) -> None:
-    with pytest.raises(FileNotFoundError, match="No catalog"):
+def test_compare_pair_needs_a_project(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError, match="is not a project directory"):
         compare_pair("a", "b", workspace=tmp_path)
 
 
@@ -264,7 +263,7 @@ def _frame(dry: pd.DatetimeIndex) -> pd.DataFrame:
 
 
 def test_every_row_counts_the_dry_periods_of_the_window(caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.results.fit_metrics"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.results.score"):
         scores = score_timeseries(_frame(DRY), rule=RULE)
 
     assert scores.rows
@@ -274,7 +273,7 @@ def test_every_row_counts_the_dry_periods_of_the_window(caplog) -> None:
 
 
 def test_a_wet_run_counts_zero_and_does_not_warn(caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.results.fit_metrics"):
+    with caplog.at_level(logging.WARNING, logger="hydromodpy.results.score"):
         scores = score_timeseries(_frame(DRY[:0]), rule=RULE)
 
     assert {row.n_sim_nan for row in scores.rows} == {0}
@@ -298,9 +297,9 @@ def test_the_store_the_seal_and_the_index_keep_n_sim_nan(tmp_path) -> None:
     rebuild_index(root)
 
     with Catalog(root) as cat:
-        frame = cat.sql("SELECT metric_name, n_sim_nan FROM metrics ORDER BY metric_name")
+        frame = cat.sql("SELECT metric, n_sim_nan FROM metrics ORDER BY metric")
 
-    assert frame.set_index("metric_name")["n_sim_nan"].to_dict() == {"nse": 3, "rmse": 3}
+    assert frame.set_index("metric")["n_sim_nan"].to_dict() == {"nse": 3, "rmse": 3}
 
 
 # A retired spelling (``log_nse_gt``) or a typo used to join no row and return an
@@ -372,7 +371,7 @@ def test_the_core_kernel_clips_instead_of_raising() -> None:
 
 
 def test_the_run_scores_a_negative_value_and_counts_the_clipping() -> None:
-    result = score(BELOW_ZERO, OBSERVED, RULE_2, "nse_log")
+    result = score_metric(BELOW_ZERO, OBSERVED, RULE_2, "nse_log")
 
     assert result.value is not None
     assert np.isfinite(result.value)
@@ -383,17 +382,17 @@ def test_a_clipping_on_the_observed_side_counts_too() -> None:
     observed = OBSERVED.copy()
     observed.iloc[0] = -2.0
 
-    assert score(CLEAN, observed, RULE_2, "nse_log").n_clipped == 1
+    assert score_metric(CLEAN, observed, RULE_2, "nse_log").n_clipped == 1
 
 
 def test_a_clean_series_writes_zero_on_nse_log_and_none_elsewhere() -> None:
-    assert score(CLEAN, OBSERVED, RULE_2, "nse_log").n_clipped == 0
-    assert score(BELOW_ZERO, OBSERVED, RULE_2, "nse").n_clipped is None
-    assert score(BELOW_ZERO, OBSERVED, RULE_2, "rmse").n_clipped is None
+    assert score_metric(CLEAN, OBSERVED, RULE_2, "nse_log").n_clipped == 0
+    assert score_metric(BELOW_ZERO, OBSERVED, RULE_2, "nse").n_clipped is None
+    assert score_metric(BELOW_ZERO, OBSERVED, RULE_2, "rmse").n_clipped is None
 
 
 def test_the_run_score_is_the_calibration_score_on_the_same_pairs() -> None:
-    from_run = score(BELOW_ZERO, OBSERVED, RULE_2, "nse_log")
+    from_run = score_metric(BELOW_ZERO, OBSERVED, RULE_2, "nse_log")
     from_calibration = SeriesCriterion("nse_log", core.log_nse).score(
         BELOW_ZERO.to_numpy(), OBSERVED.to_numpy()
     )
@@ -455,9 +454,9 @@ def test_the_store_the_seal_and_the_index_keep_n_clipped(tmp_path) -> None:
     rebuild_index(root)
 
     with Catalog(root) as cat:
-        frame = cat.sql("SELECT metric_name, n_clipped FROM metrics")
+        frame = cat.sql("SELECT metric, n_clipped FROM metrics")
 
-    assert frame.set_index("metric_name")["n_clipped"].to_dict() == {"nse_log": 2}
+    assert frame.set_index("metric")["n_clipped"].to_dict() == {"nse_log": 2}
 
 
 # Under the ``"consumers"`` policy a field is available only when every term it
@@ -684,7 +683,7 @@ def project_3(tmp_path):
 
 def test_the_index_holds_no_runtime_row(project_3) -> None:
     with Catalog(project_3) as cat:
-        names = set(cat.sql("SELECT metric_name FROM metrics")["metric_name"])
+        names = set(cat.sql("SELECT metric FROM metrics")["metric"])
         variables = set(cat.sql("SELECT variable FROM metrics")["variable"])
     assert names == {"nse"}
     assert variables == {"discharge"}
@@ -702,7 +701,7 @@ def test_show_and_diff_and_compare_pair_list_scores_only(project_3) -> None:
         delta = cat.diff("a", "b")["metrics"]
     assert set(shown["variable"]) == {"discharge"}
     assert {key[0] for key in delta} == {"nse"}
-    assert set(compare_pair("a", "b", workspace=project_3).reset_index()["metric_name"]) == {"nse"}
+    assert set(compare_pair("a", "b", workspace=project_3).reset_index()["metric"]) == {"nse"}
 
 
 def test_soil_budget_declares_its_primary_key() -> None:

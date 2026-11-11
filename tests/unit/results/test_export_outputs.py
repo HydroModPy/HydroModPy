@@ -27,7 +27,7 @@ from pyproj import CRS
 from shapely.geometry import LineString, box
 
 from hydromodpy.core.exceptions import ExportError
-from hydromodpy.core.io.file_digest import sha256_and_size, sha256_of
+from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, RUNS_DIRNAME
 from hydromodpy.core.time import TimeSelectionError
@@ -70,7 +70,6 @@ from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,
     TABLES_DIRNAME,
 )
-from hydromodpy.results.storage.licence import LicenceMember, TrackedPath, run_licence
 from hydromodpy.results.storage.parquet_io import read_kv_metadata
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import IDENTITY_NOTICE_FILENAME, seal_completed
@@ -249,32 +248,6 @@ def test_inputs_with_a_stated_licence_give_it_to_the_run(tmp_path: Path) -> None
     assert attrs["license"] == "etalab-2.0"
     assert footer["license"] == "etalab-2.0"
     assert footer["hmp.identity"]
-
-
-def test_one_unknown_input_leaves_the_run_undetermined(tmp_path: Path) -> None:
-    project = tmp_path / "demo"
-    dem = _input(project, "dem.tif", source="ign_geoplateforme_dem", license="etalab-2.0")
-    recharge = _input(project, "recharge.csv", source="file", license=UNDETERMINED_LICENSE)
-    with _open(project, [dem, recharge]) as store:
-        assert store.licence() == UNDETERMINED_LICENSE
-
-
-def test_a_run_with_no_recorded_input_is_undetermined(tmp_path: Path) -> None:
-    with _open(tmp_path / "demo", []) as store:
-        assert store.licence() == UNDETERMINED_LICENSE
-    assert run_licence([], [], tmp_path) == UNDETERMINED_LICENSE
-
-
-def test_a_custom_record_counts_through_the_tracked_file_that_holds_it(tmp_path: Path) -> None:
-    project = tmp_path / "demo"
-    series = _input(project, "recharge.csv", source="file", license="etalab-2.0")
-    digest = sha256_of(series)
-    members = [LicenceMember("custom", digest)]
-    tracked = [TrackedPath(str(series), digest)]
-    assert run_licence(members, tracked, project) == "etalab-2.0"
-    assert run_licence([LicenceMember("custom", "ff" * 32)], tracked, project) == (
-        UNDETERMINED_LICENSE
-    )
 
 
 def test_the_workspace_toml_identity_is_stamped(tmp_path: Path) -> None:

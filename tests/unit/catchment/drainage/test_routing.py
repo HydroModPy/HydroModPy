@@ -20,6 +20,7 @@ import pytest
 from hydromodpy.catchment.drainage.descent import descent_basin
 from hydromodpy.catchment.drainage.distance import shared_node_adjacency
 from hydromodpy.catchment.drainage.graph import (
+    accumulate_on_downhill_graph,
     build_downhill_graph,
     cell_adjacency_from_face_connectivity,
 )
@@ -29,9 +30,12 @@ from hydromodpy.catchment.drainage.routing import (
     route_release_to_discharge,
     upstream_area,
 )
+from hydromodpy.catchment.stream_network.extent import flowing_cells
+from hydromodpy.core.scoring.stream_defaults import VisibleFlow
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
+from tests._helpers.v_valley import N_CELLS, build_bench
 
 _NROW, _NCOL = 3, 3
 
@@ -391,3 +395,38 @@ def test_a_graph_that_drains_the_basin_reports_one() -> None:
     accumulated = route_release_to_discharge(areas, graph, catchment_mask=mask)
 
     assert largest_drainable_share(areas, accumulated, mask) == pytest.approx(1.0)
+
+
+def _criterion_release(n_dates: int) -> tuple[np.ndarray, np.ndarray]:
+    """A stack of releases on the V-valley bench and the threshold of every cell."""
+    rng = np.random.default_rng(7)
+    release = rng.random((n_dates, N_CELLS)) * 2.0e-6
+    release[:, rng.random(N_CELLS) < 0.1] = np.nan
+    return release, np.full(N_CELLS, 1.0e-6)
+
+
+@pytest.mark.parametrize("n_dates", [1, 4])
+def test_the_discharge_the_criterion_routes_is_the_gauge_routing_to_the_bit(n_dates: int) -> None:
+    bench = build_bench()
+    graph = bench.metric.graph
+    release, threshold = _criterion_release(n_dates)
+    seepage = np.isfinite(release) & (release > threshold[None, :]) & graph.active[None, :]
+
+    routed = route_release_to_discharge(
+        np.where(seepage, release, 0.0), graph, catchment_mask=graph.active
+    )
+
+    expected = np.nan_to_num(
+        accumulate_on_downhill_graph(graph, np.where(seepage, release, 0.0)), nan=0.0
+    )
+    assert np.array_equal(routed, expected)
+
+    visible = VisibleFlow(discharge_m3_s=2.0e-6)
+    flowing = flowing_cells(
+        release if n_dates > 1 else release[0],
+        threshold_m3_s=threshold,
+        metric=bench.metric,
+        visible_flow=visible,
+    ).flowing
+    discharge = routed if n_dates > 1 else routed[0]
+    assert np.array_equal(flowing, (discharge > 0.0) & (discharge >= 2.0e-6) & graph.active)

@@ -498,8 +498,10 @@ def _cross_catalog_checks(workspace: Path | None) -> list[dict]:
 
     import duckdb
 
+    from hydromodpy.core.exceptions import CatalogUnreadableError
     from hydromodpy.core.state.layout import catalog_path_for, project_roots_under
     from hydromodpy.results.catalog.federation import sealed_run_dirs
+    from hydromodpy.results.catalog.index_file import open_index
 
     projects = project_roots_under(workspace)
     unindexed_projects: list[str] = []
@@ -517,8 +519,8 @@ def _cross_catalog_checks(workspace: Path | None) -> list[dict]:
                 unindexed_projects.append(project_root.name)
             continue
         try:
-            conn = duckdb.connect(str(catalog_path), read_only=True)
-        except duckdb.Error:
+            conn = open_index(project_root)
+        except CatalogUnreadableError:
             unindexed_projects.append(project_root.name)
             continue
         try:

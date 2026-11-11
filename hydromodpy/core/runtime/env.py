@@ -110,7 +110,7 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "HMP_STATE_HOME",
         "the user state folder of the platform",
         "user",
-        "Root of the machine state, where the global index ``index.duckdb`` lives. The "
+        "Root of the machine state, the folder of ``credentials.toml``. The "
         "test suite points it at its scratch folder.",
     ),
     EnvVar(

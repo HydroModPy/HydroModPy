@@ -3,7 +3,9 @@
 How a run travels between workspaces: publish a copy with the files it read, install
 that copy elsewhere, replay it from its own bytes. It needs to see both the run
 (`results`) and the data of a workspace (`data`), and no lower layer sees both, so
-it sits here.
+it sits here. A replay of a published copy installs the files a provider delivered by their
+sha256 in the workspace of the project (`install_index` with `files=`), and refuses a file
+whose destination already holds another digest. User files are read in `inputs/`.
 
 ## Import rules
 
@@ -17,7 +19,7 @@ it sits here.
 
 | module | what it answers |
 |---|---|
-| `share.py` | what a published run needs to be installed elsewhere: `run_bundle` (the install index of a sealed run) and `inputs_of` (what `hmp publish --with inputs` passes along) |
+| `share.py` | what a published run needs to be installed elsewhere: `run_bundle` (the install index of a sealed run) and `inputs_of` (what `hmp publish` passes along by default, and `--without inputs` leaves out) |
 | `install.py` | how a copy lands in a workspace: `install_index` (files, station rows, cache rows, sites; every conflict named before anything is written), `import_run` (`hmp catalog import`), `import_project` (`hmp project import`) |
 | `replay.py` | how a published copy runs again from its own bytes: `published_copy_of`, `checked_index`, `input_files_by_role`, `replay_payload` (`ReplayInputError` when an input is missing or altered) |
 
@@ -27,7 +29,7 @@ it sits here.
 exchange/
   share.py     publish side: the install index of a run
   install.py   install side: files, rows and sites into a workspace
-  replay.py    replay side: hmp run <copy>/config.toml --frozen
+  replay.py    replay side: hmp replay <copy>
 ```
 
 ## Where to add what

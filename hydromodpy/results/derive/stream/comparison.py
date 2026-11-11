@@ -3,13 +3,19 @@
 The calibration criterion builds this partition during a trial and hands it to
 nobody: it scores it and moves on. A map of it is what a reader actually looks
 at, so this module rebuilds it from what the run persisted, through the SAME
-construction the criterion used (:mod:`hydromodpy.results.derive.stream.geometry`), and
+construction the criterion used (:mod:`hydromodpy.catchment.stream_network.geometry`), and
 hands it to any figure that asks.
 
 Rebuilding rather than persisting is deliberate. The partition depends on a
 threshold the reader is allowed to move, and on the mapped network the project
 declares; recomputing it costs one graph build and three ``O(n_cells)`` passes,
 under a second on a seven thousand cell mesh, which is nothing beside a solve.
+
+What the criterion read beside the mesh is persisted by the run and read back
+here, never derived again: the centers of the solver, the cells of open water, the
+cells of the catchment outline and the mean recharge
+(:mod:`hydromodpy.results.derive.stream.criterion_inputs`). The figure therefore
+scores the cells the trials scored.
 
 Nothing here names a solver. The run has to carry a per-cell release flux, a
 mapped hydrographic network and a delineated watershed, and every backend that
@@ -18,35 +24,34 @@ produces those gets the same comparison.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 
 from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
 from hydromodpy.catchment.drainage.distance import downslope_distance_to_mask
-from hydromodpy.catchment.drainage.graph import cell_centroids_from_mesh
-from hydromodpy.core.logging import get_logger
-from hydromodpy.core.scoring.stream_defaults import (
-    STREAM_CRITERION_DEFAULTS,
-    ObservedRasterization,
-)
-from hydromodpy.core.units import factor_to_m_per_s
-from hydromodpy.model.forcing.recharge_rates import (
-    CRITERION_MEAN_RECHARGE_ATTR,
-    criterion_mean_recharge,
-    forcing_period_rates,
-)
-from hydromodpy.results.derive.stream.geometry import (
+from hydromodpy.catchment.stream_network.geometry import (
     CriterionSupports,
     NetworkGeometry,
     build_network_geometry,
     criterion_supports,
 )
-from hydromodpy.results.derive.stream.heads import HeadsSettings
-from hydromodpy.results.derive.stream.network import build_simulated_network
-from hydromodpy.results.derive.time_alignment import run_period_edges
+from hydromodpy.catchment.stream_network.heads import HeadsSettings
+from hydromodpy.catchment.stream_network.network import build_simulated_network
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scoring.stream_defaults import (
+    STREAM_CRITERION_DEFAULTS,
+    ObservedRasterization,
+)
+from hydromodpy.mesh.planar.geometry import cell_polygons
+from hydromodpy.results.derive.stream.criterion_inputs import (
+    basin_reference,
+    map_heads,
+    mapped_cells,
+    snapped_outlet,
+)
+from hydromodpy.results.run.geographic import geographic_metadata
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -126,14 +131,11 @@ def no_release_flux_reason(sim: Run) -> str:
     return _with_kept_budget("run has no per-cell release_flux", "release_flux", sim)
 
 
-def no_recharge_reason(sim: Run, ratio: float) -> str:
+def no_recharge_reason() -> str:
     """Say why the recharge a seepage threshold is a fraction of cannot be read."""
-    return _with_kept_budget(
-        f"a seepage threshold of tau = {float(ratio):g} is a fraction of the recharge the "
-        "model received, and this run persisted no recharge budget and no dated "
-        "recharge forcing",
-        "recharge",
-        sim,
+    return (
+        "This run kept no criterion mean recharge, so a seepage threshold cannot be read "
+        "on it. Replay it with hmp replay, or set tau_specific_ratio = 0."
     )
 
 
@@ -169,6 +171,11 @@ def unavailable_reason_for_comparison(sim: Run, *, role: str = _REFERENCE_ROLE) 
         return "run persisted no mesh topography to route on"
     if not mesh.crs:
         return "run declares no projected CRS, so the mapped network cannot be placed"
+    if sim.descent.open_water() is None:
+        return (
+            "run kept no open-water cells of its mesh (mesh/open_water), which the criterion "
+            "leaves out of both supports. Replay it with hmp replay"
+        )
     return None
 
 
@@ -227,28 +234,15 @@ def network_comparison_from_run(
     another mask than the watershed the run stores, and the redraw knows only the
     watershed.
 
-    The centers used here are the polygon centroids of the faces, because a
-    persisted mesh stores no other. On a Voronoi dual the solver sampled its top
-    at the generator seeds instead, and a trial joins those seeds too when it
-    draws the mapped network by ``"crossing"``. So a comparison redrawn from the
-    store can route, and mark the mapped cells, marginally differently from the
-    one a trial scored, and its D_so, D_os and J can differ with it. It is exact
-    on any mesh whose cells are parallelograms, which every structured grid is.
-
-    ``catchment_mismatch`` reads the stored watershed by the center of the cells,
-    as a trial reads its outline, and ``basin_mismatch`` the stored basin of D. A
-    run stores the delineated polygon and not the outline the planner smoothed, so
-    on a mesh that followed a smoothed outline the two can differ by the cells whose
-    center the smoothing moved across.
+    The centers are the ones the run stored (``mesh.cell_centers()``), which are the
+    centers the solver sampled its top at, the generator seeds on a Voronoi mesh.
+    ``catchment_mismatch`` reads the cells of the catchment outline the run stored,
+    and ``basin_mismatch`` the stored basin of D. Cells of open water leave both
+    supports, as in a trial.
     """
     reason = unavailable_reason_for_comparison(sim, role=role)
     if reason is not None:
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
-
-    from hydromodpy.catchment.algorithms.network_heads import network_head_candidates
-    from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
-    from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
-    from hydromodpy.mesh.planar.geometry import cell_polygons
 
     mesh = sim.mesh
     vertices = np.asarray(mesh.vertices, dtype=float)
@@ -260,61 +254,49 @@ def network_comparison_from_run(
         [0.0 if polygon is None else float(polygon.area) for polygon in polygons],
         dtype=float,
     )
+    centres = np.asarray(mesh.cell_centers(), dtype=float)
 
     network = sim.hydrographic_network(role)
     if network is None or network.empty:
         raise ValueError(f"the {role!r} hydrographic network of {sim.sim_id} holds no feature.")
+    lines = list(network.geometry)
+    outlet_xy = _snapped_outlet_of(sim)
     observed: np.ndarray | None = None
     heads: tuple[HeadCandidates, HeadsSettings] | None = None
     if observed_rasterization == "heads":
-        # The foot of each dam of the run is a head of its own (the stored D keeps it).
         heads = (
-            replace(
-                network_head_candidates(
-                    list(network.geometry),
-                    mesh_crs=mesh.crs,
-                    geometry_crs=network.crs,
-                    **(_cut_of_the_map(sim) if clip_map_to_catchment else {}),
-                ),
-                forced_cells=np.asarray(sim.descent.dam_foot, dtype=np.int64),
+            map_heads(
+                lines,
+                mesh_crs=mesh.crs,
+                geometry_crs=network.crs,
+                outlet_xy=outlet_xy,
+                dam_foot=np.asarray(sim.descent.dam_foot, dtype=np.int64),
+                **(_cut_of_the_map(sim) if clip_map_to_catchment else {}),
             ),
             HeadsSettings(
                 snap_radius_m=float(heads_snap_radius_m),
                 min_drained_area_m2=float(heads_min_drained_area_km2) * 1.0e6,
             ),
         )
-    elif observed_rasterization == "touch":
-        observed = np.asarray(
-            vector_cell_mask(
-                polygons,
-                list(network.geometry),
-                mesh_crs=mesh.crs,
-                geometry_crs=network.crs,
-            ),
-            dtype=bool,
-        )
-    elif observed_rasterization == "crossing":
-        # The persisted mesh stores no other centers than its vertices give,
-        # the same ones the descent below routes on.
-        observed = np.asarray(
-            line_crossing_cell_mask(
-                polygons,
-                vertices,
-                connectivity,
-                cell_centroids_from_mesh(vertices, connectivity),
-                list(network.geometry),
-                mesh_crs=mesh.crs,
-                geometry_crs=network.crs,
-            ).mask,
-            dtype=bool,
-        )
+    elif observed_rasterization in ("crossing", "touch"):
+        observed = mapped_cells(
+            observed_rasterization,
+            lines,
+            polygons=polygons,
+            vertices=vertices,
+            connectivity=connectivity,
+            centres=centres,
+            mesh_crs=mesh.crs,
+            geometry_crs=network.crs,
+        ).mask
     else:
         raise ValueError(
             "observed_rasterization must be 'heads', 'crossing' or 'touch', "
             f"got {observed_rasterization!r}."
         )
 
-    outline = _watershed_catchment(sim, polygons, mesh.crs)
+    open_water = np.asarray(sim.descent.open_water(), dtype=bool)
+    outline = sim.descent.catchment_cells()
     geometry = build_network_geometry(
         topography=topography,
         face_node_connectivity=connectivity,
@@ -322,11 +304,15 @@ def network_comparison_from_run(
         observed=observed,
         heads=heads,
         cell_area_m2=areas,
-        mean_recharge_m_s=_mean_recharge_m_s(sim, areas, ratio=tau_specific_ratio),
+        cell_centroids=centres,
+        mean_recharge_m_s=_criterion_recharge(sim, ratio=tau_specific_ratio),
         tau_specific_ratio=float(tau_specific_ratio),
-        delineated_catchment=_delineated_catchment(sim, outline),
+        excluded=open_water if open_water.any() else None,
+        delineated_catchment=basin_reference(
+            sim.descent.stored_basin(), outline, source=f"run {sim.sim_id}"
+        ),
         catchment_outline=outline,
-        delineated_outlet_xy=_delineated_outlet_xy(sim),
+        delineated_outlet_xy=outlet_xy,
         diagonal_neighbors=bool(diagonal_neighbors),
         observed_position_accuracy_m=observed_position_accuracy_m,
         alpha_warning_threshold=float(alpha_warning_threshold),
@@ -380,228 +366,29 @@ def _cut_of_the_map(sim: Run) -> dict[str, object]:
     return {"cut_outline": watershed.union_all(), "cut_crs": watershed.crs}
 
 
-def _delineated_catchment(sim: Run, outline: np.ndarray | None) -> np.ndarray | None:
-    """Return the catchment of the run on the cells, the basin of D it stores.
-
-    That is the reference the trials of the run measured their
-    ``basin_mismatch`` against. A run sealed before the basin was stored
-    keeps the old reference, the delineated watershed projected by the center
-    of the cells, and says so. The largest basin of a synthetic domain is no
-    catchment: the watershed stands in, and a domain without one gives ``None``.
-    """
-    stored = sim.descent.stored_basin()
-    if stored is not None and stored[1].get("basin_rule") != "largest_basin":
-        return np.array(stored[0], dtype=bool)
-    if outline is not None and stored is None:
-        logger.warning(
-            "Stream comparison: run %s stores no basin of D, so the catchment mismatch is "
-            "measured against the old reference 'polygon_centroid', as its trials were.",
-            sim.sim_id,
-        )
-    return outline
-
-
-def _watershed_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.ndarray | None:
-    """Project the delineated watershed onto the cells, by their center.
-
-    None for a synthetic domain, whose stored box is the domain and no catchment,
-    as a trial reads it.
-    """
-    from hydromodpy.catchment.synthetic.synthetic_config import SYNTHETIC_CATCH_DEF
-    from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
-    from hydromodpy.results.run.geographic import geographic_metadata
-
-    if geographic_metadata(sim).get("catch_def") == SYNTHETIC_CATCH_DEF:
-        return None
-    try:
-        watershed = sim.geographic("watershed")
-    except (KeyError, ValueError, FileNotFoundError) as exc:
-        logger.warning(
-            "Stream comparison: run %s carries no delineated watershed (%s), so "
-            "catchment_mismatch has no outline to read, and a run without a basin of D "
-            "re-derives its catchment by descending the model top to its own largest basin. "
-            "On a real surface that basin is an internal depression.",
-            sim.sim_id,
-            type(exc).__name__,
-        )
-        return None
-    if watershed is None or watershed.empty:
-        return None
-    return np.asarray(
-        vector_cell_mask(
-            polygons,
-            list(watershed.geometry),
-            mesh_crs=mesh_crs,
-            geometry_crs=watershed.crs,
-            rule="centroid",
-        ),
-        dtype=bool,
-    )
-
-
-def _delineated_outlet_xy(sim: Run) -> tuple[float, float] | None:
-    """Return the snapped outlet the geographic step delineated from, or ``None``.
-
-    The trial places its outlet from this same point, so the redraw closes the
-    same catchment. ``None`` for a catchment drawn as a polygon.
-    """
-    from hydromodpy.results.run.geographic import geographic_metadata
-
+def _snapped_outlet_of(sim: Run) -> tuple[float, float] | None:
+    """Return the snapped pour point the geographic step stored, or ``None``."""
     meta = geographic_metadata(sim)
-    try:
-        point = (float(meta["x_outlet_snapped"]), float(meta["y_outlet_snapped"]))
-    except (KeyError, TypeError, ValueError):
-        return None
-    return point if np.all(np.isfinite(point)) else None
+    return snapped_outlet(meta.get("x_outlet_snapped"), meta.get("y_outlet_snapped"))
 
 
-def _mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
-    """Return the mean recharge rate of the run, in m/s, as the trials read it.
+def _criterion_recharge(sim: Run, *, ratio: float) -> float:
+    """Return the mean recharge the trials read, 0 for a purely geometric criterion.
 
-    The criterion's one rule (:mod:`hydromodpy.model.forcing.recharge_rates`). A run
-    keeps on its ``forcing`` group the number its trials read from the built
-    model, for a station series and for a grid alike, and that number is read
-    back here. A solver that holds no recharge on its model keeps none.
-
-    Such a run rebuilds the rates from the forcing it stores, put on the run's
-    own period edges by the rule the solver forcing is built by, so a steady
-    spin-up period counts at its own rate. The budget the solver wrote holds the
-    record mean there instead: on the monthly Nancon, 8.634e-9 m/s against the
-    9.062e-9 every trial scored with. The budget is read only when the run stores
-    no forcing, or no dates to place it on. A zero ratio makes the threshold zero
-    whatever the recharge is, so the run is not asked for one. The gates ask
-    :func:`has_recharge_source`, which answers from the same sources.
+    A zero ratio makes the threshold zero whatever the recharge is, so the run is
+    not asked for one. Any other ratio needs the number the run kept.
     """
     if float(ratio) == 0.0:
         return 0.0
-    kept = _kept_criterion_mean_recharge(sim)
-    if kept is not None:
-        return kept
-    forcing = _recharge_forcing_on_periods(sim)
-    if forcing is not None:
-        stored, edges = forcing
-        return criterion_mean_recharge(
-            list(forcing_period_rates(stored, edges)),
-            durations=_edge_lengths_s(edges),
-        )
-    if not sim.has_field("recharge"):
-        raise ValueError(
-            f"stream comparison unavailable for {sim.sim_id}: {no_recharge_reason(sim, ratio)}. "
-            "Or set tau_specific_ratio = 0 to read the purely geometric criterion."
-        )
-    return _budget_mean_recharge_m_s(sim, areas)
+    kept = sim.descent.criterion_recharge()
+    if kept is None:
+        raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {no_recharge_reason()}")
+    return float(kept)
 
 
 def has_recharge_source(sim: Run) -> bool:
-    """Return whether the mean recharge of a positive seepage threshold can be read.
-
-    The one predicate the gates and the computation share: the number the run
-    kept, the forcing it stores on its period edges, else the recharge budget. A
-    run with any of them computes the criterion.
-    """
-    return (
-        _kept_criterion_mean_recharge(sim) is not None
-        or _recharge_forcing_on_periods(sim) is not None
-        or sim.has_field("recharge")
-    )
-
-
-def _kept_criterion_mean_recharge(sim: Run) -> float | None:
-    """Return the mean recharge the run kept when it ran, in m/s, or None."""
-    open_zarr = getattr(getattr(sim, "_catalog", None), "open_zarr", None)
-    if not callable(open_zarr):
-        return None
-    store = open_zarr(sim.sim_id)
-    try:
-        forcing = store.root.get("forcing")
-        kept = None if forcing is None else forcing.attrs.get(CRITERION_MEAN_RECHARGE_ATTR)
-    finally:
-        store.close()
-    return None if kept is None else float(kept)
-
-
-def _recharge_forcing_on_periods(sim: Run) -> tuple[pd.Series, pd.DatetimeIndex] | None:
-    """Return the stored station forcing and the period edges to place it on, or None."""
-    stored = _stored_recharge_forcing_m_s(sim)
-    if stored is None:
-        return None
-    edges = run_period_edges(sim)
-    return None if edges is None else (stored, edges)
-
-
-def _stored_recharge_forcing_m_s(sim: Run) -> pd.Series | None:
-    """Return the station recharge forcing the run stores, stations averaged, in m/s.
-
-    None when the run stores none under ``forcing/recharge``. Stations are
-    averaged before the periods, as the forcing bridge averages them.
-    """
-    open_zarr = getattr(getattr(sim, "_catalog", None), "open_zarr", None)
-    if not callable(open_zarr):
-        return None
-    store = open_zarr(sim.sim_id)
-    try:
-        forcing = store.root.get("forcing")
-        group = forcing.get("recharge") if forcing is not None else None
-        if group is None or not hasattr(group, "group_keys"):
-            return None
-        stations: list[pd.Series] = []
-        for key in group.group_keys():
-            node = group[key]
-            if "timestamps" not in node or "values" not in node:
-                continue
-            stamps = np.asarray(node["timestamps"][:], dtype="int64").view("datetime64[ns]")
-            values = np.asarray(node["values"][:], dtype="float64")
-            # The data managers hand recharge over in mm/day.
-            factor = factor_to_m_per_s(str(node.attrs.get("unit") or "mm/day"))
-            stations.append(pd.Series(values * factor, index=pd.DatetimeIndex(stamps)))
-    finally:
-        store.close()
-    if not stations:
-        return None
-    return pd.concat(stations, axis=1).mean(axis=1)
-
-
-def _edge_lengths_s(edges: pd.DatetimeIndex) -> np.ndarray:
-    """Return the length of each period between its edges, in seconds."""
-    return (edges[1:] - edges[:-1]).total_seconds().to_numpy(dtype=float)
-
-
-def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray) -> float:
-    """Return the mean recharge rate of the budget the solver wrote, in m/s.
-
-    Every timestep counts by its length, its cells by their area, and once when
-    the run has no dates for its steps. The last timestep alone is one day of a
-    transient run: 4.5 times the mean on the daily Nancon run.
-    """
-    from hydromodpy.results.derive.stream.extent import CHUNK_ELEMENTS
-    from hydromodpy.results.run.geographic import field_steps
-
-    n_steps = sim.n_timesteps
-    steps = list(range(int(n_steps))) if n_steps else [-1]
-    per_pass = max(1, CHUNK_ELEMENTS // max(1, int(areas.size)))
-    rates: list[float] = []
-    for first in range(0, len(steps), per_pass):
-        chunk = steps[first : first + per_pass]
-        stack = np.asarray(field_steps(sim, "recharge", chunk), dtype=float)
-        if stack.ndim == 3:
-            # Recharge is stored (time, layer, cell): sum onto the cell index
-            # rather than flattening layers into extra columns.
-            stack = stack.sum(axis=1)
-        for recharge_m3_s in stack.reshape(len(chunk), -1):
-            usable = np.isfinite(recharge_m3_s) & np.isfinite(areas) & (areas > 0.0)
-            if np.any(usable):
-                rates.append(float(recharge_m3_s[usable].sum() / areas[usable].sum()))
-    edges = run_period_edges(sim)
-    durations = None
-    if edges is not None and len(edges) == len(rates) + 1:
-        durations = _edge_lengths_s(edges)
-    try:
-        return criterion_mean_recharge(rates, durations=durations)
-    except ValueError as exc:
-        raise ValueError(
-            f"stream comparison unavailable for {sim.sim_id}: its recharge budget holds "
-            "no finite value on a cell of finite area."
-        ) from exc
+    """Return whether the run kept the mean recharge a positive seepage threshold needs."""
+    return sim.descent.criterion_recharge() is not None
 
 
 def agreement_label(value: int) -> str:

@@ -56,9 +56,9 @@ from hydromodpy.core.scoring.metrics import (
     nse_seasonal,
 )
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
-from hydromodpy.results.fit_metrics import score_timeseries
 from hydromodpy.results.metric_rule import DateWindow, MetricRule
 from hydromodpy.results.record.checks import Validity
+from hydromodpy.results.score import score_timeseries
 from tests._helpers.tolerances import tol
 from tests.unit.calibration._factories import _score
 
@@ -900,8 +900,8 @@ def test_the_block_route_reads_the_paired_dates() -> None:
 #
 # The same series, the same declared window: the calibration scores it while it
 # searches, and the run promoted from it is scored again by
-# :mod:`hydromodpy.results.fit_metrics` once sealed. Nothing tied the two: the
-# promotion tests use a stand-in, and ``fit_metrics`` was imported by its own
+# :mod:`hydromodpy.results.score` once sealed. Nothing tied the two: the
+# promotion tests use a stand-in, and the run scorer was imported by its own
 # tests only.
 #
 # They used to disagree (N1 of the audit of 2026-10-20). The session kept the

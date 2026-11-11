@@ -14,16 +14,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.calibration.metrics.downslope_network import (
-    DISTANCE_METHOD,
-    MAXIMAL_SUFFIX,
-    MINIMAL_SUFFIX,
-    VALIDATION_SUFFIX,
-    SeepageDistanceResult,
-    score_on_geometry,
-    weighted_pair,
-    with_suffix,
-)
 from hydromodpy.calibration.metrics.gauge_snap import GaugeSnapError, snap_to_most_accumulated
 from hydromodpy.calibration.metrics.observable_scoring import (
     dated_series,
@@ -43,6 +33,28 @@ from hydromodpy.calibration.observations.network_geometry import (
     mesh_cell_m,
     network_maps_from_run,
 )
+from hydromodpy.catchment.stream_network.cost import (
+    DISTANCE_METHOD,
+    MAXIMAL_SUFFIX,
+    MINIMAL_SUFFIX,
+    VALIDATION_SUFFIX,
+    SeepageDistanceResult,
+    score_on_geometry,
+    weighted_pair,
+    with_suffix,
+)
+from hydromodpy.catchment.stream_network.extent import (
+    Bound,
+    CalendarYears,
+    calendar_years,
+    dry_steps,
+    extent_masks,
+    extent_step_problems,
+    flowing_steps,
+    parse_extent_duration,
+    yearly_flow_counts,
+)
+from hydromodpy.catchment.stream_network.network import build_simulated_network
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
     ObservableResult,
@@ -54,23 +66,11 @@ from hydromodpy.core.exceptions import (
     SolverInputError,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.scoring.stream_defaults import parse_visible_flow
 from hydromodpy.core.time import nominal_step_days
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.units.quantities import normalize_m3_per_s_unit
-from hydromodpy.results.derive.stream.extent import (
-    Bound,
-    CalendarYears,
-    calendar_years,
-    dry_steps,
-    extent_masks,
-    extent_step_problems,
-    flowing_steps,
-    parse_extent_duration,
-    parse_visible_flow,
-    yearly_flow_counts,
-)
-from hydromodpy.results.derive.stream.network import build_simulated_network
 from hydromodpy.solver.base.plan import RunContext
 from hydromodpy.solver.base.registry import solvers
 
@@ -764,7 +764,7 @@ def _score_two_bounds(
     ``first_year_scored``, ``last_year_scored``, and ``year_scored_y<year>``
     for every year the run touches, 1 when scored and 0 when left out,
     incomplete or outside the window. The stack is read one year at a time by
-    :func:`hydromodpy.results.derive.stream.extent.yearly_flow_counts`. The maximal mask
+    :func:`hydromodpy.catchment.stream_network.extent.yearly_flow_counts`. The maximal mask
     is scored against the maximal map, the minimal mask against the minimal
     map when one is declared, and each year's masks the same way as a
     diagnostic. With one bound the unsuffixed components carry it, as in one
@@ -940,7 +940,7 @@ def score_network_output(
     - both maps: ``frac_minimal_outside_maximal``.
     - every bound: ``r_optim_valid`` (``D_optim <= validity_length_m``),
       ``validity_length_m`` and ``validity_length_provenance``, the code of
-      :data:`hydromodpy.results.derive.stream.geometry.VALIDITY_PROVENANCE_CODE`.
+      :data:`hydromodpy.core.scoring.stream_defaults.VALIDITY_PROVENANCE_CODE`.
 
     ``saturated_thickness`` is the per-cell field of the same run. It feeds
     :func:`catchment_saturation` only and never enters the value; it is read

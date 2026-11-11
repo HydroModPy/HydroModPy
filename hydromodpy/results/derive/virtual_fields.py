@@ -518,7 +518,7 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
     A ``(len(timesteps), n_cells)`` float array of 1 and 0: 1 where the network
     criterion counts the cell as flowing at that step. "Flowing" is the
     definition the criterion scores and the stream maps draw
-    (:func:`hydromodpy.results.derive.stream.extent.flowing_cells`), cut with the
+    (:func:`hydromodpy.catchment.stream_network.extent.flowing_cells`), cut with the
     settings of the run's sealed network output: its seepage threshold, its
     graph and its visible flow. A run that sealed none takes the criterion's
     defaults. The graph is built once for every step.
@@ -529,12 +529,9 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
         The run cannot say which cells flow: no ``release_flux``, no network
         to build the graph on, or no recharge for a positive threshold.
     """
+    from hydromodpy.catchment.stream_network.extent import CHUNK_ELEMENTS, flowing_cells
+    from hydromodpy.core.scoring.stream_defaults import parse_visible_flow
     from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
-    from hydromodpy.results.derive.stream.extent import (
-        CHUNK_ELEMENTS,
-        flowing_cells,
-        parse_visible_flow,
-    )
     from hydromodpy.results.derive.stream.run_extent import (
         FLOW_FIELD,
         flow_geometry_from_run,

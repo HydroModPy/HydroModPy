@@ -25,7 +25,7 @@ cells of a line one cell wide.
 
 The default rule, ``"heads"``, draws no cell from the lines: it keeps their free
 ends (:func:`observed_head_candidates`) and the criterion traces them down its
-own graph (:mod:`hydromodpy.results.derive.stream.heads`).
+own graph (:mod:`hydromodpy.catchment.stream_network.heads`).
 """
 
 from __future__ import annotations
@@ -36,11 +36,17 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
-from hydromodpy.catchment.algorithms.network_heads import HeadCandidates, network_head_candidates
+from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
 from hydromodpy.core.logging import get_logger
-from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
-from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
 from hydromodpy.mesh.planar.geometry import cell_polygons
+from hydromodpy.results.derive.stream.criterion_inputs import (
+    basin_reference,
+    catchment_cells,
+    declared_crs,
+    map_heads,
+    mapped_cells,
+    snapped_outlet,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.observations.network_source import ObservedNetwork
@@ -69,9 +75,7 @@ class ObservedNetworkMask:
 
 def _declared_crs(run_ctx: RunContext) -> str | None:
     """Return the projected CRS the run declares, if it declares one."""
-    geographic = getattr(run_ctx.state.setup, "geographic", None)
-    crs = getattr(geographic, "crs_project", None) or getattr(geographic, "crs_proj", None)
-    return str(crs) if crs else None
+    return declared_crs(getattr(run_ctx.state.setup, "geographic", None))
 
 
 def observed_network_mask(
@@ -99,45 +103,25 @@ def observed_network_mask(
     else the solver mesh's ``cell_centers()``, the generator seeds on a
     Voronoi mesh.
     """
-    if rasterization == "heads":
-        raise ValueError(
-            "map.drawn_by 'heads' draws the map on the criterion graph, from "
-            "the free ends of the lines, so it has no cell projection here: build the "
-            "network geometry with the head candidates of observed_head_candidates."
-        )
-    if rasterization not in ("crossing", "touch"):
-        raise ValueError(f"map.drawn_by must be 'crossing' or 'touch', got {rasterization!r}.")
     frame, mesh_crs = _placeable(run_ctx, observed)
 
     vertices = np.asarray(planar_mesh.vertices, dtype=float)
     polygons = cell_polygons(vertices, face_node_connectivity)
-    n_fallback = 0
-    n_outside = 0
-    if rasterization == "touch":
-        mask = np.asarray(
-            vector_cell_mask(
-                polygons,
-                list(frame.geometry),
-                mesh_crs=mesh_crs,
-                geometry_crs=observed.crs,
-            ),
-            dtype=bool,
-        )
-    else:
-        crossed = line_crossing_cell_mask(
-            polygons,
-            vertices,
-            face_node_connectivity,
-            _criterion_centres(run_ctx, cell_centres),
-            list(frame.geometry),
-            mesh_crs=mesh_crs,
-            geometry_crs=observed.crs,
-        )
-        mask = np.asarray(crossed.mask, dtype=bool)
-        n_fallback = crossed.n_fallback_parts
-        n_outside = crossed.n_outside_parts
-        if n_outside:
-            _report_unplaced_reaches(run_ctx, observed, polygons, vertices, mesh_crs, n_outside)
+    drawn = mapped_cells(
+        rasterization,
+        list(frame.geometry),
+        polygons=polygons,
+        vertices=vertices,
+        connectivity=face_node_connectivity,
+        centres=_criterion_centres(run_ctx, cell_centres) if rasterization == "crossing" else None,
+        mesh_crs=mesh_crs,
+        geometry_crs=observed.crs,
+    )
+    mask = drawn.mask
+    n_fallback = drawn.n_fallback_parts
+    n_outside = drawn.n_outside_parts
+    if n_outside:
+        _report_unplaced_reaches(run_ctx, observed, polygons, vertices, mesh_crs, n_outside)
     logger.info(
         "Mapped stream network (%s%s): %d feature(s) projected onto %d mesh cell(s) by the "
         "%s rule%s%s.",
@@ -161,20 +145,24 @@ def observed_network_mask(
     )
 
 
-def observed_head_candidates(run_ctx: RunContext, observed: ObservedNetwork) -> HeadCandidates:
+def observed_head_candidates(
+    run_ctx: RunContext, observed: ObservedNetwork, *, dam_foot: Any = ()
+) -> HeadCandidates:
     """Return the free ends of the resolved stream geometry, in the mesh CRS.
 
     The same checks as :func:`observed_network_mask`: a map with no feature,
-    no CRS, or a run with no projected CRS is refused by name.
+    no CRS, or a run with no projected CRS is refused by name. ``dam_foot`` are
+    the cells below the dams of the model, each a head of its own.
     """
     frame, mesh_crs = _placeable(run_ctx, observed)
-    candidates = network_head_candidates(
+    candidates = map_heads(
         list(frame.geometry),
         mesh_crs=mesh_crs,
         geometry_crs=observed.crs,
         cut_outline=observed.cut_outline,
         cut_crs=observed.cut_crs,
         outlet_xy=delineated_outlet_xy(run_ctx),
+        dam_foot=dam_foot,
     )
     logger.info(
         "Mapped stream network (%s%s): %d feature(s), %d free end(s) examined as heads, "
@@ -427,40 +415,6 @@ def _criterion_centres(run_ctx: RunContext, cell_centres: np.ndarray | None) -> 
     return np.asarray(centroids(), dtype=float)
 
 
-def water_body_mask(model: Any, *, n_cells: int) -> np.ndarray | None:
-    """Return the cells whose surface-water extent is an input of the model.
-
-    The generic name is not "lake": it is every cell whose water extent the
-    model is told rather than asked. A trace of hydrography drawn across a
-    reservoir is not the observation of a stream, and a lake cell exchanging
-    water is not a hillslope seepage, so those cells leave both supports. They
-    stay in the graph, because a hillslope cell upstream of the reservoir has
-    to be able to descend through it, and they stay in the target, because open
-    water is surface water and must absorb the path.
-
-    This is the same cut the stream-network builder already applies on the
-    simulated side, where a reach is cut at the lake cell and its flow handed
-    over at the shoreline. One rule, two consumers.
-
-    The backend publishes that footprint as ``open_water_cell_ids``: every lake
-    cell of the run, whether the lake is solved as an inactive fixed-area
-    reservoir or kept active for its varying level. Reading the inactive subset
-    instead would leave a marnage reservoir inside both supports, and the
-    question asked here is whether the cell is open water, not how the lake is
-    discretized.
-    """
-    ids = getattr(model, "open_water_cell_ids", None)
-    if ids is None:
-        return None
-    limit = int(n_cells)
-    inside = sorted({int(cell) for cell in ids if 0 <= int(cell) < limit})
-    if not inside:
-        return None
-    mask = np.zeros(limit, dtype=bool)
-    mask[inside] = True
-    return mask
-
-
 def delineated_outlet_xy(run_ctx: RunContext) -> tuple[float, float] | None:
     """Return the outlet the geographic step delineated from, in the project CRS.
 
@@ -473,12 +427,10 @@ def delineated_outlet_xy(run_ctx: RunContext) -> tuple[float, float] | None:
     from a point, or when the run carries no geographic step.
     """
     geographic = getattr(run_ctx.state.setup, "geographic", None)
-    x = getattr(geographic, "x_outlet_snapped", None)
-    y = getattr(geographic, "y_outlet_snapped", None)
-    if x is None or y is None:
-        return None
-    point = (float(x), float(y))
-    return point if np.all(np.isfinite(point)) else None
+    return snapped_outlet(
+        getattr(geographic, "x_outlet_snapped", None),
+        getattr(geographic, "y_outlet_snapped", None),
+    )
 
 
 def delineated_catchment_mask(
@@ -505,17 +457,15 @@ def delineated_catchment_mask(
     """
     model = run_ctx.solver_run.solver_model
     basin = getattr(model, "descent_basin", None)
-    if basin is not None and basin.is_catchment:
-        return np.array(basin.mask, dtype=bool)
-    polygon = catchment_outline_mask(run_ctx, planar_mesh, face_node_connectivity)
-    if polygon is not None and basin is None:
-        # A model with no such attribute builds no D (Boussinesq): expected.
-        log = logger.warning if hasattr(model, "descent_basin") else logger.info
-        log(
-            "Network criterion: the model carries no basin of D, so the catchment mismatch "
-            "is measured against the old reference 'polygon_centroid'."
-        )
-    return polygon
+    # The outline is read only when the basin cannot stand for the catchment.
+    outline = (
+        None
+        if basin is not None and basin.is_catchment
+        else catchment_outline_mask(run_ctx, planar_mesh, face_node_connectivity)
+    )
+    return basin_reference(
+        basin, outline, source="the model", builds_d=hasattr(model, "descent_basin")
+    )
 
 
 def catchment_outline_mask(
@@ -540,22 +490,8 @@ def catchment_outline_mask(
     frame = catchment_outline(getattr(setup, "geographic", None), getattr(setup, "cell_mesh", None))
     if frame is None:
         return None
-    mesh_crs = _declared_crs(run_ctx)
-    if not mesh_crs:
-        return None
-
     polygons = cell_polygons(np.asarray(planar_mesh.vertices, dtype=float), face_node_connectivity)
-    # A catchment is areal, so a cell belongs to it when its CENTER is inside.
-    # The touch rule of the linework would add one exterior ring of cells that
-    # lie mostly outside the divide, and that ring would read as a mismatch
-    # against the graph catchment that is not one.
-    return vector_cell_mask(
-        polygons,
-        list(frame.geometry),
-        mesh_crs=mesh_crs,
-        geometry_crs=frame.crs,
-        rule="centroid",
-    )
+    return catchment_cells(polygons, frame, mesh_crs=_declared_crs(run_ctx))
 
 
 __all__ = (
@@ -566,5 +502,4 @@ __all__ = (
     "observed_head_candidates",
     "observed_network_mask",
     "resolve_minimal_network",
-    "water_body_mask",
 )

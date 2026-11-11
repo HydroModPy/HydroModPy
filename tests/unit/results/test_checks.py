@@ -107,3 +107,31 @@ def test_the_calibration_extent_flattens_next_to_the_session_and_the_cost_of_the
     bare = make_checks(calibrated_by=by.model_copy(update={"windows": {}})).flatten()
     assert bare["calibrated_by_window_start"] is None
     assert make_checks(calibrated_by=None).flatten()["calibrated_by_metric"] is None
+
+
+@pytest.mark.parametrize(
+    ("fields", "rule", "components"),
+    [
+        ({}, None, {}),
+        (
+            {"rule": "2", "components": {"discharge.nse": 0.12, "discharge.n_paired": 24.0}},
+            "2",
+            {"discharge.nse": 0.12, "discharge.n_paired": 24.0},
+        ),
+        (
+            {"rule": "2", "components": {"network.j": float("inf")}},
+            "2",
+            {"network.j": float("inf")},
+        ),
+    ],
+    ids=["a_seal_without_them", "the_objective_of_the_case", "a_component_that_is_infinite"],
+)
+def test_the_objective_of_a_promoted_run_is_sealed_with_it(fields, rule, components):
+    by = CalibratedBy(session_id="s", trial=1, session_status="completed", cost=0.12, **fields)
+    checks = make_checks(calibrated_by=by)
+
+    read = Checks.model_validate_json(checks.model_dump_json(by_alias=True))
+
+    assert (read.calibrated_by.rule, read.calibrated_by.components) == (rule, components)
+    assert read.schema_ == CHECKS_SCHEMA == "hydromodpy.checks.v2"
+    assert set(checks.flatten()) == set(CHECK_COLUMNS)

@@ -12,21 +12,31 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import geopandas as gpd
+import numpy as np
+import pandas as pd
 import pytest
+from shapely.geometry import box
 
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.exceptions import ConfigError, NothingThereError, SolverInputError
 from hydromodpy.core.state.run_state import RunState
+from hydromodpy.mesh.planar.geometry import cell_polygons
+from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR
 from hydromodpy.model.model import ModelOptions
+from hydromodpy.results.derive.stream.criterion_inputs import catchment_cells
 from hydromodpy.results.storage.kept import Retention
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
 from hydromodpy.workflow.steps.run_outputs import (
+    _keep_what_the_criterion_reads,
     cleanup_solver_outputs,
     derive_run_outputs,
     extract_run_outputs,
 )
 from tests._helpers.fake_solvers import fake_adapter
 from tests._helpers.model_factory import make_model
+from tests._helpers.ugrid_meshes import quad_mesh
 from tests.unit.solver.modflow_common.solver_runs import keep_all, retention, solved_run
 
 
@@ -76,7 +86,7 @@ def _install(monkeypatch, isolated_solvers, *, category: str = "distributed") ->
         "hydromodpy.workflow.steps.run_outputs._finalize_run_provenance", lambda **_kwargs: None
     )
     monkeypatch.setattr(
-        "hydromodpy.workflow.steps.run_outputs._keep_the_criterion_recharge",
+        "hydromodpy.workflow.steps.run_outputs._keep_what_the_criterion_reads",
         lambda **_kwargs: None,
     )
     monkeypatch.setattr(
@@ -266,3 +276,156 @@ def test_a_run_without_a_model_cannot_be_derived(case: str, monkeypatch, isolate
 
     with pytest.raises(ConfigError, match="no Model to derive from"):
         derive_run_outputs(ctx=ctx, store=_Store())
+
+
+# The run keeps what the stream criterion read: the mean recharge, the cells of open
+# water and the cells inside the catchment outline. The functions are the ones a trial
+# calls, so a figure redrawn from the store scores what the trials scored.
+CRS = "EPSG:2154"
+GRID_ROWS, GRID_COLUMNS, CELL_M = 3, 4, 100.0
+N_GRID_CELLS = GRID_ROWS * GRID_COLUMNS
+
+
+class _KeptStore:
+    """The open store of a run whose field store holds a mesh of twelve cells."""
+
+    sim_id = "sim-12345678"
+    save_zarr = True
+
+    def __init__(self, tmp_path: Path) -> None:
+        self.path = tmp_path / "fields.zarr"
+        self.fields_path = self.path
+        self.facts = SimpleNamespace(period_start=None)
+        SimulationZarr.create(self.path, n_cells=N_GRID_CELLS, n_layers=1).close()
+        vertices, faces = quad_mesh(GRID_ROWS, GRID_COLUMNS, cell_size=CELL_M)
+        with SimulationZarr(self.path) as fields:
+            fields.write_mesh(vertices, faces, np.zeros((2, N_GRID_CELLS)))
+
+    def open_zarr(self, _sim_id: str) -> SimulationZarr:
+        return SimulationZarr(self.path)
+
+    def stored(self, name: str) -> np.ndarray | None:
+        with SimulationZarr(self.path) as fields:
+            mesh = fields.root["mesh"]
+            return None if name not in mesh else np.asarray(mesh[name][:])
+
+
+def _kept_context(tmp_path: Path, *, lake=None, outline: bool = True, lumped: bool = False):
+    vertices, faces = quad_mesh(GRID_ROWS, GRID_COLUMNS, cell_size=CELL_M)
+    shp = None
+    if outline:
+        shp = tmp_path / "watershed.gpkg"
+        gpd.GeoDataFrame(geometry=[box(0.0, 0.0, 2 * CELL_M, GRID_ROWS * CELL_M)], crs=CRS).to_file(
+            shp, driver="GPKG"
+        )
+    mesh = SimpleNamespace(
+        n_cells=N_GRID_CELLS,
+        planar_mesh=SimpleNamespace(vertices=vertices, flat_connectivity=faces),
+        cell_areas=lambda: np.full(N_GRID_CELLS, CELL_M * CELL_M),
+    )
+    model = SimpleNamespace(
+        recharge=pd.Series([2.0e-8]),
+        open_water_cell_ids=lake,
+        **({} if lumped else {"solver_mesh": mesh}),
+    )
+    geographic = SimpleNamespace(watershed_shp=shp, crs_project=CRS)
+    context = _context(
+        solver_run=SolverRun(slot=RunSlot(Path("scratch"), "island"), solver_model=model)
+    )
+    context.state.setup.geographic = geographic
+    return context, geographic, vertices, faces
+
+
+def test_the_run_keeps_the_open_water_the_outline_and_the_recharge_its_trials_read(
+    tmp_path,
+) -> None:
+    store = _KeptStore(tmp_path)
+    ctx, geographic, vertices, faces = _kept_context(tmp_path, lake=[3, 4, 99])
+
+    _keep_what_the_criterion_reads(ctx=ctx, sim_id=store.sim_id, store=store)
+
+    assert np.flatnonzero(store.stored("open_water")).tolist() == [3, 4]
+    outline = gpd.read_file(geographic.watershed_shp)
+    expected = catchment_cells(cell_polygons(vertices, faces), outline, mesh_crs=CRS)
+    assert expected.any() and not expected.all()
+    np.testing.assert_array_equal(store.stored("catchment_cells"), expected)
+    with SimulationZarr(store.path) as fields:
+        kept = fields.root["forcing"].attrs[CRITERION_MEAN_RECHARGE_ATTR]
+    assert kept == pytest.approx(2.0e-8)
+
+
+def test_a_run_without_a_lake_keeps_an_open_water_mask_that_is_all_false(tmp_path) -> None:
+    store = _KeptStore(tmp_path)
+    ctx, *_ = _kept_context(tmp_path, lake=None)
+
+    _keep_what_the_criterion_reads(ctx=ctx, sim_id=store.sim_id, store=store)
+
+    mask = store.stored("open_water")
+    assert mask.shape == (N_GRID_CELLS,)
+    assert not mask.any()
+
+
+def test_a_run_without_an_outline_keeps_no_catchment_cells(tmp_path) -> None:
+    store = _KeptStore(tmp_path)
+    ctx, *_ = _kept_context(tmp_path, outline=False)
+
+    _keep_what_the_criterion_reads(ctx=ctx, sim_id=store.sim_id, store=store)
+
+    assert store.stored("open_water") is not None
+    assert store.stored("catchment_cells") is None
+
+
+def test_a_run_with_no_cell_mesh_keeps_no_cell_mask(tmp_path) -> None:
+    store = _KeptStore(tmp_path)
+    ctx, *_ = _kept_context(tmp_path, lumped=True)
+
+    _keep_what_the_criterion_reads(ctx=ctx, sim_id=store.sim_id, store=store)
+
+    assert store.stored("open_water") is None
+    assert store.stored("catchment_cells") is None
+
+
+def test_a_run_without_a_model_keeps_nothing(tmp_path) -> None:
+    store = _KeptStore(tmp_path)
+
+    _keep_what_the_criterion_reads(ctx=_context(), sim_id=store.sim_id, store=store)
+
+    assert store.stored("open_water") is None
+
+
+def _kept_recharge(store: _KeptStore) -> Any:
+    with SimulationZarr(store.path) as fields:
+        return fields.root["forcing"].attrs.get(CRITERION_MEAN_RECHARGE_ATTR)
+
+
+def test_a_transport_run_of_the_same_store_leaves_the_kept_recharge_intact(tmp_path) -> None:
+    store = _KeptStore(tmp_path)
+    flow, *_ = _kept_context(tmp_path, lake=[3])
+    _keep_what_the_criterion_reads(ctx=flow, sim_id=store.sim_id, store=store)
+    transport = _context(
+        process_type="transport",
+        solver_run=SolverRun(slot=RunSlot(Path("scratch"), "island"), solver_model=object()),
+    )
+
+    _keep_what_the_criterion_reads(ctx=transport, sim_id=store.sim_id, store=store)
+
+    assert _kept_recharge(store) == pytest.approx(2.0e-8)
+    assert np.flatnonzero(store.stored("open_water")).tolist() == [3]
+
+
+@pytest.mark.parametrize("case", ["no_field_store", "save_zarr_off"])
+def test_a_run_that_keeps_no_field_store_gains_none(case: str, tmp_path) -> None:
+    opened: list[str] = []
+    store = SimpleNamespace(
+        sim_id="sim-12345678",
+        save_zarr=case != "save_zarr_off",
+        fields_path=tmp_path / "fields.zarr",
+        open_zarr=opened.append,
+    )
+    if case == "save_zarr_off":
+        store.fields_path.mkdir()
+    ctx, *_ = _kept_context(tmp_path)
+
+    _keep_what_the_criterion_reads(ctx=ctx, sim_id=store.sim_id, store=store)
+
+    assert opened == []

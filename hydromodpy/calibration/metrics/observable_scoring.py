@@ -32,7 +32,6 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.calibration.config import STATION_VARIABLES, implicit_station_scoring
-from hydromodpy.calibration.metrics.downslope_network import MAXIMAL_SUFFIX, MINIMAL_SUFFIX
 from hydromodpy.calibration.metrics.observed_pairing import (
     PairedOutputs,
     observing_outputs,
@@ -40,6 +39,7 @@ from hydromodpy.calibration.metrics.observed_pairing import (
     pair_outputs_with_observations,
 )
 from hydromodpy.calibration.optim.objective import SimulationOutput, build_objective_from_config
+from hydromodpy.catchment.stream_network.cost import MAXIMAL_SUFFIX, MINIMAL_SUFFIX
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_edges, periods_in_window

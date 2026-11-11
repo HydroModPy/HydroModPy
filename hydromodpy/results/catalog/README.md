@@ -2,14 +2,15 @@
 
 This folder answers how the runs of a project are found, ranked and compared. The index `.hmp/index.duckdb` is
 derived from the run and session directories, and it can be rebuilt at any time. `Catalog` reads it and nothing
-more. The indexer is the only writer.
+more. The indexer is the only writer, and `Catalog` builds the index when it is missing or comes from another build, then reads it.
 
 ## How the work flows
 
 1. `registration.py` reserves the name of a run directory (`reserve_version_dirname`) and computes the identity
    hashes of a configuration.
-2. The indexer (`indexer.py`) reads every run, session and kept trial into a staging file. It publishes that file
-   in one rename. `rebuild_index` does the whole tree and `index_new_runs` does a diff.
+2. The indexer (`indexer.py`) takes the lock `.hmp/index.duckdb.lock` (a lease of 600 s renewed every 100 entries,
+   a wait of 120 s), reads every run, session and kept trial into a staging file opened by `index_file.py`, checks
+   that it still holds the lock, and publishes that file in one rename. A pass with nothing to do takes no lock. `rebuild_index` does the whole tree and `index_new_runs` does a diff.
 3. `index_schema.py` is the DDL of the index. A change of schema is a full rebuild. `views.py` adds the summary views.
 4. `Catalog` (`facade.py`) opens the index read-only through the `CatalogBackend` port, with its adapter in
    `adapters/duckdb.py`.
@@ -31,6 +32,7 @@ catalog/
 ├── schema.py          tables, columns and describe
 ├── constants.py       metric direction, SIMULATIONS_FROM
 ├── indexer.py         the only writer of the index, and the reindex calls
+├── index_file.py      the only opener of the index file, blocks of 16 KiB, open_staging
 ├── index_schema.py    DDL and schema version
 ├── views.py           summary views written with the tables
 ├── registration.py    run directory names, identity hashes

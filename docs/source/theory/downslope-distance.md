@@ -541,10 +541,10 @@ appears here on the next build.
 ```{hmp-tested-by}
 hydromodpy.catchment.drainage.distance
 hydromodpy.catchment.drainage.filling
-hydromodpy.results.derive.stream.geometry
-hydromodpy.results.derive.stream.heads
-hydromodpy.results.derive.stream.network
-hydromodpy.calibration.metrics.downslope_network
+hydromodpy.catchment.stream_network.geometry
+hydromodpy.catchment.stream_network.heads
+hydromodpy.catchment.stream_network.network
+hydromodpy.catchment.stream_network.cost
 hydromodpy.calibration.criteria.hydrographic_network_distance
 ```
 
@@ -554,10 +554,10 @@ hydromodpy.calibration.criteria.hydrographic_network_distance
 |---|---|
 | The flood on the mesh graph | `hydromodpy/catchment/drainage/filling.py` |
 | The receivers and the distance to a set | `hydromodpy/catchment/drainage/distance.py` |
-| The outlet, the catchment, $h_{obs}$, $V$, the supports | `hydromodpy/results/derive/stream/geometry.py` |
-| The heads rule | `hydromodpy/results/derive/stream/heads.py` |
+| The outlet, the catchment, $h_{obs}$, $V$, the supports | `hydromodpy/catchment/stream_network/geometry.py` |
+| The heads rule | `hydromodpy/catchment/stream_network/heads.py` |
 | The crossing rule | `hydromodpy/mesh/cells/crossed_by_lines.py` |
-| The means and the criterion | `hydromodpy/calibration/metrics/downslope_network.py` |
+| The means and the criterion | `hydromodpy/catchment/stream_network/cost.py` |
 | The two estimators | `hydromodpy/calibration/criteria/hydrographic_network_distance.py` |
 | The root search | `hydromodpy/calibration/optim/adapters/bisection_adapter.py` |
 

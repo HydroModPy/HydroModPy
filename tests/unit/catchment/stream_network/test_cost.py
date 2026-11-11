@@ -1,4 +1,4 @@
-"""Tests of `metrics.downslope_network`."""
+"""Tests of `stream_network.cost`, on the V-valley bench and a diagonal valley."""
 
 from __future__ import annotations
 
@@ -16,34 +16,34 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_gap,
     distance_mean,
 )
-from hydromodpy.calibration.metrics.downslope_network import (
+from hydromodpy.catchment.drainage.distance import (
+    downslope_distance_to_mask,
+    longest_descent_length,
+)
+from hydromodpy.catchment.stream_network import geometry as stream_geometry
+from hydromodpy.catchment.stream_network.cost import (
     DISTANCE_METHOD,
     SeepageDistanceResult,
     secondary_diagnostics,
     seepage_distance_cost,
     weighted_pair,
 )
-from hydromodpy.calibration.observations.observed_network import water_body_mask
-from hydromodpy.catchment.drainage.distance import (
-    downslope_distance_to_mask,
-    longest_descent_length,
-)
-from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
-from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
-from hydromodpy.mesh.planar.geometry import cell_polygons
-from hydromodpy.results.derive.stream import geometry as stream_geometry
-from hydromodpy.results.derive.stream.geometry import (
+from hydromodpy.catchment.stream_network.geometry import (
     CriterionSupports,
     build_network_geometry,
     criterion_supports,
+    open_water_mask,
     recharge_session,
 )
-from hydromodpy.results.derive.stream.network import (
+from hydromodpy.catchment.stream_network.network import (
     SimulatedNetwork,
     build_simulated_network,
     downstream_closure,
     specific_seepage_threshold,
 )
+from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
+from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
+from hydromodpy.mesh.planar.geometry import cell_polygons
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,
@@ -54,6 +54,7 @@ from tests._helpers.v_valley import (
     N_COLS,
     N_ROWS,
     THRESHOLDS,
+    build_bench,
     cell_id,
     observed_network,
     simulated_network,
@@ -219,6 +220,11 @@ def test_the_criterion_returns_nan_for_an_empty_network() -> None:
 
 
 @pytest.fixture(scope="module")
+def bench():
+    return build_bench()
+
+
+@pytest.fixture(scope="module")
 def geometry(bench):
     """The static half a calibration computes once and reuses at every trial."""
     outlet_mask = np.zeros(N_CELLS, dtype=bool)
@@ -283,53 +289,6 @@ def _rows_from(first_row: int) -> np.ndarray:
         for col in range(N_COLS):
             mask[cell_id(row, col)] = True
     return mask
-
-
-class TestSimulatedNetwork:
-    def test_the_threshold_is_strict(self, bench) -> None:
-        flux = np.array([0.0, 1.0, 2.0] + [0.0] * (N_CELLS - 3))
-        network = build_simulated_network(
-            flux, threshold_m3_s=np.full(N_CELLS, 1.0), metric=bench.metric
-        )
-        # A cell releasing exactly its threshold is not a stream.
-        assert not network.seepage[1]
-        assert network.seepage[2]
-
-    def test_the_network_is_the_closure_of_the_seepage(self, bench) -> None:
-        network = _network_from_threshold(bench, 200.0)
-        assert np.array_equal(network.network, downstream_closure(bench.metric, network.seepage))
-        assert network.n_network >= network.n_seepage
-        assert 0.0 < network.continuity <= 1.0
-
-    def test_a_transient_stack_is_read_at_its_last_state(self, bench) -> None:
-        stack = np.zeros((3, N_CELLS))
-        stack[0, 5] = 10.0
-        stack[-1, 7] = 10.0
-        network = build_simulated_network(
-            stack, threshold_m3_s=np.zeros(N_CELLS), metric=bench.metric
-        )
-        assert network.seepage[7]
-        assert not network.seepage[5]
-
-    def test_a_mismatched_cell_count_is_refused(self, bench) -> None:
-        with pytest.raises(ValueError, match="the mesh holds"):
-            build_simulated_network(np.zeros(7), threshold_m3_s=np.zeros(7), metric=bench.metric)
-
-
-class TestSpecificThreshold:
-    def test_it_scales_with_the_cell_area(self) -> None:
-        threshold = specific_seepage_threshold(np.array([100.0, 900.0]), 1e-8, ratio=1e-4)
-        # A cell nine times larger carries a threshold nine times larger, so the
-        # mask follows the physics rather than the mesh refinement.
-        assert threshold[1] / threshold[0] == pytest.approx(9.0)
-
-    def test_a_zero_ratio_reproduces_the_paper(self) -> None:
-        threshold = specific_seepage_threshold(np.array([100.0]), 1e-8, ratio=0.0)
-        assert threshold.tolist() == [0.0]
-
-    def test_a_negative_ratio_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="must be positive"):
-            specific_seepage_threshold(np.array([1.0]), 1e-8, ratio=-1.0)
 
 
 class TestSignedGap:
@@ -520,7 +479,7 @@ class TestWaterBodyWiring:
     def test_the_lake_cells_a_model_carries_leave_both_supports(self, bench, geometry) -> None:
         cells = self._lake_cells()
         model = SimpleNamespace(open_water_cell_ids=list(cells))
-        mask = water_body_mask(model, n_cells=N_CELLS)
+        mask = open_water_mask(model.open_water_cell_ids, N_CELLS)
 
         assert mask is not None
         assert sorted(np.flatnonzero(mask).tolist()) == sorted(cells)
@@ -532,8 +491,8 @@ class TestWaterBodyWiring:
         assert with_lake.components["n_network_sim"] < without.components["n_network_sim"]
 
     def test_a_model_without_lakes_leaves_the_supports_untouched(self, bench, geometry) -> None:
-        assert water_body_mask(SimpleNamespace(open_water_cell_ids=[]), n_cells=N_CELLS) is None
-        assert water_body_mask(SimpleNamespace(), n_cells=N_CELLS) is None
+        assert open_water_mask([], N_CELLS) is None
+        assert open_water_mask(None, N_CELLS) is None
 
         observed = observed_network("aligned")
         without = _evaluate(bench, geometry, observed, 200.0)
@@ -542,7 +501,7 @@ class TestWaterBodyWiring:
 
     def test_a_cell_outside_the_mesh_is_dropped(self) -> None:
         model = SimpleNamespace(open_water_cell_ids=[3, N_CELLS, -1])
-        mask = water_body_mask(model, n_cells=N_CELLS)
+        mask = open_water_mask(model.open_water_cell_ids, N_CELLS)
         assert np.flatnonzero(mask).tolist() == [3]
 
     def test_the_modflow6_builder_writes_the_attribute_the_criterion_reads(self) -> None:

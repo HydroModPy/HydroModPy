@@ -27,7 +27,7 @@ from hydromodpy.results.derive.stream.comparison import network_comparison_from_
 from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
 
 if TYPE_CHECKING:
-    from hydromodpy.results.derive.stream.geometry import NetworkGeometry
+    from hydromodpy.catchment.stream_network.geometry import NetworkGeometry
     from hydromodpy.results.run import Run
 
 __all__ = ("MapHeads", "NetworkHeadsView", "network_heads_view_from_run")
@@ -44,7 +44,7 @@ class MapHeads:
     ``lost_xy`` are the free ends no landing cell was found for. ``forced_xy``
     are the centers of the forced heads, the foot of each dam of the run: they
     are not free ends of the map and have no landing. ``indices`` is
-    :attr:`hydromodpy.results.derive.stream.heads.HeadTrace.indices`.
+    :attr:`hydromodpy.catchment.stream_network.heads.HeadTrace.indices`.
     """
 
     traced: np.ndarray

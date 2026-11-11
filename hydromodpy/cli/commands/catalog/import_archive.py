@@ -1,8 +1,8 @@
 """``hmp catalog import`` - bring a run published by ``hmp publish`` into the project.
 
 A thin wrapper of :func:`hydromodpy.project.exchange.install.import_run`: the run lands
-under ``runs/`` and is indexed, and a copy published ``--with inputs`` installs
-every file it read into the ``data/`` of the workspace, with its station rows,
+under ``runs/`` and is indexed, and a copy carries its inputs unless it was published
+with ``--without inputs``, so it installs every file it read into the ``data/`` of the workspace, with its station rows,
 its data cache rows and its site. The command ends with the two commands that
 replay the run and compare the replay with it.
 """
@@ -36,7 +36,8 @@ def register(subparsers) -> argparse.ArgumentParser:
             "read without its .vN: a published x.v2 becomes x in a project that has\n"
             "no x. Pass --name to give it the name other documents cite.\n"
             "\n"
-            "A copy published with --with inputs installs every file the run read\n"
+            "A copy carries its inputs unless it was published with --without inputs,\n"
+            "so it installs every file the run read\n"
             "into data/ of the workspace: identical bytes already there cost nothing,\n"
             "other bytes at the same path are refused by name, and nothing is written.\n"
             "\n"

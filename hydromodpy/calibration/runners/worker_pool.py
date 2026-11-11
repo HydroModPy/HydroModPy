@@ -49,9 +49,9 @@ from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention
 from hydromodpy.calibration.runners.lanes import TrialParents
 from hydromodpy.calibration.runners.sandbox import sandbox_of
 from hydromodpy.calibration.runners.trial import trial_pipeline_initializer
+from hydromodpy.catchment.stream_network.geometry import recharge_session
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.logging import current_verbosity, set_verbosity
-from hydromodpy.results.derive.stream.geometry import recharge_session
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.runners.trial import TrialContext

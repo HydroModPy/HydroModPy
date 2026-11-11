@@ -17,20 +17,18 @@ import pandas as pd
 import pytest
 
 from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
-from hydromodpy.results.derive.stream.extent import (
-    GEOMETRIC,
-    VisibleFlow,
+from hydromodpy.catchment.drainage.routing import route_release_to_discharge
+from hydromodpy.catchment.stream_network.extent import (
     calendar_years,
     extent_masks,
     extent_step_problems,
     flow_persistence,
     flowing_cells,
-    parse_visible_flow,
     quorum_count,
-    routed_discharge,
     yearly_flow_counts,
 )
-from hydromodpy.results.derive.stream.network import build_simulated_network
+from hydromodpy.catchment.stream_network.network import build_simulated_network
+from hydromodpy.core.scoring.stream_defaults import GEOMETRIC, VisibleFlow, parse_visible_flow
 from tests._helpers.v_valley import N_CELLS, build_bench, simulated_network
 
 RELEASE = 1.0e-6
@@ -135,7 +133,11 @@ class TestFlowing:
     def test_the_routed_discharge_never_falls_downstream(self, bench) -> None:
         release = _release(bench, 20.0)
         seepage = release > 0.0
-        discharge = routed_discharge(bench.metric, release, seepage)
+        discharge = route_release_to_discharge(
+            np.where(seepage, release, 0.0),
+            bench.metric.graph,
+            catchment_mask=bench.metric.graph.active,
+        )
         downstream = bench.metric.graph.downstream
         cells = np.flatnonzero(downstream >= 0)
         assert np.all(discharge[downstream[cells]] >= discharge[cells] - 1e-18)
@@ -168,7 +170,11 @@ class TestFlowing:
             outlet=bench.outlet,
         )
         for row in range(2):
-            discharge = routed_discharge(bench.metric, stack[row], stack[row] > 0.0)
+            discharge = route_release_to_discharge(
+                np.where(stack[row] > 0.0, stack[row], 0.0),
+                bench.metric.graph,
+                catchment_mask=bench.metric.graph.active,
+            )
             required = 0.05 * discharge[bench.outlet]
             expected = np.nan_to_num(discharge) >= required
             np.testing.assert_array_equal(state.flowing[row], expected & (discharge > 0.0))
