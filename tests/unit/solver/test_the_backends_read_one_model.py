@@ -15,13 +15,14 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
-from dataclasses import fields, is_dataclass, replace
+from dataclasses import dataclass, fields, is_dataclass, replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
+from pydantic import BaseModel
 
 from hydromodpy.calibration.metrics import solver_extract
 from hydromodpy.calibration.optim.parameters import ParameterSpace
@@ -77,10 +78,12 @@ def _digest(value: object) -> str:
     """A digest of a model that walks dataclasses, mappings, sequences and arrays.
 
     A read-only mapping cannot be pickled, so the model is walked member by member.
-    Anything else is read through its dumped fields or its ``repr``.
+    Anything else is read through its dumped fields or its ``repr``. The walk keeps
+    every object it has seen alive, because a dumped mapping is a temporary and a
+    later one could take the id of a freed one and be read as already seen.
     """
     hasher = hashlib.sha256()
-    seen: set[int] = set()
+    seen: dict[int, object] = {}
 
     def feed(item: object) -> None:
         if isinstance(item, np.ndarray):
@@ -96,7 +99,7 @@ def _digest(value: object) -> str:
         if id(item) in seen:
             hasher.update(b"<seen>")
             return
-        seen.add(id(item))
+        seen[id(item)] = item
         hasher.update(type(item).__name__.encode())
         if is_dataclass(item) and not isinstance(item, type):
             for member in fields(item):
@@ -116,6 +119,24 @@ def _digest(value: object) -> str:
 
     feed(value)
     return hasher.hexdigest()
+
+
+class _Rate(BaseModel):
+    value: float
+
+
+@dataclass(frozen=True)
+class _TwoRates:
+    first: _Rate
+    second: _Rate
+
+
+def test_the_digest_tells_two_models_apart_by_their_dumped_members() -> None:
+    """Two members dumped one after the other are both read, so a change shows."""
+    one = _digest(_TwoRates(_Rate(value=1.0), _Rate(value=2.0)))
+    other = _digest(_TwoRates(_Rate(value=1.0), _Rate(value=3.0)))
+
+    assert one != other
 
 
 def _space() -> ParameterSpace:
