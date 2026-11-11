@@ -2,7 +2,7 @@
 
 Why
 ---
-``hmp project status`` answers from ``plan/current`` and from the
+``hmp ls --plan`` answers from ``plan/current`` and from the
 directories of the cases, never from the index. The state of an attempt is
 the one its directory says (``outcome.json``, the pulse of
 ``logs/heartbeat.json``, ``manifest.json``): running, completed, partial,
@@ -65,7 +65,7 @@ CaseStatus = Literal[
     "aborted",
     "stale",
 ]
-"""What ``hmp project status`` says about one case."""
+"""What ``hmp ls --plan`` says about one case."""
 
 PLAN_STATES: frozenset[str] = frozenset({"planned", "invalid", "skipped", "stale_plan"})
 """States of the plan, never written in the index."""
@@ -100,6 +100,23 @@ class StatusRow:
     error: str | None = None
 
 
+CASE_COLUMNS: tuple[str, ...] = (
+    "case_id",
+    "site",
+    "recipe",
+    "status",
+    "rel_dir",
+    "attempt",
+    "step",
+    "started_at",
+    "ended_at",
+    "host",
+    "pid",
+    "error",
+)
+"""The members of a :class:`StatusRow` that ``StatusReport.to_dict`` and ``hmp ls --plan`` print."""
+
+
 @dataclass(frozen=True, slots=True)
 class StatusReport:
     """The status of every case of the current plan."""
@@ -115,6 +132,32 @@ class StatusReport:
         for row in self.rows:
             out[row.status] = out.get(row.status, 0) + 1
         return out
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the report as JSON: ``plan_hash``, ``plan_stale``, ``counts`` and ``cases``.
+
+        Each case holds the :data:`CASE_COLUMNS` as text, with an empty string for
+        a value that is not there and a date to the second. This is the document
+        ``hmp ls --plan --format json`` prints.
+        """
+        return {
+            "plan_hash": self.plan_hash,
+            "plan_stale": self.plan_stale,
+            "counts": self.counts(),
+            "cases": [
+                {column: _cell(getattr(row, column)) for column in CASE_COLUMNS}
+                for row in self.rows
+            ],
+        }
+
+
+def _cell(value: object) -> str:
+    """Return *value* as the text of one cell of a case."""
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.isoformat(timespec="seconds")
+    return str(value)
 
 
 def _run_state(run_dir: Path, *, now: datetime, stale_after_s: float) -> EffectiveStatus:

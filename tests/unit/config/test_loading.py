@@ -24,7 +24,7 @@ from hydromodpy.config.loading import (
     load,
     read_document,
 )
-from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, forget_old_forms_told
+from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
 
@@ -36,12 +36,6 @@ DOCUMENT: dict[str, Any] = {
     "simulation": {"name": "island"},
 }
 OLD_TABLE = {"modflow6": {"process_specific": {"vka": 2.0}}}
-
-
-@pytest.fixture(autouse=True)
-def _told_again() -> None:
-    """A warning is told once per file and key, so each test starts from none told."""
-    forget_old_forms_told()
 
 
 def _project(root: Path, document: dict[str, Any] = DOCUMENT) -> Path:

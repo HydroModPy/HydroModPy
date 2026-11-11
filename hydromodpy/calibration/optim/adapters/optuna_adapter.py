@@ -18,6 +18,15 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace, refuse_normal_sampling
 
+# Optuna marks ``constant_liar`` as experimental when a sampler is built with it, and
+# the warning names this module because the call is made here.
+_EXPERIMENTAL_ARGUMENT = {
+    "message": r".*experimental.*The interface can change in the future",
+    "category": Warning,
+    "module": r"hydromodpy\.calibration\.optim\.adapters\.optuna_adapter",
+}
+warnings.filterwarnings("ignore", **_EXPERIMENTAL_ARGUMENT)
+
 
 def _samplers(optuna_module):
     return {
@@ -60,9 +69,7 @@ class OptunaAdapter:
             # flight as the worst so far keeps the next points from landing on them.
             # Measured on analytic costs: neutral at a width of 2, better from 4.
             sampler_kwargs["constant_liar"] = True
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", optuna.exceptions.ExperimentalWarning)
-            sampler_obj = sampler_cls(**sampler_kwargs)
+        sampler_obj = sampler_cls(**sampler_kwargs)
         # Silence optuna's INFO chatter unless user overrides externally.
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         self._study = optuna.create_study(sampler=sampler_obj, direction=direction)

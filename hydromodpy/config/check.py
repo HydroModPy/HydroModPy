@@ -25,7 +25,6 @@ for a reader.
 from __future__ import annotations
 
 import copy
-import warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import SimpleNamespace
@@ -44,6 +43,7 @@ from hydromodpy.config.section_loader import (
     validate_sections,
 )
 from hydromodpy.core.config_kit.base import CANNOT_REWRITE, ConfigKeyRenamedWarning
+from hydromodpy.core.config_kit.said import Said, collecting
 from hydromodpy.core.config_kit.written import written_experimental_keys
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import HydroModPyError
@@ -80,12 +80,10 @@ def check(
 ) -> list[Diagnostic]:
     """Check a configuration document and return every diagnostic it holds.
 
-    The warnings of the sections are caught with ``warnings.catch_warnings``,
-    which swaps the warning filters of the whole process for the call. This
-    breaks rule 15 of the repository: a check beside another check, or beside a
-    run, in another thread can lose or take the warnings of the other. It holds
-    until the validators of the sections return their warnings as values, and no
-    server or thread may call ``check`` before.
+    The warnings of the sections are collected in a sink the call opens
+    (``core/config_kit/said.py``). The sink belongs to the calling thread, so a
+    check beside another check, or beside a run, in another thread keeps its own
+    warnings and never touches the filters of the process.
 
     Parameters
     ----------
@@ -125,8 +123,7 @@ def check(
     base = Path(base).expanduser().resolve()
     raw = copy.deepcopy(dict(document))
     found = _old_forms(raw)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
+    with collecting() as said_by_sections:
         resolved = resolve_document(root, raw, base=base, forced_root=None, in_a_file=False)
         sections, faults = validate_sections(root, resolved, base=base)
         faults = [*resolved.faults, *faults]
@@ -144,7 +141,7 @@ def check(
         Diagnostic(path="", code="cross_warning", severity="warning", detail=text, keys=())
         for text in said
     )
-    found.extend(_said_by_the_sections(caught))
+    found.extend(_said_by_the_sections(said_by_sections))
     if built is not None:
         found.extend(
             Diagnostic(path=key, code="experimental_key", severity="warning")
@@ -265,7 +262,7 @@ def _whole_document(detail: str, error_type: str) -> Diagnostic:
     )
 
 
-def _said_by_the_sections(caught: Sequence[warnings.WarningMessage]) -> list[Diagnostic]:
+def _said_by_the_sections(caught: Sequence[Said]) -> list[Diagnostic]:
     """Return the warnings the validators of the sections gave, once each.
 
     An old spelling a model renames is ``old_key``, any other warning of a
@@ -280,7 +277,7 @@ def _said_by_the_sections(caught: Sequence[warnings.WarningMessage]) -> list[Dia
         code = (
             "old_key" if issubclass(item.category, ConfigKeyRenamedWarning) else "section_warning"
         )
-        text = str(item.message)
+        text = item.text
         found.setdefault(
             (code, text),
             Diagnostic(path="", code=code, severity="warning", detail=text, keys=()),

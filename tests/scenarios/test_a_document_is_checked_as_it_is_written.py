@@ -2,7 +2,7 @@
 
 Three games. From Python, ``hmp.check`` says what an empty document and a draft
 without ``[geographic]`` still lack, finds nothing to say of the whole island, and
-loads no figure module. From the command line, ``hmp config check`` passes the
+loads no figure module. From the command line, ``hmp check`` passes the
 island and lists both faults of a copy with two faulty sections, with code 14.
 Then ``hmp run`` refuses that copy with code 14 at the pointers of its check.
 """
@@ -94,13 +94,12 @@ def test_a_draft_is_checked_in_python_as_it_is_written(tmp_path, scenario_env, s
     assert result["figures"] == []
 
 
-def test_hmp_config_check_lists_every_fault_of_a_file(tmp_path, scenario_env, scenario_cache):
+def test_hmp_check_lists_every_fault_of_a_file(tmp_path, scenario_env, scenario_cache):
     passed = _command(
         tmp_path,
         scenario_env,
         scenario_cache,
         "clean",
-        "config",
         "check",
         "project.toml",
         "--format",
@@ -111,7 +110,6 @@ def test_hmp_config_check_lists_every_fault_of_a_file(tmp_path, scenario_env, sc
         scenario_env,
         scenario_cache,
         "broken",
-        "config",
         "check",
         "broken.toml",
         "--format",
@@ -135,7 +133,6 @@ def test_a_run_refuses_a_file_at_the_pointers_of_its_check(tmp_path, scenario_en
         scenario_env,
         scenario_cache,
         "checked",
-        "config",
         "check",
         "broken.toml",
         "--format",

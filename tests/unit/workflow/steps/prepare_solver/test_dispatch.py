@@ -37,7 +37,7 @@ from tests.unit.workflow.steps.prepare_solver._helpers import sealed_run
 # --- test_a_planned_run_carries_its_recipe ---
 # A run of a planned case seals its recipe, read from the plan.
 #
-# ``hmp report compare k_mid k_low k_high`` and ``--by site`` read the recipe of
+# ``hmp diff k_mid k_low k_high`` and ``--by site`` read the recipe of
 # each run from ``manifest.run.recipe`` and the index: a worker of the plan
 # must write it. The case id names the recipe for the life of the project, so
 # the current plan answers; a run outside any plan has none.

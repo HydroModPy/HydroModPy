@@ -69,6 +69,7 @@ from hydromodpy.core.config_kit.introspect import (
 )
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.config_kit.root import RootConfig
+from hydromodpy.core.config_kit.said import say
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import (
     ConfigError,
@@ -111,7 +112,7 @@ RETIRED_WORKFLOW_MODES: dict[str, str] = {
     "comparison": (
         "workflow.mode = 'comparison' is gone: the legs of a comparison are recipes of "
         "one site in [sites.recipes]. Run them with hmp run, then compare the runs with "
-        "hmp report compare <run> <run>."
+        "hmp diff <run> <run> --to DIR."
     ),
 }
 
@@ -226,10 +227,8 @@ def _warn_above_profile(
     threshold = resolve_profile(validate_profile)
     violations = collect_profile_violations(model, raw, threshold)
     if violations:
-        import warnings
-
         joined = ", ".join(f"{'.'.join(path)}={level.name.lower()}" for path, level in violations)
-        warnings.warn(
+        say(
             f"TOML {toml_path} declares fields above profile {threshold.name.lower()!r}: {joined}",
             UserWarning,
             stacklevel=3,

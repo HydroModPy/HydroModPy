@@ -2,12 +2,12 @@
 #
 # The Nancon in steady state on the local DEM, solved three times with three
 # values of K. Each recipe is a case of the plan (nancon-k_low, nancon-k_mid,
-# nancon-k_high); hmp report compare reads the three sealed runs.
+# nancon-k_high); hmp diff reads the three sealed runs.
 #
-#   hmp config check project.toml
+#   hmp check project.toml
 #   hmp run project.toml --dry-run
 #   hmp run project.toml
-#   hmp report compare k_low k_mid k_high
+#   hmp diff k_low k_mid k_high
 
 [sites]
 table = "sites.csv"

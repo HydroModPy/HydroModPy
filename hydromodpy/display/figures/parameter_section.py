@@ -19,6 +19,7 @@ from hydromodpy.display.figure import (
     BaseFigure,
     FigureNotApplicable,
     FigureSpec,
+    new_subplots,
     run_label,
     run_suffix,
 )
@@ -133,7 +134,6 @@ class ParameterSection(BaseFigure):
         save_path=None,
         **_,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
 
         names = _resolve_variables(sim, variables)
         transect = _section_transect(
@@ -150,7 +150,7 @@ class ParameterSection(BaseFigure):
         shared = _shared_conductivity(sampled)
 
         width, height = figsize or self.spec.default_figsize
-        fig, axes = plt.subplots(
+        fig, axes = new_subplots(
             1,
             len(names),
             figsize=(width * len(names) / 2.0, height),

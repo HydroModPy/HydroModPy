@@ -4,7 +4,7 @@ Why
 ---
 A run directory exists before anything is computed and stays when the
 attempt dies. What happened to it has to be readable from the directory
-alone: by the launcher that spawned the worker, by ``hmp project status``,
+alone: by the launcher that spawned the worker, by ``hmp ls --plan``,
 by the indexer. ``outcome.json`` is written at the creation of the
 directory, before the first pipeline step, and rewritten at every exit,
 SIGTERM included. When the worker dies without writing (a Fortran stop, an

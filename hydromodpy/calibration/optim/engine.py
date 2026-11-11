@@ -390,23 +390,20 @@ class CalibrationEngine:
         if self.parallel <= 1 or len(suggestions) <= 1:
             return [self._evaluate_with_cache(sugg) for sugg in suggestions]
         workers = min(self.parallel, len(suggestions))
-        # ContextVars do NOT cross the thread boundary, so give each worker its own
-        # copy of THIS thread's context. copy_context() runs here, in the caller
-        # thread, so every copy inherits the current bindings; a fresh copy per task
-        # avoids entering one Context object from several threads at once.
-        tasks = [(copy_context(), sugg) for sugg in suggestions]
-
-        def _run_in_context(item: tuple) -> EvaluationResult:
-            ctx, sugg = item
-            return ctx.run(self._evaluate_with_cache, sugg)
-
+        # A context variable does not cross to a pool thread, and the run log and the
+        # run scratch are context variables. Each task enters a copy of THIS thread's
+        # context, made here in the submitting thread; a copy per task keeps one
+        # Context object from being entered by two threads at once.
         # An engine that marks the results it did not read, after the batch is told,
         # reports and journals then: a line written before that mark would count a
         # trial the search never read.
         self._live = not getattr(self.optimizer, "marks_unread", False)
         results: list[EvaluationResult | None] = [None] * len(suggestions)
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = {pool.submit(_run_in_context, task): i for i, task in enumerate(tasks)}
+            futures = {
+                pool.submit(copy_context().run, self._evaluate_with_cache, sugg): i
+                for i, sugg in enumerate(suggestions)
+            }
             try:
                 for future in as_completed(futures):
                     i = futures[future]

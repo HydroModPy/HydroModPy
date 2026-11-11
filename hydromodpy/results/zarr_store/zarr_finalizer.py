@@ -19,6 +19,15 @@ from hydromodpy.core.state.layout import INTERNAL_DIRNAME, RUN_INTERNAL_LOCKS_DI
 
 logger = get_logger(__name__)
 
+# Zarr says that consolidated metadata is not part of the format 3 specification each
+# time a store is consolidated or opened with it. Both are meant: readers need it.
+warnings.filterwarnings(
+    "ignore",
+    message="Consolidated metadata is currently not part .* Zarr format 3 specification",
+    category=UserWarning,
+    module=r"zarr\.api\.asynchronous",
+)
+
 LOCK_TIMEOUT_SECONDS = 60.0
 LOCK_SUFFIX = ".lock"
 
@@ -45,15 +54,7 @@ def consolidate_metadata(store: Any, path: Path) -> None:
     if not isinstance(store, zarr.storage.LocalStore):
         return
     try:
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message=(
-                    "Consolidated metadata is currently not part .* Zarr format 3 specification.*"
-                ),
-                category=UserWarning,
-            )
-            zarr.consolidate_metadata(store)
+        zarr.consolidate_metadata(store)
     except Exception as exc:
         logger.warning("consolidate_metadata failed for %s: %s", path, exc)
 

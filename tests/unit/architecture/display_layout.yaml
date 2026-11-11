@@ -17,12 +17,12 @@ allowed:
   figure_registry:  [figure, figure_table]
   figures:          [figure, figure_options, maps, style]
   config:           [figure_registry, figure_table]
-  cohort:           [figure_registry, figure_table]
+  cohort:           [figure_registry, figure_table, style]
   run_comparison:   [maps]
   "<init>":         []
   runs:             ["<init>", config, figure, figure_registry, figure_table, png_metadata, style]
   catalog_figures:  [figure_registry, figure_table, runs]
-  overview:         [style]
+  overview:         [figure, style]
   report:           [config, figure_registry, figure_table, runs]
 
 # The registry imports hydromodpy.display.figures by name on first lookup, so
@@ -38,6 +38,7 @@ public:
   - hydromodpy.display.figure_registry
   - hydromodpy.display.figure_table
   - hydromodpy.display.runs
+  - hydromodpy.display.style
   - hydromodpy.display.catalog_figures
   - hydromodpy.display.cohort
   - hydromodpy.display.run_comparison

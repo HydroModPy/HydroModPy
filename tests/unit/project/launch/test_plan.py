@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import geopandas as gpd
 import pytest
 
-from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, forget_old_forms_told
+from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.site import SiteRow
@@ -373,7 +373,7 @@ def test_plan_case_replays_from_another_cwd(tmp_path: Path) -> None:
     assert cfg.flow.param["K"].field.value == pytest.approx(2e-5)
 
     env = {**os.environ, "HMP_WORKSPACE": str(copy)}
-    for argv in (["run", str(case_toml), "--dry-run"], ["config", "check", str(case_toml)]):
+    for argv in (["run", str(case_toml), "--dry-run"], ["check", str(case_toml)]):
         result = subprocess.run(
             [sys.executable, "-m", "hydromodpy", *argv],
             cwd="/",
@@ -1069,7 +1069,7 @@ def test_an_error_no_check_expected_is_a_finding(tmp_path: Path, monkeypatch) ->
     def fail(target: Path, **_: object) -> None:
         raise RuntimeError("the disk went away")
 
-    monkeypatch.setattr(api, "_check_file", fail)
+    monkeypatch.setattr(api, "check_file", fail)
 
     [error] = api.check(tmp_path / "run.toml")
 
@@ -1130,7 +1130,6 @@ def test_one_row_of_the_migration_reaches_every_layer_of_a_case(tmp_path: Path) 
         '[modflow6.runtime]\nmf6_ims_complexity = "MODERATE"\n', encoding="utf-8"
     )
 
-    forget_old_forms_told()
     with pytest.warns(ConfigKeyRenamedWarning):
         draft = expand_plan(project, marker)
     with pytest.warns(ConfigKeyRenamedWarning, match="--set"):

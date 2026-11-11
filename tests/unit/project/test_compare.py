@@ -9,10 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import hydromodpy as hmp
-from hydromodpy.cli.commands import report
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_VALIDATION
-from hydromodpy.cli.main import main as hmp_main
+from hydromodpy.project import api
 from hydromodpy.project import compare as c
 from tests._helpers.run_records import make_identity, make_record
 
@@ -402,29 +399,6 @@ def test_a_reference_that_names_no_sealed_run_is_refused(project: Path, root: st
         c.resolve_references(["failed"], project_root=project if root else None)
 
 
-def test_the_command_gives_typed_exit_codes(project: Path, monkeypatch) -> None:
-    _seal(project, "one", site="s1")
-    _seal(project, "two", site="s2")
-    monkeypatch.chdir(project)
-    for refs, code in ((["one", "nowhere"], EXIT_NOT_FOUND), (["one", "two"], EXIT_VALIDATION)):
-        with pytest.raises(SystemExit) as refused:
-            hmp_main(["report", "compare", *refs])
-        assert refused.value.code == code
-
-
-def test_the_command_writes_in_the_project_or_where_it_is_told(project: Path, monkeypatch) -> None:
-    written: list[Path] = []
-    comparison = NS(write=lambda folder: written.append(Path(folder)) or Path(folder) / "README.md")
-    monkeypatch.setattr(c, "compare_references", lambda refs, **_: comparison)
-    monkeypatch.setattr(
-        c, "compare_by_site", lambda refs, folder, **_: written.append(Path(folder))
-    )
-    monkeypatch.chdir(project)
-    hmp_main(["report", "compare", "runs/a", "b c", "--variables", "head, ,x"])
-    hmp_main(["report", "compare", "a", "b", "--by", "site", "--to", "elsewhere"])
-    assert written == [project / "summary/report/compare/a-vs-b_c", Path("elsewhere")]
-
-
 def test_references_reach_the_comparison_with_their_variables(monkeypatch) -> None:
     monkeypatch.setattr(c, "resolve_references", lambda refs, project_root: [[project_root], refs])
     monkeypatch.setattr(c, "compare", lambda runs, variables: (runs, variables))
@@ -432,19 +406,13 @@ def test_references_reach_the_comparison_with_their_variables(monkeypatch) -> No
     assert compared == (["root", "a", "b"], ["head"])
 
 
-def test_a_folder_needs_a_project_and_a_long_name_becomes_a_hash(project: Path) -> None:
-    with pytest.raises(c.ComparisonCaseError, match="pass --out"):
-        report.compare_folder(["a", "b"], None)
-    assert len(report.compare_folder(["a" * 100, "b"], project).name) == 12
-
-
 def test_the_facade_compares_and_writes_only_when_asked(project: Path, monkeypatch) -> None:
     written: list[Path] = []
     comparison = NS(write=written.append)
     monkeypatch.setattr(c, "compare_references", lambda refs, **_: comparison)
-    assert hmp.compare(["a", "b"], workspace=project) is comparison
+    assert api.compare(["a", "b"], workspace=project) is comparison
     assert written == []
-    hmp.compare(["a", "b"], out=project / "study", workspace=project)
+    api.compare(["a", "b"], out=project / "study", workspace=project)
     assert written == [project / "study"]
 
 
@@ -461,3 +429,72 @@ def test_sites_are_compared_apart_and_their_scores_joined(tmp_path: Path, monkey
         c.compare_by_site([first], tmp_path, project_root=True)
     with pytest.raises(c.ComparisonCaseError, match="One reference holds two runs"):
         c.compare_by_site([[make_run("m"), make_run("n")]], tmp_path, project_root=True)
+
+
+def _scored(name: str, *scores: tuple[str, str, str, float, str, str, int]) -> NS:
+    """A run that holds only the rows of its metric table, each as it is sealed."""
+    columns = ("station", "variable", "metric", "window_start", "window_end", "value", "n_samples")
+    rows = [
+        (station, variable, metric, start, end, value, n)
+        for station, variable, metric, value, start, end, n in scores
+    ]
+    frame = pd.DataFrame(rows, columns=columns).assign(window_name="metrics")
+    return NS(name=name, metrics=frame)
+
+
+def test_the_headline_table_sets_the_scores_of_the_runs_side_by_side() -> None:
+    first = _scored(
+        "a",
+        ("G", "discharge", "nse", 0.6, "2016-01-01", "2020-12-31", 1827),
+        ("G", "discharge", "kge", 0.5, "2016-01-01", "2020-12-31", 1827),
+    )
+    second = _scored("b", ("G", "discharge", "nse", 0.7, "2018-01-01", "2020-12-31", 1096))
+    table = c.headline_table([first, second])
+    assert list(table.index.names) == ["metric", "station", "variable"]
+    nse = table.loc[("nse", "G", "discharge")]
+    assert (nse["a"], nse["b"]) == (0.6, 0.7)
+    assert (nse["a_n"], nse["b_n"]) == (1827, 1096)
+    assert (nse["a_window"], nse["b_window"]) == ("2016-01-01/2020-12-31", "2018-01-01/2020-12-31")
+    kge = table.loc[("kge", "G", "discharge")]
+    assert kge["a"] == 0.5
+    assert pd.isna(kge["b"]) and pd.isna(kge["b_window"])
+
+
+def test_the_headline_table_leaves_out_a_window_that_is_not_the_headline() -> None:
+    run = _scored("a", ("G", "discharge", "nse", 0.6, "2016-01-01", "2020-12-31", 10))
+    run.metrics.loc[len(run.metrics)] = (
+        "G",
+        "discharge",
+        "nse",
+        "2010-01-01",
+        "2012-01-01",
+        0.1,
+        3,
+        "other",
+    )
+    assert c.headline_table([run])["a"].tolist() == [0.6]
+
+
+def test_the_headline_table_is_empty_when_no_run_has_a_score() -> None:
+    assert c.headline_table([_scored("a"), _scored("b")]).empty
+
+
+def test_a_comparison_gives_its_table_and_a_json_form(monkeypatch) -> None:
+    import json
+
+    comparison = c.compare([make_run(), make_run("b", head=(2.0, 3.0))])
+    monkeypatch.setattr(c, "headline_table", lambda runs: ("table", [run.name for run in runs]))
+    assert comparison.table == ("table", ["a", "b"])
+    document = json.loads(json.dumps(comparison.to_dict()))
+    assert document["runs"] == ["a", "b"]
+    assert document["reference"] == "a"
+    assert document["start"] == "2000-01-01 00:00:00" and document["end"] == "2000-01-05 00:00:00"
+    assert set(document["tables"]) == set(comparison.tables)
+    assert document["tables"]["parameters"] == comparison.tables["parameters"].to_dict("records")
+    assert set(document["series"]) == {"discharge/catchment", "head/P1"}
+    assert set(document["maps"]) == {"watertable_elevation", "watertable_depth"}
+
+
+def test_a_steady_comparison_says_steady_in_its_json_form() -> None:
+    comparison = c.compare([make_run(regime="steady", n=1), make_run("b", regime="steady", n=1)])
+    assert comparison.to_dict()["end"] == "steady"

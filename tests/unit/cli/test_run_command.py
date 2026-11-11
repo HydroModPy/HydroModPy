@@ -154,7 +154,7 @@ def test_an_overview_receives_the_environment_of_the_command(monkeypatch, tmp_pa
         asked["environment"] = environment
         raise HydroModPyError("sentinel-of-the-overview")
 
-    monkeypatch.setitem(dispatch_module.DISPATCH, "overview", fake_overview)
+    monkeypatch.setattr(dispatch_module, "run_overview", fake_overview)
     config_path = tmp_path / "overview.toml"
     config_path.write_text('[workflow]\nmode = "overview"\n', encoding="utf-8")
 

@@ -1,6 +1,6 @@
-"""``hmp catalog ls`` - list the sealed runs recorded in the index.
+"""``hmp ls`` - list the runs of a project, or where its plan stands.
 
-Each run shows its site, its label, its score and the ``overrides`` its seal
+By default it lists the sealed runs recorded in the project index. Each run shows its site, its label, its score and the ``overrides`` its seal
 records (what ``--set`` changed), so a ``.v2`` says how it differs.
 ``--best METRIC`` ranks the runs by that metric, best first; ``--by site``
 groups them by site, and with ``--best`` keeps the best run of each site. The
@@ -10,6 +10,11 @@ are all left out by ``--best`` is named once, with why (no ``[metrics]
 window``, or no such metric): on stdout under the table, on stderr beside
 ``--format json`` or ``csv``, even when no run is left to list, so stdout
 always parses.
+
+``--disk`` lists the runs and the sessions from their directories, with the
+outcome each one wrote, and needs no index. ``--plan`` says where each case of
+the plan of a ``[sites]`` project stands, as ``hydromodpy.project.api.status``
+reads it.
 """
 
 from __future__ import annotations
@@ -21,18 +26,26 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, exit_code_for, refuse
+from hydromodpy.cli.helpers import (
+    EXIT_NOT_FOUND,
+    EXIT_USAGE,
+    exit_code_for,
+    project_root_of,
+    refuse,
+)
 from hydromodpy.cli.output import emit
 from hydromodpy.core.workspace.resolve import find_workspace_root
 
 NAME: str = "ls"
-HELP: str = "List the sealed runs recorded in the project index"
+HELP: str = "List the runs of a project, or where its plan stands"
 
 _EPILOG = """\
 Examples:
-  hmp catalog ls --site my_catchment --label calibrated --format json
-  hmp catalog ls --best nse
-  hmp catalog ls --by site --best nse --format csv
+  hmp ls --site my_catchment --label calibrated --format json
+  hmp ls --best nse
+  hmp ls --by site --best nse --format csv
+  hmp ls --disk
+  hmp ls --plan
 """
 
 
@@ -84,6 +97,23 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="With --best, rank scores computed on different windows or rules together",
     )
     parser.add_argument("--limit", type=int, default=None, help="Maximum number of rows to print")
+    parser.add_argument(
+        "--disk",
+        action="store_true",
+        help="List the runs and the sessions from their directories, with no index",
+    )
+    parser.add_argument(
+        "--plan",
+        action="store_true",
+        help="Say where each case of the plan of a [sites] project stands",
+    )
+    parser.add_argument(
+        "--stale-minutes",
+        type=float,
+        default=None,
+        metavar="MIN",
+        help="With --plan, the age of the pulse past which a running case reads as stale (default: 5)",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -186,11 +216,17 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.results.run.ranking import rank_rows
     from hydromodpy.results.run.sealed import MixedWindowsError
 
+    if args.plan:
+        _plan(args)
+        return
+    if args.disk:
+        _disk(args)
+        return
     workspace_root = _resolve_workspace(args.workspace)
     if not iter_project_catalog_roots(workspace_root):
         refuse(
             f"No indexed project found under {workspace_root}; run `hmp catalog reindex` "
-            "in a project first",
+            "in a project first, or `hmp ls --disk` to read the directories",
             EXIT_NOT_FOUND,
         )
 
@@ -207,7 +243,7 @@ def run(args: argparse.Namespace) -> None:
     if df.empty:
         emit(
             args,
-            "catalog ls",
+            "ls",
             [],
             table=lambda: print(f"(no sealed run recorded under {workspace_root})"),
         )
@@ -235,7 +271,7 @@ def run(args: argparse.Namespace) -> None:
         reasons = [f"(no sealed run under {workspace_root} has a {args.best})", *reasons]
     # A reason is not a row: beside a document it goes to stderr, so stdout parses.
     machine = args.format != "table"
-    emit(args, "catalog ls", df, table=lambda: _print_runs(df, args, reasons))
+    emit(args, "ls", df, table=lambda: _print_runs(df, args, reasons))
     if machine:
         for line in reasons:
             print(line, file=sys.stderr)
@@ -275,3 +311,88 @@ def _print_runs(df: Any, args: argparse.Namespace, reasons: list[str]) -> None:
         )
     for line in reasons:
         print(line)
+
+
+PLAN_COLUMNS: tuple[str, ...] = (
+    "case_id",
+    "site",
+    "recipe",
+    "status",
+    "rel_dir",
+    "attempt",
+    "step",
+    "started_at",
+    "ended_at",
+    "host",
+    "pid",
+    "error",
+)
+
+
+def _disk(args: argparse.Namespace) -> None:
+    """List the runs and the sessions of the project from their directories."""
+    from hydromodpy.project.api import status
+
+    root = project_root_of(args)
+    outcomes = status(workspace=root)
+    rows = [outcome.to_dict() for outcome in outcomes]
+    emit(args, "ls disk", rows, table=lambda: _print_outcomes(rows, root))
+
+
+def _print_outcomes(rows: list[dict[str, Any]], root: Path) -> None:
+    if not rows:
+        print(f"(no run or session under {root})")
+        return
+    for row in rows:
+        sim_id = row["sim_id"] or "-"
+        print(f"  {row['name']}  [{sim_id[:8]}]  kind={row['kind']}  status={row['status']}")
+
+
+def _plan(args: argparse.Namespace) -> None:
+    """Say where each case of the current plan stands, read from the disk."""
+    from hydromodpy.core.state.result_dirs import sites_project_root
+    from hydromodpy.project.api import status
+
+    root = sites_project_root(args.workspace or ".")
+    stale_after_s = None if args.stale_minutes is None else 60.0 * args.stale_minutes
+    report = status(root, plan=True, stale_after_s=stale_after_s)
+    records = [
+        {column: _cell(getattr(row, column)) for column in PLAN_COLUMNS} for row in report.rows
+    ]
+
+    def table() -> None:
+        counts = ", ".join(f"{n} {state}" for state, n in report.counts().items()) or "no case"
+        stale = " (the project files changed since: plan again)" if report.plan_stale else ""
+        print(f"plan {report.plan_hash}{stale}: {counts}")
+        shown = ("case_id", "status", "rel_dir", "step", "host", "pid", "error")
+        lines = [[record[column] for column in shown] for record in records]
+        widths = [
+            max(len(column), *(len(line[i]) for line in lines)) for i, column in enumerate(shown)
+        ]
+        for line in [list(shown), *lines]:
+            print(
+                "  ".join(
+                    cell.ljust(width) for cell, width in zip(line, widths, strict=True)
+                ).rstrip()
+            )
+
+    emit(
+        args,
+        "ls plan",
+        {
+            "plan_hash": report.plan_hash,
+            "plan_stale": report.plan_stale,
+            "counts": report.counts(),
+            "cases": records,
+        },
+        table=table,
+        csv=(PLAN_COLUMNS, records),
+    )
+
+
+def _cell(value: object) -> str:
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat(timespec="seconds")
+    return str(value)

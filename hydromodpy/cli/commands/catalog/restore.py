@@ -42,8 +42,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    from hydromodpy.project.api import trash
     from hydromodpy.results.catalog.discovery import resolve_trashed
-    from hydromodpy.results.trash import restore
 
     root = project_root_of(args)
     entry = resolve_trashed(root, args.sim_ref)
@@ -55,10 +55,7 @@ def run(args: argparse.Namespace) -> None:
             table=lambda: print(f"would restore {entry.rel_dir}"),
         )
         return
-    restore(root, entry.name)
-    from hydromodpy.results.catalog.indexer import reindex_if_indexed
-
-    reindex_if_indexed(root)
+    trash(args.sim_ref, workspace=root, restore=True)
     emit(
         args,
         "catalog restore",

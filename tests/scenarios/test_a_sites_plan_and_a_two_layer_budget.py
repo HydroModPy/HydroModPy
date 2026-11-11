@@ -16,9 +16,9 @@ keeps its per-cell budget, the default of a result run.
    the conductivity, one recipe. ``hmp project plan .`` writes ``plan/<hash>/`` with
    ``plan.json`` (``hydromodpy.plan.v2``), a ``cases.csv`` of two rows (the five fixed columns,
    then ``k``) and two TOML files. ``hmp run plan/<hash>/<first case>.toml`` plays one case, and
-   ``hmp project status .`` says one case completed and one planned. A ``plan.json`` written
+   ``hmp ls --plan`` says one case completed and one planned. A ``plan.json`` written
    back as ``hydromodpy.plan.v1`` under another hash, named by ``plan/current``, makes
-   ``hmp project status .`` name ``hmp project plan``.
+   ``hmp ls --plan`` name ``hmp project plan``.
 """
 
 from __future__ import annotations
@@ -184,7 +184,7 @@ def test_a_sites_plan_is_written_played_and_read(
     first = cases[0]
     ran = _hmp(root, scenario_env, "run", f"plan/{plan_hash}/{first['config_path']}")
     assert ran.returncode == 0, _said(ran)
-    status = _hmp(root, scenario_env, "project", "status", ".", "--format", "json")
+    status = _hmp(root, scenario_env, "ls", "--plan", "--format", "json")
     assert status.returncode == 0, _said(status)
     states = {
         case["case_id"]: case["status"] for case in json.loads(status.stdout)["data"]["cases"]
@@ -197,6 +197,6 @@ def test_a_sites_plan_is_written_played_and_read(
     document["schema"] = "hydromodpy.plan.v1"
     (old / PLAN_FILENAME).write_text(json.dumps(document), encoding="utf-8")
     (root / "plan" / "current").write_text("0000old0\n", encoding="utf-8")
-    refused = _hmp(root, scenario_env, "project", "status", ".")
+    refused = _hmp(root, scenario_env, "ls", "--plan")
     assert refused.returncode != 0
     assert "hmp project plan" in refused.stdout + refused.stderr

@@ -59,7 +59,7 @@ one line per trial in `trials.jsonl`, and the best trial. That best trial is pro
 run of the same name, `runs/<name>/`, which you read like any other run.
 
 **Catalog.** The index of the runs and sessions of one project, a DuckDB file at
-`.hmp/index.duckdb`. `hmp catalog ls` lists the runs. The disk is the truth and the catalog
+`.hmp/index.duckdb`. `hmp ls` lists the runs. The disk is the truth and the catalog
 is derived from it: `hmp catalog reindex` rebuilds it from `runs/` and `sessions/`, and
 deleting `.hmp/` loses nothing. Opening a project builds a missing index, and one process
 writes it at a time. {doc}`Its reference <../reference/cli/catalog>` lists the

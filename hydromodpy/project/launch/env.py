@@ -3,11 +3,11 @@
 Why
 ---
 A child of the launcher is an ordinary ``hmp run <case>.toml``. What makes
-it a launched case is its environment, built here:
+it a launched case is its environment, built here. The scratch folder of a
+run is not part of it, since a run keeps that folder in its own context and a
+child claims one of its own. The environment of a case differs from its
+parent's in three ways:
 
-- ``HMP_RUN_SCRATCH`` is removed. It names the scratch folder of the run the
-  current process is inside; a child that inherited it would work in the
-  folder of its parent instead of claiming its own.
 - ``HMP_SET_*`` are removed. The plan rendered them into each case, and a
   worker of the plan refuses them.
 - ``HMP_LAUNCHED_CASE`` says who launched the case. The worker then leaves
@@ -30,7 +30,6 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 
-from hydromodpy.core.state.scratch import RUN_SCRATCH_ENV
 from hydromodpy.core.toml_io.overrides import ENV_SET_PREFIX
 
 LAUNCHED_ENV = "HMP_LAUNCHED_CASE"
@@ -55,11 +54,7 @@ def child_environment(
     threads_per_case: int,
 ) -> dict[str, str]:
     """Return the environment of one launched case, built from *base*."""
-    env = {
-        key: value
-        for key, value in base.items()
-        if key != RUN_SCRATCH_ENV and not key.startswith(ENV_SET_PREFIX)
-    }
+    env = {key: value for key, value in base.items() if not key.startswith(ENV_SET_PREFIX)}
     env[THREADS_ENV] = str(int(threads_per_case))
     return env
 

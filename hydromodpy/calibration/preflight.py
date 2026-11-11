@@ -124,8 +124,6 @@ def preflight_launch(
     file's. A file that does not load as a project is left to the run, which
     says why with its own context. See :func:`refuse_what_the_preflight_refuses`.
     """
-    import warnings
-
     path = Path(config_path).expanduser().resolve()
     if not hasattr(config, "model_copy"):
         # No configuration held, or one that is not a validated model: the
@@ -134,10 +132,7 @@ def preflight_launch(
 
         pipeline = trial_pipeline()
         try:
-            with warnings.catch_warnings():
-                # The run's own loading prints what the file has to change.
-                warnings.simplefilter("ignore")
-                config = pipeline.load_config(path)
+            config = pipeline.load_config(path)
         except Exception:
             logger.debug("No project configuration to preflight in %s", path, exc_info=True)
             return []
@@ -155,7 +150,7 @@ def refuse_what_the_preflight_refuses(config: Any, *, source: str | Path) -> lis
 
     The one gate every launch passes, ``hmp calibrate``, ``hmp run``,
     ``--dry-run``, ``hmp.calibrate`` and ``Project.calibrate``, so the launch
-    refuses what ``hmp config check`` refuses, with every finding at once.
+    refuses what ``hmp check`` refuses, with every finding at once.
     Raises :class:`~hydromodpy.core.exceptions.ConfigError`, the code of a
     file to fix. Returns the findings, warnings only.
     """
@@ -178,7 +173,7 @@ def refuse_what_the_preflight_refuses(config: Any, *, source: str | Path) -> lis
             logger.warning("%s", text)
     log_experimental_keys(config)
     # Where the run leaves the publication it cites, said before the first solve:
-    # at the launch as ``hmp config check`` says it, and the session writes it down.
+    # at the launch as ``hmp check`` says it, and the session writes it down.
     for line in protocol_lines(config)[0]:
         logger.info("%s", line, extra=MILESTONE)
     return findings
@@ -934,7 +929,7 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[Diagnostic]:
     linearized = _linearized_scored_outputs(calibration)
     if linearized:
         # Same reason as the precision below: the width is built after the
-        # last solve, so `hmp config check` is where a document that can
+        # last solve, so `hmp check` is where a document that can
         # never carry one is named, before any of it is paid for. A phased
         # document gets one width per phase (D234), built from what THAT
         # PHASE scores, so each phase is checked on its own selection rather

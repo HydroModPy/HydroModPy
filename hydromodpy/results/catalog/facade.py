@@ -26,7 +26,6 @@ import duckdb
 from hydromodpy.core.io.document_version import check_exact
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import catalog_path_for, runs_dir_for
-from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.index_file import open_index
@@ -46,9 +45,10 @@ from hydromodpy.results.zarr_store import SimulationZarr
 if TYPE_CHECKING:
     from uuid import UUID
 
-    import pandas as pd
     import xarray as xr
     from pydantic import BaseModel
+
+    from hydromodpy.results.run.view import Renderer
 
 logger = get_logger(__name__)
 
@@ -74,6 +74,12 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         every run this catalog builds. Without one, ``run.hydromodpy_config``
         is refused. A catalog opened by ``hmp.open`` or by a ``Project``
         carries it.
+    render
+        The function that draws a figure or writes a report for a run, a
+        session or a set of runs, handed on like *read_config* to every object
+        this catalog builds. Without one, ``figure`` is refused. It is
+        :func:`hydromodpy.project.show.render` for a catalog opened by a
+        ``Project``.
 
     Raises
     ------
@@ -128,10 +134,12 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         project_root: Path | str,
         *,
         read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None,
+        render: Renderer | None = None,
     ) -> None:
         root = Path(project_root).expanduser().resolve()
         self._workspace = root
         self._read_config = read_config
+        self._render = render
         self._db_path = catalog_path_for(root)
         self._runs_dir = runs_dir_for(root)
         if not (self._runs_dir.is_dir() or self._db_path.parent.is_dir()):
@@ -169,6 +177,15 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         configuration snapshot, and :attr:`Run.hydromodpy_config` is refused.
         """
         return self._read_config
+
+    @property
+    def render(self) -> Renderer | None:
+        """The function the runs of this catalog draw a figure with, or ``None``.
+
+        With ``None``, ``run.figure`` and ``run.show(what="figure")`` are refused
+        and say to open the run with ``hmp.open``.
+        """
+        return self._render
 
     @property
     def connection(self) -> duckdb.DuckDBPyConnection:
@@ -331,7 +348,7 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
 
     def _reopen(self) -> Catalog:
         """Return a new handle on the same index, for a run that outlives this one."""
-        return type(self)(self._workspace, read_config=self._read_config)
+        return type(self)(self._workspace, read_config=self._read_config, render=self._render)
 
     def __enter__(self) -> Catalog:
         return self
@@ -375,39 +392,4 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         )
 
 
-def compare_pair(ref_a: str, ref_b: str, *, workspace: str | Path | None = None) -> pd.DataFrame:
-    """Return the headline scores of two runs side by side.
-
-    One row per ``(metric, station_id, variable)`` carries the score of each
-    run (``A`` for ``ref_a``, ``B`` for ``ref_b``), the window it was scored on
-    (``A_window``, as ``start/end``) and its samples (``A_n``). Empty when
-    neither run holds a score. ``workspace`` defaults to the project around the
-    working directory, found from ``project.toml``.
-    """
-    import pandas as pd
-
-    start = Path(workspace).expanduser().resolve() if workspace else Path.cwd()
-    root = resolve_project_root(start)
-    keys = ["metric", "station_id", "variable"]
-    sides = []
-    with Catalog(root) as catalog:
-        for label, ref in (("A", ref_a), ("B", ref_b)):
-            scores = catalog._headline_metrics(catalog.resolve(ref))
-            rows = [
-                {
-                    **dict(zip(keys, key, strict=True)),
-                    label: score["value"],
-                    f"{label}_window": None
-                    if pd.isna(score["window_start"])
-                    else f"{pd.Timestamp(score['window_start']).date().isoformat()}"
-                    f"/{pd.Timestamp(score['window_end']).date().isoformat()}",
-                    f"{label}_n": score["n"],
-                }
-                for key, score in scores.items()
-            ]
-            columns = [*keys, label, f"{label}_window", f"{label}_n"]
-            sides.append(pd.DataFrame(rows, columns=columns).set_index(keys))
-    return sides[0].join(sides[1], how="outer").sort_index()
-
-
-__all__ = ["Catalog", "compare_pair"]
+__all__ = ["Catalog"]

@@ -17,7 +17,6 @@ import pytest
 
 from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
 from hydromodpy.calibration.criteria.series import METRICS as CALIBRATION_METRICS
-from hydromodpy.cli.commands.catalog import rank
 from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.budget.terms import BudgetKeep, budget_terms_for
@@ -30,6 +29,7 @@ from hydromodpy.model.sinks_sources.wells import (
     pumped_percent,
 )
 from hydromodpy.project.accessors import ProjectRunsAccessor
+from hydromodpy.project.compare import headline_table
 from hydromodpy.results import field_registry
 from hydromodpy.results.catalog import Catalog, SimulationNotFoundError
 from hydromodpy.results.catalog.constants import (
@@ -39,7 +39,6 @@ from hydromodpy.results.catalog.constants import (
     metric_rank_sql,
     score_of,
 )
-from hydromodpy.results.catalog.facade import compare_pair
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.listing import rank_simulations
 from hydromodpy.results.derive.config_flags import diagnose_missing, missing_field_explanation
@@ -171,40 +170,44 @@ def test_the_diff_shows_the_window_and_the_samples_of_each_side(project) -> None
     assert (side_b["value"], side_b["n"], side_b["window_start"]) == (0.7, 1096, date(2018, 1, 1))
 
 
-def test_compare_pair_has_one_row_per_variable_with_its_window(project) -> None:
-    frame = compare_pair("a", "b", workspace=project).reset_index()
+def _headline(project) -> pd.DataFrame:
+    with Catalog(project) as cat:
+        return headline_table([cat["a"], cat["b"]])
+
+
+def test_the_headline_table_has_one_row_per_variable_with_its_window(project) -> None:
+    frame = _headline(project).reset_index()
     assert sorted(frame["variable"]) == ["discharge", "level"]
     discharge = frame[frame["variable"] == "discharge"].iloc[0]
-    assert (discharge["A"], discharge["B"]) == (0.6, 0.7)
-    assert (discharge["A_n"], discharge["B_n"]) == (1827, 1096)
-    assert discharge["A_window"] == "2016-01-01/2020-12-31"
-    assert discharge["B_window"] == "2018-01-01/2020-12-31"
+    assert (discharge["a"], discharge["b"]) == (0.6, 0.7)
+    assert (discharge["a_n"], discharge["b_n"]) == (1827, 1096)
+    assert discharge["a_window"] == "2016-01-01/2020-12-31"
+    assert discharge["b_window"] == "2018-01-01/2020-12-31"
 
 
-def test_compare_pair_gives_the_scores_the_diff_gives(project) -> None:
-    frame = compare_pair("a", "b", workspace=project)
+def test_the_headline_table_gives_the_scores_the_diff_gives(project) -> None:
+    frame = _headline(project)
     with Catalog(project) as cat:
         delta = cat.diff("a", "b")["metrics"]
     for (metric, station, variable), (side_a, side_b) in delta.items():
         row = frame.loc[(metric, station, variable)]
-        assert (row["A"], row["B"]) == (side_a["value"], side_b["value"])
-        assert (row["A_n"], row["B_n"]) == (side_a["n"], side_b["n"])
+        assert (row["a"], row["b"]) == (side_a["value"], side_b["value"])
+        assert (row["a_n"], row["b_n"]) == (side_a["n"], side_b["n"])
 
 
-def test_compare_pair_needs_a_project(tmp_path) -> None:
-    with pytest.raises(FileNotFoundError, match="is not a project directory"):
-        compare_pair("a", "b", workspace=tmp_path)
+def test_a_comparison_by_name_needs_a_project(tmp_path) -> None:
+    from hydromodpy.project import api
+    from hydromodpy.project.compare import ComparisonReferenceError
+
+    with pytest.raises(ComparisonReferenceError, match="names no sealed run"):
+        api.compare(["a", "b"], workspace=tmp_path)
 
 
 def _run_diff(project, capsys, fmt: str) -> str:
-    import argparse
+    from hydromodpy.cli.main import _build_parser
 
-    from hydromodpy.cli.commands.catalog import diff
-
-    args = argparse.Namespace(
-        ref_a="a", ref_b="b", workspace=str(project), format=fmt, verbose=0, quiet=False
-    )
-    diff.run(args)
+    args = _build_parser().parse_args(["diff", "a", "b", "-w", str(project), "--format", fmt])
+    args._handler(args)
     return capsys.readouterr().out
 
 
@@ -654,7 +657,7 @@ def test_the_loader_and_the_set_stack_parameters_and_fields(tmp_path) -> None:
 
 
 # They went in as rows of ``metrics`` (station ``flow_main``, variable ``runtime``)
-# and came out in ``catalog show``, ``catalog diff``, ``compare_pair`` and
+# and came out in ``hmp show``, ``hmp diff``, ``Comparison.table`` and
 # ``v_metrics_wide`` next to the NSE. The facts and the seal still carry them, the
 # way the project summary reads the solve time; the index and the readers of scores
 # leave them out. A run of 2.0 carries the solve time among them and a new run does not
@@ -695,13 +698,13 @@ def test_the_wide_view_has_no_runtime_row(project_3) -> None:
     assert set(wide["variable"]) == {"discharge"}
 
 
-def test_show_and_diff_and_compare_pair_list_scores_only(project_3) -> None:
+def test_show_and_diff_and_the_headline_table_list_scores_only(project_3) -> None:
     with Catalog(project_3) as cat:
         shown = cat["a"].metrics
         delta = cat.diff("a", "b")["metrics"]
     assert set(shown["variable"]) == {"discharge"}
     assert {key[0] for key in delta} == {"nse"}
-    assert set(compare_pair("a", "b", workspace=project_3).reset_index()["metric"]) == {"nse"}
+    assert set(_headline(project_3).reset_index()["metric"]) == {"nse"}
 
 
 def test_soil_budget_declares_its_primary_key() -> None:
@@ -886,20 +889,19 @@ def test_catalog_rank_of_one_station_ranks_it(stations, tmp_path) -> None:
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="hmp catalog")
-    sub = parser.add_subparsers(dest="action")
-    rank.register(sub)
-    return parser.parse_args([rank.NAME, *argv])
+    from hydromodpy.cli.main import _build_parser
+
+    return _build_parser().parse_args(["show", ".", "--rank", "nse", *argv])
 
 
 def test_the_command_exits_with_the_validation_code_and_forces(windows, tmp_path, capsys) -> None:
     root = str(tmp_path / "demo")
-    args = _parse(["--project", "demo", "-w", root, "--top", "3"])
+    args = _parse(["-w", root, "-n", "3"])
     with pytest.raises(MixedWindowsError, match="--mixed-windows") as stopped:
         args._handler(args)
     assert exit_code_for(stopped.value) == EXIT_VALIDATION
 
-    args = _parse(["--project", "demo", "-w", root, "--top", "3", "--mixed-windows"])
+    args = _parse(["-w", root, "-n", "3", "--mixed-windows"])
     args._handler(args)
     out = capsys.readouterr().out
     assert out.splitlines()[0].startswith("TOP#1: short")
@@ -1014,7 +1016,7 @@ def test_the_virtual_field_table_names_nothing_outside_the_list() -> None:
 # index (``score_station``, ``score_variable``) and ``results/run/sealed.py`` over
 # those of a headline row, with two exceptions (``MixedWindowsError`` and a bare
 # ``ValueError``). The summary left the station out of the rule when no ``by``
-# was given, so ``hmp catalog ls --best`` ranked runs scored at different
+# was given, so ``hmp ls --best`` ranked runs scored at different
 # stations together.
 def _rows(*scored: tuple[str, str, str, float]) -> pd.DataFrame:
     """One row per run: ``(site, station, variable, nse)``, one window and one rule version."""
@@ -1188,7 +1190,7 @@ def test_each_rule_has_its_own_best_run(windows_2) -> None:
 # A 90-day NSE of 0.97 ranked above a 5-year NSE of 0.60 in ``Catalog.best``,
 # ``@best:nse`` and ``find(nse_gt=...)``: each ordered the ``metrics`` rows
 # whatever their window, station or variable. They now refuse, naming the rules
-# found, unless ``mixed_windows=True``. ``hmp catalog rank`` and the best-per-project
+# found, unless ``mixed_windows=True``. ``hmp show . --rank`` and the best-per-project
 # view have their own files.
 @pytest.fixture
 def windows_3(tmp_path):

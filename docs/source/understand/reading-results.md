@@ -357,8 +357,8 @@ run promoted from trial 8 of the second calibration stage: K = 7.96e-5 m/s, then
 Sy = 0.045. The mapped network is placed on the grid by the default `heads` rule, as described
 under {ref}`reading-network`.
 
-The images are redrawn from the stored run, the way `hmp viz show` draws them, for instance
-`hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_map`. The titles
+The images are redrawn from the stored run, the way `hmp show --figure` draws them, for instance
+`hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure seepage_map`. The titles
 carry no run name, and the legends are in English. The repository keeps, for every image, the run,
 the command and the option that made it, in `tools/docs/figures/figures.toml`.
 
@@ -367,7 +367,7 @@ theme. The dark version recolors the background, the texts and the light grays, 
 dry cells of the intermittence map and the ground of the seepage map.
 
 To draw a figure of an existing run again, at another date, see the
-{doc}`catalog of figures <../reference/figures>` and {doc}`hmp viz <../reference/cli/viz>`.
+{doc}`catalog of figures <../reference/figures>` and {doc}`hmp show <../reference/cli/show>`.
 
 ## Going further
 

@@ -50,7 +50,6 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     tmp_path,
     capsys,
 ) -> None:
-    import hydromodpy as hmp
 
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
@@ -62,7 +61,7 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
         captured["kwargs"] = kwargs
         return _report(best_parameters={"K": 2.1e-4}, best_cost=0.25)
 
-    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+    monkeypatch.setattr("hydromodpy.project.api.calibrate", fake_calibrate)
 
     code = _run(monkeypatch, ["hmp", "calibrate", str(config)])
 
@@ -86,29 +85,30 @@ def test_the_audit_family_is_gone(monkeypatch, capsys) -> None:
     assert "invalid choice: 'audit'" in capsys.readouterr().err
 
 
-def test_viz_family_help_lists_actions(monkeypatch, capsys) -> None:
+def test_the_viz_group_is_gone_and_names_the_commands_that_replace_it(monkeypatch, capsys) -> None:
     code = _run(monkeypatch, ["hmp", "viz", "--help"])
-    assert code == 0
-    out = capsys.readouterr().out
-    assert "show" in out
-    assert "gallery" not in out
-    assert "serve" not in out
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "hmp show REF --figure NAME" in err
+    assert "gallery" not in err
+    assert "serve" not in err
+    # The listing of the figure names is named by its own old command.
+    assert _run(monkeypatch, ["hmp", "viz", "list"]) == 2
+    assert "hmp config figures" in capsys.readouterr().err
 
 
-def test_report_render_writes_the_session_report_and_opens_browser_after_success(
+def test_show_report_writes_the_session_report_and_opens_browser_after_success(
     monkeypatch,
     tmp_path,
     capsys,
 ) -> None:
+    from tests._helpers.sealed_runs import make_project, write_session_dir
+
+    root = make_project(tmp_path / "p")
+    write_session_dir(root, "session-1", trials=0, best_trial=None)
     html = tmp_path / "report.html"
     html.write_text("<html></html>", encoding="utf-8")
-    session_dir = tmp_path / "sessions" / "session-1"
     calls: dict[str, object] = {}
-
-    def fake_resolve(project_root: Path, reference: str | None) -> Path:
-        calls["reference"] = reference
-        calls["project_root"] = project_root
-        return session_dir
 
     def fake_report(directory: Path, **_options):
         calls["session_dir"] = directory
@@ -118,19 +118,16 @@ def test_report_render_writes_the_session_report_and_opens_browser_after_success
         calls["opened"] = uri
         return True
 
-    monkeypatch.setattr("hydromodpy.results.session.descriptor.resolve_session_dir", fake_resolve)
     monkeypatch.setattr("hydromodpy.project.report.report_session", fake_report)
     monkeypatch.setattr("webbrowser.open", fake_open)
 
     code = _run(
         monkeypatch,
-        ["hmp", "report", "render", "session-1", "--workspace", str(tmp_path), "--open"],
+        ["hmp", "show", "session-1", "--report", "--workspace", str(root), "--open"],
     )
 
     assert code == 0
-    assert calls["reference"] == "session-1"
-    assert Path(calls["project_root"]) == tmp_path.resolve()
-    assert calls["session_dir"] == session_dir
+    assert Path(calls["session_dir"]).name == "session-1"
     assert calls["opened"] == html.as_uri()
     assert f"wrote {html}" in capsys.readouterr().err
 
@@ -138,7 +135,6 @@ def test_report_render_writes_the_session_report_and_opens_browser_after_success
 def test_calibrate_no_report_tells_the_api_to_skip_the_session_report(
     monkeypatch, tmp_path
 ) -> None:
-    import hydromodpy as hmp
 
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
@@ -148,7 +144,7 @@ def test_calibrate_no_report_tells_the_api_to_skip_the_session_report(
         captured.update(kwargs)
         return _report()
 
-    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+    monkeypatch.setattr("hydromodpy.project.api.calibrate", fake_calibrate)
 
     code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--no-report"])
 
@@ -208,7 +204,6 @@ def test_privacy_verify_strict_rejects_wrong_permissions(monkeypatch, tmp_path) 
 
 def test_calibrate_forwards_the_selected_phase(monkeypatch, tmp_path) -> None:
     """``--phase`` reaches the API, which is what runs one stage of a chain."""
-    import hydromodpy as hmp
 
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
@@ -218,7 +213,7 @@ def test_calibrate_forwards_the_selected_phase(monkeypatch, tmp_path) -> None:
         captured["phase"] = phase
         return _report()
 
-    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+    monkeypatch.setattr("hydromodpy.project.api.calibrate", fake_calibrate)
 
     code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--phase", "transient_sy"])
 
@@ -227,13 +222,13 @@ def test_calibrate_forwards_the_selected_phase(monkeypatch, tmp_path) -> None:
 
 
 def test_calibrate_lists_the_phases_without_running(monkeypatch, tmp_path, capsys) -> None:
-    import hydromodpy as hmp
 
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
     calls: list[Path] = []
 
-    def fake_phases(path: Path, **kwargs):
+    def fake_calibrate(path: Path, **kwargs):
+        assert kwargs["dry_run"] is True, "listing the phases runs no search"
         calls.append(path)
         phase = {
             "name": "steady_k_over_r",
@@ -241,10 +236,10 @@ def test_calibrate_lists_the_phases_without_running(monkeypatch, tmp_path, capsy
             "method": "bisection",
             "parameters": ["K"],
         }
-        return {"phases": [phase], "calibration": {}, "protocol": None, "plan": {}}
+        plan = {"phases": [phase], "calibration": {}, "protocol": None, "plan": {}}
+        return SimpleNamespace(to_dict=lambda: plan)
 
-    monkeypatch.setattr(hmp, "calibration_phases", fake_phases)
-    monkeypatch.setattr(hmp, "calibrate", lambda *args, **kwargs: pytest.fail("ran a search"))
+    monkeypatch.setattr("hydromodpy.project.api.calibrate", fake_calibrate)
 
     code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--list-phases"])
 
@@ -255,7 +250,6 @@ def test_calibrate_lists_the_phases_without_running(monkeypatch, tmp_path, capsy
 
 def test_calibrate_refusal_exits_with_the_calibration_code(monkeypatch, tmp_path, capsys) -> None:
     """A refusal of the method is typed, so it exits 21 and not 1."""
-    import hydromodpy as hmp
     from hydromodpy.core.exceptions import CalibrationError
 
     config = tmp_path / "calib.toml"
@@ -264,7 +258,7 @@ def test_calibrate_refusal_exits_with_the_calibration_code(monkeypatch, tmp_path
     def fake_calibrate(path: Path, *, phase=None, **kwargs):
         raise CalibrationError("residual keeps a constant sign over the bracket")
 
-    monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
+    monkeypatch.setattr("hydromodpy.project.api.calibrate", fake_calibrate)
 
     code = _run(monkeypatch, ["hmp", "calibrate", str(config)])
 
@@ -274,16 +268,15 @@ def test_calibrate_refusal_exits_with_the_calibration_code(monkeypatch, tmp_path
 
 def test_calibrate_list_phases_reports_an_unreadable_config(monkeypatch, tmp_path, capsys) -> None:
     """``--list-phases`` on a file that cannot be read exits 14, not 0."""
-    import hydromodpy as hmp
     from hydromodpy.core.exceptions import ConfigError
 
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
 
-    def fake_phases(path: Path, **kwargs):
+    def fake_calibrate(path: Path, **kwargs):
         raise ConfigError("calib.toml: 1 validation error for CalibrationConfig")
 
-    monkeypatch.setattr(hmp, "calibration_phases", fake_phases)
+    monkeypatch.setattr("hydromodpy.project.api.calibrate", fake_calibrate)
 
     code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--list-phases"])
 

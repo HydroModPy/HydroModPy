@@ -1,4 +1,4 @@
-"""Run-phase orchestration for :class:`hydromodpy.project.Project`.
+"""Run-phase orchestration for :class:`hydromodpy.project.facade.Project`.
 
 Holds the run-phase entry points backing the facade: :meth:`ProjectRunner.execute`
 runs one attempt of a case through the workflow Pipeline and returns what its
@@ -98,13 +98,14 @@ def run_view_of(run_dir: Path, *, project_root: Path, sim_id: str) -> Run | None
     through its own store. A run that wrote no facts has nothing to read: ``None``.
     """
     from hydromodpy.project.facade import read_sealed_config
+    from hydromodpy.project.show import render
     from hydromodpy.results.record.manifest import is_sealed
     from hydromodpy.results.run.view import Run, open_run_dir
     from hydromodpy.results.storage.run_facts import read_facts
     from hydromodpy.results.storage.run_store import RunStore
 
     if is_sealed(run_dir):
-        return open_run_dir(run_dir, read_config=read_sealed_config)
+        return open_run_dir(run_dir, read_config=read_sealed_config, render=render)
     if read_facts(run_dir) is None:
         return None
     store = RunStore.open(run_dir, workspace=project_root)

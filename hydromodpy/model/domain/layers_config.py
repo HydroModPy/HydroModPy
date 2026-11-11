@@ -7,7 +7,6 @@ grid is the mesh of ``[mesh]``.
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Mapping
 from math import isclose
 from typing import Annotated, Any, Literal
@@ -16,6 +15,7 @@ from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.said import say
 from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.fields.vertical_column import (
@@ -267,7 +267,7 @@ class VerticalGridConfig(HydroModelBase):
         if genmtd_lay in {"list", "surfaces"}:
             if "nlay" in payload and payload.get("nlay") is not None:
                 source = "lay_proportions" if genmtd_lay == "list" else "the layer tables"
-                warnings.warn(
+                say(
                     f"nlay must not be provided when genmtd_lay={genmtd_lay!r} "
                     f"(it is derived from {source}). "
                     "Provided nlay will be ignored.",

@@ -157,7 +157,7 @@ def _recap_lines(caplog) -> list[str]:
     return [
         r.getMessage()
         for r in caplog.records
-        if r.getMessage().startswith(("Run completed", "next: hmp catalog"))
+        if r.getMessage().startswith(("Run completed", "next: hmp show"))
     ]
 
 
@@ -174,7 +174,7 @@ def test_the_run_recap_waits_for_the_export_phase_to_close(caplog, sealed) -> No
     lines = _recap_lines(caplog)
     assert lines == [
         "Run completed: nancon_step1 [01234567] 42s nse=0.46",
-        "next: hmp catalog show nancon_step1 | hmp publish nancon_step1 --to <folder> "
+        "next: hmp show nancon_step1 | hmp publish nancon_step1 --to <folder> "
         "| hmp export nancon_step1 --list",
     ]
     messages = [r.getMessage() for r in caplog.records]

@@ -13,7 +13,6 @@ field on the same model (catches refactor drift).
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from enum import Enum
 from pathlib import Path
@@ -29,6 +28,7 @@ from hydromodpy.core.config_kit.introspect import (
     unwrap_members,
 )
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
+from hydromodpy.core.config_kit.said import say
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.exceptions import ConfigValidationError, FrozenConfigError
 
@@ -48,27 +48,21 @@ class ConfigKeyRenamedWarning(FutureWarning):
     """
 
 
-_OLD_FORMS_TOLD: set[tuple[str, str]] = set()
-"""What this process has already told, as (file, change)."""
-
 _FIX_CONFIG = "hmp doctor --fix-config"
 CANNOT_REWRITE = " left: "
 """Marks a change the migration could not make. The loader then refuses the key."""
 
 
 def warn_old_form(source: str | Path | None, change: str, *, rewritable: bool = True) -> None:
-    """Warn that a file loads through an old form, once per file and per key.
+    """Say that a file loads through an old form.
 
-    *change* says the old key and the new one, as the migration wrote them. A
-    payload that came from no file has nothing to remember it by, so it is told
-    every time. *rewritable* is false for a source the doctor has no file to rewrite
-    for, such as ``--set``.
+    *change* says the old key and the new one, as the migration wrote them. With
+    no sink open the text is a ``FutureWarning``, and the default filter of Python
+    shows one text once per line, which gives once per file and per key without a
+    memory of ours. *rewritable* is false for a source the doctor has no file to
+    rewrite for, such as ``--set``.
     """
     where = "config" if source is None else str(source)
-    if source is not None:
-        if (where, change) in _OLD_FORMS_TOLD:
-            return
-        _OLD_FORMS_TOLD.add((where, change))
     if CANNOT_REWRITE in change:
         message = f"{where}: {change}."
     elif not rewritable:
@@ -83,7 +77,7 @@ def warn_old_form(source: str | Path | None, change: str, *, rewritable: bool = 
         )
     # stacklevel=1 names this file: the console routing hides a deprecation it
     # reads as a third party's, and the reader of this one is the file's author.
-    warnings.warn(message, ConfigKeyRenamedWarning, stacklevel=1)
+    say(message, ConfigKeyRenamedWarning, stacklevel=1)
 
 
 def refuse_old_forms(
@@ -97,14 +91,6 @@ def refuse_old_forms(
     target = "<file>" if source is None else where
     fix = f"`{_FIX_CONFIG} {target}` rewrites the file" if rewritable else "write the new name"
     raise ConfigValidationError(f"{where}: {'; '.join(changes)}. This old form is refused; {fix}.")
-
-
-def forget_old_forms_told() -> None:
-    """Let a report see the old forms again, whatever was printed before.
-
-    All of them: a file reports the old forms of the files it inherits too.
-    """
-    _OLD_FORMS_TOLD.clear()
 
 
 def _admits_only_bool(annotation: Any) -> bool:

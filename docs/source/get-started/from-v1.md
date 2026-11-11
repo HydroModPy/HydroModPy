@@ -48,8 +48,8 @@ changed. The generated reference lists every key: {doc}`../reference/parameters/
 | Edit the paths at the top of a script | `hmp workspace init`, then `hmp example add 04` |
 | `preprocessing_modflow` and `processing_modflow` | `hmp run project/step.toml` |
 | `postprocessing_modflow` and `postprocessing_netcdf` | `hmp export <run> --list`, then `hmp export <run> ...` |
-| Plot functions of `visualization_results` | `hmp viz`, and the `figures` list of `[display]` |
-| Reload a pickle of models | `hmp catalog ls`, `hmp catalog show <run>` and `hmp.read(...)` in Python |
+| Plot functions of `visualization_results` | `hmp show <run> --figure NAME`, and the `figures` list of `[display]` |
+| Reload a pickle of models | `hmp ls`, `hmp show <run>` and `run.read(...)` in Python |
 | Calibration scripts | `hmp calibrate file.toml`, see {doc}`../reference/cli/calibrate` |
 | Copy a folder of results to a colleague | `hmp publish <run> --to <folder>` |
 
@@ -62,7 +62,7 @@ Every command takes `-w <workspace>`, and prints JSON with `--format json`. The 
 2. Write a `project.toml` with the site, the catchment, the depth and the data. The six files of
    {doc}`the staircase <staircase/index>` show each step, from the shortest file that solves.
 3. Run it with a steady regime first. Check the figures, then add the dates and the forcings.
-4. Compare with your v1 results through `hmp catalog diff` or a notebook.
+4. Compare with your v1 results through `hmp diff` or a notebook.
 
 Results are not bit for bit equal to version 1. The recharge, the drains and the meshing were
 rewritten, and each change is in the {doc}`changelog <../about/changelog>`.

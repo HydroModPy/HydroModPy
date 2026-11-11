@@ -1,4 +1,4 @@
-"""``hmp.read(run, "particles")`` gives the particle paths as a documented frame."""
+"""``run.read("particles")`` gives the particle paths as a documented frame."""
 
 from __future__ import annotations
 
@@ -61,6 +61,6 @@ def test_hmp_read_gives_the_particle_frame(monkeypatch) -> None:
     monkeypatch.setattr(particles, "particle_frame", lambda run: frame)
     run = Run.__new__(Run)
 
-    assert hmp.read(run, "particles") is frame
+    assert run.read("particles") is frame
     with pytest.raises(ValueError):
-        hmp.read(run, "particles", time=0)
+        run.read("particles", time=0)

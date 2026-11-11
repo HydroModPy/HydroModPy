@@ -518,6 +518,18 @@ class PlanDraft:
         """Whether every case validated."""
         return not self.errors
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return the plan as JSON: its ``lines``, then its grouped ``warnings`` and ``errors``.
+
+        The ``lines`` are those ``hmp run --dry-run`` prints for a ``[sites]``
+        project, so a draft without ``[sites]`` has none to give.
+        """
+        return {
+            "lines": dry_run_lines(self, plan_budget(self)),
+            "warnings": group_issues(self.warnings),
+            "errors": group_issues(self.errors),
+        }
+
 
 def _label(path: Path, root: Path) -> str:
     try:

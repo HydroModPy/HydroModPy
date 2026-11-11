@@ -12,7 +12,7 @@ For each page (Markdown or reStructuredText under docs/source):
   validates against ``HydroModPyConfig`` once merged onto ``step1_minimal.toml``
   of example 04. A block whose first line is ``# not checked: <reason>`` is
   skipped, for a block that shows a mistake on purpose. A whole file of the
-  catchment report is read by its own model, as ``hmp report catchment`` reads it;
+  catchment report is read by its own model, as ``hmp show RUN --report`` reads it;
 - no French, no em dash, no wording of the mock-up.
 
 Reads ``docs/source/_data/registry.json``, written by the last build. Exit

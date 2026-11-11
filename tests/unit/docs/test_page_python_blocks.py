@@ -244,15 +244,15 @@ def test_the_static_check_catches_a_renamed_name() -> None:
         "from hydromodpy.display import no_such_helper\n"
         "hmp.no_such_verb('x')\n"
         "hmp.open('.', read_only=False)\n"
-        "hmp.read(run, 'head', timestep=-1)\n"
-        "hmp.run('a.toml', K=1e-5)\n"
+        "hmp.show(run, what='field', name='head', timestep=-1)\n"
+        "hmp.run('a.toml', set={'K': 1e-5})\n"
     )
     block = SimpleNamespace(parsed=source, line=1)
     problems = _problems("page.md", 1, block, {"hmp"})
     joined = "\n".join(problems)
     assert "hydromodpy.display has no no_such_helper" in joined
     assert "hydromodpy has no no_such_verb" in joined
-    assert "hmp.read() takes no keyword 'timestep'" in joined
-    # A keyword the signature accepts, and the free keywords of hmp.run, pass.
+    assert "hmp.show() takes no keyword 'timestep'" in joined
+    # A keyword the signature accepts passes, set= of hmp.run included.
     assert "read_only" not in joined
     assert "hmp.run()" not in joined

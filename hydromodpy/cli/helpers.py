@@ -13,6 +13,7 @@ from typing import Any, NoReturn
 from hydromodpy.cli.output import failed
 from hydromodpy.core.exceptions import (
     CalibrationError,
+    Category,
     CommandUsageError,
     ConfigError,
     DataError,
@@ -52,104 +53,65 @@ EXIT_CASES_FAILED = 23
 EXIT_SIGINT = 130
 
 
+EXIT_CODE_OF: dict[Category, int] = {
+    Category.GENERIC: EXIT_GENERIC,
+    Category.USAGE: EXIT_USAGE,
+    Category.NOT_FOUND: EXIT_NOT_FOUND,
+    Category.SCHEMA_MISMATCH: EXIT_SCHEMA_MISMATCH,
+    Category.WRITE_CONFLICT: EXIT_WRITE_CONFLICT,
+    Category.READ_ONLY: EXIT_READ_ONLY,
+    Category.CONFIG: EXIT_CONFIG,
+    Category.SOLVER: EXIT_SOLVER_ERROR,
+    Category.DATA: EXIT_VALIDATION,
+    Category.CROSS_PROJECTS: EXIT_CROSS_PROJECTS,
+    Category.BACKUP_FAILED: EXIT_BACKUP_FAILED,
+    Category.MIGRATION_FAILED: EXIT_MIGRATION_FAILED,
+    Category.AMBIGUOUS_REFERENCE: EXIT_AMBIGUOUS_REFERENCE,
+    Category.CALIBRATION: EXIT_CALIBRATION,
+    Category.CATALOG_UNREADABLE: EXIT_CATALOG_UNREADABLE,
+    Category.CASES_FAILED: EXIT_CASES_FAILED,
+}
+"""The exit code of each category. An exception says its category, this table says the number."""
+
+
 def exit_code_for(exc: BaseException) -> int:
-    """Map an exception instance to the matching typed exit code.
+    """Map an exception instance to the exit code of its category.
 
-    Returns :data:`EXIT_GENERIC` when no specific mapping is registered.
-    :class:`KeyboardInterrupt` is routed to :data:`EXIT_SIGINT` (POSIX 130).
+    A :class:`~hydromodpy.core.exceptions.HydroModPyError` carries its
+    category, and :data:`EXIT_CODE_OF` gives the code. The pipeline wraps what
+    a step raised, so a :class:`~hydromodpy.core.exceptions.StepError` takes
+    the code of its cause. A ``FileNotFoundError`` or a ``FileExistsError``
+    raised outside our hierarchy reads as not found and as a write conflict.
+    Anything else is :data:`EXIT_GENERIC`. :class:`KeyboardInterrupt` is
+    :data:`EXIT_SIGINT` (POSIX 130).
     """
-    from hydromodpy.core.exceptions import (
-        BackupFailedError,
-        CapabilityVersionMismatchError,
-        CatalogUnreadableError,
-        ConfigMissingError,
-        CrossProjectsError,
-        ImportConflictError,
-        JobUsageError,
-        MigrationFailedError,
-        ReadOnlyError,
-        SchemaVersionMismatchError,
-        SolverError,
-        TerrainError,
-    )
-    from hydromodpy.results.catalog.discovery import (
-        AmbiguousReferenceError,
-        SimulationNotFoundError,
-    )
-    from hydromodpy.results.storage.attempt import (
-        AttemptClaimedError,
-        CaseAliveError,
-        DirectoryWithoutOutcomeError,
-    )
-
     if isinstance(exc, KeyboardInterrupt):
         return EXIT_SIGINT
     if isinstance(exc, StepError):
-        # The pipeline wraps whatever a step raised. The category of the run
-        # is the one of that cause: a data step that could not load its gauge
-        # exits as a data failure, not as a generic error.
         return exit_code_for(exc.cause)
-    if isinstance(exc, FailedCasesError):
-        return EXIT_CASES_FAILED
-    if isinstance(exc, AmbiguousReferenceError):
-        return EXIT_AMBIGUOUS_REFERENCE
-    if isinstance(exc, SimulationNotFoundError):
-        return EXIT_NOT_FOUND
+    if isinstance(exc, HydroModPyError):
+        return EXIT_CODE_OF[type(exc).category]
     if isinstance(exc, FileNotFoundError):
         return EXIT_NOT_FOUND
-    mapping: tuple[tuple[type[BaseException], int], ...] = (
-        (CommandUsageError, EXIT_USAGE),
-        (JobUsageError, EXIT_USAGE),
-        (CapabilityVersionMismatchError, EXIT_SCHEMA_MISMATCH),
-        (SchemaVersionMismatchError, EXIT_SCHEMA_MISMATCH),
-        (WriteConflictError, EXIT_WRITE_CONFLICT),
-        # The archive collides with a row the catalog holds: a write conflict
-        # that --name resolves, not a concurrent writer.
-        (ImportConflictError, EXIT_WRITE_CONFLICT),
-        (ReadOnlyError, EXIT_READ_ONLY),
-        # The directory of the case is held by another worker, or says
-        # nothing about itself: a conflict with what is on disk, which the
-        # worker reports in one sentence and never repairs.
-        (AttemptClaimedError, EXIT_WRITE_CONFLICT),
-        (CaseAliveError, EXIT_WRITE_CONFLICT),
-        (DirectoryWithoutOutcomeError, EXIT_WRITE_CONFLICT),
+    if isinstance(exc, FileExistsError):
         # The directory a move or a reservation targets is already there: a
         # paired run directory taken, a restore onto a live name.
-        (FileExistsError, EXIT_WRITE_CONFLICT),
-        (ConfigError, EXIT_CONFIG),
-        (ConfigMissingError, EXIT_CONFIG),
-        (SolverError, EXIT_SOLVER_ERROR),
-        # A terrain engine is the geospatial backend of a capability, and what
-        # code 15 means at a process boundary is "the backend failed". The
-        # whole family maps to it: its four classes differ in what a caller
-        # does next inside the process, not in what an orchestrator does with
-        # the exit status.
-        (TerrainError, EXIT_SOLVER_ERROR),
-        (DataError, EXIT_VALIDATION),
-        (CrossProjectsError, EXIT_CROSS_PROJECTS),
-        (BackupFailedError, EXIT_BACKUP_FAILED),
-        (MigrationFailedError, EXIT_MIGRATION_FAILED),
-        (CatalogUnreadableError, EXIT_CATALOG_UNREADABLE),
-        # Last of the list on purpose: CalibrationError is a sibling of the
-        # others, but ObjectiveError and OptimizerError derive from it, so a
-        # more specific mapping would have to come before this one.
-        (CalibrationError, EXIT_CALIBRATION),
-    )
-    for exc_type, code in mapping:
-        if isinstance(exc, exc_type):
-            return code
+        return EXIT_WRITE_CONFLICT
     return EXIT_GENERIC
 
 
+_CLASS_OF_CATEGORY: dict[Category, type[HydroModPyError]] = {
+    Category.GENERIC: HydroModPyError,
+    Category.USAGE: CommandUsageError,
+    Category.NOT_FOUND: NothingThereError,
+    Category.WRITE_CONFLICT: WriteConflictError,
+    Category.CONFIG: ConfigError,
+    Category.DATA: DataError,
+    Category.CALIBRATION: CalibrationError,
+    Category.CASES_FAILED: FailedCasesError,
+}
 _CLASS_OF_EXIT: dict[int, type[HydroModPyError]] = {
-    EXIT_GENERIC: HydroModPyError,
-    EXIT_USAGE: CommandUsageError,
-    EXIT_NOT_FOUND: NothingThereError,
-    EXIT_WRITE_CONFLICT: WriteConflictError,
-    EXIT_CONFIG: ConfigError,
-    EXIT_VALIDATION: DataError,
-    EXIT_CALIBRATION: CalibrationError,
-    EXIT_CASES_FAILED: FailedCasesError,
+    EXIT_CODE_OF[category]: klass for category, klass in _CLASS_OF_CATEGORY.items()
 }
 """The class whose ``HMPY.Exxx`` a failure carries when no exception of ours names its own."""
 

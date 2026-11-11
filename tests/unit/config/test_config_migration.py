@@ -37,7 +37,6 @@ from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
 from hydromodpy.core.config_kit.base import (
     CANNOT_REWRITE,
     ConfigKeyRenamedWarning,
-    forget_old_forms_told,
     warn_old_form,
 )
 from hydromodpy.core.config_kit.introspect import held_tables_of
@@ -139,7 +138,6 @@ SHAPES = {
 def test_a_live_file_in_the_delay_loads_with_a_warning(
     text: str, path: str, value: object, told: str, tmp_path: Path
 ) -> None:
-    forget_old_forms_told()
     doc = tomllib.loads(text)
     source = tmp_path / "project.toml"
 
@@ -313,7 +311,6 @@ def test_a_dotted_key_given_twice_is_left_with_the_reason() -> None:
 
 
 def test_set_reads_a_form_in_its_delay_and_does_not_promise_the_doctor() -> None:
-    forget_old_forms_told()
     layer = {"old_table": {"x": 1}}
 
     with pytest.warns(ConfigKeyRenamedWarning, match="write the new name") as warned:
@@ -475,7 +472,6 @@ def test_the_parent_tables_of_transport_move_after_their_parameters() -> None:
 def test_hmp_init_of_2_0_loads_with_a_warning_until_2_2(tmp_path: Path) -> None:
     """``[[simulation.process]] type`` is the form the scaffold of 2.0.0 wrote."""
     row = next(row for row in CONFIG_MOVES if row.old == "simulation.process[*].type")
-    forget_old_forms_told()
     doc = {"simulation": {"process": [{"id": "flow", "type": "flow", "solvers": ["modflow6"]}]}}
 
     with pytest.warns(ConfigKeyRenamedWarning, match="type -> kind"):
@@ -565,31 +561,28 @@ MODFLOW6 = "[modflow6.process_specific]\nvka = 2.0\n"
 
 
 def test_a_load_migrates_in_memory_and_warns_once_per_key_and_file(tmp_path: Path) -> None:
-    forget_old_forms_told()
     source = tmp_path / "project.toml"
     doc = tomllib.loads(MODFLOW6)
 
-    with pytest.warns(ConfigKeyRenamedWarning) as told:
+    # The default filter of Python shows one text once per line, so a second load of the
+    # same file is silent and another file is told.
+    with warnings.catch_warnings(record=True) as told:
+        warnings.simplefilter("default")
         changes = migrate_config_doc_on_load(doc, source=source)
-
-    assert changes == ["modflow6 -> [solver.modflow6]"]
-    assert doc == {"solver": {"modflow6": {"process_specific": {"vka": 2.0}}}}
-    assert len(told) == 1
-    assert f"hmp doctor --fix-config {source}" in str(told[0].message)
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", ConfigKeyRenamedWarning)
-        assert migrate_config_doc_on_load(tomllib.loads(MODFLOW6), source=source) == changes
-    with pytest.warns(ConfigKeyRenamedWarning):
+        again = migrate_config_doc_on_load(tomllib.loads(MODFLOW6), source=source)
         migrate_config_doc_on_load(tomllib.loads(MODFLOW6), source=tmp_path / "other.toml")
+
+    assert changes == again == ["modflow6 -> [solver.modflow6]"]
+    assert doc == {"solver": {"modflow6": {"process_specific": {"vka": 2.0}}}}
+    assert len(told) == 2
+    assert f"hmp doctor --fix-config {source}" in str(told[0].message)
+    assert "other.toml" in str(told[1].message)
 
 
 def test_a_report_on_a_file_sees_its_old_forms_again(tmp_path: Path) -> None:
     source = tmp_path / "project.toml"
-    forget_old_forms_told()
     with pytest.warns(ConfigKeyRenamedWarning):
         migrate_config_doc_on_load(tomllib.loads(MODFLOW6), source=source)
-
-    forget_old_forms_told()
 
     with pytest.warns(ConfigKeyRenamedWarning):
         migrate_config_doc_on_load(tomllib.loads(MODFLOW6), source=source)
@@ -654,7 +647,6 @@ def test_a_dry_run_writes_nothing_and_gives_the_diff(tmp_path: Path) -> None:
 
 def test_a_warning_names_the_file_that_holds_the_key(tmp_path: Path) -> None:
     holder, child = _chain(tmp_path, MODFLOW6, "[workflow]\nprofile = false\n")
-    forget_old_forms_told()
 
     with pytest.warns(ConfigKeyRenamedWarning) as told:
         load_toml_with_base_config(child, root=ROOT_CONFIG)
@@ -671,7 +663,6 @@ def test_a_backend_split_across_two_files_is_named_by_the_merge(tmp_path: Path) 
     _, child = _chain(
         tmp_path, '[solver.backend]\nkind = "custom"\n', '[solver.backend]\nname = "plugged"\n'
     )
-    forget_old_forms_told()
 
     with pytest.warns(ConfigKeyRenamedWarning, match="solver.backend.kind -> solver.backend"):
         merged = load_toml_with_base_config(child, root=ROOT_CONFIG)
@@ -725,7 +716,6 @@ def test_a_moved_table_loads_through_the_model(tmp_path: Path) -> None:
         tmp_path,
         '[workflow]\nmode = "simulation"\n[geographic]\nsource_mode = "synthetic"\n' + MODFLOW6,
     )
-    forget_old_forms_told()
 
     with pytest.warns(ConfigKeyRenamedWarning):
         config = HydroModPyConfig.from_toml(path)
@@ -788,7 +778,6 @@ def test_a_form_of_2_0_loads_with_a_warning(
     case: str, text: str, path: str, value: object, tmp_path: Path
 ) -> None:
     del case
-    forget_old_forms_told()
     doc = tomllib.loads(text)
 
     with pytest.warns(ConfigKeyRenamedWarning, match="hmp doctor --fix-config"):

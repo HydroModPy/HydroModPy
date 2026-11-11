@@ -90,7 +90,6 @@ def test_a_run_shared_with_its_data_replays_elsewhere_with_the_same_heads(tmp_pa
 
     _ok(hmp("catalog", "rerun", RUN_NAME, "-w", str(lab), cwd=tmp_path, env=second), "rerun")
     diff = hmp(
-        "catalog",
         "diff",
         RUN_NAME,
         f"{RUN_NAME}.v2",
@@ -101,7 +100,7 @@ def test_a_run_shared_with_its_data_replays_elsewhere_with_the_same_heads(tmp_pa
         cwd=tmp_path,
         env=second,
     )
-    _ok(diff, "catalog diff")
+    _ok(diff, "diff")
     compared = json.loads(diff.stdout)["data"]
     assert compared["params"] == []
     # Only the solve time differs, and a runtime number is no score.

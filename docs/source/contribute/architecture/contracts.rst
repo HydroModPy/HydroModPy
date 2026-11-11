@@ -11,13 +11,20 @@ The public facade
 -----------------
 
 A user imports ``import hydromodpy as hmp``. The package exports a short flat set:
-the verbs of ``hydromodpy/_api.py``, ``Project``, ``Run``, ``RunSet``, ``Catalog``,
-``Session``, ``Workspace``, ``HydroModPyConfig`` and the exception hierarchy, all listed
-in ``hydromodpy.__all__``. The generated :doc:`/reference/python/index` documents every
+the fifteen verbs of ``hydromodpy/project/api.py`` (``open``, ``run``, ``check``,
+``calibrate``, ``spinup``, ``replay``, ``stop``, ``status``, ``trash``, ``compare``,
+``show``, ``export``, ``publish``, ``example``, ``doctor``), the five objects they take
+and return (``Project``, ``Run``, ``RunSet``, ``Session``, ``HydroModPyConfig``), the
+categories of the exception hierarchy and ``__version__``, all listed in
+``hydromodpy.__all__``. A verb takes text, numbers, paths or mappings and returns a
+value with ``to_dict()``, a path or diagnostics, so a server sends it as JSON. A
+command of ``hmp`` calls its verb, and nothing else at the top level reads a lower
+package. ``tests/unit/architecture/test_facade_holds_fifteen_verbs.py`` holds this. The generated :doc:`/reference/python/index` documents every
 name, so this page does not repeat them. Everything else, the config section of a
 variable or a solver class, stays reachable through ``hydromodpy.<module>`` and is out of
 the contract unless the list below names its module. ``hmp.open(path)`` opens what a path stands for: a ``Project``, a ``Run``, a
-``Session`` or a ``Workspace``. ``project.store`` is the read-only ``Catalog`` over
+``Session`` or a ``Workspace``. ``project.store`` is the read-only ``Catalog``
+(``hydromodpy.results.catalog.Catalog``) over
 ``.hmp/index.duckdb``, the index derived from the run directories.
 
 Public import paths
@@ -82,6 +89,7 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.cli.conventions``: the shared argparse grammar.
 - ``hydromodpy.cli.output``: what a command writes for a program.
 - ``hydromodpy.cli.helpers``: exit codes and workspace resolution of a command.
+- ``hydromodpy.project.api``: the fifteen verbs, which each command of ``hmp`` calls.
 
 .. public-modules-end
 
@@ -250,7 +258,7 @@ Source: ``hydromodpy/results/field_registry.py``. ``FIELD_REGISTRY`` maps a logi
 field name (``head``, ``watertable_depth``, ``drain_accumulation_flux``, ...) to a
 ``FieldDescriptor``: its shape, the Zarr path inside the run store, and its CF
 metadata (standard name, units, coordinates). ``get``, ``has``, ``all_names``,
-``all_zarr_paths`` and ``cf_attrs`` read it. ``hmp.read``, the Zarr writers, the
+``all_zarr_paths`` and ``cf_attrs`` read it. ``Run.read``, the Zarr writers, the
 exporters and the figures all read this one table, so a field is described the
 same way in every layer. Adding a field is a registry entry and a writer; readers
 keep working.
@@ -329,7 +337,7 @@ figure, applies the style and saves, and takes the name of the figure from its
 ``spec``. Concrete figures live in ``display/figures/`` and are listed by the
 generated table ``display/figure_table.py`` (``python -m tools.figure_table``),
 which ``display/figure_registry.py`` reads to answer a name, so resolving a
-name imports no figure module. ``hmp.figure(run, "watertable_map")`` and the
+name imports no figure module. ``run.figure("watertable_map")`` and the
 ``[display]`` section call them by name. A figure reads a ``Run`` and never a
 solver file.
 

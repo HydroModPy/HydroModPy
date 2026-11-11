@@ -1,14 +1,10 @@
-"""``hmp catalog`` family - read the index of a project and maintain its tree.
+"""``hmp catalog`` family - maintain the index of a project and its tree.
+
+Reading is ``hmp ls``, ``hmp show`` and ``hmp diff``. This family keeps what they read.
 
 Sub-actions:
 
-- ``hmp catalog ls``: list the runs (filterable by solver, site, status, label, tag).
 - ``hmp catalog query "<SQL>"``: run one read-only SQL statement against the index.
-- ``hmp catalog show <sim_ref>``: print the README of one run, or its facts
-  from the index (``--detail``, ``--format json``).
-- ``hmp catalog point <sim_ref>... --var V``: read a variable in one cell,
-  named by coordinates, cell id or depth, on one or several runs.
-- ``hmp catalog rank``: rank the runs of a project by a metric, best or worst first.
 - ``hmp catalog gc``: says what it would do; ``-y`` marks dead attempts
   aborted, trashes old versions and removes expired trash, each removed
   directory leaving a tombstone.
@@ -21,7 +17,6 @@ Sub-actions:
   (``runs/<run>/annotations.json``).
 - ``hmp catalog note <sim_ref> "<text>"``: append a timestamped note.
 - ``hmp catalog rename <sim_ref> <new_name>``: rename a run (its directory moves).
-- ``hmp catalog diff <ref_a> <ref_b>``: compare the parameters and metrics of two runs.
 - ``hmp catalog watch``: show the running attempts with the age of their pulse.
 - ``hmp catalog import <DIR|TAR>``: import a run written by ``hmp publish``.
 - ``hmp catalog rerun <sim_ref> [--set path=value]``: re-launch from the frozen config.
@@ -33,19 +28,14 @@ import argparse
 
 from hydromodpy.cli.commands.catalog import (
     delete,
-    diff,
     gc,
     import_archive,
-    ls,
     note,
-    point,
     query,
-    rank,
     reindex,
     rename,
     rerun,
     restore,
-    show,
     tag,
     trash,
     watch,
@@ -53,14 +43,10 @@ from hydromodpy.cli.commands.catalog import (
 from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "catalog"
-HELP: str = "Read the index of a project and maintain its runs"
+HELP: str = "Maintain the index of a project and its runs"
 
 ACTIONS = (
-    ls,
     query,
-    show,
-    point,
-    rank,
     gc,
     reindex,
     delete,
@@ -69,7 +55,6 @@ ACTIONS = (
     tag,
     note,
     rename,
-    diff,
     watch,
     import_archive,
     rerun,

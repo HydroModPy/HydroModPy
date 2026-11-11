@@ -6,7 +6,7 @@ directory.
 
 ## How the work flows
 
-1. A caller asks for a variable through `hmp.read` or `Catalog.read`. `reading.py` is the one dispatch behind both.
+1. A caller asks for a variable through `Run.read` or `Catalog.read`. `reading.py` is the one dispatch behind both.
    A field gives an `xarray.DataArray`, a series a `pandas.Series`, a geographic feature a `GeoDataFrame`.
 2. If the name is a virtual field, `virtual_fields.py` computes it from the stored fields. Water table elevation
    and depth, seepage and release flux are of that kind.
@@ -27,7 +27,7 @@ directory.
 
 ```text
 derive/
-├── reading.py          read_variable, the dispatch of hmp.read and Catalog.read
+├── reading.py          read_variable, the dispatch of Run.read and Catalog.read
 ├── virtual_fields.py   fields computed from stored fields
 ├── derived.py          pure formulas for water table and flux per area
 ├── views.py            reductions over the catchment or the active domain

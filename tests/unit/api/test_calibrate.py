@@ -1,4 +1,4 @@
-"""Unit tests for ``hmp.calibrate``."""
+"""Unit tests for the verb ``calibrate`` and for ``Project.calibrate``."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-import hydromodpy as hmp
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.toml_io.writer import dumps as dump_toml
+from hydromodpy.project import api
 from tests._helpers.api_doubles import make_capturing_project
 
 pytestmark = pytest.mark.fast
@@ -35,7 +35,7 @@ def test_calibrate_with_path_routes_to_run_calibration_cli(monkeypatch, tmp_path
 
     monkeypatch.setattr("hydromodpy.calibration.runners.cli_runner.run_calibration_cli", fake_cli)
 
-    result = hmp.calibrate(config, project="my_label")
+    result = api.calibrate(config, project="my_label")
     assert result == {"report": "ok"}
     assert captured["config_path"] == config.resolve()
     assert captured["kwargs"] == {
@@ -72,7 +72,7 @@ def test_calibrate_with_path_gives_back_a_completed_session(
         lambda target: answered.append(target) or "the report of the session",
     )
 
-    result = hmp.calibrate(config, **options)
+    result = api.calibrate(config, **options)
 
     assert ("cli_path" in calls) is searches
     assert result == ({"staged": False} if searches else "the report of the session")
@@ -84,7 +84,7 @@ def test_project_calibrate_gives_back_a_completed_session_of_its_own_section(
     monkeypatch, tmp_path: Path, force: bool
 ) -> None:
     """The ``[calibration]`` a project carries is answered by the session of its key."""
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     calls: dict = {}
     _patch_runners(monkeypatch, calls)
@@ -126,7 +126,7 @@ def test_calibrate_with_path_drops_headless_kwarg(monkeypatch, tmp_path: Path) -
 
     monkeypatch.setattr("hydromodpy.calibration.runners.cli_runner.run_calibration_cli", fake_cli)
 
-    hmp.calibrate(config, headless=False)
+    api.calibrate(config, headless=False)
     assert "headless" not in captured["kwargs"]
 
 
@@ -140,12 +140,12 @@ def test_calibrate_object_config_routes_to_project(monkeypatch, headless: bool) 
     """
     captured: dict = {}
     monkeypatch.setattr(
-        "hydromodpy.project.Project",
+        "hydromodpy.project.api.Project",
         make_capturing_project(captured, result={"report": "from_object"}, verb="calibrate"),
     )
 
     fake_cfg = object()
-    result = hmp.calibrate(fake_cfg, headless=headless, max_trials=10)
+    result = api.calibrate(fake_cfg, headless=headless, max_trials=10)
     assert result == {"report": "from_object"}
     assert captured["init_cfg"] is fake_cfg
     assert captured["init_headless"] is headless
@@ -361,7 +361,7 @@ def test_project_calibrate_toml_mode_routes_phases_to_staged_runner(
     monkeypatch, tmp_path: Path
 ) -> None:
     """``Project.calibrate(config_path=...)`` honors the declared phases."""
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
     calls: dict = {}
@@ -379,7 +379,7 @@ def test_project_calibrate_embedded_phases_route_to_staged_runner(
     monkeypatch, tmp_path: Path
 ) -> None:
     """A project built from a TOML that declares phases runs them staged."""
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
     calls: dict = {}
@@ -405,7 +405,7 @@ def test_project_calibrate_in_memory_embedded_phases_route_to_staged_runner(
     embedded declaration on a project built in memory now reaches the staged
     runner through the document ``run_calibration_programmatic`` writes.
     """
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     calls: dict = {}
 
@@ -434,19 +434,19 @@ def test_project_calibrate_in_memory_embedded_phases_route_to_staged_runner(
 
 
 def test_calibrate_object_config_with_phases_routes_through_project(monkeypatch) -> None:
-    """``hmp.calibrate(config_object)`` no longer refuses a declared phase.
+    """``api.calibrate(config_object)`` no longer refuses a declared phase.
 
     It delegates to ``Project.calibrate``, which knows how to run embedded
     phases from a project built in memory (see the test above).
     """
     captured: dict = {}
     monkeypatch.setattr(
-        "hydromodpy.project.Project",
+        "hydromodpy.project.api.Project",
         make_capturing_project(captured, result={"report": "staged"}, verb="calibrate"),
     )
 
     config = SimpleNamespace(calibration=_staged_config())
-    result = hmp.calibrate(config, phase="steady_k")
+    result = api.calibrate(config, phase="steady_k")
     assert result == {"report": "staged"}
     assert captured["verb_kwargs"] == {"phase": "steady_k"}
 
@@ -469,7 +469,7 @@ def test_python_mode_phases_and_equivalent_toml_pick_the_same_phases(
     """
     from hydromodpy.calibration.runners.document import load_toml_calibration
     from hydromodpy.calibration.runners.staged_runner import phase_summaries
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     toml_path = _write_toml(tmp_path / "phases.toml", PHASES_TOML_EQUIVALENT)
     cfg_toml, _raw_toml = load_toml_calibration(toml_path)
@@ -625,7 +625,7 @@ def test_file_backed_python_phases_document_keeps_the_projects_own_paths(
     avoids it.
     """
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     config_path = _write_real_project(tmp_path)
     # Where the project resolves a bare relative map.complete: same
@@ -690,7 +690,7 @@ def test_file_backed_python_phases_document_holds_only_what_python_gave(
     would silently also carry Sy and an unrelated output along.
     """
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     config_path = _write_real_project(tmp_path)
 
@@ -707,48 +707,6 @@ def test_file_backed_python_phases_document_holds_only_what_python_gave(
     assert set(written.calibration.parameters) == {"K"}
     assert set(written.calibration.outputs) == set()
     assert written.calibration.protocol is None
-
-
-def test_calibration_phases_of_a_config_object_builds_no_project(monkeypatch) -> None:
-    """The phases of a config object are read from its section, with nothing else to say."""
-
-    class _NoProject:
-        def __init__(self, *args, **kwargs):
-            raise AssertionError("listing phases must build no Project")
-
-    monkeypatch.setattr("hydromodpy.project.Project", _NoProject)
-
-    config = SimpleNamespace(calibration=_staged_config())
-    result = hmp.calibration_phases(config)
-
-    assert result["protocol"] is None
-    assert result["plan"] is None
-    assert set(result["calibration"]) >= {"method", "parameters", "phases"}
-    assert result["phases"] == [
-        {
-            "name": "steady_k",
-            "description": "zero of the signed gap",
-            "method": "bisection",
-            "parameters": ["K"],
-            "depends_on": None,
-            "freeze_on_success": True,
-            "search": {
-                "method": {"value": "bisection", "source": "phase"},
-                "max_trials": {"value": "auto", "source": "default"},
-                "precision": {"value": None, "source": "default"},
-                "method_options": {"value": {}, "source": "default"},
-            },
-            "interval_width": {
-                "margin": 0.05,
-                "kind": "relative",
-                "source": "default",
-                "on_distances": False,
-                "rule": "5 % of the best cost",
-            },
-            "comparisons": [],
-            "window": "no window, all of the run",
-        }
-    ]
 
 
 def test_dispatch_workflow_calibration_routes_phases_to_staged_runner(
@@ -776,22 +734,13 @@ def test_dispatch_workflow_calibration_routes_phases_to_staged_runner(
 # ---------------------------------------------------------------------------
 
 
-def test_calibration_phases_surface_the_real_error_of_an_unreadable_toml(tmp_path: Path) -> None:
-    """A file that cannot be read is not reported as declaring no phases."""
-    from hydromodpy.core.exceptions import ConfigError
-
-    config = _write_toml(tmp_path / "typo.toml", TYPO_TOML)
-    with pytest.raises(ConfigError, match="not_a_field"):
-        hmp.calibration_phases(config)
-
-
 def test_selected_phase_surfaces_the_real_error_of_an_unreadable_toml(tmp_path: Path) -> None:
     """``--phase`` on an unreadable file reports the file, not a missing phase."""
     from hydromodpy.core.exceptions import ConfigError
 
     config = _write_toml(tmp_path / "typo.toml", TYPO_TOML)
     with pytest.raises(ConfigError, match="not_a_field"):
-        hmp.calibrate(config, phase="steady_k")
+        api.calibrate(config, phase="steady_k")
 
 
 def test_unreadable_toml_still_defers_to_the_runner_without_a_phase(
@@ -802,7 +751,7 @@ def test_unreadable_toml_still_defers_to_the_runner_without_a_phase(
     calls: dict = {}
     _patch_runners(monkeypatch, calls)
 
-    assert hmp.calibrate(config) == {"staged": False}
+    assert api.calibrate(config) == {"staged": False}
     assert calls["cli_path"] == config.resolve()
 
 
@@ -817,7 +766,7 @@ def test_project_calibrate_with_a_phase_surfaces_the_real_error_of_an_unreadable
     here.
     """
     from hydromodpy.core.exceptions import ConfigError
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     config = _write_toml(tmp_path / "typo.toml", TYPO_TOML)
     calls: dict = {}
@@ -837,7 +786,7 @@ def test_project_calibrate_without_a_phase_still_defers_to_the_runner(
     monkeypatch, tmp_path: Path
 ) -> None:
     """Routing alone stays non-fatal: the runner reports the file itself."""
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     config = _write_toml(tmp_path / "typo.toml", TYPO_TOML)
     calls: dict = {}
@@ -856,7 +805,7 @@ def test_project_calibrate_forwards_only_kwargs_the_staged_runner_accepts(
     import inspect
 
     from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     signature = inspect.signature(run_staged_calibration)
     config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
@@ -884,165 +833,13 @@ def test_phase_on_a_mono_phase_toml_raises_a_typed_calibration_error(tmp_path: P
 
     config = _write_toml(tmp_path / "calib.toml", MONO_PHASE_TOML)
     with pytest.raises(CalibrationError, match="steady_k"):
-        hmp.calibrate(config, phase="steady_k")
-
-
-_PROTOCOL_TOML = """
-[calibration]
-protocol = "matching_hydrographic_network"
-
-[calibration.parameters.K]
-
-[calibration.parameters.Sy]
-
-[calibration.outputs.streams]
-support = "network"
-map.complete = "streams.gpkg"
-
-[[data.hydrometry.sources]]
-station_ids = ["G1"]
-"""
-
-_NO_PROTOCOL_TOML = """
-[calibration]
-seed = 7
-"""
-
-
-def test_calibration_phases_expand_returns_the_whole_section(tmp_path: Path) -> None:
-    """A protocol file expands to its whole section, pasteable, with no ``protocol`` key."""
-    config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML)
-
-    result = hmp.calibration_phases(config)
-
-    # A file of no edition keeps the default of 2.0, written out.
-    assert set(result["calibration"]) == {
-        "parameters",
-        "outputs",
-        "objective_blocks",
-        "phases",
-        "persist_trial_series",
-    }
-    phases = result["calibration"]["phases"]
-    assert [phase["name"] for phase in phases] == ["steady_conductivity", "transient_storage"]
-    assert result["calibration"]["objective_blocks"] == [
-        {"name": "network_extension", "metric": "distance_gap", "uses_outputs": ["streams"]},
-        {"name": "hydrograph", "metric": "nse_log", "uses_outputs": ["hydrograph"]},
-    ]
-    # The file's own network output and the gauge the protocol adds, together:
-    # a section with only the protocol's additions would not load on its own.
-    assert set(result["calibration"]["outputs"]) == {"streams", "hydrograph"}
-    assert result["calibration"]["outputs"]["hydrograph"] == {
-        "variable": "discharge",
-        "support": "point",
-        "observes": "G1",
-    }
-    assert set(result["calibration"]["parameters"]) == {"K", "Sy"}
-
-
-_PROTOCOL_TOML_WITH_ITS_OWN_HYDROGRAPH = """
-[calibration]
-protocol = "matching_hydrographic_network"
-
-[calibration.parameters.K]
-
-[calibration.parameters.Sy]
-
-[calibration.outputs.streams]
-support = "network"
-map.complete = "streams.gpkg"
-
-[calibration.outputs.hydrograph]
-variable = "discharge"
-support = "point"
-observes = "G1"
-time = "all"
-reducer = "none"
-
-[[data.hydrometry.sources]]
-station_ids = ["G1"]
-"""
-
-
-def test_calibration_phases_expand_lists_an_output_the_file_already_declares_once(
-    tmp_path: Path,
-) -> None:
-    """A sealed run's own dump of the hydrograph output is one output, not two."""
-    config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML_WITH_ITS_OWN_HYDROGRAPH)
-
-    result = hmp.calibration_phases(config)
-
-    assert set(result["calibration"]["outputs"]) == {"streams", "hydrograph"}
-
-
-def test_calibration_phases_expand_names_the_protocol_and_its_first_reference(
-    tmp_path: Path,
-) -> None:
-    """The header data names the protocol, its version and a short citation."""
-    config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML)
-
-    result = hmp.calibration_phases(config)
-
-    assert result["protocol"] == {
-        "name": "matching_hydrographic_network",
-        "version": "1.3",
-        "citation": "Abherve et al. 2023, 10.5194/hess-27-3221-2023",
-        "inherited": False,
-    }
-
-
-def test_calibration_phases_expand_says_when_the_protocol_comes_from_the_base_config(
-    tmp_path: Path,
-) -> None:
-    """Only then does a file pasting the section under that base drop a protocol."""
-    _write_toml(tmp_path / "project.toml", _PROTOCOL_TOML)
-    config = _write_toml(
-        tmp_path / "run_calibration.toml",
-        'base_config = "project.toml"\n\n[calibration]\nseed = 3\n',
-    )
-
-    result = hmp.calibration_phases(config)
-
-    assert result["protocol"]["inherited"] is True
-    assert result["calibration"]["seed"] == 3
-
-
-def test_calibration_phases_expand_on_a_file_without_a_protocol_returns_its_own_section(
-    tmp_path: Path,
-) -> None:
-    """No protocol declared: the section comes back unchanged, and ``protocol`` is None."""
-    config = _write_toml(tmp_path / "calib.toml", _NO_PROTOCOL_TOML)
-
-    result = hmp.calibration_phases(config)
-
-    assert result["calibration"] == {"seed": 7, "persist_trial_series": False}
-    assert result["protocol"] is None
-
-
-def test_calibration_phases_expand_round_trips_through_a_hand_written_file(tmp_path: Path) -> None:
-    """The printed section alone, pasted into a plain file, is the same calibration.
-
-    A hand-written file drops the protocol table (``protocol__delete = true`` in
-    a real ``base_config`` chain; here there is none to inherit from) and keeps
-    everything else. Expanding it again -- a no-op, since it names no protocol
-    -- must return the exact section the protocol expansion produced.
-    """
-    protocol_config = _write_toml(tmp_path / "protocol.toml", _PROTOCOL_TOML)
-    expanded = hmp.calibration_phases(protocol_config)
-
-    written = dump_toml({"calibration": expanded["calibration"]})
-    hand_written = _write_toml(tmp_path / "hand_written.toml", written)
-
-    round_tripped = hmp.calibration_phases(hand_written)
-
-    assert round_tripped["protocol"] is None
-    assert round_tripped["calibration"] == expanded["calibration"]
+        api.calibrate(config, phase="steady_k")
 
 
 def test_project_calibrate_forwards_resume_and_the_label_on_the_file_routes(
     monkeypatch, tmp_path: Path
 ) -> None:
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
     calls: dict = {}
@@ -1072,7 +869,7 @@ def test_project_calibrate_refuses_what_a_file_cannot_take(
     monkeypatch, tmp_path: Path, kwargs: dict, message: str
 ) -> None:
     from hydromodpy.core.exceptions import ConfigError
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
     _patch_runners(monkeypatch, {})
@@ -1084,17 +881,16 @@ def test_project_calibrate_refuses_what_a_file_cannot_take(
 
 
 def test_project_calibrate_names_an_unknown_argument() -> None:
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     with pytest.raises(TypeError, match="'stagnation'"):
         Project.calibrate(SimpleNamespace(), parameters={"K": {}}, stagnation=3)
 
 
-@pytest.mark.parametrize("verb", ["facade", "hmp"])
 def test_project_calibrate_dry_run_returns_the_plan_of_the_file(
-    monkeypatch, tmp_path: Path, verb: str
+    monkeypatch, tmp_path: Path
 ) -> None:
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
     calls: dict = {}
@@ -1104,13 +900,34 @@ def test_project_calibrate_dry_run_returns_the_plan_of_the_file(
         lambda cfg, path, **kw: {"case": path.stem},
     )
 
-    if verb == "hmp":
-        plan = hmp.calibrate(config, dry_run=True)
-    else:
-        plan = Project.calibrate(SimpleNamespace(), config_path=config, dry_run=True)
+    plan = Project.calibrate(SimpleNamespace(), config_path=config, dry_run=True)
 
     assert plan == {"case": "staged"}
     assert "staged_path" not in calls
+
+
+def test_the_verb_dry_run_gives_a_calibration_plan_and_runs_nothing(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from hydromodpy.core.exceptions import CalibrationError
+    from hydromodpy.project.calibrate import CalibrationPlan
+
+    config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
+    calls: dict = {}
+    _patch_runners(monkeypatch, calls)
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.document.describe_dry_run",
+        lambda cfg, path, **kw: {"case": path.stem},
+    )
+
+    plan = api.calibrate(config, dry_run=True, preflight=False)
+
+    assert isinstance(plan, CalibrationPlan)
+    assert plan.plan == {"case": "staged"}
+    assert [phase["name"] for phase in plan.phases] == ["steady_k"]
+    assert "staged_path" not in calls
+    with pytest.raises(CalibrationError, match="unknown phase 'nope'"):
+        api.calibrate(config, dry_run=True, preflight=False, phase="nope")
 
 
 @pytest.mark.parametrize(
@@ -1120,7 +937,7 @@ def test_project_calibrate_dry_run_in_memory_needs_a_file(
     monkeypatch, tmp_path: Path, source: str | None, expected: str
 ) -> None:
     from hydromodpy.core.exceptions import ConfigError
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     monkeypatch.setattr("hydromodpy.project.calibrate._preflight_in_memory", lambda *a: None)
     monkeypatch.setattr(
@@ -1140,7 +957,7 @@ def test_project_calibrate_dry_run_in_memory_needs_a_file(
 def test_project_calibrate_hands_case_resume_and_label_to_the_programmatic_runner(
     monkeypatch,
 ) -> None:
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     seen: dict = {}
     monkeypatch.setattr("hydromodpy.project.calibrate._preflight_in_memory", lambda *a: None)
@@ -1159,7 +976,7 @@ def test_project_calibrate_hands_case_resume_and_label_to_the_programmatic_runne
 
 def test_project_calibrate_protocol_builds_on_the_projects_own_calibration(tmp_path: Path) -> None:
     """K and Sy are the project's, the protocol lays its two phases over them."""
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
     text = (
         MINIMAL_REAL_PROJECT_TOML.split("[calibration.outputs.seepage_network]")[0]

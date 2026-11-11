@@ -1,4 +1,4 @@
-"""Tests for the ``hmp project`` actions O5 owns: new, list, show, delete, promote, prune.
+"""Tests for the ``hmp project`` actions O5 owns: new, list, delete, promote, prune, and ``hmp show`` of a project.
 
 ``promote`` and ``prune`` are driven through their own module, registered on
 a local parser, so the test does not depend on the order of ``ACTIONS``;
@@ -87,7 +87,7 @@ def test_project_family_help_lists_actions(monkeypatch, capsys) -> None:
     code = _run(monkeypatch, ["hmp", "project", "--help"])
     assert code == 0
     out = capsys.readouterr().out
-    for action in ("new", "list", "show", "delete"):
+    for action in ("new", "list", "delete"):
         assert action in out
 
 
@@ -116,7 +116,7 @@ def test_project_list_empty_workspace(monkeypatch, capsys, tmp_path) -> None:
     [
         ["hmp", "project", "list"],
         ["hmp", "project", "new", "demo"],
-        ["hmp", "project", "show", "demo"],
+        ["hmp", "show", "demo"],
         ["hmp", "project", "delete", "demo", "-y"],
     ],
 )
@@ -136,13 +136,13 @@ def test_without_a_workspace_the_verb_stops_and_names_w(
     assert (home_workspace / "projects" / "demo").is_dir()
 
 
-def test_project_show_missing_project_returns_not_found(monkeypatch, tmp_path) -> None:
+def test_show_project_missing_project_returns_not_found(monkeypatch, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
-    code = _run(monkeypatch, ["hmp", "project", "show", "missing", "-w", str(workspace)])
+    code = _run(monkeypatch, ["hmp", "show", "missing", "-w", str(workspace)])
     assert code == 10
 
 
-def test_project_show_counts_what_the_directories_hold(monkeypatch, capsys, tmp_path) -> None:
+def test_show_project_counts_what_the_directories_hold(monkeypatch, capsys, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     project = make_project(workspace / "projects" / "demo")
     seal_run(project, "alpha")
@@ -150,7 +150,7 @@ def test_project_show_counts_what_the_directories_hold(monkeypatch, capsys, tmp_
     write_session_dir(project, "calibration", trials=3, best_trial=2)
     (project / "run_daily.toml").write_text("", encoding="utf-8")
 
-    code = _run(monkeypatch, ["hmp", "project", "show", "-w", str(project), "--format", "json"])
+    code = _run(monkeypatch, ["hmp", "show", "-w", str(project), "--format", "json"])
 
     assert code == 0
     payload = json.loads(capsys.readouterr().out)["data"]
@@ -162,34 +162,34 @@ def test_project_show_counts_what_the_directories_hold(monkeypatch, capsys, tmp_
     assert payload["plan"] is None
 
 
-def test_project_show_by_name_prints_the_runs_by_status(monkeypatch, capsys, tmp_path) -> None:
+def test_show_project_by_name_prints_the_runs_by_status(monkeypatch, capsys, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     project = make_project(workspace / "projects" / "demo")
     seal_run(project, "alpha")
 
-    assert _run(monkeypatch, ["hmp", "project", "show", "demo", "-w", str(workspace)]) == 0
+    assert _run(monkeypatch, ["hmp", "show", "demo", "-w", str(workspace)]) == 0
     out = capsys.readouterr().out
     assert "runs     : 1 (completed 1)" in out
     assert "missing (hmp catalog reindex builds it)" in out
 
 
-def test_project_show_dot_reads_the_project_of_the_cwd(monkeypatch, capsys, tmp_path) -> None:
+def test_show_project_dot_reads_the_project_of_the_cwd(monkeypatch, capsys, tmp_path) -> None:
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     workspace = _make_workspace(tmp_path)
     project = make_project(workspace / "projects" / "demo")
     seal_run(project, "alpha")
     monkeypatch.chdir(project / "runs")
 
-    assert _run(monkeypatch, ["hmp", "project", "show", "."]) == 0
+    assert _run(monkeypatch, ["hmp", "show", "."]) == 0
     out = capsys.readouterr().out
     assert "# project: demo" in out
     assert "runs     : 1 (completed 1)" in out
 
 
-def test_project_show_a_path_without_a_project_is_refused_by_name(
+def test_show_project_a_path_without_a_project_is_refused_by_name(
     monkeypatch, capsys, outside
 ) -> None:
-    code = _run(monkeypatch, ["hmp", "project", "show", "."])
+    code = _run(monkeypatch, ["hmp", "show", "."])
 
     assert code == 10
     assert f"No project.toml at or above {outside.resolve()}" in capsys.readouterr().err
@@ -593,3 +593,16 @@ def test_a_folder_without_any_copy_is_refused_by_name(tmp_path: Path) -> None:
     assert result.exit_code == EXIT_NOT_FOUND
     assert "holds no PUBLICATION.json and no published copy" in result.stderr
     assert "Errno" not in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [("project show", "hmp show PROJECT"), ("project status", "hmp ls --plan")],
+)
+def test_the_two_reads_that_left_the_project_group_are_refused(
+    monkeypatch, capsys, tmp_path, old: str, new: str
+) -> None:
+    code = _run(monkeypatch, ["hmp", *old.split(), "-w", str(tmp_path)])
+
+    assert code == 2
+    assert f"Write: {new}" in capsys.readouterr().err

@@ -37,7 +37,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.scoring.metric_table import NETWORK_METRIC_NAMES
-from hydromodpy.display.figure import PROMOTED_OPTION, BaseFigure, FigureSpec
+from hydromodpy.display.figure import PROMOTED_OPTION, BaseFigure, FigureSpec, new_figure
 from hydromodpy.display.figure_options import OutputName
 from hydromodpy.display.figures._calibration_session import (
     RESIDUAL_COSTS,
@@ -60,7 +60,7 @@ from hydromodpy.display.figures._calibration_session import (
     tolerance_interval,
 )
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
-from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, get_cmap
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, get_cmap, themed
 from hydromodpy.results.catalog.constants import score_of
 
 if TYPE_CHECKING:
@@ -268,12 +268,9 @@ class CalibrationProgressFigure(BaseFigure):
         save_path=None,
         **opts,
     ) -> MplFigure:
-        import matplotlib as mpl
-        import matplotlib.pyplot as plt
-
         search = _read_search(session, output=output)
-        with mpl.rc_context(_SLIDE_RC):
-            fig = plt.figure(
+        with themed(extra=_SLIDE_RC):
+            fig = new_figure(
                 figsize=figsize or self.spec.default_figsize,
                 dpi=dpi,
                 layout="constrained",

@@ -31,7 +31,6 @@ import hydromodpy
 import hydromodpy as hmp
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.session import open_session_dir
-from hydromodpy.cli.commands.project.show import _summary
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.exceptions import (
     CatalogUnreadableError,
@@ -72,6 +71,7 @@ from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, 
 from hydromodpy.project.launch.lease import LEASE_SCHEMA, acquire_lease, lease_path, read_lease
 from hydromodpy.project.launch.plan import case_is_done, running_cases
 from hydromodpy.project.launch.status import case_state, project_status
+from hydromodpy.project.show import project_summary
 from hydromodpy.results import field_registry
 from hydromodpy.results.annotations import (
     ANNOTATIONS_VERSION,
@@ -1554,7 +1554,7 @@ def _solution_key(tree: Tree) -> str:
 
 
 def _summary_of(tree: Tree) -> dict[str, Any]:
-    return _summary(tree.project)
+    return project_summary(tree.project)
 
 
 RUN_LISTINGS: tuple[tuple[str, Callable[[Tree, str], Any], Any], ...] = (

@@ -1,8 +1,8 @@
-"""CI lint: ``__all__`` is the lazy names and the direct names, and each one resolves.
+"""CI lint: ``__all__`` is the lazy names and ``__version__``, and each one resolves.
 
-Any direct (non-lazy) export defined in ``hydromodpy/__init__.py`` must be listed in
-``_DIRECT_EXPORTS`` below so additions are explicitly registered. A package opened by
-``hmp.<name>`` stays out of ``__all__``.
+Every verb, object and category of ``hydromodpy`` is reached through
+``LAZY_IMPORTS``, so an addition is an explicit edit of ``hydromodpy/_lazy.py``. A
+package of the tree is never opened by ``hmp.<name>``.
 
 Also pins that ``hmp.calibrate`` takes one route per source of the configuration.
 """
@@ -14,54 +14,31 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
-from hydromodpy import _LAZY_IMPORTS, _MODULE_EXPORTS
+from hydromodpy._lazy import LAZY_IMPORTS
 
 pytestmark = [pytest.mark.regression, pytest.mark.fast]
 
-
-# Symbols defined inline in ``hydromodpy/__init__.py`` (not via lazy import or
-# module re-export). Adding or removing one here is a deliberate API change.
-_DIRECT_EXPORTS = frozenset(
-    {
-        "open",
-        "index",
-        "read",
-        "example_add",
-        "example_list",
-        "example_show",
-        "export",
-        "figure",
-        "run",
-        "calibrate",
-        "calibration_phases",
-        "compare",
-        "spinup",
-        "compare_pair",
-        "report",
-        "doctor",
-        "__version__",
-    }
-)
+PACKAGES = ("calibration", "config", "core", "data", "results", "solver", "workflow")
 
 
-@pytest.mark.parametrize("name", sorted(_LAZY_IMPORTS))
+@pytest.mark.parametrize("name", sorted(LAZY_IMPORTS))
 def test_lazy_import_listed_in_all(name: str) -> None:
-    assert name in hmp.__all__, f"_LAZY_IMPORTS[{name!r}] missing from __all__"
+    assert name in hmp.__all__, f"LAZY_IMPORTS[{name!r}] missing from __all__"
 
 
-@pytest.mark.parametrize("name", sorted(_MODULE_EXPORTS))
-def test_a_package_stays_out_of_all_and_opens(name: str) -> None:
+@pytest.mark.parametrize("name", PACKAGES)
+def test_a_package_stays_out_of_all_and_out_of_the_lazy_table(name: str) -> None:
     assert name not in hmp.__all__
-    assert getattr(hmp, name).__name__ == f"hydromodpy.{name}"
+    assert name not in LAZY_IMPORTS
 
 
-@pytest.mark.parametrize("name", sorted(_LAZY_IMPORTS))
+@pytest.mark.parametrize("name", sorted(LAZY_IMPORTS))
 def test_lazy_name_resolves(name: str) -> None:
     assert getattr(hmp, name) is not None
 
 
-def test_all_set_equals_lazy_union_module_union_direct() -> None:
-    expected = set(_LAZY_IMPORTS) | set(_DIRECT_EXPORTS)
+def test_all_set_equals_the_lazy_names_and_the_version() -> None:
+    expected = set(LAZY_IMPORTS) | {"__version__"}
     actual = set(hmp.__all__)
     missing = expected - actual
     extra = actual - expected
@@ -74,13 +51,17 @@ def test_all_has_no_duplicates() -> None:
     assert len(hmp.__all__) == len(set(hmp.__all__))
 
 
-def test_lazy_and_module_keys_disjoint() -> None:
-    overlap = set(_LAZY_IMPORTS) & set(_MODULE_EXPORTS)
-    assert not overlap, f"keys present in both _LAZY_IMPORTS and _MODULE_EXPORTS: {sorted(overlap)}"
+def test_every_lazy_value_names_core_or_project() -> None:
+    homes = {target.split(":", 1)[0] for target in LAZY_IMPORTS.values()}
+    assert homes == {
+        "hydromodpy.project.api",
+        "hydromodpy.project.kept_readers",
+        "hydromodpy.core.exceptions",
+    }
 
 
 class _FakeProject:
-    """Test double matching the :class:`hydromodpy.project.Project` surface."""
+    """Test double matching the :class:`hydromodpy.project.facade.Project` surface."""
 
     last_headless: bool | None = None
     last_environment: object = None
@@ -118,7 +99,7 @@ def test_calibrate_path_skips_project_detour(monkeypatch, tmp_path: Path) -> Non
             raise AssertionError("Project must not be constructed on the TOML branch")
 
     monkeypatch.setattr("hydromodpy.calibration.runners.cli_runner.run_calibration_cli", fake_cli)
-    monkeypatch.setattr("hydromodpy.project.Project", _SentinelProject)
+    monkeypatch.setattr("hydromodpy.project.api.Project", _SentinelProject)
 
     result = hmp.calibrate(config)
     assert result == {"branch": "path"}
@@ -128,7 +109,7 @@ def test_calibrate_path_skips_project_detour(monkeypatch, tmp_path: Path) -> Non
 def test_calibrate_object_branch_keeps_project(monkeypatch) -> None:
     """The config-object branch still routes through a ``Project`` context."""
     _FakeProject.calibrate_result = {"branch": "object"}
-    monkeypatch.setattr("hydromodpy.project.Project", _FakeProject)
+    monkeypatch.setattr("hydromodpy.project.api.Project", _FakeProject)
 
     result = hmp.calibrate(object(), max_trials=5)
     assert result == {"branch": "object"}

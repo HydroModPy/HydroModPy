@@ -1,6 +1,6 @@
 """The facts of one sealed run, read from its ``manifest.json`` in the shapes a table reads.
 
-A table of runs (``summary/by_case``, ``hmp catalog ls``) reads from the seal
+A table of runs (``summary/by_case``, ``hmp ls``) reads from the seal
 of each run its metrics at the station and on the variable of its headline
 score, its global parameters, the overrides of its lineage, the dotted paths of
 its manifest, and where its catchment lies. A seal that does not read under

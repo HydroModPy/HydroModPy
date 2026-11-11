@@ -262,3 +262,22 @@ def test_data_list_unknown_variable_yields_empty_frame() -> None:
     df = accessor.list(variable="nope")
 
     assert list(df["variable"]) == []
+
+
+@pytest.mark.parametrize("name", ["calage", "calage.v2"])
+def test_a_session_of_a_project_reads_its_config_and_draws_figures(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, name: str
+) -> None:
+    import hydromodpy.project.accessors as accessors
+    from hydromodpy.project.facade import read_sealed_config
+    from hydromodpy.project.show import render
+
+    monkeypatch.setattr(
+        accessors, "list_session_dirs", lambda root: [tmp_path / "sessions" / "calage.v2"]
+    )
+    monkeypatch.setattr(
+        accessors, "Session", lambda directory, **kwargs: SimpleNamespace(dir=directory, **kwargs)
+    )
+    session = accessors.ProjectSessions(tmp_path)[name]
+    assert session.dir == tmp_path / "sessions" / "calage.v2"
+    assert (session.read_config, session.render) == (read_sealed_config, render)

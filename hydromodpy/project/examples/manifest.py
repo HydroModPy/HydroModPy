@@ -18,6 +18,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from hydromodpy.core.payload import PayloadFile, PayloadStation
 
@@ -64,6 +65,23 @@ class ExampleEntry:
     def payload(self) -> tuple[PayloadFile, ...]:
         """Every file the example needs, authored files first."""
         return self.files + self.data
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the entry as JSON: its text, every file with its digest, and the station rows."""
+        return {
+            "id": self.id,
+            "directory": self.directory,
+            "title": self.title,
+            "summary": self.summary,
+            "runtime": self.runtime,
+            "entry_config": self.entry_config,
+            "total_size": self.total_size,
+            "files": [item.to_table() for item in self.files],
+            "data": [item.to_table() for item in self.data],
+            "stations": [
+                {"dest": station.dest, "row": dict(station.row)} for station in self.stations
+            ],
+        }
 
     @property
     def total_size(self) -> int:

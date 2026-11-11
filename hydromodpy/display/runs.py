@@ -31,7 +31,7 @@ figure cannot take is refused with a sentence naming what to pass.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,8 +51,9 @@ from hydromodpy.display.figure import (
 )
 from hydromodpy.display.figure_registry import get as _get_figure
 from hydromodpy.display.figure_registry import list_figures as _list_figures
+from hydromodpy.display.figure_table import FORMER_NAMES
 from hydromodpy.display.png_metadata import stamp_png_identity
-from hydromodpy.display.style import apply_theme
+from hydromodpy.display.style import Theme, themed
 from hydromodpy.results.derive.config_flags import (
     missing_field_explanation,
     no_surface_exit_reason,
@@ -223,33 +224,34 @@ def log_render_summary(
 
 
 @contextmanager
-def matplotlib_backend(*, interactive: bool = False, dpi: int = 150) -> Iterator[None]:
-    """Scope the matplotlib backend and its cleanup to a ``with`` block.
+def rendering(theme: str | None = None) -> Iterator[Theme | None]:
+    """Hold the render lock, with the style of ``theme``, for the length of one render.
 
-    ``Agg`` unless ``interactive``; the previous backend comes back and every
-    figure is closed on the way out.
+    Figures are drawn on their own canvas (:func:`~hydromodpy.display.figure.new_figure`),
+    so no backend is switched and no figure is left to close. What a render
+    shares with the others is ``rcParams``, which :func:`~hydromodpy.display.style.themed`
+    sets for this block only. With no ``theme`` the style in force is kept.
     """
-    import matplotlib
+    with themed(theme) as resolved:
+        yield resolved
 
-    previous_backend = matplotlib.get_backend()
-    target = previous_backend if interactive else "Agg"
-    if target.lower() != previous_backend.lower():
-        matplotlib.use(target, force=True)
-    rc_context = matplotlib.rc_context()
-    try:
-        with rc_context:
-            matplotlib.rcParams["figure.dpi"] = dpi
-            yield
-    finally:
-        import matplotlib.pyplot as plt
 
-        plt.close("all")
-        current = matplotlib.get_backend()
-        if current.lower() != previous_backend.lower():
-            try:
-                matplotlib.use(previous_backend, force=True)
-            except Exception:  # an interactive backend may not load headless; the render is done
-                pass
+def _show(figures: Sequence[MplFigure]) -> None:
+    """Open ``figures`` in the backend of the user's session, then close those only.
+
+    This is the one place a render meets ``pyplot``: a window needs the
+    registry. Each figure takes the canvas of a new manager, which is what
+    ``plt.figure()`` would have built for it.
+    """
+    import matplotlib.pyplot as plt
+
+    for fig in figures:
+        manager = plt.figure().canvas.manager
+        manager.canvas.figure = fig
+        fig.set_canvas(manager.canvas)
+    plt.show()
+    for fig in figures:
+        plt.close(fig)
 
 
 def _backend_is_interactive(display_cfg: DisplayConfig) -> bool:
@@ -410,7 +412,7 @@ def render_figure(
 ) -> MplFigure:
     """Render one figure registered in :mod:`hydromodpy.display` and return it.
 
-    The one path for a single figure: ``hmp.figure``, ``hmp viz show`` and the
+    The one path for a single figure: ``Run.figure``, ``hmp show --figure`` and the
     export step all come here, so each refuses a figure the run cannot feed
     in the same words. ``save`` may be a directory (one ``<figure_name>.png``
     is written into it) or a full file path. ``opts`` are the figure's own
@@ -517,6 +519,37 @@ def record_figure(
     )
 
 
+def sealed_display_values(snapshot: object) -> dict[str, Any] | None:
+    """Return the ``[display]`` values a config snapshot sets away from their defaults.
+
+    ``None`` when the snapshot holds no ``[display]``. A snapshot spells out every
+    field, so only a value away from its default counts as set: the project-wide
+    cmap is forwarded only when chosen. A figure name a figure used to carry is
+    given its current name, so loading a sealed snapshot never raises the
+    renaming warning, which is addressed to the author of a config.
+    """
+    from hydromodpy.display.config import DisplayConfig
+
+    section = snapshot.get("display") if isinstance(snapshot, Mapping) else None
+    if not isinstance(section, Mapping):
+        return None
+    fields = DisplayConfig.model_fields
+    written = {
+        key: value
+        for key, value in section.items()
+        if key not in fields or value != fields[key].get_default(call_default_factory=True)
+    }
+    if isinstance(written.get("figures"), list | tuple):
+        written["figures"] = [_current_name(name) for name in written["figures"]]
+    if isinstance(written.get("overrides"), Mapping):
+        written["overrides"] = {_current_name(k): v for k, v in written["overrides"].items()}
+    return written
+
+
+def _current_name(name: Any) -> Any:
+    return FORMER_NAMES.get(name, name) if isinstance(name, str) else name
+
+
 def figure_options_from_run(sim: Run, figure_name: str) -> dict[str, Any]:
     """Return the options the run's own ``[display]`` gave ``figure_name``.
 
@@ -525,27 +558,13 @@ def figure_options_from_run(sim: Run, figure_name: str) -> dict[str, Any]:
     without a snapshot, or whose ``[display]`` no longer loads, gives no
     option and the figure its defaults; the second case is logged.
     """
-    import warnings
-
     from hydromodpy.display.config import DisplayConfig
 
-    snapshot = getattr(sim, "config_snapshot", None)
-    section = snapshot.get("display") if isinstance(snapshot, Mapping) else None
-    if not isinstance(section, Mapping):
+    written = sealed_display_values(getattr(sim, "config_snapshot", None))
+    if written is None:
         return {}
-    # A snapshot spells out every field. Only a value away from its default
-    # counts as set: the project-wide cmap is forwarded only when chosen.
-    fields = DisplayConfig.model_fields
-    written = {
-        key: value
-        for key, value in section.items()
-        if key not in fields or value != fields[key].get_default(call_default_factory=True)
-    }
     try:
-        with warnings.catch_warnings():
-            # A former spelling in a sealed snapshot is not the reader's to fix.
-            warnings.simplefilter("ignore")
-            display_cfg = DisplayConfig.model_validate(written)
+        display_cfg = DisplayConfig.model_validate(written)
     except ValueError as exc:
         logger.warning(
             "The [display] this run was drawn with no longer loads (%s); "
@@ -597,13 +616,13 @@ def regen_figures(sim: Run, run_dir: Path, *, dpi: int = 150) -> FigureRenderRep
     if not entries:
         raise ValueError(
             f"{figures_dir} records no figure to draw again. Draw one with "
-            "'hmp viz show <run> <figure> --to FILE' or list figures in [display]."
+            "'hmp show <run> --figure <figure> --to FILE' or list figures in [display]."
         )
     rendered: list[str] = []
     written: list[Path] = []
     skipped: list[SkippedFigure] = []
     session_of = _memoised_session_of()
-    with matplotlib_backend(dpi=dpi):
+    with rendering():
         for entry in entries:
             name = entry.producer.removeprefix(FIGURE_PRODUCER_PREFIX)
             target = figures_dir / entry.file
@@ -664,8 +683,9 @@ def render_figures_for_run(
     if display_cfg.save:
         output_dir.mkdir(parents=True, exist_ok=True)
 
-    with matplotlib_backend(interactive=_backend_is_interactive(display_cfg), dpi=display_cfg.dpi):
-        apply_theme(display_cfg.preset)
+    shown = display_cfg.show and _backend_is_interactive(display_cfg)
+    drawn: list[MplFigure] = []
+    with rendering(display_cfg.preset):
         session_of = _memoised_session_of()
         for name in wanted:
             fig = _get_figure(name)
@@ -679,7 +699,7 @@ def render_figures_for_run(
                 continue
             save_path = output_dir / f"{name}.png" if display_cfg.save else None
             try:
-                fig.plot(
+                figure = fig.plot(
                     subject.drawn,
                     dpi=display_cfg.dpi,
                     save_path=save_path,
@@ -701,16 +721,16 @@ def render_figures_for_run(
                 )
                 continue
             rendered.append(name)
-            if display_cfg.show:
-                import matplotlib.pyplot as plt
-
-                plt.show()
+            if shown:
+                drawn.append(figure)
             if save_path is not None:
                 record_figure(
                     save_path, name=name, options=recorded, sim=sim, figures_dir=output_dir
                 )
                 written.append(save_path)
                 logger.debug("Rendered figure '%s' -> %s", name, save_path)
+    if shown:
+        _show(drawn)
     return FigureRenderReport(
         requested=tuple(wanted),
         rendered=tuple(rendered),

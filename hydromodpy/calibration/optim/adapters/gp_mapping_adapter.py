@@ -35,6 +35,15 @@ from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.sampling import search_space_samples
 from hydromodpy.core.logging import get_logger
 
+# The optimizer of a GP surrogate fits on few points, and scikit-learn says each time
+# that a kernel parameter ended on one of its bounds. The fit is meant to land there.
+warnings.filterwarnings(
+    "ignore",
+    message="The optimal value found for dimension .* is close to the specified",
+    category=UserWarning,
+    module=r"sklearn\.gaussian_process\.kernels",
+)
+
 _SKLEARN_AVAILABLE = importlib.util.find_spec("sklearn") is not None
 """Whether scikit-learn is importable, probed without importing it."""
 
@@ -42,7 +51,6 @@ _SKLEARN_AVAILABLE = importlib.util.find_spec("sklearn") is not None
 def _get_sklearn():
     """Return the sklearn pieces the surrogate needs, imported on first use."""
     try:
-        from sklearn.exceptions import ConvergenceWarning
         from sklearn.gaussian_process import GaussianProcessRegressor
         from sklearn.gaussian_process.kernels import RBF, ConstantKernel
     except ImportError as exc:
@@ -51,7 +59,6 @@ def _get_sklearn():
             "Install it via `pip install scikit-learn`."
         ) from exc
     return {
-        "ConvergenceWarning": ConvergenceWarning,
         "GaussianProcessRegressor": GaussianProcessRegressor,
         "ConstantKernel": ConstantKernel,
         "RBF": RBF,
@@ -343,9 +350,7 @@ class GPMappingOptimizer:
             n_restarts_optimizer=2,
         )
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=skl["ConvergenceWarning"])
-                gp.fit(x_train, y_train)
+            gp.fit(x_train, y_train)
         except Exception:
             if not self._warned_fit_failure:  # pragma: no cover - defensive
                 message = "GP surrogate fit failed; falling back to random proposals."

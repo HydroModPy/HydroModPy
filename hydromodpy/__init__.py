@@ -1,45 +1,34 @@
-"""Public entry points for HydroModPy."""
+"""Public entry points for HydroModPy.
+
+The top level holds the fifteen verbs of :mod:`hydromodpy.project.api`, the five
+objects they take and return, the three readers ``read``, ``index`` and ``Catalog``
+that the frozen runs of 2.0.0 are read through, the categories of the exception
+hierarchy and ``__version__``. Nothing is imported until it is used, so ``import hydromodpy``
+stays cheap.
+"""
 
 from __future__ import annotations
 
 import importlib
 import warnings
 
-# Public API facade. This is the single allowed exception to the
-# "no aliases / no re-exports" rule in CLAUDE.md. CLI verbs and Python
-# user code must reach the same canonical symbols through this module,
-# so the verbs in `hydromodpy/_api` are re-exported here on purpose.
-from hydromodpy._api import (
-    calibrate,
-    calibration_phases,
-    compare,
-    compare_pair,
-    doctor,
-    example_add,
-    example_list,
-    example_show,
-    export,
-    figure,
-    index,
-    open,
-    read,
-    replay,
-    report,
-    run,
-    spinup,
-)
-from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
-from hydromodpy._lazy import MODULE_EXPORTS as _MODULE_EXPORTS
-from hydromodpy._lazy import OLD_NAMES as _OLD_NAMES
-from hydromodpy.core.logging import DEFAULT_VERBOSITY, LogManager, verbosity_from_env
-from hydromodpy.core.version import __version__
+# PROJ_DATA is set once here, before any import loads pyproj, for the CLI and for
+# Python alike. Nothing writes it again during a run.
+from hydromodpy.core.io.proj_bootstrap import bootstrap_proj as _bootstrap_proj
 
-# ``bootstrap()`` is deferred to first real use (config validation, a verb,
-# Project, or the CLI handler) via ``core.runtime.bootstrap_hook``. A
-# calibration fills its own trial pipeline at session start, so ``import
-# hydromodpy`` and ``hmp --help`` stay cheap. The symbol ``hydromodpy.bootstrap``
-# is gone: the module carried a start-up hook, and a hook the library calls
-# itself is a provider, not a capability of the package.
+_bootstrap_proj()
+
+# Public API facade. This is the single allowed exception to the "no aliases / no
+# re-exports" rule in CLAUDE.md: the verbs and the objects of hydromodpy.project.api
+# are reached here on purpose, through the lazy table.
+from hydromodpy._lazy import KEPT_EXCEPTIONS as _KEPT_EXCEPTIONS  # noqa: E402
+from hydromodpy._lazy import KEPT_READERS as _KEPT_READERS  # noqa: E402
+from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS  # noqa: E402
+from hydromodpy._lazy import OBJECTS as _OBJECTS  # noqa: E402
+from hydromodpy._lazy import OLD_NAMES as _OLD_NAMES  # noqa: E402
+from hydromodpy._lazy import VERBS as _VERBS  # noqa: E402
+from hydromodpy.core.logging import DEFAULT_VERBOSITY, LogManager, verbosity_from_env  # noqa: E402
+from hydromodpy.core.version import __version__  # noqa: E402
 
 __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = (
@@ -50,41 +39,11 @@ _log_manager = LogManager(
     mode=verbosity_from_env() or DEFAULT_VERBOSITY, log_dir=None, overwrite=False
 )
 
-_DIRECT_EXPORTS = [
-    "open",
-    "index",
-    "read",
-    "example_add",
-    "example_list",
-    "example_show",
-    "export",
-    "figure",
-    "run",
-    "replay",
-    "calibrate",
-    "calibration_phases",
-    "spinup",
-    "compare",
-    "compare_pair",
-    "report",
-    "doctor",
-    "__version__",
-]
-
 
 def __getattr__(name: str):
-    if name in _MODULE_EXPORTS:
-        module = importlib.import_module(_MODULE_EXPORTS[name])
-        globals()[name] = module
-        return module
     if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if ":" in target:
-            module_path, attr_name = target.split(":", 1)
-        else:
-            module_path, attr_name = target, name
-        module = importlib.import_module(module_path)
-        attr = getattr(module, attr_name)
+        module_path, attr_name = _LAZY_IMPORTS[name].split(":", 1)
+        attr = getattr(importlib.import_module(module_path), attr_name)
         globals()[name] = attr
         return attr
     if name in _OLD_NAMES:
@@ -107,4 +66,4 @@ def __getattr__(name: str):
     raise AttributeError(f"module 'hydromodpy' has no attribute {name!r}")
 
 
-__all__ = [*_DIRECT_EXPORTS, *_LAZY_IMPORTS]
+__all__ = [*_VERBS, *_OBJECTS, *_KEPT_READERS, *_KEPT_EXCEPTIONS, "__version__"]

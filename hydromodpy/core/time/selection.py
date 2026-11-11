@@ -331,7 +331,7 @@ def _series_span(period: Any, edges: Any) -> tuple[pd.Timestamp, pd.Timestamp]:
 def in_series_window(times: Any, *, observed: Any, period: Any, edges: Any = None) -> np.ndarray:
     """Return the mask of the rows of a series a window keeps.
 
-    This is the one reading of a window over a series, shared by ``hmp.read``,
+    This is the one reading of a window over a series, shared by ``Run.read``,
     ``Run.timeseries``, the catalog and the CSV export. A simulated value is
     stamped at the end of its period, so a window keeps ``(lo, hi]``. An
     observation is stamped when it was taken, so a window keeps ``[lo, hi)``. Each

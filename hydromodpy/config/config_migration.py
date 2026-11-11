@@ -497,14 +497,21 @@ class PrereleaseForm:
     value: Any = None
     has_value: bool = False
 
-    def found_in(self, doc: Any) -> list[str]:
-        """Return where *doc* writes this form, as tables and keys."""
+    def found_in(
+        self, doc: Any, tables_at: Callable[[str], list[tuple[str, Any]]] | None = None
+    ) -> list[str]:
+        """Return where *doc* writes this form, as tables and keys.
+
+        *tables_at* is the walker of :func:`_walker`, which a caller that tests many
+        forms on one document shares so each scope is walked once.
+        """
+        at = tables_at or _walker(doc)
         scope, _, name = self.path.rpartition(".")
         if name == "{*}":
             # A table that held tables under free names.
-            return [where for where, table in _tables_at(doc, scope) if table]
+            return [where for where, table in at(scope) if table]
         found = []
-        for where, table in _tables_at(doc, scope) if scope else [("", doc)]:
+        for where, table in at(scope) if scope else [("", doc)]:
             for key in (name, *(name + suffix for suffix in DIRECTIVE_SUFFIXES)):
                 if key in table and (not self.has_value or self._holds(_plain(table[key]))):
                     found.append(f"{where}.{key}" if where else key)
@@ -545,10 +552,12 @@ PRERELEASE_FORMS: Final[tuple[PrereleaseForm, ...]] = _read_prerelease_forms(
 def prerelease_keys(doc: Any, *, register: Register = REGISTER) -> list[str]:
     """Return every key of *doc* only a pre-release wrote. A path a row moves is not one."""
     moved = {row.old for row in migrations_of("config", register) if row.old is not None}
-    forms = [form for form in PRERELEASE_FORMS if form.path not in moved | _STILL_A_FIELD]
+    skipped = moved | _STILL_A_FIELD
+    forms = [form for form in PRERELEASE_FORMS if form.path not in skipped]
     found: list[str] = []
+    at = _walker(doc)
     for form in forms:
-        found.extend(form.found_in(doc))
+        found.extend(form.found_in(doc, at))
     dotted = [("", doc)] + [
         (f"{where}.overrides.", phase["overrides"])
         for where, phase in _tables_at(doc, _PHASES)
@@ -566,7 +575,8 @@ def prerelease_keys(doc: Any, *, register: Register = REGISTER) -> list[str]:
                     nested = {part: nested}
             except ValueError:
                 continue
-            if any(form.found_in(nested) for form in forms):
+            nested_at = _walker(nested)
+            if any(form.found_in(nested, nested_at) for form in forms):
                 found.append(f'{where}"{key}"')
     return list(dict.fromkeys(found))
 
@@ -858,6 +868,18 @@ def _unified_diff(file: Path, after: str) -> str:
 def _plain(value: Any) -> Any:
     """Return a tomlkit item as the plain Python value it holds."""
     return value.unwrap() if hasattr(value, "unwrap") else value
+
+
+def _walker(doc: Any) -> Callable[[str], list[tuple[str, Any]]]:
+    """Return a function that gives the tables of *doc* a scope names, walking each scope once."""
+    walked: dict[str, list[tuple[str, Any]]] = {}
+
+    def at(scope: str) -> list[tuple[str, Any]]:
+        if scope not in walked:
+            walked[scope] = _tables_at(doc, scope)
+        return walked[scope]
+
+    return at
 
 
 def _tables_at(doc: Any, scope: str) -> list[tuple[str, Any]]:

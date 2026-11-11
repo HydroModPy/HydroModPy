@@ -25,9 +25,10 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    from hydromodpy.project.api import example
     from hydromodpy.project.examples.rows import human_size, show_rows
 
-    payload = show_rows(args.example_id)
+    payload = show_rows(example(args.example_id).id)
 
     def table() -> None:
         print(f"{payload['id']}  {payload['title']}")

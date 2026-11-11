@@ -7,7 +7,7 @@
 #   2. Sy alone, monthly transient, K frozen, on the gauged discharge.
 # Needs network access at the first run, the download is cached after it.
 #
-#   hmp config check run_calibration_bdtopage.toml              every problem at once
+#   hmp check run_calibration_bdtopage.toml              every problem at once
 #   hmp calibrate run_calibration_bdtopage.toml --list-phases   both phases, before any solve
 #   hmp run       run_calibration_bdtopage.toml                 about one hour: 24 to 32 runs, then 30
 

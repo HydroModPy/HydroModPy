@@ -134,7 +134,7 @@ def test_force_is_rejected_outside_the_simulation_workflow(tmp_path, monkeypatch
 
 def test_a_calibration_takes_a_bare_resume_and_reopens_its_session(tmp_path, monkeypatch, capsys):
     """A launched calibration started again reopens its session instead of a new version."""
-    import hydromodpy
+    from hydromodpy.project import api
     from hydromodpy.project.dispatch import workflow as project_workflow
 
     workspace = tmp_path / "ws"
@@ -149,7 +149,7 @@ def test_a_calibration_takes_a_bare_resume_and_reopens_its_session(tmp_path, mon
         return {}
 
     monkeypatch.setitem(project_workflow.DISPATCH, "calibration", calibrate)
-    monkeypatch.setattr(hydromodpy, "run", lambda path, **kw: pytest.fail("hmp.run was called"))
+    monkeypatch.setattr(api, "run", lambda path, **kw: pytest.fail("hmp.run was called"))
 
     run_cmd._run_toml(config, args=_args(resume="", dry_run=False, verbosity="quiet"))
 

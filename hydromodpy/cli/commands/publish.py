@@ -1,10 +1,10 @@
 """``hmp publish`` - copy a run, the summary or a whole project out of the tree.
 
-A thin wrapper of :func:`hydromodpy.results.export.publish.publish`. The
+A thin wrapper of :func:`hydromodpy.project.api.publish`. The
 reference is a run (its directory name under ``runs/``, an id or an
 @-selector), ``summary``, or ``.`` for the project: every sealed run and the
 summary, each in its own folder under ``--to``, written all at once by
-:func:`hydromodpy.results.export.publish.publish_project`. ``--container tar``
+the same verb. ``--container tar``
 writes the same copy as an archive, which ``hmp catalog import`` reads back.
 A copy takes along its results (``fields.zarr``, ``tables.parquet``,
 ``final_state/``) and every file the run read with its install index
@@ -176,8 +176,7 @@ def run(args: argparse.Namespace) -> None:
 
 def _publish_copy(args: argparse.Namespace) -> None:
     """Copy a run, the summary or every sealed run of the project under ``--to``."""
-    from hydromodpy.project.exchange.share import inputs_of
-    from hydromodpy.results.export.publish import publish, publish_project
+    from hydromodpy.project.api import publish
 
     project_root = project_root_of(args)
     destination = Path(args.to).expanduser()
@@ -185,30 +184,19 @@ def _publish_copy(args: argparse.Namespace) -> None:
     carried = tuple(name for name in COPY_EXTRAS if name not in args.without)
     source = None if args.ref == PROJECT_REF else _source(project_root, args.ref)
     left_out: list[tuple[str, str]] = []
+    published = publish(
+        args.ref,
+        to=destination,
+        format=container,
+        with_=carried,
+        public=args.public,
+        dry_run=args.dry_run,
+        workspace=project_root,
+    )
     if source is None:
-        published = publish_project(
-            project_root,
-            destination,
-            format=container,
-            with_=carried,
-            public=args.public,
-            inputs=inputs_of(project_root),
-            dry_run=args.dry_run,
-        )
         written, left_out = published.copies, published.left_out
     else:
-        written = [
-            publish(
-                source,
-                destination,
-                project_root=project_root,
-                format=container,
-                with_=carried,
-                public=args.public,
-                inputs=inputs_of(project_root),
-                dry_run=args.dry_run,
-            )
-        ]
+        written = [published]
     replay = None
     if source is not None and container == "dir" and "inputs" in carried and not args.dry_run:
         replay = _how_to_run_it_again(source, written[0], project_root)

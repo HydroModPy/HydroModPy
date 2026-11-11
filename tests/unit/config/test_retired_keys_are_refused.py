@@ -53,7 +53,7 @@ def test_a_retired_simulation_key_names_its_replacement(key: str, advice: str) -
     ("mode", "advice"),
     [
         ("testbed", r"\[sites.recipes\]"),
-        ("comparison", "hmp report compare"),
+        ("comparison", "hmp diff"),
     ],
 )
 def test_a_retired_workflow_mode_names_its_replacement(mode: str, advice: str) -> None:
@@ -174,7 +174,7 @@ def test_the_mesh_catchment_batch_section_stays_refused() -> None:
 @pytest.mark.parametrize(
     ("section", "advice"),
     [
-        ("analysis", "hmp report compare over sealed runs"),
+        ("analysis", "hmp diff --to DIR over sealed runs"),
         ("hydrometry", r"\[data.hydrometry\]"),
     ],
 )

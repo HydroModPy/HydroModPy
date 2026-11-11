@@ -57,12 +57,12 @@ hmp run examples/projects/<folder>/project.toml
 ## One project, many cases
 
 A project with a `[sites]` section is a plan: each row of its site table is a catchment,
-each recipe a way to run it, and every pair is one case. `hmp config check` checks every
+each recipe a way to run it, and every pair is one case. `hmp check` checks every
 case, `hmp run --dry-run` prints the plan, `hmp run` runs it.
 
 | # | Folder | Theme |
 |---|---|---|
-| 09 | [`09_comparison_workflow`](projects/09_comparison_workflow/) | one catchment, three values of K as three recipes, then `hmp report compare` on the three runs |
+| 09 | [`09_comparison_workflow`](projects/09_comparison_workflow/) | one catchment, three values of K as three recipes, then `hmp diff` on the three runs |
 | 19 | [`19_many_catchments`](projects/19_many_catchments/) | two Breton catchments on public data, a plain run and a short calibration each, then `hmp campaign collect` |
 
 ## Where a run puts its results

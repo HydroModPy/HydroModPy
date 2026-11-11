@@ -2,7 +2,7 @@
 
 ``--format json`` prints one JSON object on stdout, with two keys::
 
-    {"schema": "hmp.catalog.ls.v1", "data": [...]}
+    {"schema": "hmp.ls.v1", "data": [...]}
 
 ``schema`` names the command and the version of what ``data`` holds. ``data`` is
 an array of rows for a listing, an empty one when there is nothing to list, and
@@ -45,7 +45,7 @@ class Output:
     """What one command writes under ``--format json`` and ``--format csv``."""
 
     verb: str
-    """The command, without ``hmp``: ``catalog ls``."""
+    """The command, without ``hmp``: ``ls disk``."""
 
     fields: tuple[str, ...]
     """The columns of a row, or the keys of the object."""
@@ -64,7 +64,7 @@ class Output:
 
     @property
     def schema(self) -> str:
-        """The id the envelope carries: ``hmp.catalog.ls.v1``."""
+        """The id the envelope carries: ``hmp.ls.disk.v1``."""
         return f"hmp.{self.verb.replace(' ', '.')}.v{self.version}"
 
 
@@ -190,7 +190,6 @@ OUTPUTS: tuple[Output, ...] = (
     # Project
     _object("project new", "path"),
     _object("project plan", "plan_hash", "path", "n_cases", "n_sites", "n_recipes", "n_sealed"),
-    _object("project status", "plan_hash", "plan_stale", "counts", "cases"),
     _rows(
         "project log",
         "at",
@@ -206,22 +205,6 @@ OUTPUTS: tuple[Output, ...] = (
         open_fields=True,
     ),
     _rows("project list", "name", "path", "has_project_toml", "run_tomls"),
-    _object(
-        "project show",
-        "name",
-        "path",
-        "has_project_toml",
-        "configs",
-        "n_runs",
-        "runs",
-        "n_sessions",
-        "sessions",
-        "n_trials",
-        "plan",
-        "has_summary",
-        "n_trashed",
-        "has_index",
-    ),
     _object("project delete", "project", "path", "applied", "bytes_freed", "published"),
     _object(
         "project import",
@@ -267,10 +250,24 @@ OUTPUTS: tuple[Output, ...] = (
     _rows("site ls", *_SITE_ROW),
     _object("site show", *_SITE_ROW),
     # Catalog
-    _rows("catalog ls", *_RUN_LISTING, open_fields=True),
+    _rows("ls", *_RUN_LISTING, open_fields=True),
+    _rows(
+        "ls disk",
+        "name",
+        "kind",
+        "run_dir",
+        "sim_id",
+        "request_id",
+        "status",
+        "identical_to",
+        "project_root",
+        "mesh_summary",
+        "deliveries",
+    ),
+    _object("ls plan", "plan_hash", "plan_stale", "counts", "cases"),
     _rows("catalog query", open_fields=True),
     _object(
-        "catalog show",
+        "show run",
         "sim_id",
         "name",
         "project",
@@ -295,9 +292,24 @@ OUTPUTS: tuple[Output, ...] = (
         "zarr_exists",
         "zarr_groups",
     ),
-    _rows("catalog point", open_fields=True),
+    _rows("show point", open_fields=True),
+    _rows("show table", open_fields=True),
+    _object(
+        "show profile",
+        "present",
+        "message",
+        "total_s",
+        "start_s",
+        "solve_s",
+        "attempts",
+        "solve",
+        "longest_steps",
+        "reused",
+        "max_rss_mb",
+    ),
+    _rows("show profile session", open_fields=True),
     _rows(
-        "catalog rank",
+        "show rank",
         "sim_id",
         "name",
         "solver",
@@ -316,6 +328,7 @@ OUTPUTS: tuple[Output, ...] = (
     _object(
         "catalog reindex", "index", "full", "indexed", "sessions", "removed", "skipped", "rows"
     ),
+    _object("catalog trash move", "applied", "rel_dir", "trashed_to"),
     _object("catalog delete", "rel_dir", "applied", "removed_for_good", "trashed_to"),
     _object("catalog restore", "applied", "rel_dir"),
     _rows("catalog trash", "name", "rel_dir", "trashed_at"),
@@ -323,7 +336,8 @@ OUTPUTS: tuple[Output, ...] = (
     _object("catalog tag", "rel_dir", "added", "removed", "tags"),
     _object("catalog note", "rel_dir", "text"),
     _object("catalog rename", "applied", "rel_dir", "renamed"),
-    _object("catalog diff", "a", "b", "params", "metrics"),
+    _object("diff", "a", "b", "params", "metrics"),
+    _object("diff folder", "folder"),
     _rows(
         "catalog watch",
         "rel_dir",
@@ -344,9 +358,8 @@ OUTPUTS: tuple[Output, ...] = (
     _object("catalog rerun", "applied", "source", "rel_dir", "sim_id"),
     _object("stop", "ref", "flag"),
     # Reports and figures
-    _object("report render", "path"),
-    _object("report compare", "folder"),
-    _object("report catchment", "html_report", "report_json", "missing", version=2),
+    _object("show report session", "path"),
+    _object("show report", "html_report", "report_json", "missing", version=2),
     _object(
         "show",
         "name",
@@ -363,12 +376,30 @@ OUTPUTS: tuple[Output, ...] = (
         "report",
         "profile",
     ),
-    _rows("viz list", "name", "kind", "subject", "required_fields", "required_tables", version=2),
-    _rows("viz list run", "name", "kind", "subject", "available", "reason", version=2),
-    _object("viz show", "path"),
+    _object(
+        "show project",
+        "name",
+        "path",
+        "has_project_toml",
+        "configs",
+        "n_runs",
+        "runs",
+        "n_sessions",
+        "sessions",
+        "n_trials",
+        "plan",
+        "has_summary",
+        "n_trashed",
+        "has_index",
+    ),
+    _rows(
+        "config figures", "name", "kind", "subject", "required_fields", "required_tables", version=2
+    ),
+    _rows("config figures run", "name", "kind", "subject", "available", "reason", version=2),
+    _object("show figure", "path"),
     # Configuration
     _object(
-        "config check",
+        "check",
         "ok",
         "diagnostics",
         "workspace",

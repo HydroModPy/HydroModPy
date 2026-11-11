@@ -78,6 +78,21 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "applies.",
     ),
     EnvVar(
+        "HMP_IMAGE_DIGEST",
+        "unset, no digest sealed",
+        "user",
+        "Digest of the container image, as ``sha256:`` and 64 hex characters. The operator "
+        "sets it when the container starts. A run inside the image seals it in "
+        "``provenance.json``, and the server refuses to start without it.",
+    ),
+    EnvVar(
+        "HMP_IMAGE_TAG",
+        "unset, not in an image",
+        "user",
+        "Tag of the container image. The ``Dockerfile`` sets it. Its presence tells "
+        "HydroModPy that it runs inside the image.",
+    ),
+    EnvVar(
         "HMP_NO_PROGRESS",
         "unset",
         "user",
@@ -177,15 +192,6 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "dev",
         "``1``, ``true``, ``yes`` or ``on`` makes a failed pandera schema check of an "
         "ingested table raise instead of logging a warning.",
-    ),
-    EnvVar(
-        "HMP_RUN_SCRATCH",
-        "unset outside a run",
-        "dev",
-        "Set by HydroModPy, never by hand: the scratch folder of the run this process "
-        "is inside. A subprocess inherits it and works in the same folder. The launcher "
-        "of a ``[sites]`` project removes it from the environment of each case, so every "
-        "case claims its own scratch.",
     ),
     EnvVar(
         "HMP_SCRATCH_ROOT",

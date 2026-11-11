@@ -63,6 +63,21 @@ from hydromodpy.data.variables.hydrography.custom import SOURCE_PATH_ATTR
 
 logger = get_logger(__name__)
 
+# BD Topage names run to 33 letters and its dates carry a time. The cut to ten letters
+# and the dates stored as text belong to the shapefile, and are expected.
+warnings.filterwarnings(
+    "ignore",
+    message="Column names longer than 10 characters",
+    category=UserWarning,
+    module=r"hydromodpy\.data\.variables\.hydrography\.variable",
+)
+warnings.filterwarnings(
+    "ignore",
+    message="Normalized/laundered field name|.*created as String field",
+    category=RuntimeWarning,
+    module=r"pyogrio\.raw",
+)
+
 
 class HydrographyVariable(SourceTable):
     """Load, clip, and rasterize hydrography vector data."""
@@ -632,12 +647,9 @@ def _write_shapefile(frame: gpd.GeoDataFrame, path: Path) -> None:
 
     BD Topage names run to 33 letters and its dates carry a time; the cut to
     ten letters and the dates stored as text are the shapefile's, and expected.
+    The filters at the top of this module hide the three warnings that say so.
     """
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message="Column names longer than 10 characters")
-        warnings.filterwarnings("ignore", message="Normalized/laundered field name")
-        warnings.filterwarnings("ignore", message=".*created as String field")
-        frame.to_file(path)
+    frame.to_file(path)
 
 
 def _remove_shapefile(path: Path) -> None:

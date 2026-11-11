@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -78,6 +78,24 @@ class SpinupResult:
     def n_cycles(self) -> int:
         """Number of cycles that ran."""
         return len(self.cycles)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the outcome as JSON: the cycles, ``restart_from`` and the warning to give.
+
+        A cycle gives its ``index``, ``d_head`` and ``d_stage``. ``warning`` is
+        :meth:`antecedent_warning`, ``None`` for a loop that converged.
+        """
+        return {
+            "converged": self.converged,
+            "n_cycles": self.n_cycles,
+            "cycles": [
+                {"index": cycle.index, "d_head": cycle.d_head, "d_stage": cycle.d_stage}
+                for cycle in self.cycles
+            ],
+            "restart_from": self.restart_from,
+            "warning": self.antecedent_warning(),
+            "production_sim_id": self.production_sim_id,
+        }
 
     def antecedent_warning(self) -> str | None:
         """Return what to say before this state is used as an antecedent.

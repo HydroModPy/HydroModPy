@@ -1,6 +1,6 @@
 """``hmp export``: the words of an ``[[export]]`` block, on the command line.
 
-The verb is a thin wrapper of ``hmp.export``: positionals say what, ``--time``
+The verb is a thin wrapper of ``hydromodpy.project.api.export``: positionals say what, ``--time``
 or ``--period`` when, ``--folder`` or ``--file`` where under
 ``runs/<run>/exports/``, ``--list`` prints what the run can export,
 ``--regen`` writes again what ``exports/index.json`` records, and ``--deliver``
@@ -279,8 +279,6 @@ def test_deliver_json_holds_the_lines_of_the_run(workspace: Path) -> None:
 def test_a_delivered_file_is_listed_and_counted(
     workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import hydromodpy
-
     line = _delivery_line("delivered")
     seen: dict = {}
 
@@ -288,7 +286,7 @@ def test_a_delivered_file_is_listed_and_counted(
         seen.update(kwargs)
         return (line,)
 
-    monkeypatch.setattr(hydromodpy, "export", fake_export)
+    monkeypatch.setattr("hydromodpy.project.api.export", fake_export)
 
     result = _invoke("demo", "--deliver", "-w", str(workspace))
 
@@ -304,10 +302,8 @@ def test_a_delivered_file_is_listed_and_counted(
 def test_a_failed_delivery_says_the_file_and_leaves_with_one(
     workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import hydromodpy
-
     line = _delivery_line("failed", error="the server did not answer")
-    monkeypatch.setattr(hydromodpy, "export", lambda run, **kwargs: (line,))
+    monkeypatch.setattr("hydromodpy.project.api.export", lambda run, **kwargs: (line,))
 
     result = _invoke("demo", "--deliver", "-w", str(workspace))
 

@@ -13,7 +13,7 @@ hmp run examples/projects/02_basic_features_and_overview_of_possibilities/projec
 # run + inspection + figures, via the Python API
 python examples/projects/02_basic_features_and_overview_of_possibilities/run_manual.py
 
-hmp viz regen <run>  # draw the figures of a sealed run again
+hmp export <run> --regen figures  # draw the figures of a sealed run again
 ```
 
 Runtime: under 1 s (conceptual catchment ~60 cells).

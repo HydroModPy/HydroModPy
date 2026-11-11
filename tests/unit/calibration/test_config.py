@@ -702,7 +702,7 @@ def test_the_named_instants_stay(time: str) -> None:
 # output it names, or every loaded station of that variable. A file that
 # declared ``[calibration.outputs.h]`` and left ``variable`` at its default
 # ``"head"`` used to fit the loaded piezometers, never ``h``, and
-# ``hmp config check`` answered OK.
+# ``hmp check`` answered OK.
 
 
 H = {"variable": "head", "support": "point", "x": 10.0, "y": 20.0, "observed_values": [1.0, 2.0]}
@@ -2081,7 +2081,7 @@ def test_a_mesh_without_quadrilaterals_is_scored_on_shared_edges_without_failing
 #
 # Since the protocol writes ``[metrics] window`` on its transient stage
 # (d0390cb68), the first year after the start is the recipe's window only for a
-# file without ``[metrics] window``. ``hmp config check`` still compared a
+# file without ``[metrics] window``. ``hmp check`` still compared a
 # protocol ``window`` with the spin-up year, and called the spin-up window
 # "written as the recipe runs it" while the recipe now scores the run window.
 

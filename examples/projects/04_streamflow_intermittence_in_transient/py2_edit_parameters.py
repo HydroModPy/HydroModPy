@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 # warning that names it. Pass force=True to compute it again. Once the file
 # changes, the new run is nancon_intermittence_mf6.v2, next to the first: a
 # run is never overwritten.
-reference = hmp.run(HERE / "project.toml")
+reference = hmp.run(HERE / "project.toml").open()
 
 # %% The modified model
 
@@ -43,7 +43,7 @@ cfg.display.figures = ["hydrograph_log_nse", "seepage_map"]
 cfg.export = []
 
 # The full config of the run is kept in runs/<run name>/config.toml.
-variant = hmp.run(cfg, name="nancon_variant")
+variant = hmp.run(cfg, name="nancon_variant").open()
 print(variant.name)
 
 # %% Comparison
@@ -57,7 +57,7 @@ scores = pd.concat(
 print(scores.loc[["nse", "nse_log", "kge", "pbias"]].round(3))
 
 months = reference.periods.edges[:-1]
-q_obs = hmp.read(reference, "discharge_obs").resample("MS").mean().reindex(months)
+q_obs = reference.read("discharge_obs").resample("MS").mean().reindex(months)
 in_catchment = reference.catchment_mask.ravel()
 cell_km2 = reference.grid.cell_size**2 / 1e6
 
@@ -66,8 +66,8 @@ ax1.plot(months, q_obs, color="k", lw=1, label="gauged")
 for run, color in [(reference, "tab:blue"), (variant, "tab:red")]:
     values = run.parameters["value"]
     label = f"{run.name} (K = {values['K']:.0e} m/s, Sy = {values['Sy']})"
-    ax1.plot(months, hmp.read(run, "discharge").to_numpy(), color=color, label=label)
-    seepage = hmp.read(run, "seepage_mask").to_numpy() > 0
+    ax1.plot(months, run.read("discharge").to_numpy(), color=color, label=label)
+    seepage = run.read("seepage_mask").to_numpy() > 0
     ax2.plot(months, (seepage & in_catchment).sum(axis=1) * cell_km2, color=color)
 ax1.set_yscale("log")
 ax1.set_yticks([0.2, 0.5, 1, 2], ["0.2", "0.5", "1", "2"])

@@ -203,7 +203,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["hydromodpy*"]
-exclude = ["hydromodpy_annex*"]
+exclude = ["hydromodpy_annex*", "hydromodpy_server*"]
 
 [tool.setuptools.package-data]
 hydromodpy = ["py.typed"]
@@ -343,7 +343,7 @@ ignore = [
 "hydromodpy/solver/modflow_nwt/**" = ["E402"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["hydromodpy", "hydromodpy_annex"]
+known-first-party = ["hydromodpy", "hydromodpy_annex", "hydromodpy_server"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Force every module-level logger to go through hydromodpy.core.logging.get_logger

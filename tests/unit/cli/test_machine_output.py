@@ -129,10 +129,12 @@ def project(tmp_path: Path) -> Path:
 READ_VERBS = (
     ("workspace list", []),
     ("project list", []),
-    ("project show", []),
+    ("show project", ["show", "."]),
     ("site ls", []),
-    ("catalog ls", []),
-    ("catalog show", [RUN_NAME]),
+    ("ls", ["ls"]),
+    ("ls disk", ["ls", "--disk"]),
+    ("show run", ["show", RUN_NAME]),
+    ("show profile", ["show", RUN_NAME, "--profile"]),
     ("catalog trash", []),
     ("catalog watch", []),
     ("catalog reindex", []),
@@ -140,8 +142,8 @@ READ_VERBS = (
     ("catalog tag", [RUN_NAME, "paper"]),
     ("catalog note", [RUN_NAME, "looks right"]),
     ("catalog query", ["SELECT sim_id FROM simulations"]),
-    ("catalog diff", [RUN_NAME, RUN_NAME]),
-    ("viz list", []),
+    ("diff", ["diff", RUN_NAME, RUN_NAME]),
+    ("config figures", ["config", "figures"]),
     ("data ls", []),
     ("example list", []),
     ("doctor", []),
@@ -152,7 +154,10 @@ READ_VERBS = (
 def test_json_is_one_envelope_with_its_schema(project: Path, verb: str, words: list[str]) -> None:
     on_the_workspace = verb in ("project list", "site ls", "data ls")
     where = project.parent.parent if on_the_workspace else project
-    result = CliRunner().invoke([*verb.split(), *words, "-w", str(where), "--format", "json"])
+    # A row whose words start with the command names the whole command line itself.
+    names_itself = bool(words) and words[0] in ("ls", "show", "diff", "config")
+    argv = words if names_itself else [*verb.split(), *words]
+    result = CliRunner().invoke([*argv, "-w", str(where), "--format", "json"])
     assert result.exit_code == 0, result.stderr
 
     document = json.loads(result.stdout)
@@ -180,12 +185,10 @@ def test_an_empty_listing_is_an_empty_document(tmp_path: Path, words: list[str])
 
 
 def test_w_is_read_before_the_verb_and_the_one_after_it_wins(project: Path) -> None:
-    before = CliRunner().invoke(["-w", str(project), "catalog", "ls", "--format", "json"])
+    before = CliRunner().invoke(["-w", str(project), "ls", "--format", "json"])
     assert [row["name"] for row in json.loads(before.stdout)["data"]] == [RUN_NAME]
 
-    both = CliRunner().invoke(
-        ["-w", "/nowhere", "catalog", "ls", "-w", str(project), "--format", "json"]
-    )
+    both = CliRunner().invoke(["-w", "/nowhere", "ls", "-w", str(project), "--format", "json"])
     assert both.exit_code == 0, both.stderr
 
 
@@ -285,7 +288,7 @@ def test_a_dry_run_of_a_file_is_a_document_too(tmp_path: Path) -> None:
 
 
 def test_a_mistake_on_the_command_line_carries_a_code_too() -> None:
-    result = CliRunner().invoke(["catalog", "ls", "--format", "yaml"])
+    result = CliRunner().invoke(["ls", "--format", "yaml"])
     assert result.exit_code == EXIT_USAGE
     assert "HMPY.E001: " in result.stderr and "invalid choice" in result.stderr
 
@@ -320,11 +323,9 @@ def _report(**fields: object) -> CalibrationReport:
 
 
 def _calibrate(monkeypatch, tmp_path: Path, report: CalibrationReport, *flags: str):
-    import hydromodpy as hmp
-
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
-    monkeypatch.setattr(hmp, "calibrate", lambda *a, **k: report)
+    monkeypatch.setattr("hydromodpy.project.api.calibrate", lambda *a, **k: report)
     return CliRunner().invoke(["calibrate", str(config), "--format", "json", *flags])
 
 
@@ -527,7 +528,7 @@ def test_config_check_says_which_workspace_the_file_resolves_to(project: Path) -
     file = project / "run.toml"
     file.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
 
-    result = CliRunner().invoke(["config", "check", str(file), "--format", "json"])
+    result = CliRunner().invoke(["check", str(file), "--format", "json"])
 
     names = [check["name"] for check in json.loads(result.stdout)["data"]["workspace"]]
     assert {"workspace", "catalog_path", "data_dir", "runs_dir"} <= set(names)
@@ -537,7 +538,7 @@ def test_config_check_machine_output_is_ok_diagnostics_and_workspace(project: Pa
     file = project / "run.toml"
     file.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
 
-    result = CliRunner().invoke(["config", "check", str(file), "--format", "json"])
+    result = CliRunner().invoke(["check", str(file), "--format", "json"])
 
     data = json.loads(result.stdout)["data"]
     assert set(data) == {"ok", "diagnostics", "workspace"}

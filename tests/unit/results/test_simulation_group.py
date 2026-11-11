@@ -144,7 +144,6 @@ class TestSimulationGroup:
             _headless=True,
             _project_name="project",
             _active_runs={},
-            _last_wall_seconds={},
             _run_history=[],
         )
 
@@ -230,7 +229,6 @@ class TestSimulationGroup:
             _headless=True,
             _project_name="project",
             _active_runs={},
-            _last_wall_seconds={},
             _run_history=[],
         )
 

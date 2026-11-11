@@ -1,6 +1,6 @@
 """Rank the rows of sealed runs by one metric, and say why a group has no ranked row.
 
-A row is one sealed run as the index lists it (``v_cases``, ``hmp catalog
+A row is one sealed run as the index lists it (``v_cases``, ``hmp
 ls``): its ``metric`` column, the columns of its score rule
 (:data:`~hydromodpy.results.run.sealed.INDEX_RULE`) and, under ``by``, the
 column grouping it (``site``). The best value of a metric follows its

@@ -277,7 +277,7 @@ def choose_method(search_spaces: Mapping[str, str], criteria: Iterable[str]) -> 
     ``criteria`` names the criterion of each objective block it scores.
 
     Each engine of :data:`CHOSEN_FROM` is faced with its ``EngineTraits``, as
-    ``hmp config check`` faces a written method. The root search needs
+    ``hmp check`` faces a written method. The root search needs
     ``max_parameters`` at most, each in ``required_search_space``, and, since it
     ``needs_signed_residual``, a signed criterion on every block
     (``CriterionRequirements.signed``): only then is the cost the absolute value

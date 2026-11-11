@@ -63,35 +63,36 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli.environment import environment_from_args
     from hydromodpy.core.exceptions import HydroModPyError
-    from hydromodpy.project.replay import replay, replay_target
+    from hydromodpy.project.api import replay
+    from hydromodpy.project.replay import replay_target
 
     base = base_named_by_w(args.workspace)
     try:
         target = replay_target(args.ref, base=base)
-        run = replay(
+        outcome = replay(
             args.ref,
+            workspace=base,
             strict=bool(args.strict),
-            base=base,
             environment=environment_from_args(args),
         )
-        payload = _payload(args, target, run)
+        payload = _payload(args, target, outcome)
     except (HydroModPyError, OSError, ValueError) as exc:
         refuse(str(exc), exit_code_for(exc), cause=exc)
     emit(args, "replay", payload, table=lambda: _print(payload))
 
 
-def _payload(args: argparse.Namespace, target: Any, run: Any) -> dict[str, Any]:
-    """Return what the command writes: the new run, and the class its seal carries."""
+def _payload(args: argparse.Namespace, target: Any, outcome: Any) -> dict[str, Any]:
+    """Return what the command writes: the outcome of the new run, and the class its seal carries."""
     from hydromodpy.results.catalog.registration import run_dir_holding
     from hydromodpy.results.record.manifest import read_seal
 
-    rel_dir = run_dir_holding(Path(target.project_root), str(run.sim_id))
+    rel_dir = run_dir_holding(Path(target.project_root), str(outcome.sim_id))
     replay = read_seal(Path(target.project_root) / rel_dir).lineage.replay
     return {
         "ref": str(args.ref),
         "source": target.source.name,
-        "sim_id": str(run.sim_id),
-        "name": run.name,
+        "sim_id": str(outcome.sim_id),
+        "name": outcome.name,
         "rel_dir": rel_dir,
         "class": None if replay is None else replay.class_,
         "basis": None if replay is None else replay.basis,

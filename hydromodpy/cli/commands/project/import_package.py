@@ -75,7 +75,7 @@ def run(args: argparse.Namespace) -> None:
             f"{len(imported.legacy_mesh_cache)} legacy mesh_cache entries skipped"
         )
         if not args.dry_run:
-            print(f"next: hmp project show {imported.project_dir.name} -w {workspace}")
+            print(f"next: hmp show {imported.project_dir.name} -w {workspace}")
 
     emit(
         args,

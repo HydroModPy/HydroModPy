@@ -7,14 +7,7 @@ import pytest
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
-from hydromodpy.core.config_kit.base import forget_old_forms_told
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
-
-@pytest.fixture(autouse=True)
-def _told_again() -> None:
-    """A warning is told once per file and key, so each test starts from none told."""
-    forget_old_forms_told()
 
 
 def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> None:

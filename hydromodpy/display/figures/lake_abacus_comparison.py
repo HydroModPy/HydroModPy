@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 import numpy as np
 
 from hydromodpy.core.scoring.metrics import nse, rmse
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.style import place_legend
 
@@ -71,11 +71,6 @@ def plot_lake_abacus_comparison(
     vs simulated). Storage NSE/RMSE are annotated on the volume panel. The
     returned mapping mirrors :func:`lake_abacus_fit_metrics`.
     """
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
     out_path = Path(out_path)
     stage = np.asarray(stage, dtype=float)
     real_volume = np.asarray(real_volume, dtype=float)
@@ -85,7 +80,7 @@ def plot_lake_abacus_comparison(
 
     metrics = lake_abacus_fit_metrics(real_volume, sim_volume)
 
-    fig, (ax_v, ax_a) = plt.subplots(1, 2, figsize=(11, 4), dpi=150)
+    fig, (ax_v, ax_a) = new_subplots(1, 2, figsize=(11, 4), dpi=150)
 
     ax_v.plot(
         stage, real_volume, color="black", lw=1.6, marker="o", ms=3, label="Abacus (reference)"
@@ -143,7 +138,6 @@ def plot_lake_abacus_comparison(
     fig.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, bbox_inches="tight")
-    plt.close(fig)
     return metrics
 
 

@@ -137,19 +137,98 @@ def test_empty_figures_list_renders_nothing(tmp_path, patched_registry, runs_mod
 
 
 def test_writes_one_file_per_figure(tmp_path, patched_registry, runs_module):
-    import matplotlib
-
     cfg = DisplayConfig(enabled=True, figures=["piezometric_map", "hydrograph"])
     out = tmp_path / "figures" / "baseline"
-    matplotlib.use("svg")  # a backend other than Agg, to be put back after the render
-    try:
-        report = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
-        assert matplotlib.get_backend().lower() == "svg"
-    finally:
-        matplotlib.use("Agg")
+    report = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
     assert sorted(p.name for p in report.written) == ["hydrograph.png", "piezometric_map.png"]
     assert all(p.exists() for p in report.written)
     assert report.skipped == ()
+
+
+@pytest.mark.parametrize("preset", ["default", "print", "dark"])
+def test_a_render_leaves_no_global_state_behind(tmp_path, patched_registry, runs_module, preset):
+    # One render writes no backend, no style and no figure of the process, so
+    # a second render in another thread meets what it would meet alone. A figure
+    # that another test left in the worker is not this render's, so only new ones count.
+    import matplotlib
+    from matplotlib import _pylab_helpers
+
+    backend, rc = matplotlib.get_backend(), dict(matplotlib.rcParams)
+    figures_before = set(_pylab_helpers.Gcf.figs)
+    cfg = DisplayConfig(enabled=True, figures=["piezometric_map"], preset=preset)
+    runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=tmp_path / "figures")
+    assert matplotlib.get_backend() == backend
+    assert dict(matplotlib.rcParams) == rc
+    assert set(_pylab_helpers.Gcf.figs) <= figures_before
+
+
+def test_a_render_sees_the_style_of_its_preset(tmp_path, patched_registry, runs_module):
+    import matplotlib
+
+    seen: list[str] = []
+
+    def plot(sim, *, dpi=150, save_path=None, **kw):
+        seen.append(matplotlib.rcParams["axes.facecolor"])
+
+    runs_module._get_figure("hydrograph").plot = plot
+    cfg = DisplayConfig(enabled=True, figures=["hydrograph"], preset="dark")
+    runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=tmp_path / "figures")
+    assert seen == ["#1e1e1e"]
+
+
+@pytest.mark.parametrize(
+    ("snapshot", "expected"),
+    [
+        (None, None),
+        ({"other": 1}, None),
+        ({"display": {}}, {}),
+        ({"display": {"dpi": 150}}, {}),
+        ({"display": {"dpi": 90}}, {"dpi": 90}),
+        (
+            {"display": {"figures": ["abherve_two_stage_card", "hydrograph"]}},
+            {"figures": ["matching_hydrographic_network_card", "hydrograph"]},
+        ),
+        (
+            {"display": {"overrides": {"abherve_two_stage_card": {"parameter": "K"}}}},
+            {"overrides": {"matching_hydrographic_network_card": {"parameter": "K"}}},
+        ),
+    ],
+)
+def test_a_sealed_display_keeps_what_moved_and_names_a_figure_by_its_current_name(
+    snapshot, expected
+):
+    # A former figure name in a sealed snapshot loads without the renaming
+    # warning, which is addressed to the author of a config, not to a reader.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        written = runs.sealed_display_values(snapshot)
+        if written is not None:
+            DisplayConfig.model_validate(written)
+    assert written == expected
+
+
+def test_show_gives_the_figures_to_pyplot_and_closes_only_those(monkeypatch):
+    import matplotlib.pyplot as plt
+    from matplotlib import _pylab_helpers
+
+    from hydromodpy.display.figure import new_subplots
+
+    plt.close("all")  # a figure another test left in the worker is not the user's here
+    users = plt.figure()
+    mine = [new_subplots()[0], new_subplots()[0]]
+    held: list[bool] = []
+
+    def show() -> None:
+        figures = [manager.canvas.figure for manager in _pylab_helpers.Gcf.get_all_fig_managers()]
+        held.append(all(any(fig is one for one in figures) for fig in mine))
+
+    monkeypatch.setattr(plt, "show", show)
+    try:
+        runs._show(mine)
+        assert held == [True]
+        assert plt.get_fignums() == [users.number]
+    finally:
+        plt.close("all")
 
 
 def test_unknown_figure_is_rejected_by_config():

@@ -67,7 +67,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "  hmp calibrate calibration.toml --overlay daily.toml --case calage_daily\n"
             "  hmp calibrate calibration.toml --format json\n"
             "Every launch, --dry-run included, runs the checks of\n"
-            "hmp config check calibration.toml before anything is prepared.\n"
+            "hmp check calibration.toml before anything is prepared.\n"
             "--format json prints the result, the phases or the plan once the command is over,\n"
             "as the page on what a program reads describes them."
         ),
@@ -97,7 +97,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--no-report",
         action="store_true",
         help="Do not write the report of each session once the search is over. "
-        "hmp report render SESSION writes it later.",
+        "hmp show SESSION --report writes it later.",
     )
     parser.add_argument(
         "--list-phases",
@@ -131,7 +131,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def _expand_only(args: argparse.Namespace, source: Any, *, shown_as: str) -> None:
     """Print the ``[calibration]`` section a protocol unfolds into, as TOML, and exit.
 
-    Formatting only: :func:`hydromodpy.calibrate` does the unfolding and
+    Formatting only: ``calibrate(dry_run=True)`` does the unfolding and
     returns the whole section, pasteable in place of the protocol. A file
     naming no protocol gets a header saying so instead of a protocol line, and
     its own section is printed unchanged. The ``protocol__delete`` hint is
@@ -139,10 +139,10 @@ def _expand_only(args: argparse.Namespace, source: Any, *, shown_as: str) -> Non
     one case where a file pasting the section under the same base has an
     inherited protocol to drop.
     """
-    import hydromodpy as hmp
+    from hydromodpy.project.api import calibrate
 
     try:
-        expanded = hmp.calibration_phases(source)
+        expanded = calibrate(source, dry_run=True, preflight=False).to_dict()
     except ConfigError as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     emit(args, "calibrate phases", expanded, table=lambda: _print_expanded(expanded, shown_as))
@@ -390,11 +390,11 @@ def _plan_of(source: Any, target: Path, *, base: Path | None, case: str | None) 
     its own section, anchored to the file the user named, and the session of a
     case the user named is the next version of that case.
     """
-    import hydromodpy as hmp
+    from hydromodpy.project.api import calibrate
 
     if isinstance(source, Path):
         named = {} if base is None else {"workspace": base}
-        return hmp.calibration_phases(source, check=True, **named)["plan"]
+        return calibrate(source, dry_run=True, **named).to_dict()["plan"]
     from hydromodpy.calibration.preflight import preflight_launch
     from hydromodpy.calibration.runners.document import describe_dry_run
     from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
@@ -428,7 +428,7 @@ def _calibrate(
 
     ``target`` is the file the user named: messages say its name.
     """
-    import hydromodpy as hmp
+    from hydromodpy.project.api import calibrate
 
     expand = getattr(args, "expand", False)
     resume = getattr(args, "resume", False)
@@ -449,7 +449,7 @@ def _calibrate(
         return
     if args.list_phases:
         try:
-            expanded = hmp.calibration_phases(source)
+            expanded = calibrate(source, dry_run=True, preflight=False).to_dict()
         except ConfigError as exc:
             refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
         emit(
@@ -479,7 +479,7 @@ def _calibrate(
                 options["case"] = case
             if getattr(args, "no_report", False):
                 options["report"] = False
-            result = hmp.calibrate(source, environment=environment_from_args(args), **options)
+            result = calibrate(source, environment=environment_from_args(args), **options)
     except (ConfigError, ValidationError) as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:

@@ -16,6 +16,7 @@ import pandas as pd
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from tests._helpers.sealed_runs import make_project, seal_run
 
@@ -32,7 +33,7 @@ def test_open_returns_catalog_with_empty_dataframe(tmp_path: Path) -> None:
     """The index of an opened project without run yields an empty simulations table."""
     root, _ = _project(tmp_path)
     with hmp.open(root).store as catalog:
-        assert isinstance(catalog, hmp.Catalog)
+        assert isinstance(catalog, Catalog)
         df = catalog.simulations
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 0
@@ -91,7 +92,7 @@ def test_best_returns_simulation_view_with_public_methods(tmp_path: Path) -> Non
 
 def test_doctor_reports_expected_keys() -> None:
     """``hmp.doctor()`` returns a non-empty environment report."""
-    report = hmp.doctor()
+    report = hmp.doctor().to_dict()
     assert isinstance(report, dict)
     for key in ("python", "hydromodpy", "solvers", "optional"):
         assert key in report

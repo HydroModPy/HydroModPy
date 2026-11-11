@@ -19,7 +19,7 @@ theme = "dark"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage downslope_distance_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure downslope_distance_map --time 2002-10-15 --opt show_run_name=false"
 pages = []
 options = { time = "2002-10-15" }
 width = 1032
@@ -34,7 +34,7 @@ theme = "light"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage downslope_distance_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure downslope_distance_map --time 2002-10-15 --opt show_run_name=false"
 pages = []
 options = { time = "2002-10-15" }
 width = 1032
@@ -49,7 +49,7 @@ theme = "dark"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_intermittence_map --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure flow_intermittence_map --opt show_run_name=false"
 pages = []
 options = { cycle = "2002" }
 width = 1020
@@ -64,7 +64,7 @@ theme = "light"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_intermittence_map --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure flow_intermittence_map --opt show_run_name=false"
 pages = []
 options = { cycle = "2002" }
 width = 1020
@@ -79,7 +79,7 @@ theme = "dark"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_persistence_map --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure flow_persistence_map --opt show_run_name=false"
 pages = []
 width = 1048
 height = 974
@@ -93,7 +93,7 @@ theme = "light"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_persistence_map --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure flow_persistence_map --opt show_run_name=false"
 pages = []
 width = 1048
 height = 974
@@ -107,7 +107,7 @@ theme = "dark"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flux_timeseries --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure flux_timeseries --opt show_run_name=false"
 pages = []
 width = 1292
 height = 692
@@ -121,7 +121,7 @@ theme = "light"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flux_timeseries --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure flux_timeseries --opt show_run_name=false"
 pages = []
 width = 1292
 height = 692
@@ -135,7 +135,7 @@ theme = "dark"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_log_nse --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure hydrograph_log_nse --opt show_run_name=false"
 pages = []
 width = 1337
 height = 767
@@ -149,7 +149,7 @@ theme = "light"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_log_nse --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure hydrograph_log_nse --opt show_run_name=false"
 pages = []
 width = 1337
 height = 767
@@ -163,7 +163,7 @@ theme = "dark"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure seepage_map --time 2002-10-15 --opt show_run_name=false"
 pages = []
 options = { time = "2002-10-15" }
 width = 850
@@ -178,7 +178,7 @@ theme = "light"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure seepage_map --time 2002-10-15 --opt show_run_name=false"
 pages = []
 options = { time = "2002-10-15" }
 width = 850
@@ -193,7 +193,7 @@ theme = "dark"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_network_confusion_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure seepage_network_confusion_map --time 2002-10-15 --opt show_run_name=false"
 pages = []
 options = { time = "2002-10-15" }
 width = 895
@@ -208,7 +208,7 @@ theme = "light"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_network_confusion_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure seepage_network_confusion_map --time 2002-10-15 --opt show_run_name=false"
 pages = []
 options = { time = "2002-10-15" }
 width = 895
@@ -223,7 +223,7 @@ theme = "dark"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
 pages = []
 options = { time = "2002-10-15" }
 width = 1066
@@ -238,7 +238,7 @@ theme = "light"
 run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
 pages = []
 options = { time = "2002-10-15" }
 width = 1066
@@ -255,7 +255,7 @@ key = false
 run = "nancon_step1_minimal"
 config = "step1_minimal.toml"
 command = "hmp run step1_minimal.toml"
-redraw = "hmp viz show nancon_step1_minimal cross_section --opt show_run_name=false"
+redraw = "hmp show nancon_step1_minimal --figure cross_section --opt show_run_name=false"
 pages = ["get-started/staircase/step1.md"]
 options = { orientation = "sn" }
 width = 1217
@@ -272,7 +272,7 @@ key = false
 run = "nancon_step1_minimal"
 config = "step1_minimal.toml"
 command = "hmp run step1_minimal.toml"
-redraw = "hmp viz show nancon_step1_minimal seepage_map --opt show_run_name=false"
+redraw = "hmp show nancon_step1_minimal --figure seepage_map --opt show_run_name=false"
 pages = ["get-started/staircase/step1.md"]
 width = 864
 height = 944
@@ -288,7 +288,7 @@ key = false
 run = "nancon_step1_minimal"
 config = "step1_minimal.toml"
 command = "hmp run step1_minimal.toml"
-redraw = "hmp viz show nancon_step1_minimal water_budget --opt show_run_name=false"
+redraw = "hmp show nancon_step1_minimal --figure water_budget --opt show_run_name=false"
 pages = ["get-started/staircase/step1.md"]
 width = 1067
 height = 692
@@ -304,7 +304,7 @@ key = false
 run = "nancon_step1_minimal"
 config = "step1_minimal.toml"
 command = "hmp run step1_minimal.toml"
-redraw = "hmp viz show nancon_step1_minimal watershed_id_card --opt show_run_name=false"
+redraw = "hmp show nancon_step1_minimal --figure watershed_id_card --opt show_run_name=false"
 pages = ["get-started/staircase/step1.md"]
 width = 1742
 height = 1142
@@ -320,7 +320,7 @@ key = true
 run = "nancon_step1_minimal"
 config = "step1_minimal.toml"
 command = "hmp run step1_minimal.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_step1_minimal watertable_depth_map --opt show_run_name=false"
+redraw = "hmp show nancon_step1_minimal --figure watertable_depth_map --opt show_run_name=false"
 pages = ["get-started/staircase/step1.md", "get-started/staircase/index.md"]
 width = 1066
 height = 842
@@ -336,7 +336,7 @@ key = true
 run = "nancon_step1_minimal"
 config = "step1_minimal.toml"
 command = "hmp run step1_minimal.toml"
-redraw = "hmp viz show nancon_step1_minimal watertable_depth_map --opt show_run_name=false"
+redraw = "hmp show nancon_step1_minimal --figure watertable_depth_map --opt show_run_name=false"
 pages = ["get-started/staircase/step1.md", "get-started/staircase/index.md"]
 width = 1066
 height = 842
@@ -352,7 +352,7 @@ key = false
 run = "nancon_step2_local"
 config = "step2_local_data.toml"
 command = "hmp run step2_local_data.toml"
-redraw = "hmp viz show nancon_step2_local downslope_distance_map --opt show_run_name=false"
+redraw = "hmp show nancon_step2_local --figure downslope_distance_map --opt show_run_name=false"
 pages = ["get-started/staircase/step2.md"]
 width = 1032
 height = 1004
@@ -368,7 +368,7 @@ key = false
 run = "nancon_step2_local"
 config = "step2_local_data.toml"
 command = "hmp run step2_local_data.toml"
-redraw = "hmp viz show nancon_step2_local hydrographic_network_reference --opt show_run_name=false"
+redraw = "hmp show nancon_step2_local --figure hydrographic_network_reference --opt show_run_name=false"
 pages = ["get-started/staircase/step2.md"]
 width = 1187
 height = 887
@@ -384,7 +384,7 @@ key = true
 run = "nancon_step2_local"
 config = "step2_local_data.toml"
 command = "hmp run step2_local_data.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_step2_local seepage_network_confusion_map --opt show_run_name=false"
+redraw = "hmp show nancon_step2_local --figure seepage_network_confusion_map --opt show_run_name=false"
 pages = ["get-started/staircase/step2.md", "get-started/staircase/index.md"]
 width = 904
 height = 944
@@ -400,7 +400,7 @@ key = true
 run = "nancon_step2_local"
 config = "step2_local_data.toml"
 command = "hmp run step2_local_data.toml"
-redraw = "hmp viz show nancon_step2_local seepage_network_confusion_map --opt show_run_name=false"
+redraw = "hmp show nancon_step2_local --figure seepage_network_confusion_map --opt show_run_name=false"
 pages = ["get-started/staircase/step2.md", "get-started/staircase/index.md"]
 width = 904
 height = 944
@@ -416,7 +416,7 @@ key = false
 run = "nancon_step2_local"
 config = "step2_local_data.toml"
 command = "hmp run step2_local_data.toml"
-redraw = "hmp viz show nancon_step2_local watershed_id_card --opt show_run_name=false"
+redraw = "hmp show nancon_step2_local --figure watershed_id_card --opt show_run_name=false"
 pages = ["get-started/staircase/step2.md"]
 width = 1742
 height = 1142
@@ -432,7 +432,7 @@ key = false
 run = "nancon_step3_api"
 config = "step3_api_data.toml"
 command = "hmp run step3_api_data.toml"
-redraw = "hmp viz show nancon_step3_api downslope_distance_map --opt show_run_name=false"
+redraw = "hmp show nancon_step3_api --figure downslope_distance_map --opt show_run_name=false"
 pages = ["get-started/staircase/step3.md"]
 width = 1032
 height = 1004
@@ -448,7 +448,7 @@ key = true
 run = "nancon_step3_api"
 config = "step3_api_data.toml"
 command = "hmp run step3_api_data.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_step3_api hydrographic_network_permanence --opt show_run_name=false"
+redraw = "hmp show nancon_step3_api --figure hydrographic_network_permanence --opt show_run_name=false"
 pages = ["get-started/staircase/step3.md", "get-started/staircase/index.md"]
 width = 1187
 height = 887
@@ -464,7 +464,7 @@ key = true
 run = "nancon_step3_api"
 config = "step3_api_data.toml"
 command = "hmp run step3_api_data.toml"
-redraw = "hmp viz show nancon_step3_api hydrographic_network_permanence --opt show_run_name=false"
+redraw = "hmp show nancon_step3_api --figure hydrographic_network_permanence --opt show_run_name=false"
 pages = ["get-started/staircase/step3.md", "get-started/staircase/index.md"]
 width = 1187
 height = 887
@@ -480,7 +480,7 @@ key = false
 run = "nancon_step3_api"
 config = "step3_api_data.toml"
 command = "hmp run step3_api_data.toml"
-redraw = "hmp viz show nancon_step3_api hydrographic_network_reference --opt show_run_name=false"
+redraw = "hmp show nancon_step3_api --figure hydrographic_network_reference --opt show_run_name=false"
 pages = ["get-started/staircase/step3.md"]
 width = 1187
 height = 887
@@ -496,7 +496,7 @@ key = false
 run = "nancon_step3_api"
 config = "step3_api_data.toml"
 command = "hmp run step3_api_data.toml"
-redraw = "hmp viz show nancon_step3_api seepage_network_confusion_map --opt show_run_name=false"
+redraw = "hmp show nancon_step3_api --figure seepage_network_confusion_map --opt show_run_name=false"
 pages = ["get-started/staircase/step3.md"]
 width = 910
 height = 944
@@ -512,7 +512,7 @@ key = false
 run = "nancon_step3_api"
 config = "step3_api_data.toml"
 command = "hmp run step3_api_data.toml"
-redraw = "hmp viz show nancon_step3_api watershed_id_card --opt show_run_name=false"
+redraw = "hmp show nancon_step3_api --figure watershed_id_card --opt show_run_name=false"
 pages = ["get-started/staircase/step3.md"]
 width = 1742
 height = 1142
@@ -528,7 +528,7 @@ key = true
 run = "nancon_step4_transient"
 config = "step4_transient.toml"
 command = "hmp run step4_transient.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_step4_transient flow_intermittence_map --opt show_run_name=false"
+redraw = "hmp show nancon_step4_transient --figure flow_intermittence_map --opt show_run_name=false"
 pages = ["get-started/staircase/step4.md", "get-started/staircase/index.md"]
 options = { cycle = "2002" }
 width = 1020
@@ -545,7 +545,7 @@ key = true
 run = "nancon_step4_transient"
 config = "step4_transient.toml"
 command = "hmp run step4_transient.toml"
-redraw = "hmp viz show nancon_step4_transient flow_intermittence_map --opt show_run_name=false"
+redraw = "hmp show nancon_step4_transient --figure flow_intermittence_map --opt show_run_name=false"
 pages = ["get-started/staircase/step4.md", "get-started/staircase/index.md"]
 options = { cycle = "2002" }
 width = 1020
@@ -562,7 +562,7 @@ key = false
 run = "nancon_step4_transient"
 config = "step4_transient.toml"
 command = "hmp run step4_transient.toml"
-redraw = "hmp viz show nancon_step4_transient flow_persistence_map --opt show_run_name=false"
+redraw = "hmp show nancon_step4_transient --figure flow_persistence_map --opt show_run_name=false"
 pages = ["get-started/staircase/step4.md"]
 width = 1048
 height = 974
@@ -578,7 +578,7 @@ key = false
 run = "nancon_step4_transient"
 config = "step4_transient.toml"
 command = "hmp run step4_transient.toml"
-redraw = "hmp viz show nancon_step4_transient flux_timeseries --opt show_run_name=false"
+redraw = "hmp show nancon_step4_transient --figure flux_timeseries --opt show_run_name=false"
 pages = ["get-started/staircase/step4.md"]
 width = 1292
 height = 692
@@ -594,7 +594,7 @@ key = false
 run = "nancon_step4_transient"
 config = "step4_transient.toml"
 command = "hmp run step4_transient.toml"
-redraw = "hmp viz show nancon_step4_transient hydrograph_sim_obs --opt show_run_name=false"
+redraw = "hmp show nancon_step4_transient --figure hydrograph_sim_obs --opt show_run_name=false"
 pages = ["get-started/staircase/step4.md"]
 width = 1292
 height = 692
@@ -610,7 +610,7 @@ key = false
 run = "nancon_step4_transient"
 config = "step4_transient.toml"
 command = "hmp run step4_transient.toml"
-redraw = "hmp viz show nancon_step4_transient seepage_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_step4_transient --figure seepage_map --time 2002-10-15 --opt show_run_name=false"
 pages = ["get-started/staircase/step4.md"]
 options = { time = "2002-10-15" }
 width = 850
@@ -627,7 +627,7 @@ key = false
 run = "nancon_step5_export"
 config = "step5_export.toml"
 command = "hmp run step5_export.toml"
-redraw = "hmp viz show nancon_step5_export downslope_distance_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_step5_export --figure downslope_distance_map --time 2002-10-15 --opt show_run_name=false"
 pages = ["get-started/staircase/step5.md"]
 options = { time = "2002-10-15" }
 width = 1032
@@ -644,7 +644,7 @@ key = false
 run = "nancon_step5_export"
 config = "step5_export.toml"
 command = "hmp run step5_export.toml"
-redraw = "hmp viz show nancon_step5_export flow_persistence_map --opt show_run_name=false"
+redraw = "hmp show nancon_step5_export --figure flow_persistence_map --opt show_run_name=false"
 pages = ["get-started/staircase/step5.md"]
 width = 1048
 height = 974
@@ -660,7 +660,7 @@ key = false
 run = "nancon_step5_export"
 config = "step5_export.toml"
 command = "hmp run step5_export.toml"
-redraw = "hmp viz show nancon_step5_export flux_timeseries --opt show_run_name=false"
+redraw = "hmp show nancon_step5_export --figure flux_timeseries --opt show_run_name=false"
 pages = ["get-started/staircase/step5.md"]
 width = 1292
 height = 692
@@ -676,7 +676,7 @@ key = false
 run = "nancon_step5_export"
 config = "step5_export.toml"
 command = "hmp run step5_export.toml"
-redraw = "hmp viz show nancon_step5_export hydrograph_sim_obs --opt show_run_name=false"
+redraw = "hmp show nancon_step5_export --figure hydrograph_sim_obs --opt show_run_name=false"
 pages = ["get-started/staircase/step5.md"]
 width = 1292
 height = 692
@@ -692,7 +692,7 @@ key = false
 run = "nancon_step5_export"
 config = "step5_export.toml"
 command = "hmp run step5_export.toml"
-redraw = "hmp viz show nancon_step5_export seepage_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_step5_export --figure seepage_map --time 2002-10-15 --opt show_run_name=false"
 pages = ["get-started/staircase/step5.md"]
 options = { time = "2002-10-15" }
 width = 850
@@ -709,7 +709,7 @@ key = false
 run = "nancon_step5_export"
 config = "step5_export.toml"
 command = "hmp run step5_export.toml"
-redraw = "hmp viz show nancon_step5_export seepage_network_confusion_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_step5_export --figure seepage_network_confusion_map --time 2002-10-15 --opt show_run_name=false"
 pages = ["get-started/staircase/step5.md"]
 options = { time = "2002-10-15" }
 width = 895
@@ -726,7 +726,7 @@ key = false
 run = "nancon_step5_export"
 config = "step5_export.toml"
 command = "hmp run step5_export.toml"
-redraw = "hmp viz show nancon_step5_export watershed_id_card --opt show_run_name=false"
+redraw = "hmp show nancon_step5_export --figure watershed_id_card --opt show_run_name=false"
 pages = ["get-started/staircase/step5.md"]
 width = 1742
 height = 1142
@@ -742,7 +742,7 @@ key = true
 run = "nancon_step5_export"
 config = "step5_export.toml"
 command = "hmp run step5_export.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_step5_export watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_step5_export --figure watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
 pages = ["get-started/staircase/step5.md", "get-started/staircase/index.md"]
 options = { time = "2002-10-15" }
 width = 1066
@@ -759,7 +759,7 @@ key = true
 run = "nancon_step5_export"
 config = "step5_export.toml"
 command = "hmp run step5_export.toml"
-redraw = "hmp viz show nancon_step5_export watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
+redraw = "hmp show nancon_step5_export --figure watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
 pages = ["get-started/staircase/step5.md", "get-started/staircase/index.md"]
 options = { time = "2002-10-15" }
 width = 1066
@@ -776,7 +776,7 @@ key = false
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily cross_section --time 2019-09-15 --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure cross_section --time 2019-09-15 --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md"]
 options = { time = "2019-09-15", orientation = "sn" }
 width = 1217
@@ -793,7 +793,7 @@ key = false
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily duration_curve --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure duration_curve --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md"]
 width = 1067
 height = 692
@@ -809,7 +809,7 @@ key = false
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily flow_intermittence_map --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure flow_intermittence_map --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md"]
 options = { cycle = "2019" }
 width = 1020
@@ -826,7 +826,7 @@ key = false
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily flow_persistence_map --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure flow_persistence_map --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md"]
 width = 1048
 height = 974
@@ -842,7 +842,7 @@ key = true
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_soil_reservoir_daily flux_timeseries --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure flux_timeseries --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md", "get-started/staircase/index.md"]
 width = 1292
 height = 692
@@ -858,7 +858,7 @@ key = true
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily flux_timeseries --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure flux_timeseries --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md", "get-started/staircase/index.md"]
 width = 1292
 height = 692
@@ -874,7 +874,7 @@ key = false
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily hydrograph_log_nse --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure hydrograph_log_nse --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md"]
 options = { scoring_window = ["2016-01-01", "2020-12-31"] }
 width = 1337
@@ -891,7 +891,7 @@ key = false
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily hydrograph_sim_obs --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure hydrograph_sim_obs --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md"]
 width = 1292
 height = 692
@@ -907,7 +907,7 @@ key = false
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily recession --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure recession --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md"]
 width = 1217
 height = 692
@@ -923,7 +923,7 @@ key = false
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily seepage_map --time 2020-02-15 --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure seepage_map --time 2020-02-15 --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md"]
 options = { time = "2020-02-15" }
 width = 850
@@ -940,7 +940,7 @@ key = false
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily watershed_id_card --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure watershed_id_card --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md"]
 width = 1742
 height = 1142
@@ -956,7 +956,7 @@ key = false
 run = "nancon_soil_reservoir_daily"
 config = "step6_soil_reservoir.toml"
 command = "hmp run step6_soil_reservoir.toml"
-redraw = "hmp viz show nancon_soil_reservoir_daily watertable_depth_map --time 2019-09-15 --opt show_run_name=false"
+redraw = "hmp show nancon_soil_reservoir_daily --figure watertable_depth_map --time 2019-09-15 --opt show_run_name=false"
 pages = ["get-started/staircase/step6.md"]
 options = { time = "2019-09-15" }
 width = 1066
@@ -972,7 +972,7 @@ run = "nancon_nwt"
 reference_run = "nancon_mf6"
 config = "run_nwt_exact.toml"
 command = "hmp run run_nwt_exact.toml --set display.preset=dark"
-redraw = "hmp.figure(<run nancon_nwt>, \"difference_map\", reference=<run nancon_mf6>)"
+redraw = "<run nancon_nwt>.figure(\"difference_map\", reference=<run nancon_mf6>)"
 pages = ["theory/validation.md"]
 options = { time = "2002-10-15" }
 width = 1180
@@ -988,7 +988,7 @@ run = "nancon_nwt"
 reference_run = "nancon_mf6"
 config = "run_nwt_exact.toml"
 command = "hmp run run_nwt_exact.toml"
-redraw = "hmp.figure(<run nancon_nwt>, \"difference_map\", reference=<run nancon_mf6>)"
+redraw = "<run nancon_nwt>.figure(\"difference_map\", reference=<run nancon_mf6>)"
 pages = ["theory/validation.md"]
 options = { time = "2002-10-15" }
 width = 1180
@@ -1003,7 +1003,7 @@ theme = "dark"
 run = "nancon_mf6"
 config = "run_mf6_exact.toml"
 command = "hmp run run_mf6_exact.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_mf6 hydrograph_sim_obs"
+redraw = "hmp show nancon_mf6 --figure hydrograph_sim_obs"
 pages = ["theory/validation.md"]
 width = 1292
 height = 692
@@ -1017,7 +1017,7 @@ theme = "light"
 run = "nancon_mf6"
 config = "run_mf6_exact.toml"
 command = "hmp run run_mf6_exact.toml"
-redraw = "hmp viz show nancon_mf6 hydrograph_sim_obs"
+redraw = "hmp show nancon_mf6 --figure hydrograph_sim_obs"
 pages = ["theory/validation.md"]
 width = 1292
 height = 692
@@ -1031,7 +1031,7 @@ theme = "dark"
 run = "nancon_nwt"
 config = "run_nwt_exact.toml"
 command = "hmp run run_nwt_exact.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_nwt hydrograph_sim_obs"
+redraw = "hmp show nancon_nwt --figure hydrograph_sim_obs"
 pages = ["theory/validation.md"]
 width = 1292
 height = 692
@@ -1045,7 +1045,7 @@ theme = "light"
 run = "nancon_nwt"
 config = "run_nwt_exact.toml"
 command = "hmp run run_nwt_exact.toml"
-redraw = "hmp viz show nancon_nwt hydrograph_sim_obs"
+redraw = "hmp show nancon_nwt --figure hydrograph_sim_obs"
 pages = ["theory/validation.md"]
 width = 1292
 height = 692
@@ -1060,7 +1060,7 @@ run = "nancon_nwt"
 reference_run = "nancon_mf6"
 config = "run_nwt_exact.toml"
 command = "hmp run run_nwt_exact.toml --set display.preset=dark"
-redraw = "hmp.figure(<run nancon_nwt>, \"side_by_side\", reference=<run nancon_mf6>)"
+redraw = "<run nancon_nwt>.figure(\"side_by_side\", reference=<run nancon_mf6>)"
 pages = ["theory/validation.md"]
 options = { time = "2002-10-15" }
 width = 1665
@@ -1076,7 +1076,7 @@ run = "nancon_nwt"
 reference_run = "nancon_mf6"
 config = "run_nwt_exact.toml"
 command = "hmp run run_nwt_exact.toml"
-redraw = "hmp.figure(<run nancon_nwt>, \"side_by_side\", reference=<run nancon_mf6>)"
+redraw = "<run nancon_nwt>.figure(\"side_by_side\", reference=<run nancon_mf6>)"
 pages = ["theory/validation.md"]
 options = { time = "2002-10-15" }
 width = 1665
@@ -1091,7 +1091,7 @@ theme = "dark"
 run = "nancon_intermittence_mf6_calibrated"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated matching_hydrographic_network_card --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated --figure matching_hydrographic_network_card --opt show_run_name=false"
 pages = ["get-started/calibrate-k.md"]
 width = 1742
 height = 1142
@@ -1105,7 +1105,7 @@ theme = "light"
 run = "nancon_intermittence_mf6_calibrated"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated matching_hydrographic_network_card --opt show_run_name=false"
+redraw = "hmp show nancon_intermittence_mf6_calibrated --figure matching_hydrographic_network_card --opt show_run_name=false"
 pages = ["get-started/calibrate-k.md"]
 width = 1742
 height = 1142
@@ -1120,7 +1120,7 @@ run = "demo"
 reference_run = "demo_k3"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo conditioning_impact_map --opt show_run_name=false"
+redraw = "hmp show demo --figure conditioning_impact_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 258
@@ -1135,7 +1135,7 @@ run = "demo"
 reference_run = "demo_k3"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo conditioning_impact_map --opt show_run_name=false"
+redraw = "hmp show demo --figure conditioning_impact_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 258
@@ -1149,7 +1149,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo cross_section --opt show_run_name=false"
+redraw = "hmp show demo --figure cross_section --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 182
@@ -1163,7 +1163,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo cross_section --opt show_run_name=false"
+redraw = "hmp show demo --figure cross_section --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 182
@@ -1177,7 +1177,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo depression_map --opt show_run_name=false"
+redraw = "hmp show demo --figure depression_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 281
@@ -1191,7 +1191,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo depression_map --opt show_run_name=false"
+redraw = "hmp show demo --figure depression_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 281
@@ -1206,7 +1206,7 @@ run = "demo"
 reference_run = "demo_k3"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo difference_map --opt show_run_name=false"
+redraw = "hmp show demo --figure difference_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 253
@@ -1221,7 +1221,7 @@ run = "demo"
 reference_run = "demo_k3"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo difference_map --opt show_run_name=false"
+redraw = "hmp show demo --figure difference_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 253
@@ -1235,7 +1235,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo flow_direction_map --opt show_run_name=false"
+redraw = "hmp show demo --figure flow_direction_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 257
@@ -1249,7 +1249,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo flow_direction_map --opt show_run_name=false"
+redraw = "hmp show demo --figure flow_direction_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 257
@@ -1263,7 +1263,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo flux_timeseries --opt show_run_name=false"
+redraw = "hmp show demo --figure flux_timeseries --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 171
@@ -1277,7 +1277,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo flux_timeseries --opt show_run_name=false"
+redraw = "hmp show demo --figure flux_timeseries --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 171
@@ -1291,7 +1291,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo mass_balance_error --opt show_run_name=false"
+redraw = "hmp show demo --figure mass_balance_error --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 173
@@ -1305,7 +1305,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo mass_balance_error --opt show_run_name=false"
+redraw = "hmp show demo --figure mass_balance_error --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 173
@@ -1319,7 +1319,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo mesh_map --opt show_run_name=false"
+redraw = "hmp show demo --figure mesh_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 253
@@ -1333,7 +1333,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo mesh_map --opt show_run_name=false"
+redraw = "hmp show demo --figure mesh_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 253
@@ -1347,7 +1347,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo piezometric_map --opt show_run_name=false"
+redraw = "hmp show demo --figure piezometric_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 253
@@ -1361,7 +1361,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo piezometric_map --opt show_run_name=false"
+redraw = "hmp show demo --figure piezometric_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 253
@@ -1375,7 +1375,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo seepage_map --opt show_run_name=false"
+redraw = "hmp show demo --figure seepage_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 375
@@ -1389,7 +1389,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo seepage_map --opt show_run_name=false"
+redraw = "hmp show demo --figure seepage_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 375
@@ -1404,7 +1404,7 @@ run = "demo"
 reference_run = "demo_k3"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo side_by_side --opt show_run_name=false"
+redraw = "hmp show demo --figure side_by_side --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 147
@@ -1419,7 +1419,7 @@ run = "demo"
 reference_run = "demo_k3"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo side_by_side --opt show_run_name=false"
+redraw = "hmp show demo --figure side_by_side --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 147
@@ -1433,7 +1433,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo water_budget --opt show_run_name=false"
+redraw = "hmp show demo --figure water_budget --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 208
@@ -1447,7 +1447,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo water_budget --opt show_run_name=false"
+redraw = "hmp show demo --figure water_budget --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 208
@@ -1461,7 +1461,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo watershed_id_card --opt show_run_name=false"
+redraw = "hmp show demo --figure watershed_id_card --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 210
@@ -1475,7 +1475,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo watershed_id_card --opt show_run_name=false"
+redraw = "hmp show demo --figure watershed_id_card --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 210
@@ -1489,7 +1489,7 @@ theme = "dark"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml --set display.preset=dark"
-redraw = "hmp viz show demo watertable_depth_map --opt show_run_name=false"
+redraw = "hmp show demo --figure watertable_depth_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 253
@@ -1503,7 +1503,7 @@ theme = "light"
 run = "demo"
 config = "run_demo.toml"
 command = "hmp run run_demo.toml"
-redraw = "hmp viz show demo watertable_depth_map --opt show_run_name=false"
+redraw = "hmp show demo --figure watertable_depth_map --opt show_run_name=false"
 pages = ["reference/figures.md"]
 width = 320
 height = 253

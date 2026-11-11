@@ -1,6 +1,8 @@
 # Multi-stage build for HydroModPy.
 # Stage 1 builds a wheel from the current source tree.
 # Stage 2 is a slim runtime image that runs as a non-root user and exposes hmp.
+# The server starts with: docker run --entrypoint python <image> -m hydromodpy_server
+#   --root /project --host 0.0.0.0, with -e HMP_IMAGE_DIGEST=<digest>.
 
 # ---- Stage 1: build wheel ---------------------------------------------------
 FROM python:3.12-slim AS builder
@@ -22,10 +24,15 @@ RUN pip install --no-cache-dir build \
 # ---- Stage 2: runtime -------------------------------------------------------
 FROM python:3.12-slim AS runtime
 
+# The tag is the only identity the image can hold. The digest cannot be inside
+# the image, so the operator passes it at start: docker run -e HMP_IMAGE_DIGEST=...
+ARG HMP_IMAGE_TAG=dev
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PATH="/home/hmp/.local/bin:${PATH}"
+    PATH="/home/hmp/.local/bin:${PATH}" \
+    HMP_IMAGE_TAG=${HMP_IMAGE_TAG}
 
 # libglu1-mesa is needed by gmsh at import time.
 # libexpat1 is needed by rasterio's runtime libraries.
@@ -33,18 +40,29 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libglu1-mesa libexpat1 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -r hmp \
-    && useradd -r -g hmp -m -d /home/hmp -s /usr/sbin/nologin hmp
+    && useradd -r -g hmp -m -d /home/hmp -s /usr/sbin/nologin hmp \
+    && mkdir -p /opt/hmp/bin /project \
+    && chown -R hmp:hmp /opt/hmp /project
 
 USER hmp
 WORKDIR /home/hmp
 
-COPY --from=builder --chown=hmp:hmp /build/dist/*.whl /tmp/
-RUN pip install --no-cache-dir --user /tmp/*.whl \
-    && rm /tmp/*.whl
+# The wheel comes with every extra, so the image serves runs, calibration and
+# the HTTP server alike. The solver binaries go to /opt/hmp/bin at build time.
+# `hmp install-binaries` checks each one against the sha256 it pins.
+ENV HMP_BIN=/opt/hmp/bin \
+    PYTHONPATH=/opt/hmp
 
-# Solver binaries (mf6, mfnwt, ...) are not shipped in the image.
-# They are downloaded lazily on first solver run into ~/.cache/hydromodpy/bin/,
-# or eagerly via `hmp install-binaries`.
+COPY --from=builder --chown=hmp:hmp /build/dist/*.whl /tmp/
+RUN pip install --no-cache-dir --user "$(ls /tmp/*.whl)[all]" \
+    && rm /tmp/*.whl \
+    && hmp install-binaries \
+    && pip freeze > /opt/hmp/constraints.txt
+
+COPY --chown=hmp:hmp hydromodpy_server /opt/hmp/hydromodpy_server
+
+VOLUME /project
+EXPOSE 8765
 
 LABEL org.opencontainers.image.title="HydroModPy" \
       org.opencontainers.image.description="Catchment-scale shallow groundwater modeling toolbox" \

@@ -190,6 +190,15 @@ class PublishedProject:
     copies: list[Path]
     left_out: list[tuple[str, str]] = field(default_factory=list)
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return the copies as text and the runs left out as ``rel_dir`` and ``reason``."""
+        return {
+            "copies": [str(path) for path in self.copies],
+            "left_out": [
+                {"rel_dir": rel_dir, "reason": reason} for rel_dir, reason in self.left_out
+            ],
+        }
+
 
 def publish(
     source: str | Path,

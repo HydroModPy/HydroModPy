@@ -1,7 +1,7 @@
 """Dispatch adapters that bind workflow launchers to the public ``Project``.
 
 These modules sit above the architectural matrix because they depend on
-:class:`hydromodpy.project.Project`. The matrix layers (``calibration``,
+:class:`hydromodpy.project.facade.Project`. The matrix layers (``calibration``,
 ``workflow``, ``analysis``) must not reach Project, so the adapters live
 here instead.
 

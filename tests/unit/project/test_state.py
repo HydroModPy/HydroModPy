@@ -51,7 +51,6 @@ def test_project_state_mapping_covers_all_known_attrs() -> None:
         "_project_name",
         "_run_counter",
         "_active_runs",
-        "_last_wall_seconds",
         "_phase",
         "_data_loaded",
         "_run_history",
@@ -119,7 +118,6 @@ def test_project_state_defaults_match_phases_configure_defaults() -> None:
     assert state.project_name is None
     assert state.run_counter == 0
     assert state.active_runs == {}
-    assert state.last_wall_seconds == {}
     assert state.phase == "uninitialized"
     assert state.data_loaded == set()
     assert state.run_history == []

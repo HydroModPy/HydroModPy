@@ -477,7 +477,7 @@ def test_a_display_choice_of_the_launch_changes_no_identity_and_no_sealed_config
 
 
 def test_hmp_run_takes_headless_on_a_path(demo: Path) -> None:
-    run = hmp.run(demo / "run_demo.toml", name="quiet", headless=True)
+    run = hmp.run(demo / "run_demo.toml", name="quiet", headless=True).open()
     assert not (run.dir / "figures").is_dir() or not list((run.dir / "figures").iterdir())
 
 

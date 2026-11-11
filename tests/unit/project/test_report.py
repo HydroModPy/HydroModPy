@@ -262,3 +262,46 @@ def test_a_session_of_several_cases_draws_the_best_run_of_each(monkeypatch, tmp_
         "a_hydrograph_sim_obs.png",
         "b_hydrograph_sim_obs.png",
     ]
+
+
+def test_a_figure_is_drawn_under_the_render_lock_and_leaves_no_pyplot_figure(
+    monkeypatch, tmp_path: Path
+) -> None:
+    import threading
+
+    import matplotlib
+    from matplotlib import _pylab_helpers
+
+    from hydromodpy.display.figure import new_subplots
+    from hydromodpy.display.style import RENDER_LOCK
+
+    held: list[bool] = []
+
+    def plot(subject, *, save_path: Path, **_options):
+        # The lock is reentrant, so only a second thread tells whether it is held.
+        free: list[bool] = []
+
+        def probe() -> None:
+            free.append(RENDER_LOCK.acquire(blocking=False))
+            if free[0]:
+                RENDER_LOCK.release()
+
+        thread = threading.Thread(target=probe)
+        thread.start()
+        thread.join()
+        held.append(not free[0])
+        fig, ax = new_subplots()
+        ax.plot([0, 1])
+        fig.savefig(save_path)
+
+    monkeypatch.setattr(module, "get_figure", lambda name: SimpleNamespace(plot=plot))
+    monkeypatch.setattr(module, "figure_names", lambda: ["one"])
+    backend, skipped = matplotlib.get_backend(), []
+
+    drawn = module._draw(object(), ("one", "two"), tmp_path, skipped)
+
+    assert drawn == {"one": tmp_path / "one.png"}
+    assert skipped == ["two: figure is not registered"]
+    assert held == [True]
+    assert matplotlib.get_backend() == backend
+    assert not _pylab_helpers.Gcf.get_all_fig_managers()

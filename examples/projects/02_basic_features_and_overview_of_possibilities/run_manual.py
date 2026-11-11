@@ -3,7 +3,7 @@
 Same configuration as ``project.toml`` (conceptual catchment, steady,
 MODFLOW 6). This script runs it and inspects what came out of the pipeline.
 No figure is built here: the maps below are named registry figures rendered
-via ``hmp.figure``.
+via ``Run.figure``.
 
 To explore the recharge cases (dry / normal / wet), change the ``values``
 entry of ``[[data.recharge.sources]]`` in project.toml and re-run: a higher
@@ -27,7 +27,7 @@ CONFIG = HERE / "project.toml"
 
 # %% ---- RUN
 
-run = hmp.run(CONFIG, force=True)
+run = hmp.run(CONFIG, force=True).open()
 print(f"sim_id     : {run.sim_id}")
 print(f"grid       : {run.grid.shape} cells of {run.grid.cell_size:g} m")
 print(f"parameters : {run.params}")
@@ -35,8 +35,8 @@ print(f"parameters : {run.params}")
 # %% ---- WATER TABLE AND SEEPAGE
 
 # Cells outside the catchment are inactive (NaN), so reduce over finite values.
-depth = np.asarray(hmp.read(run, "watertable_depth", time=0), dtype="float64")
-seepage = np.asarray(hmp.read(run, "seepage_mask", time=0))
+depth = np.asarray(run.read("watertable_depth", time=0), dtype="float64")
+seepage = np.asarray(run.read("seepage_mask", time=0))
 finite = depth[np.isfinite(depth)]
 print(
     f"\nWater-table depth (active cells): "
@@ -59,5 +59,5 @@ print(f"closure (in - out) = {imbalance:.2e} m3/s")
 OUT = run.dir / "figures" / "from_python"
 
 for name in ("mesh_map", "piezometric_map", "seepage_map", "cross_section"):
-    hmp.figure(run, name, save=OUT)
+    run.figure(name, save=OUT)
 print(f"\nFigures written under {OUT}")

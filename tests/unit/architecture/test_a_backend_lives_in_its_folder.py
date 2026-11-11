@@ -42,6 +42,7 @@ _DECLARATION_FILES = frozenset(
         "hydromodpy/solver/base/registry.py",
         "hydromodpy/config/config_migration.py",
         "hydromodpy/_lazy.py",
+        "hydromodpy/project/old_paths.py",
         "hydromodpy/model/transport/transport_config.py",
         "hydromodpy/data/workspace/scaffold.py",
         "hydromodpy/solver/base/simulation_config.py",

@@ -1,16 +1,16 @@
 Comparison of sealed runs
 =========================
 
-``hmp report compare`` compares runs that already finished. It never runs a simulation and
+``hmp diff`` compares runs that already finished. It never runs a simulation and
 reads no comparison TOML: the runs to compare are recipes of one project (``[sites.recipes]``),
 run like any other case. All the code is one file, ``project/compare.py``, which
 reads every run through the public ``Run`` API.
 
 .. code-block:: bash
 
-   hmp report compare nancon-mf6 nancon-bouss
-   hmp report compare calage_nm calage_tpe --by site
-   hmp report compare runs/a runs/b --variables watertable_depth --to ../mesh_study
+   hmp diff nancon-mf6 nancon-bouss --to ../nancon_study
+   hmp diff calage_nm calage_tpe --by site
+   hmp diff runs/a runs/b --variables watertable_depth --to ../mesh_study
 
 From Python, ``hmp.compare(["nancon-mf6", "nancon-bouss"])`` gives the same tables without
 writing anything, and ``Comparison.write`` writes them.

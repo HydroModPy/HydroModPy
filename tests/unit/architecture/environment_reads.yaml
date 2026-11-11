@@ -14,9 +14,8 @@ rows:
 - file: hydromodpy/calibration/runners/sandbox.py
   variable: HMP_KEEP_TRIAL_SCRATCH
   kind: read
-  lifted_by: 4.18
-  class: transitional
-  why: a trial scratch kept outside the closure of the trial
+  class: diagnostic
+  why: a developer switch that keeps the trial folders to inspect them, never what a trial computes
 - file: hydromodpy/catchment/delineation/whitebox_workflows_backend/raster.py
   variable: HMP_WHITEBOX_REDIRECT_NATIVE_STDIO
   kind: read
@@ -47,7 +46,7 @@ rows:
   kind: pass
   class: cli
   why: the command layer folds the HMP_SET_* overrides of the environment into the request
-- file: hydromodpy/cli/commands/catalog/ls.py
+- file: hydromodpy/cli/commands/ls.py
   variable: HMP_WORKSPACE
   kind: read
   lifted_by: 4.19
@@ -149,6 +148,16 @@ rows:
   kind: pass
   class: cli
   why: verbosity_from_env reads the HMP_VERBOSITY the command layer set
+- file: hydromodpy/core/runtime/image.py
+  variable: HMP_IMAGE_DIGEST
+  kind: read
+  class: machine
+  why: the one reader of the image digest the operator names
+- file: hydromodpy/core/runtime/image.py
+  variable: HMP_IMAGE_TAG
+  kind: read
+  class: machine
+  why: the one reader of the image tag the Dockerfile sets
 - file: hydromodpy/core/state/portable.py
   variable: HMP_CACHE_HOME
   kind: read
@@ -160,28 +169,10 @@ rows:
   class: machine
   why: state_dir, the one reader of the state root of the machine
 - file: hydromodpy/core/state/scratch.py
-  variable: HMP_RUN_SCRATCH
-  kind: read
-  lifted_by: 4.18
-  class: transitional
-  why: a process discovers its run scratch by variable, which nests two runs
-- file: hydromodpy/core/state/scratch.py
   variable: HMP_SCRATCH_ROOT
   kind: read
   class: machine
   why: run_scratch_root, the reader kept for the scratch root of a compute node
-- file: hydromodpy/core/state/scratch.py
-  variable: HMP_RUN_SCRATCH
-  kind: write
-  lifted_by: 4.18
-  class: transitional
-  why: a process publishes its run scratch to siblings by variable
-- file: hydromodpy/core/state/scratch.py
-  variable: HMP_RUN_SCRATCH
-  kind: write
-  lifted_by: 4.18
-  class: transitional
-  why: a process publishes its run scratch to siblings by variable
 - file: hydromodpy/core/workspace/config.py
   variable: HMP_WORKSPACE
   kind: read

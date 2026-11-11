@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from typing import Any, Protocol
 
 from hydromodpy.core.exceptions import ConfigError
@@ -46,7 +47,9 @@ class ThreadPoolCohortExecutor:
     Threads keep the GIL but are appropriate here: every workflow step
     mutates a shared :class:`WorkflowContext` whose live members
     (DuckDB connections, Zarr handles) are not pickle-safe. Threads
-    also avoid spawning interpreters for the typical 2-3 step cohort.
+    also avoid spawning interpreters for the typical 2-3 step cohort. Each
+    item runs in a copy of the context of the calling thread, so the run log
+    and the run scratch of the caller hold in it.
     """
 
     def __init__(self, max_workers: int | None = None) -> None:
@@ -61,7 +64,13 @@ class ThreadPoolCohortExecutor:
             return [fn(items[0])]
         workers = self._max_workers if self._max_workers is not None else len(items)
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            return list(pool.map(fn, items))
+            futures = [pool.submit(copy_context().run, fn, item) for item in items]
+            try:
+                return [future.result() for future in futures]
+            except BaseException:
+                # Like ``Executor.map``: an item that failed starts no queued one.
+                pool.shutdown(wait=True, cancel_futures=True)
+                raise
 
 
 def execute_cohorts(

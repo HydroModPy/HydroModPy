@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots
 from hydromodpy.display.figure_options import ObjectiveName, ParameterNames
 from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
 
@@ -58,7 +58,6 @@ class CalibrationPairplotFigure(BaseFigure):
         save_path=None,
         **_,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
 
         table = trial_table(session)
         names = list(parameters) if parameters is not None else list(table.parameters)
@@ -75,7 +74,7 @@ class CalibrationPairplotFigure(BaseFigure):
         )
 
         n = len(names)
-        fig, axes = plt.subplots(
+        fig, axes = new_subplots(
             n,
             n,
             figsize=figsize or self.spec.default_figsize,

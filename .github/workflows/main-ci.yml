@@ -208,7 +208,7 @@ jobs:
       - name: Run docstring examples
         run: |
           python -m pytest --doctest-modules -q \
-            hydromodpy/_api.py \
+            hydromodpy/project/api.py \
             hydromodpy/core/io/proj_bootstrap.py \
             hydromodpy/core/logging.py \
             hydromodpy/core/units/types.py \

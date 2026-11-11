@@ -120,6 +120,19 @@ def test_a_value_form_is_found_inside_a_written_list(document: dict, key: str) -
     assert prerelease_keys({"export": [{"variables": ["head"]}]}) == []
 
 
+def test_the_keys_come_in_the_order_of_the_list_whatever_the_order_of_the_document() -> None:
+    document = {
+        "flow": {"ic": {"type": "uniform"}},
+        "calibration": {"max_iter": 5, "scoring_window": {}},
+    }
+    assert prerelease_keys(document) == [
+        "calibration.scoring_window",
+        "calibration.max_iter",
+        "flow.ic.type",
+    ]
+    assert prerelease_keys({"calibration": {"max_iter": 5}, "flow": {}}) == ["calibration.max_iter"]
+
+
 def test_each_refused_key_carries_its_pointer_and_the_file(tmp_path: Path) -> None:
     source = tmp_path / "project.toml"
     document = {

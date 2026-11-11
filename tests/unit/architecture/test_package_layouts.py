@@ -362,7 +362,7 @@ def test_preflight_reads_the_other_parts_only_inside_its_checks() -> None:
     """``preflight`` may import criteria, metrics, observations, optim,
     parameter_resolution, runners and targets, but only from inside one of its
     checks (hydromodpy/calibration/README.md, "Import rules": "inside its
-    checks"), never at module level: ``hmp config check`` runs every check
+    checks"), never at module level: ``hmp check`` runs every check
     and reports once, and a module-level import would pull in the whole upper
     half of the package before any check runs.
 

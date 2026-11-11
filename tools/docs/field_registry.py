@@ -666,7 +666,7 @@ def walk(model: type[BaseModel], path: str, stack: tuple[type, ...], variant: di
 #: Files other than the project file, whose keys are documented from their own model.
 #: Name of the file -> (title, command that reads it, dotted path of its root model).
 #: The name is also the name of its reference page, ``reference/parameters/<name>``.
-#: No such file today: ``hmp report catchment`` reads a sealed run.
+#: No such file today: ``hmp show RUN --report`` reads a sealed run.
 EXTRA_FILES: dict[str, tuple[str, str, str]] = {}
 
 

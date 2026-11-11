@@ -8,7 +8,7 @@
 # Read the results back with the catalog rather than with a figure:
 #
 #   hmp run examples/projects/11_run_from_scratch_without_plots/project.toml
-#   hmp catalog show canut_headless_mf6
+#   hmp show canut_headless_mf6
 #
 [site]
 name = "canut"

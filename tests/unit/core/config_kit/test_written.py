@@ -18,6 +18,7 @@ from pydantic import (
 
 from hydromodpy.core.config_kit.base import HydroModelBase, write_resolved
 from hydromodpy.core.config_kit.written import (
+    _validated_default,
     experimental_keys_line,
     log_experimental_keys,
     written_as_a_file,
@@ -323,3 +324,47 @@ def test_a_written_table_is_said_and_a_held_default_is_not(reader, expected) -> 
 
 def test_an_experimental_key_of_a_written_table_is_named_under_the_table() -> None:
     assert written_experimental_keys(_Held()) == ("cg.damping",)
+
+
+class _Derived(BaseModel):
+    """A field whose default factory reads the data validated before it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    nx: int = 10
+    ny: int = Field(default_factory=lambda data: data["nx"] * 2)
+    label: str = "a"
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        ({}, {}),
+        ({"nx": 4}, {"nx": 4}),
+        ({"nx": 4, "ny": 8}, {"nx": 4, "ny": 8}),
+        ({"nx": 4, "ny": 9}, {"nx": 4, "ny": 9}),
+        ({"ny": 20}, {"ny": 20}),
+    ],
+)
+def test_a_default_that_reads_the_data_is_built_for_each_model(given, expected) -> None:
+    assert written_payload(_Derived.model_validate(given)) == expected
+
+
+def test_a_default_that_reads_no_data_is_looked_up_once_per_field() -> None:
+    _validated_default.cache_clear()
+    for _ in range(3):
+        assert written_payload(_Mesh()) == {}
+    info = _validated_default.cache_info()
+    assert (info.misses, info.hits) == (2, 4)
+    assert _validated_default(_Mesh, "nx")[0] == 10
+
+
+def test_a_default_that_cannot_be_built_counts_as_departed() -> None:
+    def broken() -> int:
+        raise RuntimeError("no default")
+
+    class _Broken(BaseModel):
+        count: int = Field(default_factory=broken)
+
+    model = _Broken.model_construct(_fields_set=set(), count=1)
+    assert written_fields(model) == ("count",)

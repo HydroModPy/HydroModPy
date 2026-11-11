@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -53,16 +54,16 @@ def test_run_unsupported_extension_returns_config(monkeypatch, tmp_path, capsys)
 def test_show_missing_workspace_returns_not_found(monkeypatch, tmp_path, capsys) -> None:
     missing = tmp_path / "empty_ws"
     missing.mkdir()
-    code = _run(monkeypatch, ["hmp", "catalog", "show", "abcd", "--workspace", str(missing)])
+    code = _run(monkeypatch, ["hmp", "show", "abcd", "--workspace", str(missing)])
     assert code == 10
 
 
-def test_compare_missing_workspace_returns_not_found(monkeypatch, tmp_path) -> None:
+def test_diff_missing_workspace_returns_not_found(monkeypatch, tmp_path) -> None:
     missing = tmp_path / "empty_ws"
     missing.mkdir()
     code = _run(
         monkeypatch,
-        ["hmp", "report", "compare", "sim_a", "sim_b", "--workspace", str(missing)],
+        ["hmp", "diff", "sim_a", "sim_b", "--workspace", str(missing)],
     )
     assert code == 10
 
@@ -92,3 +93,77 @@ def test_a_solver_error_is_not_a_calibration_error() -> None:
 
     helpers = _load_helpers()
     assert helpers.exit_code_for(SolverError("diverged")) == helpers.EXIT_SOLVER_ERROR
+
+
+SURFACE = Path(__file__).parents[1] / "architecture" / "surface" / "exit_codes.tsv"
+
+
+def _registered() -> list[tuple[str, int]]:
+    rows = [line.split("\t") for line in SURFACE.read_text(encoding="utf-8").splitlines()]
+    return [(name, int(code)) for name, code in rows if not name.startswith("EXIT_")]
+
+
+@pytest.mark.parametrize(("name", "code"), _registered(), ids=lambda value: str(value))
+def test_each_class_of_the_registry_exits_with_its_registered_code(name: str, code: int) -> None:
+    """The exit code of a class follows its category: 94 rows, none moved by the table."""
+    from hydromodpy.core import exceptions
+
+    klass = getattr(exceptions, name)
+
+    assert _load_helpers().exit_code_for(klass.__new__(klass)) == code
+
+
+def test_every_category_has_its_exit_code() -> None:
+    from hydromodpy.core.exceptions import Category
+
+    helpers = _load_helpers()
+
+    assert set(helpers.EXIT_CODE_OF) == set(Category)
+    assert len(set(helpers.EXIT_CODE_OF.values())) == len(Category)
+
+
+def test_a_step_error_exits_with_the_code_of_its_cause() -> None:
+    from hydromodpy.core.exceptions import DataError, StepError
+
+    helpers = _load_helpers()
+    wrapped = StepError("load_gauge", DataError("no gauge"))
+
+    assert helpers.exit_code_for(wrapped) == helpers.EXIT_VALIDATION
+
+
+def test_an_exception_outside_the_hierarchy_has_no_category_and_exits_one() -> None:
+    helpers = _load_helpers()
+
+    assert helpers.exit_code_for(FileExistsError("taken")) == helpers.EXIT_WRITE_CONFLICT
+    assert helpers.exit_code_for(RuntimeError("bug")) == helpers.EXIT_GENERIC
+
+
+def test_the_exit_codes_of_the_leaves_of_results_come_from_their_category() -> None:
+    from hydromodpy.results.catalog.discovery import (
+        AmbiguousReferenceError,
+        SimulationNotFoundError,
+    )
+    from hydromodpy.results.storage.attempt import AttemptClaimedError
+
+    helpers = _load_helpers()
+
+    assert (
+        helpers.exit_code_for(AmbiguousReferenceError("two", []))
+        == helpers.EXIT_AMBIGUOUS_REFERENCE
+    )
+    assert helpers.exit_code_for(SimulationNotFoundError("none")) == helpers.EXIT_NOT_FOUND
+    assert helpers.exit_code_for(AttemptClaimedError("held")) == helpers.EXIT_WRITE_CONFLICT
+
+
+def test_the_cli_helpers_import_nothing_of_results() -> None:
+    import ast
+    import inspect
+
+    tree = ast.parse(inspect.getsource(_load_helpers()))
+    imported = [
+        node.module or ""
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("hydromodpy.results")
+    ]
+
+    assert imported == []

@@ -233,6 +233,7 @@ def _provenance(
     solver: str = "mf6: 6.6.3",
     sha256: str = "sealed",
     packages: dict[str, str] | None = None,
+    image: dict[str, str] | None = None,
 ) -> RunProvenance:
     provenance = RunProvenance(
         sim_id="s",
@@ -244,6 +245,7 @@ def _provenance(
             "binary_sha256": sha256,
         },
         packages={} if packages is None else packages,
+        environment={} if image is None else {"image": image},
     )
     (run_dir / "provenance.json").write_text(provenance.model_dump_json(), encoding="utf-8")
     return provenance
@@ -279,6 +281,37 @@ def test_a_package_or_the_tool_at_another_version_is_named_by_its_dotted_path(
     )
     differences = replay_checks.producer_differences(tmp_path, found)
     assert set(differences) == {"tool.version", "packages.numpy"}
+
+
+@pytest.mark.parametrize(
+    ("sealed", "found", "named"),
+    [
+        (None, None, False),
+        ({"tag": "2.1.0", "digest": "sha256:a"}, {"tag": "2.1.0", "digest": "sha256:a"}, False),
+        ({"tag": "2.1.0", "digest": "sha256:a"}, {"tag": "2.1.0", "digest": "sha256:b"}, True),
+        (None, {"tag": "2.1.0", "digest": "sha256:b"}, True),
+        ({"tag": "2.1.0", "digest": "sha256:a"}, None, True),
+        ({"tag": "2.1.0"}, {"tag": "2.2.0"}, False),
+    ],
+)
+def test_another_image_digest_is_named_in_the_lineage(
+    tmp_path: Path, sealed: dict | None, found: dict | None, named: bool
+) -> None:
+    _provenance(tmp_path, image=sealed)
+    current = RunProvenance(
+        sim_id="r",
+        tool={"version": "2.0.0a5"},
+        solver={"version": "mf6: 6.6.3", "binary_sha256": "sealed"},
+        environment={} if found is None else {"image": found},
+    )
+
+    differences = replay_checks.producer_differences(tmp_path, current)
+
+    assert set(differences) == ({"image.digest"} if named else set())
+    if named:
+        assert differences["image.digest"] == ProducerSide(
+            sealed=(sealed or {}).get("digest"), found=(found or {}).get("digest")
+        )
 
 
 def test_the_warning_names_the_keys_and_says_the_numbers_can_differ(

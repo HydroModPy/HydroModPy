@@ -118,8 +118,8 @@ def test_the_delay_of_the_interface_tables_is_the_one_of_the_register(
 def test_an_old_form_of_hmp_is_not_surface(monkeypatch: pytest.MonkeyPatch) -> None:
     before = surface.rows_of(surface.CLI_SURFACE)
     forms = (
-        conventions.OldCliForm("hmp project status --old", "hmp project status --format", "2.3.0"),
-        conventions.OldCliForm("hmp status", "hmp project status", "2.3.0"),
+        conventions.OldCliForm("hmp ls --old", "hmp ls --format", "2.3.0"),
+        conventions.OldCliForm("hmp status", "hmp ls", "2.3.0"),
     )
     monkeypatch.setattr(conventions, "OLD_CLI_FORMS", forms)
 

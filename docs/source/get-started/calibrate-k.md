@@ -44,7 +44,7 @@ A block scores outputs with one metric, and a phase moves some parameters agains
 ## Check it, then run it
 
 ```bash
-hmp config check run_calibration_by_hand.toml
+hmp check run_calibration_by_hand.toml
 hmp calibrate run_calibration_by_hand.toml --list-phases
 hmp run run_calibration_by_hand.toml
 ```

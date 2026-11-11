@@ -29,6 +29,15 @@ from hydromodpy.results.zarr_store.constants import (
     ZARR_VERSIONS,
 )
 
+# Zarr says that consolidated metadata is not part of the format 3 specification each
+# time a store is consolidated or opened with it. Both are meant: readers need it.
+warnings.filterwarnings(
+    "ignore",
+    message="Consolidated metadata is currently not part .* Zarr format 3 specification",
+    category=UserWarning,
+    module=r"zarr\.api\.asynchronous",
+)
+
 LOCAL_STORE_WRITE_RETRIES = 5
 LOCAL_STORE_WRITE_RETRY_BASE_DELAY_SECONDS = 0.05
 
@@ -110,18 +119,10 @@ def open_root_strict(store: Any, *, read_only: bool) -> zarr.Group:
     racing with ``create``).
     """
     mode = "r" if read_only else "a"
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message=(
-                "Consolidated metadata is currently not part .* Zarr format 3 specification.*"
-            ),
-            category=UserWarning,
-        )
-        try:
-            root = zarr.open_group(store, mode=mode, use_consolidated=True)
-        except (KeyError, ValueError):
-            root = zarr.open_group(store, mode=mode)
+    try:
+        root = zarr.open_group(store, mode=mode, use_consolidated=True)
+    except (KeyError, ValueError):
+        root = zarr.open_group(store, mode=mode)
     is_empty = not dict(root.attrs) and not list(root.keys())
     if is_empty and not read_only:
         return root

@@ -18,7 +18,7 @@ from typing import Annotated, Any
 import pytest
 from pydantic import BaseModel
 
-import hydromodpy.project as project_pkg
+import hydromodpy.project.facade as facade
 from hydromodpy.core.exceptions import CalibrationError, ConfigError
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.tracking.input_file import InputFile
@@ -100,7 +100,7 @@ def fake_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> type[_FakeP
         identical_to=None,
         project_root=tmp_path,
     )
-    monkeypatch.setattr(project_pkg, "Project", _FakeProject)
+    monkeypatch.setattr(facade, "Project", _FakeProject)
     monkeypatch.setattr(wf, "_loaded", lambda request, base: _cfg(Path(base)))
     monkeypatch.setattr(wf, "_checked_environment", lambda environment, root: environment)
     return _FakeProject
@@ -743,7 +743,6 @@ def test_a_calibration_whose_request_names_its_case_runs_held_in_memory(
 def test_a_calibration_held_in_memory_names_its_case_and_forwards_force(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import hydromodpy.project as project_package
 
     asked: dict[str, Any] = {}
 
@@ -771,7 +770,7 @@ def test_a_calibration_held_in_memory_names_its_case_and_forwards_force(
     monkeypatch.setattr(
         "hydromodpy.project.run_overrides.override_changes", lambda cfg, changes: {}
     )
-    monkeypatch.setattr(project_package, "Project", _Project)
+    monkeypatch.setattr(facade, "Project", _Project)
     request = _file_request(name="other", force=True)
 
     assert wf._calibrate_in_memory(request, tmp_path, None) == {"kind": "memory"}
@@ -853,7 +852,6 @@ def test_run_calibration_delivers_the_runs_it_promoted_only(
 def test_a_calibration_held_in_memory_delivers_the_run_it_promoted(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    import hydromodpy.project as project_package
 
     (tmp_path / "c.toml").write_text(_CALIBRATION_WITH_DELIVERY, encoding="utf-8")
     blocks = wf._export_requests_of(tmp_path / "c.toml")
@@ -878,7 +876,7 @@ def test_a_calibration_held_in_memory_delivers_the_run_it_promoted(
     monkeypatch.setattr(
         "hydromodpy.project.run_overrides.override_changes", lambda cfg, changes: {}
     )
-    monkeypatch.setattr(project_package, "Project", _Project)
+    monkeypatch.setattr(facade, "Project", _Project)
     from hydromodpy.project import deliver as deliver_module
 
     probed: list[Path] = []
@@ -1164,7 +1162,7 @@ def test_a_simulation_configuration_drafts_through_a_dry_run_of_the_project(
             seen.update(kwargs)
             return "DRY"
 
-    monkeypatch.setattr(project_pkg, "Project", _Dry)
+    monkeypatch.setattr(facade, "Project", _Dry)
     cfg = SimpleNamespace()
     draft = wf.draft_of_a_file_or_config(
         cfg, workflow="simulation", set_changes={"a": 1}, name="n", from_step="extract"

@@ -140,4 +140,4 @@ hydromodpy.mesh.planar.quality
 
 - {doc}`../mesh`: the mesh engines, the Voronoi cells and the angle of a connection.
 - {doc}`../solvers`: the packages MODFLOW 6 writes.
-- {doc}`../../reference/cli/report`: `hmp report compare`, a run with XT3D against one without.
+- {doc}`../../reference/cli/diff`: `hmp diff`, a run with XT3D against one without.

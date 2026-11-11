@@ -43,7 +43,7 @@ is published as `2.0.0aN`; without it pip installs version 1, which cannot read 
 ```bash
 hmp run step1_minimal.toml          # then step2 to step5
 hmp run step6_soil_reservoir.toml --until load_data   # the soil alone: budget in mm/year, no run written
-hmp config check run_calibration.toml        # every problem at once, for any file
+hmp check run_calibration.toml        # every problem at once, for any file
 hmp calibrate run_calibration.toml --list-phases
 hmp run run_calibration.toml        # same for the other calibration files
 hmp export nancon_step5_export --list

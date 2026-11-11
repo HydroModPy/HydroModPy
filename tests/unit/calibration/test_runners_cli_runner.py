@@ -99,7 +99,7 @@ from hydromodpy.core.scoring.stream_defaults import VALIDITY_PROVENANCE_CODE
 from hydromodpy.core.state import host as host_module
 from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.project import Project
+from hydromodpy.project.facade import Project
 from hydromodpy.results.heartbeat import read_heartbeat
 from hydromodpy.results.metric_rule import MetricsConfig, PeriodWindow
 from hydromodpy.results.outcome import effective_status, outcome_path, read_outcome, write_outcome
@@ -1922,7 +1922,7 @@ class TestDispatchCalibrationEnriched:
         path = tmp_path / "old.toml"
         path.write_text('[workflow]\nmode = "comparison"\n', encoding="utf-8")
 
-        with pytest.raises(WorkflowUnknownError, match="hmp report compare"):
+        with pytest.raises(WorkflowUnknownError, match="hmp diff"):
             resolve_workflow(path, cli_workflow=None)
 
 
@@ -2026,7 +2026,7 @@ class TestObjectiveEntryPointIsNotAMetricName:
 
 
 # From test_each_phase_lists_the_window_it_scores_on.py
-# ``--list-phases``, ``--dry-run`` and ``hmp config check`` say what each phase scores on.
+# ``--list-phases``, ``--dry-run`` and ``hmp check`` say what each phase scores on.
 #
 # They listed the metric and the station of each phase, never its window, nor
 # ``[metrics] window``, the one the run is scored on and the default of a

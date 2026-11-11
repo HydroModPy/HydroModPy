@@ -20,7 +20,6 @@ import hydromodpy
 from hydromodpy.core.config_kit.base import (
     ConfigKeyRenamedWarning,
     HydroModelBase,
-    forget_old_forms_told,
     warn_old_form,
 )
 
@@ -29,11 +28,6 @@ class _Engine(HydroModelBase):
     """A model whose ``engine`` key used to be called ``method``."""
 
     engine: str = Field(default="grid", description="Optimizer name.")
-
-
-@pytest.fixture(autouse=True)
-def _fresh_told() -> None:
-    forget_old_forms_told()
 
 
 def test_the_canonical_key_loads_without_a_word() -> None:
@@ -88,7 +82,7 @@ _PYTHON_DEFAULT_FILTERS = (
 
 
 def test_the_warning_survives_python_s_default_filters() -> None:
-    """The move reaches the reader of `hmp config check`, not only a test run."""
+    """The move reaches the reader of `hmp check`, not only a test run."""
     with warnings.catch_warnings(record=True) as caught:
         warnings.resetwarnings()
         for action, category, module in reversed(_PYTHON_DEFAULT_FILTERS):

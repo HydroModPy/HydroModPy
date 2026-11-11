@@ -9,7 +9,7 @@ import numpy as np
 
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import axis_label, station_label
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots, run_suffix
 from hydromodpy.display.figure_options import ObservedStation, Opt, Station, Variable
 from hydromodpy.display.figures._observed import observed_series
 from hydromodpy.display.figures._window import shade_before_window
@@ -64,7 +64,6 @@ class Residuals(BaseFigure):
         save_path: str | Path | None = None,
         **_,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
         import pandas as pd
 
         sim_ts = sim.timeseries(variable, station=station)
@@ -79,7 +78,7 @@ class Residuals(BaseFigure):
             )
         residuals = (joined["sim"] - joined["obs"]).to_numpy(dtype=float)
 
-        fig, (ax_ts, ax_hist) = plt.subplots(
+        fig, (ax_ts, ax_hist) = new_subplots(
             1,
             2,
             figsize=figsize or self.spec.default_figsize,

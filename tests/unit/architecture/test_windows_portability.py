@@ -40,7 +40,7 @@ from hydromodpy.core.io.filesystem import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SCANNED_ROOTS = ("hydromodpy", "validation_cases")
+SCANNED_ROOTS = ("hydromodpy", "hydromodpy_server", "validation_cases")
 
 Finding = tuple[int, str]
 Detector = Callable[[ast.Module], list[Finding]]
@@ -64,7 +64,7 @@ SHELLS = frozenset({"bash", "sh", "cmd", "powershell", "pwsh"})
 SUBPROCESS_CALLS = frozenset({"run", "Popen", "call", "check_call", "check_output"})
 RUN_PATH_MODULES = (
     "hydromodpy",
-    "hydromodpy._api",
+    "hydromodpy.project.api",
     "hydromodpy.project.runner",
     "hydromodpy.project.dispatch.workflow",
     "hydromodpy.cli.commands.run",

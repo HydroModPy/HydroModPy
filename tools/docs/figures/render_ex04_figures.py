@@ -34,7 +34,7 @@ Run it from anywhere, never with the workspace inside the repository::
     python tools/docs/figures/render_ex04_figures.py --workspace ~/scratch/figures --cores 2
 
 Figures are drawn through ``hydromodpy.display.runs.render_figure``, the path
-of ``hmp viz show``. The theme is the ``[display] preset`` of the figure API:
+of ``hmp show --figure``. The theme is the ``[display] preset`` of the figure API:
 ``default`` for the light variant and ``dark`` for the dark one. Every figure
 is drawn with ``show_run_name = false``: a page shows a figure, not a dated
 run, so no title names the run it came from.
@@ -401,22 +401,18 @@ class Drawer:
         width: int | None = None,
         show_run_name: bool = False,
     ) -> tuple[bytes, tuple[int, int], dict[str, Any]]:
-        import matplotlib.pyplot as plt
-
         from hydromodpy.display.runs import (
             figure_options_from_run,
-            matplotlib_backend,
             render_figure,
+            rendering,
         )
-        from hydromodpy.display.style import apply_theme
 
         sim = self.run(name)
         options = dict(figure_options_from_run(sim, figure))
         shown = dict(options)
         if reference is not None:
             options["reference"] = self.run(reference)
-        with matplotlib_backend(dpi=DPI):
-            apply_theme("dark" if dark else "default")
+        with rendering("dark" if dark else "default"):
             fig = render_figure(figure, sim, show_run_name=show_run_name, **options)
             if not show_run_name:
                 runs = [sim] + ([options["reference"]] if "reference" in options else [])
@@ -425,7 +421,6 @@ class Drawer:
                 self.leftovers += [(f"{name}/{figure}", text) for text in left]
             buffer = io.BytesIO()
             fig.savefig(buffer, format="png", dpi=DPI, bbox_inches="tight")
-            plt.close(fig)
         data, size = to_webp(buffer.getvalue(), width=width)
         return data, size, shown
 
@@ -453,14 +448,14 @@ def viz_command(
 ) -> str:
     """The command that redraws a figure as this script draws it.
 
-    ``hmp viz show`` takes one run: a figure that compares two is redrawn in Python.
+    ``hmp show --figure`` takes one run: a figure that compares two is redrawn in Python.
     """
     if reference:
-        return f'hmp.figure(<run {run}>, "{figure}", reference=<run {reference}>)'
+        return f'<run {run}>.figure("{figure}", reference=<run {reference}>)'
     when = options.get("time")
     tail = f" --time {when}" if when else ""
     hide = "" if show_run_name else " --opt show_run_name=false"
-    return f"hmp viz show {run} {figure}{tail}{hide}"
+    return f"hmp show {run} --figure {figure}{tail}{hide}"
 
 
 def pages_citing(directory: str, needle: str) -> list[str]:

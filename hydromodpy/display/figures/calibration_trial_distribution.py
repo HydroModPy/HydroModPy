@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots, run_suffix
 from hydromodpy.display.figure_options import ObjectiveName, Opt, ParameterNames
 from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
 
@@ -63,9 +63,8 @@ class CalibrationTrialDistributionFigure(BaseFigure):
         save_path=None,
         **_,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
         import numpy as np
-        from matplotlib import cm
+        from matplotlib import cm, colormaps
         from matplotlib.colors import Normalize
 
         table = trial_table(session)
@@ -83,7 +82,7 @@ class CalibrationTrialDistributionFigure(BaseFigure):
             else (None, None)
         )
         norm = None
-        colormap = plt.get_cmap(cmap)
+        colormap = colormaps.get_cmap(cmap)
         if obj is not None and np.any(np.isfinite(obj)):
             finite = obj[np.isfinite(obj)]
             norm = Normalize(vmin=float(finite.min()), vmax=float(finite.max()))
@@ -91,7 +90,7 @@ class CalibrationTrialDistributionFigure(BaseFigure):
         n = len(sampled)
         ncols = min(3, n)
         nrows = (n + ncols - 1) // ncols
-        fig, axes = plt.subplots(
+        fig, axes = new_subplots(
             nrows,
             ncols,
             figsize=figsize or self.spec.default_figsize,

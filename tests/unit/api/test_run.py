@@ -1,4 +1,4 @@
-"""``hmp.run``: one type per workflow, the controls by name, the changes in ``set=``."""
+"""The verb ``run``: one type per workflow, the controls by name, the changes in ``set=``."""
 
 from __future__ import annotations
 
@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
-import hydromodpy as hmp
-from hydromodpy.project.request import RunOutcome
+from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.project import api
+from hydromodpy.project.request import RunOutcome, request_of
 from hydromodpy.workflow.overview import OverviewResult
 
 pytestmark = pytest.mark.fast
@@ -54,7 +55,11 @@ def worker(monkeypatch: pytest.MonkeyPatch) -> dict:
         return asked["outcome"] if "outcome" in asked else _outcome()
 
     monkeypatch.setattr(f"{WORKFLOW}.run_simulation", fake)
-    monkeypatch.setattr(f"{WORKFLOW}.completed_run_view", lambda outcome: ("run", outcome.name))
+    asked["indexed"] = []
+    monkeypatch.setattr(
+        "hydromodpy.results.catalog.indexer.index_after_run",
+        lambda root: asked["indexed"].append(root),
+    )
     return asked
 
 
@@ -64,29 +69,29 @@ def test_an_overview_gives_its_result(monkeypatch, tmp_path: Path) -> None:
         f"{WORKFLOW}.run_overview", lambda request, *, base, environment=None: RESULT
     )
 
-    assert hmp.run(config) is RESULT
-    assert hmp.run(str(config)) is RESULT
+    assert api.run(config) is RESULT
+    assert api.run(str(config)) is RESULT
 
 
 @pytest.mark.parametrize("option", [{"name": "x"}, {"set": {"K": 1.0}}, {"until_step": "seal"}])
 def test_an_overview_refuses_what_steers_a_simulation(tmp_path: Path, option: dict) -> None:
-    with pytest.raises(hmp.ConfigError, match=next(iter(option))):
-        hmp.run(_toml(tmp_path, "overview"), **option)
+    with pytest.raises(ConfigError, match=next(iter(option))):
+        api.run(_toml(tmp_path, "overview"), **option)
 
 
 @pytest.mark.parametrize("from_a_file", [True, False])
 def test_a_calibration_is_refused_and_points_to_its_verb(tmp_path: Path, from_a_file: bool) -> None:
-    with pytest.raises(hmp.ConfigError, match=r"hmp\.calibrate"):
+    with pytest.raises(ConfigError, match=r"hmp\.calibrate"):
         if from_a_file:
-            hmp.run(_toml(tmp_path, "calibration"))
+            api.run(_toml(tmp_path, "calibration"))
         else:
-            hmp.run(_document("calibration"), base=tmp_path)
+            api.run(_document("calibration"), base=tmp_path)
 
 
 def test_a_sites_project_is_refused_and_points_to_its_verb(tmp_path: Path) -> None:
     config = _toml(tmp_path, "simulation", '[sites]\ntable = "sites.csv"\n')
-    with pytest.raises(hmp.ConfigError, match=r"\.launch\(\)"):
-        hmp.run(config)
+    with pytest.raises(ConfigError, match=r"\.launch\(\)"):
+        api.run(config)
 
 
 def test_a_simulation_gives_its_run_and_the_controls_reach_the_worker(
@@ -94,40 +99,73 @@ def test_a_simulation_gives_its_run_and_the_controls_reach_the_worker(
 ) -> None:
     config = _toml(tmp_path, "simulation")
 
-    assert hmp.run(config, name="x", force=True, set={"K": 1e-5}) == ("run", "x")
+    outcome = api.run(config, name="x", force=True, set={"K": 1e-5})
+    assert isinstance(outcome, RunOutcome)
+    assert outcome.name == "x"
+    assert worker["indexed"] == [Path("/p")]
     request = worker["request"]
     assert (request.form, Path(request.source)) == ("toml", config.resolve())
     assert worker["base"] == tmp_path.resolve()
     assert request.set == {"K": 1e-5}
     assert (request.name, request.force) == ("x", True)
 
-    assert hmp.run(_document("simulation"), base=tmp_path, until_step="seal", headless=True) == (
-        "run",
-        "x",
-    )
+    again = api.run(_document("simulation"), base=tmp_path, until_step="seal", headless=True)
+    assert again.name == "x"
     request = worker["request"]
     assert (request.form, worker["base"]) == ("dict", tmp_path.resolve())
     assert (request.until_step, request.no_display) == ("seal", True)
 
 
-def test_a_window_that_keeps_nothing_gives_nothing(worker: dict, tmp_path: Path) -> None:
+def test_a_run_that_claimed_no_directory_gives_nothing(worker: dict, tmp_path: Path) -> None:
     worker["outcome"] = None
-    assert hmp.run(_toml(tmp_path, "simulation"), until_step="load_data") is None
+    assert api.run(_toml(tmp_path, "simulation"), until_step="load_data") is None
+    assert worker["indexed"] == []
+
+
+def test_a_window_that_keeps_nothing_still_gives_its_outcome(worker: dict, tmp_path: Path) -> None:
+    """A directory was claimed: its outcome comes back, without an id, and nothing is indexed."""
+    worker["outcome"] = _outcome(sim_id=None, status="partial")
+
+    outcome = api.run(_toml(tmp_path, "simulation"), until_step="load_data")
+
+    assert (outcome.sim_id, outcome.status) == (None, "partial")
+    assert worker["indexed"] == []
+
+
+def test_a_request_object_is_a_source_and_needs_a_base(worker: dict, tmp_path: Path) -> None:
+    request = request_of(_document("simulation"), name="from_request")
+
+    with pytest.raises(ConfigError, match="base"):
+        api.run(request)
+    outcome = api.run(request, base=tmp_path, force=True)
+
+    assert outcome.name == "x"
+    assert (worker["request"].name, worker["request"].force) == ("from_request", True)
+    assert worker["base"] == tmp_path.resolve()
+
+
+def test_the_outcome_says_itself_as_json(worker: dict, tmp_path: Path) -> None:
+    import json
+
+    outcome = api.run(_toml(tmp_path, "simulation"))
+
+    said = json.loads(json.dumps(outcome.to_dict()))
+    assert (said["name"], said["kind"], said["sim_id"]) == ("x", "run", "sid")
 
 
 def test_a_change_is_never_a_loose_keyword(tmp_path: Path) -> None:
     with pytest.raises(TypeError, match="K"):
-        hmp.run(_toml(tmp_path, "simulation"), K=1e-5)
+        api.run(_toml(tmp_path, "simulation"), K=1e-5)
 
 
 def test_a_skipped_run_is_returned_and_said(
     worker: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     said: list[tuple] = []
-    monkeypatch.setattr("hydromodpy._api._report_identical_run", lambda *a: said.append(a))
+    monkeypatch.setattr("hydromodpy.project.api.report_identical_run", lambda *a: said.append(a))
     worker["outcome"] = _outcome(identical_to="x")
 
-    assert hmp.run(_toml(tmp_path, "simulation")) == ("run", "x")
+    assert api.run(_toml(tmp_path, "simulation")).identical_to == "x"
     assert said == [("x", "sid")]
 
 
@@ -144,9 +182,40 @@ def test_a_dry_run_gives_a_plan_and_runs_nothing(
     monkeypatch.setattr(f"{WORKFLOW}.draft_of_a_file_or_config", fake)
     config = _toml(tmp_path, workflow)
 
-    assert hmp.run(config, dry_run=True, name="x") == "draft"
+    assert api.run(config, dry_run=True, name="x") == "draft"
     assert asked["workflow"] == workflow
     assert asked["name"] == "x"
+
+
+def test_a_request_that_asks_a_dry_run_gives_a_plan_with_its_own_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, worker: dict
+) -> None:
+    asked: dict = {}
+
+    def fake(source, **kwargs):
+        asked.update(source=source, **kwargs)
+        return "draft"
+
+    monkeypatch.setattr(f"{WORKFLOW}.draft_of_a_file_or_config", fake)
+    held = request_of(
+        _document("simulation"),
+        name="held",
+        resume="case_w2",
+        until_step="load_data",
+        dry_run=True,
+    )
+
+    assert api.run(held, base=tmp_path) == "draft"
+    assert (asked["name"], asked["resume"], asked["until_step"]) == (
+        "held",
+        "case_w2",
+        "load_data",
+    )
+    path = tmp_path / "request.json"
+    path.write_text(held.model_dump_json(by_alias=True), encoding="utf-8")
+    assert api.run(path) == "draft"
+    assert asked["source"] == path
+    assert "request" not in worker
 
 
 def test_a_dry_run_says_the_steps_of_its_window(tmp_path: Path) -> None:
@@ -173,7 +242,7 @@ def test_a_dry_run_says_the_steps_of_its_window(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    draft = hmp.run(config, dry_run=True, name="x", until_step="load_data")
+    draft = api.run(config, dry_run=True, name="x", until_step="load_data")
 
     assert isinstance(draft, PlanDraft)
     assert draft.steps == ("validate", "resolve", "build_geographic", "load_data")

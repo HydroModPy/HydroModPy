@@ -60,7 +60,7 @@ hmp run step1_minimal.toml
 ```python
 import hydromodpy as hmp
 
-run = hmp.run("step1_minimal.toml")
+run = hmp.run("step1_minimal.toml").open()
 print(run.name)
 ```
 :::

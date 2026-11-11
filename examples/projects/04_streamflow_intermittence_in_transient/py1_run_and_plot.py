@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 # The same as `hmp run step4_transient.toml`, figures and exports included.
 # An unchanged file is not computed again: the run of the last execution comes
 # back. An edited file writes a new run, nancon_step4_transient.v2, .v3...
-run = hmp.run(HERE / "step4_transient.toml")
+run = hmp.run(HERE / "step4_transient.toml").open()
 print(run.name)
 
 # %% The data
@@ -32,13 +32,13 @@ months = run.periods.edges[:-1]
 
 # Simulated discharge, the mean of the month, and gauged discharge, daily,
 # averaged over the same months. Both in m3/s.
-q_sim = pd.Series(hmp.read(run, "discharge").to_numpy(), index=months)
-q_obs = hmp.read(run, "discharge_obs").resample("MS").mean().reindex(months)
+q_sim = pd.Series(run.read("discharge").to_numpy(), index=months)
+q_obs = run.read("discharge_obs").resample("MS").mean().reindex(months)
 
 # The mesh covers the rectangle around the catchment: count the cells of the
 # catchment only. The mesh is the DEM grid, row by row, hence the ravel of the
 # mask.
-seepage = hmp.read(run, "seepage_mask").to_numpy() > 0  # (months, cells)
+seepage = run.read("seepage_mask").to_numpy() > 0  # (months, cells)
 in_catchment = run.catchment_mask.ravel()
 cell_km2 = run.grid.cell_size**2 / 1e6
 area = pd.Series((seepage & in_catchment).sum(axis=1) * cell_km2, index=months)

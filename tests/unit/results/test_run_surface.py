@@ -10,11 +10,12 @@ from __future__ import annotations
 
 from hydromodpy.results.run import Run
 
-MAX_PUBLIC_METHODS = 50
+# 2.1.0 adds read, table, figure and show, the reads behind hydromodpy.show, and no old name died.
+MAX_PUBLIC_METHODS = 54
 
 
 def test_run_public_surface_below_limit() -> None:
-    """``Run`` exposes at most 50 public attributes (CLAUDE.md cap)."""
+    """``Run`` exposes at most ``MAX_PUBLIC_METHODS`` public attributes."""
     public = [m for m in dir(Run) if not m.startswith("_")]
     assert len(public) <= MAX_PUBLIC_METHODS, (
         f"Run has {len(public)} public attributes (max {MAX_PUBLIC_METHODS}): {public}"

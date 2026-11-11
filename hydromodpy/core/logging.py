@@ -26,11 +26,21 @@ A pipe keeps the ``[LEVEL]`` labels.
 Only the console is filtered: the project debug log,
 ``.hmp/logs/hydromodpy_debug.log``, records DEBUG whatever the console
 shows, so nothing is lost by running quiet.
+
+A run writes its own files without touching the logger of the process. The
+package logger holds one :class:`SinkRouter`, installed once with the
+:class:`LogManager`. The router hands each record to the handlers listed in
+:data:`RUN_SINKS` for the context that emits it, so two runs in two threads of
+one process fill two ``run.log`` files and nothing crosses. A thread pool of a
+run submits its tasks through ``contextvars.copy_context().run`` so that a task
+keeps the sinks of the thread that started it. Only this module adds a handler
+to the logger.
 """
 
 import logging
 import os
 import warnings
+from contextvars import ContextVar
 
 from hydromodpy.core.console import progress as core_progress
 from hydromodpy.core.console.progress import MILESTONE_KEY
@@ -155,13 +165,53 @@ def _is_third_party_deprecation(category, filename):
     ).startswith(_PACKAGE_ROOT)
 
 
+RUN_SINKS: ContextVar[tuple[logging.Handler, ...]] = ContextVar("hmp_run_sinks", default=())
+"""Handlers that receive the records the current context emits, besides the console.
+
+A run adds its ``run.log`` and the project debug log here for its span
+(:func:`hydromodpy.results.storage.run_log.attach_run_log`). A handler keeps
+its own level, DEBUG for both files.
+"""
+
+
+class SinkRouter(logging.Handler):
+    """Pass each record to the handlers of :data:`RUN_SINKS` that admit its level.
+
+    The handler is a member of the package logger for the whole life of the
+    process. What changes from one run to the next is the variable it reads,
+    which belongs to the context of the caller, so no handler is added or
+    removed while a run emits.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.DEBUG)
+        self.set_name("run_sinks")
+
+    def emit(self, record: logging.LogRecord) -> None:
+        for sink in RUN_SINKS.get():
+            if record.levelno >= sink.level:
+                sink.handle(record)
+
+
+def ensure_sink_router() -> SinkRouter:
+    """Install the router on the package logger when it is not there, and return it."""
+    logger = logging.getLogger("hydromodpy")
+    for handler in logger.handlers:
+        if isinstance(handler, SinkRouter):
+            return handler
+    router = SinkRouter()
+    logger.addHandler(router)
+    return router
+
+
 class LogManager:
     """
     Manage logging for HydroModPy.
 
-    Handles two types of logs:
-    - Simulation log: automatic, in watershed folder, full debug level
-    - User log: optional, in current directory, configurable level
+    The console follows the verbosity level. The optional user log goes to a
+    file of the current directory at the same level. The files of a run
+    (``run.log`` and the project debug log) reach the logger through the
+    :class:`SinkRouter` that the manager installs once.
     """
 
     _instance = None
@@ -193,7 +243,6 @@ class LogManager:
         self.overwrite = overwrite
         self.verbose_libraries = verbose_libraries
         self.logger = logging.getLogger("hydromodpy")
-        self.simulation_log_path = None
 
         # Store instance for global access
         LogManager._instance = self
@@ -207,6 +256,8 @@ class LogManager:
         Configure logging based on mode.
         Setup console handler, preserve file handlers.
         """
+
+        ensure_sink_router()
 
         # Remove console handlers, keep file handlers
         for handler in self.logger.handlers[:]:
@@ -271,66 +322,6 @@ class LogManager:
             if hasattr(handler, "get_name") and handler.get_name() == "user_log":
                 return True
         return False
-
-    def set_simulation_log(self, watershed_folder):
-        """
-        Setup simulation log in watershed folder.
-        Always captures DEBUG level, regardless of console mode.
-        Called automatically by Watershed class.
-
-        Parameters
-        ----------
-        watershed_folder : str
-            Path to watershed folder
-        """
-        sim_log_dir = os.path.join(watershed_folder, ".hmp", "logs")
-        self.simulation_log_path = os.path.join(sim_log_dir, "hydromodpy_debug.log")
-
-        # Create the hidden log folder if needed
-        os.makedirs(sim_log_dir, exist_ok=True)
-
-        # Remove any existing simulation log handler
-        for handler in self.logger.handlers[:]:
-            is_simulation_handler = False
-            if hasattr(handler, "get_name") and handler.get_name() == "simulation_log":
-                is_simulation_handler = True
-            if getattr(handler, "_hydromodpy_simulation_log", False):
-                is_simulation_handler = True
-            if isinstance(handler, logging.FileHandler) and handler.baseFilename == os.path.abspath(
-                self.simulation_log_path
-            ):
-                is_simulation_handler = True
-            if is_simulation_handler:
-                self.logger.removeHandler(handler)
-                handler.close()
-
-        # Add simulation log handler (always DEBUG level)
-        file_formatter = logging.Formatter(
-            "%(asctime)s [%(levelname)s] [%(name)s] [%(module)s:%(lineno)d] %(message)s"
-        )
-        candidate_paths = [
-            self.simulation_log_path,
-            os.path.join(sim_log_dir, f"hydromodpy_debug_{os.getpid()}.log"),
-        ]
-        for candidate_path in candidate_paths:
-            try:
-                sim_handler = logging.FileHandler(candidate_path, mode="a", encoding="utf-8")
-            except PermissionError:
-                continue
-            self.simulation_log_path = candidate_path
-            sim_handler.setLevel(logging.DEBUG)
-            sim_handler.setFormatter(file_formatter)
-            if hasattr(sim_handler, "set_name"):
-                sim_handler.set_name("simulation_log")
-            sim_handler._hydromodpy_simulation_log = True
-            self.logger.addHandler(sim_handler)
-            return
-
-        self.simulation_log_path = None
-        self.logger.warning(
-            "Simulation log file is not writable in %s; continuing without file logging.",
-            watershed_folder,
-        )
 
     def set_console_level(self, mode):
         """
@@ -473,17 +464,3 @@ def verbosity_from_env(env=None):
     if not raw or not raw.strip():
         return None
     return normalize_verbosity(raw)
-
-
-def setup_simulation_log(watershed_folder):
-    """
-    Setup simulation log in watershed folder.
-    Helper function to be called by Watershed class.
-
-    Parameters
-    ----------
-    watershed_folder : str
-        Path to watershed output folder
-    """
-    if LogManager._instance is not None:
-        LogManager._instance.set_simulation_log(watershed_folder)

@@ -27,10 +27,11 @@ from __future__ import annotations
 import tomllib
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import pandas as pd
 
+from hydromodpy.core.exceptions import NothingThereError
 from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.results.errors import SeveralCasesError
 from hydromodpy.results.metric_rule import PeriodWindow
@@ -47,9 +48,10 @@ from hydromodpy.results.session.phase import PhaseDescriptor, list_phases
 from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
 
 if TYPE_CHECKING:
+    from matplotlib.figure import Figure
     from pydantic import BaseModel
 
-    from hydromodpy.results.run.view import Run
+    from hydromodpy.results.run.view import Renderer, Run
 
 TRIAL_COLUMNS: tuple[str, ...] = (
     "session_id",
@@ -86,6 +88,9 @@ the journal does not say.
 PROFILE_COLUMNS: tuple[str, ...] = ("kind", "name", "reused", "lines", "duration_s", "max_rss_mb")
 """Columns of :meth:`Session.profile`, one row per kind, name and ``reused``."""
 
+SESSION_SHOWS: Final[tuple[str, ...]] = ("table", "profile", "figure", "report")
+"""The values of ``what`` that :meth:`Session.show` reads."""
+
 
 class Session:
     """One calibration session, read from its directory.
@@ -99,6 +104,9 @@ class Session:
         to the runs the session opens. Without one, ``run.hydromodpy_config``
         is refused. A session opened by ``hmp.open`` or by a ``Project``
         carries it.
+    render
+        The function that draws a figure or writes the report of the session.
+        Without one, ``figure`` is refused.
 
     Raises
     ------
@@ -119,6 +127,7 @@ class Session:
         session_dir: str | Path,
         *,
         read_config: Callable[[Mapping[str, Any]], BaseModel] | None = None,
+        render: Renderer | None = None,
     ) -> None:
         directory = Path(session_dir).expanduser().resolve()
         if not session_descriptor_path(directory).is_file():
@@ -128,6 +137,7 @@ class Session:
             )
         self._dir = directory
         self._read_config = read_config
+        self._render = render
         self._descriptor: SessionDescriptor | None = None
 
     @classmethod
@@ -147,7 +157,11 @@ class Session:
         directory = session_dir_of(run)
         if directory is None or not session_descriptor_path(directory).is_file():
             return None
-        return cls(directory, read_config=getattr(run, "_read_config", None))
+        return cls(
+            directory,
+            read_config=getattr(run, "_read_config", None),
+            render=getattr(run, "_render", None),
+        )
 
     @property
     def dir(self) -> Path:
@@ -248,6 +262,46 @@ class Session:
         """The phases of a staged search, by rank; empty for a single search."""
         return list_phases(self._dir)
 
+    def table(self, name: str) -> pd.DataFrame:
+        """Return the table *name* of this session: ``trials`` or ``profile``.
+
+        ``trials`` is :attr:`trials` and ``profile`` is :meth:`profile`. Any other
+        name is refused with those two.
+        """
+        if name == "trials":
+            return self.trials
+        if name == "profile":
+            return self.profile()
+        raise NothingThereError(f"A session holds the tables trials and profile, not {name!r}.")
+
+    def figure(
+        self,
+        name: str,
+        *,
+        save: str | Path | None = None,
+        dpi: int | None = None,
+        time: str | None = None,
+        **options: Any,
+    ) -> Figure | Path:
+        """Draw the registered ``session`` figure *name* of this session.
+
+        The arguments are those of :meth:`hydromodpy.results.run.view.Run.figure`.
+
+        Raises
+        ------
+        hydromodpy.core.exceptions.CommandUsageError
+            If the session was not opened by ``hydromodpy.open`` or a project.
+        """
+        from hydromodpy.results.run.view import draw
+
+        return draw(self, name, {**options, "save": save, "dpi": dpi, "time": time})
+
+    def show(self, what: str, **options: Any) -> Any:
+        """Read one thing of this session: ``table``, ``profile``, ``figure`` or ``report``."""
+        from hydromodpy.results.run.view import show_of
+
+        return show_of(self, what, options, SESSION_SHOWS)
+
     @property
     def best_cost(self) -> float | None:
         """The cost of the best trial, ``None`` without one."""
@@ -311,7 +365,7 @@ class Session:
             directory = project_root / rel_dir
             if not is_sealed(directory):
                 continue
-            run = open_run_dir(directory, read_config=self._read_config)
+            run = open_run_dir(directory, read_config=self._read_config, render=self._render)
             if case.sim_id is not None:
                 if run.sim_id == case.sim_id:
                     return run

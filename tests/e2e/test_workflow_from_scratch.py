@@ -12,7 +12,7 @@ Walks the chain a new user would follow:
    ``simulation_regression`` fixture, which is exercised by the regression
    tier with the same CLI entry point.
 5. Open the project via ``hmp.open``, read its index through ``.store`` and
-   read a field via ``hmp.read``.
+   read a field via ``Run.read``.
 6. Export the field to NetCDF and check the ACDD / CF attrs are carried.
 
 The test is marked ``e2e`` so it stays out of the fast suite. CLI verbs
@@ -211,10 +211,10 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         assert len(sims) == 1
         assert str(sims.iloc[0]["sim_id"]) == sim_id
 
-    # ----- Step 7: hmp.open(...).store + hmp.read return a real field -------
+    # ----- Step 7: hmp.open(...).store + Run.read return a real field -------
     with hmp.open(project_dir).store as catalog:
         run = catalog[sim_id]
-        data = np.asarray(hmp.read(run, "head", time=0, layer=0))
+        data = np.asarray(run.read("head", time=0, layer=0))
         assert data.shape[-1] == 4
         assert np.allclose(data, 7.5)
 
@@ -290,8 +290,19 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
             f"required solver binaries missing: {missing}. Run `hmp install-binaries` first."
         )
 
-    out_path = tmp_path / "run_out"
-    out_path.mkdir(parents=True, exist_ok=True)
+    # The fixture names ``../../data/...`` and ``../../../../../examples/data/...``
+    # from the project folder, so the project sits five levels below a root that
+    # holds ``examples/data``, and two levels below a folder that holds ``data``.
+    example_data = Path(__file__).resolve().parents[2] / "examples" / "data"
+    regional_dem = example_data / "dem" / "regional_dem_naizin.tif"
+    if not regional_dem.is_file():
+        pytest.skip(f"example data missing: {regional_dem}")
+    root = tmp_path / "root"
+    (root / "examples").mkdir(parents=True)
+    (root / "examples" / "data").symlink_to(example_data, target_is_directory=True)
+    out_path = root / "a" / "b" / "c" / "d" / "run_out"
+    out_path.mkdir(parents=True)
+    (out_path.parents[1] / "data").symlink_to(example_data, target_is_directory=True)
     env = {"MPLBACKEND": "Agg"}
     # Filter out any env that would lock to a host-bound output, then merge.
     import os

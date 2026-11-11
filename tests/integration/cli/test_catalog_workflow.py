@@ -1,6 +1,6 @@
 """End-to-end: workspace init -> sealed run -> catalog ls / show / query.
 
-Drives the catalog browsing surface (``hmp catalog ls``, ``hmp catalog show``,
+Drives the catalog browsing surface (``hmp ls``, ``hmp show``,
 ``hmp catalog query``) against the index of a project, rebuilt from a run
 sealed the way the pipeline seals one.
 """
@@ -45,7 +45,7 @@ def _seed_project_with_simulation(workspace: Path, project: str = "demo") -> str
     return sim_id
 
 
-def test_catalog_ls_lists_seeded_simulation(tmp_path: Path) -> None:
+def test_ls_lists_seeded_simulation(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     sim_id = _seed_project_with_simulation(workspace)
 
@@ -53,7 +53,6 @@ def test_catalog_ls_lists_seeded_simulation(tmp_path: Path) -> None:
     result = runner.invoke(
         [
             "hmp",
-            "catalog",
             "ls",
             "--workspace",
             str(workspace),
@@ -66,7 +65,7 @@ def test_catalog_ls_lists_seeded_simulation(tmp_path: Path) -> None:
     assert sim_id[:8] in result.stdout
 
 
-def test_catalog_show_resolves_sim_by_prefix(tmp_path: Path) -> None:
+def test_show_resolves_sim_by_prefix(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     sim_id = _seed_project_with_simulation(workspace)
     project_dir = workspace / "projects" / "demo"
@@ -75,7 +74,6 @@ def test_catalog_show_resolves_sim_by_prefix(tmp_path: Path) -> None:
     result = runner.invoke(
         [
             "hmp",
-            "catalog",
             "show",
             sim_id[:8],
             "--workspace",

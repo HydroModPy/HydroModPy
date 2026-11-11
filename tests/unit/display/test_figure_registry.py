@@ -299,7 +299,7 @@ def test_render_figure_accepts_the_common_options(mpl, tmp_path) -> None:
 # A key a figure does not take is refused when the config loads.
 #
 # Every figure ``render`` ends with a ``**`` parameter, so ``timstep = 33`` in
-# ``[display.overrides.seepage_map]`` used to pass ``hmp config check`` and draw
+# ``[display.overrides.seepage_map]`` used to pass ``hmp check`` and draw
 # the last step without a word. The accepted keys are read off the figure's own
 # ``plot`` and ``render`` signatures, so the check needs no second declaration
 # that could drift from the code.
@@ -397,7 +397,7 @@ def test_a_time_of_another_shape_is_refused(value) -> None:
 
 
 class _SealedRun:
-    """A run as ``hmp viz show`` reads it: the config snapshot it sealed."""
+    """A run as ``hmp show --figure`` reads it: the config snapshot it sealed."""
 
     def __init__(self, display: dict | None) -> None:
         full = DisplayConfig().model_dump(mode="json")

@@ -36,6 +36,7 @@ Catalog.read_geographic_feature	method	(self, sim_id: str | UUID, feature_name: 
 Catalog.read_geographic_metadata	method	(self, sim_id: str | UUID) -> dict[str, str]
 Catalog.reads_the_published_index	property	bool
 Catalog.rel_dir_of	method	(self, sim_id: str | UUID) -> str
+Catalog.render	property	Renderer | None
 Catalog.resolve	method	(self, ref: str | UUID, *, project: str | None = None, site: str | None = None, mixed_windows: bool = False) -> str
 Catalog.run_dir_for	method	(self, sim_id: str | UUID) -> Path
 Catalog.runs_dir	property	Path
@@ -94,6 +95,7 @@ Run.dir	property	Path
 Run.export	method	(self, variables: str | list[str], *, time: Any = None, period: tuple[Any, Any] | None = None, format: str | None = None, folder: str | Path | None = None, file: str | Path | None = None, crs: str | None = None, resolution: float | None = None, layer: int | None = None, nodata: float = -9999.0) -> list[Path]
 Run.exports	property	list[Path]
 Run.field	method	(self, variable: str, *, time: int | str | datetime.date | pd.Timestamp | np.datetime64 = -1, layer: int | None = None, bbox: tuple[float, float, float, float] | None = None) -> np.ndarray
+Run.figure	method	(self, name: str, *, save: str | Path | None = None, dpi: int | None = None, time: str | None = None, **options: Any) -> Figure | Path
 Run.figures	property	list[Path]
 Run.flow_regime	property	str | None
 Run.geographic	method	(self, feature_name: str) -> gpd.GeoDataFrame
@@ -121,13 +123,16 @@ Run.observed	method	(self, variable: str, *, station: str | None = None, period:
 Run.outlet	method	
 Run.parameters	property	pd.DataFrame
 Run.project	property	str
+Run.read	method	(self, variable: str, *, time: Any = None, layer: int | None = None, sel: dict | None = None, bbox: tuple[float, float, float, float] | None = None) -> Any
 Run.recharge_forcing	method	(self) -> pd.Series
 Run.record	property	RunRecord
+Run.show	method	(self, what: str, **options: Any) -> Any
 Run.sim_id	property	str
 Run.site	property	str | None
 Run.solver	property	str | None
 Run.stations	method	(self, variable: str, *, source: str = 'simulated') -> list[str]
 Run.status	property	str | None
+Run.table	method	(self, name: str) -> pd.DataFrame
 Run.tag	method	(self, *specs: str) -> Run
 Run.tags	property	list[str] | None
 Run.time_index	method	
@@ -135,11 +140,14 @@ Run.timeseries	method	(self, variable: str, *, station: str | None = None, perio
 RunSet.best	method	(self, metric: str, *, mixed_windows: bool = False) -> Run
 RunSet.compare	method	(self, metric: str, *, mixed_windows: bool = False) -> pd.DataFrame
 RunSet.count	property	int
+RunSet.figure	method	(self, name: str, *, save: str | Path | None = None, dpi: int | None = None, time: str | None = None, **options: Any) -> Figure | Path
 RunSet.filter	method	(self, **criteria) -> RunSet
 RunSet.metrics	property	pd.DataFrame
 RunSet.parameters	property	pd.DataFrame
+RunSet.show	method	(self, what: str, **options: Any) -> Any
 RunSet.sim_ids	property	list[str]
 RunSet.sort_by	method	(self, metric: str, *, ascending: bool = True, mixed_windows: bool = False) -> RunSet
+RunSet.table	method	(self, name: str) -> pd.DataFrame
 RunSet.to_csv	method	(self, path: Path | str) -> None
 RunSet.to_dataframe	method	(self, *, params: list[str] | None = None, metrics: list[str] | None = None) -> pd.DataFrame
 RunSet.to_xarray	method	(self, variable: str, *, dim: str = 'run') -> xr.DataArray
@@ -152,12 +160,15 @@ Session.cases	property	tuple[str, ...]
 Session.config	property	dict[str, Any]
 Session.descriptor	property	SessionDescriptor
 Session.dir	property	Path
+Session.figure	method	(self, name: str, *, save: str | Path | None = None, dpi: int | None = None, time: str | None = None, **options: Any) -> Figure | Path
 Session.name	property	str
 Session.of_run	classmethod	(run: Any) -> Session | None
 Session.phases	property	list[PhaseDescriptor]
 Session.profile	method	(self) -> pd.DataFrame
+Session.show	method	(self, what: str, **options: Any) -> Any
 Session.sites	property	tuple[str, ...]
 Session.status	property	SessionStatus
+Session.table	method	(self, name: str) -> pd.DataFrame
 Session.trials	property	pd.DataFrame
 Session.windows	property	dict[str, PeriodWindow]
 Workspace.projects	property	builtins.list[str]

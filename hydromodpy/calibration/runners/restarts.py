@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
@@ -110,10 +111,11 @@ def run_side_by_side(
 
     The threads only wait on the workers of a pool. A failure, or an interrupt of
     the caller, calls ``on_stop`` and starts no item that is still queued, so
-    nothing waits on a solve no one will read.
+    nothing waits on a solve no one will read. Each item runs in a copy of the
+    context of the caller, which carries the run log and the run scratch.
     """
     with ThreadPoolExecutor(width) as pool:
-        futures = [pool.submit(function, item) for item in items]
+        futures = [pool.submit(copy_context().run, function, item) for item in items]
         try:
             for future in as_completed(futures):
                 future.result()

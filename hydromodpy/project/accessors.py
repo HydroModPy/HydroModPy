@@ -2,10 +2,10 @@
 
 Split from :mod:`hydromodpy.project.facade` to keep the facade focused on
 its verbs. :class:`ProjectCatalog` binds them to a project (``project._catalog``). ``project.data`` and ``project.runs`` are accessor objects; the
-campaign reads of :class:`~hydromodpy.project.Project` (``cases``,
+campaign reads of :class:`~hydromodpy.project.facade.Project` (``cases``,
 ``sites``, ``best``) are the functions below, applied to the index of the
 project; ``project.sessions`` is :class:`ProjectSessions`; a workspace root
-opened by ``hmp.open`` or ``hmp.index`` is a :class:`Workspace`.
+opened by ``hmp.open`` is a :class:`Workspace`.
 
 Everything here reads. The index is derived from the run directories, so a
 reader that wants it current refreshes it first
@@ -364,11 +364,14 @@ class ProjectSessions(Mapping[str, Session]):
 
     def __getitem__(self, name: str) -> Session:
         from hydromodpy.project.facade import read_sealed_config
+        from hydromodpy.project.show import render
         from hydromodpy.results.catalog.registration import split_stem_version
 
         names = self._names()
         if name in names:
-            return Session(sessions_dir_for(self._root) / name, read_config=read_sealed_config)
+            return Session(
+                sessions_dir_for(self._root) / name, read_config=read_sealed_config, render=render
+            )
         versions = [
             (version or 1, candidate)
             for candidate in names
@@ -379,7 +382,9 @@ class ProjectSessions(Mapping[str, Session]):
             held = ", ".join(names) or "none"
             raise KeyError(f"no calibration session {name!r} in {self._root}: {held}")
         return Session(
-            sessions_dir_for(self._root) / max(versions)[1], read_config=read_sealed_config
+            sessions_dir_for(self._root) / max(versions)[1],
+            read_config=read_sealed_config,
+            render=render,
         )
 
     def __iter__(self) -> Iterator[str]:

@@ -124,7 +124,7 @@ def test_display_step_says_out_loud_that_it_drew_nothing(monkeypatch, tmp_path, 
     # A run that draws nothing looks exactly like a run whose figure list
     # silently emptied. In TOML a table header swallows every key below it, so
     # a `[display.overrides.<fig>]` written above `figures` takes the list with
-    # it, `hmp config check` still passes, and the run renders zero figure. The
+    # it, `hmp check` still passes, and the run renders zero figure. The
     # line has to be readable at the default level or the accident is mute.
     ctx = _make_ctx(enabled=True, figures=[], project_root=tmp_path, catalogued=True)
     state = PipelineState(run_id="r", data={"ctx": ctx})
@@ -140,7 +140,7 @@ def test_display_step_says_out_loud_that_it_drew_nothing(monkeypatch, tmp_path, 
 
 def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path, catalog_handle):
     # The figures open the store of the sealed run for their own span, as
-    # hmp viz show does. They land in the figures directory of the run the
+    # hmp show --figure does. They land in the figures directory of the run the
     # context names.
     catalog_handle.__getitem__.return_value = SimpleNamespace(name="baseline")
     ctx = _make_ctx(

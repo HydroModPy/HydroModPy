@@ -313,7 +313,7 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
         captured["run_called"] = True
         return SimpleNamespace(to_dict=lambda: {"mode": "data_overview"})
 
-    monkeypatch.setitem(project_workflow.DISPATCH, "overview", fake_run)
+    monkeypatch.setattr(project_workflow, "run_overview", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     main()

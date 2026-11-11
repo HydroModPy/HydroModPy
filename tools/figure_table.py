@@ -53,7 +53,7 @@ def collect_figure_data() -> tuple[
 def collect_figure_subjects() -> dict[str, str]:
     """Return the subject of every figure that draws something other than one run.
 
-    ``[display]`` and ``hmp viz list`` read it from the generated table, so
+    ``[display]`` and ``hmp config figures`` read it from the generated table, so
     they know what a figure draws without importing its module.
     """
     from hydromodpy.display.figure_registry import list_figures

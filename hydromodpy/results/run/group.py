@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, Final
 import pandas as pd
 
 from hydromodpy.core.console import progress
+from hydromodpy.core.exceptions import NothingThereError
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.scoring.metric_table import RUN_METRIC_NAMES
 from hydromodpy.results.catalog.constants import metric_sense
@@ -51,10 +52,15 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     import xarray as xr
+    from matplotlib.figure import Figure
 
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Renderer
 
+
+RUNSET_SHOWS: Final[tuple[str, ...]] = ("table", "figure")
+"""The values of ``what`` that :meth:`RunSet.show` reads."""
 
 _RUN_COLUMNS: Final[tuple[str, ...]] = ("name", "project", "solver")
 """Columns that name a run in :meth:`RunSet.compare`."""
@@ -138,6 +144,9 @@ class RunSet:
         Ordered simulation ids in the group.
     catalog
         Catalog used to resolve ids into ``Run`` objects and tabular data.
+    render
+        The function that draws a figure of the set. Without one the set takes
+        the one of its catalog, and ``figure`` is refused when there is none.
 
     Examples
     --------
@@ -157,9 +166,12 @@ class RunSet:
         self,
         sim_ids: list[str],
         catalog: Catalog,
+        *,
+        render: Renderer | None = None,
     ) -> None:
         self._sim_ids = sim_ids
         self._catalog_handle = catalog
+        self._render = render if render is not None else getattr(catalog, "render", None)
         self._score_rows: dict[str, dict[str, Any]] = {}
         self.probe = RunPointProvider(self)
 
@@ -442,6 +454,52 @@ class RunSet:
         if not metrics_df.empty:
             df = df.merge(metrics_df, on="sim_id", how="left")
         return df
+
+    def table(self, name: str) -> pd.DataFrame:
+        """Return the table *name* of the set: ``parameters``, ``metrics`` or ``runs``.
+
+        ``parameters`` is :attr:`parameters`, ``metrics`` is :attr:`metrics` and
+        ``runs`` is :meth:`to_dataframe` with every column. Any other name is
+        refused with these three.
+        """
+        if name == "parameters":
+            return self.parameters
+        if name == "metrics":
+            return self.metrics
+        if name == "runs":
+            return self.to_dataframe()
+        raise NothingThereError(
+            f"A set of runs holds the tables parameters, metrics and runs, not {name!r}."
+        )
+
+    def figure(
+        self,
+        name: str,
+        *,
+        save: str | Path | None = None,
+        dpi: int | None = None,
+        time: str | None = None,
+        **options: Any,
+    ) -> Figure | Path:
+        """Draw the registered ``runset`` figure *name* of this set, ``ensemble_band`` for one.
+
+        The arguments are those of :meth:`hydromodpy.results.run.view.Run.figure`.
+        A figure of another subject refuses the set.
+
+        Raises
+        ------
+        hydromodpy.core.exceptions.CommandUsageError
+            If the set was not opened by ``hydromodpy.open`` or a project.
+        """
+        from hydromodpy.results.run.view import draw
+
+        return draw(self, name, {**options, "save": save, "dpi": dpi, "time": time})
+
+    def show(self, what: str, **options: Any) -> Any:
+        """Read one thing of this set: ``table`` or ``figure``."""
+        from hydromodpy.results.run.view import show_of
+
+        return show_of(self, what, options, RUNSET_SHOWS)
 
     def to_csv(self, path: Path | str) -> None:
         """Write ``to_dataframe()`` to a CSV file."""

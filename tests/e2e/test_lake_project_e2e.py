@@ -166,7 +166,7 @@ kind = "constant_thickness"
 thickness = "50.0 m"
 
 [simulation]
-name = "lake e2e"
+name = "lake_e2e"
 
 [simulation.results]
 keep_solver_files = true

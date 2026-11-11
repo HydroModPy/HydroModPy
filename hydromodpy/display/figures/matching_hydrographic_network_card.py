@@ -14,7 +14,13 @@ from typing import TYPE_CHECKING, Annotated, Any
 import numpy as np
 
 from hydromodpy.core.scoring.stream_defaults import VALIDITY_PROVENANCE_BY_CODE
-from hydromodpy.display.figure import PROMOTED_OPTION, BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import (
+    PROMOTED_OPTION,
+    BaseFigure,
+    FigureSpec,
+    new_figure,
+    run_suffix,
+)
 from hydromodpy.display.figure_options import Opt, OutputName, ParameterUnits
 from hydromodpy.display.figures._calibration_session import (
     as_mapping,
@@ -153,7 +159,6 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         ] = None,
         **opts: Any,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
         from matplotlib.gridspec import GridSpec
 
         stages = _stages(session)
@@ -173,7 +178,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
             row, views = searches[0]["row"], _one_state_views(table, output)
         missing = "the returned trial is not known" if two else "no root was closed"
 
-        fig = plt.figure(
+        fig = new_figure(
             figsize=figsize or self.spec.default_figsize, dpi=dpi, constrained_layout=True
         )
         # The two results sit on the top row and what qualifies them underneath.

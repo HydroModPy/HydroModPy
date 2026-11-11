@@ -79,9 +79,9 @@ figures of a campaign to `summary/`, calibration sessions to `sessions/`.
 Browse it from the command line:
 
 ```bash
-hmp catalog ls                    # every run of the project
-hmp catalog show demo --detail    # metadata, metrics, parameters, store layout
-hmp viz show demo piezometric_map # render one figure into runs/demo/figures/
+hmp ls                    # every run of the project
+hmp show demo --detail    # metadata, metrics, parameters, store layout
+hmp show demo --figure piezometric_map # render one figure into runs/demo/figures/
 ```
 
 Or read it from Python:
@@ -92,8 +92,8 @@ import hydromodpy as hmp
 proj = hmp.open("projects/getting_started")
 run = proj.store.latest()
 
-head = hmp.read(run, "head")  # lazy xarray.DataArray
-water_table = hmp.read(run, "watertable_elevation", time=-1)  # one period, a DataArray too
+head = run.read("head")  # lazy xarray.DataArray
+water_table = run.read("watertable_elevation", time=-1)  # one period, a DataArray too
 ```
 
 The tables are plain Parquet, so `pandas.read_parquet` on

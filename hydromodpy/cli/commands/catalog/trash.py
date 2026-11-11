@@ -1,9 +1,10 @@
-"""``hmp catalog trash`` - list the project trash, or empty it."""
+"""``hmp catalog trash`` - move a run to the project trash, list the trash, or empty it."""
 
 from __future__ import annotations
 
 import argparse
 from datetime import UTC, datetime
+from pathlib import Path
 
 from hydromodpy.cli.conventions import (
     confirm_parser,
@@ -16,7 +17,7 @@ from hydromodpy.cli.helpers import confirm, project_root_of
 from hydromodpy.cli.output import emit
 
 NAME: str = "trash"
-HELP: str = "List the trash of a project, or remove its entries for good with --empty"
+HELP: str = "Move a run to the trash, list the trash, or remove its entries with --empty"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -42,6 +43,13 @@ def register(subparsers) -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
+        "ref",
+        nargs="?",
+        default=None,
+        metavar="REF",
+        help="Move this run or session to trash/. Without it, list the trash.",
+    )
+    parser.add_argument(
         "--empty",
         action="store_true",
         help="Remove every trashed directory for good (frees disk, leaves tombstones)",
@@ -56,9 +64,15 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    from hydromodpy.core.exceptions import CommandUsageError
     from hydromodpy.results.trash import is_protected, list_trash, purge_trashed
 
     root = project_root_of(args)
+    if args.ref is not None:
+        if args.empty:
+            raise CommandUsageError("Name a run to trash, or --empty, not both.")
+        _move(args, root)
+        return
     entries = list_trash(root)
     if args.empty:
         doomed = [entry for entry in entries if args.force or not is_protected(entry.path)]
@@ -105,4 +119,27 @@ def run(args: argparse.Namespace) -> None:
             for entry in entries
         ],
         table=table,
+    )
+
+
+def _move(args: argparse.Namespace, root: Path) -> None:
+    """Move one run or session to ``trash/``, or say that it would."""
+    from hydromodpy.project.api import trash
+    from hydromodpy.results.catalog.discovery import resolve_rel_dir
+
+    rel_dir = resolve_rel_dir(root, args.ref, unambiguous=True)
+    if args.dry_run:
+        emit(
+            args,
+            "catalog trash move",
+            {"applied": False, "rel_dir": rel_dir, "trashed_to": None},
+            table=lambda: print(f"would move {rel_dir} to trash/"),
+        )
+        return
+    moved = trash(args.ref, workspace=root, force=args.force)
+    emit(
+        args,
+        "catalog trash move",
+        {"applied": True, "rel_dir": rel_dir, "trashed_to": moved[0]},
+        table=lambda: print(f"moved {rel_dir} to {moved[0]}"),
     )

@@ -127,11 +127,10 @@ def _dispatch(argv: list[str] | None) -> None:
     # Named after the verb too, the last one on the line wins, as a repeated flag does.
     args.workspace = getattr(args, "workspace", None) or getattr(args, WORKSPACE_ROOT_DEST)
 
-    from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
     from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 
+    # PROJ_DATA is set once when hydromodpy is imported, so only the pipeline is filled here.
     fill_trial_pipeline()
-    bootstrap_proj()
     with stdout_for_a_program(args):
         try:
             # The flag, else HMP_VERBOSITY. A TOML verb applies it again with its file.

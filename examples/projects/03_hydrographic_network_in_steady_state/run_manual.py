@@ -87,12 +87,11 @@ print(
 
 # %% ---- ONE REGISTRY FIGURE PER RUN
 
-# hmp.figure renders the same named figures as [display].figures, so the
+# Run.figure renders the same named figures as [display].figures, so the
 # per-K map costs one line. Passing a directory to save= appends
 # "<figure name>.png"; the run directory is the one the catalog owns.
 for k, run in runs.items():
-    hmp.figure(
-        run,
+    run.figure(
         "simulated_active_network_reference_overlay",
         save=project.store.run_dir_for(run.sim_id) / "figures",
     )

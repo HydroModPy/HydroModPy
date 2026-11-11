@@ -23,7 +23,7 @@ best case, or in ``best_reason`` why it has none. ``catalog.csv`` (``write_sites
 ``figures/`` and ``exports/``, each with its ledger ``index.json``, drawn in a
 staging folder and moved into place once complete; ``report/index.html``;
 ``README.md``; ``ro-crate-metadata.json``. ``summary/report/compare/`` belongs
-to ``hmp report compare`` and is kept.
+to ``hmp diff`` and is kept.
 
 Rules
 -----

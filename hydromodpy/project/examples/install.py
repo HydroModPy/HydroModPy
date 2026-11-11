@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.logging import get_logger
@@ -24,7 +25,7 @@ class InstallReport:
     """What one ``hmp example add`` actually did."""
 
     example_id: str
-    """Id of the installed example, as ``hmp.example_list()`` gives it."""
+    """Id of the installed example, as ``hmp.example()`` lists it."""
     workspace: Path
     """Workspace root the example was installed into."""
     project_dir: Path
@@ -55,6 +56,21 @@ class InstallReport:
     def everything_was_cached(self) -> bool:
         """True when the blob cache answered every file of the payload."""
         return not self.downloaded
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return what the install did as JSON: the paths as text and the files by list."""
+        return {
+            "workspace": str(self.workspace),
+            "project_dir": str(self.project_dir),
+            "entry_config": self.entry_config,
+            "source": self.source,
+            "downloaded": list(self.downloaded),
+            "downloaded_bytes": self.downloaded_bytes,
+            "written": list(self.written),
+            "unchanged": list(self.unchanged),
+            "kept": list(self.kept),
+            "stations_written": list(self.stations_written),
+        }
 
 
 def install_example(

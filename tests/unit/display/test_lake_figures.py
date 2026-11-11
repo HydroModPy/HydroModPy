@@ -49,12 +49,8 @@ class _FakeRun:
 
 
 def test_registered_figure_renders_from_run(monkeypatch):
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
     import hydromodpy.results.run.lake_abacus_view as view
+    from hydromodpy.display.figure import new_subplots
     from hydromodpy.display.figure_registry import get
 
     monkeypatch.setattr(
@@ -73,11 +69,10 @@ def test_registered_figure_renders_from_run(monkeypatch):
 
     fig_obj = get("lake_abacus_comparison")
     assert fig_obj.spec.name == "lake_abacus_comparison"
-    fig, ax = plt.subplots()
+    fig, ax = new_subplots()
     fig_obj.render(_FakeRun(), ax)
     # Two curves drawn (reference + simulated).
     assert len(ax.get_lines()) == 2
-    plt.close(fig)
 
 
 # Tests for the reusable lake-level fit figure.

@@ -10,9 +10,9 @@ from __future__ import annotations
 import os
 import re
 import sys
-import threading
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path, PurePosixPath
 
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME, internal_dir
@@ -27,9 +27,15 @@ read from the environment only: it is never an author key and never enters
 the config hash.
 """
 
-#: Environment variable naming the scratch folder of the run this process is inside.
-#: A subprocess inherits it, so a child run launched by a run works in its folder.
-RUN_SCRATCH_ENV = "HMP_RUN_SCRATCH"
+RUN_SCRATCH: ContextVar[str | None] = ContextVar("hmp_run_scratch", default=None)
+"""Name of the scratch folder of the run the current context is inside.
+
+A context variable and not an environment variable, so two runs in two threads
+of one process each keep their own folder and a run writes nothing into the
+environment. A thread takes it from the thread that starts it through
+``contextvars.copy_context()``, and a worker process takes it in its payload
+(:func:`inherit_run_scratch`). A child ``hmp run`` claims a scratch of its own.
+"""
 
 #: Folder of the geographic, data and mesh preprocessing, inside a run's scratch.
 PREPROCESSING_DIRNAME = "_preprocessing"
@@ -41,8 +47,6 @@ _RUN_SCRATCH_HOLDER_SUFFIX = ".holder"
 _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 _ERROR_ACCESS_DENIED = 5
 _STILL_ACTIVE = 259
-_RUN_SCRATCH_GUARD = threading.Lock()
-_run_scratch_depth = 0
 
 
 def scratch_root_for(project_root: Path) -> Path:
@@ -59,8 +63,8 @@ def scratch_root_for(project_root: Path) -> Path:
 
 
 def active_run_scratch() -> str | None:
-    """Return the scratch folder name of the run this process is inside, or None."""
-    return os.environ.get(RUN_SCRATCH_ENV, "").strip() or None
+    """Return the scratch folder name of the run this context is inside, or None."""
+    return RUN_SCRATCH.get()
 
 
 def scratch_dir_for(project_root: Path) -> Path:
@@ -231,14 +235,29 @@ def _can_take_over(project_root: Path, key: str | None) -> bool:
 
 
 @contextmanager
-def run_scratch(project_root: Path, label: str, *, resumes: str | None = None) -> Iterator[str]:
-    """Give the run this process starts its own folder under ``.hmp/scratch/``.
+def inherit_run_scratch(key: str) -> Iterator[str]:
+    """Work in the scratch folder *key* that another context or process opened.
 
-    The outermost call names the folder after ``label`` and this process, and
-    exports it through :data:`RUN_SCRATCH_ENV`; nested calls (the trials, phases
-    and promotions of a calibration session) and child processes work in the
-    same folder. On entry it also removes the folders of runs that were killed.
-    On exit it removes the run's folder when nothing is left in it.
+    A worker process that a run starts reads the key in its payload and enters
+    here, so ``scratch_dir_for`` answers in it as it does in the parent. The
+    folder is neither created nor swept: its owner does both.
+    """
+    token = RUN_SCRATCH.set(key)
+    try:
+        yield key
+    finally:
+        RUN_SCRATCH.reset(token)
+
+
+@contextmanager
+def run_scratch(project_root: Path, label: str, *, resumes: str | None = None) -> Iterator[str]:
+    """Give the run this context starts its own folder under ``.hmp/scratch/``.
+
+    The outermost call names the folder after ``label`` and this process and
+    sets it in :data:`RUN_SCRATCH`. Nested calls (the trials, phases and
+    promotions of a calibration session) read it and work in the same folder.
+    On entry the outermost call also removes the folders of runs that were
+    killed. On exit it removes the run's folder when nothing is left in it.
 
     A resume passes the folder of the run it continues as ``resumes``
     (:func:`run_scratch_of`). The outermost call then works in that folder and
@@ -246,32 +265,26 @@ def run_scratch(project_root: Path, label: str, *, resumes: str | None = None) -
     other keeps what the killed run left for the resume to reuse. A folder
     that is gone, or that a live process still works in, is not taken over.
     """
-    global _run_scratch_depth
-    with _RUN_SCRATCH_GUARD:
-        inherited = active_run_scratch()
-        owner = inherited is None and _run_scratch_depth == 0
-        takes_over = owner and _can_take_over(project_root, resumes)
-        if inherited is not None:
-            key = inherited
-        elif takes_over and resumes is not None:
-            key = resumes
-        else:
-            key = _run_scratch_name(label)
-        if owner:
-            os.environ[RUN_SCRATCH_ENV] = key
-        _run_scratch_depth += 1
+    inherited = active_run_scratch()
+    owner = inherited is None
+    takes_over = owner and _can_take_over(project_root, resumes)
+    if inherited is not None:
+        key = inherited
+    elif takes_over and resumes is not None:
+        key = resumes
+    else:
+        key = _run_scratch_name(label)
+    token = RUN_SCRATCH.set(key) if owner else None
     root = scratch_root_for(project_root)
-    if takes_over:
-        _holder_path(root, key).write_text(str(os.getpid()), encoding="ascii")
-    if owner:
-        sweep_dead_run_scratch(project_root)
     try:
+        if takes_over:
+            _holder_path(root, key).write_text(str(os.getpid()), encoding="ascii")
+        if owner:
+            sweep_dead_run_scratch(project_root)
         yield key
     finally:
-        with _RUN_SCRATCH_GUARD:
-            _run_scratch_depth -= 1
-            if owner:
-                os.environ.pop(RUN_SCRATCH_ENV, None)
+        if token is not None:
+            RUN_SCRATCH.reset(token)
         if takes_over:
             _holder_path(root, key).unlink(missing_ok=True)
         if owner:
@@ -284,9 +297,10 @@ def run_scratch(project_root: Path, label: str, *, resumes: str | None = None) -
 
 __all__ = (
     "PREPROCESSING_DIRNAME",
-    "RUN_SCRATCH_ENV",
+    "RUN_SCRATCH",
     "SCRATCH_ROOT_ENV",
     "active_run_scratch",
+    "inherit_run_scratch",
     "kept_preprocessing_dir",
     "preprocessing_dir",
     "process_is_alive",

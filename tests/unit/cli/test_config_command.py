@@ -1,4 +1,4 @@
-"""Unit tests for ``hmp config``."""
+"""Unit tests for ``hmp config`` and ``hmp check``."""
 
 from __future__ import annotations
 
@@ -9,23 +9,23 @@ from pathlib import Path
 from tests._helpers.cli_runner import CliRunner
 
 
-def test_config_check_refuses_a_retired_mode_with_its_replacement(tmp_path) -> None:
+def test_check_refuses_a_retired_mode_with_its_replacement(tmp_path) -> None:
     config = tmp_path / "comparison.toml"
     config.write_text('[workflow]\nmode = "comparison"\n', encoding="utf-8")
 
-    result = CliRunner().invoke(["config", "check", str(config)])
+    result = CliRunner().invoke(["check", str(config)])
 
     assert result.exit_code == 14
     assert f"Config invalid: {config.resolve()}" in result.stderr
-    assert "hmp report compare" in result.stderr
+    assert "hmp diff" in result.stderr
 
 
-def test_config_check_expands_a_sites_project_and_finds_no_error(tmp_path) -> None:
+def test_check_expands_a_sites_project_and_finds_no_error(tmp_path) -> None:
     from tests.unit.project.launch.test_plan import write_sites_project
 
     project = write_sites_project(tmp_path)
 
-    checked = CliRunner().invoke(["config", "check", str(project / "project.toml")])
+    checked = CliRunner().invoke(["check", str(project / "project.toml")])
     planned = CliRunner().invoke(["run", str(project / "project.toml"), "--dry-run", "-q"])
 
     assert checked.exit_code == 0, checked.stderr
@@ -34,22 +34,22 @@ def test_config_check_expands_a_sites_project_and_finds_no_error(tmp_path) -> No
     assert "4 cases (" in planned.stdout
 
 
-def test_config_check_names_the_cell_of_a_sites_project_error(tmp_path) -> None:
+def test_check_names_the_cell_of_a_sites_project_error(tmp_path) -> None:
     from tests.unit.project.launch.test_plan import write_sites_project
 
     project = write_sites_project(tmp_path, k_cells=("5e-5", "not_a_number"))
 
-    result = CliRunner().invoke(["config", "check", str(project / "project.toml")])
+    result = CliRunner().invoke(["check", str(project / "project.toml")])
 
     assert result.exit_code == 14
     assert "sites.csv:3 column k -> flow.param.K.field.value" in result.stderr
 
 
-def test_config_check_invalid_toml_maps_to_config_exit(tmp_path) -> None:
+def test_check_invalid_toml_maps_to_config_exit(tmp_path) -> None:
     config = tmp_path / "broken.toml"
     config.write_text("not = [valid", encoding="utf-8")
 
-    result = CliRunner().invoke(["config", "check", str(config)])
+    result = CliRunner().invoke(["check", str(config)])
 
     assert result.exit_code == 14
     assert "Invalid TOML syntax:" in result.stderr
@@ -168,7 +168,7 @@ def test_config_resolve_names_a_broken_chain(tmp_path) -> None:
     assert "Detected circular base_config chain" in result.stderr
 
 
-def test_config_check_names_a_recipe_that_cannot_be_read(tmp_path) -> None:
+def test_check_names_a_recipe_that_cannot_be_read(tmp_path) -> None:
     from tests.unit.project.launch.test_plan import write_sites_project
 
     project = write_sites_project(tmp_path)
@@ -181,7 +181,7 @@ def test_config_check_names_a_recipe_that_cannot_be_read(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    result = CliRunner().invoke(["config", "check", str(project_toml)])
+    result = CliRunner().invoke(["check", str(project_toml)])
 
     assert result.exit_code == 14
     assert "Traceback" not in result.stderr
@@ -195,7 +195,7 @@ def test_config_template_without_modules_holds_no_sites_section(tmp_path) -> Non
 
     assert result.exit_code == 0, result.stderr
     assert "[sites" not in template.read_text(encoding="utf-8")
-    checked = CliRunner().invoke(["config", "check", str(template)])
+    checked = CliRunner().invoke(["check", str(template)])
     assert "[sites]" not in checked.stderr + checked.stdout
     assert "anchored by project.toml" not in checked.stderr + checked.stdout
 
@@ -213,7 +213,7 @@ def test_the_full_template_is_refused_at_every_key_left_to_choose(tmp_path) -> N
     template = tmp_path / "full.toml"
     assert CliRunner().invoke(["config", "template", "--to", str(template)]).exit_code == 0
 
-    checked = CliRunner().invoke(["config", "check", str(template)])
+    checked = CliRunner().invoke(["check", str(template)])
 
     output = checked.stderr + checked.stdout
     assert checked.exit_code != 0
@@ -254,7 +254,7 @@ flow_regime = "transient"
 def _check(tmp_path: Path, extra: str):
     path = tmp_path / "project.toml"
     path.write_text(_BODY.format(root=tmp_path.as_posix()) + extra, encoding="utf-8")
-    return CliRunner().invoke(["config", "check", str(path)])
+    return CliRunner().invoke(["check", str(path)])
 
 
 def test_a_config_whose_requests_hold_passes(tmp_path: Path) -> None:
@@ -296,7 +296,7 @@ def test_config_validate_field_is_refused_with_the_form_that_replaces_it() -> No
     result = CliRunner().invoke(["config", "validate-field", "flow.flow_regime", "steady"])
 
     assert result.exit_code == 2
-    assert "hmp config check --partial" in result.stderr
+    assert "hmp check FILE --partial" in result.stderr
 
 
 _DRAFT = '[flow]\nflow_regime = "steady"\n'
@@ -305,7 +305,7 @@ _DRAFT = '[flow]\nflow_regime = "steady"\n'
 def _json_check(tmp_path: Path, body: str, *flags: str):
     path = tmp_path / "draft.toml"
     path.write_text(body, encoding="utf-8")
-    result = CliRunner().invoke(["config", "check", str(path), "--format", "json", *flags])
+    result = CliRunner().invoke(["check", str(path), "--format", "json", *flags])
     return result, json.loads(result.stdout)["data"]
 
 
@@ -360,7 +360,14 @@ def test_a_diagnostic_is_one_line_with_its_key_its_line_and_its_detail(tmp_path:
     path = tmp_path / "draft.toml"
     path.write_text('[flow]\nflow_regime = "nope"\n', encoding="utf-8")
 
-    result = CliRunner().invoke(["config", "check", str(path), "--partial"])
+    result = CliRunner().invoke(["check", str(path), "--partial"])
 
     assert result.exit_code == 14
     assert "  error flow.flow_regime:2: " in result.stderr
+
+
+def test_config_check_is_refused_with_the_command_that_replaces_it() -> None:
+    result = CliRunner().invoke(["config", "check", "run.toml"])
+
+    assert result.exit_code == 2
+    assert "hmp config check is gone. Write: hmp check FILE" in result.stderr

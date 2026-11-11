@@ -1,4 +1,4 @@
-"""Tests for ``hmp catalog point``: read one cell of a finished run."""
+"""Tests for ``hmp show --point``: read one cell of a finished run."""
 
 from __future__ import annotations
 
@@ -80,9 +80,9 @@ def test_coordinates_read_the_containing_cell(monkeypatch, project, capsys) -> N
         monkeypatch,
         [
             "hmp",
-            "catalog",
-            "point",
+            "show",
             "@last",
+            "--point",
             "--var",
             "head",
             "--xy",
@@ -101,9 +101,9 @@ def test_a_cell_index_reads_the_same_values(monkeypatch, project, capsys) -> Non
         monkeypatch,
         [
             "hmp",
-            "catalog",
-            "point",
+            "show",
             "base",
+            "--point",
             "--var",
             "head",
             "--cell",
@@ -124,10 +124,10 @@ def test_several_runs_stack_their_answers(monkeypatch, project, capsys) -> None:
         monkeypatch,
         [
             "hmp",
-            "catalog",
-            "point",
+            "show",
             "base",
             "scenario",
+            "--point",
             "--var",
             "head",
             "--cell",
@@ -153,9 +153,9 @@ def test_the_table_is_written_to_csv(monkeypatch, project, tmp_path, capsys) -> 
         monkeypatch,
         [
             "hmp",
-            "catalog",
-            "point",
+            "show",
             "base",
+            "--point",
             "--var",
             "head",
             "--cell",
@@ -175,9 +175,9 @@ def test_a_point_outside_the_mesh_exits_non_zero(monkeypatch, project, capsys) -
         monkeypatch,
         [
             "hmp",
-            "catalog",
-            "point",
+            "show",
             "base",
+            "--point",
             "--var",
             "head",
             "--xy",
@@ -196,9 +196,9 @@ def test_an_unknown_field_exits_non_zero(monkeypatch, project, capsys) -> None:
         monkeypatch,
         [
             "hmp",
-            "catalog",
-            "point",
+            "show",
             "base",
+            "--point",
             "--var",
             "nosuchfield",
             "--cell",
@@ -215,9 +215,9 @@ def test_coordinates_and_cell_are_mutually_exclusive(monkeypatch, project) -> No
         monkeypatch,
         [
             "hmp",
-            "catalog",
-            "point",
+            "show",
             "base",
+            "--point",
             "--var",
             "head",
             "--cell",
@@ -235,12 +235,18 @@ def test_coordinates_and_cell_are_mutually_exclusive(monkeypatch, project) -> No
 def test_a_location_is_required(monkeypatch, project) -> None:
     code = _run_cli(
         monkeypatch,
-        ["hmp", "catalog", "point", "base", "--var", "head", "--workspace", str(project)],
+        ["hmp", "show", "base", "--point", "--var", "head", "--workspace", str(project)],
     )
     assert code == 2
 
 
-def test_the_action_is_listed_in_the_family_help(monkeypatch, capsys) -> None:
-    code = _run_cli(monkeypatch, ["hmp", "catalog", "--help"])
+def test_the_selector_is_listed_in_the_help_of_show(monkeypatch, capsys) -> None:
+    code = _run_cli(monkeypatch, ["hmp", "show", "--help"])
     assert code == 0
-    assert "point" in capsys.readouterr().out
+    assert "--point" in capsys.readouterr().out
+
+
+def test_the_old_form_is_refused_with_the_command_that_replaces_it(monkeypatch, capsys) -> None:
+    code = _run_cli(monkeypatch, ["hmp", "catalog", "point", "base", "--var", "head"])
+    assert code == 2
+    assert "hmp show REF --point" in capsys.readouterr().err

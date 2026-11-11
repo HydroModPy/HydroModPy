@@ -5,7 +5,7 @@ Figures live in ``hydromodpy.display``. Each one is a ``BaseFigure``
 subclass that carries its ``spec``, in a public module of
 ``display/figures/``, and that rule is the whole membership list: the
 generated table ``display/figure_table.py`` is what the registry reads.
-``hmp viz list`` prints every figure, and :doc:`/understand/reading-results`
+``hmp config figures`` prints every figure, and :doc:`/understand/reading-results`
 carries the generated inventory: ``hydrograph``, ``piezometric_map``,
 ``water_budget``, ``calibration_convergence``,
 ``hydrographic_network_comparison``, ``simulated_active_network``,
@@ -124,13 +124,13 @@ calibration session and ``"runset"`` is a set of runs. ``render``, ``plot`` and
 (``_subject_for``). A session figure asked on a run receives ``Session.of_run(run)`` and the option
 ``promoted=run``, and a run that no session promoted is refused. A figure that compares a run with
 a reference stays a ``"run"`` figure and takes ``reference=``. The generated table also holds
-``SUBJECTS``, which maps each name to its subject, and ``hmp viz list`` shows it in a column.
+``SUBJECTS``, which maps each name to its subject, and ``hmp config figures`` shows it in a column.
 
 The base ``BaseFigure.plot`` method creates the matplotlib subplots with
 ``default_figsize``, calls ``render`` and, when asked, saves the PNG with its
 provenance. Whether the figure applies to a run is decided before, by
 ``unavailable_reason``: ``[display].figures`` skips a figure it refuses, and
-``hmp viz show`` and ``hmp.figure`` refuse it with the same sentence.
+``hmp show --figure`` and ``Run.figure`` refuse it with the same sentence.
 
 Pick the right ``kind``
 -----------------------
@@ -148,7 +148,7 @@ of the eight values of ``FigureKind``:
 - ``comparison`` -- simulated against observed, or one run against another.
 - ``animation`` -- a sequence of frames.
 
-``hmp viz list --kind <kind>`` filters on it.
+``hmp config figures --kind <kind>`` filters on it.
 
 Required fields and tables
 --------------------------
@@ -189,7 +189,7 @@ missing data and never draws a placeholder. Model:
            return "run holds no lake abacus"
        return None
 
-``hmp viz list --run <sim_id>`` prints, for each figure, whether a run
+``hmp config figures --run <sim_id>`` prints, for each figure, whether a run
 supports it or the sentence that says why not.
 
 The table, and how a name resolves
@@ -215,7 +215,7 @@ Once in the table, the figure is reachable from:
 
 .. code-block:: bash
 
-   hmp viz show <sim_ref> my_figure
+   hmp show <sim_ref> --figure my_figure
    hmp export <sim_ref> --regen figures
 
 And from TOML:

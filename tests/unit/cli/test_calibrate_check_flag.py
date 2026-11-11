@@ -1,4 +1,4 @@
-"""``hmp config check`` refuses a calibration before the solver, not during it.
+"""``hmp check`` refuses a calibration before the solver, not during it.
 
 A calibration is hours of solver time, and the checks used to fire where they
 sat: a typo in a parameter path at the first trial, a missing geometry when the
@@ -61,7 +61,7 @@ def _write(tmp_path: Path, *, param_path: str) -> Path:
 
 
 def _check(path: Path, verbosity: str | None = None):
-    argv = ["config", "check", str(path)]
+    argv = ["check", str(path)]
     if verbosity is not None:
         argv += ["--verbosity", verbosity]
     return CliRunner().invoke(argv)
@@ -85,7 +85,7 @@ def test_a_path_the_configuration_does_not_carry_exits_on_the_config_code(tmp_pa
 def test_a_refused_calibration_says_its_diagnostic_in_the_machine_output(tmp_path) -> None:
     path = _write(tmp_path, param_path="flow.param.Kh.field.value")
 
-    result = CliRunner().invoke(["config", "check", str(path), "--format", "json"])
+    result = CliRunner().invoke(["check", str(path), "--format", "json"])
 
     data = json.loads(result.stdout)["data"]
     assert result.exit_code == EXIT_CONFIG

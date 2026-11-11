@@ -105,6 +105,6 @@ def test_an_import_into_a_project_without_an_index_lists_the_run(tmp_path: Path)
 
     assert imported.exit_code == 0, imported.stderr
     assert catalog_path_for(home).is_file()
-    listed = CliRunner().invoke(["catalog", "ls", "-w", str(home)])
+    listed = CliRunner().invoke(["ls", "-w", str(home)])
     assert listed.exit_code == 0, listed.stderr
     assert RUN_NAME in listed.stdout

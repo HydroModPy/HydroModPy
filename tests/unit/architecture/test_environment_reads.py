@@ -50,7 +50,7 @@ FORBIDDEN_NAME = re.compile("CREDENTIAL|PASSWORD|TOKEN|NETRC|ALLOW|MAX_DOWNLOAD"
 
 # The callables that receive the Environment by keyword, with their file.
 GREEN_KWARG_FILES = (
-    ("hydromodpy/_api.py", ("run", "calibrate", "spinup", "export")),
+    ("hydromodpy/project/api.py", ("run", "calibrate", "spinup", "replay", "export")),
     ("hydromodpy/project/facade.py", ("Project.__init__", "Project.launch")),
 )
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots, run_suffix
 from hydromodpy.display.figure_options import ObjectiveName, Opt, ParameterNames
 from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
 
@@ -65,7 +65,6 @@ class CalibrationLandscapeFigure(BaseFigure):
         save_path=None,
         **_,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
 
         table = trial_table(session)
         names = list(parameters) if parameters is not None else list(table.parameters)
@@ -83,7 +82,7 @@ class CalibrationLandscapeFigure(BaseFigure):
 
         n = len(names)
         if n == 2:
-            fig, ax = plt.subplots(
+            fig, ax = new_subplots(
                 figsize=figsize or self.spec.default_figsize,
                 dpi=dpi,
                 constrained_layout=True,
@@ -109,7 +108,7 @@ class CalibrationLandscapeFigure(BaseFigure):
                 self._save(fig, Path(save_path), dpi=dpi)
             return fig
 
-        fig, axes = plt.subplots(
+        fig, axes = new_subplots(
             n - 1,
             n - 1,
             figsize=figsize or self.spec.default_figsize,

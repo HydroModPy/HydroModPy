@@ -52,7 +52,7 @@ from hydromodpy.core.time import nominal_step_days
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figures.network_extent_bounds_map import extents_from_run
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.project import Project
+from hydromodpy.project.facade import Project
 from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream.run_extent import network_extents_from_run, run_step_days
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
@@ -177,7 +177,7 @@ def test_a_variable_naming_the_network_output_is_no_finding(tmp_path, route: str
 # ``hmp config targets`` lists what a project exposes, and a parameter that
 # writes its own ``path`` reaches any value the configuration carries: the
 # resolution lets it through and the trial writes it. The preflight refused
-# every such path all the same, so ``hmp config check`` refused what the
+# every such path all the same, so ``hmp check`` refused what the
 # launch accepted, and now that every launch runs the preflight it would have
 # refused the launch too. It warns instead. A path that names no field of the
 # configuration is still refused, naming the segment that is wrong.
@@ -233,7 +233,7 @@ def test_a_path_that_names_no_field_is_still_refused(tmp_path) -> None:
 # short visits only the first slice of its first parameter, and a Latin hypercube
 # cut short loses the one point per stratum it is drawn for. Both count their
 # design before the first solve, so the budget is judged against it, by the
-# engine and by ``hmp config check``, and the search converges on its last point.
+# engine and by ``hmp check``, and the search converges on its last point.
 
 
 def _space() -> ParameterSpace:
@@ -1814,7 +1814,7 @@ def test_a_precision_that_is_not_positive_is_refused_at_load(
 # From test_the_preflight_runs_at_every_launch.py
 # The preflight runs at the start of every launch, on the document the launch runs.
 #
-# ``hmp config check`` was the only caller of the preflight. ``hmp calibrate``,
+# ``hmp check`` was the only caller of the preflight. ``hmp calibrate``,
 # ``hmp run``, ``--dry-run`` and the API went straight to the preparation of the
 # model, so a file the check refused was launched anyway, and refused only when
 # the faulty part was reached, sometimes after hours of solves. Every launch now

@@ -128,7 +128,7 @@ A phase, ``[calibration]`` and the protocol's
 ``steady_method_options`` / ``transient_method_options`` are checked against
 it when the file loads, by ``method_options_problem``: an unknown key or a
 wrong type is refused there, naming the phase, instead of inside the adapter
-when that phase starts. ``hmp config check`` runs the same check.
+when that phase starts. ``hmp check`` runs the same check.
 
 Search methods ship with HydroModPy and are not plugged from outside. A
 search of your own does not go through this registry: write an object

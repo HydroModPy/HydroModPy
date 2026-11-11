@@ -120,3 +120,35 @@ def test_provenance_json_on_disk_carries_the_engine(library_run) -> None:
 
     assert payload["solver"]["engine"] == "library"
     assert payload["solver"]["execution_mode"] == "api"
+
+
+@pytest.mark.parametrize(
+    ("image", "expected"),
+    [
+        ({}, None),
+        ({"tag": "2.1.0"}, {"tag": "2.1.0"}),
+        (
+            {"tag": "2.1.0", "digest": "sha256:" + "ab" * 32},
+            {"tag": "2.1.0", "digest": "sha256:" + "ab" * 32},
+        ),
+        (
+            {"tag": "2.1.0", "digest": "sha256:typo"},
+            {"tag": "2.1.0", "digest_refused": "sha256:typo"},
+        ),
+    ],
+)
+def test_the_image_is_sealed_only_inside_an_image(
+    library_run, monkeypatch, image, expected
+) -> None:
+    store, _, _ = library_run
+    monkeypatch.setenv("HMP_IMAGE_TAG", image.get("tag", ""))
+    if "digest" in image:
+        monkeypatch.setenv("HMP_IMAGE_DIGEST", image["digest"])
+    else:
+        monkeypatch.delenv("HMP_IMAGE_DIGEST", raising=False)
+    store.write_run_environment(store.sim_id, solver_name="modflow6")
+
+    environment = build_provenance(store.facts, ended_at=ENDED_AT).environment
+
+    assert environment.get("image") == expected
+    assert ("image" in environment) is bool(expected)

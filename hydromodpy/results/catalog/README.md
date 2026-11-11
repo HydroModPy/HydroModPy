@@ -18,7 +18,7 @@ more. The indexer is the only writer, and `Catalog` builds the index when it is 
 6. `catalog[ref]` gives a `Run`. `Catalog.query_timeseries`, `query_budget` and `query_mass_balance` delegate to
    the `Run`. `read_geographic_feature`, `list_geographic_features` and `read_geographic_metadata` read the run
    directory, not the index.
-7. `listing.py` holds the reads behind `hmp catalog ls`, `show`, `query`, `point`, `diff` and `rank`. `liveness.py`
+7. `listing.py` holds the reads behind `hmp ls`, `show`, `query`, `point`, `diff` and `rank`. `liveness.py`
    and `privacy.py` read the directories and never open the index, so `hmp catalog watch`, `hmp doctor` and the purge
    of a run answer while the index is being rebuilt.
 

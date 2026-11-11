@@ -116,7 +116,7 @@ def test_no_hardcoded_epsg_in_display_and_compare() -> None:
 
 # Importing :mod:`hydromodpy.display` must not touch matplotlib rcParams.
 #
-# Figures may call :func:`apply_theme` *when requested* but the package
+# Figures take a theme through :func:`themed` *when requested* but the package
 # import itself must stay inert so that a user's interactive session does
 # not get its styling silently rewritten.
 
@@ -155,5 +155,5 @@ def test_display_import_does_not_mutate_rcparams() -> None:
     changed = {k: (before.get(k), after.get(k)) for k in after if before.get(k) != after.get(k)}
     assert not changed, (
         f"importing hydromodpy.display mutated rcParams: {changed}. "
-        "Figures must opt-in via apply_theme; imports must be inert."
+        "Figures must opt-in through themed; imports must be inert."
     )

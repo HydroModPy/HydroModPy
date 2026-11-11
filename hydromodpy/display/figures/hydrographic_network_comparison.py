@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated, Any
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figures.hydrographic_network import (
     fmt_km,
@@ -104,7 +104,6 @@ class HydrographicNetworkComparisonFigure(BaseFigure):
         save_path=None,
         **_,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
 
         comparison = sim.hydrographic_network_comparison(
             reference_role=reference_role,
@@ -112,7 +111,7 @@ class HydrographicNetworkComparisonFigure(BaseFigure):
             tolerance_m=tolerance_m,
         )
 
-        fig, axes = plt.subplots(
+        fig, axes = new_subplots(
             1,
             4,
             figsize=figsize or self.spec.default_figsize,
@@ -395,14 +394,13 @@ class _HydrographicNetworkDifferenceRoleFigure(HydrographicNetworkComparisonFigu
         save_path=None,
         **_,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
 
         comparison = sim.hydrographic_network_comparison(
             reference_role=reference_role,
             candidate_role=candidate_role,
             tolerance_m=tolerance_m,
         )
-        fig, ax = plt.subplots(
+        fig, ax = new_subplots(
             1,
             1,
             figsize=figsize or self.spec.default_figsize,

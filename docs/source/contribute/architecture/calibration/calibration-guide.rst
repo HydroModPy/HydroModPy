@@ -27,7 +27,7 @@ faces every search with these traits, phase by phase with the overrides of each
 phase, before anything is prepared. Every launch runs it first (``hmp calibrate``,
 ``hmp run``, ``--dry-run``, ``hmp.calibrate``, ``Project.calibrate``), on the
 document the launch runs, ``--set``, ``--overlay`` and ``HMP_SET_*`` included,
-and ``hmp config check`` prints it. The reference page renders the traits.
+and ``hmp check`` prints it. The reference page renders the traits.
 
 Specific terms:
 
@@ -74,7 +74,7 @@ From the file to the trials
 ``hmp.calibrate`` and ``Project.calibrate`` always return a ``CalibrationReport``, with or
 without phases: ``best_cost``, ``best_parameters``, ``best_cases``, ``phases``, ``frozen``,
 ``windows``, and the properties ``session``, ``best``, ``best_by_case`` and ``trials``, which read
-the session on disk. ``hmp.calibration_phases`` says what a file declares, with nothing run: its
+the session on disk. ``hmp.calibrate(..., dry_run=True)`` says what a file declares, with nothing run: its
 phases, the section a protocol unfolds into and what a launch would write. The same words read a
 session later: ``proj.sessions["<case>"].best`` is the run of a session of one case, and a session
 of several cases refuses it and names ``best_by_case``.

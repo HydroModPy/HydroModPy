@@ -11,4 +11,5 @@ with `python -m tools.dev`.
 | `examples.py` | `examples manifest`: write `hydromodpy/project/examples/catalog.toml` again from the checkout |
 
 The old `hmp dev` group named the same commands. `hmp dev` still answers, with the line
-that gives the new form, and `hmp dev manage` has no replacement yet.
+that gives the new form, and `hmp dev manage` names the HTTP server,
+`python -m hydromodpy_server --root ROOT`.

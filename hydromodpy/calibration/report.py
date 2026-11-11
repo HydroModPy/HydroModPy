@@ -117,8 +117,9 @@ class PhaseRun:
 class CalibrationReport:
     """What one calibration found, with or without phases.
 
-    ``hmp.calibrate`` and ``Project.calibrate`` always return this class. A
-    calibration in phases fills ``phases``, each with its own report, and
+    ``hmp.calibrate`` and ``Project.calibrate`` return this class, and with
+    ``dry_run`` a plan that runs nothing. A calibration in phases fills
+    ``phases``, each with its own report, and
     ``frozen``, and its best values are those of the calibrated run. ``to_dict``
     gives the same summary as a JSON-friendly mapping.
 

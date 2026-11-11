@@ -64,7 +64,7 @@ def test_each_file_draws_figures_and_writes_exports(name: str) -> None:
 
 @pytest.mark.parametrize("name", CALIBRATIONS)
 def test_each_calibration_passes_the_preflight(name: str) -> None:
-    """What ``hmp config check`` says of the file: a calibration with no error."""
+    """What ``hmp check`` says of the file: a calibration with no error."""
     assert load_toml_with_base_config(EXAMPLE_04 / name, root=ROOT_CONFIG).get("calibration")
     errors = [item.line() for item in check(EXAMPLE_04 / name) if item.severity == "error"]
     assert not errors, errors

@@ -386,7 +386,7 @@ class DataManagersConfig(HydroModelBase):
 
             if section_payload is None:
                 # Every other loader needs its section to know where the data
-                # comes from. Refused here, so `hmp config check` says it,
+                # comes from. Refused here, so `hmp check` says it,
                 # rather than at the data step of a run.
                 raise ValueError(
                     f"data.types lists '{type_name}' but the file has no "

@@ -24,16 +24,40 @@ pytestmark = [pytest.mark.fast]
 # Verbs that must stay reachable as ``hmp.<name>``.
 PRESENT = (
     "open",
-    "index",
-    "read",
-    "export",
     "run",
+    "check",
     "calibrate",
+    "spinup",
+    "replay",
+    "stop",
+    "status",
+    "trash",
     "compare",
-    "compare_pair",
-    "report",
+    "show",
+    "export",
+    "publish",
+    "example",
     "doctor",
 )
+
+# The names that left the top level in 2.1.0, with the call that replaces each.
+LEFT_IN_2_1_0 = {
+    "figure": "hydromodpy.show(ref, what='figure', name=...)",
+    "report": "hydromodpy.show(ref, what='report')",
+    "calibration_phases": "hydromodpy.calibrate(source, dry_run=True)",
+    "compare_pair": "hydromodpy.compare([a, b]).table",
+    "example_list": "hydromodpy.example()",
+    "example_show": "hydromodpy.example(name)",
+    "example_add": "hydromodpy.example(name, add=True)",
+    "Workspace": "hydromodpy.project.accessors.Workspace",
+    "AmbiguousReferenceError": "hydromodpy.results.catalog.discovery.AmbiguousReferenceError",
+    "SimulationNotFoundError": "hydromodpy.results.catalog.discovery.SimulationNotFoundError",
+    "CatalogError": "hydromodpy.core.exceptions.CatalogError",
+    "RunNotSealedError": "hydromodpy.results.errors.RunNotSealedError",
+    "FieldNotFoundError": "hydromodpy.results.errors.FieldNotFoundError",
+    "ComparisonCaseError": "hydromodpy.project.compare.ComparisonCaseError",
+    "ComparisonReferenceError": "hydromodpy.project.compare.ComparisonReferenceError",
+}
 
 # Verbs removed by the interface refactor, before the first stable version:
 # merged into ``hmp.open`` / ``hmp.run`` dispatch. They must not come back.
@@ -64,7 +88,7 @@ def test_a_name_removed_before_the_tag_has_no_entry_and_is_gone(name: str) -> No
 
 
 @pytest.mark.parametrize(
-    ("old", "new"), [("old_run", "run"), ("OldProject", "Project"), ("old_workspace", "Workspace")]
+    ("old", "new"), [("old_run", "run"), ("OldProject", "Project"), ("old_session", "Session")]
 )
 def test_a_name_that_moved_after_the_tag_warns_and_forwards(
     old: str, new: str, monkeypatch: pytest.MonkeyPatch
@@ -77,7 +101,8 @@ def test_a_name_that_moved_after_the_tag_warns_and_forwards(
 
 
 def _resolves(path: str) -> bool:
-    """Say whether a dotted path names a module, or an attribute of a module."""
+    """Say whether a dotted path, or the call it starts, names a module or an attribute."""
+    path = path.partition("(")[0]
     module, _, attribute = path.rpartition(".")
     try:
         importlib.import_module(path)
@@ -97,6 +122,14 @@ def test_a_name_that_left_is_refused_with_a_path_that_answers(old: str) -> None:
         getattr(hmp, old)
     assert not hasattr(hmp, old)
     assert _resolves(entry.new), entry.new
+
+
+@pytest.mark.parametrize("old", sorted(LEFT_IN_2_1_0))
+def test_a_name_that_left_in_2_1_0_is_refused_with_the_call_that_replaces_it(old: str) -> None:
+    entry = OLD_NAMES[old]
+    assert (entry.new, entry.since, entry.refused) == (LEFT_IN_2_1_0[old], "2.1.0", True)
+    with pytest.raises(hmp.OldNameError, match=re.escape(f"Use {entry.new}.")):
+        getattr(hmp, old)
 
 
 @pytest.mark.parametrize(
@@ -120,7 +153,7 @@ def test_a_renamed_run_member_is_refused_too() -> None:
 # What each verb takes by position. Every parameter after them is named.
 POSITIONAL = {
     "hmp.run": (hmp.run, 1),
-    "hmp.read": (hmp.read, 2),
+    "Run.read": (hmp.Run.read, 2),
     "Project.simulate": (hmp.Project.simulate, 1),
     "Project.launch": (hmp.Project.launch, 1),
     "Project.rerun": (hmp.Project.rerun, 1),

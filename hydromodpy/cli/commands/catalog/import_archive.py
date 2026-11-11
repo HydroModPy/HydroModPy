@@ -112,4 +112,4 @@ def _next_commands(root: Path, rel_dir: str, *, workspace: str | None) -> list[s
     name = parse_rel_dir(rel_dir).name
     replay = next_version_dirname(root, split_stem_version(name)[0])
     where = f" -w {shlex.quote(str(root))}" if workspace else ""
-    return [f"hmp catalog rerun {name}{where}", f"hmp catalog diff {name} {replay}{where}"]
+    return [f"hmp catalog rerun {name}{where}", f"hmp diff {name} {replay}{where}"]

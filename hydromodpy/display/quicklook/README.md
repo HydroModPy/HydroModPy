@@ -1,6 +1,6 @@
 # display/quicklook
 
-A quick look at data, outside the figure catalogue and unrelated to `hmp viz`.
+A quick look at data, outside the figure catalogue and unrelated to `hmp show --figure`.
 
 | file | what it does |
 |---|---|

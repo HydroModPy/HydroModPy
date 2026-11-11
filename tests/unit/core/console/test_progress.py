@@ -145,9 +145,7 @@ def test_console_log_handler_wraps_under_the_message(live_console):
 
 
 def test_console_log_handler_prints_a_hint_without_glyph(live_console):
-    assert _handled("next: hmp catalog show run", **core_progress.HINT) == (
-        "  next: hmp catalog show run\n"
-    )
+    assert _handled("next: hmp show run", **core_progress.HINT) == ("  next: hmp show run\n")
 
 
 def test_fmt_duration():

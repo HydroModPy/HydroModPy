@@ -81,7 +81,7 @@ _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
         "hmp publish PROJECT --package --to FILE [--container tar|dir] [--with runs]",
     ),
     ("hmp viz regen", "hmp export REF --regen figures"),
-    ("hmp doctor --toml", "hmp config check FILE -v"),
+    ("hmp doctor --toml", "hmp check FILE -v"),
     ("hmp dev lock archive", "hmp data archive --to FILE"),
     ("hmp dev lock restore", "hmp data restore FILE --to DIR"),
     # Verbs that moved.
@@ -94,9 +94,9 @@ _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
     ("hmp dev completion", "hmp completion"),
     ("hmp dev lock update", "hmp data lock"),
     ("hmp dev lock verify", "hmp data lock --check"),
-    ("hmp dev rank", "hmp catalog rank --project PROJECT"),
+    ("hmp dev rank", "hmp show PROJECT --rank METRIC"),
     ("hmp dev schema export", "hmp config schema --bundle --to DIR"),
-    ("hmp dev schema validate-field", "hmp config check --partial"),
+    ("hmp dev schema validate-field", "hmp check FILE --partial"),
     # One option for what a program reads.
     ("hmp workspace list --json", "hmp workspace list --format json"),
     ("hmp doctor --json", "hmp doctor --format json"),
@@ -104,12 +104,12 @@ _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
     # A destination is --to.
     ("hmp export --folder", "hmp export REF NAME --to FOLDER/"),
     ("hmp export --file", "hmp export REF NAME --to FILE"),
-    ("hmp catalog point --output", "hmp catalog point REF --to FILE"),
-    ("hmp catalog point -o", "hmp catalog point REF --to FILE"),
-    ("hmp viz show --output", "hmp viz show REF FIGURE --to FILE"),
+    ("hmp catalog point --output", "hmp show REF --point --to FILE"),
+    ("hmp catalog point -o", "hmp show REF --point --to FILE"),
+    ("hmp viz show --output", "hmp show REF --figure NAME --to FILE"),
     ("hmp config schema --out", "hmp config schema --to FILE"),
     ("hmp data get --out", "hmp data get TARGET --to DIR"),
-    ("hmp report compare --out", "hmp report compare REF REF --to DIR"),
+    ("hmp report compare --out", "hmp diff REF REF --to DIR"),
     ("hmp install-binaries --bindir", "hmp install-binaries --to DIR"),
     ("hmp workspace init --path", "hmp workspace init PATH"),
     ("hmp config template FILE", "hmp config template --to FILE"),
@@ -133,7 +133,8 @@ _FORMS_REFUSED_AT_2_1: tuple[tuple[str, str], ...] = (
     ("hmp dev test", "python -m tools.dev test"),
     ("hmp dev run-script", "python -m tools.dev run-script SCRIPT"),
     ("hmp dev examples", "python -m tools.dev examples manifest"),
-    ("hmp dev manage", "(no replacement yet)"),
+    # The browser of runs became a server beside the wheel, in a source checkout.
+    ("hmp dev manage", "python -m hydromodpy_server --root ROOT"),
     ("hmp data check", "hmp data ls"),
     # The lockfile belongs to the data cache, and a user file is named by a source, not added.
     ("hmp lock", "hmp data lock"),
@@ -144,18 +145,36 @@ _FORMS_REFUSED_AT_2_1: tuple[tuple[str, str], ...] = (
         'a source = "file" block in [[data.VARIABLE.sources]] that names the path of the file, '
         "kept under inputs/",
     ),
-    ("hmp config validate-field", "hmp config check --partial"),
+    ("hmp config validate-field", "hmp check FILE --partial"),
     # A report reads a sealed run: one verb, hmp run, plays a model.
-    ("hmp report catchment --run-overview", "hmp run <toml>, then hmp report catchment RUN"),
-    ("hmp report catchment --run-simulation", "hmp run <toml>, then hmp report catchment RUN"),
-    ("hmp report catchment --context-only", "hmp run <toml>, then hmp report catchment RUN"),
-    ("hmp report catchment --report-only", "hmp report catchment RUN"),
+    ("hmp report catchment --run-overview", "hmp show RUN --report after hmp run <toml>"),
+    ("hmp report catchment --run-simulation", "hmp show RUN --report after hmp run <toml>"),
+    ("hmp report catchment --context-only", "hmp show RUN --report after hmp run <toml>"),
+    ("hmp report catchment --report-only", "hmp show RUN --report"),
     ("hmp report catchment --stream-run-logs", "hmp run <toml>"),
-    ("hmp report catchment --strict-figure-postflight", "hmp report catchment RUN --strict"),
-    ("hmp report catchment --no-run-overview", "hmp report catchment RUN"),
-    ("hmp report catchment --no-run-simulation", "hmp report catchment RUN"),
-    ("hmp report catchment --no-stream-run-logs", "hmp report catchment RUN"),
-    ("hmp report catchment --no-strict-figure-postflight", "hmp report catchment RUN"),
+    ("hmp report catchment --strict-figure-postflight", "hmp show RUN --report --strict"),
+    ("hmp report catchment --no-run-overview", "hmp show RUN --report"),
+    ("hmp report catchment --no-run-simulation", "hmp show RUN --report"),
+    ("hmp report catchment --no-stream-run-logs", "hmp show RUN --report"),
+    ("hmp report catchment --no-strict-figure-postflight", "hmp show RUN --report"),
+    # Reading is five commands: ls, show, diff, export and publish. The maintenance
+    # of the index stays under catalog, and the check of a file is one command.
+    ("hmp catalog ls", "hmp ls"),
+    ("hmp catalog show", "hmp show REF"),
+    ("hmp catalog diff", "hmp diff REF REF"),
+    ("hmp catalog point", "hmp show REF --point"),
+    ("hmp catalog rank", "hmp show PROJECT --rank METRIC"),
+    ("hmp viz show", "hmp show REF --figure NAME"),
+    ("hmp viz list", "hmp config figures"),
+    ("hmp report render", "hmp show SESSION --report"),
+    ("hmp report catchment", "hmp show RUN --report"),
+    ("hmp report compare", "hmp diff REF REF --to DIR"),
+    ("hmp config check", "hmp check FILE"),
+    ("hmp project status", "hmp ls --plan"),
+    ("hmp project show", "hmp show PROJECT"),
+    # The two families whose every command left.
+    ("hmp viz", "hmp show REF --figure NAME"),
+    ("hmp report", "hmp show REF --report"),
 )
 
 OLD_CLI_FORMS: tuple[OldCliForm, ...] = tuple(
@@ -277,13 +296,27 @@ class RefusedVerb(OldVerb):
         self.error(" ".join(_refusal(form) + "." for form in self.chosen(typed)))
 
     def chosen(self, typed: str) -> list[OldCliForm]:
-        """Return the forms the refusal of *typed* names."""
+        """Return the forms the refusal of *typed* names.
+
+        A flag typed after the words of its command names its own form, even with an
+        argument between them.
+        """
         exact = [form for form in self.forms if form.old == typed]
         if exact:
             return exact
         under = [form for form in self.forms if form.old.startswith(f"{typed} ")]
         if under:
             return under
+        words = typed.split()
+        flagged = [
+            form
+            for form in self.forms
+            if form.old.rsplit(" ", 1)[-1].startswith("-")
+            and form.old.rsplit(" ", 1)[-1] in words
+            and typed.startswith(f"{form.old.rsplit(' ', 1)[0]} ")
+        ]
+        if flagged:
+            return [max(flagged, key=lambda form: len(form.old))]
         heads = [form for form in self.forms if f"{typed} ".startswith(f"{form.old} ")]
         if heads:
             return [max(heads, key=lambda form: len(form.old))]
@@ -336,8 +369,14 @@ def _install_refusal(root: argparse.ArgumentParser, form: OldCliForm) -> None:
     """Refuse *form* on the tree, at its flag, or at the first of its words the tree lost."""
     words = form.old.split()[1:]
     if words[-1].startswith("-"):
-        _parser_of(root, words[:-1]).add_argument(words[-1], action=RefusedFlag, form=form)
-        return
+        try:
+            owner = _parser_of(root, words[:-1])
+        except (KeyError, StopIteration):
+            # The command of the flag is gone too: the first word the tree lost refuses.
+            owner = None
+        if owner is not None and not isinstance(owner, RefusedVerb):
+            owner.add_argument(words[-1], action=RefusedFlag, form=form)
+            return
     if words[-1].isupper():
         _parser_of(root, words[:-1]).add_argument(
             "was_positional", action=RefusedPositional, nargs="?", form=form

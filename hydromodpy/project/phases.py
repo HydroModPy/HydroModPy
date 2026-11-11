@@ -152,7 +152,6 @@ def configure(
     project._project_name = None
     project._run_counter = 0
     project._active_runs = {}
-    project._last_wall_seconds = {}
     project._phase = "uninitialized"
     project._data_loaded = set()
     project._run_history = []
@@ -314,8 +313,9 @@ def open_catalog(project: Project) -> None:
     if not catalog_path_for(Path(ws.project_root)).is_file():
         return
     from hydromodpy.project.facade import read_sealed_config
+    from hydromodpy.project.show import render
 
-    project._store = Catalog(Path(ws.project_root), read_config=read_sealed_config)
+    project._store = Catalog(Path(ws.project_root), read_config=read_sealed_config, render=render)
 
 
 def _refuse_another_solver(cfg: HydroModPyConfig, solver: str | None) -> None:

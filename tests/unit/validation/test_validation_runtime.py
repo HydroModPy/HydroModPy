@@ -478,7 +478,7 @@ def _longest_run_path_suffix(tmp_path: Path, model_name: str) -> int:
     """Build, from the product, the longest path a run writes below its project root."""
     from hydromodpy.core.state.scratch import (
         PREPROCESSING_DIRNAME,
-        RUN_SCRATCH_ENV,
+        active_run_scratch,
         run_scratch,
         scratch_root_for,
     )
@@ -486,7 +486,7 @@ def _longest_run_path_suffix(tmp_path: Path, model_name: str) -> int:
     from hydromodpy.solver.modflow6.build import FLOW_PROPERTY_SIDECAR_SUFFIX
     from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 
-    assert RUN_SCRATCH_ENV not in os.environ
+    assert active_run_scratch() is None
     project = tmp_path / "project"
     with run_scratch(project, "x" * 80) as key:
         # A Windows process id is a DWORD: ten digits at most.
@@ -513,11 +513,9 @@ def _longest_run_path_suffix(tmp_path: Path, model_name: str) -> int:
 
 @pytest.mark.parametrize("model_name_length", [4, 16, 35, 40, 48])
 def test_run_generated_path_length_matches_the_paths_the_product_builds(
-    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     model_name_length: int,
 ) -> None:
-    monkeypatch.delenv("HMP_RUN_SCRATCH", raising=False)
     model_name = "m" * model_name_length
 
     assert runtime.run_generated_path_length(model_name_length) == _longest_run_path_suffix(
@@ -543,10 +541,8 @@ def test_a_validation_run_name_is_a_run_name() -> None:
 
 
 def test_validation_headroom_covers_the_longest_validation_model_name(
-    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.delenv("HMP_RUN_SCRATCH", raising=False)
     longest_name = runtime._short_validation_name(
         "c" * 80, max_length=runtime._VALIDATION_SIM_NAME_LENGTH
     )

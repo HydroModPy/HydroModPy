@@ -1,6 +1,6 @@
 """A project opened on its directory reads without a configuration, and configures on demand.
 
-``hmp.open(project)`` builds a :class:`~hydromodpy.project.Project` from its
+``hmp.open(project)`` builds a :class:`~hydromodpy.project.facade.Project` from its
 directory alone (:func:`~hydromodpy.project.facade.open_project`). Its reads
 (``root``, ``cases``, ``runs``, ``proj[ref]``) never validate a
 configuration nor build a model; the first model verb reads ``project.toml``.
@@ -19,8 +19,7 @@ from typing import Any
 import pytest
 
 from hydromodpy.core.exceptions import ConfigMissingError
-from hydromodpy.project import Project
-from hydromodpy.project.facade import open_project
+from hydromodpy.project.facade import Project, open_project
 from tests._helpers.sealed_runs import make_project, seal_run
 
 
@@ -258,10 +257,10 @@ def test_project_config_is_a_property() -> None:
 
 
 def test_project_drops_toml_only_workflow_verbs() -> None:
-    """TOML-only workflows live on ``hmp._api``, not on ``Project``."""
+    """TOML-only workflows live on ``hydromodpy.project.api``, not on ``Project``."""
     for name in ("overview", "compare", "mesh", "report"):
         assert not hasattr(Project, name), (
-            f"Project still exposes {name!r}; the canonical entry point is hmp.{name}()"
+            f"Project still exposes {name!r}; the canonical entry point is the verb {name}"
         )
 
 
@@ -323,3 +322,61 @@ def test_a_sealed_snapshot_names_its_own_project_root(tmp_path: Path) -> None:
 
     assert cfg.workspace.project_root == tmp_path.resolve()
     assert cfg.read_as_sealed is True
+
+
+# --- status and publish are the verbs of the same name, read in this project ---
+
+
+def test_project_status_is_the_verb_with_plan_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    import hydromodpy.project.api as api
+
+    seen: list[tuple[Any, dict[str, Any]]] = []
+    monkeypatch.setattr(api, "status", lambda ref, **kwargs: seen.append((ref, kwargs)) or "report")
+    project = SimpleNamespace()
+    assert Project.status(project) == "report"
+    assert seen == [(project, {"plan": True})]
+
+
+@pytest.mark.parametrize(
+    ("given", "passed"),
+    [
+        ({}, {"format": "dir", "public": False}),
+        ({"format": "tar", "public": True}, {"format": "tar", "public": True}),
+    ],
+)
+def test_project_publish_is_the_verb_on_the_summary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, given: dict[str, Any], passed: dict[str, Any]
+) -> None:
+    import hydromodpy.project.api as api
+
+    seen: list[tuple[Any, dict[str, Any]]] = []
+    monkeypatch.setattr(api, "publish", lambda ref, **kwargs: seen.append((ref, kwargs)) or "copy")
+    project = SimpleNamespace(root=tmp_path)
+    assert Project.publish(project, tmp_path / "out", **given) == "copy"
+    assert seen == [("summary", {"to": tmp_path / "out", "workspace": tmp_path, **passed})]
+
+
+def test_the_index_a_project_opens_draws_figures(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The catalog of a project is given ``render``, as it is given ``read_config``."""
+    import hydromodpy.results.catalog as catalogs
+    from hydromodpy.project.facade import read_sealed_config
+    from hydromodpy.project.show import render
+
+    made: list[dict[str, Any]] = []
+
+    class _Catalog:
+        closed = False
+
+        def __init__(self, root: Path, **kwargs: Any) -> None:
+            made.append(kwargs)
+
+    report = SimpleNamespace(unchanged=False)
+    monkeypatch.setattr(catalogs, "Catalog", _Catalog)
+    monkeypatch.setattr(
+        "hydromodpy.results.catalog.indexer.index_new_runs", lambda root, **_: report
+    )
+    project = SimpleNamespace(root=tmp_path, _store=None)
+    Project._index(project)
+    assert made == [{"read_config": read_sealed_config, "render": render}]

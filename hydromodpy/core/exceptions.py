@@ -2,8 +2,10 @@
 
 Canonical source for every ``*Error`` raised by the package. All exceptions
 inherit from :class:`HydroModPyError`, which carries optional ``sim_id`` and
-``run_id`` context plus a ``code`` class attribute used by the CLI to map
-failures to exit codes and stable user-facing messages.
+``run_id`` context, a ``code`` class attribute for stable user-facing
+messages, and a ``category`` class attribute, a :class:`Category`, that the
+CLI maps to its exit code. A class that has two parents of different
+categories says its own.
 
 See ``architecture_cible/13_coherence_globale.md`` §1.5 for the canonical
 code assignments. Codes follow the ``HMPY.Exxx`` convention.
@@ -12,9 +14,36 @@ code assignments. Codes follow the ``HMPY.Exxx`` convention.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Self
+from enum import StrEnum
+from typing import Any, ClassVar, Self
 
 from hydromodpy.core.diagnostic import Diagnostic
+
+
+class Category(StrEnum):
+    """What kind of failure an exception is, as a caller acts on it.
+
+    Each class says its category once, on itself, and a subclass inherits it.
+    The command line maps a category to its exit code, so a new exception
+    takes the code of its category without touching the command line.
+    """
+
+    GENERIC = "generic"
+    USAGE = "usage"
+    NOT_FOUND = "not_found"
+    SCHEMA_MISMATCH = "schema_mismatch"
+    WRITE_CONFLICT = "write_conflict"
+    READ_ONLY = "read_only"
+    CONFIG = "config"
+    SOLVER = "solver"
+    DATA = "data"
+    CROSS_PROJECTS = "cross_projects"
+    BACKUP_FAILED = "backup_failed"
+    MIGRATION_FAILED = "migration_failed"
+    AMBIGUOUS_REFERENCE = "ambiguous_reference"
+    CALIBRATION = "calibration"
+    CATALOG_UNREADABLE = "catalog_unreadable"
+    CASES_FAILED = "cases_failed"
 
 
 class HydroModPyError(Exception):
@@ -37,6 +66,7 @@ class HydroModPyError(Exception):
     """
 
     code: str = "HMPY.E000"
+    category: ClassVar[Category] = Category.GENERIC
 
     def __init__(
         self,
@@ -120,12 +150,14 @@ class CommandUsageError(HydroModPyError):
     """
 
     code = "HMPY.E001"
+    category = Category.USAGE
 
 
 class NothingThereError(HydroModPyError, FileNotFoundError):
     """What the command names is not there: a file, a run, a project, an index."""
 
     code = "HMPY.E002"
+    category = Category.NOT_FOUND
 
 
 class OldNameError(HydroModPyError, AttributeError):
@@ -144,6 +176,7 @@ class ConfigError(HydroModPyError):
     """Configuration loading, validation, or resolution failure."""
 
     code = "HMPY.E100"
+    category = Category.CONFIG
 
 
 class ConfigValidationError(ConfigError):
@@ -246,6 +279,7 @@ class DataError(HydroModPyError):
     """Input data loading, validation, or provenance failure."""
 
     code = "HMPY.E200"
+    category = Category.DATA
 
 
 class DataContractViolation(DataError):
@@ -336,6 +370,7 @@ class JobInputNotFoundError(DataError, FileNotFoundError):
     """
 
     code = "HMPY.E211"
+    category = Category.NOT_FOUND
 
 
 # -- Mesh ----------------------------------------------------------------------
@@ -374,6 +409,7 @@ class TerrainError(HydroModPyError):
     """Terrain engine failure."""
 
     code = "HMPY.E1000"
+    category = Category.SOLVER
 
 
 class TerrainCapabilityError(TerrainError):
@@ -428,12 +464,14 @@ class JobUsageError(HydroModPyError):
     """
 
     code = "HMPY.E1100"
+    category = Category.USAGE
 
 
 class CapabilityVersionMismatchError(HydroModPyError):
     """The request targets a different major version of the capability."""
 
     code = "HMPY.E1101"
+    category = Category.SCHEMA_MISMATCH
 
 
 # -- Solver --------------------------------------------------------------------
@@ -447,6 +485,7 @@ class SolverError(HydroModPyError):
     """
 
     code = "HMPY.E400"
+    category = Category.SOLVER
 
 
 class SolverDivergedError(SolverError):
@@ -599,6 +638,7 @@ class FailedCasesError(PipelineError):
     """
 
     code = "HMPY.E511"
+    category = Category.CASES_FAILED
 
     def __init__(
         self,
@@ -620,6 +660,7 @@ class CalibrationError(HydroModPyError):
     """Calibration loop failure."""
 
     code = "HMPY.E600"
+    category = Category.CALIBRATION
 
 
 class ObjectiveError(CalibrationError):
@@ -687,30 +728,35 @@ class ReadOnlyError(CatalogError):
     """A write was attempted against a read-only catalog."""
 
     code = "HMPY.E803"
+    category = Category.READ_ONLY
 
 
 class WriteConflictError(CatalogError):
     """A concurrent writer holds the catalog and a write cannot proceed."""
 
     code = "HMPY.E804"
+    category = Category.WRITE_CONFLICT
 
 
 class CrossProjectsError(CatalogError):
     """An operation crossed project boundaries that must stay isolated."""
 
     code = "HMPY.E805"
+    category = Category.CROSS_PROJECTS
 
 
 class BackupFailedError(CatalogError):
     """The pre-migration catalog backup could not be written."""
 
     code = "HMPY.E806"
+    category = Category.BACKUP_FAILED
 
 
 class MigrationFailedError(CatalogError):
     """A catalog schema migration failed to apply."""
 
     code = "HMPY.E807"
+    category = Category.MIGRATION_FAILED
 
 
 # The one repair of a DuckDB index this project keeps: it is always a rebuild,
@@ -735,6 +781,7 @@ class CatalogUnreadableError(CatalogError):
     """
 
     code = "HMPY.E808"
+    category = Category.CATALOG_UNREADABLE
 
     def __init__(
         self,
@@ -760,6 +807,7 @@ class ImportConflictError(CatalogError):
     """
 
     code = "HMPY.E809"
+    category = Category.WRITE_CONFLICT
 
 
 class ZarrStoreError(StorageError):
@@ -779,6 +827,7 @@ class SchemaVersionMismatchError(StorageError):
     """
 
     code = "HMPY.E824"
+    category = Category.SCHEMA_MISMATCH
 
 
 # -- Results -------------------------------------------------------------------
@@ -816,6 +865,7 @@ class UnknownFieldError(ResultsError):
 
 
 __all__ = [
+    "Category",
     "HydroModPyError",
     # Command line
     "CommandUsageError",

@@ -97,7 +97,7 @@ def test_unknown_id_names_the_ids_that_exist() -> None:
 
 
 def test_the_public_verbs_read_the_shipped_catalog() -> None:
-    import hydromodpy as hmp
+    from hydromodpy.project import api
 
-    assert hmp.example_list() == load_catalog()
-    assert hmp.example_show("04") == find_entry("04", load_catalog())
+    assert api.example() == load_catalog()
+    assert api.example("04") == find_entry("04", load_catalog())

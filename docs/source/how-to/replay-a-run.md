@@ -55,7 +55,7 @@ a compact precision and to the last bit on an exact one, which is the case of mo
 reference runs.
 
 The README of the replay says the class in its lineage section, and `lineage.replay` in
-`runs/nancon_daily.v2/manifest.json` keeps the whole record. `hmp catalog show` gives the
+`runs/nancon_daily.v2/manifest.json` keeps the whole record. `hmp show` gives the
 summary of the run beside it.
 
 ## What a class does not refuse

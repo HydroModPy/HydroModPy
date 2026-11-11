@@ -8,7 +8,7 @@ the formats it can be written in
 
 This module holds the static part: every name some run can hold, known before
 any run exists. The check of a document reads it to refuse a typo before the solve.
-A name is looked up in the order ``hmp.read`` resolves it: the field registry
+A name is looked up in the order ``Run.read`` resolves it: the field registry
 first, then the series, the vector layers, the raster layers and the tables.
 
 The names are the stored ones. The series and layer names are written by
@@ -179,7 +179,7 @@ def list_exportable(run: Run) -> dict[str, ExportKind]:
     its ``timeseries`` table, a measurement named ``<variable>_obs``, the layers the files of its
     tables directory hold plus the mesh layers of a run that states its
     mesh CRS, and ``budget`` when its ``budgets`` table has rows. A name two
-    groups hold takes the kind of the first, the order ``hmp.read``
+    groups hold takes the kind of the first, the order ``Run.read``
     resolves a name in.
     """
     store = run._catalog

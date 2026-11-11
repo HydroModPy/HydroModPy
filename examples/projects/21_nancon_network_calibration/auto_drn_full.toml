@@ -341,7 +341,7 @@ end = "2002-12-31"
 # ----------------------------------------------------------------------
 # Toutes les figures que ce montage peut produire sont listees. Une figure
 # dont le run ne remplit pas les prerequis est ignoree avec sa raison, donc
-# la liste peut etre genereuse sans rien casser. `hmp viz list` donne les
+# la liste peut etre genereuse sans rien casser. `hmp config figures` donne les
 # noms acceptes et leurs prerequis.
 
 [display]

@@ -42,7 +42,7 @@ point output a block reads) beside outputs the file supplies for its own
 reasons (a network output's geometry), so the section is never protocol-owned
 in full and a whole-section comparison would refuse an ordinary file. What
 ``--expand`` shows of it is computed separately, by diffing against what the
-file already declared (``hydromodpy._api._expand_calibration_section``)."""
+file already declared (``hydromodpy.project.calibrate``)."""
 
 
 def available_protocols() -> tuple[str, ...]:

@@ -39,7 +39,7 @@ SHOWN = ("per month", "per stress period")
 def fluxes(run: hmp.Run) -> pd.DataFrame:
     """Recharge and runoff over the catchment in mm/day, one row per stress period."""
     edges = run.periods.edges
-    to_mm_per_day = 86400.0 * 1000.0 / hmp.read(run, "watershed").geometry.area.sum()
+    to_mm_per_day = 86400.0 * 1000.0 / run.read("watershed").geometry.area.sum()
     recharge = run.budget("recharge", zone_id="catchment").set_index("timestep")["flux_in"]
     drain = run.budget("drain", zone_id="catchment").set_index("timestep")["flux_out"]
     discharge = run.timeseries("discharge", station="catchment").to_numpy()

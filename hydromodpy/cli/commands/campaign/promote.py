@@ -72,7 +72,7 @@ def run(args: argparse.Namespace) -> None:
 
     def table() -> None:
         print(f"promoted trial {args.trial} of {args.case} to {rel_dir}")
-        print(f"next: hmp catalog show {run_dir.name} -w {project_root}")
+        print(f"next: hmp show {run_dir.name} -w {project_root}")
 
     emit(
         args,

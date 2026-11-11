@@ -69,7 +69,7 @@ hmp run step3_api_data.toml
 ```python
 import hydromodpy as hmp
 
-run = hmp.run("step3_api_data.toml")
+run = hmp.run("step3_api_data.toml").open()
 ```
 :::
 

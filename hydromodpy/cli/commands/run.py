@@ -152,7 +152,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=(
             "Continue an interrupted case in place, from the journal of its directory. "
             "With a TOML config, REF is the case name to continue (bare: the case the "
-            "file names); without a config, REF is the case name and the run replays its "
+            "file names), or <chain>_w<N> for one window of a chain (island_w3); without a "
+            "config, REF is the case name and the run replays its "
             "own runs/<name>/config.toml. A calibration takes a bare --resume and reopens "
             "the latest session of its case. On a [sites] project, bare --resume starts "
             "only the cases with an unfinished attempt."
@@ -606,22 +607,21 @@ def _run_request(
     try:
         with profile_run(profile_output, description=f"hmp run {config_path.name} ({workflow})"):
             if workflow == "simulation":
-                from hydromodpy.project.dispatch.workflow import run_simulation
+                from hydromodpy.project.api import run as run_verb
 
                 # The command keeps the outcome of the run: the "identical run
                 # skipped" message and the name of the run it gave back.
-                # hmp.run exposes the same run as a Run object for the Python API.
-                summary = _summary_of(
-                    run_simulation(request, base=run_base, environment=environment)
-                )
+                summary = _summary_of(run_verb(request, base=run_base, environment=environment))
+            elif workflow == "overview":
+                from hydromodpy.project.api import run as run_verb
+
+                summary = run_verb(request, base=run_base, environment=environment).to_dict()
             else:
                 from hydromodpy.project.dispatch.workflow import dispatch_workflow
 
                 summary = dispatch_workflow(
                     workflow, request, base=run_base, environment=environment
                 )
-                if workflow == "overview":
-                    summary = summary.to_dict()
     except ValidationError as exc:
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
     except FileNotFoundError as exc:

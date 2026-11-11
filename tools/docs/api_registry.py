@@ -352,7 +352,7 @@ def exit_codes() -> list[dict[str, Any]]:
 
 
 def verbs_called(command_module: types.ModuleType, verbs: set[str]) -> list[str]:
-    """Verbs of hydromodpy._api a CLI command module calls, read from its source."""
+    """Verbs of hydromodpy.project.api a CLI command module calls, read from its source."""
     path = Path(command_module.__file__)
     files = sorted(path.parent.rglob("*.py")) if path.name == "__init__.py" else [path]
     found: list[str] = []
@@ -368,7 +368,7 @@ def verbs_called(command_module: types.ModuleType, verbs: set[str]) -> list[str]
                 name = node.attr
             elif isinstance(node, ast.ImportFrom) and node.module in (
                 "hydromodpy",
-                "hydromodpy._api",
+                "hydromodpy.project.api",
             ):
                 for alias in node.names:
                     if alias.name in verbs and alias.name not in found:
@@ -804,8 +804,8 @@ def session_figure() -> str:
 
 
 def read_rules() -> list[str]:
-    """The bullet lines of the ``hmp.read`` docstring that say what comes back per kind."""
-    doc = inspect.getdoc(hmp.read) or ""
+    """The bullet lines of the ``Run.read`` docstring that say what comes back per kind."""
+    doc = inspect.getdoc(hmp.Run.read) or ""
     lines: list[str] = []
     for line in doc.splitlines():
         if line.startswith("- "):
@@ -1035,7 +1035,7 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
                     entry["returns"].append(
                         {"name": rname, "qualname": f"{cls.__module__}.{cls.__qualname__}"}
                     )
-            (verbs if obj.__module__ == "hydromodpy._api" else helpers).append(entry)
+            (verbs if obj.__module__ == "hydromodpy.project.api" else helpers).append(entry)
 
     # classes returned by verbs that are not in __all__ still get a page
     known = {c["qualname"] for c in classes}

@@ -245,7 +245,11 @@ def exit_codes() -> list[str]:
     from hydromodpy.cli import helpers
     from hydromodpy.core import exceptions
 
-    rows = [f"{name}\t{value}" for name, value in vars(helpers).items() if name.startswith("EXIT_")]
+    rows = [
+        f"{name}\t{value}"
+        for name, value in vars(helpers).items()
+        if name.startswith("EXIT_") and isinstance(value, int)
+    ]
     for name, value in vars(exceptions).items():
         if not inspect.isclass(value) or not issubclass(value, BaseException):
             continue

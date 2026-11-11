@@ -14,7 +14,6 @@ from hydromodpy.core.config_kit.base import (
     CANNOT_REWRITE,
     ConfigKeyRenamedWarning,
     HydroModelBase,
-    forget_old_forms_told,
     frozen_copy,
     refuse_old_forms,
     thawed_copy,
@@ -44,11 +43,6 @@ class _Cfg(HydroModelBase):
     path: Path = Path("data/in.csv")
     count: int = 3
     label: str | None = None
-
-
-@pytest.fixture(autouse=True)
-def _fresh_told() -> None:
-    forget_old_forms_told()
 
 
 # A key the model does not hold is refused, whether it is a typo, a key the model dropped
@@ -211,15 +205,14 @@ def test_old_form_warning_is_given_once_per_file_and_change(tmp_path: Path) -> N
     with pytest.warns(ConfigKeyRenamedWarning) as first:
         warn_old_form(where, "a -> b")
     assert f"hmp doctor --fix-config {where}" in str(first[0].message)
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
+    with warnings.catch_warnings(record=True) as again:
+        warnings.simplefilter("default")
         warn_old_form(where, "a -> b")
-    forget_old_forms_told()
-    with pytest.warns(ConfigKeyRenamedWarning):
         warn_old_form(where, "a -> b")
+    assert len(again) == 1
 
 
-def test_old_form_warning_of_no_file_is_told_every_time() -> None:
+def test_old_form_warning_of_no_file_names_the_placeholder() -> None:
     for _ in range(2):
         with pytest.warns(ConfigKeyRenamedWarning, match=r"^config: a -> b\. .*<file>"):
             warn_old_form(None, "a -> b")
@@ -267,12 +260,13 @@ def test_old_forms_without_delay_are_refused_with_the_fix(source, rewritable, ta
     assert str(caught.value).endswith(f"This old form is refused; {tail}")
 
 
-def test_the_module_remembers_what_it_told_until_forgotten() -> None:
-    with pytest.warns(ConfigKeyRenamedWarning):
-        warn_old_form("z.toml", "k")
-    assert ("z.toml", "k") in base._OLD_FORMS_TOLD
-    forget_old_forms_told()
-    assert not base._OLD_FORMS_TOLD
+def test_the_default_filter_shows_an_old_form_once_per_file_and_key() -> None:
+    with warnings.catch_warnings(record=True) as shown:
+        warnings.simplefilter("default")
+        for source, change in (("z.toml", "k"), ("z.toml", "k"), ("z.toml", "j"), ("y.toml", "k")):
+            warn_old_form(source, change)
+    assert [str(item.message).split(":")[0] for item in shown] == ["z.toml", "z.toml", "y.toml"]
+    assert not hasattr(base, "_OLD_FORMS_TOLD")
 
 
 # A string where a boolean belongs is a refusal, not a guess.

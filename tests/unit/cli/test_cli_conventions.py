@@ -17,7 +17,7 @@ import argparse
 import pytest
 
 from hydromodpy.cli import conventions
-from hydromodpy.cli.commands.project import status
+from hydromodpy.cli.commands import ls
 from hydromodpy.cli.main import _build_parser
 from tools.docs.api_registry import walk_parser
 
@@ -28,19 +28,14 @@ REQUIRED_GROUPS = (
     "data",
     "project",
     "site",
-    "viz",
     "workspace",
-    "report",
     "privacy",
 )
 
 # (group, action) leaf commands that reference a single simulation: positional sim_ref.
 SIM_REF_COMMANDS = (
-    ("catalog", "show"),
     ("catalog", "delete"),
-    ("viz", "show"),
     ("privacy", "purge"),
-    ("report", "render"),
 )
 
 # Destructive leaf commands that must offer -y/--yes.
@@ -174,30 +169,30 @@ def test_dev_doctor_removed() -> None:
 
 OLD_FORMS = (
     (
-        "hmp project status --stale",
-        "hmp project status --stale-minutes",
-        ["project", "status", "--stale", "7"],
+        "hmp ls --stale",
+        "hmp ls --stale-minutes",
+        ["ls", "--stale", "7"],
         ("stale_minutes", 7.0),
     ),
     (
-        "hmp project status --json",
-        "hmp project status --format json",
-        ["project", "status", "--json"],
+        "hmp ls --json",
+        "hmp ls --format json",
+        ["ls", "--json"],
         ("format", "json"),
     ),
     (
-        "hmp project status --silent",
-        "hmp project status --quiet",
-        ["project", "status", "--silent"],
+        "hmp ls --silent",
+        "hmp ls --quiet",
+        ["ls", "--silent"],
         ("verbosity", "quiet"),
     ),
     (
         "hmp project state",
-        "hmp project status",
+        "hmp ls",
         ["project", "state", "--format", "csv"],
         ("format", "csv"),
     ),
-    ("hmp status", "hmp project status", ["status", "--format", "csv"], ("format", "csv")),
+    ("hmp status", "hmp ls", ["status", "--format", "csv"], ("format", "csv")),
 )
 
 
@@ -219,7 +214,7 @@ def test_an_old_form_warns_and_does_what_the_new_form_does(
 
     dest, value = expected
     assert getattr(args, dest) == value
-    assert args._handler is status.run
+    assert args._handler is ls.run
 
 
 def test_an_old_form_leaves_the_new_form_and_the_help_alone(
@@ -228,14 +223,14 @@ def test_an_old_form_leaves_the_new_form_and_the_help_alone(
     forms = tuple(conventions.OldCliForm(old, new, "2.3.0") for old, new, _, _ in OLD_FORMS)
     monkeypatch.setattr(conventions, "OLD_CLI_FORMS", forms)
 
-    assert _parse(["project", "status"]).format == "table"
+    assert _parse(["ls"]).format == "table"
     with pytest.raises(SystemExit):
-        _parse(["project", "status", "--help"])
+        _parse(["ls", "--help"])
 
     assert "--silent" not in capsys.readouterr().out
     commands = {" ".join(row["path"]): row for row in walk_parser(_build_parser(), ["hmp"])}
     assert not {"hmp status", "hmp project state"} & set(commands)
-    flags = {flag for arg in commands["hmp project status"]["arguments"] for flag in arg["flags"]}
+    flags = {flag for arg in commands["hmp ls"]["arguments"] for flag in arg["flags"]}
     assert not {"--stale", "--json", "--silent"} & flags
 
 
@@ -253,7 +248,7 @@ def test_a_required_flag_is_answered_by_either_form(monkeypatch: pytest.MonkeyPa
 
 
 def test_an_old_form_that_names_nothing_stops_the_build(monkeypatch: pytest.MonkeyPatch) -> None:
-    form = conventions.OldCliForm("hmp project status --old", "hmp project status --none", "2.3.0")
+    form = conventions.OldCliForm("hmp ls --old", "hmp ls --none", "2.3.0")
     monkeypatch.setattr(conventions, "OLD_CLI_FORMS", (form,))
 
     with pytest.raises(KeyError, match="--none"):
@@ -286,6 +281,13 @@ def test_the_new_form_of_a_refused_one_exists(form: conventions.OldCliForm) -> N
         if commands is not None and word in commands.choices:
             parser = commands.choices[word]
             assert not isinstance(parser, conventions.OldVerb), form.new
+
+
+def test_hmp_dev_manage_names_the_server(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as refused:
+        _parse(["dev", "manage", "--port", "8000"])
+    assert refused.value.code == 2
+    assert "Write: python -m hydromodpy_server --root ROOT" in capsys.readouterr().err
 
 
 def test_a_bare_old_group_names_each_of_its_new_forms(capsys: pytest.CaptureFixture[str]) -> None:

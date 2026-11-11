@@ -78,11 +78,11 @@ types = ["precipitation", "etp"]
 
 [[data.precipitation.sources]]
 source = "file"
-path = "precipitation.nc"
+path = "../../data/precipitation/precipitation.nc"
 
 [[data.etp.sources]]
 source = "file"
-path = "etp.nc"
+path = "../../data/etp/etp.nc"
 
 [flow]
 param_list = ["K", "Sy", "Ss"]

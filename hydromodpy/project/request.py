@@ -15,8 +15,9 @@ built configuration. The combinations of options a workflow refuses are refused
 here, with the sentences of ``hmp run``.
 
 The identity of a request is told by :mod:`hydromodpy.workflow.solution_key`.
-:class:`RunOutcome` is the typed reading of the outcome of a run once it is
-done.
+:class:`RunOutcome` is the typed reading of the outcome of a run or a session
+once it is done, what ``hydromodpy.run`` and ``hydromodpy.status`` give back.
+:func:`outcomes_under` reads one per directory of a project, from the disk.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -46,20 +47,26 @@ from hydromodpy.config.loading import (
 from hydromodpy.core.config_kit.written import written_as_a_file
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.layout import runs_dir_for, sessions_dir_for
 from hydromodpy.core.state.names import check_name
 from hydromodpy.core.state.result_dirs import resolve_project_root
 from hydromodpy.core.toml_io.loader import config_base_dir
 from hydromodpy.core.toml_io.paths import assign
-from hydromodpy.results.outcome import effective_status, read_outcome
-from hydromodpy.results.publication import PublishedLine
+from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S, effective_status, read_outcome
+from hydromodpy.results.publication import PublishedLine, deliveries_of
+from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.storage.contract import RUN_REQUEST_FILENAME
-from hydromodpy.results.storage.json_io import write_json_atomic
+from hydromodpy.results.storage.json_io import readable, write_json_atomic
 from hydromodpy.workflow.dispatch import (
     WorkflowName,
     check_workflow_name,
     extract_workflow_field,
     workflow_of_sections,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.results.run.view import Run
+    from hydromodpy.results.session.view import Session
 
 logger = get_logger(__name__)
 
@@ -68,6 +75,9 @@ REQUEST_SCHEMA: Final[str] = "hydromodpy.request.v1"
 
 RequestForm = Literal["toml", "json", "dict", "object"]
 """What the request was built from: a TOML file, JSON, a mapping or a built configuration."""
+
+OutcomeKind = Literal["run", "session", "case"]
+"""What a directory with an outcome is: a run, a calibration session, or a case of a plan."""
 
 WRITTEN_FORMS: Final[frozenset[str]] = frozenset({"json", "dict"})
 """The forms whose request is written as ``request.json`` at the claim.
@@ -168,7 +178,8 @@ class RunOutcome:
     mesh step of a run that computed one says of its mesh; no file of the run
     directory holds it, so :meth:`read` leaves it ``None``. ``deliveries`` are the
     ``delivery`` lines the call wrote for the run, empty for a run that delivered
-    nothing; :meth:`read` leaves them empty.
+    nothing; :meth:`read` leaves them empty. ``kind`` says whether the directory
+    is a run, a session or a case of a plan.
     """
 
     name: str
@@ -180,12 +191,18 @@ class RunOutcome:
     project_root: Path
     mesh_summary: Mapping[str, Any] | None = None
     deliveries: tuple[PublishedLine, ...] = ()
+    kind: OutcomeKind = "run"
 
     @classmethod
     def read(
-        cls, run_dir: Path, *, project_root: Path, identical_to: str | None = None
+        cls,
+        run_dir: Path,
+        *,
+        project_root: Path,
+        identical_to: str | None = None,
+        kind: OutcomeKind = "run",
     ) -> RunOutcome:
-        """Return the outcome of the run in *run_dir*.
+        """Return the outcome of the run or session in *run_dir*.
 
         Raises ``FileNotFoundError`` when the directory carries no outcome.
         """
@@ -201,11 +218,102 @@ class RunOutcome:
             status=effective_status(directory),
             identical_to=identical_to,
             project_root=Path(project_root),
+            kind=kind,
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the outcome as a mapping that ``json.dumps`` writes as it is."""
+        return {
+            "name": self.name,
+            "kind": self.kind,
+            "run_dir": str(self.run_dir),
+            "sim_id": self.sim_id,
+            "request_id": self.request_id,
+            "status": self.status,
+            "identical_to": self.identical_to,
+            "project_root": str(self.project_root),
+            "mesh_summary": None if self.mesh_summary is None else _jsonable(self.mesh_summary),
+            "deliveries": [line.to_dict() for line in self.deliveries],
+        }
+
+    def open(self) -> Run | Session:
+        """Open the directory of the outcome by the verb ``open``: a run or a session."""
+        from hydromodpy.project.api import open as open_path
+
+        return open_path(self.run_dir)  # type: ignore[return-value]
+
+
+def outcome_of_directory(
+    directory: Path,
+    *,
+    project_root: Path,
+    kind: OutcomeKind,
+    stale_after_s: float | None = None,
+) -> RunOutcome:
+    """Return the outcome of *directory* with its deliveries, or what its state says.
+
+    A directory a claim made and no outcome followed still gets a line: its
+    status is the one :func:`~hydromodpy.results.outcome.effective_status` reads,
+    and it has no ``sim_id``. A session has no manifest, so its status is the one
+    its descriptor holds, or ``unreadable`` when the descriptor cannot be read.
+    ``stale_after_s`` is the age after which a live directory that stopped
+    writing is called stale, and ``None`` keeps the default.
+    """
+    folder = Path(directory)
+    outcome = read_outcome(folder)
+    if kind == "session":
+        descriptor = readable(read_session, folder)
+        status = "unreadable" if descriptor is None else descriptor.status
+    else:
+        limit = DEFAULT_STALE_AFTER_S if stale_after_s is None else stale_after_s
+        status = effective_status(folder, stale_after_s=limit)
+    return RunOutcome(
+        name=folder.name,
+        run_dir=folder,
+        sim_id=None if outcome is None else outcome.sim_id,
+        request_id=None if outcome is None else outcome.request_id,
+        status=status,
+        identical_to=None,
+        project_root=Path(project_root),
+        deliveries=deliveries_of(folder),
+        kind=kind,
+    )
+
+
+def outcomes_under(project_root: Path, *, stale_after_s: float | None = None) -> list[RunOutcome]:
+    """Return one outcome per directory of ``runs/`` and ``sessions/``, sorted by name.
+
+    Read from the disk, never from the index. ``stale_after_s`` is passed to
+    :func:`outcome_of_directory`.
+    """
+    root = Path(project_root)
+    found: list[RunOutcome] = []
+    for folder, kind in ((runs_dir_for(root), "run"), (sessions_dir_for(root), "session")):
+        if not folder.is_dir():
+            continue
+        found.extend(
+            outcome_of_directory(child, project_root=root, kind=kind, stale_after_s=stale_after_s)
+            for child in folder.iterdir()
+            if child.is_dir()
+        )
+    return sorted(found, key=lambda each: (each.name, each.kind))
+
+
+def _jsonable(value: Any) -> Any:
+    """Return *value* with paths as text and numpy scalars as numbers, for JSON."""
+    if isinstance(value, Mapping):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, Path):
+        return str(value)
+    if hasattr(value, "item") and callable(value.item):
+        return value.item()
+    return value
 
 
 def request_of(
-    source: str | os.PathLike[str] | Mapping[str, Any] | HydroModPyConfig,
+    source: str | os.PathLike[str] | Mapping[str, Any] | HydroModPyConfig | RunRequest,
     *,
     base: str | os.PathLike[str] | None = None,
     overlays: Sequence[str | os.PathLike[str]] = (),
@@ -227,7 +335,8 @@ def request_of(
     *source* is the path of a ``.toml`` file, read once with its chain and its
     *overlays*; the path of a ``.json`` file, a serialized request, whose members
     the options given here add to or win over; a mapping or JSON text, the
-    document itself; or a built configuration, written as a file writes it.
+    document itself; a built configuration, written as a file writes it; or a
+    request already built, which the options given here add to or win over.
     *base* only makes ``source`` relative. ``headless`` is ``no_display``.
 
     Raises
@@ -252,7 +361,10 @@ def request_of(
     }
     changes = dict(set or {})
     names = tuple(Path(item).name for item in overlays)
-    if isinstance(source, HydroModPyConfig):
+    if isinstance(source, RunRequest):
+        _refuse_overlays(overlays, "a run request")
+        built = _with_options(source, changes, options, source=None)
+    elif isinstance(source, HydroModPyConfig):
         _refuse_overlays(overlays, "a configuration object")
         built = _request(
             config=_document_of(source), form="object", source=None, changes=changes, **options
@@ -287,8 +399,8 @@ def request_of(
             )
     else:
         raise TypeError(
-            "A run request is built from a TOML or JSON path, a mapping, JSON text or a "
-            f"HydroModPyConfig, not {type(source).__name__}."
+            "A run request is built from a TOML or JSON path, a mapping, JSON text, a "
+            f"HydroModPyConfig or a RunRequest, not {type(source).__name__}."
         )
     if not built.dry_run:
         _refuse_combinations(built)
@@ -333,7 +445,7 @@ def write_request_file(run_dir: Path, request: RunRequest) -> Path | None:
 
 
 def base_of(
-    source: str | os.PathLike[str] | Mapping[str, Any] | HydroModPyConfig,
+    source: str | os.PathLike[str] | Mapping[str, Any] | HydroModPyConfig | RunRequest,
     base: str | os.PathLike[str] | None = None,
 ) -> Path:
     """Return the folder the relative paths of *source* are read from.
@@ -342,13 +454,16 @@ def base_of(
     TOML file reads from the project root above it, else from the folder of the
     root file of its chain, which this reads only outside a project. A request
     in JSON reads from the project root above it, else from its own folder. A
-    mapping or JSON text has no folder: it is refused without *base*.
+    mapping, JSON text or a request object has no folder: it is refused
+    without *base*.
     """
     if base is not None:
         return Path(base).expanduser().resolve()
     if isinstance(source, HydroModPyConfig):
         return Path(source.workspace.project_root)
-    if isinstance(source, Mapping) or (isinstance(source, str) and is_json_text(source)):
+    if isinstance(source, (Mapping, RunRequest)) or (
+        isinstance(source, str) and is_json_text(source)
+    ):
         raise ConfigError(MEMORY_NEEDS_BASE)
     path = Path(source).expanduser().resolve()
     if path.suffix == TOML_SUFFIX:
@@ -514,3 +629,59 @@ __all__ = [
     "workflow_of",
     "write_request_file",
 ]
+
+
+def is_a_path(source: Any) -> bool:
+    """Whether *source* is the path of a file, not a document, JSON text or an object."""
+    from hydromodpy.config.loading import is_json_text
+
+    if isinstance(source, str):
+        return not is_json_text(source)
+    return isinstance(source, os.PathLike)
+
+
+def held(source: Any, base: str | os.PathLike[str] | None) -> Any:
+    """Return *source* as a runner reads it: a path as it is, a document validated, an object as is.
+
+    A path with no base goes to its runner as it is, and reads from the project
+    root above it. A path with a base, a mapping and JSON text are validated
+    against the base, by the one loader of a configuration. An object comes
+    back unchanged.
+    """
+    from hydromodpy.config.loading import is_json_text, load
+
+    if is_a_path(source):
+        return load(source, base) if base is not None else Path(source).expanduser().resolve()
+    is_document = isinstance(source, Mapping) or (isinstance(source, str) and is_json_text(source))
+    return load(source, base) if is_document else source
+
+
+def report_identical_run(name: str | None, sim_id: str) -> None:
+    """Say on the log that a run was skipped for an identical completed one."""
+    from hydromodpy.core.logging import get_logger
+    from hydromodpy.project.dispatch.workflow import identical_run_message
+
+    get_logger(__name__).warning(
+        "%s Pass force=True to run it again.", identical_run_message(name, sim_id)
+    )
+
+
+def refuse_a_calibration(source: str) -> None:
+    """Refuse a calibration at the door of ``run``, saying which verb runs it."""
+    raise ConfigError(
+        f"{source} declares a calibration: run it with hmp.calibrate, which returns a "
+        "CalibrationReport. To simulate this file once, set workflow.mode to simulation."
+    )
+
+
+def refuse_a_sites_project(source: Path | None) -> None:
+    """Refuse a ``[sites]`` project at the door of ``run``, saying what launches it."""
+    if source is None:
+        raise ConfigError(
+            "This document declares [sites]: its cases are launched one process each, from the "
+            "project that holds it, by hmp.open(<project folder>).launch()."
+        )
+    raise ConfigError(
+        f"{source} declares [sites]: its cases are launched one process each, by "
+        f"hmp.open({str(source.parent)!r}).launch(). hmp.run(..., dry_run=True) shows its plan."
+    )

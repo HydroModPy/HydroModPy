@@ -28,6 +28,7 @@ from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import TrialMetricFn
 from hydromodpy.core.state.layout import sessions_dir_for
 from hydromodpy.core.workspace.path_registry import in_run_scratch
+from hydromodpy.results.storage.run_log import in_project_log
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.report import CalibrationReport
@@ -133,11 +134,16 @@ def with_project_defaults(cfg: CalibrationConfig, project: Any) -> CalibrationCo
     return cfg if section == written else CalibrationConfig.model_validate(section)
 
 
+def _root_of_call(cfg: CalibrationConfig, **kw: Any) -> Path:
+    return _project_root(kw["project"], kw.get("workspace"))
+
+
 @in_run_scratch(
-    lambda cfg, **kw: _project_root(kw["project"], kw.get("workspace")),
+    _root_of_call,
     lambda cfg, **_kw: "calibration",
     check=lambda *_a, **kw: refuse_an_objective_that_is_not_an_entry_point(kw.get("objective")),
 )
+@in_project_log(_root_of_call)
 def run_calibration_programmatic(
     cfg: CalibrationConfig,
     *,

@@ -7,7 +7,7 @@ which a calibration drives to a target.
 
 It has no equation and no name of a metric. The equations of the downslope method are in
 {doc}`../theory/downslope-distance`. The names of the metrics, and how to write them to a file,
-are in {doc}`../reference/cli/report` and
+are in {doc}`../reference/cli/diff` and
 {doc}`../reference/parameters/calibration/outputs`.
 
 ## The two networks
@@ -162,4 +162,4 @@ is refused too, and told to replay.
 - {doc}`../theory/downslope-distance`: the equations, the assumptions and the limits of the
   downslope method.
 - {doc}`../reference/parameters/calibration/outputs`: the network criterion of a calibration.
-- {doc}`../reference/cli/report`: `hmp report compare`, the overlap and distance scores of several runs.
+- {doc}`../reference/cli/diff`: `hmp diff`, the overlap and distance scores of several runs.

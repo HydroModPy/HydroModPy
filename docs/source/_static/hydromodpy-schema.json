@@ -2636,7 +2636,7 @@
             }
           ],
           "default": null,
-          "description": "Options of this phase's method, named as that method names them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for 'optuna'. They belong to one method, so a phase that gives them writes method beside them, or runs the method [calibration] writes. Unset, the phase takes the method_options of [calibration] when it runs the method that section writes, and none otherwise; an empty table states that it takes none. A key the method does not take is refused when the file loads. hmp config check names the phase.",
+          "description": "Options of this phase's method, named as that method names them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for 'optuna'. They belong to one method, so a phase that gives them writes method beside them, or runs the method [calibration] writes. Unset, the phase takes the method_options of [calibration] when it runs the method that section writes, and none otherwise; an empty table states that it takes none. A key the method does not take is refused when the file loads. hmp check names the phase.",
           "renamed_from": [
             "calibration.phases.optimizer_kwargs"
           ],
@@ -2957,7 +2957,7 @@
             }
           ],
           "default": null,
-          "description": "Width of the interval, written with its unit. '5%' is a share of the best cost, the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: write a length, '25 m', which is only read by a search scored only by network distances (distance_gap, distance_mean). A bare number is refused. Unset, it follows what the search scores: one mesh cell, in metres, for a search scored only by network distances, because a stream cannot move by less than a cell; 5%, five per cent of the best cost, otherwise. The cell is the median distance between the centres of neighbouring cells, measured by the network criterion on the mesh it scores. A phase may write its own, which wins. hmp config check refuses a share on a search scored only by network distances.",
+          "description": "Width of the interval, written with its unit. '5%' is a share of the best cost, the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: write a length, '25 m', which is only read by a search scored only by network distances (distance_gap, distance_mean). A bare number is refused. Unset, it follows what the search scores: one mesh cell, in metres, for a search scored only by network distances, because a stream cannot move by less than a cell; 5%, five per cent of the best cost, otherwise. The cell is the median distance between the centres of neighbouring cells, measured by the network criterion on the mesh it scores. A phase may write its own, which wins. hmp check refuses a share on a search scored only by network distances.",
           "renamed_from": [
             "calibration.uncertainty.tolerance",
             "calibration.uncertainty.mode"
@@ -5339,7 +5339,7 @@
           "x-hmp-profile": "user"
         },
         "figures": {
-          "description": "Names of registered figures to auto-render at the end of `hmp run`, written to runs/<run>/figures/ and recorded in figures/index.json, which `hmp export <run> --regen figures` replays. Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`: nothing is drawn then, and the run keeps the same data, so `hmp export <run> --regen figures` can draw them later.",
+          "description": "Names of registered figures to auto-render at the end of `hmp run`, written to runs/<run>/figures/ and recorded in figures/index.json, which `hmp export <run> --regen figures` replays. Every name must exist in the figure registry; list them with `hmp config figures`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`: nothing is drawn then, and the run keeps the same data, so `hmp export <run> --regen figures` can draw them later.",
           "items": {
             "type": "string"
           },
@@ -20799,7 +20799,7 @@
         },
         "keep_per_cell_budget": {
           "default": true,
-          "description": "Keep every per-cell budget term the solver produces, storage terms included, so every flux can be mapped, exported and read after the run is sealed (hmp export, hmp viz show, the Python API), and every derived field is rebuilt on read. False keeps only the terms the run's own consumers read: the figures of [display].figures, the [[export]] blocks, the calibration criterion and the seepage mask of a surface-excess solver. A kept calibration trial keeps only the terms its criterion reads. A later read of anything else then needs a new run. On a daily run, true is the heaviest group of the store: about 300 MB for six daily years on about 21 000 cells, 3.7 times the head.",
+          "description": "Keep every per-cell budget term the solver produces, storage terms included, so every flux can be mapped, exported and read after the run is sealed (hmp export, hmp show --figure, the Python API), and every derived field is rebuilt on read. False keeps only the terms the run's own consumers read: the figures of [display].figures, the [[export]] blocks, the calibration criterion and the seepage mask of a surface-excess solver. A kept calibration trial keeps only the terms its criterion reads. A later read of anything else then needs a new run. On a daily run, true is the heaviest group of the store: about 300 MB for six daily years on about 21 000 cells, 3.7 times the head.",
           "examples": [
             true
           ],
@@ -26388,5 +26388,5 @@
       }
     }
   },
-  "$comment": "Generated by hydromodpy.schema.config_schema.editor_schema. Checks the keys and the types of one TOML file. `hmp config check` checks the merged configuration."
+  "$comment": "Generated by hydromodpy.schema.config_schema.editor_schema. Checks the keys and the types of one TOML file. `hmp check` checks the merged configuration."
 }

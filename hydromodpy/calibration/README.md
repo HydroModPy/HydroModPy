@@ -28,7 +28,7 @@ root of the package.
 | `observations/` | what is observed: the observed stream network and its geometry, read through `results/derive/stream/criterion_inputs.py` and scored by the kernels of `catchment/stream_network` |
 | `metrics/` | how the outputs of one trial are extracted and paired with observations |
 | `runners/` | how a calibration runs: the three entry points, the phases and what they hand to each other, the trial primitive, the default evaluator, restarts, resume, promotion of the best trials |
-| `preflight.py` | every check of a calibration before anything is prepared, run at the start of every launch and printed by `hmp config check` |
+| `preflight.py` | every check of a calibration before anything is prepared, run at the start of every launch and printed by `hmp check` |
 
 The two analytical demonstrators that the regression tests drive from Python live outside the
 package, in `validation_cases/calibration/unconfined_interface_1d/` and
@@ -163,7 +163,7 @@ is read rather than inside the adapter.
    `hmp.calibrate` and `Project.calibrate`, runs `preflight.preflight_launch`
    on the document it runs (`--set`, `--overlay` and `HMP_SET_*` written in),
    each phase with its own overrides: every check, one report, no solve, and
-   an error stops the launch before anything is prepared. `hmp config check`
+   an error stops the launch before anything is prepared. `hmp check`
    prints the same findings.
 3. **Start.** `runners/cli_runner.py` and `search.py` (one search), `staged_runner.py`
    (phases) or `programmatic_runner.py` (from Python) names the case
@@ -246,7 +246,7 @@ is read rather than inside the adapter.
 10. **Report.** The session report is written by
     `hydromodpy.project.report.report_session`, from the rows of
     `results/session/summary.py`. `hmp calibrate` writes it (`--no-report`
-    skips it) and `hmp report render` writes it again. `promotion.py` reads
+    skips it) and `hmp show SESSION --report` writes it again. `promotion.py` reads
     `BOUND_TOLERANCE` and `on_bound` from `results/session/journal.py`.
 
 ## Storage rule
@@ -324,7 +324,7 @@ A spin-up is left out by dates: `window.start` on the phase (or on
 keeps its stamps inside the window. A network output reads one state, dated
 at the stamp that closes its period: `time = "last"` (the default),
 `"first"`, or a date such as `"2002-10-15"`, which reads the period that
-holds it. The window has to hold that stamp, and `hmp config check` says so
+holds it. The window has to hold that stamp, and `hmp check` says so
 before any solve when it does not. The old `warmup` and `warmup_periods`
 counted samples, so their span followed the time step. A file that writes
 them was written by a pre-release of 2.0, and the doctor of a 2.0.x release
@@ -530,7 +530,7 @@ network distances takes one mesh cell, in meters (a stream cannot move by
 less); any other phase takes 5 % of its best cost. `cost_margin` writes it
 with its unit, `"5%"` of the best cost or `"75 m"` of network distance (a
 bare number is refused, and a length only on a search scored by network
-distances). `hmp config check` refuses a share on a phase scored only by
+distances). `hmp check` refuses a share on a phase scored only by
 network distances. The
 interval never moves the calibrated value; it says which values the search
 could not tell apart from it.

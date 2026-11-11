@@ -71,7 +71,7 @@ hmp run step2_local_data.toml
 ```python
 import hydromodpy as hmp
 
-run = hmp.run("step2_local_data.toml")
+run = hmp.run("step2_local_data.toml").open()
 ```
 :::
 

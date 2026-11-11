@@ -65,7 +65,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n  hmp doctor\n  hmp doctor -w ~/hydromodpy --format json\n"
             "  hmp doctor --fix-config run.toml\n"
-            "The workspace a TOML file resolves to: hmp config check run.toml -v"
+            "The workspace a TOML file resolves to: hmp check run.toml -v"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -210,8 +210,10 @@ def _check(name: str, status: str, detail: str, hint: str | None = None) -> dict
 
 
 def _build_report(workspace: Path | None, workspace_arg: str | None) -> dict:
-    from hydromodpy.core.version import __version__ as hmp_version
+    from hydromodpy.project.api import doctor
 
+    machine = doctor().to_dict()
+    hmp_version = machine["hydromodpy"]
     checks: list[dict] = []
 
     python_ok = sys.version_info >= (3, 11)
@@ -219,7 +221,7 @@ def _build_report(workspace: Path | None, workspace_arg: str | None) -> dict:
         _check(
             "python",
             "OK" if python_ok else "KO",
-            f"{platform.python_version()} ({sys.executable})",
+            f"{machine['python']} ({sys.executable})",
             None if python_ok else "HydroModPy requires Python >= 3.11",
         )
     )
@@ -318,7 +320,7 @@ def _build_report(workspace: Path | None, workspace_arg: str | None) -> dict:
         checks.append(entry)
 
     return {
-        "python": platform.python_version(),
+        "python": machine["python"],
         "platform": f"{platform.system()} {platform.release()}",
         "hydromodpy": hmp_version,
         "checks": checks,

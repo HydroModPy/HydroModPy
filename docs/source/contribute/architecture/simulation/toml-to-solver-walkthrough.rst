@@ -12,7 +12,7 @@ End-to-end chain
 
 1. ``hmp run <file>`` enters at ``hydromodpy/cli/commands/run.py``, which builds a ``RunRequest``
    with ``request_of`` (``hydromodpy/project/request.py``). The file is a ``.toml`` file or a
-   ``.json`` run request. ``hydromodpy.run`` in ``hydromodpy/_api.py`` builds the same request
+   ``.json`` run request. ``hydromodpy.run`` in ``hydromodpy/project/api.py`` builds the same request
    from Python, and a server or a Docker container hands over the same JSON.
 2. The workflow of the request selects the launcher through ``DISPATCH`` in
    ``hydromodpy/project/dispatch/workflow.py``: ``simulation``, ``overview`` or

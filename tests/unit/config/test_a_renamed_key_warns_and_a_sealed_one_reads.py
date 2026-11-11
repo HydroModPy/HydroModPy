@@ -33,7 +33,6 @@ from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.config_kit.base import (
     CANNOT_REWRITE,
     ConfigKeyRenamedWarning,
-    forget_old_forms_told,
 )
 from hydromodpy.core.config_kit.introspect import held_tables_of
 from hydromodpy.core.exceptions import ConfigValidationError
@@ -194,12 +193,6 @@ def _stuck(doc: dict, *, sealed: bool) -> list[str]:
     if "stuck_before" in doc.get("mesh", {}):
         return [f"mesh.stuck_before{CANNOT_REWRITE}no unit to write"]
     return []
-
-
-@pytest.fixture(autouse=True)
-def _told_again() -> None:
-    """A warning is told once per file and key, so each test starts from none told."""
-    forget_old_forms_told()
 
 
 def _project(root: Path) -> Path:

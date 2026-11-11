@@ -6,7 +6,13 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_label
+from hydromodpy.display.figure import (
+    BaseFigure,
+    FigureNotApplicable,
+    FigureSpec,
+    new_subplots,
+    run_label,
+)
 from hydromodpy.display.figure_options import Cmap, FieldName, ReferenceRun, Timestep
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
 
@@ -73,14 +79,13 @@ class SideBySideMapFigure(BaseFigure):
         save_path=None,
         **_,
     ) -> MplFigure:
-        import matplotlib.pyplot as plt
 
         if reference is None:
             raise FigureNotApplicable(
                 "this figure compares two runs on one mesh: pass reference=<run>."
             )
 
-        fig, axes = plt.subplots(
+        fig, axes = new_subplots(
             1,
             2,
             figsize=figsize or (self.spec.default_figsize[0], self.spec.default_figsize[1]),

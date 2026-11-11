@@ -11,6 +11,7 @@ import pytest
 from matplotlib.colors import to_rgb
 from matplotlib.legend import Legend
 
+from hydromodpy.display.figure import new_subplots
 from hydromodpy.display.figures.accumulation_map import AccumulationMap
 from hydromodpy.display.figures.boundary_package_map import BoundaryPackageMap
 from hydromodpy.display.figures.flow_direction_map import FlowDirectionMap
@@ -21,7 +22,7 @@ from hydromodpy.display.figures.seepage_network_confusion_map import SeepageNetw
 from hydromodpy.display.figures.sfr_reach_network import SfrReachNetwork
 from hydromodpy.display.figures.simulated_active_network import SimulatedActiveNetworkMap
 from hydromodpy.display.figures.watershed_id_card import WatershedIdCardFigure
-from hydromodpy.display.style import apply_theme, is_dark, neutral, relative_luminance
+from hydromodpy.display.style import is_dark, neutral, relative_luminance, themed
 from hydromodpy.results.derive import views
 from tests._helpers.transient_network_run import transient_run
 
@@ -45,19 +46,12 @@ DARK_ENOUGH = 0.1
 
 @pytest.fixture
 def dark():
-    pytest.importorskip("matplotlib")
-    mpl.use("Agg")
-    import matplotlib.pyplot as plt
-
-    with mpl.rc_context():
-        apply_theme("dark")
-        yield plt
-        plt.close("all")
+    with themed("dark"):
+        yield SimpleNamespace(subplots=new_subplots)
 
 
 def test_a_light_grey_is_kept_on_a_light_page() -> None:
-    with mpl.rc_context():
-        apply_theme("default")
+    with themed("default"):
         assert not is_dark()
         assert neutral("#EDEDED") == "#ededed"
 
@@ -269,15 +263,7 @@ def test_the_sfr_network_text_box_follows_the_theme(dark, monkeypatch) -> None:
 
 
 def test_a_light_page_keeps_its_greys() -> None:
-    pytest.importorskip("matplotlib")
-    mpl.use("Agg")
-    import matplotlib.pyplot as plt
-
-    with mpl.rc_context():
-        apply_theme("default")
-        fig, ax = plt.subplots()
-        try:
-            SeepageMap().render(_seepage_run(), ax)
-            assert _light_greys(fig), "the light preset keeps the light ground"
-        finally:
-            plt.close(fig)
+    with themed("default"):
+        fig, ax = new_subplots()
+        SeepageMap().render(_seepage_run(), ax)
+        assert _light_greys(fig), "the light preset keeps the light ground"
