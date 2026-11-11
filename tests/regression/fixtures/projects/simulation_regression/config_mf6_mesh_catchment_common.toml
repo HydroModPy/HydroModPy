@@ -1,8 +1,7 @@
 # Shared MODFLOW 6 example profile with embedded catchment meshing.
 #
-# This file keeps all relative paths anchored in
-# `examples/projects/simulation_regression/` so process_simulation examples can
-# inherit it safely while still using the standard simulation launcher.
+# Relative paths are written from the project root. The regression helpers
+# stage the project and link `inputs/` to the shared example data.
 
 base_config = "hydromodpy.toml"
 

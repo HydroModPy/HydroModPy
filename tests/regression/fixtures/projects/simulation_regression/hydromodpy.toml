@@ -28,14 +28,14 @@ types = ["dem", ]
 
 [[data.dem.sources]]
 source = "file"
-path = "../../data/dem/regional_dem_naizin.tif"
+path = "inputs/dem/regional_dem_naizin.tif"
 
 
 [data.oceanic]
 
 [[data.oceanic.sources]]
 source = "file"
-path = "../../data/oceanic"
+path = "inputs/oceanic"
 col_datetime = "timestamp"
 
 [data.hydrometry]

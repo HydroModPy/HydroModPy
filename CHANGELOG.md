@@ -606,6 +606,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The hard links of the launcher lease, of a replay from a copy and of the sealed mesh fall back to a copy that never overwrites, on every system.
 - A geographic feature file and a MODFLOW 6 output keep their names on every system. The length is held by the project folder check.
 - The path destination of a delivery writes through extended-length paths on Windows.
+- A Boussinesq run names its solver folder and the `model_name` of its solver summary after the simulation, as the MODFLOW backends do, where 2.0.0 wrote `flow_main__boussinesq`. No value of a result changes.
 
 ### Removed
 
@@ -796,6 +797,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The catchment series and budget_over drop a non-finite element (layer, cell) alone, where 2.0 dropped the whole cell when one of its layers held a NaN, so the discharge of a multilayer run whose drain cell holds a NaN in one layer now counts its finite layers. A time step with no finite element under the weights gives NaN, where 2.0 gave 0, and a family such as storage is NaN on a step where one of its terms is NaN. A run of one layer with finite fluxes does not move: 0 on the six reference runs.
 - The root interval of a bisection counts in n_trials and n_within the distinct points of the search variable that solved, where 2.0 counted the solved trials, so a point solved twice counts once and keeps its first cost. 0 cases out of 3,000 searches move.
 <!-- numbers:end -->
+- The Boussinesq regression goldens refresh `final_recharge_rate_m_s`, the final recharge of a run, because the cells with a fixed head carry no recharge: the mean moves from 3.4722e-08 to 3.3854e-08 m/s on the fast strip (6 cells of 240) and from 1.15741e-08 to 1.14294e-08 m/s on the divide case (3 cells of 240). The comparison of that field is relative now.
 
 ## [v2.0.0] - 2026-11-07
 

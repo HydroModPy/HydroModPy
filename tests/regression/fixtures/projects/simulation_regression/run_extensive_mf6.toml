@@ -15,7 +15,7 @@ id = "transport_main"
 kind = "transport"
 solvers = ["modflow6"]
 
-[transport.modflow6gwt.parameters]
+[transport.modflow6]
 sconc_init = 0.1
 sconc_input = 0.05
 diffu_coeff = 8.64e-06

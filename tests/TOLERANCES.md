@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 189 tolerances enforced today. Every tolerance
+The table below records the 190 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -217,6 +217,7 @@ must carry a rationale before it is merged.
 | 187 | Twin K and Sy on two maps (MF6, comb basin, monthly recharge, truth K = 6e-6 and Sy = 0.05) | `\|J\|` on each map at the true K, for Sy from 0.025 to 0.1 | `<= 20 m` | **Derived.** One cell of the 20 m grid, the width a network distance resolves. Measured: J_min from -11.2 to 2.7 m and J_max from 2.4 to -1.4 m, so Sy stays inside one cell across a factor of 4 while K has its sign outside 3e-6 to 8e-6 | `tests/validation/calibration/test_twin_matching_stream_heads_modflow6.py`. Over 0.0125 to 0.2, a factor of 16, the same two J stay inside the cell. A search from elsewhere: Nelder-Mead K -0.5 %, Sy +1.5 %; CMA-ES K +0.2 %, Sy +78 %; TPE K -2.3 %, Sy +86 %, the last two under 2 m of cost |
 | 188 | The linear reservoir on the one-cell mesh, discharge-depth series and released volume | state max abs error | `1e-4` of the tank peak | **Derived** from the RK4 reference of the case, an integration the backend never runs, at a thousandth of a day | `validation_cases/analytical/linear_reservoir`, a storm of 5 days then 20 dry ones, tau of 30 days |
 | 189 | Pairing of a calibration trial against the pairing of the sealed run | paired values and NSE on the same inputs; simulated values read compact | equal bit for bit; `rtol 2**-17` | **By construction.** Both call `results.score.pair`, so on the same series they keep the same periods in the same order and the NSE is the same arithmetic. A run stored compact keeps 16 bits of mantissa, so a simulated value read back differs by at most `2**-17` relative (`core.fields.precision.MAX_RELATIVE_ERROR`). Measured on three synthetic cases, a daily discharge, a monthly discharge and a daily head with NaN simulated values and observation gaps: 647, 19 and 727 pairs on both sides, NSE gap 0.0 on the same inputs, and 9.5e-7, 4.8e-7 and 4.9e-6 after the compact rounding | `tests/unit/results/test_score.py` |
+| 190 | Regression goldens, Boussinesq `final_recharge_rate_m_s` signature (mean, p50, p95, sum) | relative gap to the golden, with a floor scaled to the field | `rtol 1e-4`; floor `atol` of row 15 times the largest of \|mean\|, \|p50\|, \|p95\| of the golden | **Declared choice.** The field is about 3e-8 m/s, so the absolute `atol` of rows 15 and 17 is 30 times the value and cannot see a move. The floor keeps the order of row 15 relative to the field, and the relative band of row 16 does the comparison | Seen: a 2.5 % move of the mean (6 fixed-head cells of 240 without recharge) passed under `atol 1e-6`. Every other key keeps rows 14 to 17 (`tests/regression/golden_utils.py`, `assert_array_signatures`) |
 
 ## Update policy
 

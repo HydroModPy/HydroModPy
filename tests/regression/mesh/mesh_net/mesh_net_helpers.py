@@ -30,6 +30,7 @@ import numpy as np
 import shapely
 
 from tests._helpers.tolerances import tol
+from tests.regression.golden_utils import stage_fixture_project
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 FIXTURE_DIR = REPO_ROOT / "tests" / "regression" / "fixtures" / "projects" / "mesh_net"
@@ -274,13 +275,20 @@ def run_fixture(config_name: str, out_dir: Path, *, timeout: int = 600) -> None:
     """Run ``hydromodpy run <fixture>`` in a subprocess, as the regression tier does."""
     env = os.environ.copy()
     env.setdefault("MPLBACKEND", "Agg")
-    out_dir.mkdir(parents=True, exist_ok=True)
+    project_dir = stage_fixture_project(
+        FIXTURE_DIR,
+        out_dir,
+        {
+            "recharge_gradient.tif": FIXTURE_DIR / "recharge_gradient.tif",
+            "mesh_bundle": BUNDLES_ROOT / ISLAND_BUNDLE,
+        },
+    )
     command = [
         sys.executable,
         "-m",
         "hydromodpy",
         "run",
-        str(FIXTURE_DIR / config_name),
+        str(project_dir / config_name),
         "--base",
         str(out_dir),
     ]

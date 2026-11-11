@@ -38,7 +38,7 @@
       true
     ],
     "has_numerical_solution": true,
-    "model_name": "flow_main__boussinesq",
+    "model_name": "launcher_fast_boussinesq_divide",
     "n_cells": 240,
     "n_edges": 403,
     "n_nodes": 164,
@@ -85,13 +85,13 @@
     "final_recharge_rate_m_s": {
       "count": 240,
       "nodata_count": 0,
-      "mean": 1.157407407407407e-08,
+      "mean": 1.1429398148148146e-08,
       "p50": 1.1574074074074074e-08,
       "p95": 1.1574074074074074e-08,
       "shape": [
         240
       ],
-      "sum": 2.777777777777777e-06
+      "sum": 2.743055555555555e-06
     },
     "final_saturated_thickness_m": {
       "count": 240,

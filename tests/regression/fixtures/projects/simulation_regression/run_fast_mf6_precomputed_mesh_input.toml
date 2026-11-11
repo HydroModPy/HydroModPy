@@ -32,7 +32,7 @@ id = "transport_main"
 kind = "transport"
 solvers = ["modflow6"]
 
-[transport.modflow6gwt.parameters]
+[transport.modflow6]
 sconc_init = 0.1
 sconc_input = 0.05
 # MF6 GWT clock is SECONDS: diffu_coeff in m2/s, rate_decay in 1/s (506-day half-life).

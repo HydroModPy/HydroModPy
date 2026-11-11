@@ -837,3 +837,10 @@ since = "2.1.0"
 effect = "layout"
 quantities = []
 text = "A lake writes the storage term of its water balance as the series lake_storage under its lake station, where a 2.0.0 run wrote storage. The name storage now names only the budget field of the aquifer. The value and its MODFLOW 6 sign do not change."
+
+[[recipe]]
+id = "boussinesq_model_name_is_the_simulation"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "A Boussinesq run names its solver folder and the model_name of its solver summary after the simulation, as the MODFLOW backends do, where a 2.0.0 run wrote the process and the solver joined by two underscores, as flow_main__boussinesq. No value of a result changes."

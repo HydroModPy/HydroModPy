@@ -35,6 +35,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 import geopandas as gpd
@@ -675,6 +676,18 @@ def assert_modpath_signatures(actual_by_name: dict, expected_by_name: dict) -> N
         assert_stats(actual["time"], expected["time"])
 
 
+# Fields whose magnitude is far below 1, so the absolute floor of rows 15 and 17
+# of tests/TOLERANCES.md would hide any move. They are compared relatively, with
+# the floor scaled to the field (row 190).
+SMALL_MAGNITUDE_FIELDS = frozenset({"final_recharge_rate_m_s"})
+
+
+def _small_field_floor(expected: dict, abs_tol: float) -> float:
+    """Return the absolute floor of a small field, scaled to its golden values."""
+    scale = max(abs(expected[key]) for key in ("mean", "p50", "p95") if expected[key] is not None)
+    return abs_tol * scale
+
+
 def assert_array_signatures(
     actual_by_name: dict,
     expected_by_name: dict,
@@ -687,11 +700,14 @@ def assert_array_signatures(
     for name, expected in expected_by_name.items():
         actual = actual_by_name[name]
         assert actual["shape"] == expected["shape"]
-        assert_stats(actual, expected, rel=rel, abs_tol=abs_tol)
+        key_abs_tol = abs_tol
+        if name in SMALL_MAGNITUDE_FIELDS:
+            key_abs_tol = _small_field_floor(expected, abs_tol)
+        assert_stats(actual, expected, rel=rel, abs_tol=key_abs_tol)
         if expected["sum"] is None:
             assert actual["sum"] is None
         else:
-            assert actual["sum"] == pytest.approx(expected["sum"], rel=rel, abs=abs_tol)
+            assert actual["sum"] == pytest.approx(expected["sum"], rel=rel, abs=key_abs_tol)
 
 
 def _assert_json_signature_value(
@@ -1006,6 +1022,31 @@ def run_example_script(
         f"Stdout:\n{completed.stdout}\n"
         f"Stderr:\n{completed.stderr}"
     )
+
+
+def stage_fixture_project(
+    fixture_dir: Path,
+    out_path: Path,
+    inputs: Mapping[str, Path],
+) -> Path:
+    """Make ``out_path`` a project that holds the TOML files of ``fixture_dir``.
+
+    ``hmp run --base`` reads the relative paths of a run from the folder it
+    writes the run in, so a fixture writes its data paths from the project
+    root (``inputs/dem/...``). The TOML files are copied to ``out_path`` and each
+    ``inputs`` entry (name below ``inputs/`` to the file or folder it stands for)
+    is linked there. Returns the folder that now holds the copies.
+    """
+    out_path.mkdir(parents=True, exist_ok=True)
+    for toml_file in sorted(Path(fixture_dir).glob("*.toml")):
+        shutil.copy2(toml_file, out_path / toml_file.name)
+    inputs_dir = out_path / "inputs"
+    inputs_dir.mkdir(exist_ok=True)
+    for name, source in inputs.items():
+        link = inputs_dir / name
+        if not link.exists():
+            link.symlink_to(Path(source).resolve())
+    return out_path
 
 
 def run_hmp_cli(
