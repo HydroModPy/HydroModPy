@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.project.run_overrides import override_changes

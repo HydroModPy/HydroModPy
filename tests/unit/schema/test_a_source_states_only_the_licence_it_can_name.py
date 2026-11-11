@@ -26,7 +26,6 @@ from hydromodpy.schema.sources import (
     input_licence,
     licence_for_source,
     licence_from_sidecar,
-    sources_by_publisher,
 )
 
 ETALAB = Licence(spdx="etalab-2.0", confidence="assumed")
@@ -112,13 +111,6 @@ def test_an_entry_renders_as_a_plain_document() -> None:
     json.dumps(document)
     assert document["licence"]["spdx"] == "etalab-2.0"
     assert document["cache"][0]["folder"] == "data/<variable>"
-
-
-def test_the_publishers_group_their_sources() -> None:
-    groups = sources_by_publisher()
-    assert [entry.slug for entry in groups["IGN"]] == ["ign_geoplateforme_dem", "bdtopo"]
-    assert [entry.slug for entry in groups["Sandre / OFB"]] == ["bdtopage", "roe"]
-    assert "file" not in {entry.slug for entries in groups.values() for entry in entries}
 
 
 def test_the_code_slugs_are_all_known() -> None:

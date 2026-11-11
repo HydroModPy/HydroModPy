@@ -290,12 +290,6 @@ def yearly_flow_counts(
     )
 
 
-def flow_persistence(counts: YearlyFlowCounts) -> np.ndarray:
-    """Return ``(n_years, n_cells)``: the share of each year's timesteps a cell flows."""
-    steps = np.maximum(counts.n_steps, 1).astype(float)[:, None]
-    return counts.flowing / steps
-
-
 _DURATION_DIGITS = 9
 """Digits kept of a duration over a step, so "1 month" over a month is exactly 1."""
 
@@ -526,7 +520,6 @@ __all__ = (
     "dry_steps",
     "extent_masks",
     "extent_step_problems",
-    "flow_persistence",
     "flowing_cells",
     "flowing_steps",
     "parse_extent_duration",

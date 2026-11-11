@@ -64,5 +64,5 @@ config validates `source =` against it, so the list is written once.
 section to the constructor of the class that section names.
 
 A source is held to all of this by
-`tests/contract/test_data_source_contract.py`, one `SourceCase` per shipped
+`tests/ports/test_data_source.py`, one `SourceCase` per shipped
 source, with a real or recorded fetch.

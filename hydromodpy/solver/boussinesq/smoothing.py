@@ -84,56 +84,13 @@ def smooth_positive_thickness(
     return smooth_positive_part(raw, eps) - smooth_positive_part(raw - bmax, eps)
 
 
-def dsmooth_positive_thickness_dh(
-    raw: np.ndarray,
-    bmax: np.ndarray,
-    eps: float,
-) -> np.ndarray:
-    """Derivative of :func:`smooth_positive_thickness` with respect to head.
-
-    Since ``raw = h - z_bottom`` and :math:`\\partial\\,\\text{raw}/\\partial h = 1`,
-    this equals the derivative of the smooth clip with respect to ``raw``.
-
-    Parameters
-    ----------
-    raw:
-        Head minus bottom elevation (meters, per-cell array).
-    bmax:
-        Maximum aquifer thickness (meters, per-cell array).
-    eps:
-        Smoothing radius in meters.
-    """
-    raw = np.asarray(raw, dtype=float)
-    bmax = np.asarray(bmax, dtype=float)
-    return dsmooth_positive_part(raw, eps) - dsmooth_positive_part(raw - bmax, eps)
-
-
 # ---------------------------------------------------------------------------
 # Saturation-ratio clip
 # ---------------------------------------------------------------------------
 
 
-def smooth_clip_01(x: np.ndarray, eps: float) -> np.ndarray:
-    """Smooth approximation of ``clip(x, 0, 1)`` on the unit interval.
-
-    Uses the same double-positive-part identity as
-    :func:`smooth_positive_thickness` with :math:`b_{\\max}=1`.
-
-    Parameters
-    ----------
-    x:
-        Input array (dimensionless saturation ratio or similar).
-    eps:
-        Smoothing radius (dimensionless).
-    """
-    x = np.asarray(x, dtype=float)
-    return smooth_positive_part(x, eps) - smooth_positive_part(x - 1.0, eps)
-
-
 __all__ = [
     "dsmooth_positive_part",
-    "dsmooth_positive_thickness_dh",
-    "smooth_clip_01",
     "smooth_positive_part",
     "smooth_positive_thickness",
 ]

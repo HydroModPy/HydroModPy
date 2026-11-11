@@ -7,8 +7,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.run import Run
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.run.view import Run
 from validation_cases.calibration.network_transient_b0.reporting import io as _nt_io
 
 _float = _nt_io.coerce_float

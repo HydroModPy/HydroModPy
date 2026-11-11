@@ -618,7 +618,7 @@ def prepare_trials(
     # it on its own.
     if getattr(ctx.setup, "time_grid", None) is None:
         try:
-            from hydromodpy.core.time import require_flow_simulation_time_grid
+            from hydromodpy.core.time.window import require_flow_simulation_time_grid
 
             ctx.setup.time_grid = require_flow_simulation_time_grid(cfg)
         except Exception:

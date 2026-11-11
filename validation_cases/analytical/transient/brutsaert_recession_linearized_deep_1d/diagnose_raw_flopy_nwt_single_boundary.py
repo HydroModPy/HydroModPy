@@ -14,7 +14,7 @@ from flopy.utils.binaryfile import CellBudgetFile, HeadFile
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from hydromodpy.solver.modflow_common import ensure_platform_executable
+from hydromodpy.solver.modflow_common.binaries import ensure_platform_executable
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )

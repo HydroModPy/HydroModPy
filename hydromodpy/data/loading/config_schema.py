@@ -3,7 +3,7 @@
 The role of this module is strictly declarative:
 
 - normalize and validate ``data.types``,
-- validate nested sections of active manager families,
+- validate nested sections of active data variables,
 - validate dedicated typed sections (currently ``data.geology`` and
   ``data.oceanic``).
 
@@ -32,71 +32,50 @@ from hydromodpy.data.variables.geology.config import GeologyConfig
 # importing anything at runtime.
 if TYPE_CHECKING:
     from hydromodpy.data.variables.crossings.config import CrossingsConfig
-    from hydromodpy.data.variables.etp.config import EtpConfig
-    from hydromodpy.data.variables.humidity.config import HumidityConfig
+    from hydromodpy.data.variables.forcing_series import (
+        EtpConfig,
+        PrecipitationConfig,
+        RadiationConfig,
+    )
     from hydromodpy.data.variables.hydrography.config import HydrographyConfig
     from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
     from hydromodpy.data.variables.intermittency.config import IntermittencyConfig
     from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
     from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
     from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
-    from hydromodpy.data.variables.lake_inflow.config import LakeInflowConfig
-    from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
-    from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
-    from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
-    from hydromodpy.data.variables.layer_base.config import LayerBaseConfig
+    from hydromodpy.data.variables.lake_series import (
+        LakeInflowConfig,
+        LakeLevelsConfig,
+        LakeOutflowConfig,
+        LakeWithdrawalConfig,
+    )
     from hydromodpy.data.variables.piezometry.config import PiezometryConfig
-    from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
-    from hydromodpy.data.variables.radiation.config import RadiationConfig
     from hydromodpy.data.variables.recharge.config import RechargeConfig
-    from hydromodpy.data.variables.runoff.config import RunoffConfig
-    from hydromodpy.data.variables.soil_capacity.config import SoilCapacityConfig
-    from hydromodpy.data.variables.soil_moisture.config import SoilMoistureConfig
-    from hydromodpy.data.variables.substratum.config import SubstratumConfig
-    from hydromodpy.data.variables.temperature.config import TemperatureConfig
+    from hydromodpy.data.variables.sim2_series import (
+        HumidityConfig,
+        RunoffConfig,
+        SoilMoistureConfig,
+        TemperatureConfig,
+        WindConfig,
+    )
+    from hydromodpy.data.variables.user_rasters import (
+        LayerBaseConfig,
+        SoilCapacityConfig,
+        SubstratumConfig,
+    )
     from hydromodpy.data.variables.water_quality.config import WaterQualityConfig
-    from hydromodpy.data.variables.wind.config import WindConfig
 
-SUPPORTED_DATA_MANAGER_TYPES = (
-    "crossings",
-    "dem",
-    "etp",
-    "geology",
-    "humidity",
-    "hydrography",
-    "hydrometry",
-    "intermittency",
-    "lake_abacus",
-    "lake_bathymetry",
-    "lake_geometry",
-    "lake_inflow",
-    "lake_levels",
-    "lake_outflow",
-    "lake_withdrawal",
-    "layer_base",
-    "oceanic",
-    "piezometry",
-    "precipitation",
-    "radiation",
-    "recharge",
-    "runoff",
-    "soil_capacity",
-    "soil_moisture",
-    "substratum",
-    "temperature",
-    "water_quality",
-    "wind",
-)
+DATA_VARIABLES = tuple(sorted(VARIABLE_SPECS))
 
 
 from hydromodpy.data.variables.oceanic.config import OceanicConfig  # noqa: E402
 
 
-class DataManagersConfig(HydroModelBase):
-    """Top-level ``[data]`` configuration for manager families.
+class DataConfig(HydroModelBase):
+    """Top-level ``[data]`` configuration for the data variables.
 
-    The `types` list declares user-requested data families. The effective
-    active set can also include planner-inferred families deduced from other
+    The `types` list declares user-requested data variables. The effective
+    active set can also include planner-inferred variables deduced from other
     sections (domain, flow) depending on `inference_mode`.
 
     For each active type, the matching nested section can be validated dynamically:
@@ -111,10 +90,10 @@ class DataManagersConfig(HydroModelBase):
     types: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
-            "Ordered list of data-manager types explicitly requested in [data]. "
+            "Ordered list of data variables explicitly requested in [data]. "
             "The launcher may append inferred types deduced from other sections "
             "(for example domain.zone_ids, a [flow.bc.stream] table). "
-            "Allowed values: " + ", ".join(f"'{t}'" for t in SUPPORTED_DATA_MANAGER_TYPES) + "."
+            "Allowed values: " + ", ".join(f"'{t}'" for t in DATA_VARIABLES) + "."
         ),
     )
     inference_mode: Annotated[Literal["warn", "strict"], Profile.USER] = Field(
@@ -269,8 +248,8 @@ class DataManagersConfig(HydroModelBase):
             type_name = str(raw_item).strip().lower()
             if type_name == "":
                 raise ValueError("data.types cannot contain empty values")
-            if type_name not in SUPPORTED_DATA_MANAGER_TYPES:
-                allowed = ", ".join(SUPPORTED_DATA_MANAGER_TYPES)
+            if type_name not in DATA_VARIABLES:
+                allowed = ", ".join(DATA_VARIABLES)
                 raise ValueError(f"Unsupported data type '{type_name}'. Allowed values: {allowed}")
             if type_name in seen:
                 continue
@@ -306,7 +285,7 @@ class DataManagersConfig(HydroModelBase):
         return payload
 
     @model_validator(mode="after")
-    def _validate_declared_sections(self) -> DataManagersConfig:
+    def _validate_declared_sections(self) -> DataConfig:
         # Post-validation coherence:
         # - active geology always has a typed config object (default if omitted),
         # - typed configs (oceanic, hydrometry, piezometry, water_quality) are
@@ -329,7 +308,7 @@ class DataManagersConfig(HydroModelBase):
     def with_resolved_types(
         self,
         resolved_types: Sequence[str],
-    ) -> DataManagersConfig:
+    ) -> DataConfig:
         """Return a validated copy using planner-resolved active types.
 
         This helper is used by the launcher after inference so downstream code
@@ -353,7 +332,7 @@ class DataManagersConfig(HydroModelBase):
         *,
         base_dir: Path,
         workspace_data_dir: Path | None = None,
-    ) -> DataManagersConfig:
+    ) -> DataConfig:
         """Load one ``[data]`` TOML section and validate active sub-sections.
 
         Dynamic validation rules:
@@ -365,7 +344,7 @@ class DataManagersConfig(HydroModelBase):
         if section_data is None:
             section_data = {}
         if not isinstance(section_data, Mapping):
-            raise ValueError("TOML section must be a mapping for DataManagersConfig")
+            raise ValueError("TOML section must be a mapping for DataConfig")
 
         payload = dict(section_data)
         raw_types = payload.get("types", [])
@@ -434,9 +413,9 @@ class DataManagersConfig(HydroModelBase):
 
 
 def _rebuild_forward_refs() -> None:
-    """Resolve forward references for typed data-manager config fields."""
+    """Resolve forward references for typed data variable config fields."""
     classes = (get_config_class(name) for name in VARIABLE_SPECS)
-    DataManagersConfig.model_rebuild(_types_namespace={cls.__name__: cls for cls in classes})
+    DataConfig.model_rebuild(_types_namespace={cls.__name__: cls for cls in classes})
 
 
 _rebuild_forward_refs()

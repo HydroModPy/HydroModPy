@@ -76,3 +76,18 @@ def test_run_subparser_step_completer_is_attached() -> None:
     run_parser = sub.choices["run"]
     from_action = next(a for a in run_parser._actions if "--from" in a.option_strings)
     assert hasattr(from_action, "completer")
+
+
+@pytest.mark.parametrize("shell", ["bash", "zsh", "fish"])
+def test_completion_prints_the_script_argcomplete_writes(capsys, shell: str) -> None:
+    """``hmp completion SHELL`` lists no command itself: it prints what argcomplete prints."""
+    pytest.importorskip("argcomplete")
+    import argcomplete
+
+    from hydromodpy.cli.commands import completion
+
+    completion.run(argparse.Namespace(shell=shell))
+
+    printed = capsys.readouterr().out
+    assert printed == argcomplete.shellcode(["hmp", "hydromodpy"], shell=shell)
+    assert "hmp" in printed and "hydromodpy" in printed

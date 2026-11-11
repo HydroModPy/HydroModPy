@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.geo_helpers import crs_of_a_user_file
+from hydromodpy.data.common.geometry import crs_of_a_user_file
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.data.ingest import convert_vector_to_geoparquet
+from hydromodpy.data.ingest.vector import convert_vector_to_geoparquet
 from hydromodpy.data.provenance.derived import derived_path
 
 logger = get_logger(__name__)

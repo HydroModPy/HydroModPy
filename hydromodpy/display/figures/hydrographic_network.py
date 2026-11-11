@@ -19,7 +19,7 @@ from hydromodpy.display.maps.overlays import network_map_of_role, plot_network_m
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class _HydrographicNetworkRoleFigure(BaseFigure):

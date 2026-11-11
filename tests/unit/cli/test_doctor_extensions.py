@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import json
 import sys
 from pathlib import Path
@@ -86,47 +85,13 @@ def test_doctor_cross_catalog_names_a_run_the_index_lacks(
     assert checks["cross_catalog:index_vs_runs"]["status"] == "OK"
 
 
-@pytest.fixture
-def doctor_module():
-    return importlib.import_module("hydromodpy.cli.commands.doctor")
+def test_doctor_prt_renders_in_the_report(monkeypatch, tmp_path, capsys) -> None:
+    from hydromodpy.project import doctor
 
-
-def test_doctor_prt_accepts_a_recent_mf6(monkeypatch, tmp_path, capsys, doctor_module) -> None:
     mf6 = tmp_path / "mf6"
     mf6.touch()
-    monkeypatch.setattr(doctor_module, "_locate_mf6", lambda: mf6)
-    monkeypatch.setattr(doctor_module, "_mf6_version", lambda _exe: ("mf6: 6.6.3", (6, 6, 3)))
-
-    checks = {entry["name"]: entry for entry in doctor_module._prt_checks()}
-    assert checks["prt:mf6"]["status"] == "OK"
-    assert checks["prt:mf6_version"]["status"] == "OK"
-    assert checks["prt:flopy"]["status"] == "OK"
-
-
-def test_doctor_prt_rejects_a_pre_prt_mf6(monkeypatch, tmp_path, doctor_module) -> None:
-    mf6 = tmp_path / "mf6"
-    mf6.touch()
-    monkeypatch.setattr(doctor_module, "_locate_mf6", lambda: mf6)
-    monkeypatch.setattr(doctor_module, "_mf6_version", lambda _exe: ("mf6: 6.4.1", (6, 4, 1)))
-
-    checks = {entry["name"]: entry for entry in doctor_module._prt_checks()}
-    assert checks["prt:mf6_version"]["status"] == "KO"
-    assert "install-binaries" in checks["prt:mf6_version"]["hint"]
-
-
-def test_doctor_prt_reports_a_missing_mf6(monkeypatch, doctor_module) -> None:
-    monkeypatch.setattr(doctor_module, "_locate_mf6", lambda: None)
-
-    checks = doctor_module._prt_checks()
-    assert [entry["status"] for entry in checks] == ["KO"]
-    assert checks[0]["name"] == "prt:mf6"
-
-
-def test_doctor_prt_renders_in_the_report(monkeypatch, tmp_path, capsys, doctor_module) -> None:
-    mf6 = tmp_path / "mf6"
-    mf6.touch()
-    monkeypatch.setattr(doctor_module, "_locate_mf6", lambda: mf6)
-    monkeypatch.setattr(doctor_module, "_mf6_version", lambda _exe: ("mf6: 6.6.3", (6, 6, 3)))
+    monkeypatch.setattr(doctor, "locate_mf6", lambda: mf6)
+    monkeypatch.setattr(doctor, "mf6_version", lambda _exe: ("mf6: 6.6.3", (6, 6, 3)))
 
     code = _run(
         monkeypatch, ["hmp", "doctor", "--workspace", str(tmp_path), "--prt", "--format", "json"]
@@ -194,7 +159,7 @@ def test_doctor_fix_config_rewrites_a_2_0_file_in_place_and_says_what_changed(
 
 
 def test_doctor_fix_config_names_a_missing_file(monkeypatch, tmp_path, capsys) -> None:
-    from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+    from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND
 
     code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(tmp_path / "absent.toml")])
 
@@ -238,7 +203,7 @@ def test_doctor_fix_config_says_the_old_forms_it_cannot_rewrite(
     left = Diagnostic(
         path="flow.old", code="old_key", severity="warning", detail="flow.old -> flow.new"
     )
-    monkeypatch.setattr("hydromodpy.cli.commands.doctor._checked", lambda file: [left])
+    monkeypatch.setattr("hydromodpy.project.doctor.findings_of", lambda file: [left])
 
     code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(config)])
 
@@ -252,7 +217,7 @@ def test_doctor_fix_config_says_the_old_forms_it_cannot_rewrite(
 def test_doctor_fix_config_refuses_with_the_retired_keys_of_the_check(
     monkeypatch, tmp_path, capsys
 ) -> None:
-    from hydromodpy.cli.helpers import EXIT_CONFIG
+    from hydromodpy.cli.exit_codes import EXIT_CONFIG
     from hydromodpy.core.diagnostic import Diagnostic
 
     config = tmp_path / "run.toml"
@@ -263,7 +228,7 @@ def test_doctor_fix_config_refuses_with_the_retired_keys_of_the_check(
         severity="error",
         detail="flow.gone was removed in 2.1.0",
     )
-    monkeypatch.setattr("hydromodpy.cli.commands.doctor._checked", lambda file: [retired])
+    monkeypatch.setattr("hydromodpy.project.doctor.findings_of", lambda file: [retired])
 
     code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(config)])
 

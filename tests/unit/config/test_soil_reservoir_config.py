@@ -14,11 +14,11 @@ from rasterio.transform import from_origin
 from hydromodpy.calibration.parameter_resolution import RECHARGE_VALUES_PATH
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.cli.commands import config as config_cmd
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.data.loading.config_schema import DataManagersConfig
-from hydromodpy.data.variables.soil_capacity.config import (
+from hydromodpy.data.loading.config_schema import DataConfig
+from hydromodpy.data.variables.user_rasters import (
     FileSoilCapacitySource,
     SoilCapacityConfig,
 )
@@ -907,7 +907,7 @@ def _base_kwargs(tmp_path: Path) -> dict:
 
 def test_a_capacity_map_without_a_soil_section_is_rejected(tmp_path: Path) -> None:
     raster = _write_geotiff(tmp_path / "ru.tif")
-    data = DataManagersConfig(
+    data = DataConfig(
         soil_capacity=SoilCapacityConfig(sources=[FileSoilCapacitySource(path=raster)])
     )
 
@@ -917,7 +917,7 @@ def test_a_capacity_map_without_a_soil_section_is_rejected(tmp_path: Path) -> No
 
 def test_a_capacity_map_without_a_soil_section_names_the_fix(tmp_path: Path) -> None:
     raster = _write_geotiff(tmp_path / "ru.tif")
-    data = DataManagersConfig(
+    data = DataConfig(
         soil_capacity=SoilCapacityConfig(sources=[FileSoilCapacitySource(path=raster)])
     )
 

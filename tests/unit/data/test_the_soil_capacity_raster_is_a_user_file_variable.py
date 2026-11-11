@@ -16,13 +16,13 @@ from pydantic import ValidationError
 from rasterio.transform import from_origin
 
 from hydromodpy.core.tracking.input_file import InputFile
-from hydromodpy.data.contracts import FieldRecord
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
-from hydromodpy.data.variables.soil_capacity.config import (
+from hydromodpy.data.variables.user_rasters import (
     FileSoilCapacitySource,
     SoilCapacityConfig,
+    SoilCapacityVariable,
 )
-from hydromodpy.data.variables.soil_capacity.variable import SoilCapacityVariable
 
 
 def _write_geotiff(path: Path, *, crs: str | None = "EPSG:2154", value: float = 150.0) -> Path:

@@ -14,7 +14,7 @@ from hydromodpy.display.maps.axes import style_date_axis
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class Hydrograph(BaseFigure):

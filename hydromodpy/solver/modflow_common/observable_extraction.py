@@ -58,29 +58,6 @@ _SURFACE_TO_MOVER_RECORDS = ("SFR-TO-MVR", "LAK-TO-MVR")
 _CONSTANT_HEAD_RECORDS = ("CHD", "CONSTANT HEAD")
 
 
-def resolve_run_output(ctx: Any, *, name_attributes: Sequence[str]) -> tuple[Path, Any, str]:
-    """Return the scratch directory, the model and the model name for a run.
-
-    A lightweight trial writes nothing to the store, so the only trace of the
-    run is the scratch directory the execution registry recorded.
-    """
-    output_dir = ctx.output_dir
-    model = ctx.model
-    if output_dir is None or model is None:
-        raise ObservableNotAvailableError(f"No solver output recorded for run {ctx.run.id!r}")
-    model_name = next(
-        (
-            value
-            for value in (getattr(model, attr, None) for attr in name_attributes)
-            if value is not None
-        ),
-        None,
-    )
-    if model_name is None:
-        raise ObservableNotAvailableError(f"Model name is missing for run {ctx.run.id!r}")
-    return Path(output_dir), model, str(model_name)
-
-
 def _stream_role_cells(model: Any) -> np.ndarray | None:
     """Cells whose CHD rows carry the stream role, as the builder recorded them.
 
@@ -496,6 +473,5 @@ __all__ = (
     "extract_common_modflow_observables",
     "flat_cell_index",
     "release_packages_for_model",
-    "resolve_run_output",
     "routing_graph_for_model",
 )

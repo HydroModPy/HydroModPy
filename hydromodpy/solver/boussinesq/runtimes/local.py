@@ -15,9 +15,7 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.solver.boussinesq.jacobian.fd import build_dense_fd_jacobian
-from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.runtime_contract import (
-    NonlinearRuntimeOptions,
     RuntimeSolveResult,
     SteadySolveInputs,
     TransientStepInputs,
@@ -62,88 +60,6 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
         fd_rel_step=float(solve_setup.options.fd_rel_step),
         min_damping=float(solve_setup.options.min_damping),
         backend_name="local",
-    )
-
-
-def solve_backward_euler_step(
-    mesh: BoussinesqMesh,
-    *,
-    head_prev_m: np.ndarray,
-    dt_seconds: float,
-    head_initial_guess_m: np.ndarray | None = None,
-    recharge_rate_m_s: np.ndarray | float | None = None,
-    well_flux_m3_s: np.ndarray | float | None = None,
-    prescribed_head_m_by_cell: np.ndarray | None = None,
-    drainage_conductance_m2_s: np.ndarray | float | None = None,
-    regularization_radius: float = 0.05,
-    max_iterations: int = 20,
-    tol_residual_inf: float = 1.0e-9,
-    fd_rel_step: float = 1.0e-7,
-    min_damping: float = 1.0e-4,
-) -> RuntimeSolveResult:
-    """Compatibility wrapper around :func:`solve_transient_step`.
-
-    The explicit argument list is convenient in tests and notebooks, while the
-    runtime contract remains the internal interface used by the solver driver.
-    This convenience wrapper now follows the same canonical contract as the
-    main runtime path: Dirichlet data is prescribed on boundary cells.
-    """
-    return solve_transient_step(
-        TransientStepInputs(
-            mesh=mesh,
-            head_prev_m=np.asarray(head_prev_m, dtype=float),
-            dt_seconds=float(dt_seconds),
-            head_initial_guess_m=head_initial_guess_m,
-            recharge_rate_m_s=recharge_rate_m_s,
-            well_flux_m3_s=well_flux_m3_s,
-            prescribed_head_m_by_cell=prescribed_head_m_by_cell,
-            drainage_conductance_m2_s=drainage_conductance_m2_s,
-            options=NonlinearRuntimeOptions(
-                regularization_radius=float(regularization_radius),
-                max_iterations=int(max_iterations),
-                tol_residual_inf=float(tol_residual_inf),
-                fd_rel_step=float(fd_rel_step),
-                min_damping=float(min_damping),
-            ),
-        )
-    )
-
-
-def solve_steady_state(
-    mesh: BoussinesqMesh,
-    *,
-    head_initial_guess_m: np.ndarray,
-    recharge_rate_m_s: np.ndarray | float | None = None,
-    well_flux_m3_s: np.ndarray | float | None = None,
-    prescribed_head_m_by_cell: np.ndarray | None = None,
-    drainage_conductance_m2_s: np.ndarray | float | None = None,
-    regularization_radius: float = 0.05,
-    max_iterations: int = 20,
-    tol_residual_inf: float = 1.0e-9,
-    fd_rel_step: float = 1.0e-7,
-    min_damping: float = 1.0e-4,
-) -> RuntimeSolveResult:
-    """Compatibility wrapper around :func:`solve_steady_problem`.
-
-    This convenience wrapper now follows the same canonical contract as the
-    main runtime path: Dirichlet data is prescribed on boundary cells.
-    """
-    return solve_steady_problem(
-        SteadySolveInputs(
-            mesh=mesh,
-            head_initial_guess_m=np.asarray(head_initial_guess_m, dtype=float),
-            recharge_rate_m_s=recharge_rate_m_s,
-            well_flux_m3_s=well_flux_m3_s,
-            prescribed_head_m_by_cell=prescribed_head_m_by_cell,
-            drainage_conductance_m2_s=drainage_conductance_m2_s,
-            options=NonlinearRuntimeOptions(
-                regularization_radius=float(regularization_radius),
-                max_iterations=int(max_iterations),
-                tol_residual_inf=float(tol_residual_inf),
-                fd_rel_step=float(fd_rel_step),
-                min_damping=float(min_damping),
-            ),
-        )
     )
 
 
@@ -201,8 +117,6 @@ def _solve_nonlinear_system(
 
 
 __all__ = [
-    "solve_backward_euler_step",
     "solve_steady_problem",
-    "solve_steady_state",
     "solve_transient_step",
 ]

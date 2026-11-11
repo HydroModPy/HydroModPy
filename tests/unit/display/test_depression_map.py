@@ -45,8 +45,8 @@ from hydromodpy.display.figures.depression_map import (
     reading_for,
 )
 from hydromodpy.display.style import relative_luminance
-from hydromodpy.results.derive.stream.depressions import depression_fill
-from hydromodpy.results.derive.stream.routing_surface import routing_surface_from_run
+from hydromodpy.results.derive.stream_network.depressions import depression_fill
+from hydromodpy.results.derive.stream_network.routing_surface import routing_surface_from_run
 
 from ._network_comparison_run import comparison_run, legend_labels, legend_note
 

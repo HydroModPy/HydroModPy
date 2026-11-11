@@ -55,7 +55,7 @@ from hydromodpy.results.derive.time_alignment import (
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 SPLIT_COLORS: dict[str, str] = {
     "total": HIGH_CONTRAST_TRIPLET[0],

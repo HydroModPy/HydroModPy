@@ -8,10 +8,10 @@ import numpy as np
 
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units import (
-    convert_payload_to_m,
+from hydromodpy.core.units.quantities import (
+    coerce_length_series_to_m,
     factor_to_m2_per_s,
-    normalize_length_unit,
+    forcing_units,
 )
 from hydromodpy.mesh.cells.boundary import label_cells, side_cells, stream_cells
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
@@ -68,20 +68,6 @@ def boundary_period_series(model, *, value: object, label: str) -> np.ndarray:
     return series.astype(float)
 
 
-def coerce_length_series_to_m(*, values: object, units: object, label: str) -> np.ndarray:
-    source_units = normalize_length_unit(str(units).strip() or "m")
-    return np.asarray(
-        convert_payload_to_m(values, unit=source_units, label=label),
-        dtype=float,
-    )
-
-
-def forcing_units(forcing: object, *, fallback: object) -> object:
-    if isinstance(forcing, Mapping):
-        return forcing.get("units", fallback)
-    return getattr(forcing, "units", fallback)
-
-
 def coerce_conductance_series_to_m2_per_s(
     *,
     values: object,
@@ -90,10 +76,6 @@ def coerce_conductance_series_to_m2_per_s(
 ) -> np.ndarray:
     factor = factor_to_m2_per_s(str(units).strip() or "m2/s")
     return np.asarray(values, dtype=float) * float(factor)
-
-
-def boundary_start_value(model, *, value: object, label: str) -> float:
-    return float(boundary_period_series(model, value=value, label=label)[0])
 
 
 def resolve_side_boundary_series(model, *, boundary: object, bc_id: str) -> np.ndarray:
@@ -698,7 +680,6 @@ __all__ = [
     "boundary_attr",
     "boundary_conditions_mapping",
     "boundary_period_series",
-    "boundary_start_value",
     "boundary_support_cell_ids",
     "build_drain_stress_period_data",
     "build_ocean_boundary_chd_spd",
@@ -706,8 +687,6 @@ __all__ = [
     "build_stream_boundary_chd_spd",
     "coerce_conductance_series_to_m2_per_s",
     "collapse_identical_periods",
-    "coerce_length_series_to_m",
-    "forcing_units",
     "is_bc_active",
     "is_scalar_number",
     "iter_side_boundary_cells",

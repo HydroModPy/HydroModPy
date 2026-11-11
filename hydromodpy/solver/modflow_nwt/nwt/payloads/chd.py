@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import SolverInputError
-from hydromodpy.core.units import convert_payload_to_m, normalize_length_unit
+from hydromodpy.core.units.quantities import coerce_length_series_to_m, forcing_units
 from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.model.initial.heads import build_head_initial_condition_array
 
@@ -51,27 +51,6 @@ def normalize_boundary_series(
     if series.size != nper:
         raise ValueError(f"{label} length ({series.size}) must be 1 or match nper ({nper})")
     return series.astype(float)
-
-
-def coerce_length_series_to_m(
-    *,
-    values: object,
-    units: object,
-    label: str,
-) -> np.ndarray:
-    """Convert one length payload to meters."""
-    source_units = normalize_length_unit(str(units).strip() or "m")
-    return np.asarray(
-        convert_payload_to_m(values, unit=source_units, label=label),
-        dtype=float,
-    )
-
-
-def forcing_units(forcing: object, *, fallback: object) -> object:
-    """Return the units field from one forcing object/Mapping."""
-    if isinstance(forcing, Mapping):
-        return forcing.get("units", fallback)
-    return getattr(forcing, "units", fallback)
 
 
 def resolve_side_boundary_series(
@@ -432,8 +411,6 @@ __all__ = [
     "build_initial_heads_and_sides",
     "build_ocean_chd",
     "build_side_chd",
-    "coerce_length_series_to_m",
-    "forcing_units",
     "is_scalar_number",
     "iter_side_boundary_cells",
     "merge_chd_payloads",

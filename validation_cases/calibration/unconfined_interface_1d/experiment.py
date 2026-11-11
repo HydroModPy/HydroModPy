@@ -702,7 +702,7 @@ def calibrate_groundwater(
     ----------
     method : str
         Optimizer identifier registered with
-        :func:`hydromodpy.calibration.build_optimizer`. Typical values:
+        :func:`hydromodpy.calibration.optim.optimizer.build_optimizer`. Typical values:
         ``"optuna"``, ``"grid"``, ``"scipy_de"``, ``"scipy_nelder_mead"``.
     chronicle : Mapping[str, Any] | None
         Pre-built chronicle (output of :func:`build_noisy_groundwater_chronicle`).

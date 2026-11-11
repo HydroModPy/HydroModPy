@@ -8,14 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from hydromodpy.core.payload import PayloadFile
+from hydromodpy.core.payload.index import PayloadFile
 from hydromodpy.project.examples.blobs import is_cached, missing_bytes
 from hydromodpy.project.examples.manifest import ExampleEntry, find_entry, load_catalog
-
-
-def list_rows() -> list[dict[str, Any]]:
-    """Describe every cataloged example, with what this machine still misses."""
-    return [summary(entry) for entry in load_catalog()]
 
 
 def show_rows(example_id: str) -> dict[str, Any]:

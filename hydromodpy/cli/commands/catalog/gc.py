@@ -22,7 +22,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, refuse
+from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.core.state.layout import project_roots_under
 from hydromodpy.core.state.result_dirs import resolve_project_root

@@ -21,7 +21,10 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import SolverInputError
-from hydromodpy.core.time import ResolvedSimulationTimeWindow, build_simulation_time_boundaries
+from hydromodpy.core.time.window import (
+    ResolvedSimulationTimeWindow,
+    build_simulation_time_boundaries,
+)
 from hydromodpy.model.forcing.dated_forcing import CsvForcing
 from hydromodpy.model.model import ModelTime
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data

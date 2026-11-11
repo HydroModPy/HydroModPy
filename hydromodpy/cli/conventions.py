@@ -35,10 +35,12 @@ from __future__ import annotations
 import argparse
 import sys
 import warnings
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, NoReturn
 
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_USAGE, refuse
 from hydromodpy.core.exceptions import CommandUsageError
 from hydromodpy.core.logging import VERBOSITY_LEVELS
 
@@ -175,6 +177,8 @@ _FORMS_REFUSED_AT_2_1: tuple[tuple[str, str], ...] = (
     # The two families whose every command left.
     ("hmp viz", "hmp show REF --figure NAME"),
     ("hmp report", "hmp show REF --report"),
+    # One script, the one argcomplete prints, so the commands are not written a second time.
+    ("hmp completion --argcomplete", "hmp completion SHELL"),
 )
 
 OLD_CLI_FORMS: tuple[OldCliForm, ...] = tuple(
@@ -417,8 +421,8 @@ def workspace_parser(*, reads_none: bool = False) -> argparse.ArgumentParser:
     """Parent parser exposing the shared ``-w/--workspace`` selector.
 
     Accepts a workspace root or a project directory. A project verb resolves
-    it through :func:`hydromodpy.cli.helpers.resolve_project`, a workspace
-    verb through :func:`hydromodpy.cli.helpers.resolve_workspace`. Without
+    it through :func:`hydromodpy.cli.refs.resolve_project`, a workspace
+    verb through :func:`hydromodpy.cli.refs.resolve_workspace`. Without
     ``-w`` the verb looks above the current directory and stops when it finds
     nothing: it never falls back on ``~/hydromodpy``.
 
@@ -588,10 +592,111 @@ def add_action_subparsers(
 
 def _require_subcommand(parser: argparse.ArgumentParser) -> None:
     """Print help to stderr and exit 2 when a group is invoked bare."""
-    from hydromodpy.cli.helpers import EXIT_USAGE
-
     parser.print_help(sys.stderr)
     sys.exit(EXIT_USAGE)
+
+
+# ---------------------------------------------------------------------------
+# Console verbosity
+# ---------------------------------------------------------------------------
+
+
+def apply_verbosity(args: Any, raw_toml: Mapping[str, Any]) -> str:
+    """Set the console verbosity of this command and return the level applied.
+
+    Precedence, first source that names one wins: the CLI flag, then
+    ``HMP_VERBOSITY``, then ``[workflow] verbosity`` in the config, then the
+    default. Called before anything prints, so the banner obeys it too.
+    """
+    from hydromodpy.core.logging import (
+        DEFAULT_VERBOSITY,
+        set_verbosity,
+        verbosity_from_env,
+    )
+
+    declared = None
+    workflow_section = raw_toml.get("workflow") if isinstance(raw_toml, Mapping) else None
+    if isinstance(workflow_section, Mapping):
+        declared = workflow_section.get("verbosity")
+
+    level = getattr(args, "verbosity", None) or verbosity_from_env() or declared
+    try:
+        return set_verbosity(level or DEFAULT_VERBOSITY)
+    except ValueError as exc:
+        refuse(str(exc), EXIT_CONFIG, cause=exc)
+
+
+# ---------------------------------------------------------------------------
+# Overrides of a TOML verb: --overlay, --set and HMP_SET_*
+# ---------------------------------------------------------------------------
+
+
+def add_override_arguments(parser: argparse.ArgumentParser) -> None:
+    """Register ``--overlay`` and ``--set``, the flags that change a document on its way in."""
+    parser.add_argument(
+        "--overlay",
+        action="append",
+        default=[],
+        type=Path,
+        help="TOML overlay applied after base_config inheritance. Repeatable.",
+    )
+    parser.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        dest="set_overrides",
+        metavar="PATH=VALUE",
+        help="Dotted TOML override applied after overlays, e.g. flow.param.K.field.value=2e-5.",
+    )
+
+
+def changes_of_args(args: Any, env: Mapping[str, str]) -> dict[str, Any]:
+    """Return what ``--set`` and the ``HMP_SET_*`` variables of *env* change, by dotted path.
+
+    The items of ``--set`` come first, in the order written, then the variables,
+    which win, as they always did. A key is told in the form it was written, so
+    an old name is told when the document is loaded.
+
+    Raises
+    ------
+    ValueError
+        On an item that is not ``PATH=VALUE`` or whose path does not parse.
+    """
+    from hydromodpy.core.toml_io.overrides import (
+        ENV_PATH_SEPARATOR,
+        ENV_SET_PREFIX,
+        env_set_names,
+        parse_override_value,
+    )
+    from hydromodpy.core.toml_io.paths import parse
+
+    changes: dict[str, Any] = {}
+    for item in getattr(args, "set_overrides", None) or []:
+        if "=" not in item:
+            raise ValueError(f"--set expects PATH=VALUE, got {item!r}")
+        dotted, raw = item.split("=", 1)
+        changes[str(parse(dotted.strip()))] = parse_override_value(raw)
+    for name in env_set_names(env):
+        # The case after the prefix is the case of the key, as it always was.
+        dotted = name[len(ENV_SET_PREFIX) :].replace(ENV_PATH_SEPARATOR, ".")
+        changes[str(parse(dotted))] = parse_override_value(env[name])
+    return changes
+
+
+def with_changes(document: Mapping[str, Any], changes: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a copy of *document* with *changes*, a mapping of dotted paths to values, set on it.
+
+    It is the document a verb looks at (its sections, its verbosity); the loader
+    applies the same changes again, as a layer of their own, when it validates.
+    """
+    import copy
+
+    from hydromodpy.core.toml_io.paths import assign
+
+    changed = copy.deepcopy(dict(document))
+    for dotted, value in changes.items():
+        assign(changed, dotted, value)
+    return changed
 
 
 __all__ = (
@@ -606,6 +711,10 @@ __all__ = (
     "RefusedPositional",
     "RefusedVerb",
     "add_action_subparsers",
+    "add_override_arguments",
+    "apply_verbosity",
+    "changes_of_args",
+    "with_changes",
     "add_destination",
     "add_sim_ref",
     "add_workspace_before_the_verb",

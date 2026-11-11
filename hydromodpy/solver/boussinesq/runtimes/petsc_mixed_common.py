@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import (
+from hydromodpy.solver.boussinesq.assembly.residuals import (
     assemble_steady_residual,
     assemble_transient_residual,
 )

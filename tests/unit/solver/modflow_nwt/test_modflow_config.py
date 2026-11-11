@@ -8,14 +8,14 @@ import pytest
 
 from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.catchment.algorithms.flow_products import FlowProducts
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, ExtractError, SolverInputError
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.model import ModelTime
 from hydromodpy.model.properties.property_table import resolve_required_flow_properties
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.solver.modflow6 import Modflow6Config
+from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_common.options import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
@@ -25,7 +25,7 @@ from hydromodpy.solver.modflow_common.routing_context import (
     SolverRoutingContext,
     build_solver_routing_context,
 )
-from hydromodpy.solver.modflow_grid import (
+from hydromodpy.solver.modflow_grid.discretization_temporal import (
     build_temporal_discretization_from_time_grid,
     resolve_first_period_steady,
 )

@@ -18,7 +18,7 @@ from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig, recharge
 if TYPE_CHECKING:
     from shapely.geometry import Polygon
 
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
     from hydromodpy.model.flow import Flow
 
 logger = get_logger(__name__)

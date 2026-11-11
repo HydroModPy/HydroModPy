@@ -15,7 +15,7 @@ import pytest
 from hydromodpy.calibration.optim.fosm import ParameterUncertainty
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners.recap import result_lines, staged_result_lines
-from hydromodpy.cli.helpers import EXIT_CALIBRATION, exit_if_session_unfinished
+from hydromodpy.cli.exit_codes import EXIT_CALIBRATION, exit_if_session_unfinished
 
 
 def _report(**overrides: object) -> CalibrationReport:

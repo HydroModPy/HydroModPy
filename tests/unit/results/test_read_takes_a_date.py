@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 import hydromodpy as hmp
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.run_stores import open_run_store

@@ -15,8 +15,8 @@ import pytest
 import tomlkit
 from pydantic import ValidationError
 
-from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import PRERELEASE_FORMS, fix_config_file
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.config.section_loader import RETIRED_SECTIONS
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.solver.base.simulation_config import SimulationConfig

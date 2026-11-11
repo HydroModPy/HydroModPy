@@ -15,11 +15,11 @@ import pandas as pd
 import pytest
 from shapely.geometry import LineString, box
 
-from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     STEADY_STAGE,
     TRANSIENT_STAGE,
 )
+from hydromodpy.calibration.protocols.registry import expand_calibration_protocol
 from hydromodpy.catchment.algorithms import network_heads
 from hydromodpy.catchment.stream_network import geometry as stream_geometry
 from hydromodpy.catchment.stream_network.geometry import build_network_geometry, scored_cells
@@ -29,7 +29,7 @@ from hydromodpy.core.scoring.stream_defaults import (
     parse_visible_flow,
 )
 from hydromodpy.core.time.selection import resolve_state
-from hydromodpy.core.units import factor_to_m_per_s
+from hydromodpy.core.units.quantities import factor_to_m_per_s
 from hydromodpy.display.figures._stream_comparison import compared_timestep, dated_title
 from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.model.forcing.recharge_rates import (
@@ -38,23 +38,23 @@ from hydromodpy.model.forcing.recharge_rates import (
     forcing_period_rates,
     mean_recharge_m_s,
 )
-from hydromodpy.results.derive.stream import criterion_inputs, run_extent
-from hydromodpy.results.derive.stream.comparison import (
+from hydromodpy.results.derive.stream_network import criterion_inputs, run_extent
+from hydromodpy.results.derive.stream_network.comparison import (
     has_recharge_source,
     network_comparison_from_run,
     no_recharge_reason,
     unavailable_reason_for_comparison,
 )
-from hydromodpy.results.derive.stream.criterion_inputs import catchment_cells
-from hydromodpy.results.derive.stream.criterion_settings import (
+from hydromodpy.results.derive.stream_network.criterion_inputs import catchment_cells
+from hydromodpy.results.derive.stream_network.criterion_settings import (
     DEFAULT_CRITERION_SETTINGS,
     DEFAULT_EXTENT_RULES,
     NetworkExtentRules,
     network_criterion_settings,
     network_outputs_of_run,
 )
-from hydromodpy.results.derive.stream.heads_view import network_heads_view_from_run
-from hydromodpy.results.derive.stream.run_extent import (
+from hydromodpy.results.derive.stream_network.heads_view import network_heads_view_from_run
+from hydromodpy.results.derive.stream_network.run_extent import (
     block_flow_counts,
     flow_geometry_from_run,
     graph_role,
@@ -322,7 +322,7 @@ def test_other_data_still_warns(caplog) -> None:
 
 
 def _monthly_window(start: str, end: str):
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 
     return ResolvedSimulationTimeWindow(
         start=pd.Timestamp(start),
@@ -354,7 +354,7 @@ def _monthly_window(start: str, end: str):
 )
 def test_the_criterion_rates_are_the_rates_the_model_is_forced_with(samples: pd.Series) -> None:
     """Two copies of one rule: the solver forcing and the criterion must not drift apart."""
-    from hydromodpy.core.time import build_simulation_time_boundaries
+    from hydromodpy.core.time.window import build_simulation_time_boundaries
     from hydromodpy.model.forcing.time_alignment import align_forcing_series_to_simulation_window
 
     window = _monthly_window("2000-01-01", "2000-05-31")

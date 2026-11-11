@@ -21,9 +21,7 @@ from dataclasses import replace
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.solver.boussinesq.assembly import (
-    BoussinesqAssembly,
-)
+from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.jacobian.fd import (
     build_cell_coupling_rows_by_column,
     build_colored_sparse_fd_jacobian_triplets,

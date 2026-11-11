@@ -3,7 +3,7 @@
 Builds the argparse tree from :mod:`hydromodpy.cli.commands` and invokes
 the subcommand handler attached via ``parser.set_defaults(_handler=...)``.
 Unhandled exceptions are mapped to typed exit codes by
-:func:`hydromodpy.cli.helpers.exit_code_for` so the shell sees a meaningful
+:func:`hydromodpy.cli.exit_codes.exit_code_for` so the shell sees a meaningful
 status (POSIX-conventional 130 for SIGINT, 10..23 for specific failure
 categories).
 """
@@ -17,7 +17,8 @@ import platform
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_USAGE, apply_verbosity, fail
+from hydromodpy.cli.conventions import apply_verbosity
+from hydromodpy.cli.exit_codes import EXIT_USAGE, fail
 
 
 def _version_string() -> str:
@@ -92,7 +93,7 @@ def main(argv: list[str] | None = None) -> None:
     """Parse ``argv`` and dispatch to the matching subcommand.
 
     Unhandled exceptions raised by a subcommand handler are routed through
-    :func:`hydromodpy.cli.helpers.exit_code_for` so the shell sees the right
+    :func:`hydromodpy.cli.exit_codes.exit_code_for` so the shell sees the right
     typed exit code, with the ``HMPY.Exxx`` of the failure first on the line
     stderr gets. ``SystemExit`` propagates unchanged.
 
@@ -127,10 +128,6 @@ def _dispatch(argv: list[str] | None) -> None:
     # Named after the verb too, the last one on the line wins, as a repeated flag does.
     args.workspace = getattr(args, "workspace", None) or getattr(args, WORKSPACE_ROOT_DEST)
 
-    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
-
-    # PROJ_DATA is set once when hydromodpy is imported, so only the pipeline is filled here.
-    fill_trial_pipeline()
     with stdout_for_a_program(args):
         try:
             # The flag, else HMP_VERBOSITY. A TOML verb applies it again with its file.

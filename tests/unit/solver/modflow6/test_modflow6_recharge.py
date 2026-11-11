@@ -17,9 +17,9 @@ from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.base.plan import RunSlot
-from hydromodpy.solver.modflow6.build import _shared_forcing_dir
 from hydromodpy.solver.modflow6.builders.recharge import (
     RECHARGE_BINARY_MIN_PERIODS,
+    _shared_forcing_dir,
     bind_recharge_from_flow,
     externalize_recharge_spd,
     recharge_to_spd,
@@ -319,11 +319,15 @@ def test_the_model_never_carries_the_stack_as_an_attribute() -> None:
     import inspect
 
     from hydromodpy.solver.modflow6 import build
+    from hydromodpy.solver.modflow6.builders import recharge
 
     # Comments are stripped: the line explaining WHY the attribute is gone names
     # it, and a test that matched its own explanation would never fail.
     code = [
-        line for line in inspect.getsource(build).splitlines() if not line.lstrip().startswith("#")
+        line
+        for module in (build, recharge)
+        for line in inspect.getsource(module).splitlines()
+        if not line.lstrip().startswith("#")
     ]
     offenders = [line.strip() for line in code if "model.rch_spd" in line]
     assert not offenders, (

@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from hydromodpy.results.catalog import Catalog, rebuild_index
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.metric_rule import DateWindow
 from tests._helpers.sealed_runs import make_project, seal_run
 

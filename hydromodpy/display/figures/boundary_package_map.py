@@ -65,7 +65,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.patches import Patch
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 BOUNDARY_PACKAGES: dict[str, tuple[str, str]] = {
     "drain": ("DRN", "#332288"),

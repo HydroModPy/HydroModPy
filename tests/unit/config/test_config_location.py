@@ -7,8 +7,8 @@ import pytest
 
 
 def test_hydromodpy_config_canonical_imports_match() -> None:
-    from hydromodpy.config import HydroModPyConfig as canonical_pkg
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig as canonical_module
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig as canonical_pkg
 
     assert canonical_pkg is canonical_module
 
@@ -33,7 +33,7 @@ def test_core_hydromodpy_config_export_is_removed() -> None:
     import hydromodpy.core as legacy_core
 
     legacy_core.__dict__.pop("HydroModPyConfig", None)
-    assert "HydroModPyConfig" not in legacy_core.__all__
+    assert "HydroModPyConfig" not in vars(legacy_core).get("__all__", ())
     with pytest.raises(AttributeError):
         _ = legacy_core.HydroModPyConfig
 

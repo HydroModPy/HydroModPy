@@ -10,7 +10,7 @@ import tarfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT
+from hydromodpy.cli.exit_codes import EXIT_WRITE_CONFLICT
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.export.publish import publish
@@ -85,7 +85,7 @@ def test_a_second_import_of_the_same_run_is_a_write_conflict(
 
 
 def test_a_missing_source_is_not_found(tmp_path: Path, monkeypatch) -> None:
-    from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+    from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND
 
     project = _project(tmp_path)
     code = _hmp(monkeypatch, "catalog", "import", str(tmp_path / "nope.tar"), "-w", str(project))

@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.record.manifest import MetricRow
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.fixtures_catalog import simulation_catalog

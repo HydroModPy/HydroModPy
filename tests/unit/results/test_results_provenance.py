@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.results.storage.array_fingerprint import fingerprint, verify_fingerprint
+from hydromodpy.results.storage.array_fingerprint import fingerprint
 
 
 class TestFingerprint:
@@ -40,21 +40,17 @@ class TestFingerprint:
         assert fp["shape"] == [4, 3]
 
 
-class TestVerifyFingerprint:
-    def test_match(self):
+class TestTheFingerprintFollowsTheData:
+    def test_the_same_data_gives_the_same_fingerprint(self):
         data = np.random.default_rng(7).random(200)
-        fp = fingerprint(data)
-        assert verify_fingerprint(fp, data)
+        assert fingerprint(data.copy()) == fingerprint(data)
 
-    def test_mismatch(self):
+    def test_a_change_of_one_value_changes_the_checksum(self):
         data = np.random.default_rng(7).random(200)
-        fp = fingerprint(data)
         altered = data.copy()
         altered[0] += 1e-10
-        assert not verify_fingerprint(fp, altered)
+        assert fingerprint(altered)["checksum"] != fingerprint(data)["checksum"]
 
-    def test_non_contiguous_verify(self):
+    def test_a_non_contiguous_view_and_its_copy_agree(self):
         data = np.arange(20, dtype="float64").reshape(4, 5)
-        fp = fingerprint(data)
-        view = np.ascontiguousarray(data)
-        assert verify_fingerprint(fp, view)
+        assert fingerprint(np.ascontiguousarray(data)) == fingerprint(data)

@@ -8,7 +8,6 @@ reads ``unit`` as ``units``.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from numbers import Real
 from typing import Annotated, TypeVar
 
 from pydantic import Field
@@ -90,37 +89,3 @@ def _normalize(model: type[_Model], value: object, default_id: str, location_pre
     if "unit" in payload:
         payload.setdefault("units", payload.pop("unit"))
     return model.model_validate(payload)
-
-
-def normalize_initial_condition_payload(
-    value: object,
-    *,
-    default_id: str = "initial_condition",
-    location_prefix: str = "process.ic",
-) -> InitialCondition:
-    """Normalize one generic initial-condition payload, a mapping or a number, into `InitialCondition`."""
-    if isinstance(value, bool):
-        raise TypeError(f"{location_prefix} must be a mapping or numeric value")
-    if isinstance(value, Real):
-        return InitialCondition(id=default_id, value=float(value))
-    return _normalize(InitialCondition, value, default_id, location_prefix)
-
-
-def normalize_boundary_condition_payload(
-    value: object,
-    *,
-    default_id: str = "boundary_condition",
-    location_prefix: str = "process.bc",
-) -> BoundaryCondition:
-    """Normalize one generic boundary-condition payload into `BoundaryCondition`."""
-    return _normalize(BoundaryCondition, value, default_id, location_prefix)
-
-
-def normalize_sink_source_payload(
-    value: object,
-    *,
-    default_id: str = "sink_source",
-    location_prefix: str = "process.sinks_sources",
-) -> SinkSource:
-    """Normalize one generic sink/source payload into `SinkSource`."""
-    return _normalize(SinkSource, value, default_id, location_prefix)

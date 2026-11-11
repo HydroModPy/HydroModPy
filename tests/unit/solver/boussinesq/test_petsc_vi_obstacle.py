@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 import hydromodpy.solver.boussinesq.runtimes.petsc_vi_obstacle as vi_runtime
-from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
+from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
     RuntimeSolveResult,

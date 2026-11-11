@@ -55,7 +55,8 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import CATCHMENT
 
 if TYPE_CHECKING:
-    from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl
+    from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+    from hydromodpy.calibration.config_outputs import CalibOutputDecl
     from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 
 logger = get_logger(__name__)

@@ -14,10 +14,11 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.results.catalog import Catalog, rebuild_index
-from hydromodpy.results.run import Run
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.run.view import Run
 from tests._helpers.sealed_runs import make_project, seal_run
 
 _CATALOG_TOML = """\

@@ -10,7 +10,8 @@ import numpy as np
 
 from hydromodpy.mesh.io.bundle import load_catchment_mesh_bundle
 from hydromodpy.model.flow import Flow
-from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqState
+from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
+from hydromodpy.solver.boussinesq.state import BoussinesqState
 from validation_cases.analytical.transient.runtime_boussinesq_1d import (
     aggregate_triangle_history_to_structured_fields,
 )

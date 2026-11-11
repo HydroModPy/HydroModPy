@@ -14,7 +14,7 @@ from hydromodpy.display.figure_options import Station, Variable
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 _MONTH_NAMES = (

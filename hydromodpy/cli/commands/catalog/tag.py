@@ -10,8 +10,9 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_USAGE, project_root_of, refuse
+from hydromodpy.cli.exit_codes import EXIT_USAGE, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 
 NAME: str = "tag"
 HELP: str = "Add or remove tags on a run (reserved tag: pinned, kept out of trash and gc)"

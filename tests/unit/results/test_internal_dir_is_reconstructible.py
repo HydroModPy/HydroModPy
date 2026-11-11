@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME, catalog_path_for, internal_dir
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from tests._helpers.sealed_runs import make_project, seal_run, write_attempt, write_session_dir
 
 _CASE_STATE_SQL = (

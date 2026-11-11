@@ -41,7 +41,7 @@ from hydromodpy.display.figures._stream_comparison import annotate_note, cell_co
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.style import neutral
-from hydromodpy.results.derive.stream.routing_surface import (
+from hydromodpy.results.derive.stream_network.routing_surface import (
     RoutingSurface,
     routing_surface_from_run,
     unavailable_reason_for_routing,
@@ -50,8 +50,8 @@ from hydromodpy.results.derive.stream.routing_surface import (
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
     from hydromodpy.results.run.descent import RunDescent
+    from hydromodpy.results.run.view import Run
 
 OCTANT_NAMES: tuple[str, ...] = ("E", "NE", "N", "NW", "W", "SW", "S", "SE")
 """The eight bearings, counter-clockwise from east, as octant ``k`` at ``45k``."""

@@ -56,7 +56,7 @@ from hydromodpy.solver.modflow_nwt.nwt.payloads.well_drainage import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 
 
 def _sink_mask_on_grid(solver_mesh: SolverMesh, sink: np.ndarray) -> np.ndarray:

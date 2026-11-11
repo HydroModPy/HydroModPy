@@ -16,10 +16,10 @@ from hydromodpy.display.figures.matching_hydrographic_network_card import (
     MatchingHydrographicNetworkCard,
 )
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, relative_luminance
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.record.checks import CalibratedBy
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.session.descriptor import ParameterBound
 from hydromodpy.results.session.journal import append_trial
 from hydromodpy.results.session.phase import PhaseDescriptor, write_phase
@@ -285,7 +285,7 @@ def test_stage_one_reports_the_value_it_closed_on_and_the_bracket(mpl, tmp_path)
         ax = _panel(fig, "Stage 1")
         assert ax.get_xscale() == "log"
         assert ax.get_xlabel() == "K_over_R (-)"
-        assert "root_search" in ax.get_title()
+        assert "root search" in ax.get_title()
 
         marker = _line(ax, "K_over_R =")
         assert marker.get_xdata()[0] == pytest.approx(CLOSED_VALUE)
@@ -619,7 +619,7 @@ def test_the_phases_are_ordered_by_the_chain_not_by_the_table(mpl, tmp_path) -> 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
-        assert "root_search" in _panel(fig, "Stage 1").get_title()
+        assert "root search" in _panel(fig, "Stage 1").get_title()
         assert "storage" in _panel(fig, "Stage 2").get_title()
     finally:
         mpl.close(fig)
@@ -1111,7 +1111,7 @@ def test_the_suffixes_the_card_reads_are_the_ones_the_criterion_writes() -> None
 
 
 def test_h_obs_is_read_under_the_key_the_run_verdict_reads() -> None:
-    from hydromodpy.calibration.runners.search import _eq4_verdict
+    from hydromodpy.calibration.runners.search_record import _eq4_verdict
     from hydromodpy.display.figures.matching_hydrographic_network_card import H_OBS_KEY
 
     found = {
@@ -1258,11 +1258,11 @@ def test_the_run_of_the_second_phase_draws_the_first_one(chain, mpl) -> None:
 
     try:
         stage_one = _panel(fig, "Stage 1")
-        assert stage_one.get_title() == "Stage 1 - steady_conductivity"
+        assert stage_one.get_title() == "Stage 1 - steady conductivity"
         assert stage_one.get_xlabel() == "K_over_R (m/s)"
         assert "closed on K_over_R = 3.2e-05" in _texts(stage_one)
         stage_two = _panel(fig, "Stage 2")
-        assert stage_two.get_title() == "Stage 2 - transient_storage"
+        assert stage_two.get_title() == "Stage 2 - transient storage"
         assert stage_two.get_ylabel() == "cost, nse_log (-)"
         validity = _panel(fig, "Validity of the agreement")
         assert validity.patches, "the validity of stage 1 is drawn, not left empty"
@@ -1278,9 +1278,9 @@ def test_the_run_of_the_first_phase_says_the_second_comes_next(chain, mpl) -> No
     fig = MatchingHydrographicNetworkCard().plot(Session.of_run(run), promoted=run)
 
     try:
-        assert _panel(fig, "Stage 1").get_title() == "Stage 1 - steady_conductivity"
+        assert _panel(fig, "Stage 1").get_title() == "Stage 1 - steady conductivity"
         stage_two = _panel(fig, "Stage 2")
-        assert stage_two.get_title() == "Stage 2 - transient_storage"
+        assert stage_two.get_title() == "Stage 2 - transient storage"
         assert "comes next" in _texts(stage_two)
         assert "not run" not in _texts(stage_two)
     finally:

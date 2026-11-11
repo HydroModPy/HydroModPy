@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
+from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.runtimes.petsc_mixed import (
     _assembly_with_dry_deficit,
     _clip_free_head_to_obstacles,

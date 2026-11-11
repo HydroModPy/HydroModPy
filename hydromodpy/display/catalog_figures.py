@@ -42,7 +42,7 @@ def render_figure(
     """
     from hydromodpy.display.runs import figure_options_from_run, figures_dir_of, record_figure
     from hydromodpy.display.runs import render_figure as render_one_figure
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     workspace_root = project_root_at(workspace)
     with Catalog(workspace_root) as catalog:
@@ -70,7 +70,7 @@ def regen_figures(sim_ref: str, *, workspace: Any = None) -> list[Path]:
     """
     from hydromodpy.display.runs import log_render_summary
     from hydromodpy.display.runs import regen_figures as regen_run_figures
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     workspace_root = project_root_at(workspace)
     with Catalog(workspace_root) as catalog:
@@ -150,7 +150,7 @@ def figure_availability(sim_ref: str, *, workspace: Any = None) -> list[tuple[An
     several runs. The index is opened read-only.
     """
     from hydromodpy.display.runs import figure_availability as availability_of
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     workspace_root = project_root_at(workspace)
     with Catalog(workspace_root) as catalog:

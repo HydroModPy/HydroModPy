@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.results.exporters.export_spec import ExportRequest, load_export_requests
 

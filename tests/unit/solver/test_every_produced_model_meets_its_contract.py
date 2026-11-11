@@ -99,7 +99,7 @@ def test_the_contract_stays_the_measured_one() -> None:
 # existing run builds nothing new and is not a site.
 RESULT_BUILDERS = {
     "solver/boussinesq/adapter.py": "Boussinesq",
-    "solver/modflow_common/flow_adapter_helpers.py": "Modflow6 or ModflowNwt",
+    "solver/modflow_common/flow_run.py": "Modflow6 or ModflowNwt",
     "solver/modflow6/rerun.py": "Modflow6",
     "solver/modflow6/transport.py": "Modflow6Transport",
     "solver/modflow6/prt.py": "Modflow6Prt",

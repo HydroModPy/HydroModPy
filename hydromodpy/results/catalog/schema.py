@@ -15,7 +15,7 @@ import duckdb
 class SchemaDiscoveryMixin:
     """Schema-introspection methods for :class:`Catalog`.
 
-    Relies on the facade attribute ``self._backend`` (CatalogBackend port).
+    Relies on the facade attribute ``self._backend`` (a ``DuckDBBackend``).
     """
 
     def tables(self) -> list[str]:

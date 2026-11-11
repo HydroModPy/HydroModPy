@@ -7,7 +7,9 @@ only when they cover the same dates, and two maps only at the same date.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,7 +20,7 @@ import pandas as pd
 from scipy.spatial import cKDTree
 
 from hydromodpy.core.exceptions import ResultsError
-from hydromodpy.core.state.layout import runs_dir_for
+from hydromodpy.core.state.layout import runs_dir_for, summary_dir_for
 from hydromodpy.display.run_comparison import draw_maps, draw_series
 from hydromodpy.project.facade import read_sealed_config
 from hydromodpy.project.show import render
@@ -27,6 +29,7 @@ from hydromodpy.results.metric_rule import HEADLINE_WINDOW
 from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.run.tables import global_parameters
 from hydromodpy.results.run.view import Run, open_run_dir
+from hydromodpy.results.storage.contract import RUN_REPORT_DIRNAME
 
 MAP_VARIABLES = ("watertable_elevation", "watertable_depth")
 SERIES_VARIABLES = ("discharge", "head")
@@ -458,6 +461,17 @@ def _latest_of_recipe(runs_dir: Path | None, recipe: str) -> list[Run]:
         for run in sorted(of_recipe, key=lambda run: run.record.run.version)
     }
     return [latest[case] for case in sorted(latest)]
+
+
+def compare_folder(refs: Sequence[str], project_root: Path | None) -> Path:
+    """Return ``summary/report/compare/<refs>/`` of the project, the folder a comparison writes to."""
+    if project_root is None:
+        raise ComparisonCaseError("No project around the runs to write into: pass --to DIR.")
+    slugs = [re.sub(r"[^A-Za-z0-9_.-]+", "_", Path(ref).name or ref).strip("_") for ref in refs]
+    name = "-vs-".join(slug for slug in slugs if slug)
+    if not name or len(name) > 96:
+        name = hashlib.sha256("\n".join(refs).encode("utf-8")).hexdigest()[:12]
+    return summary_dir_for(project_root) / RUN_REPORT_DIRNAME / "compare" / name
 
 
 def compare_references(

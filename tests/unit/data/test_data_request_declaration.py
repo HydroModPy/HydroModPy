@@ -146,7 +146,7 @@ def test_an_argument_the_installed_source_demands_is_refused_when_missing(
 def test_a_constructor_that_refuses_its_options_is_a_fault_of_the_request(
     isolated_registry, tmp_path
 ) -> None:
-    from hydromodpy.data import run_request
+    from hydromodpy.data.request.engine import run_request
 
     class TypedSource(AcmeRadarSource):
         source_id: ClassVar[str] = "acme-typed"

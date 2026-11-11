@@ -1,0 +1,98 @@
+[workflow]
+mode = "simulation"
+
+[site]
+name = "island"
+
+[workspace]
+
+[simulation]
+name = "tri"
+
+[simulation.results]
+keep_solver_files = false
+
+[simulation.results.persistence]
+field_precision = "exact"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+[display]
+enabled = false
+
+[simulation.time]
+start_datetime = "2003-01-01"
+end_datetime = "2003-03-31"
+step_value = "1 month"
+coverage_policy = "ignore"
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "island"
+
+[geographic.synthetic.grid]
+length_x = "610.0 m"
+length_y = "610.0 m"
+nx = 31
+ny = 31
+
+[geographic.synthetic.topography]
+kind = "radial_island"
+base_elevation = -1.0
+crest_elevation = 12.0
+island_radius = "200.0 m"
+
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = -5.0
+
+[data]
+types = ["oceanic"]
+
+[[data.oceanic.sources]]
+source = "constant"
+value = 0.0
+
+
+[flow]
+flow_regime = "transient"
+first_period_steady = true
+param_list = ["K", "Sy", "Ss"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+value = "5e-6 m/s"
+
+[flow.bc.ocean]
+kind = "dirichlet"
+value = "0.0 m"
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
+values = [1.0, 4.0, 2.0]
+
+[domain.layers]
+nlay = 1
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.1
+
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+[mesh]
+engine = "triangle"
+cell_size = 30.0
+
+[solver.modflow6.runtime]
+mf6_enable_xt3d = false

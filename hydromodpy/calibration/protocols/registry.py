@@ -14,12 +14,9 @@ from typing import Any, Literal
 
 from pydantic import TypeAdapter, ValidationError
 
-from hydromodpy.calibration.config import (
-    CalibObjectiveBlockDecl,
-    CalibPhaseDecl,
-    apply_project_defaults,
-    fold_a_legacy_regime,
-)
+from hydromodpy.calibration.config import apply_project_defaults
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+from hydromodpy.calibration.config_phases import CalibPhaseDecl, fold_a_legacy_regime
 from hydromodpy.calibration.protocols.base import CalibrationProtocol, support_by_backend
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     MatchingHydrographicNetwork,

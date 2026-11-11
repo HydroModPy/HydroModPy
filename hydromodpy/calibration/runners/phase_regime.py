@@ -25,7 +25,7 @@ from typing import Any
 
 import pandas as pd
 
-from hydromodpy.calibration.config import CalibPhaseDecl
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
 
 
 def phase_overrides(phase: CalibPhaseDecl, document: Mapping[str, Any]) -> dict[str, Any]:

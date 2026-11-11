@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 
 from hydromodpy.cli.conventions import add_destination
-from hydromodpy.cli.helpers import EXIT_CONFIG, exit_code_for, refuse
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, exit_code_for, refuse
 from hydromodpy.core.exceptions import HydroModPyError
 from hydromodpy.project.examples.generate import write_catalog
 from hydromodpy.project.examples.rows import summary

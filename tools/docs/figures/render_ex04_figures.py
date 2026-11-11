@@ -226,7 +226,7 @@ def refuse_inside_repository(workspace: Path) -> None:
 
 
 def _existing_runs(project: Path) -> set[str]:
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     try:
         with Catalog(project) as catalog:
@@ -359,7 +359,7 @@ class Drawer:
     """Open the project catalog once and draw figures from its runs."""
 
     def __init__(self, project: Path) -> None:
-        from hydromodpy.results.catalog import Catalog
+        from hydromodpy.results.catalog.facade import Catalog
 
         self.catalog = Catalog(project)
         self.project = project

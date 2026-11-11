@@ -7,7 +7,9 @@ package carries the adapters that bind a workflow name to a `Project`, and `repl
 sealed run or a published copy again and classes what it compared. `project` sits above the
 matrix and reads every layer; no lower layer reads it, the package root and `cli` excepted. One
 global crosses to a lower layer: the trial pipeline of `calibration/runners/trial.py`, filled
-here by `fill_trial_pipeline`. No other adapter is wired through a global.
+here by `fill_trial_pipeline`. No other adapter is wired through a global. Each entry that reads
+the pipeline fills it: `route_calibration`, `calibrate_project`, `promote_trial` and `rerun_config`.
+The command line fills nothing.
 
 `api.py` holds the fifteen verbs that `hydromodpy` and `hmp` expose, and its `__all__` is these fifteen. A
 verb takes text, numbers, paths and mappings and gives back a value with `to_dict`, a path or

@@ -68,19 +68,6 @@ def resolve_flow_regime(model: Model) -> str:
     return str(model.time.regime)
 
 
-def resolve_surface_interaction_model(
-    runtime: BoussinesqOptions, *, n_cells: int | None = None
-) -> str:
-    """Return the selected groundwater/surface interaction closure."""
-    return resolve_surface_interaction_model_token(
-        runtime_backend_name=resolve_runtime_backend_name(
-            runtime_backend_name(runtime),
-            n_cells=n_cells,
-        ),
-        surface_interaction_model=runtime.surface_interaction_model,
-    )
-
-
 def steady_initialization_runtime(runtime: BoussinesqOptions) -> BoussinesqOptions:
     """Return the options of the auxiliary steady solve of a ``steady_state`` start.
 
@@ -237,7 +224,6 @@ __all__ = [
     "resolve_flow_regime",
     "resolve_runtime_backend_name",
     "resolve_solver_contract",
-    "resolve_surface_interaction_model",
     "runtime_backend_name",
     "steady_initialization_runtime",
 ]

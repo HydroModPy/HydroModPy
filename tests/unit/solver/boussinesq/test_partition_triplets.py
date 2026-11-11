@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import (
+from hydromodpy.solver.boussinesq.assembly.fluxes import (
     accumulate_internal_flux_residual,
     boundary_head_edge_flux_from_head,
     internal_edge_flux_from_head,
-    resolve_boundary_head_inputs,
 )
+from hydromodpy.solver.boussinesq.assembly.inputs import resolve_boundary_head_inputs
 from hydromodpy.solver.boussinesq.assembly.residuals import (
     assemble_transient_residual_with_saturation_excess,
 )
@@ -176,10 +176,10 @@ def _transient_solver_residual(
     return np.asarray(assembly.solver_residual, dtype=float)
 
 
-def test_boussinesq_package_keeps_mesh_import_lightweight() -> None:
-    import hydromodpy.solver.boussinesq as package
+def test_boussinesq_mesh_is_read_from_its_own_module() -> None:
+    from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
-    assert package.BoussinesqMesh.__name__ == "BoussinesqMesh"
+    assert BoussinesqMesh.__name__ == "BoussinesqMesh"
 
 
 def test_partition_triplets_match_finite_difference_surface_contribution() -> None:

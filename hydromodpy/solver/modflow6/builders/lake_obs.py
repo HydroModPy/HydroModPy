@@ -31,8 +31,10 @@ if TYPE_CHECKING:
 # requested by boundname through flopy (its writer increments integer ids and
 # chokes on strings), so every observation uses the integer lake / connection
 # number and the lake-aquifer exchange is reconstructed from the per-connection
-# terms. ext-outflow / to-mvr / outlet are NOT here: MF6 keys them by outlet
-# number, so they are requested in the per-outlet loop instead.
+# terms. The MF6 ``storage`` obs is stored as ``lake_storage``, because
+# ``storage`` names the budget field of the aquifer. ext-outflow / to-mvr /
+# outlet are NOT here: MF6 keys them by outlet number, so they are requested in
+# the per-outlet loop instead.
 _LAKE_SCALAR_OBSTYPES: tuple[tuple[str, str], ...] = (
     ("stage", "stage"),
     ("volume", "volume"),
@@ -43,7 +45,7 @@ _LAKE_SCALAR_OBSTYPES: tuple[tuple[str, str], ...] = (
     ("evaporation", "evaporation"),
     ("runoff", "runoff"),
     ("withdrawal", "withdrawal"),
-    ("storage", "storage"),
+    ("storage", "lake_storage"),
 )
 
 

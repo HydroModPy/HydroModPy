@@ -303,7 +303,7 @@ def exit_codes() -> list[dict[str, Any]]:
     """EXIT_* constants of the CLI and the exceptions exit_code_for maps onto each."""
     import importlib
 
-    helpers = importlib.import_module("hydromodpy.cli.helpers")
+    helpers = importlib.import_module("hydromodpy.cli.exit_codes")
     codes = {
         name: value
         for name, value in vars(helpers).items()
@@ -525,7 +525,7 @@ def exceptions(codes: list[dict[str, Any]], verbs: list[dict[str, Any]]) -> list
 
     from hydromodpy.core.exceptions import HydroModPyError
 
-    helpers = importlib.import_module("hydromodpy.cli.helpers")
+    helpers = importlib.import_module("hydromodpy.cli.exit_codes")
     exit_names = {e["code"]: e["name"] for e in codes}
     classes: list[type[BaseException]] = []
     for module_name in exception_modules(codes):
@@ -680,17 +680,23 @@ def command_exit_codes(
 
     The handler and the functions of its own module it calls are scanned for
     ``sys.exit(...)``, ``raise SystemExit(...)`` and ``refuse(message, code)``, and so
-    are the functions of ``cli/helpers.py`` it calls. A ``fail(exc)`` or a
+    are the functions of ``cli/exit_codes.py``, ``cli/refs.py``, ``cli/conventions.py`` and
+    ``cli/profiling.py`` it calls. A ``fail(exc)`` or a
     ``sys.exit(exit_code_for(exc))`` is reported as the mapped exit, whose code is the
     one of the exception class.
     """
     import importlib
 
     by_name = {e["name"]: e["code"] for e in codes}
-    helpers = importlib.import_module("hydromodpy.cli.helpers")
     helper_funcs = {
         n.name: n
-        for n in ast.parse(Path(helpers.__file__).read_text()).body
+        for module_name in (
+            "hydromodpy.cli.exit_codes",
+            "hydromodpy.cli.refs",
+            "hydromodpy.cli.conventions",
+            "hydromodpy.cli.profiling",
+        )
+        for n in ast.parse(Path(importlib.import_module(module_name).__file__).read_text()).body
         if isinstance(n, ast.FunctionDef)
     }
 

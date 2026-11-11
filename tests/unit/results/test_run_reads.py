@@ -19,14 +19,14 @@ import pytest
 import hydromodpy as hmp
 from hydromodpy.catchment.drainage.descent import Descent, descent_from_stored_mesh
 from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
+from hydromodpy.core.budget.terms import budget_terms_for
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.core.time.time_method import OBSERVABLE_TIME_METHODS
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive import views
-from hydromodpy.results.derive.config_flags import config_option_for
-from hydromodpy.results.derive.stream.run_extent import _release_rows
+from hydromodpy.results.derive.stream_network.run_extent import _release_rows
 from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
     first_period_start,
@@ -42,7 +42,6 @@ from hydromodpy.results.readme import _checks_section, render_session_readme
 from hydromodpy.results.record.checks import BUDGET_RULE, FROZE_BUDGET_ONLY, CalibratedBy
 from hydromodpy.results.record.manifest import InputEntry, read_manifest
 from hydromodpy.results.record.request_identity import RESTART_KEY, ZONE_RUN_KEY, request_id
-from hydromodpy.results.run import Run
 from hydromodpy.results.run.contracts import Mesh, polygon_areas
 from hydromodpy.results.run.descent import (
     RunDescent,
@@ -53,11 +52,12 @@ from hydromodpy.results.run.descent import (
 from hydromodpy.results.run.geographic import field_range, field_steps
 from hydromodpy.results.run.periods import RunPeriods
 from hydromodpy.results.run.timeseries import RunTimeseriesMixin
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.session.descriptor import SessionDescriptor, write_session
 from hydromodpy.results.session.phase import PhaseDescriptor
 from hydromodpy.results.session.summary import session_summary, summary_rows
 from hydromodpy.results.session.view import Session
-from hydromodpy.results.source_runs import resolve_source_runs, source_run_id
+from hydromodpy.results.source_runs import source_run_id
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.storage.parquet_io import read_kv_metadata
@@ -65,8 +65,8 @@ from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.results.trash import list_trash
 from hydromodpy.results.validity_rules import RULE_VERSION, label_for
-from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.modflow_common.descent_store import (
     write_descent_sidecar,
     write_descent_sidecar_to_store,
@@ -571,7 +571,7 @@ class TestTheErrors:
 
         assert str(by_range.value) == str(by_step.value)
         assert str(by_reader_range.value) == str(by_catalog_step.value)
-        if config_option_for(variable) is not None:
+        if budget_terms_for(variable):
             assert "run the simulation again" in str(by_range.value)
 
     @pytest.mark.parametrize("variable", ["head", "release_flux", "watertable_elevation"])
@@ -2495,25 +2495,6 @@ def test_a_prefix_that_matches_two_runs_names_none(project_2: Path) -> None:
 
     assert source_run_id(project_2, "ab" * 4) is None
     assert source_run_id(project_2, "ab" * 8 + "cd") == "ab" * 8 + "cd" * 8
-
-
-def test_the_references_of_a_payload_are_written_as_sim_ids(project_2: Path) -> None:
-    sim_id = _sealed_3(project_2, "spinup")
-    payload = _config(project_2, zone_run="spinup", restart="spinup")
-
-    resolve_source_runs(payload, project_2)
-
-    assert payload["mesh"]["refinement_zone"][0]["run"] == sim_id
-    assert payload["flow"]["restart_from"] == sim_id
-
-
-def test_a_reference_to_nothing_is_left_as_written(project_2: Path) -> None:
-    payload = _config(project_2, zone_run="nowhere", restart="elsewhere")
-
-    resolve_source_runs(payload, project_2)
-
-    assert payload["mesh"]["refinement_zone"][0]["run"] == "nowhere"
-    assert payload["flow"]["restart_from"] == "elsewhere"
 
 
 def test_a_zone_is_told_by_the_state_it_reads_and_not_by_the_name_of_its_run(

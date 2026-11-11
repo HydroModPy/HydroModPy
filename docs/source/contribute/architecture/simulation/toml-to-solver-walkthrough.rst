@@ -131,7 +131,7 @@ The adapter is the narrow bridge to a solver:
 - ``solver/modflow6/transport.py`` and ``solver/modflow6/prt.py``
 
 For the MODFLOW family, the adapters stay thin and the shared lifecycle is in
-``solver/modflow_common/flow_adapter_helpers.py``. The flow backends are
+``solver/modflow_common/flow_run.py``. The flow backends are
 ``solver/modflow_nwt``, ``solver/modflow6`` and ``solver/boussinesq``.
 
 Persistence

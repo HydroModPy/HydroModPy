@@ -10,15 +10,18 @@ import pandas as pd
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from hydromodpy.calibration.config import (
-    CalibOutputPoint,
-    CalibPhaseDecl,
-    CalibrationConfig,
-    MatchingHydrographicNetworkOptions,
-)
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_network import MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.config_outputs import CalibOutputPoint
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.core.config_kit.field_param.sections import normalize_values
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
-from hydromodpy.core.site import GaugeConflictError, SiteConfig, resolve_gauge, site_fingerprint
+from hydromodpy.core.site.config import (
+    GaugeConflictError,
+    SiteConfig,
+    resolve_gauge,
+    site_fingerprint,
+)
 from hydromodpy.core.site.row import SiteRow
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.families.timeseries_config import TimeseriesSelectionMixin

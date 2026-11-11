@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.config import CalibUncertaintyDecl
+from hydromodpy.calibration.config_phases import CalibUncertaintyDecl
 from hydromodpy.calibration.metrics import composite as _composite
 from hydromodpy.calibration.optim.fosm import (
     ParameterUncertainty,

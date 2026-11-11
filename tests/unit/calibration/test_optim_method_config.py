@@ -10,7 +10,9 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.calibration.config import CalibPhaseDecl, CalibrationConfig, CalibrationProtocolDecl
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_objective import CalibrationProtocolDecl
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.calibration.optim.method_config import (
     CmaEsMethodConfig,
     GridMethodConfig,
@@ -25,11 +27,11 @@ from hydromodpy.calibration.optim.optimizer import EvaluationResult, best_comple
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.optim.stopping import resolve_budget, short_budget
 from hydromodpy.calibration.preflight import _check_engines
-from hydromodpy.calibration.protocols import (
-    expand_calibration_protocol,
+from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     options_the_recipe_already_runs,
 )
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.calibration.protocols.registry import expand_calibration_protocol
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests.unit.calibration._factories import two_dim_space

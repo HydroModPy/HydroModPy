@@ -11,7 +11,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigError, DisplayError
 from hydromodpy.project import report as module
-from hydromodpy.project.report import report_run, report_session
+from hydromodpy.project.report import regen_run, report_run, report_session
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 from hydromodpy.schema.phrases import keys
 from tests._helpers.sealed_runs import make_project, write_session_dir
@@ -305,3 +305,31 @@ def test_a_figure_is_drawn_under_the_render_lock_and_leaves_no_pyplot_figure(
     assert held == [True]
     assert matplotlib.get_backend() == backend
     assert not _pylab_helpers.Gcf.get_all_fig_managers()
+
+
+# regen_run: what the ledgers of one run record, written again
+
+
+def test_regen_writes_again_the_export_the_ledger_records(tmp_path: Path) -> None:
+    from hydromodpy.project.api import export
+    from tests._helpers.run_stores import RUN_NAME, seal_demo_run
+
+    project = tmp_path / "project"
+    seal_demo_run(project)
+    export(RUN_NAME, "head", time="last", workspace=project)
+    written = project / "runs" / RUN_NAME / "exports" / "head_last.tif"
+    written.unlink()
+
+    assert regen_run(RUN_NAME, workspace=project) == [written]
+    assert written.is_file()
+
+
+def test_regen_of_a_run_that_records_nothing_is_refused_for_all(tmp_path: Path) -> None:
+    from hydromodpy.core.exceptions import ResultsError
+    from tests._helpers.run_stores import RUN_NAME, seal_demo_run
+
+    project = tmp_path / "project"
+    seal_demo_run(project)
+
+    with pytest.raises(ResultsError, match="records no export and no figure"):
+        regen_run(RUN_NAME, workspace=project)

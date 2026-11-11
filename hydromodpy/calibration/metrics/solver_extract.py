@@ -67,9 +67,9 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scoring.stream_defaults import parse_visible_flow
-from hydromodpy.core.time import nominal_step_days
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
+from hydromodpy.core.time.window import nominal_step_days
 from hydromodpy.core.units.quantities import normalize_m3_per_s_unit
 from hydromodpy.solver.base.plan import RunContext
 from hydromodpy.solver.base.registry import solvers
@@ -88,12 +88,8 @@ RELEASE_FLUX_UNIT = "m3/s"
 
 
 if TYPE_CHECKING:
-    from hydromodpy.calibration.config import (
-        CalibNetworkExtent,
-        CalibOutputDecl,
-        CalibOutputNetwork,
-        CalibOutputPoint,
-    )
+    from hydromodpy.calibration.config_network import CalibNetworkExtent, CalibOutputNetwork
+    from hydromodpy.calibration.config_outputs import CalibOutputDecl, CalibOutputPoint
 
 
 def resolve_flow_adapter(trial_ctx: Any) -> tuple[Any, RunContext] | None:

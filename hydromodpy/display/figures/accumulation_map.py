@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.colors import Colormap
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 GROUND_COLOR = "#EDEDED"
 """Cells no accumulated flux reaches, and the lightest thing on the page."""

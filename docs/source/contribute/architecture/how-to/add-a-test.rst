@@ -38,9 +38,17 @@ Pick the tier
      - What one real run leaves on disk, read with the formats a stranger would
        use.
      - Five strict ``xfail`` cases record claims the code does not honor yet.
-   * - ``contract``
-     - Several implementations of one port behave the same.
-     - Parametrized over the implementations.
+   * - ``ports``
+     - Every implementation of one port behaves the same. One file per port,
+       ``tests/ports/test_<port>.py``.
+     - Parametrized over the names of the registry, never over a written list.
+       A case that cannot run is a skip with the reason the object declares.
+       Timeout 900 s.
+   * - ``refusals``
+     - A wrong input is refused with its class, its code and a sentence that
+       says what to do. One file per family, ``tests/refusals/test_<family>.py``.
+     - One row per input. A table over a closed set checks that its rows equal
+       the set. Timeout 60 s.
 
 ``tests/conftest.py`` tags a test with its tier marker and a default timeout
 from its folder, so you do not write ``@pytest.mark.unit``.
@@ -93,6 +101,10 @@ Mirror the package under test:
    tests/validation/numerical/{steady,transient}/...
    tests/validation/mms/test_*.py
    tests/validation/calibration/test_*.py
+   tests/processes/<package>/test_*.py
+
+A test that starts several processes goes under ``tests/processes/``, not under
+``tests/unit/``. Its children start with ``spawn``, so it runs on Linux and Windows.
 
 Reusable fixtures
 -----------------
@@ -191,7 +203,7 @@ Tolerances are never inline magic numbers. A case envelope lives in the case's
 ``tolerances.toml`` and is read through ``comparison.tolerances``. A single
 documented scalar from ``tests/TOLERANCES.md`` is read through
 ``tests/_helpers/tolerances.py::tol('<slug>')``.
-``tests/unit/architecture/test_tolerances_single_source.py`` is the drift guard.
+``tests/unit/architecture/test_surfaces.py`` is the drift guard.
 
 When the test should check the external solver and not the HydroModPy launcher,
 mark it ``solver_sanity``. That subset flags solver-binary drift independently of
@@ -226,7 +238,7 @@ the pytest worker with it, when several DEM workflows run in one long-lived
 process. ``tests/conftest.py`` puts the Whitebox-backed tests in one xdist group,
 and the CI steps that run a tier in parallel exclude them and run them in a
 serial step. Do the same when you run a tier locally: run the Whitebox files
-without ``-n``. ``tests/unit/architecture/test_whitebox_tests_run_serially.py``
+without ``-n``. ``tests/unit/architecture/test_surfaces.py``
 checks the workflows. Never run two pytest sessions on the same scratch root.
 
 **Scratch folder.** Tests write to ``HMP_TEST_SCRATCH_ROOT``, ``/tmp/hydromodpy_tests/``

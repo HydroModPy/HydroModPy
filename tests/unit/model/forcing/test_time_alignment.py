@@ -15,8 +15,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.time import ResolvedSimulationTimeWindow, build_simulation_time_boundaries
 from hydromodpy.core.time.coverage import samples_by_period
+from hydromodpy.core.time.window import (
+    ResolvedSimulationTimeWindow,
+    build_simulation_time_boundaries,
+)
 from hydromodpy.model.forcing.time_alignment import align_forcing_series_to_simulation_window
 
 DAYS = 60

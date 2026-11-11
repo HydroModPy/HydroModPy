@@ -4,7 +4,7 @@ This module holds what is specific to MODFLOW 6: the construction of the
 ``Modflow6`` object, the metrics of its wells and of its steady start, its lake
 observables, and ``rerun``, which solves a model again for a new K or Sy
 without a build (``solver/modflow6/rerun.py``). The shared flow lifecycle lives
-in ``hydromodpy.solver.modflow_common.flow_adapter_helpers``.
+in ``hydromodpy.solver.modflow_common.flow_run``.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from hydromodpy.solver.modflow6.extractors.lake import extract_lake_series
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow6.rerun import rerun_modflow6
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
+from hydromodpy.solver.modflow_common.flow_run import (
     build_flow_model,
     build_preprocess_options,
     resolve_solver_run_output,

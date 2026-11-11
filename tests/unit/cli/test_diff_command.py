@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.project.compare import ComparisonCaseError, ComparisonReferenceError
-from hydromodpy.results.catalog import rebuild_index
+from hydromodpy.results.catalog.indexer import rebuild_index
 from tests._helpers.sealed_runs import make_project, seal_run
 
 from ._hmp import run_hmp
@@ -137,7 +137,7 @@ def _seal_record(project: Path, name: str, *, site: str) -> None:
 
 
 def test_the_command_gives_typed_exit_codes(tmp_path: Path, monkeypatch) -> None:
-    from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_VALIDATION
+    from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, EXIT_VALIDATION
     from hydromodpy.cli.main import main as hmp_main
 
     project = tmp_path / "bretagne"
@@ -170,11 +170,3 @@ def test_the_command_writes_in_the_project_or_where_it_is_told(project: Path, mo
     hmp_main(["diff", "runs/a", "b c", "--variables", "head, ,x"])
     hmp_main(["diff", "a", "b", "--by", "site", "--to", "elsewhere"])
     assert written == [project / "summary/report/compare/a-vs-b_c", Path("elsewhere")]
-
-
-def test_a_folder_needs_a_project_and_a_long_name_becomes_a_hash(project: Path) -> None:
-    from hydromodpy.cli.commands import diff as diff_command
-
-    with pytest.raises(ComparisonCaseError, match="pass --to"):
-        diff_command.compare_folder(["a", "b"], None)
-    assert len(diff_command.compare_folder(["a" * 100, "b"], project).name) == 12

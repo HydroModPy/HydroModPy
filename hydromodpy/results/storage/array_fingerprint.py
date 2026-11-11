@@ -42,31 +42,3 @@ def fingerprint(data: np.ndarray) -> dict:
         "dtype": str(data.dtype),
         "stats": stats,
     }
-
-
-def verify_fingerprint(stored: dict, current: np.ndarray) -> bool:
-    """Check whether *current* matches a previously stored fingerprint.
-
-    Parameters
-    ----------
-    stored : dict
-        Fingerprint dict as returned by :func:`fingerprint`.
-    current : np.ndarray
-        Array to compare against the stored fingerprint.
-
-    Returns
-    -------
-    bool
-        ``True`` if the SHA-256 checksums match.
-    """
-    contiguous = np.ascontiguousarray(current)
-    current_hash = hashlib.sha256(contiguous.tobytes()).hexdigest()
-    if current_hash != stored["checksum"]:
-        return False
-    # The checksum hashes raw bytes only, so a reshape (or dtype view) that keeps
-    # the byte payload would otherwise pass. Compare shape and dtype explicitly.
-    if "shape" in stored and list(current.shape) != list(stored["shape"]):
-        return False
-    if "dtype" in stored and str(current.dtype) != str(stored["dtype"]):
-        return False
-    return True

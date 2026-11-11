@@ -99,26 +99,6 @@ def step_history_from_history(
     return np.asarray(aligned, dtype=float)
 
 
-def elapsed_seconds_for_time_keys(
-    elapsed_axis_seconds: np.ndarray | Any,
-    time_keys: np.ndarray | list[int] | tuple[int, ...],
-    *,
-    name: str = "history",
-) -> np.ndarray:
-    """Resolve explicit elapsed seconds for one exported time-key sequence."""
-    axis = np.asarray(elapsed_axis_seconds, dtype=float).reshape(-1)
-    keys = np.asarray(time_keys, dtype=int).reshape(-1)
-    if keys.size == 0:
-        return np.asarray([], dtype=float)
-    if axis.size == 0:
-        raise ValueError(f"{name} has no elapsed-time axis.")
-    if np.any(keys < 0) or np.any(keys >= axis.size):
-        raise ValueError(
-            f"{name} time keys must stay within the elapsed-time axis bounds [0, {axis.size - 1}]."
-        )
-    return np.asarray(axis[keys], dtype=float)
-
-
 def _payload_array(
     payload: dict[str, Any] | Any,
     key: str,
@@ -129,29 +109,6 @@ def _payload_array(
     if values.size == 0:
         return None
     return values
-
-
-def step_end_elapsed_seconds_from_payload(
-    payload: dict[str, Any] | Any,
-    *,
-    n_steps: int | None = None,
-) -> np.ndarray | None:
-    """Return one step-end elapsed-time axis from one history payload."""
-    explicit = _payload_array(payload, "step_end_elapsed_seconds")
-    if explicit is not None:
-        if n_steps is not None and explicit.size != int(n_steps):
-            raise ValueError(
-                "step_end_elapsed_seconds length does not match the requested "
-                f"step count ({explicit.size} vs {int(n_steps)})."
-            )
-        return explicit
-    periods = _payload_array(payload, "period_lengths_seconds")
-    if periods is None:
-        return None
-    axes = build_transient_time_axes(periods)
-    if n_steps is not None and axes.n_steps != int(n_steps):
-        return None
-    return axes.step_end_elapsed_seconds
 
 
 def snapshot_elapsed_seconds_from_payload(
@@ -212,9 +169,7 @@ def saturated_thickness_from_head_history(
 __all__ = [
     "TransientTimeAxes",
     "build_transient_time_axes",
-    "elapsed_seconds_for_time_keys",
     "saturated_thickness_from_head_history",
     "snapshot_elapsed_seconds_from_payload",
-    "step_end_elapsed_seconds_from_payload",
     "step_history_from_history",
 ]

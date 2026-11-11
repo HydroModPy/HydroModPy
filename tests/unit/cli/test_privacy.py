@@ -181,7 +181,7 @@ def test_privacy_purge_removes_the_directory_and_keeps_its_name(monkeypatch, tmp
 
 
 def test_privacy_purge_of_an_unknown_reference_exits_not_found(monkeypatch, tmp_path) -> None:
-    from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+    from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND
 
     _workspace, project = _make_workspace_with_project(tmp_path)
     code = _run(

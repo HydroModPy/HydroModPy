@@ -41,7 +41,7 @@ from hydromodpy.calibration.runners.materialize import write_overlay_toml  # noq
 from hydromodpy.calibration.runners.trial import prepare_trials, run_trial_light  # noqa: E402
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig  # noqa: E402
 from hydromodpy.project.trial_pipeline import fill_trial_pipeline  # noqa: E402
-from hydromodpy.results.catalog import Catalog  # noqa: E402
+from hydromodpy.results.catalog.facade import Catalog  # noqa: E402
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions  # noqa: E402
 from hydromodpy_annex.solver.nwt_postprocess.run import run_post_processing  # noqa: E402
 

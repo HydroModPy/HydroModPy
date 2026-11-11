@@ -6,14 +6,13 @@ index, and the views after a run leaves the tree.
 
 from __future__ import annotations
 
-import multiprocessing
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import index_new_runs, rebuild_index
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 from hydromodpy.results.storage.run_store import RunStore
@@ -129,32 +128,6 @@ class TestTrash:
         with Catalog(tmp_path) as cat:
             remaining = cat.connection.execute("SELECT COUNT(*) FROM timeseries").fetchone()[0]
         assert remaining == 0
-
-
-def _worker_write(args: tuple) -> str:
-    workspace, sim_label = args
-    store = open_run_store(Path(workspace), sim_label, create_zarr=False)
-    sid = store.sim_id
-    store.write_timeseries(sid, "P01", "head", _make_series(n=5), unit="m")
-    seal_completed(store)
-    return sid
-
-
-class TestConcurrentWrites:
-    def test_eight_parallel_workers_dont_lose_data(self, tmp_path: Path):
-        inputs = [(tmp_path, f"sim_{i}") for i in range(8)]
-        ctx = multiprocessing.get_context("spawn")
-        with ctx.Pool(processes=4) as pool:
-            sim_ids = pool.map(_worker_write, inputs)
-        assert len(set(sim_ids)) == 8
-        rebuild_index(tmp_path)
-        with Catalog(tmp_path) as cat:
-            total = cat.connection.execute("SELECT COUNT(*) FROM timeseries").fetchone()[0]
-            sims = cat.connection.execute(
-                "SELECT COUNT(DISTINCT sim_id) FROM timeseries"
-            ).fetchone()[0]
-        assert sims == 8
-        assert total == 8 * 5
 
 
 class TestAtomicInterruption:

@@ -56,7 +56,7 @@ def keep_nearest(
     label: str,
 ) -> list[str]:
     """Keep only the station closest to ``nearest_to`` ``(lon, lat)``, located by ``locate``."""
-    from hydromodpy.data.common.geo_helpers import haversine_km
+    from hydromodpy.data.common.geometry import haversine_km
 
     target_lon, target_lat = nearest_to
     best_id: str | None = None

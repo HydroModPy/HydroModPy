@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.toml_io.loader import (
     config_base_dir,
@@ -163,7 +162,7 @@ def test_a_cycle_is_refused(tmp_path: Path) -> None:
 
 
 def test_a_file_in_a_sub_folder_of_a_project_reads_its_paths_from_the_root(tmp_path: Path) -> None:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     (tmp_path / "project.toml").write_text("[workspace]\n", encoding="utf-8")
     (tmp_path / "data").mkdir()

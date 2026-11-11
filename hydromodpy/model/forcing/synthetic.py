@@ -145,26 +145,11 @@ def build_recharge_from_reservoir_chronicle(
     }
 
 
-def make_piecewise_constant_daily_qin(qin_daily_mm_day: np.ndarray):
-    """Build Qin(t) callable from daily values (piecewise constant by day)."""
-    qin_daily = np.asarray(qin_daily_mm_day, dtype=float).ravel()
-    if qin_daily.size == 0:
-        raise ValueError("qin_daily_mm_day cannot be empty")
-
-    def qin_func(t):
-        day_idx = int(np.floor(float(t)))
-        day_idx = int(np.clip(day_idx, 0, qin_daily.size - 1))
-        return float(qin_daily[day_idx])
-
-    return qin_func
-
-
 __all__ = (
     "build_hydrological_step_series",
     "build_hydrological_year_dates",
     "build_recharge_from_reservoir_chronicle",
     "enforce_annual_precipitation_total",
     "generate_daily_precipitation",
-    "make_piecewise_constant_daily_qin",
     "precipitation_to_inflow",
 )

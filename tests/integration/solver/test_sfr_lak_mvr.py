@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
+from hydromodpy.solver.modflow_common.listing import last_percent_discrepancy
 from tests._helpers.tolerances import tol
 from tests.integration.solver._sfr_models import (
     INFLOW_M3S,

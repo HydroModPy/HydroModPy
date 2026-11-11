@@ -34,11 +34,9 @@ from typing import Any
 import pandas as pd
 from pydantic import ValidationError
 
-from hydromodpy.calibration.config import (
-    MatchingHydrographicNetworkOptions,
-    outputs_agree,
-    window_of_the_run,
-)
+from hydromodpy.calibration.config import window_of_the_run
+from hydromodpy.calibration.config_network import MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.config_outputs import outputs_agree
 from hydromodpy.calibration.protocols.base import Deviation, Reference
 from hydromodpy.core.logging import get_logger
 
@@ -711,7 +709,7 @@ def _write_hydrograph_output(
     A file that already names ``HYDROGRAPH_OUTPUT`` for something else is
     refused rather than silently overwritten, the same way a name collision on
     a parameter is. Compared through the output model
-    (:func:`hydromodpy.calibration.config.outputs_agree`), not raw: a sealed
+    (:func:`hydromodpy.calibration.config_outputs.outputs_agree`), not raw: a sealed
     run's own dump spells out every default this bare declaration leaves out,
     and reloading it must not read as a collision with itself. A declaration
     that does not validate (a sealed run's output still carrying a removed

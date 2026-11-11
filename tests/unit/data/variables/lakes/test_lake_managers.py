@@ -9,7 +9,8 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import box
 
-from hydromodpy.data.contracts import FieldRecord, TableRecord
+from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.contracts.table import TableRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.provenance.sidecars import CacheIndex, sidecar_path_for
 from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
@@ -18,8 +19,7 @@ from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfi
 from hydromodpy.data.variables.lake_bathymetry.variable import LakeBathymetryVariable
 from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
 from hydromodpy.data.variables.lake_geometry.variable import LakeGeometryVariable
-from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
-from hydromodpy.data.variables.lake_levels.variable import LakeLevelsVariable
+from hydromodpy.data.variables.lake_series import LakeLevelsConfig, LakeLevelsVariable
 
 
 def _no_cache_row(index: CacheIndex, *files) -> None:
@@ -40,9 +40,9 @@ def test_load_emits_table_record_and_records_no_cache_row(tmp_path) -> None:
 
     config = LakeAbacusConfig.from_csv(src, lake_id="lac0")
     index = CacheIndex(tmp_path)
-    manager = LakeAbacusVariable(config=config, index=index, data_dir=data_dir)
+    variable = LakeAbacusVariable(config=config, index=index, data_dir=data_dir)
 
-    result = manager.load()
+    result = variable.load()
 
     assert result.has_tables is True
     assert not result.has_points
@@ -88,9 +88,9 @@ def test_bathymetry_load_emits_field_record_and_records_no_cache_row(tmp_path) -
 
     config = LakeBathymetryConfig.from_raster(src)
     index = CacheIndex(tmp_path)
-    manager = LakeBathymetryVariable(config=config, index=index, data_dir=data_dir)
+    variable = LakeBathymetryVariable(config=config, index=index, data_dir=data_dir)
 
-    result = manager.load()
+    result = variable.load()
 
     assert result.has_fields is True
     assert not result.has_points
@@ -124,9 +124,9 @@ def test_geometry_load_emits_field_record_and_records_no_cache_row(tmp_path) -> 
 
     config = LakeGeometryConfig.from_vector(src)
     index = CacheIndex(tmp_path)
-    manager = LakeGeometryVariable(config=config, index=index, data_dir=data_dir)
+    variable = LakeGeometryVariable(config=config, index=index, data_dir=data_dir)
 
-    result = manager.load()
+    result = variable.load()
 
     assert result.has_fields is True
     assert not result.has_tables
@@ -171,9 +171,9 @@ def test_load_emits_point_record_keyed_by_lake_id(tmp_path) -> None:
 
     config = LakeLevelsConfig.from_csv_directory(data_dir)
     index = CacheIndex(tmp_path)
-    manager = LakeLevelsVariable(config=config, index=index, data_dir=data_dir)
+    variable = LakeLevelsVariable(config=config, index=index, data_dir=data_dir)
 
-    result = manager.load()
+    result = variable.load()
 
     assert result.has_points is True
     assert not result.has_fields

@@ -402,7 +402,7 @@ def test_a_file_of_a_pre_release_is_refused_with_every_key_of_its_chain(
     relative: Path, tmp_path: Path
 ) -> None:
     """The loader of a run names each file of the chain with the keys it holds."""
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

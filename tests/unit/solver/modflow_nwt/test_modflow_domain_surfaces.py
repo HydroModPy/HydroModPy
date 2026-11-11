@@ -14,9 +14,7 @@ from hydromodpy.model.domain.geometry import RasterGeometry
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.model.model import Geometry, ModelTime
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
-from hydromodpy.solver.modflow_grid import (
-    build_spatial_discretization,
-)
+from hydromodpy.solver.modflow_grid.discretization_spatial import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from tests._helpers.cell_meshes import cell_mesh_of

@@ -10,7 +10,7 @@ from typing import Any
 
 from hydromodpy.core.exceptions import DataProductError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.geo_helpers import bbox_hash
+from hydromodpy.data.common.geometry import bbox_hash
 from hydromodpy.data.common.source_extent import resolve_source_extent
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord

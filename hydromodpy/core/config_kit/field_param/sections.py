@@ -19,8 +19,8 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr, Probability
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.scope import zone_name_refusal
-from hydromodpy.core.units import LengthMeters
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
+from hydromodpy.core.units.types import LengthMeters
 
 FieldKind = Literal["homogeneous", "heterogeneous"]
 HeterogeneousValueSource = Literal["inline", "csv"]

@@ -33,7 +33,7 @@ def test_the_soil_section_of_the_page_reads_as_a_request() -> None:
 
 
 def test_the_soil_section_loads_as_a_project_file(tmp_path: Path) -> None:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     boilerplate = """
 [workflow]

@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from shapely.geometry import LineString
 
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
+from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
@@ -28,7 +28,7 @@ from hydromodpy.model.domain.geometry import (
     channel_rasters_for_run,
 )
 from hydromodpy.model.model import Geometry, ModelTime
-from hydromodpy.solver.modflow6 import Modflow6
+from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.cell_meshes import cell_mesh_of
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request

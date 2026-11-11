@@ -15,11 +15,9 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.calibration.config import (
-    CalibObjectiveBlockDecl,
-    CalibPhaseDecl,
-    CalibrationConfig,
-)
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
 from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER
 from hydromodpy.calibration.report import (

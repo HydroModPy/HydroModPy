@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import exit_code_for
+from hydromodpy.cli.exit_codes import exit_code_for
 from hydromodpy.cli.main import main as cli_main
 from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError, SolverBinaryError
 from hydromodpy.solver.modflow_common import binaries

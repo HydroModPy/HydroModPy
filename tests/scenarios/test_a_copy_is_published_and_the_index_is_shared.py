@@ -36,7 +36,7 @@ from pathlib import Path
 import duckdb
 
 import hydromodpy as hmp
-from hydromodpy.cli.helpers import exit_code_for
+from hydromodpy.cli.exit_codes import exit_code_for
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.results.annotations import read_annotations, write_annotations
 from hydromodpy.results.catalog.indexer import index_is_current, index_new_runs

@@ -76,6 +76,13 @@ The `boussinesq_local` engine needs nothing more.
 The PETSc Boussinesq engine needs `petsc4py` from conda-forge, on Linux only.
 Without it, tests marked `petsc` are skipped, not failed
 (`pytest_runtest_setup` in `tests/conftest.py`).
+The `hmp_dev` environment has no `petsc4py`, so the `petsc` cases run under the `hmp_petsc` environment (Python 3.12, `petsc4py` 3.26, no gmsh).
+The last pass was on 2026-11-11, on an export of commit 7d65461a2 that holds `pyproject.toml`, with `PYTHONPATH` set to the export and the command `python -m pytest tests/validation -m petsc -q` from its root.
+It selected 55 cases, 46 passed and 9 failed.
+Two failures were a `flow.bc.drainage.kind` that the case configuration wrote in a form the validator refuses.
+Both cases now leave `kind` out, so the default `drain` applies, and they have not been replayed under PETSc since that change.
+Six calibration twins stop on `TrialPipeline is not installed`, and the same error stops a twin under `hmp_dev`, so it does not come from PETSc.
+One patch test cannot find the mesh bundle of its case, because the runner passes `--base` with the output folder and the relative path of the bundle then resolves under it.
 
 ## Running
 

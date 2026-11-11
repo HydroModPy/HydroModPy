@@ -45,7 +45,7 @@ ENV_PY_DIRS = ("docs/source/_ext",)
 ENV_TEXT_GLOBS = (".github/workflows/*.yml", "docs/Makefile", "Dockerfile")
 ENV_SCAN_EXCLUDED = (
     "hydromodpy/core/runtime/env.py",
-    "tests/unit/architecture/test_env_vars_are_registered.py",
+    "tests/unit/architecture/test_surfaces.py",
 )
 """The registry and its gate name every variable; they are not readers."""
 

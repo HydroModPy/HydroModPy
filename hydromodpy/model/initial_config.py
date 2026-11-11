@@ -20,13 +20,8 @@ from pydantic import Field, TypeAdapter, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units import (
-    FluxDensityMPerS,
-    Length,
-    check_unit_compatible,
-    parse_to_canonical_magnitude,
-)
-from hydromodpy.core.units.types import LengthMeters
+from hydromodpy.core.units.parse import check_unit_compatible, parse_to_canonical_magnitude
+from hydromodpy.core.units.types import FluxDensityMPerS, Length, LengthMeters
 from hydromodpy.model.initial.state import (
     HEAD_RULE_KINDS,
     CyclicSpinupStrategy,

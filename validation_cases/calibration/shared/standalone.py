@@ -10,15 +10,17 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from hydromodpy.calibration import (
-    CalibrationEngine,
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.objective import (
     CompositeObjective,
     ConfigBlockObjective,
+    evaluate_objective,
+)
+from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
     ParamSuggestion,
     build_optimizer,
 )
-from hydromodpy.calibration.optim.objective import evaluate_objective
 
 
 def build_standalone_calibration(

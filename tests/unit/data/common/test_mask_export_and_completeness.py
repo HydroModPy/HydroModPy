@@ -13,7 +13,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.data.common.export import export_records
-from hydromodpy.data.common.geo_helpers import (
+from hydromodpy.data.common.geometry import (
     expand_bbox,
     filter_locations_by_geometry,
     geometry_to_bbox,

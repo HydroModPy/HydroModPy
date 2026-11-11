@@ -44,7 +44,7 @@ import pytest
 
 from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
-from hydromodpy.solver.modflow_common import ensure_platform_executable
+from hydromodpy.solver.modflow_common.binaries import ensure_platform_executable
 from tests._helpers.tolerances import tol
 from validation_cases.shared.runtime import budgeted_dir_name
 
@@ -526,7 +526,7 @@ def collect_json_signatures(
 
 def _open_result_store(workspace_path: Path):
     """Open a read-only Catalog for golden comparison."""
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     return Catalog(workspace_path)
 

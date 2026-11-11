@@ -21,7 +21,7 @@ from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.runtime.bounds import Bounds
-from hydromodpy.data.common.geo_helpers import require_declared_crs
+from hydromodpy.data.common.geometry import require_declared_crs
 from hydromodpy.data.contracts.file_record import FileRecord
 from hydromodpy.data.source.port import Extent, FetchRequest, fetch_within
 from hydromodpy.data.source.registry import build_from_section, data_sources

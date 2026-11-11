@@ -22,14 +22,14 @@ from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figure import FigureNotApplicable, FigureSpec
 from hydromodpy.display.figures._trial_diagnostics import TrialTable
 from hydromodpy.display.runs import log_render_summary, render_figure, render_figures_for_run
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.config_flags import no_surface_exit_reason
-from hydromodpy.results.run import Run
 from hydromodpy.results.run.periods import RunPeriods
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from tests._helpers.run_stores import open_run_store
 
 # Coverage for ``hydromodpy.display.runs`` - the shared helper used by

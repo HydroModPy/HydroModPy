@@ -13,7 +13,7 @@ import numpy as np
 
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import axis_label, station_label
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import ObservedStation, Station, Variable
 from hydromodpy.display.figures._observed import observed_series
 from hydromodpy.display.figures._run_score import run_score
@@ -27,7 +27,7 @@ from hydromodpy.results.derive.time_alignment import (
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class ScatterOneToOne(BaseFigure):
@@ -54,9 +54,12 @@ class ScatterOneToOne(BaseFigure):
         import pandas as pd
 
         sim_ts = normalize_datetime_series(sim.timeseries(variable, station=station))
-        obs_ts, obs_station = observed_series(
-            sim, variable, station=observed_station, label="scatter_one_to_one"
-        )
+        try:
+            obs_ts, obs_station = observed_series(
+                sim, variable, station=observed_station, label="scatter_one_to_one"
+            )
+        except ValueError as exc:
+            raise FigureNotApplicable(str(exc)) from exc
         # Paired as the run's score pairs them: a flux observed day by day is
         # averaged over each simulated period, a state read at its stamp.
         first_start = run_period_start(sim, sim_ts.index)
@@ -64,7 +67,7 @@ class ScatterOneToOne(BaseFigure):
             obs_ts, sim_ts, method=time_method_for(variable), start=first_start
         )
         if joined.empty:
-            raise ValueError(
+            raise FigureNotApplicable(
                 f"scatter_one_to_one: the simulated {variable!r} at {station!r} and the "
                 f"observed one at {obs_station!r} share no timestamp"
             )

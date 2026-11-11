@@ -1,13 +1,14 @@
 """List, show, query, point, diff and rank the runs of a project from its index.
 
 ``ls``, ``show``, ``query``, ``point``, ``diff`` and ``rank`` read the index
-through :class:`~hydromodpy.results.catalog.Catalog`. They sit in a module of
+through :class:`~hydromodpy.results.catalog.facade.Catalog`. They sit in a module of
 their own so the SQL of a listing stays apart from the reads of the catalog
 itself (:mod:`hydromodpy.results.catalog.reads`).
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +51,7 @@ _LISTING_COLUMNS: tuple[str, ...] = (
 
 def _open_catalog(workspace: Any) -> Any:
     """Open the project at ``workspace``, building its index when it is missing."""
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     return Catalog(Path(workspace).expanduser().resolve())
 
@@ -75,7 +76,8 @@ def list_simulations(
     """
     import pandas as pd
 
-    from hydromodpy.results.catalog import Catalog, iter_project_catalog_roots
+    from hydromodpy.results.catalog.discovery import iter_project_catalog_roots
+    from hydromodpy.results.catalog.facade import Catalog
 
     workspace_root = Path(workspace).expanduser().resolve()
     if project:
@@ -245,7 +247,7 @@ def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> di
     from the index, and ``profile`` with them (:func:`profile_of_run`).
 
     Opening the project builds its index when it is missing. Raises
-    :class:`~hydromodpy.results.catalog.SimulationNotFoundError` when
+    :class:`~hydromodpy.results.catalog.discovery.SimulationNotFoundError` when
     ``sim_ref`` names nothing.
     """
     from hydromodpy.results.ledger import Ledger
@@ -298,6 +300,151 @@ def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> di
                     groups = []
             payload["zarr_groups"] = groups
         return payload
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationFacts:
+    """What the index holds about one run beyond its row: tags, notes, metrics and parameters."""
+
+    tags: list[str]
+    notes: list[str]
+    metrics: Any
+    """A frame of the metrics of the run, empty when it has none."""
+    parameters: Any
+    """A frame of the parameters of the run, empty when it has none."""
+
+
+def simulation_facts(catalog: Any, sim_id: str) -> SimulationFacts:
+    """Return the tags, the notes (oldest first), the metrics and the parameters of one run."""
+    sim = catalog[sim_id]
+    rows = catalog.backend.fetch_all(
+        "SELECT note FROM sim_notes WHERE sim_id = ? ORDER BY added_at", [sim_id]
+    )
+    return SimulationFacts(
+        tags=list(sim.tags or []),
+        notes=[note for (note,) in rows],
+        metrics=sim.metrics,
+        parameters=sim.parameters,
+    )
+
+
+def _readable_facts(run_dir: Path) -> Any:
+    """Return the facts of a listed run, or ``None`` after one warning when it does not read."""
+    from hydromodpy.results.run.sealed_facts import UnreadableManifestError, read_run_facts
+    from hydromodpy.results.storage.json_io import readable, warn_unreadable
+
+    try:
+        return readable(read_run_facts, run_dir)
+    except UnreadableManifestError as exc:
+        warn_unreadable(run_dir, exc)
+        return None
+
+
+def _with_seal_facts(df: Any, workspace_root: Path, metric: str | None) -> Any:
+    """Add the ``overrides`` of each run, its score rule, and ``metric`` when not ``nse``.
+
+    Read from the ``manifest.json`` of each listed run.
+    """
+    from hydromodpy.results.catalog.discovery import iter_project_catalog_roots
+    from hydromodpy.results.run.sealed_facts import overrides_text
+
+    roots = {path.name: path for path in iter_project_catalog_roots(workspace_root)}
+    columns: dict[str, list[Any]] = {
+        "overrides": [],
+        "score_station": [],
+        "score_variable": [],
+        "score_window_start": [],
+        "score_window_end": [],
+        "metric_rule_version": [],
+    }
+    values: list[Any] = []
+    for record in df.to_dict("records"):
+        root = roots.get(str(record.get("project")))
+        rel_dir = record.get("rel_dir")
+        facts = _readable_facts(root / str(rel_dir)) if root is not None and rel_dir else None
+        score = None if facts is None else facts.manifest.score
+        columns["overrides"].append("" if facts is None else overrides_text(facts.overrides))
+        columns["score_station"].append(None if score is None else score.station)
+        columns["score_variable"].append(None if score is None else score.variable)
+        columns["score_window_start"].append(None if score is None else score.window_start)
+        columns["score_window_end"].append(None if score is None else score.window_end)
+        columns["metric_rule_version"].append(None if score is None else score.metric_rule_version)
+        if metric is not None and metric != "nse":
+            values.append(None if facts is None else facts.metrics.get(metric))
+    out = df.assign(**columns)
+    if metric is not None and metric != "nse":
+        out = out.assign(**{metric: values})
+    return out
+
+
+def _site_of(value: Any) -> str:
+    return value if isinstance(value, str) and value else "(no site)"
+
+
+def _left_out_reasons(listed: Any, ranked: Any, metric: str) -> list[str]:
+    """Name the sites whose runs ``best`` left out, and why, one line per reason."""
+    from hydromodpy.results.run.ranking import names_text, unscored_reason
+
+    sites = listed["site"].map(_site_of)
+    kept = set(ranked["site"].map(_site_of))
+    windowed = listed["score_window_start"].notna()
+    groups: dict[bool, list[str]] = {}
+    for site in sorted(set(sites) - kept):
+        groups.setdefault(bool(windowed[sites == site].any()), []).append(site)
+    return [
+        unscored_reason(names_text(names), listed[sites.isin(names)], metric)
+        for _, names in sorted(groups.items())
+    ]
+
+
+def list_runs(
+    workspace_root: Path,
+    *,
+    project: str | None = None,
+    solver: str | None = None,
+    site: str | None = None,
+    status: str | None = None,
+    label: str | None = None,
+    tag: str | None = None,
+    limit: int | None = None,
+    best: str | None = None,
+    by: str | None = None,
+    mixed_windows: bool = False,
+) -> tuple[Any, list[str]]:
+    """List the sealed runs under *workspace_root*, with the facts of their seal, and say what ``best`` left out.
+
+    The frame is :func:`list_simulations` plus the ``overrides`` and the score
+    rule of each run, read from its manifest. With *best* (a metric) the frame
+    keeps the best run of each project, or of each site with ``by="site"``,
+    and *limit* then counts ranked rows. The second value holds one line for
+    each reason a site has no ranked run. Raises
+    :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError` for a
+    metric that has no direction, and
+    :class:`~hydromodpy.results.run.sealed.MixedWindowsError` when the scores
+    do not share one rule, unless *mixed_windows* is true.
+    """
+    from hydromodpy.results.run.ranking import rank_rows
+
+    frame = list_simulations(
+        workspace_root,
+        project=project,
+        solver=solver,
+        site=site,
+        status=status,
+        label=label,
+        tag=tag,
+        limit=None if best else limit,
+    )
+    if frame.empty:
+        return frame, []
+    listed = _with_seal_facts(frame, workspace_root, best)
+    if not best:
+        return listed, []
+    ranked = rank_rows(listed, best, by=by, mixed_windows=mixed_windows)
+    reasons = _left_out_reasons(listed, ranked, best)
+    if limit is not None:
+        ranked = ranked.head(int(limit))
+    return ranked, reasons
 
 
 def query_catalog(sql: str, *, workspace: Any, limit: int | None = None) -> Any:
@@ -374,8 +521,8 @@ def rank_simulations(
     :class:`~hydromodpy.results.run.sealed.MixedWindowsError` is raised, unless
     ``mixed_windows`` is true.
     """
-    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.constants import metric_rank_sql
+    from hydromodpy.results.catalog.facade import Catalog
     from hydromodpy.results.metric_rule import HEADLINE_WINDOW
     from hydromodpy.results.run.sealed import METRICS_RULE, check_one_rule
 
@@ -413,12 +560,15 @@ def rank_simulations(
 
 
 __all__ = [
+    "SimulationFacts",
     "copy_entries",
     "delivery_entries",
     "diff_simulations",
+    "list_runs",
     "list_simulations",
     "point_simulations",
     "query_catalog",
     "rank_simulations",
     "show_simulation",
+    "simulation_facts",
 ]

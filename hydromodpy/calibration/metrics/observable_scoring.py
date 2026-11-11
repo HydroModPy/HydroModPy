@@ -47,7 +47,9 @@ from hydromodpy.core.time.selection import TimeSelectionError, period_label, res
 from hydromodpy.results.derive.time_alignment import first_period_start
 
 if TYPE_CHECKING:
-    from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl, OutputTime
+    from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+    from hydromodpy.calibration.config_outputs import CalibOutputDecl
+    from hydromodpy.calibration.config_terms import OutputTime
     from hydromodpy.calibration.metrics.series import ObservedSeries
     from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
     from hydromodpy.calibration.optim.objective import Objective

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.results.storage.array_fingerprint import fingerprint, verify_fingerprint
+from hydromodpy.results.storage.array_fingerprint import fingerprint
 
 
 def test_fingerprint_handles_empty_array_without_raising():
@@ -15,17 +15,16 @@ def test_fingerprint_handles_empty_array_without_raising():
     assert fp["checksum"]
 
 
-def test_verify_detects_reshape_with_identical_bytes():
+def test_a_reshape_with_identical_bytes_changes_the_shape_and_keeps_the_checksum():
     flat = np.arange(6, dtype="float64")
-    fp = fingerprint(flat)
-    # Same bytes, different shape: the bytes-only checksum matches but shape does not.
     reshaped = flat.reshape(2, 3)
-    assert verify_fingerprint(fp, reshaped) is False
-    assert verify_fingerprint(fp, flat) is True
+    # The checksum hashes the bytes only: the shape field tells the two apart.
+    assert fingerprint(reshaped)["checksum"] == fingerprint(flat)["checksum"]
+    assert fingerprint(reshaped)["shape"] != fingerprint(flat)["shape"]
 
 
-def test_verify_detects_dtype_change_with_same_bytes():
+def test_a_dtype_view_with_identical_bytes_changes_the_dtype_and_keeps_the_checksum():
     data = np.array([1, 2, 3, 4], dtype="int32")
-    fp = fingerprint(data)
     viewed = data.view("float32")  # identical bytes, different dtype and meaning
-    assert verify_fingerprint(fp, viewed) is False
+    assert fingerprint(viewed)["checksum"] == fingerprint(data)["checksum"]
+    assert fingerprint(viewed)["dtype"] != fingerprint(data)["dtype"]

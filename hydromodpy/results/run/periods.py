@@ -19,7 +19,7 @@ from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import resolve_instant, resolve_instants, resolve_period
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class RunPeriods:

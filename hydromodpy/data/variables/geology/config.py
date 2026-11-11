@@ -16,7 +16,7 @@ from hydromodpy.core.config_kit.types import (
     CellSamplingDensity,
     IdentifierStr,
 )
-from hydromodpy.core.tracking import InputFile
+from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.data.source.url import UrlSourceOptions
 from hydromodpy.model.properties.geology_config import GeologyConfigBlock
 

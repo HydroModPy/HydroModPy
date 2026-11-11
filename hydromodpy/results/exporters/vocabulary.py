@@ -11,9 +11,10 @@ any run exists. The check of a document reads it to refuse a typo before the sol
 A name is looked up in the order ``Run.read`` resolves it: the field registry
 first, then the series, the vector layers, the raster layers and the tables.
 
-The names are the stored ones. The series and layer names are written by
-layers ``results`` may not import (``workflow``, ``solver``, ``data``), so
-they are restated here; each group names the module that writes it.
+The names are the stored ones. The simulated series are the keys of the
+series registry. The layer names are written by layers ``results`` may not
+import (``workflow``, ``solver``, ``data``), so they are restated here, and
+each group names the module that writes it.
 """
 
 from __future__ import annotations
@@ -43,37 +44,11 @@ from hydromodpy.results.exporters.export_spec import MESH_LAYERS, ExportKind
 from hydromodpy.results.exporters.mesh_layers import available_mesh_layers
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
-# results/derive/catchment_aggregation.py (catchment series)
-# and solver/modflow6/extractors/sfr.py, lake.py (reach and lake series).
-SIMULATED_SERIES: tuple[str, ...] = (
-    "discharge",
-    "well_pumping",
-    "downstream_flow",
-    "ext_inflow",
-    "ext_outflow",
-    "gw_exchange",
-    "gwf_exchange",
-    "to_mvr",
-    "from_mvr",
-    "runoff",
-    "stage",
-    "depth",
-    "volume",
-    "surface_area",
-    "lake_bed_vertical_exchange",
-    "lak_connection",
-    "rainfall",
-    "evaporation",
-    "inflow",
-    "withdrawal",
-    "storage",
-    "reservoir_storage",
-    "outlet",
-    "outlet_inflow",
-    "cutoff_wall_flow",
-)
+# The store refuses a simulated series that the series registry does not
+# describe, so the registry is the list of the series a solve can write.
+SIMULATED_SERIES: tuple[str, ...] = tuple(field_registry.TIME_SERIES_REGISTRY)
 """Series a solve writes, named by variable."""
 
 # The record variables of the observation families
@@ -226,8 +201,10 @@ def _mesh_quality_available(store: Any, sim_id: str) -> list[str]:
 
 def network_unavailable_reason(run: Run) -> str | None:
     """Say why the run cannot cut its simulated stream network, or ``None`` when it can."""
-    from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
-    from hydromodpy.results.derive.stream.run_extent import unavailable_reason_for_flow
+    from hydromodpy.results.derive.stream_network.criterion_settings import (
+        network_criterion_settings,
+    )
+    from hydromodpy.results.derive.stream_network.run_extent import unavailable_reason_for_flow
 
     try:
         settings = network_criterion_settings(run)

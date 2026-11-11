@@ -37,8 +37,12 @@ from hydromodpy.display.figures._stream_comparison import cell_count, map_legend
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.style import get_cmap
-from hydromodpy.results.derive.stream.depressions import DepressionFill, Flood, depression_fill
-from hydromodpy.results.derive.stream.routing_surface import (
+from hydromodpy.results.derive.stream_network.depressions import (
+    DepressionFill,
+    Flood,
+    depression_fill,
+)
+from hydromodpy.results.derive.stream_network.routing_surface import (
     RoutingSurface,
     routing_surface_from_run,
     unavailable_reason_for_routing,
@@ -48,7 +52,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.colors import Colormap
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 _FILL_CMAP = "magma_r"
 """Light to black as the fill deepens.

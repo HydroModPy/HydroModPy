@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import axis_label, station_label
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import LogY, Station, Variable
 from hydromodpy.display.figures._window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
@@ -20,7 +20,7 @@ from hydromodpy.results.derive.time_alignment import (
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class HydrographSimObs(BaseFigure):
@@ -63,7 +63,10 @@ class HydrographSimObs(BaseFigure):
         # (``station``, default ``catchment``), while observations come from
         # real gauges keyed by their own id. Fetch every observed gauge and
         # let the per-station loop align each onto the simulation index.
-        obs_df = sim.observed(variable)
+        try:
+            obs_df = sim.observed(variable)
+        except ValueError as exc:
+            raise FigureNotApplicable(str(exc)) from exc
         method = time_method_for(variable)
         start = run_period_start(sim, sim_ts.index)
         has_aligned = False
@@ -90,7 +93,9 @@ class HydrographSimObs(BaseFigure):
                 ms=5,
             )
         if not has_aligned:
-            raise ValueError(f"No observed {variable!r} values overlap station {station!r}")
+            raise FigureNotApplicable(
+                f"No observed {variable!r} values overlap station {station!r}"
+            )
 
         ax.set_xlabel("Date")
         ax.set_ylabel(axis_label(variable))

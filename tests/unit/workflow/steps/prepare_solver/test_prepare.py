@@ -22,7 +22,7 @@ from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.workflow.steps.data_description import (
     SCHEMA_VERSION,
     changed_sources,

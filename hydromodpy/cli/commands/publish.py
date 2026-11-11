@@ -27,9 +27,7 @@ is verified member by member, an entry that is not a copy being named.
 from __future__ import annotations
 
 import argparse
-import shlex
 import sys
-import tarfile
 from pathlib import Path
 
 from hydromodpy.cli.conventions import (
@@ -38,16 +36,15 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import (
+from hydromodpy.cli.exit_codes import (
     EXIT_GENERIC,
     EXIT_NOT_FOUND,
     EXIT_USAGE,
     exit_code_for,
-    project_root_of,
     refuse,
-    resolve_project_ref,
 )
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of, resolve_project_ref
 
 NAME: str = "publish"
 HELP: str = "Copy a run, the summary or the project out of the tree, with PUBLICATION.json"
@@ -177,6 +174,7 @@ def run(args: argparse.Namespace) -> None:
 def _publish_copy(args: argparse.Namespace) -> None:
     """Copy a run, the summary or every sealed run of the project under ``--to``."""
     from hydromodpy.project.api import publish
+    from hydromodpy.results.export.publish import replay_line
 
     project_root = project_root_of(args)
     destination = Path(args.to).expanduser()
@@ -199,7 +197,7 @@ def _publish_copy(args: argparse.Namespace) -> None:
         written = [published]
     replay = None
     if source is not None and container == "dir" and "inputs" in carried and not args.dry_run:
-        replay = _how_to_run_it_again(source, written[0], project_root)
+        replay = replay_line(source, written[0], project_root)
 
     def table() -> None:
         for path in written:
@@ -224,22 +222,6 @@ def _publish_copy(args: argparse.Namespace) -> None:
         },
         table=table,
     )
-
-
-def _how_to_run_it_again(source: Path, copy: Path, project_root: Path) -> tuple[str, str] | None:
-    """Return the line that replays a copy and the version the run was sealed with.
-
-    A copy of a run with its inputs replays from its own bytes by ``hmp
-    replay``. A summary, or a run without a frozen configuration, has no such line.
-    """
-    from hydromodpy.results.record.label import read_sealed_manifest
-    from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
-
-    seal = read_sealed_manifest(source)
-    if seal is None or not (source / RUN_CONFIG_FILENAME).is_file():
-        return None
-    line = f"hmp replay {shlex.quote(str(copy.resolve()))} -w {shlex.quote(str(project_root))}"
-    return line, seal.identity.hydromodpy_version
 
 
 def _publish_package(args: argparse.Namespace) -> None:
@@ -285,20 +267,9 @@ def _source(project_root: Path, ref: str) -> Path:
         if not summary.is_dir():
             raise FileNotFoundError(f"{summary} does not exist: run 'hmp campaign collect' first.")
         return summary
-    return run_dir_of(project_root, ref)
+    from hydromodpy.results.catalog.discovery import resolve_rel_dir
 
-
-def run_dir_of(project_root: Path, ref: str) -> Path:
-    """Return the directory of one run: its name under ``runs/``, else an id or @-selector."""
-    from hydromodpy.core.state.layout import runs_dir_for
-
-    on_disk = runs_dir_for(project_root) / ref
-    if on_disk.is_dir():
-        return on_disk
-    from hydromodpy.results.catalog import Catalog
-
-    with Catalog(project_root) as catalog:
-        return Path(catalog.run_dir_for(catalog.resolve(ref)))
+    return project_root / resolve_rel_dir(project_root, ref)
 
 
 def _verify(args: argparse.Namespace, copy: Path) -> None:
@@ -308,14 +279,14 @@ def _verify(args: argparse.Namespace, copy: Path) -> None:
     folder without one whose entries are copies is a campaign copy: every
     member is verified, each difference prefixed with its member.
     """
-    from hydromodpy.results.export.publish import verify
+    from hydromodpy.results.export.publish import campaign_members, verify
     from hydromodpy.results.storage.contract import PUBLICATION_FILENAME
 
     target = copy.expanduser()
     members: list[Path] = [target]
     strays: list[str] = []
     if target.is_dir() and not (target / PUBLICATION_FILENAME).is_file():
-        members, strays = _campaign_members(target)
+        members, strays = campaign_members(target)
         if not members:
             refuse(
                 f"{target} holds no {PUBLICATION_FILENAME} and no published copy: not a copy "
@@ -350,19 +321,3 @@ def _verify(args: argparse.Namespace, copy: Path) -> None:
     )
     if problems:
         sys.exit(EXIT_GENERIC)
-
-
-def _campaign_members(folder: Path) -> tuple[list[Path], list[str]]:
-    """Return the copies a campaign folder holds, and the names of its other entries."""
-    from hydromodpy.results.storage.contract import PUBLICATION_FILENAME
-
-    members: list[Path] = []
-    strays: list[str] = []
-    for entry in sorted(folder.iterdir()):
-        if (entry.is_dir() and (entry / PUBLICATION_FILENAME).is_file()) or (
-            entry.is_file() and tarfile.is_tarfile(entry)
-        ):
-            members.append(entry)
-        else:
-            strays.append(entry.name)
-    return members, strays

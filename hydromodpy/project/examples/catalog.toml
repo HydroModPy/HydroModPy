@@ -39,8 +39,8 @@ sha256 = "fa155b0dddbb8499fb1dea9171cb84e259a50ef238e65349df01f1c83f86fd7b"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py2_edit_parameters.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py2_edit_parameters.py"
-size = 3142
-sha256 = "de384bb312e6a1fe731766e24c77e6d8b8d66acc06f071a09c9cd6a155306098"
+size = 3160
+sha256 = "91402235012bccfdaec460a342ff0c46b1c3b3c762d0350dfecdf6ad5e0eee50"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py3_read_exports.py"
@@ -51,8 +51,8 @@ sha256 = "c1a3dd775f71639d90d2a5f50c44489664440bbd8598b86e558900d942cfd961"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py4_sweep_k.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py4_sweep_k.py"
-size = 3021
-sha256 = "691763f7986393a8a6a645b9689dde7355557e537248d63a1efd9f629a9efaab"
+size = 3039
+sha256 = "dae062dc4d98098244e842335252166c451cb6074234b400f9a981f1ed75bbac"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py5_catalog.py"

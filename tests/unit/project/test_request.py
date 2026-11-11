@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 import tomlkit
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, exit_code_for
 from hydromodpy.config.loading import load
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError

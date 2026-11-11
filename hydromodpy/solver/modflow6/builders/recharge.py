@@ -11,11 +11,12 @@ from numbers import Real
 from pathlib import Path
 from typing import Literal
 
+import flopy
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time import validate_recharge_coverage
-from hydromodpy.core.units import convert_payload_to_m_per_s
+from hydromodpy.core.time.window import validate_recharge_coverage
+from hydromodpy.core.units.quantities import convert_payload_to_m_per_s
 from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
 from hydromodpy.model.forcing.steady_periods import (
     apply_first_clim,
@@ -30,8 +31,12 @@ from hydromodpy.model.forcing.validation import (
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
-from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
+from hydromodpy.solver.modflow6.builders.boundary_conditions import (
+    collapse_identical_periods,
+    is_bc_active,
+)
 from hydromodpy.solver.modflow6.builders.period_forcing import simulation_window
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 logger = get_logger(__name__)
 
@@ -1003,3 +1008,156 @@ __all__ = [
     "resolve_deferred_soil_etp",
     "scalar_to_flat",
 ]
+
+
+def _shared_forcing_dir(model) -> str | None:
+    """Return the folder a calibration trial keeps its forcing binaries in, else None.
+
+    The folder is ``shared_forcing_dir`` of the slot the run builds in. The
+    calibration sandbox of a trial names it: one ``_shared_recharge`` folder for
+    every trial of a session, because the recharge is the same for all of them,
+    or a folder of the trial itself when the phase samples a recharge parameter.
+    The recharge and the residual ETP of the soil are then written there once
+    and every trial references them (see ``externalize_recharge_spd``). A run
+    without that folder keeps the binaries beside its model files.
+
+    The returned path is OS-native: it is only ever handed to the local filesystem
+    and to the ``OPEN/CLOSE`` line of the same run's MF6 input, inside a scratch
+    tree the sandbox deletes on exit. Unlike the catalog's relative paths, it is
+    never read back on another platform, so it must not be posix-normalized.
+    """
+    slot = getattr(model, "slot", None)
+    folder = None if slot is None else slot.shared_forcing_dir
+    return None if folder is None else os.fspath(folder)
+
+
+def build_recharge_and_evt(
+    model,
+    solver_mesh: SolverMesh,
+    ocean_support_mask,
+    stream_support_mask,
+):
+    """RCH, and EVT from the soil residual ETP or the routed negative recharge."""
+    # LOCAL, never an attribute of the model. On the shared calibration path
+    # `externalize_recharge_spd` hands FloPy filenames without the arrays, so
+    # the only thing keeping the stack alive afterwards was `model.rch_spd`,
+    # which nothing in the package ever read. Measured on the Nancon at 25 m:
+    # 1826 periods x 243 552 cells x 8 bytes = 3.31 GB retained per model, for
+    # the whole solve, times the number of concurrent trials.
+    rch_spd = recharge_to_spd(model)
+    if model._lake_cell_ids:
+        rch_spd = mask_recharge_on_lake_cells(rch_spd, lake_cell_ids=model._lake_cell_ids)
+    rch_spd = collapse_identical_periods(rch_spd)
+    recharge_payload = externalize_recharge_spd(
+        rch_spd,
+        basename=model.model_name_mf6,
+        shared_dir=_shared_forcing_dir(model),
+    )
+    del rch_spd
+    # A stack with a pass-through cell names the top active layer of each column.
+    areal_layer = areal_layer_index(solver_mesh)
+    model.rch = flopy.mf6.ModflowGwfrcha(
+        model.gwf,
+        recharge=recharge_payload,
+        auxiliary=["CONCENTRATION"],
+        aux=empty_recharge_aux(model),
+        pname="RCHA",
+        **({} if areal_layer is None else {"irch": areal_layer}),
+    )
+    soil_evta = build_soil_evta_payload(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=model._lake_cell_ids,
+        drain_active=is_bc_active(model, "drainage"),
+        shared_dir=_shared_forcing_dir(model),
+    )
+    # Prefer the vectorized EVTA build: it is byte-for-byte equivalent to
+    # build_evt_stress_period_data -> collapse_identical_periods ->
+    # evt_list_spd_to_array_payload whenever every kept EVT cell's first active
+    # layer is 0 (evt_routing_is_layer0_only, cheap and period-invariant), and
+    # it never materializes the list builder's O(ncells x nper) Python records
+    # (63M lists / ~12 GB on a real daily chronicle). Otherwise keep the list
+    # path, which also handles the rare cell whose top layer is inactive.
+    evt_array = None
+    if evt_routing_is_layer0_only(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=model._lake_cell_ids,
+    ):
+        evt_array = build_evt_array_stress_period_data(
+            model,
+            solver_mesh,
+            ocean_support_mask=ocean_support_mask,
+            stream_support_mask=stream_support_mask,
+            lake_cell_ids=model._lake_cell_ids,
+        )
+        # evt_spd is the single source of truth for the soil/routed-EVT collision
+        # guard below, whichever path ran; the list payload itself is only needed
+        # when the vectorized path did not run.
+        evt_spd = True if evt_array is not None else None
+    else:
+        evt_spd = build_evt_stress_period_data(
+            model,
+            solver_mesh,
+            ocean_support_mask=ocean_support_mask,
+            stream_support_mask=stream_support_mask,
+            lake_cell_ids=model._lake_cell_ids,
+        )
+    if soil_evta is not None:
+        if evt_spd is not None:
+            raise RuntimeError(
+                "the soil residual ETP and the routed negative recharge both ask for "
+                "the EVT package; soil mode refuses [data.recharge], so this state is "
+                "a bug."
+            )
+        soil_rate, soil_surface, soil_depth = soil_evta
+        model.evt = flopy.mf6.ModflowGwfevta(
+            model.gwf,
+            surface=soil_surface,
+            depth=soil_depth,
+            rate=soil_rate,
+            save_flows=True,
+            pname="EVTA",
+            **({} if areal_layer is None else {"ievt": areal_layer}),
+        )
+    elif evt_array is not None:
+        rate_by_period, evt_surface, evt_depth = evt_array
+        model.evt = flopy.mf6.ModflowGwfevta(
+            model.gwf,
+            surface=evt_surface,
+            depth=evt_depth,
+            rate=rate_by_period,
+            save_flows=True,
+            pname="EVTA",
+        )
+    elif evt_spd is not None:
+        evt_spd = collapse_identical_periods(evt_spd)
+        # Prefer the array package (EVTA): a compact READARRAY per changed period is far
+        # cheaper to write than O(ncells) list records on chronicles. It is exactly
+        # equivalent while every EVT record sits on layer 0 (the builder skips lake
+        # cells, the usual inactive-top source); otherwise fall back to the list.
+        evt_array = evt_list_spd_to_array_payload(
+            evt_spd, top_flat=solver_mesh.top, ncpl=int(model.ncpl)
+        )
+        if evt_array is not None:
+            rate_by_period, evt_surface, evt_depth = evt_array
+            model.evt = flopy.mf6.ModflowGwfevta(
+                model.gwf,
+                surface=evt_surface,
+                depth=evt_depth,
+                rate=rate_by_period,
+                save_flows=True,
+                pname="EVTA",
+            )
+        else:
+            maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
+            model.evt = flopy.mf6.ModflowGwfevt(
+                model.gwf,
+                stress_period_data=evt_spd,
+                maxbound=maxbound,
+                save_flows=True,
+            )

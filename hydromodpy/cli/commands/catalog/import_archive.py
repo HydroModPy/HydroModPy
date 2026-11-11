@@ -19,8 +19,8 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import project_root_of
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 
 NAME: str = "import"
 HELP: str = "Import a run written by 'hmp publish' (directory or tar), with the data it read"

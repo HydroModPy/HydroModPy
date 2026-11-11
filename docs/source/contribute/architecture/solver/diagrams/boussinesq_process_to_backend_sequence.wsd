@@ -14,7 +14,7 @@ Project -> Solver : processing(run_model=True)
 Solver -> Solver : _build_initial_state()
 Solver -> Contract : _resolve_solver_contract()
 Contract -> Selection : resolve_runtime_backend(...)
-Selection --> Contract : BoussinesqRuntimeBackend
+Selection --> Contract : ResolvedBoussinesqRuntimeBackend
 Contract --> Solver : resolved contract
 
 alt steady

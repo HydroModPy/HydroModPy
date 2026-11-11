@@ -129,7 +129,6 @@ def run_boussinesq_hillslope_sloping_substratum_case(
                 },
                 "drainage": {
                     "application_domain": "top",
-                    "kind": "cauchy",
                     "value": DRAINAGE_CONDUCTANCE_M2_S,
                 },
             },

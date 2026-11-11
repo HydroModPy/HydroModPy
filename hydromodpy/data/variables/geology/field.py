@@ -1,6 +1,6 @@
-"""The geology field of a run, built from the file the geology manager returned.
+"""The geology field of a run, built from the file the geology variable returned.
 
-The manager hands back one ``FieldRecord`` pointing at a GeoPackage or a
+The variable hands back one ``FieldRecord`` pointing at a GeoPackage or a
 raster; the solver needs a ``GeologyField``: each cell of the model support
 mapped to a geological zone. The encoding reads the code column of the file
 (``CODE_LEG`` for the BRGM maps, the ``code_field`` of a custom source) and

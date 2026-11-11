@@ -53,7 +53,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.config import CalibOutputNetwork
+from hydromodpy.calibration.config_network import CalibOutputNetwork
 from hydromodpy.calibration.observations.network_geometry import heads_settings
 from hydromodpy.catchment.algorithms.network_heads import network_head_candidates
 from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph

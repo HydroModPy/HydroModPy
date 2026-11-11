@@ -52,7 +52,7 @@ def test_show_of_an_unknown_id_exits_not_found(monkeypatch, capsys) -> None:
 
 def test_add_installs_from_a_local_source(monkeypatch, capsys, tmp_path) -> None:
     """The whole add path, pointed at a tree instead of GitHub."""
-    from hydromodpy.core.payload import PayloadFile
+    from hydromodpy.core.payload.index import PayloadFile
     from hydromodpy.project.examples.manifest import ExampleEntry
 
     payload = b'[simulation]\nname = "tiny"\n'

@@ -9,7 +9,7 @@ import pandas as pd
 from hydromodpy.results.run.tables import read_run_table
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 _COLUMNS = ["reach_id", "network_id", "reach", "rlen", "ustrf", "downstream"]
 

@@ -3,8 +3,9 @@
 Step 1 of example 04 runs in a first workspace and is published, which takes
 its results and its inputs by default. Under a second disposable HOME, with no
 workspace and no data cache, ``hmp replay`` plays the copy again into a fresh
-project, its inputs read from ``inputs/`` by content. The head
-field comes out the same, to the 16-bit rounding of the stored fields.
+project, its inputs read from ``inputs/`` by content. The replay is classed
+``bit`` in its manifest, and its last head equals the one of the copy value by
+value.
 """
 
 from __future__ import annotations
@@ -15,12 +16,10 @@ import numpy as np
 import pytest
 import zarr
 
+from hydromodpy.results.record.manifest import read_seal
 from tests.e2e._step1_minimal import RUN_NAME, disposable_env, hmp, make_workspace
 
 pytestmark = pytest.mark.e2e
-
-FIELD_PRECISION_RTOL = 2.0**-10
-"""Relative step of a float32 rounded to 16 significant bits (see tests/TOLERANCES.md)."""
 
 
 def _last_head(run_dir: Path) -> np.ndarray:
@@ -59,8 +58,8 @@ def test_a_published_run_replays_alone_with_the_same_heads(tmp_path) -> None:
     )
     assert replayed.returncode == 0, replayed.stderr[-4000:]
 
-    np.testing.assert_allclose(
-        _last_head(replay_project / "runs" / RUN_NAME),
-        _last_head(copy),
-        rtol=FIELD_PRECISION_RTOL,
-    )
+    (replay_dir,) = sorted((replay_project / "runs").glob(f"{RUN_NAME}*"))
+    replay = read_seal(replay_dir).lineage.replay
+    assert replay is not None
+    assert replay.class_ == "bit"
+    np.testing.assert_array_equal(_last_head(replay_dir), _last_head(copy))

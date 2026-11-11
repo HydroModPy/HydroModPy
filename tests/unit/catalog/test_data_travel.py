@@ -12,8 +12,9 @@ import pytest
 
 from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.exceptions import ImportConflictError
-from hydromodpy.core.payload import PayloadConflictError, read_index, sidecar_name, stored_name
-from hydromodpy.core.site import SiteRow
+from hydromodpy.core.payload.index import read_index, sidecar_name, stored_name
+from hydromodpy.core.payload.install import PayloadConflictError
+from hydromodpy.core.site.row import SiteRow
 from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.sites.catalog import read_catalog, write_catalog
 from hydromodpy.project.exchange.install import import_project, import_run

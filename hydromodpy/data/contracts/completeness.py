@@ -74,18 +74,3 @@ def compute_completeness(
         "gaps_detected": gaps,
         "n_duplicates": n_duplicates,
     }
-
-
-def check_required_columns(
-    df: pd.DataFrame,
-    required: tuple[str, ...],
-    *,
-    context: str = "",
-) -> None:
-    """Raise ValueError if required columns are missing."""
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        raise ValueError(
-            f"Missing required columns {missing} in {context or 'DataFrame'}. "
-            f"Available: {list(df.columns)}"
-        )

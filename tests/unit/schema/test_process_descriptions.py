@@ -15,7 +15,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 import hydromodpy.schema.processes as processes_package
-from hydromodpy.cli.helpers import exit_code_for
+from hydromodpy.cli.exit_codes import exit_code_for
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.schema.capability import NAMES_THE_JOB_DOES_NOT_PRODUCE
 from hydromodpy.schema.processes import (

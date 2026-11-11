@@ -7,7 +7,7 @@ from pathlib import Path
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 from shapely.geometry import box
 
-from hydromodpy.core.units import UREG
+from hydromodpy.core.units.registry import UREG
 
 
 def _length_to_meters(value: object, *, default_unit: str) -> float:

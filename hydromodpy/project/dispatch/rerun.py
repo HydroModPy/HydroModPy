@@ -32,13 +32,17 @@ def rerun_config(
     The seal of the new run carries ``lineage.kind = "rerun"``, the id of its
     source, the dotted paths that changed, and the keys that moved.
     """
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.project.facade import Project
     from hydromodpy.project.run_overrides import override_changes
     from hydromodpy.project.runner import pin_parent_sim_id
+    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
     from hydromodpy.schema.lineage import Lineage
     from hydromodpy.workflow.replay_checks import warn_config_drift
 
+    # A run played again may be a trial of a calibration, which reads its files
+    # through the trial pipeline, the one global the library keeps.
+    fill_trial_pipeline()
     if any("." not in key for key in changes):
         changes = override_changes(HydroModPyConfig.from_snapshot(snapshot), changes)
     project = Project(

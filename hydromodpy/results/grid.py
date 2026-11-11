@@ -1,9 +1,9 @@
 """Scalar metadata of the DEM raster a simulation was built from: pixel size, shape, extent.
 
-Exposed as :attr:`hydromodpy.results.run.Run.grid`. It describes the DEM
+Exposed as :attr:`hydromodpy.results.run.view.Run.grid`. It describes the DEM
 raster, never the cells of the model: a mesh is not obliged to follow the
 pixels. The cells of a run, their centers and their areas are read from
-:attr:`hydromodpy.results.run.Run.mesh`. A global model on the one-cell mesh
+:attr:`hydromodpy.results.run.view.Run.mesh`. A global model on the one-cell mesh
 gets the same answer, for the one pixel its DEM stores.
 """
 
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from hydromodpy.results.run.geographic import crs_proj_from_metadata
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 __all__ = ["Grid", "build_grid"]

@@ -25,7 +25,7 @@ from pydantic import Field, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.exceptions import DataRequestError
-from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.schema.job.request import FileLink
 
 CRS_PATTERN = r"^EPSG:[0-9]{4,6}$"
@@ -194,8 +194,8 @@ class InstalledSource(HydroModelBase):
 class DataRequest(HydroModelBase):
     """``[data]`` sections, an extent and a period, asked for from outside."""
 
-    data: Annotated[DataManagersConfig, Profile.USER] = Field(
-        default_factory=DataManagersConfig,
+    data: Annotated[DataConfig, Profile.USER] = Field(
+        default_factory=DataConfig,
         description="the [data] sections to fetch, with the models of the TOML",
     )
     extent: Annotated[RequestExtent, Profile.USER] = Field(

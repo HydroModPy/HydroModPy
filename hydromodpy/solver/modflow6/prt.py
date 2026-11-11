@@ -14,17 +14,16 @@ import numpy as np
 from pydantic import BaseModel
 
 from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
-from hydromodpy.core.time import SIMULATION_TIME_UNIT
+from hydromodpy.core.time.window import SIMULATION_TIME_UNIT
 from hydromodpy.core.units.quantities import SECONDS_PER_DAY
-from hydromodpy.core.units.time import factor_to_seconds
 from hydromodpy.model.model import Model
 from hydromodpy.model.transport.transport_config import Modflow6PrtParametersConfig
 from hydromodpy.results.field_registry import FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
-from hydromodpy.solver.base.protocols import FlowModelLike
 from hydromodpy.solver.base.registry import extractors
+from hydromodpy.solver.modflow6.modflow6 import Modflow6
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
 from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
@@ -32,6 +31,7 @@ from hydromodpy.solver.modflow_common.progress import (
     run_simulation_with_progress,
     write_listing_status,
 )
+from hydromodpy.solver.modflow_common.time_units import seconds_per_tdis_token
 
 
 def _as_float_list(values: Sequence[float] | None) -> list[float] | None:
@@ -89,7 +89,7 @@ class Modflow6Prt:
     def __init__(
         self,
         model: Model,
-        model_modflow: FlowModelLike,
+        model_modflow: Modflow6,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
         suffix_name: str = _PRT,
@@ -138,9 +138,11 @@ class Modflow6Prt:
     def _model_time_unit_seconds(self) -> float:
         """Seconds per model TDIS time unit.
 
-        Falls back to the launcher unit, which the model this reads was built
-        in, rather than to days: a wrong fallback here scales every PRT release
-        and tracking time by 86400 with nothing to show for it.
+        A model that declares no unit runs in the launcher unit, which the
+        model this reads was built in, rather than in days: a wrong fallback
+        here scales every PRT release and tracking time by 86400 with nothing
+        to show for it. A declared token that is no time unit is refused, as
+        ``resolve_solver_time_unit`` refuses it.
         """
         raw_units = SIMULATION_TIME_UNIT
         tdis = getattr(self.model_modflow, "tdis", None)
@@ -149,13 +151,14 @@ class Modflow6Prt:
             raw_units = str(units.get_data())
         elif units is not None:
             raw_units = str(units)
-        token = raw_units.strip().upper()
-        if token == "UNKNOWN":
-            return factor_to_seconds(SIMULATION_TIME_UNIT)
         try:
-            return factor_to_seconds(token)
-        except ValueError:
-            return factor_to_seconds(SIMULATION_TIME_UNIT)
+            return seconds_per_tdis_token(raw_units)
+        except ValueError as exc:
+            raise SolverInputError(
+                f"The TDIS of the flow model declares the time unit {raw_units!r}, which is "
+                "not a MODFLOW 6 time unit. PRT refuses it rather than read its release and "
+                "tracking times in another unit."
+            ) from exc
 
     def _days_to_model_time(self, value: float | None) -> float | None:
         if value is None:

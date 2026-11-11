@@ -32,6 +32,7 @@ from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryCond
 from hydromodpy.model.domain.geometry import ChannelRasters, channel_rasters_for_run
 from hydromodpy.model.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6 import build
+from hydromodpy.solver.modflow6.builders import sfr as sfr_builder
 from hydromodpy.solver.modflow6.builders.sfr import resolve_sfr_networks
 from hydromodpy.solver.modflow_common import catchment_basin
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
@@ -329,7 +330,7 @@ def test_without_outlet_or_polygon_routing_the_largest_basin_is_a_warning(
     assert not [r for r in caplog.records if r.levelno == logging.WARNING]
 
     with caplog.at_level(logging.INFO):
-        mask = build._drainage_basin_mask(basin)
+        mask = sfr_builder._drainage_basin_mask(basin)
     assert mask is basin.mask
     assert any(
         "largest basin of the descent" in r.getMessage()

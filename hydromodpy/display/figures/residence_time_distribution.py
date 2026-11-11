@@ -27,7 +27,7 @@ from hydromodpy.results.run.particles import has_particle_tracks, particle_trave
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 def _log_spaced_density(values: np.ndarray, n_bins: int) -> tuple[np.ndarray, np.ndarray]:

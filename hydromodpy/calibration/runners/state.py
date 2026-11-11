@@ -22,7 +22,7 @@ from hydromodpy.core.code_fingerprint import code_fingerprint
 from hydromodpy.core.exceptions import StorageError
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.tracking import collect_input_files
+from hydromodpy.core.tracking.walker import collect_input_files
 from hydromodpy.results.metric_rule import METRIC_RULE_VERSION
 from hydromodpy.results.session.descriptor import list_session_dirs
 from hydromodpy.results.session.journal import read_trials

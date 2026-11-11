@@ -32,8 +32,9 @@ from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+import flopy
 import numpy as np
 
 from hydromodpy.core.fields.vertical_column import top_active_layer
@@ -71,13 +72,11 @@ from hydromodpy.solver.modflow6.builders.mvr import (
     build_mvr_period_records,
     mover_package_count,
 )
-from hydromodpy.solver.modflow6.builders.period_forcing import (
-    resolve_forcing_mode,
-)
-from hydromodpy.solver.modflow6.support.time_series import Ts6Series
-
-if TYPE_CHECKING:
-    from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from hydromodpy.solver.modflow6.builders.period_forcing import resolve_forcing_mode
+from hydromodpy.solver.modflow6.builders.sfr import mover_rows_reach_lake
+from hydromodpy.solver.modflow6.builders.sidecar import write_sidecar
+from hydromodpy.solver.modflow6.support.time_series import Ts6Series, attach_time_series
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 logger = get_logger(__name__)
 
@@ -704,16 +703,6 @@ def apply_lake_stages(lak: Any, stages: Mapping[str, float]) -> None:
     lak.packagedata.set_data(np.rec.fromrecords([tuple(row) for row in rows], dtype=kinds))
 
 
-def lake_definitions_for_bedleak(model) -> dict[str, dict[str, Any]]:
-    """Return the active lake definitions in LAK packagedata (``ifno``) order.
-
-    Public entry point for the calibration runtime-reuse path, which refreshes the
-    ``bedleak`` column in place. The dict ordering matches the order in which
-    lakes are written to the LAK package, so its index is the 0-based ``ifno``.
-    """
-    return _active_lake_definitions(model)
-
-
 def build_exposed_band_runoff_specs(model) -> list:
     """Build the exposed-band (marnage) runoff coupling specs, or ``[]``.
 
@@ -865,7 +854,104 @@ __all__ = [
     "build_lake_period_data",
     "build_lake_table",
     "convert_bedleak_to_per_s",
-    "lake_definitions_for_bedleak",
     "lake_ids_in_package_order",
     "read_final_lake_stages",
 ]
+
+
+def _write_lake_abacus_meta(model) -> None:
+    """Write the reference and simulated abacus of each reconstructed lake bed."""
+    reconstruction = getattr(model, "_lake_bed_reconstruction", None)
+    entries = [
+        {
+            "lake_id": str(lid),
+            "stage": rec["abacus_stage"],
+            "real_volume": rec.get("abacus_volume"),
+            "real_sarea": rec["abacus_sarea"],
+            "sim_volume": rec["sim_volume"],
+            "sim_sarea": rec["sim_sarea"],
+        }
+        for lid, rec in (reconstruction or {}).items()
+        if rec.get("abacus_stage") is not None
+        and rec.get("sim_volume") is not None
+        and rec.get("abacus_volume") is not None
+    ]
+    if entries:
+        write_sidecar(model, ".lake_abacus.json", {"entries": entries})
+
+
+def build_lakes(
+    model,
+    solver_mesh: SolverMesh,
+    lake_cell_ids_by_lake,
+    sfr_mover_records,
+    drainage_mover_rows,
+    downstream_reach_by_lake,
+):
+    """LAK, its tables, observations and sidecars; returns the mover rows so far."""
+    # LAK (lake / reservoir) package. Built after model.wel and before model.oc.
+    # Lake cells were already made inactive above, so the CONNECTIONDATA targets
+    # active aquifer neighbors only. Controlled transfers (LAK -> LAK, SFR -> LAK,
+    # LAK -> SFR, DRN -> SFR) ride MVR, which is GWF-scoped and MUST be built last.
+    all_mover_rows: list[list[object]] = list(drainage_mover_rows)
+    n_lakes_built = 0
+    lake_connections: list[list[object]] = []
+    if lake_cell_ids_by_lake:
+        lak_args = build_lak_package_args(
+            model,
+            solver_mesh=solver_mesh,
+            lake_cell_ids_by_lake=lake_cell_ids_by_lake,
+            occupied_layers_by_cell=getattr(model, "_lake_occupied_layers_by_cell", None),
+            # A lake is fed by a mover from SFR, or from DRN when the descent of a
+            # drain cell meets the lake before any reach. LAK must announce MOVER
+            # for either, or MODFLOW 6 stops at the first DRN-to-LAK record.
+            external_mover_to_lake=any(record.receiver == "LAK" for record in sfr_mover_records)
+            or mover_rows_reach_lake(drainage_mover_rows),
+            downstream_reach_by_lake=downstream_reach_by_lake,
+        )
+        if lak_args is not None:
+            laktab_specs = lak_args.pop("laktab_specs")
+            mover_records = lak_args.pop("mover_records", None)
+            lak_args.pop("mover_maxpackages", 0)
+            obs_continuous = lak_args.pop("obs_continuous", None)
+            lake_obs_meta = lak_args.pop("lake_obs_meta", None)
+            ts_specs = lak_args.pop("ts_specs", None)
+            n_lakes_built = int(lak_args["nlakes"])
+            lake_connections = lak_args["connectiondata"]
+            lak = flopy.mf6.ModflowGwflak(model.gwf, pname="LAK", **lak_args)
+            # Non-constant forcings routed to an external TS6 file: attach right
+            # after construction so the series names are registered before write.
+            if ts_specs:
+                attach_time_series(lak, ts_specs, filename=f"{model.model_output_name}.lak.ts")
+            for spec in laktab_specs:
+                flopy.mf6.ModflowUtllaktab(
+                    model.gwf,
+                    nrow=len(spec["table"]),
+                    ncol=3,
+                    table=spec["table"],
+                    filename=spec["filename"],
+                    parent_file=lak,
+                )
+            # OBS6 for the per-lake output series, plus a JSON sidecar the
+            # extractor reads to re-key the obs CSV by (lake_id, totim).
+            if obs_continuous:
+                lak.obs.initialize(
+                    filename=f"{model.model_output_name}.lak.obs",
+                    digits=10,
+                    print_input=False,
+                    continuous=obs_continuous,
+                )
+            if lake_obs_meta is not None:
+                write_sidecar(model, ".lak.meta.json", lake_obs_meta)
+            # Persist the bed-reconstruction abacus comparison for the QC figure.
+            _write_lake_abacus_meta(model)
+            model.lak = lak
+            if mover_records:
+                all_mover_rows.extend(mover_records)
+            # Active-littoral lakes with exposed_band_runoff need the in-process BMI
+            # runner: build the per-lake coupling specs now (lake order == LAK ifno).
+            # Their presence flips the runner to 'api' and attaches the callback.
+            band_specs = build_exposed_band_runoff_specs(model)
+            if band_specs:
+                model._exposed_band_runoff_specs = band_specs
+    return all_mover_rows, n_lakes_built, lake_connections

@@ -3,7 +3,7 @@
 Guards the three per-lake volumetric (L^3/T) timeseries families
 (``lake_inflow``, ``lake_outflow``, ``lake_withdrawal``) modeled on the
 ``lake_levels`` family: each is dispatchable, listed as a scaffold variable
-and a supported data-manager type, and its manager loads a custom CSV
+and a supported data variable, and its class loads a custom CSV
 directory into PointRecord timeseries.
 """
 
@@ -17,20 +17,21 @@ import pytest
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.families.stations import StationVariable
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, variable_class_for
-from hydromodpy.data.loading.config_schema import SUPPORTED_DATA_MANAGER_TYPES
-from hydromodpy.data.variables.lake_inflow.config import LakeInflowConfig
-from hydromodpy.data.variables.lake_inflow.variable import LakeInflowVariable
-from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
-from hydromodpy.data.variables.lake_outflow.variable import LakeOutflowVariable
-from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
-from hydromodpy.data.variables.lake_withdrawal.variable import LakeWithdrawalVariable
-from hydromodpy.data.workspace.scaffold import VARIABLES
+from hydromodpy.data.loading.config_schema import DATA_VARIABLES
+from hydromodpy.data.variables.lake_series import (
+    LakeInflowConfig,
+    LakeInflowVariable,
+    LakeOutflowConfig,
+    LakeOutflowVariable,
+    LakeWithdrawalConfig,
+    LakeWithdrawalVariable,
+)
 
 PROJECT_PERIOD = (datetime(2020, 1, 1), datetime(2020, 3, 31))
 
 FLUX_FAMILIES = ("lake_inflow", "lake_outflow", "lake_withdrawal")
 
-MANAGER_CLASSES = {
+VARIABLE_CLASSES = {
     "lake_inflow": (LakeInflowConfig, LakeInflowVariable),
     "lake_outflow": (LakeOutflowConfig, LakeOutflowVariable),
     "lake_withdrawal": (LakeWithdrawalConfig, LakeWithdrawalVariable),
@@ -64,44 +65,44 @@ def _make_lake_flux_dir(tmp_path, variable_name, *, lake_ids, unit="m3/s", value
 @pytest.mark.parametrize("name", FLUX_FAMILIES)
 def test_family_registers_in_dispatch(name):
     spec = VARIABLE_SPECS[name]
-    assert spec.config_module == f"hydromodpy.data.variables.{name}.config"
-    assert spec.variable_module == f"hydromodpy.data.variables.{name}.variable"
+    assert spec.config_module == "hydromodpy.data.variables.lake_series"
+    assert spec.variable_module == "hydromodpy.data.variables.lake_series"
 
-    manager_cls = variable_class_for(name)
-    assert issubclass(manager_cls, StationVariable)
-    assert manager_cls.VARIABLE_NAME == name
-    assert manager_cls.INTERNAL_UNIT == "m3/s"
+    variable_cls = variable_class_for(name)
+    assert issubclass(variable_cls, StationVariable)
+    assert variable_cls.VARIABLE_NAME == name
+    assert variable_cls.INTERNAL_UNIT == "m3/s"
 
 
 @pytest.mark.parametrize("name", FLUX_FAMILIES)
-def test_family_is_supported_data_manager_type(name):
-    assert name in SUPPORTED_DATA_MANAGER_TYPES
+def test_family_is_a_data_variable(name):
+    assert name in DATA_VARIABLES
 
 
 @pytest.mark.parametrize("name", FLUX_FAMILIES)
 def test_family_scaffold_scans_as_point_timeseries(name):
-    spec = next(s for s in VARIABLES if s.name == name)
+    spec = VARIABLE_SPECS[name]
     assert spec.category == "point"
     assert spec.kind == "timeseries"
     assert spec.unit == "m3/s"
 
 
-def test_manager_load_returns_point_timeseries_contract(tmp_path):
-    config_cls, manager_cls = MANAGER_CLASSES["lake_inflow"]
+def test_variable_load_returns_point_timeseries_contract(tmp_path):
+    config_cls, variable_cls = VARIABLE_CLASSES["lake_inflow"]
     data_dir = _make_lake_flux_dir(
         tmp_path,
         "lake_inflow",
         lake_ids=["LAC01", "LAC02"],
     )
     config = config_cls.from_csv_directory(data_dir)
-    manager = manager_cls(
+    variable = variable_cls(
         config=config,
         index=None,
         project_period=PROJECT_PERIOD,
         data_dir=data_dir,
     )
 
-    result = manager.load()
+    result = variable.load()
 
     assert len(result.points) == 2
     for record in result.points:

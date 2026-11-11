@@ -17,9 +17,9 @@ from pathlib import Path
 import pytest
 import tomlkit
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, exit_code_for
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, exit_code_for
 from hydromodpy.config.config_migration import PRERELEASE_FORMS
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 
 WORKSPACE = """\

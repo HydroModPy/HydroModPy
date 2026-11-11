@@ -12,7 +12,7 @@ import pytest
 
 from hydromodpy.cli.commands import run as run_command
 from hydromodpy.cli.commands.run import HEAD_ONLY_MESSAGE, _stops_before_setup_process
-from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_WRITE_CONFLICT, exit_code_for
 from hydromodpy.cli.main import main
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import (
@@ -102,7 +102,7 @@ def test_until_on_a_calibration_file_names_the_simulation_workaround(
 
     code = _run(monkeypatch, ["hmp", "run", str(config_path), "--until", "load_data"])
 
-    from hydromodpy.cli.helpers import EXIT_CONFIG
+    from hydromodpy.cli.exit_codes import EXIT_CONFIG
 
     assert code == EXIT_CONFIG
     err = capsys.readouterr().err
@@ -121,7 +121,7 @@ def test_from_on_a_calibration_file_gets_the_same_text(monkeypatch, tmp_path, ca
 
     code = _run(monkeypatch, ["hmp", "run", str(config_path), "--from", "load_data"])
 
-    from hydromodpy.cli.helpers import EXIT_CONFIG
+    from hydromodpy.cli.exit_codes import EXIT_CONFIG
 
     assert code == EXIT_CONFIG
     err = capsys.readouterr().err
@@ -135,7 +135,7 @@ def test_until_on_an_overview_file_keeps_the_generic_text(monkeypatch, tmp_path,
 
     code = _run(monkeypatch, ["hmp", "run", str(config_path), "--until", "load_data"])
 
-    from hydromodpy.cli.helpers import EXIT_CONFIG
+    from hydromodpy.cli.exit_codes import EXIT_CONFIG
 
     assert code == EXIT_CONFIG
     err = capsys.readouterr().err
@@ -237,18 +237,33 @@ def test_a_second_hmp_run_on_a_live_case_is_refused_and_leaves_it_running(
     assert [entry.name for entry in (tmp_path / "runs").iterdir()] == [CASE], "no .v2"
 
 
-def test_an_unreadable_outcome_never_hides_the_error_of_the_run(tmp_path: Path) -> None:
-    """The attempt of this process is still closed, past a folder whose outcome cannot be read."""
-    broken = tmp_path / "runs" / "a_broken"
-    broken.mkdir(parents=True)
-    (broken / "outcome.json").write_text("{not json", encoding="utf-8")
-    run_dir = write_attempt(
-        tmp_path, "runs/case", status="running", host=socket.gethostname(), pid=os.getpid()
-    )
+def test_the_index_is_built_after_the_worker_when_the_project_has_none(tmp_path: Path) -> None:
+    from hydromodpy.core.state.layout import catalog_path_for
+    from tests._helpers.sealed_runs import make_project, seal_run
 
-    run_command._close_dead_attempt(tmp_path, RuntimeError("the error of the run"))
+    project = make_project(tmp_path / "ws")
+    seal_run(project, "case")
+    assert not catalog_path_for(project).exists()
 
-    assert read_outcome(run_dir).status == "failed"
+    run_command._index_after_worker(project)
+
+    assert catalog_path_for(project).is_file()
+
+
+def test_a_failing_index_never_fails_the_run(monkeypatch, tmp_path: Path, caplog) -> None:
+    from tests._helpers.sealed_runs import make_project, seal_run
+
+    project = make_project(tmp_path / "ws")
+    seal_run(project, "case")
+
+    def refuse(_root):
+        raise RuntimeError("the index does not read")
+
+    monkeypatch.setattr("hydromodpy.results.catalog.indexer.index_after_run", refuse)
+
+    run_command._index_after_worker(project)
+
+    assert "Index not refreshed after the run: the index does not read" in caplog.text
 
 
 def _sealed_config(folder: Path) -> Path:
@@ -267,7 +282,7 @@ def test_frozen_on_the_config_of_a_sealed_run_names_the_replay_verb(
 
     code = _run(monkeypatch, ["hmp", "run", str(config), "--frozen"])
 
-    from hydromodpy.cli.helpers import EXIT_CONFIG
+    from hydromodpy.cli.exit_codes import EXIT_CONFIG
 
     assert code == EXIT_CONFIG
     err = capsys.readouterr().err
@@ -284,7 +299,7 @@ def test_frozen_on_the_config_of_a_published_copy_names_the_replay_verb(
 
     code = _run(monkeypatch, ["hmp", "run", str(config), "--frozen"])
 
-    from hydromodpy.cli.helpers import EXIT_CONFIG
+    from hydromodpy.cli.exit_codes import EXIT_CONFIG
 
     assert code == EXIT_CONFIG
     assert "hmp replay publication" in capsys.readouterr().err

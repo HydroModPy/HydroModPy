@@ -11,8 +11,8 @@ import pytest
 from hydromodpy.core.exceptions import CommandUsageError, NothingThereError
 from hydromodpy.results.derive.reading import read_variable
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.run import Run
 from hydromodpy.results.run.group import RunSet
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION

@@ -2,7 +2,7 @@
 
 One project folder, an 80 x 80 pixel valley at 25 m written by the test under
 ``inputs/``, played by MODFLOW 6 steady on the regular mesh with the river
-network on. Five runs, in order:
+network on. Six runs, in order:
 
 1. ``hmp run project.toml``: the run is sealed, ``.hmp/products/`` holds the
    terrain and the mesh, ``products.json`` cites the terrain key, and the old
@@ -19,6 +19,10 @@ network on. Five runs, in order:
    descent, and the metadata records ``dem_correc_type = "provided"``.
 5. A run stopped after ``setup_process`` then resumed: the terrain comes from
    the store, the run seals, and its fields equal the first run's.
+6. The same DEM under ``[geographic] terrain_engine = "numpy_d8"``: the run
+   seals, its terrain product sits under another key than the first run's, the
+   resolved document of the run names the engine, and the outlet cell lies in the
+   basin.
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import numpy as np
@@ -81,14 +86,19 @@ def _write_valley(root: Path) -> None:
         dst.write(elev, 1)
 
 
-def _project_toml(name: str, *, conditioned: bool = False) -> str:
-    """Return the TOML of the valley, MODFLOW 6 steady on the regular mesh."""
+def _project_toml(name: str, *, conditioned: bool = False, engine: str | None = None) -> str:
+    """Return the TOML of the valley, MODFLOW 6 steady on the regular mesh.
+
+    *engine* writes ``[geographic] terrain_engine``, left out it is the default engine.
+    """
     dem_source = (
         'state = "conditioned"\npath = "inputs/dem_fill.tif"'
         if conditioned
         else 'path = "inputs/dem.tif"'
     )
     correc = "" if conditioned else 'dem_correc_type = "fill"\n'
+    if engine is not None:
+        correc += f'terrain_engine = "{engine}"\n'
     return f"""\
 [site]
 name = "valley"
@@ -222,6 +232,18 @@ def _watershed_wkb(run_dir: Path) -> list[bytes]:
     return [geometry.wkb for geometry in read_geoparquet(path).geometry]
 
 
+def _outlet_is_in_the_basin(run_dir: Path) -> bool:
+    """Say whether the outlet cell centre lies in the watershed polygon of a run."""
+    from shapely.geometry import Point
+    from shapely.ops import unary_union
+
+    from hydromodpy.core.io.geoparquet import read_geoparquet
+
+    path = run_dir / "tables.parquet" / "geographic_watershed.parquet"
+    basin = unary_union(list(read_geoparquet(path).geometry))
+    return bool(basin.buffer(1e-6).contains(Point(OUTLET_X, OUTLET_Y)))
+
+
 def _said(result: subprocess.CompletedProcess[str]) -> str:
     return result.stderr[-3000:]
 
@@ -305,3 +327,15 @@ def test_terrain_comes_from_the_store(
         store.path(_terrain_key(cited_a)) / "meta.json"
     ).read_bytes() == terrain_meta_before_resume
     _fields_equal(run_a, run_e)
+
+    # 6. The same DEM under the numpy terrain engine: its own product, its own key.
+    (root / "numpy.toml").write_text(_project_toml("f", engine="numpy_d8"), encoding="utf-8")
+    sixth = _hmp(root, scenario_env, "run", "numpy.toml")
+    assert sixth.returncode == 0, _said(sixth)
+    run_f = root / "runs" / "f"
+    assert is_sealed(run_f)
+    key_f = _terrain_key(read_cited(run_f))
+    assert key_f != _terrain_key(cited_a)
+    sealed = tomllib.loads((run_f / "config.resolved.toml").read_text(encoding="utf-8"))
+    assert sealed["geographic"]["terrain_engine"] == "numpy_d8"
+    assert _outlet_is_in_the_basin(run_f)

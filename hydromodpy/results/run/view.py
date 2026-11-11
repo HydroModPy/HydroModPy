@@ -63,7 +63,7 @@ Public API
 
 Cross-refs
 ----------
-- ``hydromodpy.results.catalog.Catalog`` owns this object's data.
+- ``hydromodpy.results.catalog.facade.Catalog`` owns this object's data.
 - ``hydromodpy.results.run.group.RunSet`` iterates over
   ``Run`` instances.
 - ``hydromodpy.results.grid.Grid`` describes the grid of the DEM, never the model cells.
@@ -117,7 +117,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
     from pydantic import BaseModel
 
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
     from hydromodpy.results.publication import PublishedLine
     from hydromodpy.results.record.checks import Checks
     from hydromodpy.results.record.manifest import InputEntry
@@ -367,7 +367,7 @@ class Run(
 
     See Also
     --------
-    hydromodpy.results.catalog.Catalog
+    hydromodpy.results.catalog.facade.Catalog
         Workspace-level catalog that creates ``Run`` instances.
     hydromodpy.results.run.group.RunSet
         Collection view for many runs.
@@ -674,7 +674,7 @@ class Run(
     ) -> Figure | Path:
         """Draw the registered figure *name* of this run, the same as ``[display].figures``.
 
-        The names are those of :func:`hydromodpy.display.list_figures`, and the
+        The names are those of :func:`hydromodpy.display.figure_registry.list_figures`, and the
         options are the figure's own. The run's ``[display]`` is not applied. A
         figure declares its subject: a ``run`` figure draws this run, a
         ``session`` figure draws the session that promoted it, and a run no

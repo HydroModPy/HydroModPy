@@ -13,7 +13,7 @@ from hydromodpy.display.figures._hydrochem import hydrochem_frame, missing_sampl
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class StiffDiagramFigure(BaseFigure):

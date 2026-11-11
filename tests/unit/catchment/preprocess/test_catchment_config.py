@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
 from hydromodpy.catchment.preprocess.catchment_config import DemCatchDef
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
 _OUTLET = {
     "kind": "from_outlet_coord",

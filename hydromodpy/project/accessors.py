@@ -42,9 +42,9 @@ if TYPE_CHECKING:
     import geopandas as gpd
 
     from hydromodpy.project.facade import Project
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.catalog.facade import Catalog
     from hydromodpy.results.run.group import RunSet
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 
@@ -79,7 +79,7 @@ class ProjectRunsAccessor:
     Called, it gives the completed runs of the project as a
     :class:`~hydromodpy.results.run.group.RunSet`: ``project.runs(site="J0014010")``.
     Its methods are thin wrappers around the index
-    :class:`~hydromodpy.results.catalog.Catalog` that pre-filter queries by
+    :class:`~hydromodpy.results.catalog.facade.Catalog` that pre-filter queries by
     the current project name.
     """
 
@@ -166,7 +166,7 @@ def cases_frame(catalog: Catalog, project_root: Path) -> pd.DataFrame:
 
     Without a plan, every run and session of the index, one row each. With a
     plan, every case of the current plan first, with its status from
-    :func:`hydromodpy.project.launch.project_status` (planned, invalid,
+    :func:`hydromodpy.project.launch.status.project_status` (planned, invalid,
     skipped and stale_plan included), then the sealed facts, the label, the
     headline metric and the global parameters of the directory that holds it
     (the promoted run of a calibration once its session completed); the
@@ -175,7 +175,7 @@ def cases_frame(catalog: Catalog, project_root: Path) -> pd.DataFrame:
     rows = _case_rows(catalog)
     if current_plan_hash(project_root) is None:
         return rows
-    from hydromodpy.project.launch import project_status
+    from hydromodpy.project.launch.status import project_status
 
     status = pd.DataFrame(
         [dataclasses.asdict(row) for row in project_status(project_root).rows],

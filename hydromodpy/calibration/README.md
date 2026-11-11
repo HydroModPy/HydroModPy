@@ -23,11 +23,13 @@ root of the package.
 | `persistence.py` | how a session is written: `sessions/<case>/` and its journal, nothing else |
 | `report.py` | what a calibration returns (`CalibrationReport`, `CalibrationResult`) and the words about it; the session page is not written here |
 | `evaluation/` | what one trial must answer: the evaluator port, its registry, and `analytic_bowl`, the evaluator that needs nothing from the calibration document |
-| `config.py` | what the modeller wrote: every `[calibration.*]` table, protocol options included |
+| `config_terms.py`, `config_network.py`, `config_outputs.py`, `config_objective.py`, `config_phases.py` | the parts of the `[calibration]` schema, in that order: the shared terms and windows, the matching-network options and network outputs, the point outputs, the protocol, parameters and objective blocks, the phases and the uncertainty |
+| `config.py` | what the modeller wrote: `CalibrationConfig`, the `[calibration]` table, built from the five `config_*` modules |
 | `protocols/` | which published recipe a calibration follows, and how it expands into phases and objective blocks |
-| `observations/` | what is observed: the observed stream network and its geometry, read through `results/derive/stream/criterion_inputs.py` and scored by the kernels of `catchment/stream_network` |
+| `observations/` | what is observed: the observed stream network and its geometry, read through `results/derive/stream_network/criterion_inputs.py` and scored by the kernels of `catchment/stream_network` |
 | `metrics/` | how the outputs of one trial are extracted and paired with observations |
 | `runners/` | how a calibration runs: the three entry points, the phases and what they hand to each other, the trial primitive, the default evaluator, restarts, resume, promotion of the best trials |
+| `preflight_report.py`, `preflight_searches.py`, `preflight_network.py` | the finding and the report lines, the searches a document declares, the checks of the matching-network criterion |
 | `preflight.py` | every check of a calibration before anything is prepared, run at the start of every launch and printed by `hmp check` |
 
 The two analytical demonstrators that the regression tests drive from Python live outside the
@@ -50,12 +52,19 @@ cycle. Every part may import the layers `layer_matrix.yaml` gives calibration.
 | `persistence` | `optim` |
 | `report` | `persistence` |
 | `evaluation` | `optim` (types only) |
-| `config` | `criteria`, `evaluation`, `optim`, inside validators only |
-| `protocols`, `observations` | `config` |
+| `config_terms` | `optim` |
+| `config_network` | `config_terms`, `optim` |
+| `config_outputs` | `config_network`, `config_terms` |
+| `config_objective` | `config_network`, `config_terms`, `optim` |
+| `config_phases` | `config_terms`, `evaluation` |
+| `config` | the five `config_*`, and `criteria`, `evaluation`, `optim` inside validators only |
+| `protocols` | `config` and the `config_*` it names |
+| `observations` | `config_network` |
 | `metrics` | `config`, `criteria`, `evaluation`, `observations`, `optim` |
 | `runners` | `config`, `criteria`, `evaluation`, `metrics`, `optim`, `parameter_resolution`, `persistence`, `protocols`, `report` |
-| `preflight` | inside its checks: `criteria`, `metrics`, `observations`, `optim`, `parameter_resolution`, `protocols`, `runners`, `targets` |
-| `__init__.py` | `config`, `optim`, `report`, `runners` |
+| `preflight_report`, `preflight_searches`, `preflight_network` | `runners` and what their row in the layout names |
+| `preflight` | inside its checks: `criteria`, `metrics`, `observations`, `optim`, `parameter_resolution`, the three `preflight_*`, `runners`, `targets` |
+| `__init__.py` | nothing: it holds no name |
 
 Five more rules:
 
@@ -80,9 +89,11 @@ Five more rules:
 
 ```
 hydromodpy/calibration/
-  __init__.py                  CalibrationConfig, CalibrationEngine, objectives, build_optimizer
-  config.py                    the [calibration] schema (Pydantic)
-  targets.py  parameter_resolution.py  persistence.py  report.py  preflight.py
+  __init__.py                  the docstring only
+  config.py                    the [calibration] schema (Pydantic), CalibrationConfig
+  config_terms.py  config_network.py  config_outputs.py  config_objective.py  config_phases.py
+  targets.py  parameter_resolution.py  persistence.py  report.py
+  preflight.py  preflight_report.py  preflight_searches.py  preflight_network.py
   criteria/     base.py (Criterion, requirements)  series.py (METRICS and kernel conventions)
                 hydrographic_network_distance.py  registry.py (criterion_for)
   optim/        parameters.py (ParameterSpace, set_by_path)  sampling.py
@@ -97,7 +108,9 @@ hydromodpy/calibration/
   metrics/      solver_extract.py  composite.py  observed_pairing.py  observable_scoring.py
                 scalar.py  series.py (observed series by role)  gauge_snap.py
   runners/      cli_runner.py (entry)  document.py (read the TOML)  search.py (one search)
+                search_record.py (what a search writes in the trial journal)
                 session_scope.py (open, close, promote)  staged_runner.py  programmatic_runner.py
+                staged_report.py (tables and method sentences of a staged run)
                 trial.py (prepare once, evaluate many, TrialPipeline)  sandbox.py  verdict.py  materialize.py
                 phase_regime.py (steady or transient, as config overrides)
                 pipeline_evaluator.py  promotion.py  recap.py  restarts.py  resume.py
@@ -554,7 +567,7 @@ declared share when the blocks have different units.
    `tests/unit/calibration/test_optim_adapters_<method>_adapter.py`.
 2. **A criterion a TOML can name.** One row in
    `hydromodpy/core/scoring/metric_table.py`, with its sense and its flags
-   `clips_negatives` and `dimensionless`. `MetricKind` in `config.py` and
+   `clips_negatives` and `dimensionless`. `MetricKind` in `config_terms.py` and
    `METRIC_SENSE` are built from that table. Then the kernel `(sim, obs) -> float`
    in `criteria/series.py`, under its name in `METRICS`:
    `test_metric_table.py` keeps the two equal. `criteria/registry.py` builds
@@ -564,18 +577,19 @@ declared share when the blocks have different units.
    constructor takes only names from `CONSTRUCTION_OPTIONS`
    (`evaluation/registry.py`). Outside HydroModPy, publish it in the
    `hydromodpy.calibration.evaluator` entry-point group. Inside, put it in
-   `evaluation/` if it reads nothing from `config.py`, otherwise beside what it
+   `evaluation/` if it reads nothing from the `config_*` modules, otherwise beside what it
    uses, and add its dotted path to `_BUILTIN_PATHS`.
 4. **A calibration protocol.** A module in `protocols/` with a class that
    satisfies `CalibrationProtocol` (`protocols/base.py`: references,
    deviations, `expand`), an instance in `_PROTOCOLS` of
-   `protocols/registry.py`, and its options model in `config.py`.
+   `protocols/registry.py`, and its options model in `config_network.py`, which `config_objective.py` reads.
    `CalibrationProtocolDecl` then becomes a union discriminated on `name`.
-5. **A phase option.** The field on `CalibPhaseDecl` in `config.py`, and its
+5. **A phase option.** The field on `CalibPhaseDecl` in `config_phases.py`, and its
    effect in `runners/staged_runner.py` (`_phase_config`) or, for a model
    setting, in `runners/phase_regime.py`. A protocol that needs it writes it
    into the phases it expands; it never reaches around the phase.
-6. **A `[calibration]` field.** The field on its model in `config.py`, with a
+6. **A `[calibration]` field.** The field on its model, `CalibrationConfig` in `config.py` for a
+   root field and the `config_*` module of its table otherwise, with a
    profile and a description. The parameter reference is computed from the
    model at the next documentation build (`tools/docs/field_registry.py`).
    The committed JSON Schema, `docs/source/_static/hydromodpy-schema.json`, is
@@ -608,7 +622,7 @@ imports `display`. The root facade, `config`,
 ## Reading path
 
 1. This file.
-2. `__init__.py` for the public surface.
+2. `calibration_layout.yaml` for the modules other layers read.
 3. `runners/search.py`, then `optim/engine.py`.
 4. `runners/trial.py` for the prepare-once and evaluate-many primitive.
 5. One adapter: `optim/adapters/optuna_adapter.py` is the most generic.
@@ -618,9 +632,10 @@ imports `display`. The root facade, `config`,
 
 Only these modules, listed under `public` in `calibration_layout.yaml`:
 `hydromodpy.calibration`, `config`, `targets`, `parameter_resolution`,
-`preflight`, `protocols`, `report`, `optim.parameters`,
-`runners.cli_runner`, `runners.document`, `runners.staged_runner`,
-`runners.programmatic_runner`, `runners.trial`.
+`preflight`, `preflight_report`, `protocols`, `protocols.registry`, `report`,
+`optim.parameters`, `runners.cli_runner`, `runners.document`, `runners.staged_report`,
+`runners.staged_runner`, `runners.programmatic_runner`, `runners.trial`,
+`runners.promotion`, `runners.session` and `runners.recap`.
 
 A plugin outside HydroModPy joins through entry-point groups: an
 optimizer (`hydromodpy.calibration.optimizer`, written against

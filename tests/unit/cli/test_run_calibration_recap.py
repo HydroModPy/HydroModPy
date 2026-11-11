@@ -204,7 +204,7 @@ def test_a_failed_promotion_is_named_and_exits_with_the_calibration_code(
     tmp_path, monkeypatch, capsys, verbosity
 ) -> None:
     """The search results are printed and kept; the exit code says a run is missing."""
-    from hydromodpy.cli.helpers import EXIT_CALIBRATION
+    from hydromodpy.cli.exit_codes import EXIT_CALIBRATION
 
     config = tmp_path / "run_calibration.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")

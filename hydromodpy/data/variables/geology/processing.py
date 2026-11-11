@@ -183,37 +183,3 @@ def uniformize_sea_zone_on_dataframe(
         "sea_value": str(sea_value),
         "sea_zone_key": normalize_zone_key(sea_zone_key),
     }
-
-
-def build_zone_class_index_on_dataframe(
-    gdf,
-    *,
-    zone_key_column: str = "zone_key",
-    class_index_column: str = "class_idx",
-    min_unique: int = 2,
-):
-    """
-    Build a stable class index column from zone keys for plotting/analysis.
-    """
-    zone_key_col = str(zone_key_column).strip()
-    if zone_key_col == "":
-        raise ValueError("zone_key_column cannot be empty")
-    if zone_key_col not in gdf.columns:
-        raise KeyError(f"Missing zone key column '{zone_key_col}'")
-
-    zone_keys = gdf[zone_key_col].astype(str).str.strip()
-    out = gdf.loc[zone_keys != ""].copy()
-    if out.empty:
-        raise ValueError("No non-empty zone key found in dataframe")
-
-    zone_keys = out[zone_key_col].astype(str).str.strip()
-    _, class_idx = np.unique(zone_keys.to_numpy(), return_inverse=True)
-    out[str(class_index_column).strip() or "class_idx"] = class_idx.astype(float)
-
-    counts = zone_keys.value_counts()
-    if int(counts.size) < int(max(1, min_unique)):
-        raise ValueError(
-            "Only one geology class found in the global map. "
-            "Check source path, code_field, clip polygon, or source coverage."
-        )
-    return out, counts

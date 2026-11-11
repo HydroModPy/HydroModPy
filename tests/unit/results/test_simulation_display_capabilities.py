@@ -8,7 +8,7 @@ is no second list of figure names kept on the ``Run``.
 from __future__ import annotations
 
 from hydromodpy.display.figure_registry import get as get_figure
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 from tests._helpers.run_builders import populate, runs
 
 __all__ = ["runs"]

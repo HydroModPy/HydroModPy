@@ -35,7 +35,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.cli.refs import resolve_workspace
     from hydromodpy.data.request.cache_verbs import restore_data_cache
 
     src = args.input

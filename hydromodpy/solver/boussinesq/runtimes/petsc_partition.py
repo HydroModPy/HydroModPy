@@ -15,10 +15,8 @@ from collections.abc import Callable
 
 import numpy as np
 
-from hydromodpy.solver.boussinesq.assembly import (
-    BoussinesqAssembly,
-)
 from hydromodpy.solver.boussinesq.assembly.surface import partition_vertical_supply_rate_m_s
+from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_regularized_partition_jacobian_triplets,
 )

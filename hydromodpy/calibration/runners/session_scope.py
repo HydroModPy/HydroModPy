@@ -34,10 +34,7 @@ from hydromodpy.calibration.persistence import (
     DEFAULT_PHASE,
     CalibrationPersistence,
 )
-from hydromodpy.calibration.protocols import (
-    deviations_in_force,
-    get_protocol,
-)
+from hydromodpy.calibration.protocols.registry import deviations_in_force, get_protocol
 from hydromodpy.calibration.runners.document import (
     metrics_window_of,
     session_cost_name,

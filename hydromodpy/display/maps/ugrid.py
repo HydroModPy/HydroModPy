@@ -1,7 +1,7 @@
 """UGRID mesh rendering helper shared by spatial figures.
 
 Reads ``mesh.vertices`` and ``mesh.face_node_connectivity`` from the
-:class:`~hydromodpy.results.run.Run` and draws a per-face scalar
+:class:`~hydromodpy.results.run.view.Run` and draws a per-face scalar
 field as a :class:`~matplotlib.collections.PolyCollection`. Works identically
 on DIS (rectangular cells) and DISV (arbitrary polygons) layouts because both
 solver families serialize their mesh in the same UGRID schema.
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from matplotlib.collections import PolyCollection
     from matplotlib.colors import Colormap
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 def render_face_field(

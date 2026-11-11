@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 if TYPE_CHECKING:
     import xarray as xr
 
@@ -77,56 +75,10 @@ def rasterize_field(
     return aggregated
 
 
-def rasterize_points(
-    x: np.ndarray,
-    y: np.ndarray,
-    values: np.ndarray,
-    *,
-    target_px: tuple[int, int] = DEFAULT_TARGET_PX,
-    agg: str = "mean",
-) -> np.ndarray:
-    """Rasterize scattered (x, y, value) points to a 2D numpy array.
-
-    Useful for unstructured mesh fields where centroids are known but the
-    full connectivity is not needed (e.g. quick preview of head distribution
-    on a 1M-face DISV mesh).
-    """
-    width, height = int(target_px[0]), int(target_px[1])
-    if width <= 0 or height <= 0:
-        raise ValueError("target_px must be strictly positive on both axes")
-
-    if not is_datashader_available():
-        raise RuntimeError("datashader is not installed. Install the optional 'viz' extra.")
-    import datashader as ds
-    import pandas as pd
-
-    frame = pd.DataFrame(
-        {
-            "x": np.asarray(x, dtype=float).ravel(),
-            "y": np.asarray(y, dtype=float).ravel(),
-            "value": np.asarray(values, dtype=float).ravel(),
-        }
-    )
-    cvs = ds.Canvas(plot_width=width, plot_height=height)
-    if agg == "mean":
-        aggregator = ds.mean("value")
-    elif agg == "sum":
-        aggregator = ds.sum("value")
-    elif agg == "min":
-        aggregator = ds.min("value")
-    elif agg == "max":
-        aggregator = ds.max("value")
-    else:
-        raise ValueError(f"unsupported agg '{agg}'")
-    raster = cvs.points(frame, x="x", y="y", agg=aggregator)
-    return np.asarray(raster.values)
-
-
 __all__ = [
     "DEFAULT_CELL_THRESHOLD",
     "DEFAULT_TARGET_PX",
     "is_datashader_available",
     "rasterize_field",
-    "rasterize_points",
     "should_rasterize",
 ]

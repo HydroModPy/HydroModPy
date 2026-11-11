@@ -37,7 +37,7 @@ from hydromodpy.solver.modflow6.builders.lake import build_lak_package_args
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import percent_discrepancies
+from hydromodpy.solver.modflow_common.listing import percent_discrepancies
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays

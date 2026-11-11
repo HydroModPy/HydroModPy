@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from tests._helpers.fixtures_catalog import simulation_catalog
 from tests._helpers.sealed_runs import make_project, seal_run

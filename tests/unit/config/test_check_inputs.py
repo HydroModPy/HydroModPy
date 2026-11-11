@@ -17,7 +17,7 @@ from hydromodpy.core.io import fetch
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.data.variables.dem.config import FileDemSource, UrlDemSource
-from hydromodpy.data.variables.substratum.config import FileSubstratumSource
+from hydromodpy.data.variables.user_rasters import FileSubstratumSource
 
 X0, Y0, SIZE, CELLS = 1000.0, 5000.0, 25.0, 20
 INSIDE = (X0 + 12.5 + SIZE * 5, Y0 - 12.5 - SIZE * 5)

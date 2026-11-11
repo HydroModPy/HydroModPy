@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 from tests._helpers.run_builders import runs
 
 __all__ = ["runs"]

@@ -61,7 +61,7 @@ class ResolveStep:
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.core.state.run_state import WorkflowContext
-        from hydromodpy.data import DataPlanner
+        from hydromodpy.data.loading.planner import DataPlanner
         from hydromodpy.model.domain.spatial_support import support_provider_names
         from hydromodpy.model.forcing.soil_config import soil_reservoir_of
         from hydromodpy.workflow.steps.data import log_data_plan

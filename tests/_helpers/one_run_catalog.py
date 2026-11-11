@@ -51,5 +51,5 @@ def one_run_workspace(monkeypatch, tmp_path: Path, figure: Figure) -> None:
     monkeypatch.setattr(
         "hydromodpy.core.state.result_dirs.resolve_project_root", lambda start: tmp_path
     )
-    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", OneRunCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.facade.Catalog", OneRunCatalog)
     monkeypatch.setattr("hydromodpy.display.runs._get_figure", lambda name: figure)

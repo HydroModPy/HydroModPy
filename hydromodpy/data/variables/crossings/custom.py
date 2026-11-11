@@ -24,7 +24,7 @@ VECTOR_EXTENSIONS = ("*.gpkg", "*.shp", "*.geojson")
 
 def vector_file(path: str | Path) -> Path:
     """The vector file a custom source names: the file itself, or the first one of a folder."""
-    from hydromodpy.data.common.io_helpers import is_scaffold_example
+    from hydromodpy.data.common.files import is_scaffold_example
 
     candidate = Path(path).expanduser()
     if not candidate.exists():

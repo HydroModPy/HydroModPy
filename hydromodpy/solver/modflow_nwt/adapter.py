@@ -2,7 +2,7 @@
 
 This module contains only the MODFLOW-NWT-specific construction step. The
 shared build and run lifecycle lives in
-``hydromodpy.solver.modflow_common.flow_adapter_helpers``, and the files are
+``hydromodpy.solver.modflow_common.flow_run``, and the files are
 read back by ``extractors/flow.py``.
 """
 
@@ -27,7 +27,7 @@ from hydromodpy.solver.base.observables import (
 )
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.base.registry import backends_honoring, extractors
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
+from hydromodpy.solver.modflow_common.flow_run import (
     build_flow_model,
     build_preprocess_options,
     nwt_safe_name,

@@ -14,7 +14,7 @@ from typing import Any
 
 from hydromodpy.core.state.layout import is_workspace_root
 from hydromodpy.project.accessors import Workspace
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.run.view import Run
 
 __all__ = ["read", "index", "Catalog"]

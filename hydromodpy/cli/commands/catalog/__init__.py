@@ -69,4 +69,9 @@ def register(subparsers) -> argparse.ArgumentParser:
     return parser
 
 
-__all__ = ("NAME", "HELP", "ACTIONS", "register")
+__all__ = (
+    "NAME",
+    "HELP",
+    "ACTIONS",
+    "register",
+)

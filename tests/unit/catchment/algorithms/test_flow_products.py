@@ -11,7 +11,6 @@ from hydromodpy.catchment.algorithms.flow_products import (
     build_regional_flow_products,
     conditioning_method,
     corrected_dem_name,
-    flow_products_from_paths,
     rankable_accumulation,
 )
 from hydromodpy.catchment.preprocess.capped_breach_config import (
@@ -57,24 +56,6 @@ def test_a_capped_breach_without_its_section_takes_the_documented_defaults() -> 
     assert capped_breach_of(SimpleNamespace(dem_correc_type="capped_breach")) == CappedBreach(
         max_depth_m=float(defaults.max_depth), max_distance_m=float(defaults.max_distance)
     )
-
-
-def test_a_stack_read_back_from_disk_describes_the_stack_that_was_written(tmp_path) -> None:
-    rows, cols = np.mgrid[0:12, 0:12]
-    dem = write_geotiff(tmp_path / "dem.tif", (50.0 - rows - 0.5 * cols).astype("float32"))
-    written = build_regional_flow_products(
-        dem_path=dem,
-        dem_out_dir_path=tmp_path / "flow",
-        dem_correc_type="fill",
-        crs_project="EPSG:2154",
-        engine_id="numpy_d8",
-    )
-    read = flow_products_from_paths(dem_out_dir_path=tmp_path / "flow", dem_correc_type="fill")
-    assert (read.correc, read.direc, read.acc) == (written.correc, written.direc, written.acc)
-    assert read.accumulation.transform == written.accumulation.transform
-    assert read.accumulation.directions.conditioned_dem.method == "fill"
-    # A raw DEM is conditioned here, so it is never read again to count cells.
-    assert written.undrained is None
 
 
 def test_an_accumulation_that_can_already_rank_the_window_is_kept(tmp_path) -> None:

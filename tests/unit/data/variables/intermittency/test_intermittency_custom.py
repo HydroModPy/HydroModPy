@@ -91,9 +91,9 @@ class TestIntermittencyConfig:
             )
 
     def test_data_managers_config_accepts_intermittency(self):
-        from hydromodpy.data.loading.config_schema import DataManagersConfig
+        from hydromodpy.data.loading.config_schema import DataConfig
 
-        cfg = DataManagersConfig.model_validate(
+        cfg = DataConfig.model_validate(
             {
                 "types": ["intermittency"],
                 "intermittency": {

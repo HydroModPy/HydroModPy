@@ -14,11 +14,12 @@ import xarray as xr
 from hydromodpy.core.exceptions import CommandUsageError, NothingThereError
 from hydromodpy.project import api, show
 from hydromodpy.project.facade import Project
+from hydromodpy.results.catalog.discovery import SimulationNotFoundError
 from hydromodpy.results.catalog.indexer import index_new_runs
 from hydromodpy.results.run.group import RunSet
 from hydromodpy.results.run.view import REPORT, Run
 from hydromodpy.results.session.view import Session
-from tests._helpers.sealed_runs import make_project, seal_run
+from tests._helpers.sealed_runs import make_project, seal_run, write_session_dir
 
 pytestmark = pytest.mark.fast
 
@@ -337,3 +338,51 @@ def test_show_with_save_writes_a_table_and_leaves_a_figure_to_render(
     assert written == tmp_path / "t.csv" and written.is_file()
     assert figure == tmp_path / "f.png"
     assert drawn[0][0][2]["save"] == tmp_path / "f.png"
+
+
+# show_target: what a reference names, read from the directories
+
+
+def test_a_run_name_gives_its_directory(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "ws")
+    seal_run(project, "baseline")
+
+    target = show.show_target("baseline", project)
+
+    assert (target.directory, target.kind) == (project / "runs" / "baseline", "run")
+
+
+def test_a_folder_written_with_a_slash_is_read_as_a_path(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "ws")
+    seal_run(project, "baseline")
+
+    target = show.show_target(str(project / "runs" / "baseline"), project)
+
+    assert (target.directory, target.kind) == (project / "runs" / "baseline", "run")
+
+
+def test_a_name_that_is_nothing_is_refused_unless_it_is_a_project_of_the_workspace(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "ws"
+    (workspace / "data").mkdir(parents=True)
+    (workspace / "workspace.toml").write_text("[workspace]\n", encoding="utf-8")
+    demo = make_project(workspace / "projects" / "demo")
+    seal_run(demo, "baseline")
+
+    assert show.show_target("demo", demo, str(workspace)) == show.Target(
+        workspace / "projects" / "demo", "project"
+    )
+    with pytest.raises(SimulationNotFoundError):
+        show.show_target("absent", demo, str(workspace))
+    with pytest.raises(SimulationNotFoundError):
+        show.show_target("absent/with/slash", demo, str(workspace))
+
+
+def test_with_session_first_a_name_a_session_and_a_run_carry_is_the_session(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "ws")
+    seal_run(project, "case")
+    write_session_dir(project, "case")
+
+    assert show.show_target("case", project, session_first=True).kind == "session"
+    assert show.show_target("case", project).kind == "run"

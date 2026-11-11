@@ -15,8 +15,8 @@ import pytest
 from hydromodpy.mesh.io.vtu import read_vtu, read_vtu_field_data
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.results.exporters.vtu import export_vtu
-from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.mesh_layout import mesh_layout_from_cell_mesh
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from tests._helpers.bundle_cell_meshes import bundle_dual
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
 

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-from hydromodpy.solver.modflow6.build import _write_lake_abacus_meta
+from hydromodpy.solver.modflow6.builders.lake import _write_lake_abacus_meta
 from hydromodpy.solver.modflow6.extractors.lake import read_lake_abacus
 
 _STAGE = [20.0, 30.0, 40.0, 50.0, 60.0]

@@ -43,13 +43,13 @@ from hydromodpy.workflow.steps.data_description import (
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.model.domain.domain import Domain
-    from hydromodpy.results.catalog.protocol import SimulationStore
+    from hydromodpy.results.storage.run_store import RunStore
 
 logger = get_logger(__name__)
 
 
 def step_persist_params(
-    store: SimulationStore,
+    store: RunStore,
     sim_id: str,
     profiles: Mapping[str, Any],
     *,
@@ -103,7 +103,7 @@ def step_persist_params(
         store.write_parameters(sim_id, params)
 
 
-def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
+def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: RunStore) -> None:
     """Write the cell mesh into the simulation's Zarr and its two family tables.
 
     This is the only write of the mesh geometry: the solver extractors check
@@ -149,7 +149,7 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: SimulationSto
     store.write_view(sim_id, "mesh_face_families", face_family_rows(cell_mesh))
 
 
-def step_persist_geographic(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
+def step_persist_geographic(ctx: WorkflowContext, sim_id: str, *, store: RunStore) -> None:
     """Persist the geographic rasters (DEM, watershed masks) into the Zarr."""
     from hydromodpy.catchment.preprocess.store_ingestion import persist_geographic_to_store
 
@@ -198,7 +198,7 @@ def _digests_the_load_already_computed(ctx: WorkflowContext) -> dict[str, str]:
     return source_digests(read_data_description(Path(run_dir)))
 
 
-def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> None:
+def step_write_provenance(ctx: WorkflowContext, *, store: RunStore) -> None:
     """Record provenance fingerprints and the ``inputs.json`` entry of each loaded variable.
 
     The walk over the loaded scopes is the one ``load_data`` used to describe

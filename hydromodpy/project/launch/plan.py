@@ -42,7 +42,8 @@ from hydromodpy.core.config_kit.introspect import (
 from hydromodpy.core.config_kit.written import written_experimental_keys, written_payload
 from hydromodpy.core.diagnostic import Diagnostic, Severity
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
-from hydromodpy.core.site import SITE_NAME_PATTERN, SITE_ROW_COLUMNS, SiteRow
+from hydromodpy.core.site.config import SITE_NAME_PATTERN
+from hydromodpy.core.site.row import SITE_ROW_COLUMNS, SiteRow
 from hydromodpy.core.state.layout import (
     PLAN_DIRNAME,
     PROJECT_MARKER_FILENAME,

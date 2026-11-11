@@ -14,8 +14,7 @@ Ports and adapters at the storage edge
 
 The V1 storage contract is DuckDB-first, not backend-agnostic in every runtime
 path. The project catalog uses
-:class:`~hydromodpy.results.catalog.ports.CatalogBackend`, with ``DuckDBBackend``
-as the in-tree implementation. The data cache uses a separate DuckDB cache adapter.
+``DuckDBBackend`` (``hydromodpy/results/catalog/adapters/duckdb.py``), its one backend. The data cache uses a separate DuckDB cache adapter.
 CLI diagnostics, migration runners and portable-package snapshots may open DuckDB
 directly, in the cases listed in :ref:`direct-duckdb-access`.
 
@@ -39,7 +38,7 @@ The rules
 5. Inside ``data``, ``calibration`` and ``display``, a part imports only what its row
    of the package ``*_layout.yaml`` allows.
 6. A solver sub-package reads only the private names it declares itself
-   (``test_solver_private_attributes.py``).
+   (``test_layers.py``).
 7. A new edge that violates the matrix is a regression. Propose the change before you
    touch the code.
 
@@ -63,12 +62,12 @@ Special layers
 
 ``cli``
    The ``hmp`` command. Only ``hydromodpy/__main__.py`` imports it, which
-   ``test_cli_boundary.py`` checks.
+   ``test_layers.py`` checks.
 
 How CI checks the matrix
 ------------------------
 
-``tests/unit/architecture/test_layer_matrix.py`` parses every Python file of
+``tests/unit/architecture/test_layers.py`` parses every Python file of
 ``hydromodpy/`` and asserts that each edge is allowed or tolerated. It also checks
 that the matrix and the package list agree and that every declared layer has a page
 in :doc:`packages/index`. The other files of the folder hold the contracts listed in

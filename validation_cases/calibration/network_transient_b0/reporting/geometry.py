@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 from validation_cases.calibration.network_transient_b0.reporting import io as _nt_io
 from validation_cases.calibration.network_transient_b0.reporting import state as _state
 

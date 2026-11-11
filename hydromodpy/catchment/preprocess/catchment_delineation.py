@@ -21,7 +21,6 @@ from hydromodpy.catchment.algorithms.derived_features import (
 )
 from hydromodpy.catchment.algorithms.flow_products import (
     TerrainSupply,
-    build_regional_flow_products,
 )
 from hydromodpy.catchment.algorithms.hydrographic_network import (
     HydrographicNetwork,
@@ -32,7 +31,6 @@ from hydromodpy.catchment.algorithms.surface_from_dem import build_surface_topo_
 from hydromodpy.catchment.delineation import resolve_delineation_backend
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.catchment.preprocess.pipeline import build_geographic_runtime_context
-from hydromodpy.catchment.terrain.port import CappedBreach
 from hydromodpy.schema.job.inputset import InputState
 
 
@@ -40,68 +38,6 @@ def _optional_str_path(path: object) -> str | None:
     if path in (None, ""):
         return None
     return str(path)
-
-
-def DEM_correcflow_analysis(
-    dem_path: str,
-    dem_out_dir_path: str,
-    dem_correc_type: str,
-    backend: object | None = None,
-    engine_id: str | None = None,
-    capped_breach: CappedBreach | None = None,
-) -> dict:
-    """
-    Build the 3 core regional rasters needed by watershed delineation.
-
-    Workflow (in order)
-    -------------------
-    1. Hydrologically correct the input DEM:
-       - ``fill``   : fill topographic depressions,
-       - ``breach`` : carve channels through depressions,
-       - ``capped_breach`` : carve within ``capped_breach`` limits, then fill the rest.
-    2. Compute D8 flow-direction on the corrected DEM.
-    3. Compute D8 flow-accumulation on the corrected DEM.
-
-    Parameters
-    ----------
-    dem_path : str
-        Path to the regional DEM used as hydrologic input.
-    dem_out_dir_path : str
-        Folder where regional rasters are written.
-    dem_correc_type : str
-        Type of DEM correction to apply:
-        - ``"fill"``
-        - ``"breach"``
-        - ``"capped_breach"``
-        Any other value raises a ``ValueError``.
-    capped_breach : CappedBreach, optional
-        Limits of ``"capped_breach"``, required for it and refused otherwise.
-    engine_id : str, optional
-        Flow-routing engine to route with. Unset uses the default of this build.
-        Carried through because this function is a facade over
-        ``build_regional_flow_products``, and a wrapper that cannot pass on the
-        engine is a wrapper through which no engine can be substituted.
-
-    Returns
-    -------
-    dict
-        Dictionary with output raster paths:
-        ``{"correc": ..., "direc": ..., "acc": ...}``.
-    """
-    tool = resolve_delineation_backend(backend)
-    products = build_regional_flow_products(
-        dem_path=dem_path,
-        dem_out_dir_path=dem_out_dir_path,
-        dem_correc_type=dem_correc_type,
-        capped_breach=capped_breach,
-        backend=tool,
-        engine_id=engine_id,
-    )
-    return {
-        "correc": products.correc,
-        "direc": products.direc,
-        "acc": products.acc,
-    }
 
 
 class CatchmentDelineation:

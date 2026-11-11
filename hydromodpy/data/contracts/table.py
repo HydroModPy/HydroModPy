@@ -17,7 +17,7 @@ import pandas as pd
 
 @dataclass
 class TableRecord:
-    """Tabular dataset produced by a variable manager.
+    """Tabular dataset produced by a data variable.
 
     ``data`` is either a :class:`pandas.DataFrame` held in memory or a
     :class:`pathlib.Path` to a Parquet file on disk. ``table_id`` reuses the

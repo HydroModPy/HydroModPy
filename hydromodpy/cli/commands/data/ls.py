@@ -7,13 +7,10 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.output import emit
+from hydromodpy.cli.output import emit, output_of
 
 NAME: str = "ls"
 HELP: str = "List the rows of the workspace data cache"
-
-COLUMNS = ("variable", "source", "station_id", "product", "path", "license")
-"""What the table shows. ``--format json`` and ``--format csv`` carry every field of a row."""
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -31,7 +28,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.cli.refs import resolve_workspace
     from hydromodpy.data.request.cache_verbs import list_data_cache
 
     report = list_data_cache(
@@ -53,7 +50,7 @@ def run(args: argparse.Namespace) -> None:
             frame = pd.DataFrame(
                 [{**row, "path": _relative(row["path"], report.data_root)} for row in rows]
             )
-            print(frame[list(COLUMNS)].fillna("").to_string(index=False))
+            print(frame[list(output_of("data ls").fields)].fillna("").to_string(index=False))
         if report.user_files:
             print(
                 f"  {len(report.user_files)} user file(s) under {report.data_root} are read in "

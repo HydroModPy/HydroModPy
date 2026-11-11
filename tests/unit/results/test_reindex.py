@@ -23,7 +23,7 @@ from hydromodpy.core.io.lock_file import LockFile
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import catalog_path_for, runs_dir_for
 from hydromodpy.results.annotations import Annotations, write_annotations
-from hydromodpy.results.catalog import Catalog, index_new_runs, rebuild_index
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.index_file import (
     INDEX_ALIAS,
     index_lock,
@@ -43,7 +43,9 @@ from hydromodpy.results.catalog.index_schema import (
 from hydromodpy.results.catalog.indexer import (
     index_after_run,
     index_is_current,
+    index_new_runs,
     known_issues_digest,
+    rebuild_index,
     reindex_if_indexed,
     scan_tree,
 )

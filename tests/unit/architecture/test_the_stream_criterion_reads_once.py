@@ -10,7 +10,7 @@ The gate reads every module under ``hydromodpy/`` and holds that:
 - the old copies are gone (:data:`REMOVED`);
 - each operation has one definition, in the module named by :data:`ONE_DEFINITION`;
 - the mesh kernels that turn a map into cells are called, in ``calibration/`` and
-  ``results/derive/stream/``, only by ``criterion_inputs.py`` (:data:`ONE_CALLER`);
+  ``results/derive/stream_network/``, only by ``criterion_inputs.py`` (:data:`ONE_CALLER`);
 - ``priority_flood`` is the one flood of the criterion and of the descent D.
 """
 
@@ -41,16 +41,16 @@ REMOVED: dict[str, str] = {
 """Each old copy, and the folder under ``hydromodpy/`` where it must not be defined.
 
 An empty folder means the whole package. ``_flood`` is held in
-``catchment/drainage`` only, because ``results/derive/stream/depressions.py``
+``catchment/drainage`` only, because ``results/derive/stream_network/depressions.py``
 keeps a flood of its own name that walks the depressions of a stored surface.
 """
 
 ONE_DEFINITION: dict[str, str] = {
-    "mapped_cells": "results/derive/stream/criterion_inputs.py",
-    "map_heads": "results/derive/stream/criterion_inputs.py",
-    "catchment_cells": "results/derive/stream/criterion_inputs.py",
-    "basin_reference": "results/derive/stream/criterion_inputs.py",
-    "criterion_recharge_of_run": "results/derive/stream/criterion_inputs.py",
+    "mapped_cells": "results/derive/stream_network/criterion_inputs.py",
+    "map_heads": "results/derive/stream_network/criterion_inputs.py",
+    "catchment_cells": "results/derive/stream_network/criterion_inputs.py",
+    "basin_reference": "results/derive/stream_network/criterion_inputs.py",
+    "criterion_recharge_of_run": "results/derive/stream_network/criterion_inputs.py",
     "share_outside": "catchment/stream_network/geometry.py",
     "scored_cells": "catchment/stream_network/geometry.py",
     "open_water_mask": "catchment/stream_network/geometry.py",
@@ -70,8 +70,8 @@ CRITERION_PACKAGES = ("calibration", "catchment", "results")
 ONE_CALLER = ("line_crossing_cell_mask", "vector_cell_mask", "network_head_candidates")
 """Mesh kernels that ``criterion_inputs.py`` alone calls for the criterion."""
 
-CALLER_FOLDERS = ("calibration", "results/derive/stream")
-CALLER = "results/derive/stream/criterion_inputs.py"
+CALLER_FOLDERS = ("calibration", "results/derive/stream_network")
+CALLER = "results/derive/stream_network/criterion_inputs.py"
 
 FLOOD_CALLERS = {"catchment/drainage/filling.py": 1, "catchment/drainage/descent.py": 1}
 """The calls of ``priority_flood``: the depression fill and the descent D."""

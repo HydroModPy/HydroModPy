@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.time import validate_recharge_coverage
-from hydromodpy.core.units import convert_payload_to_m_per_s
+from hydromodpy.core.time.window import validate_recharge_coverage
+from hydromodpy.core.units.quantities import convert_payload_to_m_per_s
 from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
 from hydromodpy.model.forcing.steady_periods import (
     apply_first_clim,

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_CONFIG, fail
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, fail
 from hydromodpy.cli.output import emit
 
 NAME: str = "plan"
@@ -60,7 +60,7 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.core.exceptions import HydroModPyError
     from hydromodpy.core.state.result_dirs import sites_project_root
     from hydromodpy.core.toml_io.overrides import set_overrides
-    from hydromodpy.project.launch import plan_project
+    from hydromodpy.project.launch.local import plan_project
     from hydromodpy.project.launch.plan import PlanError, group_issues
     from hydromodpy.results.plan_store import current_plan_hash, plan_path
 

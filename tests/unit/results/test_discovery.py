@@ -14,7 +14,6 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.state.layout import RUNS_DIRNAME, SESSIONS_DIRNAME
-from hydromodpy.results.catalog import Catalog, index_new_runs
 from hydromodpy.results.catalog.discovery import (
     AmbiguousReferenceError,
     SimulationNotFoundError,
@@ -22,6 +21,8 @@ from hydromodpy.results.catalog.discovery import (
     resolve_rel_dir,
     resolve_trashed,
 )
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.indexer import index_new_runs
 from hydromodpy.results.record.manifest import MetricRow
 from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.run.sealed import MixedWindowsError

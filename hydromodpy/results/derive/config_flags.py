@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.budget.terms import (
     POLICY_ALL,
@@ -26,14 +26,11 @@ from hydromodpy.core.budget.terms import (
     budget_terms_for,
 )
 
+if TYPE_CHECKING:
+    from hydromodpy.results.run.view import Run
+
 #: The one option of ``[simulation.results]`` that decides what the budget keeps.
 KEEP_BUDGET_OPTION = "keep_per_cell_budget"
-
-
-class SupportsHasField(Protocol):
-    """Minimal run interface needed to tell a missing field from an absent one."""
-
-    def has_field(self, variable: str) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,11 +45,6 @@ class MissingBudget:
     kept: KeptBudget | None
     fields: tuple[str, ...]
     terms: tuple[str, ...]
-
-
-def config_option_for(field: str) -> str | None:
-    """Return the ``[simulation.results]`` option that keeps ``field``, or None."""
-    return KEEP_BUDGET_OPTION if budget_terms_for(field) else None
 
 
 def option_hint(option: str) -> str:
@@ -80,15 +72,15 @@ def enable_options_hint(options: Iterable[str], *, level: str = "result") -> str
     )
 
 
-def _level_of_run(run: SupportsHasField) -> str:
+def _level_of_run(run: Run) -> str:
     """Return the level of the run a message talks about.
 
     A ``Run`` reads it from its lineage. A lighter stand-in that only answers
     ``has_field`` carries no lineage and is read at the ``result`` level, like
     a run with no lineage.
     """
-    from hydromodpy.results.run import Run
     from hydromodpy.results.run.sealed import lineage_of
+    from hydromodpy.results.run.view import Run
     from hydromodpy.results.storage.kept import level_of
 
     if not isinstance(run, Run):
@@ -96,7 +88,7 @@ def _level_of_run(run: SupportsHasField) -> str:
     return level_of(lineage_of(run))
 
 
-def diagnose_missing(fields: Iterable[str], run: SupportsHasField) -> MissingBudget | None:
+def diagnose_missing(fields: Iterable[str], run: Run) -> MissingBudget | None:
     """Tell whether a run lacks fields because it did not keep their budget terms.
 
     None when nothing is actionable: every field is present, reads no budget
@@ -128,19 +120,7 @@ def diagnose_missing(fields: Iterable[str], run: SupportsHasField) -> MissingBud
     return MissingBudget(kept, tuple(missing), tuple(sorted(lacking)))
 
 
-def missing_field_options(fields: Iterable[str], run: SupportsHasField) -> list[str]:
-    """Options of ``[simulation.results]`` that would have kept a field ``run`` lacks.
-
-    Separates the two reasons a consumer skips a run. A run that does not fit
-    the request (no lake, no particles, another solver) misses fields no option
-    controls and stays a quiet skip. A field whose budget terms the run did not
-    keep is a result the run was asked for and did not store, which must be
-    visible.
-    """
-    return [] if diagnose_missing(fields, run) is None else [KEEP_BUDGET_OPTION]
-
-
-def missing_field_explanation(fields: Iterable[str], run: SupportsHasField) -> str:
+def missing_field_explanation(fields: Iterable[str], run: Run) -> str:
     """Say what the run kept, which terms the missing fields need, and what to do.
 
     Empty when the miss is not actionable (see :func:`diagnose_missing`).
@@ -246,12 +226,9 @@ def no_surface_exit_reason(run: Any, required_fields: Iterable[str]) -> str | No
 __all__ = [
     "KEEP_BUDGET_OPTION",
     "MissingBudget",
-    "SupportsHasField",
-    "config_option_for",
     "diagnose_missing",
     "enable_options_hint",
     "missing_field_explanation",
-    "missing_field_options",
     "no_surface_exit_reason",
     "option_hint",
 ]

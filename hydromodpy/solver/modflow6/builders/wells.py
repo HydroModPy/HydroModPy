@@ -6,13 +6,21 @@ from collections.abc import Mapping
 from numbers import Real
 from typing import Any
 
+import flopy
 import numpy as np
 
-from hydromodpy.core.units.quantities import convert_to_m3_per_s, normalize_m3_per_s_unit
+from hydromodpy.core.units.quantities import (
+    convert_to_m3_per_s,
+    forcing_units,
+    normalize_m3_per_s_unit,
+)
 from hydromodpy.mesh.cells.locate import locate_cells
 from hydromodpy.model.forcing.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.solver.modflow6.builders.boundary_conditions import forcing_units
+from hydromodpy.solver.modflow6.builders.boundary_conditions import (
+    assemble_constant_head_stress_period_data,
+)
 from hydromodpy.solver.modflow6.builders.period_forcing import simulation_window
+from hydromodpy.solver.modflow6.support.computational_top import well_flow_reduce_fraction
 
 
 def well_cell_to_disv(*, ncol: int, lay: int, row: int, col: int) -> tuple[int, int]:
@@ -241,3 +249,39 @@ __all__ = [
     "resolve_well_disv_cell",
     "well_cell_to_disv",
 ]
+
+
+def build_constant_heads_and_wells(
+    model,
+    ocean_chd_spd,
+    ocean_support_mask,
+    stream_chd_spd,
+    stream_support_mask,
+    side_chd_spd,
+    runtime,
+):
+    """CHD and WEL."""
+    chd_spd = assemble_constant_head_stress_period_data(
+        model,
+        ocean=(ocean_chd_spd, ocean_support_mask),
+        stream=(stream_chd_spd, stream_support_mask),
+        side=side_chd_spd,
+    )
+    if any(len(v) > 0 for v in chd_spd.values()):
+        model.chd = flopy.mf6.ModflowGwfchd(model.gwf, stress_period_data=chd_spd, save_flows=True)
+
+    wel_spd = build_well_stress_period_data(model, int(model.nper))
+    if any(len(v) > 0 for v in wel_spd.values()):
+        wel_kwargs: dict[str, object] = {"stress_period_data": wel_spd, "save_flows": True}
+        if runtime.mf6_newton:
+            # Under the Newton formulation a well that dewaters its cell makes
+            # the head oscillate across the confined/unconfined threshold and the
+            # solve diverges. AUTO_FLOW_REDUCE tapers the extraction as the
+            # saturated thickness drops below 10% of the cell (physically
+            # correct: you cannot pump water that is not there), which removes
+            # the oscillation. No effect on cells that stay saturated. The 10 %
+            # are of the aquifer, not of a cell raised to the computational top.
+            wel_kwargs["auto_flow_reduce"] = well_flow_reduce_fraction(
+                model, wel_spd, of_aquifer=0.1
+            )
+        model.wel = flopy.mf6.ModflowGwfwel(model.gwf, **wel_kwargs)

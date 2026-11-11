@@ -601,7 +601,7 @@ def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
 
     if not catalog_path_for(project_path).exists():
         return None, None
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     store = Catalog(project_path)
     sims = store.list_simulations()
@@ -774,6 +774,28 @@ def _format_subprocess_failure(
     return message
 
 
+def _absolute_input_paths(node: Any, case_dir: Path) -> Any:
+    """Return ``node`` with each relative ``path`` or ``*_path`` value made absolute.
+
+    ``hmp run --base <out>`` resolves a relative path against the output folder,
+    while a case writes its input paths relative to its own folder, toward a
+    file of the case or of ``validation_cases/shared``. Output folders still
+    follow ``--base``.
+    """
+    if isinstance(node, Mapping):
+        fixed: dict[str, Any] = {}
+        for key, value in node.items():
+            is_path_key = key == "path" or key.endswith("_path")
+            if is_path_key and isinstance(value, str) and value and not Path(value).is_absolute():
+                fixed[key] = (case_dir / value).resolve().as_posix()
+            else:
+                fixed[key] = _absolute_input_paths(value, case_dir)
+        return fixed
+    if isinstance(node, list):
+        return [_absolute_input_paths(item, case_dir) for item in node]
+    return node
+
+
 def _build_validation_launcher_config(
     *,
     case_dir: Path,
@@ -824,6 +846,7 @@ def _build_validation_launcher_config(
 
     if "workflow" not in merged_payload:
         raise ValueError(f"{config_path} must define [workflow] or inherit it from base_config.")
+    merged_payload = _absolute_input_paths(merged_payload, case_dir)
 
     tmp_name = f".__validation_runtime_{config_path.stem}_{solver_name}_{os.getpid()}.toml"
     tmp_path = case_dir / tmp_name

@@ -17,7 +17,7 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, box
 
-from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.variables.dem.custom import load_custom_dem
 from hydromodpy.data.variables.geology.custom import load_custom_geology

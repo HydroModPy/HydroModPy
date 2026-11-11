@@ -302,7 +302,7 @@ def run_fixture(config_name: str, out_dir: Path, *, timeout: int = 600) -> None:
 
 def read_run(out_dir: Path) -> dict[str, np.ndarray]:
     """Read the cell polygons and the final head of the only run of a workspace."""
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     store = Catalog(out_dir)
     try:

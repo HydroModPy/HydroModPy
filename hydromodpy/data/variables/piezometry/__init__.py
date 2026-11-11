@@ -1,1 +1,1 @@
-"""Piezometry data manager -- groundwater level time series."""
+"""Piezometry data variable -- groundwater level time series."""

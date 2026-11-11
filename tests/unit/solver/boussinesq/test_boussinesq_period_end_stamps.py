@@ -20,7 +20,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.catchment_aggregation import aggregate_catchment_timeseries
 from hydromodpy.results.run.view import Run

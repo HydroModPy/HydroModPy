@@ -5,11 +5,9 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.core.state.layout import CATALOG_FILENAME, INTERNAL_DIRNAME, RUNS_DIRNAME
-from hydromodpy.core.workspace import (
-    WorkspaceConfig,
-    WorkspaceLayout,
-    WorkspacePathRegistry,
-)
+from hydromodpy.core.workspace.config import WorkspaceConfig
+from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
+from hydromodpy.core.workspace.workspace import WorkspaceLayout
 
 
 def _scaffold(workspace_dir: Path, project: str = "demo") -> Path:

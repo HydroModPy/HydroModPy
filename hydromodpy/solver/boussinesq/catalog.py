@@ -12,7 +12,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from importlib import import_module
-from typing import Literal, Protocol, cast, runtime_checkable
+from types import ModuleType
+from typing import Literal
 
 from hydromodpy.model.time.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.runtime_contract import (
@@ -439,21 +440,6 @@ SurfaceInteractionModel = Literal[
 ]
 
 
-@runtime_checkable
-class BoussinesqRuntimeBackend(Protocol):
-    """Minimal execution contract implemented by runtime modules."""
-
-    def solve_transient_step(
-        self,
-        inputs: TransientStepInputs,
-    ) -> RuntimeSolveResult: ...
-
-    def solve_steady_problem(
-        self,
-        inputs: SteadySolveInputs,
-    ) -> RuntimeSolveResult: ...
-
-
 @dataclass(frozen=True)
 class ResolvedBoussinesqRuntimeBackend:
     """Normalized descriptor for one nonlinear runtime backend.
@@ -466,7 +452,7 @@ class ResolvedBoussinesqRuntimeBackend:
     name: RuntimeBackendName
     engine_id: str
     method: BoussinesqMethodSpec
-    backend: BoussinesqRuntimeBackend
+    backend: ModuleType
     nonlinear_solver_kind: str
     linear_system_layout: LinearSystemLayout
     jacobian_strategy: str
@@ -534,22 +520,21 @@ def resolve_runtime_backend(
 
 def _load_engine_backend(
     engine: BoussinesqEngineSpec,
-) -> BoussinesqRuntimeBackend:
-    """Import one runtime module and validate the backend execution contract."""
+) -> ModuleType:
+    """Import one runtime module and check it has the two solve entry points."""
 
     module = import_module(engine.module_name)
-    if not isinstance(module, BoussinesqRuntimeBackend):
-        missing = [
-            name
-            for name in ("solve_steady_problem", "solve_transient_step")
-            if not callable(getattr(module, name, None))
-        ]
-        missing_text = ", ".join(missing) if missing else "required runtime entry points"
+    missing = [
+        name
+        for name in ("solve_steady_problem", "solve_transient_step")
+        if not callable(getattr(module, name, None))
+    ]
+    if missing:
         raise TypeError(
             f"{engine.module_name} does not implement the Boussinesq runtime "
-            f"backend protocol; missing {missing_text}."
+            f"backend contract; missing {', '.join(missing)}."
         )
-    return cast(BoussinesqRuntimeBackend, module)
+    return module
 
 
 __all__ = [
@@ -557,7 +542,6 @@ __all__ = [
     "BoussinesqEngineSpec",
     "BoussinesqFormulationSpec",
     "BoussinesqMethodSpec",
-    "BoussinesqRuntimeBackend",
     "FV_TRI_CELL_CENTERED",
     "HEAD_ONLY_REGULARIZED_PARTITION",
     "HEAD_ONLY_REGULARIZED_PARTITION_METHOD",

@@ -17,7 +17,7 @@ Code map
 --------
 
 - ``hydromodpy/data/loading/config_schema.py``: typed validation of the ``[data]``
-  sections (``DataManagersConfig``).
+  sections (``DataConfig``).
 - ``hydromodpy/data/loading/planner.py`` and ``plan.py``: activation inference
   (``DataPlanner``) and the immutable ``DataLoadPlan``.
 - ``hydromodpy/data/loading/_dispatch.py``: ``VARIABLE_SPECS``, the one list that maps a

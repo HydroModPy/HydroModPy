@@ -25,8 +25,8 @@ if __package__ in (None, ""):
         sys.path.insert(0, str(_repo_root))
 
 from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
-from hydromodpy.config import HydroModPyConfig
-from hydromodpy.core.workspace import WorkspaceLayout
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.core.workspace.workspace import WorkspaceLayout
 from tools.cases.plotting_utils import (
     ensure_interactive_backend_for_show,
     show_figures_blocking,

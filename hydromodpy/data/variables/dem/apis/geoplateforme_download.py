@@ -150,12 +150,6 @@ def fetch_atom_entries(
     return entries
 
 
-def parse_atom_entries(xml_text: str) -> list[AtomEntry]:
-    """Parse Atom entries from an XML text payload."""
-    entries, _ = _parse_atom_feed(xml_text)
-    return entries
-
-
 def find_resources(
     dataset: str,
     filters: DiscoveryFilters | None = None,
@@ -397,5 +391,4 @@ __all__ = [
     "find_resources",
     "list_files",
     "list_subresources",
-    "parse_atom_entries",
 ]

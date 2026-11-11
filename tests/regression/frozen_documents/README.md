@@ -8,5 +8,9 @@ The tree weighs about 990 kB, and the two DuckDB files take 893 kB of it.
 `test_frozen_documents.py` reads each document with the readers of today, on a copy outside the repository, so the digest fails if anything writes here.
 A second generation changes the bytes of the DuckDB files, the plan date, the lockfile and the published copy, but not the values of `expected.json`.
 The folder is written again only if 2.0.0 is tagged on another commit than the one `expected.json` names.
-HydroModPy 2.1 refuses the lockfile (schema v1, with a sentence that names `hmp data lock`), the journal of a run (schema v1, with a sentence that names `hydromodpy.published.v2`) and the data cache database (the scan names `hmp workspace clean --data-cache`). The test checks the three refusals on a copy and sorts the island sidecars into rows, user files and sidecars without a variable. The database of a launched case has no reader and no test any more. `tools.freeze_documents` writes no database and refuses to write this folder from a version other than 2.0.
+HydroModPy 2.1 no longer reads four of these documents, and the table `REFUSALS` in the test holds one row for each: the lockfile (schema v1, the sentence names `hmp data lock`), the plan (schema v1, the sentence names `hmp project plan`), the journal of a run (schema v1, the sentence names `hydromodpy.published.v2`) and the data cache database (the scan names `hmp workspace clean --data-cache`).
+One parametrized test plays each row on a copy and checks the raw file, the exception and the words of the sentence.
+A second test reads `tests/unit/architecture/surface/cli_tree.tsv` and fails if a sentence of the table names a command or a flag that `hmp` does not have.
+The same test file sorts the island sidecars into rows, user files and sidecars without a variable.
+The database of a launched case has no reader and no test any more. `tools.freeze_documents` writes no database and refuses to write this folder from a version other than 2.0.
 The folder is checked in as it is, through `.gitignore` and `.gitattributes`, and the whitespace hooks of pre-commit skip it.

@@ -225,7 +225,7 @@ class VariableBase(SourceTable, ABC):
     def _resolve_bbox(self, source_cfg) -> tuple | None:
         """Resolve bbox from mask geometry or fall back to project extent."""
         if source_cfg.mask_path:
-            from hydromodpy.data.common.geo_helpers import geometry_to_bbox
+            from hydromodpy.data.common.geometry import geometry_to_bbox
 
             geom = self._load_mask_geometry(source_cfg.mask_path)
             return geometry_to_bbox(geom)
@@ -255,7 +255,7 @@ class VariableBase(SourceTable, ABC):
         """
         if not source_cfg.mask_path:
             return records
-        from hydromodpy.data.common.geo_helpers import filter_locations_by_geometry
+        from hydromodpy.data.common.geometry import filter_locations_by_geometry
         from hydromodpy.data.common.source_extent import mask_geometry_wgs84
 
         geom = mask_geometry_wgs84(source_cfg.mask_path)

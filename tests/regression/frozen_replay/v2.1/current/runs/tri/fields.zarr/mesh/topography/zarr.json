@@ -1,0 +1,52 @@
+{
+  "shape": [
+    434
+  ],
+  "data_type": "float64",
+  "chunk_grid": {
+    "name": "regular",
+    "configuration": {
+      "chunk_shape": [
+        434
+      ]
+    }
+  },
+  "chunk_key_encoding": {
+    "name": "default",
+    "configuration": {
+      "separator": "/"
+    }
+  },
+  "fill_value": 0.0,
+  "codecs": [
+    {
+      "name": "bytes",
+      "configuration": {
+        "endian": "little"
+      }
+    },
+    {
+      "name": "zstd",
+      "configuration": {
+        "level": 0,
+        "checksum": false
+      }
+    }
+  ],
+  "attributes": {
+    "long_name": "Land surface elevation at mesh faces",
+    "units": "m",
+    "cell_methods": "area: mean",
+    "coordinates": "face",
+    "standard_name": "surface_altitude",
+    "csdms_standard_name": "land_surface__elevation",
+    "mesh": "mesh/topology",
+    "location": "face"
+  },
+  "dimension_names": [
+    "face"
+  ],
+  "zarr_format": 3,
+  "node_type": "array",
+  "storage_transformers": []
+}

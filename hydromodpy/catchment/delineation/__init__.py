@@ -12,7 +12,9 @@ from functools import cache
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from hydromodpy.catchment.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
+    from hydromodpy.catchment.delineation.whitebox_workflows_backend import (
+        WhiteboxWorkflowsBackend,
+    )
 
 
 @cache

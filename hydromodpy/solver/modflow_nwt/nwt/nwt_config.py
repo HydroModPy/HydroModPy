@@ -11,7 +11,7 @@ from pydantic import Field, PositiveFloat, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units import LengthMeters
+from hydromodpy.core.units.types import LengthMeters
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 
 

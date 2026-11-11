@@ -9,7 +9,12 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.toml_io.writer import dumps as dump_toml
-from hydromodpy.project.calibrate import CalibrationPlan, calibration_plan
+from hydromodpy.project.calibrate import (
+    CalibrationPlan,
+    calibration_plan,
+    promote_trial,
+    route_calibration,
+)
 
 pytestmark = pytest.mark.fast
 
@@ -308,3 +313,158 @@ def test_a_file_that_is_not_there_or_not_readable_is_refused(tmp_path: Path, nam
         _write_toml(tmp_path / name, TYPO_TOML)
     with pytest.raises((ConfigError, FileNotFoundError)):
         calibration_plan(tmp_path / name)
+
+
+# route_calibration: what a launch of a file needs, and the runner it goes to
+
+SINGLE_TOML = """\
+[workflow]
+mode = "calibration"
+
+[calibration]
+method = "grid"
+
+[calibration.parameters.K]
+bounds = [1e-6, 1e-3]
+"""
+
+
+class _Environment:
+    """An environment that records where it was checked."""
+
+    bounds = None
+
+    def __init__(self) -> None:
+        self.checked: list[Path] = []
+
+    def check(self, *, project_root: Path, workspace_root: Path) -> None:
+        self.checked.append(Path(project_root))
+
+
+@pytest.fixture
+def preflights(monkeypatch) -> list[Path]:
+    seen: list[Path] = []
+    monkeypatch.setattr(
+        "hydromodpy.calibration.preflight.preflight_launch",
+        lambda target, **_kw: seen.append(Path(target)),
+    )
+    return seen
+
+
+@pytest.mark.parametrize(("content", "staged"), [(STAGED_TOML, True), (SINGLE_TOML, False)])
+def test_a_file_with_phases_goes_to_the_staged_runner(
+    tmp_path: Path, preflights, content: str, staged: bool
+) -> None:
+    config = _write_toml(tmp_path / "c.toml", content)
+    environment = _Environment()
+
+    route = route_calibration(config, environment=environment)
+
+    assert route.staged is staged
+    assert route.target == config.resolve()
+    assert route.environment is environment
+    assert environment.checked == [tmp_path.resolve()]
+    assert preflights == [config.resolve()]
+
+
+def test_the_environment_is_checked_against_the_project_root_when_one_is_given(
+    tmp_path: Path, preflights
+) -> None:
+    config = _write_toml(tmp_path / "c.toml", SINGLE_TOML)
+    root = tmp_path / "project"
+    root.mkdir()
+    environment = _Environment()
+
+    route_calibration(config, environment=environment, project_root=root)
+
+    assert environment.checked == [root.resolve()]
+
+
+def test_a_phase_a_file_does_not_declare_is_refused_before_the_preflight(
+    tmp_path: Path, preflights
+) -> None:
+    from hydromodpy.core.exceptions import CalibrationError
+
+    config = _write_toml(tmp_path / "c.toml", SINGLE_TOML)
+
+    with pytest.raises(CalibrationError, match="declares no .*calibration.phases"):
+        route_calibration(config, phase="fine", environment=_Environment())
+
+    assert preflights == []
+
+
+def test_a_phase_of_a_file_that_does_not_read_names_the_real_error(
+    tmp_path: Path, preflights
+) -> None:
+    from hydromodpy.core.exceptions import ConfigError
+
+    config = _write_toml(tmp_path / "c.toml", TYPO_TOML)
+
+    with pytest.raises(ConfigError, match="cannot be read"):
+        route_calibration(config, phase="steady_k", environment=_Environment())
+
+
+def test_a_completed_session_is_asked_for_only_when_the_caller_asks(
+    monkeypatch, tmp_path: Path, preflights
+) -> None:
+    asked: list[Path] = []
+    monkeypatch.setattr(
+        "hydromodpy.project.dispatch.workflow.identical_session_of_file",
+        lambda target: asked.append(target) or "the report",
+    )
+    config = _write_toml(tmp_path / "c.toml", SINGLE_TOML)
+
+    route = route_calibration(config, environment=_Environment())
+
+    assert asked == []
+    assert route.completed_session() == "the report"
+    assert asked == [config.resolve()]
+
+
+def test_a_trial_is_promoted_through_the_pipeline_the_library_fills(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from hydromodpy.calibration.runners.trial import trial_pipeline
+
+    seen: list[tuple] = []
+
+    def promote(project_root, case, trial, *, as_name):
+        seen.append((project_root, case, trial, as_name, trial_pipeline()))
+        return tmp_path / "runs" / "case"
+
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.promotion.promote_trial_from_session", promote
+    )
+
+    run_dir = promote_trial(tmp_path, "case", 4, as_name="k_high")
+
+    assert run_dir == tmp_path / "runs" / "case"
+    assert [item[:4] for item in seen] == [(tmp_path, "case", 4, "k_high")]
+
+
+def test_the_plan_of_a_held_configuration_is_anchored_to_its_file_and_case(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from hydromodpy.core.state.result_dirs import run_dir_rel
+    from hydromodpy.results.catalog.registration import next_version_dirname
+
+    preflighted: list[Path] = []
+    monkeypatch.setattr(
+        "hydromodpy.calibration.preflight.preflight_launch",
+        lambda target, **_kw: preflighted.append(Path(target)),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.calibration.runners.document.describe_dry_run",
+        lambda cfg, path, **kw: {"case": "own", "project_root": str(tmp_path)},
+    )
+    held = SimpleNamespace(calibration=_staged_config())
+    source = tmp_path / "c.toml"
+
+    same = calibration_plan(held, source=source, case="own").plan
+    other = calibration_plan(held, source=source, case="other").plan
+
+    assert same == {"case": "own", "project_root": str(tmp_path)}
+    assert other["case"] == "other"
+    assert other["version"] == next_version_dirname(tmp_path, "other")
+    assert other["run_dir"] == run_dir_rel(other["version"])
+    assert preflighted == [source, source]

@@ -39,7 +39,7 @@ from hydromodpy.model.forcing.rasters import (
 if TYPE_CHECKING:
     from scipy import sparse
 
-    from hydromodpy.core.time import ResolvedSimulationTimeWindow
+    from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
     from hydromodpy.model.contracts import LoadResultProto
 
 __all__ = ["NativeSeries", "native_series"]

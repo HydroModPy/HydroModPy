@@ -34,13 +34,13 @@ In dependency order, lowest first.
 | `contracts/` | the records handed upward: `PointRecord`, `FieldRecord`, `TableRecord`, `LoadResult` |
 | `schemas/` | pandera schemas of the input tables (stations, chronicles, abacus, lithology, DEM), each with its `validate()` |
 | `source/` | the `DataSource` port (`port.py`), its README being the contract, and the registry of sources, plugins included (`registry.py`), with generic `file` and `url` sources |
-| `common/` | helpers with no variable config and no cache: HTTP, units, geometry, file naming, and the one mask loader (`source_extent.py`); `clients/` holds what several variables share: the SIM2 product table and download, the Hub'Eau station helpers, the local DRIAS Explore2 NetCDF reader (`explore2_files.py`, read by `precipitation` and `etp`) |
+| `common/` | functions with no variable config and no cache: HTTP, units, geometry, file naming, and the one mask loader (`source_extent.py`); `clients/` holds what several variables share: the SIM2 product table and download, the Hub'Eau station helpers, the local DRIAS Explore2 NetCDF reader (`explore2_files.py`, read by `precipitation` and `etp`) |
 | `ingest/` | a user file to the storage format and to records: rasters, vectors, tables, station folders, grids, and the observation series a run keeps beside the simulated ones (`observations.py`) |
 | `provenance/` | what sits next to a file on disk, and the cache that is made of it: sidecars and `CacheIndex` (`sidecars.py`), derived copies, `hydromodpy.lock` (`lockfile.py`), the cache archive (`archive.py`) |
 | `families/` | the bases the variables inherit: shared state, the cache calls, and the `FetchRequest` the family builds and hands to the class of the source port |
-| `variables/` | one package per `[data.<name>]` section, all on the template below |
+| `variables/` | one package per `[data.<name>]` section on the template below, and four flat modules that each hold a family of thin variables: `sim2_series.py` (wind, humidity, runoff, soil moisture, temperature), `forcing_series.py` (radiation, ETP, precipitation), `lake_series.py` (lake levels, inflow, outflow, withdrawal) and `user_rasters.py` (soil capacity, substratum, layer base) |
 | `sites/` | the sites of the workspace: `data/sites/catalog.csv` in `SiteRow` rows (`catalog.py`, its only reader and writer, with the name and `near_site_m` checks), the importers behind `hmp site import` (site table, outlet layer, Hub'Eau stations), `[site] gauge` as the station of the series sources (`gauge.py`), and `single_site.py`, which resolves a `[site]` against the site catalog of the workspace (`match_site`, `resolve_single_site`, `SiteMismatchError`) |
-| `loading/` | `[data]` of the TOML to the variables it activates to the data loaded: `DataManagersConfig`, `DataPlanner`, `DataLoader`, `DataStore` |
+| `loading/` | `[data]` of the TOML to the variables it activates to the data loaded: `DataConfig`, `DataPlanner`, `DataLoader`, `DataStore` |
 | `workspace/` | the workspace data folder: scaffold of file templates, and `folders.py`, the creation, listing, deletion and cleaning of workspace and project folders behind `hmp workspace init`, `hmp workspace clean`, `hmp project new`, `hmp project list` and `hmp project delete` |
 | `request/` | data asked for from outside a project: `DataRequest`, `run_request`, the `data-request` process, and `cache_verbs.py`, the verbs of `hmp data` on the data folder (`ls`, `get`, `remove`, `archive`, `restore`, and `prune` through `project`, which knows what is cited). It is the one subpackage that reads the workspace, ingest, provenance and loading together |
 
@@ -55,7 +55,7 @@ lazy-attribute table. Every subpackage may import `core`. Six more rules:
 1. A variable never imports another variable.
 2. Another layer of HydroModPy imports only the modules listed under `public`
    in `data_layout.yaml`. The bases in `families`, `common`, `schemas` but the DEM contract
-   that the check of the input files reads, and the inside of `loading` and of
+   that the check of the input files reads, the registry and the store of `loading` and the inside of
    the variables stay private.
 3. A variable reaches its providers through the source registry, so adding a
    provider touches no variable body and an `if` on the source name has no
@@ -64,7 +64,7 @@ lazy-attribute table. Every subpackage may import `core`. Six more rules:
    checks it.
 5. The modules that hold a `DataSource` class import geopandas, pandas,
    rasterio or requests inside their functions: looking a source up by name
-   loads nothing heavy. `tests/unit/architecture/test_data_source_port_stands_alone.py`
+   loads nothing heavy. `tests/unit/architecture/test_layers.py`
    checks it, one module per source.
 6. One exception to the import rules: the source registry
    (`source/registry.py`) names the shipped classes by a dotted path
@@ -76,12 +76,19 @@ lazy-attribute table. Every subpackage may import `core`. Six more rules:
 
 ```
 variables/<v>/
-├── __init__.py   imports only the config: validating a TOML loads no variable
+├── __init__.py   a one-line docstring, no import: validating a TOML loads no variable
 ├── config.py     <V>Config and <V>SourceConfig; the `source` field is a name of the registry
 ├── variable.py    VARIABLE_NAME, INTERNAL_UNIT, the FetchRequest of the section
 ├── apis/         one module per network provider of the variable, if it has one
 └── file.py       only when loading the user's files takes real work
 ```
+
+A thin variable has no code of its own: a source config, a section config and a variable class
+that names itself. It does not get a folder. Its three classes sit in the flat module of its
+family, one section per variable with the same three names (`<V>SourceConfig`, `<V>Config`,
+`<V>Variable`; `File<V>Source` and `Url<V>Source` for a raster the user brings). The first
+`VARIABLE_SPECS` entry of a variable points `config_module` and `variable_module` at that module.
+A variable that gets a provider, a resolver or a loader of its own moves to a folder.
 
 `dem`, `crossings` and `hydrography` also keep a `resolver.py`: the geographic step runs before any variable loads, so it turns their sources into files on disk first (`resolve_dem`, `fill_crossings_path`, `resolve_network_map_path`).
 
@@ -142,7 +149,7 @@ During a run:
 
 ```
 [data] of the TOML
-  -> loading/config_schema.DataManagersConfig   validation
+  -> loading/config_schema.DataConfig           validation
   -> loading/planner.DataPlanner.build()        asked-for and inferred variables
   -> loading/loader.DataLoader   simulation window, basin mask
   -> variables/<v>/variable.<V>Variable.load()    files, or the class of the port
@@ -165,8 +172,7 @@ variable and source, cut to the extent and period, beside a report
 From Python, without a project:
 
 ```python
-from hydromodpy.data import DataStore
-
+from hydromodpy.data.loading.store import DataStore
 store = DataStore()  # no folder: nothing is read from or written to a cache
 store = DataStore(data_root="data/")  # a data folder of your choice
 result = store.load_variable("hydrometry", cfg)
@@ -284,9 +290,9 @@ class LoadResult:
 
 ## Key public symbols
 
-- `hydromodpy.data.{DataManagersConfig, DataPlanner, DataLoadPlan,
-  DataLoader, DataStore, DataRequest, run_request}`, resolved
-  lazily.
+- `hydromodpy.data.loading.config_schema.DataConfig`, `loading.planner.DataPlanner`,
+  `loading.plan.DataLoadPlan`, `loading.loader.DataLoader`, `loading.store.DataStore`,
+  `hydromodpy.data.request.model.DataRequest` and `request.engine.run_request`.
 - `hydromodpy.data.provenance.sidecars.{CacheIndex, CacheRow, Sidecar, scan, prune}`: the cache, read from the sidecars.
 - `hydromodpy.data.contracts.load_result.LoadResult` and the three records.
 - `hydromodpy.data.source.port.{DataSource, Extent, Period, FetchRequest,
@@ -313,7 +319,7 @@ class LoadResult:
 1. This file.
 2. `variables/hydrometry/` for a station variable, and
    `families/stations.py` for how it calls the cache.
-3. `variables/wind/` for a grid variable, and `common/clients/sim2_products.py`
+3. `variables/sim2_series.py` for a grid variable, and `common/clients/sim2_products.py`
    for SIM2.
 4. `loading/loader.py` for what a run loads, and `loading/planner.py` for the
    inference rules.
@@ -328,6 +334,6 @@ class LoadResult:
 | a plugin source, out of tree | a `DataSource` class published on the `hydromodpy.data.source` entry-point group under the name `<section>_<source_id>`; see `docs/source/contribute/architecture/how-to/add-a-data-source.rst` |
 | a user file for a variable | declare `source = "file"` with a path relative to the project root, under `inputs/`; see `docs/source/how-to/use-your-own-files.md` |
 | an online file for a variable | declare `source = "url"` with an `url` string and optional `sha256` or `license` |
-| a variable | a package on the template above, a field of `DataManagersConfig`, a row of `VARIABLE_SPECS`; see `docs/source/contribute/architecture/how-to/add-a-data-variable.rst` |
+| a variable | a package on the template above, or a class pair in one of the flat modules of `variables/` when it is a thin family, a field of `DataConfig`, a row of `VARIABLE_SPECS`; see `docs/source/contribute/architecture/how-to/add-a-data-variable.rst` |
 | a user-file format | `ingest/` |
 | an import rule | `tests/unit/architecture/data_layout.yaml` |

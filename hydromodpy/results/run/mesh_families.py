@@ -11,7 +11,7 @@ from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run.tables import read_run_table
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 __all__ = ["MeshFamilies", "mesh_families"]
 

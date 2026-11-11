@@ -65,13 +65,13 @@ from hydromodpy.display.figures._stream_comparison import (
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, neutral
-from hydromodpy.results.derive.stream.comparison import unavailable_reason_for_comparison
+from hydromodpy.results.derive.stream_network.comparison import unavailable_reason_for_comparison
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.derive.stream.comparison import NetworkComparison
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.derive.stream_network.comparison import NetworkComparison
+    from hydromodpy.results.run.view import Run
 
 DistanceDirection = Literal["to_mapped", "to_simulated"]
 

@@ -8,8 +8,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.cross_checks import refuse_an_export_that_cannot_be_written
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.workflow.state import PipelineState

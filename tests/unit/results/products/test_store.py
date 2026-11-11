@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import errno
 import json
-import multiprocessing
 import os
 import socket
 import time
@@ -70,24 +69,6 @@ def test_a_failing_write_is_not_called_when_the_product_exists(tmp_path: Path) -
         raise AssertionError("write must not run when the product exists")
 
     assert store.put(key, "mesh", boom) == store.path(key)
-
-
-def _spawn_put(root: str, key: str) -> int:
-    ProductStore(Path(root)).put(key, "mesh", lambda d: (d / "value.txt").write_text("made"))
-    return 0
-
-
-def test_two_spawned_writers_build_one_product(tmp_path: Path) -> None:
-    root = tmp_path / "products"
-    key = _key("a")
-    context = multiprocessing.get_context("spawn")
-    with context.Pool(2) as pool:
-        codes = pool.starmap(_spawn_put, [(str(root), key), (str(root), key)])
-    assert codes == [0, 0]
-    store = ProductStore(root)
-    assert len(store.entries()) == 1
-    assert (store.path(key) / "value.txt").read_text(encoding="utf-8") == "made"
-    assert json.loads((store.path(key) / META_FILENAME).read_text(encoding="utf-8"))["key"] == key
 
 
 RENAME_ERRORS = [

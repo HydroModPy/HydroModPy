@@ -20,7 +20,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.time import build_simulation_time_boundaries
 from hydromodpy.core.time.period_aggregation import (  # noqa: E402
     first_period_step,
     naive_timestamp,
@@ -34,6 +33,7 @@ from hydromodpy.core.time.period_aggregation import (  # noqa: E402
     periods_in_window,
     runoff_m3_s_on_index,
 )
+from hydromodpy.core.time.window import build_simulation_time_boundaries
 
 
 def _daily(start: str, days: int, values) -> pd.Series:
@@ -290,6 +290,28 @@ def test_a_runoff_over_less_than_a_square_metre_is_still_a_discharge() -> None:
     out = runoff_m3_s_on_index(TWO_THEN_FIVE, [STAMP_21], area_m2=0.5, start=STAMP_11)
 
     np.testing.assert_allclose(out.to_numpy(), [5.0 * 1e-3 * 0.5 / 86400.0], rtol=1e-12)
+
+
+# One row per runoff: its depth in mm/day, the area it falls on in m2 and the discharge in
+# m3/s, worked by hand as depth [m] * area [m2] / 86 400 s.
+_RUNOFF_UNITS = [
+    pytest.param(1.0, 86.4e6, 1.0, id="one_mm_a_day_on_86_square_km"),
+    pytest.param(1.0, 1.0e6, 1.0e-3 * 1.0e6 / 86400.0, id="one_mm_a_day_on_one_square_km"),
+    pytest.param(86.4, 1.0e6, 1.0, id="86_mm_a_day_on_one_square_km"),
+    pytest.param(0.0, 1.0e6, 0.0, id="no_runoff"),
+    pytest.param(5.0, 86400.0, 5.0e-3, id="five_mm_a_day_on_86400_square_meters"),
+]
+
+
+@pytest.mark.parametrize(("depth_mm_day", "area_m2", "expected_m3_s"), _RUNOFF_UNITS)
+def test_a_runoff_in_mm_per_day_is_a_discharge_in_m3_per_second(
+    depth_mm_day, area_m2, expected_m3_s
+) -> None:
+    forcing = _daily("2000-01-01", 20, [depth_mm_day] * 20)
+
+    out = runoff_m3_s_on_index(forcing, [STAMP_21], area_m2=area_m2, start=STAMP_11)
+
+    np.testing.assert_allclose(out.to_numpy(), [expected_m3_s], rtol=1e-12, atol=0.0)
 
 
 def test_a_naive_timestamp_is_read_in_utc():

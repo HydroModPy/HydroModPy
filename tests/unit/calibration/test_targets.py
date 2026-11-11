@@ -8,7 +8,6 @@ from typing import Annotated
 import pytest
 from pydantic import Field
 
-from hydromodpy.calibration import Calibrable as reexported
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
@@ -22,9 +21,10 @@ from hydromodpy.calibration.targets import (
     targets_by_path,
 )
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.calibrable import Calibrable as reexported
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.config_kit.profile import Profile

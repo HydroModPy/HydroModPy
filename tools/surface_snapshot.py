@@ -242,7 +242,7 @@ def cli_tree() -> list[str]:
 
 def exit_codes() -> list[str]:
     """The exit code constants, then the code of each class of ``core.exceptions``."""
-    from hydromodpy.cli import helpers
+    from hydromodpy.cli import exit_codes as helpers
     from hydromodpy.core import exceptions
 
     rows = [

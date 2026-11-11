@@ -22,15 +22,47 @@ allowed:
   # optim only inside "if TYPE_CHECKING:", never at runtime
   # (test_evaluation_reads_optim_only_for_types).
   evaluation: [optim]
+  # The calibration schema is cut in six modules, written lowest first.
+  # optim and evaluation only from inside a validator, never at module level
+  # (test_config_reads_the_upper_parts_only_inside_its_validators).
+  config_terms: [optim]
+  config_network: [config_terms, optim]
+  config_outputs: [config_network, config_terms]
+  config_objective: [config_network, config_terms, optim]
+  config_phases: [config_terms, evaluation]
   # criteria, evaluation and optim only from inside a validator, never at
-  # module level (test_config_reads_the_upper_parts_only_inside_its_validators).
-  config: [criteria, evaluation, optim]
-  protocols: [config]
-  observations: [config]
-  metrics: [config, criteria, evaluation, observations, optim]
+  # module level (same test).
+  config:
+    [
+      config_objective,
+      config_outputs,
+      config_phases,
+      config_terms,
+      criteria,
+      evaluation,
+      optim,
+    ]
+  protocols: [config, config_network, config_objective, config_outputs, config_phases]
+  observations: [config_network]
+  metrics:
+    [
+      config,
+      config_network,
+      config_objective,
+      config_outputs,
+      config_terms,
+      criteria,
+      evaluation,
+      observations,
+      optim,
+    ]
   runners:
     [
       config,
+      config_objective,
+      config_outputs,
+      config_phases,
+      config_terms,
       criteria,
       evaluation,
       metrics,
@@ -40,12 +72,35 @@ allowed:
       protocols,
       report,
     ]
-  # criteria, metrics, observations, optim, parameter_resolution, protocols,
-  # runners and targets only from inside one of its checks, never at module
-  # level (test_preflight_reads_the_other_parts_only_inside_its_checks).
+  # The preflight is cut in four modules, written lowest first. The other
+  # parts only from inside one of the checks, never at module level
+  # (test_preflight_reads_the_other_parts_only_inside_its_checks).
+  preflight_report: [protocols, runners]
+  preflight_searches: [criteria, optim, runners]
+  preflight_network:
+    [
+      criteria,
+      metrics,
+      optim,
+      parameter_resolution,
+      preflight_report,
+      preflight_searches,
+      runners,
+    ]
   preflight:
-    [criteria, metrics, observations, optim, parameter_resolution, protocols, runners, targets]
-  "<init>": [config, optim, report, runners]
+    [
+      criteria,
+      metrics,
+      observations,
+      optim,
+      parameter_resolution,
+      preflight_network,
+      preflight_report,
+      preflight_searches,
+      runners,
+      targets,
+    ]
+  "<init>": []
 
 # Rule 5: evaluation/registry.py names its two built-in evaluators
 # (hydromodpy_pipeline -> runners.pipeline_evaluator, analytic_bowl ->
@@ -73,11 +128,14 @@ public:
   - hydromodpy.calibration.targets
   - hydromodpy.calibration.parameter_resolution
   - hydromodpy.calibration.preflight
+  - hydromodpy.calibration.preflight_report
   - hydromodpy.calibration.protocols
+  - hydromodpy.calibration.protocols.registry
   - hydromodpy.calibration.report
   - hydromodpy.calibration.optim.parameters
   - hydromodpy.calibration.runners.cli_runner
   - hydromodpy.calibration.runners.document
+  - hydromodpy.calibration.runners.staged_report
   - hydromodpy.calibration.runners.staged_runner
   - hydromodpy.calibration.runners.trial
   - hydromodpy.calibration.runners.programmatic_runner

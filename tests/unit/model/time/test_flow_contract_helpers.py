@@ -20,9 +20,6 @@ from hydromodpy.model.forcing.forcing_bridge import (
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.time.history_contract import (
     build_transient_time_axes,
-    elapsed_seconds_for_time_keys,
-    snapshot_elapsed_seconds_from_payload,
-    step_end_elapsed_seconds_from_payload,
     step_history_from_history,
 )
 
@@ -73,31 +70,6 @@ def test_history_contract_aligns_snapshots_and_step_histories() -> None:
 
     with pytest.raises(ValueError, match="expected 3 step rows"):
         step_history_from_history(np.zeros((2, 2)), n_steps=3, name="h")
-
-
-def test_history_contract_payload_axes_validate_explicit_lengths() -> None:
-    payload = {
-        "period_lengths_seconds": [10.0, 20.0],
-        "step_end_elapsed_seconds": [11.0, 31.0],
-        "snapshot_elapsed_seconds": [0.0, 11.0, 31.0],
-    }
-
-    assert step_end_elapsed_seconds_from_payload(payload, n_steps=2).tolist() == [11.0, 31.0]
-    assert snapshot_elapsed_seconds_from_payload(payload, n_snapshots=3).tolist() == [
-        0.0,
-        11.0,
-        31.0,
-    ]
-    assert elapsed_seconds_for_time_keys([0.0, 5.0, 9.0], [0, 2]).tolist() == [0.0, 9.0]
-
-    with pytest.raises(ValueError, match="step_end_elapsed_seconds length"):
-        step_end_elapsed_seconds_from_payload(payload, n_steps=3)
-    with pytest.raises(ValueError, match="snapshot_elapsed_seconds length"):
-        snapshot_elapsed_seconds_from_payload(payload, n_snapshots=2)
-    with pytest.raises(ValueError, match="bounds"):
-        elapsed_seconds_for_time_keys([0.0], [1], name="head")
-    with pytest.raises(ValueError, match="no elapsed-time axis"):
-        elapsed_seconds_for_time_keys([], [0], name="head")
 
 
 def test_forcing_bridge_averages_station_series_and_dispatches_spatial_modes(

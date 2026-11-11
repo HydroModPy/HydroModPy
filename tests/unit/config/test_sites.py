@@ -7,12 +7,12 @@ import geopandas as gpd
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.cross_checks import require_site_for_real_catchment
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.config.sites import RecipeSpec, SitesConfig, SitesRunConfig
 from hydromodpy.core.config_kit.introspect import site_scoped_paths
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
-from hydromodpy.core.site import SiteRow
+from hydromodpy.core.site.row import SiteRow
 from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.data.sites.catalog import write_catalog
 from hydromodpy.data.sites.single_site import SiteMismatchError, match_site
@@ -159,7 +159,7 @@ def test_an_unknown_name_far_from_every_site_is_new() -> None:
 
 
 def _one_site_config(root, name: str, x: float, y: float):
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     (root / "data").mkdir(exist_ok=True)
     (root / "dem.tif").write_bytes(b"never read")

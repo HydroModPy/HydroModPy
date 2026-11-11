@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots
+from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, new_subplots
 from hydromodpy.display.figure_options import ObjectiveName, ParameterNames
 from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
 
@@ -62,7 +62,10 @@ class CalibrationPairplotFigure(BaseFigure):
         table = trial_table(session)
         names = list(parameters) if parameters is not None else list(table.parameters)
         if len(names) < 2:
-            raise ValueError(
+            # The session decides when no parameter is named; a short
+            # `parameters=` is a fault of the caller.
+            refusal = ValueError if parameters is not None else FigureNotApplicable
+            raise refusal(
                 "calibration_pairplot: need at least two parameter columns; the session "
                 f"sampled {', '.join(names) or '<none>'}"
             )

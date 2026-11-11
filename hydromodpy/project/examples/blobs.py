@@ -21,7 +21,7 @@ from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError
 from hydromodpy.core.io.fetch import download, open_client
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.payload import PayloadFile
+from hydromodpy.core.payload.index import PayloadFile
 from hydromodpy.core.payload.install import sha256_of
 from hydromodpy.core.state.portable import cache_dir
 from hydromodpy.core.version import __version__

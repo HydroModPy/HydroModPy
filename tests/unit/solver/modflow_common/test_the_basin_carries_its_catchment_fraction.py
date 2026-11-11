@@ -18,7 +18,7 @@ from shapely.geometry import box
 from hydromodpy.catchment.drainage.descent import DescentBasin
 from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.model.domain.geometry import CatchmentGeometry
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.modflow_common.catchment_basin import run_basin
 from hydromodpy.solver.modflow_common.descent_store import (
     read_descent_sidecar,

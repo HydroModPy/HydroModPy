@@ -56,7 +56,7 @@ exporters/
 
 | To add | Where |
 |--------|-------|
-| a format of the wheel | a writer in `formats.py`, its dotted path in `_BUILTIN_PATHS` of `registry.py`, a case in `tests/contract/test_export_format_contract.py` |
+| a format of the wheel | a writer in `formats.py`, its dotted path in `_BUILTIN_PATHS` of `registry.py`, a case in `tests/ports/test_export.py` |
 | a plugin format, out of tree | an `ExportWriter` class published on the `hydromodpy.export.format` entry-point group, named as its `name` |
 | a name a user may export | `vocabulary.py` |
 | a new key of the `[[export]]` request | `ExportRequest` in `export_spec.py` |

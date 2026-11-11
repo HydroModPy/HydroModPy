@@ -43,6 +43,7 @@ from pydantic import Field, ValidationError, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
+from hydromodpy.core.exceptions import HydroModPyError
 from hydromodpy.core.io.document_version import VersionWindow, check_version
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.identity import Identity
@@ -425,6 +426,19 @@ def read_seal(run_dir: Path | str) -> RunSeal:
     return read_stored(RunSeal, forms.run_seal_v3(payload))
 
 
+def replay_of_run(run_dir: Path | str) -> dict[str, Any] | None:
+    """Return the replay block of a run that played another one again, as JSON, else ``None``.
+
+    The index holds no replay class: the seal holds it. A run with no seal to
+    read, or a seal that is not a replay, gives ``None``.
+    """
+    try:
+        replay = read_seal(run_dir).lineage.replay
+    except (HydroModPyError, OSError, ValueError):
+        return None
+    return None if replay is None else replay.model_dump(mode="json", by_alias=True)
+
+
 def read_manifest(run_dir: Path | str) -> dict[str, Any]:
     """Return the manifest of a run directory as the file holds it, future keys included.
 
@@ -684,4 +698,5 @@ __all__ = [
     "sealed_in_run",
     "read_manifest",
     "read_seal",
+    "replay_of_run",
 ]

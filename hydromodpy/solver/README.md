@@ -17,7 +17,7 @@ rules, how a run reaches a backend, and where to add what.
 |---|---|
 | `base/` | what every backend shares: the `SolverAdapter` Protocol (`adapter_protocol.py`), the registries of adapters and extractors with their entry-point groups (`registry.py`), the twelve attributes a backend declares, `SolverConfig` (`solver_config.py`, the `[solver]` table), the `[simulation]`, `[simulation.results]` and `[observation]` tables, the plan, the planner and the runner (`plan.py`, `planner.py`, `runner.py`), the rule that chooses `rerun` (`rerun.py`), the drain conductance, the observable contracts (`observables.py`), cell lookup by coordinates, scratch cleanup |
 | `modflow_grid/` | the grid description the MODFLOW family reads: `SolverMesh` for structured and unstructured meshes and its DISV arguments, `SolverGridContext`, spatial and temporal discretization builders, the `sgrid` table of the top sampling (`sgrid_config.py`) |
-| `modflow_common/` | what MODFLOW 6 and MODFLOW-NWT do the same way: binary resolution and download, budget names, calibration readers, property mapping on the solver mesh, discharge routing, descent of the mesh, the flow-adapter lifecycle (`flow_adapter_helpers.py`) |
+| `modflow_common/` | what MODFLOW 6 and MODFLOW-NWT do the same way: binary resolution and download, budget names, calibration readers, property mapping on the solver mesh, discharge routing, descent of the mesh, the flow-adapter lifecycle (`flow_run.py`) |
 | `modflow6/` | MODFLOW 6 through FloPy: `build.py` (package wiring), `builders/` (one module per package: CHD and DRN, recharge and EVT, wells, LAK, SFR, MVR, HFB, solver options), `run.py`, `rerun.py` (a solved model solved again for a new K or Sy), `api/` (libmf6, in process), `adapter.py` (flow), `adapters/` (GWT transport, PRT), `extractors/`, `support/`, `modflow6_config.py` |
 | `modflow_nwt/` | MODFLOW-NWT through FloPy: `nwt/` (solver, pre-processing, payload builders, `nwt_config.py`), `adapter.py` (flow), `adapters/` (MODPATH, MT3DMS), `modpath/`, `mt3dms/`, `extractors/` |
 | `boussinesq/` | the in-house unstructured-mesh Boussinesq solver; its own map is `boussinesq/README.md` |
@@ -41,7 +41,7 @@ extractor carries `process_type`, `solver_name` and an
    path in `_BUILTIN_PATHS` and `_BUILTIN_EXTRACTOR_PATHS` and imports it on
    first lookup, through the engine of `core/plugin_registry.py`. Loading `hydromodpy.solver.base.plan` therefore loads no backend.
 4. A private name read inside a backend package is declared in that package:
-   `tests/unit/architecture/test_solver_private_attributes.py` checks it.
+   `tests/unit/architecture/test_layers.py` checks it.
 5. A layer above `solver` imports the registry from `solver/base/registry.py`
    and calls `solvers.get`, `solvers.create` and `solvers.names`. The runner in
    `base/runner.py` imports no backend, and `calibration` reaches the solvers
@@ -57,7 +57,7 @@ hydromodpy/solver/
   __init__.py
   base/          adapter_protocol.py  registry.py  solver_config.py  plan.py  planner.py  runner.py ...
   modflow_grid/  solver_mesh.py  discretization_spatial.py  top_sampling.py  discretization_temporal.py  sgrid_config.py
-  modflow_common/  flow_adapter_helpers.py  binaries.py   property_mapping.py ...
+  modflow_common/  flow_run.py  binaries.py   property_mapping.py ...
   modflow6/      adapter.py  build.py  run.py  rerun.py  builders/  api/  adapters/  extractors/  support/
   modflow_nwt/   adapter.py  nwt/  adapters/  extractors/  modpath/  mt3dms/
   boussinesq/    adapter.py  options.py  boussinesq.py  catalog.py  mesh.py  assembly/  runtimes/  ... (see its README)
@@ -102,7 +102,7 @@ reads when a manifest has none.
 |---|---|
 | a solver, in tree | a package with its adapter (`adapter.py`) and extractor, its adapter class with the twelve attributes and the five members of the contract, one entry in each of `_BUILTIN_PATHS` and `_BUILTIN_EXTRACTOR_PATHS`, its `options` class on the adapter when it has settings, which a file writes under `[solver.<name>]`; see `docs/source/contribute/architecture/how-to/add-a-solver.rst` |
 | a solver, out of tree | an adapter class on the `hydromodpy.solver` entry-point group and an extractor on `hydromodpy.solver.extractor`; the entry-point name is `<process_type>_<name>`, and the registry compares it with the joined attributes of the loaded class, so a name that holds an underscore stays whole |
-| a MODFLOW 6 package | a module in `modflow6/builders/`, called from `modflow6/build.py`; builders stay independent of each other and couple through `builders/mvr.py` records |
+| a MODFLOW 6 package | a module in `modflow6/builders/` with its build step, called from `modflow6/build.py` in the build order; a builder reads another one only along that order |
 | a process type | a process model in `base/simulation_config.py` joined to `SimulationProcessConfig`, its requirements in the `requires` attribute of the backends, an `ensure_*` function and an entry in the two tables of `base/runner.py` (`_REQUIRED_COMPONENTS_BY_PROCESS`, `_COMPONENT_ENSURERS`) |
 | a callback around a run | a field of `ProcessCallbacks` and its call in `SimulationRunner` |
 | something both MODFLOW backends do | `modflow_common/`, or `modflow_grid/` for a grid |

@@ -1,4 +1,4 @@
-"""Integration tests for :meth:`hydromodpy.results.run.Run.dataset`.
+"""Integration tests for :meth:`hydromodpy.results.run.view.Run.dataset`.
 
 Covers the three mesh topologies the public API must abstract:
 
@@ -23,9 +23,9 @@ import pytest
 import xugrid as xu
 
 from hydromodpy.core.exceptions import UnknownFieldError
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.run_stores import open_run_store
 

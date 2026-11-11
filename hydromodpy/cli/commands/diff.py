@@ -10,8 +10,6 @@ with its README: differences, parameters, scores, budget, network, maps and seri
 from __future__ import annotations
 
 import argparse
-import hashlib
-import re
 import sys
 from pathlib import Path
 
@@ -21,11 +19,10 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_VALIDATION, project_root_of, refuse
+from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, EXIT_VALIDATION, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import project_root_of
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.core.state.layout import summary_dir_for
-from hydromodpy.results.storage.contract import RUN_REPORT_DIRNAME
 
 NAME: str = "diff"
 HELP: str = "Compare runs: their parameters and metrics, or a folder with the whole comparison"
@@ -178,23 +175,14 @@ def _delta(args: argparse.Namespace) -> None:
     )
 
 
-def compare_folder(refs: list[str], project_root: Path | None) -> Path:
-    """Return ``summary/report/compare/<refs>/`` of the project."""
-    from hydromodpy.project.compare import ComparisonCaseError
-
-    if project_root is None:
-        raise ComparisonCaseError("No project around the runs to write into: pass --to DIR.")
-    slugs = [re.sub(r"[^A-Za-z0-9_.-]+", "_", Path(ref).name or ref).strip("_") for ref in refs]
-    name = "-vs-".join(slug for slug in slugs if slug)
-    if not name or len(name) > 96:
-        name = hashlib.sha256("\n".join(refs).encode("utf-8")).hexdigest()[:12]
-    return summary_dir_for(project_root) / RUN_REPORT_DIRNAME / "compare" / name
-
-
 def _folder(args: argparse.Namespace) -> None:
     from hydromodpy.core.console import progress
     from hydromodpy.project.api import compare
-    from hydromodpy.project.compare import ComparisonCaseError, ComparisonReferenceError
+    from hydromodpy.project.compare import (
+        ComparisonCaseError,
+        ComparisonReferenceError,
+        compare_folder,
+    )
 
     root = project_root_of(args)
     variables = (

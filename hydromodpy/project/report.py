@@ -21,7 +21,7 @@ import json
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from hydromodpy.core.exceptions import ConfigError, DisplayError
+from hydromodpy.core.exceptions import ConfigError, DisplayError, ResultsError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figure_registry import names as figure_names
@@ -64,6 +64,36 @@ BEST_RUN_FIGURES: dict[str, tuple[str, ...]] = {
     "discharge": ("hydrograph_sim_obs", "scatter_one_to_one"),
 }
 """Figures of the promoted best run, by calibrated variable."""
+
+
+def regen_run(ref: str, *, workspace: str | Path, what: str = "all") -> list[Path]:
+    """Write again what the ledgers of one run record: exports, figures or both.
+
+    *what* is ``exports``, ``figures`` or ``all``. ``all`` writes what each ledger
+    holds and stops only on a run with nothing recorded, with a
+    :class:`~hydromodpy.core.exceptions.ResultsError`. Returns the files written.
+    """
+    from hydromodpy.display.catalog_figures import regen_figures
+    from hydromodpy.project.api import open as open_path
+    from hydromodpy.results.exporters.request import regen_exports, run_export_target
+    from hydromodpy.results.ledger import Ledger
+    from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME, RUN_FIGURES_DIRNAME
+
+    with open_path(workspace).store as catalog:
+        sid = catalog.resolve(ref)
+        run_dir = Path(catalog.run_dir_for(sid))
+        holds = {
+            name: bool(Ledger.read(run_dir / folder).entries)
+            for name, folder in (("exports", RUN_EXPORTS_DIRNAME), ("figures", RUN_FIGURES_DIRNAME))
+        }
+        if what == "all" and not any(holds.values()):
+            raise ResultsError(f"{run_dir.name} records no export and no figure to write again.")
+        written: list[Path] = []
+        if what == "exports" or (what == "all" and holds["exports"]):
+            written += regen_exports(catalog, sid, run_export_target(catalog, sid))
+    if what == "figures" or (what == "all" and holds["figures"]):
+        written += regen_figures(ref, workspace=workspace)
+    return written
 
 
 def report_run(

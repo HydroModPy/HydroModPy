@@ -24,7 +24,7 @@ from pathlib import Path
 from statistics import fmean
 from typing import Any
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.console import progress
 from hydromodpy.core.contracts.overview import DataOverviewState
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
@@ -320,7 +320,8 @@ class DataOverviewLauncher:
         from hydromodpy.catchment.algorithms.derived_features import (
             attach_reference_hydrographic_network,
         )
-        from hydromodpy.data import DataLoader, DataLoadPlan
+        from hydromodpy.data.loading.loader import DataLoader
+        from hydromodpy.data.loading.plan import DataLoadPlan
 
         data_plan = DataLoadPlan(
             explicit_types=tuple(state.cfg.data.types),
@@ -387,7 +388,7 @@ class DataOverviewLauncher:
 
     @staticmethod
     def _generate_report(state: DataOverviewState, inventory: list[dict[str, Any]]) -> list[Path]:
-        from hydromodpy.display.overview import generate_overview_report
+        from hydromodpy.display.overview.report import generate_overview_report
 
         return generate_overview_report(state, inventory)
 
@@ -398,7 +399,7 @@ class DataOverviewLauncher:
 
         from hydromodpy.display.report.engine import write_pages
         from hydromodpy.display.report.pages import overview_blocks
-        from hydromodpy.results.run import open_run_dir
+        from hydromodpy.results.run.view import open_run_dir
         from hydromodpy.results.storage.contract import RUN_REPORT_DIRNAME
 
         run = open_run_dir(run_dir)

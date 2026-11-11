@@ -28,15 +28,15 @@ from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
-from hydromodpy.display.figures._instant import run_edges
 from hydromodpy.display.figures._window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.display.maps.mesh_geometry import basin_area_m2, domain_area_m2
+from hydromodpy.results.derive.time_alignment import run_period_edges
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 # Stable color per physical role, so the same component reads the same way
@@ -187,7 +187,7 @@ def _time_axis(sim: Run, timesteps: pd.Index) -> tuple[pd.Index, object, str]:
     would show the flux of the month before. A run without dates falls back
     to the stress-period number.
     """
-    edges = run_edges(sim)
+    edges = run_period_edges(sim)
     if edges is None or len(edges) - 1 != len(timesteps):
         steps = pd.Index(timesteps)
         return steps, steps[-1] + 1, "Stress period"

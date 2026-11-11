@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
-from hydromodpy.results.catalog import Catalog, rebuild_index
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
 from tests._helpers.sealed_runs import make_project, seal_run
 
 pytestmark = pytest.mark.fast

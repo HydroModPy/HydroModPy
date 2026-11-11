@@ -1,0 +1,2616 @@
+{
+  "attributes": {
+    "Conventions": "CF-1.11, ACDD-1.3, UGRID-1.0",
+    "hydromodpy_version": "2.1.0.dev0",
+    "zarr_schema_version": "4",
+    "created_at": "2026-11-11T13:04:30.386788+00:00",
+    "n_cells": 434,
+    "n_layers": 1,
+    "chunking": "balanced",
+    "cell_types": [
+      "triangle"
+    ],
+    "time_epoch": "1970-01-01T00:00:00Z",
+    "title": "tri",
+    "summary": "HydroModPy distributed groundwater simulation.",
+    "keywords": "groundwater, hydrology, modflow6",
+    "keywords_vocabulary": "GCMD Science Keywords",
+    "id": "1200e1f7-1120-4482-87be-22ac4692943f",
+    "naming_authority": "org.hydromodpy.catalog",
+    "creator_email": "",
+    "creator_institution": "",
+    "creator_url": "",
+    "history": "2026-11-11T13:04:31.651481+00:00: hydromodpy finalize",
+    "source": "HydroModPy 2.1.0.dev0; mf6: 6.6.3 09/29/2025",
+    "references": "",
+    "license": "LicenseRef-undetermined",
+    "comment": "",
+    "date_modified": "2026-11-11T13:04:31.651481+00:00",
+    "metadata_link": "",
+    "publisher_email": "",
+    "publisher_url": "",
+    "standard_name_vocabulary": "CF Standard Name Table v85",
+    "cdm_data_type": "UGRID",
+    "geospatial_lat_units": "degrees_north",
+    "geospatial_lat_resolution": "",
+    "geospatial_lon_units": "degrees_east",
+    "geospatial_lon_resolution": "",
+    "geospatial_vertical_units": "m",
+    "geospatial_vertical_positive": "up",
+    "geospatial_bounds": "",
+    "geospatial_bounds_crs": "EPSG:4326",
+    "time_coverage_duration": "",
+    "time_coverage_resolution": "P1M",
+    "hydromodpy_git_commit": "",
+    "hydromodpy_solver": "modflow6",
+    "hydromodpy_solver_binary_sha256": "e74a30338a0d4a9c128f329f1ec2dae0dd4f755fe3cb3e2670ade32608c02fd3",
+    "hydromodpy_rng_seed": -1,
+    "time_coverage_start": "2003-01-01T00:00:00+00:00",
+    "time_coverage_end": "2003-04-01T00:00:00+00:00",
+    "hydromodpy_identity": {
+      "site": "island",
+      "site_fingerprint": "03e3fd0b3f288d43",
+      "case_id": "tri",
+      "sim_id": "1200e1f7-1120-4482-87be-22ac4692943f",
+      "attempt_id": "0d297fd0bfcd434c9bf76cab4e02c096",
+      "solution_key": "6d40155254bc46f517df93513518117c9bdb9e7d9db4e1522252003f06e6c9c2",
+      "request_id": "cd4e2a7cf89536eebb3b84f9d9ad2e41e00c89a9e2c32557851e123359678534",
+      "solver": "modflow6",
+      "mesh_hash": "71c6cb52161d38a3abe599eeb736f42c30f49a367be5c270c7d260afd4b55d28",
+      "period": {
+        "start": "2003-01-01",
+        "end": "2003-04-01"
+      },
+      "score_window": null,
+      "label": null,
+      "label_date": null,
+      "rule_version": null,
+      "hydromodpy_version": "2.1.0.dev0",
+      "code_reproducible": null
+    },
+    "hydromodpy_site": "island",
+    "hydromodpy_label": "",
+    "project": "island",
+    "processing_level": "Modeled L2"
+  },
+  "zarr_format": 3,
+  "consolidated_metadata": {
+    "kind": "inline",
+    "must_understand": false,
+    "metadata": {
+      "budget": {
+        "attributes": {
+          "policy": "all",
+          "kept_terms": [
+            "constant_head",
+            "drain",
+            "recharge",
+            "storage_ss",
+            "storage_sy"
+          ]
+        },
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "derived": {
+        "attributes": {},
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "face": {
+        "shape": [
+          434
+        ],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Index of a cell along the face axis of the fields",
+          "units": "1",
+          "comment": "Position along the face axis of every field array, and row of mesh/face_node_connectivity."
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "forcing": {
+        "attributes": {
+          "criterion_mean_recharge_m_s": 2.6363168724279837e-08
+        },
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "geographic": {
+        "attributes": {},
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "head": {
+        "shape": [
+          3,
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              3,
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 8,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "bitshuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Groundwater head (per layer and UGRID face)",
+          "units": "m",
+          "cell_methods": "time: point area: mean",
+          "coordinates": "time layer face",
+          "csdms_standard_name": "subsurface_water__hydraulic_head",
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "time",
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "layer": {
+        "shape": [
+          1
+        ],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              1
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Model layer index, 0 at the top of the aquifer",
+          "units": "1",
+          "positive": "down"
+        },
+        "dimension_names": [
+          "layer"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh": {
+        "attributes": {
+          "engine": "triangle",
+          "engine_version": "1.2.0",
+          "crs": "PROJCRS[\"RGF93 v1 / Lambert-93\",BASEGEOGCRS[\"RGF93 v1\",DATUM[\"Reseau Geodesique Francais 1993 v1\",ELLIPSOID[\"GRS 1980\",6378137,298.257222101,LENGTHUNIT[\"metre\",1]]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",4171]],CONVERSION[\"Lambert-93\",METHOD[\"Lambert Conic Conformal (2SP)\",ID[\"EPSG\",9802]],PARAMETER[\"Latitude of false origin\",46.5,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8821]],PARAMETER[\"Longitude of false origin\",3,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8822]],PARAMETER[\"Latitude of 1st standard parallel\",49,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Latitude of 2nd standard parallel\",44,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8824]],PARAMETER[\"Easting at false origin\",700000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8826]],PARAMETER[\"Northing at false origin\",6600000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8827]]],CS[Cartesian,2],AXIS[\"easting (X)\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"northing (Y)\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],USAGE[SCOPE[\"Engineering survey, topographic mapping.\"],AREA[\"France - onshore and offshore, mainland and Corsica (France m\u00e9tropolitaine including Corsica).\"],BBOX[41.15,-9.86,51.56,10.38]],ID[\"EPSG\",2154]]",
+          "engine_seed": 0,
+          "mesh_request_hash": "03a55f8d035a03baaa719c8dea430c8344ebaeb65498581342d3e3439aad8b20",
+          "qa": {
+            "n_cells": 434,
+            "area_sum_m2": 372100.0,
+            "domain_area_m2": 372100.0,
+            "area_sum_rel_error": 0.0,
+            "area_quantiles_m2": {
+              "p5": 630.3763116109683,
+              "p50": 843.8615880896998,
+              "p95": 1128.0201286516387,
+              "min": 533.0577480022322,
+              "max": 1410.0288873409895
+            },
+            "size_quantiles_m": {
+              "p5": 25.10729401716429,
+              "p50": 29.04929582777696,
+              "p95": 33.586010907097005
+            },
+            "neighbour_ratio": {
+              "p50": 1.0765675454624266,
+              "p95": 1.216171103899295,
+              "p99": 1.2928838402896747,
+              "max": 1.3304347039438382,
+              "share_gt_1_5": 0.0
+            },
+            "center_offset": {
+              "p50": 3.0444490687487124e-16,
+              "p95": 3.2168110052037144e-15,
+              "max": 5.30608253744782e-15
+            },
+            "nonorthogonality_deg": {
+              "p50": 4.8694914665803495,
+              "p95": 14.227687320904261,
+              "p99": 19.67275004771152,
+              "max": 27.274529950215804,
+              "share_gt_30": 0.0
+            },
+            "bisection_offset": {
+              "p50": 0.048237950564681234,
+              "p95": 0.11220429621659936,
+              "p99": 0.14987669586120167,
+              "max": 0.18502357562181926,
+              "n_cells_gt_0_25": 0.0
+            },
+            "min_angle_deg": {
+              "min": 36.690875783801346,
+              "p1": 37.753672424035244,
+              "p5": 40.660343351055275,
+              "p50": 46.81559177023111,
+              "n_triangles_lt_20": 0.0
+            },
+            "max_angle_deg": {
+              "p50": 72.58947345147001,
+              "p95": 85.99224446797777,
+              "p99": 93.13057189620146,
+              "max": 100.29060288017565
+            },
+            "n_concave_cells": 0,
+            "min_face_length_m": 0.04605164747860214,
+            "n_degenerate_faces": 0,
+            "n_duplicate_vertices_in_cells": 0,
+            "families": {
+              "boundary:west": {
+                "faces": 13.0,
+                "length_m": 610.0
+              },
+              "boundary:east": {
+                "faces": 13.0,
+                "length_m": 610.0
+              },
+              "boundary:south": {
+                "faces": 13.0,
+                "length_m": 610.0
+              },
+              "boundary:north": {
+                "faces": 13.0,
+                "length_m": 610.0
+              }
+            },
+            "declarations": {
+              "graded": true,
+              "exact_faces": true,
+              "deterministic": false,
+              "needs_cache": true
+            },
+            "notes": [
+              "a side head applies to the triangles that have an edge on the side: their centre is the vertex mean, inside the domain"
+            ],
+            "extras": {
+              "side_center_offset_m_p50": 11.52165633581253
+            },
+            "size_fidelity": {
+              "p5": 0.8369098005721429,
+              "p50": 0.9683098609258985,
+              "p95": 1.1195336969032335
+            }
+          },
+          "library_versions": {
+            "gmsh": "4.15.2",
+            "scipy": "1.18.1",
+            "shapely": "2.1.2",
+            "geos": "3.13.1"
+          },
+          "start_index": 0,
+          "n_nodes": 244,
+          "n_cells": 434,
+          "n_layers": 1,
+          "grid_type": "disv",
+          "vertical_layout": "column_fractions"
+        },
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "meta": {
+        "attributes": {
+          "zarr_schema_version": "4",
+          "Conventions": "CF-1.11, ACDD-1.3, UGRID-1.0",
+          "title": "tri",
+          "summary": "HydroModPy distributed groundwater simulation.",
+          "keywords": "groundwater, hydrology, modflow6",
+          "keywords_vocabulary": "GCMD Science Keywords",
+          "id": "1200e1f7-1120-4482-87be-22ac4692943f",
+          "naming_authority": "org.hydromodpy.catalog",
+          "creator_email": "",
+          "creator_institution": "",
+          "creator_url": "",
+          "history": "2026-11-11T13:04:31.651481+00:00: hydromodpy finalize",
+          "source": "HydroModPy 2.1.0.dev0; mf6: 6.6.3 09/29/2025",
+          "references": "",
+          "license": "LicenseRef-undetermined",
+          "comment": "",
+          "date_modified": "2026-11-11T13:04:31.651481+00:00",
+          "metadata_link": "",
+          "publisher_email": "",
+          "publisher_url": "",
+          "standard_name_vocabulary": "CF Standard Name Table v85",
+          "cdm_data_type": "UGRID",
+          "geospatial_lat_units": "degrees_north",
+          "geospatial_lat_resolution": "",
+          "geospatial_lon_units": "degrees_east",
+          "geospatial_lon_resolution": "",
+          "geospatial_vertical_units": "m",
+          "geospatial_vertical_positive": "up",
+          "geospatial_bounds": "",
+          "geospatial_bounds_crs": "EPSG:4326",
+          "time_coverage_duration": "",
+          "time_coverage_resolution": "P1M",
+          "hydromodpy_version": "2.1.0.dev0",
+          "hydromodpy_git_commit": "",
+          "hydromodpy_solver": "modflow6",
+          "hydromodpy_solver_binary_sha256": "e74a30338a0d4a9c128f329f1ec2dae0dd4f755fe3cb3e2670ade32608c02fd3",
+          "hydromodpy_rng_seed": -1,
+          "time_coverage_start": "2003-01-01T00:00:00+00:00",
+          "time_coverage_end": "2003-04-01T00:00:00+00:00"
+        },
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "particles": {
+        "attributes": {},
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "state": {
+        "attributes": {},
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "time": {
+        "shape": [
+          3
+        ],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              3
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "units": "seconds since 1970-01-01T00:00:00Z",
+          "calendar": "proleptic_gregorian",
+          "standard_name": "time",
+          "long_name": "Simulation time",
+          "axis": "T"
+        },
+        "dimension_names": [
+          "time"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "budget/constant_head": {
+        "shape": [
+          3,
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              3,
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 8,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "bitshuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Flux across constant-head cells (positive enters the aquifer)",
+          "units": "m3 s-1",
+          "cell_methods": "time: mean area: mean",
+          "coordinates": "time layer face",
+          "csdms_standard_name": "subsurface_water__constant_head_volume_flux",
+          "sign_convention": "positive enters the aquifer, negative leaves it",
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "time",
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "budget/drain": {
+        "shape": [
+          3,
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              3,
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 8,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "bitshuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Groundwater flux to drains (negative leaves the aquifer)",
+          "units": "m3 s-1",
+          "cell_methods": "time: mean area: mean",
+          "coordinates": "time layer face",
+          "csdms_standard_name": "subsurface_water__drain_volume_flux",
+          "sign_convention": "positive enters the aquifer, negative leaves it",
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "time",
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "budget/recharge": {
+        "shape": [
+          3,
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              3,
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 8,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "bitshuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Groundwater recharge volumetric flux (positive enters the aquifer)",
+          "units": "m3 s-1",
+          "cell_methods": "time: mean area: mean",
+          "coordinates": "time layer face",
+          "csdms_standard_name": "subsurface_water__recharge_volume_flux",
+          "sign_convention": "positive enters the aquifer, negative leaves it",
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "time",
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "budget/storage_ss": {
+        "shape": [
+          3,
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              3,
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 8,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "bitshuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Specific-storage term of the cell water balance (MODFLOW 6, positive enters the aquifer from storage)",
+          "units": "m3 s-1",
+          "cell_methods": "time: mean area: mean",
+          "coordinates": "time layer face",
+          "csdms_standard_name": "subsurface_water__specific_storage_volume_flux",
+          "sign_convention": "positive enters the aquifer, negative leaves it",
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "time",
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "budget/storage_sy": {
+        "shape": [
+          3,
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              3,
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": "NaN",
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 8,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "bitshuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Specific-yield term of the cell water balance (MODFLOW 6, positive enters the aquifer from storage)",
+          "units": "m3 s-1",
+          "cell_methods": "time: mean area: mean",
+          "coordinates": "time layer face",
+          "csdms_standard_name": "subsurface_water__specific_yield_volume_flux",
+          "sign_convention": "positive enters the aquifer, negative leaves it",
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "time",
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "derived/hydraulic_conductivity": {
+        "shape": [
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Saturated hydraulic conductivity",
+          "units": "m s-1",
+          "cell_methods": "area: mean",
+          "coordinates": "layer face",
+          "csdms_standard_name": "subsurface_water__hydraulic_conductivity",
+          "valid_min": 0.0,
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "derived/hydraulic_conductivity_k33": {
+        "shape": [
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Hydraulic conductivity along the third axis of the K tensor, vertical when the tensor is not tilted (MODFLOW 6 K33)",
+          "units": "m s-1",
+          "cell_methods": "area: mean",
+          "coordinates": "layer face",
+          "csdms_standard_name": "subsurface_water__hydraulic_conductivity_third_axis",
+          "valid_min": 0.0,
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "derived/specific_storage": {
+        "shape": [
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Specific storage (confined storage coefficient)",
+          "units": "m-1",
+          "cell_methods": "area: mean",
+          "coordinates": "layer face",
+          "csdms_standard_name": "subsurface_water__specific_storage_coefficient",
+          "valid_min": 0.0,
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "derived/specific_yield": {
+        "shape": [
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Specific yield (unconfined storage coefficient)",
+          "units": "1",
+          "cell_methods": "area: mean",
+          "coordinates": "layer face",
+          "csdms_standard_name": "subsurface_water__specific_yield",
+          "valid_min": 0.0,
+          "valid_max": 1.0,
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "forcing/oceanic": {
+        "attributes": {},
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "geographic/watershed_dem": {
+        "shape": [
+          31,
+          31
+        ],
+        "data_type": "float32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              31,
+              31
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": -9999.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "blosc",
+            "configuration": {
+              "typesize": 4,
+              "cname": "zstd",
+              "clevel": 5,
+              "shuffle": "bitshuffle",
+              "blocksize": 0
+            }
+          }
+        ],
+        "attributes": {
+          "transform": [
+            19.677419354838708,
+            0.0,
+            0.0,
+            0.0,
+            -19.677419354838708,
+            610.0
+          ],
+          "crs": "EPSG:2154",
+          "nodata": -9999.0,
+          "shape": [
+            31,
+            31
+          ],
+          "missing_value": -9999.0,
+          "grid_mapping": "watershed_dem_crs"
+        },
+        "dimension_names": [
+          "watershed_dem_y",
+          "watershed_dem_x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "geographic/watershed_dem_crs": {
+        "shape": [],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": []
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "crs_wkt": "PROJCRS[\"RGF93 v1 / Lambert-93\",BASEGEOGCRS[\"RGF93 v1\",DATUM[\"Reseau Geodesique Francais 1993 v1\",ELLIPSOID[\"GRS 1980\",6378137,298.257222101,LENGTHUNIT[\"metre\",1]]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",4171]],CONVERSION[\"Lambert-93\",METHOD[\"Lambert Conic Conformal (2SP)\",ID[\"EPSG\",9802]],PARAMETER[\"Latitude of false origin\",46.5,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8821]],PARAMETER[\"Longitude of false origin\",3,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8822]],PARAMETER[\"Latitude of 1st standard parallel\",49,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Latitude of 2nd standard parallel\",44,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8824]],PARAMETER[\"Easting at false origin\",700000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8826]],PARAMETER[\"Northing at false origin\",6600000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8827]]],CS[Cartesian,2],AXIS[\"easting (X)\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"northing (Y)\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],USAGE[SCOPE[\"Engineering survey, topographic mapping.\"],AREA[\"France - onshore and offshore, mainland and Corsica (France m\u00e9tropolitaine including Corsica).\"],BBOX[41.15,-9.86,51.56,10.38]],ID[\"EPSG\",2154]]",
+          "semi_major_axis": 6378137.0,
+          "semi_minor_axis": 6356752.314140356,
+          "inverse_flattening": 298.257222101,
+          "reference_ellipsoid_name": "GRS 1980",
+          "longitude_of_prime_meridian": 0.0,
+          "prime_meridian_name": "Greenwich",
+          "geographic_crs_name": "RGF93 v1",
+          "horizontal_datum_name": "Reseau Geodesique Francais 1993 v1",
+          "projected_crs_name": "RGF93 v1 / Lambert-93",
+          "grid_mapping_name": "lambert_conformal_conic",
+          "standard_parallel": [
+            49.0,
+            44.0
+          ],
+          "latitude_of_projection_origin": 46.5,
+          "longitude_of_central_meridian": 3.0,
+          "false_easting": 700000.0,
+          "false_northing": 6600000.0
+        },
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "geographic/watershed_dem_x": {
+        "shape": [
+          31
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              31
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "standard_name": "projection_x_coordinate",
+          "units": "m",
+          "long_name": "x coordinate of the pixel centre of watershed_dem",
+          "axis": "X"
+        },
+        "dimension_names": [
+          "watershed_dem_x"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "geographic/watershed_dem_y": {
+        "shape": [
+          31
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              31
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "standard_name": "projection_y_coordinate",
+          "units": "m",
+          "long_name": "y coordinate of the pixel centre of watershed_dem",
+          "axis": "Y"
+        },
+        "dimension_names": [
+          "watershed_dem_y"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/descent_base_level": {
+        "shape": [
+          434
+        ],
+        "data_type": "bool",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": false,
+        "codecs": [
+          {
+            "name": "bytes"
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Seeds of the descent"
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/descent_basin": {
+        "shape": [
+          434
+        ],
+        "data_type": "bool",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": false,
+        "codecs": [
+          {
+            "name": "bytes"
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Basin of the descent at the catchment outlet",
+          "descent_outlet": 32,
+          "basin_rule": "largest_basin",
+          "basin_area_m2": 13790.370157756213,
+          "basin_seeded_at_outlet": false,
+          "basin_version": 1
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/descent_channel": {
+        "shape": [
+          434
+        ],
+        "data_type": "bool",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": false,
+        "codecs": [
+          {
+            "name": "bytes"
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Cells of the channel tree"
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/descent_constant_head": {
+        "shape": [
+          434
+        ],
+        "data_type": "bool",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": false,
+        "codecs": [
+          {
+            "name": "bytes"
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Constant-head cells, where water leaves the model"
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/descent_dam_foot": {
+        "shape": [
+          0
+        ],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              1
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Cells below the dams, where the stream under a lake starts"
+        },
+        "dimension_names": [
+          "record"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/descent_pinned": {
+        "shape": [
+          434
+        ],
+        "data_type": "bool",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": false,
+        "codecs": [
+          {
+            "name": "bytes"
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Cells draining to their pin"
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/descent_raised": {
+        "shape": [
+          434
+        ],
+        "data_type": "bool",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": false,
+        "codecs": [
+          {
+            "name": "bytes"
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Cells the descent raised"
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/descent_receiver": {
+        "shape": [
+          434
+        ],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Receiver cell of the descent",
+          "adjacency": "shared_faces",
+          "epsilon": 0.001,
+          "n_raised": 0,
+          "n_lake_flooded": 0,
+          "n_pinned_raised": 0,
+          "n_channel": 0,
+          "n_pinned": 0,
+          "max_raise_m": 0.0,
+          "max_lake_flood_m": 0.0,
+          "max_pinned_raise_m": 0.0
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/descent_surface": {
+        "shape": [
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Filled surface of the descent"
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/edge_face_connectivity": {
+        "shape": [
+          677,
+          2
+        ],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              677,
+              2
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "cf_role": "edge_face_connectivity",
+          "long_name": "Mapping from every edge to the cells on its two sides, -1 at the boundary",
+          "start_index": 0,
+          "_FillValue": -1
+        },
+        "dimension_names": [
+          "edge",
+          "two"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/edge_family": {
+        "shape": [
+          677
+        ],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              677
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Face families each mesh edge lies on",
+          "flag_masks": [
+            1,
+            2,
+            4,
+            8
+          ],
+          "flag_meanings": "boundary_west boundary_east boundary_south boundary_north",
+          "family_names": [
+            "boundary:west",
+            "boundary:east",
+            "boundary:south",
+            "boundary:north"
+          ]
+        },
+        "dimension_names": [
+          "edge"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/edge_node_connectivity": {
+        "shape": [
+          677,
+          2
+        ],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              677,
+              2
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "cf_role": "edge_node_connectivity",
+          "long_name": "Mapping from every edge to its two end nodes",
+          "start_index": 0,
+          "_FillValue": -1
+        },
+        "dimension_names": [
+          "edge",
+          "two"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/face_family": {
+        "shape": [
+          434
+        ],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Line families each cell belongs to",
+          "flag_masks": [
+            1,
+            2,
+            4,
+            8
+          ],
+          "flag_meanings": "boundary_west boundary_east boundary_south boundary_north",
+          "family_names": [
+            "boundary:west",
+            "boundary:east",
+            "boundary:south",
+            "boundary:north"
+          ]
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/face_node_connectivity": {
+        "shape": [
+          434,
+          3
+        ],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434,
+              3
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "cf_role": "face_node_connectivity",
+          "long_name": "Mapping from every face to its corner nodes",
+          "start_index": 0,
+          "_FillValue": -1
+        },
+        "dimension_names": [
+          "face",
+          "max_face_nodes"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/face_x": {
+        "shape": [
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "standard_name": "projection_x_coordinate",
+          "long_name": "x coordinate of the cell centre",
+          "units": "m",
+          "center_kind": "vertex_mean"
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/face_y": {
+        "shape": [
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "standard_name": "projection_y_coordinate",
+          "long_name": "y coordinate of the cell centre",
+          "units": "m",
+          "center_kind": "vertex_mean"
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/idomain": {
+        "shape": [
+          1,
+          434
+        ],
+        "data_type": "int8",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes"
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Cell activity of the layered model: 1 active, 0 inactive, -1 pass-through",
+          "units": "1",
+          "cell_methods": "area: point",
+          "coordinates": "layer face",
+          "csdms_standard_name": "subsurface_layer__activity_indicator",
+          "valid_min": -1.0,
+          "valid_max": 1.0,
+          "mesh": "mesh/topology",
+          "location": "face",
+          "_FillValue": -128,
+          "missing_value": -128,
+          "flag_values": [
+            -1,
+            0,
+            1
+          ],
+          "flag_meanings": "pass_through inactive active"
+        },
+        "dimension_names": [
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/layer_thickness": {
+        "shape": [
+          1,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              1,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Layer thickness at mesh faces",
+          "units": "m",
+          "cell_methods": "area: mean",
+          "coordinates": "layer face",
+          "standard_name": "cell_thickness",
+          "csdms_standard_name": "subsurface_layer__thickness",
+          "valid_min": 0.0,
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "layer",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/node_x": {
+        "shape": [
+          244
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              244
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "standard_name": "projection_x_coordinate",
+          "long_name": "x coordinate of the mesh node",
+          "units": "m"
+        },
+        "dimension_names": [
+          "node"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/node_y": {
+        "shape": [
+          244
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              244
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "standard_name": "projection_y_coordinate",
+          "long_name": "y coordinate of the mesh node",
+          "units": "m"
+        },
+        "dimension_names": [
+          "node"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/open_water": {
+        "shape": [
+          434
+        ],
+        "data_type": "bool",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": false,
+        "codecs": [
+          {
+            "name": "bytes"
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Cells whose surface-water extent is an input of the model"
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/topography": {
+        "shape": [
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Land surface elevation at mesh faces",
+          "units": "m",
+          "cell_methods": "area: mean",
+          "coordinates": "face",
+          "standard_name": "surface_altitude",
+          "csdms_standard_name": "land_surface__elevation",
+          "mesh": "mesh/topology",
+          "location": "face"
+        },
+        "dimension_names": [
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/topology": {
+        "shape": [],
+        "data_type": "int32",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": []
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "cf_role": "mesh_topology",
+          "long_name": "UGRID 2D topology of the simulation mesh",
+          "topology_dimension": 2,
+          "node_coordinates": "node_x node_y",
+          "face_node_connectivity": "face_node_connectivity",
+          "face_coordinates": "face_x face_y",
+          "edge_node_connectivity": "edge_node_connectivity",
+          "edge_face_connectivity": "edge_face_connectivity",
+          "face_dimension": "face",
+          "edge_dimension": "edge"
+        },
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/vertices": {
+        "shape": [
+          244,
+          3
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              244,
+              3
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Mesh node coordinates (x, y, z)",
+          "units": "m",
+          "cf_role": "mesh_node_coordinates"
+        },
+        "dimension_names": [
+          "node",
+          "node_coordinate"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "mesh/z_interfaces": {
+        "shape": [
+          2,
+          434
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              2,
+              434
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "long_name": "Altitude of layer interfaces",
+          "units": "m",
+          "standard_name": "altitude",
+          "positive": "up"
+        },
+        "dimension_names": [
+          "layer_interface",
+          "face"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "forcing/oceanic/constant": {
+        "attributes": {
+          "unit": "m",
+          "source": "constant",
+          "n_records": 90
+        },
+        "zarr_format": 3,
+        "consolidated_metadata": {
+          "kind": "inline",
+          "must_understand": false,
+          "metadata": {}
+        },
+        "node_type": "group"
+      },
+      "forcing/oceanic/constant/timestamps": {
+        "shape": [
+          90
+        ],
+        "data_type": "int64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              90
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "units": "nanoseconds since 1970-01-01T00:00:00",
+          "calendar": "proleptic_gregorian",
+          "standard_name": "time",
+          "long_name": "Timestamps for oceanic",
+          "axis": "T"
+        },
+        "dimension_names": [
+          "record"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      },
+      "forcing/oceanic/constant/values": {
+        "shape": [
+          90
+        ],
+        "data_type": "float64",
+        "chunk_grid": {
+          "name": "regular",
+          "configuration": {
+            "chunk_shape": [
+              90
+            ]
+          }
+        },
+        "chunk_key_encoding": {
+          "name": "default",
+          "configuration": {
+            "separator": "/"
+          }
+        },
+        "fill_value": 0.0,
+        "codecs": [
+          {
+            "name": "bytes",
+            "configuration": {
+              "endian": "little"
+            }
+          },
+          {
+            "name": "zstd",
+            "configuration": {
+              "level": 0,
+              "checksum": false
+            }
+          }
+        ],
+        "attributes": {
+          "units": "m",
+          "long_name": "Forcing values for oceanic",
+          "source": "constant"
+        },
+        "dimension_names": [
+          "record"
+        ],
+        "zarr_format": 3,
+        "node_type": "array",
+        "storage_transformers": []
+      }
+    }
+  },
+  "node_type": "group"
+}

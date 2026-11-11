@@ -13,12 +13,9 @@ from hydromodpy.core.state.portable import (
     cache_dir,
     decode_workspace_path,
     encode_workspace_path,
-    from_workspace_relative,
-    is_under_workspace,
     resolve_workspace,
     state_dir,
     to_workspace_relative,
-    to_workspace_uri,
 )
 
 
@@ -41,24 +38,6 @@ def test_to_workspace_relative_rejects_outsider(tmp_path: Path):
 
     with pytest.raises(ValueError, match="is not under workspace"):
         to_workspace_relative(ws, other)
-
-
-def test_from_workspace_relative_rebuilds_absolute_path(tmp_path: Path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    abs_path = from_workspace_relative(ws, "data/dem/raw/file.tif")
-    assert abs_path == ws.resolve() / "data" / "dem" / "raw" / "file.tif"
-
-
-def test_is_under_workspace_truth_table(tmp_path: Path):
-    ws = tmp_path / "ws"
-    inside = ws / "x" / "y"
-    inside.parent.mkdir(parents=True)
-    inside.touch()
-    outside = tmp_path / "other.txt"
-    outside.touch()
-    assert is_under_workspace(ws, inside) is True
-    assert is_under_workspace(ws, outside) is False
 
 
 def test_encode_workspace_path_prefers_workspace_relative(tmp_path: Path):
@@ -135,14 +114,6 @@ def test_decode_workspace_path_with_absolute_input_returns_itself(tmp_path: Path
     abs_path.parent.mkdir(parents=True)
     abs_path.touch()
     assert decode_workspace_path(ws, str(abs_path)) == abs_path.resolve()
-
-
-def test_to_workspace_uri_is_file_scheme(tmp_path: Path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    uri = to_workspace_uri(ws)
-    assert uri.startswith("file://")
-    assert resolve_workspace(uri) == ws.resolve()
 
 
 def test_resolve_workspace_rejects_non_local_uri():

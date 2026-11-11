@@ -30,7 +30,7 @@ from hydromodpy.core.exceptions import (
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.scratch import preprocessing_dir
-from hydromodpy.core.time import resolve_simulation_time_window_dates
+from hydromodpy.core.time.window import resolve_simulation_time_window_dates
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, VariableSpec
 from hydromodpy.data.loading.plan import DataLoadPlan
@@ -404,7 +404,7 @@ class DataLoader:
         type_name: str,
         detail: str,
     ) -> None:
-        message = f"Data manager '{type_name}' is active but {detail}."
+        message = f"Data variable '{type_name}' is active but {detail}."
         if self._is_required_data_type(result, type_name):
             raise ConfigMissingError(message)
         logger.warning("%s The run goes on without '%s'.", message, type_name)
@@ -415,7 +415,7 @@ class DataLoader:
         type_name: str,
         exc: Exception,
     ) -> None:
-        message = f"Failed to load data manager '{type_name}': {exc}"
+        message = f"Failed to load data variable '{type_name}': {exc}"
         if self._is_required_data_type(result, type_name):
             raise _typed_load_failure(message, exc) from exc
         logger.warning("%s The run goes on without '%s'.", message, type_name)
@@ -469,12 +469,6 @@ class DataLoader:
             return
         section["date_start"], section["date_end"] = simulation_dates
 
-    def _resolve_path_like(self, value: Any) -> Path:
-        path = Path(str(value)).expanduser()
-        if not path.is_absolute():
-            path = (self.config_path.parent / path).resolve()
-        return path
-
     def _workspace_paths(self, result: WorkflowContext) -> WorkspacePathRegistry:
         workspace = result.setup.workspace
         if workspace is None:
@@ -482,23 +476,6 @@ class DataLoader:
         if hasattr(workspace, "paths"):
             return workspace.paths
         return WorkspacePathRegistry.from_config(result.cfg.workspace)
-
-    def _resolve_manager_input_path(
-        self,
-        *,
-        section: Mapping[str, Any] | None,
-        keys: tuple[str, ...],
-        default_root: Path | None,
-    ) -> Path | None:
-        """Resolve one manager input path with section-override precedence."""
-        if section is not None:
-            for key in keys:
-                raw_value = section.get(key)
-                if isinstance(raw_value, str) and raw_value.strip():
-                    return self._resolve_path_like(raw_value)
-        if default_root is None:
-            return None
-        return Path(default_root)
 
     @staticmethod
     def _as_string_list(value: Any) -> list[str]:

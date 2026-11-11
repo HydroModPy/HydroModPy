@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.state.layout import catalog_path_for, runs_dir_for
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 

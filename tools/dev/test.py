@@ -11,7 +11,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_USAGE, refuse
+from hydromodpy.cli.exit_codes import EXIT_USAGE, refuse
 
 NAME: str = "test"
 HELP: str = "Run unit, regression, or validation tests"

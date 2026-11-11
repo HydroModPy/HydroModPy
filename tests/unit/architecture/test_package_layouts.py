@@ -96,6 +96,11 @@ def _unit(module: str) -> str:
     return parts[2] if len(parts) > 2 else "<init>"
 
 
+def _is_part(unit: str, name: str) -> bool:
+    """Whether *unit* is the part *name* or one of its modules cut by concept (``name_*``)."""
+    return unit == name or unit.startswith(name + "_")
+
+
 def _relative(edge) -> str:
     return pathlib.Path(edge.src_file).relative_to(REPO_ROOT).as_posix()
 
@@ -263,11 +268,11 @@ def test_no_module_sits_at_the_root_of_data() -> None:
 
 
 def _data_variable(module: str) -> str | None:
-    """The variable package a module belongs to, or None outside one."""
+    """The variable package or family module a module belongs to, or None outside one."""
     parts = module.split(".")
     if len(parts) > 3 and parts[2] == "variables":
         candidate = _root("data") / "variables" / parts[3]
-        return parts[3] if candidate.is_dir() else None
+        return parts[3] if candidate.is_dir() or candidate.with_suffix(".py").is_file() else None
     return None
 
 
@@ -279,6 +284,30 @@ def test_a_variable_never_imports_another_variable() -> None:
         if src_var and tgt_var and src_var != tgt_var:
             offenders.append(_describe(edge))
     assert not offenders, "one variable imports another:\n  " + "\n  ".join(offenders)
+
+
+def test_a_family_module_is_one_the_registry_names() -> None:
+    """A thin family is a flat module of ``variables/`` that ``VARIABLE_SPECS`` points to.
+
+    The module of a family is a unit like a variable folder: the test above holds
+    it apart from every variable, and this one holds the flat modules equal to the
+    ones the registry names, so a stray module cannot sit there unseen.
+    """
+    from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
+
+    on_disk = {
+        path.stem for path in (_root("data") / "variables").glob("*.py") if path.stem != "__init__"
+    }
+    named = {
+        module.split(".")[3]
+        for spec in VARIABLE_SPECS.values()
+        for module in (spec.config_module, spec.variable_module)
+        if module.count(".") == 3
+    }
+    assert on_disk == named, (
+        f"flat modules of data/variables and the registry disagree: on disk {sorted(on_disk)}, "
+        f"in VARIABLE_SPECS {sorted(named)}"
+    )
 
 
 def _builtin_targets(registry_module) -> set[str]:
@@ -329,12 +358,12 @@ def test_config_reads_the_upper_parts_only_inside_its_validators() -> None:
     offenders = [
         _describe(edge)
         for edge in _package_edges("calibration")
-        if _unit(_src_module(edge)) == "config"
+        if _is_part(_unit(_src_module(edge)), "config")
         and _unit(edge.target_module) in {"criteria", "evaluation", "optim"}
         and not edge.in_function
     ]
     assert not offenders, (
-        "config.py imports criteria, evaluation or optim outside a function "
+        "config.py or a config_*.py imports criteria, evaluation or optim outside a function "
         "(so outside a validator):\n  " + "\n  ".join(offenders)
     )
 
@@ -372,7 +401,7 @@ def test_preflight_reads_the_other_parts_only_inside_its_checks() -> None:
     offenders = [
         _describe(edge)
         for edge in _package_edges("calibration")
-        if _unit(_src_module(edge)) == "preflight"
+        if _is_part(_unit(_src_module(edge)), "preflight")
         and _unit(edge.target_module)
         in {
             "criteria",
@@ -386,7 +415,7 @@ def test_preflight_reads_the_other_parts_only_inside_its_checks() -> None:
         and not edge.in_function
     ]
     assert not offenders, (
-        "preflight.py imports another part outside a function (so outside a "
+        "preflight.py or a preflight_*.py imports another part outside a function (so outside a "
         "check):\n  " + "\n  ".join(offenders)
     )
 

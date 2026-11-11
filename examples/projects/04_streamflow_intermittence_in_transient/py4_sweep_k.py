@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 import hydromodpy as hmp
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
 HERE = Path(__file__).resolve().parent
 

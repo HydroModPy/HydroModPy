@@ -14,13 +14,13 @@ from hydromodpy.catchment.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.fields.grid_reference import GridReference
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.layering import (
     assert_bottom_below_top,
     coerce_vertical_config,
     layer_stack,
 )
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
-from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig, TopSamplingConfig
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_grid.top_sampling import (
@@ -49,7 +49,7 @@ logger = get_logger(__name__)
 
 def resolve_domain_surfaces(
     *,
-    domain: DomainLike,
+    domain: Domain,
 ) -> tuple[Surface, Surface]:
     """Return the top and substratum surfaces used by spatial gridding.
 
@@ -73,7 +73,7 @@ def resolve_domain_surfaces(
 
 def resolve_layer_bases(
     *,
-    domain: DomainLike,
+    domain: Domain,
     vertical_config: VerticalGridConfig | None,
 ) -> dict[str, Surface]:
     """Return the base surfaces the layering reads, by name, from ``domain.layer_bases``.
@@ -462,7 +462,7 @@ def _build_structured_solver_mesh(
 
 def build_spatial_discretization(
     *,
-    domain: DomainLike,
+    domain: Domain,
     vertical_config: VerticalGridConfig | None,
     sgrid_config: SolverSGridConfig | None,
     cell_mesh: PlanarCellMesh,

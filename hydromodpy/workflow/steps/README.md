@@ -11,7 +11,7 @@ functions and a `*Step` class that adapts them to the `Step` protocol
 Inside the package, `steps/` imports `record`, `state`, `step` and `runner`. Nothing
 in `record/`, `state.py` or `step.py` imports `steps`. A step never opens the index of
 the project; it writes through `run_store(ctx)`. Its `reads`, `writes` and
-`config_sections` are exact (checked by `tests/unit/architecture/test_step_payload_keys.py`).
+`config_sections` are exact (checked by `tests/unit/architecture/test_run_path.py`).
 
 ## Modules
 

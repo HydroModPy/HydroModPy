@@ -100,7 +100,7 @@ def test_project_constructor_validates_dict(
     tmp_path: Path,
     stub_project_phases: dict,
 ) -> None:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.project.facade import Project
 
     payload = _build_payload(tmp_path)
@@ -126,7 +126,7 @@ def test_project_constructor_validates_json_string(
     tmp_path: Path,
     stub_project_phases: dict,
 ) -> None:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.project.facade import Project
 
     payload = json.dumps(_build_payload(tmp_path))
@@ -139,7 +139,7 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
     monkeypatch,
     stub_project_phases: dict,
 ) -> None:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.project.facade import Project
 
     cfg = object()

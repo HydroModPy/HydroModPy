@@ -110,14 +110,15 @@ def test_with_data_merges_without_moving_the_step_position() -> None:
 
 
 def _step_classes() -> dict[str, type]:
-    import hydromodpy.workflow.steps as steps
+    from hydromodpy.workflow.steps.sequence import standard_steps
 
-    return {name: getattr(steps, name) for name in ALL_STEPS}
+    built = {type(step).__name__: type(step) for step in standard_steps()}
+    return {name: built[name] for name in ALL_STEPS}
 
 
 @pytest.mark.parametrize("step_name", ALL_STEPS)
 def test_a_step_exposes_its_payload_keys_at_runtime(step_name: str) -> None:
-    """The runtime half of ``tests/unit/architecture/test_step_payload_keys.py``.
+    """The runtime half of ``tests/unit/architecture/test_run_path.py``.
 
     That gate reads the source; this one reads the built class, so a declaration
     that the AST sees but Python does not - shadowed, or left on a base class -

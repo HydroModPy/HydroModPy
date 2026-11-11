@@ -26,13 +26,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from hydromodpy.calibration import (
-    CalibParameter,
-    CalibrationEngine,
-    CompositeObjective,
-    ParameterSpace,
-    SimulationOutput,
-)
+from hydromodpy.calibration.optim.engine import CalibrationEngine
+from hydromodpy.calibration.optim.objective import CompositeObjective, SimulationOutput
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from validation_cases.calibration.shared.standalone import build_standalone_calibration
 
 # ---------------------------------------------------------------------------

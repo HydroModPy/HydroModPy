@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog import rebuild_index
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.session.journal import append_trial
 from tests._helpers.sealed_runs import make_project, seal_run, write_session_dir
 from tests._helpers.session_documents import trial_line

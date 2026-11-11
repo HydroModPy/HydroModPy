@@ -10,7 +10,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class WaterBudget(BaseFigure):

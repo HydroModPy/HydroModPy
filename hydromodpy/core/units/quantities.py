@@ -16,6 +16,8 @@ from collections.abc import Mapping
 from functools import partial
 from numbers import Real
 
+import numpy as np
+
 from hydromodpy.core.units.scalar import canonical_unit_token, parse_scalar_and_unit
 
 SECONDS_PER_DAY = 86400.0
@@ -254,6 +256,20 @@ factor_to_m = partial(factor_to_si, "length")
 convert_to_m = partial(convert_to_si, "length")
 convert_payload_to_m = partial(convert_payload_to_si, "length")
 parse_to_m = partial(parse_to_si, "length", default_unit="m")
+
+
+def coerce_length_series_to_m(*, values: object, units: object, label: str) -> np.ndarray:
+    """Convert one length payload to a float array in meters."""
+    source_units = normalize_length_unit(str(units).strip() or "m")
+    return np.asarray(convert_payload_to_m(values, unit=source_units, label=label), dtype=float)
+
+
+def forcing_units(forcing: object, *, fallback: object) -> object:
+    """Return the units field of one forcing object or mapping."""
+    if isinstance(forcing, Mapping):
+        return forcing.get("units", fallback)
+    return getattr(forcing, "units", fallback)
+
 
 M_PER_S_CANONICAL_UNITS = tuple(QUANTITIES["hydraulic_conductivity"][2])
 normalize_m_per_s_unit = partial(normalize_unit, "hydraulic_conductivity")

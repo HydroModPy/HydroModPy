@@ -17,7 +17,6 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.state.scratch import SCRATCH_ROOT_ENV, run_scratch
-from hydromodpy.project.launch import plan_project, run_plan
 from hydromodpy.project.launch.env import (
     THREAD_LIMIT_VARIABLES,
     THREADS_ENV,
@@ -25,6 +24,7 @@ from hydromodpy.project.launch.env import (
     child_environment,
     threads_of,
 )
+from hydromodpy.project.launch.local import plan_project, run_plan
 from tests.unit.project.launch._launch_fakes import CASES, seen, write_project
 
 

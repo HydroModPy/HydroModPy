@@ -8,7 +8,8 @@ from typing import Annotated
 import pytest
 from pydantic import BaseModel, Field
 
-from hydromodpy.core.tracking import InputFile, collect_input_files
+from hydromodpy.core.tracking.input_file import InputFile
+from hydromodpy.core.tracking.walker import collect_input_files
 
 
 class _Source(BaseModel):
@@ -176,7 +177,7 @@ def test_walker_on_real_hydromodpy_config_annotations() -> None:
 
 def test_walker_on_real_substratum_source_annotations() -> None:
     """The substratum raster is tracked as geometry under its own role."""
-    from hydromodpy.data.variables.substratum.config import FileSubstratumSource
+    from hydromodpy.data.variables.user_rasters import FileSubstratumSource
 
     field_info = FileSubstratumSource.model_fields["path"]
     markers = [m for m in field_info.metadata if isinstance(m, InputFile)]

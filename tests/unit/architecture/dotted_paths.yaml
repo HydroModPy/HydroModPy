@@ -1,4 +1,4 @@
-# What test_dotted_paths.py allows. The gate reads every dotted path written as a
+# What test_layers.py allows. The gate reads every dotted path written as a
 # string in a known place and resolves it on disk. This file lists the strings that
 # look like a module path and are not one, and the ones that point at nothing today.
 
@@ -37,32 +37,32 @@ not_modules:
     - {text: hydromodpy.data.registry.freeze, why: a module retired with the data cache database, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.crossings.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.dem.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.etp.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.etp.manager, why: the package folded into forcing_series.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.geology.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.humidity.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.humidity.manager, why: the package folded into sim2_series.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.hydrography.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.hydrometry.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.intermittency.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.lake_abacus.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.lake_bathymetry.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.lake_geometry.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.lake_inflow.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.lake_levels.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.lake_outflow.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.lake_withdrawal.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.layer_base.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.lake_inflow.manager, why: the package folded into lake_series.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.lake_levels.manager, why: the package folded into lake_series.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.lake_outflow.manager, why: the package folded into lake_series.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.lake_withdrawal.manager, why: the package folded into lake_series.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.layer_base.manager, why: the package folded into user_rasters.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.oceanic.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.piezometry.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.precipitation.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.radiation.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.precipitation.manager, why: the package folded into forcing_series.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.radiation.manager, why: the package folded into forcing_series.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.recharge.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.runoff.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.soil_capacity.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.soil_moisture.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.substratum.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.temperature.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.runoff.manager, why: the package folded into sim2_series.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.soil_capacity.manager, why: the package folded into user_rasters.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.soil_moisture.manager, why: the package folded into sim2_series.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.substratum.manager, why: the package folded into user_rasters.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.temperature.manager, why: the package folded into sim2_series.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.data.variables.water_quality.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
-    - {text: hydromodpy.data.variables.wind.manager, why: the module renamed variable.py, kept as a refused name of hydromodpy.project.old_paths}
+    - {text: hydromodpy.data.variables.wind.manager, why: the package folded into sim2_series.py, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.project.lock, why: a module retired with the data cache database, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.display.calibration_report, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy.project.old_paths}
     - {text: hydromodpy.display.catchment_report, why: a module retired when the report engine replaced it, kept as a refused name of hydromodpy.project.old_paths}

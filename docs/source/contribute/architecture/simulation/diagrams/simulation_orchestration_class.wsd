@@ -81,7 +81,6 @@ package "hydromodpy.solver.base" {
 }
 
 package "hydromodpy.model" {
-  class ProcessSpatial
   class Flow
   class Model <<frozen>> {
     +geometry
@@ -130,7 +129,6 @@ SimulationRunner ..> RunSlot : fills one per run
 SolverRun *-- RunSlot
 SolverRun ..> Model : the Model of its run,\nthe flow's own for a transport
 
-Flow --|> ProcessSpatial
 
 SolverAdapter <|.. ModflowNwtFlowAdapter
 SolverAdapter <|.. Modflow6FlowAdapter

@@ -27,16 +27,17 @@ from hydromodpy.core.budget.flux import first_finite_layer, seepage_mask
 from hydromodpy.core.exceptions import ConfigError, SolverDivergedError, SolverInputError
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
+from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.transport.transport_config import ModpathParametersConfig
 from hydromodpy.results.field_registry import FACE_FLOW
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
-from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike
 from hydromodpy.solver.base.registry import extractors
-from hydromodpy.solver.modflow_common import ensure_solver_binary
+from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import nwt_safe_name
+from hydromodpy.solver.modflow_common.flow_run import nwt_safe_name
+from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 
 from ._pre_processing import (
     attach_starting_locations,
@@ -72,9 +73,9 @@ class Modpath:
 
     def __init__(
         self,
-        domain: DomainLike,
+        domain: Domain,
         params: Mapping[str, object] | None = None,
-        model_modflow: FlowModelLike | None = None,
+        model_modflow: ModflowNwt | None = None,
         # Workflow settings
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modpath",

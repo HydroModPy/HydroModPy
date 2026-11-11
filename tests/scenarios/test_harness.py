@@ -1,4 +1,4 @@
-"""The harness without a solver run: the factory, the environment and the launcher."""
+"""The harness without a solver run: the scenario list, factory, environment and launcher."""
 
 from __future__ import annotations
 
@@ -7,6 +7,10 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.catchment.terrain.registry import terrain_engines
+from hydromodpy.mesh.registry import mesh_engines
+from hydromodpy.results.exporters.registry import export_formats
+from hydromodpy.solver.base.registry import solvers
 from tests.scenarios.factory import (
     ISLAND_VARIANTS,
     files_digest,
@@ -23,6 +27,107 @@ from tests.scenarios.launcher import (
 )
 
 pytestmark = pytest.mark.fast
+
+HERE = Path(__file__).resolve().parent
+
+# The twenty-eight scenarios, in the order of what they cover. A new scenario
+# file gets its line here.
+SCENARIOS: tuple[str, ...] = (
+    "test_backends_write_what_they_declare.py",
+    "test_transport_chains.py",
+    "test_initial_states.py",
+    "test_the_global_backend.py",
+    "test_lakes_rivers_and_wells_write_their_series.py",
+    "test_terrain_comes_from_the_store.py",
+    "test_products_come_from_the_store.py",
+    "test_url_source_fills_the_cache.py",
+    "test_the_data_cache_is_its_sidecars.py",
+    "test_call_environment.py",
+    "test_a_document_is_checked_as_it_is_written.py",
+    "test_an_older_file_loads_through_the_register.py",
+    "test_a_request_is_played_once.py",
+    "test_a_run_stops_resumes_and_chains.py",
+    "test_a_run_replays_and_is_classed.py",
+    "test_exports_are_delivered.py",
+    "test_a_run_exports_every_format.py",
+    "test_a_calibration_reruns_its_trials.py",
+    "test_a_parallel_calibration_fills_its_workers.py",
+    "test_a_promoted_run_carries_its_objective.py",
+    "test_runs_weigh_what_their_level_keeps.py",
+    "test_a_copy_is_published_and_the_index_is_shared.py",
+    "test_a_run_and_a_session_report_themselves.py",
+    "test_a_sites_plan_and_a_two_layer_budget.py",
+    "test_a_run_holds_on_a_shared_install.py",
+    "test_the_read_verbs_play_a_basin.py",
+    "test_a_run_over_http.py",
+    "test_two_runs_in_two_processes.py",
+)
+
+# A row that plays the default of its registry writes nothing to select it.
+DEFAULT = "default"
+
+# For each name a registry ships, the scenario that plays it and the spelling
+# that selects it in that file. A solver is selected by its TOML name, not by
+# its registry id, so the spelling is given and not deduced.
+PLAYED_BY: dict[str, dict[str, tuple[str, str]]] = {
+    "solvers": {
+        "flow_modflow6": ("test_backends_write_what_they_declare.py", '"modflow6"'),
+        "flow_modflow_nwt": ("test_backends_write_what_they_declare.py", '"modflow_nwt"'),
+        "flow_boussinesq": ("test_backends_write_what_they_declare.py", '"boussinesq"'),
+        "flow_linear_reservoir": ("test_the_global_backend.py", '"linear_reservoir"'),
+        "transport_modflow6": ("test_transport_chains.py", '"gwt"'),
+        "transport_modflow6_prt": ("test_transport_chains.py", '"modflow6_prt"'),
+        "transport_modpath": ("test_transport_chains.py", '"modpath"'),
+        "transport_mt3dms": ("test_transport_chains.py", '"mt3dms"'),
+    },
+    "mesh_engines": {
+        "regular": ("test_backends_write_what_they_declare.py", DEFAULT),
+        "triangle": ("test_backends_write_what_they_declare.py", "TRIANGLE_MESH"),
+        "voronoi": ("test_backends_write_what_they_declare.py", '"voronoi"'),
+        # The basin deduces the catchment mesh from its global backend.
+        "catchment": ("test_the_global_backend.py", DEFAULT),
+    },
+    "terrain_engines": {
+        "whitebox_workflows": ("test_terrain_comes_from_the_store.py", DEFAULT),
+        "numpy_d8": ("test_terrain_comes_from_the_store.py", '"numpy_d8"'),
+    },
+    "export_formats": {
+        "csv": ("test_a_run_exports_every_format.py", '"csv"'),
+        "netcdf": ("test_a_run_exports_every_format.py", '"netcdf"'),
+        "geotiff": ("test_a_run_exports_every_format.py", '"geotiff"'),
+        "geopackage": ("test_a_run_exports_every_format.py", '"geopackage"'),
+        "shapefile": ("test_a_run_exports_every_format.py", '"shapefile"'),
+        "vtu": ("test_a_run_exports_every_format.py", '"vtu"'),
+        "rocrate": ("test_a_run_exports_every_format.py", '"rocrate"'),
+    },
+}
+
+REGISTRIES = {
+    "solvers": solvers,
+    "mesh_engines": mesh_engines,
+    "terrain_engines": terrain_engines,
+    "export_formats": export_formats,
+}
+
+
+def test_the_scenarios_are_the_twenty_eight_named():
+    found = {p.name for p in HERE.glob("test_*.py")} - {Path(__file__).name}
+    assert len(SCENARIOS) == 28
+    assert len(set(SCENARIOS)) == len(SCENARIOS)
+    assert found == set(SCENARIOS)
+
+
+@pytest.mark.parametrize("registry", sorted(REGISTRIES))
+def test_every_backend_and_engine_is_played(registry):
+    rows = PLAYED_BY[registry]
+    assert set(rows) == set(REGISTRIES[registry].names(shipped_only=True))
+    for name, (scenario, spelling) in rows.items():
+        assert scenario in SCENARIOS, f"{name} is played by {scenario}, which is no scenario"
+        if spelling == DEFAULT:
+            continue
+        text = (HERE / scenario).read_text(encoding="utf-8")
+        assert spelling in text, f"{scenario} does not select {name} by {spelling}"
+
 
 # Digests of the six islands, as the reference projects wrote them. A change of
 # a project text changes its digest, so this table is edited with the text.

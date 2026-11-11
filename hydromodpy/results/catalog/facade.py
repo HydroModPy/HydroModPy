@@ -35,12 +35,11 @@ from hydromodpy.results.catalog.index_schema import (
 )
 from hydromodpy.results.catalog.indexer import index_new_runs
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
-from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.reads import ReadsMixin
 from hydromodpy.results.catalog.schema import SchemaDiscoveryMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -100,7 +99,7 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
 
     See Also
     --------
-    hydromodpy.results.run.Run
+    hydromodpy.results.run.view.Run
         Per-simulation view returned by catalog queries.
     hydromodpy.results.run.group.RunSet
         Multi-run view returned by cohort queries.
@@ -193,7 +192,7 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         return self._db
 
     @property
-    def backend(self) -> CatalogBackend:
+    def backend(self) -> DuckDBBackend:
         """The storage backend port driving the SQL reads."""
         return self._backend
 

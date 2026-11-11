@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data import DataRequest, run_request
 from hydromodpy.data.request import engine
+from hydromodpy.data.request.engine import run_request
+from hydromodpy.data.request.model import DataRequest
 
 
 def _spy_on_the_store(monkeypatch: pytest.MonkeyPatch) -> list:
@@ -55,7 +56,7 @@ def test_the_scratch_goes_with_the_call(tmp_path: Path, monkeypatch: pytest.Monk
 def test_a_store_that_is_given_is_the_one_used(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from hydromodpy.data import DataStore
+    from hydromodpy.data.loading.store import DataStore
 
     stores = _spy_on_the_store(monkeypatch)
     mine = DataStore(data_root=tmp_path / "mine" / "data")

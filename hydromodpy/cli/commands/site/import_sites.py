@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.conventions import dry_run_parser, format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_USAGE, refuse
+from hydromodpy.cli.exit_codes import EXIT_USAGE, refuse
 from hydromodpy.cli.output import emit
 
 NAME: str = "import"
@@ -86,7 +86,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.cli.refs import resolve_workspace
     from hydromodpy.data.sites.catalog import catalog_path, declare_sites, with_tags
 
     chosen = [

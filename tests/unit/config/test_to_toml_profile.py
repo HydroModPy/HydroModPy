@@ -14,7 +14,7 @@ from typing import get_args, get_origin
 import pytest
 from pydantic import BaseModel
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.dump import dump_toml_with_comments
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile

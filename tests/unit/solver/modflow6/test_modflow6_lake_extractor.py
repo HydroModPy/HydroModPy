@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.solver.modflow6.builders.lake_obs import build_lake_obs_spec
 from hydromodpy.solver.modflow6.extractors import lake as lake_extractor
 from hydromodpy.solver.modflow6.extractors.lake import (
@@ -263,3 +264,52 @@ def test_outlet_inflow_is_observed_and_outlet_is_positive_outflow(tmp_path: Path
     rec = {(r["station_id"], r["variable"]): r["value"] for r in timeseries}
     assert rec[("lake:up", "outlet")] == pytest.approx(1.0)
     assert rec[("lake:down", "outlet_inflow")] == pytest.approx(1.0)
+
+
+def test_the_lake_storage_term_is_stored_as_lake_storage(tmp_path: Path) -> None:
+    # MF6 reports the storage obs negative when the lake volume rises. The value
+    # keeps that sign and is divided to m3/s; only its name is lake_storage, so
+    # storage stays the budget field of the aquifer.
+    spec, obs_continuous = _single_lake_spec()
+    obsnames = {obs[0].upper(): obs[1] for obs in next(iter(obs_continuous.values()))}
+    assert obsnames["LAC0_LAKE_STORAGE"] == "storage"
+    obs_path = tmp_path / spec.obs_csv
+    _write_obs_csv(
+        obs_path,
+        obs_continuous,
+        {"LAC0_STAGE": 90.0, "LAC0_LAKE_STORAGE": -2.0 * _SECONDS_PER_STEP},
+    )
+    timeseries, _ = build_lake_records(
+        spec, obs_path, times=[_SECONDS_PER_STEP], seconds_per_time_unit=_SECONDS_PER_STEP
+    )
+    rec = {(r["station_id"], r["variable"]): r for r in timeseries}
+    station = lake_station_id("lac0")
+    assert rec[(station, "lake_storage")]["value"] == pytest.approx(-2.0)
+    assert rec[(station, "lake_storage")]["unit"] == "m3 s-1"
+    assert not [r for r in timeseries if r["variable"] == "storage"]
+
+
+def test_a_sidecar_that_names_the_old_storage_quantity_is_refused(tmp_path: Path) -> None:
+    # A sidecar written before the rename names the lake storage term storage.
+    # Read again, it would be stored unscaled under the aquifer budget field name.
+    spec, obs_continuous = _single_lake_spec()
+    meta = {
+        "obs_csv": spec.obs_csv,
+        "entries": [
+            {
+                "obsname": entry.obsname,
+                "lake_id": entry.lake_id,
+                "quantity": "storage" if entry.quantity == "lake_storage" else entry.quantity,
+                "iconn": entry.iconn,
+            }
+            for entry in spec.entries
+        ],
+    }
+    old_spec = LakeObsSpec.from_mapping(meta)
+    obs_path = tmp_path / spec.obs_csv
+    _write_obs_csv(obs_path, obs_continuous, {"LAC0_STAGE": 90.0})
+
+    with pytest.raises(DataContractViolation, match="'lake_storage'"):
+        build_lake_records(
+            old_spec, obs_path, times=[_SECONDS_PER_STEP], seconds_per_time_unit=_SECONDS_PER_STEP
+        )

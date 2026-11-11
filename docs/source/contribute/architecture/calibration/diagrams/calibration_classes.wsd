@@ -6,6 +6,10 @@ hide empty members
 package "hydromodpy.calibration.config" {
   class CalibrationConfig
 }
+note right of CalibrationConfig
+  its tables live in config_terms, config_network,
+  config_outputs, config_objective and config_phases
+end note
 
 package "hydromodpy.calibration.optim" {
   class ParameterSpace

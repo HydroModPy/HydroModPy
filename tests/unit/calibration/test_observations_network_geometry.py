@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.calibration.config import validate_calib_output
+from hydromodpy.calibration.config_outputs import validate_calib_output
 from hydromodpy.calibration.observations.network_geometry import (
     _length_in_m,
     aquifer_extent,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from hydromodpy.project import api
 from hydromodpy.project.facade import Project
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from tests._helpers.run_builders import runs
 from tests._helpers.sealed_runs import make_project
 

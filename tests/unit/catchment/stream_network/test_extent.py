@@ -22,7 +22,6 @@ from hydromodpy.catchment.stream_network.extent import (
     calendar_years,
     extent_masks,
     extent_step_problems,
-    flow_persistence,
     flowing_cells,
     quorum_count,
     yearly_flow_counts,
@@ -262,14 +261,6 @@ class TestCounts:
         )
         np.testing.assert_array_equal(counts.flowing[0], expected)
         assert np.all(counts.seepage <= counts.flowing)
-
-    def test_a_constant_run_persists_all_or_nothing(self, bench) -> None:
-        stack = _stack(bench, [60.0] * 12)
-        years = calendar_years(_monthly_edges(2001, 1))
-        counts = yearly_flow_counts(
-            stack, years=years, threshold_m3_s=_no_threshold(), metric=bench.metric
-        )
-        assert set(np.unique(flow_persistence(counts)).tolist()) <= {0.0, 1.0}
 
 
 class TestMasks:

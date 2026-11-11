@@ -29,6 +29,7 @@ import pandas as pd
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.scope import SIMULATED
 from hydromodpy.results.run.point import PointRequest, read_point
+from hydromodpy.results.storage.declared import refuse_unknown_series
 
 if TYPE_CHECKING:
     from hydromodpy.results.storage.run_store import RunStore
@@ -53,8 +54,9 @@ def sample_observation_points(
 
     ``declarations`` carries one mapping per point with the keys ``id``, ``x``,
     ``y``, ``layer``, ``depth`` and ``variables``. Returns the number of series
-    written. A point that cannot be sampled (outside the mesh, unknown field)
-    is reported and skipped: a declaration mistake must not lose the run.
+    written. A point that cannot be sampled (outside the mesh, unknown field,
+    a variable with no descriptor) is reported and skipped, and the points after
+    it are still sampled: a declaration mistake must not lose the run.
     """
     from hydromodpy.results.run.view import Run
 
@@ -77,6 +79,7 @@ def sample_observation_points(
         )
         try:
             frame = read_point(run, variables, request)
+            refuse_unknown_series(frame["variable"].unique())
         except Exception as exc:
             logger.warning("Observation point '%s' could not be sampled: %s", point_id, exc)
             continue

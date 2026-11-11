@@ -92,7 +92,7 @@ def read_description(capability_id: str, major: int | None = None) -> dict[str, 
     return json.loads(read_description_text(capability_id, major))
 
 
-__all__ = [
+__all__ = (
     "INDEX_FILENAME",
     "INDEX_PROFILE",
     "PROCESS_PROFILE",
@@ -101,4 +101,4 @@ __all__ = [
     "read_description",
     "read_description_text",
     "read_index",
-]
+)

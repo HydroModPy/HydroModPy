@@ -28,8 +28,8 @@ DOCS = ROOT / "docs" / "source"
 CONTRACTS = DOCS / "contribute" / "architecture" / "contracts.rst"
 TAUGHT_IN = (DOCS / "reference", DOCS / "contribute" / "architecture" / "how-to")
 
-# The how-to of a data source builds this package as its worked example.
-THE_PAGE_CREATES_IT = ("hydromodpy.data.variables.wind",)
+# The how-to of a data source creates this module as its worked example.
+THE_PAGE_CREATES_IT = ("hydromodpy.data.variables.hydrometry.apis.acme",)
 
 IMPORT = re.compile(
     r"^\s*(?:from\s+(hydromodpy[\w.]*)\s+import\s+([^#\n]+)|import\s+(hydromodpy[\w.]*))", re.M
@@ -101,9 +101,7 @@ def test_a_page_imports_only_what_the_list_or_the_facade_answers_for() -> None:
     outside = [
         f"{page}: {module}"
         for page, module, _ in _taught_imports()
-        if module != "hydromodpy"
-        and module not in allowed
-        and not module.startswith(THE_PAGE_CREATES_IT)
+        if module != "hydromodpy" and module not in allowed and module not in THE_PAGE_CREATES_IT
     ]
     assert outside == [], (
         f"{outside} teach a module outside the public list. Import from the facade, or add the "

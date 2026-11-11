@@ -52,7 +52,7 @@ from hydromodpy.solver.modflow6.support.lake_band_runoff import (
     LakeBandRunoffSpec,
     exposed_band_area,
 )
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import resolve_modflow_runner
+from hydromodpy.solver.modflow_common.flow_run import resolve_modflow_runner
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
 from tests._helpers.bundle_cell_meshes import bundle_dual, bundle_triangles
 from tests._helpers.mesh_cases import L93_ORIGIN, regular_mesh, square_domain, voronoi_lake_mesh

@@ -16,25 +16,16 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.calibration.config import (
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_network import (
     CalibOutputNetwork,
-    CalibPhaseDecl,
-    CalibrationConfig,
     MatchingHydrographicNetworkOptions,
 )
+from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.calibration.optim.adapters.scipy_adapter import ScipyNelderMead
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.calibration.protocols import (
-    available_protocols,
-    deviations_in_force,
-    expand_calibration_protocol,
-    get_protocol,
-    protocol_options_away_from_the_recipe,
-    protocol_record,
-    why_the_spin_up_year_is_scored,
-)
 from hydromodpy.calibration.protocols import matching_hydrographic_network as module
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     DEFAULTS_BY_VERSION,
@@ -44,13 +35,21 @@ from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     STEADY_STAGE,
     TRANSIENT_STAGE,
     _write_hydrograph_output,
+    why_the_spin_up_year_is_scored,
+)
+from hydromodpy.calibration.protocols.registry import (
+    available_protocols,
+    deviations_in_force,
+    expand_calibration_protocol,
+    get_protocol,
+    protocol_options_away_from_the_recipe,
+    protocol_record,
 )
 from hydromodpy.calibration.runners.phase_regime import phase_overrides
 from hydromodpy.calibration.runners.session_scope import _protocol_of_session
 from hydromodpy.calibration.runners.staged_runner import _phase_config
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
-from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
 from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from tests.unit.calibration._factories_scoring import make_document

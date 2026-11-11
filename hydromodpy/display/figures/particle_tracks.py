@@ -30,7 +30,7 @@ from hydromodpy.results.run.particles import (
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 _DAYS_PER_YEAR = 365.25
 

@@ -35,7 +35,7 @@ A source class declares its section and its name, both ``ClassVar``:
 
 .. code-block:: python
 
-   # hydromodpy/data/variables/wind/apis/acme.py
+   # hydromodpy/data/variables/hydrometry/apis/acme.py
    from typing import ClassVar
 
    from hydromodpy.data.source.port import (
@@ -51,19 +51,19 @@ A source class declares its section and its name, both ``ClassVar``:
    )
 
 
-   class AcmeGrid:
+   class AcmeGauges:
        source_id: ClassVar[str] = "acme"
-       section: ClassVar[str] = "wind"
-       payload_kind: ClassVar[PayloadKind] = "fields"
-       extent_crs: ClassVar[str] = "EPSG:3035"
-       selectors: ClassVar[tuple[Selector, ...]] = ("extent",)
+       section: ClassVar[str] = "hydrometry"
+       payload_kind: ClassVar[PayloadKind] = "points"
+       extent_crs: ClassVar[str] = "EPSG:4326"
+       selectors: ClassVar[tuple[Selector, ...]] = ("extent", "station_ids")
        period_need: ClassVar[PeriodNeed] = "required"
        writes_out_dir: ClassVar[bool] = False
 
-       def __init__(self, *, sweep: str = "long") -> None:
-           self.sweep = sweep
-           self.variables: tuple[str, ...] = ("wind_speed",)
-           self.hosts: tuple[str, ...] = ("grid.acme.example",)
+       def __init__(self, *, max_stations: int | None = None) -> None:
+           self.max_stations = max_stations
+           self.variables: tuple[str, ...] = ("discharge",)
+           self.hosts: tuple[str, ...] = ("gauges.acme.example",)
 
        def fetch(self, request: FetchRequest) -> FetchResult:
            require_selectors(self, request)
@@ -103,7 +103,7 @@ read. A source that answers in a unit ``core/units`` cannot read yet is
 allowed, and its ``SourceCase`` pins the unit it writes today.
 
 A source must **not** know the DuckDB catalog, the project workspace, a
-lock or a cache. The manager of the variable builds the request (a family of
+lock or a cache. The variable builds the request (a family of
 stations from the station list or the extent, a family of grids from the
 project extent) and owns the cache: ``GridVariable`` keeps grids,
 ``StationVariable`` keeps chronicles per station and asks only for the
@@ -156,7 +156,7 @@ Publish it from your own distribution. The entry-point name is
 
    # your package's pyproject.toml
    [project.entry-points."hydromodpy.data.source"]
-   wind_acme = "mypackage.acme_grid:AcmeGrid"
+   hydrometry_acme = "mypackage.acme_gauges:AcmeGauges"
 
 A plugin that fails any check is skipped with a warning naming what is
 wrong, never raised: one broken plugin must not take down a host that asked
@@ -173,7 +173,7 @@ Name it from a document
    # not checked: acme is the placeholder source of this recipe
    # A project TOML. The section names a source of its own section; a source
    # of another section is refused, because the key is the pair of both.
-   [data.wind]
+   [[data.hydrometry.sources]]
    source = "acme"
 
 .. code-block:: json
@@ -181,7 +181,7 @@ Name it from a document
    {
      "process": {"id": "data-request", "version": "1.0.0"},
      "inputs": {
-       "installed": [{"name": "acme", "options": {"sweep": "short"}}],
+       "installed": [{"name": "acme", "options": {"max_stations": 5}}],
        "extent": {"bbox": [-1.85, 48.05, -1.55, 48.25], "crs": "EPSG:4326"},
        "period": {"start": "2020-01-01", "end": "2020-01-31"}
      }
@@ -204,7 +204,7 @@ Tests to add
 - the provider on a recorded answer, so the tier runs offline;
 - a ``SourceCase`` describing which function your source calls, in your clone
   of this repository. The contract suite,
-  ``tests/contract/test_data_source_contract.py``, runs its declarations and
+  ``tests/ports/test_data_source.py``, runs its declarations and
   its refusals on every source the registry serves, whether it ships or is
   installed, and the rest of the suite reads what the ``SourceCase`` says:
   the CRS the provider is really asked in, whether ``out_dir`` is left
@@ -214,7 +214,7 @@ Tests to add
 See also
 --------
 
-- :doc:`../packages/data` for the variable inventory and the manager template.
+- :doc:`../packages/data` for the variable inventory and the variable template.
 - :doc:`add-a-data-variable` for a new variable family.
 - :doc:`add-a-config-field` for a new field on an existing source.
 - :doc:`/reference/data-sources` for the generated catalog of providers.

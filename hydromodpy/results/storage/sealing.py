@@ -75,7 +75,7 @@ from hydromodpy.results.storage.json_io import readable
 from hydromodpy.results.storage.run_facts import RunFacts
 from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.schema.lineage import ProducerSide
 
 logger = get_logger(__name__)

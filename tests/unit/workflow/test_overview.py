@@ -19,16 +19,16 @@ from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.core.state.run_state import LoadedDataContext
 from hydromodpy.data.contracts.file_record import FileRecord
-from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.variables.crossings.resolver import fill_crossings_path
 from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
-from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
+from hydromodpy.data.variables.sim2_series import RunoffConfig, RunoffSourceConfig
 from hydromodpy.results.storage.parquet_schemas import DATA_INVENTORY_SCHEMA
 from hydromodpy.workflow.overview import DataOverviewLauncher
 from tests._helpers.geographic_cases import BENCH_RIVER, outlet_document
 
 
-def _overview_state(data: DataManagersConfig, window: tuple[str, str]) -> SimpleNamespace:
+def _overview_state(data: DataConfig, window: tuple[str, str]) -> SimpleNamespace:
     return SimpleNamespace(
         cfg=SimpleNamespace(
             overview=SimpleNamespace(date_start=window[0], date_end=window[1]),
@@ -44,8 +44,8 @@ class _CopyableCfg(SimpleNamespace):
         return _CopyableCfg(**{**vars(self), **update})
 
 
-def _data_config(**sections) -> DataManagersConfig:
-    return DataManagersConfig(types=list(sections), **sections)
+def _data_config(**sections) -> DataConfig:
+    return DataConfig(types=list(sections), **sections)
 
 
 def test_inject_overview_dates_only_fills_sections_without_a_window(tmp_path) -> None:
@@ -107,7 +107,7 @@ def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, t
         return "features-with-network"
 
     monkeypatch.setattr(
-        "hydromodpy.data.DataLoader",
+        "hydromodpy.data.loading.loader.DataLoader",
         FakeLoader,
     )
     monkeypatch.setattr(

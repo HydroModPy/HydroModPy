@@ -116,7 +116,7 @@ def test_triangle_mesh_converges_under_xt3d_newton(tmp_path) -> None:
 
 
 def test_failure_hint_names_xt3d_switch_when_npf_has_xt3d(tmp_path) -> None:
-    from hydromodpy.solver.modflow_common.flow_adapter_helpers import xt3d_failure_hint
+    from hydromodpy.solver.modflow_common.listing import xt3d_failure_hint
 
     (tmp_path / "m.npf").write_text("BEGIN options\n  XT3D\nEND options\n")
     assert "mf6_enable_xt3d = false" in xt3d_failure_hint(tmp_path)

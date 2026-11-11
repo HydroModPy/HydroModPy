@@ -10,7 +10,7 @@ that sees both, so the index of a run is built here and handed to
 
 The index
 ---------
-:func:`run_bundle` returns the :class:`~hydromodpy.core.payload.PayloadBundle`
+:func:`run_bundle` returns the :class:`~hydromodpy.core.payload.index.PayloadBundle`
 of one sealed run: every file the run read (``inputs.json``, then the files the
 configuration declared), each with its destination relative to the workspace
 (``data/<variable>/<name>``) or to the project, its variable, provider,
@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from hydromodpy.core.exceptions import ExportError
-from hydromodpy.core.payload import (
+from hydromodpy.core.payload.index import (
     InstallIndex,
     PayloadBundle,
     PayloadFile,
@@ -39,10 +39,11 @@ from hydromodpy.core.payload import (
     stored_name,
 )
 from hydromodpy.core.payload.install import read_registry, sha256_of
-from hydromodpy.core.site import SiteRow
+from hydromodpy.core.site.row import SiteRow
 from hydromodpy.core.state.portable import decode_workspace_path
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.data.provenance.sidecars import CacheIndex
+from hydromodpy.results.export.project_package import USER_PROVIDERS
 from hydromodpy.results.export.publish import MissingInputError
 from hydromodpy.results.record.label import read_sealed_manifest
 from hydromodpy.results.record.manifest import InputEntry, ManifestSite, sealed_in_run
@@ -51,11 +52,6 @@ from hydromodpy.results.storage.attempt import is_run_product
 
 DATA_DIRNAME: Final[str] = "data"
 """Folder of the workspace that holds the shared data."""
-
-CUSTOM_PROVIDERS: Final[frozenset[str]] = frozenset(
-    {"file", "url", "custom", "constant", "synthetic"}
-)
-"""Providers whose files no cache row serves: a user file, a generated value."""
 
 _SIDECAR_SUFFIX: Final[str] = ".json"
 _LOC_SUFFIX: Final[str] = "_LOC.csv"
@@ -182,7 +178,7 @@ def _payload_file(
 ) -> PayloadFile:
     """Return the index entry of one loaded input."""
     sha256 = _check_digest(located, entry.sha256, entry.variable)
-    row = None if entry.provider in CUSTOM_PROVIDERS else cache.row_for(located)
+    row = None if entry.provider in USER_PROVIDERS else cache.row_for(located)
     return _file_entry(
         located,
         workspace,
@@ -243,7 +239,7 @@ def _station_row(item: PayloadFile, located: Path, workspace: Path) -> PayloadSt
     if station is None or item.variable is None or item.provider is None:
         return None
     # A user file is sealed with provider "file" but named after the "custom" contract.
-    provider = "custom" if item.provider in CUSTOM_PROVIDERS else item.provider
+    provider = "custom" if item.provider in USER_PROVIDERS else item.provider
     marker = f"_{provider}_"
     if marker not in located.name:
         return None
@@ -308,7 +304,6 @@ class _CacheRows:
 
 
 __all__ = [
-    "CUSTOM_PROVIDERS",
     "DATA_DIRNAME",
     "inputs_of",
     "run_bundle",

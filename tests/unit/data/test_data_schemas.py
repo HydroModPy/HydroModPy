@@ -8,12 +8,10 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import DataContractViolation
-from hydromodpy.data.schemas import (
-    validate_catchment,
-    validate_lithology,
-    validate_stations,
-    validate_timeseries,
-)
+from hydromodpy.data.schemas.catchment import validate_catchment
+from hydromodpy.data.schemas.lithology import validate_lithology
+from hydromodpy.data.schemas.stations import validate_stations
+from hydromodpy.data.schemas.timeseries import validate_timeseries
 
 
 def test_timeseries_valid():

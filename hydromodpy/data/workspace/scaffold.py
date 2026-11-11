@@ -19,12 +19,12 @@ sidecar: it is no row of the cache.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 from hydromodpy.core.io.filesystem import check_project_root
 from hydromodpy.core.state.layout import CONFIGS_DIRNAME, PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.names import check_name
+from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, VariableSpec
 
 DEFAULT_ROOT = Path.home() / "hydromodpy"
 
@@ -32,185 +32,9 @@ INPUTS_DIRNAME = "inputs"
 """The folder of a project that holds the files its user brings."""
 
 
-@dataclass(frozen=True, slots=True)
-class VariableSpec:
-    """One variable folder created under ``<workspace>/data/``."""
-
-    name: str
-    file_prefix: str  # filename token (e.g. water_quality -> "waterquality")
-    category: (
-        str  # "point", "grid", "dem", "raster", "geology", "hydrography", "table", "crossings"
-    )
-    kind: str  # auto_scan scanner: "timeseries" | "raster" | "vector"
-    unit: str
-    label: str  # what the folder holds, in words
-    pivot: str  # parquet | geoparquet | geotiff_cog | netcdf
-
-
-VARIABLES: tuple[VariableSpec, ...] = (
-    VariableSpec(
-        "hydrometry", "hydrometry", "point", "timeseries", "m3/s", "river discharge", "parquet"
-    ),
-    VariableSpec(
-        "piezometry", "piezometry", "point", "timeseries", "m", "groundwater levels", "parquet"
-    ),
-    VariableSpec(
-        "intermittency",
-        "intermittency",
-        "point",
-        "timeseries",
-        "code",
-        "flow state (ONDE)",
-        "parquet",
-    ),
-    VariableSpec(
-        "water_quality",
-        "waterquality",
-        "point",
-        "timeseries",
-        "mg/L",
-        "water quality",
-        "parquet",
-    ),
-    VariableSpec("recharge", "recharge", "grid", "timeseries", "mm/day", "recharge", "parquet"),
-    VariableSpec(
-        "precipitation",
-        "precipitation",
-        "grid",
-        "timeseries",
-        "mm/day",
-        "precipitation",
-        "parquet",
-    ),
-    VariableSpec("etp", "etp", "grid", "timeseries", "mm/day", "evapotranspiration", "parquet"),
-    VariableSpec("runoff", "runoff", "grid", "timeseries", "mm/day", "runoff", "parquet"),
-    VariableSpec(
-        "temperature", "temperature", "grid", "timeseries", "degC", "temperature", "parquet"
-    ),
-    VariableSpec("wind", "wind", "grid", "timeseries", "m/s", "wind", "parquet"),
-    VariableSpec("humidity", "humidity", "grid", "timeseries", "%", "humidity", "parquet"),
-    VariableSpec("radiation", "radiation", "grid", "timeseries", "MJ/m2/j", "radiation", "parquet"),
-    VariableSpec(
-        "soil_moisture",
-        "soil_moisture",
-        "grid",
-        "timeseries",
-        "%",
-        "soil moisture",
-        "parquet",
-    ),
-    VariableSpec("oceanic", "oceanic", "grid", "timeseries", "m", "sea level", "parquet"),
-    VariableSpec("dem", "dem", "dem", "raster", "m", "digital elevation model", "geotiff_cog"),
-    VariableSpec("geology", "geology", "geology", "vector", "-", "geological map", "geoparquet"),
-    VariableSpec(
-        "hydrography",
-        "hydrography",
-        "hydrography",
-        "vector",
-        "-",
-        "river network",
-        "geoparquet",
-    ),
-    VariableSpec(
-        "lake_geometry",
-        "lake_geometry",
-        "hydrography",
-        "vector",
-        "-",
-        "lake or reservoir outline",
-        "geoparquet",
-    ),
-    VariableSpec(
-        "lake_bathymetry",
-        "lake_bathymetry",
-        "raster",
-        "raster",
-        "m",
-        "lake bathymetry",
-        "geotiff_cog",
-    ),
-    VariableSpec(
-        "lake_abacus",
-        "lake_abacus",
-        "table",
-        "table",
-        "m|m3|m2",
-        "stage-volume-area table",
-        "parquet",
-    ),
-    VariableSpec(
-        "lake_levels",
-        "lake_levels",
-        "point",
-        "timeseries",
-        "m",
-        "observed lake levels",
-        "parquet",
-    ),
-    VariableSpec(
-        "lake_inflow",
-        "lake_inflow",
-        "point",
-        "timeseries",
-        "m3/s",
-        "inflow to the lake",
-        "parquet",
-    ),
-    VariableSpec(
-        "lake_outflow",
-        "lake_outflow",
-        "point",
-        "timeseries",
-        "m3/s",
-        "outflow from the lake",
-        "parquet",
-    ),
-    VariableSpec(
-        "lake_withdrawal",
-        "lake_withdrawal",
-        "point",
-        "timeseries",
-        "m3/s",
-        "withdrawals from the lake",
-        "parquet",
-    ),
-    VariableSpec(
-        "substratum",
-        "substratum",
-        "raster",
-        "raster",
-        "m",
-        "substratum (base of the aquifer)",
-        "geotiff_cog",
-    ),
-    VariableSpec(
-        "layer_base",
-        "layer_base",
-        "raster",
-        "raster",
-        "m",
-        "base of a layer (elevation)",
-        "geotiff_cog",
-    ),
-    VariableSpec(
-        "soil_capacity",
-        "soil_capacity",
-        "raster",
-        "raster",
-        "mm",
-        "soil available water capacity",
-        "geotiff_cog",
-    ),
-    VariableSpec(
-        "crossings",
-        "crossings",
-        "crossings",
-        "vector",
-        "-",
-        "river crossing structures",
-        "geoparquet",
-    ),
-)
+def variable_folders() -> tuple[str, ...]:
+    """The names of the folders ``data/<variable>/`` that a workspace holds, one per variable."""
+    return tuple(VARIABLE_SPECS)
 
 
 _README_HEADER = """\
@@ -427,12 +251,11 @@ _README_BODY = {
 }
 
 
-def _render_readme(spec: VariableSpec) -> str:
+def _render_readme(name: str, spec: VariableSpec) -> str:
     body = _README_BODY[spec.category]
     parts = (_README_HEADER, body, _README_FOOTER)
-    return "\n".join(
-        part.format(name=spec.name, prefix=spec.file_prefix, label=spec.label) for part in parts
-    )
+    prefix = spec.file_prefix or name
+    return "\n".join(part.format(name=name, prefix=prefix, label=spec.label) for part in parts)
 
 
 PROJECT_TOML_TEMPLATE = """\
@@ -615,13 +438,13 @@ def scaffold(root_dir: str | Path | None = None, *, with_examples: bool = True) 
     data_root.mkdir(parents=True, exist_ok=True)
     (root / "projects").mkdir(parents=True, exist_ok=True)
 
-    for spec in VARIABLES:
-        var_dir = data_root / spec.name
+    for name, spec in VARIABLE_SPECS.items():
+        var_dir = data_root / name
         var_dir.mkdir(parents=True, exist_ok=True)
 
         readme = var_dir / "README.md"
         if not readme.exists():
-            readme.write_text(_render_readme(spec), encoding="utf-8")
+            readme.write_text(_render_readme(name, spec), encoding="utf-8")
 
         if with_examples:
             from hydromodpy.data.workspace.example_files import write_variable_examples
@@ -629,7 +452,7 @@ def scaffold(root_dir: str | Path | None = None, *, with_examples: bool = True) 
             write_variable_examples(
                 var_dir,
                 category=spec.category,
-                file_prefix=spec.file_prefix,
+                file_prefix=spec.file_prefix or name,
                 unit=spec.unit,
             )
 

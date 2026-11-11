@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.workflow.steps.prepare_solver.resolved import compare_with_sealed, config_drift
 
 FROZEN_DEMO = (

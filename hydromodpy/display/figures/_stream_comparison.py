@@ -14,7 +14,7 @@ earn that area back, so the frame, the weight a cell is drawn with and the
 place the counts are written live here rather than four times over.
 
 Nothing here decides anything: the partition comes from
-:mod:`hydromodpy.results.derive.stream.comparison`, which rebuilds it through the
+:mod:`hydromodpy.results.derive.stream_network.comparison`, which rebuilds it through the
 construction the calibration criterion scores.
 """
 
@@ -30,7 +30,7 @@ from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.maps.axes import watershed_of
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, neutral
 from hydromodpy.results.derive.run_memo import RunMemo
-from hydromodpy.results.derive.stream.comparison import (
+from hydromodpy.results.derive.stream_network.comparison import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
     AGREEMENT_NEITHER,
@@ -39,7 +39,7 @@ from hydromodpy.results.derive.stream.comparison import (
     agreement_label,
     network_comparison_from_run,
 )
-from hydromodpy.results.derive.stream.criterion_settings import network_criterion_settings
+from hydromodpy.results.derive.stream_network.criterion_settings import network_criterion_settings
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from matplotlib.legend import Legend
 
     from hydromodpy.core.scoring.stream_defaults import VisibleFlow
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 GROUND_COLOR = "#EDEDED"
 """The cells a map measures nothing on: the ground the subject is drawn over.

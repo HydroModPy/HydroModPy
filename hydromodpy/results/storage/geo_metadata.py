@@ -21,17 +21,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.identity import Identity
 
 
-def python_value_type(value: object) -> str:
-    """Return the type word a metadata value is stored with: bool, int, double or string."""
-    if isinstance(value, bool):
-        return "bool"
-    if isinstance(value, int):
-        return "int"
-    if isinstance(value, float):
-        return "double"
-    return "string"
-
-
 def epsg_from_crs(crs: str | None) -> int | None:
     """Return the EPSG code of a CRS token or WKT, or ``None`` when it has none."""
     if not crs:
@@ -204,7 +193,6 @@ def run_parquet_footer(
 __all__ = [
     "epsg_from_crs",
     "geographic_feature_description",
-    "python_value_type",
     "run_parquet_footer",
     "wgs84_bounds",
 ]

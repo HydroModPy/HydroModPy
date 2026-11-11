@@ -1,0 +1,22 @@
+{
+  "schema": "hydromodpy.outcome.v1",
+  "case_id": "tri",
+  "site": "island",
+  "project": "project",
+  "attempt": 1,
+  "attempt_id": "0d297fd0bfcd434c9bf76cab4e02c096",
+  "sim_id": "1200e1f7-1120-4482-87be-22ac4692943f",
+  "request_id": "cd4e2a7cf89536eebb3b84f9d9ad2e41e00c89a9e2c32557851e123359678534",
+  "status": "completed",
+  "exit_code": 0,
+  "signal": null,
+  "written_by": "worker",
+  "started_at": "2026-11-11T13:04:29.002416Z",
+  "ended_at": "2026-11-11T13:04:31.834670Z",
+  "host": "frozen",
+  "pid": 1249345,
+  "scheduler_job_id": null,
+  "step": null,
+  "error": null,
+  "log_tail": []
+}

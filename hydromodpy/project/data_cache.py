@@ -11,12 +11,13 @@ project without a workspace keeps its cache in its own ``data/`` folder.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.config.user_files import user_file_inputs
-from hydromodpy.core.exceptions import DataCacheError
+from hydromodpy.core.exceptions import ConfigError, DataCacheError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, PROJECTS_DIRNAME
 from hydromodpy.core.workspace.resolve import find_data_workspace, find_workspace
@@ -141,6 +142,54 @@ def verify_data_lock(
         "locked_schema": locked_schema,
         "current_schema": current_schema,
     }
+
+
+class FrozenVerificationError(ConfigError, RuntimeError):
+    """Raised when ``--frozen`` finds a lockfile drift before running anything."""
+
+
+def verify_frozen_inputs(
+    project_root: Path, declared_workspace: Mapping[str, Any] | None = None
+) -> None:
+    """Verify the project lockfile before a ``--frozen`` run of a project TOML.
+
+    The lockfile is the one :func:`lock_data` writes, at the project root. The
+    data folder is the one :class:`~hydromodpy.core.workspace.config.WorkspaceConfig`
+    resolves from the ``[workspace]`` table the file declares, if any
+    (*declared_workspace*). The check is strict: any mismatch aborts the run
+    with :class:`FrozenVerificationError`.
+    """
+    from hydromodpy.core.toml_io.paths import resolve_declared_path
+    from hydromodpy.core.workspace.config import WorkspaceConfig
+
+    lockfile_path = project_lockfile_path(project_root)
+    if not lockfile_path.is_file():
+        raise FrozenVerificationError(
+            f"hydromodpy.lock not found at {lockfile_path}; --frozen on a project TOML reads "
+            "that file: write it with `hmp data lock`, or play a sealed run again with "
+            "`hmp replay REF`."
+        )
+
+    declared = {
+        key: str(resolve_declared_path(declared_workspace[key], base_dir=project_root))
+        for key in ("root", "data_dir")
+        if isinstance(declared_workspace, Mapping) and declared_workspace.get(key)
+    }
+    try:
+        data_dir = WorkspaceConfig.model_validate(
+            {**declared, "project_root": str(project_root)}
+        ).data_dir
+        mismatches = verify_lockfile(
+            data_dir, lockfile_path, project_root=project_root, strict=True
+        )
+    except Exception as exc:  # noqa: BLE001 - any lockfile or data folder error aborts the run
+        raise FrozenVerificationError(f"Could not verify lockfile {lockfile_path}: {exc}") from exc
+    if mismatches:
+        first = mismatches[0]
+        raise FrozenVerificationError(
+            f"{len(mismatches)} lockfile mismatch(es); first: "
+            f"{first.kind} on {first.path} (variable={first.variable})"
+        )
 
 
 def _projects_of(workspace_root: Path) -> list[Path]:

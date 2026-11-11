@@ -24,11 +24,11 @@ from typing import TYPE_CHECKING, Annotated
 import numpy as np
 
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.core.units.quantities import SECONDS_PER_DAY
+from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, Station
 from hydromodpy.display.style import place_legend
 from hydromodpy.results.derive.recession import (
-    SECONDS_PER_DAY,
     brutsaert_nieber_coefficient,
     budget_outflow_per_day,
     recession_cloud,
@@ -37,7 +37,7 @@ from hydromodpy.results.derive.recession import (
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class RecessionPowerLaw(BaseFigure):
@@ -125,7 +125,7 @@ class RecessionPowerLaw(BaseFigure):
 
         flow, rate = recession_cloud(series, skip=skip)
         if flow.size < 2:
-            raise ValueError(
+            raise FigureNotApplicable(
                 f"recession_power_law: no falling limb in {source} for sim {sim.sim_id}"
             )
 

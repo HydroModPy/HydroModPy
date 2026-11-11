@@ -1,9 +1,10 @@
 """Every list of ``[data]`` variables names the same 28 variables, and their sources agree.
 
-Adding a variable touches several lists (``hydromodpy/data/README.md``,
-"Where to add what"). This test compares them to ``VARIABLE_SPECS`` and names
-the list that is incomplete, so a forgotten entry fails here rather than at run
-time. The sources agree through the registry: what a section may name in
+``VARIABLE_SPECS`` is the one registry: it holds the config and variable classes
+and the columns of the workspace folder. Adding a variable still touches a few
+other lists (``hydromodpy/data/README.md``, "Where to add what"). This test
+compares them to ``VARIABLE_SPECS`` and names the list that is incomplete, so a
+forgotten entry fails here rather than at run time. The sources agree through the registry: what a section may name in
 ``source =`` is what ``data_sources`` serves for that section, plus ``custom``,
 and the sections this phase still guards behind an discriminated union name the
 exception and the lot that lifts it.
@@ -18,11 +19,10 @@ from importlib import import_module
 import pytest
 
 from hydromodpy.core.state.run_state import LoadedDataContext
-from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
-from hydromodpy.data.loading.config_schema import SUPPORTED_DATA_MANAGER_TYPES
+from hydromodpy.data.loading.config_schema import DATA_VARIABLES, DataConfig
 from hydromodpy.data.source.registry import data_sources
-from hydromodpy.data.workspace.scaffold import VARIABLES
+from hydromodpy.data.workspace import scaffold
 from hydromodpy.schema.sources import source_entry
 
 # The two fields of [data] that configure the planner, not a variable.
@@ -55,17 +55,15 @@ _LOCAL_SOURCES = {"explore2", "synthetic", "constant", "file", "url"}
 
 def _families() -> dict[str, set[str]]:
     return {
-        "DataManagersConfig fields (data/loading/config_schema.py)": (
-            set(DataManagersConfig.model_fields) - _PLANNER_FIELDS
+        "DataConfig fields (data/loading/config_schema.py)": (
+            set(DataConfig.model_fields) - _PLANNER_FIELDS
         ),
-        "SUPPORTED_DATA_MANAGER_TYPES (data/loading/config_schema.py)": set(
-            SUPPORTED_DATA_MANAGER_TYPES
-        ),
+        "DATA_VARIABLES (data/loading/config_schema.py)": set(DATA_VARIABLES),
         "LoadedDataContext fields (core/state/run_state.py)": {
             field.name for field in dataclasses.fields(LoadedDataContext)
         }
         - _LOAD_STATE_FIELDS,
-        "VARIABLES (data/workspace/scaffold.py)": {spec.name for spec in VARIABLES},
+        "variable_folders (data/workspace/scaffold.py)": set(scaffold.variable_folders()),
     }
 
 
@@ -84,6 +82,20 @@ def test_every_variable_list_names_the_same_variables() -> None:
 
 def test_there_are_twenty_eight_variables() -> None:
     assert len(VARIABLE_SPECS) == 28
+
+
+def test_the_scaffold_keeps_no_table_of_its_own() -> None:
+    """The folder columns live in ``VARIABLE_SPECS``: the scaffold holds no second list."""
+    assert not hasattr(scaffold, "VARIABLES")
+    assert scaffold.VARIABLE_SPECS is VARIABLE_SPECS
+
+
+@pytest.mark.parametrize("variable", sorted(VARIABLE_SPECS))
+def test_every_variable_names_a_readme_body_for_its_folder(variable: str) -> None:
+    """The README of ``data/<variable>/`` is picked by the category the registry gives."""
+    spec = VARIABLE_SPECS[variable]
+    assert spec.category in scaffold._README_BODY, variable
+    assert spec.kind in {"timeseries", "raster", "vector", "table"}, variable
 
 
 def _source_config_class(variable: str) -> type:

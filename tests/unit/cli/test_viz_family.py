@@ -132,7 +132,7 @@ def test_config_figures_run_keeps_the_kind_filter(monkeypatch) -> None:
 
 
 def test_config_figures_run_maps_an_unknown_run_to_not_found(monkeypatch) -> None:
-    from hydromodpy.results.catalog import SimulationNotFoundError
+    from hydromodpy.results.catalog.discovery import SimulationNotFoundError
 
     def unknown(sim_ref: str, *, workspace: object = None):
         raise SimulationNotFoundError(f"Reference {sim_ref!r} not found.")

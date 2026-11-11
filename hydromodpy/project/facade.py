@@ -95,7 +95,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from hydromodpy.catchment.preprocess.catchment_delineation import CatchmentDelineation
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.state.run_state import LoadedDataContext
     from hydromodpy.core.time.window import (
         ResolvedSimulationTimeGrid,
@@ -104,16 +104,17 @@ if TYPE_CHECKING:
     from hydromodpy.model.domain.domain import Domain
     from hydromodpy.model.initial_config import SpinupConfig
     from hydromodpy.project.environment import Environment
-    from hydromodpy.project.launch import LaunchReport, StatusReport
+    from hydromodpy.project.launch.local import LaunchReport
     from hydromodpy.project.launch.plan import PlanDraft
+    from hydromodpy.project.launch.status import StatusReport
     from hydromodpy.project.launch.summary import SummaryPaths
     from hydromodpy.project.request import RunOutcome
     from hydromodpy.project.spinup import SpinupResult
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
     from hydromodpy.results.publication import PublicationFormat
     from hydromodpy.results.record.checks import CalibratedBy
     from hydromodpy.results.retention import GcReport
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
     from hydromodpy.schema.lineage import Lineage
 
 logger = get_logger(__name__)
@@ -456,7 +457,7 @@ class Project:
         the handle already open is kept, or the published index is opened.
         """
         from hydromodpy.core.state.layout import catalog_path_for
-        from hydromodpy.results.catalog import Catalog
+        from hydromodpy.results.catalog.facade import Catalog
         from hydromodpy.results.catalog.indexer import index_new_runs
 
         store = self._store
@@ -516,7 +517,7 @@ class Project:
     ) -> pd.DataFrame:
         """Return the best completed run of each site, one row each, as a table.
 
-        ``best`` names one :class:`~hydromodpy.results.run.Run` everywhere else:
+        ``best`` names one :class:`~hydromodpy.results.run.view.Run` everywhere else:
         ``proj.runs().best(metric)`` is the run itself.
 
         The metric is read at the gauge of each run, in the window of its
@@ -553,7 +554,7 @@ class Project:
         The words of ``hmp project plan``, with the changes of ``--set`` by dotted path. A
         plan is not rewritten while one of its cases runs, unless ``force``.
         """
-        from hydromodpy.project.launch import plan_project
+        from hydromodpy.project.launch.local import plan_project
 
         payload: dict[str, Any] = {}
         for dotted, value in (set or {}).items():
@@ -585,7 +586,7 @@ class Project:
         words of :func:`~hydromodpy.cli.environment.environment_from_args`.
         ``None`` reuses the environment the project was opened with.
         """
-        from hydromodpy.project.launch import run_plan
+        from hydromodpy.project.launch.local import run_plan
 
         if environment is None:
             environment = self._environment
@@ -814,7 +815,7 @@ class Project:
         --------
         hydromodpy.run
             Functional facade for one-off TOML execution.
-        hydromodpy.results.run.Run
+        hydromodpy.results.run.view.Run
             Per-simulation result view returned by successful runs.
         """
         if dry_run:
@@ -1078,7 +1079,7 @@ def read_sealed_config(snapshot: Mapping[str, object]) -> object:
     ``config_snapshot`` only when ``run.hydromodpy_config`` is read. The snapshot
     names its own project root, which anchors its paths.
     """
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     return HydroModPyConfig.from_snapshot(snapshot)
 

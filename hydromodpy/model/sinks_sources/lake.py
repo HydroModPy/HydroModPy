@@ -39,8 +39,8 @@ from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
-from hydromodpy.core.units import FlowRate, Length
 from hydromodpy.core.units.quantities import normalize_per_s_unit
+from hydromodpy.core.units.types import FlowRate, Length
 from hydromodpy.model.forcing.dated_forcing import (
     SurfaceRateForcing,
     VolumeRateForcing,

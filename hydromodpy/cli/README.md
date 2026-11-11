@@ -12,9 +12,11 @@ rest of the code, and where to add what.
 |---|---|
 | `main.py` | how is the argparse tree built, and how does a parsed namespace reach its handler? It builds the tree from `ALL_COMMANDS`, sets the console verbosity of `-q`, `-v` or `--debug`, runs the handler `args._handler`, and maps any exception through `exit_code_for`. It also turns SIGTERM into an exception for the whole process |
 | `commands/` | one module per leaf verb, one sub-package per verb family. `commands/__init__.py` holds `ALL_COMMANDS`, the registration order |
-| `conventions.py` | the shared argparse grammar: `workspace_parser`, `confirm_parser`, `dry_run_parser`, `format_parser`, `verbosity_parser`, `profile_parser`, `add_destination`, `add_sim_ref`, `add_action_subparsers`, and `OLD_CLI_FORMS`, the forms that moved, among them the refused forms of the old developer verb, each with the `python -m tools.dev` command that replaces it |
-| `output.py` | what a program reads: `OUTPUTS` declares what each verb writes under `--format json` and `csv`, and `emit` is the only function that writes it |
-| `helpers.py` | the typed exit codes, `EXIT_CODE_OF` (the code of each `Category`), `exit_code_for(exc)`, `fail(exc)` and `refuse(message, code)`, which print the `HMPY.Exxx` of a failure, plus the helpers that several verbs share (verbosity, `resolve_workspace` / `resolve_project` / `project_root_of`, profiling, `add_override_arguments` for `--set` and `--overlay`, `toml_target` and `profile_output_of`). The lookups they build on, `find_workspace` and its two siblings, live in `core/workspace/resolve.py` because a library may not import `cli` |
+| `conventions.py` | the shared argparse grammar: `workspace_parser`, `confirm_parser`, `dry_run_parser`, `format_parser`, `verbosity_parser`, `profile_parser`, `add_destination`, `add_sim_ref`, `add_action_subparsers`, `add_override_arguments` for `--set` and `--overlay`, `apply_verbosity`, and `OLD_CLI_FORMS`, the forms that moved, among them the refused forms of the old developer verb, each with the `python -m tools.dev` command that replaces it |
+| `output.py` | what a program reads: `OUTPUTS` declares what each verb writes under `--format json` and `csv`, and `emit` is the only function that writes it. `print_table` prints rows for people with the columns `OUTPUTS` declares, so a listing names its columns once |
+| `exit_codes.py` | the typed exit codes, `EXIT_CODE_OF` (the code of each `Category`), `exit_code_for(exc)`, `fail(exc)`, `refuse(message, code)` and `confirm`, which print the `HMPY.Exxx` of a failure |
+| `refs.py` | what a verb is given: `resolve_workspace`, `resolve_project`, `project_root_of`, the base `-w` names, and `toml_target` |
+| `profiling.py` | `--profile` and `profile_output_of`, the run of a verb under the profiler |
 | `environment.py` | the three options `--credentials`, `--allow-host` and `--max-download-bytes`: `add_environment_arguments(parser)` registers them on the six commands, `environment_from_args(args)` builds the `Environment`, and `environment_flags_of(args)` serializes them onto the command line of a launched case |
 | `auth.py` | who acts? `AuthBackend` names the local user for the privacy certificate and the notes of `catalog note`, and allows every read and write |
 | `banner.py` | the banner `hmp run` prints |
@@ -40,7 +42,7 @@ from the same parsers.
 | `export` | write data of one run to files under `runs/<run>/exports/` (fields, series, layers, budget, or the whole run), and write again what its ledgers record (`--regen`) |
 | `publish` | copy a run, the summary or the project out of the tree (directory or tar), with `PUBLICATION.json`; `--package` writes the project with its data, which `hmp project import` installs |
 | `config` | `template`, `figures` (the figure names `[display].figures` accepts), `resolve`, `schema`, `targets`, `wizard` |
-| `completion` | a shell completion script |
+| `completion` | the completion script of argcomplete for bash, zsh or fish, which asks `hmp` for its commands each time |
 | `privacy` | `purge` a run for good (its name stays taken) with a certificate, and `verify` that certificate |
 | `run` | execute the workflow a TOML file or a JSON run request names in `[workflow].mode`, or the one its sections imply |
 | `replay` | play a sealed run or a published copy again, and class the values it computes |
@@ -103,9 +105,10 @@ The table is the only correspondence between the two.
 | command | verb | what the command adds |
 |---|---|---|
 | `run`, `calibrate`, `spinup`, `replay`, `stop`, `export`, `publish`, `doctor`, `check` | the same name | the options of the command line, the recap, the exit code |
-| `ls` | `status` | `--plan` and `--disk`; the filters of the index read `results.catalog` |
-| `show` | `show` | one selector per value of `what`: `--profile`, `--point`, `--rank`, `--figure`, `--report`, `--table` |
-| `diff` | `compare` | two runs print their deltas from the index; `--to`, `--by` or `--variables` write the folder |
+| `doctor` | `doctor` | the rows of the report are built by `project.doctor`; the command prints them |
+| `ls` | `status` | `--plan` and `--disk`; the filters of the index read `list_runs` of `results.catalog.listing` |
+| `show` | `show` | one selector per value of `what`: `--profile`, `--point`, `--rank`, `--figure`, `--report`, `--table`; `show_target` of `project.show` resolves the reference |
+| `diff` | `compare` | two runs print their deltas from the index; `--to`, `--by` or `--variables` write the folder named by `compare_folder` of `project.compare` |
 | `example list`, `show`, `add` | `example` | `add` installs, the other two read the catalog |
 | `catalog trash`, `catalog restore` | `trash` | `restore` brings an entry back, a bare `trash` lists |
 
@@ -122,10 +125,11 @@ A command that leaves the first level has a refusal in `OLD_CLI_FORMS` (2.1.0): 
   the command module calls it. Business logic never lives in `cli/`.
 - `hmp run` calls the verb `run` for a simulation and an overview, and `dispatch_workflow`
   of `hydromodpy/project/dispatch/workflow.py` for a calibration (`commands/run.py`).
-  `fill_trial_pipeline` stays in `main.py`, because `campaign`, `catalog rerun` and the
-  `[sites]` launcher read the pipeline without a verb.
+  `fill_trial_pipeline` is not called here. Each library entry that reads the pipeline fills it:
+  the calibration verbs, `route_calibration`, `promote_trial` (behind `campaign promote`) and
+  `rerun_config` (behind `catalog rerun`). A `[sites]` child is a `hmp run`.
 - `cli` is a leaf consumer. Only `hydromodpy/__main__.py` may import it, and
-  `tests/unit/architecture/test_cli_boundary.py` checks it.
+  `tests/unit/architecture/test_layers.py` checks it.
 
 ## What a program reads
 
@@ -148,7 +152,7 @@ existing file, a pinned run, a running case). It never skips a question.
 
 A failure prints one line on stderr that starts with its `HMPY.Exxx` code.
 An exception says its `Category` once, on its class (`core/exceptions.py`), and
-`EXIT_CODE_OF` in `helpers.py` gives the code of the category. `exit_code_for(exc)`
+`EXIT_CODE_OF` in `exit_codes.py` gives the code of the category. `exit_code_for(exc)`
 reads the category of a `HydroModPyError`, the code of the cause of a `StepError`,
 and maps a `FileNotFoundError` or a `FileExistsError` raised outside our classes to
 10 and 12. A new exception takes the code of its category and touches no table.
@@ -201,7 +205,7 @@ never skip.
 Docker holds the same program. `docker run <image> run /project/request.json --base /project` plays
 a request found in a mounted project folder.
 
-An exception that leaves the handler goes to `helpers.fail` in `main.py`, which
+An exception that leaves the handler goes to `exit_codes.fail` in `main.py`, which
 prints its code and its message on stderr and exits with the code of its class.
 
 ## Where to add what

@@ -1,4 +1,8 @@
-"""Marker, timeout and environment fixtures of the scenario tests."""
+"""Marker, timeout and environment fixtures of the scenario tests.
+
+The ``scenario`` marker is declared in ``pytest.ini``, so a test outside this
+folder can carry it too.
+"""
 
 from __future__ import annotations
 
@@ -10,10 +14,6 @@ from tests.scenarios.launcher import isolated_env
 
 HERE = Path(__file__).resolve().parent
 TIMEOUT_S = 900
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    config.addinivalue_line("markers", "scenario: a synthetic project played by the real pipeline")
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

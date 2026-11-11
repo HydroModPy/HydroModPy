@@ -39,7 +39,7 @@ import numpy as np
 from hydromodpy.catchment.algorithms.network_heads import HeadCandidates
 from hydromodpy.core.logging import get_logger
 from hydromodpy.mesh.planar.geometry import cell_polygons
-from hydromodpy.results.derive.stream.criterion_inputs import (
+from hydromodpy.results.derive.stream_network.criterion_inputs import (
     basin_reference,
     catchment_cells,
     declared_crs,

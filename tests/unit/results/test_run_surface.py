@@ -1,4 +1,4 @@
-"""Surface-area guard for :class:`hydromodpy.results.run.Run`.
+"""Surface-area guard for :class:`hydromodpy.results.run.view.Run`.
 
 CLAUDE.md caps any class at 50 public methods. ``Run`` accumulated 65+
 entries through mixins until P8 removed the per-cell mixin and the
@@ -8,7 +8,7 @@ regresses.
 
 from __future__ import annotations
 
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 
 # 2.1.0 adds read, table, figure and show, the reads behind hydromodpy.show, and no old name died.
 MAX_PUBLIC_METHODS = 54

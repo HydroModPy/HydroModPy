@@ -1,8 +1,10 @@
 """SimulationZarr: per-simulation Zarr v3 store (CF-1.11 + ACDD-1.3 + UGRID-1.0).
 
 The class holds the store, its root group and its write lock. Each write is
-defined once in :mod:`~hydromodpy.results.zarr_store.zarr_writer` and each read
-once in :mod:`~hydromodpy.results.zarr_store.zarr_reader`, as a function that
+defined once in :mod:`~hydromodpy.results.zarr_store.zarr_writer` (fields and
+forcing) or :mod:`~hydromodpy.results.zarr_store.geometry_writer` (mesh, time,
+CRS, descent, topography and the geographic raster), and each read once in
+:mod:`~hydromodpy.results.zarr_store.zarr_reader`, as a function that
 takes the store first. The class binds them as its methods, so a signature is
 written in one place. :mod:`~hydromodpy.results.zarr_store.zarr_schema` holds
 the layout and the schema version, and
@@ -21,7 +23,7 @@ from filelock import FileLock, Timeout
 from upath import UPath
 
 from hydromodpy.core.fields.precision import DEFAULT_FIELD_PRECISION, FieldPrecision
-from hydromodpy.results.zarr_store import zarr_reader, zarr_writer
+from hydromodpy.results.zarr_store import geometry_writer, zarr_reader, zarr_writer
 from hydromodpy.results.zarr_store.zarr_finalizer import (
     LOCK_TIMEOUT_SECONDS,
     consolidate_metadata,
@@ -120,14 +122,14 @@ class SimulationZarr:
         zarr_reader.get_drain_band_depth, zarr_reader.set_drain_band_depth
     )
 
-    # -- Writes, each defined once in zarr_writer ----------------------------
+    # -- Writes, each defined once in zarr_writer or geometry_writer ---------
 
-    write_mesh = zarr_writer.write_mesh
-    write_descent = zarr_writer.write_descent
-    write_criterion_cells = zarr_writer.write_criterion_cells
-    write_topography = zarr_writer.write_topography
-    write_time = zarr_writer.write_time
-    write_crs = zarr_writer.write_crs
+    write_mesh = geometry_writer.write_mesh
+    write_descent = geometry_writer.write_descent
+    write_criterion_cells = geometry_writer.write_criterion_cells
+    write_topography = geometry_writer.write_topography
+    write_time = geometry_writer.write_time
+    write_crs = geometry_writer.write_crs
     write_field = zarr_writer.write_field
     write_field_stack = zarr_writer.write_field_stack
     write_budget_policy = zarr_writer.write_budget_policy
@@ -136,7 +138,7 @@ class SimulationZarr:
     write_forcing_attrs = zarr_writer.write_forcing_attrs
     write_forcing_field = zarr_writer.write_forcing_field
     write_soil_columns = zarr_writer.write_soil_columns
-    write_geographic_raster = zarr_writer.write_geographic_raster
+    write_geographic_raster = geometry_writer.write_geographic_raster
     write_lake_abacus = zarr_writer.write_lake_abacus
     write_lake_restart_state = zarr_writer.write_lake_restart_state
     harmonize_axis_references = zarr_writer.harmonize_axis_references

@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.catchment.algorithms.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_VALIDATION, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.model.domain import worker
@@ -36,9 +36,11 @@ from hydromodpy.model.domain.capability import (
 )
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.worker import run
-from hydromodpy.schema.job import JobDirectory, read_document, verify_job
+from hydromodpy.schema.job.directory import JobDirectory
+from hydromodpy.schema.job.documents import read_document
 from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
 from hydromodpy.schema.job.request import content_address
+from hydromodpy.schema.job.seal import verify_job
 from tests._helpers.domain_cases import write_mask
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.process_spies import WRITE_SPIES
@@ -383,8 +385,8 @@ def test_a_sealed_directory_is_refused_rather_than_overwritten(tmp_path, request
 
 
 RUN_JOB = """\
-from hydromodpy.cli.helpers import exit_code_for
-from hydromodpy.schema.job import JobDirectory
+from hydromodpy.cli.exit_codes import exit_code_for
+from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.model.domain.worker import run
 """
 

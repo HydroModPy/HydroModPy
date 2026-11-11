@@ -18,13 +18,14 @@ from pyproj import Transformer
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.common.clients import explore2_files as explore2
-from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
-from hydromodpy.data.variables.etp.variable import EtpVariable
-from hydromodpy.data.variables.precipitation.config import (
+from hydromodpy.data.variables.forcing_series import (
+    EtpConfig,
+    EtpSourceConfig,
+    EtpVariable,
     PrecipitationConfig,
     PrecipitationSourceConfig,
+    PrecipitationVariable,
 )
-from hydromodpy.data.variables.precipitation.variable import PrecipitationVariable
 
 _NATIVE_X0 = 60000.0
 _NATIVE_Y0 = 1610000.0

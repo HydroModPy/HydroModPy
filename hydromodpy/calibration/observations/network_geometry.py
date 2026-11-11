@@ -32,7 +32,7 @@ from hydromodpy.mesh.planar.geometry import padded_rows
 from hydromodpy.model.forcing.recharge_rates import mean_recharge_m_s
 
 if TYPE_CHECKING:
-    from hydromodpy.calibration.config import CalibOutputNetwork
+    from hydromodpy.calibration.config_network import CalibOutputNetwork
     from hydromodpy.calibration.observations.network_source import ObservedNetwork
     from hydromodpy.calibration.observations.observed_network import ObservedNetworkMask
     from hydromodpy.solver.base.plan import RunContext

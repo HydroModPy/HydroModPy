@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, box
 
-from hydromodpy.calibration.config import validate_calib_output
+from hydromodpy.calibration.config_outputs import validate_calib_output
 from hydromodpy.calibration.observations.network_geometry import (
     heads_settings,
     network_maps_from_run,
@@ -27,8 +27,8 @@ from hydromodpy.catchment.drainage.graph import cell_centroids_from_mesh
 from hydromodpy.catchment.stream_network.cost import score_on_geometry
 from hydromodpy.catchment.stream_network.network import build_simulated_network
 from hydromodpy.mesh.planar.geometry import cell_polygons
-from hydromodpy.results.derive.stream.comparison import network_comparison_from_run
-from hydromodpy.results.derive.stream.criterion_inputs import mapped_cells
+from hydromodpy.results.derive.stream_network.comparison import network_comparison_from_run
+from hydromodpy.results.derive.stream_network.criterion_inputs import mapped_cells
 from hydromodpy.results.run.descent import (
     RunDescent,
     StoredBasin,

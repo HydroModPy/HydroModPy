@@ -18,8 +18,8 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import resolve_workspace
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import resolve_workspace
 
 NAME: str = "import"
 HELP: str = "Install a package written by 'hmp publish --package' as a project of the workspace"

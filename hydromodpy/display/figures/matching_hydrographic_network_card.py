@@ -432,7 +432,7 @@ def _panel_root(
     ax.set_ylim(0.0, 1.0)
     ax.set_yticks([])
     ax.set_xlabel(f"{first['name']} ({units})")
-    ax.set_title(f"Stage 1 - {label}" + (", two bounds" if two else ""))
+    ax.set_title(f"Stage 1 - {label.replace('_', ' ')}" + (", two bounds" if two else ""))
     ax.grid(True, which="both", axis="x", ls=":", lw=0.4)
     values = first["values"]
     ax.plot(
@@ -524,7 +524,7 @@ def _panel_storage(ax: Axes, stages: list[_Stage], parameter: str | None) -> Non
             following = as_mapping(declared[len(stages)]).get("name") or _STORAGE_STAGE
             _blank(
                 ax,
-                f"Stage 2 - {following}",
+                f"Stage 2 - {following.replace('_', ' ')}",
                 f"comes next: this run closes stage 1,\n{following} starts from it",
             )
         else:
@@ -544,7 +544,8 @@ def _panel_storage(ax: Axes, stages: list[_Stage], parameter: str | None) -> Non
         row = int(finite[np.argmin(cost[finite])]) if len(finite) else None
     cost_name = _cost_label(stage["descriptor"])
     ax.set_title(
-        f"Stage 2 - {stage['label']}" + (f" (2 of {len(stages)})" if len(stages) > 2 else "")
+        f"Stage 2 - {stage['label'].replace('_', ' ')}"
+        + (f" (2 of {len(stages)})" if len(stages) > 2 else "")
     )
     ax.set_xlabel(f"{name} ({_units(stage['descriptor'], name)})")
     ax.set_ylabel(f"cost, {cost_name} (-)")

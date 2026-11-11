@@ -18,7 +18,6 @@ from hydromodpy.solver.boussinesq.solver_contract import (
     build_runtime_options,
     resolve_flow_regime,
     resolve_solver_contract,
-    resolve_surface_interaction_model,
     runtime_backend_name,
     steady_initialization_runtime,
 )
@@ -130,15 +129,6 @@ def test_the_automatic_engine_takes_the_sparse_iteration_limit_above_the_dense_s
 
     assert build_runtime_options(options, n_cells=DENSE_ENGINE_MAX_CELLS).max_iterations == 20
     assert build_runtime_options(options, n_cells=DENSE_ENGINE_MAX_CELLS + 1).max_iterations == 60
-
-
-def test_the_surface_closure_resolves_on_the_engine_the_mesh_size_picks() -> None:
-    auto = BoussinesqOptions()
-
-    assert resolve_surface_interaction_model(auto, n_cells=10) == "regularized_partition"
-    assert resolve_surface_interaction_model(auto, n_cells=DENSE_ENGINE_MAX_CELLS + 1) == (
-        "regularized_partition"
-    )
 
 
 def test_the_solver_contract_joins_the_model_regime_and_the_options() -> None:

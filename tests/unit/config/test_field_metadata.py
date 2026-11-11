@@ -13,10 +13,9 @@ from pydantic import BaseModel
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.field_metadata import (
     field_metadata,
-    is_valid_field_metadata,
     unknown_metadata_keys,
 )
 from hydromodpy.mesh.mesh_config import MeshConfig
@@ -204,19 +203,6 @@ def test_the_docs_show_which_values_of_a_selector_are_marked(registry: dict, chi
     assert any("modflow6_prt" in chip for chip in chips(solvers, in_variant=True))
 
 
-def test_field_metadata_helper_accepts_canonical_keys() -> None:
-    payload = field_metadata(
-        widget_type="slider",
-        unit="m/s",
-        display_min=0.0,
-        display_max=1.0,
-        toml_exclude=False,
-        group="advanced",
-        stability="experimental",
-    )
-    assert is_valid_field_metadata(payload)
-
-
 def test_field_metadata_helper_rejects_typos() -> None:
     with pytest.raises(ValueError, match="Unknown field_metadata keys"):
         field_metadata(widgettype="input")
@@ -296,24 +282,28 @@ def test_no_field_description_names_a_dead_results_folder() -> None:
             ["calibration.optimizer_kwargs"],
         ),
         (
-            "calibration.config:CalibPhaseDecl",
+            "calibration.config_phases:CalibPhaseDecl",
             "method_options",
             ["calibration.phases.optimizer_kwargs"],
         ),
         (
-            "calibration.config:MatchingHydrographicNetworkOptions",
+            "calibration.config_network:MatchingHydrographicNetworkOptions",
             "steady_method_options",
             ["calibration.protocol.steady_engine_options"],
         ),
         (
-            "calibration.config:MatchingHydrographicNetworkOptions",
+            "calibration.config_network:MatchingHydrographicNetworkOptions",
             "transient_method_options",
             ["calibration.protocol.transient_engine_options"],
         ),
         ("calibration.config:CalibrationConfig", "window", ["calibration.scoring_window"]),
-        ("calibration.config:CalibPhaseDecl", "window", ["calibration.phases.scoring_window"]),
         (
-            "calibration.config:MatchingHydrographicNetworkOptions",
+            "calibration.config_phases:CalibPhaseDecl",
+            "window",
+            ["calibration.phases.scoring_window"],
+        ),
+        (
+            "calibration.config_network:MatchingHydrographicNetworkOptions",
             "window",
             ["calibration.protocol.scoring_window"],
         ),

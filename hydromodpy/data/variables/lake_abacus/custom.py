@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.data.contracts.table import TableRecord
-from hydromodpy.data.ingest import convert_abacus_to_parquet
+from hydromodpy.data.ingest.tables import convert_abacus_to_parquet
 from hydromodpy.data.provenance.derived import derived_path
 
 

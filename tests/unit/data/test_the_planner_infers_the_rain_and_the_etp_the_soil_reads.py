@@ -15,16 +15,16 @@ time a validated config reaches the planner the two are never seen apart.
 
 from __future__ import annotations
 
-from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.loading.planner import DataPlanner
 
 
-def _empty_config() -> DataManagersConfig:
-    return DataManagersConfig.model_validate({"types": []})
+def _empty_config() -> DataConfig:
+    return DataConfig.model_validate({"types": []})
 
 
-def _config_with_capacity_map() -> DataManagersConfig:
-    return DataManagersConfig.model_validate(
+def _config_with_capacity_map() -> DataConfig:
+    return DataConfig.model_validate(
         {
             "types": [],
             "soil_capacity": {"sources": [{"source": "file", "path": "ru.tif"}]},
@@ -54,7 +54,7 @@ def test_no_soil_reservoir_infers_neither() -> None:
 
 
 def test_a_type_already_declared_is_not_re_inferred() -> None:
-    cfg = DataManagersConfig.model_validate({"types": ["precipitation"]})
+    cfg = DataConfig.model_validate({"types": ["precipitation"]})
 
     plan = DataPlanner().build(cfg, flow_soil_reservoir=True)
 

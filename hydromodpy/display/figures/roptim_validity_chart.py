@@ -41,7 +41,7 @@ from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 _WITHIN_COLOR = HIGH_CONTRAST_TRIPLET[0]
 _DISTANCE_COLOR = HIGH_CONTRAST_TRIPLET[1]

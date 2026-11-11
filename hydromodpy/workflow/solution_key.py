@@ -67,7 +67,7 @@ def input_digests(cfg: HydroModPyConfig, resolved: Any) -> dict[str, list[str | 
     ``missing`` and an unreadable one gets a random salt, so the run matches no
     other run.
     """
-    from hydromodpy.core.tracking import collect_input_files
+    from hydromodpy.core.tracking.walker import collect_input_files
 
     found: dict[str, list[str | None]] = {}
     if resolved.dem is not None:

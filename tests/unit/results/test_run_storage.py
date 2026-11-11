@@ -49,7 +49,7 @@ from hydromodpy.core.io.document_version import (
     VersionWindow,
     parse_version,
 )
-from hydromodpy.core.payload import (
+from hydromodpy.core.payload.index import (
     INSTALL_FILENAME,
     INSTALL_SCHEMA,
     InstallIndex,
@@ -81,12 +81,13 @@ from hydromodpy.results.annotations import (
     read_annotations,
     remove_tag,
 )
-from hydromodpy.results.catalog import Catalog, rebuild_index
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.index_schema import (
     INDEX_META_TABLE,
     INDEX_SCHEMA_VERSION,
     META_SCHEMA_VERSION,
 )
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.liveness import (
     ABANDONED_SESSION_MINUTES,
     abandoned_calibration_session_count,
@@ -146,8 +147,8 @@ from hydromodpy.results.record.record import (
     read_provenance,
 )
 from hydromodpy.results.retention import RetentionPolicy, mark_aborted, plan_gc
-from hydromodpy.results.run import Run
 from hydromodpy.results.run.sfr import sfr_reach_links
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.session.descriptor import (
     SESSION_SCHEMA,
     SessionDescriptor,
@@ -183,13 +184,13 @@ from hydromodpy.results.storage.run_facts import (
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed, sealed_solution_key
 from hydromodpy.results.trash import identity_of, is_protected
-from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from hydromodpy.results.zarr_store.mesh_layout import (
     cell_family_rows,
     face_family_rows,
     mesh_layout_from_cell_mesh,
 )
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.results.zarr_store.zarr_writer import QUANTIZATION_VARIABLE
 from hydromodpy.schema.job.documents import read_versioned
 from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS
@@ -1810,7 +1811,7 @@ def test_resume_of_an_unreadable_session_refuses_naming_its_version(tree: Tree) 
 
 
 def test_the_refusal_maps_to_the_schema_mismatch_exit_code() -> None:
-    from hydromodpy.cli.helpers import EXIT_SCHEMA_MISMATCH, exit_code_for
+    from hydromodpy.cli.exit_codes import EXIT_SCHEMA_MISMATCH, exit_code_for
 
     assert exit_code_for(SchemaVersionMismatchError("x")) == EXIT_SCHEMA_MISMATCH
 

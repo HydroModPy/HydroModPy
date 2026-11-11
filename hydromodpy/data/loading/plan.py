@@ -1,4 +1,4 @@
-"""Immutable runtime objects for resolved data-manager activation.
+"""Immutable runtime objects for resolved data variable activation.
 
 The planner emits one ``DataLoadPlan`` per launcher run. The plan is consumed
 by orchestration code for transparency/debugging.
@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class DataLoadPlan:
-    """Resolved data-manager activation plan.
+    """Resolved data variable activation plan.
 
     ``explicit_types`` come from ``[data].types``.
     ``inferred_types`` are appended by planner rules.
@@ -27,7 +27,7 @@ class DataLoadPlan:
 
     @property
     def types(self) -> tuple[str, ...]:
-        """Return the ordered union of explicit and inferred manager types."""
+        """Return the ordered union of explicit and inferred data variables."""
         merged: list[str] = []
         seen: set[str] = set()
         # Keep deterministic order: explicit declarations first, then inferred.

@@ -1,4 +1,4 @@
-# Hydrometry Data Manager
+# Hydrometry data variable
 
 `hydromodpy.data.variables.hydrometry` loads river discharge or stage time
 series from custom CSV files or from the Hub'Eau API.

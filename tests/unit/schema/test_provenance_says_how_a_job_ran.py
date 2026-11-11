@@ -12,8 +12,8 @@ import json
 
 import pytest
 
-from hydromodpy.schema.job import JobDirectory
 from hydromodpy.schema.job import provenance as provenance_module
+from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.provenance import (
     PROVENANCE_SCHEMA,
     build_provenance,

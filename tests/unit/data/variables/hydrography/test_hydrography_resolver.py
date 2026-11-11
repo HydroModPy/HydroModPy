@@ -213,7 +213,7 @@ path = "{declared}"
 )
 def test_the_map_is_the_same_file_from_any_working_directory(tmp_path, monkeypatch, declared):
     """The path is anchored once at load, so the cwd never picks another file."""
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     project = tmp_path / "project"
     (project / "data" / "hydrography").mkdir(parents=True)

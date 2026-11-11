@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.core.time import (
+from hydromodpy.core.time.window import (
     ResolvedSteadySimulationTimeGrid,
     require_flow_simulation_time_grid,
     resolve_simulation_time_grid,
@@ -273,7 +273,7 @@ def test_a_steady_run_is_one_period_over_its_window_whatever_the_step() -> None:
 
 
 def test_the_forcing_of_a_steady_run_is_aggregated_over_the_whole_window() -> None:
-    from hydromodpy.core.time import build_simulation_time_boundaries
+    from hydromodpy.core.time.window import build_simulation_time_boundaries
 
     window = resolve_simulation_time_window(_steady_cfg())
 

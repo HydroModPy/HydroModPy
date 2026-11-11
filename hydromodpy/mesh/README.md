@@ -202,7 +202,7 @@ module that calls them, for example `engines/voronoi/constraints/rivers.py` in
 `tests/_helpers/mesh_cases.py`, and the name of a test function says the behavior it checks.
 
 Three more checks guard the meshes. The engine contract
-(`tests/contract/test_mesh_engine_contract.py`) holds what every engine must do. The mesh
+(`tests/ports/test_mesh.py`) holds what every engine must do. The mesh
 regression (`tests/regression/mesh/`) compares the meshes of fixed cases to committed
 references, so any change there must be wanted. The CI job `mesh-coverage` in
 `.github/workflows/main-ci.yml` fails when the branch coverage of this package drops below a
@@ -213,7 +213,7 @@ pytest tests/unit/mesh -q
 ```
 
 ```bash
-pytest tests/contract/test_mesh_engine_contract.py tests/regression/mesh -q
+pytest tests/ports/test_mesh.py tests/regression/mesh -q
 ```
 
 ```bash

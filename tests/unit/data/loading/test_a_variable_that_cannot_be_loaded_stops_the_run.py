@@ -14,19 +14,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.cli.helpers import (
-    EXIT_CONFIG,
-    EXIT_NOT_FOUND,
-    EXIT_VALIDATION,
-    exit_code_for,
-)
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_VALIDATION, exit_code_for
 from hydromodpy.core.exceptions import (
     ConfigMissingError,
     DataError,
     DataSourceError,
     StepError,
 )
-from hydromodpy.data.loading.config_schema import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.loading.loader import DataLoader
 from hydromodpy.data.loading.plan import DataLoadPlan
 
@@ -118,12 +113,12 @@ def test_a_declared_type_without_its_section_is_a_missing_config(tmp_path):
 @pytest.mark.fast
 def test_config_check_refuses_a_listed_type_without_its_section(tmp_path):
     with pytest.raises(ValueError, match=r"lists 'hydrometry'.*no \[data.hydrometry\]"):
-        DataManagersConfig.from_toml_section({"types": ["hydrometry"]}, base_dir=tmp_path)
+        DataConfig.from_toml_section({"types": ["hydrometry"]}, base_dir=tmp_path)
 
 
 @pytest.mark.fast
 def test_geology_listed_alone_still_takes_its_default_section(tmp_path):
-    config = DataManagersConfig.from_toml_section({"types": ["geology"]}, base_dir=tmp_path)
+    config = DataConfig.from_toml_section({"types": ["geology"]}, base_dir=tmp_path)
 
     assert config.geology is not None
 

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.data.contracts.completeness import check_required_columns, compute_completeness
+from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
@@ -255,17 +255,6 @@ class TestComputeCompleteness:
     def test_no_dates_returns_empty(self):
         result = compute_completeness(pd.DataFrame(), station_id="S1")
         assert result["expected_days"] == 0
-
-
-class TestCheckRequiredColumns:
-    def test_ok(self):
-        df = pd.DataFrame({"datetime": [1], "value": [2]})
-        check_required_columns(df, ("datetime", "value"))
-
-    def test_missing(self):
-        df = pd.DataFrame({"datetime": [1]})
-        with pytest.raises(ValueError, match="Missing required columns"):
-            check_required_columns(df, ("datetime", "value"))
 
 
 @pytest.mark.fast

@@ -70,6 +70,7 @@ from hydromodpy.results.storage.contract import (
     TABLES_DIRNAME,
     geographic_feature_files,
 )
+from hydromodpy.results.storage.declared import refuse_unknown_series
 from hydromodpy.results.storage.digests import path_size_bytes, sha256_directory
 from hydromodpy.results.storage.geo_metadata import (
     geographic_feature_description,
@@ -93,7 +94,7 @@ from hydromodpy.results.storage.run_facts import (
     write_facts,
 )
 from hydromodpy.results.storage.udunits import udunits_spelling
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -119,6 +120,23 @@ def _column_units(units: Any) -> Any:
     values = np.asarray(units, dtype=object).tolist()
     spelled = {unit: udunits_spelling(unit) for unit in set(values)}
     return np.array([spelled[unit] for unit in values], dtype=object)
+
+
+def _simulated_variables(columns: Mapping[str, Any]) -> set[str]:
+    """Return the variables of the simulated rows of a columnar series payload.
+
+    ``variable`` and ``source`` are each one value for every row or one value
+    per row. A payload without ``source`` is simulated.
+    """
+    variables = np.atleast_1d(np.asarray(columns.get("variable", ()), dtype=object))
+    sources = np.atleast_1d(np.asarray(columns.get("source", SIMULATED), dtype=object))
+    if sources.size == 1:
+        return {str(name) for name in variables} if sources[0] == SIMULATED else set()
+    if variables.size == 1:
+        variables = np.repeat(variables, sources.size)
+    return {
+        str(name) for name, source in zip(variables, sources, strict=True) if source == SIMULATED
+    }
 
 
 class RunStore:
@@ -508,11 +526,14 @@ class RunStore:
         """Append one station and variable series to ``timeseries.parquet``.
 
         A measurement cannot carry the word of the whole catchment: it would be
-        scored against the simulated outlet.
+        scored against the simulated outlet. A simulated series needs a
+        descriptor (:func:`~hydromodpy.results.storage.declared.refuse_unknown_series`).
         """
         refusal = station_name_refusal(station_id) if source == OBSERVED else None
         if refusal is not None:
             raise DataContractViolation(f"Observed {variable}: {refusal}")
+        if source == SIMULATED:
+            refuse_unknown_series((variable,))
         if not self._persistence.save_parquet or ts is None or len(ts) == 0:
             return
         sid = self._check_sim(sim_id)
@@ -539,8 +560,18 @@ class RunStore:
     def write_timeseries_batch(
         self, sim_id: str | UUID, records: Sequence[Mapping[str, Any]]
     ) -> None:
-        """Write a batch of timeseries records in one merge."""
-        if not self._persistence.save_parquet or not records:
+        """Write a batch of timeseries records in one merge.
+
+        A simulated record needs a descriptor for its variable.
+        """
+        if not records:
+            return
+        refuse_unknown_series(
+            str(record["variable"])
+            for record in records
+            if record.get("source", SIMULATED) == SIMULATED
+        )
+        if not self._persistence.save_parquet:
             return
         sid = self._check_sim(sim_id)
         rows = []
@@ -560,7 +591,10 @@ class RunStore:
 
     def write_timeseries_columns(self, sim_id: str | UUID, columns: Mapping[str, Any]) -> None:
         """Columnar sibling of :meth:`write_timeseries_batch`."""
-        if not self._persistence.save_parquet or not columns:
+        if not columns:
+            return
+        refuse_unknown_series(_simulated_variables(columns))
+        if not self._persistence.save_parquet:
             return
         sid = self._check_sim(sim_id)
         table = table_from_columns(
@@ -1046,9 +1080,9 @@ class RunStore:
     ) -> pd.Series:
         """Read one series of the run at one station, indexed by naive UTC time.
 
-        ``period`` is read as :meth:`hydromodpy.results.run.Run.timeseries` reads it.
+        ``period`` is read as :meth:`hydromodpy.results.run.view.Run.timeseries` reads it.
         """
-        from hydromodpy.results.run import Run
+        from hydromodpy.results.run.view import Run
 
         self._check_sim(sim_id)
         run = Run(self.sim_id, self)  # type: ignore[arg-type]

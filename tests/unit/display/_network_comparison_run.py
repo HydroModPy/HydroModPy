@@ -30,7 +30,7 @@ import numpy as np
 from hydromodpy.catchment.drainage.descent import build_descent
 from hydromodpy.catchment.drainage.graph import active_surface_mask, cell_centroids_from_mesh
 from hydromodpy.mesh.planar.geometry import cell_polygons
-from hydromodpy.results.derive.stream.criterion_inputs import catchment_cells
+from hydromodpy.results.derive.stream_network.criterion_inputs import catchment_cells
 from hydromodpy.results.run.contracts import MeshDescent
 from hydromodpy.results.run.descent import RunDescent
 

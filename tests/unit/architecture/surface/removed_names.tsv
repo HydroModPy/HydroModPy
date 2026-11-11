@@ -87,6 +87,7 @@ hmp catalog show --workspace	2.1.0
 hmp catalog show -q	2.1.0
 hmp catalog show -v	2.1.0
 hmp catalog show -w	2.1.0
+hmp completion --argcomplete	2.1.0
 hmp config check	2.1.0
 hmp config check --debug	2.1.0
 hmp config check --format	2.1.0

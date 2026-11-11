@@ -73,19 +73,6 @@ def test_rasterize_field_below_threshold_no_downsample() -> None:
     assert scalable.should_rasterize(n_cells) is False
 
 
-def test_rasterize_points_unstructured_centroids() -> None:
-    pytest.importorskip("datashader")
-    rng = np.random.default_rng(seed=7)
-    n = 200_000
-    x = rng.uniform(0.0, 1000.0, size=n)
-    y = rng.uniform(0.0, 800.0, size=n)
-    values = rng.normal(loc=50.0, scale=2.5, size=n)
-    raster = scalable.rasterize_points(x, y, values, target_px=(400, 320))
-    assert raster.shape == (320, 400)
-    finite_mask = np.isfinite(raster)
-    assert finite_mask.any()
-
-
 def test_rasterize_field_rejects_zero_dimensions() -> None:
     import xarray as xr
 

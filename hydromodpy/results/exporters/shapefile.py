@@ -9,7 +9,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.exporters.fields import native_crs, one_layer, read_field_step
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 if TYPE_CHECKING:
     import geopandas as gpd

@@ -18,7 +18,6 @@ from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figure import (
     NOT_A_RUNSET_REASON,
     BaseFigure,
-    Figure,
     FigureSpec,
     options_of,
 )
@@ -73,10 +72,9 @@ def test_list_figures_returns_specs():
         assert spec.name == spec.name.lower()
 
 
-def test_get_returns_protocol_compatible_instance():
+def test_get_returns_a_base_figure():
     fig = get("piezometric_map")
     assert isinstance(fig, BaseFigure)
-    assert isinstance(fig, Figure)
     assert fig.spec.name == "piezometric_map"
 
 

@@ -12,7 +12,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units import factor_to_m_per_s
+from hydromodpy.core.units.quantities import factor_to_m_per_s
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.forcing.steady_periods import normalize_first_clim
 from hydromodpy.model.forcing.types import InterpolationMethod, SpatialMode

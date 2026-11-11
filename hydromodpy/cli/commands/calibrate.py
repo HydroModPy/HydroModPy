@@ -17,29 +17,27 @@ from pydantic import ValidationError
 
 from hydromodpy.calibration.runners.recap import result_lines, staged_result_lines
 from hydromodpy.cli.conventions import (
+    add_override_arguments,
+    apply_verbosity,
+    changes_of_args,
     format_parser,
     profile_parser,
     verbosity_parser,
+    with_changes,
     workspace_parser,
 )
 from hydromodpy.cli.environment import add_environment_arguments, environment_from_args
-from hydromodpy.cli.helpers import (
+from hydromodpy.cli.exit_codes import (
     EXIT_CALIBRATION,
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_USAGE,
-    add_override_arguments,
-    apply_verbosity,
-    base_named_by_w,
-    changes_of_args,
     exit_if_session_unfinished,
-    profile_output_of,
-    profile_run,
     refuse,
-    toml_target,
-    with_changes,
 )
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.profiling import profile_output_of, profile_run
+from hydromodpy.cli.refs import base_named_by_w, toml_target
 from hydromodpy.core.exceptions import CalibrationError, ConfigError
 
 NAME: str = "calibrate"
@@ -172,7 +170,7 @@ def _print_expanded(expanded: Mapping[str, Any], shown_as: str) -> None:
     print(buffer.getvalue().decode(), end="")
 
 
-def _phase_line(index: int, phase: dict[str, Any]) -> str:
+def phase_line(index: int, phase: dict[str, Any]) -> str:
     """Return the ``--list-phases`` line of one phase.
 
     A method the phase does not name was chosen from its criteria, and the
@@ -223,13 +221,13 @@ def _print_single_search(target: Path, calibration: Any = None) -> None:
     its index and name. *calibration* is the section of a document changed on its
     way in, read from the file when it is not given.
     """
-    from hydromodpy.calibration.preflight import comparison_line
+    from hydromodpy.calibration.preflight_report import comparison_line
     from hydromodpy.calibration.runners.document import (
         declared_window_text,
         load_toml_calibration,
         resolve_stream_geometry_paths,
     )
-    from hydromodpy.calibration.runners.staged_runner import objective_comparison_table
+    from hydromodpy.calibration.runners.staged_report import objective_comparison_table
 
     if calibration is None:
         calibration, _raw = load_toml_calibration(target)
@@ -383,38 +381,6 @@ def _held_in_memory(
         refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
 
 
-def _plan_of(source: Any, target: Path, *, base: Path | None, case: str | None) -> dict[str, Any]:
-    """Return what the calibration of ``source`` would do, named ``case`` when it is given.
-
-    A file gives it as it is written. A calibration held in memory is planned on
-    its own section, anchored to the file the user named, and the session of a
-    case the user named is the next version of that case.
-    """
-    from hydromodpy.project.api import calibrate
-
-    if isinstance(source, Path):
-        named = {} if base is None else {"workspace": base}
-        return calibrate(source, dry_run=True, **named).to_dict()["plan"]
-    from hydromodpy.calibration.preflight import preflight_launch
-    from hydromodpy.calibration.runners.document import describe_dry_run
-    from hydromodpy.core.state.result_dirs import run_dir_rel, session_dir_rel
-    from hydromodpy.results.catalog.registration import next_version_dirname
-
-    held = source if hasattr(source, "model_copy") else None
-    preflight_launch(target, config=held, calibration=source.calibration)
-    plan = describe_dry_run(source.calibration, target, workspace=base)
-    if case is None or case == plan["case"]:
-        return plan
-    dirname = next_version_dirname(Path(plan["project_root"]), case)
-    return {
-        **plan,
-        "case": case,
-        "session_dir": session_dir_rel(dirname),
-        "run_dir": run_dir_rel(dirname),
-        "version": dirname,
-    }
-
-
 def _calibrate(
     args: argparse.Namespace,
     target: Path,
@@ -429,6 +395,7 @@ def _calibrate(
     ``target`` is the file the user named: messages say its name.
     """
     from hydromodpy.project.api import calibrate
+    from hydromodpy.project.calibrate import calibration_plan
 
     expand = getattr(args, "expand", False)
     resume = getattr(args, "resume", False)
@@ -463,7 +430,16 @@ def _calibrate(
     profile_output = profile_output_of(args, raw_toml, target)
     try:
         if dry_run:
-            plan = _plan_of(source, target, base=base, case=case)
+            # A file is planned as it is written. A calibration held in memory is planned
+            # on its own section, anchored to the file the user named, under the case given.
+            from_file = isinstance(source, Path)
+            plan = calibration_plan(
+                source,
+                workspace=base,
+                check=from_file,
+                source=None if from_file else target,
+                case=None if from_file else case,
+            ).plan
             declared = [item["name"] for item in plan["phases"]]
             if args.phase is not None and args.phase not in declared:
                 raise CalibrationError(
@@ -501,14 +477,14 @@ def _calibrate(
 
 def _print_phases(phases: list[dict[str, Any]], target: Path, source: Any) -> None:
     """Print the ``--list-phases`` page: one line per phase, what it compares and scores on."""
-    from hydromodpy.calibration.preflight import comparison_line
+    from hydromodpy.calibration.preflight_report import comparison_line
 
     if not phases:
         print(f"{target.name} declares no phases; it runs one search.", file=sys.stderr)
         _print_single_search(target, None if isinstance(source, Path) else source.calibration)
         return
     for index, phase in enumerate(phases):
-        print(_phase_line(index, phase))
+        print(phase_line(index, phase))
         for row in phase.get("comparisons", []):
             print(f"    {comparison_line(row)}")
         if phase.get("window"):

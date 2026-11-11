@@ -4,8 +4,8 @@
 no network and cannot promise what the installed version does not know about.
 One entry per example; every file it needs is listed with its size and its
 sha256, which is also the key it is cached under. A file is a
-:class:`~hydromodpy.core.payload.PayloadFile` and a station row a
-:class:`~hydromodpy.core.payload.PayloadStation`: the format of the install
+:class:`~hydromodpy.core.payload.index.PayloadFile` and a station row a
+:class:`~hydromodpy.core.payload.index.PayloadStation`: the format of the install
 index a published run or an exported project carries, plus the
 ``repo_path`` the file is fetched from.
 
@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.payload import PayloadFile, PayloadStation
+from hydromodpy.core.payload.index import PayloadFile, PayloadStation
 
 CATALOG_FILENAME = "catalog.toml"
 SCHEMA_VERSION = 1

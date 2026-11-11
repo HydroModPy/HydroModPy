@@ -18,10 +18,10 @@ import pytest
 from shapely.geometry import Polygon
 
 import hydromodpy as hmp
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.run_stores import open_run_store

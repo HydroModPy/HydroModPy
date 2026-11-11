@@ -28,7 +28,11 @@ from hydromodpy.solver.boussinesq.export_payload import (
     first_period_snapshot,
 )
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
-from hydromodpy.solver.boussinesq.runtimes.local import solve_backward_euler_step
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    NonlinearRuntimeOptions,
+    TransientStepInputs,
+)
+from hydromodpy.solver.boussinesq.runtimes.local import solve_transient_step
 from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
 
 RECHARGE_M_S = 5.0e-3 / 86400.0
@@ -135,15 +139,19 @@ def _run_strip(
         saturated_thickness_m=head - mesh.z_bottom_m,
     )
     for rate in rates:
-        step = solve_backward_euler_step(
-            mesh,
-            head_prev_m=head,
-            dt_seconds=DAY_S,
-            recharge_rate_m_s=rate,
-            well_flux_m3_s=wells,
-            prescribed_head_m_by_cell=prescribed,
-            drainage_conductance_m2_s=drainage_m2_s,
-            tol_residual_inf=1.0e-13,
+        step = solve_transient_step(
+            TransientStepInputs(
+                mesh=mesh,
+                head_prev_m=head,
+                dt_seconds=DAY_S,
+                recharge_rate_m_s=rate,
+                well_flux_m3_s=wells,
+                prescribed_head_m_by_cell=prescribed,
+                drainage_conductance_m2_s=drainage_m2_s,
+                options=NonlinearRuntimeOptions(
+                    regularization_radius=0.05, max_iterations=20, tol_residual_inf=1.0e-13
+                ),
+            )
         )
         assert step.converged
         head = np.asarray(step.head_m, dtype=float)

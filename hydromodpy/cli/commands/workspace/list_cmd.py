@@ -11,21 +11,11 @@ import argparse
 from pathlib import Path
 
 from hydromodpy.cli.conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, refuse
-from hydromodpy.cli.output import emit
+from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, refuse
+from hydromodpy.cli.output import emit, output_of
 
 NAME: str = "list"
 HELP: str = "List the sealed runs of every project under a workspace, from their directories"
-
-_COLUMNS: tuple[str, ...] = (
-    "project",
-    "name",
-    "site",
-    "solver",
-    "nse",
-    "created_at",
-    "sim_id",
-)
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -57,7 +47,7 @@ def run(args: argparse.Namespace) -> None:
     if not root.is_dir():
         refuse(f"Not a directory: {root}", EXIT_NOT_FOUND)
     df = list_workspace_runs(root)
-    columns = [column for column in _COLUMNS if column in df.columns]
+    columns = [column for column in output_of("workspace list").fields if column in df.columns]
 
     def table() -> None:
         if df.empty:

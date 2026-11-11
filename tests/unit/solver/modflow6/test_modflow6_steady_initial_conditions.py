@@ -9,13 +9,13 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.runtime.interrupts import StopRequested
-from hydromodpy.core.time import (
+from hydromodpy.core.time.steady_initialization import (
+    single_period_mean_forcing_time_grid,
+)
+from hydromodpy.core.time.window import (
     ResolvedSimulationTimeWindow,
     build_simulation_time_boundaries,
     validate_recharge_coverage,
-)
-from hydromodpy.core.time.steady_initialization import (
-    single_period_mean_forcing_time_grid,
 )
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.forcing.cells import stress_period_bounds
@@ -43,7 +43,7 @@ from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     _read_final_percent_discrepancy,
     _steady_initialization_balance_is_acceptable,
 )
-from hydromodpy.solver.modflow_common import ModflowPreprocessOptions
+from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from tests._helpers.model_factory import make_model
 
 

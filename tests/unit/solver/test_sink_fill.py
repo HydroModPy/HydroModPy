@@ -19,7 +19,7 @@ from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
 )
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import build_preprocess_options
+from hydromodpy.solver.modflow_common.flow_run import build_preprocess_options
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from hydromodpy.solver.modflow_common.sink_mask import closed_depression_mask, resolve_sink_mask
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh

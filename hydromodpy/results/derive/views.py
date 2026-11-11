@@ -50,8 +50,8 @@ if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
     from hydromodpy.core.io.crs import CrsLike
-    from hydromodpy.results.run import Run
     from hydromodpy.results.run.contracts import Mesh
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 
@@ -86,8 +86,6 @@ __all__ = [
     "cell_field_active_metrics",
     "cell_field_network_overlap_metrics",
     "cell_field_network_distance_metrics",
-    "release_flux_network_overlap_metrics",
-    "release_flux_network_distance_metrics",
     "budget_over",
     "catchment_mean",
     "catchment_weights",
@@ -857,59 +855,6 @@ def cell_field_network_distance_metrics(
         "planar_distance_ratio": distance_ratio,
         "planar_distance_log10_ratio": distance_log10_ratio,
     }
-
-
-def release_flux_network_overlap_metrics(
-    sim: Run,
-    *,
-    network_role: str = "reference",
-    variable: str = "release_flux",
-    threshold: float = 0.0,
-    mode: CellFieldActiveMode | None = None,
-    persistence_threshold: float = 0.5,
-    timestep: int | None = None,
-    buffer_m: float = 0.0,
-) -> dict[str, float | int | str]:
-    """Compare direct groundwater-release cells with a vector network role."""
-    return cell_field_network_overlap_metrics(
-        sim,
-        network_role=network_role,
-        variable=variable,
-        threshold=threshold,
-        mode=mode,
-        persistence_threshold=persistence_threshold,
-        timestep=timestep,
-        buffer_m=buffer_m,
-    )
-
-
-def release_flux_network_distance_metrics(
-    sim: Run,
-    *,
-    network_role: str = "reference",
-    variable: str = "release_flux",
-    threshold: float = 0.0,
-    mode: CellFieldActiveMode | None = None,
-    persistence_threshold: float = 0.5,
-    timestep: int | None = None,
-) -> dict[str, float | int | str | None]:
-    """Return raw planar distances between release cells and a vector network.
-
-    Unlike the overlap metric, this diagnostic intentionally has no network
-    buffer parameter: distances remain continuous geometric distances to the
-    observed linework and to the calculated active-cell polygons.
-    """
-    return cell_field_network_distance_metrics(
-        sim,
-        network_role=network_role,
-        variable=variable,
-        threshold=threshold,
-        mode=mode,
-        persistence_threshold=persistence_threshold,
-        timestep=timestep,
-        network_buffer_m=0.0,
-        distance_method="raw_planar_cell_centroid_to_network",
-    )
 
 
 def catchment_mean(

@@ -1,0 +1,133 @@
+export = []
+
+[workflow]
+mode = "simulation"
+
+[site]
+name = "island"
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "island"
+
+[geographic.synthetic.grid]
+length_x = 610.0
+length_y = 610.0
+nx = 31
+ny = 31
+
+[geographic.synthetic.topography]
+kind = "radial_island"
+base_elevation = -1.0
+island_radius = 200.0
+crest_elevation = 12.0
+
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = -5.0
+
+[domain.layers]
+nlay = 1
+
+[data]
+types = [
+    "oceanic",
+]
+
+[data.oceanic]
+sources = [
+    { source = "constant", value = 0.0 },
+]
+
+[flow]
+flow_regime = "transient"
+first_period_steady = true
+param_list = [
+    "K",
+    "Sy",
+    "Ss",
+]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-06
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.1
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-05
+
+[flow.bc.ocean]
+id = "ocean"
+value = 0.0
+description = "Dirichlet boundary condition 'ocean' on top"
+units = "m"
+kind = "dirichlet"
+data_value = false
+application_domain = "top"
+
+[flow.bc.drainage]
+id = "drainage"
+value = 0.0
+description = "Drain boundary condition on top"
+units = "m2/s"
+kind = "drain"
+data_value = false
+application_domain = "top"
+
+[flow.ic]
+
+[flow.sinks_sources.recharge]
+values = [
+    1.0,
+    4.0,
+    2.0,
+]
+
+[transport]
+
+[simulation]
+name = "tri"
+
+[simulation.time]
+start_datetime = 2003-01-01 00:00:00
+end_datetime = 2003-03-31 00:00:00
+step_value = 1
+step_unit = "month"
+coverage_policy = "ignore"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = [
+    "modflow6",
+]
+
+[simulation.results]
+keep_solver_files = false
+
+[simulation.results.persistence]
+field_precision = "exact"
+
+[solver.modflow6.runtime]
+mf6_enable_xt3d = false
+
+[display]
+enabled = false
+
+[observation]
+
+[mesh]
+engine = "triangle"
+cell_size = 30.0

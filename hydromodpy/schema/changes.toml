@@ -10,7 +10,7 @@
 # hydromodpy/schema/changes.py reads this file once, at import, and refuses a
 # faulty row. The label of a run reads its bugs, the migration of a configuration
 # reads the rows of document = "config", and
-# tests/unit/architecture/test_changes_register.py holds the rest. The Numbers
+# tests/unit/architecture/test_surfaces.py holds the rest. The Numbers
 # section of CHANGELOG.md is generated from the bugs, the defaults and the recipes
 # whose effect is "numbers" (python -m tools.changes_changelog --write). Every row
 # is listed on the generated page docs/source/reference/changes-register.md.
@@ -567,6 +567,13 @@ sealed = "drop"
 rule = "job_artifact_role"
 since = "2.1.0"
 
+# The initial stage of a lake had another name in a pre-release of 2.0. The refusal names the key that replaces it.
+[[migration]]
+document = "config"
+old = "flow.sinks_sources.lakes.{*}.stageinit"
+instead = "stageinit was renamed initial_stage. Write initial_stage = \"<stage> m\" under [flow.sinks_sources.lakes.<name>], the stage of the lake at the start of the run."
+since = "2.0.0"
+
 [[recipe]]
 id = "seal_v4_one_model"
 since = "2.1.0"
@@ -816,3 +823,17 @@ since = "2.1.0"
 effect = "layout"
 quantities = []
 text = "A run played inside the HydroModPy image writes the image tag and digest under environment.image of provenance.json. The tag comes from the image, the digest from HMP_IMAGE_DIGEST, which the server requires when it starts. A run that finds a malformed digest keeps going and seals it under environment.image.digest_refused. A run outside an image writes the same provenance.json as before, and a replay in another image names the digest change in its lineage."
+
+[[recipe]]
+id = "undeclared_writes_refused"
+since = "2.1.0"
+effect = "refusal"
+quantities = []
+text = "A run refuses with DataContractViolation a field or a table that its backend adds to the store outside its writes, checked after the extract step, and a simulated series whose name neither the series registry nor the field registry describes, at write time. A LAK output sidecar that names a quantity no lake series holds, as storage before the rename, is refused at extract. A run read from disk is never judged."
+
+[[recipe]]
+id = "lake_storage_series"
+since = "2.1.0"
+effect = "layout"
+quantities = []
+text = "A lake writes the storage term of its water balance as the series lake_storage under its lake station, where a 2.0.0 run wrote storage. The name storage now names only the budget field of the aquifer. The value and its MODFLOW 6 sign do not change."

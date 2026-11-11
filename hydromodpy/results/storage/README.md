@@ -12,7 +12,9 @@ a restart and the next window read before the last step of `fields.zarr`. `profi
 outside the seal and the identity, because it describes one machine. `kept.py` gives the level
 of a run and what that level keeps: a kept calibration trial is a research run, keeps no figure
 and no export, and leaves `purged.json` when `gc` removes fields older than its policy, a file
-outside the seal like the outcome. The table below gives the module of each part, and its
+outside the seal like the outcome. `declared.py` holds what a backend may write: a field or
+table its `writes` does not declare, and a simulated series the registry does not describe, are
+refused. The table below gives the module of each part, and its
 answers column is the first line of the module docstring.
 
 | module | answers |
@@ -21,6 +23,7 @@ answers column is the first line of the module docstring.
 | `arrow_tables.py` | Build the Arrow tables of the Parquet payloads of a run. |
 | `attempt.py` | The attempt protocol: who may work in a run directory, and how it ends. |
 | `contract.py` | Result-storage layout contract: what one run and one session directory hold. |
+| `declared.py` | What a backend may write into the store of a run, and what is refused. |
 | `diagnostics.py` | Diagnostics for the project result-storage layout. |
 | `digests.py` | Digests and sizes of the files a run reads or writes. |
 | `final_state.py` | The last state of a run, in double precision, for the run that starts from it. |

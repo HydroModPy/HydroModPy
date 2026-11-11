@@ -16,17 +16,16 @@ A schema allows additional properties, at every depth, although the model
 refuses them when it writes: a later 2.x may add a key, and a reader ignores
 it. A field that can grow is a string with its words in ``x-hmp-vocabulary``.
 
-This module reads and writes files; it imports no model. The pairing of a
-file with its model is made by the caller, which passes the models in: the
-layer matrix gives ``schema`` no edge towards ``results``.
+This module reads the committed files and renders a schema from a model it is
+given; it imports no model. The pairing of a file with its model is made by the
+test that refreshes the files: the layer matrix gives ``schema`` no edge towards
+``results``.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from importlib.resources import files
-from pathlib import Path
 from typing import Any, Final
 
 from pydantic import BaseModel
@@ -79,18 +78,6 @@ def _open_to_additions(node: Any) -> Any:
     return opened
 
 
-def write_schemas(target_dir: str | Path, models: Mapping[str, type[BaseModel]]) -> list[Path]:
-    """Write one file per ``{schema_id: model}`` under *target_dir* and return the paths."""
-    directory = Path(target_dir)
-    directory.mkdir(parents=True, exist_ok=True)
-    written: list[Path] = []
-    for schema_id, model in models.items():
-        path = directory / schema_filename(schema_id)
-        path.write_text(render_schema(model), encoding="utf-8")
-        written.append(path)
-    return written
-
-
 def read_schema_text(filename: str) -> str:
     """Return the committed text of one schema file."""
     if filename not in SCHEMA_FILENAMES and filename not in FROZEN_SCHEMA_FILENAMES:
@@ -106,12 +93,11 @@ def read_schema(filename: str) -> dict[str, Any]:
     return json.loads(read_schema_text(filename))
 
 
-__all__ = [
+__all__ = (
     "FROZEN_SCHEMA_FILENAMES",
     "SCHEMA_FILENAMES",
     "read_schema",
     "read_schema_text",
     "render_schema",
     "schema_filename",
-    "write_schemas",
-]
+)

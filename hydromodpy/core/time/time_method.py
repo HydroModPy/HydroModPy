@@ -35,7 +35,6 @@ __all__ = (
     "TIME_METHODS",
     "TimeMethod",
     "check_time_method",
-    "observable_time_method",
     "time_method_from_cell_methods",
 )
 
@@ -99,12 +98,3 @@ def time_method_from_cell_methods(cell_methods: str) -> TimeMethod:
     if match is None:
         return "point"
     return "point" if match.group(1).lower() == "point" else "mean"
-
-
-def observable_time_method(name: str | None) -> TimeMethod:
-    """Return the method of ``name`` from the table, ``"mean"`` when unknown.
-
-    Callers that may read the field registry use
-    :func:`hydromodpy.results.derive.time_alignment.time_method_for` instead.
-    """
-    return OBSERVABLE_TIME_METHODS.get(str(name or "").strip(), DEFAULT_TIME_METHOD)

@@ -30,7 +30,7 @@ def _probe_bare(expr: str) -> str:
 
 
 def _probe(expr: str) -> str:
-    code = f"import sys\nfrom hydromodpy.config import HydroModPyConfig\nprint({expr})\n"
+    code = f"import sys\nfrom hydromodpy.config.hydromodpy_config import HydroModPyConfig\nprint({expr})\n"
     out = subprocess.run(
         [sys.executable, "-c", code],
         capture_output=True,

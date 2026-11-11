@@ -9,7 +9,8 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Polygon
 
-from hydromodpy.calibration.config import CalibOutputNetwork, validate_calib_output
+from hydromodpy.calibration.config_network import CalibOutputNetwork
+from hydromodpy.calibration.config_outputs import validate_calib_output
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract
 from hydromodpy.calibration.metrics.solver_extract import extract_outputs
 from hydromodpy.calibration.observations import network_source

@@ -20,7 +20,7 @@ import pytest
 
 from hydromodpy.cli.commands.campaign import array, collect, promote, prune
 from hydromodpy.cli.commands.project import log
-from hydromodpy.cli.helpers import (
+from hydromodpy.cli.exit_codes import (
     EXIT_CONFIG,
     EXIT_GENERIC,
     EXIT_NOT_FOUND,

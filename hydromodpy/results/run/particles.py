@@ -12,8 +12,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.units.quantities import SECONDS_PER_DAY
+from hydromodpy.core.units.time import factor_to_seconds
+
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 __all__ = [
     "PARTICLE_COLUMNS",
@@ -29,20 +32,6 @@ PARTICLE_COLUMNS: tuple[str, ...] = ("particle", "step", "x", "y", "z", "time_da
 """Columns of :func:`particle_frame` every run gives; ``status`` and ``reason`` follow when stored."""
 
 _DAYS_PER_YEAR = 365.25
-# Tracking-time unit written by the extractors on the ``particles`` group,
-# expressed in days. Both MODFLOW 6 PRT and MODPATH record "days".
-_DAYS_PER_UNIT: dict[str, float] = {
-    "second": 1.0 / 86400.0,
-    "seconds": 1.0 / 86400.0,
-    "minute": 1.0 / 1440.0,
-    "minutes": 1.0 / 1440.0,
-    "hour": 1.0 / 24.0,
-    "hours": 1.0 / 24.0,
-    "day": 1.0,
-    "days": 1.0,
-    "year": _DAYS_PER_YEAR,
-    "years": _DAYS_PER_YEAR,
-}
 
 
 def has_particle_tracks(run: Run, *, timed: bool = False) -> bool:
@@ -82,7 +71,7 @@ def particle_time_to_days(run: Run) -> float:
         unit = str(dict(grp.attrs).get("time_units", "days")).strip().lower() if grp else "days"
     finally:
         sz.close()
-    return _DAYS_PER_UNIT.get(unit, 1.0)
+    return factor_to_seconds(unit) / SECONDS_PER_DAY
 
 
 def read_particle_tracks(run: Run) -> list[np.ndarray]:
@@ -153,7 +142,7 @@ def particle_frame(run: Run) -> pd.DataFrame:
     finally:
         sz.close()
     unit = str(attrs.get("time_units", "days")).strip().lower()
-    to_days = _DAYS_PER_UNIT.get(unit, 1.0)
+    to_days = factor_to_seconds(unit) / SECONDS_PER_DAY
     x = arrays["x"]
     blank = np.full_like(x, np.nan)
     kept = np.isfinite(x) & np.isfinite(arrays["y"])

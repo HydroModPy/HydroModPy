@@ -30,13 +30,13 @@ from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, RUNS_DIRNAME
-from hydromodpy.core.time import TimeSelectionError
+from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.core.tracking.input_file import TrackedFileEntry
 from hydromodpy.core.workspace.workspace_toml import write_workspace_toml
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.runs import figures_dir_of, render_figures_for_run
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, PlanarCellMesh
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.export.directory import context_from_directory, publication_of
 from hydromodpy.results.exporters import job as job_module
@@ -61,7 +61,7 @@ from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, Identity, read_ident
 from hydromodpy.results.ledger import Ledger
 from hydromodpy.results.record.manifest import list_artifacts
 from hydromodpy.results.record.record import PROVENANCE_VERSION, sealed_artifacts
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,

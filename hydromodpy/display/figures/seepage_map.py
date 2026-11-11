@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.patches import Patch
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 SEEPAGE_COLOR = "#08519c"
 """Cells where the water table reaches the land surface."""

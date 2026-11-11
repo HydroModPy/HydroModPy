@@ -29,7 +29,7 @@ from hydromodpy.results.storage.contract import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog.ports import CatalogBackend
+    from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 
 _COLLAPSE_UNDERSCORE_RE = re.compile(r"_+")
 _SAFE_CHAR_RE = re.compile(r"[^a-z0-9_-]+")
@@ -64,7 +64,7 @@ class StoragePathResolver:
     per-run paths are computed without a fresh DuckDB lookup on every access.
     """
 
-    def __init__(self, backend: CatalogBackend, project_root: Path) -> None:
+    def __init__(self, backend: DuckDBBackend, project_root: Path) -> None:
         self._backend = backend
         self._project_root = Path(project_root)
         self._rel_dir_cache: dict[str, str] = {}

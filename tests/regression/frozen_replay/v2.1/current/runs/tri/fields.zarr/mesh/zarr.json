@@ -1,0 +1,119 @@
+{
+  "attributes": {
+    "engine": "triangle",
+    "engine_version": "1.2.0",
+    "crs": "PROJCRS[\"RGF93 v1 / Lambert-93\",BASEGEOGCRS[\"RGF93 v1\",DATUM[\"Reseau Geodesique Francais 1993 v1\",ELLIPSOID[\"GRS 1980\",6378137,298.257222101,LENGTHUNIT[\"metre\",1]]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",4171]],CONVERSION[\"Lambert-93\",METHOD[\"Lambert Conic Conformal (2SP)\",ID[\"EPSG\",9802]],PARAMETER[\"Latitude of false origin\",46.5,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8821]],PARAMETER[\"Longitude of false origin\",3,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8822]],PARAMETER[\"Latitude of 1st standard parallel\",49,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Latitude of 2nd standard parallel\",44,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8824]],PARAMETER[\"Easting at false origin\",700000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8826]],PARAMETER[\"Northing at false origin\",6600000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8827]]],CS[Cartesian,2],AXIS[\"easting (X)\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"northing (Y)\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],USAGE[SCOPE[\"Engineering survey, topographic mapping.\"],AREA[\"France - onshore and offshore, mainland and Corsica (France m\u00e9tropolitaine including Corsica).\"],BBOX[41.15,-9.86,51.56,10.38]],ID[\"EPSG\",2154]]",
+    "engine_seed": 0,
+    "mesh_request_hash": "03a55f8d035a03baaa719c8dea430c8344ebaeb65498581342d3e3439aad8b20",
+    "qa": {
+      "n_cells": 434,
+      "area_sum_m2": 372100.0,
+      "domain_area_m2": 372100.0,
+      "area_sum_rel_error": 0.0,
+      "area_quantiles_m2": {
+        "p5": 630.3763116109683,
+        "p50": 843.8615880896998,
+        "p95": 1128.0201286516387,
+        "min": 533.0577480022322,
+        "max": 1410.0288873409895
+      },
+      "size_quantiles_m": {
+        "p5": 25.10729401716429,
+        "p50": 29.04929582777696,
+        "p95": 33.586010907097005
+      },
+      "neighbour_ratio": {
+        "p50": 1.0765675454624266,
+        "p95": 1.216171103899295,
+        "p99": 1.2928838402896747,
+        "max": 1.3304347039438382,
+        "share_gt_1_5": 0.0
+      },
+      "center_offset": {
+        "p50": 3.0444490687487124e-16,
+        "p95": 3.2168110052037144e-15,
+        "max": 5.30608253744782e-15
+      },
+      "nonorthogonality_deg": {
+        "p50": 4.8694914665803495,
+        "p95": 14.227687320904261,
+        "p99": 19.67275004771152,
+        "max": 27.274529950215804,
+        "share_gt_30": 0.0
+      },
+      "bisection_offset": {
+        "p50": 0.048237950564681234,
+        "p95": 0.11220429621659936,
+        "p99": 0.14987669586120167,
+        "max": 0.18502357562181926,
+        "n_cells_gt_0_25": 0.0
+      },
+      "min_angle_deg": {
+        "min": 36.690875783801346,
+        "p1": 37.753672424035244,
+        "p5": 40.660343351055275,
+        "p50": 46.81559177023111,
+        "n_triangles_lt_20": 0.0
+      },
+      "max_angle_deg": {
+        "p50": 72.58947345147001,
+        "p95": 85.99224446797777,
+        "p99": 93.13057189620146,
+        "max": 100.29060288017565
+      },
+      "n_concave_cells": 0,
+      "min_face_length_m": 0.04605164747860214,
+      "n_degenerate_faces": 0,
+      "n_duplicate_vertices_in_cells": 0,
+      "families": {
+        "boundary:west": {
+          "faces": 13.0,
+          "length_m": 610.0
+        },
+        "boundary:east": {
+          "faces": 13.0,
+          "length_m": 610.0
+        },
+        "boundary:south": {
+          "faces": 13.0,
+          "length_m": 610.0
+        },
+        "boundary:north": {
+          "faces": 13.0,
+          "length_m": 610.0
+        }
+      },
+      "declarations": {
+        "graded": true,
+        "exact_faces": true,
+        "deterministic": false,
+        "needs_cache": true
+      },
+      "notes": [
+        "a side head applies to the triangles that have an edge on the side: their centre is the vertex mean, inside the domain"
+      ],
+      "extras": {
+        "side_center_offset_m_p50": 11.52165633581253
+      },
+      "size_fidelity": {
+        "p5": 0.8369098005721429,
+        "p50": 0.9683098609258985,
+        "p95": 1.1195336969032335
+      }
+    },
+    "library_versions": {
+      "gmsh": "4.15.2",
+      "scipy": "1.18.1",
+      "shapely": "2.1.2",
+      "geos": "3.13.1"
+    },
+    "start_index": 0,
+    "n_nodes": 244,
+    "n_cells": 434,
+    "n_layers": 1,
+    "grid_type": "disv",
+    "vertical_layout": "column_fractions"
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

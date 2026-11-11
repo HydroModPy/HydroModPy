@@ -177,6 +177,7 @@ SETTLE_CASES = (
     ("at the tolerance", np.zeros(3), np.full(3, 0.01), 0.01, True),
     ("one cell drifts", np.zeros(3), np.array([0.0, 0.0, 0.5]), 0.01, False),
     ("a cell dries", np.zeros(3), np.array([0.0, np.nan, 0.0]), 0.01, False),
+    ("a cell wets", np.array([1.0, np.nan, 3.0]), np.array([1.0, 2.0, 3.0]), 10.0, False),
     ("both inactive", np.array([0.0, np.nan]), np.array([0.0, np.nan]), 0.01, True),
     ("nothing active", np.array([np.nan]), np.array([np.nan]), 0.01, False),
 )

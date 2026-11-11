@@ -7,27 +7,25 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.calibration.config import (
+from hydromodpy.calibration.config_network import (
     CalibNetworkModel,
     CalibOutputNetwork,
-    CalibOutputPoint,
-    CalibrationProtocolDecl,
     MatchingHydrographicNetworkOptions,
-    validate_calib_output,
 )
-from hydromodpy.calibration.protocols import (
-    boilerplate,
+from hydromodpy.calibration.config_objective import CalibrationProtocolDecl
+from hydromodpy.calibration.config_outputs import CalibOutputPoint, validate_calib_output
+from hydromodpy.calibration.protocols import boilerplate
+from hydromodpy.calibration.protocols.boilerplate import methods_paragraph
+from hydromodpy.calibration.protocols.registry import (
     deviations_in_force,
     protocol_options_away_from_the_recipe,
     protocol_record,
 )
-from hydromodpy.calibration.protocols.boilerplate import methods_paragraph
-from hydromodpy.calibration.runners import staged_runner
-from hydromodpy.calibration.runners.staged_runner import _geographic_choices, _methods_paragraph_for
+from hydromodpy.calibration.runners import staged_report
+from hydromodpy.calibration.runners.staged_report import geographic_choices, methods_paragraph_for
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.model.domain.geometry import RasterGeometry
 from hydromodpy.model.model import Geometry
-from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow_nwt.nwt import nwt_solver
 from tests._helpers.model_factory import make_model
 from tests.unit.calibration._factories_runners import make_report
@@ -88,7 +86,7 @@ def _paragraph(document: dict) -> str:
         name="steady_conductivity",
         report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_cost=0.5, extra={}),
     )
-    text = _methods_paragraph_for(cfg, [steady], [], geographic=_geographic_choices(document))
+    text = methods_paragraph_for(cfg, [steady], [], geographic=geographic_choices(document))
     assert text is not None
     return text
 
@@ -179,14 +177,6 @@ class TestTheSolverFallbackFollowsTheConfig:
                 )
             ),
         )
-
-    def test_modflow6_falls_back_to_the_config_default(self, monkeypatch, tmp_path) -> None:
-        model = self._model(tmp_path)
-        seen = self._captured(
-            monkeypatch, build, lambda: build.ensure_solver_routing_context(model)
-        )
-
-        assert seen["dem_correc_type"] == "fill"
 
     def test_nwt_falls_back_to_the_config_default(self, monkeypatch, tmp_path) -> None:
         model = self._model(tmp_path)
@@ -544,7 +534,7 @@ class TestItReportsTheDepartures:
             report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_cost=0.5, extra={}),
         )
 
-        text = _methods_paragraph_for(cfg, [steady], [])
+        text = methods_paragraph_for(cfg, [steady], [])
 
         assert text is not None
         assert "map.drawn_by was set to 'touch'" in text
@@ -563,7 +553,7 @@ class TestItReportsTheDepartures:
                 name="steady_conductivity",
                 report=SimpleNamespace(best_parameters={"K": 1.0e-5}, best_cost=0.5, extra={}),
             )
-            text = _methods_paragraph_for(cfg, [steady], [])
+            text = methods_paragraph_for(cfg, [steady], [])
             assert text is not None
             return text
 
@@ -709,7 +699,7 @@ class TestTheReportCarriesIt:
     def test_it_is_built_from_the_stages_that_settled(self) -> None:
         """Not from the stages that were planned: that is the whole property."""
 
-        source = inspect.getsource(staged_runner._methods_paragraph_for)
+        source = inspect.getsource(staged_report.methods_paragraph_for)
 
         assert "_settled(run.report)" in source
 

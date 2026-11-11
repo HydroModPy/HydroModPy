@@ -17,5 +17,5 @@ names what it refuses.
 Four engines ship. `regular` gives square cells on the DEM grid. `triangle` gives gmsh triangles that follow the lines.
 `voronoi` gives polygons around generators. `catchment` gives the catchment as one polygon cell, with its holes filled,
 and refuses lines, a size field and a triangulation. A third party adds an engine on the entry point group
-`hydromodpy.mesh.engine`, named like its `engine_id`, and `tests/contract/test_mesh_engine_contract.py` runs on every
+`hydromodpy.mesh.engine`, named like its `engine_id`, and `tests/ports/test_mesh.py` runs on every
 engine the registry resolves.

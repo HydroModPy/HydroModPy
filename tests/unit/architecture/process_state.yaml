@@ -3,7 +3,7 @@
 # addHandler, removeHandler, catch_warnings, simplefilter, filterwarnings,
 # signal.signal, os.chdir and sys.path.insert.
 #
-# The gate test_no_global_written_during_a_run.py walks the AST of the tree and
+# The gate test_run_path.py walks the AST of the tree and
 # refuses a site the table does not carry and a row no site matches, so a row
 # leaves only with its code and the table only shrinks. A site is named by its
 # file, its kind and the function that holds it (<module> at the top level).

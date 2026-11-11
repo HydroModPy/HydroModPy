@@ -29,7 +29,7 @@ from hydromodpy.workflow.steps.prepare_solver.prepare import field_data_array
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.results.catalog.protocol import SimulationStore
+    from hydromodpy.results.storage.run_store import RunStore
     from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 logger = get_logger(__name__)
@@ -137,7 +137,7 @@ def _persist_geology_fractions(ctx: WorkflowContext, sz: SimulationZarr, obj: ob
 
 
 def _persist_hydrography(
-    ctx: WorkflowContext, sz: SimulationZarr, obj: object, *, store: SimulationStore
+    ctx: WorkflowContext, sz: SimulationZarr, obj: object, *, store: RunStore
 ) -> int:
     """Write the reference hydrography raster and vector; return the datasets written."""
     written = 0
@@ -259,7 +259,7 @@ def _persist_family(
     name: str,
     obj: object,
     *,
-    store: SimulationStore,
+    store: RunStore,
 ) -> int:
     """Persist one forcing family and return the datasets written."""
     if name == "recharge":
@@ -285,7 +285,7 @@ def _persist_family(
     return written
 
 
-def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> None:
+def step_persist_forcings(ctx: WorkflowContext, *, store: RunStore) -> None:
     """Persist input forcings into the Zarr ``forcing/`` group."""
     if ctx.sim_id is None:
         return
@@ -326,7 +326,7 @@ def _persist_reference_hydrographic_feature(
     ctx: WorkflowContext,
     hydrography_load_result: object,
     *,
-    store: SimulationStore,
+    store: RunStore,
 ) -> bool:
     """Persist the imported hydrography vector as one canonical feature.
 
@@ -373,7 +373,7 @@ def _persist_network_feature(
     network: object,
     feature_name: str,
     *,
-    store: SimulationStore,
+    store: RunStore,
 ) -> bool:
     """Write one network's vector as the geographic feature *feature_name*."""
     vector_path = getattr(network, "vector_path", None)

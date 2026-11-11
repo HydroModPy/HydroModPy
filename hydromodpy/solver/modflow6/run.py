@@ -21,7 +21,7 @@ from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     run_modflow6_steady_state_initialization,
 )
 from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
-from hydromodpy.solver.modflow_common import ModflowRunOptions
+from hydromodpy.solver.modflow_common.options import ModflowRunOptions
 from hydromodpy.solver.modflow_common.progress import (
     run_simulation_with_progress,
     write_listing_status,

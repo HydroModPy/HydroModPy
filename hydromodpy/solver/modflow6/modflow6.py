@@ -34,14 +34,13 @@ from hydromodpy.solver.modflow6.modflow6_config import (
 )
 from hydromodpy.solver.modflow6.run import run_processing
 from hydromodpy.solver.modflow6.support.names import mf6_safe_name
-from hydromodpy.solver.modflow_common import (
-    ModflowPreprocessOptions,
-    ModflowRunOptions,
-    SolverRoutingContext,
+from hydromodpy.solver.modflow_common.binaries import (
     ensure_platform_executable,
     ensure_solver_binary,
 )
-from hydromodpy.solver.modflow_grid import SolverGridContext
+from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions, ModflowRunOptions
+from hydromodpy.solver.modflow_common.routing_context import SolverRoutingContext
+from hydromodpy.solver.modflow_grid.discretization_spatial import SolverGridContext
 
 
 class Modflow6:

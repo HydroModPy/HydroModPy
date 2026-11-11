@@ -17,11 +17,11 @@ import pytest
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.project.launch import local as launch_local
-from hydromodpy.project.launch import plan_project, project_status, run_plan
+from hydromodpy.project.launch.local import plan_project, run_plan
 from hydromodpy.project.launch.selection import (
     select_cases,
 )
-from hydromodpy.project.launch.status import case_state
+from hydromodpy.project.launch.status import case_state, project_status
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.plan_store import read_plan
 from hydromodpy.results.session.descriptor import read_session

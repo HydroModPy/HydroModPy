@@ -47,7 +47,7 @@ from hydromodpy.catchment.algorithms.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME,
 )
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.geo_helpers import bbox_hash
+from hydromodpy.data.common.geometry import bbox_hash
 from hydromodpy.data.common.source_extent import mask_extent_in, mask_geometry
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY, FieldRecord

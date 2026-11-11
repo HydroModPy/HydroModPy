@@ -27,7 +27,7 @@ from hydromodpy.results.derive.time_alignment import (
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 # Canonical variable names the gauged lake level may carry. The data family is
 # ``lake_levels`` but a record may name its variable in the singular.

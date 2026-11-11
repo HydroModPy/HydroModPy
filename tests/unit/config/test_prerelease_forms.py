@@ -31,8 +31,8 @@ from hydromodpy.config.config_migration import (
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.toml_io.overrides import SET_SOURCE
 from hydromodpy.core.version import __version__
-from hydromodpy.data.loading.config_schema import DataManagersConfig
-from hydromodpy.schema.changes import REGISTER, outlived, removal_of
+from hydromodpy.data.loading.config_schema import DataConfig
+from hydromodpy.schema.changes import REGISTER, migrations_of, outlived, removal_of
 
 WAY_OUT = 'pip install "hydromodpy~=2.0.0"'
 
@@ -66,6 +66,11 @@ def test_a_pre_release_form_is_refused_with_its_path_and_the_way_out(
     source = tmp_path / "project.toml"
     if form.path == "workspace.project_root":
         # A runtime field today, which the model refuses in a file with its own words.
+        assert prerelease_keys(document) == []
+        return
+    if form.path in {row.old for row in migrations_of("config")}:
+        # A row of the register moves this path and its refusal names the new key
+        # (tests/refusals/test_forms.py reads that sentence).
         assert prerelease_keys(document) == []
         return
 
@@ -643,7 +648,7 @@ def test_a_bare_buffer_is_the_rule_of_version_1_and_loads(buffer: float, tmp_pat
 
 def test_a_data_section_built_in_python_refuses_the_project_crs_as_unknown() -> None:
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-        DataManagersConfig(project_crs="EPSG:2154")
+        DataConfig(project_crs="EPSG:2154")
 
 
 def test_a_sealed_run_of_a_pre_release_is_refused_the_same_way() -> None:
@@ -715,15 +720,15 @@ def test_the_doctor_refuses_a_chain_of_a_pre_release_and_writes_nothing(tmp_path
 def test_hmp_doctor_on_a_file_of_a_pre_release_says_the_way_out(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    from hydromodpy.cli.commands.doctor import _fix_config
-    from hydromodpy.cli.helpers import EXIT_CONFIG
+    from hydromodpy.cli.commands.doctor import fix_config
+    from hydromodpy.cli.exit_codes import EXIT_CONFIG
 
     path = tmp_path / "project.toml"
     path.write_text('[flow]\nactive_bc = ["drainage"]\n', encoding="utf-8")
     written = path.read_text()
 
     with pytest.raises(SystemExit) as stopped:
-        _fix_config(str(path))
+        fix_config(str(path))
 
     assert stopped.value.code == EXIT_CONFIG
     assert path.read_text() == written

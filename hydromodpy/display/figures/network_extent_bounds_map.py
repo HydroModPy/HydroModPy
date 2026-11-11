@@ -44,16 +44,16 @@ from hydromodpy.display.figures._stream_comparison import (
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.results.derive.run_memo import RunMemo
-from hydromodpy.results.derive.stream.comparison import (
+from hydromodpy.results.derive.stream_network.comparison import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
     AGREEMENT_VALID,
 )
-from hydromodpy.results.derive.stream.criterion_settings import (
+from hydromodpy.results.derive.stream_network.criterion_settings import (
     NetworkCriterionSettings,
     network_criterion_settings,
 )
-from hydromodpy.results.derive.stream.run_extent import (
+from hydromodpy.results.derive.stream_network.run_extent import (
     FLOW_FIELD,
     NetworkExtents,
     network_extents_from_run,
@@ -64,7 +64,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.patches import Patch
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 BoundChoice = Literal["both", "minimal", "maximal"]
 

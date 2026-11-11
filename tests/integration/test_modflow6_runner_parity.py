@@ -48,11 +48,11 @@ from hydromodpy.solver.modflow6.api.api_runner import (  # noqa: E402
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter  # noqa: E402
 from hydromodpy.solver.modflow6.extractors.lake import lake_station_id  # noqa: E402
 from hydromodpy.solver.modflow6.run import run_processing  # noqa: E402
-from hydromodpy.solver.modflow_common import ModflowRunOptions  # noqa: E402
 from hydromodpy.solver.modflow_common.binaries import (  # noqa: E402
     ensure_solver_binary,
     locate_solver_binary,
 )
+from hydromodpy.solver.modflow_common.options import ModflowRunOptions  # noqa: E402
 from tests._helpers.mf6_ground import leave_ground_beside  # noqa: E402
 from tests._helpers.model_factory import make_model
 from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run

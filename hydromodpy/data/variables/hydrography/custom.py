@@ -7,7 +7,7 @@ from pathlib import Path
 import geopandas as gpd
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.geo_helpers import require_declared_crs
+from hydromodpy.data.common.geometry import require_declared_crs
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
@@ -24,14 +24,14 @@ def load_file(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
     """Read a local file pointed to by *config.path*.
 
     Returns a ``GeoDataFrame`` for vector files (SHP/GPKG/GeoJSON) or a
-    ``Path`` for raster files (TIF/TIFF).  The manager handles the raster
+    ``Path`` for raster files (TIF/TIFF).  The variable handles the raster
     pipeline separately.
     """
     path = Path(config.path)
 
     if path.is_dir():
         # Try raster first, then vector. Scaffold EXAMPLE templates are skipped.
-        from hydromodpy.data.common.io_helpers import is_scaffold_example
+        from hydromodpy.data.common.files import is_scaffold_example
 
         def _scan(extensions: tuple[str, ...]) -> list[Path]:
             found: list[Path] = []

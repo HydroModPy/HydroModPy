@@ -11,12 +11,11 @@ runner that walks it, because both sit between the `[simulation]` table and the 
 4. `simulation_config.py` is what the modeller wrote under `[simulation]`: `SimulationConfig`, `SimulationTimeConfig` (`[simulation.time]`), and one model per process, `FlowProcessConfig` and `TransportProcessConfig`, which share their checks of `solvers` and of the registry, and `MeshProcessConfig`. `results_config.py` is `[simulation.results]`, what a run persists and keeps, and `observation_config.py` is `[observation]`, the points a run samples while it still holds its outputs.
 5. `plan.py` holds the frozen objects the planner, the runner and the adapters share: `ProcessRun`, `SimulationPlan`, `RunSlot`, `SolverRun` and `RunContext`. `planner.py` is `SimulationPlanner.build`: one `ProcessRun` per process and solver, in the order declared, each bound to the earlier run it depends on. A run id is `<process_id>::<solver>`, for example `flow_main::modflow_nwt`. The planner binds a dependency only to a run declared earlier in the file, so a file that lists `transport` before a flow it needs is refused and never reordered.
 6. `runner.py` is `SimulationRunner.execute`. It walks the plan, opens and closes each block of one process type (`before_process`, then each run through the adapter of its solver, then `after_process`), and keeps the `SolverRun` of each run for the runs that depend on it. `slot_for` fills the `RunSlot` of a run, and `solve_one` calls `validate`, then `rerun` or `build`, then `run`. A flow run needs `setup.model`, which `prepare_solver` builds, and the runner refuses it with a `ConfigError` that names that step when it is missing. A transport run receives exactly one upstream run, the `SolverRun` of the flow its `requires` names, and the runner refuses anything else with a typed error. The adapter comes from `solvers.create`, which imports the class on first lookup, so the runner imports no backend.
-7. `protocols.py` holds the structural types the backends annotate with: `DomainLike`, `FlowModelLike`.
-8. `drain_conductance.py` is the drain arithmetic every backend uses: the conductance of a free seepage face from K, and the discharge band.
-9. `observables.py` turns a solver series or field into an `ObservableResult`, and says in three states whether a backend can serve an observable (`ObservableSupport`).
-10. `cell_lookup.py` finds the cell under a point on a solver mesh or a cell mesh.
-11. `cleanup.py` removes the scratch files of a run.
-12. `rerun.py` holds `changed_properties`, which names the properties that differ between two `Model` objects, and `chooses_rerun`, the rule by which the runner calls `rerun` instead of `build`.
+7. `drain_conductance.py` is the drain arithmetic every backend uses: the conductance of a free seepage face from K, and the discharge band.
+8. `observables.py` turns a solver series or field into an `ObservableResult`, and says in three states whether a backend can serve an observable (`ObservableSupport`).
+9. `cell_lookup.py` finds the cell under a point on a solver mesh or a cell mesh.
+10. `cleanup.py` removes the scratch files of a run.
+11. `rerun.py` holds `changed_properties`, which names the properties that differ between two `Model` objects, and `chooses_rerun`, the rule by which the runner calls `rerun` instead of `build`.
 
 ## What a run receives and returns
 
@@ -67,7 +66,7 @@ An adapter of a flow solver reads one object, the frozen `Model` of `model/model
 | `initial` | one of `HeadRule`, `SteadyStart`, `CyclicStart`, `PriorState`, `SolvedState` |
 | `time`, `options` | the time grid, the flow regime and the solver options every backend shares |
 
-A flow adapter reads nothing of the setup, the configuration or the store, and it never opens a Zarr store. Its options and its folders arrive as arguments. A transport adapter reads nothing of them either. It receives the `Model` of its flow, its own options, the slot of its flow and the `SolverRun` of that flow, everything through the arguments of `build`. A prior run reaches a flow adapter as a `PriorState`, which `prepare_solver` reads through `results/storage/prior_state.py`. The `Model` does not change during a solve. A change is a new object, from `with_properties`, `with_initial`, `steady_variant` or `cycle_variant`, and the adapter keeps the original. `tests/unit/architecture/test_backends_read_the_model.py` holds these rules.
+A flow adapter reads nothing of the setup, the configuration or the store, and it never opens a Zarr store. Its options and its folders arrive as arguments. A transport adapter reads nothing of them either. It receives the `Model` of its flow, its own options, the slot of its flow and the `SolverRun` of that flow, everything through the arguments of `build`. A prior run reaches a flow adapter as a `PriorState`, which `prepare_solver` reads through `results/storage/prior_state.py`. The `Model` does not change during a solve. A change is a new object, from `with_properties`, `with_initial`, `steady_variant` or `cycle_variant`, and the adapter keeps the original. `tests/unit/architecture/test_run_path.py` holds these rules.
 
 The mapping of the hydraulic properties on the cells is in `model/properties/property_table.py`, and the head a run starts from is built by `model/initial/heads.py` from `model/initial/state.py`.
 

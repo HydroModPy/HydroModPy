@@ -19,7 +19,7 @@ from hydromodpy.results.run.sealed import metrics_of
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 SPINUP_COLOR = "0.82"
 SPINUP_LABEL = "before the scoring window"

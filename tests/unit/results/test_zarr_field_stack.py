@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 
 @pytest.fixture

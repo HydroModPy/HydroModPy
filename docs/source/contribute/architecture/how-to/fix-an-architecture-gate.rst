@@ -16,15 +16,17 @@ Run it
    python -m pytest tests/unit/architecture -q -n 2
 
 It takes about a minute and a half with two workers. To run one rule, name the
-file.
+file and select the test with ``-k``.
 
-The rule you broke is the file name of the first failure. Find it in the table
-below.
+Most rules live in three files: ``test_layers.py`` (who reads whom),
+``test_run_path.py`` (what the path of a run reads and writes) and
+``test_surfaces.py`` (what is public and held). The test name of the first
+failure says which rule broke. Find it below, by file and rule.
 
 What to do, by failing test
 ---------------------------
 
-``test_layer_matrix.py``
+``test_layers.py``, the layer matrix
    *"N layer-matrix violations: solver -> data 3 via from"*. An import crosses
    a layer boundary that ``layer_matrix.yaml`` does not grant. The message counts
    the edges by pair, without the lines. List them:
@@ -49,7 +51,7 @@ What to do, by failing test
    tolerance names an unknown layer or repeats an allowed edge, or a package has no
    page in :doc:`../packages/index`.
 
-``test_layer_matrix_page.py``
+``test_layers.py``, the generated matrix page
    *"docs/source/contribute/architecture/layer-matrix.partial.rst is stale"*. The
    committed fragment is generated from the YAML. Run
    ``python -m tools.doc_contracts`` and commit the result.
@@ -62,35 +64,35 @@ What to do, by failing test
    README together. A row may name only rows above it, so a cycle cannot be
    declared. Another layer may import only the modules listed under ``public``.
 
-``test_data_source_port_stands_alone.py`` and ``test_terrain_port_stands_alone.py``
+``test_layers.py``, a port that stands alone
    A port promises a third-party plugin that it needs nothing of HydroModPy beyond
    the port module and its contracts. The layer matrix cannot see this, because
    the parts sit in one layer. Remove the import: a source must not reach a
    manager, a catalog or a workspace, and a terrain engine must not import another
    part of ``catchment``.
 
-``test_cli_boundary.py``
+``test_layers.py``, the CLI boundary
    Only ``hydromodpy/__main__.py`` may import ``hydromodpy.cli``. Put the logic in
    the layer it belongs to and have the command call it. The CLI stays thin.
 
-``test_storage_boundary.py``
+``test_layers.py``, the storage boundary
    A direct ``duckdb.connect`` in the public API or a user-facing command. Go
    through the catalog or cache adapter. The files allowed to open DuckDB directly are
    listed in ``ALLOWED_DIRECT_DUCKDB_FILES`` of the test, and the cases are
    described in :ref:`direct-duckdb-access`.
 
-``test_solver_private_attributes.py``
+``test_layers.py``, private solver attributes
    A private name (``obj._name``) read inside ``solver/<package>/`` must be declared
    in that same sub-package. Expose the value through a public method or field of
    the owner. The two MODFLOW backends and the shared helpers are held to it.
 
-``test_step_payload_keys.py``
+``test_run_path.py``, the payload keys of a step
    A pipeline step declares the payload keys it reads and writes, as the class
    attributes ``reads`` and ``writes``, and they must match what its code touches,
    in both directions. Edit the two tuples of the step. A key the step no longer
    touches must go.
 
-``test_run_context_state_surface.py``, ``test_run_product_reaches_its_consumer.py``, ``test_workflow_context_members_have_a_reader.py``
+``test_run_path.py``, what a solver adapter reads
    These keep what a solver adapter receives narrow. A flow adapter reads the
    ``Model``, its options and its ``RunSlot``, and nothing of ``ctx.state`` or
    ``ctx.store``. A transport adapter reads the view ``ctx.state`` (``setup``,
@@ -101,21 +103,21 @@ What to do, by failing test
    to the short allowlist of the test, which is a decision to state in the pull
    request.
 
-``test_no_vanilla_raise.py``
+``test_surfaces.py``, typed exceptions
    ``raise ValueError`` and ``raise RuntimeError`` are banned in the modules of its
    ``SCOPE``. Raise a typed exception from ``hydromodpy.core.exceptions``. Add a
    module to ``SCOPE`` once it is clean.
 
-``test_tolerances_single_source.py``
+``test_surfaces.py``, one source for tolerances
    A ``tol('<slug>')`` call that matches no row of ``tests/TOLERANCES.md``, or a
    documented scalar that is written inline again. Fix the slug, or add the row to
    the table, and read the value through ``tol()``.
 
-``test_whitebox_tests_run_serially.py``
+``test_surfaces.py``, Whitebox tests run serially
    A CI step runs a Whitebox-backed test file in parallel. Exclude the file from
    the parallel step and keep it in the serial one. See :ref:`run-the-tests`.
 
-``test_no_legacy_surface.py``
+``test_surfaces.py``, no legacy surface
    A retired name appears in the docs, the examples, the package or the tests.
    Delete it.
 

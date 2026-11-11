@@ -21,6 +21,7 @@ from hydromodpy.core.state.layout import (
     runs_dir_for,
     sessions_dir_for,
 )
+from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 from hydromodpy.results.spatial_index import point_in_cell
 from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
 from hydromodpy.solver.modflow_common.budget_components import canonical_budget_component
@@ -565,7 +566,7 @@ def extract_outputs(
     Parameters
     ----------
     run
-        Catalog :class:`hydromodpy.results.run.Run` for the candidate.
+        Catalog :class:`hydromodpy.results.run.view.Run` for the candidate.
     outputs_cfg
         Iterable of output declarations or mapping ``{name: decl}``.
         Each declaration must expose ``variable``, ``support``, and the
@@ -816,7 +817,7 @@ def _build_twin_metric_fn(
 ):
     """Build a custom ``metric_fn`` that uses filesystem-based extraction.
 
-    The default :func:`hydromodpy.calibration.metrics.build_metric_extractor`
+    The default :func:`hydromodpy.calibration.metrics.composite.build_metric_extractor`
     is MODFLOW-NWT specific; the twin benchmarks target MODFLOW 6 in
     lightweight trial mode (no catalog ingest), so we read the CBC
     budget and head-save (HDS) files directly from the output folder of the
@@ -1716,6 +1717,9 @@ def synthesize_truth_observations_via_project_api(
     from hydromodpy.calibration.runners.materialize import materialize_candidate
     from hydromodpy.project.facade import Project as _Project
 
+    # This path materializes a candidate without going through project, so it
+    # installs the trial pipeline itself, as project/calibrate.py does.
+    fill_trial_pipeline()
     if definition.parameter_targets is None:
         raise ValueError(
             f"synthesize_truth_observations_via_project_api requires "
@@ -1820,6 +1824,8 @@ def run_twin_benchmark_case(
     so :func:`build_payload` can emit the enriched TOML.
     """
     del caller_file
+    # A case also runs outside pytest, so it installs the trial pipeline itself.
+    fill_trial_pipeline()
     if definition.build_simulation_config is None:
         raise ValueError("Twin calibration case is missing build_simulation_config")
     if definition.parameter_targets is None or definition.output_specs is None:

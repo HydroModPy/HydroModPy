@@ -20,11 +20,11 @@ from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, Simulat
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq import adapter as flow_adapter_module
 from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
-from hydromodpy.solver.boussinesq.assembly import assemble_transient_residual
 from hydromodpy.solver.boussinesq.assembly.fluxes import (
     derived_drain_conductance_m2_s,
     drainage_outflow_from_head,
 )
+from hydromodpy.solver.boussinesq.assembly.residuals import assemble_transient_residual
 from hydromodpy.solver.boussinesq.jacobian.common import drainage_diagonal_derivative
 from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,

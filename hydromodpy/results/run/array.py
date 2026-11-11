@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     import xarray as xr
     import xugrid as xu
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 

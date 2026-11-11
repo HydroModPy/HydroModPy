@@ -14,17 +14,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.config import (
-    STATION_VARIABLES,
-    CalibAggregateDecl,
-    CalibObjectiveBlockDecl,
-    CalibOutputPoint,
-    CalibrationConfig,
-    CalibWindow,
-    MatchingHydrographicNetworkOptions,
-    validate_calib_output,
-)
-from hydromodpy.calibration.config import CalibObjectiveBlockDecl as Block
+from hydromodpy.calibration.config import STATION_VARIABLES, CalibrationConfig
+from hydromodpy.calibration.config_network import MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl as Block
+from hydromodpy.calibration.config_outputs import CalibOutputPoint, validate_calib_output
+from hydromodpy.calibration.config_phases import CalibAggregateDecl
+from hydromodpy.calibration.config_terms import CalibWindow
 from hydromodpy.calibration.metrics import composite, solver_extract
 from hydromodpy.calibration.metrics.composite import PRODUCERS, build_metric_extractor
 from hydromodpy.calibration.metrics.observable_scoring import (

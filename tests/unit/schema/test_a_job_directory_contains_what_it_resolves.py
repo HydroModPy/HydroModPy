@@ -14,10 +14,10 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_USAGE, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_USAGE, exit_code_for
 from hydromodpy.core.exceptions import ConfigValidationError, JobUsageError
-from hydromodpy.schema.job import ALLOWED_JOB_ENTRIES, JobDirectory
-from hydromodpy.schema.job.layout import JOB_WRITE_ORDER, REQUEST_FILENAME
+from hydromodpy.schema.job.directory import JobDirectory
+from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES, JOB_WRITE_ORDER, REQUEST_FILENAME
 
 
 def _staged(tmp_path: Path) -> JobDirectory:

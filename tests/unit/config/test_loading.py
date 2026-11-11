@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 import tomlkit
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND, exit_code_for
 from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
 from hydromodpy.config.loading import (
     MEMORY_NEEDS_BASE,

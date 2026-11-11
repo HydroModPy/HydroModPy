@@ -15,8 +15,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.commands import site
-from hydromodpy.cli.helpers import fail
-from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
+from hydromodpy.cli.exit_codes import fail
+from hydromodpy.core.site.row import SITE_ROW_COLUMNS, SiteRow
 from hydromodpy.data.sites.catalog import (
     SITE_CATALOG_RELPATH,
     SiteConflictError,

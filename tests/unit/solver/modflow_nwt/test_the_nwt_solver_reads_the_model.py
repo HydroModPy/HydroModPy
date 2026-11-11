@@ -24,7 +24,7 @@ from hydromodpy.model.initial.state import (
 from hydromodpy.model.model import Geometry, Model, ModelTime, Properties
 from hydromodpy.model.properties.field_param import FieldParam
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import build_preprocess_options
+from hydromodpy.solver.modflow_common.flow_run import build_preprocess_options
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions, ModflowRunOptions
 from hydromodpy.solver.modflow_nwt.nwt import nwt_solver, steady_initial_conditions
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt

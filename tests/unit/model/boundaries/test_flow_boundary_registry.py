@@ -20,7 +20,7 @@ from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
 
 # Which backend builds which boundary is said by its ``supports`` and held for
-# every backend by tests/contract/test_solver_backend_contract.py. The table here
+# every backend by tests/ports/test_solver.py. The table here
 # names no backend.
 
 

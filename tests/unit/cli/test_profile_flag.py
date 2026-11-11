@@ -12,12 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import (
-    EXIT_CONFIG,
-    profile_arg_from_toml,
-    profile_run,
-    resolve_profile_output,
-)
+from hydromodpy.cli.exit_codes import EXIT_CONFIG
+from hydromodpy.cli.profiling import profile_arg_from_toml, profile_run, resolve_profile_output
 
 
 def _burn(seconds: float = 0.02) -> None:

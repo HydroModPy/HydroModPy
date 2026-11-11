@@ -288,7 +288,7 @@ None. No metric value changes.
 - A gate freezes the public surfaces: the names and signatures of `hydromodpy.__all__`, the public methods
   of `Project`, `Run`, `RunSet`, `Catalog`, `Session` and `Workspace`, the command line with its flags, the
   exit codes, the TOML paths with their types and defaults, and the process descriptions. A change fails
-  `tests/unit/architecture/test_public_surfaces_are_frozen.py`, which says what changed.
+  `tests/unit/architecture/test_surfaces.py`, which says what changed.
   `python -m tools.surface_snapshot` accepts the change, and refuses a stable TOML key that left with no
   rewrite.
 - `contracts.rst` lists the public import paths: `hydromodpy.__all__` and a short list of modules for plugin
@@ -3358,7 +3358,7 @@ No number moves for a file written under current names. A chain or an overlay th
   integer; a date reads the stress period that holds it. Another kind of time raises TypeError, a
   time on a series or a feature raises ValueError.
 - `hydromodpy.core.env` lists every `HMP_*` environment variable HydroModPy reads, with its
-  default, scope and description. `tests/unit/architecture/test_env_vars_are_registered.py`
+  default, scope and description. `tests/unit/architecture/test_surfaces.py`
   fails on a variable without a row or a row nothing reads.
 - `hydromodpy.config.schema_export.editor_schema()`: the JSON Schema published at
   `_static/hydromodpy-schema.json` is now an editor schema. It accepts `base_config`, the

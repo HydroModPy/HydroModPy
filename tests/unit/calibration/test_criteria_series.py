@@ -10,26 +10,22 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.calibration.config import (
-    CalibObjectiveBlockDecl,
-    CalibrationConfig,
-    MetricKind,
-    OutputSupport,
-)
-from hydromodpy.calibration.criteria import (
-    NETWORK_ESTIMATORS,
-    HydrographicNetworkDistance,
-    available_criteria,
-    criterion_for,
-)
-from hydromodpy.calibration.criteria import SeriesCriterion as SeriesCriterion__criterion_contract
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+from hydromodpy.calibration.config_terms import MetricKind, OutputSupport
 from hydromodpy.calibration.criteria.base import CriterionResult
 from hydromodpy.calibration.criteria.formulas import METRIC_FORMULAS
 from hydromodpy.calibration.criteria.hydrographic_network_distance import (
+    HydrographicNetworkDistance,
     distance_gap,
     distance_mean,
     distance_pair,
     distance_pairs,
+)
+from hydromodpy.calibration.criteria.registry import (
+    NETWORK_ESTIMATORS,
+    available_criteria,
+    criterion_for,
 )
 from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
@@ -37,6 +33,9 @@ from hydromodpy.calibration.criteria.series import (
     RESERVOIR_INCREMENT_DAYS,
     SeriesCriterion,
     _positions,
+)
+from hydromodpy.calibration.criteria.series import (
+    SeriesCriterion as SeriesCriterion__criterion_contract,
 )
 from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer, sampling_step_days
 from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_observations

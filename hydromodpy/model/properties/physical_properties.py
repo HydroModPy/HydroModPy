@@ -37,11 +37,7 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units import (
-    HydraulicConductivity,
-    SpecificStorage,
-    SpecificYield,
-)
+from hydromodpy.core.units.types import HydraulicConductivity, SpecificStorage, SpecificYield
 
 
 class FlowPhysicalProperties(HydroModelBase):

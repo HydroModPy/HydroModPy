@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.model.boundaries.binder_payloads import payloads_as_mappings
 from hydromodpy.model.boundaries.boundary_conditions import DirichletBC, DrainBC
 from hydromodpy.model.flow_config import FlowConfig, FlowParam

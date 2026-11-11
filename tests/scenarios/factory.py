@@ -10,11 +10,15 @@ of windows: ``long`` is two daily years solved through libmf6, and ``windows``
 is one monthly year cut into two windows of six months. Every project is
 built from the literal texts below. The factory reads no file, opens no network
 and draws no random number, so a project has the same bytes on every machine.
+Two more projects hold a lake: the island with its lake, wall and barrier, and
+the valley of the Cheze. Their rasters and geopackages are binary, so their
+text names a folder and the caller says where it is.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping
 from datetime import date
 from pathlib import Path, PurePosixPath
@@ -730,3 +734,403 @@ def basin_files(with_daily_recharge: bool = False) -> dict[str, str]:
         files["data/recharge/recharge_file_LOC.csv"] = BASIN_RECHARGE_STATIONS
         files["data/recharge/recharge_file_BASIN_5D_20030101_20030120_D.csv"] = BASIN_DAILY_RECHARGE
     return files
+
+
+# The lake island and the Cheze valley, the two projects of the lake, river and
+# well scenario. The island is the 610 m square island with a lake, a cutoff
+# wall through it and a barrier east of it. Its default text is the one the
+# in-process digest test hashes, so a change here moves those digests. A solved
+# island is the same text with three months of transient flow and a well, asked
+# by name. The lake bathymetry and the barrier are binary files that a text
+# factory cannot hold: the caller writes them and says where they are.
+
+LAKE_POLYGON = {
+    "type": "FeatureCollection",
+    "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:EPSG::2154"}},
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {"lake_id": "reservoir"},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [260.0, 260.0],
+                        [360.0, 260.0],
+                        [360.0, 340.0],
+                        [260.0, 340.0],
+                        [260.0, 260.0],
+                    ]
+                ],
+            },
+        }
+    ],
+}
+
+LAKE_ABACUS = "stage,volume,sarea\n7.0,0.0,0.0\n9.0,60000.0,8000.0\n11.0,140000.0,8000.0\n"
+LAKE_DEEP_ABACUS = "stage,volume,sarea\n-14.0,0.0,0.0\n-13.0,4000.0,8000.0\n12.0,204000.0,8000.0\n"
+"""An abacus of 8000 m2 that starts below the lowest lake connection, so a solved stage stays in it."""
+
+LAKE_WALL = "x,y\n250.0,300.0\n420.0,300.0\n"
+
+LAKE_ISLAND = """\
+[workflow]
+mode = "simulation"
+
+[site]
+name = "island"
+
+[workspace]
+
+[simulation]
+name = "a6_lake_and_wall"
+
+[simulation.results]
+keep_solver_files = true
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+[display]
+enabled = false
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-02 00:00:00"
+step_value = "1 day"
+coverage_policy = "ignore"
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "island"
+
+[geographic.synthetic.grid]
+length_x = "610.0 m"
+length_y = "610.0 m"
+nx = 31
+ny = 31
+
+[geographic.synthetic.topography]
+kind = "radial_island"
+base_elevation = -1.0
+crest_elevation = 12.0
+island_radius = "200.0 m"
+
+[data]
+types = ["oceanic", "recharge", "lake_geometry", "lake_abacus", "lake_bathymetry"]
+
+[[data.oceanic.sources]]
+source = "constant"
+value = 0.0
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [1.0]
+
+[[data.lake_geometry.sources]]
+source = "file"
+path = "inputs/lake_polygon.geojson"
+
+[[data.lake_abacus.sources]]
+source = "file"
+lake_id = "reservoir"
+path = "inputs/lake_abacus.csv"
+
+[[data.lake_bathymetry.sources]]
+source = "file"
+path = "@BINARY_DIR@/lake_bathymetry.tif"
+
+[flow]
+flow_regime = "steady"
+param_list = ["K"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+value = "5e-6 m/s"
+
+[flow.bc.ocean]
+kind = "dirichlet"
+value = "0.0 m"
+
+[flow.bc.drainage]
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+[flow.sinks_sources.lakes.reservoir]
+bedleak = 1.0e-6
+initial_stage = "10.0 m"
+
+[flow.sinks_sources.lakes.reservoir.cutoff_wall]
+line_path = "inputs/cutoff_wall.csv"
+depths = [2.0]
+k = 1.0e-12
+thickness = 1.0
+
+[flow.sinks_sources.flow_barriers.dam]
+line_path = "@BINARY_DIR@/barrier.gpkg"
+depths = [2.0]
+k = 1.0e-12
+thickness = 1.0
+
+[mesh]
+engine = "triangle"
+cell_size = 60.0
+
+[mesh.lake_refinement]
+cell_size = 30.0
+dam_cell_size = 15.0
+dam_buffer = 60.0
+
+[domain.layers]
+nlay = 2
+"""
+
+
+def _swap(text: str, old: str, new: str) -> str:
+    """Return ``text`` with ``old`` replaced by ``new``, and refuse a text without ``old``."""
+    if old not in text:
+        raise ValueError(f"the text holds no {old!r}")
+    return text.replace(old, new, 1)
+
+
+LAKE_WELL = """
+[flow.sinks_sources.wells.W1]
+flux = -0.0001
+units = "m3/s"
+
+[flow.sinks_sources.wells.W1.location]
+kind = "absolute_xy"
+x = 180.0
+y = 300.0
+"""
+
+LAKE_THREE_MONTHS = (
+    (
+        'end_datetime = "2003-01-02 00:00:00"\nstep_value = "1 day"',
+        'end_datetime = "2003-03-31 00:00:00"\nstep_value = "1 month"',
+    ),
+    (
+        'flow_regime = "steady"\nparam_list = ["K"]',
+        'flow_regime = "transient"\nfirst_period_steady = true\nparam_list = ["K", "Sy", "Ss"]',
+    ),
+    (
+        '[flow.param.K.field]\nkind = "homogeneous"\nvalue = "5e-6 m/s"\n',
+        '[flow.param.K.field]\nkind = "homogeneous"\nvalue = "5e-6 m/s"\n'
+        '\n[flow.param.Sy.field]\nkind = "homogeneous"\nunit = "-"\nvalue = 0.1\n'
+        '\n[flow.param.Ss.field]\nkind = "homogeneous"\nunit = "m-1"\nvalue = 1e-5\n',
+    ),
+    (
+        'types = ["oceanic", "recharge", "lake_geometry"',
+        'types = ["oceanic", "lake_geometry"',
+    ),
+    ('[[data.recharge.sources]]\nsource = "synthetic"\nvalues = [1.0]\n\n', ""),
+    (
+        '[flow.sinks_sources.recharge]\nfirst_clim = "mean"',
+        "[flow.sinks_sources.recharge]\nvalues = [1.0, 4.0, 2.0]",
+    ),
+)
+"""The edits that turn the one steady day of the island into three monthly periods."""
+
+
+def lake_island_files(
+    *,
+    three_months: bool = False,
+    well: bool = False,
+    deep_abacus: bool = False,
+    binary_dir: str = "inputs",
+) -> dict[str, str]:
+    """Return the files of the lake island, relative path to text.
+
+    The default is one steady day, the text of the in-process digest test.
+    ``three_months`` plays three monthly periods of transient flow, with the
+    monthly recharge of ``TRANSIENT``, and ``well`` adds a constant pumping well
+    ``W1`` west of the lake. ``deep_abacus`` swaps the abacus of the lake for one
+    that covers the stages a solve reaches, which the default table, made for the
+    digests, does not. The bathymetry ``lake_bathymetry.tif`` and the
+    barrier ``barrier.gpkg`` are read from ``binary_dir``, which holds files the
+    caller wrote. The polygon, the abacus and the wall are returned as files.
+    """
+    text = LAKE_ISLAND.replace("@BINARY_DIR@", binary_dir)
+    if three_months:
+        for old, new in LAKE_THREE_MONTHS:
+            text = _swap(text, old, new)
+    if well:
+        text += LAKE_WELL
+    return {
+        "project.toml": text,
+        "inputs/lake_polygon.geojson": json.dumps(LAKE_POLYGON, indent=1),
+        "inputs/lake_abacus.csv": LAKE_DEEP_ABACUS if deep_abacus else LAKE_ABACUS,
+        "inputs/cutoff_wall.csv": LAKE_WALL,
+    }
+
+
+CHEZE_VALLEY = """\
+[workflow]
+mode = "simulation"
+
+[site]
+name = "cheze"
+
+[workspace]
+
+[simulation]
+name = "cheze_valley"
+
+[simulation.results]
+keep_solver_files = false
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = ["modflow6"]
+
+[display]
+enabled = false
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-30 00:00:00"
+step_value = "15 day"
+coverage_policy = "ignore"
+
+[geographic]
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
+kind = "from_outlet_coord"
+x_outlet = 300037.5
+y_outlet = 6701262.5
+snap_dist = "60 m"
+buff_area = "10%"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.1
+compute_stream_links = true
+compute_strahler_order = true
+
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = "60.0 m"
+
+[flow]
+flow_regime = "transient"
+first_period_steady = true
+param_list = ["K", "Sy", "Ss"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+value = "5e-5 m/s"
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+value = "0.05 -"
+
+[flow.param.Ss.field]
+kind = "homogeneous"
+value = "1e-6 m-1"
+
+[flow.ic]
+kind = "top"
+
+[flow.bc.drainage]
+application_domain = "top"
+value = "0.0 m2/s"
+
+# A negative rate goes to the EVT package, the streams and the lake feed the
+# aquifer.
+[flow.sinks_sources.recharge]
+values = -0.3
+
+# The top cell of the hill is nearly dry, so the hill well pumps from the second
+# layer: MODFLOW 6 would cut its rate in the top cell and the series would show less.
+[flow.sinks_sources.wells.hill]
+flux = -0.0005
+units = "m3/s"
+
+[flow.sinks_sources.wells.hill.location]
+kind = "absolute_xy"
+layer = 1
+x = 301500.0
+y = 6701800.0
+
+[flow.sinks_sources.wells.valley]
+flux = -0.0002
+units = "m3/s"
+
+[flow.sinks_sources.wells.valley.location]
+kind = "absolute_xy"
+x = 300800.0
+y = 6701300.0
+
+[flow.sinks_sources.flow_barriers.wall]
+line = [[301000.0, 6700600.0], [301000.0, 6702000.0]]
+depths = [5.0]
+hydchr = 1e-9
+
+[flow.sinks_sources.lakes.res0]
+bedleak = 1e-10
+bedleak_unit = "1/s"
+initial_stage = "93.0 m"
+
+[[flow.sinks_sources.lakes.res0.outlets]]
+kind = "WEIR"
+invert = "94.0 m"
+width = "5.0 m"
+lakeout = 0
+
+[flow.sinks_sources.sfr.net0]
+streambed_k = 1e-5
+streambed_k_unit = "m/s"
+streambed_thickness = "1 m"
+manning = 0.035
+outflow_to_lake = 1
+outlet_keepout = "100 m"
+
+[flow.sinks_sources.sfr.net0.runoff]
+kind = "constant"
+value = 0.002
+units = "m3/s"
+
+[flow.sinks_sources.sfr.net0.width]
+kind = "constant"
+value = "2 m"
+
+[[data.dem.sources]]
+source = "file"
+path = "@DATA_DIR@/dem_valley.tif"
+
+[[data.lake_geometry.sources]]
+source = "file"
+path = "@DATA_DIR@/lake_geometry.gpkg"
+
+[[data.lake_abacus.sources]]
+source = "file"
+path = "@DATA_DIR@/lake_abacus.csv"
+lake_id = "res0"
+
+[mesh.regular]
+shape = [30, 30]
+
+[domain.layers]
+nlay = 2
+"""
+
+
+def cheze_valley_files(data_dir: str = "inputs") -> dict[str, str]:
+    """Return the files of the Cheze valley, relative path to text.
+
+    The valley is the synthetic fixture of ``tests/data/sfr_cheze/`` on a flat
+    substratum, with a lake ``res0``, the stream network ``net0`` that flows into
+    it, two wells, evapotranspiration, a barrier and thirty days of flow. The
+    fixture holds a raster and a geopackage, so the project cites them in
+    ``data_dir`` and the caller says where they are. This is the one place the
+    factory points at a committed file, which it never opens.
+    """
+    return {"project.toml": CHEZE_VALLEY.replace("@DATA_DIR@", data_dir)}

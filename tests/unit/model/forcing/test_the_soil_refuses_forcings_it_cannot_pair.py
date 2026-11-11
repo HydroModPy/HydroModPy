@@ -16,7 +16,9 @@ import xarray as xr
 
 from hydromodpy.core.exceptions import DataContractViolation, MissingForcingError
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
-from hydromodpy.data.contracts import FieldRecord, LoadResult, PointRecord
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.forcing.soil_forcing import compute_soil_forcings
 

@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from pandas import DataFrame
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 def distance_to_outlet(links: DataFrame) -> dict[tuple[str, int], float]:

@@ -14,7 +14,9 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.state.layout import runs_dir_for
-from hydromodpy.project.launch import plan_project, project_status, read_journal, run_plan
+from hydromodpy.project.launch.journal import read_journal
+from hydromodpy.project.launch.local import plan_project, run_plan
+from hydromodpy.project.launch.status import project_status
 from hydromodpy.results.plan_store import read_plan
 from tests.unit.project.launch._launch_fakes import (
     write_behaviour,

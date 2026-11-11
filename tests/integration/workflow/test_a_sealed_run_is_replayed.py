@@ -260,7 +260,7 @@ def test_hmp_run_frozen_on_a_sealed_run_names_the_replay_verb(demo: Path) -> Non
 @pytest.fixture
 def sealed_then_moved(demo: Path) -> Iterator[tuple[Path, Path]]:
     """A run sealed under today's default, then the default moves."""
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
 
     source = _simulate(demo, name="probe")

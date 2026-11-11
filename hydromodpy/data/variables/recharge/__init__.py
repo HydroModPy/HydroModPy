@@ -1,1 +1,1 @@
-"""Recharge data manager: a synthetic series, custom files or SIM2 grids, in mm/day."""
+"""Recharge data variable: a synthetic series, custom files or SIM2 grids, in mm/day."""

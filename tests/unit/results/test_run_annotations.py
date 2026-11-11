@@ -13,7 +13,8 @@ from hydromodpy.results.annotations import (
     read_annotations,
     write_annotations,
 )
-from hydromodpy.results.catalog import Catalog, index_new_runs, rebuild_index
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.indexer import index_new_runs, rebuild_index
 from hydromodpy.results.record.manifest import read_manifest
 from tests._helpers.sealed_runs import make_project, seal_run
 

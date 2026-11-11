@@ -170,7 +170,7 @@ A transport adapter is filed beside its engine, in the module of
 ``Modflow6GwtTransportAdapter`` is in ``modflow6/transport.py``.
 
 If your backend shares MODFLOW-family lifecycle helpers, reuse
-``solver/modflow_common/flow_adapter_helpers.py`` (``build_flow_model``,
+``solver/modflow_common/flow_run.py`` (``build_flow_model``,
 ``run_flow_model`` and ``resolve_solver_run_output``) instead of duplicating the
 build and solve flow.
 
@@ -310,7 +310,7 @@ hands it to ``build`` as ``options``.
 
 .. _add-a-solver-refusal:
 
-``config/cross_checks.py`` crosses the file with ``supports``. It lists the
+``config/solver_supports.py`` crosses the file with ``supports``, through a row of ``CROSS_RULES``. It lists the
 traits the file uses, and each one the chosen backend leaves out raises
 ``IncompatibleCapabilitiesError``. The message gives the key the file wrote,
 the backend chosen and the backends of the installation that honour the trait::
@@ -375,7 +375,7 @@ Three tiers, smallest first:
 - **Unit** under ``tests/unit/solver/mysolver/`` for ``validate``,
   ``build``, ``run`` and ``cleanup`` against a small in-memory ``Model`` and a
   ``RunSlot`` in a temporary folder. The contract test
-  ``tests/contract/test_solver_backend_contract.py`` runs over ``solvers.names()``,
+  ``tests/ports/test_solver.py`` runs over ``solvers.names()``,
   so a registered backend is checked for its members, and for ``rerun`` if and only
   if its ``mutable`` is not empty. A backend that carries ``rerun`` adds a test
   that compares a rerun with a new build of the same ``Model``, file by file.
@@ -410,8 +410,8 @@ See also
 --------
 
 - :doc:`../packages/solver` for the solver package map.
-- :doc:`add-a-process` if you also need a new ``ProcessSpatial`` for
-  the runtime payload your adapter consumes.
+- :doc:`add-a-process` if you also need a new process type for
+  the payload your adapter consumes.
 - :doc:`add-a-calibration-method` if your backend changes how the
   ask/tell loop should observe outputs.
 - :doc:`../layered-architecture` for the layer matrix that constrains

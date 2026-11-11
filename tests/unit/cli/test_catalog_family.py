@@ -15,7 +15,8 @@ from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER, METRICS
 from hydromodpy.core.scoring.metric_table import METRIC_SENSE
 from hydromodpy.core.state.layout import catalog_path_for
 from hydromodpy.results.annotations import add_note, add_tag, read_annotations
-from hydromodpy.results.catalog import Catalog, rebuild_index
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.cli_runner import CliRunner
@@ -28,7 +29,7 @@ from ._hmp import run_main as _run
 
 
 def _make_workspace_with_catalog(tmp_path: Path) -> Path:
-    from hydromodpy.results.catalog import rebuild_index
+    from hydromodpy.results.catalog.indexer import rebuild_index
     from tests._helpers.sealed_runs import make_project, seal_run
 
     workspace = tmp_path / "ws"

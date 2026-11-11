@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.config import HydroModPyConfig
-from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.project.api import check
 

@@ -11,13 +11,10 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.calibration.config import (
-    CalibAggregateDecl,
-    CalibObjectiveBlockDecl,
-    CalibOutputPoint,
-    CalibrationConfig,
-    validate_calib_output,
-)
+from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
+from hydromodpy.calibration.config_outputs import CalibOutputPoint, validate_calib_output
+from hydromodpy.calibration.config_phases import CalibAggregateDecl
 from hydromodpy.calibration.metrics import series as series_module
 from hydromodpy.calibration.metrics.observable_scoring import ObservableScorer, StationBlockScorer
 from hydromodpy.calibration.metrics.observed_pairing import (

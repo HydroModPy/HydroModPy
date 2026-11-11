@@ -31,8 +31,11 @@ from pyproj import CRS
 from shapely.geometry import Polygon, box
 
 from hydromodpy.catchment.raster_support import RasterSupport
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
-from hydromodpy.data.contracts import FieldRecord, LoadResult, PointRecord, StationLocation
+from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.location import StationLocation
+from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.geology.field import build_geology_field
 from hydromodpy.mesh import registry
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
@@ -48,7 +51,8 @@ from hydromodpy.solver.modflow6.builders.recharge import (
     recharge_to_spd,
     resolve_deferred_heterogeneous_recharge,
 )
-from hydromodpy.solver.modflow6.support.property_mapping import resolve_flow_property_arrays
+from hydromodpy.solver.modflow6.support.property_mapping import MODFLOW6_PROPERTIES
+from hydromodpy.solver.modflow_common.property_mapping import resolve_flow_property_arrays
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 from tests._helpers.model_factory import default_options
@@ -453,6 +457,7 @@ def prepare_mf6(pair: MeshPair, flow: Flow, tmp_path: Path) -> SolverInputs:
         solver_mesh=solver_mesh,
         required_properties=frozenset({"K", "Sy", "Ss"}),
         optional_fill_values={"Sy": 0.0, "Ss": 0.0},
+        properties=MODFLOW6_PROPERTIES,
     )
     model = SimpleNamespace(
         inputs=model_inputs,
@@ -474,10 +479,8 @@ def prepare_mf6(pair: MeshPair, flow: Flow, tmp_path: Path) -> SolverInputs:
     flopy.mf6.ModflowGwfdisv(
         gwf, nlay=solver_mesh.nlay, **solver_mesh.to_disv_kwargs(), idomain=solver_mesh.idomain
     )
-    npf = flopy.mf6.ModflowGwfnpf(gwf, k=solver_mesh.flatten_from_grid(properties["hk"]))
-    sto = flopy.mf6.ModflowGwfsto(
-        gwf, sy=solver_mesh.flatten_from_grid(properties["sy"]), transient={0: True}
-    )
+    npf = flopy.mf6.ModflowGwfnpf(gwf, k=properties["hk"])
+    sto = flopy.mf6.ModflowGwfsto(gwf, sy=properties["sy"], transient={0: True})
     rcha = flopy.mf6.ModflowGwfrcha(gwf, recharge=spd)
     return SolverInputs(
         k=np.asarray(npf.k.get_data(), dtype=float),

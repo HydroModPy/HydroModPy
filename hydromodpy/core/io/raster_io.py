@@ -15,33 +15,13 @@ import rasterio.enums  # noqa: F401 - used as rio.enums across this module
 import rasterio.features
 import rioxarray  # noqa: F401 - registers the .rio accessor used by load_to_xarray
 import xarray as xr
-from pyproj import CRS
-from pyproj.aoi import AreaOfInterest
-from pyproj.database import query_utm_crs_info
-from rasterio.warp import calculate_default_transform, reproject
+from rasterio.warp import reproject
 from shapely.geometry import Point
 
 from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
-
-
-def mask_by_dem(target_data, mask_data, cond_symb, value_masked):
-    """Return a masked array based on *cond_symb* applied to *mask_data*."""
-    ops = {
-        "==": np.ma.masked_equal,
-        "!=": np.ma.masked_not_equal,
-    }
-    if cond_symb in ops:
-        return ops[cond_symb](mask_data, value_masked)
-    cmp = {
-        "<=": np.less_equal,
-        ">=": np.greater_equal,
-        ">": np.greater,
-        "<": np.less,
-    }
-    return np.ma.masked_array(target_data, mask=cmp[cond_symb](mask_data, value_masked))
 
 
 def _as_crs(crs):
@@ -338,69 +318,3 @@ def export_tif(base_dem_path, data_to_tif, data_tif_path, data_nodata_val=None, 
         ras_meta["crs"] = _as_crs(data_crs)
     with rio.open(data_tif_path, "w", **ras_meta) as dst:
         dst.write(data_to_tif, 1)
-
-
-def reproject_tif(raw_dem_path, wgs_dem_path, utm_dem_path):
-    """Reproject a raster from its source CRS to WGS-84 then to local UTM."""
-    with rio.open(raw_dem_path) as src:
-        dst_crs = rio.crs.CRS.from_epsg(4326)
-        transform_, width, height = calculate_default_transform(
-            src.crs, dst_crs, src.width, src.height, *src.bounds
-        )
-        kwargs = src.meta.copy()
-        kwargs.update({"crs": dst_crs, "transform": transform_, "width": width, "height": height})
-        with rio.open(wgs_dem_path, "w", **kwargs) as dst:
-            for band in range(1, src.count + 1):
-                reproject(
-                    source=rio.band(src, band),
-                    destination=rio.band(dst, band),
-                    src_transform=src.transform,
-                    src_crs=src.crs,
-                    dst_transform=transform_,
-                    dst_crs=dst_crs,
-                    resampling=rio.enums.Resampling.bilinear,
-                )
-
-    with rio.open(wgs_dem_path) as wgs_dem:
-        wgs_dem_data = wgs_dem.read(1)
-        geodata = wgs_dem.transform.to_gdal()
-        x_pixel = wgs_dem_data.shape[1]
-        y_pixel = wgs_dem_data.shape[0]
-        resolution_x = geodata[1]
-        resolution_y = geodata[5]
-        xmin = geodata[0]
-        ymax = geodata[3]
-        xmax = xmin + x_pixel * resolution_x
-        ymin = ymax + y_pixel * resolution_y
-        centroid = [xmin + ((xmax - xmin) / 2), ymin + ((ymax - ymin) / 2)]
-
-        lon, lat = centroid
-        utm_crs_list = query_utm_crs_info(
-            datum_name="WGS 84",
-            area_of_interest=AreaOfInterest(
-                west_lon_degree=lon,
-                south_lat_degree=lat,
-                east_lon_degree=lon,
-                north_lat_degree=lat,
-            ),
-        )
-        utm_crs = CRS.from_epsg(utm_crs_list[0].code).srs
-
-        dst_crs = rio.crs.CRS.from_string(utm_crs)
-        transform_, width, height = calculate_default_transform(
-            wgs_dem.crs, dst_crs, wgs_dem.width, wgs_dem.height, *wgs_dem.bounds
-        )
-        kwargs = wgs_dem.meta.copy()
-        kwargs.update({"crs": dst_crs, "transform": transform_, "width": width, "height": height})
-        with rio.open(utm_dem_path, "w", **kwargs) as dst:
-            for band in range(1, wgs_dem.count + 1):
-                reproject(
-                    source=rio.band(wgs_dem, band),
-                    destination=rio.band(dst, band),
-                    src_transform=wgs_dem.transform,
-                    src_crs=wgs_dem.crs,
-                    dst_transform=transform_,
-                    dst_crs=dst_crs,
-                    resampling=rio.enums.Resampling.bilinear,
-                )
-    return utm_crs

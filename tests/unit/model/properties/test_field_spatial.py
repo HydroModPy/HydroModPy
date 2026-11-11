@@ -9,7 +9,6 @@ import pytest
 
 from hydromodpy.model.properties.field_spatial import (
     Field,
-    FieldDiscretization,
     WeightedAverageFieldDiscretization,
 )
 from hydromodpy.model.properties.unit_square_mesh import FieldMeshSquare
@@ -44,11 +43,10 @@ def _weighted(mesh=MESH, field_id="geology", keys=("a",), fractions=None):
         (lambda tmp: _weighted(keys=("a", " ")), ValueError, "cannot contain empty names"),
         (lambda tmp: _weighted(keys=("a", "b")), ValueError, "missing key 'b'"),
         (lambda tmp: Field(identifier="abstract_only"), TypeError, "abstract"),
-        (lambda tmp: FieldDiscretization(mesh=MESH, field_id="field_square"), TypeError, "abstract"),
     ],
     ids=["blank-id", "no-from-dict", "toml-reaches-from-dict", "no-section", "section-not-a-table",
          "not-a-cell-mesh", "blank-field-id", "no-zone", "blank-zone", "zone-without-fractions",
-         "abstract-support", "abstract-discretization"],
+         "abstract-support"],
 )  # fmt: skip
 def test_a_support_or_discretization_it_cannot_build_is_refused(tmp_path: Path, call, error, match):
     toml = write_text(tmp_path / "bands.toml", '[bands]\nid = "bands"')

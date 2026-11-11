@@ -19,7 +19,8 @@ import pytest
 
 from hydromodpy.data.provenance.lockfile import read_lockfile_inputs
 from hydromodpy.data.provenance.sidecars import FORMER_CACHE_DATABASE, CacheIndex, scan
-from hydromodpy.project.launch import plan_project, project_status, run_plan
+from hydromodpy.project.launch.local import plan_project, run_plan
+from hydromodpy.project.launch.status import project_status
 from tests.unit.project.launch._launch_fakes import CASES, seen, write_behaviour, write_project
 
 

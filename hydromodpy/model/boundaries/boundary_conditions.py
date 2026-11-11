@@ -35,7 +35,7 @@ from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr
-from hydromodpy.core.units import (
+from hydromodpy.core.units.parse import (
     canonical_unit_short_form,
     check_unit_compatible,
     parse_to_canonical_magnitude,

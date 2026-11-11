@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.cli.exit_codes import EXIT_CONFIG
 from tests._helpers.cli_runner import CliRunner
 
 _CAL = """\

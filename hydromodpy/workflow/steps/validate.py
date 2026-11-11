@@ -83,7 +83,7 @@ class ValidateStep:
         return (str(path),) if path.is_file() else ()
 
     def run(self, state: PipelineState) -> PipelineState:
-        from hydromodpy.config import HydroModPyConfig
+        from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
         cfg = state.get("cfg")
         config_path = state.get("config_path")

@@ -14,7 +14,7 @@ import numpy as np
 from hydromodpy.results.run.contracts import polygon_areas
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 def face_polygons(sim: Run) -> list[np.ndarray]:

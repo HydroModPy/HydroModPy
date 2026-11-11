@@ -6,7 +6,7 @@ import pytest
 
 from hydromodpy.data.variables.hydrometry.variable import HydrometryVariable
 from hydromodpy.data.variables.intermittency.variable import IntermittencyVariable
-from hydromodpy.data.variables.lake_levels.variable import LakeLevelsVariable
+from hydromodpy.data.variables.lake_series import LakeLevelsVariable
 from hydromodpy.data.variables.piezometry.variable import PiezometryVariable
 from hydromodpy.results import field_registry
 from hydromodpy.results.exporters.export_spec import ExportKind
@@ -66,8 +66,11 @@ def test_every_registered_field_is_exportable() -> None:
     assert all(names[name] is ExportKind.field for name in field_registry.all_names())
 
 
-def test_the_catchment_series_are_known() -> None:
-    assert set(TIME_SERIES_REGISTRY) <= set(SIMULATED_SERIES)
+def test_every_registered_series_is_exported_as_a_series() -> None:
+    assert SIMULATED_SERIES == tuple(TIME_SERIES_REGISTRY)
+    names = static_export_names()
+    assert all(names[name] is ExportKind.series for name in TIME_SERIES_REGISTRY)
+    assert not set(TIME_SERIES_REGISTRY) & set(field_registry.all_names())
 
 
 @pytest.mark.parametrize(

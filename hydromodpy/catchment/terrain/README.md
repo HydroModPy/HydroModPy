@@ -34,7 +34,7 @@ they differ by a factor 2.5 on the area of a catchment, because they resolve fla
 `registry.py` resolves an engine id to a class. A third party adds an engine on the entry point group
 `hydromodpy.terrain.engine`, with an entry point named like the `engine_id`. A built-in name is refused, and a plug-in
 that fails to load is skipped with a warning. Such an engine needs `port.py` and `core.exceptions` and nothing else of
-HydroModPy. `tests/contract/test_terrain_engine_contract.py` runs on every engine the registry resolves.
+HydroModPy. `tests/ports/test_terrain.py` runs on every engine the registry resolves.
 
 ## Facts a caller must not guess
 
@@ -80,7 +80,7 @@ HydroModPy. `tests/contract/test_terrain_engine_contract.py` runs on every engin
 `port.py` imports `core.exceptions`, and `artifacts.py` inside three functions. `artifacts.py` reads the constants of
 `port.py`, so a module-level import the other way would be a cycle. `WhiteboxTerrainEngine.__init__` imports
 `catchment.delineation` when it is given no backend, so a third-party engine and the numpy engine never load Whitebox.
-`tests/unit/architecture/test_terrain_port_stands_alone.py` checks these imports.
+`tests/unit/architecture/test_layers.py` checks these imports.
 
 The tests are in `tests/unit/catchment/terrain/`, one file per module. A new member of the port is a method of the
 Protocol, and both engines must serve it. Raise `engine_version` when the products of an engine change for one request.

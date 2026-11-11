@@ -16,8 +16,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, base_named_by_w, refuse
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import base_named_by_w
 
 if TYPE_CHECKING:
     from hydromodpy.core.diagnostic import Diagnostic
@@ -74,11 +75,11 @@ def run(args: argparse.Namespace) -> None:
     exit code of a configuration, when one of them is an ``error``. ``--partial``
     keeps a required key not written yet as ``to_fill``, which refuses nothing.
     """
-    from hydromodpy.cli.commands.doctor import probe_toml_workspace
     from hydromodpy.config.check import phrase
     from hydromodpy.core.config_kit.written import experimental_keys_line
     from hydromodpy.core.logging import current_verbosity
     from hydromodpy.project.api import check
+    from hydromodpy.project.doctor import probe_toml_workspace
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
@@ -142,8 +143,8 @@ def _calibration_notes(path: Path, *, verbose: bool) -> list[str]:
     none, its refusal is already a finding of the check. A file with no
     ``[calibration]`` prints none either.
     """
-    from hydromodpy.calibration.preflight import comparison_lines, protocol_lines
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.calibration.preflight_report import comparison_lines, protocol_lines
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.config_kit.said import collecting
     from hydromodpy.core.exceptions import ConfigError
 

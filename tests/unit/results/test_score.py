@@ -639,7 +639,7 @@ def test_the_log_nse_is_written_under_its_calibration_name() -> None:
 
 
 def test_the_run_directory_is_read_without_the_index(tmp_path, monkeypatch) -> None:
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.facade import Catalog
 
     def _refuse(*_args, **_kwargs):
         raise AssertionError("scoring a run opened the index")
@@ -717,7 +717,7 @@ def _promoted_store(tmp_path, by: CalibratedBy | None):
 
 @pytest.mark.parametrize("promoted", [False, True], ids=["headline_only", "promoted"])
 def test_the_run_writes_one_row_set_per_calibration_period(tmp_path, promoted) -> None:
-    from hydromodpy.core.site import SiteConfig
+    from hydromodpy.core.site.config import SiteConfig
 
     days = pd.date_range("2020-01-01", periods=30, freq="D")
     observed = pd.Series(np.linspace(1.0, 2.0, 30), index=days)

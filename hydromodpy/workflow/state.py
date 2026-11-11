@@ -18,7 +18,7 @@ said what removal could mean: the context is a typed parameter threaded from
 step to step, and the coupling that matters is the mutable ``SetupContext``
 reached through it, which no narrow view withholds. So the contract is not that
 the object disappears, it is that every member it carries has a reader, gated in
-``tests/unit/architecture/test_workflow_context_members_have_a_reader.py``.
+``tests/unit/architecture/test_run_path.py``.
 
 The payload is a mapping and not something narrower because the runner needs it
 to be one, on three paths: a cohort of parallel steps is merged by unioning
@@ -33,7 +33,7 @@ fields named no payload key that any step ever wrote, and ``ctx`` - the key ever
 step but the first reads - appeared in none of them. They documented a
 decomposition that did not exist, in the shape of the accumulator F8 narrows.
 What replaced them is a per-step declaration of the payload keys a step reads
-and writes, gated in ``tests/unit/architecture/test_step_payload_keys.py``: a
+and writes, gated in ``tests/unit/architecture/test_run_path.py``: a
 narrow statement that is checked against the code instead of a wide one that was
 not.
 """

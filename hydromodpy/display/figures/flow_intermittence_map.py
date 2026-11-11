@@ -55,7 +55,7 @@ from hydromodpy.display.style import neutral
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 PERENNIAL_COLOR = "#1f6fb4"

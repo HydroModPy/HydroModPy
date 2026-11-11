@@ -10,47 +10,19 @@ figures and the exports share. A calendar month reads as ``"October 2002"``.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from hydromodpy.core.time.selection import period_label
+from hydromodpy.results.derive.time_alignment import run_period_edges
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
-__all__ = ("instant_label", "run_edges")
+__all__ = ("instant_label",)
 
 _MONTH = re.compile(r"^\d{4}-\d{2}$")
-
-_NO_DATES = (AttributeError, KeyError, ValueError, RuntimeError, FileNotFoundError)
-"""What a run without a time axis raises when its edges are asked for."""
-
-
-def run_edges(sim: Run) -> pd.DatetimeIndex | None:
-    """Return the ``n + 1`` period edges of a run, or None without dates.
-
-    A run-shaped object that exposes only :attr:`time_index` gets edges
-    rebuilt from its end stamps.
-    """
-    try:
-        edges = sim.periods.edges
-    except _NO_DATES:
-        edges = _edges_from_stamps(sim)
-    if edges is None or len(edges) < 2:
-        return None
-    return pd.DatetimeIndex(edges)
-
-
-def _edges_from_stamps(sim: Any) -> pd.DatetimeIndex | None:
-    """Rebuild the edges from the end stamps, or None when there are none."""
-    from hydromodpy.core.time.period_aggregation import period_edges
-
-    try:
-        stamps = sim.time_index
-        return period_edges(stamps)
-    except _NO_DATES:
-        return None
 
 
 def instant_label(sim: Run, timestep: int) -> str:
@@ -61,7 +33,7 @@ def instant_label(sim: Run, timestep: int) -> str:
     other span. A negative index counts from the end. A run without dates,
     or an index it does not hold, has no label.
     """
-    edges = run_edges(sim)
+    edges = run_period_edges(sim)
     if edges is None:
         return ""
     try:

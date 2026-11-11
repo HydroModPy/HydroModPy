@@ -119,3 +119,24 @@ def test_custom_track_dir_is_refused_with_the_values_to_write() -> None:
 @pytest.mark.parametrize("direction", ["forward", "backward"])
 def test_forward_and_backward_are_accepted(direction: str) -> None:
     assert ModpathParametersConfig(track_dir=direction).track_dir == direction
+
+
+# One row per parameter that is a rate or a length: its unit and whether the field says that a
+# per-day value is about 86 400 times too large. The MODFLOW 6 transport runs on the SI clock.
+_RATE_UNITS = [
+    pytest.param("diffu_coeff", "m2/s", True, id="molecular_diffusion"),
+    pytest.param("rate_decay", "1/s, or mass/volume/s", True, id="decay_rate"),
+    pytest.param("disp_long", "m", False, id="longitudinal_dispersivity"),
+    pytest.param("sconc_init", "mass/volume", False, id="initial_concentration"),
+    pytest.param("porosity", "-", False, id="porosity"),
+]
+
+
+@pytest.mark.parametrize(("name", "unit", "warns_about_days"), _RATE_UNITS)
+def test_a_parameter_carries_its_si_unit_and_warns_about_a_per_day_value(
+    name: str, unit: str, warns_about_days: bool
+) -> None:
+    field = ConcentrationTransportParametersConfig.model_fields[name]
+
+    assert field.json_schema_extra["unit"] == unit
+    assert ("86400" in field.description) is warns_about_days

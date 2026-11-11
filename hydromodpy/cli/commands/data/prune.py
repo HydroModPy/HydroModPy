@@ -11,7 +11,7 @@ from hydromodpy.cli.conventions import (
     verbosity_parser,
     workspace_parser,
 )
-from hydromodpy.cli.helpers import confirm
+from hydromodpy.cli.exit_codes import confirm
 from hydromodpy.cli.output import emit
 
 NAME: str = "prune"
@@ -45,7 +45,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.cli.refs import resolve_workspace
     from hydromodpy.project.data_cache import prune_data
 
     workspace = resolve_workspace(args.workspace)

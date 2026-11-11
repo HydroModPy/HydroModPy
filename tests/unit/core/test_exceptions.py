@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from hydromodpy.cli.helpers import exit_code_for
+from hydromodpy.cli.exit_codes import exit_code_for
 from hydromodpy.core import exceptions as exc_module
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import Category, HydroModPyError
@@ -78,7 +78,7 @@ def test_every_exported_class_renders_a_problem_object_from_one_argument() -> No
 def test_the_exit_code_of_a_class_is_the_one_the_mapper_produces() -> None:
     """The description a capability ships claims an exit code per exception
     class. It may not claim one the mapper does not produce."""
-    from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_SOLVER_ERROR, EXIT_VALIDATION
+    from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_SOLVER_ERROR, EXIT_VALIDATION
 
     assert exit_code_for(exc_module.ConfigValidationError("x")) == EXIT_CONFIG
     assert exit_code_for(exc_module.DataError("x")) == EXIT_VALIDATION

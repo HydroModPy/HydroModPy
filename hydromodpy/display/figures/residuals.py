@@ -9,7 +9,13 @@ import numpy as np
 
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import axis_label, station_label
-from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots, run_suffix
+from hydromodpy.display.figure import (
+    BaseFigure,
+    FigureNotApplicable,
+    FigureSpec,
+    new_subplots,
+    run_suffix,
+)
 from hydromodpy.display.figure_options import ObservedStation, Opt, Station, Variable
 from hydromodpy.display.figures._observed import observed_series
 from hydromodpy.display.figures._window import shade_before_window
@@ -19,7 +25,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure as MplFigure
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 
 class Residuals(BaseFigure):
@@ -67,12 +73,15 @@ class Residuals(BaseFigure):
         import pandas as pd
 
         sim_ts = sim.timeseries(variable, station=station)
-        obs_ts, obs_station = observed_series(
-            sim, variable, station=observed_station, label="residuals"
-        )
+        try:
+            obs_ts, obs_station = observed_series(
+                sim, variable, station=observed_station, label="residuals"
+            )
+        except ValueError as exc:
+            raise FigureNotApplicable(str(exc)) from exc
         joined = pd.concat([sim_ts.rename("sim"), obs_ts.rename("obs")], axis=1).dropna()
         if joined.empty:
-            raise ValueError(
+            raise FigureNotApplicable(
                 f"residuals: the simulated {variable!r} at {station!r} and the observed "
                 f"one at {obs_station!r} share no timestamp"
             )

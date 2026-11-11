@@ -113,7 +113,7 @@ def test_the_run_is_scored_under_its_rule_and_the_facts_carry_the_result(tmp_pat
     import numpy as np
     import pandas as pd
 
-    from hydromodpy.core.site import SiteConfig
+    from hydromodpy.core.site.config import SiteConfig
     from hydromodpy.results.metric_rule import MetricsConfig, MetricsWindow
     from tests._helpers.run_stores import open_run_store
 
@@ -146,7 +146,7 @@ def test_without_a_declared_gauge_the_run_is_scored_at_the_gauge_it_deduced(tmp_
     import numpy as np
     import pandas as pd
 
-    from hydromodpy.core.site import SiteConfig
+    from hydromodpy.core.site.config import SiteConfig
     from hydromodpy.results.metric_rule import MetricsConfig, MetricsWindow
     from hydromodpy.results.record.manifest import ManifestSite
     from tests._helpers.run_stores import open_run_store
@@ -172,7 +172,7 @@ def test_without_a_declared_gauge_the_run_is_scored_at_the_gauge_it_deduced(tmp_
 
 
 def test_without_a_window_the_headline_is_empty_and_says_so(tmp_path) -> None:
-    from hydromodpy.core.site import SiteConfig
+    from hydromodpy.core.site.config import SiteConfig
     from tests._helpers.run_stores import open_run_store
 
     cfg = SimpleNamespace(site=SiteConfig(name="nancon", gauge="J0014010"), metrics=None)

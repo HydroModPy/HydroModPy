@@ -285,7 +285,7 @@ SYNTHETIC = {"workflow": {"mode": "simulation"}, "geographic": {"source_mode": "
 def test_a_document_in_memory_is_read_against_the_base_and_never_the_current_folder(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.project.facade import resolve_config
 
@@ -360,7 +360,7 @@ def test_the_index_a_project_opens_draws_figures(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """The catalog of a project is given ``render``, as it is given ``read_config``."""
-    import hydromodpy.results.catalog as catalogs
+    import hydromodpy.results.catalog.facade as catalogs
     from hydromodpy.project.facade import read_sealed_config
     from hydromodpy.project.show import render
 

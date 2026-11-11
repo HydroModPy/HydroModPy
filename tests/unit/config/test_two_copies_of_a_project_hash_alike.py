@@ -5,7 +5,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.data.loading.inputs import ResolvedInputs
 from hydromodpy.results.record.request_identity import request_id
 from hydromodpy.workflow.solution_key import request_id_of

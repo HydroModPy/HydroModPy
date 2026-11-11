@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.data.loading.inputs import ResolvedInputs
 from hydromodpy.mesh.mesh_config import MeshConfig

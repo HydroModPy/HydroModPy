@@ -1,0 +1,9 @@
+{
+  "attributes": {
+    "unit": "m",
+    "source": "constant",
+    "n_records": 90
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

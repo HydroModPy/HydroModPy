@@ -13,15 +13,12 @@ from __future__ import annotations
 from hydromodpy.catchment.delineation.whitebox_workflows_backend.delineation import (
     WhiteboxDelineationBackend,
 )
-from hydromodpy.catchment.delineation.whitebox_workflows_backend.flow import WhiteboxFlowBackend
-from hydromodpy.catchment.delineation.whitebox_workflows_backend.raster import WhiteboxRasterBackend
-
-__all__ = [
-    "WhiteboxDelineationBackend",
-    "WhiteboxFlowBackend",
-    "WhiteboxRasterBackend",
-    "WhiteboxWorkflowsBackend",
-]
+from hydromodpy.catchment.delineation.whitebox_workflows_backend.flow import (
+    WhiteboxFlowBackend,
+)
+from hydromodpy.catchment.delineation.whitebox_workflows_backend.raster import (
+    WhiteboxRasterBackend,
+)
 
 
 class WhiteboxWorkflowsBackend:
@@ -31,3 +28,6 @@ class WhiteboxWorkflowsBackend:
         self.raster = WhiteboxRasterBackend()
         self.flow = WhiteboxFlowBackend(self.raster)
         self.delineation = WhiteboxDelineationBackend(self.raster)
+
+
+__all__ = ("WhiteboxWorkflowsBackend",)

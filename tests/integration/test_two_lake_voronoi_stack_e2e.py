@@ -35,8 +35,8 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     sfr_drain_cells_to_drop,
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import worst_percent_discrepancy
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
+from hydromodpy.solver.modflow_common.listing import worst_percent_discrepancy
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_ground import leave_ground_beside
 from tests._helpers.model_factory import make_model

@@ -388,6 +388,7 @@ def test_project_calibrate_embedded_phases_route_to_staged_runner(
     project = SimpleNamespace(
         _cfg=SimpleNamespace(calibration=_staged_config()),
         _config_path=config,
+        _environment=None,
     )
     result = Project.calibrate(project, phase="steady_k")
 
@@ -468,7 +469,7 @@ def test_python_mode_phases_and_equivalent_toml_pick_the_same_phases(
     against the runner itself.
     """
     from hydromodpy.calibration.runners.document import load_toml_calibration
-    from hydromodpy.calibration.runners.staged_runner import phase_summaries
+    from hydromodpy.calibration.runners.staged_report import phase_summaries
     from hydromodpy.project.facade import Project
 
     toml_path = _write_toml(tmp_path / "phases.toml", PHASES_TOML_EQUIVALENT)
@@ -624,7 +625,7 @@ def test_file_backed_python_phases_document_keeps_the_projects_own_paths(
     project's own already-resolved config (every path already absolute)
     avoids it.
     """
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.project.facade import Project
 
     config_path = _write_real_project(tmp_path)
@@ -689,7 +690,7 @@ def test_file_backed_python_phases_document_holds_only_what_python_gave(
     may appear in the written document, or a phases= call naming only K
     would silently also carry Sy and an unrelated output along.
     """
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.project.facade import Project
 
     config_path = _write_real_project(tmp_path)

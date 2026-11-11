@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.scope import CATCHMENT
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 from hydromodpy.schema.lineage import Lineage

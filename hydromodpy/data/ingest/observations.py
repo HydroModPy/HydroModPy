@@ -1,6 +1,6 @@
 """Persist loaded observation timeseries into the run.
 
-Observation-type data managers (hydrometry, piezometry, intermittency,
+Observation-type data variables (hydrometry, piezometry, intermittency,
 water_quality) load station timeseries at project init time. This
 extractor copies those series into the ``timeseries`` table of the run,
 with ``source = observed``, beside the simulated ones of the same variable, so

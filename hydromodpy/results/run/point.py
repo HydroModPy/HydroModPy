@@ -44,7 +44,7 @@ from hydromodpy.results.run.array import lookup_zarr_path
 from hydromodpy.results.run.tables import read_run_table
 
 if TYPE_CHECKING:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 

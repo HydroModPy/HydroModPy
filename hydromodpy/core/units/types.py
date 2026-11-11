@@ -21,7 +21,7 @@ canonical unit.
 Example
 -------
 >>> from pydantic import BaseModel
->>> from hydromodpy.core.units import HydraulicConductivity
+>>> from hydromodpy.core.units.types import HydraulicConductivity
 >>> class Aquifer(BaseModel):
 ...     k: HydraulicConductivity
 >>> Aquifer(k="1e-4 m/s").k.to("m/s").magnitude

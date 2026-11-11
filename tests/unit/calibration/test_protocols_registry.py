@@ -9,10 +9,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions, apply_project_defaults
-from hydromodpy.calibration.protocols import expand_calibration_protocol, registry
-from hydromodpy.calibration.protocols.registry import _as_the_load_reads_it
-from hydromodpy.config import HydroModPyConfig
+from hydromodpy.calibration.config import apply_project_defaults
+from hydromodpy.calibration.config_network import MatchingHydrographicNetworkOptions
+from hydromodpy.calibration.protocols import registry
+from hydromodpy.calibration.protocols.registry import (
+    _as_the_load_reads_it,
+    expand_calibration_protocol,
+)
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.data.loading.inputs import ResolvedInputs
 from hydromodpy.results.storage.contract import RUN_SEARCH_TABLE

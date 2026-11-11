@@ -21,7 +21,6 @@ package "Data and forcing" {
 }
 
 package "Runtime process objects (model)" {
-  component "ProcessSpatial" as ProcessSpatial
   component "Flow" as Flow
   component "Model\n(frozen)" as Model
 }
@@ -43,7 +42,6 @@ HydroModPyConfig --> TransportConfig
 HydroModPyConfig --> SimulationConfig
 
 FlowConfig --> Flow : ensure_flow
-Flow --> ProcessSpatial : extends
 
 DataManagers --> Binders : loaded data
 Forcing --> Binders : aligned series

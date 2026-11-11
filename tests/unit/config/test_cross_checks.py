@@ -14,25 +14,27 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.config import HydroModPyConfig, cross_checks
+from hydromodpy.config import cross_checks, solver_supports
 from hydromodpy.config.cross_checks import (
-    CONTAMINATIONS,
     CROSS_RULES,
-    TRAIT_USES,
     check_against_the_solver,
+    refuse_an_export_that_cannot_be_written,
+    run_cross_rules,
+)
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.config.section_loader import SECTIONS
+from hydromodpy.config.solver_supports import (
+    CONTAMINATIONS,
+    TRAIT_USES,
     coarse_conductivity_profile,
     refuse_a_transport_its_flow_does_not_feed,
     refuse_a_window_chain_the_run_cannot_carry,
-    refuse_an_export_that_cannot_be_written,
     refuse_face_flows_the_flow_does_not_write,
     refuse_the_contaminations,
     refuse_the_reads_the_flow_does_not_write,
     refuse_the_traits_the_solver_ignores,
-    run_cross_rules,
-    traits_of,
     uses_of,
 )
-from hydromodpy.config.section_loader import SECTIONS
 from hydromodpy.core.exceptions import (
     ConfigError,
     ConfigValidationError,
@@ -182,11 +184,10 @@ def test_each_trait_is_found_with_what_the_file_wrote(tmp_path: Path, trait: str
     cfg = _load(tmp_path, extra)
 
     assert uses_of(cfg)[trait] == where
-    assert trait in traits_of(cfg)
 
 
 def test_a_default_document_uses_the_head_rule_alone(tmp_path: Path) -> None:
-    assert traits_of(_load(tmp_path, {})) == {"head_rule"}
+    assert set(uses_of(_load(tmp_path, {}))) == {"head_rule"}
 
 
 @pytest.mark.parametrize("backend", SHIPPED_FLOWS)
@@ -684,7 +685,7 @@ class _ADocument:
 
 class TestNativeStepOfTheFlowSolver:
     def test_a_native_step_finer_than_a_transient_period_is_refused(self, isolated_solvers) -> None:
-        from hydromodpy.config.cross_checks import refuse_a_native_step_finer_than_the_time_grid
+        from hydromodpy.config.solver_supports import refuse_a_native_step_finer_than_the_time_grid
         from tests._helpers.fake_solvers import fake_adapter
 
         isolated_solvers.solvers.register(fake_adapter("snail", native_step="1.5D"))
@@ -699,19 +700,19 @@ class TestNativeStepOfTheFlowSolver:
         assert "simulation.time.step_value" in message
 
     def test_a_native_step_as_long_as_the_periods_loads(self, isolated_solvers) -> None:
-        from hydromodpy.config.cross_checks import refuse_a_native_step_finer_than_the_time_grid
+        from hydromodpy.config.solver_supports import refuse_a_native_step_finer_than_the_time_grid
         from tests._helpers.fake_solvers import fake_adapter
 
         isolated_solvers.solvers.register(fake_adapter("steady", native_step="30D"))
         refuse_a_native_step_finer_than_the_time_grid(_ADocument(backend="steady"), sealed=False)
 
     def test_a_flow_without_a_native_step_is_never_refused(self, isolated_solvers) -> None:
-        from hydromodpy.config.cross_checks import refuse_a_native_step_finer_than_the_time_grid
+        from hydromodpy.config.solver_supports import refuse_a_native_step_finer_than_the_time_grid
 
         refuse_a_native_step_finer_than_the_time_grid(_ADocument(backend="modflow6"), sealed=False)
 
     def test_a_native_step_on_a_steady_run_loads(self, isolated_solvers) -> None:
-        from hydromodpy.config.cross_checks import refuse_a_native_step_finer_than_the_time_grid
+        from hydromodpy.config.solver_supports import refuse_a_native_step_finer_than_the_time_grid
         from tests._helpers.fake_solvers import fake_adapter
 
         isolated_solvers.solvers.register(fake_adapter("snail", native_step="1.5D"))
@@ -720,7 +721,7 @@ class TestNativeStepOfTheFlowSolver:
         refuse_a_native_step_finer_than_the_time_grid(cfg, sealed=False)
 
     def test_a_calendar_alias_native_step_is_refused(self, isolated_solvers) -> None:
-        from hydromodpy.config.cross_checks import refuse_a_native_step_finer_than_the_time_grid
+        from hydromodpy.config.solver_supports import refuse_a_native_step_finer_than_the_time_grid
         from tests._helpers.fake_solvers import fake_adapter
 
         isolated_solvers.solvers.register(fake_adapter("calendar", native_step="MS"))
@@ -732,7 +733,7 @@ class TestNativeStepOfTheFlowSolver:
 
 class TestAnIgnoredFamilyWritten:
     def test_a_family_the_engine_ignores_written_with_a_value_is_refused(self) -> None:
-        from hydromodpy.config.cross_checks import refuse_an_ignored_family_written
+        from hydromodpy.config.solver_supports import refuse_an_ignored_family_written
 
         cfg = _ADocument(families_written=("rivers",))
 
@@ -744,19 +745,19 @@ class TestAnIgnoredFamilyWritten:
         assert "mesh engine 'catchment'" in message
 
     def test_a_family_written_to_none_is_kept(self) -> None:
-        from hydromodpy.config.cross_checks import refuse_an_ignored_family_written
+        from hydromodpy.config.solver_supports import refuse_an_ignored_family_written
 
         cfg = _ADocument(families_written=("rivers",), rivers="none")
 
         refuse_an_ignored_family_written(cfg, sealed=False)
 
     def test_a_family_the_file_does_not_write_is_kept(self) -> None:
-        from hydromodpy.config.cross_checks import refuse_an_ignored_family_written
+        from hydromodpy.config.solver_supports import refuse_an_ignored_family_written
 
         refuse_an_ignored_family_written(_ADocument(), sealed=False)
 
     def test_a_family_an_engine_that_meshes_it_reads(self) -> None:
-        from hydromodpy.config.cross_checks import refuse_an_ignored_family_written
+        from hydromodpy.config.solver_supports import refuse_an_ignored_family_written
 
         refuse_an_ignored_family_written(
             _ADocument(engine="triangle", families_written=("rivers",)), sealed=False
@@ -765,9 +766,7 @@ class TestAnIgnoredFamilyWritten:
 
 class TestAPointMethodUnderALumpedMesh:
     def test_a_point_method_written_for_the_recharge_is_refused(self) -> None:
-        from hydromodpy.config.cross_checks import (
-            refuse_a_point_method_under_a_lumped_mesh,
-        )
+        from hydromodpy.config.solver_supports import refuse_a_point_method_under_a_lumped_mesh
 
         cfg = _ADocument(county_point_method="nearest")
 
@@ -779,25 +778,19 @@ class TestAPointMethodUnderALumpedMesh:
         assert "area" in message
 
     def test_a_point_method_written_to_area_loads(self) -> None:
-        from hydromodpy.config.cross_checks import (
-            refuse_a_point_method_under_a_lumped_mesh,
-        )
+        from hydromodpy.config.solver_supports import refuse_a_point_method_under_a_lumped_mesh
 
         refuse_a_point_method_under_a_lumped_mesh(
             _ADocument(county_point_method="area"), sealed=False
         )
 
     def test_a_point_method_the_file_does_not_write_loads(self) -> None:
-        from hydromodpy.config.cross_checks import (
-            refuse_a_point_method_under_a_lumped_mesh,
-        )
+        from hydromodpy.config.solver_supports import refuse_a_point_method_under_a_lumped_mesh
 
         refuse_a_point_method_under_a_lumped_mesh(_ADocument(), sealed=False)
 
     def test_a_point_method_for_a_triangulated_mesh_loads(self) -> None:
-        from hydromodpy.config.cross_checks import (
-            refuse_a_point_method_under_a_lumped_mesh,
-        )
+        from hydromodpy.config.solver_supports import refuse_a_point_method_under_a_lumped_mesh
 
         refuse_a_point_method_under_a_lumped_mesh(
             _ADocument(engine="triangle", county_point_method="nearest"), sealed=False
@@ -1508,7 +1501,7 @@ def test_the_run_keeps_every_refusal_when_it_is_not_asked_to_stop(
 
 def _traits_region_reads() -> set[str]:
     """The sections the ``where`` of every trait reads: the text between its table and ``uses_of``."""
-    source = inspect.getsource(cross_checks)
+    source = inspect.getsource(solver_supports)
     start = source.index("class TraitUse:") - len("@dataclass(frozen=True)\n")
     region = ast.parse(source[start : source.index("def uses_of(")])
     return {
@@ -1533,7 +1526,7 @@ def _sections_read(function: Any) -> set[str]:
     """The root sections *function* reads of its first argument, found in its source.
 
     A section is read by ``cfg.<name>`` or ``getattr(cfg, "<name>")``. A helper that
-    receives the whole document is followed into this module, or read in
+    receives the whole document is followed into these two modules, or read in
     ``READS_OF_HELPERS``, and an unknown helper stops the test.
     """
     node = ast.parse(textwrap.dedent(inspect.getsource(function))).body[0]
@@ -1552,15 +1545,14 @@ def _sections_read(function: Any) -> set[str]:
         takes_it = any(isinstance(arg, ast.Name) and arg.id == document for arg in args)
         if callee == "getattr" and takes_it and isinstance(args[1], ast.Constant):
             read.add(args[1].value)
-        elif takes_it and callee in {"uses_of", "traits_of"}:
+        elif takes_it and callee == "uses_of":
             read |= _traits_region_reads()
         elif takes_it and callee in READS_OF_HELPERS:
             read |= READS_OF_HELPERS[callee]
         elif takes_it and callee != "getattr":
-            assert hasattr(cross_checks, callee), (
-                f"{function.__name__} hands the document to {callee}"
-            )
-            read |= _sections_read(getattr(cross_checks, callee))
+            module = next((m for m in (cross_checks, solver_supports) if hasattr(m, callee)), None)
+            assert module is not None, f"{function.__name__} hands the document to {callee}"
+            read |= _sections_read(getattr(module, callee))
     return read & set(SECTIONS)
 
 

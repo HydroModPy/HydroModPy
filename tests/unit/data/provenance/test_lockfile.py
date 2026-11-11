@@ -547,7 +547,7 @@ def test_frozen_matching_reads_the_one_record(
 
 def test_a_frozen_refusal_is_a_typed_data_failure(tmp_path: Path) -> None:
     """A frozen run that meets a refusal exits as a data failure."""
-    from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
+    from hydromodpy.cli.exit_codes import EXIT_VALIDATION, exit_code_for
 
     project_root = tmp_path / "project"
     project_root.mkdir()
@@ -581,37 +581,36 @@ def test_frozen_precheck_accepts_the_lockfile_lock_data_wrote(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``hmp run --frozen`` resolves the address ``hmp data lock`` writes."""
-    from hydromodpy.cli.commands.run import _verify_frozen_inputs_strict
-    from hydromodpy.project.data_cache import lock_data
+    from hydromodpy.project.data_cache import lock_data, verify_frozen_inputs
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
-    _, project_root, config_path = _seed_workspace_project(tmp_path)
-    raw_toml = {"workspace": {"project_root": str(project_root)}}
+    _, project_root, _config_path = _seed_workspace_project(tmp_path)
     lock_data(project=str(project_root))
 
-    assert _verify_frozen_inputs_strict(config_path, raw_toml) == project_root
+    verify_frozen_inputs(project_root, {"project_root": str(project_root)})
 
 
 def test_a_named_project_root_beats_the_declared_one(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The project a command names moves the lockfile ``--frozen`` reads, as it moves the config."""
-    from hydromodpy.cli.commands.run import _verify_frozen_inputs_strict
-    from hydromodpy.project.data_cache import lock_data
+    from hydromodpy.project.data_cache import (
+        FrozenVerificationError,
+        lock_data,
+        verify_frozen_inputs,
+    )
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
-    workspace, declared, config_path = _seed_workspace_project(tmp_path)
+    workspace, declared, _config_path = _seed_workspace_project(tmp_path)
     env_root = workspace / "projects" / "under_test"
     env_root.mkdir()
     lock_data(project=str(env_root))
-    raw_toml = {"workspace": {"project_root": str(declared)}}
 
     assert project_lockfile_path(env_root).is_file()
     assert not project_lockfile_path(declared).exists()
-    assert (
-        _verify_frozen_inputs_strict(config_path, raw_toml, project_root=env_root)
-        == env_root.resolve()
-    )
+    verify_frozen_inputs(env_root.resolve(), {"project_root": str(declared)})
+    with pytest.raises(FrozenVerificationError, match=r"hydromodpy\.lock not found"):
+        verify_frozen_inputs(declared)
 
 
 def test_the_lockfile_records_the_project_commit(

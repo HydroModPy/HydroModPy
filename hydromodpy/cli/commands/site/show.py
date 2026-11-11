@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, refuse
+from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, refuse
 from hydromodpy.cli.output import emit
 
 NAME: str = "show"
@@ -26,7 +26,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.helpers import resolve_workspace
+    from hydromodpy.cli.refs import resolve_workspace
     from hydromodpy.data.sites.catalog import catalog_path, read_catalog
 
     root = resolve_workspace(args.workspace)

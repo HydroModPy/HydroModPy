@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from tests._helpers.sealed_runs import make_project
 
@@ -100,7 +100,7 @@ def _class_of(name: str) -> type:
 
 
 def test_the_two_workspaces_have_two_names() -> None:
-    from hydromodpy.core.workspace import WorkspaceLayout
+    from hydromodpy.core.workspace.workspace import WorkspaceLayout
     from hydromodpy.project.accessors import Workspace
 
     assert Workspace is not WorkspaceLayout
@@ -156,7 +156,7 @@ def test_simulation_group_fluent_methods_present() -> None:
 
 
 def test_simulation_view_fluent_methods_present() -> None:
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
     assert hasattr(Run, "field")
     assert hasattr(Run, "label")

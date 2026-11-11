@@ -1,0 +1,298 @@
+edition = "2.0"
+export = []
+
+[workflow]
+mode = "simulation"
+verbosity = "normal"
+profile = false
+
+[workspace]
+products_cap_mb = 5000
+
+[site]
+name = "island"
+
+[geographic]
+source_mode = "synthetic"
+dem_correc_type = "fill"
+domain_extent = "box"
+write_intermediates = false
+terrain_engine = "whitebox_workflows"
+
+[geographic.synthetic]
+case_id = "island"
+
+[geographic.synthetic.grid]
+length_x = 610.0
+length_y = 610.0
+nx = 31
+ny = 31
+xmin = 0.0
+ymin = 0.0
+crs = "EPSG:2154"
+nodata = -9999.0
+
+[geographic.synthetic.topography]
+kind = "radial_island"
+base_elevation = -1.0
+island_radius = 200.0
+crest_elevation = 12.0
+
+[geographic.river_network]
+enabled = false
+threshold_mode = "area_km2"
+prune_short_streams = false
+min_stream_length_m = 0.0
+compute_strahler_order = true
+compute_stream_links = true
+all_vertices = false
+
+[geographic.enforce_lakes]
+enabled = false
+
+[geographic.crossings]
+enabled = false
+kinds = [
+    "road",
+    "railway",
+    "bridge",
+]
+notch_width = 10.0
+bed_reach = 50.0
+max_depth = 3.0
+snap_radius = 30.0
+
+[geographic.bed_regularization]
+enabled = false
+min_slope = 0.0001
+
+[domain]
+zone_ids = []
+
+[domain.supports]
+
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = -5.0
+
+[domain.layers]
+genmtd_lay = "constant"
+nlay = 1
+pinch_out = "pass_through"
+nodata = -9999.0
+
+[data]
+types = [
+    "oceanic",
+]
+inference_mode = "warn"
+
+[[data.oceanic.sources]]
+force_refresh = false
+col_id = "id"
+col_x = "x"
+col_y = "y"
+col_crs = "crs"
+col_datetime = "datetime"
+col_value = "value"
+default_crs = "EPSG:4326"
+source = "constant"
+value = 0.0
+require_observations = true
+
+[flow]
+flow_regime = "transient"
+first_period_steady = true
+param_list = [
+    "K",
+    "Sy",
+    "Ss",
+]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-06
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+unit = "-"
+value = 0.1
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-05
+
+[flow.bc.ocean]
+enabled = true
+id = "ocean"
+value = 0.0
+description = "Dirichlet boundary condition 'ocean' on top"
+units = "m"
+kind = "dirichlet"
+data_value = false
+application_domain = "top"
+
+[flow.bc.drainage]
+enabled = true
+id = "drainage"
+value = 0.0
+description = "Drain boundary condition on top"
+units = "m2/s"
+kind = "drain"
+data_value = false
+application_domain = "top"
+
+[flow.ic.h]
+description = "Initial condition 'h'"
+kind = "top"
+
+[flow.sinks_sources.wells]
+
+[flow.sinks_sources.lakes]
+
+[flow.sinks_sources.sfr]
+
+[flow.sinks_sources.flow_barriers]
+
+[flow.sinks_sources.recharge]
+enabled = true
+values = [
+    1.0,
+    4.0,
+    2.0,
+]
+factor = 1.0
+first_clim = "mean"
+units = "mm/day"
+negative_to_evt = true
+spatial_mode = "auto"
+interpolation_method = "nearest"
+
+[transport]
+
+[simulation]
+name = "tri"
+tags = []
+if_exists = "version"
+description = ""
+
+[simulation.time]
+start_datetime = 2003-01-01 00:00:00
+end_datetime = 2003-03-31 00:00:00
+step_value = 1
+step_unit = "month"
+substeps_per_period = 1
+coverage_policy = "ignore"
+window = "all"
+
+[[simulation.process]]
+id = "flow_main"
+kind = "flow"
+solvers = [
+    "modflow6",
+]
+
+[simulation.results]
+keep_solver_files = false
+keep_face_flows = false
+keep_per_cell_budget = true
+
+[simulation.results.persistence]
+save_catalog = true
+save_zarr = true
+field_precision = "exact"
+save_parquet = true
+compression = "zstd"
+compression_level = 5
+
+[solver]
+backend = "modflow6"
+sink_fill = false
+drain_bed_thickness_m = 1.0
+drain_conductance_floor_m2_s = 1e-12
+drain_band_depth_m = 0.0
+
+[solver.modflow6.runtime]
+mf6_executable_name = "mf6"
+ims_print_option = "NONE"
+print_head = false
+save_specific_discharge = true
+save_saturation = true
+mf6_runner = "subprocess"
+mf6_ims_complexity = "COMPLEX"
+mf_verbose = false
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 500
+mf6_inner_maximum = 500
+mf6_reordering_method = "none"
+mf6_newton = true
+mf6_newton_under_relaxation = true
+mf6_ats = false
+mf6_ats_dtmin_s = 60.0
+mf6_enable_xt3d = false
+mf6_rewet_wetfct = 0.1
+mf6_rewet_iwetit = 1
+mf6_rewet_ihdwet = 0
+mf6_rewet_wetdry = 0.1
+
+[solver.modflow6.process_specific]
+vka = 1.0
+evt_extinction_depth = 1.0
+lak_forcing_mode = "auto"
+ts6_min_periods = 120
+
+[solver.modflow6.sgrid.top_sampling]
+mode = "centroid"
+hillslope_stat = "median"
+channel_stat = "min"
+channel_source = "streams_raster"
+channel_buffer_px = 0
+spike_guard_tol_m = 2.0
+min_pixels = 3
+min_thickness_m = 0.1
+
+[display]
+enabled = false
+backend = "auto"
+preset = "default"
+show = false
+save = true
+dpi = 150
+cmap = "viridis"
+figures = []
+on_error = "warn"
+
+[display.overrides]
+
+[observation]
+points = []
+variables = [
+    "head",
+]
+
+[mesh]
+engine = "triangle"
+cell_size = 30.0
+refinement_zone = []
+seed = 0
+outside_factor = 2.0
+transition_distance = 500.0
+max_slope = 0.5
+gap_cells = 2.0
+
+[mesh.families]
+rivers = "cell"
+geology = "face"
+lakes = "face"
+barriers = "face"
+watershed_boundary = "none"
+
+[resolved_at_build.mesh]
+pixel = 19.677419354838708
+cell_size = 30.0

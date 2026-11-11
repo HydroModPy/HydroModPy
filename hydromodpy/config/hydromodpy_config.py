@@ -7,7 +7,7 @@ to the user's home directory.
 
 Usage::
 
-    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     cfg = HydroModPyConfig.from_toml(
         "examples/projects/01_simplified_example_presented_in_the_paper/project.toml"
@@ -46,7 +46,7 @@ from hydromodpy.config.config_migration import (
     migrate_merged_doc,
     migrate_sealed_config_doc,
 )
-from hydromodpy.config.cross_checks import check_against_the_solver, deduce_the_mesh_engine
+from hydromodpy.config.cross_checks import check_against_the_solver
 from hydromodpy.config.section_loader import (
     ANALYSIS_SECTION_REFUSAL,
     HYDROMETRY_SECTION_REFUSAL,
@@ -61,6 +61,7 @@ from hydromodpy.config.section_loader import (
     validate_sections,
 )
 from hydromodpy.config.sites import SitesConfig
+from hydromodpy.config.solver_supports import deduce_the_mesh_engine
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.introspect import (
@@ -76,12 +77,12 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.plugin_registry import check_registered_name
-from hydromodpy.core.site import SiteConfig
+from hydromodpy.core.site.config import SiteConfig
 from hydromodpy.core.state.names import fold_name
 from hydromodpy.core.state.result_dirs import is_sealed_run_config, resolve_project_root
 from hydromodpy.core.toml_io.paths import assign, parse
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.data import DataManagersConfig
+from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.sites.gauge import apply_site_gauge
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
@@ -327,8 +328,8 @@ class HydroModPyConfig(HydroModelBase):
             "(`none`, `geology`, or `zones`)."
         ),
     )
-    data: Annotated[DataManagersConfig, Profile.USER] = Field(
-        default_factory=DataManagersConfig,
+    data: Annotated[DataConfig, Profile.USER] = Field(
+        default_factory=DataConfig,
         description=(
             "Data-managers configuration. Use `data.types` to declare requested "
             "families (for example `geology`). The launcher can also infer extra "

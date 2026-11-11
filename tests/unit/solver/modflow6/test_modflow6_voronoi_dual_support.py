@@ -42,7 +42,7 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     side_boundary_cell_ids,
 )
 from hydromodpy.solver.modflow6.builders.wells import build_well_stress_period_data
-from hydromodpy.solver.modflow_grid import build_spatial_discretization
+from hydromodpy.solver.modflow_grid.discretization_spatial import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.dual_of_triangles import dual_of_the_triangles

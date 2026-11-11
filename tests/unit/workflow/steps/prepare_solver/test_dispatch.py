@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.model.domain.domain_config import DomainConfig
-from hydromodpy.project.launch import plan_project
+from hydromodpy.project.launch.local import plan_project
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory

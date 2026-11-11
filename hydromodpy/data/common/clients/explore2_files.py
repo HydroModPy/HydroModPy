@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 
 from hydromodpy.core.exceptions import DataContractViolation, DataRequestError
-from hydromodpy.data.common.unit_helpers import convert_array
+from hydromodpy.data.common.units import convert_array
 from hydromodpy.data.source.port import (
     FetchRequest,
     FetchResult,

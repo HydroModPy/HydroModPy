@@ -29,8 +29,9 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from hydromodpy.core.time import ResolvedSimulationTimeWindow
-from hydromodpy.data.contracts import FieldRecord, LoadResult
+from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.model.boundaries.climate import apply_etp_load_result_to_flow
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.forcing.soil_forcing import compute_soil_forcings
@@ -46,7 +47,7 @@ from hydromodpy.solver.modflow6.builders.recharge import (
     resolve_deferred_soil_etp,
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
+from hydromodpy.solver.modflow_common.listing import last_percent_discrepancy
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays

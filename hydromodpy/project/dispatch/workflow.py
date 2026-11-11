@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from hydromodpy.project.request import RunOutcome, RunRequest
     from hydromodpy.results.exporters.export_spec import ExportRequest
     from hydromodpy.results.publication import PublishedLine
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
     from hydromodpy.workflow.overview import OverviewResult
     from hydromodpy.workflow.steps.prepare_solver.restart import WindowSource
 
@@ -57,7 +57,7 @@ def run_overview(
     from hydromodpy.core.config_kit.written import log_experimental_keys
     from hydromodpy.core.state.names import check_name
     from hydromodpy.core.state.result_dirs import refuse_a_sealed_run_as_project
-    from hydromodpy.display.overview import overview_name
+    from hydromodpy.display.overview.location import overview_name
     from hydromodpy.project.request import write_request_file
     from hydromodpy.results.storage.attempt import record_request_id
     from hydromodpy.workflow.overview import DataOverviewLauncher
@@ -172,34 +172,22 @@ def run_calibration(
     searching again, unless the request asks to ``force``, to resume or to run one
     ``phase``.
     """
-    from hydromodpy.core.exceptions import CalibrationError
-    from hydromodpy.project.trial_pipeline import fill_trial_pipeline
-
-    # preflight_launch reads the trial pipeline outside its try: a calibration
-    # that enters here without a pipeline must refuse, naming the fill.
-    fill_trial_pipeline()
+    from hydromodpy.project.calibrate import route_calibration
 
     root = Path(base).expanduser().resolve()
-    environment = _checked_environment(environment, root)
     path = _source_path(request, root)
     held = bool(request.form != "toml" or request.set or request.overlays or request.name)
     if path is None or held:
-        return _calibrate_in_memory(request, root, environment)
-    target = path
+        from hydromodpy.project.trial_pipeline import fill_trial_pipeline
+
+        # The project that runs the calibration reads its files through the pipeline.
+        fill_trial_pipeline()
+        return _calibrate_in_memory(request, root, _checked_environment(environment, root))
+    route = route_calibration(path, phase=request.phase, environment=environment, project_root=root)
+    target, environment = route.target, route.environment
     runner_options: dict[str, Any] = {"bounds": environment.bounds}
     if request.resume is not None:
         runner_options["resume"] = True
-    # A caller naming a phase gets the reading that raises: answering "declares
-    # no phases" for a file that declares them but fails to validate sends the
-    # user to a block that is present and correct while the real error is lost.
-    declared = (
-        calibration_phases_or_raise(target)
-        if request.phase is not None
-        else declared_calibration_phases(target)
-    )
-    from hydromodpy.calibration.preflight import preflight_launch
-
-    preflight_launch(target)
     export_requests = _export_requests_of(target)
     if _delivery_asked(export_requests):
         # Before the trials: a refused destination costs no solver time. The
@@ -211,25 +199,15 @@ def run_calibration(
         done = _completed_session(target)
         if done is not None:
             return _with_deliveries(done, export_requests, environment, project_root=root)
-    if declared:
+    if route.staged:
         from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
-        return _with_deliveries(
-            run_staged_calibration(target, phase=request.phase, **runner_options).to_dict(),
-            export_requests,
-            environment,
-            project_root=root,
-        )
-    if request.phase is not None:
-        raise CalibrationError(no_such_phase(target.name, request.phase))
-    from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
+        result = run_staged_calibration(target, phase=request.phase, **runner_options)
+    else:
+        from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
-    return _with_deliveries(
-        run_calibration_cli(target, **runner_options).to_dict(),
-        export_requests,
-        environment,
-        project_root=root,
-    )
+        result = run_calibration_cli(target, **runner_options)
+    return _with_deliveries(result.to_dict(), export_requests, environment, project_root=root)
 
 
 def _calibrate_in_memory(
@@ -766,8 +744,8 @@ def draft_of_a_file_or_config(
             assign(payload, parse(dotted), value)
         return expand_plan(resolve_project_root(path.parent), path, set_overrides=payload)
     if workflow == "overview":
-        from hydromodpy.config import HydroModPyConfig
-        from hydromodpy.display.overview import overview_name
+        from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+        from hydromodpy.display.overview.location import overview_name
 
         cfg = HydroModPyConfig.from_toml(path) if path is not None else source
         site = cfg.site.name if getattr(cfg, "site", None) is not None else None

@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import CacheCorruptionError, DataRequestError
-from hydromodpy.core.payload import PayloadFile, PayloadStation
+from hydromodpy.core.payload.index import PayloadFile, PayloadStation
 from hydromodpy.project.examples import blobs
 from hydromodpy.project.examples.install import install_example
 from hydromodpy.project.examples.manifest import ExampleEntry

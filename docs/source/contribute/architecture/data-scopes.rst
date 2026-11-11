@@ -77,8 +77,8 @@ contract.
 
 Exposed through:
 
-- :class:`hydromodpy.results.catalog.Catalog`, a read-only view
-- :class:`hydromodpy.results.run.Run`
+- :class:`hydromodpy.results.catalog.facade.Catalog`, a read-only view
+- :class:`hydromodpy.results.run.view.Run`
 - :class:`hydromodpy.results.run.group.RunSet`
 - ``hmp.open(project_path)``, which returns the ``Project``; its reads go
   through ``Catalog``
@@ -198,11 +198,10 @@ One set of patterns governs the two databases.
   ``Workspace`` for a workspace root; the project reads its
   ``.hmp/index.duckdb`` through ``Catalog``. The data folder is read by ``scan``
   and ``CacheIndex``, which need no door.
-- **Backend Protocol**:
-  :class:`hydromodpy.results.catalog.ports.CatalogBackend` is a
-  ``typing.Protocol`` with ``execute / query / fetch_one / fetch_all /
-  insert / upsert / transaction / close``. Catalog mixins call the
-  protocol, so swapping the adapter does not touch call sites.
+- **Backend**: ``DuckDBBackend`` (``hydromodpy/results/catalog/adapters/duckdb.py``)
+  holds ``execute / query / fetch_one / fetch_all / insert / upsert /
+  transaction / close``, and the catalog mixins call it. It is the one backend,
+  with no Protocol in front of it.
 - **Authentication**:
   :class:`hydromodpy.cli.auth.AuthBackend` is the one actor of V1, the local
   user. It exposes ``current_user / can_read / can_write`` and allows every
@@ -362,7 +361,7 @@ Direct DuckDB access
 The normal path is the catalog adapter. A direct ``duckdb.connect`` is
 allowed for backend adapters and the concrete catalog constructor, read-only diagnostics, tests and
 benchmarks, and developer-only CLI inspection commands. A new direct call in the public API or in a user-facing command is a
-regression, and ``tests/unit/architecture/test_storage_boundary.py`` fails on it
+regression, and ``tests/unit/architecture/test_layers.py`` fails on it
 unless the file is added to its allowlist with a rationale.
 
 See also
@@ -372,4 +371,4 @@ See also
   rebuild invariants.
 - :doc:`contracts` for the protocols and the public facade.
 - :doc:`packages/results` for the Python surface of ``Run.read`` and
-  ``CatalogBackend``.
+  ``DuckDBBackend``.

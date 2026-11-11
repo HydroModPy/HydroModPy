@@ -11,12 +11,12 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.errors import RunNotSealedError
 from hydromodpy.results.metric_rule import EVALUATION_ROLE, HEADLINE_WINDOW
 from hydromodpy.results.record.checks import Validity
-from hydromodpy.results.run import Run
 from hydromodpy.results.run.sealed import lineage_of
+from hydromodpy.results.run.view import Run
 from hydromodpy.results.validity_rules import RULE_VERSION
 from tests._helpers.metric_rows import headline_score
 from tests._helpers.run_records import (
@@ -200,7 +200,7 @@ def test_the_headline_score_names_where_it_was_read(tmp_path) -> None:
 
 
 def test_a_run_without_a_seal_exits_as_not_found() -> None:
-    from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+    from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND, exit_code_for
 
     error = RunNotSealedError("never completed")
     assert error.code == "HMPY.E825"

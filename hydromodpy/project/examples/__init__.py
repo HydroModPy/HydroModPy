@@ -10,5 +10,3 @@ modules carry it, and nothing is re-exported here so each name keeps one home:
 - ``generate.py`` -- the whitelist and the generator behind
   ``python -m tools.dev examples manifest``, which writes ``catalog.toml``.
 """
-
-from __future__ import annotations

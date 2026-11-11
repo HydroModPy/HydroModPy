@@ -1,6 +1,6 @@
 """``hmp data get`` - serve a data request into a folder.
 
-Two forms, one engine (:func:`hydromodpy.data.run_request`):
+Two forms, one engine (:func:`hydromodpy.data.request.engine.run_request`):
 
 - ``hmp data get request.json --to DIR``: the request document;
 - ``hmp data get <variable> --bbox ... --crs ... --to DIR``: one variable,
@@ -24,14 +24,9 @@ from hydromodpy.cli.conventions import (
     workspace_parser,
 )
 from hydromodpy.cli.environment import add_environment_arguments, environment_from_args
-from hydromodpy.cli.helpers import (
-    EXIT_CONFIG,
-    EXIT_VALIDATION,
-    exit_code_for,
-    refuse,
-    resolve_workspace,
-)
+from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_VALIDATION, exit_code_for, refuse
 from hydromodpy.cli.output import emit
+from hydromodpy.cli.refs import resolve_workspace
 from hydromodpy.core.console import progress
 
 NAME: str = "get"

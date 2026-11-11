@@ -4,7 +4,7 @@
 # always import itself. Anything absent from a row is forbidden.
 #
 # Rows are written lowest first: a row cites only rows written above it, so
-# the matrix cannot hold a cycle. test_layer_matrix.py checks the order.
+# the matrix cannot hold a cycle. test_layers.py checks the order.
 #
 # ``allowed`` is the target tree: fourteen packages, the root facade and the
 # ``python -m hydromodpy`` entry point. Every package of the target exists.

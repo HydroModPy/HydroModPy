@@ -16,6 +16,7 @@ import numpy as np
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
+from hydromodpy.solver.modflow_common.time_units import seconds_per_itmuni
 
 from .flow_to_modflow_adapter import FlowModflowInputs
 
@@ -23,17 +24,6 @@ if TYPE_CHECKING:
     from .nwt_solver import ModflowNwt
 
 logger = get_logger(__name__)
-
-# Map MODFLOW ITMUNI codes to seconds per time unit.
-# Used to convert FieldParam SI values (m/s) to solver time units.
-ITMUNI_TO_SECONDS: dict[int, float] = {
-    0: 1.0,  # undefined treated as seconds
-    1: 1.0,  # seconds
-    2: 60.0,  # minutes
-    3: 3600.0,  # hours
-    4: 86400.0,  # days
-    5: 31557600.0,  # years (365.25 days)
-}
 
 
 def scale_rate_payload(payload: object, factor: float) -> object:
@@ -123,7 +113,7 @@ def assemble_flopy_packages(
     (``hk``, ``sy``, ``ss``, ``laytype``, ``laywet``, ``recharge``,
     ``drain_array``, ``prob_cells``).
     """
-    si_to_solver = ITMUNI_TO_SECONDS.get(solver.dis_itmuni, 1.0)
+    si_to_solver = seconds_per_itmuni(solver.dis_itmuni)
 
     solver.drain_array = flow_inputs.drain_array
 

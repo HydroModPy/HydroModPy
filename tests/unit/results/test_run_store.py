@@ -3,6 +3,7 @@
 Every table carries the identity of the run in its footer; the facts a step
 records (parameters, metrics, environment, inputs, grid) survive the close of
 the store and the next open, so a later step or a later attempt finds them.
+A simulated series needs a descriptor, and an observed one is not judged.
 """
 
 from __future__ import annotations
@@ -15,6 +16,8 @@ import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
+from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.scope import OBSERVED, SIMULATED
 from hydromodpy.core.tracking.input_file import TrackedFileEntry
 from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.record.manifest import RUNTIME_VARIABLE, MetricRow
@@ -227,3 +230,69 @@ def test_a_layer_file_keeps_its_name_whole_on_every_system(
 
     assert path.name == f"geographic_{feature_name}{PARQUET_FILE_SUFFIX}"
     assert path.parent == run_dir / TABLES_DIRNAME
+
+
+UNKNOWN_SERIES = "lake_volume_change"
+
+
+def _write_one(store: RunStore, method: str, source: str) -> None:
+    """Write one series of three steps named ``UNKNOWN_SERIES`` through ``method``."""
+    index = pd.date_range("2020-01-01", periods=3, freq="D", tz="UTC")
+    if method == "write_timeseries":
+        series = pd.Series(np.ones(3), index=index)
+        store.write_timeseries(SIM_ID, "P01", UNKNOWN_SERIES, series, source=source)
+        return
+    columns = {
+        "station_id": "P01",
+        "variable": UNKNOWN_SERIES,
+        "timestep": np.arange(3, dtype="int64"),
+        "time": index,
+        "value": np.ones(3),
+        "unit": "m3",
+        "source": source,
+    }
+    if method == "write_timeseries_columns":
+        store.write_timeseries_columns(SIM_ID, columns)
+        return
+    records = [
+        {**columns, "timestep": step, "time": index[step], "value": 1.0} for step in range(3)
+    ]
+    store.write_timeseries_batch(SIM_ID, records)
+
+
+SERIES_METHODS = ("write_timeseries", "write_timeseries_batch", "write_timeseries_columns")
+
+
+@pytest.mark.parametrize("method", SERIES_METHODS)
+def test_a_simulated_series_without_a_descriptor_is_refused(run_dir: Path, method: str) -> None:
+    with RunStore.open(run_dir, facts=_facts()) as store:
+        with pytest.raises(DataContractViolation, match="has no descriptor"):
+            _write_one(store, method, SIMULATED)
+    assert not (run_dir / TABLES_DIRNAME / f"timeseries{PARQUET_FILE_SUFFIX}").exists()
+
+
+@pytest.mark.parametrize("method", SERIES_METHODS)
+def test_an_observed_series_of_the_same_name_is_written(run_dir: Path, method: str) -> None:
+    with RunStore.open(run_dir, facts=_facts()) as store:
+        _write_one(store, method, OBSERVED)
+    table = pq.read_table(run_dir / TABLES_DIRNAME / f"timeseries{PARQUET_FILE_SUFFIX}")
+    assert set(table.column("variable").to_pylist()) == {UNKNOWN_SERIES}
+    assert set(table.column("source").to_pylist()) == {OBSERVED}
+
+
+def test_a_columnar_payload_judges_only_its_simulated_rows(run_dir: Path) -> None:
+    index = pd.date_range("2020-01-01", periods=2, freq="D", tz="UTC")
+    columns = {
+        "station_id": "P01",
+        "variable": np.array([UNKNOWN_SERIES, "head"], dtype=object),
+        "timestep": np.zeros(2, dtype="int64"),
+        "time": index,
+        "value": np.ones(2),
+        "unit": "m",
+        "source": np.array([OBSERVED, SIMULATED], dtype=object),
+    }
+    with RunStore.open(run_dir, facts=_facts()) as store:
+        store.write_timeseries_columns(SIM_ID, columns)
+        columns["source"] = np.array([SIMULATED, SIMULATED], dtype=object)
+        with pytest.raises(DataContractViolation, match=repr(UNKNOWN_SERIES)):
+            store.write_timeseries_columns(SIM_ID, columns)

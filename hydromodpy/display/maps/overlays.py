@@ -8,7 +8,7 @@ overlays it accepts, a config asks for them by name::
     [display.overrides.watertable_depth_map]
     overlays = ["seepage", "particles", "wells"]
 
-Every overlay reads only the public :class:`~hydromodpy.results.run.Run`
+Every overlay reads only the public :class:`~hydromodpy.results.run.view.Run`
 interface, so it works the same on MODFLOW-NWT, MODFLOW 6 and Boussinesq
 runs, on structured DIS grids and on unstructured DISV meshes. An overlay
 whose data the run does not carry raises :class:`OverlayUnavailable`, which
@@ -34,7 +34,7 @@ from hydromodpy.results.run.particles import read_particle_tracks
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.run.view import Run
 
 logger = get_logger(__name__)
 

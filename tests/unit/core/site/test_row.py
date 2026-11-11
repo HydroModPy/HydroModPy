@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
+from hydromodpy.core.site.row import SITE_ROW_COLUMNS, SiteRow
 
 
 def test_the_columns_are_fixed_and_ordered() -> None:

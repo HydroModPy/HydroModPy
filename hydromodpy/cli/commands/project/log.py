@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.output import emit
+from hydromodpy.cli.output import emit, output_of
 
 NAME: str = "log"
 HELP: str = "Print the journal of the latest launch (--failed: one line per failed case)"
@@ -45,7 +45,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.core.state.result_dirs import sites_project_root
-    from hydromodpy.project.launch import read_journal
+    from hydromodpy.project.launch.journal import read_journal
 
     events = read_journal(
         sites_project_root(args.project or args.workspace or "."),
@@ -68,16 +68,8 @@ def run(args: argparse.Namespace) -> None:
     )
 
 
-CSV_COLUMNS: tuple[str, ...] = (
-    "at",
-    "event",
-    "case_id",
-    "status",
-    "exit_code",
-    "signal",
-    "rel_dir",
-    "error",
-    "log",
+CSV_COLUMNS: tuple[str, ...] = tuple(
+    field for field in output_of("project log").fields if field != "log_tail"
 )
 """Columns of ``--format csv``: one row per event; fields an event lacks stay empty."""
 

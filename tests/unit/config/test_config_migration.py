@@ -922,13 +922,13 @@ def test_a_source_kind_of_2_0_is_renamed_in_every_section() -> None:
 
 
 def test_doctor_refusal_of_dem_init_path(tmp_path: Path) -> None:
-    from hydromodpy.cli.commands.doctor import _refusal_of
+    from hydromodpy.project.doctor import refusal_of
 
     path = _write(
         tmp_path, '[geographic.catchment]\nkind = "dem"\ndem_init_path = "inputs/dem.tif"\n'
     )
 
-    refusal = _refusal_of(path)
+    refusal = refusal_of(path)
 
     assert refusal is not None
     assert "dem_init_path was removed in 2.1.0" in str(refusal)
@@ -965,7 +965,7 @@ def test_a_sealed_run_reads_the_dem_init_path_as_its_source() -> None:
 
 
 def test_doctor_refusal_of_bare_name(tmp_path: Path) -> None:
-    from hydromodpy.cli.commands.doctor import _refusal_of
+    from hydromodpy.project.doctor import refusal_of
 
     path = _write(
         tmp_path,
@@ -973,7 +973,7 @@ def test_doctor_refusal_of_bare_name(tmp_path: Path) -> None:
         '[[data.dem.sources]]\nsource = "file"\npath = "dem.tif"\n',
     )
 
-    refusal = _refusal_of(path)
+    refusal = refusal_of(path)
 
     assert refusal is not None
     assert "'dem.tif' is a bare name" in str(refusal)

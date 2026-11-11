@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import DataRequestError
-from hydromodpy.core.site import SiteConfig, resolve_gauge
+from hydromodpy.core.site.config import SiteConfig, resolve_gauge
 from hydromodpy.data.source.registry import data_sources
 
 if TYPE_CHECKING:
