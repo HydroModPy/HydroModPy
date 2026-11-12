@@ -193,7 +193,7 @@ def build_lake_mover_records(
     lake_count = len(lakes)
     records: list[MoverRecord] = []
     outletno = 0
-    for lake_id, definition in lakes.items():
+    for lake_index, (lake_id, definition) in enumerate(lakes.items()):
         outlets = definition.get("outlets") or []
         for outlet in outlets:
             mover = _lake_attr(outlet, "mover")
@@ -220,6 +220,12 @@ def build_lake_mover_records(
             else:
                 receiver = _LAK_PACKAGE_NAME
                 receiver_index = _resolve_receiver_lake(lake_id, mover, lake_count)
+                if receiver_index == lake_index:
+                    raise ValueError(
+                        f"flow.sinks_sources.lakes.{lake_id} outlet mover lake="
+                        f"{receiver_index + 1} moves its outflow back into itself: the "
+                        "water would circulate with no exit. Name the downstream lake."
+                    )
             raw_mvrtype = _lake_attr(mover, "mvrtype")
             mvrtype = str(raw_mvrtype).strip().upper() if raw_mvrtype is not None else "FACTOR"
             raw_value = _lake_attr(mover, "value")

@@ -109,3 +109,38 @@ def test_the_warning_says_how_far_the_worst_cell_stands_above_its_traced_bed(cap
         _solve(_chain([139.5, 150.0]), top=top, botm=botm, incision=0.5)
     text = " ".join(record.getMessage() for record in caplog.records)
     assert "whose cell ceiling stands 24.50 m above its traced bed" in text
+
+
+def _reach(ifno, cell, rtp, upstream, downstream):
+    return _Reach(
+        ifno=ifno,
+        cellid=(0, cell),
+        rlen=25.0,
+        rtp=rtp,
+        upstream=upstream,
+        downstream=downstream,
+    )
+
+
+def test_an_explicit_table_numbered_out_of_downstream_order_is_solved():
+    # An explicit reaches table may number an outlet before its upstream reach
+    # (headwater 0 -> 2 -> outlet 1). The beds [m] must come out the same as for
+    # the chain numbered downstream, and the solve must not trip on the order.
+    top = [140.0, 138.0, 139.0]
+    botm = [[110.0, 108.0, 109.0]]
+    reaches = [
+        _reach(0, 0, 139.5, (), (2,)),
+        _reach(1, 1, 137.5, (2,), ()),
+        _reach(2, 2, 138.5, (0,), (1,)),
+    ]
+    solved = _solve(reaches, top=top, botm=botm, incision=0.5)
+    assert solved[0] > solved[2] > solved[1]
+    assert solved == pytest.approx({0: 139.5, 2: 138.5, 1: 137.5})
+
+
+def test_a_reach_cycle_is_refused_by_name():
+    top = [140.0, 139.0]
+    botm = [[110.0, 109.0]]
+    reaches = [_reach(0, 0, 139.5, (1,), (1,)), _reach(1, 1, 138.5, (0,), (0,))]
+    with pytest.raises(ValueError, match="cycle"):
+        _solve(reaches, top=top, botm=botm, incision=0.5)
