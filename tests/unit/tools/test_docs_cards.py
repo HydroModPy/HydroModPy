@@ -57,7 +57,9 @@ def test_the_default_role_gives_the_default_with_its_unit_and_warns_otherwise(
     }
     monkeypatch.setattr(H, "S", {"nodes": nodes})
     warnings: list[str] = []
-    monkeypatch.setattr(H, "logger", SimpleNamespace(warning=lambda msg, **kw: warnings.append(msg)))
+    monkeypatch.setattr(
+        H, "logger", SimpleNamespace(warning=lambda msg, **kw: warnings.append(msg))
+    )
     inliner = SimpleNamespace(
         document=SimpleNamespace(settings=SimpleNamespace(env=SimpleNamespace(docname="p")))
     )

@@ -44,7 +44,7 @@ The solver does not discretize the differential form of the equation. It integra
 the balance over each triangle and writes the flux through each edge with a two-point
 formula between the centroids: a cell-centered finite-volume scheme with one head per
 cell. The space scheme is the descriptor ``FV_TRI_CELL_CENTERED`` in
-``discretization/space.py``.
+``hydromodpy/solver/boussinesq/catalog.py``.
 
 The sign convention is the one of the code. A residual term that is positive removes
 water from the cell. Recharge and injection therefore enter with a minus sign. A
