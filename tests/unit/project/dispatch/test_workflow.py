@@ -21,6 +21,7 @@ from pydantic import BaseModel
 import hydromodpy.project.facade as facade
 from hydromodpy.core.exceptions import CalibrationError, ConfigError
 from hydromodpy.core.state.result_dirs import run_dir_rel
+from hydromodpy.core.state.scratch import active_run_scratch
 from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.project.dispatch import workflow as wf
 from hydromodpy.project.request import RunOutcome, RunRequest
@@ -40,7 +41,9 @@ class _FakeRunner:
         self.project = project
 
     def execute(self, request: RunRequest, **kwargs: Any) -> Any:
-        self.project.executed.append({"request": request, **kwargs})
+        self.project.executed.append(
+            {"request": request, "scratch": active_run_scratch(), **kwargs}
+        )
         return _FakeProject.result
 
 
@@ -279,6 +282,23 @@ def test_a_bare_resume_of_a_request_that_names_no_run_is_refused(
     with pytest.raises(ConfigError, match="names none"):
         wf.run_simulation(_request(resume=""), base=tmp_path)
     assert fake_project.instances == []
+
+
+@pytest.mark.parametrize(
+    ("members", "stem"),
+    [({"name": "one"}, "one"), ({"name": "two"}, "two"), ({}, "case")],
+    ids=["one", "two", "document name"],
+)
+def test_each_run_works_in_a_scratch_folder_of_its_own(
+    fake_project: type[_FakeProject], tmp_path: Path, members: dict[str, str], stem: str
+) -> None:
+    """Two runs of one project never share ``.hmp/scratch/_preprocessing``."""
+    wf.run_simulation(_request(**members), base=tmp_path)
+
+    (executed,) = fake_project.instances[0].executed
+    assert executed["scratch"] is not None
+    assert executed["scratch"].startswith(f"{stem}.p")
+    assert active_run_scratch() is None
 
 
 def test_run_simulation_returns_nothing_when_no_run_was_made(

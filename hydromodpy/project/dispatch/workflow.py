@@ -618,7 +618,9 @@ def run_single_simulation(
     """
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.state.names import check_name
+    from hydromodpy.core.state.scratch import run_scratch
     from hydromodpy.project.facade import Project
+    from hydromodpy.workflow.record.resume import scratch_of_resumed_run
 
     root = Path(base).expanduser().resolve()
     if cfg is None:
@@ -657,16 +659,19 @@ def run_single_simulation(
             and request.until_step is None
             and source_run is None
         )
-        result = project._runner.execute(
-            request,
-            lineage=lineage,
-            calibrated_by=calibrated_by,
-            frozen=frozen,
-            skip_identical=plain_run,
-            window_source=window_source,
-            replay_of=source_run,
-            strict=strict,
-        )
+        project_root = Path(cfg.workspace.project_root)
+        resumes = scratch_of_resumed_run(project_root, request.resume) if request.resume else None
+        with run_scratch(project_root, run_name or "run", resumes=resumes):
+            result = project._runner.execute(
+                request,
+                lineage=lineage,
+                calibrated_by=calibrated_by,
+                frozen=frozen,
+                skip_identical=plain_run,
+                window_source=window_source,
+                replay_of=source_run,
+                strict=strict,
+            )
         if result is None:
             return None
         if result.identical_to is not None:
