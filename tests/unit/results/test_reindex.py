@@ -838,7 +838,7 @@ def test_identifiers_from_the_seal(project):
 def test_known_issues_digest(monkeypatch):
     # A bug row added to the register changes the digest, so the index is relabelled.
     before = known_issues_digest()
-    added = Bug(id="x", since="2.1.0", versions="<2.1.0", quantities=("metrics",), text="t")
+    added = Bug(id="x", since="3.0.0", versions="<3.0.0", quantities=("metrics",), text="t")
     monkeypatch.setattr(indexer_module, "REGISTER", replace(REGISTER, bugs=(*REGISTER.bugs, added)))
 
     assert known_issues_digest() != before

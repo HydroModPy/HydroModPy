@@ -37,7 +37,7 @@ TOMLS = {
 def _plan(**overrides) -> Plan:
     payload = {
         "plan_hash": "a3f9c2e1",
-        "hydromodpy_version": "2.1.0",
+        "hydromodpy_version": "3.0.0",
         "created_at": NOW,
         "fingerprints": {"project.toml": "ab" * 32, "sites.csv": "cd" * 32},
         "n_cases": 2,

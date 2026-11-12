@@ -22,11 +22,11 @@ DIGEST = "sha256:" + "ab12" * 16
     ],
 )
 def test_a_malformed_digest_is_refused_with_the_form(monkeypatch, digest) -> None:
-    monkeypatch.setenv("HMP_IMAGE_TAG", "2.1.0")
+    monkeypatch.setenv("HMP_IMAGE_TAG", "3.0.0")
     monkeypatch.setenv("HMP_IMAGE_DIGEST", digest)
 
     with pytest.raises(ConfigError, match="sha256:<64 lowercase hex") as caught:
         image_of()
 
     assert DIGEST_FORM in str(caught.value)
-    assert image_of(refuse=False) == {"tag": "2.1.0", "digest_refused": digest.strip()}
+    assert image_of(refuse=False) == {"tag": "3.0.0", "digest_refused": digest.strip()}

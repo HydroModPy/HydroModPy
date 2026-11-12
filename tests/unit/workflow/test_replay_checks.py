@@ -270,10 +270,10 @@ def test_another_solver_binary(tmp_path: Path) -> None:
 def test_another_package_version(
     tmp_path: Path,
 ) -> None:
-    _provenance(tmp_path, packages={"numpy": "2.1.0"})
+    _provenance(tmp_path, packages={"numpy": "1.26.4"})
     found = RunProvenance(
         sim_id="r",
-        tool={"version": "2.1.0"},
+        tool={"version": "3.0.0"},
         solver={"version": "mf6: 6.6.3", "binary_sha256": "sealed"},
         packages={"numpy": "2.2.0"},
     )
@@ -281,8 +281,8 @@ def test_another_package_version(
     assert set(differences) == {"tool.version", "packages.numpy"}
 
 
-IMAGE_A = {"tag": "2.1.0", "digest": "sha256:a"}
-IMAGE_B = {"tag": "2.1.0", "digest": "sha256:b"}
+IMAGE_A = {"tag": "3.0.0", "digest": "sha256:a"}
+IMAGE_B = {"tag": "3.0.0", "digest": "sha256:b"}
 
 
 @pytest.mark.parametrize(
@@ -293,7 +293,7 @@ IMAGE_B = {"tag": "2.1.0", "digest": "sha256:b"}
         pytest.param(IMAGE_A, IMAGE_B, True, id="other digest"),
         pytest.param(None, IMAGE_B, True, id="image only now"),
         pytest.param(IMAGE_A, None, True, id="image only then"),
-        pytest.param({"tag": "2.1.0"}, {"tag": "2.2.0"}, False, id="tags without digest"),
+        pytest.param({"tag": "3.0.0"}, {"tag": "2.2.0"}, False, id="tags without digest"),
     ],
 )
 def test_image_digest(tmp_path: Path, sealed: dict | None, found: dict | None, named: bool) -> None:

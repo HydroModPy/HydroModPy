@@ -73,7 +73,7 @@ MOVES = """schema = "hydromodpy.changes.v1"
 document = "config"
 old = "a.old_table"
 new = "a.new_table"
-since = "2.1.0"
+since = "3.0.0"
 [[migration]]
 document = "config"
 old = "b.list[*].old_key"
@@ -89,17 +89,17 @@ document = "config"
 key = "d.kind"
 old_value = "a"
 new_value = "b"
-since = "2.1.0"
+since = "3.0.0"
 [[migration]]
 document = "config"
 old = "e.left"
 instead = "write something else"
-since = "2.1.0"
+since = "3.0.0"
 [[migration]]
 document = "fields"
 old = "f.stored"
 new = "f.stored_now"
-since = "2.1.0"
+since = "3.0.0"
 """
 
 
@@ -302,14 +302,14 @@ def test_the_type_aliases_of_a_verb_are_spelled_out_once(ext_path: None) -> None
 REGISTER_ROWS = """schema = "hydromodpy.changes.v1"
 [[bug]]
 id = "a_bug"
-since = "2.1.0"
-versions = "<2.1.0"
+since = "3.0.0"
+versions = "<3.0.0"
 quantities = ["metrics", "heads@modflow6"]
 text = "A `bug` in [section] reads *wrong*."
 [[default]]
 id = "a_default"
-since = "2.1.0"
-edition = "2.1"
+since = "3.0.0"
+edition = "3.0"
 key = "solver.x"
 old = 0.5
 new = "auto"
@@ -317,7 +317,7 @@ quantities = ["metrics"]
 text = "A default."
 [[recipe]]
 id = "a_recipe"
-since = "2.1.0"
+since = "3.0.0"
 effect = "refusal"
 quantities = []
 text = "A recipe."
@@ -325,24 +325,24 @@ text = "A recipe."
 document = "config"
 old = "a.b"
 new = "a.c"
-since = "2.1.0"
+since = "3.0.0"
 [[migration]]
 document = "config"
 old = "a.left"
 instead = "Write a.right."
 sealed = "drop"
-since = "2.1.0"
+since = "3.0.0"
 [[migration]]
 document = "config"
 key = "d.kind"
 old_value = "a"
 new_value = "b"
-since = "2.1.0"
+since = "3.0.0"
 [[migration]]
 document = "sidecar"
 old = "s.old"
 new = "s.new"
-since = "2.1.0"
+since = "3.0.0"
 """
 
 
@@ -358,16 +358,16 @@ def _table_text(table: str, register) -> list[list[str]]:
 @pytest.mark.parametrize(
     ("table", "expected"),
     [
-        ("bug", [["a_bug", "2.1.0", "<2.1.0", "metrics, heads@modflow6"]]),
-        ("default", [["a_default", "2.1.0", "2.1", "solver.x", "0.5", '"auto"', "metrics"]]),
-        ("recipe", [["a_recipe", "2.1.0", "refusal", "none"]]),
+        ("bug", [["a_bug", "3.0.0", "<3.0.0", "metrics, heads@modflow6"]]),
+        ("default", [["a_default", "3.0.0", "3.0", "solver.x", "0.5", '"auto"', "metrics"]]),
+        ("recipe", [["a_recipe", "3.0.0", "refusal", "none"]]),
         (
             "migration",
             [
-                ["config", "a.b -> a.c", "2.1.0", "2.3.0"],
-                ["config", "a.left (left)", "2.1.0", "2.1.0"],
-                ["config", 'd.kind: "a" -> "b"', "2.1.0", "2.3.0"],
-                ["sidecar", "s.old -> s.new", "2.1.0", "-"],
+                ["config", "a.b -> a.c", "3.0.0", "3.2.0"],
+                ["config", "a.left (left)", "3.0.0", "3.0.0"],
+                ["config", 'd.kind: "a" -> "b"', "3.0.0", "3.2.0"],
+                ["sidecar", "s.old -> s.new", "3.0.0", "-"],
             ],
         ),
     ],

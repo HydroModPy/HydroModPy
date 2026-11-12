@@ -70,39 +70,39 @@ _HEAD = 'schema = "hydromodpy.changes.v1"\n'
 _ROWS = {
     "a value renamed": (
         '[[migration]]\ndocument = "sidecar"\nkey = "state"\nold_value = "kept"\n'
-        'new_value = "cached"\nsince = "2.1.0"\n',
+        'new_value = "cached"\nsince = "3.0.0"\n',
         {"state": "kept"},
         {"state": "cached"},
     ),
     "a value that is not the old one": (
         '[[migration]]\ndocument = "sidecar"\nkey = "state"\nold_value = "kept"\n'
-        'new_value = "cached"\nsince = "2.1.0"\n',
+        'new_value = "cached"\nsince = "3.0.0"\n',
         {"state": "fresh"},
         {"state": "fresh"},
     ),
     "a key moved": (
-        '[[migration]]\ndocument = "sidecar"\nold = "note"\nnew = "notes"\nsince = "2.1.0"\n',
+        '[[migration]]\ndocument = "sidecar"\nold = "note"\nnew = "notes"\nsince = "3.0.0"\n',
         {"note": "by hand"},
         {"notes": "by hand"},
     ),
     "a key moved while the new one is written": (
-        '[[migration]]\ndocument = "sidecar"\nold = "note"\nnew = "notes"\nsince = "2.1.0"\n',
+        '[[migration]]\ndocument = "sidecar"\nold = "note"\nnew = "notes"\nsince = "3.0.0"\n',
         {"note": "old", "notes": "new"},
         {"note": "old", "notes": "new"},
     ),
     "a key retired that the row drops": (
         '[[migration]]\ndocument = "sidecar"\nold = "note"\ninstead = "nothing"\n'
-        'sealed = "drop"\nsince = "2.1.0"\n',
+        'sealed = "drop"\nsince = "3.0.0"\n',
         {"note": "by hand"},
         {},
     ),
     "a key retired that the row keeps": (
-        '[[migration]]\ndocument = "sidecar"\nold = "note"\ninstead = "nothing"\nsince = "2.1.0"\n',
+        '[[migration]]\ndocument = "sidecar"\nold = "note"\ninstead = "nothing"\nsince = "3.0.0"\n',
         {"note": "by hand"},
         {"note": "by hand"},
     ),
     "a row of another document": (
-        '[[migration]]\ndocument = "fields"\nold = "note"\nnew = "notes"\nsince = "2.1.0"\n',
+        '[[migration]]\ndocument = "fields"\nold = "note"\nnew = "notes"\nsince = "3.0.0"\n',
         {"note": "by hand"},
         {"note": "by hand"},
     ),

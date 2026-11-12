@@ -127,7 +127,7 @@ def _key(**changes: Any) -> str:
         "mesh_engine": {"engine": "regular", "version": "1"},
         "binaries": {},
         "code": {"model": "c1"},
-        "packages": {"numpy": "2.1.0"},
+        "packages": {"numpy": "1.26.4"},
     }
     keywords.update(changes)
     return solution_key(_id(), **keywords)

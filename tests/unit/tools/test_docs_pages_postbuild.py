@@ -18,7 +18,7 @@ from tools import docs_pages_postbuild as post
         ("v1.0", True),
         ("v2.0.0", True),
         ("v2.0.0a4", False),
-        ("v2.1.0rc1", False),
+        ("v3.0.0rc1", False),
         ("v2.0.0b2", False),
     ],
 )

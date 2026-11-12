@@ -26,7 +26,7 @@ from hydromodpy.results.record.manifest import (
 from hydromodpy.schema.lineage import Lineage, Replay
 
 NOW = datetime(2026, 11, 7, 12, 0, tzinfo=UTC)
-VERSION = "2.1.0a1"
+VERSION = "3.0.0a1"
 SIM_ID = "3" * 32
 
 

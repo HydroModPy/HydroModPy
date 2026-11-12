@@ -88,7 +88,7 @@ def _make_replay(run_dir, *, basis: str, class_: str | None, of: str = SOURCE_SI
     replay = {
         "of": of,
         "source": "copy" if basis == "none" else "run",
-        "source_version": "2.1.0",
+        "source_version": "3.0.0",
         "basis": basis,
     }
     if class_ is not None:

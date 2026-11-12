@@ -48,13 +48,13 @@ schema = "hydromodpy.changes.v1"
 #
 # [[default]]
 # id = "<snake_case_name>"
-# since = "2.0.0"
-# edition = "2.1"
+# since = "<X.Y.0>"
+# edition = "<X.Y>"
 # key = "<section>.<key>"
 # old = 0.5
 # new = 0.45
 # quantities = ["heads@modflow6", "fluxes@modflow6"]
-# text = "<With edition 2.1, <key> defaults to <new> instead of <old>. <Size of the change>.>"
+# text = "<With edition <X.Y>, <key> defaults to <new> instead of <old>. <Size of the change>.>"
 
 # A computation or a rule that changes without a bug. The commit that changes it
 # adds its row. effect is one of "numbers", "refusal", "label", "identity", "layout".

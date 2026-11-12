@@ -28,19 +28,19 @@ def _recipe(row_id: str, since: str, effect: str, text: str) -> str:
 
 
 DEFAULT = (
-    '[[default]]\nid = "d"\nsince = "2.1.0"\nedition = "2.1"\nkey = "solver.x"\nold = 0.5\n'
+    '[[default]]\nid = "d"\nsince = "3.0.0"\nedition = "3.0"\nkey = "solver.x"\nold = 0.5\n'
     'new = 0.45\nquantities = ["metrics"]\ntext = "A default."\n'
 )
 
-MIGRATION = '[[migration]]\ndocument = "config"\nold = "a.b"\nnew = "a.c"\nsince = "2.1.0"\n'
+MIGRATION = '[[migration]]\ndocument = "config"\nold = "a.b"\nnew = "a.c"\nsince = "3.0.0"\n'
 
 REGISTER_TEXT = (
     HEAD
-    + _recipe("late_number", "2.1.0", "numbers", "A recipe that moves a number.")
-    + _recipe("a_refusal", "2.1.0", "refusal", "A recipe that refuses.")
+    + _recipe("late_number", "3.0.0", "numbers", "A recipe that moves a number.")
+    + _recipe("a_refusal", "3.0.0", "refusal", "A recipe that refuses.")
     + DEFAULT
     + _bug("old_bug", "2.0.0", "A bug of the published release.")
-    + _bug("new_bug", "2.1.0", "A bug fixed after it.")
+    + _bug("new_bug", "3.0.0", "A bug fixed after it.")
     + MIGRATION
 )
 
@@ -98,9 +98,9 @@ def test_a_changelog_without_a_published_section_is_refused() -> None:
                 "A recipe that moves a number.",
             ],
         ),
-        ("2.1.0", []),
+        ("3.0.0", []),
     ],
-    ids=["after 2.0.0", "after a pre-release", "after 2.1.0"],
+    ids=["after 2.0.0", "after a pre-release", "after 3.0.0"],
 )
 def test_the_bullets_are_the_numbers_rows_after_the_release(
     register: Register, after: str, expected: list[str]
