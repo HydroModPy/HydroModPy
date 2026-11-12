@@ -125,8 +125,6 @@ docs = [
     "pydata-sphinx-theme==0.23.0",
     "sphinx-design>=0.7",
     "sphinx-copybutton",
-    "sphinx-polyversion>=1.0",
-    "sphinxcontrib-plantuml",
     "sphinxcontrib-bibtex",
     "sphinx-favicon>=1.1",
     "sphinx-sitemap",
@@ -134,8 +132,6 @@ docs = [
     "sphinxext-opengraph",
     "sphinxext-rediraffe",
     "pagefind[bin]>=1.5",
-    "sphinx-lint",
-    "doc8",
 ]
 ide = [
     "ipykernel",

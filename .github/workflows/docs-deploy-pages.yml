@@ -9,9 +9,6 @@
 # (switcher.json, index.html, 404.html, robots.txt), and removes the version
 # folders the site no longer keeps.
 #
-# The full multi-version build via poly.py (sphinx-polyversion) stays available
-# for local use; it is not used here.
-#
 # One-time setup:
 #   - ACTIONS_DEPLOY_KEY secret (this repo) = private deploy key,
 #   - matching public deploy key with write access on hydromodpy.github.io,
@@ -78,7 +75,7 @@ jobs:
       - name: Install Linux system libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config pandoc plantuml
+          sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config pandoc
 
       - name: Install package and docs extras
         run: |

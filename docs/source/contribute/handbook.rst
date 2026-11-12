@@ -137,8 +137,7 @@ The three a contributor needs every day:
        ``coverage``, ``hypothesis``, ``pyinstrument``, ``pyyaml`` and
        ``jsonschema``.
    * - ``[docs]``
-     - Sphinx, the PyData theme, MyST and every extension this site uses,
-       plus ``doc8`` and ``sphinx-lint``. The PlantUML jar is not part of it
+     - Sphinx, the PyData theme, MyST and every extension this site uses
        (see :doc:`documentation/how-the-docs-are-built`).
 
 Every extra, including ``calibration``, ``mesh``, ``duckdb``, ``mf6api``,
@@ -195,8 +194,7 @@ the staged files they run:
 - ``trailing-whitespace``, ``end-of-file-fixer``, ``check-yaml``,
   ``check-toml`` and ``check-added-large-files`` (1 MB);
 - ``gitleaks``, which scans the staged diff for secrets with the engine of
-  the CI job;
-- ``doc8`` on ``docs/source/**/*.rst``, with a line limit of 130 characters.
+  the CI job.
 
 If a hook changes a file or refuses a commit, fix the file, stage it again and
 commit again.

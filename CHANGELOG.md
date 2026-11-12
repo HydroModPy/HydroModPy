@@ -838,6 +838,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - Helpers that nothing called: the re-export modules at the root of `physics/hydrology/pyhelp/`, `apply_simulation_time_to_flow_wells`, `apply_simulation_time_to_flow_boundary_conditions`, `SimulationPlan.is_empty` and the `Transport.update_*_parameters` helpers.
 - Modules that nothing called: `modflow_common/recharge_evt_routing.py`, `boussinesq/assembly/residual_facade.py` and `boussinesq/forcing_resolution.py`.
 - The unused `balanced` option and the `streambed_top` and `streambed_connection` arguments of `write_mesh`.
+- The docs no longer use PlantUML, sphinx-polyversion, doc8 and sphinx-lint, which leave the `docs` extra. A diagram is a `graphviz` block, and `make -C docs clean` also empties the generated source folders.
 
 ### Fixed
 

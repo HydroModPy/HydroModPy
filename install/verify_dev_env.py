@@ -21,7 +21,6 @@ DOC_MODULES = (
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
-    "sphinx_polyversion",
     "sphinxcontrib.autodoc_pydantic",
 )
 

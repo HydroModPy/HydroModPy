@@ -1,6 +1,6 @@
 """Site chrome the theme does not give.
 
-- The image-comparison slider, the UML viewer and the image lightbox load only
+- The image-comparison slider and the image lightbox load only
   on the pages that use them, not on all 300 pages.
 - Previous and next links stay inside a door: the link from the last step of
   Get started to the first reference page means nothing to a reader.
@@ -9,9 +9,6 @@
   a parameter page the name of a quantity counts more than the long text of a
   card, so a search for "conductivity" lands on the key before the pages that
   only quote it (the elements the index leaves out are named in docs/Makefile).
-- A UML diagram is described by its title, not by its whole PlantUML source,
-  which sphinxcontrib-plantuml puts in the alt text (read aloud by screen
-  readers and indexed by the search).
 - A raster image that has a ``<name>-dark.<ext>`` twin next to it is shown in
   both themes: the page writes the light one, this extension adds the dark one
   next to it (classes ``hmp-light`` and ``hmp-dark``, shown by hmp-site.css).
@@ -61,7 +58,6 @@ _NOT_SEARCHED = {"genindex", "search", "reference/parameters/explorer"}
 _QUANTITY_CELL = re.compile(r'(<tr id="p-[^"]*"><td>(?:(?!</td>).)*</td>)<td>')
 _QUANTITY_WEIGHT = 8
 _CARD_WEIGHT = 0.5
-_UML_ALT = re.compile(r'alt="(?:&#64;|@)startuml(.*?)"', re.S)
 _RASTER = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 _DARK = "-dark"
 _IMG_TAG = re.compile(r"<img\b[^>]*>")
@@ -72,11 +68,6 @@ _SIZES: dict[tuple[str, float], tuple[int, int] | None] = {}
 logger = logging.getLogger(__name__)
 
 
-def _uml_alt(match: re.Match[str]) -> str:
-    title = re.search(r"^\s*title\s+(.+)$", html.unescape(match.group(1)), re.M)
-    return f'alt="{html.escape(title.group(1).strip()) if title else "UML diagram"}"'
-
-
 def _door(docname: str | None) -> str | None:
     head = docname.split("/", 1)[0] if docname else None
     return _FOLDER_DOORS.get(head, head)
@@ -84,13 +75,6 @@ def _door(docname: str | None) -> str | None:
 
 def _has_slider(doctree: nodes.document) -> bool:
     return any("hmp-image-compare" in n.astext() for n in doctree.findall(nodes.raw))
-
-
-def _has_uml(doctree: nodes.document) -> bool:
-    return any(
-        type(n).__name__ == "plantuml" or "uml-diagram" in n.get("classes", [])
-        for n in doctree.findall(nodes.Element)
-    )
 
 
 def _local_raster(app: Sphinx, uri: str) -> Path | None:
@@ -297,14 +281,10 @@ def on_page_context(
         if _has_slider(doctree):
             app.add_css_file("css/hmp-image-compare.css")
             app.add_js_file("js/hmp-image-compare.js")
-        if _has_uml(doctree):
-            app.add_css_file("uml-diagrams.css")
-            app.add_js_file("uml-diagrams.js")
         if doctree.next_node(nodes.figure) is not None:
             app.add_css_file("css/hmp-zoom-image.css")
             app.add_js_file("js/hmp-zoom-image.js")
     if "body" in context:
-        context["body"] = _UML_ALT.sub(_uml_alt, context["body"])
         context["body"] = size_images(app, pagename, context["body"])
     door_title = _DOORS.get(_door(pagename) or "")
     if "body" in context and door_title and pagename not in _NOT_SEARCHED:

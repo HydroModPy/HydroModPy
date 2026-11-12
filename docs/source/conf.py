@@ -23,10 +23,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from cycler import cycler
-from docutils import nodes
 from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.util import logging as sphinx_logging
-from sphinx.util.docutils import SphinxDirective
 
 _logger = sphinx_logging.getLogger(__name__)
 
@@ -56,7 +54,6 @@ _DOC_REQUIRED_EXTENSIONS = [
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
-    "sphinx_polyversion",
     "sphinxcontrib.bibtex",
     "sphinx_favicon",
     "sphinx_sitemap",
@@ -106,37 +103,6 @@ def _resolve_graphviz_dot() -> Path | None:
     return Path(found) if found else None
 
 
-def _resolve_plantuml_command() -> str | None:
-    env_command = os.environ.get("PLANTUML_COMMAND")
-    if env_command:
-        return env_command
-
-    vendor_jar = package_path / "tools" / "vendor" / "plantuml" / "plantuml.jar"
-    if vendor_jar.exists() and shutil.which("java"):
-        return f'java -jar "{vendor_jar}"'
-
-    return shutil.which("plantuml")
-
-
-class _MissingPlantUMLDirective(SphinxDirective):
-    optional_arguments = 1
-    has_content = True
-
-    def run(self):
-        diagram_label = self.arguments[0] if self.arguments else "inline UML block"
-        container = nodes.container(classes=["uml-diagram", "uml-diagram-unavailable"])
-        message = nodes.paragraph()
-        message += nodes.Text("PlantUML rendering skipped for ")
-        message += nodes.literal("", diagram_label)
-        message += nodes.Text(". Run ")
-        message += nodes.literal("", "python tools/setup_plantuml.py")
-        message += nodes.Text(" or set ")
-        message += nodes.literal("", "PLANTUML_COMMAND")
-        message += nodes.Text(" to restore rendered UML diagrams.")
-        container += message
-        return [container]
-
-
 _graphviz_dot = _resolve_graphviz_dot()
 if _graphviz_dot is not None:
     os.environ.setdefault("GRAPHVIZ_DOT", str(_graphviz_dot))
@@ -149,21 +115,10 @@ sys.path.insert(0, str(package_path / "hydromodpy"))
 sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 _ensure_required_doc_extensions()
 
-# sphinx-polyversion exposes per-revision metadata via POLYVERSION_DATA when
-# building under `python -m sphinx_polyversion poly.py`. The plain Sphinx CLI
-# skips this block and runs as a single-version build.
-# _current_version drives the pydata version-switcher highlight. The incremental
-# Pages workflow builds one version at a time and passes its name via
-# HMP_DOC_VERSION; a local polyversion run overrides it from POLYVERSION_DATA;
+# _current_version drives the pydata version-switcher highlight. The Pages
+# workflow builds one version at a time and passes its name via HMP_DOC_VERSION;
 # a plain local build falls back to the stable trunk.
 _current_version = os.environ.get("HMP_DOC_VERSION") or "main"
-if os.environ.get("POLYVERSION_DATA"):
-    from sphinx_polyversion import load as _polyversion_load
-
-    _polyversion_load(globals())
-    _polyversion_current = globals().get("html_context", {}).get("current")
-    if getattr(_polyversion_current, "name", None):
-        _current_version = _polyversion_current.name
 
 # The theme reads its default color mode here; an empty value logs an error
 # in the console of every page.
@@ -321,6 +276,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
+    "sphinx.ext.graphviz",
     "sphinx.ext.intersphinx",
     "sphinxcontrib.bibtex",
     "sphinx_favicon",
@@ -441,12 +397,6 @@ html_last_updated_fmt = "%Y-%m-%d"
 
 # Pinned: Sphinx points at mathjax@4, which follows every 4.x release.
 mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.js"
-
-_PLANTUML_COMMAND = _resolve_plantuml_command()
-if _PLANTUML_COMMAND is not None:
-    extensions.append("sphinxcontrib.plantuml")
-    plantuml = _PLANTUML_COMMAND
-    plantuml_output_format = "svg"
 
 templates_path = ["_templates"]
 source_suffix = [".rst", ".md"]
@@ -612,9 +562,6 @@ def _checker_builder():
 
 def setup(app):
     app.add_builder(_checker_builder(), override=True)
-    if _PLANTUML_COMMAND is None:
-        app.add_directive("uml", _MissingPlantUMLDirective, override=True)
-        app.add_directive("plantuml", _MissingPlantUMLDirective, override=True)
     app.connect("builder-inited", _regenerate_contract_tables)
     app.connect("build-finished", _ensure_doctree_dir_for_late_extension_caches, priority=0)
     return {

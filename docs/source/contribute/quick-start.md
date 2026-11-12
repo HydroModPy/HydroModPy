@@ -54,8 +54,8 @@ ruff check --fix path/to/file.py
 ruff format path/to/file.py
 ```
 
-The `pre-commit` hook runs the same two commands, then `gitleaks` (secrets),
-`doc8` (`.rst` pages), and a few hygiene checks. It runs on staged files only.
+The `pre-commit` hook runs the same two commands, then `gitleaks` (secrets)
+and a few hygiene checks. It runs on staged files only.
 
 ## 5. Commit
 

@@ -40,7 +40,7 @@ DOORS = (
     ("contribute", "Contribute"),
 )
 NOT_LISTED = {"genindex.html", "search.html", "reference/parameters/explorer.html"}
-SKIP_DIRS = {"_static", "_sources", "_images", "_downloads", "_plantuml", "pagefind"}
+SKIP_DIRS = {"_static", "_sources", "_images", "_downloads", "pagefind"}
 BLOCKS = {
     "p", "div", "section", "article", "ul", "ol", "dl", "table", "tr", "figure",
     "figcaption", "details", "summary", "blockquote", "dt", "dd", "li", "caption",
