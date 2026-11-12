@@ -89,7 +89,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The export vocabulary lists the simulated series `lak_connection` and `reservoir_storage`, which the time-series registry now holds.
 - `hydromodpy.config.check.check(document, partial=True)` checks a whole or a partial configuration section by section and returns every `Diagnostic` at once: the dotted path, a stable code, a severity (`error`, `warning` or `to_fill`) and what the validator said. A required key that is not written yet is `to_fill`. The phrase of each code is in `hydromodpy/schema/phrases.toml`, in English and in French.
 - `hmp.check(source, partial=True, inputs=False, environment=None)` checks a project file or a document from Python and returns its list of `Diagnostic`. On a file it gives the line of each key, and once the file has no error and nothing left to fill it adds the findings of the calibration preflight.
-- `hmp config check --partial` checks a draft, where a missing required key is `to_fill` and refuses nothing. `--inputs` reads the header of each input file, of every case of a `[sites]` project too, and `--lang fr` writes the phrases in French.
+- `hmp check --partial` checks a draft, where a missing required key is `to_fill` and refuses nothing. `--inputs` reads the header of each input file, of every case of a `[sites]` project too, and `--lang fr` writes the phrases in French.
 - `hmp.check(..., inputs=True)` reads the header of each input file the document names. A local file is opened in a rasterio `Env` of the call. A URL goes through the head-only resolution of `core.io.fetch` under the bounds of the call, then GDAL reads the final URL by `/vsicurl/`, so GDAL never sees the first URL, and a URL without bounds is refused. A DEM must declare a projected CRS in metres, a square pixel and a grid that is not rotated, and the outlet must fall on a valid cell.
 - `hmp run` accepts a `.json` request, the serialized form of `RunRequest` (schema `hydromodpy.request.v1`), and takes `--base`, the folder its relative paths are read from. A Docker run is the same command inside the image.
 - `hmp.run`, `hmp.calibrate` and `hmp.spinup` take a dict or JSON text with `base=`, through the same loader as a TOML file, and `Project(config, base=)` does the same.
@@ -167,8 +167,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `[[simulation.process]] type`, which `hmp init` of a pre-release wrote, loads with a warning under its name `kind` and is refused from 2.2.0.
 - `hmp run --frozen` no longer counts as a difference a key that the sealed `config.resolved.toml` does not write, when the replay holds it at its default. `lineage.drift` of a rerun lists such keys under `new_at_default`.
 - A known bug of a data source declasses only the runs whose `config.toml` declares that source, through the token `source@<section>_<source>`. The three Hub'Eau bugs of a pre-release name `source@hydrometry_hubeau`, so a run that declares no Hub'Eau hydrometry keeps its label.
-- `label_of` and `labelled_identity` of `hydromodpy.results.run_identity` take the folder of the run, whose `config.toml` says the sources the run declared.
-- The refusals of calibration keys, `flow.param` ids, `[export]` tables, `[flow.bc.<family>.<id>]` tables and sgrid keys of a pre-release of 2.0 name every key with its current name and say that this version does not rewrite the file. `renamed_to` of `hydromodpy.calibration.config` takes the old key first.
+- `label_of` and `labelled_identity` of `hydromodpy.results.record.label` take the folder of the run, whose `config.toml` says the sources the run declared.
+- The refusals of calibration keys, `flow.param` ids, `[export]` tables, `[flow.bc.<family>.<id>]` tables and sgrid keys of a pre-release of 2.0 name every key with its current name and say that this version does not rewrite the file. `renamed_to` of `hydromodpy.calibration.config_terms` takes the old key first.
 - The refusal of a key only a pre-release wrote carries one fault per key in `details`, each with its JSON pointer, and the file in `source`.
 - The sidecar reader applies the rows of `schema/changes.toml` marked `document = "sidecar"` instead of renaming `custom` to `file` in code.
 - A transport backend receives the frozen `Model` of its flow, its options, the run slot of its flow and the `SolverRun` of that flow, through `build(model, options, slot, upstream=())`. It no longer reads the setup, the configuration or the run store.
@@ -295,7 +295,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   builds a `Flow`, and a flow run without the `Model` of the `prepare_solver` step stops with a `ConfigError` that names
   the step.
 - `build_preprocess_options`, `require_cell_mesh` and `run_flow_model` read `setup.model` instead of `setup.flow`,
-  `setup.domain`, `setup.cell_mesh` and `cfg.solver`. `channel_tree_for_run` takes the `ChannelRasters` that
+  `setup.domain`, `setup.cell_mesh` and `cfg.solver`. `channel_exits_for_build` takes the `ChannelRasters` that
   `channel_rasters_for_run` chooses, `run_basin` and the catchment functions take a `CatchmentGeometry`,
   `networks_route_drainage` takes a `Model`, `resolve_first_period_steady` takes `model=` and `step_persist_params` takes
   the parameter profiles of the `Model` instead of a `Flow`.
@@ -305,10 +305,10 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The auxiliary steady solve of MODFLOW 6 and MODFLOW-NWT always starts from the top of the model. It started 0.01 m
   below the top when `[flow.runtime]` set `backend = "petsc"` and `surface_interaction_model = "vi_obstacle"`, two
   Boussinesq settings. See the recipe `modflow_steady_start_ignores_boussinesq_runtime` of `changes.toml`.
-- Every plugin surface (solver backends and extractors, data sources, mesh and terrain engines, trial evaluators,
-  forward models) resolves through one registry class, `hydromodpy.core.plugin_registry.PluginRegistry`, with the calls
+- Every plugin surface (solver backends and extractors, data sources, mesh and terrain engines, trial evaluators)
+  resolves through one registry class, `hydromodpy.core.plugin_registry.PluginRegistry`, with the calls
   `register`, `get` and `names`. A registry keys a class on one or more of its attributes joined by `_`, and an
-  entry-point name is compared with that join and never split. The seven entry-point groups keep their names.
+  entry-point name is compared with that join and never split. The entry-point groups keep their names.
 - Each registry module exposes its registry object and no module function: `solvers` and `extractors` in
   `hydromodpy.solver.base.registry`, `data_sources` in `hydromodpy.data.source.registry`, `mesh_engines` in
   `hydromodpy.mesh.registry`, `terrain_engines` in `hydromodpy.catchment.terrain.registry`, `evaluators` in
@@ -475,7 +475,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - Without `[mesh] engine`, a global backend that accepts only lumped engines takes that engine, and the resolved config writes it.
 - The wall-clock limit of a trial is now the optional property `wall_clock_limit_s` of the backend's options table, read beside the options the backend declares.
 - A flow process entry without solvers reads the default of solver.backend, and the run template of a scaffolded project names no backend.
-- The index takes the category of a solver from the run manifest. The index schema goes to 11, so an older index is rebuilt.
+- The index takes the category of a solver from the run manifest. The index schema is now 13, so an older index is rebuilt.
 - `Run.grid` answers for a global model, from its one-cell mesh.
 - The watershed identity card writes the backend name as the run recorded it.
 - The four transport tables lose their `parameters` level: `[transport.modflow6gwt.parameters]`, `[transport.modflow6prt.parameters]`, `[transport.mt3dms.parameters]` and `[transport.modpath.parameters]` become `[transport.modflow6]`, `[transport.modflow6_prt]`, `[transport.mt3dms]` and `[transport.modpath]`. `hmp doctor --fix-config` and a sealed read lift them, with the `_days` particle times. `[transport.modflow6_prt]` and `[transport.modpath]` stay experimental.
@@ -486,16 +486,16 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The data variables serve `source = "file"` and `source = "url"` through one dispatch of `SourceTable`. The hydrography `file` source no longer reaches the network fetch.
 - The generic `file` and `url` sources refuse a selector they do not declare, or a period they cannot serve, before they read anything.
 - The Geoplateforme download goes through `hydromodpy.core.io.fetch`, which owns the retries. It no longer resumes a stale `.part` file.
-- `get_json` and `paginate_json` of the Hub'Eau client take a client. With `client=None` they open one for the call under the default bounds.
+- `get_json` and `paginate_json` of the Hub'Eau client take the client as their first argument.
 - `NativeSeries` carries one more edge than values, and the last edge is the end of the run. A step that starts before the run is cut at its start, so no water from before the run is counted.
-- The linear reservoir declares `writes = ("timeseries", "budgets")`, the two tables it fills. Its `locate_cell` and `top_active_layer` follow the `CellLocator` port.
+- The linear reservoir declares `writes = ("discharge", "reservoir_storage", "budgets")`, the three outputs it fills. Its `locate_cell` and `top_active_layer` follow the `CellLocator` port.
 - The old names `CustomCrossingsSource`, `CustomDemSource`, `CustomGeologySource`, `CustomLakeAbacusSource`, `CustomLakeBathymetrySource`, `CustomLakeGeometrySource`, `CustomLayerBaseSource`, `CustomSoilCapacitySource` and `CustomSubstratumSource` of `hydromodpy` are refused with their `File...Source` replacement.
 - A configuration that fails to load names every fault it holds, not only the first. The type of the error and the exit code are those of the first fault, as before.
 - Every HydroModPy error that refuses a document carries its diagnostics, and `to_dict()` lists them under `details` with their pointer, code and severity, not only `ConfigValidationError`.
 - The checks of the `[[export]]` names and of the dates of `[[export]]` and `[display]` run when the file is loaded, with the other rules between sections. They give the same messages, the same `ConfigError` and the same exit code 14. A sealed run only warns of them, as it does of the checks against the solver. Step 0 of a run given a `HydroModPyConfig` already built runs every rule between sections on it again, so a section changed after the load is still refused before the solve.
 - Two `[[export]]` blocks that write one file are refused at load only when the file does not depend on the name of the run. A `file` that takes the name of a group of fields or series of the run, such as `<run>_fields.nc`, is refused by the export before that block writes anything, and the earlier file is kept.
 - The rules between sections of a project file are the rows of `CROSS_RULES` in `hydromodpy.config.cross_checks`, each with the sections it reads. The refusals and their sentences are those of the validators of `HydroModPyConfig` they replace, and the first refusal is raised in the same order.
-- `hmp config check --format json` writes `{"ok": ..., "diagnostics": [...], "workspace": [...]}`, each diagnostic with its pointer, code, severity, detail and a phrase in the language of `--lang`. The keys `kind`, `n_cases`, `summary`, `errors`, `warnings` and `experimental_keys` are gone. The number of cases of a `[sites]` project is printed by `hmp run --dry-run`.
+- `hmp check --format json` writes `{"ok": ..., "diagnostics": [...], "workspace": [...]}`, each diagnostic with its pointer, code, severity, detail and a phrase in the language of `--lang`. The keys `kind`, `n_cases`, `summary`, `errors`, `warnings` and `experimental_keys` are gone. The number of cases of a `[sites]` project is printed by `hmp run --dry-run`.
 - `hmp doctor --fix-config` reads the retired keys from the check codes, and says which old forms it cannot rewrite.
 - `preflight_calibration`, `preflight_launch` and `refuse_what_the_preflight_refuses` give `Diagnostic` objects of code `calibration_preflight` in place of `PreflightFinding`, which is removed. The key sits in `path` as a dotted key such as `calibration.parameters.K`, and the text that followed a key in brackets, a phase name or the word bounds, opens `detail`. The refusal of a launch carries its error diagnostics in `ConfigError.diagnostics`, with the same message.
 
@@ -524,9 +524,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `--set export=[]`, a top-level section given without a dot, is applied as a path again.
 - `outcome.json` carries `request_id` once the inputs of an attempt are resolved, and a retry whose request changed starts over. A retry that is given back as identical puts back what the attempt before it was asked.
 - `config.toml` of a run is written once, at the claim, so a run that fails before the mesh can be resumed. `config.resolved.toml` is written by the prepare step.
-- `hmp spinup`, `hmp calibrate`, `hmp config check` and `hmp config targets` take the project `-w` names as their base by argument, and `hmp run` also takes `--base`. `-w` and `--base` are passed to the sub-processes that run a case.
+- `hmp spinup`, `hmp calibrate`, `hmp check` and `hmp config targets` take the project `-w` names as their base by argument, and `hmp run` also takes `--base`. `-w` and `--base` are passed to the sub-processes that run a case.
 - A plan names its cases after the site and the recipe folded to a run name. Two cases that fold to one name, or a name over forty characters, refuse the plan.
-- `hmp report catchment` accepts `-w` and does not read it. The runs it starts take the project of their own file.
 - `hmp calibrate` with `--set`, `--overlay` or `--case` reads the changed document once and writes no copy of the file. `--dry-run`, `--list-phases` and `--expand` read its `[calibration]` section only, as they read the file.
 - `hmp.check` takes `base=`, and a document in memory is refused without one.
 - Validation run names are forty characters at most.
@@ -550,7 +549,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The identity block carries solution_key, request_id and solver instead of config_hash, in the seal and in every file that leaves a run. simulation.parquet no longer has a config_hash column.
 - A replay no longer refuses a moved default nor warns only on another solver binary: both go in its lineage, with the class of the replay.
 - `hmp run <run>/config.toml --frozen` no longer replays a run; use `hmp replay <run>`.
-- The results modules manifest, record, run_identity and checks live under `hydromodpy.results.record`, and lineage under `hydromodpy.schema`. `hydromodpy.results.identity` stays where it was.
+- The results modules manifest, record, checks and run_identity, now named `label`, live under `hydromodpy.results.record`, and lineage under `hydromodpy.schema`. `hydromodpy.results.identity` stays where it was.
 - The value digests of a seal cover `simulation.parquet` and `parameters.parquet` too, and leave out the solve-time row of `metrics.parquet`, which is a wall clock.
 - A replay of a run sealed by a pre-release lists the `final_state/` arrays and the `mesh/open_water` and `mesh/catchment_cells` masks that version did not write under `added` without classing the replay as a deviation, and reads its flat `concentration` as the one species of the replay.
 - A difference a replay cannot measure (two shapes, two NaN masks, a zero norm) is written with null measures and its reason, never as `Infinity`. A seal is strict JSON.
@@ -564,23 +563,23 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - Each `trial_series/*.parquet` file carries `hmp.schema_version = hydromodpy.trial_series.v1` and `hydromodpy_version` in its footer. A file without the key reads as v1, the form written by a pre-release.
 - `TrialOutcome` takes an optional `profile`, the time of each step of the trial.
 - A calibration writes the scored series of every trial by default (`persist_trial_series` is true).
-- `hmp init` writes `edition = "2.0"` in the `project.toml` of the example project.
+- `hmp workspace init` writes `edition = "2.0"` in the `project.toml` of the example project.
 - A kept calibration trial keeps only the budget terms of its criterion and draws no figure; the best of an earlier phase keeps what the project asks.
 - `hmp campaign promote <case> --trial N` solves a kept trial again when `hmp catalog gc` removed its fields, and leaves its folder under the session.
 - A run is skipped only for an identical run of its level or above.
 - The four criterion modules of `results/derive/stream` (`network`, `extent`, `heads`, `geometry`) and `calibration/metrics/downslope_network` are now `hydromodpy.catchment.stream_network.{network,extent,heads,geometry,cost}`. The visible-flow words and the provenance codes of a validity map are in `hydromodpy.core.scoring.stream_defaults`.
 - `routed_discharge` and the private flood of the descent are gone. `route_release_to_discharge` and `priority_flood` of `hydromodpy.catchment.drainage` are the one routing and the one flood.
 - Rule 6 of the repository now holds `catchment/stream_network` and `core/scoring`, with a table of exceptions that can only shrink.
-- The stream criterion reads each of its inputs once, through `hydromodpy.results.derive.stream.criterion_inputs`. A figure drawn from a run takes the solver centers, the open water, the outline and the mean recharge the trial scored, so it draws the partition behind the reported number. A run that kept no mean recharge, or no `mesh/open_water`, is refused with a sentence that says to replay it, or to set `tau_specific_ratio = 0`.
+- The stream criterion reads each of its inputs once, through `hydromodpy.results.derive.stream_network.criterion_inputs`. A figure drawn from a run takes the solver centers, the open water, the outline and the mean recharge the trial scored, so it draws the partition behind the reported number. A run that kept no mean recharge, or no `mesh/open_water`, is refused with a sentence that says to replay it, or to set `tau_specific_ratio = 0`.
 - `frac_minimal_outside_maximal` in the trial journal is read on the scored cells, inside the catchment, active and off open water. With 1 % of open water it goes from 0.6883 to 0.6842. No value of `metrics.parquet` changes.
 - `StoredBasin` is a frozen dataclass read by one function, `basin_of_group`, for the run views and for the catchment aggregation alike.
 - `hydromodpy.results.score` is the one pairing of a simulated series with its observations: `pair`, `score`, `score_metric`, `score_timeseries`, `read_timeseries`, `calibration_rules` and `score_run_under_its_rule`. The calibration trial and the sealed run both call it, so they pair the same series bit for bit. `score`, `score_run` and `HEADLINE_METRICS` leave `hydromodpy.results.metric_rule`, which keeps the rule and score types.
 - A run a session promoted gains in `metrics.parquet` one set of rows per calibration period of its seal, with `window_role = calibration` and `metric_rule_version`, written before the seal. The headline rows do not change.
 - `calibrated_by` in the seal gains `rule`, the metric rule version of the cost, and `components`, the parts of that cost without the validation cost. The block keeps `hydromodpy.checks.v2`.
 - Labels follow rule 3. A promoted run is calibrated or evaluated only when a window was scored: a calibration period, the headline window with enough samples, or the state of a steady run with a finite cost. A transient run promoted without one is exploratory, with the reason `no_scored_window`. A parameter on a bound adds the reason `bound_reached` to any label. `LabelResult.causes` holds coded reasons with an English and a French sentence, and `LabelResult.reasons` gives the English ones.
-- The licence of a run is the roll-up of the licences of its `inputs.json` entries, each read from the sidecar of its file. A loaded record no longer takes the licence of its provider by slug. A checkpoint written by an earlier build, whose `facts.json` holds `licence_sources`, is refused.
+- The licence of a run is the roll-up of the licences of its `inputs.json` entries, each read from the sidecar of its file. A loaded record no longer takes the licence of its provider by slug.
 - `phrases.toml` also holds the label, label reason and check state phrases, and `hydromodpy.schema.phrases` is its one reader, with the languages in `LANGS`.
-- The project index `.hmp/index.duckdb` is written by one process at a time under `.hmp/index.duckdb.lock`, in DuckDB blocks of 16 KiB. Opening a project builds a missing or older index instead of refusing. `metrics.metric_name` is now `metrics.metric` in the index, the catalog rank output (now `hmp.catalog.rank.v2`) and the pair comparison, and `cases.bytes` holds the size of each directory, measured again when `figures/`, `exports/` or `report/` gains a file. A sealed run no longer fails when another process holds the index lock or the index does not open: it warns, names `hmp catalog reindex` and is read from its directory. A read of a `Project` never waits for a writer of the index: it opens the published index at once, and opens it again when another process rebuilt it since. `hmp catalog show` lists the copies of a run.
+- The project index `.hmp/index.duckdb` is written by one process at a time under `.hmp/index.duckdb.lock`, in DuckDB blocks of 16 KiB. Opening a project builds a missing or older index instead of refusing. `metrics.metric_name` is now `metrics.metric` in the index and the pair comparison, and `cases.bytes` holds the size of each directory, measured again when `figures/`, `exports/` or `report/` gains a file. A sealed run no longer fails when another process holds the index lock or the index does not open: it warns, names `hmp catalog reindex` and is read from its directory. A read of a `Project` never waits for a writer of the index: it opens the published index at once, and opens it again when another process rebuilt it since. `hmp catalog show` lists the copies of a run.
 - The ledger of `figures/` and `exports/` is locked on every system, without `fcntl`, and a record whose lock was taken back meanwhile is refused instead of written. A stale lock is taken back by one process at a time and only when it is still the file judged stale, so a fresh lock is never removed.
 - `hmp publish` takes the results (`fields.zarr`, `tables.parquet`, `final_state/`), the inputs with `INSTALL.toml`, the sealed mesh and `products.json` along by default and writes `.zenodo.json` beside the RO-Crate. `--without results` and `--without inputs` leave them out; `--with` goes with `--package` only and is refused for a copy. `publish` and `publish_project` carry both by default, and `publish_project` returns a `PublishedProject` with its copies and the runs it left out.
 - `hmp publish` refuses a replay that is not classed bit, and `hmp publish .` leaves it out and names it under `left_out`.
@@ -599,7 +598,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A figure declares its subject, `run`, `session` or `runset`. A session figure asked for on a run draws the session that promoted it. `hmp.figure` takes a run, a session or a set of runs, and `hmp viz list` shows the subject, so the JSON output of `viz list` and `viz list run` is at version 2.
 - The calibration figures (convergence, trace, landscape, pairplot, trial distribution, objective surface, progress, bisection bracket trace, parameter cost profile, downslope distance crossing, matching card) draw a `Session`, and `ensemble_band` draws a `RunSet`. The y label of `calibration_convergence` reads `cost`, the name of the cost column of the trial journal.
 - A figure handed an object of the wrong kind, a run for a session figure or a list of runs for `ensemble_band`, is refused with a sentence that says what to pass, and a session figure refuses a session that recorded no trial before drawing. The subject is never listed as an option of a figure.
-- `hmp report catchment RUN [--overview RUN] [--preset research|management] [--lang en|fr] [--station ID] [--strict]` reads a sealed run. `report.json` replaces `block_report_manifest.json` and `block_report_postflight.json`, and the JSON output of the command is at version 2 (`html_report`, `report_json`, `missing`).
+- `hmp show RUN --report [--overview RUN] [--preset research|management] [--lang en|fr] [--station ID] [--strict]` reads a sealed run. `report.json` replaces `block_report_manifest.json` and `block_report_postflight.json`, and the JSON output of the command is at version 2 (`html_report`, `report_json`, `missing`).
 - `hmp.report` and `hmp report render` write the session report through `hydromodpy.project.report.report_session`.
 - The session report is written for a session of several cases and when a best run does not open. A table lists each case with its best run, and a best run that does not open is named there with the reason. The figures of the best run of each case are drawn, named `<case>_<figure>.png` when the session holds several cases.
 - `hmp show SESSION` and the session report print again the project, the cost name, the best run, the stop note, the start, the end and the duration of the session.
@@ -669,7 +668,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A time series has a `source` column (`simulated` or `observed`), and the catchment row is named `catchment`.
 - NetCDF and VTU write one variable with a layer dimension. Opening a NetCDF in QGIS needs `layer=` on the export.
 - With `parallel` above 1, trials of a HydroModPy search run in worker processes that last, not in threads. A script that calibrates this way needs the `if __name__ == "__main__":` guard. A `metric_fn` must be defined at the top level of a module.
-- `[solver.modflow6.runtime] mf6_api_timeout_s` now limits one whole trial of a parallel search. The default stays 2400 s, so a longer trial now ends `crashed`.
+- `[solver.modflow6.runtime] mf6_api_timeout_s` now limits one whole trial of a parallel search. The default is 14400 s, so a longer trial now ends `crashed`.
 - With `parallel` above 1, grid, Latin hypercube and random searches feed one queue of workers, and the progress bar moves as each trial ends. `multistart` restarts run side by side. `linearized` derivatives run in workers.
 - `scipy_de` accepts `parallel` above 1 and scores a whole generation at once. Optuna `tpe` counts trials in flight as the worst cost so far. At `parallel = 1` nothing changes.
 - Calibration refuses old keys of `[calibration]` and names the new one, for example `scoring_window`, `max_iter`, `tolerance` and `roptim_max`.
@@ -791,7 +790,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The solver aliases mf6 and nwt of `hmp catalog ls --solver` are gone. Write the full backend name.
 - `hydromodpy.schema.validate_field` and `hydromodpy.schema.ValidationResult`: `check(document, partial=True)` replaces them. `hydromodpy.schema` re-exports nothing, so `export_full_schema`, `build_config_meta` and `build_field_validators` are imported from `hydromodpy.schema.config_schema`.
 - `hydromodpy.config.export_checks`: its two checks are rows of `CROSS_RULES` in `hydromodpy.config.cross_checks`. `require_site_for_real_catchment` and `REAL_CATCHMENT_DEFINITIONS` moved there from `hydromodpy.config.hydromodpy_config`.
-- `hmp config validate-field`, which had no handler. Use `hmp config check --partial`, or `hmp.check` from Python.
+- `hmp config validate-field`, which had no handler. Use `hmp check FILE --partial`, or `hmp.check` from Python.
 - `hydromodpy.project.check` (`check_project`, `CheckReport`), replaced by `hydromodpy.project.api.check`, which returns a list of `Diagnostic`.
 - The data cache database `data/cache.duckdb` and `hydromodpy.data.registry`. The sidecar next to each fetched file is the cache entry. A data folder that still holds a `cache.duckdb` of a pre-release is refused with a sentence that names `hmp workspace clean --data-cache`.
 - The private data cache of each case of a `[sites]` launch. A case writes its files and their sidecars in the shared data folder, one station at a time under a file lock.
@@ -799,7 +798,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hydromodpy.project.lock`. Its verbs are `lock_data`, `verify_data_lock` and `prune_data` in `hydromodpy.project.data_cache`, and `hydromodpy.data.request.cache_verbs.prune_data_cache` leaves for `prune_data`.
 - `HMP_AUTO_MIGRATE` and `HMP_DATA_CACHE_PRIVATE`.
 - `hydromodpy.core.contracts.data_cache_backend`, `DATA_CACHE_FILENAME`, `RUN_DATA_CACHE_FILENAME` and `data_cache_path_for` of `hydromodpy.core.state.layout`, and `CACHE_INDEX` of `hydromodpy.schema.sources`. The data cache has no database.
-- The temporary `.hmp_effective_*.toml` copy that `--set` and `--overlay` wrote beside the file, and `hydromodpy.cli.effective_toml`, whose parts live in `hydromodpy.config.loading` and `hydromodpy.cli.helpers`.
+- The temporary `.hmp_effective_*.toml` copy that `--set` and `--overlay` wrote beside the file, and `hydromodpy.cli.effective_toml`, whose parts live in `hydromodpy.config.loading`.
 - `run_dirname`, `MAX_DIRNAME_LEN` and `RunNameTooLongError`, replaced by `check_name` and `MAX_NAME_LENGTH` of `hydromodpy.core.state.names`.
 - `[geographic] reuse_existing_outputs` and `[geographic] reg_fold`. A file that writes them is refused with the replacement to write, and a sealed config drops them in silence.
 - `hydromodpy.results.geographic_cache`, which nothing called.
