@@ -264,17 +264,6 @@ def test_check_refuses_relative_width(tmp_path, kwargs, origin) -> None:
     assert origin in findings[0].detail
 
 
-SINGLE_METRIC_SECTION = """
-[calibration]
-objective = "distance_gap"
-{uncertainty}
-
-[calibration.parameters.K]
-bounds = [1e-7, 1e-3]
-search_space = "log"
-path = "flow.param.K.field.value"
-"""
-
 SINGLE_METRIC_PHASE = """
 [calibration]
 

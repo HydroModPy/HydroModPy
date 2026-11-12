@@ -18,7 +18,6 @@ _ID = Identity(
     attempt_id="a" * 32,
     hydromodpy_version="2.0.0a5",
 )
-_ROW = "nancon,nancon_monthly,"
 _HEADER = "site,case_id,datetime,station_id,variable,source,value,unit"
 
 

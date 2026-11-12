@@ -49,7 +49,6 @@ def _strip() -> np.ndarray:
 # the whole bowl up to its rim.
 
 N = 9
-CENTRE = (N // 2) * N + N // 2
 
 
 def _bowl() -> np.ndarray:
@@ -102,51 +101,6 @@ def test_the_accumulation_crosses_the_constant_head_cell() -> None:
 
 N_ROWS, N_COLS_flat, AXIS = 15, 9, 4
 FLOOR_flat, RIM = 1.0, 10.0
-
-
-def _quad_valley() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    top = np.full((N_ROWS, N_COLS_flat), FLOOR_flat)
-    top[0, :] = top[-1, :] = top[:, 0] = top[:, -1] = RIM
-    top[0, AXIS] = 0.0
-    channel = np.zeros(N_ROWS * N_COLS_flat, dtype=bool)
-    pins = np.full(N_ROWS * N_COLS_flat, -1, dtype=int)
-    for row in range(N_ROWS - 1):
-        channel[row * N_COLS_flat + AXIS] = True
-        if row > 0:
-            pins[row * N_COLS_flat + AXIS] = (row - 1) * N_COLS_flat + AXIS
-    return top, channel, pins
-
-
-def _triangle_valley() -> tuple[np.ndarray, np.ndarray, np.ndarray, tuple[np.ndarray, ...]]:
-    vertices, connectivity, centroids = triangle_mesh(N_ROWS, N_COLS_flat)
-    n_cells = connectivity.shape[0]
-    rim = domain_edge_cells(connectivity, np.ones(n_cells, dtype=bool))
-    top = np.where(rim, RIM, FLOOR_flat)
-    channel = np.zeros(n_cells, dtype=bool)
-    pins = np.full(n_cells, -1, dtype=int)
-    # Square s holds the triangles 2s (on its lower edge) and 2s + 1 (on its upper edge).
-    for row in range(N_ROWS - 1):
-        square = row * N_COLS_flat + AXIS
-        channel[[2 * square, 2 * square + 1]] = True
-        pins[2 * square + 1] = 2 * square
-        if row > 0:
-            pins[2 * square] = 2 * (square - N_COLS_flat) + 1
-    top[2 * AXIS] = 0.0
-    return top, channel, pins, (vertices, connectivity, centroids)
-
-
-def _worst_run_beside(descent: Descent, centres: np.ndarray, channel: np.ndarray) -> float:
-    """Largest distance a floor cell runs down-valley beyond its lateral distance to A."""
-    floor = descent.routable & ~channel & (descent.surface < 0.5 * (FLOOR_flat + RIM))
-    worst = -np.inf
-    for start in np.flatnonzero(floor).tolist():
-        cell = start
-        while not channel[cell] and descent.receiver[cell] >= 0:
-            cell = int(descent.receiver[cell])
-        assert channel[cell], f"floor cell {start} never reaches the channel"
-        lateral = abs(centres[start, 0] - (AXIS + 0.5))
-        worst = max(worst, centres[start, 1] - centres[cell, 1] - lateral)
-    return worst
 
 
 # A lake is crossed by D, never a sink of it: the cells below its dam drain downstream.
@@ -220,27 +174,6 @@ def _cell(row: int, col: int) -> int:
     return row * N_COLS_chain + col
 
 
-def _valley_chain() -> np.ndarray:
-    rows, cols = np.meshgrid(np.arange(N_ROWS_chain), np.arange(N_COLS_chain), indexing="ij")
-    top = 5.0 + 2.0 * np.abs(cols - AXIS_chain)
-    top[:, AXIS_chain] = 1.0 + 0.1 * np.arange(N_ROWS_chain)
-    top[0, :] = top[-1, :] = 20.0
-    top[0, AXIS_chain] = 0.0
-    top[SILL_ROW, AXIS_chain] = SILL_chain
-    top[SILL_ROW, AXIS_chain - 1] = GAP
-    return top
-
-
-def _channel_and_pins() -> tuple[np.ndarray, np.ndarray]:
-    channel = np.zeros(N_ROWS_chain * N_COLS_chain, dtype=bool)
-    pins = np.full(N_ROWS_chain * N_COLS_chain, -1, dtype=int)
-    for row in range(N_ROWS_chain - 1):
-        channel[_cell(row, AXIS_chain)] = True
-        if row > 0:
-            pins[_cell(row, AXIS_chain)] = _cell(row - 1, AXIS_chain)
-    return channel, pins
-
-
 # D is stored as receivers and a filled surface, and the graph comes back from them.
 #
 # A reader routes on D without the mesh geometry: ordering the cells by descending
@@ -248,14 +181,6 @@ def _channel_and_pins() -> tuple[np.ndarray, np.ndarray]:
 # strictly descends on that surface.
 
 # A bowl: the middle cell is a pit of the top, deeper than its whole ring.
-PIT_TOP = np.array(
-    [
-        [9.0, 8.0, 7.0, 8.0],
-        [8.0, 5.0, 4.0, 7.0],
-        [7.0, 4.0, 1.0, 6.0],
-        [6.0, 5.0, 4.0, 5.0],
-    ]
-)
 
 
 def test_receivers_and_surface_of_different_sizes_are_refused() -> None:
@@ -362,18 +287,6 @@ def test_the_pin_is_refused(options: dict[str, object], message: str) -> None:
 # happens on a seed, on a quad grid and on a mesh without diagonals alike, and
 # around a hole of non-routable cells, whose rim is a seed too.
 
-N_drain = 12
-
-
-def _rough_top(n_cells: int) -> np.ndarray:
-    return np.random.default_rng(7).uniform(0.0, 20.0, n_cells)
-
-
-def _with_a_hole(n_cells: int) -> np.ndarray:
-    routable = np.ones(n_cells, dtype=bool)
-    routable[n_cells // 2 : n_cells // 2 + 3] = False
-    return routable
-
 
 # The basin of D follows the receivers, so it crosses a river CHD and stops at a CHD sink.
 #
@@ -383,28 +296,12 @@ def _with_a_hole(n_cells: int) -> np.ndarray:
 # the basin. The basin never reads the stopping receiver, which ends every walk
 # at a constant-head cell.
 
-HEAD_river = 4 * N + 4
 OUTLET = 0
-
-
-def _basin_at_the_outlet(descent):
-    return descent_basin(
-        descent, cell_area_m2=np.ones(N * N), near=tuple(grid_centres(N, N)[OUTLET])
-    )
 
 
 # ``Descent.basin`` is exactly the set of cells whose receiver chain passes the outlet.
 
 N_through = 15
-
-
-def _chain_passes(receiver: np.ndarray, start: int, outlet: int) -> bool:
-    cell = start
-    while cell >= 0:
-        if cell == outlet:
-            return True
-        cell = int(receiver[cell])
-    return False
 
 
 def test_an_off_graph_outlet_is_refused() -> None:
@@ -501,16 +398,6 @@ def test_snapping_needs_the_adjacency_and_matching_areas() -> None:
 # elevations and the reach tops read the top T, so a descent that wrote its fill
 # back would change the ground the model is built on.
 
-N_copy = 6
-PIT_copy = (3, 3)
-
-
-def _sloping_top_with_a_pit() -> np.ndarray:
-    rows, cols = np.meshgrid(np.arange(N_copy), np.arange(N_copy), indexing="ij")
-    top = 10.0 + rows + cols
-    top[PIT_copy] = 5.0
-    return top
-
 
 # D flags the cells it raised, and a model keeps it without its adjacency.
 #
@@ -526,20 +413,6 @@ def _sloping_top_with_a_pit() -> np.ndarray:
 # the D8 rule the stream criterion uses. A triangle shares nodes with about a
 # dozen others and no direction there is a diagonal, so the graph falls back to
 # shared faces, and the fill and the receivers both use that one graph.
-
-N_diag = 5
-CENTRE_diag = 2 * N_diag + 2
-DIAGONAL = 1 * N_diag + 1
-
-
-def _centre_with_a_steep_diagonal() -> np.ndarray:
-    top = np.full((N_diag, N_diag), 9.5)
-    top[0, :] = top[-1, :] = top[:, 0] = top[:, -1] = 1.0
-    top[2, 2] = 10.0
-    top[1, 2] = top[3, 2] = top[2, 1] = top[2, 3] = 9.0
-    # A drop of 3 over sqrt(2) beats a drop of 1 over 1.
-    top[1, 1] = 7.0
-    return top
 
 
 # The report counts a lake flooded to its spill apart from a pit filled outside lakes.
@@ -590,8 +463,6 @@ def test_the_lake_is_counted_as_flooded() -> None:
 # the filled copy. Copy, receivers and raised count must match on every mesh the
 # descent tests use.
 
-N_plain = 12
-
 
 def _reference(top, connectivity, vertices, centroids, routable, diagonal):
     n_cells = top.size
@@ -614,22 +485,3 @@ def _reference(top, connectivity, vertices, centroids, routable, diagonal):
         adjacency=adjacency,
     )
     return fill, metric.graph.downstream
-
-
-def _quad_case(seed: int, hole: bool, flat_share: float):
-    vertices, connectivity = quad_mesh(N_plain, N_plain)
-    rng = np.random.default_rng(seed)
-    top = rng.uniform(0.0, 20.0, N_plain * N_plain)
-    # Rounded plateaus give the flood ties to break, as a flat DEM does.
-    plateau = rng.random(N_plain * N_plain) < flat_share
-    top[plateau] = np.round(top[plateau] / 5.0) * 5.0
-    routable = np.ones(N_plain * N_plain, dtype=bool)
-    if hole:
-        routable[N_plain * N_plain // 2 : N_plain * N_plain // 2 + 3] = False
-    return top, connectivity, vertices, grid_centres(N_plain, N_plain), routable
-
-
-def _triangle_case(seed: int):
-    vertices, connectivity, centroids = triangle_mesh(N_plain, N_plain)
-    top = np.random.default_rng(seed).uniform(0.0, 20.0, connectivity.shape[0])
-    return top, connectivity, vertices, centroids, np.ones(top.size, dtype=bool)

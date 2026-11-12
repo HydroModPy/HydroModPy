@@ -63,50 +63,6 @@ def _paragraphs(tmp_path: Path, lang: str = "en", **overrides: Any) -> list[str]
     return method_text(run_dir, lang=lang, today=TODAY).split("\n\n")
 
 
-CALIBRATED_BY_LANG = {
-    "en": [
-        "The run J0014010-base.v2 was computed with the modflow6 solver, using HydroModPy 2.0.0a5.",
-        "Its voronoi mesh has 4148 cells in one layer.",
-        "It covers 2016-01-01 to 2020-12-31 in 1827 time steps.",
-        "The input discharge comes from hubeau hydrometrie, under the licence etalab-2.0.",
-        "It was promoted by trial 7 of session sess0001 (final status: completed).",
-        "The search ran in the phase transient_sy.",
-        "The search converged: it met its own rule, sigma.",
-        "Its nse cost at that trial is 0.84.",
-        "On the validation period it costs 0.6125.",
-        "The cost has these components: nse 0.5, kge 0.34.",
-        "The rule of that cost is nse_log.",
-        "The calibration period calage runs from 2016-01-01 to 2018-12-31.",
-        "The validation period valid runs from 2019-01-01 to 2020-12-31.",
-        "The calibration set these parameters: K = 6.1e-06 m/s.",
-        "Its headline score is nse 0.81 on 2016-01-01 to 2020-12-31, from 1827 samples.",
-        "The observations cover 97% of that window.",
-        "This run is labelled calibrated on 2026-11-11, under the validity rules",
-        "No known issue of the register touches this run.",
-    ],
-    "fr": [
-        "Le run J0014010-base.v2 a été calculé avec le solveur modflow6, par HydroModPy 2.0.0a5.",
-        "Son maillage voronoi compte 4148 mailles sur une couche.",
-        "Il couvre du 2016-01-01 au 2020-12-31 en 1827 pas de temps.",
-        "L'entrée discharge vient de hubeau hydrometrie, sous la licence etalab-2.0.",
-        "Il a été promu par l'essai 7 de la session sess0001 (état final : terminé).",
-        "La recherche a tourné dans la phase transient_sy.",
-        "La recherche a convergé : elle a atteint sa propre règle, sigma.",
-        "Son coût nse à cet essai vaut 0.84.",
-        "Sur la période de validation il coûte 0.6125.",
-        "Le coût a pour composantes : nse 0.5, kge 0.34.",
-        "La règle de ce coût est nse_log.",
-        "La période de calage calage va du 2016-01-01 au 2018-12-31.",
-        "La période de validation valid va du 2019-01-01 au 2020-12-31.",
-        "Le calage a posé ces paramètres : K = 6.1e-06 m/s.",
-        "Son score de tête est nse 0.81 du 2016-01-01 au 2020-12-31, sur 1827 échantillons.",
-        "Les observations couvrent 97% de cette fenêtre.",
-        "Ce run est étiqueté calibré au 2026-11-11, selon les règles de validité",
-        "Aucun bogue connu du registre ne touche ce run.",
-    ],
-}
-
-
 # lang, overrides, sentence written in the quality paragraph
 CONTROLS = [
     ("en", {"converged": True}, "solver convergence: passed."),

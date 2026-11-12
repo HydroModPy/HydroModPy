@@ -56,11 +56,6 @@ def _request(method: str, out_dir: Path, dem: Path = Path("source.tif")) -> Terr
     )
 
 
-def _read_array(path: Path) -> tuple[np.ndarray, str | None, float | None]:
-    with rasterio.open(str(path)) as src:
-        return src.read(1), src.crs.to_string() if src.crs else None, src.nodata
-
-
 def test_a_stack_without_counts_writes_null_not_zeros(tmp_path) -> None:
     store = tmp_path / "store"
     products, *_ = _write_stack(tmp_path / "built")

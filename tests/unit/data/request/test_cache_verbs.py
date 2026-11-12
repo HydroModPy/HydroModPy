@@ -41,12 +41,6 @@ def _fetch(
     return path
 
 
-def _write_the_sidecar_of_a_user_file(path: Path) -> None:
-    path.with_name(path.name + ".json").write_text(
-        f'{{"source": "file", "sha256": "{sha256_of(path)}"}}', encoding="utf-8"
-    )
-
-
 @pytest.fixture
 def workspace(tmp_path: Path) -> Path:
     root = tmp_path / "workspace"

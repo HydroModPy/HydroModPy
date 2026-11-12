@@ -25,20 +25,6 @@ from hydromodpy.data.provenance.sidecars import (
 from hydromodpy.schema.changes import migrations_of, read
 
 
-def _make_sidecar() -> Sidecar:
-    return Sidecar(
-        source="IGN BD ALTI 25m",
-        fetched_at=datetime(2025, 8, 12, 10, 30, tzinfo=UTC),
-        sha256="abc123" + "0" * 58,
-        license="etalab-2.0",
-        crs="EPSG:2154",
-        bbox=(200000.0, 6700000.0, 350000.0, 6850000.0),
-        notes="Crop manuel sur le Massif Armoricain",
-        variable="dem",
-        bytes=11,
-    )
-
-
 def test_load_sidecar_missing_file_raises(tmp_path: Path):
     target = tmp_path / "no_sidecar.tif"
     target.write_bytes(b"r")
@@ -177,17 +163,6 @@ def _put(path: Path, sidecar: Sidecar | None = None, *, with_file: bool = True) 
     if sidecar is not None:
         write_sidecar(path, sidecar)
     return path
-
-
-_IGNORED = {
-    "a lock": "hydrometry/.hydrometry_hubeau_J1.lock",
-    "a write in progress": "hydrometry/.x.csv.json.123.part",
-    "a hidden folder": ".hmp/hydrometry/x.csv",
-    "a hidden file": "hydrometry/.hidden.csv",
-    "the blobs folder": "blobs/geology/file/mine_clip_1.gpkg",
-    "the sites folder": "sites/catalog.csv",
-    "tiles extracted from an archive": "dem/extracted_ign/D029/tile.asc",
-}
 
 
 def test_the_name_rules_say_why() -> None:

@@ -21,22 +21,7 @@ pytestmark = pytest.mark.fast
 
 # The tables of the commit this lot started from, spelled in literals so the
 # derivation is held against what it replaces.
-_KIND_FORMATS = {
-    ExportKind.field: ("netcdf", "geotiff", "geopackage", "shapefile", "vtu"),
-    ExportKind.series: ("csv",),
-    ExportKind.table: ("csv",),
-    ExportKind.vector: ("geopackage", "shapefile"),
-    ExportKind.raster: ("geotiff",),
-}
 
-_FORMAT_SUFFIX = {
-    "netcdf": ".nc",
-    "geotiff": ".tif",
-    "csv": ".csv",
-    "geopackage": ".gpkg",
-    "shapefile": ".shp",
-    "vtu": ".vtu",
-}
 
 _SUFFIX_TO_FORMAT = {
     ".nc": "netcdf",
@@ -47,12 +32,6 @@ _SUFFIX_TO_FORMAT = {
     ".shp": "shapefile",
     ".vtu": "vtu",
     ".jsonld": "prov",
-}
-
-_RUN_FORMAT_FILES = {
-    "stac": "stac-item.json",
-    "rocrate": "ro-crate-metadata.json",
-    "prov": "prov.jsonld",
 }
 
 

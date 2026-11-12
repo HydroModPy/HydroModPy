@@ -28,7 +28,6 @@ from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 FLOW_K = 1e-4
 FLOW_SY = 0.1
 K_NAME = "hydraulic_conductivity_m_s"
-SY_NAME = "storage_coefficient"
 
 
 def _cell_mesh():

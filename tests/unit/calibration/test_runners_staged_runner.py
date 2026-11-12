@@ -903,13 +903,6 @@ def test_undeclared_source() -> None:
 # another phase, or it would be scored on that other phase's criterion.
 
 
-NETWORK_PHASE = {
-    "name": "steady_k_over_r",
-    "method": "bisection",
-    "parameters": ["K"],
-    "objective_blocks": ["abherve_gap"],
-    "freeze_on_success": True,
-}
 DISCHARGE_PHASE = {
     "name": "transient_sy",
     "method": "grid",
@@ -972,18 +965,6 @@ FIFTY_FIFTY = {
     "method": "grid",
     "parameters": ["K"],
     "objective_blocks": {"network": 50, "hydrograph": 50},
-}
-LIST_FORM = {
-    "name": "list_form",
-    "method": "grid",
-    "parameters": ["K"],
-    "objective_blocks": ["network", "hydrograph"],
-}
-HYDROGRAPH_ONLY = {
-    "name": "hydrograph_only",
-    "method": "grid",
-    "parameters": ["K"],
-    "objective_blocks": {"hydrograph": 1.0},
 }
 
 

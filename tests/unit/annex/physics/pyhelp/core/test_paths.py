@@ -76,29 +76,6 @@ def test_the_table_is_what_the_platforms_ask_for(monkeypatch: pytest.MonkeyPatch
     assert "latest" not in paths.HELP3O_RELEASE
 
 
-def _linux_asset(monkeypatch: pytest.MonkeyPatch) -> str:
-    _on(monkeypatch, "Linux", "x86_64", 13)
-    return "HELP3O.cpython-313-x86_64-linux-gnu.so"
-
-
-def _tar_gz(members: dict[str, bytes]) -> bytes:
-    buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w:gz") as bundle:
-        for name, payload in members.items():
-            info = tarfile.TarInfo(name)
-            info.size = len(payload)
-            bundle.addfile(info, io.BytesIO(payload))
-    return buffer.getvalue()
-
-
-def _zip(members: dict[str, bytes]) -> bytes:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w") as bundle:
-        for name, payload in members.items():
-            bundle.writestr(name, payload)
-    return buffer.getvalue()
-
-
 def test_a_bundle_changed_in_the_cache_is_refused(
     cache: Path, loaded: list[Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:

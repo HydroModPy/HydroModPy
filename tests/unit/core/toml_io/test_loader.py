@@ -24,10 +24,6 @@ class _Doc(BaseModel):
     current: str | None = None
 
 
-def _no_root() -> RootConfig | None:
-    return None
-
-
 def _migrating_root(recorded: list[Any]) -> RootConfig:
     """A root whose rules rename ``legacy`` to ``current`` and record their layers."""
 

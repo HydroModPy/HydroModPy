@@ -108,9 +108,6 @@ def _ctx() -> _Ctx:
 
 
 _OUTLET = boundary_output(observes="J7branch")
-_PIEZO = validate_calib_output(
-    {"variable": "head", "support": "point", "x": 1.0, "y": 2.0, "observes": "P1"}
-)
 _TYPED = validate_calib_output(
     {"variable": "head", "support": "point", "x": 1.0, "y": 2.0, "observed_values": [1.0]}
 )
@@ -457,13 +454,6 @@ def _promoted(ctx, outputs=None, gauge=None) -> list[pd.DataFrame]:
     store = SimpleNamespace(sim_id="sim-1", write_timeseries_columns=write_timeseries_columns)
     promotion.write_station_series(ctx, store=store)
     return written
-
-
-def _runoff_points() -> SimpleNamespace:
-    days = pd.date_range(FIRST, STAMPS[-1], freq="D")
-    values = 0.8 + 0.3 * np.sin(np.arange(days.size) / 11.0)
-    record = pd.DataFrame({"datetime": days, "value": values})
-    return SimpleNamespace(points=[SimpleNamespace(data=record)])
 
 
 def test_output_written_at_station(monkeypatch) -> None:
@@ -875,21 +865,6 @@ def test_runoff_addition_guarded():
     assert between.count("\n") <= 2, (
         "The runoff addition must sit directly under its includes_runoff guard."
     )
-
-
-def _protocol_window(start: str, end: str, **protocol: object):
-    """Return the ``(start, end)`` the protocol's transient stage scores between."""
-    document = {
-        "simulation": {"time": {"start_datetime": start, "end_datetime": end}},
-        "data": {"hydrometry": {"sources": [{"station_ids": ["NANCON"]}]}},
-        "calibration": {
-            "protocol": {"name": "matching_hydrographic_network", **protocol},
-            "parameters": {"K": {"bounds": [1e-8, 1e-2]}, "Sy": {"bounds": [1e-4, 0.5]}},
-            "outputs": {"net": {"support": "network", "map": {"complete": "map.gpkg"}}},
-        },
-    }
-    transient = expand_calibration_protocol(document)["calibration"]["phases"][1]
-    return window_bounds(CalibPhaseDecl.model_validate(transient).window)
 
 
 class _Raises:

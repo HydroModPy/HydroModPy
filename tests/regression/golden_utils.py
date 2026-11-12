@@ -70,13 +70,6 @@ _SCHEMA_VERSION_KEY = "_schema_version"
 
 # Common MODFLOW outputs checked by many tests.
 # Individual tests can override this list when needed.
-DEFAULT_MODFLOW_OUTPUT_NAMES = [
-    "watertable_elevation",
-    "outflow_drain",
-    "groundwater_flux",
-    "groundwater_storage",
-    "drain_accumulation_flux",
-]
 
 NODATA_SENTINELS_BY_VARIABLE = {
     "watertable_elevation": (-9999.0, -99999.0, -999999.0, -1.0e30, 1.0e30),

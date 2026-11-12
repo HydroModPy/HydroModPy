@@ -23,15 +23,6 @@ from hydromodpy.results.derive.time_alignment import (
 from hydromodpy.results.derive.views import _time_index
 
 
-def _block_daily(blocks: list[tuple[str, str, float]]) -> pd.Series:
-    """Daily series worth a constant on each half-open ``[start, end)`` block."""
-    parts = [
-        pd.Series(value, index=pd.date_range(start, end, freq="D", inclusive="left"))
-        for start, end, value in blocks
-    ]
-    return pd.concat(parts).rename("obs")
-
-
 def test_daily_binned_on_closed_period() -> None:
     # Two monthly stamps: [2019-12-01, 2020-01-01) and [2020-01-01, 2020-02-01).
     # The first period holds no observation, the second holds the three January

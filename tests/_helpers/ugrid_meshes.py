@@ -30,23 +30,3 @@ def quad_mesh(nrow: int, ncol: int, *, cell_size: float = 1.0) -> tuple[np.ndarr
     )
     vertices = np.column_stack([xx.ravel(), yy.ravel(), np.zeros(xx.size)])
     return vertices, connectivity
-
-
-def king_adjacency(nrow: int, ncol: int) -> list[set[int]]:
-    """Eight-neighbor adjacency on a structured grid, diagonals included.
-
-    This is the shared-node neighborhood of :func:`quad_mesh`, which the D8
-    convention of the paper needs and shared-edge adjacency cannot express.
-    """
-    adjacency: list[set[int]] = [set() for _ in range(nrow * ncol)]
-    for row in range(nrow):
-        for col in range(ncol):
-            for row_shift in (-1, 0, 1):
-                for col_shift in (-1, 0, 1):
-                    if row_shift == 0 and col_shift == 0:
-                        continue
-                    near_row = row + row_shift
-                    near_col = col + col_shift
-                    if 0 <= near_row < nrow and 0 <= near_col < ncol:
-                        adjacency[row * ncol + col].add(near_row * ncol + near_col)
-    return adjacency

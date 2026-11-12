@@ -53,26 +53,6 @@ def _square(size: float = 40.0, **options: object) -> MeshRequest:
     )
 
 
-def _graded_square(max_slope: float) -> MeshRequest:
-    """A 1 km square whose size grows from 20 m on the river to 80 m at the slope asked."""
-    grid = grid_over(SQUARE, 20.0)
-    field = build_size_field(
-        grid,
-        h0=80.0,
-        h_floor=20.0,
-        terms=[SizeTerm("rivers", RIVER, 20.0, 0.0)],
-        outside=None,
-        max_slope=max_slope,
-    )
-    families = (LineFamilySpec("rivers", "cell", (RIVER,)),)
-    return mesh_request(
-        grid,
-        nominal_size_m=80.0,
-        lines=resample_families(families, domain=SQUARE, size_field=field).families,
-        size_field=field,
-    )
-
-
 def _read(bundle: str, **options: object) -> MeshRequest:
     """The triangles of a committed bundle as a triangulation to read."""
     domain = domain_polygon_from_mesh(read_msh(bundle_msh(bundle)))

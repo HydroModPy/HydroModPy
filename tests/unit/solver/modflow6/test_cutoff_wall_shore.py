@@ -114,25 +114,6 @@ def _built(engine: str, offset: float, *, snapped: bool = True) -> SimpleNamespa
     )
 
 
-def _section_faces(built: SimpleNamespace) -> np.ndarray:
-    """The HFB faces ``(a, b)`` along the shore section, one cell size from its ends.
-
-    At a corner of the shore the cells round the corner, and the faces that
-    close the fence there join bank cells: they belong to the corner, not to
-    the section.
-    """
-    shore = built.wall.shore
-    first = built.line.project(Point(shore.coords[0]))
-    last = built.line.project(Point(shore.coords[-1]))
-    pairs = np.unique([sorted((row[0][1], row[1][1])) for row in built.hfb], axis=0)
-    geometry = built.mesh.cell_mesh.geometry
-    edge_of = {tuple(pair): k for k, pair in enumerate(geometry.edge_cells.tolist())}
-    rows = np.array([edge_of[tuple(pair)] for pair in pairs.tolist()])
-    along = shapely.line_locate_point(built.line, shapely.points(geometry.edge_midpoint[rows]))
-    size = np.sqrt(geometry.areas[pairs]).max(axis=1)
-    return pairs[(along > first + size) & (along < last - size)]
-
-
 @pytest.mark.parametrize("engine", sorted(ENGINES))
 def test_the_gate_passes_the_wall_on_the_shore(engine: str) -> None:
     built = _built(engine, 12.0)

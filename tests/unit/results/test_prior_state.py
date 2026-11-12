@@ -97,11 +97,6 @@ def test_a_store_without_a_mesh_warns(tmp_path: Path, caplog: pytest.LogCaptureF
     assert any("stores no mesh" in record.getMessage() for record in caplog.records)
 
 
-def _write_heads(path: Path, head: np.ndarray) -> str:
-    zarr.open(str(path), mode="w")["head"] = head
-    return str(path)
-
-
 def test_prior_state_of_a_store(tmp_path: Path) -> None:
     mesh = _mesh()
     path = _store(tmp_path / "prior.zarr", mesh)

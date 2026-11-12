@@ -19,7 +19,6 @@ from hydromodpy_annex.export.prov import PROV_CONTEXT, ProvView, serialise_prov
 pytestmark = pytest.mark.fast
 
 _SIM_ID = "sim-abc-123"
-_ACTION_ID = "#action/simulation"
 
 
 def _make_context(

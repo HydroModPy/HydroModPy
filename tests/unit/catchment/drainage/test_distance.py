@@ -311,11 +311,6 @@ def _only_root(d_so: np.ndarray, d_os: np.ndarray) -> float:
     return roots[0]
 
 
-def _r_optim(d_so: np.ndarray, d_os: np.ndarray, root: float) -> float:
-    optimal = 0.5 * (interpolate_at(d_so, root) + interpolate_at(d_os, root))
-    return optimal / LENGTH_SCALE
-
-
 def test_bench_matches_the_analytic_receiver_graph(bench) -> None:
     graph = bench.metric.graph
     interior = [(row, col) for row in range(N_ROWS - 1) for col in range(N_COLS)]

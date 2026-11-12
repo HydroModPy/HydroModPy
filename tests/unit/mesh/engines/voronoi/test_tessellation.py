@@ -31,14 +31,6 @@ from hydromodpy.solver.modflow_grid.solver_mesh import to_flopy_disv_args
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, mesh_request, uniform_size_field
 
 X0, Y0 = L93_ORIGIN
-SEED_COUNTS = (
-    "n_seeds_chain",
-    "n_seeds_mirror",
-    "n_seeds_tip",
-    "n_seeds_boundary",
-    "n_seeds_free",
-    "boundary_seeds_added",
-)
 """The QA extras that count the generators of a generated mesh."""
 
 

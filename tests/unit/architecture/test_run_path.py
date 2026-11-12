@@ -581,24 +581,6 @@ def _unless(allowed: frozenset[str], judge):
     return lambda t, path: [] if path in allowed else judge(t, path)
 
 
-def _registry_offences(t: ast.Module, path: str) -> list[str]:
-    return [f"{line} names {member}" for line, member in _registry_reads(t)]
-
-
-def _context_offences(t: ast.Module, path: str) -> list[str]:
-    return [
-        f"{line} builds a RunContext by hand" for line in _builds(t, "RunContext", deferred=True)
-    ]
-
-
-def _view_offences(t: ast.Module, path: str) -> list[str]:
-    return [f"{line} reads state.{m}" for line, m in view_reads(t) if m not in VIEW_MEMBERS]
-
-
-def _view_build_offences(t: ast.Module, path: str) -> list[str]:
-    return [f"{line} assembles a RunState by hand" for line in _builds(t, "RunState")]
-
-
 def test_every_allowed_registry_reader_still_reads_a_registry() -> None:
     """A module that no longer touches the registry leaves the list, or its next reader inherits it."""
     stale = [p for p in REGISTRY_READERS if not _registry_reads(_scan.tree(REPO_ROOT / p))]

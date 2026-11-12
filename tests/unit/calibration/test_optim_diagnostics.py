@@ -169,11 +169,6 @@ def _two_bounds(sugg: ParamSuggestion) -> EvaluationResult:
     )
 
 
-def _one_bound(sugg: ParamSuggestion) -> EvaluationResult:
-    residual = staircase(ROOT_MAX, float(sugg.values["K"]), 200.0)
-    return result_of(sugg, abs(residual), components={"net.J_signed": residual})
-
-
 def _search(adapter: BisectionAdapter, evaluator, reporter):
     return run_engine(adapter.space, adapter, evaluator, AUTO_BUDGET, progress=reporter)
 

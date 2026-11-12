@@ -15,16 +15,6 @@ from hydromodpy.project.examples.manifest import (
     render_catalog,
 )
 
-EXPECTED_DATA_FILES = {
-    "data/dem/DEM_armorican_massif.tif",
-    "data/hydrography/nancon_stream_network.gpkg",
-    "data/hydrometry/hydrometry_custom_NANCON_19820201_20220125_D.csv",
-    "data/recharge/recharge_custom_NANCON_20000101_20021231_M.csv",
-    "data/recharge/recharge_custom_NANCON_REA_19900101_20201231_D.csv",
-    "data/runoff/runoff_custom_NANCON_20000101_20021231_M.csv",
-    "data/runoff/runoff_custom_NANCON_REA_19900101_20201231_D.csv",
-}
-
 
 def test_regenerating_the_manifest_reproduces_the_committed_bytes() -> None:
     """A drift between the repository and the shipped catalog fails here."""

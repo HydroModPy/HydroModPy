@@ -8,13 +8,6 @@ from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from tests._helpers.geographic_cases import BENCH_RIVER, OUTLET_CATCHMENT, outlet_document
 
-_RETIRED_LAKE_KEYS = (
-    "slope",
-    "buffer_m",
-    "capture_radius_m",
-    "capture_max_streams",
-    "capture_min_acc_fraction",
-)
 _ON = {"crossings": {"enabled": True}, "river_network": BENCH_RIVER}
 _BED = {"bed_regularization": {"enabled": True}}
 
@@ -27,10 +20,6 @@ def _project_toml(tmp_path, geographic: str) -> HydroModPyConfig:
         encoding="utf-8",
     )
     return HydroModPyConfig.from_toml(path)
-
-
-def _standard(**overrides: object) -> dict:
-    return {"catchment": OUTLET_CATCHMENT, **overrides}
 
 
 _TXT = {"kind": "txt"}

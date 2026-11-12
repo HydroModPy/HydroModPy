@@ -144,11 +144,6 @@ def project(tmp_path):
     return root
 
 
-def _headline(project) -> pd.DataFrame:
-    with Catalog(project) as cat:
-        return headline_table([cat["a"], cat["b"]])
-
-
 def test_comparison_needs_a_project(tmp_path) -> None:
     from hydromodpy.project import api
     from hydromodpy.project.compare import ComparisonReferenceError
@@ -677,32 +672,6 @@ VIRTUAL_FIELD_NAMES = (
     "mass_seepage",
     "mass_seepage_running_sum",
     "simulated_active_network",
-)
-
-
-MODFLOW_6_RECORDS = (
-    "DRN",
-    "DRN-TO-MVR",
-    "RCHA",
-    "CHD",
-    "WEL",
-    "EVTA",
-    "STO-SS",
-    "STO-SY",
-    "SFR",
-    "LAK",
-)
-
-
-MODFLOW_NWT_RECORDS = (
-    "DRAINS",
-    "RECHARGE",
-    "ET",
-    "WELLS",
-    "CONSTANT HEAD",
-    "STORAGE",
-    "STREAM LEAKAGE",
-    "LAKE SEEPAGE",
 )
 
 

@@ -372,13 +372,6 @@ def _output(map=None, **overrides):
     )
 
 
-def _permanent_network(vector_path="/data/streams_permanent.shp", crs=CRS):
-    gdf = gpd.GeoDataFrame(
-        geometry=[LineString([(0, 0), (1, 1)]), LineString([(1, 1), (2, 2)])], crs=crs
-    )
-    return SimpleNamespace(vector_path=vector_path, crs=crs, read_vector=lambda: gdf)
-
-
 def _run_ctx__minimal_map(*, reference_permanent=None):
     networks = SimpleNamespace(reference_permanent=reference_permanent)
     geographic_features = SimpleNamespace(hydrographic_networks=networks)

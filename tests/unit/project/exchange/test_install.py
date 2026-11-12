@@ -47,7 +47,6 @@ from tests.unit.catalog._shared_run import (
 )
 
 DEM = "data/dem/dem.tif"
-CUSTOM_REGISTRY = "data/hydrometry/hydrometry_custom_LOC.csv"
 THE_THREE_FILES = [DEM, f"data/hydrometry/{CUSTOM_FILE}", f"data/hydrometry/{HUBEAU_FILE}"]
 
 

@@ -17,8 +17,6 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     build_drainage_mover_records,
 )
 
-_LOGGER = "hydromodpy.solver.modflow6.builders._sfr_drainage"
-
 
 def _reach(ifno: int, cell2d: int) -> SfrReachRecord:
     return SfrReachRecord(

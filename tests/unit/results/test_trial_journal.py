@@ -107,17 +107,6 @@ def test_the_reader_keeps_the_highest_event_of_each_trial(
     assert (trial.only_case.sim_id if trial.cases else None) == sim_id
 
 
-def _v2_payload(trial: int, **overrides: Any) -> dict[str, Any]:
-    """Return a line as a pre-release wrote it: no event, batch, rule, window nor profile."""
-    payload = json.loads(json.dumps(_line(trial, "k_grid").model_dump(mode="json", by_alias=True)))
-    for key in ("event", "batch", "proposed_at", "profile"):
-        payload.pop(key)
-    for case in payload["cases"].values():
-        case.pop("rule")
-        case.pop("window")
-    return {**payload, "schema": "hydromodpy.trial.v2", **overrides}
-
-
 def test_a_finished_line_carries_the_whole_trial_rule_window_and_profile_included(tmp_path):
     step = ProfileLine(kind="step", name="run_solver", attempt=1, started_at=NOW, duration_s=0.3)
     solve = ProfileLine(

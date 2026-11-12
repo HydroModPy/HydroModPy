@@ -130,18 +130,6 @@ def test_unexpected_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     assert found.detail == "Config check failed: the disk went away"
 
 
-def _preflight_that_says(monkeypatch: pytest.MonkeyPatch, calls: list[Path]) -> None:
-    said = Diagnostic(
-        path="calibration.parameters.K", code="calibration_preflight", severity="warning"
-    )
-
-    def preflight(config: object, *, source: Path) -> list[Diagnostic]:
-        calls.append(Path(source))
-        return [said]
-
-    monkeypatch.setattr("hydromodpy.calibration.preflight.preflight_calibration", preflight)
-
-
 def test_sites_project_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from tests.unit.project.launch.test_plan import write_sites_project
 

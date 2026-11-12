@@ -441,15 +441,6 @@ def test_main_solve_is_untouched(tmp_path: Path, spy: list[dict]) -> None:
     assert len(model.time.grid.period_lengths_seconds) == len(PERIOD_DAYS)
 
 
-OTHER_CLOSURES = (
-    ("local", "auto"),
-    ("scipy_sparse", "auto"),
-    ("petsc", "vi_obstacle"),
-    ("petsc", "complementarity"),
-    ("petsc", "regularized_partition"),
-)
-
-
 def test_prescribed_rate_reaches_the_solve(tmp_path: Path, spy: list[dict]) -> None:
     rate = 3.0e-9
     strategy = SteadyStateStrategy("prescribed", None, "first_period", rate)

@@ -31,59 +31,6 @@ TEXTS = ReportTexts(
     titles=TITLES,
 )
 
-OLD_RESEARCH_FIGURES = frozenset(
-    {
-        # The figures the research report of 6dddbdc21 showed, by the file they read.
-        # forcing_window, baseline_discharge_comparison and the simulated hydrograph
-        # are hydrograph_sim_obs; observed_discharge_full is timeseries_discharge.
-        "stats_card",
-        "station_inventory",
-        "map_regional_context",
-        "map_dem",
-        "map_geology",
-        "map_hydrography",
-        "hydrographic_network_generated",
-        "hydrographic_network_comparison",
-        "hydrographic_network_reference_missing_only",
-        "hydrographic_network_generated_extra_only",
-        "simulated_active_network_reference_overlay",
-        "seepage_map",
-        "timeseries_discharge",
-        "climatic_summary",
-        "hydrograph_sim_obs",
-        "piezometric_map",
-        "water_budget",
-    }
-)
-OLD_RESEARCH_METRICS = frozenset(
-    {
-        # "BD Topage segments" reads "Reference segments", "Solver time" reads
-        # "Run time", "Mean simulated discharge of the reference run" reads
-        # "Mean simulated discharge", "Sᵧ" reads "Sy".
-        "Site",
-        "CRS",
-        "Outlet X",
-        "Outlet Y",
-        "Window",
-        "Run cells",
-        "K",
-        "Sy",
-        "Ss",
-        "Reference segments",
-        "DEM extraction threshold",
-        "Source figures folder",
-        "Forcing origin",
-        "Mean observed discharge",
-        "Observed discharge points",
-        "Simulation",
-        "Timesteps",
-        "Run time",
-        "Mean simulated discharge",
-    }
-)
-OLD_RESEARCH_TABLES = frozenset(
-    {"configuration", "parameters", "geology_units", "flux_stats", "scores", "inputs"}
-)
 OLD_OVERVIEW_FIGURES = frozenset(
     {
         "map_dem",

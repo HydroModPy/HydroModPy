@@ -150,15 +150,6 @@ def test_seepage_mask_from_excess(project):
     np.testing.assert_array_equal(mask, np.array([0.0, 1.0]))
 
 
-def _write_domain(store: RunStore) -> None:
-    gdf = gpd.GeoDataFrame(
-        {"name": ["domain"]},
-        geometry=[Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)])],
-        crs="EPSG:2154",
-    )
-    store.write_geographic_feature(store.sim_id, "domain", gdf)
-
-
 def _write_outcropping_head(store: RunStore) -> None:
     sid = store.sim_id
     store.write_field(sid, "head", 0, np.array([[9.0, 12.0]]), n_timesteps=2)

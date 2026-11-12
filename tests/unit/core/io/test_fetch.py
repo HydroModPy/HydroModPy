@@ -35,7 +35,6 @@ from tests.unit.core.io._fake_release import digest_of
 
 PAYLOAD = b"the bytes of the release"
 REMEDY = "Report it."
-ADDRESS = "https://releases.example/asset"
 
 
 def _fake_client(*answers: object) -> MagicMock:

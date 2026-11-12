@@ -699,14 +699,6 @@ def test_phase_reading_the_named_station_is_not_refused(tmp_path) -> None:
 
 # A network-only objective that moves two parameters returns one point of a ridge.
 
-_TWO_PARAMS = """
-@GRID
-@K
-@SY
-@NET
-@GAP
-"""
-
 
 @pytest.mark.parametrize(
     "doc",

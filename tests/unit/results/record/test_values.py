@@ -42,28 +42,6 @@ def _facts(field_digests: dict[str, dict[str, str]]) -> SimpleNamespace:
     return SimpleNamespace(field_digests=field_digests)
 
 
-def _writer_digests(array: np.ndarray) -> dict[str, str]:
-    digester = ValueDigester()
-    for step in range(array.shape[0]):
-        digester.update(step, array[step])
-    return {str(step): value_digest(array[step]) for step in range(array.shape[0])}
-
-
-def _write_table(run_dir: Path) -> None:
-    tables = run_dir / "tables.parquet"
-    tables.mkdir()
-    pq.write_table(
-        pa.table(
-            {
-                "sim_id": ["s"],
-                "duration_s": pa.array([1.5], type=pa.float64()),
-                "value": pa.array([3.5], type=pa.float64()),
-            }
-        ),
-        tables / "simulation.parquet",
-    )
-
-
 def test_a_step_the_writer_never_recorded_is_folded_from_the_stored_fill_value(tmp_path: Path):
     group = _rounded_store(tmp_path)
     registry = {"heads": {"0": value_digest(HEAD[0])}}
@@ -156,10 +134,3 @@ def test_a_difference_no_number_measures_is_null_with_its_reason(tmp_path, left,
     assert measured["rel_l2"] is None
     assert measured["reason"] == reason
     assert json.dumps(measured, allow_nan=False)
-
-
-def _fold(array: np.ndarray) -> str:
-    digester = ValueDigester()
-    for step in range(array.shape[0]):
-        digester.update(step, array[step])
-    return digester.digest(array.shape[0])

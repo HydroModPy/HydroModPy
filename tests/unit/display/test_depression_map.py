@@ -75,7 +75,6 @@ is what tells a color scale stretched over the mesh from one stretched over
 the catchment.
 """
 
-INTERIOR_CATCHMENT_ROWS = (1, 2, 3, 4)
 """A catchment stopping one row short of the southern edge of the mesh.
 
 Its low point is then the dug cell, which is interior to the mesh and sits in
@@ -172,24 +171,6 @@ def basin_run(
         field=lambda variable, **_: fields[variable],
         geographic=lambda feature: watershed,
     )
-
-
-def grid_neighbours(index: int, *, diagonal: bool) -> list[int]:
-    """Return the neighbors of one grid cell, straight from the grid shape.
-
-    Written from the geometry of the mesh rather than read back from the
-    adjacency the figure used: a check against the builder it checks proves
-    nothing about the flood.
-    """
-    column, row = index % NX, index // NX
-    steps = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-    if diagonal:
-        steps += [(-1, -1), (-1, 1), (1, -1), (1, 1)]
-    return [
-        cell(column + across, row + up)
-        for across, up in steps
-        if 0 <= column + across < NX and 0 <= row + up < NY
-    ]
 
 
 def drawn_cells(collection) -> list[int]:

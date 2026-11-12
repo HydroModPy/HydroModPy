@@ -43,16 +43,3 @@ def triangle_mesh(nrow: int, ncol: int) -> tuple[np.ndarray, np.ndarray, np.ndar
         triangles.append([a, c, d, -1])
     connectivity = np.asarray(triangles, dtype=int)
     return vertices, connectivity, cell_centroids_from_mesh(vertices, connectivity)
-
-
-def chain_ends_without_cycle(descent: Descent) -> bool:
-    """Return whether every receiver chain stops within the cell count."""
-    receiver = descent.receiver
-    for start in np.flatnonzero(descent.routable).tolist():
-        cell, steps = start, 0
-        while receiver[cell] >= 0:
-            cell = int(receiver[cell])
-            steps += 1
-            if steps > receiver.size:
-                return False
-    return True

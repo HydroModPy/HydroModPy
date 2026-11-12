@@ -219,14 +219,6 @@ def test_workspace_identity_is_stamped(tmp_path: Path) -> None:
     assert attrs["creator_institution"] == "Univ Rennes"
 
 
-def _sealed_without(caplog: pytest.LogCaptureFixture, level: int) -> list[str]:
-    return [
-        r.getMessage()
-        for r in caplog.records
-        if "sealed without" in r.getMessage() and r.levelno == level
-    ]
-
-
 # The export step writes the ``[[export]]`` blocks with the store of the run,
 # before the index knows the run. The names a run can export, the layers of
 # its mesh and the default resolution of a GeoTIFF are read from the run

@@ -1493,21 +1493,6 @@ def decoy(tmp_path: Path) -> Path:
     return trap
 
 
-NAMED_SOURCE_TOML = toml_doc(
-    """
-    [workflow]
-    mode = "calibration"
-    [calibration]
-    method = "bisection"
-    @KB
-    [calibration.outputs.net]
-    support = "network"
-    map.complete = "data.hydrography"
-    @GAP
-    """
-)
-
-
 class _Halt(Exception):
     """Raised by the store factory to stop the run once the anchoring is done."""
 
@@ -1572,14 +1557,6 @@ map.calibrate_on = {calibrate_on}
 {extent}
 """
 
-_ONE_SEARCH = "{flow}" + toml_doc(
-    """
-        [calibration]
-        method = "bisection"
-        @KLOG
-        @GAP
-        """
-)
 
 _TWO_PHASES = toml_doc(
     """
@@ -1620,14 +1597,6 @@ def _outputs(maximal: str, minimal: str, *, extent: bool) -> str:
     table = "[calibration.outputs.net.model.extent]" if extent else ""
     role = "{ permanent = 0.5, complete = 0.5 }" if extent else '"permanent"'
     return _MAPS.format(maximal=maximal, minimal=minimal, calibrate_on=role, extent=table)
-
-
-def _one_search(tmp_path: Path, *, regime: str | None, extent: bool) -> str:
-    maximal, minimal = _maps(tmp_path)
-    flow = f'[flow]\nflow_regime = "{regime}"\n' if regime else ""
-    return _ONE_SEARCH.format(flow=flow) + _outputs(
-        maximal.as_posix(), minimal.as_posix(), extent=extent
-    )
 
 
 def _two_phases(tmp_path: Path, *, regime: str, single_metric: bool, extent: bool = True) -> str:

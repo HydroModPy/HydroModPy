@@ -31,10 +31,6 @@ _FAST_CONFIG = {
 }
 
 
-def _relative_error(best: float, true: float) -> float:
-    return abs(best - true) / abs(true)
-
-
 class TestSyntheticChronicle:
     def test_simulator_reproduces_true_heads(self):
         """With the true parameter set, the simulator output ~ noiseless obs."""

@@ -27,15 +27,6 @@ from tests._helpers.fixtures_catalog import simulation_catalog
 from tests._helpers.run_stores import open_run_store
 
 # Fields whose value depends on wall-clock time. Strip before snapshotting.
-_NON_DETERMINISTIC_FIELDS: frozenset[str] = frozenset(
-    {
-        "valid_from",
-        "created_at",
-        "ended_at",
-        "started_at",
-        "fetched_at",
-    }
-)
 
 
 def _row_tuple_text(rows: list[tuple]) -> str:

@@ -52,17 +52,6 @@ ATOM_FILES = """<?xml version="1.0" encoding="UTF-8"?>
 </feed>
 """
 
-ATOM_SINGLE = """<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom" xmlns:gpf_dl="http://data.geopf.fr">
-  <gpf_dl:totalentries>1</gpf_dl:totalentries>
-  <entry>
-    <title>BDALTI resource</title>
-    <id>BDALTI</id>
-    <link href="https://data.geopf.fr/telechargement/resource/BDALTI" />
-  </entry>
-</feed>
-"""
-
 
 ARCHIVE = DownloadFile("BDALTI", "sub", "archive.7z", "https://example.test/archive.7z")
 

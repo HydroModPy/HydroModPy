@@ -20,7 +20,6 @@ from hydromodpy.catchment.delineation.whitebox_workflows_backend import (
 from hydromodpy.catchment.terrain.port import LN_FLOAT32_COLLISION_COUNT
 from tests._helpers.geotiffs import write_geotiff
 
-wbw = pytest.importorskip("whitebox_workflows")
 rasterio = pytest.importorskip("rasterio")
 
 REPO_ROOT = Path(__file__).resolve().parents[5]

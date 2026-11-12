@@ -90,7 +90,6 @@ CHAIN_REACHES = (  # (line, upstream, downstream)
 
 # Defaults the builder applies when the definition omits them.
 STREAMBED_THICKNESS_M = 1.0
-BED_ABOVE_CELL_BOTTOM_M = 0.1
 MIN_SLOPE = 1e-4
 
 

@@ -71,44 +71,6 @@ def test_refusals(values, n_adjacent, outlets, message) -> None:
         fill_depressions_on_graph(values, _chain(n_adjacent), outlets)
 
 
-def _grid_adjacency(n_rows: int, n_cols: int) -> list[set[int]]:
-    """Eight neighbors of each cell of a rows x cols grid."""
-    out: list[set[int]] = []
-    for row in range(n_rows):
-        for col in range(n_cols):
-            near = {
-                (r, c)
-                for r in range(row - 1, row + 2)
-                for c in range(col - 1, col + 2)
-                if 0 <= r < n_rows and 0 <= c < n_cols and (r, c) != (row, col)
-            }
-            out.append({r * n_cols + c for r, c in near})
-    return out
-
-
-def _reference_fill(
-    values: np.ndarray, adjacency: list[set[int]], seeds: np.ndarray, epsilon: float
-):
-    """The flood without pins, written out, the way the fill ran before it shared its loop."""
-    surface = values.copy()
-    finite = np.isfinite(surface)
-    visited = np.zeros(surface.size, dtype=bool)
-    frontier: list[tuple[float, int]] = []
-    for cell in np.flatnonzero(seeds & finite):
-        visited[int(cell)] = True
-        heapq.heappush(frontier, (surface[int(cell)], int(cell)))
-    while frontier:
-        level, cell = heapq.heappop(frontier)
-        for neighbour in adjacency[cell]:
-            if visited[neighbour] or not finite[neighbour]:
-                continue
-            visited[neighbour] = True
-            if surface[neighbour] <= level:
-                surface[neighbour] = level + epsilon
-            heapq.heappush(frontier, (surface[neighbour], neighbour))
-    return surface
-
-
 # Cells 0..3, a square: 0-1, 0-2, 1-3, 2-3. The seed is cell 3.
 SQUARE = [{1, 2}, {0, 3}, {0, 3}, {1, 2}]
 LOW = np.array([0.0, 0.0, 0.0, 10.0])
