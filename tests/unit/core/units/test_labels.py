@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.units.labels import axis_label, format_length_from_m
+from hydromodpy.core.units.labels import axis_label, format_length_from_m, station_label
 from hydromodpy.core.units.quantities import convert_to_m
 
 
@@ -37,3 +37,7 @@ def test_a_non_numeric_length_is_refused():
 def test_a_displayed_length_converts_back(unit):
     value, shown_unit = format_length_from_m(123.456, unit=unit, precision=9).split()
     assert convert_to_m(float(value), unit=shown_unit) == pytest.approx(123.456)
+
+
+def test_a_gauge_keeps_its_own_id():
+    assert station_label("J7000610") == "J7000610"

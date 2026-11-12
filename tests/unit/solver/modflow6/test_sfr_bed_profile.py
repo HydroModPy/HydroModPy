@@ -67,6 +67,16 @@ def test_an_impossible_band_is_refused_by_name():
         _solve(_chain([139.5, 138.5]), top=top, botm=botm, incision=30.0)
 
 
+def test_the_cell_top_of_a_deeper_reach_is_the_layer_above_its_bottom():
+    # SolverMesh.top is the top of layer 0 only, a reach can sit in a deeper layer.
+    top = [140.0, 139.0]
+    botm = [[120.0, 119.0], [100.0, 99.0]]
+    reaches = _chain([119.0, 118.0], cells=[(1, 0), (1, 1)])
+    solved = _solve(reaches, top=top, botm=botm, incision=0.5)
+    assert solved[0] <= 120.0 - 0.5 + 1e-9
+    assert solved[1] <= 119.0 - 0.5 + 1e-9
+
+
 def test_without_bed_incision_the_historical_behaviour_is_unchanged():
     # Default None: floor on the cell bottom, no ceiling, so a delineated bed
     # well under the surface is kept as-is. Existing runs must not move.

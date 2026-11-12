@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 import zarr
@@ -577,6 +578,20 @@ def test_head_at_cell(tmp_path: Path, history, stations) -> None:
         assert served[name].request_id == name
         np.testing.assert_array_equal(served[name].values, expected)
         assert served[name].units == "m"
+
+
+def test_discharge_aligns_with_time_index(tmp_path: Path) -> None:
+    write_state_history(tmp_path, np.full((3, 1), 5.0), [[1.0], [2.0], [3.0]])
+    time_index = pd.DatetimeIndex(["2020-01-01", "2020-01-02", "2020-01-03"])
+
+    served = BoussinesqFlowAdapter().observables(
+        solver_run_of(tmp_path), [DISCHARGE], time_index=time_index
+    )
+
+    result = served["q"]
+    assert isinstance(result.times, pd.DatetimeIndex)
+    assert result.times.tolist() == time_index.tolist()
+    assert result.values.size == len(time_index)
 
 
 def test_discharge_ignores_negative_terms(tmp_path: Path) -> None:

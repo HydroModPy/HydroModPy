@@ -61,6 +61,20 @@ def test_the_network_stays_as_it_is(
     assert river_network_for_the_mesh(_cfg(geographic, mesh_cfg, active_bc)) is geographic
 
 
+def test_a_mesh_read_from_a_file_needs_the_network_for_a_stream_boundary() -> None:
+    updated = river_network_for_the_mesh(
+        _cfg(_geographic(), _voronoi_reading("mesh.msh"), (" Stream ",))
+    )
+
+    assert updated.river_network.enabled is True
+
+
+def test_a_network_already_on_is_left_as_it_is() -> None:
+    geographic = _geographic(enabled=True)
+
+    assert river_network_for_the_mesh(_cfg(geographic, MeshConfig(engine="triangle"))) is geographic
+
+
 def _project() -> SimpleNamespace:
     setup = SimpleNamespace(cell_mesh=object(), mesh_summary={"engine": "regular"})
     ctx = SimpleNamespace(

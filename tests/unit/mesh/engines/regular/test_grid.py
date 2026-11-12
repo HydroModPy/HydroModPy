@@ -51,6 +51,14 @@ def test_grid_on_the_dem_bounds(
         assert math.isclose(got, wanted, rel_tol=1.0e-12, abs_tol=1.0e-9 * extent)
 
 
+def test_the_native_pitch_is_the_dem_pitch() -> None:
+    layout = plan_layout(DEM, DEM.dx, {})
+
+    assert (layout.nrow, layout.ncol) == (DEM.nrow, DEM.ncol)
+    assert (layout.dx, layout.dy) == (DEM.dx, DEM.dy)
+    assert layout.native
+
+
 REFUSALS = [
     pytest.param(25.0, "cannot mesh finer than the DEM", id="finer than the DEM"),
 ]

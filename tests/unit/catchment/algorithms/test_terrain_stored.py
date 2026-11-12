@@ -93,6 +93,23 @@ def test_a_damaged_product_is_refused_so_the_store_rebuilds_it(tmp_path, damage)
         read_terrain(store, _request("fill", tmp_path / "out"))
 
 
+def test_a_restored_raster_is_uncompressed_and_equal_in_values(tmp_path) -> None:
+    store = tmp_path / "store"
+    out = tmp_path / "out"
+    products, correc, *_ = _write_stack(tmp_path / "built")
+
+    write_terrain(products, store)
+    read_terrain(store, _request("fill", out))
+
+    with rasterio.open(str(store / correc.name)) as stored:
+        assert stored.compression is not None
+    with rasterio.open(str(out / correc.name)) as restored:
+        assert restored.compression is None
+        restored_values = restored.read(1)
+    with rasterio.open(str(correc)) as built:
+        np.testing.assert_array_equal(built.read(1), restored_values)
+
+
 def test_a_provided_stack_reads_back_without_a_conditioning_method(tmp_path) -> None:
     store = tmp_path / "store"
     out = tmp_path / "out"

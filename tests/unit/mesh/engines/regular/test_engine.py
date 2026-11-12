@@ -7,6 +7,7 @@ import pytest
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.mesh.engines.regular.grid import plan_layout
 from hydromodpy.mesh.request import InputTriangulation
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request
 
@@ -22,3 +23,12 @@ def test_refusals() -> None:
 
     with pytest.raises(MeshRequestError, match="cannot use an input triangulation"):
         RegularMeshEngine().build(request)
+
+
+@pytest.mark.parametrize("size", [DEM.dx, 130.0], ids=["dem_pitch", "coarser"])
+def test_the_quality_report_gives_the_pitch_of_the_grid(size: float) -> None:
+    layout = plan_layout(DEM, size, {})
+    cell_mesh = RegularMeshEngine().build(mesh_request(DEM, nominal_size_m=size))
+
+    assert cell_mesh.qa.extras["dx_m"] == layout.dx
+    assert cell_mesh.qa.extras["dy_m"] == layout.dy

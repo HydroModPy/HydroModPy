@@ -8,6 +8,8 @@ quad mesh a diagonal step between two reach cells ends on the lower one.
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pytest
 
@@ -16,6 +18,8 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     SfrReachRecord,
     build_drainage_mover_records,
 )
+
+_LOGGER = "hydromodpy.solver.modflow6.builders._sfr_drainage"
 
 
 def _reach(ifno: int, cell2d: int) -> SfrReachRecord:
@@ -214,3 +218,26 @@ def test_a_network_off_the_aquifer_routes_nothing() -> None:
     )
 
     assert records == []
+
+
+def test_the_coverage_line_reports_routed_reach_lake_and_plain_counts(caplog) -> None:
+    # Cells 0..5 on a chain, lake at 2, reach at 4, plus an isolated cell 6 that
+    # leaves the model and a cell 7 outside the basin (not counted).
+    receiver = np.array([1, 2, 3, 4, 5, -1, -1, 4])
+    basin = np.array([True] * 7 + [False])
+
+    with caplog.at_level(logging.INFO, logger=_LOGGER):
+        _route(
+            _network(4),
+            drn_spd=_static_drn([0, 1, 3, 6, 7]),
+            receiver=receiver,
+            basin_cell_mask=basin,
+            lake_cells_by_number={0: [2]},
+        )
+
+    lines = [r.getMessage() for r in caplog.records if r.name == _LOGGER]
+    assert lines == [
+        "Drainage routing on the descent: 3 of 4 basin DRN cells routed (75.0 %), "
+        "1 to a reach, 2 to a lake, 1 kept plain; 0 of 1 reach(es) of the routed "
+        "network(s) receive no drainage."
+    ]

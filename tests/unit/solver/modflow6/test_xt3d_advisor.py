@@ -30,6 +30,7 @@ from tests._helpers.solver_meshes import solver_mesh_from
 
 # A unit square split on its diagonal is orthogonal; a 3:1 rectangle split the
 # same way skews the shared-edge connection by ~53 deg.
+_ORTHO = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
 
 
 @contextlib.contextmanager
@@ -58,6 +59,36 @@ def _quad_solver_mesh(shear: float):
     planar = HydroMesh(
         vertices=np.asarray(vertices, dtype=float),
         cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),),
+    )
+    return solver_mesh_from(
+        planar,
+        top=np.asarray([10.0, 10.0], dtype=float),
+        botm=np.asarray([[1.0, 1.0]], dtype=float),
+        inactive_mask=np.zeros((1, 2), dtype=bool),
+    )
+
+
+@contextlib.contextmanager
+def _capture_advisor_logs(level: int = logging.INFO):
+    # HMP loggers do not propagate, so caplog would miss them.
+    records: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = records.append  # type: ignore[method-assign]
+    previous = advisor_logger.level
+    advisor_logger.addHandler(handler)
+    advisor_logger.setLevel(level)
+    try:
+        yield records
+    finally:
+        advisor_logger.removeHandler(handler)
+        advisor_logger.setLevel(previous)
+
+
+def _triangle_solver_mesh() -> SolverMesh:
+    conn = np.asarray([[0, 1, 2], [0, 2, 3]], dtype=int)
+    planar = HydroMesh(
+        vertices=np.asarray(_ORTHO, dtype=float),
+        cell_blocks=(CellBlock(CellType.TRIANGLE, conn),),
     )
     return solver_mesh_from(
         planar,
@@ -139,3 +170,22 @@ def test_explicit_false_with_an_off_axis_k22_raises_a_runtime_warning() -> None:
         decision = resolve_xt3d_decision(model, model.solver_mesh)
     assert decision.enabled is False
     assert decision.source == "explicit_off"
+
+
+def test_explicit_true_with_an_off_axis_k22_does_not_warn() -> None:
+    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
+    model.modflow_config = _with_override(model, True)
+    with _no_runtime_warning(), _capture_advisor_logs(logging.WARNING) as records:
+        decision = resolve_xt3d_decision(model, model.solver_mesh)
+    assert decision.enabled is True
+    assert decision.source == "explicit_on"
+    assert [r for r in records if r.levelno >= logging.WARNING] == []
+
+
+def test_xt3d_on_triangles_under_newton_warns_about_convergence() -> None:
+    model = _model_on(_triangle_solver_mesh())
+    assert model.modflow_config.runtime.mf6_newton is True
+    with _capture_advisor_logs(logging.WARNING) as records, _no_runtime_warning():
+        decision = resolve_xt3d_decision(model, model.solver_mesh)
+    assert decision.enabled is True
+    assert any("can cycle without converging" in r.getMessage() for r in records)

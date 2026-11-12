@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib
 
 import numpy as np
+import pandas as pd
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.preflight import preflight_calibration
@@ -20,7 +21,11 @@ from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.solver.base.observables import ObservableSupport, scalar_observable
+from hydromodpy.solver.base.observables import (
+    ObservableSupport,
+    scalar_observable,
+    series_observable,
+)
 from hydromodpy.solver.base.solver_config import SolverConfig
 
 LAKES = {"lakes": {"cheze": {"bedleak": 1e-6, "initial_stage": "10 m"}}}
@@ -103,3 +108,13 @@ def test_scalar_observable_is_a_zero_dimensional_array() -> None:
     np.testing.assert_allclose(result.values, 2.5e-5, rtol=0)
     assert result.units == "m s-1"
     assert result.times is None
+
+
+def test_series_observable_carries_the_flag_through() -> None:
+    index = pd.date_range("2000-01-01", periods=3, freq="D")
+    request = ObservableRequest(id="catchment", name="discharge", support="domain")
+    series = pd.Series([1.0, 2.0, 3.0], index=index)
+
+    assert series_observable(request, series, units="m3/s").includes_runoff is False
+    routed = series_observable(request, series, units="m3/s", includes_runoff=True)
+    assert routed.includes_runoff is True

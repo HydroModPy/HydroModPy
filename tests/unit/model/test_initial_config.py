@@ -91,6 +91,32 @@ def test_head_stays_in_metres() -> None:
         FlowICTop(units="cm")
 
 
+STEADY_PAYLOADS = (
+    (
+        "explicit",
+        {
+            "kind": "steady_state",
+            "source": "mean_recharge",
+            "recharge_statistic": "time_mean",
+            "boundary_condition_policy": "first_period",
+        },
+    ),
+    ("defaults", {"kind": "steady_state"}),
+)
+
+
+@pytest.mark.parametrize(("case", "payload"), STEADY_PAYLOADS, ids=[c for c, _ in STEADY_PAYLOADS])
+def test_a_steady_state_payload_carries_its_strategy(case, payload) -> None:
+    del case
+    initial_conditions = normalize_flow_initial_conditions(payload)
+
+    assert initial_conditions is not None
+    assert initial_conditions.h.kind == "steady_state"
+    assert initial_conditions.h.source == "mean_recharge"
+    assert initial_conditions.h.recharge_statistic == "time_mean"
+    assert initial_conditions.h.boundary_condition_policy == "first_period"
+
+
 def test_flow_config_rejects_steady_state_initial_condition_for_steady() -> None:
     with pytest.raises(ValueError, match="flow.ic.kind='steady_state'"):
         FlowConfig(flow_regime="steady", ic={"kind": "steady_state"})

@@ -170,6 +170,20 @@ def test_kept_terms(kwargs, terms) -> None:
     assert keep_for(**kwargs).terms == terms
 
 
+def test_the_active_network_figure_keeps_the_network_criterion_terms() -> None:
+    # The persistence mode reads release_flux, whatever its required field says.
+    import hydromodpy.display.figure_registry as figure_registry
+
+    spec = figure_registry.get("simulated_active_network").spec
+    assert spec.required_fields == ("drain_accumulation_flux",)
+    assert "release_flux" in spec.optional_fields
+
+    keep = keep_for(display=DisplayConfig(figures=["simulated_active_network"]))
+
+    assert keep.terms >= frozenset(budget_terms_for("drain_accumulation_flux"))
+    assert keep.terms >= frozenset(budget_terms_for("release_flux"))
+
+
 def test_default_keeps_the_whole_budget_and_says_nothing() -> None:
     every_consumer = DisplayConfig(figures=["recharge_map", "simulated_active_network"])
 

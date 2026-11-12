@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.core.state.run_state import RunState
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
 
 SLOT = RunSlot(Path("scratch"), "island")
@@ -47,6 +48,16 @@ def test_run_context_members() -> None:
     members = {field.name for field in dataclasses.fields(RunContext)}
 
     assert members == {"plan", "run", "state", "store", "solver_run", "upstream"}
+
+
+def test_run_context_keeps_upstream_runs_as_a_tuple() -> None:
+    run = ProcessRun(id="flow::modflow6", process_id="flow", process_type="flow", solver="modflow6")
+    plan = SimulationPlan(name="demo", description="demo", runs=(run,))
+    upstream = [SolverRun(slot=SLOT)]
+
+    run_ctx = RunContext(plan=plan, run=run, state=RunState(), upstream=upstream)
+
+    assert run_ctx.upstream == tuple(upstream)
 
 
 def test_plan_html_table() -> None:

@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import shapely
 
-from hydromodpy.mesh.cells.locate import locate_cells
+from hydromodpy.mesh.cells.locate import locate_cells, locate_cells_near
 from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
@@ -105,6 +105,14 @@ SMALL_SIZE = 10.0
 def _small_grid() -> PlanarCellMesh:
     """Three columns and two rows of 10 m cells on [0, 30] x [0, 20]."""
     return RegularMeshEngine().build(mesh_request(grid_spec(2, 3, SMALL_SIZE)))
+
+
+def test_a_point_inside_the_mesh_gets_the_cell_that_holds_it() -> None:
+    cell_mesh = _small_grid()
+    points = np.array([[5.0, 15.0], [25.0, 5.0], [15.0, 10.0]])
+    np.testing.assert_array_equal(
+        locate_cells_near(cell_mesh, points), locate_cells(cell_mesh, points, allow_nearest=False)
+    )
 
 
 def test_adapter_far_from_the_mesh() -> None:
