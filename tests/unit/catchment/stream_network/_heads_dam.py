@@ -22,7 +22,6 @@ N_ROWS = 24
 N_COLS = 13
 AXIS = 6
 CELL = 10.0
-DAM_FOOT_ROW = 13
 
 
 def cell(row: int, col: int) -> int:
@@ -42,29 +41,3 @@ def topography() -> np.ndarray:
     z[8:12, 5:8] -= 10.0
     z[12, 4:8] = 1010.0
     return z.ravel()
-
-
-def upstream_head(forced_cells: list[int] | None = None) -> HeadCandidates:
-    """Return the one free end of the map: the axis stream above the basin."""
-    head = np.asarray([centre(2, AXIS)])
-    end = np.asarray([centre(20, AXIS)])
-    return HeadCandidates(
-        head_xy=head,
-        reach_end_xy=end,
-        map_points_xy=np.concatenate([head, end]),
-        forced_cells=np.asarray(forced_cells or [], dtype=np.int64),
-    )
-
-
-def dam_geometry(forced_cells: list[int] | None = None) -> NetworkGeometry:
-    """Build the criterion geometry of the dammed valley, its map drawn from its head."""
-    vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL)
-    return build_network_geometry(
-        topography=topography(),
-        face_node_connectivity=connectivity,
-        vertices=vertices,
-        heads=(upstream_head(forced_cells), HeadsSettings(30.0, 0.0)),
-        cell_area_m2=np.full(N_ROWS * N_COLS, CELL * CELL),
-        mean_recharge_m_s=1e-8,
-        tau_specific_ratio=0.0,
-    )

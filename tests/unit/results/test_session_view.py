@@ -33,7 +33,7 @@ def _no_index(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Catalog, "__init__", _refuse)
 
 
-def test_a_session_reads_its_trials_phases_and_config(tmp_path: Path) -> None:
+def test_session_reads_its_files(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     session_id = write_session_dir(project, "calage", trials=3, phases=("steady_k", "transient"))
     (project / "sessions" / "calage" / SESSION_CONFIG_FILENAME).write_text(
@@ -54,7 +54,7 @@ def test_a_session_reads_its_trials_phases_and_config(tmp_path: Path) -> None:
     assert session.config == {"calibration": {"method": "tpe"}}
 
 
-def test_no_best_while_no_run_holds_the_best_trial(tmp_path: Path) -> None:
+def test_no_best_without_run(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     write_session_dir(project, "searching", status="running")
     other = seal_run(project, "calage")
@@ -64,7 +64,7 @@ def test_no_best_while_no_run_holds_the_best_trial(tmp_path: Path) -> None:
     assert Session(project / "sessions" / "calage").best is None
 
 
-def test_a_paired_run_without_a_pointer_must_come_from_the_best_trial(tmp_path: Path) -> None:
+def test_paired_run_is_best_trial(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     session_id = write_session_dir(project, "calage", best_trial=2, best_sim_id=None)
     older = CalibratedBy(session_id=session_id, trial=1, session_status="completed")
@@ -81,14 +81,14 @@ def test_a_paired_run_without_a_pointer_must_come_from_the_best_trial(tmp_path: 
     assert best is not None and best.sim_id == sim_id
 
 
-def test_a_directory_without_a_descriptor_is_not_a_session(tmp_path: Path) -> None:
+def test_not_a_session(tmp_path: Path) -> None:
     (tmp_path / "sessions" / "loose").mkdir(parents=True)
 
     with pytest.raises(FileNotFoundError, match="not a calibration session"):
         Session(tmp_path / "sessions" / "loose")
 
 
-def test_a_session_of_several_cases_reads_one_row_per_trial_and_case(tmp_path: Path) -> None:
+def test_joint_session_rows(tmp_path: Path) -> None:
     directory = tmp_path / "sessions" / "joint"
     directory.mkdir(parents=True)
     write_session(
@@ -110,7 +110,7 @@ def test_a_session_of_several_cases_reads_one_row_per_trial_and_case(tmp_path: P
     assert session.best_by_case == {}
 
 
-def test_the_best_of_several_cases_is_refused_and_best_by_case_names_each(tmp_path: Path) -> None:
+def test_best_by_case(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     sim_id = seal_run(project, "a")
     directory = project / "sessions" / "joint"
@@ -186,7 +186,7 @@ def _journal(tmp_path: Path) -> Path:
     return directory
 
 
-def test_the_trial_frame_counts_folded_trials_and_reads_the_new_columns(tmp_path: Path) -> None:
+def test_trial_frame_columns(tmp_path: Path) -> None:
     session = Session(_journal(tmp_path))
 
     trials = session.trials.set_index("trial")
@@ -201,7 +201,7 @@ def test_the_trial_frame_counts_folded_trials_and_reads_the_new_columns(tmp_path
     assert trials.loc[3, ["rule", "window", "solve_s", "reused"]].isna().all()
 
 
-def test_the_profile_adds_the_lines_of_the_last_line_of_each_trial(tmp_path: Path) -> None:
+def test_profile_sums_lines(tmp_path: Path) -> None:
     profile = Session(_journal(tmp_path)).profile()
 
     assert list(profile.columns) == list(PROFILE_COLUMNS)

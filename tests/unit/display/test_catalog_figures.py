@@ -1,4 +1,8 @@
-"""Draw the figures of a run found through its project index."""
+"""Redraw the figure of a run found through its project index.
+
+A redraw applies the ``[display]`` block sealed with the run. The command line
+(``hmp show REF --figure NAME --opt NAME=VALUE``) gives a figure typed options.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +15,7 @@ from hydromodpy.display import catalog_figures
 from tests._helpers.one_run_catalog import Figure, OneRunCatalog, one_run_workspace
 
 
-class _SealedRunCatalog(OneRunCatalog):
+class SealedRunCatalog(OneRunCatalog):
     """One run whose sealed ``[display]`` names October and a south-north cut."""
 
     def __getitem__(self, sid: str) -> SimpleNamespace:
@@ -26,7 +30,7 @@ class _SealedRunCatalog(OneRunCatalog):
         )
 
 
-class _InstantFigure:
+class InstantFigure:
     """A map that draws one instant and records what it was asked for."""
 
     def __init__(self) -> None:
@@ -41,20 +45,24 @@ class _InstantFigure:
         return "figure"
 
 
-@pytest.mark.parametrize(("time", "step"), [(None, 33), ("first", 0)])
-def test_a_redraw_applies_the_display_of_the_run_and_time_replaces_its_instant(
-    monkeypatch, tmp_path, time, step
-) -> None:
-    figure = _InstantFigure()
+@pytest.mark.parametrize(
+    ("time", "step"),
+    [
+        pytest.param(None, 33, id="sealed instant"),
+        pytest.param("first", 0, id="time replaces the sealed instant"),
+    ],
+)
+def test_redraw_applies_the_sealed_display(monkeypatch, tmp_path, time, step) -> None:
+    figure = InstantFigure()
     one_run_workspace(monkeypatch, tmp_path, figure)
-    monkeypatch.setattr("hydromodpy.results.catalog.facade.Catalog", _SealedRunCatalog)
+    monkeypatch.setattr("hydromodpy.results.catalog.facade.Catalog", SealedRunCatalog)
 
     catalog_figures.render_figure("abc123", "cross_section", workspace=tmp_path, time=time)
 
     assert figure.drawn == [{"timestep": step, "orientation": "sn"}]
 
 
-def test_an_output_without_a_suffix_is_written_and_named_as_png(monkeypatch, tmp_path) -> None:
+def test_output_without_a_suffix_is_named_png(monkeypatch, tmp_path) -> None:
     figure = Figure()
     one_run_workspace(monkeypatch, tmp_path, figure)
 
@@ -67,48 +75,45 @@ def test_an_output_without_a_suffix_is_written_and_named_as_png(monkeypatch, tmp
     assert output.is_file()
 
 
-class TestFigureOptionsFromTheCommandLine:
-    """``hmp show REF --figure NAME --opt NAME=VALUE`` gives a figure its options, typed."""
+OPTIONS = [
+    pytest.param(
+        ["show_run_name=false", "title=Depth to water", "figsize=[6, 5]", "vmax=30"],
+        {"show_run_name": False, "title": "Depth to water", "figsize": (6.0, 5.0), "vmax": 30.0},
+        id="typed by the option",
+    ),
+    pytest.param(['title="true"'], {"title": "true"}, id="quoted text stays text"),
+]
 
-    def test_values_take_the_type_of_the_option(self) -> None:
-        options = catalog_figures.parse_figure_options(
-            "watertable_depth_map",
-            ["show_run_name=false", "title=Depth to water", "figsize=[6, 5]", "vmax=30"],
-        )
-        assert options == {
-            "show_run_name": False,
-            "title": "Depth to water",
-            "figsize": (6.0, 5.0),
-            "vmax": 30.0,
-        }
 
-    def test_a_quoted_text_is_read_as_text(self) -> None:
-        options = catalog_figures.parse_figure_options("watertable_depth_map", ['title="true"'])
-        assert options == {"title": "true"}
+@pytest.mark.parametrize(("items", "expected"), OPTIONS)
+def test_options_take_the_type_of_the_option(items, expected) -> None:
+    assert catalog_figures.parse_figure_options("watertable_depth_map", items) == expected
 
-    @pytest.mark.parametrize(
-        ("item", "message"),
-        [
-            ("show_run_name=maybe", "valid boolean"),
-            ("color=red", "has no option 'color'; it takes:"),
-            ("title", "write NAME=VALUE"),
-            ("reference=other_run", "takes a Python object"),
-        ],
+
+REFUSALS = [
+    pytest.param("watertable_depth_map", "show_run_name=maybe", "valid boolean", id="bad boolean"),
+    pytest.param(
+        "watertable_depth_map", "color=red", "has no option 'color'; it takes:", id="unknown option"
+    ),
+    pytest.param("watertable_depth_map", "title", "write NAME=VALUE", id="no value"),
+    pytest.param("difference_map", "reference=other_run", "takes a Python object", id="object"),
+]
+
+
+@pytest.mark.parametrize(("figure", "item", "message"), REFUSALS)
+def test_refusals(figure, item, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        catalog_figures.parse_figure_options(figure, [item])
+
+
+def test_options_reach_the_figure(monkeypatch, tmp_path) -> None:
+    drawn: dict = {}
+    one_run_workspace(monkeypatch, tmp_path, Figure())
+    monkeypatch.setattr(
+        "hydromodpy.display.runs.render_figure",
+        lambda name, sim, save=None, run_dir=None, **opts: drawn.update(opts),
     )
-    def test_a_wrong_item_is_refused_by_name(self, item: str, message: str) -> None:
-        figure = "difference_map" if item.startswith("reference") else "watertable_depth_map"
-        with pytest.raises(ValueError, match=message):
-            catalog_figures.parse_figure_options(figure, [item])
 
-    def test_the_options_reach_the_figure(self, monkeypatch, tmp_path) -> None:
-        figure = Figure()
-        drawn: dict = {}
-        one_run_workspace(monkeypatch, tmp_path, figure)
-        monkeypatch.setattr(
-            "hydromodpy.display.runs.render_figure",
-            lambda name, sim, save=None, run_dir=None, **opts: drawn.update(opts),
-        )
+    catalog_figures.render_figure("abc", "head_map", options={"show_run_name": False})
 
-        catalog_figures.render_figure("abc", "head_map", options={"show_run_name": False})
-
-        assert drawn == {"show_run_name": False}
+    assert drawn == {"show_run_name": False}

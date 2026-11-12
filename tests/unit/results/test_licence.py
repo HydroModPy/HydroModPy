@@ -89,13 +89,11 @@ MESH = InputEntry(variable="mesh", provider="store", product="mesh", path="mesh"
         "sealed-mesh-alone",
     ],
 )
-def test_the_run_states_the_roll_up_of_its_entries(
-    entries: list[InputEntry], expected: str
-) -> None:
+def test_roll_up_of_entries(entries: list[InputEntry], expected: str) -> None:
     assert run_licence(entries) == expected
 
 
-def test_one_unknown_input_leaves_the_run_undetermined(tmp_path: Path) -> None:
+def test_one_unknown_input(tmp_path: Path) -> None:
     project = tmp_path / "demo"
     dem = _input(project, "dem.tif", source="ign_geoplateforme_dem", license="etalab-2.0")
     recharge = _input(project, "recharge.csv", source="file", license=UNDETERMINED_LICENSE)
@@ -103,7 +101,7 @@ def test_one_unknown_input_leaves_the_run_undetermined(tmp_path: Path) -> None:
         assert store.licence() == UNDETERMINED_LICENSE
 
 
-def test_a_declared_file_a_loaded_record_names_enters_once_with_the_licence_of_the_record(
+def test_loaded_record_licence_wins(
     tmp_path: Path,
 ) -> None:
     project = tmp_path / "demo"
@@ -124,7 +122,7 @@ def test_a_declared_file_a_loaded_record_names_enters_once_with_the_licence_of_t
         assert store.licence() == "CC-BY-4.0"
 
 
-def test_a_declared_folder_and_a_missing_file_are_not_inputs(tmp_path: Path) -> None:
+def test_folder_and_missing_file_not_inputs(tmp_path: Path) -> None:
     project = tmp_path / "demo"
     folder = project / "data" / "tiles"
     folder.mkdir(parents=True)
@@ -133,7 +131,7 @@ def test_a_declared_folder_and_a_missing_file_are_not_inputs(tmp_path: Path) -> 
         assert store.inputs() == []
 
 
-def test_a_loaded_record_with_no_file_is_undetermined() -> None:
+def test_loaded_record_without_file() -> None:
     item = SimpleNamespace(
         scope="catchment", variable="flow", record=SimpleNamespace(source="hubeau")
     )

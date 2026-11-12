@@ -1,8 +1,8 @@
-"""The native-step series of a forcing, unit tests of ``model/forcing/native``."""
+"""Native-step series of a forcing: values (m/s) at the steps the source was written on."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -18,20 +18,12 @@ pytestmark = pytest.mark.fast
 MM_DAY_TO_M_S = 1.0e-3 / 86_400.0
 
 
-@dataclass
-class _Source:
-    """A ``LoadResult`` as the binders read it, with the records a test fills."""
-
-    points: list[Any] = field(default_factory=list)
-    fields: list[Any] = field(default_factory=list)
-
-    @property
-    def has_points(self) -> bool:
-        return bool(self.points)
-
-    @property
-    def has_fields(self) -> bool:
-        return bool(self.fields)
+def _Source(points: list[Any] | None = None, fields: list[Any] | None = None) -> SimpleNamespace:
+    # A LoadResult as the binders read it.
+    points, fields = points or [], fields or []
+    return SimpleNamespace(
+        points=points, fields=fields, has_points=bool(points), has_fields=bool(fields)
+    )
 
 
 def _point_series(values: Any, index: Any) -> Any:
@@ -49,7 +41,7 @@ def _window() -> ResolvedSimulationTimeWindow:
     )
 
 
-def test_a_point_source_gives_its_series_at_its_own_step() -> None:
+def test_point_source_own_step() -> None:
     index = pd.date_range("2026-01-01", periods=3, freq="D")
     values = np.array([10.0, 20.0, 30.0])
     native = native_series(
@@ -63,7 +55,7 @@ def test_a_point_source_gives_its_series_at_its_own_step() -> None:
     pd.testing.assert_index_equal(native.starts, pd.DatetimeIndex([*index, "2026-01-06"]))
 
 
-def test_several_stations_mean_at_each_of_their_steps() -> None:
+def test_stations_mean_per_step() -> None:
     index = pd.date_range("2026-01-01", periods=2, freq="D")
     native = native_series(
         _Source(
@@ -79,7 +71,7 @@ def test_several_stations_mean_at_each_of_their_steps() -> None:
     np.testing.assert_allclose(native.values, np.array([20.0, 30.0]) * MM_DAY_TO_M_S)
 
 
-def test_a_spatial_source_on_the_cell_gives_the_area_mean_at_each_step() -> None:
+def test_field_area_mean_per_step() -> None:
     index = pd.date_range("2026-01-01", periods=2, freq="D")
     values = np.zeros((2, 4, 4))
     values[:, :2, :] = 10.0
@@ -95,7 +87,7 @@ def test_a_spatial_source_on_the_cell_gives_the_area_mean_at_each_step() -> None
     np.testing.assert_allclose(native.values, np.array([20.0, 20.0]) * MM_DAY_TO_M_S)
 
 
-def test_a_series_written_for_the_periods_gives_its_period_values() -> None:
+def test_series_written_per_period() -> None:
     index = pd.date_range("2026-01-01", periods=4, freq="D")
     values = np.array([1.0, 2.0, 3.0, 4.0])
     native = native_series(_Source(points=[_point_series(values, index)]), _window())
@@ -103,7 +95,7 @@ def test_a_series_written_for_the_periods_gives_its_period_values() -> None:
     np.testing.assert_allclose(native.values, values)
 
 
-def test_the_series_is_cut_to_the_window_of_the_run() -> None:
+def test_series_cut_to_window() -> None:
     index = pd.DatetimeIndex(["2025-12-30", "2025-12-31", "2026-01-01", "2026-01-02", "2026-01-05"])
     values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     native = native_series(_Source(points=[_point_series(values, index)]), _window())
@@ -116,8 +108,7 @@ def test_the_series_is_cut_to_the_window_of_the_run() -> None:
     np.testing.assert_allclose(native.values, [3.0, 4.0, 5.0])
 
 
-def test_a_step_that_covers_the_start_of_the_run_begins_there() -> None:
-    """The step before the run holds over its first instant from the start only."""
+def test_first_step_starts_with_run() -> None:
     index = pd.DatetimeIndex(["2025-12-30", "2025-12-31", "2026-01-03"])
     native = native_series(_Source(points=[_point_series([1.0, 2.0, 3.0], index)]), _window())
     assert native is not None
@@ -127,7 +118,7 @@ def test_a_step_that_covers_the_start_of_the_run_begins_there() -> None:
     np.testing.assert_allclose(native.values, [2.0, 3.0])
 
 
-def test_the_factor_carries_the_source_unit_to_m_per_s() -> None:
+def test_factor_converts_to_m_s() -> None:
     index = pd.date_range("2026-01-01", periods=1, freq="D")
     native = native_series(
         _Source(points=[_point_series([10.0], index)]), _window(), factor=MM_DAY_TO_M_S
@@ -136,30 +127,36 @@ def test_the_factor_carries_the_source_unit_to_m_per_s() -> None:
     np.testing.assert_allclose(native.values, 10.0 * MM_DAY_TO_M_S)
 
 
-def test_a_native_series_refuses_one_value_off_its_step_count() -> None:
-    with pytest.raises(ValueError, match="one value per step"):
-        NativeSeries(starts=pd.date_range("2026-01-01", periods=3, freq="D"), values=[1.0])
-    with pytest.raises(ValueError, match="one value per step"):
-        NativeSeries(starts=pd.date_range("2026-01-01", periods=2, freq="D"), values=[1.0, 2.0])
+DAYS_3 = pd.date_range("2026-01-01", periods=3, freq="D")
+DAYS_2 = pd.date_range("2026-01-01", periods=2, freq="D")
+
+REFUSALS = [
+    pytest.param(DAYS_3, [1.0], "one value per step", id="fewer values than steps"),
+    pytest.param(DAYS_2, [1.0, 2.0], "one value per step", id="as many values as edges"),
+    pytest.param(
+        pd.DatetimeIndex(["2026-01-02", "2026-01-01"]),
+        [1.0],
+        "unique and increasing",
+        id="reversed",
+    ),
+    pytest.param(
+        pd.DatetimeIndex(["2026-01-01", "2026-01-01"]),
+        [1.0],
+        "unique and increasing",
+        id="repeated",
+    ),
+]
 
 
-def test_a_native_series_refuses_starts_out_of_order_or_repeated() -> None:
-    starts = pd.DatetimeIndex(["2026-01-02", "2026-01-01"])
-    with pytest.raises(ValueError, match="unique and increasing"):
-        NativeSeries(starts=starts, values=[1.0])
-    repeated = pd.DatetimeIndex(["2026-01-01", "2026-01-01"])
-    with pytest.raises(ValueError, match="unique and increasing"):
-        NativeSeries(starts=repeated, values=[1.0])
+@pytest.mark.parametrize(("starts", "values", "match"), REFUSALS)
+def test_refusals(starts, values, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        NativeSeries(starts=starts, values=values)
 
 
 def _field_dataset(values: Any, index: Any) -> Any:
-    """A duck field record: an xarray dataset is read here, so it is a stand-in.
-
-    The test builds the object ``_series_of_one_field`` reads through the
-    dataset property of a real ``FieldRecord``, without the data package: the
-    grid is 4 by 4 pixels of 10 m over the square cell, the values laid out
-    ``(time, y, x)`` with y descending.
-    """
+    # A stand-in field record: 4 x 4 pixels of 10 m over the square cell,
+    # values laid out (time, y, x) with y descending.
     import xarray as xr
 
     data = xr.Dataset(
@@ -173,14 +170,9 @@ def _field_dataset(values: Any, index: Any) -> Any:
     return type("Rec", (), {"variable": "recharge", "data": data})()
 
 
-def test_the_native_series_aligned_on_the_periods_is_the_recharge_of_the_model() -> None:
-    """One period mean, written once: aligning the native series gives the period view.
-
-    The binder builds both from one point source. ``model_from_flow`` carries
-    ``flow.sinks_sources["recharge"]`` as ``Model.recharge`` unchanged, so the
-    period values are compared there, to the bit, on a recharge that varies
-    inside each period of three days.
-    """
+def test_native_aligns_to_model_recharge() -> None:
+    # The binder builds both views from one point source. Recharge varies inside
+    # each period of three days, so the period values are compared to the bit.
     from hydromodpy.model.boundaries.climate import apply_recharge_load_result_to_flow
     from hydromodpy.model.flow import Flow
     from hydromodpy.model.flow_config import FlowConfig

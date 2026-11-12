@@ -40,11 +40,6 @@ def outside(tmp_path: Path) -> Path:
     return folder
 
 
-# --------------------------------------------------------------------------- #
-# credential_for
-# --------------------------------------------------------------------------- #
-
-
 def test_a_prefix_cuts_at_a_segment_boundary() -> None:
     """``ftp://h/a`` does not answer for ``ftp://h/ab/``."""
     credentials = (HostCredential(prefix="ftp://h/a", user="b"),)
@@ -52,26 +47,14 @@ def test_a_prefix_cuts_at_a_segment_boundary() -> None:
     assert credential_for("ftp://h/a/x", credentials) is not None
 
 
-# --------------------------------------------------------------------------- #
-# secret
-# --------------------------------------------------------------------------- #
-
-
-def test_the_secret_of_a_block_read_from_a_file(tmp_path: Path) -> None:
-    secret_file = tmp_path / "depot.secret"
-    secret_file.write_text("s3cr3t-file\n")
+@pytest.mark.parametrize(("body", "secret"), [("s3cr3t-file\n", "s3cr3t-file"), (None, None)])
+def test_secret_of_a_block(tmp_path: Path, body: str | None, secret: str | None) -> None:
+    secret_file = None
+    if body is not None:
+        secret_file = tmp_path / "depot.secret"
+        secret_file.write_text(body)
     block = HostCredential(prefix=GOOD_PREFIX, user="b", password_file=secret_file)
-    assert block.secret() == "s3cr3t-file"
-
-
-def test_a_block_without_a_secret_carries_none() -> None:
-    block = HostCredential(prefix=GOOD_PREFIX, user="b")
-    assert block.secret() is None
-
-
-# --------------------------------------------------------------------------- #
-# The refusals, one line each
-# --------------------------------------------------------------------------- #
+    assert block.secret() == secret
 
 
 @pytest.mark.parametrize(

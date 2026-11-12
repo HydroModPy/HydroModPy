@@ -1,4 +1,9 @@
-"""The value types and refusals of the terrain port."""
+"""Value types and refusals of the terrain port.
+
+The port names what an engine can serve (conditioning methods, accumulation units
+in cells or m2, stream thresholds, delineation requests) and refuses the rest
+before any file is written. Distances are in m.
+"""
 
 from __future__ import annotations
 
@@ -36,118 +41,14 @@ from hydromodpy.core.exceptions import (
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.terrain_doubles import fake_accumulation
 
-
-def _accumulation(transform: str):
-    return type("Acc", (), {"transform": transform})()
-
-
-@pytest.mark.parametrize("distance", [0.0, -25.0])
-def test_a_snap_window_of_no_width_is_refused(distance) -> None:
-    with pytest.raises(TerrainRequestError, match="snap distance"):
-        snap_window_cells(distance, dx=25.0, dy=25.0)
-
-
-def test_a_conditioning_extent_says_what_it_conditions() -> None:
-    assert ConditioningExtent.per_outlet_buffer(500.0).buffer_distance_m == 500.0
-
-
-@pytest.mark.parametrize(
-    ("kind", "distance", "match"),
-    [
-        ("everywhere", None, "Unknown conditioning extent"),
-        ("regional", 100.0, "carries no buffer distance"),
-        ("per_outlet_buffer", 0.0, "needs a buffer distance"),
-    ],
-)
-def test_a_conditioning_extent_that_contradicts_itself_is_refused(kind, distance, match) -> None:
-    with pytest.raises(TerrainRequestError, match=match):
-        ConditioningExtent(kind=kind, buffer_distance_m=distance)
-
-
-@pytest.mark.parametrize(
-    ("outlet_id", "match"),
-    [("../up", "not usable as a directory name"), ("a" * 65, "over the 64")],
-)
-def test_an_outlet_id_that_makes_no_directory_name_is_refused(outlet_id, match) -> None:
-    with pytest.raises(TerrainRequestError, match=match):
-        Outlet(outlet_id=outlet_id, x=0.0, y=0.0)
-
-
+OUTLET = Outlet("exit", 10.0, 20.0)
+FLAT = CatchmentLayout.flat(mask_name="mask.tif", boundary_name="boundary.shp")
 CAPPED = CappedBreach(max_depth_m=0.5, max_distance_m=200.0)
 REGIONAL = ConditioningExtent.regional()
+REPORT = CappedBreachReport(12, 3, 0.52, 0.1, 8, 0.5, 0.01)
 
 
-def test_the_conditioning_method_holds_four_kinds_of_value() -> None:
-    literal, capped = get_args(ConditioningMethod)
-    assert get_args(literal) == ("fill", "breach", "provided")
-    assert capped is CappedBreach
-
-
-@pytest.mark.parametrize(
-    ("serves", "method", "extent", "error", "match"),
-    [
-        (("fill",), "fill", REGIONAL, None, None),
-        (("fill", "breach", "capped"), CAPPED, REGIONAL, None, None),
-        (("fill",), "breach", REGIONAL, TerrainCapabilityError, "breach"),
-        (("fill",), CAPPED, REGIONAL, TerrainCapabilityError, "capped breach"),
-        (("fill", "breach", "capped"), "carve", REGIONAL, TerrainCapabilityError, "'carve'"),
-        (("fill",), "provided", REGIONAL, TerrainRequestError, r"ConditionedDem\.provided"),
-        (
-            ("fill", "breach", "capped"),
-            "provided",
-            REGIONAL,
-            TerrainRequestError,
-            r"ConditionedDem\.provided",
-        ),
-        (
-            ("fill",),
-            "fill",
-            ConditioningExtent.per_outlet_buffer(500.0),
-            TerrainCapabilityError,
-            "per_outlet_buffer",
-        ),
-    ],
-    ids=[
-        "fill",
-        "capped",
-        "numpy-breach",
-        "numpy-capped",
-        "unknown-method",
-        "numpy-provided",
-        "whitebox-provided",
-        "buffer-extent",
-    ],
-)
-def test_a_conditioning_an_engine_does_not_serve_is_refused_by_name(
-    serves, method, extent, error, match
-) -> None:
-    if error is None:
-        require_conditioning("engine_x", method, extent, serves=serves)
-        return
-    with pytest.raises(error, match=match):
-        require_conditioning("engine_x", method, extent, serves=serves)
-
-
-@pytest.mark.parametrize(
-    ("units", "transform", "served"),
-    [
-        ("cells", "none", True),
-        ("m2", "ln", True),
-        ("km2", "none", False),
-        ("cells", "log10", False),
-    ],
-)
-def test_an_accumulation_is_served_in_two_units_and_two_transforms(
-    units, transform, served
-) -> None:
-    if served:
-        require_accumulation("engine_x", units, transform)
-        return
-    with pytest.raises(TerrainCapabilityError, match="not implemented"):
-        require_accumulation("engine_x", units, transform)
-
-
-def _streams_of(accumulation, threshold: float = 20.0) -> StreamNetwork:
+def streams_of(accumulation, threshold=20.0):
     return StreamNetwork(
         accumulation.path.with_name("streams.tif"),
         threshold,
@@ -156,140 +57,270 @@ def _streams_of(accumulation, threshold: float = 20.0) -> StreamNetwork:
     )
 
 
-@pytest.mark.parametrize(
-    ("transform", "threshold", "error", "match"),
-    [
-        ("none", 20.0, None, None),
-        ("ln", 20.0, TerrainProductError, "untransformed"),
-        ("none", 0.0, TerrainRequestError, "must be > 0"),
-    ],
-)
-def test_a_stream_threshold_needs_a_raw_accumulation_and_a_positive_value(
-    transform, threshold, error, match
-) -> None:
-    accumulation = fake_accumulation(transform=transform)
-    if error is None:
-        require_stream(accumulation, threshold)
-        return
-    with pytest.raises(error, match=match):
-        require_stream(accumulation, threshold)
-
-
-OUTLET = Outlet("exit", 10.0, 20.0)
-FLAT = CatchmentLayout.flat(mask_name="mask.tif", boundary_name="boundary.shp")
-
-
-def _delineable(accumulation=None, outlets=(OUTLET,), **options) -> None:
+def delineable(accumulation=None, outlets=(OUTLET,), **options):
     request = {"snap": "window", "snap_distance_m": 25.0, "layout": CatchmentLayout.per_outlet()}
     require_delineable(
         accumulation or fake_accumulation(transform="none"), outlets, **request | options
     )
 
 
-@pytest.mark.parametrize(
-    ("accumulation", "outlets", "options", "error", "match"),
-    [
-        (None, (), {}, TerrainRequestError, "at least one outlet"),
-        (None, (OUTLET,), {"snap_distance_m": 0.0}, TerrainRequestError, "snap distance"),
-        (None, (OUTLET, replace(OUTLET, x=1.0)), {}, TerrainRequestError, "repeated: exit"),
-        (
-            None,
-            (OUTLET, replace(OUTLET, outlet_id="EXIT")),
-            {},
-            TerrainRequestError,
-            "case-folded",
-        ),
-        (
-            None,
-            (OUTLET, Outlet("b", 1.0, 1.0)),
-            {"layout": FLAT},
-            TerrainRequestError,
-            "flat layout",
-        ),
-        (None, (OUTLET,), {"snap": "nearest"}, TerrainRequestError, "Unknown snap method"),
-        (
-            fake_accumulation(transform="rank_destroying"),
-            (OUTLET,),
-            {},
-            TerrainProductError,
-            "order of the cells",
-        ),
-        (
-            replace(fake_accumulation(transform="ln"), units="m2"),
-            (OUTLET,),
-            {},
-            TerrainProductError,
-            "only in 'cells'",
-        ),
-    ],
-    ids=[
-        "empty-batch",
-        "no-snap-width",
-        "same-id-twice",
-        "ids-differ-by-case",
-        "flat-layout-with-a-batch",
-        "unknown-snap",
-        "transform-breaks-the-order",
-        "transformed-square-metres",
-    ],
-)
-def test_a_delineation_the_port_cannot_answer_is_refused_before_any_write(
-    accumulation, outlets, options, error, match
-) -> None:
-    with pytest.raises(error, match=match):
-        _delineable(accumulation, outlets, **options)
+def test_conditioning_extent_buffer():
+    assert ConditioningExtent.per_outlet_buffer(500.0).buffer_distance_m == 500.0
 
 
-def test_a_jenson_snap_needs_the_network_of_the_pointer_it_delineates_down() -> None:
+def test_conditioning_method_kinds():
+    literal, capped = get_args(ConditioningMethod)
+    assert get_args(literal) == ("fill", "breach", "provided")
+    assert capped is CappedBreach
+
+
+SERVED_CONDITIONING = [
+    pytest.param(("fill",), "fill", id="fill"),
+    pytest.param(("fill", "breach", "capped"), CAPPED, id="capped"),
+]
+
+
+@pytest.mark.parametrize(("serves", "method"), SERVED_CONDITIONING)
+def test_conditioning_served(serves, method):
+    require_conditioning("engine_x", method, REGIONAL, serves=serves)
+
+
+SERVED_ACCUMULATION = [
+    pytest.param("cells", "none", id="cells raw"),
+    pytest.param("m2", "ln", id="m2 ln"),
+]
+
+
+@pytest.mark.parametrize(("units", "transform"), SERVED_ACCUMULATION)
+def test_accumulation_served(units, transform):
+    require_accumulation("engine_x", units, transform)
+
+
+def test_stream_threshold_served():
+    require_stream(fake_accumulation(transform="none"), 20.0)
+
+
+def test_jenson_snap_on_own_pointer():
     accumulation = fake_accumulation(transform="none")
-    own = JensonSnap(_streams_of(accumulation))
-    other = replace(accumulation.directions, path=accumulation.directions.path.with_name("o.tif"))
-    foreign = JensonSnap(replace(own.streams, directions=other))
-    _delineable(accumulation, snap=own)
-    with pytest.raises(TerrainProductError, match="another pointer"):
-        _delineable(accumulation, snap=foreign)
+    delineable(accumulation, snap=JensonSnap(streams_of(accumulation)))
 
 
-def test_a_jenson_snap_ranks_no_accumulation_so_a_transform_does_not_matter() -> None:
+def test_jenson_snap_ignores_transform():
+    # It ranks no accumulation, so a rank-destroying transform does not matter.
     accumulation = fake_accumulation(transform="rank_destroying")
-    _delineable(accumulation, snap=JensonSnap(_streams_of(accumulation)))
+    delineable(accumulation, snap=JensonSnap(streams_of(accumulation)))
 
 
-def test_the_digest_is_the_hash_of_the_id_the_version_and_the_pointer_table() -> None:
+def test_stamp_hashes_id_version_pointer():
     expected = hashlib.sha256(b"engine_x\n1.2.3\nd8_wbt").hexdigest()
     assert stamp("engine_x", "1.2.3") == expected
     assert stamp("engine_x", "1.2.3", "d8_esri") != expected
     assert stamp("engine_y", "1.2.3") != expected
 
 
-REPORT = CappedBreachReport(12, 3, 0.52, 0.1, 8, 0.5, 0.01)
+def test_breach_report_tolerates_extra_key():
+    # A cache manifest written by a newer build must still read back.
+    document = {**REPORT.to_document(), "written_by_a_later_version": 1.0}
+    assert CappedBreachReport.from_document(document) == REPORT
 
 
-@pytest.mark.parametrize(
-    ("change", "error"),
-    [({"written_by_a_later_version": 1.0}, None), ({"max_cost_m": None}, KeyError)],
-    ids=["a-key-too-many", "a-key-missing"],
-)
-def test_a_breach_report_document_is_read_with_tolerance(change, error) -> None:
-    """A cache manifest written by an older or newer build must still read back."""
-    document = {**REPORT.to_document(), **change}
-    if error is None:
-        assert CappedBreachReport.from_document(document) == REPORT
-        return
-    del document["max_cost_m"]
-    with pytest.raises(error):
-        CappedBreachReport.from_document(document)
-
-
-def test_a_catchment_is_counted_and_measured_from_its_files(tmp_path) -> None:
+def test_catchment_from_files(tmp_path):
     mask = np.full((4, 4), -32768, dtype="int16")
-    mask[:2, :3] = 1
+    mask[:2, :3] = 1  # 6 cells of 10 m
     mask_path = write_geotiff(tmp_path / "mask.tif", mask, cell=10.0, nodata=-32768)
     boundary_path = tmp_path / "boundary.shp"
     gpd.GeoDataFrame({"v": [1]}, geometry=[box(0, 20, 30, 40)], crs="EPSG:2154").to_file(
         boundary_path
     )
+
     found = Catchment.from_files(OUTLET, mask_path, boundary_path, 13.0, 24.0)
+
     assert (found.cell_count, found.area_m2) == (6, 600.0)
-    assert found.snap_distance_m == pytest.approx(5.0)
+    assert found.snap_distance_m == pytest.approx(5.0)  # (3, 4) m from the outlet
     assert (found.snapped_x, found.snapped_y) == (13.0, 24.0)
+
+
+@pytest.mark.parametrize("distance", [0.0, -25.0])
+def test_snap_window_refusals(distance):
+    with pytest.raises(TerrainRequestError, match="snap distance"):
+        snap_window_cells(distance, dx=25.0, dy=25.0)
+
+
+EXTENT_REFUSALS = [
+    pytest.param("everywhere", None, "Unknown conditioning extent", id="unknown kind"),
+    pytest.param("regional", 100.0, "carries no buffer distance", id="regional with buffer"),
+    pytest.param("per_outlet_buffer", 0.0, "needs a buffer distance", id="buffer of zero"),
+]
+
+
+@pytest.mark.parametrize(("kind", "distance", "match"), EXTENT_REFUSALS)
+def test_extent_refusals(kind, distance, match):
+    with pytest.raises(TerrainRequestError, match=match):
+        ConditioningExtent(kind=kind, buffer_distance_m=distance)
+
+
+OUTLET_ID_REFUSALS = [
+    pytest.param("../up", "not usable as a directory name", id="path"),
+    pytest.param("a" * 65, "over the 64", id="too long"),
+]
+
+
+@pytest.mark.parametrize(("outlet_id", "match"), OUTLET_ID_REFUSALS)
+def test_outlet_id_refusals(outlet_id, match):
+    with pytest.raises(TerrainRequestError, match=match):
+        Outlet(outlet_id=outlet_id, x=0.0, y=0.0)
+
+
+CONDITIONING_REFUSALS = [
+    pytest.param(("fill",), "breach", REGIONAL, TerrainCapabilityError, "breach", id="breach"),
+    pytest.param(("fill",), CAPPED, REGIONAL, TerrainCapabilityError, "capped breach", id="capped"),
+    pytest.param(
+        ("fill", "breach", "capped"),
+        "carve",
+        REGIONAL,
+        TerrainCapabilityError,
+        "'carve'",
+        id="unknown method",
+    ),
+    pytest.param(
+        ("fill",),
+        "provided",
+        REGIONAL,
+        TerrainRequestError,
+        r"ConditionedDem\.provided",
+        id="provided with fill only",
+    ),
+    pytest.param(
+        ("fill", "breach", "capped"),
+        "provided",
+        REGIONAL,
+        TerrainRequestError,
+        r"ConditionedDem\.provided",
+        id="provided with all",
+    ),
+    pytest.param(
+        ("fill",),
+        "fill",
+        ConditioningExtent.per_outlet_buffer(500.0),
+        TerrainCapabilityError,
+        "per_outlet_buffer",
+        id="buffer extent",
+    ),
+]
+
+
+@pytest.mark.parametrize(("serves", "method", "extent", "error", "match"), CONDITIONING_REFUSALS)
+def test_conditioning_refusals(serves, method, extent, error, match):
+    with pytest.raises(error, match=match):
+        require_conditioning("engine_x", method, extent, serves=serves)
+
+
+ACCUMULATION_REFUSALS = [
+    pytest.param("km2", "none", id="km2"),
+    pytest.param("cells", "log10", id="log10"),
+]
+
+
+@pytest.mark.parametrize(("units", "transform"), ACCUMULATION_REFUSALS)
+def test_accumulation_refusals(units, transform):
+    with pytest.raises(TerrainCapabilityError, match="not implemented"):
+        require_accumulation("engine_x", units, transform)
+
+
+STREAM_REFUSALS = [
+    pytest.param("ln", 20.0, TerrainProductError, "untransformed", id="transformed"),
+    pytest.param("none", 0.0, TerrainRequestError, "must be > 0", id="threshold of zero"),
+]
+
+
+@pytest.mark.parametrize(("transform", "threshold", "error", "match"), STREAM_REFUSALS)
+def test_stream_refusals(transform, threshold, error, match):
+    with pytest.raises(error, match=match):
+        require_stream(fake_accumulation(transform=transform), threshold)
+
+
+DELINEATION_REFUSALS = [
+    pytest.param(None, (), {}, TerrainRequestError, "at least one outlet", id="empty batch"),
+    pytest.param(
+        None,
+        (OUTLET,),
+        {"snap_distance_m": 0.0},
+        TerrainRequestError,
+        "snap distance",
+        id="no snap width",
+    ),
+    pytest.param(
+        None,
+        (OUTLET, replace(OUTLET, x=1.0)),
+        {},
+        TerrainRequestError,
+        "repeated: exit",
+        id="same id twice",
+    ),
+    pytest.param(
+        None,
+        (OUTLET, replace(OUTLET, outlet_id="EXIT")),
+        {},
+        TerrainRequestError,
+        "case-folded",
+        id="ids differ by case",
+    ),
+    pytest.param(
+        None,
+        (OUTLET, Outlet("b", 1.0, 1.0)),
+        {"layout": FLAT},
+        TerrainRequestError,
+        "flat layout",
+        id="flat layout with a batch",
+    ),
+    pytest.param(
+        None,
+        (OUTLET,),
+        {"snap": "nearest"},
+        TerrainRequestError,
+        "Unknown snap method",
+        id="unknown snap",
+    ),
+    pytest.param(
+        fake_accumulation(transform="rank_destroying"),
+        (OUTLET,),
+        {},
+        TerrainProductError,
+        "order of the cells",
+        id="transform breaks the order",
+    ),
+    pytest.param(
+        replace(fake_accumulation(transform="ln"), units="m2"),
+        (OUTLET,),
+        {},
+        TerrainProductError,
+        "only in 'cells'",
+        id="transformed square metres",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("accumulation", "outlets", "options", "error", "match"), DELINEATION_REFUSALS
+)
+def test_delineation_refusals(accumulation, outlets, options, error, match):
+    with pytest.raises(error, match=match):
+        delineable(accumulation, outlets, **options)
+
+
+def test_jenson_snap_foreign_pointer_refused():
+    accumulation = fake_accumulation(transform="none")
+    own = JensonSnap(streams_of(accumulation))
+    other = replace(accumulation.directions, path=accumulation.directions.path.with_name("o.tif"))
+    foreign = JensonSnap(replace(own.streams, directions=other))
+
+    with pytest.raises(TerrainProductError, match="another pointer"):
+        delineable(accumulation, snap=foreign)
+
+
+def test_breach_report_missing_key_refused():
+    document = REPORT.to_document()
+    del document["max_cost_m"]
+
+    with pytest.raises(KeyError):
+        CappedBreachReport.from_document(document)

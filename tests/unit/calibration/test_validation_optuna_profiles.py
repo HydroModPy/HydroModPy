@@ -1,4 +1,8 @@
-"""Validation-case coverage for the Optuna calibration profile."""
+"""Optuna profile of the twin calibration validation cases.
+
+Every twin case benchmarks Optuna. The profile keeps the sampler options apart
+from the trial budget (max_trials), and a benchmark budget caps it like the other methods.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +25,6 @@ TWIN_ROOT = REPO_ROOT / "validation_cases" / "calibration" / "twin"
 
 
 def _twin_cases() -> list[TwinCalibrationCaseDefinition]:
-    """Every twin case defined in an ``experiment.py`` under the twin folder."""
     cases: dict[str, TwinCalibrationCaseDefinition] = {}
     for path in sorted(TWIN_ROOT.rglob("experiment.py")):
         module = importlib.import_module(
@@ -36,21 +39,23 @@ def _twin_cases() -> list[TwinCalibrationCaseDefinition]:
 TWIN_CASES = _twin_cases()
 
 
+def optuna_profile():
+    return next(
+        profile for profile in STEADY_DUPUIT_TWIN_CASE.method_profiles if profile.name == "optuna"
+    )
+
+
 def test_the_twin_case_discovery_finds_the_cases() -> None:
     assert len(TWIN_CASES) >= 8
 
 
 @pytest.mark.parametrize("case", TWIN_CASES, ids=[case.case_id for case in TWIN_CASES])
 def test_every_calibration_twin_case_benchmarks_optuna(case) -> None:
-    """Each calibration twin case runs Optuna among its methods."""
     assert "optuna" in {profile.name for profile in case.method_profiles}
 
 
 def test_optuna_validation_profile_uses_top_level_iteration_budget() -> None:
-    """Optuna profiles keep sampler kwargs separate from the calibration loop budget."""
-    profile = next(
-        profile for profile in STEADY_DUPUIT_TWIN_CASE.method_profiles if profile.name == "optuna"
-    )
+    profile = optuna_profile()
 
     payload = build_payload(
         STEADY_DUPUIT_TWIN_CASE,
@@ -68,10 +73,7 @@ def test_optuna_validation_profile_uses_top_level_iteration_budget() -> None:
 
 
 def test_optuna_validation_profile_accepts_common_evaluation_budget() -> None:
-    """Benchmark budget capping works for Optuna like the other profiled methods."""
-    profile = next(
-        profile for profile in STEADY_DUPUIT_TWIN_CASE.method_profiles if profile.name == "optuna"
-    )
+    profile = optuna_profile()
 
     capped = _apply_evaluation_budget(
         profile,

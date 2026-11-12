@@ -9,7 +9,7 @@ from hydromodpy.results.heartbeat import HeartbeatThread, heartbeat_age_s, read_
 ATTEMPT_ID = "7c1e" * 8
 
 
-def test_the_thread_pulses_at_entry_and_on_every_step_change(tmp_path):
+def test_pulse_on_entry_and_step_change(tmp_path):
     with HeartbeatThread(tmp_path, attempt_id=ATTEMPT_ID, interval_s=60, step="validate") as pulse:
         first = read_heartbeat(tmp_path)
         pulse.set_step("run_solver")
@@ -21,7 +21,7 @@ def test_the_thread_pulses_at_entry_and_on_every_step_change(tmp_path):
     assert second.pid == first.pid and second.host == first.host
 
 
-def test_the_age_of_the_pulse_is_measured_against_the_clock_given(tmp_path):
+def test_age_against_the_given_clock(tmp_path):
     assert heartbeat_age_s(tmp_path) is None
     with HeartbeatThread(tmp_path, attempt_id=ATTEMPT_ID, interval_s=60):
         pass

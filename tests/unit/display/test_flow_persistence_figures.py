@@ -1,13 +1,8 @@
-"""Persistence and intermittence count flowing as the network criterion does.
+"""Share of steps a cell flows (%) and whether it stops, counted as the network criterion does.
 
-The run is the monthly V-valley of :mod:`tests._helpers.transient_network_run`:
-the outlet releases two litres per second in summer and floods from the head
-of the axis in winter, so it flows every month; the two upper axis cells flow
-five months of twelve; a hillslope cell never flows. "Flowing" is the seepage
-closure on the criterion graph above the visible flow, so a visible flow above
-two litres per second makes the outlet seasonal too. The answers are written
-here rather than read back from the figure, because the whole point of both
-maps is the count.
+The run is the monthly V-valley of ``tests._helpers.transient_network_run``. The outlet
+releases 2 L/s in summer and floods from the head of the axis in winter, so it flows every
+month. The two upper axis cells flow five months of twelve and a hillslope cell never flows.
 """
 
 from __future__ import annotations
@@ -32,11 +27,11 @@ SEASONAL_SHARE = 100.0 * len(WINTER_MONTHS) / 12.0
 
 
 def _drawn(ax) -> np.ndarray:
-    """Values the face collection was handed, masked where nothing was drawn."""
+    """Values handed to the face collection, masked where nothing was drawn."""
     return np.asarray(ax.collections[0].get_array())
 
 
-def test_a_run_without_a_time_axis_keeps_one_block_and_says_so() -> None:
+def test_run_without_a_time_axis_keeps_one_block() -> None:
     blocks = cycles(transient_run(with_time=False), 27)
     assert list(blocks) == ["the whole run"]
     assert len(blocks["the whole run"]) == 27
@@ -54,13 +49,9 @@ def _sealed_heads_run(**map_knobs):
     return run
 
 
-def test_flow_geometry_reads_the_sealed_heads_radius_and_area() -> None:
-    """A run scored with heads and a widened radius redraws with that radius.
-
-    Before the fix, ``flow_geometry`` always redrew with the criterion's
-    defaults: a run sealed under 'heads' with a non-default radius would then
-    count flowing cells on a map the trial never scored.
-    """
+def test_geometry_reads_the_sealed_heads_radius_and_area() -> None:
+    # A run sealed under heads with a non-default radius must redraw with that
+    # radius, or it counts flowing cells on a map the trial never scored.
     run = _sealed_heads_run(heads={"radius": 150.0, "min_drained_area": 0.06})
 
     geometry = flow_geometry(run)
@@ -71,7 +62,7 @@ def test_flow_geometry_reads_the_sealed_heads_radius_and_area() -> None:
     assert geometry.heads.head_cell.tolist() == [MIDDLE]
 
 
-def test_the_persistence_share_is_the_fraction_of_steps_flowing(mpl) -> None:
+def test_persistence_share_is_the_fraction_of_steps_flowing(mpl) -> None:
     fig, ax = mpl.subplots()
     FlowPersistenceMap().render(transient_run(n_steps=24), ax, overlays=())
     drawn = _drawn(ax)
@@ -84,8 +75,8 @@ def test_the_persistence_share_is_the_fraction_of_steps_flowing(mpl) -> None:
     assert "tau" not in note and "tau" not in ax.get_title()
 
 
-def test_the_persistence_share_can_be_read_over_one_cycle_like_intermittence(mpl) -> None:
-    """Same window, same cells: the head flows five steps of twelve."""
+def test_persistence_share_over_one_cycle(mpl) -> None:
+    # Same window and cells as intermittence, the head flows five steps of twelve.
     fig, ax = mpl.subplots()
     FlowPersistenceMap().render(transient_run(), ax, cycle="2002", overlays=())
     drawn = _drawn(ax)
@@ -94,7 +85,7 @@ def test_the_persistence_share_can_be_read_over_one_cycle_like_intermittence(mpl
     assert drawn[HEAD] == pytest.approx(SEASONAL_SHARE)
 
 
-def test_a_visible_flow_above_the_summer_release_makes_the_outlet_seasonal(mpl) -> None:
+def test_visible_flow_above_summer_release_makes_outlet_seasonal(mpl) -> None:
     fig, ax = mpl.subplots()
     FlowPersistenceMap().render(
         transient_run(), ax, cycle="2002", visible_flow="5 L/s", overlays=()
@@ -103,13 +94,13 @@ def test_a_visible_flow_above_the_summer_release_makes_the_outlet_seasonal(mpl) 
     assert _drawn(ax)[OUTLET] == pytest.approx(SEASONAL_SHARE)
 
 
-def test_persistence_refuses_a_cycle_the_run_does_not_have(mpl) -> None:
+def test_persistence_refuses_a_missing_cycle(mpl) -> None:
     fig, ax = mpl.subplots()
     with pytest.raises(ValueError, match="no cycle"):
         FlowPersistenceMap().render(transient_run(), ax, cycle="1999", overlays=())
 
 
-def test_intermittence_separates_the_cell_that_stops_from_the_one_that_does_not(mpl) -> None:
+def test_intermittence_separates_stopping_cells(mpl) -> None:
     fig, ax = mpl.subplots()
     FlowIntermittenceMap().render(transient_run(), ax, cycle="2002", overlays=())
     drawn = _drawn(ax)
@@ -120,7 +111,7 @@ def test_intermittence_separates_the_cell_that_stops_from_the_one_that_does_not(
 
 
 def test_intermittence_defaults_to_the_last_complete_cycle(mpl) -> None:
-    """March 2003 alone would call the winter head perennial."""
+    # March 2003 alone would call the winter head perennial.
     fig, ax = mpl.subplots()
     FlowIntermittenceMap().render(transient_run(), ax, overlays=())
 
@@ -129,7 +120,7 @@ def test_intermittence_defaults_to_the_last_complete_cycle(mpl) -> None:
 
 
 @pytest.mark.parametrize("figure", [FlowPersistenceMap, FlowIntermittenceMap])
-def test_both_maps_refuse_a_run_they_cannot_count_on(figure) -> None:
+def test_unavailable_reasons(figure) -> None:
     assert figure().unavailable_reason(transient_run()) is None
     assert "timestep" in figure().unavailable_reason(transient_run(n_steps=1))
     no_network = figure().unavailable_reason(transient_run(roles=()))

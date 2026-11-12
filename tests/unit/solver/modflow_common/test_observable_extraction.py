@@ -1,15 +1,9 @@
-"""The ``release_flux`` observable must read every surface-release package.
+"""Observables read from a MODFLOW 6 run: release flux per cell and catchment discharge (m3/s).
 
-The per-cell discharge is routed on the descent D of the build
-(``routing_graph_for_model``), at the flat index of a cell (``flat_cell_index``),
-and the discharge of the catchment takes the drain budget only when the network
-does not route the drainage.
-
-The MF6 builder zeroes the DRN rows on the cells an SFR reach or a stream-role
-CHD already owns, so a DRN-only reading is empty exactly where a stream-network
-calibration aims. These tests write a real MODFLOW 6 compact budget file (imeth
-6 list records) and read it back through FloPy, so the record lookup, the
-node-to-cell mapping and the sign convention are all exercised for real.
+The release flux unions every surface-release package, because the builder zeroes the DRN rows on
+cells an SFR reach or a stream-role CHD owns. The tests write a real compact budget file (imeth 6
+list records) and read it back through FloPy. Per-cell discharge is routed on the descent D of the
+build, and the catchment discharge adds the drain budget only when the network does not route it.
 """
 
 from __future__ import annotations
@@ -30,6 +24,7 @@ from hydromodpy.solver.modflow_common import observable_extraction as extraction
 from hydromodpy.solver.modflow_common.boundary_roles import write_constant_head_roles
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_common.observable_extraction import (
+    excluded_release_records_for_model,
     extract_common_modflow_observables,
     flat_cell_index,
     release_packages_for_model,
@@ -144,99 +139,75 @@ def release_frame(output_dir: Path, model: SimpleNamespace, **kwargs) -> pd.Data
     )
 
 
-def test_release_flux_reads_drn_alone(tmp_path: Path) -> None:
-    write_cbc(tmp_path, "model", [{"DRN": [(1, -2.0), (3, -0.5)]}])
+# One row per budget file: the records of the single step as (1-based node, q in m3/s), the
+# packages the model declares, and the release per cell (positive, m3/s) on the four cells. A
+# gaining reach (q < 0) releases and a losing reach (q > 0) releases nothing.
+RELEASES = [
+    pytest.param({"DRN": [(1, -2.0), (3, -0.5)]}, {"drn": True}, [2.0, 0.0, 0.5, 0.0], id="drn"),
+    pytest.param(
+        {"SFR": [(2, -3.0), (3, 5.0)]}, {"sfr": True}, [0.0, 3.0, 0.0, 0.0], id="sfr, losing reach"
+    ),
+    pytest.param(
+        {"DRN": [(1, -2.0), (2, -1.0)], "SFR": [(2, -3.0)]},
+        {"drn": True, "sfr": True},
+        [2.0, 4.0, 0.0, 0.0],
+        id="a cell in two packages is summed",
+    ),
+    # MF6 subtracts the moved flux from the DRN term, so a hillslope cell routed to a reach reads
+    # zero in DRN and carries its whole release in DRN-TO-MVR.
+    pytest.param(
+        {"DRN": [(1, -0.5)], "DRN-TO-MVR": [(1, -1.5), (2, -4.0)]},
+        {"drn": True, "drn_mover": True},
+        [2.0, 4.0, 0.0, 0.0],
+        id="drain routed to the mover",
+    ),
+    # FloPy matches a record by substring, so DRN also matches DRN-TO-MVR and the first in file
+    # order wins. Written in this order, a stripped lookup reads the mover twice.
+    pytest.param(
+        {"DRN-TO-MVR": [(1, -1.5), (2, -4.0)], "DRN": [(1, -0.5)]},
+        {"drn": True, "drn_mover": True},
+        [2.0, 4.0, 0.0, 0.0],
+        id="mover written before DRN",
+    ),
+    pytest.param(
+        {"DRN": [(1, -2.0)]}, {"drn": True}, [2.0, 0.0, 0.0, 0.0], id="no mover and no record"
+    ),
+    # Cell 0 is the ocean boundary and cell 2 the stream boundary, both CHD rows of one package.
+    # Only the stream one is a release to the surface.
+    pytest.param(
+        {"CHD": [(1, -7.0), (3, -1.5)]},
+        {"chd": True, "stream_cells": [2]},
+        [0.0, 0.0, 1.5, 0.0],
+        id="only the stream role of a CHD",
+    ),
+]
 
-    frame = release_frame(tmp_path, fake_model(tmp_path, drn=True))
 
-    np.testing.assert_allclose(frame.to_numpy(), [[2.0, 0.0, 0.5, 0.0]])
+@pytest.mark.parametrize(("records", "packages", "expected"), RELEASES)
+def test_release_flux(tmp_path: Path, records, packages, expected) -> None:
+    write_cbc(tmp_path, "model", [records])
 
+    frame = release_frame(tmp_path, fake_model(tmp_path, **packages))
 
-def test_release_flux_reads_sfr_alone(tmp_path: Path) -> None:
-    # Reach on cell 2 gains from the aquifer, reach on cell 3 loses to it: a
-    # losing reach releases nothing and must not turn into a negative seepage.
-    write_cbc(tmp_path, "model", [{"SFR": [(2, -3.0), (3, 5.0)]}])
-
-    frame = release_frame(tmp_path, fake_model(tmp_path, sfr=True))
-
-    np.testing.assert_allclose(frame.to_numpy(), [[0.0, 3.0, 0.0, 0.0]])
+    np.testing.assert_allclose(frame.to_numpy(), [expected])
 
 
-def test_release_flux_sums_an_overlapping_cell_once(tmp_path: Path) -> None:
-    write_cbc(
-        tmp_path,
-        "model",
-        [{"DRN": [(1, -2.0), (2, -1.0)], "SFR": [(2, -3.0)]}],
-    )
+def test_release_flux_columns(tmp_path: Path) -> None:
+    write_cbc(tmp_path, "model", [{"DRN": [(1, -2.0)], "SFR": [(2, -3.0)]}])
 
     frame = release_frame(tmp_path, fake_model(tmp_path, drn=True, sfr=True))
 
     assert list(frame.columns) == [0, 1, 2, 3]
-    np.testing.assert_allclose(frame.to_numpy(), [[2.0, 4.0, 0.0, 0.0]])
 
 
-def test_release_flux_adds_the_drain_routed_to_the_mover(tmp_path: Path) -> None:
-    """route_drainage: DRN and DRN-TO-MVR are disjoint halves of one seepage.
-
-    MF6 subtracts the moved flux from the DRN term of the model budget, so a
-    hillslope cell whose drainage is routed to a reach reads zero in DRN and
-    carries its whole release in DRN-TO-MVR. On the Chèze reference run, 11709
-    of the 14818 releasing cells are in that case.
-    """
-    write_cbc(
-        tmp_path,
-        "model",
-        [{"DRN": [(1, -0.5)], "DRN-TO-MVR": [(1, -1.5), (2, -4.0)]}],
-    )
-
-    frame = release_frame(tmp_path, fake_model(tmp_path, drn=True, drn_mover=True))
-
-    np.testing.assert_allclose(frame.to_numpy(), [[2.0, 4.0, 0.0, 0.0]])
-
-
-def test_release_flux_keeps_drn_apart_from_drn_to_mvr(tmp_path: Path) -> None:
-    """FloPy resolves a budget record by substring, so ``DRN`` also matches
-    ``DRN-TO-MVR`` and the first of the two in file order wins. Written in that
-    order, a stripped lookup reads the mover array twice and doubles the release.
-    """
-    write_cbc(
-        tmp_path,
-        "model",
-        [{"DRN-TO-MVR": [(1, -1.5), (2, -4.0)], "DRN": [(1, -0.5)]}],
-    )
-
-    frame = release_frame(tmp_path, fake_model(tmp_path, drn=True, drn_mover=True))
-
-    np.testing.assert_allclose(frame.to_numpy(), [[2.0, 4.0, 0.0, 0.0]])
-
-
-def test_release_flux_ignores_the_mover_record_without_a_mover(tmp_path: Path) -> None:
-    """A DRN built without a mover writes no DRN-TO-MVR, and must not demand one."""
-    write_cbc(tmp_path, "model", [{"DRN": [(1, -2.0)]}])
-
-    frame = release_frame(tmp_path, fake_model(tmp_path, drn=True))
-
-    np.testing.assert_allclose(frame.to_numpy(), [[2.0, 0.0, 0.0, 0.0]])
-
-
-def test_release_flux_counts_only_the_stream_role_chd(tmp_path: Path) -> None:
-    # Cell 0 is the ocean boundary, cell 2 is the stream boundary. Both are CHD
-    # rows in the same package; only the stream one is a release to the surface.
-    write_cbc(tmp_path, "model", [{"CHD": [(1, -7.0), (3, -1.5)]}])
-
-    frame = release_frame(tmp_path, fake_model(tmp_path, chd=True, stream_cells=[2]))
-
-    np.testing.assert_allclose(frame.to_numpy(), [[0.0, 0.0, 1.5, 0.0]])
-
-
-def test_release_flux_refuses_a_declared_package_with_no_budget_record(tmp_path: Path) -> None:
+def test_release_needs_declared_record(tmp_path: Path) -> None:
     write_cbc(tmp_path, "model", [{"DRN": [(1, -2.0)]}])
 
     with pytest.raises(ObservableNotAvailableError, match="SFR"):
         release_frame(tmp_path, fake_model(tmp_path, drn=True, sfr=True))
 
 
-def test_release_packages_refuses_a_model_with_no_release_package(tmp_path: Path) -> None:
+def test_model_without_release_package(tmp_path: Path) -> None:
     with pytest.raises(ObservableNotAvailableError, match="release"):
         release_packages_for_model(fake_model(tmp_path, chd=True))
 
@@ -255,7 +226,7 @@ def test_release_flux_keeps_the_time_index(tmp_path: Path) -> None:
     np.testing.assert_allclose(frame.to_numpy(), [[1.0, 2.0, 0.0, 0.0], [3.0, 4.0, 0.0, 0.0]])
 
 
-def test_release_flux_observable_unions_sfr_with_drn(tmp_path: Path) -> None:
+def test_release_observable_unions_sfr_drn(tmp_path: Path) -> None:
     """The defect, end to end: DRN is zeroed on the reach cells by the builder.
 
     The seepage the criterion scores lives in the SFR record; a DRN-only
@@ -275,11 +246,29 @@ def test_release_flux_observable_unions_sfr_with_drn(tmp_path: Path) -> None:
     np.testing.assert_allclose(served["net"].values, [[2.0, 3.0, 1.0, 0.0]])
 
 
-# -- The graph and the cell a per-cell discharge is read on ----------------------
-#
-# The graph was once the steepest descent of the unfilled top, rebuilt per
-# extraction with a per-output neighborhood. It is now the receivers of D, so a
-# diagonal talweg is followed on a quad mesh.
+def test_chd_without_role_excluded() -> None:
+    excluded = excluded_release_records_for_model(SimpleNamespace(chd=object(), drn=object()))
+
+    assert {"CHD", "CONSTANT HEAD"} <= set(excluded)
+    assert "stream role" in excluded["CHD"]
+
+
+def test_chd_with_role_kept(tmp_path: Path) -> None:
+    write_constant_head_roles(
+        tmp_path, "model", n_cells=3, masks_by_role={"stream": np.array([False, True, False])}
+    )
+    model = SimpleNamespace(
+        chd=object(), drn=object(), full_path=str(tmp_path), model_output_name="model"
+    )
+
+    excluded = excluded_release_records_for_model(model)
+
+    assert "CHD" not in excluded and "CONSTANT HEAD" not in excluded
+
+
+def test_drain_mover_is_never_ruled_out() -> None:
+    # DRN-TO-MVR takes water out of the aquifer, so it belongs to the union.
+    assert "DRN-TO-MVR" not in excluded_release_records_for_model(SimpleNamespace(drn=object()))
 
 
 def _descent_model(top: np.ndarray) -> SimpleNamespace:
@@ -292,40 +281,26 @@ def _descent_model(top: np.ndarray) -> SimpleNamespace:
     return SimpleNamespace(solver_mesh=mesh, descent=descent)
 
 
-def _receiver_pairs(graph) -> set[tuple[int, int]]:
-    return {
-        tuple(sorted((cell, int(receiver))))
-        for cell, receiver in enumerate(graph.downstream)
-        if receiver >= 0
-    }
-
-
-def test_a_cell_outside_the_mesh_is_refused() -> None:
+def test_cell_outside_mesh_refused() -> None:
     model = _descent_model(np.arange(9, dtype=float).reshape(3, 3))
 
     with pytest.raises(ValueError, match="outside"):
         flat_cell_index(model, (0, 9, 9))
 
 
-def test_a_model_without_a_descent_says_so() -> None:
+def test_model_without_descent_refused() -> None:
     with pytest.raises(ValueError, match="carries none"):
         routing_graph_for_model(SimpleNamespace(solver_mesh=None))
 
 
 # The routed discharge takes the drain budget only when the network does not route the drainage.
-#
-# With ``route_drainage`` the hillslope drainage reaches the network, so the routed
-# series is the catchment discharge and already holds the runoff. Without it the
-# drainage stays in DRAIN, the routed series would leave it out, and the discharge
-# is the routed series plus the drain budget of the catchment.
+# With ``route_drainage`` the hillslope drainage reaches the network, so the routed series is the
+# catchment discharge and already holds the runoff. Without it the drainage stays in DRAIN, the
+# routed series leaves it out, and the discharge is the routed series plus the drain budget.
 
 _INDEX = pd.date_range("2000-01-01", periods=3, freq="D")
-
-
-_ROUTED = pd.Series([1.0, 1.0, 1.0], index=_INDEX)
-
-
-_DRAIN = pd.Series([0.25, 0.25, 0.25], index=_INDEX)
+_ROUTED = pd.Series([1.0, 1.0, 1.0], index=_INDEX)  # m3/s
+_DRAIN = pd.Series([0.25, 0.25, 0.25], index=_INDEX)  # m3/s
 
 
 def _network_model(*, route_drainage: bool | None) -> SimpleNamespace:
@@ -363,7 +338,7 @@ def _serve(model: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> tuple[obj
     return served["catchment"], calls
 
 
-def test_a_network_that_routes_the_drainage_serves_the_routed_series(monkeypatch) -> None:
+def test_routed_drainage_series(monkeypatch) -> None:
     result, calls = _serve(_network_model(route_drainage=True), monkeypatch)
 
     assert calls == ["routed"]
@@ -371,14 +346,14 @@ def test_a_network_that_routes_the_drainage_serves_the_routed_series(monkeypatch
     np.testing.assert_allclose(result.values, _ROUTED.to_numpy())
 
 
-def test_a_network_that_does_not_say_routes_the_drainage(monkeypatch) -> None:
+def test_unspecified_routing_default(monkeypatch) -> None:
     result, calls = _serve(_network_model(route_drainage=None), monkeypatch)
 
     assert calls == ["routed"]
     assert result.includes_runoff is True
 
 
-def test_a_network_that_keeps_the_drainage_out_adds_the_drain_budget(monkeypatch) -> None:
+def test_unrouted_drainage_adds_budget(monkeypatch) -> None:
     result, calls = _serve(_network_model(route_drainage=False), monkeypatch)
 
     assert calls == ["routed", "drain"]
@@ -397,7 +372,7 @@ def test_a_network_that_keeps_the_drainage_out_adds_the_drain_budget(monkeypatch
     ],
     ids=["no_network", "a_network_not_active"],
 )
-def test_a_lake_without_a_network_adds_the_drain_budget(monkeypatch, inputs) -> None:
+def test_lake_adds_drain_budget(monkeypatch, inputs) -> None:
     result, calls = _serve(SimpleNamespace(inputs=inputs), monkeypatch)
 
     assert calls == ["routed", "drain"]
@@ -405,7 +380,7 @@ def test_a_lake_without_a_network_adds_the_drain_budget(monkeypatch, inputs) -> 
     np.testing.assert_allclose(result.values, (_ROUTED + _DRAIN).to_numpy())
 
 
-def test_a_drain_budget_that_cannot_be_read_leaves_the_routed_series(monkeypatch) -> None:
+def test_unreadable_drain_budget(monkeypatch) -> None:
     def refuse(*args, **kwargs):
         raise NotImplementedError("a mover record is in the budget")
 

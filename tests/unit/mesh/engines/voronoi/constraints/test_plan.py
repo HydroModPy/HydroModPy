@@ -398,19 +398,19 @@ def situation(name: str) -> tuple[ConstraintPlan, Polygon]:
 
 
 @pytest.mark.parametrize("name", SITUATIONS)
-def test_no_seed_lies_in_the_ball_of_a_conformal_vertex(name: str) -> None:
+def test_no_seed_in_a_conformal_ball(name: str) -> None:
     plan, _ = situation(name)
     assert_definition_2(plan)
 
 
 @pytest.mark.parametrize("name", SITUATIONS)
-def test_no_two_seeds_lie_closer_than_the_conflict_share(name: str) -> None:
+def test_no_two_seeds_in_conflict(name: str) -> None:
     plan, _ = situation(name)
     assert_no_two_seeds_closer_than_the_conflict_share(plan)
 
 
 @pytest.mark.parametrize("name", SITUATIONS)
-def test_every_chain_link_keeps_its_disk_clear(name: str) -> None:
+def test_chain_link_disks_are_clear(name: str) -> None:
     plan, domain = situation(name)
     assert_chain_links_are_clear(plan, domain)
 
@@ -429,7 +429,7 @@ POLYLINES = st.lists(POINTS, min_size=2, max_size=4, unique=True)
     faces=st.lists(POLYLINES, min_size=1, max_size=2),
     family=st.sampled_from(["geology", BARRIER_FAMILY]),
 )
-def test_random_lines_keep_the_invariants_of_a_plan(
+def test_random_lines_keep_the_invariants(
     river: list[tuple[float, float]] | None, faces: list[list[tuple[float, float]]], family: str
 ) -> None:
     for points in [*faces, *([river] if river else [])]:
@@ -444,12 +444,12 @@ def test_random_lines_keep_the_invariants_of_a_plan(
     assert_seeds_lie_in_the_domain(plan, DOMAIN)
 
 
-def test_protection_radius_is_the_local_size() -> None:
+def test_protection_radius() -> None:
     plan = crossing_plan()
     assert plan.seeds.radius == pytest.approx(np.full(plan.seeds.n, H))
 
 
-def test_a_crossing_puts_its_pair_in_the_chain_with_the_offset_computed_by_hand() -> None:
+def test_crossing_pair_and_offset() -> None:
     plan = crossing_plan()
     (chain,) = plan.chains
     mirror = np.flatnonzero(plan.seeds.role[chain.cell_ids] == SeedRole.MIRROR)
@@ -476,7 +476,7 @@ def test_a_crossing_puts_its_pair_in_the_chain_with_the_offset_computed_by_hand(
     assert_definition_2(plan)
 
 
-def test_thalwegs_closer_than_half_a_cell_share_their_cells() -> None:
+def test_close_thalwegs_share_cells() -> None:
     plan = plan_of(rivers(line((20.0, 150.0), (380.0, 150.0)), line((20.0, 158.0), (380.0, 158.0))))
     assert plan.family_stats["rivers"]["shared_cells"] > 0
     first, second = plan.chains
@@ -484,7 +484,7 @@ def test_thalwegs_closer_than_half_a_cell_share_their_cells() -> None:
     assert second.offset_m == pytest.approx(np.full(second.offset_m.size, 8.0))
 
 
-def test_a_thalweg_between_two_others_takes_the_cells_of_the_nearer() -> None:
+def test_thalweg_between_two_others() -> None:
     plan, _ = situation("a thalweg between two others ten metres apart")
     first, second, middle = plan.chains
     assert not set(first.cell_ids.tolist()) & set(second.cell_ids.tolist())
@@ -492,7 +492,7 @@ def test_a_thalweg_between_two_others_takes_the_cells_of_the_nearer() -> None:
     assert middle.offset_m == pytest.approx(np.full(middle.offset_m.size, 5.0))
 
 
-def test_of_three_close_thalwegs_the_later_ones_share_the_cells_of_the_first() -> None:
+def test_three_close_thalwegs() -> None:
     plan, _ = situation("three thalwegs four metres apart")
     first, second, third = plan.chains
     assert second.cell_ids.tolist() == first.cell_ids.tolist() == third.cell_ids.tolist()
@@ -500,7 +500,7 @@ def test_of_three_close_thalwegs_the_later_ones_share_the_cells_of_the_first() -
     assert third.offset_m == pytest.approx(np.full(third.offset_m.size, 8.0))
 
 
-def test_thalwegs_on_both_sides_of_a_slot_keep_their_own_cells() -> None:
+def test_thalwegs_on_both_sides_of_a_slot() -> None:
     plan, _ = situation("two thalwegs on both sides of a slot of the catchment")
     west, east = plan.chains
     assert plan.family_stats["rivers"]["shared_cells"] == 0.0
@@ -508,7 +508,7 @@ def test_thalwegs_on_both_sides_of_a_slot_keep_their_own_cells() -> None:
     assert np.all(plan.seeds.role[np.concatenate([west.cell_ids, east.cell_ids])] == SeedRole.CHAIN)
 
 
-def test_a_tributary_stub_within_half_a_cell_is_one_cell_of_the_main_river() -> None:
+def test_tributary_stub() -> None:
     plan, _ = situation("a tributary stub beside the main river")
     main, stub = plan.chains
     assert stub.cell_ids.size == 1
@@ -516,7 +516,7 @@ def test_a_tributary_stub_within_half_a_cell_is_one_cell_of_the_main_river() -> 
     assert plan.family_stats["rivers"]["shared_cells"] == 2.0
 
 
-def test_a_free_end_gets_a_tip_on_its_tangent() -> None:
+def test_free_end_tip() -> None:
     plan = plan_of(contact(line((100.0, 150.0), (300.0, 150.0))))
     tips = np.flatnonzero(plan.seeds.role == SeedRole.FREE_END)
     assert tips.size == 2
@@ -530,7 +530,7 @@ def test_a_free_end_gets_a_tip_on_its_tangent() -> None:
     assert_definition_2(plan)
 
 
-def test_a_contact_shorter_than_a_cell_is_one_pair_and_two_tips() -> None:
+def test_contact_shorter_than_a_cell() -> None:
     plan = plan_of(contact(line((100.0, 100.0), (110.0, 105.0))))
     stats = plan.family_stats["geology"]
     assert len(plan.faces.segment_nodes) == 1
@@ -539,7 +539,7 @@ def test_a_contact_shorter_than_a_cell_is_one_pair_and_two_tips() -> None:
     assert_definition_2(plan)
 
 
-def test_an_end_on_the_boundary_takes_two_ring_seeds_on_its_circle() -> None:
+def test_end_on_the_boundary() -> None:
     plan = plan_of(contact(line((200.0, 0.0), (200.0, 200.0))))
     assert plan.family_stats["geology"]["boundary_ends"] == 1.0
     ends = np.flatnonzero((plan.seeds.role == SeedRole.BOUNDARY) & (plan.seeds.vertex_id >= 0))
@@ -554,7 +554,7 @@ def test_an_end_on_the_boundary_takes_two_ring_seeds_on_its_circle() -> None:
     assert_definition_2(plan)
 
 
-def test_an_end_on_the_outer_ring_takes_its_seeds_there_and_none_on_a_hole() -> None:
+def test_end_on_the_outer_ring() -> None:
     hole = box(*at(250, 100), *at(330, 200))
     plan = plan_of(contact(line((100.0, 0.0), (120.0, 250.0))), domain=with_holes(hole))
     ends = np.flatnonzero((plan.seeds.role == SeedRole.BOUNDARY) & (plan.seeds.vertex_id >= 0))
@@ -563,7 +563,7 @@ def test_an_end_on_the_outer_ring_takes_its_seeds_there_and_none_on_a_hole() -> 
 
 
 @pytest.mark.parametrize("angle", [20.0, 25.0])
-def test_an_end_meeting_the_boundary_at_a_low_angle_is_declared(angle: float) -> None:
+def test_low_angle_end_on_the_boundary(angle: float) -> None:
     plan = plan_of(contact(line((100.0, 0.0), polar((100.0, 0.0), 250.0, angle))))
     stats = plan.family_stats["geology"]
     assert stats["boundary_ends"] == 0.0
@@ -571,7 +571,7 @@ def test_an_end_meeting_the_boundary_at_a_low_angle_is_declared(angle: float) ->
     assert_definition_2(plan)
 
 
-def test_two_ends_closer_than_their_circles_on_the_edge_leave_the_ring_to_the_first() -> None:
+def test_two_ends_on_the_edge() -> None:
     plan = plan_of(contact(line((200.0, 0.0), (150.0, 250.0)), line((210.0, 0.0), (300.0, 250.0))))
     stats = plan.family_stats["geology"]
     assert stats["boundary_ends"] == 1.0
@@ -579,7 +579,7 @@ def test_two_ends_closer_than_their_circles_on_the_edge_leave_the_ring_to_the_fi
     assert_definition_2(plan)
 
 
-def test_a_sharp_vertex_shares_one_seed_between_its_two_segments() -> None:
+def test_sharp_vertex_shares_a_seed() -> None:
     corner = (300.0, 100.0)
     plan = plan_of(contact(line((100.0, 100.0), corner, polar(corner, 200.0, 135.0))))
     faces = plan.faces
@@ -594,13 +594,13 @@ def test_a_sharp_vertex_shares_one_seed_between_its_two_segments() -> None:
     assert_definition_2(plan)
 
 
-def test_the_face_of_a_shared_pair_run_passes_the_gates() -> None:
+def test_shared_pair_run_passes_the_gates() -> None:
     families, options = SITUATIONS["a contact through the fine band of a river corridor"]()
     cell_mesh = VoronoiMeshEngine().build(request_of(*families, **options))
     assert cell_mesh.qa.families["geology"]["covered_length_rel"] == pytest.approx(1.0, abs=1e-9)
 
 
-def test_a_face_line_on_the_domain_boundary_is_left_to_the_boundary() -> None:
+def test_face_line_on_the_domain_boundary() -> None:
     plan = plan_of(
         LineFamilySpec(
             "watershed_boundary", "face", (LineString(DOMAIN.exterior.coords),), closed=True
@@ -611,7 +611,7 @@ def test_a_face_line_on_the_domain_boundary_is_left_to_the_boundary() -> None:
     assert any("watershed_boundary" in note for note in plan.notes)
 
 
-def test_a_contact_running_along_the_edge_leaves_that_stretch_to_the_boundary() -> None:
+def test_contact_along_the_edge() -> None:
     plan, _ = situation("a contact running along the catchment edge")
     (family,), _ = SITUATIONS["a contact running along the catchment edge"]()
     (resampled,) = request_of(family).lines[0].lines
@@ -628,7 +628,7 @@ def test_a_contact_running_along_the_edge_leaves_that_stretch_to_the_boundary() 
     assert any("geology" in note for note in plan.notes)
 
 
-def test_a_contact_ending_on_a_river_is_not_opened_and_its_end_yields() -> None:
+def test_contact_ending_on_a_river() -> None:
     plan = plan_of(rivers(line((20, 150), (380, 150))), contact(line((200, 150), (210, 280))))
     (chain,) = plan.chains
     assert plan.family_stats["rivers"]["crossings"] == 0.0
@@ -636,7 +636,7 @@ def test_a_contact_ending_on_a_river_is_not_opened_and_its_end_yields() -> None:
     assert np.all(plan.seeds.role[chain.cell_ids] == SeedRole.CHAIN)
 
 
-def test_a_river_touching_a_contact_without_crossing_it_is_not_opened() -> None:
+def test_river_touching_a_contact() -> None:
     plan = plan_of(
         rivers(line((20, 100), (200, 150), (380, 100))), contact(line((20, 150), (380, 150)))
     )
@@ -644,20 +644,20 @@ def test_a_river_touching_a_contact_without_crossing_it_is_not_opened() -> None:
     assert plan.family_stats["geology"]["yielded_segments"] > 0
 
 
-def test_a_crossing_closer_than_half_a_cell_to_the_edge_is_not_opened() -> None:
+def test_crossing_near_the_edge() -> None:
     plan = plan_of(rivers(line((5, 290), (5, 10))), contact(line((0, 150), (300, 150))))
     (chain,) = plan.chains
     assert plan.family_stats["rivers"]["crossings"] == 0.0
     assert np.all(plan.seeds.role[chain.cell_ids] == SeedRole.CHAIN)
 
 
-def test_a_contact_digitised_down_to_a_river_and_back_is_not_opened() -> None:
+def test_contact_digitised_to_a_river_and_back() -> None:
     plan, _ = situation("a contact digitised down to a river and back")
     assert plan.family_stats["rivers"]["crossings"] == 0.0
     assert plan.family_stats["geology"]["mirror_pairs"] == 0.0
 
 
-def test_a_crossing_absorbs_the_contact_vertices_within_its_reach() -> None:
+def test_crossing_absorbs_vertices() -> None:
     families = (rivers(line((20, 150), (380, 150))), contact(line((200, 98), (200, 202))))
     plan = plan_of(*families)
     (contact_line,) = request_of(*families).lines[1].lines
@@ -674,14 +674,14 @@ def test_a_crossing_absorbs_the_contact_vertices_within_its_reach() -> None:
     assert len(faces.vertices) < len(contact_line.coords)
 
 
-def test_of_two_contacts_crossing_a_river_half_a_cell_apart_only_the_first_is_opened() -> None:
+def test_two_contacts_across_a_river() -> None:
     plan, _ = situation("two contacts four metres apart across a river")
     (chain,) = plan.chains
     assert plan.family_stats["rivers"]["crossings"] == 1.0
     assert np.count_nonzero(plan.seeds.role[chain.cell_ids] == SeedRole.MIRROR) == 2
 
 
-def test_a_crossing_seed_given_to_a_close_thalweg_is_not_opened() -> None:
+def test_crossing_seed_of_a_close_thalweg() -> None:
     plan = plan_of(
         rivers(line((20, 150), (380, 150)), line((20, 156), (380, 156))),
         contact(line((200, 20), (200, 280))),
@@ -692,7 +692,7 @@ def test_a_crossing_seed_given_to_a_close_thalweg_is_not_opened() -> None:
     assert plan.family_stats["geology"]["yielded_segments"] > 0
 
 
-def test_a_crossing_next_to_a_confluence_leaves_the_confluence_to_both_rivers() -> None:
+def test_crossing_next_to_a_confluence() -> None:
     plan, _ = situation("a confluence two metres beside a contact")
     main, tributary = plan.chains
     assert plan.family_stats["rivers"]["crossings"] == 0.0
@@ -700,14 +700,14 @@ def test_a_crossing_next_to_a_confluence_leaves_the_confluence_to_both_rivers() 
     assert np.all(plan.seeds.role[main.cell_ids] == SeedRole.CHAIN)
 
 
-def test_a_river_crossing_near_its_source_keeps_its_own_seeds() -> None:
+def test_crossing_near_a_source() -> None:
     plan = plan_of(rivers(line((198, 150), (380, 150))), contact(line((200, 20), (200, 280))))
     (chain,) = plan.chains
     assert plan.family_stats["rivers"]["crossings"] == 0.0
     assert np.all(plan.seeds.role[chain.cell_ids] == SeedRole.CHAIN)
 
 
-def test_a_river_cutting_the_tip_of_a_lake_keeps_its_seeds_where_the_shore_merged() -> None:
+def test_river_cutting_a_lake_tip() -> None:
     plan, _ = situation("a river cutting the narrow tip of a lake")
     (chain,) = plan.chains
     stats = plan.family_stats["lakes"]
@@ -717,7 +717,7 @@ def test_a_river_cutting_the_tip_of_a_lake_keeps_its_seeds_where_the_shore_merge
     assert np.all(plan.seeds.role[chain.cell_ids] == SeedRole.CHAIN)
 
 
-def test_a_river_crossing_a_lake_runs_through_a_pair_of_the_shore_at_both_crossings() -> None:
+def test_river_crossing_a_lake() -> None:
     plan, _ = situation("a river crossing a lake twice")
     (chain,) = plan.chains
     lake = plan.family_names.index("lakes")
@@ -728,7 +728,7 @@ def test_a_river_crossing_a_lake_runs_through_a_pair_of_the_shore_at_both_crossi
     assert np.all(plan.seeds.family[mirror] == lake)
 
 
-def test_a_pond_smaller_than_a_cell_on_a_river_merges_and_leaves_the_river_alone() -> None:
+def test_pond_smaller_than_a_cell() -> None:
     plan, _ = situation("a pond smaller than a cell on a river")
     (chain,) = plan.chains
     assert plan.family_stats["rivers"]["crossings"] == 0.0
@@ -739,7 +739,7 @@ def test_a_pond_smaller_than_a_cell_on_a_river_merges_and_leaves_the_river_alone
     assert np.all(plan.seeds.role[chain.cell_ids] == SeedRole.CHAIN)
 
 
-def test_two_lakes_on_either_side_of_a_sill_share_its_faces() -> None:
+def test_two_lakes_share_a_sill() -> None:
     plan, _ = situation("two lakes on either side of a sill")
     faces = plan.faces
     pairs = [tuple(sorted(pair)) for pair in faces.segment_nodes.tolist()]
@@ -760,7 +760,7 @@ def test_two_lakes_on_either_side_of_a_sill_share_its_faces() -> None:
     assert plan.family_stats["lakes"]["conformal_length_share"] == 1.0
 
 
-def test_a_contact_following_a_barrier_shares_its_faces_along_its_course() -> None:
+def test_contact_following_a_barrier() -> None:
     plan = plan_of(
         barriers(line((100, 150), (300, 150))),
         contact(line((50, 50), (100, 150), (300, 150), (350, 250))),
@@ -774,7 +774,7 @@ def test_a_contact_following_a_barrier_shares_its_faces_along_its_course() -> No
     assert plan.family_stats["geology"]["conformal_length_share"] == 1.0
 
 
-def test_a_request_without_size_field_is_refused() -> None:
+def test_refusals() -> None:
     request = mesh_request(grid_over(DOMAIN, PIXEL), nominal_size_m=H)
     frame = local_frame(DOMAIN)
     field = uniform_size_field(request.grid, H)
@@ -782,7 +782,7 @@ def test_a_request_without_size_field_is_refused() -> None:
         place_constraints(request, frame, SizeSampler(field, frame))
 
 
-def test_a_contact_stopping_short_of_another_loses_its_tip_to_it() -> None:
+def test_contact_stopping_short_of_another() -> None:
     plan, _ = situation("a contact stopping eight metres short of another")
     faces = plan.faces
     long_line = faces.segment_line == faces.segment_line.min()
@@ -792,7 +792,7 @@ def test_a_contact_stopping_short_of_another_loses_its_tip_to_it() -> None:
     assert faces.segment_conformal[long_line].all()
 
 
-def test_a_crossing_wins_over_a_contact_pair_in_the_ball_of_its_segment() -> None:
+def test_crossing_wins_over_a_contact_pair() -> None:
     plan, _ = situation("a crossing beside a barrier")
     stats = plan.family_stats
     assert stats["rivers"]["crossings"] == 2.0
@@ -800,13 +800,13 @@ def test_a_crossing_wins_over_a_contact_pair_in_the_ball_of_its_segment() -> Non
     assert stats["geology"]["yielded_segments"] > 0
 
 
-def test_a_fault_meeting_a_contact_just_above_a_river_yields_to_both() -> None:
+def test_fault_meeting_a_contact_above_a_river() -> None:
     plan, _ = situation("a contact junction thirty centimetres above a river")
     assert plan.family_stats["faults"]["mirror_pairs"] == 0.0
     assert plan.family_stats["geology"]["conformal_length_share"] == 1.0
 
 
-def test_a_barrier_on_a_lake_ring_leaves_the_stretch_to_it_and_shares_its_faces() -> None:
+def test_barrier_on_a_lake_ring() -> None:
     field = uniform_size_field(grid_over(DOMAIN, PIXEL), H)
     shore = (
         resample_families(
@@ -835,7 +835,7 @@ def test_a_barrier_on_a_lake_ring_leaves_the_stretch_to_it_and_shares_its_faces(
 
 
 @pytest.mark.parametrize("angle", [90.0, 30.0, 15.0])
-def test_a_river_crosses_a_barrier_once_between_two_chain_cells(
+def test_river_crosses_barrier_once(
     angle: float, reservoir_request: Callable[..., MeshRequest]
 ) -> None:
     centre = np.array(reservoir_dam.DOMAIN.centroid.coords[0])
@@ -869,21 +869,3 @@ def test_a_river_crosses_a_barrier_once_between_two_chain_cells(
     assert shapely.distance(shapely.points(nodes), barrier).max() < 1.0e-3
     assert qa[BARRIER_FAMILY]["yielded_segments"] == 0.0
     assert qa[BARRIER_FAMILY]["merged_circles"] == 0.0
-
-
-SHORE_LAKE = box(X0 + 300.0, Y0 + 300.0, X0 + 900.0, Y0 + 600.0)
-SHORE_RIVER = LineString(
-    [(X0 + 400.0, Y0 + 100.0), (X0 + 420.0, Y0 + 290.0), (X0 + 780.0, Y0 + 290.0)]
-)
-
-
-@functools.cache
-def shore_beside_a_river() -> PlanarCellMesh:
-    """A lake shore with a river running ten meters from it, meshed at 40 m (fix of 2026-10-20)."""
-    return voronoi_lake_mesh(
-        shapely.normalize(SHORE_LAKE),
-        domain=box(X0, Y0, X0 + 1200.0, Y0 + 900.0),
-        pixel=10.0,
-        cell_size=40.0,
-        rivers=(SHORE_RIVER,),
-    )

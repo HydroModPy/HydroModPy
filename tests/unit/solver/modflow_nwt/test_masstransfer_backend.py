@@ -1,3 +1,9 @@
+"""Mass routed downslope and accumulated by the Masstransfer step, on rasters with a fake backend.
+
+The loading raster keeps the positive seepage, the helper rasters carry efficiency 1 and
+absorption 0, and the backend traces the flow paths from the seepage points.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -88,18 +94,19 @@ class _FakeDelineation:
         gdf.to_file(output_shp)
 
 
-def test_masstransfer_trace_cumulated_uses_backend_and_writes_intermediates(tmp_path: Path) -> None:
-    backend = _FakeWhiteboxBackend()
+def routing_rasters(tmp_path: Path, fill: np.ndarray, direc: np.ndarray):
+    """The filled DEM (m) and the D8 directions the Masstransfer step routes on."""
     geographic = SimpleNamespace(
         watershed_box_buff_fill=str(tmp_path / "routing_fill.tif"),
         watershed_box_buff_direc=str(tmp_path / "routing_direc.tif"),
     )
-    fill = np.array([[1.0, 2.0], [3.0, -9999.0]], dtype=np.float32)
-    direc = np.array([[1, 1], [1, -32768]], dtype=np.int16)
     _write_raster(Path(geographic.watershed_box_buff_fill), fill)
     _write_raster(Path(geographic.watershed_box_buff_direc), direc, nodata=-32768)
+    return geographic
 
-    model = Masstransfer(
+
+def masstransfer_of(geographic, tmp_path: Path, backend) -> Masstransfer:
+    return Masstransfer(
         geographic,
         "mass_seepage_t(1).tif",
         "tracept_conc_t(1).shp",
@@ -108,55 +115,51 @@ def test_masstransfer_trace_cumulated_uses_backend_and_writes_intermediates(tmp_
         backend=backend,
     )
 
+
+def read_raster(path: str) -> np.ndarray:
+    with rasterio.open(path) as src:
+        return src.read(1)
+
+
+def test_trace_cumulated(tmp_path: Path) -> None:
+    backend = _FakeWhiteboxBackend()
+    fill = np.array([[1.0, 2.0], [3.0, -9999.0]], dtype=np.float32)
+    direc = np.array([[1, 1], [1, -32768]], dtype=np.int16)
+    geographic = routing_rasters(tmp_path, fill, direc)
+    model = masstransfer_of(geographic, tmp_path, backend)
     raw = np.array([[5.0, -2.0], [7.0, -9999.0]], dtype=np.float32)
     _write_raster(Path(model.raw_rast_path), raw)
 
     model.trace_cumulated()
 
-    assert len(backend.mass_flux_calls) == 1
-    call = backend.mass_flux_calls[0]
-    assert call["dem"] == geographic.watershed_box_buff_fill
-    assert call["loading"] == model.load_rast_path
-    assert call["efficiency"] == model.eff_rast_path
-    assert call["absorption"] == model.abs_rast_path
-    assert call["output"] == model.mass_rast_path
-
-    with rasterio.open(model.load_rast_path) as src:
-        load = src.read(1)
-    with rasterio.open(model.eff_rast_path) as src:
-        eff = src.read(1)
-    with rasterio.open(model.abs_rast_path) as src:
-        abs_arr = src.read(1)
-    with rasterio.open(model.mass_rast_path) as src:
-        mass = src.read(1)
-
+    (call,) = backend.mass_flux_calls
+    assert call == {
+        "dem": geographic.watershed_box_buff_fill,
+        "loading": model.load_rast_path,
+        "efficiency": model.eff_rast_path,
+        "absorption": model.abs_rast_path,
+        "output": model.mass_rast_path,
+    }
+    # Only the positive seepage loads the flow paths.
+    load = read_raster(model.load_rast_path)
     np.testing.assert_array_equal(load, np.array([[5.0, 0.0], [7.0, 0.0]], dtype=np.float32))
-    np.testing.assert_array_equal(eff, np.array([[1.0, 1.0], [1.0, -9999.0]], dtype=np.float32))
-    np.testing.assert_array_equal(abs_arr, np.array([[0.0, 0.0], [0.0, -9999.0]], dtype=np.float32))
-    np.testing.assert_array_equal(mass, load + 10)
+    np.testing.assert_array_equal(
+        read_raster(model.eff_rast_path),
+        np.array([[1.0, 1.0], [1.0, -9999.0]], dtype=np.float32),
+    )
+    np.testing.assert_array_equal(
+        read_raster(model.abs_rast_path),
+        np.array([[0.0, 0.0], [0.0, -9999.0]], dtype=np.float32),
+    )
+    np.testing.assert_array_equal(read_raster(model.mass_rast_path), load + 10)
 
 
-def test_masstransfer_trace_downslope_uses_backend_chain(tmp_path: Path) -> None:
+def test_trace_downslope(tmp_path: Path) -> None:
     backend = _FakeWhiteboxBackend()
-    geographic = SimpleNamespace(
-        watershed_box_buff_fill=str(tmp_path / "routing_fill.tif"),
-        watershed_box_buff_direc=str(tmp_path / "routing_direc.tif"),
+    geographic = routing_rasters(
+        tmp_path, np.ones((2, 2), dtype=np.float32), np.ones((2, 2), dtype=np.int16)
     )
-    _write_raster(Path(geographic.watershed_box_buff_fill), np.ones((2, 2), dtype=np.float32))
-    _write_raster(
-        Path(geographic.watershed_box_buff_direc),
-        np.ones((2, 2), dtype=np.int16),
-        nodata=-32768,
-    )
-
-    model = Masstransfer(
-        geographic,
-        "mass_seepage_t(1).tif",
-        "tracept_conc_t(1).shp",
-        "mass_accumulated_t(1).tif",
-        extraction_folder=str(tmp_path / "postprocess"),
-        backend=backend,
-    )
+    model = masstransfer_of(geographic, tmp_path, backend)
     _write_raster(Path(model.raw_rast_path), np.array([[1.0, 0.0], [0.0, 0.0]], dtype=np.float32))
 
     model.trace_downslope()
@@ -168,6 +171,5 @@ def test_masstransfer_trace_downslope_uses_backend_chain(tmp_path: Path) -> None
     assert backend.trace_calls == [
         (model.raw_pt_path, geographic.watershed_box_buff_direc, model.out_rast_path)
     ]
-    assert Path(model.raw_pt_path).exists()
-    assert Path(model.out_rast_path).exists()
-    assert Path(model.out_pt_path).exists()
+    for path in (model.raw_pt_path, model.out_rast_path, model.out_pt_path):
+        assert Path(path).exists()

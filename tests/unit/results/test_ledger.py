@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import ast
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.results.ledger import Ledger, LedgerEntry, ledger_path
+import hydromodpy.results.ledger as ledger_module
+from hydromodpy.core.exceptions import WriteConflictError
+from hydromodpy.core.io.lock_file import LockFile
+from hydromodpy.results.ledger import Ledger, LedgerEntry, ledger_path, record_derived_file
 from tests._helpers.run_records import make_identity
 
 NOW = datetime(2026, 10, 15, 9, 0, tzinfo=UTC)
@@ -29,7 +33,7 @@ def _entry(file: str, **overrides) -> LedgerEntry:
     return LedgerEntry(**payload)
 
 
-def test_append_replaces_the_entry_of_the_same_file(tmp_path):
+def test_append_replaces_same_file(tmp_path):
     ledger = Ledger.read(tmp_path)
     ledger.append(_entry("heads.png", sha256="aa" * 32))
     ledger.append(_entry("heads.png", sha256="bb" * 32))
@@ -42,23 +46,18 @@ def test_append_replaces_the_entry_of_the_same_file(tmp_path):
     assert back.entry_for("missing.png") is None
 
 
-def test_a_file_outside_the_directory_is_refused():
+@pytest.mark.parametrize("file", ["/tmp/heads.png", "../heads.png"], ids=["absolute", "parent"])
+def test_file_outside_the_directory(file):
     with pytest.raises(ValidationError, match="inside its directory"):
-        _entry("/tmp/heads.png")
-    with pytest.raises(ValidationError, match="inside its directory"):
-        _entry("../heads.png")
+        _entry(file)
 
 
-def test_two_entries_for_one_file_are_refused():
+def test_two_entries_for_one_file():
     with pytest.raises(ValidationError, match="each file once"):
         Ledger(entries=[_entry("heads.png"), _entry("heads.png")])
 
 
-def test_concurrent_records_of_derived_files_all_survive(tmp_path):
-    from concurrent.futures import ThreadPoolExecutor
-
-    from hydromodpy.results.ledger import record_derived_file
-
+def test_concurrent_records_survive(tmp_path):
     files = []
     for index in range(8):
         path = tmp_path / f"f{index}.csv"
@@ -76,11 +75,7 @@ def test_concurrent_records_of_derived_files_all_survive(tmp_path):
     assert len(Ledger.read(tmp_path).entries) == 8
 
 
-def test_a_record_whose_lock_was_taken_back_writes_nothing(tmp_path, monkeypatch):
-    from hydromodpy.core.exceptions import WriteConflictError
-    from hydromodpy.core.io.lock_file import LockFile
-    from hydromodpy.results.ledger import record_derived_file
-
+def test_lock_taken_back_writes_nothing(tmp_path, monkeypatch):
     path = tmp_path / "f.csv"
     path.write_text("x")
     monkeypatch.setattr(LockFile, "still_held", lambda self: False)
@@ -93,9 +88,7 @@ def test_a_record_whose_lock_was_taken_back_writes_nothing(tmp_path, monkeypatch
     assert not ledger_path(tmp_path).exists()
 
 
-def test_the_ledger_module_does_not_use_fcntl():
-    import hydromodpy.results.ledger as ledger_module
-
+def test_no_fcntl():
     tree = ast.parse(Path(ledger_module.__file__).read_text(encoding="utf-8"))
     imported = set()
     for node in ast.walk(tree):

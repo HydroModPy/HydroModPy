@@ -1,4 +1,10 @@
-"""The data step: structural updates, the soil binder, the SFR network."""
+"""The data step binds loaded data to the model: structural updates, soil forcings, SFR network.
+
+In soil mode the binder feeds MODFLOW from the soil reservoir (recharge and unmet ETP in
+mm/day, runoff to the SFR and lake binders), and a run that cannot start from a full soil
+is refused. The SFR binder delineates reaches once, caches them on the setup and attaches
+them to the flow. Dates are daily and lengths are in m.
+"""
 
 from __future__ import annotations
 
@@ -56,30 +62,24 @@ from tests.unit.workflow.steps._helpers import (
     write_watershed,
 )
 
-# --- test_a_soil_run_refuses_a_one_period_steady_start_at_run_time ---
-# A phase override that reopens a soil run on a steady first period is caught.
-#
-# ``steady_start_refusal`` is checked at load time (config layer), but a
-# calibration phase can flip ``flow.first_period_steady`` or the time window
-# after loading (``calibration/runners/phase_regime.py``). The binder repeats the
-# same guard, with the same text, so a soil run started from a drained aquifer
-# is refused at run time too, before ``compute_soil_forcings`` ever runs.
 
-
-def _window() -> ResolvedSimulationTimeWindow:
+def window(end: str) -> ResolvedSimulationTimeWindow:
     return ResolvedSimulationTimeWindow(
         start=pd.Timestamp("2015-01-01"),
-        end=pd.Timestamp("2015-01-02"),
+        end=pd.Timestamp(end),
         step_value=1,
         step_unit="day",
         coverage_policy="ignore",
     )
 
 
-def _steady_start_state(*, with_soil: bool, first_period_steady: bool) -> SimpleNamespace:
-    soil = SoilReservoirConfig(ru=150.0) if with_soil else None
+# The binder repeats at run time the two guards of the config layer, with the same text,
+# because a calibration phase can flip first_period_steady or shorten the time window
+# after loading. A soil run started from a drained aquifer, or on a window under a year
+# with the first year repeated, is refused before compute_soil_forcings runs.
+def soil_state(end: str, *, first_period_steady: bool) -> SimpleNamespace:
     flow_cfg = SimpleNamespace(
-        sinks_sources=SimpleNamespace(recharge=SimpleNamespace(soil=soil)),
+        sinks_sources=SimpleNamespace(recharge=SimpleNamespace(soil=SoilReservoirConfig(ru=150.0))),
         flow_regime="transient",
         first_period_steady=first_period_steady,
     )
@@ -87,7 +87,7 @@ def _steady_start_state(*, with_soil: bool, first_period_steady: bool) -> Simple
         flow=SimpleNamespace(active_bc=[], sinks_sources={}),
         domain=object(),
         geographic=SimpleNamespace(crs_proj="EPSG:2154", catch_area=10.0),
-        time_grid=SimpleNamespace(window=_window()),
+        time_grid=SimpleNamespace(window=window(end)),
     )
     return SimpleNamespace(
         setup=setup,
@@ -96,34 +96,24 @@ def _steady_start_state(*, with_soil: bool, first_period_steady: bool) -> Simple
     )
 
 
-def test_the_binder_refuses_a_transient_one_period_steady_start(monkeypatch) -> None:
-    run_state = _steady_start_state(with_soil=True, first_period_steady=True)
+def test_binder_refuses_a_steady_start(monkeypatch) -> None:
+    run_state = soil_state("2015-01-02", first_period_steady=True)
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.data.compute_soil_forcings",
         lambda **kwargs: pytest.fail("compute_soil_forcings must not run after a refusal"),
     )
-    expected = steady_start_refusal(run_state.cfg.flow, _window())
+    expected = steady_start_refusal(run_state.cfg.flow, window("2015-01-02"))
     assert expected is not None
 
     with pytest.raises(ConfigError, match=r"drained aquifer"):
         apply_structural_updates_from_data(run_state)
 
 
-# --- test_the_native_forcing_reads_a_catchment_polygon_on_a_lumped_mesh_only ---
-# A spatialized source is averaged over the one cell of a lumped mesh, so the
-# binder hands the forcing a unified catchment polygon only there.
-#
-# ``catchment_outline`` is the GeoDataFrame the delineated catchment returns,
-# in the frame of its shapefile. The native forcing reads a single shapely
-# geometry in the frame of the model, and none at all under a mesh engine that
-# marks no ``lumped``, which is what keeps the meshed backends on the period
-# view and no existing run moving a number.
+# A spatialized source is averaged over the one cell of a lumped mesh, so the binder
+# gives the forcing a catchment polygon (in the CRS of the model) only there.
 
 
-def test_the_binder_hands_native_forcing_a_polygon_only_on_a_lumped_mesh(
-    monkeypatch, tmp_path: Path
-) -> None:
-    """Recharge carries the unified catchment polygon under a lumped engine alone."""
+def test_polygon_only_on_a_lumped_mesh(monkeypatch, tmp_path: Path) -> None:
     watershed = write_watershed(tmp_path / "watershed.shp")
     calls: dict[str, dict] = {}
     _patch_capture(monkeypatch, calls)
@@ -131,7 +121,7 @@ def test_the_binder_hands_native_forcing_a_polygon_only_on_a_lumped_mesh(
         flow=SimpleNamespace(active_bc=[], sinks_sources={}),
         domain=object(),
         geographic=SimpleNamespace(crs_proj="EPSG:2154", watershed_shp=str(watershed)),
-        time_grid=SimpleNamespace(window=_binder_window()),
+        time_grid=SimpleNamespace(window=window("2015-01-03")),
     )
     for engine, expected in (("catchment", True), ("regular", False)):
         run_state = SimpleNamespace(
@@ -142,7 +132,7 @@ def test_the_binder_hands_native_forcing_a_polygon_only_on_a_lumped_mesh(
             ),
         )
 
-        data_step._bind_soil_recharge_etp(run_state, _binder_window())
+        data_step._bind_soil_recharge_etp(run_state, window("2015-01-03"))
 
         polygon = calls["recharge"]["cell_polygon"]
         if expected:
@@ -152,49 +142,8 @@ def test_the_binder_hands_native_forcing_a_polygon_only_on_a_lumped_mesh(
             assert polygon is None
 
 
-# --- test_a_soil_run_refuses_a_spinup_shorter_than_a_year_at_run_time ---
-# A phase override that shortens the window below a year is caught.
-#
-# ``spinup_refusal`` is checked at load time (config layer), but a calibration
-# phase can shorten ``[simulation.time]`` after loading
-# (``calibration/runners/phase_regime.py``, ``regime_overrides``). The binder
-# repeats the same guard, with the same text, so a run that repeats the first
-# year on a window under 365 days is refused at run time too, before
-# ``compute_soil_forcings`` ever runs.
-
-
-def _short_window() -> ResolvedSimulationTimeWindow:
-    return ResolvedSimulationTimeWindow(
-        start=pd.Timestamp("2015-01-01"),
-        end=pd.Timestamp("2015-01-10"),
-        step_value=1,
-        step_unit="day",
-        coverage_policy="ignore",
-    )
-
-
-def _spinup_state(*, with_soil: bool) -> SimpleNamespace:
-    soil = SoilReservoirConfig(ru=150.0) if with_soil else None
-    flow_cfg = SimpleNamespace(
-        sinks_sources=SimpleNamespace(recharge=SimpleNamespace(soil=soil)),
-        flow_regime="transient",
-        first_period_steady=False,
-    )
-    setup = SetupContext(
-        flow=SimpleNamespace(active_bc=[], sinks_sources={}),
-        domain=object(),
-        geographic=SimpleNamespace(crs_proj="EPSG:2154", catch_area=10.0),
-        time_grid=SimpleNamespace(window=_short_window()),
-    )
-    return SimpleNamespace(
-        setup=setup,
-        loaded_data=LoadedDataContext(precipitation=object(), etp=object()),
-        cfg=SimpleNamespace(flow=flow_cfg),
-    )
-
-
-def test_the_binder_refuses_a_spinup_shorter_than_a_year(monkeypatch) -> None:
-    run_state = _spinup_state(with_soil=True)
+def test_binder_refuses_a_short_spinup(monkeypatch) -> None:
+    run_state = soil_state("2015-01-10", first_period_steady=False)
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.data.compute_soil_forcings",
         lambda **kwargs: pytest.fail("compute_soil_forcings must not run after a refusal"),
@@ -206,27 +155,9 @@ def test_the_binder_refuses_a_spinup_shorter_than_a_year(monkeypatch) -> None:
         apply_structural_updates_from_data(run_state)
 
 
-# --- test_the_binder_sends_the_soil_recharge_etp_and_runoff ---
-# In soil mode the binder feeds MODFLOW from the soil reservoir, not the loader.
-#
-# ``apply_structural_updates_from_data`` reads ``[flow.sinks_sources.recharge.soil]``
-# from ``run_state.cfg.flow``, calls ``compute_soil_forcings`` once, and sends its
-# outputs everywhere the loaded data would otherwise have gone: recharge, the ETP
-# the soil left unmet (marked ``from_soil_reservoir``), and the runoff (to both the
-# SFR binder and the lake meteo binder). The lake still receives the raw
-# precipitation and ETP for its own surface. Outside soil mode nothing changes and
-# ``setup.soil_forcings`` stays ``None``.
-
-
-def _binder_window() -> ResolvedSimulationTimeWindow:
-    return ResolvedSimulationTimeWindow(
-        start=pd.Timestamp("2015-01-01"),
-        end=pd.Timestamp("2015-01-03"),
-        step_value=1,
-        step_unit="day",
-        coverage_policy="ignore",
-    )
-
+# In soil mode the binder feeds MODFLOW from the soil reservoir, not the loader. The ETP
+# the soil left unmet is marked from_soil_reservoir. Outside soil mode nothing changes
+# and setup.soil_forcings stays None.
 
 _SOIL_RECHARGE = object()
 
@@ -252,28 +183,6 @@ def _flow_cfg(*, with_soil: bool) -> SimpleNamespace:
         flow_regime="transient",
         first_period_steady=False,
     )
-
-
-def _binder_state(*, with_soil: bool) -> tuple[SimpleNamespace, dict[str, dict]]:
-    calls: dict[str, dict] = {}
-    setup = SetupContext(
-        flow=SimpleNamespace(active_bc=[], sinks_sources={}),
-        domain=object(),
-        geographic=SimpleNamespace(crs_proj="EPSG:2154", catch_area=10.0),
-        time_grid=SimpleNamespace(window=_binder_window()),
-    )
-    loaded_data = LoadedDataContext(
-        precipitation=object(),
-        etp=object(),
-        runoff=object(),
-        recharge=object(),
-    )
-    run_state = SimpleNamespace(
-        setup=setup,
-        loaded_data=loaded_data,
-        cfg=SimpleNamespace(flow=_flow_cfg(with_soil=with_soil)),
-    )
-    return run_state, calls
 
 
 def _patch_capture(monkeypatch, calls: dict[str, dict]) -> None:
@@ -314,14 +223,8 @@ def _patch_capture(monkeypatch, calls: dict[str, dict]) -> None:
     )
 
 
-# --- test_the_soil_budget_is_printed_once_by_the_data_step ---
-# The soil water budget prints once per ``step_data_loading``, never from the binder alone.
-#
-# ``step_data_loading`` prints the block after the binder has run, through
-# ``progress.after_phase`` so it lands after the phase's own checkmark. The
-# binder itself (``apply_structural_updates_from_data``) only computes and
-# stores ``setup.soil_forcings``; it never prints. A lightweight context (a
-# calibration trial replaying ``load_data``) stays silent either way.
+# The soil water budget prints once per step_data_loading, after the binder has run,
+# never from the binder alone. A lightweight context stays silent either way.
 
 
 def _printed_soil_forcings() -> SimpleNamespace:
@@ -339,7 +242,7 @@ def _printed_state(*, lightweight: bool, with_soil: bool) -> SimpleNamespace:
         flow=SimpleNamespace(active_bc=[], sinks_sources={}),
         domain=object(),
         geographic=SimpleNamespace(crs_proj="EPSG:2154", catch_area=10.0),
-        time_grid=SimpleNamespace(window=_window()),
+        time_grid=SimpleNamespace(window=window("2015-01-02")),
     )
     return SimpleNamespace(
         setup=setup,
@@ -374,7 +277,7 @@ def _patch_binder_internals(monkeypatch) -> None:
     monkeypatch.setattr(data_step, "soil_budget_lines", lambda soil, **kwargs: ("line",))
 
 
-def test_step_data_loading_prints_the_soil_budget_exactly_once(monkeypatch) -> None:
+def test_soil_budget_printed_once(monkeypatch) -> None:
     run_state = _printed_state(lightweight=False, with_soil=True)
     _patch_binder_internals(monkeypatch)
     fake_loader = SimpleNamespace(load_all=lambda run_state: None)
@@ -387,7 +290,7 @@ def test_step_data_loading_prints_the_soil_budget_exactly_once(monkeypatch) -> N
     assert calls == [("line",)]
 
 
-def test_the_binder_alone_never_prints_the_soil_budget(monkeypatch) -> None:
+def test_binder_alone_prints_nothing(monkeypatch) -> None:
     run_state = _printed_state(lightweight=False, with_soil=True)
     _patch_binder_internals(monkeypatch)
     calls: list[tuple[str, ...]] = []
@@ -399,9 +302,7 @@ def test_the_binder_alone_never_prints_the_soil_budget(monkeypatch) -> None:
     assert run_state.setup.soil_forcings is not None
 
 
-# --- test_sfr_network_binding ---
 # Runtime SFR binding: delineate once, cache on setup, attach onto the flow.
-
 _RES = 10.0
 
 
@@ -485,7 +386,7 @@ def _sfr_state(tmp_path: Path, network: FlowReachNetworkConfig, **geo_kwargs) ->
     )
 
 
-def test_bind_sfr_network_traces_attaches_and_caches(tmp_path: Path) -> None:
+def test_sfr_traces_attach_and_cache(tmp_path: Path) -> None:
     run_state = _sfr_state(tmp_path, _network_config())
     bind_sfr_network_traces(run_state)
 
@@ -500,14 +401,14 @@ def test_bind_sfr_network_traces_attaches_and_caches(tmp_path: Path) -> None:
     assert payload["outflow_to_lake"] == 1
 
 
-def test_bind_sfr_network_traces_requires_link_raster(tmp_path: Path) -> None:
+def test_sfr_traces_need_the_link_raster(tmp_path: Path) -> None:
     run_state = _sfr_state(tmp_path, _network_config())
     run_state.setup.geographic._river_network_products.stream_link_id_full_tif = None
     with pytest.raises(ConfigError, match="compute_stream_links"):
         bind_sfr_network_traces(run_state)
 
 
-def test_apply_sfr_network_to_flow_skips_explicit_reach_tables(tmp_path: Path) -> None:
+def test_explicit_reach_tables_are_skipped(tmp_path: Path) -> None:
     network = _network_config()
     flow = _flow_double(network)
     flow.sinks_sources["sfr"]["explicit"] = {"reaches": [object()], "outflow_to_lake": None}
@@ -520,13 +421,13 @@ def test_apply_sfr_network_to_flow_skips_explicit_reach_tables(tmp_path: Path) -
     assert "reach_trace" not in payloads["explicit"]
 
 
-def test_apply_sfr_network_to_flow_without_traces_is_noop() -> None:
+def test_no_traces_is_a_noop() -> None:
     flow = _flow_double(_network_config())
     assert apply_sfr_network_to_flow(flow=flow, reach_traces=None) is False
     assert apply_sfr_network_to_flow(flow=flow, reach_traces={}) is False
 
 
-def test_bind_sfr_network_traces_reads_the_bed_on_the_model_top(tmp_path: Path) -> None:
+def test_reach_bed_is_read_on_the_model_top(tmp_path: Path) -> None:
     # The geographic double trenches its routing surface by 10 m. Binding must
     # ignore it: a reach top read there would come out one trench depth low.
     run_state = _sfr_state(tmp_path, _network_config())
@@ -536,14 +437,14 @@ def test_bind_sfr_network_traces_reads_the_bed_on_the_model_top(tmp_path: Path) 
     assert min(tops) > 0.0
 
 
-def test_bind_sfr_network_traces_names_a_missing_model_top(tmp_path: Path) -> None:
+def test_missing_model_top_is_named(tmp_path: Path) -> None:
     run_state = _sfr_state(tmp_path, _network_config())
     run_state.setup.geographic._top_dem_path = None
     with pytest.raises(ConfigError, match="model-top DEM"):
         bind_sfr_network_traces(run_state)
 
 
-def test_apply_structural_updates_from_data_attaches_reference_network(
+def test_reference_network_is_attached(
     tmp_path: Path,
     monkeypatch,
 ):
@@ -608,9 +509,8 @@ def test_apply_structural_updates_from_data_attaches_reference_network(
     )
 
 
-# --- test_the_flow_and_its_model_follow_the_configuration ---
-# ``ensure_flow`` builds the flow of the configuration once. A flow built from
-# another configuration is rebuilt, and the model frozen from it goes with it.
+# ensure_flow builds the flow of the configuration once. A flow built from another
+# configuration is rebuilt, and the model frozen from it goes with it.
 
 
 def _flow_state(config, *, flow=None, model=None) -> SimpleNamespace:
@@ -628,9 +528,7 @@ def _flow_state(config, *, flow=None, model=None) -> SimpleNamespace:
         pytest.param(True, False, id="the same configuration"),
     ],
 )
-def test_a_stale_flow_is_rebuilt_and_takes_its_model_with_it(
-    same_configuration: bool, rebuilt: bool
-) -> None:
+def test_stale_flow_is_rebuilt_with_its_model(same_configuration: bool, rebuilt: bool) -> None:
     from hydromodpy.model.flow import Flow
     from hydromodpy.model.flow_config import FlowConfig
 
@@ -644,10 +542,8 @@ def test_a_stale_flow_is_rebuilt_and_takes_its_model_with_it(
     assert (state.setup.model is None) is rebuilt
 
 
-# --- test_a_fork_reuses_the_soil_without_recomputing ---
-# The data step computes the soil once and a fork that leaves the soil
-# parameters alone reuses the prepared SoilForcings in memory, without running
-# the kernel or hashing its grids again.
+# The soil is computed once. A fork that leaves the soil parameters alone reuses the
+# prepared SoilForcings in memory, without running the kernel or hashing its grids again.
 
 _SOIL_PRODUCT_CRS = "EPSG:2154"
 
@@ -724,7 +620,7 @@ def _soil_forcing_results():
     )
 
 
-def test_a_fork_reuses_the_soil_without_recomputing():
+def test_fork_reuses_the_soil():
     days, precip, etp = _soil_forcing_results()
     parent = _soil_ctx(SoilReservoirConfig(ru=150.0, spinup="none"), precipitation=precip, etp=etp)
     with (
@@ -757,7 +653,7 @@ def test_a_fork_reuses_the_soil_without_recomputing():
     assert reused is soil
 
 
-def test_a_reload_of_the_precipitation_computes_a_new_soil():
+def test_new_precipitation_gives_a_new_soil():
     days, precip, etp = _soil_forcing_results()
     ctx = _soil_ctx(SoilReservoirConfig(ru=150.0, spinup="none"), precipitation=precip, etp=etp)
     with (
@@ -781,7 +677,7 @@ def test_a_reload_of_the_precipitation_computes_a_new_soil():
     assert ctx.setup.products["soil"] != first_key
 
 
-def test_a_ru_change_computes_in_memory_and_writes_nothing(tmp_path):
+def test_ru_change_computes_in_memory(tmp_path):
     days, precip, etp = _soil_forcing_results()
     parent = _soil_ctx(SoilReservoirConfig(ru=150.0, spinup="none"), precipitation=precip, etp=etp)
     with (

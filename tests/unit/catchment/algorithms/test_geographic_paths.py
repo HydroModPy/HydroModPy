@@ -6,7 +6,7 @@ from hydromodpy.catchment.algorithms.geographic_paths import build_geographic_pa
 from hydromodpy.core.state.scratch import preprocessing_dir
 
 
-def test_the_tree_sits_in_the_declared_stable_folder_or_in_the_preprocessing_one(tmp_path) -> None:
+def test_stable_folder(tmp_path) -> None:
     declared = build_geographic_paths(tmp_path / "out", stable_folder=tmp_path / "stable")
     default = build_geographic_paths(tmp_path / "out")
     assert Path(declared.stable_folder) == tmp_path / "stable"

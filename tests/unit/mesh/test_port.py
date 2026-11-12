@@ -28,43 +28,43 @@ class _ConformingEngine:
         raise NotImplementedError
 
 
-def test_a_conforming_class_satisfies_the_protocol() -> None:
+def test_conforming_class():
     assert isinstance(_ConformingEngine(), MeshEngine)
     assert port.missing_engine_members(_ConformingEngine()) == ()
     assert port.missing_engine_members(object()) == port.engine_members()
 
 
-@pytest.mark.parametrize(
-    ("members", "message"),
-    [
-        ({"cell_types": (CellType.WEDGE,)}, "cell_types must be a non-empty subset"),
-        ({"cell_types": ()}, "cell_types must be a non-empty subset"),
-        ({"cell_families": "snapped"}, "cell_families must be one of"),
-        ({"structured": "yes"}, "MeshEngineCapabilities.structured must be a bool"),
-        ({"needs_cache": 1}, "MeshEngineCapabilities.needs_cache must be a bool"),
-        ({"lumped": "no"}, "MeshEngineCapabilities.lumped must be a bool"),
-    ],
-    ids=[
-        "volume_cell",
-        "no_cell_type",
-        "unknown_family_rule",
-        "text_flag",
-        "integer_flag",
-        "text_lumped",
-    ],
-)
-def test_capabilities_refuse_what_a_planar_engine_cannot_declare(
-    members: dict[str, object], message: str
-) -> None:
+CAPABILITY_REFUSALS = [
+    pytest.param(
+        {"cell_types": (CellType.WEDGE,)}, "cell_types must be a non-empty subset", id="volume cell"
+    ),
+    pytest.param({"cell_types": ()}, "cell_types must be a non-empty subset", id="no cell type"),
+    pytest.param(
+        {"cell_families": "snapped"}, "cell_families must be one of", id="unknown family rule"
+    ),
+    pytest.param(
+        {"structured": "yes"}, "MeshEngineCapabilities.structured must be a bool", id="text flag"
+    ),
+    pytest.param(
+        {"needs_cache": 1}, "MeshEngineCapabilities.needs_cache must be a bool", id="integer flag"
+    ),
+    pytest.param(
+        {"lumped": "no"}, "MeshEngineCapabilities.lumped must be a bool", id="text lumped"
+    ),
+    pytest.param(
+        {"ignored_families": ["rivers"]},
+        "ignored_families must be a frozenset of str",
+        id="ignored families not a frozenset",
+    ),
+    pytest.param(
+        {"ignored_families": frozenset({"stream"})},
+        "outside the families of",
+        id="ignored family outside the five",
+    ),
+]
+
+
+@pytest.mark.parametrize(("members", "message"), CAPABILITY_REFUSALS)
+def test_refusals(members, message):
     with pytest.raises(ValueError, match=message):
         fake_capabilities(**members)
-
-
-class TestIgnoredFamilies:
-    def test_names_of_a_non_frozenset_are_refused(self):
-        with pytest.raises(ValueError, match="ignored_families must be a frozenset of str"):
-            fake_capabilities(ignored_families=["rivers"])
-
-    def test_a_name_outside_the_five_families_is_refused(self):
-        with pytest.raises(ValueError, match="outside the families of"):
-            fake_capabilities(ignored_families=frozenset({"stream"}))

@@ -32,17 +32,6 @@ def _write(tmp_path: Path, blocks: list[Block], **kwargs) -> Path:
     )
 
 
-LEVELLED = Block(
-    "b",
-    "Block",
-    items=(
-        ("compact", Metric("a", 1)),
-        ("standard", Metric("b", 2)),
-        ("audit", Metric("c", 3)),
-    ),
-)
-
-
 def test_required_missing_figure_gets_a_frame(tmp_path):
     block = Block("f", "F", items=(("compact", Picture("gone", "Gone", None, required=True)),))
     _write(tmp_path, [block])

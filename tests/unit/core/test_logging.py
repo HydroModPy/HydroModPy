@@ -24,17 +24,6 @@ class Collector(logging.Handler):
         self.messages.append(record.getMessage())
 
 
-def _routers() -> list[logging.Handler]:
-    return [h for h in get_logger("hydromodpy").handlers if isinstance(h, SinkRouter)]
-
-
-def _write_lines(sink: Collector, label: str, count: int) -> None:
-    """Emit *count* lines with *sink* as the only sink of this context."""
-    RUN_SINKS.set((sink,))
-    for index in range(count):
-        LOGGER.debug("%s %d", label, index)
-
-
 @pytest.mark.parametrize(
     ("sink_level", "record_level", "arrives"),
     [

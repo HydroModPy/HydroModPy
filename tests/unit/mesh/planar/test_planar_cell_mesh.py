@@ -136,28 +136,6 @@ def test_an_empty_face_family_table_keeps_its_names() -> None:
     assert not replace(_cell_mesh(), face_families=table).face_rows("geology").any()
 
 
-def _stacked() -> FaceFamilyTable:
-    return FaceFamilyTable.stack(
-        [
-            (
-                "boundary:north",
-                {"cell_a": [0, 1], "cell_b": [-1, -1], "node_a": [0, 1], "node_b": [1, 2]},
-            ),
-            (
-                "geology",
-                {
-                    "cell_a": np.array([1]),
-                    "cell_b": np.array([2]),
-                    "node_a": np.array([7]),
-                    "node_b": np.array([2]),
-                    "zone_left": np.array([0], dtype=np.int32),
-                    "zone_right": np.array([1], dtype=np.int32),
-                },
-            ),
-        ]
-    )
-
-
 def test_stacking_no_family_gives_an_empty_table() -> None:
     stacked = FaceFamilyTable.stack([])
 

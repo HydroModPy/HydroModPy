@@ -7,10 +7,20 @@ outflow, both positive. The storage term is positive when water leaves storage t
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
+from hydromodpy.core.exceptions import NothingThereError
+from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter, _storage_flux
+from tests._helpers.run_stores import claim_run, facts_of
+
+from .._solver_runs import extract_run
 
 _AREA = np.array([10.0])
 
@@ -111,3 +121,210 @@ def test_a_steady_history_has_no_storage_term() -> None:
 def test_a_missing_storage_input_is_named() -> None:
     with pytest.raises(KeyError, match="storage_coefficient"):
         _storage_flux({"z_bottom_m": np.array([0.0])}, first_snapshot=1, n_periods=1)
+
+
+def test_a_one_dimensional_history_is_one_period() -> None:
+    payload = {"well_flux_history_m3_s": np.array([2.0, -3.0])}  # m3/s in two cells
+
+    components = BoussinesqOutputAdapter._budget_components(
+        payload, n_timesteps=1, n_cells=2, cell_area_m2=None
+    )
+
+    np.testing.assert_array_equal(components["well"], [[2.0, -3.0]])
+
+
+WELL = "well_flux_history_m3_s"
+RECHARGE = "recharge_rate_history_m_s"
+
+BUDGET_REFUSALS = [
+    pytest.param(
+        {}, 1, 2, np.ones(3), ValueError, "has 3 cells; expected 2", id="area of other size"
+    ),
+    pytest.param(
+        {WELL: np.zeros((1, 3))},
+        1,
+        2,
+        None,
+        ValueError,
+        "has 3 cells; expected 2",
+        id="history of other size",
+    ),
+    pytest.param(
+        {WELL: np.zeros((1, 2))},
+        2,
+        2,
+        None,
+        ValueError,
+        "1 timesteps; expected at least 2",
+        id="history too short",
+    ),
+    pytest.param(
+        {RECHARGE: np.zeros((1, 2))},
+        1,
+        2,
+        None,
+        KeyError,
+        "recharge history requires cell_area_m2",
+        id="rate without area",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("payload", "n_timesteps", "n_cells", "area", "exc", "message"), BUDGET_REFUSALS
+)
+def test_budget_refusals(payload, n_timesteps, n_cells, area, exc, message) -> None:
+    with pytest.raises(exc, match=message):
+        BoussinesqOutputAdapter._budget_components(
+            payload, n_timesteps=n_timesteps, n_cells=n_cells, cell_area_m2=area
+        )
+
+
+class _Zarr:
+    """Keeps the topography the extractor writes."""
+
+    def __init__(self) -> None:
+        self.topography: dict = {}
+
+    def write_topography(self, **fields) -> None:
+        self.topography = fields
+
+    def close(self) -> None:
+        pass
+
+
+def write_surface(tmp_path: Path, n_cells: int, *, z_top, z_bottom, files=None) -> _Zarr:
+    zarr = _Zarr()
+    store = SimpleNamespace(open_zarr=lambda _sim_id: zarr)
+    for name, text in (files or {}).items():
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    BoussinesqOutputAdapter()._write_surface_elevation(
+        "sim", store, tmp_path, n_cells, z_top_m=z_top, z_bottom_m=z_bottom
+    )
+    return zarr
+
+
+def test_one_surface_value_covers_every_cell(tmp_path: Path) -> None:
+    zarr = write_surface(tmp_path, 3, z_top=np.array([10.0]), z_bottom=np.array([2.0]))
+
+    np.testing.assert_array_equal(zarr.topography["topography"], [10.0, 10.0, 10.0])
+    np.testing.assert_array_equal(zarr.topography["z_interfaces"], [[10.0] * 3, [2.0] * 3])
+
+
+SUMMARY = '{"z_top_m": [10.0, 12.0]}'
+
+SURFACE_REFUSALS = [
+    pytest.param(
+        {}, None, None, FileNotFoundError, "No Boussinesq surface metadata", id="no summary file"
+    ),
+    pytest.param(
+        {"_boussinesq_summary.json": SUMMARY},
+        None,
+        None,
+        KeyError,
+        "missing z_top_m/z_bottom_m",
+        id="no bottom",
+    ),
+    pytest.param(
+        {},
+        np.zeros(2),
+        np.zeros(3),
+        ValueError,
+        "z_top=2, z_bottom=3, n_cells=3",
+        id="sizes differ",
+    ),
+]
+
+
+@pytest.mark.parametrize(("files", "z_top", "z_bottom", "exc", "message"), SURFACE_REFUSALS)
+def test_surface_refusals(tmp_path: Path, files, z_top, z_bottom, exc, message) -> None:
+    with pytest.raises(exc, match=message):
+        write_surface(tmp_path, 3, z_top=z_top, z_bottom=z_bottom, files=files)
+
+
+def solved_payload(**members) -> dict:
+    """A state history of one period on two cells, with the elapsed time of its stamp."""
+    return {
+        "snapshot_elapsed_seconds": np.array([0.0]),
+        "z_top_m": np.array([10.0, 12.0]),
+        "z_bottom_m": np.array([0.0, 1.0]),
+    } | members
+
+
+EXTRACT_REFUSALS = [
+    pytest.param({}, KeyError, "No head data", id="no head"),
+    pytest.param(
+        {"head_history_m": np.array([[5.0, 6.0]])} | {"snapshot_elapsed_seconds": np.array([])},
+        KeyError,
+        "No snapshot_elapsed_seconds",
+        id="no time axis",
+    ),
+    pytest.param(
+        {"head_history_m": np.array([[5.0, 6.0]])},
+        TypeError,
+        "must implement write_time",
+        id="store cannot write time",
+    ),
+]
+
+
+@pytest.mark.parametrize(("members", "exc", "message"), EXTRACT_REFUSALS)
+def test_extract_refusals(tmp_path: Path, members: dict, exc, message: str) -> None:
+    np.savez(tmp_path / "_boussinesq_state_history.npz", **solved_payload(**members))
+
+    with pytest.raises(exc, match=message):
+        extract_run(SimpleNamespace(sim_id="sim"), tmp_path)
+
+
+def test_extract_without_a_history_file(tmp_path: Path) -> None:
+    with pytest.raises(NothingThereError, match="No _boussinesq_state_history.npz"):
+        extract_run(SimpleNamespace(sim_id="sim"), tmp_path)
+
+
+def open_two_cell_store(tmp_path: Path) -> RunStore:
+    project = tmp_path / "project"
+    claim = claim_run(project, "bouss")
+    store = RunStore.open(
+        claim.run_dir,
+        facts=facts_of(
+            claim,
+            project=project.name,
+            solver="boussinesq",
+            n_cells=2,
+            n_layers=1,
+            n_timesteps=1,
+            period_start=datetime(2020, 1, 1, tzinfo=UTC),
+            period_end=datetime(2020, 1, 2, tzinfo=UTC),
+        ),
+        persistence=PersistenceConfig(field_precision="exact"),
+        workspace=project,
+    )
+    store.create_zarr(n_cells=2, n_layers=1)
+    return store
+
+
+# A history of one period holding the heads of two cells, in m, written in either of the two ways
+# a solver leaves it: a flat final state or a flat head history.
+SINGLE_STATES = [
+    pytest.param("final_head_m", id="final head only"),
+    pytest.param("head_history_m", id="flat head history"),
+]
+
+
+@pytest.mark.parametrize("name", SINGLE_STATES)
+def test_extract_a_flat_head(tmp_path: Path, name: str) -> None:
+    output_dir = tmp_path / "solver"
+    output_dir.mkdir()
+    np.savez(
+        output_dir / "_boussinesq_state_history.npz",
+        **solved_payload(**{name: np.array([5.0, 6.0])}),
+    )
+    store = open_two_cell_store(tmp_path)
+    try:
+        extract_run(store, output_dir)
+        with store.open_zarr(store.sim_id) as fields:
+            heads = np.asarray(fields.root["head"][:]).reshape(1, 2)
+    finally:
+        store.close()
+
+    np.testing.assert_allclose(heads, [[5.0, 6.0]])

@@ -7,7 +7,13 @@ import pytest
 
 import hydromodpy.catchment.stream_network.geometry as stream_geometry_module
 from hydromodpy.catchment.drainage.distance import shared_node_adjacency
-from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph, build_downhill_graph
+from hydromodpy.catchment.drainage.graph import (
+    accumulate_on_downhill_graph,
+    build_downhill_graph,
+    cell_adjacency_from_face_connectivity,
+    cell_centroids_from_mesh,
+    domain_edge_cells,
+)
 from hydromodpy.catchment.stream_network.geometry import NetworkGeometry, build_network_geometry
 from hydromodpy.core.budget.flux import budget_outflow, budget_outflow_stack
 from tests._helpers.ugrid_meshes import quad_mesh
@@ -198,40 +204,61 @@ def _build(*, diagonal_neighbors: bool, delineated_catchment: np.ndarray | None)
     )
 
 
-def _counting(
-    original: Callable[..., list[set[int]]],
-) -> tuple[dict[str, int], Callable[..., list[set[int]]]]:
-    """A wrapper that still does the real construction, but counts the calls."""
-    calls = {"n": 0}
+def test_a_disconnected_adjacency_strands_the_descent(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The metric must descend the graph the flood just used. The ramp has no
+    # depression, so a disconnected adjacency only matters to the metric. If the
+    # descent still reaches the whole catchment, the metric built its own graph.
+    catchment = np.ones(N_CELLS, dtype=bool)
+    baseline = _build(diagonal_neighbors=True, delineated_catchment=catchment)
+    assert baseline.frac_reachable_obs_raw == pytest.approx(1.0)
 
-    def wrapper(*args: object, **kwargs: object) -> list[set[int]]:
-        calls["n"] += 1
-        return original(*args, **kwargs)
+    def _disconnected(face_node_connectivity: np.ndarray, *, n_cells: int) -> list[set[int]]:
+        return [set() for _ in range(n_cells)]
 
-    return calls, wrapper
+    monkeypatch.setattr(stream_geometry_module, "shared_node_adjacency", _disconnected)
+
+    broken = _build(diagonal_neighbors=True, delineated_catchment=catchment)
+
+    assert broken.frac_reachable_obs_raw < 0.5
 
 
-class TestTheGraphFollowsTheAdjacencyItWasGiven:
-    def test_a_disconnected_adjacency_strands_the_descent(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """The graph the metric descends must be the one the flood just used.
+def test_adjacency_skips_degenerate_faces() -> None:
+    faces = np.array(
+        [
+            [0, 1, 2],  # shares edge 1-2 with the next face
+            [1, 3, 2],
+            [5, -1, -1],  # one node: no edge
+            [6, 6, 7],  # a repeated node, and the edge 6-7 listed twice by the same face
+        ]
+    )
 
-        The ramp has no depression, so a disconnected adjacency changes nothing
-        for the flood: this isolates the one place left where the adjacency
-        can still matter, the metric. If the descent still reaches the whole
-        catchment despite it, the metric rebuilt its own, correct graph instead
-        of receiving this one, which is the bug this file pins.
-        """
-        catchment = np.ones(N_CELLS, dtype=bool)
-        baseline = _build(diagonal_neighbors=True, delineated_catchment=catchment)
-        assert baseline.frac_reachable_obs_raw == pytest.approx(1.0)
+    assert cell_adjacency_from_face_connectivity(faces) == [{1}, {0}, set(), set()]
 
-        def _disconnected(face_node_connectivity: np.ndarray, *, n_cells: int) -> list[set[int]]:
-            return [set() for _ in range(n_cells)]
 
-        monkeypatch.setattr(stream_geometry_module, "shared_node_adjacency", _disconnected)
+def test_a_single_face_given_as_a_flat_row() -> None:
+    vertices = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]])
+    face = np.array([0, 1, 2, 3])
 
-        broken = _build(diagonal_neighbors=True, delineated_catchment=catchment)
+    assert cell_adjacency_from_face_connectivity(face) == [set()]
+    assert domain_edge_cells(face, [True]).tolist() == [True]
+    np.testing.assert_allclose(cell_centroids_from_mesh(vertices, face), [[1.0, 1.0]])
 
-        assert broken.frac_reachable_obs_raw < 0.5
+
+def test_mask_and_centroid_shapes_are_refused() -> None:
+    _, connectivity = quad_mesh(2, 2)
+    reference = np.arange(4, dtype="float64")
+
+    with pytest.raises(ValueError, match="inactive_mask must have 4 entries, got 2"):
+        build_downhill_graph(reference, connectivity, inactive_mask=np.zeros(2, dtype=bool))
+    with pytest.raises(ValueError, match=r"centroids must be \(4, 2\), got \(3, 2\)"):
+        build_downhill_graph(reference, connectivity, centroids=np.zeros((3, 2)))
+
+
+def test_centroids_without_a_finite_point_are_ignored() -> None:
+    _, connectivity = quad_mesh(2, 2)
+    reference = np.arange(4, dtype="float64")
+
+    graph = build_downhill_graph(reference, connectivity, centroids=np.full((4, 2), np.nan))
+
+    # Cells 0, 1 on the top row, 2, 3 below; each drains to its lowest edge neighbor (cell 3 to cell 1, valued 1).
+    assert graph.downstream.tolist() == [-1, 0, 0, 1]

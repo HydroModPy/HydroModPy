@@ -15,7 +15,7 @@ ROW = np.array([[10.0, 12.0]])
 _TOP = surface([[10.0, 12.0], [14.0, 16.0]])
 
 
-def test_the_geographic_domain_is_checked_kept_by_a_resample_and_the_default_sentinel_filled_in():
+def test_domain_check_and_resample():
     top = surface([[1.0, 2.0], [3.0, 4.0]], name="top", cell=1.0, x0=0.0, y0=0.0)
     bottom = surface([[0.0, 1.0], [2.0, 3.0]], name="bottom", cell=1.0, x0=0.0, y0=0.0)
 
@@ -33,7 +33,7 @@ def test_the_geographic_domain_is_checked_kept_by_a_resample_and_the_default_sen
     assert raw.resample_to_shape(1, 1, nodata=-1.0).support.nodata == -1.0
 
 
-def test_flat_like_is_flat_below_the_top_clamps_nodata_and_outcrops_and_is_refused_above_all():
+def test_flat_like():
     """A masked cell carries the sentinel; it is clamped instead of tripping the order guard."""
     top = Surface(name="surface_topo", values=ROW, support=raster_support(1, 2))
     substratum = top.flat_like(2.0)
@@ -48,7 +48,7 @@ def test_flat_like_is_flat_below_the_top_clamps_nodata_and_outcrops_and_is_refus
     assert bool((clamped.as_array() < masked.as_array()).all())
 
 
-def test_surface_from_geographic_dem_uses_explicit_values_and_support():
+def test_from_geographic_dem():
     support = RasterSupport(crs="EPSG:2154", dx=25.0, dy=30.0, xmin=0.0, xmax=50.0, ymin=100.0, ymax=125.0, nrows=1, ncols=2)  # fmt: skip
 
     top = Surface.from_geographic_dem([[1.0, 2.0]], support=support, name="surface_topo")
@@ -57,7 +57,7 @@ def test_surface_from_geographic_dem_uses_explicit_values_and_support():
     np.testing.assert_allclose(top.as_array(), [[1.0, 2.0]])
 
 
-def test_reprojected_onto_its_own_grid_copies_and_turns_the_sentinel_into_nan():
+def test_reproject_onto_own_grid():
     values = np.arange(48, dtype=float).reshape(6, 8)
     values[2, 3] = NODATA
 
@@ -68,7 +68,7 @@ def test_reprojected_onto_its_own_grid_copies_and_turns_the_sentinel_into_nan():
     np.testing.assert_array_equal(moved, values)
 
 
-def test_shifted_down_by_keeps_the_sentinel_in_place():
+def test_shift_keeps_the_sentinel():
     """A shifted sentinel becomes an ordinary elevation that the sampler blends with terrain, so a
     mesh cell straddling the mask edge would get a bottom kilometers deep. The right column is
     outside the mask."""
@@ -91,7 +91,7 @@ def test_shifted_down_by_keeps_the_sentinel_in_place():
     np.testing.assert_allclose(sampled[defined], thickness)
 
 
-def test_a_raster_without_a_crs_is_read_on_the_default_one(tmp_path, caplog):
+def test_raster_without_crs(tmp_path, caplog):
     path = write_geotiff(tmp_path / "dem.tif", np.ones((2, 3)), cell=5.0, crs=None, nodata=NODATA)
 
     with caplog.at_level("WARNING"):
@@ -103,7 +103,7 @@ def test_a_raster_without_a_crs_is_read_on_the_default_one(tmp_path, caplog):
         Surface.from_raster(tmp_path / "missing.tif", name="topo")
 
 
-def test_a_support_without_a_shape_matches_any_values_and_strictly_below_reads_finite_cells():
+def test_shapeless_support_and_finite_cells():
     shapeless = RasterSupport(crs="EPSG:2154", xmin=0.0, xmax=1.0, ymin=0.0, ymax=1.0)
 
     assert Surface("topo", ROW, None).assert_support_matches_values() is None
@@ -130,12 +130,12 @@ def test_a_support_without_a_shape_matches_any_values_and_strictly_below_reads_f
          "reproject_without_support", "below_another_shape", "below_without_overlap",
          "below_but_above"],
 )  # fmt: skip
-def test_a_surface_operation_on_a_surface_that_cannot_hold_it_is_refused(call, error, match):
+def test_refusals(call, error, match):
     with pytest.raises(error, match=match):
         call()
 
 
-def test_the_same_numbers_in_another_crs_are_warped_not_copied():
+def test_other_crs_is_warped():
     """A grid of one shape at the same numbers in another CRS sits elsewhere on Earth."""
     elsewhere = surface([[1.0, 2.0], [3.0, 4.0]], nodata=None).reprojected_onto(raster_support(2, 2, crs="EPSG:3857"), resampling="nearest")  # fmt: skip
 

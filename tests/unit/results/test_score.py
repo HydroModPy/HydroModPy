@@ -146,7 +146,7 @@ def _run_nse(variable: str, simulated: pd.Series, observed: pd.Series, start) ->
     ("case", "n_pairs"),
     [("daily_discharge", 647), ("monthly_discharge", 19), ("daily_head", 727)],
 )
-def test_a_trial_and_its_run_pair_the_same_series_bit_for_bit(case: str, n_pairs: int) -> None:
+def test_trial_and_run_pair_alike(case: str, n_pairs: int) -> None:
     variable, method, simulated, observed, start = _case(case)
 
     trial = _trial(method, simulated, observed, start)
@@ -159,7 +159,7 @@ def test_a_trial_and_its_run_pair_the_same_series_bit_for_bit(case: str, n_pairs
 
 
 @pytest.mark.parametrize("case", sorted(CASES))
-def test_a_run_read_compact_keeps_the_simulated_values_of_its_trial(case: str) -> None:
+def test_compact_run_matches_trial(case: str) -> None:
     variable, method, simulated, observed, start = _case(case)
     compact = pd.Series(to_storage_precision(simulated.to_numpy(), "compact"), simulated.index)
 
@@ -176,7 +176,7 @@ def test_a_run_read_compact_keeps_the_simulated_values_of_its_trial(case: str) -
 
 
 @pytest.mark.parametrize(("period_start", "kept"), [(None, 0), ("2020-05-31", 1)])
-def test_a_steady_mean_is_dated_only_by_its_period_start(period_start, kept) -> None:
+def test_steady_mean_dating(period_start, kept) -> None:
     stamp = pd.DatetimeIndex([pd.Timestamp("2020-06-01")])
     observed = pd.Series(1.0, index=pd.date_range("2020-05-01", "2020-06-30", freq="D"))
 
@@ -190,7 +190,7 @@ def test_a_steady_mean_is_dated_only_by_its_period_start(period_start, kept) -> 
         assert paired.dated().index[0] == pd.Timestamp(period_start)
 
 
-def test_nse_is_computed_on_the_declared_window_only() -> None:
+def test_nse_on_window() -> None:
     observed = _series(1)
     simulated = observed * 1.1
     # A spin-up year that disagrees wildly must not count.
@@ -208,7 +208,7 @@ def test_nse_is_computed_on_the_declared_window_only() -> None:
     assert (result.window_name, result.window_role) == (HEADLINE_WINDOW, EVALUATION_ROLE)
 
 
-def test_nse_n_counts_the_instants_both_series_carry_a_finite_value_at() -> None:
+def test_nse_sample_count() -> None:
     observed = _series(1)
     simulated = observed.copy()
     observed[INDEX[-10:]] = np.nan
@@ -236,19 +236,19 @@ def test_nse_n_counts_the_instants_both_series_carry_a_finite_value_at() -> None
     ],
     ids=["last_day_included", "timezone_aware"],
 )
-def test_the_window_counts_its_own_days(index, window, n) -> None:
+def test_window_days(index, window, n) -> None:
     series = pd.Series(np.arange(len(index), dtype=float), index=index)
     assert score_metric(series, series, MetricRule(window=window), "rmse").n_samples == n
 
 
-def test_a_window_outside_the_data_gives_no_value_and_zero_samples() -> None:
+def test_window_outside_data() -> None:
     rule = MetricRule(window=DateWindow(start=date(2030, 1, 1), end=date(2030, 12, 31)))
     result = score_metric(_series(1), _series(2), rule, "nse")
     assert result.value is None and result.n_samples == 0
     assert result.window_start == date(2030, 1, 1)
 
 
-def test_constant_observations_give_no_value_rather_than_nan() -> None:
+def test_constant_observations() -> None:
     result = score_metric(_series(1), pd.Series(1.0, index=INDEX), RULE_2016, "nse")
     assert result.value is None and result.n_samples == 366
 
@@ -260,21 +260,21 @@ def test_constant_observations_give_no_value_rather_than_nan() -> None:
         (pd.Series([1.0, 2.0]), pd.Series([1.0, 2.0]), "nse", TypeError, "indexed by time"),
     ],
 )
-def test_a_metric_that_cannot_be_read_is_refused(simulated, observed, metric, error, match):
+def test_unreadable_metric_refused(simulated, observed, metric, error, match):
     simulated = _series(1) if simulated is None else simulated
     observed = _series(2) if observed is None else observed
     with pytest.raises(error, match=match):
         score_metric(simulated, observed, RULE_2016, metric)
 
 
-def test_a_configuration_without_metrics_nor_site_scores_nothing() -> None:
+def test_no_metrics_scores_nothing() -> None:
     from types import SimpleNamespace
 
     rule = MetricRule.from_config(SimpleNamespace(metrics=None, site=None))
     assert score_metric(_series(1), _series(2), rule, "nse").value is None
 
 
-def test_a_perfect_run_scores_one_on_the_whole_panel() -> None:
+def test_perfect_run_panel() -> None:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     values = np.linspace(1.0, 4.0, len(days))
     rule = MetricRule(station=GAUGE, window=YEAR_2001)
@@ -291,7 +291,7 @@ def test_a_perfect_run_scores_one_on_the_whole_panel() -> None:
     assert scores.score.n_samples == 365
 
 
-def test_the_spin_up_does_not_count() -> None:
+def test_spin_up_not_scored() -> None:
     days = pd.date_range("2000-01-01", "2001-12-31", freq="D", tz="UTC")
     observed = np.sin(np.arange(len(days)) / 30.0) + 3.0
     simulated = observed.copy()
@@ -308,7 +308,7 @@ def test_the_spin_up_does_not_count() -> None:
     )
 
 
-def test_without_a_window_nothing_is_scored() -> None:
+def test_no_window_no_score() -> None:
     days = pd.date_range("2001-01-01", periods=40, freq="D", tz="UTC")
     values = np.linspace(1.0, 4.0, 40)
 
@@ -323,7 +323,7 @@ def test_without_a_window_nothing_is_scored() -> None:
     assert scores.score.metric_rule_version == "2"
 
 
-def test_the_headline_is_read_at_the_rule_station_only() -> None:
+def test_headline_station() -> None:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     values = np.linspace(1.0, 4.0, len(days))
     frame = pd.DataFrame(
@@ -342,7 +342,7 @@ def test_the_headline_is_read_at_the_rule_station_only() -> None:
     assert scores.score.value < 0.0
 
 
-def test_a_monthly_period_counts_only_when_it_lies_in_the_window() -> None:
+def test_monthly_period_in_window() -> None:
     # Each month of the gauge is constant and the run reproduces it, except
     # January, which is wrong but starts before the window.
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
@@ -363,7 +363,7 @@ def test_a_monthly_period_counts_only_when_it_lies_in_the_window() -> None:
     assert scores.score.value == pytest.approx(1.0)
 
 
-def test_a_lake_level_is_read_at_its_stamp() -> None:
+def test_lake_level_stamp() -> None:
     days = pd.date_range("2001-01-01", "2001-01-30", freq="D", tz="UTC")
     stages = np.linspace(80.0, 90.0, len(days))
     frame = pd.DataFrame(
@@ -380,7 +380,7 @@ def test_a_lake_level_is_read_at_its_stamp() -> None:
     assert (scores.score.variable, scores.score.n_samples) == ("lake_level", 10)
 
 
-def test_an_observed_station_meets_the_simulated_series_of_the_same_station(caplog) -> None:
+def test_observed_matches_station(caplog) -> None:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     heads = np.linspace(10.0, 12.0, len(days))
     frame = pd.DataFrame(
@@ -400,7 +400,7 @@ def test_an_observed_station_meets_the_simulated_series_of_the_same_station(capl
     assert scores.unscored == (UnscoredObservation("P3", "head", ("P1", "P2")),)
 
 
-def test_a_variable_the_run_does_not_simulate_is_skipped_station_by_station(caplog) -> None:
+def test_unsimulated_variable_skipped(caplog) -> None:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     heads = np.linspace(10.0, 12.0, len(days))
     frame = pd.DataFrame(
@@ -430,7 +430,7 @@ def test_a_variable_the_run_does_not_simulate_is_skipped_station_by_station(capl
     ],
     ids=["never_meet_the_window", "a_steady_value"],
 )
-def test_a_pair_the_window_cannot_score_leaves_no_row(sim_days, values, period_start) -> None:
+def test_unscorable_pair_no_row(sim_days, values, period_start) -> None:
     obs_days = (
         pd.date_range("2015-01-01", periods=10, freq="D", tz="UTC")
         if period_start is None
@@ -448,7 +448,7 @@ def test_a_pair_the_window_cannot_score_leaves_no_row(sim_days, values, period_s
     assert scores.score.value is None and scores.score.n_samples == 0
 
 
-def test_a_daily_gap_before_the_window_keeps_the_next_period_in_it() -> None:
+def test_daily_gap_before_window() -> None:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     values = np.sin(np.arange(len(days)) / 25.0) + 3.0
     observed = values.copy()
@@ -466,7 +466,7 @@ def test_a_daily_gap_before_the_window_keeps_the_next_period_in_it() -> None:
     assert scores.score.value == pytest.approx(1.0)
 
 
-def test_a_monthly_gap_before_the_window_keeps_the_next_month_in_it() -> None:
+def test_monthly_gap_before_window() -> None:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     gauge = days.month.to_numpy(dtype=float)
     gauge[days.month == 2] = np.nan
@@ -484,7 +484,7 @@ def test_a_monthly_gap_before_the_window_keeps_the_next_month_in_it() -> None:
     assert scores.score.value == pytest.approx(1.0)
 
 
-def test_the_run_directory_is_read_without_the_index(tmp_path, monkeypatch) -> None:
+def test_read_without_index(tmp_path, monkeypatch) -> None:
     from hydromodpy.results.catalog.facade import Catalog
 
     def _refuse(*_args, **_kwargs):
@@ -512,7 +512,7 @@ def test_the_run_directory_is_read_without_the_index(tmp_path, monkeypatch) -> N
     assert scores.score.n_samples == 365
 
 
-def test_a_run_without_series_has_an_empty_score(tmp_path) -> None:
+def test_run_without_series(tmp_path) -> None:
     frame = read_timeseries(tmp_path)
     scores = score_timeseries(frame, rule=MetricRule(station=GAUGE, window=YEAR_2001))
     assert frame.empty
@@ -541,7 +541,7 @@ KEPT_APART = PeriodWindow(role=VALIDATION_ROLE, start=date(2020, 1, 21), end=dat
     ],
     ids=["not_promoted", "no_window", "validation_left_out", "two_periods", "headline_name"],
 )
-def test_a_promoted_run_is_scored_on_each_calibration_period(by, names) -> None:
+def test_calibration_period_rules(by, names) -> None:
     headline = MetricRule(station=GAUGE, window=YEAR_2001)
 
     rules = calibration_rules(headline, by)
@@ -562,7 +562,7 @@ def _promoted_store(tmp_path, by: CalibratedBy | None):
 
 
 @pytest.mark.parametrize("promoted", [False, True], ids=["headline_only", "promoted"])
-def test_the_run_writes_one_row_set_per_calibration_period(tmp_path, promoted) -> None:
+def test_run_writes_period_rows(tmp_path, promoted) -> None:
     from hydromodpy.core.site.config import SiteConfig
 
     days = pd.date_range("2020-01-01", periods=30, freq="D")

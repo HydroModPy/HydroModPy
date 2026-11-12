@@ -21,10 +21,6 @@ def _build(grid: RasterGridSpec, *lines: LineFamilySpec) -> PlanarCellMesh:
     return RegularMeshEngine().build(mesh_request(grid, lines=lines))
 
 
-def _river(*points: tuple[float, float]) -> LineFamilySpec:
-    return LineFamilySpec("rivers", "cell", (LineString(points),))
-
-
 def _contact() -> LineFamilySpec:
     """The contact x = 500 m, drawn northward with the west unit on its left."""
     return LineFamilySpec(
@@ -36,39 +32,16 @@ def _contact() -> LineFamilySpec:
     )
 
 
-def _row_of(grid: RasterGridSpec, y: float) -> int:
-    """The row of the cells whose band holds *y*; row 0 is north."""
-    return int((grid.ymax - y) // grid.dy)
-
-
-def _left_of(line: LineString, points: np.ndarray) -> np.ndarray:
-    """Cross product of each point with the chord of a straight *line*: positive on its left."""
-    start, end = np.asarray(line.coords[0]), np.asarray(line.coords[-1])
-    chord, offset = end - start, np.asarray(points) - start
-    return chord[0] * offset[:, 1] - chord[1] * offset[:, 0]
-
-
-# --------------------------------------------------------------------------- #
-# Sides
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# River chains
-# --------------------------------------------------------------------------- #
-
-
 @pytest.mark.parametrize(
     "off_the_grid",
     [
         LineString([(5000.0, 5000.0), (6000.0, 5000.0)]),
         LineString([(1050.0, 450.0), (1150.0, 450.0)]),
     ],
-    ids=["far_away", "within_two_cells_of_the_edge"],
+    ids=["far away", "within two cells of the edge"],
 )
-def test_each_line_of_a_river_family_is_one_chain_and_a_line_off_the_grid_gives_none(
-    off_the_grid: LineString,
-) -> None:
+def test_river_chains(off_the_grid: LineString) -> None:
+    # Each river line is one chain. A line off the grid gives none.
     lines = LineFamilySpec(
         "rivers",
         "cell",
@@ -83,12 +56,7 @@ def test_each_line_of_a_river_family_is_one_chain_and_a_line_off_the_grid_gives_
     assert [chain.chain_id for chain in cell_mesh.chains("rivers")] == [0, 1]
 
 
-# --------------------------------------------------------------------------- #
-# Contacts and other face families
-# --------------------------------------------------------------------------- #
-
-
-def test_a_contact_on_cell_faces_is_followed_exactly() -> None:
+def test_contact_on_cell_faces() -> None:
     cell_mesh = _build(KM_GRID, _contact())
     quality = cell_mesh.qa.families["geology"]
 
@@ -127,16 +95,15 @@ def _contact_short_of_the_boundary(name: str, share_of_the_tolerance: float) -> 
 
 
 @pytest.mark.parametrize("name", sorted(SNAP_DOMAINS))
-def test_a_contact_that_stops_beyond_the_snap_tolerance_of_the_boundary_splits_nothing(
-    name: str,
-) -> None:
+def test_contact_beyond_the_snap_tolerance(name: str) -> None:
+    # A contact that stops beyond the snap tolerance of the boundary splits nothing.
     cell_mesh = _contact_short_of_the_boundary(name, 1.5)
 
     assert not cell_mesh.face_rows("geology").any()
 
 
-def test_three_units_parted_by_three_contacts_give_each_cell_its_unit() -> None:
-    """Units a (north-west), b (north-east) and c (south); unit a borders two contacts."""
+def test_three_units_three_contacts() -> None:
+    # Units a (north-west), b (north-east) and c (south). Unit a borders two contacts.
     contacts = LineFamilySpec(
         "geology",
         "face",
@@ -158,7 +125,7 @@ def test_three_units_parted_by_three_contacts_give_each_cell_its_unit() -> None:
     assert set(names[y < 500.0]) == {"c"}
 
 
-def test_a_closed_ring_labels_the_cells_it_holds() -> None:
+def test_closed_ring() -> None:
     ring = shapely.Polygon([(300, 300), (700, 300), (700, 700), (300, 700)]).exterior
     lake = LineFamilySpec("lakes", "face", (LineString(ring.coords),), closed=True)
     cell_mesh = _build(KM_GRID, lake)
@@ -167,8 +134,8 @@ def test_a_closed_ring_labels_the_cells_it_holds() -> None:
     assert cell_mesh.qa.families["lakes"]["hausdorff_m"] == pytest.approx(0.0, abs=1e-9)
 
 
-def test_a_face_line_that_splits_no_cell_gives_no_face() -> None:
-    """A short contact inside one cell closes no polygon, so no face lies between two labels."""
+def test_face_line_inside_one_cell() -> None:
+    # A short contact inside one cell closes no polygon, so no face lies between two labels.
     inside_one_cell = LineFamilySpec(
         "geology", "face", (LineString([(420.0, 430.0), (460.0, 470.0)]),), ("a",), ("b",)
     )

@@ -1,4 +1,7 @@
-"""Lake abacus comparison persistence: build sidecar -> extractor -> per-sim Zarr."""
+"""Lake abacus persistence: volume (m3) and surface area (m2) against stage (m).
+
+The builder writes a sidecar, the extractor reads it and the run keeps the curves in its Zarr.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +19,7 @@ _REAL_VOL = [0.0, 12500.0, 50000.0, 112500.0, 200000.0]
 _REAL_SAREA = [0.0, 2500.0, 5000.0, 7500.0, 10000.0]
 
 
-def test_lake_abacus_zarr_roundtrip(tmp_path: Path) -> None:
+def test_zarr_roundtrip(tmp_path: Path) -> None:
     sz = SimulationZarr.create(tmp_path / "sim.zarr", n_cells=4, n_layers=1)
     sz.write_lake_abacus(
         "lac0",
@@ -47,7 +50,7 @@ class _Model:
         self._lake_bed_reconstruction = reconstruction
 
 
-def test_lake_abacus_sidecar_roundtrip(tmp_path: Path) -> None:
+def test_sidecar_roundtrip(tmp_path: Path) -> None:
     reconstruction = {
         "lac0": {
             "abacus_stage": _STAGE,
@@ -70,19 +73,15 @@ def test_lake_abacus_sidecar_roundtrip(tmp_path: Path) -> None:
     assert entry.sim_volume == _REAL_VOL
 
 
-def test_lake_abacus_meta_noop_without_reconstruction(tmp_path: Path) -> None:
+def test_no_sidecar_without_reconstruction(tmp_path: Path) -> None:
     model = _Model(tmp_path, {})
     _write_lake_abacus_meta(model)
     assert not (tmp_path / "mymodel.lake_abacus.json").exists()
 
 
-def test_lake_abacus_refuses_curves_of_different_lengths(tmp_path: Path) -> None:
-    """One stage abscissa, so one length: an unequal write is refused, not stored.
-
-    Five arrays sharing the ``stage_level`` axis in one Zarr group must agree on
-    its size, otherwise the group cannot be opened at all. Refusing at the write
-    names the lake and the lengths instead of producing an unreadable store.
-    """
+def test_curves_of_different_lengths(tmp_path: Path) -> None:
+    # Five arrays share the stage_level axis of one Zarr group and must agree on its size.
+    # Refusing at the write names the lake and the lengths, where a store would not open.
     sz = SimulationZarr.create(tmp_path / "sim.zarr", n_cells=4, n_layers=1)
     try:
         with pytest.raises(ValueError, match="different lengths"):

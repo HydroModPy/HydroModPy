@@ -44,7 +44,7 @@ UNIT_PROPERTY = settings(derandomize=True, max_examples=100, deadline=None)
 
 @dataclass(frozen=True)
 class Family:
-    """One quantity, its units (the strategy) and its normalize, factor, convert functions."""
+    """One quantity, its units and its normalize, factor, convert functions."""
 
     name: str
     units: tuple[str, ...]
@@ -96,8 +96,8 @@ def _mangle(unit: str, *, upper: bool, spaced: bool, padded: bool) -> str:
 @PER_FAMILY
 @given(value=MAGNITUDES)
 @UNIT_PROPERTY
-def test_converting_in_the_si_unit_is_the_identity(family: Family, value: float) -> None:
-    """The SI unit must convert bit for bit, or an unconverted value drifts unseen."""
+def test_si_unit_is_identity(family: Family, value: float) -> None:
+    # The SI unit must convert bit for bit, or an unconverted value drifts unseen.
     assert family.factor(family.si_unit) == 1.0
     assert family.convert(value, unit=family.si_unit) == value
 
@@ -105,10 +105,8 @@ def test_converting_in_the_si_unit_is_the_identity(family: Family, value: float)
 @PER_FAMILY
 @given(value=MAGNITUDES, data=st.data())
 @UNIT_PROPERTY
-def test_conversion_is_the_factor_applied_and_is_reversible(
-    family: Family, value: float, data: st.DataObject
-) -> None:
-    """Converting then dividing by the published factor returns the input."""
+def test_conversion_is_reversible(family: Family, value: float, data: st.DataObject) -> None:
+    # Converting then dividing by the published factor returns the input.
     unit = data.draw(st.sampled_from(family.units))
     converted = family.convert(value, unit=unit)
     assert converted == pytest.approx(value * family.factor(unit), rel=1e-15, abs=0.0)
@@ -118,10 +116,10 @@ def test_conversion_is_the_factor_applied_and_is_reversible(
 @PER_FAMILY
 @given(low=MAGNITUDES, high=MAGNITUDES, data=st.data())
 @UNIT_PROPERTY
-def test_conversion_preserves_sign_and_order(
+def test_conversion_keeps_sign_and_order(
     family: Family, low: float, high: float, data: st.DataObject
 ) -> None:
-    """A strictly positive factor makes the conversion monotone and sign-keeping."""
+    # A strictly positive factor makes the conversion monotone and sign-keeping.
     assume(low <= high)
     unit = data.draw(st.sampled_from(family.units))
     converted_low = family.convert(low, unit=unit)
@@ -133,7 +131,7 @@ def test_conversion_preserves_sign_and_order(
 @given(value=MAGNITUDES, data=st.data())
 @UNIT_PROPERTY
 def test_factor_tables_agree_with_pint(family: Family, value: float, data: st.DataObject) -> None:
-    """Each table row must match the shared pint registry, which parse.py uses."""
+    # Each table row must match the shared pint registry, which parse.py uses.
     unit = data.draw(st.sampled_from(family.units))
     theirs = parse_to_canonical_magnitude(
         value,
@@ -153,10 +151,10 @@ def test_factor_tables_agree_with_pint(family: Family, value: float, data: st.Da
     data=st.data(),
 )
 @UNIT_PROPERTY
-def test_unit_tokens_are_case_and_whitespace_insensitive(
+def test_unit_tokens_ignore_case_whitespace(
     family: Family, upper: bool, spaced: bool, padded: bool, data: st.DataObject
 ) -> None:
-    """``M3/DAY`` and `` m 3 / d a y `` resolve like ``m3/day``: units come from TOML."""
+    # M3/DAY and  m 3 / d a y  resolve like m3/day: units come from TOML.
     unit = data.draw(st.sampled_from(family.units))
     mangled = _mangle(unit, upper=upper, spaced=spaced, padded=padded)
     assert family.normalize(mangled) == family.normalize(unit)
@@ -166,10 +164,8 @@ def test_unit_tokens_are_case_and_whitespace_insensitive(
 @PER_FAMILY
 @given(value=MAGNITUDES, text=st.text(min_size=0, max_size=12))
 @UNIT_PROPERTY
-def test_a_unit_the_normalizer_rejects_is_rejected_by_the_converter(
-    family: Family, value: float, text: str
-) -> None:
-    """Validator and converter reject the same tokens, whatever the magnitude."""
+def test_converter_rejects_what_normalizer_rejects(family: Family, value: float, text: str) -> None:
+    # Validator and converter reject the same tokens, whatever the magnitude.
     try:
         family.normalize(text)
     except ValueError:
@@ -183,10 +179,8 @@ def test_a_unit_the_normalizer_rejects_is_rejected_by_the_converter(
 @PER_FAMILY
 @given(data=st.data())
 @UNIT_PROPERTY
-def test_a_unit_from_another_family_is_rejected_as_incompatible(
-    family: Family, data: st.DataObject
-) -> None:
-    """The seven quantities have seven dimensions, so a borrowed unit must not pass."""
+def test_foreign_unit_is_incompatible(family: Family, data: st.DataObject) -> None:
+    # The seven quantities have seven dimensions, so a borrowed unit must not pass.
     other = data.draw(st.sampled_from([f for f in FAMILIES if f.name != family.name]))
     unit = data.draw(st.sampled_from(other.units))
     with pytest.raises(ValueError):
@@ -196,8 +190,8 @@ def test_a_unit_from_another_family_is_rejected_as_incompatible(
 @PER_FAMILY
 @given(data=st.data())
 @UNIT_PROPERTY
-def test_booleans_are_rejected_whatever_the_unit(family: Family, data: st.DataObject) -> None:
-    """``True`` is an ``int``: without the guard it would convert to one metre."""
+def test_booleans_are_rejected(family: Family, data: st.DataObject) -> None:
+    # True is an int: without the guard it would convert to one metre.
     unit = data.draw(st.sampled_from(family.units))
     for flag in (True, False):
         with pytest.raises(TypeError):
@@ -209,10 +203,10 @@ def test_booleans_are_rejected_whatever_the_unit(family: Family, data: st.DataOb
 )
 @given(value=MAGNITUDES, data=st.data())
 @UNIT_PROPERTY
-def test_the_inline_unit_parser_matches_the_direct_conversion(
+def test_inline_parser_matches_conversion(
     family: Family, value: float, data: st.DataObject
 ) -> None:
-    """``parse("3.5 cm")`` equals ``convert(3.5, unit="cm")``; repr round-trips a float."""
+    # parse("3.5 cm") equals convert(3.5, unit="cm"); repr round-trips a float.
     unit = data.draw(st.sampled_from(family.units))
     parsed, canonical = parse_to_si(
         family.name,
@@ -226,8 +220,8 @@ def test_the_inline_unit_parser_matches_the_direct_conversion(
 
 @given(value=MAGNITUDES, data=st.data())
 @UNIT_PROPERTY
-def test_time_conversion_round_trips_through_seconds(value: float, data: st.DataObject) -> None:
-    """Time is the only family with a way back out of SI, and every model clock uses it."""
+def test_time_round_trips_through_seconds(value: float, data: st.DataObject) -> None:
+    # Time is the only family with a way back out of SI, and every model clock uses it.
     unit = data.draw(st.sampled_from(TIME_CANONICAL_UNITS))
     seconds = convert_to_seconds(value, unit=unit)
     assert convert_seconds_to_unit(seconds, unit=unit) == pytest.approx(
@@ -238,7 +232,7 @@ def test_time_conversion_round_trips_through_seconds(value: float, data: st.Data
 @given(value=MAGNITUDES, data=st.data())
 @UNIT_PROPERTY
 def test_time_conversion_composes(value: float, data: st.DataObject) -> None:
-    """a to b to c equals a to c, which is what makes seconds a safe pivot."""
+    # a to b to c equals a to c, which is what makes seconds a safe pivot.
     unit_a, unit_b, unit_c = (data.draw(st.sampled_from(TIME_CANONICAL_UNITS)) for _ in range(3))
     in_b = convert_seconds_to_unit(convert_to_seconds(value, unit=unit_a), unit=unit_b)
     stepwise = convert_seconds_to_unit(convert_to_seconds(in_b, unit=unit_b), unit=unit_c)
@@ -248,8 +242,8 @@ def test_time_conversion_composes(value: float, data: st.DataObject) -> None:
 
 @given(data=st.data())
 @UNIT_PROPERTY
-def test_derived_factors_are_coherent_with_length_and_time(data: st.DataObject) -> None:
-    """A derived factor is the length factor over the time factor (m/s, m2/s, 1/s)."""
+def test_derived_factors_are_coherent(data: st.DataObject) -> None:
+    # A derived factor is the length factor over the time factor (m/s, m2/s, 1/s).
     length_unit = data.draw(st.sampled_from(("m", "cm", "mm")))
     time_unit = data.draw(st.sampled_from(("s", "h", "day")))
     seconds = factor_to_seconds(time_unit)
@@ -265,8 +259,8 @@ def test_derived_factors_are_coherent_with_length_and_time(data: st.DataObject) 
 
 @given(data=st.data())
 @UNIT_PROPERTY
-def test_volumetric_flow_factors_are_coherent_with_length_and_time(data: st.DataObject) -> None:
-    """``m3/T`` is a cubic metre per T and a litre is a thousandth of it (not a length cubed)."""
+def test_flow_factors_are_coherent(data: st.DataObject) -> None:
+    # m3/T is a cubic metre per T and a litre is a thousandth of it (not a length cubed).
     time_unit = data.draw(st.sampled_from(("s", "h", "min", "day")))
     seconds = factor_to_seconds(time_unit)
     assert factor_to_si("volumetric_flow", f"m3/{time_unit}") == pytest.approx(
@@ -279,8 +273,8 @@ def test_volumetric_flow_factors_are_coherent_with_length_and_time(data: st.Data
 
 @given(code=st.integers(min_value=1, max_value=5), data=st.data())
 @UNIT_PROPERTY
-def test_modflow_itmuni_codes_round_trip(code: int, data: st.DataObject) -> None:
-    """The ITMUNI integer reads back as the same unit, as int, float or string."""
+def test_itmuni_codes_round_trip(code: int, data: st.DataObject) -> None:
+    # The ITMUNI integer reads back as the same unit, as int, float or string.
     unit = normalize_time_unit(code)
     assert to_modflow_itmuni(unit) == code
     assert normalize_time_unit(to_modflow_itmuni(unit)) == unit

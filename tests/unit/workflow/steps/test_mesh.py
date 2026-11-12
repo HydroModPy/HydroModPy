@@ -1,4 +1,11 @@
-"""The mesh step."""
+"""The mesh step plans one request, builds it with the engine of ``[mesh]`` and stores it.
+
+The store of products is read first, so a second run of one request builds nothing.
+The catchment outline the planner smoothed to the cell mesh is put on the mesh after a
+build and after a store hit alike. A zone that reads an earlier run keeps its sim_id,
+which the freeze writes in place of the run name. A replay of an engine that cannot
+rebuild its mesh bit for bit reads the mesh sealed beside its source run (lengths in m).
+"""
 
 from __future__ import annotations
 
@@ -31,13 +38,7 @@ from hydromodpy.workflow.steps.mesh import BuildMeshStep, step_mesh, zone_runs
 from tests._helpers.fake_engines import FakeMeshEngine, registered
 from tests._helpers.mesh_cases import L93_ORIGIN, LAMBERT93_WKT, grid_spec, planning_inputs
 
-# --- test_the_mesh_step_dispatches_by_engine ---
-# The mesh step plans one request, builds it with the engine of [mesh], and
-# stores what it built in the product store.
-
 X0, Y0 = L93_ORIGIN
-
-
 SIDE, N = 1000.0, 10
 
 
@@ -47,7 +48,7 @@ def planned_inputs(use_planning_inputs):
     use_planning_inputs(planning_inputs(grid))
 
 
-def _context(tmp_path, mesh: MeshConfig | None, *, workspace: bool = True) -> WorkflowContext:
+def make_context(tmp_path, mesh: MeshConfig | None, *, workspace: bool = True) -> WorkflowContext:
     ctx = WorkflowContext(
         cfg=SimpleNamespace(
             mesh=mesh,
@@ -61,13 +62,9 @@ def _context(tmp_path, mesh: MeshConfig | None, *, workspace: bool = True) -> Wo
     return ctx
 
 
-def _store_dir(tmp_path: Path, key: str) -> Path:
-    return ProductStore(products_root(tmp_path)).path(key)
-
-
 @pytest.mark.usefixtures("planned_inputs")
-def test_the_regular_shape_of_the_section_reaches_the_grid(tmp_path) -> None:
-    ctx = _context(tmp_path, MeshConfig.model_validate({"regular": {"shape": [4, 5]}}))
+def test_regular_shape_reaches_the_grid(tmp_path) -> None:
+    ctx = make_context(tmp_path, MeshConfig.model_validate({"regular": {"shape": [4, 5]}}))
 
     step_mesh(ctx)
 
@@ -75,10 +72,8 @@ def test_the_regular_shape_of_the_section_reaches_the_grid(tmp_path) -> None:
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_resume_that_finds_no_stored_mesh_says_it_will_differ(
-    tmp_path, cached_engine, caplog
-) -> None:
-    ctx = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id))
+def test_resume_without_stored_mesh_warns(tmp_path, cached_engine, caplog) -> None:
+    ctx = make_context(tmp_path, MeshConfig(engine=cached_engine.engine_id))
     ctx.execution.resumed = True
     caplog.set_level(logging.WARNING, logger="hydromodpy.workflow.products")
 
@@ -90,12 +85,10 @@ def test_a_resume_that_finds_no_stored_mesh_says_it_will_differ(
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_resume_reads_the_stored_mesh_a_crashed_process_left(
-    tmp_path, cached_engine, caplog
-) -> None:
+def test_resume_reads_the_stored_mesh(tmp_path, cached_engine, caplog) -> None:
     mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
-    step_mesh(_context(tmp_path, mesh_cfg))
-    fresh = _context(tmp_path, mesh_cfg)
+    step_mesh(make_context(tmp_path, mesh_cfg))
+    fresh = make_context(tmp_path, mesh_cfg)
     state = PipelineState(run_id="run-1", step_index=2, step_name="build_mesh", data={"ctx": fresh})
     caplog.set_level(logging.WARNING, logger="hydromodpy.workflow.products")
 
@@ -108,8 +101,8 @@ def test_a_resume_reads_the_stored_mesh_a_crashed_process_left(
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_resume_keeps_the_mesh_the_process_already_holds(tmp_path) -> None:
-    ctx = _context(tmp_path, None)
+def test_resume_keeps_the_held_mesh(tmp_path) -> None:
+    ctx = make_context(tmp_path, None)
     step_mesh(ctx)
     held = ctx.setup.cell_mesh
     state = PipelineState(run_id="run-1", step_index=2, step_name="build_mesh", data={"ctx": ctx})
@@ -132,9 +125,9 @@ class _ConcaveEngine(FakeMeshEngine):
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_mesh_past_a_quality_threshold_is_warned_and_used(tmp_path, caplog) -> None:
+def test_poor_quality_mesh_is_warned_and_used(tmp_path, caplog) -> None:
     with registered(_ConcaveEngine):
-        ctx = _context(tmp_path, MeshConfig(engine=_ConcaveEngine.engine_id))
+        ctx = make_context(tmp_path, MeshConfig(engine=_ConcaveEngine.engine_id))
         with caplog.at_level(logging.WARNING, logger=mesh_module.logger.name):
             step_mesh(ctx)
 
@@ -142,14 +135,8 @@ def test_a_mesh_past_a_quality_threshold_is_warned_and_used(tmp_path, caplog) ->
     assert "Mesh quality: 3 of 100 cells are concave" in caplog.text
 
 
-# --- test_the_mesh_step_keeps_the_smoothed_outline ---
-# The mesh step hands the catchment outline the planner smoothed to the cell mesh.
-#
-# The solver reads its cells against the catchment, and the faces of the mesh
-# follow the smooth outline, not the pixel staircase of ``watershed.shp``. The
-# product store holds the mesh as the engine built it, so the step puts the
-# outline on the mesh after the build and after a store hit alike.
-
+# The catchment outline is a pixel staircase in watershed.shp. The faces of the mesh
+# follow the smooth outline, and the solver reads its cells against the catchment.
 PIXEL, OUTLINE_N = 50.0, 20
 
 
@@ -178,11 +165,9 @@ def inputs(use_planning_inputs) -> PlanningInputs:
     return use_planning_inputs(planning_inputs(grid, watershed=_staircase(), synthetic=False))
 
 
-def test_the_cell_mesh_carries_the_outline_the_planner_smoothed(
-    tmp_path, graded_engine, inputs
-) -> None:
+def test_cell_mesh_carries_the_smoothed_outline(tmp_path, graded_engine, inputs) -> None:
     mesh_cfg = MeshConfig(engine=graded_engine.engine_id, cell_size=50.0, families=_FACE)
-    ctx = _context(tmp_path, mesh_cfg)
+    ctx = make_context(tmp_path, mesh_cfg)
 
     step_mesh(ctx)
 
@@ -193,9 +178,9 @@ def test_the_cell_mesh_carries_the_outline_the_planner_smoothed(
     assert len(outline.exterior.coords) < len(inputs.watershed.exterior.coords)
 
 
-def test_a_mesh_read_from_the_store_carries_it_too(tmp_path, graded_engine, inputs) -> None:
+def test_stored_mesh_carries_the_outline_too(tmp_path, graded_engine, inputs) -> None:
     mesh_cfg = MeshConfig(engine=graded_engine.engine_id, cell_size=50.0, families=_FACE)
-    first, second = _context(tmp_path, mesh_cfg), _context(tmp_path, mesh_cfg)
+    first, second = make_context(tmp_path, mesh_cfg), make_context(tmp_path, mesh_cfg)
 
     step_mesh(first)
     step_mesh(second)
@@ -207,15 +192,9 @@ def test_a_mesh_read_from_the_store_carries_it_too(tmp_path, graded_engine, inpu
     assert second.setup.cell_mesh.smoothed_catchment is not None
 
 
-# --- test_a_frozen_config_pins_the_run_a_refinement_zone_reads ---
-# The frozen config names the run a refinement zone read by its sim_id, not by its name.
-#
-# A zone that reads an earlier run writes ``run = "<name>"``, and a bare name is
-# the latest version of that run. After a ``.v2`` of the first run, a replay
-# (``hmp catalog rerun`` reads the frozen snapshot, ``hmp run --resume`` the
-# frozen file) would read the ``.v2`` and draw another mesh. The mesh step keeps
-# the sim_id each zone read, and the freeze writes it in place of the name.
-
+# A zone that reads an earlier run writes run = "<name>", a bare name is the latest
+# version of that run. After a .v2 of the first run a replay would read the .v2 and
+# draw another mesh, so the step keeps the sim_id each zone read.
 ZONE = {"where": "watertable_depth", "below": 0.5, "run": "coarse", "cell_size": 25.0}
 
 
@@ -225,7 +204,7 @@ def _planned(source_run: str | None) -> RefinementZone:
     )
 
 
-def test_the_mesh_step_keeps_nothing_when_the_planner_dropped_a_zone() -> None:
+def test_zone_runs_empty_when_the_planner_dropped_a_zone() -> None:
     cfgs = [
         RefinementZoneConfig.model_validate(ZONE),
         RefinementZoneConfig.model_validate({"path": "layer.gpkg", "cell_size": 30.0}),
@@ -234,25 +213,19 @@ def test_the_mesh_step_keeps_nothing_when_the_planner_dropped_a_zone() -> None:
     assert zone_runs(cfgs, [_planned(None)]) == {}
 
 
-def test_the_summary_of_the_mesh_step_carries_the_zone_runs(tmp_path: Path, monkeypatch) -> None:
+def test_summary_carries_the_zone_runs(tmp_path: Path, monkeypatch) -> None:
     inputs = planning_inputs(grid_spec(10, 10, 100.0), refinement_zones=(_planned("3" * 32),))
     monkeypatch.setattr(mesh_module, "planning_inputs", lambda ctx, mesh_cfg: inputs)
     mesh = MeshConfig(engine="regular", refinement_zone=[ZONE])
-    ctx = _context(tmp_path, mesh)
+    ctx = make_context(tmp_path, mesh)
 
     step_mesh(ctx)
 
     assert ctx.setup.mesh_summary["zone_runs"] == {"coarse": "3" * 32}
 
 
-# --- test_a_replay_reads_the_mesh_sealed_beside_its_source ---
-# An engine that cannot rebuild its mesh bit for bit reads the one the source sealed.
-#
-# The source of a replay holds ``mesh/`` beside its seal. A replay of such an
-# engine reads it, its identity compared to the request as the store's is; a
-# miss builds again through the store. An engine that rebuilds the same cells in
-# every process never reads the sealed copy.
-
+# The source of a replay holds mesh/ beside its seal. A replay reads it, its identity
+# compared to the request as the store's is. A miss builds again through the store.
 SEALED_RUN = "probe.v2"
 
 
@@ -262,7 +235,7 @@ def _seal(tmp_path: Path, mesh_cfg: MeshConfig) -> tuple[Path, str]:
     Returns the sealed run directory, as ``hmp replay`` would see it, and the
     product key of the mesh that was built.
     """
-    step_mesh(_context(tmp_path, mesh_cfg))
+    step_mesh(make_context(tmp_path, mesh_cfg))
     store = ProductStore(products_root(tmp_path))
     (only,) = store.entries()
     stored = store.path(only.key)
@@ -297,10 +270,10 @@ def _write_mesh_row(sealed: Path) -> None:
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_replay_reads_the_mesh_sealed_beside_the_source_run(tmp_path, cached_engine) -> None:
+def test_replay_reads_the_sealed_mesh(tmp_path, cached_engine) -> None:
     mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
     sealed, key = _seal(tmp_path, mesh_cfg)
-    replay = _context(tmp_path / "replay_project", mesh_cfg)
+    replay = make_context(tmp_path / "replay_project", mesh_cfg)
     replay.run_dir = tmp_path / "replay" / "runs" / "probe.v3"
     replay.run_dir.mkdir(parents=True)
 
@@ -314,11 +287,9 @@ def test_a_replay_reads_the_mesh_sealed_beside_the_source_run(tmp_path, cached_e
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_sealed_mesh_of_another_request_is_a_miss_and_the_step_builds_again(
-    tmp_path, cached_engine, caplog
-) -> None:
+def test_sealed_mesh_of_another_request_is_a_miss(tmp_path, cached_engine, caplog) -> None:
     sealed, key = _seal(tmp_path, MeshConfig(engine=cached_engine.engine_id, cell_size=100.0))
-    replay = _context(
+    replay = make_context(
         tmp_path / "replay_project", MeshConfig(engine=cached_engine.engine_id, cell_size=125.0)
     )
 
@@ -331,12 +302,12 @@ def test_a_sealed_mesh_of_another_request_is_a_miss_and_the_step_builds_again(
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_sealed_mesh_changed_after_its_seal_is_a_miss(tmp_path, cached_engine, caplog) -> None:
+def test_sealed_mesh_changed_after_the_seal_is_a_miss(tmp_path, cached_engine, caplog) -> None:
     mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
     sealed, _key = _seal(tmp_path, mesh_cfg)
     arrays = sealed / MESH_DIRNAME / ARRAYS_FILENAME
     arrays.write_bytes(arrays.read_bytes() + b"\0")
-    replay = _context(tmp_path / "replay_project", mesh_cfg)
+    replay = make_context(tmp_path / "replay_project", mesh_cfg)
 
     with caplog.at_level(logging.WARNING, logger=mesh_module.logger.name):
         step_mesh(replay, sealed)
@@ -346,10 +317,10 @@ def test_a_sealed_mesh_changed_after_its_seal_is_a_miss(tmp_path, cached_engine,
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_source_run_with_no_mesh_directory_is_a_miss(tmp_path, cached_engine) -> None:
+def test_source_without_mesh_directory_is_a_miss(tmp_path, cached_engine) -> None:
     sealed = tmp_path / "runs" / SEALED_RUN
     sealed.mkdir(parents=True)
-    replay = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id))
+    replay = make_context(tmp_path, MeshConfig(engine=cached_engine.engine_id))
 
     step_mesh(replay, sealed)
 

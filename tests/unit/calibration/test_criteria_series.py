@@ -1,4 +1,9 @@
-"""Tests of `criteria.series`."""
+"""Criteria that score a simulated series against observations, and the metrics they use.
+
+Covers the series criteria (nse, kge, nse_seasonal, nse_delta, reservoir), the network
+distance criterion, the objective-block refusals and the match between the cost of a
+search and the score of its run. Costs are dimensionless unless stated, stages are in m.
+"""
 
 from __future__ import annotations
 
@@ -54,20 +59,6 @@ from hydromodpy.results.score import score_timeseries
 from tests._helpers.tolerances import tol
 from tests.unit.calibration._factories import _score
 
-# From test_an_efficiency_over_several_outputs_is_refused.py
-# An efficiency is one number per station, and the costs are averaged.
-#
-# A block over several outputs concatenates them and computes one metric on the
-# pool. For an error (rmse, mae) the pool is a fair summary. For an efficiency
-# (nse, kge, ...) it is not: the observed variance of the pool is dominated by the
-# differences between stations, so a station that is badly simulated hides behind
-# the spread between the others. A probe gave a pooled cost of 0.006 against 0.82
-# once averaged per station.
-#
-# A metric that rises with the fit therefore takes one output per block. Writing
-# one block per output, each with its weight, averages the costs per station.
-
-
 EFFICIENCIES = sorted(name for name in METRICS if METRIC_SENSE.get(name) == "max")
 POOLABLE = sorted(name for name in METRICS if METRIC_SENSE.get(name) == "min")
 
@@ -88,13 +79,13 @@ def _block(metric: str, outputs: list[str], **extra: object) -> dict[str, object
     return {"name": "stations", "metric": metric, "uses_outputs": outputs, **extra}
 
 
-def test_the_efficiencies_are_found_in_the_metric_table() -> None:
+def test_efficiencies_come_from_metric_table() -> None:
     assert {"nse", "nse_log", "kge"} <= set(EFFICIENCIES)
     assert {"rmse", "mae"} <= set(POOLABLE)
 
 
 @pytest.mark.parametrize("metric", EFFICIENCIES)
-def test_an_efficiency_over_two_outputs_is_refused(metric: str) -> None:
+def test_efficiency_over_two_outputs_refused(metric: str) -> None:
     with pytest.raises(ValidationError) as caught:
         CalibObjectiveBlockDecl.model_validate(_block(metric, ["upstream", "downstream"]))
 
@@ -104,29 +95,25 @@ def test_an_efficiency_over_two_outputs_is_refused(metric: str) -> None:
     assert "one block per output" in message
 
 
-def test_the_refusal_reaches_a_whole_calibration_file() -> None:
+def test_refusal_reaches_calibration_file() -> None:
     blocks = [_block("nse", ["upstream", "downstream"])]
 
     with pytest.raises(ValidationError, match="one block per output"):
         CalibrationConfig.model_validate(_config(blocks))
 
 
-# From test_metric_kind_matches_the_registry.py
-# Every metric the engine can compute must be selectable from a TOML.
-#
-# ``MetricKind`` is cut from the table of ``core.scoring.metric_table``, and
-# ``tests/unit/core/scoring/test_metric_table.py`` holds it equal to the keys of
-# ``METRICS``. The tests below hold the direction and the documentation.
-
-
-def test_every_metric_declares_its_direction() -> None:
-    """A metric the engine cannot orient would be minimized the wrong way."""
+def test_every_metric_has_a_direction() -> None:
+    # A metric the engine cannot orient would be minimized the wrong way.
     assert HIGHER_IS_BETTER <= set(METRICS)
 
 
-def test_every_selectable_metric_is_documented() -> None:
-    """The generated reference page explains each value it offers."""
+@pytest.mark.parametrize("metric", ["nse_delta", "nse_seasonal", "reservoir"])
+def test_metric_is_higher_is_better(metric: str) -> None:
+    assert metric in METRICS
+    assert metric in HIGHER_IS_BETTER
 
+
+def test_every_metric_is_documented() -> None:
     extra = CalibObjectiveBlockDecl.model_fields["metric"].json_schema_extra
     assert isinstance(extra, dict)
     value_docs = extra["value_docs"]
@@ -134,24 +121,21 @@ def test_every_selectable_metric_is_documented() -> None:
     assert set(value_docs) == set(get_args(MetricKind))
 
 
-# From test_one_epsilon_rule_serves_every_nse_log.py
-# One rule gives the epsilon of nse_log, and the figures and prototypes call it.
-#
-# The rule (the larger of 1e-9 and one percent of the median positive
-# observation) was written three times. ``log_floor`` is the one copy.
+# The floor is 1 % of the median positive observation, never below 1e-9, and 0.01 without data.
+LOG_FLOORS = [
+    pytest.param([0.0, 2.0, 4.0, np.nan, 100.0], 0.04, id="median of positives"),
+    pytest.param([0.0, 1e-12], 1e-9, id="absolute minimum"),
+    pytest.param([0.0, 0.0], 0.01, id="no positive"),
+    pytest.param([], 0.01, id="empty"),
+]
 
 
-def test_the_floor_is_one_percent_of_the_median_positive_observation() -> None:
-    assert log_floor([0.0, 2.0, 4.0, np.nan, 100.0]) == pytest.approx(0.04)
+@pytest.mark.parametrize(("observed", "floor"), LOG_FLOORS)
+def test_log_floor(observed, floor) -> None:
+    assert log_floor(observed) == pytest.approx(floor, rel=1e-12)
 
 
-def test_the_floor_never_drops_below_the_absolute_minimum() -> None:
-    assert log_floor([0.0, 1e-12]) == 1e-9
-    assert log_floor([0.0, 0.0]) == pytest.approx(0.01)
-    assert log_floor([]) == pytest.approx(0.01)
-
-
-def test_log_nse_defaults_to_the_floor_of_the_scored_pairs() -> None:
+def test_log_nse_default_floor() -> None:
     sim = np.array([1.0, 2.0, 3.0, np.nan, 5.0])
     obs = np.array([1.2, 1.9, 3.3, 900.0, 4.6])
 
@@ -160,239 +144,186 @@ def test_log_nse_defaults_to_the_floor_of_the_scored_pairs() -> None:
     assert log_nse(sim, obs) == pytest.approx(explicit)
 
 
-# From test_reservoir_metrics.py
-# Unit tests for the impounded-level calibration metrics.
-#
-# Covers the efficiencies added to calibrate a reservoir stage - ``nse_seasonal``
-# (efficiency against the seasonal cycle instead of the flat mean), ``nse_delta``
-# and ``kge_delta`` (efficiency on the increments) - the ``reservoir`` composite
-# that pairs the first two, and the calibration seams that expose them.
-#
-# Expected values are derived, not fitted. The seasonal benchmark is a
-# least-squares fit of the mean plus the first two harmonics, so a residual built
-# on the THIRD harmonic is orthogonal to that design over a whole number of
-# cycles: the benchmark is exactly the harmonic part, the denominator is exactly
-# the residual energy, and the score follows in closed form.
-
-
 SEASON = 365
-
 TWO_SEASONS = 2 * SEASON
-
 RESIDUAL_AMPLITUDE = 0.4
 
 
 def _seasonal_pair(
     n: int, period: int, *, amplitude: float = 0.5, start: int = 0
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return ``(benchmark, observed)`` with ``observed`` = benchmark + 3rd harmonic.
-
-    ``start`` shifts the phase to check that the fit recovers it from the data.
-    """
+    """Return (benchmark, observed), observed = benchmark + a 3rd harmonic of given amplitude."""
     theta = 2.0 * np.pi * (np.arange(n, dtype=float) + float(start)) / float(period)
     benchmark = 100.0 + 5.0 * np.cos(theta) + 2.0 * np.sin(2.0 * theta)
     return benchmark, benchmark + amplitude * np.cos(3.0 * theta)
 
 
-def _residual_energy(n: int, amplitude: float) -> float:
-    """Energy of ``amplitude * cos(3 theta)`` over ``n`` samples of whole cycles."""
-    return amplitude**2 * n / 2.0
-
-
 def _daily_reservoir(offset: float) -> tuple[np.ndarray, np.ndarray]:
-    """Two years of daily stage and the same stage shifted by a constant ``offset``."""
+    """Two years of daily stage (m) and the same stage shifted by a constant offset."""
     _, observed = _seasonal_pair(TWO_SEASONS, SEASON, amplitude=RESIDUAL_AMPLITUDE)
     return observed + offset, observed
 
 
-# ---------------------------------------------------------------------------
-# nse_delta / kge_delta: efficiency on the increments
-# ---------------------------------------------------------------------------
-class TestIncrementEfficiency:
-    def test_perfect_fit_is_one(self) -> None:
-        obs = np.array([0.0, 1.0, 3.0, 6.0, 10.0])
-        assert nse_delta(obs, obs) == pytest.approx(1.0)
+# Increments of the record [0, 1, 3, 6, 10] are 1, 2, 3, 4.
+STAGE = np.array([0.0, 1.0, 3.0, 6.0, 10.0])
+# d_obs = [1, 2, 3], mean 2, denominator 2. d_sim = [2, 1, 2], numerator 3.
+STEP_ONE_OBS = np.array([0.0, 1.0, 3.0, 6.0])
+STEP_ONE_SIM = np.array([0.0, 2.0, 3.0, 5.0])
+# d_obs = [3, 5, 7, 9], mean 6, denominator 20. d_sim = [4, 5, 6, 10], numerator 3.
+STEP_TWO_OBS = np.array([0.0, 1.0, 3.0, 6.0, 10.0, 15.0])
+STEP_TWO_SIM = np.array([0.0, 1.0, 4.0, 6.0, 10.0, 16.0])
 
-    def test_a_constant_offset_still_scores_one(self) -> None:
-        """The increments are blind to the absolute stage, as the docstring warns."""
-        obs = np.array([0.0, 1.0, 3.0, 6.0, 10.0])
-        assert nse_delta(obs + 10.0, obs) == pytest.approx(1.0)
-        assert nse(obs + 10.0, obs) < 0.0
-
-    def test_known_value_step_one(self) -> None:
-        obs = np.array([0.0, 1.0, 3.0, 6.0])
-        sim = np.array([0.0, 2.0, 3.0, 5.0])
-        # d_obs = [1, 2, 3], mean 2 -> denominator 1 + 0 + 1 = 2
-        # d_sim = [2, 1, 2], residuals [1, -1, -1] -> numerator 3
-        assert nse_delta(sim, obs) == pytest.approx(1.0 - 3.0 / 2.0)
-
-    def test_known_value_step_two(self) -> None:
-        obs = np.array([0.0, 1.0, 3.0, 6.0, 10.0, 15.0])
-        sim = np.array([0.0, 1.0, 4.0, 6.0, 10.0, 16.0])
-        # d_obs = [3, 5, 7, 9], mean 6 -> denominator 9 + 1 + 1 + 9 = 20
-        # d_sim = [4, 5, 6, 10], residuals [1, 0, -1, 1] -> numerator 3
-        assert nse_delta(sim, obs, step=2) == pytest.approx(1.0 - 3.0 / 20.0)
-
-    def test_step_below_one_is_coerced_to_one(self) -> None:
-        obs = np.array([0.0, 1.0, 3.0, 6.0])
-        sim = np.array([0.0, 2.0, 3.0, 5.0])
-        assert nse_delta(sim, obs, step=0) == pytest.approx(nse_delta(sim, obs, step=1))
-
-    def test_constant_increments_return_nan(self) -> None:
-        """A linear ramp has zero increment variance: no benchmark, no score."""
-        ramp = np.arange(10, dtype=float) * 2.0
-        assert np.isnan(nse_delta(ramp, ramp))
-
-    def test_series_shorter_than_the_step_window_returns_nan(self) -> None:
-        obs = np.array([0.0, 1.0, 3.0])
-        sim = np.array([0.0, 2.0, 3.0])
-        assert np.isnan(nse_delta(sim, obs, step=2))
-        assert np.isnan(nse_delta(sim[:2], obs[:2], step=1))
-
-    def test_all_nan_returns_nan(self) -> None:
-        nans = np.full(6, np.nan)
-        assert np.isnan(nse_delta(nans, nans))
-        assert np.isnan(nse_delta(np.zeros(6), nans))
-
-    def test_empty_series_returns_nan(self) -> None:
-        assert np.isnan(nse_delta(np.empty(0), np.empty(0)))
-
-    def test_shape_mismatch_raises(self) -> None:
-        with pytest.raises(ValueError):
-            nse_delta(np.zeros(4), np.zeros(5))
-
-    def test_kge_delta_is_nan_when_the_increments_sum_to_zero(self) -> None:
-        """Why KGE is not offered on increments: beta is a ratio of near-zero means."""
-        obs = np.array([0.0, 1.0, 0.0])
-        assert np.isnan(kge_delta(obs, obs)["kge"])
-
-    def test_kge_delta_too_short_returns_all_nan(self) -> None:
-        out = kge_delta(np.array([0.0, 1.0]), np.array([0.0, 2.0]))
-        assert all(np.isnan(value) for value in out.values())
+DELTA_VALUES = [
+    pytest.param(STAGE, STAGE, 1, 1.0, id="perfect fit"),
+    pytest.param(STAGE + 10.0, STAGE, 1, 1.0, id="constant offset"),
+    pytest.param(STEP_ONE_SIM, STEP_ONE_OBS, 1, 1.0 - 3.0 / 2.0, id="step one"),
+    pytest.param(STEP_ONE_SIM, STEP_ONE_OBS, 0, 1.0 - 3.0 / 2.0, id="step below one"),
+    pytest.param(STEP_TWO_SIM, STEP_TWO_OBS, 2, 1.0 - 3.0 / 20.0, id="step two"),
+]
 
 
-# ---------------------------------------------------------------------------
-# nse_seasonal: efficiency against the seasonal cycle
-# ---------------------------------------------------------------------------
-class TestSeasonalEfficiency:
-    def test_perfect_fit_is_one(self) -> None:
-        _, observed = _seasonal_pair(24, 12)
-        assert nse_seasonal(observed, observed, period=12) == pytest.approx(1.0)
-
-    def test_predicting_the_seasonal_cycle_scores_zero(self) -> None:
-        """The seasonal benchmark is to this metric what the mean is to NSE."""
-        benchmark, observed = _seasonal_pair(24, 12)
-        assert nse_seasonal(benchmark, observed, period=12) == pytest.approx(0.0)
-
-    def test_known_value_for_a_constant_error(self) -> None:
-        n, period, amplitude, error = 24, 12, 0.5, 0.1
-        _, observed = _seasonal_pair(n, period, amplitude=amplitude)
-        denominator = _residual_energy(n, amplitude)  # 0.25 * 12 = 3.0
-        numerator = n * error**2  # 24 * 0.01 = 0.24
-        assert denominator == pytest.approx(3.0)
-        assert nse_seasonal(observed + error, observed, period=period) == pytest.approx(
-            1.0 - numerator / denominator
-        )
-        assert nse_seasonal(observed + error, observed, period=period) == pytest.approx(0.92)
-
-    def test_score_is_unchanged_by_where_the_series_is_cut(self) -> None:
-        """A harmonic fit recovers the phase, so dropping a partial warm-up is safe."""
-        _, from_day_zero = _seasonal_pair(24, 12)
-        _, from_day_five = _seasonal_pair(24, 12, start=5)
-        assert nse_seasonal(from_day_five + 0.1, from_day_five, period=12) == pytest.approx(
-            nse_seasonal(from_day_zero + 0.1, from_day_zero, period=12)
-        )
-
-    def test_it_is_harsher_than_nse_on_a_seasonal_signal(self) -> None:
-        """A model that only reproduces climatology scores ~1 on NSE and 0 here."""
-        benchmark, observed = _seasonal_pair(24, 12)
-        # Observed energy: 25 * 12 (1st) + 4 * 12 (2nd) + 0.25 * 12 (3rd) = 351.
-        assert nse(benchmark, observed) == pytest.approx(1.0 - 3.0 / 351.0)
-        assert nse_seasonal(benchmark, observed, period=12) == pytest.approx(0.0)
-
-    def test_fewer_than_two_cycles_returns_nan(self) -> None:
-        _, observed = _seasonal_pair(23, 12)
-        assert np.isnan(nse_seasonal(observed, observed, period=12))
-
-    def test_constant_observations_return_nan(self) -> None:
-        flat = np.full(TWO_SEASONS, 100.0)
-        assert np.isnan(nse_seasonal(flat + 0.1, flat))
-
-    def test_all_nan_returns_nan(self) -> None:
-        nans = np.full(TWO_SEASONS, np.nan)
-        assert np.isnan(nse_seasonal(nans, nans))
-
-    def test_empty_series_returns_nan(self) -> None:
-        assert np.isnan(nse_seasonal(np.empty(0), np.empty(0)))
-
-    def test_shape_mismatch_raises(self) -> None:
-        with pytest.raises(ValueError):
-            nse_seasonal(np.zeros(TWO_SEASONS), np.zeros(TWO_SEASONS + 1))
+@pytest.mark.parametrize(("sim", "obs", "step", "expected"), DELTA_VALUES)
+def test_nse_delta_values(sim, obs, step, expected) -> None:
+    assert nse_delta(sim, obs, step=step) == pytest.approx(expected)
 
 
-# ---------------------------------------------------------------------------
-# reservoir: the equally weighted composite
-# ---------------------------------------------------------------------------
-class TestReservoirComposite:
-    def test_perfect_fit_is_one(self) -> None:
-        _, observed = _daily_reservoir(0.0)
-        assert METRICS["reservoir"](observed, observed) == pytest.approx(1.0)
-
-    def test_known_value_splits_the_two_halves_evenly(self) -> None:
-        offset = 0.2
-        simulated, observed = _daily_reservoir(offset)
-        denominator = _residual_energy(TWO_SEASONS, RESIDUAL_AMPLITUDE)  # 0.16 * 365
-        numerator = TWO_SEASONS * offset**2  # 730 * 0.04
-        assert denominator == pytest.approx(58.4)
-        assert numerator == pytest.approx(29.2)
-
-        seasonal = nse_seasonal(simulated, observed)
-        increments = nse_delta(simulated, observed, step=int(RESERVOIR_INCREMENT_DAYS))
-        # A constant offset leaves every increment untouched, so only the
-        # seasonal half is degraded: 1 - 29.2 / 58.4 = 0.5.
-        assert seasonal == pytest.approx(0.5)
-        assert increments == pytest.approx(1.0)
-        assert METRICS["reservoir"](simulated, observed) == pytest.approx(0.75)
-        assert METRICS["reservoir"](simulated, observed) == pytest.approx(
-            0.5 * seasonal + 0.5 * increments
-        )
-
-    def test_it_differences_over_the_declared_step(self) -> None:
-        """Scoring day-to-day increments instead would drop the composite by > 1."""
-        assert RESERVOIR_INCREMENT_DAYS == 10.0
-        days = np.arange(TWO_SEASONS, dtype=float)
-        observed = (
-            100.0
-            + 5.0 * np.cos(2.0 * np.pi * days / SEASON)
-            + 0.5 * np.sin(2.0 * np.pi * days / 10.0)
-        )
-        simulated = np.concatenate([observed[:3], observed[:-3]])
-
-        seasonal = nse_seasonal(simulated, observed)
-        declared = 0.5 * seasonal + 0.5 * nse_delta(
-            simulated, observed, step=int(RESERVOIR_INCREMENT_DAYS)
-        )
-        daily = 0.5 * seasonal + 0.5 * nse_delta(simulated, observed, step=1)
-        assert METRICS["reservoir"](simulated, observed) == pytest.approx(declared)
-        assert declared - daily > 1.0
-
-    def test_a_series_shorter_than_two_seasons_returns_nan(self) -> None:
-        _, observed = _daily_reservoir(0.0)
-        assert np.isnan(METRICS["reservoir"](observed[:100], observed[:100]))
-
-    def test_constant_increments_return_nan(self) -> None:
-        ramp = np.arange(TWO_SEASONS, dtype=float) * 2.0
-        assert np.isnan(nse_delta(ramp, ramp, step=int(RESERVOIR_INCREMENT_DAYS)))
-        assert np.isnan(METRICS["reservoir"](ramp, ramp))
-
-    def test_all_nan_returns_nan(self) -> None:
-        nans = np.full(TWO_SEASONS, np.nan)
-        assert np.isnan(METRICS["reservoir"](nans, nans))
+def test_nse_delta_blind_to_offset() -> None:
+    # The increments ignore the absolute stage, while NSE does not.
+    assert nse(STAGE + 10.0, STAGE) < 0.0
 
 
-# ---------------------------------------------------------------------------
-# Calibration seams: registry, variable + objective, objective blocks
-# ---------------------------------------------------------------------------
+RAMP = np.arange(10, dtype=float) * 2.0  # a linear ramp has no increment variance
+NANS = np.full(6, np.nan)
+DELTA_UNDEFINED = [
+    pytest.param(RAMP, RAMP, 1, id="constant increments"),
+    pytest.param(
+        np.arange(TWO_SEASONS) * 2.0,
+        np.arange(TWO_SEASONS) * 2.0,
+        int(RESERVOIR_INCREMENT_DAYS),
+        id="ramp over reservoir step",
+    ),
+    pytest.param([0.0, 2.0, 3.0], [0.0, 1.0, 3.0], 2, id="shorter than the step window"),
+    pytest.param([0.0, 2.0], [0.0, 1.0], 1, id="two samples"),
+    pytest.param(NANS, NANS, 1, id="all nan"),
+    pytest.param(np.zeros(6), NANS, 1, id="observations all nan"),
+    pytest.param(np.empty(0), np.empty(0), 1, id="empty"),
+]
+
+
+@pytest.mark.parametrize(("sim", "obs", "step"), DELTA_UNDEFINED)
+def test_nse_delta_undefined(sim, obs, step) -> None:
+    assert np.isnan(nse_delta(np.asarray(sim), np.asarray(obs), step=step))
+
+
+def test_kge_delta_nan_for_zero_sum() -> None:
+    # KGE is not offered on increments: beta is a ratio of near-zero means.
+    obs = np.array([0.0, 1.0, 0.0])
+    assert np.isnan(kge_delta(obs, obs)["kge"])
+
+
+def test_kge_delta_too_short() -> None:
+    out = kge_delta(np.array([0.0, 1.0]), np.array([0.0, 2.0]))
+    assert all(np.isnan(value) for value in out.values())
+
+
+def test_shape_mismatch_refused() -> None:
+    with pytest.raises(ValueError):
+        nse_delta(np.zeros(4), np.zeros(5))
+    with pytest.raises(ValueError):
+        nse_seasonal(np.zeros(TWO_SEASONS), np.zeros(TWO_SEASONS + 1))
+
+
+# Observed energy of the 3rd harmonic over 24 monthly samples: 0.25 * 12 = 3.0.
+# A constant error of 0.1 costs 24 * 0.01 = 0.24, so the score is 1 - 0.24 / 3.0.
+BENCHMARK_24, OBSERVED_24 = _seasonal_pair(24, 12)
+SEASONAL_VALUES = [
+    pytest.param(OBSERVED_24, OBSERVED_24, 1.0, id="perfect fit"),
+    pytest.param(BENCHMARK_24, OBSERVED_24, 0.0, id="seasonal cycle only"),
+    pytest.param(OBSERVED_24 + 0.1, OBSERVED_24, 0.92, id="constant error"),
+]
+
+
+@pytest.mark.parametrize(("sim", "obs", "expected"), SEASONAL_VALUES)
+def test_nse_seasonal_values(sim, obs, expected) -> None:
+    assert nse_seasonal(sim, obs, period=12) == pytest.approx(expected)
+
+
+def test_seasonal_score_ignores_cut_point() -> None:
+    # A harmonic fit recovers the phase, so dropping a partial warm-up is safe.
+    _, from_day_five = _seasonal_pair(24, 12, start=5)
+    assert nse_seasonal(from_day_five + 0.1, from_day_five, period=12) == pytest.approx(
+        nse_seasonal(OBSERVED_24 + 0.1, OBSERVED_24, period=12)
+    )
+
+
+def test_seasonal_harsher_than_nse() -> None:
+    # Observed energy: 25 * 12 (1st) + 4 * 12 (2nd) + 0.25 * 12 (3rd) = 351.
+    assert nse(BENCHMARK_24, OBSERVED_24) == pytest.approx(1.0 - 3.0 / 351.0)
+    assert nse_seasonal(BENCHMARK_24, OBSERVED_24, period=12) == pytest.approx(0.0)
+
+
+SEASONAL_UNDEFINED = [
+    pytest.param(_seasonal_pair(23, 12)[1], _seasonal_pair(23, 12)[1], 12, id="under two cycles"),
+    pytest.param(np.full(TWO_SEASONS, 100.1), np.full(TWO_SEASONS, 100.0), SEASON, id="flat"),
+    pytest.param(np.full(TWO_SEASONS, np.nan), np.full(TWO_SEASONS, np.nan), SEASON, id="all nan"),
+    pytest.param(np.empty(0), np.empty(0), SEASON, id="empty"),
+]
+
+
+@pytest.mark.parametrize(("sim", "obs", "period"), SEASONAL_UNDEFINED)
+def test_nse_seasonal_undefined(sim, obs, period) -> None:
+    assert np.isnan(nse_seasonal(sim, obs, period=period))
+
+
+def test_reservoir_perfect_fit() -> None:
+    _, observed = _daily_reservoir(0.0)
+    assert METRICS["reservoir"](observed, observed) == pytest.approx(1.0)
+
+
+def test_reservoir_halves_split_evenly() -> None:
+    simulated, observed = _daily_reservoir(0.2)
+    # Residual energy: 0.4**2 / 2 * 730 = 58.4. Offset error: 730 * 0.2**2 = 29.2.
+    # An offset leaves every increment untouched, so only the seasonal half drops.
+    seasonal = nse_seasonal(simulated, observed)
+    increments = nse_delta(simulated, observed, step=int(RESERVOIR_INCREMENT_DAYS))
+    assert seasonal == pytest.approx(1.0 - 29.2 / 58.4)
+    assert increments == pytest.approx(1.0)
+    assert METRICS["reservoir"](simulated, observed) == pytest.approx(0.75)
+    assert METRICS["reservoir"](simulated, observed) == pytest.approx(
+        0.5 * seasonal + 0.5 * increments
+    )
+
+
+def test_reservoir_differences_over_declared_step() -> None:
+    # Scoring day-to-day increments instead would drop the composite by more than 1.
+    assert RESERVOIR_INCREMENT_DAYS == 10.0
+    days = np.arange(TWO_SEASONS, dtype=float)
+    observed = (
+        100.0 + 5.0 * np.cos(2.0 * np.pi * days / SEASON) + 0.5 * np.sin(2.0 * np.pi * days / 10.0)
+    )
+    simulated = np.concatenate([observed[:3], observed[:-3]])
+
+    seasonal = nse_seasonal(simulated, observed)
+    declared = 0.5 * seasonal + 0.5 * nse_delta(
+        simulated, observed, step=int(RESERVOIR_INCREMENT_DAYS)
+    )
+    daily = 0.5 * seasonal + 0.5 * nse_delta(simulated, observed, step=1)
+    assert METRICS["reservoir"](simulated, observed) == pytest.approx(declared)
+    assert declared - daily > 1.0
+
+
+RESERVOIR_UNDEFINED = [
+    pytest.param(_daily_reservoir(0.0)[1][:100], id="under two seasons"),
+    pytest.param(np.arange(TWO_SEASONS, dtype=float) * 2.0, id="constant increments"),
+    pytest.param(np.full(TWO_SEASONS, np.nan), id="all nan"),
+]
+
+
+@pytest.mark.parametrize("series", RESERVOIR_UNDEFINED)
+def test_reservoir_undefined(series) -> None:
+    assert np.isnan(METRICS["reservoir"](series, series))
+
+
 def _lake_cost(observed: np.ndarray, simulated: np.ndarray, index: pd.DatetimeIndex) -> float:
     """Score a lake stage on ``reservoir`` as ``variable = "lake_level"`` does."""
     scorer = StationBlockScorer(
@@ -404,217 +335,214 @@ def _lake_cost(observed: np.ndarray, simulated: np.ndarray, index: pd.DatetimeIn
     return cost
 
 
-class TestCalibrationWiring:
-    @pytest.mark.parametrize("metric", ["nse_delta", "nse_seasonal", "reservoir"])
-    def test_metrics_are_registered_as_higher_is_better(self, metric: str) -> None:
-        assert metric in METRICS
-        assert metric in HIGHER_IS_BETTER
-
-    def test_a_block_turns_the_score_into_a_cost(self) -> None:
-        simulated, observed = _daily_reservoir(0.2)
-        block = ConfigBlockObjective(
-            name="lake",
-            metric="reservoir",
-            uses_outputs=["lac0"],
-            observed_by_output={"lac0": observed},
-        )
-        value = block.evaluate({"lac0": simulated})
-        assert value.total == pytest.approx(1.0 - 0.75)
-        assert value.components["lake.raw_cost"] == pytest.approx(0.25)
-
-    def test_a_lake_level_route_returns_the_flipped_cost(self) -> None:
-        simulated, observed = _daily_reservoir(0.2)
-        index = pd.date_range("2001-01-01", periods=TWO_SEASONS, freq="D")
-        # A reservoir stage is the state AT its stamp, so the stage simulated
-        # at an instant pairs with the reading taken at that same instant, as
-        # the lake_level route scores it. A period mean would pair it with the
-        # reading of the day before.
-        cost = _lake_cost(observed, simulated, index)
-        # The dated series reads a year of 365.25 days, as the block route
-        # does; the fixture cycles on 365 samples, hence the tolerance.
-        assert cost == pytest.approx(0.25, abs=1e-2)
-
-    def test_a_chronicle_too_short_to_score_costs_infinity(self) -> None:
-        simulated, observed = _daily_reservoir(0.2)
-        index = pd.date_range("2001-01-01", periods=100, freq="D")
-        assert _lake_cost(observed[:100], simulated[:100], index) == float("inf")
-
-    def test_objective_block_scores_a_full_chronicle(self) -> None:
-        simulated, observed = _daily_reservoir(0.2)
-        block = ConfigBlockObjective(
-            name="lake",
-            metric="reservoir",
-            uses_outputs=["lake"],
-            observed_by_output={"lake": observed.tolist()},
-        )
-        assert block.evaluate({"lake": simulated.tolist()}).total == pytest.approx(0.25)
-
-
-class TestTheSeasonalCycleIsCountedInDays:
-    """A monthly series holds a year in twelve samples, not 365."""
-
-    @staticmethod
-    def _monthly(years: int) -> tuple[np.ndarray, np.ndarray]:
-        months = np.arange(12 * years, dtype=float)
-        obs = 10.0 + 3.0 * np.cos(2.0 * np.pi * months / 12.0) + 0.5 * np.sin(months)
-        sim = obs + 0.2 * np.cos(3.0 * months)
-        return sim, obs
-
-    @pytest.mark.parametrize(
-        ("times_days", "sample_days", "expected"),
-        [
-            (None, None, None),
-            ([5.0, 35.0, 65.0, 125.0], None, [0.0, 1.0, 2.0, 4.0]),
-            ([5.0, 35.0, 65.0], 15.0, [0.0, 2.0, 4.0]),
-            ([5.0, 5.0], None, None),
-            ([], 1.0, []),
-        ],
-        ids=["no-dates", "median-spacing", "given-step", "no-spacing", "empty"],
+def test_block_turns_score_into_cost() -> None:
+    simulated, observed = _daily_reservoir(0.2)
+    block = ConfigBlockObjective(
+        name="lake",
+        metric="reservoir",
+        uses_outputs=["lac0"],
+        observed_by_output={"lac0": observed},
     )
-    def test_dates_become_positions_in_steps_of_the_series(
-        self, times_days, sample_days, expected
-    ) -> None:
-        positions = _positions(times_days, sample_days)
-
-        if expected is None:
-            assert positions is None
-        else:
-            np.testing.assert_allclose(positions, expected)
-
-    def test_a_daily_step_keeps_the_daily_score(self) -> None:
-        days = np.arange(3 * SEASON, dtype=float)
-        obs = 5.0 + np.cos(2.0 * np.pi * days / SEASON) + 0.1 * np.sin(days / 7.0)
-        sim = obs + 0.05 * np.sin(days / 3.0)
-        criterion = SeriesCriterion("nse_seasonal", METRICS["nse_seasonal"])
-
-        assert criterion.score(sim, obs, sample_days=1.0).cost == pytest.approx(
-            criterion.score(sim, obs).cost, abs=1e-3
-        )
+    value = block.evaluate({"lac0": simulated})
+    assert value.total == pytest.approx(1.0 - 0.75)
+    assert value.components["lake.raw_cost"] == pytest.approx(0.25)
 
 
-# From test_the_criterion_contract.py
-# A criterion declares what it needs and returns what it found.
-#
-# An objective was a function ``f(sim, obs) -> float``. That fits a series and
-# nothing else, so a criterion comparing two geometries disguised itself as one:
-# a two-element vector standing in for a series, a vector of zeros standing in for
-# observations it does not have, and a free-text component name standing in for
-# "this one publishes a signed residual". Five artifacts held one shape open.
-#
-# The gate that matters is the last class here: every cost must come out of the
-# contract bit for bit identical to the cost the inline path produced, or the
-# refactor changed what is optimized.
+def test_lake_level_route_flips_cost() -> None:
+    simulated, observed = _daily_reservoir(0.2)
+    index = pd.date_range("2001-01-01", periods=TWO_SEASONS, freq="D")
+    # A stage is the state AT its stamp, so it pairs with the reading of that same instant.
+    cost = _lake_cost(observed, simulated, index)
+    # The dated series reads a year of 365.25 days and the fixture cycles on 365 samples.
+    assert cost == pytest.approx(0.25, abs=1e-2)
 
 
-# Long enough that the seasonal kernels return a number rather than NaN: they
-# read a cycle out of the samples themselves.
+def test_short_chronicle_costs_infinity() -> None:
+    simulated, observed = _daily_reservoir(0.2)
+    index = pd.date_range("2001-01-01", periods=100, freq="D")
+    assert _lake_cost(observed[:100], simulated[:100], index) == float("inf")
+
+
+def test_block_scores_full_chronicle() -> None:
+    simulated, observed = _daily_reservoir(0.2)
+    block = ConfigBlockObjective(
+        name="lake",
+        metric="reservoir",
+        uses_outputs=["lake"],
+        observed_by_output={"lake": observed.tolist()},
+    )
+    assert block.evaluate({"lake": simulated.tolist()}).total == pytest.approx(0.25)
+
+
+# Stamps 5, 35, 65, 125 d: median spacing 30 d, so positions 0, 1, 2, 4.
+POSITIONS = [
+    pytest.param([5.0, 35.0, 65.0, 125.0], None, [0.0, 1.0, 2.0, 4.0], id="median spacing"),
+    pytest.param([5.0, 35.0, 65.0], 15.0, [0.0, 2.0, 4.0], id="given step"),
+    pytest.param([], 1.0, [], id="empty"),
+]
+
+
+@pytest.mark.parametrize(("times_days", "sample_days", "expected"), POSITIONS)
+def test_dates_to_positions(times_days, sample_days, expected) -> None:
+    np.testing.assert_allclose(_positions(times_days, sample_days), expected)
+
+
+@pytest.mark.parametrize(
+    ("times_days", "sample_days"),
+    [pytest.param(None, None, id="no dates"), pytest.param([5.0, 5.0], None, id="no spacing")],
+)
+def test_no_positions(times_days, sample_days) -> None:
+    assert _positions(times_days, sample_days) is None
+
+
+def _daily_record(n_years: int = 3) -> tuple[pd.DatetimeIndex, pd.Series, pd.Series]:
+    """Daily stamps, an observed stage (m) and a simulation 0.05 m around it."""
+    stamps = pd.date_range("2001-01-01", periods=n_years * 365, freq="D")
+    days = np.arange(stamps.size, dtype=float)
+    obs = pd.Series(
+        5.0 + np.cos(2.0 * np.pi * days / 365.25) + 0.1 * np.sin(days / 7.0), index=stamps
+    )
+    return stamps, obs, obs + 0.05 * np.sin(days / 3.0)
+
+
+def test_daily_step_keeps_daily_score() -> None:
+    _, obs, sim = _daily_record()
+    criterion = SeriesCriterion("nse_seasonal", METRICS["nse_seasonal"])
+
+    daily = criterion.score(sim.to_numpy(), obs.to_numpy(), sample_days=1.0).cost
+
+    assert daily == pytest.approx(criterion.score(sim.to_numpy(), obs.to_numpy()).cost, abs=1e-3)
+
+
+# Long enough that the seasonal kernels return a number rather than NaN.
 _N = 96
 _SIM = 5.0 + 3.0 * np.sin(np.arange(_N) * 2.0 * np.pi / 12.0) + 0.05 * np.arange(_N)
 _OBS = 5.0 + 3.0 * np.sin((np.arange(_N) + 0.4) * 2.0 * np.pi / 12.0) + 0.04 * np.arange(_N)
 
-
-def _same_number(left: float, right: float) -> bool:
-    """Equality that also holds for a kernel whose cost is legitimately NaN."""
-    if np.isnan(left) and np.isnan(right):
-        return True
-    return left == right
-
-
-class TestTheRegistry:
-    def test_an_unknown_name_is_refused_with_the_list(self) -> None:
-        with pytest.raises(ValueError, match="Registered"):
-            criterion_for("nse_squared")
+CRITERION_REFUSALS = [
+    pytest.param("nse_squared", (), "Registered", id="unknown name"),
+    pytest.param("rmse", (_SIM,), "observations", id="no observations"),
+    pytest.param("rmse", (_SIM, _OBS[:3]), "rmse", id="length mismatch"),
+    pytest.param("distance_gap", ([1.0, 2.0, 3.0],), "pair", id="series is not a pair"),
+]
 
 
-class TestWhatASeriesCriterionDeclares:
-    def test_no_series_criterion_publishes_a_signed_residual(self) -> None:
-        for name in METRICS:
-            if name in {"distance_gap", "distance_mean"}:
-                continue
-            assert criterion_for(name).requirements().signed is False, name
-
-    def test_an_efficiency_score_says_its_cost_has_no_unit(self) -> None:
-        needs = criterion_for("kge").requirements()
-
-        assert needs.cost_is_dimensionless is True
-        assert needs.cost_unit is None
-
-    def test_scoring_without_observations_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="observations"):
-            criterion_for("rmse").score(_SIM)
-
-    def test_a_length_mismatch_is_refused_by_name(self) -> None:
-        with pytest.raises(ValueError, match="rmse"):
-            criterion_for("rmse").score(_SIM, _OBS[:3])
+@pytest.mark.parametrize(("name", "args", "message"), CRITERION_REFUSALS)
+def test_criterion_refusals(name, args, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        criterion_for(name).score(*args)
 
 
-class TestWhatTheHydrographicNetworkDistanceDeclares:
-    def test_the_gap_publishes_the_signed_residual_its_cost_is_built_from(self) -> None:
-        needs = criterion_for("distance_gap").requirements()
-        result = criterion_for("distance_gap").score([120.0, 100.0])
+def test_estimator_refused_with_known_ones() -> None:
+    with pytest.raises(ValueError, match="'distance_gap' .*'distance_mean'"):
+        HydrographicNetworkDistance("distance_median")
 
-        assert needs.signed is True
-        assert result.cost == pytest.approx(20.0)
-        assert result.signed_residual == pytest.approx(20.0)
 
-    def test_the_sign_survives_a_reversal(self) -> None:
-        result = criterion_for("distance_gap").score([100.0, 120.0])
+def test_series_criteria_publish_no_residual() -> None:
+    for name in METRICS:
+        if name in {"distance_gap", "distance_mean"}:
+            continue
+        assert criterion_for(name).requirements().signed is False, name
 
-        assert result.cost == pytest.approx(20.0)
-        assert result.signed_residual == pytest.approx(-20.0)
 
-    def test_the_mean_publishes_none_because_its_cost_is_not_that_residual(self) -> None:
-        needs = criterion_for("distance_mean").requirements()
-        result = criterion_for("distance_mean").score([120.0, 100.0])
+def test_efficiency_cost_has_no_unit() -> None:
+    needs = criterion_for("kge").requirements()
 
-        assert needs.signed is False
+    assert needs.cost_is_dimensionless is True
+    assert needs.cost_unit is None
+
+
+# Values are (D_so, D_os) pairs, each pair optionally weighted by 0.25 and 0.75.
+DISTANCE_GAP = [
+    pytest.param([120.0, 100.0], 20.0, 20.0, id="one pair"),
+    pytest.param([100.0, 120.0], 20.0, -20.0, id="reversed pair"),
+    pytest.param([130.0, 100.0], 30.0, 30.0, id="gap of 30"),
+    # 0.25 * |140 - 100| + 0.75 * |80 - 100|, no single residual to publish.
+    pytest.param([35.0, 25.0, 60.0, 75.0], 25.0, None, id="two weighted pairs"),
+]
+
+
+@pytest.mark.parametrize(("values", "cost", "residual"), DISTANCE_GAP)
+def test_distance_gap_cost(values, cost, residual) -> None:
+    result = criterion_for("distance_gap").score(values)
+
+    assert result.cost == pytest.approx(cost)
+    if residual is None:
         assert result.signed_residual is None
-        assert result.cost == pytest.approx(110.0)
-
-    def test_it_reports_the_pair_it_read(self) -> None:
-        diagnostics = criterion_for("distance_gap").score([120.0, 100.0]).diagnostics
-
-        assert diagnostics["D_so"] == pytest.approx(120.0)
-        assert diagnostics["D_os"] == pytest.approx(100.0)
-
-    def test_a_series_is_not_a_pair(self) -> None:
-        with pytest.raises(ValueError, match="pair"):
-            criterion_for("distance_gap").score([1.0, 2.0, 3.0])
+    else:
+        assert result.signed_residual == pytest.approx(residual)
 
 
-class TestTheCostsAreUnchanged:
-    """The gate: the contract must not move a single cost."""
+def test_distance_gap_diagnostics() -> None:
+    pair = criterion_for("distance_gap").score([120.0, 100.0]).diagnostics
+    assert pair["D_so"] == pytest.approx(120.0)
+    assert pair["D_os"] == pytest.approx(100.0)
 
-    @staticmethod
-    def _inline_cost(name: str) -> float:
-        """Reproduce exactly what the objective did before the contract."""
+    single = criterion_for("distance_gap").score([130.0, 100.0]).diagnostics
+    assert single["J_signed"] == pytest.approx(30.0)
 
-        sim, obs = _SIM, _OBS
-        if METRIC_SPECS[name].clips_negatives:
-            sim, obs, _ = clip_negatives(sim, obs)
-        raw = float(METRICS[name](sim, obs))
-        return (1.0 - raw) if name in HIGHER_IS_BETTER else raw
-
-    @pytest.mark.parametrize("name", sorted(set(METRICS) - {"distance_gap", "distance_mean"}))
-    def test_a_series_cost_is_identical_to_the_bit(self, name: str) -> None:
-        through_contract = criterion_for(name).score(_SIM, _OBS).cost
-
-        assert _same_number(through_contract, self._inline_cost(name))
+    weighted = criterion_for("distance_gap").score([35.0, 25.0, 60.0, 75.0]).diagnostics
+    assert weighted["weighted_J_signed_1"] == pytest.approx(-15.0)
 
 
-# From test_the_seasonal_kernels_read_the_dates.py
-# ``nse_seasonal`` and the increment scores read the dates, not the position.
-#
-# The pairing drops the dates where the record has no value. The kernels took
-# the position in the vector for the time, so past a gap the harmonics were
-# fitted out of phase and an increment spanned the gap as one step. Four years
-# of daily stage with 120 days missing: ``nse_seasonal`` went from 0.31 to 0.98,
-# ``nse_delta`` from 0.48 to 0.95.
+# The mean publishes no residual, because its cost is not a gap.
+DISTANCE_MEAN = [
+    pytest.param([120.0, 100.0], 110.0, id="one pair"),
+    pytest.param([35.0, 25.0, 60.0, 75.0], 30.0 + 67.5, id="two weighted pairs"),
+]
+
+
+@pytest.mark.parametrize(("values", "cost"), DISTANCE_MEAN)
+def test_distance_mean_cost(values, cost) -> None:
+    result = criterion_for("distance_mean").score(values)
+
+    assert result.cost == pytest.approx(cost)
+    assert result.signed_residual is None
+    assert distance_mean(values) == pytest.approx(cost)
+
+
+def test_distance_signed_requirement() -> None:
+    assert criterion_for("distance_gap").requirements().signed is True
+    assert criterion_for("distance_mean").requirements().signed is False
+
+
+def test_negative_distance_makes_mean_undefined() -> None:
+    assert np.isnan(distance_mean([-1.0, 5.0]))
+
+
+def test_distance_kernels_match_criterion() -> None:
+    values = [35.0, 25.0, 60.0, 75.0]
+    assert distance_gap(values) == pytest.approx(criterion_for("distance_gap").score(values).cost)
+    assert distance_pairs(values) == [(35.0, 25.0), (60.0, 75.0)]
+
+
+def test_distance_pair_refuses_other_sizes() -> None:
+    assert distance_pair(np.array([[35.0], [25.0]])) == (35.0, 25.0)
+    with pytest.raises(ValueError, match="got 4 value"):
+        distance_pair([1.0, 2.0, 3.0, 4.0])
+
+
+def _inline_cost(name: str) -> float:
+    """Cost as the objective computed it before the criterion contract."""
+    sim, obs = _SIM, _OBS
+    if METRIC_SPECS[name].clips_negatives:
+        sim, obs, _ = clip_negatives(sim, obs)
+    raw = float(METRICS[name](sim, obs))
+    return (1.0 - raw) if name in HIGHER_IS_BETTER else raw
+
+
+@pytest.mark.parametrize("name", sorted(set(METRICS) - {"distance_gap", "distance_mean"}))
+def test_series_cost_is_bit_identical(name: str) -> None:
+    through_contract = criterion_for(name).score(_SIM, _OBS).cost
+    inline = _inline_cost(name)
+
+    # A kernel whose cost is legitimately NaN counts as equal.
+    assert (np.isnan(through_contract) and np.isnan(inline)) or through_contract == inline
 
 
 YEAR = 365.25
 DAYS = np.arange(4 * 365, dtype=float)
-KEPT = (DAYS < 400) | (DAYS >= 520)
+KEPT = (DAYS < 400) | (DAYS >= 520)  # a gap of 120 days in the record
 
 
 def _stage() -> tuple[np.ndarray, np.ndarray]:
@@ -628,7 +556,7 @@ def _stage() -> tuple[np.ndarray, np.ndarray]:
     return sim, obs
 
 
-def test_a_gap_keeps_the_seasonal_score_of_the_whole_record() -> None:
+def test_gap_keeps_seasonal_score() -> None:
     sim, obs = _stage()
     whole = nse_seasonal(sim, obs, period=YEAR)
 
@@ -637,7 +565,7 @@ def test_a_gap_keeps_the_seasonal_score_of_the_whole_record() -> None:
     assert gapped == pytest.approx(whole, abs=0.02)
 
 
-def test_a_nan_left_in_place_is_a_gap() -> None:
+def test_nan_in_place_is_a_gap() -> None:
     sim, obs = _stage()
     holed = obs.copy()
     holed[~KEPT] = np.nan
@@ -647,7 +575,7 @@ def test_a_nan_left_in_place_is_a_gap() -> None:
     )
 
 
-def test_an_increment_never_spans_a_gap() -> None:
+def test_increment_never_spans_a_gap() -> None:
     sim, obs = _stage()
     before, after = DAYS[KEPT] < 400, DAYS[KEPT] >= 520
     s, o = sim[KEPT], obs[KEPT]
@@ -660,7 +588,7 @@ def test_an_increment_never_spans_a_gap() -> None:
 
 
 @pytest.mark.parametrize("metric", ["nse_seasonal", "nse_delta", "reservoir"])
-def test_the_criterion_reads_the_dates(metric: str) -> None:
+def test_criterion_reads_dates(metric: str) -> None:
     sim, obs = _stage()
     criterion = SeriesCriterion(metric, METRICS[metric])
     holed = obs.copy()
@@ -671,7 +599,7 @@ def test_the_criterion_reads_the_dates(metric: str) -> None:
     assert dated.cost == pytest.approx(criterion.score(sim, holed, sample_days=1.0).cost)
 
 
-def test_variable_and_objective_read_the_gap_the_pairing_left() -> None:
+def test_gap_reaches_variable_route() -> None:
     sim, obs = _stage()
     stamps = pd.date_range("2001-01-01", periods=DAYS.size, freq="D")
     record = pd.Series(np.where(KEPT, obs, np.nan), index=stamps)
@@ -687,7 +615,7 @@ def test_variable_and_objective_read_the_gap_the_pairing_left() -> None:
     assert cost == pytest.approx(expected)
 
 
-def test_the_block_route_reads_the_paired_dates() -> None:
+def test_block_route_reads_paired_dates() -> None:
     sim, obs = _stage()
     block = ConfigBlockObjective(
         name="level",
@@ -705,25 +633,6 @@ def test_the_block_route_reads_the_paired_dates() -> None:
 
     expected = 1.0 - nse_seasonal(sim[KEPT], obs[KEPT], period=YEAR, times=DAYS[KEPT])
     assert block.evaluate(trial).components["level.raw_cost"] == pytest.approx(expected)
-
-
-# From test_the_session_cost_is_the_score_of_its_run.py
-# The cost a calibration minimizes is the score its promoted run is ranked on.
-#
-# The same series, the same declared window: the calibration scores it while it
-# searches, and the run promoted from it is scored again by
-# :mod:`hydromodpy.results.score` once sealed. Nothing tied the two: the
-# promotion tests use a stand-in, and the run scorer was imported by its own
-# tests only.
-#
-# They used to disagree (N1 of the audit of 2026-10-20). The session kept the
-# pairs whose END stamp fell in ``[start, end]``; the run keeps the periods
-# lying wholly in the window. On a monthly run and a 2001-2002 window the
-# session scored December 2000 to November 2002, the run January 2001 to
-# December 2002, 24 periods each. Both now read the window through
-# :func:`~hydromodpy.core.time.period_aggregation.periods_in_window`
-# (decision m01), and the cost is ``1 - NSE`` of the run to
-# :data:`SAME_PAIRS`.
 
 
 GAUGE = "NANCON"
@@ -784,7 +693,7 @@ def _bounds() -> tuple[pd.Timestamp, pd.Timestamp]:
     return pd.Timestamp(WINDOW[0]), pd.Timestamp(WINDOW[1])
 
 
-def test_variable_and_objective_score_what_the_run_scores() -> None:
+def test_variable_route_matches_run_score() -> None:
     observed, simulated = _series()
     scorer = StationBlockScorer(
         "discharge", "nse", [ObservedSeries(GAUGE, "discharge", observed)], window=_bounds()
@@ -799,7 +708,7 @@ def test_variable_and_objective_score_what_the_run_scores() -> None:
     assert 1.0 - cost == pytest.approx(value, abs=SAME_PAIRS)
 
 
-def test_the_block_route_scores_what_the_run_scores() -> None:
+def test_block_route_matches_run_score() -> None:
     observed, simulated = _series()
     paired = pair_outputs_with_observations(
         observed={"hydrograph": observed},
@@ -818,18 +727,8 @@ def test_the_block_route_scores_what_the_run_scores() -> None:
     assert 1.0 - result.cost == pytest.approx(value, abs=SAME_PAIRS)
 
 
-# From test_variable_and_objective_read_the_sampling_step.py
-# ``variable`` + ``objective`` hands the sampling step to the seasonal kernels.
-#
-# ``nse_seasonal`` and ``reservoir`` count one year and ten days in samples of
-# the series. The block route reads the step from the trial's dates. The
-# one-line form used to pass none, so a monthly series was taken as daily: NaN
-# on three years, and a refused trial. It is now scored by implicit blocks, and
-# reads the step as any block does.
-
-
-STAMPS__variable_objective = pd.date_range("2001-01-31", periods=36, freq="ME")
-STEP_DAYS = float(np.median(np.diff(STAMPS__variable_objective.asi8) / 86_400e9))
+MONTH_ENDS = pd.date_range("2001-01-31", periods=36, freq="ME")
+STEP_DAYS = float(np.median(np.diff(MONTH_ENDS.asi8) / 86_400e9))
 
 
 def _cost(observed: pd.Series, simulated: pd.Series, metric: str) -> float:
@@ -841,16 +740,14 @@ def _cost(observed: pd.Series, simulated: pd.Series, metric: str) -> float:
 
 
 def _monthly() -> tuple[pd.Series, pd.Series]:
-    months = np.arange(STAMPS__variable_objective.size, dtype=float)
+    months = np.arange(MONTH_ENDS.size, dtype=float)
     obs = 10.0 + 3.0 * np.cos(2.0 * np.pi * months / 12.0) + 0.5 * np.sin(months)
     sim = obs + 0.2 * np.cos(3.0 * months)
-    return pd.Series(obs, index=STAMPS__variable_objective), pd.Series(
-        sim, index=STAMPS__variable_objective
-    )
+    return pd.Series(obs, index=MONTH_ENDS), pd.Series(sim, index=MONTH_ENDS)
 
 
 @pytest.mark.parametrize("metric", ["nse_seasonal", "reservoir"])
-def test_a_monthly_series_scores_as_on_the_block_route(metric: str) -> None:
+def test_monthly_series_matches_block_route(metric: str) -> None:
     observed, simulated = _monthly()
 
     cost = _cost(observed, simulated, metric)
@@ -859,19 +756,14 @@ def test_a_monthly_series_scores_as_on_the_block_route(metric: str) -> None:
         simulated.to_numpy(),
         observed.to_numpy(),
         sample_days=STEP_DAYS,
-        times_days=STAMPS__variable_objective.asi8 / 86_400e9,
+        times_days=MONTH_ENDS.asi8 / 86_400e9,
     )
     assert np.isfinite(cost)
     assert cost == pytest.approx(block.cost)
 
 
-def test_a_daily_series_keeps_its_daily_score() -> None:
-    stamps = pd.date_range("2001-01-01", periods=3 * 365, freq="D")
-    days = np.arange(stamps.size, dtype=float)
-    obs = pd.Series(
-        5.0 + np.cos(2.0 * np.pi * days / 365.25) + 0.1 * np.sin(days / 7.0), index=stamps
-    )
-    sim = obs + 0.05 * np.sin(days / 3.0)
+def test_daily_series_keeps_daily_score() -> None:
+    _, obs, sim = _daily_record()
 
     cost = _cost(obs, sim, "nse_seasonal")
 
@@ -881,22 +773,7 @@ def test_a_daily_series_keeps_its_daily_score() -> None:
     assert cost == pytest.approx(undated.cost, abs=1e-3)
 
 
-# ---------------------------------------------------------------------------
-# criteria_formulas
-# Tests of `criteria.formulas`.
-# ---------------------------------------------------------------------------
-
-# From test_kge_is_written_as_the_2009_form.py
-# The KGE of HydroModPy is the 2009 form, and every place that describes it says so.
-#
-# Every KGE here (``kge``, ``kge_r``, ``kge_alpha``, ``kge_beta``) uses
-# ``beta = sum(s) / sum(o)`` and ``alpha = std(s) / std(o)`` (Gupta et al., 2009).
-# The 2012 form (``alpha`` as a ratio of coefficients of variation) gives another
-# number on the same series, 0.9207 against 0.8821 on the audit probe (N13 of the
-# audit of 2026-10-20, decision m14), and nothing said which one was meant.
-
-
-def test_the_kernel_is_the_2009_form() -> None:
+def test_kge_is_the_2009_form() -> None:
     obs = np.array([5.0, 3.0, 2.0, 1.2, 0.8, 0.5, 0.3, 0.2, 0.15, 0.1])
     sim = obs * np.array([1.1, 0.9, 1.05, 0.95, 1.2, 0.85, 1.1, 0.9, 1.3, 0.8])
 
@@ -908,73 +785,25 @@ def test_the_kernel_is_the_2009_form() -> None:
     assert parts["alpha"] != pytest.approx(cv_ratio)
 
 
-def test_the_formula_of_the_registry_says_kge_2009() -> None:
+def test_kge_formula_note_names_versions() -> None:
     formula = METRIC_FORMULAS["kge"]
 
     assert "2009" in formula.note
     assert "2012" in formula.note
 
 
-# ---------------------------------------------------------------------------
-# criteria_hydrographic_network_distance
-# Tests of `criteria.hydrographic_network_distance`.
-# ---------------------------------------------------------------------------
-
-# From test_network_criterion_reads_one_pair_per_bound.py
-# The network criterion reads one ``(D_so, D_os)`` pair per bound in the cost.
-
-
-def test_one_pair_keeps_its_signed_residual() -> None:
-    scored = criterion_for("distance_gap").score([130.0, 100.0])
-    assert scored.cost == pytest.approx(30.0)
-    assert scored.signed_residual == pytest.approx(30.0)
-    assert scored.diagnostics["J_signed"] == pytest.approx(30.0)
+CONFIRMED = [
+    pytest.param((), False, id="no check"),
+    pytest.param((Validity("a", True, None, "ok", fatal=True),), False, id="fatal but passed"),
+    pytest.param((Validity("a", False, None, "coarse"),), False, id="failed but not fatal"),
+    pytest.param(
+        (Validity("a", True, None, "ok"), Validity("b", False, 1.0, "fiction", fatal=True)),
+        True,
+        id="failed and fatal",
+    ),
+]
 
 
-def test_two_weighted_pairs_sum_their_gaps_and_carry_no_single_residual() -> None:
-    # 0.25 * (D_so, D_os) = 0.25 * (140, 100) and 0.75 * (80, 100).
-    values = [35.0, 25.0, 60.0, 75.0]
-    scored = criterion_for("distance_gap").score(values)
-    assert scored.cost == pytest.approx(0.25 * 40.0 + 0.75 * 20.0)
-    assert scored.signed_residual is None
-    assert scored.diagnostics["weighted_J_signed_1"] == pytest.approx(-15.0)
-
-
-def test_the_mean_estimator_sums_the_weighted_doptim() -> None:
-    assert distance_mean([35.0, 25.0, 60.0, 75.0]) == pytest.approx(30.0 + 67.5)
-    assert criterion_for("distance_mean").score([35.0, 25.0, 60.0, 75.0]).signed_residual is None
-
-
-def test_a_negative_distance_makes_the_mean_undefined() -> None:
-    assert np.isnan(distance_mean([-1.0, 5.0]))
-
-
-def test_the_kernels_agree_with_the_criterion() -> None:
-    values = [35.0, 25.0, 60.0, 75.0]
-    assert distance_gap(values) == pytest.approx(criterion_for("distance_gap").score(values).cost)
-    assert distance_pairs(values) == [(35.0, 25.0), (60.0, 75.0)]
-
-
-def test_distance_pair_reads_one_pair_and_refuses_any_other_size() -> None:
-    assert distance_pair(np.array([[35.0], [25.0]])) == (35.0, 25.0)
-    with pytest.raises(ValueError, match="got 4 value"):
-        distance_pair([1.0, 2.0, 3.0, 4.0])
-
-
-@pytest.mark.parametrize(
-    ("validity", "fatal"),
-    [
-        ((), False),
-        ((Validity("a", True, None, "ok", fatal=True),), False),
-        ((Validity("a", False, None, "coarse"),), False),
-        ((Validity("a", True, None, "ok"), Validity("b", False, 1.0, "fiction", fatal=True)), True),
-    ],
-    ids=["no-check", "fatal-but-passed", "failed-but-not-fatal", "failed-and-fatal"],
-)
-def test_a_result_is_fatally_invalid_only_by_a_failed_fatal_check(validity, fatal) -> None:
+@pytest.mark.parametrize(("validity", "fatal"), CONFIRMED)
+def test_fatal_invalidity(validity, fatal) -> None:
     assert CriterionResult(cost=1.0, validity=validity).is_fatally_invalid is fatal
-
-
-def test_an_unknown_estimator_is_refused_with_the_two_it_knows() -> None:
-    with pytest.raises(ValueError, match="'distance_gap' .*'distance_mean'"):
-        HydrographicNetworkDistance("distance_median")

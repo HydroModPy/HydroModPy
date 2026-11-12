@@ -1,4 +1,4 @@
-"""Unit tests for the bundled CF v85 standard-name validator."""
+"""The bundled CF v85 standard-name list, a frozen set of names a variable may carry."""
 
 from __future__ import annotations
 
@@ -20,13 +20,11 @@ from hydromodpy.results.zarr_store.cf_validation import _cf_v85_names, is_cf_sta
         "totally_invented_concept",
     ],
 )
-def test_is_cf_standard_name_rejects_non_cf_v85(name: str) -> None:
-    """Concepts outside the curated CF v85 list return False."""
+def test_non_cf_names_are_rejected(name: str) -> None:
     assert is_cf_standard_name(name) is False
 
 
-def test_cf_v85_names_is_frozenset() -> None:
-    """The exposed list is immutable to prevent runtime mutation."""
+def test_names_are_a_frozenset() -> None:
     names = _cf_v85_names()
     assert isinstance(names, frozenset)
     assert "surface_altitude" in names

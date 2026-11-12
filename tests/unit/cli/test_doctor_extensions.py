@@ -1,4 +1,8 @@
-"""Tests for the ``hmp doctor`` flags (--cross-catalog, --lifecycle, --prt, --fix-config)."""
+"""The ``hmp doctor`` flags --lifecycle, --cross-catalog, --prt and --fix-config.
+
+Each flag adds named checks to the JSON report. --fix-config rewrites a TOML file
+of an earlier release in place and tells what it changed.
+"""
 
 from __future__ import annotations
 
@@ -32,9 +36,7 @@ def _checks(out: str) -> dict[str, dict]:
     return {entry["name"]: entry for entry in json.loads(out)["data"]["checks"]}
 
 
-def test_doctor_lifecycle_counts_a_stale_attempt_from_the_disk(
-    monkeypatch, tmp_path, capsys, isolated_state
-) -> None:
+def test_lifecycle_stale_attempt(monkeypatch, tmp_path, capsys, isolated_state) -> None:
     workspace, project = _make_workspace(tmp_path)
     write_attempt(project, "runs/stuck", heartbeat_age_s=24 * 3600)
 
@@ -51,9 +53,7 @@ def test_doctor_lifecycle_counts_a_stale_attempt_from_the_disk(
     assert "lifecycle:tmp_files" in checks
 
 
-def test_doctor_cross_catalog_names_a_run_the_index_lacks(
-    monkeypatch, tmp_path, capsys, isolated_state
-) -> None:
+def test_cross_catalog_missing_run(monkeypatch, tmp_path, capsys, isolated_state) -> None:
     from hydromodpy.results.catalog.indexer import rebuild_index
 
     workspace, project = _make_workspace(tmp_path)
@@ -74,7 +74,7 @@ def test_doctor_cross_catalog_names_a_run_the_index_lacks(
     assert checks["cross_catalog:index_vs_runs"]["status"] == "OK"
 
 
-def test_doctor_prt_renders_in_the_report(monkeypatch, tmp_path, capsys) -> None:
+def test_prt_in_report(monkeypatch, tmp_path, capsys) -> None:
     from hydromodpy.project import doctor
 
     mf6 = tmp_path / "mf6"
@@ -90,9 +90,7 @@ def test_doctor_prt_renders_in_the_report(monkeypatch, tmp_path, capsys) -> None
     assert "prt:mf6_version" in out
 
 
-def test_doctor_fix_config_rewrites_a_pre_release_file_in_place_and_says_what_changed(
-    monkeypatch, tmp_path, capsys
-) -> None:
+def test_fix_config_rewrites_in_place(monkeypatch, tmp_path, capsys) -> None:
     path = tmp_path / "project.toml"
     path.write_text(
         '# my project\n[modflow6.runtime]\nmf6_ims_complexity = "SIMPLE"\n'
@@ -119,7 +117,7 @@ def test_doctor_fix_config_rewrites_a_pre_release_file_in_place_and_says_what_ch
     assert "already up to date" in capsys.readouterr().out
 
 
-def test_doctor_fix_config_names_a_missing_file(monkeypatch, tmp_path, capsys) -> None:
+def test_fix_config_missing_file(monkeypatch, tmp_path, capsys) -> None:
     from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND
 
     code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(tmp_path / "absent.toml")])
@@ -128,10 +126,8 @@ def test_doctor_fix_config_names_a_missing_file(monkeypatch, tmp_path, capsys) -
     assert "absent.toml" in capsys.readouterr().err
 
 
-def test_doctor_fix_config_follows_the_chain_and_a_warning_names_the_holder(
-    monkeypatch, tmp_path, capsys
-) -> None:
-    """An old key in a parent is told under the parent, and the fix does not come back."""
+def test_fix_config_follows_base_config(monkeypatch, tmp_path, capsys) -> None:
+    # An old key in a parent is told under the parent, and the fix does not come back.
     from hydromodpy.project.api import check
 
     parent = tmp_path / "project.toml"
@@ -153,10 +149,8 @@ def test_doctor_fix_config_follows_the_chain_and_a_warning_names_the_holder(
     assert not [item for item in check(child) if item.code == "old_key"]
 
 
-def test_doctor_fix_config_says_the_old_forms_it_cannot_rewrite(
-    monkeypatch, tmp_path, capsys
-) -> None:
-    """A form the check still reads as old after the rewrite is told, not left in silence."""
+def test_fix_config_old_forms_left(monkeypatch, tmp_path, capsys) -> None:
+    # A form the check still reads as old after the rewrite is told, not left in silence.
     from hydromodpy.core.diagnostic import Diagnostic
 
     config = tmp_path / "run.toml"
@@ -175,9 +169,7 @@ def test_doctor_fix_config_says_the_old_forms_it_cannot_rewrite(
     assert "already up to date" not in out
 
 
-def test_doctor_fix_config_refuses_with_the_retired_keys_of_the_check(
-    monkeypatch, tmp_path, capsys
-) -> None:
+def test_fix_config_retired_keys(monkeypatch, tmp_path, capsys) -> None:
     from hydromodpy.cli.exit_codes import EXIT_CONFIG
     from hydromodpy.core.diagnostic import Diagnostic
 

@@ -1,4 +1,9 @@
-"""The plan of a [sites] project: tables, binding, precedence, origins, refusals, writing, replay."""
+"""The plan of a [sites] project: one case per site and recipe, written once on disk.
+
+Site tables (csv, parquet, gpkg) are bound to config keys cell by cell, with K in
+m/s and outlet coordinates in m (EPSG:2154). Each case holds its config hash, its
+solves (MODFLOW runs) and the origin of every cell that was written into it.
+"""
 
 from __future__ import annotations
 
@@ -14,8 +19,16 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import geopandas as gpd
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
+import hydromodpy.project.api as api
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+from hydromodpy.config.loading import load
+from hydromodpy.core import code_fingerprint as fingerprint_module
+from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import ConfigError
@@ -27,6 +40,7 @@ from hydromodpy.project.launch.plan import (
     PlanIssue,
     RunningCaseError,
     SitesProjectError,
+    _case_id,
     case_is_done,
     dry_run_lines,
     expand_plan,
@@ -38,11 +52,14 @@ from hydromodpy.project.launch.plan import (
     plan_hash,
     read_table,
     refuse_env_overrides,
+    running_cases,
     write_plan_draft,
 )
+from hydromodpy.results.outcome import Outcome, write_outcome
 from hydromodpy.results.plan_store import PLAN_SCHEMA, current_plan_hash, read_plan
 from hydromodpy.results.session.descriptor import write_session
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_MANIFEST_FILENAME
+from hydromodpy.workflow.solution_key import planned_solution_key
 from tests._helpers.sealed_runs import manifest_document
 from tests._helpers.session_documents import session_descriptor
 
@@ -170,7 +187,7 @@ def test_recipes_are_exactly_the_listed_files(tmp_path: Path) -> None:
     assert [case.case_id for case in alone.cases] == ["nancon-k7", "couesnon-k7"]
 
 
-def test_a_bad_cell_names_its_row_and_column(tmp_path: Path) -> None:
+def test_bad_cell_names_row_and_column(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path, k_cells=("5e-5", "not_a_number"))
 
     draft = expand_plan(project, project / "project.toml")
@@ -287,9 +304,7 @@ REFUSALS = {
 
 
 @pytest.mark.parametrize("name", REFUSALS)
-def test_a_project_that_cannot_be_planned_is_refused_with_its_sentence(
-    tmp_path: Path, name: str
-) -> None:
+def test_refusals(tmp_path: Path, name: str) -> None:
     arguments, change, sentence = REFUSALS[name]
     project = write_sites_project(tmp_path, **arguments)
     if change is not None:
@@ -338,9 +353,7 @@ ISSUES = {
 
 
 @pytest.mark.parametrize("name", ISSUES)
-def test_a_fault_of_one_row_is_an_issue_of_the_plan_with_its_cell(
-    tmp_path: Path, name: str
-) -> None:
+def test_row_issues(tmp_path: Path, name: str) -> None:
     arguments, change, sentence = ISSUES[name]
     project = write_sites_project(tmp_path, **arguments)
     change(project)
@@ -353,8 +366,6 @@ def test_a_fault_of_one_row_is_an_issue_of_the_plan_with_its_cell(
 
 @pytest.mark.allow_subprocess
 def test_plan_case_replays_from_another_cwd(tmp_path: Path) -> None:
-    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")
     plan_dir = write_plan_draft(project, draft)
@@ -385,7 +396,7 @@ def test_plan_case_replays_from_another_cwd(tmp_path: Path) -> None:
         assert result.returncode == 0, result.stderr
 
 
-def test_the_precedence_of_a_case_is_written_in_full(tmp_path: Path) -> None:
+def test_precedence_of_layers(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path, k_cells=("1e-5", "1e-5"))
     (project / "site_overrides" / "couesnon.toml").write_text(
         "[flow.param.K.field]\nvalue = 3e-5\n", encoding="utf-8"
@@ -418,7 +429,7 @@ def test_the_precedence_of_a_case_is_written_in_full(tmp_path: Path) -> None:
     assert [_k(case) for case in forced.cases] == pytest.approx([4e-5] * len(forced.cases))
 
 
-def test_a_literal_site_scoped_key_is_refused_with_the_list(tmp_path: Path) -> None:
+def test_literal_site_key_refused(tmp_path: Path) -> None:
     project = write_sites_project(
         tmp_path, extra='[display.overrides.cross_section]\norientation = "sn"\n'
     )
@@ -449,7 +460,7 @@ def test_a_literal_site_scoped_key_is_refused_with_the_list(tmp_path: Path) -> N
     }
 
 
-def test_an_outlet_written_in_the_base_is_a_literal_site_scoped_key(tmp_path: Path) -> None:
+def test_outlet_in_base_is_literal(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     project_toml = project / "project.toml"
     # The outlet is written in the base and its bind is removed: it stays literal.
@@ -467,7 +478,7 @@ def test_an_outlet_written_in_the_base_is_a_literal_site_scoped_key(tmp_path: Pa
     assert "geographic.catchment.x_outlet, geographic.catchment.y_outlet" in line
 
 
-def test_a_recipes_table_adds_recipes_bound_by_column(tmp_path: Path) -> None:
+def test_recipes_table_binds_columns(tmp_path: Path) -> None:
     project = write_sites_project(
         tmp_path,
         k_column=False,
@@ -485,7 +496,7 @@ def test_a_recipes_table_adds_recipes_bound_by_column(tmp_path: Path) -> None:
     assert _k(_case(draft, "nancon-base")) == pytest.approx(5e-5)
 
 
-def test_env_overrides_are_rendered_by_the_plan_and_refused_by_a_worker(tmp_path: Path) -> None:
+def test_env_overrides_plan_only(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     env = {"HMP_SET_geographic__catchment__snap_dist": '"300 m"'}
 
@@ -505,40 +516,35 @@ def test_env_overrides_are_rendered_by_the_plan_and_refused_by_a_worker(tmp_path
     refuse_env_overrides({}, case_toml)
 
 
-def test_simulation_name_is_refused_in_a_sites_project(tmp_path: Path) -> None:
-    project = write_sites_project(tmp_path, extra='[simulation]\nname = "nancon_monthly"\n')
+# Every case would send its files to the same destination for deliver_to,
+# and to the same simulation name, one over the other.
+SITE_PROJECT_REFUSALS = [
+    pytest.param(
+        '[simulation]\nname = "nancon_monthly"\n',
+        "4 cases: project.toml -> simulation.name: [simulation] name is refused",
+        id="simulation name",
+    ),
+    pytest.param(
+        '[[export]]\nvariables = "all"\ndeliver_to = "ftp://example.org/incoming/"\n',
+        "4 cases: project.toml -> export.deliver_to: deliver_to is refused in a [sites] project",
+        id="deliver_to",
+    ),
+]
+
+
+@pytest.mark.parametrize(("extra", "line_start"), SITE_PROJECT_REFUSALS)
+def test_sites_project_refusals(tmp_path, extra, line_start):
+    project = write_sites_project(tmp_path, extra=extra)
 
     draft = expand_plan(project, project / "project.toml")
 
     [line] = group_issues(draft.errors)
-    assert line.startswith("4 cases: project.toml -> simulation.name: [simulation] name is refused")
-
-
-def test_deliver_to_is_refused_in_a_sites_project(tmp_path: Path) -> None:
-    """Every case would send its files to the same destination, one over the other."""
-    project = write_sites_project(tmp_path)
-    (project / "project.toml").write_text(
-        (project / "project.toml").read_text(encoding="utf-8") + '\n[[export]]\nvariables = "all"\n'
-        'deliver_to = "ftp://example.org/incoming/"\n',
-        encoding="utf-8",
-    )
-
-    draft = expand_plan(project, project / "project.toml")
-
-    [line] = group_issues(draft.errors)
-    assert line.startswith(
-        "4 cases: project.toml -> export.deliver_to: deliver_to is refused in a [sites] project"
-    )
+    assert line.startswith(line_start)
     assert draft.cases == ()
 
 
-def test_an_export_block_without_deliver_to_is_planned(tmp_path: Path) -> None:
-    project = write_sites_project(tmp_path)
-    (project / "project.toml").write_text(
-        (project / "project.toml").read_text(encoding="utf-8")
-        + '\n[[export]]\nvariables = "all"\n',
-        encoding="utf-8",
-    )
+def test_export_without_deliver_to_planned(tmp_path):
+    project = write_sites_project(tmp_path, extra='[[export]]\nvariables = "all"\n')
 
     draft = expand_plan(project, project / "project.toml")
 
@@ -551,7 +557,7 @@ def test_an_export_block_without_deliver_to_is_planned(tmp_path: Path) -> None:
     }
 
 
-def test_a_recipe_adds_its_own_bind_lines(tmp_path: Path) -> None:
+def test_recipe_adds_bind_lines(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path, k_column=False)
     (project / "sites.csv").write_text(
         "site,gauge,x_outlet,y_outlet,snap\nnancon,J0014010,389285.910,6816518.749,300 m\n"
@@ -613,7 +619,7 @@ def test_include_and_exclude_select_the_sites(tmp_path: Path) -> None:
         expand_plan(both, both / "project.toml")
 
 
-def test_a_plan_is_written_once_and_current_points_at_it(tmp_path: Path) -> None:
+def test_plan_written_once(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")
 
@@ -638,7 +644,7 @@ def test_a_plan_is_written_once_and_current_points_at_it(tmp_path: Path) -> None
     assert {p.name for p in (project / "plan").iterdir()} == {"current", plan_dir.name}
 
 
-def test_the_hash_of_a_plan_starts_from_its_schema(tmp_path: Path) -> None:
+def test_plan_hash_starts_from_schema(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")
     inputs = {"project.toml": "ab" * 32}
@@ -655,9 +661,7 @@ def test_the_hash_of_a_plan_starts_from_its_schema(tmp_path: Path) -> None:
     assert plan_hash(draft.cases, inputs) != sha256(body.encode()).hexdigest()[:16]
 
 
-def test_a_running_case_refuses_a_new_plan_without_force(tmp_path: Path) -> None:
-    from hydromodpy.results.outcome import Outcome, write_outcome
-
+def test_running_case_blocks_new_plan(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")
     run_dir = project / "runs" / "nancon-base"
@@ -683,10 +687,6 @@ def test_a_running_case_refuses_a_new_plan_without_force(tmp_path: Path) -> None
 
 def _session(project: Path, case_id: str, status: str, *, host: str, pid: int) -> Path:
     """Write a calibration session of *case_id* with a running outcome."""
-    from hydromodpy.results.outcome import Outcome, write_outcome
-    from hydromodpy.results.session.descriptor import write_session
-    from tests._helpers.session_documents import session_descriptor
-
     session_dir = project / "sessions" / case_id
     session_dir.mkdir(parents=True)
     now = datetime.now(UTC)
@@ -717,9 +717,7 @@ def _session(project: Path, case_id: str, status: str, *, host: str, pid: int) -
     return session_dir
 
 
-def test_a_running_calibration_session_refuses_a_new_plan_without_force(tmp_path: Path) -> None:
-    from hydromodpy.project.launch.plan import running_cases
-
+def test_running_session_blocks_new_plan(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")
     first = write_plan_draft(project, draft)
@@ -746,7 +744,7 @@ def test_a_running_calibration_session_refuses_a_new_plan_without_force(tmp_path
     assert write_plan_draft(project, changed).name != first.name
 
 
-def test_the_plan_counts_a_calibration_at_its_widest_phase(tmp_path: Path) -> None:
+def test_calibration_solves_widest_phase(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     _add_recipe(
         project,
@@ -764,7 +762,7 @@ def test_the_plan_counts_a_calibration_at_its_widest_phase(tmp_path: Path) -> No
     assert _case(draft, "nancon-calib").solves == 6
 
 
-def test_a_calibration_that_keeps_no_best_run_still_counts_one_kept_solve(tmp_path: Path) -> None:
+def test_calibration_keeps_one_solve(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     _add_recipe(
         project,
@@ -781,7 +779,7 @@ def test_a_calibration_that_keeps_no_best_run_still_counts_one_kept_solve(tmp_pa
     assert (case.solves >= 1, case.kept_solves) == (True, 1)
 
 
-def test_dry_run_counts_cases_solves_and_scratch(tmp_path: Path) -> None:
+def test_dry_run_budget(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path, sites_extra="[sites.run]\nparallel = 3\n")
     draft = expand_plan(project, project / "project.toml")
 
@@ -796,7 +794,7 @@ def test_dry_run_counts_cases_solves_and_scratch(tmp_path: Path) -> None:
     assert not (project / "plan").exists()
 
 
-def test_two_outlets_closer_than_near_site_m_are_reported(tmp_path: Path) -> None:
+def test_close_outlets_warned(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     (project / "sites.csv").write_text(
         "site,gauge,x_outlet,y_outlet,k\nnancon,J0014010,389285.910,6816518.749,\n"
@@ -832,7 +830,7 @@ def _seal(project: Path, dirname: str, config_hash: str) -> None:
     )
 
 
-def test_a_case_sealed_after_the_plan_leaves_the_plan_unchanged(tmp_path: Path) -> None:
+def test_sealed_case_keeps_plan(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")
     plan_dir = write_plan_draft(project, draft)
@@ -848,11 +846,8 @@ def test_a_case_sealed_after_the_plan_leaves_the_plan_unchanged(tmp_path: Path) 
     assert {p.name for p in (project / "plan").iterdir()} == {"current", plan_dir.name}
 
 
-def test_the_config_hash_of_a_case_is_the_solution_key_of_the_worker(tmp_path: Path) -> None:
+def test_config_hash_is_solution_key(tmp_path: Path) -> None:
     """The case file read back gives the key the plan holds: a plan and a run compare one key."""
-    from hydromodpy.config.loading import load
-    from hydromodpy.workflow.solution_key import planned_solution_key
-
     project = write_sites_project(tmp_path)
     draft = expand_plan(project, project / "project.toml")
     plan_dir = write_plan_draft(project, draft)
@@ -874,11 +869,7 @@ def test_the_config_hash_of_a_case_is_the_solution_key_of_the_worker(tmp_path: P
     ],
     ids=["already a name", "capitals folded", "a gauge code folded", "underscores kept"],
 )
-def test_the_case_id_is_the_folded_name_of_the_site_and_the_recipe(
-    site: str, recipe: str, case_id: str
-) -> None:
-    from hydromodpy.project.launch.plan import _case_id
-
+def test_case_id_folds_names(site: str, recipe: str, case_id: str) -> None:
     taken: dict[str, str] = {}
     errors: list = []
 
@@ -890,9 +881,7 @@ def test_the_case_id_is_the_folded_name_of_the_site_and_the_recipe(
     assert taken == {case_id: f"{site}-{recipe}"}
 
 
-def test_two_cases_that_fold_to_one_name_are_a_refusal_of_the_plan() -> None:
-    from hydromodpy.project.launch.plan import _case_id
-
+def test_folded_name_clash_refused() -> None:
     taken: dict[str, str] = {}
     errors: list = []
     first = _case_id(
@@ -907,9 +896,7 @@ def test_two_cases_that_fold_to_one_name_are_a_refusal_of_the_plan() -> None:
     assert "fold to the same run name 'nancon-base'" in issue.message
 
 
-def test_a_case_id_longer_than_a_run_name_is_a_refusal_of_the_plan() -> None:
-    from hydromodpy.project.launch.plan import _case_id
-
+def test_long_case_id_refused() -> None:
     errors: list = []
 
     found = _case_id(
@@ -921,13 +908,8 @@ def test_a_case_id_longer_than_a_run_name_is_a_refusal_of_the_plan() -> None:
     assert "has 46 characters" in issue.message and "keeps to 40" in issue.message
 
 
-def test_a_plan_moves_with_the_code_that_computes_and_with_nothing_else(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_hash_follows_computing_code(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A case is computed again after an edit of a solver, and not after an edit of a figure."""
-    from hydromodpy.core import code_fingerprint as fingerprint_module
-    from hydromodpy.core.code_fingerprint import RUN_LAYERS, code_fingerprint
-
     project = write_sites_project(tmp_path)
     table = code_fingerprint(RUN_LAYERS)
 
@@ -945,10 +927,7 @@ def test_a_plan_moves_with_the_code_that_computes_and_with_nothing_else(
     assert set(moved) == set(base) and all(moved[case] != base[case] for case in base)
 
 
-def test_a_sealed_run_or_a_completed_session_marks_the_case_done(tmp_path: Path) -> None:
-    from hydromodpy.results.session.descriptor import write_session
-    from tests._helpers.session_documents import session_descriptor
-
+def test_run_or_session_marks_done(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     _add_recipe(
         project, "calib", "calib.toml", "[calibration.parameters.K]\nbounds = [1e-6, 1e-4]\n"
@@ -1020,9 +999,7 @@ def test_a_recipe_writing_site_is_refused(tmp_path: Path) -> None:
     ],
     ids=["one case", "three cases", "the plan"],
 )
-def test_an_issue_is_a_sites_case_diagnostic_at_its_key(
-    issues: list[PlanIssue], detail: str
-) -> None:
+def test_issue_diagnostic(issues: list[PlanIssue], detail: str) -> None:
     [found] = group_diagnostics(issues, "warning")
 
     assert found == Diagnostic(
@@ -1030,7 +1007,7 @@ def test_an_issue_is_a_sites_case_diagnostic_at_its_key(
     )
 
 
-def test_the_same_issue_on_many_cases_is_one_diagnostic_and_one_line() -> None:
+def test_grouped_issue_one_diagnostic() -> None:
     issues = [
         PlanIssue("bad", origin="sites.csv:3 column k", target="flow.k", case_id="a-low"),
         PlanIssue("bad", origin="sites.csv:3 column k", target="flow.k", case_id="a-high"),
@@ -1047,25 +1024,21 @@ def test_the_same_issue_on_many_cases_is_one_diagnostic_and_one_line() -> None:
     assert {item.severity for item in found} == {"error"}
 
 
-def test_a_recipe_that_cannot_be_read_is_a_finding_named_after_it(tmp_path: Path) -> None:
-    from hydromodpy.project.api import check
-
+def test_unreadable_recipe_finding(tmp_path: Path) -> None:
     project = write_sites_project(tmp_path)
     _add_recipe(project, "bad", "bad.toml", "[flow\n")
 
-    [error] = check(project / "project.toml")
+    [error] = api.check(project / "project.toml")
 
     assert error.severity == "error" and error.code == "sites_case"
     assert error.detail.startswith("[sites.recipes] bad: ") and "invalid TOML" in error.detail
 
     (project / "bad.toml").write_text('base_config = "missing.toml"\n', encoding="utf-8")
-    [error] = check(project / "project.toml")
+    [error] = api.check(project / "project.toml")
     assert error.detail.startswith("[sites.recipes] bad: ") and "missing.toml" in error.detail
 
 
-def test_an_error_no_check_expected_is_a_finding(tmp_path: Path, monkeypatch) -> None:
-    import hydromodpy.project.api as api
-
+def test_unexpected_check_error(tmp_path: Path, monkeypatch) -> None:
     def fail(target: Path, **_: object) -> None:
         raise RuntimeError("the disk went away")
 
@@ -1077,7 +1050,7 @@ def test_an_error_no_check_expected_is_a_finding(tmp_path: Path, monkeypatch) ->
     assert error.detail == "Config check failed: the disk went away"
 
 
-def test_a_recipes_table_names_the_file_of_a_recipe(tmp_path: Path) -> None:
+def test_recipes_table_file_column(tmp_path: Path) -> None:
     project = write_sites_project(
         tmp_path,
         k_column=False,
@@ -1110,7 +1083,7 @@ def test_a_recipes_table_names_the_file_of_a_recipe(tmp_path: Path) -> None:
     ]
 
 
-def test_one_row_of_the_migration_reaches_every_layer_of_a_case(tmp_path: Path) -> None:
+def test_renamed_key_in_every_layer(tmp_path: Path) -> None:
     """A bind line, a recipe, a site file and --set all write a key under its old name.
 
     ``[modflow6]`` moved to ``[solver.modflow6]`` in 2.0.0, so each layer loads with a
@@ -1149,10 +1122,7 @@ def test_one_row_of_the_migration_reaches_every_layer_of_a_case(tmp_path: Path) 
     assert all("modflow6" not in case.document for case in [*draft.cases, *forced.cases])
 
 
-# -- tables: CSV, Parquet and GeoPackage, each cell keeps its origin ----------
-
-
-def test_the_catalog_columns_reach_the_case_without_bind(tmp_path: Path) -> None:
+def test_catalog_columns_without_bind(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     (workspace / "data").mkdir(parents=True)
     write_catalog(
@@ -1207,10 +1177,7 @@ def _write_points(path: Path) -> None:
     frame.to_file(path, driver="GPKG")
 
 
-def test_a_parquet_table_keeps_its_types_and_names_its_rows(tmp_path: Path) -> None:
-    import pyarrow as pa
-    import pyarrow.parquet as pq
-
+def test_parquet_table_types_and_rows(tmp_path: Path) -> None:
     path = tmp_path / "sites.parquet"
     pq.write_table(pa.table({"site": ["nancon", "couesnon"], "area_km2": [4.5, None]}), path)
 
@@ -1232,9 +1199,7 @@ def test_a_parquet_table_keeps_its_types_and_names_its_rows(tmp_path: Path) -> N
         ("sites.json", "{}", "a table is one of"),
     ],
 )
-def test_a_table_that_cannot_be_read_names_its_file(
-    tmp_path: Path, name: str, text: str, message: str
-) -> None:
+def test_unreadable_table_names_file(tmp_path: Path, name: str, text: str, message: str) -> None:
     path = tmp_path / name
     path.write_text(text, encoding="utf-8")
 
@@ -1245,12 +1210,12 @@ def test_a_table_that_cannot_be_read_names_its_file(
     assert str(info.value).startswith(name)
 
 
-def test_a_missing_table_is_refused_by_name(tmp_path: Path) -> None:
+def test_missing_table_refused(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match=r"^sites\.csv: no such file"):
         read_table(tmp_path / "sites.csv", label="sites.csv")
 
 
-def test_a_geopackage_of_points_gains_the_geometry_columns(tmp_path: Path) -> None:
+def test_geopackage_geometry_columns(tmp_path: Path) -> None:
     path = tmp_path / "sites.gpkg"
     _write_points(path)
 
@@ -1267,9 +1232,7 @@ def test_a_geopackage_of_points_gains_the_geometry_columns(tmp_path: Path) -> No
 
 
 @pytest.mark.parametrize("suffix", [".csv", ".parquet", ".gpkg"])
-def test_the_three_table_formats_give_the_same_cases(tmp_path: Path, suffix: str) -> None:
-    import pandas as pd
-
+def test_table_formats_give_same_cases(tmp_path: Path, suffix: str) -> None:
     project = write_sites_project(tmp_path, k_column=False)
     rows = pd.DataFrame(
         {"site": ["nancon", "couesnon"], "gauge": ["J0014010", None], "x": [389285.91, 377120.0]}
@@ -1297,38 +1260,6 @@ def test_the_three_table_formats_give_the_same_cases(tmp_path: Path, suffix: str
     assert table.name in {p.name for p in draft.inputs}
 
 
-def test_a_geopackage_site_table_binds_the_outlet_to_the_geometry(tmp_path: Path) -> None:
-    project = write_sites_project(tmp_path, k_column=False)
-    _write_points(project / "sites.gpkg")
-    project_toml = project / "project.toml"
-    project_toml.write_text(
-        project_toml.read_text(encoding="utf-8")
-        .replace('table = "sites.csv"', 'table = "sites.gpkg"')
-        .replace(
-            '"geographic.catchment.x_outlet" = "x_outlet"',
-            '"geographic.catchment.x_outlet" = "geometry_x"',
-        )
-        .replace(
-            '"geographic.catchment.y_outlet" = "y_outlet"',
-            '"geographic.catchment.y_outlet" = "geometry_y"',
-        ),
-        encoding="utf-8",
-    )
-
-    draft = expand_plan(project, project_toml)
-
-    assert not draft.errors, group_issues(draft.errors)
-    nancon = next(case for case in draft.cases if case.case_id == "nancon-base")
-    assert lookup(nancon.document, "geographic.catchment.x_outlet") == pytest.approx(389285.91)
-    assert lookup(nancon.document, "site.gauge") == "J0014010"
-    couesnon = next(case for case in draft.cases if case.case_id == "couesnon-base")
-    assert "gauge" not in couesnon.document["site"]
-    assert "sites.gpkg" in {p.name for p in draft.inputs}
-
-
-# -- a case is done when a run or a session of its key says so -----------------
-
-
 KEY = "H" * 64
 
 
@@ -1352,25 +1283,24 @@ def _sealed_run(
     return directory
 
 
-def test_a_research_run_of_the_key_does_not_close_the_case(tmp_path: Path) -> None:
-    _sealed_run(tmp_path, "case", kind="trial")
-
-    assert case_is_done(tmp_path, "case", KEY, "simulation") is False
-
-
-def test_a_result_run_of_the_key_closes_the_case(tmp_path: Path) -> None:
-    _sealed_run(tmp_path, "case")
-
-    assert case_is_done(tmp_path, "case", KEY, "simulation") is True
+# (kwargs of the sealed run, key asked by the plan, the case is done)
+SEALED_RUNS = [
+    pytest.param({"kind": "trial"}, KEY, False, id="research run of the key"),
+    pytest.param({}, KEY, True, id="result run of the key"),
+    pytest.param({"published": True}, KEY, True, id="published copy of the key"),
+    pytest.param({"key": "other"}, KEY, False, id="another key"),
+    pytest.param({}, None, False, id="no key asked"),
+]
 
 
-def test_a_published_copy_of_the_key_closes_the_case(tmp_path: Path) -> None:
-    _sealed_run(tmp_path, "case", published=True)
+@pytest.mark.parametrize(("run", "asked", "done"), SEALED_RUNS)
+def test_case_is_done_by_a_run(tmp_path: Path, run: dict, asked: str | None, done: bool) -> None:
+    _sealed_run(tmp_path, "case", **run)
 
-    assert case_is_done(tmp_path, "case", KEY, "simulation") is True
+    assert case_is_done(tmp_path, "case", asked, "simulation") is done
 
 
-def test_a_version_of_the_case_name_is_read_at_its_level(tmp_path: Path) -> None:
+def test_version_suffix_read_by_level(tmp_path: Path) -> None:
     _sealed_run(tmp_path, "case.v2", kind="trial")
     assert case_is_done(tmp_path, "case", KEY, "simulation") is False
 
@@ -1378,24 +1308,11 @@ def test_a_version_of_the_case_name_is_read_at_its_level(tmp_path: Path) -> None
     assert case_is_done(tmp_path, "case", KEY, "simulation") is True
 
 
-@pytest.mark.parametrize(
-    ("key", "hash_"),
-    [("other", KEY), (KEY, None)],
-    ids=["another-key", "no-key"],
-)
-def test_a_different_key_or_no_key_never_closes_the_case(
-    tmp_path: Path, key: str, hash_: str | None
-) -> None:
-    _sealed_run(tmp_path, "case", key=key)
-
-    assert case_is_done(tmp_path, "case", hash_, "simulation") is False
-
-
 def test_a_project_without_runs_closes_nothing(tmp_path: Path) -> None:
     assert case_is_done(tmp_path / "absent", "case", KEY, "simulation") is False
 
 
-def test_an_unreadable_manifest_never_closes_the_case(tmp_path: Path) -> None:
+def test_bad_manifest_closes_nothing(tmp_path: Path) -> None:
     directory = tmp_path / "runs" / "case"
     directory.mkdir(parents=True)
     (directory / RUN_MANIFEST_FILENAME).write_text("{", encoding="utf-8")
@@ -1403,19 +1320,15 @@ def test_an_unreadable_manifest_never_closes_the_case(tmp_path: Path) -> None:
     assert case_is_done(tmp_path, "case", KEY, "simulation") is False
 
 
-def test_a_completed_session_of_the_hash_closes_the_calibration_case(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("status", "done"),
+    [("completed", True), ("running", False)],
+    ids=["completed session", "running session"],
+)
+def test_case_is_done_by_a_session(tmp_path: Path, status: str, done: bool) -> None:
     write_session(
         tmp_path / "sessions" / "case",
-        session_descriptor("case", config_hash=KEY, status="completed"),
+        session_descriptor("case", config_hash=KEY, status=status),
     )
 
-    assert case_is_done(tmp_path, "case", KEY, "calibration") is True
-
-
-def test_a_running_session_never_closes_the_calibration_case(tmp_path: Path) -> None:
-    write_session(
-        tmp_path / "sessions" / "case",
-        session_descriptor("case", config_hash=KEY, status="running"),
-    )
-
-    assert case_is_done(tmp_path, "case", KEY, "calibration") is False
+    assert case_is_done(tmp_path, "case", KEY, "calibration") is done

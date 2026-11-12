@@ -17,7 +17,7 @@ from tests._helpers.run_records import make_identity
 matplotlib.use("Agg")
 
 
-def test_gpkg_metadata_table_carries_the_block_once_even_when_written_twice(tmp_path):
+def test_gpkg_block_written_once(tmp_path):
     identity = make_identity()
     path = tmp_path / "watershed.gpkg"
     gpd.GeoDataFrame({"id": [1]}, geometry=[Point(0, 0)], crs="EPSG:2154").to_file(
@@ -45,14 +45,14 @@ def test_gpkg_metadata_table_carries_the_block_once_even_when_written_twice(tmp_
     assert len(gpd.read_file(path)) == 1
 
 
-def test_a_block_without_a_label_reads_unlabelled():
+def test_block_without_label():
     steady = make_identity(period=None)
     assert "steady state, no period" in steady.footer_text()
     assert steady.footer_text().endswith("unlabelled")
     assert "rule" not in steady.footer_text()
 
 
-def test_a_csv_gets_a_meta_json_sidecar_next_to_it(tmp_path):
+def test_csv_meta_sidecar(tmp_path):
     identity = make_identity()
     csv = tmp_path / "discharge.csv"
     csv.write_text("datetime,value\n2016-01-01,1.0\n", encoding="utf-8")
@@ -64,7 +64,7 @@ def test_a_csv_gets_a_meta_json_sidecar_next_to_it(tmp_path):
     assert read_identity_from(sidecar) == identity
 
 
-def test_a_file_without_the_block_reads_as_none(tmp_path):
+def test_file_without_block(tmp_path):
     pq.write_table(pa.table({"value": [1.0]}), tmp_path / "bare.parquet")
     (tmp_path / "bare.csv").write_text("a\n", encoding="utf-8")
     zarr.open_group(str(tmp_path / "bare.zarr"), mode="w")

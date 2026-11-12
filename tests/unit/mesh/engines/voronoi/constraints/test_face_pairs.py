@@ -18,13 +18,13 @@ from hydromodpy.mesh.engines.voronoi.constraints.face_pairs import (
 )
 
 
-def test_initial_radius_follows_the_longer_incident_segment() -> None:
+def test_initial_radius() -> None:
     nodes = np.array([[0, 1], [1, 2]])
     radius = initial_radii(3, nodes, np.array([10.0, 30.0]))
     assert radius == pytest.approx(RADIUS_SHARE * np.array([10.0, 30.0, 30.0]))
 
 
-def test_eq1_lowers_a_radius_until_the_circles_nest_no_more() -> None:
+def test_eq1_lowers_a_radius() -> None:
     nodes = np.array([[0, 1], [1, 2]])
     length = np.array([1.0, 1.0])
     radius, lowered = enforce_eq1(np.array([5.0, 0.6, 0.6]), nodes, length)
@@ -35,7 +35,7 @@ def test_eq1_lowers_a_radius_until_the_circles_nest_no_more() -> None:
     assert np.all(radius[nodes[:, 0]] + radius[nodes[:, 1]] >= length)
 
 
-def test_pair_lies_on_both_circles_and_mirrors_across_the_segment() -> None:
+def test_pair_on_both_circles() -> None:
     start = np.array([[0.0, 0.0], [3.0, 1.0]])
     stop = np.array([[10.0, 0.0], [3.0, 9.0]])
     r_start, r_stop = np.array([5.5, 4.4]), np.array([6.0, 4.4])
@@ -51,19 +51,19 @@ def test_pair_lies_on_both_circles_and_mirrors_across_the_segment() -> None:
     assert 0.5 * (plus + minus) == pytest.approx(start + along[:, None] * unit)
 
 
-def test_seed_angle_is_the_angle_of_the_pair_seen_from_its_vertex() -> None:
+def test_seed_angle() -> None:
     start, stop = np.array([[0.0, 0.0]]), np.array([[20.0, 0.0]])
     radius = np.array([RADIUS_SHARE * 20.0])
     plus, _, along, _ = pair_seeds(start, stop, radius, radius)
     assert seed_angle(along, radius)[0] == pytest.approx(math.atan2(plus[0, 1], plus[0, 0]))
 
 
-def test_tip_sits_on_the_end_circle_on_the_outgoing_tangent() -> None:
+def test_free_end_tip_position() -> None:
     tip = free_end_seeds(np.array([[10.0, 0.0]]), np.array([[0.0, 0.0]]), np.array([5.5]))
     assert tip[0] == pytest.approx([15.5, 0.0])
 
 
-def test_circle_cuts_a_polyline_in_order_along_it() -> None:
+def test_circle_cuts_a_polyline() -> None:
     coords = np.array([[-10.0, 0.0], [10.0, 0.0], [10.0, 10.0]])
     points, along = circle_segment_crossings(np.array([5.0, 0.0]), 3.0, coords)
     assert points == pytest.approx(np.array([[2.0, 0.0], [8.0, 0.0]]))

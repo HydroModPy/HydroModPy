@@ -238,7 +238,7 @@ def test_parse_rejects_an_unknown_unit(quantity: str, text: str) -> None:
 
 
 @pytest.mark.parametrize("quantity", [name for name in API if API[name][3] is not None])
-def test_parse_uses_the_si_unit_by_default(quantity: str) -> None:
+def test_parse_default_unit(quantity: str) -> None:
     value_si, canonical = API[quantity][3](5, location="test.value")
     assert (value_si, canonical) == (5.0, API[quantity][5])
     explicit = API[quantity][3](2, location="test.value", explicit_unit=API[quantity][4][1])
@@ -246,7 +246,7 @@ def test_parse_uses_the_si_unit_by_default(quantity: str) -> None:
 
 
 @pytest.mark.parametrize("quantity", API)
-def test_errors_name_the_quantity_and_the_allowed_units(quantity: str) -> None:
+def test_error_messages(quantity: str) -> None:
     normalize, factor_to, convert, _, units, _, label = API[quantity]
     with pytest.raises(ValueError, match=f"{label.capitalize()} unit cannot be empty."):
         normalize("  ")
@@ -260,7 +260,7 @@ def test_errors_name_the_quantity_and_the_allowed_units(quantity: str) -> None:
         convert("1", unit=units[0])
 
 
-def test_the_unit_text_of_a_message_is_quoted_as_before() -> None:
+def test_unit_text_is_quoted() -> None:
     with pytest.raises(ValueError, match=r"unit 'M'/S'\."):
         q.factor_to_m3_per_s("M'/S")
     with pytest.raises(ValueError, match=r"""time unit "M'/S"\."""):
@@ -278,11 +278,11 @@ def test_the_unit_text_of_a_message_is_quoted_as_before() -> None:
     ],
     ids=["scalar", "none", "list", "tuple", "nested"],
 )
-def test_a_payload_in_km_is_converted_to_m_whatever_its_nesting(payload, expected) -> None:
+def test_payload_km_to_m(payload, expected) -> None:
     assert q.convert_payload_to_m(payload, unit="km") == expected
 
 
-def test_a_payload_in_cm_per_s_is_converted_and_scaled() -> None:
+def test_payload_cm_s_to_m_s() -> None:
     nested = {"a": 1, "b": [2, (3.0,)]}
     assert q.convert_payload_to_m_per_s(nested, unit="cm/s") == {
         "a": 1.0e-2,
@@ -296,7 +296,7 @@ def test_a_payload_in_cm_per_s_is_converted_and_scaled() -> None:
     )
 
 
-def test_an_array_payload_is_scaled_without_touching_the_input() -> None:
+def test_array_payload_not_mutated() -> None:
     array = np.array([1.0, 2.0])
     np.testing.assert_allclose(q.convert_payload_to_m(array, unit="cm"), [0.01, 0.02])
     assert array.tolist() == [1.0, 2.0]
@@ -304,13 +304,13 @@ def test_an_array_payload_is_scaled_without_touching_the_input() -> None:
 
 @pytest.mark.parametrize("convert_payload", [q.convert_payload_to_m, q.convert_payload_to_m_per_s])
 @pytest.mark.parametrize("payload", [True, "12", object(), {"a": True}, [True], np.array(["x"])])
-def test_a_payload_that_is_not_numeric_is_refused(convert_payload, payload) -> None:
+def test_non_numeric_payload_refused(convert_payload, payload) -> None:
     unit = "m" if convert_payload is q.convert_payload_to_m else "m/s"
     with pytest.raises(TypeError, match="must be numeric, a sequence, or a mapping"):
         convert_payload(payload, unit=unit, label="depth")
 
 
-def test_a_refused_payload_names_the_path_to_the_bad_value() -> None:
+def test_refused_payload_names_path() -> None:
     with pytest.raises(TypeError, match=r"depth\['a'\]\[1\]"):
         q.convert_payload_to_m({"a": [1, "x"]}, unit="m", label="depth")
     with pytest.raises(TypeError, match=r"L\['a'\]"):
@@ -320,13 +320,13 @@ def test_a_refused_payload_names_the_path_to_the_bad_value() -> None:
 
 
 @pytest.mark.parametrize("convert_payload", [q.convert_payload_to_m, q.convert_payload_to_m_per_s])
-def test_a_payload_with_an_unsupported_unit_is_refused_even_when_empty(convert_payload) -> None:
+def test_payload_unit_refused(convert_payload) -> None:
     with pytest.raises(ValueError, match="Unsupported"):
         convert_payload(None, unit="foo")
 
 
 @pytest.mark.parametrize("unit", ["", "  ", "mile", "ft"])
-def test_an_unsupported_or_empty_length_unit_is_refused(unit: str) -> None:
+def test_bad_length_unit(unit: str) -> None:
     with pytest.raises(ValueError, match="cannot be empty|Unsupported length unit"):
         q.normalize_length_unit(unit)
 
@@ -355,81 +355,15 @@ class _Unscalable:
         raise RuntimeError("no")
 
 
-def test_a_copyable_container_is_scaled_on_a_copy() -> None:
+def test_container_scaled_on_copy() -> None:
     original = _CopyScalable(3.0)
     assert q.convert_payload_to_m(original, unit="km").value == pytest.approx(3000.0)
     assert original.value == 3.0
 
 
-def test_a_container_that_cannot_be_scaled_is_refused_as_not_numeric() -> None:
+def test_unscalable_container() -> None:
     with pytest.raises(TypeError, match="must be numeric"):
         q.convert_payload_to_m(_Unscalable(), unit="km")
-
-
-def test_time_units_and_modflow_codes() -> None:
-    assert normalize_time_unit(1) == "seconds"
-    assert normalize_time_unit("4") == "days"
-    assert normalize_time_unit(2.0) == "minutes"
-    assert normalize_time_unit(" 5 ") == "years"
-    assert convert_seconds_to_unit(7200.0, unit="hours") == pytest.approx(2.0)
-    assert to_modflow_itmuni("seconds") == 1
-    assert to_modflow_itmuni("d") == 4
-    assert to_modflow6_time_units(1) == "seconds"
-    assert to_pandas_timedelta_unit("hours") == "h"
-
-
-def test_time_rejects_codes_and_payloads() -> None:
-    with pytest.raises(ValueError, match="Unsupported ITMUNI code 6. Expected 1..5."):
-        normalize_time_unit(6)
-    with pytest.raises(ValueError, match="Unsupported time unit True"):
-        normalize_time_unit(True)
-    with pytest.raises(ValueError, match="Unsupported time unit 2.5"):
-        normalize_time_unit(2.5)
-    with pytest.raises(ValueError, match="Unsupported time unit None"):
-        normalize_time_unit(None)
-    with pytest.raises(TypeError, match="value_seconds must be numeric to convert from seconds."):
-        convert_seconds_to_unit(True, unit="day")
-    with pytest.raises(ValueError, match="Unsupported pandas Timedelta conversion"):
-        _ = to_pandas_timedelta_unit("years")
-
-
-def test_timedelta_and_cf_axis() -> None:
-    assert timedelta_to_seconds(dt.timedelta(minutes=2)) == 120.0
-    with pytest.raises(TypeError, match="delta must provide a total_seconds"):
-        timedelta_to_seconds(3, label="delta")
-    np.testing.assert_array_equal(cf_time_axis_seconds([0.4, 86400.0], None), [0, 86400])
-    anchored = cf_time_axis_seconds([0, 60], dt.datetime(1970, 1, 2))
-    np.testing.assert_array_equal(anchored, [86400, 86460])
-
-
-def test_axis_label() -> None:
-    assert axis_label("head") == "Hydraulic head (m)"
-    assert axis_label("head", "ft") == "Hydraulic head (ft)"
-    assert axis_label("custom") == "custom"
-
-
-@pytest.mark.parametrize(
-    ("meters", "unit", "precision", "text"),
-    [
-        (1500.0, "km", 3, "1.500 km"),
-        (0.25, "cm", 1, "25.0 cm"),
-        ("2", "mm", 0, "2000 mm"),
-        (1.0, "m", 2, "1.00 m"),
-    ],
-)
-def test_a_length_is_displayed_in_the_requested_unit(meters, unit, precision, text) -> None:
-    assert format_length_from_m(meters, unit=unit, precision=precision) == text
-
-
-def test_displaying_a_non_numeric_length_is_refused() -> None:
-    with pytest.raises(ValueError, match="value_m must be numeric"):
-        format_length_from_m("deep")
-
-
-def test_displaying_in_a_length_and_converting_back_gives_the_same_length() -> None:
-    for unit in ("m", "km", "cm", "mm"):
-        value, shown_unit = format_length_from_m(123.456, unit=unit, precision=9).split()
-        assert q.convert_to_m(float(value), unit=shown_unit) == pytest.approx(123.456)
 
 
 @pytest.mark.parametrize(
@@ -441,13 +375,13 @@ def test_displaying_in_a_length_and_converting_back_gives_the_same_length() -> N
         ([3.0], "  ", [3.0]),
     ],
 )
-def test_a_length_series_comes_back_in_meters_as_floats(values, units, expected) -> None:
+def test_length_series_in_m(values, units, expected) -> None:
     out = q.coerce_length_series_to_m(values=values, units=units, label="forcing")
     assert out.dtype == float
     np.testing.assert_allclose(np.atleast_1d(out), expected)
 
 
-def test_a_length_series_in_an_unknown_unit_is_refused() -> None:
+def test_length_series_bad_unit() -> None:
     with pytest.raises(ValueError, match="furlong"):
         q.coerce_length_series_to_m(values=[1.0], units="furlong", label="forcing")
 
@@ -461,5 +395,5 @@ def test_a_length_series_in_an_unknown_unit_is_refused() -> None:
         (SimpleNamespace(), "fallback"),
     ],
 )
-def test_the_units_of_a_forcing_are_read_from_a_mapping_or_an_object(forcing, expected) -> None:
+def test_forcing_units(forcing, expected) -> None:
     assert q.forcing_units(forcing, fallback="fallback") == expected

@@ -1,4 +1,9 @@
-"""Tests of `runners.kept_solves`."""
+"""Solves that a calibration trial keeps on disk for its promotion.
+
+A promoted trial reads the solve its trial kept instead of solving again. No
+solver runs here. Costs are unitless and head files are stand-in bytes. The
+equality with a replay on a real MODFLOW 6 model is in tests/e2e.
+"""
 
 from __future__ import annotations
 
@@ -36,20 +41,6 @@ from tests._helpers.model_factory import make_model
 from tests.unit.calibration._factories import Setup
 from tests.unit.calibration._factories_runners import FakePipeline, ToyCtx
 
-# From test_a_promoted_trial_reads_its_kept_solve.py
-# A promoted trial reads the solve its trial kept instead of solving again.
-#
-# Three things are pinned here, none of them spawning a solver:
-#
-# - retention: which trial solves stay on disk, and when each one goes;
-# - the trial primitive hands a completed solve to the retention before its
-#   sandbox would delete it, and a promotion reads it through the solver step;
-# - the fallback: a trial with no kept solve is solved again, and the log says why.
-#
-# The equality of a promoted run with a replay on a real MODFLOW 6 model is in
-# ``tests/e2e/test_a_promoted_trial_is_not_solved_again_e2e.py``.
-
-
 pytestmark = pytest.mark.usefixtures("ensure_bootstrap")
 
 
@@ -61,7 +52,6 @@ def _folder(root: Path, name: str) -> Path:
 
 
 def _solved(folder: Path, solver_model: Any = None, **fields: Any) -> SolverRun:
-    """Return the solved run of a solver that wrote into ``folder``."""
     return SolverRun(
         slot=RunSlot(folder.parent, folder.name),
         solver_model=solver_model,
@@ -82,12 +72,7 @@ def _offer(retention: TrialSolveRetention, root: Path, trial_id: int, cost: floa
     return folder
 
 
-# ---------------------------------------------------------------------------
-# What a session keeps
-# ---------------------------------------------------------------------------
-
-
-def test_a_session_that_promotes_nothing_attaches_no_retention() -> None:
+def test_retention_attached_by_save_runs() -> None:
     trial_ctx = SimpleNamespace(kept_solves=None)
     keep_trial_solves(CalibrationConfig(save_runs="none"), trial_ctx)
     assert trial_ctx.kept_solves is None
@@ -95,7 +80,7 @@ def test_a_session_that_promotes_nothing_attaches_no_retention() -> None:
     assert isinstance(trial_ctx.kept_solves, TrialSolveRetention)
 
 
-def test_a_solve_a_worker_left_is_adopted_or_deleted_by_its_cost(tmp_path: Path) -> None:
+def test_worker_solve_adopted_by_cost(tmp_path: Path) -> None:
     retention = TrialSolveRetention(1, keep_everything=False)
     solves = []
     for trial_id, cost in ((7, 1.0), (8, 5.0)):
@@ -110,7 +95,7 @@ def test_a_solve_a_worker_left_is_adopted_or_deleted_by_its_cost(tmp_path: Path)
     assert solves[0].folders[0].is_dir() and not solves[1].folders[0].exists()
 
 
-def test_a_promoted_solve_belongs_to_its_run_and_the_rest_go_at_release(tmp_path: Path) -> None:
+def test_promoted_solve_kept_at_release(tmp_path: Path) -> None:
     retention = TrialSolveRetention(None, keep_everything=False)
     promoted = _offer(retention, tmp_path, 1, 1.0)
     other = _offer(retention, tmp_path, 2, 2.0)
@@ -124,7 +109,7 @@ def test_a_promoted_solve_belongs_to_its_run_and_the_rest_go_at_release(tmp_path
     assert retention.take(2)[0] is None
 
 
-def test_a_trial_that_finishes_after_the_session_ended_is_not_kept(tmp_path: Path) -> None:
+def test_late_trial_not_kept(tmp_path: Path) -> None:
     retention = TrialSolveRetention(None, keep_everything=False)
     retention.release()
     late = _folder(tmp_path, "m_trial000001")
@@ -132,7 +117,7 @@ def test_a_trial_that_finishes_after_the_session_ended_is_not_kept(tmp_path: Pat
     assert late.is_dir(), "left to its sandbox, which deletes it on exit"
 
 
-def test_keep_trial_scratch_keeps_every_folder(tmp_path: Path) -> None:
+def test_keep_everything_keeps_folders(tmp_path: Path) -> None:
     retention = TrialSolveRetention(1, keep_everything=True)
     dropped = _offer(retention, tmp_path, 1, 3.0)
     kept = _offer(retention, tmp_path, 2, 1.0)
@@ -141,7 +126,7 @@ def test_keep_trial_scratch_keeps_every_folder(tmp_path: Path) -> None:
     assert dropped in retention.spared_folders()
 
 
-def test_a_solve_whose_folder_is_gone_is_not_read(tmp_path: Path) -> None:
+def test_missing_folder_not_read(tmp_path: Path) -> None:
     retention = TrialSolveRetention(None, keep_everything=False)
     folder = _offer(retention, tmp_path, 1, 1.0)
     for child in folder.iterdir():
@@ -158,7 +143,7 @@ class _SolverStandIn:
         self.inputs = inputs
 
 
-def test_a_kept_solve_crosses_the_worker_pipe_with_its_model(tmp_path: Path) -> None:
+def test_kept_solve_pickles_with_model(tmp_path: Path) -> None:
     # A worker of a parallel calibration sends the solves it keeps to the parent
     # with conn.send, which pickles them.
     model = make_model(
@@ -190,9 +175,6 @@ def test_a_kept_solve_crosses_the_worker_pipe_with_its_model(tmp_path: Path) -> 
         sent.lakes["other"] = {}
 
 
-# ---------------------------------------------------------------------------
-# The launchers
-# ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class _Run:
     id: str
@@ -209,7 +191,7 @@ class _Plan:
     runs: tuple[_Run, ...]
 
 
-def test_the_kept_solve_launcher_records_what_the_trial_produced(tmp_path: Path) -> None:
+def test_launcher_records_trial_solve(tmp_path: Path) -> None:
     folder = _folder(tmp_path, "m_trial000001")
     model = object()
     kept = KeptSolve(
@@ -240,16 +222,13 @@ def test_the_kept_solve_launcher_records_what_the_trial_produced(tmp_path: Path)
     assert fired == [("before", "mesh"), ("after", "mesh"), ("before", "flow"), ("after", "flow")]
 
 
-def test_the_kept_solve_launcher_refuses_a_run_it_has_no_solve_for(tmp_path: Path) -> None:
+def test_launcher_refuses_missing_solve(tmp_path: Path) -> None:
     kept = KeptSolve(trial_id=4, cost=0.5, folders=(), results={})
     state = SimpleNamespace(execution=ExecutionRegistry(), setup=SimpleNamespace(flow=object()))
     with pytest.raises(CalibrationError, match="Trial 4 kept no solve"):
         KeptSolveLauncher(kept).execute(_Plan(runs=(_Run("flow_main"),)), state)
 
 
-# ---------------------------------------------------------------------------
-# Trial and promotion over a stubbed solver
-# ---------------------------------------------------------------------------
 @dataclass
 class _Cfg:
     K: float = 1.0
@@ -379,7 +358,7 @@ def _cost(ctx, *, objective, variable):
     return float(ctx.cfg.K), {"cost": float(ctx.cfg.K)}
 
 
-def test_a_trial_hands_its_solve_to_the_retention(toy) -> None:
+def test_trial_hands_solve_to_retention(toy) -> None:
     trial_ctx, _ = toy
     trial_ctx.kept_solves = TrialSolveRetention(1, keep_everything=False)
     scratch = trial_ctx.ctx.setup.workspace.solver_scratch_folder
@@ -399,7 +378,7 @@ def test_a_trial_hands_its_solve_to_the_retention(toy) -> None:
     assert kept.results["flow_main"].metrics == {"water_budget_percent_discrepancy": 0.01}
 
 
-def test_the_promoted_run_is_the_one_a_replay_writes_without_a_second_solve(toy) -> None:
+def test_promotion_reads_kept_solve(toy) -> None:
     trial_ctx, stores = toy
     trial_ctx.kept_solves = TrialSolveRetention(None, keep_everything=False)
     run_trial_light(trial_ctx, {"K": 3.0}, metric_fn=_cost, trial_id=1)
@@ -425,21 +404,3 @@ def test_the_promoted_run_is_the_one_a_replay_writes_without_a_second_solve(toy)
     other = trial_ctx.ctx.setup.workspace.solver_scratch_folder / "toy_trial000002"
     assert stores["from_kept:spared"] == str(other)
     assert stores["replayed:spared"] == ""
-
-
-class _RunnerThatRemembers:
-    """Stands in for ``SimulationRunner`` and remembers the previous runs it was given."""
-
-    given: ClassVar[list[Any]] = []
-
-    def execute(self, plan, state, *, callbacks=None, previous=None):
-        del state, callbacks
-        self.given.append(previous)
-        return tuple((run, _solved(Path("scratch") / str(run.id))) for run in plan.runs)
-
-
-LAUNCHES: tuple[tuple[str, dict | None, dict | None], ...] = (
-    ("no lane", None, None),
-    ("an empty lane", {}, None),
-    ("a lane with a parent", {"flow_main": "parent"}, {"flow_main": "parent"}),
-)

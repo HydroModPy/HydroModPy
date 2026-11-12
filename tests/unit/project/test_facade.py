@@ -45,9 +45,7 @@ def configure_calls(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
 
 
 @pytest.mark.fast
-def test_reading_an_opened_project_never_configures_it(
-    tmp_path: Path, configure_calls: list[Path]
-) -> None:
+def test_reads_never_configure(tmp_path: Path, configure_calls: list[Path]) -> None:
     project = make_project(tmp_path / "p")
     sim_id = seal_run(project, "baseline")
 
@@ -63,7 +61,7 @@ def test_reading_an_opened_project_never_configures_it(
 
 
 @pytest.mark.fast
-def test_a_held_index_lock_costs_a_warning_and_keeps_the_open_handle(
+def test_held_index_lock_warns(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     import hydromodpy.results.catalog.indexer as indexer
@@ -85,9 +83,7 @@ def test_a_held_index_lock_costs_a_warning_and_keeps_the_open_handle(
 
 
 @pytest.mark.fast
-def test_a_first_read_under_a_held_index_lock_opens_the_published_index_at_once(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_first_read_under_lock(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     import time
 
     from hydromodpy.core.io.lock_file import LockFile
@@ -113,7 +109,7 @@ def test_a_first_read_under_a_held_index_lock_opens_the_published_index_at_once(
 
 
 @pytest.mark.fast
-def test_project_publish_copies_the_summary_and_takes_no_with(tmp_path: Path) -> None:
+def test_publish_copies_summary(tmp_path: Path) -> None:
     import inspect
     import json
 
@@ -135,9 +131,7 @@ def test_project_publish_copies_the_summary_and_takes_no_with(tmp_path: Path) ->
 
 
 @pytest.mark.fast
-def test_the_first_model_read_configures_from_project_toml_once(
-    tmp_path: Path, configure_calls: list[Path]
-) -> None:
+def test_config_loaded_once(tmp_path: Path, configure_calls: list[Path]) -> None:
     project = make_project(tmp_path / "p")
     proj = open_project(project)
 
@@ -147,9 +141,7 @@ def test_the_first_model_read_configures_from_project_toml_once(
 
 
 @pytest.mark.fast
-def test_a_configuration_that_fails_is_tried_again_on_the_next_read(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_failed_config_retried(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def configure(project: Project, config: Any, **_kwargs: Any) -> None:
         project._cfg = object()
         raise ValueError("bad config")
@@ -164,7 +156,7 @@ def test_a_configuration_that_fails_is_tried_again_on_the_next_read(
 
 
 @pytest.mark.fast
-def test_a_folder_without_project_toml_reads_but_builds_no_model(tmp_path: Path) -> None:
+def test_folder_without_project_toml(tmp_path: Path) -> None:
     project = tmp_path / "flat"
     seal_run(project, "baseline")
 
@@ -176,7 +168,7 @@ def test_a_folder_without_project_toml_reads_but_builds_no_model(tmp_path: Path)
 
 
 @pytest.mark.fast
-def test_a_project_built_from_a_config_keeps_its_root_from_the_config(tmp_path: Path) -> None:
+def test_root_from_config(tmp_path: Path) -> None:
     from hydromodpy.project.state import ProjectState
 
     configured = SimpleNamespace(workspace=SimpleNamespace(project_root=tmp_path / "x"))
@@ -188,9 +180,7 @@ def test_a_project_built_from_a_config_keeps_its_root_from_the_config(tmp_path: 
 
 
 @pytest.mark.fast
-def test_project_gc_plans_without_touching_the_tree(
-    tmp_path: Path, configure_calls: list[Path]
-) -> None:
+def test_gc_dry_run_plans(tmp_path: Path, configure_calls: list[Path]) -> None:
     import hashlib
 
     from hydromodpy.results.products.store import ProductStore, products_root
@@ -217,8 +207,7 @@ def test_project_gc_plans_without_touching_the_tree(
 MAX_PROJECT_METHODS = 19
 
 
-def test_project_instance_methods_below_limit() -> None:
-    """Project keeps a small public method surface."""
+def test_method_count_limit() -> None:
     methods = [
         name
         for name, value in vars(Project).items()
@@ -229,60 +218,53 @@ def test_project_instance_methods_below_limit() -> None:
     )
 
 
-def test_project_drops_removed_surface() -> None:
-    """The removed run/session/factory surface is gone."""
-    for name in (
-        "lazy",
-        "session",
-        "from_toml",
-        "from_json",
-        "from_dict",
-        "ingest",
-        "render",
-        "cleanup",
-    ):
-        assert not hasattr(Project, name), f"Project still exposes removed {name!r}"
+# Run, launch and model-phase verbs stay on the facade.
+KEPT_VERBS = [
+    pytest.param(
+        ("simulate", "calibrate", "prepare", "rerun", "plan", "launch", "collect"), id="run phase"
+    ),
+    pytest.param(
+        (
+            "setup_workspace",
+            "build_geographic",
+            "load_data",
+            "reload_data",
+            "rebuild_geographic",
+            "build_mesh",
+        ),
+        id="model phase",
+    ),
+]
+
+# The old factories and the TOML-only workflows live elsewhere.
+REMOVED_VERBS = [
+    pytest.param(
+        ("lazy", "session", "from_toml", "from_json", "from_dict", "ingest", "render", "cleanup"),
+        id="old surface",
+    ),
+    pytest.param(("overview", "compare", "mesh", "report"), id="toml only workflows"),
+]
 
 
-def test_project_keeps_canonical_run_phase_verbs() -> None:
-    """``Project`` keeps the high-level run-phase verbs and the launch verbs of a project."""
-    for name in ("simulate", "calibrate", "prepare", "rerun", "plan", "launch", "collect"):
-        assert hasattr(Project, name), f"Project lost canonical verb {name!r}"
+@pytest.mark.parametrize("names", KEPT_VERBS)
+def test_kept_verbs(names: tuple[str, ...]) -> None:
+    assert [name for name in names if not hasattr(Project, name)] == []
 
 
-def test_project_config_is_a_property() -> None:
-    """``cfg`` is replaced by the read-only ``config`` property."""
+@pytest.mark.parametrize("names", REMOVED_VERBS)
+def test_removed_verbs(names: tuple[str, ...]) -> None:
+    assert [name for name in names if hasattr(Project, name)] == []
+
+
+def test_config_is_a_property() -> None:
     assert isinstance(Project.config, property)
     assert not hasattr(Project, "cfg")
 
 
-def test_project_drops_toml_only_workflow_verbs() -> None:
-    """TOML-only workflows live on ``hydromodpy.project.api``, not on ``Project``."""
-    for name in ("overview", "compare", "mesh", "report"):
-        assert not hasattr(Project, name), (
-            f"Project still exposes {name!r}; the canonical entry point is the verb {name}"
-        )
-
-
-def test_project_keeps_model_phase_verbs() -> None:
-    """``Project`` keeps the model-phase verbs that mutate the context."""
-    for name in (
-        "setup_workspace",
-        "build_geographic",
-        "load_data",
-        "reload_data",
-        "rebuild_geographic",
-        "build_mesh",
-    ):
-        assert hasattr(Project, name), f"Project lost model-phase verb {name!r}"
-
-
-# --- A document in memory is read against the base the caller names ---
-
 SYNTHETIC = {"workflow": {"mode": "simulation"}, "geographic": {"source_mode": "synthetic"}}
 
 
-def test_a_sealed_snapshot_names_its_own_project_root(tmp_path: Path) -> None:
+def test_sealed_snapshot_root(tmp_path: Path) -> None:
     from hydromodpy.project.facade import read_sealed_config
 
     snapshot = {**SYNTHETIC, "workspace": {"project_root": str(tmp_path)}}
@@ -293,10 +275,7 @@ def test_a_sealed_snapshot_names_its_own_project_root(tmp_path: Path) -> None:
     assert cfg.read_as_sealed is True
 
 
-# --- status and publish are the verbs of the same name, read in this project ---
-
-
-def test_project_status_is_the_verb_with_plan_on(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_status_plans(monkeypatch: pytest.MonkeyPatch) -> None:
     import hydromodpy.project.api as api
 
     seen: list[tuple[Any, dict[str, Any]]] = []

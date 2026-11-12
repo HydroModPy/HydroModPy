@@ -11,7 +11,7 @@ CODES = np.array([[0, 1], [2, 3]])
 LABELS = {1: "riparian", 2: "hillslope", 3: "plateau"}
 
 
-def test_the_field_snapshot_names_its_zones_in_code_order() -> None:
+def test_zone_snapshot() -> None:
     field = CatchmentZonesField("zones", CODES, {3: " plateau ", 1: "riparian", 2: "hillslope"}, source_meta={"tag": 4})  # fmt: skip
 
     assert field.zone_keys == ("riparian", "hillslope", "plateau")
@@ -33,6 +33,6 @@ def test_the_field_snapshot_names_its_zones_in_code_order() -> None:
     ],
     ids=["not_2d", "empty_codes", "no_label", "zero_code", "blank_label", "unknown_code"],
 )
-def test_a_code_matrix_its_labels_do_not_describe_is_refused(codes, labels, match) -> None:
+def test_refusals(codes, labels, match) -> None:
     with pytest.raises(ValueError, match=match):
         CatchmentZonesField("zones", codes, labels)

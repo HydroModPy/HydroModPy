@@ -1,4 +1,8 @@
-"""Time-series figures: flux depth by zone, shading before the scoring window."""
+"""Time-series figures: flux depth (mm per period) by zone, and the shade before the scoring window.
+
+A budget flux in m3/s is divided by the area of the zone its rows sum over (m2).
+The spin-up is the part of a run before the ``[metrics]`` window it is scored on.
+"""
 
 from __future__ import annotations
 
@@ -28,32 +32,16 @@ from tests._helpers.ugrid_meshes import quad_mesh
 # stores no basin has no area to divide by.
 
 CELL = 100.0
-
-
 NROW, NCOL = 4, 4
-
-
 BASIN = np.zeros(NROW * NCOL, dtype=bool)
 
 
 BASIN[[0, 1, 4, 5, 8, 9]] = True
-
-
 DOMAIN_AREA = NROW * NCOL * CELL**2
-
-
 BASIN_AREA = int(BASIN.sum()) * CELL**2
-
-
 EDGES = pd.date_range("2000-01-01", periods=4, freq="D")
-
-
 DAY = 86400.0
-
-
 DOMAIN_RECHARGE = np.array([4.0, 3.0, 2.0])
-
-
 BASIN_RECHARGE = np.array([1.5, 1.0, 0.5])
 
 
@@ -95,14 +83,14 @@ def _flux_depth_drawn(run, mpl, **options):
     return ax, np.asarray(recharge.get_ydata())[:-1]
 
 
-def test_the_catchment_row_is_divided_by_the_area_of_the_basin(mpl) -> None:
+def test_catchment_row_basin_area(mpl) -> None:
     ax, depth = _flux_depth_drawn(_run(("0", "catchment")), mpl)
 
     np.testing.assert_allclose(depth, 1000.0 * DAY * BASIN_RECHARGE / BASIN_AREA)
     assert "over the delineated catchment" in ax.get_ylabel()
 
 
-def test_the_old_depth_was_too_small_by_the_ratio_of_the_areas(mpl) -> None:
+def test_domain_area_ratio(mpl) -> None:
     _, depth = _flux_depth_drawn(_run(("0", "catchment")), mpl)
 
     over_the_domain = 1000.0 * DAY * BASIN_RECHARGE / DOMAIN_AREA
@@ -110,25 +98,25 @@ def test_the_old_depth_was_too_small_by_the_ratio_of_the_areas(mpl) -> None:
     assert BASIN_AREA < DOMAIN_AREA
 
 
-def test_the_domain_row_is_divided_by_the_area_of_the_domain(mpl) -> None:
+def test_domain_row_domain_area(mpl) -> None:
     ax, depth = _flux_depth_drawn(_run(("0",)), mpl)
 
     np.testing.assert_allclose(depth, 1000.0 * DAY * DOMAIN_RECHARGE / DOMAIN_AREA)
     assert "over the model domain" in ax.get_ylabel()
 
 
-def test_the_domain_row_needs_no_stored_basin(mpl) -> None:
+def test_domain_row_needs_no_basin(mpl) -> None:
     _, depth = _flux_depth_drawn(_run(("0",), basin=None), mpl)
 
     np.testing.assert_allclose(depth, 1000.0 * DAY * DOMAIN_RECHARGE / DOMAIN_AREA)
 
 
-def test_a_catchment_row_without_a_stored_basin_has_no_depth(mpl) -> None:
+def test_catchment_row_without_basin(mpl) -> None:
     with pytest.raises(ValueError, match="stores no basin of D"):
         _flux_depth_drawn(_run(("0", "catchment"), basin=None), mpl)
 
 
-def test_the_flux_in_m3_s_does_not_read_the_area(mpl) -> None:
+def test_flux_in_m3_s_ignores_area(mpl) -> None:
     _, ax = mpl.subplots()
     run = _run(("0", "catchment"), basin=None)
 
@@ -146,11 +134,7 @@ def test_the_flux_in_m3_s_does_not_read_the_area(mpl) -> None:
 # before it. No figure option names it, and a run without a window shades nothing.
 
 STAMPS = pd.date_range("2011-01-01", periods=10, freq="D")
-
-
 WINDOW_START = datetime.date(2011, 1, 5)
-
-
 LABEL = "before the scoring window"
 
 
@@ -254,7 +238,7 @@ def _shades(ax):
 
 
 @pytest.mark.parametrize("figure", FIGURES)
-def test_a_series_figure_shades_up_to_the_sealed_window_start(figure, monkeypatch) -> None:
+def test_shade_up_to_sealed_window(figure, monkeypatch) -> None:
     run = _Run(sealed=(WINDOW_START, datetime.date(2011, 1, 8)))
 
     ax = _drawn(figure, run, monkeypatch)
@@ -267,13 +251,13 @@ def test_a_series_figure_shades_up_to_the_sealed_window_start(figure, monkeypatc
 
 
 @pytest.mark.parametrize("figure", FIGURES)
-def test_a_run_without_a_window_shades_nothing(figure, monkeypatch) -> None:
+def test_no_window_no_shade(figure, monkeypatch) -> None:
     ax = _drawn(figure, _Run(), monkeypatch)
 
     assert _shades(ax) == []
 
 
-def test_the_window_of_the_config_serves_a_run_that_sealed_no_score() -> None:
+def test_config_window_without_score() -> None:
     snapshot = {"metrics": {"window": {"start": "2011-01-04", "end": "2011-01-09"}}}
 
     ax = _drawn("hydrograph", _Run(snapshot=snapshot))
@@ -284,7 +268,7 @@ def test_the_window_of_the_config_serves_a_run_that_sealed_no_score() -> None:
     )
 
 
-def test_a_window_that_starts_with_the_run_shades_nothing() -> None:
+def test_window_at_run_start() -> None:
     run = _Run(sealed=(datetime.date(2010, 12, 1), datetime.date(2011, 1, 8)))
 
     assert _shades(_drawn("hydrograph", run)) == []

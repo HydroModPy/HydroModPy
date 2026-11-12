@@ -1,8 +1,8 @@
-"""Unit tests for the Zarr v2 store (P6).
+"""The Zarr field store of a run: ``SimulationZarr`` and the helpers around it.
 
-Covers atomicity, ACDD root attrs, CF _FillValue, balanced chunks,
-sharding above the 100 MiB threshold, consolidated metadata, standard_name
-mapping, schema version checks, and the topography/particles renames.
+Fields are stored as (time, cell) or (time, layer, cell) arrays in float64 or rounded
+float32. Chunks are about 1 MiB (``BALANCED_TARGET_BYTES``), the root group carries ACDD-1.3
+attributes, and a lock file sits beside the store. Sizes are in bytes, bounds in degrees.
 """
 
 from __future__ import annotations
@@ -16,21 +16,25 @@ import zarr
 
 import hydromodpy.results.zarr_store.zarr_schema as zarr_schema
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
+from hydromodpy.core.io import filesystem
 from hydromodpy.core.io.filesystem import native_io_path
+from hydromodpy.results import field_registry
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
+from hydromodpy.results.zarr_store.cf_validation import is_cf_standard_name
 from hydromodpy.results.zarr_store.chunks import compute_balanced_chunks_2d
 from hydromodpy.results.zarr_store.constants import BALANCED_TARGET_BYTES, SHARD_TRIGGER_BYTES
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
+from hydromodpy.results.zarr_store.zarr_finalizer import lock_path_for_store
+from tests._helpers.windows_os import WindowsOs
+
+N_CELLS = 100
+BOUNDS_DEG = {"lat_min": 48.0, "lat_max": 49.0, "lon_min": -2.0, "lon_max": -1.0}
 
 
 @pytest.fixture
 def fresh_store(tmp_path: Path) -> SimulationZarr:
-    sz = SimulationZarr.create(
-        tmp_path / "sim.zarr",
-        n_cells=100,
-        n_layers=2,
-    )
+    sz = SimulationZarr.create(tmp_path / "sim.zarr", n_cells=N_CELLS, n_layers=2)
     yield sz
     sz.close()
 
@@ -51,7 +55,7 @@ HIGHLY_RECOMMENDED = (
 )
 
 
-def test_acdd_root_attrs_present(fresh_store: SimulationZarr) -> None:
+def test_acdd_root_attrs(fresh_store: SimulationZarr) -> None:
     attrs = fresh_store.write_acdd_root_attrs(
         sim_row={
             "sim_id": "11111111-1111-7111-8111-111111111111",
@@ -94,7 +98,7 @@ def test_acdd_root_attrs_present(fresh_store: SimulationZarr) -> None:
     assert "MODFLOW 6.5.0" in attrs["source"]
 
 
-def test_local_store_retries_transient_chunk_write_permission_error(
+def test_chunk_write_retries(
     fresh_store: SimulationZarr,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -116,7 +120,7 @@ def test_local_store_retries_transient_chunk_write_permission_error(
     np.testing.assert_allclose(fresh_store.root["head"][0], values)
 
 
-def test_balanced_chunking_default(fresh_store: SimulationZarr) -> None:
+def test_balanced_chunking(fresh_store: SimulationZarr) -> None:
     fresh_store.write_field("head", 0, np.arange(100, dtype="float64"), n_timesteps=2000)
     head = fresh_store.root["head"]
     # 2000 timesteps * 100 cells * 8 bytes = 1.6 MiB total, balanced ~1 MiB.
@@ -127,14 +131,14 @@ def test_balanced_chunking_default(fresh_store: SimulationZarr) -> None:
     assert chunk_bytes <= BALANCED_TARGET_BYTES * 2
 
 
-def test_balanced_chunks_helper() -> None:
+def test_balanced_chunks_2d() -> None:
     shape = compute_balanced_chunks_2d(365, 1, 50_000, itemsize=8)
     # (1, 1, ~131k clipped to 50k) since per_step = 400 kB <= 1 MiB.
     assert shape == (2, 1, 50_000) or shape == (1, 1, 50_000)
 
 
 @pytest.mark.windows
-def test_store_keeps_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
+def test_long_paths(tmp_path: Path) -> None:
     long_dir = tmp_path
     idx = 0
     while (
@@ -187,9 +191,6 @@ def test_store_keeps_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
 
 
 def test_standard_name_mapping(fresh_store: SimulationZarr) -> None:
-    from hydromodpy.results import field_registry
-    from hydromodpy.results.zarr_store.cf_validation import is_cf_standard_name
-
     head = field_registry.get("head")
     assert head.standard_name == ""
     assert head.csdms_standard_name == "subsurface_water__hydraulic_head"
@@ -199,7 +200,7 @@ def test_standard_name_mapping(fresh_store: SimulationZarr) -> None:
     assert not is_cf_standard_name(head.standard_name)
 
 
-def test_a_store_without_the_version_attribute_is_refused(tmp_path: Path) -> None:
+def test_missing_version_refused(tmp_path: Path) -> None:
     path = tmp_path / "no_version.zarr"
     sz = SimulationZarr.create(path, n_cells=4, n_layers=1)
     del sz.root.attrs["zarr_schema_version"]
@@ -209,7 +210,7 @@ def test_a_store_without_the_version_attribute_is_refused(tmp_path: Path) -> Non
         SimulationZarr(path)
 
 
-def test_a_newer_store_names_the_version_that_wrote_it(tmp_path: Path) -> None:
+def test_newer_version_refused(tmp_path: Path) -> None:
     path = tmp_path / "newer.zarr"
     sz = SimulationZarr.create(path, n_cells=4, n_layers=1)
     sz.root.attrs.update({"zarr_schema_version": "9", "hydromodpy_version": "2.9.0"})
@@ -219,24 +220,18 @@ def test_a_newer_store_names_the_version_that_wrote_it(tmp_path: Path) -> None:
         SimulationZarr(path)
 
 
-def test_compose_acdd_returns_floats_for_bounds() -> None:
+def test_acdd_bounds_are_floats() -> None:
     attrs = compose_acdd_root_attrs(
         sim_row={"sim_id": "x"},
         runs_env={},
-        geographic_bounds={
-            "lat_min": 48.0,
-            "lat_max": 49.0,
-            "lon_min": -2.0,
-            "lon_max": -1.0,
-        },
+        geographic_bounds=BOUNDS_DEG,
     )
     assert attrs["geospatial_lat_min"] == 48.0
     assert attrs["geospatial_lat_max"] == 49.0
     assert attrs["geospatial_lon_max"] == -1.0
 
 
-def test_compose_acdd_emits_recommended_attributes() -> None:
-    """The 15 V1 additions (units, resolution, bounds, publisher, vocab, ...) appear."""
+def test_acdd_recommended_attrs() -> None:
     attrs = compose_acdd_root_attrs(
         sim_row={
             "sim_id": "abc",
@@ -244,12 +239,7 @@ def test_compose_acdd_emits_recommended_attributes() -> None:
             "doi": "10.5281/zenodo.1234567",
         },
         runs_env={"user_name": "alice"},
-        geographic_bounds={
-            "lat_min": 48.0,
-            "lat_max": 49.0,
-            "lon_min": -2.0,
-            "lon_max": -1.0,
-        },
+        geographic_bounds=BOUNDS_DEG,
     )
     for key in (
         "geospatial_lat_units",
@@ -281,13 +271,13 @@ def test_compose_acdd_emits_recommended_attributes() -> None:
     assert "Calibrate" in attrs["comment"]
 
 
-def test_compose_acdd_bounds_wkt_empty_when_nan() -> None:
-    """Missing bounds produce an empty WKT string rather than ``POLYGON((nan ...))``."""
+def test_acdd_empty_bounds_wkt() -> None:
+    # Missing bounds give an empty WKT string, not ``POLYGON((nan ...))``.
     attrs = compose_acdd_root_attrs(sim_row={"sim_id": "x"}, runs_env={})
     assert attrs["geospatial_bounds"] == ""
 
 
-def test_shard_trigger_constant_is_100_mib() -> None:
+def test_shard_trigger() -> None:
     assert SHARD_TRIGGER_BYTES == 100 * 1024 * 1024
 
 
@@ -295,12 +285,9 @@ def test_shard_trigger_constant_is_100_mib() -> None:
     ("windows", "prefixed"),
     [pytest.param(True, True, id="on Windows"), pytest.param(False, False, id="elsewhere")],
 )
-def test_the_local_store_argument_takes_the_long_prefix_only_on_windows(
+def test_long_prefix_on_windows(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, windows: bool, prefixed: bool
 ) -> None:
-    from hydromodpy.core.io import filesystem
-    from tests._helpers.windows_os import WindowsOs
-
     if windows:
         monkeypatch.setattr(zarr_schema, "os", WindowsOs())
         monkeypatch.setattr(filesystem, "os", WindowsOs())
@@ -309,3 +296,120 @@ def test_the_local_store_argument_takes_the_long_prefix_only_on_windows(
 
     assert argument.startswith("\\\\?\\") is prefixed
     assert argument.endswith("fields.zarr")
+
+
+def test_lock_per_store(tmp_path: Path) -> None:
+    first = lock_path_for_store(tmp_path / "a.zarr")
+    second = lock_path_for_store(tmp_path / "b.zarr")
+
+    assert first != second
+    assert first.parent == second.parent
+
+
+def test_stack_matches_steps(tmp_path: Path) -> None:
+    values = np.random.default_rng(7).normal(size=(12, 2, N_CELLS))
+
+    loop = SimulationZarr.create(tmp_path / "loop.zarr", n_cells=N_CELLS, n_layers=2)
+    for step in range(values.shape[0]):
+        loop.write_field("head", step, values[step], n_timesteps=values.shape[0])
+    loop_data = np.asarray(loop.root["head"][:])
+    loop_chunks = loop.root["head"].chunks
+    loop.close()
+
+    stack = SimulationZarr.create(tmp_path / "stack.zarr", n_cells=N_CELLS, n_layers=2)
+    stack.write_field_stack("head", values)
+    stack_data = np.asarray(stack.root["head"][:])
+    stack_chunks = stack.root["head"].chunks
+    stack.close()
+
+    np.testing.assert_allclose(loop_data, stack_data)
+    assert loop_chunks == stack_chunks
+
+
+def test_stack_under_subgroup(fresh_store: SimulationZarr) -> None:
+    values = np.arange(8 * N_CELLS, dtype="float64").reshape(8, N_CELLS)
+
+    fresh_store.write_field_stack("release_flux", values, subgroup="derived")
+
+    array = fresh_store.root["derived"]["release_flux"]
+    assert array.shape == (8, N_CELLS)
+    np.testing.assert_allclose(array[:], values)
+
+
+def test_slabs_assemble(fresh_store: SimulationZarr) -> None:
+    values = np.random.default_rng(11).normal(size=(10, 2, N_CELLS))
+
+    fresh_store.write_field_stack("head", values[:4], n_timesteps=10)
+    fresh_store.write_field_stack("head", values[4:], n_timesteps=10, timestep_offset=4)
+
+    # The store rounds to float32.
+    np.testing.assert_allclose(fresh_store.root["head"][:], values, rtol=1e-5)
+
+
+def test_stack_resize(fresh_store: SimulationZarr) -> None:
+    fresh_store.write_field_stack("head", np.zeros((4, 2, N_CELLS)))
+    fresh_store.write_field_stack("head", np.ones((6, 2, N_CELLS)))
+
+    array = fresh_store.root["head"]
+    assert array.shape == (6, 2, N_CELLS)
+    np.testing.assert_allclose(array[:], 1.0)
+
+
+# One row per refusal: the stack, the keywords of the call and the part of the message
+# that names the fix.
+STACK_REFUSALS = [
+    pytest.param(
+        np.zeros((5, 2, N_CELLS)), {"n_timesteps": 4}, "exceeds", id="slab beyond the total"
+    ),
+    pytest.param(
+        np.zeros((2, 2, N_CELLS)),
+        {"n_timesteps": 10, "timestep_offset": 2},
+        "timestep_offset=0",
+        id="offset on a missing array",
+    ),
+    pytest.param(np.zeros(N_CELLS), {}, "stack", id="one step only"),
+]
+
+
+@pytest.mark.parametrize(("stack", "kwargs", "match"), STACK_REFUSALS)
+def test_stack_refusals(fresh_store: SimulationZarr, stack, kwargs, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        fresh_store.write_field_stack("head", stack, **kwargs)
+
+
+def test_slab_digests(fresh_store: SimulationZarr) -> None:
+    values = np.arange(6 * 2 * N_CELLS, dtype="float64").reshape(6, 2, N_CELLS)
+    fresh_store.write_field_stack("head", values[:2], n_timesteps=6)
+    fresh_store.write_field_stack("head", values[2:], n_timesteps=6, timestep_offset=2)
+
+    recorded = fresh_store.field_digests["head"]
+    assert sorted(int(step) for step in recorded) == list(range(6))
+
+
+def test_exact_store_no_digest(fresh_store: SimulationZarr) -> None:
+    exact = SimulationZarr.create(
+        fresh_store.path.parent / "exact.zarr",
+        n_cells=N_CELLS,
+        n_layers=2,
+        field_precision="exact",
+    )
+    try:
+        exact.write_field_stack("head", np.ones((3, 2, N_CELLS)))
+        assert getattr(exact, "field_digests", {}) == {}
+    finally:
+        exact.close()
+
+
+def test_static_field_units(tmp_path: Path) -> None:
+    # A model input has no time axis. It is written as (layer, cell), once.
+    n_layers, n_cells = 3, 12
+    store = SimulationZarr.create(tmp_path / "static.zarr", n_cells=n_cells, n_layers=n_layers)
+    try:
+        store.write_static_field(
+            "specific_yield", np.full((n_layers, n_cells), 0.05), subgroup="derived"
+        )
+        attrs = dict(store.root["derived"]["specific_yield"].attrs)
+    finally:
+        store.close()
+
+    assert attrs["units"] == field_registry.get("specific_yield").units

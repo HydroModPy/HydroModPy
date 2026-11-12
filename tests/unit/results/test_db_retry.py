@@ -1,3 +1,9 @@
+"""Opening a DuckDB index file under lock contention, after a killed writer and past a stale path.
+
+DuckDB keeps committed work in a write-ahead log (``<db>.wal``) until a checkpoint,
+and holds every open path in a registry of the process.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -11,7 +17,7 @@ import hydromodpy.core.io.db_retry as db_retry
 from hydromodpy.core.logging import get_logger
 
 
-def test_with_lock_retry_retries_lock_contention_until_success(monkeypatch):
+def test_lock_contention_is_retried(monkeypatch):
     calls = {"count": 0}
     sleeps: list[float] = []
 
@@ -30,11 +36,7 @@ def test_with_lock_retry_retries_lock_contention_until_success(monkeypatch):
     assert sleeps == [0.1, 0.2]
 
 
-# ---------------------------------------------------------------------------
-# Write-ahead log left behind by an unclean shutdown
-# ---------------------------------------------------------------------------
-
-
+# Write-ahead log left behind by an unclean shutdown.
 @pytest.fixture
 def capture_hmp_logs() -> Iterator[list[logging.LogRecord]]:
     """Capture records on the ``hydromodpy`` logger (propagation is disabled)."""
@@ -75,7 +77,7 @@ def _database_killed_mid_write(tmp_path: Path) -> Path:
     return db_path
 
 
-def test_checkpoint_failure_is_reported_and_not_fatal(tmp_path, capture_hmp_logs, monkeypatch):
+def test_checkpoint_failure_is_not_fatal(tmp_path, capture_hmp_logs, monkeypatch):
     db_path = _database_killed_mid_write(tmp_path)
 
     real_execute = duckdb.DuckDBPyConnection.execute
@@ -97,11 +99,7 @@ def test_checkpoint_failure_is_reported_and_not_fatal(tmp_path, capture_hmp_logs
     assert any("could not be checkpointed" in m for m in messages), messages
 
 
-# ---------------------------------------------------------------------------
-# Block-size pre-create vs DuckDB's process-wide database file registry
-# ---------------------------------------------------------------------------
-
-
+# Block-size pre-create vs DuckDB's process-wide database file registry.
 def _leak_a_connection_then_delete_the_file(tmp_path: Path) -> duckdb.DuckDBPyConnection:
     """Return an open connection whose database file no longer exists on disk.
 
@@ -118,7 +116,7 @@ def _leak_a_connection_then_delete_the_file(tmp_path: Path) -> duckdb.DuckDBPyCo
     return leaked
 
 
-def test_the_registry_still_claims_a_deleted_database_file(tmp_path):
+def test_registry_claims_a_deleted_file(tmp_path):
     """Canary: without this DuckDB behavior the regression below is vacuous."""
     leaked = _leak_a_connection_then_delete_the_file(tmp_path)
     probe = duckdb.connect(":memory:")
@@ -131,7 +129,7 @@ def test_the_registry_still_claims_a_deleted_database_file(tmp_path):
         leaked.close()
 
 
-def test_open_succeeds_when_this_process_still_holds_the_deleted_path(tmp_path):
+def test_open_past_a_deleted_path_held_here(tmp_path):
     leaked = _leak_a_connection_then_delete_the_file(tmp_path)
     try:
         connection = db_retry.connect_with_retry(
@@ -146,12 +144,12 @@ def test_open_succeeds_when_this_process_still_holds_the_deleted_path(tmp_path):
         leaked.close()
 
 
-def test_an_unusable_block_size_is_still_reported(tmp_path):
+def test_unusable_block_size(tmp_path):
     with pytest.raises(duckdb.InvalidInputException, match="block size"):
         db_retry.connect_with_retry(str(tmp_path / "index.duckdb"), block_size=1234)
 
 
-def test_a_pre_create_binder_error_that_is_not_a_path_conflict_propagates(tmp_path, monkeypatch):
+def test_other_binder_error_propagates(tmp_path, monkeypatch):
     real_execute = duckdb.DuckDBPyConnection.execute
 
     def _refuse_attach(self, sql, *args, **kwargs):

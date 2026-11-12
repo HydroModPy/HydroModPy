@@ -50,11 +50,11 @@ STATES = (
 )
 
 
-def test_a_run_without_a_final_state_reads_none(tmp_path: Path) -> None:
+def test_no_final_state(tmp_path: Path) -> None:
     assert read_final_state(tmp_path) is None
 
 
-def test_another_schema_is_refused(tmp_path: Path) -> None:
+def test_other_schema_refused(tmp_path: Path) -> None:
     write_final_state(tmp_path, STATES[0][1])
     root = zarr.open_group(str(final_state_dir(tmp_path)), mode="r+")
     root.attrs["schema"] = "hydromodpy.final_state.v9"
@@ -63,11 +63,11 @@ def test_another_schema_is_refused(tmp_path: Path) -> None:
         read_final_state(tmp_path)
 
 
-def test_a_head_that_is_not_layers_by_cells_is_refused() -> None:
+def test_head_shape_refused() -> None:
     with pytest.raises(ValueError, match=r"\(nlay, ncpl\)"):
         FinalState(head=np.zeros(3))
 
 
-def test_the_final_state_is_sealed_with_the_run() -> None:
+def test_sealed_with_the_run() -> None:
     assert FINAL_STATE_DIRNAME in ALLOWED_RUN_ENTRIES
     assert FINAL_STATE_DIRNAME not in UNSEALED_RUN_ENTRIES

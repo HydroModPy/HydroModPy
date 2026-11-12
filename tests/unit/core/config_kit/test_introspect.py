@@ -50,7 +50,7 @@ class _Cfg(HydroModelBase):
         (Profile.DEV, Profile.DEV),
     ],
 )
-def test_a_profile_name_or_enum_resolves_to_the_profile(given, expected) -> None:
+def test_resolve_profile(given, expected) -> None:
     assert resolve_profile(given) is expected
 
 
@@ -63,23 +63,23 @@ def test_a_profile_name_or_enum_resolves_to_the_profile(given, expected) -> None
         ({}, None),
     ],
 )
-def test_the_profile_of_a_json_schema_node(node, expected) -> None:
+def test_profile_of_schema_node(node, expected) -> None:
     assert read_profile_from_schema(node) is expected
 
 
-def test_the_exported_json_schema_carries_the_profile_of_each_field() -> None:
+def test_schema_carries_profile() -> None:
     props = _Aquifer.model_json_schema()["properties"]
     assert props["k"]["x-hmp-profile"] == "user"
     assert props["tol"]["x-hmp-profile"] == "dev"
 
 
-def test_every_model_reachable_through_an_annotation_is_listed_once() -> None:
+def test_models_in_annotation() -> None:
     annotation = _Aquifer | list[_Station] | dict[str, _Station] | None
     assert iter_basemodels(annotation) == [_Aquifer, _Station]
     assert iter_basemodels(int) == []
 
 
-def test_a_self_referencing_model_does_not_loop() -> None:
+def test_self_referencing_model() -> None:
     class _Node(HydroModelBase):
         label: Annotated[str, Field(json_schema_extra={"site_scoped": True})] = "n"
         child: _Node | None = None
@@ -88,7 +88,7 @@ def test_a_self_referencing_model_does_not_loop() -> None:
     assert site_scoped_paths(_Node) == ("label",)
 
 
-def test_a_tuple_with_an_ellipsis_is_walked_through_its_item_model() -> None:
+def test_variadic_tuple_walked() -> None:
     class _Holder(HydroModelBase):
         items: tuple[_Station, ...] = ()
 
@@ -103,7 +103,7 @@ _PAYLOAD: dict[str, Any] = {
 }
 
 
-def test_a_key_above_the_threshold_is_reported_with_its_path_and_level() -> None:
+def test_profile_violations() -> None:
     found = collect_profile_violations(_Cfg, _PAYLOAD, Profile.USER)
     assert found == [
         (("aquifer", "tol"), Profile.DEV),
@@ -113,15 +113,12 @@ def test_a_key_above_the_threshold_is_reported_with_its_path_and_level() -> None
     ]
 
 
-def test_nothing_is_reported_when_the_threshold_allows_every_key() -> None:
+def test_no_violation_at_expert() -> None:
     assert collect_profile_violations(_Cfg, _PAYLOAD, Profile.EXPERT) == []
 
 
-def test_a_payload_that_is_not_a_mapping_has_no_violation() -> None:
+def test_non_mapping_payload() -> None:
     assert collect_profile_violations(_Cfg, ["pcg"], Profile.USER) == []
-
-
-# Named tables: keys beyond the fields that name a plugin -------------------------
 
 
 class _Engine(HydroModelBase):
@@ -147,24 +144,7 @@ class _WithTables(HydroModelBase):
         return {}
 
 
-NAMED_CASES = (
-    (_WithTables, True, ["kind", "engine"]),
-    (_WithTables, False, ["kind", "engine", "plugin"]),
-    (_Station, True, ["code", "gain"]),
-)
-
-
-INSTANCE_CASES = (
-    (named_tables_of, _WithTables, {"engine": _Engine}),
-    (named_tables_of, _Station, {}),
-    (held_tables_of, _WithTables(), {"engine": _Engine(steps=8)}),
-    (held_tables_of, _Station(), {}),
-    (written_tables_of, _WithTables(), {}),
-    (written_tables_of, _Station(), {}),
-)
-
-
-def test_a_raw_payload_is_checked_against_the_profile_of_its_named_tables() -> None:
+def test_named_table_violations() -> None:
     payload = {"plugin": {"gain": 2.0}}
 
     assert collect_profile_violations(_WithTables, payload, Profile.USER) == [

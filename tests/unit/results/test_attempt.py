@@ -1,20 +1,29 @@
-"""Tests of attempt."""
+"""The attempt protocol of a run folder: claim, retry, stop, close, and the names a claim takes.
+
+A claim reserves ``runs/<name>`` for one attempt. A failed attempt is closed with its
+outcome and README and retried in place, a stopped one reads ``aborted``, and a name
+follows the version rule (``name``, ``name.v2``, ...) whatever the trash holds.
+"""
 
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
 import socket
-from datetime import UTC, datetime
+import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 import hydromodpy.core.state.host as host_module
 import hydromodpy.results.storage.attempt as attempt_module
+from hydromodpy.cli.exit_codes import EXIT_AMBIGUOUS_REFERENCE
 from hydromodpy.core.exceptions import (
     ConfigError,
     NothingThereError,
@@ -36,16 +45,19 @@ from hydromodpy.core.state.scratch import (
     scratch_root_for,
 )
 from hydromodpy.results.catalog.indexer import index_new_runs
+from hydromodpy.results.catalog.registration import NameTakenError, reserve_version_dirname
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome, write_outcome
 from hydromodpy.results.storage.attempt import (
     CaseAliveError,
     claim_reserved_directory,
     claim_run_directory,
     close_attempt_of_process,
+    close_sealed_attempt,
     finish_attempt,
     record_request_id,
     refuse_resume_if_changed,
     request_stop,
+    scheduler_job_id_from_env,
     signal_of,
     start_over_if_changed,
     withdraw_claim,
@@ -59,8 +71,11 @@ from hydromodpy.results.storage.contract import (
 )
 from hydromodpy.results.storage.run_facts import RunFacts, read_facts
 from hydromodpy.results.storage.run_store import RunStore
-from tests._helpers.run_stores import claim_run
-from tests._helpers.sealed_runs import make_project, seal_run
+from hydromodpy.results.storage.sealing import seal_completed
+from hydromodpy.results.trash import gc_trash, list_trash, read_tombstones, trash_run
+from hydromodpy.solver.base.simulation_config import SimulationConfig
+from tests._helpers.run_stores import claim_run, open_run_store
+from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 from tests._helpers.windows_os import WindowsOs  # noqa: I001
 
 # An OOM kill writes nothing: the outcome still says ``running`` with a fresh
@@ -92,9 +107,7 @@ def _dead_pid(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(host_module, "process_is_alive", lambda pid: pid != DEAD_PID)
 
 
-def test_a_dead_pid_of_this_host_reads_stale_with_a_fresh_pulse(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_dead_pid_reads_stale(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _dead_pid(monkeypatch)
     _running(tmp_path / "dead", host=socket.gethostname(), pid=DEAD_PID)
     _running(tmp_path / "alive", host=socket.gethostname(), pid=os.getpid())
@@ -105,7 +118,7 @@ def test_a_dead_pid_of_this_host_reads_stale_with_a_fresh_pulse(
     assert effective_status(tmp_path / "elsewhere") == "running"
 
 
-def test_watch_says_dead_for_a_proven_death(
+def test_watch_says_dead(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from hydromodpy.cli.commands.catalog import watch
@@ -125,9 +138,7 @@ def test_watch_says_dead_for_a_proven_death(
     assert [(row["rel_dir"], row["dead"]) for row in rows] == [("runs/case", True)]
 
 
-def test_the_preprocessing_scratch_honours_the_machine_root(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_scratch_honours_machine_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = tmp_path / "campaign"
     project.mkdir()
     machine = tmp_path / "node-scratch"
@@ -180,10 +191,8 @@ def _fail_a_run(project: Path) -> Path:
     return claim.run_dir
 
 
-def test_a_failed_attempt_writes_its_outcome_and_readme_and_keeps_its_tables(tmp_path):
-    project = make_project(tmp_path / "demo")
-
-    run_dir = _fail_a_run(project)
+def test_failed_attempt_outcome_and_tables(tmp_path):
+    run_dir = _fail_a_run(make_project(tmp_path / "demo"))
 
     outcome = read_outcome(run_dir)
     assert outcome is not None
@@ -200,26 +209,23 @@ def test_a_failed_attempt_writes_its_outcome_and_readme_and_keeps_its_tables(tmp
     assert tables == [f"budgets{PARQUET_FILE_SUFFIX}", f"timeseries{PARQUET_FILE_SUFFIX}"]
 
 
-def test_a_failed_attempt_has_no_manifest_and_reads_as_failed(tmp_path):
-    project = make_project(tmp_path / "demo")
+def test_failed_attempt_has_no_manifest(tmp_path):
+    run_dir = _fail_a_run(make_project(tmp_path / "demo"))
 
-    run_dir = _fail_a_run(project)
-
+    # A manifest would make the run read as completed.
     assert not (run_dir / RUN_MANIFEST_FILENAME).exists()
     assert effective_status(run_dir) == "failed"
 
 
-def test_a_failed_attempt_keeps_its_attempt_state_for_the_retry(tmp_path):
-    project = make_project(tmp_path / "demo")
-
-    run_dir = _fail_a_run(project)
+def test_failed_attempt_keeps_state(tmp_path):
+    run_dir = _fail_a_run(make_project(tmp_path / "demo"))
 
     assert (run_dir / INTERNAL_DIRNAME).is_dir()
     facts = read_facts(run_dir)
     assert facts is not None and facts.solver == "modflow6"
 
 
-def test_a_failed_attempt_is_indexed_from_its_outcome(tmp_path):
+def test_failed_attempt_is_indexed(tmp_path):
     project = make_project(tmp_path / "demo")
     run_dir = _fail_a_run(project)
 
@@ -258,9 +264,7 @@ def _claim_again(project: Path):
     return claim_run_directory(project, "case", case_id="case", project=project.name)
 
 
-def test_a_dead_pid_of_this_host_ends_the_attempt(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_dead_pid_ends_attempt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = tmp_path / "p"
     first = claim_run(project, "case")
     _written_by_another_worker(first.run_dir)
@@ -272,38 +276,27 @@ def test_a_dead_pid_of_this_host_ends_the_attempt(
     assert second.attempt == 2
 
 
-def test_a_live_pid_keeps_the_case_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    project = tmp_path / "p"
-    first = claim_run(project, "case")
-    _written_by_another_worker(first.run_dir)
-    _process_table(monkeypatch, alive=True)
-
-    with pytest.raises(CaseAliveError, match="pulse is fresh"):
-        _claim_again(project)
+LIVE_WORKERS = [
+    pytest.param(None, True, id="live pid"),
+    pytest.param("another-node", False, id="another host"),
+]
 
 
-def test_another_host_keeps_the_case_refused(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(("host", "alive"), LIVE_WORKERS)
+def test_live_worker_keeps_case_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, host: str | None, alive: bool
 ) -> None:
     project = tmp_path / "p"
     first = claim_run(project, "case")
-    _written_by_another_worker(first.run_dir, host="another-node")
-    _process_table(monkeypatch, alive=False)
+    _written_by_another_worker(first.run_dir, host=host)
+    _process_table(monkeypatch, alive=alive)
 
     with pytest.raises(CaseAliveError, match="pulse is fresh"):
         _claim_again(project)
 
 
 @pytest.mark.allow_subprocess
-def test_a_slurm_task_records_its_job_in_the_outcome(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from hydromodpy.results.outcome import read_outcome
-    from hydromodpy.results.storage.attempt import (
-        claim_run_directory,
-        scheduler_job_id_from_env,
-    )
-
+def test_slurm_job_in_outcome(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SLURM_JOB_ID", raising=False)
     monkeypatch.delenv("SLURM_ARRAY_JOB_ID", raising=False)
     monkeypatch.delenv("SLURM_ARRAY_TASK_ID", raising=False)
@@ -349,9 +342,7 @@ def _tree(folder: Path) -> dict[str, bytes | None]:
         pytest.param("failed", False, 2, id="a retry of a failed attempt"),
     ],
 )
-def test_a_claim_says_whether_it_created_its_directory(
-    tmp_path: Path, before: str, created: bool, attempt: int
-) -> None:
+def test_claim_created_flag(tmp_path: Path, before: str, created: bool, attempt: int) -> None:
     project = make_project(tmp_path / "demo")
     if before == "sealed":
         seal_run(project, "case")
@@ -380,9 +371,7 @@ def test_a_withdrawn_new_directory_leaves_nothing(tmp_path: Path, before: str) -
 
 
 @pytest.mark.parametrize("starts_over", [False, True], ids=["resumed", "started over"])
-def test_a_withdrawn_retry_puts_back_the_attempt_it_followed(
-    tmp_path: Path, starts_over: bool
-) -> None:
+def test_withdrawn_retry_restores_attempt(tmp_path: Path, starts_over: bool) -> None:
     project = make_project(tmp_path / "demo")
     first = claim_run_directory(project, "case", case_id="case", project="demo")
     (first.run_dir / "fields.zarr").mkdir()
@@ -405,9 +394,7 @@ def test_a_withdrawn_retry_puts_back_the_attempt_it_followed(
 
 
 @pytest.mark.parametrize("request_b", ["a" * 64, "b" * 64], ids=["same request", "another request"])
-def test_a_withdrawn_retry_puts_back_what_attempt_k_was_asked(
-    tmp_path: Path, request_b: str
-) -> None:
+def test_withdrawn_retry_restores_request(tmp_path: Path, request_b: str) -> None:
     """The order of a run: the claim writes its documents, then compares, then withdraws."""
     project = make_project(tmp_path / "demo")
     first = claim_run_directory(project, "case", case_id="case", project="demo")
@@ -429,7 +416,7 @@ def test_a_withdrawn_retry_puts_back_what_attempt_k_was_asked(
     assert not (first.run_dir / "attempts").exists()
 
 
-def test_a_withdrawn_first_attempt_of_a_reserved_directory_keeps_the_reservation(
+def test_withdrawn_reserved_directory(
     tmp_path: Path,
 ) -> None:
     run_dir = make_project(tmp_path / "demo") / RUNS_DIRNAME / "promoted"
@@ -449,7 +436,7 @@ def test_a_withdrawn_first_attempt_of_a_reserved_directory_keeps_the_reservation
         pytest.param(None, "a" * 64, True, id="an outcome without request id starts over"),
     ],
 )
-def test_a_retry_starts_over_when_its_request_changed(
+def test_retry_starts_over_on_change(
     tmp_path: Path, recorded: str | None, now: str, starts_over: bool
 ) -> None:
     project = make_project(tmp_path / "demo")
@@ -474,7 +461,7 @@ def test_a_first_attempt_never_starts_over(tmp_path: Path) -> None:
     assert start_over_if_changed(claim, "a" * 64) is claim
 
 
-def test_the_request_id_is_written_into_the_running_outcome(tmp_path: Path) -> None:
+def test_request_id_in_running_outcome(tmp_path: Path) -> None:
     claim = claim_run_directory(make_project(tmp_path / "demo"), "case", case_id="c", project="d")
 
     record_request_id(claim.run_dir, "c" * 64)
@@ -497,7 +484,7 @@ def test_the_request_id_is_written_into_the_running_outcome(tmp_path: Path) -> N
         pytest.param("COM1.v2", id="a version of a refused stem"),
     ],
 )
-def test_a_claim_refuses_a_name_off_the_rule_and_writes_nothing(tmp_path: Path, name: str) -> None:
+def test_name_refusals(tmp_path: Path, name: str) -> None:
     project = make_project(tmp_path / "demo")
 
     with pytest.raises(ConfigError, match="name"):
@@ -506,9 +493,7 @@ def test_a_claim_refuses_a_name_off_the_rule_and_writes_nothing(tmp_path: Path, 
     assert not (project / RUNS_DIRNAME).exists()
 
 
-def test_a_claim_names_the_folder_a_disk_without_case_holds(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_name_folded_on_caseless_disk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """On a disk that ignores case, a folder of a pre-release in capitals holds the folded name."""
     project = make_project(tmp_path / "demo")
     (project / RUNS_DIRNAME / "J0014010-base").mkdir(parents=True)
@@ -537,7 +522,7 @@ def _stop_flag(run_dir: Path) -> Path:
     return run_dir / INTERNAL_DIRNAME / STOP_FLAG_FILENAME
 
 
-def test_a_running_run_is_asked_to_stop_by_its_flag(tmp_path: Path) -> None:
+def test_run_stopped_by_flag(tmp_path: Path) -> None:
     claim = claim_run_directory(make_project(tmp_path / "demo"), "case", case_id="c", project="d")
     at = datetime(2026, 11, 10, 8, 0, tzinfo=UTC)
 
@@ -554,7 +539,7 @@ def test_a_running_run_is_asked_to_stop_by_its_flag(tmp_path: Path) -> None:
         raise_if_stop_requested(flag)
 
 
-def test_a_repeated_request_writes_the_date_again(tmp_path: Path) -> None:
+def test_repeated_stop_rewrites_date(tmp_path: Path) -> None:
     claim = claim_run_directory(make_project(tmp_path / "demo"), "case", case_id="c", project="d")
     request_stop(claim.run_dir, now=datetime(2026, 11, 10, 8, 0, tzinfo=UTC))
 
@@ -572,9 +557,7 @@ def _session(folder: Path, status: str, monkeypatch: pytest.MonkeyPatch) -> Path
     return folder
 
 
-def test_a_running_session_is_asked_to_stop_by_its_flag(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_session_stopped_by_flag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     session = _session(tmp_path / "sessions" / "calib", "running", monkeypatch)
 
     assert request_stop(session) == _stop_flag(session)
@@ -592,7 +575,7 @@ def test_a_running_session_is_asked_to_stop_by_its_flag(
         ),
     ],
 )
-def test_nothing_that_is_not_running_is_asked_to_stop(
+def test_nothing_to_stop(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, state: str, message: str
 ) -> None:
     project = make_project(tmp_path / "demo")
@@ -611,7 +594,7 @@ def test_nothing_that_is_not_running_is_asked_to_stop(
 
 
 @pytest.mark.parametrize("fresh", [False, True], ids=["resumed", "fresh"])
-def test_the_next_attempt_files_the_flag_of_the_stopped_one(tmp_path: Path, fresh: bool) -> None:
+def test_next_attempt_files_stop_flag(tmp_path: Path, fresh: bool) -> None:
     project = make_project(tmp_path / "demo")
     first = claim_run_directory(project, "case", case_id="case", project="demo")
     flag = request_stop(first.run_dir)
@@ -625,7 +608,7 @@ def test_the_next_attempt_files_the_flag_of_the_stopped_one(tmp_path: Path, fres
     raise_if_stop_requested(_stop_flag(retry.run_dir))
 
 
-def test_a_withdrawn_retry_puts_the_flag_back_in_the_attempt_state(tmp_path: Path) -> None:
+def test_withdrawn_retry_restores_flag(tmp_path: Path) -> None:
     project = make_project(tmp_path / "demo")
     first = claim_run_directory(project, "case", case_id="case", project="demo")
     request_stop(first.run_dir)
@@ -637,7 +620,7 @@ def test_a_withdrawn_retry_puts_the_flag_back_in_the_attempt_state(tmp_path: Pat
     assert _tree(first.run_dir) == before
 
 
-def test_a_stopped_attempt_reads_aborted_with_its_error_and_no_signal(tmp_path: Path) -> None:
+def test_stopped_attempt_reads_aborted(tmp_path: Path) -> None:
     claim = claim_run_directory(make_project(tmp_path / "demo"), "case", case_id="c", project="d")
     error = StopRequested("stop requested at 2026-11-10T08:00:00+00:00")
 
@@ -660,7 +643,7 @@ def test_a_stopped_attempt_reads_aborted_with_its_error_and_no_signal(tmp_path: 
         pytest.param(None, None, id="nothing"),
     ],
 )
-def test_a_signal_is_read_off_the_error_and_a_stop_is_none(error, signal) -> None:
+def test_signal_of_error(error, signal) -> None:
     assert signal_of(error) == signal
 
 
@@ -672,7 +655,7 @@ def test_a_signal_is_read_off_the_error_and_a_stop_is_none(error, signal) -> Non
         pytest.param(None, "a" * 64, False, id="nothing recorded resumes"),
     ],
 )
-def test_a_resume_asked_on_a_changed_request_is_refused(
+def test_resume_on_changed_request(
     tmp_path: Path, recorded: str | None, now: str, refused: bool
 ) -> None:
     project = make_project(tmp_path / "demo")
@@ -689,7 +672,7 @@ def test_a_resume_asked_on_a_changed_request_is_refused(
 
 
 @pytest.mark.parametrize("fresh", [False, True], ids=["first attempt", "fresh retry"])
-def test_an_attempt_that_continues_nothing_is_never_refused(tmp_path: Path, fresh: bool) -> None:
+def test_attempt_without_resume_never_refused(tmp_path: Path, fresh: bool) -> None:
     project = make_project(tmp_path / "demo")
     claim = claim_run_directory(project, "case", case_id="case", project="demo")
     if fresh:
@@ -705,9 +688,7 @@ def _long_project(tmp_path: Path, length: int) -> Path:
     return Path(base + "x" * max(length - len(base), 0))
 
 
-def test_a_claim_in_a_folder_too_long_for_windows_is_refused_and_creates_no_runs(
-    tmp_path, monkeypatch
-):
+def test_long_folder_refused_on_windows(tmp_path, monkeypatch):
     project = _long_project(tmp_path, 120)
     monkeypatch.setattr(filesystem, "os", WindowsOs())
 
@@ -717,7 +698,7 @@ def test_a_claim_in_a_folder_too_long_for_windows_is_refused_and_creates_no_runs
     assert not project.exists()
 
 
-def test_the_same_long_folder_is_claimed_on_linux(tmp_path):
+def test_long_folder_claimed_on_linux(tmp_path):
     project = _long_project(tmp_path, 120)
 
     claim = claim_run_directory(project, "case", case_id="case", project="p")
@@ -725,10 +706,8 @@ def test_the_same_long_folder_is_claimed_on_linux(tmp_path):
     assert claim.run_dir.is_dir()
 
 
-def test_an_unreadable_outcome_never_hides_the_error_of_the_run(tmp_path: Path) -> None:
+def test_unreadable_outcome_is_skipped(tmp_path: Path) -> None:
     """The attempt of this process is still closed, past a folder whose outcome cannot be read."""
-    from tests._helpers.sealed_runs import write_attempt
-
     broken = tmp_path / "runs" / "a_broken"
     broken.mkdir(parents=True)
     (broken / "outcome.json").write_text("{not json", encoding="utf-8")
@@ -741,9 +720,7 @@ def test_an_unreadable_outcome_never_hides_the_error_of_the_run(tmp_path: Path) 
     assert read_outcome(run_dir).status == "failed"
 
 
-def test_an_attempt_of_another_process_is_left_as_it_is(tmp_path: Path) -> None:
-    from tests._helpers.sealed_runs import write_attempt
-
+def test_other_process_attempt_untouched(tmp_path: Path) -> None:
     run_dir = write_attempt(
         tmp_path, "runs/case", status="running", host=socket.gethostname(), pid=os.getpid() + 1
     )
@@ -753,7 +730,216 @@ def test_an_attempt_of_another_process_is_left_as_it_is(tmp_path: Path) -> None:
     assert read_outcome(run_dir).status == "running"
 
 
-def test_a_project_without_runs_has_no_attempt_to_close(tmp_path: Path) -> None:
+def test_no_runs_nothing_to_close(tmp_path: Path) -> None:
     close_attempt_of_process(tmp_path, 1, None)
 
     assert not (tmp_path / "runs").exists()
+
+
+# A run deleted to the trash keeps its name: the next run of the case takes the
+# next version. ``[simulation] if_exists = "fail"`` takes no new name at all
+# when any version of the case is held, live or deleted, and leaves nothing on
+# disk. A retry of an unfinished attempt reuses its own directory and gives out
+# no name, so ``fail`` lets it through.
+AT = datetime(2026, 10, 14, 9, 30, tzinfo=UTC)
+
+
+def sealed_run(project: Path, name: str) -> Path:
+    store = open_run_store(project, name, create_zarr=False)
+    seal_completed(store)
+    close_sealed_attempt(store.run_dir)
+    return store.run_dir
+
+
+def claim(project: Path, name: str, **kwargs: object):
+    return claim_run_directory(project, name, case_id=name, project=project.name, **kwargs)
+
+
+def live_runs(project: Path) -> list[str]:
+    return sorted(entry.name for entry in (project / RUNS_DIRNAME).iterdir())
+
+
+def test_trashed_name_next_version(tmp_path: Path) -> None:
+    project = tmp_path / "p"
+    sealed_run(project, "alpha")
+    trash_run(project, "runs/alpha", now=datetime.now(UTC))
+
+    taken = claim(project, "alpha")
+
+    assert taken.name == "alpha.v2"
+    assert not (project / "runs" / "alpha").exists()
+
+
+def test_fail_refuses_trashed_name(tmp_path: Path) -> None:
+    project = tmp_path / "p"
+    sealed_run(project, "alpha")
+    trash_run(project, "runs/alpha", now=datetime.now(UTC))
+
+    with pytest.raises(NameTakenError, match="trash:runs/alpha"):
+        claim(project, "alpha", if_exists="fail")
+
+    assert live_runs(project) == []
+
+
+def test_fail_refuses_a_completed_name(tmp_path: Path) -> None:
+    project = tmp_path / "p"
+    sealed_run(project, "alpha")
+
+    with pytest.raises(NameTakenError, match="runs/alpha"):
+        claim(project, "alpha", if_exists="fail")
+
+    assert live_runs(project) == ["alpha"]
+
+
+def test_fail_takes_a_name_nobody_holds(tmp_path: Path) -> None:
+    project = tmp_path / "p"
+    (project / "runs").mkdir(parents=True)
+
+    assert claim(project, "beta", if_exists="fail").name == "beta"
+
+
+def test_fail_lets_an_unfinished_attempt_retry(tmp_path: Path) -> None:
+    project = tmp_path / "p"
+    first = claim_run(project, "alpha")
+    finish_attempt(first.run_dir, status="failed", exit_code=1)
+
+    retry = claim(project, "alpha", if_exists="fail")
+
+    assert retry.run_dir == first.run_dir
+    assert retry.attempt == 2
+    outcome = read_outcome(first.run_dir)
+    assert outcome is not None and outcome.status == "running"
+
+
+# A version is given by the disk at the reservation, never written by hand. A
+# name that carries ``.vN`` reaches only its live directory; the trash, a
+# tombstone or a void does not hand it out again.
+
+
+def test_a_collected_version_is_not_reassigned(tmp_path: Path) -> None:
+    reserve_version_dirname(tmp_path, "run", "nancon")
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v2"
+    trash_run(tmp_path, "runs/nancon.v2", now=AT)
+    freed = gc_trash(tmp_path, older_than=timedelta(0), now=AT + timedelta(days=31))
+
+    assert [tombstone.rel_dir for tombstone in freed] == ["runs/nancon.v2"]
+    assert list_trash(tmp_path) == []
+    assert live_runs(tmp_path) == ["nancon"]
+    assert [t.rel_dir for t in read_tombstones(tmp_path)] == ["runs/nancon.v2"]
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v3"
+
+
+def test_trashed_version_not_reassigned(tmp_path: Path) -> None:
+    reserve_version_dirname(tmp_path, "run", "nancon")
+    reserve_version_dirname(tmp_path, "run", "nancon")
+
+    trash_run(tmp_path, "runs/nancon.v2", now=AT)
+
+    assert live_runs(tmp_path) == ["nancon"]
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v3"
+
+
+def test_collected_bare_name_not_reassigned(tmp_path: Path) -> None:
+    reserve_version_dirname(tmp_path, "run", "nancon")
+    trash_run(tmp_path, "runs/nancon", now=AT)
+    gc_trash(tmp_path, older_than=timedelta(0), now=AT)
+
+    assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v2"
+
+
+def test_trashed_versioned_name_refused(tmp_path: Path) -> None:
+    sealed_run(tmp_path, "a")
+    assert sealed_run(tmp_path, "a").name == "a.v2"
+    trash_run(tmp_path, "runs/a.v2", now=AT)
+    assert [entry.rel_dir for entry in list_trash(tmp_path)] == ["runs/a.v2"]
+
+    with pytest.raises(NameTakenError, match=r"trash:runs/a\.v2.*name the case 'a'"):
+        claim(tmp_path, "a.v2")
+
+    assert live_runs(tmp_path) == ["a"]
+
+
+def test_tombstone_versioned_name_refused(tmp_path: Path) -> None:
+    sealed_run(tmp_path, "nancon")
+    sealed_run(tmp_path, "nancon")
+    trash_run(tmp_path, "runs/nancon", now=AT)
+    trash_run(tmp_path, "runs/nancon.v2", now=AT)
+    gc_trash(tmp_path, older_than=timedelta(0), now=AT)
+    assert "runs/nancon.v2" in [t.rel_dir for t in read_tombstones(tmp_path)]
+
+    with pytest.raises(NameTakenError, match=r"tombstone:runs/nancon\.v2.*'nancon'"):
+        claim(tmp_path, "nancon.v2")
+
+    assert live_runs(tmp_path) == []
+
+
+def test_versioned_name_retries_directory(tmp_path: Path) -> None:
+    sealed_run(tmp_path, "a")
+    second = claim_run(tmp_path, "a")
+    finish_attempt(second.run_dir, status="failed", exit_code=1)
+
+    retry = claim(tmp_path, "a.v2")
+
+    assert retry.run_dir == second.run_dir
+    assert retry.attempt == 2
+
+
+def test_completed_versioned_name_next(tmp_path: Path) -> None:
+    for _ in range(3):
+        sealed_run(tmp_path, "a")
+    trash_run(tmp_path, "runs/a.v3", now=AT)
+
+    assert claim(tmp_path, "a.v2").name == "a.v4"
+
+
+def test_simulation_name_has_no_version() -> None:
+    with pytest.raises(ValidationError, match="write name = 'a'"):
+        SimulationConfig(name="a.v2")
+
+    assert SimulationConfig(name="a.vintage").name == "a.vintage"
+
+
+# ``hmp catalog delete x --now`` once purged the live ``x.v2`` because a bare
+# ``x`` meant "the latest version". Now ``x`` is ``runs/x`` exactly, a bare name
+# with other versions is refused with the list, and a trashed directory is
+# purged only by the trash verbs.
+
+
+def hmp(monkeypatch, *argv: str) -> int:
+    main = importlib.import_module("hydromodpy.cli.main")
+    monkeypatch.setattr(sys, "argv", ["hmp", *argv])
+    try:
+        main.main()
+    except SystemExit as exc:
+        return int(exc.code or 0)
+    return 0
+
+
+def project_with_runs(tmp_path: Path, *names: str) -> Path:
+    project = tmp_path / "p"
+    project.mkdir()
+    (project / "project.toml").write_text('[site]\nname = "p"\n', encoding="utf-8")
+    for name in names:
+        (project / "runs" / name).mkdir(parents=True)
+    return project
+
+
+def test_purge_bare_name_refused(tmp_path: Path, monkeypatch) -> None:
+    project = project_with_runs(tmp_path, "x", "x.v2")
+
+    code = hmp(monkeypatch, "catalog", "delete", "x", "--now", "-y", "-w", str(project))
+
+    assert code == EXIT_AMBIGUOUS_REFERENCE
+    assert (project / "runs" / "x").is_dir()
+    assert (project / "runs" / "x.v2").is_dir()
+
+
+def test_purge_by_full_path(tmp_path: Path, monkeypatch) -> None:
+    project = project_with_runs(tmp_path, "x", "x.v2")
+
+    code = hmp(monkeypatch, "catalog", "delete", "runs/x", "--now", "-y", "-w", str(project))
+
+    assert code == 0
+    assert not (project / "runs" / "x").exists()
+    assert (project / "runs" / "x.v2").is_dir()
+    assert [tombstone.rel_dir for tombstone in read_tombstones(project)] == ["runs/x"]

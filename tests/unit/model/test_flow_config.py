@@ -1,3 +1,8 @@
+"""The ``[flow]`` section: inline units, boundary conditions, forwarded keys and CSV forcing paths.
+
+Lengths are in m, boundary drains in m2/s, forcing files are found next to the TOML.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,6 +16,14 @@ from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 
 
+def build(section: dict[str, Any]) -> FlowConfig:
+    return FlowConfig.from_toml_section(section, base_dir=Path("."))
+
+
+def bc(**boundary: Any) -> dict[str, Any]:
+    return {"bc": boundary}
+
+
 def test_flow_param_accepts_inline_units_with_mixed_families() -> None:
     cfg = FlowConfig(
         param_list=["K", "Ss", "Sy"],
@@ -22,48 +35,124 @@ def test_flow_param_accepts_inline_units_with_mixed_families() -> None:
     )
 
     flow = Flow(cfg)
-    assert float(flow.parameters["K"].value) == pytest.approx(1.0e-4)
-    assert float(flow.parameters["Ss"].value) == pytest.approx(1.0e-4)
+
+    assert float(flow.parameters["K"].value) == pytest.approx(1.0e-4)  # 8.64 m/day in m/s
+    assert float(flow.parameters["Ss"].value) == pytest.approx(1.0e-4)  # 1e-6 cm-1 in m-1
     assert float(flow.parameters["Sy"].value) == pytest.approx(0.2)
 
 
-def test_flow_param_rejects_inline_unit_conflicting_with_field_unit() -> None:
+def test_flow_param_refuses_conflicting_units() -> None:
+    field = {"id": "K", "kind": "homogeneous", "unit": "m/day", "value": "1.0 m/s"}
     with pytest.raises(ValueError, match="mixes conflicting units"):
-        cfg = FlowConfig(
-            param_list=["K"],
-            param={
-                "K": {
-                    "field": {
-                        "id": "K",
-                        "kind": "homogeneous",
-                        "unit": "m/day",
-                        "value": "1.0 m/s",
-                    },
-                }
-            },
-        )
-        _ = Flow(cfg)
+        Flow(FlowConfig(param_list=["K"], param={"K": {"field": field}}))
 
 
-# Every declared ``[flow]`` key must survive the TOML loader.
-#
-# The loader used to rebuild the validation payload from a hand-written key
-# list, so a field added to :class:`FlowConfig` was accepted by the unknown-key
-# guard and then silently dropped (``restart_from`` was the regression). These
-# tests pin the model itself as the source of truth.
+def test_drain_value_accepts_an_inline_unit() -> None:
+    cfg = build(bc(drainage={"kind": "drain", "value": "10 cm2/day", "application_domain": "top"}))
+
+    drainage = cfg.bc["drainage"]
+    assert drainage.kind == "drain"
+    assert drainage.value == pytest.approx(1.0e-3 / 86400.0)  # 10 cm2/day in m2/s
+    assert drainage.units == "m2/s"
 
 
-# One non-default value per scalar field, used to prove the value reaches the
-# model instead of being replaced by the field default.
-_SCALAR_PROBES: dict[str, Any] = {
+def test_dirichlet_value_is_converted_to_meters() -> None:
+    west_side = build(bc(west_side={"kind": "dirichlet", "value": "100 cm"})).bc["west_side"]
+
+    assert west_side.value == pytest.approx(1.0)
+    assert west_side.units == "m"
+
+
+def test_dirichlet_forcing_replaces_the_value() -> None:
+    forcing = {"kind": "constant", "value": 99.0}
+    west_side = build(bc(west_side={"kind": "dirichlet", "forcing": forcing})).bc["west_side"]
+
+    assert west_side.value is None
+    assert west_side.units == "m"
+    assert west_side.forcing.kind == "constant"
+    assert west_side.forcing.value == pytest.approx(99.0)
+    assert west_side.forcing.units == "m"
+
+
+def test_dirichlet_forcing_keeps_its_source_unit() -> None:
+    boundary = {
+        "kind": "dirichlet",
+        "unit": "centimeter",
+        "forcing": {"kind": "constant", "value": 120.0},
+    }
+    west_side = build(bc(west_side=boundary)).bc["west_side"]
+
+    assert west_side.value is None
+    assert west_side.units == "m"
+    assert west_side.forcing.units == "cm"
+
+
+def test_ocean_forcing_is_accepted() -> None:
+    # A tide moves, and the backends already read the ocean head per period.
+    ocean = {"kind": "dirichlet", "forcing": {"kind": "constant", "value": 0.0}}
+
+    assert build(bc(ocean=ocean)).bc["ocean"].forcing is not None
+
+
+TWICE = {"kind": "constant", "value": 99.0}
+
+REFUSALS = [
+    pytest.param(
+        bc(north_side={"kind": "dirichlet", "value": 100.0, "application_domain": "south side"}),
+        "does not match inferred domain",
+        id="application domain of another side",
+    ),
+    pytest.param(
+        bc(dirichlet={"south_side": {"value": 99.0}}),
+        "no longer supported",
+        id="boundary keyed by its family",
+    ),
+    pytest.param({"param_values": {}}, r"flow\.param_values", id="param_values alias"),
+    pytest.param(
+        bc(ocean={"kind": "dirichlet", "value": "1.0 m", "unit": "cm"}),
+        "conflicting units",
+        id="value and unit disagree",
+    ),
+    pytest.param(
+        bc(ocean={"kind": "dirichlet", "value": "1.0 qblorp"}),
+        "Unsupported length unit",
+        id="unknown unit",
+    ),
+    pytest.param(
+        bc(west_side={"kind": "dirichlet", "value": 100.0, "forcing": TWICE}),
+        "value and flow.bc.west_side.forcing are mutually exclusive",
+        id="value and forcing",
+    ),
+    pytest.param(
+        bc(lake={"value": 1.0}),
+        "A lake and a stream network are declared under",
+        id="lake under flow.bc",
+    ),
+    pytest.param(
+        {"runtime": {"backend": "petsc"}}, "Unknown TOML key.*runtime", id="runtime table"
+    ),
+]
+
+
+@pytest.mark.parametrize(("section", "message"), REFUSALS)
+def test_refusals(section, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        build(section)
+
+
+# Every declared ``[flow]`` key must survive the TOML loader. A field added to
+# FlowConfig was once accepted by the unknown-key guard and then dropped, so the
+# model itself is the source of truth for these probes.
+
+# One non-default value per scalar field, to prove the value reaches the model.
+SCALAR_PROBES: dict[str, Any] = {
     "flow_regime": "steady",
     "first_period_steady": False,
     "restart_from": "prior_run/fields.zarr",
 }
 
-
-#: The same, for each field of ``[solver.boussinesq]``.
-_RUNTIME_PROBES: dict[str, Any] = {
+# The same, for each field of ``[solver.boussinesq]``.
+RUNTIME_PROBES: dict[str, Any] = {
     "backend": "petsc",
     "surface_interaction_model": "complementarity",
     "partition_release_depth_m": 0.02,
@@ -84,37 +173,21 @@ _RUNTIME_PROBES: dict[str, Any] = {
 }
 
 
-def _build(section: dict[str, Any]) -> FlowConfig:
-    return FlowConfig.from_toml_section(section, base_dir=Path("."))
-
-
-def test_restart_from_declared_in_toml_reaches_the_config() -> None:
-    cfg = _build({"restart_from": "runs/spinup/fields.zarr"})
-    assert cfg.restart_from == "runs/spinup/fields.zarr"
-
-
-def test_every_scalar_field_has_a_probe() -> None:
-    """The probe table must cover all non-preparsed model fields."""
+def test_every_field_has_a_probe() -> None:
     expected = set(FlowConfig.model_fields) - set(_PREPARSED_KEYS)
-    assert set(_SCALAR_PROBES) == expected
-    assert set(_RUNTIME_PROBES) == set(BoussinesqOptions.model_fields)
+    assert set(SCALAR_PROBES) == expected
+    assert set(RUNTIME_PROBES) == set(BoussinesqOptions.model_fields)
 
 
-@pytest.mark.parametrize(("key", "value"), sorted(_SCALAR_PROBES.items()))
+@pytest.mark.parametrize(("key", "value"), sorted(SCALAR_PROBES.items()))
 def test_scalar_field_is_forwarded(key: str, value: Any) -> None:
-    cfg = _build({key: value})
-    assert getattr(cfg, key) == value
+    assert getattr(build({key: value}), key) == value
 
 
-@pytest.mark.parametrize(("key", "value"), sorted(_RUNTIME_PROBES.items()))
+@pytest.mark.parametrize(("key", "value"), sorted(RUNTIME_PROBES.items()))
 def test_runtime_field_is_forwarded(key: str, value: Any) -> None:
     cfg = SolverConfig.model_validate({"boussinesq": {key: value}})
     assert getattr(cfg.options_of("boussinesq"), key) == value
-
-
-def test_the_runtime_table_is_not_a_key_of_the_flow_section() -> None:
-    with pytest.raises(ValueError, match="Unknown TOML key.*runtime"):
-        _build({"runtime": {"backend": "petsc"}})
 
 
 def test_preparsed_keys_are_known_to_the_model() -> None:
@@ -123,18 +196,18 @@ def test_preparsed_keys_are_known_to_the_model() -> None:
 
 
 def test_absent_keys_keep_the_model_defaults() -> None:
-    cfg = _build({})
-    for key in _SCALAR_PROBES:
+    cfg = build({})
+    for key in SCALAR_PROBES:
         assert getattr(cfg, key) == FlowConfig.model_fields[key].default
     options = SolverConfig().options_of("boussinesq")
-    for key in _RUNTIME_PROBES:
+    for key in RUNTIME_PROBES:
         assert getattr(options, key) == BoussinesqOptions.model_fields[key].default
 
 
 # A CSV forcing of a lake, an outlet or an SFR reach is found like a well forcing.
 
 
-def _csv(name: str) -> dict[str, object]:
+def csv(name: str) -> dict[str, object]:
     return {"kind": "csv", "path_file": name, "value_column": "v"}
 
 
@@ -151,21 +224,21 @@ def layout(tmp_path: Path) -> tuple[Path, Path]:
 
 
 @pytest.mark.unit
-def test_lake_outlet_and_sfr_csv_resolve_against_the_toml_folder_only(layout) -> None:
-    """A lake or SFR CSV is read where the TOML names it; data/<role>/ is never searched."""
+def test_csv_forcings_resolve_against_the_toml_folder(layout) -> None:
+    # A lake or SFR CSV is read where the TOML names it; data/<role>/ is never searched.
     base, data = layout
     raw = {
         "lakes": {
             "lac0": {
-                "rainfall": _csv("inputs/rain.csv"),
-                "outlet": {"kind": "specified", "forcing": _csv("inputs/release.csv")},
+                "rainfall": csv("inputs/rain.csv"),
+                "outlet": {"kind": "specified", "forcing": csv("inputs/release.csv")},
                 "inflow": {
                     "kind": "piecewise",
-                    "segments": [{"start": "2020-01-01", "forcing": _csv("inputs/seg.csv")}],
+                    "segments": [{"start": "2020-01-01", "forcing": csv("inputs/seg.csv")}],
                 },
             }
         },
-        "sfr": {"headwater_inflow": _csv("inflow.csv")},
+        "sfr": {"headwater_inflow": csv("inflow.csv")},
     }
     out = resolve_forcing_paths(raw, base_dir=base, workspace_data_dir=data)
     lac = out["lakes"]["lac0"]
@@ -180,8 +253,8 @@ def test_lake_outlet_and_sfr_csv_resolve_against_the_toml_folder_only(layout) ->
 
 
 @pytest.mark.unit
-def test_a_missing_lake_csv_keeps_a_predictable_path(layout) -> None:
+def test_a_missing_csv_keeps_a_predictable_path(layout) -> None:
     base, data = layout
-    raw = {"lakes": {"lac0": {"rainfall": _csv("absent.csv")}}}
+    raw = {"lakes": {"lac0": {"rainfall": csv("absent.csv")}}}
     out = resolve_forcing_paths(raw, base_dir=base, workspace_data_dir=data)
     assert Path(out["lakes"]["lac0"]["rainfall"]["path_file"]) == (base / "absent.csv").resolve()

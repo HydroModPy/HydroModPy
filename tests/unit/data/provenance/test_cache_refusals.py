@@ -203,8 +203,6 @@ def test_frozen_mode_refuses_a_file_where_the_lockfile_pins_an_empty_answer(
         )
 
 
-# -- writing a sidecar ------------------------------------------------------------
-
 _WRITE_REFUSALS = {
     "without its variable": (
         {"source": "hubeau", "sha256": "0" * 64, "bytes": 1},
@@ -226,9 +224,6 @@ def test_a_sidecar_is_refused_at_writing(tmp_path: Path, fields: dict, said: str
     assert not (tmp_path / "x.csv.json").exists()
 
 
-# -- the database and the lockfile of a pre-release of 2.0 ------------------------------------------
-
-
 def test_a_data_folder_with_the_former_database_is_refused(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     data_root.mkdir()
@@ -240,9 +235,6 @@ def test_a_data_folder_with_the_former_database_is_refused(tmp_path: Path) -> No
         assert str(info.value) == former_cache_sentence(data_root.resolve() / "cache.duckdb")
         assert "hmp workspace clean --data-cache" in str(info.value)
         assert "does not read it" in str(info.value)
-
-
-# -- prune ------------------------------------------------------------------------------
 
 
 def _fetched(data_root: Path, name: str, when: datetime) -> Path:
@@ -291,6 +283,3 @@ def test_prune_removes_orphans_whatever_their_age(tmp_path: Path) -> None:
 def test_prune_needs_the_digests_it_keeps() -> None:
     with pytest.raises(TypeError):
         prune(Path("data"))  # type: ignore[call-arg]
-
-
-# -- the commands of a pre-release ----------------------------------------------------------

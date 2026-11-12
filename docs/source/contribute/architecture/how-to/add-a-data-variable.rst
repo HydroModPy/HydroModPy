@@ -134,10 +134,10 @@ The lists a variable joins
    (``hydromodpy/data/loading/planner.py``); otherwise the user lists it in
    ``[data].types``.
 
-``tests/unit/data/test_the_variable_families_agree.py`` compares the lists to
+``tests/unit/data/test_variable_families.py`` compares the lists to
 ``VARIABLE_SPECS`` and names the one you missed. Two pins move with a new
 variable, and moving them is the point: the variable count in the same test,
-and ``DATA_SCHEMA_SHA256`` in ``tests/unit/data/test_the_data_surfaces_hold_still.py``.
+and ``DATA_SCHEMA_SHA256`` in ``tests/unit/data/test_data_surfaces.py``.
 The reference pages of the new section are written at the next documentation build.
 
 Check it

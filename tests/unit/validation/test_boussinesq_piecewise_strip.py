@@ -1,16 +1,19 @@
+"""Launcher case of the piecewise strip (heads in m, recharge in m/s).
+
+The run goes through the ``hydromodpy`` command line and reads its result from the catalog.
+"""
+
 from __future__ import annotations
 
 import subprocess
+import tomllib
 from pathlib import Path
 
 import validation_cases.shared.boussinesq_piecewise_strip as piecewise
 import validation_cases.shared.runtime as runtime
 
 
-def test_piecewise_launcher_case_uses_catalog_result_without_postprocess_field_bridge(
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
+def test_launcher_case_reads_the_catalog_result(monkeypatch, tmp_path):
     out_path = tmp_path / "run"
     store = object()
 
@@ -20,7 +23,7 @@ def test_piecewise_launcher_case_uses_catalog_result_without_postprocess_field_b
         out_path.mkdir(parents=True, exist_ok=True)
         return out_path
 
-    def fake_run(command, **kwargs) -> subprocess.CompletedProcess[str]:
+    def fake_run(command, **kwargs):
         assert command[:3] == [piecewise.sys.executable, "-m", "hydromodpy"]
         return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
 
@@ -67,3 +70,24 @@ def test_piecewise_launcher_case_uses_catalog_result_without_postprocess_field_b
     assert result.model_ws == model_ws
     assert result.postprocess_dir == postprocess_dir
     assert not list(out_path.rglob("*.npy"))
+
+
+def test_launcher_config_keeps_explicit_runtime_settings(tmp_path):
+    config_path = piecewise.write_piecewise_strip_launcher_config(
+        tmp_path / "run_petsc.toml",
+        run_id="petsc_regression",
+        process_id="flow_main",
+        simulation_name="PETSc regression",
+        simulation_description="Explicit PETSc backend fixture",
+        bundle_dir=tmp_path / "mesh_bundle",
+        initial_head_m=6.0,
+        runtime_backend="petsc",
+        surface_interaction_model="vi_obstacle",
+        apply_runtime_defaults=False,
+    )
+
+    payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+
+    assert payload["solver"]["boussinesq"]["backend"] == "petsc"
+    assert payload["solver"]["boussinesq"]["surface_interaction_model"] == "vi_obstacle"
+    assert "runtime" not in payload["flow"]

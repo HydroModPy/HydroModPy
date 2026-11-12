@@ -1,4 +1,4 @@
-"""Tests for :class:`hydromodpy.project.state.ProjectState` and its proxy."""
+"""The state a Project keeps in one dataclass, and the proxy that maps ``project._x`` to it."""
 
 from __future__ import annotations
 
@@ -22,7 +22,6 @@ def _bare_project() -> Project:
 
 
 def test_project_state_fields_match_mapping() -> None:
-    """Every state attribute exposed through ``project.<name>`` maps to a real field."""
     state_fields = set(ProjectState.__dataclass_fields__)
     for project_name, state_field in PROJECT_ATTR_TO_STATE_FIELD.items():
         assert state_field in state_fields, (
@@ -32,7 +31,6 @@ def test_project_state_fields_match_mapping() -> None:
 
 
 def test_project_state_mapping_covers_all_known_attrs() -> None:
-    """The proxy mapping covers the 21 attributes formerly set on Project."""
     expected = {
         "_config_path",
         "_cfg",
@@ -57,7 +55,6 @@ def test_project_state_mapping_covers_all_known_attrs() -> None:
 
 
 def test_setattr_keeps_unknown_attrs_directly_on_instance() -> None:
-    """Attribute names outside the mapping remain on ``Project.__dict__``."""
     project = _bare_project()
     project._runner = "fake_runner"
     project._catalog = "fake_catalog"
@@ -67,14 +64,12 @@ def test_setattr_keeps_unknown_attrs_directly_on_instance() -> None:
 
 
 def test_getattr_raises_for_unknown_names() -> None:
-    """``__getattr__`` raises ``AttributeError`` for unmapped private names."""
     project = _bare_project()
     with pytest.raises(AttributeError, match="_not_a_state_field"):
         _ = project._not_a_state_field
 
 
 def test_project_state_defaults_match_phases_configure_defaults() -> None:
-    """The dataclass defaults match the initial values set by ``phases.configure``."""
     state = ProjectState()
     assert state.config_path is None
     assert state.cfg is None

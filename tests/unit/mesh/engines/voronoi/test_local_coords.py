@@ -18,19 +18,19 @@ X0, Y0 = L93_ORIGIN
 DOMAIN = box(X0 + 120.0, Y0 + 40.0, X0 + 1730.0, Y0 + 980.0)
 
 
-def test_a_frame_refuses_a_non_finite_origin_and_bad_points() -> None:
+def test_frame_refusals() -> None:
     with pytest.raises(MeshRequestError):
         LocalFrame((float("nan"), 0.0))
     with pytest.raises(ValueError):
         LocalFrame((0.0, 0.0)).to_local(np.zeros(3))
 
 
-def test_an_empty_domain_has_no_frame() -> None:
+def test_empty_domain_has_no_frame() -> None:
     with pytest.raises(MeshRequestError, match="non-empty domain"):
         local_frame(Polygon())
 
 
-def test_a_request_without_a_size_field_samples_its_nominal_size() -> None:
+def test_sampler_without_a_size_field() -> None:
     request = mesh_request(grid_over(DOMAIN), domain=DOMAIN, nominal_size_m=35.0)
     sampler = SizeSampler.of_request(request, local_frame(DOMAIN))
     assert np.allclose(sampler(np.zeros((4, 2))), 35.0, rtol=1e-15)

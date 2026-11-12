@@ -1,4 +1,7 @@
-"""``hmp catalog rerun`` reads the frozen config.toml of a run (``rerun_config`` mocked; no solve)."""
+"""``hmp catalog rerun`` reads the frozen config.toml of a run and seals a child run.
+
+``rerun_config`` is replaced by a recorder, so nothing is solved.
+"""
 
 from __future__ import annotations
 
@@ -33,7 +36,7 @@ def _project(tmp_path: Path) -> Path:
     return project
 
 
-def test_parse_overrides_coerces_types() -> None:
+def test_parse_overrides() -> None:
     assert rerun_cmd._parse_overrides(
         ["flow.K=2e-4", "sim.flag=true", "n=5", "a=[1, 2]", 's="007"', "label=plain"]
     ) == {
@@ -46,9 +49,7 @@ def test_parse_overrides_coerces_types() -> None:
     }
 
 
-def test_rerun_reads_the_frozen_config_and_keeps_the_name(
-    tmp_path: Path, monkeypatch, capsys
-) -> None:
+def test_rerun_reads_the_frozen_config(tmp_path: Path, monkeypatch, capsys) -> None:
     project = _project(tmp_path)
     calls: dict = {}
 
@@ -91,7 +92,7 @@ def test_rerun_reads_the_frozen_config_and_keeps_the_name(
     assert not (project / ".hmp" / "index.duckdb").exists()
 
 
-def test_a_rerun_that_produces_no_run_is_refused(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_rerun_without_a_run(tmp_path: Path, monkeypatch, capsys) -> None:
     project = _project(tmp_path)
     monkeypatch.setattr(project_rerun, "rerun_config", lambda *args, **kwargs: None)
 
@@ -101,7 +102,7 @@ def test_a_rerun_that_produces_no_run_is_refused(tmp_path: Path, monkeypatch, ca
     assert "Rerun did not produce a run." in capsys.readouterr().err
 
 
-def test_rerun_without_a_frozen_config_is_refused(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_rerun_without_a_config(tmp_path: Path, monkeypatch, capsys) -> None:
     project = _project(tmp_path)
     (project / "runs" / "nancon_monthly.v2" / "config.toml").unlink()
 
@@ -111,8 +112,8 @@ def test_rerun_without_a_frozen_config_is_refused(tmp_path: Path, monkeypatch, c
     assert "config.toml" in capsys.readouterr().err
 
 
-def test_a_rerun_seals_the_child_as_a_rerun_of_its_source(monkeypatch) -> None:
-    """``rerun_config`` hands ``simulate`` a lineage naming the source."""
+def test_rerun_lineage(monkeypatch) -> None:
+    # rerun_config hands simulate a lineage naming the source.
     import types
 
     import hydromodpy.project.facade as project_module

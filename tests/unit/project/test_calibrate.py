@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.project.calibrate import CalibrationPlan, calibration_plan, route_calibration
 
 pytestmark = pytest.mark.fast
@@ -71,64 +72,7 @@ def _staged_config():
     )
 
 
-def test_calibration_phases_surface_the_real_error_of_an_unreadable_toml(tmp_path: Path) -> None:
-    """A file that cannot be read is not reported as declaring no phases."""
-    from hydromodpy.core.exceptions import ConfigError
-
-    config = _write_toml(tmp_path / "typo.toml", TYPO_TOML)
-    with pytest.raises(ConfigError, match="not_a_field"):
-        calibration_plan(config)
-
-
-_PROTOCOL_TOML = """
-[calibration]
-protocol = "matching_hydrographic_network"
-
-[calibration.parameters.K]
-
-[calibration.parameters.Sy]
-
-[calibration.outputs.streams]
-support = "network"
-map.complete = "streams.gpkg"
-
-[[data.hydrometry.sources]]
-station_ids = ["G1"]
-"""
-
-_NO_PROTOCOL_TOML = """
-[calibration]
-seed = 7
-"""
-
-
-_PROTOCOL_TOML_WITH_ITS_OWN_HYDROGRAPH = """
-[calibration]
-protocol = "matching_hydrographic_network"
-
-[calibration.parameters.K]
-
-[calibration.parameters.Sy]
-
-[calibration.outputs.streams]
-support = "network"
-map.complete = "streams.gpkg"
-
-[calibration.outputs.hydrograph]
-variable = "discharge"
-support = "point"
-observes = "G1"
-time = "all"
-reducer = "none"
-
-[[data.hydrometry.sources]]
-station_ids = ["G1"]
-"""
-
-
-def test_the_plan_of_a_file_gives_json_and_names_what_a_launch_writes(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_plan_of_a_file(monkeypatch, tmp_path: Path) -> None:
     config = _write_toml(tmp_path / "staged.toml", STAGED_TOML)
     monkeypatch.setattr(
         "hydromodpy.calibration.runners.document.describe_dry_run",
@@ -144,35 +88,26 @@ def test_the_plan_of_a_file_gives_json_and_names_what_a_launch_writes(
     assert [phase["name"] for phase in document["phases"]] == ["steady_k"]
 
 
-def test_the_plan_of_a_config_object_gives_json_without_a_launch_plan() -> None:
+def test_plan_of_a_config() -> None:
     plan = calibration_plan(SimpleNamespace(calibration=_staged_config()))
     document = json.loads(json.dumps(plan.to_dict()))
     assert document["plan"] is None and document["protocol"] is None
     assert set(document["calibration"]) >= {"method", "parameters", "phases"}
 
 
-@pytest.mark.parametrize("name", ["missing.toml", "typo.toml"])
-def test_a_file_that_is_not_there_or_not_readable_is_refused(tmp_path: Path, name: str) -> None:
-    from hydromodpy.core.exceptions import ConfigError
-
-    if name == "typo.toml":
-        _write_toml(tmp_path / name, TYPO_TOML)
-    with pytest.raises((ConfigError, FileNotFoundError)):
-        calibration_plan(tmp_path / name)
+PLAN_REFUSALS = [
+    pytest.param(None, (ConfigError, FileNotFoundError), "", id="missing file"),
+    pytest.param(TYPO_TOML, ConfigError, "", id="unreadable file"),
+    pytest.param(TYPO_TOML, ConfigError, "not_a_field", id="unknown key named"),
+]
 
 
-# route_calibration: what a launch of a file needs, and the runner it goes to
+@pytest.mark.parametrize(("toml", "error", "match"), PLAN_REFUSALS)
+def test_plan_refusals(tmp_path: Path, toml: str | None, error: type, match: str) -> None:
+    path = tmp_path / "plan.toml" if toml is None else _write_toml(tmp_path / "plan.toml", toml)
 
-SINGLE_TOML = """\
-[workflow]
-mode = "calibration"
-
-[calibration]
-method = "grid"
-
-[calibration.parameters.K]
-bounds = [1e-6, 1e-3]
-"""
+    with pytest.raises(error, match=match):
+        calibration_plan(path)
 
 
 class _Environment:
@@ -197,20 +132,14 @@ def preflights(monkeypatch) -> list[Path]:
     return seen
 
 
-def test_a_phase_of_a_file_that_does_not_read_names_the_real_error(
-    tmp_path: Path, preflights
-) -> None:
-    from hydromodpy.core.exceptions import ConfigError
-
+def test_route_of_unreadable_toml(tmp_path: Path, preflights) -> None:
     config = _write_toml(tmp_path / "c.toml", TYPO_TOML)
 
     with pytest.raises(ConfigError, match="cannot be read"):
         route_calibration(config, phase="steady_k", environment=_Environment())
 
 
-def test_the_plan_of_a_held_configuration_is_anchored_to_its_file_and_case(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_plan_of_held_config(monkeypatch, tmp_path: Path) -> None:
     from hydromodpy.core.state.result_dirs import run_dir_rel
     from hydromodpy.results.catalog.registration import next_version_dirname
 

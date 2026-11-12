@@ -48,7 +48,7 @@ def _has_vertex(line: LineString, xy: tuple[float, float]) -> bool:
     return any(tuple(c) == xy for c in np.asarray(line.coords))
 
 
-def test_a_line_on_a_known_ramp_gets_round_integral_segments() -> None:
+def test_segments_on_a_ramp() -> None:
     a, b = 10.0, 0.05
     field = _ramp_in_x(a, b)
     x0, x1 = 50.0, 900.0
@@ -62,7 +62,7 @@ def test_a_line_on_a_known_ramp_gets_round_integral_segments() -> None:
     assert out.short_fixed_edges == 0
 
 
-def test_a_river_around_a_re_entrant_corner_stays_in_the_domain() -> None:
+def test_river_round_a_corner() -> None:
     domain = Polygon([(0, 0), (1000, 0), (1000, 500), (500, 500), (500, 1000), (0, 1000)])
     bend = LineString([(497.0, 900.0), (497.0, 497.0), (950.0, 497.0)])
     out = resample_families(
@@ -74,7 +74,7 @@ def test_a_river_around_a_re_entrant_corner_stays_in_the_domain() -> None:
     assert line.coords[0] == (497.0, 900.0) and line.coords[-1] == (950.0, 497.0)
 
 
-def test_positions_at_local_size_cut_a_piece_in_equal_integral_segments() -> None:
+def test_positions_equal_segments() -> None:
     piece = LineString([(0.0, 0.0), (100.0, 0.0)])
     points, positions, short = positions_at_local_size(
         piece, 2.5, lambda xy: np.full(len(xy), 10.0), ring=False
@@ -85,7 +85,7 @@ def test_positions_at_local_size_cut_a_piece_in_equal_integral_segments() -> Non
     assert short == 0
 
 
-def test_positions_at_local_size_read_the_size_in_the_frame_of_the_piece() -> None:
+def test_positions_local_frame() -> None:
     """The size callable sees the coordinates of the piece, so a local frame works."""
     seen = []
 
@@ -100,7 +100,7 @@ def test_positions_at_local_size_read_the_size_in_the_frame_of_the_piece() -> No
     assert all(np.abs(xy).max() <= 50.0 + 1e-9 for xy in seen)
 
 
-def test_a_line_shorter_than_the_node_tolerance_keeps_its_two_ends() -> None:
+def test_tiny_line_keeps_its_ends() -> None:
     tiny = LineString([(500.0, 500.0), (500.0 + 1.0e-7, 500.0)])
     (family,) = resample_families(
         [LineFamilySpec("rivers", "cell", (tiny,))], domain=_DOMAIN, size_field=_uniform(30.0)
@@ -109,7 +109,7 @@ def test_a_line_shorter_than_the_node_tolerance_keeps_its_two_ends() -> None:
     assert list(family.lines[0].coords) == list(tiny.coords)
 
 
-def test_a_line_that_leaves_the_domain_is_followed_as_it_is_outside() -> None:
+def test_line_leaving_the_domain() -> None:
     """A chord off the domain gets the original vertices back, and none is left to add past the edge."""
     line = LineString([(900.0, 500.0), (1100.0, 500.0), (1100.0, 600.0)])
     (family,) = resample_families(
@@ -121,7 +121,7 @@ def test_a_line_that_leaves_the_domain_is_followed_as_it_is_outside() -> None:
     assert resampled.hausdorff_distance(line) < 1.0e-9
 
 
-def test_a_piece_of_one_and_a_half_cells_stays_one_segment() -> None:
+def test_short_piece_stays_one_segment() -> None:
     """Two segments would be 0.75 cell each, under the shortest share."""
     piece = LineString([(0.0, 0.0), (15.0, 0.0)])
     points, positions, short = positions_at_local_size(

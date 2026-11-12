@@ -68,12 +68,12 @@ def _generated_and_read() -> tuple[object, object]:
 
 
 @pytest.mark.parametrize("case", BUNDLES)
-def test_a_read_triangulation_records_no_seed(case: str) -> None:
+def test_read_triangulation_has_no_seed(case: str) -> None:
     assert TriangleMeshEngine().build(_read_request(case)).identity.seed is None
 
 
 @pytest.mark.parametrize("case", BUNDLES)
-def test_the_quality_report_measures_the_cells_against_the_area_of_the_domain(case: str) -> None:
+def test_area_closes_on_the_domain(case: str) -> None:
     request = _read_request(case)
     cell_mesh = TriangleMeshEngine().build(request)
 
@@ -82,14 +82,14 @@ def test_the_quality_report_measures_the_cells_against_the_area_of_the_domain(ca
 
 
 @needs_gmsh
-def test_a_generated_triangulation_records_the_seed_gmsh_was_given() -> None:
+def test_generated_triangulation_records_its_seed() -> None:
     request = mesh_request(grid_over(SQUARE, 100.0), nominal_size_m=100.0, seed=7)
 
     assert TriangleMeshEngine().build(request).identity.seed == 7
 
 
 @needs_gmsh
-def test_a_read_triangulation_says_its_lines_were_not_embedded() -> None:
+def test_read_triangulation_notes_unembedded_lines() -> None:
     generated, read = _generated_and_read()
 
     (note,) = set(read.qa.notes) - set(generated.qa.notes)
@@ -97,9 +97,7 @@ def test_a_read_triangulation_says_its_lines_were_not_embedded() -> None:
 
 
 @needs_gmsh
-def test_a_generated_mesh_measures_its_cells_against_the_size_asked_and_a_read_one_does_not() -> (
-    None
-):
+def test_size_fidelity_only_when_generated() -> None:
     generated, read = _generated_and_read()
 
     assert generated.qa.size_fidelity["p50"] > 0.0

@@ -20,7 +20,7 @@ def _paths(tmp_path: Path):
     return paths
 
 
-def test_the_domain_is_the_footprint_of_the_valid_pixels_framed_by_the_raster(tmp_path) -> None:
+def test_domain_footprint(tmp_path) -> None:
     values = np.full((5, 5), 10.0, dtype="float32")
     values[0, :] = NODATA
     values[:, 0] = np.nan
@@ -41,7 +41,7 @@ def test_the_domain_is_the_footprint_of_the_valid_pixels_framed_by_the_raster(tm
         np.testing.assert_array_equal(copy.read(1), src.read(1))
 
 
-def test_a_dem_with_no_valid_pixel_is_refused(tmp_path) -> None:
+def test_no_valid_pixel_refused(tmp_path) -> None:
     dem = write_geotiff(tmp_path / "dem.tif", np.full((3, 3), NODATA), nodata=NODATA)
     with pytest.raises(ValueError, match="at least one valid cell"):
         build_direct_dem_domain(dem_path=dem, paths=_paths(tmp_path))
@@ -52,7 +52,7 @@ def test_a_dem_with_no_valid_pixel_is_refused(tmp_path) -> None:
     reason="build_direct_dem_domain measures the footprint in the DEM CRS: on a DEM in "
     "degrees the domain area is in square degrees, not km2.",
 )
-def test_a_dem_in_degrees_gives_its_domain_area_in_square_kilometres(tmp_path) -> None:
+def test_area_of_a_dem_in_degrees(tmp_path) -> None:
     # 0.01 x 0.01 degree pixels near Rennes, about 0.74 x 1.11 km each.
     ones = np.ones((4, 4), "float32")
     dem = write_geotiff(tmp_path / "dem.tif", ones, origin=(-1.7, 48.1), cell=0.01, crs="EPSG:4326")

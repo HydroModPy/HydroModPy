@@ -1,15 +1,9 @@
-"""A published copy replays from the bytes the copy carries.
+"""Replay of a published copy from the bytes the copy carries.
 
 ``hmp replay <copy> -w <project>`` checks every file of the install index
-against ``inputs/`` and points the field of each recorded role at those bytes:
-a declared file is read where it is stored, a declared folder is rebuilt from
-the files of the index that sit in it, with its station rows, and never holds
-a station the run did not read. A missing file, bytes with another digest or
-a file a provider delivered with other bytes at its destination refuse the replay
-before anything runs. A file a provider delivered is installed by its digest in the
-workspace of the project. The run goes to the project ``-w`` names; ``hmp run --frozen`` on the same file is
-refused and names the verb. The full chain, a solve included, is
-``tests/e2e/test_replay_from_archive_without_workspace.py``.
+against ``inputs/`` and points each recorded role at those bytes. A missing
+file or a wrong digest refuses the replay before anything runs. The full chain,
+a solve included, is ``tests/e2e/test_replay_from_archive_without_workspace.py``.
 """
 
 from __future__ import annotations
@@ -131,7 +125,7 @@ def _published(tmp_path: Path) -> Path:
     )
 
 
-def test_a_declared_file_points_at_its_bytes_and_a_folder_is_rebuilt(tmp_path: Path) -> None:
+def test_payload_points_at_copy_bytes(tmp_path: Path) -> None:
     copy = _published(tmp_path)
     workdir = tmp_path / "work"
 
@@ -157,7 +151,7 @@ def test_a_declared_file_points_at_its_bytes_and_a_folder_is_rebuilt(tmp_path: P
     assert published_copy_of(tmp_path / "config.toml") is None
 
 
-def test_bytes_with_another_digest_or_no_index_refuse_the_replay(tmp_path: Path) -> None:
+def test_bad_digest_or_no_index_refused(tmp_path: Path) -> None:
     copy = _published(tmp_path)
     dem = read_index(copy).file_at("data/dem/dem.tif")
     (copy / INPUTS_DIRNAME / stored_name(dem.sha256, dem.dest)).write_bytes(b"other bytes")
@@ -185,7 +179,7 @@ def _published_with_a_delivered_file(tmp_path: Path) -> Path:
     )
 
 
-def test_a_file_a_provider_delivered_is_installed_by_its_digest(tmp_path: Path) -> None:
+def test_delivered_file_installed_by_digest(tmp_path: Path) -> None:
     copy = _published_with_a_delivered_file(tmp_path)
     project = make_workspace(tmp_path / "colleague", project="lab")
     delivered = read_index(copy).file_at(f"data/hydrometry/{HUBEAU_FILE}")
@@ -200,7 +194,7 @@ def test_a_file_a_provider_delivered_is_installed_by_its_digest(tmp_path: Path) 
     assert not (installed.parent / CUSTOM_FILE).exists()
 
 
-def test_a_delivered_file_with_another_digest_at_its_destination_is_refused(
+def test_delivered_file_conflict_refused(
     tmp_path: Path,
 ) -> None:
     copy = _published_with_a_delivered_file(tmp_path)
@@ -216,7 +210,7 @@ def test_a_delivered_file_with_another_digest_at_its_destination_is_refused(
     assert sorted(path.name for path in held.parent.iterdir()) == [HUBEAU_FILE]
 
 
-def test_hmp_run_frozen_on_a_copy_is_refused_and_names_the_replay_verb(tmp_path: Path) -> None:
+def test_run_frozen_names_replay_verb(tmp_path: Path) -> None:
     copy = _published(tmp_path)
     before = sorted(path.name for path in copy.iterdir())
     project = tmp_path / "replay"
@@ -233,7 +227,7 @@ def test_hmp_run_frozen_on_a_copy_is_refused_and_names_the_replay_verb(tmp_path:
     assert sorted(path.name for path in copy.iterdir()) == before
 
 
-def test_hmp_replay_of_a_copy_without_its_inputs_is_refused(tmp_path: Path) -> None:
+def test_replay_without_inputs_refused(tmp_path: Path) -> None:
     copy = _published(tmp_path)
     (copy / INSTALL_FILENAME).unlink()
     project = tmp_path / "replay"
@@ -248,9 +242,7 @@ def test_hmp_replay_of_a_copy_without_its_inputs_is_refused(tmp_path: Path) -> N
     assert not (project / ".hmp" / "replay").exists()
 
 
-def test_two_inputs_of_one_role_keep_their_own_bytes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_inputs_of_one_role_stay_apart(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
 
     import hydromodpy.project.exchange.replay as replay
@@ -278,9 +270,7 @@ def test_two_inputs_of_one_role_keep_their_own_bytes(
     assert "dem" not in found
 
 
-def test_a_folder_is_rebuilt_with_the_same_bytes_when_os_link_is_refused(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_folder_copied_when_link_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     copy = _published(tmp_path)
     linked = tmp_path / "linked"
     payload = replay_payload(copy, tomllib.loads(_CONFIG), workdir=linked, project_root=tmp_path)
@@ -319,9 +309,7 @@ replay._play_copy(
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(os.name == "nt", reason="SIGKILL is POSIX")
-def test_a_replay_killed_once_leaves_nothing_that_blocks_the_next(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_killed_replay_does_not_block_next(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import signal
     import subprocess
     import sys

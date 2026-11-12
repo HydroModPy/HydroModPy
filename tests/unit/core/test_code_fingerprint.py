@@ -89,7 +89,7 @@ def _table(root: Path) -> dict[str, str]:
         pytest.param(SOLVER.replace("import math\n", "import math  \n\n\n"), id="blank-lines"),
     ],
 )
-def test_an_edit_that_computes_nothing_moves_nothing(edited: str) -> None:
+def test_edit_without_effect_moves_nothing(edited: str) -> None:
     assert normalised_source(edited) == normalised_source(SOLVER)
 
 
@@ -101,17 +101,17 @@ def test_an_edit_that_computes_nothing_moves_nothing(edited: str) -> None:
         pytest.param(SOLVER.replace("    return", "    if x:\n        return"), "if", id="branch"),
     ],
 )
-def test_an_edit_of_the_code_moves_it(edited: str, word: str) -> None:
+def test_edit_of_code_moves_digest(edited: str, word: str) -> None:
     assert normalised_source(edited) != normalised_source(SOLVER), word
 
 
-def test_the_structure_of_a_block_stays_in_the_digest() -> None:
+def test_block_structure_is_digested() -> None:
     inside = "if a:\n    b()\n    c()\n"
     after = "if a:\n    b()\nc()\n"
     assert normalised_source(inside) != normalised_source(after)
 
 
-def test_a_string_assigned_is_code_and_a_bare_one_is_not() -> None:
+def test_assigned_string_is_code() -> None:
     assert normalised_source('x = 1\n"""A note."""\n') == normalised_source("x = 1\n")
     assert normalised_source('x = "A note."\n') != normalised_source("x = 1\n")
 
@@ -120,7 +120,7 @@ def test_a_string_assigned_is_code_and_a_bare_one_is_not() -> None:
     "fstring",
     ['f"{x:>{w}}"', 'f"{{literal}} {x!r}"', 'rf"a{x}\\d"', 'f"é{x}é"', 'f"""{x}\n{y}"""'],
 )
-def test_an_f_string_is_one_token_as_python_3_11_gives_it(fstring: str) -> None:
+def test_f_string_is_one_token(fstring: str) -> None:
     """Python 3.12 splits it in parts. The digest has to be the one 3.11 reads."""
     assert normalised_source(f"é = {fstring}\n") == f"é\n=\n{fstring}\nNEWLINE"
     assert tokenize.STRING in {
@@ -128,7 +128,7 @@ def test_an_f_string_is_one_token_as_python_3_11_gives_it(fstring: str) -> None:
     }
 
 
-def test_the_table_has_one_digest_per_layer_and_an_edit_moves_its_own(tmp_path: Path) -> None:
+def test_one_digest_per_layer(tmp_path: Path) -> None:
     root = _tree(tmp_path / "hydromodpy")
     base = _table(root)
     assert set(base) == set(RUN_LAYERS)
@@ -145,7 +145,7 @@ def test_the_table_has_one_digest_per_layer_and_an_edit_moves_its_own(tmp_path: 
     "outside",
     ["display/figure.py", "cli/main.py", "results/export/publish.py", "project/compare.py"],
 )
-def test_an_edit_outside_the_scope_keeps_the_identity(tmp_path: Path, outside: str) -> None:
+def test_outside_edit_keeps_identity(tmp_path: Path, outside: str) -> None:
     root = _tree(tmp_path / "hydromodpy")
     base = _table(root)
 
@@ -156,7 +156,7 @@ def test_an_edit_outside_the_scope_keeps_the_identity(tmp_path: Path, outside: s
     assert _table(root) == base
 
 
-def test_a_docstring_edit_of_a_solver_keeps_the_identity(tmp_path: Path) -> None:
+def test_docstring_edit_keeps_identity(tmp_path: Path) -> None:
     root = _tree(tmp_path / "hydromodpy")
     base = _table(root)
 
@@ -171,14 +171,14 @@ def test_a_docstring_edit_of_a_solver_keeps_the_identity(tmp_path: Path) -> None
     ("edited", "layer"),
     [("solver/added.py", "solver"), ("results/storage/added.py", "results")],
 )
-def test_a_new_module_in_the_scope_moves_its_layer(tmp_path: Path, edited: str, layer: str) -> None:
+def test_new_module_moves_its_layer(tmp_path: Path, edited: str, layer: str) -> None:
     root = _tree(tmp_path / "hydromodpy")
     base = _table(root)
     (root / edited).write_text("VALUE = 2\n", encoding="utf-8")
     assert _table(root)[layer] != base[layer]
 
 
-def test_package_data_a_computation_reads_enters(tmp_path: Path) -> None:
+def test_compute_data_enters_digest(tmp_path: Path) -> None:
     root = _tree(tmp_path / "hydromodpy")
     base = _table(root)
     relative = COMPUTE_DATA_FILES[0]
@@ -193,7 +193,7 @@ def test_package_data_a_computation_reads_enters(tmp_path: Path) -> None:
         pytest.param(COMPUTE_DATA_FILES[0], COMPUTE_DATA_FILES[0], id="no-listed-data"),
     ],
 )
-def test_a_broken_install_has_no_identity(tmp_path: Path, removed: str, named: str) -> None:
+def test_broken_install_is_refused(tmp_path: Path, removed: str, named: str) -> None:
     """A layer without source would hash as the digest of nothing, like any other broken one."""
     root = _tree(tmp_path / "hydromodpy")
     (root / removed).unlink()
@@ -216,13 +216,13 @@ def _shipped_data() -> dict[str, list[str]]:
 
 
 @pytest.mark.parametrize("relative", COMPUTE_DATA_FILES)
-def test_a_listed_data_file_ships_in_the_wheel(relative: str) -> None:
+def test_data_file_ships_in_wheel(relative: str) -> None:
     folder, name = f"hydromodpy/{relative}".rsplit("/", 1)
     patterns = _shipped_data().get(folder.replace("/", "."), ())
     assert any(fnmatch(name, pattern) for pattern in patterns), relative
 
 
-def test_a_wheel_and_a_checkout_of_one_tree_hash_alike(tmp_path: Path) -> None:
+def test_wheel_and_checkout_hash_alike(tmp_path: Path) -> None:
     """A wheel holds the modules of its packages and the declared data, and nothing else."""
     package = REPO_ROOT / "hydromodpy"
     wheel = tmp_path / "hydromodpy"
@@ -237,7 +237,7 @@ def test_a_wheel_and_a_checkout_of_one_tree_hash_alike(tmp_path: Path) -> None:
     assert fingerprint_tree(wheel, COMPUTE_LAYERS) == fingerprint_tree(package, COMPUTE_LAYERS)
 
 
-def test_a_bare_table_is_cached_per_process_and_on_disk(tmp_path: Path, monkeypatch) -> None:
+def test_table_is_cached(tmp_path: Path, monkeypatch) -> None:
     root = _tree(tmp_path / "hydromodpy")
     base = _table(root)
 
@@ -254,7 +254,7 @@ def test_a_bare_table_is_cached_per_process_and_on_disk(tmp_path: Path, monkeypa
     assert calls == []
 
 
-def test_a_corrupt_or_unwritable_disk_cache_only_costs_time(tmp_path: Path, monkeypatch) -> None:
+def test_bad_disk_cache_is_harmless(tmp_path: Path, monkeypatch) -> None:
     root = _tree(tmp_path / "hydromodpy")
     base = _table(root)
 
@@ -270,12 +270,12 @@ def test_a_corrupt_or_unwritable_disk_cache_only_costs_time(tmp_path: Path, monk
     assert _table(root) == base
 
 
-def test_a_layer_outside_the_scope_is_refused() -> None:
+def test_outside_layer_is_refused() -> None:
     with pytest.raises(ValueError, match="not a compute layer: display"):
         code_fingerprint(("display",))
 
 
-def test_the_scope_covers_the_layer_matrix() -> None:
+def test_scope_covers_layer_matrix() -> None:
     """A layer of the tree has to say whether it changes a number.
 
     The matrix names the layers that exist today, the packages that leave
@@ -288,7 +288,7 @@ def test_the_scope_covers_the_layer_matrix() -> None:
     assert set(RUN_LAYERS) == set(COMPUTE_LAYERS) - {"calibration"}
 
 
-def test_layers_under_reads_the_matrix_closure() -> None:
+def test_layer_reads_follow_matrix() -> None:
     """The closure of each compute layer is its matrix row, outside layers dropped."""
     rows = layer_rows(load_layer_matrix()).target
     compute = set(COMPUTE_LAYERS)
@@ -299,17 +299,17 @@ def test_layers_under_reads_the_matrix_closure() -> None:
     assert LAYER_READS == expected
 
 
-def test_layers_under_names_the_closure() -> None:
+def test_layers_under_closure() -> None:
     assert layers_under("mesh") == ("core", "catchment", "mesh")
     assert layers_under("model") == ("core", "catchment", "mesh", "model")
 
 
-def test_layers_under_refuses_a_layer_outside_the_scope() -> None:
+def test_layers_under_refusal() -> None:
     with pytest.raises(ValueError, match="not a compute layer: display"):
         layers_under("display")
 
 
-def test_every_package_file_of_the_scope_is_classified() -> None:
+def test_package_files_are_classified() -> None:
     """A table a computation could read has to say whether it enters the fingerprint."""
     package = REPO_ROOT / "hydromodpy"
     outside = tuple(f"{subtree}/" for subtree in OUTSIDE_SUBTREES)
@@ -340,7 +340,7 @@ def test_every_package_file_of_the_scope_is_classified() -> None:
     ],
     ids=str,
 )
-def test_another_python_gives_the_same_fingerprint(other: Path, tmp_path: Path) -> None:
+def test_python_versions_agree(other: Path, tmp_path: Path) -> None:
     """The module runs alone under any interpreter, since it imports the standard library."""
     if not other.is_file() or subprocess.run([str(other), "--version"]).returncode != 0:
         pytest.skip(f"no working interpreter at {other}")

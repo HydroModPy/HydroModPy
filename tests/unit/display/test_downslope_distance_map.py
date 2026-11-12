@@ -82,35 +82,17 @@ def _two_branch_run(cell_m: float = CELL_M):
     return run
 
 
-# --------------------------------------------------------------------------- #
-# the four classes of the paper
-# --------------------------------------------------------------------------- #
-
-
 def test_the_scale_is_discrete_with_one_flat_color_per_class(mpl) -> None:
     fig, ax = mpl.subplots()
 
     DownslopeDistanceMap().render(_two_branch_run(WIDE_CELL_M), ax)
 
-    try:
-        near = _layer(ax, "0-75 m")
-        # Three cells, one single color: the class is the value.
-        assert len(near.get_paths()) == 3
-        assert _face_color(near) == pytest.approx(_rgb(class_colors(4)[0]))
-        assert _face_color(_layer(ax, "> 1000 m")) == pytest.approx(_rgb(class_colors(4)[3]))
-        assert not fig.axes[1:], "a discrete class scale carries no continuous colorbar"
-    finally:
-        mpl.close(fig)
-
-
-# --------------------------------------------------------------------------- #
-# which of the two distances is on the page, in words
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# the support is the one the criterion averages over
-# --------------------------------------------------------------------------- #
+    near = _layer(ax, "0-75 m")
+    # Three cells, one single color: the class is the value.
+    assert len(near.get_paths()) == 3
+    assert _face_color(near) == pytest.approx(_rgb(class_colors(4)[0]))
+    assert _face_color(_layer(ax, "> 1000 m")) == pytest.approx(_rgb(class_colors(4)[3]))
+    assert not fig.axes[1:], "a discrete class scale carries no continuous colorbar"
 
 
 def test_the_direction_picks_the_network_the_descent_starts_from(mpl) -> None:
@@ -122,24 +104,11 @@ def test_the_direction_picks_the_network_the_descent_starts_from(mpl) -> None:
 
     DownslopeDistanceMap().render(run, ax, direction="to_simulated")
 
-    try:
-        assert _cells(ax, "0-75 m") == [cell(AXIS_COLUMN, 0)]
-        assert _cells(ax, "75-500 m") == [cell(AXIS_COLUMN, 1), cell(AXIS_COLUMN, 2)]
-        assert "D_os" in ax.get_title()
-        assert "the mapped cells down to the simulated network" in ax.get_title()
-        assert "how far each of the mapped cells" in legend_note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_an_unknown_direction_is_refused(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    try:
-        with pytest.raises(ValueError, match="direction must be one of"):
-            DownslopeDistanceMap().render(comparison_run(), ax, direction="sideways")
-    finally:
-        mpl.close(fig)
+    assert _cells(ax, "0-75 m") == [cell(AXIS_COLUMN, 0)]
+    assert _cells(ax, "75-500 m") == [cell(AXIS_COLUMN, 1), cell(AXIS_COLUMN, 2)]
+    assert "D_os" in ax.get_title()
+    assert "the mapped cells down to the simulated network" in ax.get_title()
+    assert "how far each of the mapped cells" in legend_note(ax)
 
 
 def test_the_map_opens_on_the_catchment_and_a_caller_may_widen_it(mpl) -> None:
@@ -147,11 +116,8 @@ def test_the_map_opens_on_the_catchment_and_a_caller_may_widen_it(mpl) -> None:
 
     DownslopeDistanceMap().render(_two_branch_run(), ax, extent="mesh")
 
-    try:
-        assert ax.get_xlim()[1] >= NX * CELL_M
-        assert "the whole mesh" in legend_note(ax)
-    finally:
-        mpl.close(fig)
+    assert ax.get_xlim()[1] >= NX * CELL_M
+    assert "the whole mesh" in legend_note(ax)
 
     fig, ax = mpl.subplots()
 
@@ -159,16 +125,8 @@ def test_the_map_opens_on_the_catchment_and_a_caller_may_widen_it(mpl) -> None:
         comparison_run(seepage_cells=[cell(0, 1)], catchment_columns=[0, 1]), ax
     )
 
-    try:
-        assert ax.get_xlim()[1] < 3 * CELL_M
-        assert "the delineated catchment" in legend_note(ax)
-    finally:
-        mpl.close(fig)
-
-
-# --------------------------------------------------------------------------- #
-# when there is nothing to measure, the figure says so
-# --------------------------------------------------------------------------- #
+    assert ax.get_xlim()[1] < 3 * CELL_M
+    assert "the delineated catchment" in legend_note(ax)
 
 
 def test_a_support_that_never_arrives_is_annotated(mpl) -> None:
@@ -178,16 +136,11 @@ def test_a_support_that_never_arrives_is_annotated(mpl) -> None:
 
     DownslopeDistanceMap().render(comparison_run(), ax, direction="to_simulated")
 
-    try:
-        note = legend_note(ax)
-        assert "no cell of the support reaches its target" in note
-        assert _cells(ax, "unreachable") == column_cells(AXIS_COLUMN)
-        assert _layer(ax, "unreachable").get_hatch(), (
-            "the third state must not read as one more class"
-        )
-        assert any("never reaches" in label for label in legend_labels(ax))
-    finally:
-        mpl.close(fig)
+    note = legend_note(ax)
+    assert "no cell of the support reaches its target" in note
+    assert _cells(ax, "unreachable") == column_cells(AXIS_COLUMN)
+    assert _layer(ax, "unreachable").get_hatch(), "the third state must not read as one more class"
+    assert any("never reaches" in label for label in legend_labels(ax))
 
 
 def test_an_empty_support_is_annotated_rather_than_drawn_empty(mpl) -> None:
@@ -195,17 +148,9 @@ def test_an_empty_support_is_annotated_rather_than_drawn_empty(mpl) -> None:
 
     DownslopeDistanceMap().render(comparison_run(), ax)
 
-    try:
-        assert "no cell is on the measured support" in legend_note(ax)
-        assert not _has_layer(ax, "0-75 m")
-        assert len(_cells(ax, "off support")) == NX * NY
-    finally:
-        mpl.close(fig)
-
-
-# --------------------------------------------------------------------------- #
-# overriding the classes
-# --------------------------------------------------------------------------- #
+    assert "no cell is on the measured support" in legend_note(ax)
+    assert not _has_layer(ax, "0-75 m")
+    assert len(_cells(ax, "off support")) == NX * NY
 
 
 def test_a_caller_may_give_its_own_class_edges(mpl) -> None:
@@ -213,59 +158,36 @@ def test_a_caller_may_give_its_own_class_edges(mpl) -> None:
 
     DownslopeDistanceMap().render(_two_branch_run(), ax, class_edges=(0.0, 50.0, 150.0))
 
-    try:
-        assert _cells(ax, "0-50 m") == column_cells(AXIS_COLUMN)
-        assert _cells(ax, "50-150 m") == [cell(1, 1), cell(3, 2)]
-        assert _cells(ax, "> 150 m") == [cell(0, 1), cell(4, 2)]
-        assert not _has_layer(ax, "75-500 m")
-    finally:
-        mpl.close(fig)
+    assert _cells(ax, "0-50 m") == column_cells(AXIS_COLUMN)
+    assert _cells(ax, "50-150 m") == [cell(1, 1), cell(3, 2)]
+    assert _cells(ax, "> 150 m") == [cell(0, 1), cell(4, 2)]
+    assert not _has_layer(ax, "75-500 m")
 
 
-@pytest.mark.parametrize(
-    "edges",
-    [(0.0, 500.0, 75.0, 1000.0), (0.0, 75.0, 75.0, 1000.0)],
-)
-def test_class_edges_that_do_not_increase_are_refused(mpl, edges) -> None:
-    fig, ax = mpl.subplots()
-
-    try:
-        with pytest.raises(ValueError, match="strictly increasing"):
-            DownslopeDistanceMap().render(comparison_run(), ax, class_edges=edges)
-    finally:
-        mpl.close(fig)
-
-
-def test_a_class_edge_that_is_not_a_number_is_refused(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    try:
-        # NaN passes every ordering comparison, so it must be caught on its own
-        # or it reaches searchsorted on an unsorted array and scatters classes.
-        with pytest.raises(ValueError, match="finite"):
-            DownslopeDistanceMap().render(
-                comparison_run(), ax, class_edges=(0.0, float("nan"), 500.0)
-            )
-    finally:
-        mpl.close(fig)
+REFUSALS = [
+    pytest.param({"direction": "sideways"}, "direction must be one of", id="unknown direction"),
+    pytest.param(
+        {"class_edges": (0.0, 500.0, 75.0, 1000.0)}, "strictly increasing", id="edges going down"
+    ),
+    pytest.param(
+        {"class_edges": (0.0, 75.0, 75.0, 1000.0)}, "strictly increasing", id="repeated edge"
+    ),
+    # NaN passes every ordering comparison, so it must be caught on its own or
+    # it reaches searchsorted on an unsorted array and scatters classes.
+    pytest.param({"class_edges": (0.0, float("nan"), 500.0)}, "finite", id="edge is NaN"),
+    pytest.param({"class_edges": (0.0,)}, "at least two", id="single edge"),
+]
 
 
-def test_a_single_class_edge_is_refused(mpl) -> None:
-    fig, ax = mpl.subplots()
+@pytest.mark.parametrize(("kwargs", "message"), REFUSALS)
+def test_refusals(mpl, kwargs, message) -> None:
+    _, ax = mpl.subplots()
 
-    try:
-        with pytest.raises(ValueError, match="at least two"):
-            DownslopeDistanceMap().render(comparison_run(), ax, class_edges=(0.0,))
-    finally:
-        mpl.close(fig)
+    with pytest.raises(ValueError, match=message):
+        DownslopeDistanceMap().render(comparison_run(), ax, **kwargs)
 
 
-# --------------------------------------------------------------------------- #
-# the gallery
-# --------------------------------------------------------------------------- #
-
-
-def test_it_is_rendered_from_a_run_alone(tmp_path) -> None:
+def test_gallery_renders_from_a_run_alone(tmp_path) -> None:
     pytest.importorskip("matplotlib")
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.runs import render_figures_for_run
@@ -279,7 +201,7 @@ def test_it_is_rendered_from_a_run_alone(tmp_path) -> None:
     assert (tmp_path / "downslope_distance_map.png").exists()
 
 
-def test_it_is_skipped_by_the_gallery_rather_than_crashing(tmp_path) -> None:
+def test_gallery_skips_instead_of_crashing(tmp_path) -> None:
     pytest.importorskip("matplotlib")
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.runs import render_figures_for_run

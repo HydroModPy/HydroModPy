@@ -1,4 +1,4 @@
-"""Unit tests for the line trace ingest reader."""
+"""Readers of a line trace (a dam or a barrier) from a CSV of x, y or a vector file, as one polyline."""
 
 from __future__ import annotations
 

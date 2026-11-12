@@ -1,4 +1,8 @@
-"""Tests of `runners.programmatic_runner`."""
+"""In-memory calibration run on a project object, and how `Project.calibrate` reaches it.
+
+The loop runs on fakes (no MODFLOW) while the session journal and the report stay real.
+Costs are objective values, K is in m/s.
+"""
 
 from __future__ import annotations
 
@@ -27,29 +31,6 @@ from hydromodpy.project.facade import Project
 from hydromodpy.results.session.descriptor import session_descriptor_path
 from tests.unit.calibration._factories_runners import make_report
 
-# From test_project_calibrate_python.py
-# Tests for :meth:`hydromodpy.Project.calibrate` Python mode.
-#
-# Covers Phase 6 of the calibration integration: the in-memory route
-# through :func:`run_calibration_programmatic`. Verifies that the
-# ``tempfile.mkdtemp`` hack is gone, that ``run_calibration_programmatic``
-# works against a duck-typed project, and that ``Project.calibrate``
-# delegates to :func:`run_calibration_cli` when a ``config_path`` is
-# supplied.
-#
-# The Project setup is intentionally minimal: we monkey-patch
-# :func:`prepare_trials` and :func:`promote_prepared_trial` (the same fakes used
-# by ``test_runners_cli_runner``) so the calibration loop runs without
-# touching MODFLOW, while the session journal and
-# :class:`CalibrationReport` assembly remain real. A duck-typed
-# ``_fake_project`` exposes the source TOML and workspace attributes used by
-# ``run_calibration_programmatic`` so we never have to validate a full
-# :class:`HydroModPyConfig` in the common path.
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 TOML_TEMPLATE = """\
 [workspace]
 root = "{workspace}"
@@ -132,49 +113,46 @@ class _NoModel:
         return TrialOutcome(cost=float(request.values["K"]), status="completed", duration_s=0.0)
 
 
-# ---------------------------------------------------------------------------
-# run_calibration_programmatic
-# ---------------------------------------------------------------------------
-class TestALinearizedWidthWithoutPhases:
-    def test_the_width_reaches_the_report_before_the_promotion(
-        self, fake_project, fake_pipeline, quadratic_metric, monkeypatch
-    ):
-        widths = []
-        handed = []
-        close = session_scope.promote_and_close
-        width_of_k = (ParameterUncertainty("K", 2.0e-5, 4.0e-6, {"K": 1.0}),)
+def test_width_reaches_the_report_before_promotion(
+    fake_project, fake_pipeline, quadratic_metric, monkeypatch
+):
+    widths = []
+    handed = []
+    close = session_scope.promote_and_close
+    width_of_k = (ParameterUncertainty("K", 2.0e-5, 4.0e-6, {"K": 1.0}),)
 
-        def _width(report, *, cfg, trial_ctx, space, perturbation):
-            widths.append((list(space.names), perturbation, trial_ctx is not None))
-            return replace(report, parameter_uncertainty=width_of_k)
+    def _width(report, *, cfg, trial_ctx, space, perturbation):
+        widths.append((list(space.names), perturbation, trial_ctx is not None))
+        return replace(report, parameter_uncertainty=width_of_k)
 
-        def _close(**kwargs):
-            handed.append(kwargs["report"].parameter_uncertainty)
-            return close(**kwargs)
+    def _close(**kwargs):
+        handed.append(kwargs["report"].parameter_uncertainty)
+        return close(**kwargs)
 
-        monkeypatch.setattr(search, "attach_a_linearized_width", _width)
-        monkeypatch.setattr(search, "promote_and_close", _close)
-        report = run_calibration_programmatic(
-            _baseline_cfg(uncertainty=LINEARIZED), project=fake_project, metric_fn=quadratic_metric
-        )
+    monkeypatch.setattr(search, "attach_a_linearized_width", _width)
+    monkeypatch.setattr(search, "promote_and_close", _close)
+    report = run_calibration_programmatic(
+        _baseline_cfg(uncertainty=LINEARIZED), project=fake_project, metric_fn=quadratic_metric
+    )
 
-        assert widths == [(["K"], 0.01, True)]
-        assert handed == [width_of_k]
-        assert report.parameter_uncertainty == width_of_k
-
-    def test_an_evaluator_with_no_model_is_refused_the_width(self, fake_project):
-        evaluation_registry.evaluators.register(_NoModel, replace=True)
-        try:
-            with pytest.raises(CalibrationError, match="runs no HydroModPy model"):
-                run_calibration_programmatic(
-                    _baseline_cfg(uncertainty=LINEARIZED, evaluator=_NoModel.evaluator_id),
-                    project=fake_project,
-                )
-        finally:
-            evaluation_registry.evaluators.unregister(_NoModel.evaluator_id)
+    assert widths == [(["K"], 0.01, True)]
+    assert handed == [width_of_k]
+    assert report.parameter_uncertainty == width_of_k
 
 
-def test_a_call_with_phases_resumes_the_session_of_its_case(fake_project, tmp_path, monkeypatch):
+def test_no_model_evaluator_is_refused_a_width(fake_project):
+    evaluation_registry.evaluators.register(_NoModel, replace=True)
+    try:
+        with pytest.raises(CalibrationError, match="runs no HydroModPy model"):
+            run_calibration_programmatic(
+                _baseline_cfg(uncertainty=LINEARIZED, evaluator=_NoModel.evaluator_id),
+                project=fake_project,
+            )
+    finally:
+        evaluation_registry.evaluators.unregister(_NoModel.evaluator_id)
+
+
+def test_phases_resume_the_session_of_the_case(fake_project, tmp_path, monkeypatch):
     """The document is named by the case, so the staged runner reopens the earlier session."""
     opened = []
 
@@ -210,82 +188,73 @@ def run(fake_project, fake_pipeline, quadratic_metric):
     return _run
 
 
-class TestRunCalibrationProgrammatic:
-    def test_accepts_project_without_config_path(self, run, tmp_path):
-        project = _fake_project(tmp_path / "unused.toml", tmp_path / "ws")
-        project._config_path = None
-        document = {
-            "workflow": {"mode": "simulation"},
-            "workspace": {"root": str(tmp_path / "ws")},
-            "flow": {"param": {"K": {"field": {"value": 1e-4}}}},
-        }
-        project.config = SimpleNamespace(model_dump=lambda **kwargs: document)
+def test_project_without_config_path(run, tmp_path):
+    project = _fake_project(tmp_path / "unused.toml", tmp_path / "ws")
+    project._config_path = None
+    document = {
+        "workflow": {"mode": "simulation"},
+        "workspace": {"root": str(tmp_path / "ws")},
+        "flow": {"param": {"K": {"field": {"value": 1e-4}}}},
+    }
+    project.config = SimpleNamespace(model_dump=lambda **kwargs: document)
 
-        assert isinstance(run(project), CalibrationReport)
-
-    def test_save_runs_all_promotes_every_completed_iteration(self, run, fake_pipeline):
-        report = run(save_runs="all")
-
-        assert report.promoted == report.n_trials == 3
-        assert len(fake_pipeline) == 3
-        assert report.best_sim_id in {row["sim_id"] for row in fake_pipeline}
+    assert isinstance(run(project), CalibrationReport)
 
 
-# ---------------------------------------------------------------------------
-# Project.calibrate dispatch
-# ---------------------------------------------------------------------------
+def test_save_runs_all_promotes_every_trial(run, fake_pipeline):
+    report = run(save_runs="all")
+
+    assert report.promoted == report.n_trials == 3
+    assert len(fake_pipeline) == 3
+    assert report.best_sim_id in {row["sim_id"] for row in fake_pipeline}
 
 
-class TestProjectCalibratePythonModeDispatch:
-    @pytest.mark.parametrize("in_memory", [False, True], ids=["file_project", "in_memory_project"])
-    def test_python_mode_invokes_run_calibration_programmatic(
-        self, project_toml, tmp_path, in_memory
-    ):
-        """When parameters= is supplied, calibrate() calls run_calibration_programmatic."""
-        proj = _fake_project(None if in_memory else project_toml, tmp_path / "ws")
-        sentinel = make_report(n_trials=2, best_cost=0.0)
-        with patch(
-            "hydromodpy.calibration.runners.programmatic_runner.run_calibration_programmatic",
-            return_value=sentinel,
-        ) as mocked:
-            result = Project.calibrate(
-                proj,
-                parameters={"K": {"bounds": [1e-6, 1e-3], "path": "flow.param.K.field.value"}},
-                method="grid",
-                max_trials=2,
-                save_runs="none",
-                resume=True,
-            )
-            assert result is sentinel
-            assert mocked.call_count == 1
-            kwargs = mocked.call_args.kwargs
-            assert kwargs["project"] is proj
-            assert kwargs["resume"] is True
-            assert "return_report" not in kwargs
-
-    @pytest.mark.parametrize(
-        ("call", "named"),
-        [
-            ({"config_path": "c.toml", "max_trials": 10, "seed": 1}, "max_trials, seed"),
-            ({"method": "grid", "phases": []}, "phases, method"),
-        ],
-    )
-    def test_arguments_the_mode_ignores_are_refused_by_name(self, call, named):
-
-        proj = SimpleNamespace(_cfg=SimpleNamespace(calibration=SimpleNamespace()))
-        with pytest.raises(ConfigError, match=f"ignores {named} when"):
-            Project.calibrate(proj, **call)
-
-    def test_an_unknown_option_is_refused_on_a_declaration_read_from_the_config(self):
-
-        proj = SimpleNamespace(
-            _cfg=SimpleNamespace(calibration=SimpleNamespace()), _config_path=None
+@pytest.mark.parametrize("in_memory", [False, True], ids=["file_project", "in_memory_project"])
+def test_python_mode_calls_the_programmatic_runner(project_toml, tmp_path, in_memory):
+    """When parameters= is supplied, calibrate() calls run_calibration_programmatic."""
+    proj = _fake_project(None if in_memory else project_toml, tmp_path / "ws")
+    sentinel = make_report(n_trials=2, best_cost=0.0)
+    with patch(
+        "hydromodpy.calibration.runners.programmatic_runner.run_calibration_programmatic",
+        return_value=sentinel,
+    ) as mocked:
+        result = Project.calibrate(
+            proj,
+            parameters={"K": {"bounds": [1e-6, 1e-3], "path": "flow.param.K.field.value"}},
+            method="grid",
+            max_trials=2,
+            save_runs="none",
+            resume=True,
         )
-        with pytest.raises(TypeError, match="'resum'"):
-            Project.calibrate(proj, resum=True)
+        assert result is sentinel
+        assert mocked.call_count == 1
+        kwargs = mocked.call_args.kwargs
+        assert kwargs["project"] is proj
+        assert kwargs["resume"] is True
+        assert "return_report" not in kwargs
 
-    def test_python_mode_requires_parameters(self, project_toml, tmp_path):
-        proj = _fake_project(project_toml, tmp_path / "ws")
 
-        with pytest.raises(ConfigMissingError, match="parameters="):
-            Project.calibrate(proj)
+@pytest.mark.parametrize(
+    ("call", "named"),
+    [
+        ({"config_path": "c.toml", "max_trials": 10, "seed": 1}, "max_trials, seed"),
+        ({"method": "grid", "phases": []}, "phases, method"),
+    ],
+)
+def test_ignored_arguments_are_named(call, named):
+    proj = SimpleNamespace(_cfg=SimpleNamespace(calibration=SimpleNamespace()))
+    with pytest.raises(ConfigError, match=f"ignores {named} when"):
+        Project.calibrate(proj, **call)
+
+
+def test_an_unknown_option_is_refused():
+    proj = SimpleNamespace(_cfg=SimpleNamespace(calibration=SimpleNamespace()), _config_path=None)
+    with pytest.raises(TypeError, match="'resum'"):
+        Project.calibrate(proj, resum=True)
+
+
+def test_python_mode_needs_parameters(project_toml, tmp_path):
+    proj = _fake_project(project_toml, tmp_path / "ws")
+
+    with pytest.raises(ConfigMissingError, match="parameters="):
+        Project.calibrate(proj)

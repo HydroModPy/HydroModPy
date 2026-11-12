@@ -1465,9 +1465,9 @@ Tested invariants
   and every file outside ``.hmp/``.
 - **Naming.** ``tests/unit/results/test_reserve_version_dirname.py`` covers the version
   computation and two real processes reserving one name;
-  ``tests/unit/results/test_catalog_names.py`` trashes a version, with and without
+  ``tests/unit/results/test_attempt.py`` trashes a version, with and without
   gc, and checks the next run takes the next number.
-- **Trash.** ``tests/unit/results/test_trash_move.py`` checks the move, the identical restore, the
+- **Trash.** ``tests/unit/results/test_trash.py`` checks the move, the identical restore, the
   tombstones written by gc and the trash of a session.
 - **Attempts and seal.** ``test_two_workers_one_case.py`` (two workers on one failed case, one
   continues, no ``.v2``), ``test_a_failed_run_is_sealed.py``, ``test_heartbeat_is_atomic.py``.

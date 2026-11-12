@@ -1,5 +1,6 @@
 """What the workflow does with the solver outputs of a run: extract, derive, cleanup.
 
+The run also resolves its grid metadata (topology, mesh hash) from the model.
 Each function reads one ``RunContext`` whose ``solver_run`` the runner recorded.
 The extract step hands the adapter of the backend that solver run and the
 ``Retention`` of the run, and nothing else. The adapter reads its own files.
@@ -7,6 +8,7 @@ The extract step hands the adapter of the backend that solver run and the
 
 from __future__ import annotations
 
+import hashlib
 import shutil
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,7 +23,9 @@ from shapely.geometry import box
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.exceptions import ConfigError, NothingThereError, SolverInputError
 from hydromodpy.core.state.run_state import RunState
+from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.geometry import cell_polygons
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR
 from hydromodpy.model.model import ModelOptions
 from hydromodpy.results.derive.stream_network.criterion_inputs import catchment_cells
@@ -30,6 +34,7 @@ from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
 from hydromodpy.workflow.steps.run_outputs import (
     _keep_what_the_criterion_reads,
+    _resolve_run_grid_metadata,
     cleanup_solver_outputs,
     derive_run_outputs,
     extract_run_outputs,
@@ -122,9 +127,7 @@ def _solved_in(tmp_path: Path, **members: Any) -> SolverRun:
     return solved_run(solver_dir, **members)
 
 
-def test_the_adapter_receives_the_solver_run_and_the_retention_untouched(
-    tmp_path, monkeypatch, isolated_solvers
-) -> None:
+def test_adapter_receives_run(tmp_path, monkeypatch, isolated_solvers) -> None:
     seen = _install(monkeypatch, isolated_solvers)
     solver_run = _solved_in(tmp_path)
     planned = retention(BudgetKeep.of_terms(("drain",)))
@@ -137,9 +140,7 @@ def test_the_adapter_receives_the_solver_run_and_the_retention_untouched(
     assert got_run is solver_run and got_store is store and got_retention is planned
 
 
-def test_a_run_that_is_not_solver_backed_extracts_nothing(
-    tmp_path, monkeypatch, isolated_solvers
-) -> None:
+def test_no_extract_without_solver(tmp_path, monkeypatch, isolated_solvers) -> None:
     seen = _install(monkeypatch, isolated_solvers)
     ctx = _context("catchment", process_type="mesh", solver_run=_solved_in(tmp_path))
 
@@ -148,9 +149,7 @@ def test_a_run_that_is_not_solver_backed_extracts_nothing(
     assert seen.extracted == []
 
 
-def test_an_unknown_solver_is_refused_by_its_registry(
-    tmp_path, monkeypatch, isolated_solvers
-) -> None:
+def test_unknown_solver_refused(tmp_path, monkeypatch, isolated_solvers) -> None:
     _install(monkeypatch, isolated_solvers)
     ctx = _context("custom_solver", solver_run=_solved_in(tmp_path))
 
@@ -159,9 +158,7 @@ def test_an_unknown_solver_is_refused_by_its_registry(
 
 
 @pytest.mark.parametrize("case", ["no solver run", "no output folder", "a folder that is gone"])
-def test_a_run_without_its_output_folder_is_nothing_there(
-    case: str, tmp_path, monkeypatch, isolated_solvers
-) -> None:
+def test_missing_output_folder(case: str, tmp_path, monkeypatch, isolated_solvers) -> None:
     seen = _install(monkeypatch, isolated_solvers)
     slot = RunSlot(tmp_path, "island")
     solver_run = {
@@ -175,35 +172,20 @@ def test_a_run_without_its_output_folder_is_nothing_there(
     assert seen.extracted == []
 
 
-def test_the_solver_files_go_when_the_run_does_not_keep_them(
-    tmp_path, monkeypatch, isolated_solvers
-) -> None:
+@pytest.mark.parametrize(("keep", "left"), [(False, False), (True, True)], ids=["dropped", "kept"])
+def test_solver_files_cleanup(tmp_path, monkeypatch, isolated_solvers, keep, left) -> None:
     seen = _install(monkeypatch, isolated_solvers)
     solver_run = _solved_in(tmp_path)
 
     cleanup_solver_outputs(
-        ctx=_context(solver_run=solver_run), retention=retention(solver_files=False)
+        ctx=_context(solver_run=solver_run), retention=retention(solver_files=keep)
     )
 
-    assert not solver_run.output_dir.exists()
-    assert seen.cleaned == [solver_run]
+    assert (solver_run.output_dir / "model.hds").exists() is left
+    assert seen.cleaned == ([] if keep else [solver_run])
 
 
-def test_the_solver_files_stay_when_the_run_keeps_them(
-    tmp_path, monkeypatch, isolated_solvers
-) -> None:
-    seen = _install(monkeypatch, isolated_solvers)
-    solver_run = _solved_in(tmp_path)
-
-    cleanup_solver_outputs(
-        ctx=_context(solver_run=solver_run), retention=retention(solver_files=True)
-    )
-
-    assert (solver_run.output_dir / "model.hds").exists()
-    assert seen.cleaned == []
-
-
-def test_a_run_with_no_solver_run_has_nothing_to_clean(monkeypatch, isolated_solvers) -> None:
+def test_nothing_to_clean(monkeypatch, isolated_solvers) -> None:
     seen = _install(monkeypatch, isolated_solvers)
 
     cleanup_solver_outputs(ctx=_context(), retention=keep_all)
@@ -211,9 +193,7 @@ def test_a_run_with_no_solver_run_has_nothing_to_clean(monkeypatch, isolated_sol
     assert seen.cleaned == []
 
 
-def test_a_failing_cleanup_is_logged_and_does_not_stop_the_run(
-    tmp_path, monkeypatch, isolated_solvers
-) -> None:
+def test_failing_cleanup_ignored(tmp_path, monkeypatch, isolated_solvers) -> None:
     def cleanup(self, solver_run: SolverRun) -> None:
         raise OSError("locked")
 
@@ -226,7 +206,7 @@ def _derived(*, model: Any) -> RunContext:
     return _context(solver_run=SolverRun(slot=RunSlot(Path("scratch"), "island"), model=model))
 
 
-def test_derive_writes_the_drain_band_of_the_model(monkeypatch, isolated_solvers) -> None:
+def test_derive_drain_band(monkeypatch, isolated_solvers) -> None:
     _install(monkeypatch, isolated_solvers)
     store = _Store()
     model = make_model(
@@ -271,7 +251,7 @@ def test_a_lumped_backend_skips_catchment_aggregation(monkeypatch, isolated_solv
 
 
 @pytest.mark.parametrize("case", ["no solver run", "a solver run without a Model"])
-def test_a_run_without_a_model_cannot_be_derived(case: str, monkeypatch, isolated_solvers) -> None:
+def test_derive_needs_a_model(case: str, monkeypatch, isolated_solvers) -> None:
     _install(monkeypatch, isolated_solvers)
     ctx = _context() if case == "no solver run" else _derived(model=None)
 
@@ -337,7 +317,7 @@ def _kept_context(tmp_path: Path, *, lake=None, outline: bool = True, lumped: bo
     return context, geographic, vertices, faces
 
 
-def test_the_run_keeps_the_open_water_the_outline_and_the_recharge_its_trials_read(
+def test_criterion_inputs_kept(
     tmp_path,
 ) -> None:
     store = _KeptStore(tmp_path)
@@ -355,7 +335,7 @@ def test_the_run_keeps_the_open_water_the_outline_and_the_recharge_its_trials_re
     assert kept == pytest.approx(2.0e-8)
 
 
-def test_a_run_without_an_outline_keeps_no_catchment_cells(tmp_path) -> None:
+def test_no_outline_no_catchment_cells(tmp_path) -> None:
     store = _KeptStore(tmp_path)
     ctx, *_ = _kept_context(tmp_path, outline=False)
 
@@ -365,7 +345,7 @@ def test_a_run_without_an_outline_keeps_no_catchment_cells(tmp_path) -> None:
     assert store.stored("catchment_cells") is None
 
 
-def test_a_run_with_no_cell_mesh_keeps_no_cell_mask(tmp_path) -> None:
+def test_no_mesh_no_cell_mask(tmp_path) -> None:
     store = _KeptStore(tmp_path)
     ctx, *_ = _kept_context(tmp_path, lumped=True)
 
@@ -375,7 +355,7 @@ def test_a_run_with_no_cell_mesh_keeps_no_cell_mask(tmp_path) -> None:
     assert store.stored("catchment_cells") is None
 
 
-def test_a_run_without_a_model_keeps_nothing(tmp_path) -> None:
+def test_no_model_keeps_nothing(tmp_path) -> None:
     store = _KeptStore(tmp_path)
 
     _keep_what_the_criterion_reads(ctx=_context(), sim_id=store.sim_id, store=store)
@@ -388,7 +368,7 @@ def _kept_recharge(store: _KeptStore) -> Any:
         return fields.root["forcing"].attrs.get(CRITERION_MEAN_RECHARGE_ATTR)
 
 
-def test_a_transport_run_of_the_same_store_leaves_the_kept_recharge_intact(tmp_path) -> None:
+def test_transport_keeps_recharge(tmp_path) -> None:
     store = _KeptStore(tmp_path)
     flow, *_ = _kept_context(tmp_path, lake=[3])
     _keep_what_the_criterion_reads(ctx=flow, sim_id=store.sim_id, store=store)
@@ -404,7 +384,7 @@ def test_a_transport_run_of_the_same_store_leaves_the_kept_recharge_intact(tmp_p
 
 
 @pytest.mark.parametrize("case", ["no_field_store", "save_zarr_off"])
-def test_a_run_that_keeps_no_field_store_gains_none(case: str, tmp_path) -> None:
+def test_no_field_store(case: str, tmp_path) -> None:
     opened: list[str] = []
     store = SimpleNamespace(
         sim_id="sim-12345678",
@@ -419,3 +399,37 @@ def test_a_run_that_keeps_no_field_store_gains_none(case: str, tmp_path) -> None
     _keep_what_the_criterion_reads(ctx=ctx, sim_id=store.sim_id, store=store)
 
     assert opened == []
+
+
+def triangular_planar_mesh() -> HydroMesh:
+    vertices = np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 5.0], [0.0, 5.0]], dtype=float)
+    connectivity = np.array([[0, 1, 2], [0, 2, 3]], dtype=int)
+    return HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.TRIANGLE, connectivity),))
+
+
+def test_grid_metadata_of_a_structured_mesh() -> None:
+    solver_mesh = SimpleNamespace(
+        n_cells=2, nlay=1, is_structured=True, planar_mesh=triangular_planar_mesh()
+    )
+
+    meta = _resolve_run_grid_metadata(SimpleNamespace(solver_mesh=solver_mesh))
+
+    assert meta["mesh_topology"] == "structured_2d"
+
+
+def test_no_grid_metadata() -> None:
+    assert _resolve_run_grid_metadata(SimpleNamespace()) is None
+
+
+def test_mesh_hash_of_a_polygon_mesh() -> None:
+    # A quad and a triangle: the -1 padding of the triangle row stays out of the hash,
+    # so a run keeps the hash the per-cell node arrays gave before the padded table.
+    vertices = np.array([[0, 0], [2, 0], [2, 2], [0, 2], [1, 3]], dtype=float)
+    cells = (np.array([0, 1, 2, 3]), np.array([3, 2, 4]))
+    planar = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),))
+    solver_mesh = SimpleNamespace(n_cells=2, nlay=1, is_structured=False, planar_mesh=planar)
+
+    meta = _resolve_run_grid_metadata(SimpleNamespace(solver_mesh=solver_mesh))
+
+    node_ids = b"".join(np.asarray(cell, dtype=np.int64).tobytes() for cell in cells)
+    assert meta["mesh_hash"] == hashlib.sha256(vertices.tobytes() + node_ids).hexdigest()

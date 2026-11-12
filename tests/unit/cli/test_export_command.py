@@ -29,7 +29,7 @@ from tests._helpers.run_stores import RUN_NAME, seal_demo_run
 
 @pytest.fixture
 def workspace(tmp_path: Path) -> Path:
-    """A project holding one sealed monthly run named ``demo``, indexed."""
+    # One sealed monthly run named demo, indexed.
     project = tmp_path / "project"
     seal_demo_run(project)
     return project
@@ -43,7 +43,7 @@ def _invoke(*args: str):
     return CliRunner().invoke(["export", *args])
 
 
-def test_the_list_prints_what_the_run_can_export_by_kind(workspace: Path) -> None:
+def test_list(workspace: Path) -> None:
     result = _invoke("demo", "--list", "-w", str(workspace))
 
     assert result.exit_code == 0, result.stderr
@@ -57,7 +57,7 @@ def test_the_list_prints_what_the_run_can_export_by_kind(workspace: Path) -> Non
     assert not _exports(workspace).exists()
 
 
-def test_a_field_at_a_date_is_written_and_named(workspace: Path) -> None:
+def test_field_at_a_date(workspace: Path) -> None:
     result = _invoke("demo", "head", "--time", "2000-02-15", "-w", str(workspace))
 
     assert result.exit_code == 0, result.stderr
@@ -71,7 +71,7 @@ def test_a_field_at_a_date_is_written_and_named(workspace: Path) -> None:
     ]
 
 
-def test_several_times_and_a_format_write_one_file_per_date(workspace: Path) -> None:
+def test_several_times_and_a_format(workspace: Path) -> None:
     result = _invoke(
         "demo", "head", "--time", "first", "last", "--as", "geopackage", "-w", str(workspace)
     )
@@ -83,7 +83,7 @@ def test_several_times_and_a_format_write_one_file_per_date(workspace: Path) -> 
     ]
 
 
-def test_a_period_and_a_folder_are_honoured(workspace: Path) -> None:
+def test_period_and_folder(workspace: Path) -> None:
     result = _invoke(
         "demo",
         "discharge",
@@ -103,7 +103,7 @@ def test_a_period_and_a_folder_are_honoured(workspace: Path) -> None:
     assert frame["datetime"].tolist() == ["2000-03-01 00:00:00", "2000-04-01 00:00:00"]
 
 
-def test_a_file_with_a_crs_is_reprojected(workspace: Path) -> None:
+def test_reprojected_file(workspace: Path) -> None:
     import rasterio
 
     result = _invoke(
@@ -116,7 +116,7 @@ def test_a_file_with_a_crs_is_reprojected(workspace: Path) -> None:
         assert src.crs.to_epsg() == 4326
 
 
-def test_an_absolute_file_is_refused_with_hmp_publish(workspace: Path, tmp_path: Path) -> None:
+def test_absolute_file_refused(workspace: Path, tmp_path: Path) -> None:
     result = _invoke(
         "demo", "head", "--time", "last", "--to", str(tmp_path / "h.tif"), "-w", str(workspace),
     )  # fmt: skip
@@ -126,7 +126,7 @@ def test_an_absolute_file_is_refused_with_hmp_publish(workspace: Path, tmp_path:
     assert not (tmp_path / "h.tif").exists()
 
 
-def test_regen_writes_again_what_the_ledger_records(workspace: Path) -> None:
+def test_regen(workspace: Path) -> None:
     first = _invoke("demo", "head", "--time", "last", "-w", str(workspace))
     assert first.exit_code == 0, first.stderr
     written = _exports(workspace) / "head_last.tif"
@@ -139,7 +139,7 @@ def test_regen_writes_again_what_the_ledger_records(workspace: Path) -> None:
     assert written.is_file()
 
 
-def test_regen_names_the_ledger_and_says_when_it_records_nothing(workspace: Path) -> None:
+def test_regen_with_empty_ledger(workspace: Path) -> None:
     assert _invoke("demo", "--regen", "-w", str(workspace)).exit_code != 0
     assert "no export and no figure" in _invoke("demo", "--regen", "-w", str(workspace)).stderr
     assert "records no figure" in _invoke("demo", "--regen", "figures", "-w", str(workspace)).stderr
@@ -154,18 +154,18 @@ def test_regen_names_the_ledger_and_says_when_it_records_nothing(workspace: Path
         ("maps/watertable.tif", (None, "maps/watertable.tif")),
     ],
 )
-def test_to_is_a_file_when_it_has_an_extension(to, expected) -> None:
+def test_destination(to, expected) -> None:
     assert _destination(to) == expected
 
 
-def test_nothing_named_is_a_usage_error(workspace: Path) -> None:
+def test_nothing_named(workspace: Path) -> None:
     result = _invoke("demo", "-w", str(workspace))
 
     assert result.exit_code == 2
     assert "--list" in result.stderr
 
 
-def test_a_name_the_run_does_not_hold_is_refused_with_what_it_holds(workspace: Path) -> None:
+def test_name_the_run_lacks(workspace: Path) -> None:
     result = _invoke("demo", "watershed_contour", "-w", str(workspace))
 
     assert result.exit_code == 1
@@ -174,8 +174,8 @@ def test_a_name_the_run_does_not_hold_is_refused_with_what_it_holds(workspace: P
     assert not _exports(workspace).exists()
 
 
-def test_the_layers_a_run_holds_are_read_from_its_directory(workspace: Path) -> None:
-    """The index is not asked: a layer whose file is gone is not held any more."""
+def test_layers_read_from_the_directory(workspace: Path) -> None:
+    # The index is not asked: a layer whose file is gone is not held any more.
     tables = workspace / "runs" / RUN_NAME / "tables.parquet"
     (tables / "geographic_watershed.parquet").unlink()
 
@@ -185,13 +185,13 @@ def test_the_layers_a_run_holds_are_read_from_its_directory(workspace: Path) -> 
     assert "holds no 'watershed'" in result.stderr
 
 
-def test_an_unknown_run_is_not_found(workspace: Path) -> None:
+def test_unknown_run(workspace: Path) -> None:
     result = _invoke("nosuchrun", "head", "-w", str(workspace))
 
     assert result.exit_code == 10
 
 
-def test_a_request_the_model_refuses_is_refused_before_writing(workspace: Path) -> None:
+def test_request_refused_before_writing(workspace: Path) -> None:
     result = _invoke(
         "demo", "head", "--time", "last", "--period", "2000-01-01", "2000-02-01",
         "-w", str(workspace),
@@ -201,7 +201,7 @@ def test_a_request_the_model_refuses_is_refused_before_writing(workspace: Path) 
     assert "time and period are both given" in result.stderr
 
 
-def test_an_unknown_as_format_is_refused_with_the_candidates(workspace: Path) -> None:
+def test_unknown_format(workspace: Path) -> None:
     result = _invoke("demo", "head", "--time", "last", "--as", "datapackage", "-w", str(workspace))
     assert result.exit_code != 0
     message = result.stderr
@@ -240,7 +240,7 @@ def test_an_unknown_as_format_is_refused_with_the_candidates(workspace: Path) ->
         "nodata",
     ],
 )
-def test_deliver_takes_no_other_word(workspace: Path, words: list[str]) -> None:
+def test_deliver_alone(workspace: Path, words: list[str]) -> None:
     result = _invoke("demo", "--deliver", *words, "-w", str(workspace))
 
     assert result.exit_code == 2
@@ -248,13 +248,12 @@ def test_deliver_takes_no_other_word(workspace: Path, words: list[str]) -> None:
 
 
 def _freeze_config(workspace: Path, extra: str = "") -> None:
-    """Write the ``config.toml`` a seal freezes, with no ``[[export]]`` block by default."""
     (workspace / "runs" / RUN_NAME / "config.toml").write_text(
         f"[workspace]\n{extra}", encoding="utf-8"
     )
 
 
-def test_deliver_without_a_destination_delivers_nothing(workspace: Path) -> None:
+def test_deliver_without_destination(workspace: Path) -> None:
     _freeze_config(workspace)
 
     result = _invoke("demo", "--deliver", "-w", str(workspace))
@@ -264,7 +263,7 @@ def test_deliver_without_a_destination_delivers_nothing(workspace: Path) -> None
     assert "Delivered 0 of 0 file(s)" in result.stderr
 
 
-def test_deliver_json_holds_the_lines_of_the_run(workspace: Path) -> None:
+def test_deliver_json(workspace: Path) -> None:
     _freeze_config(workspace)
 
     result = _invoke("demo", "--deliver", "--format", "json", "-w", str(workspace))
@@ -276,9 +275,7 @@ def test_deliver_json_holds_the_lines_of_the_run(workspace: Path) -> None:
     }
 
 
-def test_a_delivered_file_is_listed_and_counted(
-    workspace: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_delivered_file(workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     line = _delivery_line("delivered")
     seen: dict = {}
 
@@ -299,9 +296,7 @@ def test_a_delivered_file_is_listed_and_counted(
     assert "Delivered 1 of 1 file(s)" in result.stderr
 
 
-def test_a_failed_delivery_says_the_file_and_leaves_with_one(
-    workspace: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_failed_delivery(workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     line = _delivery_line("failed", error="the server did not answer")
     monkeypatch.setattr("hydromodpy.project.api.export", lambda run, **kwargs: (line,))
 
@@ -336,5 +331,5 @@ def _delivery_line(state: str, *, error: str | None = None) -> PublishedLine:
         ["catalog", "export", "x"],
     ],
 )
-def test_the_verbs_hmp_export_replaces_are_gone(argv: list[str]) -> None:
+def test_retired_verbs(argv: list[str]) -> None:
     assert CliRunner().invoke(argv).exit_code == 2

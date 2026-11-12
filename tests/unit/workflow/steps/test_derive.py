@@ -1,4 +1,9 @@
-"""The derive step."""
+"""The derive step writes no derived field, every one is rebuilt on read.
+
+It releases the solver models (the solver runs stay, without their model) and runs
+``derive_run_outputs`` once per solver-backed run. Then it scores the run under its
+metric rule and puts the rows and the headline NSE in the facts the seal reads.
+"""
 
 from __future__ import annotations
 
@@ -17,16 +22,8 @@ from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.derive import DeriveStep
 
-# --- test_derive_step ---
-# The derive step writes no derived field: every one is rebuilt on read.
-#
-# It releases the solver models (the solver runs stay, without their model) and runs ``derive_run_outputs`` once per
-# solver-backed run, which writes the drain band, the catchment aggregates and
-# the observation samples. Then it scores the run under its metric rule and puts
-# the rows and the headline NSE in the facts the seal reads.
 
-
-def _ctx(*, catalogued: bool, plan: SimulationPlan | None) -> SimpleNamespace:
+def make_ctx(*, catalogued: bool, plan: SimulationPlan | None) -> SimpleNamespace:
     results = ResultsConfig.model_validate({"persistence": {"save_catalog": catalogued}})
     execution = ExecutionRegistry(simulation_plan=plan, lightweight=False)
     execution.solver_runs["flow_main::modflow6"] = SolverRun(
@@ -44,7 +41,7 @@ def _ctx(*, catalogued: bool, plan: SimulationPlan | None) -> SimpleNamespace:
     )
 
 
-def _plan() -> SimulationPlan:
+def make_plan() -> SimulationPlan:
     runs = (
         ProcessRun(
             id="mesh::catchment", process_id="mesh", process_type="mesh", solver="catchment"
@@ -56,7 +53,7 @@ def _plan() -> SimulationPlan:
     return SimulationPlan(name="run", description="run", runs=runs)
 
 
-def test_derive_step_runs_the_post_run_derivation_once_per_solver_run(monkeypatch) -> None:
+def test_derivation_runs_once_per_solver_run(monkeypatch) -> None:
     calls: list[dict] = []
 
     @contextmanager
@@ -74,7 +71,7 @@ def test_derive_step_runs_the_post_run_derivation_once_per_solver_run(monkeypatc
         "score_run_under_its_rule",
         lambda cfg, *, store: scored.append((cfg, store)),
     )
-    ctx = _ctx(catalogued=True, plan=_plan())
+    ctx = make_ctx(catalogued=True, plan=make_plan())
     series: list[tuple] = []
     monkeypatch.setattr(
         "hydromodpy.calibration.runners.promotion.write_station_series",
@@ -108,7 +105,7 @@ def test_derive_step_runs_the_post_run_derivation_once_per_solver_run(monkeypatc
     assert "derived_names" not in out.data
 
 
-def test_without_a_window_the_headline_is_empty_and_says_so(tmp_path) -> None:
+def test_no_window_gives_an_empty_headline(tmp_path) -> None:
     from hydromodpy.core.site.config import SiteConfig
     from tests._helpers.run_stores import open_run_store
 
@@ -121,25 +118,25 @@ def test_without_a_window_the_headline_is_empty_and_says_so(tmp_path) -> None:
         assert store.facts.metrics == []
 
 
-def test_derive_step_without_ctx_raises() -> None:
+def test_step_needs_a_context() -> None:
     with pytest.raises(ConfigError, match="'ctx'"):
         DeriveStep().run(PipelineState(run_id="r", data={}))
 
 
-def test_derive_step_without_an_index_is_a_noop(monkeypatch) -> None:
+def test_run_without_a_store_is_a_noop(monkeypatch) -> None:
     def _fail(_ctx):
         raise AssertionError("a run that keeps no store opens none")
 
     monkeypatch.setattr(derive_module, "run_store", _fail)
-    ctx = _ctx(catalogued=False, plan=_plan())
+    ctx = make_ctx(catalogued=False, plan=make_plan())
 
     out = DeriveStep().run(PipelineState(run_id="r", data={"ctx": ctx}))
 
     assert out.step_name == "derive"
 
 
-def test_derive_step_rebuild_lists_nothing() -> None:
-    ctx = _ctx(catalogued=True, plan=_plan())
+def test_rebuild_lists_nothing() -> None:
+    ctx = make_ctx(catalogued=True, plan=make_plan())
     prior = PipelineState(run_id="r", step_index=3, data={"ctx": ctx})
 
     out = DeriveStep().rebuild_state(prior_state=prior, workspace=None, run_id="r")

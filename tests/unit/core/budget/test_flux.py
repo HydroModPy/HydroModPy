@@ -1,21 +1,25 @@
-"""Per-cell budget fluxes: sign, outflow, drains with mover, release and seepage.
+"""Per-cell budget fluxes (m3/s): outflow, drains with mover, release and seepage.
 
-Every solver gives a per-cell flux the MODFLOW sign: negative where water leaves
-the aquifer, positive where it enters. An outflow is therefore never negative,
-and a stack of periods is the sum of its periods.
+Every solver gives a per-cell flux in the MODFLOW sign, negative where water leaves
+the aquifer. An outflow is never negative and a stack of periods is the sum of its periods.
+A Boussinesq store without budget/surface_excess falls back to water table >= surface,
+which over-reports seepage, so that fallback warns.
 """
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
 
+import hydromodpy.core.budget.flux as budget_flux
 from hydromodpy.core.budget.flux import (
     _NO_FLUX_BELOW,
     RELEASE_BUDGET_KEYS,
+    SURFACE_EXCESS_STATE_GROUP,
     _outflow_from_signed,
     budget_outflow,
     budget_outflow_stack,
@@ -28,6 +32,7 @@ from hydromodpy.core.budget.flux import (
     release_flux_stack,
     seepage_mask,
     select_budget_zone,
+    warn_on_geometric_seepage_fallback,
 )
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.scope import CATCHMENT, DOMAIN
@@ -41,8 +46,6 @@ from hydromodpy.solver.modflow_common.calibration_extractors import (
     _positive_release_by_cell,
 )
 from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
-
-# ------------------------------------------------------------------ zones
 
 
 def _zones(*zones: str) -> pd.DataFrame:
@@ -59,13 +62,10 @@ def _zones(*zones: str) -> pd.DataFrame:
     ],
     ids=["catchment-wins", "domain-only", "unknown-zone", "no-zone-column"],
 )
-def test_the_catchment_rows_win_over_the_domain_so_water_is_not_counted_twice(frame, rows, label):
+def test_catchment_rows_win_over_domain(frame, rows, label):
     chosen, said = select_budget_zone(frame)
     assert chosen["value"].tolist() == [frame["value"].tolist()[i] for i in rows]
     assert said == label
-
-
-# -------------------------------------------------------- routed drainage
 
 
 def _model(active, networks):
@@ -103,17 +103,14 @@ def _model(active, networks):
         "bare",
     ],
 )
-def test_only_an_active_sfr_network_that_keeps_routing_takes_the_drainage(model, routes):
+def test_sfr_network_takes_drainage(model, routes):
     assert networks_route_drainage(model) is routes
 
 
-def test_a_drain_key_is_found_in_a_mapping_and_not_in_what_cannot_be_searched():
+def test_drain_budget_key():
     assert find_drain_budget_key({"drain": 1}) == "drain"
     assert find_drain_budget_key({"stream": 1}) is None
     assert find_drain_budget_key(5) is None
-
-
-# ------------------------------------------------------------ outflow
 
 
 @pytest.mark.parametrize(
@@ -125,20 +122,23 @@ def test_a_drain_key_is_found_in_a_mapping_and_not_in_what_cannot_be_searched():
         ([[-1.0, -2.0], [-3.0, 4.0]], None, [4.0, 2.0]),
         ([-1.0, 2.0], None, [1.0, 0.0]),
         ([np.nan, -9999.0, 1.0, -5.0], 4, [0.0, 0.0, 0.0, 5.0]),
+        (-2.5, None, [2.5]),  # a scalar is one cell
     ],
-    ids=["one-layer", "two-layers", "flat", "no-n_cells-2d", "no-n_cells-1d", "missing-values"],
+    ids=[
+        "one-layer",
+        "two-layers",
+        "flat",
+        "no-n_cells-2d",
+        "no-n_cells-1d",
+        "missing-values",
+        "scalar",
+    ],
 )
-def test_the_outflow_of_a_step_is_the_water_that_leaves_and_adds_nothing_when_it_enters(
-    signed, n_cells, expected
-):
+def test_outflow_of_a_step(signed, n_cells, expected):
     assert budget_outflow(np.array(signed), n_cells=n_cells).tolist() == expected
 
 
-def test_a_scalar_budget_is_one_cell():
-    assert budget_outflow(-2.5).tolist() == [2.5]
-
-
-def test_a_three_dimensional_step_keeps_its_first_axis_summed_and_loses_no_water():
+def test_outflow_of_a_3d_step():
     field = -np.ones((2, 3, 4))
     out = budget_outflow(field)
     assert out.shape == (12,)
@@ -146,7 +146,7 @@ def test_a_three_dimensional_step_keeps_its_first_axis_summed_and_loses_no_water
 
 
 @pytest.mark.parametrize("seed", range(5))
-def test_an_outflow_is_never_negative_and_never_exceeds_the_water_leaving(seed):
+def test_outflow_is_never_negative(seed):
     rng = np.random.default_rng(seed)
     signed = rng.normal(size=(4, 3, 7))
     out = budget_outflow_stack(signed, n_cells=7)
@@ -155,7 +155,7 @@ def test_an_outflow_is_never_negative_and_never_exceeds_the_water_leaving(seed):
     assert out.sum() == pytest.approx(-signed[signed < 0].sum())
 
 
-def test_a_stack_of_periods_is_the_per_period_outflow_stacked():
+def test_stack_is_per_period_outflow():
     rng = np.random.default_rng(0)
     signed = rng.normal(size=(5, 2, 6))
     stack = budget_outflow_stack(signed, n_cells=6)
@@ -163,13 +163,10 @@ def test_a_stack_of_periods_is_the_per_period_outflow_stacked():
         np.testing.assert_allclose(stack[t], budget_outflow(signed[t], n_cells=6))
 
 
-def test_an_empty_stack_gives_zeros_and_a_wrong_rank_is_refused():
+def test_empty_stack_and_wrong_rank():
     assert budget_outflow_stack(np.empty((3, 0, 0)), n_cells=4).tolist() == [[0.0] * 4] * 3
     with pytest.raises(ValueError, match="Expected a"):
         budget_outflow_stack(np.zeros(5), n_cells=5)
-
-
-# ------------------------------------------------------ drain and mover
 
 
 @pytest.mark.parametrize(
@@ -186,22 +183,19 @@ def test_an_empty_stack_gives_zeros_and_a_wrong_rank_is_refused():
     ],
     ids=["drain-only", "mover-only", "shape-mismatch-keeps-drain", "neither"],
 )
-def test_the_drain_stack_uses_what_the_store_holds(budget, key, expected):
+def test_drain_stack_from_store(budget, key, expected):
     got = drain_stack_with_mover(budget, key, 0, 1)
     assert (got is None) if expected is None else got.tolist() == expected
 
 
-# ------------------------------------------------------------ release
-
-
-def test_the_release_keys_hold_the_drain_the_mover_and_the_surface_paths():
+def test_release_keys():
     assert {"drain", "drain_to_mover", "stream", "lake", "surface_excess"} <= set(
         RELEASE_BUDGET_KEYS
     )
     assert "constant_head" not in RELEASE_BUDGET_KEYS  # an ocean is not a release to the surface
 
 
-def test_the_release_is_the_sum_of_every_path_out_and_nothing_enters():
+def test_release_sums_paths_out():
     budget = {
         "drain": np.array([[-1.0, 0.0, 0.0]]),
         "drain_to_mover": np.array([[-0.5, 0.0, 0.0]]),
@@ -215,7 +209,7 @@ def test_the_release_is_the_sum_of_every_path_out_and_nothing_enters():
     np.testing.assert_allclose(got, [[1.5, 2.25, 3.0]])
 
 
-def test_a_slice_of_the_release_is_the_release_over_that_slice():
+def test_release_slice():
     rng = np.random.default_rng(1)
     budget = {"drain": rng.normal(size=(6, 1, 4)), "stream": rng.normal(size=(6, 1, 4))}
     whole = release_flux_stack(budget, n_cells=4, start=0, stop=6)
@@ -225,23 +219,17 @@ def test_a_slice_of_the_release_is_the_release_over_that_slice():
     assert np.isfinite(whole).all()
 
 
-def test_an_empty_slice_is_an_empty_stack_and_no_path_at_all_is_refused():
+def test_release_empty_slice_and_no_path():
     budget = {"drain": np.zeros((3, 1, 2))}
     assert release_flux_stack(budget, n_cells=2, start=2, stop=2).shape == (0, 2)
     with pytest.raises(KeyError, match="No release budget field"):
         release_flux_stack({"recharge": np.zeros((1, 2))}, n_cells=2, start=0, stop=1)
 
 
-# ----------------------------------------------------------------- seepage
-
-
-def test_a_mask_without_surface_excess_needs_both_water_table_and_topography():
+def test_seepage_mask_refusals():
     for kwargs in ({}, {"watertable": np.zeros(2)}, {"topography": np.zeros(2)}):
         with pytest.raises(ValueError, match="needs either surface_excess"):
             seepage_mask(**kwargs)
-
-
-# ------------------------------------------------------------- drain band
 
 
 class _Root:
@@ -262,15 +250,12 @@ class _Root:
     ],
     ids=["band", "absent", "negative", "nan", "inf", "no-attrs", "attrs-none"],
 )
-def test_the_drain_band_is_read_back_from_the_store_and_zero_when_unusable(root, depth):
+def test_drain_band_depth_of_store(root, depth):
     assert drain_band_depth(root) == depth
 
 
-# ------------------------------------------------------------------ water table
-
-
-def test_first_finite_layer_takes_the_topmost_finite_layer_of_each_column() -> None:
-    """A dry cell of the top layer reads the first layer below that is finite."""
+def test_first_finite_layer() -> None:
+    # A dry cell of the top layer reads the first finite layer below it.
     head = np.array(
         [
             [
@@ -284,8 +269,7 @@ def test_first_finite_layer_takes_the_topmost_finite_layer_of_each_column() -> N
     np.testing.assert_allclose(first_finite_layer(head), [[1.5, 5.0, np.nan]])
 
 
-# ``inflow_outflow`` splits each (layer, cell) element on its own. A positive
-# element enters, a negative one leaves, and both sums come back positive.
+# inflow_outflow splits each (layer, cell) element: positive enters, negative leaves.
 _T, _F = True, False
 
 
@@ -308,7 +292,7 @@ _T, _F = True, False
         pytest.param([[-1.0, -2.0], [3.0, -9999.0]], None, [0.0, 3.0], [3.0, 0.0], id="steps"),
     ],
 )
-def test_inflow_outflow_splits_each_element(stack, support, inflow, outflow) -> None:
+def test_inflow_outflow_split(stack, support, inflow, outflow) -> None:
     support = None if support is None else np.asarray(support)
     got_in, got_out = inflow_outflow(np.asarray(stack, dtype=float), support)
 
@@ -325,12 +309,12 @@ def test_inflow_outflow_splits_each_element(stack, support, inflow, outflow) -> 
     ],
     ids=["one_dim", "four_dim", "support_size"],
 )
-def test_inflow_outflow_refuses_a_shape_it_cannot_read(stack, support, match) -> None:
+def test_inflow_outflow_refusals(stack, support, match) -> None:
     with pytest.raises(ValueError, match=match):
         inflow_outflow(stack, support)
 
 
-def test_the_net_does_not_move_when_layers_are_split() -> None:
+def test_net_kept_when_layers_split() -> None:
     stack = np.array([[[1.0, -3.0], [-0.4, 2.0]]])
 
     inflow, outflow = inflow_outflow(stack)
@@ -338,8 +322,6 @@ def test_the_net_does_not_move_when_layers_are_split() -> None:
     assert inflow[0] - outflow[0] == pytest.approx(stack.sum())
     assert (inflow[0], outflow[0]) == pytest.approx((3.0, 3.4))
 
-
-# ------------------------------------------------------------------ sentinel and sign agreement
 
 # One row per value of a budget element: whether it holds a flux. An element at or below the
 # sentinel -9000 is no-data, never a flux, and so are NaN and the infinities.
@@ -357,7 +339,7 @@ _FLUX_ELEMENTS = [
 
 
 @pytest.mark.parametrize(("value", "holds_flux"), _FLUX_ELEMENTS)
-def test_an_element_at_or_below_the_sentinel_is_no_flux(value, holds_flux) -> None:
+def test_sentinel_is_no_flux(value, holds_flux) -> None:
     stack = np.array([[[value]]])
 
     inflow, outflow = inflow_outflow(stack)
@@ -531,10 +513,56 @@ _SITES = [
 
 @pytest.mark.parametrize("site", _SITES)
 @pytest.mark.parametrize(("signed", "outflow"), list(zip(_SIGNED, _OUTFLOW, strict=True)))
-def test_every_site_gives_the_outflow_of_the_core_budget_rule(
-    site, signed, outflow, tmp_path, monkeypatch
-) -> None:
+def test_every_site_same_outflow(site, signed, outflow, tmp_path, monkeypatch) -> None:
     result = site(signed, tmp_path=tmp_path, monkeypatch=monkeypatch)
 
     assert result == pytest.approx(outflow, abs=1e-18)
     assert result == pytest.approx(_from_flux_module(signed), abs=1e-18)
+
+
+def _records(root: object) -> list[logging.LogRecord]:
+    captured: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = captured.append  # type: ignore[method-assign]
+    budget_flux.logger.addHandler(handler)
+    try:
+        warn_on_geometric_seepage_fallback(root, sim_id="sim-123")
+    finally:
+        budget_flux.logger.removeHandler(handler)
+    return captured
+
+
+def test_fallback_warning() -> None:
+    captured = _records(_store(policy="consumers", kept_terms=["recharge"]))
+
+    assert [record.levelno for record in captured] == [logging.WARNING]
+    message = captured[0].getMessage()
+    assert "sim-123" in message
+    assert "surface_excess" in message
+    assert "[simulation.results] keep_per_cell_budget = true" in message
+    assert "spatial_fields" not in message
+
+
+def test_non_mapping_root_ignored() -> None:
+    assert _records(object()) == []
+
+
+def _store(**budget_attrs: object) -> dict[str, object]:
+    group = SimpleNamespace(attrs=dict(budget_attrs))
+    return {SURFACE_EXCESS_STATE_GROUP: object(), "budget": group}
+
+
+def test_consumers_store_message() -> None:
+    (record,) = _records(_store(policy="consumers", kept_terms=["drain", "recharge"]))
+
+    message = record.getMessage()
+    assert "(drain, recharge)" in message
+    assert "[simulation.results] keep_per_cell_budget = true" in message
+
+
+def test_all_store_message() -> None:
+    (record,) = _records(_store(policy="all", kept_terms=["recharge"]))
+
+    message = record.getMessage()
+    assert "produced no surface excess" in message
+    assert "keep_per_cell_budget" not in message

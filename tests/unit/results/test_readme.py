@@ -1,4 +1,6 @@
-"""The generated README says what the thing is and ends with the digest of its manifest."""
+"""Run and session READMEs: what the run is, what it does not give, what a replay costs (s, MiB),
+and the sha256 of the manifest they end with. No host, user or absolute path is named.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +21,7 @@ from hydromodpy.results.session.descriptor import (
 from hydromodpy.results.session.phase import FrozenValue, PhaseDescriptor
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine
 from hydromodpy.results.validity_rules import LabelResult, Reason, label_for, run_quantities
-from hydromodpy.schema.lineage import Lineage
+from hydromodpy.schema.lineage import Lineage, Replay, ReplayDifference
 from tests._helpers.run_records import NOW, make_record
 from tests._helpers.session_documents import best_trial, session_descriptor, trial_line
 
@@ -45,7 +47,7 @@ def _outcome() -> Outcome:
     )
 
 
-def test_the_run_readme_says_site_period_version_checks_label_and_score(tmp_path):
+def test_run_readme(tmp_path):
     record = make_record()
     record.write(tmp_path)
     digest = manifest_sha256(tmp_path)
@@ -66,7 +68,7 @@ def test_the_run_readme_says_site_period_version_checks_label_and_score(tmp_path
     assert text.rstrip().endswith(f"sha256(manifest.json) = {digest}")
 
 
-def test_the_run_readme_names_no_host_user_or_absolute_path(tmp_path):
+def test_run_readme_names_no_machine(tmp_path):
     record = make_record()
     record.write(tmp_path)
 
@@ -130,7 +132,7 @@ NO_PARTICLES = "- A residence time: the run has no particle tracking."
         ),
     ],
 )
-def test_the_run_readme_says_what_the_run_does_not_give(period, regime, stored, expected) -> None:
+def test_what_the_run_does_not_give(period, regime, stored, expected) -> None:
     record = make_record()
     record = record.model_copy(
         update={
@@ -172,9 +174,7 @@ def test_the_run_readme_says_what_the_run_does_not_give(period, regime, stored, 
         ),
     ],
 )
-def test_the_run_readme_gives_the_face_flow_setting_only_when_it_works(
-    writes_face_flow, lineage_kind, expected
-) -> None:
+def test_face_flow_line(writes_face_flow, lineage_kind, expected) -> None:
     record = make_record()
     record = record.model_copy(update={"lineage": Lineage(kind=lineage_kind)})
 
@@ -191,7 +191,7 @@ def test_the_run_readme_gives_the_face_flow_setting_only_when_it_works(
     assert flow_lines == [expected]
 
 
-def test_the_setting_the_run_readme_names_is_a_key_of_the_configuration() -> None:
+def test_face_flow_setting_is_a_config_key() -> None:
     found = re.search(r"Set `(\w+) = true` under `\[([\w.]+)\]`", NO_FLOW)
     assert found is not None
     setting, table = found.groups()
@@ -202,7 +202,7 @@ def test_the_setting_the_run_readme_names_is_a_key_of_the_configuration() -> Non
     assert model.model_fields[setting].annotation is bool
 
 
-def test_the_label_of_the_day_is_the_one_rendered(tmp_path):
+def test_label_rendered(tmp_path):
     record = make_record()
     result = label_for(
         record.checks, hydromodpy_version="2.0.0a4", quantities=run_quantities(solver="modflow6")
@@ -253,7 +253,7 @@ def _replay_text(profile: Profile | None) -> str:
                 _line("solve", "flow_main::modflow6", 8.5, attempt=2),
             ),
             "A replay of this run computes 2 steps in 10.0 s, 8.5 s of it in the solve.",
-            id="a_resumed_run_counts_each_step_once_and_not_the_rebuilt_ones",
+            id="a_resumed_run_counts_each_step_once",
         ),
         pytest.param(
             (_line("step", "build_mesh", 600.0), _line("step", "run_solver", 7500.0)),
@@ -272,20 +272,20 @@ def _replay_text(profile: Profile | None) -> str:
         ),
     ],
 )
-def test_the_run_readme_says_what_a_replay_costs(lines, expected) -> None:
+def test_replay_cost(lines, expected) -> None:
     text = _replay_text(Profile(lines=lines))
 
     assert expected in text
     assert "`profile.json`, measured on the machine that ran it." in text
 
 
-def test_a_step_read_from_the_store_says_a_replay_on_an_empty_store_is_longer() -> None:
+def test_replay_cost_on_an_empty_store() -> None:
     profile = Profile(lines=(_line("step", "build_geographic", 0.4, reused="store", key="t/ab"),))
 
     assert "A replay on an empty store computes them too" in _replay_text(profile)
 
 
-def test_the_session_readme_names_the_method_phases_best_trial_and_promoted_run():
+def test_session_readme():
     descriptor = session_descriptor(
         "J0014010-calage",
         site="J0014010",
@@ -341,14 +341,10 @@ def test_the_session_readme_names_the_method_phases_best_trial_and_promoted_run(
 
 
 def _replay_lineage(**fields):
-    from hydromodpy.schema.lineage import Lineage, Replay
-
     return Lineage(kind="replay", replay=Replay(**fields))
 
 
-def test_the_lineage_of_a_replay_names_its_source_its_basis_and_what_moved():
-    from hydromodpy.schema.lineage import ReplayDifference
-
+def test_replay_lineage():
     record = make_record(
         lineage=_replay_lineage(
             of="9a4f" * 8,
@@ -366,7 +362,7 @@ def test_the_lineage_of_a_replay_names_its_source_its_basis_and_what_moved():
     assert "moved: `fields/head`" in text
 
 
-def test_a_replay_without_a_basis_states_no_class():
+def test_replay_lineage_without_a_basis():
     record = make_record(
         lineage=_replay_lineage(
             of="9a4f" * 8,

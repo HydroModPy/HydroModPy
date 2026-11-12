@@ -41,9 +41,7 @@ def _read(tmp_path, *, crs=LAMBERT):
     )
 
 
-def test_every_long_lat_is_longitude_then_latitude_and_no_geocoder_is_asked(
-    tmp_path, network_attempts
-) -> None:
+def test_long_lat_corners_offline(tmp_path, network_attempts) -> None:
     meta = _read(tmp_path)
     longitude, latitude = meta.centroid_long_lat
     assert longitude == pytest.approx(-2.83, abs=0.01)
@@ -56,7 +54,7 @@ def test_every_long_lat_is_longitude_then_latitude_and_no_geocoder_is_asked(
 
 
 @pytest.mark.parametrize("crs", [None, "not-a-crs"])
-def test_without_a_usable_crs_there_is_no_wgs84_corner(tmp_path, crs) -> None:
+def test_no_crs_no_wgs84_corner(tmp_path, crs) -> None:
     meta = _read(tmp_path, crs=crs)
     assert meta.centroid_long_lat is None
     assert "centroid_long_lat" not in meta.runtime_attributes()

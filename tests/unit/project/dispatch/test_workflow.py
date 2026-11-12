@@ -1,36 +1,26 @@
-"""The workflow dispatch routes a workflow name to its adapter and gives back sealed identical runs.
+"""Dispatch of a workflow name to its adapter (simulation, overview, calibration).
 
-A plain ``hmp run`` that is identical to a completed run gives that run back, read from the
-manifests under ``runs/`` (no index is opened). The run is told by its solution key, sealed as
-``identity.solution_key``: the request, the digest and state of its inputs, the code, the solver
-binaries and the numeric packages.
+A plain run identical to a completed run gives that run back, found by its sealed
+solution key in the manifests under runs/. A run is delivered to its destinations
+whether it was computed or given back. A calibration delivers only the runs it promoted.
 """
 
 from __future__ import annotations
 
 import hashlib
-import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Annotated, Any
+from typing import Any
 
 import pytest
-from pydantic import BaseModel
 
 import hydromodpy.project.facade as facade
 from hydromodpy.core.exceptions import CalibrationError, ConfigError
-from hydromodpy.core.state.result_dirs import run_dir_rel
 from hydromodpy.core.state.scratch import active_run_scratch
-from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.project.dispatch import workflow as wf
 from hydromodpy.project.request import RunOutcome, RunRequest
 from hydromodpy.results.publication import PublishedLine
-from hydromodpy.results.record.manifest import ManifestConfig, ManifestRun
-from hydromodpy.results.record.request_identity import request_id, solution_key
-from tests._helpers.run_records import make_identity, make_record
-
-EDITION = "2.0"
 
 
 class _FakeRunner:
@@ -108,12 +98,12 @@ def fake_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> type[_FakeP
     return _FakeProject
 
 
-def test_dispatch_workflow_refuses_an_unknown_workflow(tmp_path: Path) -> None:
+def test_unknown_workflow_refused(tmp_path: Path) -> None:
     with pytest.raises(KeyError, match="nonsense"):
         wf.dispatch_workflow("nonsense", _request(), base=tmp_path)
 
 
-def test_the_dispatch_table_names_the_three_adapters() -> None:
+def test_dispatch_table() -> None:
     assert wf.DISPATCH == {
         "simulation": wf.run_simulation,
         "overview": wf.run_overview,
@@ -122,13 +112,12 @@ def test_the_dispatch_table_names_the_three_adapters() -> None:
 
 
 @pytest.mark.parametrize("identical_to", [None, "case"], ids=["computed", "given back"])
-def test_run_simulation_hands_on_the_mesh_summary_of_a_run_that_built_its_mesh(
+def test_mesh_summary_of_a_built_run(
     fake_project: type[_FakeProject],
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     identical_to: str | None,
 ) -> None:
-    """The summary lives in process memory only; a run given back computed nothing."""
     summary = {"engine": "gmsh", "product_key": "k1"}
     fake_project.result = RunOutcome(
         name="case",
@@ -157,7 +146,7 @@ def test_run_simulation_hands_on_the_mesh_summary_of_a_run_that_built_its_mesh(
     [{"resume": "r1"}, {"from_step": "extract"}, {"until_step": "run_solver"}],
     ids=["resume", "from_step", "until_step"],
 )
-def test_run_simulation_partial_runs_never_look_for_an_identical_run(
+def test_partial_run_skips_identical_lookup(
     members: dict[str, str], fake_project: type[_FakeProject], tmp_path: Path
 ) -> None:
     wf.run_simulation(_request(**members), base=tmp_path)
@@ -165,7 +154,7 @@ def test_run_simulation_partial_runs_never_look_for_an_identical_run(
     assert fake_project.instances[0].executed[0]["skip_identical"] is False
 
 
-def test_run_simulation_never_skips_a_run_that_has_no_name(
+def test_unnamed_run_skips_identical_lookup(
     fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(wf, "_loaded", lambda request, base: _cfg(Path(base), name=None))
@@ -175,9 +164,7 @@ def test_run_simulation_never_skips_a_run_that_has_no_name(
     assert fake_project.instances[0].executed[0]["skip_identical"] is False
 
 
-def test_run_simulation_refuses_a_run_name_that_breaks_the_rule_before_any_project(
-    fake_project: type[_FakeProject], tmp_path: Path
-) -> None:
+def test_bad_run_name_refused_first(fake_project: type[_FakeProject], tmp_path: Path) -> None:
     request = RunRequest.model_construct(
         config={}, name="Two Words", resume=None, set={}, overlays=(), form="dict"
     )
@@ -186,9 +173,7 @@ def test_run_simulation_refuses_a_run_name_that_breaks_the_rule_before_any_proje
     assert fake_project.instances == []
 
 
-def test_a_bare_resume_continues_the_run_the_request_names(
-    fake_project: type[_FakeProject], tmp_path: Path
-) -> None:
+def test_bare_resume_takes_config_name(fake_project: type[_FakeProject], tmp_path: Path) -> None:
     """The name comes from ``[simulation] name``, which a file folds from its stem."""
     wf.run_simulation(_request(resume=""), base=tmp_path)
 
@@ -197,7 +182,7 @@ def test_a_bare_resume_continues_the_run_the_request_names(
     assert executed["request"].resume == "case"
 
 
-def test_a_bare_resume_of_a_request_that_names_no_run_is_refused(
+def test_bare_resume_without_name_refused(
     fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(wf, "_loaded", lambda request, base: _cfg(Path(base), name=None))
@@ -207,16 +192,12 @@ def test_a_bare_resume_of_a_request_that_names_no_run_is_refused(
     assert fake_project.instances == []
 
 
-def test_run_simulation_returns_nothing_when_no_run_was_made(
-    fake_project: type[_FakeProject], tmp_path: Path
-) -> None:
+def test_no_run_gives_none(fake_project: type[_FakeProject], tmp_path: Path) -> None:
     fake_project.result = None
     assert wf.run_simulation(_request(), base=tmp_path) is None
 
 
-def test_a_replay_that_was_given_back_as_identical_comes_back_untouched(
-    fake_project: type[_FakeProject], tmp_path: Path
-) -> None:
+def test_replay_outcome_untouched(fake_project: type[_FakeProject], tmp_path: Path) -> None:
     fake_project.result = SimpleNamespace(
         name="case", sim_id="s", run_dir=Path("/r/case"), status="completed", identical_to="case"
     )
@@ -227,7 +208,7 @@ def test_a_replay_that_was_given_back_as_identical_comes_back_untouched(
     assert fake_project.instances[0].executed[0]["replay_of"] == tmp_path / "copy"
 
 
-def test_mesh_summary_is_given_only_when_the_plan_runs_a_mesh_process() -> None:
+def test_mesh_summary_needs_mesh_process() -> None:
     def project(process_types: list[str], summary: Any) -> SimpleNamespace:
         runs = [SimpleNamespace(process_type=p) for p in process_types]
         ctx = SimpleNamespace(
@@ -286,10 +267,9 @@ def _published_line() -> PublishedLine:
     )
 
 
-def test_deliver_to_is_checked_before_the_claim(
+def test_deliver_to_checked_before_claim(
     fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """One probe covers every window, and a refused destination builds no project."""
     blocks = [_deliver_to_block()]
     monkeypatch.setattr(wf, "_loaded", lambda request, base: _cfg(Path(base), export=blocks))
     seen = _preflight_spy(monkeypatch)
@@ -301,10 +281,9 @@ def test_deliver_to_is_checked_before_the_claim(
     assert fake_project.instances[0].executed
 
 
-def test_a_replay_checks_no_destination(
+def test_replay_checks_no_destination(
     fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A replay plays a recorded run again: it sends nothing out."""
     monkeypatch.setattr(
         wf, "_loaded", lambda request, base: _cfg(Path(base), export=[_deliver_to_block()])
     )
@@ -315,10 +294,14 @@ def test_a_replay_checks_no_destination(
     assert seen == []
 
 
-def test_a_run_given_back_still_reaches_its_destinations(
-    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+@pytest.mark.parametrize("identical_to", [None, "case"], ids=["computed", "given back"])
+def test_run_delivered_keeps_status(
+    fake_project: type[_FakeProject],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    identical_to: str | None,
 ) -> None:
-    """``deliver_to`` is not part of the request id: a skip delivers the run it gave back."""
+    # deliver_to is not part of the request id, so a run given back is delivered too.
     line = _published_line()
     blocks = [_deliver_to_block()]
     fake_project.result = RunOutcome(
@@ -327,7 +310,7 @@ def test_a_run_given_back_still_reaches_its_destinations(
         sim_id="s" * 32,
         request_id="r" * 64,
         status="completed",
-        identical_to="case",
+        identical_to=identical_to,
         project_root=tmp_path,
     )
     monkeypatch.setattr(wf, "_loaded", lambda request, base: _cfg(Path(base), export=blocks))
@@ -337,47 +320,18 @@ def test_a_run_given_back_still_reaches_its_destinations(
     outcome = wf.run_simulation(_request(), base=tmp_path)
 
     assert outcome.deliveries == (line,)
-    assert (outcome.status, outcome.identical_to) == ("completed", "case")
+    assert (outcome.status, outcome.identical_to) == ("completed", identical_to)
     assert delivered == [
         {"run_dir": tmp_path / "runs" / "case", "requests": blocks, "project_root": tmp_path}
     ]
 
 
-def test_a_completed_run_is_delivered_and_keeps_its_status(
-    fake_project: type[_FakeProject], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    line = _published_line()
-    blocks = [_deliver_to_block()]
-    fake_project.result = RunOutcome(
-        name="case",
-        run_dir=tmp_path / "runs" / "case",
-        sim_id="s" * 32,
-        request_id="r" * 64,
-        status="completed",
-        identical_to=None,
-        project_root=tmp_path,
-    )
-    monkeypatch.setattr(wf, "_loaded", lambda request, base: _cfg(Path(base), export=blocks))
-    _preflight_spy(monkeypatch)
-    delivered = _deliver_run_spy(monkeypatch, (line,))
-
-    outcome = wf.run_simulation(_request(), base=tmp_path)
-
-    assert outcome.deliveries == (line,)
-    assert outcome.status == "completed"
-    assert delivered == [
-        {"run_dir": tmp_path / "runs" / "case", "requests": blocks, "project_root": tmp_path}
-    ]
-
-
-def test_completed_identical_run_is_none_without_a_key(tmp_path: Path) -> None:
+def test_identical_run_needs_a_key(tmp_path: Path) -> None:
     (tmp_path / "runs" / "case").mkdir(parents=True)
     assert wf.completed_identical_run(tmp_path, "case", None) is None
 
 
-def test_completed_run_view_indexes_then_reads_the_run_directory(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_run_view_indexes_then_reads(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     import hydromodpy.project.runner as runner
     import hydromodpy.results.catalog.indexer as indexer
 
@@ -465,23 +419,25 @@ def _file_request(**members: Any) -> RunRequest:
     return RunRequest(config={}, form="toml", source="c.toml", **members)
 
 
-def test_run_calibration_routes_a_phased_file_to_the_staged_runner(
-    monkeypatch: pytest.MonkeyPatch, calibration_runners: list[str], tmp_path: Path
+ROUTES = [
+    pytest.param(["warm"], {"phase": "warm"}, "staged", ["preflight", "staged:warm"], id="phased"),
+    pytest.param([], {}, "flat", ["preflight", "flat"], id="flat"),
+]
+
+
+@pytest.mark.parametrize(("phases", "members", "kind", "calls"), ROUTES)
+def test_calibration_routing(
+    phases, members, kind, calls, monkeypatch, calibration_runners, tmp_path
 ) -> None:
-    _phases_loader(monkeypatch, ["warm"])
-    assert wf.run_calibration(_file_request(phase="warm"), base=tmp_path) == {"kind": "staged"}
-    assert calibration_runners == ["preflight", "staged:warm"]
+    _phases_loader(monkeypatch, phases)
+
+    result = wf.run_calibration(_file_request(**members), base=tmp_path)
+
+    assert result == {"kind": kind}
+    assert calibration_runners == calls
 
 
-def test_run_calibration_routes_a_flat_file_to_the_single_runner(
-    monkeypatch: pytest.MonkeyPatch, calibration_runners: list[str], tmp_path: Path
-) -> None:
-    _phases_loader(monkeypatch, [])
-    assert wf.run_calibration(_file_request(), base=tmp_path) == {"kind": "flat"}
-    assert calibration_runners == ["preflight", "flat"]
-
-
-def test_run_calibration_refuses_a_phase_a_flat_file_does_not_declare(
+def test_undeclared_phase_refused(
     monkeypatch: pytest.MonkeyPatch, calibration_runners: list[str], tmp_path: Path
 ) -> None:
     _phases_loader(monkeypatch, [])
@@ -489,7 +445,7 @@ def test_run_calibration_refuses_a_phase_a_flat_file_does_not_declare(
         wf.run_calibration(_file_request(phase="warm"), base=tmp_path)
 
 
-def test_run_calibration_gives_back_the_completed_session_of_the_same_key(
+def test_completed_session_given_back(
     monkeypatch: pytest.MonkeyPatch, calibration_runners: list[str], tmp_path: Path
 ) -> None:
     _phases_loader(monkeypatch, [])
@@ -505,7 +461,7 @@ def test_run_calibration_gives_back_the_completed_session_of_the_same_key(
     [{"force": True}, {"resume": ""}, {"phase": "warm"}],
     ids=["force", "resume", "one-phase"],
 )
-def test_run_calibration_searches_again_when_it_is_forced_resumed_or_partial(
+def test_calibration_searches_again(
     members: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
     calibration_runners: list[str],
@@ -519,9 +475,7 @@ def test_run_calibration_searches_again_when_it_is_forced_resumed_or_partial(
     assert result == {"kind": "staged"}
 
 
-def test_a_calibration_held_in_memory_names_its_case_and_forwards_force(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_held_calibration_forwards_options(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     asked: dict[str, Any] = {}
 
@@ -582,7 +536,7 @@ def test_a_calibration_held_in_memory_names_its_case_and_forwards_force(
     ],
     ids=["promoted", "no-best", "each-case", "partial"],
 )
-def test_run_calibration_delivers_the_runs_it_promoted_only(
+def test_calibration_delivers_promoted_runs(
     summary: dict[str, Any],
     delivered: list[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -628,9 +582,7 @@ def test_run_calibration_delivers_the_runs_it_promoted_only(
     )
 
 
-def test_a_calibration_held_in_memory_delivers_the_run_it_promoted(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_held_calibration_delivers_best(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     (tmp_path / "c.toml").write_text(_CALIBRATION_WITH_DELIVERY, encoding="utf-8")
     blocks = wf._export_requests_of(tmp_path / "c.toml")
@@ -741,9 +693,7 @@ def staged_session(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     return seen
 
 
-def test_a_phased_file_with_changes_hands_its_session_the_changed_document(
-    tmp_path: Path, staged_session: dict[str, Any]
-) -> None:
+def test_phased_file_freezes_set_changes(tmp_path: Path, staged_session: dict[str, Any]) -> None:
     """The session freezes the value of ``--set``, under the case of the file, in its project."""
     import tomllib
 
@@ -762,10 +712,7 @@ def test_a_phased_file_with_changes_hands_its_session_the_changed_document(
     assert document == tmp_path.resolve() / "sessions" / "calib_file.toml"
 
 
-def test_a_calibration_request_in_json_never_reads_its_file_as_toml(
-    tmp_path: Path, staged_session: dict[str, Any]
-) -> None:
-    """``hmp run calib.json --base .`` runs the document the request carries."""
+def test_json_request_runs_its_document(tmp_path: Path, staged_session: dict[str, Any]) -> None:
     import json
     import tomllib
 
@@ -802,9 +749,7 @@ def _draft_collaborators(monkeypatch: pytest.MonkeyPatch, *, is_sites: bool) -> 
     return seen
 
 
-def test_a_sites_file_drafts_every_case_of_its_plan(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_sites_file_drafts_its_plan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     seen = _draft_collaborators(monkeypatch, is_sites=True)
     path = tmp_path / "sites.toml"
     draft = wf.draft_of_a_file_or_config(
@@ -814,7 +759,7 @@ def test_a_sites_file_drafts_every_case_of_its_plan(
     assert seen == [("plan", path, {"flow": {"recharge": 2}})]
 
 
-def test_an_overview_configuration_drafts_one_case_without_steps(
+def test_overview_drafts_one_case(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import hydromodpy.display.overview.location as display_overview
@@ -833,10 +778,7 @@ def test_an_overview_configuration_drafts_one_case_without_steps(
     }
 
 
-def test_run_overview_hands_the_bounds_of_the_call_to_its_launcher(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """``run_overview`` builds its launcher once, with the bounds and the base of the call."""
+def test_overview_launcher_gets_bounds(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from hydromodpy.core.runtime.bounds import Bounds
     from hydromodpy.project.environment import Environment
     from hydromodpy.workflow import overview as overview_module
@@ -887,10 +829,7 @@ name = "identity card"
 """
 
 
-def test_run_overview_applies_the_set_of_its_request(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """``hmp run overview.toml --set overview.name=...`` reaches the overview."""
+def test_overview_applies_set(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from hydromodpy.project.request import request_of
     from hydromodpy.workflow import overview as overview_module
 
@@ -913,7 +852,7 @@ def test_run_overview_applies_the_set_of_its_request(
     assert seen["name"] == "winter card"
 
 
-def test_a_simulation_configuration_drafts_through_a_dry_run_of_the_project(
+def test_simulation_drafts_by_dry_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _draft_collaborators(monkeypatch, is_sites=False)
@@ -941,9 +880,7 @@ def test_a_simulation_configuration_drafts_through_a_dry_run_of_the_project(
     }
 
 
-def test_completed_identical_run_answers_with_the_newest_sealed_version_of_the_name(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_newest_sealed_version_answers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     import hydromodpy.results.retention as retention
     import hydromodpy.results.storage.sealing as sealing
     import hydromodpy.workflow.replay_checks as replay_checks
@@ -963,9 +900,7 @@ def test_completed_identical_run_answers_with_the_newest_sealed_version_of_the_n
     assert wf.completed_identical_run(tmp_path, "case", None) is None
 
 
-def test_a_research_version_does_not_answer_a_run_of_its_key(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_research_version_does_not_answer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """An identical trial keeps its level: only a run of ``result`` or above answers."""
     import hydromodpy.results.retention as retention
     import hydromodpy.results.storage.sealing as sealing
@@ -985,7 +920,7 @@ def test_a_research_version_does_not_answer_a_run_of_its_key(
     assert wf.completed_identical_run(tmp_path, "case", "H") is None
 
 
-def test_a_run_whose_api_file_left_the_cache_is_not_given_back(
+def test_vanished_api_file_blocks_give_back(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """The request holds the declaration of such a file, so the guard reads its bytes."""
@@ -999,133 +934,6 @@ def test_a_run_whose_api_file_left_the_cache_is_not_given_back(
     monkeypatch.setattr(retention, "level_at", lambda run_dir: "result")
 
     assert wf.completed_identical_run(tmp_path, "case", "K") is None
-
-
-def _key(config: dict, **resolved: list[str | None]) -> str:
-    """The solution key of a document whose inputs are *resolved*, with the code held still."""
-    request = request_id(config, resolved, edition=EDITION)
-    return solution_key(
-        request,
-        mesh_engine={"engine": "triangle", "version": "1"},
-        binaries={},
-        code={},
-        packages={},
-    )
-
-
-def _seal(root: Path, key: str, *, name: str = "demo") -> str:
-    """Seal a run under ``runs/<name>`` with the solution key *key*, and return its ``sim_id``."""
-    sid = str(uuid.uuid4())
-    stem = name.split(".v")[0]
-    version = int(name.rsplit(".v", 1)[1]) if ".v" in name else 1
-    base = make_record()
-    record = base.model_copy(
-        update={
-            "run": ManifestRun(
-                sim_id=sid,
-                name=name,
-                name_stem=stem,
-                version=version,
-                status="completed",
-                project="p",
-                case_id=stem,
-                rel_dir=run_dir_rel(name),
-                attempt=1,
-                attempt_id="a" * 32,
-                solver="modflow6",
-                created_at=base.run.created_at,
-            ),
-            "site": None,
-            "config": ManifestConfig(file="config.toml", source="project.toml"),
-            "identity": make_identity(
-                site=None,
-                site_fingerprint=None,
-                case_id=stem,
-                sim_id=sid,
-                attempt_id="a" * 32,
-                solution_key=key,
-                mesh_hash=None,
-            ),
-            "geometry": base.geometry.model_copy(update={"mesh_hash": None}),
-            "provenance": base.provenance.model_copy(update={"sim_id": sid}),
-            "inputs": [],
-        }
-    )
-    run_dir = root / "runs" / name
-    run_dir.mkdir(parents=True)
-    (run_dir / "config.toml").write_text("[flow]\n", encoding="utf-8")
-    record.write(run_dir)
-    return sid
-
-
-def _config(sy: float = 0.001, scratch: str = "/p/.hmp/scratch/demo.p111") -> dict:
-    return {
-        "flow": {"sy": sy},
-        "simulation": {"name": "demo"},
-        "workspace": {"project_root": "/p", "solver_scratch_folder": scratch},
-    }
-
-
-class _Workspace(BaseModel):
-    project_root: str
-
-
-class _ForcedConfig(BaseModel):
-    """The smallest configuration that names a forcing file."""
-
-    workspace: _Workspace
-    simulation: dict
-    recharge: Annotated[Path | None, InputFile(role="recharge", category="data")] = None
-
-
-def _forced_project(tmp_path: Path) -> _ForcedConfig:
-    root = tmp_path / "ws"
-    forcing = root / "data" / "recharge.csv"
-    forcing.parent.mkdir(parents=True)
-    forcing.write_text("date,value\n2020-01-01,1.0\n")
-    return _ForcedConfig(
-        workspace=_Workspace(project_root=str(root)),
-        simulation={"name": "demo"},
-        recharge=Path("data/recharge.csv"),
-    )
-
-
-def _forced_key(config: BaseModel) -> str:
-    """The key the pipeline records for *config*, the files it names read as they are."""
-    from hydromodpy.data.loading.inputs import ResolvedInputs
-    from hydromodpy.workflow.solution_key import input_digests
-
-    document = config.model_dump(mode="json")
-    digests = input_digests(config, ResolvedInputs())
-    request = request_id(document, digests, edition=EDITION)
-    return solution_key(
-        request,
-        mesh_engine={"engine": "triangle", "version": "1"},
-        binaries={},
-        code={},
-        packages={},
-    )
-
-
-def _seal_as_a_run(config: _ForcedConfig, *, name: str = "demo") -> str:
-    """Seal a run with the key the pipeline records, inputs included."""
-    return _seal(Path(config.workspace.project_root), _forced_key(config), name=name)
-
-
-class _Workflow(BaseModel):
-    mode: str = "simulation"
-
-
-class _FolderConfig(BaseModel):
-    """A configuration that names a folder of station files, as ``[data.recharge]`` does."""
-
-    workspace: _Workspace
-    workflow: _Workflow = _Workflow()
-    simulation: dict
-    recharge: Annotated[Path | None, InputFile(role="recharge", category="data")] = None
-
-
-# --- The guard of a run read from an API whose extent came from the catchment ---
 
 
 def _run_that_read(tmp_path: Path, *entries: dict[str, Any]) -> Path:
@@ -1157,9 +965,7 @@ def _digest(path: Path) -> str:
         ("a-folder", True),
     ],
 )
-def test_a_run_that_read_an_api_file_is_given_back_only_while_the_file_is_as_it_was(
-    tmp_path: Path, change: str, intact: bool
-) -> None:
+def test_api_inputs_intact(tmp_path: Path, change: str, intact: bool) -> None:
     from hydromodpy.workflow.replay_checks import api_inputs_intact
 
     api = tmp_path / "data" / "climate" / "safran.nc"

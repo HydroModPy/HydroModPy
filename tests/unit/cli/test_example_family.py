@@ -1,4 +1,7 @@
-"""Tests for the ``hmp example`` family (list, show, add)."""
+"""The ``hmp example`` family: list, show and add the example projects.
+
+Sizes are in MiB. A cold cache has no example file.
+"""
 
 from __future__ import annotations
 
@@ -19,14 +22,14 @@ def isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("HMP_EXAMPLES_SOURCE", raising=False)
 
 
-def test_list_names_example_04(monkeypatch, capsys) -> None:
+def test_list(monkeypatch, capsys) -> None:
     assert _run(monkeypatch, ["hmp", "example", "list"]) == 0
     out = capsys.readouterr().out
     assert "04" in out
     assert "MiB" in out
 
 
-def test_show_json_marks_every_file_missing_on_a_cold_cache(monkeypatch, capsys) -> None:
+def test_show_on_a_cold_cache(monkeypatch, capsys) -> None:
     assert _run(monkeypatch, ["hmp", "example", "show", "04", "--format", "json"]) == 0
     payload = json.loads(capsys.readouterr().out)["data"]
     assert payload["id"] == "04"
@@ -34,13 +37,13 @@ def test_show_json_marks_every_file_missing_on_a_cold_cache(monkeypatch, capsys)
     assert all(row["cached"] is False for row in payload["data"])
 
 
-def test_show_of_an_unknown_id_exits_not_found(monkeypatch, capsys) -> None:
+def test_show_unknown_id(monkeypatch, capsys) -> None:
     assert _run(monkeypatch, ["hmp", "example", "show", "99"]) == 10
     assert "Unknown example" in capsys.readouterr().err
 
 
-def test_add_installs_from_a_local_source(monkeypatch, capsys, tmp_path) -> None:
-    """The whole add path, pointed at a tree instead of GitHub."""
+def test_add_from_a_local_source(monkeypatch, capsys, tmp_path) -> None:
+    # The whole add path, pointed at a tree instead of GitHub.
     from hydromodpy.core.payload.index import PayloadFile
     from hydromodpy.project.examples.manifest import ExampleEntry
 
@@ -82,7 +85,7 @@ def test_add_installs_from_a_local_source(monkeypatch, capsys, tmp_path) -> None
     assert "step1.toml" in out
 
 
-def test_add_into_a_missing_workspace_exits_not_found(monkeypatch, tmp_path) -> None:
+def test_add_missing_workspace(monkeypatch, tmp_path) -> None:
     code = _run(
         monkeypatch,
         ["hmp", "example", "add", "04", "--workspace", str(tmp_path / "nowhere")],

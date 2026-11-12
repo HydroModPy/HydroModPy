@@ -1,4 +1,7 @@
-"""Parallel workflow runs."""
+"""Running the steps of a cohort through an executor, in threads by default.
+
+Each cohort is a tuple of items that may run side by side. Cohorts run one after the other.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +13,7 @@ import hydromodpy.workflow.parallel as parallel_module
 from hydromodpy.core.exceptions import ConfigError
 
 
-def test_execute_cohorts_dispatches_each_cohort_to_the_selected_executor() -> None:
+def test_cohorts_go_to_the_executor() -> None:
     class RecordingExecutor:
         def __init__(self) -> None:
             self.cohorts: list[tuple[str, ...]] = []
@@ -31,12 +34,12 @@ def test_execute_cohorts_dispatches_each_cohort_to_the_selected_executor() -> No
     assert results == ["RESOLVE", "LOAD_DATA", "BUILD_MESH"]
 
 
-def test_threadpool_cohort_executor_rejects_invalid_worker_count() -> None:
+def test_zero_workers_is_refused() -> None:
     with pytest.raises(ConfigError, match="max_workers"):
         parallel_module.ThreadPoolCohortExecutor(max_workers=0)
 
 
-def test_threadpool_cohort_executor_runs_single_item_without_creating_pool(monkeypatch) -> None:
+def test_one_item_needs_no_pool(monkeypatch) -> None:
     def fail_pool(*_args, **_kwargs):
         raise AssertionError("ThreadPoolExecutor should not be used for one item")
 
@@ -47,7 +50,7 @@ def test_threadpool_cohort_executor_runs_single_item_without_creating_pool(monke
     ) == [3]
 
 
-def test_threadpool_cohort_executor_runs_each_item_in_a_copy_of_the_callers_context() -> None:
+def test_items_run_in_a_copy_of_the_context() -> None:
     marker: ContextVar[str] = ContextVar("marker", default="unset")
     marker.set("caller")
 
@@ -64,7 +67,7 @@ def test_threadpool_cohort_executor_runs_each_item_in_a_copy_of_the_callers_cont
     assert marker.get() == "caller"
 
 
-def test_threadpool_cohort_executor_raises_the_first_failure_in_item_order() -> None:
+def test_first_failure_in_item_order_is_raised() -> None:
     def fail_on_two(item: int) -> int:
         if item == 2:
             raise ValueError("item two failed")

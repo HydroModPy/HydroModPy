@@ -1,14 +1,15 @@
-"""The migration of a configuration reads the rows of the register of changes.
+"""Migration of a configuration document by the rows of the register of changes.
 
-Each shape of a row is played on a live file in its delay (it warns), past its delay
-(it is refused with the new name), a sealed run (it reads in silence), the doctor (it
-rewrites) and a dotted path. The rows are those of a register written for the case,
-passed as an argument. The mechanism of the doctor and of the loader plays on a row
-the shipped register carries, ``[modflow6]`` to ``[solver.modflow6]``.
+A row is played on a live file in its delay (it warns), past its delay (it is refused with
+the new name), on a sealed run (it reads in silence), by the doctor (it rewrites the file)
+and on a dotted path. Most cases use registers written for the case, passed as an argument,
+whose rows name keys that exist nowhere in the models. The loader and the doctor are also
+played on rows the shipped register carries, such as ``[modflow6]`` to ``[solver.modflow6]``.
 """
 
 from __future__ import annotations
 
+import copy
 import tomllib
 import warnings
 from pathlib import Path
@@ -16,6 +17,8 @@ from pathlib import Path
 import pytest
 import tomlkit
 
+from hydromodpy.calibration.config_terms import renamed_to
+from hydromodpy.config import config_migration as migration
 from hydromodpy.config.config_migration import (
     apply_edition,
     fix_config_chain,
@@ -24,19 +27,95 @@ from hydromodpy.config.config_migration import (
     migrate_config_doc_on_load,
     migrate_merged_doc,
     migrate_sealed_config_doc,
+    moved_paths,
     rewrite_dotted_path,
 )
-from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
 from hydromodpy.core.config_kit.base import (
     CANNOT_REWRITE,
     ConfigKeyRenamedWarning,
     warn_old_form,
 )
+from hydromodpy.core.config_kit.introspect import held_tables_of
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.version import __version__
-from hydromodpy.schema.changes import migrations_of, outlived, read
-from tools.surface_snapshot import toml_fields
+from hydromodpy.schema.changes import Register, migrations_of, outlived, read
+from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
+
+HEAD = 'schema = "hydromodpy.changes.v1"\n'
+NO_REWRITE = "This version does not rewrite the file."
+
+PROJECT = """\
+[site]
+name = "nancon"
+gauge = "NANCON"
+
+[geographic]
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
+kind = "from_outlet_coord"
+x_outlet = 389285.9
+y_outlet = 6816518.7
+snap_dist = "150 m"
+buff_area = "10%"
+
+[data]
+types = ["dem", "hydrography", "hydrometry"]
+
+[[data.dem.sources]]
+source = "file"
+path = "inputs/DEM_armorican_massif.tif"
+
+[[data.hydrography.sources]]
+source = "file"
+path = "inputs/nancon_stream_network.gpkg"
+
+[[data.hydrometry.sources]]
+source = "file"
+path = "inputs/hydrometry"
+station_ids = ["NANCON"]
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = 1
+step_unit = "month"
+
+[flow]
+param_list = ["K", "Sy"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[workflow]
+mode = "calibration"
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+
+[calibration.outputs.seepage_network]
+support = "network"
+
+[calibration.outputs.seepage_network.map]
+complete = "inputs/nancon_stream_network.gpkg"
+
+[calibration.protocol]
+name = "matching_hydrographic_network"
+"""
+NEW_TABLE = "[solver.modflow6.process_specific]\nvka = 2.0\n"
+MODFLOW6 = "[modflow6.process_specific]\nvka = 2.0\n"
 
 
 def _write(tmp_path: Path, body: str, name: str = "project.toml") -> Path:
@@ -46,14 +125,24 @@ def _write(tmp_path: Path, body: str, name: str = "project.toml") -> Path:
 
 
 def _chain(tmp_path: Path, parent: str, child: str) -> tuple[Path, Path]:
-    """Write a parent and a child that inherits it; return both paths."""
+    """Write a parent and a child that inherits it, and return both paths."""
     first = _write(tmp_path, parent, "parent.toml")
     second = _write(tmp_path, f'base_config = "parent.toml"\n{child}', "child.toml")
     return first, second
 
 
+def _project(root: Path) -> Path:
+    project = root / "projects" / "nancon"
+    for relative in ("DEM_armorican_massif.tif", "nancon_stream_network.gpkg"):
+        (project / "inputs" / relative).parent.mkdir(parents=True, exist_ok=True)
+        (project / "inputs" / relative).write_bytes(b"x")
+    (project / "inputs" / "hydrometry").mkdir(parents=True)
+    (project / "project.toml").write_text(PROJECT, encoding="utf-8")
+    return project
+
+
 def _steps(path: str) -> list[str]:
-    """Split a form path into keys: ``{*}`` is the free name ``x``, ``[*]`` a list index."""
+    """Split a form path into keys, with ``{*}`` as the free name ``x`` and ``[*]`` as an index."""
     steps: list[str] = []
     for part in path.split("."):
         if part == "{*}":
@@ -88,7 +177,6 @@ def _dig(doc: object, path: str) -> object:
 
 
 def _holds(doc: object, path: str) -> bool:
-    """Whether *doc* still holds a value at *path*."""
     try:
         _dig(doc, path)
     except (KeyError, IndexError, TypeError):
@@ -96,175 +184,107 @@ def _holds(doc: object, path: str) -> bool:
     return True
 
 
-# --- each shape of a row, on a register written for the case -----------------
+# Register of the rename cases. Each row is a move that exists nowhere in the models.
+# One row is a key that left, and one is a move that is past its delay.
+RENAMES = read(
+    HEAD
+    + """\
+[[migration]]
+document = "config"
+old = "calibration.seed_before"
+new = "calibration.seed"
+since = "2.1.0"
 
-HEAD = 'schema = "hydromodpy.changes.v1"\n'
-ROWS = HEAD + (
-    '[[migration]]\ndocument = "config"\nold = "old_table"\nnew = "new.table"\nsince = "2.1.0"\n'
-    '[[migration]]\ndocument = "config"\nold = "items[*].type"\nnew = "items[*].kind"\n'
-    'since = "2.1.0"\n'
-    '[[migration]]\ndocument = "config"\nkey = "section.kind"\nold_value = "a"\nnew_value = "b"\n'
-    'since = "2.1.0"\n'
-    '[[migration]]\ndocument = "config"\nold = "late_table"\nnew = "late.table"\nsince = "1.0.0"\n'
-    '[[migration]]\ndocument = "config"\nold = "section.gone"\ninstead = "Nothing replaces it."\n'
-    'sealed = "drop"\nsince = "2.1.0"\n'
-    '[[migration]]\ndocument = "config"\nold = "section.left"\n'
-    'instead = "Write section.right instead."\nsince = "2.1.0"\n'
+[[migration]]
+document = "config"
+old = "calibration.phases[*].description_before"
+new = "calibration.phases[*].description"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "calibration.protocol.steady_window_before"
+new = "calibration.protocol.steady_window"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "calibration.parameters.{*}.bounds_before"
+new = "calibration.parameters.{*}.bounds"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "mesh.size_before"
+new = "mesh.cell_size"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "display.overrides.{*}.shade_before"
+new = "display.overrides.{*}.cmap"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "solver.fill_before"
+new = "flow.fill_after"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "geographic.outlet_before"
+new = "site.outlet_after"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "mesh.dropped"
+instead = "Write nothing, the key was never read"
+sealed = "drop"
+since = "2.1.0"
+
+[[migration]]
+document = "config"
+old = "geographic.late_before"
+new = "geographic.late_after"
+since = "1.0.0"
+"""
 )
-FIXTURE = read(ROWS)
+STUCK = read(
+    HEAD
+    + '[[migration]]\ndocument = "config"\nold = "mesh.stuck_before"\n'
+    + 'new = "mesh.stuck_after"\nrule = "stuck"\nsince = "2.1.0"\n'
+)
 
-SHAPES = {
-    "a table that moves": ("[old_table]\nx = 1\n", "new.table.x", 1, "old_table -> [new.table]"),
-    "a key renamed in each table of a list": (
-        '[[items]]\ntype = "flow"\n',
-        "items[*].kind",
-        "flow",
-        "items[0].type -> kind",
-    ),
-    "a value renamed": ('[section]\nkind = "a"\n', "section.kind", "b", "section.kind: 'a' -> 'b'"),
-}
-
-
-@pytest.mark.parametrize(("text", "path", "value", "told"), SHAPES.values(), ids=SHAPES.keys())
-def test_the_doctor_rewrites_each_shape(
-    text: str, path: str, value: object, told: str, tmp_path: Path
-) -> None:
-    file = _write(tmp_path, text)
-
-    assert fix_config_chain(file, register=FIXTURE)[file.resolve()] == [told]
-    assert _dig(tomllib.loads(file.read_text(encoding="utf-8")), path) == value
-    assert fix_config_chain(file, register=FIXTURE)[file.resolve()] == []
-
-
-def test_a_form_past_its_delay_is_refused_with_its_new_name(tmp_path: Path) -> None:
-    assert outlived("1.0.0", __version__)
-    source = tmp_path / "project.toml"
-
-    with pytest.raises(ConfigValidationError) as refused:
-        migrate_config_doc_on_load(
-            tomllib.loads("[late_table]\nx = 1\n"), source=source, register=FIXTURE
-        )
-
-    assert str(refused.value) == (
-        f"{source}: late_table -> [late.table]. This old form is refused; "
-        f"`hmp doctor --fix-config {source}` rewrites the file."
+# One row per kind of rename, each new to the schema, as a lot of renames will add.
+CELL, OPTION, FILL, OUTLET = (
+    next(row for row in RENAMES.migrations if row.old == old)
+    for old in (
+        "mesh.size_before",
+        "display.overrides.{*}.shade_before",
+        "solver.fill_before",
+        "geographic.outlet_before",
     )
+)
 
+# Register of the shape cases: a table that moves, a key renamed in each table of a list,
+# a value renamed, a move past its delay and two keys that left.
+SHAPES_REGISTER = read(
+    HEAD
+    + '[[migration]]\ndocument = "config"\nold = "old_table"\nnew = "new.table"\nsince = "2.1.0"\n'
+    + '[[migration]]\ndocument = "config"\nold = "items[*].type"\nnew = "items[*].kind"\n'
+    + 'since = "2.1.0"\n'
+    + '[[migration]]\ndocument = "config"\nkey = "section.kind"\nold_value = "a"\n'
+    + 'new_value = "b"\nsince = "2.1.0"\n'
+    + '[[migration]]\ndocument = "config"\nold = "late_table"\nnew = "late.table"\nsince = "1.0.0"\n'
+    + '[[migration]]\ndocument = "config"\nold = "section.gone"\n'
+    + 'instead = "Nothing replaces it."\nsealed = "drop"\nsince = "2.1.0"\n'
+    + '[[migration]]\ndocument = "config"\nold = "section.left"\n'
+    + 'instead = "Write section.right instead."\nsince = "2.1.0"\n'
+)
 
-RETIRED = {
-    "a key that left, sealed drop": (
-        "[section]\ngone = 1\nkept = 2\n",
-        "section.gone",
-        {"section": {"kept": 2}},
-    ),
-    "a key that left with nothing to drop": (
-        "[section]\nleft = 1\n",
-        "section.left",
-        None,
-    ),
-}
-
-
-@pytest.mark.parametrize(("text", "label", "sealed"), RETIRED.values(), ids=RETIRED.keys())
-def test_a_sealed_run_drops_a_key_that_left_only_when_the_row_says_so(
-    text: str, label: str, sealed: object
-) -> None:
-    doc = tomllib.loads(text)
-    if sealed is None:
-        with pytest.raises(ConfigValidationError, match=f"a sealed run config holds {label}"):
-            migrate_sealed_config_doc(doc, register=FIXTURE)
-        return
-
-    assert migrate_sealed_config_doc(doc, register=FIXTURE) == [f"{label} dropped (sealed)"]
-    assert doc == sealed
-
-
-@pytest.mark.parametrize(("text", "label", "sealed"), RETIRED.values(), ids=RETIRED.keys())
-def test_the_doctor_leaves_a_key_that_left_and_says_what_to_write(
-    text: str, label: str, sealed: object, tmp_path: Path
-) -> None:
-    del sealed
-    file = _write(tmp_path, text)
-
-    changes = fix_config_chain(file, register=FIXTURE)[file.resolve()]
-
-    assert file.read_text() == text
-    assert len(changes) == 1 and changes[0].startswith(f"{label}{CANNOT_REWRITE}")
-
-
-DOTTED = {
-    "a phase override": (
-        {"calibration": {"phases": [{"name": "p", "overrides": {"old_table.x": 1}}]}},
-        ("calibration", "phases", 0, "overrides"),
-        {"new.table.x": 1},
-    ),
-    "a phase override written as tables": (
-        {"calibration": {"phases": [{"name": "p", "overrides": {"old_table": {"x": 1}}}]}},
-        ("calibration", "phases", 0, "overrides"),
-        {"new.table": {"x": 1}},
-    ),
-    "a bind line": (
-        {"sites": {"bind": {"old_table.x": "column"}}},
-        ("sites", "bind"),
-        {"new.table.x": "column"},
-    ),
-    "a recipe": (
-        {"sites": {"recipes": {"r": {"set": {"old_table.x": 1}}}}},
-        ("sites", "recipes", "r", "set"),
-        {"new.table.x": 1},
-    ),
-    "a calibration parameter": (
-        {"calibration": {"parameters": {"k": {"path": "old_table.x"}}}},
-        ("calibration", "parameters", "k"),
-        {"path": "new.table.x"},
-    ),
-}
-
-
-@pytest.mark.parametrize(("doc", "where", "after"), DOTTED.values(), ids=DOTTED.keys())
-def test_a_dotted_path_follows_the_table_it_names(doc: dict, where: tuple, after: dict) -> None:
-    migrate_config_doc(doc, register=FIXTURE)
-
-    node: object = doc
-    for step in where:
-        node = node[step]  # type: ignore[index]
-    assert node == after
-    assert rewrite_dotted_path("old_table.x", register=FIXTURE) == "new.table.x"
-
-
-def test_a_dotted_key_given_twice_is_left_with_the_reason() -> None:
-    bind = {"old_table.x": "a", "new.table.x": "b"}
-
-    changes = migrate_config_doc({"sites": {"bind": bind}}, register=FIXTURE)
-
-    assert bind == {"old_table.x": "a", "new.table.x": "b"}
-    assert changes == [
-        f'sites.bind."old_table.x"{CANNOT_REWRITE}"new.table.x" is given too, keep one'
-    ]
-
-
-def test_a_key_written_under_both_names_keeps_the_new_one_and_says_what_differed() -> None:
-    doc = {"old_table": {"x": 1}, "new": {"table": {"x": 2}}}
-
-    changes = migrate_config_doc(doc, register=FIXTURE)
-
-    assert doc == {"new": {"table": {"x": 2}}}
-    assert changes == [
-        "old_table dropped ([new.table] already set; it held other values: x = 1 against 2)"
-    ]
-
-
-def test_a_directive_of_a_moved_table_and_a_list_a_child_adds_move_too() -> None:
-    doc = {"old_table__delete": True, "items__append": [{"type": "flow"}]}
-
-    changes = migrate_config_doc(doc, register=FIXTURE)
-
-    assert doc == {"new": {"table__delete": True}, "items__append": [{"kind": "flow"}]}
-    assert "old_table__delete -> new.table__delete" in changes
-
-
-# --- the editions -------------------------------------------------------------
-
+# Register of the editions: two defaults that moved in edition 2.1.
 EDITIONS = read(
     HEAD
     + '[[default]]\nid = "d"\nsince = "2.1.0"\nedition = "2.1"\nkey = "solver.x"\nold = 0.5\n'
@@ -273,34 +293,509 @@ EDITIONS = read(
     + 'old = 1\nnew = 2\nquantities = ["metrics"]\ntext = "t"\n'
 )
 
-APPLIED = {
-    "an older edition, the key not written": (
+FORWARD_MODEL_REFUSAL = (
+    "a forward model is a solver backend since 2.0.0: name it by solver.backend, register "
+    "it in the hydromodpy.solver entry-point group, and calibrate it with the pipeline evaluator"
+)
+
+
+def _stuck(doc: dict, *, sealed: bool) -> list[str]:
+    """A rule that finds the key and cannot carry its value over."""
+    del sealed
+    if "stuck_before" in doc.get("mesh", {}):
+        return [f"mesh.stuck_before{CANNOT_REWRITE}no unit to write"]
+    return []
+
+
+def _doctor(path: Path, register: Register = RENAMES) -> list[str]:
+    """Rewrite the chain of *path* by the rows of the case and return its changes."""
+    return fix_config_chain(path, register=register)[path.resolve()]
+
+
+def _phase(overrides: dict) -> dict:
+    return {"calibration": {"phases": [{"name": "one", "overrides": overrides}]}}
+
+
+def test_renamed_message():
+    text = renamed_to("max_iter", "max_trials", "the evaluations the search may run")
+
+    assert text.startswith("renamed to 'max_trials' (the evaluations the search may run). ")
+    assert "max_iter" in text
+    assert NO_REWRITE in text
+    assert "hmp doctor" not in text
+
+
+def test_no_doctor_promise() -> None:
+    with pytest.warns(ConfigKeyRenamedWarning, match="seed left: why") as told:
+        warn_old_form("project.toml", "calibration.seed left: why")
+    assert "hmp doctor" not in str(told[0].message)
+
+
+SHAPES = [
+    pytest.param(
+        "[old_table]\nx = 1\n",
+        "new.table.x",
+        1,
+        "old_table -> [new.table]",
+        id="a table that moves",
+    ),
+    pytest.param(
+        '[[items]]\ntype = "flow"\n',
+        "items[*].kind",
+        "flow",
+        "items[0].type -> kind",
+        id="a key renamed in each table of a list",
+    ),
+    pytest.param(
+        '[section]\nkind = "a"\n',
+        "section.kind",
+        "b",
+        "section.kind: 'a' -> 'b'",
+        id="a value renamed",
+    ),
+]
+
+
+@pytest.mark.parametrize(("text", "path", "value", "told"), SHAPES)
+def test_doctor_rewrites_each_shape(
+    text: str, path: str, value: object, told: str, tmp_path: Path
+) -> None:
+    file = _write(tmp_path, text)
+
+    assert fix_config_chain(file, register=SHAPES_REGISTER)[file.resolve()] == [told]
+    assert _dig(tomllib.loads(file.read_text(encoding="utf-8")), path) == value
+    assert fix_config_chain(file, register=SHAPES_REGISTER)[file.resolve()] == []
+
+
+def test_doctor_renames_calibration(tmp_path: Path) -> None:
+    path = tmp_path / "calibration.toml"
+    path.write_text(
+        "[calibration]\n"
+        "seed_before = 7  # the draw\n"
+        "[calibration.protocol]\n"
+        'name = "matching_hydrographic_network"\n'
+        'steady_window_before = { start = "2000-01-01", end = "2000-12-31" }\n'
+        "[[calibration.phases]]\n"
+        'name = "a"\n'
+        'description_before = "first"\n'
+        "[[calibration.phases]]\n"
+        'name = "b"\n'
+        'description_before = "second"\n'
+        "[calibration.parameters.K]\n"
+        "bounds_before = [1e-6, 1e-3]\n"
+        "[calibration.parameters.Sy]\n"
+        "bounds = [0.01, 0.3]\n",
+        encoding="utf-8",
+    )
+
+    changes = _doctor(path)
+
+    written = path.read_text(encoding="utf-8")
+    document = tomllib.loads(written)
+    assert document["calibration"]["seed"] == 7
+    assert "# the draw" in written
+    assert document["calibration"]["protocol"]["steady_window"]["start"] == "2000-01-01"
+    assert [p["description"] for p in document["calibration"]["phases"]] == ["first", "second"]
+    assert document["calibration"]["parameters"]["K"]["bounds"] == [1e-6, 1e-3]
+    assert "_before" not in written
+    assert len(changes) == 5
+    assert _doctor(path) == []
+
+
+def test_doctor_keeps_new_name(tmp_path: Path) -> None:
+    path = tmp_path / "calibration.toml"
+    path.write_text("[calibration]\nseed_before = 7\nseed = 8\n", encoding="utf-8")
+
+    changes = _doctor(path)
+
+    assert changes == [
+        "calibration.seed_before dropped ([calibration.seed] already set; "
+        "it held other values: 7 against 8)"
+    ]
+    assert tomllib.loads(path.read_text(encoding="utf-8"))["calibration"] == {"seed": 8}
+
+
+def test_doctor_stuck_value(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(migration.RULES, "stuck", _stuck)
+    path = tmp_path / "mesh.toml"
+    path.write_text("[mesh]\nstuck_before = 7\n", encoding="utf-8")
+
+    assert _doctor(path, STUCK) == [f"mesh.stuck_before{CANNOT_REWRITE}no unit to write"]
+    assert "stuck_before = 7" in path.read_text(encoding="utf-8")
+
+
+def test_doctor_keeps_comment(tmp_path: Path) -> None:
+    path = tmp_path / "project.toml"
+    path.write_text(
+        '[display.overrides.map]\nfirst = 1\nshade_before = "a"  # the map\nlast = 2\n',
+        encoding="utf-8",
+    )
+
+    assert _doctor(path) == ["display.overrides.map.shade_before -> cmap"]
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert [line.split(" ")[0] for line in lines[1:]] == ["first", "cmap", "last"]
+    assert lines[2].endswith("# the map")
+
+
+def test_doctor_follows_row(tmp_path: Path) -> None:
+    path = tmp_path / "project.toml"
+    path.write_text(
+        "# the sites\n"
+        "[sites.bind]\n"
+        '"mesh.size_before" = "size" # a column\n'
+        "\n"
+        "[calibration.parameters.p]\n"
+        'path = "mesh.size_before" # moved by the search\n'
+        "\n"
+        "[[calibration.phases]]\n"
+        'name = "one"\n'
+        "[calibration.phases.overrides]\n"
+        '"solver.fill_before" = true # a phase\n',
+        encoding="utf-8",
+    )
+
+    changes = _doctor(path)
+
+    assert len(changes) == 3
+    text = path.read_text()
+    for comment in ("# the sites", "# a column", "# moved by the search", "# a phase"):
+        assert comment in text
+    written = tomllib.loads(text)
+    assert written["sites"]["bind"] == {"mesh.cell_size": "size"}
+    assert written["calibration"]["parameters"]["p"]["path"] == "mesh.cell_size"
+    assert written["calibration"]["phases"][0]["overrides"] == {"flow.fill_after": True}
+
+
+def test_dry_run(tmp_path: Path) -> None:
+    path = _write(tmp_path, MODFLOW6)
+    diffs: dict[Path, str] = {}
+
+    changes = fix_config_chain(path, dry_run=True, diffs=diffs)
+
+    assert changes[path.resolve()] == ["modflow6 -> [solver.modflow6]"]
+    assert path.read_text() == MODFLOW6
+    assert "+[solver.modflow6.process_specific]" in diffs[path.resolve()]
+
+
+def test_backend_split_in_two_files(tmp_path: Path) -> None:
+    # kind = "custom" in a parent and name in a child say the name only together.
+    _, child = _chain(
+        tmp_path, '[solver.backend]\nkind = "custom"\n', '[solver.backend]\nname = "plugged"\n'
+    )
+
+    with pytest.warns(ConfigKeyRenamedWarning, match="solver.backend.kind -> solver.backend"):
+        merged = load_toml_with_base_config(child, root=ROOT_CONFIG)
+
+    assert merged["solver"]["backend"] == "plugged"
+
+
+def test_form_past_delay_refused(tmp_path: Path) -> None:
+    assert outlived("1.0.0", __version__)
+    source = tmp_path / "project.toml"
+
+    with pytest.raises(ConfigValidationError) as refused:
+        migrate_config_doc_on_load(
+            tomllib.loads("[late_table]\nx = 1\n"), source=source, register=SHAPES_REGISTER
+        )
+
+    assert str(refused.value) == (
+        f"{source}: late_table -> [late.table]. This old form is refused; "
+        f"`hmp doctor --fix-config {source}` rewrites the file."
+    )
+
+
+# Each row: the file text, the label of the key, and the document left after a sealed read
+# (None when the row has no drop and a sealed read refuses).
+RETIRED = [
+    pytest.param(
+        "[section]\ngone = 1\nkept = 2\n",
+        "section.gone",
+        {"section": {"kept": 2}},
+        id="a key that left, sealed drop",
+    ),
+    pytest.param(
+        "[section]\nleft = 1\n", "section.left", None, id="a key that left with nothing to drop"
+    ),
+]
+
+
+@pytest.mark.parametrize(("text", "label", "sealed"), RETIRED)
+def test_sealed_drop_of_a_left_key(text: str, label: str, sealed: object) -> None:
+    doc = tomllib.loads(text)
+    if sealed is None:
+        with pytest.raises(ConfigValidationError, match=f"a sealed run config holds {label}"):
+            migrate_sealed_config_doc(doc, register=SHAPES_REGISTER)
+        return
+
+    assert migrate_sealed_config_doc(doc, register=SHAPES_REGISTER) == [f"{label} dropped (sealed)"]
+    assert doc == sealed
+
+
+@pytest.mark.parametrize(("text", "label", "sealed"), RETIRED)
+def test_doctor_leaves_a_left_key(text: str, label: str, sealed: object, tmp_path: Path) -> None:
+    del sealed
+    file = _write(tmp_path, text)
+
+    changes = fix_config_chain(file, register=SHAPES_REGISTER)[file.resolve()]
+
+    assert file.read_text() == text
+    assert len(changes) == 1 and changes[0].startswith(f"{label}{CANNOT_REWRITE}")
+
+
+def test_dropped_key() -> None:
+    doc = {"mesh": {"dropped": 7}}
+
+    migrate_sealed_config_doc(doc, register=RENAMES)
+
+    assert doc == {"mesh": {}}
+    with pytest.raises(ConfigValidationError, match=r"mesh\.dropped left: it left in 2\.1\.0"):
+        migrate_config_doc_on_load({"mesh": {"dropped": 7}}, source="a.toml", register=RENAMES)
+
+
+def test_user_file_skips_sealed_rules(tmp_path: Path) -> None:
+    doc = {"mesh": {"dropped": 7}}
+    with pytest.raises(ConfigValidationError):
+        migrate_config_doc_on_load(doc, source=tmp_path / "project.toml", register=RENAMES)
+    assert doc == {"mesh": {"dropped": 7}}
+
+    sealed = tmp_path / "runs" / "nancon" / "config.toml"
+    sealed.parent.mkdir(parents=True)
+    sealed.write_text("", encoding="utf-8")
+    migrate_config_doc_on_load(doc, source=sealed, register=RENAMES)
+    assert doc == {"mesh": {}}
+
+
+def test_frozen_run_old_table(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    (project / "project.toml").write_text(PROJECT + "\n" + NEW_TABLE, encoding="utf-8")
+    cfg = HydroModPyConfig.from_toml(project / "project.toml")
+    run_dir = project / "runs" / "nancon"
+    run_dir.mkdir(parents=True)
+    frozen = portable_config_document(cfg, run_dir, project)
+    old = frozen.replace("[solver.modflow6.", "[modflow6.")
+    assert old != frozen
+    sealed = run_dir / "config.toml"
+    sealed.write_text(old, encoding="utf-8")
+
+    replayed = HydroModPyConfig.from_toml(sealed)
+
+    expected = held_tables_of(cfg.solver)["modflow6"].model_dump(mode="json")
+    assert held_tables_of(replayed.solver)["modflow6"].model_dump(mode="json") == expected
+
+
+DOTTED = [
+    pytest.param(
+        {"calibration": {"phases": [{"name": "p", "overrides": {"old_table.x": 1}}]}},
+        ("calibration", "phases", 0, "overrides"),
+        {"new.table.x": 1},
+        id="a phase override",
+    ),
+    pytest.param(
+        {"calibration": {"phases": [{"name": "p", "overrides": {"old_table": {"x": 1}}}]}},
+        ("calibration", "phases", 0, "overrides"),
+        {"new.table": {"x": 1}},
+        id="a phase override written as tables",
+    ),
+    pytest.param(
+        {"sites": {"bind": {"old_table.x": "column"}}},
+        ("sites", "bind"),
+        {"new.table.x": "column"},
+        id="a bind line",
+    ),
+    pytest.param(
+        {"sites": {"recipes": {"r": {"set": {"old_table.x": 1}}}}},
+        ("sites", "recipes", "r", "set"),
+        {"new.table.x": 1},
+        id="a recipe",
+    ),
+    pytest.param(
+        {"calibration": {"parameters": {"k": {"path": "old_table.x"}}}},
+        ("calibration", "parameters", "k"),
+        {"path": "new.table.x"},
+        id="a calibration parameter",
+    ),
+]
+
+
+@pytest.mark.parametrize(("doc", "where", "after"), DOTTED)
+def test_dotted_path_follows_table(doc: dict, where: tuple, after: dict) -> None:
+    migrate_config_doc(doc, register=SHAPES_REGISTER)
+
+    node: object = doc
+    for step in where:
+        node = node[step]  # type: ignore[index]
+    assert node == after
+    assert rewrite_dotted_path("old_table.x", register=SHAPES_REGISTER) == "new.table.x"
+
+
+def test_dotted_key_given_twice() -> None:
+    bind = {"old_table.x": "a", "new.table.x": "b"}
+
+    changes = migrate_config_doc({"sites": {"bind": bind}}, register=SHAPES_REGISTER)
+
+    assert bind == {"old_table.x": "a", "new.table.x": "b"}
+    assert changes == [
+        f'sites.bind."old_table.x"{CANNOT_REWRITE}"new.table.x" is given too, keep one'
+    ]
+
+
+def test_key_under_both_names() -> None:
+    doc = {"old_table": {"x": 1}, "new": {"table": {"x": 2}}}
+
+    changes = migrate_config_doc(doc, register=SHAPES_REGISTER)
+
+    assert doc == {"new": {"table": {"x": 2}}}
+    assert changes == [
+        "old_table dropped ([new.table] already set; it held other values: x = 1 against 2)"
+    ]
+
+
+def test_directive_of_a_moved_table() -> None:
+    doc = {"old_table__delete": True, "items__append": [{"type": "flow"}]}
+
+    changes = migrate_config_doc(doc, register=SHAPES_REGISTER)
+
+    assert doc == {"new": {"table__delete": True}, "items__append": [{"kind": "flow"}]}
+    assert "old_table__delete -> new.table__delete" in changes
+
+
+# Each case is a place where a path is written, as the document has it and as it is rewritten.
+PLACES = [
+    pytest.param({"mesh": {"size_before": 1}}, {"mesh": {"cell_size": 1}}, id="the key itself"),
+    pytest.param(
+        {"mesh": {"size_before__delete": True}},
+        {"mesh": {"cell_size__delete": True}},
+        id="a directive of the key",
+    ),
+    pytest.param(
+        {"solver": {"fill_before": True}},
+        {"flow": {"fill_after": True}},
+        id="a key that changes table",
+    ),
+    pytest.param(
+        {"geographic": {"outlet_before": {"x": 1}}},
+        {"site": {"outlet_after": {"x": 1}}},
+        id="a table that changes place",
+    ),
+    pytest.param(
+        {"display": {"overrides": {"seepage_map": {"shade_before": "a"}}}},
+        {"display": {"overrides": {"seepage_map": {"cmap": "a"}}}},
+        id="a figure option",
+    ),
+    pytest.param(
+        _phase({"mesh.size_before": 1}), _phase({"mesh.cell_size": 1}), id="a phase override"
+    ),
+    pytest.param(
+        _phase({"geographic.outlet_before.x": 1}),
+        _phase({"site.outlet_after.x": 1}),
+        id="a phase override under a moved table",
+    ),
+    pytest.param(
+        _phase({"display.overrides.seepage_map.shade_before": "a"}),
+        _phase({"display.overrides.seepage_map.cmap": "a"}),
+        id="a phase override of a figure",
+    ),
+    pytest.param(
+        _phase({"mesh": {"size_before": 1}}),
+        _phase({"mesh": {"cell_size": 1}}),
+        id="a phase override written as tables",
+    ),
+    pytest.param(
+        {"calibration": {"phases__append": [{"overrides": {"mesh.size_before": 1}}]}},
+        {"calibration": {"phases__append": [{"overrides": {"mesh.cell_size": 1}}]}},
+        id="a phase a child adds",
+    ),
+    pytest.param(
+        {"calibration": {"phases__merge": [{"name": "a", "overrides": {"mesh.size_before": 1}}]}},
+        {"calibration": {"phases__merge": [{"name": "a", "overrides": {"mesh.cell_size": 1}}]}},
+        id="a phase a child merges",
+    ),
+    pytest.param(
+        {"calibration": {"parameters": {"p": {"path": "mesh.size_before"}}}},
+        {"calibration": {"parameters": {"p": {"path": "mesh.cell_size"}}}},
+        id="the path of a parameter",
+    ),
+    pytest.param(
+        {"calibration": {"parameters": {"p": {"target": "solver.fill_before"}}}},
+        {"calibration": {"parameters": {"p": {"target": "flow.fill_after"}}}},
+        id="the target of a parameter",
+    ),
+    pytest.param(
+        {"sites": {"bind": {"mesh.size_before": "size"}}},
+        {"sites": {"bind": {"mesh.cell_size": "size"}}},
+        id="a bind line",
+    ),
+    pytest.param(
+        {"sites": {"recipes": {"r": {"set": {"mesh.size_before": 2}}}}},
+        {"sites": {"recipes": {"r": {"set": {"mesh.cell_size": 2}}}}},
+        id="the set table of a recipe",
+    ),
+]
+
+
+@pytest.mark.parametrize(("written", "expected"), PLACES)
+def test_row_rewrites_every_place(written: dict, expected: dict) -> None:
+    doc = copy.deepcopy(written)
+
+    with pytest.warns(ConfigKeyRenamedWarning):
+        migrate_config_doc_on_load(doc, source="a_file.toml", register=RENAMES)
+
+    assert doc == expected
+
+
+def test_row_reaches_the_helpers() -> None:
+    def moved(path: str) -> str:
+        return rewrite_dotted_path(path, register=RENAMES)
+
+    assert moved("mesh.size_before") == "mesh.cell_size"
+    assert moved("solver.fill_before") == "flow.fill_after"
+    assert moved("geographic.outlet_before.x") == "site.outlet_after.x"
+    assert moved("display.overrides.a_map.shade_before") == "display.overrides.a_map.cmap"
+    assert moved("mesh.size_before__delete") == "mesh.cell_size__delete"
+    assert moved("mesh.cell_size") == "mesh.cell_size"
+    assert CELL in {moved_path.row for moved_path in moved_paths(register=RENAMES)}
+
+
+APPLIED = [
+    pytest.param(
         {"flow": {"bc": {"r": {}}}},
         "2.0",
         {"flow": {"bc": {"r": {"y": 1}}}, "solver": {"x": 0.5}},
         ["solver.x", "flow.bc.r.y"],
+        id="an older edition, the key not written",
     ),
-    "an older edition, the key written": (
+    pytest.param(
         {"solver": {"x": 0.7}},
         "2.0",
         {"solver": {"x": 0.7}},
         [],
+        id="an older edition, the key written",
     ),
-    "the edition of the default": ({}, "2.1", {}, []),
-}
+    pytest.param({}, "2.1", {}, [], id="the edition of the default"),
+]
 
 
-@pytest.mark.parametrize(
-    ("doc", "edition", "after", "written"), APPLIED.values(), ids=APPLIED.keys()
-)
-def test_a_file_keeps_the_defaults_of_the_edition_it_writes(
+@pytest.mark.parametrize(("doc", "edition", "after", "written"), APPLIED)
+def test_file_keeps_edition_defaults(
     doc: dict, edition: str, after: dict, written: list[str]
 ) -> None:
     assert apply_edition(doc, edition=edition, register=EDITIONS) == written
     assert doc == after
 
 
-def test_an_edition_the_register_does_not_know_is_refused_with_the_ones_it_serves() -> None:
+def test_merged_and_sealed_editions() -> None:
+    merged: dict = {}
+    sealed: dict = {"edition": "2.1"}
+
+    migrate_merged_doc(merged, register=EDITIONS)
+    migrate_sealed_config_doc(sealed, register=EDITIONS)
+
+    assert merged == {"solver": {"x": 0.5}}
+    assert sealed == {"edition": "2.1"}
+
+
+def test_unknown_edition_refused() -> None:
     doc: dict = {"edition": "9.9"}
 
     with pytest.raises(ConfigValidationError, match="serves 2.0, 2.1") as refused:
@@ -312,26 +807,17 @@ def test_an_edition_the_register_does_not_know_is_refused_with_the_ones_it_serve
         migrate_merged_doc({"edition": "9.9"}, register=EDITIONS)
 
 
-def test_the_merged_document_and_a_sealed_run_take_the_defaults_of_their_edition() -> None:
-    merged: dict = {}
-    sealed: dict = {"edition": "2.1"}
+def test_edition_optional_section() -> None:
+    doc: dict = {"flow": {"bc": {}}}
 
-    migrate_merged_doc(merged, register=EDITIONS)
-    migrate_sealed_config_doc(sealed, register=EDITIONS)
+    written = apply_edition(doc, edition="2.0", register=EDITIONS, optional_sections={"solver"})
 
-    assert merged == {"solver": {"x": 0.5}}
-    assert sealed == {"edition": "2.1"}
-
-
-# --- the shipped register -----------------------------------------------------
-
-
-def _keys_of_the_grammar() -> set[str]:
-    return {row.split("\t", 1)[0] for row in toml_fields()}
-
-
-def _a_key_the_models_hold(path: str, keys: set[str]) -> bool:
-    return path in keys or any(key.startswith(f"{path}.") for key in keys)
+    assert written == []
+    assert doc == {"flow": {"bc": {}}}
+    kept: dict = {"solver": {}}
+    assert apply_edition(kept, edition="2.0", register=EDITIONS, optional_sections={"solver"}) == [
+        "solver.x"
+    ]
 
 
 CONFIG_MOVES = [row for row in migrations_of("config") if row.shape == "move"]
@@ -342,7 +828,7 @@ CONFIG_MOVES = [row for row in migrations_of("config") if row.shape == "move"]
     [row for row in CONFIG_MOVES if row.rule is None],
     ids=lambda row: f"{row.old}->{row.new}",
 )
-def test_every_move_is_rewritten_by_the_doctor(row, tmp_path: Path) -> None:
+def test_doctor_rewrites_every_move(row, tmp_path: Path) -> None:
     path = _write(tmp_path, tomlkit.dumps(_document_with(str(row.old), "probe-value")))
 
     fix_config_file(path)
@@ -353,127 +839,25 @@ def test_every_move_is_rewritten_by_the_doctor(row, tmp_path: Path) -> None:
     assert fix_config_file(path) == []
 
 
-def test_the_parent_tables_of_transport_move_after_their_parameters() -> None:
+def test_transport_move_order() -> None:
     olds = [row.old for row in CONFIG_MOVES]
 
     for name in ("modflow6gwt", "modflow6prt"):
         assert olds.index(f"transport.{name}.parameters") < olds.index(f"transport.{name}")
 
 
-_FROZEN_V1 = Path(__file__).parent / "fixtures" / "frozen_run_config_export_v1.toml"
-
-
-def test_a_run_sealed_by_a_pre_release_of_example_04_is_refused() -> None:
-    """The resolved ``config.toml`` of example 04 sealed in September holds the export toggles."""
-    original_bytes = _FROZEN_V1.read_bytes()
-    doc = tomllib.loads(original_bytes.decode("utf-8"))
-
-    with pytest.raises(ConfigValidationError) as refused:
-        migrate_sealed_config_doc(doc)
-
-    assert "export.netcdf" in str(refused.value)
-    assert "This version does not rewrite the file." in str(refused.value)
-    assert _FROZEN_V1.read_bytes() == original_bytes
-
-
-# --- the mechanism of the loader and of the doctor, on a row of a later version ----------
-
-MODFLOW6 = "[modflow6.process_specific]\nvka = 2.0\n"
-
-
-def test_a_form_the_loader_cannot_rewrite_does_not_promise_the_doctor() -> None:
-    with pytest.warns(ConfigKeyRenamedWarning, match="seed left: why") as told:
-        warn_old_form("project.toml", "calibration.seed left: why")
-    assert "hmp doctor" not in str(told[0].message)
-
-
-def test_a_dry_run_writes_nothing_and_gives_the_diff(tmp_path: Path) -> None:
-    path = _write(tmp_path, MODFLOW6)
-    diffs: dict[Path, str] = {}
-
-    changes = fix_config_chain(path, dry_run=True, diffs=diffs)
-
-    assert changes[path.resolve()] == ["modflow6 -> [solver.modflow6]"]
-    assert path.read_text() == MODFLOW6
-    assert "+[solver.modflow6.process_specific]" in diffs[path.resolve()]
-
-
-def test_a_backend_split_across_two_files_is_named_by_the_merge(tmp_path: Path) -> None:
-    """``kind = "custom"`` in a parent and ``name`` in a child say the name only together."""
-    _, child = _chain(
-        tmp_path, '[solver.backend]\nkind = "custom"\n', '[solver.backend]\nname = "plugged"\n'
-    )
-
-    with pytest.warns(ConfigKeyRenamedWarning, match="solver.backend.kind -> solver.backend"):
-        merged = load_toml_with_base_config(child, root=ROOT_CONFIG)
-
-    assert merged["solver"]["backend"] == "plugged"
-
-
-def test_a_missing_file_raises(tmp_path: Path) -> None:
-    with pytest.raises(FileNotFoundError):
-        fix_config_file(tmp_path / "nope.toml")
-
-
-# --- the rules of the register and the forms of a pre-release ---------------------------
-
-SOLVER_FORMS = (
-    (
-        "the MODFLOW 6 table",
-        "[modflow6.process_specific]\nvka = 2.0\n",
-        "solver.modflow6.process_specific.vka",
-        2.0,
-    ),
-    (
-        "the MODFLOW-NWT table",
-        "[modflownwt.runtime.upw]\nhdry = -999.0\n",
-        "solver.modflow_nwt.runtime.upw.hdry",
-        -999.0,
-    ),
-    (
-        "the Boussinesq table",
-        '[flow.runtime]\nbackend = "local"\n',
-        "solver.boussinesq.backend",
-        "local",
-    ),
-    (
-        "a shipped backend",
-        '[solver.backend]\nkind = "modflow_nwt"\n',
-        "solver.backend",
-        "modflow_nwt",
-    ),
-    (
-        "a plugin backend",
-        '[solver.backend]\nkind = "custom"\nname = "plugged"\n',
-        "solver.backend",
-        "plugged",
-    ),
-    (
-        "a transport parameters table",
-        "[transport.modflow6gwt.parameters]\nporosity = 0.2\n",
-        "transport.modflow6.porosity",
-        0.2,
-    ),
-    (
-        "the scaffold of hmp init",
-        '[[simulation.process]]\nid = "flow"\ntype = "flow"\n',
-        "simulation.process[*].kind",
-        "flow",
-    ),
-)
-
-
-SOLVER_PATHS = (
+# Pairs of an old dotted path and the path it becomes, in a phase override and a parameter.
+SOLVER_PATHS = [
     ("modflow6.process_specific.vka", "solver.modflow6.process_specific.vka"),
     ("modflownwt.runtime.nwt.headtol", "solver.modflow_nwt.runtime.nwt.headtol"),
     ("flow.runtime.max_iterations", "solver.boussinesq.max_iterations"),
     ("solver.backend.kind", "solver.backend"),
     ("transport.mt3dms.parameters.porosity", "transport.mt3dms.porosity"),
-)
+]
 
 
 @pytest.mark.parametrize(("old", "new"), SOLVER_PATHS)
-def test_a_dotted_path_of_a_form_of_2_0_moves_with_it(old: str, new: str) -> None:
+def test_dotted_path_of_2_0_forms(old: str, new: str) -> None:
     doc = {
         "calibration": {
             "phases": [{"name": "p", "overrides": {old: "probe"}}],
@@ -488,7 +872,7 @@ def test_a_dotted_path_of_a_form_of_2_0_moves_with_it(old: str, new: str) -> Non
     assert doc["calibration"]["parameters"]["vka"]["path"] == new
 
 
-def test_a_plugin_backend_written_as_dotted_keys_becomes_its_name() -> None:
+def test_plugin_backend_dotted_keys() -> None:
     doc = {
         "sites": {
             "recipes": {
@@ -502,7 +886,7 @@ def test_a_plugin_backend_written_as_dotted_keys_becomes_its_name() -> None:
     assert doc["sites"]["recipes"]["r"]["set"] == {"solver.backend": "plugged"}
 
 
-def test_a_transport_table_beside_its_parameters_is_kept_and_they_are_dropped() -> None:
+def test_transport_beside_parameters() -> None:
     doc = tomllib.loads(
         "[transport.modpath]\ntrack_dir = 'forward'\n"
         "[transport.modpath.parameters]\ntrack_dir = 'backward'\n"
@@ -517,7 +901,7 @@ def test_a_transport_table_beside_its_parameters_is_kept_and_they_are_dropped() 
     )
 
 
-def test_an_empty_parent_table_of_transport_is_dropped_under_its_new_name() -> None:
+def test_empty_transport_parent_dropped() -> None:
     doc = {"transport": {"modflow6gwt": {}, "modflow6": {"porosity": 0.2}}}
 
     changes = migrate_config_doc(doc)
@@ -528,7 +912,7 @@ def test_an_empty_parent_table_of_transport_is_dropped_under_its_new_name() -> N
     ]
 
 
-def test_a_source_kind_of_2_0_is_renamed_in_every_section() -> None:
+def test_source_kind_renamed() -> None:
     doc = {"data": {"dem": {"sources": [{"source": "custom", "path": "inputs/dem.tif"}]}}}
 
     changes = migrate_config_doc(doc)
@@ -537,22 +921,7 @@ def test_a_source_kind_of_2_0_is_renamed_in_every_section() -> None:
     assert changes == ["data.dem.sources[0].source: 'custom' -> 'file'"]
 
 
-def test_doctor_refusal_of_dem_init_path(tmp_path: Path) -> None:
-    from hydromodpy.project.doctor import refusal_of
-
-    path = _write(
-        tmp_path, '[geographic.catchment]\nkind = "dem"\ndem_init_path = "inputs/dem.tif"\n'
-    )
-
-    refusal = refusal_of(path)
-
-    assert refusal is not None
-    assert "dem_init_path was removed in 2.0.0" in str(refusal)
-    assert "[[data.dem.sources]]" in str(refusal)
-    assert 'source = "file"' in str(refusal)
-
-
-def test_doctor_writes_the_dem_row_a_load_refuses(tmp_path: Path) -> None:
+def test_doctor_writes_dem_row(tmp_path: Path) -> None:
     path = _write(
         tmp_path, '[geographic.catchment]\nkind = "dem"\ndem_init_path = "inputs/dem.tif"\n'
     )
@@ -569,7 +938,7 @@ def test_doctor_writes_the_dem_row_a_load_refuses(tmp_path: Path) -> None:
     assert "dem_init_path" not in parsed["geographic"]["catchment"]
 
 
-def test_a_sealed_run_reads_the_dem_init_path_as_its_source() -> None:
+def test_sealed_dem_init_path() -> None:
     doc = {"geographic": {"catchment": {"dem_init_path": "inputs/dem.tif"}}}
 
     with warnings.catch_warnings():
@@ -580,40 +949,7 @@ def test_a_sealed_run_reads_the_dem_init_path_as_its_source() -> None:
     assert "catchment" not in doc["geographic"]
 
 
-def test_doctor_refusal_of_bare_name(tmp_path: Path) -> None:
-    from hydromodpy.project.doctor import refusal_of
-
-    path = _write(
-        tmp_path,
-        '[geographic.catchment]\nkind = "dem"\n'
-        '[[data.dem.sources]]\nsource = "file"\npath = "dem.tif"\n',
-    )
-
-    refusal = refusal_of(path)
-
-    assert refusal is not None
-    assert "'dem.tif' is a bare name" in str(refusal)
-    assert "inputs/dem.tif" in str(refusal)
-
-
-FORWARD_MODEL_REFUSAL = (
-    "a forward model is a solver backend since 2.0.0: name it by solver.backend, register "
-    "it in the hydromodpy.solver entry-point group, and calibrate it with the pipeline evaluator"
-)
-
-
-def test_a_live_forward_model_key_is_refused_on_load(tmp_path: Path) -> None:
-    source = tmp_path / "project.toml"
-
-    with pytest.raises(ConfigValidationError, match="This old form is refused") as refused:
-        migrate_config_doc_on_load(
-            {"calibration": {"forward_model": "linear_reservoir"}}, source=source
-        )
-
-    assert f"calibration.forward_model dropped: {FORWARD_MODEL_REFUSAL}" in str(refused.value)
-
-
-def test_a_live_scored_forward_evaluator_is_dropped_and_the_doctor_says_why(
+def test_scored_evaluator_dropped(
     tmp_path: Path,
 ) -> None:
     path = _write(tmp_path, '[calibration]\nevaluator = "scored_forward_model"\n')
@@ -625,7 +961,7 @@ def test_a_live_scored_forward_evaluator_is_dropped_and_the_doctor_says_why(
     assert fix_config_file(path) == []
 
 
-def test_a_sealed_document_holding_the_forward_model_at_null_loses_it_in_silence() -> None:
+def test_sealed_null_forward_model() -> None:
     doc = {"calibration": {"forward_model": None}}
 
     migrate_sealed_config_doc(doc)
@@ -633,7 +969,7 @@ def test_a_sealed_document_holding_the_forward_model_at_null_loses_it_in_silence
     assert doc == {"calibration": {}}
 
 
-def test_a_sealed_document_holding_a_forward_model_name_warns() -> None:
+def test_sealed_forward_model_name_warns() -> None:
     doc = {"calibration": {"forward_model": "linear_reservoir"}}
 
     with pytest.warns(ConfigKeyRenamedWarning, match="calibration.forward_model retired"):
@@ -642,22 +978,63 @@ def test_a_sealed_document_holding_a_forward_model_name_warns() -> None:
     assert doc == {"calibration": {}}
 
 
-# --- the two cache keys removed in 2.0.0 ---------------------------------------
+FROZEN_V1 = Path(__file__).parent / "fixtures" / "frozen_run_config_export_v1.toml"
 
-REMOVED_CACHE_KEYS = (
-    ("reuse_existing_outputs", "under .hmp/products/"),
-    ("reg_fold", 'state = "conditioned"'),
-)
+# Each row: the file text and the parts of the message that name the fix.
+DOCTOR_REFUSALS = [
+    pytest.param(
+        '[geographic.catchment]\nkind = "dem"\ndem_init_path = "inputs/dem.tif"\n',
+        [
+            "dem_init_path was removed in 2.0.0",
+            "[[data.dem.sources]]",
+            'source = "file"',
+        ],
+        id="dem_init_path",
+    ),
+    pytest.param(
+        '[geographic.catchment]\nkind = "dem"\n'
+        '[[data.dem.sources]]\nsource = "file"\npath = "dem.tif"\n',
+        ["'dem.tif' is a bare name", "inputs/dem.tif"],
+        id="a bare name",
+    ),
+]
 
 
-def test_a_root_section_the_caller_names_is_never_created_by_an_edition() -> None:
-    doc: dict = {"flow": {"bc": {}}}
+@pytest.mark.parametrize(("text", "named"), DOCTOR_REFUSALS)
+def test_doctor_refusals(text: str, named: list[str], tmp_path: Path) -> None:
+    from hydromodpy.project.doctor import refusal_of
 
-    written = apply_edition(doc, edition="2.0", register=EDITIONS, optional_sections={"solver"})
+    refusal = refusal_of(_write(tmp_path, text))
 
-    assert written == ["flow.bc.{*}.y"][:0]
-    assert doc == {"flow": {"bc": {}}}
-    kept: dict = {"solver": {}}
-    assert apply_edition(kept, edition="2.0", register=EDITIONS, optional_sections={"solver"}) == [
-        "solver.x"
-    ]
+    assert refusal is not None
+    for part in named:
+        assert part in str(refusal)
+
+
+def test_forward_model_refused_on_load(tmp_path: Path) -> None:
+    source = tmp_path / "project.toml"
+
+    with pytest.raises(ConfigValidationError, match="This old form is refused") as refused:
+        migrate_config_doc_on_load(
+            {"calibration": {"forward_model": "linear_reservoir"}}, source=source
+        )
+
+    assert f"calibration.forward_model dropped: {FORWARD_MODEL_REFUSAL}" in str(refused.value)
+
+
+def test_pre_release_sealed_run_refused() -> None:
+    # The resolved config.toml of example 04 sealed in September holds the export toggles.
+    original_bytes = FROZEN_V1.read_bytes()
+    doc = tomllib.loads(original_bytes.decode("utf-8"))
+
+    with pytest.raises(ConfigValidationError) as refused:
+        migrate_sealed_config_doc(doc)
+
+    assert "export.netcdf" in str(refused.value)
+    assert NO_REWRITE in str(refused.value)
+    assert FROZEN_V1.read_bytes() == original_bytes
+
+
+def test_fixing_a_missing_file_raises(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        fix_config_file(tmp_path / "nope.toml")

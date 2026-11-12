@@ -17,7 +17,6 @@ LOCK_MESSAGE = (
 
 @pytest.fixture
 def sleeps(monkeypatch) -> list[float]:
-    """Record the waits instead of sleeping them."""
     waited: list[float] = []
     monkeypatch.setattr(db_retry.time, "sleep", waited.append)
     monkeypatch.setattr(db_retry.random, "uniform", lambda _a, _b: 0.0)
@@ -44,9 +43,7 @@ def _connect_failing(monkeypatch, failures: list[Exception]) -> list[tuple]:
     return calls
 
 
-def test_a_lock_held_for_a_few_attempts_is_waited_out_with_a_growing_delay(
-    monkeypatch, sleeps, tmp_path: Path
-) -> None:
+def test_lock_waited_out_with_backoff(monkeypatch, sleeps, tmp_path: Path) -> None:
     calls = _connect_failing(monkeypatch, [duckdb.IOException(LOCK_MESSAGE)] * 3)
 
     con = db_retry.connect_with_retry(str(tmp_path / "c.duckdb"), backoff=0.1, max_backoff=0.3)
@@ -57,9 +54,7 @@ def test_a_lock_held_for_a_few_attempts_is_waited_out_with_a_growing_delay(
     con.close()
 
 
-def test_a_lock_that_never_clears_ends_in_the_lock_error_after_every_attempt(
-    monkeypatch, sleeps
-) -> None:
+def test_lock_that_never_clears(monkeypatch, sleeps) -> None:
     calls = _connect_failing(monkeypatch, [duckdb.IOException(LOCK_MESSAGE)] * 10)
 
     with pytest.raises(duckdb.IOException, match="Conflicting lock"):
@@ -69,7 +64,7 @@ def test_a_lock_that_never_clears_ends_in_the_lock_error_after_every_attempt(
     assert len(sleeps) == 3  # no wait after the last attempt
 
 
-def test_an_io_error_that_is_not_a_lock_is_not_waited_for(monkeypatch, sleeps) -> None:
+def test_other_io_error_not_retried(monkeypatch, sleeps) -> None:
     calls = _connect_failing(monkeypatch, [duckdb.IOException("No space left on device")])
 
     with pytest.raises(duckdb.IOException, match="No space left"):
@@ -79,9 +74,7 @@ def test_an_io_error_that_is_not_a_lock_is_not_waited_for(monkeypatch, sleeps) -
     assert sleeps == []
 
 
-def test_a_catalog_already_open_in_another_mode_is_told_as_a_conflict_not_as_damage(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_other_mode_is_a_conflict(monkeypatch, tmp_path: Path) -> None:
     catalog = tmp_path / "catalog.duckdb"
     catalog.write_bytes(b"x")
     _connect_failing(
@@ -97,14 +90,14 @@ def test_a_catalog_already_open_in_another_mode_is_told_as_a_conflict_not_as_dam
         db_retry.connect_with_retry(str(catalog))
 
 
-def test_a_catalog_that_does_not_exist_keeps_the_original_error(monkeypatch) -> None:
+def test_missing_catalog_keeps_error(monkeypatch) -> None:
     _connect_failing(monkeypatch, [duckdb.IOException("Cannot open file: no such file")])
 
     with pytest.raises(duckdb.IOException, match="no such file"):
         db_retry.connect_with_retry("/nonexistent/folder/catalog.duckdb", read_only=True)
 
 
-def test_a_path_still_attached_in_this_process_does_not_stop_the_block_size_pre_create(
+def test_attached_path_precreate(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "held.duckdb"
@@ -118,12 +111,12 @@ def test_a_path_still_attached_in_this_process_does_not_stop_the_block_size_pre_
     holder.close()
 
 
-def test_another_binder_error_during_the_pre_create_is_not_hidden(tmp_path: Path) -> None:
+def test_precreate_error_not_hidden(tmp_path: Path) -> None:
     with pytest.raises(duckdb.Error):
         db_retry._precreate_with_block_size(str(tmp_path / "c.duckdb"), 1234)  # not a power of two
 
 
-def test_a_wal_that_cannot_be_checkpointed_is_a_warning_and_the_connection_is_kept(caplog) -> None:
+def test_wal_not_checkpointed_warns(caplog) -> None:
     class Refusing:
         def execute(self, _sql: str) -> None:
             raise duckdb.Error("torn journal")
@@ -134,7 +127,7 @@ def test_a_wal_that_cannot_be_checkpointed_is_a_warning_and_the_connection_is_ke
     assert "could not be checkpointed" in caplog.text
 
 
-def test_a_wal_checkpointed_is_reported_as_recovered(caplog) -> None:
+def test_wal_checkpointed_is_recovered(caplog) -> None:
     class Accepting:
         def execute(self, _sql: str) -> None:
             return None
@@ -145,7 +138,7 @@ def test_a_wal_checkpointed_is_reported_as_recovered(caplog) -> None:
     assert "Recovered a left-over" in caplog.text
 
 
-def test_the_wait_between_attempts_is_the_delay_plus_at_most_a_quarter(monkeypatch) -> None:
+def test_jitter_adds_a_quarter(monkeypatch) -> None:
     waited: list[float] = []
     monkeypatch.setattr(db_retry.time, "sleep", waited.append)
     monkeypatch.setattr(db_retry.random, "uniform", lambda _a, b: b)
@@ -156,10 +149,7 @@ def test_the_wait_between_attempts_is_the_delay_plus_at_most_a_quarter(monkeypat
     assert waited == [slept]
 
 
-# ---- with_lock_retry --------------------------------------------------------
-
-
-def test_a_method_that_meets_a_lock_twice_succeeds_on_the_third_attempt(sleeps) -> None:
+def test_decorator_retries_then_succeeds(sleeps) -> None:
     attempts: list[int] = []
 
     @db_retry.with_lock_retry(retries=5, backoff=0.1)
@@ -174,7 +164,7 @@ def test_a_method_that_meets_a_lock_twice_succeeds_on_the_third_attempt(sleeps) 
     assert sleeps == pytest.approx([0.1, 0.2])
 
 
-def test_a_method_blocked_for_good_raises_the_lock_error_after_its_attempts(sleeps) -> None:
+def test_decorator_gives_up(sleeps) -> None:
     attempts: list[int] = []
 
     @db_retry.with_lock_retry(retries=3, backoff=0.01)
@@ -189,7 +179,7 @@ def test_a_method_blocked_for_good_raises_the_lock_error_after_its_attempts(slee
     assert len(sleeps) == 2
 
 
-def test_a_method_failing_for_another_reason_is_not_retried(sleeps) -> None:
+def test_decorator_skips_other_errors(sleeps) -> None:
     attempts: list[int] = []
 
     @db_retry.with_lock_retry(retries=3)
@@ -204,7 +194,7 @@ def test_a_method_failing_for_another_reason_is_not_retried(sleeps) -> None:
     assert sleeps == []
 
 
-def test_an_attached_database_is_readable_inside_the_block_and_detached_after(
+def test_attach_read_only(
     tmp_path: Path,
 ) -> None:
     other = tmp_path / "other.duckdb"

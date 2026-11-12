@@ -1,3 +1,9 @@
+"""Runtime of the validation cases: launcher runs, output folders and stored fields.
+
+Heads are in m. Windows paths must stay under the 260 character limit, so output
+folder names are shortened by a budget that counts the longest path a run writes.
+"""
+
 from __future__ import annotations
 
 import os
@@ -27,124 +33,76 @@ PREPROCESSING_DIR = preprocessing_dir(Path())
 MINIMAL_SIMULATION_WORKFLOW = '[workflow]\nmode = "simulation"\n'
 
 
-@pytest.mark.parametrize(
-    ("metadata", "solver", "expected_run_name", "expected_solver_name", "config_files"),
-    [
-        pytest.param(
-            {
-                "case_id": "case_demo",
-                "config_file": "config_modflownwt.toml",
-                "workspace": {},
-            },
-            None,
-            "case_demo",
-            "modflow_nwt",
-            ("config_modflownwt.toml",),
-            id="single-config-file",
-        ),
-        pytest.param(
-            {
-                "case_id": "case_demo",
-                "default_solver": "modflow_nwt",
-                "config_files": {
-                    "modflow_nwt": "config_modflownwt.toml",
-                    "modflow6": "config_modflow6.toml",
-                },
-                "workspace": {},
-            },
-            None,
-            "case_demo_modflow_nwt",
-            "modflow_nwt",
-            ("config_modflownwt.toml", "config_modflow6.toml"),
-            id="multi-solver-default",
-        ),
-        pytest.param(
-            {
-                "case_id": "case_demo",
-                "default_solver": "modflow_nwt",
-                "config_files": {
-                    "modflow_nwt": "config_modflownwt.toml",
-                },
-                "workspace": {},
-            },
-            None,
-            "case_demo",
-            "modflow_nwt",
-            ("config_modflownwt.toml",),
-            id="single-entry-config-mapping",
-        ),
-        pytest.param(
-            {
-                "case_id": "case_demo",
-                "default_solver": "modflow_nwt",
-                "config_files": {
-                    "modflow_nwt": "config_modflownwt.toml",
-                    "modflow6": "config_modflow6.toml",
-                },
-                "workspace": {},
-            },
-            "modflow6",
-            "case_demo_modflow6",
-            "modflow6",
-            ("config_modflownwt.toml", "config_modflow6.toml"),
-            id="explicit-solver",
-        ),
-    ],
-)
-def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    metadata: dict,
-    solver: str | None,
-    expected_run_name: str,
-    expected_solver_name: str,
-    config_files: tuple[str, ...],
-) -> None:
+SINGLE_CONFIG = {"case_id": "case_demo", "config_file": "config_modflownwt.toml", "workspace": {}}
+
+
+def launcher_case(monkeypatch, tmp_path, metadata, *, returncode=0, workspace=None):
+    """Build a case folder and patch what leaves the process: metadata, subprocess, folders.
+
+    Returns the case folder, the model workspace and what the patches recorded.
+    """
     case_dir = tmp_path / "case"
     case_dir.mkdir()
-    for config_file in config_files:
+    configs = metadata.get("config_files", {}).values() or [metadata["config_file"]]
+    for config_file in configs:
         (case_dir / config_file).write_text(MINIMAL_SIMULATION_WORKFLOW, encoding="utf-8")
 
-    captured: dict[str, Any] = {}
+    captured = {}
 
-    def _resolve_results_dir(*, test_file, run_name):
-        del test_file
+    def resolve_results_dir(*, test_file, run_name):
         captured["run_name"] = run_name
         return tmp_path / "outputs"
 
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.load_case_metadata",
-        lambda _case_dir: metadata,
-    )
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.resolve_validation_results_dir",
-        _resolve_results_dir,
-    )
-
-    def _fake_subprocess_run(*args, **kwargs):
+    def run_subprocess(*args, **kwargs):
         captured["command"] = list(args[0])
         return SimpleNamespace(
-            returncode=0,
-            stdout="ok",
-            stderr="",
+            returncode=returncode, stdout="partial run", stderr="did not converge"
         )
 
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.subprocess.run",
-        _fake_subprocess_run,
-    )
     model_ws = tmp_path / "outputs" / "watershed" / "results_simulations" / "model"
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.resolve_model_workspace",
-        lambda *args, **kwargs: (model_ws, postprocess_dir, particles_dir),
-    )
+    if workspace is None:
+
+        def workspace(*args, **kwargs):
+            return model_ws, postprocess_dir, particles_dir
+
+    monkeypatch.setattr(runtime, "load_case_metadata", lambda _case_dir: metadata)
+    monkeypatch.setattr(runtime, "resolve_validation_results_dir", resolve_results_dir)
+    monkeypatch.setattr(runtime.subprocess, "run", run_subprocess)
+    monkeypatch.setattr(runtime, "resolve_model_workspace", workspace)
+    return case_dir, model_ws, captured
+
+
+TWO_SOLVERS = {
+    "case_id": "case_demo",
+    "default_solver": "modflow_nwt",
+    "config_files": {"modflow_nwt": "config_modflownwt.toml", "modflow6": "config_modflow6.toml"},
+    "workspace": {},
+}
+ONE_SOLVER = TWO_SOLVERS | {"config_files": {"modflow_nwt": "config_modflownwt.toml"}}
+
+# Columns are the metadata, the solver asked for, the run name and the solver name.
+LAUNCHES = [
+    pytest.param(SINGLE_CONFIG, None, "case_demo", "modflow_nwt", id="single config file"),
+    pytest.param(
+        TWO_SOLVERS, None, "case_demo_modflow_nwt", "modflow_nwt", id="default of two solvers"
+    ),
+    pytest.param(ONE_SOLVER, None, "case_demo", "modflow_nwt", id="one entry config mapping"),
+    pytest.param(TWO_SOLVERS, "modflow6", "case_demo_modflow6", "modflow6", id="explicit solver"),
+]
+
+
+@pytest.mark.parametrize(("metadata", "solver", "run_name", "solver_name"), LAUNCHES)
+def test_launcher_resolves_solver_and_run_name(
+    monkeypatch, tmp_path, metadata, solver, run_name, solver_name
+):
+    case_dir, model_ws, captured = launcher_case(monkeypatch, tmp_path, metadata)
 
     result = run_launcher_validation_case(case_dir=case_dir, test_file=__file__, solver=solver)
 
-    assert captured["run_name"] == expected_run_name
-    assert result.solver_name == expected_solver_name
+    assert captured["run_name"] == run_name
+    assert result.solver_name == solver_name
     assert result.model_ws == model_ws
     # The run is written in the folder of its outputs, named by argument.
     assert captured["command"][-2:] == ["--base", str(tmp_path / "outputs")]
@@ -170,12 +128,12 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
         ),
     ],
 )
-def test_resolve_validation_results_dir_uses_deterministic_solver_specific_names(
+def test_results_dir_names(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     run_name: str,
     expected_dir_name: str,
-) -> None:
+):
     monkeypatch.setattr(runtime, "WINDOWS_PATH_LIMIT", 10_000)
     out_root = tmp_path / "validation_root"
     monkeypatch.setenv("HMP_OUT_PATH", str(out_root))
@@ -190,10 +148,10 @@ def test_resolve_validation_results_dir_uses_deterministic_solver_specific_names
     )
 
 
-def test_resolve_validation_results_dir_reuses_existing_run_dir(
+def test_results_dir_is_reused_and_cleaned(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-) -> None:
+):
     monkeypatch.setattr(runtime, "WINDOWS_PATH_LIMIT", 10_000)
     out_root = tmp_path / "validation_root"
     monkeypatch.setenv("HMP_OUT_PATH", str(out_root))
@@ -220,10 +178,10 @@ def test_resolve_validation_results_dir_reuses_existing_run_dir(
 
 
 @pytest.mark.windows
-def test_resolve_validation_results_dir_falls_back_from_long_windows_output_root(
+def test_results_dir_leaves_a_long_windows_root(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-) -> None:
+):
     long_root = tmp_path / ("root_" + "x" * 60) / ("nested_" + "y" * 60)
     monkeypatch.setenv("HMP_OUT_PATH", str(long_root))
 
@@ -237,7 +195,7 @@ def test_resolve_validation_results_dir_falls_back_from_long_windows_output_root
     assert len(str(scratch_probe)) < runtime.WINDOWS_PATH_LIMIT
 
 
-def test_load_case_tolerances_prefers_solver_specific_file(tmp_path: Path) -> None:
+def test_tolerances_prefer_the_solver_file(tmp_path: Path):
     case_dir = tmp_path / "case"
     case_dir.mkdir()
     (case_dir / "tolerances.toml").write_text(
@@ -262,7 +220,7 @@ def test_load_case_tolerances_prefers_solver_specific_file(tmp_path: Path) -> No
     assert float(fallback_tolerances["head_profile"]["rmse"]) == pytest.approx(0.01)
 
 
-def test_validation_launcher_config_requires_explicit_workflow(tmp_path: Path) -> None:
+def test_launcher_config_requires_a_workflow(tmp_path: Path):
     case_dir = tmp_path / "case"
     case_dir.mkdir()
     config_path = case_dir / "config_modflownwt.toml"
@@ -280,7 +238,7 @@ def test_validation_launcher_config_requires_explicit_workflow(tmp_path: Path) -
         )
 
 
-def test_validation_launcher_config_stores_fields_at_full_precision(tmp_path: Path) -> None:
+def test_launcher_config_stores_exact_fields(tmp_path: Path):
     case_dir = tmp_path / "case"
     case_dir.mkdir()
     config_path = case_dir / "config_modflownwt.toml"
@@ -308,96 +266,31 @@ def test_validation_launcher_config_stores_fields_at_full_precision(tmp_path: Pa
     assert results["persistence"]["field_precision"] == "exact"
 
 
-def test_run_launcher_validation_case_reports_failure_even_when_outputs_exist(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    case_dir = tmp_path / "case"
-    case_dir.mkdir()
-    (case_dir / "config_modflownwt.toml").write_text(
-        MINIMAL_SIMULATION_WORKFLOW,
-        encoding="utf-8",
-    )
-
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.load_case_metadata",
-        lambda _case_dir: {
-            "case_id": "case_demo",
-            "config_file": "config_modflownwt.toml",
-            "workspace": {},
-        },
-    )
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.resolve_validation_results_dir",
-        lambda **kwargs: tmp_path / "outputs",
-    )
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.subprocess.run",
-        lambda *args, **kwargs: SimpleNamespace(
-            returncode=1,
-            stdout="partial run",
-            stderr="solver did not converge",
-        ),
-    )
-    model_ws = tmp_path / "outputs" / "watershed" / "results_simulations" / "model"
-    postprocess_dir = model_ws / "_postprocess"
-    particles_dir = postprocess_dir / "_particles"
-    particles_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.resolve_model_workspace",
-        lambda *args, **kwargs: (model_ws, postprocess_dir, particles_dir),
-    )
+def test_launcher_failure_is_reported_when_outputs_exist(monkeypatch, tmp_path):
+    case_dir, model_ws, _ = launcher_case(monkeypatch, tmp_path, SINGLE_CONFIG, returncode=1)
+    (model_ws / "_postprocess" / "_particles").mkdir(parents=True)
 
     with pytest.raises(AssertionError, match="hydromodpy.__main__ failed") as excinfo:
         run_launcher_validation_case(case_dir=case_dir, test_file=__file__)
 
-    message = str(excinfo.value)
-    assert "partial run" in message
-    assert "solver did not converge" in message
+    assert "partial run" in str(excinfo.value)
+    assert "did not converge" in str(excinfo.value)
     assert model_ws.exists()
 
 
-def test_run_launcher_validation_case_reports_subprocess_failure_when_outputs_missing(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    case_dir = tmp_path / "case"
-    case_dir.mkdir()
-    (case_dir / "config_modflownwt.toml").write_text(
-        MINIMAL_SIMULATION_WORKFLOW,
-        encoding="utf-8",
-    )
+def test_launcher_failure_is_reported_when_outputs_are_missing(monkeypatch, tmp_path):
+    def no_workspace(*args, **kwargs):
+        raise AssertionError("Model folder not found")
 
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.load_case_metadata",
-        lambda _case_dir: {
-            "case_id": "case_demo",
-            "config_file": "config_modflownwt.toml",
-            "workspace": {},
-        },
-    )
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.resolve_validation_results_dir",
-        lambda **kwargs: tmp_path / "outputs",
-    )
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.subprocess.run",
-        lambda *args, **kwargs: SimpleNamespace(
-            returncode=1,
-            stdout="partial run",
-            stderr="solver did not converge",
-        ),
-    )
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.resolve_model_workspace",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("Model folder not found")),
+    case_dir, _, _ = launcher_case(
+        monkeypatch, tmp_path, SINGLE_CONFIG, returncode=1, workspace=no_workspace
     )
 
     with pytest.raises(AssertionError, match="hydromodpy.__main__ failed"):
         run_launcher_validation_case(case_dir=case_dir, test_file=__file__)
 
 
-def test_write_validation_fields_to_store_keeps_full_precision(tmp_path: Path) -> None:
+def test_store_keeps_full_precision(tmp_path: Path):
     head = np.asarray([[7.123456789012, 7.123456789013]], dtype=float)
     store, sim_id = write_validation_fields_to_store(
         out_path=tmp_path,
@@ -418,7 +311,7 @@ def test_write_validation_fields_to_store_keeps_full_precision(tmp_path: Path) -
             store.close()
 
 
-def test_write_validation_fields_to_store_writes_gridded_series(tmp_path: Path) -> None:
+def test_store_writes_gridded_series(tmp_path: Path):
     fields = {
         "watertable_elevation": {
             0: np.asarray([[1.0, 2.0], [3.0, 4.0]], dtype=float),
@@ -466,7 +359,7 @@ def test_write_validation_fields_to_store_writes_gridded_series(tmp_path: Path) 
 
 
 class _WindowsOs:
-    """Stand-in for ``os`` that reads as Windows, for the module under test only."""
+    # Stand-in for ``os`` that reads as Windows, for the module under test only.
 
     name = "nt"
 
@@ -475,7 +368,7 @@ class _WindowsOs:
 
 
 def _longest_run_path_suffix(tmp_path: Path, model_name: str) -> int:
-    """Build, from the product, the longest path a run writes below its project root."""
+    # Built from the product: the longest path a run writes below its project root.
     from hydromodpy.core.state.scratch import (
         PREPROCESSING_DIRNAME,
         active_run_scratch,
@@ -512,10 +405,10 @@ def _longest_run_path_suffix(tmp_path: Path, model_name: str) -> int:
 
 
 @pytest.mark.parametrize("model_name_length", [4, 16, 35, 40, 48])
-def test_run_generated_path_length_matches_the_paths_the_product_builds(
+def test_generated_path_length_matches_the_product(
     tmp_path: Path,
     model_name_length: int,
-) -> None:
+):
     model_name = "m" * model_name_length
 
     assert runtime.run_generated_path_length(model_name_length) == _longest_run_path_suffix(
@@ -523,8 +416,8 @@ def test_run_generated_path_length_matches_the_paths_the_product_builds(
     )
 
 
-def test_a_validation_run_name_is_a_run_name() -> None:
-    """The name the runtime injects is the longest the rule of a run name takes, and passes it."""
+def test_validation_name_is_a_run_name():
+    # The name the runtime injects is the longest a run name can be, and it passes the rule.
     from hydromodpy.core.state.names import MAX_NAME_LENGTH, check_name
 
     assert runtime._VALIDATION_SIM_NAME_LENGTH == MAX_NAME_LENGTH
@@ -540,9 +433,9 @@ def test_a_validation_run_name_is_a_run_name() -> None:
         assert check_name(name, what="run") == name
 
 
-def test_validation_headroom_covers_the_longest_validation_model_name(
+def test_headroom_covers_the_longest_name(
     tmp_path: Path,
-) -> None:
+):
     longest_name = runtime._short_validation_name(
         "c" * 80, max_length=runtime._VALIDATION_SIM_NAME_LENGTH
     )
@@ -556,11 +449,11 @@ def test_validation_headroom_covers_the_longest_validation_model_name(
     ("root_length", "component_length"),
     [(52, 24), (76, 12), (90, None)],
 )
-def test_budgeted_validation_dir_keeps_every_run_path_under_the_windows_limit(
+def test_budgeted_dir_fits_the_windows_limit(
     monkeypatch: pytest.MonkeyPatch,
     root_length: int,
     component_length: int | None,
-) -> None:
+):
     monkeypatch.setattr(runtime, "os", _WindowsOs())
     results_root = Path("/") / ("r" * (root_length - 1))
     assert len(str(results_root)) == root_length
@@ -582,7 +475,7 @@ def test_budgeted_validation_dir_keeps_every_run_path_under_the_windows_limit(
         assert len(str(out_dir)) + headroom <= runtime.WINDOWS_PATH_LIMIT
 
 
-def test_budgeted_validation_dir_shortens_names_only_on_windows() -> None:
+def test_budgeted_dir_shortens_only_on_windows():
     results_root = Path("/") / ("r" * 89)
 
     out_dir = runtime._resolve_budgeted_validation_results_dir(

@@ -43,9 +43,7 @@ def parent(tmp_path, monkeypatch):
     return delineate_on_fake_backend(tmp_path, monkeypatch, OUTLET_CATCHMENT)
 
 
-def test_each_station_and_each_declared_point_gets_a_sub_basin_inside_its_parent(
-    parent, tmp_path, caplog
-) -> None:
+def test_sub_basin_per_point(parent, tmp_path, caplog) -> None:
     hydrometry = SimpleNamespace(code_bh=["J0001", ""], x_coord=[450.0] * 2, y_coord=[450.0, 350.0])
     point = SimpleNamespace(x=450.0, y=450.0)
     intermittency = SimpleNamespace(
@@ -78,9 +76,7 @@ def test_each_station_and_each_declared_point_gets_a_sub_basin_inside_its_parent
 
 
 @pytest.mark.parametrize("out_path", ["given", None])  # None: ``output/`` of the working directory
-def test_a_runtime_without_a_preprocessing_folder_writes_under_the_output_path(
-    out_path, tmp_path, monkeypatch
-) -> None:
+def test_output_path_without_preprocessing_folder(out_path, tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(subbasin_module, "resolve_delineation_backend", FakeWhiteboxBackend)
     monkeypatch.chdir(tmp_path)
     root = tmp_path / (out_path or "output")
@@ -109,9 +105,7 @@ def _backend_for(engine_id: str, monkeypatch) -> object:
     # Whitebox runs its depression tools in a child process.
     ["numpy_d8", pytest.param("whitebox_workflows", marks=pytest.mark.allow_subprocess)],
 )
-def test_a_gauge_sub_basin_is_delineated_by_the_engine_the_run_routed_with(
-    engine_id, tmp_path, monkeypatch
-) -> None:
+def test_gauge_sub_basin_by_engine(engine_id, tmp_path, monkeypatch) -> None:
     """A V valley drains through its exit cell, so the gauge there sees the whole valley."""
     backend = _backend_for(engine_id, monkeypatch)
     monkeypatch.setattr(subbasin_module, "resolve_delineation_backend", lambda: backend)
@@ -154,7 +148,7 @@ def test_a_gauge_sub_basin_is_delineated_by_the_engine_the_run_routed_with(
     reason="Subbasin swallows the failure of a station at debug level (subbasin.py:96), "
     "so a gauge without its sub-basin leaves no warning.",
 )
-def test_a_station_that_cannot_be_delineated_is_reported(parent, caplog, monkeypatch) -> None:
+def test_failed_station_is_reported(parent, caplog, monkeypatch) -> None:
     def fail(*args, **kwargs):
         raise RuntimeError("no accumulation here")
 

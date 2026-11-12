@@ -1,49 +1,42 @@
-"""Binding the pipeline to its run directory and the restart source."""
+"""Opening a run: its recipe, its solver environment, its directory, its restart source and its binaries."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from pydantic import BaseModel, ConfigDict
 
-from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
-from hydromodpy.model.domain.domain_config import DomainConfig
+from hydromodpy.model.flow_config import RestartReference
 from hydromodpy.project.launch.local import plan_project
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.schema.lineage import Lineage
+from hydromodpy.solver.base import planner
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
-from hydromodpy.solver.modflow_common.binaries import SolverEngine
+from hydromodpy.solver.modflow_common import binaries
+from hydromodpy.solver.modflow_common.binaries import SolverEngine, exe_filename
 from hydromodpy.workflow.steps.prepare_solver import dispatch as dispatch_module
 from hydromodpy.workflow.steps.prepare_solver.dispatch import (
     bind_restart_source,
     bind_run_directory,
     initial_facts,
     planned_recipe,
+    solver_binaries,
 )
-from hydromodpy.workflow.steps.prepare_solver.facts import collect_effective_config_snapshot
-from hydromodpy.workflow.steps.prepare_solver.restart import resolve_restart_source
 from tests._helpers.run_stores import open_run_store
-from tests._helpers.sealed_runs import make_project, seal_run
+from tests._helpers.sealed_runs import make_project
 from tests.unit.project.launch._launch_fakes import write_project
 from tests.unit.workflow.steps.prepare_solver._helpers import sealed_run
 
-# --- test_a_planned_run_carries_its_recipe ---
-# A run of a planned case seals its recipe, read from the plan.
-#
-# ``hmp diff k_mid k_low k_high`` and ``--by site`` read the recipe of
-# each run from ``manifest.run.recipe`` and the index: a worker of the plan
-# must write it. The case id names the recipe for the life of the project, so
-# the current plan answers; a run outside any plan has none.
+# A run of a planned case seals its recipe, read from the plan: ``hmp diff`` reads it from the
+# manifest. A run outside any plan has none.
 
 
-def test_a_planned_case_reads_its_recipe_from_the_plan(tmp_path: Path) -> None:
+def test_recipe_of_a_planned_case(tmp_path: Path) -> None:
     project = write_project(tmp_path)
     plan_project(project)
 
@@ -52,17 +45,14 @@ def test_a_planned_case_reads_its_recipe_from_the_plan(tmp_path: Path) -> None:
     assert planned_recipe(project, "a_free_run") is None
 
 
-def test_a_project_without_a_plan_gives_no_recipe(tmp_path: Path) -> None:
+def test_no_plan_no_recipe(tmp_path: Path) -> None:
     assert planned_recipe(tmp_path, "alpha-base") is None
 
 
-# --- test_run_environment_engine ---
-# Registration must record the engine the run selected, not a default guess.
+# Registration records the engine the run selected, not a default guess.
 
 
 def _solver_section(runner: str) -> SimpleNamespace:
-    """A ``[solver]`` section: the runner choice the backend declares, alone."""
-
     def options_of(name: str) -> SimpleNamespace | None:
         if name != "modflow6":
             return None
@@ -74,11 +64,9 @@ def _solver_section(runner: str) -> SimpleNamespace:
 def _ctx(
     *,
     runner: str = "subprocess",
-    captured: dict | None = None,
     built_model: object | None = None,
     solver: str = "modflow6",
 ) -> SimpleNamespace:
-    sink = {} if captured is None else captured
     run = SimpleNamespace(id="flow_main", process_type="flow", solver=solver)
     return SimpleNamespace(
         cfg=SimpleNamespace(
@@ -103,36 +91,45 @@ def _ctx(
 
 
 def _store(captured: dict) -> SimpleNamespace:
-    """A store that records the one row the registration writes."""
     return SimpleNamespace(
         write_run_environment=lambda sim_id, **kwargs: captured.update({"sim_id": sim_id, **kwargs})
     )
 
 
+def _plain_model() -> SimpleNamespace:
+    return SimpleNamespace(
+        modflow_config=SimpleNamespace(runtime=SimpleNamespace(mf6_runner="subprocess"))
+    )
+
+
 def _marnage_model() -> SimpleNamespace:
-    """A built MODFLOW 6 model whose exposed-band coupling forces the library."""
+    # A built MODFLOW 6 model whose exposed-band coupling forces the library.
     return SimpleNamespace(
         required_runner=lambda: "api",
         modflow_config=SimpleNamespace(runtime=SimpleNamespace(mf6_runner="subprocess")),
     )
 
 
-def test_execution_mode_follows_the_declared_runner() -> None:
-    assert dispatch_module._execution_mode(_ctx(runner="api"), "modflow6") == "api"
-    assert dispatch_module._execution_mode(_ctx(runner="subprocess"), "modflow6") == "subprocess"
+EXECUTION_MODES = [
+    pytest.param({"runner": "api"}, "modflow6", "api", id="declared api"),
+    pytest.param({"runner": "subprocess"}, "modflow6", "subprocess", id="declared subprocess"),
+    pytest.param({"runner": "api"}, "modflow_nwt", "subprocess", id="nwt has no library"),
+    pytest.param({"runner": "api"}, "boussinesq", "subprocess", id="boussinesq has no library"),
+    pytest.param({"runner": "api"}, None, "subprocess", id="no solver"),
+    pytest.param({"built_model": _marnage_model()}, "modflow6", "api", id="built model needs api"),
+    pytest.param({"built_model": _plain_model()}, "modflow6", "subprocess", id="plain built model"),
+]
 
 
-def test_only_modflow6_can_be_driven_through_the_library() -> None:
-    ctx = _ctx(runner="api")
-
-    assert dispatch_module._execution_mode(ctx, "modflow_nwt") == "subprocess"
-    assert dispatch_module._execution_mode(ctx, "boussinesq") == "subprocess"
-    assert dispatch_module._execution_mode(ctx, None) == "subprocess"
+@pytest.mark.parametrize(("kwargs", "solver", "mode"), EXECUTION_MODES)
+def test_execution_mode(kwargs, solver, mode) -> None:
+    # A lake with exposed-band runoff solves through libmf6 whatever the TOML says.
+    assert dispatch_module._execution_mode(_ctx(**kwargs), solver) == mode
 
 
-def test_api_registration_records_the_library_engine(monkeypatch) -> None:
+def test_api_registration_records_library(monkeypatch) -> None:
     captured: dict = {}
-    ctx = _ctx(runner="api", captured=captured)
+    ctx = _ctx(runner="api")
     engine = SolverEngine(
         solver="modflow6",
         kind="library",
@@ -166,10 +163,10 @@ def test_a_plain_built_model_keeps_the_declared_runner() -> None:
     assert dispatch_module._execution_mode(_ctx(built_model=plain), "modflow6") == "subprocess"
 
 
-def test_refresh_rewrites_the_engine_once_the_model_exists(monkeypatch) -> None:
-    """The post-solve pass records the library, not the executable registration guessed."""
+def test_refresh_rewrites_engine(monkeypatch) -> None:
+    # The post-solve pass records the library, not the executable registration guessed.
     captured: dict = {}
-    ctx = _ctx(runner="subprocess", captured=captured, built_model=_marnage_model())
+    ctx = _ctx(runner="subprocess", built_model=_marnage_model())
     library = SolverEngine(
         solver="modflow6",
         kind="library",
@@ -189,8 +186,8 @@ def test_refresh_rewrites_the_engine_once_the_model_exists(monkeypatch) -> None:
     assert captured["solver_binary_path"] == Path("/tmp/bin/libmf6.so")
 
 
-def test_refresh_is_a_no_op_before_the_run_is_registered() -> None:
-    """No sim_id yet means no row to rewrite, whatever handle it was given."""
+def test_refresh_before_registration() -> None:
+    # No sim_id yet means no row to rewrite.
     captured: dict = {}
     ctx = _ctx()
     ctx.sim_id = None
@@ -200,10 +197,10 @@ def test_refresh_is_a_no_op_before_the_run_is_registered() -> None:
     assert captured == {}
 
 
-def test_a_solver_without_an_engine_still_records_its_mode(monkeypatch) -> None:
-    """Boussinesq has no binary; the environment row must still be written."""
+def test_solver_without_engine_records_mode(monkeypatch) -> None:
+    # Boussinesq has no binary; the environment row must still be written.
     captured: dict = {}
-    ctx = _ctx(captured=captured)
+    ctx = _ctx()
     monkeypatch.setattr(dispatch_module, "_resolve_solver_engine", lambda *_a, **_k: None)
 
     dispatch_module._write_run_environment(ctx, "sim-2", "boussinesq", store=_store(captured))
@@ -214,13 +211,8 @@ def test_a_solver_without_an_engine_still_records_its_mode(monkeypatch) -> None:
     assert captured["solver_execution_mode"] == "subprocess"
 
 
-# --- test_store_handle_lifecycle ---
-# The run directory is bound once, by the step that opens the run.
-#
-# ``bind_run_directory`` reads the identity of the attempt off the outcome of
-# the directory it is handed, or claims the directory of the case when it is
-# handed none; the facts of the attempt are built from the context, written by
-# the store that opens on them, and no handle survives the step.
+# ``bind_run_directory`` reads the identity of the attempt off the outcome of the directory it is
+# handed, or claims the directory of the case when it is handed none.
 
 
 def _project(tmp_path: Path) -> Path:
@@ -231,7 +223,6 @@ def _project(tmp_path: Path) -> Path:
 
 
 def _bind_ctx(project: Path, *, reserved_sim_id: str | None = None) -> SimpleNamespace:
-    """A context shaped the way ``bind_run_directory`` and ``initial_facts`` read it."""
     return SimpleNamespace(
         parent_sim_id="parent-456",
         sim_id=None,
@@ -274,7 +265,7 @@ def _bind_ctx(project: Path, *, reserved_sim_id: str | None = None) -> SimpleNam
     )
 
 
-def test_without_a_directory_the_step_claims_the_case_of_the_context(tmp_path: Path) -> None:
+def test_claims_the_case_without_a_directory(tmp_path: Path) -> None:
     project = _project(tmp_path)
     ctx = _bind_ctx(project)
 
@@ -292,12 +283,9 @@ def test_without_a_directory_the_step_claims_the_case_of_the_context(tmp_path: P
     assert not hasattr(ctx, "store")
 
 
-def test_a_reserved_directory_takes_the_reserved_id_once(tmp_path: Path) -> None:
-    """A promotion reserves the directory and the id; the step writes the first outcome.
-
-    The reservation is consumed here: a context replayed for another run must
-    mint a fresh id rather than open twice under the same one.
-    """
+def test_reserved_id_taken_once(tmp_path: Path) -> None:
+    # A promotion reserves the directory and the id. The reservation is consumed here: a context
+    # replayed for another run must mint a fresh id rather than open twice under the same one.
     project = _project(tmp_path)
     reserved = "0e6a5f5c-6f3c-4a6b-9c2f-2f0f5c1b7a11"
     ctx = _bind_ctx(project, reserved_sim_id=reserved)
@@ -323,7 +311,7 @@ def test_a_reserved_directory_takes_the_reserved_id_once(tmp_path: Path) -> None
     assert ctx.sim_id != reserved
 
 
-def test_a_directory_claimed_before_the_pipeline_is_read_not_claimed_again(tmp_path: Path) -> None:
+def test_prior_claim_is_read_not_repeated(tmp_path: Path) -> None:
     project = _project(tmp_path)
     claim = claim_run_directory(project, "requested_name", case_id="requested_name", project="demo")
     ctx = _bind_ctx(project)
@@ -337,7 +325,7 @@ def test_a_directory_claimed_before_the_pipeline_is_read_not_claimed_again(tmp_p
     assert read_outcome(claim.run_dir).attempt == 1
 
 
-def test_the_initial_facts_name_the_run_its_solver_and_its_solution_key(tmp_path: Path) -> None:
+def test_initial_facts(tmp_path: Path) -> None:
     project = _project(tmp_path)
     ctx = _bind_ctx(project)
     bind_run_directory(
@@ -357,8 +345,8 @@ def test_the_initial_facts_name_the_run_its_solver_and_its_solution_key(tmp_path
     assert facts.lineage.kind == "rerun"
 
 
-def test_a_run_opened_without_a_solution_key_seals_none(tmp_path: Path) -> None:
-    """No later run is told identical to a run that no runner keyed."""
+def test_no_solution_key_seals_none(tmp_path: Path) -> None:
+    # No later run is told identical to a run that no runner keyed.
     project = _project(tmp_path)
     ctx = _bind_ctx(project)
     bind_run_directory(
@@ -368,17 +356,10 @@ def test_a_run_opened_without_a_solution_key_seals_none(tmp_path: Path) -> None:
     assert initial_facts(ctx).solution_key is None
 
 
-# --- test_a_restart_reference_is_resolved_to_a_run ---
-# ``[flow] restart_from`` names a run; the step resolves it to a store and links by id.
-#
-# A run name, with or without its version, a ``sim_id`` or a path: each resolves
-# to the field store the solver reads, and to the ``sim_id`` of the sealed run
-# that holds it. The step binds the resolved path on the flow configuration,
-# so the frozen ``config.toml`` writes it relative to the project, and the
-# lineage of the run names its source by id.
+# ``[flow] restart_from`` names a run: the step resolves it to a store and links the lineage by id.
 
 
-def test_the_step_binds_the_resolved_path_and_links_the_lineage_by_id(tmp_path: Path) -> None:
+def test_restart_binds_path_and_lineage(tmp_path: Path) -> None:
     project = make_project(tmp_path / "demo")
     sid = sealed_run(project, "spinup")
     store = open_run_store(project, "production", n_cells=4)
@@ -394,7 +375,7 @@ def test_the_step_binds_the_resolved_path_and_links_the_lineage_by_id(tmp_path: 
     store.close()
 
 
-def test_without_a_reference_the_step_touches_nothing(tmp_path: Path) -> None:
+def test_no_restart_reference(tmp_path: Path) -> None:
     project = make_project(tmp_path / "demo")
     store = open_run_store(project, "production", n_cells=4)
     flow = SimpleNamespace(restart_from=None)
@@ -407,9 +388,7 @@ def test_without_a_reference_the_step_touches_nothing(tmp_path: Path) -> None:
     store.close()
 
 
-def test_the_step_returns_the_sim_id_the_frozen_config_writes(tmp_path: Path) -> None:
-    from hydromodpy.model.flow_config import RestartReference
-
+def test_restart_returns_the_sim_id(tmp_path: Path) -> None:
     project = make_project(tmp_path / "demo")
     sid = sealed_run(project, "spinup")
     store = open_run_store(project, "production", n_cells=4)
@@ -423,12 +402,10 @@ def test_the_step_returns_the_sim_id_the_frozen_config_writes(tmp_path: Path) ->
     store.close()
 
 
-# --- The binary each solver of a run calls, which its solution key reads ---
+# The binary each solver of a run calls, which its solution key reads.
 
 
 def _plan_of(monkeypatch: pytest.MonkeyPatch, *runs: tuple[str, str]) -> None:
-    from hydromodpy.solver.base import planner
-
     plan = SimpleNamespace(
         runs=[SimpleNamespace(process_type=kind, solver=solver) for kind, solver in runs]
     )
@@ -449,12 +426,9 @@ def _cfg_with_runner(runner: str | None) -> SimpleNamespace:
     [(None, "mf6"), ("subprocess", "mf6"), ("api", "libmf6")],
     ids=["default", "subprocess", "api"],
 )
-def test_a_modflow_6_run_names_the_executable_or_the_library_it_calls(
+def test_modflow6_binary_or_library(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runner: str | None, wanted: str
 ) -> None:
-    from hydromodpy.solver.modflow_common.binaries import exe_filename
-    from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
-
     for name in ("mf6", "libmf6"):
         (tmp_path / exe_filename(name)).write_bytes(b"binary")
     _plan_of(monkeypatch, ("mesh", "catchment"), ("flow", "modflow6"), ("transport", "modflow6"))
@@ -464,11 +438,7 @@ def test_a_modflow_6_run_names_the_executable_or_the_library_it_calls(
     assert found == {"modflow6": tmp_path / exe_filename(wanted)}, "a mesh step has no binary"
 
 
-def test_a_solver_with_no_binary_maps_to_none_and_a_missing_one_is_not_fetched_by_a_plan(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
-
+def test_plan_looks_but_does_not_fetch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _plan_of(monkeypatch, ("flow", "boussinesq"), ("flow", "modflow6"))
 
     found = solver_binaries(_cfg_with_runner(None), bin_path=tmp_path, fetch=False)
@@ -477,18 +447,11 @@ def test_a_solver_with_no_binary_maps_to_none_and_a_missing_one_is_not_fetched_b
     assert list(tmp_path.iterdir()) == [], "a plan only looks"
 
 
-def test_a_configuration_with_no_simulation_calls_no_binary() -> None:
-    from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
-
+def test_no_simulation_no_binary() -> None:
     assert solver_binaries(SimpleNamespace(simulation=None)) == {}
 
 
-def test_a_run_fetches_the_managed_binary_it_is_about_to_call(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from hydromodpy.solver.modflow_common import binaries
-    from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
-
+def test_run_fetches_managed_binary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _plan_of(monkeypatch, ("flow", "modflow6"))
     asked: list[str] = []
     monkeypatch.setattr(
@@ -503,12 +466,7 @@ def test_a_run_fetches_the_managed_binary_it_is_about_to_call(
     assert found == {"modflow6": tmp_path / "mf6"}
 
 
-def test_a_binary_that_cannot_be_found_leaves_the_key_without_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from hydromodpy.solver.modflow_common import binaries
-    from hydromodpy.workflow.steps.prepare_solver.dispatch import solver_binaries
-
+def test_missing_binary_left_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _plan_of(monkeypatch, ("flow", "modflow6"))
 
     def refuse(name: str, bin_path=None):

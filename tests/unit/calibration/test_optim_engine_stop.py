@@ -1,4 +1,6 @@
-"""Tests of the stop flag of `optim.engine`: read before each ask, never inside a batch."""
+"""Stop flag of the calibration engine (`optim.engine`).
+The flag is read before each ask and never inside a batch.
+"""
 
 from __future__ import annotations
 

@@ -1,3 +1,9 @@
+"""Mixed double-obstacle runtime of Boussinesq: Fischer-Burmeister derivatives and state packing.
+
+Heads are in m, rates in m/s and cell residuals in m3/s. Surface excess and dry deficit are the
+two reactions of the obstacles at the top and at the bottom of the aquifer.
+"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

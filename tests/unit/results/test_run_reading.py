@@ -1,4 +1,8 @@
-"""``Run.read``, ``table``, ``figure`` and ``show``, and the same on a session and a set of runs."""
+"""``read``, ``table``, ``figure`` and ``show`` of a run, a session and a set of runs.
+
+The catalog, the renderer and the readers are stubs. The tests check what each
+object asks of them and what it refuses.
+"""
 
 from __future__ import annotations
 
@@ -90,14 +94,12 @@ class _FakeRun(Run):
         return "gdf"
 
 
-def test_read_rejects_non_run() -> None:
-    """The reader raises TypeError when it is not given a Run."""
+def test_read_refuses_a_non_run() -> None:
     with pytest.raises(TypeError, match="Run object"):
         read_variable("not_a_run", "head")
 
 
-def test_read_geographic_feature_dispatch(monkeypatch, tmp_path: Path) -> None:
-    """A geographic-only variable goes through ``Run.geographic``."""
+def test_read_a_geographic_feature(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("hydromodpy.results.field_registry.has", lambda name: False)
     run = _FakeRun(
         catalog=_FakeCatalog(
@@ -110,8 +112,8 @@ def test_read_geographic_feature_dispatch(monkeypatch, tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("kind", ["series", "feature"])
-def test_a_series_and_a_feature_refuse_a_time(kind: str, monkeypatch, tmp_path: Path) -> None:
-    """Only a field has periods, so ``time=`` never changes the type a read gives."""
+def test_a_series_or_feature_refuses_a_time(kind: str, monkeypatch, tmp_path: Path) -> None:
+    # Only a field has periods, so ``time=`` never changes the type a read gives.
     monkeypatch.setattr("hydromodpy.results.field_registry.has", lambda name: False)
     catalog = _FakeCatalog(
         tmp_path / "tables.parquet",
@@ -123,13 +125,13 @@ def test_a_series_and_a_feature_refuse_a_time(kind: str, monkeypatch, tmp_path: 
         _FakeRun(catalog=catalog).read(name, time=-1)
 
 
-def test_a_table_is_read_from_the_tables_of_the_run(tmp_path: Path) -> None:
+def test_table(tmp_path: Path) -> None:
     run = _FakeRun(catalog=_FakeCatalog(tmp_path / "tables.parquet", has_timeseries=True))
     assert run.table("timeseries")["variable"].tolist() == ["discharge"]
     assert run.table("metrics")["metric"].tolist() == ["nse"]
 
 
-def test_a_table_the_run_does_not_hold_is_refused_with_the_ones_it_holds(tmp_path: Path) -> None:
+def test_a_missing_table_is_refused(tmp_path: Path) -> None:
     run = _FakeRun(catalog=_FakeCatalog(tmp_path / "tables.parquet", has_timeseries=True))
     with pytest.raises(NothingThereError, match="no table 'budget'.*metrics, timeseries"):
         run.table("budget")
@@ -143,15 +145,13 @@ def _renderer(calls: list):
     return render
 
 
-def test_a_figure_keeps_save_and_dpi_for_the_renderer() -> None:
+def test_figure_options_reach_the_renderer() -> None:
     calls: list = []
     _FakeRun(render=_renderer(calls)).figure("head_map", save="out.png", dpi=90)
     assert calls[0][2] == {"save": "out.png", "dpi": 90}
 
 
-def test_show_reads_each_value_of_what_with_the_method_that_reads_it(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_show(monkeypatch, tmp_path: Path) -> None:
     calls: list = []
     run = _FakeRun(
         catalog=_FakeCatalog(tmp_path / "tables.parquet", has_timeseries=True),
@@ -180,12 +180,9 @@ def test_show_reads_each_value_of_what_with_the_method_that_reads_it(
 
 
 @pytest.mark.parametrize("what", ["table", "field", "series", "figure"])
-def test_show_asks_for_the_name_it_reads(what: str) -> None:
+def test_show_needs_a_name(what: str) -> None:
     with pytest.raises(CommandUsageError, match="needs name="):
         _FakeRun().show(what)
-
-
-# -- a session -----------------------------------------------------------------
 
 
 def _session(render=None) -> Session:
@@ -195,7 +192,7 @@ def _session(render=None) -> Session:
     return session
 
 
-def test_a_session_gives_its_two_tables_and_refuses_another(monkeypatch) -> None:
+def test_session_tables(monkeypatch) -> None:
     monkeypatch.setattr(Session, "trials", property(lambda self: pd.DataFrame({"cost": [1.0]})))
     monkeypatch.setattr(Session, "profile", lambda self: pd.DataFrame({"kind": ["solve"]}))
     session = _session()
@@ -207,7 +204,7 @@ def test_a_session_gives_its_two_tables_and_refuses_another(monkeypatch) -> None
         session.table("cases")
 
 
-def test_a_session_draws_through_its_renderer_and_refuses_a_run_value() -> None:
+def test_session_figures_and_refusals() -> None:
     calls: list = []
     session = _session(_renderer(calls))
     assert session.figure("calibration_progress") == "drawn calibration_progress"
@@ -219,15 +216,12 @@ def test_a_session_draws_through_its_renderer_and_refuses_a_run_value() -> None:
         _session().figure("calibration_progress")
 
 
-# -- a set of runs -------------------------------------------------------------
-
-
 def _set(render=None) -> RunSet:
     catalog = type("Catalog", (), {"closed": False, "render": None})()
     return RunSet([], catalog, render=render)
 
 
-def test_a_set_of_runs_gives_its_tables_and_refuses_another(monkeypatch) -> None:
+def test_runset_tables(monkeypatch) -> None:
     monkeypatch.setattr(RunSet, "parameters", property(lambda self: pd.DataFrame({"K": [1.0]})))
     monkeypatch.setattr(RunSet, "metrics", property(lambda self: pd.DataFrame({"nse": [0.5]})))
     runs = _set()
@@ -238,7 +232,7 @@ def test_a_set_of_runs_gives_its_tables_and_refuses_another(monkeypatch) -> None
         runs.table("budget")
 
 
-def test_a_set_of_runs_draws_through_its_renderer_or_the_one_of_its_catalog() -> None:
+def test_runset_figures_and_refusals() -> None:
     calls: list = []
     runs = _set(_renderer(calls))
     assert runs.figure("ensemble_band", time="last") == "drawn ensemble_band"

@@ -1,4 +1,11 @@
-"""The calibration progress figure and its trial table."""
+"""The calibration progress slide, drawn from a session of trials.
+
+Three synthetic sessions stand in for the three searches of example 04: a
+bisection on K (m/s) scored on the stream network, a Nelder-Mead simplex on Sy
+scored on NSElog, and an Optuna-like sampler on K and Sy scored on both. The
+slide names the metric and its unit on the cost axis, never the column it came
+from, and the best cost reached so far never rises.
+"""
 
 from __future__ import annotations
 
@@ -22,21 +29,11 @@ from ._calibration_journal import (
     two_root_rows,
 )
 
-# The calibration progress slide draws any search, labeled with its metric.
-#
-# Three synthetic sessions stand in for the three searches example 04 runs: a
-# bisection on K scored on the stream network, a Nelder-Mead simplex on Sy
-# scored on NSElog, and an Optuna-like sampler on K and Sy scored on both. The
-# slide must name the metric and its unit on the cost axis, never the column it
-# came from, and the best reached so far must never rise.
+pytestmark = pytest.mark.unit
 
-K_ROOT = 8.0e-5
-
-
+K_ROOT = 8.0e-5  # m/s, where the network distances balance
 SY_BEST = 0.06
-
-
-MAPPED = 500.0
+MAPPED = 500.0  # cells of the mapped network
 
 
 def _written(project: Path, rows: list[dict], method: str, phase: str, config: dict, name: str):
@@ -263,7 +260,7 @@ def _texts(fig) -> str:
     return "\n".join(str(text) for text in found)
 
 
-def test_the_figure_is_registered_and_skips_a_session_without_trials(tmp_path) -> None:
+def test_registered_and_skips_a_session_without_trials(tmp_path) -> None:
     assert "calibration_progress" in names()
     figure = get("calibration_progress")
     assert figure.spec.subject == "session"
@@ -272,7 +269,7 @@ def test_the_figure_is_registered_and_skips_a_session_without_trials(tmp_path) -
     assert figure.unavailable_reason(bisection_session(tmp_path)) is None
 
 
-def test_a_bisection_on_the_network_draws_with_the_distance_metric(mpl, tmp_path: Path) -> None:
+def test_bisection_draws_the_distance_metric(mpl, tmp_path: Path) -> None:
     fig = CalibrationProgressFigure().plot(bisection_session(tmp_path))
 
     assert "|D_so - D_os| (m)" in _ylabels(fig)
@@ -290,7 +287,7 @@ def test_a_bisection_on_the_network_draws_with_the_distance_metric(mpl, tmp_path
         assert np.all(np.diff(finite) <= 0.0)
 
 
-def test_a_broken_bar_keeps_its_rank_and_the_cost_keeps_the_panel(mpl, tmp_path: Path) -> None:
+def test_broken_bar_keeps_its_rank(mpl, tmp_path: Path) -> None:
     run = bisection_session(tmp_path)
     fig = CalibrationProgressFigure().plot(run)
 
@@ -310,7 +307,7 @@ def test_a_broken_bar_keeps_its_rank_and_the_cost_keeps_the_panel(mpl, tmp_path:
     assert cost_ax.get_ylim()[1] <= 10.0 * costs.max()
 
 
-def test_a_nelder_mead_on_nse_log_draws_the_efficiency_rising(mpl, tmp_path: Path) -> None:
+def test_nelder_mead_draws_the_efficiency_rising(mpl, tmp_path: Path) -> None:
     fig = CalibrationProgressFigure().plot(nelder_mead_session(tmp_path))
 
     labels = _ylabels(fig)
@@ -334,7 +331,7 @@ def test_a_nelder_mead_on_nse_log_draws_the_efficiency_rising(mpl, tmp_path: Pat
     assert np.all(np.diff(rising[np.isfinite(rising)]) >= 0.0)
 
 
-def test_a_two_parameter_sampler_adds_the_parameter_plane(mpl, tmp_path: Path) -> None:
+def test_sampler_adds_the_parameter_plane(mpl, tmp_path: Path) -> None:
     fig = CalibrationProgressFigure().plot(optuna_session(tmp_path))
 
     titles = [ax.get_title() for ax in fig.get_axes()]
@@ -357,19 +354,19 @@ def test_a_two_parameter_sampler_adds_the_parameter_plane(mpl, tmp_path: Path) -
     assert np.all(np.diff(values[np.isfinite(values)]) <= 0.0)
 
 
-def test_render_draws_the_cost_panel_alone(mpl, tmp_path: Path) -> None:
+def test_render_draws_the_cost_panel(mpl, tmp_path: Path) -> None:
     fig, ax = mpl.subplots()
     CalibrationProgressFigure().render(nelder_mead_session(tmp_path), ax)
     assert ax.get_ylabel() == "1 - NSElog (-)"
 
 
-def test_the_slide_saves_a_png(mpl, tmp_path: Path) -> None:
+def test_saves_a_png(mpl, tmp_path: Path) -> None:
     target = tmp_path / "progress.png"
     CalibrationProgressFigure().plot(optuna_session(tmp_path), save_path=target)
     assert target.stat().st_size > 0
 
 
-def test_a_value_combined_from_two_roots_is_marked_and_gets_no_interval(mpl, tmp_path) -> None:
+def test_value_from_two_roots_has_no_interval(mpl, tmp_path) -> None:
     """The slide agrees with the summary: the returned run, and no interval of runs."""
     run = journal_session(
         tmp_path,
@@ -391,7 +388,7 @@ def test_a_value_combined_from_two_roots_is_marked_and_gets_no_interval(mpl, tmp
     assert "No interval of trials around a value combined from two roots" in " ".join(text.split())
 
 
-def test_the_frozen_values_are_read_from_the_phase_journals(tmp_path: Path) -> None:
+def test_frozen_values_come_from_the_phase_journals(tmp_path: Path) -> None:
     rows = [
         {"trial": 1, "phase": "a", "cost": 1.0, "parameters": {"K": 1e-5}},
         {"trial": 2, "phase": "b", "cost": 0.5, "parameters": {"Sy": 0.1}},
@@ -403,17 +400,10 @@ def test_the_frozen_values_are_read_from_the_phase_journals(tmp_path: Path) -> N
     assert frozen_values(unstaged) == {}
 
 
-# The fit panel of a transformed efficiency frames the values it draws.
-#
-# A block with a ``cost_transform`` draws its cost, not its efficiency. The panel used
-# to take its range from the efficiency (one minus the cost) and its "higher is
-# better" from the metric alone, so the points fell off the axis under a label
-# that read them the wrong way up.
-
-pytestmark = pytest.mark.unit
-
-
-def test_a_transformed_efficiency_is_drawn_inside_its_range(mpl, tmp_path: Path) -> None:
+# A block with a cost_transform draws its cost, not its efficiency. The panel
+# used to take its range from the efficiency and its "higher is better" from
+# the metric alone, so points fell off the axis under a mislabeled axis.
+def test_transformed_efficiency_stays_in_its_range(mpl, tmp_path: Path) -> None:
     fig = CalibrationProgressFigure().plot(nelder_mead_session(tmp_path, log_transform=True))
 
     fit_ax = next(ax for ax in fig.get_axes() if ax.get_title().startswith("Fit to the"))
@@ -425,10 +415,3 @@ def test_a_transformed_efficiency_is_drawn_inside_its_range(mpl, tmp_path: Path)
     assert drawn.size
     assert low <= drawn.min() and drawn.max() <= high
     assert "1 - NSElog (-), lower is better" in _ylabels(fig)
-
-
-# The trial table of a network calibration is built without fragmenting.
-#
-# A network criterion publishes about a hundred diagnostics per trial. Inserting
-# them one column at a time fragmented the frame, and pandas printed a
-# PerformanceWarning on the console of every promoted run.

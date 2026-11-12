@@ -34,12 +34,12 @@ _UNITS = [
 
 
 @pytest.mark.parametrize(("itmuni", "_token", "seconds"), _UNITS)
-def test_an_itmuni_code_is_a_number_of_seconds(itmuni, _token, seconds) -> None:
+def test_itmuni_in_seconds(itmuni, _token, seconds) -> None:
     assert seconds_per_itmuni(itmuni) == seconds
 
 
 @pytest.mark.parametrize(("_itmuni", "token", "seconds"), _UNITS)
-def test_a_tdis_token_is_a_number_of_seconds(tmp_path, _itmuni, token, seconds) -> None:
+def test_tdis_file_in_seconds(tmp_path, _itmuni, token, seconds) -> None:
     (tmp_path / "case.tdis").write_text(f"BEGIN options\n  TIME_UNITS {token}\nEND options\n")
 
     assert read_time_units_from_tdis(tmp_path / "case.tdis") == token
@@ -47,26 +47,26 @@ def test_a_tdis_token_is_a_number_of_seconds(tmp_path, _itmuni, token, seconds) 
 
 
 @pytest.mark.parametrize(("itmuni", "_token", "seconds"), _UNITS)
-def test_a_dis_file_gives_its_unit_to_a_run_with_no_tdis(tmp_path, itmuni, _token, seconds) -> None:
+def test_dis_file_without_tdis(tmp_path, itmuni, _token, seconds) -> None:
     (tmp_path / "flow.dis").write_text(f"# header\n 1 2 3 4 {itmuni} 2\n 0\n")
 
     assert read_itmuni_from_dis(tmp_path / "flow.dis") == itmuni
     assert seconds_per_solver_time_unit(tmp_path, "flow") == seconds
 
 
-def test_itmuni_zero_is_the_launcher_unit_and_not_days() -> None:
+def test_itmuni_zero_is_seconds() -> None:
     assert seconds_per_itmuni(0) == 1.0
     assert SIMULATION_TIME_UNIT == "seconds"
 
 
 @pytest.mark.parametrize("itmuni", [6, -1, 99])
-def test_an_itmuni_code_nothing_knows_is_refused(itmuni) -> None:
+def test_unknown_itmuni_refused(itmuni) -> None:
     with pytest.raises(ValueError, match="Unsupported ITMUNI code"):
         seconds_per_itmuni(itmuni)
 
 
 @pytest.mark.parametrize(("_itmuni", "token", "seconds"), _UNITS)
-def test_a_tdis_token_alone_is_a_number_of_seconds(_itmuni, token, seconds) -> None:
+def test_tdis_token_in_seconds(_itmuni, token, seconds) -> None:
     assert seconds_per_tdis_token(token) == seconds
     assert seconds_per_tdis_token(f" {token.lower()} ") == seconds
 
@@ -81,13 +81,13 @@ _UNDECLARED_TOKENS = [
 
 
 @pytest.mark.parametrize("token", _UNDECLARED_TOKENS)
-def test_an_undeclared_tdis_token_is_the_launcher_unit(token) -> None:
+def test_undeclared_token_is_seconds(token) -> None:
     assert declared_tdis_unit(token) is None
     assert seconds_per_tdis_token(token) == 1.0
 
 
 @pytest.mark.parametrize("token", ["FORTNIGHTS", "DAYZ"])
-def test_a_tdis_token_that_is_no_unit_is_refused(token) -> None:
+def test_unknown_token_refused(token) -> None:
     with pytest.raises(ValueError):
         seconds_per_tdis_token(token)
 
@@ -105,21 +105,21 @@ _DECLARATIONS = [
 
 
 @pytest.mark.parametrize(("files", "unit"), _DECLARATIONS)
-def test_a_run_resolves_the_unit_it_declares_or_the_launcher_unit(tmp_path, files, unit) -> None:
+def test_resolved_unit_of_a_run(tmp_path, files, unit) -> None:
     for name, text in files.items():
         (tmp_path / name).write_text(text)
 
     assert resolve_solver_time_unit(tmp_path, "case") == unit
 
 
-def test_a_declared_token_that_is_no_unit_is_corrupt_and_refused(tmp_path: Path) -> None:
+def test_corrupt_token_refused(tmp_path: Path) -> None:
     (tmp_path / "case.tdis").write_text("TIME_UNITS FORTNIGHTS\n")
 
     with pytest.raises(ValueError, match="Unsupported time unit"):
         resolve_solver_time_unit(tmp_path, "case")
 
 
-def test_a_tracking_time_is_one_model_unit_in_days() -> None:
+def test_factor_to_tracking_days() -> None:
     assert factor_to_tracking_unit("days") == 1.0
     assert factor_to_tracking_unit("seconds") == pytest.approx(1.0 / 86400.0)
     assert factor_to_tracking_unit("years") == pytest.approx(365.25)

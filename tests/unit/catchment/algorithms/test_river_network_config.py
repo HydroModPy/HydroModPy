@@ -13,7 +13,7 @@ def _network(**keys) -> GeographicConfig:
     )
 
 
-def test_an_area_threshold_and_a_cell_threshold_are_both_accepted() -> None:
+def test_threshold_modes() -> None:
     area = _network(
         threshold_mode="area_km2", threshold_area_km2=0.5, min_stream_length_m="250 m"
     ).river_network
@@ -59,12 +59,12 @@ _CELLS = {"threshold_mode": "cells", "threshold_cells": 10}
         ),
     ],
 )
-def test_an_enabled_network_with_a_wrong_threshold_is_refused(keys, match) -> None:
+def test_refusals(keys, match) -> None:
     with pytest.raises(ValidationError, match=match):
         _network(**keys)
 
 
-def test_a_jenson_snap_needs_a_threshold_to_draw_its_streams() -> None:
+def test_jenson_snap_needs_a_threshold() -> None:
     catchment = {**OUTLET_CATCHMENT, "snap_method": "jenson"}
     with pytest.raises(ValidationError, match="snap_method = 'jenson'"):
         GeographicConfig.model_validate({"catchment": catchment})

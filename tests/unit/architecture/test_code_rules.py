@@ -25,7 +25,6 @@ import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PACKAGE = REPO_ROOT / "hydromodpy"
-ROOT_INIT = PACKAGE / "__init__.py"
 
 # ---------------------------------------------------------------------------
 # Rule 9

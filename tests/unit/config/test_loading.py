@@ -34,7 +34,6 @@ DOCUMENT: dict[str, Any] = {
     "data": {"dem": {"sources": [{"source": "file", "path": "inputs/dem.tif"}]}},
     "simulation": {"name": "island"},
 }
-OLD_TABLE = {"modflow6": {"process_specific": {"vka": 2.0}}}
 
 
 def _project(root: Path, document: dict[str, Any] = DOCUMENT) -> Path:

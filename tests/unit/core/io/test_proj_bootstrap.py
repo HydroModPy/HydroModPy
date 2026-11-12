@@ -50,34 +50,45 @@ def _pyproj_dir_is(monkeypatch, folder: Path | None) -> None:
     monkeypatch.setattr(datadir, "get_data_dir", lambda: str(folder) if folder else "")
 
 
-@pytest.mark.parametrize(
-    "situation", ["no version rows", "no database", "not sqlite", "unknown columns"]
-)
-def test_a_database_that_does_not_state_its_layout_gives_none(
-    tmp_path: Path, situation: str
-) -> None:
-    if situation == "no version rows":
-        db = _proj_dir(tmp_path, "p", None) / "proj.db"
-    elif situation == "no database":
-        db = tmp_path / "absent" / "proj.db"
-    elif situation == "not sqlite":
-        db = tmp_path / "proj.db"
-        db.write_bytes(b"this is not a database at all, just text")
-    else:
-        db = tmp_path / "proj.db"
-        with sqlite3.connect(db) as con:
-            con.execute("create table metadata (a text, b text)")
-
-    assert pb._read_proj_layout_version(db) is None
+def _no_version_rows(root: Path) -> Path:
+    return _proj_dir(root, "p", None) / "proj.db"
 
 
-def test_with_no_database_to_read_any_layout_is_enough(env) -> None:
+def _no_database(root: Path) -> Path:
+    return root / "absent" / "proj.db"
+
+
+def _not_sqlite(root: Path) -> Path:
+    db = root / "proj.db"
+    db.write_bytes(b"this is not a database at all, just text")
+    return db
+
+
+def _unknown_columns(root: Path) -> Path:
+    db = root / "proj.db"
+    with sqlite3.connect(db) as con:
+        con.execute("create table metadata (a text, b text)")
+    return db
+
+
+UNREADABLE_DATABASES = [
+    pytest.param(_no_version_rows, id="no version rows"),
+    pytest.param(_no_database, id="no database"),
+    pytest.param(_not_sqlite, id="not sqlite"),
+    pytest.param(_unknown_columns, id="unknown columns"),
+]
+
+
+@pytest.mark.parametrize("make_database", UNREADABLE_DATABASES)
+def test_unreadable_layout_gives_none(tmp_path: Path, make_database) -> None:
+    assert pb._read_proj_layout_version(make_database(tmp_path)) is None
+
+
+def test_no_database_needs_no_layout(env) -> None:
     assert pb._required_layout_minor(None) == 0
 
 
-def test_a_proj_data_already_on_the_pyproj_database_is_kept_and_proj_lib_follows(
-    env, tmp_path: Path
-) -> None:
+def test_pyproj_database_is_kept(env, tmp_path: Path) -> None:
     folder = _proj_dir(tmp_path, "pyproj", 4)
     _pyproj_dir_is(env, folder)
     env.setenv("PROJ_DATA", str(folder))
@@ -89,9 +100,7 @@ def test_a_proj_data_already_on_the_pyproj_database_is_kept_and_proj_lib_follows
 
 
 @pytest.mark.parametrize("where", ["outside", "missing"])
-def test_a_proj_data_outside_the_environment_or_gone_is_replaced_with_a_warning(
-    env, tmp_path: Path, caplog, where: str
-) -> None:
+def test_stale_proj_data_is_replaced(env, tmp_path: Path, caplog, where: str) -> None:
     folder = _proj_dir(tmp_path, "pyproj", 4)
     _pyproj_dir_is(env, folder)
     stale = _proj_dir(tmp_path, "system", 4) if where == "outside" else tmp_path / "gone"
@@ -105,9 +114,7 @@ def test_a_proj_data_outside_the_environment_or_gone_is_replaced_with_a_warning(
 
 
 @pytest.mark.parametrize("pyproj_dir", [None, "no_db"])
-def test_without_a_pyproj_database_the_variables_are_left_alone(
-    env, tmp_path: Path, pyproj_dir
-) -> None:
+def test_no_pyproj_database_leaves_variables(env, tmp_path: Path, pyproj_dir) -> None:
     folder = None if pyproj_dir is None else tmp_path / "no_db"
     if folder:
         folder.mkdir()
@@ -118,9 +125,7 @@ def test_without_a_pyproj_database_the_variables_are_left_alone(
     assert "PROJ_DATA" not in pb.os.environ
 
 
-def test_when_no_candidate_is_new_enough_a_warning_tells_what_to_update(
-    env, tmp_path: Path, caplog
-) -> None:
+def test_no_new_enough_database_warns(env, tmp_path: Path, caplog) -> None:
     old = _proj_dir(tmp_path, "old", 2)
     wheel = _proj_dir(tmp_path, "wheel", 6)
     env.setattr(pb, "_bundled_proj_data_dirs", lambda: [wheel])
@@ -141,7 +146,7 @@ def test_when_no_candidate_is_new_enough_a_warning_tells_what_to_update(
     assert "older than expected (need >= 6)" in caplog.text
 
 
-def test_a_layout_error_from_proj_names_the_minor_version_to_look_for(env, tmp_path: Path) -> None:
+def test_layout_error_switches_database(env, tmp_path: Path) -> None:
     old = _proj_dir(tmp_path, "old", 2)
     new = _proj_dir(tmp_path, "new", 5)
     env.setattr(pb, "_bundled_proj_data_dirs", lambda: [new])
@@ -167,7 +172,7 @@ def test_a_layout_error_from_proj_names_the_minor_version_to_look_for(env, tmp_p
     assert pb.os.environ["PROJ_DATA"] == str(new)
 
 
-def test_a_crs_error_unrelated_to_the_layout_is_not_ours_to_fix(env, tmp_path: Path) -> None:
+def test_unrelated_crs_error_is_ignored(env, tmp_path: Path) -> None:
     folder = _proj_dir(tmp_path, "pyproj", 4)
     _pyproj_dir_is(env, folder)
 
@@ -181,7 +186,7 @@ def test_a_crs_error_unrelated_to_the_layout_is_not_ours_to_fix(env, tmp_path: P
     assert "PROJ_DATA" not in pb.os.environ
 
 
-def test_a_layout_problem_that_survives_the_switch_is_logged(env, tmp_path: Path, caplog) -> None:
+def test_persistent_mismatch_is_logged(env, tmp_path: Path, caplog) -> None:
     folder = _proj_dir(tmp_path, "pyproj", 4)
     _pyproj_dir_is(env, folder)
 
@@ -220,7 +225,7 @@ def _two_databases(
     return pyproj_dir, rasterio_dir
 
 
-def test_the_newest_database_stays_when_pyproj_ships_it(env, tmp_path: Path) -> None:
+def test_newest_database_stays(env, tmp_path: Path) -> None:
     pyproj_dir, _ = _two_databases(env, tmp_path, pyproj_minor=6, rasterio_minor=5)
 
     pb.bootstrap_proj()

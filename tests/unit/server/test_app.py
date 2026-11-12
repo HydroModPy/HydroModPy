@@ -1,4 +1,8 @@
-"""The routes of the server: what crosses the wire, what a call is given, what is refused."""
+"""Routes of the HTTP server: JSON given to a verb, paths kept inside the project, status codes.
+
+Uploads are bytes with a sha256 digest. Request bodies are limited to 16 MiB. Jobs are
+spawned processes that end as done, refused, failed or died.
+"""
 
 from __future__ import annotations
 
@@ -71,10 +75,6 @@ class Told:
         return {"said": Path("/p/runs/a")}
 
 
-# ---------------------------------------------------------------------------
-# jsonable
-# ---------------------------------------------------------------------------
-
 ROOT = Path("/p")
 JSONABLE = {
     "none": (None, None),
@@ -106,7 +106,7 @@ JSONABLE = {
 }
 
 
-def test_every_verb_of_the_facade_has_a_route() -> None:
+def test_every_verb_has_a_route() -> None:
     verbs = set(api.__all__)
     assert verbs <= set(hmp.__all__)
     routed = IN_A_CHILD | IN_A_THREAD | OF_AN_ORGANISATION
@@ -117,13 +117,13 @@ def test_every_verb_of_the_facade_has_a_route() -> None:
 
 
 @pytest.mark.parametrize(("value", "expected"), JSONABLE.values(), ids=list(JSONABLE))
-def test_jsonable_gives_json_data(value: Any, expected: Any) -> None:
+def test_jsonable(value: Any, expected: Any) -> None:
     given = jsonable(value, ROOT)
     assert given == expected
     json.dumps(given, allow_nan=False)
 
 
-def test_a_type_that_does_not_cross_is_refused() -> None:
+def test_jsonable_refuses_objects() -> None:
     with pytest.raises(TypeError, match="a object does not cross the wire"):
         jsonable({"a": object()})
 
@@ -180,7 +180,7 @@ def _crosses(cls: type) -> bool:
     )
 
 
-def test_every_return_of_a_served_verb_crosses_or_is_refused_by_show() -> None:
+def test_returns_cross_the_wire() -> None:
     refused_by_show = {"DataArray", "Figure"}
     loose = [
         (verb, cls.__name__)
@@ -189,11 +189,6 @@ def test_every_return_of_a_served_verb_crosses_or_is_refused_by_show() -> None:
         if not _crosses(cls) and not (verb == "show" and cls.__name__ in refused_by_show)
     ]
     assert loose == []
-
-
-# ---------------------------------------------------------------------------
-# place
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -217,13 +212,13 @@ PLACES = {
 
 
 @pytest.mark.parametrize(("org", "project"), PLACES.values(), ids=list(PLACES))
-def test_a_route_that_names_nothing_is_a_404(settings: Settings, org: str, project: str) -> None:
+def test_unknown_place_is_404(settings: Settings, org: str, project: str) -> None:
     with pytest.raises(Refused) as caught:
         settings.place(org, project)
     assert caught.value.status == 404
 
 
-def test_the_place_of_a_project_is_its_only_allowed_root(settings: Settings) -> None:
+def test_place_bounds_the_project(settings: Settings) -> None:
     root, environment = settings.place("acme", "island")
     assert root == settings.root / "acme" / "projects" / "island"
     assert environment.bounds.allowed_roots == (root,)
@@ -232,21 +227,16 @@ def test_the_place_of_a_project_is_its_only_allowed_root(settings: Settings) -> 
     assert space == settings.root / "acme"
 
 
-def test_credentials_are_none_without_a_file_or_a_folder(settings: Settings) -> None:
+def test_credentials_file_is_optional(settings: Settings) -> None:
     (settings.root / "bare" / "projects" / "p").mkdir(parents=True)
     assert settings.place("bare", "p")[1].credentials is None
     assert Settings(settings.root).place("acme", "island")[1].credentials is None
 
 
-def test_the_bounds_of_the_operator_are_kept(settings: Settings) -> None:
+def test_operator_bounds_are_kept(settings: Settings) -> None:
     settings.bounds = Bounds(allowed_hosts=frozenset({"example.org"}), max_download_bytes=99)
     bounds = settings.place("acme", "island")[1].bounds
     assert (bounds.allowed_hosts, bounds.max_download_bytes) == (frozenset({"example.org"}), 99)
-
-
-# ---------------------------------------------------------------------------
-# What a call is given
-# ---------------------------------------------------------------------------
 
 
 def fake_verb(
@@ -275,7 +265,7 @@ def fakes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(hmp, "fake_verb", fake_verb, raising=False)
 
 
-def test_the_server_fills_what_the_signature_takes(fakes: None, tmp_path: Path) -> None:
+def test_server_fills_its_arguments(fakes: None, tmp_path: Path) -> None:
     environment = Environment()
     given = call("fake_verb", {"source": {"a": 1}, "project": "label"}, tmp_path, environment)
     assert given == {
@@ -290,23 +280,25 @@ def test_the_server_fills_what_the_signature_takes(fakes: None, tmp_path: Path) 
 
 
 @pytest.mark.parametrize("name", ["base", "workspace", "environment", "headless"])
-def test_the_body_never_names_what_the_server_sets(fakes: None, tmp_path: Path, name: str) -> None:
+def test_reserved_names_are_refused(fakes: None, tmp_path: Path, name: str) -> None:
     with pytest.raises(Refused, match=f"{name} are set by the server") as caught:
         arguments_of("fake_verb", {"source": {}, name: 1}, tmp_path, Environment())
     assert caught.value.status == 400
 
 
-def test_a_verb_gets_only_the_names_it_takes(tmp_path: Path) -> None:
+def test_verb_gets_only_its_names(tmp_path: Path) -> None:
     given = arguments_of("stop", {"ref": "a"}, tmp_path, Environment())
     assert given == {"ref": "a", "workspace": tmp_path}
     assert arguments_of("doctor", {}, tmp_path, Environment()) == {}
 
 
-def test_an_unknown_or_missing_argument_is_a_400(tmp_path: Path) -> None:
-    for body in ({"ref": "a", "nope": 1}, {}):
-        with pytest.raises(Refused) as caught:
-            arguments_of("stop", body, tmp_path, Environment())
-        assert caught.value.status == 400
+@pytest.mark.parametrize(
+    "body", [{"ref": "a", "nope": 1}, {}], ids=["unknown name", "missing name"]
+)
+def test_bad_arguments_are_400(tmp_path: Path, body: dict[str, Any]) -> None:
+    with pytest.raises(Refused) as caught:
+        arguments_of("stop", body, tmp_path, Environment())
+    assert caught.value.status == 400
 
 
 PATHS = {
@@ -331,15 +323,13 @@ PATHS = {
 
 
 @pytest.mark.parametrize(("verb", "body", "phrase"), PATHS.values(), ids=list(PATHS))
-def test_a_path_that_leaves_the_project_is_refused(
-    tmp_path: Path, verb: str, body: dict[str, Any], phrase: str
-) -> None:
+def test_path_refusals(tmp_path: Path, verb: str, body: dict[str, Any], phrase: str) -> None:
     with pytest.raises(Refused, match=phrase) as caught:
         arguments_of(verb, body, tmp_path, Environment())
     assert caught.value.status == 400
 
 
-def test_a_link_out_of_the_project_is_refused(tmp_path: Path) -> None:
+def test_symlink_out_is_refused(tmp_path: Path) -> None:
     project, outside = tmp_path / "p", tmp_path / "out"
     project.mkdir()
     outside.mkdir()
@@ -351,7 +341,7 @@ def test_a_link_out_of_the_project_is_refused(tmp_path: Path) -> None:
         arguments_of("compare", {"refs": ["a"], "out": "link/x"}, project.resolve(), Environment())
 
 
-def test_a_path_inside_the_project_is_made_absolute_and_a_ref_is_left(tmp_path: Path) -> None:
+def test_inside_paths_are_absolute(tmp_path: Path) -> None:
     given = arguments_of(
         "export", {"ref": "runs/a", "folder": "out", "file": "a.nc"}, tmp_path, Environment()
     )
@@ -368,12 +358,12 @@ def test_a_path_inside_the_project_is_made_absolute_and_a_ref_is_left(tmp_path: 
     assert given["save"] == str(tmp_path / "f.png")
 
 
-def test_a_json_text_source_is_not_a_path(tmp_path: Path) -> None:
+def test_json_text_is_not_a_path(tmp_path: Path) -> None:
     text = '{"a": 1}'
     assert arguments_of("run", {"source": text}, tmp_path, Environment())["source"] == text
 
 
-def test_a_run_request_in_a_source_is_read_as_one(tmp_path: Path) -> None:
+def test_run_request_source(tmp_path: Path) -> None:
     body = {"source": {"schema": "hydromodpy.request.v1", "config": {"a": 1}, "name": "x"}}
     request = arguments_of("run", body, tmp_path, Environment())["source"]
     assert isinstance(request, RunRequest)
@@ -388,7 +378,7 @@ def test_a_run_request_in_a_source_is_read_as_one(tmp_path: Path) -> None:
     )
 
 
-def test_example_add_is_refused_under_named_hosts(tmp_path: Path) -> None:
+def test_example_add_needs_open_hosts(tmp_path: Path) -> None:
     named = Environment(bounds=Bounds(allowed_hosts=frozenset({"example.org"})))
     with pytest.raises(Refused, match="example add fetches outside the hosts") as caught:
         arguments_of("example", {"name": "04", "add": True}, tmp_path, named)
@@ -396,10 +386,6 @@ def test_example_add_is_refused_under_named_hosts(tmp_path: Path) -> None:
     assert arguments_of("example", {"name": "04"}, tmp_path, named)["workspace"] == tmp_path
     assert arguments_of("example", {"name": "04", "add": True}, tmp_path, Environment())["add"]
 
-
-# ---------------------------------------------------------------------------
-# The name of an upload
-# ---------------------------------------------------------------------------
 
 NAMES = {
     "spaces and capitals": ("Rain Data.CSV", "rain_data.csv"),
@@ -413,20 +399,15 @@ NAMES = {
 
 
 @pytest.mark.parametrize(("raw", "kept"), NAMES.values(), ids=list(NAMES))
-def test_an_upload_name_is_folded(raw: str, kept: str) -> None:
+def test_upload_name_is_folded(raw: str, kept: str) -> None:
     assert upload_name(raw) == kept
 
 
 @pytest.mark.parametrize("raw", ["", ".csv", ".hidden.csv"])
-def test_an_upload_name_without_a_stem_is_a_400(raw: str) -> None:
+def test_upload_name_needs_a_stem(raw: str) -> None:
     with pytest.raises(Refused) as caught:
         upload_name(raw)
     assert caught.value.status == 400
-
-
-# ---------------------------------------------------------------------------
-# A server on a free port
-# ---------------------------------------------------------------------------
 
 
 class Client:
@@ -488,9 +469,7 @@ def client(settings: Settings, start: Any) -> Client:
     return start(settings)
 
 
-def test_health_and_the_schema_of_a_request(
-    client: Client, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_health_and_schema(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("HMP_IMAGE_TAG", raising=False)
     assert client.ask("GET", "/v1/health") == (200, {"version": hmp.__version__, "image": {}})
     status, schema = client.ask("GET", "/v1/schema/request")
@@ -537,7 +516,7 @@ REFUSALS = {
 @pytest.mark.parametrize(
     ("method", "path", "body", "status", "phrase"), REFUSALS.values(), ids=list(REFUSALS)
 )
-def test_each_refusal_has_its_status_and_its_phrase(
+def test_http_refusals(
     client: Client, method: str, path: str, body: Any, status: int, phrase: str
 ) -> None:
     raw = body if isinstance(body, bytes) else None
@@ -546,13 +525,13 @@ def test_each_refusal_has_its_status_and_its_phrase(
     assert phrase in answer[1]["message"]
 
 
-def test_example_add_is_a_400_when_hosts_are_named(settings: Settings, start: Any) -> None:
+def test_example_add_is_400(settings: Settings, start: Any) -> None:
     settings.bounds = Bounds(allowed_hosts=frozenset({"example.org"}))
     status, said = start(settings).ask("POST", "/v1/acme/example", {"name": "04", "add": True})
     assert (status, "fetches outside the hosts" in said["message"]) == (400, True)
 
 
-def test_a_file_sent_without_its_length_is_a_413(client: Client) -> None:
+def test_upload_without_length_is_413(client: Client) -> None:
     connection = http.client.HTTPConnection("127.0.0.1", client.port, timeout=30)
     connection.putrequest("PUT", "/v1/acme/island/inputs/a.csv")
     connection.endheaders()
@@ -561,23 +540,16 @@ def test_a_file_sent_without_its_length_is_a_413(client: Client) -> None:
     assert status == 413
 
 
-def test_a_body_that_is_too_long_is_a_413(client: Client) -> None:
+def test_long_body_is_413(client: Client) -> None:
     assert client.head_only("POST", "/v1/acme/island/check", (16 << 20) + 1) == 413
 
 
-def test_a_file_longer_than_the_ceiling_is_a_413_before_it_is_read(
-    settings: Settings, start: Any
-) -> None:
+def test_file_over_ceiling_is_413(settings: Settings, start: Any) -> None:
     settings.bounds = Bounds(max_download_bytes=10)
     assert start(settings).head_only("PUT", "/v1/acme/island/inputs/a.csv", 11) == 413
 
 
-# ---------------------------------------------------------------------------
-# Upload
-# ---------------------------------------------------------------------------
-
-
-def test_an_upload_lands_under_inputs_with_its_digest(client: Client, settings: Settings) -> None:
+def test_upload_lands_with_digest(client: Client, settings: Settings) -> None:
     body = b"date,rain\n2020-01-01,1.0\n"
     sha = hashlib.sha256(body).hexdigest()
     status, said = client.ask("PUT", "/v1/acme/island/inputs/Rain%20Data.CSV", raw=body)
@@ -588,13 +560,13 @@ def test_an_upload_lands_under_inputs_with_its_digest(client: Client, settings: 
     assert list((settings.root / ".inbox").iterdir()) == []
 
 
-def test_the_same_upload_twice_is_the_same_answer(client: Client) -> None:
+def test_same_upload_twice(client: Client) -> None:
     path = "/v1/acme/island/inputs/a.csv"
     assert client.ask("PUT", path, raw=b"abc") == client.ask("PUT", path, raw=b"abc")
     assert client.ask("PUT", path, raw=b"")[0] == 201
 
 
-def test_other_bytes_under_a_taken_name_are_a_409(client: Client, settings: Settings) -> None:
+def test_taken_name_is_409(client: Client, settings: Settings) -> None:
     body = b"abc"
     sha = hashlib.sha256(body).hexdigest()
     taken = settings.root / "acme" / "projects" / "island" / "inputs" / f"{sha[:8]}_a.csv"
@@ -606,20 +578,13 @@ def test_other_bytes_under_a_taken_name_are_a_409(client: Client, settings: Sett
     assert list((settings.root / ".inbox").iterdir()) == []
 
 
-def test_a_body_shorter_than_its_length_is_a_400_and_leaves_no_part(
-    client: Client, settings: Settings
-) -> None:
+def test_short_body_is_400(client: Client, settings: Settings) -> None:
     assert client.short_body("/v1/acme/island/inputs/a.csv", 10, b"abcd") == 400
     assert list((settings.root / ".inbox").iterdir()) == []
     assert not (settings.root / "acme" / "projects" / "island" / "inputs").exists()
 
 
-# ---------------------------------------------------------------------------
-# The verbs by HTTP, in a thread
-# ---------------------------------------------------------------------------
-
-
-def test_a_verb_answers_in_json_and_a_refusal_is_a_422(
+def test_verb_answers_and_refuses(
     client: Client, settings: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project = settings.root / "acme" / "projects" / "island"
@@ -654,7 +619,7 @@ def test_a_verb_answers_in_json_and_a_refusal_is_a_422(
     assert project.is_dir()
 
 
-def test_the_environment_of_a_call_bounds_its_project_root(
+def test_call_environment_bounds_root(
     client: Client, settings: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def check(
@@ -676,7 +641,7 @@ def test_the_environment_of_a_call_bounds_its_project_root(
     assert (code, said["code"]) == (422, BoundsError.code)
 
 
-def test_a_refusal_carries_its_diagnostics() -> None:
+def test_refusal_carries_diagnostics() -> None:
     from hydromodpy.core.diagnostic import Diagnostic
 
     found = Diagnostic(path="a.b", code="unknown_key", severity="error", detail="x")
@@ -686,7 +651,7 @@ def test_a_refusal_carries_its_diagnostics() -> None:
     assert refusal(ValueError("v")) == {"code": "ValueError", "message": "v"}
 
 
-def test_two_checks_in_two_threads_keep_their_own_warnings(client: Client) -> None:
+def test_threads_keep_own_warnings(client: Client) -> None:
     path = "/v1/acme/island/check"
     seen: dict[str, list[set[str]]] = {"old": [], "clean": []}
 
@@ -705,11 +670,6 @@ def test_two_checks_in_two_threads_keep_their_own_warnings(client: Client) -> No
         thread.join()
     assert all("old_key" in codes for codes in seen["old"])
     assert all("old_key" not in codes for codes in seen["clean"])
-
-
-# ---------------------------------------------------------------------------
-# Jobs: one process per long verb
-# ---------------------------------------------------------------------------
 
 
 def fake_target(verb: str, arguments: dict[str, Any], place: Path, pipe: Any) -> None:
@@ -745,7 +705,7 @@ ENDS = {
 
 
 @pytest.mark.parametrize("verb", ENDS)
-def test_a_job_tells_how_its_process_ended(settings: Settings, tmp_path: Path, verb: str) -> None:
+def test_job_end_states(settings: Settings, tmp_path: Path, verb: str) -> None:
     started = settings.start("acme", "island", verb, {}, tmp_path, target=fake_target)
     said = _wait(settings, "acme", "island", started["job"])
     state, rest = ENDS[verb]
@@ -753,9 +713,7 @@ def test_a_job_tells_how_its_process_ended(settings: Settings, tmp_path: Path, v
     assert settings.read_job("acme", "island", started["job"]) == said
 
 
-def test_a_job_is_running_until_it_ends_and_is_private_to_its_project(
-    settings: Settings, tmp_path: Path
-) -> None:
+def test_running_job_is_private(settings: Settings, tmp_path: Path) -> None:
     started = settings.start("acme", "island", "slow", {}, tmp_path, target=fake_target)
     assert settings.read_job("acme", "island", started["job"]) == {
         "state": "running",
@@ -769,7 +727,7 @@ def test_a_job_is_running_until_it_ends_and_is_private_to_its_project(
     assert _wait(settings, "acme", "island", started["job"])["state"] == "died"
 
 
-def test_a_long_verb_answers_202_with_its_job(
+def test_long_verb_answers_202(
     client: Client, settings: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     started = {}
@@ -794,7 +752,7 @@ def test_a_long_verb_answers_202_with_its_job(
 
 
 @pytest.mark.parametrize("how", ["done", "refused", "failed"])
-def test_the_target_of_a_process_sends_what_the_verb_did(
+def test_child_sends_verb_outcome(
     how: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import multiprocessing

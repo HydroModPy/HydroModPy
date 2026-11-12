@@ -17,7 +17,6 @@ import pytest
 from hydromodpy.mesh.io.vtu import read_vtu, read_vtu_field_data, write_vtu
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
-from tests._helpers.mesh_cases import L93_ORIGIN, regular_mesh
 
 WEDGE_COLUMN = np.array(
     [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=float
@@ -31,11 +30,6 @@ def _triangles() -> HydroMesh:
         cell_blocks=(CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2], [1, 3, 2]])),),
         cell_data={"conductivity": np.array([1e-4, 2e-4])},
     )
-
-
-def _grid_in_lambert93() -> HydroMesh:
-    mesh = regular_mesh(3, 4, dx=25.0, xmin=L93_ORIGIN[0], ymin=L93_ORIGIN[1]).mesh
-    return mesh.with_cell_data(k=np.linspace(1e-5, 1e-4, mesh.n_cells))
 
 
 def _two_wedge_layers() -> HydroMesh:

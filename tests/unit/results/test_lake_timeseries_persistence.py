@@ -57,7 +57,7 @@ def _lake_records(station: str) -> list[dict]:
     return records
 
 
-def test_lake_timeseries_round_trip(tmp_path: Path) -> None:
+def test_round_trip(tmp_path: Path) -> None:
     station = lake_station_id("lac0")
     with _store(tmp_path) as store:
         sid = store.sim_id
@@ -72,7 +72,7 @@ def test_lake_timeseries_round_trip(tmp_path: Path) -> None:
     assert list(exchange.values) == pytest.approx([-0.5, -0.4, -0.3])
 
 
-def test_lake_timeseries_primary_key_dedupes(tmp_path: Path) -> None:
+def test_primary_key_dedupes(tmp_path: Path) -> None:
     station = lake_station_id("lac0")
     store = _store(tmp_path)
     sid = store.sim_id

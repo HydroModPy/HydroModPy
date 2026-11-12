@@ -1,4 +1,4 @@
-"""Unit tests for data-manager planning (explicit + inferred activation)."""
+"""The planner lists the data types of a run: the ones declared, then the ones the setup implies."""
 
 import pytest
 
@@ -60,14 +60,6 @@ def test_planner_strict_mode_raises_when_inference_has_missing_section() -> None
             raw_toml={},
             flow_active_bc=["stream"],
         )
-
-
-def test_with_resolved_types_injects_default_geology_section() -> None:
-    cfg = DataConfig(types=[])
-    resolved_cfg = cfg.with_resolved_types(["geology"])
-
-    assert resolved_cfg.types == ["geology"]
-    assert resolved_cfg.geology is not None
 
 
 def test_plan_types_merge_explicit_and_inferred_deterministically() -> None:

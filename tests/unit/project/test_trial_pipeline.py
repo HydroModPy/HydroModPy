@@ -1,4 +1,4 @@
-"""Tests of `project.trial_pipeline`."""
+"""The calibration trial pipeline filled by the project: its steps and its refusal when empty."""
 
 from __future__ import annotations
 

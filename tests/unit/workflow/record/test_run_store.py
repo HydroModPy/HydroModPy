@@ -1,4 +1,8 @@
-"""The run store scope of a workflow."""
+"""The scope in which a step opens the store of its run.
+
+The context holds the run directory, never a live handle. A step opens the store of that
+directory, writes, and closes it before it returns.
+"""
 
 from __future__ import annotations
 
@@ -14,14 +18,6 @@ from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.workflow.record.run_store import run_store
 from tests._helpers.run_stores import open_run_store
 
-# --- test_run_store_scope ---
-# The store of a run is a scope, not a field.
-#
-# ``WorkflowContext`` carries no live handle. What it carries is the directory
-# of the run; a step that writes opens the store of that directory and closes
-# it before returning. A run that keeps no store is told so by a predicate,
-# and a run that asked for one and has no directory yet is a broken run.
-
 
 def _ctx(*, save_catalog: bool, lightweight: bool, run_dir: Path | None) -> SimpleNamespace:
     return SimpleNamespace(
@@ -36,19 +32,19 @@ def _ctx(*, save_catalog: bool, lightweight: bool, run_dir: Path | None) -> Simp
     )
 
 
-def test_the_context_carries_no_store_handle() -> None:
+def test_context_has_no_store_field() -> None:
     fields = set(WorkflowContext.__dataclass_fields__)
     assert "store" not in fields
     assert {"run_dir", "attempt", "lineage", "calibrated_by"} <= fields
 
 
-def test_a_persisted_run_without_a_directory_is_a_broken_run(tmp_path: Path) -> None:
+def test_persisted_run_needs_a_directory() -> None:
     ctx = _ctx(save_catalog=True, lightweight=False, run_dir=None)
     with pytest.raises(PipelineError, match="no directory"), run_store(ctx):
         pass
 
 
-def test_the_scope_opens_the_store_of_the_run_and_writes_the_facts_back(tmp_path: Path) -> None:
+def test_scope_writes_the_facts_back(tmp_path: Path) -> None:
     opened = open_run_store(tmp_path / "p", "case")
     opened.close()
     ctx = _ctx(save_catalog=True, lightweight=False, run_dir=opened.run_dir)

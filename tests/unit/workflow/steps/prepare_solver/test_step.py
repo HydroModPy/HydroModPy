@@ -1,4 +1,4 @@
-"""PrepareSolverStep."""
+"""``PrepareSolverStep.rebuild_state``: a resumed run keeps the budget policy its store records."""
 
 from __future__ import annotations
 
@@ -15,15 +15,11 @@ from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.prepare_solver.step import PrepareSolverStep
+from tests._helpers.sealed_runs import write_attempt
 
-# --- test_a_resumed_run_keeps_its_budget_policy ---
-# A run resumed after its extraction keeps the budget policy it was extracted under.
-#
-# The policy is decided at planning, with the display flag of the invocation
-# (``hmp run --no-display`` drops the figures from the consumers). A resume is
-# another invocation: deciding again could keep a term the store never wrote,
-# or forget one it did. When the store already says what it kept, the resume
-# reads it there; otherwise it decides as a fresh run would.
+# A run resumed after its extraction keeps the budget policy it was extracted under. A resume is
+# another invocation (``hmp run --no-display`` changes the figures), so deciding again could keep
+# a term the store never wrote. When the store says what it kept, the resume reads it there.
 
 
 class _Store:
@@ -74,8 +70,6 @@ def _extracted_store(tmp_path: Path, keep: BudgetKeep | None, written=()) -> _St
 
 
 def _resume(monkeypatch, ctx, store: _Store) -> None:
-    from tests._helpers.sealed_runs import write_attempt
-
     @contextmanager
     def _scope(_ctx):
         yield store
@@ -93,7 +87,7 @@ def _resume(monkeypatch, ctx, store: _Store) -> None:
     assert ctx.sim_id == "sim-1"
 
 
-def test_a_run_extracted_with_the_whole_budget_resumes_with_it(monkeypatch, tmp_path) -> None:
+def test_whole_budget_resumes_whole(monkeypatch, tmp_path) -> None:
     # The file now says false; the store was extracted under "all".
     ctx = _ctx(keep_per_cell_budget=False)
     store = _extracted_store(tmp_path, BudgetKeep.everything(), written=("drain", "recharge"))
@@ -103,7 +97,7 @@ def test_a_run_extracted_with_the_whole_budget_resumes_with_it(monkeypatch, tmp_
     assert ctx.budget_terms == BudgetKeep.everything()
 
 
-def test_a_consumers_run_resumes_with_the_terms_it_kept(monkeypatch, tmp_path) -> None:
+def test_consumers_run_keeps_its_terms(monkeypatch, tmp_path) -> None:
     # The store says what the extraction kept, whatever the file says today.
     ctx = _ctx(keep_per_cell_budget=False)
     store = _extracted_store(tmp_path, BudgetKeep.of_terms(("recharge",)))
@@ -113,7 +107,7 @@ def test_a_consumers_run_resumes_with_the_terms_it_kept(monkeypatch, tmp_path) -
     assert ctx.budget_terms == BudgetKeep.of_terms(("recharge",))
 
 
-def test_a_run_resumed_before_its_extraction_decides_its_policy(monkeypatch, tmp_path) -> None:
+def test_resume_before_extraction_decides(monkeypatch, tmp_path) -> None:
     ctx = _ctx(keep_per_cell_budget=False)
     store = _extracted_store(tmp_path, None)
 
@@ -122,7 +116,7 @@ def test_a_run_resumed_before_its_extraction_decides_its_policy(monkeypatch, tmp
     assert ctx.budget_terms == BudgetKeep.of_terms(("recharge",))
 
 
-def test_a_resume_without_a_field_store_creates_none(monkeypatch, tmp_path) -> None:
+def test_resume_creates_no_store(monkeypatch, tmp_path) -> None:
     ctx = _ctx(keep_per_cell_budget=False)
     (tmp_path / "runs" / "run").mkdir(parents=True)
     store = _Store(tmp_path / "runs" / "run" / "fields.zarr")

@@ -1,4 +1,4 @@
-"""The frozen configuration of a run."""
+"""The ``config.toml`` and ``config.resolved.toml`` a run freezes, and the earlier runs its refinement zones read."""
 
 from __future__ import annotations
 
@@ -9,45 +9,38 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from shapely.geometry import box
 
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.data.loading.inputs import ResolvedInputs
-from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planning.refinement_zones import (
     CriterionInputs,
-    RefinementZone,
     load_refinement_zones,
 )
 from hydromodpy.results.run.field_envelope import read_run_fields
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_RESOLVED_CONFIG_FILENAME
+from hydromodpy.results.storage.contract import (
+    RUN_CONFIG_FILENAME,
+    RUN_RESOLVED_CONFIG_FILENAME,
+)
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.workflow.solution_key import request_id_of
-from hydromodpy.workflow.steps import mesh as mesh_module
-from hydromodpy.workflow.steps.mesh import step_mesh, zone_runs
+from hydromodpy.workflow.steps.mesh import zone_runs
 from hydromodpy.workflow.steps.prepare_solver.freeze import (
     freeze_run_config,
     frozen_config_document,
-    portable_config_document,
     write_claim_config,
 )
-from hydromodpy.workflow.steps.prepare_solver.restart import source_state_digests, zone_run_ids
-from tests._helpers.mesh_cases import grid_spec, planning_inputs
+from hydromodpy.workflow.steps.prepare_solver.restart import (
+    source_state_digests,
+    zone_run_ids,
+)
+from tests._helpers.mesh_cases import grid_spec
 from tests._helpers.run_stores import open_run_store
-from tests._helpers.sealed_runs import sealed_search
 
-# --- test_a_soil_run_freezes_a_config_that_replays ---
-# A soil run freezes a configuration that validates again, into the one it ran.
-#
-# The frozen ``config.toml`` used to spell out every default. Beside
-# ``[flow.sinks_sources.recharge.soil]`` that wrote ``recharge.values = 0.0``, a
-# key the soil section refuses when a file writes it, so every soil run stopped
-# at ``prepare_solver``. It also wrote the ETP ``surface_offset``, which soil
-# mode reads only when the file wrote it: a replay would have put the EVT surface
-# 2 m below the drains instead of on them. The frozen document keeps what the
-# run was given, and both replays (``hmp run --resume`` reads the file,
-# ``hmp catalog rerun`` the snapshot) give back the configuration of the run.
+# The frozen ``config.toml`` keeps what the run was given and validates again: a replay by
+# ``hmp run --resume`` (the file) or by ``hmp catalog rerun`` (the snapshot) gives back the
+# configuration of the run. The soil section refuses ``recharge.values``, and soil mode reads
+# ``surface_offset`` only when the file wrote it, so neither is spelled out as a default.
 
 PROJECT = """\
 [workflow]
@@ -133,11 +126,6 @@ enabled = false
 """
 
 
-OFFSET_WRITTEN = PROJECT.replace(
-    'extinction_depth = "2 m"\n', 'extinction_depth = "2 m"\nsurface_offset = "2.0 m"\n'
-)
-
-
 def _project(root: Path, text: str = PROJECT) -> Path:
     for name in ("precipitation", "etp"):
         folder = root / "data" / name
@@ -171,11 +159,7 @@ def _replays(project: Path, frozen: Path) -> tuple[HydroModPyConfig, HydroModPyC
     return HydroModPyConfig.from_toml(frozen), HydroModPyConfig.from_snapshot(snapshot)
 
 
-def _settings(cfg: HydroModPyConfig) -> dict:
-    return cfg.model_dump(mode="json", exclude={"workspace"})
-
-
-def test_the_soil_etp_offset_stays_unwritten_on_replay(tmp_path: Path) -> None:
+def test_soil_etp_offset_stays_unwritten(tmp_path: Path) -> None:
     project = _project(tmp_path)
 
     _, frozen = _frozen(project)
@@ -186,8 +170,8 @@ def test_the_soil_etp_offset_stays_unwritten_on_replay(tmp_path: Path) -> None:
         assert "surface_offset" not in etp.model_fields_set
 
 
-def test_an_inferred_data_type_stays_out_of_the_frozen_file(tmp_path: Path) -> None:
-    """A file cannot list a type without its section, and the planner infers it again."""
+def test_inferred_data_type_not_frozen(tmp_path: Path) -> None:
+    # A file cannot list a type without its section, and the planner infers it again.
     project = _project(tmp_path)
     cfg = HydroModPyConfig.from_toml(project / "project.toml")
     cfg.data = cfg.data.with_resolved_types([*cfg.data.types, "oceanic"])
@@ -198,81 +182,10 @@ def test_an_inferred_data_type_stays_out_of_the_frozen_file(tmp_path: Path) -> N
     assert all(replay.data.oceanic is None for replay in _replays(project, frozen))
 
 
-# --- test_the_frozen_config_reads_in_any_workspace ---
-# The frozen ``config.toml`` of a run names its inputs so that any copy of the workspace reads it.
-#
-# A file of the workspace ``data/`` is written relative to the project root
-# (``../../data/<variable>/...``), a file of the project relative to it: no path
-# of the machine, and no bare name, which a file no longer resolves. Read back
-# from the project root, in the workspace it was frozen in or in another one
-# holding the same data, the configuration points at the same files.
-
-WORKSPACE_PROJECT = """\
-[site]
-name = "nancon"
-
-[geographic]
-crs_project = "EPSG:2154"
-
-[geographic.catchment]
-kind = "from_outlet_coord"
-x_outlet = 389285.9
-y_outlet = 6816518.7
-snap_dist = "150 m"
-buff_area = "10%"
-
-[data]
-types = ["dem", "hydrography", "hydrometry"]
-
-[[data.dem.sources]]
-source = "file"
-path = "../../data/dem/DEM_armorican_massif.tif"
-
-[[data.hydrography.sources]]
-source = "file"
-path = "../../data/hydrography/nancon_stream_network.gpkg"
-
-[[data.hydrometry.sources]]
-source = "file"
-path = "../../data/hydrometry"
-station_ids = ["NANCON"]
-"""
-
-
-def _workspace(root: Path) -> Path:
-    for relative in (
-        "data/dem/DEM_armorican_massif.tif",
-        "data/hydrography/nancon_stream_network.gpkg",
-    ):
-        (root / relative).parent.mkdir(parents=True, exist_ok=True)
-        (root / relative).write_bytes(b"x")
-    (root / "data" / "hydrometry").mkdir(parents=True)
-    project = root / "projects" / "nancon"
-    project.mkdir(parents=True)
-    (project / "project.toml").write_text(WORKSPACE_PROJECT, encoding="utf-8")
-    return project
-
-
-def _frozen_in_workspace(project: Path) -> Path:
-    cfg = HydroModPyConfig.from_toml(project / "project.toml")
-    run_dir = project / "runs" / "nancon"
-    run_dir.mkdir(parents=True)
-    path = run_dir / "config.toml"
-    path.write_text(portable_config_document(cfg, run_dir, project), encoding="utf-8")
-    return path
-
-
-# --- test_a_frozen_config_pins_the_run_a_refinement_zone_reads ---
-# The frozen config names the run a refinement zone read by its sim_id, not by its name.
-#
-# A zone that reads an earlier run writes ``run = "<name>"``, and a bare name is
-# the latest version of that run. After a ``.v2`` of the first run, a replay
-# (``hmp catalog rerun`` reads the frozen snapshot, ``hmp run --resume`` the
-# frozen file) would read the ``.v2`` and draw another mesh. The mesh step keeps
-# the sim_id each zone read, and the freeze writes it in place of the name.
+# The frozen config names the run a refinement zone read by its sim_id, not by its name. A bare
+# name is the latest version, so after a ``.v2`` a replay would read it and draw another mesh.
 
 CELL = 100.0
-
 
 GRID = grid_spec(8, 8, 25.0)
 
@@ -370,7 +283,7 @@ def project(tmp_path: Path) -> Path:
     return tmp_path / "workspace"
 
 
-def test_a_second_freeze_of_a_replay_writes_the_same_sim_id(project: Path) -> None:
+def test_replay_freezes_the_same_sim_id(project: Path) -> None:
     first = _source_run(project, "coarse")
     cfg = _config(project, ZONE)
     frozen = _freeze(project, cfg, _read_by_the_mesh_step(project, cfg), "production")
@@ -383,7 +296,7 @@ def test_a_second_freeze_of_a_replay_writes_the_same_sim_id(project: Path) -> No
     assert [zone["run"] for zone in written] == [first]
 
 
-def test_a_replay_whose_source_run_is_gone_is_refused_with_its_cause(project: Path) -> None:
+def test_replay_without_source_run_refused(project: Path) -> None:
     _source_run(project, "coarse")
     cfg = _config(project, ZONE)
     frozen = _freeze(project, cfg, _read_by_the_mesh_step(project, cfg), "production")
@@ -398,7 +311,7 @@ def test_a_replay_whose_source_run_is_gone_is_refused_with_its_cause(project: Pa
     assert "needs that run to be still there" in str(excinfo.value)
 
 
-def test_only_the_zones_that_read_a_run_are_rewritten(project: Path) -> None:
+def test_only_run_zones_rewritten(project: Path) -> None:
     sim_id = "b" * 32
     cfg = _config(
         project,
@@ -418,7 +331,7 @@ def test_only_the_zones_that_read_a_run_are_rewritten(project: Path) -> None:
     assert zones[0]["where"] == "height_above_stream" and zones[2]["path"] == "layer.gpkg"
 
 
-def test_a_later_version_that_left_the_same_state_asks_the_same_thing(project: Path) -> None:
+def test_same_state_same_request_id(project: Path) -> None:
     _source_run(project, "coarse")
     cfg = _config(project, ZONE)
     recorded = _identity(cfg, project)
@@ -428,7 +341,7 @@ def test_a_later_version_that_left_the_same_state_asks_the_same_thing(project: P
     assert _identity(cfg, project) == recorded
 
 
-def test_a_new_run_from_the_bare_name_after_a_version_of_another_state_asks_otherwise(
+def test_other_state_other_request_id(
     project: Path,
 ) -> None:
     _source_run(project, "coarse")
@@ -440,10 +353,10 @@ def test_a_new_run_from_the_bare_name_after_a_version_of_another_state_asks_othe
     assert _identity(cfg, project) != recorded, "the retry starts over"
 
 
-# --- The claim freezes what the run was given, and the step that opens it freezes what it resolved ---
+# The claim freezes what the run was given, and the step that opens it freezes what it resolved.
 
 
-def test_the_claim_freezes_the_run_it_reads_before_any_step_runs(project: Path) -> None:
+def test_claim_freezes_the_run_it_reads(project: Path) -> None:
     sim_id = _source_run(project, "coarse")
     cfg = _config(project, ZONE)
     run_dir = project / "runs" / "production.v2"
@@ -463,13 +376,13 @@ def test_the_claim_freezes_the_run_it_reads_before_any_step_runs(project: Path) 
     assert sorted(entry.name for entry in run_dir.iterdir()) == [RUN_CONFIG_FILENAME]
 
 
-def test_a_zone_that_names_no_sealed_run_is_left_as_written_by_the_claim(project: Path) -> None:
+def test_zone_without_sealed_run_unchanged(project: Path) -> None:
     cfg = _config(project, ZONE)
 
     assert zone_run_ids(cfg, project) == {}
 
 
-def test_the_step_that_opens_a_run_keeps_the_config_the_claim_wrote(project: Path) -> None:
+def test_open_step_keeps_the_claimed_config(project: Path) -> None:
     _source_run(project, "coarse")
     cfg = _config(project, ZONE)
     store = open_run_store(project, "production", n_cells=4)

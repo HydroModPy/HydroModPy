@@ -1,26 +1,22 @@
+"""Folder layout of a workspace: where the solver binaries are looked up."""
+
+from __future__ import annotations
+
 from pathlib import Path
 
+import pytest
+
+from hydromodpy.core.state.portable import cache_dir
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.workspace import WorkspaceLayout
 
 
-def _scaffold(workspace_dir: Path, project: str = "demo") -> Path:
-    """Create a minimal scaffolded workspace and return the project path."""
-    workspace_dir.mkdir(parents=True, exist_ok=True)
-    (workspace_dir / "data").mkdir(exist_ok=True)
-    project_dir = workspace_dir / "projects" / project
-    project_dir.mkdir(parents=True, exist_ok=True)
-    return project_dir
-
-
-def test_workspace_bin_path_defaults_to_managed_cache(tmp_path, monkeypatch) -> None:
-    """Without HMP_BIN, bin_path resolves to the managed cache."""
+def test_bin_path_defaults_to_managed_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("HMP_BIN", raising=False)
+    project = tmp_path / "ws" / "projects" / "demo"
+    project.mkdir(parents=True)
+    (tmp_path / "ws" / "data").mkdir()
 
-    from hydromodpy.core.state.portable import cache_dir
-
-    project = _scaffold(tmp_path / "ws")
-    cfg = WorkspaceConfig(project_root=project)
-    workspace = WorkspaceLayout(config=cfg)
+    workspace = WorkspaceLayout(config=WorkspaceConfig(project_root=project))
 
     assert Path(workspace.bin_path).resolve() == (cache_dir() / "bin").resolve()

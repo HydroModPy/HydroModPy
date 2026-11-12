@@ -1,7 +1,11 @@
+"""Discovery, filtering and command lines of the batch runner of the validation cases."""
+
 from __future__ import annotations
 
 import sys
 from pathlib import Path
+
+import pytest
 
 from validation_cases.run_cases import (
     ValidationCaseExecution,
@@ -13,7 +17,7 @@ from validation_cases.run_cases import (
 )
 
 
-def _write_case(case_dir: Path, *, regime: str, solvers: tuple[str, ...]) -> None:
+def _write_case(case_dir: Path, *, regime: str, solvers: tuple[str, ...]):
     case_dir.mkdir(parents=True, exist_ok=True)
     metadata_lines = [
         f'regime = "{regime}"',
@@ -26,10 +30,9 @@ def _write_case(case_dir: Path, *, regime: str, solvers: tuple[str, ...]) -> Non
     (case_dir / "run_case.py").write_text("print('ok')\n", encoding="utf-8")
 
 
-def test_discover_and_filter_validation_cases(tmp_path: Path) -> None:
+def two_cases(tmp_path):
     package_root = tmp_path / "validation_cases"
     analytical_root = package_root / "analytical"
-
     _write_case(
         analytical_root / "steady" / "case_steady_dual",
         regime="steady",
@@ -40,98 +43,68 @@ def test_discover_and_filter_validation_cases(tmp_path: Path) -> None:
         regime="transient",
         solvers=("modflownwt",),
     )
-
-    discovered = discover_validation_cases(package_root=package_root)
-
-    assert [case.module_name for case in discovered] == [
-        "validation_cases.analytical.steady.case_steady_dual.run_case",
-        "validation_cases.analytical.transient.case_transient_nwt.run_case",
-    ]
-
-    modflow6_cases = filter_validation_cases(discovered, solver="modflow6", regime="both")
-    assert [case.module_name for case in modflow6_cases] == [
-        "validation_cases.analytical.steady.case_steady_dual.run_case",
-    ]
-
-    modflow6_irregular_cases = filter_validation_cases(
-        discovered,
-        solver="modflow6_irregular_tri",
-        regime="both",
-    )
-    assert [case.module_name for case in modflow6_irregular_cases] == [
-        "validation_cases.analytical.steady.case_steady_dual.run_case",
-    ]
-
-    boussinesq_cases = filter_validation_cases(discovered, solver="boussinesq", regime="both")
-    assert [case.module_name for case in boussinesq_cases] == [
-        "validation_cases.analytical.steady.case_steady_dual.run_case",
-    ]
-
-    transient_nwt_cases = filter_validation_cases(
-        discovered, solver="modflownwt", regime="transient"
-    )
-    assert [case.module_name for case in transient_nwt_cases] == [
-        "validation_cases.analytical.transient.case_transient_nwt.run_case",
-    ]
+    return discover_validation_cases(package_root=package_root)
 
 
-def test_build_run_command_includes_solver_timeout_and_show_flag(tmp_path: Path) -> None:
+STEADY_DUAL = "validation_cases.analytical.steady.case_steady_dual.run_case"
+TRANSIENT_NWT = "validation_cases.analytical.transient.case_transient_nwt.run_case"
+
+
+def test_discover_validation_cases(tmp_path):
+    discovered = two_cases(tmp_path)
+
+    assert [case.module_name for case in discovered] == [STEADY_DUAL, TRANSIENT_NWT]
+
+
+FILTERS = [
+    pytest.param("modflow6", "both", [STEADY_DUAL], id="modflow6"),
+    pytest.param("modflow6_irregular_tri", "both", [STEADY_DUAL], id="irregular tri"),
+    pytest.param("boussinesq", "both", [STEADY_DUAL], id="boussinesq"),
+    pytest.param("modflownwt", "transient", [TRANSIENT_NWT], id="nwt transient only"),
+]
+
+
+@pytest.mark.parametrize(("solver", "regime", "expected"), FILTERS)
+def test_filter_validation_cases(tmp_path, solver, regime, expected):
+    selected = filter_validation_cases(two_cases(tmp_path), solver=solver, regime=regime)
+
+    assert [case.module_name for case in selected] == expected
+
+
+COMMANDS = [
+    pytest.param("modflow6", 321, True, "--show", id="show"),
+    pytest.param("modflow6_irregular_tri", 654, False, "--no-show", id="irregular tri, no show"),
+]
+
+
+@pytest.mark.parametrize(("solver", "timeout", "show_plot", "show_flag"), COMMANDS)
+def test_build_run_command(tmp_path, solver, timeout, show_plot, show_flag):
     case_dir = tmp_path / "validation_cases" / "analytical" / "steady" / "case_demo"
     _write_case(
-        case_dir,
-        regime="steady",
-        solvers=("modflownwt", "modflow6", "modflow6_irregular_tri"),
+        case_dir, regime="steady", solvers=("modflownwt", "modflow6", "modflow6_irregular_tri")
     )
     case = discover_validation_cases(package_root=tmp_path / "validation_cases")[0]
 
     command = build_run_command(
         case,
         python_executable=Path(sys.executable),
-        solver="modflow6",
-        timeout=321,
-        show_plot=True,
+        solver=solver,
+        timeout=timeout,
+        show_plot=show_plot,
     )
 
     assert command == [
         str(Path(sys.executable)),
         str(case.run_case_path),
         "--solver",
-        "modflow6",
+        solver,
         "--timeout",
-        "321",
-        "--show",
+        str(timeout),
+        show_flag,
     ]
 
 
-def test_build_run_command_supports_modflow6_irregular_tri(tmp_path: Path) -> None:
-    case_dir = tmp_path / "validation_cases" / "analytical" / "steady" / "case_demo"
-    _write_case(
-        case_dir,
-        regime="steady",
-        solvers=("modflownwt", "modflow6", "modflow6_irregular_tri"),
-    )
-    case = discover_validation_cases(package_root=tmp_path / "validation_cases")[0]
-
-    command = build_run_command(
-        case,
-        python_executable=Path(sys.executable),
-        solver="modflow6_irregular_tri",
-        timeout=654,
-        show_plot=False,
-    )
-
-    assert command == [
-        str(Path(sys.executable)),
-        str(case.run_case_path),
-        "--solver",
-        "modflow6_irregular_tri",
-        "--timeout",
-        "654",
-        "--no-show",
-    ]
-
-
-def test_build_execution_report_summarizes_case_runs(tmp_path: Path) -> None:
+def test_execution_report(tmp_path):
     case_dir = tmp_path / "validation_cases" / "analytical" / "steady" / "case_demo"
     _write_case(case_dir, regime="steady", solvers=("modflownwt", "modflow6"))
     case = discover_validation_cases(package_root=tmp_path / "validation_cases")[0]
@@ -160,7 +133,7 @@ def test_build_execution_report_summarizes_case_runs(tmp_path: Path) -> None:
     assert report["cases"][0]["duration_seconds"] == 1.25
 
 
-def test_build_parser_accepts_modflow6_irregular_tri_solver() -> None:
+def test_parser_accepts_irregular_tri_solver():
     parser = build_parser()
 
     args = parser.parse_args(["--solver", "modflow6_irregular_tri", "--list"])

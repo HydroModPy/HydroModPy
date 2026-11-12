@@ -31,7 +31,7 @@ def _field_payload(value: object) -> dict[str, object]:
     return {"field": {"id": "Ss", "kind": "homogeneous", "value": value}}
 
 
-def test_a_benchmark_declares_a_negligible_specific_storage_and_it_loads() -> None:
+def test_negligible_specific_storage_loads() -> None:
     payload = validate_field_param_toml_data(_field_payload("1e-10 m-1"))
     assert payload["field"]["value"] == pytest.approx(NEGLIGIBLE_STORAGE)
     # The schema writes `m-1`, the registry `1/m`; `_in_canonical_unit` settles the spelling.
@@ -40,23 +40,41 @@ def test_a_benchmark_declares_a_negligible_specific_storage_and_it_loads() -> No
         validate_field_param_toml_data(_field_payload(1e-14))
 
 
-def test_a_refusal_is_a_config_error_that_names_the_place_the_value_and_its_unit() -> None:
-    with pytest.raises(ConfigValidationError, match=(
-        r"hydraulic conductivity \(id='K'\) in zone 'a' value 1000000000.0 m/day \(11574.1 m/s\) outside"
-    )):  # fmt: skip
+def test_a_refusal_names_place_value_and_unit() -> None:
+    message = (
+        r"hydraulic conductivity \(id='K'\) in zone 'a' "
+        r"value 1000000000.0 m/day \(11574.1 m/s\) outside"
+    )
+    with pytest.raises(ConfigValidationError, match=message):
         validate_physical_value(param_id="K", value=1e9, unit="m/day", where="zone 'a'")
 
 
-@pytest.mark.parametrize(
-    ("param_id", "values", "unit", "refused"),
-    [("K", [1e-5, 2e-5], None, None), ("K", [[1e-5, 1e3], [np.nan, 1e-6]], None,
-      r"\(id='K'\) in the override: 2 of 4 value\(s\) outside \[1e-14, 100.0\] m/s, the first at index 1: 1000.0"),
-     ("K", [8640.0], "m/day", None), ("K", [1e9], "m/day", r"index 0: 1000000000.0 m/day \(11574.1 m/s\)"),
-     ("K", [1e-5], "m-1", "expects 'm/s'"), ("porosity_of_the_moon", [-5.0], "m", None)],
-    ids=["inside", "outside-and-not-a-number", "declared-unit", "outside-in-its-unit", "other-quantity",
-         "no-range"],
-)  # fmt: skip
-def test_an_array_is_checked_against_the_range_of_its_parameter(param_id, values, unit, refused):
+# (parameter, values, unit, the part of the refusal message, None when the values are accepted)
+ARRAYS = [
+    pytest.param("K", [1e-5, 2e-5], None, None, id="inside"),
+    pytest.param(
+        "K",
+        [[1e-5, 1e3], [np.nan, 1e-6]],
+        None,
+        r"\(id='K'\) in the override: 2 of 4 value\(s\) outside \[1e-14, 100.0\] m/s, "
+        r"the first at index 1: 1000.0",
+        id="outside and not a number",
+    ),
+    pytest.param("K", [8640.0], "m/day", None, id="declared unit"),
+    pytest.param(
+        "K",
+        [1e9],
+        "m/day",
+        r"index 0: 1000000000.0 m/day \(11574.1 m/s\)",
+        id="outside in its unit",
+    ),
+    pytest.param("K", [1e-5], "m-1", "expects 'm/s'", id="other quantity"),
+    pytest.param("porosity_of_the_moon", [-5.0], "m", None, id="no range"),
+]
+
+
+@pytest.mark.parametrize(("param_id", "values", "unit", "refused"), ARRAYS)
+def test_array_checked_against_its_range(param_id, values, unit, refused):
     with nullcontext() if refused is None else pytest.raises(PhysicalBoundsError, match=refused):
         checked = validate_physical_array(
             param_id=param_id, values=values, unit=unit, where="the override"
@@ -64,7 +82,7 @@ def test_an_array_is_checked_against_the_range_of_its_parameter(param_id, values
         np.testing.assert_array_equal(checked, values)
 
 
-def test_the_floor_stays_a_number_a_log_search_can_walk() -> None:
+def test_the_floor_is_above_zero() -> None:
     assert "porosity_of_the_moon" not in PHYSICAL_BOUNDS
     assert PHYSICAL_BOUNDS["ss"] == PHYSICAL_BOUNDS["specific_storage"]
     assert PHYSICAL_BOUNDS["ss"].hi == 1e-3
@@ -76,10 +94,12 @@ def test_the_floor_stays_a_number_a_log_search_can_walk() -> None:
         assert bound.canonical_unit == "1/m"
 
 
-def test_the_widened_floor_is_a_ceiling_on_a_declared_bound_and_not_a_span() -> None:
+def test_a_declared_bound_sets_the_span() -> None:
     """A field value carries `Calibrable(bounds=None)`, so the span searched comes from the file."""
     path = "flow.param.Ss.field.value"
-    space = ParameterSpace.from_toml_mapping({"Ss": {"bounds": [NEGLIGIBLE_STORAGE, 1e-4], "path": path}})  # fmt: skip
+    space = ParameterSpace.from_toml_mapping(
+        {"Ss": {"bounds": [NEGLIGIBLE_STORAGE, 1e-4], "path": path}}
+    )
     assert space["Ss"].lower == pytest.approx(NEGLIGIBLE_STORAGE)
     with pytest.raises(ValueError, match="specific storage"):
         ParameterSpace.from_toml_mapping({"Ss": {"bounds": [1e-14, 1e-4], "path": path}})

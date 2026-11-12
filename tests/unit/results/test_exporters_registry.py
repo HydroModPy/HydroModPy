@@ -21,22 +21,7 @@ pytestmark = pytest.mark.fast
 
 # The tables of the commit this lot started from, spelled in literals so the
 # derivation is held against what it replaces.
-_KIND_FORMATS = {
-    ExportKind.field: ("netcdf", "geotiff", "geopackage", "shapefile", "vtu"),
-    ExportKind.series: ("csv",),
-    ExportKind.table: ("csv",),
-    ExportKind.vector: ("geopackage", "shapefile"),
-    ExportKind.raster: ("geotiff",),
-}
 
-_FORMAT_SUFFIX = {
-    "netcdf": ".nc",
-    "geotiff": ".tif",
-    "csv": ".csv",
-    "geopackage": ".gpkg",
-    "shapefile": ".shp",
-    "vtu": ".vtu",
-}
 
 _SUFFIX_TO_FORMAT = {
     ".nc": "netcdf",
@@ -49,14 +34,8 @@ _SUFFIX_TO_FORMAT = {
     ".jsonld": "prov",
 }
 
-_RUN_FORMAT_FILES = {
-    "stac": "stac-item.json",
-    "rocrate": "ro-crate-metadata.json",
-    "prov": "prov.jsonld",
-}
 
-
-def test_the_known_extensions_are_the_ones_the_request_names() -> None:
+def test_known_extensions() -> None:
     assert known_extensions() == tuple(sorted(_SUFFIX_TO_FORMAT))
 
 
@@ -70,7 +49,7 @@ class _FailingEntryPoint:
         raise ModuleNotFoundError("No module named 'hydromodpy_annex'")
 
 
-def test_a_declared_format_that_cannot_be_imported_is_refused_with_its_reason(
+def test_unimportable_format_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The refusal names the module to put on sys.path, and the name is served nowhere."""

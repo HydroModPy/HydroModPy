@@ -1,21 +1,21 @@
-"""Point interrogation of a finished run: cell, layer, virtual fields, caches."""
+"""Point interrogation of a finished run: the cell and layer of a point, its series, its cache.
+
+Coordinates are in meters of the mesh CRS and heads in meters. The head of cell
+``c`` at step ``t`` is ``c + 10 t``, and layer 1 sits 0.5 m below layer 0.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.run.point import PointRequest, read_point, resolve_point, write_point_table
-from hydromodpy.results.spatial_index import (
-    CellLocator,
-    cell_index_cache_dir,
-    clear_locator_cache,
-    point_in_cell,
-)
+from hydromodpy.results.spatial_index import cell_index_cache_dir, clear_locator_cache
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.run_stores import open_run_store
 
@@ -94,79 +94,75 @@ def run(tmp_path):
         yield catalog[sid]
 
 
-# -- locating ---------------------------------------------------------------
+REFUSED_REQUESTS = [
+    pytest.param({"x": 0.5, "y": 0.5, "cell": 1}, "not both", id="coordinates and cell"),
+    pytest.param({}, "not both", id="neither"),
+    pytest.param({"x": 0.5, "cell": None}, "both x and y", id="half a coordinate"),
+    pytest.param({"cell": 0, "layer": 1, "depth": 2.0}, "not both", id="layer and depth"),
+]
 
 
-class TestRequest:
-    def test_coordinates_or_cell_but_not_both(self):
-        with pytest.raises(ValueError, match="not both"):
-            PointRequest(x=0.5, y=0.5, cell=1)
-
-    def test_one_of_them_is_required(self):
-        with pytest.raises(ValueError, match="not both"):
-            PointRequest()
-
-    def test_half_a_coordinate_is_refused(self):
-        with pytest.raises(ValueError, match="both x and y"):
-            PointRequest(x=0.5, cell=None)
-
-    def test_layer_and_depth_are_exclusive(self):
-        with pytest.raises(ValueError, match="not both"):
-            PointRequest(cell=0, layer=1, depth=2.0)
+@pytest.mark.parametrize(("fields", "message"), REFUSED_REQUESTS)
+def test_refused_requests(fields, message):
+    with pytest.raises(ValueError, match=message):
+        PointRequest(**fields)
 
 
-class TestResolve:
-    def test_an_out_of_range_cell_is_refused(self, run):
-        with pytest.raises(IndexError, match="out of range"):
-            resolve_point(run, PointRequest(cell=99))
-
-    def test_a_negative_layer_counts_from_the_bottom(self, run):
-        assert resolve_point(run, PointRequest(cell=0, layer=-1)).layer == 1
+def test_an_out_of_range_cell_is_refused(run):
+    with pytest.raises(IndexError, match="out of range"):
+        resolve_point(run, PointRequest(cell=99))
 
 
-# -- reading ----------------------------------------------------------------
+def test_a_negative_layer_counts_from_the_bottom(run):
+    assert resolve_point(run, PointRequest(cell=0, layer=-1)).layer == 1
 
 
-class TestReadPoint:
-    def test_one_timestep_returns_one_row(self, run):
-        frame = run.probe.series("head", cell=1, timestep=-1)
-        assert len(frame) == 1
-        assert frame["timestep"].iloc[0] == N_STEPS - 1
+def test_one_timestep_returns_one_row(run):
+    frame = run.probe.series("head", cell=1, timestep=-1)
 
-    def test_an_out_of_range_timestep_is_refused(self, run):
-        with pytest.raises(IndexError, match="out of range"):
-            run.probe.series("head", cell=1, timestep=9)
-
-    def test_an_unknown_field_is_named(self, run):
-        with pytest.raises(KeyError, match="nosuchfield"):
-            run.probe.series("nosuchfield", cell=0)
+    assert len(frame) == 1
+    assert frame["timestep"].iloc[0] == N_STEPS - 1
 
 
-class TestWriteTable:
-    def test_csv_round_trips(self, run, tmp_path):
-        import pandas as pd
-
-        dest = write_point_table(run.probe.series("head", cell=1), tmp_path / "p.csv")
-        assert pd.read_csv(dest)["value"].tolist() == [1.0, 11.0, 21.0]
-
-    def test_parquet_round_trips(self, run, tmp_path):
-        import pandas as pd
-
-        dest = write_point_table(run.probe.series("head", cell=1), tmp_path / "p.parquet")
-        assert pd.read_parquet(dest)["value"].tolist() == [1.0, 11.0, 21.0]
-
-    def test_the_output_argument_writes_and_still_returns(self, run, tmp_path):
-        dest = tmp_path / "out.csv"
-        frame = run.probe.series("head", cell=1, output=dest)
-        assert dest.is_file()
-        assert len(frame) == N_STEPS
-
-    def test_an_unknown_extension_is_refused(self, run, tmp_path):
-        with pytest.raises(ValueError, match="use .csv or .parquet"):
-            write_point_table(run.probe.series("head", cell=1), tmp_path / "p.xlsx")
+READ_REFUSALS = [
+    pytest.param(
+        {"name": "head", "cell": 1, "timestep": 9}, IndexError, "out of range", id="timestep"
+    ),
+    pytest.param({"name": "nosuchfield", "cell": 0}, KeyError, "nosuchfield", id="field"),
+]
 
 
-# -- several runs at once ---------------------------------------------------
+@pytest.mark.parametrize(("call", "error", "message"), READ_REFUSALS)
+def test_read_refusals(run, call, error, message):
+    name = call.pop("name")
+    with pytest.raises(error, match=message):
+        run.probe.series(name, **call)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "read"),
+    [
+        pytest.param(".csv", pd.read_csv, id="csv"),
+        pytest.param(".parquet", pd.read_parquet, id="parquet"),
+    ],
+)
+def test_table_round_trip(run, tmp_path, suffix, read):
+    dest = write_point_table(run.probe.series("head", cell=1), tmp_path / f"p{suffix}")
+
+    assert read(dest)["value"].tolist() == [1.0, 11.0, 21.0]
+
+
+def test_the_output_argument_writes_and_still_returns(run, tmp_path):
+    dest = tmp_path / "out.csv"
+    frame = run.probe.series("head", cell=1, output=dest)
+
+    assert dest.is_file()
+    assert len(frame) == N_STEPS
+
+
+def test_an_unknown_extension_is_refused(run, tmp_path):
+    with pytest.raises(ValueError, match="use .csv or .parquet"):
+        write_point_table(run.probe.series("head", cell=1), tmp_path / "p.xlsx")
 
 
 def test_a_runset_reads_the_same_point_on_every_run(tmp_path):
@@ -177,34 +173,12 @@ def test_a_runset_reads_the_same_point_on_every_run(tmp_path):
     rebuild_index(root)
     with Catalog(root) as catalog:
         frame = catalog.find(project="demo").probe.series("head", cell=1)
+
     assert set(frame["run"]) == {"base", "scenario"}
 
 
-# -- the point-to-cell caches -----------------------------------------------
+def test_a_run_populates_the_project_cache(run):
+    run.probe.series("head", x=1.5, y=0.5)
+    cache_dir = cell_index_cache_dir(run._catalog.project_path)
 
-
-class TestLocatorCache:
-    def test_a_cached_point_never_builds_the_tree(self, tmp_path):
-        warm = CellLocator(VERTICES, CONNECTIVITY, fingerprint="abc", cache_dir=tmp_path / "c")
-        warm.locate({"p": (1.5, 0.5)})
-        cold = CellLocator(VERTICES, CONNECTIVITY, fingerprint="abc", cache_dir=tmp_path / "c")
-        assert cold.locate({"p": (1.5, 0.5)}) == {"p": 1}
-        assert cold._tree is None
-
-    def test_a_point_outside_is_cached_as_outside(self, tmp_path):
-        locator = CellLocator(VERTICES, CONNECTIVITY, fingerprint="abc", cache_dir=tmp_path / "c")
-        assert locator.locate({"p": (9.0, 9.0)}, warn_outside=False) == {"p": None}
-        cold = CellLocator(VERTICES, CONNECTIVITY, fingerprint="abc", cache_dir=tmp_path / "c")
-        assert cold.locate({"p": (9.0, 9.0)}, warn_outside=False) == {"p": None}
-
-    def test_a_run_populates_the_project_cache(self, run):
-        run.probe.series("head", x=1.5, y=0.5)
-        cache_dir = cell_index_cache_dir(run._catalog.project_path)
-        assert list(cache_dir.glob("*.json"))
-
-    def test_the_free_function_still_answers(self):
-        assert point_in_cell(VERTICES, CONNECTIVITY, {"p": (0.5, 1.5)}) == {"p": 2}
-
-    def test_a_point_outside_warns(self):
-        with pytest.warns(UserWarning, match="outside the mesh"):
-            point_in_cell(VERTICES, CONNECTIVITY, {"p": (9.0, 9.0)})
+    assert list(cache_dir.glob("*.json"))

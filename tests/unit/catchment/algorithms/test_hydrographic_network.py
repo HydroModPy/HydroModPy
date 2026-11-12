@@ -35,7 +35,7 @@ KM_LINE = LineString([(0.0, 0.0), (1000.0, 0.0)])
 lift = HydrographicNetwork.from_hydrography_load_result
 
 
-def test_the_reference_network_is_lifted_with_its_metrics(tmp_path: Path) -> None:
+def test_reference_network_metrics(tmp_path: Path) -> None:
     streams = write_lines(tmp_path / "streams.shp", STRAHLER=[3])
     watershed = write_features(tmp_path / "watershed.shp", [box(0.0, -500.0, 1000.0, 500.0)])
     raster = tmp_path / "streams.tif"
@@ -79,19 +79,19 @@ def _record(data, metadata=None) -> SimpleNamespace:
     ],
     ids=["first variable", "no variable", "array values", "empty array", "no data"],
 )
-def test_the_stream_pixels_are_read_on_whatever_array_the_record_carries(result, count) -> None:
+def test_stream_pixel_count(result, count) -> None:
     network = lift(result)
     assert network.metrics.get("stream_pixel_count") == count
     assert network.crs is None
 
 
-def test_a_load_result_without_the_hydrography_field_is_refused() -> None:
+def test_refused_load_result() -> None:
     with pytest.raises(ValueError, match=FIELD):
         lift(LoadResult())
 
 
 @pytest.mark.parametrize("watershed", ["gone.shp", "empty.shp"])
-def test_a_watershed_that_cannot_be_read_leaves_the_area_out(tmp_path, watershed) -> None:
+def test_unreadable_watershed(tmp_path, watershed) -> None:
     streams = write_lines(tmp_path / "streams.shp")
     if watershed == "empty.shp":
         write_features(tmp_path / watershed, [])
@@ -104,7 +104,7 @@ def test_a_watershed_that_cannot_be_read_leaves_the_area_out(tmp_path, watershed
 
 
 @pytest.mark.parametrize("permanent", ["streams_permanent.shp", None, "gone.shp"])
-def test_the_permanent_part_is_lifted_with_its_own_length_or_not_at_all(tmp_path, permanent):
+def test_permanent_network(tmp_path, permanent):
     """Never the full network under this role: that would be a wrong answer."""
     full = write_lines(tmp_path / "streams.shp", 3)
     named = None if permanent is None else tmp_path / permanent
@@ -120,7 +120,7 @@ def test_the_permanent_part_is_lifted_with_its_own_length_or_not_at_all(tmp_path
         assert network.metrics["network_total_length_m"] == pytest.approx(1000.0)
 
 
-def test_the_generated_network_takes_its_metrics_from_the_summary_else_from_its_vector(tmp_path):
+def test_generated_network_metrics(tmp_path):
     network_path = write_lines(tmp_path / "river_network.shp")
     summary = tmp_path / "river_network_summary.json"
     record = {"threshold_mode": "area_km2", "threshold_value": 0.5, "stream_pixel_count": 12}
@@ -169,7 +169,7 @@ def test_the_generated_network_takes_its_metrics_from_the_summary_else_from_its_
         ("mesh_constraint", None, None),
     ],
 )
-def test_each_role_has_its_feature_and_file_names(role, feature, filename) -> None:
+def test_role_names(role, feature, filename) -> None:
     assert canonical_feature_name_for_role(role) == feature
     assert default_vector_filename_for_role(role) == filename
     contract = hydrographic_network_naming_contract(role)
@@ -183,6 +183,6 @@ def test_each_role_has_its_feature_and_file_names(role, feature, filename) -> No
     ("members", "reason"),
     [({"role": "drawn"}, "role must be one of"), ({"source_kind": "  "}, "cannot be empty")],
 )
-def test_a_network_refuses_a_role_or_a_source_it_does_not_know(members, reason) -> None:
+def test_refused_role_or_source(members, reason) -> None:
     with pytest.raises(ValueError, match=reason):
         HydrographicNetwork(**{"role": "reference", "source_kind": "file", **members})

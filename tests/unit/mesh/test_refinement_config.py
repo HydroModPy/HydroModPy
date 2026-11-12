@@ -46,9 +46,7 @@ _RUN_ZONE = {"where": "watertable_depth", "below": 1.0, "run": "coarse", "cell_s
         ({**_HAND, "below": float("inf")}, ("below", "finite number")),
     ],
 )
-def test_a_zone_says_one_field_and_its_threshold_or_is_refused(
-    table: dict, words: tuple[str, ...]
-) -> None:
+def test_zone_refusals(table: dict, words: tuple[str, ...]) -> None:
     with pytest.raises(ValidationError) as raised:
         RefinementZoneConfig.model_validate(table)
     for word in words:
@@ -67,7 +65,7 @@ def test_a_zone_says_one_field_and_its_threshold_or_is_refused(
         ),
     ],
 )
-def test_a_zone_describes_its_field_threshold_unit_and_run(table: dict, description: str) -> None:
+def test_zone_description(table: dict, description: str) -> None:
     assert RefinementZoneConfig.model_validate(table).describe() == description
 
 
@@ -94,8 +92,6 @@ def test_a_zone_describes_its_field_threshold_unit_and_run(table: dict, descript
         "infinite interior size",
     ],
 )
-def test_a_lake_refinement_table_that_cannot_hold_its_cells_is_refused(
-    table: dict, match: str
-) -> None:
+def test_lake_refinement_refusals(table: dict, match: str) -> None:
     with pytest.raises(ValueError, match=match):
         LakeRefinementConfig.model_validate(table)

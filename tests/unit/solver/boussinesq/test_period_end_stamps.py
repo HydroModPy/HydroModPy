@@ -1,0 +1,196 @@
+"""A Boussinesq run stamps each stress period at its end, as MODFLOW does.
+
+The transient history starts with the initial state, 0 s after the run start.
+That snapshot closes no period. Written to the store it took timestep 0: the
+lumped budget carried a zero-flux row there, one step ahead of MODFLOW 6 for
+the same period, the catchment series began with a zero at the run start, and
+the store held one slice more than the run's ``n_timesteps``, so
+``Run.time_index`` fell back to rebuilt stamps and a point read lost its dates.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
+from hydromodpy.results.catalog.facade import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.derive.catchment_aggregation import aggregate_catchment_timeseries
+from hydromodpy.results.run.view import Run
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.results.storage.sealing import seal_completed
+from hydromodpy.solver.boussinesq.calibration_extractors import (
+    extract_discharge_history,
+    extract_head_history_at_cells,
+)
+from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
+from tests._helpers.run_stores import claim_run, facts_of
+
+from ._solver_runs import extract_run
+
+DAY_S = 86400.0
+START = pd.Timestamp("2020-01-01")
+PERIOD_ENDS = pd.DatetimeIndex(["2020-01-02", "2020-01-03", "2020-01-04"])
+
+
+def _transient_payload() -> dict[str, np.ndarray]:
+    """Return a history of three daily periods after the initial state."""
+    return {
+        "head_history_m": np.asarray([[5.0, 6.0], [5.1, 6.1], [5.2, 6.2], [5.3, 6.3]]),
+        "snapshot_elapsed_seconds": np.asarray([0.0, 1.0, 2.0, 3.0]) * DAY_S,
+        "step_end_elapsed_seconds": np.asarray([1.0, 2.0, 3.0]) * DAY_S,
+        "period_lengths_seconds": np.full(3, DAY_S),
+        "recharge_rate_history_m_s": np.zeros((4, 2)),
+        "well_flux_history_m3_s": np.asarray([[0.0, 0.0], [-0.1, 0.0], [-0.2, 0.0], [-0.3, 0.0]]),
+        "drainage_flux_history_m3_s": np.asarray([[0.0, 0.0], [0.0, 1.0], [0.0, 2.0], [0.0, 3.0]]),
+        "z_top_m": np.asarray([10.0, 12.0]),
+        "z_bottom_m": np.asarray([0.0, 1.0]),
+        "cell_area_m2": np.asarray([100.0, 200.0]),
+        "storage_coefficient": np.asarray([0.1, 0.1]),
+    }
+
+
+@dataclass
+class _Extracted:
+    """A Boussinesq run extracted into its open store, before the seal."""
+
+    project: Path
+    store: RunStore
+    sim_id: str
+    output_dir: Path
+    readers: list[Catalog] = field(default_factory=list)
+
+    def sealed_run(self) -> Run:
+        """Seal the run, index the project and return the run read through the index."""
+        seal_completed(self.store)
+        rebuild_index(self.project)
+        reader = Catalog(self.project)
+        self.readers.append(reader)
+        return Run(self.sim_id, reader)
+
+
+@pytest.fixture
+def extracted(tmp_path: Path) -> Iterator[_Extracted]:
+    """Extract the transient history into the store of a fresh run of 3 periods."""
+    output_dir = tmp_path / "solver"
+    output_dir.mkdir()
+    np.savez(output_dir / "_boussinesq_state_history.npz", **_transient_payload())
+    project = tmp_path / "project"
+    claim = claim_run(project, "bouss")
+    store = RunStore.open(
+        claim.run_dir,
+        facts=facts_of(
+            claim,
+            project=project.name,
+            solver="boussinesq",
+            n_cells=2,
+            n_layers=1,
+            n_timesteps=3,
+            period_start=datetime(2020, 1, 1, tzinfo=UTC),
+            period_end=datetime(2020, 1, 4, tzinfo=UTC),
+            time_unit="day",
+        ),
+        persistence=PersistenceConfig(field_precision="exact"),
+        workspace=project,
+    )
+    store.create_zarr(n_cells=2, n_layers=1)
+    extract_run(store, output_dir, start=START)
+    state = _Extracted(project, store, store.sim_id, output_dir)
+    try:
+        yield state
+    finally:
+        store.close()
+        for reader in state.readers:
+            reader.close()
+
+
+def test_first_period_snapshot() -> None:
+    assert first_period_snapshot(_transient_payload(), n_snapshots=4) == 1
+    steady = {"snapshot_elapsed_seconds": np.asarray([0.0])}
+    assert first_period_snapshot(steady, n_snapshots=1) == 0
+    assert first_period_snapshot({"period_lengths_seconds": np.full(3, DAY_S)}, n_snapshots=4) == 1
+
+
+def test_store_slice_per_period(extracted) -> None:
+    with extracted.store.open_zarr(extracted.sim_id) as fields:
+        stamps = pd.DatetimeIndex(fields.read_time())
+        heads = np.asarray(fields.root["head"][:]).reshape(3, 2)
+    if stamps.tz is not None:
+        stamps = stamps.tz_convert("UTC").tz_localize(None)
+
+    pd.testing.assert_index_equal(stamps, PERIOD_ENDS, check_names=False)
+    np.testing.assert_allclose(heads[:, 0], [5.1, 5.2, 5.3])
+    # The run's calendar is the solver's own axis, and a point read keeps its dates.
+    pd.testing.assert_index_equal(extracted.sealed_run().time_index, PERIOD_ENDS, check_names=False)
+
+
+def test_lumped_budget_timestep_is_the_period_index(extracted) -> None:
+    budget = extracted.sealed_run().budget()
+    well = budget[budget["component"] == "well"].sort_values("timestep")
+
+    assert well["timestep"].tolist() == [0, 1, 2]
+    np.testing.assert_allclose(well["flux_out"], [0.1, 0.2, 0.3])
+
+
+def test_catchment_series_start(extracted) -> None:
+    aggregate_catchment_timeseries(extracted.sim_id, extracted.store)
+    rows = (
+        extracted.store.read_table("timeseries")
+        .sort_values(["variable", "time"])
+        .reset_index(drop=True)
+    )
+
+    for variable, expected in (("well_pumping", [-0.1, -0.2, -0.3]), ("discharge", [1, 2, 3])):
+        series = rows[rows["variable"] == variable]
+        times = pd.DatetimeIndex(series["time"]).tz_convert("UTC").tz_localize(None).as_unit("ns")
+        pd.testing.assert_index_equal(times, PERIOD_ENDS, check_names=False)
+        np.testing.assert_allclose(series["value"], expected)
+
+
+def test_trial_discharge(tmp_path: Path) -> None:
+    payload = _transient_payload()
+    payload["saturation_excess_history_m_s"] = np.asarray(
+        [[0.0, 0.0], [0.01, 0.0], [0.02, 0.0], [0.03, 0.0]]
+    )
+    np.savez(tmp_path / "_boussinesq_state_history.npz", **payload)
+
+    discharge = extract_discharge_history(tmp_path, catchment_mask=None, time_index=PERIOD_ENDS)
+
+    # Drains plus the excess over the area of its cell, 100 m2.
+    np.testing.assert_allclose(discharge.to_numpy(), [2.0, 4.0, 6.0])
+
+
+def test_trial_catchment_cells(tmp_path: Path) -> None:
+    payload = _transient_payload()
+    payload["saturation_excess_history_m_s"] = np.asarray(
+        [[0.0, 0.0], [0.01, 0.0], [0.02, 0.0], [0.03, 0.0]]
+    )
+    np.savez(tmp_path / "_boussinesq_state_history.npz", **payload)
+
+    first_cell = extract_discharge_history(tmp_path, catchment_mask=np.asarray([True, False]))
+    second_cell = extract_discharge_history(tmp_path, catchment_mask=np.asarray([False, True]))
+
+    np.testing.assert_allclose(first_cell.to_numpy(), [1.0, 2.0, 3.0])
+    np.testing.assert_allclose(second_cell.to_numpy(), [1.0, 2.0, 3.0])
+    with pytest.raises(ValueError, match="holds 3 cells"):
+        extract_discharge_history(tmp_path, catchment_mask=np.ones(3, dtype=bool))
+
+
+def test_calibration_readers(extracted) -> None:
+    output_dir = extracted.output_dir
+    discharge = extract_discharge_history(output_dir, catchment_mask=None, time_index=PERIOD_ENDS)
+    heads = extract_head_history_at_cells(
+        output_dir, station_cells={"P1": (0, 0, 1)}, time_index=PERIOD_ENDS
+    )
+
+    pd.testing.assert_index_equal(discharge.index, PERIOD_ENDS)
+    np.testing.assert_allclose(discharge.to_numpy(), [1.0, 2.0, 3.0])
+    pd.testing.assert_index_equal(heads["P1"].index, PERIOD_ENDS)
+    np.testing.assert_allclose(heads["P1"].to_numpy(), [6.1, 6.2, 6.3])

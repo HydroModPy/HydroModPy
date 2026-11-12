@@ -49,64 +49,26 @@ def test_a_pit_is_raised_to_its_spill_level() -> None:
     assert report.max_fill == pytest.approx(3.0 + DEFAULT_EPSILON_M)
 
 
-class TestRefused:
-    def test_no_outlet_at_all(self) -> None:
-        with pytest.raises(ValueError, match="no finite outlet"):
-            fill_depressions_on_graph(np.zeros(4), _chain(4), np.zeros(4, dtype=bool))
-
-    def test_an_outlet_that_is_not_a_finite_cell(self) -> None:
-        values = np.array([1.0, np.nan])
-        outlets = np.array([False, True])
-        with pytest.raises(ValueError, match="no finite outlet"):
-            fill_depressions_on_graph(values, _chain(2), outlets)
-
-    def test_a_mask_of_the_wrong_length(self) -> None:
-        with pytest.raises(ValueError, match="the outlet mask holds"):
-            fill_depressions_on_graph(np.zeros(4), _chain(4), np.zeros(3, dtype=bool))
-
-    def test_an_adjacency_of_the_wrong_length(self) -> None:
-        outlets = np.zeros(4, dtype=bool)
-        outlets[0] = True
-        with pytest.raises(ValueError, match="the adjacency holds"):
-            fill_depressions_on_graph(np.zeros(4), _chain(3), outlets)
+REFUSALS = [
+    pytest.param(np.zeros(4), 4, np.zeros(4, bool), "no finite outlet", id="no outlet"),
+    pytest.param(
+        np.array([1.0, np.nan]), 2, np.array([False, True]), "no finite outlet", id="nan outlet"
+    ),
+    pytest.param(np.zeros(4), 4, np.zeros(3, bool), "the outlet mask holds", id="short mask"),
+    pytest.param(
+        np.zeros(4),
+        3,
+        np.array([True, False, False, False]),
+        "the adjacency holds",
+        id="short adjacency",
+    ),
+]
 
 
-def _grid_adjacency(n_rows: int, n_cols: int) -> list[set[int]]:
-    """Eight neighbors of each cell of a rows x cols grid."""
-    out: list[set[int]] = []
-    for row in range(n_rows):
-        for col in range(n_cols):
-            near = {
-                (r, c)
-                for r in range(row - 1, row + 2)
-                for c in range(col - 1, col + 2)
-                if 0 <= r < n_rows and 0 <= c < n_cols and (r, c) != (row, col)
-            }
-            out.append({r * n_cols + c for r, c in near})
-    return out
-
-
-def _reference_fill(
-    values: np.ndarray, adjacency: list[set[int]], seeds: np.ndarray, epsilon: float
-):
-    """The flood without pins, written out, the way the fill ran before it shared its loop."""
-    surface = values.copy()
-    finite = np.isfinite(surface)
-    visited = np.zeros(surface.size, dtype=bool)
-    frontier: list[tuple[float, int]] = []
-    for cell in np.flatnonzero(seeds & finite):
-        visited[int(cell)] = True
-        heapq.heappush(frontier, (surface[int(cell)], int(cell)))
-    while frontier:
-        level, cell = heapq.heappop(frontier)
-        for neighbour in adjacency[cell]:
-            if visited[neighbour] or not finite[neighbour]:
-                continue
-            visited[neighbour] = True
-            if surface[neighbour] <= level:
-                surface[neighbour] = level + epsilon
-            heapq.heappush(frontier, (surface[neighbour], neighbour))
-    return surface
+@pytest.mark.parametrize(("values", "n_adjacent", "outlets", "message"), REFUSALS)
+def test_refusals(values, n_adjacent, outlets, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        fill_depressions_on_graph(values, _chain(n_adjacent), outlets)
 
 
 # Cells 0..3, a square: 0-1, 0-2, 1-3, 2-3. The seed is cell 3.
@@ -180,3 +142,13 @@ def test_a_pinned_cell_whose_pin_is_cut_off_from_the_seeds_is_refused() -> None:
 
     with pytest.raises(ValueError, match="never reached from a seed"):
         priority_flood(values, adjacency, seeds, step=0.1, pin=pin, every_cell=True)
+
+
+def test_filled_fraction_of_a_surface() -> None:
+    # One pit among five cells.
+    values = np.array([5.0, 4.0, 0.0, 3.0, 1.0])
+    outlets = np.array([False, False, False, False, True])
+
+    report = fill_depressions_on_graph(values, _chain(5), outlets)
+
+    np.testing.assert_allclose(report.filled_fraction, 1 / 5)

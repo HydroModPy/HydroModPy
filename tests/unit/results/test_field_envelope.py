@@ -72,7 +72,7 @@ def _run(project: Path, name: str, *, budget: bool = True, seal: bool = True) ->
     return sim_id
 
 
-def test_the_seepage_is_the_drain_outflow_per_area_in_mm_per_day(project: Path) -> None:
+def test_seepage_in_mm_per_day(project: Path) -> None:
     _run(project, "coarse")
 
     envelope = read_run_field(project, "coarse", "seepage")
@@ -82,7 +82,7 @@ def test_the_seepage_is_the_drain_outflow_per_area_in_mm_per_day(project: Path) 
     np.testing.assert_array_equal(envelope.minimum, [0.0, 0.0, 0.0, 0.0])
 
 
-def test_a_run_is_named_by_its_name_or_its_sim_id(project: Path) -> None:
+def test_run_by_name_or_id(project: Path) -> None:
     sim_id = _run(project, "coarse")
 
     by_id = read_run_field(project, sim_id, "watertable_depth")
@@ -90,7 +90,7 @@ def test_a_run_is_named_by_its_name_or_its_sim_id(project: Path) -> None:
     assert by_id.sim_id == sim_id and by_id.run == "coarse"
 
 
-def test_a_missing_or_unsealed_run_or_a_missing_field_is_refused(project: Path) -> None:
+def test_refusals(project: Path) -> None:
     _run(project, "open", seal=False)
     _run(project, "dry", budget=False)
 

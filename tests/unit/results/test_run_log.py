@@ -32,18 +32,6 @@ def _lines(path: Path) -> list[str]:
     return path.read_text(encoding="utf-8").splitlines()
 
 
-def _attempt(project: Path, name: str, count: int, ready: threading.Barrier) -> None:
-    """Play the log of one attempt in the context of the calling thread."""
-    logs = attach_run_log(_run_dir(project, name), project)
-    try:
-        ready.wait(timeout=30)
-        for index in range(count):
-            LOGGER.debug("%s %d", name, index)
-        ready.wait(timeout=30)
-    finally:
-        detach_run_log(logs)
-
-
 def test_detaching_gives_the_sinks_back_and_closes_the_files(tmp_path: Path) -> None:
     outer = attach_run_log(_run_dir(tmp_path, "outer"), tmp_path)
     inner = attach_run_log(_run_dir(tmp_path, "inner"), tmp_path)

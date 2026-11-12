@@ -95,7 +95,7 @@ def project(tmp_path, monkeypatch) -> Path:
     return root
 
 
-def test_deleting_the_internal_directory_loses_nothing(project, monkeypatch):
+def test_reindex_loses_nothing(project, monkeypatch):
     state = _index_state(project)
     files = _files_outside_internal(project)
     assert len(state[_CASE_STATE_SQL]) == 6
@@ -109,7 +109,7 @@ def test_deleting_the_internal_directory_loses_nothing(project, monkeypatch):
     assert _files_outside_internal(project) == files
 
 
-def test_the_rebuilt_index_names_each_case_by_its_directory(project, monkeypatch):
+def test_cases_named_by_directory(project, monkeypatch):
     shutil.rmtree(internal_dir(project))
 
     assert _reindex(monkeypatch, project) == 0

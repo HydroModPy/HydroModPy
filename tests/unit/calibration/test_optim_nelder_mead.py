@@ -1,4 +1,9 @@
-"""Tests of `optim.nelder_mead`."""
+"""Parallel Nelder-Mead, a port of SciPy's simplex search.
+
+The port proposes several candidates at once and reads only the values SciPy's
+rules ask for. It is held against `scipy.optimize.minimize(method="Nelder-Mead")`
+for widths 1, 2, 4 and 8, then through the engine. Costs are dimensionless.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +15,6 @@ import pytest
 from scipy.optimize import minimize
 
 from hydromodpy.calibration.optim.adapters.scipy_adapter import ScipyNelderMead
-from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.nelder_mead import SpeculativeNelderMead
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
@@ -18,32 +22,12 @@ from hydromodpy.calibration.optim.optimizer import (
     ParamSuggestion,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.calibration.optim.sampling import search_space_center
 from tests.unit.calibration._factories_search import run_engine
-
-# From test_a_parallel_simplex_walks_scipys_path.py
-# A parallel Nelder-Mead walks SciPy's path, whatever its width.
-#
-# ``scipy_nelder_mead`` runs a port of SciPy 1.18.1's ``_minimize_neldermead``
-# (:mod:`hydromodpy.calibration.optim.nelder_mead`). Each step proposes the
-# candidates that depend only on the simplex it starts from, several at once under
-# ``parallel``, and reads only the values SciPy's rules ask for.
-#
-# What is gated here, against ``scipy.optimize.minimize(method="Nelder-Mead")``
-# called with the same initial simplex, options and clipped objective: the used
-# calls (point and value, in order), the final point, the call and iteration
-# counts, the status and ``success``, for widths 1, 2, 4 and 8 and values given
-# back in a shuffled order. Through the engine, a parallel run whose budget binds
-# ends where the sequential one ends, and the candidates it solved for nothing stay
-# in the history, marked.
-
 
 WIDTHS = (1, 2, 4, 8)
 
 
-# --------------------------------------------------------------------------- #
 # Analytic functions
-# --------------------------------------------------------------------------- #
 def _bowl(centre: tuple[float, ...], scale: tuple[float, ...] | None = None):
     c = np.asarray(centre, dtype=float)
     s = np.ones_like(c) if scale is None else np.asarray(scale, dtype=float)
@@ -157,9 +141,7 @@ CASES: dict[str, tuple[Callable, tuple, tuple | None, dict]] = {
 }
 
 
-# --------------------------------------------------------------------------- #
 # The two runs compared
-# --------------------------------------------------------------------------- #
 def _setup(name: str):
     f, (lower, upper), start, options = CASES[name]
     x0 = (lower + upper) / 2.0 if start is None else np.asarray(start, dtype=float)
@@ -211,12 +193,10 @@ def _assert_same_run(simplex_run, result, calls) -> None:
     assert mine.success == result.success
 
 
-# --------------------------------------------------------------------------- #
 # The port against SciPy
-# --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("width", WIDTHS)
 @pytest.mark.parametrize("name", sorted(CASES))
-def test_the_port_reads_scipys_calls_and_ends_where_scipy_ends(name: str, width: int) -> None:
+def test_port_matches_scipy(name: str, width: int) -> None:
     f, lower, upper, x0, simplex, options = _setup(name)
     result, calls = _scipy(f, lower, upper, x0, simplex, options)
 
@@ -245,7 +225,7 @@ def test_the_port_reads_scipys_calls_and_ends_where_scipy_ends(name: str, width:
     ],
     ids=["zero-component", "maxiter-only", "maxfev-only", "maxfev-inf", "maxiter-inf"],
 )
-def test_the_default_simplex_and_the_default_limits_are_scipys(x0, options) -> None:
+def test_default_simplex_and_limits(x0, options) -> None:
     f, lower, upper = _bowl((0.3, 0.6)), np.zeros(2), np.ones(2)
     x0 = np.asarray(x0)
     result, calls = _scipy(f, lower, upper, x0, None, options)
@@ -263,14 +243,14 @@ def test_the_default_simplex_and_the_default_limits_are_scipys(x0, options) -> N
         (np.zeros((3, 2)), "not consistent with `x0`"),
     ],
 )
-def test_an_initial_simplex_of_the_wrong_shape_is_refused(simplex, message) -> None:
+def test_wrong_simplex_shape(simplex, message) -> None:
     x0 = np.zeros(2 if message.startswith("shape") else 3)
 
     with pytest.raises(ValueError, match=message):
         SpeculativeNelderMead(x0, initial_simplex=simplex)
 
 
-def test_a_run_with_no_call_left_is_finished_at_once() -> None:
+def test_no_call_left() -> None:
     simplex_run = SpeculativeNelderMead(np.array([0.5, 0.2]), maxfev=0)
 
     assert simplex_run.finished
@@ -278,7 +258,7 @@ def test_a_run_with_no_call_left_is_finished_at_once() -> None:
     assert (simplex_run.result.nfev, simplex_run.result.status) == (0, 1)
 
 
-def test_a_value_is_given_back_once_for_a_proposed_point() -> None:
+def test_value_given_back_once() -> None:
     simplex_run = SpeculativeNelderMead(np.array([0.5]), adaptive=True)
     (proposal,) = simplex_run.propose(1)
     with pytest.raises(ValueError, match="never proposed"):
@@ -304,7 +284,7 @@ def _finish(run: SpeculativeNelderMead, f: Callable) -> SpeculativeNelderMead:
     ],
     ids=["int_start", "float32_start", "int_simplex", "float32_simplex"],
 )
-def test_the_simplex_keeps_a_float_type_and_hands_out_copies(x0, simplex, dtype) -> None:
+def test_float_type_and_copies(x0, simplex, dtype) -> None:
     run = _finish(
         SpeculativeNelderMead(x0, initial_simplex=simplex, maxfev=6), lambda x: float(np.sum(x**2))
     )
@@ -319,7 +299,7 @@ def test_the_simplex_keeps_a_float_type_and_hands_out_copies(x0, simplex, dtype)
     [({}, 400, 200), ({"maxfev": np.inf}, 799, 400), ({"maxiter": np.inf}, 400, 200)],
     ids=["both_unset", "maxfev_inf", "maxiter_inf"],
 )
-def test_the_default_limit_is_two_hundred_calls_per_dimension(options, nfev, nit) -> None:
+def test_default_call_limit(options, nfev, nit) -> None:
     # A function that falls forever never meets a tolerance: only the limits stop it.
     run = SpeculativeNelderMead(np.zeros(2), **options)
 
@@ -347,15 +327,13 @@ def _roles_proposed_after_the_vertices(simplex, costs, width=10, fxr=None, **opt
         (5, ["reflection", "inside_contraction", "expansion", "outside_contraction", "shrink"]),
     ],
 )
-def test_a_candidate_whose_call_the_budget_would_refuse_is_not_proposed(maxfev, roles) -> None:
+def test_budget_limits_proposals(maxfev, roles) -> None:
     # One dimension, two calls spent: the reflection needs 1 call, the contractions and the
     # expansion 2, the shrink point 3.
     assert _roles_proposed_after_the_vertices([[0.0], [1.0]], [0.0, 10.0], maxfev=maxfev) == roles
 
 
-# --------------------------------------------------------------------------- #
-# The adapter against SciPy
-# --------------------------------------------------------------------------- #
+# Through the engine
 SPACE = ParameterSpace(
     [
         CalibParameter(name="K", lower=1e-7, upper=1e-3, search_space="log"),
@@ -368,38 +346,6 @@ def _misfit(values) -> float:
     return float((np.log10(values["K"]) + 4.3) ** 2 + 20.0 * (values["Sy"] - 0.12) ** 2)
 
 
-def _physical(point: np.ndarray) -> dict[str, float]:
-    return {p.name: p.to_physical(float(point[i])) for i, p in enumerate(SPACE.parameters)}
-
-
-def _scipy_through_the_adapter_objective(maxiter: int, xatol: float | None):
-    """SciPy run as the adapter set it up before it walked the port."""
-    lower = np.array([p.lower_transformed for p in SPACE.parameters])
-    upper = np.array([p.upper_transformed for p in SPACE.parameters])
-    x0 = search_space_center(SPACE)
-    options = {"maxiter": maxiter, "maxfev": maxiter, "adaptive": True}
-    if xatol is not None:
-        options["xatol"] = xatol
-    visited: list[tuple[dict[str, float], float]] = []
-
-    def objective(x: np.ndarray) -> float:
-        values = _physical(np.clip(np.asarray(x, dtype=float), lower, upper))
-        cost = _misfit(values)
-        visited.append((values, cost))
-        return cost
-
-    result = minimize(
-        objective,
-        x0,
-        method="Nelder-Mead",
-        options={**options, "initial_simplex": _adapter_simplex(x0, lower, upper)},
-    )
-    return result, visited
-
-
-# --------------------------------------------------------------------------- #
-# Through the engine
-# --------------------------------------------------------------------------- #
 def _evaluate(sugg: ParamSuggestion) -> EvaluationResult:
     return EvaluationResult(trial_id=sugg.trial_id, sim_id=None, cost=_misfit(sugg.values))
 
@@ -421,7 +367,7 @@ def _engine_run(parallel: int, max_trials: int):
 
 
 @pytest.mark.parametrize("max_trials", [7, 25, 200])
-def test_a_parallel_run_ends_where_the_sequential_one_ends(max_trials: int) -> None:
+def test_parallel_ends_with_sequential(max_trials: int) -> None:
     sequential, seq_values, seq_used, seq_unused, seq_path = _engine_run(1, max_trials)
     parallel, par_values, par_used, par_unused, par_path = _engine_run(4, max_trials)
 

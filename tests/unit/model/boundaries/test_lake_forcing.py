@@ -1,6 +1,10 @@
+"""Lake and SFR forcings: rate units, file-loaded series bound to stress periods, and runoff routing.
+
+Rainfall and evaporation are rates in m/s, runoff, inflow and withdrawal are volumes in m3/s.
+"""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -9,6 +13,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
+from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.boundaries.lakes import (
     apply_lake_flux_forcings_to_flow,
@@ -29,23 +34,11 @@ from hydromodpy.solver.modflow6.builders._lake_outlets import _forcing_si_per_pe
 from hydromodpy.solver.modflow6.builders.lake import build_lake_period_data
 from tests._helpers.model_factory import make_model
 
-# Lake and SFR rainfall and evaporation are rates in length per time.
-#
-# MODFLOW 6 reads them as L/T. They used to share the well forcing, whose value
-# is a volume per time, so '2 mm/day' was refused and a unit could be applied
-# twice.
+RATE = TypeAdapter(SurfaceRateForcing)  # rainfall and evaporation, length per time
+VOLUME = TypeAdapter(VolumeRateForcing)  # runoff, inflow and withdrawal, volume per time
 
 
-TWO_MM_PER_DAY = 2.0e-3 / 86400.0
-
-
-RATE = TypeAdapter(SurfaceRateForcing)
-
-
-VOLUME = TypeAdapter(VolumeRateForcing)
-
-
-def test_a_volume_per_time_is_refused_as_a_rate() -> None:
+def test_volume_refused_as_rate() -> None:
     with pytest.raises(ValidationError, match="not a rate per unit of surface"):
         RATE.validate_python(
             {"kind": "seasonal", "units": "m3/s", "by_month": dict.fromkeys(range(1, 13), 1.0)}
@@ -59,7 +52,7 @@ def test_a_unit_written_twice_is_refused() -> None:
         RATE.validate_python({"kind": "constant", "value": "2 mm/day", "units": "mm/day"})
 
 
-def test_piecewise_segments_give_their_unit_to_the_forcing() -> None:
+def test_piecewise_segments_give_unit() -> None:
     forcing = RATE.validate_python(
         {
             "kind": "piecewise",
@@ -87,7 +80,7 @@ def test_piecewise_segments_give_their_unit_to_the_forcing() -> None:
         )
 
 
-def test_a_well_value_with_its_unit_is_not_scaled_by_the_well_units_again() -> None:
+def test_well_unit_applied_once() -> None:
     with pytest.raises(ValidationError, match="Write the unit once"):
         FlowWellConfig(
             location={"kind": "cell", "cell": [0, 1, 1]},
@@ -102,7 +95,7 @@ def test_a_well_value_with_its_unit_is_not_scaled_by_the_well_units_again() -> N
     assert well.forcing.value == pytest.approx(1.0e-3)
 
 
-def test_lake_runoff_inflow_and_withdrawal_stay_volumes_per_time() -> None:
+def test_lake_volumes_stay_volumes() -> None:
     forcing = VOLUME.validate_python({"kind": "constant", "value": 0.01, "units": "m3/s"})
     model = SimpleNamespace(nper=1, inputs=make_model())
     assert _forcing_si_per_period(
@@ -110,15 +103,8 @@ def test_lake_runoff_inflow_and_withdrawal_stay_volumes_per_time() -> None:
     ) == pytest.approx((0.01,))
 
 
-# File-loaded lake inflow / withdrawal feed the LAK forcings.
-#
-# The lake_inflow / lake_withdrawal data families load one PointRecord per lake.
-# ``apply_lake_flux_forcings_to_flow`` aggregates each series to the simulation
-# stress periods and attaches it as a pre-resolved ``values`` forcing on the lake
-# payload, which the LAK builder then expands per period. A forcing already
-# declared in config is never overridden by the data file.
-
-
+# Lake inflow and withdrawal files load one PointRecord per lake. The binder averages
+# each series on the stress periods, and a forcing declared in config is never replaced.
 # A 3-day span (end inclusive + one trailing period) resolves to 3 stress periods.
 _WINDOW_DATES = ["2000-01-01", "2000-01-02", "2000-01-03"]
 
@@ -161,7 +147,7 @@ def test_flux_binder_attaches_a_values_forcing() -> None:
     assert forcing["values"] == pytest.approx([5.0, 9.0, 13.0])
 
 
-def test_flux_binder_does_not_override_a_config_forcing() -> None:
+def test_flux_binder_keeps_config() -> None:
     # A forcing declared in config wins; the data file is the alternative source.
     declared = {"kind": "constant", "value": 1.0, "units": "m3/s"}
     flow = SimpleNamespace(sinks_sources={"lakes": {"lac0": {"bedleak": 0.1, "inflow": declared}}})
@@ -174,7 +160,7 @@ def test_flux_binder_does_not_override_a_config_forcing() -> None:
     assert flow.sinks_sources["lakes"]["lac0"]["inflow"] is declared
 
 
-def test_values_forcing_resolves_to_per_period_values() -> None:
+def test_values_forcing_per_period() -> None:
     forcing = {"kind": "values", "values": [5.0, 9.0], "units": "m3/s"}
     resolved = resolve_period_values_from_forcing(
         forcing=forcing, simulation_window=None, nper=2, label="lake.inflow"
@@ -186,31 +172,23 @@ def test_values_forcing_resolves_to_per_period_values() -> None:
         )
 
 
-@dataclass
-class _Proc:
-    lak_forcing_mode: str = "auto"
-    ts6_min_periods: int = 120
-
-
-@dataclass
-class _Cfg:
-    process_specific: _Proc = None  # type: ignore[assignment]
-
-
-class _Model:
-    def __init__(self, window: ResolvedSimulationTimeWindow) -> None:
-        self.inputs = make_model(
-            time=ModelTime(
-                grid=SimpleNamespace(window=window), regime="transient", first_period_steady=False
-            )
+def _lak_model(window: ResolvedSimulationTimeWindow) -> SimpleNamespace:
+    inputs = make_model(
+        time=ModelTime(
+            grid=SimpleNamespace(window=window), regime="transient", first_period_steady=False
         )
-        self.nper = 3
-        self.perlen = [86400.0, 86400.0, 86400.0]
-        self.modflow_config = _Cfg(process_specific=_Proc())
+    )
+    process = SimpleNamespace(lak_forcing_mode="auto", ts6_min_periods=120)
+    return SimpleNamespace(
+        inputs=inputs,
+        nper=3,
+        perlen=[86400.0] * 3,
+        modflow_config=SimpleNamespace(process_specific=process),
+    )
 
 
-def test_builder_expands_a_file_loaded_values_forcing_inline() -> None:
-    model = _Model(_three_period_window())
+def test_builder_expands_values_inline() -> None:
+    model = _lak_model(_three_period_window())
     lakes = {"lac0": {"inflow": {"kind": "values", "values": [5.0, 9.0, 13.0], "units": "m3/s"}}}
     rows, ts_series = build_lake_period_data(model, lakes=lakes)
     assert ts_series == []
@@ -222,8 +200,6 @@ def test_builder_expands_a_file_loaded_values_forcing_inline() -> None:
 
 
 def _meteo_result(values_mm_day: list[float]) -> object:
-    from hydromodpy.data.contracts.load_result import LoadResult
-
     rec = PointRecord(
         station_id="grid_mean",
         variable="climatic",
@@ -237,9 +213,7 @@ def _meteo_result(values_mm_day: list[float]) -> object:
     return LoadResult(points=[rec])
 
 
-def test_meteo_binder_attaches_sim2_derived_rate_and_volumetric_forcings() -> None:
-    from hydromodpy.model.boundaries.lakes import apply_lake_meteo_forcings_to_flow
-
+def test_meteo_binder_rates_and_volumes() -> None:
     flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir_cheze": {"bedleak": 0.1}}})
     attached = apply_lake_meteo_forcings_to_flow(
         flow=flow,
@@ -260,9 +234,7 @@ def test_meteo_binder_attaches_sim2_derived_rate_and_volumetric_forcings() -> No
     assert p["runoff"]["values"][0] == pytest.approx((1.0e-3 / 86400.0) * 1.0e7)
 
 
-def test_meteo_binder_does_not_override_a_config_forcing() -> None:
-    from hydromodpy.model.boundaries.lakes import apply_lake_meteo_forcings_to_flow
-
+def test_meteo_binder_keeps_config() -> None:
     declared = {"kind": "constant", "value": 0.001, "units": "m/day"}
     flow = SimpleNamespace(
         sinks_sources={"lakes": {"reservoir_cheze": {"bedleak": 0.1, "rainfall": declared}}}
@@ -275,20 +247,10 @@ def test_meteo_binder_does_not_override_a_config_forcing() -> None:
     assert flow.sinks_sources["lakes"]["reservoir_cheze"]["rainfall"] is declared
 
 
-# The catchment runoff routes through an active SFR network, never twice.
-#
-# ``apply_runoff_to_sfr_networks`` turns the catchment runoff data family
-# (internal unit mm/day) into the volumetric SFR ``runoff`` forcing
-# (rate x catchment area, m3/s). Precedence with the lake meteo binder: when an
-# active SFR network takes the runoff, the lake's legacy direct ``runoff * area``
-# feed is skipped (the water reaches a coupled lake through MVR); rainfall and
-# evaporation stay on the lake surface in every mode.
-
-
+# Catchment runoff goes through an active SFR network, never twice. With SFR the lake
+# gets no direct runoff (the water reaches it through MVR), but keeps rain and evaporation.
 # 86.4 mm/day = 1e-6 m/s; x 1 km2 = 1 m3/s.
 _RUNOFF_MM_DAY = [86.4, 43.2, 0.0]
-
-
 _AREA_M2 = 1.0e6
 
 
@@ -320,7 +282,7 @@ def _flow(*, with_sfr: bool, sfr_runoff: object = None) -> SimpleNamespace:
     )
 
 
-def test_runoff_binder_attaches_a_volumetric_values_forcing() -> None:
+def test_runoff_binder_volumes() -> None:
     flow = _flow(with_sfr=True)
     attached = apply_runoff_to_sfr_networks(
         flow=flow,
@@ -335,7 +297,7 @@ def test_runoff_binder_attaches_a_volumetric_values_forcing() -> None:
     assert forcing["values"] == pytest.approx([1.0, 0.5, 0.0])
 
 
-def test_runoff_binder_never_overrides_a_config_forcing() -> None:
+def test_runoff_binder_keeps_config() -> None:
     declared = {"kind": "constant", "value": 0.2, "units": "m3/s"}
     flow = _flow(with_sfr=True, sfr_runoff=declared)
     attached = apply_runoff_to_sfr_networks(
@@ -348,7 +310,7 @@ def test_runoff_binder_never_overrides_a_config_forcing() -> None:
     assert flow.sinks_sources["sfr"]["net0"]["runoff"] is declared
 
 
-def test_runoff_binder_is_a_noop_without_an_active_sfr() -> None:
+def test_runoff_binder_needs_sfr() -> None:
     flow = _flow(with_sfr=False)
     attached = apply_runoff_to_sfr_networks(
         flow=flow,
@@ -360,7 +322,7 @@ def test_runoff_binder_is_a_noop_without_an_active_sfr() -> None:
     assert sfr_routes_catchment_runoff(flow) is False
 
 
-def test_lake_meteo_binder_skips_runoff_when_sfr_routes_it() -> None:
+def test_lake_skips_runoff_with_sfr() -> None:
     flow = _flow(with_sfr=True)
     assert sfr_routes_catchment_runoff(flow) is True
     attached = apply_lake_meteo_forcings_to_flow(
@@ -374,7 +336,7 @@ def test_lake_meteo_binder_skips_runoff_when_sfr_routes_it() -> None:
     assert flow.sinks_sources["lakes"]["lac0"].get("runoff") is None
 
 
-def test_lake_meteo_binder_keeps_runoff_without_sfr() -> None:
+def test_lake_keeps_runoff_without_sfr() -> None:
     flow = _flow(with_sfr=False)
     attached = apply_lake_meteo_forcings_to_flow(
         flow=flow,
@@ -387,7 +349,7 @@ def test_lake_meteo_binder_keeps_runoff_without_sfr() -> None:
     assert forcing["values"] == pytest.approx([1.0, 0.5, 0.0])
 
 
-def test_lake_keeps_rainfall_and_evaporation_with_an_active_sfr() -> None:
+def test_lake_keeps_rain_with_sfr() -> None:
     # Rain on the lake surface is not runoff: it stays bound in every mode.
     rain = _runoff_result()
     flow = _flow(with_sfr=True)
@@ -404,7 +366,7 @@ def test_lake_keeps_rainfall_and_evaporation_with_an_active_sfr() -> None:
     assert payload.get("runoff") is None
 
 
-def test_compact_pre_resolved_forcings_averages_by_period_length() -> None:
+def test_compact_averages_by_length() -> None:
     lakes = {
         "lake_a": {
             "bedleak": 0.1,
@@ -424,7 +386,7 @@ def test_compact_pre_resolved_forcings_averages_by_period_length() -> None:
     assert sfr["net"]["runoff"]["values"] == [pytest.approx(3.5)]
 
 
-def test_compact_pre_resolved_forcings_leaves_other_lengths_alone() -> None:
+def test_compact_skips_other_lengths() -> None:
     lakes = {"lake_a": {"runoff": {"kind": "values", "values": [1.0, 3.0, 5.0]}}}
 
     count = compact_pre_resolved_forcings({"lakes": lakes}, period_lengths=[1.0, 1.0])
@@ -433,43 +395,12 @@ def test_compact_pre_resolved_forcings_leaves_other_lengths_alone() -> None:
     assert lakes["lake_a"]["runoff"]["values"] == [1.0, 3.0, 5.0]
 
 
-_DATES = ["2000-01-01", "2000-01-02", "2000-01-03"]
-
-
-def _window() -> ResolvedSimulationTimeWindow:
-    return ResolvedSimulationTimeWindow(
-        start=pd.Timestamp("2000-01-01"),
-        end=pd.Timestamp("2000-01-03"),
-        step_value=1,
-        step_unit="day",
-        coverage_policy="ignore",
-    )
-
-
-def _runoff(values_mm_day: list[float]) -> object:
-    from hydromodpy.data.contracts.load_result import LoadResult
-
-    rec = PointRecord(
-        station_id="grid_mean",
-        variable="climatic",
-        source="file",
-        unit="mm/day",
-        frequency="D",
-        data=pd.DataFrame({"datetime": pd.to_datetime(_DATES), "value": values_mm_day}),
-        date_start=datetime(2000, 1, 1),
-        date_end=datetime(2000, 1, 3),
-    )
-    return LoadResult(points=[rec])
-
-
-def test_two_lakes_without_sfr_share_the_basin_runoff_once() -> None:
-    from hydromodpy.model.boundaries.lakes import apply_lake_meteo_forcings_to_flow
-
+def test_two_lakes_share_runoff() -> None:
     flow = SimpleNamespace(sinks_sources={"lakes": {"a": {}, "b": {}}})
     apply_lake_meteo_forcings_to_flow(
         flow=flow,
-        runoff=_runoff([1.0, 1.0, 1.0]),
-        simulation_window=_window(),
+        runoff=_meteo_result([1.0, 1.0, 1.0]),
+        simulation_window=_three_period_window(),
         catchment_area_m2=1.0e7,
     )
     lakes = flow.sinks_sources["lakes"]
@@ -478,13 +409,11 @@ def test_two_lakes_without_sfr_share_the_basin_runoff_once() -> None:
 
 
 def test_lake_runoff_follows_its_contributing_area() -> None:
-    from hydromodpy.model.boundaries.lakes import apply_lake_meteo_forcings_to_flow
-
     flow = SimpleNamespace(sinks_sources={"lakes": {"a": {}, "b": {}}})
     apply_lake_meteo_forcings_to_flow(
         flow=flow,
-        runoff=_runoff([1.0, 1.0, 1.0]),
-        simulation_window=_window(),
+        runoff=_meteo_result([1.0, 1.0, 1.0]),
+        simulation_window=_three_period_window(),
         catchment_area_m2=1.0e7,
         lake_contributing_areas_m2={"a": 2.0e6, "b": 6.0e6},
     )

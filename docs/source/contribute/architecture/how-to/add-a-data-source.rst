@@ -122,7 +122,7 @@ including ``file`` and ``url``. A module that holds a ``DataSource`` class
 imports geopandas, pandas, rasterio or requests inside its functions, so
 looking a source up loads nothing heavy.
 
-``tests/unit/data/test_the_variable_families_agree.py`` checks that the
+``tests/unit/data/test_variable_families.py`` checks that the
 ``source`` values of each variable match what the registry serves, and that
 each has an entry in ``schema/sources.py``; a missing edit fails there with
 the file to complete. ``value_docs`` renders the explanation of each value

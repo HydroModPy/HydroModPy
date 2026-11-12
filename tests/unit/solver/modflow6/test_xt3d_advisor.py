@@ -30,24 +30,6 @@ from tests._helpers.solver_meshes import solver_mesh_from
 
 # A unit square split on its diagonal is orthogonal; a 3:1 rectangle split the
 # same way skews the shared-edge connection by ~53 deg.
-_ORTHO = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
-_SKEW = [[0.0, 0.0], [3.0, 0.0], [3.0, 1.0], [0.0, 1.0]]
-
-
-@contextlib.contextmanager
-def _capture_advisor_logs(level: int = logging.INFO):
-    """Capture records on the advisor logger directly (HMP loggers do not propagate)."""
-    records: list[logging.LogRecord] = []
-    handler = logging.Handler()
-    handler.emit = records.append  # type: ignore[method-assign]
-    previous = advisor_logger.level
-    advisor_logger.addHandler(handler)
-    advisor_logger.setLevel(level)
-    try:
-        yield records
-    finally:
-        advisor_logger.removeHandler(handler)
-        advisor_logger.setLevel(previous)
 
 
 @contextlib.contextmanager
@@ -56,20 +38,6 @@ def _no_runtime_warning():
     with warnings.catch_warnings():
         warnings.simplefilter("error", RuntimeWarning)
         yield
-
-
-def _solver_mesh(vertices) -> SolverMesh:
-    conn = np.asarray([[0, 1, 2], [0, 2, 3]], dtype=int)
-    planar = HydroMesh(
-        vertices=np.asarray(vertices, dtype=float),
-        cell_blocks=(CellBlock(CellType.TRIANGLE, conn),),
-    )
-    return solver_mesh_from(
-        planar,
-        top=np.asarray([10.0, 10.0], dtype=float),
-        botm=np.asarray([[1.0, 1.0]], dtype=float),
-        inactive_mask=np.zeros((1, 2), dtype=bool),
-    )
 
 
 def _quad_solver_mesh(shear: float):

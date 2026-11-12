@@ -104,10 +104,7 @@ def arrived_long_ago(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(retention, "_arrival", lambda directory: NOW - timedelta(days=365))
 
 
-# --- Scratch of a dead writer -------------------------------------------------
-
-
-def test_a_dead_scratch_folder_leaves_a_live_one_and_a_fresh_one_stay(tmp_path: Path) -> None:
+def test_dead_scratch_leaves(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     scratch = project / INTERNAL_DIRNAME / "scratch"
     dead_pid = _dead_pid()
@@ -129,7 +126,7 @@ def test_a_dead_scratch_folder_leaves_a_live_one_and_a_fresh_one_stay(tmp_path: 
     assert live.parent.is_dir() and written.is_file()
 
 
-def test_a_resumed_scratch_its_holder_keeps_alive_stays(tmp_path: Path) -> None:
+def test_resumed_scratch_stays(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     scratch = project / INTERNAL_DIRNAME / "scratch"
     key = f"resumed.p{_dead_pid()}"
@@ -141,7 +138,7 @@ def test_a_resumed_scratch_its_holder_keeps_alive_stays(tmp_path: Path) -> None:
     assert plan.dead_scratch == ()
 
 
-def test_a_folder_of_the_scratch_that_names_no_run_stays_whatever_its_age(
+def test_scratch_folder_naming_no_run_stays(
     tmp_path: Path,
 ) -> None:
     project = make_project(tmp_path / "p")
@@ -155,7 +152,7 @@ def test_a_folder_of_the_scratch_that_names_no_run_stays_whatever_its_age(
     assert kept.is_file()
 
 
-def test_the_scratch_of_a_run_a_live_session_carries_stays(tmp_path: Path) -> None:
+def test_scratch_of_a_live_session_stays(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     scratch = project / INTERNAL_DIRNAME / "scratch"
     _write(scratch / f"calib.p{_dead_pid()}" / "work.npz", 11)
@@ -173,10 +170,7 @@ def test_the_scratch_of_a_run_a_live_session_carries_stays(tmp_path: Path) -> No
     assert plan.dead_scratch == ()
 
 
-# --- Attempts of a sealed run -------------------------------------------------
-
-
-def test_attempts_leave_only_from_a_sealed_run_and_their_outcomes_stay(tmp_path: Path) -> None:
+def test_sealed_attempts_leave_but_outcomes_stay(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     sealed = seal_run(project, "sealed")
     attempt = project / "runs" / "sealed" / RUN_ATTEMPTS_DIRNAME / "1"
@@ -196,9 +190,6 @@ def test_attempts_leave_only_from_a_sealed_run_and_their_outcomes_stay(tmp_path:
     assert sealed
 
 
-# --- Fields of a kept trial ---------------------------------------------------
-
-
 def _trial_session(
     project: Path, name: str, *, best: int | None, status: str = "completed"
 ) -> Path:
@@ -215,9 +206,7 @@ def _trial_session(
     return session
 
 
-def test_the_fields_of_a_kept_trial_leave_after_ninety_days_all_but_the_best(
-    tmp_path: Path, arrived_long_ago: None
-) -> None:
+def test_old_trial_fields_leave_but_the_best(tmp_path: Path, arrived_long_ago: None) -> None:
     project = make_project(tmp_path / "p")
     session = _trial_session(project, "calib", best=1)
     trials = session / "trials"
@@ -264,7 +253,7 @@ def test_the_fields_of_a_kept_trial_leave_after_ninety_days_all_but_the_best(
     assert plan.bytes_of("old_trial_fields") == 10 + 10
 
 
-def test_the_trials_of_an_imported_session_count_from_their_arrival(tmp_path: Path) -> None:
+def test_imported_trials_count_from_arrival(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     session = _trial_session(project, "calib", best=1)
     _seal(session / "trials" / "0002", sealed_at=NOW - timedelta(days=400), kind="trial")
@@ -276,7 +265,7 @@ def test_the_trials_of_an_imported_session_count_from_their_arrival(tmp_path: Pa
     assert plan.old_trial_fields == ()
 
 
-def test_a_purge_witness_of_another_schema_is_refused(tmp_path: Path) -> None:
+def test_purge_witness_of_another_schema_is_refused(tmp_path: Path) -> None:
     trial = tmp_path / "trial"
     trial.mkdir()
     (trial / RUN_PURGED_FILENAME).write_text(
@@ -286,9 +275,6 @@ def test_a_purge_witness_of_another_schema_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(SchemaVersionMismatchError, match="hydromodpy.purged.v1"):
         read_purged(trial)
-
-
-# --- Product store over its cap ----------------------------------------------
 
 
 def _product(project: Path, seed: bytes, *, size: int, written_at: float) -> str:
@@ -304,7 +290,7 @@ def _product(project: Path, seed: bytes, *, size: int, written_at: float) -> str
     return key
 
 
-def test_gc_removes_the_products_its_dry_run_lists_and_no_other(tmp_path: Path) -> None:
+def test_gc_removes_the_listed_products_only(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     keys = [
         _product(project, bytes([index]), size=100, written_at=float(index)) for index in range(6)
@@ -320,7 +306,7 @@ def test_gc_removes_the_products_its_dry_run_lists_and_no_other(tmp_path: Path) 
     assert sorted(entry.key for entry in store.entries()) == sorted(keys[2:])
 
 
-def test_products_go_down_to_the_cap_and_a_key_a_live_run_cites_stays(
+def test_products_go_down_to_the_cap(
     tmp_path: Path,
 ) -> None:
     project = make_project(tmp_path / "p")
@@ -343,10 +329,7 @@ def test_products_go_down_to_the_cap_and_a_key_a_live_run_cites_stays(
     assert plan.bytes_of("products") == 100
 
 
-# --- Weight of a run and of a project ----------------------------------------
-
-
-def test_run_weight_sums_the_bytes_of_every_family(tmp_path: Path) -> None:
+def test_run_weight(tmp_path: Path) -> None:
     run = tmp_path / "project" / "runs" / "a"
     _write(run / FIELDS_STORE_NAME / "head", 10)
     _write(run / FIELDS_STORE_NAME / "budget" / "term", 20)
@@ -383,7 +366,7 @@ def test_run_weight_sums_the_bytes_of_every_family(tmp_path: Path) -> None:
     )
 
 
-def test_project_weight_sums_the_bytes_of_every_family(tmp_path: Path) -> None:
+def test_project_weight(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     first = project / "runs" / "a"
     _write(first / FIELDS_STORE_NAME / "head", 10)
@@ -423,12 +406,7 @@ def test_project_weight_sums_the_bytes_of_every_family(tmp_path: Path) -> None:
     )
 
 
-# --- The plan says what applying it frees ------------------------------------
-
-
-def test_applying_the_plan_frees_the_bytes_the_plan_announces(
-    tmp_path: Path, arrived_long_ago: None
-) -> None:
+def test_apply_frees_what_the_plan_announces(tmp_path: Path, arrived_long_ago: None) -> None:
     project = make_project(tmp_path / "p")
     for name, size in (("x.v3", 30), ("x.v2", 20), ("x", 10)):
         _write(project / "runs" / name / "tables.parquet" / "part.parquet", size)
@@ -465,7 +443,7 @@ def test_applying_the_plan_frees_the_bytes_the_plan_announces(
     assert purged is not None and purged.entries == {FIELDS_STORE_NAME: 60}
 
 
-def test_a_purge_that_fails_keeps_its_witness_and_the_next_gc_takes_it_up(
+def test_a_failed_purge_is_taken_up_by_the_next_gc(
     tmp_path: Path, arrived_long_ago: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project = make_project(tmp_path / "p")
@@ -494,7 +472,7 @@ def test_a_purge_that_fails_keeps_its_witness_and_the_next_gc_takes_it_up(
     assert read_purged(trial) == witness
 
 
-def test_the_trash_it_removes_is_measured_before_it_leaves(tmp_path: Path) -> None:
+def test_expired_trash_is_measured_before_it_leaves(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     _write(project / "runs" / "gone" / "tables.parquet" / "part", 70)
     old = NOW - timedelta(days=60)
@@ -505,9 +483,6 @@ def test_the_trash_it_removes_is_measured_before_it_leaves(tmp_path: Path) -> No
 
     assert len(plan.expired_trash) == 1
     assert freed["expired_trash"] == plan.bytes_of("expired_trash") > 0
-
-
-# --- The level of a run directory --------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -523,9 +498,7 @@ def test_the_trash_it_removes_is_measured_before_it_leaves(tmp_path: Path) -> No
         ("trial", True, "publication"),
     ],
 )
-def test_level_at_reads_the_seal_and_the_published_copy(
-    tmp_path: Path, kind: str | None, published: bool, expected: str
-) -> None:
+def test_level_at(tmp_path: Path, kind: str | None, published: bool, expected: str) -> None:
     run = tmp_path / "run"
     _seal(run, sealed_at=NOW, kind=kind)
     if published:

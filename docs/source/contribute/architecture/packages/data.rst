@@ -78,7 +78,7 @@ Five SIM2 grid variables (``temperature``, ``humidity``, ``runoff``, ``soil_mois
 ``wind``) share ``Sim2GridSourceConfig``, and the four lake chronicles share
 ``LakeChronicleSourceConfig``. A subclass declares its own ``path`` field, because the ``role`` of
 its ``InputFile`` is the variable name and that role is part of the TOML schema. The JSON schema
-of ``[data]`` is pinned by ``tests/unit/data/test_the_data_surfaces_hold_still.py``, so a moved
+of ``[data]`` is pinned by ``tests/unit/data/test_data_surfaces.py``, so a moved
 field or a changed description changes its digest.
 
 The template of a variable
@@ -126,7 +126,7 @@ keeps a dedicated loader. The ``source`` field is a string checked against
 ``data_sources.names(section)`` while the file is read, so a name this installation does not serve
 is refused with the names it serves, and the JSON schema and the config reference publish the
 values. ``dem``, ``geology`` and ``crossings`` keep a discriminated union, because each of their
-sources carries its own model of options. ``tests/unit/data/test_the_variable_families_agree.py``
+sources carries its own model of options. ``tests/unit/data/test_variable_families.py``
 ties the lists. The ``source`` values of each variable match ``data_sources.names(section)``, and
 each has an entry (licence, network hosts) in ``hydromodpy/schema/sources.py``.
 
@@ -229,8 +229,8 @@ is refused, because a request has no project folder to read it from, and a faile
 the job while the report of ``run_request`` lists it instead. Nothing is written to a project.
 ``cache_verbs.py`` holds the verbs of ``hmp data`` on the data folder, which are ``ls``, ``get``,
 ``remove``, ``archive``, ``restore``, and ``prune`` through ``project``, which knows what is
-cited. The tests are ``tests/unit/data/test_a_request_is_served_without_a_project.py`` and
-``tests/unit/data/test_data_request_declaration.py``.
+cited. The tests are ``tests/unit/data/request/test_engine.py`` and
+``tests/unit/data/request/test_job.py``.
 
 How a load goes
 ~~~~~~~~~~~~~~~
@@ -252,7 +252,7 @@ workspace scaffold writes (category, kind, unit, label). The tuple ``DATA_VARIAB
 scaffold read it and keep no list of their own, so nothing here imports a variable class at module
 level. A variable still needs a field in ``DataConfig``, a field of ``LoadedDataContext`` and, for
 a provider, an entry in ``schema/sources.py``.
-``tests/unit/data/test_the_variable_families_agree.py`` names the list you missed, and
+``tests/unit/data/test_variable_families.py`` names the list you missed, and
 :doc:`../how-to/add-a-data-variable` gives the full recipe.
 
 Where the extent of a variable comes from
@@ -444,5 +444,5 @@ Tests
 ~~~~~
 
 The unit tests mirror the code under ``tests/unit/data/``, and the tests of the variables are in
-``tests/unit/data/variables/``. ``tests/unit/data/variables/geology/test_geology_readers.py``
+``tests/unit/data/variables/``. ``tests/unit/data/variables/geology/test_io.py``
 writes small files in a temporary folder and needs no network.

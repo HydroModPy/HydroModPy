@@ -47,7 +47,7 @@ def _walled(offset: float, mesh: dict) -> tuple[SnappedWall, MeshRequest]:
     return wall, request
 
 
-def test_the_switch_set_to_none_leaves_the_barriers_out() -> None:
+def test_none_switch_drops_barriers() -> None:
     _, request = _walled(12.0, {**GRADED, "families": {"barriers": "none"}})
 
     assert request.family(BARRIER_FAMILY) is None
@@ -65,7 +65,7 @@ def _families(*barriers: LineString, ring: LineString = _RING) -> tuple[LineFami
     )
 
 
-def test_a_barrier_off_every_ring_is_left_as_it_is() -> None:
+def test_barrier_off_rings_unchanged() -> None:
     families = _families(LineString([(200.0, 0.0), (300.0, 50.0)]))
 
     split = split_barriers(families, _TOL)
@@ -75,7 +75,7 @@ def test_a_barrier_off_every_ring_is_left_as_it_is() -> None:
     assert split.welded(families) == families
 
 
-def test_a_wall_laid_wholly_on_the_shore_is_the_ring_stretch_once_welded() -> None:
+def test_wall_on_shore_is_welded() -> None:
     """No piece lies off the ring, so the barrier family holds no line until the weld."""
     wall = LineString([(100.0, 20.0), (100.0, 100.0), (60.0, 100.0)])
 
@@ -90,7 +90,7 @@ def test_a_wall_laid_wholly_on_the_shore_is_the_ring_stretch_once_welded() -> No
 
 
 @pytest.mark.parametrize("along", [True, False], ids=["along the line", "against the line"])
-def test_a_wall_on_a_shore_cut_open_by_the_domain_follows_its_vertices(along: bool) -> None:
+def test_wall_on_open_shore(along: bool) -> None:
     """A lake ring the domain outline cuts is an open line: the stretch runs one way along it."""
     shore = LineString([(0.0, 0.0), (50.0, 0.0), (100.0, 0.0), (150.0, 0.0)])
     wall = LineString([(50.0, -40.0), (50.0, 0.0), (100.0, 0.0), (100.0, -40.0)])
@@ -104,7 +104,7 @@ def test_a_wall_on_a_shore_cut_open_by_the_domain_follows_its_vertices(along: bo
     assert list(barrier.lines[0].coords) == list(wall.coords)
 
 
-def test_a_ring_that_lost_a_stretch_end_cannot_be_welded() -> None:
+def test_lost_stretch_end_refused() -> None:
     wall = LineString([(100.0, 20.0), (100.0, 80.0), (140.0, 80.0)])
     split = split_barriers(_families(wall), _TOL)
     pieces = next(family for family in split.families if family.name == BARRIER_FAMILY)
@@ -115,7 +115,7 @@ def test_a_ring_that_lost_a_stretch_end_cannot_be_welded() -> None:
 
 
 @pytest.mark.parametrize("reverse", [False, True], ids=["short first", "short last"])
-def test_a_wing_shorter_than_the_local_cell_is_left_out_at_either_end(reverse: bool) -> None:
+def test_short_wing_left_out(reverse: bool) -> None:
     """A 20 m wing and a 60 m wing off the shore, against a 50 m local cell."""
     wall = LineString([(120.0, 20.0), (100.0, 20.0), (100.0, 80.0), (160.0, 80.0)])
     if reverse:

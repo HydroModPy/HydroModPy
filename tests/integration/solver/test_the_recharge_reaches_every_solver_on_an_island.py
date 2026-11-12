@@ -28,7 +28,6 @@ pytestmark = [
 K_M_S = 5e-6
 BED_M = -5.0
 RADIUS_M = 200.0
-CENTRE_M = 305.0
 MM_DAY = 1e-3 / 86400.0
 MONTHLY_TIME = """\
 start_datetime = "2003-01-01"

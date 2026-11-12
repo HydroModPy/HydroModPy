@@ -233,9 +233,6 @@ def test_a_session_of_several_cases_draws_the_best_run_of_each(monkeypatch, tmp_
     ]
 
 
-# regen_run: what the ledgers of one run record, written again
-
-
 def test_regen_writes_again_the_export_the_ledger_records(tmp_path: Path) -> None:
     from hydromodpy.project.api import export
     from tests._helpers.run_stores import RUN_NAME, seal_demo_run

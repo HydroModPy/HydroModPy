@@ -17,7 +17,6 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import matplotlib as mpl
 import pandas as pd
 import pyarrow as pa
 import pytest
@@ -40,8 +39,8 @@ LINKS = pd.DataFrame(
     }
 )
 
+# A flow (m3/s) that grows downstream on each branch, so a branch reads as a rising line.
 FLOW = {0: 1.0, 1: 2.0, 2: 3.0, 3: 5.0, 4: 8.0, 5: 9.0}
-"""A flow that grows downstream on each branch, so a branch reads as a rising line."""
 
 
 def _run(tables: Path, links: pd.DataFrame = LINKS) -> SimpleNamespace:
@@ -65,7 +64,7 @@ def _run(tables: Path, links: pd.DataFrame = LINKS) -> SimpleNamespace:
     )
 
 
-def test_the_distance_counts_from_the_middle_of_a_reach_to_the_outlet() -> None:
+def test_distance_to_the_outlet() -> None:
     distance = distance_to_outlet(LINKS)
 
     assert distance[("main", 5)] == pytest.approx(50.0)
@@ -75,7 +74,7 @@ def test_the_distance_counts_from_the_middle_of_a_reach_to_the_outlet() -> None:
     assert distance[("main", 0)] == pytest.approx(350.0)
 
 
-def test_a_fork_follows_the_branch_that_takes_the_larger_share_of_the_flow() -> None:
+def test_fork_follows_the_larger_flow() -> None:
     links = pd.DataFrame(
         {
             "network_id": ["main"] * 4,
@@ -93,20 +92,12 @@ def test_a_fork_follows_the_branch_that_takes_the_larger_share_of_the_flow() -> 
     assert distance[("main", 0)] == pytest.approx(50.0 + 100.0 + 100.0)
 
 
-def test_each_branch_is_a_line_that_stops_at_the_reach_it_joins(tmp_path: Path) -> None:
-    pytest.importorskip("matplotlib")
-    mpl.use("Agg")
-    import matplotlib.pyplot as plt
+def test_each_branch_is_a_line(mpl, tmp_path: Path) -> None:
+    fig, ax = mpl.subplots()
 
-    fig, ax = plt.subplots()
-    try:
-        SfrLongitudinalProfile().render(_run(tmp_path), ax, variable="downstream_flow", timestep=-1)
-        segments = {
-            tuple(map(tuple, segment.tolist())) for segment in ax.collections[0].get_segments()
-        }
-    finally:
-        plt.close(fig)
+    SfrLongitudinalProfile().render(_run(tmp_path), ax, variable="downstream_flow", timestep=-1)
 
+    segments = {tuple(map(tuple, segment.tolist())) for segment in ax.collections[0].get_segments()}
     expected = {
         ((350.0, 1.0), (250.0, 3.0)),
         ((350.0, 2.0), (250.0, 5.0)),
@@ -118,14 +109,9 @@ def test_each_branch_is_a_line_that_stops_at_the_reach_it_joins(tmp_path: Path) 
     assert ax.xaxis_inverted(), "the outlet is on the right, as the profile has always read"
 
 
-def test_the_axis_says_what_it_measures(tmp_path: Path) -> None:
-    pytest.importorskip("matplotlib")
-    mpl.use("Agg")
-    import matplotlib.pyplot as plt
+def test_axis_label(mpl, tmp_path: Path) -> None:
+    fig, ax = mpl.subplots()
 
-    fig, ax = plt.subplots()
-    try:
-        SfrLongitudinalProfile().render(_run(tmp_path), ax)
-        assert ax.get_xlabel() == "distance to the outlet, along the main path (m)"
-    finally:
-        plt.close(fig)
+    SfrLongitudinalProfile().render(_run(tmp_path), ax)
+
+    assert ax.get_xlabel() == "distance to the outlet, along the main path (m)"

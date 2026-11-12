@@ -1,10 +1,8 @@
-"""A calibration run ends on what it found and where to read it.
+"""The end of ``hmp run`` on a calibration file: what it found and where to read it.
 
-The end of ``hmp run`` on a calibration used to print the raw Python dict of
-its phases, its protocol and every deviation, three screens of text. In normal
-mode it now prints one line naming the file and the protocol, one line per
-phase, and where the best runs, the sessions and the methods paragraph are.
-``--verbose`` keeps the full dict.
+Normal mode prints one line for the file and the protocol, one line per phase, and the
+places of the best runs, the sessions and the methods paragraph. ``--verbose`` keeps
+the full dict. Parameters are in their own units, costs have none.
 """
 
 from __future__ import annotations
@@ -107,7 +105,6 @@ def _staged_summary(tmp_path: Path) -> dict:
 
 
 def _dispatches(monkeypatch, summary: dict) -> None:
-    """Make ``hmp run`` get *summary* from the calibration it would launch."""
     monkeypatch.setattr(
         "hydromodpy.project.dispatch.workflow.dispatch_workflow",
         lambda workflow, path, **_: summary,
@@ -132,7 +129,7 @@ def _run_calibration_file(tmp_path: Path, monkeypatch, verbosity: str | None) ->
         set_verbosity("normal")
 
 
-def test_verbose_mode_keeps_the_full_dict(tmp_path, monkeypatch, capsys) -> None:
+def test_verbose_keeps_the_full_dict(tmp_path, monkeypatch, capsys) -> None:
     _run_calibration_file(tmp_path, monkeypatch, "verbose")
 
     err = capsys.readouterr().err
@@ -149,10 +146,8 @@ def _failed_promotion_summary(tmp_path: Path) -> dict:
 
 
 @pytest.mark.parametrize("verbosity", ["normal", "quiet", "verbose"])
-def test_a_failed_promotion_is_named_and_exits_with_the_calibration_code(
-    tmp_path, monkeypatch, capsys, verbosity
-) -> None:
-    """The search results are printed and kept; the exit code says a run is missing."""
+def test_failed_promotion(tmp_path, monkeypatch, capsys, verbosity) -> None:
+    # The search results are printed and kept; the exit code says a run is missing.
     from hydromodpy.cli.exit_codes import EXIT_CALIBRATION
 
     config = tmp_path / "run_calibration.toml"
@@ -174,16 +169,14 @@ def test_a_failed_promotion_is_named_and_exits_with_the_calibration_code(
         assert "promotion failed" in err.split("\n")[1]
 
 
-def test_a_calibration_whose_promotions_succeed_exits_zero(tmp_path, monkeypatch, capsys) -> None:
+def test_successful_promotion(tmp_path, monkeypatch, capsys) -> None:
     _run_calibration_file(tmp_path, monkeypatch, "normal")
 
     assert "Promotion failed" not in capsys.readouterr().err
 
 
 @pytest.mark.fast
-def test_an_interval_holding_the_best_trial_alone_is_not_printed_as_zero_width(
-    tmp_path, monkeypatch, capsys
-) -> None:
+def test_single_trial_interval(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     report = _staged_summary(tmp_path)["phases"][0]["report"]
     report["extra"]["parameter_intervals"] = [

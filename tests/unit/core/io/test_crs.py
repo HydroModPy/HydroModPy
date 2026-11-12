@@ -1,14 +1,8 @@
-"""The CRS helpers of ``core``: the stamp on a producer's output, and the frame of an overlay.
+"""CRS helpers of ``core.io``: the stamp on a producer's output, the frame of an overlay, grid selection.
 
-``ensure_crs`` stamps a producer's own output, and nothing else. The helper
-moved here from ``spatial.geographic.geographic_io`` so that a terrain engine
-can stamp what it writes without importing a sibling package. The raster
-branch had no test before that move; it has one now, because the whole point
-of the function is that it rewrites metadata and not pixels.
-
-``to_mesh_crs`` brings a vector layer into the frame of a mesh before an
-overlay. A mesh stores bare coordinates, so both frames are named by the
-caller and a missing one is refused rather than guessed.
+``ensure_crs`` rewrites metadata and never pixels. ``to_mesh_crs`` brings a vector layer
+into the frame of a mesh, which stores bare coordinates, so both frames are named by the
+caller and a missing one is refused. Lengths are in m, forcing units are converted to mm, deg C and MJ/m2.
 """
 
 from __future__ import annotations
@@ -19,6 +13,7 @@ import geopandas as gpd
 import numpy as np
 import pytest
 import rasterio
+import xarray as xr
 from pyproj import Transformer
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point, box
@@ -51,17 +46,15 @@ def _write_tif_without_crs(path: Path) -> np.ndarray:
     return values
 
 
-def test_a_missing_shapefile_is_named_in_the_refusal(tmp_path: Path) -> None:
+def test_missing_shapefile(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="Shapefile not found"):
         crs_io.ensure_crs(tmp_path / "missing.shp", "EPSG:2154")
 
 
-# -- the frame of an overlay ---------------------------------------------------
-
 LAMBERT93 = "EPSG:2154"
 
 
-def test_a_layer_in_another_frame_comes_back_in_the_mesh_frame() -> None:
+def test_layer_in_the_mesh_frame() -> None:
     line = LineString([(-1.68, 48.11), (-1.67, 48.12)])
 
     (projected,) = crs_io.to_mesh_crs([line], mesh_crs=LAMBERT93, geometry_crs="EPSG:4326")
@@ -73,7 +66,7 @@ def test_a_layer_in_another_frame_comes_back_in_the_mesh_frame() -> None:
 
 @pytest.mark.parametrize("missing", ["mesh_crs", "geometry_crs"])
 @pytest.mark.parametrize("value", [None, "", "   "], ids=["none", "empty", "blank"])
-def test_a_missing_frame_is_refused_by_name(missing: str, value: str | None) -> None:
+def test_missing_frame(missing: str, value: str | None) -> None:
     frames = {"mesh_crs": LAMBERT93, "geometry_crs": LAMBERT93, missing: value}
 
     with pytest.raises(ValueError, match=f"explicit {missing}"):
@@ -92,19 +85,11 @@ def test_a_missing_frame_is_refused_by_name(missing: str, value: str | None) -> 
     ],
     ids=["label", "parsed", "other", "unreadable", "proj4-identified-as-its-epsg", "axis-order"],
 )
-def test_two_labels_name_the_same_frame_only_when_pyproj_agrees(
-    left: str, right: str, same: bool
-) -> None:
+def test_same_crs(left: str, right: str, same: bool) -> None:
     assert crs_io.same_crs(left, right) is same
 
 
-# ---- coordinate helpers -----------------------------------------------------
-
-
-def test_the_centroid_of_a_layer_is_given_as_longitude_and_latitude() -> None:
-    import geopandas as gpd
-    from shapely.geometry import box
-
+def test_centroid_in_lon_lat() -> None:
     layer = gpd.GeoDataFrame(
         geometry=[box(699_000, 6_599_000, 701_000, 6_601_000)], crs="EPSG:2154"
     )
@@ -117,9 +102,7 @@ def test_the_centroid_of_a_layer_is_given_as_longitude_and_latitude() -> None:
 
 
 @pytest.mark.parametrize("situation", ["none", "empty", "no crs"])
-def test_a_layer_that_cannot_give_a_centroid_gives_none_none(situation: str) -> None:
-    import geopandas as gpd
-
+def test_no_centroid(situation: str) -> None:
     layer = {
         "none": None,
         "empty": gpd.GeoDataFrame(geometry=[], crs="EPSG:2154"),
@@ -129,7 +112,7 @@ def test_a_layer_that_cannot_give_a_centroid_gives_none_none(situation: str) -> 
     assert crs_io.get_centroid_coordinates(layer) == (None, None)
 
 
-def test_the_pixel_coordinates_of_a_dem_are_converted_cell_by_cell(tmp_path: Path) -> None:
+def test_dem_pixel_coordinates(tmp_path: Path) -> None:
     path = tmp_path / "dem.tif"
     _write_tif_without_crs(path)  # 3 rows x 4 columns, unit pixels from the origin
 
@@ -140,16 +123,13 @@ def test_the_pixel_coordinates_of_a_dem_are_converted_cell_by_cell(tmp_path: Pat
     assert coordinates[1][0] - coordinates[0][0] == pytest.approx(25.0)  # one pixel to the east
 
 
-def test_a_dem_that_cannot_be_opened_gives_no_coordinates(tmp_path: Path) -> None:
+def test_unreadable_dem(tmp_path: Path) -> None:
     assert (
         crs_io.transform_coordinates(str(tmp_path / "absent.tif"), "EPSG:2154", "EPSG:4326") == []
     )
 
 
-def test_only_the_coordinates_inside_the_shape_are_kept(tmp_path: Path) -> None:
-    import geopandas as gpd
-    from shapely.geometry import box
-
+def test_coordinates_inside_shape(tmp_path: Path) -> None:
     shape = tmp_path / "basin.shp"
     gpd.GeoDataFrame(geometry=[box(0, 0, 10, 10)], crs="EPSG:2154").to_file(shape)
 
@@ -158,7 +138,7 @@ def test_only_the_coordinates_inside_the_shape_are_kept(tmp_path: Path) -> None:
     assert kept == [(5, 5), (0, 5)]  # the border counts as inside
 
 
-def test_an_unreadable_shape_keeps_no_coordinate(tmp_path: Path) -> None:
+def test_unreadable_shape(tmp_path: Path) -> None:
     assert (
         crs_io.filter_coordinates_by_shape([(1, 1)], str(tmp_path / "absent.shp"), "EPSG:2154")
         == []
@@ -166,29 +146,24 @@ def test_an_unreadable_shape_keeps_no_coordinate(tmp_path: Path) -> None:
 
 
 def _grid():
-    import xarray as xr
-
     return xr.Dataset(
         {"t": (("latitude", "longitude"), np.arange(12.0).reshape(3, 4))},
         coords={"longitude": [0.0, 1.0, 2.0, 3.0], "latitude": [10.0, 11.0, 12.0]},
     )
 
 
-def test_the_nearest_grid_point_is_selected() -> None:
+def test_nearest_grid_point() -> None:
     point = crs_io.select_nearest_point(_grid(), 1.2, 11.9)
 
     assert float(point.t) == 9.0  # latitude 12 is row 2, longitude 1 is column 1
 
 
 @pytest.mark.parametrize(("lon", "lat"), [(None, 11.0), (1.0, None)])
-def test_without_both_coordinates_no_point_is_selected(lon, lat) -> None:
+def test_nearest_point_needs_both(lon, lat) -> None:
     assert crs_io.select_nearest_point(_grid(), lon, lat) is None
 
 
-def test_points_outside_the_polygon_are_dropped_from_the_grid() -> None:
-    import geopandas as gpd
-    from shapely.geometry import box
-
+def test_points_within_polygon() -> None:
     polygon = gpd.GeoDataFrame(geometry=[box(0.5, 10.5, 2.5, 11.5)], crs="EPSG:4326")
 
     inside = crs_io.select_within_polygon_points(_grid(), polygon)
@@ -197,7 +172,7 @@ def test_points_outside_the_polygon_are_dropped_from_the_grid() -> None:
     assert inside.latitude.values.tolist() == [11.0]
 
 
-def test_a_grid_is_returned_whole_when_the_polygon_cannot_be_used() -> None:
+def test_grid_kept_without_polygon() -> None:
     grid = _grid()
 
     assert crs_io.select_within_polygon_points(grid, None) is grid
@@ -212,12 +187,8 @@ def test_a_grid_is_returned_whole_when_the_polygon_cannot_be_used() -> None:
         ("humidity", 55.0, 55.0),  # unknown variable: unchanged
     ],
 )
-def test_the_units_of_a_forcing_variable_are_converted(variable, value, expected) -> None:
+def test_convert_units(variable, value, expected) -> None:
     assert crs_io.convert_units(value, variable) == pytest.approx(expected)
-
-
-def test_a_label_pyproj_cannot_read_matches_nothing_not_even_itself_altered() -> None:
-    assert crs_io.same_crs("not a crs", "EPSG:2154") is False
 
 
 def _frame(geometry, crs):
@@ -235,14 +206,14 @@ def _frame(geometry, crs):
     ],
     ids=["no crs", "degrees label on metres", "projected", "degrees", "nothing to go on"],
 )
-def test_a_frame_is_put_in_one_metric_crs_before_it_is_measured(frame, fallback, crs) -> None:
+def test_metric_crs(frame, fallback, crs) -> None:
     out = project_gdf_for_metric_operations(frame, fallback_crs=fallback)
     assert (None if out.crs is None else out.crs.to_string()) == crs
     if crs == "EPSG:32630":
         assert measure_linework_length_m(frame) == pytest.approx(1112.0, rel=0.01)
 
 
-def test_an_empty_frame_measures_nothing() -> None:
+def test_empty_frame() -> None:
     empty = gpd.GeoDataFrame(geometry=[], crs="EPSG:2154")
     assert project_gdf_for_metric_operations(empty) is empty
     assert measure_linework_length_m(empty) == 0.0

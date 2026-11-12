@@ -3,7 +3,7 @@
 Compared with: the closed form of a 50 mm pulse on a full soil routed through a linear reservoir, `Q(0) = 50 (1 - k a)`, `Q(t >= 1) = 50 k a^2 exp(-(t - 1) / k)`, `a = 1 - exp(-1 / k)`.
 
 Same closed form as the kernel-level unit test
-(``tests/unit/model/soil/test_soil_kernel.py``),
+(``tests/unit/model/soil/test_kernel.py``),
 but reached the way a run reaches it: through ``compute_soil_forcings``, with
 a single SAFRAN cell's precipitation and ETP passed in as ``FieldRecord`` and
 the recharge read back from the ``FieldRecord`` it returns.

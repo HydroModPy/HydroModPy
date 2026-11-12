@@ -86,7 +86,7 @@ def _terminals(trace: SfrReachTrace) -> list:
     return [r for r in trace.reaches if r.is_terminal_to_lake]
 
 
-def test_reaches_are_numbered_downstream_connected_both_ways_and_topped_at_their_outlet() -> None:
+def test_reach_numbering_and_tops() -> None:
     trace = _trace(_y_network(), lake_mask=_lake_rows(5))
     by_ifno = {r.ifno: r for r in trace.reaches}
     assert trace.reach_count == 3
@@ -109,7 +109,7 @@ def test_reaches_are_numbered_downstream_connected_both_ways_and_topped_at_their
         assert reach.rgrd >= 1e-4
 
 
-def test_the_trace_never_lowers_a_reach_and_a_top_rising_downstream_keeps_a_floor() -> None:
+def test_no_lowering_and_slope_floor() -> None:
     # The main outlet sits above both tributary outlets; a one-way pass would cut it to 9 m.
     # The routing DEM is breached, the model top is not: the gradient falls back
     # on the declared floor instead of going negative and breaking Manning.
@@ -121,7 +121,7 @@ def test_the_trace_never_lowers_a_reach_and_a_top_rising_downstream_keeps_a_floo
 
 
 @pytest.mark.parametrize("label", [True, 2], ids=["boolean", "labelled lake 2"])
-def test_a_link_crossing_the_lake_stops_at_the_shoreline(label) -> None:
+def test_link_stops_at_the_shoreline(label) -> None:
     trace = _trace(_y_network(), lake_mask=_lake_rows(3, label=label))
     (terminal,) = _terminals(trace)
     assert terminal.terminal_lake == int(label)
@@ -134,7 +134,7 @@ def test_a_link_crossing_the_lake_stops_at_the_shoreline(label) -> None:
     assert len(below) == 1
 
 
-def test_the_link_below_the_dam_is_kept_after_the_cut_at_the_lake() -> None:
+def test_link_below_the_dam_is_kept() -> None:
     nrow = 8
     g = _grid(nrow)
     g["link_id"][:, 1] = 1
@@ -159,7 +159,7 @@ def _column(*links: int) -> dict[str, np.ndarray]:
     return g
 
 
-def test_a_link_gap_is_bridged_by_the_d8_path() -> None:
+def test_link_gap_is_bridged() -> None:
     # A WBT link raster can drop a cell between two links: following the pointer
     # reunites link 1 with link 2 instead of a spurious mid-catchment outlet.
     trace = _trace(_column(1, 1, 0, 2, 2), lake_mask=_lake_rows(5))
@@ -175,7 +175,7 @@ def test_a_link_gap_is_bridged_by_the_d8_path() -> None:
     [((1, 1, 0, 0, 0), None, _lake_rows(4, label=3), 3), ((1, 1), 1, _lake_rows(5, label=1), None)],
     ids=["a gap short of the lake is bridged to it", "a bare outlet is left to the solver"],
 )
-def test_a_lone_reach_is_terminal_only_when_its_path_reaches_the_lake(links, pit, lake, terminal):
+def test_lone_reach_terminal_to_lake(links, pit, lake, terminal):
     # A path that pits without reaching a link or lake is left unflagged: the
     # solver mover builder decides its fate where the lake cells are known.
     g = _column(*links)
@@ -185,14 +185,14 @@ def test_a_lone_reach_is_terminal_only_when_its_path_reaches_the_lake(links, pit
     assert (reach.is_terminal_to_lake, reach.terminal_lake) == (terminal is not None, terminal)
 
 
-def test_a_one_cell_link_is_drawn_one_cell_long() -> None:
+def test_one_cell_link() -> None:
     g = _column(1, 2, 2)
     g["d8"][2, 1] = 0
     reaches = sorted(_trace(g).reaches, key=lambda r: r.ifno)
     assert [round(r.rlen) for r in reaches] == [100, 100]
 
 
-def test_the_bed_elevation_is_read_on_the_top_dem_alone() -> None:
+def test_bed_read_on_the_top_dem() -> None:
     # Lowering the top under the network by 10 m moves each reach top by 10 m
     # and nothing else.
     g = _y_network()
@@ -205,7 +205,7 @@ def test_the_bed_elevation_is_read_on_the_top_dem_alone() -> None:
         assert low.rgrd == pytest.approx(raw.rgrd)
 
 
-def test_a_reach_shorter_than_the_minimum_is_pruned_and_its_neighbours_relinked() -> None:
+def test_short_reach_is_pruned() -> None:
     trace = _trace(_y_network(), lake_mask=_lake_rows(5), min_reach_length_m=150.0)
     (main,) = trace.reaches
     assert main.is_terminal_to_lake
@@ -231,7 +231,7 @@ def _nodata_under_the_main_outlet() -> dict[str, np.ndarray]:
     ],
     ids=["nodata top under a reach", "shapes differ", "no stream cell"],
 )
-def test_a_network_that_cannot_be_traced_is_refused_by_name(g, reason) -> None:
+def test_refusals(g, reason) -> None:
     with pytest.raises(ValueError, match=reason):
         _trace(g)
 
@@ -268,7 +268,7 @@ def _from_products(paths: dict[str, str], **options) -> SfrReachTrace:
     )
 
 
-def test_a_trace_from_the_products_flags_the_reach_draining_into_the_lake(tmp_path) -> None:
+def test_trace_from_products_and_lake(tmp_path) -> None:
     paths = _write_products(tmp_path)
     # Row 7 (y in [0, 10]) around column 3 is lake: the link-2 outlet (6, 3) drains into it.
     lake = box(20.0, 0.0, 60.0, 12.0)
@@ -285,14 +285,14 @@ def test_a_trace_from_the_products_flags_the_reach_draining_into_the_lake(tmp_pa
     assert not any(reach.is_terminal_to_lake for reach in outside.reaches)
 
 
-def test_the_watershed_keeps_only_its_own_links(tmp_path) -> None:
+def test_watershed_clip(tmp_path) -> None:
     upper_half = box(0.0, 40.0, 80.0, 80.0)
     trace = _from_products(_write_products(tmp_path), watershed_polygons=[upper_half])
     (reach,) = trace.reaches
     assert min(y for _, y in reach.line.coords) >= 40.0
 
 
-def test_the_products_refuse_a_misaligned_raster_and_a_nodata_top(tmp_path) -> None:
+def test_product_refusals(tmp_path) -> None:
     paths = _write_products(tmp_path)
     holed = np.repeat(100.0 - np.arange(_N)[:, None], _N, axis=1)
     holed[6, 3] = -9999.0  # the outlet of link 2
@@ -301,3 +301,78 @@ def test_the_products_refuse_a_misaligned_raster_and_a_nodata_top(tmp_path) -> N
         _from_products({**paths, "dem": shifted})
     with pytest.raises(ValueError, match="nodata model top"):
         _from_products(_write_products(tmp_path / "holed", nodata=-9999.0, dem=holed))
+
+
+def test_link_ending_in_the_lake() -> None:
+    # The lake takes the last cell of the main link: the reach keeps the two cells above it.
+    trace = _trace(_y_network(), lake_mask=_lake_rows(4))
+    (terminal,) = _terminals(trace)
+    assert terminal.terminal_lake == 1
+    assert terminal.rlen == pytest.approx(_RES)  # two cell centres, one 100 m step
+    assert trace.reach_count == 3
+
+
+def test_links_inside_the_lake_are_dropped() -> None:
+    # Both tributaries lie in rows 0 and 1, which the lake covers.
+    trace = _trace(_y_network(), lake_mask=_lake_rows(0, 1))
+    (main,) = trace.reaches
+    assert main.upstream == ()
+    assert main.area_km2 == pytest.approx(0.07)
+
+
+def test_pointer_loop_below_a_link_is_left_unflagged() -> None:
+    # Link 1 is one cell. The gap cells below it send the flow round in a loop.
+    g = _grid()
+    g["link_id"][0, 1], g["acc"][0, 1], g["top_dem"][0, 1] = 1, 1.0, 10.0
+    g["d8"][0, 1], g["d8"][1, 1], g["d8"][1, 2] = _S, 2, 32  # south, then east, then west
+    (reach,) = _trace(g, lake_mask=_lake_rows(5)).reaches
+    assert (reach.is_terminal_to_lake, reach.terminal_lake, reach.downstream) == (False, None, ())
+
+
+def test_link_closing_on_itself() -> None:
+    # Four cells whose pointers go east, south, west, north: no cell leaves the link.
+    g = _grid()
+    for (row, col), code in {(0, 0): 2, (0, 1): 8, (1, 1): 32, (1, 0): 128}.items():
+        g["link_id"][row, col], g["d8"][row, col] = 1, code
+        g["acc"][row, col], g["top_dem"][row, col] = 1.0, 10.0
+    (reach,) = _trace(g).reaches
+    assert reach.rlen == pytest.approx(3 * _RES)  # four cell centres, three 100 m steps
+
+
+def _long_column(*links: int) -> dict[str, np.ndarray]:
+    """A column of any length draining south, with the given link id on each row."""
+    g = _grid(nrow=len(links))
+    for row, link in enumerate(links):
+        g["link_id"][row, 1], g["d8"][row, 1] = link, _S
+        g["acc"][row, 1], g["top_dem"][row, 1] = row + 1, 20.0 - row
+    return g
+
+
+def test_short_reach_between_two_long_ones_is_bridged() -> None:
+    # Link 2 is one cell (100 m), links 1 and 3 are 300 m. Pruning link 2 joins 1 to 3.
+    g = _long_column(1, 1, 1, 1, 2, 3, 3, 3, 3)
+    kept = _trace(g, min_reach_length_m=150.0)
+    unpruned = _trace(g)
+    first, last = sorted(kept.reaches, key=lambda r: r.ifno)
+    assert unpruned.reach_count == 3
+    assert (first.downstream, last.upstream) == ((last.ifno,), (first.ifno,))
+
+
+def test_short_last_reach_passes_its_lake_to_the_one_above() -> None:
+    # Link 2 is the last cell above the lake (row 5). Pruned, link 1 drains into the lake itself.
+    trace = _trace(
+        _long_column(1, 1, 1, 1, 2, 0), lake_mask=_lake_rows(5), min_reach_length_m=150.0
+    )
+    (reach,) = trace.reaches
+    assert (reach.is_terminal_to_lake, reach.terminal_lake) == (True, 1)
+
+
+def test_two_links_draining_into_each_other() -> None:
+    # A pointer loop between two one-cell links: no outlet, and both reaches are kept.
+    g = _grid()
+    for col, (link, code) in enumerate([(1, 2), (2, 32)]):
+        g["link_id"][0, col], g["d8"][0, col] = link, code
+        g["acc"][0, col], g["top_dem"][0, col] = 1.0, 10.0
+    trace = _trace(g)
+    assert trace.reach_count == 2
+    assert sorted(r.downstream for r in trace.reaches) == [(0,), (1,)]

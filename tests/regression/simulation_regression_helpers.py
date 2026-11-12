@@ -42,10 +42,6 @@ MODFLOW_OUTPUT_NAMES = [
     "drain_accumulation_flux",
 ]
 
-MODPATH_SNAPSHOT_FILES = [
-    "starting.dbf",
-    "ending.dbf",
-]
 
 TRANSPORT_OUTPUT_NAMES = [
     "concentration_seepage",

@@ -1,3 +1,9 @@
+"""MT3DMS run status and the accumulated mass raster it exports, with fakes for flopy and Masstransfer.
+
+A run is a success on the message 'program completed'. Post-processing hands the routing
+rasters to Masstransfer and keeps the accumulated mass of each period.
+"""
+
 from __future__ import annotations
 
 import os

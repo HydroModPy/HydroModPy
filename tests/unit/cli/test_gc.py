@@ -1,4 +1,7 @@
-"""``hmp catalog gc`` reads the project tree and acts on it, plan first."""
+"""``hmp catalog gc``: plans, then trashes expired runs, closes stale attempts, purges old trial fields.
+
+Ages are in days, sizes in bytes. Without ``-y`` the command only prints the plan.
+"""
 
 from __future__ import annotations
 
@@ -35,7 +38,7 @@ def _make_run(project: Path, name: str) -> Path:
 
 
 def _dead_pid() -> int:
-    """A pid that belonged to a process of this host and is gone."""
+    # A pid that belonged to a process of this host and is gone.
     pid = os.fork()
     if pid == 0:
         os._exit(0)
@@ -44,7 +47,7 @@ def _dead_pid() -> int:
 
 
 def _outcome(run_dir: Path, status: str, *, started_at: datetime, dead: bool = False) -> None:
-    """Write an outcome. A dead attempt ran on this host under a pid that is gone."""
+    # A dead attempt ran on this host under a pid that is gone.
     write_outcome(
         run_dir,
         Outcome(
@@ -75,14 +78,14 @@ def _gc(monkeypatch, capsys, target: Path, *extra: str) -> dict:
     return json.loads(capsys.readouterr().out)["data"]
 
 
-def test_gc_keep_versions_all_disables_the_rule(monkeypatch, capsys, tmp_path) -> None:
+def test_keep_versions_all(monkeypatch, capsys, tmp_path) -> None:
     project = _project(tmp_path)
     _versions(project, "x", 7)
     report = _gc(monkeypatch, capsys, project, "--keep-versions", "all")
     assert report["projects"][str(project.resolve())]["plan"]["superseded_runs"] == []
 
 
-def test_gc_spares_a_pinned_run(monkeypatch, capsys, tmp_path) -> None:
+def test_pinned_run_is_spared(monkeypatch, capsys, tmp_path) -> None:
     project = _project(tmp_path)
     _versions(project, "x", 3)
     assert _run(monkeypatch, ["hmp", "catalog", "tag", "x", "pinned", "-w", str(project)]) == 0
@@ -93,7 +96,7 @@ def test_gc_spares_a_pinned_run(monkeypatch, capsys, tmp_path) -> None:
     assert (project / RUNS_DIRNAME / "x").is_dir()
 
 
-def test_gc_trashes_the_runs_past_the_age_limit(monkeypatch, capsys, tmp_path) -> None:
+def test_runs_past_the_age_limit(monkeypatch, capsys, tmp_path) -> None:
     project = _project(tmp_path)
     old = _make_run(project, "old")
     _outcome(old, "completed", started_at=datetime.now(UTC) - timedelta(days=400))
@@ -109,9 +112,7 @@ def test_gc_trashes_the_runs_past_the_age_limit(monkeypatch, capsys, tmp_path) -
     assert (project / RUNS_DIRNAME / "unknown_age").is_dir()
 
 
-def test_gc_marks_a_stale_attempt_aborted_and_leaves_a_live_one(
-    monkeypatch, capsys, tmp_path
-) -> None:
+def test_stale_attempt_is_aborted(monkeypatch, capsys, tmp_path) -> None:
     project = _project(tmp_path)
     stale = _make_run(project, "stale")
     _outcome(stale, "running", started_at=datetime.now(UTC) - timedelta(days=1), dead=True)
@@ -133,7 +134,7 @@ def test_gc_marks_a_stale_attempt_aborted_and_leaves_a_live_one(
     assert read_outcome(live).status == "running"
 
 
-def test_gc_closes_a_stale_session_so_it_can_be_trashed(monkeypatch, capsys, tmp_path) -> None:
+def test_stale_session_is_closed(monkeypatch, capsys, tmp_path) -> None:
     from hydromodpy.results.session.descriptor import read_session, write_session
     from tests._helpers.session_documents import session_descriptor
 
@@ -163,7 +164,7 @@ def test_gc_closes_a_stale_session_so_it_can_be_trashed(monkeypatch, capsys, tmp
     assert not session.exists()
 
 
-def test_gc_removes_the_expired_trash_with_tombstones(monkeypatch, capsys, tmp_path) -> None:
+def test_expired_trash_leaves_tombstones(monkeypatch, capsys, tmp_path) -> None:
     project = _project(tmp_path)
     long_ago = datetime.now(UTC) - timedelta(days=TRASH_RETENTION_DAYS + 1)
     _make_run(project, "gone")
@@ -184,14 +185,7 @@ def test_gc_removes_the_expired_trash_with_tombstones(monkeypatch, capsys, tmp_p
     assert [tombstone.rel_dir for tombstone in read_tombstones(project)] == ["runs/gone"]
 
 
-def test_gc_rejects_a_retention_window_of_zero(monkeypatch, tmp_path) -> None:
-    project = _project(tmp_path)
-    code = _run(monkeypatch, ["hmp", "catalog", "gc", "-w", str(project), "--keep-versions", "0"])
-    assert code == 2
-
-
 def _sealed_trial(project: Path, trial: str, *, days: int) -> Path:
-    """Write the sealed directory of a kept trial, its fields and its mesh."""
     from hydromodpy.results.session.descriptor import write_session
     from hydromodpy.results.storage.contract import (
         FIELDS_STORE_NAME,
@@ -221,7 +215,7 @@ def _sealed_trial(project: Path, trial: str, *, days: int) -> Path:
     return directory
 
 
-def test_gc_purges_the_fields_of_an_old_kept_trial(monkeypatch, capsys, tmp_path) -> None:
+def test_old_trial_fields_purged(monkeypatch, capsys, tmp_path) -> None:
     from hydromodpy.results import retention
     from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, MESH_DIRNAME
     from hydromodpy.results.storage.kept import read_purged
@@ -251,7 +245,7 @@ def test_gc_purges_the_fields_of_an_old_kept_trial(monkeypatch, capsys, tmp_path
     assert purged.entries == {FIELDS_STORE_NAME: 64}
 
 
-def test_gc_never_purges_trial_fields_when_the_rule_is_off(monkeypatch, capsys, tmp_path) -> None:
+def test_trial_fields_rule_off(monkeypatch, capsys, tmp_path) -> None:
     project = _project(tmp_path)
     _sealed_trial(project, "0002", days=400)
 
@@ -262,18 +256,20 @@ def test_gc_never_purges_trial_fields_when_the_rule_is_off(monkeypatch, capsys, 
     assert block["bytes"]["old_trial_fields"] == 0
 
 
-def test_gc_rejects_a_trial_fields_window_of_zero(monkeypatch, tmp_path) -> None:
+REFUSALS = [
+    pytest.param(["--keep-versions", "0"], id="no version kept"),
+    pytest.param(["--trial-fields-days", "0"], id="trial fields window of zero"),
+]
+
+
+@pytest.mark.parametrize("flags", REFUSALS)
+def test_refusals(monkeypatch, tmp_path, flags) -> None:
     project = _project(tmp_path)
-    code = _run(
-        monkeypatch,
-        ["hmp", "catalog", "gc", "-w", str(project), "--trial-fields-days", "0"],
-    )
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "-w", str(project), *flags])
     assert code == 2
 
 
-def test_gc_collects_a_project_whose_project_toml_does_not_read(
-    monkeypatch, capsys, tmp_path
-) -> None:
+def test_unreadable_project_toml(monkeypatch, capsys, tmp_path) -> None:
     project = _project(tmp_path)
     (project / "project.toml").write_text("[[[ not toml\n", encoding="utf-8")
     scratch = project / ".hmp" / "scratch" / f"gone.p{_dead_pid()}"

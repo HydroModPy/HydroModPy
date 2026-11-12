@@ -1,4 +1,9 @@
-"""The planning step."""
+"""The planning step decides which per-cell budget terms a run keeps.
+
+A run keeps its whole budget unless the config says that only some consumers read it.
+The consumers are the figures and their overlays, the exports, the calibration
+outputs, the observation points and a solver that reads the seepage mask.
+"""
 
 from __future__ import annotations
 
@@ -11,53 +16,30 @@ import hydromodpy.workflow.steps.planning as planning_module
 from hydromodpy.core.budget.terms import POLICY_ALL, BudgetKeep, budget_terms_for
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.results.exporters.export_spec import load_export_requests
+from hydromodpy.solver.base.observation_config import ObservationConfig
 from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
 from hydromodpy.solver.base.results_config import ResultsConfig
 
 
-def _no_figures() -> DisplayConfig:
-    return DisplayConfig(figures=[])
-
-
-def _run(run_id: str, process_type: str, solver: str) -> ProcessRun:
-    return ProcessRun(
-        id=run_id,
-        process_id=process_type,
-        process_type=process_type,
-        solver=solver,
+def plan_of(solver: str) -> SimulationPlan:
+    run = ProcessRun(
+        id=f"flow_main::{solver}", process_id="flow", process_type="flow", solver=solver
     )
+    return SimulationPlan(name=solver, description=solver, runs=(run,))
 
 
-# ---------------------------------------------------------------------------
-# step_configure_results - the per-cell budget the run keeps
-# ---------------------------------------------------------------------------
+FLOW_ONLY = plan_of("modflow6")
+BOUSSINESQ = plan_of("boussinesq")
+CONSUMERS = ResultsConfig(keep_per_cell_budget=False)
+NO_FIGURES = DisplayConfig(figures=[])
 
 
-def _flow_only_plan() -> SimulationPlan:
-    return SimulationPlan(
-        name="flow-only",
-        description="flow-only",
-        runs=(_run("flow_main::modflow6", "flow", "modflow6"),),
-    )
-
-
-def _boussinesq_plan() -> SimulationPlan:
-    return SimulationPlan(
-        name="boussinesq",
-        description="boussinesq",
-        runs=(_run("flow_main::boussinesq", "flow", "boussinesq"),),
-    )
-
-
-_CONSUMERS = ResultsConfig(keep_per_cell_budget=False)
-
-
-def _keep(
-    results: ResultsConfig = _CONSUMERS,
+def keep_for(
+    results: ResultsConfig = CONSUMERS,
     *,
     level: str = "result",
-    plan: SimulationPlan | None = None,
-    display: DisplayConfig | None = None,
+    plan: SimulationPlan = FLOW_ONLY,
+    display: DisplayConfig = NO_FIGURES,
     display_active: bool = True,
     exports: list[dict] | None = None,
     calibration: object | None = None,
@@ -66,8 +48,8 @@ def _keep(
 ) -> BudgetKeep:
     return planning_module.step_configure_results(
         results,
-        plan or _flow_only_plan(),
-        display or _no_figures(),
+        plan,
+        display,
         level=level,
         display_active=display_active,
         export_requests=load_export_requests(exports or []),
@@ -77,37 +59,19 @@ def _keep(
     )
 
 
-def _records(call) -> tuple[object, list[logging.LogRecord]]:
+def keep_with_log(**kwargs) -> tuple[BudgetKeep, list[logging.LogRecord]]:
     # HMP loggers do not propagate: attach a handler to the module logger.
     records: list[logging.LogRecord] = []
     handler = logging.Handler()
     handler.emit = records.append  # type: ignore[method-assign]
     planning_module.logger.addHandler(handler)
     try:
-        return call(), records
+        return keep_for(**kwargs), records
     finally:
         planning_module.logger.removeHandler(handler)
 
 
-def test_the_default_keeps_the_whole_budget_and_says_nothing() -> None:
-    every_consumer = DisplayConfig(figures=["recharge_map", "simulated_active_network"])
-
-    keep, records = _records(
-        lambda: _keep(ResultsConfig(), display=every_consumer, exports=[{"variables": "drain"}])
-    )
-
-    assert keep == BudgetKeep.everything()
-    assert keep.policy == POLICY_ALL
-    assert records == []
-
-
-def test_the_default_keeps_the_whole_budget_on_a_surface_excess_plan() -> None:
-    assert _keep(ResultsConfig(), plan=_boussinesq_plan()) == BudgetKeep.everything()
-
-
-def _observation(*variables: str, point_variables: list[str] | None = None):
-    from hydromodpy.solver.base.observation_config import ObservationConfig
-
+def observation(*variables: str, point_variables: list[str] | None = None) -> ObservationConfig:
     point = {"id": "p1", "x": 1.0, "y": 2.0, "depth": 5.0}
     if point_variables is not None:
         point["variables"] = point_variables
@@ -115,119 +79,113 @@ def _observation(*variables: str, point_variables: list[str] | None = None):
     return ObservationConfig(points=[point], **kwargs)
 
 
-def test_an_observation_point_keeps_the_terms_of_its_variables() -> None:
-    keep, records = _records(
-        lambda: _keep(observation=_observation(point_variables=["head", "drain", "well"]))
+DRAIN_CELL_OUTPUT = SimpleNamespace(
+    outputs={"drain_cell": SimpleNamespace(support="cell", variable="drain")}
+)
+RECHARGE_MAP = DisplayConfig(figures=["recharge_map"])
+PIEZOMETRIC_WITH_OVERLAYS = DisplayConfig(
+    figures=["piezometric_map"],
+    overrides={"piezometric_map": {"overlays": ["watershed", "wells", "seepage"]}},
+)
+
+# Each row is the keyword arguments of one run and the budget it keeps.
+KEPT_BUDGETS = [
+    pytest.param(
+        {"results": ResultsConfig(), "plan": BOUSSINESQ},
+        BudgetKeep.everything(),
+        id="default on a surface excess plan",
+    ),
+    pytest.param(
+        {
+            "results": ResultsConfig(),
+            "display": RECHARGE_MAP,
+            "exports": [{"variables": "drain"}],
+        },
+        BudgetKeep.everything(),
+        id="result run keeps its whole budget",
+    ),
+    pytest.param(
+        {
+            "results": ResultsConfig(keep_per_cell_budget=False),
+            "level": "research",
+            "calibration": DRAIN_CELL_OUTPUT,
+            "exports": [{"variables": "recharge"}],
+        },
+        BudgetKeep.of_terms(("drain",)),
+        id="kept trial keeps its criterion terms",
+    ),
+]
+
+
+@pytest.mark.parametrize(("kwargs", "expected"), KEPT_BUDGETS)
+def test_kept_budget(kwargs, expected) -> None:
+    assert keep_for(**kwargs) == expected
+
+
+# Each row is the keyword arguments of one run and the terms its consumers read.
+KEPT_TERMS = [
+    pytest.param(
+        {"observation": observation("recharge")},
+        {"recharge"},
+        id="observation section variable",
+    ),
+    pytest.param(
+        {"level": "research", "plan": BOUSSINESQ},
+        {"surface_excess"},
+        id="kept trial keeps the seepage mask of a surface excess solver",
+    ),
+    pytest.param(
+        {"display": PIEZOMETRIC_WITH_OVERLAYS},
+        {"well", *budget_terms_for("seepage_mask")},
+        id="overlays asked in the overrides",
+    ),
+    pytest.param(
+        {"exports": [{"variables": ["release_flux"]}, {"variables": "recharge"}]},
+        frozenset(budget_terms_for("release_flux")),
+        id="export names",
+    ),
+    pytest.param({"exports": [{"variables": "all"}]}, frozenset(), id="all export adds nothing"),
+    pytest.param({"calibration": DRAIN_CELL_OUTPUT}, {"drain"}, id="cell output on a budget term"),
+    pytest.param({"plan": BOUSSINESQ}, {"surface_excess"}, id="surface excess solver"),
+    pytest.param(
+        {
+            "display": DisplayConfig(
+                figures=["recharge_map"], overrides={"recharge_map": {"overlays": ["wells"]}}
+            ),
+            "display_active": False,
+        },
+        frozenset(),
+        id="no display drops figures and overlays",
+    ),
+    pytest.param(
+        {"display": DisplayConfig(enabled=False, figures=["recharge_map"])},
+        frozenset(),
+        id="disabled display drops figures",
+    ),
+]
+
+
+@pytest.mark.parametrize(("kwargs", "terms"), KEPT_TERMS)
+def test_kept_terms(kwargs, terms) -> None:
+    assert keep_for(**kwargs).terms == terms
+
+
+def test_default_keeps_the_whole_budget_and_says_nothing() -> None:
+    every_consumer = DisplayConfig(figures=["recharge_map", "simulated_active_network"])
+
+    keep, records = keep_with_log(
+        results=ResultsConfig(), display=every_consumer, exports=[{"variables": "drain"}]
+    )
+
+    assert keep == BudgetKeep.everything()
+    assert keep.policy == POLICY_ALL
+    assert records == []
+
+
+def test_observation_point_keeps_the_terms_of_its_variables() -> None:
+    keep, records = keep_with_log(
+        observation=observation(point_variables=["head", "drain", "well"])
     )
 
     assert keep.terms == {"drain", "well"}
     assert "[[observation.points]] 'p1'" in records[0].getMessage()
-
-
-def test_an_observation_section_variable_default_is_resolved_per_point() -> None:
-    keep = _keep(observation=_observation("recharge"))
-
-    assert keep.terms == {"recharge"}
-
-
-# ---------------------------------------------------------------------------
-# research - a kept calibration trial keeps the terms of its criterion alone
-# ---------------------------------------------------------------------------
-
-
-def test_a_kept_trial_keeps_its_criterion_terms_without_the_whole_budget() -> None:
-    calibration = SimpleNamespace(
-        outputs={"drain_cell": SimpleNamespace(support="cell", variable="drain")}
-    )
-
-    keep = _keep(
-        ResultsConfig(keep_per_cell_budget=False),
-        level="research",
-        calibration=calibration,
-        exports=[{"variables": "recharge"}],
-    )
-
-    assert keep == BudgetKeep.of_terms(("drain",))
-
-
-def test_a_kept_trial_keeps_the_seepage_mask_of_a_surface_excess_solver() -> None:
-    assert _keep(level="research", plan=_boussinesq_plan()).terms == {"surface_excess"}
-
-
-def test_a_result_run_keeps_its_whole_budget_at_the_result_level() -> None:
-    keep = _keep(
-        ResultsConfig(),
-        level="result",
-        display=DisplayConfig(figures=["recharge_map"]),
-        exports=[{"variables": "drain"}],
-    )
-
-    assert keep == BudgetKeep.everything()
-
-
-def test_an_overlay_asked_for_in_the_overrides_keeps_what_it_reads() -> None:
-    display = DisplayConfig(
-        figures=["piezometric_map"],
-        overrides={"piezometric_map": {"overlays": ["watershed", "wells", "seepage"]}},
-    )
-
-    keep = _keep(display=display)
-
-    assert keep.terms == {"well", *budget_terms_for("seepage_mask")}
-
-
-def test_an_export_keeps_the_terms_its_names_read() -> None:
-    keep = _keep(exports=[{"variables": ["release_flux"]}, {"variables": "recharge"}])
-
-    assert keep.terms == frozenset(budget_terms_for("release_flux"))
-
-
-def test_an_all_export_adds_nothing() -> None:
-    assert _keep(exports=[{"variables": "all"}]).terms == frozenset()
-
-
-def test_a_cell_output_on_a_budget_term_keeps_that_term() -> None:
-    calibration = SimpleNamespace(
-        outputs={"drain_cell": SimpleNamespace(support="cell", variable="drain")}
-    )
-
-    assert _keep(calibration=calibration).terms == {"drain"}
-
-
-def test_a_surface_excess_solver_keeps_its_seepage_term() -> None:
-    keep = _keep(plan=_boussinesq_plan())
-
-    assert keep.terms == {"surface_excess"}
-
-
-def test_no_display_drops_the_figures_and_their_overlays() -> None:
-    display = DisplayConfig(
-        figures=["recharge_map"],
-        overrides={"recharge_map": {"overlays": ["wells"]}},
-    )
-
-    assert _keep(display=display, display_active=False).terms == frozenset()
-
-
-def test_a_disabled_display_drops_the_figures() -> None:
-    display = DisplayConfig(enabled=False, figures=["recharge_map"])
-
-    assert _keep(display=display).terms == frozenset()
-
-
-# ---------------------------------------------------------------------------
-# resolve_run_config - an override defines the configuration of the run
-# ---------------------------------------------------------------------------
-
-
-def _config_with_thickness(tmp_path, thickness: float):
-    from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
-    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.core.workspace.config import WorkspaceConfig
-
-    return HydroModPyConfig(
-        workflow={"mode": "simulation"},
-        workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
-        geographic=GeographicConfig(source_mode="synthetic"),
-        domain={"depth_model": {"kind": "constant_thickness", "thickness": thickness}},
-    )

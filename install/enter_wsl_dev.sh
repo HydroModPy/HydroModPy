@@ -18,7 +18,7 @@ Examples:
   bash install/enter_wsl_dev.sh
   bash install/enter_wsl_dev.sh --headless
   bash install/enter_wsl_dev.sh --output-root /mnt/c/Users/dreuzy/Documents/HydroModPyOutputs
-  bash install/enter_wsl_dev.sh -- python -m pytest tests/unit/solver/boussinesq/test_boussinesq_flow_adapter_run.py -q
+  bash install/enter_wsl_dev.sh -- python -m pytest tests/unit/solver/boussinesq/test_adapter.py -q
 EOF
 }
 

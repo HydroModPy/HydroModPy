@@ -11,7 +11,6 @@ import rasterio
 from hydromodpy.catchment.terrain.numpy_engine import NumpyTerrainEngine
 from hydromodpy.catchment.terrain.port import ConditioningExtent, Outlet
 from hydromodpy.core.exceptions import (
-    TerrainCapabilityError,
     TerrainProductError,
     TerrainRequestError,
 )
@@ -92,27 +91,6 @@ def test_a_pointer_off_the_grid_or_into_a_hole_ends_the_path(tmp_path) -> None:
     )  # fmt: skip
     with rasterio.open(counted.path) as src:
         assert src.read(1, masked=True).filled(0).tolist() == [[1, 0, 1], [1, 2, 3]]
-
-
-def _valley(size: int = 15) -> np.ndarray:
-    """A V valley draining south, with no depression."""
-    rows, cols = np.mgrid[0:size, 0:size]
-    return 100.0 - rows * 0.5 + np.abs(cols - size // 2) * 2.0
-
-
-def _route(engine, conditioned, out):
-    directions = engine.drainage_directions(conditioned, out=out / "pointer.tif")
-    accumulation = engine.flow_accumulation(
-        directions, units="cells", transform="none", out=out / "acc.tif"
-    )
-    exit_ = Outlet(outlet_id="exit", x=7.5 * RES, y=0.5 * RES)
-    (catchment,) = engine.delineate(accumulation, [exit_], out_dir=out / "c", snap_distance_m=RES)
-    return directions, accumulation, catchment
-
-
-def _band(path):
-    with rasterio.open(path) as src:
-        return src.read(1)
 
 
 def test_the_numpy_engine_does_not_condition_a_provided_dem(tmp_path) -> None:

@@ -1,4 +1,7 @@
-"""Tests of `optim.adapters.scipy_adapter`."""
+"""SciPy adapters (`optim.adapters.scipy_adapter`), differential evolution and Nelder-Mead.
+They bridge SciPy's push-style API to ask/tell through a worker thread.
+Costs are dimensionless.
+"""
 
 from __future__ import annotations
 
@@ -7,65 +10,37 @@ import math
 import pytest
 
 from hydromodpy.calibration.optim.adapters.scipy_adapter import ScipyDE, ScipyNelderMead
-from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
-    ParamSuggestion,
     build_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from tests.unit.calibration._factories import two_dim_space
 from tests.unit.calibration._factories_search import result_of
 
-# From test_a_speculative_trial_is_journaled_as_such.py
-# A candidate a parallel simplex solved and did not read is journaled as such.
-#
-# It is a real solve and stays in the history, but it is not on the path of the
-# search: the journal marks it, and the progress bar does not count it.
+TARGET = {"x": 0.3, "y": 0.5}
+UNUSABLE_COSTS = [
+    pytest.param("failed", 5.0, id="failed"),
+    pytest.param("completed", math.nan, id="nan cost"),
+]
 
 
-def _space() -> ParameterSpace:
+def line_space() -> ParameterSpace:
     return ParameterSpace([CalibParameter(name="x", lower=-2.0, upper=2.0)])
 
 
-def _bowl(sugg: ParamSuggestion) -> EvaluationResult:
-    x = float(sugg.values["x"])
-    return result_of(sugg, (x - 0.7) ** 2)
+def bowl_cost(values) -> float:
+    # Convex bowl with its minimum of 0 at TARGET.
+    return float((values["x"] - TARGET["x"]) ** 2 + (values["y"] - TARGET["y"]) ** 2)
 
 
-# From test_scipy_adapter.py
-# Behavioral unit tests for the SciPy optimizer adapters.
-#
-# Covers :mod:`hydromodpy.calibration.optim.adapters.scipy_adapter`
-# (``scipy_de`` and ``scipy_nelder_mead``), which bridge SciPy's push-style
-# ``differential_evolution`` / ``minimize`` API to the ask/tell Protocol via a
-# background worker thread and a pair of queues.
-#
-# Focus:
-#
-# - ``ask(n>1)`` on the sequential SciPy adapters returns only the points that
-#   are already available and never blocks (regression for a deadlock where the
-#   worker is blocked waiting for the previous ``tell``);
-# - ``close`` is cancel-safe when the loop exits on its budget before the
-#   optimizer converges (the worker terminates, no thread is left blocked);
-# - DE / Nelder-Mead drive a convex quadratic to its known minimum, seeded
-#   reproducibly;
-# - ``tell`` of a failed/NaN evaluation maps to ``FAILED_EVAL_COST`` and never
-#   poisons the run;
-# - only ``scipy_de`` / ``scipy_nelder_mead`` are registered, not ``scipy``.
+def line_bowl(sugg):
+    return result_of(sugg, (float(sugg.values["x"]) - 0.7) ** 2)
 
 
-_TARGET = {"x": 0.3, "y": 0.5}
-
-
-def _quadratic_cost(values) -> float:
-    """Convex bowl centered on ``_TARGET`` with a unique minimum of 0."""
-    return float((values["x"] - _TARGET["x"]) ** 2 + (values["y"] - _TARGET["y"]) ** 2)
-
-
-def _drive(opt, cost_fn=_quadratic_cost, ask_n: int = 1, guard: int = 20000):
-    """Drive a full ask/tell loop to convergence. Return the running best costs."""
+def drive(opt, ask_n: int = 1, guard: int = 20000) -> list[float]:
+    """Run ask/tell to convergence and return the running best cost."""
     best_curve: list[float] = []
     running = math.inf
     loops = 0
@@ -76,7 +51,7 @@ def _drive(opt, cost_fn=_quadratic_cost, ask_n: int = 1, guard: int = 20000):
             break
         results = []
         for sugg in batch:
-            cost = cost_fn(sugg.values)
+            cost = bowl_cost(sugg.values)
             running = min(running, cost)
             results.append(result_of(sugg, cost))
         opt.tell(results)
@@ -84,13 +59,8 @@ def _drive(opt, cost_fn=_quadratic_cost, ask_n: int = 1, guard: int = 20000):
     return best_curve
 
 
-# ---------------------------------------------------------------------------
-# Deadlock regression: batched ask on a sequential adapter
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(("width", "asked"), [(1, 1), (2, 10), (4, 10)])
-def test_de_hands_out_a_generation_whole_from_a_width_of_two(width: int, asked: int) -> None:
+def test_de_generation_size(width, asked):
     # Two parameters and popsize 5 make a generation of 10.
     opt = ScipyDE(two_dim_space(), seed=0, max_trials=110, popsize=5, width=width)
     try:
@@ -100,8 +70,8 @@ def test_de_hands_out_a_generation_whole_from_a_width_of_two(width: int, asked: 
         opt.close()
 
 
-@pytest.mark.parametrize(("status", "cost"), [("failed", 5.0), ("completed", math.nan)])
-def test_a_result_with_no_usable_cost_is_fed_as_the_failure_cost(status: str, cost: float) -> None:
+@pytest.mark.parametrize(("status", "cost"), UNUSABLE_COSTS)
+def test_de_unusable_cost_is_failure_cost(status, cost):
     opt = ScipyDE(two_dim_space(), seed=0, max_trials=110, popsize=5, width=4)
     fed: list[float] = []
     opt._bridge.feed = fed.append
@@ -115,74 +85,52 @@ def test_a_result_with_no_usable_cost_is_fed_as_the_failure_cost(status: str, co
         opt.close()
 
 
-# ---------------------------------------------------------------------------
-# Cancel-safe close
-# ---------------------------------------------------------------------------
-def test_close_is_cancel_safe_after_early_exit() -> None:
-    """Exiting the loop before convergence and closing must not leave a worker
-    blocked on the next ``tell``."""
+def test_close_after_early_exit():
     opt = ScipyDE(two_dim_space(), seed=0, max_trials=3030, popsize=15, tol=1e-9)
     for _ in range(5):
         batch = opt.ask(1)
         assert batch
-        opt.tell([result_of(s, _quadratic_cost(s.values)) for s in batch])
-    assert not opt.converged()  # budget intentionally not exhausted
+        opt.tell([result_of(s, bowl_cost(s.values)) for s in batch])
+    assert not opt.converged()
     opt.close()
-    # The background worker really terminated (no deadlocked thread survives).
     assert not opt._bridge._thread.is_alive()
-    # close is idempotent.
-    opt.close()
+    opt.close()  # a second close does nothing
 
 
-# ---------------------------------------------------------------------------
-# The budget sets the generations
-# ---------------------------------------------------------------------------
 @pytest.mark.parametrize(("max_trials", "evaluations"), [(60, 60), (65, 70), (5, 20)])
-def test_de_runs_the_generations_its_budget_covers(max_trials: int, evaluations: int) -> None:
+def test_de_budget_in_generations(max_trials, evaluations):
     # Two parameters and popsize 5 give 10 evaluations a generation, the first of
     # them the initial population. A budget of 65 needs 7 of them, and a budget
     # under two generations still runs one after the initial population.
     opt = ScipyDE(two_dim_space(), seed=0, max_trials=max_trials, popsize=5, tol=0.0)
     try:
-        assert len(_drive(opt, ask_n=1, cost_fn=_quadratic_cost)) == evaluations
+        assert len(drive(opt)) == evaluations
     finally:
         opt.close()
 
 
-# ---------------------------------------------------------------------------
-# Convergence on a convex quadratic
-# ---------------------------------------------------------------------------
-
-
-def test_nelder_mead_converges_to_known_minimum() -> None:
+def test_nelder_mead_finds_minimum():
     opt = ScipyNelderMead(two_dim_space(), seed=0, maxiter=200)
     try:
-        _drive(opt, ask_n=3)
-        best = opt.best()
-        assert best is not None
-        assert best.cost < 1e-4
+        drive(opt, ask_n=3)
+        assert opt.best().cost < 1e-4
     finally:
         opt.close()
 
 
-def test_de_seed_is_reproducible() -> None:
-    runs = []
+def test_de_seed_reproducible():
+    costs = []
     for _ in range(2):
         opt = ScipyDE(two_dim_space(), seed=7, max_trials=656, popsize=8, tol=1e-7)
         try:
-            _drive(opt, ask_n=1)
-            runs.append(opt.best().cost)
+            drive(opt)
+            costs.append(opt.best().cost)
         finally:
             opt.close()
-    assert runs[0] == runs[1]
+    assert costs[0] == costs[1]
 
 
-# ---------------------------------------------------------------------------
-# tell semantics
-# ---------------------------------------------------------------------------
-
-
-def test_failed_eval_maps_to_failed_cost_and_is_excluded_from_best() -> None:
+def test_de_best_skips_failed_trial():
     opt = ScipyDE(two_dim_space(), seed=0, max_trials=252, popsize=6, tol=1e-9)
     try:
         first = True
@@ -193,28 +141,20 @@ def test_failed_eval_maps_to_failed_cost_and_is_excluded_from_best() -> None:
             results = []
             for sugg in batch:
                 if first:
-                    # First evaluation fails: must not poison the optimizer.
                     results.append(result_of(sugg, float("nan"), status="failed"))
                     first = False
                 else:
-                    results.append(result_of(sugg, _quadratic_cost(sugg.values)))
+                    results.append(result_of(sugg, bowl_cost(sugg.values)))
             opt.tell(results)
         best = opt.best()
-        # best() only ever returns a completed evaluation, never the failure.
-        assert best is not None
         assert best.status == "completed"
         assert best.cost < FAILED_EVAL_COST
     finally:
         opt.close()
 
 
-# ---------------------------------------------------------------------------
-# Registry
-# ---------------------------------------------------------------------------
-
-
-def test_a_closed_differential_evolution_says_it_has_finished() -> None:
-    adapter = build_optimizer("scipy_de", _space(), seed=1)
+def test_closed_de_is_finished():
+    adapter = build_optimizer("scipy_de", line_space(), seed=1)
     adapter.close()
 
     assert adapter._bridge.finished()
@@ -225,29 +165,29 @@ def test_a_closed_differential_evolution_says_it_has_finished() -> None:
         adapter.suggest_next()
 
 
-def test_a_simplex_with_no_call_left_has_nothing_to_suggest() -> None:
-    adapter = ScipyNelderMead(_space(), maxfev=1)
+def test_simplex_without_call_left():
+    adapter = ScipyNelderMead(line_space(), maxfev=1)
     (only,) = adapter.ask(5)
-    adapter.tell([_bowl(only)])
+    adapter.tell([line_bowl(only)])
 
     with pytest.raises(StopIteration, match="scipy optimizer finished"):
         adapter.suggest_next()
 
 
-def test_a_result_naming_no_pending_trial_answers_the_oldest_one() -> None:
-    adapter = ScipyNelderMead(_space())
+def test_unknown_trial_answers_oldest():
+    adapter = ScipyNelderMead(line_space())
     first, second = adapter.ask(2)
 
     adapter.tell([EvaluationResult(trial_id=99, sim_id=None, cost=math.nan, status="failed")])
-    adapter.tell([_bowl(second)])
+    adapter.tell([line_bowl(second)])
 
     assert adapter._simplex.used[0].value == FAILED_EVAL_COST
     assert first.trial_id == 1
 
 
-@pytest.mark.parametrize(("status", "cost"), [("failed", 5.0), ("completed", math.nan)])
-def test_a_simplex_reads_a_result_with_no_usable_cost_as_the_failure_cost(status, cost) -> None:
-    adapter = ScipyNelderMead(_space())
+@pytest.mark.parametrize(("status", "cost"), UNUSABLE_COSTS)
+def test_simplex_unusable_cost_is_failure_cost(status, cost):
+    adapter = ScipyNelderMead(line_space())
     (first, *_) = adapter.ask(2)
 
     adapter.tell([EvaluationResult(trial_id=first.trial_id, sim_id=None, cost=cost, status=status)])
@@ -255,10 +195,10 @@ def test_a_simplex_reads_a_result_with_no_usable_cost_as_the_failure_cost(status
     assert adapter._simplex.used[0].value == FAILED_EVAL_COST
 
 
-def test_a_result_with_nothing_pending_is_dropped() -> None:
-    adapter = ScipyNelderMead(_space(), maxfev=1)
+def test_result_with_nothing_pending_dropped():
+    adapter = ScipyNelderMead(line_space(), maxfev=1)
     (only,) = adapter.ask(1)
-    adapter.tell([_bowl(only)])
+    adapter.tell([line_bowl(only)])
 
     adapter.tell([EvaluationResult(trial_id=7, sim_id=None, cost=1.0, status="completed")])
 

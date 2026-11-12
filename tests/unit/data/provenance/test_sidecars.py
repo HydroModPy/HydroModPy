@@ -25,20 +25,6 @@ from hydromodpy.data.provenance.sidecars import (
 from hydromodpy.schema.changes import migrations_of, read
 
 
-def _make_sidecar() -> Sidecar:
-    return Sidecar(
-        source="IGN BD ALTI 25m",
-        fetched_at=datetime(2025, 8, 12, 10, 30, tzinfo=UTC),
-        sha256="abc123" + "0" * 58,
-        license="etalab-2.0",
-        crs="EPSG:2154",
-        bbox=(200000.0, 6700000.0, 350000.0, 6850000.0),
-        notes="Crop manuel sur le Massif Armoricain",
-        variable="dem",
-        bytes=11,
-    )
-
-
 def test_load_sidecar_missing_file_raises(tmp_path: Path):
     target = tmp_path / "no_sidecar.tif"
     target.write_bytes(b"r")
@@ -124,7 +110,7 @@ _ROWS = {
 
 
 @pytest.mark.parametrize(("rows", "written", "read_as"), _ROWS.values(), ids=_ROWS.keys())
-def test_a_sidecar_is_read_under_the_names_the_register_gives(
+def test_read_under_the_register_names(
     rows: str, written: dict, read_as: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     register = read(_HEAD + rows)
@@ -143,9 +129,6 @@ def test_a_sidecar_is_read_under_the_names_the_register_gives(
     assert all(key not in dumped for key in written if key not in read_as)
 
 
-# -- the fields the data cache reads ---------------------------------------
-
-
 def _chronicle_sidecar(**fields: object) -> Sidecar:
     base = {
         "source": "hubeau",
@@ -160,15 +143,6 @@ def _chronicle_sidecar(**fields: object) -> Sidecar:
     return Sidecar(**{**base, **fields})
 
 
-_OMITTED = {
-    "a station": ("station_id", {"station_id": None}),
-    "a product": ("product", {"product": None}),
-    "a window": ("asked_window", {"asked_window": None}),
-    "provider keys": ("fetch_metadata", {"fetch_metadata": None}),
-    "the empty mark": ("empty", {}),
-}
-
-
 _INVALID = {
     "an empty sidecar with a digest": {"empty": True, "bytes": None},
     "an empty sidecar with a size": {"empty": True, "sha256": None},
@@ -177,12 +151,9 @@ _INVALID = {
 
 
 @pytest.mark.parametrize("fields", _INVALID.values(), ids=_INVALID.keys())
-def test_the_digest_and_the_size_follow_the_empty_mark(fields: dict) -> None:
+def test_digest_and_size_follow_the_empty_mark(fields: dict) -> None:
     with pytest.raises(ValidationError):
         _chronicle_sidecar(**fields)
-
-
-# -- the scan and its name rules -------------------------------------------
 
 
 def _put(path: Path, sidecar: Sidecar | None = None, *, with_file: bool = True) -> Path:
@@ -192,17 +163,6 @@ def _put(path: Path, sidecar: Sidecar | None = None, *, with_file: bool = True) 
     if sidecar is not None:
         write_sidecar(path, sidecar)
     return path
-
-
-_IGNORED = {
-    "a lock": "hydrometry/.hydrometry_hubeau_J1.lock",
-    "a write in progress": "hydrometry/.x.csv.json.123.part",
-    "a hidden folder": ".hmp/hydrometry/x.csv",
-    "a hidden file": "hydrometry/.hidden.csv",
-    "the blobs folder": "blobs/geology/file/mine_clip_1.gpkg",
-    "the sites folder": "sites/catalog.csv",
-    "tiles extracted from an archive": "dem/extracted_ign/D029/tile.asc",
-}
 
 
 def test_the_name_rules_say_why() -> None:
@@ -270,6 +230,6 @@ def test_a_prune_needs_the_digests_it_keeps(tmp_path: Path) -> None:
         sidecars.prune(tmp_path)  # type: ignore[call-arg]
 
 
-def test_a_fetched_file_sidecar_still_needs_its_digest() -> None:
+def test_a_fetched_file_needs_its_digest() -> None:
     with pytest.raises(ValidationError, match="sha256"):
         Sidecar(source="ign", variable="dem")

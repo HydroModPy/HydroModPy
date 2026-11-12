@@ -1,61 +1,38 @@
+"""Active-network masks of a run: which cells carry water, by mode and flow regime."""
+
 from __future__ import annotations
+
+from types import SimpleNamespace
 
 import numpy as np
 
 from hydromodpy.results.derive import views
 
 
-class _FakeZarr:
-    def __init__(self, n_cells: int, stack: np.ndarray) -> None:
-        self.root = {"mesh": {"topography": np.ones(n_cells, dtype="float64")}}
-        self._stack = stack
-
-    def read_field(self, _variable: str, timestep: int, *, layer: int | None = None) -> np.ndarray:
-        return self._stack[timestep]
-
-    def close(self) -> None:
-        return None
-
-
-class _FakeCatalog:
-    def __init__(self, n_cells: int, stack: np.ndarray) -> None:
-        self._n_cells = n_cells
-        self._stack = stack
-
-    def open_zarr(self, _sim_id: str) -> _FakeZarr:
-        return _FakeZarr(self._n_cells, self._stack)
-
-
-class _FakeRun:
-    def __init__(self, *, flow_regime: str, stack: np.ndarray) -> None:
-        self.flow_regime = flow_regime
-        self.n_timesteps = stack.shape[0]
-        self._stack = stack
-        self._sim_id = "fake"
-        self._catalog = _FakeCatalog(stack.shape[1], stack)
-
-    def _load_row(self) -> dict[str, str]:
-        return {"flow_regime": self.flow_regime}
-
-
-def _fake_run(flow_regime: str) -> _FakeRun:
-    stack = np.asarray(
-        [
-            [1.0, 0.0, 1.0],
-            [0.0, 0.0, 1.0],
-        ],
-        dtype="float64",
+def fake_run(flow_regime: str) -> SimpleNamespace:
+    """A run of two timesteps over three cells, reduced to what the active mask reads."""
+    stack = np.array([[1.0, 0.0, 1.0], [0.0, 0.0, 1.0]])
+    zarr_store = SimpleNamespace(
+        root={"mesh": {"topography": np.ones(stack.shape[1])}},
+        read_field=lambda _variable, timestep, layer=None: stack[timestep],
+        close=lambda: None,
     )
-    return _FakeRun(flow_regime=flow_regime, stack=stack)
+    return SimpleNamespace(
+        flow_regime=flow_regime,
+        n_timesteps=stack.shape[0],
+        _sim_id="fake",
+        _catalog=SimpleNamespace(open_zarr=lambda _sim_id: zarr_store),
+        _load_row=lambda: {"flow_regime": flow_regime},
+    )
 
 
-def test_active_network_default_mode_uses_persistent_cells_for_transient_runs() -> None:
-    mask = views.cell_field_active_mask(_fake_run("transient"))
+def test_default_mode_persistent_cells() -> None:
+    mask = views.cell_field_active_mask(fake_run("transient"))
 
     np.testing.assert_array_equal(mask, np.asarray([1.0, 0.0, 1.0]))
 
 
-def test_active_network_perennial_alias_resolves_to_always_active() -> None:
-    sim = _fake_run("transient")
+def test_perennial_alias() -> None:
+    sim = fake_run("transient")
 
     assert views.resolve_cell_field_active_mode(sim, "perennial") == "always_active"

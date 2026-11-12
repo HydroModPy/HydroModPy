@@ -18,12 +18,13 @@ from hydromodpy.results.metric_rule import (
     PeriodWindow,
     calibration_extent,
 )
+from hydromodpy.results.storage.parquet_schemas import SIMULATION_SCHEMA
 
 WINDOW = DateWindow(start=date(2016, 1, 1), end=date(2016, 12, 31))
 RULE = MetricRule(station="J0014010", window=WINDOW)
 
 
-def test_the_window_is_ordered_and_the_rule_refuses_unknown_keys():
+def test_window_order_and_unknown_keys():
     with pytest.raises(ValidationError, match="before it starts"):
         DateWindow(start=date(2020, 1, 1), end=date(2016, 1, 1))
     with pytest.raises(ValidationError, match="stations"):
@@ -31,9 +32,7 @@ def test_the_window_is_ordered_and_the_rule_refuses_unknown_keys():
     assert WINDOW.contains(date(2016, 6, 1)) and not WINDOW.contains(date(2015, 12, 31))
 
 
-def test_the_score_columns_are_the_ones_of_the_simulation_table():
-    from hydromodpy.results.storage.parquet_schemas import SIMULATION_SCHEMA
-
+def test_score_columns():
     # The table of a run keeps the one headline period: its name and role are constants.
     columns = set(MetricScore.model_fields) - {"metric", "value", "window_name", "window_role"}
     assert columns == {
@@ -50,7 +49,7 @@ def test_the_score_columns_are_the_ones_of_the_simulation_table():
     assert not {"window_name", "n_clipped"} & set(SIMULATION_SCHEMA.names)
 
 
-def test_a_period_gives_each_case_its_own_days_and_the_search_the_span_of_its_calibration():
+def test_period_window():
     own = DateWindow(start=date(2010, 1, 1), end=date(2012, 12, 31))
     period = PeriodWindow(
         role=CALIBRATION_ROLE, start=date(2010, 1, 1), end=date(2014, 12, 31), by_case={"a": own}
@@ -68,14 +67,7 @@ def test_a_period_gives_each_case_its_own_days_and_the_search_the_span_of_its_ca
         PeriodWindow(role=CALIBRATION_ROLE, start=date(2014, 1, 1), end=date(2010, 1, 1))
 
 
-def _config(**sections):
-    """The two sections a rule is read from, as a configuration exposes them."""
-    from types import SimpleNamespace
-
-    return SimpleNamespace(metrics=sections.get("metrics"), site=sections.get("site"))
-
-
-def test_a_rule_reads_the_headline_window_under_the_current_version():
+def test_headline_rule():
     assert (RULE.version, RULE.window_name, RULE.window_role) == (
         METRIC_RULE_VERSION,
         HEADLINE_WINDOW,

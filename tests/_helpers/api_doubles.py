@@ -9,36 +9,3 @@ path: ``from tests._helpers.api_doubles import CapturingProject``.
 from __future__ import annotations
 
 from typing import Any
-
-
-def make_capturing_project(
-    captured: dict[str, Any],
-    *,
-    result: Any,
-    verb: str,
-) -> type:
-    """Build a Project double that records init args and the verb kwargs.
-
-    ``captured`` collects ``init_cfg``, ``init_headless``, ``verb_kwargs`` and
-    ``closed``. ``verb`` is the method name to expose (``simulate`` or
-    ``calibrate``) returning ``result``.
-    """
-
-    class CapturingProject:
-        def __init__(self, cfg: Any, *, headless: bool = True, **_: Any) -> None:
-            captured["init_cfg"] = cfg
-            captured["init_headless"] = headless
-            self.config = self._cfg = cfg
-
-        def __enter__(self) -> CapturingProject:
-            return self
-
-        def __exit__(self, *exc: object) -> None:
-            captured["closed"] = True
-
-        def _verb(self, **kwargs: Any) -> Any:
-            captured["verb_kwargs"] = kwargs
-            return result
-
-    setattr(CapturingProject, verb, CapturingProject._verb)
-    return CapturingProject

@@ -15,7 +15,7 @@ SUPPORT = raster_support(2, 2, cell=1.0, x0=0.0, y0=0.0)
 VALUES = np.array([[10.0, 20.0], [30.0, -9999.0]])
 
 
-def test_the_sampler_reads_bilinear_values_and_masks_nodata() -> None:
+def test_bilinear_sampling() -> None:
     sampler = PreparedSurfaceSampler.from_surface(Surface("topo", VALUES, SUPPORT))
     x, y = np.array([0.5, 1.0, 1.5]), np.array([1.5, 1.0, 0.5])
 
@@ -30,7 +30,7 @@ def test_the_sampler_reads_bilinear_values_and_masks_nodata() -> None:
     [None, replace(SUPPORT, dx=None), replace(SUPPORT, nrows=None), replace(SUPPORT, dx=0.0)],
     ids=["no_support", "no_cell_size", "no_shape", "zero_cell_size"],
 )
-def test_a_support_that_places_no_cell_samples_nan(support) -> None:
+def test_no_cell_support_gives_nan(support) -> None:
     sampler = PreparedSurfaceSampler.from_surface(Surface("topo", VALUES, support))
 
     assert np.all(np.isnan(sampler.sample(np.array([0.5, 1.0]), np.array([0.5, 1.0]))))
@@ -45,7 +45,7 @@ def test_a_support_that_places_no_cell_samples_nan(support) -> None:
     ],
     ids=["no_surface", "x_and_y_differ", "points_not_xy"],
 )
-def test_a_request_with_no_coordinates_to_read_is_refused(call, match) -> None:
+def test_refusals(call, match) -> None:
     sampler = PreparedSurfaceSampler.from_surface(Surface("topo", VALUES, SUPPORT))
 
     with pytest.raises(ValueError, match=match):

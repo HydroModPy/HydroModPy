@@ -1,4 +1,4 @@
-"""Tests of `runners.worker_pool`: real spawned workers, on evaluators that need no solver."""
+"""Spawned trial workers: pool, process groups and limits, on evaluators that need no solver."""
 
 from __future__ import annotations
 
@@ -164,7 +164,7 @@ def _child_of_the_hanging_trial_is_dead(tmp_path: Path) -> bool:
     return not _alive(int((tmp_path / "child.pid").read_text()))
 
 
-def test_a_trial_in_a_process_gives_the_digits_of_a_trial_in_a_thread(tmp_path: Path) -> None:
+def test_process_matches_thread(tmp_path: Path) -> None:
     fill_trial_pipeline()
     cfg = SimpleNamespace(
         objective="nse", variable="head", reject_water_budget_above=None, persist_trial_series=False
@@ -195,7 +195,7 @@ class _Substitute:
         return TrialOutcome(cost=0.5, status="completed", duration_s=0.0)
 
 
-def test_a_pool_without_an_installed_pipeline_serves_an_evaluator_that_needs_no_model(
+def test_pool_without_pipeline(
     monkeypatch,
 ) -> None:
     """A substitute evaluator reads no pipeline, so its pool starts without one."""
@@ -213,9 +213,7 @@ def _burst() -> None:
     raise RuntimeError("the initializer is broken")
 
 
-def test_an_initializer_that_fails_costs_its_trial_with_the_reason(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_failing_initializer(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(trial_module, "_PIPELINE", None)
     monkeypatch.setattr(trial_module, "_INITIALIZER", f"{__name__}:_burst")
     trial_ctx = _trial_ctx(tmp_path)
@@ -225,7 +223,7 @@ def test_an_initializer_that_fails_costs_its_trial_with_the_reason(
             _ask(pool, 1, 0.5)
 
 
-def test_the_parent_decides_which_solves_stay_and_a_worker_lasts(tmp_path: Path) -> None:
+def test_parent_keeps_solves(tmp_path: Path) -> None:
     retention = TrialSolveRetention(1)
     trial_ctx = _trial_ctx(tmp_path, kept_solves=retention)
     with _pool(trial_ctx) as pool:
@@ -246,7 +244,7 @@ def test_the_parent_decides_which_solves_stay_and_a_worker_lasts(tmp_path: Path)
         _ask(pool, 4, 0.1)
 
 
-def test_a_dead_worker_costs_its_trial_alone_and_a_stop_kills_a_solving_one(tmp_path: Path) -> None:
+def test_dead_worker_and_stop(tmp_path: Path) -> None:
     trial_ctx = _trial_ctx(tmp_path)
     with _pool(trial_ctx) as pool:
         before = _ask(pool, 1, 0.5)
@@ -266,7 +264,7 @@ def test_a_dead_worker_costs_its_trial_alone_and_a_stop_kills_a_solving_one(tmp_
     assert _child_of_the_hanging_trial_is_dead(tmp_path)
 
 
-def test_half_an_answer_costs_its_trial_alone(tmp_path: Path) -> None:
+def test_half_answer(tmp_path: Path) -> None:
     with _pool(_trial_ctx(tmp_path)) as pool:
         half = _ask(pool, 1, HALF)
         after = _ask(pool, 2, 0.25)
@@ -277,7 +275,7 @@ def test_half_an_answer_costs_its_trial_alone(tmp_path: Path) -> None:
     assert (after.status, after.cost) == ("completed", 0.25)
 
 
-def test_an_exception_of_a_worker_stops_the_search_with_its_reason(tmp_path: Path) -> None:
+def test_worker_exception_stops_search(tmp_path: Path) -> None:
     trial_ctx = _trial_ctx(tmp_path)
     with _pool(trial_ctx) as pool:
         with pytest.raises(CalibrationError, match=r"Trial 3 failed .*ValueError: the real reason"):
@@ -288,7 +286,7 @@ def test_an_exception_of_a_worker_stops_the_search_with_its_reason(tmp_path: Pat
     assert (after.status, after.cost) == ("completed", 0.25)
 
 
-def test_a_worker_whose_setup_fails_tells_the_parent_why() -> None:
+def test_worker_setup_failure() -> None:
     conn = Mock(recv_bytes=Mock(return_value=b"not a state"))
 
     _serve(conn)
@@ -297,7 +295,7 @@ def test_a_worker_whose_setup_fails_tells_the_parent_why() -> None:
     assert isinstance(error, pickle.UnpicklingError)
 
 
-def test_a_pool_is_refused_in_a_worker_with_the_guard_to_write(monkeypatch) -> None:
+def test_pool_refused_in_worker(monkeypatch) -> None:
     monkeypatch.setattr(mp.current_process(), "name", "SpawnProcess-1")
     with pytest.raises(CalibrationError, match=r"parallel = 2 .*if __name__ == .*__main__.*:"):
         TrialWorkerPool(_Scripted, {}, width=2)
@@ -315,7 +313,7 @@ pool.evaluate(module.TrialRequest(trial_id=1, values={"cost": module.HANG}))
 """
 
 
-def test_workers_do_not_outlive_a_parent_killed_hard(tmp_path: Path) -> None:
+def test_workers_die_with_parent(tmp_path: Path) -> None:
     argv = [json.dumps(sys.path), __name__, str(tmp_path)]
     parent = subprocess.Popen([sys.executable, "-c", _PARENT_OF_A_HANGING_POOL, *argv])
     try:
@@ -337,7 +335,7 @@ def test_workers_do_not_outlive_a_parent_killed_hard(tmp_path: Path) -> None:
     assert not _alive(worker) and not _alive(child)
 
 
-def test_a_trial_past_its_limit_is_killed_with_the_solver_it_started(tmp_path: Path) -> None:
+def test_trial_limit_kills_solver(tmp_path: Path) -> None:
     trial_ctx = _trial_ctx(tmp_path)
     options = SimpleNamespace(wall_clock_limit_s=30.0)
     trial_ctx.base_cfg = SimpleNamespace(solver=_SolverWithTimeout(options))
@@ -357,7 +355,7 @@ def test_a_trial_past_its_limit_is_killed_with_the_solver_it_started(tmp_path: P
     assert after.status == "completed" and after.components != before.components
 
 
-def test_the_limit_is_the_default_without_an_options_table(tmp_path: Path) -> None:
+def test_default_limit(tmp_path: Path) -> None:
     with _pool(_trial_ctx(tmp_path)) as pool:
         assert pool._limit_s == DEFAULT_TRIAL_LIMIT_S == 14400.0
 
@@ -373,9 +371,7 @@ def test_the_limit_is_the_default_without_an_options_table(tmp_path: Path) -> No
         ("boussinesq", {"wall_clock_limit_s": 600.0}, 600.0),
     ],
 )
-def test_each_backend_table_sets_the_limit_of_a_trial(
-    backend: str, table: dict[str, object], limit: float
-) -> None:
+def test_backend_limit(backend: str, table: dict[str, object], limit: float) -> None:
     from hydromodpy.solver.base.solver_config import SolverConfig
 
     solver = SolverConfig.model_validate({"backend": backend, backend: table})
@@ -384,7 +380,7 @@ def test_each_backend_table_sets_the_limit_of_a_trial(
     assert worker_pool._wall_clock_limit(trial_ctx) == limit
 
 
-def test_a_state_that_cannot_cross_is_refused_with_what_to_write(tmp_path: Path) -> None:
+def test_unpicklable_state_refused(tmp_path: Path) -> None:
     options = {"trial_ctx": _trial_ctx(tmp_path), "metric_fn": lambda: None}
     with pytest.raises(CalibrationError, match=r"parallel = 3 .*top level.*parallel = 1"):
         TrialWorkerPool(_Scripted, options, width=3)
@@ -393,7 +389,7 @@ def test_a_state_that_cannot_cross_is_refused_with_what_to_write(tmp_path: Path)
 @pytest.mark.parametrize(
     ("keeps_solves", "registered"), [(False, False), (True, False), (False, True)]
 )
-def test_a_worker_sends_the_outcome_the_rows_and_the_solve_it_kept(
+def test_worker_sends_outcome(
     tmp_path: Path, keeps_solves: bool, registered: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """In this process, because a coverage run does not see a spawned worker."""
@@ -428,9 +424,7 @@ class _Sinkless(_Scripted):
         return TrialOutcome(cost=1.0, status="completed", duration_s=0.0)
 
 
-def test_a_worker_whose_evaluator_has_no_series_sink_sends_no_rows(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_no_sink_no_rows(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(registry.evaluators, "classes", {})
     state = pickle.dumps(
         (_Sinkless, {"trial_ctx": _trial_ctx(tmp_path)}, False, current_verbosity(), None, None)
@@ -445,7 +439,7 @@ def test_a_worker_whose_evaluator_has_no_series_sink_sends_no_rows(
     assert conn.send.call_args.args[0][1:] == ([], None)
 
 
-def test_a_worker_leaves_its_group_silences_fd_one_and_serves(monkeypatch) -> None:
+def test_worker_main_posix(monkeypatch) -> None:
     calls = []
     monkeypatch.setattr(worker_pool.os, "setsid", lambda: calls.append("setsid"))
     monkeypatch.setattr(
@@ -474,7 +468,7 @@ def test_a_worker_leaves_its_group_silences_fd_one_and_serves(monkeypatch) -> No
     ]
 
 
-def test_a_worker_kills_its_group_when_the_parent_goes(monkeypatch) -> None:
+def test_worker_kills_group(monkeypatch) -> None:
     kills = []
     monkeypatch.setattr(worker_pool.mp, "parent_process", lambda: SimpleNamespace(sentinel="s"))
     monkeypatch.setattr(worker_pool, "wait", lambda sentinels: kills.append(sentinels))
@@ -485,7 +479,7 @@ def test_a_worker_kills_its_group_when_the_parent_goes(monkeypatch) -> None:
     assert kills == [["s"], (os.getpid(), signal.SIGKILL)]
 
 
-def test_end_group_under_windows_asks_taskkill_for_the_whole_tree(monkeypatch) -> None:
+def test_end_group_windows(monkeypatch) -> None:
     runs = []
     monkeypatch.setattr(worker_pool.os, "name", "nt")
     monkeypatch.setattr(
@@ -505,7 +499,7 @@ def test_end_group_under_windows_asks_taskkill_for_the_whole_tree(monkeypatch) -
     ]
 
 
-def test_a_worker_under_windows_does_not_open_a_session(monkeypatch) -> None:
+def test_worker_main_windows(monkeypatch) -> None:
     monkeypatch.setattr(worker_pool.os, "name", "nt")
     monkeypatch.setattr(
         worker_pool.os, "setsid", lambda: pytest.fail("no session under Windows"), raising=False
@@ -521,7 +515,7 @@ def test_a_worker_under_windows_does_not_open_a_session(monkeypatch) -> None:
 
 
 @pytest.mark.skipif(os.name == "nt", reason="process groups are POSIX")
-def test_end_group_under_posix_kills_the_leader_and_its_child() -> None:
+def test_end_group_posix() -> None:
     code = (
         "import os, subprocess, sys, time\n"
         "os.setsid()\n"
@@ -570,7 +564,7 @@ _AT = datetime(2026, 11, 11, tzinfo=UTC)
 
 
 @pytest.mark.parametrize("derives", [True, False], ids=["derived model", "built model"])
-def test_a_worker_keeps_its_own_lane_from_one_trial_to_the_next_and_sends_the_profile(
+def test_worker_lane_and_profile(
     tmp_path: Path, derives: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(registry.evaluators, "classes", {})
@@ -596,7 +590,7 @@ def test_a_worker_keeps_its_own_lane_from_one_trial_to_the_next_and_sends_the_pr
     ]
 
 
-def test_the_state_sent_to_a_worker_carries_no_lane(tmp_path: Path) -> None:
+def test_worker_state_has_no_lane(tmp_path: Path) -> None:
     trial_ctx = _trial_ctx(tmp_path, model_from_profiles=True)
     trial_ctx.parents = TrialParents.of(trial_ctx)
     with closing(TrialWorkerPool(_Scripted, {"trial_ctx": trial_ctx}, width=1)) as pool:
@@ -607,9 +601,7 @@ def test_the_state_sent_to_a_worker_carries_no_lane(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("key", ["island.p123", None])
-def test_the_state_sent_to_a_worker_carries_the_scratch_of_its_run(
-    tmp_path: Path, key: str | None
-) -> None:
+def test_worker_state_has_run_scratch(tmp_path: Path, key: str | None) -> None:
     import contextvars
 
     from hydromodpy.core.state.scratch import RUN_SCRATCH

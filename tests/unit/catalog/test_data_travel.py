@@ -1,8 +1,12 @@
-"""Tests of data travel."""
+"""Export of a project or a run as a package, and its import in another workspace.
+
+Files are named by their destination in the workspace. Station rows, cache rows and the site row merge into
+the registries of the workspace, and a conflicting digest refuses the import and writes nothing."""
 
 from __future__ import annotations
 
 import json
+import tarfile
 from datetime import datetime
 from pathlib import Path
 
@@ -82,7 +86,7 @@ def _package(tmp_path: Path, *extras: str) -> Path:
     )
 
 
-def test_with_runs_and_fetched_the_package_takes_the_runs_and_what_the_providers_gave(
+def test_import_project_with_runs(
     tmp_path,
 ) -> None:
     package = _package(tmp_path, "runs", "fetched")
@@ -105,7 +109,7 @@ def test_with_runs_and_fetched_the_package_takes_the_runs_and_what_the_providers
     assert imported.install.sites_added == ["J0014010"]
 
 
-def test_a_data_file_with_other_bytes_refuses_the_import_and_leaves_no_project(tmp_path) -> None:
+def test_import_project_refuses_other_bytes(tmp_path) -> None:
     package = _package(tmp_path)
     workspace = tmp_path / "colleague"
     make_workspace(workspace, project="other")
@@ -135,7 +139,7 @@ def _mesh_product(store: Path, key: str, *, kind: str = "mesh") -> None:
     )
 
 
-def test_with_mesh_the_package_takes_the_mesh_products_the_runs_cite(tmp_path) -> None:
+def test_package_takes_cited_mesh(tmp_path) -> None:
     project = _project(tmp_path)
     run = project / "runs" / RUN_NAME
     write_cited(run, [CitedProduct(kind="mesh", key="a" * 64)])
@@ -167,7 +171,7 @@ def test_with_mesh_the_package_takes_the_mesh_products_the_runs_cite(tmp_path) -
     assert imported.legacy_mesh_cache == ()
 
 
-def test_with_mesh_a_cited_key_missing_from_the_store_is_skipped(tmp_path, caplog) -> None:
+def test_package_skips_missing_mesh(tmp_path, caplog) -> None:
     project = _project(tmp_path)
     run = project / "runs" / RUN_NAME
     write_cited(run, [CitedProduct(kind="mesh", key="a" * 64)])
@@ -183,8 +187,6 @@ def test_with_mesh_a_cited_key_missing_from_the_store_is_skipped(tmp_path, caplo
         root_config=ROOT_CONFIG,
     )
 
-    import tarfile
-
     unpacked = tmp_path / "unpacked"
     with tarfile.open(package) as archive:
         archive.extractall(unpacked, filter="data")
@@ -192,7 +194,7 @@ def test_with_mesh_a_cited_key_missing_from_the_store_is_skipped(tmp_path, caplo
     assert "Skipped 1 mesh product" in caplog.text
 
 
-def test_the_commands_export_and_import_a_project(tmp_path) -> None:
+def test_project_commands(tmp_path) -> None:
     project = _project(tmp_path)
     workspace = tmp_path / "colleague"
     make_workspace(workspace, project="other")
@@ -221,9 +223,7 @@ def test_the_commands_export_and_import_a_project(tmp_path) -> None:
 # workspace that imports.
 
 
-def test_the_row_of_a_sealed_mesh_is_not_a_file_of_the_workspace(tmp_path) -> None:
-    import json
-
+def test_mesh_row_is_no_file(tmp_path) -> None:
     run_dir = make_shared_run(tmp_path / "ws")
     path = run_dir / "inputs.json"
     document = json.loads(path.read_text(encoding="utf-8"))
@@ -267,7 +267,7 @@ def _target(tmp_path: Path) -> tuple[Path, Path]:
     return workspace, make_workspace(workspace, project="lab")
 
 
-def test_station_rows_merge_into_the_registry_of_the_workspace(tmp_path) -> None:
+def test_station_rows_merge(tmp_path) -> None:
     copy = _copy(tmp_path)
     workspace, project = _target(tmp_path)
     registry = workspace / "data" / "hydrometry" / "hydrometry_custom_LOC.csv"
@@ -286,7 +286,7 @@ def test_station_rows_merge_into_the_registry_of_the_workspace(tmp_path) -> None
     assert len(imported.install.stations_written) == 2
 
 
-def test_a_station_row_the_registry_holds_otherwise_refuses_the_import(tmp_path) -> None:
+def test_station_conflict_refuses(tmp_path) -> None:
     copy = _copy(tmp_path)
     workspace, project = _target(tmp_path)
     registry = workspace / "data" / "hydrometry" / "hydrometry_custom_LOC.csv"
@@ -298,7 +298,7 @@ def test_a_station_row_the_registry_holds_otherwise_refuses_the_import(tmp_path)
     assert not (workspace / "data" / "dem").exists()
 
 
-def test_a_delivered_file_is_registered_so_a_run_finds_it_in_the_cache(tmp_path) -> None:
+def test_delivered_file_is_cached(tmp_path) -> None:
     copy = _copy(tmp_path)
     workspace, project = _target(tmp_path)
 
@@ -323,7 +323,7 @@ def test_a_delivered_file_is_registered_so_a_run_finds_it_in_the_cache(tmp_path)
     assert entry.bytes == served.stat().st_size
 
 
-def test_a_station_the_cache_serves_from_other_bytes_refuses_the_import(tmp_path) -> None:
+def test_cache_conflict_refuses(tmp_path) -> None:
     copy = _copy(tmp_path)
     workspace, project = _target(tmp_path)
     theirs = (
@@ -340,7 +340,7 @@ def test_a_station_the_cache_serves_from_other_bytes_refuses_the_import(tmp_path
     assert not (workspace / "data" / "hydrometry" / HUBEAU_FILE).exists()
 
 
-def test_the_site_merges_into_the_catalog_and_another_outlet_is_refused(tmp_path) -> None:
+def test_site_merges_or_refuses(tmp_path) -> None:
     copy = _copy(tmp_path)
     workspace, project = _target(tmp_path)
 
@@ -350,7 +350,7 @@ def test_the_site_merges_into_the_catalog_and_another_outlet_is_refused(tmp_path
     (row,) = read_catalog(workspace)
     assert (row.site, row.gauge, row.uri) == ("J0014010", "J0014010", "hubeau:J0014010")
 
-    other_workspace, other_project = tmp_path / "third", None
+    other_workspace = tmp_path / "third"
     other_project = make_workspace(other_workspace, project="lab")
     write_catalog(
         other_workspace,
@@ -360,7 +360,7 @@ def test_the_site_merges_into_the_catalog_and_another_outlet_is_refused(tmp_path
         import_run(other_project, copy)
 
 
-def test_the_command_says_what_it_installed_and_how_to_replay(tmp_path) -> None:
+def test_catalog_import_command(tmp_path) -> None:
     copy = _copy(tmp_path)
     _, project = _target(tmp_path)
 

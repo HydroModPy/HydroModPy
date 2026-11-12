@@ -1,4 +1,8 @@
-"""Tests of FAIR export views (STAC and PROV) moved to the annex."""
+"""Writing the STAC, PROV and RO-Crate views inside a sealed run or job directory.
+
+The seal stays intact, a document of a later version is refused by name, and an
+extent in a bbox (metres in the CRS of the data) is reprojected to WGS84 degrees.
+"""
 
 from __future__ import annotations
 
@@ -211,127 +215,126 @@ def _read(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-class TestARunDirectory:
-    def test_the_views_stay_out_of_the_seal_and_inside_the_layout(self, tmp_path: Path) -> None:
-        run_dir = _run_directory(tmp_path)
-        write_views(run_dir)
-        inventoried = {entry["path"] for entry in list_artifacts(run_dir)}
-        assert not inventoried & GENERATED_VIEWS
-        assert {entry.name for entry in run_dir.iterdir()} <= ALLOWED_RUN_ENTRIES
+def test_run_views_stay_outside_the_seal(tmp_path: Path) -> None:
+    run_dir = _run_directory(tmp_path)
+    write_views(run_dir)
+    inventoried = {entry["path"] for entry in list_artifacts(run_dir)}
+    assert not inventoried & GENERATED_VIEWS
+    assert {entry.name for entry in run_dir.iterdir()} <= ALLOWED_RUN_ENTRIES
 
 
-class TestAJobDirectory:
-    @pytest.mark.parametrize(
-        "document", ["manifest.json", "inputset.json", "provenance.json", "outcome.json"]
-    )
-    def test_a_document_of_a_later_version_is_refused_by_name(
-        self, document: str, tmp_path: Path
-    ) -> None:
-        job = _job_directory(tmp_path)
-        target = job.root / document
-        payload = _read(target)
-        if "manifest_version" in payload:
-            payload["manifest_version"] = 9
-        else:
-            payload["schema"] = re.sub(r"\d+$", "9", payload["schema"])
-        target.write_text(json.dumps(payload), encoding="utf-8")
+@pytest.mark.parametrize(
+    "document", ["manifest.json", "inputset.json", "provenance.json", "outcome.json"]
+)
+def test_later_version_is_refused_by_name(document: str, tmp_path: Path) -> None:
+    job = _job_directory(tmp_path)
+    target = job.root / document
+    payload = _read(target)
+    if "manifest_version" in payload:
+        payload["manifest_version"] = 9
+    else:
+        payload["schema"] = re.sub(r"\d+$", "9", payload["schema"])
+    target.write_text(json.dumps(payload), encoding="utf-8")
 
-        with pytest.raises(SchemaVersionMismatchError, match=document):
-            write_views(job.root)
-
-    def test_the_views_land_inside_the_job_and_leave_the_seal_intact(self, tmp_path: Path) -> None:
-        job = _job_directory(tmp_path)
-        manifest_before = job.manifest_path.read_bytes()
-        written = write_views(job.root)
-        assert {path.parent for path in written} == {job.root}
-        assert job.manifest_path.read_bytes() == manifest_before
-        assert verify_job(job).ok
-        assert {entry.name for entry in job.root.iterdir()} <= ALLOWED_JOB_ENTRIES
-
-    def test_the_extent_a_worker_measured_is_reprojected_to_wgs84(self, tmp_path: Path) -> None:
-        spatial = SpatialExtent(bbox=NANCON_BBOX_L93, crs="EPSG:2154")
-        job = _job_directory(tmp_path, spatial=spatial)
+    with pytest.raises(SchemaVersionMismatchError, match=document):
         write_views(job.root)
-        item = _read(job.root / STAC_ITEM_VIEW_FILENAME)
-        xmin, ymin, xmax, ymax = item["bbox"]
-        assert -1.4 < xmin < xmax < -1.0
-        assert 48.2 < ymin < ymax < 48.6
-        assert item["geometry"]["type"] == "Polygon"
-        assert item["properties"]["proj:epsg"] == 2154
-        crate = _read(job.root / RO_CRATE_VIEW_FILENAME)
-        boxes = [node["box"] for node in crate["@graph"] if node.get("@type") == "GeoShape"]
-        assert len(boxes) == 1
-        assert boxes[0].split() == [str(v) for v in (ymin, xmin, ymax, xmax)]
 
-    def test_an_extent_measured_in_wgs84_is_kept_as_measured(self, tmp_path: Path) -> None:
-        box = [-1.2620, 48.3530, -1.0940, 48.4750]
-        job = _job_directory(tmp_path, spatial=SpatialExtent(bbox=box, crs="EPSG:4326"))
-        item = _read(write_stac_item_view(job.root))
-        assert item["bbox"] == pytest.approx(box)
-        assert item["properties"]["proj:epsg"] == 4326
 
-    def test_a_job_that_records_no_extent_gives_no_box(self, tmp_path: Path) -> None:
-        job = _job_directory(tmp_path)
-        item = _read(write_stac_item_view(job.root))
-        assert "bbox" not in item
-        assert item["geometry"] is None
+def test_job_views_leave_the_seal_intact(tmp_path: Path) -> None:
+    job = _job_directory(tmp_path)
+    manifest_before = job.manifest_path.read_bytes()
+    written = write_views(job.root)
+    assert {path.parent for path in written} == {job.root}
+    assert job.manifest_path.read_bytes() == manifest_before
+    assert verify_job(job).ok
+    assert {entry.name for entry in job.root.iterdir()} <= ALLOWED_JOB_ENTRIES
 
-    def test_the_extent_the_seal_records_is_the_one_the_view_publishes(
-        self, tmp_path: Path
-    ) -> None:
-        box = [-1.2620, 48.3530, -1.0940, 48.4750]
-        job = _job_directory(
-            tmp_path,
-            spatial=SpatialExtent(bbox=NANCON_BBOX_L93, crs="EPSG:2154"),
-            geometry=SpatialExtent(bbox=box, crs="EPSG:4326"),
-        )
-        assert _read(job.manifest_path)["geometry"] == {"crs": "EPSG:4326", "bbox": box}
-        item = _read(write_stac_item_view(job.root))
-        assert item["bbox"] == pytest.approx(box)
-        assert item["properties"]["proj:epsg"] == 4326
 
-    @pytest.mark.parametrize(
-        "spatial",
-        [
-            {"crs": "EPSG:2154", "bbox_wgs84": [-1.2620, 48.3530, -1.0940, 48.4750]},
-            {"bbox": NANCON_BBOX_L93},
-            {"crs": "EPSG:2154"},
-            {"crs": "EPSG:2154", "bbox": NANCON_BBOX_L93, "bbox_wgs84": [-1.3, 48.3, -1.1, 48.5]},
-            {"crs": "lambert93", "bbox": NANCON_BBOX_L93},
-        ],
-        ids=["wgs84-spelling", "no-crs", "no-bbox", "second-box", "unparsed-crs"],
+def test_extent_is_reprojected_to_wgs84(tmp_path: Path) -> None:
+    spatial = SpatialExtent(bbox=NANCON_BBOX_L93, crs="EPSG:2154")
+    job = _job_directory(tmp_path, spatial=spatial)
+    write_views(job.root)
+    item = _read(job.root / STAC_ITEM_VIEW_FILENAME)
+    xmin, ymin, xmax, ymax = item["bbox"]
+    assert -1.4 < xmin < xmax < -1.0
+    assert 48.2 < ymin < ymax < 48.6
+    assert item["geometry"]["type"] == "Polygon"
+    assert item["properties"]["proj:epsg"] == 2154
+    crate = _read(job.root / RO_CRATE_VIEW_FILENAME)
+    boxes = [node["box"] for node in crate["@graph"] if node.get("@type") == "GeoShape"]
+    assert len(boxes) == 1
+    assert boxes[0].split() == [str(v) for v in (ymin, xmin, ymax, xmax)]
+
+
+def test_wgs84_extent_is_kept(tmp_path: Path) -> None:
+    box = [-1.2620, 48.3530, -1.0940, 48.4750]
+    job = _job_directory(tmp_path, spatial=SpatialExtent(bbox=box, crs="EPSG:4326"))
+    item = _read(write_stac_item_view(job.root))
+    assert item["bbox"] == pytest.approx(box)
+    assert item["properties"]["proj:epsg"] == 4326
+
+
+def test_no_extent_gives_no_box(tmp_path: Path) -> None:
+    job = _job_directory(tmp_path)
+    item = _read(write_stac_item_view(job.root))
+    assert "bbox" not in item
+    assert item["geometry"] is None
+
+
+def test_seal_extent_is_published(tmp_path: Path) -> None:
+    box = [-1.2620, 48.3530, -1.0940, 48.4750]
+    job = _job_directory(
+        tmp_path,
+        spatial=SpatialExtent(bbox=NANCON_BBOX_L93, crs="EPSG:2154"),
+        geometry=SpatialExtent(bbox=box, crs="EPSG:4326"),
     )
-    def test_an_extent_in_another_shape_is_refused_not_skipped(
-        self, tmp_path: Path, spatial: dict[str, Any]
-    ) -> None:
-        job = _job_directory(tmp_path)
-        _rewrite_dem_spatial(job, spatial)
-        with pytest.raises(ExportError, match="resource 'dem' is not a spatial extent"):
-            write_views(job.root)
-        assert not (job.root / STAC_ITEM_VIEW_FILENAME).exists()
-
-    def test_a_seal_geometry_in_the_wkt2_spelling_is_refused(self, tmp_path: Path) -> None:
-        job = _job_directory(tmp_path)
-        manifest = dict(read_document(job.manifest_path))
-        manifest["geometry"] = {
-            "crs": "EPSG:2154",
-            "crs_wkt2": "PROJCRS[...]",
-            "bbox_wgs84": [-1.2620, 48.3530, -1.0940, 48.4750],
-        }
-        write_document(job.manifest_path, manifest)
-        with pytest.raises(ExportError, match="geometry is not a spatial extent"):
-            context_from_directory(job.root)
+    assert _read(job.manifest_path)["geometry"] == {"crs": "EPSG:4326", "bbox": box}
+    item = _read(write_stac_item_view(job.root))
+    assert item["bbox"] == pytest.approx(box)
+    assert item["properties"]["proj:epsg"] == 4326
 
 
-class TestWhatIsRefused:
-    def test_an_unsealed_directory_renders_nothing(self, tmp_path: Path) -> None:
-        job = JobDirectory.create(tmp_path / "job_unsealed")
-        job.ensure_workspace()
-        with pytest.raises(ExportError, match="not sealed"):
-            write_views(job.root)
-        assert not {entry.name for entry in job.root.iterdir()} & GENERATED_VIEWS
+@pytest.mark.parametrize(
+    "spatial",
+    [
+        {"crs": "EPSG:2154", "bbox_wgs84": [-1.2620, 48.3530, -1.0940, 48.4750]},
+        {"bbox": NANCON_BBOX_L93},
+        {"crs": "EPSG:2154"},
+        {"crs": "EPSG:2154", "bbox": NANCON_BBOX_L93, "bbox_wgs84": [-1.3, 48.3, -1.1, 48.5]},
+        {"crs": "lambert93", "bbox": NANCON_BBOX_L93},
+    ],
+    ids=["wgs84-spelling", "no-crs", "no-bbox", "second-box", "unparsed-crs"],
+)
+def test_refused_extent_shapes(tmp_path: Path, spatial: dict[str, Any]) -> None:
+    job = _job_directory(tmp_path)
+    _rewrite_dem_spatial(job, spatial)
+    with pytest.raises(ExportError, match="resource 'dem' is not a spatial extent"):
+        write_views(job.root)
+    assert not (job.root / STAC_ITEM_VIEW_FILENAME).exists()
 
-    def test_a_manifest_of_no_known_profile_is_refused(self, tmp_path: Path) -> None:
-        (tmp_path / "manifest.json").write_text('{"schema": "other"}', encoding="utf-8")
-        with pytest.raises(ExportError, match="neither a run manifest nor a job manifest"):
-            context_from_directory(tmp_path)
+
+def test_wkt2_geometry_is_refused(tmp_path: Path) -> None:
+    job = _job_directory(tmp_path)
+    manifest = dict(read_document(job.manifest_path))
+    manifest["geometry"] = {
+        "crs": "EPSG:2154",
+        "crs_wkt2": "PROJCRS[...]",
+        "bbox_wgs84": [-1.2620, 48.3530, -1.0940, 48.4750],
+    }
+    write_document(job.manifest_path, manifest)
+    with pytest.raises(ExportError, match="geometry is not a spatial extent"):
+        context_from_directory(job.root)
+
+
+def test_unsealed_directory(tmp_path: Path) -> None:
+    job = JobDirectory.create(tmp_path / "job_unsealed")
+    job.ensure_workspace()
+    with pytest.raises(ExportError, match="not sealed"):
+        write_views(job.root)
+    assert not {entry.name for entry in job.root.iterdir()} & GENERATED_VIEWS
+
+
+def test_unknown_manifest_profile(tmp_path: Path) -> None:
+    (tmp_path / "manifest.json").write_text('{"schema": "other"}', encoding="utf-8")
+    with pytest.raises(ExportError, match="neither a run manifest nor a job manifest"):
+        context_from_directory(tmp_path)

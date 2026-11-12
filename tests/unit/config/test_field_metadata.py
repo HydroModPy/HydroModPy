@@ -118,19 +118,17 @@ def chips():
 
 
 @pytest.mark.parametrize(("model", "field"), MARKED_FIELDS)
-def test_a_listed_field_carries_the_mark(model: type[BaseModel], field: str) -> None:
+def test_listed_field_is_marked(model: type[BaseModel], field: str) -> None:
     assert _extra(model, field).get("stability") == "experimental"
 
 
 @pytest.mark.parametrize(("model", "field"), MARKED_FIELDS)
-def test_the_published_schema_carries_the_mark(
-    published_schema: dict, model: type[BaseModel], field: str
-) -> None:
+def test_schema_carries_mark(published_schema: dict, model: type[BaseModel], field: str) -> None:
     assert _schema_properties(published_schema, model)[field]["stability"] == "experimental"
 
 
 @pytest.mark.parametrize(("selector", "values"), MARKED_VALUES.items())
-def test_a_selector_marks_its_values_and_not_itself(
+def test_selector_marks_values(
     published_schema: dict, selector: tuple[type[BaseModel], str], values: tuple[str, ...]
 ) -> None:
     model, field = selector
@@ -142,15 +140,15 @@ def test_a_selector_marks_its_values_and_not_itself(
 
 
 @pytest.mark.parametrize(("model", "field"), STABLE_FIELDS)
-def test_what_stays_stable_has_no_mark(model: type[BaseModel], field: str) -> None:
+def test_stable_fields_unmarked(model: type[BaseModel], field: str) -> None:
     assert "stability" not in _extra(model, field)
 
 
-def test_the_calibration_section_says_it_is_experimental_too() -> None:
+def test_calibration_doc_says_experimental() -> None:
     assert "experimental" in (CalibrationConfig.__doc__ or "")
 
 
-def test_the_drain_bed_thickness_says_its_value_has_no_measured_source() -> None:
+def test_drain_bed_thickness_description() -> None:
     description = SolverConfig.model_fields["drain_bed_thickness_m"].description or ""
     assert "convention with no measured source" in description
 
@@ -164,11 +162,11 @@ def test_the_drain_bed_thickness_says_its_value_has_no_measured_source() -> None
         "solver.backend",
     ],
 )
-def test_the_docs_show_no_mark_beside_a_marked_key(registry: dict, path: str) -> None:
+def test_docs_stable_keys_unmarked(registry: dict, path: str) -> None:
     assert not registry[path].get("stability")
 
 
-def test_the_docs_show_which_values_of_a_selector_are_marked(registry: dict, chips) -> None:
+def test_docs_chips_marked_values(registry: dict, chips) -> None:
     node = registry["solver.boussinesq.surface_interaction_model"]
     assert not node["stability"]
     assert any(
@@ -178,7 +176,7 @@ def test_the_docs_show_which_values_of_a_selector_are_marked(registry: dict, chi
     assert any("modflow6_prt" in chip for chip in chips(solvers, in_variant=True))
 
 
-def test_field_metadata_helper_rejects_typos() -> None:
+def test_metadata_rejects_typos() -> None:
     with pytest.raises(ValueError, match="Unknown field_metadata keys"):
         field_metadata(widgettype="input")
 
@@ -202,8 +200,7 @@ def _iter_basemodel_classes():
                 yield attr
 
 
-def test_no_unknown_keys_in_json_schema_extra_across_codebase() -> None:
-    """All ``Field.json_schema_extra`` payloads use only canonical keys."""
+def test_no_unknown_extra_keys() -> None:
     offenders: dict[str, set[str]] = {}
     for cls in _iter_basemodel_classes():
         for field_name, info in cls.model_fields.items():
@@ -219,7 +216,7 @@ def test_no_unknown_keys_in_json_schema_extra_across_codebase() -> None:
     )
 
 
-def test_a_description_that_says_experimental_carries_the_mark() -> None:
+def test_experimental_text_has_mark() -> None:
     """The word in a description ages. The mark is what the docs and the run read."""
     offenders = [
         f"{cls.__module__}.{cls.__name__}.{field_name}"
@@ -269,9 +266,7 @@ def test_a_description_that_says_experimental_carries_the_mark() -> None:
         ("config.hydromodpy_config:HydroModPyConfig", "export", ["export.geotiff"]),
     ],
 )
-def test_a_renamed_field_names_the_paths_it_replaces(
-    model_path: str, field: str, old_paths: list[str]
-) -> None:
+def test_renamed_field_paths(model_path: str, field: str, old_paths: list[str]) -> None:
     module_name, class_name = model_path.split(":")
     model = getattr(importlib.import_module(f"hydromodpy.{module_name}"), class_name)
     extra = model.model_fields[field].json_schema_extra

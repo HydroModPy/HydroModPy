@@ -1,4 +1,4 @@
-"""The request of a run, built from every form, its refusals, and its identity."""
+"""The request of a run: built from a TOML file, JSON, a dict or an object, then refused or identified."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 import tomlkit
 
@@ -56,9 +57,6 @@ def _request_file(root: Path, payload: Any, name: str = "island.json") -> Path:
     return path
 
 
-# The four forms, and a request file
-
-
 @pytest.mark.parametrize(
     ("form", "source"),
     [
@@ -73,7 +71,7 @@ def _request_file(root: Path, payload: Any, name: str = "island.json") -> Path:
         pytest.param("object", lambda root: load(root / "island.toml"), id="a configuration"),
     ],
 )
-def test_every_form_gives_a_request_that_loads_alike(tmp_path: Path, form: str, source) -> None:
+def test_request_of_each_form(tmp_path: Path, form: str, source) -> None:
     root = _project(tmp_path / "project")
     expected = written_payload(load(root / "island.toml"))
 
@@ -84,7 +82,7 @@ def test_every_form_gives_a_request_that_loads_alike(tmp_path: Path, form: str, 
     assert written_payload(load(request.config, root)) == expected
 
 
-def test_the_json_schema_of_a_request_names_its_schema_as_a_constant() -> None:
+def test_json_schema() -> None:
     schema = RunRequest.model_json_schema(by_alias=True)
 
     assert schema["properties"]["schema"]["const"] == REQUEST_SCHEMA
@@ -92,7 +90,7 @@ def test_the_json_schema_of_a_request_names_its_schema_as_a_constant() -> None:
     assert "config" in schema["required"]
 
 
-def test_the_command_line_adds_to_a_request_file_and_wins(tmp_path: Path) -> None:
+def test_command_line_wins_over_file(tmp_path: Path) -> None:
     path = _request_file(
         tmp_path,
         {
@@ -109,7 +107,7 @@ def test_the_command_line_adds_to_a_request_file_and_wins(tmp_path: Path) -> Non
     assert (request.name, request.fresh, request.form) == ("from_line", True, "json")
 
 
-def test_the_overrides_name_the_new_keys_and_the_overlays(tmp_path: Path) -> None:
+def test_overrides_and_overlays(tmp_path: Path) -> None:
     root = _project(tmp_path / "project")
     (root / "over.toml").write_text('[simulation]\nname = "over"\n', encoding="utf-8")
 
@@ -137,9 +135,7 @@ def test_the_overrides_name_the_new_keys_and_the_overlays(tmp_path: Path) -> Non
         pytest.param({"overview": {}}, {}, "overview", id="an overview"),
     ],
 )
-def test_the_workflow_follows_the_document_and_its_changes(
-    document: dict, changes: dict, workflow: str
-) -> None:
+def test_workflow_of_a_request(document: dict, changes: dict, workflow: str) -> None:
     assert workflow_of(RunRequest(config=document, set=changes)) == workflow
 
 
@@ -153,9 +149,7 @@ def test_the_workflow_follows_the_document_and_its_changes(
         pytest.param("object", None, "project", id="an object reads from its root"),
     ],
 )
-def test_the_base_of_each_form(
-    tmp_path: Path, source: str, base: str | None, expected: str
-) -> None:
+def test_base_of_each_form(tmp_path: Path, source: str, base: str | None, expected: str) -> None:
     root = _project(tmp_path / "project")
     (root / "configs").mkdir()
     given = {
@@ -167,9 +161,6 @@ def test_the_base_of_each_form(
     folders = {"project": root.resolve(), "other": (tmp_path / "other").resolve()}
 
     assert base_of(given, None if base is None else folders[base]) == folders[expected]
-
-
-# The outcome of a finished run, read back
 
 
 def _finished(run_dir: Path, **fields: Any) -> None:
@@ -193,7 +184,7 @@ def _finished(run_dir: Path, **fields: Any) -> None:
     )
 
 
-def test_a_directory_without_outcome_is_no_finished_run(tmp_path: Path) -> None:
+def test_outcome_missing(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         RunOutcome.read(tmp_path, project_root=tmp_path)
 
@@ -211,9 +202,7 @@ def _delivery() -> PublishedLine:
     )
 
 
-def test_an_outcome_goes_to_json_and_back_as_text_and_numbers(tmp_path: Path) -> None:
-    import numpy as np
-
+def test_outcome_to_dict(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs" / "island"
     _finished(run_dir, request_id="r" * 64)
     fresh = RunOutcome.read(run_dir, project_root=tmp_path)
@@ -234,9 +223,7 @@ def test_an_outcome_goes_to_json_and_back_as_text_and_numbers(tmp_path: Path) ->
     assert (said["kind"], said["sim_id"], said["status"]) == ("run", "s" * 32, "failed")
 
 
-def test_an_outcome_opens_its_directory_by_the_verb(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_outcome_opens_its_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     run_dir = tmp_path / "runs" / "island"
     _finished(run_dir, request_id="r" * 64)
     opened: list[Path] = []
@@ -248,7 +235,7 @@ def test_an_outcome_opens_its_directory_by_the_verb(
     assert opened == [run_dir]
 
 
-def test_a_request_object_is_a_source_whose_options_the_caller_adds_to(tmp_path: Path) -> None:
+def test_request_as_a_source(tmp_path: Path) -> None:
     built = request_of(DOCUMENT, name="first", set={"K": 1.0})
 
     again = request_of(built, force=True, set={"Sy": 0.1})
@@ -261,7 +248,7 @@ def test_a_request_object_is_a_source_whose_options_the_caller_adds_to(tmp_path:
     assert base_of(built, tmp_path) == tmp_path.resolve()
 
 
-def test_a_source_is_a_path_unless_it_is_a_document_or_an_object(tmp_path: Path) -> None:
+def test_is_a_path(tmp_path: Path) -> None:
     config = tmp_path / "x.toml"
 
     assert is_a_path(str(config)) and is_a_path(config)
@@ -274,10 +261,7 @@ def test_a_source_is_a_path_unless_it_is_a_document_or_an_object(tmp_path: Path)
         held(DOCUMENT, None)
 
 
-# The identity of a request, told by hydromodpy.workflow.solution_key
-
-
-def test_a_planned_request_id_is_computed_offline(tmp_path: Path) -> None:
+def test_planned_request_id_offline(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
     remote = {
@@ -292,9 +276,6 @@ def test_a_planned_request_id_is_computed_offline(tmp_path: Path) -> None:
 
     assert known is not None and len(known) == 64
     assert unknown is None
-
-
-# Every refusal of a request, with its type, its exit code and a fragment of its sentence
 
 
 def _rows(root: Path) -> dict[str, Any]:
@@ -364,9 +345,7 @@ REFUSALS: list[tuple[str, type[BaseException], str]] = [
 
 
 @pytest.mark.parametrize(("row", "kind", "said"), REFUSALS, ids=[row[0] for row in REFUSALS])
-def test_a_refused_request_says_why(
-    tmp_path: Path, row: str, kind: type[BaseException], said: str
-) -> None:
+def test_refusals(tmp_path: Path, row: str, kind: type[BaseException], said: str) -> None:
     with pytest.raises(kind) as refused:
         _rows(tmp_path)[row]()
 

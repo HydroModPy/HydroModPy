@@ -1,9 +1,12 @@
-"""Unit tests for the core progress system."""
+"""Console progress: phases, bars and the log handler, drawn on a live terminal or silent when not."""
 
 from __future__ import annotations
 
+import contextlib
+import importlib
 import io
 import logging
+import multiprocessing
 
 import pytest
 from rich.console import Console
@@ -15,7 +18,6 @@ from hydromodpy.core.logging import get_logger
 
 @pytest.fixture
 def live_console(monkeypatch):
-    """Force an interactive console writing into a StringIO buffer."""
     buffer = io.StringIO()
     fake = Console(file=buffer, force_terminal=True, width=100)
     monkeypatch.setattr(core_progress, "console", fake)
@@ -27,7 +29,6 @@ def live_console(monkeypatch):
 
 @pytest.fixture
 def disabled_console(monkeypatch):
-    """Force a non-interactive console (CI / piped output)."""
     buffer = io.StringIO()
     fake = Console(file=buffer, force_terminal=False, width=100)
     monkeypatch.setattr(core_progress, "console", fake)
@@ -35,7 +36,7 @@ def disabled_console(monkeypatch):
     yield buffer
 
 
-def test_phase_prints_checkmark_when_rendering(live_console):
+def test_phase_checkmark(live_console):
     with core_progress.phase("Loading climate data"):
         pass
     output = live_console.getvalue()
@@ -43,7 +44,7 @@ def test_phase_prints_checkmark_when_rendering(live_console):
     assert "Loading climate data" in output
 
 
-def test_phase_prints_cross_on_failure(live_console):
+def test_phase_cross_on_failure(live_console):
     with pytest.raises(ValueError):
         with core_progress.phase("Broken step"):
             raise ValueError("boom")
@@ -52,7 +53,7 @@ def test_phase_prints_cross_on_failure(live_console):
     assert "Broken step" in output
 
 
-def test_phase_logs_info_when_disabled(disabled_console, caplog):
+def test_phase_logs_when_disabled(disabled_console, caplog):
     handler = logging.Handler()
     records: list[logging.LogRecord] = []
     handler.emit = records.append
@@ -68,36 +69,36 @@ def test_phase_logs_info_when_disabled(disabled_console, caplog):
     assert disabled_console.getvalue() == ""
 
 
-def test_track_yields_all_items_disabled(disabled_console):
+def test_track_disabled(disabled_console):
     items = list(core_progress.track([1, 2, 3], "Counting"))
     assert items == [1, 2, 3]
 
 
-def test_track_yields_all_items_rendering(live_console):
+def test_track_rendering(live_console):
     items = list(core_progress.track(["a", "b"], "Letters"))
     assert items == ["a", "b"]
 
 
-def test_task_handle_is_inert_when_disabled(disabled_console):
+def test_task_inert_when_disabled(disabled_console):
     with core_progress.task("Silent work", total=10) as handle:
         handle.advance()
         handle.update(completed=5, description="renamed")
 
 
-def test_task_advances_when_rendering(live_console):
+def test_task_advances(live_console):
     with core_progress.task("Visible work", total=4) as handle:
         for _ in range(4):
             handle.advance()
 
 
-def test_hmp_no_progress_disables_rendering(live_console, monkeypatch):
+def test_no_progress_variable(live_console, monkeypatch):
     monkeypatch.setenv("HMP_NO_PROGRESS", "1")
     with core_progress.phase("Muted phase"):
         pass
     assert "✓" not in live_console.getvalue()
 
 
-def test_quiet_mode_disables_rendering(live_console):
+def test_quiet_mode(live_console):
     core_progress.set_console_mode("quiet")
     with core_progress.phase("Quiet phase"):
         pass
@@ -131,11 +132,11 @@ def _handled(message: str, level: int = logging.INFO, **extra) -> str:
         (logging.CRITICAL, "✗"),
     ],
 )
-def test_console_log_handler_marks_the_level_with_a_glyph(live_console, level, glyph):
+def test_log_glyph(live_console, level, glyph):
     assert _handled("hello", level) == f"{glyph} hello\n"
 
 
-def test_console_log_handler_wraps_under_the_message(live_console):
+def test_log_wrapping(live_console):
     text = _handled("word " * 60, logging.WARNING)
     lines = text.splitlines()
     assert len(lines) > 1
@@ -144,7 +145,7 @@ def test_console_log_handler_wraps_under_the_message(live_console):
     assert all(len(line) <= 100 and not line.endswith(" ") for line in lines)
 
 
-def test_console_log_handler_prints_a_hint_without_glyph(live_console):
+def test_log_hint(live_console):
     assert _handled("next: hmp show run", **core_progress.HINT) == ("  next: hmp show run\n")
 
 
@@ -154,7 +155,7 @@ def test_fmt_duration():
     assert core_progress._fmt_duration(3700) == "1h 01m"
 
 
-def test_suppressed_zone_mutes_rendering_and_demotes_logs(live_console):
+def test_suppressed_zone(live_console):
     handler = logging.Handler()
     records: list[logging.LogRecord] = []
     handler.emit = records.append
@@ -170,15 +171,13 @@ def test_suppressed_zone_mutes_rendering_and_demotes_logs(live_console):
     assert all(r.levelno == logging.DEBUG for r in records)
 
 
-def test_make_console_handler_plain_when_not_terminal(disabled_console):
+def test_plain_handler_off_terminal(disabled_console):
     handler = core_progress.make_console_handler()
     assert isinstance(handler, logging.StreamHandler)
     assert not isinstance(handler, core_progress.ConsoleLogHandler)
 
 
-def test_a_plain_handler_outliving_its_stream_writes_to_the_current_stderr(
-    disabled_console, monkeypatch
-):
+def test_plain_handler_follows_stderr(disabled_console, monkeypatch):
     gone = io.StringIO()
     monkeypatch.setattr("sys.stderr", gone)
     handler = core_progress.make_console_handler()
@@ -191,9 +190,7 @@ def test_a_plain_handler_outliving_its_stream_writes_to_the_current_stderr(
     assert current.getvalue() == "still shown\n"
 
 
-def test_a_plain_handler_keeps_its_stream_through_a_redirect_zone(disabled_console, monkeypatch):
-    import contextlib
-
+def test_plain_handler_survives_redirect(disabled_console, monkeypatch):
     pinned = io.StringIO()
     monkeypatch.setattr("sys.stderr", pinned)
     handler = core_progress.make_console_handler()
@@ -203,19 +200,14 @@ def test_a_plain_handler_keeps_its_stream_through_a_redirect_zone(disabled_conso
     assert pinned.getvalue() == "not swallowed\n"
 
 
-def test_console_stream_pinned_against_redirect_stderr():
-    import contextlib
-    import importlib
-
+def test_console_stream_pinned():
     module = importlib.import_module("hydromodpy.core.console.progress")
     before = module.console.file
     with contextlib.redirect_stderr(io.StringIO()):
         assert module.console.file is before
 
 
-def test_rendering_disabled_in_child_process(live_console, monkeypatch):
-    import multiprocessing
-
+def test_child_process_is_silent(live_console, monkeypatch):
     monkeypatch.setattr(multiprocessing, "parent_process", lambda: object(), raising=True)
     with core_progress.phase("Child phase"):
         pass
@@ -230,15 +222,15 @@ def _progress_records() -> tuple[logging.Handler, list[logging.LogRecord]]:
     return handler, records
 
 
-def test_a_bar_over_zero_items_is_never_drawn(live_console):
-    """No "Data families 0/0" bar when a run loads no data family."""
+def test_empty_bar_not_drawn(live_console):
+    # No "Data families 0/0" bar when a run loads no data family.
     with core_progress.task("Data families", total=0) as handle:
         assert handle._progress is None
         assert core_progress._manager._progress is None
     assert "0/0" not in live_console.getvalue()
 
 
-def test_a_bar_over_zero_items_logs_nothing_above_debug(disabled_console):
+def test_empty_bar_logs_debug_only(disabled_console):
     handler, records = _progress_records()
     try:
         with core_progress.task("Data families", total=0):
@@ -249,15 +241,14 @@ def test_a_bar_over_zero_items_logs_nothing_above_debug(disabled_console):
     assert all(r.levelno == logging.DEBUG for r in records)
 
 
-def test_a_bar_over_some_items_is_still_drawn(live_console):
+def test_bar_drawn(live_console):
     with core_progress.task("Data families", total=2) as handle:
         assert handle._progress is not None
         handle.advance(2)
 
 
-def test_after_phase_prints_below_the_checkmark(live_console):
-    """The run recap belongs under the checkmark of the step that reports it."""
-
+def test_after_phase_below_checkmark(live_console):
+    # The run recap belongs under the checkmark of the step that reports it.
     def recap() -> None:
         core_progress.console.print("Run completed: demo")
 
@@ -269,7 +260,7 @@ def test_after_phase_prints_below_the_checkmark(live_console):
     assert output.index("✓") < output.index("Run completed: demo")
 
 
-def test_after_phase_waits_for_the_innermost_phase_only(live_console):
+def test_after_phase_innermost(live_console):
     seen: list[str] = []
     with core_progress.phase("calibration"):
         with core_progress.phase("export"):
@@ -278,13 +269,13 @@ def test_after_phase_waits_for_the_innermost_phase_only(live_console):
         assert seen == ["recap"]
 
 
-def test_after_phase_outside_a_phase_runs_at_once():
+def test_after_phase_outside():
     seen: list[str] = []
     core_progress.after_phase(lambda: seen.append("now"))
     assert seen == ["now"]
 
 
-def test_after_phase_is_dropped_when_the_phase_fails(live_console):
+def test_after_phase_dropped_on_failure(live_console):
     seen: list[str] = []
     with pytest.raises(RuntimeError):
         with core_progress.phase("export"):
@@ -296,7 +287,7 @@ def test_after_phase_is_dropped_when_the_phase_fails(live_console):
     assert seen == ["later"]
 
 
-def test_a_failing_deferred_line_never_fails_the_phase(live_console):
+def test_failing_deferred_line(live_console):
     def broken() -> None:
         raise ValueError("boom")
 

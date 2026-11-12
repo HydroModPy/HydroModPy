@@ -63,15 +63,15 @@ _UNITS = [
 
 
 @pytest.mark.parametrize(("unit", "factor"), _UNITS)
-def test_a_stored_unit_converts_to_days(unit, factor) -> None:
+def test_unit_to_days(unit, factor) -> None:
     assert particle_time_to_days(_run({"time_units": unit})) == pytest.approx(factor, rel=1e-12)
 
 
-def test_a_run_with_no_unit_holds_days() -> None:
+def test_no_unit_is_days() -> None:
     assert particle_time_to_days(_run({})) == 1.0
 
 
-def test_a_unit_nothing_knows_is_refused_and_not_read_as_one_day() -> None:
+def test_unknown_unit_refused() -> None:
     with pytest.raises(ValueError, match="Unsupported time unit 'fortnights'"):
         particle_time_to_days(_run({"time_units": "fortnights"}))
 
@@ -85,7 +85,7 @@ def test_a_unit_nothing_knows_is_refused_and_not_read_as_one_day() -> None:
         pytest.param("hours", 730.5 / 24.0 / 365.25, id="hours"),
     ],
 )
-def test_a_travel_time_is_in_years_whatever_the_stored_unit(unit, years) -> None:
+def test_travel_years(unit, years) -> None:
     run = _run(
         {"time_units": unit},
         x=np.array([[0.0, 1.0, 2.0]]),
@@ -96,7 +96,7 @@ def test_a_travel_time_is_in_years_whatever_the_stored_unit(unit, years) -> None
     assert particle_travel_years(run) == pytest.approx([years], rel=1e-12)
 
 
-def test_the_padding_after_the_last_step_is_stripped_and_a_single_point_is_no_track() -> None:
+def test_padding_stripped() -> None:
     run = _run(
         {},
         x=np.array([[0.0, 1.0, np.nan], [5.0, np.nan, np.nan]]),

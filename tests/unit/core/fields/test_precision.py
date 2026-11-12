@@ -1,8 +1,7 @@
-"""The compact storage precision: float32, mantissa rounded to nearest at 16 bits.
+"""The compact storage precision: float32 with the mantissa rounded to nearest at 16 bits.
 
-Every stored field of a compact run goes through ``round_mantissa``. These
-tests pin what it promises: the bit pattern, the error bound, and the values
-where a bit trick most easily goes wrong (NaN, zeros, negatives, subnormals,
+Every stored field of a compact run goes through ``round_mantissa``. The tests pin the
+relative error bound and the values where a bit trick goes wrong (zeros, subnormals,
 the edge of the float32 range).
 """
 
@@ -25,13 +24,12 @@ FLOAT32_MAX = float(np.finfo(np.float32).max)
 
 @pytest.fixture
 def spread() -> np.ndarray:
-    """Normal values of both signs over sixty decades."""
     rng = np.random.default_rng(20260929)
     magnitude = 10.0 ** rng.uniform(-30.0, 30.0, 200_000)
     return magnitude * rng.choice([-1.0, 1.0], magnitude.size)
 
 
-def test_the_relative_error_stays_within_half_a_kept_unit(spread) -> None:
+def test_relative_error_bound(spread) -> None:
     rounded = round_mantissa(spread).astype(np.float64)
 
     relative = np.abs(rounded - spread) / np.abs(spread)
@@ -46,7 +44,7 @@ def test_zeros_keep_their_sign() -> None:
     np.testing.assert_array_equal(np.signbit(rounded), [False, True])
 
 
-def test_a_subnormal_stays_finite_nonzero_and_signed() -> None:
+def test_subnormals() -> None:
     tiny = np.array([1e-40, -1e-40, 3e-44], dtype=np.float64)
 
     rounded = round_mantissa(tiny)
@@ -58,7 +56,7 @@ def test_a_subnormal_stays_finite_nonzero_and_signed() -> None:
     assert np.abs(rounded.astype(np.float64) - tiny).max() <= 2.0**-149
 
 
-def test_the_largest_float32_values_never_become_infinite() -> None:
+def test_float32_edge_stays_finite() -> None:
     edge = np.array([FLOAT32_MAX, -FLOAT32_MAX, np.nextafter(FLOAT32_MAX, 0.0)])
 
     rounded = round_mantissa(edge)
@@ -71,19 +69,19 @@ def test_the_largest_float32_values_never_become_infinite() -> None:
     )
 
 
-def test_a_finite_value_beyond_float32_is_refused() -> None:
+def test_value_beyond_float32_refused() -> None:
     with pytest.raises(ValueError, match="float32 range"):
         round_mantissa(np.array([1.0, 1e39]))
 
 
-def test_the_kept_bits_are_checked() -> None:
+def test_kept_bits_refused() -> None:
     with pytest.raises(ValueError, match="kept_bits"):
         round_mantissa([1.0], kept_bits=0)
     with pytest.raises(ValueError, match="kept_bits"):
         round_mantissa([1.0], kept_bits=24)
 
 
-def test_the_storage_precision_rounds_floats_only_under_compact() -> None:
+def test_storage_precision() -> None:
     floats = np.array([[130.123456789, -1.23456789e-3]])
     integers = np.array([[0, 1, 2]], dtype=np.int32)
     flags = np.array([[True, False]])

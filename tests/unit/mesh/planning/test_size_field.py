@@ -10,8 +10,6 @@ that names it.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 import numpy as np
 import pytest
 from hypothesis import given, settings
@@ -82,46 +80,41 @@ def _all_terms_field(max_slope: float = 0.5) -> SizeField:
     )
 
 
-def test_the_field_is_clipped_between_the_floor_and_the_outside_size() -> None:
+def test_field_clipped() -> None:
     field = _all_terms_field()
     assert field.values.min() == pytest.approx(15.0)
     assert 100.0 < field.values.max() <= 300.0
     assert field.values.min() >= 10.0
 
 
-def test_a_river_term_ramps_at_its_own_slope() -> None:
-    grid = _grid(nrow=20, ncol=200)
-    # A vertical river through the center of column 10.
-    river = LineString([(1105.0, 5000.0), (1105.0, 5200.0)])
+RIVER_COLUMN_10 = LineString([(1105.0, 5000.0), (1105.0, 5200.0)])  # vertical, centre of column 10
+
+RAMPS = [
+    # Ramp 400 m from 20 to 100 m is 0.2 m/m, gentler than max_slope.
+    pytest.param(400.0, 0.2, id="gentle ramp"),
+    # Ramp 10 m would ask 8 m/m, so max_slope = 0.5 rules.
+    pytest.param(10.0, 0.5, id="steeper than max_slope"),
+]
+
+
+@pytest.mark.parametrize(("ramp_m", "slope"), RAMPS)
+def test_term_ramp(ramp_m, slope) -> None:
     field = build_size_field(
-        grid,
+        _grid(nrow=20, ncol=200),
         h0=100.0,
         h_floor=10.0,
-        terms=[SizeTerm(name="rivers", region=river, size_m=20.0, ramp_m=400.0)],
+        terms=[SizeTerm(name="rivers", region=RIVER_COLUMN_10, size_m=20.0, ramp_m=ramp_m)],
         outside=None,
         max_slope=0.5,
     )
-    row = field.values[10]
+
     distance = np.abs(np.arange(200) - 10) * 10.0
-    expected = np.minimum(20.0 + (80.0 / 400.0) * distance, 100.0)
-    np.testing.assert_allclose(row, expected, rtol=0, atol=1e-9)
-
-
-def test_a_term_steeper_than_max_slope_is_bounded() -> None:
-    grid = _grid(nrow=20, ncol=200)
-    river = LineString([(1105.0, 5000.0), (1105.0, 5200.0)])
-    field = build_size_field(
-        grid,
-        h0=100.0,
-        h_floor=10.0,
-        terms=[SizeTerm(name="rivers", region=river, size_m=20.0, ramp_m=10.0)],
-        outside=None,
-        max_slope=0.5,
+    np.testing.assert_allclose(
+        field.values[10], np.minimum(20.0 + slope * distance, 100.0), atol=1e-9
     )
-    assert field.values[10, 12] == pytest.approx(20.0 + 0.5 * 20.0)
 
 
-def test_the_outside_ramp_is_never_shorter_than_its_slope_allows() -> None:
+def test_outside_ramp_length() -> None:
     grid = _grid(nrow=10, ncol=200)
     field = build_size_field(
         grid,
@@ -141,8 +134,8 @@ def test_the_outside_ramp_is_never_shorter_than_its_slope_allows() -> None:
     assert row[-1] == pytest.approx(200.0)
 
 
-def test_a_term_and_a_catchment_off_the_grid_change_nothing() -> None:
-    """A zone or a catchment drawn beside the DEM touches no pixel."""
+def test_off_grid_changes_nothing() -> None:
+    # A zone or a catchment drawn beside the DEM touches no pixel.
     grid = _grid(nrow=10, ncol=10)
     beside = box(5000.0, 5000.0, 5100.0, 5100.0)
 
@@ -158,7 +151,7 @@ def test_a_term_and_a_catchment_off_the_grid_change_nothing() -> None:
     assert np.all(field.values == 50.0)
 
 
-def test_a_large_grid_takes_the_block_minimum(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_large_grid_block_minimum(monkeypatch: pytest.MonkeyPatch) -> None:
     grid = _grid(nrow=50, ncol=70)
     terms = [
         SizeTerm(
@@ -182,10 +175,10 @@ def test_a_large_grid_takes_the_block_minimum(monkeypatch: pytest.MonkeyPatch) -
     assert _max_slope_of(coarse) <= 0.5 * (1.0 + 1e-9)
 
 
-def test_a_long_narrow_grid_takes_a_block_large_enough_for_the_pixel_count(
+def test_narrow_grid_block_size(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The square root of the pixel ratio gives blocks of 2, whose 2 x 50 rows overflow 99."""
+    # The square root of the pixel ratio gives blocks of 2, whose 2 x 50 rows overflow 99.
     grid = _grid(nrow=3, ncol=100)
     monkeypatch.setattr(size_field_module, "MAX_SIZE_FIELD_PIXELS", 99)
 
@@ -196,8 +189,8 @@ def test_a_long_narrow_grid_takes_a_block_large_enough_for_the_pixel_count(
     assert coarse.grid.nrow * coarse.grid.ncol <= 99
 
 
-def test_term_finer_than_the_floor_warns_with_requested_and_effective_size(caplog):
-    """A term below the pixel floor is clipped, and a WARNING names both sizes (C-06)."""
+def test_term_below_floor_warns(caplog):
+    # A term below the pixel floor is clipped, and a WARNING names both sizes.
     sill = box(1500.0, 5500.0, 1520.0, 5520.0)
     with caplog.at_level("WARNING", logger="hydromodpy.mesh.planning.size_field"):
         build_size_field(
@@ -227,7 +220,7 @@ def _field(region: object, grid: RasterGridSpec) -> np.ndarray:
     ).values
 
 
-def test_a_pixel_region_holds_its_size_inside_and_grows_at_the_ramp_outside() -> None:
+def test_pixel_region_ramp() -> None:
     grid = _pixel_grid()
     mask = np.zeros((grid.nrow, grid.ncol), dtype=bool)
     mask[20:30, 10:15] = True
@@ -246,13 +239,7 @@ def _empty_pixels() -> PixelRegion:
     return PixelRegion(mask=np.zeros((grid.nrow, grid.ncol), dtype=bool), grid=grid)
 
 
-def _pixels_of_another_grid() -> np.ndarray:
-    other = grid_spec(120, 160, 5.0)
-    region = PixelRegion(mask=np.ones((other.nrow, other.ncol), dtype=bool), grid=other)
-    return _field(region, _pixel_grid())
-
-
-def test_a_term_on_no_pixel_refines_nothing() -> None:
+def test_empty_pixels_refine_nothing() -> None:
     grid = _pixel_grid()
     term = SizeTerm(name="zone", region=_empty_pixels(), size_m=20.0, ramp_m=40.0)
 
@@ -263,21 +250,25 @@ def test_a_term_on_no_pixel_refines_nothing() -> None:
     assert np.all(field.values == 100.0)
 
 
-_REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
-    "pixel region of another shape": (
-        lambda: PixelRegion(mask=np.ones((3, 3), dtype=bool), grid=_pixel_grid()),
+REFUSALS = [
+    pytest.param(
+        grid_spec(60, 80, 10.0),
+        (3, 3),
         r"a pixel region has shape \(3, 3\)",
+        id="mask of another shape",
     ),
-    "pixel region of another grid": (_pixels_of_another_grid, r"lies on another grid"),
-}
+    pytest.param(
+        grid_spec(120, 160, 5.0), (120, 160), "lies on another grid", id="region of another grid"
+    ),
+]
 
 
-@pytest.mark.parametrize("case", list(_REFUSALS))
-def test_a_size_field_that_cannot_be_built_is_refused(case: str) -> None:
-    build, message = _REFUSALS[case]
-
+@pytest.mark.parametrize(("region_grid", "mask_shape", "message"), REFUSALS)
+def test_refusals(region_grid, mask_shape, message) -> None:
+    # The field is built on a 60 x 80 grid of 10 m pixels.
     with pytest.raises(MeshRequestError, match=message):
-        build()
+        region = PixelRegion(mask=np.ones(mask_shape, dtype=bool), grid=region_grid)
+        _field(region, _pixel_grid())
 
 
 _PROPERTY_GRID = grid_spec(30, 40, 10.0)
@@ -315,10 +306,10 @@ def _terms(draw: st.DrawFn) -> list[SizeTerm]:
     factor=st.floats(min_value=1.0, max_value=4.0),
     catchment=_regions(),
 )
-def test_the_field_of_any_targets_is_lipschitz_bounded_and_fine_on_them(
+def test_field_of_any_targets(
     terms: list[SizeTerm], max_slope: float, factor: float, catchment
 ) -> None:
-    """On random polygons and lines: the slope bound, the clip, and each size on its own pixels."""
+    # Random polygons and lines: the slope bound, the clip, and each size on its own pixels.
     h0, floor = 80.0, 10.0
     outside = (
         OutsideCoarsening(region=catchment, factor=factor, transition_m=50.0)

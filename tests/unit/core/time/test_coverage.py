@@ -13,9 +13,6 @@ def _days(start: str, n: int) -> pd.DatetimeIndex:
     return pd.date_range(start, periods=n, freq="D")
 
 
-# ---------------------------------------------------------------- calendar weights
-
-
 @pytest.mark.parametrize(
     ("stamps", "expected"),
     [
@@ -32,9 +29,6 @@ def test_a_monthly_or_yearly_record_weighs_each_sample_by_its_calendar_length(st
 def test_a_record_going_back_in_time_has_equal_weights():
     stamps = pd.to_datetime(["2020-03-01", "2020-01-01", "2020-02-01"])
     assert calendar_sample_days(stamps) is None
-
-
-# ------------------------------------------------------------ samples by period
 
 
 def test_the_mean_of_a_period_is_the_mean_of_its_samples_and_stays_within_their_range():
@@ -65,9 +59,6 @@ def test_a_calendar_record_averages_by_month_length():
 def test_an_empty_or_unsorted_record_is_refused(stamps, match):
     with pytest.raises(ValueError, match=match):
         samples_by_period(stamps, pd.to_datetime(["2020-01-01", "2020-01-05"]))
-
-
-# --------------------------------------------------------------------- policy
 
 
 def _uncovered_periods(n_late: int):

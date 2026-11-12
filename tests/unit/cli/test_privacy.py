@@ -1,4 +1,7 @@
-"""Tests for ``hmp privacy``."""
+"""``hmp privacy purge``: removes a run, keeps its name in the tombstones, writes a certificate.
+
+Certificates and PII archives are JSON files with mode 0o600.
+"""
 
 from __future__ import annotations
 
@@ -29,8 +32,7 @@ def _seed_simulation(project: Path, sim_id: str = "00000000-0000-0000-0000-00000
     return sim_id
 
 
-def test_privacy_purge_certificate_is_mode_0o600(monkeypatch, tmp_path) -> None:
-    """The certificate file is created with restrictive permissions."""
+def test_certificate_mode(monkeypatch, tmp_path) -> None:
     import os
     import stat
 
@@ -49,8 +51,8 @@ def test_privacy_purge_certificate_is_mode_0o600(monkeypatch, tmp_path) -> None:
     assert mode == 0o600, f"certificate must be 0o600, got {oct(mode)}"
 
 
-def test_privacy_purge_archive_pii_opt_in(monkeypatch, tmp_path) -> None:
-    """``--archive-pii`` writes a sibling 0o600 file with the snapshot."""
+def test_archive_pii(monkeypatch, tmp_path) -> None:
+    # --archive-pii writes a sibling 0o600 file with the snapshot.
     import os
     import stat
 
@@ -82,7 +84,7 @@ def test_privacy_purge_archive_pii_opt_in(monkeypatch, tmp_path) -> None:
         assert mode == 0o600
 
 
-def test_privacy_purge_removes_the_directory_and_keeps_its_name(monkeypatch, tmp_path) -> None:
+def test_purge_keeps_the_name(monkeypatch, tmp_path) -> None:
     import duckdb
 
     from hydromodpy.results.trash import read_tombstones
@@ -107,7 +109,7 @@ def test_privacy_purge_removes_the_directory_and_keeps_its_name(monkeypatch, tmp
     assert row is None
 
 
-def test_privacy_purge_of_an_unknown_reference_exits_not_found(monkeypatch, tmp_path) -> None:
+def test_unknown_reference(monkeypatch, tmp_path) -> None:
     from hydromodpy.cli.exit_codes import EXIT_NOT_FOUND
 
     _workspace, project = _make_workspace_with_project(tmp_path)

@@ -1,4 +1,7 @@
-"""Tests of `runners.recap`."""
+"""Console recap of a calibration: units, cost label, methods file and the lines read off a report.
+
+Shares of the cost are fractions of 1 and print as percent. K is in m/s, Sy has no unit.
+"""
 
 from __future__ import annotations
 
@@ -24,14 +27,6 @@ from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.contract import SESSION_METHODS_FILENAME
 from tests._helpers.session_documents import best_trial
 
-# From test_calibration_recap_facts.py
-# The facts the console recap of a calibration reads off the run.
-#
-# The CLI cannot reach the configuration, so the runner records the unit of each
-# parameter and the metric the cost is, and writes the methods paragraph to a
-# file of the session the recap names.
-
-
 _PARAMETERS = {
     "K": {
         "bounds": [1e-7, 1e-3],
@@ -55,26 +50,15 @@ def _cfg(**updates) -> CalibrationConfig:
     return CalibrationConfig.model_validate(payload)
 
 
-def test_each_parameter_carries_its_declared_unit() -> None:
+def test_parameter_units() -> None:
     assert parameter_units(_cfg()) == {"K": "m/s", "Sy": "-"}
 
 
-def test_write_methods_returns_the_file_it_wrote(tmp_path) -> None:
+def test_write_methods(tmp_path) -> None:
     path = write_methods(tmp_path, "  text  ")
 
     assert path == tmp_path / SESSION_METHODS_FILENAME
     assert path.read_text(encoding="utf-8") == "# Methods\n\ntext\n"
-
-
-# From test_the_cost_label_says_the_transform_and_the_scale.py
-# The label of a cost says what the number is: metric, cost transform and scale.
-#
-# ``cost_metric_label`` named the metric alone. A block with ``cost_transform = "log"``
-# minimizes ``log10(rmse)`` and one with ``normalize_cost`` minimizes the RMSE over
-# the spread of the record, yet both were labeled ``rmse``. The HTML report of a
-# session listed ``best_cost`` with no label at all, beside an
-# ``cost_name`` that reads as a score. The session now records the label and
-# the report prints it beside the cost.
 
 
 def _config(blocks: list[dict[str, object]], **extra: object) -> CalibrationConfig:
@@ -100,32 +84,30 @@ def _block(name: str, metric: str, **extra: object) -> dict[str, object]:
     return {"name": name, "metric": metric, "uses_outputs": ["q"], **extra}
 
 
-def test_a_log_transform_is_named() -> None:
-    cfg = _config([_block("flows", "rmse", cost_transform="log")])
-
-    assert cost_metric_label(cfg) == "log10(rmse)"
-
-
-def test_an_inverse_transform_is_named() -> None:
-    cfg = _config([_block("flows", "nse", cost_transform="inverse")])
-
-    assert cost_metric_label(cfg) == "-1 / (1 - nse)"
-
-
-def test_each_block_of_a_sum_carries_its_own_reading() -> None:
-    cfg = _config(
+COST_LABELS = [
+    pytest.param(
+        [_block("flows", "rmse", cost_transform="log")], "log10(rmse)", id="log transform"
+    ),
+    pytest.param(
+        [_block("flows", "nse", cost_transform="inverse")], "-1 / (1 - nse)", id="inverse transform"
+    ),
+    pytest.param(
         [
             _block("flows", "nse_log"),
             _block("residual", "rmse", normalize_cost=True, cost_transform="log"),
-        ]
-    )
+        ],
+        "weighted sum of flows 1 - nse_log, residual log10(rmse / sd(observed))",
+        id="sum of two blocks",
+    ),
+]
 
-    assert cost_metric_label(cfg) == (
-        "weighted sum of flows 1 - nse_log, residual log10(rmse / sd(observed))"
-    )
+
+@pytest.mark.parametrize(("blocks", "label"), COST_LABELS)
+def test_cost_label(blocks, label) -> None:
+    assert cost_metric_label(_config(blocks)) == label
 
 
-def test_the_html_report_prints_the_label_beside_the_cost() -> None:
+def test_report_row_has_the_cost_label() -> None:
     summary = SessionSummary(
         name="calage",
         method="nelder_mead",
@@ -147,7 +129,7 @@ def test_the_html_report_prints_the_label_beside_the_cost() -> None:
     assert rows["best trial"] == "3, cost 0.083984 (1 - nse_log)"
 
 
-def test_the_report_of_a_closed_session_shows_its_best_cost_and_label(tmp_path: Path) -> None:
+def test_closed_session_shows_best_cost_and_label(tmp_path: Path) -> None:
     cfg = _config([_block("flows", "nse_log")])
     persistence, _ = open_calibration_session(
         tmp_path,
@@ -164,9 +146,6 @@ def test_the_report_of_a_closed_session_shows_its_best_cost_and_label(tmp_path: 
     rows = dict(summary_rows(session_summary(Session(persistence.directory))))
 
     assert rows["best trial"] == "3, cost 0.083984 (1 - nse_log)"
-
-
-# The console lines of a finished calibration, one row per fact the report carries.
 
 
 def _width(parameter: str, sigma: float, tradeoff=None) -> SimpleNamespace:
@@ -350,7 +329,7 @@ _SHARES = {"mean": {"flows": 0.75, "network": 0.25}, "best": {"flows": 0.5, "net
         ),
     ],
 )
-def test_the_recap_prints_what_the_report_carries(result, expected) -> None:
+def test_result_lines(result, expected) -> None:
     assert result_lines(result) == expected
 
 
@@ -387,14 +366,14 @@ def test_the_recap_prints_what_the_report_carries(result, expected) -> None:
         ),
     ],
 )
-def test_the_recap_reads_the_network_verdict_at_the_returned_trial(verdict, line) -> None:
+def test_network_verdict_line(verdict, line) -> None:
     assert result_lines(_report({"r_optim_verdict": {"q": verdict}})) == [
         "  K = 1e-05",
         f"  {line}",
     ]
 
 
-def test_a_staged_run_prints_each_phase_under_its_name() -> None:
+def test_staged_lines_name_each_phase() -> None:
     quiet = SimpleNamespace(name="quiet", report=SimpleNamespace(best_parameters={}))
     first = SimpleNamespace(name="one", report=_report(), stop_note="stopped early")
     second = SimpleNamespace(name="two", report=_report())
@@ -408,13 +387,7 @@ def test_a_staged_run_prints_each_phase_under_its_name() -> None:
     ]
 
 
-# A share of the cost prints so that a small one does not read as off.
-#
-# ``{hydrograph = 1000, network = 1}`` printed ``share 0%`` for the network, which
-# reads as a block that does not count. Below 1 % a share keeps one significant
-# digit, and above 99 % its complement's, so the pair still adds up to 100 %.
-
-
+# Below 1 % a share keeps one significant digit, above 99 % its complement's.
 @pytest.mark.parametrize(
     ("share", "printed"),
     [
@@ -430,11 +403,11 @@ def test_a_staged_run_prints_each_phase_under_its_name() -> None:
         (0.00096, "0.1%"),
     ],
 )
-def test_a_share_prints_as_a_reader_reads_it(share: float, printed: str) -> None:
+def test_percent(share: float, printed: str) -> None:
     assert percent(share) == printed
 
 
-def test_a_small_block_of_a_result_is_not_printed_as_zero() -> None:
+def test_a_small_share_is_not_printed_as_zero() -> None:
     assert shares_text({"hydrograph": 1000 / 1001, "network": 1 / 1001}) == (
         "hydrograph 99.9%, network 0.1%"
     )

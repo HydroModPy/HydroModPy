@@ -41,7 +41,7 @@ ROCK_LAYERING = {"layers": surfaces_table({"name": "a", "surface": "rock"}, {"na
 
 
 @pytest.mark.parametrize("config", [None, {}, DomainConfig()], ids=["none", "mapping", "section"])
-def test_the_default_domain_hangs_a_constant_thickness_and_reads_the_georeferencing_off_the_top(config):  # fmt: skip
+def test_default_domain(config):  # fmt: skip
     domain = Domain(config, surface_topo=_dem())
 
     np.testing.assert_allclose(domain.substratum.as_array(), DEM - float(DomainConfig().depth_model.thickness))  # fmt: skip
@@ -61,14 +61,14 @@ def test_the_default_domain_hangs_a_constant_thickness_and_reads_the_georeferenc
     ],
     ids=["thickness", "thickness_in_m", "thickness_in_km", "flat", "flat_in_m", "flat_in_km"],
 )  # fmt: skip
-def test_a_depth_model_reads_inline_units_and_leaves_the_top_alone(config, bottom):
+def test_depth_model_inline_units(config, bottom):
     domain = Domain(config, surface_topo=_dem())
 
     np.testing.assert_allclose(domain.surface_topo.as_array(), DEM)
     np.testing.assert_allclose(domain.substratum.as_array(), bottom)
 
 
-def test_a_flat_substratum_clamps_the_cells_at_or_below_it_and_refuses_one_above_all():
+def test_flat_substratum_clamps():
     dem = np.array([[5.0, 6.0], [7.0, 8.0]])
 
     domain = Domain(_flat(6.0), surface_topo=_dem(dem))
@@ -90,7 +90,7 @@ def test_a_flat_substratum_clamps_the_cells_at_or_below_it_and_refuses_one_above
     ids=["elevation_of_top_minus_50_is_a_constant_thickness_of_50", "thickness_of_50_is_a_constant_thickness_of_50",
          "flat_elevation_is_a_flat_substratum", "offset_moves_and_scale_multiplies"],
 )  # fmt: skip
-def test_a_raster_depth_model_reproduces_the_kind_it_stands_for(kind, values, depth_model, expected, rtol):  # fmt: skip
+def test_raster_depth_model_kinds(kind, values, depth_model, expected, rtol):  # fmt: skip
     top = tilted_top()
 
     bottom = _raster(top, values(top.as_array()), kind=kind, **depth_model).substratum.as_array()
@@ -112,7 +112,7 @@ def _plane(nrows: int, cell: float) -> np.ndarray:
     ],
     ids=["a_finer_raster_of_a_plane_averages_back_to_the_plane", "a_wgs84_field_around_rennes_is_reprojected", "a_coarser_raster"],
 )  # fmt: skip
-def test_a_raster_depth_model_is_written_on_the_grid_of_the_top(source, expected, atol):
+def test_raster_regridded_on_top(source, expected, atol):
     domain = _raster(tilted_top(), source())
 
     np.testing.assert_allclose(domain.substratum.as_array(), expected, atol=atol)
@@ -120,7 +120,7 @@ def test_a_raster_depth_model_is_written_on_the_grid_of_the_top(source, expected
     assert domain.substratum.support == raster_support(6, 8)
 
 
-def test_a_raster_above_the_top_is_lowered_to_top_minus_min_thickness(caplog):
+def test_raster_above_top_lowered(caplog):
     top = tilted_top()
     values = top.as_array() - 30.0
     values[0, 0] = top.as_array()[0, 0] + 5.0
@@ -147,14 +147,14 @@ def test_a_raster_above_the_top_is_lowered_to_top_minus_min_thickness(caplog):
     ids=["raster_kind_without_raster", "raster_to_another_kind", "above_the_top_everywhere", "top_without_support",
          "top_without_cell", "catchment_raster_on_a_box_leaves_cells_without_value", "smaller_raster_leaves_cells_without_value"],
 )  # fmt: skip
-def test_the_substratum_refusals(top, config, source, error, match):
+def test_substratum_refusals(top, config, source, error, match):
     raw = None if source is None else surface(source, name="raw")
 
     with pytest.raises(error, match=match):
         build_domain(config, surface_topo=top, substratum_source=raw)
 
 
-def test_a_layer_base_is_placed_on_the_grid_of_the_top_and_keeps_its_nodata():
+def test_layer_base_keeps_nodata():
     hole = np.eye(6, 8, dtype=bool)
     top = surface(np.where(hole, NODATA, tilted_top().as_array()))
     rock = surface(np.full((12, 16), 70.0), name="raw", cell=12.5)
@@ -165,7 +165,7 @@ def test_a_layer_base_is_placed_on_the_grid_of_the_top_and_keeps_its_nodata():
     np.testing.assert_array_equal(base[~hole], 70.0)
 
 
-def test_a_top_without_nodata_makes_every_cell_a_domain_cell():
+def test_top_without_nodata():
     top = surface(tilted_top().as_array(), nodata=None)
     config = {"depth_model": {"kind": "raster_thickness"}, **ROCK_LAYERING}
     flat = {"rock": surface(np.full((6, 8), 70.0), name="raw", nodata=None)}
@@ -186,14 +186,14 @@ def test_a_top_without_nodata_makes_every_cell_a_domain_cell():
     ],
     ids=["base_nobody_reads", "base_missing", "top_without_support", "base_too_small"],
 )  # fmt: skip
-def test_the_layer_base_refusals(top, layers, sources, error, match):
+def test_layer_base_refusals(top, layers, sources, error, match):
     given = {name: surface(values, name="raw") for name, values in sources.items()}
 
     with pytest.raises(error, match=match):
         build_domain(layers, surface_topo=top, layer_base_sources=given)
 
 
-def test_the_interfaces_are_the_mean_top_and_the_mean_bottom():
+def test_interfaces_are_mean_levels():
     domain = build_domain(DomainConfig.with_thickness(30.0), surface_topo=tilted_top())
 
     top_mean = float(tilted_top().as_array().mean())
@@ -204,7 +204,7 @@ def test_the_interfaces_are_the_mean_top_and_the_mean_bottom():
             _ = domain.z_interfaces
 
 
-def test_a_zone_is_stored_under_its_lower_case_id_and_a_support_resolves_by_key_then_by_identifier():  # fmt: skip
+def test_zones_and_support_lookup():  # fmt: skip
     domain = build_domain(None, surface_topo=_dem())
     zone = object()
 

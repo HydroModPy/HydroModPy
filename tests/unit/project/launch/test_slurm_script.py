@@ -1,9 +1,9 @@
 """The scripts and directives of a SLURM job, and the trap of a task.
 
-The scripts carry the scheduler warning, the cpus of a case, the node scratch
-and the trap; ``bash -n`` accepts them. The array script is run by bash as a
-node would run it, with a stand-in interpreter in ``HMP_PYTHON``: a worker that
-crashes is closed as ``failed`` by the trap, one that wrote its exit is left
+The scripts carry the scheduler warning (seconds before the kill), the cpus of
+a case and the node scratch; ``bash -n`` accepts them. Bash runs the array
+script as a node would, with a stand-in interpreter in ``HMP_PYTHON``. A worker
+that crashes is closed as failed by the trap, one that wrote its exit is left
 alone, and the task that completes the prepare phase writes the lock.
 """
 
@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.project.launch.slurm import write_slurm_array
-from hydromodpy.project.launch.slurm_script import TERM_GRACE_S, walltime_seconds
+from hydromodpy.project.launch.slurm_script import TERM_GRACE_S, walltime_seconds, worker_block
 from hydromodpy.results.outcome import read_outcome
 from tests.unit.project.launch._helpers import STAMP, planned_project
 
@@ -34,6 +34,11 @@ def _planned(root: Path, **kwargs):
     return planned_project(root, cases=CASES, **kwargs)
 
 
+def assert_bash_accepts(script: Path) -> None:
+    done = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr
+
+
 def _directive(text: str, key: str) -> str:
     match = re.search(rf"^#SBATCH --{key}=(.+)$", text, flags=re.MULTILINE)
     assert match is not None, f"no --{key} directive"
@@ -42,19 +47,18 @@ def _directive(text: str, key: str) -> str:
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_both_scripts_parse_under_bash_and_are_executable(tmp_path: Path) -> None:
+def test_scripts_parse_under_bash(tmp_path: Path) -> None:
     root = tmp_path / "p"
     _planned(root)
     job = write_slurm_array(root, stamp=STAMP, partition="normal", walltime="12:00:00")
 
     for script in (job.prepare_sh, job.array_sh):
-        done = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
-        assert done.returncode == 0, done.stderr
+        assert_bash_accepts(script)
         assert script.stat().st_mode & 0o111
         assert "{{" not in script.read_text()
 
 
-def test_the_array_script_carries_the_warning_the_cpus_the_scratch_and_the_trap(
+def test_array_script_directives(
     tmp_path: Path,
 ) -> None:
     root = tmp_path / "p"
@@ -88,7 +92,7 @@ def test_the_array_script_carries_the_warning_the_cpus_the_scratch_and_the_trap(
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_the_array_tasks_carry_the_environment_flags(tmp_path: Path) -> None:
+def test_environment_flags_in_tasks(tmp_path: Path) -> None:
     root = tmp_path / "p"
     _planned(root, threads=2)
     job = write_slurm_array(
@@ -105,8 +109,7 @@ def test_the_array_tasks_carry_the_environment_flags(tmp_path: Path) -> None:
     )
 
     for script in (job.prepare_sh, job.array_sh):
-        done = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
-        assert done.returncode == 0, done.stderr
+        assert_bash_accepts(script)
         text = script.read_text()
         assert "ENVIRONMENT_FLAGS=(--credentials c.toml --allow-host a.b" in text
         assert "--max-download-bytes 10)" in text
@@ -124,21 +127,20 @@ def test_the_array_tasks_carry_the_environment_flags(tmp_path: Path) -> None:
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_a_task_flag_the_shell_would_read_is_quoted(tmp_path: Path) -> None:
+def test_shell_special_flag_is_quoted(tmp_path: Path) -> None:
     root = tmp_path / "p"
     _planned(root, threads=2)
     tricky = 'a "b" $HOME `id`'
     job = write_slurm_array(root, stamp=STAMP, environment_flags=["--credentials", tricky])
 
-    done = subprocess.run(["bash", "-n", str(job.array_sh)], capture_output=True, text=True)
-    assert done.returncode == 0, done.stderr
+    assert_bash_accepts(job.array_sh)
     text = job.array_sh.read_text()
     assert f"ENVIRONMENT_FLAGS=(--credentials {shlex.quote(tricky)})" in text
     # The run line keeps one flag: the quoted value crosses the render whole.
     assert '${ENVIRONMENT_FLAGS[@]+"${ENVIRONMENT_FLAGS[@]}"} &' in text
 
 
-def test_the_prepare_script_throttles_and_writes_the_lock_once(tmp_path: Path) -> None:
+def test_prepare_script_directives(tmp_path: Path) -> None:
     root = tmp_path / "p"
     _planned(root, threads=2, prepare=3)
     job = write_slurm_array(root, stamp=STAMP)
@@ -158,7 +160,7 @@ def test_the_prepare_script_throttles_and_writes_the_lock_once(tmp_path: Path) -
     assert (job.directory / "prepared").is_dir() and (job.directory / "logs").is_dir()
 
 
-def test_a_calibration_case_sizes_the_cpus_of_every_task(tmp_path: Path) -> None:
+def test_calibration_sizes_task_cpus(tmp_path: Path) -> None:
     root = tmp_path / "p"
     _planned(root, threads=2, calibration_parallel={"j003-calage": 5})
 
@@ -200,15 +202,21 @@ def test_options_reach_the_directives(tmp_path: Path) -> None:
         ("1-02:30", 86400 + 2 * 3600 + 30 * 60),
         ("1-00:00:05", 86405),
     ],
+    ids=[
+        "minutes",
+        "minutes:seconds",
+        "hours:minutes:seconds",
+        "days-hours",
+        "days-hours:minutes",
+        "days-time",
+    ],
 )
 def test_walltime_forms(text: str, seconds: int) -> None:
     assert walltime_seconds(text) == seconds
 
 
 @pytest.mark.allow_subprocess
-def test_a_task_script_strips_the_overrides_of_the_submitting_shell() -> None:
-    from hydromodpy.project.launch.slurm_script import worker_block
-
+def test_task_strips_shell_overrides() -> None:
     env = {"PATH": "/usr/bin:/bin", "HMP_SET_a__b": "1"}
     script = worker_block("solve").split('cd "$PROJECT_ROOT"')[0]
     probe = script + '\nenv | grep -c "^HMP_" || true\n'
@@ -328,7 +336,7 @@ def _task(tmp_path: Path, mode: str) -> tuple[Path, subprocess.Popen]:
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_a_crashed_worker_is_closed_as_failed_by_the_trap(tmp_path: Path) -> None:
+def test_crashed_worker_closed_by_trap(tmp_path: Path) -> None:
     root, proc = _task(tmp_path, "crash")
     assert proc.wait(timeout=50) == 137
 
@@ -348,7 +356,7 @@ def test_a_crashed_worker_is_closed_as_failed_by_the_trap(tmp_path: Path) -> Non
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_the_scheduler_warning_reaches_the_worker_through_the_shell(tmp_path: Path) -> None:
+def test_term_warning_reaches_worker(tmp_path: Path) -> None:
     root, proc = _task(tmp_path, "sleep")
     deadline = time.monotonic() + 40
     while not (tmp_path / "ready").exists():
@@ -367,7 +375,7 @@ def test_the_scheduler_warning_reaches_the_worker_through_the_shell(tmp_path: Pa
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_a_worker_that_wrote_its_exit_is_left_alone(tmp_path: Path) -> None:
+def test_worker_exit_left_alone(tmp_path: Path) -> None:
     root, proc = _task(tmp_path, "finish")
     assert proc.wait(timeout=50) == 15
 
@@ -381,7 +389,7 @@ def test_a_worker_that_wrote_its_exit_is_left_alone(tmp_path: Path) -> None:
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_the_task_that_completes_the_prepare_phase_writes_the_lock(tmp_path: Path) -> None:
+def test_last_prepare_task_writes_lock(tmp_path: Path) -> None:
     root, job_dir = _job(tmp_path)
     for task in ("2", "3"):
         (job_dir / "prepared" / task).touch()
@@ -396,7 +404,7 @@ def test_the_task_that_completes_the_prepare_phase_writes_the_lock(tmp_path: Pat
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_a_prepare_task_that_is_not_the_last_or_that_failed_writes_no_lock(
+def test_other_prepare_tasks_write_no_lock(
     tmp_path: Path,
 ) -> None:
     root, job_dir = _job(tmp_path / "first")

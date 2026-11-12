@@ -30,11 +30,9 @@ from hydromodpy.mesh.cells.boundary import (
 )
 from hydromodpy.mesh.engines.regular import engine as regular_engine
 from hydromodpy.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.mesh.request import LineFamilySpec, MeshRequest
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, bundle_dual, bundle_triangles
-from tests._helpers.dual_of_triangles import dual_of_the_triangles
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request
 
 NROW, NCOL = 7, 5
@@ -45,17 +43,6 @@ RECTANGLE = BUNDLE_CASES[2]
 def _request(*, nrow: int, ncol: int, size: float, lines=()) -> MeshRequest:
     grid = grid_spec(nrow, ncol, size, xmin=1000.25, ymin=2000.5, crs_wkt=LAMBERT93_WKT)
     return mesh_request(grid, lines=lines)
-
-
-def _grid_side_by_arithmetic(side: str) -> list[int]:
-    """The rows and columns the structured branch of ``side_boundary_cell_ids`` listed."""
-    if side == "west_side":
-        return [row * NCOL for row in range(NROW)]
-    if side == "east_side":
-        return [row * NCOL + NCOL - 1 for row in range(NROW)]
-    if side == "north_side":
-        return list(range(NCOL))
-    return list(range((NROW - 1) * NCOL, NROW * NCOL))
 
 
 @pytest.fixture(scope="module")
@@ -73,7 +60,7 @@ def _cells_of_faces(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
 
 
 @pytest.mark.parametrize("case", BUNDLE_CASES)
-def test_a_triangulation_side_holds_the_cells_that_own_its_faces(case) -> None:
+def test_triangulation_sides(case) -> None:
     triangles = bundle_triangles(case)
     for side in SIDE_IDS:
         family = f"boundary:{side.removesuffix('_side')}"
@@ -81,7 +68,7 @@ def test_a_triangulation_side_holds_the_cells_that_own_its_faces(case) -> None:
         assert np.array_equal(label_cells(triangles, side), side_cells(triangles, side))
 
 
-def test_a_dual_side_holds_the_cells_centred_on_it() -> None:
+def test_dual_sides() -> None:
     dual = bundle_dual(RECTANGLE)
     assert dual.center_kind == "generator"
     west = side_cells(dual, "west_side")
@@ -92,7 +79,7 @@ def test_a_dual_side_holds_the_cells_centred_on_it() -> None:
     assert set(west.tolist()) <= set(touching.tolist())
 
 
-def test_a_side_with_no_centred_cell_falls_back_to_the_cells_with_a_face_on_it(caplog) -> None:
+def test_side_fallback(caplog) -> None:
     dual = bundle_dual(RECTANGLE)
     shifted = replace(dual, centers=dual.centers + np.array([0.37, 0.0]))
     with caplog.at_level(logging.WARNING, logger="hydromodpy"):
@@ -103,18 +90,18 @@ def test_a_side_with_no_centred_cell_falls_back_to_the_cells_with_a_face_on_it(c
     assert sum("west_side" in record.getMessage() for record in caplog.records) == 1
 
 
-def test_an_unknown_label_matches_nothing_and_an_unknown_side_is_refused(grid) -> None:
+def test_unknown_label_and_side(grid) -> None:
     assert label_cells(grid, "no_such_label").size == 0
     assert label_cells(grid, "").size == 0
     with pytest.raises(ValueError, match="Unsupported side boundary id"):
         side_cells(grid, "up_side")
 
 
-def test_a_grid_without_river_has_no_stream_cell(grid) -> None:
+def test_no_stream_cell(grid) -> None:
     assert stream_cells(grid).size == 0
 
 
-def test_the_stream_of_a_grid_is_the_cells_of_its_chains() -> None:
+def test_stream_cells_of_chains() -> None:
     river = LineString([(1005.0, 2060.0), (1025.0, 2035.0), (1044.0, 2005.0)])
     request = _request(
         nrow=NROW, ncol=NCOL, size=10.0, lines=(LineFamilySpec("rivers", "cell", (river,)),)
@@ -125,14 +112,6 @@ def test_the_stream_of_a_grid_is_the_cells_of_its_chains() -> None:
     expected = np.unique(np.concatenate([chain.cell_ids for chain in chains]))
     assert np.array_equal(stream_cells(cell_mesh), expected)
     assert np.array_equal(label_cells(cell_mesh, "river"), expected)
-
-
-def _triangles(request: MeshRequest) -> PlanarCellMesh:
-    return TriangleMeshEngine().build(request)
-
-
-def _dual_of_triangles(request: MeshRequest) -> PlanarCellMesh:
-    return dual_of_the_triangles(TriangleMeshEngine().build(request), request)
 
 
 STATEMENT = "side heads sit here"
@@ -159,7 +138,7 @@ def _offsets_by_hand(cell_mesh) -> np.ndarray:
     return np.concatenate(out)
 
 
-def test_the_side_cells_of_a_grid_sit_half_a_cell_inside() -> None:
+def test_grid_offset_half_a_cell() -> None:
     grid = _grid(nrow=7, ncol=5, size=10.0)
 
     offsets = side_center_offset_m(grid)
@@ -169,7 +148,7 @@ def test_the_side_cells_of_a_grid_sit_half_a_cell_inside() -> None:
 
 
 @pytest.mark.parametrize("producer", [bundle_triangles, bundle_dual])
-def test_the_offset_of_a_bundle_mesh_is_the_one_measured_by_hand(producer) -> None:
+def test_bundle_offset_by_hand(producer) -> None:
     cell_mesh = producer(RECTANGLE)
 
     expected = _offsets_by_hand(cell_mesh)
@@ -177,7 +156,7 @@ def test_the_offset_of_a_bundle_mesh_is_the_one_measured_by_hand(producer) -> No
     assert np.allclose(np.sort(side_center_offset_m(cell_mesh)), np.sort(expected), atol=1.0e-6)
 
 
-def test_the_regular_engine_states_the_half_cell_in_its_qa() -> None:
+def test_regular_qa_states_offset() -> None:
     grid = _grid(nrow=7, ncol=5, size=10.0)
 
     assert grid.qa.extras[SIDE_OFFSET_KEY] == pytest.approx(5.0)
@@ -185,7 +164,7 @@ def test_the_regular_engine_states_the_half_cell_in_its_qa() -> None:
     assert grid.qa.notes[-1] == regular_engine._SIDE_STATEMENT
 
 
-def test_the_annotation_adds_the_statement_and_the_median() -> None:
+def test_annotation() -> None:
     triangles = bundle_triangles(RECTANGLE)
     assert SIDE_OFFSET_KEY not in triangles.qa.extras
 
@@ -196,7 +175,3 @@ def test_the_annotation_adds_the_statement_and_the_median() -> None:
         float(np.median(side_center_offset_m(triangles)))
     )
     assert triangles.qa.notes[-1:] != (STATEMENT,)
-
-
-def _without_faces(cell_mesh):
-    return replace(cell_mesh, face_families=None)

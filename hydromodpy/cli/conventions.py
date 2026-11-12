@@ -26,7 +26,7 @@ form. The policy is ``docs/source/about/versions.md``.
 because of what is already there, or what protects it. An existing file, a
 pinned run, a running case. It never skips a question, which is ``-y``.
 
-A guard test (``tests/unit/cli/test_cli_conventions.py``) introspects the
+A guard test (``tests/unit/cli/test_conventions.py``) introspects the
 argparse tree and fails if a command drifts from this grammar.
 
 A name is ``--name``, the file format of ``export`` is ``--as`` and the container of

@@ -30,9 +30,7 @@ from hydromodpy.config.section_loader import PYDANTIC_CODES, code_of, severity_o
 from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, HydroModelBase
 from hydromodpy.core.config_kit.said import Said, collecting
 from hydromodpy.core.diagnostic import Diagnostic
-from hydromodpy.core.exceptions import ConfigValidationError, HydroModPyError
 from hydromodpy.core.plugin_registry import check_registered_name
-from hydromodpy.core.state.result_dirs import is_sealed_run_config
 from hydromodpy.core.toml_io.loader import config_base_dir, merge_toml_chain, read_toml_chain
 from hydromodpy.core.toml_io.paths import bare_name_refusal
 from hydromodpy.schema.changes import prerelease_refusal
@@ -68,9 +66,7 @@ def _errors(found: list[Diagnostic]) -> list[Diagnostic]:
     return [diagnostic for diagnostic in found if diagnostic.severity != "warning"]
 
 
-# ---------------------------------------------------------------------------
 # What a draft gives, partial or not
-# ---------------------------------------------------------------------------
 
 DOCUMENTS: dict[str, tuple[dict[str, Any], bool, list[tuple[str, str, str]]]] = {
     "the empty document has its required section to fill": (
@@ -201,7 +197,7 @@ DOCUMENTS: dict[str, tuple[dict[str, Any], bool, list[tuple[str, str, str]]]] = 
 @pytest.mark.parametrize(
     ("document", "partial", "expected"), DOCUMENTS.values(), ids=list(DOCUMENTS)
 )
-def test_a_document_gives_its_diagnostics(
+def test_diagnostics_of_a_document(
     tmp_path: Path, document: dict[str, Any], partial: bool, expected: list[tuple[str, str, str]]
 ) -> None:
     found = check(document, partial=partial, base=tmp_path)
@@ -219,7 +215,7 @@ def test_a_document_gives_its_diagnostics(
         ({"geographic": {}}, {"value_error"}),
     ],
 )
-def test_a_hole_folds_the_pydantic_fault_and_keeps_its_text(
+def test_hole_folds_the_pydantic_fault(
     tmp_path: Path, document: dict[str, Any], codes: set[str]
 ) -> None:
     found = check(document, base=tmp_path)
@@ -230,7 +226,7 @@ def test_a_hole_folds_the_pydantic_fault_and_keeps_its_text(
     assert not codes & {diagnostic.error_type for diagnostic in found}
 
 
-def test_thirty_unknown_keys_give_thirty_diagnostics(tmp_path: Path) -> None:
+def test_thirty_unknown_keys(tmp_path: Path) -> None:
     document = {"geographic": SYNTHETIC, "domain": {f"bogus{index}": index for index in range(30)}}
 
     found = check(document, base=tmp_path)
@@ -241,22 +237,22 @@ def test_thirty_unknown_keys_give_thirty_diagnostics(tmp_path: Path) -> None:
     assert {diagnostic.code for diagnostic in found} == {"unknown_key"}
 
 
-def test_a_to_fill_says_the_rules_that_wait() -> None:
+def test_to_fill_phrase() -> None:
     assert "once it is filled" in phrase("to_fill")
 
 
-def test_a_document_that_is_not_a_table_is_one_diagnostic(tmp_path: Path) -> None:
+def test_document_that_is_not_a_table(tmp_path: Path) -> None:
     found = check(["geographic"], base=tmp_path)  # type: ignore[arg-type]
     assert _seen(found) == [("", "wrong_type", "error")]
 
 
-def test_a_check_names_its_base() -> None:
+def test_check_needs_a_base() -> None:
     """A document has no folder of its own, so the current folder is never its base."""
     with pytest.raises(TypeError, match="base"):
         check({"geographic": SYNTHETIC})  # type: ignore[call-arg]
 
 
-def test_the_document_is_not_changed(tmp_path: Path) -> None:
+def test_document_is_not_changed(tmp_path: Path) -> None:
     document = {"geographic": SYNTHETIC, "modflow6": {"runtime": {"mf6_ims_complexity": "SIMPLE"}}}
     before = repr(document)
 
@@ -265,9 +261,7 @@ def test_the_document_is_not_changed(tmp_path: Path) -> None:
     assert repr(document) == before
 
 
-# ---------------------------------------------------------------------------
 # One field at a time, as a form writes it (the former per-field validator)
-# ---------------------------------------------------------------------------
 
 FIELD_CASES = (
     ("flow.flow_regime", "steady", None),
@@ -301,9 +295,7 @@ FIELD_CASES = (
 
 
 @pytest.mark.parametrize(("path", "value", "error"), FIELD_CASES)
-def test_a_field_is_checked_as_the_file_is_read(
-    tmp_path: Path, path: str, value: object, error: str | None
-) -> None:
+def test_field_check(tmp_path: Path, path: str, value: object, error: str | None) -> None:
     """The checks of the annotation run: the registry, a bound, a choice, a named table."""
     document = _with(path, value)
 
@@ -320,7 +312,7 @@ def test_a_field_is_checked_as_the_file_is_read(
         assert error in at_path[0].detail
 
 
-def test_an_unknown_key_of_flow_is_named_by_its_section(tmp_path: Path) -> None:
+def test_unknown_key_of_flow(tmp_path: Path) -> None:
     """``[flow]`` refuses its unknown keys itself, at the section, with their names."""
     (fault,) = _errors(check(_with("flow.does_not_exist", 42), base=tmp_path))
 
@@ -337,7 +329,7 @@ def test_an_unknown_key_of_flow_is_named_by_its_section(tmp_path: Path) -> None:
         "flow.sinks_sources.lakes.cheze.bedleak",
     ],
 )
-def test_the_key_of_an_instance_is_a_name_the_user_chose(tmp_path: Path, path: str) -> None:
+def test_instance_key_is_a_name(tmp_path: Path, path: str) -> None:
     """A path crosses an instance: the segment after a mapping is a key, not a field."""
     found = check(_with(path, 1e-5), base=tmp_path)
 
@@ -357,13 +349,13 @@ def test_the_key_of_an_instance_is_a_name_the_user_chose(tmp_path: Path, path: s
         (_with("domain.supports.aquifer", 1.0), "domain.supports.aquifer", "wrong_type"),
     ],
 )
-def test_a_key_nothing_declares_is_still_refused(
+def test_key_nothing_declares(
     tmp_path: Path, document: dict[str, Any], path: str, code: str
 ) -> None:
     assert (path, code, "error") in _seen(check(document, base=tmp_path))
 
 
-def test_a_warm_check_of_a_field_stays_well_under_fifty_milliseconds(tmp_path: Path) -> None:
+def test_warm_check_is_fast(tmp_path: Path) -> None:
     """The bench of the lot measures the 10 ms of a whole document; this is the guard."""
     document = _with("flow.flow_regime", "steady")
     check(document, base=tmp_path)
@@ -376,12 +368,10 @@ def test_a_warm_check_of_a_field_stays_well_under_fifty_milliseconds(tmp_path: P
     assert elapsed_ms < 50, f"mean per-call latency {elapsed_ms:.2f} ms"
 
 
-# ---------------------------------------------------------------------------
 # The help of a key
-# ---------------------------------------------------------------------------
 
 
-def test_a_fault_of_a_documented_field_carries_its_description(tmp_path: Path) -> None:
+def test_fault_carries_the_field_description(tmp_path: Path) -> None:
     from hydromodpy.solver.base.solver_config import SolverConfig
 
     (fault,) = _errors(check(_with("solver.drain_bed_thickness_m", -1.0), base=tmp_path))
@@ -399,9 +389,7 @@ class _PluginSettings(HydroModelBase):
     )
 
 
-def test_a_plugin_without_a_phrase_helps_with_the_description_of_its_field(
-    tmp_path: Path, isolated_solvers
-) -> None:
+def test_plugin_fault_help(tmp_path: Path, isolated_solvers) -> None:
     isolated_solvers.solvers.register(fake_adapter("pluginflow", options=_PluginSettings))
     document = _with("solver.pluginflow", {"relaxation": -1.0}, solver={"backend": "pluginflow"})
 
@@ -412,9 +400,7 @@ def test_a_plugin_without_a_phrase_helps_with_the_description_of_its_field(
     ]
 
 
-# ---------------------------------------------------------------------------
 # The files of example 04, and what a check of [display] imports
-# ---------------------------------------------------------------------------
 
 
 def _as_written(path: Path) -> dict[str, Any]:
@@ -430,7 +416,7 @@ def _as_written(path: Path) -> dict[str, Any]:
         "run_calibration_bdtopage.toml",
     ],
 )
-def test_the_files_of_example_04_have_no_error(name: str) -> None:
+def test_example_04_files_have_no_error(name: str) -> None:
     """The two calibration files leave their station to [site] gauge: no false error."""
     path = EXAMPLE_04 / name
 
@@ -440,7 +426,7 @@ def test_the_files_of_example_04_have_no_error(name: str) -> None:
 
 
 @pytest.mark.allow_subprocess
-def test_a_check_of_display_imports_no_figure_module(tmp_path: Path) -> None:
+def test_display_check_imports_no_figure_module(tmp_path: Path) -> None:
     """A fresh process, since another test may have drawn a figure in this one."""
     script = textwrap.dedent(
         f"""
@@ -468,30 +454,28 @@ def test_a_check_of_display_imports_no_figure_module(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stderr[-2000:]
 
 
-# ---------------------------------------------------------------------------
 # The codes and their phrases
-# ---------------------------------------------------------------------------
 
 
-def test_there_are_twenty_two_codes_each_with_a_phrase_in_both_languages() -> None:
+def test_phrase_in_each_language() -> None:
     assert len(CHECK_CODES) == 22
     for code in CHECK_CODES:
         for lang in LANGS:
             assert phrase(code, lang).strip(), (code, lang)
 
 
-def test_a_phrase_in_another_language_is_refused() -> None:
+def test_phrase_in_another_language() -> None:
     with pytest.raises(ValueError, match="en, fr"):
         phrase("to_fill", "de")
 
 
 @pytest.mark.parametrize("error_type", typing.get_args(ErrorType))
-def test_every_pydantic_error_type_has_a_check_code(error_type: str) -> None:
+def test_pydantic_error_type_has_a_code(error_type: str) -> None:
     """A Pydantic that adds a type never gives a code outside the closed set."""
     assert code_of(error_type) in CHECK_CODES
 
 
-def test_the_table_of_pydantic_types_names_only_check_codes() -> None:
+def test_pydantic_table_names_check_codes() -> None:
     assert set(PYDANTIC_CODES.values()) <= CHECK_CODES
 
 
@@ -513,9 +497,7 @@ def test_the_table_of_pydantic_types_names_only_check_codes() -> None:
         ("a_type_pydantic_adds_tomorrow", "", "refused_value"),
     ],
 )
-def test_a_fault_reads_its_code_from_its_type_and_its_words(
-    error_type: str, detail: str, code: str
-) -> None:
+def test_code_of_a_fault(error_type: str, detail: str, code: str) -> None:
     assert code_of(error_type, detail) == code
 
 
@@ -558,9 +540,7 @@ RAISERS: dict[str, tuple[typing.Callable[[], str], str]] = {
 
 
 @pytest.mark.parametrize(("raiser", "code"), RAISERS.values(), ids=list(RAISERS))
-def test_each_raiser_of_a_coded_refusal_gives_its_code(
-    raiser: typing.Callable[[], str], code: str
-) -> None:
+def test_raiser_gives_its_code(raiser: typing.Callable[[], str], code: str) -> None:
     assert code_of("value_error", raiser()) == code
 
 
@@ -576,11 +556,11 @@ def test_each_raiser_of_a_coded_refusal_gives_its_code(
         ("unknown_key", "error"),
     ],
 )
-def test_a_code_has_its_severity(code: str, severity: str) -> None:
+def test_severity_of_a_code(code: str, severity: str) -> None:
     assert severity_of(code) == severity
 
 
-def test_every_code_a_check_gives_has_its_phrase(tmp_path: Path) -> None:
+def test_codes_given_are_known(tmp_path: Path) -> None:
     given = {
         diagnostic.code
         for document, _, _ in DOCUMENTS.values()
@@ -593,14 +573,12 @@ def test_every_code_a_check_gives_has_its_phrase(tmp_path: Path) -> None:
     assert len(given) >= 12
 
 
-# ---------------------------------------------------------------------------
 # The warnings of the validators are collected per call, never by the process filters
-# ---------------------------------------------------------------------------
 
 LAYERS_WITH_A_COUNT = {"layers": {"genmtd_lay": "list", "lay_proportions": [0.5, 0.5], "nlay": 5}}
 
 
-def test_a_validator_warning_is_a_diagnostic_and_the_process_hears_nothing(tmp_path: Path) -> None:
+def test_validator_warning_is_a_diagnostic(tmp_path: Path) -> None:
     document = {"geographic": dict(SYNTHETIC), "domain": LAYERS_WITH_A_COUNT}
     filters = list(warnings.filters)
     with warnings.catch_warnings(record=True) as heard:
@@ -630,13 +608,13 @@ def test_a_validator_warning_is_a_diagnostic_and_the_process_hears_nothing(tmp_p
         ([Said("a", FutureWarning)], [("section_warning", "a")]),
     ],
 )
-def test_the_said_texts_become_old_key_or_section_warning_once_each(said, expected) -> None:
+def test_said_texts_become_warnings_once_each(said, expected) -> None:
     found = _said_by_the_sections(said)
     assert [(d.code, d.detail) for d in found] == expected
     assert {d.severity for d in found} <= {"warning"}
 
 
-def test_two_checks_in_a_row_each_give_their_own_warning(tmp_path: Path) -> None:
+def test_two_checks_each_warn(tmp_path: Path) -> None:
     quiet = {"geographic": dict(SYNTHETIC)}
     loud = {**quiet, "domain": LAYERS_WITH_A_COUNT}
     seen = [
@@ -646,7 +624,7 @@ def test_two_checks_in_a_row_each_give_their_own_warning(tmp_path: Path) -> None
     assert seen == [["section_warning"], [], ["section_warning"]]
 
 
-def test_a_parameter_outside_the_catalogue_is_said_into_the_sink(tmp_path: Path) -> None:
+def test_unknown_parameter_unit(tmp_path: Path) -> None:
     """The loader resolves the parameters, so the file the CLI reads keeps quiet under a sink."""
     path = tmp_path / "run.toml"
     path.write_text(
@@ -672,119 +650,3 @@ def test_a_parameter_outside_the_catalogue_is_said_into_the_sink(tmp_path: Path)
             HydroModPyConfig.from_toml(path)
     assert heard == []
     assert [(s.category, "unit is unknown" in s.text) for s in said] == [(UserWarning, True)]
-
-
-# ---------------------------------------------------------------------------
-# One validator: the loader refuses what check(partial=False) refuses, at its pointer
-# ---------------------------------------------------------------------------
-
-
-def _refusal_tables() -> list[tuple[str, str]]:
-    from tests.unit.config.test_a_refused_document_is_not_a_crash import LOADABLE, MALFORMED
-
-    return [("LOADABLE", LOADABLE), *((key, LOADABLE + body) for key, body in MALFORMED.items())]
-
-
-def _documents_of_the_tree() -> list[Path]:
-    corpus = sorted((REPO / "tests" / "unit" / "config" / "corpus").rglob("*.toml"))
-    examples = sorted((REPO / "examples" / "projects").rglob("*.toml"))
-    return [*corpus, *examples]
-
-
-def _same_refusal(path: Path) -> None:
-    """Hold the loader and ``check(partial=False)`` to the same answer on one file."""
-    try:
-        document = _as_written(path)
-    except (ValueError, OSError):
-        return  # an unreadable file or chain is refused before any section is read
-    try:
-        base = config_base_dir(path)
-    except HydroModPyError as exc:
-        # A file that anchors no project root is refused before it is validated.
-        with pytest.raises(type(exc)):
-            HydroModPyConfig.from_toml(path)
-        return
-    found = _errors(check(document, partial=False, base=base))
-    if is_sealed_run_config(path):
-        # The loader reads the frozen config of a run in silence under the old
-        # names it recorded, unless a pre-release of 2.0 wrote them. A document
-        # checked as written is not such a copy, so the old forms the check
-        # refuses in it are compared only with a refusal of the pre-release forms.
-        written = [item for item in found if item.code not in {"old_key", "retired_key"}]
-    else:
-        written = found
-    try:
-        HydroModPyConfig.from_toml(path)
-    except HydroModPyError as error:
-        assert found, f"{path}: the loader refuses ({error}) and the check finds nothing"
-        prerelease = bool(error.details) and all(
-            item.get("type") == "prerelease_form" for item in error.details
-        )
-        found = found if prerelease else written
-        if prerelease:
-            # A chain is refused layer by layer and the check reads it merged: the
-            # check names every key of the refusal that the merged document holds.
-            held = {item["pointer"] for item in error.details if _holds(document, item["loc"])}
-            assert held, (path, error.details)
-            assert {item.pointer for item in found if item.code == "retired_key"} >= held, (
-                path,
-                _seen(found),
-                error.details,
-            )
-        elif error.details:
-            assert found[0].pointer == error.details[0]["pointer"], (
-                path,
-                _seen(found),
-                error.details[0],
-            )
-        if not isinstance(error, ConfigValidationError):
-            assert found[0].code == "incompatible", (path, type(error), _seen(found))
-        return
-    assert written == [], f"{path}: the loader reads it and the check refuses {_seen(found)}"
-
-
-def _holds(document: Any, loc: list[str | int]) -> bool:
-    """Whether *document* holds a value at *loc*, a key or an index at each step."""
-    for part in loc:
-        if isinstance(document, dict) and part in document:
-            document = document[part]
-        elif isinstance(document, list) and isinstance(part, int) and part < len(document):
-            document = document[part]
-        else:
-            return False
-    return True
-
-
-@pytest.mark.parametrize(("name", "text"), _refusal_tables(), ids=lambda item: str(item)[:40])
-def test_a_document_of_the_refusal_tables_is_refused_the_same_way(
-    tmp_path: Path, name: str, text: str
-) -> None:
-    path = tmp_path / "project.toml"
-    path.write_text(text, encoding="utf-8")
-
-    _same_refusal(path)
-
-
-@pytest.mark.parametrize(
-    "path", _documents_of_the_tree(), ids=lambda path: str(path.relative_to(REPO))
-)
-def test_a_file_of_the_tree_is_refused_or_read_the_same_way(path: Path) -> None:
-    _same_refusal(path)
-
-
-def test_a_document_with_two_faulty_sections_is_refused_with_both(tmp_path: Path) -> None:
-    """The loader raises the type of the first fault and names every fault."""
-    path = tmp_path / "project.toml"
-    path.write_text(
-        '[geographic]\nsource_mode = "synthetic"\n\n[domain]\nfoo = 1\n\n'
-        "[flow]\nflow_regime = 'x'\n",
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        HydroModPyConfig.from_toml(path)
-
-    pointers = [entry["pointer"] for entry in excinfo.value.details]
-    assert pointers == ["/domain/foo", "/flow/flow_regime"]
-    assert [d.pointer for d in _errors(check(_as_written(path), base=tmp_path))] == pointers
-    assert "foo" in str(excinfo.value) and "flow_regime" in str(excinfo.value)

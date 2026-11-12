@@ -27,7 +27,7 @@ def _write_lock(path: Path, *, pid: int, created: float) -> None:
     )
 
 
-def test_a_lock_is_taken_then_released(tmp_path: Path) -> None:
+def test_take_and_release(tmp_path: Path) -> None:
     lock = LockFile(tmp_path / "x.lock")
     assert lock.acquire() is True
     assert lock.read() is not None
@@ -36,7 +36,7 @@ def test_a_lock_is_taken_then_released(tmp_path: Path) -> None:
     assert lock.read() is None
 
 
-def test_a_lock_too_old_is_taken_back(tmp_path: Path) -> None:
+def test_stale_lock_taken_back(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     _write_lock(path, pid=os.getpid(), created=time.time() - 10 * 3600)
     lock = LockFile(path, stale_after_s=3600, wait_s=0.0)
@@ -44,7 +44,7 @@ def test_a_lock_too_old_is_taken_back(tmp_path: Path) -> None:
     lock.release()
 
 
-def test_a_release_does_not_remove_anothers_lock(tmp_path: Path) -> None:
+def test_release_keeps_other_lock(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     _write_lock(path, pid=2**30, created=time.time())
     other = LockFile(path)
@@ -54,7 +54,7 @@ def test_a_release_does_not_remove_anothers_lock(tmp_path: Path) -> None:
     assert other.held is False
 
 
-def test_renew_dates_the_lock_again(tmp_path: Path) -> None:
+def test_renew_redates_lock(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     lock = LockFile(path)
     assert lock.acquire() is True
@@ -71,7 +71,7 @@ def test_renew_dates_the_lock_again(tmp_path: Path) -> None:
     assert not path.exists()
 
 
-def test_renew_leaves_the_lock_of_another_alone(tmp_path: Path) -> None:
+def test_renew_skips_other_lock(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     lock = LockFile(path)
     assert lock.acquire() is True
@@ -83,13 +83,13 @@ def test_renew_leaves_the_lock_of_another_alone(tmp_path: Path) -> None:
     assert lock.read().created == 123.0
 
 
-def test_renew_without_the_lock_writes_nothing(tmp_path: Path) -> None:
+def test_renew_without_lock(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     LockFile(path).renew()
     assert not path.exists()
 
 
-def test_a_fresh_lock_taken_between_verdict_and_take_back_is_kept(tmp_path: Path) -> None:
+def test_fresh_lock_kept_in_race(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     _write_lock(path, pid=2**30, created=time.time())
     late = LockFile(path, wait_s=0.0)
@@ -111,7 +111,7 @@ def test_a_fresh_lock_taken_between_verdict_and_take_back_is_kept(tmp_path: Path
     first.release()
 
 
-def test_threads_racing_on_a_stale_lock_leave_one_holder(tmp_path: Path) -> None:
+def test_racing_threads_one_holder(tmp_path: Path) -> None:
     for round_ in range(30):
         path = tmp_path / f"r{round_}.lock"
         _write_lock(path, pid=2**30, created=time.time())
@@ -132,7 +132,7 @@ def test_threads_racing_on_a_stale_lock_leave_one_holder(tmp_path: Path) -> None
         assert sum(lock.still_held() for lock in locks) == 1
 
 
-def test_renew_does_not_overwrite_a_lock_taken_back_after_its_check(tmp_path: Path) -> None:
+def test_renew_keeps_retaken_lock(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     lock = LockFile(path)
     assert lock.acquire() is True
@@ -144,9 +144,6 @@ def test_renew_does_not_overwrite_a_lock_taken_back_after_its_check(tmp_path: Pa
     lock.renew()
 
     assert LockFile(path).read().created == 123.0
-
-
-# --- Windows refuses to rename or remove a file a reader holds open.
 
 
 @pytest.fixture
@@ -183,7 +180,7 @@ def _in_use(failures: int, then):
 
 
 @pytest.mark.parametrize("operation", ["replace", "unlink"])
-def test_a_release_refused_twice_still_removes_the_lock(
+def test_release_refused_twice(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     no_wait: list[float],
@@ -203,7 +200,7 @@ def test_a_release_refused_twice_still_removes_the_lock(
     assert lock_warnings.records == []
 
 
-def test_a_release_refused_six_times_leaves_the_lock_and_warns(
+def test_release_refused_six_times(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     no_wait: list[float],
@@ -224,7 +221,7 @@ def test_a_release_refused_six_times_leaves_the_lock_and_warns(
     assert any("stays in place until it is stale" in r.getMessage() for r in lock_warnings.records)
 
 
-def test_a_lock_left_by_a_failed_release_is_taken_back_once_stale(
+def test_failed_release_taken_back(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_wait: list[float]
 ) -> None:
     path = tmp_path / "x.lock"
@@ -241,7 +238,7 @@ def test_a_lock_left_by_a_failed_release_is_taken_back_once_stale(
     assert not path.exists()
 
 
-def test_a_take_back_refused_by_a_reader_waits_and_keeps_the_lock(
+def test_take_back_refused_by_reader(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_wait: list[float]
 ) -> None:
     path = tmp_path / "x.lock"
@@ -255,9 +252,7 @@ def test_a_take_back_refused_by_a_reader_waits_and_keeps_the_lock(
     assert list(tmp_path.iterdir()) == [path]
 
 
-def test_a_lock_put_back_where_links_are_refused_is_copied(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_put_back_by_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "x.lock"
     lock = LockFile(path)
     assert lock.acquire() is True
@@ -276,9 +271,7 @@ def test_a_lock_put_back_where_links_are_refused_is_copied(
     assert LockFile(path).read().created == 123.0
 
 
-def test_a_lock_put_back_by_a_copy_stays_its_holders(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_copied_lock_stays_held(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "x.lock"
     lock = LockFile(path)
     assert lock.acquire() is True
@@ -302,7 +295,7 @@ def test_a_lock_put_back_by_a_copy_stays_its_holders(
 
 
 @pytest.mark.parametrize("operation", ["replace", "unlink"])
-def test_a_refused_release_off_windows_raises_at_once(
+def test_off_windows_release_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, operation: str
 ) -> None:
     waited: list[float] = []
@@ -319,7 +312,7 @@ def test_a_refused_release_off_windows_raises_at_once(
 
 
 @pytest.mark.windows
-def test_windows_renews_and_releases_while_a_reader_holds_the_lock(tmp_path: Path) -> None:
+def test_windows_reader_holds_lock(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     lock = LockFile(path)
     assert lock.acquire() is True
@@ -339,3 +332,7 @@ def test_windows_renews_and_releases_while_a_reader_holds_the_lock(tmp_path: Pat
         closer.join()
         reader.close()
     assert not path.exists()
+
+
+def test_missing_guard_is_ignored(tmp_path: Path) -> None:
+    lock_file._clear_dead_guard(tmp_path / "x.lock.guard")

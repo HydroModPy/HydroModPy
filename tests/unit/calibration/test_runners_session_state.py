@@ -1,4 +1,7 @@
-"""Tests of `runners.session`: the file a session reads, the identity it records, the period it scores."""
+"""Calibration session identity and reuse: the file a session reads, the period it scores, the fingerprints of a stored trial.
+
+Covers `runners.session`, `runners.state`, `runners.resume` and `runners.document`. Costs are objective values.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +17,9 @@ from pydantic import BaseModel
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.cache import params_hash
-from hydromodpy.calibration.runners import resume, session, state
+from hydromodpy.calibration.runners import resume, session, state, trial
+from hydromodpy.calibration.runners.document import identical_session
+from hydromodpy.calibration.runners.promotion import promotion_name_check
 from hydromodpy.calibration.runners.resume import (
     ReusableStage,
     fingerprint_matches,
@@ -22,6 +27,8 @@ from hydromodpy.calibration.runners.resume import (
     trials_another_cost_scored,
 )
 from hydromodpy.calibration.runners.session import search_windows
+from hydromodpy.core.exceptions import ConfigError
+from tests._helpers.sealed_runs import CONFIG_HASH, write_session_dir
 
 
 def _write(path: Path, text: str) -> Path:
@@ -29,7 +36,7 @@ def _write(path: Path, text: str) -> Path:
     return path
 
 
-def test_the_calibration_is_read_from_the_first_file_of_the_chain_that_writes_it(tmp_path) -> None:
+def test_carrier_of_calibration(tmp_path) -> None:
     _write(tmp_path / "base.toml", "[calibration]\nmethod = 'grid'\n")
     _write(tmp_path / "mid.toml", "base_config = 'base.toml'\n")
     top = _write(tmp_path / "top.toml", f"base_config = '{tmp_path / 'mid.toml'}'\n")
@@ -37,7 +44,7 @@ def test_the_calibration_is_read_from_the_first_file_of_the_chain_that_writes_it
     assert session._carrier_of_calibration(top) == (tmp_path / "base.toml").resolve()
 
 
-def test_a_chain_that_never_writes_the_calibration_stays_on_the_file_it_started_from(
+def test_chain_without_calibration(
     tmp_path,
 ) -> None:
     top = _write(tmp_path / "top.toml", "base_config = 'missing.toml'\n")
@@ -45,9 +52,7 @@ def test_a_chain_that_never_writes_the_calibration_stays_on_the_file_it_started_
     assert session._carrier_of_calibration(top) == top
 
 
-def test_the_identity_of_a_session_follows_the_model_then_the_document(monkeypatch) -> None:
-    from hydromodpy.calibration.runners import trial
-
+def test_session_identity(monkeypatch) -> None:
     asked: list[object] = []
 
     class _Pipeline:
@@ -88,9 +93,7 @@ _PARAMETERS = {"K": {"bounds": [1e-9, 1e-3], "path": "flow.param.K.field.value"}
         ),
     ],
 )
-def test_the_period_a_search_scores_is_the_declared_one_or_nothing(
-    phase, document, expected
-) -> None:
+def test_search_windows(phase, document, expected) -> None:
     cfg = CalibrationConfig.model_validate(
         {
             "method": "grid",
@@ -108,12 +111,6 @@ def test_the_period_a_search_scores_is_the_declared_one_or_nothing(
         assert (window.start, window.end) == expected
 
 
-# ---------------------------------------------------------------------------
-# runners_state
-# Tests of `runners.state`: the fingerprints that decide whether a stored trial is the same trial.
-# ---------------------------------------------------------------------------
-
-
 class _Config(BaseModel):
     name: str = "c"
 
@@ -122,19 +119,19 @@ def _entry(path: Path, role: str = "dem") -> SimpleNamespace:
     return SimpleNamespace(role=role, category="data", canonical_path=path)
 
 
-def test_an_entry_point_without_a_colon_is_refused() -> None:
+def test_entry_point_refused() -> None:
     with pytest.raises(ValueError, match="'module.path:callable', got: 'metrics'"):
         state.load_metric_fn_entry_point("metrics")
 
 
 @pytest.mark.parametrize("centers", [np.zeros(3), np.zeros((0, 2))])
-def test_a_mesh_without_centroids_has_no_identity(centers) -> None:
+def test_mesh_without_centroids(centers) -> None:
     ctx = SimpleNamespace(setup=SimpleNamespace(cell_mesh=SimpleNamespace(centers=centers)))
 
     assert state.mesh_fingerprint(ctx) is None
 
 
-def test_a_map_folder_and_a_missing_map_have_a_digest(tmp_path) -> None:
+def test_map_digest(tmp_path) -> None:
     folder = tmp_path / "map"
     folder.mkdir()
     (folder / "a.txt").write_text("x")
@@ -143,7 +140,7 @@ def test_a_map_folder_and_a_missing_map_have_a_digest(tmp_path) -> None:
     assert state._map_digest(tmp_path / "none") == "missing"
 
 
-def test_input_files_are_fingerprinted_by_kind(monkeypatch, tmp_path) -> None:
+def test_input_file_fingerprints(monkeypatch, tmp_path) -> None:
     (tmp_path / "dir").mkdir()
     (tmp_path / "dir" / "a.txt").write_text("a")
     (tmp_path / "f.txt").write_text("hello")
@@ -163,7 +160,7 @@ def test_input_files_are_fingerprinted_by_kind(monkeypatch, tmp_path) -> None:
     assert (found["gone"]["kind"], found["gone"]["exists"]) == ("missing", False)
 
 
-def test_a_configuration_whose_inputs_cannot_be_listed_has_no_fingerprints(monkeypatch) -> None:
+def test_unlistable_inputs(monkeypatch) -> None:
     def refuse(config, base=None):
         raise RuntimeError("no inputs")
 
@@ -172,11 +169,6 @@ def test_a_configuration_whose_inputs_cannot_be_listed_has_no_fingerprints(monke
     assert state._input_file_fingerprints(_Config()) == []
     assert state._input_file_fingerprints(object()) == []
 
-
-# ---------------------------------------------------------------------------
-# runners_resume
-# Tests of `runners.resume`: what a reopened session may trust of a phase it already solved.
-# ---------------------------------------------------------------------------
 
 CONTEXT = {"mesh": "m1"}
 
@@ -191,20 +183,20 @@ def _trial(number, status, hash_, k=1e-5):
     )
 
 
-def test_a_phase_that_left_no_scored_trial_is_not_reused(monkeypatch) -> None:
+def test_phase_without_scored_trial(monkeypatch) -> None:
     monkeypatch.setattr(resume, "completed_phases", lambda persistence: {"flow": object()})
     persistence = SimpleNamespace(held_trial=lambda name: None)
 
     assert reusable_stage(persistence, "flow") is None
 
 
-def test_a_trial_with_no_recorded_hash_is_not_trusted() -> None:
+def test_trial_without_hash() -> None:
     stage = ReusableStage("flow", 1, 1, 0.1, {"K": 1e-5}, None)
 
     assert fingerprint_matches(stage, cache_context=CONTEXT) is False
 
 
-def test_only_completed_trials_are_checked_against_the_cost_of_today(monkeypatch) -> None:
+def test_trials_of_another_cost(monkeypatch) -> None:
     monkeypatch.setattr(resume, "physical_parameters", lambda line: line.parameters)
     good = params_hash({"K": 1e-5}, context=CONTEXT)
     lines = [
@@ -218,13 +210,7 @@ def test_only_completed_trials_are_checked_against_the_cost_of_today(monkeypatch
     assert trials_another_cost_scored(persistence, "flow", cache_context=CONTEXT) == ([2], [3])
 
 
-# A completed session of the same case and key answers a calibration again.
-
-
-def test_a_completed_session_of_the_same_key_is_given_back_as_its_report(tmp_path: Path) -> None:
-    from hydromodpy.calibration.runners.document import identical_session
-    from tests._helpers.sealed_runs import CONFIG_HASH, write_session_dir
-
+def test_identical_session_report(tmp_path: Path) -> None:
     session_id = write_session_dir(tmp_path, "calage", trials=3, best_trial=2)
 
     report = identical_session(CONFIG_HASH, project_root=tmp_path, case="calage")
@@ -247,22 +233,14 @@ def test_a_completed_session_of_the_same_key_is_given_back_as_its_report(tmp_pat
         pytest.param("same", "calage", "failed", id="a search that failed"),
     ],
 )
-def test_no_session_answers_another_key_another_case_or_an_unfinished_search(
-    tmp_path: Path, key: str | None, case: str, status: str
-) -> None:
-    from hydromodpy.calibration.runners.document import identical_session
-    from tests._helpers.sealed_runs import CONFIG_HASH, write_session_dir
-
+def test_no_identical_session(tmp_path: Path, key: str | None, case: str, status: str) -> None:
     write_session_dir(tmp_path, "calage", status=status)
 
     asked = CONFIG_HASH if key == "same" else key
     assert identical_session(asked, project_root=tmp_path, case=case) is None
 
 
-def test_the_case_of_the_search_is_the_one_its_file_or_its_document_names(tmp_path: Path) -> None:
-    from hydromodpy.calibration.runners.document import identical_session
-    from tests._helpers.sealed_runs import CONFIG_HASH, write_session_dir
-
+def test_case_of_the_search(tmp_path: Path) -> None:
     write_session_dir(tmp_path, "cal")
     source = tmp_path / "cal.toml"
     source.write_text("[calibration]\n", encoding="utf-8")
@@ -274,9 +252,6 @@ def test_the_case_of_the_search_is_the_one_its_file_or_its_document_names(tmp_pa
 
 
 @pytest.mark.parametrize("name", ["Calib Winter", "aux", "a__b"])
-def test_a_case_that_breaks_the_rule_of_a_name_is_refused_before_the_search(name: str) -> None:
-    from hydromodpy.calibration.runners.promotion import promotion_name_check
-    from hydromodpy.core.exceptions import ConfigError
-
+def test_case_name_refused(name: str) -> None:
     with pytest.raises(ConfigError):
         promotion_name_check(name)

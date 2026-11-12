@@ -15,6 +15,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 from shapely.geometry import Polygon
 
 import hydromodpy as hmp
@@ -104,10 +105,8 @@ def run_with_series(tmp_path: Path) -> Iterator[Run]:
         yield sealed
 
 
-def test_one_period_is_a_data_array_without_the_time_dimension(run):
-    """``time`` selects in a field and never changes the type."""
-    import xarray as xr
-
+def test_one_period_is_a_data_array(run):
+    # ``time`` selects in a field and never changes the type.
     for time in (0, -2, np.int64(0)):
         da = run.read("head", time=time, layer=0)
         assert isinstance(da, xr.DataArray)
@@ -117,31 +116,30 @@ def test_one_period_is_a_data_array_without_the_time_dimension(run):
         run.read("head", time=5)
 
 
-def test_read_zarr_field_with_layer_selects_layer(run):
-    """Lazy ``DataArray`` returned by ``read`` can be sliced along layer."""
-    da = run.read("head", layer=0)
-    assert da.dims == ("time", "cell")
-    assert da.shape == (2, 2)
+READS = [
+    pytest.param({"layer": 0}, ("time", "cell"), (2, 2), id="one layer"),
+    pytest.param({"time": slice(0, 1)}, None, (1, 1, 2), id="time slice"),
+]
 
 
-def test_read_zarr_field_with_time_slice(run):
-    """Slice the time dimension on the lazy ``DataArray``."""
-    da = run.read("head", time=slice(0, 1))
-    assert da.shape == (1, 1, 2)
+@pytest.mark.parametrize(("kwargs", "dims", "shape"), READS)
+def test_read_field_slices(run, kwargs, dims, shape):
+    da = run.read("head", **kwargs)
+
+    assert da.shape == shape
+    if dims:
+        assert da.dims == dims
 
 
-def test_read_timeseries_returns_pandas_series(run_with_series):
-    """A persisted timeseries variable dispatches to ``pd.Series``."""
+def test_read_timeseries(run_with_series):
     run = run_with_series
     ts = run.read("discharge", sel={"station": "outlet"})
     assert isinstance(ts, pd.Series)
     np.testing.assert_allclose(ts.values, [1.5, 2.0, 2.5])
 
 
-def test_read_without_a_station_means_the_whole_catchment_beside_a_gauge(tmp_path):
+def test_read_without_a_station(tmp_path):
     """A run writes a gauge series beside the catchment one, and a plain read keeps its answer."""
-    from tests._helpers.run_stores import open_run_store
-
     index = pd.date_range("2020-01-02", periods=2, freq="D")
     with open_run_store(tmp_path / "demo", "two", n_cells=4, n_timesteps=2) as store:
         store.write_timeseries(store.sim_id, "catchment", "discharge", pd.Series([1.0, 2.0], index))
@@ -152,42 +150,33 @@ def test_read_without_a_station_means_the_whole_catchment_beside_a_gauge(tmp_pat
         assert run.read("discharge", sel={"station": "J001"}).tolist() == [0.1, 0.2]
 
 
-def test_read_geographic_feature_returns_geodataframe(tmp_path):
-    """A persisted geographic feature dispatches to ``gpd.GeoDataFrame``."""
+def test_read_geographic_feature(tmp_path):
     with _sealed(tmp_path / "workspace", feature=True) as run:
         gdf = run.read("watershed_polygon")
     assert isinstance(gdf, gpd.GeoDataFrame)
     assert len(gdf) == 1
 
 
-def test_read_unknown_variable_raises_field_not_found(run):
-    """An unknown variable raises :class:`FieldNotFoundError`."""
-    with pytest.raises(FieldNotFoundError):
+def test_unknown_variable(run):
+    with pytest.raises(FieldNotFoundError) as raised:
         run.read("no_such_variable")
+    assert isinstance(raised.value, KeyError)
 
 
-def test_read_unknown_variable_is_keyerror_compatible(run):
-    """``FieldNotFoundError`` inherits from ``KeyError`` for compat."""
-    with pytest.raises(KeyError):
-        run.read("no_such_variable")
-
-
-def test_read_requires_run_argument():
-    """Passing a non-Run object raises ``TypeError``."""
+def test_read_needs_a_run():
     from hydromodpy.results.derive.reading import read_variable
 
     with pytest.raises(TypeError, match="Run"):
         read_variable("not-a-run", "head")
 
 
-def test_read_bbox_restricts_cells(run):
-    """``bbox=`` restricts the returned DataArray to faces within the box."""
+def test_read_bbox(run):
     # The cells of the stored mesh are centered at x=0.5 and x=1.5: only cell 0 is in the box.
     da = run.read("head", bbox=(0.0, -1.0, 1.0, 1.0))
     assert da.sizes["cell"] == 1
 
 
-def test_read_is_a_method_of_the_run_and_the_top_level_keeps_it(run):
+def test_read_top_level(run):
     """``Run.read`` reads; ``hmp.read`` stays for the frozen runs and reads through it."""
     assert callable(Run.read)
     assert "read" in hmp.__all__

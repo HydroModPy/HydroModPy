@@ -35,7 +35,7 @@ def _current_handler():
     return signal.getsignal(signal.SIGTERM)
 
 
-def test_inside_the_block_a_termination_becomes_an_exception() -> None:
+def test_termination_becomes_an_exception() -> None:
     with pytest.raises(TerminationRequested):
         with terminate_as_interrupt():
             handler = _current_handler()
@@ -43,13 +43,12 @@ def test_inside_the_block_a_termination_becomes_an_exception() -> None:
             handler(signal.SIGTERM, None)
 
 
-def test_a_termination_is_an_interruption_so_a_finally_still_runs() -> None:
-    """The loop already treats KeyboardInterrupt as an abort; this joins it."""
+def test_termination_is_an_interruption() -> None:
     assert issubclass(TerminationRequested, KeyboardInterrupt)
 
 
-def test_outside_the_main_thread_it_does_nothing_rather_than_failing() -> None:
-    """`signal.signal` is main-thread only; a worker must not crash on that."""
+def test_off_the_main_thread_does_nothing() -> None:
+    # signal.signal is main-thread only, and a worker must not crash on that.
     outcome: list[str] = []
 
     def _work() -> None:
@@ -66,8 +65,8 @@ def test_outside_the_main_thread_it_does_nothing_rather_than_failing() -> None:
     assert outcome == ["ran"]
 
 
-def test_the_session_scope_installs_it_for_the_whole_run() -> None:
-    """The scope, not the search: restarts side by side run the search off the main thread."""
+def test_session_scope_installs_it() -> None:
+    # The scope installs it, not the search, because restarts side by side run the search off the main thread.
     from hydromodpy.calibration.runners.session_scope import SessionScope, closing_session
 
     before = _current_handler()
@@ -78,8 +77,7 @@ def test_the_session_scope_installs_it_for_the_whole_run() -> None:
     assert _current_handler() is before
 
 
-def test_a_requested_stop_is_an_interruption_too() -> None:
-    """Every block that closes a run on a signal closes it on a stop, without a line more."""
+def test_stop_is_an_interruption() -> None:
     assert issubclass(StopRequested, KeyboardInterrupt)
     assert not issubclass(StopRequested, TerminationRequested)
 
@@ -106,9 +104,7 @@ _FLAGS = {
     ],
     ids=["no flag", "absent", "dated", "undated", "unreadable", "not a mapping"],
 )
-def test_a_flag_on_disk_stops_and_says_when(
-    tmp_path: Path, flag: str | None, raises: str | None
-) -> None:
+def test_stop_flag_on_disk(tmp_path: Path, flag: str | None, raises: str | None) -> None:
     path = None if flag is None else stop_flag_for(tmp_path)
     if flag in _FLAGS:
         path.parent.mkdir(parents=True)

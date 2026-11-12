@@ -53,11 +53,7 @@ _COLUMN_ARRAYS = (
 )
 
 
-class _FakeLoadResult(LoadResult):
-    pass
-
-
-def _like(like_cls=LoadResult):
+def _like():
     days = pd.date_range("2015-01-01", periods=10, freq="D").values
     x = np.array([0.0, 50.0, 100.0])
     y = np.array([100.0, 0.0])
@@ -75,7 +71,7 @@ def _like(like_cls=LoadResult):
         date_start=pd.Timestamp(days[0]),
         date_end=pd.Timestamp(days[-1]),
     )
-    return like_cls(fields=[record]), days, x, y, record
+    return LoadResult(fields=[record]), days, x, y, record
 
 
 def _columns(with_capacity: bool, x: np.ndarray, y: np.ndarray) -> SoilColumns:
@@ -108,8 +104,8 @@ def _columns(with_capacity: bool, x: np.ndarray, y: np.ndarray) -> SoilColumns:
     )
 
 
-def _soil_forcings(*, with_capacity, cycles, never_full, like_cls=LoadResult):
-    like, days, x, y, record = _like(like_cls)
+def _soil_forcings(*, with_capacity, cycles, never_full):
+    like, days, x, y, record = _like()
     columns = _columns(with_capacity, x, y)
     config = SoilReservoirConfig(ru=150.0)
     parameters = soil_parameters(config, config.ru * columns.ru_shape)
@@ -135,7 +131,7 @@ def _soil_forcings(*, with_capacity, cycles, never_full, like_cls=LoadResult):
     recharge_grid = rng.random((n_days, y.size, x.size))
     residual_etp_grid = rng.random((n_days, y.size, x.size))
     runoff_grid = rng.random((n_days, y.size, x.size))
-    holding = type(like)
+    holding = LoadResult
     forcings = SoilForcings(
         recharge=holding(
             fields=[
@@ -245,17 +241,21 @@ def _roundtrip(tmp_path, forcings, like, config):
     return read_soil_forcings(tmp_path, like=like, config=config)
 
 
-def test_uniform_soil_round_trips_bit_for_bit(tmp_path) -> None:
-    forcings, like, config = _soil_forcings(with_capacity=False, cycles=0, never_full=0)
+ROUND_TRIPS = [
+    pytest.param(False, 0, 0, id="uniform soil"),
+    pytest.param(True, 7, 3, id="capacity classes with spinup counts"),
+]
+
+
+@pytest.mark.parametrize(("with_capacity", "cycles", "never_full"), ROUND_TRIPS)
+def test_round_trip(tmp_path, with_capacity, cycles, never_full) -> None:
+    forcings, like, config = _soil_forcings(
+        with_capacity=with_capacity, cycles=cycles, never_full=never_full
+    )
     _assert_same(forcings, _roundtrip(tmp_path, forcings, like, config))
 
 
-def test_spinup_counts_and_scalars_round_trip(tmp_path) -> None:
-    forcings, like, config = _soil_forcings(with_capacity=True, cycles=7, never_full=3)
-    _assert_same(forcings, _roundtrip(tmp_path, forcings, like, config))
-
-
-def test_a_truncated_product_is_refused_as_unreadable(tmp_path) -> None:
+def test_truncated_product_is_refused(tmp_path) -> None:
     forcings, like, config = _soil_forcings(with_capacity=False, cycles=0, never_full=0)
     write_soil_forcings(forcings, tmp_path)
     stored = tmp_path / "soil.npz"

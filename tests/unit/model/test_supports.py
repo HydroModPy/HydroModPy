@@ -32,11 +32,11 @@ pytestmark = pytest.mark.fast
         ("layering", frozenset({LAYERS, PASS_THROUGH})),
     ],
 )
-def test_each_source_gives_the_names_of_its_own_table(source: str, names: frozenset[str]) -> None:
+def test_source_names(source: str, names: frozenset[str]) -> None:
     assert SUPPORT_SOURCES[source] == names
 
 
-def test_the_sources_are_the_eight_tables_and_their_sizes_are_known() -> None:
+def test_source_sizes() -> None:
     sizes = {source: len(names) for source, names in SUPPORT_SOURCES.items()}
 
     assert sizes == {
@@ -51,7 +51,7 @@ def test_the_sources_are_the_eight_tables_and_their_sizes_are_known() -> None:
     }
 
 
-def test_the_new_traits_are_spelled_as_a_backend_lists_them() -> None:
+def test_trait_spelling() -> None:
     """A backend writes these names in its ``supports``, so a rename is a contract change."""
     assert SINK_SOURCE_TRAITS == {"recharge", "wells", "etp", "flow_barriers", "cutoff_wall"}
     assert (SOIL, K_TENSOR, LAYERS, PASS_THROUGH) == ("soil", "k_tensor", "layers", "pass_through")
@@ -61,17 +61,17 @@ _PAIRS = list(combinations(sorted(SUPPORT_SOURCES), 2))
 
 
 @pytest.mark.parametrize(("first", "second"), _PAIRS, ids=["-".join(pair) for pair in _PAIRS])
-def test_no_name_belongs_to_two_sources(first: str, second: str) -> None:
+def test_names_unique_to_source(first: str, second: str) -> None:
     """A shared name would let a backend honour a boundary when it meant an option."""
     assert SUPPORT_SOURCES[first] & SUPPORT_SOURCES[second] == frozenset()
 
 
-def test_the_set_is_the_union_of_the_sources() -> None:
+def test_supports_is_union() -> None:
     assert frozenset().union(*SUPPORT_SOURCES.values()) == SUPPORTS
     assert len(SUPPORTS) == sum(len(names) for names in SUPPORT_SOURCES.values())
 
 
-def test_every_state_a_document_can_choose_has_a_trait_and_the_solved_state_has_none() -> None:
+def test_initial_state_traits() -> None:
     """The solved state comes from an auxiliary solve, never from a TOML."""
     chosen = tuple(state for state in INITIAL_STATE_TYPES if state is not SolvedState)
 

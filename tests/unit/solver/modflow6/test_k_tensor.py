@@ -1,3 +1,10 @@
+"""Conductivity fields and K tensor handed to the MODFLOW 6 NPF and STO packages.
+
+K, K22, Kv are in m/s, angles in degrees, depths in m. A trial or a runtime
+override reaches the arrays, a tilted tensor turns XT3D on, and a zero or
+missing conductivity or storage is refused.
+"""
+
 from __future__ import annotations
 
 from contextlib import nullcontext
@@ -40,48 +47,23 @@ from tests._helpers.mf6_toy_models import regular_solver_mesh
 from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
-# A trial's characteristic_depth reaches the built MODFLOW 6 NPF k array.
-#
-# ``resolve_flow_property_arrays`` (``hydromodpy/solver/modflow_common/
-# property_mapping.py``, with ``properties=MODFLOW6_PROPERTIES``) is what
-# ``build.py`` calls to produce ``model.hk``, one value per layer and cell,
-# which is then passed verbatim as ``k=model.hk`` to ``flopy.mf6.ModflowGwfnpf``.
-# Proving the ratio on this function's output is proving it on the NPF
-# package's own k array.
-#
-# Evaluation depth: the layer-center depth below the model top, exactly what
-# ``SolverMesh.layer_center_depths()`` defines: ``top - 0.5 * (layer_top +
-# layer_bottom)``. On a 30 m column in two layers (layer 1 = the top 10 m,
-# layer 2 = the next 20 m), the layer centers sit 5 m and 20 m below the top,
-# so the exponential profile predicts ``k2 / k1 = exp(-(20 - 5) / characteristic_depth)``.
-
-_TOP_ELEVATION = 30.0
+TOP_M = 30.0
+N_CELLS = 4
+TRANSIENT = frozenset({"K", "Sy", "Ss"})
 
 
-_DEPTH_LAYER_1 = 5.0
-
-
-_DEPTH_LAYER_2 = 20.0
-
-
-def _column_solver_mesh() -> SolverMesh:
-    """A 30 m column of 2 x 2 cells in two layers, 10 m and 20 m thick."""
-    botm = np.stack(
-        [
-            np.full((2, 2), _TOP_ELEVATION - _TOP_ELEVATION / 3.0),
-            np.zeros((2, 2)),
-        ]
-    )
+def two_layer_column() -> SolverMesh:
+    # A 30 m column of 2 x 2 cells in two layers, 10 m and 20 m thick.
     return solver_mesh_from_structured_arrays(
         nrow=2,
         ncol=2,
-        top=np.full((2, 2), _TOP_ELEVATION),
-        botm=botm,
+        top=np.full((2, 2), TOP_M),
+        botm=np.stack([np.full((2, 2), 20.0), np.zeros((2, 2))]),
     )
 
 
-def _hk(characteristic_depth: float) -> np.ndarray:
-    solver_mesh = _column_solver_mesh()
+def exponential_k(characteristic_depth: float) -> np.ndarray:
+    solver_mesh = two_layer_column()
     assert solver_mesh.is_structured
     field_param = FieldParam(
         identifier="K",
@@ -104,17 +86,18 @@ def _hk(characteristic_depth: float) -> np.ndarray:
 
 
 @pytest.mark.parametrize("characteristic_depth", [10.0, 50.0])
-def test_characteristic_depth_sets_the_npf_k_layer_ratio(characteristic_depth: float) -> None:
-    hk = _hk(characteristic_depth)
+def test_depth_sets_layer_k_ratio(characteristic_depth: float) -> None:
+    hk = exponential_k(characteristic_depth)
     k1, k2 = float(hk[0].flat[0]), float(hk[1].flat[0])
 
-    expected_ratio = np.exp(-(_DEPTH_LAYER_2 - _DEPTH_LAYER_1) / characteristic_depth)
+    # Layer centers sit 5 m and 20 m below the top, so k2 / k1 = exp(-15 m / depth).
+    expected_ratio = np.exp(-15.0 / characteristic_depth)
     assert k2 / k1 == pytest.approx(expected_ratio, rel=1e-6)
 
 
-def test_two_trial_values_give_two_different_npf_k_arrays() -> None:
-    hk_short = _hk(10.0)
-    hk_long = _hk(80.0)
+def test_two_depths_two_k_arrays() -> None:
+    hk_short = exponential_k(10.0)
+    hk_long = exponential_k(80.0)
 
     ratio_short = hk_short[1].flat[0] / hk_short[0].flat[0]
     ratio_long = hk_long[1].flat[0] / hk_long[0].flat[0]
@@ -122,42 +105,18 @@ def test_two_trial_values_give_two_different_npf_k_arrays() -> None:
     assert ratio_short != pytest.approx(ratio_long)
 
 
-# A runtime property override carries K22, Kv and the angles, as it carries K.
-#
-# ``Project.run(properties=...)`` hands the build arrays that win over the flow
-# parameters (``resolve_flow_property_runtime_overrides``). They knew K, Sy and
-# Ss only, so an override of K22, Kv or an angle was dropped in silence and the
-# run used the flow parameter instead. The override now covers every property of
-# the shared mapping, reaches the MODFLOW 6 arrays the XT3D rule reads, and a
-# name it does not know, or a property the solver does not read, is refused.
-
-N_CELLS = 4
-
-
-TRANSIENT = frozenset({"K", "Sy", "Ss"})
-
-
-def _mesh() -> SolverMesh:
-    return solver_mesh_from_structured_arrays(
-        nrow=2,
-        ncol=2,
-        top=np.full((2, 2), 30.0),
-        botm=np.stack([np.full((2, 2), 20.0), np.zeros((2, 2))]),
-    )
-
-
-def _profiles() -> dict[str, FieldParam]:
-    """K and an azimuth of 30 degrees, K22 left equal to K: XT3D stays off."""
+def k_and_azimuth() -> dict[str, FieldParam]:
+    # K and an azimuth of 30 degrees, K22 left equal to K: XT3D stays off.
     return {
         "K": FieldParam(identifier="K", kind="homogeneous", value=1e-4),
         "angle1": FieldParam(identifier="angle1", kind="homogeneous", value=30.0),
     }
 
 
-def _modflow6(properties: dict[str, object]) -> dict[str, np.ndarray]:
-    mesh = _mesh()
+def overridden_arrays(properties: dict[str, object]) -> dict[str, np.ndarray]:
+    mesh = two_layer_column()
     mapped = resolve_flow_property_arrays(
-        profiles=_profiles(),
+        profiles=k_and_azimuth(),
         domain=SimpleNamespace(zones={}),
         solver_mesh=mesh,
         required_properties=frozenset({"K"}),
@@ -167,8 +126,8 @@ def _modflow6(properties: dict[str, object]) -> dict[str, np.ndarray]:
     return dict(mapped)
 
 
-def _model(arrays: dict[str, np.ndarray]) -> SimpleNamespace:
-    """The model attributes ``run_pre_processing`` sets before its XT3D decision."""
+def model_of_arrays(arrays: dict[str, np.ndarray]) -> SimpleNamespace:
+    # The model attributes run_pre_processing sets before its XT3D decision.
     runtime = SimpleNamespace(mf6_enable_xt3d=None)
     model = SimpleNamespace(modflow_config=SimpleNamespace(runtime=runtime))
     model.hk = arrays["hk"]
@@ -177,31 +136,18 @@ def _model(arrays: dict[str, np.ndarray]) -> SimpleNamespace:
     return model
 
 
-def test_an_override_names_a_property_by_its_one_id() -> None:
-    with pytest.raises(ValueError, match="K33 name no flow property"):
-        resolve_flow_property_runtime_overrides(
-            {"properties": {"K33": 1e-6}}, nlay=2, n_cells=N_CELLS, required_properties={"K"}
-        )
+XT3D_ON = [
+    pytest.param({"K22": 1e-5}, "K22 differs from K", id="k22 off the axis"),
+    pytest.param({"angle2": 10.0}, "tilted", id="tilted tensor"),
+]
 
 
-def test_an_override_that_turns_k22_off_axis_turns_xt3d_on() -> None:
-    model = _model(_modflow6({"K22": 1e-5}))
-    with pytest.warns(RuntimeWarning, match="K22 differs from K"):
-        decision = resolve_xt3d_decision(model, _mesh())
+@pytest.mark.parametrize(("properties", "match"), XT3D_ON)
+def test_override_turns_xt3d_on(properties, match) -> None:
+    model = model_of_arrays(overridden_arrays(properties))
+    with pytest.warns(RuntimeWarning, match=match):
+        decision = resolve_xt3d_decision(model, two_layer_column())
     assert (decision.enabled, decision.source) == (True, "auto_on")
-
-
-def test_an_override_that_tilts_the_tensor_turns_xt3d_on() -> None:
-    model = _model(_modflow6({"angle2": 10.0}))
-    with pytest.warns(RuntimeWarning, match="tilted"):
-        assert resolve_xt3d_decision(model, _mesh()).enabled
-
-
-def test_an_unknown_property_name_is_refused() -> None:
-    with pytest.raises(ValueError, match="K_22 name no flow property"):
-        resolve_flow_property_runtime_overrides(
-            {"properties": {"K": 1e-4, "K_22": 1e-5}}, nlay=2, n_cells=N_CELLS
-        )
 
 
 @pytest.mark.parametrize(
@@ -212,42 +158,29 @@ def test_an_unknown_property_name_is_refused() -> None:
      ({"K": 1e-5, "angle2": 120.0}, r"\(id='angle2'\) in the runtime override")],
     ids=["k-everywhere", "sy-in-one-cell", "ss-in-one-cell-of-layer-2", "angle-past-the-vertical"],
 )  # fmt: skip
-def test_an_override_outside_the_physical_range_is_refused(properties, match) -> None:
+def test_override_out_of_range(properties, match) -> None:
     with pytest.raises(PhysicalBoundsError, match=match):
         resolve_flow_property_runtime_overrides(
             {"properties": properties}, nlay=2, n_cells=N_CELLS, required_properties=TRANSIENT
         )
 
 
-# MODFLOW 6 receives K22 and the three angles of the K tensor, and XT3D when it is tilted.
-#
-# The flow parameters ``K22``, ``angle1``, ``angle2`` and ``angle3`` are mapped on
-# the solver mesh like K. Only those the flow sets reach NPF, so a run without them
-# writes the same package as before. A non-zero ``angle2`` or ``angle3`` turns XT3D
-# on with a RuntimeWarning, because MODFLOW 6 reads them only there, unless
-# ``mf6_enable_xt3d`` is written. MODFLOW 6 reads ANGLE2 only with ANGLE3, so a
-# tilt writes all three angles. K33 and the tensor arrays are left beside the
-# model with K, Sy and Ss.
+UNKNOWN_NAMES = [
+    pytest.param({"K33": 1e-6}, {"K"}, "K33 name no flow property", id="k33"),
+    pytest.param({"K": 1e-4, "K_22": 1e-5}, None, "K_22 name no flow property", id="k_22"),
+]
 
 
-def _profiles_2(**values: float) -> dict[str, FieldParam]:
-    parameters = {"K": FieldParam(identifier="K", kind="homogeneous", value=1e-4)}
-    for param_id, value in values.items():
-        parameters[param_id] = FieldParam(identifier=param_id, kind="homogeneous", value=value)
-    return parameters
+@pytest.mark.parametrize(("properties", "required", "match"), UNKNOWN_NAMES)
+def test_override_unknown_name(properties, required, match) -> None:
+    kwargs = {} if required is None else {"required_properties": required}
+    with pytest.raises(ValueError, match=match):
+        resolve_flow_property_runtime_overrides(
+            {"properties": properties}, nlay=2, n_cells=N_CELLS, **kwargs
+        )
 
 
-def _mapped(**values: float) -> dict[str, np.ndarray]:
-    return resolve_flow_property_arrays(
-        profiles=_profiles_2(**values),
-        domain=SimpleNamespace(zones={}),
-        solver_mesh=_mesh(),
-        required_properties=frozenset({"K"}),
-        properties=MODFLOW6_PROPERTIES,
-    )
-
-
-def _model_2(*, xt3d: bool | None = None, **arrays: np.ndarray) -> SimpleNamespace:
+def tensor_model(*, xt3d: bool | None = None, **arrays: np.ndarray) -> SimpleNamespace:
     runtime = SimpleNamespace(mf6_enable_xt3d=xt3d)
     model = SimpleNamespace(modflow_config=SimpleNamespace(runtime=runtime))
     model.hk = np.full((2, N_CELLS), 1e-4)
@@ -256,26 +189,26 @@ def _model_2(*, xt3d: bool | None = None, **arrays: np.ndarray) -> SimpleNamespa
     return model
 
 
-def test_a_dip_alone_writes_the_three_angles_the_missing_ones_as_zero() -> None:
+def test_dip_writes_three_angles() -> None:
     dip = np.full((2, N_CELLS), 20.0)
-    kwargs = k_tensor_npf_kwargs(_model_2(angle2=dip))
+    kwargs = k_tensor_npf_kwargs(tensor_model(angle2=dip))
     assert set(kwargs) == {"angle1", "angle2", "angle3"}
     assert np.all(kwargs["angle1"] == 0.0)
     assert np.all(kwargs["angle3"] == 0.0)
     assert kwargs["angle2"] is dip
 
 
-def test_a_written_xt3d_off_is_kept_with_a_warning_on_a_tilted_tensor() -> None:
-    model = _model_2(xt3d=False, angle2=np.full((2, N_CELLS), 20.0))
+def test_explicit_xt3d_off_is_kept() -> None:
+    model = tensor_model(xt3d=False, angle2=np.full((2, N_CELLS), 20.0))
     with pytest.warns(RuntimeWarning, match="tilted"):
-        decision = resolve_xt3d_decision(model, _mesh())
+        decision = resolve_xt3d_decision(model, two_layer_column())
     assert decision.enabled is False
     assert decision.source == "explicit_off"
 
 
-def test_k33_and_the_tensor_are_stored_with_the_other_properties(tmp_path: Path) -> None:
+def test_tensor_stored_with_properties(tmp_path: Path) -> None:
     layered = np.full((2, N_CELLS), 1.0)
-    model = _model_2(k22=2e-5 * layered, angle2=20.0 * layered)
+    model = tensor_model(k22=2e-5 * layered, angle2=20.0 * layered)
     model.full_path = str(tmp_path)
     model.model_output_name = "m"
     model.hk = 1e-4 * layered
@@ -298,11 +231,6 @@ def test_k33_and_the_tensor_are_stored_with_the_other_properties(tmp_path: Path)
         assert np.array_equal(stored["conductivity_tensor_angle2"], model.angle2)
 
 
-# A zero or missing conductivity is refused, and so is a storage a transient period reads.
-#
-# Sy counts on a convertible cell, Ss on a confined one, both on active cells only.
-
-
 def _heterogeneous_k() -> FieldParam:
     return FieldParam(
         identifier="K",
@@ -313,7 +241,7 @@ def _heterogeneous_k() -> FieldParam:
 
 
 def _k_with_an_uncovered_cell() -> tuple[FieldParam, np.ndarray]:
-    """One cell that no zone of the support covers, as outside a clipped geology map."""
+    # One cell that no zone of the support covers, as outside a clipped geology map.
     mesh = FieldMeshSquare.from_unit_square(target_n_cells=9, mesh_kind="structured")
     n = int(mesh.n_cells)
     granite = np.zeros(n)
@@ -334,7 +262,7 @@ def _k_with_an_uncovered_cell() -> tuple[FieldParam, np.ndarray]:
     return param, values.reshape(1, -1)
 
 
-def test_an_uncovered_active_cell_is_refused_and_names_the_support():
+def test_uncovered_cell_refused():
     param, hk = _k_with_an_uncovered_cell()
     assert np.count_nonzero(hk == 0.0) == 1
     profiles = {"K": param}
@@ -344,7 +272,7 @@ def test_an_uncovered_active_cell_is_refused_and_names_the_support():
         )
 
 
-def test_a_non_finite_conductivity_is_refused():
+def test_non_finite_k_refused():
     hk = np.array([[1e-5, np.nan, 1e-5]])
     with pytest.raises(DataContractViolation, match=r"1 not finite"):
         require_positive_conductivity(hk, active_mask=np.array([True, True, True]))
@@ -362,9 +290,7 @@ def test_a_non_finite_conductivity_is_refused():
     ids=["sy-zero-convertible", "sy-not-finite", "ss-zero-confined", "ss-zero-convertible",
          "every-period-steady"],
 )  # fmt: skip
-def test_a_storage_is_refused_only_where_a_transient_period_reads_it(
-    sy, ss, iconvert, steady, match
-):
+def test_storage_refusals(sy, ss, iconvert, steady, match):
     sy, ss = np.asarray(sy, dtype=float), None if ss is None else np.asarray(ss, dtype=float)
     with pytest.raises(DataContractViolation, match=match) if match else nullcontext():
         require_positive_storage(
@@ -373,8 +299,8 @@ def test_a_storage_is_refused_only_where_a_transient_period_reads_it(
 
 
 @pytest.mark.parametrize(("dry_cell", "match"), [(0, None), (1, r"Sy .* 1 of 11 active")])
-def test_modflow6_reads_the_storage_on_the_grid_the_lake_leaves(monkeypatch, dry_cell, match):
-    """Sy = 0 under the lake footprint is never read; on an active cell it is refused."""
+def test_storage_under_lake_footprint(monkeypatch, dry_cell, match):
+    # Sy = 0 under the lake footprint is never read. On an active cell it is refused.
     mesh = regular_solver_mesh(2, 3)
     mesh = replace(mesh, botm=np.vstack([mesh.botm, mesh.botm - 9.0]), idomain=np.ones((2, 6)))
     mesh = apply_lake_idomain_mask(mesh, lake_cell_ids_by_lake={"lake": [0]})
@@ -388,49 +314,40 @@ def test_modflow6_reads_the_storage_on_the_grid_the_lake_leaves(monkeypatch, dry
         period_forcing.build_storage_package(model, mesh)
 
 
-# Vertical anisotropy resolution for the MF6 k33 field.
-#
-# A direct per-cell Kv field or the uniform kh/vka ratio, mutually exclusive, with
-# guardrails against the ratio-versus-value footgun and Kv > Kh.
+K33_FIELDS = [
+    pytest.param(
+        np.array([1e-4, 1e-5, 1e-6]), None, 10.0, [1e-5, 1e-6, 1e-7], id="ratio divides kh"
+    ),
+    pytest.param(np.array([1e-4, 2e-5]), None, 1.0, [1e-4, 2e-5], id="ratio one is isotropic"),
+    pytest.param(
+        np.full(3, 1e-4), np.array([1e-5, 2e-5, 3e-5]), 1.0, [1e-5, 2e-5, 3e-5], id="direct kv"
+    ),
+]
 
 
-def test_uniform_ratio_divides_kh() -> None:
-    hk = np.array([1e-4, 1e-5, 1e-6])
-    np.testing.assert_allclose(resolve_k33_field(hk, None, 10.0), hk / 10.0)
+@pytest.mark.parametrize(("hk", "kv", "vka", "expected"), K33_FIELDS)
+def test_k33_field(hk, kv, vka, expected) -> None:
+    np.testing.assert_allclose(resolve_k33_field(hk, kv, vka), expected)
 
 
-def test_ratio_one_is_vertically_isotropic() -> None:
-    hk = np.array([1e-4, 2e-5])
-    np.testing.assert_allclose(resolve_k33_field(hk, None, 1.0), hk)
+K33_REFUSALS = [
+    pytest.param(np.full(1, 1e-4), np.full(1, 1e-5), 5.0, "one or the other", id="kv and a ratio"),
+    pytest.param(np.zeros(3), np.zeros(2), 1.0, "does not match", id="kv of another size"),
+    pytest.param(np.full(2, 1e-4), None, 0.0, "must be > 0", id="ratio not positive"),
+]
 
 
-def test_direct_kv_field_takes_precedence() -> None:
-    hk = np.full(3, 1e-4)
-    kv = np.array([1e-5, 2e-5, 3e-5])
-    np.testing.assert_allclose(resolve_k33_field(hk, kv, 1.0), kv)
-
-
-def test_kv_field_and_nonunit_vka_is_a_conflict() -> None:
-    with pytest.raises(ConfigError, match="one or the other"):
-        resolve_k33_field(np.full(1, 1e-4), np.full(1, 1e-5), 5.0)
-
-
-def test_kv_shape_mismatch_raises() -> None:
-    with pytest.raises(ConfigError, match="does not match"):
-        resolve_k33_field(np.zeros(3), np.zeros(2), 1.0)
-
-
-def test_nonpositive_vka_raises() -> None:
-    with pytest.raises(ConfigError, match="must be > 0"):
-        resolve_k33_field(np.full(2, 1e-4), None, 0.0)
+@pytest.mark.parametrize(("hk", "kv", "vka", "match"), K33_REFUSALS)
+def test_k33_refusals(hk, kv, vka, match) -> None:
+    with pytest.raises(ConfigError, match=match):
+        resolve_k33_field(hk, kv, vka)
 
 
 def test_kv_above_kh_warns(monkeypatch) -> None:
     calls: list[tuple] = []
     monkeypatch.setattr(pm.logger, "warning", lambda *a, **k: calls.append(a))
-    hk = np.full(2, 1e-4)
     kv = np.array([1e-5, 2e-4])  # second cell has Kv > Kh
-    resolve_k33_field(hk, kv, 1.0)
+    resolve_k33_field(np.full(2, 1e-4), kv, 1.0)
     assert any("exceeds Kh" in str(c[0]) for c in calls)
 
 

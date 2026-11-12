@@ -53,26 +53,6 @@ def _square(size: float = 40.0, **options: object) -> MeshRequest:
     )
 
 
-def _graded_square(max_slope: float) -> MeshRequest:
-    """A 1 km square whose size grows from 20 m on the river to 80 m at the slope asked."""
-    grid = grid_over(SQUARE, 20.0)
-    field = build_size_field(
-        grid,
-        h0=80.0,
-        h_floor=20.0,
-        terms=[SizeTerm("rivers", RIVER, 20.0, 0.0)],
-        outside=None,
-        max_slope=max_slope,
-    )
-    families = (LineFamilySpec("rivers", "cell", (RIVER,)),)
-    return mesh_request(
-        grid,
-        nominal_size_m=80.0,
-        lines=resample_families(families, domain=SQUARE, size_field=field).families,
-        size_field=field,
-    )
-
-
 def _read(bundle: str, **options: object) -> MeshRequest:
     """The triangles of a committed bundle as a triangulation to read."""
     domain = domain_polygon_from_mesh(read_msh(bundle_msh(bundle)))
@@ -126,11 +106,6 @@ def _lattice(river: bool = True, contact: bool = True) -> MeshRequest:
     )
 
 
-# --------------------------------------------------------------------------- #
-# The dual of a triangulation read
-# --------------------------------------------------------------------------- #
-
-
 @pytest.mark.parametrize(
     "bundle",
     [
@@ -138,7 +113,7 @@ def _lattice(river: bool = True, contact: bool = True) -> MeshRequest:
         "stream_depletion_glover_balmer_tri_refined_well",
     ],
 )
-def test_the_dual_of_a_triangulation_keeps_the_faces_of_the_old_dual(bundle: str) -> None:
+def test_dual_matches_the_golden(bundle: str) -> None:
     """The golden froze the dual of 7b940dc91 (Qhull, 1 mm rounding): same faces, areas to 1e-5."""
     golden = np.load(GOLDEN / f"old_dual_{bundle}.npz")
     cell_mesh = VoronoiMeshEngine().build(_read(bundle, seeds="triangulation"))
@@ -153,7 +128,7 @@ def test_the_dual_of_a_triangulation_keeps_the_faces_of_the_old_dual(bundle: str
     assert cell_mesh.identity.seed is None
 
 
-def test_a_lattice_river_is_a_chain_and_its_faces_are_the_dual_faces_it_crosses() -> None:
+def test_lattice_river_chain() -> None:
     request = _lattice(contact=False)
     cell_mesh = VoronoiMeshEngine().build(request)
     on_the_river = np.isclose(request.input_triangulation.vertices[:, 1], Y0 + 300.0)
@@ -174,7 +149,7 @@ def test_a_lattice_river_is_a_chain_and_its_faces_are_the_dual_faces_it_crosses(
     assert cell_mesh.qa.families["rivers"]["breaks"] == 0.0
 
 
-def test_a_contact_of_a_triangulation_becomes_a_staircase_that_names_its_zones() -> None:
+def test_contact_staircase() -> None:
     cell_mesh = VoronoiMeshEngine().build(_lattice(river=False))
     table = cell_mesh.face_families
     rows = cell_mesh.face_rows("geology")
@@ -190,7 +165,7 @@ def test_a_contact_of_a_triangulation_becomes_a_staircase_that_names_its_zones()
     assert _FACES_NOTE in cell_mesh.qa.notes
 
 
-def test_a_dual_gives_no_cell_zone_and_no_lake_staircase_to_the_readers_of_exact_faces() -> None:
+def test_dual_keeps_exact_faces_only() -> None:
     """The engine declares exact faces; a staircase is not, so the dual keeps what it published."""
     request = _lattice(river=False)
     shore = LineString([(X0 + 200, Y0 + 200), (X0 + 800, Y0 + 200), (X0 + 800, Y0 + 800)])
@@ -204,7 +179,7 @@ def test_a_dual_gives_no_cell_zone_and_no_lake_staircase_to_the_readers_of_exact
     assert not cell_mesh.face_rows("lakes").any()
 
 
-def test_the_sides_of_a_triangulation_keep_the_faces_of_the_cells_centred_on_them() -> None:
+def test_sides_of_a_triangulation() -> None:
     request = _lattice(river=False, contact=False)
     cell_mesh = VoronoiMeshEngine().build(request)
     west = cell_mesh.face_rows("boundary:west")
@@ -214,12 +189,7 @@ def test_the_sides_of_a_triangulation_keep_the_faces_of_the_cells_centred_on_the
     assert np.allclose(cell_mesh.centers[table.cell_a[west], 0], X0)
 
 
-# --------------------------------------------------------------------------- #
-# Generated generators
-# --------------------------------------------------------------------------- #
-
-
-def test_the_qa_reports_the_relaxation_the_seeds_and_the_libraries() -> None:
+def test_qa_extras() -> None:
     request = _square(size=60.0)
     cell_mesh = VoronoiMeshEngine().build(request)
     extras = cell_mesh.qa.extras

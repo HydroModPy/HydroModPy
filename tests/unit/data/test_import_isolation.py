@@ -7,7 +7,7 @@ package** as an attribute, and ``from a.b import c`` reads that attribute, not
 ``sys.modules["a.b.c"]``. Leaving the parent pointing at the throwaway module
 made every later ``monkeypatch.setattr("a.b.c.d", ...)`` patch one object while
 the code under test imported another -- silently, and only when this file ran
-first. Two tests in ``tests/unit/data/variables/hydrography/test_hydrography_resolver.py`` failed
+first. Two tests in ``tests/unit/data/variables/hydrography/test_resolver.py`` failed
 exactly that way whenever the suite was invoked with the families tests ahead of
 ``data``.
 """

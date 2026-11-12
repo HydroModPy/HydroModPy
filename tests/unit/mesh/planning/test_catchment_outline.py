@@ -121,7 +121,7 @@ def _diagonal_staircase(steps: int) -> Polygon:
     return Polygon([_xy(x, y) for x, y in ring])
 
 
-def test_a_diagonal_staircase_falls_on_its_middle_line() -> None:
+def test_diagonal_staircase() -> None:
     stair = _diagonal_staircase(20)
 
     smooth = smooth_polygon(stair, _PIXEL)
@@ -144,12 +144,12 @@ def test_a_diagonal_staircase_falls_on_its_middle_line() -> None:
     ],
     ids=["two parts", "empty", "half pixel"],
 )
-def test_a_polygon_with_no_staircase_to_smooth_comes_back_as_it_is(polygon) -> None:
+def test_unsmoothable_polygon_unchanged(polygon) -> None:
     """Two parts or an empty polygon are no catchment outline, and a triangle has no step."""
     assert smooth_polygon(polygon, _PIXEL) is polygon
 
 
-def test_a_corner_between_two_long_edges_stays_a_corner() -> None:
+def test_long_edge_corner_stays() -> None:
     """A square with a staircase for its top right corner: the other three corners stay."""
     p = _PIXEL
     ring = [(0.0, 0.0), (300.0, 0.0), (300.0, 200.0)]
@@ -198,11 +198,15 @@ _Anchor = tuple[PlanningInputs, tuple[float, float], str, int | None]
 """The inputs, the point on the staircase, the family that touches it and the index of its end there."""
 
 
-def _river_at_the_outlet(stair: Polygon, domain: Polygon) -> _Anchor:
+def _river_at_the_outlet(stair: Polygon, domain: Polygon = _DOMAIN) -> _Anchor:
     """The main river ends on the staircase, at its outlet."""
     outlet = _pulled_off_corner(stair, 7)
     river = LineString([tuple(_inward(outlet, 200.0)), outlet])
     return _inputs(stair, domain=domain, rivers=(river,)), outlet, "rivers", -1
+
+
+def _river_at_the_outlet_of_a_catchment_domain(stair: Polygon) -> _Anchor:
+    return _river_at_the_outlet(stair, domain=stair)
 
 
 def _river_ending_in_the_middle_of_a_step(stair: Polygon) -> _Anchor:
@@ -233,10 +237,8 @@ def _lake_touching_the_outline(stair: Polygon) -> _Anchor:
 
 
 _ANCHORS: dict[str, Callable[[Polygon], _Anchor]] = {
-    "river end at the outlet": lambda stair: _river_at_the_outlet(stair, _DOMAIN),
-    "river end at the outlet of a catchment domain": lambda stair: _river_at_the_outlet(
-        stair, stair
-    ),
+    "river end at the outlet": _river_at_the_outlet,
+    "river end at the outlet of a catchment domain": _river_at_the_outlet_of_a_catchment_domain,
     "river end in the middle of a step": _river_ending_in_the_middle_of_a_step,
     "barrier end": _barrier_starting_on_the_outline,
     "lake tip": _lake_touching_the_outline,
@@ -244,7 +246,7 @@ _ANCHORS: dict[str, Callable[[Polygon], _Anchor]] = {
 
 
 @pytest.mark.parametrize("anchor", list(_ANCHORS))
-def test_a_line_that_touched_the_outline_still_touches_it(anchor: str) -> None:
+def test_touching_line_stays_touching(anchor: str) -> None:
     """The smoothing alone would leave the point more than a quarter pixel off the outline."""
     stair = _staircase()
     inputs, point, family, end = _ANCHORS[anchor](stair)
@@ -261,7 +263,7 @@ def test_a_line_that_touched_the_outline_still_touches_it(anchor: str) -> None:
     assert _on_outline(request, touching) < 1.0e-6
 
 
-def test_the_request_follows_the_outline_through_the_outlet_without_a_river_family() -> None:
+def test_outlet_without_river_family() -> None:
     stair = _staircase()
     outlet = _pulled_off_corner(stair, 7)
     inputs = replace(_inputs(stair, domain=stair), outlet=Point(outlet))
@@ -273,7 +275,7 @@ def test_the_request_follows_the_outline_through_the_outlet_without_a_river_fami
     assert _on_outline(request, outlet) < 1.0e-6
 
 
-def test_an_outlet_off_the_outline_changes_nothing() -> None:
+def test_outlet_off_outline() -> None:
     stair = _staircase()
     inside = tuple(_inward(_pulled_off_corner(stair, 7), 5.0 * _PIXEL))
     config = _config(rivers="none", **_FACE)
@@ -284,7 +286,7 @@ def test_an_outlet_off_the_outline_changes_nothing() -> None:
     assert kept.watershed.equals(_smoothed(inputs, config)[0].watershed)
 
 
-def test_two_points_closer_than_the_tolerance_on_a_step_pin_one_vertex() -> None:
+def test_close_points_pin_one_vertex() -> None:
     """Two line ends half a tolerance apart on a step: the first is a vertex, the second stays near."""
     stair = _staircase()
     coords = np.asarray(stair.exterior.coords)
@@ -303,7 +305,7 @@ def test_two_points_closer_than_the_tolerance_on_a_step_pin_one_vertex() -> None
     assert pinned.exterior.distance(Point(second)) <= CLEANUP_PIXEL_SHARE * _PIXEL
 
 
-def test_a_smoothing_that_leaves_the_polygon_invalid_keeps_the_staircase(
+def test_invalid_smoothing_keeps_staircase(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stair = _staircase()
@@ -321,23 +323,3 @@ def test_a_smoothing_that_leaves_the_polygon_invalid_keeps_the_staircase(
     )
     assert stayed.notes()
     assert set(stayed.notes()) <= set(request.notes)
-
-
-def _no_outline_cases() -> dict[str, tuple[MeshConfig, PlanningInputs]]:
-    stair = _staircase()
-    inputs = _inputs(stair)
-    small = _staircase(radius=200.0)
-    return {
-        "regular engine": (_config("regular", **_FACE), inputs),
-        "catchment not followed": (_config("voronoi"), inputs),
-        "rectangle catchment": (
-            _config(**_FACE),
-            _inputs(box(*_xy(100, 100), *_xy(500, 400))),
-        ),
-        "triangulation read": (_config(**_FACE), replace(inputs, input_triangulation=object())),
-        "no catchment": (_config(**_FACE), replace(inputs, watershed=None)),
-        "buffer domain, catchment not followed": (
-            _config(),
-            _inputs(small, domain=small.buffer(60.0, join_style="mitre")),
-        ),
-    }

@@ -1,7 +1,7 @@
 """The fifteen verbs of ``hydromodpy/project/api.py``: what each resolves, calls and returns.
 
-``open``, ``run`` and ``check`` have files of their own (``tests/unit/api/test_open.py``,
-``tests/unit/api/test_run.py``, ``tests/unit/project/test_check_source.py``); the
+``open``, ``run`` and ``check`` have files of their own (``tests/unit/api/test_api.py``,
+``tests/unit/project/test_check_source.py``); the
 lines of ``show`` are in ``tests/unit/project/test_show.py``. The work each verb
 hands over is stood in for here, so a case reads what the verb itself decides.
 """
@@ -68,13 +68,13 @@ def _recorder(monkeypatch: pytest.MonkeyPatch, target: str, value: Any = None) -
     return calls
 
 
-def test_the_module_holds_the_fifteen_verbs_in_their_order() -> None:
+def test_fifteen_verbs() -> None:
     assert api.__all__ == FIFTEEN
     for name in FIFTEEN:
         assert getattr(api, name).__module__ == api.__name__
 
 
-def test_the_five_objects_are_read_at_the_top_of_the_module() -> None:
+def test_five_objects() -> None:
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     assert (api.Project, api.Run, api.RunSet, api.Session, api.HydroModPyConfig) == (
@@ -86,21 +86,6 @@ def test_the_five_objects_are_read_at_the_top_of_the_module() -> None:
     )
 
 
-# open gives the objects the function that draws
-
-
-# check
-
-
-@pytest.mark.parametrize("source", [3, None, b"run.toml"])
-def test_check_refuses_what_is_neither_a_path_nor_a_mapping(source: object) -> None:
-    with pytest.raises(TypeError, match="path or a mapping"):
-        api.check(source)  # type: ignore[arg-type]
-
-
-# calibrate
-
-
 def _calibration_file(tmp_path: Path) -> Path:
     path = tmp_path / "calibration.toml"
     path.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
@@ -108,7 +93,7 @@ def _calibration_file(tmp_path: Path) -> Path:
 
 
 @pytest.mark.parametrize("option", ["case", "method", "max_trials", "seed", "save_runs"])
-def test_calibrate_refuses_for_a_file_what_steers_a_calibration_in_memory(
+def test_calibrate_file_refuses_options(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, option: str
 ) -> None:
     _recorder(monkeypatch, "hydromodpy.project.calibrate.calibrate_a_file")
@@ -117,9 +102,7 @@ def test_calibrate_refuses_for_a_file_what_steers_a_calibration_in_memory(
         api.calibrate(_calibration_file(tmp_path), **{option: value})
 
 
-def test_a_dry_calibration_gives_its_plan_and_runs_nothing(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_dry_calibration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     plan = SimpleNamespace(phases=[{"name": "steady"}, {"name": "transient"}])
     calls = _recorder(monkeypatch, "hydromodpy.project.calibrate.calibration_plan", plan)
     ran = _recorder(monkeypatch, "hydromodpy.project.calibrate.calibrate_a_file")
@@ -134,7 +117,7 @@ def test_a_dry_calibration_gives_its_plan_and_runs_nothing(
         api.calibrate(path, dry_run=True, phase="other")
 
 
-def test_a_calibration_in_memory_runs_in_a_project_with_its_options(
+def test_calibration_in_memory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     asked: dict = {}
@@ -164,12 +147,7 @@ def test_a_calibration_in_memory_runs_in_a_project_with_its_options(
         api.calibrate(config, phase="p1")
 
 
-# spinup
-
-
-def test_spinup_reads_its_settings_from_a_mapping_and_writes_the_project_log(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_spinup_from_mapping(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from hydromodpy.model.initial_config import SpinupConfig
 
     seen: dict = {}
@@ -201,12 +179,7 @@ def test_spinup_reads_its_settings_from_a_mapping_and_writes_the_project_log(
     assert (tmp_path / ".hmp" / "logs" / "hydromodpy_debug.log").is_file()
 
 
-# replay and stop
-
-
-def test_replay_gives_the_outcome_of_the_directory_it_wrote(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_replay_outcome(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     seal_run(project, "base")
     seal_run(project, "base.v2")
@@ -222,9 +195,7 @@ def test_replay_gives_the_outcome_of_the_directory_it_wrote(
     assert (kwargs["strict"], kwargs["base"]) == (True, project.resolve())
 
 
-def test_stop_reads_a_name_in_the_project_named_and_a_path_as_it_is(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_stop_name_or_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     write_attempt(project, "runs/base")
     calls = _recorder(monkeypatch, "hydromodpy.results.storage.attempt.request_stop", "flag")
@@ -239,9 +210,7 @@ def test_stop_reads_a_name_in_the_project_named_and_a_path_as_it_is(
         api.stop("ghost", workspace=project)
 
 
-def test_a_name_without_workspace_is_never_read_in_the_working_directory(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_name_needs_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     write_attempt(project, "runs/base")
     monkeypatch.chdir(project)
@@ -250,17 +219,14 @@ def test_a_name_without_workspace_is_never_read_in_the_working_directory(
         api.stop("ghost")
 
 
-# status
-
-
-def test_status_needs_a_project(tmp_path: Path) -> None:
+def test_status_needs_project(tmp_path: Path) -> None:
     with pytest.raises(CommandUsageError, match="workspace="):
         api.status()
     with pytest.raises(CommandUsageError, match="no directory"):
         api.status(_bare(RunSet))
 
 
-def test_status_lists_the_directories_of_a_project_and_reads_one(tmp_path: Path) -> None:
+def test_status_listing(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     write_attempt(project, "runs/base", status="completed")
     write_session_dir(project, "calage")
@@ -276,9 +242,7 @@ def test_status_lists_the_directories_of_a_project_and_reads_one(tmp_path: Path)
     json.dumps([each.to_dict() for each in listed])
 
 
-def test_status_of_the_plan_passes_the_stale_age(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_status_plan_stale_age(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     calls = _recorder(monkeypatch, "hydromodpy.project.launch.status.project_status", "report")
 
@@ -286,15 +250,7 @@ def test_status_of_the_plan_passes_the_stale_age(
     assert calls[0][1] == {"stale_after_s": 90.0}
 
 
-# show
-
-
-# trash
-
-
-def test_trash_moves_a_run_named_in_the_project(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_trash_a_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     seal_run(project, "base")
     moved = project / "trash" / "runs__base"
@@ -308,9 +264,7 @@ def test_trash_moves_a_run_named_in_the_project(
     assert indexed == [((project.resolve(),), {})]
 
 
-def test_trash_restores_an_entry_of_the_project_named(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_trash_restore(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     entry = SimpleNamespace(name="runs__base@20261110T000000")
     _recorder(monkeypatch, "hydromodpy.results.catalog.discovery.resolve_trashed", entry)
@@ -323,12 +277,7 @@ def test_trash_restores_an_entry_of_the_project_named(
     assert calls[0][0] == (project.resolve(), entry.name)
 
 
-# compare
-
-
-def test_compare_reads_the_references_in_the_project_named(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_compare_references(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     comparison = SimpleNamespace(written=[], write=lambda out: comparison.written.append(out))
     calls = _recorder(monkeypatch, "hydromodpy.project.compare.compare_references", comparison)
@@ -344,16 +293,13 @@ def test_compare_reads_the_references_in_the_project_named(
     assert calls[1][1]["project_root"] is None
 
 
-def test_compare_by_site_writes_a_folder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_compare_by_site(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     calls = _recorder(monkeypatch, "hydromodpy.project.compare.compare_by_site", tmp_path / "out")
 
     with pytest.raises(CommandUsageError, match="out="):
         api.compare(["a", "b"], by="site")
     assert api.compare(["a", "b"], by="site", out=tmp_path / "out") == tmp_path / "out"
     assert calls[0][0] == (["a", "b"], tmp_path / "out")
-
-
-# show
 
 
 @pytest.mark.parametrize(
@@ -365,22 +311,19 @@ def test_compare_by_site_writes_a_folder(monkeypatch: pytest.MonkeyPatch, tmp_pa
         (Project, "figure", "summary, rank"),
     ],
 )
-def test_show_refuses_a_what_its_subject_has_not(subject: type, what: str, allowed: str) -> None:
+def test_show_refuses_what(subject: type, what: str, allowed: str) -> None:
     with pytest.raises(CommandUsageError) as caught:
         api.show(_bare(subject), what=what)  # type: ignore[call-overload]
     assert caught.value.category == "usage"
     assert allowed in str(caught.value)
 
 
-def test_show_refuses_a_what_no_line_has() -> None:
+def test_show_refuses_unknown_what() -> None:
     with pytest.raises(CommandUsageError, match="is not one of summary"):
         api.show(_bare(Run), what="everything")  # type: ignore[call-overload]
 
 
-# export
-
-
-def test_export_reads_a_run_and_refuses_anything_else(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_export_a_run(monkeypatch: pytest.MonkeyPatch) -> None:
     exported: list = []
     run = _bare(Run)
     monkeypatch.setattr(
@@ -397,12 +340,7 @@ def test_export_reads_a_run_and_refuses_anything_else(monkeypatch: pytest.Monkey
     assert exported == [["head"]]
 
 
-# publish
-
-
-def test_publish_copies_a_project_whole_and_a_run_alone(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_publish_project_or_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     seal_run(project, "base")
     _recorder(monkeypatch, "hydromodpy.project.exchange.share.inputs_of", "inputs")
@@ -421,10 +359,7 @@ def test_publish_copies_a_project_whole_and_a_run_alone(
         api.publish("summary", to=tmp_path / "s", workspace=project)
 
 
-# example and doctor
-
-
-def test_example_lists_shows_and_installs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_example_verb(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _recorder(monkeypatch, "hydromodpy.project.examples.manifest.load_catalog", ("a", "b"))
     _recorder(monkeypatch, "hydromodpy.project.examples.manifest.find_entry", "entry")
     _recorder(monkeypatch, "hydromodpy.project.examples.blobs.resolve_source", "source")

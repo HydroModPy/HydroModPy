@@ -1,4 +1,9 @@
-"""Tests of run storage."""
+"""Storage of a run on disk: precision of stored fields, sentinels, versions of every document.
+
+The file keeps the cross-module cases of the storage contract. Sections run from the
+field store (float32 rounding, MODFLOW sentinels), through the version window of each
+stored document, to mesh layout, ledgers and the stream-network sidecar.
+"""
 
 from __future__ import annotations
 
@@ -35,6 +40,7 @@ from hydromodpy.core.exceptions import (
     ExportError,
     IncompatibleMeshError,
     SchemaVersionMismatchError,
+    WriteConflictError,
 )
 from hydromodpy.core.fields.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.core.fields.precision import KEPT_MANTISSA_BITS, MAX_RELATIVE_ERROR, round_mantissa
@@ -222,8 +228,6 @@ from tests._helpers.ugrid_meshes import quad_mesh
 # bit. Geometry, static fields, indices and timestamps are never rounded, and
 # every reader returns float64 whatever the store holds.
 N_CELLS = 6
-
-
 DROPPED_MASK = np.uint32((1 << (23 - KEPT_MANTISSA_BITS)) - 1)
 
 
@@ -239,16 +243,7 @@ def compact(tmp_path: Path):
     store.close()
 
 
-@pytest.fixture
-def exact(tmp_path: Path):
-    store = SimulationZarr.create(
-        tmp_path / "exact.zarr", n_cells=N_CELLS, n_layers=1, field_precision="exact"
-    )
-    yield store
-    store.close()
-
-
-def test_a_compact_stack_is_float32_on_the_rounded_grid(compact: SimulationZarr) -> None:
+def test_compact_stack_is_rounded_float32(compact: SimulationZarr) -> None:
     values = _values()
 
     compact.write_field_stack("head", values)
@@ -260,17 +255,23 @@ def test_a_compact_stack_is_float32_on_the_rounded_grid(compact: SimulationZarr)
     np.testing.assert_allclose(stored, values, rtol=MAX_RELATIVE_ERROR, atol=0.0)
 
 
-def test_an_integer_field_is_never_rounded(compact: SimulationZarr) -> None:
-    mask = np.array([[0, 1, 1, 0, 1, 0]], dtype="int8")
-
-    compact.write_field_stack("seepage_mask", mask, subgroup="derived")
-
-    stored = np.asarray(compact.root["derived"]["seepage_mask"][:])
-    assert stored.dtype == np.int8
-    assert "quantization" not in dict(compact.root["derived"]["seepage_mask"].attrs)
+INTEGER_FIELDS = [
+    pytest.param(np.array([[0, 1, 1, 0, 1, 0]], dtype="int8"), id="int8 mask"),
+    pytest.param(np.array([[0, 1, 2, 3, 4, 5]], dtype="int32"), id="int32 counts"),
+]
 
 
-def test_the_run_store_writes_in_the_precision_of_its_persistence(tmp_path: Path) -> None:
+@pytest.mark.parametrize("values", INTEGER_FIELDS)
+def test_integer_field_is_untouched(compact: SimulationZarr, values: np.ndarray) -> None:
+    compact.write_field_stack("seepage_mask", values, subgroup="derived")
+
+    array = compact.root["derived"]["seepage_mask"]
+    assert array.dtype == values.dtype
+    assert "quantization" not in dict(array.attrs)
+    np.testing.assert_array_equal(np.asarray(array[:]), values)
+
+
+def test_run_store_precision(tmp_path: Path) -> None:
     values = _values(2)
     for precision, dtype in (("compact", np.float32), ("exact", np.float64)):
         project = tmp_path / precision
@@ -294,15 +295,7 @@ def test_the_run_store_writes_in_the_precision_of_its_persistence(tmp_path: Path
             np.testing.assert_allclose(read, values[1], rtol=MAX_RELATIVE_ERROR, atol=0.0)
 
 
-# Before this test the corruption escaped ``connect_with_retry`` untyped: only
-# ``duckdb.IOException`` with a lock-contention message was ever caught, so a
-# truncated write - a real open failure, not a race - propagated as DuckDB's
-# own C trace. Nothing told the caller that ``hmp catalog reindex`` already
-# works on a broken index, because it never opens the broken file at all: it
-# writes a fresh one next to it and publishes by atomic replace.
-#
-# The corruption here is real: a valid DuckDB file is written, closed, then
-# truncated to half its size on disk.
+# A valid DuckDB file is written, closed, then truncated to half its size.
 @pytest.fixture
 def truncated_index(tmp_path: Path) -> Path:
     """A DuckDB file that opened fine once, now missing its back half."""
@@ -318,22 +311,13 @@ def truncated_index(tmp_path: Path) -> Path:
     return index
 
 
-def test_a_truncated_index_raises_the_typed_exception(truncated_index: Path) -> None:
-    with pytest.raises(CatalogUnreadableError):
+def test_truncated_index_is_refused(truncated_index: Path) -> None:
+    with pytest.raises(CatalogUnreadableError, match="reindex"):
         connect_with_retry(str(truncated_index))
 
 
-def test_the_message_names_the_working_repair_gesture(truncated_index: Path) -> None:
-    with pytest.raises(CatalogUnreadableError) as excinfo:
-        connect_with_retry(str(truncated_index))
-
-    assert "reindex" in str(excinfo.value)
-
-
-def test_two_modes_of_one_index_are_not_called_a_corruption(tmp_path: Path) -> None:
-    """A read-only and a read-write open of one file in one process is a mode conflict."""
-    from hydromodpy.core.exceptions import WriteConflictError
-
+def test_two_open_modes_are_no_corruption(tmp_path: Path) -> None:
+    # A read-only and a read-write open in one process is a mode conflict.
     index = tmp_path / "index.duckdb"
     first = duckdb.connect(str(index))
     first.execute("CREATE TABLE simulations (sim_id VARCHAR)")
@@ -350,64 +334,45 @@ def test_two_modes_of_one_index_are_not_called_a_corruption(tmp_path: Path) -> N
     assert "reindex" not in str(excinfo.value)
 
 
-# ``mask_sentinels`` had no test. It is the reason the extensive NWT regression
-# golden went stale: that golden, published 2026-07-12, counts 1 497 cells
-# carrying a sentinel in ``concentration_seepage`` and ``mass_seepage``, and
-# since ``f62a14c62`` (2026-07-25) those cells reach Zarr as NaN, so the count
-# is 0. Refreshing the golden without covering the behavior would leave the
-# new 0 guarded by nothing but a six-minute nightly run nobody reads.
-#
-# The three write entry points each mask, because a field can arrive by any of
-# them: per timestep, as a stack, or without a time axis.
+# Every write entry point masks MODFLOW sentinels to NaN: per timestep, as a
+# stack, or without a time axis.
 HDRY = -1.0e30
-
-
 HNOFLO = 1.0e30
-
-
 MF_PACKAGE_DRY = -6.0e30
 
 
-@pytest.fixture
-def fresh_store(tmp_path: Path):
-    store = SimulationZarr.create(tmp_path / "sim.zarr", n_cells=6, n_layers=1)
-    yield store
-    store.close()
-
-
-def test_the_three_modflow_sentinels_are_stored_as_nan(fresh_store: SimulationZarr) -> None:
+def test_sentinels_are_stored_as_nan(compact: SimulationZarr) -> None:
     values = np.array([[1.5, HDRY, HNOFLO, MF_PACKAGE_DRY, -2.5, 0.0]], dtype="float64")
 
-    fresh_store.write_field_stack("head", values)
+    compact.write_field_stack("head", values)
 
-    stored = np.asarray(fresh_store.root["head"][:])
+    stored = np.asarray(compact.root["head"][:])
     assert np.isnan(stored[0, 1:4]).all()
     np.testing.assert_array_equal(stored[0, [0, 4, 5]], [1.5, -2.5, 0.0])
 
 
-def test_every_write_path_masks(fresh_store: SimulationZarr) -> None:
-    """Per timestep, as a stack, and without a time axis."""
+def test_every_write_path_masks(compact: SimulationZarr) -> None:
     sentinel_row = np.array([HNOFLO] * 6, dtype="float64")
 
-    fresh_store.write_field("head", 0, sentinel_row, n_timesteps=1)
-    fresh_store.write_field_stack("release_flux", sentinel_row[None, :], subgroup="derived")
-    fresh_store.write_static_field("hydraulic_conductivity", sentinel_row, subgroup="derived")
+    compact.write_field("head", 0, sentinel_row, n_timesteps=1)
+    compact.write_field_stack("release_flux", sentinel_row[None, :], subgroup="derived")
+    compact.write_static_field("hydraulic_conductivity", sentinel_row, subgroup="derived")
 
-    assert np.isnan(np.asarray(fresh_store.root["head"][:])).all()
-    assert np.isnan(np.asarray(fresh_store.root["derived"]["release_flux"][:])).all()
-    assert np.isnan(np.asarray(fresh_store.root["derived"]["hydraulic_conductivity"][:])).all()
+    assert np.isnan(np.asarray(compact.root["head"][:])).all()
+    assert np.isnan(np.asarray(compact.root["derived"]["release_flux"][:])).all()
+    assert np.isnan(np.asarray(compact.root["derived"]["hydraulic_conductivity"][:])).all()
 
 
-def test_a_physical_value_at_the_threshold_survives(fresh_store: SimulationZarr) -> None:
-    """The mask is a strict comparison: the threshold itself is kept."""
+def test_threshold_value_survives(compact: SimulationZarr) -> None:
+    # The mask is a strict comparison: the threshold itself is kept.
     values = np.array(
         [[SENTINEL_ABS_THRESHOLD, -SENTINEL_ABS_THRESHOLD, SENTINEL_ABS_THRESHOLD * 1.1]],
         dtype="float64",
     )
 
-    fresh_store.write_field_stack("head", values, n_timesteps=1)
+    compact.write_field_stack("head", values, n_timesteps=1)
 
-    stored = np.asarray(fresh_store.root["head"][:], dtype="float64")
+    stored = np.asarray(compact.root["head"][:], dtype="float64")
     # Kept, then rounded to the compact precision like any other value.
     np.testing.assert_allclose(
         stored[0, :2], [SENTINEL_ABS_THRESHOLD, -SENTINEL_ABS_THRESHOLD], rtol=MAX_RELATIVE_ERROR
@@ -415,24 +380,12 @@ def test_a_physical_value_at_the_threshold_survives(fresh_store: SimulationZarr)
     assert np.isnan(stored[0, 2])
 
 
-def test_an_integer_field_keeps_its_values(fresh_store: SimulationZarr) -> None:
-    """NaN is not an integer, so an integer array is returned untouched."""
-    values = np.array([[0, 1, 2, 3, 4, 5]], dtype="int32")
-
-    fresh_store.write_field_stack("seepage_mask", values, subgroup="derived")
-
-    stored = np.asarray(fresh_store.root["derived"]["seepage_mask"][:])
-    np.testing.assert_array_equal(stored, values)
-
-
-# A session is opened ``running`` and closed in a ``finally``. A SIGKILL, a
-# power cut or a lost machine runs neither, so its ``session.json`` stays
-# ``running`` for good. The project watchers count such a session from its
-# descriptor, without the index, and the index shows it as the disk has it.
+# A killed run leaves its ``session.json`` ``running`` for good. The project
+# watchers count such a session from its descriptor, without the index.
 LONG_AGO = datetime.now(UTC) - timedelta(minutes=ABANDONED_SESSION_MINUTES + 60)
 
 
-def test_a_session_still_running_past_the_window_is_counted(tmp_path) -> None:
+def test_abandoned_session_is_counted(tmp_path: Path) -> None:
     root = make_project(tmp_path / "demo")
     write_session_dir(root, "lost", status="running", started_at=LONG_AGO)
 
@@ -919,9 +872,7 @@ IDS = [document.name for document in DOCUMENTS]
 
 
 @pytest.mark.parametrize("document", DOCUMENTS, ids=IDS)
-def test_the_document_carries_the_version_its_reader_reads(
-    document: Document, pristine: Tree
-) -> None:
+def test_stored_version_is_the_read_one(document: Document, pristine: Tree) -> None:
     assert _stored(document, pristine) == document.version
     document.read(pristine)
 
@@ -988,9 +939,7 @@ def _older(version: object) -> object:
 
 
 @pytest.mark.parametrize("document", REFUSED_DOCUMENTS, ids=lambda document: document.name)
-def test_a_version_above_what_the_reader_reads_is_refused_naming_its_writer(
-    document: Document, tree: Tree
-) -> None:
+def test_newer_version_is_refused(document: Document, tree: Tree) -> None:
     bumped = _bumped(document.version)
     _rewrite(document, tree, bumped)
 
@@ -1008,9 +957,7 @@ def test_a_version_above_what_the_reader_reads_is_refused_naming_its_writer(
 
 
 @pytest.mark.parametrize("document", SEALED_DOCUMENTS, ids=lambda document: document.name)
-def test_a_version_below_the_window_says_a_pre_release_wrote_it(
-    document: Document, tree: Tree
-) -> None:
+def test_older_version_is_refused(document: Document, tree: Tree) -> None:
     older = _older(_oldest(document))
     _rewrite(document, tree, older)
 
@@ -1025,7 +972,7 @@ def test_a_version_below_the_window_says_a_pre_release_wrote_it(
 
 
 @pytest.mark.parametrize("document", REFUSED_DOCUMENTS, ids=lambda document: document.name)
-def test_a_document_without_its_version_is_refused_by_name(document: Document, tree: Tree) -> None:
+def test_missing_version_is_refused(document: Document, tree: Tree) -> None:
     _rewrite(document, tree, None)
 
     with pytest.raises(SchemaVersionMismatchError) as refused:
@@ -1037,10 +984,10 @@ def test_a_document_without_its_version_is_refused_by_name(document: Document, t
 
 
 @pytest.mark.parametrize("document", SEALED_DOCUMENTS, ids=lambda document: document.name)
-def test_every_version_of_a_wider_window_is_read(
+def test_wider_window_is_read(
     document: Document, tree: Tree, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The day ``current`` moves up, a document at ``oldest`` is still read."""
+    # The day ``current`` moves up, a document at ``oldest`` is still read.
     module, name = WINDOWS[document.name]
     wider = VersionWindow(oldest=document.version, current=_bumped(document.version))
     monkeypatch.setattr(import_module(module), name, wider)
@@ -1058,9 +1005,7 @@ def test_every_version_of_a_wider_window_is_read(
     ],
     ids=lambda value: value if isinstance(value, str) and value.isupper() else "",
 )
-def test_every_family_declares_both_bounds_and_they_are_equal_at_2_0_0(
-    module: str, name: str, current: object
-) -> None:
+def test_window_bounds(module: str, name: str, current: object) -> None:
     window = getattr(import_module(module), name)
     # The run seal reads the manifest_version 3 of a pre-release beside its own 4, and
     # the trial journal reads the trial.v2 lines of a pre-release beside its v3.
@@ -1072,64 +1017,18 @@ def test_every_family_declares_both_bounds_and_they_are_equal_at_2_0_0(
 
 
 @pytest.mark.parametrize("value", [None, True, 1.5, -1, "soon", "2.0.0a5", "", "1.2.3.4"])
-def test_a_value_that_is_no_version_reads_as_below_the_window(value: object) -> None:
+def test_non_version_reads_as_older(value: object) -> None:
     assert parse_version(value) is None
     assert VersionWindow(oldest=2, current=2).standing(value) == "older"
 
 
-def test_a_window_upside_down_is_refused() -> None:
+def test_upside_down_window_refused() -> None:
     with pytest.raises(ValueError, match="not a window"):
         VersionWindow(oldest=3, current=2)
 
 
-FUTURE_KEYS: tuple[tuple[str, tuple[tuple[Any, ...], ...]], ...] = (
-    (
-        "manifest.json",
-        (
-            (),
-            ("run",),
-            ("site",),
-            ("geometry",),
-            ("period",),
-            ("config",),
-            ("lineage",),
-            ("identity",),
-            ("checks",),
-            ("metrics", 0),
-            ("parameters", 0),
-        ),
-    ),
-    ("provenance.json", ((),)),
-    ("inputs.json", ((),)),
-    ("outcome.json", ((),)),
-    ("annotations.json", ((),)),
-    ("figures/index.json", ((), ("entries", 0), ("entries", 0, "identity"))),
-    ("<file>.meta.json", ((), ("identity",))),
-    (
-        "session.json",
-        (
-            (),
-            ("best",),
-            ("best", "cases", SESSION),
-            ("cases", SESSION),
-            ("bounds", "K"),
-            ("windows", "calibration"),
-        ),
-    ),
-    ("phases/<p>/session.json", ((),)),
-    ("plan/<hash>/plan.json", ((),)),
-    ("PUBLICATION.json", ((), ("source",))),
-)
-
-
-def _nested(payload: Any, path: tuple[Any, ...]) -> Any:
-    for step in path:
-        payload = payload[step]
-    return payload
-
-
-def test_a_future_manifest_with_a_higher_version_and_a_new_key_is_refused(tree: Tree) -> None:
-    """The version decides first: a key the code does not know changes nothing to the refusal."""
+def test_newer_manifest_with_new_key_is_refused(tree: Tree) -> None:
+    # The version decides first: an unknown key changes nothing to the refusal.
     target = tree.run / RUN_MANIFEST_FILENAME
     payload = json.loads(target.read_text(encoding="utf-8"))
     payload.update(manifest_version=RUN_RECORD_MANIFEST_VERSION + 1, new_block={"a": 1})
@@ -1140,28 +1039,6 @@ def test_a_future_manifest_with_a_higher_version_and_a_new_key_is_refused(tree: 
 
     assert f"written by HydroModPy {WRITER}" in str(refused.value)
     assert NEWER_REMEDY in str(refused.value)
-
-
-STORED_WORDS: tuple[tuple[str, tuple[Any, ...], Callable[[Tree], Any]], ...] = (
-    ("session.json", ("status",), lambda t: read_session(t.session).status),
-    ("phases/<p>/session.json", ("status",), lambda t: read_phase(t.session, PHASE).status),
-    ("outcome.json", ("written_by",), lambda t: read_outcome(t.run).written_by),
-    ("outcome.json", ("status",), lambda t: read_outcome(t.run).status),
-    ("manifest.json", ("run", "flow_regime"), lambda t: RunRecord.read(t.run).run.flow_regime),
-    (
-        "manifest.json",
-        ("geometry", "mesh_topology"),
-        lambda t: RunRecord.read(t.run).geometry.mesh_topology,
-    ),
-    ("manifest.json", ("lineage", "kind"), lambda t: RunRecord.read(t.run).lineage.kind),
-    (
-        "manifest.json",
-        ("parameters", 0, "origin"),
-        lambda t: RunRecord.read(t.run).parameters[0].origin,
-    ),
-    ("PUBLICATION.json", ("format",), lambda t: read_publication(t.copy).format),
-    ("PUBLICATION.json", ("label",), lambda t: read_publication(t.copy).label),
-)
 
 
 STORED_MODELS: tuple[type[BaseModel], ...] = (
@@ -1209,8 +1086,8 @@ def _models_reached() -> set[type[BaseModel]]:
     return seen
 
 
-def test_no_stored_model_holds_a_closed_vocabulary() -> None:
-    """A status, a kind or a regime is a string with its words, so a later word reads."""
+def test_no_closed_vocabulary() -> None:
+    # A status, a kind or a regime is a string, so a later word still reads.
     closed = {
         f"{model.__name__}.{name}"
         for model in _models_reached()
@@ -1222,8 +1099,8 @@ def test_no_stored_model_holds_a_closed_vocabulary() -> None:
     assert closed == {f"{ManifestRun.__name__}.status", f"{RunSeal.__name__}.profile"}
 
 
-def test_every_read_of_a_stored_model_goes_through_the_one_helper() -> None:
-    """``Model.model_validate`` on a stored model would refuse what a later version added."""
+def test_stored_models_read_through_one_helper() -> None:
+    # ``Model.model_validate`` would refuse what a later version added.
     names = {model.__name__ for model in _models_reached()}
     package = Path(hydromodpy.__file__).parent
     direct = [
@@ -1267,9 +1144,7 @@ UNREADABLE_MANIFESTS = pytest.mark.parametrize(
 )
 
 
-def test_a_run_under_the_field_store_version_is_refused_with_one_sentence(
-    tree: Tree, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_old_field_store_is_refused(tree: Tree, caplog: pytest.LogCaptureFixture) -> None:
     _older_field_store(tree)
 
     with pytest.raises(SchemaVersionMismatchError, match="pre-release .* must be run again"):
@@ -1319,7 +1194,7 @@ RUN_REL = f"runs/{RUN}"
 @pytest.mark.parametrize(
     ("name", "ask", "answer"), RUN_LISTINGS, ids=[name for name, _ask, _answer in RUN_LISTINGS]
 )
-def test_a_listing_with_one_unreadable_run_leaves_it_out(
+def test_listing_skips_unreadable_run(
     name: str,
     ask: Callable[[Tree, str], Any],
     answer: Any,
@@ -1342,7 +1217,7 @@ def test_a_listing_with_one_unreadable_run_leaves_it_out(
     assert warned or name == "running_cases"
 
 
-def test_an_unreadable_outcome_is_left_out_of_a_listing(tree: Tree) -> None:
+def test_unreadable_outcome_is_skipped(tree: Tree) -> None:
     outcome = next(item for item in DOCUMENTS if item.name == "outcome.json")
     _rewrite(outcome, tree, _bumped(OUTCOME_SCHEMA))
     (tree.run / RUN_MANIFEST_FILENAME).unlink()
@@ -1362,10 +1237,10 @@ OUTCOMES_THAT_DO_NOT_READ = {
 @pytest.mark.parametrize(
     "spoil", OUTCOMES_THAT_DO_NOT_READ.values(), ids=OUTCOMES_THAT_DO_NOT_READ.keys()
 )
-def test_the_seal_stands_beside_an_outcome_this_code_cannot_read(
+def test_seal_stands_without_outcome(
     spoil: Callable[[str], str], tree: Tree, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """The run stays in every list, as completed, with what its seal gives and one warning."""
+    # The run stays in every list, as completed, with one warning.
     target = tree.run / RUN_OUTCOME_FILENAME
     target.write_text(spoil(target.read_text(encoding="utf-8")), encoding="utf-8")
     seal = read_seal(tree.run)
@@ -1400,9 +1275,7 @@ def test_the_seal_stands_beside_an_outcome_this_code_cannot_read(
     assert len(warned) == 1 and "the seal stands" in warned[0]
 
 
-def test_the_age_limit_of_the_gc_reads_the_seal_of_a_run_whose_outcome_does_not_read(
-    tree: Tree,
-) -> None:
+def test_gc_age_limit_reads_the_seal(tree: Tree) -> None:
     (tree.run / RUN_OUTCOME_FILENAME).write_text("[]", encoding="utf-8")
     policy = RetentionPolicy(keep_versions=None, max_age_days=1)
 
@@ -1410,14 +1283,14 @@ def test_the_age_limit_of_the_gc_reads_the_seal_of_a_run_whose_outcome_does_not_
     assert RUN_REL not in plan_gc(tree.project, policy, now=NOW).expired_runs
 
 
-def test_a_pulse_this_code_cannot_read_makes_a_running_attempt_unreadable(tree: Tree) -> None:
+def test_unreadable_pulse_marks_attempt(tree: Tree) -> None:
     heartbeat = next(item for item in DOCUMENTS if item.name == "logs/heartbeat.json")
     _rewrite(heartbeat, tree, _bumped(HEARTBEAT_SCHEMA))
 
     assert effective_status(tree.running) == "unreadable"
 
 
-def test_project_status_refuses_a_plan_it_cannot_read(tree: Tree) -> None:
+def test_status_refuses_newer_plan(tree: Tree) -> None:
     plan = next(item for item in DOCUMENTS if item.name == "plan/<hash>/plan.json")
     _rewrite(plan, tree, _bumped(PLAN_SCHEMA))
 
@@ -1455,7 +1328,7 @@ def read_json_id(tree: Tree) -> str:
     SESSION_LISTINGS,
     ids=[name for name, _ask, _answer in SESSION_LISTINGS],
 )
-def test_a_listing_with_one_unreadable_session_leaves_it_out(
+def test_listing_skips_unreadable_session(
     name: str, ask: Callable[[Tree], Any], answer: Any, tree: Tree
 ) -> None:
     _future_session(tree)
@@ -1465,10 +1338,8 @@ def test_a_listing_with_one_unreadable_session_leaves_it_out(
 
 
 @pytest.mark.parametrize("name", ["phases/<p>/session.json", "trials.jsonl"])
-def test_a_session_counts_as_read_when_its_phases_and_its_journal_read(
-    name: str, tree: Tree
-) -> None:
-    """Picking the latest session leaves it out, and naming it keeps the refusal."""
+def test_session_needs_phases_and_journal(name: str, tree: Tree) -> None:
+    # Picking the latest session leaves it out, and naming it keeps the refusal.
     document = next(item for item in DOCUMENTS if item.name == name)
     _rewrite(document, tree, _bumped(document.version))
 
@@ -1481,14 +1352,14 @@ def test_a_session_counts_as_read_when_its_phases_and_its_journal_read(
         document.read(tree)
 
 
-def test_a_project_with_no_readable_session_says_so(tree: Tree) -> None:
+def test_no_readable_session_refused(tree: Tree) -> None:
     _future_session(tree)
 
     with pytest.raises(ConfigMissingError, match="No readable calibration session"):
         resolve_session_dir(tree.project, None)
 
 
-def test_resume_of_an_unreadable_session_refuses_naming_its_version(tree: Tree) -> None:
+def test_resume_refuses_newer_session(tree: Tree) -> None:
     _future_session(tree)
     (tree.session / RUN_OUTCOME_FILENAME).unlink(missing_ok=True)
     directory, reopened = open_session_dir(tree.project, SESSION, resume=True)
@@ -1498,97 +1369,19 @@ def test_resume_of_an_unreadable_session_refuses_naming_its_version(tree: Tree) 
         CalibrationPersistence(directory).resume_session()
 
 
-FUTURE_KEY = "added_by_a_later_version"
-
-
-def _new_ledger_entry(tree: Tree) -> None:
-    directory = tree.run / RUN_FIGURES_DIRNAME
-    ledger = Ledger.read(directory)
-    ledger.append(ledger.entries[0].model_copy(update={"file": "other.png"}))
-    ledger.write(directory)
-
-
-REWRITES: tuple[
-    tuple[str, Callable[[Tree], Path], tuple[tuple[Any, ...], ...], Callable[[Tree], Any]], ...
-] = (
-    (
-        "add_tag",
-        lambda t: t.run / RUN_ANNOTATIONS_FILENAME,
-        ((),),
-        lambda t: add_tag(t.run, "new"),
-    ),
-    (
-        "remove_tag",
-        lambda t: t.run / RUN_ANNOTATIONS_FILENAME,
-        ((),),
-        lambda t: remove_tag(t.run, "best"),
-    ),
-    (
-        "add_note",
-        lambda t: t.run / RUN_ANNOTATIONS_FILENAME,
-        ((),),
-        lambda t: add_note(t.run, "hello"),
-    ),
-    (
-        "gc closes an attempt",
-        lambda t: t.running / RUN_OUTCOME_FILENAME,
-        ((),),
-        lambda t: mark_aborted(t.running, now=NOW),
-    ),
-    (
-        "an attempt finishes",
-        lambda t: t.running / RUN_OUTCOME_FILENAME,
-        ((),),
-        lambda t: finish_attempt(t.running, status="failed", error=RuntimeError("boom")),
-    ),
-    (
-        "a session resumes",
-        lambda t: session_descriptor_path(t.session),
-        ((), ("best",)),
-        lambda t: CalibrationPersistence(t.session).resume_session(),
-    ),
-    (
-        "a phase finishes",
-        lambda t: phase_dir(t.session, PHASE) / SESSION_DESCRIPTOR_FILENAME,
-        ((),),
-        lambda t: CalibrationPersistence(t.session).finish_phase(
-            PHASE, status="aborted", best=None
-        ),
-    ),
-    (
-        "a ledger takes an entry",
-        lambda t: t.run / RUN_FIGURES_DIRNAME / LEDGER_FILENAME,
-        ((), ("entries", 0)),
-        _new_ledger_entry,
-    ),
-    (
-        "the facts move on",
-        lambda t: facts_path(t.running),
-        ((),),
-        lambda t: write_facts(t.running, read_facts(t.running).model_copy(update={"attempt": 2})),
-    ),
-)
-
-
 JOB_MANIFEST_VERSIONS = VersionWindow(oldest=JOB_SEAL_V2_SCHEMA, current=JOB_SEAL_V2_SCHEMA)
 """The seal a job of a pre-release wrote, the only job manifest with a ``schema`` key."""
 
-JOB_WINDOWS = pytest.mark.parametrize(
-    "window",
-    [
-        INPUTSET_VERSIONS,
-        JOB_PROVENANCE_VERSIONS,
-        JOB_OUTCOME_VERSIONS,
-        JOB_MANIFEST_VERSIONS,
-    ],
-    ids=lambda window: str(window.current),
-)
+JOB_WINDOWS = [
+    pytest.param(INPUTSET_VERSIONS, id="inputset"),
+    pytest.param(JOB_PROVENANCE_VERSIONS, id="provenance"),
+    pytest.param(JOB_OUTCOME_VERSIONS, id="outcome"),
+    pytest.param(JOB_MANIFEST_VERSIONS, id="seal"),
+]
 
 
-@JOB_WINDOWS
-def test_a_job_document_outside_its_window_is_refused_by_what_it_is(
-    window: VersionWindow, tmp_path: Path
-) -> None:
+@pytest.mark.parametrize("window", JOB_WINDOWS)
+def test_job_document_refusals(window: VersionWindow, tmp_path: Path) -> None:
     target = tmp_path / "document.json"
     (tmp_path / "provenance.json").write_text(
         json.dumps({"tool": {"version": WRITER}}), encoding="utf-8"
@@ -1679,7 +1472,7 @@ def _members(group: zarr.Group) -> set[str]:
     return {name for name, _ in group.members()}
 
 
-def test_the_group_names_the_engine_the_crs_and_the_request(tmp_path):
+def test_mesh_group_attributes(tmp_path):
     cell_mesh = _river_grid()
     qa = {"p50": 1.0, "ratio": float("nan"), "far": float("inf"), "nested": {"v": np.float64(2.5)}}
     layout = mesh_layout_from_cell_mesh(
@@ -1711,7 +1504,7 @@ def _no(token: str) -> None:
     raise AssertionError(f"the store holds the bare JSON token {token}")
 
 
-def test_the_zones_of_a_triangle_mesh_are_stored_by_name(tmp_path):
+def test_zone_names_are_stored(tmp_path):
     cell_mesh = _zoned_triangles()
     store = _store(tmp_path / "fields.zarr", cell_mesh)
     zone = store.root["mesh"]["face_zone"]
@@ -1721,7 +1514,7 @@ def test_the_zones_of_a_triangle_mesh_are_stored_by_name(tmp_path):
     store.close()
 
 
-def test_a_layout_of_another_mesh_is_refused(tmp_path):
+def test_foreign_layout_is_refused(tmp_path):
     cell_mesh = _river_grid()
     other = bundle_dual(BUNDLE)
     store = SimulationZarr.create(tmp_path / "fields.zarr", n_cells=cell_mesh.n_cells, n_layers=1)
@@ -1736,7 +1529,7 @@ def test_a_layout_of_another_mesh_is_refused(tmp_path):
     store.close()
 
 
-def test_the_post_run_writer_adds_the_vertical_part_and_keeps_the_geometry(tmp_path):
+def test_topography_keeps_the_geometry(tmp_path):
     cell_mesh = _river_grid()
     store = _store(tmp_path / "fields.zarr", cell_mesh)
     mesh = store.root["mesh"]
@@ -1767,27 +1560,6 @@ def test_the_post_run_writer_adds_the_vertical_part_and_keeps_the_geometry(tmp_p
     store.close()
 
 
-class _RecordingStore:
-    """A store that records what ``step_persist_mesh`` hands it."""
-
-    def __init__(self) -> None:
-        self.meshes: list[dict] = []
-        self.views: dict[str, list[dict]] = {}
-
-    def write_mesh(self, sim_id, **kwargs) -> None:
-        self.meshes.append(kwargs)
-
-    def write_view(self, sim_id, view_name, records) -> None:
-        self.views[view_name] = list(records)
-
-
-def _context(cell_mesh: PlanarCellMesh, summary: dict | None) -> SimpleNamespace:
-    domain = SimpleNamespace(z_interfaces=Z_INTERFACES)
-    return SimpleNamespace(
-        setup=SimpleNamespace(domain=domain, cell_mesh=cell_mesh, mesh_summary=summary)
-    )
-
-
 # ``exports/index.json`` and ``figures/index.json`` name every derived file of a
 # run with the options it was written with. Deleting the files and replaying
 # the ledger writes the same files again, with the same entries and the same
@@ -1800,7 +1572,7 @@ def _entries(directory) -> dict[str, tuple[str, dict, str | None]]:
     }
 
 
-def test_the_export_ledger_replays_without_the_index(tmp_path, monkeypatch) -> None:
+def test_export_ledger_replays(tmp_path, monkeypatch) -> None:
     run_dir, sim_id = seal_demo_run(tmp_path / "project")
 
     def refuse(*_args, **_kwargs):
@@ -1827,7 +1599,7 @@ def test_the_export_ledger_replays_without_the_index(tmp_path, monkeypatch) -> N
         assert identity.sim_id == sim_id
 
 
-def test_an_empty_export_ledger_is_refused(tmp_path) -> None:
+def test_empty_export_ledger_refused(tmp_path) -> None:
     run_dir, sim_id = seal_demo_run(tmp_path / "project")
 
     with (
@@ -1837,7 +1609,7 @@ def test_an_empty_export_ledger_is_refused(tmp_path) -> None:
         regen_exports(store, sim_id, run_export_target(store, sim_id))
 
 
-def test_the_figure_ledger_replays(tmp_path) -> None:
+def test_figure_ledger_replays(tmp_path) -> None:
     run_dir, sim_id = seal_demo_run(tmp_path / "project")
     figures = figures_dir_of(run_dir)
     with Catalog(tmp_path / "project") as catalog:
@@ -1858,30 +1630,6 @@ def test_the_figure_ledger_replays(tmp_path) -> None:
         identity = read_identity_from(path)
         assert identity is not None
         assert identity.sim_id == sim_id
-
-
-# ``manifest.inputs`` records each declared file relative to the workspace root
-# (``data/dem/...``), and its ``declared_path`` in the form the frozen
-# ``config.toml`` writes (a bare name found in ``data/``). ``inputs.json`` lists
-# every loaded file and every declared file the loads did not name, the DEM a
-# catchment is cut from among them, with the provider and licence of its sidecar.
-@dataclass
-class _Entry:
-    role: str
-    category: str
-    original_path: str
-    canonical_path: Path
-    portable: bool = True
-
-
-def _workspace(tmp_path: Path) -> tuple[Path, Path]:
-    workspace = tmp_path / "ws"
-    (workspace / "workspace.toml").parent.mkdir(parents=True)
-    (workspace / "workspace.toml").write_text("[workspace]\n", encoding="utf-8")
-    project = workspace / "projects" / "nancon"
-    project.mkdir(parents=True)
-    (project / "project.toml").write_text("", encoding="utf-8")
-    return workspace, project
 
 
 # The MODFLOW files are scratch, so a sealed run could say which cell carries a
@@ -1915,13 +1663,13 @@ def _links_of_sealed(project: Path, rows: list[dict] | None) -> pd.DataFrame:
         return sfr_reach_links(Run(sid, catalog))
 
 
-def test_the_sidecar_reads_the_downstream_reaches_back() -> None:
+def test_sidecar_reads_downstream() -> None:
     reach = SfrReachGeometry.from_mapping({**REACH, "downstream": [2, 3]})
 
     assert reach.downstream == (2, 3)
 
 
-def test_a_sidecar_without_the_links_is_refused_not_read_as_outlets() -> None:
+def test_sidecar_without_links_refused() -> None:
     with pytest.raises(KeyError, match="downstream"):
         SfrObsSpec.from_mapping(
             {
@@ -1932,18 +1680,7 @@ def test_a_sidecar_without_the_links_is_refused_not_read_as_outlets() -> None:
         )
 
 
-def _row(reach: int, downstream: list[int]) -> dict:
-    fields = {name: value for name, value in REACH.items() if name != "ifno"}
-    return {
-        "reach_id": f"main:{reach}",
-        "network_id": "main",
-        "reach": reach,
-        **fields,
-        "downstream": downstream,
-    }
-
-
-def test_a_row_numbers_the_reach_as_the_toml_does() -> None:
+def test_reach_row_numbering() -> None:
     reach = SfrReachGeometry.from_mapping({**REACH, "ifno": 2, "downstream": [3, 4]})
 
     row = _reach_row("main", reach)
@@ -1952,7 +1689,7 @@ def test_a_row_numbers_the_reach_as_the_toml_does() -> None:
     assert "ifno" not in row
 
 
-def test_a_run_without_a_stream_network_has_no_links(tmp_path: Path) -> None:
+def test_no_network_no_links(tmp_path: Path) -> None:
     links = _links_of_sealed(tmp_path / "project", None)
 
     assert links.empty
@@ -1970,10 +1707,7 @@ _DAYS = np.array(
     ["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-04", "2020-01-05"],
     dtype="datetime64[ns]",
 )
-
-
 _T, _N = 5, 3
-
 
 _SERIES = {
     "etr": (
@@ -2033,7 +1767,7 @@ def _write(tmp_path: Path) -> Path:
     return path
 
 
-def test_each_series_array_carries_its_own_units_and_cell_methods(tmp_path: Path) -> None:
+def test_series_units_and_methods(tmp_path: Path) -> None:
     path = _write(tmp_path)
     sz = SimulationZarr(path)
     try:
@@ -2046,9 +1780,6 @@ def test_each_series_array_carries_its_own_units_and_cell_methods(tmp_path: Path
         assert dict(soil["cell_index"].attrs)["units"] == "1"
     finally:
         sz.close()
-
-
-N_CELLS_2 = 4
 
 
 INTERFACES = np.array(
@@ -2065,18 +1796,18 @@ IDOMAIN = np.array([[1, 0, 1, 1], [1, 1, -1, 1]])
 
 @pytest.fixture
 def store(tmp_path):
-    handle = SimulationZarr.create(tmp_path / "run.zarr", n_cells=N_CELLS_2, n_layers=2)
+    handle = SimulationZarr.create(tmp_path / "run.zarr", n_cells=4, n_layers=2)
     vertices, connectivity = quad_mesh(2, 2)
     handle.write_mesh(vertices, connectivity, INTERFACES)
     yield handle
     handle.close()
 
 
-def test_an_idomain_value_outside_minus_one_zero_one_is_refused(store) -> None:
+def test_bad_idomain_refused(store) -> None:
     with pytest.raises(ValueError, match="only -1, 0 and 1"):
         store.write_topography(INTERFACES[0], idomain=IDOMAIN * 2)
 
 
-def test_interfaces_for_another_cell_count_are_refused(store) -> None:
+def test_bad_interfaces_refused(store) -> None:
     with pytest.raises(IncompatibleMeshError, match="3 cells"):
         store.write_topography(INTERFACES[0], z_interfaces=INTERFACES[:, :3])

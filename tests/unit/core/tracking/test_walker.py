@@ -1,4 +1,8 @@
-"""Walker tests on small synthetic Pydantic models."""
+"""Which fields of a Pydantic config are input files, found and rewritten by the walker.
+
+A relative path resolves under the project base, never under the shell's working
+directory, so a project tracks the same files wherever the command is launched.
+"""
 
 from __future__ import annotations
 
@@ -6,10 +10,10 @@ from pathlib import Path
 from typing import Annotated
 
 import pytest
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.tracking.input_file import InputFile
-from hydromodpy.core.tracking.walker import collect_input_files
+from hydromodpy.core.tracking.walker import collect_input_files, rewrite_input_paths
 
 
 class _Source(BaseModel):
@@ -40,32 +44,20 @@ class _Root(BaseModel):
     aux: str = "ignored"
 
 
-def test_walker_handles_string_paths(tmp_path: Path) -> None:
-    class Holder(BaseModel):
-        src: Annotated[
-            str | None,
-            InputFile(role="thing", category="data"),
-        ] = None
-
-    holder = Holder(src=str(tmp_path / "x"))
-    entries = collect_input_files(holder)
-    assert len(entries) == 1
-    assert entries[0].canonical_path == (tmp_path / "x").resolve()
+class _StringHolder(BaseModel):
+    src: Annotated[str | None, InputFile(role="thing", category="data")] = None
 
 
-def test_walker_skips_whitespace_string() -> None:
-    class Holder(BaseModel):
-        src: Annotated[
-            str | None,
-            InputFile(role="thing", category="data"),
-        ] = None
-
-    holder = Holder(src="   ")
-    assert collect_input_files(holder) == []
+def test_string_paths_are_collected(tmp_path: Path) -> None:
+    entries = collect_input_files(_StringHolder(src=str(tmp_path / "x")))
+    assert [e.canonical_path for e in entries] == [(tmp_path / "x").resolve()]
 
 
-def test_walker_on_real_hydromodpy_config_annotations() -> None:
-    """Geographic config has InputFile markers registered."""
+def test_blank_string_is_skipped() -> None:
+    assert collect_input_files(_StringHolder(src="   ")) == []
+
+
+def test_input_markers_of_the_catchment_configs() -> None:
     from hydromodpy.catchment.preprocess.catchment_config import OutletCatchDef, PolygonCatchDef
     from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 
@@ -88,34 +80,32 @@ def test_walker_on_real_hydromodpy_config_annotations() -> None:
     assert polygon_roles == {"polyg_shp_path": "watershed_polygon"}
 
 
-def test_walker_on_real_substratum_source_annotations() -> None:
-    """The substratum raster is tracked as geometry under its own role."""
-    from hydromodpy.data.variables.user_rasters import FileSubstratumSource
-
-    field_info = FileSubstratumSource.model_fields["path"]
-    markers = [m for m in field_info.metadata if isinstance(m, InputFile)]
-    assert len(markers) == 1
-    assert markers[0].role == "substratum"
-    assert markers[0].category == "geometry"
-
-
-def test_walker_on_real_dem_source_annotations() -> None:
-    """DEM file source config has InputFile on path."""
+def _file_dem_source():
     from hydromodpy.data.variables.dem.config import FileDemSource
 
-    field_info = FileDemSource.model_fields["path"]
-    markers = [m for m in field_info.metadata if isinstance(m, InputFile)]
-    assert len(markers) == 1
-    assert markers[0].role == "dem"
-    assert markers[0].category == "data"
+    return FileDemSource
 
 
-# ------------------------------------------------- relative paths and rewriting
+def _file_substratum_source():
+    from hydromodpy.data.variables.user_rasters import FileSubstratumSource
 
-from hydromodpy.core.tracking.walker import rewrite_input_paths  # noqa: E402
+    return FileSubstratumSource
 
 
-def test_a_relative_path_is_anchored_on_base_when_the_file_is_there(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("source", "role", "category"),
+    [
+        pytest.param(_file_substratum_source, "substratum", "geometry", id="substratum"),
+        pytest.param(_file_dem_source, "dem", "data", id="dem"),
+    ],
+)
+def test_data_source_markers(source, role, category) -> None:
+    metadata = source().model_fields["path"].metadata
+    markers = [m for m in metadata if isinstance(m, InputFile)]
+    assert [(m.role, m.category) for m in markers] == [(role, category)]
+
+
+def test_relative_path_on_base(tmp_path: Path) -> None:
     (tmp_path / "dem.tif").write_text("x")
     root = _Root(block=_Block(dem=Path("dem.tif")))
 
@@ -142,32 +132,39 @@ def _upper(marker: InputFile, value: str) -> str:
     return f"{marker.role}:{value}"
 
 
-@pytest.mark.parametrize(
-    "payload",
-    [
-        {"dem": ""},
-        {"dem": "   "},
-        {"dem": None},
-        {"unknown": "a.tif"},
-        {"block": None},
-        {"stations": ["not-a-table"]},
-        {"by_name": {"x": "not-a-table"}},
-        {"label": "a.tif"},
-    ],
-    ids=[
-        "empty",
-        "blank",
-        "none",
-        "unknown-key",
-        "none-table",
-        "non-dict-item",
-        "non-dict-value",
-        "plain-str",
-    ],
-)
-def test_rewriting_leaves_empty_unknown_and_unmarked_values_alone(payload: dict) -> None:
+UNTOUCHED_PAYLOADS = [
+    pytest.param({"dem": ""}, id="empty"),
+    pytest.param({"dem": "   "}, id="blank"),
+    pytest.param({"dem": None}, id="none"),
+    pytest.param({"unknown": "a.tif"}, id="unknown key"),
+    pytest.param({"block": None}, id="none table"),
+    pytest.param({"stations": ["not-a-table"]}, id="item not a table"),
+    pytest.param({"by_name": {"x": "not-a-table"}}, id="value not a table"),
+    pytest.param({"label": "a.tif"}, id="unmarked string"),
+]
+
+
+@pytest.mark.parametrize("payload", UNTOUCHED_PAYLOADS)
+def test_rewriting_leaves_other_values_alone(payload: dict) -> None:
     before = {k: (dict(v) if isinstance(v, dict) else v) for k, v in payload.items()}
 
     rewrite_input_paths(payload, _Plan, _upper)
 
     assert payload == before
+
+
+class _Streams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    geometry: Annotated[Path | None, InputFile(role="network_map", category="geometry")] = None
+
+
+def test_relative_path_in_folder(tmp_path: Path) -> None:
+    target = tmp_path / "data" / "hydrography" / "streams.gpkg"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"only its location matters here")
+    config = _Streams(geometry=Path("data/hydrography/streams.gpkg"))
+
+    (entry,) = collect_input_files(config, base=tmp_path)
+
+    assert entry.canonical_path == target.resolve()

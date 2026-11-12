@@ -43,7 +43,7 @@ def _load(path: Path) -> dict:
     return tomllib.loads(path.read_text(encoding="utf-8"))
 
 
-def test_the_description_of_a_field_is_kept_as_a_comment_on_its_line(tmp_path: Path) -> None:
+def test_description_as_comment(tmp_path: Path) -> None:
     path = dump_toml_with_comments(_Cfg(), tmp_path / "c.toml")
     text = path.read_text(encoding="utf-8")
     assert "# Hydraulic conductivity in m/s." in text
@@ -57,7 +57,7 @@ def test_an_unknown_profile_is_refused(tmp_path: Path) -> None:
         dump_toml_with_comments(_Cfg(), tmp_path / "c.toml", profile="guru")  # type: ignore[arg-type]
 
 
-def test_to_toml_on_a_model_writes_the_same_file(tmp_path: Path) -> None:
+def test_to_toml_matches_dump(tmp_path: Path) -> None:
     cfg = _Cfg(title="t")
     assert (
         cfg.to_toml(tmp_path / "a.toml").read_text()
@@ -85,11 +85,11 @@ class _Unit:
         (3, 3),
     ],
 )
-def test_a_value_is_turned_into_something_toml_can_hold(value, expected) -> None:
+def test_coerce_value(value, expected) -> None:
     assert dumper._coerce_value(value) == expected
 
 
-def test_a_list_mixing_tables_and_scalars_is_refused() -> None:
+def test_mixed_list_refused() -> None:
     mixed = [_Well(name="w"), 3]
     with pytest.raises(TypeError, match="Mixed scalar and table"):
         dumper._render_container_value(mixed, profile_threshold=Profile.USER)

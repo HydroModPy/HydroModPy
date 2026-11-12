@@ -520,7 +520,6 @@ def test_a_source_lookup_and_the_port_load_no_provider_library() -> None:
 ENGINE = "hydromodpy/core/plugin_registry.py"
 """The one module allowed to scan an entry-point group."""
 BUILTIN_TABLES = frozenset({"_BUILTIN_PATHS", "_BUILTIN_EXTRACTOR_PATHS"})
-OWN_OBJECTS = frozenset({"self", "cls"})
 
 
 def _tools_imports(tree: ast.Module, path: str) -> list[str]:

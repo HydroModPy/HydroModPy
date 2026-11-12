@@ -232,8 +232,6 @@ def test_a_committed_bundle_keeps_its_mesh_summary_and_its_mesh_file():
     assert bundle.mesh_path.is_file()
 
 
-# -- the cell mesh of a bundle -----------------------------------------------------
-
 X0, Y0 = L93_ORIGIN
 CRS = TEST_CRS_WKT
 SIZE_M = 500.0
@@ -298,22 +296,6 @@ def _square_bundle(*, id_shift: int = 0, river: bool = True) -> SimpleNamespace:
         ),
         edges=edges,
     )
-
-
-def _node_pairs(nodes_a: np.ndarray, nodes_b: np.ndarray) -> set[tuple[int, int]]:
-    return {(min(p, q), max(p, q)) for p, q in zip(nodes_a.tolist(), nodes_b.tolist(), strict=True)}
-
-
-def _family_pairs(cell_mesh, family: str) -> set[tuple[int, int]]:
-    rows = cell_mesh.face_rows(family)
-    table = cell_mesh.face_families
-    return _node_pairs(table.node_a[rows], table.node_b[rows])
-
-
-def _boundary_edges(bundle: SimpleNamespace) -> set[tuple[int, int]]:
-    return {
-        (min(e.node_a, e.node_b), max(e.node_a, e.node_b)) for e in bundle.edges if e.cell_b is None
-    }
 
 
 def test_bundle_cell_mesh_keeps_the_nodes_and_the_triangles_in_file_order() -> None:

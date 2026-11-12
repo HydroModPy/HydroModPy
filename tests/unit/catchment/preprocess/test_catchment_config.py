@@ -29,7 +29,7 @@ def _buffer_of(value):
     return GeographicConfig.model_validate(_outlet(buff_area=value)).buff_area
 
 
-def test_a_dem_from_a_data_source_survives_the_assignment_of_the_section():
+def test_dem_source_survives_section_assignment():
     example = Path(__file__).parents[4] / "examples/projects/12_network_calibration_from_apis"
     cfg = HydroModPyConfig.from_toml(example / "project.toml")
     assert cfg.geographic.catch_def == "from_outlet_coord"
@@ -66,7 +66,7 @@ def test_a_dem_from_a_data_source_survives_the_assignment_of_the_section():
         ),
     ],
 )
-def test_a_catchment_table_is_refused_with_a_message_that_names_the_key(payload, match) -> None:
+def test_refusals(payload, match) -> None:
     with pytest.raises(ValidationError, match=match):
         GeographicConfig.model_validate(payload)
 
@@ -75,19 +75,19 @@ def test_a_catchment_table_is_refused_with_a_message_that_names_the_key(payload,
     ("declared", "metres"),
     [("10 m", 10.0), ("0.5 km", 500.0), ("200m", 200.0), ("2 m", 2.0), ("5", 5.0)],
 )
-def test_a_declared_buffer_distance_survives_being_read_twice(declared, metres) -> None:
+def test_buffer_distance_read_twice(declared, metres) -> None:
     """A sealed run is read again, so the validator reads its own output ('10 m' once became '10.0')."""
     once = _buffer_of(declared)
     assert once == f"{metres!r} m"
     assert _buffer_of(once) == once
 
 
-def test_a_buffer_percentage_keeps_its_sign_and_a_bare_number_stays_a_number() -> None:
+def test_buffer_forms() -> None:
     """What tells the three rules apart downstream is the form, not the magnitude."""
     assert (_buffer_of("2%"), _buffer_of("2.5%"), _buffer_of(2.0)) == ("2%", "2.5%", 2.0)
 
 
-def test_a_polygon_catchment_is_built_from_its_shapefile() -> None:
+def test_polygon_catchment() -> None:
     config = GeographicConfig.from_polygon("catchment.shp", crs_project="EPSG:2154")
     assert config.catch_def == "from_polyg_shp"
     assert str(config.polyg_shp_path) == "catchment.shp"

@@ -1,23 +1,8 @@
-"""A run pays for the steps it asks for, and the Pipeline executes them.
+"""The project runner: which steps a run executes, and how an attempt is claimed and closed.
 
-``Project.simulate`` used to build the whole model phase - geographic, data,
-mesh - before the Pipeline was even constructed, so ``until_step`` could only
-ever make a run *shorter*, never *cheaper*: asking for a catchment outline still
-downloaded the forcings and meshed the domain. That eager build is gone: the
-Pipeline executes ``build_geographic``, ``load_data`` and ``build_mesh`` itself,
-which is what gives each of them a journal row.
-
-One run still builds the model phase up front, and only one: a run whose
-overrides patch it, because the plan builder rebuilds the domain and replays the
-data binders on a model that must already exist.
-
-Two levels are covered here: the decision itself, through a dry run that
-executes no step, and its effect on a real synthetic project run in process.
-
-The runner also hands the Pipeline the state the facade verbs used to read off
-the Project, reads a partial run from its directory (no index is opened), keeps
-the attempt state of a window that stops before the seal, and closes the
-outcome of a run cut by a signal or a crash.
+A run executes only the steps it asks for (until_step, from_step), checked first by a dry
+run and then on a small synthetic project. An attempt claims its run folder, is resumed
+or refused, and closes its outcome when a signal or a crash cuts it.
 """
 
 from __future__ import annotations
@@ -51,7 +36,6 @@ SYNTHETIC_PROJECT = REPO_ROOT / "examples" / "projects" / "00_getting_started" /
 
 
 def _declared_config(root: Path):
-    """The narrow slice of a real configuration a dry run reads."""
     from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
     from hydromodpy.core.workspace.config import WorkspaceConfig
@@ -65,19 +49,16 @@ def _declared_config(root: Path):
 
 
 class _StubProject:
-    """The narrow slice of ``Project`` that a dry run reads."""
+    """The slice of ``Project`` that a dry run reads."""
 
     def __init__(self, root: Path, *, model_phase_ready: bool = False) -> None:
         self.built = 0
         self._run_counter = 0
         self._no_display = True
         self._config_path = root / "project.toml"
-        # A real configuration, not a namespace: the runner resolves the one
-        # this run is defined by before it decides anything, so a double that
-        # cannot be copied with an override folded in proves nothing.
+        # A real configuration: the runner copies it with the overrides folded in.
         self._cfg = _declared_config(root)
-        # All three fields are what ``_is_model_phase_ready`` reads; a double
-        # that sets only some of them proves nothing about the ready branch.
+        # The ready check reads all three fields.
         self._ctx = SimpleNamespace(
             setup=SimpleNamespace(
                 workspace=SimpleNamespace(project_root=root) if model_phase_ready else None,
@@ -98,12 +79,7 @@ def _dry_run(project: _StubProject, **kwargs) -> PlanDraft:
 
 
 def _isolate_workspace(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
-    """Bind the data workspace to ``root``; the project root is the folder of the file.
-
-    Leaving the data workspace on the repository's own ``examples/`` would point
-    the ``data/`` folder of these tests at files the tier shares under xdist and
-    must never write.
-    """
+    # Keep the data folder off the repository examples, which xdist workers share.
     monkeypatch.setenv("HMP_WORKSPACE", str(root))
     monkeypatch.setenv("MPLBACKEND", "Agg")
 
@@ -118,10 +94,7 @@ def _isolate_workspace(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
     ],
     ids=["bare resume", "bare resume and a case", "resume of a name", "no resume"],
 )
-def test_a_bare_resume_names_the_run_the_request_names(
-    tmp_path: Path, name: str | None, resume: str | None, named: str
-) -> None:
-    """A bare resume (``""``) names no run of its own, so the run keeps its name."""
+def test_run_name(tmp_path: Path, name: str | None, resume: str | None, named: str) -> None:
     project = _StubProject(tmp_path)
     project._cfg.simulation.name = "declared"
 
@@ -129,10 +102,7 @@ def test_a_bare_resume_names_the_run_the_request_names(
 
 
 @pytest.mark.parametrize("until_step", [None, "setup_process", "run_solver", "export"])
-def test_a_window_reaching_the_process_phase_leaves_it_to_the_pipeline(
-    tmp_path: Path, until_step: str | None
-) -> None:
-    """No window builds the model phase up front; the Pipeline executes it."""
+def test_no_model_phase_built_up_front(tmp_path: Path, until_step: str | None) -> None:
     project = _StubProject(tmp_path)
 
     _dry_run(project, until_step=until_step)
@@ -140,8 +110,7 @@ def test_a_window_reaching_the_process_phase_leaves_it_to_the_pipeline(
     assert project.built == 0
 
 
-def test_a_model_phase_ready_project_still_skips_forward_on_a_full_run(tmp_path: Path) -> None:
-    """The reuse shortcut itself is intact: it is the window that gates it."""
+def test_ready_project_skips_forward(tmp_path: Path) -> None:
     project = _StubProject(tmp_path, model_phase_ready=True)
 
     assert _dry_run(project, until_step=None).steps == STEP_NAMES[5:]
@@ -157,25 +126,18 @@ def test_a_model_phase_ready_project_still_skips_forward_on_a_full_run(tmp_path:
         ("no", "Unknown"),
     ],
 )
-def test_a_step_is_only_named(tmp_path: Path, bound: str, word: object, says: str) -> None:
-    """An index shifts when a step is inserted, and a class name is no contract."""
+def test_step_is_named(tmp_path: Path, bound: str, word: object, says: str) -> None:
     with pytest.raises(ConfigError, match=says):
         _dry_run(_StubProject(tmp_path), **{bound: word})
 
 
-def test_a_window_that_starts_after_it_ends_is_refused(tmp_path: Path) -> None:
-    """``--from build_mesh --until resolve`` executes nothing; say so."""
+def test_window_starts_after_it_ends(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="is past until_step"):
         _dry_run(_StubProject(tmp_path), from_step="build_mesh", until_step="resolve")
 
 
-def test_a_pipeline_without_a_process_step_claims_no_model_phase(tmp_path: Path) -> None:
-    """An ad-hoc step list names no ``setup_process``; answer 0, do not raise.
-
-    Index 0 makes every window reach the model phase, which is what the
-    canonical pipeline did before the bound existed. Test doubles in
-    ``tests/unit/results`` monkeypatch ``standard_steps`` to such a list.
-    """
+def test_model_phase_index() -> None:
+    # A step list without setup_process gives 0, so every window reaches the model phase.
     from hydromodpy.workflow import window as runner_mod
     from hydromodpy.workflow.steps.sequence import standard_steps
 
@@ -184,16 +146,12 @@ def test_a_pipeline_without_a_process_step_claims_no_model_phase(tmp_path: Path)
     assert runner_mod.model_phase_index(standard_steps()) == 5
 
 
-def test_a_head_only_window_refuses_to_resume(tmp_path: Path) -> None:
-    """A window that writes no journal cannot be resumed from one."""
+def test_head_only_window_cannot_resume(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="keeps no journal"):
         _dry_run(_StubProject(tmp_path), resume="earlier", until_step="build_geographic")
 
 
-def test_delineating_alone_loads_no_data_and_builds_no_mesh(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The real thing, on the cheapest committed project: the geographic step alone."""
+def test_delineation_alone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from hydromodpy.project.facade import Project
 
     _isolate_workspace(monkeypatch, tmp_path)
@@ -210,16 +168,8 @@ def test_delineating_alone_loads_no_data_and_builds_no_mesh(
         project.close()
 
 
-def test_the_partial_run_hands_its_work_to_the_next_call(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """What the window built stays built: the Project adopts it instead of redoing it.
-
-    Without the adoption the phase marker stays ``"uninitialized"`` while the
-    Pipeline has already populated the very ``ctx`` the Project holds, so the
-    next call runs ``setup_workspace`` again - documented as resetting
-    workspace, geographic and domain - and throws the delineation away.
-    """
+def test_partial_run_is_adopted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Without adoption the next call runs setup_workspace again and drops the delineation.
     from hydromodpy.project.facade import Project
 
     _isolate_workspace(monkeypatch, tmp_path)
@@ -251,7 +201,6 @@ def _project(tmp_path: Path) -> Path:
 
 
 def _runner_of(project: Path, monkeypatch: pytest.MonkeyPatch, *, write_facts: bool):
-    """Return a runner whose ``execute`` closes a partial attempt of *UNTIL_CASE*."""
     with run_attempt(project, UNTIL_CASE, case_id=UNTIL_CASE, project="demo", site=None) as handle:
         if write_facts:
             facts = facts_of(handle.claim, project="demo", n_cells=4, n_layers=1)
@@ -264,9 +213,7 @@ def _runner_of(project: Path, monkeypatch: pytest.MonkeyPatch, *, write_facts: b
     return runner, owner, sealed
 
 
-def test_a_partial_run_is_read_from_its_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_partial_run_read_from_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = _project(tmp_path)
     runner, owner, sealed = _runner_of(project, monkeypatch, write_facts=True)
 
@@ -280,9 +227,7 @@ def test_a_partial_run_is_read_from_its_directory(
     assert owner._run_history == [run]
 
 
-def test_a_partial_run_without_facts_returns_none(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_partial_run_without_facts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = _project(tmp_path)
     runner, owner, _ = _runner_of(project, monkeypatch, write_facts=False)
 
@@ -301,7 +246,7 @@ LAST_WORDS = "stress period 51: the solver is about to give up"
         (RuntimeError, "failed", None),
     ],
 )
-def test_an_interrupted_run_closes_its_outcome(
+def test_interrupted_run_outcome(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     signal_error: type[BaseException],
@@ -355,7 +300,7 @@ WINDOW_CASE = "asked_name"
 
 
 class _JournallingPipeline:
-    """A pipeline double that journals its first step for real and records what it was asked."""
+    """Journals its first step for real and records what it was asked."""
 
     calls: list[dict] = []
 
@@ -379,9 +324,7 @@ class _JournallingPipeline:
         return state
 
 
-def test_a_window_that_stops_before_the_seal_keeps_its_attempt_state_and_resumes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_unsealed_window_resumes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from hydromodpy.project.facade import Project
 
     config_path = tmp_path / "project.toml"
@@ -414,11 +357,8 @@ def test_a_window_that_stops_before_the_seal_keeps_its_attempt_state_and_resumes
     assert not (tmp_path / INTERNAL_DIRNAME / "index.duckdb").exists()
 
 
-# --- The claim comes first, and what the attempt asks for is told once it has it ---
-
-
 class _Claimed:
-    """A real claimed attempt in a real project, with the data layer and the keys doubled."""
+    """A claimed attempt in a real project, with the data layer and the keys doubled."""
 
     def __init__(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, if_exists="version"):
         import hydromodpy.data.loading.inputs as inputs
@@ -479,7 +419,6 @@ class _Claimed:
 
 
 def _identical(monkeypatch: pytest.MonkeyPatch, root: Path, key: str, name="demo") -> Path:
-    """Leave a completed run of *name* that answers the key *key*."""
     import hydromodpy.results.storage.sealing as sealing
     import hydromodpy.workflow.replay_checks as replay_checks
 
@@ -491,9 +430,7 @@ def _identical(monkeypatch: pytest.MonkeyPatch, root: Path, key: str, name="demo
     return run_dir
 
 
-def test_a_run_identical_to_a_completed_one_undoes_its_claim_and_gives_that_run_back(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_identical_run_undoes_claim(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     claimed = _Claimed(tmp_path, monkeypatch)
     found = _identical(monkeypatch, claimed.root, "key:rid-1")
 
@@ -508,9 +445,7 @@ def test_a_run_identical_to_a_completed_one_undoes_its_claim_and_gives_that_run_
     assert sorted(entry.name for entry in (claimed.root / "runs").iterdir()) == ["demo"]
 
 
-def test_if_exists_fail_is_read_after_the_search_for_an_identical_run(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_if_exists_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from hydromodpy.results.catalog.registration import NameTakenError
 
     claimed = _Claimed(tmp_path, monkeypatch, if_exists="fail")
@@ -528,9 +463,7 @@ def test_if_exists_fail_is_read_after_the_search_for_an_identical_run(
     assert sorted(entry.name for entry in (claimed.root / "runs").iterdir()) == ["demo"]
 
 
-def test_if_exists_fail_takes_a_name_nobody_holds(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_if_exists_fail_free_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     claimed = _Claimed(tmp_path, monkeypatch, if_exists="fail")
 
     with claimed.attempt("demo") as handle:
@@ -541,9 +474,7 @@ def test_if_exists_fail_takes_a_name_nobody_holds(
     assert run_dir.name == "demo"
 
 
-def test_a_retry_that_asks_for_something_else_starts_over_and_keeps_its_documents(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_retry_of_another_request(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     claimed = _Claimed(tmp_path, monkeypatch)
     with pytest.raises(RuntimeError, match="boom"), claimed.attempt("demo") as handle:
         claimed.claim(handle)
@@ -564,9 +495,7 @@ def test_a_retry_that_asks_for_something_else_starts_over_and_keeps_its_document
     assert claimed.written == ["demo", "demo"], "each attempt writes its documents once"
 
 
-def test_a_resume_asked_on_a_request_that_changed_is_refused_and_gives_the_stop_back(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_resume_of_a_changed_request(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     claimed = _Claimed(tmp_path, monkeypatch)
     with pytest.raises(RuntimeError, match="boom"), claimed.attempt("demo") as handle:
         claimed.claim(handle)
@@ -585,9 +514,7 @@ def test_a_resume_asked_on_a_request_that_changed_is_refused_and_gives_the_stop_
     assert not (handle.run_dir / "attempts").exists()
 
 
-def test_a_resume_asked_on_the_same_request_continues_in_place(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_resume_of_the_same_request(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     claimed = _Claimed(tmp_path, monkeypatch)
     claimed.requests = iter(["same", "same"])
     with pytest.raises(RuntimeError, match="boom"), claimed.attempt("demo") as handle:
@@ -603,9 +530,7 @@ def test_a_resume_asked_on_the_same_request_continues_in_place(
     assert read_outcome(run_dir).attempt == 2
 
 
-def test_the_state_a_window_starts_from_enters_the_request_id_by_its_digest(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_window_state_in_request_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import hydromodpy.project.runner as runner_module
 
     claimed = _Claimed(tmp_path, monkeypatch)
@@ -629,10 +554,10 @@ def test_the_state_a_window_starts_from_enters_the_request_id_by_its_digest(
     assert [kwargs["window_state"] for kwargs in seen] == ["digest-w1", None]
 
 
-def test_a_failed_resolution_leaves_the_outcome_of_a_claimed_run(
+def test_failed_resolution_leaves_an_outcome(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The claim precedes the inputs, so a download that fails is told by ``status``."""
+    # The claim comes before the inputs, so a failed download shows in status.
     import hydromodpy.data.loading.inputs as inputs
 
     claimed = _Claimed(tmp_path, monkeypatch)
@@ -648,9 +573,7 @@ def test_a_failed_resolution_leaves_the_outcome_of_a_claimed_run(
     assert outcome is not None and outcome.status == "failed"
 
 
-def test_the_request_of_a_project_carries_its_document_and_refuses_a_name_that_breaks_the_rule(
-    tmp_path: Path,
-) -> None:
+def test_request_of_a_project() -> None:
     project = SimpleNamespace(_ctx=SimpleNamespace(raw_toml={"flow": {"a": 1}}))
     runner = ProjectRunner(project)  # type: ignore[arg-type]
 
@@ -668,7 +591,7 @@ def test_the_request_of_a_project_carries_its_document_and_refuses_a_name_that_b
 
 
 @pytest.mark.parametrize("error", ["conflict", "unreadable"])
-def test_a_sealed_run_is_returned_when_its_index_does_not_open(
+def test_run_returned_when_index_fails(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, error: str
 ) -> None:
     import hydromodpy.project.phases as phases
@@ -695,9 +618,7 @@ def test_a_sealed_run_is_returned_when_its_index_does_not_open(
     assert project._run_history == ["V"]
 
 
-def test_a_run_whose_index_pass_failed_does_not_open_the_index(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_failed_index_pass_skips_catalog(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     import hydromodpy.project.phases as phases
     import hydromodpy.project.runner as runner_module
     import hydromodpy.results.catalog.indexer as indexer
@@ -712,9 +633,6 @@ def test_a_run_whose_index_pass_failed_does_not_open_the_index(
 
     assert runner.run() == "V"
     assert opened == []
-
-
-# -- resume_target: the frozen configuration a --resume REF continues ---------------------
 
 
 def _failed_case(workspace: Path, name: str, *, frozen: bool = True) -> Path:
@@ -735,9 +653,7 @@ def _failed_case(workspace: Path, name: str, *, frozen: bool = True) -> Path:
         ("case", False, "has no frozen config.toml"),
     ],
 )
-def test_a_case_that_is_not_there_or_not_frozen_is_not_found(
-    tmp_path, ref, frozen, message
-) -> None:
+def test_resume_target_not_found(tmp_path, ref, frozen, message) -> None:
     from hydromodpy.core.exceptions import NothingThereError
     from hydromodpy.project.runner import resume_target
 
@@ -747,7 +663,7 @@ def test_a_case_that_is_not_there_or_not_frozen_is_not_found(
         resume_target(ref, tmp_path)
 
 
-def test_a_run_out_of_a_calibration_cannot_be_resumed_alone(tmp_path) -> None:
+def test_calibration_run_cannot_resume(tmp_path) -> None:
     from hydromodpy.project.runner import resume_target
     from hydromodpy.results.record.checks import CalibratedBy
     from tests._helpers.sealed_runs import make_project, seal_run

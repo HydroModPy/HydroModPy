@@ -136,10 +136,6 @@ def _drop_cases(directory):
     (directory / PLAN_CASES_FILENAME).unlink()
 
 
-def _drop_toml(directory):
-    (directory / "J0020000-base.toml").unlink()
-
-
 @pytest.mark.parametrize(
     ("damage", "error", "sentence"),
     [

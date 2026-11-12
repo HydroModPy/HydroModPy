@@ -83,54 +83,13 @@ def _model_of(flow: Flow, **kwargs: object) -> Model:
     )
 
 
-SAME_OBJECT = (
-    ("recharge", lambda m: m.recharge, lambda f: f.sinks_sources["recharge"]),
-    ("etp", lambda m: m.etp, lambda f: f.sinks_sources["etp"]),
-    ("well", lambda m: m.wells["w1"], lambda f: f.sinks_sources["wells"]["w1"]),
-    ("lake", lambda m: m.lakes["lake"], lambda f: f.sinks_sources["lakes"]["lake"]),
-    ("network", lambda m: m.sfr["main"], lambda f: f.sinks_sources["sfr"]["main"]),
-    (
-        "barrier",
-        lambda m: m.flow_barriers["wall"],
-        lambda f: f.sinks_sources["flow_barriers"]["wall"],
-    ),
-    ("profile K", lambda m: m.properties.profiles["K"], lambda f: f.parameters["K"]),
-    ("profile Sy", lambda m: m.properties.profiles["Sy"], lambda f: f.parameters["Sy"]),
-    (
-        "boundary",
-        lambda m: m.boundaries.get("west_side"),
-        lambda f: f.boundary_conditions["west_side"],
-    ),
-)
-
-
-INITIAL_FROM_IC = (
-    ("default", {}, HeadRule("top")),
-    ("bottom", {"kind": "bottom"}, HeadRule("bottom")),
-    ("custom", {"kind": "custom", "value": "12 m"}, HeadRule("custom", 12.0)),
-    ("steady", {"kind": "steady_state"}, SteadyStart(SteadyStateStrategy())),
-    ("cyclic", {"kind": "spinup_cyclic", "max_cycles": 3}, CyclicStart(CyclicSpinupStrategy(3))),
-)
-
-
-def test_a_start_given_to_the_factory_wins_over_flow_ic() -> None:
+def test_factory_start_wins() -> None:
     prior = PriorState(np.zeros((1, 6)), {}, "prior.zarr")
 
     assert _model_of(_bound_flow(), initial=prior).initial is prior
 
 
-READ_ONLY = (
-    ("wells", lambda m: m.wells),
-    ("lakes", lambda m: m.lakes),
-    ("sfr", lambda m: m.sfr),
-    ("flow_barriers", lambda m: m.flow_barriers),
-    ("profiles", lambda m: m.properties.profiles),
-    ("overrides", lambda m: m.properties.overrides),
-    ("conditions", lambda m: m.boundaries.conditions),
-)
-
-
-def test_a_pickled_model_keeps_every_member_and_its_mappings_stay_read_only() -> None:
+def test_pickled_model() -> None:
     prior = PriorState(head=np.zeros((1, 6)), lake_stages={"lake": 12.5}, path="run/heads")
     model = make_model(
         properties=Properties(profiles={"K": 1e-5}, overrides={"K": 2e-5}),
@@ -177,13 +136,13 @@ def test_a_pickled_model_keeps_every_member_and_its_mappings_stay_read_only() ->
         assert isinstance(mapping, MappingProxyType)
 
 
-def test_a_start_that_is_not_one_of_the_five_states_is_refused() -> None:
+def test_unknown_start_refused() -> None:
     with pytest.raises(TypeError, match="Model.initial is one of"):
         make_model(initial="top")
 
 
 @pytest.mark.parametrize("name", ["porosity", "properties", "k"])
-def test_with_properties_refuses_a_name_that_sets_no_property(name: str) -> None:
+def test_with_properties_refusal(name: str) -> None:
     with pytest.raises(ValueError, match=f"{name} name no flow property"):
         make_model().with_properties(**{name: 1.0})
 
@@ -217,37 +176,14 @@ def _member_names(cls: type, seen: set[type]) -> set[str]:
 @pytest.mark.parametrize(
     "backend_config", [BoussinesqOptions, Modflow6Config, ModflowConfig], ids=lambda c: c.__name__
 )
-def test_no_member_of_the_model_is_a_backend_setting(backend_config) -> None:
+def test_no_backend_setting(backend_config) -> None:
     clashes = _member_names(Model, set()) & set(backend_config.model_fields)
 
     assert not clashes, f"The Model carries settings of {backend_config.__name__}: {clashes}"
 
 
-FLOW_RUNTIME_COPIES = (
-    "runtime_backend",
-    "surface_interaction_model",
-    "partition_release_depth_m",
-    "runtime_max_iterations",
-    "runtime_tol_residual_inf",
-    "runtime_tol_state_update_inf",
-    "vi_substeps_per_period",
-    "vi_substep_on_failure",
-    "vi_max_adaptive_substeps",
-    "ts_vi_steps_per_period",
-    "ts_vi_adapt",
-    "ts_vi_dt_min_fraction",
-    "ts_vi_dt_max_fraction",
-    "ts_vi_type",
-    "ts_vi_snes_type",
-    "initial_condition_types",
-    "boundary_condition_application_domains",
-)
-
-
-# The steady variant. The expected values are those the MODFLOW 6 steady
-# initialization of a pre-release returned on this lake and SFR payload, recorded to
-# the bit.
-
+# Expected values: what the MODFLOW 6 steady initialization of a pre-release
+# returned on this lake and SFR payload, recorded to the bit.
 _DAY = 86400.0
 _A4_LENGTHS_DAYS = (31.0, 28.0, 31.0, 30.0)
 
@@ -306,7 +242,7 @@ A4_SFR = {
 }
 
 
-def test_the_steady_variant_averages_lake_and_sfr_forcings_as_the_base_did() -> None:
+def test_steady_averages_forcings() -> None:
     lakes, sfr = _a4_lakes(), _a4_sfr()
     model = make_model(
         lakes=lakes,
@@ -325,7 +261,7 @@ def test_the_steady_variant_averages_lake_and_sfr_forcings_as_the_base_did() -> 
 
 
 @pytest.mark.parametrize("grid", [None, time_grid(10.0)], ids=["no grid", "one period"])
-def test_the_steady_variant_keeps_forcings_it_has_nothing_to_average_over(grid) -> None:
+def test_steady_keeps_single_forcings(grid) -> None:
     model = make_model(
         lakes=_a4_lakes(), time=ModelTime(grid=grid, regime="steady", first_period_steady=True)
     )
@@ -357,7 +293,7 @@ RECHARGE_CASES = (
 @pytest.mark.parametrize(
     ("case", "initial", "expected"), RECHARGE_CASES, ids=[c for c, _, _ in RECHARGE_CASES]
 )
-def test_the_steady_variant_sets_the_recharge_its_start_asks_for(case, initial, expected) -> None:
+def test_steady_recharge(case, initial, expected) -> None:
     del case
     recharge = _recharge([1e-8, 2e-8], first_clim=1e-8)
     model = _transient(recharge=recharge, initial=initial)
@@ -376,14 +312,8 @@ def test_the_steady_variant_sets_the_recharge_its_start_asks_for(case, initial, 
         assert list(steady.recharge.values) == [1e-8, 2e-8]
 
 
-def test_a_steady_start_without_recharge_keeps_none() -> None:
+def test_steady_without_recharge() -> None:
     assert steady_variant(_transient(initial=SteadyStart())).recharge is None
-
-
-SEEDS = (
-    ("no seed", None, HeadRule("top")),
-    ("seed", SolvedState(np.ones((1, 6)), "modflow6"), "seed"),
-)
 
 
 def _whole_and_window() -> tuple[Model, Model]:
@@ -403,7 +333,7 @@ def _whole_and_window() -> tuple[Model, Model]:
     return whole, window
 
 
-def test_the_steady_start_of_a_first_window_is_the_one_of_the_whole_simulation() -> None:
+def test_first_window_steady_start() -> None:
     whole, window = _whole_and_window()
     chained = window.with_initial(SteadyStart(over=whole))
     whole_steady = steady_variant(whole.with_initial(SteadyStart()))
@@ -422,7 +352,7 @@ def test_the_steady_start_of_a_first_window_is_the_one_of_the_whole_simulation()
     np.testing.assert_array_equal(window.time.grid.period_lengths_seconds, [10.0 * _DAY])
 
 
-def test_the_cycles_of_a_first_window_repeat_the_whole_simulation() -> None:
+def test_first_window_cycles() -> None:
     whole, window = _whole_and_window()
     chained = window.with_initial(CyclicStart(over=whole)).with_properties(K=1e-5)
     seed = SolvedState(np.ones((1, 6)), "modflow6", {"lake": 12.5})
@@ -437,14 +367,11 @@ def test_the_cycles_of_a_first_window_repeat_the_whole_simulation() -> None:
     assert dict(cycle.properties.overrides) == {"K": 1e-5}
 
 
-def test_a_start_whose_over_is_not_a_model_is_refused() -> None:
+def test_bad_over_refused() -> None:
     _, window = _whole_and_window()
 
     with pytest.raises(TypeError, match="over is the Model of the whole simulation"):
         steady_variant(window.with_initial(SteadyStart(over="whole")))
-
-
-# -- with_profiles: the Model of a calibration trial that moves properties only ---
 
 
 def _field(param_id: str, value: object, **section: object) -> dict[str, object]:
@@ -541,7 +468,7 @@ def _built(config: FlowConfig, geometry, time, options) -> Model:
 @pytest.mark.parametrize(
     ("case", "base", "trial", "moved"), DERIVED, ids=[case for case, *_ in DERIVED]
 )
-def test_a_derived_model_equals_the_model_built_on_the_trial_configuration(
+def test_derived_equals_built(
     case: str, base: FlowConfig, trial: FlowConfig, moved: tuple[str, ...]
 ) -> None:
     del case
@@ -567,13 +494,13 @@ def test_a_derived_model_equals_the_model_built_on_the_trial_configuration(
     assert dict(derived.properties.overrides) == dict(prepared.properties.overrides)
 
 
-def test_with_profiles_refuses_an_id_the_model_has_no_profile_for() -> None:
+def test_with_profiles_refusal() -> None:
     model = make_model(properties=Properties(profiles={"K": 1e-5}))
     with pytest.raises(ValueError, match="Ss is none of them"):
         model.with_profiles({"Ss": 1e-6})
 
 
-def test_a_flow_takes_its_parameters_from_flow_profiles() -> None:
+def test_flow_parameters() -> None:
     config = _flow_config(K=_field("K", "1e-5 m/s"), Sy=_field("Sy", "0.1 -"))
     flow = Flow(config)
     assert {name: param.as_dict() for name, param in flow.parameters.items()} == {

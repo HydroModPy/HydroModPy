@@ -1,3 +1,9 @@
+"""Hillslope case with a recharge pulse that overflows at the surface.
+
+Recharge is in mm/day, heads and lengths in m, time in days. The tests cover the case
+settings, the overflow diagnostics, the plot helpers and the run of the two solvers.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -27,7 +33,7 @@ from validation_cases.shared.loaders import load_case_metadata
 from validation_cases.shared.runtime import ValidationRunResult, write_validation_fields_to_store
 
 
-def test_resolve_solver_variant_exposes_both_petsc_surface_formulations() -> None:
+def test_solver_variants():
     partition = resolve_solver_variant("petsc_partition")
     complementarity = resolve_solver_variant("petsc")
 
@@ -37,7 +43,7 @@ def test_resolve_solver_variant_exposes_both_petsc_surface_formulations() -> Non
     assert complementarity.surface_interaction_model == "complementarity"
 
 
-def test_compute_overflow_footprint_metrics_tracks_length_front_and_centroid() -> None:
+def test_overflow_footprint_metrics():
     x_m = np.asarray([5.0, 15.0, 25.0, 35.0], dtype=float)
     profiles = np.asarray(
         [
@@ -62,7 +68,8 @@ def test_compute_overflow_footprint_metrics_tracks_length_front_and_centroid() -
     assert centroid_x_m[2] > centroid_x_m[1]
 
 
-def test_select_snapshot_indices_prioritizes_requested_days_then_caps_count() -> None:
+def test_snapshot_indices():
+    # Requested days come first, then the count is capped at two.
     indices = select_snapshot_indices(
         np.asarray([0.0, 2.0, 4.0, 6.0, 8.0], dtype=float),
         requested_days=(0.1, 5.1, 7.9),
@@ -72,7 +79,7 @@ def test_select_snapshot_indices_prioritizes_requested_days_then_caps_count() ->
     assert indices == [0, 3]
 
 
-def test_run_hillslope_overflow_scenario_rejects_duplicate_compare_solver(monkeypatch) -> None:
+def test_scenario_refuses_one_solver_twice(monkeypatch):
     monkeypatch.setattr(comparison_module, "load_case_metadata", lambda case_dir: {})
 
     with pytest.raises(ValueError, match="compare_solver must differ from solver"):
@@ -83,7 +90,7 @@ def test_run_hillslope_overflow_scenario_rejects_duplicate_compare_solver(monkey
         )
 
 
-def test_resolve_case_settings_applies_preset_scale_and_solver_overrides() -> None:
+def test_case_settings_apply_preset_scale_and_overrides():
     metadata = {
         "geometry": {
             "nx": 40,
@@ -135,25 +142,23 @@ def test_resolve_case_settings_applies_preset_scale_and_solver_overrides() -> No
     assert tol == 1.0e-8
 
 
-def test_run_hillslope_overflow_scenario_keeps_primary_when_compare_solver_fails(
-    monkeypatch,
-) -> None:
+def test_scenario_keeps_primary_when_compare_fails(monkeypatch):
     primary_result = object()
     primary_diag = object()
 
     monkeypatch.setattr(comparison_module, "load_case_metadata", lambda case_dir: {})
 
-    def _fake_run(*, solver, **kwargs):
+    def fake_run(*, solver, **kwargs):
         if solver == "petsc":
             raise RuntimeError("secondary failed")
         return primary_result
 
-    def _fake_build(*, result, metadata=None, overflow_threshold_mm_day=None):
+    def fake_build(*, result, metadata=None, overflow_threshold_mm_day=None):
         assert result is primary_result
         return primary_diag
 
-    monkeypatch.setattr(comparison_module, "run_boussinesq_hillslope_overflow_case", _fake_run)
-    monkeypatch.setattr(comparison_module, "build_hillslope_overflow_diagnostics", _fake_build)
+    monkeypatch.setattr(comparison_module, "run_boussinesq_hillslope_overflow_case", fake_run)
+    monkeypatch.setattr(comparison_module, "build_hillslope_overflow_diagnostics", fake_build)
 
     scenario = comparison_module.run_hillslope_overflow_scenario(
         caller_file=Path("dummy_test.py"),
@@ -167,7 +172,7 @@ def test_run_hillslope_overflow_scenario_keeps_primary_when_compare_solver_fails
     assert scenario.secondary_error == "secondary failed"
 
 
-def test_resolve_recharge_series_mm_day_prefers_runtime_history() -> None:
+def test_recharge_series_prefers_runtime_history():
     state_history = {
         "recharge_rate_history_m_s": np.asarray(
             [
@@ -195,7 +200,7 @@ def test_resolve_recharge_series_mm_day_prefers_runtime_history() -> None:
     assert np.allclose(recharge_mm_day, expected_m_s * 86_400.0 * 1_000.0)
 
 
-def test_resolve_recharge_series_mm_day_skips_the_cells_with_an_imposed_head() -> None:
+def test_recharge_series_skips_imposed_head_cells():
     # The fixed-head cell takes no recharge: the mean is the forcing, not less.
     state_history = {
         "recharge_rate_history_m_s": np.asarray([[0.0, 0.0], [1.0e-7, 0.0]], dtype=float),
@@ -213,7 +218,7 @@ def test_resolve_recharge_series_mm_day_skips_the_cells_with_an_imposed_head() -
     assert np.allclose(recharge_mm_day, [1.0e-7 * 86_400.0 * 1_000.0])
 
 
-def test_align_step_series_trims_to_common_length() -> None:
+def test_step_series_trim_to_common_length():
     x, y = _align_step_series(
         np.asarray([0.0, 1.0, 2.0, 3.0], dtype=float),
         np.asarray([10.0, 20.0], dtype=float),
@@ -223,7 +228,7 @@ def test_align_step_series_trims_to_common_length() -> None:
     assert np.allclose(y, [10.0, 20.0])
 
 
-def test_align_period_values_to_elapsed_days_pads_initial_state() -> None:
+def test_period_values_pad_initial_state():
     aligned = _align_period_values_to_elapsed_days(
         np.asarray([3.0, 7.0], dtype=float),
         elapsed_days=np.asarray([0.0, 2.0, 4.0], dtype=float),
@@ -232,7 +237,7 @@ def test_align_period_values_to_elapsed_days_pads_initial_state() -> None:
     assert np.allclose(aligned, [3.0, 3.0, 7.0])
 
 
-def test_overflow_head_profile_fallback_reads_catalog_fields(tmp_path: Path) -> None:
+def test_head_profile_falls_back_to_catalog_fields(tmp_path: Path):
     store, sim_id = write_validation_fields_to_store(
         out_path=tmp_path,
         fields={
@@ -276,37 +281,20 @@ def test_overflow_head_profile_fallback_reads_catalog_fields(tmp_path: Path) -> 
             store.close()
 
 
-def test_real_strong_and_extreme_presets_cover_40_days() -> None:
-    metadata = load_case_metadata(CASE_DIR)
-
-    for solver_name, preset_name in (
-        ("petsc_partition", "strong"),
-        ("petsc_partition", "extreme"),
-    ):
-        _, time_cfg, forcing_cfg, _, _ = _resolve_case_settings(
-            metadata,
-            variant=resolve_solver_variant(solver_name),
-            context_preset=None,
-            forcing_preset=preset_name,
-            forcing_scale=1.0,
-            east_head_m=None,
-            initial_head_m=None,
-            dt_days=None,
-            runtime_max_iterations=None,
-            runtime_tol_residual_inf=None,
-        )
-        total_days = float(time_cfg["dt_days"]) * len(forcing_cfg["recharge_mm_day"])
-        assert total_days == pytest.approx(40.0)
+PRESETS = [
+    pytest.param("petsc_partition", "strong", 40.0, id="strong"),
+    pytest.param("petsc_partition", "extreme", 40.0, id="extreme"),
+    pytest.param("petsc", "alternating", 20.0, id="alternating"),
+]
 
 
-def test_real_alternating_preset_covers_20_days() -> None:
-    metadata = load_case_metadata(CASE_DIR)
-
+@pytest.mark.parametrize(("solver", "preset", "total_days"), PRESETS)
+def test_real_presets_cover_their_duration(solver, preset, total_days):
     _, time_cfg, forcing_cfg, _, _ = _resolve_case_settings(
-        metadata,
-        variant=resolve_solver_variant("petsc"),
+        load_case_metadata(CASE_DIR),
+        variant=resolve_solver_variant(solver),
         context_preset=None,
-        forcing_preset="alternating",
+        forcing_preset=preset,
         forcing_scale=1.0,
         east_head_m=None,
         initial_head_m=None,
@@ -315,5 +303,6 @@ def test_real_alternating_preset_covers_20_days() -> None:
         runtime_tol_residual_inf=None,
     )
 
-    total_days = float(time_cfg["dt_days"]) * len(forcing_cfg["recharge_mm_day"])
-    assert total_days == pytest.approx(20.0)
+    assert float(time_cfg["dt_days"]) * len(forcing_cfg["recharge_mm_day"]) == pytest.approx(
+        total_days
+    )

@@ -44,14 +44,14 @@ _UNITS = [
 
 
 @pytest.mark.parametrize(("token", "seconds", "ten_days"), _UNITS)
-def test_days_become_the_unit_of_the_tdis(token, seconds, ten_days) -> None:
+def test_days_in_tdis_unit(token, seconds, ten_days) -> None:
     prt = _prt(token)
 
     assert prt._model_time_unit_seconds() == seconds
     assert prt._days_to_model_time(10.0) == pytest.approx(ten_days, rel=1e-12)
 
 
-def test_a_flopy_option_block_is_read_through_get_data() -> None:
+def test_flopy_block_read_by_get_data() -> None:
     assert _prt(_Data("DAYS"))._model_time_unit_seconds() == 86400.0
 
 
@@ -64,7 +64,7 @@ _UNDECLARED = [
 
 
 @pytest.mark.parametrize("token", _UNDECLARED)
-def test_a_model_with_no_unit_runs_in_the_launcher_unit(token) -> None:
+def test_undeclared_unit_is_seconds(token) -> None:
     prt = _prt(token)
 
     assert prt._model_time_unit_seconds() == 1.0
@@ -79,7 +79,7 @@ _REFUSED = [
 
 
 @pytest.mark.parametrize("token", _REFUSED)
-def test_a_declared_token_that_is_no_unit_is_refused(token) -> None:
+def test_unit_refusals(token) -> None:
     with pytest.raises(SolverInputError, match=token):
         _prt(token)._model_time_unit_seconds()
 
@@ -98,7 +98,7 @@ _TRACK_TIMES = [
 
 
 @pytest.mark.parametrize(("step", "stop", "expected"), _TRACK_TIMES)
-def test_regular_track_times_end_on_the_stop_time(step, stop, expected) -> None:
+def test_regular_track_times(step, stop, expected) -> None:
     times = _regular_track_times_days(stop_time=stop, track_time_step=step)
 
     if expected is None:
@@ -118,6 +118,6 @@ _TRACK_REFUSED = [
 
 
 @pytest.mark.parametrize(("step", "stop", "message"), _TRACK_REFUSED)
-def test_a_tracking_with_a_step_but_no_usable_stop_is_refused(step, stop, message) -> None:
+def test_track_time_refusals(step, stop, message) -> None:
     with pytest.raises(ValueError, match=message):
         _regular_track_times_days(stop_time=stop, track_time_step=step)

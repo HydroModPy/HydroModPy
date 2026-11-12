@@ -1,4 +1,8 @@
-"""Discriminated union dispatch tests for DataSource, SolverConfig, SimulationProcessConfig."""
+"""Source unions of the data sections.
+
+A DEM or a geology source is picked by its ``source`` key. An unknown key, a retired
+source name and a resolution the dataset does not offer are refused.
+"""
 
 from __future__ import annotations
 
@@ -18,77 +22,47 @@ from hydromodpy.data.variables.geology.config import (
 
 pytestmark = pytest.mark.fast
 
+PICKED = [
+    pytest.param(
+        DemSourceConfig, {"source": "file", "path": "dem.tif"}, FileDemSource, id="dem file"
+    ),
+    pytest.param(
+        DemSourceConfig,
+        {"source": "ign_geoplateforme_dem", "dataset": "bd-alti", "resolution_m": 25.0},
+        IgnGeoplateformeDemSource,
+        id="dem bd-alti",
+    ),
+    pytest.param(
+        DemSourceConfig,
+        {"source": "ign_geoplateforme_dem", "dataset": "rge-alti", "resolution_m": 5.0},
+        IgnGeoplateformeDemSource,
+        id="dem rge-alti",
+    ),
+    pytest.param(GeologySourceConfig, {"source": "brgm_1m"}, BrgmGeology1mSource, id="geology 1m"),
+    pytest.param(
+        GeologySourceConfig, {"source": "brgm_50k"}, BrgmGeology50kSource, id="geology 50k"
+    ),
+]
 
-# ---------------------------------------------------------------------------
-# DataSource axis (DEM + Geology variants share the 'source' discriminator)
-# ---------------------------------------------------------------------------
-
-
-class TestDataSourceUnion:
-    DISPATCH_CASES = [
-        pytest.param(
-            DemSourceConfig,
-            {"source": "file", "path": "dem.tif"},
-            FileDemSource,
-            {"source": "file"},
-            id="dem_custom",
-        ),
-        pytest.param(
-            DemSourceConfig,
-            {"source": "ign_geoplateforme_dem", "dataset": "bd-alti", "resolution_m": 25.0},
-            IgnGeoplateformeDemSource,
-            {"source": "ign_geoplateforme_dem", "dataset": "bd-alti"},
-            id="dem_ign_geoplateforme",
-        ),
-        pytest.param(
-            DemSourceConfig,
-            {"source": "ign_geoplateforme_dem", "dataset": "rge-alti", "resolution_m": 5.0},
-            IgnGeoplateformeDemSource,
-            {"source": "ign_geoplateforme_dem", "dataset": "rge-alti"},
-            id="dem_ign_geoplateforme_rge_alti",
-        ),
-        pytest.param(
-            GeologySourceConfig,
-            {"source": "brgm_1m"},
-            BrgmGeology1mSource,
-            {},
-            id="geology_brgm_1m",
-        ),
-        pytest.param(
-            GeologySourceConfig,
-            {"source": "brgm_50k"},
-            BrgmGeology50kSource,
-            {},
-            id="geology_brgm_50k",
-        ),
-    ]
-
-    REJECT_CASES = [
-        pytest.param(DemSourceConfig, {"source": "missing"}, id="dem_unknown_source"),
-        pytest.param(
-            DemSourceConfig,
-            {"source": "ign_bdalti", "resolution_m": 25.0},
-            id="dem_ign_bdalti_legacy_source_rejected",
-        ),
-        pytest.param(
-            DemSourceConfig,
-            {"source": "ign_geoplateforme_dem", "dataset": "rge-alti", "resolution_m": 25.0},
-            id="dem_geoplateforme_rge_alti_25m_rejected",
-        ),
-    ]
-
-    @pytest.mark.parametrize(("union", "payload"), REJECT_CASES)
-    def test_variant_rejected(self, union, payload) -> None:
-        ta = TypeAdapter(union)
-        with pytest.raises(ValidationError):
-            ta.validate_python(payload)
+REJECTED = [
+    pytest.param(DemSourceConfig, {"source": "missing"}, id="unknown source"),
+    pytest.param(
+        DemSourceConfig, {"source": "ign_bdalti", "resolution_m": 25.0}, id="retired bdalti source"
+    ),
+    pytest.param(
+        DemSourceConfig,
+        {"source": "ign_geoplateforme_dem", "dataset": "rge-alti", "resolution_m": 25.0},
+        id="rge-alti at 25 m",
+    ),
+]
 
 
-# ---------------------------------------------------------------------------
-# SolverConfig axis: no union any more, the backend is a registered name
-# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(("union", "payload", "picked"), PICKED)
+def test_source_picks_its_class(union, payload, picked) -> None:
+    assert type(TypeAdapter(union).validate_python(payload)) is picked
 
 
-# ---------------------------------------------------------------------------
-# SimulationProcessConfig axis (type discriminator: flow/transport/mesh)
-# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(("union", "payload"), REJECTED)
+def test_refusals(union, payload) -> None:
+    with pytest.raises(ValidationError):
+        TypeAdapter(union).validate_python(payload)

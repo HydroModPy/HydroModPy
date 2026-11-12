@@ -1,4 +1,4 @@
-"""Python values written as TOML literals, and a model written as a section."""
+"""Python values written as TOML literals, and a free mapping written as nested tables."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ import pytest
 from pydantic import BaseModel, Field
 
 from hydromodpy.core.toml_io.render import fmt, render_mapping_value
-from hydromodpy.core.toml_io.section import section
 
 
 class Mode(Enum):
@@ -38,11 +37,11 @@ class Mode(Enum):
         ({"a b": 1, "gone": None, "z": [1]}, '{"a b" = 1, z = [1]}'),
     ],
 )
-def test_a_python_value_becomes_a_toml_literal(value: Any, text: str) -> None:
+def test_fmt(value: Any, text: str) -> None:
     assert fmt(value) == text
 
 
-def test_a_quantity_is_written_as_a_quoted_magnitude_and_unit() -> None:
+def test_fmt_of_a_quantity() -> None:
     class Units:
         def __format__(self, spec: str) -> str:
             return "m/s" if spec == "~" else "metre/second"
@@ -50,7 +49,7 @@ def test_a_quantity_is_written_as_a_quoted_magnitude_and_unit() -> None:
     assert fmt(SimpleNamespace(magnitude=1.5, units=Units())) == '"1.5 m/s"'
 
 
-def test_a_free_mapping_is_written_as_nested_tables_that_reload() -> None:
+def test_a_free_mapping_reloads_as_nested_tables() -> None:
     values = {
         "k": 1.0,
         "none": None,
@@ -68,7 +67,7 @@ def test_a_free_mapping_is_written_as_nested_tables_that_reload() -> None:
     assert loaded["reaches"][0]["sub"] == {"c": True}
 
 
-def test_a_model_basemodel_value_is_dumped_without_its_none_fields() -> None:
+def test_a_model_value_drops_its_none_fields() -> None:
     class Inner(BaseModel):
         a: int = 1
         b: int | None = None
@@ -76,32 +75,3 @@ def test_a_model_basemodel_value_is_dumped_without_its_none_fields() -> None:
     lines = render_mapping_value("s", {"inner": Inner()})
 
     assert tomllib.loads("\n".join(lines)) == {"s": {"inner": {"a": 1}}}
-
-
-class Leaf(BaseModel):
-    depth_m: float = Field(default=2.0, ge=0.0, description="Depth of the leaf, in metres.")
-
-
-class Sample(BaseModel):
-    name: str = Field(default="nancon", description="Site name.")
-    mode: Mode = Mode.FAST
-    start: date | None = None
-    leaf: Leaf = Field(default_factory=Leaf)
-    extra: Leaf | None = None
-    leaves: list[Leaf] = Field(default_factory=list)
-    table: dict[str, Leaf] = Field(default_factory=dict)
-
-
-def test_a_section_is_a_table_with_its_banner_and_its_descriptions() -> None:
-    text = "\n".join(section("sample", Sample, 99))
-
-    assert "[sample]" in text
-    assert "Site name." in text
-    assert "Depth of the leaf, in metres." in text
-
-
-def test_a_section_without_values_reloads_to_the_defaults() -> None:
-    lines = section("sample", Sample, 99)
-
-    loaded = tomllib.loads("\n".join(lines)).get("sample", {})
-    assert Sample.model_validate(loaded) == Sample()

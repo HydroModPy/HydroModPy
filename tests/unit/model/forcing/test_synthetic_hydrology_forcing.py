@@ -1,4 +1,4 @@
-"""Unit tests for synthetic hydrological forcing helpers."""
+"""Synthetic precipitation (mm/day), effective rain and inflow chronicles for toy hydrology cases."""
 
 from __future__ import annotations
 

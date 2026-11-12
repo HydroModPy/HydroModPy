@@ -1,4 +1,9 @@
-"""The display package keeps no banned colormap, hardcoded EPSG or matplotlib side effect."""
+"""The display package keeps no banned colormap, hardcoded EPSG or matplotlib side effect.
+
+The first two checks scan the source text of ``hydromodpy/display`` (and
+``project/compare.py`` for EPSG). The third imports the package afresh and
+compares the matplotlib rcParams before and after.
+"""
 
 from __future__ import annotations
 
@@ -10,115 +15,72 @@ from pathlib import Path
 
 from hydromodpy.display.style import BANNED_CMAPS
 
-# No figure hard-codes a banned colormap name.
-#
-# Scans every ``hydromodpy/display/figures/*.py`` and every renderer helper
-# for string literals that match a banned cmap name (``jet``, ``rainbow``,
-# ``hsv``, ``nipy_spectral``, ``gist_rainbow``).
+REPO_ROOT = Path(__file__).resolve().parents[3]
+HMP_ROOT = REPO_ROOT / "hydromodpy"
 
-
-def _figure_files() -> list[Path]:
-    root = Path(__file__).resolve().parents[3] / "hydromodpy" / "display"
-    return sorted(p for p in root.rglob("*.py") if p.is_file() and "__pycache__" not in p.parts)
-
-
-def test_no_banned_cmap_literal() -> None:
-    repo_root = Path(__file__).resolve().parents[3]
-    offending: list[tuple[str, int, str]] = []
-    for path in _figure_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                if node.value in BANNED_CMAPS:
-                    # style.py declares the banned list itself.
-                    if path.relative_to(repo_root).as_posix() == "hydromodpy/display/style.py":
-                        continue
-                    offending.append(
-                        (path.relative_to(repo_root).as_posix(), node.lineno, node.value)
-                    )
-    assert not offending, (
-        f"Display files use banned cmap literal(s): {offending}. "
-        f"Use one of the perceptually-uniform alternatives instead."
-    )
-
-
-# Static analysis test: no hard-coded ``crs="EPSG:<int>"`` literals in code paths.
-#
-# Scans ``hydromodpy/display`` and ``hydromodpy/project/compare.py`` for
-# ``crs=`` kwargs assigned to literal ``"EPSG:..."`` strings. Whitelist
-# covers documented defaults and the geographic fallback used for Hub'Eau
-# points which always come in EPSG:4326.
-
-HMP_ROOT = Path(__file__).resolve().parents[3] / "hydromodpy"
-
-
-TARGETS = ("display", "project/compare.py")
-
-
-# Lines that legitimately mention an EPSG default (docstrings, fallbacks
-# behind a None check, Pydantic Field defaults). The pattern below
-# captures `crs="EPSG:...", `crs='EPSG:...', and `epsg=2154` kwargs.
+# ``crs="EPSG:2154"``, ``crs='EPSG:2154'`` and ``epsg=2154`` keyword arguments.
 HARDCODE_PATTERNS = (
     re.compile(r'crs\s*=\s*"EPSG:\d+"'),
     re.compile(r"crs\s*=\s*'EPSG:\d+'"),
     re.compile(r"epsg\s*=\s*\d+"),
 )
 
+TARGETS = ("display", "project/compare.py")
 
-# Each entry below is a (file_suffix, line_substring) pair that documents
-# a legitimate use. Hits must match BOTH conditions to be skipped.
+# (file suffix, line substring) pairs of legitimate uses. A hit is skipped only
+# when it matches both.
 WHITELIST: tuple[tuple[str, str], ...] = (
-    # _write_geotiff has crs_arg fallback after `if crs is None: crs_arg = "EPSG:2154"`.
+    # _write_geotiff has a crs_arg fallback after `if crs is None: crs_arg = "EPSG:2154"`.
     ("comparison/visuals_render_maps.py", 'crs_arg: str = "EPSG:2154"'),
     # Hub'Eau lon/lat fallback.
     ("display/overview/panels.py", 'src_crs = p.get("crs") or "EPSG:4326"'),
 )
 
 
-def _is_whitelisted(path: Path, line: str) -> bool:
-    posix = path.as_posix()
-    for suffix, substring in WHITELIST:
-        if posix.endswith(suffix) and substring in line:
-            return True
-    return False
+def display_files() -> list[Path]:
+    root = HMP_ROOT / "display"
+    return sorted(p for p in root.rglob("*.py") if p.is_file() and "__pycache__" not in p.parts)
 
 
-def _scan(target: Path) -> list[tuple[Path, int, str]]:
-    offending: list[tuple[Path, int, str]] = []
+def is_whitelisted(path: Path, line: str) -> bool:
+    return any(path.as_posix().endswith(suffix) and text in line for suffix, text in WHITELIST)
+
+
+def hardcoded_epsg(target: Path) -> list[str]:
+    found: list[str] = []
     for path in [target] if target.is_file() else target.rglob("*.py"):
         if "__pycache__" in path.parts:
             continue
         for lineno, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             stripped = raw_line.strip()
-            if not stripped or stripped.startswith("#"):
+            # Comment lines and the first line of a docstring are skipped.
+            if not stripped or stripped.startswith(("#", '"""', "'''")):
                 continue
-            # Skip docstring lines (very rough: leading ``"`` or ``'`` triple).
-            if stripped.startswith(('"""', "'''")):
-                continue
-            for pattern in HARDCODE_PATTERNS:
-                if pattern.search(raw_line):
-                    if _is_whitelisted(path, raw_line):
-                        continue
-                    offending.append((path, lineno, raw_line.rstrip()))
-    return offending
+            if any(p.search(raw_line) for p in HARDCODE_PATTERNS) and not is_whitelisted(
+                path, raw_line
+            ):
+                found.append(f"{path}:{lineno}: {raw_line.rstrip()}")
+    return found
+
+
+def test_no_banned_cmap_literal() -> None:
+    offending: list[tuple[str, int, str]] = []
+    for path in display_files():
+        relative = path.relative_to(REPO_ROOT).as_posix()
+        if relative == "hydromodpy/display/style.py":  # it declares the banned list
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and node.value in BANNED_CMAPS:
+                offending.append((relative, node.lineno, node.value))
+
+    assert not offending, f"banned cmap literal(s) in display files: {offending}"
 
 
 def test_no_hardcoded_epsg_in_display_and_compare() -> None:
-    offending: list[tuple[Path, int, str]] = []
-    for sub in TARGETS:
-        offending.extend(_scan(HMP_ROOT / sub))
-    if offending:
-        report = "\n".join(f"{path}:{lineno}: {line}" for path, lineno, line in offending)
-        raise AssertionError(
-            "Hard-coded EPSG literals found in display and project/compare.py:\n" + report
-        )
+    offending = [line for sub in TARGETS for line in hardcoded_epsg(HMP_ROOT / sub)]
 
-
-# Importing :mod:`hydromodpy.display` must not touch matplotlib rcParams.
-#
-# Figures take a theme through :func:`themed` *when requested* but the package
-# import itself must stay inert so that a user's interactive session does
-# not get its styling silently rewritten.
+    assert not offending, "hard-coded EPSG literals found:\n" + "\n".join(offending)
 
 
 def test_display_import_does_not_mutate_rcparams() -> None:
@@ -132,7 +94,7 @@ def test_display_import_does_not_mutate_rcparams() -> None:
     }
 
     try:
-        # Force a fresh import to exercise the module-level code paths.
+        # A fresh import runs the module-level code of every display module.
         for mod in list(sys.modules):
             if mod.startswith("hydromodpy.display"):
                 del sys.modules[mod]
@@ -143,8 +105,8 @@ def test_display_import_does_not_mutate_rcparams() -> None:
                 del sys.modules[mod]
         sys.modules.update(display_modules)
         # The fresh import also bound each new module on its parent package.
-        # Left there, a later lookup by attribute (a monkeypatch target such as
-        # "hydromodpy.display.runs._get_figure") lands on an orphaned copy.
+        # Left there, a monkeypatch target such as "hydromodpy.display.runs.x"
+        # would land on an orphaned copy.
         for name, module in display_modules.items():
             parent, _, child = name.rpartition(".")
             setattr(sys.modules[parent], child, module)
@@ -153,7 +115,4 @@ def test_display_import_does_not_mutate_rcparams() -> None:
 
     after = dict(matplotlib.rcParams)
     changed = {k: (before.get(k), after.get(k)) for k in after if before.get(k) != after.get(k)}
-    assert not changed, (
-        f"importing hydromodpy.display mutated rcParams: {changed}. "
-        "Figures must opt-in through themed; imports must be inert."
-    )
+    assert not changed, f"importing hydromodpy.display mutated rcParams: {changed}"

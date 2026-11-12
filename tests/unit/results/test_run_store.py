@@ -174,3 +174,21 @@ def test_a_columnar_payload_judges_only_its_simulated_rows(run_dir: Path) -> Non
         columns["source"] = np.array([SIMULATED, SIMULATED], dtype=object)
         with pytest.raises(DataContractViolation, match=repr(UNKNOWN_SERIES)):
             store.write_timeseries_columns(SIM_ID, columns)
+
+
+def test_data_root_of_a_store(
+    run_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
+    shared = tmp_path / "ws"
+    (shared / "data").mkdir(parents=True)
+    (shared / "projects" / "demo").mkdir(parents=True)
+
+    with RunStore.open(run_dir, facts=_facts()) as store:
+        assert store.data_root is None
+    # A project inside a workspace records its inputs relative to the workspace.
+    with RunStore.open(run_dir, facts=_facts(), workspace=shared / "projects" / "demo") as store:
+        assert store.data_root == shared
+    # A project that stands alone records them relative to itself.
+    with RunStore.open(run_dir, facts=_facts(), workspace=tmp_path) as store:
+        assert store.data_root == tmp_path.resolve()

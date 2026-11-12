@@ -12,7 +12,13 @@ import geopandas as gpd
 import numpy as np
 import pytest
 
-from hydromodpy.catchment.terrain.artifacts import boundary_area_m2, is_stream_cell, raster_max_near
+from hydromodpy.catchment.terrain.artifacts import (
+    boundary_area_m2,
+    is_stream_cell,
+    raster_max_near,
+    raster_nodata,
+)
+from hydromodpy.core.exceptions import TerrainProductError
 from tests._helpers.geotiffs import write_geotiff
 
 FAR, NEAR, OFF = (105.0, 895.0), (945.0, 500.0), (-5000.0, -5000.0)
@@ -55,3 +61,13 @@ def test_an_empty_boundary_has_no_area(tmp_path) -> None:
     path = tmp_path / "empty.gpkg"
     gpd.GeoDataFrame(geometry=[], crs="EPSG:2154").to_file(path)
     assert boundary_area_m2(path) == 0.0
+
+
+def test_raster_nodata_is_read_back_from_the_file(tmp_path) -> None:
+    values = np.zeros((2, 2))
+    declared = write_geotiff(tmp_path / "declared.tif", values, nodata=-9999.0)
+    silent = write_geotiff(tmp_path / "silent.tif", values)
+
+    assert raster_nodata(declared) == -9999.0
+    with pytest.raises(TerrainProductError, match="declares no nodata value"):
+        raster_nodata(silent)

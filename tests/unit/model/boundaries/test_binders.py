@@ -1,3 +1,8 @@
+"""Binders that lay barriers, lake geometry and cutoff walls onto the flow payloads.
+
+Coordinates are projected metres, depths and offsets are in m.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -23,12 +28,12 @@ from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 from tests._helpers.reservoir_dam import DAM_X, Y0, reservoir, trace
 
 
-def test_auto_dam_axis_is_perpendicular_to_the_outlet_flow() -> None:
+def test_dam_axis_crosses_outlet_flow() -> None:
     # Outlet due north of a tall reservoir: the dam axis runs east-west (constant y)
     # at the downstream edge, spanning the reservoir width.
-    reservoir = Polygon([(0, 0), (10, 0), (10, 40), (0, 40)])
-    axis = auto_dam_axis(reservoir, (5.0, 60.0))
-    (x0, y0), (x1, y1) = axis.coords[0], axis.coords[-1]
+    tall_reservoir = Polygon([(0, 0), (10, 0), (10, 40), (0, 40)])
+    axis = auto_dam_axis(tall_reservoir, (5.0, 60.0))
+    (_, y0), (_, y1) = axis.coords[0], axis.coords[-1]
     assert y0 == pytest.approx(40.0) and y1 == pytest.approx(40.0)
     assert axis.centroid.x == pytest.approx(5.0)
     assert axis.length >= 10.0  # the reservoir width, plus the abutment extension
@@ -41,42 +46,34 @@ def test_resolve_barrier_line_accepts_preloaded_trace() -> None:
     assert line.equals(trace_geom)
 
 
-def test_resolve_barrier_line_refuses_line_path_without_trace() -> None:
+def test_barrier_line_path_needs_trace() -> None:
     cfg = SimpleNamespace(line=None, line_path="wall.geojson")
     with pytest.raises(ValueError, match="must be loaded"):
         resolve_barrier_line(cfg, where="test")
 
 
-def test_apply_lake_geometry_attaches_polygons() -> None:
+RESERVOIR_SQUARE = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])
+ABACUS = {"stage": [1.0, 2.0], "volume": [10.0, 20.0], "sarea": [5.0, 5.0]}
+BATHYMETRY_TIF = Path("/path/to/lake_bathymetry.tif")
+
+ATTACHMENTS = [
+    pytest.param(apply_lake_geometry_to_flow, "polygons", RESERVOIR_SQUARE, "polygon", id="polygon"),
+    pytest.param(apply_lake_abacus_to_flow, "abacus", ABACUS, "abacus", id="abacus"),
+    pytest.param(apply_lake_bathymetry_to_flow, "bathymetry", BATHYMETRY_TIF, "bathymetry", id="bathymetry"),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(("bind", "argument", "value", "key"), ATTACHMENTS)
+def test_lake_attachments(bind, argument, value, key) -> None:
     flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir": {}}})
-    poly = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])
-    assert apply_lake_geometry_to_flow(flow=flow, polygons={"reservoir": poly}) is True
-    assert flow.sinks_sources["lakes"]["reservoir"]["polygon"].equals(poly)
+    assert bind(flow=flow, **{argument: {"reservoir": value}}) is True
+    assert flow.sinks_sources["lakes"]["reservoir"][key] == value
 
 
-def test_apply_lake_abacus_attaches_curves() -> None:
-    flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir": {}}})
-    abacus_data = {"stage": [1.0, 2.0], "volume": [10.0, 20.0], "sarea": [5.0, 5.0]}
-    assert apply_lake_abacus_to_flow(flow=flow, abacus={"reservoir": abacus_data}) is True
-    assert flow.sinks_sources["lakes"]["reservoir"]["abacus"] == abacus_data
+# Both barrier binders read inline coordinates into a shapely LineString.
 
 
-def test_apply_lake_bathymetry_attaches_path() -> None:
-    flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir": {}}})
-    path = Path("/path/to/lake_bathymetry.tif")
-    assert apply_lake_bathymetry_to_flow(flow=flow, bathymetry={"reservoir": path}) is True
-    assert flow.sinks_sources["lakes"]["reservoir"]["bathymetry"] == path
-
-
-# The flow-barrier binders resolve traces onto the runtime payloads.
-#
-# ``apply_cutoff_wall_to_flow`` resolves each lake's ``cutoff_wall`` trace onto
-# ``payload['cutoff_wall_line']``; ``apply_flow_barriers_to_flow`` normalizes the
-# general ``[flow.sinks_sources.flow_barriers]`` mapping to ``{'barrier', 'line'}``
-# payloads. Both read inline coords (or a vector file) into a shapely LineString.
-
-
-def test_cutoff_wall_binder_attaches_an_inline_line() -> None:
+def test_cutoff_wall_inline_line() -> None:
     lake = FlowLakeConfig.model_validate(
         {
             "bedleak": 1e-6,
@@ -98,13 +95,13 @@ def test_cutoff_wall_binder_attaches_an_inline_line() -> None:
     assert isinstance(payload["cutoff_wall"], FlowBarrierConfig)
 
 
-def test_cutoff_wall_binder_is_a_noop_without_a_wall() -> None:
+def test_no_cutoff_wall_is_noop() -> None:
     lake = FlowLakeConfig.model_validate({"bedleak": 1e-6, "initial_stage": "81.82 m"})
     flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir": lake}})
     assert apply_cutoff_wall_to_flow(flow=flow) is False
 
 
-def test_general_flow_barrier_binder_attaches_line_and_config() -> None:
+def test_flow_barrier_line_and_config() -> None:
     barrier = FlowBarrierConfig(line=[[0.0, 0.0], [10.0, 0.0]], depths=[5.0], hydchr=1e-9)
     flow = SimpleNamespace(sinks_sources={"flow_barriers": {"wall_a": barrier}})
 
@@ -120,13 +117,11 @@ def test_general_flow_barrier_binder_attaches_line_and_config() -> None:
     ]
 
 
-# A declared cutoff-wall trace is laid on the lake shore it faces.
-#
-# The trace runs 12 m downstream of the flat dam shore of the reservoir, crosses
-# it 30 m inside, or stops 200 m away (``tests/_helpers/reservoir_dam.py``).
+# A cutoff-wall trace runs 12 m off the flat dam shore, crosses it 30 m inside, or stops 200 m
+# away (tests/_helpers/reservoir_dam.py).
 
 
-def test_a_trace_12_m_off_the_shore_is_laid_on_it_and_keeps_its_wings() -> None:
+def test_trace_off_shore_is_snapped() -> None:
     lake = reservoir()
     wall = snap_wall_to_shore(lake, trace(12.0), 50.0)
 
@@ -141,7 +136,7 @@ def test_a_trace_12_m_off_the_shore_is_laid_on_it_and_keeps_its_wings() -> None:
     assert ends == set(trace(12.0).coords)
 
 
-def test_a_trace_crossing_the_lake_cuts_it_and_the_wall_lies_on_the_cut() -> None:
+def test_trace_crossing_lake_cuts_it() -> None:
     lake = reservoir()
     crossing = trace(-30.0)
     wall = snap_wall_to_shore(lake, crossing, 50.0)
@@ -154,15 +149,18 @@ def test_a_trace_crossing_the_lake_cuts_it_and_the_wall_lies_on_the_cut() -> Non
     assert inside_cut.difference(wall.shore.buffer(1e-6)).length == pytest.approx(0.0)
 
 
-def test_a_trace_200_m_away_is_refused_with_the_gap() -> None:
-    with pytest.raises(ValueError, match=r"200\.0 m from the lake shore"):
-        snap_wall_to_shore(reservoir(), trace(200.0), 50.0)
+STUB = LineString([(DAM_X + 50.0, Y0 + 400.0), (DAM_X - 100.0, Y0 + 400.0)])
+
+SNAP_REFUSALS = [
+    pytest.param(trace(200.0), r"200\.0 m from the lake shore", id="200 m away"),
+    pytest.param(STUB, "without crossing it", id="enters without crossing"),
+]
 
 
-def test_a_trace_that_enters_the_lake_without_crossing_it_is_refused() -> None:
-    stub = LineString([(DAM_X + 50.0, Y0 + 400.0), (DAM_X - 100.0, Y0 + 400.0)])
-    with pytest.raises(ValueError, match="without crossing it"):
-        snap_wall_to_shore(reservoir(), stub, 50.0)
+@pytest.mark.parametrize(("line", "match"), SNAP_REFUSALS)
+def test_snap_refusals(line, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        snap_wall_to_shore(reservoir(), line, 50.0)
 
 
 def _flow(offset: float, **wall: object) -> SimpleNamespace:
@@ -179,7 +177,7 @@ def _flow(offset: float, **wall: object) -> SimpleNamespace:
     return SimpleNamespace(sinks_sources={"lakes": {"reservoir": payload}})
 
 
-def test_the_binder_records_the_wall_on_the_shore_and_the_declared_trace() -> None:
+def test_binder_records_wall_and_trace() -> None:
     flow = _flow(12.0)
     assert apply_cutoff_wall_to_flow(flow=flow) is True
     payload = flow.sinks_sources["lakes"]["reservoir"]
@@ -190,31 +188,18 @@ def test_the_binder_records_the_wall_on_the_shore_and_the_declared_trace() -> No
     assert payload["cutoff_wall_shore"].length > 0.0
 
 
-def test_the_binder_cuts_the_footprint_a_trace_crosses() -> None:
+def test_binder_cuts_footprint() -> None:
     flow = _flow(-30.0)
     apply_cutoff_wall_to_flow(flow=flow)
     assert flow.sinks_sources["lakes"]["reservoir"]["polygon"].area < reservoir().area
 
 
-def test_the_binder_refuses_a_trace_beyond_the_snap_tolerance_naming_the_lake() -> None:
+def test_binder_refuses_far_trace() -> None:
     with pytest.raises(ConfigError, match=r"lakes\.reservoir\.cutoff_wall.*200\.0 m"):
         apply_cutoff_wall_to_flow(flow=_flow(200.0))
 
 
-def test_a_wider_snap_tolerance_reaches_a_farther_trace() -> None:
+def test_wider_tolerance_reaches_trace() -> None:
     flow = _flow(200.0, snap_tolerance=250.0)
     apply_cutoff_wall_to_flow(flow=flow)
     assert flow.sinks_sources["lakes"]["reservoir"]["cutoff_wall_line"].distance(reservoir()) < 1e-6
-
-
-# A built structure's geometry and a coupling rule are not search targets.
-#
-# ``FlowBarrierConfig.crest_elevation`` / ``base_elevation`` and
-# ``FlowReachNetworkConfig.outflow_value`` were deliberately left without a
-# ``Calibrable`` annotation: the wall's elevations trade off against ``hydchr``
-# (a deeper foot and a lower ``hydchr`` reduce under-dam flow the same way), and
-# the MVR ``outflow_value`` is a coupling rule, not a hydraulic property. Letting
-# a search move any of them buys fit through equifinality or through masking a
-# structural error, rather than resolving a real physical unknown. This states
-# the boundary the catalog draws rather than reciting the three names, so a
-# sibling field that IS a property is asserted calibratable too.

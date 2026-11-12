@@ -1,4 +1,4 @@
-"""Unit tests for the generic url data source."""
+"""The generic url data source: a pinned digest or an unchanged ETag serves the cache, a new ETag downloads."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from hydromodpy.data.source.port import FetchRequest
 from hydromodpy.data.source.url import DemUrl, RechargeUrl
 
 
-def test_pinned_sha256_found_without_network(tmp_path: Path) -> None:
+def test_pinned_digest_needs_no_network(tmp_path: Path) -> None:
     content = b"cached raster bytes"
     pin = hashlib.sha256(content).hexdigest()
     out_dir = tmp_path / "cache"
@@ -37,7 +37,7 @@ def test_pinned_sha256_found_without_network(tmp_path: Path) -> None:
     assert res.files[0].origin == "url"
 
 
-def test_etag_matches_without_redownload(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_same_etag_is_not_downloaded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     content = b"existing data"
     sha = hashlib.sha256(content).hexdigest()
     out_dir = tmp_path / "cache"
@@ -76,7 +76,7 @@ def test_etag_matches_without_redownload(tmp_path: Path, monkeypatch: pytest.Mon
     assert mock_req.call_args[0][0] == "HEAD"
 
 
-def test_etag_changed_triggers_redownload_and_writes_sidecar(
+def test_new_etag_downloads_and_writes_sidecar(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     out_dir = tmp_path / "cache"
@@ -147,10 +147,7 @@ def test_etag_changed_triggers_redownload_and_writes_sidecar(
     )
 
 
-def test_a_download_is_a_row_of_the_index_it_is_given(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A store hands its own index to the source, which then holds the new row."""
+def test_a_download_is_a_row_of_the_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data_root = tmp_path / "data"
     out_dir = data_root / "dem"
     content = b"raster"
@@ -172,10 +169,10 @@ def test_a_download_is_a_row_of_the_index_it_is_given(
     assert row.etag == '"v1"'
 
 
-def test_a_sidecar_without_a_variable_is_no_row_so_the_url_is_asked_again(
+def test_a_sidecar_without_variable_is_no_row(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A sidecar written without its variable is no row, so the URL is asked again."""
+    # Without its variable the sidecar is no row, so the URL is asked again.
     out_dir = tmp_path / "cache"
     out_dir.mkdir()
     old = out_dir / "dem_url_example-com_12345678.tif"

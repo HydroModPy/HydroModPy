@@ -17,22 +17,12 @@ GEO = "api.geosas.fr"
 GEOPF = "data.geopf.fr"
 
 
-# --------------------------------------------------------------------------- #
-# permits_host
-# --------------------------------------------------------------------------- #
-
-
-def test_the_default_bounds_permit_every_host() -> None:
-    """``None`` says nothing is named, which is the behaviour of a machine."""
+def test_default_permits_every_host() -> None:
+    # None names nothing, which is the behaviour of a machine.
     bounds = Bounds()
     assert bounds.permits_host(GEO)
     assert bounds.permits_host("localhost")
     assert bounds.permits_host("169.254.1.1")
-
-
-# --------------------------------------------------------------------------- #
-# permits_path
-# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.parametrize(
@@ -70,17 +60,12 @@ def test_the_default_bounds_permit_every_host() -> None:
         "empty-root",
     ],
 )
-def test_the_constructor_refuses_what_it_cannot_mean(kwargs: dict) -> None:
+def test_constructor_refusals(kwargs: dict) -> None:
     with pytest.raises(BoundsError):
         Bounds(**kwargs)
 
 
-# --------------------------------------------------------------------------- #
-# The refusals, by name
-# --------------------------------------------------------------------------- #
-
-
-def test_require_host_names_the_host_the_list_and_the_option() -> None:
+def test_refused_host_message() -> None:
     bounds = Bounds(allowed_hosts=frozenset({GEOPF}))
     with pytest.raises(BoundsError) as raised:
         bounds.require_host(GEO, why="asking hydrometry_hubeau")
@@ -92,12 +77,7 @@ def test_require_host_names_the_host_the_list_and_the_option() -> None:
     assert "Bounds(allowed_hosts=...)" in message
 
 
-def test_require_host_accepts_a_listed_host() -> None:
+def test_listed_host_is_accepted() -> None:
     bounds = Bounds(allowed_hosts=frozenset({GEO}))
     bounds.require_host("API.GEOSAS.FR", why="asking")
     bounds.require_host(f"{GEO}:443", why="asking")
-
-
-# --------------------------------------------------------------------------- #
-# The object itself
-# --------------------------------------------------------------------------- #

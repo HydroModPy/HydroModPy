@@ -1,4 +1,6 @@
-"""Tests of `optim.adapters.optuna_adapter` and `optim.adapters.random_search_adapter`."""
+"""Optuna and random-search adapters (`optim.adapters.optuna_adapter`,
+`optim.adapters.random_search_adapter`) on a two-parameter box.
+"""
 
 from __future__ import annotations
 

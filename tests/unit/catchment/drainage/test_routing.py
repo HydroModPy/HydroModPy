@@ -1,12 +1,9 @@
 """Route a per-cell release down a receiver graph, and say how much of the catchment it drains.
 
-The contract this file exists for: at the outlet cell the routed value IS the
-domain sum. A per-cell discharge that does not reproduce the series the whole
-catchment already produces is wrong, whatever else it gets right.
-
-The graphs come from the descent D that a backend builds on a structured mesh,
-``descent.metric.graph``. The largest drainable share is read on the value
-that ``upstream_area`` returns, and no module keeps it between calls.
+At the outlet cell the routed value is the domain sum (same unit as the release),
+and the upstream area (m2) is the same routing of the cell areas. The graphs come
+from the descent D that a backend builds on a structured mesh, ``descent.metric.graph``.
+The largest drainable share is read on the value that ``upstream_area`` returns.
 """
 
 from __future__ import annotations
@@ -32,12 +29,14 @@ from hydromodpy.catchment.drainage.routing import (
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests._helpers.v_valley import N_CELLS
 
-_NROW, _NCOL = 3, 3
+N_SMALL = 3  # cells per side of the small grid
+N_SMALL_CELLS = N_SMALL * N_SMALL
+N_DIAGONAL = 30  # cells per side of the diagonal valley
+CELL_SIZE_M = 75.0
 
 
-def _model(top: np.ndarray, base_level: np.ndarray | None = None) -> SimpleNamespace:
+def structured_model(top, base_level=None):
     """A structured model whose top D is built on, as a backend build does."""
     nrow, ncol = top.shape
     mesh = solver_mesh_from_structured_arrays(
@@ -47,176 +46,32 @@ def _model(top: np.ndarray, base_level: np.ndarray | None = None) -> SimpleNames
     return SimpleNamespace(solver_mesh=mesh, descent=descent, graph=descent.metric.graph)
 
 
-def _cell_areas(model: SimpleNamespace) -> np.ndarray:
+def cell_areas(model):
     return np.asarray(model.solver_mesh.cell_areas(), dtype=float).reshape(-1)
 
 
-def _south_sloping_top() -> np.ndarray:
+def all_cells(n_cells=N_SMALL_CELLS):
+    return np.ones(n_cells, dtype=bool)
+
+
+def south_slope():
     """Every row drains to the row below, so cell (2, 1) collects the grid."""
-    return np.array([[30.0, 29.0, 30.0], [20.0, 19.0, 20.0], [10.0, 1.0, 10.0]], dtype=float)
+    top = np.array([[30.0, 29.0, 30.0], [20.0, 19.0, 20.0], [10.0, 1.0, 10.0]])
+    return structured_model(top)
 
 
-def _all(n: int = _NROW * _NCOL) -> np.ndarray:
-    return np.ones(n, dtype=bool)
-
-
-# -- The release ---------------------------------------------------------------
-
-
-def test_the_outlet_collects_every_release_of_the_catchment() -> None:
-    """routed(outlet) == the catchment sum, when the graph has ONE sink."""
-    model = _model(_south_sloping_top())
-    release = np.arange(1.0, _NROW * _NCOL + 1.0)
-
-    accumulated = route_release_to_discharge(release, model.graph, catchment_mask=_all())
-
-    assert accumulated[int(np.argmax(accumulated))] == pytest.approx(release.sum())
-
-
-def test_an_interior_cell_carries_only_what_is_upstream_of_it() -> None:
-    model = _model(_south_sloping_top())
-    release = np.ones(_NROW * _NCOL)
-
-    accumulated = route_release_to_discharge(release, model.graph, catchment_mask=_all())
-
-    assert accumulated.max() == pytest.approx(release.sum())
-    assert accumulated.min() < accumulated.max()
-
-
-def test_cells_outside_the_catchment_release_nothing_into_it() -> None:
-    """The mesh is a buffered box; the neighboring basins must not be counted."""
-    model = _model(_south_sloping_top())
-    mask = _all()
-    mask[:_NCOL] = False  # drop the northern row from the catchment
-
-    accumulated = route_release_to_discharge(
-        np.ones(_NROW * _NCOL), model.graph, catchment_mask=mask
-    )
-
-    assert accumulated.max() == pytest.approx(float(mask.sum()))
-
-
-def test_a_transient_stack_routes_every_timestep() -> None:
-    model = _model(_south_sloping_top())
-    stack = np.stack([np.ones(_NROW * _NCOL), 2.0 * np.ones(_NROW * _NCOL)])
-
-    accumulated = route_release_to_discharge(stack, model.graph, catchment_mask=_all())
-
-    assert accumulated.shape == stack.shape
-    assert accumulated.max(axis=1) == pytest.approx([9.0, 18.0])
-
-
-@pytest.mark.parametrize(
-    ("mask", "message"),
-    [
-        (np.zeros(_NROW * _NCOL, dtype=bool), "holds no cell"),
-        (np.ones(4, dtype=bool), "holds 4 cells and the release 9"),
-    ],
-    ids=["empty_mask", "wrong_size"],
-)
-def test_a_mask_that_does_not_fit_the_release_is_refused(mask: np.ndarray, message: str) -> None:
-    model = _model(_south_sloping_top())
-
-    with pytest.raises(ValueError, match=message):
-        route_release_to_discharge(np.ones(_NROW * _NCOL), model.graph, catchment_mask=mask)
-
-
-def test_what_leaves_through_the_sinks_is_everything_released() -> None:
-    """The general identity, whatever the number of terminal cells."""
-    model = _model(_south_sloping_top())
-    release = np.arange(1.0, _NROW * _NCOL + 1.0)
-
-    accumulated = route_release_to_discharge(release, model.graph, catchment_mask=_all())
-
-    sinks = np.flatnonzero(np.asarray(model.graph.downstream) < 0)
-    assert sinks.size
-    assert float(accumulated[sinks].sum()) == pytest.approx(release.sum())
-    assert float(accumulated.max()) <= release.sum() + 1e-12
-
-
-def test_a_pit_of_the_top_does_not_hold_the_release_above_it() -> None:
-    # A valley sloping to the south edge with a closed pit in its middle.
-    rows, cols = np.mgrid[0:7, 0:7]
-    top = 10.0 + 2.0 * (6 - rows) + np.abs(cols - 3)
-    top[3, 3] = 0.0
-    model = _model(top.astype(float))
-    release = np.ones(49)
-
-    accumulated = route_release_to_discharge(release, model.graph, catchment_mask=_all(49))
-
-    pit = 3 * 7 + 3
-    assert model.graph.downstream[pit] >= 0
-    sinks = np.flatnonzero(np.asarray(model.graph.downstream) < 0)
-    assert float(accumulated[sinks].sum()) == pytest.approx(release.sum())
-    assert float(accumulated.max()) > float(accumulated[pit])
-
-
-def test_a_stream_chd_inside_the_catchment_passes_the_water_to_the_outlet() -> None:
-    # A valley sloping south, its river column held by a stream-role CHD that
-    # carries all the release, as the release union counts it.
-    n = 11
-    rows, cols = np.mgrid[0:n, 0:n]
-    top = 50.0 + 2.0 * np.abs(cols - 5) + 1.0 * (n - 1 - rows)
-    river = (cols == 5).reshape(-1)
-    model = _model(top.astype(float), base_level=river)
-    release = np.where(river, 1.0, 0.0)
-
-    accumulated = route_release_to_discharge(release, model.graph, catchment_mask=_all(n * n))
-
-    outlet = int(np.argmax(accumulated))
-    assert model.descent.constant_head[river].all()
-    assert float(accumulated[outlet]) == pytest.approx(float(release.sum()))
-    assert np.all(model.graph.downstream[river & (np.arange(n * n) != outlet)] >= 0)
-
-
-# -- The upstream area ---------------------------------------------------------
-
-
-def test_the_upstream_area_of_the_outlet_is_the_catchment_area() -> None:
-    model = _model(_south_sloping_top())
-
-    area = upstream_area(_cell_areas(model), model.graph, catchment_mask=_all())
-
-    assert isinstance(area, UpstreamArea)
-    assert area.m2.max() == pytest.approx(float(_cell_areas(model).sum()))
-
-
-def test_the_upstream_area_follows_the_same_graph_as_the_release() -> None:
-    """Runoff a gauge sees must be the runoff over the cells whose release it sees."""
-    model = _model(_south_sloping_top())
-    cell_areas = _cell_areas(model)
-
-    area = upstream_area(cell_areas, model.graph, catchment_mask=_all())
-    counts = route_release_to_discharge(np.ones(_NROW * _NCOL), model.graph, catchment_mask=_all())
-
-    assert area.m2 == pytest.approx(counts * float(cell_areas[0]))
-
-
-# -- The largest drainable share -----------------------------------------------
-#
-# The valley's talweg runs along the grid diagonal. The descent D of the model,
-# D8 on quads, drains it whole. A steepest descent over shared edges on the
-# unfilled top cannot follow it: that graph, built here by hand, is the
-# fragmented one. A share far below one is a disagreement between the graph and
-# the delineated basin, so it is stated, and a graph that drains its basin
-# stays silent.
-
-_N = 30
-_CELL_SIZE = 75.0
-
-
-def _diagonal_top() -> np.ndarray:
-    """A V-shaped valley whose talweg runs along the grid diagonal."""
-    rows, cols = np.meshgrid(np.arange(_N), np.arange(_N), indexing="ij")
+def diagonal_top():
+    """A V-shaped valley (m) whose talweg runs along the grid diagonal."""
+    rows, cols = np.meshgrid(np.arange(N_DIAGONAL), np.arange(N_DIAGONAL), indexing="ij")
     return 100.0 + 0.5 * np.abs(rows - cols) + 0.01 * (rows + cols)
 
 
-def _diagonal_model() -> SimpleNamespace:
-    return _model(_diagonal_top())
+def diagonal_model():
+    return structured_model(diagonal_top())
 
 
-def _shared_edge_graph(model: SimpleNamespace):
-    """Steepest descent of the unfilled top over shared edges: it cannot go diagonal."""
+def shared_edge_graph(model):
+    """Steepest descent of the unfilled top over shared edges, it cannot go diagonal."""
     mesh = model.solver_mesh
     top = np.asarray(mesh.top, dtype=float).reshape(-1)
     return build_downhill_graph(
@@ -228,21 +83,147 @@ def _shared_edge_graph(model: SimpleNamespace):
     )
 
 
-def test_a_graph_that_drains_its_basin_has_a_share_of_one_and_does_not_warn(caplog) -> None:
-    model = _diagonal_model()
+def diagonal_valley_on_quads(diagonal_neighbors):
+    """Areas (m2), mask and downhill graph of the diagonal valley on a quad mesh."""
+    vertices, connectivity = quad_mesh(N_DIAGONAL, N_DIAGONAL, cell_size=CELL_SIZE_M)
+    top = diagonal_top().reshape(-1)
+    if diagonal_neighbors:
+        adjacency = shared_node_adjacency(connectivity, n_cells=top.size)
+    else:
+        adjacency = cell_adjacency_from_face_connectivity(connectivity, n_cells=top.size)
+    graph = build_downhill_graph(top, connectivity, vertices=vertices, adjacency=adjacency)
+    areas = np.full(top.size, CELL_SIZE_M * CELL_SIZE_M)
+    return areas, np.ones(top.size, dtype=bool), graph
+
+
+def test_outlet_collects_every_release():
+    release = np.arange(1.0, N_SMALL_CELLS + 1.0)
+
+    accumulated = route_release_to_discharge(
+        release, south_slope().graph, catchment_mask=all_cells()
+    )
+
+    assert accumulated[int(np.argmax(accumulated))] == pytest.approx(release.sum())
+
+
+def test_interior_cell_carries_only_upstream():
+    release = np.ones(N_SMALL_CELLS)
+
+    accumulated = route_release_to_discharge(
+        release, south_slope().graph, catchment_mask=all_cells()
+    )
+
+    assert accumulated.max() == pytest.approx(release.sum())
+    assert accumulated.min() < accumulated.max()
+
+
+def test_cells_outside_catchment_release_nothing():
+    # The mesh is a buffered box, the neighboring basins must not be counted.
+    mask = all_cells()
+    mask[:N_SMALL] = False  # drop the northern row from the catchment
+
+    accumulated = route_release_to_discharge(
+        np.ones(N_SMALL_CELLS), south_slope().graph, catchment_mask=mask
+    )
+
+    assert accumulated.max() == pytest.approx(float(mask.sum()))
+
+
+def test_stack_routes_every_timestep():
+    stack = np.stack([np.ones(N_SMALL_CELLS), 2.0 * np.ones(N_SMALL_CELLS)])
+
+    accumulated = route_release_to_discharge(stack, south_slope().graph, catchment_mask=all_cells())
+
+    assert accumulated.shape == stack.shape
+    assert accumulated.max(axis=1) == pytest.approx([9.0, 18.0])
+
+
+def test_sinks_receive_everything_released():
+    model = south_slope()
+    release = np.arange(1.0, N_SMALL_CELLS + 1.0)
+
+    accumulated = route_release_to_discharge(release, model.graph, catchment_mask=all_cells())
+
+    sinks = np.flatnonzero(np.asarray(model.graph.downstream) < 0)
+    assert sinks.size
+    assert float(accumulated[sinks].sum()) == pytest.approx(release.sum())
+    assert float(accumulated.max()) <= release.sum() + 1e-12
+
+
+def test_pit_does_not_hold_release():
+    # A valley sloping to the south edge with a closed pit in its middle.
+    rows, cols = np.mgrid[0:7, 0:7]
+    top = 10.0 + 2.0 * (6 - rows) + np.abs(cols - 3)
+    top[3, 3] = 0.0
+    model = structured_model(top.astype(float))
+    release = np.ones(49)
+
+    accumulated = route_release_to_discharge(release, model.graph, catchment_mask=all_cells(49))
+
+    pit = 3 * 7 + 3
+    assert model.graph.downstream[pit] >= 0
+    sinks = np.flatnonzero(np.asarray(model.graph.downstream) < 0)
+    assert float(accumulated[sinks].sum()) == pytest.approx(release.sum())
+    assert float(accumulated.max()) > float(accumulated[pit])
+
+
+def test_stream_chd_passes_water_to_outlet():
+    # A valley sloping south, its river column held by a stream-role CHD that
+    # carries all the release, as the release union counts it.
+    n = 11
+    rows, cols = np.mgrid[0:n, 0:n]
+    top = 50.0 + 2.0 * np.abs(cols - 5) + 1.0 * (n - 1 - rows)
+    river = (cols == 5).reshape(-1)
+    model = structured_model(top.astype(float), base_level=river)
+    release = np.where(river, 1.0, 0.0)
+
+    accumulated = route_release_to_discharge(release, model.graph, catchment_mask=all_cells(n * n))
+
+    outlet = int(np.argmax(accumulated))
+    assert model.descent.constant_head[river].all()
+    assert float(accumulated[outlet]) == pytest.approx(float(release.sum()))
+    assert np.all(model.graph.downstream[river & (np.arange(n * n) != outlet)] >= 0)
+
+
+def test_outlet_upstream_area_is_catchment_area():
+    model = south_slope()
+
+    area = upstream_area(cell_areas(model), model.graph, catchment_mask=all_cells())
+
+    assert isinstance(area, UpstreamArea)
+    assert area.m2.max() == pytest.approx(float(cell_areas(model).sum()))
+
+
+def test_upstream_area_follows_release_graph():
+    # The runoff a gauge sees is the runoff over the cells whose release it sees.
+    model = south_slope()
+    areas = cell_areas(model)
+
+    area = upstream_area(areas, model.graph, catchment_mask=all_cells())
+    counts = route_release_to_discharge(
+        np.ones(N_SMALL_CELLS), model.graph, catchment_mask=all_cells()
+    )
+
+    assert area.m2 == pytest.approx(counts * float(areas[0]))
+
+
+def test_share_of_a_drained_basin_is_one(caplog):
+    model = diagonal_model()
 
     with caplog.at_level(logging.WARNING):
-        area = upstream_area(_cell_areas(model), model.graph, catchment_mask=_all(_N * _N))
+        area = upstream_area(
+            cell_areas(model), model.graph, catchment_mask=all_cells(N_DIAGONAL**2)
+        )
 
     assert area.largest_drainable_share == pytest.approx(1.0)
     assert not any(record.levelno >= logging.WARNING for record in caplog.records)
 
 
-def test_the_share_is_the_one_the_direct_computation_gives() -> None:
-    model = _diagonal_model()
-    graph = _shared_edge_graph(model)
-    mask = _all(_N * _N)
-    areas = _cell_areas(model)
+def test_share_matches_direct_computation():
+    model = diagonal_model()
+    graph = shared_edge_graph(model)
+    mask = all_cells(N_DIAGONAL**2)
+    areas = cell_areas(model)
     accumulated = route_release_to_discharge(areas, graph, catchment_mask=mask)
 
     area = upstream_area(areas, graph, catchment_mask=mask)
@@ -253,29 +234,30 @@ def test_the_share_is_the_one_the_direct_computation_gives() -> None:
     np.testing.assert_array_equal(area.m2, accumulated)
 
 
-def test_two_calls_keep_their_own_share() -> None:
-    model = _diagonal_model()
-    areas, mask = _cell_areas(model), _all(_N * _N)
+def test_calls_keep_their_own_share():
+    model = diagonal_model()
+    areas, mask = cell_areas(model), all_cells(N_DIAGONAL**2)
 
     drained = upstream_area(areas, model.graph, catchment_mask=mask)
-    fragmented = upstream_area(areas, _shared_edge_graph(model), catchment_mask=mask)
+    fragmented = upstream_area(areas, shared_edge_graph(model), catchment_mask=mask)
 
     assert drained.largest_drainable_share == pytest.approx(1.0)
     assert fragmented.largest_drainable_share < 0.5
 
 
-def test_a_catchment_without_area_has_no_share() -> None:
-    model = _model(_south_sloping_top())
-    areas = np.zeros(_NROW * _NCOL)
+def test_catchment_without_area_has_no_share():
+    model = south_slope()
 
-    assert upstream_area(areas, model.graph, catchment_mask=_all()).largest_drainable_share is None
+    area = upstream_area(np.zeros(N_SMALL_CELLS), model.graph, catchment_mask=all_cells())
+
+    assert area.largest_drainable_share is None
 
 
-def test_the_basin_of_d_as_the_mask_drains_to_exactly_its_area(caplog) -> None:
-    """The catchment is the basin of D: the largest accumulation is its area, share one."""
-    model = _diagonal_model()
-    areas = _cell_areas(model)
-    talweg_cell = 10 * _N + 10
+def test_basin_of_d_drains_to_its_area(caplog):
+    # With the basin of D as the mask, the largest accumulation is its area.
+    model = diagonal_model()
+    areas = cell_areas(model)
+    talweg_cell = 10 * N_DIAGONAL + 10
     basin = descent_basin(
         model.descent,
         cell_area_m2=areas,
@@ -285,98 +267,51 @@ def test_the_basin_of_d_as_the_mask_drains_to_exactly_its_area(caplog) -> None:
     with caplog.at_level(logging.WARNING):
         area = upstream_area(areas, model.graph, catchment_mask=basin.mask)
 
-    assert 0 < int(basin.mask.sum()) < _N * _N
+    assert 0 < int(basin.mask.sum()) < N_DIAGONAL**2
     assert float(np.max(area.m2)) == pytest.approx(basin.area_m2, abs=1e-9)
     assert area.largest_drainable_share == pytest.approx(1.0, abs=1e-12)
     assert not any(record.levelno >= logging.WARNING for record in caplog.records)
 
 
-# A descent over shared edges cannot follow a talweg that runs diagonally.
-#
-# This pins a measurement, because the consequence is silent and large. The
-# per-cell discharge once rode a downhill graph whose neighbor rule defaulted to
-# shared edges; it now rides the descent D, D8 on quads. On a square grid a
-# diagonal valley has no axis-aligned downhill step, so a shared-edge accumulation
-# fragments instead of reaching the outlet.
-#
-# Measured on a real Nancon run at the basin outlet before this was pinned: the
-# cell the gauge falls in drained 0.107 km2 of a 64.631 km2 catchment, two tenths of
-# a per cent, which is the same failure on real topography. Flipping the default
-# would change every stream-network calibration in the repository, so it is a
-# decision and not a fix; what belongs here is the number nobody should have to
-# re-derive.
+# A shared-edge descent cannot follow a talweg that runs diagonally on a square grid,
+# so its accumulation fragments instead of reaching the outlet. On a real Nancon run
+# the gauge cell drained 0.107 km2 of a 64.631 km2 catchment, two tenths of a per cent.
+# Switching the default neighbor rule would change every stream-network calibration,
+# so this pins the measurement and leaves the decision open.
+NEIGHBOR_RULES = [
+    pytest.param(True, 1.0, 1e-9, id="shared nodes drain the valley"),
+    pytest.param(False, 0.066, 0.005, id="shared edges strand most of it"),
+]
 
 
-def _largest_accumulated_share(*, diagonal_neighbors: bool) -> float:
-    vertices, connectivity = quad_mesh(_N, _N, cell_size=_CELL_SIZE)
-    top = _diagonal_top().reshape(-1)
-    adjacency = (
-        shared_node_adjacency(connectivity, n_cells=top.size)
-        if diagonal_neighbors
-        else cell_adjacency_from_face_connectivity(connectivity, n_cells=top.size)
-    )
-    graph = build_downhill_graph(top, connectivity, vertices=vertices, adjacency=adjacency)
-    areas = np.full(top.size, _CELL_SIZE * _CELL_SIZE)
-    accumulated = route_release_to_discharge(
-        areas, graph, catchment_mask=np.ones(top.size, dtype=bool)
-    )
-    return float(accumulated.max() / areas.sum())
+@pytest.mark.parametrize(("diagonal_neighbors", "share", "tol"), NEIGHBOR_RULES)
+def test_share_by_neighbor_rule(diagonal_neighbors, share, tol):
+    areas, mask, graph = diagonal_valley_on_quads(diagonal_neighbors)
+
+    accumulated = route_release_to_discharge(areas, graph, catchment_mask=mask)
+
+    np.testing.assert_allclose(accumulated.max() / areas.sum(), share, atol=tol)
+    np.testing.assert_allclose(largest_drainable_share(areas, accumulated, mask), share, atol=tol)
 
 
-def test_shared_nodes_bring_the_whole_valley_to_one_cell() -> None:
-    assert _largest_accumulated_share(diagonal_neighbors=True) == pytest.approx(1.0)
-
-
-def test_shared_edges_strand_most_of_it() -> None:
-    # 6.6 per cent, on a surface whose every cell drains to the same diagonal.
-    share = _largest_accumulated_share(diagonal_neighbors=False)
-    assert share < 0.1
-    assert share == pytest.approx(0.066, abs=0.005)
-
-
-def test_the_run_states_what_its_graph_can_actually_drain(caplog) -> None:
-    """A ratio far below one is an internal disagreement, not a preference.
-
-    The delineation produces a basin every drop leaves by one cell, so the largest
-    accumulation on a graph that drains that basin equals its area. The run says
-    the ratio out loud, which turns a graph that cannot drain the basin from a
-    silent error into a reported one: no threshold is involved, the two numbers
-    are simply printed next to each other.
-    """
-    vertices, connectivity = quad_mesh(_N, _N, cell_size=_CELL_SIZE)
-    top = _diagonal_top().reshape(-1)
-    areas = np.full(top.size, _CELL_SIZE * _CELL_SIZE)
-    mask = np.ones(top.size, dtype=bool)
-    adjacency = cell_adjacency_from_face_connectivity(connectivity, n_cells=top.size)
-    graph = build_downhill_graph(top, connectivity, vertices=vertices, adjacency=adjacency)
+def test_share_logged_when_graph_cannot_drain(caplog):
+    # A share far below one is a disagreement between graph and basin, so the run states it.
+    areas, mask, graph = diagonal_valley_on_quads(diagonal_neighbors=False)
     accumulated = route_release_to_discharge(areas, graph, catchment_mask=mask)
 
     with caplog.at_level(logging.INFO):
-        ratio = largest_drainable_share(areas, accumulated, mask)
+        largest_drainable_share(areas, accumulated, mask)
 
-    assert ratio == pytest.approx(0.066, abs=0.005)
     assert "different drainage" in caplog.text
 
 
-def test_a_graph_that_drains_the_basin_reports_one() -> None:
-    vertices, connectivity = quad_mesh(_N, _N, cell_size=_CELL_SIZE)
-    top = _diagonal_top().reshape(-1)
-    areas = np.full(top.size, _CELL_SIZE * _CELL_SIZE)
-    mask = np.ones(top.size, dtype=bool)
-    graph = build_downhill_graph(
-        top,
-        connectivity,
-        vertices=vertices,
-        adjacency=shared_node_adjacency(connectivity, n_cells=top.size),
-    )
-    accumulated = route_release_to_discharge(areas, graph, catchment_mask=mask)
-
-    assert largest_drainable_share(areas, accumulated, mask) == pytest.approx(1.0)
+MASK_REFUSALS = [
+    pytest.param(np.zeros(N_SMALL_CELLS, dtype=bool), "holds no cell", id="empty mask"),
+    pytest.param(np.ones(4, dtype=bool), "holds 4 cells and the release 9", id="wrong size"),
+]
 
 
-def _criterion_release(n_dates: int) -> tuple[np.ndarray, np.ndarray]:
-    """A stack of releases on the V-valley bench and the threshold of every cell."""
-    rng = np.random.default_rng(7)
-    release = rng.random((n_dates, N_CELLS)) * 2.0e-6
-    release[:, rng.random(N_CELLS) < 0.1] = np.nan
-    return release, np.full(N_CELLS, 1.0e-6)
+@pytest.mark.parametrize(("mask", "message"), MASK_REFUSALS)
+def test_mask_refusals(mask, message):
+    with pytest.raises(ValueError, match=message):
+        route_release_to_discharge(np.ones(N_SMALL_CELLS), south_slope().graph, catchment_mask=mask)

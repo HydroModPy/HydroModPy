@@ -44,7 +44,7 @@ def _qa(mesh: HydroMesh, centers: np.ndarray, **kwargs):
     )
 
 
-def test_a_regular_grid_is_orthogonal_uniform_and_centred() -> None:
+def test_regular_grid_is_clean() -> None:
     mesh, centers = _grid()
     qa = _qa(mesh, centers, domain_area_m2=NROW * NCOL * DX * DY)
 
@@ -73,7 +73,7 @@ def test_a_regular_grid_is_orthogonal_uniform_and_centred() -> None:
     assert quality_warnings(qa) == ()
 
 
-def test_an_offset_centre_shows_in_offset_and_orthogonality() -> None:
+def test_offset_centre() -> None:
     mesh, centers = _grid()
     centers[0, 0] += 0.25 * DX
     qa = _qa(mesh, centers)
@@ -82,7 +82,7 @@ def test_an_offset_centre_shows_in_offset_and_orthogonality() -> None:
     assert qa.nonorthogonality_deg["max"] == pytest.approx(np.degrees(np.arctan(0.25)))
 
 
-def test_the_share_of_faces_above_30_degrees_is_counted() -> None:
+def test_share_above_30_degrees() -> None:
     mesh, centers = _grid()
     n_interior_faces = NROW * (NCOL - 1) + (NROW - 1) * NCOL
     centers[0, 0] += 0.6 * DX
@@ -94,7 +94,7 @@ def test_the_share_of_faces_above_30_degrees_is_counted() -> None:
     assert gentle.nonorthogonality_deg["share_gt_30"] == 0.0
 
 
-def test_neighbour_ratio_compares_the_square_root_of_areas() -> None:
+def test_neighbour_ratio() -> None:
     vertices = np.array([[0, 0], [1, 0], [3, 0], [3, 2], [1, 2], [0, 2]], dtype=float)
     quads = np.array([[0, 1, 4, 5], [1, 2, 3, 4]])
     mesh = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, quads),))
@@ -120,14 +120,12 @@ def test_cell_chain_breaks_and_face_steps() -> None:
     assert family["max_line_offset_m"] == pytest.approx(np.hypot(*(centers[19] - centers[7])))
 
 
-def test_a_face_family_on_its_line_covers_it_exactly() -> None:
-    mesh, centers = _grid()
-    geometry = derive_geometry(mesh)
-    # The vertical grid line x = X0 + 2 * DX, faces between columns 1 and 2.
+def _column_faces(mesh: HydroMesh, geometry) -> FaceFamilyTable:
+    """The faces on the grid line x = X0 + 2 * DX, as the family ``geology``."""
     nodes = geometry.edge_nodes
     on_line = np.all(np.isclose(mesh.vertices[nodes][..., 0], X0 + 2 * DX), axis=1)
     rows = np.flatnonzero(on_line)
-    table = FaceFamilyTable(
+    return FaceFamilyTable(
         names=("geology",),
         family=np.zeros(rows.size),
         cell_a=geometry.edge_cells[rows, 0],
@@ -137,6 +135,12 @@ def test_a_face_family_on_its_line_covers_it_exactly() -> None:
         zone_left=np.full(rows.size, -1),
         zone_right=np.full(rows.size, -1),
     )
+
+
+def test_face_family_coverage() -> None:
+    mesh, centers = _grid()
+    geometry = derive_geometry(mesh)
+    table = _column_faces(mesh, geometry)
     exact = LineString([(X0 + 2 * DX, Y0), (X0 + 2 * DX, Y0 - NROW * DY)])
     shifted = LineString([(X0 + 2 * DX + 3.0, Y0), (X0 + 2 * DX + 3.0, Y0 - NROW * DY)])
 
@@ -165,35 +169,18 @@ def test_a_face_family_on_its_line_covers_it_exactly() -> None:
     assert off["hausdorff_m"] == pytest.approx(3.0)
 
 
-def test_declarations_must_state_the_four_engine_statements() -> None:
+def test_declarations_refused() -> None:
     mesh, centers = _grid()
 
     with pytest.raises(ValueError, match="declarations"):
         compute_mesh_qa(mesh, centers, derive_geometry(mesh), declarations={"graded": True})
 
 
-def test_centres_of_the_wrong_shape_raise() -> None:
+def test_centres_shape_refused() -> None:
     mesh, centers = _grid()
 
     with pytest.raises(ValueError, match="centers"):
         _qa(mesh, centers[:-1])
-
-
-def _column_faces(mesh: HydroMesh, geometry) -> FaceFamilyTable:
-    """The faces on the grid line x = X0 + 2 * DX, as the family ``geology``."""
-    nodes = geometry.edge_nodes
-    on_line = np.all(np.isclose(mesh.vertices[nodes][..., 0], X0 + 2 * DX), axis=1)
-    rows = np.flatnonzero(on_line)
-    return FaceFamilyTable(
-        names=("geology",),
-        family=np.zeros(rows.size),
-        cell_a=geometry.edge_cells[rows, 0],
-        cell_b=geometry.edge_cells[rows, 1],
-        node_a=nodes[rows, 0],
-        node_b=nodes[rows, 1],
-        zone_left=np.full(rows.size, -1),
-        zone_right=np.full(rows.size, -1),
-    )
 
 
 def _mixed_cells(line: LineString) -> float:
@@ -224,7 +211,7 @@ def _mixed_cells(line: LineString) -> float:
         (LineString([(X0 - 3 * DX, Y0), (X0 - 3 * DX, Y0 - NROW * DY)]), 0.0),
     ],
 )
-def test_mixed_cells_are_the_cells_a_face_line_crosses(line: LineString, expected: float) -> None:
+def test_mixed_cells_crossed(line: LineString, expected: float) -> None:
     assert _mixed_cells(line) == expected
 
 
@@ -235,13 +222,13 @@ def _grid_mixed_cells(source) -> np.ndarray:
     return mixed_cells(source, geometry, np.asarray(mesh.vertices, dtype=float), tolerance)
 
 
-def test_a_line_away_from_the_mesh_crosses_no_cell() -> None:
+def test_line_off_mesh_crosses_no_cell() -> None:
     away = LineString([(X0 - 3 * DX, Y0), (X0 - 3 * DX, Y0 - NROW * DY)])
 
     assert _grid_mixed_cells(away).size == 0
 
 
-def test_size_fidelity_is_the_cell_side_over_the_size_asked() -> None:
+def test_size_fidelity() -> None:
     mesh, centers = _grid()
     on_target = _qa(mesh, centers, target_size=np.full(NROW * NCOL, DX))
     twice = _qa(mesh, centers, target_size=np.full(NROW * NCOL, 2 * DX))
@@ -249,10 +236,16 @@ def test_size_fidelity_is_the_cell_side_over_the_size_asked() -> None:
     assert on_target.size_fidelity == pytest.approx({"p5": 1.0, "p50": 1.0, "p95": 1.0})
     assert twice.size_fidelity["p50"] == pytest.approx(0.5)
     assert _qa(mesh, centers).size_fidelity == {}
+
+
+@pytest.mark.parametrize(
+    "target_size", [np.full(3, DX), np.zeros(NROW * NCOL)], ids=["wrong length", "zero size"]
+)
+def test_target_size_refused(target_size) -> None:
+    mesh, centers = _grid()
+
     with pytest.raises(ValueError, match="target_size"):
-        _qa(mesh, centers, target_size=np.full(3, DX))
-    with pytest.raises(ValueError, match="target_size"):
-        _qa(mesh, centers, target_size=np.zeros(NROW * NCOL))
+        _qa(mesh, centers, target_size=target_size)
 
 
 def _edge(geometry, first: int, second: int) -> int:
@@ -260,7 +253,7 @@ def _edge(geometry, first: int, second: int) -> int:
     return int(np.flatnonzero((geometry.edge_cells == [first, second]).all(axis=1))[0])
 
 
-def test_the_bisection_offset_runs_from_the_face_middle_to_its_end() -> None:
+def test_bisection_offset_range() -> None:
     mesh, centers = _grid()
     geometry = derive_geometry(mesh)
     vertices = np.asarray(mesh.vertices)
@@ -283,7 +276,7 @@ def test_the_bisection_offset_runs_from_the_face_middle_to_its_end() -> None:
     assert np.isnan(parallel[face])
 
 
-def test_the_bisection_offset_of_a_slanted_line_is_its_crossing_over_the_face() -> None:
+def test_bisection_offset_slanted() -> None:
     mesh, centers = _grid()
     geometry = derive_geometry(mesh)
     interior = geometry.edge_cells[:, 1] >= 0
@@ -302,7 +295,7 @@ L_SHAPE = np.array([[0, 0], [2, 0], [2, 1], [1, 1], [1, 2], [0, 2]], dtype=float
 RIGHT_TRIANGLE = np.array([[0, 0], [2, 0], [0, 1]], dtype=float)
 
 
-def test_the_corner_angles_see_a_reflex_corner_whatever_the_winding() -> None:
+def test_reflex_corner_angles() -> None:
     vertices = np.vstack([L_SHAPE, RIGHT_TRIANGLE]) * 10.0 + [X0, Y0]
     padded = np.array(
         [
@@ -321,7 +314,7 @@ def test_the_corner_angles_see_a_reflex_corner_whatever_the_winding() -> None:
     assert np.isnan(angles[2, 3:]).all()
 
 
-def test_a_corner_next_to_a_repeated_vertex_has_no_angle() -> None:
+def test_repeated_vertex_has_no_angle() -> None:
     square = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
 
     angles = cell_corner_angles(np.array([[0, 1, 1, 2, 3]]), square)
@@ -330,7 +323,7 @@ def test_a_corner_next_to_a_repeated_vertex_has_no_angle() -> None:
     np.testing.assert_allclose(angles[0, [0, 3, 4]], 90.0, atol=1e-12)
 
 
-def test_a_centre_pulled_towards_a_corner_counts_the_cells_of_its_skewed_face() -> None:
+def test_skewed_face_count() -> None:
     mesh, centers = _grid()
     centers[0] += [7.5, 10.0]
     qa = _qa(mesh, centers)
@@ -354,7 +347,7 @@ def _l_and_sliver() -> tuple[HydroMesh, np.ndarray]:
     return mesh, centers
 
 
-def test_a_sliver_triangle_and_a_concave_cell_are_counted_and_warned() -> None:
+def test_sliver_and_concave_warnings() -> None:
     qa = _qa(*_l_and_sliver())
 
     sharp = np.degrees(np.arctan2(0.5, 2.0))
@@ -368,8 +361,8 @@ def test_a_sliver_triangle_and_a_concave_cell_are_counted_and_warned() -> None:
     assert warnings[1] == "1 of 2 cells are concave (largest corner 270.0 degrees)."
 
 
-def test_a_sharp_dart_is_concave_but_not_a_sharp_triangle() -> None:
-    """A corner under 20 degrees counts only on a triangle."""
+def test_dart_is_concave_not_sliver() -> None:
+    # A corner under 20 degrees counts only on a triangle.
     dart = np.array([[0.0, 0.0], [4.0, 0.5], [0.0, 1.0], [1.0, 0.5]]) * 10.0 + [X0, Y0]
     mesh = HydroMesh(vertices=dart, cell_blocks=(CellBlock(CellType.POLYGON, (np.arange(4),)),))
     smallest, largest = cell_angle_range(np.arange(4)[None, :], dart)
@@ -383,7 +376,7 @@ def test_a_sharp_dart_is_concave_but_not_a_sharp_triangle() -> None:
     assert largest[0] > 180.0
 
 
-def test_the_angle_range_and_the_edge_maximum_are_nan_where_nothing_is_measured() -> None:
+def test_unmeasured_is_nan() -> None:
     square = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
     smallest, largest = cell_angle_range(np.array([[0, 1, 2, 3], [0, 0, 0, -1]]), square)
     mesh, _ = _grid()
@@ -394,7 +387,7 @@ def test_the_angle_range_and_the_edge_maximum_are_nan_where_nothing_is_measured(
     assert np.isnan(cell_edge_max(geometry, np.full(geometry.edge_cells.shape[0], np.nan))).all()
 
 
-def test_an_orthogonal_mesh_is_not_warned_for_its_bisection_offset() -> None:
+def test_orthogonal_mesh_no_warning() -> None:
     # Every center moved by the same vector keeps each connection normal to its
     # face, while the vertical faces are crossed 0.3 of their length off middle.
     mesh, centers = _grid()
@@ -430,22 +423,22 @@ def _angles_from(centres: list[list[float]]) -> np.ndarray:
     )
 
 
-def test_a_polygon_mesh_is_measured_from_the_seed_centres_it_is_given() -> None:
-    # The seeds (0.3, 0.5) and (1.5, 0.5) lie on a horizontal line across the
-    # vertical shared face: the connection is perpendicular to it.
-    angles = _angles_from([[0.3, 0.5], [1.5, 0.5]])
+# Seeds on a horizontal line across the vertical shared face, then a link tilted by 45 degrees.
+LINKS = [
+    pytest.param([[0.3, 0.5], [1.5, 0.5]], 0.0, id="perpendicular to the face"),
+    pytest.param([[0.5, 0.0], [1.5, 1.0]], 45.0, id="tilted by 45 degrees"),
+]
+
+
+@pytest.mark.parametrize(("centres", "expected_deg"), LINKS)
+def test_link_nonorthogonality(centres, expected_deg) -> None:
+    angles = _angles_from(centres)
 
     assert angles.shape == (1,)
-    assert angles[0] < 1e-6
+    np.testing.assert_allclose(angles, [expected_deg], atol=1e-6)
 
 
-def test_a_link_tilted_by_45_degrees_is_45_degrees_off() -> None:
-    angles = _angles_from([[0.5, 0.0], [1.5, 1.0]])
-
-    np.testing.assert_allclose(angles, [45.0])
-
-
-def test_a_mesh_without_a_cell_has_a_summary_of_zeros() -> None:
+def test_empty_mesh_summary() -> None:
     empty = HydroMesh(
         vertices=PENTAGON_AND_QUAD,
         cell_blocks=(CellBlock(cell_type=CellType.POLYGON, connectivity=()),),
@@ -455,7 +448,7 @@ def test_a_mesh_without_a_cell_has_a_summary_of_zeros() -> None:
     assert set(nonorthogonality_summary(empty).values()) == {0.0}
 
 
-def test_an_edge_shared_by_three_cells_is_a_topology_error() -> None:
+def test_three_cells_on_an_edge() -> None:
     vertices = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [0.5, -1.0], [2.0, 0.5]])
     fan = HydroMesh(
         vertices=vertices,

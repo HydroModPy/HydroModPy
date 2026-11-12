@@ -17,7 +17,7 @@ def _setup(tmp_path: Path) -> SimpleNamespace:
     return SimpleNamespace(dem_path=str(dem), crs_project="EPSG:2154")
 
 
-def test_a_lake_file_is_read_as_given_or_beside_the_declared_dem(tmp_path: Path) -> None:
+def test_lake_file_location(tmp_path: Path) -> None:
     setup = _setup(tmp_path)
     lakes = write_features(
         tmp_path / "data" / "lake_geometry" / "lakes.gpkg",
@@ -35,8 +35,6 @@ def test_a_lake_file_is_read_as_given_or_beside_the_declared_dem(tmp_path: Path)
     ("declared", "error", "reason"),
     [(None, ValueError, "lake_geometry_path is unset"), ("gone.gpkg", FileNotFoundError, "gone")],
 )
-def test_a_lake_file_that_is_not_declared_or_not_found_is_refused(
-    tmp_path, declared, error, reason
-) -> None:
+def test_refusals(tmp_path, declared, error, reason) -> None:
     with pytest.raises(error, match=reason):
         lakes_from_config(SimpleNamespace(lake_geometry_path=declared), _setup(tmp_path))

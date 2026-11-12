@@ -1,4 +1,8 @@
-"""The data overview launcher."""
+"""The data overview: the launcher of a run that only loads data, and the inventory it writes.
+
+The inventory has one row per family, per station and per well. Recharge is a mean in
+mm/year, pumping in m3/s. The launcher resolves the DEM, the network map and the crossings file.
+"""
 
 import hashlib
 from datetime import UTC, datetime
@@ -48,7 +52,7 @@ def _data_config(**sections) -> DataConfig:
     return DataConfig(types=list(sections), **sections)
 
 
-def test_inject_overview_dates_only_fills_sections_without_a_window(tmp_path) -> None:
+def test_dates_fill_sections_without_a_window(tmp_path) -> None:
     data = _data_config(
         recharge=RechargeConfig(
             sources=[
@@ -77,8 +81,7 @@ def test_inject_overview_dates_only_fills_sections_without_a_window(tmp_path) ->
     assert state.cfg.data.runoff.date_end == "2019-12-31"
 
 
-def test_inject_overview_dates_rejects_a_reversed_overview_window() -> None:
-    """The pair goes through the parent, which revalidates the section."""
+def test_reversed_window_is_refused() -> None:
     data = _data_config(recharge=RechargeConfig(sources=[RechargeSourceConfig(source="sim2")]))
     state = _overview_state(data, ("2020-12-31", "2020-01-01"))
 
@@ -89,7 +92,7 @@ def test_inject_overview_dates_rejects_a_reversed_overview_window() -> None:
     assert state.cfg.data.recharge.date_end is None
 
 
-def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, tmp_path) -> None:
+def test_load_data_attaches_the_network(monkeypatch, tmp_path) -> None:
     captured: dict[str, object] = {}
 
     class FakeLoader:
@@ -160,8 +163,7 @@ def test_load_data_builds_proxy_and_attaches_hydrographic_network(monkeypatch, t
     assert state.geographic_features == "features-with-network"
 
 
-def test_resolving_the_inputs_raises_when_no_path_or_data_source_gives_a_dem(tmp_path) -> None:
-    """The one rule the overview adds to the run setup: a DEM is required, and it says how."""
+def test_a_dem_is_required(tmp_path) -> None:
     state = SimpleNamespace(
         cfg=SimpleNamespace(
             geographic=SimpleNamespace(),
@@ -201,44 +203,30 @@ def _launcher(tmp_path):
     return launcher
 
 
-def test_resolve_network_map_returns_the_path_of_the_data_family(monkeypatch, tmp_path) -> None:
-    network = tmp_path / "network.gpkg"
+NETWORK = Path("network.gpkg")
+
+NETWORK_MAPS = [
+    pytest.param([SimpleNamespace(source="file")], NETWORK, id="source gives a vector"),
+    pytest.param([SimpleNamespace(source="file")], None, id="source holds no vector"),
+    # Same rule as the run pipeline: no source declared, no network map.
+    pytest.param([], None, id="no source declared"),
+]
+
+
+@pytest.mark.parametrize(("sources", "network_map"), NETWORK_MAPS)
+def test_network_map_of_the_data_family(monkeypatch, tmp_path, sources, network_map):
     monkeypatch.setattr(
-        hydrography_resolver,
-        "resolve_network_map_path",
-        lambda *args, **kwargs: network,
+        hydrography_resolver, "resolve_network_map_path", lambda *args, **kwargs: network_map
     )
-    state = _map_state(monkeypatch, tmp_path, sources=[SimpleNamespace(source="file")])
+    state = _map_state(monkeypatch, tmp_path, sources=sources)
 
     assert _launcher(tmp_path)._resolve_geographic_inputs(state) == (
-        network,
+        network_map,
         tmp_path / "dem.tif",
     )
 
 
-def test_resolve_network_map_defers_when_no_hydrography_source_is_declared(
-    monkeypatch, tmp_path
-) -> None:
-    """Same rule as the run pipeline: no source, alpha does not run."""
-    state = _map_state(monkeypatch, tmp_path, sources=[])
-
-    assert _launcher(tmp_path)._resolve_geographic_inputs(state)[0] is None
-
-
-def test_resolve_network_map_does_not_raise_when_the_data_family_holds_no_vector(
-    monkeypatch, tmp_path
-) -> None:
-    monkeypatch.setattr(
-        hydrography_resolver,
-        "resolve_network_map_path",
-        lambda *args, **kwargs: None,
-    )
-    state = _map_state(monkeypatch, tmp_path, sources=[SimpleNamespace(source="file")])
-
-    assert _launcher(tmp_path)._resolve_geographic_inputs(state)[0] is None
-
-
-def test_the_geographic_step_receives_the_map_path(monkeypatch, tmp_path) -> None:
+def test_geographic_step_gets_the_map_path(monkeypatch, tmp_path) -> None:
     seen: dict[str, object] = {}
 
     class _Delineation:
@@ -264,11 +252,9 @@ def test_the_geographic_step_receives_the_map_path(monkeypatch, tmp_path) -> Non
     assert seen["dem_path"] == tmp_path / "dem.tif"
 
 
-# --- test_setup_steps ---
 # [geographic.crossings] reads the file of [[data.crossings.sources]] when it has no path.
-#
-# The run setup and the data overview resolve it with the same rule: when the
-# notch or the bed regularization is on, and never over a declared path.
+# The run setup and the overview resolve it with the same rule: when the notch or the
+# bed regularization is on, and never over a declared path.
 
 _RESOLVER = "hydromodpy.data.variables.crossings.resolver.resolve_crossings_path_from_data_sources"
 
@@ -291,7 +277,6 @@ def _cfg(geographic: GeographicConfig, sources: list | None) -> SimpleNamespace:
 
 
 def _resolve(entry: str, cfg: SimpleNamespace, tmp_path: Path) -> None:
-    """Resolve the path as the run setup or as the data overview does."""
     if entry == "run":
         fill_crossings_path(cfg, config_path=tmp_path / "project.toml", data_path=None)
         return
@@ -306,7 +291,7 @@ def _resolve(entry: str, cfg: SimpleNamespace, tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("entry", ["run", "overview"])
 @pytest.mark.parametrize("section", ["crossings", "bed"])
-def test_the_path_is_filled_from_the_declared_sources(entry, section, monkeypatch, tmp_path):
+def test_crossings_path_from_sources(entry, section, monkeypatch, tmp_path):
     merged = tmp_path / "crossings_ground_roe_12345678.gpkg"
     calls: list[Path] = []
 
@@ -323,9 +308,7 @@ def test_the_path_is_filled_from_the_declared_sources(entry, section, monkeypatc
 
 
 @pytest.mark.parametrize("entry", ["run", "overview"])
-def test_a_declared_path_wins_and_a_notch_that_is_off_or_a_bed_without_source_resolves_nothing(
-    entry, monkeypatch, tmp_path
-) -> None:
+def test_crossings_path_left_alone(entry, monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(_RESOLVER, lambda *a, **k: pytest.fail("resolved a path"))
     own = _cfg(_geographic(path=tmp_path / "mine.gpkg"), _ROE)
     others = [_cfg(_geographic("off"), _ROE)] + [_cfg(_geographic("bed"), s) for s in (None, [])]
@@ -339,12 +322,9 @@ def test_a_declared_path_wins_and_a_notch_that_is_off_or_a_bed_without_source_re
     ("entry", "sources", "error"),
     [("run", None, ConfigError), ("run", [], ConfigError), ("overview", None, ConfigError)],
 )
-def test_a_notch_with_no_path_and_no_source_is_refused(entry, sources, error, tmp_path) -> None:
+def test_crossings_refusals(entry, sources, error, tmp_path) -> None:
     with pytest.raises(error, match=r"crossings"):
         _resolve(entry, _cfg(_geographic(), sources), tmp_path)
-
-
-# What the overview counts: data_inventory rows and the inputs of the seal.
 
 
 def _points(station: str, start: str, end: str, *, variable="discharge", source="hubeau"):
@@ -393,7 +373,7 @@ def _by(rows: list[dict], kind: str) -> list[dict]:
     return [row for row in rows if row["row_kind"] == kind]
 
 
-def test_a_station_seen_in_several_records_is_one_row_with_the_union_period() -> None:
+def test_station_rows_merge_records() -> None:
     wq = SimpleNamespace(
         points=[
             _points("WQ1", "2020-02-01", "2020-02-10", variable="nitrate"),
@@ -418,7 +398,7 @@ def test_a_station_seen_in_several_records_is_one_row_with_the_union_period() ->
         pytest.param("mm/year", [200.0, 300.0], 250.0, "mm/year", id="kept-in-its-unit"),
     ],
 )
-def test_the_recharge_family_row_carries_its_mean(unit, values, expected, expected_unit) -> None:
+def test_recharge_family_mean(unit, values, expected, expected_unit) -> None:
     loaded = {"recharge": SimpleNamespace(points=[_recharge(unit, values)], fields=[])}
     rows = overview_module.inventory_rows(_state(loaded, types=["recharge"]))
 
@@ -428,13 +408,13 @@ def test_the_recharge_family_row_carries_its_mean(unit, values, expected, expect
     assert _by(rows, "station") == []
 
 
-def test_a_requested_family_that_did_not_load_has_zero_records() -> None:
+def test_unloaded_family_has_no_records() -> None:
     rows = overview_module.inventory_rows(_state({}, types=["hydrometry"]))
 
     assert [(r["family"], r["records"]) for r in rows] == [("hydrometry", 0)]
 
 
-def test_wells_give_a_pumping_family_row_and_one_row_per_well() -> None:
+def test_well_rows() -> None:
     wells = {
         "a": SimpleNamespace(
             location=SimpleNamespace(x=1.0, y=2.0), flux=[-0.1, -0.3], units="m3/s"
@@ -451,7 +431,7 @@ def test_wells_give_a_pumping_family_row_and_one_row_per_well() -> None:
     assert (well_b["x"], well_b["mean_value"]) == (None, None)
 
 
-def test_the_rows_fit_the_schema_and_keep_the_key_unique() -> None:
+def test_rows_fit_the_schema() -> None:
     wq = SimpleNamespace(points=[_points("H1", "2020-01-01", "2020-01-02")])
     wells = {"a": SimpleNamespace(location=None, flux=-1.0, units="m3/s")}
     rows = overview_module.inventory_rows(
@@ -467,7 +447,7 @@ def test_the_rows_fit_the_schema_and_keep_the_key_unique() -> None:
     assert set(DATA_INVENTORY_SCHEMA.names) == {"sim_id", *rows[0]}
 
 
-def test_loaded_inputs_list_each_file_with_its_provider_and_digest(tmp_path) -> None:
+def test_loaded_inputs(tmp_path) -> None:
     source = tmp_path / "data" / "h1.csv"
     source.parent.mkdir()
     source.write_text("a,b\n", encoding="utf-8")
@@ -489,10 +469,16 @@ def test_loaded_inputs_list_each_file_with_its_provider_and_digest(tmp_path) -> 
     assert entry.bytes == source.stat().st_size
 
 
-def test_a_record_with_no_file_is_no_input(tmp_path) -> None:
+def test_record_without_file_is_no_input(tmp_path) -> None:
     record = _points("H1", "2020-01-01", "2020-01-02")
     state = _state({"hydrometry": SimpleNamespace(points=[record], fields=[])}, types=[])
     state.workspace = SimpleNamespace(root=tmp_path)
 
     with mock.patch.object(overview_module, "record_source_path", return_value=None):
         assert overview_module.loaded_inputs(state, tmp_path) == []
+
+
+@pytest.mark.parametrize("sources", [[], [SimpleNamespace(source="file")]])
+def test_no_network_map_without_source_or_config_path(sources) -> None:
+    cfg = SimpleNamespace(data=SimpleNamespace(hydrography=SimpleNamespace(sources=sources)))
+    assert hydrography_resolver.resolve_network_map_path(cfg, config_path=None) is None

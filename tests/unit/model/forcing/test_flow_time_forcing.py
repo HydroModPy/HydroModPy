@@ -1,4 +1,6 @@
-"""Unit tests for time-dependent flow forcing aggregation."""
+"""Period values of a forcing (csv, piecewise, seasonal) on the stress periods of a window.
+
+Values are in the unit of the forcing. Four monthly periods run from January to April 2000."""
 
 from __future__ import annotations
 
@@ -26,14 +28,14 @@ def _daily_window() -> ResolvedSimulationTimeWindow:
     )
 
 
-def _monthly_window() -> ResolvedSimulationTimeWindow:
+def _monthly_window(coverage_policy: str = "ignore") -> ResolvedSimulationTimeWindow:
     # Four monthly stress periods: Jan, Feb, Mar, Apr of 2000.
     return ResolvedSimulationTimeWindow(
         start=pd.Timestamp("2000-01-01"),
         end=pd.Timestamp("2000-04-30"),
         step_value=1,
         step_unit="month",
-        coverage_policy="ignore",
+        coverage_policy=coverage_policy,
     )
 
 
@@ -127,17 +129,6 @@ def test_piecewise_forcing_rejects_uncovered_period() -> None:
         )
 
 
-def _strict_monthly_window() -> ResolvedSimulationTimeWindow:
-    # Four monthly stress periods under the default coverage_policy "error".
-    return ResolvedSimulationTimeWindow(
-        start=pd.Timestamp("2000-01-01"),
-        end=pd.Timestamp("2000-04-30"),
-        step_value=1,
-        step_unit="month",
-        coverage_policy="error",
-    )
-
-
 def _csv_segment(path, start: str, end: str | None, aggregate: str = "mean") -> dict:
     segment = {
         "start": start,
@@ -165,7 +156,7 @@ def test_piecewise_csv_segment_is_checked_only_on_its_own_periods(tmp_path, aggr
 
     values = resolve_period_values_from_forcing(
         forcing=forcing,
-        simulation_window=_strict_monthly_window(),
+        simulation_window=_monthly_window("error"),
         nper=4,
         label="flow.sinks_sources.wells.w0.rate",
     )
@@ -189,52 +180,31 @@ def test_piecewise_csv_segment_still_refuses_a_gap_inside_its_own_periods(tmp_pa
     with pytest.raises(ValueError, match=r"stress period\(s\) 1 \[2000-02-01"):
         resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=_strict_monthly_window(),
+            simulation_window=_monthly_window("error"),
             nper=4,
             label="flow.sinks_sources.wells.w0.rate",
         )
 
 
-def test_seasonal_forcing_by_month_maps_winter_and_summer() -> None:
-    forcing = SeasonalForcing(
-        by_month={
-            1: 5.0,
-            2: 5.0,
-            3: 8.0,
-            4: 8.0,
-            5: 8.0,
-            6: 8.0,
-            7: 8.0,
-            8: 8.0,
-            9: 8.0,
-            10: 8.0,
-            11: 8.0,
-            12: 5.0,
-        },
-    )
+WINTER_SPRING = [
+    pytest.param(
+        SeasonalForcing(by_month={m: 5.0 if m in (12, 1, 2) else 8.0 for m in range(1, 13)}),
+        [5.0, 5.0, 8.0, 8.0],
+        id="by month",
+    ),
+    pytest.param(
+        SeasonalForcing(by_season={"DJF": 1.0, "MAM": 2.0, "JJA": 3.0, "SON": 4.0}),
+        [1.0, 1.0, 2.0, 2.0],
+        id="by season",
+    ),
+]
 
+
+@pytest.mark.parametrize(("forcing", "expected"), WINTER_SPRING)
+def test_seasonal_forcing(forcing, expected):
+    # Jan and Feb are winter, Mar and Apr spring.
     values = resolve_period_values_from_forcing(
-        forcing=forcing,
-        simulation_window=_monthly_window(),
-        nper=4,
-        label="well forcing",
+        forcing=forcing, simulation_window=_monthly_window(), nper=4, label="well forcing"
     )
 
-    # Jan/Feb take the winter value, Mar/Apr the spring value.
-    assert values == [5.0, 5.0, 8.0, 8.0]
-
-
-def test_seasonal_forcing_by_season_maps_each_period_start() -> None:
-    forcing = SeasonalForcing(
-        by_season={"DJF": 1.0, "MAM": 2.0, "JJA": 3.0, "SON": 4.0},
-    )
-
-    values = resolve_period_values_from_forcing(
-        forcing=forcing,
-        simulation_window=_monthly_window(),
-        nper=4,
-        label="well forcing",
-    )
-
-    # Jan/Feb -> DJF, Mar/Apr -> MAM.
-    assert values == [1.0, 1.0, 2.0, 2.0]
+    assert values == expected

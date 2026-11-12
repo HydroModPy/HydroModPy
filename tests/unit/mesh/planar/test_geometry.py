@@ -51,6 +51,9 @@ def _voronoi() -> HydroMesh:
     return voronoi_planar_mesh(seeds, domain)
 
 
+TRIANGLE_VERTICES = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
+
+
 def _shifted(mesh: HydroMesh, dx: float, dy: float) -> HydroMesh:
     return HydroMesh(
         vertices=mesh.vertices + np.array([dx, dy]),
@@ -93,7 +96,7 @@ MESHES = {"quads": _quads, "triangles": _triangles, "voronoi": _voronoi}
 
 
 @pytest.mark.parametrize("kind", sorted(MESHES))
-def test_adjacency_and_areas_match_the_reference_builders(kind: str) -> None:
+def test_adjacency_and_areas(kind: str) -> None:
     mesh = MESHES[kind]()
     geometry = derive_geometry(mesh)
 
@@ -102,7 +105,7 @@ def test_adjacency_and_areas_match_the_reference_builders(kind: str) -> None:
 
 
 @pytest.mark.parametrize("kind", sorted(MESHES))
-def test_area_centroids_match_shapely(kind: str) -> None:
+def test_area_centroids(kind: str) -> None:
     mesh = MESHES[kind]()
     geometry = derive_geometry(mesh)
     polygons = _polygons(mesh)
@@ -116,7 +119,7 @@ def test_area_centroids_match_shapely(kind: str) -> None:
 
 
 @pytest.mark.parametrize("kind", sorted(MESHES))
-def test_lambert93_coordinates_keep_areas_and_centroids_exact(kind: str) -> None:
+def test_lambert93_shift_keeps_geometry(kind: str) -> None:
     local = derive_geometry(MESHES[kind]())
     lambert = derive_geometry(_shifted(MESHES[kind](), X0, Y0))
 
@@ -125,14 +128,14 @@ def test_lambert93_coordinates_keep_areas_and_centroids_exact(kind: str) -> None
     np.testing.assert_allclose(lambert.area_centroids - [X0, Y0], local.area_centroids, atol=1e-7)
 
 
-def test_regular_grid_in_lambert93_has_exact_cell_areas() -> None:
+def test_lambert93_grid_areas() -> None:
     geometry = derive_geometry(regular_mesh(30, 40, dx=25.0, xmin=X0, ymin=Y0).mesh)
 
     np.testing.assert_allclose(geometry.areas, 625.0, rtol=1e-12, atol=0.0)
 
 
 @pytest.mark.parametrize("kind", sorted(MESHES))
-def test_edge_table_marks_the_boundary_with_minus_one(kind: str) -> None:
+def test_edge_table_boundary(kind: str) -> None:
     mesh = MESHES[kind]()
     geometry = derive_geometry(mesh)
     boundary = geometry.edge_cells[:, 1] < 0
@@ -146,7 +149,7 @@ def test_edge_table_marks_the_boundary_with_minus_one(kind: str) -> None:
     assert perimeter == pytest.approx(outline.length, rel=1e-12)
 
 
-def test_quads_have_their_known_edge_table() -> None:
+def test_quads_edge_table() -> None:
     geometry = derive_geometry(_quads())
 
     assert geometry.edge_nodes.shape == (4 * 6 + 5 * 5, 2)
@@ -156,7 +159,7 @@ def test_quads_have_their_known_edge_table() -> None:
     assert geometry.neighbours(6).tolist() == [1, 5, 7, 11]
 
 
-def test_a_repeated_corner_is_no_face() -> None:
+def test_repeated_corner_is_no_face() -> None:
     vertices = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [2.0, 0.0], [2.0, 1.0]])
     cells = (np.array([0, 1, 1, 2, 3]), np.array([1, 4, 5, 2]))
     mesh = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),))
@@ -168,20 +171,9 @@ def test_a_repeated_corner_is_no_face() -> None:
     np.testing.assert_allclose(geometry.areas, [1.0, 1.0])
 
 
-def test_a_cell_whose_outline_runs_back_along_one_edge_raises() -> None:
-    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
+def test_empty_polygon_block() -> None:
     mesh = HydroMesh(
-        vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, (np.array([0, 1, 2, 1]),)),)
-    )
-
-    with pytest.raises(ValueError, match="cell 0 uses one edge twice"):
-        derive_geometry(mesh)
-
-
-def test_an_empty_polygon_block_adds_no_cell() -> None:
-    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
-    mesh = HydroMesh(
-        vertices=vertices,
+        vertices=TRIANGLE_VERTICES,
         cell_blocks=(CellBlock(CellType.POLYGON, ()), CellBlock(CellType.TRIANGLE, [[0, 1, 2]])),
     )
 
@@ -191,25 +183,7 @@ def test_an_empty_polygon_block_adds_no_cell() -> None:
     np.testing.assert_allclose(geometry.areas, [0.5])
 
 
-def test_a_volume_cell_on_planar_vertices_raises() -> None:
-    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9]])
-    mesh = HydroMesh(
-        vertices=vertices, cell_blocks=(CellBlock(CellType.WEDGE, [[0, 1, 2, 3, 4, 5]]),)
-    )
-
-    with pytest.raises(ValueError, match="not a planar cell type: \\['wedge'\\]"):
-        derive_geometry(mesh)
-
-
-def test_a_mesh_with_3d_vertices_raises() -> None:
-    vertices = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-    mesh = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.TRIANGLE, [[0, 1, 2]]),))
-
-    with pytest.raises(ValueError, match="2-column"):
-        derive_geometry(mesh)
-
-
-def test_padded_rows_pack_a_ragged_list_and_keep_a_dense_table_in_place() -> None:
+def test_padded_rows() -> None:
     ragged = [np.array([0, 1, 2]), np.array([3.0, np.nan, 4.0, 9.0, 5.0])]
     dense = np.array([[0, -1, 2], [3, 7, 1]])
 
@@ -218,11 +192,9 @@ def test_padded_rows_pack_a_ragged_list_and_keep_a_dense_table_in_place() -> Non
     assert padded_rows([], n_nodes=6).shape == (0, 0)
 
 
-@pytest.mark.parametrize(
-    "build", [_quads, _triangles, _voronoi], ids=["quads", "triangles", "voronoi"]
-)
-def test_the_cell_areas_are_the_areas_of_the_derived_geometry(build) -> None:
-    mesh = _shifted(build(), X0, Y0)
+@pytest.mark.parametrize("kind", sorted(MESHES))
+def test_cell_areas_match_geometry(kind: str) -> None:
+    mesh = _shifted(MESHES[kind](), X0, Y0)
     geometry = derive_geometry(mesh)
 
     np.testing.assert_array_equal(
@@ -235,14 +207,14 @@ def test_the_cell_areas_are_the_areas_of_the_derived_geometry(build) -> None:
     )
 
 
-def test_a_table_without_a_slot_has_cells_of_no_area() -> None:
+def test_table_without_slot_has_zero_area() -> None:
     vertices = np.array([[0.0, 0.0], [1.0, 0.0]])
 
     assert cell_areas(vertices, np.empty((3, 0), dtype=int)).tolist() == [0.0, 0.0, 0.0]
     assert cell_areas(vertices, np.empty((0, 4), dtype=int)).size == 0
 
 
-def test_a_geometry_without_an_edge_finds_none() -> None:
+def test_geometry_without_edge() -> None:
     # One cell whose three corners are one vertex has no side long enough to be an edge.
     geometry = derive_geometry_from_rows(np.array([[0.0, 0.0], [1.0, 0.0]]), np.array([[0, 0, 0]]))
 
@@ -251,7 +223,7 @@ def test_a_geometry_without_an_edge_finds_none() -> None:
     np.testing.assert_array_equal(geometry.edge_between([0], [0]), [-1])
 
 
-def test_the_rings_of_polygons_come_exterior_first_part_after_part() -> None:
+def test_polygon_ring_order() -> None:
     holed = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)], [[(2, 2), (4, 2), (4, 4), (2, 4)]])
     other = box(20.0, 0.0, 30.0, 10.0)
 
@@ -265,6 +237,42 @@ def test_the_rings_of_polygons_come_exterior_first_part_after_part() -> None:
     assert {ring.geom_type for ring in rings} == {"LineString"}
 
 
-def test_a_point_too_far_for_the_vertex_keys_is_refused() -> None:
+WEDGE_VERTICES = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9]])
+
+REFUSALS = [
+    pytest.param(
+        HydroMesh(
+            vertices=TRIANGLE_VERTICES,
+            cell_blocks=(CellBlock(CellType.POLYGON, (np.array([0, 1, 2, 1]),)),),
+        ),
+        "cell 0 uses one edge twice",
+        id="outline runs back along an edge",
+    ),
+    pytest.param(
+        HydroMesh(
+            vertices=WEDGE_VERTICES,
+            cell_blocks=(CellBlock(CellType.WEDGE, [[0, 1, 2, 3, 4, 5]]),),
+        ),
+        r"not a planar cell type: \['wedge'\]",
+        id="volume cell",
+    ),
+    pytest.param(
+        HydroMesh(
+            vertices=np.zeros((3, 3)),
+            cell_blocks=(CellBlock(CellType.TRIANGLE, [[0, 1, 2]]),),
+        ),
+        "2-column",
+        id="3d vertices",
+    ),
+]
+
+
+@pytest.mark.parametrize(("mesh", "reason"), REFUSALS)
+def test_refusals(mesh, reason) -> None:
+    with pytest.raises(ValueError, match=reason):
+        derive_geometry(mesh)
+
+
+def test_far_point_refused() -> None:
     with pytest.raises(MeshGenerationError, match="2\\^31 mm"):
         vertex_keys(np.array([[2.2e6, 0.0]]))
