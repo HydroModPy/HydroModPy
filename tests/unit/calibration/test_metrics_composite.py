@@ -26,6 +26,7 @@ from hydromodpy.calibration.metrics.composite import (
     _area_id,
     _cell_id,
     _discharge_by_station,
+    _head_by_station,
     build_metric_extractor,
     build_paired_vector_capture,
 )
@@ -677,6 +678,14 @@ def test_silent_solver_names_catchment():
         NotImplementedError, match="returned no discharge observable for 'catchment'"
     ):
         _by_station(_Silent(), {}, "UP")
+
+
+def test_heads_without_station_cells_refused():
+    # The context loads no piezometry, so no piezometer sits on a cell.
+    ctx = _station_ctx({})
+
+    with pytest.raises(NotImplementedError, match="No station-to-cell mapping"):
+        _head_by_station(FakeAdapter({}), _RUN_CTX, ctx, _observed("PZ1"), time_index=_INDEX)
 
 
 def test_empty_catchment_refused():

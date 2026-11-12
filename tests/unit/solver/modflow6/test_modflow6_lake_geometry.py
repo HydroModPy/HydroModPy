@@ -7,12 +7,21 @@ lake cell to a cell across the wall, and a wall that misses one of them leaks.
 
 from __future__ import annotations
 
-import numpy as np
-import shapely
-from shapely.geometry import LineString, Point, Polygon, box
+from types import SimpleNamespace
 
+import numpy as np
+import pytest
+import shapely
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
+
+from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders._lake_geometry import (
+    _abacus_stage_sarea,
+    _abacus_volume,
+    _drop_cutoff_wall_downstream_cells,
     _drop_interior_rings,
+    _first_active_layer_below,
+    _point_to_segment_distance,
     cutoff_wall_faces,
     downstream_of_wall,
     interior_cells,
@@ -21,6 +30,7 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import (
     wall_leaks,
 )
 from tests._helpers.mesh_cases import L93_ORIGIN, regular_mesh, voronoi_lake_mesh
+from tests._helpers.model_factory import make_model
 
 X0, Y0 = L93_ORIGIN
 
@@ -115,3 +125,98 @@ def test_drop_interior_rings() -> None:
     assert len(filled.interiors) == 0
     assert filled.covers(Point(1.5, 1.5))
     assert _drop_interior_rings(solid) is solid
+
+
+def test_drop_interior_rings_of_a_multipolygon() -> None:
+    ring = [(0.0, 0.0), (3.0, 0.0), (3.0, 3.0), (0.0, 3.0)]
+    hole = [(1.0, 1.0), (2.0, 1.0), (2.0, 2.0), (1.0, 2.0)]
+    far = [(10.0, 0.0), (13.0, 0.0), (13.0, 3.0), (10.0, 3.0)]
+    two_islands = MultiPolygon([Polygon(ring, holes=[hole]), Polygon(far, holes=[hole])])
+
+    filled = _drop_interior_rings(two_islands)
+
+    assert [len(part.interiors) for part in filled.geoms] == [0, 0]
+    assert filled.area == pytest.approx(18.0)  # 2 parts x 3 m x 3 m
+    point = Point(1.0, 1.0)
+    assert _drop_interior_rings(point) is point
+
+
+ABACUS_COLUMNS = {"stage": [1.0, 2.0], "volume": [0.0, 5.0], "sarea": [3.0, 4.0]}
+
+VOLUME_COLUMNS = [
+    pytest.param(None, None, id="no abacus"),
+    pytest.param({"stage": [1.0]}, None, id="mapping without volume"),
+    pytest.param(SimpleNamespace(volume=None), None, id="object without volume"),
+    pytest.param(ABACUS_COLUMNS, [0.0, 5.0], id="mapping"),
+    pytest.param(SimpleNamespace(volume=(0, 5)), [0.0, 5.0], id="object"),
+]
+
+
+@pytest.mark.parametrize(("abacus", "volume"), VOLUME_COLUMNS)
+def test_volume_column_of_an_abacus(abacus, volume) -> None:
+    assert _abacus_volume(abacus) == volume
+
+
+STAGE_SAREA_COLUMNS = [
+    pytest.param(None, (None, None), id="no abacus"),
+    pytest.param({"stage": [1.0, 2.0]}, (None, None), id="mapping without sarea"),
+    pytest.param(SimpleNamespace(stage=[1.0]), (None, None), id="object without sarea"),
+    pytest.param(ABACUS_COLUMNS, ([1.0, 2.0], [3.0, 4.0]), id="mapping"),
+    pytest.param(
+        SimpleNamespace(stage=(1, 2), sarea=(3, 4)), ([1.0, 2.0], [3.0, 4.0]), id="object"
+    ),
+]
+
+
+@pytest.mark.parametrize(("abacus", "columns"), STAGE_SAREA_COLUMNS)
+def test_stage_and_sarea_columns_of_an_abacus(abacus, columns) -> None:
+    assert _abacus_stage_sarea(abacus) == columns
+
+
+def test_distance_to_a_segment_reduced_to_a_point() -> None:
+    corner = np.array([0.0, 0.0])
+
+    # 3-4-5 triangle between the point and the degenerate segment
+    assert _point_to_segment_distance(np.array([3.0, 4.0]), corner, corner) == pytest.approx(5.0)
+
+
+def test_no_active_layer_below_the_lake_cap() -> None:
+    # Layer 0 is the cap, layers 1 and 2 are pass-through (-1) and inactive (0) in cell 1.
+    idomain = np.array([[1, 1], [1, -1], [1, 0]])
+
+    assert _first_active_layer_below(idomain, 0, occupied_layers=1, nlay=3) == 1
+    assert _first_active_layer_below(idomain, 1, occupied_layers=1, nlay=3) is None
+
+
+def lake_behind_a_wall(cells: list[int]):
+    """A 6 x 6 grid, a wall along x = 2 with the lake on its west, and a lake over ``cells``."""
+    model = SimpleNamespace(
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
+            lakes={"res": {"cutoff_wall_line": WALL}},
+        )
+    )
+    solver_mesh = SimpleNamespace(cell_mesh=regular_mesh(6, 6))
+    cells_by_lake = {"res": list(cells)}
+    areas = {"res": {cell: 1.0 for cell in cells}}
+    return model, cells_by_lake, areas, solver_mesh
+
+
+def test_lake_cells_behind_the_wall_are_dropped(caplog) -> None:
+    # Columns 0 to 3 of every row. Columns 2 and 3 are east of the wall, so downstream.
+    cells = [j * 6 + i for j in range(6) for i in range(4)]
+    model, cells_by_lake, areas, solver_mesh = lake_behind_a_wall(cells)
+
+    _drop_cutoff_wall_downstream_cells(model, cells_by_lake, areas, solver_mesh)
+
+    assert cells_by_lake["res"] == LAKE_CELLS.tolist()
+    assert sorted(areas["res"]) == LAKE_CELLS.tolist()
+    assert "dropped 12 LAK cell(s)" in caplog.text
+
+
+def test_a_lake_wholly_behind_the_wall_is_refused() -> None:
+    cells = [j * 6 + i for j in range(6) for i in (3, 4)]
+    model, cells_by_lake, areas, solver_mesh = lake_behind_a_wall(cells)
+
+    with pytest.raises(ValueError, match="check the trace orientation"):
+        _drop_cutoff_wall_downstream_cells(model, cells_by_lake, areas, solver_mesh)

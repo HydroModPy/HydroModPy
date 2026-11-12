@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -162,3 +163,20 @@ def test_a_steady_window_grid_has_one_period_over_the_record() -> None:
     assert list(edges) == list(STEADY)
     assert resolve_instant("2002-10-15", edges) == 0
     assert period_label(0, edges) == "2000-01-01 to 2002-12-31"
+
+
+MALFORMED_DATES = [
+    pytest.param("2000-13-45", id="digits that are no date"),
+    pytest.param(np.datetime64("NaT"), id="not a time"),
+]
+
+
+@pytest.mark.parametrize("value", MALFORMED_DATES)
+def test_a_malformed_date_is_refused(value: object) -> None:
+    with pytest.raises(TimeSelectionError, match="is not a date"):
+        resolve_instant(value, MONTHLY)
+
+
+def test_a_run_holds_at_least_one_period() -> None:
+    with pytest.raises(ValueError, match="at least one period, got 0"):
+        resolve_instant("first", None, n_periods=0)

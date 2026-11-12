@@ -281,3 +281,11 @@ def test_the_legacy_length_parser_is_gone():
     import hydromodpy.core.units as units_package
 
     assert not hasattr(units_package, "parse_length_to_m")
+
+
+def test_a_missing_value_is_not_a_number() -> None:
+    class Required(BaseModel):
+        length: LengthMeters
+
+    with pytest.raises(ValidationError, match="valid number"):
+        Required(length=None)

@@ -195,6 +195,14 @@ def test_sealed_metrics_window_reads_back() -> None:
     assert again == sealed["calibration"]["phases"]
 
 
+def test_sealed_stage_that_is_not_a_stage_is_refused() -> None:
+    sealed = copy.deepcopy(expand_calibration_protocol(_doc()))
+    sealed["calibration"]["phases"] = ["not a phase"]
+
+    with pytest.raises(ValueError, match=r"declares something else there"):
+        expand_calibration_protocol(sealed)
+
+
 @pytest.mark.parametrize(
     ("declaration", "message"),
     [

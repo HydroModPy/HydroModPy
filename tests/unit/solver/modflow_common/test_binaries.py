@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import os
 import re
+import sys
 import zipfile
 from pathlib import Path
 
@@ -204,3 +205,10 @@ def test_command_refusal_exit_code(
 
     assert stopped.value.code == exit_code_for(raised)
     assert str(raised) in capsys.readouterr().err
+
+
+def test_python_stack_of_a_missing_wrapper(monkeypatch) -> None:
+    # A None entry in sys.modules makes the import of that wrapper fail.
+    monkeypatch.setitem(sys.modules, "modflowapi", None)
+    stack = binaries.solver_python_stack()
+    assert stack.startswith("modflowapi (absent), xmipy")

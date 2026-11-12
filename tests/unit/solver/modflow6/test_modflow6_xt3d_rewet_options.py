@@ -50,6 +50,13 @@ def test_rewet_when_requested() -> None:
     np.testing.assert_allclose(wetdry, np.full((1, 6), 0.1))
 
 
+def test_rewet_needs_a_positive_wetdry_threshold() -> None:
+    model = with_runtime(toy_model(), mf6_enable_rewet=True, mf6_rewet_wetdry=0.0)
+
+    with pytest.raises(ValueError, match="mf6_rewet_wetdry must be > 0"):
+        resolve_rewet_npf_options(model, structured_solver_mesh())
+
+
 def test_xt3d_is_off_by_default_on_a_structured_mesh() -> None:
     model = toy_model()
     assert xt3d_requested_value(model) is None

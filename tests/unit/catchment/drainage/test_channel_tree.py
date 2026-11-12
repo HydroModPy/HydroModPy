@@ -344,3 +344,31 @@ def test_the_two_stages_give_the_pins_of_the_one_stage_on_seeded_random_cases() 
     assert counts["total"] >= 200
     assert counts["refused_by_both"] > 0, "no case closes a loop, so the refusal is not compared"
     assert counts["pins"] > 1000 and counts["channel_cells"] > 1000
+
+
+def test_a_positive_nodata_value_is_not_a_link(tmp_path: Path) -> None:
+    import rasterio
+
+    link = np.zeros(SHAPE, dtype=np.int32)
+    link[2, 1:4] = 1
+    link[0, 0] = 9999  # the nodata value of the raster
+    profile = dict(
+        driver="GTiff",
+        height=SHAPE[0],
+        width=SHAPE[1],
+        count=1,
+        transform=from_origin(0.0, 50.0, 10.0, 10.0),
+    )
+    with rasterio.open(tmp_path / "link.tif", "w", dtype="int32", nodata=9999, **profile) as dst:
+        dst.write(link, 1)
+    _write(tmp_path / "pointer.tif", np.ones(SHAPE, dtype=np.int32))
+    _write(tmp_path / "acc.tif", np.ones(SHAPE, dtype=np.float32))
+
+    tree = read_channel_tree(
+        link_tif=str(tmp_path / "link.tif"),
+        pointer_tif=str(tmp_path / "pointer.tif"),
+        accumulation_tif=str(tmp_path / "acc.tif"),
+        bounds=(0.0, 0.0, 50.0, 50.0),
+    )
+
+    assert sorted(map(tuple, np.argwhere(tree.link).tolist())) == [(2, 1), (2, 2), (2, 3)]

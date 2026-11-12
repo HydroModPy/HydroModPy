@@ -224,3 +224,10 @@ def test_layouts_under_data() -> None:
 def test_no_layout_without_files() -> None:
     for slug in ("file", "url", "constant", "synthetic"):
         assert SOURCES[slug].cache == ()
+
+
+def test_input_without_files_has_no_licence(tmp_path: Path) -> None:
+    (tmp_path / "empty").mkdir()
+
+    assert input_licence(tmp_path / "empty") == UNDETERMINED
+    assert input_licence(tmp_path / "absent") == UNDETERMINED

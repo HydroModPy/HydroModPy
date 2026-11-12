@@ -267,6 +267,40 @@ def gauge_run(monkeypatch):
     return run
 
 
+class BareAdapter:
+    """Answers each request with what *answer* makes of it, nothing when it returns None."""
+
+    def __init__(self, answer) -> None:
+        self.answer = answer
+
+    def observables(self, _run_ctx, requests, time_index=None):
+        return {r.id: self.answer(r) for r in requests if self.answer(r) is not None}
+
+
+def undated_discharge(request) -> ObservableResult:
+    return ObservableResult(request_id=request.id, values=BASEFLOW.copy(), units="m3 s-1")
+
+
+GAUGE_REFUSALS = [
+    pytest.param(lambda request: None, "returned no calibration values", id="no values served"),
+    pytest.param(undated_discharge, "on a time axis", id="discharge without dates"),
+]
+
+
+@pytest.mark.parametrize(("answer", "message"), GAUGE_REFUSALS)
+def test_gauge_extraction_refusals(monkeypatch, answer, message):
+    run_ctx = SimpleNamespace(solver_run=SimpleNamespace(solver_model=SimpleNamespace()))
+    monkeypatch.setattr(
+        solver_extract, "resolve_flow_adapter", lambda _ctx: (BareAdapter(answer), run_ctx)
+    )
+    monkeypatch.setattr(solver_extract, "cell_for_station", lambda *_a, **_k: GAUGE_CELL)
+    monkeypatch.setattr(solver_extract, "resolve_time_index", lambda *_a, **_k: TIMES)
+    declaration = {"variable": "discharge", "observes": "NANCON"}
+
+    with pytest.raises(NotImplementedError, match=message):
+        extract_outputs(SimpleNamespace(), {"gauge": CalibOutputPoint.model_validate(declaration)})
+
+
 def test_gauge_baseflow_gets_runoff(gauge_run):
     _adapter, seen, extracted = gauge_run(includes_runoff=False, observes="NANCON")
 
@@ -649,6 +683,24 @@ def test_snap_on_talweg_and_unplaced(valley_adapter, monkeypatch, caplog):
         observable_request_for_output(
             "gauge", discharge_point(snap_radius=120.0), SimpleNamespace()
         )
+
+
+def test_named_station_without_a_cell_refused():
+    output = CalibOutputPoint.model_validate({"variable": "head", "observes": "P1"})
+    ctx = SimpleNamespace(loaded_data=SimpleNamespace())
+
+    with pytest.raises(NotImplementedError, match="'P1', whose cell the project could not resolve"):
+        observable_request_for_output("piezometer", output, ctx)
+
+
+def test_snap_without_solver_refused(monkeypatch):
+    monkeypatch.setattr(solver_extract, "resolve_flow_adapter", lambda _ctx: None)
+    output = CalibOutputCell.model_validate(
+        {"variable": "discharge", "layer": 0, "row": 2, "col": 1, "snap_radius": 100.0}
+    )
+
+    with pytest.raises(NotImplementedError, match="no flow solver adapter is available"):
+        observable_request_for_output("gauge", output, SimpleNamespace())
 
 
 def test_station_without_position_snaps(valley_adapter):

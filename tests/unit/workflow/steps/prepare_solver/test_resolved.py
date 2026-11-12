@@ -211,6 +211,16 @@ def test_build_decisions_kept_apart(tmp_path: Path) -> None:
     ]
 
 
+def test_no_build_drift_without_sealed_run(tmp_path: Path) -> None:
+    cfg = _config(tmp_path)
+    sealed = _sealed(tmp_path / "runs" / "x", cfg, tmp_path, build={"mesh": {"pixel": 25.0}})
+    unsealed = tmp_path / "runs" / "none"
+    unsealed.mkdir(parents=True)
+
+    assert build_drift(sealed, unsealed) == ()
+    assert build_drift(unsealed, sealed) == ()
+
+
 def _without(run_dir: Path, section: str, key: str) -> None:
     """Remove one key from the sealed file, as a version that did not know it wrote it."""
     resolved = run_dir / RUN_RESOLVED_CONFIG_FILENAME

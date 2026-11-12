@@ -10,11 +10,11 @@ from __future__ import annotations
 import functools
 
 import numpy as np
-from shapely.geometry import box
+from shapely.geometry import LineString, box
 
 from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.mesh.request import InputTriangulation
+from hydromodpy.mesh.request import InputTriangulation, LineFamilySpec
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, mesh_request
 
 X0, Y0 = L93_ORIGIN
@@ -76,3 +76,22 @@ def test_squeezed_river_is_bridged() -> None:
 def test_contact_edge_without_triangle() -> None:
     names = squeezed_river().face_families.names
     assert all(name == "rivers" or name.startswith("boundary:") for name in names)
+
+
+def test_river_line_without_a_triangle_edge_gives_no_chain() -> None:
+    # The line runs inside one triangle, so it matches no triangle edge.
+    inside_a_triangle = LineString([(X0 + 2.0, Y0 + 14.0), (X0 + 6.0, Y0 + 16.0)])
+    request = mesh_request(
+        grid_over(DOMAIN, 1.0),
+        domain=DOMAIN,
+        nominal_size_m=10.0,
+        input_triangulation=InputTriangulation(
+            vertices=VERTICES, triangles=TRIANGLES, edge_labels={}
+        ),
+        lines=(LineFamilySpec("rivers", "cell", (inside_a_triangle,)),),
+    )
+
+    cell_mesh = VoronoiMeshEngine().build(request)
+
+    assert cell_mesh.chains("rivers") == ()
+    assert "rivers" not in cell_mesh.face_families.names

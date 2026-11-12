@@ -8,12 +8,18 @@ withdrawal of 86400 m3/day.
 from __future__ import annotations
 
 from dataclasses import replace
+from types import SimpleNamespace
 
+import flopy
 import numpy as np
 import pytest
 
 from hydromodpy.model.sinks_sources.wells import FlowWellConfig
-from hydromodpy.solver.modflow6.builders.wells import build_well_stress_period_data
+from hydromodpy.solver.modflow6.builders.wells import (
+    build_constant_heads_and_wells,
+    build_well_stress_period_data,
+    resolve_well_disv_cell,
+)
 from tests._helpers.mf6_toy_models import toy_model, two_triangle_model
 
 NPER = 2
@@ -204,3 +210,135 @@ def test_inactive_cell_of_the_second_layer_is_refused() -> None:
     with_wells(model, {"W1": daily_well({"kind": "cell", "cell": (1, 1, 1)})})
     with pytest.raises(ValueError, match=r"W1.*layer 1.*cell 4"):
         build_well_stress_period_data(model, 1)
+
+
+# Fluxes given per period. A list of one value holds for every period, and a year-long list that
+# meets a single steady period collapses to its mean.
+FLUX_VECTORS = [
+    pytest.param([-2.0], 3, [-2.0, -2.0, -2.0], id="one value for every period"),
+    pytest.param([-1.0, -3.0], 2, [-1.0, -3.0], id="one value per period"),
+    pytest.param([-1.0, -2.0, -3.0], 1, [-2.0], id="mean for a single period"),  # (1+2+3)/3
+]
+
+
+@pytest.mark.parametrize(("flux", "nper", "rates"), FLUX_VECTORS)
+def test_flux_per_period(flux, nper, rates) -> None:
+    model = with_wells(toy_model(), {"W1": flux_well({"kind": "cell", "cell": (0, 0, 1)}, flux)})
+    spd = build_well_stress_period_data(model, nper)
+    assert [spd[t] for t in range(nper)] == [[[0, 1, pytest.approx(r)]] for r in rates]
+
+
+def test_well_without_a_rate_is_skipped() -> None:
+    wells = {
+        "W1": {"location": {"kind": "cell", "cell": (0, 0, 0)}},
+        "W2": flux_well({"kind": "cell", "cell": (0, 1, 0)}),
+    }
+    spd = build_well_stress_period_data(with_wells(toy_model(), wells), 1)
+    assert spd == {0: [[0, 3, pytest.approx(-1.0)]]}
+
+
+def test_no_active_well_gives_no_rows() -> None:
+    model = with_wells(toy_model(), {"W1": flux_well({"kind": "cell", "cell": (0, 0, 0)})})
+    assert build_well_stress_period_data(model, 0) == {}
+    assert build_well_stress_period_data(with_wells(toy_model(), {}), NPER) == {}
+    model.inputs = replace(model.inputs, active_sinks_sources=())
+    assert build_well_stress_period_data(model, NPER) == {}
+
+
+def test_well_in_a_dry_column_is_refused() -> None:
+    model = toy_model()
+    model.solver_mesh = replace(model.solver_mesh, idomain=np.zeros((1, 6), dtype=int))
+    with_wells(model, {"W1": flux_well({"kind": "absolute_xy", "x": 0.5, "y": 0.5})})
+    with pytest.raises(ValueError, match=r"W1 lies in a column with no active cell \(cell 3\)"):
+        build_well_stress_period_data(model, 1)
+
+
+def test_nonfinite_forcing_is_refused() -> None:
+    well = daily_well({"kind": "cell", "cell": (0, 0, 0)}, value=float("nan"))
+    model = with_wells(toy_model(), {"W1": well})
+    with pytest.raises(ValueError, match="W1.flux must be finite"):
+        build_well_stress_period_data(model, 1)
+
+
+# Payloads that bypass the configuration, for a caller that builds the well by hand.
+HAND_WELLS = [
+    pytest.param(SimpleNamespace(location=None), "requires either cell=", id="no location"),
+    pytest.param(
+        SimpleNamespace(location=SimpleNamespace(kind="cell", cell=(0, 1))),
+        r"cell must contain \[lay, row, col\]",
+        id="address of two numbers",
+    ),
+    pytest.param(
+        SimpleNamespace(location=SimpleNamespace(kind="cell", cell=(0, 0, 3))),
+        "col is outside the grid",
+        id="column outside the grid",
+    ),
+]
+
+
+@pytest.mark.parametrize(("well", "message"), HAND_WELLS)
+def test_hand_built_well_refusals(well, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        resolve_well_disv_cell(toy_model(), well_id="W1", well_cfg=well)
+
+
+def test_well_without_a_solver_mesh_is_refused() -> None:
+    model = toy_model()
+    model.solver_mesh = None
+    with pytest.raises(ValueError, match="W1 is placed on the cells of the solver mesh"):
+        resolve_well_disv_cell(
+            model, well_id="W1", well_cfg=flux_well({"kind": "cell", "cell": (0, 0, 0)})
+        )
+
+
+def gwf_of(tmp_path):
+    sim = flopy.mf6.MFSimulation(sim_ws=str(tmp_path))
+    flopy.mf6.ModflowTdis(sim, nper=NPER, perioddata=[(1.0, 1, 1.0)] * NPER)
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="flow")
+    flopy.mf6.ModflowGwfdisv(
+        gwf,
+        nlay=1,
+        ncpl=1,
+        nvert=4,
+        top=10.0,
+        botm=[[1.0]],
+        vertices=[[0, 0.0, 0.0], [1, 1.0, 0.0], [2, 1.0, 1.0], [3, 0.0, 1.0]],
+        cell2d=[[0, 0.5, 0.5, 4, 0, 1, 2, 3]],
+    )
+    return gwf
+
+
+@pytest.mark.parametrize(("newton", "reduce"), [(False, None), (True, 0.1)])
+def test_wel_package(tmp_path, newton, reduce) -> None:
+    model = with_wells(toy_model(), {"W1": flux_well({"kind": "cell", "cell": (0, 0, 1)}, -2.0)})
+    model.gwf = gwf_of(tmp_path)
+    model.open_water_cell_ids = np.array([], dtype=int)
+    runtime = SimpleNamespace(mf6_newton=newton)
+    empty = {}
+    build_constant_heads_and_wells(
+        model, empty, np.zeros(6, dtype=bool), empty, np.zeros(6, dtype=bool), empty, runtime
+    )
+    assert not hasattr(model, "chd")
+    rows = model.wel.stress_period_data.get_data()[0]
+    assert (rows["q"] == -2.0).all()
+    # The top is not raised, so the fraction stays the 10 % asked of the aquifer.
+    if reduce is None:
+        assert model.wel.auto_flow_reduce.get_data() is None
+    else:
+        assert model.wel.auto_flow_reduce.get_data() == pytest.approx(reduce)
+
+
+def test_chd_package_of_side_heads(tmp_path) -> None:
+    model = with_wells(toy_model(), {})
+    model.gwf = gwf_of(tmp_path)
+    model.full_path = tmp_path
+    model.model_output_name = "flow"
+    side = {0: [[0, 0, 5.0]], 1: [[0, 0, 5.0]]}
+    mask = np.zeros(6, dtype=bool)
+    build_constant_heads_and_wells(
+        model, {}, mask, {}, mask, side, SimpleNamespace(mf6_newton=False)
+    )
+    # Two equal periods collapse to one record, and no well gives no WEL package.
+    (row,) = model.chd.stress_period_data.get_data()[0]
+    assert row["head"] == 5.0
+    assert not hasattr(model, "wel")

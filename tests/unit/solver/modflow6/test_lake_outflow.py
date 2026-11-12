@@ -107,3 +107,20 @@ def test_refuses_a_foot_on_the_lake_side(monkeypatch) -> None:
             adjacency=[{1}, {0, 2}, {1}],
             top=[100, 95, 70],
         )
+
+
+def test_no_foot_without_a_neighbor_outside_the_lake(monkeypatch) -> None:
+    # Both cells belong to the lake and touch nothing else, and there is no wall to blame.
+    declare_spillway(monkeypatch)
+
+    seeds = resolve_spillway_seed_cells(
+        object(),
+        lake_cells_by_id={"res": [0, 1]},
+        cell_adjacency=[{1}, {0}],
+        cell_centroids=np.asarray([[0.0, 0.0], [10.0, 0.0]]),
+        idomain=np.ones((1, 2), dtype=int),
+        mesh_top=np.asarray([100.0, 95.0]),
+        outlet_xy=(30.0, 0.0),
+    )
+
+    assert seeds == {}

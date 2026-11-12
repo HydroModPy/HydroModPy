@@ -485,3 +485,39 @@ def _reference(top, connectivity, vertices, centroids, routable, diagonal):
         adjacency=adjacency,
     )
     return fill, metric.graph.downstream
+
+
+OFF_GRAPH_CASES = [
+    pytest.param(
+        {"routable": np.zeros(9, dtype=bool)},
+        "no routable cell lies on the domain rim",
+        id="no seed",
+    ),
+    pytest.param(
+        {"lake_of": np.full(4, -1)}, "lake_of holds 4 cells, the top 9", id="short lake_of"
+    ),
+    pytest.param(
+        {"lake_of": np.where(np.arange(9) == 4, 0, -1), "routable": np.arange(9) != 4},
+        "1 lake cell\\(s\\) are not routable",
+        id="lake cell off the graph",
+    ),
+    pytest.param(
+        {"pinned_receiver": np.full(4, -1)},
+        "pinned_receiver holds 4 cells, the top 9",
+        id="short pins",
+    ),
+    pytest.param(
+        {"pinned_receiver": np.full(9, -1.0)}, "pinned_receiver must hold integer", id="float pins"
+    ),
+    pytest.param(
+        {"routable": np.ones(4, dtype=bool)},
+        "routable holds 4 cells, the top 9",
+        id="short routable",
+    ),
+]
+
+
+@pytest.mark.parametrize(("options", "message"), OFF_GRAPH_CASES)
+def test_inputs_off_the_graph_are_refused(options: dict[str, object], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        grid_descent(np.add.outer(np.arange(3.0), np.arange(3.0)), **options)

@@ -105,6 +105,22 @@ def test_unreadable_seal(sealed: JobDirectory, text: str, message: str) -> None:
         reuse_sealed_outcome(sealed, job_id=JOB_ID)
 
 
+UNREADABLE_OUTCOMES = [
+    pytest.param("{oh dear", "outcome.json cannot be read", id="outcome not json"),
+    pytest.param("[]", "outcome.json is not a JSON object", id="outcome not an object"),
+]
+
+
+@pytest.mark.parametrize(("text", "message"), UNREADABLE_OUTCOMES)
+def test_unreadable_outcome(sealed: JobDirectory, text: str, message: str) -> None:
+    sealed.outcome_path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(JobUsageError, match=message):
+        reuse_sealed_outcome(sealed, job_id=JOB_ID)
+    with pytest.raises(JobUsageError, match=message):
+        reused_outcome_text(sealed)
+
+
 def test_outcome_of_a_later_version(sealed: JobDirectory) -> None:
     document = read_document(sealed.outcome_path)
     write_document(sealed.outcome_path, {**document, "schema": "hmp-outcome/v2"})

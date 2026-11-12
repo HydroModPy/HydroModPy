@@ -145,9 +145,8 @@ def test_empty_group_gives_no_family() -> None:
     assert not cell_mesh.chains("rivers")
 
 
-@needs_gmsh
-def test_unit_named_from_the_unit_across() -> None:
-    # Three strips a, b and c. Only b borders two groups, so a and c are named from b.
+def _three_strips() -> tuple[MeshRequest, np.ndarray, np.ndarray]:
+    """Three strips a, b and c with two contacts, and the edges of each contact group."""
     contacts = (
         LineString([(X0 + 350, Y0), (X0 + 350, Y0 + 1000)]),
         LineString([(X0 + 650, Y0), (X0 + 650, Y0 + 1000)]),
@@ -155,22 +154,54 @@ def test_unit_named_from_the_unit_across() -> None:
     request = _square(LineFamilySpec("geology", "face", contacts, ("a", "b"), ("b", "c")))
     geology = triangulate_request(request).families.get("geology")
     pairs = np.column_stack([geology.node_a, geology.node_b])
+    return request, pairs[geology.line == 0], pairs[geology.line == 1]
+
+
+def _zones_of_strips(cell_mesh: PlanarCellMesh) -> list[set[str]]:
+    x = cell_mesh.centers[:, 0]
+    zones = np.asarray(cell_mesh.zone_names)[cell_mesh.cell_zone]
+    return [
+        set(zones[x < X0 + 350]),
+        set(zones[(x > X0 + 350) & (x < X0 + 650)]),
+        set(zones[x > X0 + 650]),
+    ]
+
+
+@needs_gmsh
+def test_unit_named_from_the_unit_across() -> None:
+    # Three strips a, b and c. Only b borders two groups, so a and c are named from b.
+    request, a_b, b_c = _three_strips()
+
+    cell_mesh = TriangleMeshEngine().build(
+        _read(request, {"interface::a::b": a_b, "interface::b::c": b_c})
+    )
+
+    assert _zones_of_strips(cell_mesh) == [{"a"}, {"b"}, {"c"}]
+
+
+@needs_gmsh
+def test_interface_edge_on_the_outline_names_no_unit() -> None:
+    # A stray edge of the south side of strip a in the a::b group has no cell across it. It adds no zone.
+    request, a_b, b_c = _three_strips()
+    geometry = triangulate_request(request).geometry
+    vertices = triangulate_request(request).mesh.vertices
+    outer = geometry.edge_cells[:, 1] < 0
+    ends = vertices[geometry.edge_nodes]
+    in_strip_a = (
+        outer & np.all(ends[:, :, 1] == Y0, axis=1) & np.all(ends[:, :, 0] < X0 + 350, axis=1)
+    )
+    stray = geometry.edge_nodes[np.flatnonzero(in_strip_a)[:1]]
 
     cell_mesh = TriangleMeshEngine().build(
         _read(
             request,
-            {
-                "interface::a::b": pairs[geology.line == 0],
-                "interface::b::c": pairs[geology.line == 1],
-            },
+            {"interface::a::b": np.concatenate([a_b, stray]), "interface::b::c": b_c},
         )
     )
-    x = cell_mesh.centers[:, 0]
-    zones = np.asarray(cell_mesh.zone_names)[cell_mesh.cell_zone]
 
-    assert set(zones[x < X0 + 350]) == {"a"}
-    assert set(zones[(x > X0 + 350) & (x < X0 + 650)]) == {"b"}
-    assert set(zones[x > X0 + 650]) == {"c"}
+    assert _zones_of_strips(cell_mesh) == [{"a"}, {"b"}, {"c"}]
+    geology = cell_mesh.face_families
+    assert (geology.cell_b[cell_mesh.face_rows("geology")] < 0).sum() == 1
 
 
 @needs_gmsh

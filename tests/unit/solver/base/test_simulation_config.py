@@ -32,6 +32,20 @@ def test_step_is_read_from_value_and_unit() -> None:
     assert cfg.time.step_unit == "day"
 
 
+STEPS = [
+    pytest.param("3 mo", 3, "month", id="month alias"),
+    pytest.param("1 hours", 1, "hour", id="plural hour"),
+    pytest.param("2 years", 2, "year", id="plural year"),
+]
+
+
+@pytest.mark.parametrize(("step", "value", "unit"), STEPS)
+def test_step_unit_spellings(step, value, unit) -> None:
+    cfg = config_of(ONE_DAY | {"step_value": step})
+
+    assert (cfg.time.step_value, cfg.time.step_unit) == (value, unit)
+
+
 WINDOWS = [
     pytest.param({"window_length": "6 months"}, "6 months", "all", id="length"),
     pytest.param({"window_length": "1 year", "window": 2}, "1 year", 2, id="one window"),
@@ -57,6 +71,14 @@ def test_transient_helper_builds_flow_and_transport() -> None:
     assert [process.id for process in cfg.process] == ["flow_main", "transport_main"]
     assert [process.kind for process in cfg.process] == ["flow", "transport"]
     assert cfg.process[1].solvers == ["mt3dms"]
+
+
+def test_steady_helper_builds_one_flow_run() -> None:
+    cfg = SimulationConfig.steady(step="1 month")
+
+    assert [process.kind for process in cfg.process] == ["flow"]
+    assert cfg.process[0].solvers == ["modflow_nwt"]
+    assert (cfg.time.step_value, cfg.time.step_unit) == (1, "month")
 
 
 def test_mesh_process_uses_backend_not_solvers() -> None:
@@ -121,6 +143,31 @@ REFUSALS = [
         id="bare step",
     ),
     pytest.param(
+        {"time": ONE_DAY | {"step_value": "1 week"}},
+        "step_unit must be one of: hour, day, month, year",
+        id="week step",
+    ),
+    pytest.param(
+        {"time": ONE_DAY | {"step_value": "1.5 day"}},
+        "must be a positive integer",
+        id="fractional step",
+    ),
+    pytest.param(
+        {"time": ONE_DAY | {"step_value": "0 day"}},
+        "must be a positive integer",
+        id="zero step",
+    ),
+    pytest.param(
+        {
+            "process": [
+                {"id": "a", "kind": "flow", "solvers": ["modflow6"]},
+                {"id": "b", "kind": "flow", "solvers": ["modflow_nwt"]},
+            ]
+        },
+        "At most one process of each kind is supported. Duplicate 'flow'",
+        id="two flow processes",
+    ),
+    pytest.param(
         {"time": ONE_YEAR | {"window_length": "6"}},
         "window_length is a calendar length",
         id="bare window length",
@@ -154,6 +201,11 @@ REFUSALS = [
         {"process": [{"id": "flow_main", "kind": "flow", "solvers": [" "]}]},
         "require at least one solver",
         id="process without solver",
+    ),
+    pytest.param(
+        {"process": {"id": "flow_main", "kind": "flow", "solvers": ["modflow6"]}},
+        "Input should be a valid list",
+        id="one process, not a list",
     ),
     pytest.param(
         {"if_exists": "replace"},

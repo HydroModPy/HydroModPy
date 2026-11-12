@@ -8,6 +8,8 @@ day number from 2000-01-01 = 0, so every window mean is the middle of the days i
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -15,6 +17,7 @@ import pytest
 from hydromodpy.results.derive.time_alignment import (
     first_period_start,
     observed_on_simulation_index,
+    run_period_edges,
     time_method_for,
 )
 from hydromodpy.results.field_registry import FIELD_REGISTRY
@@ -79,3 +82,47 @@ def test_registry_field_aligns_by_its_cell_methods(name):
 def test_an_unknown_method_is_refused():
     with pytest.raises(ValueError, match="unknown time method"):
         observed_on_simulation_index(DAY_NUMBER, MONTH_ENDS, method="median")
+
+
+class NoTimeGrid:
+    """A run served without its time grid: asking for the periods fails."""
+
+    @property
+    def periods(self):
+        raise AttributeError("no periods")
+
+
+CATALOG_EDGES = pd.DatetimeIndex(["2000-01-01", "2000-02-01", "2000-03-01"])
+
+
+def run_with(stamps, edges=None):
+    periods = SimpleNamespace(edges=edges)
+    return SimpleNamespace(periods=periods, time_index=stamps)
+
+
+def test_edges_of_a_run_come_from_the_catalog_first():
+    edges = run_period_edges(run_with(MONTH_ENDS, CATALOG_EDGES))
+
+    assert edges.equals(CATALOG_EDGES)
+
+
+def test_edges_of_a_run_follow_from_its_stamps():
+    # Three end stamps give three periods, so four edges, the last three being the stamps.
+    edges = run_period_edges(run_with(MONTH_ENDS))
+
+    assert len(edges) == 4
+    assert edges[1:].equals(MONTH_ENDS)
+    assert edges[0] < MONTH_ENDS[0]
+
+
+NO_EDGES = [
+    pytest.param(run_with(pd.DatetimeIndex(["2000-02-01"])), id="one stamp"),
+    pytest.param(run_with(None), id="no stamps"),
+    pytest.param(SimpleNamespace(periods=SimpleNamespace(edges=None)), id="no time axis"),
+    pytest.param(NoTimeGrid(), id="periods refused"),
+]
+
+
+@pytest.mark.parametrize("run", NO_EDGES)
+def test_run_without_dates_has_no_edges(run):
+    assert run_period_edges(run) is None

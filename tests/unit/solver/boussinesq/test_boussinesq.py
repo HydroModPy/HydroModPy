@@ -535,3 +535,174 @@ def test_stopped_solve_writes_no_state(tmp_path: Path, monkeypatch: pytest.Monke
         call.solve()
 
     assert not (call.slot.directory / "_boussinesq_state_history.npz").exists()
+
+
+def test_steady_without_convergence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        steady_driver, "resolve_runtime_forcing_by_period", fixed_forcing((RATES_M_S[0],))
+    )
+    # One Newton iteration cannot close a state 10 m above the steady heads to 1e-12 m3/s.
+    solver = _solver(
+        tmp_path,
+        name="stalled",
+        flow_regime="steady",
+        first_period_steady=True,
+        head_m=_start_heads(),
+        max_iterations=1,
+    )
+
+    assert not steady_driver.run_steady_runtime(solver)
+
+    summary = solver.runtime_summary
+    assert summary["steady_nonlinear_iterations"] == 1
+    assert "max_iterations reached" in summary["steady_termination_reason"]
+    # The post-mortem files are written beside the run, and the run still reports its failure.
+    assert Path(summary["stationary_failure_diagnostic_files"]["summary"]).is_file()
+
+
+class _TaggedBackend:
+    """The real engine, its results carrying diagnostics and a chosen convergence flag."""
+
+    def __init__(self, backend, diagnostics: dict, *, converged: bool = True) -> None:
+        self._backend = backend
+        self._changes = {"diagnostics": diagnostics, "converged": converged}
+
+    def __getattr__(self, name: str):
+        return getattr(self._backend, name)
+
+    def solve_steady_problem(self, inputs):
+        return replace(self._backend.solve_steady_problem(inputs), **self._changes)
+
+    def solve_transient_step(self, inputs):
+        return replace(self._backend.solve_transient_step(inputs), **self._changes)
+
+
+def _tag_backend(solver: Boussinesq, diagnostics: dict, *, converged: bool = True) -> None:
+    contract = solver._resolve_solver_contract()
+    tagged = _TaggedBackend(contract.runtime_backend, diagnostics, converged=converged)
+    solver._resolve_solver_contract = lambda: replace(contract, runtime_backend=tagged)
+
+
+DIAGNOSTICS = {
+    "vi_substep_details": [{"substep": 1}, "not a record"],
+    "ts_vi_step_details": [{"step": 7}],
+    "newton_rounds": 3,
+}
+
+
+def test_steady_diagnostics_in_summary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        steady_driver, "resolve_runtime_forcing_by_period", fixed_forcing((RATES_M_S[0],))
+    )
+    solver = _solver(
+        tmp_path,
+        name="tagged",
+        flow_regime="steady",
+        first_period_steady=True,
+        head_m=_start_heads(),
+    )
+    _tag_backend(solver, DIAGNOSTICS)
+
+    assert steady_driver.run_steady_runtime(solver)
+
+    assert solver.runtime_summary["steady_newton_rounds"] == 3
+    assert solver.runtime_summary["last_newton_rounds"] == 3
+    assert solver.runtime_summary["steady_ts_vi_step_details"] == [{"step": 7}]
+
+
+@pytest.mark.parametrize(
+    ("converged", "n_periods_run"),
+    [
+        pytest.param(True, 2, id="all periods solved"),
+        pytest.param(False, 1, id="stops at the first failure"),
+    ],
+)
+def test_transient_diagnostics_in_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, converged: bool, n_periods_run: int
+) -> None:
+    monkeypatch.setattr(
+        transient_driver, "resolve_runtime_forcing_by_period", fixed_forcing(RATES_M_S[:2])
+    )
+    solver = _solver(
+        tmp_path,
+        name="tagged",
+        flow_regime="transient",
+        first_period_steady=False,
+        head_m=_start_heads(),
+        period_lengths_seconds=(DAY_S,) * 2,
+    )
+    _tag_backend(solver, DIAGNOSTICS, converged=converged)
+
+    assert transient_driver.run_transient_runtime(solver) is converged
+
+    summary = solver.runtime_summary
+    # The initial state plus the periods that ran.
+    assert solver.state.head_history_m.shape == (n_periods_run + 1, N_CELLS)
+    assert summary["n_periods"] == 2
+    assert summary["last_newton_rounds"] == 3
+    periods = summary["runtime_period_diagnostics"]
+    assert [item["period_index"] for item in periods] == list(range(n_periods_run))
+    # A record is kept with its period. A single time step is not tagged with its index.
+    assert summary["runtime_substep_diagnostics"] == [
+        {"substep": 1, "period_index": kper} for kper in range(n_periods_run)
+    ]
+    assert summary["runtime_ts_step_diagnostics"] == [
+        {"step": 7, "period_index": kper} for kper in range(n_periods_run)
+    ]
+    assert summary["active_recharge"] is True
+
+
+def test_run_without_periods_keeps_its_state(tmp_path: Path) -> None:
+    solver = _solver(
+        tmp_path,
+        name="no_periods",
+        flow_regime="transient",
+        first_period_steady=False,
+        head_m=_start_heads(),
+    )
+
+    assert transient_driver.run_transient_runtime(solver)
+
+    np.testing.assert_array_equal(solver.state.head_m, _start_heads())
+    assert "n_periods" not in solver.runtime_summary
+
+
+@pytest.mark.parametrize(
+    ("driver", "member", "message"),
+    [
+        pytest.param(
+            steady_driver.run_steady_runtime, "mesh", "Mesh must be built", id="steady no mesh"
+        ),
+        pytest.param(
+            steady_driver.run_steady_runtime,
+            "state",
+            "Initial state must exist",
+            id="steady no state",
+        ),
+        pytest.param(
+            transient_driver.run_transient_runtime,
+            "mesh",
+            "Mesh must be built",
+            id="transient no mesh",
+        ),
+        pytest.param(
+            transient_driver.run_transient_runtime,
+            "state",
+            "Initial state must exist",
+            id="transient no state",
+        ),
+    ],
+)
+def test_refusals(tmp_path: Path, driver, member: str, message: str) -> None:
+    solver = _solver(
+        tmp_path,
+        name="refused",
+        flow_regime="transient",
+        first_period_steady=False,
+        head_m=_start_heads(),
+        period_lengths_seconds=(DAY_S,),
+    )
+    setattr(solver, member, None)
+
+    with pytest.raises(RuntimeError, match=message):
+        driver(solver)

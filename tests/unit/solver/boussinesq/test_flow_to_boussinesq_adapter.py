@@ -133,3 +133,53 @@ def test_override_on_a_bundle_is_refused() -> None:
     model = make_model(properties=Properties(profiles={}, overrides={"K": 5e-6}))
     with pytest.raises(ValueError, match="sets K on the mesh bundle bundle"):
         adapter.resolve_bundle_solver_mesh(model, bundle=_bundle())
+
+
+def test_missing_profile_leaves_the_mesh_to_the_bundle() -> None:
+    # A transient run reads K and Sy: a model with no profile builds no direct mesh.
+    assert adapter.resolve_runtime_solver_mesh(_model(profiles={})) is None
+
+
+def _bundle_with(
+    *, cell_k: float | None, cell_sy: float | None, default_k: float | None = None
+) -> SimpleNamespace:
+    """A bundle of one cell whose hydraulic view carries the given K and Sy defaults."""
+    cell = SimpleNamespace(
+        cell_id=7, hydraulic_conductivity_m_s=cell_k, storage_coefficient=cell_sy
+    )
+    view = SimpleNamespace(
+        conductivity=SimpleNamespace(default_value=default_k),
+        storage_coefficient=SimpleNamespace(default_value=None),
+    )
+    return SimpleNamespace(
+        bundle_dir="bundle",
+        cells=(cell,),
+        metadata_view=SimpleNamespace(hydraulic_properties=view),
+    )
+
+
+BUNDLE_REFUSALS = [
+    pytest.param(
+        _bundle_with(cell_k=None, cell_sy=0.1),
+        "transient",
+        "hydraulic_conductivity_m_s for every cell.*cell_id=7",
+        id="no K on the cell and no default",
+    ),
+    pytest.param(
+        _bundle_with(cell_k=1e-4, cell_sy=None),
+        "transient",
+        "storage_coefficient for every cell.*cell_id=7",
+        id="no Sy on a transient run",
+    ),
+]
+
+
+@pytest.mark.parametrize(("bundle", "regime", "message"), BUNDLE_REFUSALS)
+def test_bundle_missing_value_is_refused(bundle, regime: str, message: str) -> None:
+    model = make_model(
+        properties=Properties(profiles={}, overrides={}),
+        time=ModelTime(grid=None, regime=regime, first_period_steady=True),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        adapter.resolve_bundle_solver_mesh(model, bundle=bundle)

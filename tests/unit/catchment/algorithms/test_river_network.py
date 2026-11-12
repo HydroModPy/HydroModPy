@@ -175,3 +175,9 @@ def test_empty_vector_removes_stale_shapefile(tmp_path) -> None:
 def test_refused_backend(tmp_path) -> None:
     with pytest.raises(TypeError, match="delineation backend with raster APIs"):
         _build(tmp_path, _config(), SimpleNamespace(raster=None))
+
+
+def test_blank_network_crs_is_none(tmp_path) -> None:
+    result = _build(tmp_path, _config(), RecordingBackend(), network_crs="   ")
+
+    assert result.network_crs is None

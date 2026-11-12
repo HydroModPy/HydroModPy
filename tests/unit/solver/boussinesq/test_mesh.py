@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.catchment.surface_sampling import PreparedSurfaceSampler
 from hydromodpy.mesh.cells.boundary import SIDE_IDS, stream_cells
 from hydromodpy.mesh.io.bundle import (
     CatchmentMeshBundle,
@@ -25,7 +26,7 @@ from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
 from hydromodpy.solver.boussinesq.forcing import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
-from tests._helpers.bundle_cell_meshes import BUNDLE_CASES
+from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, bundle_dual
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import MESH_BUNDLES
 from tests._helpers.model_factory import make_model
@@ -243,3 +244,181 @@ def test_stream_support(build) -> None:
     assert label == "flow.bc.stream"
     assert np.array_equal(edges, mesh.river_edge_indices())
     assert np.array_equal(cells, stream_cells(mesh.cell_mesh))
+
+
+def _surface_with_a_dry_center(cell_mesh: PlanarCellMesh) -> SimpleNamespace:
+    """A raster of TOP_M whose middle column has no data, centered on the first cell center.
+
+    The first cell center falls in the empty column, so it reads no value, while its
+    corners read the columns beside it.
+    """
+    center_x, center_y = (float(v) for v in cell_mesh.centers[0])
+    width_m = 2.0**17
+    support = SimpleNamespace(
+        xmin=center_x - 1.5 * width_m,
+        xmax=center_x + 1.5 * width_m,
+        ymin=center_y - 0.5 * width_m,
+        ymax=center_y + 0.5 * width_m,
+        dx=width_m,
+        dy=width_m,
+        nrows=1,
+        ncols=3,
+        nodata=None,
+    )
+    return SimpleNamespace(values=np.asarray([[TOP_M, np.nan, TOP_M]]), support=support)
+
+
+def test_cell_without_center_value_takes_its_corners() -> None:
+    cell_mesh = _cell_mesh(BUNDLE_CASES[3])
+    top = _surface_with_a_dry_center(cell_mesh)
+    center_x, center_y = (float(v) for v in cell_mesh.centers[0])
+    assert np.isnan(PreparedSurfaceSampler.from_surface(top).sample(center_x, center_y))
+    domain = SimpleNamespace(surface_topo=top, substratum=_constant_surface(cell_mesh, BOTTOM_M))
+
+    mesh = BoussinesqMesh.from_cell_mesh(
+        cell_mesh,
+        domain=domain,
+        hydraulic_conductivity_m_s=np.full(cell_mesh.n_cells, K_M_S),
+        storage_coefficient=np.full(cell_mesh.n_cells, SY),
+    )
+
+    # Every corner reads TOP_M, so the first cell takes the mean of its corners.
+    np.testing.assert_allclose(mesh.z_top_m, TOP_M)
+
+
+def _bundle_with_cell(**changes) -> CatchmentMeshBundle:
+    bundle = _bundle(BUNDLE_CASES[3])
+    return replace(bundle, cells=(replace(bundle.cells[0], **changes), *bundle.cells[1:]))
+
+
+def _bundle_with_edge(**changes) -> CatchmentMeshBundle:
+    bundle = _bundle(BUNDLE_CASES[3])
+    return replace(bundle, edges=(replace(bundle.edges[0], **changes), *bundle.edges[1:]))
+
+
+BUNDLE_REFUSALS = [
+    pytest.param(replace(_bundle(BUNDLE_CASES[3]), cells=()), "at least one cell", id="no cell"),
+    pytest.param(replace(_bundle(BUNDLE_CASES[3]), nodes=()), "at least one node", id="no node"),
+    pytest.param(
+        _bundle_with_cell(geom_type="quad"), "supports only triangular cells", id="quad cell"
+    ),
+    pytest.param(
+        _bundle_with_cell(z_top_centroid=None),
+        "requires z_top_centroid and z_bottom_centroid",
+        id="cell without top",
+    ),
+    pytest.param(
+        _bundle_with_cell(hydraulic_conductivity_m_s=None),
+        "requires hydraulic_conductivity_m_s",
+        id="cell without K",
+    ),
+    pytest.param(
+        _bundle_with_cell(storage_coefficient=None),
+        "requires storage_coefficient",
+        id="cell without storage",
+    ),
+    pytest.param(
+        _bundle_with_cell(z_top_centroid=-1.0),
+        "z_top_centroid must be >= z_bottom_centroid",
+        id="top below bottom",
+    ),
+    pytest.param(
+        _bundle_with_cell(node_indices=(0, 1, 10**6)),
+        "Unknown node_id=1000000 referenced by cell_id",
+        id="cell on an unknown node",
+    ),
+    pytest.param(
+        _bundle_with_edge(node_a=10**6), "Unknown node reference on edge_id", id="edge node"
+    ),
+    pytest.param(_bundle_with_edge(cell_a=10**6), "Unknown cell_a=1000000", id="edge cell a"),
+    pytest.param(_bundle_with_edge(cell_b=10**6), "Unknown cell_b=1000000", id="edge cell b"),
+]
+
+
+@pytest.mark.parametrize(("bundle", "message"), BUNDLE_REFUSALS)
+def test_bundle_refusals(bundle: CatchmentMeshBundle, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        BoussinesqMesh.from_bundle(bundle)
+
+
+def _surface_without_data(cell_mesh: PlanarCellMesh) -> SimpleNamespace:
+    """A raster of TOP_M that lies 1 km east of the mesh: every cell reads no value."""
+    surface = _constant_surface(cell_mesh, TOP_M)
+    far = replace_support(surface.support, shift_m=1.0e3 + cell_mesh.mesh.bounds()[2])
+    return SimpleNamespace(values=surface.values, support=far)
+
+
+def replace_support(support: SimpleNamespace, *, shift_m: float) -> SimpleNamespace:
+    return SimpleNamespace(
+        **{**vars(support), "xmin": support.xmin + shift_m, "xmax": support.xmax + shift_m}
+    )
+
+
+def _runtime_domain(cell_mesh: PlanarCellMesh, **surfaces) -> SimpleNamespace:
+    """The domain of the 10 m column, a surface being replaced by what ``surfaces`` gives."""
+    return SimpleNamespace(
+        **{
+            "surface_topo": _constant_surface(cell_mesh, TOP_M),
+            "substratum": _constant_surface(cell_mesh, BOTTOM_M),
+            **surfaces,
+        }
+    )
+
+
+_TRIANGLES = _cell_mesh(BUNDLE_CASES[3])
+CELL_MESH_REFUSALS = [
+    pytest.param(_TRIANGLES, None, "requires a domain", id="no domain"),
+    pytest.param(
+        _TRIANGLES,
+        SimpleNamespace(substratum=_constant_surface(_TRIANGLES, BOTTOM_M)),
+        "surface_topo is required",
+        id="no land surface",
+    ),
+    pytest.param(
+        _TRIANGLES,
+        SimpleNamespace(surface_topo=_constant_surface(_TRIANGLES, TOP_M)),
+        "substratum is required",
+        id="no substratum",
+    ),
+    pytest.param(
+        bundle_dual(BUNDLE_CASES[3]),
+        _runtime_domain(_TRIANGLES),
+        "supports only triangular cells",
+        id="polygon cells",
+    ),
+    pytest.param(
+        _TRIANGLES,
+        _runtime_domain(_TRIANGLES, surface_topo=_surface_without_data(_TRIANGLES)),
+        "missing values on cell_id=0",
+        id="land surface off the mesh",
+    ),
+    pytest.param(
+        _TRIANGLES,
+        _runtime_domain(_TRIANGLES, substratum=_constant_surface(_TRIANGLES, 2 * TOP_M)),
+        "Invalid vertical geometry on cell_id=0",
+        id="substratum above the land surface",
+    ),
+]
+
+
+@pytest.mark.parametrize(("cell_mesh", "domain", "message"), CELL_MESH_REFUSALS)
+def test_cell_mesh_refusals(cell_mesh: PlanarCellMesh, domain, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        BoussinesqMesh.from_cell_mesh(
+            cell_mesh,
+            domain=domain,
+            hydraulic_conductivity_m_s=np.full(cell_mesh.n_cells, K_M_S),
+            storage_coefficient=np.full(cell_mesh.n_cells, SY),
+        )
+
+
+def test_refuses_cell_values_of_the_wrong_size() -> None:
+    cell_mesh = _TRIANGLES
+
+    with pytest.raises(ValueError, match="exactly one value per cell"):
+        BoussinesqMesh.from_cell_mesh(
+            cell_mesh,
+            domain=_runtime_domain(cell_mesh),
+            hydraulic_conductivity_m_s=np.full(cell_mesh.n_cells - 1, K_M_S),
+            storage_coefficient=np.full(cell_mesh.n_cells, SY),
+        )

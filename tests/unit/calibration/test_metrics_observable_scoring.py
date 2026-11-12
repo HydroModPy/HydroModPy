@@ -112,6 +112,16 @@ def test_nan_count_warned_once(caplog) -> None:
     assert len(warned) == 1 and "H" in warned[0] and "3" in warned[0]
 
 
+@pytest.mark.parametrize(
+    "answer",
+    [{}, {"H": adapter_result("H", np.array([]), "m")}],
+    ids=["output not answered", "answer without values"],
+)
+def test_output_without_values_refused(answer) -> None:
+    with pytest.raises(NotImplementedError, match="no calibration values for output 'H'"):
+        head_scorer().score(answer, boundaries=DAILY_BOUNDS)
+
+
 def test_session_keeps_nan_count(tmp_path: Path) -> None:
     _, components = head_scorer().score({"H": head_answer()}, boundaries=DAILY_BOUNDS)
     persistence = CalibrationPersistence(tmp_path / "sessions" / "dry")

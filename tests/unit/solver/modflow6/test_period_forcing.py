@@ -16,7 +16,11 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
-from hydromodpy.solver.modflow6.builders.period_forcing import sto_period_settings
+from hydromodpy.solver.modflow6.builders.period_forcing import (
+    constant_forcing_value,
+    resolve_use_ts6,
+    sto_period_settings,
+)
 from hydromodpy.solver.modflow6.builders.recharge import empty_recharge_aux
 from hydromodpy.solver.modflow6.builders.solver_options import build_ats_perioddata
 
@@ -123,3 +127,24 @@ def test_ats_single_step_period():
 
     assert record[1] == pytest.approx(PERLEN_S)
     assert record[3] == pytest.approx(PERLEN_S)
+
+
+CONSTANT_VALUES = [
+    pytest.param(None, None, id="no forcing"),
+    pytest.param({"kind": "constant", "value": 3.0}, 3.0, id="constant mapping"),
+    pytest.param({"value": SimpleNamespace(magnitude=2.0)}, 2.0, id="value with a unit magnitude"),
+    pytest.param({"kind": "csv", "value": 3.0}, None, id="series is resolved later"),
+    pytest.param({"value": None}, {"value": None}, id="empty value is returned whole"),
+]
+
+
+@pytest.mark.parametrize(("forcing", "expected"), CONSTANT_VALUES)
+def test_constant_forcing_value(forcing, expected):
+    assert constant_forcing_value(forcing) == expected
+
+
+def test_constant_kind_without_value_stays_inline():
+    # Nothing to read, but the declared kind still keeps it out of a TS6 file.
+    forcing = {"kind": "constant"}
+
+    assert resolve_use_ts6(forcing, mode="ts6", nper=500, min_periods=120) is False

@@ -13,12 +13,16 @@ import pandas as pd
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.catchment.algorithms.lake_catchments import lake_contributing_areas_m2
+from hydromodpy.catchment.algorithms.lake_catchments import (
+    lake_contributing_areas_m2,
+    read_watershed_polygons,
+)
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.boundaries.lakes import apply_lake_meteo_forcings_to_flow
 from hydromodpy.workflow.steps.data import lake_runoff_areas
+from tests._helpers.geographic_cases import write_features
 from tests._helpers.geotiffs import write_geotiff
 
 _CELL_M = 10.0
@@ -71,6 +75,17 @@ def test_watershed_limit_and_small_pond(tmp_path):
     assert areas["upper"] == pytest.approx(2 * 4 * _CELL_M**2)
     assert ponds["pond"] > 0.0
     assert lake_contributing_areas_m2(d8_pointer_tif=pointer, lake_polygons={}) == {}
+
+
+def test_watershed_polygons_read_from_file(tmp_path):
+    outline = box(0.0, 0.0, 100.0, 60.0)
+    path = write_features(tmp_path / "watershed.shp", [outline])
+
+    (polygon,) = read_watershed_polygons(path)
+
+    assert polygon.equals(outline)
+    assert read_watershed_polygons(tmp_path / "gone.shp") == []
+    assert read_watershed_polygons(None) == []
 
 
 def _setup_state(pointer: Path, *, lakes: dict, sfr: bool = False) -> SimpleNamespace:

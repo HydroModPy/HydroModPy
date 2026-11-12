@@ -93,3 +93,21 @@ def test_provided_dem_is_not_conditioned(tmp_path) -> None:
     assert Path(products.correc) == Path(dem)
     assert products.accumulation.directions.conditioned_dem.method == "provided"
     assert isinstance(products.undrained, UndrainedCells)
+
+
+def test_provided_dem_counts_its_pits(tmp_path) -> None:
+    rows, cols = np.mgrid[0:12, 0:12]
+    plane = (50.0 - rows - 0.5 * cols).astype("float32")
+    plane[5, 5] -= 20.0  # one cell lower than its eight neighbours
+    plane[8, 2] = -9999.0  # a cell without data is never counted
+    dem = write_geotiff(tmp_path / "dem.tif", plane, nodata=-9999.0)
+
+    products = build_regional_flow_products(
+        dem_path=dem,
+        dem_out_dir_path=tmp_path / "flow",
+        dem_correc_type="provided",
+        crs_project="EPSG:2154",
+        engine_id="numpy_d8",
+    )
+
+    assert products.undrained == UndrainedCells(without_descent=1, strict_pits=1)

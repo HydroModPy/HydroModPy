@@ -24,7 +24,10 @@ from hydromodpy.catchment.algorithms.ground_bed import (
     restrict_to_window,
     top_dem_path_from_config,
 )
-from hydromodpy.catchment.algorithms.ground_corrections import ground_dem_from_config
+from hydromodpy.catchment.algorithms.ground_corrections import (
+    ground_dem_from_config,
+    notch_footprint_path,
+)
 from tests._helpers import ground_bench as bench
 from tests._helpers.geographic_cases import bench_project, read_band, write_features
 from tests._helpers.geotiffs import write_geotiff
@@ -356,3 +359,44 @@ def test_no_crossings_file_no_cut(tmp_path) -> None:
     assert document["parameters"]["crossings_path"] is None
     assert document["parameters"]["channel_raster"] == str(link)
     assert document["parameters"]["window_margin_m"] is None
+
+
+def _bed_report(project) -> dict:
+    return json.loads(ground_bed_report_path(project.setup).read_text(encoding="utf-8"))
+
+
+def _fit_bench_ground(project, **setup_paths) -> None:
+    ground_dem_from_config(project.config, project.setup, channel=project.channel)
+    for name, value in setup_paths.items():
+        setattr(project.setup.paths, name, value)
+    regularized_ground_from_config(
+        project.config, project.setup, d8_tif=project.d8, river_products=SimpleNamespace()
+    )
+
+
+def test_no_notch_footprint_on_disk(tmp_path) -> None:
+    # The notch is on, but its footprint file is gone: nothing is a gap.
+    project = bench_project(tmp_path, bench.structures(("road", bench.road_along(10))))
+    ground_dem_from_config(project.config, project.setup, channel=project.channel)
+    notch_footprint_path(project.setup).unlink(missing_ok=True)
+    regularized_ground_from_config(
+        project.config, project.setup, d8_tif=project.d8, river_products=SimpleNamespace()
+    )
+    assert _bed_report(project)["parameters"]["notch_footprint"] is False
+
+
+def test_empty_watershed_gives_no_window(tmp_path) -> None:
+    project = bench_project(tmp_path, bench.structures(("road", bench.road_along(10))))
+    _fit_bench_ground(project, watershed_shp=str(write_features(tmp_path / "empty.shp", [])))
+    assert _bed_report(project)["parameters"]["window_margin_m"] is None
+
+
+def test_weir_drop_not_a_number(tmp_path) -> None:
+    weir = Point(bench.x_of(bench.AXIS), bench.y_of(4))
+    crossings = bench.structures(("weir", weir))
+    crossings["drop_m"] = ["unknown"]
+    project = bench_project(tmp_path, crossings, embankment_rows=())
+    _fit_bench_ground(project)
+    (cut,) = _bed_report(project)["cuts"]
+    assert cut["kind"] == "weir"
+    assert cut["drop_m"] is None

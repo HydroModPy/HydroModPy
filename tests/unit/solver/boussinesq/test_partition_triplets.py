@@ -8,6 +8,7 @@ residual of the assembly.
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from hydromodpy.solver.boussinesq.assembly.fluxes import (
     accumulate_internal_flux_residual,
@@ -379,3 +380,36 @@ def test_operator_triplets_with_prescribed_identity() -> None:
     )
 
     np.testing.assert_allclose(dense, fd, rtol=1.0e-5, atol=1.0e-7)
+
+
+def test_partition_triplets_with_a_boundary_head_match_finite_differences() -> None:
+    mesh = _build_mesh_with_boundary_edge()
+    head = np.asarray([1.2, 0.8], dtype=float)
+    boundary_head = np.asarray([np.nan, 1.0], dtype=float)  # 1 m on the boundary edge of cell 0
+    kwargs = dict(
+        regularization_radius=0.25,
+        surface_input_rate_m_s=np.asarray([1.0, 1.0], dtype=float),
+        boundary_head_m_by_edge=boundary_head,
+    )
+
+    dense = _dense_from_triplets(
+        mesh,
+        build_sparse_semianalytic_partition_saturation_triplets(
+            mesh, head, prescribed_head_m_by_cell=None, **kwargs
+        ),
+    )
+
+    fd = _finite_difference(lambda h: _surface_residual_contribution(mesh, h, **kwargs), head)
+    np.testing.assert_allclose(dense, fd, rtol=1.0e-5, atol=1.0e-7)
+
+
+def test_partition_triplets_refuse_a_head_of_the_wrong_length() -> None:
+    with pytest.raises(ValueError, match=r"head_m length must match mesh.n_cells \(3 != 2\)"):
+        build_sparse_semianalytic_partition_saturation_triplets(
+            _build_mesh(),
+            np.ones(3),
+            regularization_radius=0.25,
+            surface_input_rate_m_s=1.0,
+            boundary_head_m_by_edge=None,
+            prescribed_head_m_by_cell=None,
+        )

@@ -142,3 +142,13 @@ def test_a_pinned_cell_whose_pin_is_cut_off_from_the_seeds_is_refused() -> None:
 
     with pytest.raises(ValueError, match="never reached from a seed"):
         priority_flood(values, adjacency, seeds, step=0.1, pin=pin, every_cell=True)
+
+
+def test_filled_fraction_of_a_surface() -> None:
+    # One pit among five cells.
+    values = np.array([5.0, 4.0, 0.0, 3.0, 1.0])
+    outlets = np.array([False, False, False, False, True])
+
+    report = fill_depressions_on_graph(values, _chain(5), outlets)
+
+    np.testing.assert_allclose(report.filled_fraction, 1 / 5)

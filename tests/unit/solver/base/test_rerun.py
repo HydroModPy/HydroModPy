@@ -105,6 +105,24 @@ CHANGES: tuple[tuple[str, Any, Any, frozenset[str] | None], ...] = (
     ),
     ("another well", BASE, replace(BASE, wells={"w1": object()}), None),
     ("a lake fewer", BASE, replace(BASE, lakes={}), None),
+    (
+        "a tuple rebuilt with the same names",
+        replace(BASE, active_sinks_sources=tuple(["drain"])),
+        replace(BASE, active_sinks_sources=tuple(["drain"])),
+        frozenset(),
+    ),
+    (
+        "a tuple with another name",
+        replace(BASE, active_sinks_sources=tuple(["drain"])),
+        replace(BASE, active_sinks_sources=tuple(["river"])),
+        None,
+    ),
+    (
+        "a tuple with one name more",
+        replace(BASE, active_sinks_sources=tuple(["drain"])),
+        replace(BASE, active_sinks_sources=tuple(["drain", "river"])),
+        None,
+    ),
     ("no previous model", None, BASE, None),
 )
 

@@ -161,3 +161,27 @@ def test_the_gate_refuses_a_lake_still_in_bank_connection_past_the_dam() -> None
 
     with pytest.raises(SolverInputError, match=r"lake 'r'.*downstream cell\(s\) still in LAK"):
         check_cutoff_wall_seal(built.model, built.mesh, built.cells_by_lake, open_banks, built.hfb)
+
+
+@pytest.mark.parametrize("engine", ["triangle", "voronoi"])
+def test_cells_between_are_counted_only_with_a_shore(engine: str) -> None:
+    built = _built(engine, 12.0, snapped=False)
+    args = (built.model, built.mesh, built.cells_by_lake, built.connections, built.hfb)
+
+    # The wall stays 12 m off the shore. Without a declared shore nothing is measured.
+    check_cutoff_wall_seal(*args)
+    built.model.inputs.lakes["r"]["cutoff_wall_shore"] = built.wall.shore
+
+    with pytest.raises(SolverInputError, match=r"[1-9]\d* cell\(s\) between the lake and the wall"):
+        check_cutoff_wall_seal(*args)
+
+
+def test_a_lake_without_cells_is_not_checked() -> None:
+    built = _built("triangle", 12.0)
+    open_banks = build_lake_connectiondata(
+        None, lake_index=0, lake_cell_ids=built.cells, bedleak=1e-6, solver_mesh=built.mesh
+    )
+
+    with pytest.raises(SolverInputError, match="still in LAK bank connection"):
+        check_cutoff_wall_seal(built.model, built.mesh, built.cells_by_lake, open_banks, built.hfb)
+    check_cutoff_wall_seal(built.model, built.mesh, {}, open_banks, built.hfb)

@@ -416,3 +416,17 @@ def test_misaligned_series_refused(shorter: list[float], longer: list[float]) ->
     assume(len(shorter) != len(longer))
     with pytest.raises(ValueError):
         align(shorter, longer)
+
+
+NO_PAIR = [nse, log_nse, mae, bias, pbias]
+
+
+@pytest.mark.parametrize("score", NO_PAIR, ids=lambda f: f.__name__)
+def test_no_valid_pair_scores_nan(score) -> None:
+    # Every pair holds a NaN, so nothing is left to compare.
+    assert np.isnan(score(np.array([1.0, np.nan]), np.array([np.nan, 2.0])))
+
+
+def test_times_must_match_the_series() -> None:
+    with pytest.raises(ValueError, match="shape mismatch: times=.3,. sim=.4,."):
+        nse_delta(np.arange(4.0), np.arange(4.0), times=np.arange(3.0))

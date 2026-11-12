@@ -8,8 +8,10 @@ import pytest
 from hydromodpy.catchment.drainage.distance import (
     build_downslope_metric,
     downslope_distance_to_mask,
+    faces_are_all_quadrilaterals,
     longest_descent_length,
     mean_downslope_distance,
+    resolve_outlet,
     shared_node_adjacency,
 )
 from tests._helpers.tolerances import tol
@@ -433,3 +435,57 @@ def test_lower_axis_cells_never_leave_the_catchment(bench) -> None:
     to_outlet = downslope_distance_to_mask(bench.metric, outlet_mask)
     assert np.all(np.isfinite(to_outlet))
     assert to_outlet[cell_id(0, AXIS_COL)] == pytest.approx(600.0, rel=1e-12)
+
+
+def test_a_single_quad_face_given_as_a_flat_row() -> None:
+    _, connectivity = quad_mesh(1, 1)
+    face = connectivity.reshape(-1)
+
+    assert faces_are_all_quadrilaterals(face, n_cells=1)
+    assert shared_node_adjacency(face, n_cells=1) == [set()]
+
+
+def test_a_centroid_at_infinity_is_refused() -> None:
+    vertices, connectivity = quad_mesh(2, 2, cell_size=RESOLUTION)
+    centroids = np.array([[5.0, 5.0], [15.0, 5.0], [5.0, 15.0], [np.inf, 15.0]])
+
+    with pytest.raises(ValueError, match="non-finite centroid distance"):
+        build_downslope_metric(_plane(2, 2), connectivity, vertices=vertices, centroids=centroids)
+
+
+MEAN_REFUSALS = [
+    pytest.param(
+        {"support_mask": np.ones(3, dtype=bool)},
+        "support_mask must have 2 entries, got 3",
+        id="short support",
+    ),
+    pytest.param(
+        {"support_mask": np.ones(2, dtype=bool), "saturation_cap_m": -1.0},
+        "saturation_cap_m must be finite and positive",
+        id="negative cap",
+    ),
+    pytest.param(
+        {"support_mask": np.ones(2, dtype=bool), "saturation_cap_m": np.nan},
+        "saturation_cap_m must be finite and positive",
+        id="nan cap",
+    ),
+]
+
+
+@pytest.mark.parametrize(("options", "message"), MEAN_REFUSALS)
+def test_mean_distance_refusals(options: dict[str, object], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        mean_downslope_distance(np.array([1.0, 2.0]), **options)
+
+
+def test_outlet_refusals() -> None:
+    vertices, connectivity = quad_mesh(2, 2, cell_size=RESOLUTION)
+    everything_inactive = build_downslope_metric(
+        _plane(2, 2), connectivity, vertices=vertices, inactive_mask=np.ones(4, dtype=bool)
+    )
+    metric = build_downslope_metric(_plane(2, 2), connectivity, vertices=vertices)
+
+    with pytest.raises(ValueError, match="no active cell to close the catchment on"):
+        resolve_outlet(everything_inactive)
+    with pytest.raises(ValueError, match="catchment holds no active cell"):
+        resolve_outlet(metric, within=np.zeros(4, dtype=bool))

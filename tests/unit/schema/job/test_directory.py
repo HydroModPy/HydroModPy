@@ -35,6 +35,15 @@ def test_a_missing_directory_is_a_usage_error(tmp_path: Path) -> None:
     assert exit_code_for(excinfo.value) == EXIT_USAGE
 
 
+def test_reading_does_not_need_a_request(tmp_path: Path) -> None:
+    root = tmp_path / "job_4710"
+    root.mkdir()
+
+    assert JobDirectory.for_reading(root).root == root.resolve()
+    with pytest.raises(JobUsageError, match="does not exist"):
+        JobDirectory.for_reading(tmp_path / "absent")
+
+
 def test_a_directory_without_a_request_is_a_usage_error(tmp_path: Path) -> None:
     root = tmp_path / "job_4712"
     root.mkdir()
@@ -159,5 +168,24 @@ def test_relative_name_of_an_output(tmp_path: Path) -> None:
     produced.write_bytes(b"")
 
     assert job.relative(produced) == "outputs/watershed.gpkg"
+    assert job.relative("outputs/watershed.gpkg") == "outputs/watershed.gpkg"
     with pytest.raises(ValueError):
         job.relative(tmp_path / "elsewhere.gpkg")
+
+
+INSIDE = [
+    pytest.param("outputs/watershed.gpkg", True, id="relative, inside"),
+    pytest.param("../elsewhere.gpkg", False, id="relative, walks out"),
+]
+
+
+@pytest.mark.parametrize(("path", "inside"), INSIDE)
+def test_contains_relative_paths(tmp_path: Path, path: str, inside: bool) -> None:
+    assert staged_job(tmp_path).contains(path) is inside
+
+
+def test_contains_absolute_paths(tmp_path: Path) -> None:
+    job = staged_job(tmp_path)
+
+    assert job.contains(job.root / "outputs" / "a.gpkg")
+    assert not job.contains(tmp_path / "elsewhere.gpkg")

@@ -60,6 +60,21 @@ def _split_road():
     return _embanked(*(("road", half) for half in halves))
 
 
+def _channel_vector_at(x_m: float, road: LineString):
+    """A road over a channel vector drawn at *x_m*, which may not be where the channel pixels are."""
+    valley, crossings = _embanked(("road", road))
+    valley.network = gpd.GeoDataFrame(
+        geometry=[LineString([(x_m, bench.N * bench.RES + 500.0), (x_m, -500.0)])], crs=bench.CRS
+    )
+    return valley, crossings
+
+
+def _outlet_beyond_the_grid():
+    valley, crossings = _road(bench.N - 2, height=2.0)
+    valley.d8[bench.N - 1, :] = bench.SOUTH
+    return valley, crossings
+
+
 def _no_network():
     valley, crossings = _road()
     valley.network = gpd.GeoDataFrame(geometry=[], crs=bench.CRS)
@@ -106,6 +121,8 @@ NOTCHED = {
     "channel cut at the crossing": (_cut_network, {}, ROW, {"crossing_points": {"road": 1}}),
     "bridge of one source and road of another": (lambda: _road(ROW, ("bridge", bench.bridge_at(AXIS + 1, ROW))), {}, ROW, {}),
     "road split in two at the stream": (_split_road, {}, ROW, {"crossing_points": {"road": 1}}),
+    "road laid along the channel": (lambda: _along("road", LineString([(X, bench.y_of(8)), (X, bench.y_of(12))])), {}, ROW, {"features": {"road": 1}}),
+    "channel left to the edge of the grid": (_outlet_beyond_the_grid, {}, bench.N - 2, {}),
     "road drawn as a multiline": (lambda: _along("road", MultiLineString([bench.road_along(ROW), ELSEWHERE])), {}, ROW, {"features": {"road": 1}}),
 }
 # fmt: on
@@ -169,6 +186,8 @@ SKIPPED = {
     "nodata bed level": (_nodata_bed, {}, "nodata"),
     "bridge beyond the snap radius": (lambda: _at("bridge", AXIS + 6), {"snap_radius_m": 30.0}, "off_channel"),
     "no channel pixel near the crossing": (_short_channel, {}, "no_channel_pixel"),
+    "crossing outside the grid": (lambda: _channel_vector_at(X, LineString([(0.0, -300.0), (200.0, -300.0)])), {}, "no_channel_pixel"),
+    "channel vector 35 m from the pixels": (lambda: _channel_vector_at(X + 35.0, LineString([(0.0, Y), (200.0, Y)])), {}, "no_channel_pixel"),
     "ground already at the bed line": (lambda: (bench.build(), _along("road")[1]), {}, "nothing_to_lower"),
     "dam declared in the same file": (lambda: (_pond_behind_a_dam(), _along("road", None, ("dam", bench.bridge_at(AXIS, ROW)))[1]), {}, "dam_or_weir"),
     "weir within the snap radius": (lambda: _road(ROW, ("weir", bench.bridge_at(AXIS + 2, ROW))), {"snap_radius_m": 30.0}, "dam_or_weir"),
@@ -185,6 +204,35 @@ def test_skipped_crossings(case, options, reason) -> None:
     assert np.array_equal(out, valley.dem)
     assert (report.skipped, report.pixels_lowered) == ({reason: 1}, 0)
     assert report.skipped_detail[0]["reason"] == reason
+
+
+def test_road_crossing_twice():
+    # One road that loops back over the channel crosses it at rows 5 and 15.
+    loop = LineString(
+        [
+            (X - 20.0, bench.y_of(5)),
+            (X + 20.0, bench.y_of(5)),
+            (X + 20.0, bench.y_of(15)),
+            (X - 20.0, bench.y_of(15)),
+        ]
+    )
+    valley = bench.build(embankment_rows=(5, 15), height=HEIGHT)
+    out, report = bench.notch(valley, bench.structures(("road", loop)))
+    for row in (5, 15):
+        assert out[row, AXIS] == pytest.approx(bench.bed(row))
+    assert (report.features, report.crossing_points, report.notched) == (
+        {"road": 1},
+        {"road": 2},
+        {"road": 2},
+    )
+
+
+def test_notch_pixel_without_data_stays() -> None:
+    valley, crossings = _road(height=2.0)
+    valley.dem[ROW, AXIS + 1] = -9999.0
+    out, _ = bench.notch(valley, crossings, notch_width_m=30.0, max_depth_m=5.0)
+    assert out[ROW, AXIS + 1] == -9999.0
+    np.testing.assert_allclose(out[ROW, [AXIS - 1, AXIS]], [bench.bed(ROW)] * 2)
 
 
 def test_dam_skip_message() -> None:

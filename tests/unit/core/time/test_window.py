@@ -472,3 +472,13 @@ def test_window_keeps_explicit_periods():
 
     assert cut.window.period_bounds == explicit.period_bounds[6:12]
     assert tuple(build_simulation_time_boundaries(cut.window)) == cut.boundaries
+
+
+def test_an_hourly_window_ends_on_its_last_hour() -> None:
+    # 24 hourly periods from 00:00; cut in two, the first one stops at 11:00 inclusive.
+    whole = resolve_simulation_time_grid(_cfg("2020-01-01 00:00", "2020-01-01 23:00", 1, "hour"))
+    first, last = (window_grid(whole, one) for one in chain_windows(whole, "12 hours"))
+
+    assert first.window.end == pd.Timestamp("2020-01-01 11:00")
+    assert last.window.start == pd.Timestamp("2020-01-01 12:00")
+    assert last.window.end == pd.Timestamp("2020-01-01 23:00")

@@ -13,6 +13,7 @@ import functools
 import logging
 from types import SimpleNamespace
 
+import flopy
 import numpy as np
 import pytest
 import shapely
@@ -36,6 +37,7 @@ from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall
 from hydromodpy.solver.modflow6.builders.flow_barrier import (
     build_flow_barrier_hfb,
+    build_flow_barriers,
     resolve_flow_barrier_hfb_rows,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -51,8 +53,9 @@ CUT_COORDS = [[1.01, -0.5], [1.01, 2.5]]
 CUT = LineString(CUT_COORDS)
 
 
-def grid(n: int, botm0: np.ndarray | None = None) -> SolverMesh:
+def grid(n: int, botm0: np.ndarray | None = None, inactive: np.ndarray | None = None) -> SolverMesh:
     # n x n unit quads, top = 10 m, layer 0 bottom = botm0 (default 5 m), layer 1 bottom = 0 m.
+    # inactive is a (2, n * n) boolean mask, all cells active by default.
     verts = np.array([[i, j] for j in range(n + 1) for i in range(n + 1)], dtype=float)
 
     def v(i: int, j: int) -> int:
@@ -69,7 +72,7 @@ def grid(n: int, botm0: np.ndarray | None = None) -> SolverMesh:
         mesh,
         top=np.full(nc, 10.0),
         botm=np.array([b0, np.zeros(nc)]),
-        inactive_mask=np.zeros((2, nc), dtype=bool),
+        inactive_mask=np.zeros((2, nc), dtype=bool) if inactive is None else inactive,
     )
 
 
@@ -100,6 +103,40 @@ def test_barred_layers(botm0, kwargs, layers, n_rows) -> None:
     assert sorted({r[0][0] for r in rows}) == layers
     assert sorted({(r[0][1], r[1][1]) for r in rows}) == [(0, 1), (2, 3)]
     assert len(rows) == n_rows
+
+
+TOP_LAYER_OFF = np.array([[True] * 4, [False] * 4])
+BOTH_LAYERS_OFF = np.ones((2, 4), dtype=bool)
+
+CLAMPED_BANDS = [
+    # A band from 12 to 15 m floats above the 10 m top, so the top layer is sealed.
+    pytest.param(None, {"base_elevation": 12.0, "crest_elevation": 15.0}, [0], id="above the top"),
+    # A band from -5 to -1 m lies under the 0 m aquifer bottom, so the bottom layer is sealed.
+    pytest.param(
+        None, {"base_elevation": -5.0, "crest_elevation": -1.0}, [1], id="below the bottom"
+    ),
+    pytest.param(
+        TOP_LAYER_OFF,
+        {"base_elevation": 12.0, "crest_elevation": 15.0},
+        [1],
+        id="next active layer when the top one is off",
+    ),
+    pytest.param(
+        BOTH_LAYERS_OFF, {"base_elevation": 12.0, "crest_elevation": 15.0}, [], id="no active layer"
+    ),
+]
+
+
+@pytest.mark.parametrize(("inactive", "kwargs", "layers"), CLAMPED_BANDS)
+def test_band_missing_the_aquifer(inactive, kwargs, layers, caplog) -> None:
+    with caplog.at_level(logging.INFO):
+        rows = build_flow_barrier_hfb(grid(2, inactive=inactive), line=CUT, hydchr=1e-9, **kwargs)
+
+    # The two faces (0, 1) and (2, 3) each get one row on the sealed layer.
+    assert sorted(r[0][0] for r in rows) == layers * 2
+    clamped = "sealed at the nearest layer" in caplog.text
+    assert clamped == bool(layers)
+    assert ("every layer joins an inactive cell" in caplog.text) == (not layers)
 
 
 def test_depth_interpolated_along_line() -> None:
@@ -308,6 +345,60 @@ def test_crossed_faces_close_family_gap(engine: str) -> None:
     assert _family_pairs(holed) < pairs
 
 
+def test_hfb_package_holds_the_barrier_rows(tmp_path, caplog) -> None:
+    sim = flopy.mf6.MFSimulation(sim_name="hfb", sim_ws=str(tmp_path))
+    flopy.mf6.ModflowTdis(sim)
+    model = resolver_model({"flow_barriers": {"w": {"barrier": WALL, "line": CUT}}})
+    model.gwf = flopy.mf6.ModflowGwf(sim, modelname="hfb")
+    # The 2 x 2 unit quads of grid(2) as a DISV grid, vertex v = 3 * j + i.
+    vertices = [[3 * j + i, float(i), float(j)] for j in range(3) for i in range(3)]
+    cell2d = [
+        [2 * j + i, i + 0.5, j + 0.5, 4, 3 * j + i, 3 * j + i + 1, 3 * j + i + 4, 3 * j + i + 3]
+        for j in range(2)
+        for i in range(2)
+    ]
+    flopy.mf6.ModflowGwfdisv(
+        model.gwf,
+        nlay=2,
+        ncpl=4,
+        nvert=9,
+        top=10.0,
+        botm=[5.0, 0.0],
+        vertices=vertices,
+        cell2d=cell2d,
+    )
+
+    with caplog.at_level(logging.INFO):
+        build_flow_barriers(model, grid(2), {}, [])
+
+    records = model.hfb.stress_period_data.get_data(0)
+    # Depth 7 m bars both 5 m layers across the faces (0, 1) and (2, 3).
+    assert sorted((r["cellid1"][0], r["cellid1"][1], r["cellid2"][1]) for r in records) == [
+        (0, 0, 1),
+        (0, 2, 3),
+        (1, 0, 1),
+        (1, 2, 3),
+    ]
+    assert "HFB cutoff wall: 4 barrier rows over 2 shared faces." in caplog.text
+
+
+def test_zero_hydchr_without_a_modflow_config_is_allowed() -> None:
+    cfg = FlowBarrierConfig(line=CUT_COORDS, depths=[7.0], hydchr=0.0)
+    barrier = SimpleNamespace(barrier=cfg, line=CUT)  # a config object, not a dict
+    model = SimpleNamespace(inputs=make_model(flow_barriers={"w": barrier}))
+
+    rows = resolve_flow_barrier_hfb_rows(model, grid(2))
+
+    assert len(rows) == 4
+    assert all(r[2] == 0.0 for r in rows)
+
+
+def test_barrier_without_a_barrier_table_is_skipped() -> None:
+    model = resolver_model({"flow_barriers": {"w": {"line": CUT}}})
+
+    assert resolve_flow_barrier_hfb_rows(model, grid(2)) == []
+
+
 WALL = FlowBarrierConfig(line=CUT_COORDS, depths=[7.0], hydchr=1e-9)
 OFF_MESH = LineString([(10.0, 10.0), (11.0, 11.0)])
 
@@ -317,6 +408,25 @@ REFUSALS = [
         {"barrier": WALL, "line": OFF_MESH}, "crosses no interior mesh face", id="line off the mesh"
     ),
 ]
+
+DEPTH_REFUSALS = [
+    pytest.param(None, id="no depth and no floor"),
+    pytest.param([1.0, 2.0, 3.0], id="three depths for a two vertex line"),
+]
+
+
+@pytest.mark.parametrize("depths", DEPTH_REFUSALS)
+def test_depth_refusals(depths) -> None:
+    with pytest.raises(ValueError, match=r"depths must have 1 value or one per line vertex \(2\)"):
+        build_flow_barrier_hfb(grid(2), line=CUT, hydchr=1e-9, depths=depths)
+
+
+def test_lake_wall_without_a_trace_is_refused() -> None:
+    wall = FlowBarrierConfig(line=CUT_COORDS, depths=[7.0], hydchr=1e-9)
+    model = resolver_model({"lakes": {"reservoir": {"cutoff_wall": wall}}})
+
+    with pytest.raises(ValueError, match=r"lakes\.reservoir\.cutoff_wall is declared"):
+        resolve_flow_barrier_hfb_rows(model, grid(2))
 
 
 @pytest.mark.parametrize(("barrier", "match"), REFUSALS)

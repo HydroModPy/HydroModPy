@@ -381,6 +381,26 @@ def test_final_state_is_float64(tmp_path: Path) -> None:
     assert (state.lake_stages, state.sfr_stages) == ({}, {})
 
 
+def test_flow_adapter_extracts_the_head_history(tmp_path: Path) -> None:
+    call = adapter_call(
+        tmp_path,
+        flow=Flow(FlowConfig.model_validate({"ic": {"kind": "top"}, "first_period_steady": False})),
+        exchange_mesh=_write_minimal_bundle(tmp_path / "bundle"),
+        time_grid=ONE_HOUR,
+    )
+    result = call.solve()
+    store = Store(tmp_path / "run")
+
+    BoussinesqFlowAdapter().extract(result, store, keep_all)
+
+    history = result.solver_model.state.head_history_m
+    assert np.array_equal(store.fields["head"][-1, 0], history[-1])
+
+
+def test_no_request_serves_nothing(tmp_path: Path) -> None:
+    assert BoussinesqFlowAdapter().observables(solver_run_of(tmp_path), []) == {}
+
+
 def test_recharge_and_dirichlet(tmp_path: Path) -> None:
     call = hourly_call(
         tmp_path,

@@ -172,3 +172,101 @@ def test_refusals():
     # 4 -> 1 -> 2 -> 3 -> 1 is a cycle, 0 is a separate root.
     with pytest.raises(ValueError, match=r"cycle through node [123]\b"):
         fit_tree(np.arange(5.0), [-1, 2, 3, 1, 1])
+
+
+def test_gap_with_no_measured_node_above_or_below():
+    # Gaps 0 and 2 sit at the two ends of the main stem, gap 1 is the junction.
+    # The only measurement (9 m) is on the tributary 3, so every gap takes it.
+    fit = fit_tree(
+        [np.nan, np.nan, np.nan, 9.0], [1, 2, -1, 1], gap=[True, True, True, False], min_slope=0.0
+    )
+
+    np.testing.assert_allclose(fit.values, [9.0, 9.0, 9.0, 9.0])
+
+
+def test_isolated_gap_keeps_its_raw_value():
+    # A gap with no neighbour has nothing to borrow from.
+    fit = fit_tree([7.0], [-1], gap=[True], min_slope=0.0)
+
+    np.testing.assert_allclose(fit.values, [7.0])
+
+
+def test_empty_tree():
+    fit = fit_tree([], np.array([], dtype=int))
+
+    assert fit.values.size == 0
+    assert fit.blocks == ()
+
+
+BED = np.array([5.0, 4.0, 3.0])
+CHAIN = np.array([1, 2, -1])
+LENGTHS = np.full(3, LENGTH_M)
+
+BAD_INPUTS = [
+    pytest.param(
+        dict(values=BED.reshape(1, 3), receiver=CHAIN, edge_length=LENGTHS),
+        "values must be one-dimensional",
+        id="values not one-dimensional",
+    ),
+    pytest.param(
+        dict(values=BED, receiver=CHAIN[:2], edge_length=LENGTHS),
+        r"receiver must have shape \(3,\)",
+        id="receiver of wrong length",
+    ),
+    pytest.param(
+        dict(values=BED, receiver=CHAIN.astype(float), edge_length=LENGTHS),
+        "receiver must hold integer indices",
+        id="receiver as floats",
+    ),
+    pytest.param(
+        dict(values=BED, receiver=np.array([1, 3, -1]), edge_length=LENGTHS),
+        r"receiver of node 1 is 3, outside \[-1, 2\]",
+        id="receiver out of range",
+    ),
+    pytest.param(
+        dict(values=BED, receiver=CHAIN, edge_length=LENGTHS[:2]),
+        r"edge_length must have shape \(3,\)",
+        id="edge length of wrong length",
+    ),
+    pytest.param(
+        dict(values=BED, receiver=CHAIN, edge_length=np.array([25.0, -1.0, 25.0])),
+        "edge length of node 1 must be finite and non-negative",
+        id="negative edge length",
+    ),
+    pytest.param(
+        dict(values=np.array([5.0, np.nan, 3.0]), receiver=CHAIN, edge_length=LENGTHS),
+        "value of measured node 1 is not finite",
+        id="measured value is nan",
+    ),
+    pytest.param(
+        dict(values=BED, receiver=CHAIN, edge_length=LENGTHS, min_slope=-1.0),
+        "min_slope must be finite and non-negative",
+        id="negative minimum slope",
+    ),
+    pytest.param(
+        dict(values=BED, receiver=CHAIN, edge_length=LENGTHS, gap=np.zeros(2, dtype=bool)),
+        r"gap must have shape \(3,\)",
+        id="gap mask of wrong length",
+    ),
+    pytest.param(
+        dict(values=BED, receiver=CHAIN, edge_length=LENGTHS, cut=np.zeros(3)),
+        "cut must be a boolean mask",
+        id="cut mask not boolean",
+    ),
+    pytest.param(
+        dict(
+            values=np.array([np.nan]),
+            receiver=np.array([-1]),
+            edge_length=np.zeros(1),
+            gap=np.array([True]),
+        ),
+        "gap node 0 has no measured node",
+        id="isolated gap without raw value",
+    ),
+]
+
+
+@pytest.mark.parametrize(("kwargs", "message"), BAD_INPUTS)
+def test_bad_inputs_refused(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        regularize_bed_on_tree(**kwargs)

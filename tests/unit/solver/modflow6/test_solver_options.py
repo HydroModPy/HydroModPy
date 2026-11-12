@@ -9,7 +9,10 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.solver.modflow6.builders.solver_options import optional_ims_kwargs
+from hydromodpy.solver.modflow6.builders.solver_options import (
+    optional_ims_kwargs,
+    output_control_records,
+)
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6RuntimeConfig
 
 
@@ -146,3 +149,17 @@ def test_xt3d_failure_hint(tmp_path) -> None:
     assert "mf6_enable_xt3d = false" in xt3d_failure_hint(tmp_path)
     (tmp_path / "m.npf").write_text("BEGIN options\nEND options\n")
     assert xt3d_failure_hint(tmp_path) == ""
+
+
+OUTPUT_CONTROLS = [
+    pytest.param(False, [("BUDGET", "ALL")], id="head not printed"),
+    pytest.param(True, [("HEAD", "LAST"), ("BUDGET", "ALL")], id="head printed"),
+]
+
+
+@pytest.mark.parametrize(("print_head", "printed"), OUTPUT_CONTROLS)
+def test_output_control_records(print_head, printed) -> None:
+    records = output_control_records(print_head=print_head)
+    # The head at the last step and every budget are always stored, one slice per period.
+    assert records["saverecord"] == [("HEAD", "LAST"), ("BUDGET", "ALL")]
+    assert records["printrecord"] == printed

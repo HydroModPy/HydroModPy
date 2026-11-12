@@ -315,6 +315,49 @@ def test_occupied_layers_default_to_a_surface_lake() -> None:
     assert resolve_lake_occupied_layers(model) == {"surface": 1, "deep": 3}
 
 
+def lakes_model(lakes: dict) -> SimpleNamespace:
+    boundaries = BoundaryConditionBundle(conditions={}, active_ids=("lake",))
+    return SimpleNamespace(inputs=make_model(boundaries=boundaries, lakes=lakes))
+
+
+def unit_cell_grid() -> SolverMesh:
+    return solver_mesh_from_structured_arrays(
+        nrow=6, ncol=6, top=np.full((6, 6), 10.0), botm=np.full((2, 6, 6), 0.0), dx=1.0, dy=1.0
+    )
+
+
+def test_a_lake_off_the_mesh_is_refused() -> None:
+    far = Polygon([(1e6, 1e6), (1e6 + 10, 1e6), (1e6 + 10, 1e6 + 10)])
+
+    with pytest.raises(ValueError, match=r"lakes\.far polygon does not intersect any grid cell"):
+        resolve_lake_cells(None, lake_id="far", polygon=far, cell_mesh=regular_cell_mesh())
+
+
+ISLAND_LAKE = Polygon([(0, 0), (6, 0), (6, 6), (0, 6)], holes=[[(2, 2), (4, 2), (4, 4), (2, 4)]])
+
+
+@pytest.mark.parametrize(
+    ("fill", "n_cells"),
+    [
+        pytest.param(False, 32, id="island stays out"),  # 36 cells - the 2 x 2 island
+        pytest.param(True, 36, id="island filled"),
+    ],
+)
+def test_lake_cells_around_an_island(fill, n_cells) -> None:
+    lake = {"polygon": ISLAND_LAKE, "bedleak": 0.2, "outlets": [], "fill_enclosed_cells": fill}
+
+    cells = resolve_lake_cells_for_active_lakes(lakes_model({"lac0": lake}), unit_cell_grid())
+
+    assert len(cells["lac0"]) == n_cells
+
+
+def test_a_lake_without_polygon_is_refused() -> None:
+    model = lakes_model({"lac0": {"polygon": None, "bedleak": 0.2, "outlets": []}})
+
+    with pytest.raises(ValueError, match=r"lakes\.lac0 has no polygon geometry"):
+        resolve_lake_cells_for_active_lakes(model, unit_cell_grid())
+
+
 def grid(nrow: int, ncol: int, nlay: int = 3) -> SolverMesh:
     top = np.full((nrow, ncol), 10.0)
     botm = np.stack([np.full((nrow, ncol), 10.0 - (lay + 1) * 3.0) for lay in range(nlay)])
@@ -366,4 +409,25 @@ MASK_REFUSALS = [
 @pytest.mark.parametrize(("cells", "kwargs"), MASK_REFUSALS)
 def test_idomain_mask_refuses_a_full_column(cells, kwargs) -> None:
     with pytest.raises(ValueError, match="at least one active layer"):
+        apply_lake_idomain_mask(grid(2, 2, nlay=2), lake_cell_ids_by_lake=cells, **kwargs)
+
+
+OCCUPIED_REFUSALS = [
+    pytest.param({"lac0": [9]}, {}, "cell 9 is outside the grid", id="cell off the grid"),
+    pytest.param({"lac0": [-1]}, {}, "cell -1 is outside the grid", id="negative cell"),
+    pytest.param(
+        {"lac0": [0]}, {"occupied_layers": 0}, "occupied_layers must be >= 1", id="no layer"
+    ),
+    pytest.param(
+        {"lac0": [0]},
+        {"occupied_layers_by_cell": {"lac0": {0: 0}}},
+        "occupied_layers must be >= 1",
+        id="no layer in one cell",
+    ),
+]
+
+
+@pytest.mark.parametrize(("cells", "kwargs", "message"), OCCUPIED_REFUSALS)
+def test_idomain_mask_refusals(cells, kwargs, message) -> None:
+    with pytest.raises(ValueError, match=message):
         apply_lake_idomain_mask(grid(2, 2, nlay=2), lake_cell_ids_by_lake=cells, **kwargs)

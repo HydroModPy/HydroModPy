@@ -196,3 +196,21 @@ def test_a_diagonal_step_beside_a_single_reach_cell_is_not_stopped() -> None:
     )
 
     assert records == []
+
+
+def test_a_network_off_the_aquifer_routes_nothing() -> None:
+    # The first network does not opt in, so its reach on cell 2 is not a receiver. The routed
+    # network has a reach with no cell, so no cell can take the drainage.
+    off_aquifer = SfrReachRecord(
+        ifno=0, cellid=None, rlen=10.0, rwid=2.0, rgrd=1e-3, rtp=97.0, upstream=(), downstream=()
+    )
+    networks = {
+        "plain": ResolvedSfrNetwork("plain", (_reach(0, 2),), {"route_drainage": False}),
+        "routed": ResolvedSfrNetwork("routed", (off_aquifer,), {"route_drainage": True}),
+    }
+
+    records = _route(
+        networks, drn_spd=_static_drn([0]), receiver=_chain(3), basin_cell_mask=_everywhere(3)
+    )
+
+    assert records == []

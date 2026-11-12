@@ -20,6 +20,7 @@ from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.listing import (
     list_runs,
     list_simulations,
+    point_simulations,
     profile_of_run,
     query_catalog,
     show_simulation,
@@ -27,6 +28,7 @@ from hydromodpy.results.catalog.listing import (
     solve_seconds,
 )
 from hydromodpy.results.publication import PublishedLine, append_published
+from hydromodpy.results.run.point import POINT_COLUMNS
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
 from tests._helpers.sealed_runs import make_project, seal_run
 
@@ -291,3 +293,14 @@ def test_unknown_metric_refused(tmp_path: Path) -> None:
 
     with pytest.raises(UnrankedMetricError):
         list_runs(workspace, best="no_such_metric")
+
+
+def test_point_table_of_no_run_is_written(tmp_path: Path) -> None:
+    workspace, project_dir, _sim_id = _seed_workspace(tmp_path)
+    output = tmp_path / "out" / "points.csv"
+
+    frame = point_simulations([], workspace=project_dir, variables=["head"], cell=0, output=output)
+
+    assert frame.empty
+    assert list(frame.columns) == list(POINT_COLUMNS)
+    assert output.read_text(encoding="utf-8").strip() == ",".join(POINT_COLUMNS)

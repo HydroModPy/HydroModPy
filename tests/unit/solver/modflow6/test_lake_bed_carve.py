@@ -177,3 +177,19 @@ def test_marnage_pinched_top_flat(tmp_path) -> None:
         dynamic_area=True, bank_seepage=False,
     )  # fmt: skip
     assert {tuple(r[2])[0] for r in rows} == {1}
+
+
+def test_carve_without_bathymetry_is_refused() -> None:
+    from hydromodpy.model.sinks_sources.lake import BathymetryReconstructionConfig
+
+    model = lake_model({"bed_reconstruction": BathymetryReconstructionConfig(), "bedleak": 1e-6})
+
+    with pytest.raises(ValueError, match=r"lakes\.lac0 sets bed_reconstruction but no"):
+        carve_lake_bed(
+            model, stack_mesh(), lake_cell_ids_by_lake={"lac0": CELLS}, occupied_layers_by_lake={}
+        )
+
+
+def test_reconcile_without_abacus_is_refused(tmp_path) -> None:
+    with pytest.raises(ValueError, match="reconcile_to_abacus = false"):
+        carve(tmp_path, bowl_bed(), reconcile_to_abacus=True)

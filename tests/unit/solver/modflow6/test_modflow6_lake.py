@@ -14,6 +14,7 @@ import logging
 from itertools import pairwise
 from types import SimpleNamespace
 
+import flopy
 import numpy as np
 import pytest
 from shapely.geometry import Polygon
@@ -23,9 +24,11 @@ from hydromodpy.solver.modflow6.builders.lake import (
     _lake_connection_floor,
     _refuse_chd_connections,
     _warn_table_off_connection_floor,
+    build_exposed_band_runoff_specs,
     build_lak_package_args,
     build_lake_connectiondata,
     build_lake_table,
+    build_lakes,
 )
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
 from hydromodpy.solver.modflow6.builders.mvr import build_mvr_period_records
@@ -138,6 +141,53 @@ def test_lake_table_refusals(abacus, message) -> None:
         build_lake_table(None, lake_id="lac0", abacus=abacus)
 
 
+def whole_grid_lake() -> list[list]:
+    return build_lake_connectiondata(
+        None,
+        lake_index=0,
+        lake_cell_ids=range(16),
+        bedleak=0.5,
+        occupied_layers=2,  # the lake fills both layers, so no cell lies below it
+        solver_mesh=apply_lake_idomain_mask(
+            grid_4x4(), lake_cell_ids_by_lake={"lac0": list(range(16))}
+        ),
+    )
+
+
+CONNECTION_REFUSALS = [
+    pytest.param(
+        lambda: build_lake_connectiondata(
+            None, lake_index=0, lake_cell_ids=LAKE_CELLS, bedleak=-1.0, solver_mesh=masked_grid()
+        ),
+        "bedleak must be >= 0, got -1.0",
+        id="negative bedleak",
+    ),
+    pytest.param(
+        lambda: build_lake_connectiondata(
+            None, lake_index=0, lake_cell_ids=[], bedleak=0.5, solver_mesh=masked_grid()
+        ),
+        "at least one lake cell",
+        id="no lake cell",
+    ),
+    pytest.param(whole_grid_lake, "Lake has no aquifer connection", id="no active neighbour"),
+    pytest.param(
+        lambda: build_lak_package_args(
+            lake_model(polygon=SQUARE_1_TO_3, bedleak=0.3, abacus=ABACUS),
+            solver_mesh=masked_grid(),
+            lake_cell_ids_by_lake={"lac0": []},
+        ),
+        r"lakes\.lac0 resolved to no grid cell",
+        id="polygon off the grid",
+    ),
+]
+
+
+@pytest.mark.parametrize(("build", "match"), CONNECTION_REFUSALS)
+def test_lake_connection_refusals(build, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        build()
+
+
 def test_get_lak_connections_is_not_called() -> None:
     # FloPy's helper does not support lakes on DISV. The docstring may name it,
     # but the builder must never call or import it.
@@ -240,6 +290,127 @@ def test_table_bottom_against_the_connection_floor(caplog) -> None:
     with caplog.at_level(logging.WARNING):
         _warn_table_off_connection_floor("lac0", [(5.0, 0.0, 0.0), (8.0, 4.0, 4.0)], floor)
     assert any("min(belev)" in r.getMessage() for r in caplog.records)
+
+
+def test_connection_floor_of_a_flat_bank_row_is_the_cell_bottom() -> None:
+    mesh = grid_4x4()  # layer 0 bottom 5 m, layer 1 bottom 0 m
+    # belev equals telev (6 m) on a HORIZONTAL row of layer 1, so MF6 takes the cell bottom.
+    flat_bank = [0, 0, (1, 4), "HORIZONTAL", 0.5, 6.0, 6.0, 1.0, 1.0]
+    sloped_bank = [0, 0, (1, 4), "HORIZONTAL", 0.5, 2.0, 6.0, 1.0, 1.0]
+
+    assert _lake_connection_floor([flat_bank], mesh) == 0.0
+    assert _lake_connection_floor([sloped_bank], mesh) == 2.0
+
+
+def test_a_chd_package_without_records_for_a_period_is_accepted() -> None:
+    rows = connectiondata_rows()
+    data = SimpleNamespace(get_data=lambda: {0: None, 1: None})
+
+    _refuse_chd_connections(
+        SimpleNamespace(chd=SimpleNamespace(stress_period_data=data)), lake_id="lac0", rows=rows
+    )
+
+
+class SlottedModel:
+    __slots__ = ()
+
+
+def test_a_model_that_cannot_hold_the_seal_count_still_builds() -> None:
+    rows = build_lake_connectiondata(
+        SlottedModel(),
+        lake_index=0,
+        lake_cell_ids=LAKE_CELLS,
+        bedleak=0.5,
+        solver_mesh=masked_grid(),
+    )
+
+    assert len(rows) == 12  # 4 VERTICAL + 8 HORIZONTAL
+
+
+def test_lake_cells_come_from_the_polygon_when_not_given() -> None:
+    model = lake_model(polygon=SQUARE_1_TO_3, bedleak=0.3, abacus=ABACUS)
+
+    args = build_lak_package_args(model, solver_mesh=grid_4x4())
+
+    assert args["nlakes"] == 1
+    assert args["packagedata"][0][2] == 12
+
+
+def test_a_lake_without_bedleak_gets_the_default(caplog) -> None:
+    model = lake_model(polygon=SQUARE_1_TO_3, abacus=ABACUS)
+
+    with caplog.at_level(logging.WARNING):
+        args = build_lak_package_args(
+            model, solver_mesh=masked_grid(), lake_cell_ids_by_lake={"lac0": LAKE_CELLS}
+        )
+
+    assert "has no bedleak; using the default 1.0 1/s" in caplog.text
+    assert {float(row[4]) for row in args["connectiondata"]} == {1.0}
+
+
+def gwf_on_the_4x4_grid(tmp_path):
+    """A flopy GWF model on the unit 4 x 4 DISV grid of ``grid_4x4`` (vertex v = 5 * j + i)."""
+    sim = flopy.mf6.MFSimulation(sim_name="lak", sim_ws=str(tmp_path))
+    flopy.mf6.ModflowTdis(sim)
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="lak")
+    vertices = [[5 * j + i, float(i), float(j)] for j in range(5) for i in range(5)]
+    cell2d = [
+        [4 * j + i, i + 0.5, j + 0.5, 4, 5 * j + i, 5 * j + i + 1, 5 * j + i + 6, 5 * j + i + 5]
+        for j in range(4)
+        for i in range(4)
+    ]
+    flopy.mf6.ModflowGwfdisv(
+        gwf,
+        nlay=2,
+        ncpl=16,
+        nvert=25,
+        top=10.0,
+        botm=[5.0, 0.0],
+        vertices=vertices,
+        cell2d=cell2d,
+    )
+    return gwf
+
+
+def test_lak_package_and_its_table_are_built(tmp_path) -> None:
+    model = lake_model(polygon=SQUARE_1_TO_3, bedleak=0.3, abacus=ABACUS)
+    model.gwf = gwf_on_the_4x4_grid(tmp_path)
+    model.full_path = tmp_path
+
+    mover_rows, n_lakes, connections = build_lakes(
+        model, masked_grid(), {"lac0": LAKE_CELLS}, [], [], None
+    )
+
+    assert mover_rows == []
+    assert n_lakes == 1
+    assert len(connections) == 12  # 4 VERTICAL + 8 HORIZONTAL
+    assert model.lak.nlakes.get_data() == 1
+    table = model.gwf.get_package("laktab_0").table.get_data()
+    assert [row[0] for row in table] == [5.0, 10.0]  # stage (m) at the foot and top of the abacus
+    assert model.gwf.get_package("obs_0") is not None
+    # The sidecar re-keys the lake observations by lake id at extraction.
+    assert (tmp_path / "lac_test.lak.meta.json").is_file()
+
+
+def test_no_lake_package_without_lake_cells() -> None:
+    model = lake_model(polygon=SQUARE_1_TO_3, bedleak=0.3, abacus=ABACUS)
+
+    assert build_lakes(model, masked_grid(), {}, [], [], None) == ([], 0, [])
+
+
+EXPOSED_BAND_MODELS = [
+    pytest.param({}, set(), id="no bed reconstruction"),
+    pytest.param({"other": {}}, {"lac0"}, id="lake absent from the reconstruction"),
+]
+
+
+@pytest.mark.parametrize(("reconstruction", "marnage"), EXPOSED_BAND_MODELS)
+def test_no_exposed_band_spec_without_a_reconstructed_lake(reconstruction, marnage) -> None:
+    model = lake_model(bed_reconstruction=SimpleNamespace(exposed_band_runoff=True))
+    model._lake_bed_reconstruction = reconstruction
+    model._marnage_lake_ids = marnage
+
+    assert build_exposed_band_runoff_specs(model) == []
 
 
 # Merritt and Konikow (2000) test 1, ex-gwf-lak-p01: one surface lake, 5x5 cells on

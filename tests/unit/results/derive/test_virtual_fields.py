@@ -133,3 +133,13 @@ def test_accumulation_is_routed_on_read(runs: RunBuilder, written, values, queri
     write_budget(runs, sim_id, written, values)
 
     np.testing.assert_allclose(runs.reader().query_field(sim_id, queried, 0), expected)
+
+
+def test_field_of_a_store_without_head_is_read_by_step(runs: RunBuilder) -> None:
+    # No head and no concentration: the time axis is unknown, so the step is read as given.
+    sim_id = runs.open(n_cells=3, n_layers=2, n_timesteps=1).sim_id
+    write_budget(runs, sim_id, "drain", [[-2.0, 1.0, -0.5], [-3.0, -4.0, 2.0]])
+
+    np.testing.assert_allclose(
+        runs.reader().query_field(sim_id, "outflow_drain", 0), [5.0, 4.0, 0.5]
+    )

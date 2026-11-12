@@ -76,3 +76,25 @@ def test_equilibrium_stays_at_equilibrium() -> None:
     solved = run(np.array([rate]), np.array([SECONDS_PER_DAY]), TAU_S * rate, TAU_S, AREA_M2)
 
     assert solved.stored_m[-1] == pytest.approx(TAU_S * rate, rel=1e-15)
+
+
+REFUSALS = [
+    pytest.param(
+        advance_depth,
+        (0.0, 1.0e-8, SECONDS_PER_DAY, 0.0),
+        "tau_seconds must be strictly positive",
+        id="no memory",
+    ),
+    pytest.param(
+        run,
+        (np.zeros(3), np.full(2, SECONDS_PER_DAY), 0.0, TAU_S, AREA_M2),
+        "3 rates and 2 durations",
+        id="one duration missing",
+    ),
+]
+
+
+@pytest.mark.parametrize(("function", "args", "message"), REFUSALS)
+def test_refusals(function, args, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        function(*args)

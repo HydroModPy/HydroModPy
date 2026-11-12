@@ -5,8 +5,11 @@ later, on the criterion graph. Lines that touch without a shared vertex are node
 loop has no free end: the point where a reach meets a pond outline is a junction, never a head.
 """
 
+import logging
+
 import numpy as np
 import pytest
+from pyproj import Transformer
 from shapely.geometry import LineString, Point, Polygon
 
 from hydromodpy.catchment.algorithms.network_heads import (
@@ -51,6 +54,49 @@ def test_free_end_on_the_cut_outline() -> None:
 
     assert _sorted_pairs(candidates) == [((50.0, 50.0), (100.0, 50.0))]
     assert candidates.n_cut_ends == 1
+
+
+def test_cut_outline_in_degrees() -> None:
+    # The outline is a Lambert-93 square given in lon/lat. Its corner is the end of the line.
+    corners = [(350_000.0, 6_790_000.0), (350_100.0, 6_790_000.0), (350_100.0, 6_790_100.0)]
+    to_degrees = Transformer.from_crs(CRS, "EPSG:4326", always_xy=True)
+    outline = Polygon([to_degrees.transform(x, y) for x, y in [*corners, (350_000.0, 6_790_100.0)]])
+    lines = [LineString([(350_050.0, 6_790_050.0), (350_100.0, 6_790_100.0)])]
+
+    candidates = network_head_candidates(
+        lines, mesh_crs=CRS, geometry_crs=CRS, cut_outline=outline, cut_crs="EPSG:4326"
+    )
+
+    assert _sorted_pairs(candidates) == [((350_050.0, 6_790_050.0), (350_100.0, 6_790_100.0))]
+    assert candidates.n_cut_ends == 1
+
+
+@pytest.mark.parametrize(
+    ("outlet", "message"),
+    [
+        (None, "2 reach(es)"),
+        ((-90.0, 50.0), "1 reach(es)"),
+        ((5000.0, 50.0), "2 reach(es)"),
+    ],
+    ids=["no outlet", "outlet at one end", "outlet far away"],
+)
+def test_reach_cut_at_both_ends_warns(caplog, outlet, message) -> None:
+    # Both ends of the only reach lie on the outline: nothing traces it.
+    lines = [LineString([(0.0, 50.0), (100.0, 50.0)])]
+    with caplog.at_level(logging.WARNING):
+        candidates = network_head_candidates(
+            lines,
+            mesh_crs=CRS,
+            geometry_crs=CRS,
+            cut_outline=OUTLINE,
+            cut_crs=CRS,
+            outlet_xy=outlet,
+        )
+
+    assert candidates.head_xy.shape == (0, 2)
+    assert candidates.n_cut_ends == 2
+    (warning,) = [r.getMessage() for r in caplog.records if "no free end" in r.getMessage()]
+    assert warning.startswith(message)
 
 
 @pytest.mark.parametrize(

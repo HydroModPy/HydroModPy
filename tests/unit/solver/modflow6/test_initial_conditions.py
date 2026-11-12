@@ -143,6 +143,19 @@ def test_prior_state_is_a_binary_record() -> None:
     assert strt["data"].shape == (1, 6)
 
 
+def test_ocean_cells_start_at_the_first_sea_level() -> None:
+    ocean = BoundaryConditionBundle(
+        conditions={"ocean": SimpleNamespace(value=[3.0, 4.0])}, active_ids=("ocean",)
+    )
+    model = with_initial(toy_model(), HeadRule("top"), boundaries=ocean)
+    model.dem = np.array([[0.5, 5.0, 5.0], [2.0, 5.0, 5.0]])  # m, cells 0 and 3 lie under 3 m
+
+    strt = build_start_heads(model, model.solver_mesh)
+
+    # The toy mesh top is 10 m. The ocean cells take the sea level of the first period.
+    np.testing.assert_array_equal(strt, [[3.0, 10.0, 10.0, 3.0, 10.0, 10.0]])
+
+
 def test_prior_state_keeps_constant_heads() -> None:
     prior = PriorState(head=np.full((1, 6), 7.0), lake_stages={}, path="prior.zarr")
     model = with_initial(toy_model(), prior, boundaries=west_head())

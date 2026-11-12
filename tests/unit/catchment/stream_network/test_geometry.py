@@ -26,6 +26,7 @@ from hydromodpy.catchment.drainage.distance import (
 from hydromodpy.catchment.stream_network import geometry as stream_geometry
 from hydromodpy.catchment.stream_network.geometry import (
     build_network_geometry,
+    neighbour_spacing_m,
     observed_cell_size_m,
     open_water_mask,
     recharge_session,
@@ -546,3 +547,47 @@ def test_reach_beyond_the_divide_is_reported(bench, caplog) -> None:
     assert geometry.alpha_obs_closure_catchment == pytest.approx(1.0)
     assert geometry.alpha_obs_closure < 0.9
     assert "outside the scored catchment" in caplog.text
+
+
+def test_a_polygon_over_cells_without_area_gives_no_gap() -> None:
+    vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL)
+
+    geometry = build_network_geometry(
+        topography=_topography(),
+        face_node_connectivity=connectivity,
+        vertices=vertices,
+        observed=_observed(),
+        cell_area_m2=np.zeros(N_CELLS),
+        mean_recharge_m_s=1e-8,
+        tau_specific_ratio=0.0,
+        delineated_catchment=_columns(RIDGE, N_COLS - 1),
+    )
+
+    assert np.isnan(geometry.catchment_mismatch)
+
+
+GEOMETRY_REFUSALS = [
+    pytest.param(
+        {"inactive_mask": np.ones(N_CELLS, dtype=bool)},
+        "no active cell to condition the criterion surface on",
+        id="every cell inactive",
+    ),
+    pytest.param(
+        {"delineated_catchment": np.zeros(N_CELLS, dtype=bool)},
+        "projects onto no active cell",
+        id="catchment off the mesh",
+    ),
+]
+
+
+@pytest.mark.parametrize(("options", "message"), GEOMETRY_REFUSALS)
+def test_geometry_refusals(options: dict[str, object], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        _geometry(**options)
+
+
+def test_a_single_face_has_no_neighbour_to_measure() -> None:
+    face = np.array([0, 1, 2, 3])  # one quad, given as a flat row
+
+    with pytest.raises(ValueError, match="no two neighbouring cells"):
+        neighbour_spacing_m(np.array([[0.5, 0.5]]), face)

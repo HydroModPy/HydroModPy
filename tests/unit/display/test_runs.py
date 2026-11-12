@@ -676,3 +676,35 @@ def test_optional_fields_not_kept(seeded, tmp_path, caplog) -> None:
     assert record.levelno == logging.WARNING
     assert ".." not in record.getMessage()
     assert "keep_per_cell_budget = true" in record.getMessage()
+
+
+class _DrawnFigure(_StubFigure):
+    """A stub that hands back a real matplotlib figure, as a figure does."""
+
+    def plot(self, sim, *, dpi: int = 150, save_path: Path | None = None, **kw):
+        from hydromodpy.display.figure import new_subplots
+
+        return new_subplots()[0]
+
+
+WINDOWS = [
+    pytest.param("auto", True, 1, id="auto backend with show"),
+    pytest.param("TkAgg", True, 1, id="interactive backend"),
+    pytest.param("agg", True, 0, id="agg draws nothing on screen"),
+    pytest.param("auto", False, 0, id="show off"),
+]
+
+
+@pytest.mark.parametrize(("backend", "show", "n_windows"), WINDOWS)
+def test_a_window_opens_for_an_interactive_backend(monkeypatch, tmp_path, backend, show, n_windows):
+    import matplotlib.pyplot as plt
+
+    opened: list[int] = []
+    monkeypatch.setattr(plt, "show", lambda: opened.append(1))
+    monkeypatch.setattr(runs, "_get_figure", lambda name: _DrawnFigure(name))
+    cfg = _config("hydrograph").model_copy(update={"backend": backend, "show": show, "save": False})
+
+    runs.render_figures_for_run(_StubRun(), cfg, output_dir=tmp_path / "figures")
+
+    assert len(opened) == n_windows
+    plt.close("all")

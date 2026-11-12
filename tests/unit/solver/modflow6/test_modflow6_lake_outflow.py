@@ -27,6 +27,8 @@ from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_ma
 from hydromodpy.solver.modflow6.builders.lake_outflow import (
     build_lake_mover_records,
     build_lake_outlets,
+    own_lake_upstream_ifnos,
+    resolve_downstream_spillway_reaches,
 )
 from hydromodpy.solver.modflow6.builders.mvr import build_mvr_period_records, mover_package_count
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -552,3 +554,57 @@ def test_mvr_cascade_runs_and_extracts_mover_obs(tmp_path) -> None:
     assert math.isfinite(to_mvr) and math.isfinite(from_mvr)
     # FACTOR 1.0: what leaves lac0 by the mover is what lac1 receives.
     assert abs(from_mvr) == pytest.approx(abs(to_mvr), rel=1e-6, abs=1e-9)
+
+
+def spillway_to_the_reach_below_the_dam() -> dict:
+    mover = {"to_downstream_reach": True, "mvrtype": "upto", "value": 2.5}
+    return {"lac0": {"outlets": [weir(mover=mover)]}, "lac1": {"outlets": []}}
+
+
+def test_mover_to_the_reach_below_the_dam() -> None:
+    records = build_lake_mover_records(
+        None, lakes=spillway_to_the_reach_below_the_dam(), downstream_reach_by_lake={"lac0": 7}
+    )
+
+    assert build_mvr_period_records(records) == [["LAK", 0, "SFR", 7, "UPTO", 2.5]]
+
+
+@pytest.mark.parametrize("reaches", [None, {"lac1": 7}], ids=["no reach table", "other lake only"])
+def test_mover_without_a_reach_below_the_dam_is_refused(reaches) -> None:
+    with pytest.raises(ValueError, match="could not resolve a downstream SFR reach"):
+        build_lake_mover_records(
+            None, lakes=spillway_to_the_reach_below_the_dam(), downstream_reach_by_lake=reaches
+        )
+
+
+def reach(ifno, upstream, *, lake=None):
+    return SimpleNamespace(
+        ifno=ifno, upstream=upstream, is_terminal_to_lake=lake is not None, terminal_lake=lake
+    )
+
+
+def test_reaches_that_end_in_each_lake() -> None:
+    # Reach 10 ends in lake "a" (number 1). A diamond 11, 12 -> 13 sits upstream of it, and
+    # reach 99 is not in the network. Reach 20 ends in lake number 5, which does not exist.
+    network = SimpleNamespace(
+        reaches=[
+            reach(10, [11, 12, 99], lake=1),
+            reach(11, [13]),
+            reach(12, [13]),
+            reach(13, []),
+            reach(20, [], lake=5),
+        ]
+    )
+
+    result = own_lake_upstream_ifnos({"net": network}, lake_ids=["a", "b"])
+
+    assert result == {"a": {10, 11, 12, 13}, "b": set()}
+
+
+def test_no_reach_to_receive_the_spillway() -> None:
+    assert (
+        resolve_downstream_spillway_reaches(
+            {"lac0": 3}, reach_cell_to_ifno={}, cell_centroids=np.zeros((4, 2))
+        )
+        == {}
+    )

@@ -155,6 +155,22 @@ def test_after_process_runs_on_failure(monkeypatch) -> None:
     assert events == ["before:custom", "after:custom"]
 
 
+def test_failing_after_process_does_not_hide_the_solver_error(monkeypatch, hmp_log_records) -> None:
+    use_adapter(monkeypatch, FailingAdapter())
+
+    def broken_after(name: str) -> None:
+        raise OSError("callback broke")
+
+    plan = plan_of(replace(FLOW, process_type="custom", solver="broken"))
+    runner = SimulationRunner(callbacks=ProcessCallbacks(after_process=broken_after))
+
+    with pytest.raises(RuntimeError, match="solver failed"):
+        runner.execute(plan, state_with())
+
+    warned = [r.getMessage() for r in hmp_log_records if r.levelname == "WARNING"]
+    assert "after_process callback failed while unwinding process custom" in warned
+
+
 def test_mesh_process_needs_no_adapter(monkeypatch) -> None:
     def no_adapter(process_type, solver_name):
         raise AssertionError("mesh process should not request a solver adapter")
@@ -182,6 +198,21 @@ def test_mesh_process_needs_no_adapter(monkeypatch) -> None:
         "backend": "catchment",
         "summary": {"output_mesh": "mesh.msh", "n_cells": 12},
     }
+
+
+def test_mesh_backend_must_be_catchment() -> None:
+    plan = plan_of(
+        ProcessRun(
+            id="mesh_main::other",
+            process_id="mesh_main",
+            process_type="mesh",
+            solver="other",
+            backend="other",
+        )
+    )
+
+    with pytest.raises(ConfigError, match="Unsupported mesh process backend: 'other'"):
+        SimulationRunner().execute(plan, state_with())
 
 
 def test_flow_run_needs_a_model(monkeypatch) -> None:
@@ -549,6 +580,17 @@ def test_transport_needs_flow_model(isolated_solvers, recorded: dict[str, Any]) 
 
     assert caught.value.run_id == MODPATH.id
     assert trace == []
+
+
+def test_transport_without_a_flow_dependency_is_refused(isolated_solvers) -> None:
+    trace: list[str] = []
+    register_backends(isolated_solvers, trace=trace)
+    orphan = replace(MODPATH, depends_on=())
+
+    with pytest.raises(SolverInputError, match="expected exactly one flow dependency, got 0"):
+        SimulationRunner().execute(plan_of(FLOW, orphan), state_with(model=object()))
+
+    assert trace == ["flow"]
 
 
 def test_transport_slot_needs_flow() -> None:

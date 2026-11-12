@@ -106,3 +106,51 @@ def test_summary_counts_stations() -> None:
     assert summary.n_water_quality == 2
     assert summary.n_streams == 0
     assert summary.date_start == "2020-01-01"
+
+
+def stream_state(hydrography) -> SimpleNamespace:
+    loaded = SimpleNamespace(
+        hydrometry=None,
+        piezometry=None,
+        intermittency=None,
+        water_quality=None,
+        hydrography=hydrography,
+    )
+    return SimpleNamespace(
+        loaded_data=loaded,
+        domain_geographic=None,
+        cfg=SimpleNamespace(overview=None, site=SimpleNamespace(label="Naizin", name="naizin")),
+        workspace=None,
+    )
+
+
+def test_streams_are_counted_in_the_vector_file(tmp_path) -> None:
+    import geopandas as gpd
+    from shapely.geometry import LineString
+
+    reaches = gpd.GeoDataFrame(
+        geometry=[LineString([(0, 0), (1, 0)]), LineString([(1, 0), (2, 0)])], crs="EPSG:2154"
+    )
+    path = tmp_path / "streams.gpkg"
+    reaches.to_file(path, driver="GPKG")
+    hydrography = SimpleNamespace(fields=[SimpleNamespace(metadata={"vector_path": str(path)})])
+
+    summary = compute_overview_summary(stream_state(hydrography), [])
+
+    assert summary.n_streams == 2
+    assert summary.watershed_name == "Naizin"  # from the site, there is no overview
+
+
+NO_STREAM_FILE = [
+    pytest.param(None, id="no hydrography"),
+    pytest.param(SimpleNamespace(fields=[]), id="no record"),
+    pytest.param(SimpleNamespace(fields=[SimpleNamespace(metadata={})]), id="no vector path"),
+    pytest.param(
+        SimpleNamespace(fields=[SimpleNamespace(metadata={"vector_path": ""})]), id="empty path"
+    ),
+]
+
+
+@pytest.mark.parametrize("hydrography", NO_STREAM_FILE)
+def test_no_stream_file_counts_no_stream(hydrography) -> None:
+    assert compute_overview_summary(stream_state(hydrography), []).n_streams == 0

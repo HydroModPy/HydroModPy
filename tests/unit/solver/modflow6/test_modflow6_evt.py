@@ -13,6 +13,7 @@ import logging
 import warnings
 from types import SimpleNamespace
 
+import flopy
 import numpy as np
 import pytest
 
@@ -29,6 +30,7 @@ from hydromodpy.solver.modflow6.builders.recharge import (
     bind_soil_etp_from_flow,
     build_evt_array_stress_period_data,
     build_evt_stress_period_data,
+    build_recharge_and_evt,
     build_soil_evta_payload,
     evt_list_spd_to_array_payload,
     evt_routing_is_layer0_only,
@@ -576,3 +578,115 @@ def test_covered_column_is_no_pit() -> None:
     # The center is a pit ringed by higher cells. Covered by a lake, it is no pit.
     assert np.flatnonzero(closed_depression_mask(base)).tolist() == [4]
     assert not closed_depression_mask(base, covered_cells=[4]).any()
+
+
+def flow_model_on(mesh: SolverMesh, tmp_path, *, nper: int = 1, **members) -> SimpleNamespace:
+    """The toy model moved onto *mesh*, with a flopy GWF and its DISV, ready for RCHA and EVT."""
+    model = toy_model(**members)
+    model.solver_mesh = mesh
+    model.nper = nper
+    model.ncpl = mesh.n_cells
+    model.nlay = mesh.nlay
+    model.perlen = np.full(nper, 86400.0)
+    model.steady = np.zeros(nper, dtype=bool)
+    model.model_name_mf6 = "m"
+    model.recharge = 1.0e-8
+    model.first_clim = "mean"
+    model.drain_band_depth_m = 0.0
+    model._lake_cell_ids = []
+    model._evt_rate_payload = None
+    model._soil_etp_rate = None
+    sim = flopy.mf6.MFSimulation(sim_name="evt", sim_ws=str(tmp_path))
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=[(86400.0, 1, 1.0)] * nper)
+    model.gwf = flopy.mf6.ModflowGwf(sim, modelname="m")
+    flopy.mf6.ModflowGwfdisv(model.gwf, nlay=mesh.nlay, **mesh.to_disv_kwargs())
+    return model
+
+
+def no_mask(model) -> np.ndarray:
+    return np.zeros(model.ncpl, dtype=bool)
+
+
+def test_rch_and_routed_evt_on_a_plate(tmp_path) -> None:
+    # Lake cell 0 gets neither recharge nor EVT, the other five cells get both.
+    model = flow_model_on(plate_2x3(), tmp_path)
+    model._lake_cell_ids = [0]
+    model._evt_rate_payload = {0: np.full(6, 2.0e-8)}
+
+    with pytest.warns(RuntimeWarning, match="fixed EVT extinction depth"):
+        build_recharge_and_evt(model, model.solver_mesh, no_mask(model), no_mask(model))
+
+    np.testing.assert_allclose(model.rch.recharge.get_data(0), [0.0] + [1.0e-8] * 5)
+    np.testing.assert_allclose(model.evt.rate.get_data(0), [0.0] + [2.0e-8] * 5)
+
+
+def test_soil_etp_on_a_plate(tmp_path) -> None:
+    model = flow_model_on(plate_2x3(), tmp_path)
+    model._lake_cell_ids = [0]
+    model._soil_etp_rate = {0: np.full(6, 1.0e-8)}
+    model._soil_evt_surface_offset_m = 0.0
+    model._soil_evt_extinction_depth_m = 2.5
+
+    build_recharge_and_evt(model, model.solver_mesh, no_mask(model), no_mask(model))
+
+    np.testing.assert_allclose(model.evt.rate.get_data(0), [0.0] + [1.0e-8] * 5)
+    np.testing.assert_allclose(model.evt.depth.get_data(0), 2.5)
+
+
+# Cell 0 is active in layer 0, cell 1 only in layer 1, cell 2 in none. A deficit on cell 1
+# lands on layer 1 and keeps the list package, one only on cell 0 still fits an array.
+LOWER_LAYER_DEFICITS = [
+    pytest.param(
+        np.asarray([1.0e-6, 2.0e-6, 3.0e-6]),
+        "evt",
+        [(0, 0), (1, 1)],
+        id="deficit on a lower layer",
+    ),
+    pytest.param(np.asarray([1.0e-6, 0.0, 0.0]), "evta", None, id="deficit on layer 0 only"),
+]
+
+
+@pytest.mark.parametrize(("deficit", "package", "cells"), LOWER_LAYER_DEFICITS)
+def test_routed_evt_with_a_lower_layer(tmp_path, deficit, package, cells) -> None:
+    mesh = two_layer_row(np.array([[False, True, True], [False, False, True]]))
+    model = flow_model_on(mesh, tmp_path)
+    model._evt_rate_payload = {0: deficit}
+
+    with pytest.warns(RuntimeWarning, match="fixed EVT extinction depth"):
+        build_recharge_and_evt(model, mesh, no_mask(model), no_mask(model))
+
+    assert model.evt.package_type == package
+    if cells is not None:
+        records = model.evt.stress_period_data.get_data(0)
+        assert [tuple(int(i) for i in record[0]) for record in records] == [
+            (0, 0), (1, 1)  # (layer, cell) of the two kept cells
+        ]  # fmt: skip
+        assert model.evt.maxbound.get_data() == 2
+    else:
+        np.testing.assert_allclose(model.evt.rate.get_data(0), [1.0e-6, 0.0, 0.0])
+
+
+def test_no_evt_without_a_deficit() -> None:
+    model = toy_model()
+    model._evt_rate_payload = None
+    masks = {
+        "ocean_support_mask": np.zeros(6, dtype=bool),
+        "stream_support_mask": np.zeros(6, dtype=bool),
+    }
+
+    assert build_evt_stress_period_data(model, model.solver_mesh, **masks) is None
+
+
+def test_evt_array_needs_a_record() -> None:
+    assert evt_list_spd_to_array_payload({0: []}, top_flat=np.full(3, 10.0), ncpl=3) is None
+
+
+def test_soil_and_routed_deficit_are_refused_together(tmp_path) -> None:
+    model = flow_model_on(plate_2x3(), tmp_path)
+    model._soil_etp_rate = {0: np.full(6, 1.0e-8)}
+    model._soil_evt_surface_offset_m = 0.0
+    model._soil_evt_extinction_depth_m = 1.0
+    model._evt_rate_payload = {0: np.full(6, 2.0e-8)}
+
+    with pytest.raises(RuntimeError, match="both ask for the EVT package"):
+        build_recharge_and_evt(model, model.solver_mesh, no_mask(model), no_mask(model))

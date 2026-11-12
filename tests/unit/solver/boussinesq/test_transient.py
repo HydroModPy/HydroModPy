@@ -7,10 +7,12 @@ sparse above DENSE_ENGINE_MAX_CELLS cells and a dense engine is refused there.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
@@ -24,6 +26,8 @@ from hydromodpy.solver.boussinesq.solver_contract import DENSE_ENGINE_MAX_CELLS
 from hydromodpy.solver.boussinesq.state import BoussinesqState
 from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
 from tests._helpers.model_factory import make_model
+
+from ._row_runs import row_mesh
 
 DAY_S = 86400.0
 
@@ -243,3 +247,124 @@ def test_dense_engine_on_a_large_mesh_is_refused(
             period_lengths_seconds=(DAY_S,),
             nstp_per_period=None,
         )
+
+
+DURATIONS = [
+    pytest.param(pd.Timedelta(hours=1), 3600.0, id="pandas timedelta"),
+    pytest.param(np.timedelta64(90, "m"), 5400.0, id="numpy timedelta"),
+    pytest.param(7200, 7200.0, id="seconds"),
+]
+
+
+@pytest.mark.parametrize(("value", "seconds"), DURATIONS)
+def test_duration_in_seconds(value: object, seconds: float) -> None:
+    assert transient_driver._duration_seconds(value) == seconds
+
+
+DAY = np.timedelta64(1, "D")
+T0 = np.datetime64("2020-01-01")
+
+BOUNDARIES = [
+    pytest.param(None, (), id="no boundaries"),
+    pytest.param((T0,), (), id="one boundary"),
+    pytest.param((T0, T0 + DAY, T0 + 3 * DAY), (DAY_S, 2 * DAY_S), id="two periods"),
+    pytest.param((T0, T0 + DAY, T0 + DAY), (), id="empty period"),
+]
+
+
+@pytest.mark.parametrize(("boundaries", "lengths_s"), BOUNDARIES)
+def test_period_lengths_from_boundaries(boundaries: object, lengths_s: tuple[float, ...]) -> None:
+    assert transient_driver._period_lengths_from_boundaries(boundaries) == lengths_s
+
+
+def test_grid_without_periods_has_no_lengths() -> None:
+    assert transient_driver._resolve_period_lengths_seconds(SimpleNamespace()) == ()
+
+
+RECORDS = [
+    pytest.param(None, 0, [], id="not a list"),
+    pytest.param([{"iteration": 4}, "skipped", 3], None, [{"iteration": 4}], id="no step index"),
+    pytest.param([{"iteration": 4}], 2, [{"iteration": 4, "time_step_index": 2}], id="step index"),
+]
+
+
+@pytest.mark.parametrize(("raw", "index", "tagged"), RECORDS)
+def test_tagged_details(raw: object, index: int | None, tagged: list[dict]) -> None:
+    assert transient_driver._tagged_details(raw, time_step_index=index) == tagged
+
+
+class _TaggedBackend:
+    """The real engine, its steps carrying diagnostics and a chosen convergence flag."""
+
+    def __init__(self, backend, diagnostics: dict | None, *, converged: bool) -> None:
+        self._backend = backend
+        self._changes = {"diagnostics": diagnostics, "converged": converged}
+
+    def solve_transient_step(self, inputs):
+        return replace(self._backend.solve_transient_step(inputs), **self._changes)
+
+
+def _period_inputs(tmp_path: Path):
+    """The local engine and the forcing of one period on a row of 6 cells, 20 m held at cell 0."""
+    mesh = row_mesh()
+    solver = Boussinesq(
+        mesh_bundle=None,
+        mesh=mesh,
+        model=make_model(
+            time=ModelTime(grid=SimpleNamespace(), regime="transient", first_period_steady=False)
+        ),
+        runtime=BoussinesqOptions(backend="local"),
+        model_folder=tmp_path,
+        model_name="advance",
+    )
+    held = np.full(mesh.n_cells, np.nan)
+    held[0] = 20.0
+    step_kwargs = {
+        "mesh": mesh,
+        "recharge_rate_m_s": 0.0,
+        "well_flux_m3_s": np.zeros(mesh.n_cells),
+        "prescribed_head_m_by_cell": held,
+        "drainage_conductance_m2_s": np.zeros(mesh.n_cells),
+        "options": solver._runtime_options(),
+    }
+    backend = solver._resolve_solver_contract().runtime_backend
+    return backend, np.full(mesh.n_cells, 30.0), step_kwargs
+
+
+TAGGED_STEPS = {"vi_substep_details": [{"substep": 1}], "ts_vi_step_details": [{"step": 7}]}
+
+ADVANCES = [
+    pytest.param(1, True, 1, None, id="one step is not tagged"),
+    pytest.param(3, True, 3, 2, id="steps are tagged by index"),
+    pytest.param(3, False, 1, 0, id="stops at the first failure"),
+]
+
+
+@pytest.mark.parametrize(("n_steps", "converged", "n_run", "last_tag"), ADVANCES)
+def test_advance_period_records(
+    tmp_path: Path, n_steps: int, converged: bool, n_run: int, last_tag: int | None
+) -> None:
+    backend, head_m, step_kwargs = _period_inputs(tmp_path)
+    tagged = _TaggedBackend(backend, TAGGED_STEPS, converged=converged)
+
+    advance = transient_driver._advance_period(
+        tagged, head_start_m=head_m, period_seconds=DAY_S, n_steps=n_steps, step_kwargs=step_kwargs
+    )
+
+    assert advance.converged is converged
+    assert len(advance.substep_details) == len(advance.ts_step_details) == n_run
+    last = {} if last_tag is None else {"time_step_index": last_tag}
+    assert advance.substep_details[-1] == {"substep": 1} | last
+    assert advance.ts_step_details[-1] == {"step": 7} | last
+
+
+def test_ts_vi_steady_period_uses_vi_obstacle() -> None:
+    contract = SimpleNamespace(
+        runtime_backend=SimpleNamespace(name="petsc"),
+        surface_interaction_model_resolved="ts_vi_obstacle",
+    )
+
+    stationary = transient_driver.stationary_backend(contract)
+
+    assert stationary.name == "petsc"
+    assert stationary.method.id == "head_only_vi_obstacle"

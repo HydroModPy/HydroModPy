@@ -351,3 +351,10 @@ def test_every_lake_series_is_an_export_name() -> None:
     assert export_kind("outlet_inflow") is ExportKind.series
     assert export_kind("cutoff_wall_flow") is ExportKind.series
     assert export_kind("seepage_under_dam") is None
+
+
+def test_no_lake_gives_no_observations() -> None:
+    obs_continuous, meta = build_lake_obs_spec(stem="m", lake_conn_info=[], outlets=[])
+
+    assert obs_continuous == {}
+    assert meta == {"obs_csv": "", "budgetcsv": None, "budget_bin": None, "entries": []}

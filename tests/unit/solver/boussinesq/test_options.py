@@ -22,6 +22,9 @@ def test_runtime_validator_rejects_invalid_numbers_and_booleans() -> None:
     assert normalize_positive_int("4", field="vi_substeps_per_period", default=2) == 4
     assert normalize_bool("yes", field="vi_substep_on_failure")
     assert not normalize_bool("off", field="vi_substep_on_failure")
+    assert not normalize_bool(None, field="vi_substep_on_failure")
+    assert not normalize_bool("", field="vi_substep_on_failure")
+    assert normalize_bool(True, field="vi_substep_on_failure")
     assert normalize_positive_float("", field="runtime_tol", default=1.0e-6) == pytest.approx(
         1.0e-6
     )

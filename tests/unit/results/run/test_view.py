@@ -23,6 +23,7 @@ from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.record.manifest import InputEntry, read_manifest
 from hydromodpy.results.run.view import Run
 from hydromodpy.results.storage.attempt import close_sealed_attempt
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.parquet_io import read_kv_metadata
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
@@ -356,3 +357,13 @@ def test_bbox_refusal(project):
     with sealed_on_mesh(project, vertices, faces, np.arange(6.0)) as (catalog, sid):
         with pytest.raises(ValueError, match="xmin<xmax"):
             Run(sid, catalog).field("head", time=0, bbox=(10.0, 0.0, 0.0, 10.0))
+
+
+def test_run_without_frozen_config_has_no_snapshot(tmp_path):
+    root = make_project(tmp_path / "demo")
+    sid = seal_run(root, "x")
+    (root / "runs" / "x" / RUN_CONFIG_FILENAME).unlink()
+    rebuild_index(root)
+
+    with Catalog(root) as catalog:
+        assert Run(sid, catalog).config_snapshot is None

@@ -27,15 +27,23 @@ from hydromodpy.solver.base.plan import RunSlot
 from hydromodpy.solver.modflow6.builders.recharge import (
     RECHARGE_BINARY_MIN_PERIODS,
     _shared_forcing_dir,
+    as_recharge_flat,
     bind_recharge_from_flow,
     build_evt_stress_period_data,
+    clip_negative_payload,
+    copy_runtime_payload,
     externalize_recharge_spd,
+    extract_evt_payload,
+    extract_evt_payload_2d,
     mask_recharge_on_lake_cells,
+    payload_has_negative_values,
     recharge_to_spd,
     resolve_deferred_heterogeneous_recharge,
+    resolve_deferred_soil_etp,
 )
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow6.support.steady_initial_conditions import auxiliary_slot
+from tests._helpers.forcing_cases import grid_source
 from tests._helpers.mf6_toy_models import (
     toy_model,
     two_triangle_model,
@@ -365,3 +373,295 @@ def test_evt_records_skip_lake_cells(lake_cell_ids, cells_with_evt) -> None:
     )
 
     assert {int(entry[1]) for entry in evt_spd[0]} == cells_with_evt
+
+
+NEGATIVE_PAYLOADS = [
+    pytest.param(-1.0e-9, True, id="negative scalar"),
+    pytest.param(0.0, False, id="zero scalar"),
+    pytest.param(
+        {0: np.full(3, 1.0e-8), 1: np.asarray([1.0e-8, -1.0e-8, 0.0])}, True, id="mapping"
+    ),
+    pytest.param({0: 1.0e-8, 1: np.full(3, 2.0e-8)}, False, id="mapping of rates"),
+    pytest.param([1.0e-8, -2.0e-8], True, id="list"),
+]
+
+
+@pytest.mark.parametrize(("payload", "expected"), NEGATIVE_PAYLOADS)
+def test_payload_has_negative_values(payload, expected) -> None:
+    assert payload_has_negative_values(payload) is expected
+
+
+CLIPPED_PAYLOADS = [
+    pytest.param(-2.0e-8, 0.0, id="negative scalar"),
+    pytest.param(3.0e-8, 3.0e-8, id="positive scalar"),
+    pytest.param(np.asarray(-1.0e-8), 0.0, id="zero-dimension array"),
+    pytest.param(np.asarray([1.0e-8, -2.0e-8]), [1.0e-8, 0.0], id="array"),
+    pytest.param([1.0e-8, -2.0e-8], [1.0e-8, 0.0], id="list"),
+    pytest.param(pd.Series([-1.0e-8, 4.0e-8]), [0.0, 4.0e-8], id="series"),
+    pytest.param(
+        {0: -1.0e-8, 1: np.asarray([2.0e-8, -3.0e-8])}, {0: 0.0, 1: [2.0e-8, 0.0]}, id="mapping"
+    ),
+]
+
+
+@pytest.mark.parametrize(("payload", "expected"), CLIPPED_PAYLOADS)
+def test_clip_negative_payload(payload, expected) -> None:
+    clipped = clip_negative_payload(payload)
+
+    if isinstance(expected, dict):
+        assert set(clipped) == set(expected)
+        for key, value in expected.items():
+            np.testing.assert_allclose(clipped[key], value)
+    else:
+        np.testing.assert_allclose(np.asarray(clipped, dtype=float), expected)
+
+
+class UncopyableRate:
+    def copy(self):
+        raise RuntimeError("no copy")
+
+
+def test_runtime_payload_copy_is_detached() -> None:
+    rates = np.asarray([1.0e-8, 2.0e-8])
+    stuck = UncopyableRate()
+    payload = {"a": rates, "b": {"c": stuck}, "d": 5}
+
+    copied = copy_runtime_payload(payload)
+    rates[0] = 9.0
+
+    np.testing.assert_allclose(copied["a"], [1.0e-8, 2.0e-8])
+    assert copied["b"]["c"] is stuck  # a payload that cannot copy itself is kept as it is
+    assert copied["d"] == 5
+
+
+def test_negative_recharge_without_deficit_stays_whole() -> None:
+    rch = {0: np.full(2, 1.0e-8), 1: np.full(2, 2.0e-8)}
+
+    kept, deficit = extract_evt_payload_2d(
+        rch, True, steady=[False, False], first_clim="mean", durations=[86400.0, 86400.0]
+    )
+
+    assert deficit is None
+    np.testing.assert_allclose(kept[1], 2.0e-8)
+
+
+def evt_model() -> SimpleNamespace:
+    return SimpleNamespace(
+        first_clim="mean", steady=[False, False], perlen=[86400.0, 86400.0], nper=2
+    )
+
+
+def test_negative_recharge_goes_to_evt() -> None:
+    # Transient periods keep their own deficit, the clipped rate stays in RCH.
+    payload = {0: np.asarray([-2.0e-8, 1.0e-8]), 1: np.asarray([1.0e-8, 1.0e-8])}
+
+    rch, evt = extract_evt_payload(evt_model(), payload, True)
+
+    np.testing.assert_allclose(rch[0], [0.0, 1.0e-8])
+    np.testing.assert_allclose(evt[0], [2.0e-8, 0.0])
+    np.testing.assert_allclose(evt[1], [0.0, 0.0])
+
+
+def test_positive_recharge_has_no_evt() -> None:
+    payload = np.asarray([1.0e-8, 2.0e-8])
+
+    rch, evt = extract_evt_payload(evt_model(), payload, True)
+
+    assert rch is payload
+    assert evt is None
+
+
+FLAT_RECHARGE = [
+    pytest.param(np.asarray(2.0e-8), None, np.full(4, 2.0e-8), id="zero-dimension array"),
+    pytest.param(np.arange(4.0), None, np.arange(4.0), id="one value per cell"),
+    pytest.param(np.arange(4.0).reshape(2, 2), None, np.arange(4.0), id="grid array"),
+    pytest.param(
+        np.arange(12.0).reshape(3, 2, 2), 1, [4.0, 5.0, 6.0, 7.0], id="entry of the period"
+    ),
+]
+
+
+@pytest.mark.parametrize(("value", "kper", "expected"), FLAT_RECHARGE)
+def test_flat_recharge(value, kper, expected) -> None:
+    np.testing.assert_allclose(
+        as_recharge_flat(SimpleNamespace(ncpl=4), value, kper=kper), expected
+    )
+
+
+FLAT_REFUSALS = [
+    pytest.param(
+        np.ones(3), None, r"must be scalar or length ncpl \(4\); got 3", id="short vector"
+    ),
+    pytest.param(np.ones((1, 3)), None, r"must flatten to ncpl \(4\); got 3", id="small grid"),
+    pytest.param(np.ones((2, 2, 2)), None, "one leading entry per stress period", id="no period"),
+    pytest.param(
+        np.ones((2, 2, 2)), 2, "one leading entry per stress period", id="period past end"
+    ),
+    pytest.param(
+        np.ones((2, 1, 3)), 0, r"must flatten to ncpl \(4\); got 3", id="small grid of a period"
+    ),
+]
+
+
+@pytest.mark.parametrize(("value", "kper", "message"), FLAT_REFUSALS)
+def test_flat_recharge_refusals(value, kper, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        as_recharge_flat(SimpleNamespace(ncpl=4), value, kper=kper)
+
+
+PERIOD_RATES = [
+    pytest.param(np.asarray(1.0e-8), [np.full(6, 1.0e-8)] * 2, id="zero-dimension array"),
+    pytest.param(np.asarray([2.0e-8]), [np.full(6, 2.0e-8)] * 2, id="one value"),
+    pytest.param(np.arange(6.0).reshape(2, 3) * 1e-9, [np.arange(6.0) * 1e-9] * 2, id="grid array"),
+    pytest.param(
+        np.stack([np.full(6, 1.0e-8), np.full(6, 3.0e-8)]),
+        [np.full(6, 1.0e-8), np.full(6, 3.0e-8)],
+        id="one row per period",
+    ),
+]
+
+
+@pytest.mark.parametrize(("recharge", "expected"), PERIOD_RATES)
+def test_rates_of_each_period(recharge, expected) -> None:
+    model = toy_model()
+    model.recharge = recharge
+
+    spd = recharge_to_spd(model)
+
+    for kper, rate in enumerate(expected):
+        np.testing.assert_allclose(spd[kper], rate)
+
+
+def test_recharge_array_of_no_known_shape_is_refused() -> None:
+    model = toy_model()
+    model.recharge = np.ones((3, 4))
+
+    with pytest.raises(ValueError, match="one leading entry per stress period"):
+        recharge_to_spd(model)
+
+
+def test_negative_recharge_stays_when_not_routed() -> None:
+    payload = {0: np.asarray([-1.0e-8, 2.0e-8])}
+
+    rch, evt = extract_evt_payload_2d(
+        payload, False, steady=[False], first_clim="mean", durations=[86400.0]
+    )
+    kept, none = extract_evt_payload(evt_model(), payload, False)
+
+    assert evt is None
+    np.testing.assert_allclose(rch[0], [-1.0e-8, 2.0e-8])
+    assert kept is payload
+    assert none is None
+
+
+def test_direct_recharge_is_copied_and_gets_a_first_clim() -> None:
+    model = toy_model()
+    rates = np.asarray([1.0e-8, 2.0e-8])
+    model.recharge = rates
+
+    bind_recharge_from_flow(model)
+    rates[0] = 5.0
+
+    np.testing.assert_allclose(model.recharge, [1.0e-8, 2.0e-8])
+    assert model.first_clim == "mean"
+
+
+def test_active_recharge_without_a_table_is_zero() -> None:
+    model = toy_model()
+    model.inputs = replace(model.inputs, recharge=None, active_sinks_sources=("recharge",))
+
+    bind_recharge_from_flow(model)
+
+    assert model.recharge == 0.0
+    assert model.first_clim == "mean"
+
+
+def test_dated_recharge_on_the_period_starts() -> None:
+    model = toy_model()
+    dates = pd.DatetimeIndex(["2003-01-01", "2003-02-01"])
+    model.inputs = replace(
+        model.inputs,
+        recharge=FlowRechargeConfig(values=pd.Series([0.5, 0.3], index=dates), units="mm/day"),
+        active_sinks_sources=("recharge",),
+    )
+
+    bind_recharge_from_flow(model)
+    spd = recharge_to_spd(model)
+
+    np.testing.assert_allclose(spd[0], 0.5e-3 / 86400.0)  # 0.5 mm/day in m/s
+    np.testing.assert_allclose(spd[1], 0.3e-3 / 86400.0)
+
+
+def a_static_field_of_6_mm_per_day() -> LoadResult:
+    # Two 0.5 m pixels either way over the unit square of the two triangles.
+    return grid_source(np.full((2, 2), 6.0), np.asarray([0.25, 0.75]), np.asarray([0.75, 0.25]))
+
+
+def test_field_recharge_on_a_triangle_mesh() -> None:
+    model = two_triangle_model()
+    model._heterogeneous_recharge_source = a_static_field_of_6_mm_per_day()
+    model.first_clim = "mean"
+
+    resolve_deferred_heterogeneous_recharge(model)
+
+    for kper in (0, 1):
+        np.testing.assert_allclose(model.recharge[kper], np.full(2, 6.0e-3 / 86400.0))
+    assert model._heterogeneous_recharge_source is None
+
+
+def test_source_without_data_is_dropped() -> None:
+    model = toy_model()
+    model._heterogeneous_recharge_source = LoadResult()
+
+    resolve_deferred_heterogeneous_recharge(model)
+
+    assert model._heterogeneous_recharge_source is None
+    assert model.recharge is None
+
+
+def test_soil_etp_source_on_a_triangle_mesh() -> None:
+    model = two_triangle_model()
+    model._soil_etp_source = a_static_field_of_6_mm_per_day()
+
+    resolve_deferred_soil_etp(model)
+
+    np.testing.assert_allclose(model._soil_etp_rate[1], np.full(2, 6.0e-3 / 86400.0))
+
+
+def test_second_shared_write_keeps_the_files(tmp_path) -> None:
+    stack = recharge_stack(5, N_PERIODS)
+    first = externalize_recharge_spd(stack, basename="m", shared_dir=tmp_path)
+    files = sorted(tmp_path.iterdir())
+    stamps = [f.stat().st_mtime_ns for f in files]
+
+    second = externalize_recharge_spd(stack, basename="m", shared_dir=tmp_path)
+
+    assert second == first
+    assert sorted(tmp_path.iterdir()) == files
+    assert [f.stat().st_mtime_ns for f in files] == stamps
+    assert files[0].stat().st_size == 52 + 8 * 5  # header plus 5 doubles
+
+
+def test_one_rate_per_cell_for_every_period() -> None:
+    model = toy_model()
+    model.recharge = np.arange(6.0) * 1.0e-9
+
+    spd = recharge_to_spd(model)
+
+    np.testing.assert_allclose(spd[1], np.arange(6.0) * 1.0e-9)
+
+
+DIRECT_RECHARGE = [
+    pytest.param(1.0e-8, 1.0e-8, id="one rate"),
+    pytest.param({0: 1.0e-8, 1: 2.0e-8}, {0: 1.0e-8, 1: 2.0e-8}, id="rate per period"),
+]
+
+
+@pytest.mark.parametrize(("recharge", "expected"), DIRECT_RECHARGE)
+def test_direct_recharge_forms(recharge, expected) -> None:
+    model = toy_model()
+    model.recharge = recharge
+
+    bind_recharge_from_flow(model)
+
+    assert model.recharge == expected

@@ -178,3 +178,48 @@ def test_staircase_channel_keeps_every_cell() -> None:
     nodes, _ = _rectify(records, top, _faces(n, n), receiver)
 
     assert sorted(nd["cellid"][1] for nd in nodes) == sorted(cells)
+
+
+def test_parallel_stub_is_left_out_of_the_channel() -> None:
+    # Cells 0 to 3 are the main stem and cell 4 is a stub that flows into cell 2 and touches
+    # cell 1, which carries one upstream cell: the stub is demoted to drainage.
+    adjacency = [{1}, {0, 2, 4}, {1, 3, 4}, {2}, {1, 2}]
+    receiver = np.array([1, 2, 3, -1, 2])
+    top = np.array([100.0, 99.0, 98.0, 97.0, 98.5])
+    nodes, edges = _rectify(
+        [_Rec(0, (0, 0)), _Rec(1, (0, 4))], top, adjacency, receiver, min_component_cells=1
+    )
+    assert sorted(nd["cellid"][1] for nd in nodes) == [0, 1, 2, 3]
+    assert len(edges) == 3
+
+
+SPILLWAYS = [
+    # The dam toe at cell 0 is its own outlet and stays a separate reach beside the channel.
+    pytest.param(0, {0: -1}, [0, 4, 5], id="toe leaves the model"),
+    # A seed beyond the grid adds nothing.
+    pytest.param(99, {}, [4, 5], id="seed off the grid"),
+]
+
+
+@pytest.mark.parametrize(("seed", "receivers", "cells"), SPILLWAYS)
+def test_spillway_walk_ends(seed, receivers, cells) -> None:
+    top, adj, receiver = _chain(6)
+    for cell, down in receivers.items():
+        receiver[cell] = down
+    nodes, _ = _rectify(
+        [_Rec(0, (0, 4))],
+        top,
+        adj,
+        receiver,
+        spillway={seed},
+        max_stub_upstream=-1,
+        min_component_cells=1,
+    )
+    assert sorted(nd["cellid"][1] for nd in nodes) == cells
+
+
+def test_cycle_below_a_spillway_seed_is_refused() -> None:
+    top, adj, receiver = _chain(6)
+    receiver[1] = 0  # cells 0 and 1 send their water to each other
+    with pytest.raises(ValueError, match=r"cell 0 is met twice.*spillway seed cell 0"):
+        _rectify([_Rec(0, (0, 4))], top, adj, receiver, spillway={0})

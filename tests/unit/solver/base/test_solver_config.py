@@ -38,3 +38,11 @@ def test_new_backend_by_assignment_holds_its_table() -> None:
     assert list(cfg.held_tables()) == ["boussinesq"]
     with pytest.raises(ValidationError, match="solver.backend names 'nope'"):
         cfg.backend = "nope"
+
+
+def test_options_instance_is_kept() -> None:
+    options = type(SolverConfig().options_of("modflow6"))()
+
+    cfg = SolverConfig.model_validate({"modflow6": options})
+
+    assert cfg.options_of("modflow6") is options

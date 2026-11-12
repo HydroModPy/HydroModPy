@@ -153,6 +153,18 @@ def test_selector_without_an_index(tmp_path: Path) -> None:
         resolve_rel_dir(project, "@best:nse")
 
 
+def test_id_without_an_index_is_not_found(tmp_path: Path) -> None:
+    project = tmp_path / "p"
+    project.mkdir()
+
+    # An id is answered by the index only. With no index the run cannot be found, and the
+    # error is the plain one, with no advice to rebuild an index.
+    with pytest.raises(SimulationNotFoundError, match="Reference 'abcdef12' not found") as caught:
+        resolve_rel_dir(project, "abcdef12")
+
+    assert "reindex" not in str(caught.value)
+
+
 def test_trash_resolution(tmp_path: Path) -> None:
     project = tmp_path / "p"
     _make_dir(project, "runs/nancon_daily")

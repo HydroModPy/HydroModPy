@@ -17,6 +17,9 @@ def test_trace_metrics():
     )
     assert (trace.segment_count, len(trace.lines)) == (3, 3)
     assert trace.total_length_m == pytest.approx(3.0)
+    merged = trace.as_multilinestring()
+    assert len(merged.geoms) == 3
+    assert merged.length == pytest.approx(3.0)
 
 
 @pytest.mark.parametrize(

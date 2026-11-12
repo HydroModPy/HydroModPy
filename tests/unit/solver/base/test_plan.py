@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.exceptions import SolverInputError
-from hydromodpy.solver.base.plan import RunContext, RunSlot, SolverRun
+from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
 
 SLOT = RunSlot(Path("scratch"), "island")
 
@@ -47,3 +47,34 @@ def test_run_context_members() -> None:
     members = {field.name for field in dataclasses.fields(RunContext)}
 
     assert members == {"plan", "run", "state", "store", "solver_run", "upstream"}
+
+
+def test_plan_html_table() -> None:
+    flow = ProcessRun(
+        id="flow::modflow6", process_id="flow", process_type="flow", solver="modflow6"
+    )
+    transport = ProcessRun(
+        id="tr::prt",
+        process_id="tr",
+        process_type="transport",
+        solver="prt",
+        depends_on=("flow::modflow6",),
+    )
+
+    html = SimulationPlan(
+        name="demo", description="two steps", runs=(flow, transport)
+    )._repr_html_()
+
+    assert "<code>demo</code>" in html
+    assert "two steps" in html
+    # No dependency prints a dash, a dependency prints the run id of the upstream.
+    assert "<td>&mdash;</td>" in html
+    assert "<td>flow::modflow6</td>" in html
+    assert html.count("<tr>") == 3  # header and two runs
+
+
+def test_empty_plan_html() -> None:
+    html = SimulationPlan(name="empty", description="")._repr_html_()
+
+    assert "(empty plan)" in html
+    assert "<table" not in html

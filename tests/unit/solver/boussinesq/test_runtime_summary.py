@@ -13,16 +13,17 @@ import pytest
 
 from hydromodpy.solver.boussinesq.runtime_summary import (
     elapsed_days_for_snapshots,
+    history_or_current,
     record_surface_threshold_summary,
 )
 
 _AREA_M2 = 1.0e6
 
 
-def _solver(excess_m_s: float, deficit_m_s: float) -> SimpleNamespace:
+def _solver(excess_m_s: float, deficit_m_s: float, head_m: float = 10.0) -> SimpleNamespace:
     state = SimpleNamespace(
-        head_history_m=np.array([[10.0], [10.0]]),
-        head_m=np.array([10.0]),
+        head_history_m=np.array([[head_m], [head_m]]),
+        head_m=np.array([head_m]),
         saturation_excess_history_m_s=np.array([[0.0], [excess_m_s]]),
         saturation_excess_rate_m_s=np.array([0.0]),
         dry_deficit_history_m_s=np.array([[0.0], [deficit_m_s]]),
@@ -107,3 +108,36 @@ def test_the_elapsed_time_of_a_snapshot_is_in_days(periods, count, days) -> None
 
 def test_a_missing_state_gives_zero_days() -> None:
     assert elapsed_days_for_snapshots(None, n_snapshots=3).tolist() == [0.0, 0.0, 0.0]
+
+
+def test_complementarity_overlap_of_excess_and_gap() -> None:
+    # Head 8 m under a top of 9 m leaves a gap of 1 m, and an excess of 1e-6 m/s over that gap
+    # overlaps by 1e-6 m/s x 1 m = 1e-6 m2/s. The first snapshot is the start and is not scored.
+    solver = _solver(1.0e-6, 0.0, head_m=8.0)
+    solver._surface_interaction_model = lambda: "complementarity"
+
+    record_surface_threshold_summary(solver)
+
+    summary = solver.runtime_summary
+    assert summary["surface_complementarity_min_gap_m"] == pytest.approx(1.0)
+    assert summary["surface_complementarity_min_rate_m_s"] == pytest.approx(1.0e-6)
+    assert summary["surface_complementarity_peak_overlap_m2_s"] == pytest.approx(1.0e-6)
+    assert summary["surface_complementarity_final_overlap_m2_s"] == pytest.approx(1.0e-6)
+
+
+# One row per pair: the history, the current value and the array that is kept.
+_HISTORIES = [
+    pytest.param([[1.0, 2.0], [3.0, 4.0]], None, [[1.0, 2.0], [3.0, 4.0]], id="history kept"),
+    pytest.param([1.0, 2.0], None, [[1.0, 2.0]], id="one-row history as a vector"),
+    pytest.param(None, [5.0, 6.0], [[5.0, 6.0]], id="current when no history"),
+    pytest.param(np.empty((0, 2)), [5.0, 6.0], [[5.0, 6.0]], id="current when history empty"),
+    pytest.param(None, None, [[7.0, 7.0]], id="default when nothing"),
+    pytest.param([], np.array([]), [[7.0, 7.0]], id="default when both empty"),
+]
+
+
+@pytest.mark.parametrize(("history", "current", "expected"), _HISTORIES)
+def test_history_or_current(history, current, expected) -> None:
+    result = history_or_current(history, current, n_columns=2, default_value=7.0)
+
+    np.testing.assert_array_equal(result, expected)

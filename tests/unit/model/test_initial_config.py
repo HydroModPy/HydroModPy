@@ -21,6 +21,7 @@ from hydromodpy.model.initial_config import (
     FlowICSteadyState,
     FlowICTop,
     FlowICTopOffset,
+    FlowInitialConditions,
     cyclic_spinup_strategy_of,
     initial_state_of,
     normalize_flow_initial_conditions,
@@ -30,6 +31,7 @@ from hydromodpy.model.initial_config import (
 ACCEPTED_LENGTHS = (
     ("inline unit", {"kind": "custom", "value": "125 cm"}, "custom", 1.25),
     ("top offset", {"kind": "top_offset", "value": "10 m"}, "top_offset", 10.0),
+    ("unit alias", {"kind": "custom", "value": 2, "unit": "m"}, "custom", 2.0),
 )
 
 
@@ -44,6 +46,49 @@ def test_a_length_is_read_in_metres(case, payload, kind, metres) -> None:
     assert initial_conditions.h.kind == kind
     assert initial_conditions.h.value.to("m").magnitude == pytest.approx(metres)
     assert initial_conditions.h.units == "m"
+
+
+PASSED_THROUGH = (
+    ("none", None, None),
+    ("empty mapping", {}, None),
+    ("one variant", FlowICTop(), "top"),
+    ("h wrapper", {"h": {"kind": "top"}}, "top"),
+    ("kind in capitals", {"kind": "TOP"}, "top"),
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "given", "kind"), PASSED_THROUGH, ids=[c[0] for c in PASSED_THROUGH]
+)
+def test_forms_of_a_flow_ic(case, given, kind) -> None:
+    del case
+    initial_conditions = normalize_flow_initial_conditions(given)
+
+    assert (initial_conditions and initial_conditions.h.kind) == (kind or None)
+
+
+def test_an_initial_conditions_object_is_kept() -> None:
+    held = FlowInitialConditions(h=FlowICTop())
+
+    assert normalize_flow_initial_conditions(held) is held
+
+
+def test_validating_an_initial_conditions_object_keeps_it() -> None:
+    held = FlowInitialConditions(h=FlowICTop())
+
+    assert FlowInitialConditions.model_validate(held) is held
+    with pytest.raises(ValueError, match="valid dictionary or instance of FlowInitialConditions"):
+        FlowInitialConditions.model_validate(3)
+
+
+def test_a_flow_ic_that_is_no_mapping_is_refused() -> None:
+    with pytest.raises(TypeError, match="flow.ic must be a mapping"):
+        normalize_flow_initial_conditions("top")
+
+
+def test_head_stays_in_metres() -> None:
+    with pytest.raises(ValueError, match="must be normalized to 'm'"):
+        FlowICTop(units="cm")
 
 
 def test_flow_config_rejects_steady_state_initial_condition_for_steady() -> None:
@@ -66,6 +111,14 @@ REFUSED_PAYLOADS = (
     ),
     ("unknown unit", {"kind": "custom", "value": "1.25 qblorp"}, "Unsupported length unit"),
     ("not a length", {"kind": "custom", "value": "1.25 kg"}, "Unsupported length unit"),
+    ("unknown key", {"kind": "top", "colour": 1}, "Unknown keys: colour"),
+    ("unknown kind", {"kind": "nope"}, "kind must be one of: 'bottom', 'custom'"),
+    ("custom without value", {"kind": "custom"}, "value is required when kind='custom'"),
+    (
+        "top with a rate",
+        {"kind": "top", "rate": 1},
+        "rate is only supported when kind='steady_state'",
+    ),
 )
 
 
@@ -155,3 +208,10 @@ def test_a_cyclic_strategy_outside_the_contract_is_refused(case, initial_conditi
 def test_a_run_without_flow_ic_is_refused() -> None:
     with pytest.raises(ValueError, match="flow.initial_conditions.h is required"):
         initial_state_of(None)
+
+
+def test_a_start_kind_nothing_defines_is_refused() -> None:
+    head = SimpleNamespace(kind="weird")
+
+    with pytest.raises(ValueError, match="flow.ic.kind must be one of: bottom, custom"):
+        initial_state_of(SimpleNamespace(h=head))

@@ -19,10 +19,22 @@ from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryCond
 from hydromodpy.model.boundaries.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.model.initial.state import HeadRule
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
+    DRAIN_AREA_SPREAD_REPORT_RATIO,
+    _sink_mask_flat,
     apply_side_boundary_start_heads,
+    boundary_attr,
+    boundary_period_series,
+    build_ocean_boundary_chd_spd,
     build_side_boundary_chd_spd,
     build_stream_boundary_chd_spd,
+    iter_side_boundary_cells,
+    ocean_chd_support_mask,
     refuse_constant_heads_below_bottom,
+    report_per_cell_conductance_spread,
+    resolve_drainage_conductance_series,
+    resolve_ocean_boundary_series,
+    resolve_stream_boundary_series,
+    side_boundary_owner_by_cell,
 )
 from hydromodpy.solver.modflow6.builders.initial_conditions import build_start_heads
 from tests._helpers.mf6_toy_models import (
@@ -235,6 +247,196 @@ def test_a_stream_head_overwritten_by_a_side_head_is_not_checked() -> None:
 
     with pytest.raises(SolverInputError, match=r"flow\.bc\.stream: 1 cell\(s\): layer 0 cell 1"):
         refuse(model, side=side, stream={0: [[0, 1, -1.0]], 1: [[0, 1, -1.0]]})
+
+
+def test_boundary_attr_reads_a_mapping_or_an_object() -> None:
+    assert boundary_attr({"units": "cm"}, "units", "m") == "cm"
+    assert boundary_attr({}, "units", "m") == "m"
+    assert boundary_attr(head(1.0, units="cm"), "units", "m") == "cm"
+    assert boundary_attr(head(1.0), "units", "m") == "m"
+
+
+PERIOD_SERIES = [
+    pytest.param(5.0, 2, [5.0, 5.0], id="scalar repeated"),
+    pytest.param([3.0], 2, [3.0, 3.0], id="one value repeated"),
+    pytest.param([3.0, 4.0], 2, [3.0, 4.0], id="one value per period"),
+    pytest.param([3.0, 4.0, 5.0], 1, [3.0], id="steady model keeps the first"),
+]
+
+
+@pytest.mark.parametrize(("value", "nper", "expected"), PERIOD_SERIES)
+def test_period_series(value, nper, expected) -> None:
+    model = SimpleNamespace(nper=nper)
+
+    series = boundary_period_series(model, value=value, label="x")
+
+    np.testing.assert_allclose(series, expected)
+
+
+PERIOD_SERIES_REFUSALS = [
+    pytest.param("high", 2, TypeError, "must be numeric", id="text"),
+    pytest.param([], 2, ValueError, "cannot be empty", id="empty"),
+    pytest.param(
+        [1.0, 2.0, 3.0],
+        2,
+        ValueError,
+        r"length \(3\) must be 1 or match nper \(2\)",
+        id="wrong length",
+    ),
+]
+
+
+@pytest.mark.parametrize(("value", "nper", "error", "match"), PERIOD_SERIES_REFUSALS)
+def test_period_series_refusals(value, nper, error, match) -> None:
+    with pytest.raises(error, match=match):
+        boundary_period_series(SimpleNamespace(nper=nper), value=value, label="x")
+
+
+def test_iter_side_boundary_cells_lists_each_layer() -> None:
+    model = toy_model()
+    model.nlay = 2
+
+    # West cells of the 2 x 3 grid are 0 and 3, on each of the two layers.
+    assert list(iter_side_boundary_cells(model, "west_side")) == [(0, 0), (0, 3), (1, 0), (1, 3)]
+
+
+def test_inactive_or_missing_side_boundaries_are_skipped() -> None:
+    model = bound(
+        toy_model(),
+        {"west_side": head(10.0), "east_side": head(20.0)},
+        active=("east_side", "north_side"),
+    )
+
+    strt = apply_side_boundary_start_heads(model, np.zeros((1, 6)))
+    chd_spd = build_side_boundary_chd_spd(model)
+    owners = side_boundary_owner_by_cell(model)
+
+    # Only east_side is both active and defined, so only cells 2 and 5 are set.
+    np.testing.assert_allclose(strt[0], [0, 0, 20, 0, 0, 20])
+    assert [row[1] for row in chd_spd[0]] == [2, 5]
+    assert owners == {2: "east_side", 5: "east_side"}
+
+
+def test_ocean_head_from_a_value_or_a_forcing() -> None:
+    by_value = bound(toy_model(), {"ocean": head([1.0, 2.0], units="cm")})
+    by_forcing = bound(
+        toy_model(),
+        {"ocean": head(None, forcing={"kind": "constant", "value": 50.0, "units": "cm"})},
+    )
+
+    np.testing.assert_allclose(resolve_ocean_boundary_series(by_value), [0.01, 0.02])  # cm to m
+    np.testing.assert_allclose(resolve_ocean_boundary_series(by_forcing), [0.5, 0.5])
+
+
+def test_stream_head_from_a_forcing() -> None:
+    model = bound(toy_model(), {"stream": head(None, forcing={"kind": "constant", "value": 2.0})})
+
+    np.testing.assert_allclose(resolve_stream_boundary_series(model), [2.0, 2.0])
+
+
+def test_no_ocean_or_stream_head_without_a_boundary() -> None:
+    inactive = bound(toy_model(), {"ocean": head(1.0), "stream": head(1.0)}, active=())
+    undefined = bound(toy_model(), {}, active=("ocean", "stream"))
+
+    assert resolve_ocean_boundary_series(inactive) is None
+    assert resolve_ocean_boundary_series(undefined) is None
+    assert resolve_stream_boundary_series(undefined) is None
+
+
+def sea_level_model(sea_m: float):
+    model = bound(toy_model(), {"ocean": head([sea_m, sea_m + 1.0])})
+    model.dem = np.array([[0.5, 5.0, 5.0], [2.0, 5.0, 5.0]])
+    return model
+
+
+def test_ocean_cells_lie_at_or_below_the_highest_sea_level() -> None:
+    model = sea_level_model(1.0)
+    model.dem_mask = np.array([False, False, False, True, False, False])
+
+    series = resolve_ocean_boundary_series(model)
+    mask = ocean_chd_support_mask(model, series)
+    spd, spd_mask = build_ocean_boundary_chd_spd(model)
+
+    # Highest sea level 2 m: cells 0 (0.5 m) and 3 (2.0 m) qualify, but cell 3 is masked.
+    assert np.flatnonzero(mask).tolist() == [0]
+    assert np.flatnonzero(spd_mask).tolist() == [0]
+    assert spd == {0: [[0, 0, 1.0]], 1: [[0, 0, 2.0]]}
+
+
+def test_no_ocean_cell_below_the_sea() -> None:
+    model = sea_level_model(-3.0)
+
+    spd, mask = build_ocean_boundary_chd_spd(model)
+
+    assert not mask.any()
+    assert spd == {0: [], 1: []}
+    assert not ocean_chd_support_mask(model, None).any()
+    assert not ocean_chd_support_mask(model, np.array([])).any()
+
+
+def test_drainage_conductance_from_a_value_or_a_forcing() -> None:
+    by_value = bound(toy_model(), {"drainage": head([1e-4, 2e-4], units="m2/s")})
+    by_forcing = bound(
+        toy_model(),
+        {"drainage": head(None, forcing={"kind": "constant", "value": 1e-4, "units": "m2/s"})},
+    )
+    absent = bound(toy_model(), {}, active=("drainage",))
+
+    np.testing.assert_allclose(resolve_drainage_conductance_series(by_value), [1e-4, 2e-4])
+    np.testing.assert_allclose(resolve_drainage_conductance_series(by_forcing), [1e-4, 1e-4])
+    assert resolve_drainage_conductance_series(absent) is None
+
+
+def spread_model(**members) -> SimpleNamespace:
+    return SimpleNamespace(**members)
+
+
+SPREAD_SILENT = [
+    pytest.param({"auxiliary": True}, [1e-4], [1.0, 9.0], id="auxiliary model"),
+    pytest.param({"_drain_area_spread_reported": True}, [1e-4], [1.0, 9.0], id="already said"),
+    pytest.param({}, [0.0], [1.0, 9.0], id="no positive conductance"),
+    pytest.param({}, [1e-4], [1.0, float("nan")], id="one finite area"),
+    pytest.param({}, [1e-4], [1.0, 2.0], id="areas within twofold"),
+]
+
+
+@pytest.mark.parametrize(("members", "series", "areas"), SPREAD_SILENT)
+def test_equal_enough_areas_stay_silent(members, series, areas, caplog) -> None:
+    model = spread_model(**members)
+
+    report_per_cell_conductance_spread(
+        model,
+        drainage_cond_series=np.array(series),
+        cell_areas=np.array(areas),
+        drained=np.ones(len(areas), dtype=bool),
+    )
+
+    assert "varies" not in caplog.text
+    assert DRAIN_AREA_SPREAD_REPORT_RATIO == 2.0
+
+
+def test_unequal_areas_are_reported_once(caplog) -> None:
+    model = spread_model()
+    kwargs = dict(
+        drainage_cond_series=np.array([1e-4]),
+        cell_areas=np.array([100.0, 900.0, 5000.0]),
+        drained=np.array([True, True, False]),
+    )
+
+    report_per_cell_conductance_spread(model, **kwargs)
+    report_per_cell_conductance_spread(model, **kwargs)
+
+    # The undrained 5000 m2 cell is left out, so the spread is 900 / 100 = 9.
+    assert caplog.text.count("varies 9.0-fold") == 1
+    assert model._drain_area_spread_reported is True
+
+
+def test_sink_mask_must_match_the_mesh() -> None:
+    mask = _sink_mask_flat(SimpleNamespace(sink=np.array([[True, False, False]])), n_cells=3)
+
+    assert mask.tolist() == [True, False, False]
+    with pytest.raises(ValueError, match="holds 3 cells, the mesh 6"):
+        _sink_mask_flat(SimpleNamespace(sink=np.zeros(3)), n_cells=6)
 
 
 def mesh_free_model() -> SimpleNamespace:

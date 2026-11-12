@@ -14,7 +14,9 @@ from importlib.util import find_spec
 from pathlib import Path
 from types import SimpleNamespace
 
+import flopy
 import numpy as np
+import pandas as pd
 import pytest
 from flopy.discretization import VertexGrid
 from flopy.utils import GridIntersect
@@ -23,10 +25,13 @@ from shapely.geometry import LineString
 
 import hydromodpy.solver.modflow6.builders.sfr as sfr_module
 from hydromodpy.catchment.algorithms.sfr_network import SfrReachRow, SfrReachTrace
+from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.mesh import registry
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.mesh.request import LineFamilySpec
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
+from hydromodpy.model.forcing.dated_forcing import PiecewiseForcing
+from hydromodpy.model.model import ModelTime
 from hydromodpy.model.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6.builders._sfr_network import chain_pieces, crossing_pieces
 from hydromodpy.solver.modflow6.builders.lake_outflow import build_lake_mover_records
@@ -34,6 +39,8 @@ from hydromodpy.solver.modflow6.builders.mvr import MoverRecord, build_mvr_perio
 from hydromodpy.solver.modflow6.builders.sfr import (
     ResolvedSfrNetwork,
     SfrReachRecord,
+    build_drains,
+    build_sfr,
     build_sfr_mover_records,
     build_sfr_obs_spec,
     build_sfr_package_args,
@@ -871,3 +878,358 @@ def test_multiple_networks_are_refused() -> None:
     networks = resolve_sfr_networks(model, solver_mesh=strip_mesh())
     with pytest.raises(ValueError, match="one SFR network"):
         build_sfr_package_args(model, networks=networks)
+
+
+# A network that leaves the model by itself has no mover. A terminal reach flagged for a lake
+# without any receiver is skipped with a warning, an unflagged network with one outlet and an
+# outflow_to_lake sends that outlet to the lake.
+
+
+def test_standalone_network_has_no_mover() -> None:
+    model = fake_model({"net0": trace_payload(west_east_trace())})
+    networks = resolve_sfr_networks(model, solver_mesh=strip_mesh())
+    assert build_sfr_mover_records(networks) == []
+
+
+def test_terminal_without_receiver_is_skipped(caplog) -> None:
+    model = fake_model({"net0": trace_payload(west_east_trace(terminal=True))})
+    networks = resolve_sfr_networks(model, solver_mesh=strip_mesh())
+    with caplog.at_level("WARNING"):
+        assert build_sfr_mover_records(networks) == []
+    assert "feeds a lake but no receiver is set" in caplog.text
+
+
+def test_single_outlet_feeds_the_lake() -> None:
+    model = fake_model({"net0": trace_payload(west_east_trace(), outflow_to_lake=2)})
+    networks = resolve_sfr_networks(model, solver_mesh=strip_mesh())
+    (record,) = build_sfr_mover_records(networks)
+    # The line crosses cells 0 to 4, so reach 4 is the outlet. The lake number counts from 1 and
+    # the receiver id from 0.
+    assert (record.provider_id, record.receiver, record.receiver_id) == (4, "LAK", 1)
+
+
+def test_two_outlets_cannot_feed_one_lake() -> None:
+    west = LineString([(5.0, 45.0), (20.0, 45.0)])
+    east = LineString([(30.0, 45.0), (45.0, 45.0)])
+    trace = SfrReachTrace(
+        reaches=(reach_row(0, west, rtp=95.0), reach_row(1, east, rtp=95.0)), crs_wkt=""
+    )
+    model = fake_model({"net0": trace_payload(trace, outflow_to_lake=1)})
+    networks = resolve_sfr_networks(model, solver_mesh=strip_mesh())
+    with pytest.raises(ValueError, match="2 network outlets and no terminal-to-lake flag"):
+        build_sfr_mover_records(networks)
+
+
+# A diversion splits the flow of one reach into a reach downstream of it. Reach numbers count
+# from 1 in the configuration and from 0 in the package.
+
+
+def chain_of_three(**network) -> dict:
+    reaches = [
+        chain_reach(0, 1, [], [2], 96.0),
+        chain_reach(1, 1, [1], [3], 95.9),
+        chain_reach(2, 1, [2], [], 95.8),
+    ]
+    return {"net0": explicit_payload(reaches, **network)}
+
+
+def diversion(**members) -> dict:
+    return {"reach": 1, "to_reach": 2, "cprior": "FRACTION"} | members
+
+
+def test_diversion_rows() -> None:
+    constant = {"kind": "constant", "value": 86400.0, "units": "m3/day"}  # 1 m3/s
+    diversions = [
+        diversion(divflow={"kind": "constant", "value": 0.3}),
+        diversion(to_reach=2, cprior="UPTO", divflow=constant),
+        diversion(reach=2, to_reach=3, cprior=None) | {"cprior": "FRACTION"},
+    ]
+    model = fake_model(chain_of_three(diversions=diversions))
+    networks = resolve_sfr_networks(model, solver_mesh=strip_mesh())
+    args = build_sfr_package_args(model, networks=networks)
+    # DIVERSIONS rows are [reach, index on that reach, target reach, rule], all 0-based.
+    assert args["diversions"] == [[0, 0, 1, "FRACTION"], [0, 1, 1, "UPTO"], [1, 0, 2, "FRACTION"]]
+    assert [row[-1] for row in args["packagedata"]] == [2, 1, 0]  # ndv of each reach
+    rows = [row for row in args["perioddata"][0] if row[1] == "diversion"]
+    assert rows == [[0, "diversion", 0, 0.3], [0, "diversion", 1, pytest.approx(1.0)]]
+
+
+DIVERSION_REFUSALS = [
+    pytest.param(
+        trace_payload(two_reach_trace(), diversions=[diversion()]),
+        "requires the explicit reaches table",
+        id="reach trace network",
+    ),
+    pytest.param(
+        chain_of_three(diversions=[diversion(to_reach=9)])["net0"],
+        r"diversions\[0\] reach ids are outside the network",
+        id="target outside the network",
+    ),
+    pytest.param(
+        chain_of_three(diversions=[diversion(to_reach=3)])["net0"],
+        r"to_reach 3 is not a downstream connection of reach 1",
+        id="target not downstream",
+    ),
+    pytest.param(
+        chain_of_three(
+            diversions=[diversion(divflow={"kind": "csv", "path_file": "q.csv"})],
+        )["net0"],
+        "divflow must be a constant forcing",
+        id="divflow series",
+    ),
+]
+
+
+@pytest.mark.parametrize(("payload", "message"), DIVERSION_REFUSALS)
+def test_diversion_refusals(payload, message) -> None:
+    model = fake_model({"net0": payload})
+    networks = resolve_sfr_networks(model, solver_mesh=strip_mesh())
+    with pytest.raises(ValueError, match=message):
+        build_sfr_package_args(model, networks=networks)
+
+
+def test_payload_without_reaches_is_refused() -> None:
+    model = fake_model({"net0": {"width": {"kind": "constant", "value": 2.0}}})
+    with pytest.raises(ValueError, match="neither an explicit reaches table nor a bound"):
+        resolve_sfr_networks(model, solver_mesh=strip_mesh())
+
+
+def test_zero_streambed_thickness_is_refused() -> None:
+    model = fake_model({"net0": trace_payload(two_reach_trace(), streambed_thickness=0.0)})
+    networks = resolve_sfr_networks(model, solver_mesh=strip_mesh())
+    with pytest.raises(ValueError, match="streambed_thickness must be > 0"):
+        build_sfr_package_args(model, networks=networks)
+
+
+# The package is built on a flopy model of the mesh, after the lakes and before the movers.
+
+
+def gwf_on(mesh: SolverMesh, tmp_path: Path, nper: int = 1):
+    sim = flopy.mf6.MFSimulation(sim_ws=str(tmp_path))
+    flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=[(86400.0, 1, 1.0)] * nper)
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="sfrtest")
+    n_cells = mesh.cell_mesh.n_cells
+    flopy.mf6.ModflowGwfdisv(
+        gwf, **to_flopy_disv_args(mesh.cell_mesh.mesh, top=mesh.top, botm=np.asarray(mesh.botm))
+    )
+    assert n_cells == 25
+    return gwf
+
+
+def test_sfr_package_is_built(tmp_path) -> None:
+    mesh = strip_mesh()
+    model = fake_model({"net0": trace_payload(two_reach_trace(), outflow_to_lake=1)})
+    model.gwf = gwf_on(mesh, tmp_path)
+    model.full_path = tmp_path
+    model.lak = object()
+    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+    records = build_sfr_mover_records(networks)
+    mover_rows: list = []
+    build_sfr(model, mesh, networks, records, mover_rows, n_lakes_built=1)
+    assert model.sfr.packagedata.get_data().shape[0] == len(networks["net0"].reaches)
+    assert (tmp_path / "sfrtest.sfr.meta.json").is_file()
+    # One row [provider, id, receiver, id, type, value] from the last of the 8 reaches to lake 1.
+    assert mover_rows == [["SFR", 7, "LAK", 0, "FACTOR", 1.0]]
+
+
+MOVER_REFUSALS = [
+    pytest.param(
+        SimpleNamespace(lak=None), 1, "declares outflow_to_lake but no lake is active", id="no lake"
+    ),
+    pytest.param(
+        SimpleNamespace(lak=object()),
+        0,
+        r"outflow_to_lake=1 has no matching lake \(0 lakes",
+        id="lake not built",
+    ),
+]
+
+
+@pytest.mark.parametrize(("model", "n_lakes", "message"), MOVER_REFUSALS)
+def test_sfr_mover_refusals(model, n_lakes, message) -> None:
+    record = MoverRecord("SFR", 1, "LAK", 0, "FACTOR", 1.0)
+    with pytest.raises(ValueError, match=message):
+        build_sfr(model, strip_mesh(), {"net0": object()}, [record], [], n_lakes)
+
+
+# The hillslope drain sits on every open cell. The cells under a reach and the lake bed cells lose
+# theirs, and with route_drainage each drain whose descent ends on a reach moves its water to it.
+
+
+def drain_model(mesh: SolverMesh, tmp_path: Path, **members) -> SimpleNamespace:
+    n_cells = mesh.cell_mesh.n_cells
+    drainage = SimpleNamespace(value=1e-4, units="m2/s")  # conductance of one cell
+    return SimpleNamespace(
+        inputs=make_model(
+            boundaries=BoundaryConditionBundle(
+                conditions={"drainage": drainage}, active_ids=("drainage",)
+            )
+        ),
+        nper=1,
+        ncpl=n_cells,
+        dem_mask=mesh.closed_surface(),
+        hk=np.full((1, n_cells), 1e-5),
+        sink_fill=False,
+        drain_band_depth_m=0.0,
+        drain_bed_thickness_m=1.0,
+        drain_conductance_floor_m2_s=1e-12,
+        gwf=gwf_on(mesh, tmp_path),
+        **members,
+    )
+
+
+def east_descent() -> SimpleNamespace:
+    # Every cell drains to its east neighbour, the last column leaves the model.
+    receiver = np.arange(1, 26)
+    receiver[4::5] = -1
+    return SimpleNamespace(stopping_receiver=receiver, without_adjacency=lambda: "descent")
+
+
+def test_drains_around_a_reach(tmp_path) -> None:
+    mesh = strip_mesh()
+    model = drain_model(mesh, tmp_path, _marnage_lake_cells={1: [24, 23]})
+    model_networks = resolve_sfr_networks(fake_model(chain_of_three()), solver_mesh=mesh)
+    basin = SimpleNamespace(is_catchment=True, mask=np.ones(25, dtype=bool))
+    rows = build_drains(
+        model,
+        mesh,
+        np.zeros(25, bool),
+        np.zeros(25, bool),
+        model_networks,
+        east_descent(),
+        basin,
+        {},
+    )
+    # Reach cells 1, 6 and 11 and the lake cells 23 and 24 lose their drain.
+    assert model._drain_dropped_cells == {1, 6, 11, 23, 24}
+    assert model.drn.stress_period_data.get_data()[0].shape[0] == 25 - 5
+    assert model.descent == "descent"
+    # Cells 0, 5 and 10 drain to the reach on their east side. Their rows are the 1st, 5th and
+    # 9th of the DRN list once cell 1 is dropped, and the reaches are numbered 0 to 2.
+    assert sorted((row[1], row[3]) for row in rows) == [(0, 0), (4, 1), (8, 2)]
+    assert {(row[0], row[2]) for row in rows} == {("DRN", "SFR")}
+
+
+def test_drains_without_a_reach(tmp_path) -> None:
+    mesh = strip_mesh()
+    model = drain_model(mesh, tmp_path)
+    rows = build_drains(model, mesh, np.zeros(25, bool), np.zeros(25, bool), {}, None, None, {})
+    assert rows == []
+    assert model.drn.stress_period_data.get_data()[0].shape[0] == 25
+    assert model.descent is None
+
+
+def test_drain_routing_needs_a_descent(tmp_path) -> None:
+    mesh = strip_mesh()
+    model = drain_model(mesh, tmp_path)
+    networks = resolve_sfr_networks(fake_model(chain_of_three()), solver_mesh=mesh)
+    with pytest.raises(ValueError, match="walks the descent D, and this build has none"):
+        build_drains(
+            model, mesh, np.zeros(25, bool), np.zeros(25, bool), networks, east_descent(), None, {}
+        )
+
+
+def test_drain_routing_without_outlet_warns(tmp_path, caplog) -> None:
+    mesh = strip_mesh()
+    model = drain_model(mesh, tmp_path)
+    networks = resolve_sfr_networks(fake_model(chain_of_three()), solver_mesh=mesh)
+    basin = SimpleNamespace(is_catchment=False, mask=np.ones(25, dtype=bool))
+    with caplog.at_level("WARNING"):
+        build_drains(
+            model, mesh, np.zeros(25, bool), np.zeros(25, bool), networks, east_descent(), basin, {}
+        )
+    assert "no outlet and no watershed polygon" in caplog.text
+
+
+def monthly_model(payloads: dict) -> SimpleNamespace:
+    """Two monthly periods, January and February 2003, with their calendar."""
+    model = fake_model(payloads, nper=2, perlen=(31 * 86400.0, 28 * 86400.0))
+    window = ResolvedSimulationTimeWindow(
+        start=pd.Timestamp("2003-01-01"),
+        end=pd.Timestamp("2003-02-28"),
+        step_value=1,
+        step_unit="month",
+        coverage_policy="error",
+    )
+    time = ModelTime(
+        grid=SimpleNamespace(window=window), regime="transient", first_period_steady=True
+    )
+    model.inputs = replace(model.inputs, time=time)
+    return model
+
+
+def test_monthly_runoff_is_a_time_series(tmp_path) -> None:
+    segments = [
+        {
+            "start": "2003-01-01",
+            "end": "2003-02-01",
+            "forcing": {"kind": "constant", "value": 0.01},
+        },
+        {"start": "2003-02-01", "forcing": {"kind": "constant", "value": 0.03}},
+    ]
+    runoff = PiecewiseForcing(segments=segments, units="m3/s")
+    model = monthly_model({"net0": trace_payload(west_east_trace(), runoff=runoff)})
+    model.modflow_config = SimpleNamespace(
+        process_specific=SimpleNamespace(lak_forcing_mode="ts6", ts6_min_periods=1)
+    )
+    mesh = strip_mesh()
+    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+    args = build_sfr_package_args(model, networks=networks)
+    # The line crosses 5 cells (5, 10, 10, 10 and 5 m), so each reach gets its own series, scaled
+    # by its share of the 40 m of river.
+    by_name = {series.name: series.values for series in args["ts_specs"]}
+    rows = args["perioddata"][0]
+    assert [row[1] for row in rows] == ["runoff"] * 5
+    lengths = np.array([reach.rlen for reach in networks["net0"].reaches])
+    for row, length in zip(rows, lengths, strict=True):
+        assert len(by_name[row[2]]) == 3  # the series repeats the February value at the end
+        np.testing.assert_allclose(
+            by_name[row[2]][:2], np.array([0.01, 0.03]) * length / lengths.sum(), rtol=1e-9
+        )
+
+
+STEMS = [
+    pytest.param("run1", "", "run1", id="output name"),
+    pytest.param(None, "abc", "abc", id="model name"),
+    pytest.param(None, None, "model", id="no name"),
+]
+
+
+@pytest.mark.parametrize(("output_name", "model_name", "stem"), STEMS)
+def test_observation_file_stem(output_name, model_name, stem) -> None:
+    model = fake_model({"net0": trace_payload(two_reach_trace())})
+    model.model_output_name = output_name
+    model.model_name = model_name
+    networks = resolve_sfr_networks(model, solver_mesh=strip_mesh())
+    args = build_sfr_package_args(model, networks=networks)
+    assert list(args["obs_continuous"]) == [f"{stem}.sfr.obs.csv"]
+
+
+def test_sfr_time_series_file(tmp_path) -> None:
+    segments = [
+        {
+            "start": "2003-01-01",
+            "end": "2003-02-01",
+            "forcing": {"kind": "constant", "value": 0.01},
+        },
+        {"start": "2003-02-01", "forcing": {"kind": "constant", "value": 0.03}},
+    ]
+    runoff = PiecewiseForcing(segments=segments, units="m3/s")
+    model = monthly_model({"net0": trace_payload(west_east_trace(), runoff=runoff)})
+    model.modflow_config = SimpleNamespace(
+        process_specific=SimpleNamespace(lak_forcing_mode="ts6", ts6_min_periods=1)
+    )
+    mesh = strip_mesh()
+    model.gwf = gwf_on(mesh, tmp_path, nper=2)
+    model.full_path = tmp_path
+    networks = resolve_sfr_networks(model, solver_mesh=mesh)
+    build_sfr(model, mesh, networks, [], [], n_lakes_built=0)
+    model.gwf.simulation.write_simulation(silent=True)
+    assert "TS6" in (tmp_path / "sfrtest.sfr").read_text().upper()
+    text = (tmp_path / "sfrtest.sfr.ts").read_text()
+    table = text.split("BEGIN timeseries")[1].split("END timeseries")[0].split("\n")
+    rows = np.array([[float(w) for w in line.split()] for line in table if line.strip()])
+    # Reaches of 5, 10, 10, 10 and 5 m share the January runoff of 0.01 m3/s by length (40 m),
+    # and 0.03 m3/s in February. The last row repeats February at the end of the run.
+    shares = np.array([5.0, 10.0, 10.0, 10.0, 5.0]) / 40.0
+    np.testing.assert_allclose(rows[:, 1:], np.outer([0.01, 0.03, 0.03], shares), rtol=1e-9)

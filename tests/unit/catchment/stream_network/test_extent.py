@@ -10,6 +10,8 @@ whole: a spin-up year leaves the score unless the window keeps it.
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pytest
 
@@ -19,6 +21,8 @@ from hydromodpy.catchment.stream_network.extent import (
     extent_masks,
     extent_step_problems,
     flowing_cells,
+    flowing_steps,
+    quorum_count,
     yearly_flow_counts,
 )
 from hydromodpy.core.scoring.stream_defaults import VisibleFlow, parse_visible_flow
@@ -185,3 +189,59 @@ def test_masks_refuse_the_same_step_rules(bench) -> None:
     )
     with pytest.raises(ValueError, match="maximal rule of 13 timestep"):
         extent_masks(counts, maximal_flowing_steps=13)
+
+
+def test_flowing_cells_refuses_a_wrong_size(bench) -> None:
+    with pytest.raises(ValueError, match=f"release_flux must hold {N_CELLS} cells, got shape"):
+        flowing_cells(np.zeros(N_CELLS - 1), threshold_m3_s=_no_threshold(), metric=bench.metric)
+    with pytest.raises(ValueError, match=f"the threshold holds 3 cells, the mesh holds {N_CELLS}"):
+        flowing_cells(_release(bench, 5.0), threshold_m3_s=np.zeros(3), metric=bench.metric)
+
+
+def test_a_run_of_one_edge_holds_no_year() -> None:
+    years = calendar_years(np.array(["2001-01-01"], dtype="datetime64[ns]"))
+
+    assert years.years == ()
+    assert years.steps == ()
+
+
+def test_yearly_counts_refuse_a_wrong_stack(bench) -> None:
+    years = calendar_years(_monthly_edges(2001, 1))
+
+    with pytest.raises(ValueError, match="must be .n_times, n_cells., got shape"):
+        yearly_flow_counts(
+            _release(bench, 5.0), years=years, threshold_m3_s=_no_threshold(), metric=bench.metric
+        )
+    # Twelve monthly steps in the calendar, six rows in the stack.
+    with pytest.raises(ValueError, match="names timestep 11 and the release stack holds 6"):
+        yearly_flow_counts(
+            _stack(bench, [10.0] * 6),
+            years=years,
+            threshold_m3_s=_no_threshold(),
+            metric=bench.metric,
+        )
+
+
+STEP_RULES = [
+    pytest.param(0, 0, "below one timestep", id="no flowing step asked"),
+    pytest.param(2, -1, "dry timestep.s. is negative", id="negative dry rule"),
+]
+
+
+@pytest.mark.parametrize(("n_max", "n_min", "match"), STEP_RULES)
+def test_step_rules_that_cannot_be_read(n_max, n_min, match) -> None:
+    problems = extent_step_problems([12, 12], maximal_flowing_steps=n_max, minimal_dry_steps=n_min)
+
+    assert any(re.search(match, text) for text in problems)
+
+
+def test_quorum_refusals() -> None:
+    with pytest.raises(ValueError, match="year_quorum must lie in"):
+        quorum_count(5, 0.0)
+    with pytest.raises(ValueError, match="at least one scored year"):
+        quorum_count(0, 0.5)
+
+
+def test_a_zero_timestep_is_refused() -> None:
+    with pytest.raises(ValueError, match="timestep must be positive, got 0.0 days"):
+        flowing_steps(30.0, 0.0)

@@ -147,3 +147,31 @@ def test_runtime_backend_exposes_method_and_engine() -> None:
     assert backend.method.id == "head_only_regularized_partition"
     assert backend.jacobian_strategy == "hybrid_sparse"
     assert backend.linear_solver_kind == "scipy_sparse_spsolve"
+
+
+def test_ts_vi_obstacle_has_no_steady_scheme() -> None:
+    method = resolve_method_spec(
+        runtime_backend_name="petsc", surface_interaction_model="ts_vi_obstacle"
+    )
+
+    with pytest.raises(NotImplementedError, match="does not support time scheme 'steady_balance'"):
+        method.time_scheme_for_regime("steady")
+
+
+def test_unknown_surface_interaction_model() -> None:
+    with pytest.raises(ValueError, match="Unsupported Boussinesq surface interaction model"):
+        resolve_surface_interaction_model_token(
+            runtime_backend_name="local", surface_interaction_model="sponge"
+        )
+
+
+ENGINE_REFUSALS = [
+    pytest.param("gpu", "head_only_regularized_partition", id="unknown backend"),
+    pytest.param("local", "mixed_complementarity", id="method the backend cannot run"),
+]
+
+
+@pytest.mark.parametrize(("backend", "method_id"), ENGINE_REFUSALS)
+def test_engine_refusals(backend: str, method_id: str) -> None:
+    with pytest.raises(ValueError, match="Unsupported Boussinesq runtime backend"):
+        resolve_engine_spec(runtime_backend_name=backend, method_id=method_id)

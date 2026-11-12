@@ -68,3 +68,13 @@ def test_cleanup_keeps_the_listed_extensions(tmp_path: Path) -> None:
     assert (folder / "model.lst").exists()
     assert (folder / "model.nam").exists()
     assert not (folder / "model.hds").exists()
+
+
+def test_cleanup_removes_subfolders_when_keeping_extensions(tmp_path: Path) -> None:
+    folder = _solver_folder(tmp_path, "model.lst")
+    (folder / "temp").mkdir()
+    (folder / "temp" / "scratch.lst").write_text("x")
+
+    cleanup_solver_files(folder, keep={".lst"})
+
+    assert [p.name for p in folder.iterdir()] == ["model.lst"]

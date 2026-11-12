@@ -247,3 +247,23 @@ def test_catchment_area_refusals(tmp_path) -> None:
         compute_catchment_area_km2(tmp_path / "gone.shp")
     with pytest.raises(ValueError, match="empty"):
         compute_catchment_area_km2(write_features(tmp_path / "empty.shp", []))
+
+
+def test_fine_disk_needs_a_wider_bracket() -> None:
+    # A 16384-gon is so close to a disk that its chord buffer falls just short
+    # of the Brunn-Minkowski distance, so the search widens the bracket.
+    radius_m = 1000.0
+    disk = Point(0.0, 0.0).buffer(radius_m, quad_segs=4096)
+    distance = buffer_distance_for_area_increase(disk, 5.0)
+    # pi (R + d)^2 = 6 pi R^2
+    assert distance == pytest.approx(radius_m * (math.sqrt(6.0) - 1.0), rel=1.0e-4)
+    assert buffer_area_increase(disk, distance) == pytest.approx(5.0, abs=1.0e-4)
+
+
+@pytest.mark.parametrize(
+    ("declared", "reason"),
+    [("0 m", "distance must be > 0"), (0, "percentage must produce a distance > 0")],
+)
+def test_refused_zero_margin(declared, reason) -> None:
+    with pytest.raises(ValueError, match=reason):
+        buffer_distance_m(SHAPES["square"], declared)

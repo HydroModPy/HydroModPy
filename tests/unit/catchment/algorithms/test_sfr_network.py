@@ -301,3 +301,78 @@ def test_product_refusals(tmp_path) -> None:
         _from_products({**paths, "dem": shifted})
     with pytest.raises(ValueError, match="nodata model top"):
         _from_products(_write_products(tmp_path / "holed", nodata=-9999.0, dem=holed))
+
+
+def test_link_ending_in_the_lake() -> None:
+    # The lake takes the last cell of the main link: the reach keeps the two cells above it.
+    trace = _trace(_y_network(), lake_mask=_lake_rows(4))
+    (terminal,) = _terminals(trace)
+    assert terminal.terminal_lake == 1
+    assert terminal.rlen == pytest.approx(_RES)  # two cell centres, one 100 m step
+    assert trace.reach_count == 3
+
+
+def test_links_inside_the_lake_are_dropped() -> None:
+    # Both tributaries lie in rows 0 and 1, which the lake covers.
+    trace = _trace(_y_network(), lake_mask=_lake_rows(0, 1))
+    (main,) = trace.reaches
+    assert main.upstream == ()
+    assert main.area_km2 == pytest.approx(0.07)
+
+
+def test_pointer_loop_below_a_link_is_left_unflagged() -> None:
+    # Link 1 is one cell. The gap cells below it send the flow round in a loop.
+    g = _grid()
+    g["link_id"][0, 1], g["acc"][0, 1], g["top_dem"][0, 1] = 1, 1.0, 10.0
+    g["d8"][0, 1], g["d8"][1, 1], g["d8"][1, 2] = _S, 2, 32  # south, then east, then west
+    (reach,) = _trace(g, lake_mask=_lake_rows(5)).reaches
+    assert (reach.is_terminal_to_lake, reach.terminal_lake, reach.downstream) == (False, None, ())
+
+
+def test_link_closing_on_itself() -> None:
+    # Four cells whose pointers go east, south, west, north: no cell leaves the link.
+    g = _grid()
+    for (row, col), code in {(0, 0): 2, (0, 1): 8, (1, 1): 32, (1, 0): 128}.items():
+        g["link_id"][row, col], g["d8"][row, col] = 1, code
+        g["acc"][row, col], g["top_dem"][row, col] = 1.0, 10.0
+    (reach,) = _trace(g).reaches
+    assert reach.rlen == pytest.approx(3 * _RES)  # four cell centres, three 100 m steps
+
+
+def _long_column(*links: int) -> dict[str, np.ndarray]:
+    """A column of any length draining south, with the given link id on each row."""
+    g = _grid(nrow=len(links))
+    for row, link in enumerate(links):
+        g["link_id"][row, 1], g["d8"][row, 1] = link, _S
+        g["acc"][row, 1], g["top_dem"][row, 1] = row + 1, 20.0 - row
+    return g
+
+
+def test_short_reach_between_two_long_ones_is_bridged() -> None:
+    # Link 2 is one cell (100 m), links 1 and 3 are 300 m. Pruning link 2 joins 1 to 3.
+    g = _long_column(1, 1, 1, 1, 2, 3, 3, 3, 3)
+    kept = _trace(g, min_reach_length_m=150.0)
+    unpruned = _trace(g)
+    first, last = sorted(kept.reaches, key=lambda r: r.ifno)
+    assert unpruned.reach_count == 3
+    assert (first.downstream, last.upstream) == ((last.ifno,), (first.ifno,))
+
+
+def test_short_last_reach_passes_its_lake_to_the_one_above() -> None:
+    # Link 2 is the last cell above the lake (row 5). Pruned, link 1 drains into the lake itself.
+    trace = _trace(
+        _long_column(1, 1, 1, 1, 2, 0), lake_mask=_lake_rows(5), min_reach_length_m=150.0
+    )
+    (reach,) = trace.reaches
+    assert (reach.is_terminal_to_lake, reach.terminal_lake) == (True, 1)
+
+
+def test_two_links_draining_into_each_other() -> None:
+    # A pointer loop between two one-cell links: no outlet, and both reaches are kept.
+    g = _grid()
+    for col, (link, code) in enumerate([(1, 2), (2, 32)]):
+        g["link_id"][0, col], g["d8"][0, col] = link, code
+        g["acc"][0, col], g["top_dem"][0, col] = 1.0, 10.0
+    trace = _trace(g)
+    assert trace.reach_count == 2
+    assert sorted(r.downstream for r in trace.reaches) == [(0,), (1,)]

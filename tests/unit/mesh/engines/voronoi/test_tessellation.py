@@ -15,6 +15,7 @@ from hydromodpy.core.exceptions import MeshGenerationError
 from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.mesh.engines.voronoi.local_coords import LocalFrame, local_frame
 from hydromodpy.mesh.engines.voronoi.tessellation import (
+    _far_from,
     cell_topology,
     tessellate,
     voronoi_cells,
@@ -106,6 +107,25 @@ def test_coincident_seeds_raise() -> None:
     seeds = np.array([[0.0, 0.0], [10.0, 0.0], [0.0, 0.0]])
     with pytest.raises(MeshGenerationError, match="coincide"):
         voronoi_cells(seeds, domain, voronoi_envelope(domain, 10.0))
+
+
+def test_boundary_seed_candidates_keep_distinct_ones_apart() -> None:
+    gap = 1.0  # m
+    seeds = np.array([[100.0, 100.0]])
+    candidates = np.array(
+        [
+            [0.0, 0.0],
+            [0.5, 0.0],  # within 1 m of the first candidate
+            [10.0, 10.0],
+            [10.0, 10.0],  # the same point twice
+            [100.0, 100.5],  # within 1 m of a seed
+        ]
+    )
+
+    kept = _far_from(candidates, seeds, gap)
+
+    np.testing.assert_array_equal(kept, [[0.0, 0.0], [10.0, 10.0]])
+    assert len(_far_from(np.empty((0, 2)), seeds, gap)) == 0
 
 
 def test_close_vertices_merge() -> None:

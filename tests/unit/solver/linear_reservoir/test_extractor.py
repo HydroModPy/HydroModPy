@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.exceptions import NothingThereError
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.solver.linear_reservoir.adapter import SERIES_FILE, LinearReservoir, _series_frame
 from hydromodpy.solver.linear_reservoir.extractor import LinearReservoirExtractor
@@ -93,3 +94,74 @@ def test_budget_rows_of_a_period_close(tmp_path) -> None:
     for step, records in per_period.items():
         net = sum(rec["flux_in"] - rec["flux_out"] for rec in records)
         assert net == pytest.approx(0.0, abs=1e-12), f"period {step} leaves {net} open"
+
+
+PERIOD_ROWS = (
+    "time,recharge_m_s,discharge_m3_s,reservoir_storage_m\n"
+    "2024-01-02,5e-8,0.05,0.1\n"
+    "2024-01-03,5e-8,0.05,0.1\n"
+)
+
+
+class StoreWithoutTime(StoreDouble):
+    write_time = None
+
+
+def run_of(output_dir, lengths) -> SimpleNamespace:
+    grid = SimpleNamespace(
+        window=None,
+        boundaries=(pd.Timestamp("2024-01-01"), pd.Timestamp("2024-01-03")),
+        period_lengths_seconds=lengths,
+    )
+    return SimpleNamespace(
+        output_dir=output_dir,
+        model=SimpleNamespace(time=SimpleNamespace(grid=grid)),
+        solver_model=SimpleNamespace(area_m2=AREA_M2, initial_depth_m=0.1),
+    )
+
+
+EXTRACTION_REFUSALS = [
+    pytest.param(
+        "time,recharge_m_s,discharge_m3_s,reservoir_storage_m\n",
+        (86400.0, 86400.0),
+        StoreDouble(),
+        "holds no period",
+        id="empty series",
+    ),
+    pytest.param(
+        PERIOD_ROWS,
+        (86400.0, 86400.0),
+        StoreWithoutTime(),
+        "must implement write_time",
+        id="store without a time axis",
+    ),
+    pytest.param(
+        PERIOD_ROWS,
+        (86400.0,),
+        StoreDouble(),
+        "1 periods of the time grid and 2 rows",
+        id="short grid",
+    ),
+    pytest.param(
+        PERIOD_ROWS,
+        None,
+        StoreDouble(),
+        "0 periods of the time grid and 2 rows",
+        id="no period lengths",
+    ),
+]
+
+
+@pytest.mark.parametrize(("text", "lengths", "store", "message"), EXTRACTION_REFUSALS)
+def test_extraction_refusals(tmp_path, text, lengths, store, message) -> None:
+    (tmp_path / SERIES_FILE).write_text(text, encoding="utf-8")
+
+    with pytest.raises((NothingThereError, TypeError), match=message):
+        LinearReservoirExtractor().extract(run_of(tmp_path, lengths), store, SimpleNamespace())
+
+
+def test_extraction_needs_the_series_file(tmp_path) -> None:
+    with pytest.raises(NothingThereError, match=f"No {SERIES_FILE} in"):
+        LinearReservoirExtractor().extract(
+            run_of(tmp_path, (86400.0,)), StoreDouble(), SimpleNamespace()
+        )

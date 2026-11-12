@@ -189,6 +189,27 @@ def test_foreign_inputset_is_reported(tmp_path: Path) -> None:
     assert any("not a JSON object" in problem for problem in report.problems)
 
 
+def test_inputset_that_is_not_json_is_reported(tmp_path: Path) -> None:
+    job = sealed_job(tmp_path)
+    job.inputset_path.write_text("{", encoding="utf-8")
+
+    report = verify_job(job)
+
+    assert not report.ok
+    assert any("inputset.json cannot be read as JSON" in problem for problem in report.problems)
+
+
+def test_outcome_of_a_later_version_is_reported(tmp_path: Path) -> None:
+    job = sealed_job(tmp_path)
+    outcome = read_document(job.outcome_path)
+    write_document(job.outcome_path, {**outcome, "schema": "hmp-outcome/v2"})
+
+    report = verify_job(job)
+
+    assert not report.ok
+    assert any("hmp-outcome/v2" in problem for problem in report.problems)
+
+
 def test_read_job_seal_of_the_corpus() -> None:
     seal = read_job_seal(JOB_V2)
 
