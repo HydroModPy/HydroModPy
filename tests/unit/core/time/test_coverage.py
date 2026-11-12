@@ -26,6 +26,10 @@ def test_a_monthly_or_yearly_record_weighs_each_sample_by_its_calendar_length(st
     assert calendar_sample_days(stamps).tolist() == expected
 
 
+def test_a_single_sample_has_equal_weights():
+    assert calendar_sample_days(pd.to_datetime(["2020-01-01"])) is None
+
+
 def test_a_record_going_back_in_time_has_equal_weights():
     stamps = pd.to_datetime(["2020-03-01", "2020-01-01", "2020-02-01"])
     assert calendar_sample_days(stamps) is None

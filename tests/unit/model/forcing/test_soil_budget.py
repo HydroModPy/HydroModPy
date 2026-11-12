@@ -158,6 +158,27 @@ def test_block_lines():
     assert lines[9] == f"{'storage change':<22}{0.0:>+8.1f}{0.0:>+18.1f}{0.0:>+17.1f}"
 
 
+def test_data_rows_scale_the_mean_to_a_calendar_year():
+    lines = soil_budget_lines(
+        steady_year_forcings(),
+        ladder=((50.0, 2920.0), (100.0, 2500.0)),
+        gauged_line="gauged discharge TEST: 300.0 mm/year on 365 of 365 days, catchment 10.00 km2",
+        sent_to_evt=True,
+    )
+    scale = 365 / 365.25
+    expected = {
+        "precipitation": 3650.0,
+        "ETP": 730.0,
+        "ETR": 730.0,
+        "recharge to MODFLOW": 2920.0,
+        "impervious runoff": 0.0,
+    }
+    by_label = {line[:22].strip(): line for line in lines[4:9]}
+    for label, total in expected.items():
+        mean = total / scale
+        assert by_label[label] == f"{label:<22}{mean:>8.1f}{total:>18.1f}{total:>17.1f}"
+
+
 def test_unmet_etp_names_the_missing_activation():
     lines = soil_budget_lines(
         steady_year_forcings(), ladder=(), gauged_line=NO_HYDROMETRY, sent_to_evt=False

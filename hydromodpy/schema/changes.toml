@@ -831,3 +831,92 @@ since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "A Boussinesq run names its solver folder and the model_name of its solver summary after the simulation, as the MODFLOW backends do, where a run of a pre-release wrote the process and the solver joined by two underscores, as flow_main__boussinesq. No value of a result changes."
+
+# Numbers that moved between the pre-releases and 2.0.0 and had no row. Sizes come
+# from example 04 unless the text names another case. The fixes among them are
+# written as recipes: a [[bug]] row on fluxes@<solver> or on metrics would label every
+# such run of a pre-release exploratory, and these touch only the cases they name.
+
+[[recipe]]
+id = "mf6_lake_discharge_without_sfr"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["fluxes@modflow6"]
+text = "The MODFLOW 6 discharge of a run with a lake and no SFR was the lake outlet alone. On a three-month valley with a buffer it was 3.855e-05, 3.856e-05 and 3.855e-05 m3/s and is now 0.100996, 0.143696 and 0.087693 m3/s, about 2 600 to 3 700 times more. A run with SFR, with or without a lake, does not move."
+
+[[recipe]]
+id = "boussinesq_discharge_near_zero"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["fluxes@boussinesq"]
+text = "The Boussinesq discharge on the island of the test suite, over three months, was 4.2e-9, 9.6e-10 and 4.2e-11 m3/s and is now 0.012709, 0.025505 and 0.010800 m3/s, where MODFLOW 6 on the same mesh reads 0.011417, 0.023888 and 0.009734 m3/s. Any score of a Boussinesq discharge changes with it."
+
+[[recipe]]
+id = "boussinesq_trial_summed_the_domain"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["fluxes@boussinesq"]
+text = "A Boussinesq calibration trial on a mesh wider than its catchment scored the sum over the domain, 2.0 times the published series on an island cut in half. It now scores the published series. With no buffer nothing moves."
+
+[[recipe]]
+id = "boussinesq_budget_sign"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["fluxes@boussinesq"]
+text = "Boussinesq budget/drain and budget/surface_excess change sign and keep their size. The signed fields now close against the change of storage, to 3.7e-7 of the recharge on the steady period, where they were off by 1.48 times the recharge. Steady runs and the MODFLOW solvers do not move."
+
+[[recipe]]
+id = "network_time_on_a_stamp"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["metrics"]
+text = "A date written on a stamp belongs to the period that the stamp closes, so a network output whose time falls on a stamp reads one period earlier. With time = \"2002-10-01\", distance_gap goes from 86.32 to 79.08 m (-8.4 %) and D_optim from 142.4 to 139.2 m (-2.2 %). A date inside a period does not move."
+
+[[recipe]]
+id = "window_end_on_a_stamp"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["metrics"]
+text = "A window that ends on a stamp keeps one period fewer. 2001-01-01 to 2002-01-01 on a monthly run is 12 periods, where it was 13, and February 2000 reads 1 simulated value and 29 measurements, where it read 2 and 30."
+
+[[recipe]]
+id = "soil_reservoir_defaults_and_shares"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["heads@modflow6", "fluxes@modflow6", "heads@modflow_nwt", "fluxes@modflow_nwt"]
+text = "The soil reservoir defaults move: alpha from 0.6 to 0.45 (FAO-56 table 22, cereals and maize) and flow.sinks_sources.etp.extinction_depth from 1 m to 2 m. A file that writes these keys reads as before. The basin mean that the soil reservoir prints also gives each SAFRAN cell its share of the catchment. On example 04, 2015 to 2020, for a capacity of 50, 100, 150, 200 and 250 mm, the soil recharge was 443, 392, 356, 325 and 295 mm/year and is now 443, 389, 350, 315 and 280 mm/year: the shares add 7 to 9 mm/year and the lower alpha takes back 7 to 24 mm/year. The discharge of step 6 of example 04 (K = 3.16e-5 m/s, Sy = 0.04) goes from NSE log 0.903 to 0.932, KGE 0.911 to 0.947 and NSE 0.904 to 0.929, and its July to September bias from +0.022 to 0.000 m3/s."
+
+[[recipe]]
+id = "tie_on_the_cost_promotes_the_answer"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["metrics"]
+text = "A tie on the cost in the last phase of a search promotes the trial that the search answered. On the shipped mesh of example 04 the promoted K goes from 8.058e-5 to 7.962e-5 m/s (-1.2 %), and on 30 x 30 from 1.4678e-4 to 1.5034e-4 m/s (+2.4 %). A phase before the last does not move."
+
+[[recipe]]
+id = "protocol_1_3_cuts_the_map_to_the_catchment"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["metrics"]
+text = "A calibration with no pin on the protocol follows 1.3: the map is cut to the catchment and the network is rasterized from the heads of the observed streams. On the shipped mesh of example 04 every K and cost is the same, and the heads examined fall from 154 to 29. On 30 x 30, J at the best trial goes from 11.0 to 50.3 m."
+
+[[recipe]]
+id = "catchment_mismatch_new_meaning"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["metrics"]
+text = "catchment_mismatch changes meaning and enters no cost, and the number it held is now basin_mismatch. On the shipped mesh of 21 406 cells 0 becomes 0.37 %, and on 30 x 30 it becomes 11.0 %."
+
+[[recipe]]
+id = "calibration_precision_relative_fatol"
+since = "2.0.0"
+effect = "numbers"
+quantities = ["metrics"]
+text = "calibration.precision writes a relative fatol, so Nelder-Mead stops on the same simplex two trials earlier. On example 04 the calibrated Sy goes from 0.04411 to 0.04296 and 1 - nse_log from 0.083976 to 0.083988, with two solves less. K does not move."
+
+[[recipe]]
+id = "calibration_cache_keys_change_once"
+since = "2.0.0"
+effect = "identity"
+quantities = []
+text = "Every cache key of a calibration changes once, so the trials of a session of a pre-release are solved again."

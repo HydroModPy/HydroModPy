@@ -42,6 +42,14 @@ def test_no_free_seed() -> None:
     assert seeds.shape == (0, 2)
 
 
+def test_morton_order_follows_the_z_curve_then_x_and_y() -> None:
+    points = np.array([[1.5, 1.5], [0.2, 1.1], [1.2, 0.3], [0.1, 0.1], [0.6, 0.4]])
+    order = morton_order(points, step=1.0)
+    assert order.tolist() == [3, 4, 2, 1, 0]
+    shuffled = points[[2, 0, 4, 1, 3]]
+    assert np.array_equal(shuffled[morton_order(shuffled)], points[order])
+
+
 def test_morton_order_of_no_point() -> None:
     assert morton_order(np.empty((0, 2))).size == 0
 

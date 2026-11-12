@@ -237,6 +237,12 @@ def build_lake_connectiondata(
             # bathymetric bed as its top; one VERTICAL connection on the top active
             # cell of the column (bed seepage; MF6 wets it when stage > bed and
             # toggles RCH/ET per cell). A pinched top layer is skipped.
+            if int(top_active[cid]) < 0:
+                raise ValueError(
+                    f"Lake {int(lake_index)} (marnage): column {int(cid)} has no active "
+                    "layer, so its bed connection has no cell. Keep the lake polygon "
+                    "inside the active domain."
+                )
             rows.append(
                 [
                     int(lake_index),

@@ -282,7 +282,13 @@ def test_no_error_after_a_result(project: Path, tmp_path: Path) -> None:
 
 def test_dry_run_document(tmp_path: Path) -> None:
     file = tmp_path / "run.toml"
-    file.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
+    file.write_text(
+        '[workspace]\n[workflow]\nmode = "simulation"\n'
+        '[simulation.time]\nstart_datetime = "2000-01-01"\nend_datetime = "2000-12-31"\n'
+        'step_value = 1\nstep_unit = "day"\n[geographic]\nsource_mode = "synthetic"\n'
+        '[flow.param.K.field]\nid = "K"\nkind = "homogeneous"\nunit = "m/s"\nvalue = 6.4e-5\n',
+        encoding="utf-8",
+    )
 
     result = CliRunner().invoke(["run", str(file), "--dry-run", "--format", "json"])
 

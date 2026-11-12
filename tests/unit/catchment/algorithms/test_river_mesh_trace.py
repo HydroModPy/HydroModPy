@@ -1,5 +1,7 @@
 """The river trace a mesh follows, from geometries or from the network."""
 
+import logging
+
 import geopandas as gpd
 import pytest
 from shapely.geometry import GeometryCollection, LineString, MultiLineString, Point
@@ -74,3 +76,11 @@ def test_no_line_no_trace(geometry, network_crs, crs):
     network = gpd.GeoDataFrame(geometry=geometries, crs=crs)
     trace = build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=network_crs)
     assert trace is None
+
+
+def test_no_crs_anywhere_warns(caplog):
+    network = gpd.GeoDataFrame(geometry=[LineString([(0.0, 0.0), (10.0, 0.0)])], crs=None)
+    with caplog.at_level(logging.WARNING):
+        trace = build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs="")
+    assert trace is None
+    assert "no river trace is built" in caplog.text

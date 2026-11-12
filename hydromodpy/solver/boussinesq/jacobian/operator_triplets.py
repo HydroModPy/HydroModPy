@@ -54,8 +54,6 @@ def build_sparse_semianalytic_triplets(
 
     def _append_diagonal(values: np.ndarray) -> None:
         diag_values = np.asarray(values, dtype=float).reshape(-1)
-        if diag_values.size != n_cells:
-            raise ValueError("Diagonal contribution length must match mesh.n_cells.")
         if np.any(prescribed_mask):
             diag_values = diag_values.copy()
             diag_values[prescribed_mask] = 0.0

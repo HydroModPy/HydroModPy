@@ -444,6 +444,18 @@ def test_random_lines_keep_the_invariants(
     assert_seeds_lie_in_the_domain(plan, DOMAIN)
 
 
+def test_seeds_come_chains_first_then_faces_then_boundary() -> None:
+    plan = crossing_plan()
+    role = plan.seeds.role
+    block = np.where(
+        role == SeedRole.CHAIN,
+        0,
+        np.where((role == SeedRole.BOUNDARY) & (plan.seeds.vertex_id < 0), 2, 1),
+    )
+    assert np.all(np.diff(block) >= 0)
+    assert set(block.tolist()) == {0, 1, 2}
+
+
 def test_protection_radius() -> None:
     plan = crossing_plan()
     assert plan.seeds.radius == pytest.approx(np.full(plan.seeds.n, H))
@@ -569,6 +581,21 @@ def test_low_angle_end_on_the_boundary(angle: float) -> None:
     assert stats["boundary_ends"] == 0.0
     assert stats["merged_circles"] + stats["yielded_segments"] > 0
     assert_definition_2(plan)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "a contact ending on the edge beside a corner",
+        "a contact ending on a hole narrower than its end circle",
+        "a contact ending on a hole as wide as its end circle",
+    ],
+)
+def test_end_without_room_merges_its_last_segment(name: str) -> None:
+    plan, _ = situation(name)
+    stats = plan.family_stats["geology"]
+    assert stats["boundary_ends"] == 0.0
+    assert stats["merged_circles"] == 1.0
 
 
 def test_two_ends_on_the_edge() -> None:
@@ -726,6 +753,27 @@ def test_river_crossing_a_lake() -> None:
     assert plan.family_stats["lakes"]["yielded_segments"] == 0.0
     assert mirror.size == 4
     assert np.all(plan.seeds.family[mirror] == lake)
+
+
+def test_round_hole_takes_the_end_seeds_of_a_contact() -> None:
+    plan, domain = situation("a contact from the edge to a round hole")
+    hole = local_frame(DOMAIN).to_local(domain).interiors[0]
+    on_hole = np.flatnonzero(shapely.distance(shapely.points(plan.seeds.xy), hole) < 1.0e-6)
+    ends = on_hole[plan.seeds.vertex_id[on_hole] >= 0]
+    angle = np.sort(np.arctan2(*(plan.seeds.xy[on_hole] - local((200.0, 150.0))[0]).T[::-1]))
+    gaps = np.diff(np.r_[angle, angle[0] + 2.0 * np.pi])
+    assert plan.family_stats["geology"]["boundary_ends"] == 2.0
+    assert ends.size == 2
+    assert gaps.max() * 40.0 < 1.5 * H
+
+
+def test_river_ending_in_a_pond_ends_on_its_shore() -> None:
+    plan, _ = situation("a river ending in a pond smaller than a cell")
+    (chain,) = plan.chains
+    last = int(chain.cell_ids[-1])
+    assert plan.family_stats["rivers"]["crossings"] == 0.0
+    assert plan.seeds.role[last] == SeedRole.MIRROR
+    assert plan.family_names[plan.seeds.family[last]] == "lakes"
 
 
 def test_pond_smaller_than_a_cell() -> None:

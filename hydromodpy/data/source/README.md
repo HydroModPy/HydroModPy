@@ -12,7 +12,7 @@ A `FetchResult` carries the one payload its `kind` names: `points` and `fields` 
 
 ## What a source declares
 
-On the class, `section` (the one `[data.<section>]` it serves) and `source_id` (the word written in `source =`), both `ClassVar`, then `payload_kind` (`points`, `fields`, `features` or `files`), `extent_crs`, `selectors` (`extent`, `station_ids`, or an empty tuple), `period_need`, `writes_out_dir` and the method `fetch`. On the instance, `variables`, because a source configured one way may serve fewer variables than its class, and `hosts`, every host it contacts. A shipped source reads its hosts from `hydromodpy.schema.sources` through `shipped_hosts`, so no host is named twice.
+On the class, `section` (the one `[data.<section>]` it serves) and `source_id` (the word written in `source =`), both `ClassVar`, then `payload_kind` (`points`, `fields`, `features` or `files`), `extent_crs`, `selectors` (`extent`, `station_ids`, or an empty tuple), `period_need`, `writes_out_dir` and the method `fetch`. On the instance, `variables`, because a source configured one way may serve fewer variables than its class, and `hosts`, every host it contacts. A source of a fixed provider reads its hosts from `hydromodpy.schema.sources` through `shipped_hosts`, so no host is named twice. A file source has no host, and a URL source takes its host from its URL.
 
 ## How a source registers
 

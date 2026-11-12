@@ -8,7 +8,7 @@ An evaluator turns one parameter sample into one cost. The port stops at the cos
 
 ## What an evaluator declares and how it registers
 
-The class carries `evaluator_id`, `needs_prepared_model` and `evaluate`. `needs_prepared_model` is read off the class before anything is built, because a `True` answer sends the caller through `prepare_trials`, the geographic, mesh and data prefix of the pipeline. Two evaluators ship through `_BUILTIN_PATHS`: `hydromodpy_pipeline`, the default a document that names none gets, and `analytic_bowl`. A third party publishes an entry point in the `hydromodpy.calibration.evaluator` group. `evaluators.create` builds an evaluator and binds only the constructor parameters the class names out of `CONSTRUCTION_OPTIONS`.
+The class carries `evaluator_id`, `needs_prepared_model` and `evaluate`. `needs_prepared_model` is read off the class before anything is built, because a `True` answer sends the caller through `prepare_trials`, the geographic, mesh and data prefix of the pipeline. Two evaluators ship through `_BUILTIN_PATHS`: `hydromodpy_pipeline`, the default a document that names none gets, and `analytic_bowl`. A third party publishes an entry point in the `hydromodpy.calibration.evaluator` group. `evaluators.create` builds an evaluator and binds the options the caller passes to the constructor, and a missing required one is a bare `TypeError`. The check of `CONSTRUCTION_OPTIONS` that `core/plugin_registry.py` offers is not turned on for this registry.
 
 ## What is refused and what tests it
 

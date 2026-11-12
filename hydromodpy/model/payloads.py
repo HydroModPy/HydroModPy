@@ -8,7 +8,7 @@ reads ``unit`` as ``units``.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Annotated, TypeVar
+from typing import Annotated
 
 from pydantic import Field
 
@@ -73,19 +73,3 @@ def declared_unit(payload: Mapping[str, object]) -> str | None:
     if "unit" in payload:
         return str(payload["unit"])
     return None
-
-
-_Model = TypeVar("_Model", InitialCondition, BoundaryCondition, SinkSource)
-
-
-def _normalize(model: type[_Model], value: object, default_id: str, location_prefix: str) -> _Model:
-    """Validate a mapping payload as ``model``, with a default ``id`` and ``unit`` read as ``units``."""
-    if isinstance(value, model):
-        return value
-    if not isinstance(value, Mapping):
-        raise TypeError(f"{location_prefix} must be a mapping payload")
-    payload = dict(value)
-    payload.setdefault("id", default_id)
-    if "unit" in payload:
-        payload.setdefault("units", payload.pop("unit"))
-    return model.model_validate(payload)

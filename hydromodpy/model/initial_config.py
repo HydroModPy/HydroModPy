@@ -294,7 +294,7 @@ class FlowInitialConditions(HydroModelBase):
     @model_validator(mode="before")
     @classmethod
     def _coerce_flat_payload(cls, value):
-        """Accept a flat IC payload without the `h` wrapper for backward-compat."""
+        """Read the flat ``[flow.ic]`` form, the TOML shape, as the payload of ``h``."""
         if not isinstance(value, Mapping):
             return value
         payload = dict(value)

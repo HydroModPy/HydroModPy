@@ -47,7 +47,6 @@ from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.boussinesq.assembly.fluxes import saturated_thickness_from_head
 from hydromodpy.solver.boussinesq.catalog import (
     ResolvedBoussinesqRuntimeBackend,
-    resolve_runtime_backend,
     resolve_surface_interaction_model_token,
 )
 from hydromodpy.solver.boussinesq.drivers.steady import run_steady_runtime
@@ -249,27 +248,6 @@ class Boussinesq:
         write_ts_vi_obstacle_diagnostic_files(self.full_path, summary_payload)
         self.solve_stage = "post_processed"
 
-    @staticmethod
-    def _history_or_current(
-        history_values: np.ndarray | None,
-        current_values: np.ndarray | None,
-        *,
-        n_columns: int,
-        default_value: float,
-    ) -> np.ndarray:
-        """Return one 2D history array from an optional history/current pair."""
-        if history_values is not None:
-            history = np.asarray(history_values, dtype=float)
-            if history.ndim == 1:
-                history = history.reshape(1, -1)
-            if history.size != 0:
-                return history
-        if current_values is not None:
-            current = np.asarray(current_values, dtype=float).reshape(1, -1)
-            if current.size != 0:
-                return current
-        return np.full((1, int(n_columns)), float(default_value), dtype=float)
-
     def _assert_supported_runtime_subset(self) -> None:
         """Fail fast when the model asks for what the adapter does not list in ``supports``."""
         assert_supported_runtime_subset(self.inputs, solvers.get("flow", "boussinesq").supports)
@@ -290,13 +268,6 @@ class Boussinesq:
         return resolve_surface_interaction_model_token(
             runtime_backend_name=self._runtime_backend_name(),
             surface_interaction_model=self.runtime.surface_interaction_model,
-        )
-
-    def _runtime_backend(self) -> ResolvedBoussinesqRuntimeBackend:
-        """Resolve the selected nonlinear runtime backend implementation."""
-        return resolve_runtime_backend(
-            self._runtime_backend_name(),
-            surface_interaction_model=self._surface_interaction_model(),
         )
 
     def _runtime_options(self) -> NonlinearRuntimeOptions:

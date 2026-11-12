@@ -10,6 +10,7 @@ from shapely.geometry import Polygon, box
 from hydromodpy.catchment.algorithms.catchment_zones import (
     CatchmentZoneCode,
     build_catchment_zone_codes,
+    build_uniform_zone_codes,
 )
 from tests._helpers.geographic_cases import write_features
 from tests._helpers.geotiffs import write_geotiff
@@ -61,3 +62,18 @@ def test_refusals(tmp_path, missing):
     shapes = dict(catchment_shp=polygon, watershed_buff_shp=polygon, watershed_box_buff_shp=polygon)
     with pytest.raises((FileNotFoundError, ValueError), match="polygon shapefile"):
         build_catchment_zone_codes(**shapes, reference_raster_path=reference)
+
+
+@pytest.mark.parametrize("nodata", [-9999.0, None])
+def test_a_uniform_zone_covers_the_valid_pixels_of_the_dem(tmp_path, nodata):
+    values = np.array([[-9999.0, 10.0, 11.0], [12.0, np.nan, -9999.0], [14.0, 15.0, 16.0]])
+    products = build_uniform_zone_codes(
+        reference_raster_path=write_geotiff(
+            tmp_path / "dem.tif", values, cell=100.0, nodata=nodata, dtype="float32"
+        ),
+        zone_codes_tif_path=tmp_path / "zones.tif",
+    )
+    valid = np.isfinite(values) & ((values != nodata) if nodata is not None else True)
+    np.testing.assert_array_equal(products.zone_codes == CatchmentZoneCode.UNIFORM, valid)
+    assert (products.zone_codes[~valid] == 0).all()
+    assert Path(products.zone_codes_tif).exists()

@@ -113,6 +113,7 @@ CLIPS_ETP = [
     pytest.param({0: -1.0, 1: 2.0}, {0: 0.0, 1: 2.0}, id="mapping"),
     pytest.param(pd.Series([-1.0, 2.0]), [0.0, 2.0], id="series"),
     pytest.param([-1.0, 2.0], [0.0, 2.0], id="list"),
+    pytest.param(np.array([-1.0, 2.0]), [0.0, 2.0], id="array"),
     pytest.param(-3.0, 0.0, id="scalar"),
 ]
 
@@ -194,9 +195,6 @@ def test_negative_arrays_allowed():
         raw_arrays=raw,
         first_clim="mean",
         steady=np.zeros(2, dtype=bool),
-        nper=2,
-        nrow=1,
-        ncol=2,
         durations=np.ones(2),
         allow_negative=True,
     )

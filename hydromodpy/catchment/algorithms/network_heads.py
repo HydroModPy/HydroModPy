@@ -242,20 +242,22 @@ def _warn_of_reaches_nothing_traces(
     if not cut.shape[0]:
         return
     kept_keys = {tuple(np.round(point, _END_DECIMALS)) for point in kept}
-    lost = 0
+    # A reach cut at both ends shows up once per end, so reaches are counted by their end pair.
+    lost: set[frozenset[tuple[float, ...]]] = set()
     for point, other in zip(cut, other_ends, strict=True):
-        if tuple(np.round(other, _END_DECIMALS)) in kept_keys:
+        other_key = tuple(np.round(other, _END_DECIMALS))
+        if other_key in kept_keys:
             continue
         if outlet_xy is not None and np.hypot(*(point - np.asarray(outlet_xy))) <= _OUTLET_RADIUS_M:
             continue
-        lost += 1
+        lost.add(frozenset({tuple(np.round(point, _END_DECIMALS)), other_key}))
     if lost:
         logger.warning(
             "%d reach(es) of the mapped network have no free end inside the catchment (their "
             "only upstream end lies on the outline the map was cut along, away from the "
             "outlet). The heads rule draws nothing for them, so they are missing from the "
             "map the criterion scores against.",
-            lost,
+            len(lost),
         )
 
 

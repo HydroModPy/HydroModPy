@@ -84,3 +84,46 @@ def test_no_mover_package_without_a_transfer(tmp_path) -> None:
 
     assert not hasattr(model, "mvr")
     assert model.oc.budget_filerecord.get_data()[0][0] == "flow.cbc"
+
+
+def _with_receivers(model, *, nreaches=None, nlakes=None):
+    if nreaches is not None:
+        model.sfr = SimpleNamespace(nreaches=SimpleNamespace(get_data=lambda: nreaches))
+    if nlakes is not None:
+        model.lak = SimpleNamespace(nlakes=SimpleNamespace(get_data=lambda: nlakes))
+    return model
+
+
+MISSING_RECEIVERS = [
+    pytest.param({"nlakes": 1}, ["LAK", 0, "SFR", 0, "FACTOR", 1.0], "no SFR package", id="no SFR"),
+    pytest.param(
+        {"nlakes": 1, "nreaches": 10},
+        ["LAK", 0, "SFR", 98, "FACTOR", 1.0],
+        "SFR feature 99 .* 10",
+        id="reach 99 of 10",
+    ),
+    pytest.param(
+        {"nreaches": 3}, ["SFR", 2, "LAK", 0, "FACTOR", 1.0], "no LAK package", id="no LAK"
+    ),
+    pytest.param(
+        {"nreaches": 3, "nlakes": 1},
+        ["SFR", 2, "LAK", 1, "FACTOR", 1.0],
+        "LAK feature 2 .* 1",
+        id="lake 2 of 1",
+    ),
+]
+
+
+@pytest.mark.parametrize(("sizes", "row", "message"), MISSING_RECEIVERS)
+def test_a_mover_to_a_missing_receiver_is_refused_by_name(tmp_path, sizes, row, message) -> None:
+    # MF6 stops on such a record with a message that names no config key, or
+    # moves the water to the wrong reach when the id happens to exist.
+    model = _with_receivers(flow_model(tmp_path), **sizes)
+    with pytest.raises(ValueError, match=message):
+        build_mover_and_output(model, [row])
+
+
+def test_a_mover_to_an_existing_reach_is_kept(tmp_path) -> None:
+    model = _with_receivers(flow_model(tmp_path), nreaches=10, nlakes=1)
+    build_mover_and_output(model, [["LAK", 0, "SFR", 9, "FACTOR", 1.0]])
+    assert model.mvr.maxmvr.get_data() == 1

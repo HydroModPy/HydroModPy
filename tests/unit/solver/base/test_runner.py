@@ -29,6 +29,7 @@ from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.base.runner import (
     ProcessCallbacks,
     SimulationRunner,
+    hand_off_of,
     options_for,
     run_name,
     slot_for,
@@ -470,6 +471,36 @@ def register_backends(
         isolated_solvers.solvers.register(
             fake_adapter(name, process_type, build=build, **extra), replace=True
         )
+
+
+HAND_OFFS = [
+    pytest.param((FLOW,), FLOW, frozenset(), id="a flow that no transport follows"),
+    pytest.param(
+        (NWT_FLOW, MT3DMS), NWT_FLOW, frozenset({"face_flow"}), id="a flow an MT3DMS follows"
+    ),
+    pytest.param((FLOW, MODPATH), FLOW, frozenset({"face_flow"}), id="a flow a MODPATH follows"),
+    pytest.param(
+        (NWT_FLOW, MT3DMS, replace(MT3DMS, id="transport_second::modpath", solver="modpath")),
+        NWT_FLOW,
+        frozenset({"face_flow"}),
+        id="a flow two transports follow",
+    ),
+    pytest.param(
+        (FLOW, replace(FLOW, id="flow_second::modflow6", process_id="flow_second")),
+        FLOW,
+        frozenset(),
+        id="a flow a run of another family follows",
+    ),
+]
+
+
+@pytest.mark.parametrize(("runs", "run", "expected"), HAND_OFFS)
+def test_hand_off_is_the_reads_of_dependent_runs(
+    isolated_solvers, runs: tuple[ProcessRun, ...], run: ProcessRun, expected: frozenset[str]
+) -> None:
+    register_backends(isolated_solvers, trace=[])
+
+    assert hand_off_of(plan_of(*runs), run) == expected
 
 
 STARTS = [

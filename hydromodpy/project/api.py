@@ -770,6 +770,8 @@ def stop(ref: Ref, *, workspace: PathLike | None = None) -> Path:
         return request_stop(_existing(ref))
     root = _root_of(workspace)
     text = os.fspath(ref)
+    if Path(text).expanduser().is_absolute():
+        return request_stop(_existing(text))
     prefix = f"{RUNS_DIRNAME}/"
     name = text[len(prefix) :] if text.startswith(prefix) else text
     directory = None if "/" in name else run_dir_for_name(root, name)
@@ -1436,6 +1438,13 @@ def _directory_of(
         return given.resolve()
     no_session = None
     if "/" not in text and not text.startswith("@"):
+        if unambiguous:
+            # The run answers first and several versions are refused, which is the
+            # directory ``resolve_rel_dir`` names for a preview of the same reference.
+            try:
+                return root / resolve_rel_dir(root, text, unambiguous=True)
+            except SimulationNotFoundError:
+                pass
         found = None if unambiguous else run_dir_for_name(root, text)
         if found is not None and not session_first:
             return found

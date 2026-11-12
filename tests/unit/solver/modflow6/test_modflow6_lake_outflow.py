@@ -343,6 +343,7 @@ def test_lake_mover_records(lakes, records) -> None:
 
 MOVER_REFUSALS = [
     pytest.param({"lake": 3}, "no matching downstream lake", id="lake out of range"),
+    pytest.param({"lake": 1}, "moves its outflow back into itself", id="lake into itself"),
     pytest.param({"lake": 2, "mvrtype": "SIPHON"}, "mvrtype must be one of", id="unknown mvrtype"),
 ]
 

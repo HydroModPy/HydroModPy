@@ -74,14 +74,14 @@ def test_cut_outline_in_degrees() -> None:
 @pytest.mark.parametrize(
     ("outlet", "message"),
     [
-        (None, "2 reach(es)"),
+        (None, "1 reach(es)"),
         ((-90.0, 50.0), "1 reach(es)"),
-        ((5000.0, 50.0), "2 reach(es)"),
+        ((5000.0, 50.0), "1 reach(es)"),
     ],
     ids=["no outlet", "outlet at one end", "outlet far away"],
 )
 def test_reach_cut_at_both_ends_warns(caplog, outlet, message) -> None:
-    # Both ends of the only reach lie on the outline: nothing traces it.
+    # Both ends of the only reach lie on the outline: nothing traces it, and it counts once.
     lines = [LineString([(0.0, 50.0), (100.0, 50.0)])]
     with caplog.at_level(logging.WARNING):
         candidates = network_head_candidates(

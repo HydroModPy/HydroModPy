@@ -142,6 +142,12 @@ REFUSALS = [
         "simulation.time.step_value has no unit",
         id="bare step",
     ),
+    # Pydantic would read true as 1, so true with step_unit = "day" became one day.
+    pytest.param(
+        {"time": ONE_DAY | {"step_value": True, "step_unit": "day"}},
+        "must be a positive integer",
+        id="boolean step",
+    ),
     pytest.param(
         {"time": ONE_DAY | {"step_value": "1 week"}},
         "step_unit must be one of: hour, day, month, year",

@@ -179,6 +179,43 @@ ROUND = shapely.Point(X0 + 200.0, Y0 + 150.0).buffer(140.0, 32)
 """A round catchment: no edge of its ring lies on a side of its box."""
 
 
+def test_river_that_makes_a_contact_yield() -> None:
+    angle = math.radians(50.0)
+    centre = np.array([200.0, 150.0])
+    tangent = np.array([math.cos(angle), math.sin(angle)])
+    river = line(tuple(centre - 190.0 * tangent), tuple(centre + 190.0 * tangent))
+    request = request_of(rivers(river), contact(line((180.0, 0.0), (220.0, 300.0))))
+    cell_mesh = VoronoiMeshEngine().build(request)
+    geology = cell_mesh.qa.families["geology"]
+    zones = cell_mesh.cell_zone
+    named = zones >= 0
+    chord = shapely.get_coordinates(request.family("geology").lines[0])
+    reach = cell_mesh.centers - chord[0]
+    tan = chord[-1] - chord[0]
+    side = tan[0] * reach[:, 1] - tan[1] * reach[:, 0]
+
+    assert geology["yielded_segments"] + geology["merged_circles"] > 0
+    assert np.count_nonzero(~named) == geology["mixed_cells"] > 0
+    assert np.all(zones[named & (side > 0.0)] == cell_mesh.zone_names.index("l0"))
+    assert np.all(zones[named & (side < 0.0)] == cell_mesh.zone_names.index("r0"))
+
+
+def test_box_sides_have_the_cell_on_the_left() -> None:
+    cell_mesh = build(contact(line((100.0, 150.0), (300.0, 150.0))))
+    table = cell_mesh.face_families
+    vertices = vertices_of(cell_mesh)
+    sides = ("west", "east", "south", "north")
+    for side in sides:
+        rows = rows_of(cell_mesh, f"boundary:{side}")
+        tangent = vertices[table.node_b[rows]] - vertices[table.node_a[rows]]
+        reach = cell_mesh.centers[table.cell_a[rows]] - vertices[table.node_a[rows]]
+        assert rows.size > 0
+        assert np.all(table.cell_b[rows] == -1)
+        assert np.all(tangent[:, 0] * reach[:, 1] - tangent[:, 1] * reach[:, 0] >= 0.0)
+    named = sum(rows_of(cell_mesh, f"boundary:{side}").size for side in sides)
+    assert named == np.count_nonzero(cell_mesh.geometry.edge_cells[:, 1] < 0)
+
+
 def test_round_catchment_names_its_lines() -> None:
     cell_mesh = build(contact(line((100.0, 150.0), (300.0, 150.0))), domain=ROUND)
     assert cell_mesh.face_families.names == ("geology",)

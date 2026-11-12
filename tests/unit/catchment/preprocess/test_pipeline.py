@@ -352,6 +352,46 @@ def _clip_path(root: Path) -> Path:
     return geographic_dir(root) / "watershed_box_buff_dem.tif"
 
 
+def test_on_the_top_reads_the_regularised_copy_and_off_the_clip_of_the_ground(
+    tmp_path, monkeypatch, caplog
+) -> None:
+    off_root, on_root = tmp_path / "off", tmp_path / "on"
+    off, off_path, off_top = _bed_run(
+        off_root, monkeypatch, _bed_config(off_root, regularize=False)
+    )
+    with caplog.at_level("INFO"):
+        on, top_path, top = _bed_run(on_root, monkeypatch, _bed_config(on_root, regularize=True))
+    # Without a correction the raw DEM is routed and clipped untouched.
+    raw = str(off_root / "dem.tif")
+    assert (off.routing, off.top) == ([raw], [raw])
+    assert not list(correcflow_dir(off_root).glob("dem_ground*"))
+    assert Path(off_path) == _clip_path(off_root)
+    assert (off_top == read_band(_clip_path(off_root))).all()
+    assert not list(geographic_dir(off_root).glob("*_bed*"))
+    assert not list(correcflow_dir(off_root).glob("*_bed*"))
+    clip = _clip_path(on_root)
+    assert Path(top_path) == bed_dem_path(clip)
+    # The clip of the ground itself is the one a run without the option reads.
+    assert clip.read_bytes() == _clip_path(off_root).read_bytes()
+    ground = read_band(clip)
+    moved = np.argwhere(top != ground)
+    channel_col = bench.AXIS - 1  # one column cropped by the clip
+    assert moved.size
+    assert set(moved[:, 1].tolist()) == {channel_col}
+    bed = top[:, channel_col].astype(float)
+    assert (np.diff(bed) < 0).all()
+    assert abs(float(np.mean(bed - ground[:, channel_col]))) < 0.01
+    # The routing, the channel tree and the polygons of the mesh do not move.
+    assert [Path(p).name for p in on.routing] == [Path(p).name for p in off.routing]
+    for name in ("watershed.shp", "watershed_box_buff.shp", "river_network.shp"):
+        before = gpd.read_file(next(geographic_dir(off_root).rglob(name)))
+        after = gpd.read_file(next(geographic_dir(on_root).rglob(name)))
+        assert after.geometry.geom_equals(before.geometry).all(), name
+    # Without a crossings file the fit has no cut, and says so once.
+    assert len(_logged(caplog, "no crossings file")) == 1
+    assert _report(on_root, GROUND_BED_REPORT_FILENAME)["cut_pixels"] == 0
+
+
 def test_notch_gap_and_weir_cut(tmp_path, monkeypatch, caplog) -> None:
     structures = _crossings(
         tmp_path,

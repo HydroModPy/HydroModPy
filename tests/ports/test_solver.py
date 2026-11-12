@@ -65,7 +65,11 @@ from hydromodpy.calibration.runners.trial import built_model, prepare_trials
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.config.solver_supports import TRAIT_USES
 from hydromodpy.core.budget.terms import PER_CELL_BUDGET_TERMS, BudgetKeep
-from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
+from hydromodpy.core.exceptions import (
+    ConfigValidationError,
+    IncompatibleCapabilitiesError,
+    SolverInputError,
+)
 from hydromodpy.mesh.port import ANY_PLANAR_ENGINE
 from hydromodpy.mesh.registry import DEFAULT_ENGINE_ID, engine_accepted, mesh_engines
 from hydromodpy.model.boundaries.boundary_condition_registry import FLOW_BOUNDARY_DEFINITIONS
@@ -189,6 +193,14 @@ def _known_name(name: str) -> bool:
 def test_the_backend_is_an_adapter_under_its_own_key(key: str, backend: type) -> None:
     assert isinstance(backend, SolverAdapter)
     assert f"{backend.process_type}_{backend.name}" == key
+
+
+def test_an_unknown_key_is_refused_with_the_keys_served_and_the_group() -> None:
+    with pytest.raises(SolverInputError, match="'flow_no_such_backend'") as exc_info:
+        solvers.get("flow_no_such_backend")
+    message = str(exc_info.value)
+    assert all(name in message for name in solvers.names())
+    assert "hydromodpy.solver" in message
 
 
 def test_the_identity_attributes_are_non_empty_strings(backend: type) -> None:

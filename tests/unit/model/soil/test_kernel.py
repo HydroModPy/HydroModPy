@@ -209,6 +209,7 @@ def test_annual_budget_sums_each_year():
     np.testing.assert_allclose(budget.precipitation[1], precipitation[365:].sum(axis=0), atol=1e-12)
     np.testing.assert_allclose(budget.etr[0], fluxes.etr[:365].sum(axis=0), atol=1e-12)
     np.testing.assert_allclose(budget.recharge[1], fluxes.recharge[365:].sum(axis=0), atol=1e-12)
+    np.testing.assert_allclose(budget.runoff_cn[1], fluxes.runoff_cn[365:].sum(axis=0), atol=1e-12)
     np.testing.assert_allclose(budget.basin("recharge"), budget.recharge @ weights, atol=1e-12)
 
 

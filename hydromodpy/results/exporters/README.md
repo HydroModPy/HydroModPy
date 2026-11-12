@@ -8,7 +8,7 @@ The export port turns a finished run into a file that other tools read. Every fo
 
 ## What a writer declares
 
-A format declares `name`, `suffix`, `help`, `writes` (the export kinds it holds, or `{"run"}` for a view that describes the whole run), `natural` (the kinds it is the default format of), `instants` (`"one"` or `"many"`), `reprojects` and the method `write`. The vocabulary tables of `export_spec.py` (the suffix of a format, the formats of one kind, the views) are derived from these declarations and never written by hand.
+A format declares `name`, `suffix`, `help`, `writes` (the export kinds it holds, or `("run",)` for a view that describes the whole run), `natural` (the kinds it is the default format of), `instants` (`"one"` or `"many"`), `reprojects` and the method `write`. The vocabulary tables of `export_spec.py` (the suffix of a format, the formats of one kind, the views) are derived from these declarations and never written by hand.
 
 ## How a writer registers
 

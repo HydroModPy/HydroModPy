@@ -824,6 +824,15 @@ def test_piezometer_located_at_its_record_coordinates(located_at):
     assert located_at["xy"] == pytest.approx(STATION_XY)
 
 
+def test_gauge_is_not_located_by_a_coordinate(located_at):
+    # A discharge is the flow accumulated over everything draining to the point,
+    # and the cell a coordinate lands in drains a tiny part of the basin.
+    ctx = station_ctx(point_record("NANCON", located=True))
+
+    assert cell_for_station(ctx, "NANCON", variable="discharge") is None
+    assert "xy" not in located_at
+
+
 def test_record_without_location(located_at):
     # Refusing to guess is the point: the caller then says so instead of
     # substituting a different quantity without a word.

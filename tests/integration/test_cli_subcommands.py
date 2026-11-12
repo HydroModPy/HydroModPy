@@ -72,7 +72,12 @@ def test_completion_emits_script(monkeypatch, capsys, shell: str) -> None:
 def test_run_dry_run_lists_steps(monkeypatch, capsys, tmp_path) -> None:
     config = tmp_path / "cfg.toml"
     config.write_text(
-        '[workflow]\nmode = "simulation"\n[simulation]\nname = "dry"\n', encoding="utf-8"
+        '[workspace]\n[workflow]\nmode = "simulation"\n'
+        '[simulation]\nname = "dry"\n[simulation.time]\nstart_datetime = "2000-01-01"\n'
+        'end_datetime = "2000-12-31"\nstep_value = 1\nstep_unit = "day"\n'
+        '[geographic]\nsource_mode = "synthetic"\n'
+        '[flow.param.K.field]\nid = "K"\nkind = "homogeneous"\nunit = "m/s"\nvalue = 6.4e-5\n',
+        encoding="utf-8",
     )
     monkeypatch.setattr(sys, "argv", ["hmp", "run", "--dry-run", str(config)])
 

@@ -195,6 +195,22 @@ def test_trash_dry_run_moves_nothing(monkeypatch, capsys, indexed_project) -> No
     assert (indexed_project / "runs" / "alpha").is_dir()
 
 
+def test_trash_moves_the_run_it_announces_when_a_session_shares_the_name(
+    monkeypatch, capsys, indexed_project
+) -> None:
+    session = indexed_project / "sessions" / "alpha"
+    session.mkdir(parents=True)
+    (session / "session.json").write_text("{}", encoding="utf-8")
+    w = ("-w", str(indexed_project))
+
+    assert hmp(monkeypatch, "catalog", "trash", "alpha", "--dry-run", *w) == 0
+    assert "would move runs/alpha to trash/" in capsys.readouterr().out
+    assert hmp(monkeypatch, "catalog", "trash", "alpha", *w) == 0
+    assert "moved runs/alpha to" in capsys.readouterr().out
+    assert not (indexed_project / "runs" / "alpha").exists()
+    assert session.is_dir()
+
+
 def test_trash_refuses_a_reference_beside_empty(monkeypatch, indexed_project) -> None:
     code = hmp(monkeypatch, "catalog", "trash", "alpha", "--empty", "-w", str(indexed_project))
 

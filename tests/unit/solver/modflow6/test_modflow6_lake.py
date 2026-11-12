@@ -9,6 +9,7 @@ across shared edges to active, non-lake cells. The stage-volume-area table
 
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import logging
 from itertools import pairwise
@@ -525,3 +526,22 @@ def test_lak_announces_mover_when_only_the_drainage_feeds_it() -> None:
 
     assert lake_args(external_mover_to_lake=fed)["mover"] is True
     assert "mover" not in lake_args(external_mover_to_lake=False)
+
+
+def test_a_marnage_column_with_no_active_layer_is_refused_by_name() -> None:
+    # A marnage lake keeps its columns active. One column closed at every layer
+    # (outside the catchment mask) has no top active layer, and the bed
+    # connection would be written to layer -1.
+    mesh = carved_grid(lake_top=7.0)
+    idomain = np.array(mesh.idomain, copy=True)
+    idomain[:, LAKE_CELLS[0]] = 0
+    mesh = dataclasses.replace(mesh, idomain=idomain)
+    with pytest.raises(ValueError, match=r"column 5 .* no active layer"):
+        build_lake_connectiondata(
+            None,
+            lake_index=0,
+            lake_cell_ids=LAKE_CELLS,
+            bedleak=0.5,
+            solver_mesh=mesh,
+            dynamic_area=True,
+        )

@@ -8,7 +8,7 @@ An optimizer proposes parameter points and ingests the costs of their trials, so
 
 ## What an optimizer declares
 
-The class carries `ask`, `tell`, `best` and `converged`, a `name` attribute that holds the id the registry and the calibration document write, and an `options` attribute, one of the classes of `method_config.py` without a `method` field. The built-in classes are the adapters of `adapters/`.
+The class carries `ask`, `tell`, `best` and `converged`, a `name` attribute that holds the id the registry and the calibration document write, and an `options` attribute, one of the classes of `method_config.py` without a `method` field. Nothing checks that attribute when a class registers. The built-in classes are the adapters of `adapters/`.
 
 ## How an optimizer registers
 

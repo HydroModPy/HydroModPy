@@ -61,33 +61,51 @@ def test_every_resolved_format_declares_the_port_contract(format_name: str) -> N
     assert callable(getattr(cls, "write", None))
 
 
+REQUEST_OF_KIND = {
+    "field": "head",
+    "series": "discharge",
+    "raster": "watershed_dem",
+    "vector": "watershed",
+    "table": "all",
+}
+"""What each export kind is asked for. A format is played once per kind it declares."""
+
+
+def _format_kind_pairs() -> list[tuple[str, str]]:
+    """Every ``(format, kind)`` the served formats declare, a view standing for ``run``."""
+    return [
+        (name, kind) for name in _resolved_formats() for kind in export_formats.get(name).writes
+    ]
+
+
+def test_every_declared_kind_has_a_request() -> None:
+    assert {kind for _, kind in _format_kind_pairs()} <= {*REQUEST_OF_KIND, "run"}
+
+
 @pytest.mark.fast
-@pytest.mark.parametrize("format_name", _resolved_formats())
-def test_format_writes_output_on_frozen_run(format_name: str, example_project: Path) -> None:
-    """The format writes its output files and returns their paths."""
+@pytest.mark.parametrize(("format_name", "kind"), _format_kind_pairs())
+def test_format_writes_output_on_frozen_run(
+    format_name: str, kind: str, example_project: Path
+) -> None:
+    """The format writes its output files for each kind it declares and returns their paths."""
     cls = export_formats.get(format_name)
-    writer = cls()
 
     with hmp.open(example_project).store as catalog:
         run = catalog["demo"]
-        if "run" in cls.writes:
-            written = writer.write(None, None, run.dir)
-        elif "field" in cls.writes:
-            written = run.export("head", format=format_name, time="last")
-        elif "series" in cls.writes:
-            written = run.export("discharge", format=format_name, time="last")
-        elif "raster" in cls.writes:
-            written = run.export("watershed_dem", format=format_name)
-        elif "vector" in cls.writes:
-            written = run.export("watershed", format=format_name)
+        if kind == "run":
+            written = cls().write(None, None, run.dir)
         else:
-            written = run.export("all", format=format_name)
+            written = run.export(
+                REQUEST_OF_KIND[kind],
+                format=format_name,
+                **({"time": "last"} if kind in ("field", "series") else {}),
+            )
 
         assert isinstance(written, list) and len(written) >= 1
         for path in written:
             assert path.is_file(), f"{path} was not created"
             assert path.stat().st_size > 0, f"{path} is empty"
-            if "run" not in cls.writes:
+            if kind != "run":
                 assert path.suffix == cls.suffix, f"{path} does not match {cls.suffix}"
 
 

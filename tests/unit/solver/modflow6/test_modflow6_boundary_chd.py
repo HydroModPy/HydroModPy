@@ -37,6 +37,7 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     side_boundary_owner_by_cell,
 )
 from hydromodpy.solver.modflow6.builders.initial_conditions import build_start_heads
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import (
     regular_solver_mesh,
     toy_model,
@@ -247,6 +248,26 @@ def test_a_stream_head_overwritten_by_a_side_head_is_not_checked() -> None:
 
     with pytest.raises(SolverInputError, match=r"flow\.bc\.stream: 1 cell\(s\): layer 0 cell 1"):
         refuse(model, side=side, stream={0: [[0, 1, -1.0]], 1: [[0, 1, -1.0]]})
+
+
+def test_a_constant_head_is_written_only_on_the_active_cells_of_its_column() -> None:
+    model = side_model_with_heads(west=8.0, east=8.0)
+    base = model.solver_mesh
+    idomain = np.ones((2, 6), dtype=int)
+    idomain[0, 0] = 0  # the top cell of the first west column is inactive
+    idomain[1, 3] = -1  # the lower cell of the second west column is a pass-through
+    model.solver_mesh = SolverMesh(
+        cell_mesh=base.cell_mesh,
+        top=base.top,
+        botm=np.vstack([base.top - 4.0, base.top - 9.0]),
+        idomain=idomain,
+    )
+    model.nlay = 2
+
+    rows = build_side_boundary_chd_spd(model)[0]
+
+    west = sorted((row[0], row[1]) for row in rows if row[1] in (0, 3))
+    assert west == [(0, 3), (1, 0)]
 
 
 def test_boundary_attr_reads_a_mapping_or_an_object() -> None:

@@ -21,7 +21,7 @@ from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, Simulat
 from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter, _collapse_to_disv_cells
 from hydromodpy.solver.modflow_common.observable_extraction import flat_cell_index
 from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter
-from tests._helpers.mf6_toy_models import regular_solver_mesh
+from tests._helpers.mf6_toy_models import regular_solver_mesh, two_triangle_solver_mesh
 
 
 def solver_run_of(model: object) -> SimpleNamespace:
@@ -45,6 +45,15 @@ def nwt_grid() -> SimpleNamespace:
         delr=np.full(3, 10.0),
         delc=np.full(2, 10.0),
     )
+
+
+def test_mf6_point_in_a_triangle_gives_that_triangle() -> None:
+    # Triangle 0 holds the points under the diagonal y = x, triangle 1 those above it.
+    run = mf6_run(two_triangle_solver_mesh())
+    adapter = Modflow6FlowAdapter()
+
+    assert adapter.locate_cell(run, 0.9, 0.2) == (0, 0, 0)
+    assert adapter.locate_cell(run, 0.1, 0.8) == (0, 0, 1)
 
 
 def test_mf6_point_beyond_a_cell_size_is_not_located(caplog) -> None:

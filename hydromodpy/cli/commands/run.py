@@ -552,6 +552,8 @@ def _run_request(
                     preflight_launch(config_path)
             except ConfigError as exc:
                 refuse(f"Config invalid: {exc}", EXIT_CONFIG, cause=exc)
+        else:
+            _refuse_unchecked(request, config_path, raw_toml, run_base)
         plan = _dry_run_plan(
             workflow,
             config_path,
@@ -1013,6 +1015,28 @@ def _check_single_site(
     if workspace_root is None:
         return
     resolve_single_site(cfg, workspace_root)
+
+
+def _refuse_unchecked(
+    request: RunRequest, config_path: Path, raw_toml: dict, base: Path | None
+) -> None:
+    """Refuse a dry run of a document that ``hmp check`` refuses, with the same exit code.
+
+    The plan this command prints names the steps and the sections, so it would
+    say a broken file is runnable. The file is read by ``hydromodpy.project.api.check``,
+    or the document with its changes when ``--set``, ``--overlay`` or a request holds it in memory.
+    """
+    from hydromodpy.project.api import check
+
+    source: Path | dict = raw_toml if _held_in_memory(request) else config_path
+    errors = [
+        item
+        for item in check(source, partial=False, base=base if source is raw_toml else None)
+        if item.severity == "error"
+    ]
+    if errors:
+        lines = [f"  {item.path or '<document>'}: {item.detail or item.code}" for item in errors]
+        refuse("Config invalid:\n" + "\n".join(lines), EXIT_CONFIG)
 
 
 def _dry_run_plan(
