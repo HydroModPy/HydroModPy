@@ -1,0 +1,73 @@
+# The files of hydromodpy/ that run code when "hmp run project.toml" plays a flow run.
+#
+# A group is a table with one array of paths under hydromodpy/, one line per
+# file and its job in the comment. A variant is the list of groups it plays.
+# test_the_run_path_is_short.py checks this file against the tree, and
+# tests/scenarios/test_a_run_follows_its_short_path.py checks it against a real run.
+#
+# A file that a run stops calling leaves the list with its reason below.
+# project/launch/prepare.py and project/launch/local.py left the flow group.
+# "hmp run file.toml" goes through project/api.py:run, and local.py serves
+# only the run of a project folder.
+# data/source/file.py left the flow group: an island run fetches no file
+# source, and the file only defines its classes when it is imported.
+
+[variants]
+mf6 = ["flow", "modflow6"]
+modflow_nwt = ["flow", "modflow_nwt"]
+gwt = ["flow", "modflow6", "transport_modflow6"]
+
+[flow]
+files = [
+  "cli/commands/run.py",  # reads the arguments and prints the outcome
+  "project/api.py",  # the run verb of the public API
+  "project/request.py",  # the run request
+  "project/facade.py",  # the Project that owns the run folder
+  "project/runner.py",  # runs the run phase of the Project
+  "project/dispatch/workflow.py",  # sends the request to the pipeline
+  "config/loading.py",  # loads and checks the config
+  "workflow/runner.py",  # the loop over the steps
+  "workflow/dag.py",  # orders the steps
+  "workflow/steps/sequence.py",  # the order of the steps
+  "workflow/steps/validate.py",  # step: validate
+  "workflow/steps/resolve.py",  # step: resolve
+  "workflow/steps/setup.py",  # step: setup
+  "workflow/steps/data.py",  # step: data
+  "workflow/steps/mesh.py",  # step: mesh
+  "workflow/steps/prepare_solver/step.py",  # step: prepare the solver
+  "workflow/steps/run_solver.py",  # step: run the solver
+  "workflow/steps/extract.py",  # step: extract
+  "workflow/steps/derive.py",  # step: derive
+  "workflow/steps/display.py",  # step: display
+  "workflow/steps/export.py",  # step: export
+  "data/loading/loader.py",  # loads the data of the plan
+  "results/products/key.py",  # key of a product
+  "results/products/store.py",  # store of the products
+  "solver/base/registry.py",  # registries of solvers and extractors
+  "solver/base/runner.py",  # runs a resolved plan
+  "results/record/request_identity.py",  # fingerprints of the request
+  "schema/seal.py",  # the seal of a run
+  "results/storage/run_store.py",  # writes the arrays and tables of the run
+  "results/storage/sealing.py",  # seals the run folder
+  "workflow/record/run_store.py",  # opens the run store for one caller
+]
+
+[modflow6]
+files = [
+  "solver/modflow6/modflow6.py",  # the MODFLOW 6 flow solver
+  "solver/modflow6/adapter.py",  # builds the MODFLOW 6 model
+  "solver/modflow6/run.py",  # runs the MODFLOW 6 binary
+  "solver/modflow6/extractors/flow.py",  # reads the flow results
+]
+
+[modflow_nwt]
+files = [
+  "solver/modflow_nwt/adapter.py",  # builds and runs the MODFLOW-NWT model
+  "solver/modflow_nwt/extractors/flow.py",  # reads the flow results
+]
+
+[transport_modflow6]
+files = [
+  "solver/modflow6/transport.py",  # the GWT transport solver
+  "solver/modflow6/extractors/transport.py",  # reads the concentrations
+]

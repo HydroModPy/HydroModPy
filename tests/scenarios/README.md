@@ -1,7 +1,7 @@
 # Scenarios
 
 A scenario is a small synthetic project played once by the real pipeline.
-There are twenty-nine, and their list is the `SCENARIOS` tuple of
+There are thirty, and their list is the `SCENARIOS` tuple of
 `test_harness.py`. `factory.py` writes each project as TOML text, so a project
 has the same bytes on every machine. The two lake projects of scenario 5 hold
 binary rasters, so their text names a folder that the test fills or points at
@@ -12,7 +12,11 @@ and cache, with the solver binaries of the machine linked in.
 engine, terrain engine and export format, so a new backend without a scenario
 fails the harness. A new scenario is a factory function, a file, and a line in
 `SCENARIOS` and `PLAYED_BY`.
-The twenty-nine run in under ten minutes with `pytest -n 8`. A scenario over
+The thirty run in under ten minutes with `pytest -n 8`. A scenario over
 twenty seconds gets fewer steps or a smaller grid when its assertion allows it.
+`test_a_run_follows_its_short_path.py` plays the gwt and nwt islands under
+`run_trace.py` and checks that every file of `run_path.toml` (in
+`tests/unit/architecture/`) is called. It keeps the island as it is, so each run takes
+about forty seconds under the profiler.
 Coverage follows every child process through `patch = ["subprocess"]` in
 `pyproject.toml`.

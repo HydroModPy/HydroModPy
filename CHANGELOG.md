@@ -18,6 +18,12 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ## [Unreleased]
 
+### What to do when you update
+
+- A key or a form that a pre-release of 2.0.0 wrote and that changed since is refused with one sentence that names the new form. tests/unit/architecture/surface/removed_toml_keys.tsv lists the keys and hydromodpy/schema/changes.toml the rows.
+- A Python name or an hmp command that left is refused with the call that replaces it. tests/unit/architecture/surface/removed_names.tsv lists them.
+- A run written by an earlier version keeps its label. A [[bug]] row of hydromodpy/schema/changes.toml labels exploratory only the runs whose quantities it names.
+
 ### Added
 
 - `config.resolved.toml` writes `edition`, the set of defaults the run used, `"2.0"` today. A resolved file without it reads as edition 2.0. A file may write `edition` at its root, and a value this version does not serve is refused with the editions it serves.
@@ -624,6 +630,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The tests index lists the real folders of `tests/` as tiers: `scenarios`, `refusals`, `ports` and `processes` join, `contract` leaves.
 - Pytest markers `whitebox` and `windows` replace the hand-written lists of Whitebox test files and the Windows `skipif`; `HMP_REQUIRE_WINDOWS` turns a skipped Windows test into a failure.
 - The `test` extra asks `coverage[toml]>=7.10`, which `patch = ["subprocess"]` and the removal proof need.
+- The Boussinesq regression goldens refresh `final_recharge_rate_m_s`, the final recharge of a run, because the cells with a fixed head carry no recharge: the mean moves from 3.4722e-08 to 3.3854e-08 m/s on the fast strip (6 cells of 240) and from 1.15741e-08 to 1.14294e-08 m/s on the divide case (3 cells of 240). The comparison of that field is relative now. The fix is the row voronoi_nwt_boussinesq_fixes_2026_10_09 of hydromodpy/schema/changes.toml.
+- `hmp publish` no longer ships a station registry (`<variable>_custom_LOC.csv`) as a file of the package. The rows the run read still travel as stations and are merged, so importing into a workspace that already holds its own registry no longer refuses with HMPY.E809.
 
 ### Removed
 
@@ -799,6 +807,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   piezometry, intermittency, and the grid families read from a CSV folder). The run now pins the location file
   beside each series in `inputs.json`. A run stored before this fix stays refused, and the refusal names the
   remedy: `hmp data lock` for a pin of `hydromodpy.lock`, a new `hmp run` for a pin of `inputs.json`.
+- The validation launcher makes the `path_file` of a forcing series absolute, as it does for `path` and `*_path`, so the tide and the two linearized transient cases find their forcing CSV from the output folder.
 
 ### Numbers
 
@@ -815,9 +824,6 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The catchment series and budget_over drop a non-finite element (layer, cell) alone, where 2.0 dropped the whole cell when one of its layers held a NaN, so the discharge of a multilayer run whose drain cell holds a NaN in one layer now counts its finite layers. A time step with no finite element under the weights gives NaN, where 2.0 gave 0, and a family such as storage is NaN on a step where one of its terms is NaN. A run of one layer with finite fluxes does not move: 0 on the six reference runs.
 - The root interval of a bisection counts in n_trials and n_within the distinct points of the search variable that solved, where 2.0 counted the solved trials, so a point solved twice counts once and keeps its first cost. 0 cases out of 3,000 searches move.
 <!-- numbers:end -->
-- The Boussinesq regression goldens refresh `final_recharge_rate_m_s`, the final recharge of a run, because the cells with a fixed head carry no recharge: the mean moves from 3.4722e-08 to 3.3854e-08 m/s on the fast strip (6 cells of 240) and from 1.15741e-08 to 1.14294e-08 m/s on the divide case (3 cells of 240). The comparison of that field is relative now.
-- `hmp publish` no longer ships a station registry (`<variable>_custom_LOC.csv`) as a file of the package. The rows the run read still travel as stations and are merged, so importing into a workspace that already holds its own registry no longer refuses with HMPY.E809.
-- The validation launcher makes the `path_file` of a forcing series absolute, as it does for `path` and `*_path`, so the tide and the two linearized transient cases find their forcing CSV from the output folder.
 
 ## [v2.0.0] - 2026-11-07
 
