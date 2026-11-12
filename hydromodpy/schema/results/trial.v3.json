@@ -168,7 +168,7 @@
             }
           ],
           "default": null,
-          "description": "Version of the scoring rule the cost was computed under, null on a 2.0 line",
+          "description": "Version of the scoring rule the cost was computed under, null on a line of a pre-release",
           "title": "Rule",
           "x-hmp-profile": "user"
         },
@@ -213,7 +213,7 @@
             }
           ],
           "default": null,
-          "description": "Name of the scored period of role calibration, null on a 2.0 line",
+          "description": "Name of the scored period of role calibration, null on a line of a pre-release",
           "title": "Window",
           "x-hmp-profile": "user"
         }
@@ -386,7 +386,7 @@
         }
       ],
       "default": null,
-      "description": "Rank of the optimizer call that proposed the trial in its phase and restart, from 1. Null on a 2.0 line",
+      "description": "Rank of the optimizer call that proposed the trial in its phase and restart, from 1. Null on a line of a pre-release",
       "title": "Batch",
       "x-hmp-profile": "user"
     },
@@ -430,7 +430,7 @@
     },
     "event": {
       "default": "finished",
-      "description": "proposed when the optimizer asks, finished when the cost is known, linked when the trial became a run. A 2.0 line has none and reads as finished",
+      "description": "proposed when the optimizer asks, finished when the cost is known, linked when the trial became a run. A line of a pre-release has none and reads as finished",
       "examples": [
         "finished"
       ],

@@ -366,7 +366,7 @@ def test_the_flow_keeps_no_backend_setting_and_no_dead_cache(name: str) -> None:
 
 
 # The steady variant. The expected values are those the MODFLOW 6 steady
-# initialization of 2.0.0 returned on this lake and SFR payload, recorded to
+# initialization of a pre-release returned on this lake and SFR payload, recorded to
 # the bit.
 
 _DAY = 86400.0

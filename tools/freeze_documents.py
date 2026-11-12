@@ -14,11 +14,11 @@ writer, on a synthetic island, with no network. The job comes from a capability 
 that this script declares, because no real capability writes a job without a local path
 in its request.
 
-The script writes no data cache database. HydroModPy 2.1 keeps the cache in the sidecars
-and refuses the database of 2.0.0 by name, so no current code can write one. The two databases of
-``v2.0.0/current`` were written by 2.0.0 and stay as they are. For the same reason the
-script refuses to write ``v2.0.0/`` from a version other than 2.0, whose lockfile has
-another schema: that folder is written again only on the export of the tag.
+The script writes no data cache database. This version keeps the cache in the sidecars
+and refuses the database of a pre-release of 2.0 by name, so no current code can write one. The two databases of
+``v2.0.0-pre/current`` were written by a pre-release of 2.0 and stay as they are. The folder
+holds the documents written before the 2.0.0 tag and is written again at the tag only,
+so the script refuses to write it.
 
 The script restarts itself in a throwaway HOME, state and cache, with the solver
 binaries of the machine linked in. It writes ``<release>/current/`` and
@@ -89,7 +89,7 @@ from tests.scenarios.factory import island_files, write_project
 from tests.scenarios.launcher import isolated_env, link_binaries
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGET = ROOT / "tests" / "regression" / "frozen_documents" / "v2.0.0"
+TARGET = ROOT / "tests" / "regression" / "frozen_documents" / "v2.0.0-pre"
 CURRENT = "current"
 NEEDS = ("mf6", "libmf6.so")
 
@@ -171,10 +171,10 @@ def main(argv: list[str] | None = None) -> None:
     if args.inside is not None:
         _write_documents(args.inside)
         return
-    if args.out.resolve() == TARGET and not __version__.startswith("2.0"):
+    if args.out.resolve() == TARGET:
         sys.exit(
-            f"{TARGET} holds the documents of 2.0.0 and is written on the export of that tag "
-            f"only, not by {__version__}. Pass --out to write another folder."
+            f"{TARGET} holds the documents written before the 2.0.0 tag and is written "
+            "again at the tag only. Pass --out to write another folder."
         )
     with ExitStack() as stack:
         if args.scratch is None:

@@ -336,7 +336,7 @@ def claim_run_directory(
 def _refuse_a_name_the_disk_folds(runs: Path, name: str) -> None:
     """Refuse a claim whose ``mkdir`` met a folder of another case on a disk that ignores case.
 
-    A folder of 2.0 named ``J0014010-base`` holds the name ``j0014010-base`` on
+    A folder of a pre-release named ``J0014010-base`` holds the name ``j0014010-base`` on
     such a disk. No entry of ``runs/`` carries *name* exactly, so no worker
     claimed it: the folder is in the way and the sentence names it.
     """

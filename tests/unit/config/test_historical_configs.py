@@ -30,8 +30,8 @@ FILES = sorted(path.relative_to(CORPUS) for path in CORPUS.rglob("*.toml"))
 NO_SITE = "no [site] names it"
 """Only the author knows the catchment, so the doctor never writes ``[site]``. The test does."""
 
-WAY_OUT = 'pip install "hydromodpy~=2.0.0"'
-"""The way out the refusal of a key of a pre-release names: the doctor of a 2.0.x release."""
+NO_REWRITE = "This version does not rewrite the file."
+"""The sentence that ends the refusal of a key of a pre-release: no file is rewritten."""
 
 PRERELEASE_KEYS: dict[str, tuple[str, ...]] = {
     "v2.0.0a1/01_calibration/project.toml": (
@@ -410,7 +410,7 @@ def test_a_file_of_a_pre_release_is_refused_with_every_key_of_its_chain(
             HydroModPyConfig.from_toml(_copy_of(relative, tmp_path))
 
     told = str(refused.value)
-    assert told.count(WAY_OUT) == len(_held_by_the_chain(relative)), told
+    assert told.count(NO_REWRITE) == len(_held_by_the_chain(relative)), told
     for file, keys in _held_by_the_chain(relative).items():
         assert f"{tmp_path / file} holds {', '.join(keys)}, written by a pre-release" in told
 
@@ -430,7 +430,7 @@ def test_the_doctor_refuses_a_file_of_a_pre_release_and_writes_nothing(
 
     assert [file.read_text(encoding="utf-8-sig") for file in files] == written
     told = str(refused.value)
-    assert WAY_OUT in told
+    assert NO_REWRITE in told
     for file, keys in _held_by_the_chain(relative).items():
         assert f"{tmp_path / file} holds {', '.join(keys)}, written by a pre-release" in told
 
@@ -449,4 +449,4 @@ def test_a_file_with_no_key_of_a_pre_release_is_refused_only_for_its_named_reaso
         assert not errors
     else:
         assert REASONS[reason] in errors, errors
-        assert WAY_OUT not in errors
+        assert NO_REWRITE not in errors

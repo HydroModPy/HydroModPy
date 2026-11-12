@@ -509,7 +509,7 @@ def test_a_claim_refuses_a_name_off_the_rule_and_writes_nothing(tmp_path: Path, 
 def test_a_claim_names_the_folder_a_disk_without_case_holds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """On a disk that ignores case, a folder of 2.0 in capitals holds the folded name."""
+    """On a disk that ignores case, a folder of a pre-release in capitals holds the folded name."""
     project = make_project(tmp_path / "demo")
     (project / RUNS_DIRNAME / "J0014010-base").mkdir(parents=True)
     real_mkdir = os.mkdir

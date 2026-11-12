@@ -96,17 +96,17 @@ def test_a_value_key_that_names_no_stored_value_is_refused(tmp_path: Path):
 
 def test_read_manifest_returns_the_file_as_it_is(tmp_path: Path):
     payload = _payload()
-    payload["identity"]["config_hash"] = "the 2.0.0 key"
+    payload["identity"]["config_hash"] = "the key of a pre-release"
     _write(tmp_path, payload)
 
-    assert read_manifest(tmp_path)["identity"]["config_hash"] == "the 2.0.0 key"
+    assert read_manifest(tmp_path)["identity"]["config_hash"] == "the key of a pre-release"
 
 
 def test_a_version_3_seal_is_migrated_in_memory(tmp_path: Path):
     payload = _payload(manifest_version=3)
     payload.pop("profile")
-    payload["config"]["hash"] = "the 2.0.0 hash"
-    payload["identity"]["config_hash"] = "the 2.0.0 hash"
+    payload["config"]["hash"] = "the hash of a pre-release"
+    payload["identity"]["config_hash"] = "the hash of a pre-release"
     payload["artifacts"] = [{"path": "inputs.json", "role": "other"}]
     _write(tmp_path, payload)
 
@@ -116,7 +116,7 @@ def test_a_version_3_seal_is_migrated_in_memory(tmp_path: Path):
     assert seal.artifacts[0].role == "inputs"
     assert "hash" not in seal.config.model_dump()
     assert "config_hash" not in seal.identity.model_dump()
-    assert read_manifest(tmp_path)["identity"]["config_hash"] == "the 2.0.0 hash"
+    assert read_manifest(tmp_path)["identity"]["config_hash"] == "the hash of a pre-release"
 
 
 def test_a_pre_release_version_is_refused_by_its_format_version(tmp_path: Path):

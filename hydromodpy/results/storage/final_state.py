@@ -121,7 +121,7 @@ def write_final_state(run_dir: Path, state: FinalState) -> Path:
 def read_final_state(run_dir: Path) -> FinalState | None:
     """Return the final state of the run at ``run_dir``, or ``None`` when it has none.
 
-    A run of HydroModPy 2.0 has no ``final_state/``; its last head is read from
+    A run of a pre-release has no ``final_state/``; its last head is read from
     ``fields.zarr`` by ``read_prior_state``.
     """
     import zarr

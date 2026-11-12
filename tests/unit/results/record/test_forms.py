@@ -1,4 +1,4 @@
-"""The forms of the 2.0.0, converted in memory when a reader meets them."""
+"""The forms of a pre-release, converted in memory when a reader meets them."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from hydromodpy.results.record.manifest import read_manifest, read_seal
 from hydromodpy.schema.job.seal import read_job_seal
 
 FROZEN_RUNS = Path(__file__).parents[3] / "regression" / "frozen_runs" / "v2.0.0"
-FROZEN_DOCUMENTS = Path(__file__).parents[3] / "regression" / "frozen_documents" / "v2.0.0"
+FROZEN_DOCUMENTS = Path(__file__).parents[3] / "regression" / "frozen_documents" / "v2.0.0-pre"
 EXPECTED = json.loads((FROZEN_RUNS / "expected.json").read_text(encoding="utf-8"))
 DEMO = FROZEN_RUNS / "current" / "projects" / "example" / "runs" / "demo"
 CALAGE = FROZEN_RUNS / "current" / "projects" / "example" / "runs" / "calage"
@@ -132,7 +132,7 @@ def test_each_job_row_converts_a_version_2_seal(tmp_path, payload, request_id, m
     ("run_dir", "expected_key"),
     [(DEMO, "demo"), (CALAGE, "calibrated_run")],
 )
-def test_a_frozen_run_of_the_2_0_0_reads_as_a_version_4_seal(run_dir, expected_key):
+def test_a_frozen_run_of_a_pre_release_reads_as_a_version_4_seal(run_dir, expected_key):
     expected = EXPECTED[expected_key]
 
     seal = read_seal(run_dir)
@@ -154,7 +154,7 @@ def test_the_retired_key_stays_in_the_manifest_the_file_holds():
     assert "config_hash" in read_manifest(DEMO)["identity"]
 
 
-def test_the_identity_sidecar_of_the_2_0_0_reads_without_its_hash():
+def test_the_identity_sidecar_of_a_pre_release_reads_without_its_hash():
     identity = read_identity_from(DEMO / "exports" / "discharge.csv.meta.json")
 
     assert identity is not None

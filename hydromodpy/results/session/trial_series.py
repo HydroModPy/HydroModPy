@@ -1,6 +1,6 @@
 """The scored series of one trial: ``sessions/<case>/trial_series/trial-NNNNNN.parquet``.
 
-Opt-in (``[calibration] persist_trial_series``): one small Parquet table per
+On by default (``[calibration] persist_trial_series``): one small Parquet table per
 completed trial, long format, one row per (output, time): ``trial``,
 ``output``, ``station`` (None when the output names none), ``time``,
 ``simulated``, ``observed``. Only point and series outputs reach here; a
@@ -9,8 +9,8 @@ network or spatial output's cost is already in ``trials.jsonl``.
 Each file carries ``hmp.schema_version = "hydromodpy.trial_series.v1"`` and
 ``hydromodpy_version`` in its footer. The window of the family is
 :data:`TRIAL_SERIES_VERSIONS`, its own: a series is not a table of a run and never
-goes through ``read_checked_table``, which would refuse it. A file written by the
-2.0.0 carries no key and reads as v1, the form it had; a version this code does not
+goes through ``read_checked_table``, which would refuse it. A file written by
+a pre-release carries no key and reads as v1, the form it had; a version this code does not
 know is refused by name.
 """
 
@@ -71,7 +71,7 @@ def write_trial_series(
 
 
 def _read_one(path: Path) -> pd.DataFrame:
-    """Read one series file; a file with no version key is the 2.0.0 form, v1."""
+    """Read one series file; a file with no version key is the form of a pre-release, v1."""
     metadata = pq.read_schema(path).metadata or {}
     found = metadata.get(_VERSION_KEY.encode())
     writer = metadata.get(b"hydromodpy_version")

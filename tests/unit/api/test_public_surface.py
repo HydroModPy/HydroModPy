@@ -40,8 +40,8 @@ PRESENT = (
     "doctor",
 )
 
-# The names that left the top level in 2.1.0, with the call that replaces each.
-LEFT_IN_2_1_0 = {
+# The names that left the top level in 2.0.0, with the call that replaces each.
+LEFT_IN_2_0_0 = {
     "figure": "hydromodpy.show(ref, what='figure', name=...)",
     "report": "hydromodpy.show(ref, what='report')",
     "calibration_phases": "hydromodpy.calibrate(source, dry_run=True)",
@@ -124,10 +124,10 @@ def test_a_name_that_left_is_refused_with_a_path_that_answers(old: str) -> None:
     assert _resolves(entry.new), entry.new
 
 
-@pytest.mark.parametrize("old", sorted(LEFT_IN_2_1_0))
-def test_a_name_that_left_in_2_1_0_is_refused_with_the_call_that_replaces_it(old: str) -> None:
+@pytest.mark.parametrize("old", sorted(LEFT_IN_2_0_0))
+def test_a_name_that_left_in_2_0_0_is_refused_with_the_call_that_replaces_it(old: str) -> None:
     entry = OLD_NAMES[old]
-    assert (entry.new, entry.since, entry.refused) == (LEFT_IN_2_1_0[old], "2.1.0", True)
+    assert (entry.new, entry.since, entry.refused) == (LEFT_IN_2_0_0[old], "2.0.0", True)
     with pytest.raises(hmp.OldNameError, match=re.escape(f"Use {entry.new}.")):
         getattr(hmp, old)
 

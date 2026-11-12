@@ -1,5 +1,5 @@
 # Keys and values that only a pre-release of 2.0 wrote, one per line.
-# A file that holds one is refused, and hmp doctor --fix-config of a 2.0.x release rewrites it.
+# A file that holds one is refused. This version does not rewrite it.
 # A path may carry [*] for a list item and {*} for a table name; path = value matches a value.
 calibration.scoring_window
 calibration.optimizer_kwargs

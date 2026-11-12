@@ -235,7 +235,7 @@ class Session:
         It adds the profile lines of every trial the journal holds, read from the
         last line of each trial. ``lines`` counts the lines added, ``duration_s``
         sums their time and ``max_rss_mb`` is the peak of their memory. A trial read
-        from the cost cache or written by the 2.0.0 has no profile and adds nothing.
+        from the cost cache or written by a pre-release has no profile and adds nothing.
         """
         totals: dict[tuple[str, str, str], list[float]] = {}
         for line in read_trials(self._dir):

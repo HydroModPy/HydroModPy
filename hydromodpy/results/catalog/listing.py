@@ -18,10 +18,10 @@ from hydromodpy.results.publication import deliveries_of, latest_by_pair, read_p
 from hydromodpy.results.storage.run_profile import Profile, read_profile
 
 SEALED_SOLVE_METRIC = "flow_solve_time_seconds"
-"""Metric of a 2.0 run that holds the wall time of the solve, in the seal and in ``metrics.parquet``."""
+"""Metric of a run of a pre-release that holds the wall time of the solve, in the seal and in ``metrics.parquet``."""
 
 NO_PROFILE_TEXT = "no profile.json, solve time from the seal"
-"""What ``show`` says of a run that has no ``profile.json``, a run of HydroModPy 2.0."""
+"""What ``show`` says of a run that has no ``profile.json``, a run of a pre-release."""
 
 LONGEST_STEPS = 3
 """How many of the longest steps the profile block of ``show`` names."""
@@ -140,7 +140,7 @@ def solve_seconds(run_dir: Path) -> float | None:
     The plan runs a flow first, so its first ``solve`` line is the flow solve. A
     resumed run has lines in several attempts, and the last attempt that solved
     gives the line. ``None`` when the run has no profile or no finished solve:
-    the caller then reads the row a 2.0 run holds (:data:`SEALED_SOLVE_METRIC`).
+    the caller then reads the row a run of a pre-release holds (:data:`SEALED_SOLVE_METRIC`).
     """
     profile = read_profile(run_dir)
     if profile is None:
@@ -168,7 +168,7 @@ def profile_of_run(run_dir: Path) -> dict[str, Any]:
     were computed or read from the store, rebuilt ones left out), ``reused`` (every line
     not computed, with its source) and ``max_rss_mb``. Without one, ``present`` is
     ``False``, ``message`` is :data:`NO_PROFILE_TEXT` and ``solve_s`` is the row the
-    seal of a 2.0 run holds, or ``None``.
+    seal of a run of a pre-release holds, or ``None``.
     """
     profile = read_profile(run_dir)
     if profile is None:
@@ -206,7 +206,7 @@ def profile_of_run(run_dir: Path) -> dict[str, Any]:
 
 
 def _sealed_solve_s(run_dir: Path) -> float | None:
-    """Return the solve time row of the seal of a 2.0 run, ``None`` when it has none."""
+    """Return the solve time row of the seal of a run of a pre-release, ``None`` when it has none."""
     from hydromodpy.results.record.label import read_sealed_manifest
 
     manifest = read_sealed_manifest(run_dir)

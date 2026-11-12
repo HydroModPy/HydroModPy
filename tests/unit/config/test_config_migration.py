@@ -470,7 +470,7 @@ def test_the_parent_tables_of_transport_move_after_their_parameters() -> None:
 
 
 def test_hmp_init_of_2_0_loads_with_a_warning_until_2_2(tmp_path: Path) -> None:
-    """``[[simulation.process]] type`` is the form the scaffold of 2.0.0 wrote."""
+    """``[[simulation.process]] type`` is the form the scaffold of a pre-release wrote."""
     row = next(row for row in CONFIG_MOVES if row.old == "simulation.process[*].type")
     doc = {"simulation": {"process": [{"id": "flow", "type": "flow", "solvers": ["modflow6"]}]}}
 
@@ -551,11 +551,11 @@ def test_a_run_sealed_by_a_pre_release_of_example_04_is_refused() -> None:
         migrate_sealed_config_doc(doc)
 
     assert "export.netcdf" in str(refused.value)
-    assert 'pip install "hydromodpy~=2.0.0"' in str(refused.value)
+    assert "This version does not rewrite the file." in str(refused.value)
     assert _FROZEN_V1.read_bytes() == original_bytes
 
 
-# --- the mechanism of the loader and of the doctor, on a row of 2.1.0 ----------
+# --- the mechanism of the loader and of the doctor, on a row of a later version ----------
 
 MODFLOW6 = "[modflow6.process_specific]\nvka = 2.0\n"
 
@@ -723,7 +723,7 @@ def test_a_moved_table_loads_through_the_model(tmp_path: Path) -> None:
     assert held_tables_of(config.solver)["modflow6"].process_specific.vka == 2.0
 
 
-# --- the rules of the register and the forms of 2.0.0 ---------------------------
+# --- the rules of the register and the forms of a pre-release ---------------------------
 
 SOLVER_FORMS = (
     (
@@ -805,7 +805,7 @@ def test_a_sealed_document_reads_a_form_of_2_0_in_silence(
 @pytest.mark.parametrize(
     ("case", "text", "path", "value"), SOLVER_FORMS, ids=[row[0] for row in SOLVER_FORMS]
 )
-def test_the_doctor_rewrites_a_form_of_2_0(
+def test_the_doctor_rewrites_a_form_of_a_pre_release(
     case: str, text: str, path: str, value: object, tmp_path: Path
 ) -> None:
     del case
@@ -931,7 +931,7 @@ def test_doctor_refusal_of_dem_init_path(tmp_path: Path) -> None:
     refusal = refusal_of(path)
 
     assert refusal is not None
-    assert "dem_init_path was removed in 2.1.0" in str(refusal)
+    assert "dem_init_path was removed in 2.0.0" in str(refusal)
     assert "[[data.dem.sources]]" in str(refusal)
     assert 'source = "file"' in str(refusal)
 
@@ -945,7 +945,7 @@ def test_doctor_writes_the_dem_row_a_load_refuses(tmp_path: Path) -> None:
 
     assert told == [
         "geographic.catchment.dem_init_path -> [[data.dem.sources]] path 'inputs/dem.tif' "
-        "(dem_init_path was removed in 2.1.0: declare the DEM as [[data.dem.sources]] "
+        "(dem_init_path was removed in 2.0.0: declare the DEM as [[data.dem.sources]] "
         'with source = "file" and the same path)'
     ]
     parsed = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -981,7 +981,7 @@ def test_doctor_refusal_of_bare_name(tmp_path: Path) -> None:
 
 
 FORWARD_MODEL_REFUSAL = (
-    "a forward model is a solver backend since 2.1.0: name it by solver.backend, register "
+    "a forward model is a solver backend since 2.0.0: name it by solver.backend, register "
     "it in the hydromodpy.solver entry-point group, and calibrate it with the pipeline evaluator"
 )
 
@@ -1027,8 +1027,7 @@ def test_a_sealed_document_holding_the_forward_model_at_null_loses_it_in_silence
 
     migrate_sealed_config_doc(doc)
 
-    # A document of no edition keeps the default of 2.0: no series per trial.
-    assert doc == {"calibration": {"persist_trial_series": False}}
+    assert doc == {"calibration": {}}
 
 
 def test_a_sealed_document_holding_a_forward_model_name_warns() -> None:
@@ -1037,10 +1036,10 @@ def test_a_sealed_document_holding_a_forward_model_name_warns() -> None:
     with pytest.warns(ConfigKeyRenamedWarning, match="calibration.forward_model retired"):
         migrate_sealed_config_doc(doc)
 
-    assert doc == {"calibration": {"persist_trial_series": False}}
+    assert doc == {"calibration": {}}
 
 
-# --- the two cache keys removed in 2.1.0 ---------------------------------------
+# --- the two cache keys removed in 2.0.0 ---------------------------------------
 
 REMOVED_CACHE_KEYS = (
     ("reuse_existing_outputs", "under .hmp/products/"),
@@ -1054,7 +1053,7 @@ def test_a_live_file_holding_a_removed_cache_key_is_refused_with_what_replaces_i
 ) -> None:
     doc = {"geographic": {key: False}}
 
-    with pytest.raises(ConfigValidationError, match="it left in 2.1.0") as refused:
+    with pytest.raises(ConfigValidationError, match="it left in 2.0.0") as refused:
         migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
 
     assert f"geographic.{key}" in str(refused.value)

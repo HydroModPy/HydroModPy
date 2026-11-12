@@ -65,11 +65,11 @@ class TestScaffold:
         assert (example / "project.toml").exists()
         assert (example / "run_demo.toml").exists()
 
-    def test_example_project_writes_the_edition_2_1(self, ws):
+    def test_example_project_writes_the_edition_2_0(self, ws):
         import tomllib
 
         project = ws / "projects" / "example" / "project.toml"
-        assert tomllib.loads(project.read_text(encoding="utf-8"))["edition"] == "2.1"
+        assert tomllib.loads(project.read_text(encoding="utf-8"))["edition"] == "2.0"
 
     def test_idempotent(self, tmp_path):
         """Running scaffold twice does not overwrite existing files."""

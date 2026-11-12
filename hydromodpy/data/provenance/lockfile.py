@@ -32,7 +32,7 @@ by its bytes. Each refusal is a :class:`FrozenDataError`.
 Every reader refuses a lockfile whose ``schema`` lies outside
 :data:`LOCKFILE_VERSIONS`, by the rule of
 :mod:`hydromodpy.core.io.document_version`, naming the version read and the
-command that writes it again. A lockfile of HydroModPy 2.0.0
+command that writes it again. A lockfile of a pre-release of 2.0
 (``hydromodpy.lock.v1``) is refused that way.
 """
 

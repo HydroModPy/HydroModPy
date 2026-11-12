@@ -381,9 +381,8 @@ class CalibrationConfig(HydroModelBase):
         default=True,
         description="Write the simulated and observed series of every point/series "
         "output a completed trial scored (discharge at a gauge, head at a well...), "
-        "as a small Parquet table per trial under the session folder. On by default "
-        "under edition 2.1 (about 2 kB per trial on the island case), off under "
-        "edition 2.0, the edition of a document that writes none. Network "
+        "as a small Parquet table per trial under the session folder, about 2 kB per "
+        "trial on the island case. Network "
         "and spatial outputs carry no series and are never written here.",
     )
     materialize_candidates: Annotated[bool, Profile.DEV] = Field(

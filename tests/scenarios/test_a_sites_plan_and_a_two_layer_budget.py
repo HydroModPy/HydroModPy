@@ -191,7 +191,7 @@ def test_a_sites_plan_is_written_played_and_read(
     }
     assert states == {first["case_id"]: "completed", cases[1]["case_id"]: "planned"}
 
-    # A plan of 2.0 under another hash, named by plan/current, is refused with the command.
+    # A plan of a pre-release of 2.0 under another hash, named by plan/current, is refused with the command.
     old = root / "plan" / "0000old0"
     shutil.copytree(directory, old)
     document["schema"] = "hydromodpy.plan.v1"

@@ -2,7 +2,7 @@
 
 The top level holds the fifteen verbs of :mod:`hydromodpy.project.api`, the five
 objects they take and return, the three readers ``read``, ``index`` and ``Catalog``
-that the frozen runs of 2.0.0 are read through, the categories of the exception
+that the frozen runs of a pre-release are read through, the categories of the exception
 hierarchy and ``__version__``. Nothing is imported until it is used, so ``import hydromodpy``
 stays cheap.
 """

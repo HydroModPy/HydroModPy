@@ -802,10 +802,10 @@ def _read_sidecar(path: Path) -> Licence:
 def sidecar_source(path: Path | str) -> str | None:
     """Return the source slug the sidecar of a file names, or None without a readable one.
 
-    A sidecar written before 2.1.0 names the user provider ``custom``; the
+    A sidecar written by a pre-release names the user provider ``custom``; the
     ``sidecar`` migration reads it as ``file``, the same way
     :func:`hydromodpy.data.provenance.sidecars.load_sidecar` does, so a
-    sealed copy of 2.0.0 replays as the run that wrote it.
+    sealed copy of a pre-release replays as the run that wrote it.
     """
     target = sidecar_path(Path(path))
     if not target.is_file():

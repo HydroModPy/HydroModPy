@@ -602,7 +602,7 @@ def test_the_old_key_is_refused_with_the_name_that_replaces_it(old: str, new: st
         CalibNetworkExtent(**{old: 1})
 
     assert new in str(refused.value)
-    assert "hmp doctor --fix-config" in str(refused.value)
+    assert "This version does not rewrite the file." in str(refused.value)
 
 
 # -- the conversion ----------------------------------------------------------
@@ -681,9 +681,9 @@ def _sealed(extent: dict, *, step: dict | None = None) -> SimpleNamespace:
 
 # -- a file of a pre-release -------------------------------------------------
 # A count of time steps under the extent of a network output is a key only a
-# pre-release of 2.0 wrote. The doctor of a 2.0.x release turned it into a duration;
-# this version refuses it with every such key and writes nothing.
-WAY_OUT = 'pip install "hydromodpy~=2.0.0"'
+# pre-release of 2.0 wrote. This version refuses it with every such key and writes
+# nothing.
+NO_REWRITE = "This version does not rewrite the file."
 
 OLD_FILE = """\
 [simulation.time]
@@ -766,7 +766,7 @@ def test_the_doctor_refuses_a_count_of_steps_and_writes_nothing(
     told = str(refused.value)
     for key in keys:
         assert key in told
-    assert WAY_OUT in told
+    assert NO_REWRITE in told
 
 
 def test_the_doctor_refuses_a_count_whose_timestep_the_chain_does_not_hold(
@@ -781,7 +781,7 @@ def test_the_doctor_refuses_a_count_whose_timestep_the_chain_does_not_hold(
         fix_config_file(path)
 
     assert path.read_text(encoding="utf-8") == text
-    assert WAY_OUT in str(refused.value)
+    assert NO_REWRITE in str(refused.value)
 
 
 # -- a sealed run ------------------------------------------------------------
@@ -823,7 +823,7 @@ def test_a_sealed_document_with_the_old_counts_is_refused(doc: dict, keys: list[
     assert told.startswith("a sealed run config holds ")
     for key in keys:
         assert key in told
-    assert WAY_OUT in told
+    assert NO_REWRITE in told
 
 
 def test_a_frozen_run_with_the_old_counts_is_refused_with_the_way_out(tmp_path: Path) -> None:
@@ -855,7 +855,7 @@ def test_a_frozen_run_with_the_old_counts_is_refused_with_the_way_out(tmp_path: 
         HydroModPyConfig.from_toml(sealed)
 
     assert "minimal_dry_steps" in str(refused.value)
-    assert WAY_OUT in str(refused.value)
+    assert NO_REWRITE in str(refused.value)
 
 
 # -- the figure --------------------------------------------------------------

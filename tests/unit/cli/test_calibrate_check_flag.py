@@ -332,12 +332,12 @@ def test_an_old_key_is_refused_with_its_new_name(tmp_path) -> None:
 
     result = _check(path)
 
-    # Only a pre-release of 2.0 wrote steady_engine_options: the refusal names the old
-    # key and the way to its new name, the doctor of 2.0, which writes steady_method_options.
+    # Only a pre-release wrote steady_engine_options: the refusal names the old
+    # key and says the file is not rewritten.
     assert result.exit_code == EXIT_CONFIG, result.stderr
     assert "calibration.protocol.steady_engine_options" in result.stderr
     assert "written by a pre-release of 2.0" in result.stderr
-    assert "hmp doctor --fix-config" in result.stderr
+    assert "This version does not rewrite the file." in result.stderr
 
 
 def test_a_phase_two_option_its_method_refuses_is_named_before_phase_one_runs(

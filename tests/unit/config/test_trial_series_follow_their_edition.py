@@ -1,8 +1,10 @@
-"""``persist_trial_series`` is on under edition 2.1 and off under edition 2.0, on every path.
+"""A default that moves with an edition reaches a document of an older edition as ``old``.
 
-The row ``trial_series_by_default`` of the register writes ``false`` into a calibration
-document of the first edition. A document that does not write ``[calibration]`` keeps it
-absent, so a simulation keeps its resolved configuration and its identity.
+This version serves one edition, "2.0", and its register moves no default, so
+``persist_trial_series`` is on whatever the document writes. The mechanism is proved
+on a register of its own: a row of a later edition writes ``old`` into a calibration
+document of the first edition. A document that does not write ``[calibration]`` keeps
+it absent, so a simulation keeps its resolved configuration and its identity.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from hydromodpy.config.config_migration import (
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.schema.changes import read
 
+# A row of a later edition, which the register of this version does not hold.
 ROW = (
     '[[default]]\nid = "trial_series_by_default"\nsince = "2.1.0"\nedition = "2.1"\n'
     'key = "calibration.persist_trial_series"\nold = false\nnew = true\n'
@@ -64,15 +67,14 @@ def _series(config: HydroModPyConfig) -> bool:
 
 
 CASES = {
-    "no edition is the edition 2.0": (_calibration(), False),
-    "edition 2.0 written": (_calibration(edition="2.0"), False),
-    "edition 2.1 written": (_calibration(edition="2.1"), True),
+    "no edition": (_calibration(), True),
+    "edition 2.0 written": (_calibration(edition="2.0"), True),
 }
 
 
 @pytest.mark.parametrize(("doc", "expected"), CASES.values(), ids=CASES.keys())
 @pytest.mark.parametrize("path", ["dict", "json", "toml", "snapshot"])
-def test_every_path_of_a_document_reads_the_default_of_its_edition(
+def test_every_path_of_a_document_reads_the_default_of_the_model(
     path: str, doc: dict, expected: bool, tmp_path: Path
 ) -> None:
     if path == "dict":
@@ -89,8 +91,17 @@ def test_every_path_of_a_document_reads_the_default_of_its_edition(
     assert _series(config) is expected
 
 
-def test_a_value_the_document_writes_wins_over_the_edition(tmp_path: Path) -> None:
-    doc = _calibration(edition="2.1")
+def test_an_edition_this_version_does_not_serve_is_refused_with_the_one_it_serves(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(Exception, match="2.0") as refused:
+        HydroModPyConfig.from_dict(_calibration(edition="2.1"), base_dir=tmp_path)
+
+    assert "edition" in str(refused.value)
+
+
+def test_a_value_the_document_writes_wins_over_the_default(tmp_path: Path) -> None:
+    doc = _calibration(edition="2.0")
     doc["calibration"]["persist_trial_series"] = False
 
     assert _series(HydroModPyConfig.from_dict(doc, base_dir=tmp_path)) is False
@@ -117,7 +128,7 @@ MERGED = {
 
 @pytest.mark.parametrize(("doc", "table"), MERGED.values(), ids=MERGED.keys())
 @pytest.mark.parametrize("sealed", [False, True])
-def test_the_register_row_writes_old_into_a_calibration_of_the_first_edition(
+def test_a_row_of_a_later_edition_writes_old_into_a_calibration_of_the_first_edition(
     doc: dict, table: dict, sealed: bool
 ) -> None:
     register = _register()
@@ -133,7 +144,9 @@ def test_the_register_row_writes_old_into_a_calibration_of_the_first_edition(
 
 
 @pytest.mark.parametrize("sealed", [False, True])
-def test_the_register_row_never_creates_a_section_the_document_leaves_out(sealed: bool) -> None:
+def test_a_row_of_a_later_edition_never_creates_a_section_the_document_leaves_out(
+    sealed: bool,
+) -> None:
     register = _register()
     doc = _simulation()
 

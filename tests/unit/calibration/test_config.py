@@ -590,7 +590,7 @@ def test_each_old_key_of_a_network_output_is_refused_with_its_new_name_and_the_w
         builder(**{old: "any"})
 
     assert f"This table holds {old}" in str(refused.value)
-    assert 'pip install "hydromodpy~=2.0.0"' in str(refused.value)
+    assert "This version does not rewrite the file." in str(refused.value)
 
 
 def test_the_heads_settings_fill_under_their_rule_and_stay_empty_under_another() -> None:
@@ -1464,8 +1464,7 @@ class TestNetworkCriterionPairing:
 # first is a ``precision`` on the parameter. The second is a ``cost_margin``
 # that carries its unit, ``"5%"`` of the best cost or ``"75 m"`` of network
 # distance, so the ``mode`` key that said how to read a bare number is gone. A
-# key renamed is refused with the new name and the way to the doctor of a 2.0.x
-# release, which rewrites the file.
+# key renamed is refused with the new name, and the file is not rewritten.
 
 
 PROTOCOL = "matching_hydrographic_network"
@@ -1514,7 +1513,7 @@ def test_tolerance_is_refused_with_the_name_that_replaces_it(build: Any, new: st
         build()
 
     assert new in str(refused.value)
-    assert "hmp doctor --fix-config" in str(refused.value)
+    assert "This version does not rewrite the file." in str(refused.value)
 
 
 # -- cost_margin: what a file may write --------------------------------------
@@ -1552,7 +1551,7 @@ def test_tolerance_and_mode_of_the_uncertainty_are_refused_naming_cost_margin() 
         for key, value in (("tolerance", 0.05), ("mode", "relative")):
             with pytest.raises(ValidationError, match="renamed to 'cost_margin'") as refused:
                 model.model_validate({key: value})
-            assert "hmp doctor --fix-config" in str(refused.value)
+            assert "This version does not rewrite the file." in str(refused.value)
 
 
 def test_a_phase_keeps_the_error_of_a_bad_section_margin_out_of_its_name() -> None:
@@ -1650,7 +1649,7 @@ def test_a_frozen_protocol_run_with_the_old_names_is_refused_with_the_way_out(
     told = str(refused.value)
     for key in ("calibration.protocol.steady_tolerance", "calibration.uncertainty.tolerance"):
         assert key in told
-    assert 'pip install "hydromodpy~=2.0.0"' in told
+    assert "This version does not rewrite the file." in told
 
 
 # From the removal of warmup, observed_station_id and the default metric (L0b)

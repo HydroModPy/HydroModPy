@@ -39,7 +39,7 @@ CORPUS_ISLAND = (
     Path(__file__).resolve().parents[3]
     / "regression"
     / "frozen_documents"
-    / "v2.0.0"
+    / "v2.0.0-pre"
     / "current"
     / "island"
 )
@@ -260,7 +260,7 @@ def test_an_unknown_key_is_refused_at_writing_and_kept_at_reading(tmp_path: Path
     assert (load_sidecar(target).__pydantic_extra__ or {}) == {"colour": "blue"}
 
 
-# -- the database and the lockfile of 2.0.0 ------------------------------------------
+# -- the database and the lockfile of a pre-release of 2.0 ------------------------------------------
 
 
 def test_a_data_folder_with_the_former_database_is_refused(tmp_path: Path) -> None:
@@ -280,7 +280,7 @@ def test_the_island_of_the_corpus_is_refused_on_a_copy(tmp_path: Path) -> None:
     island = tmp_path / "island"
     shutil.copytree(CORPUS_ISLAND, island)
 
-    with pytest.raises(DataCacheError, match="data cache database of HydroModPy 2.0.0"):
+    with pytest.raises(DataCacheError, match="data cache database of a pre-release of 2.0"):
         scan(island / "data")
     with pytest.raises(SchemaVersionMismatchError, match="hmp data lock"):
         read_lockfile_inputs(island / "hydromodpy.lock")
@@ -365,7 +365,7 @@ def test_prune_needs_the_digests_it_keeps() -> None:
         prune(Path("data"))  # type: ignore[call-arg]
 
 
-# -- the commands of 2.0.0 ----------------------------------------------------------
+# -- the commands of a pre-release ----------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -377,7 +377,7 @@ def test_prune_needs_the_digests_it_keeps() -> None:
     ],
     ids=["hmp lock update", "hmp lock verify", "hmp data add"],
 )
-def test_a_command_of_2_0_0_is_refused_with_its_new_form(
+def test_a_command_of_a_pre_release_is_refused_with_its_new_form(
     argv: list[str], said: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from hydromodpy.cli.main import main

@@ -122,7 +122,7 @@ def test_an_unsealed_run_cites_nothing(tmp_path: Path) -> None:
 
 _UNREADABLE = {
     "inputs of a run": ("run", "The inputs of the run"),
-    "a lockfile of 2.0.0": ("lockfile", "hmp data lock"),
+    "a lockfile of a pre-release of 2.0": ("lockfile", "hmp data lock"),
 }
 
 

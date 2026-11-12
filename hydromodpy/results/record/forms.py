@@ -1,4 +1,4 @@
-"""The forms of the 2.0.0, converted in memory when a reader meets them.
+"""The forms of a pre-release, converted in memory when a reader meets them.
 
 A sealed file is never rewritten. A run sealed under ``manifest_version = 3``
 and an ``identity`` block that still carries ``config_hash`` are read by
@@ -54,7 +54,7 @@ def run_seal_v3(payload: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def identity_block(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Return an identity block with the keys the 2.0.0 wrote and 2.1 retired dropped."""
+    """Return an identity block with the keys a pre-release wrote and this version retired dropped."""
     return apply_rows("identity", payload)
 
 

@@ -1,7 +1,7 @@
 {
   "manifest_version": 4,
   "profile": "run",
-  "sealed_at": "2026-11-11T13:04:31.569239Z",
+  "sealed_at": "2026-11-12T00:34:46.286708Z",
   "lineage": {
     "parent_sim_id": null,
     "session_id": null,
@@ -42,8 +42,8 @@
       "path": "fields.zarr",
       "role": "fields",
       "format": "zarr",
-      "bytes": 157820,
-      "sha256": "d9f85dd7c5d9961e6bbe702af3b5d6f5f8a3a131d8669afda183161872d41c65",
+      "bytes": 157785,
+      "sha256": "4cb0d5517f40eba22b6b80a20c23b1e17caf0981fa76786d9d9e05ccdcb0e653",
       "media_type": null
     },
     {
@@ -59,7 +59,7 @@
       "role": "inputs",
       "format": "json",
       "bytes": 428,
-      "sha256": "a1194b8fed28dbd1df929cd19822a7aa008cea0af656861761e861b2a2774243",
+      "sha256": "829da876a87fdc985935240491e89eed5902e4c59c8d3d0282c684fdf25bb046",
       "media_type": null
     },
     {
@@ -75,103 +75,103 @@
       "role": "products",
       "format": "json",
       "bytes": 144,
-      "sha256": "d073b95512c9f218dfe360e0dba1fdf0a42dc5519d91ec50ac4ef51baa2dc0ce",
+      "sha256": "135aa5c903c74b386374a40e2fac648b9e8b5f9a15084bb2790453f385dc3ae7",
       "media_type": null
     },
     {
       "path": "provenance.json",
       "role": "provenance",
       "format": "json",
-      "bytes": 10737,
-      "sha256": "376f2c68029aa6dfdc4776b2fd3834072bcd0ef173a026c63551938622c75c8e",
+      "bytes": 10732,
+      "sha256": "d69ecf0566710df952f042ebfeca1b4c851ae7e0d9312d033f87bae7e9901331",
       "media_type": null
     },
     {
       "path": "tables.parquet/budgets.parquet",
       "role": "table:budgets",
       "format": "parquet",
-      "bytes": 6159,
-      "sha256": "52ea6490d6d106b196fca6bc48f6ec624f005a1e216bfeaceb969d168ffdf531",
+      "bytes": 6137,
+      "sha256": "4701da984e8dc965072c6cf1345f6eeb5f868613039b23d19ab81f2ef22e9a89",
       "media_type": null
     },
     {
       "path": "tables.parquet/geographic_watershed.parquet",
       "role": "table:geographic_watershed",
       "format": "parquet",
-      "bytes": 15380,
-      "sha256": "72cc2f406d2504abcd73130ca9d1ecb86e0463a406859e8f11c8740ceed37d7b",
+      "bytes": 15362,
+      "sha256": "e9e1d43ab6cb2f553376b882ceba17ef8d58353a4e42f21d70c0e524dcf088eb",
       "media_type": null
     },
     {
       "path": "tables.parquet/geographic_watershed_box_buff.parquet",
       "role": "table:geographic_watershed_box_buff",
       "format": "parquet",
-      "bytes": 15401,
-      "sha256": "620249730fc57cd739980aed18e82e8f072036ce04591156f2f846ff879ed3bc",
+      "bytes": 15379,
+      "sha256": "86f30ce0d0ce79b9ea3524c718f0fd223a4e0fa600105ae0b57974a1e2df5b4f",
       "media_type": null
     },
     {
       "path": "tables.parquet/geographic_watershed_contour.parquet",
       "role": "table:geographic_watershed_contour",
       "format": "parquet",
-      "bytes": 15385,
-      "sha256": "b1069231f4a652a375f6e645723ca5f1d5ccabfe62af8f96f27a1803d2295dc8",
+      "bytes": 15363,
+      "sha256": "01a9eb3aa3fe611af9391b6eda26693a46cbd3eee3f12f5f6ae47f89b0d344af",
       "media_type": null
     },
     {
       "path": "tables.parquet/mass_balance.parquet",
       "role": "table:mass_balance",
       "format": "parquet",
-      "bytes": 6684,
-      "sha256": "c78427efb48d86d10409072999407e1974ebe579e3677863fac5af2c3327635a",
+      "bytes": 6666,
+      "sha256": "bd0a5699af32a2fd6879efe90d6c75bf32dcdc8563d5f1e4c87f3b3e0ce5b472",
       "media_type": null
     },
     {
       "path": "tables.parquet/mesh_face_families.parquet",
       "role": "table:mesh_face_families",
       "format": "parquet",
-      "bytes": 7344,
-      "sha256": "de32721244fea74ffec74ace6461de63f04803888e1febf405ec786a52ed01f7",
+      "bytes": 7322,
+      "sha256": "7c21313d9ba423abe2f57da5238f5e6a95ca65b3e59f9e26b31f1adb4dc9a9d6",
       "media_type": null
     },
     {
       "path": "tables.parquet/metrics.parquet",
       "role": "table:metrics",
       "format": "parquet",
-      "bytes": 8029,
-      "sha256": "3c802ffa592f8635dc3ec0fe10985b3fc5450470b9e22fa004cbbfc75a7979d4",
+      "bytes": 8011,
+      "sha256": "cf5e26c396b72580f3277be6eed3f100d97f2e1b4d2039bdf9e15ff9e99a7d4d",
       "media_type": null
     },
     {
       "path": "tables.parquet/parameters.parquet",
       "role": "table:parameters",
       "format": "parquet",
-      "bytes": 7881,
-      "sha256": "ec84df9ab2dc741e367f24e5620ef874b0a2e23f296312c9a948d0a5adcf5323",
+      "bytes": 7863,
+      "sha256": "30277e8587b1ac98d19e41038ed55fa25bc42971ce71994c7579e9bcefd3ae8c",
       "media_type": null
     },
     {
       "path": "tables.parquet/provenance.parquet",
       "role": "table:provenance",
       "format": "parquet",
-      "bytes": 8460,
-      "sha256": "289e71d3b6460d3bff59c5c01887941bc3fef1add245369ca05ae21827aa86ff",
+      "bytes": 8438,
+      "sha256": "061332f4a973a423abd26172e96a2db238acdbaf607af75d62d6d8cdc11c1e2b",
       "media_type": null
     },
     {
       "path": "tables.parquet/simulation.parquet",
       "role": "table:simulation",
       "format": "parquet",
-      "bytes": 32819,
-      "sha256": "0fda375f0691c5c5601bbe3f61b57de7cae6d2f5b3ec05f4838adacb4ca43015",
+      "bytes": 32771,
+      "sha256": "4ea879f2ccfc26f448c2196ae14dfabecd9a138871f89735bac493df65d1cf3f",
       "media_type": null
     },
     {
       "path": "tables.parquet/timeseries.parquet",
       "role": "table:timeseries",
       "format": "parquet",
-      "bytes": 6633,
-      "sha256": "9789a5fc24530db9e13ccffe9b1bb79d4c80c97f01c24df5d6e28ffd94863a94",
+      "bytes": 6611,
+      "sha256": "911242b86b2b4bb64a223b46af2197e7522d106dd1a377e75de593e20887ecc3",
       "media_type": null
     }
   ],
@@ -247,7 +247,7 @@
   },
   "derive_rule_version": "1",
   "run": {
-    "sim_id": "1200e1f7-1120-4482-87be-22ac4692943f",
+    "sim_id": "c6429802-16ad-4c1e-9152-79d395f817c3",
     "name": "tri",
     "name_stem": "tri",
     "version": 1,
@@ -257,14 +257,14 @@
     "recipe": null,
     "rel_dir": "runs/tri",
     "attempt": 1,
-    "attempt_id": "0d297fd0bfcd434c9bf76cab4e02c096",
+    "attempt_id": "29a4461c49ec471797a73c45159ffb90",
     "solver": "modflow6",
     "solver_category": "distributed",
     "flow_regime": "transient",
-    "created_at": "2026-11-11T13:04:29.002416Z",
-    "started_at": "2026-11-11T13:04:29.002416Z",
-    "ended_at": "2026-11-11T13:04:31.569239Z",
-    "duration_s": 2.566823,
+    "created_at": "2026-11-12T00:34:37.853861Z",
+    "started_at": "2026-11-12T00:34:37.853861Z",
+    "ended_at": "2026-11-12T00:34:46.286708Z",
+    "duration_s": 8.432847,
     "description": null,
     "scientific_objective": null,
     "contact_email": null,
@@ -322,9 +322,9 @@
     "site": "island",
     "site_fingerprint": "03e3fd0b3f288d43",
     "case_id": "tri",
-    "sim_id": "1200e1f7-1120-4482-87be-22ac4692943f",
-    "attempt_id": "0d297fd0bfcd434c9bf76cab4e02c096",
-    "solution_key": "6d40155254bc46f517df93513518117c9bdb9e7d9db4e1522252003f06e6c9c2",
+    "sim_id": "c6429802-16ad-4c1e-9152-79d395f817c3",
+    "attempt_id": "29a4461c49ec471797a73c45159ffb90",
+    "solution_key": "8ffa7c94abf4117ff270d3c216abc0495c7ff51bf448a99379dddb2d3f4f8fd1",
     "request_id": "cd4e2a7cf89536eebb3b84f9d9ad2e41e00c89a9e2c32557851e123359678534",
     "solver": "modflow6",
     "mesh_hash": "71c6cb52161d38a3abe599eeb736f42c30f49a367be5c270c7d260afd4b55d28",
@@ -336,7 +336,7 @@
     "label": null,
     "label_date": null,
     "rule_version": null,
-    "hydromodpy_version": "2.1.0.dev0",
+    "hydromodpy_version": "2.0.0",
     "code_reproducible": null
   },
   "checks": {

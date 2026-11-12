@@ -28,8 +28,7 @@ def renamed_to(old: str, new: str, meaning: str) -> str:
 
     It is a value of ``model_refused_keys``. *meaning* says in one clause what the new
     key is, so a reader who never saw the old name still learns what to write. The
-    doctor of a 2.0.x release rewrites the file, which the sentence of
-    :func:`hydromodpy.schema.changes.prerelease_refusal` says.
+    sentence of :func:`hydromodpy.schema.changes.prerelease_refusal` follows.
     """
     return f"renamed to {new!r} ({meaning}). {prerelease_refusal(THIS_TABLE, [old])}"
 

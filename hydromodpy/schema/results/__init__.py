@@ -5,7 +5,7 @@ publication writes: ``outcome.v1.json``, ``session.v4.json``, ``phase.v2.json``,
 ``trial.v3.json``, ``plan.v2.json``, ``publication.v1.json``, ``ledger.v1.json``,
 ``checks.v2.json``, ``manifest.v4.json``, ``provenance.v2.json``, and of what ``hmp calibrate --format json`` prints,
 ``calibrate.v1.json``. ``manifest.v3.json`` stays beside them, frozen: it is the
-schema of the seal of the 2.0.0 floor, which this code reads and never writes.
+schema of the seal of a pre-release, which this code reads and never writes.
 They are
 generated from the Pydantic models of ``hydromodpy.results`` and
 ``hydromodpy.calibration`` with ``model_json_schema()`` and committed here, so a reader outside Python can

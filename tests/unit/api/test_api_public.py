@@ -1,7 +1,7 @@
 """Smoke tests for the public ``hydromodpy`` API surface.
 
 These checks pin down the names the top level promises: the verbs, the objects they
-return, the three readers the frozen runs of 2.0.0 call and the exception hierarchy. Everything else stays reachable through its module.
+return, the three readers the frozen runs of a pre-release call and the exception hierarchy. Everything else stays reachable through its module.
 """
 
 from __future__ import annotations

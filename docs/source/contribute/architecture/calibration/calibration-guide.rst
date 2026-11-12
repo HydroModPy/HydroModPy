@@ -172,7 +172,7 @@ memory and are dropped at the end of the trial. Only scalars reach disk:
      - ``sessions/<session>/trials.jsonl``, one line per event, folded to one line per trial when read
    * - Session identity, cases, bounds, periods, best trial, root-search bracket
      - ``sessions/<session>/session.json``
-   * - Series of every trial, when ``persist_trial_series`` is set (the default of edition 2.1)
+   * - Series of every trial, when ``persist_trial_series`` is set (the default)
      - ``sessions/<session>/trial_series/trial-NNNNNN.parquet``
        (:toml:`calibration.persist_trial_series`)
    * - Fields, tables, figures of a promoted trial

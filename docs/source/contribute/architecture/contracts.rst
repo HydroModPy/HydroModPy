@@ -155,7 +155,7 @@ Changing a contract
 -------------------
 
 A change to the facade, to a stable port or to the two Protocols below is announced.
-The old name follows the rules of :doc:`/about/versions`. A name that leaves in 2.1.0
+The old name follows the rules of :doc:`/about/versions`. A name that leaves in 2.0.0
 or earlier is refused with its new form. From 2.2.0 on it keeps working for two minor
 versions and warns. This page and :doc:`storage-layout` change with it. A renamed TOML key gets its
 ``[[migration]]`` row in the register of changes, ``hydromodpy/schema/changes.toml``, with

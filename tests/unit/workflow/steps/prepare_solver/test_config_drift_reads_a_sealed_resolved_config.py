@@ -1,4 +1,4 @@
-"""A run sealed by 2.0.0 drifts only where the computation drifts, not where a table moved.
+"""A run sealed by a pre-release of 2.0 drifts only where the computation drifts, not where a table moved.
 
 The frozen run ``demo`` ran MODFLOW-NWT and sealed ``[modflow6]``, ``[modflownwt]``,
 ``[flow.runtime]`` and ``backend = {kind = "modflow_nwt"}``. Those tables now live under
@@ -37,11 +37,11 @@ NEW_AT_DEFAULT = {
 }
 """What these copies do not write and a replay holds at its default, measured once.
 
-The recharge factor came with 2.0.0 after these runs were sealed by its release
-candidate, and its default reproduces the old computation. ``config_drift`` gave it as
+The recharge factor came after these runs were sealed by a pre-release,
+and its default reproduces the old computation. ``config_drift`` gave it as
 the one drift before a key absent from the sealed file counted for none. The cap of the
 product store came later and moves no number, and so did ``keep_face_flows``, whose default
-writes no face flow. A file of 2.0 writes no window key, and
+writes no face flow. A file of a pre-release of 2.0 writes no window key, and
 the default of ``simulation.time.window`` plays the run in one piece. The default of
 ``window_length`` is ``None``, which is not counted.
 """

@@ -10,7 +10,7 @@ same read for the spin-up loop.
 
 The state comes from ``final_state/`` when the earlier run wrote it, in float64,
 and from the last time step of ``fields.zarr`` otherwise, which is how a run of
-HydroModPy 2.0 is read. The path given may be the run folder, its
+a pre-release is read. The path given may be the run folder, its
 ``fields.zarr`` or its ``final_state/``.
 """
 

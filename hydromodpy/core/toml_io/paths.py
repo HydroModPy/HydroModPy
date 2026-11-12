@@ -91,7 +91,7 @@ class BareInputNameError(ConfigError):
     """A config path is a bare file name and no file of that name is at the root.
 
     Typed apart because a loader that forgives a project whose data is absent
-    from the machine must not forgive a path in a form 2.1.0 refuses.
+    from the machine must not forgive a path in a form this version refuses.
     """
 
 

@@ -251,7 +251,7 @@ def test_show_simulation_reads_the_profile_from_the_run_folder(tmp_path: Path) -
     ]
 
 
-def test_a_run_of_the_2_0_release_has_no_profile_and_its_solve_time_is_read_from_the_seal(
+def test_a_run_of_a_pre_release_has_no_profile_and_its_solve_time_is_read_from_the_seal(
     tmp_path: Path,
 ) -> None:
     _workspace, project, _sim_id = _seed_workspace(tmp_path)

@@ -189,12 +189,12 @@ def test_the_block_names_the_solution_key_the_request_and_the_solver():
     assert "config_hash" not in Identity.model_fields
 
 
-def test_a_block_of_the_2_0_0_reads_without_the_key_that_left():
+def test_a_block_of_a_pre_release_reads_without_the_key_that_left():
     block = {
         "case_id": "demo",
         "sim_id": "sim",
         "attempt_id": "att",
-        "config_hash": "the 2.0.0 solution key",
+        "config_hash": "the solution key of a pre-release",
         "hydromodpy_version": "2.0.0",
     }
 

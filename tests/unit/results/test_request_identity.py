@@ -238,7 +238,7 @@ def test_the_reach_stages_and_their_numbers_count(other: PriorState, same: bool)
 
 
 def test_a_state_without_reach_stages_keeps_the_digest_it_had() -> None:
-    """The digest of 2.0 restarts, written out here, so their request_id does not move."""
+    """The digest of restarts of a pre-release, written out here, so their request_id does not move."""
     import hashlib
     import json
 

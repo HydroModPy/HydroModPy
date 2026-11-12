@@ -4,7 +4,7 @@ The island is a 610 m square grid with one layer and an ocean on the shore.
 Five variants play it with a different solver or workflow, and five more start
 it from a computed or an earlier state. Four more carry a transport process
 behind the flow, in the order the planner reads, the flow first and the
-transport after it. One more, ``v2_1_forms``, writes the solver tables where 2.0.0
+transport after it. One more, ``prerelease_forms``, writes the solver tables where a pre-release
 wrote them, which the register of changes moves. Two more play a stop and a chain
 of windows: ``long`` is two daily years solved through libmf6, and ``windows``
 is one monthly year cut into two windows of six months. Every project is
@@ -143,9 +143,9 @@ kind = "transport"
 solvers = ["modflow6"]
 """
 
-# The gwt island keeps the table shape of 2.0.0, the table the reference island
+# The gwt island keeps the table shape of a pre-release, the table the reference island
 # writes, so both texts stay one. A living file in that shape still loads, with a
-# migration warning, until its row leaves in 2.3.0.
+# migration warning, until its row leaves in 2.2.0.
 TRANSPORT_PARAMETERS = """
 
 [transport.modflow6gwt.parameters]
@@ -165,9 +165,9 @@ TRANSPORT_TAILS: dict[str, str] = {
     "nwt_modpath_seepage_clip": '\n[transport.modpath]\nzone_partic = "seepage_clip"\n',
 }
 
-# The solver tables of 2.0.0, which 2.1.0 moves under [solver]: the backend as a table
+# The solver tables of a pre-release, which this version moves under [solver]: the backend as a table
 # with a kind, and the settings of the flow solver at the root. A file in this shape
-# still loads, with a migration warning, and a sealed run of 2.0.0 replays.
+# still loads, with a migration warning, and a sealed run of a pre-release of 2.0 replays.
 OLDER_SOLVER_TABLES = """
 
 [solver.backend]
@@ -482,7 +482,7 @@ def island_files(variant: str) -> dict[str, str]:
         text = transient_island(variant, "boussinesq", mesh=TRIANGLE_MESH)
     elif variant == "spinup":
         text = transient_island(variant, "modflow6", tail=SPINUP_TAIL)
-    elif variant == "v2_1_forms":
+    elif variant == "prerelease_forms":
         text = transient_island(variant, "modflow6", tail=OLDER_SOLVER_TABLES)
     elif variant == "calage":
         return {

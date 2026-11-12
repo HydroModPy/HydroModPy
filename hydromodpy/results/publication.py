@@ -85,10 +85,11 @@ PUBLISHED_VERSIONS: Final[VersionWindow] = VersionWindow(
 """Versions of one line of ``published.jsonl`` this code reads."""
 
 PUBLISHED_REMEDY: Final[str] = (
-    'HydroModPy 2.1 reads lines that say kind = "copy" or "delivery". Move this file '
-    "aside to keep its record; the next copy or delivery starts a new one."
+    'A line of published.jsonl says kind = "copy" or "delivery". The lines of this file '
+    "have no kind, so a pre-release wrote it. Move it aside to keep its record. The next "
+    "copy or delivery starts a new one."
 )
-"""What to do with a line of ``published.jsonl`` written by HydroModPy 2.0."""
+"""What to do with a line of ``published.jsonl`` written by a pre-release."""
 
 REDACTED_PATH: Final[str] = "<absolute path>"
 """What an absolute path outside the project becomes."""

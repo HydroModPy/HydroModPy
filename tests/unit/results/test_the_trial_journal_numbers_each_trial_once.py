@@ -2,7 +2,7 @@
 
 A trial is written when it is proposed, when it finishes and when it becomes a
 run, each line the whole trial. The reader keeps the highest event of each
-number, then the last line at an equal rank. A 2.0 line reads as finished.
+number, then the last line at an equal rank. A line of a pre-release reads as finished.
 """
 
 from __future__ import annotations
@@ -122,7 +122,7 @@ def test_a_proposed_trial_alone_has_no_cost_and_still_takes_its_number(tmp_path)
 
 
 def _v2_payload(trial: int, **overrides: Any) -> dict[str, Any]:
-    """Return a line as 2.0 wrote it: no event, batch, rule, window nor profile."""
+    """Return a line as a pre-release wrote it: no event, batch, rule, window nor profile."""
     payload = json.loads(json.dumps(_line(trial, "k_grid").model_dump(mode="json", by_alias=True)))
     for key in ("event", "batch", "proposed_at", "profile"):
         payload.pop(key)
@@ -132,7 +132,7 @@ def _v2_payload(trial: int, **overrides: Any) -> dict[str, Any]:
     return {**payload, "schema": "hydromodpy.trial.v2", **overrides}
 
 
-def test_a_2_0_line_reads_as_a_finished_trial(tmp_path):
+def test_a_line_of_a_pre_release_reads_as_a_finished_trial(tmp_path):
     trials_path(tmp_path).write_text(json.dumps(_v2_payload(1)) + "\n", encoding="utf-8")
     (trial,) = read_trials(tmp_path)
     assert (trial.schema_, trial.event, trial.batch, trial.proposed_at, trial.profile) == (
@@ -147,7 +147,7 @@ def test_a_2_0_line_reads_as_a_finished_trial(tmp_path):
     assert TRIAL_VERSIONS.current == TRIAL_SCHEMA
 
 
-def test_a_journal_that_mixes_2_0_and_2_1_lines_reads_line_by_line(tmp_path):
+def test_a_journal_that_mixes_old_and_new_lines_reads_line_by_line(tmp_path):
     trials_path(tmp_path).write_text(json.dumps(_v2_payload(1)) + "\n", encoding="utf-8")
     _write(tmp_path, [_event(2, "proposed"), _event(2, "finished"), _event(1, "linked")])
     trials = read_trials(tmp_path)
@@ -157,7 +157,7 @@ def test_a_journal_that_mixes_2_0_and_2_1_lines_reads_line_by_line(tmp_path):
     ]
 
 
-def test_a_2_0_line_read_and_written_again_keeps_its_schema_and_later_keys(tmp_path):
+def test_a_line_of_a_pre_release_read_and_written_again_keeps_its_schema_and_later_keys(tmp_path):
     source, target = tmp_path / "source", tmp_path / "target"
     source.mkdir()
     payload = _v2_payload(1, written_later={"by": "2.9"})

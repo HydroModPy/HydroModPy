@@ -1113,7 +1113,7 @@ def test_a_recipes_table_names_the_file_of_a_recipe(tmp_path: Path) -> None:
 def test_one_row_of_the_migration_reaches_every_layer_of_a_case(tmp_path: Path) -> None:
     """A bind line, a recipe, a site file and --set all write a key under its old name.
 
-    ``[modflow6]`` moved to ``[solver.modflow6]`` in 2.1.0, so each layer loads with a
+    ``[modflow6]`` moved to ``[solver.modflow6]`` in 2.0.0, so each layer loads with a
     warning and every case holds the key at its new place.
     """
     complexity = "solver.modflow6.runtime.mf6_ims_complexity"

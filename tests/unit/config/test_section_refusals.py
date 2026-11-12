@@ -301,7 +301,7 @@ def test_a_mesh_key_only_a_pre_release_wrote_is_refused_in_a_file_with_the_way_o
         _load(tmp_path, text)
 
     assert path in str(excinfo.value)
-    assert 'pip install "hydromodpy~=2.0.0"' in str(excinfo.value)
+    assert "This version does not rewrite the file." in str(excinfo.value)
 
 
 @pytest.mark.parametrize(
@@ -1280,7 +1280,7 @@ def test_a_raster_depth_model_with_a_substratum_is_accepted(tmp_path) -> None:
 
 
 def test_a_geographic_bottom_path_is_refused_as_an_unknown_key() -> None:
-    """Only a pre-release wrote it; a file that does is refused with the doctor of 2.0.x."""
+    """Only a pre-release wrote it, and a file that does is refused."""
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         GeographicConfig.model_validate({"source_mode": "synthetic", "bottom_path": "bottom.tif"})
 

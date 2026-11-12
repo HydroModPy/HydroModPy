@@ -7,7 +7,7 @@ One project folder, played in order:
    ``--profile`` where its time went, ``--figure hydrograph`` draws one figure.
 3. ``hmp diff basin basin.v2`` compares them, ``hmp export basin discharge``
    writes the series.
-4. ``hmp catalog ls``, a form that left in 2.1.0, exits 2 with the command that
+4. ``hmp catalog ls``, a form that left in 2.0.0, exits 2 with the command that
    replaces it.
 
 The global backend needs no solver binary.

@@ -1389,9 +1389,8 @@ def test_the_fallback_reports_both_ranges() -> None:
 # weight. ``prior`` named a probability law that a search without a Bayesian
 # reading only uses to draw starting points. Now the parameter says
 # ``search_space`` and ``sampling``, the block says ``cost_transform``, and the
-# engine's own vocabulary follows. A key renamed is refused with the new name and
-# the way to the doctor of a 2.0.x release, which rewrites the file, and the
-# ``Calibrable`` metadata a field carries uses the same words.
+# engine's own vocabulary follows. A key renamed is refused with the new name, the
+# file is not rewritten, and the ``Calibrable`` metadata a field carries uses the same words.
 
 
 PROTOCOL = "matching_hydrographic_network"
@@ -1436,7 +1435,7 @@ def test_the_old_word_is_refused_with_the_name_that_replaces_it(build: Any, new:
         build()
 
     assert new in str(refused.value)
-    assert "hmp doctor --fix-config" in str(refused.value)
+    assert "This version does not rewrite the file." in str(refused.value)
 
 
 def test_a_parameter_declared_in_a_file_reads_the_new_words() -> None:
@@ -1599,7 +1598,7 @@ def test_a_frozen_run_with_the_old_words_is_refused_with_the_way_out(tmp_path: P
     told = str(refused.value)
     assert "calibration.parameters.K.transform" in told
     assert "calibration.parameters.K.prior" in told
-    assert 'pip install "hydromodpy~=2.0.0"' in told
+    assert "This version does not rewrite the file." in told
 
 
 # From test_the_station_costs_are_averaged_not_pooled.py

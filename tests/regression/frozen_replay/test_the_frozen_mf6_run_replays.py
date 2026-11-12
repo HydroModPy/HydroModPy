@@ -1,6 +1,6 @@
 """The frozen MODFLOW 6 run on triangles replays to the bit, on this machine and on another.
 
-``v2.1/current`` holds ``tri.toml`` and the run ``runs/tri/`` that ``python -m
+``v2.0.0/current`` holds ``tri.toml`` and the run ``runs/tri/`` that ``python -m
 tools.freeze_replay_run`` wrote: the transient island on 434 gmsh triangles, three
 months, XT3D off. A replay reads the mesh sealed in the run, so it needs neither gmsh
 nor the store. Each test works on a copy outside the repository.
@@ -30,7 +30,7 @@ from hydromodpy.results.record.manifest import seal_problems
 from hydromodpy.solver.modflow_common.binaries import exe_filename
 from tests.scenarios.launcher import isolated_env, link_binaries
 
-FROZEN = Path(__file__).resolve().parent / "v2.1"
+FROZEN = Path(__file__).resolve().parent / "v2.0.0"
 CURRENT = FROZEN / "current"
 MAX_BYTES = 600_000
 RUN = "runs/tri"

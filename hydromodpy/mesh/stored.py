@@ -3,8 +3,8 @@
 A mesh an engine does not promise to rebuild bit for bit is stored once per
 request, as ``mesh.npz`` (the arrays) and ``mesh.json`` (the rest). The product
 store hands ``write_mesh`` an empty directory and renames it once complete, so
-the codec holds no rename of its own. The format keeps the 2.0 identifier
-``hydromodpy.mesh_cache.v1``, so an entry stored by 2.0 still reads. An entry
+the codec holds no rename of its own. The format keeps its identifier
+``hydromodpy.mesh_cache.v1``, so an entry stored by a pre-release of 2.0 still reads. An entry
 stored before the shape entries of the QA (bisection offset, corner angles,
 concave cells) is read as it is: those entries are measured on the stored mesh
 and centers, so the frozen mesh of a project survives without a new schema.

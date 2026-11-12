@@ -30,7 +30,7 @@ from hydromodpy.results.record.request_identity import request_id, solution_key
 from tests._helpers.run_records import make_identity, make_record
 from tests._helpers.sealed_runs import write_attempt
 
-EDITION = "2.1"
+EDITION = "2.0"
 
 
 class _FakeRunner:

@@ -3974,7 +3974,7 @@ def _calibration_file(tmp_path, value: str):
 def test_the_calibration_loader_refuses_a_ratio_by_name_and_leaves_the_file(
     tmp_path, ratio
 ) -> None:
-    """``hmp calibrate`` names the key, points to the doctor of a 2.0.x release, edits nothing."""
+    """``hmp calibrate`` names the key, says the file is not rewritten, edits nothing."""
 
     path = _calibration_file(tmp_path, ratio)
     before = path.read_bytes()
@@ -3983,7 +3983,7 @@ def test_the_calibration_loader_refuses_a_ratio_by_name_and_leaves_the_file(
         load_toml_calibration(path)
 
     assert path.name in str(raised.value)
-    assert "hmp doctor --fix-config" in str(raised.value)
+    assert "This version does not rewrite the file." in str(raised.value)
     assert path.read_bytes() == before
 
 
@@ -4365,7 +4365,7 @@ def test_a_name_the_project_does_not_carry_stops_the_load_and_any_other_failure_
 
 
 def test_a_bare_input_name_stops_the_load(monkeypatch, tmp_path) -> None:
-    """A path 2.1.0 refuses is named, not left to fail later on a missing 'path'."""
+    """A path this version refuses is named, not left to fail later on a missing 'path'."""
     from hydromodpy.core.toml_io.paths import BareInputNameError
 
     cfg = SimpleNamespace(parameters={"K": object()})

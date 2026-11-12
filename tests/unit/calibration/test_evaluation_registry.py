@@ -41,7 +41,7 @@ from hydromodpy.core.plugin_registry import PluginRegistry
 # evaluator and could be nothing else. The ask/tell loop has always taken any
 # callable -- eight construction sites of this repository already pass one that
 # is not the pipeline -- and the scored-forward route is gone with it, folded
-# into the solver backends of 2.1.0. The one published injection point besides
+# into the solver backends of 2.0.0. The one published injection point besides
 # the pipeline evaluator, a metric function, applies after the solve, over a
 # context the pipeline has already produced: it changes how a run is scored,
 # never what runs.

@@ -22,7 +22,7 @@ from hydromodpy.schema.seal import (
     write_seal,
 )
 
-CORPUS = Path(__file__).parents[2] / "regression" / "frozen_documents" / "v2.0.0" / "current"
+CORPUS = Path(__file__).parents[2] / "regression" / "frozen_documents" / "v2.0.0-pre" / "current"
 JOB_V2 = CORPUS / "chain" / "01-first" / "manifest.json"
 
 

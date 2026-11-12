@@ -1,6 +1,6 @@
 """The three readers the top level keeps beside the verbs: read, index and Catalog.
 
-The frozen runs of 2.0.0 are read through ``hmp.read``, ``hmp.index`` and
+The frozen runs of a pre-release of 2.0 are read through ``hmp.read``, ``hmp.index`` and
 ``hmp.Catalog``, so these names stay. They are not verbs: ``read`` gives what
 ``Run.read`` gives, ``index`` opens a workspace and ``Catalog`` is the index of
 a project.

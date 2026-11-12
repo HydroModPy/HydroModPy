@@ -91,8 +91,8 @@ def test_the_doctor_leaves_a_project_root_and_the_loader_refuses_it(tmp_path: Pa
 
 
 def test_if_exists_replace_is_refused_in_a_file_with_what_to_write(tmp_path: Path) -> None:
-    """No run is replaced. Only a pre-release wrote ``replace``: a file is told the doctor
-    of 2.0.x, which wrote ``version``, and the doctor of this version writes nothing."""
+    """No run is replaced. Only a pre-release wrote ``replace``. A file is refused with
+    the key, and the doctor of this version writes nothing."""
     path = tmp_path / "project.toml"
     path.write_text(
         tomlkit.dumps({**SYNTHETIC, "simulation": {"if_exists": "replace"}}), encoding="utf-8"
@@ -101,7 +101,7 @@ def test_if_exists_replace_is_refused_in_a_file_with_what_to_write(tmp_path: Pat
 
     with pytest.raises(ConfigValidationError, match="holds simulation.if_exists, written by"):
         HydroModPyConfig.from_toml(path)
-    with pytest.raises(ConfigValidationError, match="hydromodpy~=2.0.0"):
+    with pytest.raises(ConfigValidationError, match="This version does not rewrite the file"):
         fix_config_file(path)
     assert path.read_text(encoding="utf-8") == written
 
@@ -163,7 +163,7 @@ def test_the_project_root_is_out_of_the_request_id(tmp_path: Path) -> None:
 
     config = HydroModPyConfig.model_validate(SYNTHETIC).model_dump(mode="json")
     moved = {**config, "workspace": {**config["workspace"], "project_root": "/elsewhere"}}
-    assert request_id(config, {}, edition="2.1") == request_id(moved, {}, edition="2.1")
+    assert request_id(config, {}, edition="2.0") == request_id(moved, {}, edition="2.0")
 
 
 def test_the_mesh_catchment_batch_section_stays_refused() -> None:

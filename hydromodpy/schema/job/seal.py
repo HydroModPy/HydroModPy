@@ -56,7 +56,7 @@ from hydromodpy.schema.seal import (
 )
 
 JOB_SEAL_V2_SCHEMA: Final[str] = "hmp-manifest/v2"
-"""The ``schema`` a job seal of the 2.0.0 wrote; read in memory, never rewritten."""
+"""The ``schema`` a job seal of a pre-release wrote; read in memory, never rewritten."""
 
 JOB_SEAL_VERSIONS: Final[VersionWindow] = VersionWindow(oldest=SEAL_VERSION, current=SEAL_VERSION)
 """The integer ``manifest_version`` of a job seal this code reads; ``JOB_SEAL_V2_SCHEMA`` aside."""
@@ -74,7 +74,7 @@ class JobSeal(Seal):
     """The seal of a finished job directory, version 4.
 
     ``request_id`` is the content address of the request the job answered. The
-    2.0.0 wrote it as ``job_id``; the migration of the reading brings it under
+    a pre-release wrote it as ``job_id``; the migration of the reading brings it under
     the one name, and ``outcome.json`` keeps ``job_id`` with the same value for
     the callers that read it.
     """
@@ -170,9 +170,9 @@ def seal_job(
 
 
 def read_job_seal(path: str | Path) -> JobSeal:
-    """Read the seal of a job directory, version 4 or the ``hmp-manifest/v2`` of 2.0.0.
+    """Read the seal of a job directory, version 4 or the ``hmp-manifest/v2`` of a pre-release.
 
-    The 2.0.0 document is converted in memory only: ``job_id`` becomes
+    The document of a pre-release is converted in memory only: ``job_id`` becomes
     ``request_id``, ``mediaType`` becomes ``media_type``, and each entry takes
     its role from the name of its file. The file keeps what it was written.
     """
@@ -216,7 +216,7 @@ def _read_seal_object(path: Path) -> dict[str, Any]:
 
 
 def _job_artifact_role(document: dict[str, Any]) -> None:
-    """Name the role of a 2.0.0 job entry: a control document, or an output."""
+    """Name the role of a job entry of a pre-release: a control document, or an output."""
     entries = document.get("artifacts")
     if not isinstance(entries, list):
         return

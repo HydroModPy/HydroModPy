@@ -95,7 +95,7 @@ def test_list_data_cache_counts_the_user_files_it_does_not_list(workspace: Path)
     assert mine.name not in {row.path.name for row in report.rows}
 
 
-def test_list_data_cache_refuses_the_database_of_2_0_0(workspace: Path) -> None:
+def test_list_data_cache_refuses_the_database_of_a_pre_release(workspace: Path) -> None:
     (workspace / "data" / FORMER_CACHE_DATABASE).write_bytes(b"duckdb")
 
     with pytest.raises(DataCacheError, match="hmp workspace clean --data-cache"):

@@ -34,7 +34,7 @@ closed a root outside its declared bounds.
 ``optimizer`` names, for each phase, the search method with its options
 resolved to their defaults, the seed the session received, the seed each
 restart was given and the versions of the libraries the method runs on, so a
-reader can tell whether the search can be played again. A 2.0 descriptor has
+reader can tell whether the search can be played again. A descriptor of a pre-release has
 none.
 A check across fields runs at writing only: a read keeps what a later 2.x wrote.
 """
@@ -303,11 +303,11 @@ class SessionDescriptor(HydroModelBase):
         default=None,
         description="The protocol the session follows; none when it names no protocol",
     )
-    # Left out of the file while None, so a 2.0 descriptor written again keeps its keys.
+    # Left out of the file while None, so a descriptor of a pre-release written again keeps its keys.
     optimizer: dict[str, SessionOptimizer] | None = Field(
         default=None,
-        description="What the search of each phase ran with, by phase name; none on a 2.0 "
-        "descriptor and before the first search",
+        description="What the search of each phase ran with, by phase name; none on a descriptor of a pre-release "
+        "and before the first search",
         exclude_if=lambda value: value is None,
     )
     status: SessionStatus = Field(default="running")

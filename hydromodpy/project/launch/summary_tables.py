@@ -359,7 +359,7 @@ def _seconds_between(start: Any, end: Any) -> float | None:
 def _flow_solve_time(manifest: RunSeal, root: Path | None, rel_dir: str) -> float | None:
     """Return the wall time of the flow solve in seconds.
 
-    It is read from ``profile.json`` first. A run of HydroModPy 2.0 has none and
+    It is read from ``profile.json`` first. A run of a pre-release of 2.0 has none and
     holds the time as a row of its seal, which is the floor of the reading.
     """
     if root is not None:

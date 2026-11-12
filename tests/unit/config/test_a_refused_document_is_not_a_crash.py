@@ -118,7 +118,7 @@ def test_a_form_only_a_pre_release_wrote_reaches_the_config_exit_code(
     assert exit_code_for(error) == EXIT_CONFIG
     assert error.to_dict()["code"] == "HMPY.E101"
     assert form in str(error)
-    assert 'pip install "hydromodpy~=2.0.0"' in str(error)
+    assert "This version does not rewrite the file." in str(error)
     assert [entry["pointer"] for entry in error.details] == ["/" + form.replace(".", "/")]
     assert error.to_dict()["details"][0]["type"] == "prerelease_form"
 

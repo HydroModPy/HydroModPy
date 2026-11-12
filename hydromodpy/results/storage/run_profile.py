@@ -197,7 +197,7 @@ def write_profile(run_dir: Path, profile: Profile) -> Path:
 def read_profile(run_dir: Path) -> Profile | None:
     """Return the profile of the run at ``run_dir``, or ``None`` when it has none.
 
-    A run of HydroModPy 2.0 has no ``profile.json``. A document of another
+    A run of a pre-release has no ``profile.json``. A document of another
     schema is refused with :class:`~hydromodpy.core.exceptions.SchemaVersionMismatchError`.
     """
     path = profile_path(run_dir)

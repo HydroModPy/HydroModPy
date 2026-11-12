@@ -1,327 +1,327 @@
-AmbiguousReferenceError	2.1.0
-CatalogError	2.1.0
-ComparisonCaseError	2.1.0
-ComparisonReferenceError	2.1.0
-FieldNotFoundError	2.1.0
-RunNotSealedError	2.1.0
-SimulationNotFoundError	2.1.0
-Workspace	2.1.0
-calibration_phases	2.1.0
-compare_pair	2.1.0
-example_add	2.1.0
-example_list	2.1.0
-example_show	2.1.0
-figure	2.1.0
-hmp catalog diff	2.1.0
-hmp catalog diff --debug	2.1.0
-hmp catalog diff --format	2.1.0
-hmp catalog diff --quiet	2.1.0
-hmp catalog diff --verbose	2.1.0
-hmp catalog diff --verbosity	2.1.0
-hmp catalog diff --workspace	2.1.0
-hmp catalog diff -q	2.1.0
-hmp catalog diff -v	2.1.0
-hmp catalog diff -w	2.1.0
-hmp catalog ls	2.1.0
-hmp catalog ls --best	2.1.0
-hmp catalog ls --by	2.1.0
-hmp catalog ls --debug	2.1.0
-hmp catalog ls --format	2.1.0
-hmp catalog ls --label	2.1.0
-hmp catalog ls --limit	2.1.0
-hmp catalog ls --mixed-windows	2.1.0
-hmp catalog ls --project	2.1.0
-hmp catalog ls --quiet	2.1.0
-hmp catalog ls --site	2.1.0
-hmp catalog ls --solver	2.1.0
-hmp catalog ls --status	2.1.0
-hmp catalog ls --tag	2.1.0
-hmp catalog ls --verbose	2.1.0
-hmp catalog ls --verbosity	2.1.0
-hmp catalog ls --workspace	2.1.0
-hmp catalog ls -q	2.1.0
-hmp catalog ls -v	2.1.0
-hmp catalog ls -w	2.1.0
-hmp catalog point	2.1.0
-hmp catalog point --cell	2.1.0
-hmp catalog point --debug	2.1.0
-hmp catalog point --depth	2.1.0
-hmp catalog point --format	2.1.0
-hmp catalog point --label	2.1.0
-hmp catalog point --layer	2.1.0
-hmp catalog point --quiet	2.1.0
-hmp catalog point --timestep	2.1.0
-hmp catalog point --to	2.1.0
-hmp catalog point --var	2.1.0
-hmp catalog point --verbose	2.1.0
-hmp catalog point --verbosity	2.1.0
-hmp catalog point --workspace	2.1.0
-hmp catalog point --xy	2.1.0
-hmp catalog point -q	2.1.0
-hmp catalog point -v	2.1.0
-hmp catalog point -w	2.1.0
-hmp catalog rank	2.1.0
-hmp catalog rank --bottom	2.1.0
-hmp catalog rank --debug	2.1.0
-hmp catalog rank --format	2.1.0
-hmp catalog rank --metric	2.1.0
-hmp catalog rank --mixed-windows	2.1.0
-hmp catalog rank --project	2.1.0
-hmp catalog rank --quiet	2.1.0
-hmp catalog rank --station	2.1.0
-hmp catalog rank --top	2.1.0
-hmp catalog rank --verbose	2.1.0
-hmp catalog rank --verbosity	2.1.0
-hmp catalog rank --workspace	2.1.0
-hmp catalog rank -q	2.1.0
-hmp catalog rank -v	2.1.0
-hmp catalog rank -w	2.1.0
-hmp catalog show	2.1.0
-hmp catalog show --debug	2.1.0
-hmp catalog show --detail	2.1.0
-hmp catalog show --format	2.1.0
-hmp catalog show --quiet	2.1.0
-hmp catalog show --verbose	2.1.0
-hmp catalog show --verbosity	2.1.0
-hmp catalog show --workspace	2.1.0
-hmp catalog show -q	2.1.0
-hmp catalog show -v	2.1.0
-hmp catalog show -w	2.1.0
-hmp completion --argcomplete	2.1.0
-hmp config check	2.1.0
-hmp config check --debug	2.1.0
-hmp config check --format	2.1.0
-hmp config check --inputs	2.1.0
-hmp config check --lang	2.1.0
-hmp config check --partial	2.1.0
-hmp config check --quiet	2.1.0
-hmp config check --verbose	2.1.0
-hmp config check --verbosity	2.1.0
-hmp config check --workspace	2.1.0
-hmp config check -q	2.1.0
-hmp config check -v	2.1.0
-hmp config check -w	2.1.0
-hmp config validate-field	2.1.0
-hmp config validate-field --context	2.1.0
-hmp config validate-field --format	2.1.0
-hmp config validate-field --workspace	2.1.0
-hmp config validate-field -w	2.1.0
-hmp data add	2.1.0
-hmp data add --crs	2.1.0
-hmp data add --debug	2.1.0
-hmp data add --format	2.1.0
-hmp data add --frozen	2.1.0
-hmp data add --project	2.1.0
-hmp data add --provider	2.1.0
-hmp data add --quiet	2.1.0
-hmp data add --station-id	2.1.0
-hmp data add --type	2.1.0
-hmp data add --unit	2.1.0
-hmp data add --verbose	2.1.0
-hmp data add --verbosity	2.1.0
-hmp data add --workspace	2.1.0
-hmp data add -q	2.1.0
-hmp data add -v	2.1.0
-hmp data add -w	2.1.0
-hmp data check	2.1.0
-hmp dev	2.1.0
-hmp dev examples	2.1.0
-hmp dev examples manifest	2.1.0
-hmp dev examples manifest --root	2.1.0
-hmp dev examples manifest --to	2.1.0
-hmp dev examples manifest --workspace	2.1.0
-hmp dev examples manifest -w	2.1.0
-hmp dev manage	2.1.0
-hmp dev manage --host	2.1.0
-hmp dev manage --no-browser	2.1.0
-hmp dev manage --port	2.1.0
-hmp dev manage --scan-root	2.1.0
-hmp dev manage --workspace	2.1.0
-hmp dev manage -w	2.1.0
-hmp dev run-script	2.1.0
-hmp dev run-script --workspace	2.1.0
-hmp dev run-script -w	2.1.0
-hmp dev test	2.1.0
-hmp dev test --analytical	2.1.0
-hmp dev test --extensive	2.1.0
-hmp dev test --fast	2.1.0
-hmp dev test --intercomparison	2.1.0
-hmp dev test --jobs	2.1.0
-hmp dev test --list	2.1.0
-hmp dev test --mf6	2.1.0
-hmp dev test --nwt	2.1.0
-hmp dev test --short	2.1.0
-hmp dev test --slow	2.1.0
-hmp dev test --steady	2.1.0
-hmp dev test --transient	2.1.0
-hmp dev test --update-goldens	2.1.0
-hmp dev test --workspace	2.1.0
-hmp dev test -j	2.1.0
-hmp dev test -w	2.1.0
-hmp lock	2.1.0
-hmp lock update	2.1.0
-hmp lock update --format	2.1.0
-hmp lock update --project	2.1.0
-hmp lock update --to	2.1.0
-hmp lock update --workspace	2.1.0
-hmp lock update -w	2.1.0
-hmp lock verify	2.1.0
-hmp lock verify --format	2.1.0
-hmp lock verify --lockfile	2.1.0
-hmp lock verify --project	2.1.0
-hmp lock verify --strict	2.1.0
-hmp lock verify --workspace	2.1.0
-hmp lock verify -w	2.1.0
-hmp project show	2.1.0
-hmp project show --debug	2.1.0
-hmp project show --format	2.1.0
-hmp project show --quiet	2.1.0
-hmp project show --verbose	2.1.0
-hmp project show --verbosity	2.1.0
-hmp project show --workspace	2.1.0
-hmp project show -q	2.1.0
-hmp project show -v	2.1.0
-hmp project show -w	2.1.0
-hmp project status	2.1.0
-hmp project status --debug	2.1.0
-hmp project status --format	2.1.0
-hmp project status --quiet	2.1.0
-hmp project status --stale-minutes	2.1.0
-hmp project status --verbose	2.1.0
-hmp project status --verbosity	2.1.0
-hmp project status --workspace	2.1.0
-hmp project status -q	2.1.0
-hmp project status -v	2.1.0
-hmp project status -w	2.1.0
-hmp report	2.1.0
-hmp report catchment	2.1.0
-hmp report catchment --context-only	2.1.0
-hmp report catchment --debug	2.1.0
-hmp report catchment --format	2.1.0
-hmp report catchment --lang	2.1.0
-hmp report catchment --no-run-overview	2.1.0
-hmp report catchment --no-run-simulation	2.1.0
-hmp report catchment --no-stream-run-logs	2.1.0
-hmp report catchment --no-strict-figure-postflight	2.1.0
-hmp report catchment --overview	2.1.0
-hmp report catchment --preset	2.1.0
-hmp report catchment --quiet	2.1.0
-hmp report catchment --report-only	2.1.0
-hmp report catchment --run-overview	2.1.0
-hmp report catchment --run-simulation	2.1.0
-hmp report catchment --station	2.1.0
-hmp report catchment --stream-run-logs	2.1.0
-hmp report catchment --strict	2.1.0
-hmp report catchment --strict-figure-postflight	2.1.0
-hmp report catchment --verbose	2.1.0
-hmp report catchment --verbosity	2.1.0
-hmp report catchment --workspace	2.1.0
-hmp report catchment -q	2.1.0
-hmp report catchment -v	2.1.0
-hmp report catchment -w	2.1.0
-hmp report compare	2.1.0
-hmp report compare --by	2.1.0
-hmp report compare --debug	2.1.0
-hmp report compare --format	2.1.0
-hmp report compare --quiet	2.1.0
-hmp report compare --to	2.1.0
-hmp report compare --variables	2.1.0
-hmp report compare --verbose	2.1.0
-hmp report compare --verbosity	2.1.0
-hmp report compare --workspace	2.1.0
-hmp report compare -q	2.1.0
-hmp report compare -v	2.1.0
-hmp report compare -w	2.1.0
-hmp report render	2.1.0
-hmp report render --debug	2.1.0
-hmp report render --format	2.1.0
-hmp report render --open	2.1.0
-hmp report render --quiet	2.1.0
-hmp report render --verbose	2.1.0
-hmp report render --verbosity	2.1.0
-hmp report render --workspace	2.1.0
-hmp report render -q	2.1.0
-hmp report render -v	2.1.0
-hmp report render -w	2.1.0
-hmp viz	2.1.0
-hmp viz list	2.1.0
-hmp viz list --debug	2.1.0
-hmp viz list --format	2.1.0
-hmp viz list --kind	2.1.0
-hmp viz list --quiet	2.1.0
-hmp viz list --run	2.1.0
-hmp viz list --verbose	2.1.0
-hmp viz list --verbosity	2.1.0
-hmp viz list --workspace	2.1.0
-hmp viz list -q	2.1.0
-hmp viz list -v	2.1.0
-hmp viz list -w	2.1.0
-hmp viz show	2.1.0
-hmp viz show --debug	2.1.0
-hmp viz show --format	2.1.0
-hmp viz show --opt	2.1.0
-hmp viz show --quiet	2.1.0
-hmp viz show --time	2.1.0
-hmp viz show --to	2.1.0
-hmp viz show --verbose	2.1.0
-hmp viz show --verbosity	2.1.0
-hmp viz show --workspace	2.1.0
-hmp viz show -q	2.1.0
-hmp viz show -v	2.1.0
-hmp viz show -w	2.1.0
-hydromodpy.core.contracts.data_cache_backend	2.1.0
-hydromodpy.core.io.http_client	2.1.0
-hydromodpy.core.io.pinned_download	2.1.0
-hydromodpy.data.registry	2.1.0
-hydromodpy.data.registry.backend	2.1.0
-hydromodpy.data.registry.cache_lifecycle	2.1.0
-hydromodpy.data.registry.cache_queries	2.1.0
-hydromodpy.data.registry.cache_store	2.1.0
-hydromodpy.data.registry.catalog_duckdb	2.1.0
-hydromodpy.data.registry.constants	2.1.0
-hydromodpy.data.registry.freeze	2.1.0
-hydromodpy.data.registry.input_cache	2.1.0
-hydromodpy.data.variables.crossings.manager	2.1.0
-hydromodpy.data.variables.dem.manager	2.1.0
-hydromodpy.data.variables.etp.manager	2.1.0
-hydromodpy.data.variables.geology.manager	2.1.0
-hydromodpy.data.variables.humidity.manager	2.1.0
-hydromodpy.data.variables.hydrography.manager	2.1.0
-hydromodpy.data.variables.hydrometry.manager	2.1.0
-hydromodpy.data.variables.intermittency.manager	2.1.0
-hydromodpy.data.variables.lake_abacus.manager	2.1.0
-hydromodpy.data.variables.lake_bathymetry.manager	2.1.0
-hydromodpy.data.variables.lake_geometry.manager	2.1.0
-hydromodpy.data.variables.lake_inflow.manager	2.1.0
-hydromodpy.data.variables.lake_levels.manager	2.1.0
-hydromodpy.data.variables.lake_outflow.manager	2.1.0
-hydromodpy.data.variables.lake_withdrawal.manager	2.1.0
-hydromodpy.data.variables.layer_base.manager	2.1.0
-hydromodpy.data.variables.oceanic.manager	2.1.0
-hydromodpy.data.variables.piezometry.manager	2.1.0
-hydromodpy.data.variables.precipitation.manager	2.1.0
-hydromodpy.data.variables.radiation.manager	2.1.0
-hydromodpy.data.variables.recharge.manager	2.1.0
-hydromodpy.data.variables.runoff.manager	2.1.0
-hydromodpy.data.variables.soil_capacity.manager	2.1.0
-hydromodpy.data.variables.soil_moisture.manager	2.1.0
-hydromodpy.data.variables.substratum.manager	2.1.0
-hydromodpy.data.variables.temperature.manager	2.1.0
-hydromodpy.data.variables.water_quality.manager	2.1.0
-hydromodpy.data.variables.wind.manager	2.1.0
-hydromodpy.data.workspace.custom_scan	2.1.0
-hydromodpy.display.calibration_report	2.1.0
-hydromodpy.display.catchment_report	2.1.0
-hydromodpy.display.catchment_report.artifacts	2.1.0
-hydromodpy.display.catchment_report.blocks	2.1.0
-hydromodpy.display.catchment_report.builder	2.1.0
-hydromodpy.display.catchment_report.context	2.1.0
-hydromodpy.display.catchment_report.inputs	2.1.0
-hydromodpy.display.catchment_report.pipeline	2.1.0
-hydromodpy.display.catchment_report.settings	2.1.0
-hydromodpy.display.catchment_report.simulation_source	2.1.0
-hydromodpy.display.overview.web	2.1.0
-hydromodpy.display.report_blocks	2.1.0
-hydromodpy.project.lock	2.1.0
-hydromodpy.workflow.steps.calibration	2.1.0
-report	2.1.0
+AmbiguousReferenceError	2.0.0
+CatalogError	2.0.0
+ComparisonCaseError	2.0.0
+ComparisonReferenceError	2.0.0
+FieldNotFoundError	2.0.0
+RunNotSealedError	2.0.0
+SimulationNotFoundError	2.0.0
+Workspace	2.0.0
+calibration_phases	2.0.0
+compare_pair	2.0.0
+example_add	2.0.0
+example_list	2.0.0
+example_show	2.0.0
+figure	2.0.0
+hmp catalog diff	2.0.0
+hmp catalog diff --debug	2.0.0
+hmp catalog diff --format	2.0.0
+hmp catalog diff --quiet	2.0.0
+hmp catalog diff --verbose	2.0.0
+hmp catalog diff --verbosity	2.0.0
+hmp catalog diff --workspace	2.0.0
+hmp catalog diff -q	2.0.0
+hmp catalog diff -v	2.0.0
+hmp catalog diff -w	2.0.0
+hmp catalog ls	2.0.0
+hmp catalog ls --best	2.0.0
+hmp catalog ls --by	2.0.0
+hmp catalog ls --debug	2.0.0
+hmp catalog ls --format	2.0.0
+hmp catalog ls --label	2.0.0
+hmp catalog ls --limit	2.0.0
+hmp catalog ls --mixed-windows	2.0.0
+hmp catalog ls --project	2.0.0
+hmp catalog ls --quiet	2.0.0
+hmp catalog ls --site	2.0.0
+hmp catalog ls --solver	2.0.0
+hmp catalog ls --status	2.0.0
+hmp catalog ls --tag	2.0.0
+hmp catalog ls --verbose	2.0.0
+hmp catalog ls --verbosity	2.0.0
+hmp catalog ls --workspace	2.0.0
+hmp catalog ls -q	2.0.0
+hmp catalog ls -v	2.0.0
+hmp catalog ls -w	2.0.0
+hmp catalog point	2.0.0
+hmp catalog point --cell	2.0.0
+hmp catalog point --debug	2.0.0
+hmp catalog point --depth	2.0.0
+hmp catalog point --format	2.0.0
+hmp catalog point --label	2.0.0
+hmp catalog point --layer	2.0.0
+hmp catalog point --quiet	2.0.0
+hmp catalog point --timestep	2.0.0
+hmp catalog point --to	2.0.0
+hmp catalog point --var	2.0.0
+hmp catalog point --verbose	2.0.0
+hmp catalog point --verbosity	2.0.0
+hmp catalog point --workspace	2.0.0
+hmp catalog point --xy	2.0.0
+hmp catalog point -q	2.0.0
+hmp catalog point -v	2.0.0
+hmp catalog point -w	2.0.0
+hmp catalog rank	2.0.0
+hmp catalog rank --bottom	2.0.0
+hmp catalog rank --debug	2.0.0
+hmp catalog rank --format	2.0.0
+hmp catalog rank --metric	2.0.0
+hmp catalog rank --mixed-windows	2.0.0
+hmp catalog rank --project	2.0.0
+hmp catalog rank --quiet	2.0.0
+hmp catalog rank --station	2.0.0
+hmp catalog rank --top	2.0.0
+hmp catalog rank --verbose	2.0.0
+hmp catalog rank --verbosity	2.0.0
+hmp catalog rank --workspace	2.0.0
+hmp catalog rank -q	2.0.0
+hmp catalog rank -v	2.0.0
+hmp catalog rank -w	2.0.0
+hmp catalog show	2.0.0
+hmp catalog show --debug	2.0.0
+hmp catalog show --detail	2.0.0
+hmp catalog show --format	2.0.0
+hmp catalog show --quiet	2.0.0
+hmp catalog show --verbose	2.0.0
+hmp catalog show --verbosity	2.0.0
+hmp catalog show --workspace	2.0.0
+hmp catalog show -q	2.0.0
+hmp catalog show -v	2.0.0
+hmp catalog show -w	2.0.0
+hmp completion --argcomplete	2.0.0
+hmp config check	2.0.0
+hmp config check --debug	2.0.0
+hmp config check --format	2.0.0
+hmp config check --inputs	2.0.0
+hmp config check --lang	2.0.0
+hmp config check --partial	2.0.0
+hmp config check --quiet	2.0.0
+hmp config check --verbose	2.0.0
+hmp config check --verbosity	2.0.0
+hmp config check --workspace	2.0.0
+hmp config check -q	2.0.0
+hmp config check -v	2.0.0
+hmp config check -w	2.0.0
+hmp config validate-field	2.0.0
+hmp config validate-field --context	2.0.0
+hmp config validate-field --format	2.0.0
+hmp config validate-field --workspace	2.0.0
+hmp config validate-field -w	2.0.0
+hmp data add	2.0.0
+hmp data add --crs	2.0.0
+hmp data add --debug	2.0.0
+hmp data add --format	2.0.0
+hmp data add --frozen	2.0.0
+hmp data add --project	2.0.0
+hmp data add --provider	2.0.0
+hmp data add --quiet	2.0.0
+hmp data add --station-id	2.0.0
+hmp data add --type	2.0.0
+hmp data add --unit	2.0.0
+hmp data add --verbose	2.0.0
+hmp data add --verbosity	2.0.0
+hmp data add --workspace	2.0.0
+hmp data add -q	2.0.0
+hmp data add -v	2.0.0
+hmp data add -w	2.0.0
+hmp data check	2.0.0
+hmp dev	2.0.0
+hmp dev examples	2.0.0
+hmp dev examples manifest	2.0.0
+hmp dev examples manifest --root	2.0.0
+hmp dev examples manifest --to	2.0.0
+hmp dev examples manifest --workspace	2.0.0
+hmp dev examples manifest -w	2.0.0
+hmp dev manage	2.0.0
+hmp dev manage --host	2.0.0
+hmp dev manage --no-browser	2.0.0
+hmp dev manage --port	2.0.0
+hmp dev manage --scan-root	2.0.0
+hmp dev manage --workspace	2.0.0
+hmp dev manage -w	2.0.0
+hmp dev run-script	2.0.0
+hmp dev run-script --workspace	2.0.0
+hmp dev run-script -w	2.0.0
+hmp dev test	2.0.0
+hmp dev test --analytical	2.0.0
+hmp dev test --extensive	2.0.0
+hmp dev test --fast	2.0.0
+hmp dev test --intercomparison	2.0.0
+hmp dev test --jobs	2.0.0
+hmp dev test --list	2.0.0
+hmp dev test --mf6	2.0.0
+hmp dev test --nwt	2.0.0
+hmp dev test --short	2.0.0
+hmp dev test --slow	2.0.0
+hmp dev test --steady	2.0.0
+hmp dev test --transient	2.0.0
+hmp dev test --update-goldens	2.0.0
+hmp dev test --workspace	2.0.0
+hmp dev test -j	2.0.0
+hmp dev test -w	2.0.0
+hmp lock	2.0.0
+hmp lock update	2.0.0
+hmp lock update --format	2.0.0
+hmp lock update --project	2.0.0
+hmp lock update --to	2.0.0
+hmp lock update --workspace	2.0.0
+hmp lock update -w	2.0.0
+hmp lock verify	2.0.0
+hmp lock verify --format	2.0.0
+hmp lock verify --lockfile	2.0.0
+hmp lock verify --project	2.0.0
+hmp lock verify --strict	2.0.0
+hmp lock verify --workspace	2.0.0
+hmp lock verify -w	2.0.0
+hmp project show	2.0.0
+hmp project show --debug	2.0.0
+hmp project show --format	2.0.0
+hmp project show --quiet	2.0.0
+hmp project show --verbose	2.0.0
+hmp project show --verbosity	2.0.0
+hmp project show --workspace	2.0.0
+hmp project show -q	2.0.0
+hmp project show -v	2.0.0
+hmp project show -w	2.0.0
+hmp project status	2.0.0
+hmp project status --debug	2.0.0
+hmp project status --format	2.0.0
+hmp project status --quiet	2.0.0
+hmp project status --stale-minutes	2.0.0
+hmp project status --verbose	2.0.0
+hmp project status --verbosity	2.0.0
+hmp project status --workspace	2.0.0
+hmp project status -q	2.0.0
+hmp project status -v	2.0.0
+hmp project status -w	2.0.0
+hmp report	2.0.0
+hmp report catchment	2.0.0
+hmp report catchment --context-only	2.0.0
+hmp report catchment --debug	2.0.0
+hmp report catchment --format	2.0.0
+hmp report catchment --lang	2.0.0
+hmp report catchment --no-run-overview	2.0.0
+hmp report catchment --no-run-simulation	2.0.0
+hmp report catchment --no-stream-run-logs	2.0.0
+hmp report catchment --no-strict-figure-postflight	2.0.0
+hmp report catchment --overview	2.0.0
+hmp report catchment --preset	2.0.0
+hmp report catchment --quiet	2.0.0
+hmp report catchment --report-only	2.0.0
+hmp report catchment --run-overview	2.0.0
+hmp report catchment --run-simulation	2.0.0
+hmp report catchment --station	2.0.0
+hmp report catchment --stream-run-logs	2.0.0
+hmp report catchment --strict	2.0.0
+hmp report catchment --strict-figure-postflight	2.0.0
+hmp report catchment --verbose	2.0.0
+hmp report catchment --verbosity	2.0.0
+hmp report catchment --workspace	2.0.0
+hmp report catchment -q	2.0.0
+hmp report catchment -v	2.0.0
+hmp report catchment -w	2.0.0
+hmp report compare	2.0.0
+hmp report compare --by	2.0.0
+hmp report compare --debug	2.0.0
+hmp report compare --format	2.0.0
+hmp report compare --quiet	2.0.0
+hmp report compare --to	2.0.0
+hmp report compare --variables	2.0.0
+hmp report compare --verbose	2.0.0
+hmp report compare --verbosity	2.0.0
+hmp report compare --workspace	2.0.0
+hmp report compare -q	2.0.0
+hmp report compare -v	2.0.0
+hmp report compare -w	2.0.0
+hmp report render	2.0.0
+hmp report render --debug	2.0.0
+hmp report render --format	2.0.0
+hmp report render --open	2.0.0
+hmp report render --quiet	2.0.0
+hmp report render --verbose	2.0.0
+hmp report render --verbosity	2.0.0
+hmp report render --workspace	2.0.0
+hmp report render -q	2.0.0
+hmp report render -v	2.0.0
+hmp report render -w	2.0.0
+hmp viz	2.0.0
+hmp viz list	2.0.0
+hmp viz list --debug	2.0.0
+hmp viz list --format	2.0.0
+hmp viz list --kind	2.0.0
+hmp viz list --quiet	2.0.0
+hmp viz list --run	2.0.0
+hmp viz list --verbose	2.0.0
+hmp viz list --verbosity	2.0.0
+hmp viz list --workspace	2.0.0
+hmp viz list -q	2.0.0
+hmp viz list -v	2.0.0
+hmp viz list -w	2.0.0
+hmp viz show	2.0.0
+hmp viz show --debug	2.0.0
+hmp viz show --format	2.0.0
+hmp viz show --opt	2.0.0
+hmp viz show --quiet	2.0.0
+hmp viz show --time	2.0.0
+hmp viz show --to	2.0.0
+hmp viz show --verbose	2.0.0
+hmp viz show --verbosity	2.0.0
+hmp viz show --workspace	2.0.0
+hmp viz show -q	2.0.0
+hmp viz show -v	2.0.0
+hmp viz show -w	2.0.0
+hydromodpy.core.contracts.data_cache_backend	2.0.0
+hydromodpy.core.io.http_client	2.0.0
+hydromodpy.core.io.pinned_download	2.0.0
+hydromodpy.data.registry	2.0.0
+hydromodpy.data.registry.backend	2.0.0
+hydromodpy.data.registry.cache_lifecycle	2.0.0
+hydromodpy.data.registry.cache_queries	2.0.0
+hydromodpy.data.registry.cache_store	2.0.0
+hydromodpy.data.registry.catalog_duckdb	2.0.0
+hydromodpy.data.registry.constants	2.0.0
+hydromodpy.data.registry.freeze	2.0.0
+hydromodpy.data.registry.input_cache	2.0.0
+hydromodpy.data.variables.crossings.manager	2.0.0
+hydromodpy.data.variables.dem.manager	2.0.0
+hydromodpy.data.variables.etp.manager	2.0.0
+hydromodpy.data.variables.geology.manager	2.0.0
+hydromodpy.data.variables.humidity.manager	2.0.0
+hydromodpy.data.variables.hydrography.manager	2.0.0
+hydromodpy.data.variables.hydrometry.manager	2.0.0
+hydromodpy.data.variables.intermittency.manager	2.0.0
+hydromodpy.data.variables.lake_abacus.manager	2.0.0
+hydromodpy.data.variables.lake_bathymetry.manager	2.0.0
+hydromodpy.data.variables.lake_geometry.manager	2.0.0
+hydromodpy.data.variables.lake_inflow.manager	2.0.0
+hydromodpy.data.variables.lake_levels.manager	2.0.0
+hydromodpy.data.variables.lake_outflow.manager	2.0.0
+hydromodpy.data.variables.lake_withdrawal.manager	2.0.0
+hydromodpy.data.variables.layer_base.manager	2.0.0
+hydromodpy.data.variables.oceanic.manager	2.0.0
+hydromodpy.data.variables.piezometry.manager	2.0.0
+hydromodpy.data.variables.precipitation.manager	2.0.0
+hydromodpy.data.variables.radiation.manager	2.0.0
+hydromodpy.data.variables.recharge.manager	2.0.0
+hydromodpy.data.variables.runoff.manager	2.0.0
+hydromodpy.data.variables.soil_capacity.manager	2.0.0
+hydromodpy.data.variables.soil_moisture.manager	2.0.0
+hydromodpy.data.variables.substratum.manager	2.0.0
+hydromodpy.data.variables.temperature.manager	2.0.0
+hydromodpy.data.variables.water_quality.manager	2.0.0
+hydromodpy.data.variables.wind.manager	2.0.0
+hydromodpy.data.workspace.custom_scan	2.0.0
+hydromodpy.display.calibration_report	2.0.0
+hydromodpy.display.catchment_report	2.0.0
+hydromodpy.display.catchment_report.artifacts	2.0.0
+hydromodpy.display.catchment_report.blocks	2.0.0
+hydromodpy.display.catchment_report.builder	2.0.0
+hydromodpy.display.catchment_report.context	2.0.0
+hydromodpy.display.catchment_report.inputs	2.0.0
+hydromodpy.display.catchment_report.pipeline	2.0.0
+hydromodpy.display.catchment_report.settings	2.0.0
+hydromodpy.display.catchment_report.simulation_source	2.0.0
+hydromodpy.display.overview.web	2.0.0
+hydromodpy.display.report_blocks	2.0.0
+hydromodpy.project.lock	2.0.0
+hydromodpy.workflow.steps.calibration	2.0.0
+report	2.0.0

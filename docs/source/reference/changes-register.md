@@ -11,7 +11,7 @@ the configuration. The `Numbers` section of the changelog is generated from the 
 and the recipes that change a number. Nobody writes this page: a row added to the register shows up
 here at the next build.
 
-A key that only a pre-release of 2.0 wrote has no row. It is refused since 2.1.0 with a message
+A key that only a pre-release of 2.0 wrote has no row. It is refused since 2.0.0 with a message
 that names every such key of the file, as {doc}`/about/versions` says.
 
 ## Bugs

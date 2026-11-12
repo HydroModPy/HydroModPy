@@ -357,8 +357,8 @@ def test_a_key_under_a_misplaced_table_header_is_refused() -> None:
 def test_the_former_timestep_key_is_refused_as_an_option_the_figure_does_not_take(
     table: dict,
 ) -> None:
-    # A file that writes it is refused earlier, by the loader, with the way to the doctor
-    # of a 2.0.x release. A DisplayConfig built from a dict refuses it as any other key.
+    # A file that writes it is refused earlier, by the loader, which names the key. A
+    # DisplayConfig built from a dict refuses it as any other key.
     with pytest.raises(ValidationError) as caught:
         DisplayConfig(overrides={"cross_section": table})
 

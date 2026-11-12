@@ -126,7 +126,7 @@ def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) ->
         main()
 
     request = captured["request"]
-    # ``[modflow6]`` moved to ``[solver.modflow6]`` in 2.1.0: each file is migrated on its
+    # ``[modflow6]`` moved to ``[solver.modflow6]`` in 2.0.0: each file is migrated on its
     # own. The document holds the base and its overlay, and ``--set`` rides beside it, the
     # environment winning over it, as the loader applies them last.
     assert request.config["solver"]["modflow6"]["runtime"]["mf6_ims_complexity"] == "MODERATE"

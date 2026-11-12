@@ -1,8 +1,7 @@
-"""A key only a pre-release of 2.0 wrote is refused, with every such key and the way out.
+"""A key only a pre-release of 2.0 wrote is refused, with every such key.
 
 Each line of ``hydromodpy/config/prerelease_forms.txt`` is one case: the key written in
-a document of its own, which a load refuses with its path and the doctor of 2.0.x. The
-doctor of this version writes nothing on such a file, a sealed run that holds one is
+a document of its own, which a load refuses with its path. The doctor of this version writes nothing on such a file, a sealed run that holds one is
 refused the same way, and ``--set`` is refused without a file to rewrite.
 """
 
@@ -34,7 +33,7 @@ from hydromodpy.core.version import __version__
 from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.schema.changes import REGISTER, migrations_of, outlived, removal_of
 
-WAY_OUT = 'pip install "hydromodpy~=2.0.0"'
+NO_REWRITE = "This version does not rewrite the file."
 
 
 def _written(form: PrereleaseForm) -> tuple[dict[str, Any], str]:
@@ -80,8 +79,8 @@ def test_a_pre_release_form_is_refused_with_its_path_and_the_way_out(
     told = str(refused.value)
     assert told.startswith(f"{source} holds ")
     assert label in told
-    assert WAY_OUT in told
-    assert "hmp doctor --fix-config" in told
+    assert NO_REWRITE in told
+    assert "hmp doctor" not in told
 
 
 def test_the_list_holds_each_form_once() -> None:
@@ -89,8 +88,8 @@ def test_the_list_holds_each_form_once() -> None:
     assert len({(form.path, repr(form.value)) for form in PRERELEASE_FORMS}) == 175
 
 
-def test_the_list_leaves_two_minor_versions_after_2_1() -> None:
-    assert not outlived("2.1.0", __version__), (
+def test_the_list_leaves_two_minor_versions_after_2_0() -> None:
+    assert not outlived("2.0.0", __version__), (
         f"HydroModPy {__version__} still refuses the forms of a pre-release. Delete "
         f"hydromodpy/config/{PRERELEASE_FORMS_FILENAME}, PRERELEASE_FORMS and their readers: "
         "a file of a pre-release is then refused as any unknown key."
@@ -101,7 +100,7 @@ def test_the_recipe_of_the_list_names_its_count_and_the_version_it_leaves() -> N
     recipe = next(row for row in REGISTER.recipes if row.id == "prerelease_forms_refused")
 
     assert f"one of the {len(PRERELEASE_FORMS)} keys" in recipe.text
-    assert f"it leaves in {removal_of('2.1.0')}." in recipe.text
+    assert f"it leaves in {removal_of('2.0.0')}." in recipe.text
 
 
 def test_a_value_form_refuses_its_value_and_no_other() -> None:
@@ -155,7 +154,7 @@ def test_each_refused_key_carries_its_pointer_and_the_file(tmp_path: Path) -> No
         "/flow/active_bc",
     ]
     assert {entry["type"] for entry in payload["details"]} == {"prerelease_form"}
-    assert all(WAY_OUT in entry["msg"] for entry in payload["details"])
+    assert all(NO_REWRITE in entry["msg"] for entry in payload["details"])
 
 
 def test_a_sealed_refusal_points_at_each_key_and_names_no_file() -> None:
@@ -580,7 +579,7 @@ def test_a_text_of_the_alphas_is_refused_with_every_key_it_holds(
     told = str(refused.value)
     for key in keys:
         assert key in told
-    assert told.count(WAY_OUT) == 1
+    assert told.count(NO_REWRITE) == 1
 
 
 @pytest.mark.parametrize(
@@ -633,7 +632,7 @@ def test_a_document_a_pre_release_sealed_is_refused_with_every_key_it_holds(
     assert told.startswith("a sealed run config holds ")
     for key in keys:
         assert key in told
-    assert told.count(WAY_OUT) == 1
+    assert told.count(NO_REWRITE) == 1
 
 
 @pytest.mark.parametrize("buffer", [5, 10, 10.0, 12.5])
@@ -658,7 +657,7 @@ def test_a_sealed_run_of_a_pre_release_is_refused_the_same_way() -> None:
         migrate_sealed_config_doc(sealed)
 
     assert str(refused.value).startswith("a sealed run config holds flow.active_bc,")
-    assert WAY_OUT in str(refused.value)
+    assert NO_REWRITE in str(refused.value)
 
 
 def test_a_sealed_snapshot_keeps_naming_its_project() -> None:
@@ -733,4 +732,4 @@ def test_hmp_doctor_on_a_file_of_a_pre_release_says_the_way_out(
     assert stopped.value.code == EXIT_CONFIG
     assert path.read_text() == written
     captured = capsys.readouterr()
-    assert WAY_OUT in captured.out + captured.err
+    assert NO_REWRITE in captured.out + captured.err

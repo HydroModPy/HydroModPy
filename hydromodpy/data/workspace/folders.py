@@ -83,7 +83,7 @@ CLEAN_GROUPS: tuple[str, ...] = (
 )
 """Rebuildable families ``clean_workspace`` removes; results go to the trash, never here.
 
-``data_cache`` is ``data/blobs/`` and the database file of HydroModPy 2.0.0 with its journal
+``data_cache`` is ``data/blobs/`` and the database file of a pre-release of 2.0 with its journal
 and lock. The sidecars and the files they describe are the cache itself: ``hmp data remove``
 and ``hmp data prune`` drop them, a clean never does.
 """
@@ -126,7 +126,7 @@ def clean_workspace(
     """Remove what a workspace can rebuild.
 
     ``groups`` selects which families to remove: ``data_cache`` (``data/blobs/`` and the
-    database of HydroModPy 2.0.0, which ``scan`` refuses), ``runtime`` (``.hmp/``) and
+    database of a pre-release of 2.0, which ``scan`` refuses), ``runtime`` (``.hmp/``) and
     ``scratch`` (``.hmp/scratch``). Runs and sessions are
     never removed here: ``hmp workspace clean --results`` moves them to the
     trash. Default is empty (the caller passes at least one group, or

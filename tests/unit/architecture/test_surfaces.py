@@ -413,7 +413,7 @@ def test_only_a_row_that_rewrites_counts_as_a_migration(
         ("modflow6.sgrid.vertical.nlay", True, True),
         # Retired with a rule that writes the key elsewhere.
         ("geographic.catchment.dem_init_path", True, False),
-        # Written by hmp init of 2.0.0, so a row of 2.0.0 and no line.
+        # Written by hmp init of a pre-release, so it has a row of 2.0.0 and no line.
         ("simulation.process.type", True, False),
         # The parent of a moved table is not moved with it.
         ("flow", False, False),
@@ -475,7 +475,7 @@ HOMES = {
 KEPT_READERS = ("read", "index", "Catalog")
 
 
-"""The three readers kept beside the verbs, because the frozen runs of 2.0.0 call them."""
+"""The three readers kept beside the verbs, because the frozen runs of a pre-release of 2.0 call them."""
 
 
 COMMANDS = {
@@ -888,62 +888,20 @@ def test_each_default_that_moved_since_2_0_0_has_its_row(fields_since_2_0_0: dic
 
     assert missing == [], (
         "A default moved without its row. Write a [[default]] row in "
-        "hydromodpy/schema/changes.toml whose old value keeps the computation of 2.0.0."
+        "hydromodpy/schema/changes.toml whose old value keeps the computation of a pre-release."
     )
 
 
 _UNSET = "not set"
 
 
-_A_SOURCE_PIN = (
-    "Unset, the source reads no remote file and pins nothing: a file of 2.0 never wrote it."
-)
-
-
-_A_RUN_BUDGET = "Unset, a trial runs with no wall-clock limit, as in 2.0."
-
-
-# Each field new since 2.0.0, by the path the registry of fields writes, with the default
-# it has and why that default keeps the computation of a file of edition 2.0. The replay
-# of a sealed run reads a key its frozen config does not write at this default, so a new
-# field that would move a number needs a [[default]] row instead of a line here.
-NEW_FIELDS: dict[str, tuple[Any, str]] = {
-    "data.*.sources.license": (_UNSET, "Written to the sidecar only, it reads no number."),
-    "data.*.sources.sha256": (_UNSET, _A_SOURCE_PIN),
-    "data.*.sources.url": (_UNSET, _A_SOURCE_PIN),
-    "edition": ("2.0", "A file that writes none is read with the defaults of 2.0."),
-    "export.deliver_to": (
-        _UNSET,
-        "Unset, a block delivers nothing, as a block of 2.0 did; the file it writes is the same.",
-    ),
-    "data.dem.sources.state": (
-        "raw",
-        "Raw, so HydroModPy conditions the DEM as a file of 2.0 did; a file of 2.0 wrote no state.",
-    ),
-    "solver.boussinesq.exchange_mesh": (
-        _UNSET,
-        "Unset, the Boussinesq solver reads the cell mesh of its model, as in 2.0.",
-    ),
-    "solver.boussinesq.wall_clock_limit_s": (_UNSET, _A_RUN_BUDGET),
-    "solver.modflow_nwt.wall_clock_limit_s": (_UNSET, _A_RUN_BUDGET),
-    "solver.linear_reservoir": (
-        None,
-        "The table of a new backend, read only when solver.backend names it.",
-    ),
-    "simulation.results.keep_face_flows": (
-        False,
-        "False, a run keeps no inter-cell flow, as a file of 2.0 did.",
-    ),
-    "simulation.time.window": ("all", "Absent, the run is one window, as in 2.0."),
-    "simulation.time.window_length": (
-        _UNSET,
-        "Unset, the run is not cut into windows, as in 2.0.",
-    ),
-    "workspace.products_cap_mb": (
-        5000,
-        "A file of 2.0 wrote no store, and the cap is far above it: nothing is evicted, so a run reads the same mesh and soil bytes.",
-    ),
-}
+# Each field new since the baseline, by the path the registry of fields writes, with the
+# default it has and why that default keeps the computation of a file of edition 2.0. The
+# replay of a sealed run reads a key its frozen config does not write at this default, so a
+# new field that would move a number needs a [[default]] row instead of a line here.
+# The baseline is the tree prepared for the 2.0.0 tag, so the table is empty until a field
+# is added after the tag.
+NEW_FIELDS: dict[str, tuple[Any, str]] = {}
 
 
 def _reviewed(path: str) -> tuple[Any, str] | None:
@@ -974,7 +932,7 @@ def test_each_field_new_since_2_0_0_keeps_the_numbers_of_2_0_at_its_default(
 
     assert faults == [], (
         "A field new since 2.0.0 has no reviewed default. Add its line to NEW_FIELDS with "
-        "the reason its default keeps the numbers of 2.0, or write a [[default]] row in "
+        "the reason its default keeps the numbers of a pre-release of 2.0, or write a [[default]] row in "
         "hydromodpy/schema/changes.toml."
     )
     assert unused == [], f"{unused} match no field new since 2.0.0: remove their lines."

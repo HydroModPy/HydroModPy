@@ -33,8 +33,8 @@ from hydromodpy.results.storage.json_io import read_json, write_json_atomic
 PLAN_SCHEMA: Final[str] = "hydromodpy.plan.v2"
 
 PLAN_REMEDY: Final[str] = (
-    "A plan of HydroModPy 2.1 keeps its cases in cases.csv beside plan.json, where 2.0 "
-    "wrote sites.parquet and cases.parquet. Write it again with hmp project plan <project>."
+    "A plan keeps its cases in cases.csv beside plan.json. A plan of a pre-release has "
+    "sites.parquet and cases.parquet instead. Write it again with hmp project plan <project>."
 )
 
 CASE_TOML_SUFFIX: Final[str] = ".toml"
@@ -144,7 +144,7 @@ def write_plan(
 
 
 def read_plan(project_root: str | Path, plan_hash: str | None = None) -> StoredPlan:
-    """Read ``plan/<hash>/`` or the current plan; a plan of 2.0 is refused with its remedy."""
+    """Read ``plan/<hash>/`` or the current plan; a plan of a pre-release is refused with its remedy."""
     chosen = plan_hash if plan_hash is not None else current_plan_hash(project_root)
     if chosen is None:
         raise FileNotFoundError(f"no plan under {plan_dir_for(Path(project_root))}")

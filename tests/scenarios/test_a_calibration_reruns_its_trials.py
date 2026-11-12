@@ -3,7 +3,7 @@
 ``hmp calibrate calib.toml`` plays a grid of three values. The first trial of a lane
 builds its MODFLOW 6 model, and a trial that moves only K or Sy runs the previous
 trial of the lane again through ``rerun``. The first case is the steady island that
-calibrates K, and its three costs are the ones the 2.0.0 wrote, to the last bit. The
+calibrates K, and its three costs are the ones a pre-release wrote, to the last bit. The
 second case is the transient island of three months that calibrates Sy, starting from
 the head rule and never from a steady or a cyclic start, which ``rerun`` refuses.
 
@@ -26,7 +26,7 @@ from tests.scenarios.factory import island_files
 from tests.scenarios.launcher import Scenario, play
 
 REFERENCE_COSTS = (4.946107160722614, 0.945487753170152, 0.8971488644483185)
-"""The three costs of the ``calage`` reference of 2.0.0, read in its journal."""
+"""The three costs of the ``calage`` reference of a pre-release, read in its journal."""
 
 
 def _play(variant: str, tmp_path: Path, scenario_env, scenario_cache) -> tuple[Path, list[dict]]:
@@ -57,7 +57,7 @@ def _finished(lines: list[dict]) -> dict[int, dict]:
     return {line["trial"]: line for line in lines if line["event"] == "finished"}
 
 
-def test_the_calage_trials_cost_what_2_0_0_cost_and_rerun_after_the_first(
+def test_the_calage_trials_cost_what_a_pre_release_cost_and_rerun_after_the_first(
     tmp_path: Path, scenario_env, scenario_cache
 ) -> None:
     session, lines = _play("calage", tmp_path, scenario_env, scenario_cache)

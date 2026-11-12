@@ -278,10 +278,10 @@ SESSION_TRIALS_FILENAME = "trials.jsonl"
 """Trial journal of one session, appended one JSON object per line as it runs."""
 
 SESSION_TRIAL_SERIES_DIRNAME = "trial_series"
-"""Opt-in per-trial simulated/observed series, one Parquet file per trial.
+"""Per-trial simulated/observed series, one Parquet file per trial.
 
-Written only when ``[calibration].persist_trial_series`` is on. Absent
-otherwise: a session folder with no such directory simply did not opt in."""
+Written when ``[calibration].persist_trial_series`` is on, the default. Absent
+otherwise: a session folder with no such directory turned it off."""
 
 SESSION_CONFIG_FILENAME = "config.toml"
 """Frozen resolved configuration of the calibrated case, the base of a promotion."""

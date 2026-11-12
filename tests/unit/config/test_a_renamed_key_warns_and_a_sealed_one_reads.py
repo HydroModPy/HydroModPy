@@ -1,6 +1,6 @@
 """A key the register moves warns in a file, the doctor rewrites it, a sealed run reads it.
 
-The frame is played on a register written for the case, whose rows are of 2.1.0 and name
+The frame is played on a register written for the case, whose rows are of a later version and name
 keys that exist nowhere in the models, passed to the migration as an argument. What reads
 a whole file plays on the row the shipped register carries, ``[modflow6]`` to
 ``[solver.modflow6]``. A key that only a pre-release of 2.0 wrote is refused, and each of
@@ -110,9 +110,9 @@ name = "matching_hydrographic_network"
 """
 
 
-WAY_OUT = 'pip install "hydromodpy~=2.0.0"'
+NO_REWRITE = "This version does not rewrite the file."
 
-# Rows of 2.1.0 for keys that exist nowhere in the models: each one is a stand-in move.
+# Rows of a later version for keys that exist nowhere in the models: each one is a stand-in move.
 # One more is a key that left, and one is a move that is past its delay. A row of its own,
 # which names a rule that cannot rewrite, stands beside them.
 ROWS = """\
@@ -214,8 +214,8 @@ def test_the_message_names_the_new_key_and_the_way_out() -> None:
 
     assert text.startswith("renamed to 'max_trials' (the evaluations the search may run). ")
     assert "max_iter" in text
-    assert WAY_OUT in text
-    assert "hmp doctor --fix-config" in text
+    assert NO_REWRITE in text
+    assert "hmp doctor" not in text
 
 
 def test_the_doctor_renames_a_key_of_a_section_a_phase_a_protocol_and_a_parameter(
@@ -331,9 +331,9 @@ def test_a_moved_table_warns_in_a_file_and_reads_in_silence_in_a_sealed_run_conf
 
 def test_a_file_that_writes_only_current_forms_is_left_alone(tmp_path: Path) -> None:
     """Each current shape sits beside the one a pre-release wrote, and says nothing."""
-    # The edition is written, so no default of an earlier edition is written out.
+    # The edition is written, so the file holds every key a load reads.
     document = {
-        "edition": "2.1",
+        "edition": "2.0",
         "export": [{"variables": ["head"], "format": "netcdf", "time": "last"}],
         "flow": {
             "ic": {"kind": "steady_state", "source": "mean_recharge"},
@@ -434,7 +434,7 @@ def test_a_pre_release_run_is_refused_whether_it_is_sealed_or_not(tmp_path: Path
         with pytest.raises(ConfigValidationError, match="written by a pre-release") as refused:
             HydroModPyConfig.from_toml(source)
         assert "calibration.outputs.seepage_network.observed_network" in str(refused.value)
-        assert WAY_OUT in str(refused.value)
+        assert NO_REWRITE in str(refused.value)
 
 
 def test_a_moved_table_keeps_its_comments(tmp_path: Path) -> None:

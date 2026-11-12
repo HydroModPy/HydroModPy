@@ -44,7 +44,7 @@ def concentration_array(root: Any) -> Any:
     """Return the stored concentration array of a run, at the path it holds.
 
     The extractor writes one solute, named by ``spc_name``, under the
-    ``concentration`` subgroup, and a store written by 2.0.0 wrote the array
+    ``concentration`` subgroup, and a store written by a pre-release wrote the array
     straight under ``concentration``. Every reader of the public name goes
     through here, so both forms read the same way, and a group that carries
     more than one solute is refused with their names, because one run holds

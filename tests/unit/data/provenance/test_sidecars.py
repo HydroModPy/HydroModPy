@@ -135,7 +135,7 @@ def test_sidecar_accepts_omitted_fetched_at(tmp_path: Path):
 def test_resolve_fetched_at_user_file_is_none(monkeypatch: pytest.MonkeyPatch):
     """A user file always returns ``None``, in any case and regardless of the env var.
 
-    ``custom`` is a 2.0.0 spelling the register of changes turns into ``file``
+    ``custom`` is a spelling of a pre-release that the register of changes turns into ``file``
     before any sidecar is written, so it never reaches this function.
     """
     monkeypatch.delenv(DETERMINISTIC_FETCHED_AT_ENV, raising=False)
@@ -291,7 +291,9 @@ def test_a_sidecar_is_read_under_the_names_the_register_gives(
 
 
 def test_load_sidecar_from_v2_corpus_read_only():
-    corpus_root = Path(__file__).resolve().parents[3] / "regression" / "frozen_documents" / "v2.0.0"
+    corpus_root = (
+        Path(__file__).resolve().parents[3] / "regression" / "frozen_documents" / "v2.0.0-pre"
+    )
     piezo = (
         corpus_root / "current" / "island" / "data" / "piezometry" / "piezometry_custom_W1_D.csv"
     )
@@ -482,7 +484,7 @@ def test_the_scan_sorts_every_sidecar(tmp_path: Path) -> None:
     assert report.orphans == (sidecar_path_for(orphan),)
     assert [path for path, _ in report.unreadable] == [sidecar_path_for(broken)]
     assert len(report.lines()) == 3
-    assert "2.0.0" in report.lines()[0]
+    assert "pre-release of 2.0" in report.lines()[0]
 
 
 def test_a_missing_data_folder_has_no_rows(tmp_path: Path) -> None:

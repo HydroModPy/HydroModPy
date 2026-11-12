@@ -107,10 +107,10 @@ LEFT_BEFORE_2_0: dict[str, str] = {
 }
 """The names the top level gave up before 2.0.0, with where they are now."""
 
-# The public modules retired in 2.1.0, with what answers in their place. The fetch
+# The public modules retired in 2.0.0, with what answers in their place. The fetch
 # rework retired the first three, the data cache lost its database, and the module of
 # each data variable is variable.py.
-REFUSED_IN_2_1_0: dict[str, str] = {
+RETIRED_MODULES: dict[str, str] = {
     "hydromodpy.core.io.http_client": "hydromodpy.core.io.fetch",
     "hydromodpy.core.io.pinned_download": "hydromodpy.core.io.fetch",
     "hydromodpy.data.workspace.custom_scan": "hydromodpy.data.source.file",
@@ -169,6 +169,6 @@ REFUSED_IN_2_1_0: dict[str, str] = {
     "hydromodpy.display.report_blocks": "hydromodpy.display.report.engine",
     "hydromodpy.workflow.steps.calibration": "hydromodpy.project.report",
 }
-"""The public modules retired in 2.1.0, with the module that answers in their place."""
+"""The public modules retired in 2.0.0, with the module that answers in their place."""
 
-__all__ = ["LEFT_BEFORE_2_0", "REFUSED_IN_2_1_0"]
+__all__ = ["LEFT_BEFORE_2_0", "RETIRED_MODULES"]

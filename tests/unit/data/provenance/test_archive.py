@@ -179,7 +179,7 @@ def test_an_archive_without_its_lockfile_is_refused(tmp_path: Path) -> None:
         restore_archive(bare, tmp_path / "restored")
 
 
-def test_an_archive_of_2_0_0_is_refused_by_its_lockfile(tmp_path: Path) -> None:
+def test_an_archive_of_a_pre_release_is_refused_by_its_lockfile(tmp_path: Path) -> None:
     old = tmp_path / "old"
     old.mkdir()
     (old / LOCKFILE_NAME).write_text('schema = "hydromodpy.lock.v1"\n')

@@ -201,14 +201,14 @@ def test_a_moved_key_is_listed_as_still_loading_and_not_breaking(
     assert "tc-req" not in html
 
 
-def test_a_pre_release_key_is_marked_refused_since_2_1_0(
+def test_a_pre_release_key_is_marked_refused_since_2_0_0(
     monkeypatch: pytest.MonkeyPatch, ext_path: None
 ) -> None:
     import hmp_params
 
     html = _block(hmp_params, monkeypatch, removed=["calibration.optimizer_kwargs"])
 
-    assert "refused since 2.1.0" in html
+    assert "refused since 2.0.0" in html
     assert "the message names each such key" in html
     assert 'tc-req">breaking' in html
 

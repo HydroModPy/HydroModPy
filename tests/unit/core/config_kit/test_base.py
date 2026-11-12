@@ -47,7 +47,7 @@ class _Cfg(HydroModelBase):
 
 # A key the model does not hold is refused, whether it is a typo, a key the model dropped
 # or an old spelling of a key. A pre-release spelling is refused earlier, by the loader of a
-# file, with the sentence that names the doctor of a 2.0.x release.
+# file, with the sentence that names every such key.
 @pytest.mark.parametrize("key", ["enginee", "old_flag", "method"])
 def test_an_unknown_key_is_refused(key: str) -> None:
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):

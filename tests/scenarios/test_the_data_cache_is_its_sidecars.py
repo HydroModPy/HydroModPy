@@ -9,7 +9,7 @@ checks, in order:
    the same replay and ``--check`` refuse it, and the file comes back.
 4. ``hmp data prune`` removes a fetched file that nothing cites, keeps the cited
    file and names it.
-5. A copy of the island of the 2.0.0 corpus is refused by the scan, then read once
+5. A copy of the island of the pre-release corpus is refused by the scan, then read once
    its database is gone, and its v1 lockfile is refused with the new command.
 """
 
@@ -49,7 +49,7 @@ CORPUS_ISLAND = (
     Path(__file__).resolve().parents[1]
     / "regression"
     / "frozen_documents"
-    / "v2.0.0"
+    / "v2.0.0-pre"
     / "current"
     / "island"
 )
@@ -248,7 +248,7 @@ def test_the_data_cache_is_its_sidecars(
     assert [row.sha256 for row in scan(data).rows] == [digest]
 
 
-def test_the_island_of_the_2_0_0_corpus_is_refused(tmp_path: Path) -> None:
+def test_the_island_of_the_pre_release_corpus_is_refused(tmp_path: Path) -> None:
     island = tmp_path / "island"
     shutil.copytree(CORPUS_ISLAND, island)
     database = island / "data" / FORMER_CACHE_DATABASE
@@ -262,7 +262,7 @@ def test_the_island_of_the_2_0_0_corpus_is_refused(tmp_path: Path) -> None:
     assert database.is_file(), "the refusal must not repair or move the database"
 
     # Without the database the sidecars speak for themselves. The file of the user
-    # is no row, and a sidecar the 2.0.0 wrote without its variable is named.
+    # is no row, and a sidecar a pre-release wrote without its variable is named.
     for stale in database.parent.glob(f"{FORMER_CACHE_DATABASE}*"):
         stale.unlink()
     report = scan(island / "data")

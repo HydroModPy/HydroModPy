@@ -233,8 +233,7 @@ class TestMethodConfig:
 # ``max_iter`` counted evaluations, and ``maxfev``, ``max_evaluations`` and
 # gp_mapping's own ``max_iter`` counted them too, under four names that did not
 # agree about what an iteration was. A key renamed or removed is refused with the
-# name that replaces it and the way to the doctor of a 2.0.x release, which rewrites
-# the file.
+# name that replaces it, and the file is not rewritten.
 
 
 PROTOCOL = "matching_hydrographic_network"
@@ -249,7 +248,7 @@ def test_the_section_refuses_max_iter_and_names_max_trials() -> None:
         CalibrationConfig.model_validate({"max_iter": 30})
 
     assert "'max_trials'" in str(e.value)
-    assert "hmp doctor --fix-config" in str(e.value)
+    assert "This version does not rewrite the file." in str(e.value)
     assert CalibrationConfig.model_validate({"max_trials": 30}).max_trials == 30
 
 
@@ -344,7 +343,7 @@ def test_a_frozen_protocol_run_with_the_old_budget_keys_is_refused_with_the_way_
     with pytest.raises(ConfigValidationError, match="written by a pre-release of 2.0") as refused:
         HydroModPyConfig.from_toml(sealed)
 
-    assert 'pip install "hydromodpy~=2.0.0"' in str(refused.value)
+    assert "This version does not rewrite the file." in str(refused.value)
     document = tomllib.loads(old)
     with pytest.raises(ConfigValidationError):
         HydroModPyConfig.from_dict(document, base_dir=project)

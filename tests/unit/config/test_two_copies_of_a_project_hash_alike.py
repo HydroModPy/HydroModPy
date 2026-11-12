@@ -30,7 +30,7 @@ def _project(root: Path) -> Path:
     return root / "project.toml"
 
 
-EDITION = "2.1"
+EDITION = "2.0"
 
 
 def _config_hash(path: Path) -> str:

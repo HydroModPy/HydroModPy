@@ -1,13 +1,13 @@
-"""The documents of 2.0.0 that no frozen run holds, read back by the readers of today.
+"""The documents written before the 2.0.0 tag that no frozen run holds, read back by the readers of today.
 
-``v2.0.0/current`` holds a published copy and its ``published.jsonl``, two install
+``v2.0.0-pre/current`` holds a published copy and its ``published.jsonl``, two install
 indexes, a plan, a lockfile, three sidecars, two data cache databases, the trial series
 of a session, a sealed job with its chain report, and a site catalog. ``expected.json``
 holds what the raw files say, read without these readers when the tree was written by
 ``python -m tools.freeze_documents``. The job comes from a capability ``demo`` that the
-generator declares. No test writes under ``v2.0.0/``: every test reads a copy.
+generator declares. No test writes under ``v2.0.0-pre/``: every test reads a copy.
 
-HydroModPy 2.1 reads four of these forms no more, and the table ``REFUSALS`` holds
+This version reads four of these forms no more, and the table ``REFUSALS`` holds
 one row for each. The lockfile is schema v1 and is refused with the sentence that
 names ``hmp data lock``. The plan is schema v1 and is refused with the sentence that
 names ``hmp project plan``. The published journal of the run is schema v1 and is
@@ -59,7 +59,7 @@ from hydromodpy.schema.job.request import read_request
 from hydromodpy.schema.job.seal import read_job_seal, verify_job
 from hydromodpy_annex.schema.job_chain.chain import read_chain_outcome
 
-FROZEN = Path(__file__).parent / "v2.0.0"
+FROZEN = Path(__file__).parent / "v2.0.0-pre"
 FROZEN_RUNS = Path(__file__).resolve().parents[1] / "frozen_runs" / "v2.0.0"
 RUN_COPIES = ("current", "future")
 EXPECTED: dict[str, Any] = json.loads((FROZEN / "expected.json").read_text(encoding="utf-8"))
@@ -130,17 +130,17 @@ def test_install_index(corpus: Path, folder: str) -> None:
 @pytest.mark.parametrize("sidecar", sorted(EXPECTED["sidecar"]))
 def test_sidecar(corpus: Path, sidecar: str) -> None:
     data_file = corpus / sidecar.removesuffix(".json")
-    # A field 2.1 added reads as its default, which the raw file does not state.
+    # A field a later version added reads as its default, which the raw file does not state.
     read = load_sidecar(data_file).model_dump(mode="json", exclude_defaults=True)
     raw = EXPECTED["sidecar"][sidecar]
     expected = {key: value for key, value in raw.items() if value is not None}
-    # 2.1.0 renamed the local source: a sidecar of 2.0.0 that says "custom" reads as "file".
+    # The local source was renamed: a sidecar of a pre-release that says "custom" reads as "file".
     if expected.get("source") == "custom":
         expected["source"] = "file"
     assert {key: value for key, value in read.items() if value is not None} == expected
 
 
-# ------------------------------------------------------------- the documents 2.1 refuses
+# ------------------------------------------------------------- the documents this version refuses
 
 ISLAND_CACHE = f"island/data/{FORMER_CACHE_DATABASE}"
 """The one data cache database of the corpus that a data folder holds."""
@@ -148,7 +148,7 @@ ISLAND_CACHE = f"island/data/{FORMER_CACHE_DATABASE}"
 
 @dataclass(frozen=True)
 class Refusal:
-    """One document of 2.0.0 that 2.1 reads no more, and the sentence that refuses it.
+    """One document of a pre-release of 2.0 that this version reads no more, and the sentence that refuses it.
 
     ``document`` is the id of ``documents-2.0.0``, ``path`` the file in the corpus,
     ``read`` the reader of today called with that file, and ``fragments`` what the
@@ -236,7 +236,9 @@ def _refusal_message(row: Refusal, corpus: Path) -> str:
 
 
 @pytest.mark.parametrize("row", REFUSALS, ids=lambda row: row.document)
-def test_a_document_of_2_0_0_is_refused_with_the_form_of_2_1(corpus: Path, row: Refusal) -> None:
+def test_a_document_before_the_2_0_0_tag_is_refused_with_its_current_form(
+    corpus: Path, row: Refusal
+) -> None:
     """The sentence names the version it read and what to do, and the raw file says that version."""
     message = _refusal_message(row, corpus)
     for fragment in row.fragments:
@@ -288,7 +290,7 @@ def test_every_refusal_names_a_command_that_exists(corpus: Path) -> None:
 def test_the_island_sidecars_sort_into_rows_user_files_and_the_unnamed(
     corpus: Path, tmp_path: Path
 ) -> None:
-    """Once the database is removed, the sidecars of 2.0.0 are read by the rules of 2.1."""
+    """Once the database is removed, the sidecars of the corpus are read by the rules of today."""
     data = tmp_path / "data"
     shutil.copytree(corpus / "island" / "data", data)
     (data / FORMER_CACHE_DATABASE).unlink()
@@ -321,7 +323,7 @@ def _copy_of_the_journal_session(copy: str, tmp_path: Path) -> Path:
 
 @pytest.mark.parametrize("copy", RUN_COPIES)
 def test_a_2_0_journal_reads_as_finished_trials(copy: str, tmp_path: Path) -> None:
-    """A line of the 2.0.0 journal has no event and reads as ``finished``, without rewrite."""
+    """A line of the journal of the corpus has no event and reads as ``finished``, without rewrite."""
     expected = json.loads((FROZEN_RUNS / "expected.json").read_text(encoding="utf-8"))["session"]
     session = _copy_of_the_journal_session(copy, tmp_path)
     before = (session / "trials.jsonl").read_bytes()
@@ -347,7 +349,7 @@ def test_the_frozen_journals_are_untouched_by_the_reader() -> None:
 
 
 def test_trial_series_files_of_2_0_0_carry_no_version_key(corpus: Path) -> None:
-    """The footer of a 2.0.0 series has no ``hmp.schema_version``, and the reader accepts it."""
+    """The footer of a series of the corpus has no ``hmp.schema_version``, and the reader accepts it."""
     folder = corpus / "island" / "sessions" / "calage" / "trial_series"
     files = sorted(folder.glob("trial-*.parquet"))
     assert len(files) == 3

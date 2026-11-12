@@ -17,7 +17,7 @@ A seal compares values, not files. Three sources feed the one rule of
   written beside the schemas.
 
 :func:`run_value_digests` takes all three at the seal. :func:`stored_value_digests`
-reads the disk alone, for a 2.0.0 source and for a replay.
+reads the disk alone, for a source of a pre-release and for a replay.
 :func:`value_deltas` measures the keys that differ between two run directories.
 """
 

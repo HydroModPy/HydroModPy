@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from hydromodpy.results.run.view import Run
 
-# 2.1.0 adds read, table, figure and show, the reads behind hydromodpy.show, and no old name died.
+# This version adds read, table, figure and show, the reads behind hydromodpy.show, and no old name died.
 MAX_PUBLIC_METHODS = 54
 
 

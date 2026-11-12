@@ -864,7 +864,7 @@ def test_two_outputs_on_one_family_load_its_records_once() -> None:
 # ---------------------------------------------------------------------------
 
 # From test_persist_trial_series.py
-# persist_trial_series: opt-in, off by default, and a real capture at scoring time.
+# persist_trial_series: on by default, and a real capture at scoring time.
 #
 # Three layers are covered without a solver, the way
 # ``test_metrics_observable_scoring.py`` scores

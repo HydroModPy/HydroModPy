@@ -164,12 +164,13 @@ def test_every_fault_is_told_at_once() -> None:
 
 
 HITS = (
-    ("a version in the set, a quantity it touches", "2.0.0", ("metrics",), True),
-    ("a pre-release in the set", "2.0.0rc1", ("metrics",), True),
-    ("a pre-release of the fix, which PEP 440 leaves out", "2.1.0rc1", ("metrics",), False),
-    ("the version of the fix", "2.1.0", ("metrics",), False),
-    ("another quantity", "2.0.0", ("heads@modflow6",), False),
-    ("one quantity of several", "2.0.0", ("heads@modflow6", "metrics"), True),
+    ("the first pre-release in the set, a quantity it touches", "2.0.0a1", ("metrics",), True),
+    ("the last pre-release in the set", "2.0.0rc1", ("metrics",), True),
+    ("a dev version before the first pre-release", "2.0.0.dev0", ("metrics",), False),
+    ("the dev version after the last pre-release", "2.0.0rc2.dev0", ("metrics",), False),
+    ("the version of the fix", "2.0.0", ("metrics",), False),
+    ("another quantity", "2.0.0a5", ("heads@modflow6",), False),
+    ("one quantity of several", "2.0.0a5", ("heads@modflow6", "metrics"), True),
 )
 
 
@@ -180,7 +181,9 @@ def test_a_bug_hits_a_run_of_its_versions_that_exposes_its_quantities(
     case: str, version: str, quantities: tuple[str, ...], hit: bool
 ) -> None:
     del case
-    bug = Bug(id="b", since="2.1.0", versions="<2.1.0", quantities=("metrics",), text="t")
+    bug = Bug(
+        id="b", since="2.0.0", versions=">=2.0.0a1,<=2.0.0rc1", quantities=("metrics",), text="t"
+    )
 
     assert bug.hits(version, quantities) is hit
 
@@ -229,6 +232,11 @@ def test_the_editions_are_the_first_one_and_each_edition_of_a_default() -> None:
     assert editions(read(HEAD)) == ("2.0",)
 
 
+def test_this_version_serves_one_edition_and_moves_no_default() -> None:
+    assert REGISTER.defaults == ()
+    assert editions() == (FIRST_EDITION,) == ("2.0",)
+
+
 def test_the_rows_of_one_document_come_in_the_order_of_the_file() -> None:
     register = read(
         HEAD
@@ -253,12 +261,12 @@ def test_a_migration_row_has_one_shape(row: Migration, shape: str) -> None:
     assert row.shape == shape
 
 
-def test_the_refusal_of_a_pre_release_form_names_every_key_and_the_way_out() -> None:
+def test_the_refusal_of_a_pre_release_form_names_every_key_and_rewrites_nothing() -> None:
     told = prerelease_refusal("project.toml", ["flow.active_bc", "calibration.max_iter"])
 
     assert told.startswith("project.toml holds flow.active_bc, calibration.max_iter, written by")
-    assert 'pip install "hydromodpy~=2.0.0"' in told
-    assert "hmp doctor --fix-config" in told
+    assert "This version does not rewrite the file." in told
+    assert "pip install" not in told and "hmp doctor" not in told
 
 
 def test_a_refusal_with_no_file_to_rewrite_does_not_promise_the_doctor() -> None:

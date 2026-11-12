@@ -252,7 +252,11 @@ def _drop_toml(directory):
         (_as_2_0, SchemaVersionMismatchError, "hmp project plan"),
         (_drop_cases, FileNotFoundError, PLAN_CASES_FILENAME),
     ],
-    ids=["a plan of 2.0 names cases.csv", "a plan of 2.0 names the command", "cases.csv absent"],
+    ids=[
+        "a plan of a pre-release names cases.csv",
+        "a plan of a pre-release names the command",
+        "cases.csv absent",
+    ],
 )
 def test_a_plan_that_cannot_be_read_is_refused_with_its_sentence(tmp_path, damage, error, sentence):
     damage(_written(tmp_path))

@@ -20,8 +20,12 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### What to do when you update
 
-- A key or a form that a pre-release of 2.0.0 wrote and that changed since is refused with one sentence that names the new form. tests/unit/architecture/surface/removed_toml_keys.tsv lists the keys and hydromodpy/schema/changes.toml the rows.
+- A run or a session stored by a pre-release (2.0.0a5 and earlier) is refused. Run it again with this version.
+- A file with a key that only a pre-release wrote is refused. The message names the current name of each such key the file holds. This version does not rewrite the file, so edit it with that list. `hydromodpy/config/prerelease_forms.txt` holds the forms.
+- `hmp doctor --fix-config` still rewrites the keys that load with a warning.
 - A Python name or an hmp command that left is refused with the call that replaces it. tests/unit/architecture/surface/removed_names.tsv lists them.
+- If you come from version 1, read `docs/source/get-started/from-v1.md`. The keys and commands that moved are listed in `docs/source/reference/changes.md`, "What changed in the TOML".
+- A file that does not say which calibration protocol it wants follows protocol 1.3.
 - A run written by an earlier version keeps its label. A [[bug]] row of hydromodpy/schema/changes.toml labels exploratory only the runs whose quantities it names.
 
 ### Added
@@ -29,7 +33,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `config.resolved.toml` writes `edition`, the set of defaults the run used, `"2.0"` today. A resolved file without it reads as edition 2.0. A file may write `edition` at its root, and a value this version does not serve is refused with the editions it serves.
 - The register of changes is listed on a generated page, `docs/source/reference/changes-register.md`, one table per kind of row.
 - `python -m tools.changes_changelog` writes the `Numbers` block of `CHANGELOG.md` between two comments from the register, and exits with 1 when the block differs.
-- `tools/docs/snapshots/fields-2.0.0.json`, so the page of TOML changes compares 2.0.0 with the tree.
+- `tools/docs/snapshots/fields-2.0.0.json`, so the page of TOML changes compares that snapshot with the tree.
 - `[solver.modflow_nwt]` and `[solver.boussinesq]` take `wall_clock_limit_s`, the wall-clock budget of one trial of a parallel calibration, as MODFLOW 6 does with `[solver.modflow6.runtime] mf6_api_timeout_s`. Unset, a trial keeps the built-in 14400 s.
 - A flow adapter declares `face_flow` among what it writes, and the GWT one declares `concentration/*`.
 - A transport whose flow does not write `face_flow` is refused when the file is read, with the flow solvers that write it.
@@ -103,7 +107,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `[simulation.time] window_length` cuts a long transient run into windows that end on a stress period end, and `window` picks one or plays them all. Each window is a sealed run named `<name>_w<k>` that starts from the final state of the one before, recorded as its input `initial_state`. A resume names the chain or the window that stopped, with or without the file, and the frozen `config.toml` of a window replays it from that input.
 - Every run writes `final_state/`, its last heads, lake stages and SFR reach stages in double precision, sealed with the run. A restart and the next window read it first.
 - Every run writes `profile.json`, the time and memory of each step, solve, figure and export, with the age of the process and what was rebuilt from an earlier attempt or read from the project store. A run stopped through its flag keeps the profile of what it did.
-- `hmp catalog show` prints a Profile block read from `profile.json` (total time, start-up, solve of each run of the plan, three longest steps, what was reused), and `show_simulation` returns it under the `profile` key. A run of 2.0 says it has no profile and prints the solve time of its seal.
+- `hmp catalog show` prints a Profile block read from `profile.json` (total time, start-up, solve of each run of the plan, three longest steps, what was reused), and `show_simulation` returns it under the `profile` key. A run of a pre-release says it has no profile and prints the solve time of its seal.
 - The README of a sealed run says what a replay costs, read from `profile.json`.
 - `hmp replay REF` and `hmp.replay(ref)` play a sealed run or a published copy again and class it: bit when every value hashes the same in double precision, deviation otherwise. `--strict` refuses a deviation.
 - The seal of a run gives the digest of the values of every field, every column of a quantity and the final state, taken in double precision before a field is rounded for storage.
@@ -114,7 +118,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A calibration delivers the promoted run of each case, only once the session is `completed`, and logs a warning when it delivers nothing.
 - The refusal of an address no `[[host]]` block answers advises a `prefix` with the port of the address.
 - An `sftp://` `key_file` may hold an ed25519, ECDSA or RSA private key.
-- `session.json` names, for each phase, the options, the seed, the seed of each restart and the libraries of its optimizer, in an optional `optimizer` block. A 2.0 `session.json` has none and still reads.
+- `session.json` names, for each phase, the options, the seed, the seed of each restart and the libraries of its optimizer, in an optional `optimizer` block. A `session.json` of a pre-release has none and still reads.
 - The trial frame of a session (`Session.trials`) gains `batch`, `rule`, `window`, `solve_s` and `reused`, and `Session.profile()` sums where the search spent its time, by step and by `reused`.
 - The method text of a run, `hydromodpy.results.method.method_text`, and its label sentence, `label_text`, in English and in French. The text has five paragraphs: the run, its data with each licence, its calibration, its quality with each check passed, failed or unknown, and its limits. Every sentence is a row of `phrases.toml`.
 - A sealed run keeps `mesh/open_water` and `mesh/catchment_cells` beside the mean recharge it already kept. They are the open water and the outline cells the stream criterion read.
@@ -142,19 +146,34 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `python tools/ci/local.py list|run` replays the Linux, Python 3.13 steps of the CI workflows on a local machine. It plays each identical test command once, lists every other step as not played locally with its reason, and writes one log per step and a `status` file.
 - Weekly jobs replay the frozen MODFLOW 6 gmsh run with one and four BLAS threads and keep its field-scale gaps and the processor as an artifact, prove the test removals of the week at the package scope, and play every Windows proof, the server path and two runs in two processes on Windows.
 - The Docker image is published on each version tag to `ghcr.io/hydromodpy/hydromodpy`, with `latest` only outside pre-releases, and a small run plays and replays at the bit inside each image the CI builds.
+- Contributors: `tests/regression/frozen_documents/v2.0.0-pre/` keeps the documents of a pre-release that `frozen_runs` does not hold (publication, install index, plan, lockfile, sidecars, data caches, trial series, the six documents of a sealed job, site catalog), written on a synthetic island by `python -m tools.freeze_documents`, and a test reads each one with the readers of this version.
+- A page for users of version 1, with the table of old keys and commands.
+- A `NOTICE` file with the licences of PyHELP and of the data, and `version` in `CITATION.cff`.
+- `hydromodpy_version_min` in `workspace.toml` is enforced.
+- A sha256 for each file of a run. `hmp doctor` reports a sealed file that is missing or changed.
+- `--format table|json|csv` on the commands that print a result, and a `HMPY.Exxx` code at the start of each error line.
+- JSON Schemas for `manifest.json`, `provenance.json` and the output of `hmp calibrate`.
+- A transient Boussinesq run writes a `storage` budget term, so its domain budget closes.
+- `[calibration] validation_window = {start, end}` keeps dates apart from the search. Each trial is also scored on them, under `validation.cost`. The promoted run stores the period and the score in `checks.calibrated_by`.
+- `[metrics] window` minus the validation window is the default calibration window. A validation window that overlaps it, leaves a bound open or has no dated record is refused by name.
+- `Project.calibrate()` takes `protocol`, `case`, `resume`, `dry_run`, `workspace`, `project`, `project_label`, `metric_fn` and `objective` by name on every route. `dry_run=True` returns the plan.
+- `flow.sinks_sources.recharge.factor` multiplies the recharge in force. The default of 1 changes nothing. A calibration reaches it as `recharge.factor`, searched in log space between 0.5 and 2.
+- `vka` can be calibrated under MODFLOW 6 as `[calibration.parameters.vka]`, in log space. It is not offered when the project declares `Kv`.
+- `hmp campaign promote CASE` without `--trial` lists the five best completed trials. `hmp config targets` shows the search space, the draw and the default bounds of each target.
+- `hmp check` refuses `normal` sampling on `lhs` and `optuna`, and a calibrated recharge factor when the run has no recharge to multiply.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
-- `[[simulation.process]] type`, which `hmp init` of 2.0.0 wrote, loads in 2.1 with a warning under its name `kind`, and is refused from 2.2.
+- `[[simulation.process]] type`, which `hmp init` of a pre-release wrote, loads with a warning under its name `kind` and is refused from 2.2.0.
 - `hmp run --frozen` no longer counts as a difference a key that the sealed `config.resolved.toml` does not write, when the replay holds it at its default. `lineage.drift` of a rerun lists such keys under `new_at_default`.
-- A known bug of a data source declasses only the runs whose `config.toml` declares that source, through the token `source@<section>_<source>`. The three Hub'Eau bugs of 2.0.x name `source@hydrometry_hubeau`, so a run that declares no Hub'Eau hydrometry keeps its label.
+- A known bug of a data source declasses only the runs whose `config.toml` declares that source, through the token `source@<section>_<source>`. The three Hub'Eau bugs of a pre-release name `source@hydrometry_hubeau`, so a run that declares no Hub'Eau hydrometry keeps its label.
 - `label_of` and `labelled_identity` of `hydromodpy.results.run_identity` take the folder of the run, whose `config.toml` says the sources the run declared.
-- The refusals of calibration keys, `flow.param` ids, `[export]` tables, `[flow.bc.<family>.<id>]` tables and sgrid keys of a pre-release of 2.0 end with the sentence that names `pip install "hydromodpy~=2.0.0"` and `hmp doctor --fix-config`. `renamed_to` of `hydromodpy.calibration.config` takes the old key first.
+- The refusals of calibration keys, `flow.param` ids, `[export]` tables, `[flow.bc.<family>.<id>]` tables and sgrid keys of a pre-release of 2.0 name every key with its current name and say that this version does not rewrite the file. `renamed_to` of `hydromodpy.calibration.config` takes the old key first.
 - The refusal of a key only a pre-release wrote carries one fault per key in `details`, each with its JSON pointer, and the file in `source`.
 - The sidecar reader applies the rows of `schema/changes.toml` marked `document = "sidecar"` instead of renaming `custom` to `file` in code.
 - A transport backend receives the frozen `Model` of its flow, its options, the run slot of its flow and the `SolverRun` of that flow, through `build(model, options, slot, upstream=())`. It no longer reads the setup, the configuration or the run store.
 - MODFLOW-NWT writes its flow-transport link file when a later run of the plan reads `face_flow`, and no longer looks for a run named `mt3dms` in the plan.
-- The concentration of a transport run is stored under `concentration/<species>`, named by `spc_name`. Runs written by 2.0.0 still read.
+- The concentration of a transport run is stored under `concentration/<species>`, named by `spc_name`. Runs written by a pre-release still read.
 - The calibration catalog lists the calibrable options of the backend that runs. `vka` is found that way.
 - Every data source that goes to the network now does it under the bounds of the call, with its allowed hosts, byte ceiling and timeout: OpenStreetMap, EU-Hydro, BD Topage, SHOM, the two crossings sources, Hub'Eau piezometry, water quality and intermittency, and the area check of the gauge. Before, each opened a client under the default bounds.
 - `hydromodpy.data.sites.importers.rows_from_hubeau` takes `bounds`, the bounds of the call for the station search and the BD Topage snap.
@@ -491,9 +510,9 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A station chronicle is written beside its name and renamed in place under the file lock of its station, so two cases of a `[sites]` launch that fetch one station leave one file and one sidecar.
 - The machine output of `hmp data ls` is `hmp.data.ls.v2`. It has no `id`, `file_mtime`, `is_custom` or `file_path`, and gains `product`, `path` and `license`.
 - `hmp data restore` puts the files and their sidecars into `data/` of the workspace by default, not `data/imported/`.
-- `hmp workspace clean --data-cache` removes `data/blobs` and the data cache database of 2.0.0 with its journal and lock. It never removes the sidecars or the files they describe.
+- `hmp workspace clean --data-cache` removes `data/blobs` and the data cache database of a pre-release with its journal and lock. It never removes the sidecars or the files they describe.
 - The geology legend of the catchment report falls back on the GeoPackages of the BRGM in the data folder of the run, no longer in the user cache.
-- Two runs are identical when their request, the digest and state of every input, the code, the solver binaries and the numeric packages agree. The address of a URL and the path of a file no longer count. A run that 2.0 would have skipped runs once again.
+- Two runs are identical when their request, the digest and state of every input, the code, the solver binaries and the numeric packages agree. The address of a URL and the path of a file no longer count. A run that a pre-release would have skipped runs once again.
 - `identity.config_hash` of a seal and the hash of a calibration session now hold the solution key (request, inputs, code, solver binaries, numeric packages).
 - A configuration given as a dict or JSON text needs `base=`, and the current folder is never used. JSON text is read as a file is, with the same refusals.
 - `HMP_PROJECT_ROOT` is no longer read. Pass `-w`, `--base` or `base=` instead.
@@ -511,41 +530,41 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp calibrate` with `--set`, `--overlay` or `--case` reads the changed document once and writes no copy of the file. `--dry-run`, `--list-phases` and `--expand` read its `[calibration]` section only, as they read the file.
 - `hmp.check` takes `base=`, and a document in memory is refused without one.
 - Validation run names are forty characters at most.
-- `hmp run --format json` gives the mesh summary of a run that built a mesh in `result` again, as 2.0 did.
+- `hmp run --format json` gives the mesh summary of a run that built a mesh in `result` again, as a pre-release did.
 - The documentation describes the run request, the base of relative paths, `request.json`, the request id in `outcome.json`, the claim at the start of a run, the run name rule and the Docker command.
-- Every mesh engine goes through the store, not only the triangle engine. A mesh cached by 2.0 under `.hmp/mesh_cache/` is no longer read and can be deleted.
+- Every mesh engine goes through the store, not only the triangle engine. A mesh cached by a pre-release under `.hmp/mesh_cache/` is no longer read and can be deleted.
 - A calibration trial that does not change the soil parameters no longer runs the soil reservoir again.
 - `hydromodpy.mesh.cache` is `hydromodpy.mesh.stored`.
-- `hmp publish --package --with mesh` copies the mesh products the runs cite into `products/` of the package, and `hmp project import` installs them under `.hmp/products/`. The `mesh_cache/` of a 2.0 package is skipped and counted.
+- `hmp publish --package --with mesh` copies the mesh products the runs cite into `products/` of the package, and `hmp project import` installs them under `.hmp/products/`. The `mesh_cache/` of a package written by a pre-release is skipped and counted.
 - The conditioned DEM, its directions and its accumulation are a product of the store under `.hmp/products/`, shared by the runs of a project. A resume reads them from the store and delineates the catchment again.
 - `hydromodpy.catchment.preprocess.geographic_cache` is `hydromodpy.catchment.preprocess.geographic_tree`, and `hydromodpy.data.schemas.dem` is `hydromodpy.catchment.terrain.dem_contract`.
 - The regional chain routes a DEM declared conditioned as it is, and `dem_correc_type` reads `provided`. The solver still fills its own grid template with `fill`, because a conditioned DEM brought to a coarser grid has depressions again.
 - `hmp run --resume` refuses a run whose request changed since it stopped, an input or the state of a window included. A plain `hmp run` starts it over. When the configuration changed, the refusal names the sections that moved.
-- The two fixes of a restart, the head read in double precision and the lake stage carried by a cyclic spin-up, declass a 2.0 run only when it started by `[flow] restart_from` or by a cyclic spin-up beside a lake. Every other 2.0 run keeps its label.
+- The two fixes of a restart, the head read in double precision and the lake stage carried by a cyclic spin-up, declass a run of a pre-release only when it started by `[flow] restart_from` or by a cyclic spin-up beside a lake. Every other run of a pre-release keeps its label.
 - The frozen data mode is an argument of the run, no longer a state of the process, so two runs of one process no longer share it.
-- The wall time of the solve is no longer a row of `metrics.parquet` nor of the seal. It is `SolverRun.solve_s`, a solve line of `profile.json`, and the pipeline state no longer carries `wall_seconds`. The campaign summary and the catchment report read it from `profile.json`, and from the seal or `metrics.parquet` for a run of 2.0.
+- The wall time of the solve is no longer a row of `metrics.parquet` nor of the seal. It is `SolverRun.solve_s`, a solve line of `profile.json`, and the pipeline state no longer carries `wall_seconds`. The campaign summary and the catchment report read it from `profile.json`, and from the seal or `metrics.parquet` for a run of a pre-release.
 - MODFLOW 6: a run that restarts from another one, and each window of a chain, starts from the head in double precision (binary start array), and its lake and reach stages are written with all their digits. Heads move by about 1e-9 m and lake stages by up to 5e-9 m.
 - MODFLOW 6: a cyclic spin-up starts each cycle from the final lake stage of the cycle before, the main run starts from the last cycle, and the loop settles only when the lake stages have settled with the heads. A lake under `spinup_cyclic` is no longer refused.
 - MODFLOW 6 with SFR storage: the stage of each reach at the end of a run is kept in `final_state/` and given back to the next run or window as `INITIALSTAGES`.
-- A run and a job write one seal, manifest_version 4, with a profile. A 2.0.0 seal of either kind reads as it is, and a seal of a pre-release is refused with its sentence.
+- A run and a job write one seal, manifest_version 4, with a profile. A seal of a pre-release is refused with its sentence.
 - The identity block carries solution_key, request_id and solver instead of config_hash, in the seal and in every file that leaves a run. simulation.parquet no longer has a config_hash column.
 - A replay no longer refuses a moved default nor warns only on another solver binary: both go in its lineage, with the class of the replay.
 - `hmp run <run>/config.toml --frozen` no longer replays a run; use `hmp replay <run>`.
 - The results modules manifest, record, run_identity and checks live under `hydromodpy.results.record`, and lineage under `hydromodpy.schema`. `hydromodpy.results.identity` stays where it was.
 - The value digests of a seal cover `simulation.parquet` and `parameters.parquet` too, and leave out the solve-time row of `metrics.parquet`, which is a wall clock.
-- A replay of a run sealed by 2.0.0 lists the `final_state/` arrays and the `mesh/open_water` and `mesh/catchment_cells` masks that version did not write under `added` without classing the replay as a deviation, and reads its flat `concentration` as the one species of the replay.
+- A replay of a run sealed by a pre-release lists the `final_state/` arrays and the `mesh/open_water` and `mesh/catchment_cells` masks that version did not write under `added` without classing the replay as a deviation, and reads its flat `concentration` as the one species of the replay.
 - A difference a replay cannot measure (two shapes, two NaN masks, a zero norm) is written with null measures and its reason, never as `Infinity`. A seal is strict JSON.
 - A replay that read the mesh sealed beside its source seals those bytes in its own `mesh/`, and a sealed mesh whose bytes no longer match its seal is rebuilt. A run with a sealed mesh is still found identical to a later request, and can still be shared.
 - A job seal of a later or an earlier `manifest_version` is refused with the sentence that says to upgrade or to run again.
 - The RO-Crate view gives each property value of a run its own `@id`, as the RO-Crate library requires.
-- Each line of `published.jsonl` says `kind = "copy"` or `"delivery"` (`hydromodpy.published.v2`); a line written by HydroModPy 2.0 is refused.
+- Each line of `published.jsonl` says `kind = "copy"` or `"delivery"` (`hydromodpy.published.v2`); a line written by a pre-release is refused.
 - `hmp publish` removes `deliver_to` from `config.toml` and `config.resolved.toml` of a copy; `exports/index.json` no longer records it; `deliver_to` is refused in a `[sites]` project.
-- `trials.jsonl` writes one line per event, schema `hydromodpy.trial.v3`: `proposed` when the optimizer asks, `finished` with the cost, its components, the rule and window they were scored under, and the time of each step, `linked` when the trial becomes a run. A reader keeps the highest event of each trial. A 2.0 journal still reads.
+- `trials.jsonl` writes one line per event, schema `hydromodpy.trial.v3`: `proposed` when the optimizer asks, `finished` with the cost, its components, the rule and window they were scored under, and the time of each step, `linked` when the trial becomes a run. A reader keeps the highest event of each trial. A journal of a pre-release still reads.
 - A calibration trial that moves only K or Sy reruns the previous trial of its lane through MODFLOW 6 `rerun` instead of building the model again. The cost is the same to the last bit.
-- Each `trial_series/*.parquet` file carries `hmp.schema_version = hydromodpy.trial_series.v1` and `hydromodpy_version` in its footer. A file without the key reads as v1, the form written by 2.0.
+- Each `trial_series/*.parquet` file carries `hmp.schema_version = hydromodpy.trial_series.v1` and `hydromodpy_version` in its footer. A file without the key reads as v1, the form written by a pre-release.
 - `TrialOutcome` takes an optional `profile`, the time of each step of the trial.
-- Under edition 2.1, a calibration writes the scored series of every trial by default (`persist_trial_series` is true). A file without edition keeps the 2.0 default, false.
-- `hmp init` writes `edition = "2.1"` in the `project.toml` of the example project.
+- A calibration writes the scored series of every trial by default (`persist_trial_series` is true).
+- `hmp init` writes `edition = "2.0"` in the `project.toml` of the example project.
 - A kept calibration trial keeps only the budget terms of its criterion and draws no figure; the best of an earlier phase keeps what the project asks.
 - `hmp campaign promote <case> --trial N` solves a kept trial again when `hmp catalog gc` removed its fields, and leaves its folder under the session.
 - A run is skipped only for an identical run of its level or above.
@@ -569,7 +588,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `Project.publish` takes no `with_` any more: a summary carries no results and no inputs.
 - The trash warns only for a run that has published copies; a delivery alone does not count.
 - The catchment series count the inflow and the outflow of each element (layer, cell) on its own, where they summed the layers of a cell first. The discharge does not move (register entry `basin_budget_split_per_element`).
-- A plan keeps its cases and the cells of their sites in `plan/<hash>/cases.csv` beside `plan.json` (schema `hydromodpy.plan.v2`), where 2.0 wrote `sites.parquet` and `cases.parquet`. The hash of a plan now starts from its schema, so every project gets a new hash. A plan of 2.0 is refused with the command that writes it again, `hmp project plan`.
+- A plan keeps its cases and the cells of their sites in `plan/<hash>/cases.csv` beside `plan.json` (schema `hydromodpy.plan.v2`), where a pre-release wrote `sites.parquet` and `cases.parquet`. The hash of a plan now starts from its schema, so every project gets a new hash. A plan of a pre-release is refused with the command that writes it again, `hmp project plan`.
 - The eight modules of `hydromodpy/project/launch/sites/` are one module, `hydromodpy.project.launch.plan`, with the same public names. `BindingError` and `TableError` are now `SitesProjectError`.
 - A column of the sites table named like a column the plan writes for each case (`case_id`, `recipe`, `config_hash`, `config_path`) is refused with the name to change.
 - `cost_margin.root_interval` of `hydromodpy.calibration.optim` takes a mapping from the search variable to its cost instead of a list of pairs.
@@ -611,7 +630,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hydromodpy.results.derive.stream` is now `hydromodpy.results.derive.stream_network`. `hydromodpy.cli.helpers` is cut by concept into `hydromodpy.cli.exit_codes` (the exit codes, `exit_code_for`, `fail`, `refuse`, `confirm`), `hydromodpy.cli.refs` (the workspace, the project and the TOML file a command is given), `hydromodpy.cli.conventions` (verbosity and the `--overlay` and `--set` overrides, beside the parent parsers) and `hydromodpy.cli.profiling`. In `hydromodpy.data.common`, `geo_helpers`, `unit_helpers` and `io_helpers` are now `geometry`, `units` and `files`. `hydromodpy.solver.modflow_common.flow_adapter_helpers` is cut into `flow_run` (options, build, run, read back, final state) and `listing` (the listing file, the budget discrepancies and the XT3D hint). No module is named with manager, handler, provider, service or helper any more.
 - A package `__init__.py` no longer re-exports a name, and the seven lazy `__getattr__` of `config`, `core`, `core.units`, `data`, `results`, `solver.boussinesq` and `solver.modflow_nwt` are gone. Import a name from the module that defines it. A few of the paths that changed: `hydromodpy.results.run.view` for `Run`, `hydromodpy.results.catalog.facade` for `Catalog`, `hydromodpy.config.hydromodpy_config` for `HydroModPyConfig`, `hydromodpy.core.time.window` and its neighbours for the names of `core.time`, `hydromodpy.core.units.quantities`, `time`, `parse` and `types` for the names of `core.units`, `hydromodpy.core.workspace.config` for `WorkspaceConfig`, `hydromodpy.solver.modflow_nwt.nwt.nwt_solver` for `ModflowNwt`. The facade `hydromodpy` is unchanged.
 - The code that stood in the command line modules is now in the library, under public names. `hydromodpy.project.runner.resume_target` reads the frozen configuration of `hmp run --resume REF`. `hydromodpy.project.data_cache.verify_frozen_inputs` (and `FrozenVerificationError`) checks the lockfile of `hmp run --frozen`. `hydromodpy.results.storage.attempt.close_attempt_of_process` closes the attempt of a process that died. `hydromodpy.project.doctor` holds the rows of `hmp doctor` (`build_report`, `probe_workspace`, `probe_toml_workspace`, `probe_result_storage`, `cross_catalog_checks`, `lifecycle_checks`, `prt_checks`, `findings_of`, `refusal_of`). `hydromodpy.project.show.show_target` and `Target` name what a reference of `hmp show` is. `hydromodpy.results.catalog.listing.list_runs` and `simulation_facts` read the runs of `hmp ls` and the facts of `hmp show`. `hydromodpy.project.compare.compare_folder` names the folder of `hmp diff --to`. `hydromodpy.project.report.regen_run` writes again what the ledgers of a run record. `hydromodpy.results.export.publish.campaign_members` and `replay_line` serve `hmp publish`. `hydromodpy.results.record.manifest.replay_of_run` reads the replay block of a seal. `hydromodpy.project.calibrate.route_calibration` is the one place that checks the environment, reads the declared phases, refuses an unknown phase and runs the preflight for `hmp run`, `hmp calibrate` and `Project.calibrate`, and `promote_trial` is the library call behind `hmp campaign promote`. `calibration_plan` takes `source=` and `case=` for a configuration held in memory. The commands print the same text and the same JSON as before.
-- `hmp completion SHELL` prints the script of argcomplete, which asks `hmp` for its commands each time you press TAB. `hmp completion --argcomplete` is refused with this form (release 2.1.0). The listing commands (`hmp ls --plan`, `site ls`, `project log`, `workspace list`, `data ls`) take their columns from `OUTPUTS` of `hydromodpy/cli/output.py`, which gains `print_table`, `table_cell` and `row_fields`. `fill_trial_pipeline` is no longer called by `hmp` itself: each library entry that reads the trial pipeline fills it (`route_calibration`, `promote_trial`, `rerun_config`).
+- `hmp completion SHELL` prints the script of argcomplete, which asks `hmp` for its commands each time you press TAB. `hmp completion --argcomplete` is refused with this form. The listing commands (`hmp ls --plan`, `site ls`, `project log`, `workspace list`, `data ls`) take their columns from `OUTPUTS` of `hydromodpy/cli/output.py`, which gains `print_table`, `table_cell` and `row_fields`. `fill_trial_pipeline` is no longer called by `hmp` itself: each library entry that reads the trial pipeline fills it (`route_calibration`, `promote_trial`, `rerun_config`).
 - Fifteen thin variables of `hydromodpy.data.variables` are four flat modules, and their classes keep their names. `hydromodpy.data.variables.sim2_series` holds wind, humidity, runoff, soil moisture and temperature, `forcing_series` holds radiation, ETP and precipitation, `lake_series` holds lake levels, inflow, outflow and withdrawal, `user_rasters` holds soil capacity, substratum and layer base. `from hydromodpy.data.variables.wind.config import WindConfig` is now `from hydromodpy.data.variables.sim2_series import WindConfig`, and the same for the `variable` module and the other fourteen.
 - `DataManagersConfig` is now `hydromodpy.data.loading.config_schema.DataConfig`, `SUPPORTED_DATA_MANAGER_TYPES` is `DATA_VARIABLES` and is derived from `VARIABLE_SPECS`, and the JSON schema of the `[data]` section names `DataConfig` in its `$defs`. The run messages say "Data variable" and "Failed to load data variable" in place of "Data manager". The published description of the `data-request@1` process carries the same `$defs` rename and the new descriptions, so the fingerprint of its `data` input moves, and its version stays 1.0.0 because it accepts and refuses the same documents.
 - `VARIABLE_SPECS` is the one registry of the 28 data variables. It holds the columns of the folder `data/<variable>/` (`category`, `kind`, `unit`, `label`, `file_prefix`), and `hydromodpy.data.workspace.scaffold.VARIABLES` with its own `VariableSpec` are gone. `hydromodpy.data.workspace.scaffold.variable_folders()` lists the folders.
@@ -623,20 +642,63 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The hard links of the launcher lease, of a replay from a copy and of the sealed mesh fall back to a copy that never overwrites, on every system.
 - A geographic feature file and a MODFLOW 6 output keep their names on every system. The length is held by the project folder check.
 - The path destination of a delivery writes through extended-length paths on Windows.
-- A Boussinesq run names its solver folder and the `model_name` of its solver summary after the simulation, as the MODFLOW backends do, where 2.0.0 wrote `flow_main__boussinesq`. No value of a result changes.
+- A Boussinesq run names its solver folder and the `model_name` of its solver summary after the simulation, as the MODFLOW backends do, where a pre-release wrote `flow_main__boussinesq`. No value of a result changes.
 - Each package and each port of `hydromodpy` has one short README, checked by `python -m tools.docs.check_readmes`. Sixty folder READMEs left, and what they said moved to the package pages or to the module docstrings.
 - A docs page names a TOML key only through the `toml` role, so the card generated from the model is the one place that gives its default and unit.
-- The docs no longer send a file that only a pre-release of 2.0 wrote to `hmp doctor --fix-config` of a 2.0.x release. Since 2.1.0 such a file is refused, and the message names every such key it holds.
+- The docs no longer send a file that only a pre-release of 2.0 wrote to `hmp doctor --fix-config`. Such a file is refused, and the message names every such key it holds with its current name. This version does not rewrite the file.
 - The tests index lists the real folders of `tests/` as tiers: `scenarios`, `refusals`, `ports` and `processes` join, `contract` leaves.
 - Pytest markers `whitebox` and `windows` replace the hand-written lists of Whitebox test files and the Windows `skipif`; `HMP_REQUIRE_WINDOWS` turns a skipped Windows test into a failure.
 - The `test` extra asks `coverage[toml]>=7.10`, which `patch = ["subprocess"]` and the removal proof need.
 - The Boussinesq regression goldens refresh `final_recharge_rate_m_s`, the final recharge of a run, because the cells with a fixed head carry no recharge: the mean moves from 3.4722e-08 to 3.3854e-08 m/s on the fast strip (6 cells of 240) and from 1.15741e-08 to 1.14294e-08 m/s on the divide case (3 cells of 240). The comparison of that field is relative now. The fix is the row voronoi_nwt_boussinesq_fixes_2026_10_09 of hydromodpy/schema/changes.toml.
 - `hmp publish` no longer ships a station registry (`<variable>_custom_LOC.csv`) as a file of the package. The rows the run read still travel as stations and are merged, so importing into a workspace that already holds its own registry no longer refuses with HMPY.E809.
+- Soil reservoir defaults: `alpha` goes from 0.6 to 0.45 (FAO-56 table 22, cereals and maize). `flow.sinks_sources.etp.extinction_depth` goes from 1 m to 2 m. A file that writes these keys reads as before.
+- The soil reservoir gives each SAFRAN cell its share of the catchment in the basin mean it prints. Without a catchment polygon, cells keep equal weight. The grids given to MODFLOW 6 do not change.
+- Each stored format declares the oldest version that reads it. Every later 2.x reads every run of this version.
+- A calibration with no pin on the protocol follows 1.3. The map is cut to the catchment and the network is rasterized from the heads of the observed streams.
+- A tie on the cost in the last phase of a search promotes the trial that the search answered.
+- A date written on a stamp belongs to the period `(s, e]` that the stamp closes.
+- A calibration goes through `hmp.calibrate`. Overrides go through `set=`. `Project.run` is now `Project.launch`. A name that left is refused with its new path.
+- A boundary condition is active when its table is declared, and `enabled = false` turns it off. Boussinesq and PETSc settings are written under `[solver.boussinesq]`, and the discriminator is `kind` everywhere.
+- On the command line, `-w` works on every verb, and `hmp campaign` holds the verbs of a plan of cases.
+- A budget flux is negative when water leaves the aquifer, for every solver.
+- A time series has a `source` column (`simulated` or `observed`), and the catchment row is named `catchment`.
+- NetCDF and VTU write one variable with a layer dimension. Opening a NetCDF in QGIS needs `layer=` on the export.
+- With `parallel` above 1, trials of a HydroModPy search run in worker processes that last, not in threads. A script that calibrates this way needs the `if __name__ == "__main__":` guard. A `metric_fn` must be defined at the top level of a module.
+- `[solver.modflow6.runtime] mf6_api_timeout_s` now limits one whole trial of a parallel search. The default stays 2400 s, so a longer trial now ends `crashed`.
+- With `parallel` above 1, grid, Latin hypercube and random searches feed one queue of workers, and the progress bar moves as each trial ends. `multistart` restarts run side by side. `linearized` derivatives run in workers.
+- `scipy_de` accepts `parallel` above 1 and scores a whole generation at once. Optuna `tpe` counts trials in flight as the worst cost so far. At `parallel = 1` nothing changes.
+- Calibration refuses old keys of `[calibration]` and names the new one, for example `scoring_window`, `max_iter`, `tolerance` and `roptim_max`.
+- Changing the validation window starts a new cache scope and session. A file without the key keeps its cache keys.
+- `Project.calibrate()` names its case like `hmp calibrate` (`[simulation] name`, else the project file stem), so both share one session and `resume` finds it. A call with phases writes `sessions/<case>.toml`, overwritten by the next call.
+- The preflight refuses a minimiser on one parameter scored on two network bounds of positive weights. It also refuses a steady network-only search that moves K and the recharge factor, and `factor` beside `[flow.sinks_sources.recharge.soil]`.
+- The preflight warns when `distance_gap` enters a cost beside another parameter or metric, and when two roots lie more than half a decade apart. Bisection needs every block to publish a signed residual.
+- A raw residual cost in a unit, such as an RMSE in m3/s, beside pure-number costs is refused unless `normalize_cost = true`. `sampling = "normal"` is refused by the Optuna engine.
+- A run stores the series at each observed station under the station id. A gauge the mesh cannot place is listed as unscored with a warning. `hmp.read(run, "head")` or a lake stage with several stations needs `station=`.
+- `hmp run` ends a calibration with the same lines as `hmp calibrate`, which now prints units. `hmp calibrate --dry-run` shows the widest `parallel` of the phases.
+- A `[sites]` campaign that holds a calibration can run up to 8 solves side by side without `--force`, up from 2.
+- Several modules of `hydromodpy.core`, `project` and `workflow` moved to the layer that uses them. A plugin that imports one of them from its old path must follow it. The public names of `hydromodpy.__all__` do not move.
+- Example 04 `run_calibration_api_daily.toml` calibrates on 2016-2018 and validates on 2019-2020. The composite example scores its network block on `distance_mean`.
+- The layer matrix of `tests/unit/architecture` no longer grants 20 import edges that no code uses, nor the `calibration -> display` tolerance. Its rows go from the lowest layer to the highest, and a test keeps them so.
+- Contributors: fourteen scripts of `tools/` that nothing called, five of them broken, left the repository. Script coverage runs through one wrapper, `tools/ci/coverage_runner.py`, and now measures the examples package. The contributor docs name one environment, `hydromodpy-dev`.
+- Contributors: the data tests live in `tests/unit/data/`, laid out like the package, and `tests/unit/data_managers/` is gone. The SIM2 grid configs share one base and the lake chronicle configs another, with the `[data]` schema unchanged. `attach_read_only` lives once, in `hydromodpy.core.io.db_retry`.
+- The calibration session report draws the best run with the registered figures, lake level included, and names each image after its figure, for example `hydrograph_sim_obs.png` instead of `best_obs_vs_sim.png`.
+- The `reporting` layer is gone. The campaign summary is `hydromodpy.results.export.campaign_summary`, and `hydromodpy.analysis.comparison.compare` is now `hydromodpy.project.compare`.
+- `hydromodpy.schema.config_schema` replaces `hydromodpy.config.schema_export` and `hydromodpy.schema.export`. The plan of a `[sites]` project moved to `hydromodpy.project.launch.plan`, the check behind `hmp check` to `hydromodpy.project.api.check`, the resolution of a `[site]` to `hydromodpy.data.sites.single_site`, `MetricsConfig` to `hydromodpy.results.metric_rule` and `PublicationConfig` to `hydromodpy.results.publication`. No row of the layer matrix cites a row below it any more.
+- Contributors: `-q`, `-v` and `--debug` set the console level once in `cli/main.py`, so a new command no longer calls `apply_verbosity`.
+- Contributors: one registry, `hydromodpy.core.plugin_registry`, serves the evaluator, forward-model, terrain and mesh engines. `calibration/runners/cli_runner.py` is split into `document.py`, `session_scope.py` and `search.py`.
+- The recession cloud and the Brutsaert-Nieber coefficient moved to `hydromodpy.results.derive.recession`, `particle_travel_years` to `hydromodpy.results.run.particles`, and the metric CRS helpers to `hydromodpy.core.io.crs`. `hydromodpy.display.maps.geo` is a single module, and `GeoFigureMixin` is gone. Figures draw the same pixels.
+- The drain conductance helper that every solver shares is in `hydromodpy.solver.base`, and the Boussinesq catalogs are in `boussinesq/catalog.py`. The MODFLOW 6 build runs as named steps, its solver options live in `modflow6/builders/solver_options.py`, the LAK builder is split in several modules and `modflow6.builders` no longer re-exports names. No input file and no result changes.
+- Contributors: `hmp_log_records` is a fixture of `tests/conftest.py`, and `tests/_helpers/transport_guard.py` and `tests/validation/helpers/petsc.py` hold helpers that several test folders used to copy.
+- `Catalog.read_geographic_feature`, `list_geographic_features` and `read_geographic_metadata` read the run directory instead of the index, and `Catalog.query_timeseries`, `query_budget` and `query_mass_balance` read through the run. `SimulationZarr` binds the writes and reads of the store as its methods. `record_derived_file` moved to `hydromodpy.results.ledger`. Run files are unchanged.
+- `Catalog.load_dataset` builds its cohort with `Catalog.find` and shares the parameter pivot and the field stack of `RunSet`, and returns the same dataset. `DatasetLoader` is replaced by `hydromodpy.results.catalog.dataset_loader.load_dataset`.
+- The version is 2.0.0, set in `pyproject.toml`, `CITATION.cff` and `hydromodpy/core/version.py`.
+- A key or a table that only a pre-release wrote is refused, and the message names every such key the file holds. The one that still loads is `type` in `[[simulation.process]]`, with a warning, and `hmp doctor --fix-config` writes `kind`. The rule of two minor versions holds for a TOML key or table changed from 2.0.0 on. A name of Python, an `hmp` command or a flag that left in 2.0.0 or earlier has no alias and is refused with a message that names its new form. The alias with a `FutureWarning` holds for a change from 2.2.0 on. The warning of an old form no longer states a delay.
+- The two irregular-mesh runs of example 06 (`run_selune_mf6_irregular.toml` and `run_vire_mf6_irregular.toml`) use the current keys. They resolve to the same configuration.
 
 ### Removed
 
-- The keys and values that only a pre-release of 2.0 wrote no longer load. A file or a sealed run that holds one is refused with every such key it holds; `pip install "hydromodpy~=2.0.0"` then `hmp doctor --fix-config` rewrites it. The 175 forms are listed in `hydromodpy/config/prerelease_forms.txt`, which leaves in 2.3.0.
-- `model_legacy_keys` and `model_retired_keys` of `HydroModelBase`, `CALIBRATION_RENAMES` of `hydromodpy.calibration.config`, `OLD_PROPERTY_IDS` and `NEVER_READ_IDS` of `hydromodpy.model.properties.property_ids`. A key only a pre-release of 2.0 wrote is refused, with the way to the doctor of a 2.0.x release.
+- The keys and values that only a pre-release of 2.0 wrote no longer load. A file or a sealed run that holds one is refused with every such key it holds, each with its current name, and this version does not rewrite the file. The 175 forms are listed in `hydromodpy/config/prerelease_forms.txt`, which leaves in 2.2.0.
+- `model_legacy_keys` and `model_retired_keys` of `HydroModelBase`, `CALIBRATION_RENAMES` of `hydromodpy.calibration.config`, `OLD_PROPERTY_IDS` and `NEVER_READ_IDS` of `hydromodpy.model.properties.property_ids`. A key only a pre-release of 2.0 wrote is refused, with its current name.
 - `hydromodpy.model.transport.transport.Transport` and the `transport` member of the run setup. The transport solvers read their table directly.
 - geographic.catchment.dem_init_path. Declare the DEM as [[data.dem.sources]] with source = "file". A file that still writes it is refused, `hmp doctor --fix-config` writes the `[[data.dem.sources]]` row, and a sealed run config still reads it.
 - hmp data check and hydromodpy.data.workspace.custom_scan.
@@ -726,7 +788,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hydromodpy.config.export_checks`: its two checks are rows of `CROSS_RULES` in `hydromodpy.config.cross_checks`. `require_site_for_real_catchment` and `REAL_CATCHMENT_DEFINITIONS` moved there from `hydromodpy.config.hydromodpy_config`.
 - `hmp config validate-field`, which had no handler. Use `hmp config check --partial`, or `hmp.check` from Python.
 - `hydromodpy.project.check` (`check_project`, `CheckReport`), replaced by `hydromodpy.project.api.check`, which returns a list of `Diagnostic`.
-- The data cache database `data/cache.duckdb` and `hydromodpy.data.registry`. The sidecar next to each fetched file is the cache entry. A data folder that still holds a `cache.duckdb` of 2.0.0 is refused with a sentence that names `hmp workspace clean --data-cache`.
+- The data cache database `data/cache.duckdb` and `hydromodpy.data.registry`. The sidecar next to each fetched file is the cache entry. A data folder that still holds a `cache.duckdb` of a pre-release is refused with a sentence that names `hmp workspace clean --data-cache`.
 - The private data cache of each case of a `[sites]` launch. A case writes its files and their sidecars in the shared data folder, one station at a time under a file lock.
 - `hmp data add`. A user file goes under `inputs/` and is named by a `source = "file"` block, and an ASC raster is converted when it is read. `hydromodpy.data.ingest.convert_timeseries_csv_to_parquet` and `hydromodpy.data.request.cache_verbs.add_data_entry` leave with it.
 - `hydromodpy.project.lock`. Its verbs are `lock_data`, `verify_data_lock` and `prune_data` in `hydromodpy.project.data_cache`, and `hydromodpy.data.request.cache_verbs.prune_data_cache` leaves for `prune_data`.
@@ -749,17 +811,24 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `SessionReportData` and `load_session_report_data` of `hydromodpy.calibration.report`, `step_render_calibration_report`, and `CATCHMENT_PRESETS` of `hydromodpy.cli.commands.report`. The summary of a session is `hydromodpy.results.session.summary`, its report `hydromodpy.project.report.report_session`.
 - The modules `hydromodpy.display.report_blocks`, `hydromodpy.display.catchment_report`, `hydromodpy.display.calibration_report`, `hydromodpy.display.overview.web` and `hydromodpy.workflow.steps.calibration`. The report engine is `hydromodpy.display.report` (`engine`, `pages`, `presets`) and its caller `hydromodpy.project.report`. An import of an old path is refused with the new one.
 - The variable `HMP_OVERVIEW_HTML_REVIEW_LEVELS`. The review pages of a data overview are always written.
-- `hmp.figure`, `hmp.report`, `hmp.calibration_phases`, `hmp.compare_pair`, `hmp.example_add`, `hmp.example_list`, `hmp.example_show` and `hmp.Workspace`. Each is refused with the call that replaces it. `hmp.read`, `hmp.index` and `hmp.Catalog` stay at the top level beside the fifteen verbs, because the runs of 2.0.0 are read through them.
+- `hmp.figure`, `hmp.report`, `hmp.calibration_phases`, `hmp.compare_pair`, `hmp.example_add`, `hmp.example_list`, `hmp.example_show` and `hmp.Workspace`. Each is refused with the call that replaces it. `hmp.read`, `hmp.index` and `hmp.Catalog` stay at the top level beside the fifteen verbs, because the runs of a pre-release are read through them.
 - `AmbiguousReferenceError`, `SimulationNotFoundError`, `CatalogError`, `RunNotSealedError`, `FieldNotFoundError`, `ComparisonCaseError` and `ComparisonReferenceError` at the top level. Each is refused with the module that defines it, where it stays.
 - `hydromodpy.results.catalog.facade.compare_pair`, use `compare([a, b]).table`.
 - The `HMP_RUN_SCRATCH` environment variable. The scratch folder of a run lives in a context variable and a calibration worker receives it in its payload.
 - `forget_old_forms_told` and the memory of the old forms already told are gone from `hydromodpy.core.config_kit.base`. The old form of a key is a `ConfigKeyRenamedWarning` shown once per file and key by the default filter of Python, so a script that wants to see it again sets the filter to `always`.
 - The lazy attribute access of the packages listed under Changed: `import hydromodpy.core; hydromodpy.core.WorkflowContext` and the like no longer resolve.
-- The static completion scripts of `hmp completion bash`, `zsh` and `fish`, and the option `hmp completion --argcomplete` (refused, release 2.1.0, with `hmp completion SHELL`).
+- The static completion scripts of `hmp completion bash`, `zsh` and `fish`, and the option `hmp completion --argcomplete` (refused, with `hmp completion SHELL`).
 - Eleven functions that nothing called: `bbox_contains`, `filter_locations_by_bbox` and `nearest_location` of `hydromodpy.data.common.geometry`, `parse_loc_filename` and `write_parquet` of `hydromodpy.data.common.files`, `get_conversion_factor` of `hydromodpy.data.common.units`, `check_required_columns` of `hydromodpy.data.contracts.completeness`, `iter_chronicle_files` of `hydromodpy.data.ingest.tables`, `parse_atom_entries` of `hydromodpy.data.variables.dem.apis.geoplateforme_download`, `default_geology_data_source` of `hydromodpy.data.variables.geology.io` and `build_zone_class_index_on_dataframe` of `hydromodpy.data.variables.geology.processing`.
 - Names no code, no example and no document reads, with their tests: `flow_products_from_paths`, `build_river_mesh_trace_from_vector`, `DEM_correcflow_analysis`, `flow_persistence`, `traits_of`, `is_valid_field_metadata`, `load_field_param_toml`, `reproject_coord`, `reproject_shp`, `mask_by_dem`, `reproject_tif`, `from_workspace_relative`, `is_under_workspace`, `to_workspace_uri`, `observable_time_method`, `plot_lake_abacus_comparison`, `rasterize_points`, `make_piecewise_constant_daily_qin`, `normalize_initial_condition_payload`, `normalize_boundary_condition_payload`, `normalize_sink_source_payload`, `elapsed_seconds_for_time_keys`, `step_end_elapsed_seconds_from_payload`, `list_rows`, `config_option_for`, `missing_field_options`, `release_flux_network_overlap_metrics`, `release_flux_network_distance_metrics`, `resolve_source_runs`, `verify_fingerprint`, `python_value_type`, `write_schemas`, `sources_by_publisher`, `solve_backward_euler_step`, `solve_steady_state`, `dsmooth_positive_thickness_dh`, `smooth_clip_01`, `resolve_surface_interaction_model`, `rate_of`, the MODFLOW 6 `ensure_solver_routing_context`, `boundary_start_value`, `lake_definitions_for_bedleak`, `managed_bin_dir`, `resolve_run_output`, `topological_cohorts` and `restore_seepage_raster_from_store`. The unused methods `set_parameters_from_config` and `set_initial_conditions` of `ProcessSpatial` go with it.
 - The Windows-only hashing of long vector layer names and of MODFLOW 6 output names. `hydromodpy.results.zarr_store.zarr_schema.windows_long_path` is gone, use `hydromodpy.core.io.filesystem.native_io_path`, and `WINDOWS_SOLVER_PATH_LIMIT` is gone, use `hydromodpy.core.io.filesystem.WINDOWS_PATH_LIMIT` (no alias). `death_is_proven` was born in 4.20 in `hydromodpy.core.state.host`, so it takes no line.
 - The French meeting notes under `docs/_dev_notes/AquiFR_integration/` and the old class diagram `docs/class_diagrams/architecture_condensee_corrigee.png` left the repository.
+- `catchment_mismatch` as it was. The old number is now called `basin_mismatch`.
+- A network output can no longer score against `geographic.river_network`, because the DEM-derived network is no observation. `hmp doctor --fix-config` says to write `map.complete = "data.hydrography"` or a vector file.
+- `hydromodpy.core.Workspace`, which never resolved. Use `Workspace` from `hydromodpy.project.accessors`. `hydromodpy.core.io.crs.haversine_km` is gone, use `hydromodpy.data.common.geometry.haversine_km`.
+- The B0 network and transient case left the package for `validation_cases/calibration/network_transient_b0/`.
+- Helpers that nothing called: the re-export modules at the root of `physics/hydrology/pyhelp/`, `apply_simulation_time_to_flow_wells`, `apply_simulation_time_to_flow_boundary_conditions`, `SimulationPlan.is_empty` and the `Transport.update_*_parameters` helpers.
+- Modules that nothing called: `modflow_common/recharge_evt_routing.py`, `boussinesq/assembly/residual_facade.py` and `boussinesq/forcing_resolution.py`.
+- The unused `balanced` option and the `streambed_top` and `streambed_connection` arguments of `write_mesh`.
 
 ### Fixed
 
@@ -773,10 +842,9 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `hmp replay` of a published copy that was killed once no longer makes every later replay of that copy fail with
   `FileExistsError`. The folder it left in `.hmp/replay/` is removed once its process is gone, and a second replay of
   the same copy into the same project while the first one runs is refused with a write conflict.
-- A local delivery whose destination file is a symbolic link replaces the link again, as in 2.0.0, and no longer the
+- A local delivery whose destination file is a symbolic link replaces the link again, as before, and no longer the
   file it points to.
-- On Linux and macOS a `PermissionError` on a lock file, a launcher lease or a folder rename is raised at once again,
-  as in 2.0.0. Only Windows tries again, for up to 310 ms.
+- On Linux and macOS a `PermissionError` on a lock file, a launcher lease or a folder rename is raised at once again, as before. Only Windows tries again, for up to 310 ms.
 - A lock file put back by a copy, on a volume without hard links, stays with its holder, which can still renew and
   release it. A lock file now carries a `token` drawn at each take.
 - A file linked or copied by `link_or_copy` keeps the dates of its source when it is copied, as `shutil.copy2` did.
@@ -787,13 +855,12 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A run with `zone_partic = "seepage_clip"` stopped with a KeyError since the outputs of the solver are extracted after every run. MODPATH now builds the seepage raster from the heads of its flow run, with the seepage rule of the run store, and finds those heads under the NWT name of a run whose name holds spaces.
 - Hub'Eau clients report dropped stations via report_dropped instead of silently ignoring empty chronicles.
 - Hub'Eau product QIXM discharge conversion (l/s to m3/s).
-- The steady start of a transient Boussinesq run with the `petsc` backend and `ts_vi_obstacle` stopped with
-  `AttributeError` in 2.0.0. It runs again, with `regularized_partition` for the auxiliary solve, as in 2.0.0a5.
+- The steady start of a transient Boussinesq run with the `petsc` backend and `ts_vi_obstacle` used to stop with `AttributeError`. It runs again, with `regularized_partition` for the auxiliary solve, as in 2.0.0a5.
 - A `flow.restart_from` given as a run name or a sim_id is now read on a resume and in a calibration trial, as it is on
   a first run. Before, only a path worked there.
 - The frozen config of a run whose catchment reads its DEM from `[[data.dem.sources]]` validates again.
 - MODPATH and MT3DMS build their deck again, and the `seepage_clip` release raster reads the water table cell by cell.
-- `hmp run --frozen` replays a station that answered nothing. `hydromodpy.lock` pins it as an input with `empty = true` and no sha256, and an empty answer the lockfile does not pin is refused. In 2.0.0 every such station was refused, because the lockfile could not pin it.
+- `hmp run --frozen` replays a station that answered nothing. `hydromodpy.lock` pins it as an input with `empty = true` and no sha256, and an empty answer the lockfile does not pin is refused. Before, every such station was refused, because the lockfile could not pin it.
 - The root search of a calibration keeps one cost per point of its search variable, so a point that failed and was solved when asked again no longer breaks the interval around the root.
 - The catchment series and the calibration discharge keep no module state between runs. A reused id of an earlier context no longer silenced the runoff warning of a new one.
 - The matching card names the unit of a parameter from the session journal first, so `K (m/s)` instead of `K (-)`.
@@ -809,121 +876,6 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
   beside each series in `inputs.json`. A run stored before this fix stays refused, and the refusal names the
   remedy: `hmp data lock` for a pin of `hydromodpy.lock`, a new `hmp run` for a pin of `inputs.json`.
 - The validation launcher makes the `path_file` of a forcing series absolute, as it does for `path` and `*_path`, so the tide and the two linearized transient cases find their forcing CSV from the output folder.
-
-### Numbers
-
-<!-- numbers:begin -->
-- Hub'Eau product QIXM (monthly maximum instantaneous discharge) was read as a water level in m, with the l/s value unconverted. It is now a discharge in m3/s, 1000 times smaller. QixM, which Hub'Eau does not serve and which returned no observation, is read as QIXM.
-- With station_ids and max_stations both set, Hub'Eau hydrometry loaded only the first max_stations named stations that had data and never said so. max_stations now counts only the stations a search over the extent finds, and every named station is loaded.
-- Hub'Eau cache looked up cached series without product in the cache key. An entry whose product differed answered anyway.
-- A run started from flow.restart_from read the last head of the earlier run as stored, rounded to 2^-17 under the compact precision, up to 0.8 mm on 100 m of head. It now reads final_state, in double precision.
-- The cyclic spin-up carried the heads from one cycle to the next and restarted every lake from its initial_stage, so the lake never settled. Each cycle now starts from the final stage of the previous one.
-- The auxiliary steady solve that sets the initial heads of a MODFLOW 6 or MODFLOW-NWT run with [flow.ic] kind = "steady_state" always starts from the top of the model. It used to start 0.01 m below the top when [flow.runtime] set backend = "petsc" and surface_interaction_model = "vi_obstacle", two Boussinesq settings that MODFLOW does not use. Only that combination changes, by the order of the head closure of the auxiliary solve (at least 1e-3 m for MODFLOW 6, headtol, 1e-4 m by default, for NWT); no example, reference or validation case uses it.
-- The start head of a run that restarts from another one is written to MODFLOW 6 as a double precision binary array, and its lake stages with all their digits, no longer rounded as text. Heads move by about 1e-9 m and lake stages by up to 5e-9 m.
-- MODFLOW 6 with SFR storage: a run that restarts from another one, and each window of a chain, gives each reach the stage it ended on as INITIALSTAGES, read from final_state, where the reach used to start from the stage the package computes. On a two-window chain the head of window 2 moves by about 1e-4 m, and the chain then differs from the run in one piece by 6e-10 m. A source run of 2.0 has no final_state, and its reaches start as before.
-- The catchment series and budget_over count the inflow and the outflow of each element (layer, cell) on its own, as the extractors do, where the catchment series summed the layers of a cell first. A drain only leaves the aquifer, so the discharge does not move: 0 on the six reference runs and on two runs of example 04, all one layer. On a multilayer run the inflow and the outflow of a term whose sign changes between layers move, and their difference does not.
-- The catchment series and budget_over drop a non-finite element (layer, cell) alone, where 2.0 dropped the whole cell when one of its layers held a NaN, so the discharge of a multilayer run whose drain cell holds a NaN in one layer now counts its finite layers. A time step with no finite element under the weights gives NaN, where 2.0 gave 0, and a family such as storage is NaN on a step where one of its terms is NaN. A run of one layer with finite fluxes does not move: 0 on the six reference runs.
-- The root interval of a bisection counts in n_trials and n_within the distinct points of the search variable that solved, where 2.0 counted the solved trials, so a point solved twice counts once and keeps its first cost. 0 cases out of 3,000 searches move.
-<!-- numbers:end -->
-
-## [v2.0.0] - 2026-11-07
-
-This is version 2.0.0. It is written for a reader who comes from version 1 or from an alpha. The development notes are in
-[Development notes of 2.0.0](https://github.com/HydroModPy/HydroModPy/blob/main/docs/source/about/changes-during-the-alphas.md).
-
-Since the last alpha, calibration gained a validation window, trials in worker processes and stricter checks of its files.
-
-### What to do when you update
-
-- Runs and sessions stored by an alpha are refused. Run them again with this version.
-- A TOML file written for an alpha or for version 1 may use old keys. Run
-  `hmp doctor --fix-config` on it. It rewrites the renamed keys and says what it changed.
-- If you come from version 1, read `docs/source/get-started/from-v1.md`.
-- The keys and commands that moved are listed in `docs/source/reference/changes.md`, "What changed in the TOML".
-- A file that does not say which calibration protocol it wants follows protocol 1.3.
-
-### Added
-
-- Contributors: `tests/regression/frozen_documents/v2.0.0/` keeps the documents of 2.0.0 that `frozen_runs` does not hold (publication, install index, plan, lockfile, sidecars, data caches, trial series, the six documents of a sealed job, site catalog), written on a synthetic island by `python -m tools.freeze_documents`, and a test reads each one with the readers of this version.
-- A page for users of version 1, with the table of old keys and commands.
-- A `NOTICE` file with the licences of PyHELP and of the data, and `version` in `CITATION.cff`.
-- `hydromodpy_version_min` in `workspace.toml` is enforced.
-- A sha256 for each file of a run. `hmp doctor` reports a sealed file that is missing or changed.
-- `--format table|json|csv` on the commands that print a result, and a `HMPY.Exxx` code at the start of each error line.
-- JSON Schemas for `manifest.json`, `provenance.json` and the output of `hmp calibrate`.
-- A transient Boussinesq run writes a `storage` budget term, so its domain budget closes.
-- `[calibration] validation_window = {start, end}` keeps dates apart from the search. Each trial is also scored on them, under `validation.cost`. The promoted run stores the period and the score in `checks.calibrated_by`.
-- `[metrics] window` minus the validation window is the default calibration window. A validation window that overlaps it, leaves a bound open or has no dated record is refused by name.
-- `Project.calibrate()` takes `protocol`, `case`, `resume`, `dry_run`, `workspace`, `project`, `project_label`, `metric_fn` and `objective` by name on every route. `dry_run=True` returns the plan.
-- `flow.sinks_sources.recharge.factor` multiplies the recharge in force. The default of 1 changes nothing. A calibration reaches it as `recharge.factor`, searched in log space between 0.5 and 2.
-- `vka` can be calibrated under MODFLOW 6 as `[calibration.parameters.vka]`, in log space. It is not offered when the project declares `Kv`.
-- `hmp campaign promote CASE` without `--trial` lists the five best completed trials. `hmp config targets` shows the search space, the draw and the default bounds of each target.
-- `hmp config check` refuses `normal` sampling on `lhs` and `optuna`, and a calibrated recharge factor when the run has no recharge to multiply.
-
-### Changed
-
-- Soil reservoir defaults: `alpha` goes from 0.6 to 0.45 (FAO-56 table 22, cereals and maize).
-  `flow.sinks_sources.etp.extinction_depth` goes from 1 m to 2 m. A file that writes these keys reads as before.
-- The soil reservoir gives each SAFRAN cell its share of the catchment in the basin mean it prints. Without a catchment polygon, cells keep equal weight. The grids given to MODFLOW 6 do not change.
-- Each stored format declares the oldest version that reads it. Every later 2.x reads every 2.0.0 run.
-- A calibration with no pin on the protocol follows 1.3. The map is cut to the catchment and the network is rasterized from the heads of the observed streams.
-- A tie on the cost in the last phase of a search promotes the trial that the search answered.
-- A date written on a stamp belongs to the period `(s, e]` that the stamp closes.
-- `hmp.run` returns a `Run`, and a calibration goes through `hmp.calibrate`. Overrides go through `set=`.
-  `Project.run` is now `Project.launch`. A name that left is refused with its new path.
-- A boundary condition is active when its table is declared, and `enabled = false` turns it off. Boussinesq and PETSc settings move to `[flow.runtime]`, and the discriminator is `kind` everywhere.
-- On the command line, `-w` works on every verb. `hmp replay` is removed, `hmp test` is now `hmp dev test`, and `hmp campaign` holds the verbs of a plan of cases.
-- A budget flux is negative when water leaves the aquifer, for every solver.
-- A time series has a `source` column (`simulated` or `observed`), and the catchment row is named `catchment`.
-- NetCDF and VTU write one variable with a layer dimension. Opening a NetCDF in QGIS needs `layer=` on the export.
-- With `parallel` above 1, trials of a HydroModPy search run in worker processes that last, not in threads. A script that calibrates this way needs the `if __name__ == "__main__":` guard. A `metric_fn` must be defined at the top level of a module.
-- `[modflow6.runtime] mf6_api_timeout_s` now limits one whole trial of a parallel search. The default stays 2400 s, so a longer trial now ends `crashed`.
-- With `parallel` above 1, grid, Latin hypercube and random searches feed one queue of workers, and the progress bar moves as each trial ends. `multistart` restarts run side by side. `linearized` derivatives run in workers.
-- `scipy_de` accepts `parallel` above 1 and scores a whole generation at once. Optuna `tpe` counts trials in flight as the worst cost so far. At `parallel = 1` nothing changes.
-- Calibration refuses old keys of `[calibration]` and names the new one, for example `scoring_window`, `max_iter`, `tolerance` and `roptim_max`. `hmp doctor --fix-config` rewrites them. A sealed `config.toml` is still read.
-- Changing the validation window starts a new cache scope and session. A file without the key keeps its cache keys.
-- `Project.calibrate()` names its case like `hmp calibrate` (`[simulation] name`, else the project file stem), so both share one session and `resume` finds it. A call with phases writes `sessions/<case>.toml`, overwritten by the next call.
-- The preflight refuses a minimiser on one parameter scored on two network bounds of positive weights. It also refuses a steady network-only search that moves K and the recharge factor, and `factor` beside `[flow.sinks_sources.recharge.soil]`.
-- The preflight warns when `distance_gap` enters a cost beside another parameter or metric, and when two roots lie more than half a decade apart. Bisection needs every block to publish a signed residual.
-- A raw residual cost in a unit, such as an RMSE in m3/s, beside pure-number costs is refused unless `normalize_cost = true`. `sampling = "normal"` is refused by the Optuna engine.
-- A run stores the series at each observed station under the station id. A gauge the mesh cannot place is listed as unscored with a warning. `hmp.read(run, "head")` or a lake stage with several stations needs `station=`.
-- `hmp run` ends a calibration with the same lines as `hmp calibrate`, which now prints units. `hmp calibrate --dry-run` shows the widest `parallel` of the phases.
-- A `[sites]` campaign that holds a calibration can run up to 8 solves side by side without `--force`, up from 2.
-- Several modules of `hydromodpy.core`, `project` and `workflow` moved to the layer that uses them. A plugin that
-  imports one of them from its old path must follow it. The public names of `hydromodpy.__all__` do not move.
-- Example 04 `run_calibration_api_daily.toml` calibrates on 2016-2018 and validates on 2019-2020. The composite example scores its network block on `distance_mean`.
-- The layer matrix of `tests/unit/architecture` no longer grants 20 import edges that no code uses, nor the `calibration -> display` tolerance. Its rows go from the lowest layer to the highest, and a test keeps them so.
-- Contributors: fourteen scripts of `tools/` that nothing called, five of them broken, left the repository. Script coverage runs through one wrapper, `tools/ci/coverage_runner.py`, and now measures `hydromodpy.examples`. The contributor docs name one environment, `hydromodpy-dev`.
-- Contributors: the data tests live in `tests/unit/data/`, laid out like the package, and `tests/unit/data_managers/` is gone. The SIM2 grid configs share one base and the lake chronicle configs another, with the `[data]` schema unchanged. `attach_read_only` lives once, in `hydromodpy.core.io.db_retry`.
-- The calibration session report draws the best run with the registered figures, lake level included, and names each image after its figure, for example `hydrograph_sim_obs.png` instead of `best_obs_vs_sim.png`.
-- The `reporting` layer is gone. The calibration report is `hydromodpy.display.calibration_report` and the campaign summary `hydromodpy.results.export.campaign_summary`. `hmp.compare_pair` now sits beside `Catalog.diff`, and `hydromodpy.analysis.comparison.compare` is now `hydromodpy.analysis.compare`.
-- `hydromodpy.schema.config_schema` replaces `hydromodpy.config.schema_export` and `hydromodpy.schema.export`. The plan of a `[sites]` project moved to `hydromodpy.project.launch.sites`, the check behind `hmp config check` to `hydromodpy.project.check`, the resolution of a `[site]` to `hydromodpy.data.sites.single_site`, `MetricsConfig` to `hydromodpy.results.metric_rule` and `PublicationConfig` to `hydromodpy.results.publication`. No row of the layer matrix cites a row below it any more.
-- `simulation` is flat, the soil reservoir moved to `simulation/soil/` and `OutputAdapter` to `hydromodpy.simulation.post_run`. The data binders of a `Flow` moved to `physics/flow/binders/`, the field-parameter schema to `hydromodpy.core.config_kit.field_param` and the TOML examples of the dynamic flow blocks to `physics/flow/toml_examples.py`. `physics` no longer imports `spatial`, `simulation` no longer imports `data`, and the layer matrix keeps no tolerance for them.
-- Contributors: `-q`, `-v` and `--debug` set the console level once in `cli/main.py`, so a new command no longer calls `apply_verbosity`. `cli/_workers/dev.py` is now `cli/_workers/lock.py`.
-- Contributors: one registry, `hydromodpy.core.plugin_registry`, serves the evaluator, forward-model, terrain and mesh engines. `calibration/runners/cli_runner.py` is split into `document.py`, `session_scope.py` and `search.py`.
-- The recession cloud and the Brutsaert-Nieber coefficient moved to `hydromodpy.results.derive.recession`, `particle_travel_years` to `hydromodpy.results.run.particles`, and the metric CRS helpers to `hydromodpy.core.io.crs`. `hydromodpy.display.report_blocks` and `hydromodpy.display.maps.geo` are single modules, and `GeoFigureMixin` is gone. `hydromodpy.display.catchment_report` holds nine modules instead of fourteen. Figures draw the same pixels.
-- The helpers every solver shares moved into `hydromodpy.solver.base` (`properties`, `initial_conditions`, `drain_conductance`), the MODFLOW-NWT post-processing to `hydromodpy.solver.modflow_nwt.postprocess` and the Boussinesq catalogs to `boussinesq/catalog.py`. The MODFLOW 6 build runs as named steps, its solver options live in `modflow6/builders/solver_options.py`, the LAK builder is split in four modules and `modflow6.builders` no longer re-exports names. No input file and no result changes.
-- Contributors: `hmp_log_records` is a fixture of `tests/conftest.py`, and `tests/_helpers/transport_guard.py` and `tests/validation/helpers/petsc.py` hold helpers that several test folders used to copy.
-- `Catalog.read_geographic_feature`, `list_geographic_features` and `read_geographic_metadata` read the run directory instead of the index, and `Catalog.query_timeseries`, `query_budget` and `query_mass_balance` read through the run. `SimulationZarr` binds the writes and reads of the store as its methods. `record_derived_file` moved to `hydromodpy.results.ledger`. Run files are unchanged.
-- `Catalog.load_dataset` builds its cohort with `Catalog.find` and shares the parameter pivot and the field stack of `RunSet`, and returns the same dataset. `DatasetLoader` is replaced by `hydromodpy.results.catalog.dataset_loader.load_dataset`, and `hydromodpy.results.export.run_identity` moved to `hydromodpy.results.run_identity`.
-- The version is 2.0.0, set in `pyproject.toml`, `CITATION.cff` and `hydromodpy/core/version.py`.
-- A TOML key or table that only a pre-release wrote still loads in 2.0.x with a warning, and `hmp doctor --fix-config <file>` rewrites it. From 2.1.0 it is refused. The rule of two minor versions holds for a TOML key or table changed from 2.0.0 on. A name of Python, an `hmp` command or a flag that leaves in 2.1.0 or earlier has no alias: it is refused with a message that names its new form. The alias with a `FutureWarning` holds for a change from 2.2.0 on. The warning of an old form no longer states a delay.
-- The two irregular-mesh runs of example 06 (`run_selune_mf6_irregular.toml` and `run_vire_mf6_irregular.toml`) use the current keys. They resolve to the same configuration.
-- `hmp doctor --fix-config` rewrites the TOML keys that only a pre-release wrote. The old and the new forms are `flow.active_bc` and `flow.active_sinks_sources` (tables of `flow.bc` and `flow.sinks_sources`, active when declared), `flow.bc.<name>.forcing.mode` (`kind`), `flow.ic.type` and `flow.ic.h.type` (`kind`), `flow.param.<id>.field_vertical_profile.mode` (`kind`), `flow.sinks_sources.lakes.<id>.outlets[*].couttype` (`kind`), `flow.sinks_sources.lakes.<id>.stageinit` (`initial_stage`), `flow.surface_interaction_model` (`flow.runtime.surface_interaction_model`), `geographic.catchment.catch_def` (`kind`), `simulation.process[*].type` (`kind`) and `solver.backend.backend` (`kind`). Four keys have no new form and the doctor drops them: `transport.active_bc`, `transport.active_sinks_sources`, `workspace.catalog_path` and `workspace.runs_dir`, because no solver read the first two and the storage layout fixes the other two.
-
-### Removed
-
-- The commands and flags that left before 2.0.0 have no alias. They are refused with a message.
-- `catchment_mismatch` as it was. The old number is now called `basin_mismatch`.
-- A network output can no longer score against `geographic.river_network`, because the DEM-derived network is no observation. `hmp doctor --fix-config` says to write `map.complete = "data.hydrography"` or a vector file.
-- `hydromodpy.core.Workspace`, which never resolved. Use `Workspace` from `hydromodpy.project.accessors`. `hydromodpy.core.io.crs.haversine_km` is gone, use `hydromodpy.data.common.geo_helpers.haversine_km`.
-- The B0 network and transient case left the package for `validation_cases/calibration/network_transient_b0/`.
-- Helpers that nothing called: the re-export modules at the root of `physics/hydrology/pyhelp/`, `apply_simulation_time_to_flow_wells`, `apply_simulation_time_to_flow_boundary_conditions`, `SimulationPlan.is_empty` and the `Transport.update_*_parameters` helpers.
-- Modules that nothing called: `modflow_common/recharge_evt_routing.py`, `boussinesq/assembly/residual_facade.py` and `boussinesq/forcing_resolution.py`.
-- The unused `balanced` option and the `streambed_top` and `streambed_connection` arguments of `write_mesh`.
-
-### Fixed
-
 - A project whose DEM comes from a `[data.dem]` source alone, with no `dem_init_path`, opens again.
 - The MODFLOW 6 `discharge` of a run with a lake and no SFR, the Boussinesq `discharge` and the Boussinesq budget terms. Sizes are in Numbers.
 - A network output whose `time` falls on a stamp, and a window that ends on a stamp, now read the right period.
@@ -938,22 +890,16 @@ Since the last alpha, calibration gained a validation window, trials in worker p
 - A worker that dies marks its trial `crashed` and the search goes on. A stuck `mf6` is killed with its worker. Ctrl-C or SIGTERM at `parallel` above 1 ends the solves at once.
 - Warnings say a value reached a bound only when it is on it. A minimiser on one parameter and two bounds is refused only for signed residuals. A calibration that scores different blocks in different phases is accepted.
 - The `calibration_progress` figure of a staged calibration shows the value a phase froze, so the best run reads `K = 7.96e-05 m/s` instead of `K = nan`.
-- `hmp report compare` writes a `variable` column in `scores.csv` and `by_site.csv`, so two variables scored at one station no longer give two rows that cannot be told apart. `hmp.compare_pair` finds the project from `project.toml`, like `hmp.compare`.
-- A retired root section such as `[modflow]` is refused by its sentence when a mapping is validated directly, as it already was in a TOML file. `hmp config check` no longer lists a `ResourceWarning` among the warnings of a file.
+- A retired root section such as `[modflow]` is refused by its sentence when a mapping is validated directly, as it already was in a TOML file. `hmp check` no longer lists a `ResourceWarning` among the warnings of a file.
 - The Hub'Eau client no longer lists `HmnJ`, a product the API refuses, and the `product` example shows `HIXnJ`.
-- `hmp dev test` refuses an option it does not take with its `HMPY.E` code first, and sees a `--basetemp` anywhere in `PYTEST_ADDOPTS` instead of adding a second one. An interrupted `hmp run`, `hmp calibrate` or `hmp spinup` prints `Interrupted.` like every other command, still with exit code 130.
+- An interrupted `hmp run`, `hmp calibrate` or `hmp spinup` prints `Interrupted.` like every other command, still with exit code 130.
 - A mesh or terrain engine registered by hand can no longer take the id of a built-in engine that is not imported yet. The calibration preflight writes a window bound with its time when it is not at midnight, like the scoring.
 - The parameter cost profile reads search bounds stored as JSON text, like the calibration progress card. The Piper, Schoeller and Stiff diagrams refuse an unreadable source with the same message.
 - `import_zarr_field` refuses a field store whose schema version is outside the read window, like every other reader. A NetCDF export refuses a time step outside the axis of a field rebuilt on read instead of wrapping it. The STAC, RO-Crate and PROV views written outside a run directory are written atomically, and a NetCDF export no longer uses a fixed temporary file name.
 - `RunSet.to_xarray` warns about a run whose field store cannot be opened instead of skipping it silently. `Catalog.describe`, `variables`, `metrics` and `stations` no longer hide errors other than a missing table or view of the index.
 - A bisection search no longer stops with `TypeError` when a cut point whose solve failed is asked again and solves. Intervals from other curves are unchanged.
 - `manifest.json` gives the sha256 of `fields.zarr`, and `hmp doctor` reports a field store changed since the seal. A seal written before has none and still reads. The STAC and RO-Crate views give no checksum for the store, because it is a directory and not a file.
-- `hmp run --frozen` replays a completed run without `--force`. It used to be skipped as identical to the run it replays.
 - The matching card of a calibration now reads the unit of K from the session journal (`bounds.<name>.units`) before the session config, so its axis no longer shows `K (-)` when the journal says `m/s`.
-- `hmp report catchment` draws the run figures it needs (`hydrograph`, `piezometric_map`, `water_budget`, `seepage_map` and the active network overlay) when the run did not draw them, with the `[display]` the run sealed, instead of showing empty "Required figure missing" blocks.
-- `hmp report catchment` accepts a run that kept the simulated discharge at several stations and reads the one named by `[context.observed_discharge] station_id`.
-- The docstring of `hydromodpy.data.workspace.custom_scan` no longer says `hmp run` scans the custom data files.
-- `hmp data ls` no longer says that `hmp run` indexes the files dropped in `data/<variable>/`. A run indexes the custom files its `[data]` sources read, and `hmp data add` indexes one file.
 
 ### Security
 
@@ -961,7 +907,24 @@ Since the last alpha, calibration gained a validation window, trials in worker p
 
 ### Numbers
 
-Sizes come from example 04 unless another case is named. Runs of older versions are not comparable on these quantities.
+<!-- numbers:begin -->
+- Hub'Eau product QIXM (monthly maximum instantaneous discharge) was read as a water level in m, with the l/s value unconverted. It is now a discharge in m3/s, 1000 times smaller. QixM, which Hub'Eau does not serve and which returned no observation, is read as QIXM.
+- With station_ids and max_stations both set, Hub'Eau hydrometry loaded only the first max_stations named stations that had data and never said so. max_stations now counts only the stations a search over the extent finds, and every named station is loaded.
+- Hub'Eau cache looked up cached series without product in the cache key. An entry whose product differed answered anyway.
+- A stress-period stamp was compared with the observed value at the stamp instead of the mean of the period it closes, so discharge scores (NSE, KGE, RMSE) of these runs are not comparable with later ones.
+- MF6 wells and sides were placed on the triangulation instead of the Voronoi dual cells, MODFLOW-NWT stored one slice per time step and read a wrong budget, and Boussinesq ignored the steady first period, the bed thickness of drains, the recharge rule of fixed-head cells and the sub-steps; fixed between c14c1b4c6 and 48d7db46e.
+- The MODFLOW 6 DISV took the ground as its top, so the top layer had an uneven thickness and heads under a varying thickness were off by 0.16 to 0.31 m on the Nancon; the DISV now carries a computation top, fixed between b1fa87021 and ec7f8de88.
+- A run started from flow.restart_from read the last head of the earlier run as stored, rounded to 2^-17 under the compact precision, up to 0.8 mm on 100 m of head. It now reads final_state, in double precision.
+- The cyclic spin-up carried the heads from one cycle to the next and restarted every lake from its initial_stage, so the lake never settled. Each cycle now starts from the final stage of the previous one.
+- The auxiliary steady solve that sets the initial heads of a MODFLOW 6 or MODFLOW-NWT run with [flow.ic] kind = "steady_state" always starts from the top of the model. It used to start 0.01 m below the top when [flow.runtime] set backend = "petsc" and surface_interaction_model = "vi_obstacle", two Boussinesq settings that MODFLOW does not use. Only that combination changes, by the order of the head closure of the auxiliary solve (at least 1e-3 m for MODFLOW 6, headtol, 1e-4 m by default, for NWT); no example, reference or validation case uses it.
+- The start head of a run that restarts from another one is written to MODFLOW 6 as a double precision binary array, and its lake stages with all their digits, no longer rounded as text. Heads move by about 1e-9 m and lake stages by up to 5e-9 m.
+- MODFLOW 6 with SFR storage: a run that restarts from another one, and each window of a chain, gives each reach the stage it ended on as INITIALSTAGES, read from final_state, where the reach used to start from the stage the package computes. On a two-window chain the head of window 2 moves by about 1e-4 m, and the chain then differs from the run in one piece by 6e-10 m. A source run of a pre-release of 2.0 has no final_state, and its reaches start as before.
+- The catchment series and budget_over count the inflow and the outflow of each element (layer, cell) on its own, as the extractors do, where the catchment series summed the layers of a cell first. A drain only leaves the aquifer, so the discharge does not move: 0 on the six reference runs and on two runs of example 04, all one layer. On a multilayer run the inflow and the outflow of a term whose sign changes between layers move, and their difference does not.
+- The catchment series and budget_over drop a non-finite element (layer, cell) alone, where a pre-release dropped the whole cell when one of its layers held a NaN, so the discharge of a multilayer run whose drain cell holds a NaN in one layer now counts its finite layers. A time step with no finite element under the weights gives NaN, where a pre-release gave 0, and a family such as storage is NaN on a step where one of its terms is NaN. A run of one layer with finite fluxes does not move: 0 on the six reference runs.
+- The root interval of a bisection counts in n_trials and n_within the distinct points of the search variable that solved, where a pre-release counted the solved trials, so a point solved twice counts once and keeps its first cost. 0 cases out of 3,000 searches move.
+<!-- numbers:end -->
+
+Sizes come from example 04 unless another case is named. Runs of a pre-release are not comparable on these quantities.
 
 - Soil recharge on example 04, 2015 to 2020, for a capacity of 50, 100, 150, 200 and 250 mm. It was 443, 392, 356, 325 and 295 mm/year and is now 443, 389, 350, 315 and 280 mm/year.
 - Discharge of step 6 of example 04 (K = 3.16e-5 m/s, Sy = 0.04). NSE log goes from 0.903 to 0.932, KGE from 0.911 to 0.947 and NSE from 0.904 to 0.929. The July to September bias goes from +0.022 to 0.000 m3/s.

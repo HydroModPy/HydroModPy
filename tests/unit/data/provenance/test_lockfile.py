@@ -112,7 +112,7 @@ def test_each_input_carries_its_licence(tmp_path: Path) -> None:
 
 
 _REFUSED_SHAPES = {
-    "the lockfile of 2.0.0": 'schema = "hydromodpy.lock.v1"\n\n[hydromodpy]\nhydromodpy_version = "2.0.0"\n',
+    "the lockfile of a pre-release of 2.0": 'schema = "hydromodpy.lock.v1"\n\n[hydromodpy]\nhydromodpy_version = "2.0.0"\n',
     "an older shape without schema": '[hydromodpy]\nversion = "2.0.0"\n\n[schema]\ncatalog = 1\n',
     "a later version": 'schema = "hydromodpy.lock.v3"\n',
 }
@@ -132,7 +132,7 @@ def test_the_lockfile_of_the_corpus_is_refused(tmp_path: Path) -> None:
         Path(__file__).resolve().parents[3]
         / "regression"
         / "frozen_documents"
-        / "v2.0.0"
+        / "v2.0.0-pre"
         / "current"
         / "island"
         / LOCKFILE_NAME

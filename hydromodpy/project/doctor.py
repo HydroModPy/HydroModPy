@@ -344,7 +344,7 @@ def probe_toml_workspace(toml_path: Path) -> list[dict]:
 
 
 def data_cache_check(data_dir: Path) -> dict:
-    """Report on the sidecars of ``data/`` and on a database of HydroModPy 2.0.0 left there.
+    """Report on the sidecars of ``data/`` and on a database of a pre-release of 2.0 left there.
 
     It reads and never repairs: the database is removed by ``hmp workspace clean
     --data-cache``, and a sidecar that does not read is named so its file can go.

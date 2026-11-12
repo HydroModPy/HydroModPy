@@ -55,7 +55,7 @@ from hydromodpy.schema.sources import source_entry
 def _provider_of(item: Any) -> str | None:
     """The provider an install index entry names, read under today's name.
 
-    A copy sealed before 2.1.0 writes ``custom`` where the same file now seals
+    A copy sealed by a pre-release writes ``custom`` where the same file now seals
     ``file``; the sidecar migration reads the old name as the new one, so the
     replay installs the same files whatever sealed the copy.
     """

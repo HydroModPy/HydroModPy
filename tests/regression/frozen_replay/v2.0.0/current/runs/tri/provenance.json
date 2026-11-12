@@ -1,19 +1,19 @@
 {
   "provenance_version": 2,
-  "sim_id": "1200e1f7-1120-4482-87be-22ac4692943f",
+  "sim_id": "c6429802-16ad-4c1e-9152-79d395f817c3",
   "tool": {
     "name": "hydromodpy",
-    "version": "2.1.0.dev0",
+    "version": "2.0.0",
     "code_fingerprint": {
-      "core": "5994b350196b4b8e479d6f2461461459690d6ffa6091a8cea6ab19f7dbd1e141",
-      "config": "cf6c05071e42a55aa8d084921e99b825ea28c8da7fadea88863c7711382870bf",
-      "model": "425dc65d5ea4db1907380467a1c6b9f463affd8bd8a48f45bd988baeb37b594a",
-      "data": "69802e11e5198a10b1a2bf751e516ccbf1ee6c9808c7d2b7984ac4749ebaef39",
-      "catchment": "aa8610b33cccd7afd1bda7d6b2fb331bb8341e17a5955afdeedeeb231a477373",
+      "core": "ea7b3daac5cde5e75cb961f865b89b0c6bb8921aaefc76e3815e5bd63ac4413e",
+      "config": "a7cd3a78e902d9ef8bb1f8455f98181a3d4dab03bad77eff462c16abdd16dfe7",
+      "model": "923a3e77b153611e5b5b07af006a8898ed2176f53542c77fc27bc53463aaaf67",
+      "data": "50b498e4726880797ecd5acc3b4895745956955c7d34b7fa6bedbbadb22c92b0",
+      "catchment": "2fc77702736cf3f00e560b75d4efd1f090f51eaae565bd284142ba085497118d",
       "mesh": "4a1592f92f38799e723b27a414b586f3e5732436063df950540e95863ad35b10",
-      "solver": "10eee99513b9c1e4e0e8b9446d088eb10c5473e8d1d09b1da63a45a3dccc895d",
-      "results": "8064a024cb8a40b965161507fd78001e5c342e37d48999f3b7a2b3a92aed33af",
-      "workflow": "3c867bfa58446ddde903660aad513128fc1b0ce276487c6f814e84f1fb56f788"
+      "solver": "d8591c237d142935d6afcc5c79415b8e107d0626054fa067bdbeb13c3ddffbcc",
+      "results": "dcc692ec74e152b86ffb65f18d26b7429ad74a1c1d73a33495a177689a4ce352",
+      "workflow": "39059cab8be04b310db819946793d6e5c145e1d4f630444d620f4e7d07e078db"
     }
   },
   "git": {
@@ -35,7 +35,7 @@
       "arch": "X86_64",
       "bits": 64,
       "count": 22,
-      "hz_advertised_friendly": "2.0263 GHz"
+      "hz_advertised_friendly": "1.7000 GHz"
     },
     "memory_gb": 66.81
   },
@@ -70,9 +70,9 @@
     }
   },
   "timing": {
-    "started_at": "2026-11-11T13:04:29.002416+00:00",
-    "ended_at": "2026-11-11T13:04:31.569239+00:00",
-    "duration_s": 2.566823
+    "started_at": "2026-11-12T00:34:37.853861+00:00",
+    "ended_at": "2026-11-12T00:34:46.286708+00:00",
+    "duration_s": 8.432847
   },
   "environment": {
     "conda_env_hash": null,

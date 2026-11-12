@@ -6,7 +6,7 @@ identities when the two differ, and only then reads the last head and the final
 lake stages. A store without a mesh keeps the cell-count rule and a warning.
 A run that wrote ``final_state/`` is read from it, exact in float64, whether it
 is named by its folder, its ``fields.zarr`` or its ``final_state/``; a run of
-HydroModPy 2.0 is read from the last step of its field store.
+a pre-release is read from the last step of its field store.
 """
 
 from __future__ import annotations
@@ -310,7 +310,9 @@ def test_a_compact_run_gives_back_its_exact_head_only_through_final_state(tmp_pa
     np.testing.assert_array_equal(read_final_head(str(run)), EXACT)
 
 
-def test_a_run_of_2_0_is_read_from_the_last_step_of_its_field_store(tmp_path: Path) -> None:
+def test_a_run_of_a_pre_release_is_read_from_the_last_step_of_its_field_store(
+    tmp_path: Path,
+) -> None:
     run = _run(tmp_path, final=False)
 
     state = read_prior_state(str(run), _mesh())

@@ -14,7 +14,8 @@ merged document (:func:`migrate_merged_doc`), and warns once per key and per fil
 A live file reads a ``move`` or a ``value`` row with a warning for two minor versions,
 then it is refused with the new name. A sealed run reads every row in silence, so a
 run on disk replays. A key only a pre-release of 2.0 wrote is listed in
-``prerelease_forms.txt`` and refused with one sentence that names the doctor of 2.0.x.
+``prerelease_forms.txt`` and refused with one sentence that names every such key.
+This version does not rewrite the file.
 """
 
 from __future__ import annotations
@@ -72,7 +73,7 @@ _BACKEND_KEYS = ("kind", "name")
 
 #: The refusal a forward model earns, which names what a global model is today.
 _FORWARD_MODEL_REFUSAL = (
-    "a forward model is a solver backend since 2.1.0: name it by solver.backend, "
+    "a forward model is a solver backend since 2.0.0: name it by solver.backend, "
     "register it in the hydromodpy.solver entry-point group, and calibrate it with "
     "the pipeline evaluator"
 )
@@ -87,8 +88,8 @@ RETIRED_SGRID_KEYS = tuple(
 PRERELEASE_FORMS_FILENAME: Final[str] = "prerelease_forms.txt"
 """The keys and values only a pre-release of 2.0 wrote, package data of this module.
 
-The list was retired in 2.1.0 and leaves with the delay of a refused name,
-``schema.changes.removal_of("2.1.0")``. ``tests/unit/config/test_prerelease_forms.py``
+The list was retired in 2.0.0 and leaves with the delay of a refused name,
+``schema.changes.removal_of("2.0.0")``. ``tests/unit/config/test_prerelease_forms.py``
 fails from that version on.
 """
 
@@ -193,7 +194,7 @@ def _move_the_dem_init_path(doc: Any, *, sealed: bool) -> list[str]:
     dem["sources"] = [{"source": "file", "path": str(raw)}, *held]
     return [
         f"geographic.catchment.dem_init_path -> [[data.dem.sources]] path {raw!r} "
-        "(dem_init_path was removed in 2.1.0: declare the DEM as [[data.dem.sources]] "
+        "(dem_init_path was removed in 2.0.0: declare the DEM as [[data.dem.sources]] "
         'with source = "file" and the same path)'
     ]
 

@@ -318,7 +318,7 @@ def test_a_series_file_carries_its_version_and_its_writer(tmp_path) -> None:
     ("footer", "reads"),
     [
         pytest.param({"hmp.schema_version": TRIAL_SERIES_SCHEMA}, True, id="current"),
-        pytest.param(None, True, id="no key, the 2.0.0 form, reads as v1"),
+        pytest.param(None, True, id="no key, the form of a pre-release, reads as v1"),
         pytest.param({"hmp.schema_version": "hydromodpy.trial_series.v2"}, False, id="newer"),
         pytest.param({"hmp.schema_version": "v3"}, False, id="a table of a run"),
         pytest.param({"hmp.schema_version": "garbage"}, False, id="not a version"),

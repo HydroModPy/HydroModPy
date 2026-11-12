@@ -130,9 +130,6 @@ _FORMS_REFUSED_AT_2_0: tuple[tuple[str, str], ...] = (
     ("hmp catalog import --as", "hmp catalog import SOURCE --name NAME"),
     ("hmp project import --as", "hmp project import SOURCE --name NAME"),
     ("hmp campaign promote --as", "hmp campaign promote CASE --trial N --name NAME"),
-)
-
-_FORMS_REFUSED_AT_2_1: tuple[tuple[str, str], ...] = (
     # The developer commands left the wheel: a source checkout runs them from tools/.
     ("hmp dev", "python -m tools.dev"),
     ("hmp dev test", "python -m tools.dev test"),
@@ -186,11 +183,11 @@ _FORMS_REFUSED_AT_2_1: tuple[tuple[str, str], ...] = (
 
 OLD_CLI_FORMS: tuple[OldCliForm, ...] = tuple(
     OldCliForm(old, new, "2.0.0", refused=True) for old, new in _FORMS_REFUSED_AT_2_0
-) + tuple(OldCliForm(old, new, "2.1.0", refused=True) for old, new in _FORMS_REFUSED_AT_2_1)
+)
 """The old forms :func:`install_old_cli_forms` puts on the tree.
 
-At 2.0.0 it only held the forms refused because they left before that version. From
-then on ``tools/surface_snapshot.py`` refuses a command or a flag that leaves ``hmp``
+It holds the forms refused because they left before 2.0.0 or in it.
+``tools/surface_snapshot.py`` refuses a command or a flag that leaves ``hmp``
 without an entry here, and a test fails once an entry outlives its delay.
 """
 

@@ -1,15 +1,15 @@
 """A file of an older shape goes through the register of changes before it runs.
 
-The island of ``v2_1_forms`` writes the solver tables where 2.0.0 wrote them, the backend
+The island of ``prerelease_forms`` writes the solver tables where a pre-release wrote them, the backend
 as a table and the settings of MODFLOW 6 at the root. Three things are played through the
 real pipeline.
 
 A file in that shape loads with a warning that names the doctor, and the run it makes
-writes today's names and the edition of its defaults. A run sealed by 2.0.0 replays under
+writes today's names and the edition of its defaults. A run sealed by a pre-release of 2.0 replays under
 ``hmp replay`` with no key that drifts, so a table that moved since the seal, and an
 ``edition`` the seal never wrote, change nothing in the numbers. A project that writes a
 key only a pre-release of 2.0 wrote is refused before any solve, with the configuration
-exit code and the way out.
+exit code and the key it names.
 """
 
 from __future__ import annotations
@@ -33,21 +33,21 @@ from tests.scenarios.launcher import Scenario, isolated_env, link_binaries, play
 # on the worker that played it.
 pytestmark = [pytest.mark.xdist_group(name="older_file")]
 
-RUN = "v2_1_forms"
+RUN = "prerelease_forms"
 EXIT_CONFIG = 14
-WAY_OUT = 'pip install "hydromodpy~=2.0.0"'
+NO_REWRITE = "This version does not rewrite the file."
 EDITION_OF_THE_DEFAULTS = "2.0"
 
 
 @pytest.fixture(scope="module")
 def first_run(tmp_path_factory: pytest.TempPathFactory, scenario_cache: Path):
-    """Play the island in the shape of 2.0.0 once, for the cases that read its run."""
+    """Play the island in the shape of a pre-release once, for the cases that read its run."""
     base = tmp_path_factory.mktemp("older_file")
     env = isolated_env(base / "home", scenario_cache, base / "state", base / "tmp")
     scenario = Scenario(
         name=RUN,
-        covers="an island whose solver tables are written as 2.0.0 wrote them",
-        files=island_files("v2_1_forms"),
+        covers="an island whose solver tables are written as a pre-release wrote them",
+        files=island_files("prerelease_forms"),
         argv=("run", "project.toml"),
     )
     played = play(scenario, base / "play", env, scenario_cache)
@@ -58,7 +58,7 @@ def _read(path: Path) -> dict:
     return tomllib.loads(path.read_text(encoding="utf-8"))
 
 
-def test_a_file_of_2_1_forms_warns_runs_and_writes_todays_names(first_run) -> None:
+def test_a_file_of_pre_release_forms_warns_runs_and_writes_todays_names(first_run) -> None:
     played, _ = first_run
 
     log = played.log.read_text(encoding="utf-8")
@@ -77,7 +77,7 @@ def test_a_file_of_2_1_forms_warns_runs_and_writes_todays_names(first_run) -> No
 
 
 def _as_sealed_by_2_0_0(text: str, *, edition: bool) -> str:
-    """Put a document back in the shape 2.0.0 sealed: the tables at their old place."""
+    """Put a document back in the shape a pre-release sealed: the tables at their old place."""
     older = text.replace("[solver.modflow6.", "[modflow6.").replace(
         'backend = "modflow6"', 'backend = { kind = "modflow6" }'
     )
@@ -89,7 +89,7 @@ def _as_sealed_by_2_0_0(text: str, *, edition: bool) -> str:
     return "".join(kept)
 
 
-def test_a_run_sealed_by_2_0_0_replays_with_no_drift(first_run, tmp_path: Path) -> None:
+def test_a_run_sealed_by_a_pre_release_replays_with_no_drift(first_run, tmp_path: Path) -> None:
     played, env = first_run
     assert played.returncode == 0, played.log.read_text(encoding="utf-8")[-2000:]
     project = tmp_path / "project"
@@ -147,7 +147,7 @@ def test_a_key_only_a_pre_release_wrote_is_refused_before_any_solve(
     form = "flow.active_bc"
     assert form in {known.path for known in PRERELEASE_FORMS}
     scope, _, name = form.rpartition(".")
-    files = island_files("v2_1_forms")
+    files = island_files("prerelease_forms")
     files["project.toml"] = files["project.toml"].replace(
         f"[{scope}]\n", f'[{scope}]\n{name} = ["drainage"]\n', 1
     )
@@ -165,5 +165,5 @@ def test_a_key_only_a_pre_release_wrote_is_refused_before_any_solve(
     log = played.log.read_text(encoding="utf-8")
     assert played.returncode == EXIT_CONFIG, log[-2000:]
     assert form in log
-    assert WAY_OUT in log
+    assert NO_REWRITE in log
     assert not (played.root / "runs").exists()

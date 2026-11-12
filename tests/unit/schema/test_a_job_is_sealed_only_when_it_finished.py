@@ -243,7 +243,7 @@ def test_an_outcome_from_another_job_is_caught(tmp_path: Path) -> None:
     assert any("request id" in problem for problem in report.problems)
 
 
-def test_a_seal_of_2_0_0_is_read_in_memory(tmp_path: Path) -> None:
+def test_a_seal_of_a_pre_release_is_read_in_memory(tmp_path: Path) -> None:
     """The v2 document keeps its ``job_id`` and ``mediaType``; the reader renames them."""
     job = _sealed(tmp_path)
     entries = []

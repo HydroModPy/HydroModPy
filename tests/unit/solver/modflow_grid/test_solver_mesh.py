@@ -492,9 +492,9 @@ def test_a_mesh_of_another_shape_resamples_the_surfaces_on_its_own_grid() -> Non
         (SolverSGridConfig, {"grid_dual": {"nlay": 2}}, r"sgrid\.grid_dual is replaced by \[mesh\] engine"),
         (SolverSGridConfig, {"vertical": {"nlay": 2}}, r"sgrid\.vertical is replaced by \[domain\.layers\]"),
         (SolverSGridConfig, "zonal", "Input should be a valid dictionary"),
-        (Modflow6Config, {"sgrid": {"vertical": {"nlay": 2}}}, r"hmp doctor --fix-config"),
+        (Modflow6Config, {"sgrid": {"vertical": {"nlay": 2}}}, r"does not rewrite the file"),
     ],
-    ids=["planar", "grid_dual", "vertical", "not_a_table", "modflow6_vertical_names_the_doctor_fix"],
+    ids=["planar", "grid_dual", "vertical", "not_a_table", "modflow6_vertical_says_the_file_is_not_rewritten"],
 )  # fmt: skip
 def test_a_retired_sgrid_key_is_refused_naming_the_table_that_replaces_it(model, payload, match):
     with pytest.raises(ValidationError, match=match):

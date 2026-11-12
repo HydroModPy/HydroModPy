@@ -95,7 +95,7 @@ def _publish(source: Path, destination: Path, *, rel_dir: str, sim_id: str) -> P
 
 
 def _request_id(document: dict) -> str:
-    return request_id(document, {}, edition="2.1")
+    return request_id(document, {}, edition="2.0")
 
 
 def test_the_request_id_leaves_the_workspace_out() -> None:

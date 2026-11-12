@@ -1,7 +1,7 @@
-"""A run seals its values, replays them, and a run of the 2.0.0 is read, replayed and classed.
+"""A run seals its values, replays them, and a run of a pre-release is read, replayed and classed.
 
 One project folder, the transient island of ``factory.py`` played by MODFLOW 6,
-then a copy of the frozen ``demo`` run of the 2.0.0. Four steps:
+then a copy of the frozen ``demo`` run of a pre-release. Four steps:
 
 1. ``hmp run island.toml``: the seal is version 4, profile ``run``, carries the
    value rule ``values/1`` with one digest per array and per quantity column,
@@ -106,7 +106,7 @@ def test_a_run_replays_and_is_classed(
     assert compared.tables["runs"]["run"].tolist() == ["island", "island.v2"]
     assert set(compared.tables) >= {"runs", "parameters", "scores", "budget"}
 
-    # 4. A run sealed by the 2.0.0 is read, replayed and classed.
+    # 4. A run sealed by a pre-release is read, replayed and classed.
     frozen = tmp_path / "frozen"
     shutil.copytree(FROZEN, frozen)
     project = frozen / "projects" / "example"
@@ -129,7 +129,7 @@ def test_a_run_replays_and_is_classed(
     # Measured on the stored values of both directories, every table included and
     # the wall-clock row of metrics left out: the frozen demo is exact, so its
     # replay reproduces it. The two final_state arrays and the open water mask are
-    # what the 2.0.0 did not write; they are listed and do not make a deviation.
+    # what a pre-release did not write; they are listed and do not make a deviation.
     assert played.class_ == "bit", played.model_dump(mode="json", by_alias=True)
     assert played.differs == {}
     assert played.removed == []

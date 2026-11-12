@@ -1,8 +1,8 @@
-"""A store written by 2.0.0 and one written in species subgroups read back the same.
+"""A store written by a pre-release and one written in species subgroups read back the same.
 
 The extractor of a transport run writes one solute, named by its ``spc_name``,
-under the ``concentration`` group: ``concentration/NO3``. A run written by the
-2.0.0 had the array straight under ``concentration``, with no name. The readers
+under the ``concentration`` group: ``concentration/NO3``. A run written by a
+pre-release had the array straight under ``concentration``, with no name. The readers
 of the public name ``concentration`` see the same thing in both: the family is
 resolved once, in ``results``, from the store, and a store that holds several
 named solutes is refused with their names.
@@ -42,7 +42,7 @@ def subgroup_store(tmp_path: Path) -> SimulationZarr:
 
 @pytest.fixture
 def flat_store(tmp_path: Path) -> SimulationZarr:
-    """A store written by the 2.0.0: the concentration array at the root of the fields."""
+    """A store written by a pre-release: the concentration array at the root of the fields."""
     sz = SimulationZarr.create(tmp_path / "flat.zarr", n_cells=4, n_layers=1)
     sz.write_field_stack("concentration", np.arange(3 * 4, dtype="float64").reshape(3, 4))
     return sz

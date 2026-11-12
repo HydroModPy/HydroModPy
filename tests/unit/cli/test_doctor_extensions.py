@@ -129,7 +129,7 @@ def test_doctor_takes_w(monkeypatch, tmp_path, capsys, isolated_state) -> None:
     assert _checks(capsys.readouterr().out)["workspace"]["status"] == "OK"
 
 
-def test_doctor_fix_config_rewrites_a_2_0_file_in_place_and_says_what_changed(
+def test_doctor_fix_config_rewrites_a_pre_release_file_in_place_and_says_what_changed(
     monkeypatch, tmp_path, capsys
 ) -> None:
     path = tmp_path / "project.toml"
@@ -226,7 +226,7 @@ def test_doctor_fix_config_refuses_with_the_retired_keys_of_the_check(
         path="flow.gone",
         code="retired_key",
         severity="error",
-        detail="flow.gone was removed in 2.1.0",
+        detail="flow.gone was removed in 2.0.0",
     )
     monkeypatch.setattr("hydromodpy.project.doctor.findings_of", lambda file: [retired])
 
@@ -235,4 +235,4 @@ def test_doctor_fix_config_refuses_with_the_retired_keys_of_the_check(
     out = capsys.readouterr().out
     assert code == EXIT_CONFIG
     assert "and the check still refuses it:" in out
-    assert "  - flow.gone was removed in 2.1.0" in out
+    assert "  - flow.gone was removed in 2.0.0" in out

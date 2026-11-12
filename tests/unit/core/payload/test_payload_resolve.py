@@ -60,7 +60,7 @@ def test_an_output_with_an_old_map_key_is_refused_not_shipped_empty(
         CALIBRATION.format(maps=f'{key} = "streams.gpkg"'), encoding="utf-8"
     )
 
-    with pytest.raises(ConfigError, match="hmp doctor --fix-config"):
+    with pytest.raises(ConfigError, match="written by a pre-release of 2.0"):
         project_data(tmp_path, tmp_path / "data", root=ROOT_CONFIG)
 
 

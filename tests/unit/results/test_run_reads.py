@@ -2462,7 +2462,7 @@ def _hash(project_2: Path, *, state: str | None = None, **kwargs: Any) -> str:
     if state is not None:
         key = ZONE_KEY if kwargs.get("zone_run") is not None else RESTART_KEY
         states[key] = state
-    return request_id(_config(project_2, **kwargs), {}, edition="2.1", source_states=states or None)
+    return request_id(_config(project_2, **kwargs), {}, edition="2.0", source_states=states or None)
 
 
 def test_a_reference_resolves_to_the_sim_id_of_a_sealed_run(project_2: Path) -> None:
@@ -2543,7 +2543,7 @@ def test_a_hotstart_moves_the_id_with_its_state(project_2: Path) -> None:
 def test_a_configuration_without_a_project_root_is_told_as_written() -> None:
     def told(run: str) -> str:
         document = {"mesh": {"engine": "voronoi", "refinement_zone": [{**ZONE, "run": run}]}}
-        return request_id(document, {}, edition="2.1")
+        return request_id(document, {}, edition="2.0")
 
     assert told("coarse") == told("coarse")
     assert told("coarse") != told("other")

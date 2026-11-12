@@ -12,7 +12,7 @@ filters them in Python. A thousand sidecars are read in about 30 ms, ten
 thousand in about 300 ms, and a search on the rows takes under a millisecond.
 
 Three name rules decide what is a row. A sidecar must name its variable, and
-one written by HydroModPy 2.0.0 without it is reported, never guessed from its
+one written by a pre-release of 2.0 without it is reported, never guessed from its
 folder. Locks, writes in progress, hidden names, the ``blobs/`` and ``sites/``
 folders, the tiles extracted from an archive and any JSON that is not a
 sidecar (a manifest) are ignored by name. A sidecar of ``source = "file"``
@@ -24,7 +24,7 @@ live row per variable and source: writing its chronicle removes its empty
 sidecar, and the other way round. Two processes that write one station take
 the lock of :meth:`CacheIndex.chronicle` in turn.
 
-The database of HydroModPy 2.0.0, ``data/cache.duckdb``, is refused by name
+The database of a pre-release of 2.0, ``data/cache.duckdb``, is refused by name
 with the sentence of :func:`former_cache_sentence`.
 """
 
@@ -76,7 +76,7 @@ CHRONICLE_FIELDS = ("variable", "unit", "source_unit", "frequency", "date_start"
 DOWNLOAD_FIELDS = ("origin", "etag", "last_modified", "product_version", "state")
 CACHE_FIELDS = ("station_id", "product", "asked_window", "bytes", "fetch_metadata")
 
-#: The data cache database of HydroModPy 2.0.0. Written here and nowhere else.
+#: The data cache database of a pre-release of 2.0. Written here and nowhere else.
 FORMER_CACHE_DATABASE = "cache.duckdb"
 
 #: Folders the scan never enters, with the reason. ``blobs`` and ``sites`` are
@@ -98,9 +98,9 @@ _STALE_SECONDS = 1.0
 
 
 def former_cache_sentence(database: Path) -> str:
-    """The sentence that refuses the database of HydroModPy 2.0.0 at *database*."""
+    """The sentence that refuses the database of a pre-release of 2.0 at *database*."""
     return (
-        f"{database} is the data cache database of HydroModPy 2.0.0. HydroModPy 2.1 keeps "
+        f"{database} is the data cache database of a pre-release of 2.0. This version keeps "
         "the cache in the sidecar next to each file and does not read it. Remove it with "
         "hmp workspace clean --data-cache. A file it described is fetched again when a run "
         "needs it."
@@ -108,7 +108,7 @@ def former_cache_sentence(database: Path) -> str:
 
 
 def refuse_former_cache_database(data_root: Path) -> None:
-    """Refuse a data folder that still holds the database of HydroModPy 2.0.0."""
+    """Refuse a data folder that still holds the database of a pre-release of 2.0."""
     database = Path(data_root) / FORMER_CACHE_DATABASE
     if database.is_file():
         raise DataCacheError(former_cache_sentence(database))
@@ -427,7 +427,7 @@ class ScanReport:
     def lines(self) -> list[str]:
         """One sentence per sidecar that is no row and is not a user file."""
         out = [
-            f"{path}: written by HydroModPy 2.0.0 without its variable, so it is no row of "
+            f"{path}: written by a pre-release of 2.0 without its variable, so it is no row of "
             "the cache. Its file is fetched again when a run needs it."
             for path in self.without_variable
         ]
@@ -461,7 +461,7 @@ def _walk_sidecars(data_root: Path) -> Iterator[Path]:
 def scan(data_root: Path) -> ScanReport:
     """Read every sidecar under *data_root* and sort them into rows and the rest.
 
-    The folder is refused when it still holds the database of HydroModPy 2.0.0.
+    The folder is refused when it still holds the database of a pre-release of 2.0.
     A missing folder has no rows.
     """
     root = Path(data_root).expanduser().resolve()

@@ -1114,7 +1114,7 @@ def _reads(document: Document) -> str:
 
 
 def _oldest(document: Document) -> object:
-    """The oldest version the reader of *document* reads; a run seal of 2.0.0 still reads."""
+    """The oldest version the reader of *document* reads; a run seal of a pre-release still reads."""
     if document.name in WINDOWS:
         return _window_of(document).oldest
     return document.version
@@ -1213,8 +1213,8 @@ def test_every_family_declares_both_bounds_and_they_are_equal_at_2_0_0(
     module: str, name: str, current: object
 ) -> None:
     window = getattr(import_module(module), name)
-    # The run seal reads the manifest_version 3 of the 2.0.0 beside its own 4, and
-    # the trial journal reads the trial.v2 lines of the 2.0.0 beside its v3.
+    # The run seal reads the manifest_version 3 of a pre-release beside its own 4, and
+    # the trial journal reads the trial.v2 lines of a pre-release beside its v3.
     oldest = {"MANIFEST_VERSIONS": 3, "TRIAL_VERSIONS": "hydromodpy.trial.v2"}.get(
         name, window.current
     )
@@ -1945,7 +1945,7 @@ def test_a_model_still_refuses_an_unknown_key_when_it_writes() -> None:
 
 
 JOB_MANIFEST_VERSIONS = VersionWindow(oldest=JOB_SEAL_V2_SCHEMA, current=JOB_SEAL_V2_SCHEMA)
-"""The seal a job of the 2.0.0 wrote, the only job manifest with a ``schema`` key."""
+"""The seal a job of a pre-release wrote, the only job manifest with a ``schema`` key."""
 
 JOB_WINDOWS = pytest.mark.parametrize(
     "window",

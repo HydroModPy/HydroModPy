@@ -2,7 +2,7 @@
 
 It pins every row of the shared data folder with its licence, plus the user files the
 project declares. It writes nothing when there is nothing to pin, and a data folder that
-still holds the database of HydroModPy 2.0.0 is refused by the scan, so no lockfile
+still holds the database of a pre-release of 2.0 is refused by the scan, so no lockfile
 follows and the launch goes on without ``--frozen``.
 """
 
@@ -105,7 +105,7 @@ def test_a_data_folder_that_holds_the_former_database_is_not_locked(
     project = tmp_path / "project"
     data = project / "data"
     _fetched(data, "A")
-    (data / FORMER_CACHE_DATABASE).write_bytes(b"database of HydroModPy 2.0.0")
+    (data / FORMER_CACHE_DATABASE).write_bytes(b"database of a pre-release of 2.0")
 
     with caplog.at_level(logging.WARNING):
         written = write_project_lockfile(project, data)

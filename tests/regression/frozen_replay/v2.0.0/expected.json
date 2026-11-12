@@ -1,11 +1,11 @@
 {
   "run": "tri",
-  "sim_id": "1200e1f7-1120-4482-87be-22ac4692943f",
+  "sim_id": "c6429802-16ad-4c1e-9152-79d395f817c3",
   "cells": 434,
   "periods": 3,
-  "hydromodpy_version": "2.1.0.dev0",
-  "bytes": 380189,
-  "tree_sha256": "f87d21dd4e8521a007066b1e78488ad21d9afc27bcb49f4e77dd84b73711c3db",
+  "hydromodpy_version": "2.0.0",
+  "bytes": 380152,
+  "tree_sha256": "e7b8f7a018788a6ff3c54d6e6be6ad629f1cc8f90c5215e76e8fa9109db63cf2",
   "values": {
     "fields/budget/constant_head": "95eb8f3639a24ece6b9ad57c306cdc7d4e074213b103174f66aa7b7e5ec676b6",
     "fields/budget/drain": "b285bc746341527649e91168e17ce5dbbe3482960f2f61b15537ac279bc7f9f1",
