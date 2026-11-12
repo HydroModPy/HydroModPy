@@ -112,6 +112,16 @@ def test_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert sorted(path.name for path in project.iterdir()) == before
 
 
+def test_dry_run_refuses_a_file_that_check_refuses(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.toml"
+    bad.write_text('[workflow]\nmode = "simulation"\n[bogus_section]\nx = 1\n', encoding="utf-8")
+
+    check = CliRunner().invoke(["check", str(bad), "-q"])
+    dry = CliRunner().invoke(["run", str(bad), "--dry-run", "-q"])
+
+    assert check.exit_code == dry.exit_code == EXIT_CONFIG, dry.stderr
+
+
 @pytest.mark.allow_subprocess
 @pytest.mark.usefixtures("fake_worker")
 def test_run_launches_every_case(tmp_path: Path) -> None:

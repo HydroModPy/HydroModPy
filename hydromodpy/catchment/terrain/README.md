@@ -1,6 +1,6 @@
 # Terrain port
 
-The terrain port routes water over a DEM for the rest of HydroModPy and hides the library that does the routing. `port.py` holds the Protocol, the product types and the checks the engines share, and `registry.py` holds `terrain_engines`. An engine needs `port.py` and `core.exceptions` and nothing else of HydroModPy.
+The terrain port routes water over a DEM for the rest of HydroModPy and hides the library that does the routing. `port.py` holds the Protocol, the product types and the checks the engines share, and `registry.py` holds `terrain_engines`. An engine needs `port.py`, `artifacts.py` and `core.exceptions` and nothing else of HydroModPy.
 
 ## What an engine receives and returns
 
@@ -10,7 +10,7 @@ Every member writes where the caller says, and every product carries its units, 
 
 ## What an engine declares and how it registers
 
-An engine is a class with `engine_id`, `engine_version`, `engine_digest()` and the five members. Raise `engine_version` when the products of an engine change for one request. The two built-in engines are dotted paths in `_BUILTIN_PATHS`: `whitebox_workflows`, the default because every number of the repository was produced with it, and `numpy_d8`, a reference engine in Python loops with fill only. A third party publishes an entry point named like its `engine_id` in the `hydromodpy.terrain.engine` group. A built-in name is refused, and a plug-in that fails to load is skipped with a warning.
+An engine is a class with `engine_id`, `engine_version`, `engine_digest()` and the five members. Raise `engine_version` when the products of an engine change for one request. Today both built-in engines report the version of a library (numpy, the whitebox wheel), so a change in the code of HydroModPy that an engine holds does not change the key of its products. The two built-in engines are dotted paths in `_BUILTIN_PATHS`: `whitebox_workflows`, the default because every number of the repository was produced with it, and `numpy_d8`, a reference engine in Python loops with fill only. A third party publishes an entry point named like its `engine_id` in the `hydromodpy.terrain.engine` group. A built-in name is refused, and a plug-in that fails to load is skipped with a warning.
 
 ## What is refused
 

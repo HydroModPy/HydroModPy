@@ -4,7 +4,7 @@ The boundary conditions of a flow, and the binders that put the loaded data on a
 
 ## What a row holds
 
-A `FlowBoundaryDefinition` row holds the id and its kind (`default_type`, which types the payload). The other names below are for the reader, and no code reads them. The four sides share a row, because each side is the same condition on another edge of the domain.
+A `FlowBoundaryDefinition` row holds the id and its kind (`default_type`, which types the payload). The other fields are read by the code that needs them, except `default_units` and `support_kind`, which are there for the reader. The four sides share a row, because each side is the same condition on another edge of the domain.
 
 | id | kind | MODFLOW 6 package | NWT record | Boussinesq name | budget term |
 |---|---|---|---|---|---|

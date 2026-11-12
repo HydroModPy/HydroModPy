@@ -78,3 +78,13 @@ def test_command_on_ended_run(project: Path, monkeypatch, capsys) -> None:
 
     assert code == 10
     assert "there is nothing to stop" in capsys.readouterr().err
+
+
+def test_stop_takes_the_directory_of_a_run_by_its_path(project: Path, monkeypatch) -> None:
+    claim = claim_run_directory(project, "case", case_id="case", project="demo")
+
+    assert hmp.stop(claim.run_dir, workspace=project) == stop_flag_for(claim.run_dir)
+    assert hmp.stop(str(claim.run_dir), workspace=project) == stop_flag_for(claim.run_dir)
+    assert run_hmp(monkeypatch, "stop", str(claim.run_dir), "-w", str(project)) == 0
+    with pytest.raises(NothingThereError, match="does not exist"):
+        hmp.stop(str(project / "runs" / "ghost"), workspace=project)

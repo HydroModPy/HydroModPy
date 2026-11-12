@@ -16,7 +16,7 @@ The flow is `name = "modflow6"`, `process_type = "flow"`, `accepted_meshes` the 
 
 ## How it registers and what it refuses
 
-The built-in paths are `flow_modflow6`, `transport_modflow6` and `transport_modflow6_prt` of `_BUILTIN_PATHS` in `solver/base/registry.py`, each with its extractor. `rerun` (`rerun.py`) solves a model that differs by K, Sy or both, and returns `None` so the runner builds when the change needs a build, when the start is a steady or cyclic solve, or when the simulation carries a transport. On Windows, a workspace whose paths `mf6` cannot open is refused before the solve. Through `libmf6` the run reads the stop flag at the end of each time step, and through `mf6` it reads nothing.
+The built-in paths are `flow_modflow6`, `transport_modflow6` and `transport_modflow6_prt` of `_BUILTIN_PATHS` in `solver/base/registry.py`, each with its extractor. `rerun` (`rerun.py`) solves a model that differs by K, Sy or both, and returns `None` so the runner builds when the change needs a build, when the start is a steady or cyclic solve, or when the simulation carries a transport. It also returns `None` when the previous run is not solved, was consumed or lost its files, when the new K switches XT3D or the K tensor, and when the drain cells or the MVR lines change. On Windows, a workspace whose paths `mf6` cannot open is refused before the solve. Through `libmf6` the run reads the stop flag at the end of each time step, and through `mf6` it reads nothing.
 
 ## What tests it
 

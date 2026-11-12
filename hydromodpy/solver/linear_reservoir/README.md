@@ -4,7 +4,7 @@ A global flow model. One cell takes the whole catchment, and the solve reads the
 
 ## What it receives and returns
 
-`build` receives the frozen `Model` on the one-cell mesh of the `catchment` engine and the `LinearReservoirOptions` of `[solver.linear_reservoir]`, whose time constant reads a bare number of days or a string with its unit. The state is the depth of water on the cell. One piece of constant rate advances by the closed form `tau * r + (s - tau * r) * exp(-dur / tau)`, never by a substep, so the mass of the run closes to the arithmetic of one exponential. The extractor writes one discharge and one reservoir storage per period at the station of the whole catchment, and the budget rows of recharge, drain and storage at the domain zone.
+`build` receives the frozen `Model` on the one-cell mesh of the `catchment` engine and the `LinearReservoirOptions` of `[solver.linear_reservoir]`, whose time constant reads a bare number of days or a string with its unit. The state is the depth of water on the cell, and a run always starts from the steady state of the mean recharge, whatever `Model.initial` says. One piece of constant rate advances by the closed form `tau * r + (s - tau * r) * exp(-dur / tau)`, never by a substep, so the mass of the run closes to the arithmetic of one exponential. The extractor writes one discharge and one reservoir storage per period at the station of the whole catchment, and the budget rows of recharge, drain and storage at the domain zone.
 
 ## What it declares
 
@@ -12,4 +12,4 @@ A global flow model. One cell takes the whole catchment, and the solve reads the
 
 ## How it registers and what it refuses
 
-It is the built-in path `flow_linear_reservoir` of `_BUILTIN_PATHS` in `solver/base/registry.py`, with its extractor under the same key. A `[mesh]` with no engine line meets it, and a mesh of more than one cell is refused. A file that asks for a trait outside `supports` is refused when it is read. `tests/ports/test_solver.py` holds it to the port.
+It is the built-in path `flow_linear_reservoir` of `_BUILTIN_PATHS` in `solver/base/registry.py`, with its extractor under the same key. A `[mesh]` with no engine line meets it, and a mesh of more than one cell is refused. A file that asks for a trait outside `supports` is refused when it is read. A negative recharge is not refused, so a deficit gives a negative storage. A period flagged steady inside a transient run is integrated like any other piece unless every period is steady. `tests/ports/test_solver.py` holds it to the port.

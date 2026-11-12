@@ -65,19 +65,15 @@ def test_a_shipped_id_builds_from_its_reader(name: str) -> None:
     assert optimizer.name == name
 
 
-def test_an_unknown_id_is_refused_with_the_sentence_of_the_surface() -> None:
-    """A name nothing serves is refused, with what the registry serves."""
+def test_an_unknown_id_is_refused_with_what_the_registry_serves() -> None:
+    """The registry names the id it was asked, every id it serves and the group a plug-in joins."""
     from hydromodpy.core.exceptions import OptimizerError
 
-    served = ", ".join(optimizers.names())
-    with pytest.raises(OptimizerError, match="no_such_method") as exc_info:
-        try:
-            optimizers.get("no_such_method")
-        except OptimizerError as exc:
-            raise OptimizerError(
-                f"calibration.method names 'no_such_method', and this installation serves {served}."
-            ) from exc
-    assert "no_such_method" in str(exc_info.value)
+    with pytest.raises(OptimizerError, match="'no_such_method'") as exc_info:
+        optimizers.get("no_such_method")
+    message = str(exc_info.value)
+    assert all(name in message for name in optimizers.names())
+    assert "hydromodpy.calibration.optimizer" in message
 
 
 # ---- the ask and tell loop on a bowl ----
