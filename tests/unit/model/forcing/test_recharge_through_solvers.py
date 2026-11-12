@@ -101,9 +101,6 @@ def test_solvers_agree_on_grids():
         raw_arrays=grids,
         first_clim="mean",
         steady=STEADY_FIRST,
-        nper=3,
-        nrow=1,
-        ncol=2,
         durations=LENGTHS_S,
     )
     bsq = Boussinesq(source_grid()).apply_first_clim_to_cellwise_recharge(

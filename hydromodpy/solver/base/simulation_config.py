@@ -189,6 +189,14 @@ class SimulationTimeConfig(HydroModelBase):
             parse_window_length(value)
         return value
 
+    @field_validator("step_value", mode="before")
+    @classmethod
+    def _refuse_boolean_step_value(cls, value: object) -> object:
+        # Pydantic reads a boolean as the integer 0 or 1, so it is refused before.
+        if isinstance(value, bool):
+            raise ValueError("simulation.time.step_value must be a positive integer.")
+        return value
+
     @field_validator("window", mode="before")
     @classmethod
     def _validate_window(cls, value: object) -> object:
@@ -209,12 +217,7 @@ class SimulationTimeConfig(HydroModelBase):
             location="simulation.time.step_value",
             default_unit=explicit_unit_raw or "day",
         )
-        if isinstance(scalar, bool):
-            raise ValueError("simulation.time.step_value must be a positive integer.")
-        try:
-            scalar_float = float(scalar)
-        except Exception as exc:
-            raise ValueError("simulation.time.step_value must be a positive integer.") from exc
+        scalar_float = float(scalar)
         if not scalar_float.is_integer() or scalar_float <= 0:
             raise ValueError("simulation.time.step_value must be a positive integer.")
         parsed_step_unit = _coerce_step_unit(resolved_unit)

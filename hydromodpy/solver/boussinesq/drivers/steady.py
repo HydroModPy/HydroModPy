@@ -110,8 +110,6 @@ def _write_stationary_failure_diagnostics(
     drainage_conductance_m2_s,
 ) -> None:
     """Persist post-mortem files without replacing the original solve failure."""
-    if solver.mesh is None:
-        return
     try:
         strategy = solver.steady_start_strategy
         strategy_payload = None if strategy is None else dict(strategy.__dict__)

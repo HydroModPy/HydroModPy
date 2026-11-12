@@ -17,8 +17,12 @@ import geopandas as gpd
 from shapely.geometry import LineString, MultiLineString
 from shapely.geometry.base import BaseMultipartGeometry
 
+from hydromodpy.core.logging import get_logger
+
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
+
+logger = get_logger(__name__)
 
 RiverMeshTraceSourceKind = Literal[
     "geographic_generated",
@@ -129,6 +133,10 @@ def build_river_mesh_trace_from_network_gdf(
         network_gdf = network_gdf.set_crs(network_crs_token, allow_override=True)
         crs = network_gdf.crs
     if crs is None:
+        logger.warning(
+            "The generated river network has no CRS and network_crs is blank, so no river "
+            "trace is built and the mesh follows no river. Set [geographic] crs_project."
+        )
         return None
 
     line_geometries = linear_parts(network_gdf.geometry.tolist())

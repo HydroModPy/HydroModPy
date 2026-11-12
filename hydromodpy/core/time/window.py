@@ -180,13 +180,8 @@ def _normalize_mode(raw_mode: Any) -> Literal["explicit"]:
 
 
 def _normalize_step_value(raw_step_value: Any) -> int:
-    """Normalize and validate the time-step multiplier."""
-    if isinstance(raw_step_value, bool):
-        raise ValueError("simulation.time.step_value must be a positive integer.")
-    try:
-        step_value = float(raw_step_value)
-    except Exception as exc:
-        raise ValueError("simulation.time.step_value must be a positive integer.") from exc
+    """Normalize and validate the time-step multiplier, a float from parse_scalar_and_unit."""
+    step_value = float(raw_step_value)
     if not step_value.is_integer() or step_value <= 0:
         raise ValueError("simulation.time.step_value must be a positive integer.")
     return int(step_value)
@@ -399,12 +394,6 @@ def _period_lengths_in_seconds_from_boundaries(
     if not out:
         raise ValueError("simulation.time resolved to an empty stress-period sequence.")
     return out
-
-
-def _period_lengths_in_seconds(window: ResolvedSimulationTimeWindow) -> list[float]:
-    """Convenience wrapper: window -> boundaries -> second-based period lengths."""
-    boundaries = _build_time_boundaries(window)
-    return _period_lengths_in_seconds_from_boundaries(boundaries)
 
 
 def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
@@ -650,8 +639,6 @@ def resolve_simulation_time_window_dates(
 
 def _handle_recharge_coverage_violation(policy: str, message: str) -> None:
     """Apply configured coverage policy to one validation failure message."""
-    if policy == "ignore":
-        return
     if policy == "warn":
         say(message, UserWarning, stacklevel=2)
         return

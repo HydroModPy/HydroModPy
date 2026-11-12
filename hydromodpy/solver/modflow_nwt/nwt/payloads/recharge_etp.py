@@ -97,10 +97,10 @@ def clip_etp_to_non_negative(payload: object) -> object:
     """Clip a homogeneous ETP payload to non-negative values."""
     if isinstance(payload, Mapping):
         return {k: max(0.0, float(v)) for k, v in payload.items()}
-    if hasattr(payload, "clip"):
-        return payload.clip(lower=0.0)
     if isinstance(payload, np.ndarray):
         return np.maximum(payload, 0.0)
+    if hasattr(payload, "clip"):
+        return payload.clip(lower=0.0)
     if isinstance(payload, list):
         return [max(0.0, float(v)) for v in payload]
     return max(0.0, float(payload))
@@ -280,8 +280,6 @@ def assemble_rch_data(
         ensure_finite_numeric_payload(payload, label="flow.sinks_sources.recharge.values")
     else:
         ensure_non_negative_numeric_payload(payload, label="flow.sinks_sources.recharge.values")
-    if isinstance(payload, Mapping) and len(payload) == 0:
-        raise ValueError("flow.sinks_sources.recharge.values mapping cannot be empty.")
     rows = _own_rates_by_period(
         payload, nper=nper, steady=steady, first_clim=first_clim, record_lengths=record_lengths
     )
@@ -295,9 +293,6 @@ def apply_first_clim_2d(
     raw_arrays: dict[int, np.ndarray],
     first_clim: object,
     steady: object,
-    nper: int,
-    nrow: int,
-    ncol: int,
     durations: object,
     allow_negative: bool = False,
 ) -> dict[int, np.ndarray]:
@@ -306,8 +301,6 @@ def apply_first_clim_2d(
         ensure_finite_numeric_payload(raw_arrays, label="flow.sinks_sources.recharge.values")
     else:
         ensure_non_negative_numeric_payload(raw_arrays, label="flow.sinks_sources.recharge.values")
-    if not raw_arrays:
-        return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(int(nper))}
     return apply_first_clim(raw_arrays, steady=steady, first_clim=first_clim, durations=durations)
 
 
@@ -343,9 +336,6 @@ def build_heterogeneous_recharge_payload(
         raw_arrays=raw_arrays,
         first_clim=first_clim,
         steady=steady,
-        nper=adapter.nper,
-        nrow=adapter.nrow,
-        ncol=adapter.ncol,
         durations=adapter.period_lengths,
         allow_negative=False,
     )
@@ -365,9 +355,6 @@ def build_heterogeneous_etp_payload(
         raw_arrays=raw_arrays,
         first_clim=getattr(etp_cfg, "first_clim", "mean"),
         steady=steady_period_flags(adapter),
-        nper=adapter.nper,
-        nrow=adapter.nrow,
-        ncol=adapter.ncol,
         durations=adapter.period_lengths,
     )
     return {

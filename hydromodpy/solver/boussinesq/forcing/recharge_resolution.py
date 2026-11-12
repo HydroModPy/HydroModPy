@@ -132,8 +132,6 @@ class RechargeResolutionMixin:
                     f"Boussinesq cell; period {kper} has {values.size}, "
                     f"expected {int(self.mesh.n_cells)}."
                 )
-        if not arrays:
-            return tuple(np.zeros(self.mesh.n_cells, dtype=float) for _ in range(nper))
 
         result = {
             kper: arrays.get(kper, np.zeros(self.mesh.n_cells, dtype=float)).copy()

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -42,8 +41,6 @@ def _duration_seconds(value: object) -> float:
         return float(total_seconds())
     if isinstance(value, np.timedelta64):
         return float(value / np.timedelta64(1, "s"))
-    if isinstance(value, timedelta):
-        return float(value.total_seconds())
     return float(value)
 
 
@@ -195,8 +192,6 @@ def _advance_period(
         )
         if not step.converged:
             break
-    if step is None:
-        raise RuntimeError("Boussinesq period advance ran no time step.")
     weight = 1.0 / float(len(step_fluxes))
     return _PeriodAdvance(
         last_step=step,
