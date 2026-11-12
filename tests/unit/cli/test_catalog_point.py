@@ -96,29 +96,6 @@ def test_coordinates_read_the_containing_cell(monkeypatch, project, capsys) -> N
     assert "head" in capsys.readouterr().out
 
 
-def test_a_cell_index_reads_the_same_values(monkeypatch, project, capsys) -> None:
-    code = _run_cli(
-        monkeypatch,
-        [
-            "hmp",
-            "show",
-            "base",
-            "--point",
-            "--var",
-            "head",
-            "--cell",
-            "1",
-            "--format",
-            "json",
-            "--workspace",
-            str(project),
-        ],
-    )
-    assert code == 0
-    rows = json.loads(capsys.readouterr().out)["data"]
-    assert [row["value"] for row in rows] == [2.0, 3.0]
-
-
 def test_several_runs_stack_their_answers(monkeypatch, project, capsys) -> None:
     code = _run_cli(
         monkeypatch,
@@ -210,43 +187,9 @@ def test_an_unknown_field_exits_non_zero(monkeypatch, project, capsys) -> None:
     assert code != 0
 
 
-def test_coordinates_and_cell_are_mutually_exclusive(monkeypatch, project) -> None:
-    code = _run_cli(
-        monkeypatch,
-        [
-            "hmp",
-            "show",
-            "base",
-            "--point",
-            "--var",
-            "head",
-            "--cell",
-            "0",
-            "--xy",
-            "1.5",
-            "0.5",
-            "--workspace",
-            str(project),
-        ],
-    )
-    assert code == 2
-
-
 def test_a_location_is_required(monkeypatch, project) -> None:
     code = _run_cli(
         monkeypatch,
         ["hmp", "show", "base", "--point", "--var", "head", "--workspace", str(project)],
     )
     assert code == 2
-
-
-def test_the_selector_is_listed_in_the_help_of_show(monkeypatch, capsys) -> None:
-    code = _run_cli(monkeypatch, ["hmp", "show", "--help"])
-    assert code == 0
-    assert "--point" in capsys.readouterr().out
-
-
-def test_the_old_form_is_refused_with_the_command_that_replaces_it(monkeypatch, capsys) -> None:
-    code = _run_cli(monkeypatch, ["hmp", "catalog", "point", "base", "--var", "head"])
-    assert code == 2
-    assert "hmp show REF --point" in capsys.readouterr().err

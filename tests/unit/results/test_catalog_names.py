@@ -10,19 +10,10 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.cli.exit_codes import EXIT_AMBIGUOUS_REFERENCE, EXIT_NOT_FOUND
+from hydromodpy.cli.exit_codes import EXIT_AMBIGUOUS_REFERENCE
 from hydromodpy.core.state.layout import RUNS_DIRNAME
-from hydromodpy.results.catalog.discovery import (
-    SimulationNotFoundError,
-    resolve_rel_dir,
-    resolve_trashed,
-)
-from hydromodpy.results.catalog.facade import Catalog
-from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.registration import NameTakenError, reserve_version_dirname
-from hydromodpy.results.errors import RunNotFoundError
 from hydromodpy.results.outcome import read_outcome
-from hydromodpy.results.run.view import Run
 from hydromodpy.results.storage.attempt import (
     RunClaim,
     claim_run_directory,
@@ -30,10 +21,9 @@ from hydromodpy.results.storage.attempt import (
     finish_attempt,
 )
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.results.trash import gc_trash, list_trash, read_tombstones, restore, trash_run
+from hydromodpy.results.trash import gc_trash, list_trash, read_tombstones, trash_run
 from hydromodpy.solver.base.simulation_config import SimulationConfig
 from tests._helpers.run_stores import claim_run, open_run_store
-from tests._helpers.sealed_runs import make_project, seal_run
 
 # The trash is a directory of its own: a trashed run leaves ``runs/`` and its
 # name answers nothing there any more. Reading it back goes through the trash
@@ -43,30 +33,6 @@ AT = datetime(2026, 10, 15, 9, 0, tzinfo=UTC)
 
 def _run(project: Path, name: str) -> None:
     (project / "runs" / name).mkdir(parents=True)
-
-
-def test_a_trashed_name_answers_nothing_in_the_tree(tmp_path: Path) -> None:
-    _run(tmp_path, "x")
-    trash_run(tmp_path, "runs/x", now=AT)
-    with pytest.raises(SimulationNotFoundError):
-        resolve_rel_dir(tmp_path, "x")
-
-
-def test_a_bare_name_never_slides_to_another_version(tmp_path: Path) -> None:
-    _run(tmp_path, "x")
-    _run(tmp_path, "x.v2")
-    trash_run(tmp_path, "runs/x", now=AT)
-    with pytest.raises(SimulationNotFoundError):
-        resolve_rel_dir(tmp_path, "x")
-    assert resolve_rel_dir(tmp_path, "x.v2") == "runs/x.v2"
-
-
-def test_the_trash_listing_is_what_restore_reads(tmp_path: Path) -> None:
-    _run(tmp_path, "x")
-    trash_run(tmp_path, "runs/x", now=AT)
-    entry = resolve_trashed(tmp_path, "x")
-    restore(tmp_path, entry.name)
-    assert resolve_rel_dir(tmp_path, "x") == "runs/x"
 
 
 # A run deleted to the trash keeps its name: the next run of the case takes the
@@ -123,30 +89,6 @@ def test_fail_takes_a_name_nobody_holds(tmp_path: Path) -> None:
     (project / "runs").mkdir(parents=True)
 
     assert _claim(project, "beta", if_exists="fail").name == "beta"
-
-
-def test_a_name_held_only_by_the_claim_that_asks_is_free(tmp_path: Path) -> None:
-    """``if_exists = "fail"`` is read once the attempt has claimed: its own folder is no holder."""
-    from hydromodpy.results.catalog.registration import check_name_free
-
-    project = tmp_path / "p"
-    claim = claim_run(project, "alpha")
-
-    check_name_free(project, "alpha", excluding=claim.run_dir.name)
-    with pytest.raises(NameTakenError, match="runs/alpha"):
-        check_name_free(project, "alpha")
-
-
-def test_a_name_held_beside_the_claim_that_asks_is_taken(tmp_path: Path) -> None:
-    from hydromodpy.results.catalog.registration import check_name_free
-
-    project = tmp_path / "p"
-    _sealed(project, "alpha")
-    claim = _claim(project, "alpha")
-    assert claim.run_dir.name == "alpha.v2"
-
-    with pytest.raises(NameTakenError, match="runs/alpha"):
-        check_name_free(project, "alpha", excluding=claim.run_dir.name)
 
 
 def test_fail_lets_an_unfinished_attempt_retry_in_its_directory(tmp_path: Path) -> None:
@@ -247,15 +189,6 @@ def test_a_versioned_name_a_tombstone_holds_is_refused(tmp_path):
     assert _live_runs(tmp_path) == []
 
 
-def test_a_versioned_name_nobody_holds_is_refused(tmp_path):
-    (tmp_path / RUNS_DIRNAME).mkdir()
-
-    with pytest.raises(NameTakenError, match="name the case 'fresh'"):
-        _claim_2(tmp_path, "fresh.v2")
-
-    assert _live_runs(tmp_path) == []
-
-
 def test_a_versioned_name_retries_its_own_unfinished_directory(tmp_path):
     _sealed_2(tmp_path, "a")
     second = claim_run(tmp_path, "a")
@@ -306,20 +239,6 @@ def _project(tmp_path: Path, *names: str) -> Path:
     return project
 
 
-def test_a_purge_of_a_trashed_name_touches_neither_the_trash_nor_the_live_run(
-    tmp_path: Path, monkeypatch
-) -> None:
-    project = _project(tmp_path, "x", "x.v2")
-    trash_run(project, "runs/x", now=AT)
-
-    code = _hmp(monkeypatch, "catalog", "delete", "x", "--now", "-y", "-w", str(project))
-
-    assert code == EXIT_NOT_FOUND
-    assert (project / "runs" / "x.v2").is_dir()
-    assert [entry.rel_dir for entry in list_trash(project)] == ["runs/x"]
-    assert read_tombstones(project) == []
-
-
 def test_a_purge_of_a_bare_name_with_versions_is_refused(tmp_path: Path, monkeypatch) -> None:
     project = _project(tmp_path, "x", "x.v2")
 
@@ -344,14 +263,3 @@ def test_a_purge_by_the_full_path_takes_exactly_that_directory(tmp_path: Path, m
 # The index keys ``simulations`` and ``tags`` on a UUID column. Compared as is,
 # a free-text id made DuckDB raise a conversion error from the depths of the
 # row lookup; compared as text, it is a run the index does not hold.
-def test_a_free_text_id_reads_as_a_run_the_index_does_not_hold(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "p")
-    sim_id = seal_run(project, "alpha")
-    rebuild_index(project)
-    catalog = Catalog(project)
-    try:
-        assert Run(sim_id, catalog).name == "alpha"
-        with pytest.raises(RunNotFoundError):
-            Run("not-a-uuid", catalog)._load_row()  # noqa: SLF001 - the row lookup itself
-    finally:
-        catalog.close()

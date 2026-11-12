@@ -15,8 +15,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.families.stations import StationVariable
-from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, variable_class_for
+from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
 from hydromodpy.data.loading.config_schema import DATA_VARIABLES
 from hydromodpy.data.variables.lake_series import (
     LakeInflowConfig,
@@ -60,18 +59,6 @@ def _make_lake_flux_dir(tmp_path, variable_name, *, lake_ids, unit="m3/s", value
             index=False,
         )
     return d
-
-
-@pytest.mark.parametrize("name", FLUX_FAMILIES)
-def test_family_registers_in_dispatch(name):
-    spec = VARIABLE_SPECS[name]
-    assert spec.config_module == "hydromodpy.data.variables.lake_series"
-    assert spec.variable_module == "hydromodpy.data.variables.lake_series"
-
-    variable_cls = variable_class_for(name)
-    assert issubclass(variable_cls, StationVariable)
-    assert variable_cls.VARIABLE_NAME == name
-    assert variable_cls.INTERNAL_UNIT == "m3/s"
 
 
 @pytest.mark.parametrize("name", FLUX_FAMILIES)

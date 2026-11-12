@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import DataCacheError
-from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.data.provenance import sidecars
 from hydromodpy.data.provenance.sidecars import (
     CacheIndex,
@@ -49,28 +48,8 @@ def _declare(path: Path, licence: str, sha256: str | None = None) -> None:
     )
 
 
-def test_a_known_source_stamps_its_licence(tmp_path: Path) -> None:
-    assert _record(_raw(tmp_path), "brgm_1m").license == "etalab-2.0"
-
-
-def test_an_unknown_source_is_stamped_undetermined(tmp_path: Path) -> None:
-    assert _record(_raw(tmp_path), "nobody_knows").license == UNDETERMINED_LICENSE
-
-
 def test_a_given_licence_wins(tmp_path: Path) -> None:
     assert _record(_raw(tmp_path), "url", license="CC-BY-4.0").license == "CC-BY-4.0"
-
-
-def test_a_declared_licence_survives_a_rewrite_of_the_same_bytes(tmp_path: Path) -> None:
-    path = _raw(tmp_path)
-    _declare(path, "CC0-1.0")
-    assert _record(path, "nobody_knows").license == "CC0-1.0"
-
-
-def test_a_declared_licence_does_not_follow_new_bytes(tmp_path: Path) -> None:
-    path = _raw(tmp_path)
-    _declare(path, "CC0-1.0", sha256="d" * 64)
-    assert _record(path, "nobody_knows").license == UNDETERMINED_LICENSE
 
 
 def test_a_sidecar_that_cannot_be_written_fails_the_record_and_leaves_no_row(

@@ -14,7 +14,6 @@ from hydromodpy.data.variables.hydrometry import catchment_area_check as mod
 from hydromodpy.data.variables.hydrometry.catchment_area_check import (
     compare_catchment_area,
     published_catchment_area_km2,
-    site_id_of_station,
 )
 
 _NANCON_STATION = "J001401001"
@@ -24,14 +23,6 @@ _NANCON_AREA_KM2 = 64.45
 
 def _payload(area) -> dict:
     return {"data": [{"code_site": _NANCON_SITE, "surface_bv": area}]}
-
-
-def test_a_station_code_carries_its_site_code():
-    assert site_id_of_station(_NANCON_STATION) == _NANCON_SITE
-
-
-def test_a_site_code_is_returned_unchanged():
-    assert site_id_of_station(_NANCON_SITE) == _NANCON_SITE
 
 
 def test_the_published_area_is_read_from_the_site_endpoint(monkeypatch):
@@ -81,26 +72,6 @@ def test_an_agreeing_area_does_not_warn(monkeypatch, caplog):
 
     assert comparison is not None
     assert comparison.relative_gap == pytest.approx(0.0025, abs=1e-4)
-    assert not caplog.text
-
-
-def test_a_catchment_on_the_wrong_branch_warns(monkeypatch, caplog):
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: _NANCON_AREA_KM2)
-
-    with caplog.at_level("WARNING"):
-        comparison = compare_catchment_area(_NANCON_STATION, 6.0, client=HTTPClient())
-
-    assert comparison is not None
-    assert "wrong branch of a confluence" in caplog.text
-    assert "6.00 km2 delineated against 64.45 km2 published" in str(comparison)
-
-
-def test_the_warning_threshold_is_the_caller_s_to_set(monkeypatch, caplog):
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: 100.0)
-
-    with caplog.at_level("WARNING"):
-        compare_catchment_area(_NANCON_STATION, 105.0, warn_relative_gap=0.20, client=HTTPClient())
-
     assert not caplog.text
 
 

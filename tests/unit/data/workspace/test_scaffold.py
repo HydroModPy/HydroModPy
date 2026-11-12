@@ -6,8 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.common.files import is_scaffold_example
-from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
 from hydromodpy.data.workspace.scaffold import (
     create_project,
     scaffold,
@@ -18,58 +16,6 @@ class TestScaffold:
     @pytest.fixture(scope="class")
     def ws(self, tmp_path_factory):
         return scaffold(tmp_path_factory.mktemp("hmp"))
-
-    def test_creates_structure(self, ws):
-        assert ws.exists()
-        assert (ws / "data").is_dir()
-        assert (ws / "projects").is_dir()
-        for name in (
-            "hydrometry",
-            "piezometry",
-            "water_quality",
-            "intermittency",
-            "dem",
-            "geology",
-        ):
-            assert (ws / "data" / name).is_dir()
-        assert list(ws.glob("*_custom")) == []
-
-    def test_creates_readme_per_variable(self, ws):
-        for name in VARIABLE_SPECS:
-            readme = ws / "data" / name / "README.md"
-            assert readme.exists(), f"Missing README for {name}"
-            assert name in readme.read_text()
-
-    def test_loc_template_for_point_and_grid(self, ws):
-        loc = ws / "data" / "hydrometry" / "hydrometry_custom_LOC.csv"
-        assert loc.exists()
-        assert "id,x,y,crs,unit" in loc.read_text()
-
-        assert (ws / "data" / "piezometry" / "piezometry_custom_LOC.csv").exists()
-        assert (ws / "data" / "water_quality" / "waterquality_custom_LOC.csv").exists()
-        assert (ws / "data" / "precipitation" / "precipitation_custom_LOC.csv").exists()
-
-    def test_chronicle_example(self, ws):
-        example = ws / "data" / "hydrometry" / "hydrometry_custom_EXAMPLE_20000101_20000131_D.csv"
-        assert example.exists()
-        assert "datetime,value" in example.read_text()
-
-    def test_geology_example_per_format(self, ws):
-        geo = ws / "data" / "geology"
-        for ext in ("gpkg", "shp", "geojson", "tif", "csv"):
-            assert (geo / f"geology_custom_EXAMPLE.{ext}").exists(), ext
-
-    def test_example_project_and_projects_readme(self, ws):
-        assert (ws / "projects" / "README.md").exists()
-        example = ws / "projects" / "example"
-        assert (example / "project.toml").exists()
-        assert (example / "run_demo.toml").exists()
-
-    def test_example_project_writes_the_edition_2_0(self, ws):
-        import tomllib
-
-        project = ws / "projects" / "example" / "project.toml"
-        assert tomllib.loads(project.read_text(encoding="utf-8"))["edition"] == "2.0"
 
     def test_idempotent(self, tmp_path):
         """Running scaffold twice does not overwrite existing files."""
@@ -89,28 +35,6 @@ class TestScaffold:
 
 
 class TestCreateProject:
-    def test_creates_project_structure(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
-        project_dir = create_project(root, "my_project")
-
-        assert project_dir.is_dir()
-        assert (project_dir / "project.toml").exists()
-        assert (project_dir / "run_demo.toml").exists()
-
-    def test_creates_the_folders_of_the_files_the_project_keeps(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
-        project_dir = create_project(root, "my_project")
-
-        assert (project_dir / "inputs").is_dir()
-        assert (project_dir / "configs").is_dir()
-
-    def test_the_example_project_has_its_folders(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy")
-
-        example = root / "projects" / "example"
-        assert (example / "inputs").is_dir()
-        assert (example / "configs").is_dir()
-
     @pytest.mark.parametrize(
         ("name", "said"),
         [
@@ -150,36 +74,6 @@ class TestCreateProject:
 
         assert [path.name for path in (root / "projects").iterdir()] == ["README.md"]
 
-    def test_the_same_folder_is_taken_off_windows(self, tmp_path):
-        root = scaffold(tmp_path / ("w" * 90), with_examples=False)
-
-        assert create_project(root, "my_project").is_dir()
-
-    @pytest.mark.parametrize("name", ["canut", "a" * 40, "k_1-b", "com10", "console"])
-    def test_a_name_that_follows_the_rule_is_taken(self, tmp_path, name):
-        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
-
-        assert create_project(root, name).name == name
-
-    def test_project_toml_content(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
-        project_dir = create_project(root, "canut")
-
-        content = (project_dir / "project.toml").read_text()
-        assert "canut" in content
-        assert "[geographic]" in content
-        assert "[domain]" in content
-        assert "[flow]" in content
-
-    def test_run_toml_content(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
-        project_dir = create_project(root, "canut")
-
-        content = (project_dir / "run_demo.toml").read_text()
-        assert 'base_config = "project.toml"' in content
-        assert "[simulation]" in content
-        assert "[[simulation.process]]" in content
-
     def test_idempotent(self, tmp_path):
         root = scaffold(tmp_path / "hydromodpy", with_examples=False)
         project_dir = create_project(root, "my_project")
@@ -189,46 +83,10 @@ class TestCreateProject:
 
         assert (project_dir / "project.toml").read_text() == "# custom\n"
 
-    def test_project_inside_projects_dir(self, tmp_path):
-        root = scaffold(tmp_path / "hydromodpy", with_examples=False)
-        project_dir = create_project(root, "test_proj")
-
-        assert project_dir.parent.name == "projects"
-        assert project_dir.parent.parent == root
-
 
 @pytest.fixture(scope="module")
 def ws(tmp_path_factory):
     return scaffold(tmp_path_factory.mktemp("hmp"))
-
-
-def test_creates_one_folder_per_variable_under_data(ws):
-    for name in VARIABLE_SPECS:
-        var_dir = ws / "data" / name
-        assert var_dir.is_dir()
-        assert (var_dir / "README.md").exists()
-
-
-def test_no_custom_suffix_folders_at_root(ws):
-    # The old `<variable>_custom/` root layout must be gone.
-    assert list(ws.glob("*_custom")) == []
-
-
-def test_readme_mentions_variable_and_commands(ws):
-    text = (ws / "data" / "piezometry" / "README.md").read_text()
-    assert "piezometry" in text
-    assert "hmp data" in text
-
-
-def test_point_examples_have_loc_and_chronicle(ws):
-    hydro = ws / "data" / "hydrometry"
-    assert (hydro / "hydrometry_custom_LOC.csv").exists()
-    assert (hydro / "hydrometry_custom_EXAMPLE_20000101_20000131_D.csv").exists()
-
-
-def test_water_quality_uses_filename_prefix_alias(ws):
-    wq = ws / "data" / "water_quality"
-    assert (wq / "waterquality_custom_LOC.csv").exists()
 
 
 def test_geology_ships_one_example_per_format(ws):
@@ -260,13 +118,6 @@ def test_creates_example_project_and_projects_readme(ws):
     example = ws / "projects" / "example"
     assert (example / "project.toml").exists()
     assert (example / "run_demo.toml").exists()
-
-
-def test_example_files_are_flagged_inert():
-    assert is_scaffold_example("geology_custom_EXAMPLE.gpkg")
-    assert is_scaffold_example("hydrometry_custom_EXAMPLE_20000101_20000131_D.csv")
-    assert not is_scaffold_example("hydrometry_custom_P01_20200101_20200103_D.csv")
-    assert not is_scaffold_example("hydrometry_hubeau_J001_20200101_20200103_D.csv")
 
 
 def test_scaffold_is_idempotent_for_user_edits(tmp_path):

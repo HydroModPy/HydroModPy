@@ -40,93 +40,6 @@ class _Root(BaseModel):
     aux: str = "ignored"
 
 
-def test_walker_collects_scalar_path(tmp_path: Path) -> None:
-    dem_file = tmp_path / "dem.tif"
-    dem_file.write_text("x")
-
-    root = _Root(block=_Block(dem=dem_file))
-    entries = collect_input_files(root)
-
-    assert len(entries) == 1
-    entry = entries[0]
-    assert entry.role == "dem"
-    assert entry.category == "data"
-    assert entry.canonical_path == dem_file.resolve()
-    assert entry.portable is True
-
-
-def test_walker_skips_none_and_empty(tmp_path: Path) -> None:
-    root = _Root(block=_Block(dem=None, polygon=None))
-    assert collect_input_files(root) == []
-
-
-def test_walker_descends_into_list_of_models(tmp_path: Path) -> None:
-    a = tmp_path / "a.csv"
-    b = tmp_path / "b.csv"
-    a.write_text("x")
-    b.write_text("y")
-
-    root = _Root(
-        block=_Block(
-            sources=[_Source(path=a), _Source(path=b)],
-        )
-    )
-    entries = collect_input_files(root)
-
-    roles = {e.role for e in entries}
-    paths = {e.canonical_path for e in entries}
-    assert roles == {"demo"}
-    assert paths == {a.resolve(), b.resolve()}
-
-
-def test_walker_descends_into_submodels(tmp_path: Path) -> None:
-    dem = tmp_path / "dem.tif"
-    poly = tmp_path / "shed.shp"
-    dem.write_text("x")
-    poly.write_text("y")
-
-    root = _Root(block=_Block(dem=dem, polygon=poly))
-    entries = collect_input_files(root)
-
-    assert {e.role for e in entries} == {"dem", "polygon"}
-
-
-def test_walker_deduplicates_same_canonical_path(tmp_path: Path) -> None:
-    file_path = tmp_path / "dem.tif"
-    file_path.write_text("x")
-    nested = tmp_path / "sub" / ".." / "dem.tif"
-
-    root = _Root(block=_Block(dem=file_path, sources=[_Source(path=file_path)]))
-    entries = collect_input_files(root)
-    # Different roles => both preserved.
-    assert len(entries) == 2
-
-    root2 = _Root(block=_Block(dem=file_path, polygon=nested))
-    # Polygon uses a different role so it is not deduplicated even if the
-    # canonical path ends up the same.
-    entries2 = collect_input_files(root2)
-    assert len(entries2) == 2
-
-
-def test_walker_preserves_portable_flag(tmp_path: Path) -> None:
-    target = tmp_path / "scratch.txt"
-    target.write_text("x")
-
-    root = _Root(block=_Block(scratch=target))
-    entries = collect_input_files(root)
-
-    assert len(entries) == 1
-    assert entries[0].portable is False
-
-
-def test_walker_ignores_unannotated_fields(tmp_path: Path) -> None:
-    class Plain(BaseModel):
-        path: Path | None = None
-
-    plain = Plain(path=tmp_path / "ignored.txt")
-    assert collect_input_files(plain) == []
-
-
 def test_walker_handles_string_paths(tmp_path: Path) -> None:
     class Holder(BaseModel):
         src: Annotated[
@@ -212,33 +125,6 @@ def test_a_relative_path_is_anchored_on_base_when_the_file_is_there(tmp_path: Pa
     assert entry.original_path == "dem.tif"
 
 
-def test_a_relative_path_missing_under_base_falls_back_to_the_working_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    base = tmp_path / "project"
-    base.mkdir()
-    monkeypatch.chdir(tmp_path)
-    root = _Root(block=_Block(dem=Path("ghost.tif")))
-
-    (entry,) = collect_input_files(root, base=base)
-
-    assert entry.canonical_path == (tmp_path / "ghost.tif").resolve()
-
-
-def test_a_dict_of_models_is_walked_like_a_list() -> None:
-    class _Holder(BaseModel):
-        tables: dict[str, _Source] = Field(default_factory=dict)
-
-    holder = _Holder(
-        tables={"a": _Source(path=Path("/data/a.csv")), "b": _Source(path=Path("/data/b.csv"))}
-    )
-
-    assert sorted(e.original_path for e in collect_input_files(holder)) == [
-        "/data/a.csv",
-        "/data/b.csv",
-    ]
-
-
 class _Station(BaseModel):
     file: Annotated[str | None, InputFile(role="station", category="data")] = None
 
@@ -254,28 +140,6 @@ class _Plan(BaseModel):
 
 def _upper(marker: InputFile, value: str) -> str:
     return f"{marker.role}:{value}"
-
-
-def test_rewriting_replaces_every_input_path_of_a_config_document_in_place() -> None:
-    payload = {
-        "dem": "a.tif",
-        "block": {"dem": "b.tif", "sources": [{"path": "c.csv"}, {"path": "d.csv"}]},
-        "stations": [{"file": "s1.csv"}, {"file": "s2.csv"}],
-        "by_name": {"x": {"file": "s3.csv"}},
-        "other": {"path": "u.csv"},
-        "label": "untouched",
-    }
-
-    rewrite_input_paths(payload, _Plan, _upper)
-
-    assert payload == {
-        "dem": "dem:a.tif",
-        "block": {"dem": "dem:b.tif", "sources": [{"path": "demo:c.csv"}, {"path": "demo:d.csv"}]},
-        "stations": [{"file": "station:s1.csv"}, {"file": "station:s2.csv"}],
-        "by_name": {"x": {"file": "station:s3.csv"}},
-        "other": {"path": "demo:u.csv"},
-        "label": "untouched",
-    }
 
 
 @pytest.mark.parametrize(

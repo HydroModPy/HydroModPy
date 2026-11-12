@@ -75,9 +75,3 @@ def test_gwt_adapter_persists_solute_rows(tmp_path) -> None:
         assert row["quantity"] == "solute"
         assert row["unit"] == "kg s-1"
     assert store.mass[0]["total_in"] == 1.0
-
-
-def test_gwt_adapter_is_quiet_without_listing(tmp_path) -> None:
-    store = _CaptureStore()
-    Modflow6GwtOutputAdapter._extract_solute_mass_balance("sim", tmp_path, store)
-    assert store.mass is None

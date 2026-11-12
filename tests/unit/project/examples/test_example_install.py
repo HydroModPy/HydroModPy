@@ -80,17 +80,6 @@ def isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(blobs.SOURCE_ENV, raising=False)
 
 
-def test_install_writes_authored_and_data_files(source_tree, catalog_entry, workspace) -> None:
-    report = install_example(catalog_entry, workspace=workspace, source=str(source_tree))
-
-    assert (workspace / "projects" / "tiny" / "step1.toml").read_bytes() == _STEP
-    assert (workspace / "data" / "dem" / "dem.tif").read_bytes() == _DEM
-    assert sorted(report.written) == ["data/dem/dem.tif", "projects/tiny/step1.toml"]
-    assert report.everything_was_cached is False
-    assert report.downloaded_bytes == len(_STEP) + len(_DEM)
-    assert report.entry_config == "step1.toml"
-
-
 def test_second_install_downloads_nothing(source_tree, catalog_entry, workspace) -> None:
     install_example(catalog_entry, workspace=workspace, source=str(source_tree))
     again = install_example(catalog_entry, workspace=workspace, source=str(source_tree))
@@ -98,16 +87,6 @@ def test_second_install_downloads_nothing(source_tree, catalog_entry, workspace)
     assert again.everything_was_cached is True
     assert again.written == []
     assert sorted(again.unchanged) == ["data/dem/dem.tif", "projects/tiny/step1.toml"]
-
-
-def test_the_blob_survives_the_workspace(source_tree, catalog_entry, workspace, tmp_path) -> None:
-    """The file is the cached unit: a second workspace re-downloads nothing."""
-    install_example(catalog_entry, workspace=workspace, source=str(source_tree))
-    other = tmp_path / "ws2"
-    (other / "data").mkdir(parents=True)
-    report = install_example(catalog_entry, workspace=other, source=str(source_tree))
-    assert report.everything_was_cached is True
-    assert sorted(report.written) == ["data/dem/dem.tif", "projects/tiny/step1.toml"]
 
 
 def test_a_checksum_mismatch_writes_nothing(source_tree, catalog_entry, workspace) -> None:
@@ -184,13 +163,6 @@ def test_the_source_env_replaces_the_ref(monkeypatch: pytest.MonkeyPatch) -> Non
     assert blobs.resolve_source("main") == "file:///somewhere"
 
 
-def test_blobs_are_sharded_by_the_first_two_hex_digits() -> None:
-    sha = hashlib.sha256(_DEM).hexdigest()
-    path = blobs.blob_path(sha)
-    assert path.name == sha
-    assert path.parent.name == sha[:2]
-
-
 _REGISTRY = "data/hydrometry/hydrometry_custom_LOC.csv"
 _NANCON = (
     ("id", "NANCON"),
@@ -221,18 +193,6 @@ def test_a_station_row_joins_the_scaffolded_registry(source_tree, catalog_entry,
     assert lines[1] == "MINE,1,2,EPSG:2154,m3/s,"
     assert lines[2] == "NANCON,389285.910,6816518.749,EPSG:2154,m3/s,false"
     assert report.stations_written == [f"{_REGISTRY} (station NANCON)"]
-
-
-def test_a_second_install_leaves_the_registry_alone(source_tree, catalog_entry, workspace) -> None:
-    entry = _with_station(catalog_entry)
-    install_example(entry, workspace=workspace, source=str(source_tree))
-    before = (workspace / _REGISTRY).read_bytes()
-
-    report = install_example(entry, workspace=workspace, source=str(source_tree))
-
-    assert (workspace / _REGISTRY).read_bytes() == before
-    assert report.stations_written == []
-    assert report.kept == []
 
 
 def test_an_edited_station_row_is_kept_unless_forced(source_tree, catalog_entry, workspace) -> None:

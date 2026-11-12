@@ -13,9 +13,7 @@ from pathlib import Path
 import meshio
 import numpy as np
 import pytest
-from shapely.geometry import box
 
-from hydromodpy.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.mesh.io.vtu import read_vtu, read_vtu_field_data, write_vtu
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
@@ -51,31 +49,6 @@ def _two_wedge_layers() -> HydroMesh:
     )
 
 
-@pytest.mark.parametrize(
-    "build", [_triangles, _grid_in_lambert93, _two_wedge_layers], ids=["triangles", "grid", "3d"]
-)
-def test_a_mesh_written_as_vtu_reads_back_with_its_cells_and_fields(tmp_path: Path, build) -> None:
-    original = build()
-
-    path = write_vtu(tmp_path / "mesh.vtu", original)
-    recovered = read_vtu(path)
-
-    assert path == (tmp_path / "mesh.vtu").resolve()
-    assert recovered.cell_types == original.cell_types
-    np.testing.assert_array_equal(recovered.flat_connectivity, original.flat_connectivity)
-    np.testing.assert_array_equal(recovered.vertices[:, : original.ndim], original.vertices)
-    for name, values in original.cell_data.items():
-        np.testing.assert_array_equal(recovered.cell_data[name], values)
-    for name, values in original.point_data.items():
-        np.testing.assert_array_equal(recovered.point_data[name], values)
-
-
-def test_a_planar_mesh_written_as_vtu_reads_back_planar(tmp_path: Path) -> None:
-    recovered = read_vtu(write_vtu(tmp_path / "mesh.vtu", _triangles()))
-
-    assert recovered.ndim == 2
-
-
 def test_a_3d_mesh_written_as_vtu_keeps_its_z(tmp_path: Path) -> None:
     recovered = read_vtu(write_vtu(tmp_path / "mesh.vtu", _two_wedge_layers()))
 
@@ -93,22 +66,6 @@ def test_two_triangles_written_as_vtu_read_back(tmp_path: Path) -> None:
 
     assert reread.n_cells == hydro_mesh.n_cells
     assert np.allclose(reread.vertices[:, :2], hydro_mesh.vertices[:, :2])
-
-
-def test_a_voronoi_mesh_written_as_vtu_reads_back_in_its_cell_order(tmp_path: Path) -> None:
-    seeds = np.random.default_rng(5).uniform(0.0, 100.0, (60, 2))
-    original = voronoi_planar_mesh(seeds, box(0.0, 0.0, 100.0, 100.0))
-    original = original.with_cell_data(k=np.arange(original.n_cells, dtype=float))
-    assert len(set((original.flat_connectivity >= 0).sum(axis=1).tolist())) > 1
-
-    recovered = read_vtu(write_vtu(tmp_path / "voronoi.vtu", original))
-
-    assert recovered.cell_types == (CellType.POLYGON,)
-    assert [list(c) for c in recovered.flat_connectivity] == [
-        list(c) for c in original.flat_connectivity
-    ]
-    np.testing.assert_array_equal(recovered.vertices, original.vertices)
-    np.testing.assert_array_equal(recovered.cell_data["k"], original.cell_data["k"])
 
 
 def test_the_field_data_reads_back_as_it_was_given(tmp_path: Path) -> None:

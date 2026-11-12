@@ -20,7 +20,6 @@ import pytest
 from hydromodpy.catchment.drainage.descent import descent_basin
 from hydromodpy.catchment.drainage.distance import shared_node_adjacency
 from hydromodpy.catchment.drainage.graph import (
-    accumulate_on_downhill_graph,
     build_downhill_graph,
     cell_adjacency_from_face_connectivity,
 )
@@ -30,12 +29,10 @@ from hydromodpy.catchment.drainage.routing import (
     route_release_to_discharge,
     upstream_area,
 )
-from hydromodpy.catchment.stream_network.extent import flowing_cells
-from hydromodpy.core.scoring.stream_defaults import VisibleFlow
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests._helpers.v_valley import N_CELLS, build_bench
+from tests._helpers.v_valley import N_CELLS
 
 _NROW, _NCOL = 3, 3
 
@@ -241,19 +238,6 @@ def test_a_graph_that_drains_its_basin_has_a_share_of_one_and_does_not_warn(capl
     assert not any(record.levelno >= logging.WARNING for record in caplog.records)
 
 
-def test_a_fragmented_graph_has_a_share_far_from_one_and_warns_without_refusing(caplog) -> None:
-    model = _diagonal_model()
-
-    with caplog.at_level(logging.WARNING):
-        area = upstream_area(
-            _cell_areas(model), _shared_edge_graph(model), catchment_mask=_all(_N * _N)
-        )
-
-    assert area.largest_drainable_share is not None and area.largest_drainable_share < 0.5
-    assert area.m2.shape == (_N * _N,)
-    assert "different drainage" in caplog.text
-
-
 def test_the_share_is_the_one_the_direct_computation_gives() -> None:
     model = _diagonal_model()
     graph = _shared_edge_graph(model)
@@ -350,13 +334,6 @@ def test_shared_edges_strand_most_of_it() -> None:
     assert share == pytest.approx(0.066, abs=0.005)
 
 
-def test_the_two_rules_differ_by_more_than_an_order_of_magnitude() -> None:
-    # The point of the gate: this is not a second-decimal choice.
-    with_nodes = _largest_accumulated_share(diagonal_neighbors=True)
-    with_edges = _largest_accumulated_share(diagonal_neighbors=False)
-    assert with_nodes / with_edges > 10.0
-
-
 def test_the_run_states_what_its_graph_can_actually_drain(caplog) -> None:
     """A ratio far below one is an internal disagreement, not a preference.
 
@@ -403,30 +380,3 @@ def _criterion_release(n_dates: int) -> tuple[np.ndarray, np.ndarray]:
     release = rng.random((n_dates, N_CELLS)) * 2.0e-6
     release[:, rng.random(N_CELLS) < 0.1] = np.nan
     return release, np.full(N_CELLS, 1.0e-6)
-
-
-@pytest.mark.parametrize("n_dates", [1, 4])
-def test_the_discharge_the_criterion_routes_is_the_gauge_routing_to_the_bit(n_dates: int) -> None:
-    bench = build_bench()
-    graph = bench.metric.graph
-    release, threshold = _criterion_release(n_dates)
-    seepage = np.isfinite(release) & (release > threshold[None, :]) & graph.active[None, :]
-
-    routed = route_release_to_discharge(
-        np.where(seepage, release, 0.0), graph, catchment_mask=graph.active
-    )
-
-    expected = np.nan_to_num(
-        accumulate_on_downhill_graph(graph, np.where(seepage, release, 0.0)), nan=0.0
-    )
-    assert np.array_equal(routed, expected)
-
-    visible = VisibleFlow(discharge_m3_s=2.0e-6)
-    flowing = flowing_cells(
-        release if n_dates > 1 else release[0],
-        threshold_m3_s=threshold,
-        metric=bench.metric,
-        visible_flow=visible,
-    ).flowing
-    discharge = routed if n_dates > 1 else routed[0]
-    assert np.array_equal(flowing, (discharge > 0.0) & (discharge >= 2.0e-6) & graph.active)

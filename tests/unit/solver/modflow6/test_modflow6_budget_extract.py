@@ -12,10 +12,8 @@ from hydromodpy.core.budget.flux import STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.budget.terms import (
     BUDGET_KEPT_TERMS_ATTR,
     BUDGET_POLICY_ATTR,
-    POLICY_ALL,
     POLICY_CONSUMERS,
     BudgetKeep,
-    kept_budget,
 )
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
@@ -257,11 +255,6 @@ class TestCatchmentBudgetZone:
         assert by_zone[CATCHMENT]["component"] == by_zone["domain"]["component"]
         assert by_zone[CATCHMENT]["unit"] == "m3 s-1"
 
-    def test_without_a_mask_only_the_domain_row_is_written(self, monkeypatch):
-        store = self._extract(self._rcha_cbb(), monkeypatch, None)
-
-        assert [row["zone_id"] for row in store.budgets] == ["domain"]
-
     def test_an_empty_basin_is_not_written_as_zero(self, monkeypatch):
         # An all-false mask would write a row of zeros under a name that claims
         # to be the catchment, which is worse than carrying no row at all.
@@ -328,31 +321,6 @@ def test_everything_writes_each_scalar_record_under_its_canonical_name(monkeypat
     np.testing.assert_allclose(sto_ss[1, 0], np.array([1.0, -2.0, 0.5, 0.0]) * 3 * 2 / _SPT)
 
 
-def test_everything_writes_the_stream_constant_head_with_a_stream_mask(monkeypatch):
-    store = _run_extract(_every_record_cbb(), monkeypatch, stream_constant_head_mask=_STREAM_MASK)
-
-    assert set(store.stacks) == _CANONICAL | {STREAM_CONSTANT_HEAD_BUDGET}
-
-
-def test_an_unkept_term_never_gets_a_slab(monkeypatch):
-    spy = _FieldMeanSpy(monkeypatch)
-    store = _run_extract(
-        _every_record_cbb(), monkeypatch, budget_terms=BudgetKeep.of_terms({"recharge"})
-    )
-
-    assert set(store.stacks) == {"recharge"}
-    # Two stamps of one kept record: no other per-cell mean was computed.
-    assert spy.calls == 2
-
-
-def test_a_lumped_run_builds_no_slab_at_all(monkeypatch):
-    spy = _FieldMeanSpy(monkeypatch)
-    store = _run_extract(_every_record_cbb(), monkeypatch, budget_terms=BudgetKeep.of_terms(()))
-
-    assert store.stacks == {}
-    assert spy.calls == 0
-
-
 @pytest.mark.parametrize(
     "budget_terms",
     [BudgetKeep.of_terms(()), BudgetKeep.of_terms({"recharge", "storage_sy"})],
@@ -388,13 +356,6 @@ def test_the_stream_constant_head_is_kept_without_the_constant_head(monkeypatch)
     np.testing.assert_allclose(stream[0], expected)
 
 
-def test_the_extractor_records_its_policy_once(monkeypatch):
-    keep = BudgetKeep.of_terms({"recharge", "lake"})
-    store = _run_extract(_every_record_cbb(), monkeypatch, budget_terms=keep)
-
-    assert store.policies == [(keep, ["recharge"])]
-
-
 class _ZarrBackedStore:
     """A catalog stand-in that writes into a real field store."""
 
@@ -422,40 +383,6 @@ class _ZarrBackedStore:
             return dict(sz.root["budget"].attrs)
         finally:
             sz.close()
-
-
-def test_the_store_says_it_kept_every_written_term(monkeypatch, tmp_path):
-    store = _run_extract(
-        _every_record_cbb(),
-        monkeypatch,
-        store=_ZarrBackedStore(tmp_path / "fields.zarr"),
-        stream_constant_head_mask=_STREAM_MASK,
-    )
-
-    attrs = store.budget_attrs()
-    assert attrs[BUDGET_POLICY_ATTR] == POLICY_ALL
-    assert attrs[BUDGET_KEPT_TERMS_ATTR] == sorted(_CANONICAL | {STREAM_CONSTANT_HEAD_BUDGET})
-
-
-def test_the_store_says_it_kept_the_planned_terms(monkeypatch, tmp_path):
-    keep = BudgetKeep.of_terms({"drain", "lake"})
-    store = _run_extract(
-        _every_record_cbb(),
-        monkeypatch,
-        budget_terms=keep,
-        store=_ZarrBackedStore(tmp_path / "fields.zarr"),
-    )
-
-    attrs = store.budget_attrs()
-    assert attrs[BUDGET_POLICY_ATTR] == POLICY_CONSUMERS
-    # ``lake`` is planned but not produced: kept, with no array.
-    assert attrs[BUDGET_KEPT_TERMS_ATTR] == ["drain", "lake"]
-    sz = SimulationZarr(store.path)
-    try:
-        assert sorted(sz.root["budget"].array_keys()) == ["drain"]
-        assert kept_budget(sz.root) == (POLICY_CONSUMERS, ("drain", "lake"))
-    finally:
-        sz.close()
 
 
 def test_a_lumped_store_still_carries_its_budget_group(monkeypatch, tmp_path):

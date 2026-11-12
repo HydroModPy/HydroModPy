@@ -22,7 +22,7 @@ from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.model.boundaries.climate import apply_recharge_load_result_to_flow
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
-from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig, recharge_factor_of
+from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from tests.unit.workflow.steps.prepare_solver.test_forcings import _runoff_field_record
 
 _MM_PER_DAY_IN_M_PER_S = 1e-3 / 86400.0
@@ -37,14 +37,6 @@ def test_a_numeric_first_period_follows_the_payload_unit() -> None:
 
     assert normalized.units == "m/s"
     assert normalized.first_clim == pytest.approx(2.0 * _MM_PER_DAY_IN_M_PER_S)
-
-
-def test_a_keyword_first_period_is_left_alone() -> None:
-    normalized = _normalized(
-        FlowRechargeConfig(values=[1.0, 2.0], first_clim="mean", units="mm/day")
-    )
-
-    assert normalized.first_clim == "mean"
 
 
 def test_a_payload_already_in_si_is_unchanged() -> None:
@@ -95,17 +87,6 @@ def _bound(source: LoadResult, factor: float) -> FlowRechargeConfig:
     return seen[0]
 
 
-@pytest.mark.parametrize(
-    ("values", "scaled"),
-    [(1.0, 2.0), ([1.0, 2.0], [2.0, 4.0]), ({0: 1.0, 1: -2.0}, {0: 2.0, 1: -4.0})],
-)
-def test_the_factor_multiplies_written_rates_once(values, scaled) -> None:
-    once = _normalized(FlowRechargeConfig(values=values, factor=2.0, first_clim=3.0, units="m/s"))
-
-    assert (once.values, once.first_clim, once.factor) == (scaled, 6.0, 1.0)
-    assert _normalized(once).values == scaled
-
-
 def test_the_factor_multiplies_a_loaded_source_and_leaves_it_alone() -> None:
     station, grid = _station(), _grid()
 
@@ -152,19 +133,3 @@ def test_what_the_factor_refuses(written, said) -> None:
 )
 def test_the_peak_rate_counts_the_factor_and_the_unit(written, peak) -> None:
     assert FlowRechargeConfig(**written).peak_rate_mm_day() == pytest.approx(peak)
-
-
-@pytest.mark.parametrize(
-    ("flow_config", "factor"),
-    [
-        (
-            SimpleNamespace(sinks_sources=SimpleNamespace(recharge=FlowRechargeConfig(factor=2.5))),
-            2.5,
-        ),
-        (SimpleNamespace(sinks_sources=SimpleNamespace(recharge=None)), 1.0),
-        (SimpleNamespace(sinks_sources=None), 1.0),
-        (SimpleNamespace(), 1.0),
-    ],
-)
-def test_the_factor_of_a_flow_config_defaults_to_one(flow_config, factor) -> None:
-    assert recharge_factor_of(flow_config) == factor

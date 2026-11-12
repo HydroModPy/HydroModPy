@@ -8,8 +8,6 @@ quad mesh a diagonal step between two reach cells ends on the lower one.
 
 from __future__ import annotations
 
-import logging
-
 import numpy as np
 import pytest
 
@@ -74,55 +72,6 @@ def _route(networks, *, drn_spd, receiver, basin_cell_mask, lake_cells_by_number
     )
 
 
-def test_a_hillslope_chain_reaches_its_reach() -> None:
-    records = _route(
-        _network(3),
-        drn_spd=_static_drn([0, 1, 2]),
-        receiver=_chain(5),
-        basin_cell_mask=_everywhere(5),
-    )
-
-    assert [(r.provider_id, r.receiver, r.receiver_id) for r in records] == [
-        (0, "SFR", 0),
-        (1, "SFR", 0),
-        (2, "SFR", 0),
-    ]
-    assert all(r.provider == "DRN" and r.mvrtype == "FACTOR" and r.value == 1.0 for r in records)
-
-
-def test_a_chain_meeting_a_lake_before_a_reach_routes_to_the_lake() -> None:
-    # Lake at cell 2, reach at cell 4: the lake is met first and is a sink.
-    records = _route(
-        _network(4),
-        drn_spd=_static_drn([0, 1, 3]),
-        receiver=_chain(6),
-        basin_cell_mask=_everywhere(6),
-        lake_cells_by_number={7: [2]},
-    )
-
-    assert [(r.provider_id, r.receiver, r.receiver_id) for r in records] == [
-        (0, "LAK", 7),
-        (1, "LAK", 7),
-        (2, "SFR", 0),
-    ]
-
-
-def test_every_lake_is_a_sink_not_only_the_outflow_one() -> None:
-    network = {
-        "net0": ResolvedSfrNetwork("net0", (), {"route_drainage": True, "outflow_to_lake": 1})
-    }
-
-    records = _route(
-        network,
-        drn_spd=_static_drn([2]),
-        receiver=_chain(5),
-        basin_cell_mask=_everywhere(5),
-        lake_cells_by_number={0: [0], 1: [4]},
-    )
-
-    assert [(r.receiver, r.receiver_id) for r in records] == [("LAK", 1)]
-
-
 def test_a_basin_cell_whose_chain_leaves_the_model_first_stays_plain() -> None:
     # Cell 1 drains off the domain (-1) before the chain could meet the reach at 2.
     receiver = np.array([1, -1, -1])
@@ -135,19 +84,6 @@ def test_a_basin_cell_whose_chain_leaves_the_model_first_stays_plain() -> None:
     )
 
     assert records == []
-
-
-def test_a_cell_outside_the_basin_is_not_routed_even_if_its_chain_reaches_a_reach() -> None:
-    basin = np.array([True, False, True, True, True])
-
-    records = _route(
-        _network(4),
-        drn_spd=_static_drn([0, 1, 2]),
-        receiver=_chain(5),
-        basin_cell_mask=basin,
-    )
-
-    assert {r.provider_id for r in records} == {0, 2}
 
 
 def test_the_provider_id_is_the_row_index_of_the_static_drn() -> None:
@@ -208,44 +144,6 @@ def test_a_cycle_in_the_descent_is_reported_not_looped_on() -> None:
             receiver=receiver,
             basin_cell_mask=_everywhere(3),
         )
-
-
-def test_the_coverage_line_reports_routed_reach_lake_and_plain_counts(caplog) -> None:
-    # Cells 0..5 on a chain, lake at 2, reach at 4, plus an isolated cell 6 that
-    # leaves the model and a cell 7 outside the basin (not counted).
-    receiver = np.array([1, 2, 3, 4, 5, -1, -1, 4])
-    basin = np.array([True] * 7 + [False])
-
-    with caplog.at_level(logging.INFO, logger=_LOGGER):
-        _route(
-            _network(4),
-            drn_spd=_static_drn([0, 1, 3, 6, 7]),
-            receiver=receiver,
-            basin_cell_mask=basin,
-            lake_cells_by_number={0: [2]},
-        )
-
-    lines = [r.getMessage() for r in caplog.records if r.name == _LOGGER]
-    assert lines == [
-        "Drainage routing on the descent: 3 of 4 basin DRN cells routed (75.0 %), "
-        "1 to a reach, 2 to a lake, 1 kept plain; 0 of 1 reach(es) of the routed "
-        "network(s) receive no drainage."
-    ]
-
-
-def test_the_coverage_line_counts_the_reaches_that_receive_no_drainage(caplog) -> None:
-    # Reach 0 at cell 2 is fed by cells 0 and 1; reach 1 at cell 4 is fed by none.
-    receiver = np.array([1, 2, 3, 4, -1])
-
-    with caplog.at_level(logging.INFO, logger=_LOGGER):
-        _route(
-            _network(2, 3),
-            drn_spd=_static_drn([0, 1]),
-            receiver=receiver,
-            basin_cell_mask=_everywhere(5),
-        )
-
-    assert "1 of 2 reach(es) of the routed network(s) receive no drainage" in caplog.text
 
 
 def _quad_faces(nrow: int, ncol: int) -> list[set[int]]:

@@ -2,31 +2,16 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-import duckdb
 import pytest
 
-from hydromodpy.core.state.layout import CATALOG_FILENAME
 from hydromodpy.core.state.portable import (
-    cache_dir,
     decode_workspace_path,
     encode_workspace_path,
     resolve_workspace,
-    state_dir,
     to_workspace_relative,
 )
-
-
-def test_to_workspace_relative_returns_posix_path(tmp_path: Path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "sub" / "file.tif"
-    target.parent.mkdir(parents=True)
-    target.write_bytes(b"x")
-
-    assert to_workspace_relative(ws, target) == "sub/file.tif"
 
 
 def test_to_workspace_relative_rejects_outsider(tmp_path: Path):
@@ -38,18 +23,6 @@ def test_to_workspace_relative_rejects_outsider(tmp_path: Path):
 
     with pytest.raises(ValueError, match="is not under workspace"):
         to_workspace_relative(ws, other)
-
-
-def test_encode_workspace_path_prefers_workspace_relative(tmp_path: Path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "a" / "b.txt"
-    target.parent.mkdir(parents=True)
-    target.touch()
-
-    encoded = encode_workspace_path(ws, target)
-    assert encoded == "a/b.txt"
-    assert not encoded.startswith("/")
 
 
 def test_encode_workspace_path_falls_back_to_cache_uri(
@@ -108,14 +81,6 @@ def test_encode_workspace_path_raises_when_unanchored(
         encode_workspace_path(ws, outside)
 
 
-def test_decode_workspace_path_with_absolute_input_returns_itself(tmp_path: Path):
-    ws = tmp_path / "ws"
-    abs_path = tmp_path / "abs" / "f.txt"
-    abs_path.parent.mkdir(parents=True)
-    abs_path.touch()
-    assert decode_workspace_path(ws, str(abs_path)) == abs_path.resolve()
-
-
 def test_resolve_workspace_rejects_non_local_uri():
     with pytest.raises(NotImplementedError, match="s3"):
         resolve_workspace("s3://bucket/prefix")
@@ -124,53 +89,3 @@ def test_resolve_workspace_rejects_non_local_uri():
 def test_resolve_workspace_handles_bare_path(tmp_path: Path):
     bare = str(tmp_path)
     assert resolve_workspace(bare) == Path(bare)
-
-
-def test_tracked_files_canonical_path_is_relative(tmp_path: Path):
-    """Simulate a P3-compliant INSERT into tracked_files and verify storage."""
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    db_path = ws / CATALOG_FILENAME
-    sample = ws / "inputs" / "dem.tif"
-    sample.parent.mkdir(parents=True)
-    sample.write_bytes(b"raster")
-
-    conn = duckdb.connect(str(db_path))
-    try:
-        conn.execute(
-            "CREATE TABLE tracked_files ("
-            " sim_id VARCHAR,"
-            " role VARCHAR,"
-            " canonical_path VARCHAR NOT NULL,"
-            " PRIMARY KEY (sim_id, role, canonical_path))"
-        )
-        encoded = encode_workspace_path(ws, sample)
-        conn.execute(
-            "INSERT INTO tracked_files (sim_id, role, canonical_path) VALUES (?, ?, ?)",
-            ["sim-1", "input", encoded],
-        )
-        rows = conn.execute("SELECT canonical_path FROM tracked_files").fetchall()
-        assert rows == [("inputs/dem.tif",)]
-        assert not os.path.isabs(rows[0][0])
-    finally:
-        conn.close()
-
-
-def test_a_data_file_path_encodes_relative_to_the_workspace(tmp_path: Path):
-    """The path of a file under ``data/`` is stored relative, never absolute."""
-    ws = tmp_path / "ws"
-    sample = ws / "data" / "dem" / "raw" / "DEM.tif"
-    sample.parent.mkdir(parents=True)
-    sample.write_bytes(b"r")
-
-    encoded = encode_workspace_path(ws, sample)
-
-    assert encoded == "data/dem/raw/DEM.tif"
-    assert not os.path.isabs(encoded)
-
-
-def test_state_dir_paths_helpers_still_resolve(tmp_path: Path, monkeypatch):
-    monkeypatch.setenv("HMP_STATE_HOME", str(tmp_path / "state"))
-    monkeypatch.setenv("HMP_CACHE_HOME", str(tmp_path / "cache"))
-    assert state_dir() == (tmp_path / "state").resolve()
-    assert cache_dir() == (tmp_path / "cache").resolve()

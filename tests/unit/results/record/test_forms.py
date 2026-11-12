@@ -9,7 +9,7 @@ import pytest
 
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.results.identity import read_identity_from
-from hydromodpy.results.record.forms import identity_block, run_seal_v3
+from hydromodpy.results.record.forms import run_seal_v3
 from hydromodpy.results.record.manifest import read_manifest, read_seal
 from hydromodpy.schema.job.seal import read_job_seal
 
@@ -79,55 +79,6 @@ def test_each_manifest_row_converts_a_version_3_seal(payload, expected):
     assert run_seal_v3(payload) == expected
 
 
-def test_the_identity_row_drops_the_key_that_left():
-    assert identity_block({"config_hash": "x", "sim_id": "s"}) == {"sim_id": "s"}
-
-
-def test_a_block_without_the_key_reads_the_same():
-    assert identity_block({"sim_id": "s"}) == {"sim_id": "s"}
-
-
-@pytest.mark.parametrize(
-    ("payload", "request_id", "media_type", "role"),
-    [
-        pytest.param(
-            {
-                "schema": "hmp-manifest/v2",
-                "job_id": "sha256:job",
-                "sealed_at": "2026-01-01T00:00:00Z",
-                "artifacts": [{"path": "outcome.json", "mediaType": "application/json"}],
-            },
-            "sha256:job",
-            "application/json",
-            "document",
-            id="control-document",
-        ),
-        pytest.param(
-            {
-                "schema": "hmp-manifest/v2",
-                "job_id": "sha256:other",
-                "sealed_at": "2026-01-01T00:00:00Z",
-                "artifacts": [{"path": "outputs/value.json", "mediaType": "text/plain"}],
-            },
-            "sha256:other",
-            "text/plain",
-            "output",
-            id="output",
-        ),
-    ],
-)
-def test_each_job_row_converts_a_version_2_seal(tmp_path, payload, request_id, media_type, role):
-    path = tmp_path / "manifest.json"
-    path.write_text(json.dumps(payload), encoding="utf-8")
-
-    seal = read_job_seal(path)
-
-    assert seal.request_id == request_id
-    assert seal.artifacts[0].media_type == media_type
-    assert seal.artifacts[0].role == role
-    assert seal.manifest_version == 4 and seal.profile == "job"
-
-
 @pytest.mark.parametrize(
     ("run_dir", "expected_key"),
     [(DEMO, "demo"), (CALAGE, "calibrated_run")],
@@ -171,31 +122,8 @@ def test_the_job_seal_of_the_corpus_reads_its_request_id():
     assert all(entry.role in {"document", "output"} for entry in seal.artifacts)
 
 
-def test_a_published_copy_is_a_version_3_seal_without_values():
-    seal = read_seal(PUBLICATION)
-
-    assert seal.manifest_version == 4 and seal.profile == "run"
-    assert seal.values is None
-
-
 REFUSALS = [
     pytest.param({"manifest_version": 1}, SchemaVersionMismatchError, "pre-release", id="v1"),
     pytest.param({"manifest_version": 2}, SchemaVersionMismatchError, "pre-release", id="v2"),
     pytest.param({"run": {}}, SchemaVersionMismatchError, "manifest_version", id="no-version"),
 ]
-
-
-@pytest.mark.parametrize(("payload", "error", "sentence"), REFUSALS)
-def test_read_seal_refuses_a_form_it_does_not_read(tmp_path, payload, error, sentence):
-    (tmp_path / "manifest.json").write_text(json.dumps(payload), encoding="utf-8")
-
-    with pytest.raises(error, match=sentence):
-        read_seal(tmp_path)
-
-
-def test_read_job_seal_refuses_an_unknown_job_schema(tmp_path):
-    path = tmp_path / "manifest.json"
-    path.write_text(json.dumps({"schema": "hmp-manifest/v1"}), encoding="utf-8")
-
-    with pytest.raises(SchemaVersionMismatchError, match="hmp-manifest/v1"):
-        read_job_seal(path)

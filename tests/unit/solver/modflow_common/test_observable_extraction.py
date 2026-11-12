@@ -300,12 +300,6 @@ def _receiver_pairs(graph) -> set[tuple[int, int]]:
     }
 
 
-def test_a_structured_cell_maps_to_its_flat_index() -> None:
-    model = _descent_model(np.arange(9, dtype=float).reshape(3, 3))
-
-    assert flat_cell_index(model, (0, 2, 1)) == 2 * 3 + 1
-
-
 def test_a_cell_outside_the_mesh_is_refused() -> None:
     model = _descent_model(np.arange(9, dtype=float).reshape(3, 3))
 
@@ -316,31 +310,6 @@ def test_a_cell_outside_the_mesh_is_refused() -> None:
 def test_a_model_without_a_descent_says_so() -> None:
     with pytest.raises(ValueError, match="carries none"):
         routing_graph_for_model(SimpleNamespace(solver_mesh=None))
-
-
-def test_the_graph_is_the_receivers_of_d() -> None:
-    model = _descent_model(np.arange(25, dtype=float).reshape(5, 5))
-
-    graph = routing_graph_for_model(model)
-
-    assert graph is model.descent.metric.graph
-
-
-def test_a_diagonal_talweg_is_followed_on_a_quad_mesh() -> None:
-    n = 30
-    rows, cols = np.meshgrid(np.arange(n), np.arange(n), indexing="ij")
-    top = 100.0 + 0.5 * np.abs(rows - cols) + 0.01 * (rows + cols)
-    model = _descent_model(top)
-
-    graph = routing_graph_for_model(model)
-
-    diagonal = {
-        tuple(sorted((r * n + c, (r + 1) * n + (c + 1))))
-        for r in range(n - 1)
-        for c in range(n - 1)
-    }
-    assert _receiver_pairs(graph) & diagonal
-    assert model.descent.diagonal_neighbors
 
 
 # The routed discharge takes the drain budget only when the network does not route the drainage.

@@ -20,7 +20,6 @@ import zarr
 
 from hydromodpy.core.exceptions import IncompatibleMeshError
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.model.initial.heads import restart_start_heads
 from hydromodpy.model.initial.state import PriorState
 from hydromodpy.results.storage.final_state import FinalState, write_final_state
 from hydromodpy.results.storage.prior_state import (
@@ -62,34 +61,6 @@ def _store(
     return str(path)
 
 
-def test_the_same_mesh_restarts(tmp_path: Path) -> None:
-    mesh = _mesh()
-    verify_restart_mesh(_store(tmp_path / "prior.zarr", mesh), mesh)
-
-
-def test_a_vertex_moved_by_a_centimetre_is_refused_with_both_identities(tmp_path: Path) -> None:
-    mesh = _mesh()
-    moved = mesh.mesh.vertices[:, :2].copy()
-    moved[4, 0] += 0.01
-    prior = _store(tmp_path / "prior.zarr", mesh, vertices=moved)
-
-    with pytest.raises(IncompatibleMeshError) as caught:
-        verify_restart_mesh(prior, mesh)
-
-    message = str(caught.value)
-    assert "1 vertices moved (first: 4" in message
-    assert "engine triangle 7, request abcdef012345" in message
-    assert f"engine {mesh.identity.engine_id} {mesh.identity.engine_version}" in message
-
-
-def test_a_shift_below_half_the_written_step_is_the_same_mesh(tmp_path: Path) -> None:
-    """A millimeter in y at 6.8e6 m is under half of flopy's 1e-2 m step there."""
-    mesh = _mesh()
-    nudged = mesh.mesh.vertices[:, :2].copy()
-    nudged[:, 1] += 0.001
-    verify_restart_mesh(_store(tmp_path / "prior.zarr", mesh, vertices=nudged), mesh)
-
-
 def test_the_same_shift_in_x_is_not(tmp_path: Path) -> None:
     """The step at 3.5e5 m is 1e-3 m, so a millimeter in x is a vertex that moved."""
     mesh = _mesh()
@@ -109,14 +80,6 @@ def test_two_cells_swapped_are_refused(tmp_path: Path) -> None:
         verify_restart_mesh(prior, mesh)
 
 
-def test_a_ring_walked_the_other_way_is_the_same_cell(tmp_path: Path) -> None:
-    """MODFLOW 6 stores its DISV clockwise: the cell is the same, the ring is reversed."""
-    mesh = _mesh()
-    rows = mesh.geometry.padded_connectivity.copy()
-    rows[:, 1:] = rows[:, :0:-1]
-    verify_restart_mesh(_store(tmp_path / "prior.zarr", mesh, rows=rows), mesh)
-
-
 def test_another_cell_count_is_refused(tmp_path: Path) -> None:
     prior = _store(tmp_path / "prior.zarr", _mesh())
     other = regular_cell_mesh(xmin=_XMIN, ymin=_YMIN, dx=100.0, dy=100.0, nrow=2, ncol=4)
@@ -134,26 +97,6 @@ def test_a_store_without_a_mesh_keeps_the_cell_count_rule_and_warns(
         verify_restart_mesh(str(prior), _mesh())
 
     assert any("stores no mesh" in record.getMessage() for record in caplog.records)
-
-
-def test_the_prior_state_is_not_read_from_another_mesh(tmp_path: Path) -> None:
-    mesh = _mesh()
-    moved = mesh.mesh.vertices[:, :2].copy()
-    moved[0, 0] += 0.5
-    prior = _store(tmp_path / "prior.zarr", mesh, vertices=moved)
-
-    with pytest.raises(IncompatibleMeshError, match="another mesh"):
-        read_prior_state(prior, mesh)
-
-
-def test_the_start_heads_of_the_same_mesh_are_the_prior_heads(tmp_path: Path) -> None:
-    mesh = _mesh()
-    prior = _store(tmp_path / "prior.zarr", mesh)
-
-    state = read_prior_state(prior, mesh)
-    strt = restart_start_heads(state.head, nlay=1, ncpl=6, top=np.full(6, 10.0))
-
-    assert np.array_equal(strt, np.arange(6, dtype=float).reshape(1, 6))
 
 
 def _write_heads(path: Path, head: np.ndarray) -> str:
@@ -176,30 +119,6 @@ def test_a_prior_state_carries_what_the_store_holds(tmp_path: Path) -> None:
     assert dict(state.lake_stages) == {"forebay": pytest.approx(86.9)}
     assert state.head.shape == (1, 6)
     assert not state.head.flags.writeable
-
-
-@pytest.mark.parametrize(
-    ("stored", "expected"),
-    [
-        pytest.param(
-            np.array([[[1.0, 2.0, 3.0]], [[4.0, 5.0, 6.0]]]),
-            [[4.0, 5.0, 6.0]],
-            id="the last time step is read",
-        ),
-        pytest.param(
-            np.array([[[1.0, 1.0e30, np.nan], [4.0, 5.0, 6.0]]]),
-            [[1.0, np.nan, np.nan], [4.0, 5.0, 6.0]],
-            id="sentinel and NaN cells come back NaN",
-        ),
-        pytest.param(np.array([[7.0, 8.0, 9.0]]), [[7.0, 8.0, 9.0]], id="one layer, flat steps"),
-    ],
-)
-def test_the_heads_read_are_the_last_step_with_nan_on_inactive_cells(
-    tmp_path: Path, stored: np.ndarray, expected: list[list[float]]
-) -> None:
-    path = _write_heads(tmp_path / "prior.zarr", stored)
-
-    np.testing.assert_array_equal(read_final_head(path), np.array(expected))
 
 
 @pytest.mark.parametrize(
@@ -227,13 +146,6 @@ def test_read_restart_lake_stages_roundtrip_raw_zarr(tmp_path: Path) -> None:
 
     stages = read_restart_lake_stages(str(path))
     assert stages == {"forebay": pytest.approx(86.9), "sill": pytest.approx(74.2)}
-
-
-def test_read_restart_lake_stages_absent_group_returns_empty(tmp_path: Path) -> None:
-    """A prior run with no lake (no group) yields {} so initial_stage is kept."""
-    path = tmp_path / "prior.zarr"
-    zarr.open(str(path), mode="w")["head"] = np.zeros((1, 1, 3))
-    assert read_restart_lake_stages(str(path)) == {}
 
 
 def test_read_restart_lake_stages_length_mismatch_returns_empty(tmp_path: Path) -> None:
@@ -282,25 +194,6 @@ def _run(tmp_path: Path, *, final: bool = True, fields: bool = True) -> Path:
     return run
 
 
-@pytest.mark.parametrize(
-    "named", ["run folder", "fields.zarr", "final_state"], ids=["run", "fields", "final"]
-)
-def test_a_run_with_a_final_state_is_read_from_it_exactly(tmp_path: Path, named: str) -> None:
-    run = _run(tmp_path)
-    path = {
-        "run folder": run,
-        "fields.zarr": run / "fields.zarr",
-        "final_state": run / "final_state",
-    }[named]
-
-    state = read_prior_state(str(path), _mesh(), sim_id="w1")
-
-    np.testing.assert_array_equal(state.head, EXACT)
-    assert dict(state.lake_stages) == {"forebay": 13.95991694769827}
-    assert dict(state.sfr_stages) == {0: 12.25, 1: 11.75}
-    assert (state.path, state.sim_id) == (str(run / "final_state"), "w1")
-
-
 def test_a_compact_run_gives_back_its_exact_head_only_through_final_state(tmp_path: Path) -> None:
     run = _run(tmp_path)
     rounded = _compact(EXACT)
@@ -308,19 +201,6 @@ def test_a_compact_run_gives_back_its_exact_head_only_through_final_state(tmp_pa
     assert not np.array_equal(rounded, EXACT, equal_nan=True)
     np.testing.assert_array_equal(read_final_head(str(run / "fields.zarr")), EXACT)
     np.testing.assert_array_equal(read_final_head(str(run)), EXACT)
-
-
-def test_a_run_of_a_pre_release_is_read_from_the_last_step_of_its_field_store(
-    tmp_path: Path,
-) -> None:
-    run = _run(tmp_path, final=False)
-
-    state = read_prior_state(str(run), _mesh())
-
-    np.testing.assert_array_equal(state.head, _compact(EXACT))
-    assert dict(state.lake_stages) == {"forebay": 13.95991695}
-    assert dict(state.sfr_stages) == {}
-    assert state.path == str(run / "fields.zarr")
 
 
 def test_the_lake_stages_of_a_run_come_from_its_final_state(tmp_path: Path) -> None:

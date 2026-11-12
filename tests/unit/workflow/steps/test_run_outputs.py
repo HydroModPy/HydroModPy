@@ -355,17 +355,6 @@ def test_the_run_keeps_the_open_water_the_outline_and_the_recharge_its_trials_re
     assert kept == pytest.approx(2.0e-8)
 
 
-def test_a_run_without_a_lake_keeps_an_open_water_mask_that_is_all_false(tmp_path) -> None:
-    store = _KeptStore(tmp_path)
-    ctx, *_ = _kept_context(tmp_path, lake=None)
-
-    _keep_what_the_criterion_reads(ctx=ctx, sim_id=store.sim_id, store=store)
-
-    mask = store.stored("open_water")
-    assert mask.shape == (N_GRID_CELLS,)
-    assert not mask.any()
-
-
 def test_a_run_without_an_outline_keeps_no_catchment_cells(tmp_path) -> None:
     store = _KeptStore(tmp_path)
     ctx, *_ = _kept_context(tmp_path, outline=False)

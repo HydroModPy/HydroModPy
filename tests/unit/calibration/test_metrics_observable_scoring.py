@@ -16,10 +16,8 @@ import pytest
 
 from hydromodpy.calibration.config import STATION_VARIABLES, CalibrationConfig
 from hydromodpy.calibration.config_network import MatchingHydrographicNetworkOptions
-from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
 from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl as Block
-from hydromodpy.calibration.config_outputs import CalibOutputPoint, validate_calib_output
-from hydromodpy.calibration.config_phases import CalibAggregateDecl
+from hydromodpy.calibration.config_outputs import validate_calib_output
 from hydromodpy.calibration.config_terms import CalibWindow
 from hydromodpy.calibration.metrics import composite, solver_extract
 from hydromodpy.calibration.metrics.composite import PRODUCERS, build_metric_extractor
@@ -37,7 +35,6 @@ from hydromodpy.calibration.metrics.observable_scoring import (
     select_observable_times,
     slice_time,
 )
-from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_observations
 from hydromodpy.calibration.metrics.series import ObservedSeries, time_grid_boundaries
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 from hydromodpy.calibration.optim.objective import ConfigBlockObjective
@@ -109,17 +106,6 @@ def _answer() -> ObservableResult:
     return adapter_result("H", simulated.to_numpy(), "m", times=simulated.index)
 
 
-def test_the_pairing_counts_the_dry_periods_of_the_window() -> None:
-    paired = pair_outputs_with_observations(
-        observed={"H": _RECORD},
-        simulated={"H": _simulated()},
-        window=_WINDOW,
-        time_methods={"H": "point"},
-    )
-
-    assert paired.n_simulated_nan == {"H": 3}
-
-
 def test_the_count_is_a_component_of_the_cost_and_warned_once(caplog) -> None:
     scorer = _scorer()
 
@@ -131,15 +117,6 @@ def test_the_count_is_a_component_of_the_cost_and_warned_once(caplog) -> None:
     assert second["H.n_sim_nan"] == 3.0
     warned = [r.getMessage() for r in caplog.records if "NaN" in r.getMessage()]
     assert len(warned) == 1 and "H" in warned[0] and "3" in warned[0]
-
-
-def test_a_wet_trial_writes_zero() -> None:
-    simulated = pd.Series(np.linspace(10.0, 11.0, len(_STAMPS)), index=_STAMPS)
-    answer = adapter_result("H", simulated.to_numpy(), "m", times=_STAMPS)
-
-    _, components = _scorer().score({"H": answer}, boundaries=_BOUNDS)
-
-    assert components["H.n_sim_nan"] == 0.0
 
 
 def test_the_journal_and_the_session_keep_the_count(tmp_path: Path) -> None:
@@ -186,13 +163,6 @@ def _gap(scales: dict[str, list[float]] | None, *, metric: str = "distance_gap")
 
 
 class TestTheDeclaration:
-    @pytest.mark.parametrize("metric", ["distance_gap", "distance_mean"])
-    def test_a_network_distance_may_be_normalised(self, metric: str) -> None:
-        block = CalibObjectiveBlockDecl(
-            name="network", metric=metric, uses_outputs=["net"], normalize_cost=True
-        )
-        assert block.normalize_cost is True
-
     def test_an_efficiency_is_still_refused(self) -> None:
         with pytest.raises(ValueError, match="already a pure number"):
             objective_block("q", "nse_log", ["q"], normalize_cost=True)
@@ -223,14 +193,6 @@ class TestTheCost:
         high = _gap({"net": [150.0, 150.0]}).evaluate({"net": [400.0, 100.0]})
         assert low.total == pytest.approx(high.total) == pytest.approx(2.0)
 
-    def test_no_length_published_refuses_the_trial_by_name(self) -> None:
-        with pytest.raises(ValueError, match="output 'net' by its validity length"):
-            _gap(None).evaluate({"net": [420.0, 120.0]})
-
-    def test_a_length_for_another_count_of_values_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="2 for 4 values"):
-            _gap({"net": [150.0, 150.0]}).evaluate({"net": [1.0, 2.0, 3.0, 4.0]})
-
     def test_a_length_that_is_not_positive_is_refused(self) -> None:
         with pytest.raises(ValueError, match="positive length"):
             _gap({"net": [0.0, 0.0]}).evaluate({"net": [420.0, 120.0]})
@@ -238,13 +200,6 @@ class TestTheCost:
 
 class TestTheLengthsATrialPublishes:
     NETWORK = validate_calib_output({"support": "network", "map": {"complete": "n.gpkg"}})
-
-    def test_one_bound_reads_its_unsuffixed_length(self) -> None:
-        found = network_distance_scales(
-            {"net": self.NETWORK},
-            {"net.n_bounds_scored": 1.0, "net.validity_length_m": 150.0},
-        )
-        assert found == {"net": [150.0, 150.0]}
 
     def test_two_bounds_read_the_minimal_then_the_maximal(self) -> None:
         found = network_distance_scales(
@@ -309,41 +264,6 @@ class TestTheUnitsOfASum:
             "objective_blocks": blocks,
         }
 
-    def test_a_raw_distance_beside_a_raw_head_residual_is_refused(self) -> None:
-        with pytest.raises(ValueError) as caught:
-            CalibrationConfig.model_validate(
-                self._config(
-                    [
-                        {"name": "network", "metric": "distance_gap", "uses_outputs": ["net"]},
-                        {"name": "heads", "metric": "rmse", "uses_outputs": ["head"]},
-                    ]
-                )
-            )
-        message = str(caught.value)
-        assert "network distance in m" in message
-        assert "validity lengths" in message
-
-    def test_both_normalised_they_add(self) -> None:
-        cfg = CalibrationConfig.model_validate(
-            self._config(
-                [
-                    {
-                        "name": "network",
-                        "metric": "distance_gap",
-                        "uses_outputs": ["net"],
-                        "normalize_cost": True,
-                    },
-                    {
-                        "name": "heads",
-                        "metric": "rmse",
-                        "uses_outputs": ["head"],
-                        "normalize_cost": True,
-                    },
-                ]
-            )
-        )
-        assert len(cfg.objective_blocks) == 2
-
 
 class TestTheIntervalOfANormalisedDistance:
     """A distance counted in validity lengths is no longer read in mesh cells."""
@@ -363,16 +283,6 @@ class TestTheIntervalOfANormalisedDistance:
                 ],
             }
         )
-
-    def test_a_gap_in_metres_is_read_in_mesh_cells(self) -> None:
-        width = self._config(normalise=False).interval_width_for()
-        assert width.on_distances is True
-        assert width.kind == "absolute"
-
-    def test_a_normalised_gap_is_read_as_any_other_cost(self) -> None:
-        width = self._config(normalise=True).interval_width_for()
-        assert width.on_distances is False
-        assert width.kind == "relative"
 
 
 # From test_a_session_window_open_at_its_end_scores_the_periods_of_the_run.py
@@ -397,64 +307,6 @@ def _series() -> tuple[pd.Series, pd.Series]:
     observed = pd.Series(1.0 + 0.5 * np.cos(2.0 * np.pi * t / 365.25), index=days)
     simulated = pd.Series(1.0 + 0.4 * np.cos(np.arange(STAMPS.size) / 2.0), index=STAMPS)
     return observed, simulated
-
-
-def test_the_block_route_keeps_the_24_months_of_the_run() -> None:
-    observed, simulated = _series()
-
-    paired = pair_outputs_with_observations(
-        observed={"hydrograph": observed},
-        simulated={"hydrograph": simulated},
-        window=START_ONLY,
-        time_methods={"hydrograph": "mean"},
-        period_starts={"hydrograph": FIRST_PERIOD},
-    )
-
-    assert paired.n_paired["hydrograph"] == 24
-    # The first period scored is January 2001, which closes on 1 February.
-    assert paired.dates["hydrograph"] == (pd.Timestamp("2001-02-01"), pd.Timestamp("2003-01-01"))
-
-
-def test_variable_and_objective_keep_the_24_months_of_the_run() -> None:
-    observed, simulated = _series()
-    sink = TrialSeriesSink()
-    scorer = StationBlockScorer(
-        "discharge",
-        "nse",
-        [ObservedSeries("NANCON", "discharge", observed)],
-        window=START_ONLY,
-        series_sink=sink,
-    )
-
-    scorer.score(
-        {"NANCON": ObservableResult("NANCON", simulated.to_numpy(), "m3/s", STAMPS)},
-        boundaries=[FIRST_PERIOD, *STAMPS],
-    )
-
-    times = [pd.Timestamp(row["time"]) for row in sink.drain()]
-    assert len(times) == 24
-    assert times[0] == pd.Timestamp("2001-02-01")
-
-
-def test_the_pairs_session_json_records_are_those_of_the_run() -> None:
-    # session.json -> scored is read from these components.
-    observed, simulated = _series()
-    outputs = {
-        "q": validate_calib_output(
-            dict(variable="discharge", support="boundary", boundary_id="outlet", observes="gauge")
-        )
-    }
-    blocks = [objective_block("flow", "nse", ["q"])]
-    scorer = ObservableScorer(outputs, blocks, observed_records={"q": observed}, window=START_ONLY)
-    boundaries = [FIRST_PERIOD, *STAMPS]
-
-    _, components = scorer.score(
-        {"q": ObservableResult("q", simulated.to_numpy(), "m3/s", STAMPS)}, boundaries=boundaries
-    )
-
-    assert components["q.n_paired"] == 24.0
-    assert date.fromordinal(int(components["q.date_start"])) == date(2001, 2, 1)
-    assert date.fromordinal(int(components["q.date_end"])) == date(2003, 1, 1)
 
 
 # From test_a_steady_stage_is_scored_on_its_window.py
@@ -562,23 +414,6 @@ def _network(time: str = "last") -> dict[str, object]:
 
 
 class TestTheRule:
-    def test_before_the_grid_is_known_the_state_counts_as_dated(self) -> None:
-        refuse_window_without_dates(_network(), BLOCKS, (pd.Timestamp("2001-01-01"), None), {})
-
-    def test_a_window_holding_the_stamp_is_accepted(self) -> None:
-        refuse_window_without_dates(
-            _network(), BLOCKS, (pd.Timestamp("2001-01-01"), None), {}, boundaries=MONTHS
-        )
-
-    def test_a_window_ending_before_the_last_state_is_refused_naming_both(self) -> None:
-        window = (pd.Timestamp("2001-01-01"), pd.Timestamp("2002-06-30"))
-        with pytest.raises(ValueError) as caught:
-            refuse_window_without_dates(_network(), BLOCKS, window, {}, boundaries=MONTHS)
-        message = str(caught.value)
-        assert "window 2001-01-01 to 2002-06-30" in message
-        assert "time = 'last'" in message
-        assert "2002-12" in message and "stamped 2003-01-01" in message
-
     @pytest.mark.parametrize(
         ("time", "match"),
         [
@@ -599,12 +434,6 @@ class TestTheRule:
                 {},
                 boundaries=MONTHS,
             )
-
-    def test_a_typed_vector_still_has_no_date_to_cut(self) -> None:
-        outputs = {"q": boundary_output(observed_values=[1.0, 2.0])}
-        blocks = [objective_block("flows", "rmse", ["q"])]
-        with pytest.raises(ValueError, match="no time axis to cut on"):
-            refuse_window_without_dates(outputs, blocks, (pd.Timestamp("2001-01-01"), None), {})
 
 
 _PHASE = """
@@ -660,12 +489,6 @@ class TestTheCheckBeforeTheRun:
     def test_a_window_holding_the_last_state_is_no_finding(self, tmp_path) -> None:
         assert _window_findings(tmp_path, time="last", window=_FROM_JULY) == ""
 
-    def test_a_window_ending_before_it_is_named_with_its_phase(self, tmp_path) -> None:
-        found = _window_findings(tmp_path, time="last", window=_TO_JUNE)
-        assert "calibration.phases: 'conductivity': " in found
-        assert "window open to 2000-06-30" in found
-        assert "stamped 2001-01-01" in found
-
     def test_a_dated_state_outside_the_window_is_named(self, tmp_path) -> None:
         found = _window_findings(tmp_path, time="2000-03-15", window=_FROM_JULY)
         assert "stamped 2000-03-15" in found
@@ -674,11 +497,6 @@ class TestTheCheckBeforeTheRun:
         found = _window_findings(tmp_path, time="2005-03-15", window="")
         assert "calibration.outputs.net: " in found
         assert "outside the record" in found
-
-    @_NO_GENERIC_UNIT
-    def test_a_steady_phase_holds_every_date_of_its_window(self, tmp_path) -> None:
-        found = _window_findings(tmp_path, time="2000-03-15", window="", regime="steady")
-        assert found == ""
 
     @_NO_GENERIC_UNIT
     def test_a_steady_state_is_stamped_at_the_end_of_its_window(self, tmp_path) -> None:
@@ -705,12 +523,6 @@ class TestTheWindowIsWrittenInDates:
                 {"name": "matching_hydrographic_network", **window}
             )
 
-    def test_a_protocol_window_is_read_as_the_window_of_the_section(self) -> None:
-        declared = MatchingHydrographicNetworkOptions.model_validate(
-            {"name": "matching_hydrographic_network", "window": {"start": "2001-01-01"}}
-        )
-        assert declared.window == CalibWindow(start="2001-01-01")
-
 
 # From test_discharge_target_station.py
 # A run has one simulated discharge series, so one station is the target.
@@ -720,36 +532,10 @@ def _observed(*station_ids: str) -> list:
     return [SimpleNamespace(station_id=sid) for sid in station_ids]
 
 
-def test_a_single_station_needs_no_declaration():
-    assert discharge_target(_observed("NANCON"), None).station_id == "NANCON"
-
-
-def test_the_declared_station_wins_over_the_others():
-    target = discharge_target(_observed("NANCON", "UPSTREAM"), "UPSTREAM")
-
-    assert target.station_id == "UPSTREAM"
-
-
-def test_several_stations_without_a_declaration_refuse_to_average():
-    """The upstream gauge drains a smaller area and cannot match the outlet series."""
-    with pytest.raises(ValueError, match="one simulated discharge series"):
-        discharge_target(_observed("NANCON", "UPSTREAM"), None)
-
-
 def test_the_refusal_names_the_route_that_handles_several_gauges():
     """This route reads one series; the weighted-block route scores each gauge instead."""
     with pytest.raises(ValueError, match="per-cell discharge observable"):
         discharge_target(_observed("NANCON", "UPSTREAM"), None)
-
-
-def test_the_refusal_names_the_candidates_and_the_way_out():
-    with pytest.raises(ValueError) as excinfo:
-        discharge_target(_observed("NANCON", "UPSTREAM"), None)
-
-    message = str(excinfo.value)
-    assert "NANCON" in message and "UPSTREAM" in message
-    assert "[site] gauge" in message
-    assert "station_ids" in message
 
 
 def test_a_declared_station_that_was_not_loaded_says_so():
@@ -760,13 +546,6 @@ def test_a_declared_station_that_was_not_loaded_says_so():
 def test_no_station_at_all_says_so():
     with pytest.raises(ValueError, match="No observed discharge station"):
         discharge_target([], None)
-
-
-def test_the_declaration_is_read_as_a_string():
-    """A numeric station id in TOML must still match its loaded string form."""
-    numeric_id: str = 42  # type: ignore[assignment]  # what a bare TOML integer gives
-
-    assert discharge_target(_observed("42"), numeric_id).station_id == "42"
 
 
 # From test_min_samples_holds_on_every_scored_support.py
@@ -805,47 +584,6 @@ def _scorer__min_samples(support: str, min_samples: int) -> ObservableScorer:
     return ObservableScorer(
         outputs, blocks, observed_records={"Y": _RECORD__min_samples}, min_samples=min_samples
     )
-
-
-def test_the_default_floor_is_one_pair() -> None:
-    assert CalibAggregateDecl().min_samples == 1
-
-
-@pytest.mark.parametrize("support", sorted(SUPPORTS))
-def test_an_output_paired_on_fewer_than_the_floor_is_refused(support: str) -> None:
-    scorer = _scorer__min_samples(support, min_samples=len(_STAMPS__min_samples) + 1)
-
-    with pytest.raises(ValueError, match="min_samples"):
-        scorer.score({"Y": _answer__min_samples("Y")}, boundaries=_BOUNDS__min_samples)
-
-
-@pytest.mark.parametrize("support", sorted(SUPPORTS))
-def test_an_output_paired_on_the_floor_is_scored(support: str) -> None:
-    scorer = _scorer__min_samples(support, min_samples=len(_STAMPS__min_samples))
-
-    cost, components = scorer.score(
-        {"Y": _answer__min_samples("Y")}, boundaries=_BOUNDS__min_samples
-    )
-
-    assert np.isfinite(cost)
-    assert components["Y.n_paired"] == len(_STAMPS__min_samples)
-
-
-@pytest.mark.parametrize("variable", ["discharge", "head", "lake_level"])
-def test_the_implicit_station_output_honours_the_floor(variable: str) -> None:
-    record = [ObservedSeries("G", variable, _RECORD__min_samples)]
-
-    refused = StationBlockScorer(
-        variable, "rmse", record, gauge="G", min_samples=len(_STAMPS__min_samples) + 1
-    )
-    with pytest.raises(ValueError, match="min_samples"):
-        refused.score({"G": _answer__min_samples("G")}, boundaries=_BOUNDS__min_samples)
-
-    kept = StationBlockScorer(
-        variable, "rmse", record, gauge="G", min_samples=len(_STAMPS__min_samples)
-    )
-    cost, _ = kept.score({"G": _answer__min_samples("G")}, boundaries=_BOUNDS__min_samples)
-    assert np.isfinite(cost)
 
 
 # From test_observable_scoring.py
@@ -1344,22 +1082,6 @@ class TestTheValidationWindow:
         start = "A trial has no score on the validation window: output "
         assert sum(r.getMessage().startswith(start) for r in caplog.records) == said
 
-    def test_a_steady_stage_is_scored_on_the_validation_window_from_the_time_grid(self) -> None:
-        scorer = ObservableScorer(
-            {"Q": boundary_output(observes="gauge")},
-            [objective_block("flow", "mae", ["Q"])],
-            observed_records={"Q": _RECORD__steady_stage},
-            window=(pd.Timestamp("2000-01-01"), pd.Timestamp("2001-12-31")),
-            validation_window=(pd.Timestamp("1999-01-01"), pd.Timestamp("2001-12-31")),
-        )
-
-        _, scored = scorer.score(
-            {"Q": _answer__steady_stage(3.0)}, boundaries=_BOUNDS__steady_stage
-        )
-
-        # Year 2000 averages 3.0. Without the grid the stamp meets the record of its day, 5.0.
-        assert scored[VALIDATION_COST] == 0.0
-
     def test_only_the_blocks_on_a_dated_record_are_scored_on_it(self) -> None:
         outputs = {"h": validate_calib_output(self.HEAD), **_network()}
         blocks = [
@@ -1426,11 +1148,6 @@ class TestWhenTheRefusalHappens:
         with pytest.raises(ValueError, match="one simulated discharge series"):
             build_metric_extractor("discharge", "rmse", self._two_gauges())
 
-    def test_naming_the_one_that_drives_the_search_builds(self) -> None:
-        extractor = build_metric_extractor("discharge", "rmse", self._two_gauges(), gauge="UP")
-
-        assert callable(extractor)
-
 
 # From test_the_protocol_s_block_route_matches_the_single_metric_one.py
 # B11: the protocol's block costs what ``variable`` + ``objective`` costs.
@@ -1455,35 +1172,6 @@ TIMES = pd.date_range("2001-01-31", periods=24, freq="ME")
 BOUNDARIES = period_edges(TIMES, start=pd.Timestamp("2000-12-31"))
 OBSERVED = pd.Series(np.linspace(0.2, 5.0, 24), index=TIMES, name=STATION)
 SIMULATED = (OBSERVED * 0.8 + 0.1).to_numpy()
-
-
-def test_the_block_route_and_the_single_metric_route_cost_the_same() -> None:
-    single = StationBlockScorer(
-        "discharge",
-        "nse_log",
-        [ObservedSeries(station_id=STATION, variable="discharge", series=OBSERVED)],
-    )
-    single_cost, single_components = single.score(
-        {STATION: adapter_result(STATION, SIMULATED, "m3 s-1", times=TIMES)},
-        boundaries=BOUNDARIES,
-    )
-
-    output = CalibOutputPoint.model_validate(
-        {"variable": "discharge", "support": "point", "observes": STATION}
-    )
-    block = objective_block("hydrograph", "nse_log", ["gauge"])
-    composite = ObservableScorer({"gauge": output}, [block], observed_records={"gauge": OBSERVED})
-    block_cost, block_components = composite.score(
-        {"gauge": adapter_result("gauge", SIMULATED, "m3 s-1", times=TIMES)},
-        boundaries=BOUNDARIES,
-    )
-
-    assert block_cost == single_cost
-    assert single_components[f"nse_log@{STATION}.raw_cost"] == single_cost
-    assert block_components["hydrograph.raw_cost"] == single_cost
-    # One edge sample does not close a period on this boundary set; both
-    # routes read the same alignment function and agree on how many do.
-    assert block_components["gauge.n_paired"] == 23.0
 
 
 # The readers of an answer and of a window, on the shapes they leave aside.

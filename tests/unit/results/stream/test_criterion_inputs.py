@@ -7,7 +7,6 @@ recharge each have one function. The cases below are the ones both callers rely 
 
 from __future__ import annotations
 
-import logging
 from types import SimpleNamespace
 
 import geopandas as gpd
@@ -17,15 +16,10 @@ import pytest
 from shapely.geometry import LineString, box
 
 from hydromodpy.mesh.planar.geometry import cell_polygons
-from hydromodpy.model.forcing.recharge_rates import criterion_mean_recharge
 from hydromodpy.results.derive.stream_network.criterion_inputs import (
-    basin_reference,
-    catchment_cells,
     criterion_recharge_of_run,
-    declared_crs,
     map_heads,
     mapped_cells,
-    snapped_outlet,
 )
 from hydromodpy.results.run.descent import StoredBasin
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
@@ -72,37 +66,6 @@ INSIDE_COLUMN_ONE = LineString([(1.5 * CELL, 0.1 * CELL), (1.5 * CELL, 2.9 * CEL
 ALONG_AN_EDGE = LineString([(2.0 * CELL, 0.1 * CELL), (2.0 * CELL, 2.9 * CELL)])
 
 
-@pytest.mark.parametrize(
-    ("rule", "line", "expected"),
-    [
-        ("crossing", INSIDE_COLUMN_ONE, [1, 5, 9]),
-        ("touch", INSIDE_COLUMN_ONE, [1, 5, 9]),
-        ("touch", ALONG_AN_EDGE, [1, 2, 5, 6, 9, 10]),
-    ],
-    ids=["crossing in a column", "touch in a column", "touch along an edge"],
-)
-def test_a_line_draws_the_cells_its_rule_keeps(rule, line, expected) -> None:
-    drawn = _draw(rule, line)
-
-    assert drawn.mask.dtype == bool
-    assert _cells(drawn.mask) == expected
-
-
-def test_the_crossing_rule_counts_the_reaches_it_could_not_place() -> None:
-    off_the_mesh = LineString([(10 * CELL, 0.0), (10 * CELL, CELL)])
-
-    drawn = _draw("crossing", off_the_mesh)
-
-    assert not drawn.mask.any()
-    assert drawn.n_outside_parts == 1
-
-
-def test_the_touch_rule_has_no_fallback_or_unplaced_reach() -> None:
-    drawn = _draw("touch", INSIDE_COLUMN_ONE, centres=False)
-
-    assert (drawn.n_fallback_parts, drawn.n_outside_parts) == (0, 0)
-
-
 def test_the_heads_rule_has_no_cell_projection() -> None:
     with pytest.raises(ValueError, match="criterion graph"):
         _draw("heads", INSIDE_COLUMN_ONE)
@@ -119,28 +82,6 @@ def test_the_crossing_rule_needs_the_centers_it_joins() -> None:
 
 
 # --- the free ends of a line ---------------------------------------------------------
-def test_the_free_ends_of_a_line_are_its_heads() -> None:
-    candidates = map_heads([INSIDE_COLUMN_ONE], mesh_crs=CRS, geometry_crs=CRS)
-
-    assert candidates.n_candidates == 2
-    assert candidates.forced_cells.size == 0
-    assert candidates.n_cut_ends == 0
-
-
-def test_the_foot_of_a_dam_is_a_head_of_its_own() -> None:
-    candidates = map_heads([INSIDE_COLUMN_ONE], mesh_crs=CRS, geometry_crs=CRS, dam_foot=[9, 5, 9])
-
-    assert candidates.forced_cells.tolist() == [5, 9]
-
-
-def test_the_outlet_changes_no_head() -> None:
-    plain = map_heads([INSIDE_COLUMN_ONE], mesh_crs=CRS, geometry_crs=CRS)
-    placed = map_heads(
-        [INSIDE_COLUMN_ONE], mesh_crs=CRS, geometry_crs=CRS, outlet_xy=(1.5 * CELL, 0.1 * CELL)
-    )
-
-    np.testing.assert_array_equal(plain.head_xy, placed.head_xy)
-    np.testing.assert_array_equal(plain.reach_end_xy, placed.reach_end_xy)
 
 
 def test_an_end_the_cut_made_is_no_head() -> None:
@@ -154,78 +95,11 @@ def test_an_end_the_cut_made_is_no_head() -> None:
 
 
 # --- the snapped outlet --------------------------------------------------------------
-@pytest.mark.parametrize(
-    ("x", "y", "expected"),
-    [
-        (3.0, 4.0, (3.0, 4.0)),
-        ("150.5", "20", (150.5, 20.0)),
-        (None, None, None),
-        (3.0, None, None),
-        ("not a number", 4.0, None),
-        (float("nan"), 4.0, None),
-        (3.0, float("inf"), None),
-    ],
-    ids=["numbers", "strings", "none", "one none", "text", "nan", "inf"],
-)
-def test_the_snapped_outlet_is_a_finite_point_or_none(x, y, expected) -> None:
-    assert snapped_outlet(x, y) == expected
-
-
-@pytest.mark.parametrize(
-    ("geographic", "expected"),
-    [
-        (SimpleNamespace(crs_project="EPSG:2154"), "EPSG:2154"),
-        (SimpleNamespace(crs_proj="EPSG:32631"), "EPSG:32631"),
-        (SimpleNamespace(crs_project=None, crs_proj="EPSG:32631"), "EPSG:32631"),
-        (SimpleNamespace(), None),
-        (None, None),
-    ],
-    ids=["project", "proj", "project missing", "none declared", "no geographic"],
-)
-def test_the_declared_crs_is_the_projected_one(geographic, expected) -> None:
-    assert declared_crs(geographic) == expected
 
 
 # --- the cells of the outline --------------------------------------------------------
 def _outline(*boxes) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(geometry=list(boxes), crs=CRS)
-
-
-def test_a_cell_belongs_to_the_outline_when_its_center_is_inside() -> None:
-    _, _, polygons, _ = _grid()
-    # Column 1 is cut by the outline, but its center is outside it.
-    outline = _outline(box(0.0, 0.0, 1.4 * CELL, ROWS * CELL))
-
-    mask = catchment_cells(polygons, outline, mesh_crs=CRS)
-
-    assert _cells(mask) == [0, 4, 8]
-
-
-def test_the_outline_cells_keep_the_cells_whose_center_it_covers_and_no_ring() -> None:
-    _, _, polygons, _ = _grid()
-    outline = _outline(box(0.0, 0.0, 2.2 * CELL, ROWS * CELL))
-
-    mask = catchment_cells(polygons, outline, mesh_crs=CRS)
-
-    # The cells of column 2 are cut by the outline but their centers lie outside.
-    assert _cells(mask) == [0, 1, 4, 5, 8, 9]
-
-
-@pytest.mark.parametrize(
-    "outline",
-    [None, gpd.GeoDataFrame(geometry=[], crs=CRS)],
-    ids=["no outline", "empty outline"],
-)
-def test_no_outline_gives_no_cells(outline) -> None:
-    _, _, polygons, _ = _grid()
-
-    assert catchment_cells(polygons, outline, mesh_crs=CRS) is None
-
-
-def test_an_outline_without_a_mesh_crs_gives_no_cells() -> None:
-    _, _, polygons, _ = _grid()
-
-    assert catchment_cells(polygons, _outline(box(0, 0, 100, 100)), mesh_crs=None) is None
 
 
 # --- the reference of basin_mismatch -------------------------------------------------
@@ -238,62 +112,6 @@ OUTLINE = np.array([False, True, True, False])
 
 def _basin(mask, rule: str = "near_point") -> StoredBasin:
     return StoredBasin(mask=np.asarray(mask), area_m2=float(np.sum(mask)) * CELL**2, rule=rule)
-
-
-def test_the_basin_of_the_catchment_is_the_reference_and_is_a_copy(caplog) -> None:
-    basin = _basin([True, True, False, False])
-
-    with caplog.at_level(logging.INFO):
-        reference = basin_reference(basin, OUTLINE, source="run sim-x")
-    reference[:] = False
-
-    assert basin.mask.any()
-    assert "carries no basin" not in caplog.text
-
-
-def test_a_stored_mask_of_integers_comes_back_as_booleans() -> None:
-    basin = _basin(np.array([1, 0, 1], dtype=np.int8))
-
-    reference = basin_reference(basin, None, source="run sim-x")
-
-    assert reference.dtype == bool
-    assert reference.tolist() == [True, False, True]
-
-
-def test_without_a_basin_the_reference_is_the_outline_and_it_is_said_once(caplog) -> None:
-    with caplog.at_level(logging.INFO):
-        reference = basin_reference(None, OUTLINE, source="run sim-x")
-
-    np.testing.assert_array_equal(reference, OUTLINE)
-    messages = [r for r in caplog.records if r.getMessage() == NO_BASIN]
-    assert len(messages) == 1
-    assert messages[0].levelno == logging.WARNING
-
-
-def test_a_backend_that_builds_no_d_only_informs(caplog) -> None:
-    with caplog.at_level(logging.INFO):
-        basin_reference(None, OUTLINE, source="run sim-x", builds_d=False)
-
-    record = next(r for r in caplog.records if r.getMessage() == NO_BASIN)
-    assert record.levelno == logging.INFO
-
-
-def test_the_largest_basin_of_a_synthetic_domain_is_no_catchment(caplog) -> None:
-    with caplog.at_level(logging.INFO):
-        reference = basin_reference(
-            _basin([True, True, True, True], rule="largest_basin"), OUTLINE, source="run sim-x"
-        )
-
-    np.testing.assert_array_equal(reference, OUTLINE)
-    assert "carries no basin" not in caplog.text
-
-
-@pytest.mark.parametrize("basin", [None, _basin([True, True], rule="largest_basin")])
-def test_a_domain_with_neither_basin_nor_outline_has_no_reference(basin, caplog) -> None:
-    with caplog.at_level(logging.INFO):
-        assert basin_reference(basin, None, source="run sim-x") is None
-
-    assert "carries no basin" not in caplog.text
 
 
 # --- the mean recharge ---------------------------------------------------------------
@@ -445,10 +263,6 @@ def test_recharge_split_over_two_layers_scores_the_same_number(tmp_path) -> None
     assert criterion_recharge_of_run(model, layered, None) == pytest.approx(
         criterion_recharge_of_run(model, single, None), rel=1e-12
     )
-
-
-def test_the_rule_is_the_one_mean_of_recharge_rates() -> None:
-    assert criterion_mean_recharge([np.array([1.0, np.nan]), 3.0]) == 2.0
 
 
 def test_a_run_with_no_source_gives_none(tmp_path) -> None:

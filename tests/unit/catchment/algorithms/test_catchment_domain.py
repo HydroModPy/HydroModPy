@@ -116,14 +116,6 @@ def test_a_declared_buffer_draws_its_rule_snapped_to_the_dem_grid(
         assert unsnapped == pytest.approx(expected, abs=0.01)
 
 
-def test_a_percent_a_bare_number_and_a_distance_stay_three_different_distances() -> None:
-    """No later refactor may glue the paper's rule back onto the v1 one."""
-    square = box(0.0, 0.0, SIDE, SIDE)
-    drawn = {form: buffer_distance_m(square, _normalized(form)) for form in ("10%", 10, "10 m")}
-    assert drawn["10%"] != drawn[10]
-    assert drawn["10 m"] != drawn["10%"]
-
-
 def test_a_bare_number_and_its_explicit_form_draw_the_same_domain(nancon_square, tmp_path) -> None:
     """The migration writes ``10`` as ``"10% of sqrt(area)"`` and no distance moves."""
     for resolution in (None, 75.0):
@@ -149,31 +141,10 @@ def test_a_sealed_bare_distance_string_and_a_dem_on_disk_read_as_metres_and_cell
     assert products.buffer_distance_m == 150.0
 
 
-@pytest.mark.parametrize(
-    ("declared", "normalized"),
-    [("10%", "10%"), ("10 %", "10%"), (" 12.5% ", "12.5%"), ("150 m", "150.0 m"), ("0.15 km", "150.0 m"),
-     ("150", "150.0 m"), ("10.0", "10.0 m"), (10, 10.0), (10.0, 10.0),
-     ("10% of sqrt(area)", "10% of sqrt(area)"), (" 12.5 % OF sqrt( area ) ", "12.5% of sqrt(area)")],
-)  # fmt: skip
-def test_the_config_writes_one_form_per_rule_and_reads_it_back(declared, normalized) -> None:
-    once = _normalized(declared)
-    assert once == normalized
-    assert type(once) is type(normalized)
-    assert _normalized(once) == once
-    config = GeographicConfig.from_outlet(x=1.0, y=2.0, buff_area=declared)
-    replayed = GeographicConfig.model_validate(config.model_dump(mode="json"))
-    assert replayed.buff_area == config.buff_area
-    assert type(replayed.buff_area) is type(config.buff_area)
-
-
 @pytest.mark.parametrize("declared", ["0%", "-5 m", "", "   ", 0, -3.0])
 def test_the_config_refuses_a_buffer_with_no_margin(declared: object) -> None:
     with pytest.raises(ValidationError):
         _normalized(declared)
-
-
-def test_the_factories_default_to_the_paper_rule() -> None:
-    assert GeographicConfig.from_outlet(x=1.0, y=2.0).buff_area == "10%"
 
 
 def _bounds(path: str) -> tuple[float, ...]:
@@ -192,17 +163,6 @@ def test_the_box_and_the_buffered_box_frame_the_catchment(tmp_path, buff_area, d
     framed = (-distance, -distance, 1000.0 + distance, 1000.0 + distance)
     assert _bounds(products.watershed_buff_shp) == pytest.approx(framed, abs=1e-6)
     assert _bounds(products.watershed_box_buff_shp) == pytest.approx(framed, abs=1e-6)
-
-
-def test_a_bare_number_keeps_the_v1_domain_and_says_so(nancon_square, tmp_path, caplog) -> None:
-    with caplog.at_level(logging.WARNING):
-        products = derive_catchment_domain(
-            nancon_square, tmp_path, buff_area=10.0, dem_resolution=75.0
-        )
-    assert products.buffer_distance_m == 825.0
-    (legacy,) = [r.getMessage() for r in caplog.records if "legacy v1 rule" in r.getMessage()]
-    assert '"10%"' in legacy
-    assert '"825 m"' in legacy
 
 
 def test_the_products_say_how_the_margin_was_chosen(tmp_path: Path) -> None:

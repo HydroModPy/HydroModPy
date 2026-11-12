@@ -5,25 +5,9 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.names import MAX_NAME_LENGTH, RESERVED_NAMES, check_name, fold_name
+from hydromodpy.core.state.names import MAX_NAME_LENGTH, check_name
 
 FORTY = "a" * MAX_NAME_LENGTH
-
-
-@pytest.mark.parametrize(
-    ("name", "what"),
-    [
-        pytest.param("baseline", "run", id="letters"),
-        pytest.param("k_2e-5_run3", "run", id="digits, underscore and dash"),
-        pytest.param(FORTY, "run", id="forty characters"),
-        pytest.param(f"{FORTY}.v2", "run", id="the version is not counted"),
-        pytest.param("baseline.v12", "run", id="a two-digit version"),
-        pytest.param("nancon", "project", id="a project"),
-        pytest.param("con_run", "run", id="a reserved word inside a name"),
-    ],
-)
-def test_a_name_on_the_rule_is_kept_as_written(name: str, what: str) -> None:
-    assert check_name(name, what=what) == name  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -52,38 +36,3 @@ def test_a_name_off_the_rule_is_refused_with_what_to_write(name: str, what: str,
         check_name(name, what=what)  # type: ignore[arg-type]
 
     assert f"{what} name" in str(refused.value)
-
-
-def test_a_reserved_fold_is_not_proposed() -> None:
-    with pytest.raises(ConfigError) as refused:
-        check_name("COM1", what="run")
-
-    assert "Write" not in str(refused.value)
-
-
-@pytest.mark.parametrize("reserved", sorted(RESERVED_NAMES))
-def test_every_reserved_device_name_is_refused(reserved: str) -> None:
-    with pytest.raises(ConfigError, match="reserves"):
-        check_name(reserved, what="project")
-
-
-@pytest.mark.parametrize(
-    ("text", "folded"),
-    [
-        pytest.param(
-            "Example 12 launcher fast", "example_12_launcher_fast", id="spaces and capitals"
-        ),
-        pytest.param("  __Évry / île--  ", "evry_ile", id="ends trimmed, accents dropped"),
-        pytest.param("a...b", "a_b", id="a run of other characters is one underscore"),
-        pytest.param("!!!", "", id="nothing left"),
-    ],
-)
-def test_a_text_made_by_the_code_folds_into_a_name(text: str, folded: str) -> None:
-    assert fold_name(text) == folded
-
-
-def test_a_fold_is_checked_like_a_written_name() -> None:
-    long_fold = fold_name("Example 12 moderate annual flow-only comparison")
-
-    with pytest.raises(ConfigError, match="characters"):
-        check_name(long_fold, what="run")

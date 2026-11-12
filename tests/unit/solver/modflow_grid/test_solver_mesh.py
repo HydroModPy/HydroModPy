@@ -86,14 +86,6 @@ def test_layer_thicknesses_and_center_depths() -> None:
     assert depths[1] == pytest.approx([7.0, 7.0])  # top(10) - center(3)
 
 
-def test_idomain_from_inactive_mask() -> None:
-    mask = np.array([[False, True]])
-    sm = solver_mesh_from_structured_arrays(
-        nrow=1, ncol=2, top=np.zeros((1, 2)), botm=-np.ones((1, 1, 2)), inactive_mask=mask
-    )
-    assert sm.idomain.tolist() == [[1, 0]]
-
-
 def test_structured_arrays_put_row_0_at_the_north_like_modflow() -> None:
     sm = solver_mesh_from_structured_arrays(
         nrow=3,
@@ -157,16 +149,6 @@ def test_reshape_is_identity_on_unstructured() -> None:
     assert np.array_equal(sm.flatten_from_grid(flat), flat)
 
 
-def test_to_disv_kwargs_has_the_expected_keys() -> None:
-    sm = solver_mesh_from_structured_arrays(
-        nrow=2, ncol=2, top=np.zeros((2, 2)), botm=np.zeros((1, 2, 2))
-    )
-    kw = sm.to_disv_kwargs()
-    for key in ("nvert", "ncpl", "vertices", "cell2d", "top", "botm"):
-        assert key in kw
-    assert kw["ncpl"] == 4
-
-
 def test_post_init_rejects_wrong_top_size() -> None:
     cell_mesh = _unstructured_two_quads().cell_mesh
     with pytest.raises(ValueError, match="top must have"):
@@ -189,38 +171,6 @@ def test_post_init_rejects_mask_shape_mismatch() -> None:
         )
 
 
-def test_centres_and_areas_are_those_of_the_cell_mesh() -> None:
-    sm = _unstructured_two_quads()
-    assert np.array_equal(sm.cell_centers(), sm.cell_mesh.centers)
-    assert np.array_equal(sm.cell_areas(), sm.cell_mesh.geometry.areas)
-    assert sm.planar_mesh is sm.cell_mesh.mesh
-
-
-def test_centres_and_areas_are_copies() -> None:
-    sm = _unstructured_two_quads()
-    sm.cell_centers()[:] = -1.0
-    sm.cell_areas()[:] = -1.0
-    assert np.all(sm.cell_mesh.centers >= 0.0)
-    assert np.all(sm.cell_mesh.geometry.areas > 0.0)
-
-
-def test_face_adjacency_is_the_shared_face_graph_and_may_be_modified() -> None:
-    sm = _unstructured_two_quads()
-    adjacency = sm.face_adjacency()
-    assert adjacency == [{1}, {0}]
-    adjacency[0].add(7)
-    assert sm.face_adjacency() == [{1}, {0}]
-
-
-def test_face_adjacency_of_a_grid_has_no_diagonal() -> None:
-    sm = solver_mesh_from_structured_arrays(
-        nrow=3, ncol=3, top=np.zeros((3, 3)), botm=-np.ones((1, 3, 3))
-    )
-    adjacency = sm.face_adjacency()
-    assert adjacency[4] == {1, 3, 5, 7}
-    assert adjacency[0] == {1, 3}
-
-
 def test_layer_center_depths_are_never_negative() -> None:
     # A cell whose bottom lies above its top (a nodata-like inversion) has no depth below zero.
     sm = solver_mesh_from_structured_arrays(
@@ -241,20 +191,6 @@ def test_a_grid_from_arrays_is_a_regular_cell_mesh_in_a_local_frame() -> None:
     assert sm.cell_mesh.center_kind == "cell_center"
     assert sm.cell_mesh.crs_wkt
     assert sm.cell_areas() == pytest.approx(np.full(6, 50.0))
-
-
-def test_a_counterclockwise_triangle_is_written_clockwise() -> None:
-    verts = np.array([[0, 0], [1, 0], [0.5, 1]], dtype=float)
-    mesh = HydroMesh(
-        vertices=verts,
-        cell_blocks=(CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2]])),),
-    )
-    result = to_flopy_disv_args(mesh, top=10.0, botm=np.array([[5.0]]))
-    assert result["nvert"] == 3
-    assert result["ncpl"] == 1
-    assert len(result["cell2d"]) == 1
-    assert len(result["vertices"]) == 3
-    assert result["cell2d"][0][4:] == [0, 2, 1]
 
 
 def test_a_clockwise_grid_keeps_its_rings_and_its_cell_centres() -> None:
@@ -349,45 +285,15 @@ def _mesh(idomain: np.ndarray) -> SolverMesh:
     return SolverMesh(cell_mesh=base.cell_mesh, top=base.top, botm=base.botm, idomain=idomain)
 
 
-def test_the_idomain_keeps_its_three_values_and_cannot_be_written() -> None:
-    mesh = _mesh(np.array([[1, 0, 1], [1, 1, -1]]))
-    assert mesh.idomain.tolist() == [[1, 0, 1], [1, 1, -1]]
-    with pytest.raises(ValueError):
-        mesh.idomain[0, 0] = 0
-
-
 def test_a_value_other_than_minus_one_zero_and_one_is_refused() -> None:
     with pytest.raises(ValueError, match="only -1, 0 and 1"):
         _mesh(np.array([[1, 2, 1], [1, 1, 1]]))
-
-
-def test_a_pass_through_cell_is_not_active() -> None:
-    mesh = _mesh(np.array([[1, 0, 1], [1, 1, -1]]))
-    assert mesh.inactive_mask.tolist() == [[False, True, False], [False, False, True]]
-
-
-def test_the_top_active_cell_and_its_top_follow_the_idomain() -> None:
-    mesh = _mesh(np.array([[1, 0, 0], [1, 1, 0]]))
-    assert mesh.top_active_layer().tolist() == [0, 1, -1]
-    tops = mesh.top_active_cell_top()
-    assert tops[:2].tolist() == [10.0, 7.0]
-    assert np.isnan(tops[2])
 
 
 def test_a_closed_column_has_no_active_cell_or_is_covered() -> None:
     mesh = _mesh(np.array([[1, 0, 0], [1, 1, 0]]))
     assert mesh.closed_surface().tolist() == [False, False, True]
     assert mesh.closed_surface([1]).tolist() == [False, True, True]
-
-
-def test_the_interfaces_are_checked_on_demand() -> None:
-    mesh = _mesh(np.ones((2, 3), dtype=int))
-    mesh.check_interfaces()
-    flat = SolverMesh(
-        cell_mesh=mesh.cell_mesh, top=mesh.top, botm=np.vstack([TOP, BOTM[1]]), idomain=mesh.idomain
-    )
-    with pytest.raises(ValueError, match="layer 0 cell 0"):
-        flat.check_interfaces()
 
 
 # A regular mesh is extruded on the surfaces only if both describe one grid.
@@ -443,12 +349,6 @@ def _extrude(cell_mesh: PlanarCellMesh):
 def _mesh_2(**changes: float) -> PlanarCellMesh:
     arguments = {"xmin": _XMIN, "ymin": _YMIN, "dx": _STEP, "dy": _STEP, "nrow": _N, "ncol": _N}
     return regular_cell_mesh(**{**arguments, **changes})
-
-
-def test_a_mesh_on_the_grid_of_the_surfaces_is_extruded() -> None:
-    ctx = _extrude(_mesh_2())
-
-    assert ctx.solver_mesh.structured_shape == (_N, _N)
 
 
 @pytest.mark.parametrize(

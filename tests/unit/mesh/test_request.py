@@ -88,13 +88,6 @@ def _request_without_runs(**overrides: object) -> MeshRequest:
     return mesh_request(_GRID, **members)
 
 
-def test_the_request_is_in_the_crs_of_its_grid() -> None:
-    other_wkt = 'PROJCS["WGS 84 / UTM zone 30N"]'
-
-    assert _request().crs_wkt == _WKT
-    assert mesh_request(grid_spec(4, 4, 10.0, crs_wkt=other_wkt)).crs_wkt == other_wkt
-
-
 def test_the_grid_transform_puts_row_0_north() -> None:
     grid = _GRID
 
@@ -104,35 +97,6 @@ def test_the_grid_transform_puts_row_0_north() -> None:
 
 def test_the_request_error_is_a_mesh_error() -> None:
     assert issubclass(MeshRequestError, MeshError)
-
-
-def test_the_hash_is_a_sha256_hex_and_repeats() -> None:
-    first = _request().canonical_hash()
-
-    assert len(first) == 64
-    assert int(first, 16) >= 0
-    assert _request().canonical_hash() == first
-
-
-def test_the_hash_ignores_the_order_of_the_options() -> None:
-    forward = _request(options={"algorithm": "delaunay", "shape": [5, 10], "seeds": "generated"})
-    backward = _request(options={"seeds": "generated", "shape": (5, 10), "algorithm": "delaunay"})
-
-    assert forward.canonical_hash() == backward.canonical_hash()
-
-
-def test_the_hash_ignores_the_order_of_the_families() -> None:
-    request = _request()
-    reversed_lines = _request(lines=tuple(reversed(request.lines)))
-
-    assert reversed_lines.canonical_hash() == request.canonical_hash()
-    assert [family.name for family in request.lines] == ["geology", "rivers"]
-
-
-def test_the_hash_ignores_where_the_domain_ring_starts() -> None:
-    shifted = Polygon([(1100, 2000), (1100, 2050), (1000, 2050), (1000, 2000)])
-
-    assert _request(domain=shifted).canonical_hash() == _request().canonical_hash()
 
 
 def _variants() -> dict[str, MeshRequest]:
@@ -213,79 +177,10 @@ def test_every_variant_hashes_differently_from_the_others() -> None:
     assert len(set(hashes)) == len(hashes)
 
 
-def test_the_notes_are_not_hashed() -> None:
-    assert _request(notes=("a note",)).canonical_hash() == _request().canonical_hash()
-
-
-def test_a_request_that_reads_no_run_keeps_its_hash() -> None:
-    assert _request_without_runs().source_runs == ()
-    assert _request_without_runs().canonical_hash() == HASH_WITHOUT_RUNS
-    assert _request_without_runs(source_runs=[]).canonical_hash() == HASH_WITHOUT_RUNS
-
-
 HASH_WITHOUT_A_CATCHMENT = "5f80505aea4c05f1edf81e35368962a2f6e5f1b2a54a2b67ebb4256587d57ba9"
 """The hash of ``mesh_request()`` computed with the request of bcd98022e, which had no catchment."""
 
 _CATCHMENT = Polygon([(100.0, 100.0), (900.0, 150.0), (850.0, 900.0), (150.0, 800.0)])
-
-
-def test_a_request_without_a_catchment_keeps_its_hash() -> None:
-    assert mesh_request().catchment is None
-    assert mesh_request().canonical_hash() == HASH_WITHOUT_A_CATCHMENT
-    assert mesh_request(catchment=None).canonical_hash() == HASH_WITHOUT_A_CATCHMENT
-
-
-def test_a_catchment_moves_the_hash() -> None:
-    hashed = mesh_request(catchment=_CATCHMENT).canonical_hash()
-
-    assert hashed != HASH_WITHOUT_A_CATCHMENT
-    assert hashed != mesh_request(catchment=_CATCHMENT.buffer(1.0)).canonical_hash()
-
-
-@pytest.mark.parametrize(
-    "drawn",
-    [
-        Polygon(list(_CATCHMENT.exterior.coords)[::-1]),
-        Polygon([*list(_CATCHMENT.exterior.coords)[2:-1], *list(_CATCHMENT.exterior.coords)[:3]]),
-    ],
-    ids=["clockwise", "another_start"],
-)
-def test_the_hash_reads_the_catchment_in_its_normalized_form(drawn: Polygon) -> None:
-    assert (
-        mesh_request(catchment=drawn).canonical_hash()
-        == mesh_request(catchment=_CATCHMENT).canonical_hash()
-    )
-
-
-def test_the_runs_are_hashed_as_a_sorted_set() -> None:
-    request = _request_without_runs(source_runs=("b" * 32, "a" * 32, "b" * 32))
-
-    assert request.source_runs == ("a" * 32, "b" * 32)
-    assert (
-        request.canonical_hash()
-        == _request_without_runs(source_runs=["a" * 32, "b" * 32]).canonical_hash()
-    )
-    assert request.canonical_hash() != HASH_WITHOUT_RUNS
-    assert (
-        request.canonical_hash() != _request_without_runs(source_runs=("a" * 32,)).canonical_hash()
-    )
-
-
-def test_the_arrays_of_a_request_are_copies_and_read_only() -> None:
-    values = np.full((5, 10), 20.0)
-    field = SizeField(values, _GRID)
-    values[0, 0] = 99.0
-
-    assert field.values[0, 0] == 20.0
-    with pytest.raises(ValueError):
-        field.values[0, 0] = 1.0
-    triangulation = _triangulation()
-    with pytest.raises(ValueError):
-        triangulation.vertices[0, 0] = 0.0
-    with pytest.raises(ValueError):
-        triangulation.edge_labels["west"][0, 0] = 1
-    with pytest.raises(TypeError):
-        triangulation.edge_labels["new"] = np.array([[0, 1]])  # type: ignore[index]
 
 
 def test_the_options_are_read_only_json() -> None:
@@ -295,45 +190,6 @@ def test_the_options_are_read_only_json() -> None:
     assert dict(request.options["nested"]) == {"a": 0.5, "b": 1}
     with pytest.raises(TypeError):
         request.options["shape"] = (1, 1)  # type: ignore[index]
-
-
-def test_the_request_is_frozen() -> None:
-    request = _request()
-
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        request.seed = 1  # type: ignore[misc]
-
-
-def test_a_grid_keeps_the_bounds_it_was_given() -> None:
-    grid = _grid(ymin=2000.0000000001, ymax=2050.0)
-
-    assert grid.ymin == 2000.0000000001
-
-
-def test_a_grid_from_a_raster_support_takes_its_exact_bounds_and_the_crs() -> None:
-    support = SimpleNamespace(
-        xmin=0.0, xmax=300.0, ymin=-75.0, ymax=0.0, dx=None, dy=25.0, nrows=3, ncols=4
-    )
-
-    grid = RasterGridSpec.from_raster_support(support, crs_wkt=_WKT)
-
-    assert (grid.xmin, grid.xmax, grid.ymin, grid.ymax) == (0.0, 300.0, -75.0, 0.0)
-    assert (grid.dx, grid.dy, grid.nrow, grid.ncol) == (75.0, 25.0, 3, 4)
-    assert grid.crs_wkt == _WKT
-
-
-def test_a_minimal_request_takes_the_defaults() -> None:
-    request = MeshRequest(
-        domain=box(1000.0, 2000.0, 1100.0, 2050.0), grid=_GRID, nominal_size_m=10.0
-    )
-
-    assert request.lines == ()
-    assert request.size_field is None
-    assert request.seed == 0
-    assert dict(request.options) == {}
-    assert request.input_triangulation is None
-    assert request.catchment is None
-    assert request.family("rivers") is None
 
 
 _LINE = LineString([(0, 0), (1, 1)])

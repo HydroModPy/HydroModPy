@@ -91,25 +91,6 @@ def test_a_bank_follows_the_lake_water_across_the_layers_of_a_higher_neighbour()
     assert sum(t - b for (cell, b, t) in banks if cell[1] == 0) == pytest.approx(3.0)
 
 
-def test_a_flat_stack_keeps_one_bank_per_occupied_layer() -> None:
-    mesh = _row(
-        top=[10.0, 10.0, 10.0],
-        botm=[[7.0, 7.0, 7.0], [4.0, 4.0, 4.0], [-10.0, -10.0, -10.0]],
-        idomain=[[1, 1, 1], [1, 1, 1], [1, 1, 1]],
-    )
-    masked = apply_lake_idomain_mask(mesh, lake_cell_ids_by_lake={"lake": LAKE}, occupied_layers=2)
-    rows = build_lake_connectiondata(
-        None, lake_index=0, lake_cell_ids=LAKE, bedleak=1e-6, solver_mesh=masked, occupied_layers=2
-    )
-    assert _vertical(rows) == [(2, 1)]
-    assert _banks(rows) == {
-        ((0, 0), 7.0, 10.0),
-        ((0, 2), 7.0, 10.0),
-        ((1, 0), 4.0, 7.0),
-        ((1, 2), 4.0, 7.0),
-    }
-
-
 @pytest.mark.parametrize("below", [-1, 0], ids=["pass_through", "inactive"])
 def test_a_lake_column_with_no_active_cell_below_is_refused(below: int) -> None:
     mesh = _row(

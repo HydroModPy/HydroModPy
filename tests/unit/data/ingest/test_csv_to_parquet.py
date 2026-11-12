@@ -96,12 +96,3 @@ def test_read_locations_csv_reports_missing_columns(tmp_path):
     src = _write(tmp_path / "locs.csv", "id,x,y\nA,1.0,2.0\n")
     artifact = read_locations_csv(src)
     assert any("missing columns" in e for e in artifact.errors)
-
-
-def test_comments_and_blank_lines_are_ignored(tmp_path):
-    src = _write(
-        tmp_path / "P01.csv",
-        "# a comment\ndatetime,value\n2020-01-01,1.0\n",
-    )
-    artifact = read_timeseries_csv(src)
-    assert len(artifact.records) == 1

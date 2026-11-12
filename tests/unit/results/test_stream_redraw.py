@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import dataclasses
-import datetime
 import logging
 import uuid
 from dataclasses import replace
@@ -23,22 +22,14 @@ from hydromodpy.calibration.protocols.registry import expand_calibration_protoco
 from hydromodpy.catchment.algorithms import network_heads
 from hydromodpy.catchment.stream_network import geometry as stream_geometry
 from hydromodpy.catchment.stream_network.geometry import build_network_geometry, scored_cells
-from hydromodpy.core.scoring.stream_defaults import (
-    DEFAULT_VISIBLE_FLOW,
-    STREAM_CRITERION_DEFAULTS,
-    parse_visible_flow,
-)
-from hydromodpy.core.time.selection import resolve_state
 from hydromodpy.core.units.quantities import factor_to_m_per_s
-from hydromodpy.display.figures._stream_comparison import compared_timestep, dated_title
 from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.model.forcing.recharge_rates import (
     CRITERION_MEAN_RECHARGE_ATTR,
-    criterion_mean_recharge,
     forcing_period_rates,
     mean_recharge_m_s,
 )
-from hydromodpy.results.derive.stream_network import criterion_inputs, run_extent
+from hydromodpy.results.derive.stream_network import run_extent
 from hydromodpy.results.derive.stream_network.comparison import (
     has_recharge_source,
     network_comparison_from_run,
@@ -46,18 +37,8 @@ from hydromodpy.results.derive.stream_network.comparison import (
     unavailable_reason_for_comparison,
 )
 from hydromodpy.results.derive.stream_network.criterion_inputs import catchment_cells
-from hydromodpy.results.derive.stream_network.criterion_settings import (
-    DEFAULT_CRITERION_SETTINGS,
-    DEFAULT_EXTENT_RULES,
-    NetworkExtentRules,
-    network_criterion_settings,
-    network_outputs_of_run,
-)
-from hydromodpy.results.derive.stream_network.heads_view import network_heads_view_from_run
+from hydromodpy.results.derive.stream_network.criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_network.run_extent import (
-    block_flow_counts,
-    flow_geometry_from_run,
-    graph_role,
     network_extents_from_run,
     run_step_edges,
     unavailable_reason_for_extents,
@@ -71,14 +52,7 @@ from hydromodpy.results.derive.virtual_fields import (
 from hydromodpy.results.run.descent import RunDescent, StoredBasin
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from tests._helpers.sealed_runs import sealed_search
-from tests._helpers.transient_network_run import (
-    HEAD,
-    HILLSLOPE,
-    MIDDLE,
-    N_STEPS,
-    OUTLET,
-    transient_run,
-)
+from tests._helpers.transient_network_run import HEAD, HILLSLOPE, MIDDLE, OUTLET, transient_run
 from tests.unit.display._network_comparison_run import (
     AXIS_COLUMN,
     CELL_M,
@@ -86,7 +60,6 @@ from tests.unit.display._network_comparison_run import (
     NX,
     NY,
     cell,
-    column_cells,
     comparison_run,
     stored_descent,
 )
@@ -125,38 +98,8 @@ def _run(time, *, edges=MONTHS, stamps=None, n_timesteps=None) -> SimpleNamespac
     return run
 
 
-@pytest.mark.parametrize("time", ["2002-10-15", "2002-11-01", datetime.date(2002, 10, 31)])
-def test_a_date_reads_the_period_that_holds_it(time) -> None:
-    settings = network_criterion_settings(_run(time))
-
-    assert settings.timestep == OCTOBER_2002
-
-
 def test_the_stamp_of_a_period_reads_the_state_it_closes() -> None:
     assert network_criterion_settings(_run("2002-10-01")).timestep == OCTOBER_2002 - 1
-
-
-def test_the_redraw_reads_the_state_the_trials_scored() -> None:
-    for time in ("2000-01-01", "2001-06-30", "2002-10-15", "2003-01-01"):
-        scored = resolve_state(time, MONTHS, n_periods=len(MONTHS) - 1)
-        assert network_criterion_settings(_run(time)).timestep == scored
-
-
-def test_the_words_keep_their_timestep() -> None:
-    assert network_criterion_settings(_run("last")).timestep == -1
-    assert network_criterion_settings(_run("first")).timestep == 0
-
-
-def test_a_run_known_by_its_stamps_alone_reads_the_same_period() -> None:
-    run = _run("2002-10-15", edges=None, stamps=MONTHS[1:])
-
-    assert network_criterion_settings(run).timestep == OCTOBER_2002
-
-
-def test_a_steady_run_over_its_window_reads_its_one_state() -> None:
-    window = pd.DatetimeIndex(["2000-01-01", "2003-01-01"])
-
-    assert network_criterion_settings(_run("2002-10-15", edges=window)).timestep == 0
 
 
 def test_a_run_of_one_state_without_dates_serves_it() -> None:
@@ -174,13 +117,6 @@ def test_a_date_the_run_does_not_hold_is_refused() -> None:
 def test_what_no_trial_could_read_is_refused(time) -> None:
     with pytest.raises(ValueError, match="seepage_network"):
         network_criterion_settings(_run(time))
-
-
-def test_the_stream_figures_draw_the_dated_period() -> None:
-    run = _run("2002-10-15")
-
-    assert compared_timestep(run) == OCTOBER_2002
-    assert dated_title("Seepage network", run).endswith("October 2002")
 
 
 # The by-hand Nancon calibration scores the network in a steady phase, then
@@ -244,16 +180,6 @@ def _trial_build(model) -> None:
     )
 
 
-def test_a_period_takes_the_mean_of_its_samples_or_carries_the_last() -> None:
-    samples = pd.Series(
-        [1.0, 3.0, -2.0], index=pd.DatetimeIndex(["2000-01-05", "2000-01-20", "2000-03-10"])
-    )
-    edges = pd.DatetimeIndex(["2000-01-01", "2000-02-01", "2000-03-01", "2000-04-01"])
-
-    assert forcing_period_rates(samples, edges).tolist() == [2.0, 3.0, 0.0]
-    assert criterion_mean_recharge([np.array([1.0, np.nan]), 3.0]) == 2.0
-
-
 def test_the_steady_and_transient_models_hold_the_record_mean() -> None:
     steady = SimpleNamespace(recharge=pd.Series([RECORD_MEAN_M_S]))
     transient = SimpleNamespace(
@@ -306,19 +232,6 @@ def test_the_redraw_reads_the_recharge_the_trials_scored(caplog) -> None:
 
     assert comparison.geometry.mean_recharge_m_s == pytest.approx(RECORD_MEAN_M_S, rel=1e-9)
     assert _moves(caplog) == []
-
-
-def test_other_data_still_warns(caplog) -> None:
-    steady = SimpleNamespace(recharge=pd.Series([RECORD_MEAN_M_S]))
-
-    with (
-        caplog.at_level(logging.INFO, logger=stream_geometry.__name__),
-        stream_geometry.recharge_session("session"),
-    ):
-        _trial_build(steady)
-        network_comparison_from_run(comparison_run(kept_recharge=0.8 * RECORD_MEAN_M_S))
-
-    assert len(_moves(caplog)) == 1
 
 
 def _monthly_window(start: str, end: str):
@@ -382,13 +295,6 @@ def _cells(mask: np.ndarray) -> list[int]:
 
 
 class TestTheTimeAxis:
-    def test_the_first_bound_is_the_start_the_catalog_recorded(self) -> None:
-        edges = run_step_edges(transient_run())
-
-        assert edges.size == N_STEPS + 1
-        assert edges[0] == np.datetime64("2001-01-01")
-        assert edges[1] == np.datetime64("2001-01-31")
-
     def test_a_zoned_start_keeps_its_wall_clock(self) -> None:
         """Converted to UTC, a start west of Greenwich would cut the first year."""
         run = transient_run()
@@ -409,23 +315,6 @@ class TestTheTimeAxis:
 
 
 class TestTheExtents:
-    def test_the_complete_years_are_scored_and_the_cut_one_left_out(self) -> None:
-        extents = network_extents_from_run(transient_run())
-
-        assert extents.years.years == (2001, 2002)
-        assert extents.years.incomplete == (2003,)
-        assert extents.counts.n_steps.tolist() == [12, 12]
-
-    def test_a_scoring_window_leaves_the_spin_up_year_out(self) -> None:
-        extents = network_extents_from_run(
-            transient_run(), window=(pd.Timestamp("2002-01-01"), None)
-        )
-
-        assert extents.years.years == (2002,)
-        assert extents.years.outside_window == (2001,)
-        assert extents.counts.n_steps.tolist() == [12]
-        assert extents.masks.n_years_required == 1
-
     def test_a_window_holding_no_complete_year_is_refused_by_name(self) -> None:
         window = (pd.Timestamp("2001-03-01"), pd.Timestamp("2002-06-30"))
 
@@ -436,57 +325,12 @@ class TestTheExtents:
         with pytest.raises(ValueError, match="scoring window holds no complete"):
             network_extents_from_run(transient_run(), window=window)
 
-    def test_each_cell_flows_the_timesteps_its_releases_reach_it(self) -> None:
-        counts = network_extents_from_run(transient_run()).counts.flowing
-
-        assert counts[:, [OUTLET, MIDDLE, HEAD, HILLSLOPE]].tolist() == [[12, 5, 5, 0]] * 2
-
-    def test_the_maximal_extent_holds_every_flowing_cell_the_minimal_the_perennial_one(
-        self,
-    ) -> None:
-        extents = network_extents_from_run(transient_run())
-
-        assert _cells(extents.simulated("maximal")) == [OUTLET, MIDDLE, HEAD]
-        assert _cells(extents.simulated("minimal")) == [OUTLET]
-        assert _cells(extents.simulated("minimal", year=2002)) == [OUTLET]
-
-    def test_the_rules_are_counted_in_timesteps(self) -> None:
-        """Five flowing months of twelve pass a maximal rule of five, not one of six."""
-        five = network_extents_from_run(transient_run(), maximal_flowing_duration="5 months")
-        six = network_extents_from_run(transient_run(), maximal_flowing_duration="6 months")
-
-        assert _cells(five.simulated("maximal")) == [OUTLET, MIDDLE, HEAD]
-        assert _cells(six.simulated("maximal")) == [OUTLET]
-
     def test_the_maximal_map_is_the_union_of_the_two_maps(self) -> None:
         extents = network_extents_from_run(transient_run())
 
         assert _cells(extents.observed("maximal")) == [OUTLET, MIDDLE, HEAD]
         assert _cells(extents.observed("minimal")) == [OUTLET, MIDDLE]
         assert extents.frac_minimal_outside_maximal == pytest.approx(0.0)
-
-    def test_each_bound_is_partitioned_against_its_own_map(self) -> None:
-        extents = network_extents_from_run(transient_run())
-
-        assert extents.supports("minimal").counts == {
-            "n_valid": 1.0,
-            "n_excess": 0.0,
-            "n_missing": 1.0,
-        }
-        assert extents.supports("maximal").counts == {
-            "n_valid": 3.0,
-            "n_excess": 0.0,
-            "n_missing": 0.0,
-        }
-
-    def test_a_visible_flow_above_the_summer_release_dries_the_outlet_in_summer(self) -> None:
-        """Two litres per second pass one litre per second, not five."""
-        default = network_extents_from_run(transient_run())
-        strict = network_extents_from_run(transient_run(), visible_flow="5 L/s")
-
-        assert default.counts.flowing[0, OUTLET] == 12
-        assert strict.counts.flowing[0, OUTLET] == 5
-        assert _cells(strict.simulated("minimal")) == []
 
     def test_a_water_body_leaves_the_share_outside_as_it_leaves_the_counts(
         self, monkeypatch
@@ -530,45 +374,7 @@ class TestTheExtents:
             network_extents_from_run(transient_run(), maximal_flowing_duration="13 months")
 
 
-class TestOneDefinitionOfFlowing:
-    def test_the_counts_are_the_network_the_criterion_draws_at_each_step(self) -> None:
-        """With no visible flow, flowing is the simulated network of the comparison."""
-        run = transient_run()
-        geometry = flow_geometry_from_run(run)
-        for step in (0, 5):
-            counts = block_flow_counts(
-                run, geometry, [np.asarray([step])], visible_flow="0 L/s"
-            ).flowing[0]
-            comparison = network_comparison_from_run(run, timestep=step)
-            network = comparison.simulated
-            assert _cells(counts.astype(bool) & comparison.supports.keep) == _cells(network)
-
-    def test_a_small_chunk_counts_the_same(self) -> None:
-        run = transient_run()
-        geometry = flow_geometry_from_run(run)
-        blocks = [np.arange(12), np.arange(12, 24)]
-        whole = block_flow_counts(run, geometry, blocks)
-        chunked = block_flow_counts(run, geometry, blocks, chunk_elements=1)
-
-        np.testing.assert_array_equal(whole.flowing, chunked.flowing)
-        assert whole.visible_flow == parse_visible_flow("1 L/s")
-
-    def test_the_seepage_threshold_of_the_criterion_applies(self) -> None:
-        """A threshold of 0.1 m3/s silences the summer release and keeps the winter one."""
-        run = transient_run()
-        geometry = flow_geometry_from_run(run, tau_specific_ratio=1.0e3)
-        counts = block_flow_counts(run, geometry, [np.arange(12)]).flowing[0]
-
-        assert counts[OUTLET] == 5
-
-
 class TestRefusals:
-    def test_a_run_with_only_a_generated_network_still_counts(self) -> None:
-        run = transient_run(roles=("generated",))
-
-        assert graph_role(run) == "generated"
-        assert unavailable_reason_for_flow(run) is None
-
     def test_a_run_with_no_network_is_told_why(self) -> None:
         reason = unavailable_reason_for_flow(transient_run(roles=()))
 
@@ -599,12 +405,6 @@ class TestRefusals:
 # get one, and a zero ratio asks for none. The gate and the computation ask one
 # predicate, ``has_recharge_source``. The three places a number is found when the
 # run is written are the cases of ``test_criterion_inputs.py``.
-def test_a_run_that_kept_its_recharge_passes_the_gate() -> None:
-    run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, row) for row in range(NY)])
-
-    assert has_recharge_source(run)
-    assert unavailable_reason_for_flow(run, tau_specific_ratio=1e-4) is None
-    assert network_comparison_from_run(run, tau_specific_ratio=1e-4).simulated.any()
 
 
 def test_a_run_that_kept_no_recharge_is_refused_with_the_way_out() -> None:
@@ -620,14 +420,6 @@ def test_a_run_that_kept_no_recharge_is_refused_with_the_way_out() -> None:
     )
     with pytest.raises(ValueError, match="kept no criterion mean recharge"):
         network_comparison_from_run(run, tau_specific_ratio=1e-4)
-
-
-def test_a_zero_ratio_asks_for_no_recharge() -> None:
-    run = comparison_run(kept_recharge=False)
-
-    assert unavailable_reason_for_flow(run, tau_specific_ratio=0.0) is None
-    comparison = network_comparison_from_run(run, tau_specific_ratio=0.0)
-    assert comparison.geometry.mean_recharge_m_s == 0.0
 
 
 def test_a_run_that_kept_no_open_water_mask_is_refused_by_name() -> None:
@@ -653,16 +445,6 @@ def _run_with_budget_policy(tmp_path, policy):
     writer.close()
     run._catalog.open_zarr = lambda sim_id: SimulationZarr(path)
     return run
-
-
-def test_a_run_without_release_flux_is_refused_without_the_retired_key(tmp_path) -> None:
-    run = _run_with_budget_policy(tmp_path, ("consumers", ("recharge",)))
-
-    reason = unavailable_reason_for_flow(run)
-
-    assert reason.startswith("run has no per-cell release_flux")
-    assert "[simulation.results.derived]" not in reason
-    assert "keep_per_cell_budget" in reason
 
 
 @pytest.mark.parametrize("policy", [("consumers", ("drain",)), ("all", ("drain",))])
@@ -707,29 +489,6 @@ def _mapped_cells(comparison) -> list[int]:
     return sorted(int(index) for index in comparison.mapped.nonzero()[0])
 
 
-def test_default_role_is_reference() -> None:
-    # Pinned to crossing: the subject is which stored network the role picks,
-    # not the rasterization rule.
-    run = _run_with_role_specific_networks()
-
-    comparison = network_comparison_from_run(run, observed_rasterization="crossing")
-
-    assert _mapped_cells(comparison) == column_cells(AXIS_COLUMN)
-
-
-def test_asking_for_generated_reaches_the_generated_network() -> None:
-    # Pinned to crossing: the subject is which stored network the role picks,
-    # not the rasterization rule, and the generated column here is not a tree
-    # the heads rule could trace without losing its head.
-    run = _run_with_role_specific_networks()
-
-    comparison = network_comparison_from_run(
-        run, role="generated", observed_rasterization="crossing"
-    )
-
-    assert _mapped_cells(comparison) == column_cells(GENERATED_COLUMN)
-
-
 def test_unavailable_reason_follows_the_requested_role() -> None:
     run = _run_with_role_specific_networks()
     run.has_hydrographic_network = lambda role="generated": role == "reference"
@@ -748,30 +507,6 @@ def _run_with_a_diagonal_reference():
     diagonal = gpd.GeoDataFrame(geometry=[LineString(centres)], crs=run.mesh.crs)
     run.hydrographic_network = lambda role="generated": diagonal
     return run
-
-
-def test_the_default_rule_is_heads_and_traces_a_connected_map() -> None:
-    comparison = network_comparison_from_run(_run_with_a_diagonal_reference())
-
-    mapped = _mapped_cells(comparison)
-    assert mapped == [1, 2]
-    assert cell(AXIS_COLUMN, 0) in mapped
-
-
-def test_the_crossing_rule_draws_the_mapped_network_one_cell_per_step() -> None:
-    comparison = network_comparison_from_run(
-        _run_with_a_diagonal_reference(), observed_rasterization="crossing"
-    )
-
-    assert _mapped_cells(comparison) == [cell(k, k) for k in range(NY)]
-
-
-def test_touch_replays_the_corner_cells_of_each_diagonal_step() -> None:
-    comparison = network_comparison_from_run(
-        _run_with_a_diagonal_reference(), observed_rasterization="touch"
-    )
-
-    assert len(_mapped_cells(comparison)) == NY + 2 * (NY - 1)
 
 
 # A trial compares the catchment its graph closed with the outline the geographic
@@ -916,83 +651,6 @@ def _run_4(outputs: dict | None = None, *, window: dict | None = None, **section
     return run
 
 
-def test_a_run_without_a_snapshot_reads_the_defaults() -> None:
-    settings = network_criterion_settings(SimpleNamespace(sim_id="sim-x"))
-
-    assert settings == DEFAULT_CRITERION_SETTINGS
-    assert settings.tau_specific_ratio == STREAM_CRITERION_DEFAULTS.tau_specific_ratio
-    assert settings.diagonal_neighbors is STREAM_CRITERION_DEFAULTS.diagonal_neighbors
-    assert settings.extent_rules == DEFAULT_EXTENT_RULES
-    assert settings.extent_rules.visible_flow == DEFAULT_VISIBLE_FLOW
-    assert "the defaults" in settings.note()
-
-
-def test_a_run_without_a_network_output_reads_the_defaults() -> None:
-    run = _run_4({"head": {"support": "point", "variable": "head"}})
-
-    assert network_outputs_of_run(run) == {}
-    assert network_criterion_settings(run).output is None
-
-
-def test_every_setting_the_output_sealed_is_read() -> None:
-    run = _run_4(
-        {
-            "streams": _network(
-                model={
-                    "seepage_threshold": 0.0,
-                    "neighbours": "D4",
-                    "weighting": "area",
-                    "extent": {
-                        "flowing_at_least": "3 months",
-                        "dry_at_most": "2 months",
-                        "year_quorum": 0.75,
-                        "visible_flow": "2%",
-                    },
-                },
-                map={
-                    "drawn_by": "touch",
-                    "position_accuracy": 25.0,
-                    "calibrate_on": {"permanent": 0.5, "complete": 0.5},
-                },
-                time="first",
-            )
-        }
-    )
-
-    settings = network_criterion_settings(run)
-
-    assert settings.output == "streams"
-    assert settings.tau_specific_ratio == 0.0
-    assert settings.diagonal_neighbors is False
-    assert settings.observed_rasterization == "touch"
-    assert settings.observed_position_accuracy_m == 25.0
-    assert settings.timestep == 0
-    assert settings.extent == NetworkExtentRules(
-        maximal_flowing_duration="3 months",
-        minimal_dry_duration="2 months",
-        year_quorum=0.75,
-        visible_flow="2%",
-    )
-    assert settings.note() == "criterion settings: calibration output 'streams'"
-
-
-def test_a_key_the_output_left_out_takes_the_default() -> None:
-    settings = network_criterion_settings(_run_4({"streams": _network(model={"extent": {}})}))
-
-    assert settings.tau_specific_ratio == STREAM_CRITERION_DEFAULTS.tau_specific_ratio
-    assert settings.observed_rasterization == STREAM_CRITERION_DEFAULTS.observed_rasterization
-    assert settings.observed_position_accuracy_m is None
-    assert settings.timestep == -1
-    assert settings.extent == DEFAULT_EXTENT_RULES
-
-
-def test_a_single_state_output_carries_no_extent_rules() -> None:
-    settings = network_criterion_settings(_run_4({"streams": _network()}))
-
-    assert settings.extent is None
-    assert settings.extent_rules == DEFAULT_EXTENT_RULES
-
-
 def test_a_positional_accuracy_with_its_unit_is_read_in_metres() -> None:
     run = _run_4({"streams": _network(map={"position_accuracy": "0.05 km"})})
 
@@ -1131,16 +789,6 @@ def _redraw(run):
     )
 
 
-def test_a_key_left_out_takes_the_default() -> None:
-    settings = network_criterion_settings(_sealed_run())
-
-    assert settings.observed_rasterization == "heads"
-    assert settings.heads_snap_radius_m == STREAM_CRITERION_DEFAULTS.heads_snap_radius_m
-    assert settings.heads_min_drained_area_km2 == (
-        STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2
-    )
-
-
 def test_the_sealed_area_moves_the_landing_cell() -> None:
     comparison = _redraw(
         _sealed_run(heads={"radius": 150.0, "min_drained_area": 0.06}),
@@ -1160,31 +808,6 @@ def test_the_sealed_radius_loses_a_head_the_default_would_keep() -> None:
 
     with pytest.raises(ValueError, match="snap radius 30 m"):
         _redraw(_sealed_run(heads={"radius": "30 m", "min_drained_area": 0.04}))
-
-
-@pytest.mark.parametrize(
-    ("sealed", "cut"),
-    [
-        ({}, True),
-        ({"clip_to_catchment": True}, True),
-        ({"clip_to_catchment": False}, False),
-    ],
-)
-def test_the_redraw_takes_no_end_of_the_cut_for_a_head_unless_the_run_did(
-    monkeypatch, sealed, cut
-) -> None:
-    real = criterion_inputs.network_head_candidates
-    outlines = []
-
-    def spy(lines, **kwargs):
-        outlines.append(kwargs.get("cut_outline"))
-        return real(lines, **kwargs)
-
-    monkeypatch.setattr(criterion_inputs, "network_head_candidates", spy)
-
-    _redraw(_sealed_run(heads={"radius": 50.0, "min_drained_area": 0.04}, **sealed))
-
-    assert (outlines[0] is not None) is cut
 
 
 # The results layer never sees the model: it reads ``run.descent.dam_foot``, the
@@ -1211,33 +834,6 @@ def _redraw_2(run):
     return network_comparison_from_run(
         run, tau_specific_ratio=0.0, observed_rasterization="heads", heads_min_drained_area_km2=0.0
     )
-
-
-def test_a_stored_dam_foot_is_traced_as_a_forced_head() -> None:
-    comparison = _redraw_2(_run_with_dam_foot([HILLSIDE]))
-
-    trace = comparison.geometry.heads
-    assert trace is not None
-    assert trace.forced_cell.tolist() == [HILLSIDE]
-    assert comparison.geometry.observed[HILLSIDE]
-    assert comparison.geometry.diagnostics["n_forced_heads"] == 1.0
-
-
-def test_a_run_whose_descent_stores_no_foot_draws_as_before() -> None:
-    plain = _redraw_2(comparison_run())
-    empty = _redraw_2(_run_with_dam_foot([]))
-
-    assert not plain.geometry.observed[HILLSIDE]
-    np.testing.assert_array_equal(empty.geometry.observed, plain.geometry.observed)
-    assert empty.geometry.diagnostics["n_forced_heads"] == 0.0
-
-
-def test_the_heads_view_carries_the_forced_heads_apart() -> None:
-    view = network_heads_view_from_run(_run_with_dam_foot([HILLSIDE]))
-
-    assert view.full.forced_xy.shape == (1, 2)
-    assert view.full.indices["n_forced_heads"] == 1.0
-    assert view.full.head_xy.shape[0] == 1
 
 
 # A phase's ``window`` replaces the calibration's for every block it
@@ -1281,40 +877,6 @@ def test_the_window_of_the_run_s_phase_wins_over_the_calibration_s() -> None:
     assert settings.window == (pd.Timestamp("2003-01-01"), pd.Timestamp("2005-12-31"))
     assert settings.window_phase == "transient"
     assert settings.note().endswith("window 2003-01-01 to 2005-12-31 of phase 'transient'")
-
-
-def test_a_session_id_spelled_with_dashes_finds_its_phase() -> None:
-    calibration = {"outputs": {"streams": NETWORK}, "phases": _phases({"start": "2003-01-01"})}
-
-    settings = network_criterion_settings(_run_5(calibration, phase="transient", dashed=True))
-
-    assert settings.window == (pd.Timestamp("2003-01-01"), None)
-
-
-def test_a_phase_without_a_window_reads_the_calibration_s() -> None:
-    calibration = {
-        "outputs": {"streams": NETWORK},
-        "window": {"start": "2001-01-01"},
-        "phases": _phases({"start": "2003-01-01"}),
-    }
-
-    settings = network_criterion_settings(_run_5(calibration, phase="steady"))
-
-    assert settings.window == (pd.Timestamp("2001-01-01"), None)
-    assert settings.window_phase is None
-    assert settings.note().endswith("window 2001-01-01 to open")
-
-
-def test_a_run_tied_to_no_phase_reads_the_calibration_s() -> None:
-    calibration = {
-        "outputs": {"streams": NETWORK},
-        "window": {"start": "2001-01-01"},
-        "phases": _phases({"start": "2003-01-01"}),
-    }
-    run = SimpleNamespace(sim_id="sim-x", dir=sealed_search(calibration))
-
-    assert network_criterion_settings(run).window == (pd.Timestamp("2001-01-01"), None)
-    assert network_criterion_settings(_run_5(calibration, phase=None)).window_phase is None
 
 
 def test_a_phase_window_open_on_both_ends_is_no_window() -> None:

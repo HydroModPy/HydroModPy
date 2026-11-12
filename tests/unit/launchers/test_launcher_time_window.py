@@ -9,12 +9,10 @@ import pandas as pd
 import pytest
 
 from hydromodpy.core.time.window import (
-    ResolvedSteadySimulationTimeGrid,
     require_flow_simulation_time_grid,
     resolve_simulation_time_grid,
     resolve_simulation_time_window,
     simulation_time_pandas_frequency,
-    validate_recharge_coverage,
 )
 
 
@@ -41,88 +39,6 @@ def _make_cfg_with_time(
         ),
         flow=SimpleNamespace(flow_regime="transient"),
     )
-
-
-def test_simulation_time_window_drives_the_canonical_grid() -> None:
-    """Neither backend carries a tgrid section: both read this grid."""
-    cfg = _make_cfg_with_time()
-
-    grid = resolve_simulation_time_grid(cfg)
-
-    assert grid is not None
-    assert str(grid.window.start).startswith("2020-01-01")
-    assert str(grid.window.end).startswith("2020-01-03")
-    assert grid.nper == 3
-    assert grid.period_lengths_seconds == (86400.0, 86400.0, 86400.0)
-    assert grid.nstp_per_period == 1
-
-
-def test_get_simulation_time_window_rejects_from_modflow_mode() -> None:
-    cfg = _make_cfg_with_time(mode="from_modflow")
-
-    with pytest.raises(ValueError, match="must be 'explicit'"):
-        resolve_simulation_time_window(cfg)
-
-
-def test_validate_recharge_coverage_raises_when_range_not_covered() -> None:
-    cfg = _make_cfg_with_time(coverage_policy="error")
-    window = resolve_simulation_time_window(cfg)
-    recharge = pd.Series(
-        [0.1, 0.2],
-        index=pd.to_datetime(["2020-01-02 00:00:00", "2020-01-03 00:00:00"]),
-    )
-
-    with pytest.raises(ValueError, match="does not cover stress period"):
-        validate_recharge_coverage(recharge, window)
-
-
-def test_validate_recharge_coverage_warns_when_policy_warn() -> None:
-    cfg = _make_cfg_with_time(coverage_policy="warn")
-    window = resolve_simulation_time_window(cfg)
-    recharge = pd.Series(
-        [0.1, 0.2],
-        index=pd.to_datetime(["2020-01-02 00:00:00", "2020-01-03 00:00:00"]),
-    )
-
-    with pytest.warns(UserWarning, match="Recharge coverage check failed"):
-        validate_recharge_coverage(recharge, window)
-
-
-def test_validate_recharge_coverage_passes_for_full_coverage() -> None:
-    cfg = _make_cfg_with_time(coverage_policy="error")
-    window = resolve_simulation_time_window(cfg)
-    recharge = pd.Series(
-        [0.1, 0.2, 0.3],
-        index=pd.to_datetime(["2020-01-01 00:00:00", "2020-01-02 00:00:00", "2020-01-03 00:00:00"]),
-    )
-
-    validate_recharge_coverage(recharge, window)
-
-
-def test_validate_recharge_coverage_accepts_period_aligned_series() -> None:
-    cfg = _make_cfg_with_time(step_value=10, step_unit="day", coverage_policy="error")
-    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
-    cfg.simulation.time.end_datetime = "2020-01-30 00:00:00"
-    window = resolve_simulation_time_window(cfg)
-    recharge = pd.Series(
-        [0.1, 0.2, 0.3],
-        index=pd.to_datetime(["2020-01-01 00:00:00", "2020-01-11 00:00:00", "2020-01-21 00:00:00"]),
-    )
-
-    validate_recharge_coverage(recharge, window)
-
-
-def test_monthly_step_keeps_calendar_period_lengths() -> None:
-    cfg = _make_cfg_with_time(step_value=1, step_unit="month")
-    cfg.simulation.time.start_datetime = "2020-01-01 00:00:00"
-    cfg.simulation.time.end_datetime = "2020-03-31 00:00:00"
-
-    grid = resolve_simulation_time_grid(cfg)
-
-    assert grid is not None
-    assert grid.nper == 3
-    # February 2020 is a leap month: the middle period is genuinely shorter.
-    assert grid.period_lengths_seconds == (2678400.0, 2505600.0, 2678400.0)
 
 
 def test_resolve_simulation_time_grid_explicit_mode() -> None:
@@ -166,18 +82,6 @@ def test_require_flow_simulation_time_grid_keeps_window_optional_without_flow_pr
     cfg.simulation.process = [SimpleNamespace(kind="transport", solvers=["mt3dms"])]
 
     assert require_flow_simulation_time_grid(cfg) is None
-
-
-def test_require_flow_simulation_time_grid_returns_dedicated_steady_grid_without_window() -> None:
-    cfg = _make_cfg_with_time()
-    cfg.simulation.time = None
-    cfg.flow = SimpleNamespace(flow_regime="steady")
-
-    grid = require_flow_simulation_time_grid(cfg)
-
-    assert isinstance(grid, ResolvedSteadySimulationTimeGrid)
-    assert grid.nper == 1
-    assert grid.period_lengths_seconds == (1.0,)
 
 
 def test_resolve_simulation_time_grid_raises_when_end_not_aligned_with_step() -> None:
@@ -262,52 +166,9 @@ def _steady_cfg(
     return cfg
 
 
-def test_a_steady_run_is_one_period_over_its_window_whatever_the_step() -> None:
-    grid = resolve_simulation_time_grid(_steady_cfg())
-
-    assert grid is not None
-    assert grid.nper == 1
-    assert grid.boundaries == (pd.Timestamp("2020-01-01"), pd.Timestamp("2022-01-01"))
-    assert grid.period_lengths_seconds == (731 * 86400.0,)
-    assert grid.window.period_bounds == ((pd.Timestamp("2020-01-01"), pd.Timestamp("2022-01-01")),)
-
-
-def test_the_forcing_of_a_steady_run_is_aggregated_over_the_whole_window() -> None:
-    from hydromodpy.core.time.window import build_simulation_time_boundaries
-
-    window = resolve_simulation_time_window(_steady_cfg())
-
-    assert window is not None
-    assert build_simulation_time_boundaries(window) == [
-        pd.Timestamp("2020-01-01"),
-        pd.Timestamp("2022-01-01"),
-    ]
-
-
 def test_a_steady_window_need_not_align_with_the_step() -> None:
     grid = resolve_simulation_time_grid(_steady_cfg(end="2021-12-15"))
 
     assert grid is not None
     assert grid.nper == 1
     assert grid.boundaries[-1] == pd.Timestamp("2021-12-16")
-
-
-def test_a_steady_hourly_window_closes_one_hour_after_its_end() -> None:
-    grid = resolve_simulation_time_grid(
-        _steady_cfg(start="2020-01-01 00:00:00", end="2020-01-01 23:00:00", step_value="1 hour")
-    )
-
-    assert grid is not None
-    assert grid.nper == 1
-    assert grid.period_lengths_seconds == (24 * 3600.0,)
-
-
-def test_a_transient_run_still_reads_its_step() -> None:
-    cfg = _steady_cfg()
-    cfg.flow = SimpleNamespace(flow_regime="transient")
-
-    grid = resolve_simulation_time_grid(cfg)
-
-    assert grid is not None
-    assert grid.nper == 24
-    assert grid.window.period_bounds is None

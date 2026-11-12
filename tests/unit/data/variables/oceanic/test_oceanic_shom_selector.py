@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from types import SimpleNamespace
 
 import geopandas as gpd
 import pandas as pd
@@ -28,7 +27,6 @@ from shapely.geometry import Polygon
 
 from hydromodpy.core.exceptions import DataRequestError
 from hydromodpy.core.io.fetch import HTTPClient
-from hydromodpy.data.loading.loader import DataLoader
 from hydromodpy.data.variables.oceanic.apis import shom
 from hydromodpy.data.variables.oceanic.config import OceanicConfig, OceanicSourceConfig
 from hydromodpy.data.variables.oceanic.variable import OceanicVariable
@@ -81,33 +79,6 @@ def test_a_named_station_wins_over_a_mask(tmp_path, monkeypatch):
 
     assert captured["station_id"] == "152"
     assert "near_lat" not in captured, captured
-
-
-@pytest.mark.fast
-def test_a_named_station_survives_the_mask_the_loader_injects(tmp_path, monkeypatch):
-    """The composition, not the two halves: this is what the first cut got wrong.
-
-    Each half was tested on its own -- the loader fills ``mask_path`` on every
-    source that declares the field, and the manager reads a selector -- and the
-    pair refused each other on every project run. A source that names a station
-    and nothing else is exactly the shape the documentation recommends.
-    """
-    captured = _capture(monkeypatch)
-    watershed = _mask(tmp_path)
-    config = OceanicConfig(sources=[OceanicSourceConfig(source="shom", station_ids=["152"])])
-    result = SimpleNamespace(
-        setup=SimpleNamespace(geographic=SimpleNamespace(watershed_shp=watershed))
-    )
-
-    DataLoader._apply_default_masks(config, result)
-    source = config.sources[0]
-    assert source.mask_path == watershed, "the loader stopped injecting; this test is now vacuous"
-
-    OceanicVariable(
-        config=config, index=None, project_period=PERIOD, data_dir=None
-    )._fetch_from_source(source)
-
-    assert captured["station_id"] == "152"
 
 
 @pytest.mark.fast

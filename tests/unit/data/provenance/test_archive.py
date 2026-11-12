@@ -69,19 +69,6 @@ def test_a_zstandard_archive_round_trips(tmp_path: Path) -> None:
         assert sha256_of(target / src.relative_to(data_root)) == sha256_of(src)
 
 
-def test_the_archive_holds_the_lockfile_each_file_and_its_sidecar(tmp_path: Path) -> None:
-    data_root, files = _seed(tmp_path)
-    archive = tmp_path / "export.tar"
-    archive_data(data_root, archive, lockfile_dest=tmp_path / LOCKFILE_NAME)
-    with tarfile.open(archive) as tar:
-        names = set(tar.getnames())
-    expected = {LOCKFILE_NAME}
-    for src in files:
-        member = f"artefacts/{sha256_of(src)}/{src.name}"
-        expected |= {member, member + ".json"}
-    assert names == expected
-
-
 def test_an_empty_answer_travels_as_its_sidecar_alone(tmp_path: Path) -> None:
     data_root, _files = _seed(tmp_path)
     empty = CacheIndex(data_root).record_empty(

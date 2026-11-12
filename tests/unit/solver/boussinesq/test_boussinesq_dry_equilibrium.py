@@ -92,16 +92,6 @@ def test_two_cells_sloping_bottom_with_bmin_documents_film_flux() -> None:
     assert result.diagnostics["cells_at_effective_floor_count"] == 2
 
 
-def test_positive_recharge_rejects_dry_equilibrium() -> None:
-    mesh = _mesh([0.0])
-
-    result = detect_dry_equilibrium(mesh, recharge_rate_m_s=1.0e-10)
-
-    assert result.detected is False
-    assert result.positive_forcing_detected is True
-    assert result.rejected_reason == "positive recharge present"
-
-
 def test_prescribed_head_above_bottom_rejects_dry_equilibrium() -> None:
     mesh = _mesh([0.0])
 

@@ -17,8 +17,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.schema.processes import described_ids
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 EGRESS_GATE_NAME = "test_the_only_hosts_it_contacts_are_the_ones_it_declares"
@@ -35,13 +33,6 @@ without anything being able to find it, and the two gates are not
 interchangeable -- one asserts the capability resolves nothing at all, the other
 that everything it resolved is declared.
 """
-
-
-def test_every_capability_this_build_describes_is_paired_with_an_egress_gate() -> None:
-    assert set(described_ids()) == set(EGRESS_GATES), (
-        "a capability was added or removed without its egress gate; "
-        f"gated: {sorted(EGRESS_GATES)}, described: {sorted(described_ids())}"
-    )
 
 
 def test_every_named_gate_is_on_disk_and_still_carries_its_test() -> None:

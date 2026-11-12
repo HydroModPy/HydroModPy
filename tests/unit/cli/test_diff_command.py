@@ -60,31 +60,6 @@ def test_two_runs_in_json_keep_the_shape_of_the_old_diff(
     assert set(document["data"]) == {"a", "b", "params", "metrics"}
 
 
-def test_to_writes_the_comparison_folder_through_the_verb(
-    monkeypatch, capsys, project: Path, compared: dict, tmp_path: Path
-) -> None:
-    folder = tmp_path / "study"
-
-    code = run_hmp(monkeypatch, "diff", "alpha", "beta", "--to", str(folder), "-w", str(project))
-
-    assert code == 0
-    assert compared["refs"] == ["alpha", "beta"]
-    assert compared["out"] == folder
-    assert compared["by"] == "run"
-    assert Path(compared["workspace"]) == project
-    assert f"wrote {folder}" in capsys.readouterr().err
-
-
-def test_without_to_the_folder_is_under_the_summary_of_the_project(
-    monkeypatch, project: Path, compared: dict
-) -> None:
-    code = run_hmp(monkeypatch, "diff", "alpha", "beta", "gamma", "-w", str(project))
-
-    assert code == 0
-    expected = project / "summary" / "report" / "compare" / "alpha-vs-beta-vs-gamma"
-    assert compared["out"] == expected
-
-
 def test_by_site_and_variables_reach_the_verb(monkeypatch, project: Path, compared: dict) -> None:
     code = run_hmp(
         monkeypatch,
@@ -111,13 +86,6 @@ def test_a_refused_comparison_exits_with_its_category(
 
     assert run_hmp(monkeypatch, "diff", "alpha", "beta", "--to", "out", "-w", str(project)) == code
     assert str(error) in capsys.readouterr().err
-
-
-def test_the_old_forms_are_refused_with_the_new_one(monkeypatch, capsys, project: Path) -> None:
-    assert run_hmp(monkeypatch, "catalog", "diff", "alpha", "beta") == 2
-    assert "Write: hmp diff REF REF" in capsys.readouterr().err
-    assert run_hmp(monkeypatch, "report", "compare", "alpha", "beta", "--out", "x") == 2
-    assert "Write: hmp diff REF REF --to DIR" in capsys.readouterr().err
 
 
 def _seal_record(project: Path, name: str, *, site: str) -> None:

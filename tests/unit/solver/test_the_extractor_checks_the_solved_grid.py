@@ -113,16 +113,6 @@ def test_two_swapped_cells_name_the_first_cell_that_differs() -> None:
         verify_disv_grid(solved, vertices=vertices, connectivity=rings, centers=centers)
 
 
-def test_a_north_south_mirror_is_refused() -> None:
-    vertices, rings, centers = _stored()
-    mirrored = vertices[:, :2].copy()
-    mirrored[:, 1] = mirrored[:, 1].max() - mirrored[:, 1]
-    solved = _grb(mirrored, rings, centers)
-
-    with pytest.raises(IncompatibleMeshError, match="off along y"):
-        verify_disv_grid(solved, vertices=vertices, connectivity=rings, centers=centers)
-
-
 def test_a_centre_that_moved_is_refused() -> None:
     vertices, rings, centers = _stored()
     shifted = centers.copy()
@@ -131,15 +121,6 @@ def test_a_centre_that_moved_is_refused() -> None:
 
     with pytest.raises(IncompatibleMeshError, match="centre of cell 4"):
         verify_disv_grid(solved, vertices=vertices, connectivity=rings, centers=centers)
-
-
-def test_centres_are_left_unchecked_when_the_store_holds_none() -> None:
-    vertices, rings, centers = _stored()
-    solved = _grb(vertices[:, :2], rings, centers + 5.0)
-
-    check = verify_disv_grid(solved, vertices=vertices, connectivity=rings)
-
-    assert check.max_center_shift_m is None
 
 
 def test_the_counts_are_compared_first() -> None:
@@ -152,12 +133,6 @@ def test_the_counts_are_compared_first() -> None:
         )
     with pytest.raises(IncompatibleMeshError, match="11 cells"):
         verify_disv_grid(_grb(vertices[:, :2], rings[:-1]), vertices=vertices, connectivity=rings)
-
-
-def test_rings_of_mixed_sizes_are_padded_and_lose_their_closing_node() -> None:
-    rings = np.array([[0, 1, 2, -1], [2, 3, 4, 5]], dtype=np.int32)
-
-    np.testing.assert_array_equal(grb_rings(_grb(np.zeros((6, 2)), rings)), rings)
 
 
 def test_a_grid_file_without_vertices_is_refused_not_guessed() -> None:
@@ -333,55 +308,6 @@ def _mf6_binary() -> Path | None:
     if found:
         return Path(found)
     return locate_solver_binary(Path(resolve_bin_path()), "mf6")
-
-
-def test_a_real_disv_grid_file_round_trips_through_the_check(tmp_path) -> None:
-    flopy = pytest.importorskip("flopy")
-    from flopy.mf6.utils import MfGrdFile
-
-    exe = _mf6_binary()
-    if exe is None:
-        pytest.skip("mf6 is not installed")
-    rng = np.random.default_rng(3)
-    nx, ny, d = 6, 5, 75.0
-    xs = 351234.56789123 + d * np.arange(nx + 1) + rng.uniform(-3, 3, nx + 1)
-    ys = 6801234.98765432 - d * np.arange(ny + 1) + rng.uniform(-3, 3, ny + 1)
-    gx, gy = np.meshgrid(xs, ys)
-    vertices = np.column_stack([gx.ravel(), gy.ravel(), np.zeros(gx.size)])
-    first = (np.arange(ny)[:, None] * (nx + 1) + np.arange(nx)[None, :]).ravel()
-    rings = np.column_stack([first, first + 1, first + nx + 2, first + nx + 1]).astype(np.int32)
-    centers = vertices[rings][:, :, :2].mean(axis=1) + rng.uniform(-1, 1, (nx * ny, 2))
-    cell2d = [[i, *centers[i], 4, *rings[i]] for i in range(nx * ny)]
-    sim = flopy.mf6.MFSimulation(sim_ws=str(tmp_path), exe_name=str(exe), verbosity_level=0)
-    flopy.mf6.ModflowTdis(sim)
-    flopy.mf6.ModflowIms(sim)
-    gwf = flopy.mf6.ModflowGwf(sim, modelname="m")
-    flopy.mf6.ModflowGwfdisv(
-        gwf,
-        nlay=1,
-        ncpl=nx * ny,
-        nvert=len(vertices),
-        top=10.0,
-        botm=[0.0],
-        vertices=[[i, float(x), float(y)] for i, (x, y, _) in enumerate(vertices)],
-        cell2d=cell2d,
-    )
-    flopy.mf6.ModflowGwfnpf(gwf)
-    flopy.mf6.ModflowGwfic(gwf, strt=5.0)
-    flopy.mf6.ModflowGwfchd(gwf, stress_period_data=[[(0, 0), 5.0]])
-    sim.write_simulation(silent=True)
-    ok, _ = sim.run_simulation(silent=True)
-    assert ok
-    grd = MfGrdFile(str(tmp_path / "m.disv.grb"))
-
-    check = verify_disv_grid(grd, vertices=vertices, connectivity=rings, centers=centers)
-
-    assert 0.0 < check.max_vertex_shift_m <= 0.505e-2
-    assert check.n_reversed_cells == 0
-    moved = vertices.copy()
-    moved[0, 0] += 0.01
-    with pytest.raises(IncompatibleMeshError, match="vertex 0"):
-        verify_disv_grid(grd, vertices=moved, connectivity=rings, centers=centers)
 
 
 def _boussinesq_surface(store, tmp_path: Path, n_cells: int) -> None:

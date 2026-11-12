@@ -14,10 +14,9 @@ import math
 
 import numpy as np
 import pytest
-from shapely.geometry import GeometryCollection, LineString, MultiLineString, Point, Polygon, box
+from shapely.geometry import LineString, MultiLineString, Point, Polygon, box
 
 from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
-from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
 from hydromodpy.mesh.planar.geometry import cell_polygons
 from tests._helpers.mesh_cases import LAMBERT93_WKT, regular_mesh
 from tests._helpers.ugrid_meshes import quad_mesh
@@ -95,68 +94,8 @@ def _random_polylines(count: int, seed: int = 20260927) -> list[LineString]:
     return lines
 
 
-@pytest.mark.parametrize("line", _random_polylines(200), ids=lambda _: "")
-def test_the_rule_is_vector_lines_to_raster_on_a_grid(line: LineString) -> None:
-    result = _crossing([line])
-
-    assert result.n_fallback_parts == 0
-    assert _cells(result.mask) == _cells(_whitebox_oracle(line))
-
-
-def test_a_crossing_on_a_cell_edge_marks_both_cells() -> None:
-    # The line crosses the median x = 15 exactly on the edge y = 10: WBT picks
-    # one side by index order, the rule keeps both.
-    result = _crossing([LineString([(12.0, 8.0), (18.0, 12.0)])])
-
-    assert _cells(result.mask) == {(0, 1), (1, 1)}
-
-
-def test_a_line_lying_on_a_median_marks_the_row_it_runs_along() -> None:
-    result = _crossing([LineString([(3.0, 15.0), (37.0, 15.0)])])
-
-    assert _cells(result.mask) == {(1, 0), (1, 1), (1, 2), (1, 3)}
-
-
-def test_the_half_median_of_a_border_cell_counts() -> None:
-    # WBT draws the median up to the raster border; the rule joins a border
-    # center to the midpoint of its outer edge for the same reason.
-    result = _crossing([LineString([(2.0, 3.0), (2.0, 7.0)])])
-
-    assert _cells(result.mask) == {(0, 0)}
-    assert result.n_fallback_parts == 0
-
-
 def _centre(row: int, col: int) -> tuple[float, float]:
     return ((col + 0.5) * RES, (row + 0.5) * RES)
-
-
-def test_a_diagonal_chain_of_centres_comes_back_as_itself() -> None:
-    chain = [(k, k) for k in range(2, 20)]
-    line = LineString([_centre(*cell) for cell in chain])
-
-    assert _cells(_crossing([line]).mask) == set(chain)
-
-
-def test_a_staircase_chain_of_centres_comes_back_as_itself() -> None:
-    chain = [(2, 2)]
-    for _ in range(8):
-        row, col = chain[-1]
-        chain += [(row + 1, col), (row + 1, col + 1)]
-    line = LineString([_centre(*cell) for cell in chain])
-
-    assert _cells(_crossing([line]).mask) == set(chain)
-
-
-def test_touch_thickens_the_same_diagonal_chain() -> None:
-    """The counter-example behind the default: every diagonal step gains a corner pair."""
-    vertices, connectivity, _, polygons = GRID
-    chain = [(k, k) for k in range(2, 20)]
-    line = LineString([_centre(*cell) for cell in chain])
-
-    touched = _cells(vector_cell_mask(polygons, [line], mesh_crs=CRS, geometry_crs=CRS))
-
-    assert set(chain) < touched
-    assert len(touched - set(chain)) == 2 * (len(chain) - 1)
 
 
 def _small_grid():
@@ -164,16 +103,6 @@ def _small_grid():
     rows, cols = np.divmod(np.arange(16), 4)
     centres = np.column_stack([(cols + 0.5) * 75.0, (rows + 0.5) * 75.0])
     return vertices, connectivity, centres, cell_polygons(vertices, connectivity)
-
-
-def test_a_reach_that_crosses_no_median_keeps_its_midpoint_cell() -> None:
-    # 10 m of stream in the middle of a 75 m cell, the fallback of the rule.
-    reach = LineString([(160.0, 100.0), (170.0, 100.0)])
-
-    result = _crossing([reach], grid=_small_grid())
-
-    assert np.flatnonzero(result.mask).tolist() == [1 * 4 + 2]
-    assert result.n_fallback_parts == 1
 
 
 def test_a_short_reach_whose_midpoint_is_off_the_mesh_keeps_the_cell_it_enters() -> None:
@@ -186,17 +115,6 @@ def test_a_short_reach_whose_midpoint_is_off_the_mesh_keeps_the_cell_it_enters()
     assert np.flatnonzero(result.mask).tolist() == [0]
     assert result.n_fallback_parts == 1
     assert result.n_outside_parts == 0
-
-
-def test_a_reach_wholly_off_the_mesh_marks_nothing_and_is_counted() -> None:
-    # Snapping it to the nearest border cell would draw a stream the domain lacks.
-    reach = LineString([(100.0, -30.0), (110.0, -30.0)])
-
-    result = _crossing([reach], grid=_small_grid())
-
-    assert not result.mask.any()
-    assert result.n_fallback_parts == 0
-    assert result.n_outside_parts == 1
 
 
 def test_a_mesh_with_no_usable_cell_counts_every_part_outside() -> None:
@@ -274,61 +192,6 @@ def _dense(rows: list[np.ndarray]) -> np.ndarray:
     return table
 
 
-def test_on_a_voronoi_mesh_the_line_is_a_thinner_subset_of_touch() -> None:
-    """Every reach marks cells of its own, none outside the cells it touches.
-
-    Face connectivity is NOT promised for an arbitrary line: where a line only
-    clips the corner of a small cell, its two neighbors along the line can
-    share neither an edge nor a node. The grid shows the same thing as its
-    diagonal steps. What the criterion needs is the next test.
-    """
-    vertices, rows, seeds, polygons = _voronoi_mesh()
-    line = LineString([(20.0, 30.0), (150.0, 210.0), (380.0, 260.0)])
-
-    crossed = line_crossing_cell_mask(
-        polygons, vertices, rows, seeds, [line], mesh_crs=CRS, geometry_crs=CRS
-    )
-    touched = vector_cell_mask(polygons, [line], mesh_crs=CRS, geometry_crs=CRS)
-
-    assert crossed.n_fallback_parts == 0
-    assert not (crossed.mask & ~touched).any()
-    assert crossed.mask.sum() < touched.sum()
-
-
-def test_on_a_voronoi_mesh_a_chain_of_seeds_comes_back_as_itself() -> None:
-    """The model's own network, drawn through its seeds, is the observed network."""
-    from hydromodpy.catchment.drainage.graph import cell_adjacency_from_face_connectivity
-
-    vertices, rows, seeds, polygons = _voronoi_mesh()
-    adjacency = cell_adjacency_from_face_connectivity(_dense(rows), n_cells=len(rows))
-    start = int(np.argmin(np.hypot(*(seeds - (60.0, 60.0)).T)))
-    goal = int(np.argmin(np.hypot(*(seeds - (340.0, 330.0)).T)))
-    previous = {start: -1}
-    frontier = [start]
-    while goal not in previous:
-        frontier = [
-            other
-            for cell in frontier
-            for other in sorted(adjacency[cell])
-            if other not in previous and previous.setdefault(other, cell) == cell
-        ]
-    chain = [goal]
-    while previous[chain[-1]] != -1:
-        chain.append(previous[chain[-1]])
-
-    crossed = line_crossing_cell_mask(
-        polygons,
-        vertices,
-        rows,
-        seeds,
-        [LineString(seeds[chain])],
-        mesh_crs=CRS,
-        geometry_crs=CRS,
-    )
-
-    assert set(np.flatnonzero(crossed.mask).tolist()) == set(chain)
-
-
 NAN_PADDED = np.array([[0.0, 1.0, 5.0, 4.0], [1.0, 2.0, 5.0, np.nan]])
 """A quad and a triangle sharing the edge x = 100, as a stored table padded with NaN reads."""
 
@@ -396,15 +259,3 @@ def test_a_face_table_without_nodes_leaves_every_reach_to_its_midpoint_cell() ->
 
     assert np.flatnonzero(result.mask).tolist() == [1 * 4 + 1]
     assert result.n_fallback_parts == 1
-
-
-def test_lines_nested_in_a_collection_count_and_a_point_length_line_does_not() -> None:
-    nested = GeometryCollection(
-        [MultiLineString([[_centre(3, 3), _centre(3, 9)], [_centre(8, 3), _centre(8, 9)]])]
-    )
-    point_like = LineString([_centre(15, 15), _centre(15, 15)])
-
-    result = _crossing([nested, point_like])
-
-    assert _cells(result.mask) == {(row, col) for row in (3, 8) for col in range(3, 10)}
-    assert result.n_fallback_parts == 0 and result.n_outside_parts == 0

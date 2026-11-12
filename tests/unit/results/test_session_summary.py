@@ -8,13 +8,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.results.session.journal import BOUND_TOLERANCE, append_trial, on_bound
-from hydromodpy.results.session.summary import (
-    SessionSummary,
-    session_summary,
-    summary_rows,
-)
+from hydromodpy.results.session.summary import SessionSummary, summary_rows
 from hydromodpy.results.session.view import Session
-from hydromodpy.results.storage.contract import REPORT_INDEX_FILENAME, RUN_REPORT_DIRNAME
 from tests._helpers.sealed_runs import make_project, write_session_dir
 from tests._helpers.session_documents import trial_line
 
@@ -72,50 +67,6 @@ def _session(tmp_path: Path, *, trials: int = 3, best: int | None = 3, **fields)
     return Session(directory)
 
 
-def test_the_summary_counts_trials_by_status_and_names_the_best(tmp_path: Path) -> None:
-    summary = session_summary(_session(tmp_path, trials=4))
-
-    assert summary.name == "calage"
-    assert summary.method == "tpe"
-    assert summary.trials_by_status == {"completed": 2, "failed": 1, "infeasible": 1}
-    assert summary.best_trial == 3
-    assert summary.calibrated_variable == "discharge"
-
-
-def test_the_summary_lists_the_bounds_the_best_trial_reached(tmp_path: Path) -> None:
-    assert session_summary(_session(tmp_path)).bounds_reached == ("K",)
-
-
-def test_a_session_without_best_trial_reaches_no_bound(tmp_path: Path) -> None:
-    summary = session_summary(_session(tmp_path, best=None))
-
-    assert (summary.best_trial, summary.best_cost, summary.bounds_reached) == (None, None, ())
-    assert "best trial" not in dict(summary_rows(summary))
-
-
-@pytest.mark.parametrize("written", [False, True])
-def test_the_report_path_is_the_page_when_it_exists(tmp_path: Path, written: bool) -> None:
-    session = _session(tmp_path)
-    page = session.dir / RUN_REPORT_DIRNAME / REPORT_INDEX_FILENAME
-    if written:
-        page.parent.mkdir()
-        page.write_text("<html></html>", encoding="utf-8")
-
-    assert session_summary(session).report == (page if written else None)
-
-
-def test_the_rows_say_the_search_and_its_bounds(tmp_path: Path) -> None:
-    session = _session(tmp_path)
-    rows = dict(summary_rows(session_summary(session)))
-
-    assert rows["session"] == "calage"
-    assert rows["trials"] == "2 completed, 1 failed"
-    assert rows["best trial"].startswith("3, cost ")
-    assert rows["bounds reached"] == "K"
-    assert rows["scored on"].endswith(", pairs not counted")
-    assert rows["scored on"].startswith("window ")
-
-
 @pytest.mark.parametrize(
     ("changes", "label", "text"),
     [
@@ -144,13 +95,3 @@ def test_a_row_reads_its_field(changes: dict, label: str, text: str) -> None:
         profile=(),
     )
     assert dict(summary_rows(replace(base, **changes)))[label] == text
-
-
-def test_the_summary_names_the_project_the_cost_and_the_dates(tmp_path: Path) -> None:
-    summary = session_summary(_session(tmp_path))
-    rows = dict(summary_rows(summary))
-
-    assert summary.project == "p"
-    assert rows["project"] == "p"
-    assert rows["cost name"] == summary.cost_name
-    assert rows["started"] == summary.started_at

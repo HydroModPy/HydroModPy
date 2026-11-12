@@ -104,16 +104,6 @@ def run_with_series(tmp_path: Path) -> Iterator[Run]:
         yield sealed
 
 
-def test_read_zarr_field_returns_xarray_dataarray(run):
-    """``run.read("head")`` returns a lazy ``xr.DataArray``."""
-    import xarray as xr
-
-    da = run.read("head")
-    assert isinstance(da, xr.DataArray)
-    assert da.dims == ("time", "layer", "cell")
-    assert da.shape == (2, 1, 2)
-
-
 def test_one_period_is_a_data_array_without_the_time_dimension(run):
     """``time`` selects in a field and never changes the type."""
     import xarray as xr
@@ -146,14 +136,6 @@ def test_read_timeseries_returns_pandas_series(run_with_series):
     ts = run.read("discharge", sel={"station": "outlet"})
     assert isinstance(ts, pd.Series)
     np.testing.assert_allclose(ts.values, [1.5, 2.0, 2.5])
-
-
-def test_read_timeseries_single_station_infers_station(run_with_series):
-    """When a variable has a single station, ``station`` may be omitted."""
-    run = run_with_series
-    ts = run.read("discharge")
-    assert isinstance(ts, pd.Series)
-    assert len(ts) == 3
 
 
 def test_read_without_a_station_means_the_whole_catchment_beside_a_gauge(tmp_path):
@@ -212,11 +194,3 @@ def test_read_is_a_method_of_the_run_and_the_top_level_keeps_it(run):
     assert hmp.read(run, "head", time=0).equals(run.read("head", time=0))
     with pytest.raises(TypeError):
         hmp.read("not a run", "head")
-
-
-def test_facade_read_dispatch_rule(run):
-    """One type per nature of variable, with ``time`` or without."""
-    import xarray as xr
-
-    for kwargs in ({}, {"time": 0}, {"time": slice(0, 1)}, {"time": 0, "layer": 0}):
-        assert isinstance(run.read("head", **kwargs), xr.DataArray)

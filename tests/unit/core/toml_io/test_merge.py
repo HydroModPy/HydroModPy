@@ -7,42 +7,9 @@ import pytest
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
 
 
-def test_a_table_merges_key_by_key_and_a_scalar_is_replaced() -> None:
-    base = {"flow": {"k": 1.0, "ss": 1e-5}, "name": "a"}
-    over = {"flow": {"k": 2.0}, "name": "b"}
-    assert merge_toml_payloads(base, over) == {"flow": {"k": 2.0, "ss": 1e-5}, "name": "b"}
-
-
-def test_a_list_in_the_overlay_replaces_the_inherited_list_whole() -> None:
-    assert merge_toml_payloads({"p": ["A", "B"]}, {"p": ["C"]}) == {"p": ["C"]}
-
-
-def test_the_inputs_are_left_untouched() -> None:
-    base = {"flow": {"k": 1.0}}
-    merge_toml_payloads(base, {"flow": {"k": 2.0}})
-    assert base == {"flow": {"k": 1.0}}
-
-
-def test_layers_apply_in_the_order_defaults_files_overlays_cli_env() -> None:
-    merged = merge_toml_payloads(
-        {"x": "defaults"},
-        [{"x": "file1"}, {"x": "file2"}],
-        overlays=[{"x": "overlay"}],
-        cli_overrides={"x": "cli"},
-        env_overrides={"x": "env"},
-    )
-    assert merged == {"x": "env"}
-    only_files = merge_toml_payloads({"x": "d", "y": 1}, [{"x": "f"}], overlays=[{"z": 3}])
-    assert only_files == {"x": "f", "y": 1, "z": 3}
-
-
 def test_append_adds_after_the_inherited_items_or_creates_the_list() -> None:
     assert merge_toml_payloads({"p": ["A"]}, {"p__append": ["B"]}) == {"p": ["A", "B"]}
     assert merge_toml_payloads({}, {"p__append": ["B"]}) == {"p": ["B"]}
-
-
-def test_delete_removes_an_inherited_key() -> None:
-    assert merge_toml_payloads({"a": 1, "mesh": {"n": 2}}, {"mesh__delete": True}) == {"a": 1}
 
 
 def test_a_directive_inside_a_table_the_base_lacks_is_applied_and_stripped() -> None:

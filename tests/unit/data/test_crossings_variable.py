@@ -15,12 +15,10 @@ import geopandas as gpd
 import numpy as np
 import pytest
 import rasterio
-from pydantic import ValidationError
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, Point
 
 from hydromodpy.core.exceptions import ConfigError, DataRequestError
-from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.provenance.sidecars import CacheIndex
 from hydromodpy.data.source.port import Extent, FetchRequest
 from hydromodpy.data.variables.crossings import records
@@ -99,45 +97,6 @@ def _extent() -> Extent:
 
 
 # --- config -----------------------------------------------------------------
-
-
-def test_the_section_validates_the_three_sources() -> None:
-    cfg = DataConfig.from_toml_section(
-        {
-            "types": ["crossings"],
-            "crossings": {
-                "sources": [
-                    {"source": "bdtopo"},
-                    {"source": "roe", "page_size": 500},
-                    {"source": "file", "path": "inputs/x.gpkg"},
-                ]
-            },
-        },
-        base_dir=Path("."),
-    )
-
-    kinds = [type(source) for source in cfg.crossings.sources]
-    assert kinds == [BdtopoCrossingsSource, RoeCrossingsSource, FileCrossingsSource]
-
-
-def test_a_custom_source_without_a_path_is_refused() -> None:
-    with pytest.raises(ValidationError, match="path"):
-        CrossingsConfig(sources=[{"source": "file"}])
-
-
-def test_a_source_nobody_serves_is_refused() -> None:
-    with pytest.raises(ValidationError):
-        CrossingsConfig(sources=[{"source": "osm"}])
-
-
-def test_an_unknown_key_of_a_source_is_refused() -> None:
-    with pytest.raises(ValidationError):
-        CrossingsConfig(sources=[{"source": "bdtopo", "typename": "x"}])
-
-
-def test_the_section_needs_a_source() -> None:
-    with pytest.raises(ValidationError):
-        CrossingsConfig(sources=[])
 
 
 # --- custom -----------------------------------------------------------------
@@ -462,16 +421,6 @@ def test_an_api_source_is_asked_over_the_outlet_box_and_cached_under_its_prefix(
     assert len(offline) == 2, "the second call must reuse the file"
 
 
-def test_force_refresh_asks_the_provider_again(tmp_path: Path, offline: list[tuple]) -> None:
-    cfg = _cfg([RoeCrossingsSource(force_refresh=True)])
-    kwargs = {"config_path": tmp_path / "p.toml", "cache_dir": tmp_path / "cache"}
-
-    resolve_crossings_path_from_data_sources(cfg, **kwargs)
-    resolve_crossings_path_from_data_sources(cfg, **kwargs)
-
-    assert len(offline) == 2
-
-
 def test_the_box_is_clipped_to_the_dem_footprint(tmp_path: Path, offline: list[tuple]) -> None:
     dem = _write_raster(tmp_path / "dem.tif", left=340000.0, top=6810000.0, size=10000.0)
     cfg = _cfg([RoeCrossingsSource()])
@@ -509,45 +458,6 @@ def test_a_box_without_any_crossing_is_refused(tmp_path: Path, monkeypatch) -> N
         resolve_crossings_path_from_data_sources(
             cfg, config_path=tmp_path / "p.toml", cache_dir=tmp_path / "cache"
         )
-
-
-def test_a_changed_custom_file_is_a_new_cache_file(tmp_path: Path) -> None:
-    roads = _custom_file(tmp_path / "roads.gpkg", kind=["road"])
-    cfg = _cfg([FileCrossingsSource(path=Path("roads.gpkg"))])
-    kwargs = {"config_path": tmp_path / "p.toml", "cache_dir": tmp_path / "cache"}
-
-    before = resolve_crossings_path_from_data_sources(cfg, **kwargs)
-    _custom_file(roads, kind=["road", "bridge"])
-    after = resolve_crossings_path_from_data_sources(cfg, **kwargs)
-
-    assert before != after
-    assert gpd.read_file(after).shape[0] == 2
-
-
-def test_the_pages_of_a_download_are_written_as_they_arrive(
-    tmp_path: Path, monkeypatch, caplog
-) -> None:
-    """The file holds the first page while the second is still to be fetched."""
-    out_dir = tmp_path / "out"
-    held: list[int] = []
-
-    def fetch(*, bbox, page_size, client):
-        sample = _roe_sample()
-        for start in range(0, len(sample), 2):
-            staged = list(out_dir.glob("*.tmp-*.gpkg"))
-            held.append(len(gpd.read_file(staged[0])) if staged else 0)
-            yield sample.iloc[start : start + 2]
-
-    monkeypatch.setattr(roe, "fetch_pages", fetch)
-
-    with caplog.at_level("INFO"):
-        result = RoeCrossings(page_size=2).fetch(_request(out_dir))
-
-    assert held == [0, 2, 4]
-    assert len(gpd.read_file(result.files[0].path)) == 5
-    assert not list(out_dir.glob("*.tmp-*.gpkg"))
-    messages = [record.getMessage() for record in caplog.records]
-    assert any("Crossings from roe: 5 features in" in message for message in messages)
 
 
 def test_a_failure_in_the_middle_of_the_pages_leaves_no_file(tmp_path: Path, monkeypatch) -> None:

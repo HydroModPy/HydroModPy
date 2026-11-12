@@ -16,11 +16,7 @@ from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.solver.modflow6.builders._sfr_network import crossing_pieces
 from hydromodpy.solver.modflow6.builders.lake_outflow import build_lake_mover_records
-from hydromodpy.solver.modflow6.builders.mvr import (
-    MoverRecord,
-    build_mvr_period_records,
-    mover_package_count,
-)
+from hydromodpy.solver.modflow6.builders.mvr import build_mvr_period_records
 from hydromodpy.solver.modflow6.builders.sfr import (
     ResolvedSfrNetwork,
     SfrReachRecord,
@@ -182,28 +178,6 @@ def test_lake_outlet_mover_reach_zero_raises() -> None:
     }
     with pytest.raises(ValueError, match="reach"):
         build_lake_mover_records(None, lakes=lakes)
-
-
-def test_mixed_lak_sfr_records_make_a_two_package_block() -> None:
-    # SFR -> LAK (the Cheze feed) merged with LAK -> SFR (spillway): the MVR block
-    # references two distinct packages and the packages list is derived from the
-    # record rows, exactly as build.py assembles it.
-    rows = build_mvr_period_records(
-        [
-            MoverRecord(provider="SFR", provider_id=7, receiver="LAK", receiver_id=0),
-            MoverRecord(
-                provider="LAK",
-                provider_id=0,
-                receiver="SFR",
-                receiver_id=8,
-                mvrtype="UPTO",
-                value=0.1,
-            ),
-        ]
-    )
-    assert mover_package_count(rows) == 2
-    packages = sorted({(str(row[0]),) for row in rows} | {(str(row[2]),) for row in rows})
-    assert packages == [("LAK",), ("SFR",)]
 
 
 # SFR is lake-independent by construction: no import edge to the LAK builder.

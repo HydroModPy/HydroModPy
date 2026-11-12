@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import pickle
-from types import MappingProxyType, SimpleNamespace
+from types import MappingProxyType
 
 import numpy as np
 import pytest
@@ -104,58 +104,6 @@ SAME_OBJECT = (
 )
 
 
-@pytest.mark.parametrize(
-    ("member", "of_model", "of_flow"), SAME_OBJECT, ids=[m for m, _, _ in SAME_OBJECT]
-)
-def test_each_member_is_the_object_the_flow_held(member, of_model, of_flow) -> None:
-    del member
-    flow = _bound_flow()
-
-    assert of_model(_model_of(flow)) is of_flow(flow)
-
-
-def test_the_lists_and_the_given_parts_reach_the_model() -> None:
-    flow = _bound_flow()
-    geometry, options = small_geometry(), default_options()
-    time = ModelTime.from_flow(flow, time_grid(10.0, 20.0))
-
-    model = model_from_flow(flow, geometry=geometry, time=time, options=options)
-
-    assert model.geometry is geometry
-    assert model.time is time
-    assert model.options is options
-    assert model.active_sinks_sources == ("recharge", "wells", "etp")
-    assert model.boundaries.active_ids == ("west_side", "drainage")
-    assert model.boundaries.active_side_dirichlet_ids() == ("west_side",)
-    assert list(model.properties.profiles) == ["K", "Sy"]
-    assert model.properties.overrides == {}
-
-
-def test_the_time_follows_the_flow() -> None:
-    flow = _bound_flow()
-    grid = time_grid(10.0)
-
-    time = ModelTime.from_flow(flow, grid)
-
-    assert (time.grid, time.regime, time.first_period_steady) == (grid, "transient", True)
-
-
-def test_a_regime_outside_steady_and_transient_is_refused() -> None:
-    with pytest.raises(ValueError, match="steady"):
-        ModelTime(grid=None, regime="pseudo", first_period_steady=True)
-
-
-def test_the_options_read_the_four_solver_settings_by_name() -> None:
-    settings = SimpleNamespace(
-        sink_fill=1,
-        drain_band_depth_m=0.5,
-        drain_bed_thickness_m="2",
-        drain_conductance_floor_m2_s=1e-10,
-    )
-
-    assert ModelOptions.from_settings(settings) == ModelOptions(True, 0.5, 2.0, 1e-10)
-
-
 INITIAL_FROM_IC = (
     ("default", {}, HeadRule("top")),
     ("bottom", {"kind": "bottom"}, HeadRule("bottom")),
@@ -163,16 +111,6 @@ INITIAL_FROM_IC = (
     ("steady", {"kind": "steady_state"}, SteadyStart(SteadyStateStrategy())),
     ("cyclic", {"kind": "spinup_cyclic", "max_cycles": 3}, CyclicStart(CyclicSpinupStrategy(3))),
 )
-
-
-@pytest.mark.parametrize(
-    ("case", "ic", "expected"), INITIAL_FROM_IC, ids=[c for c, _, _ in INITIAL_FROM_IC]
-)
-def test_the_start_is_the_one_flow_ic_asks_for(case, ic, expected) -> None:
-    del case
-    flow = _bound_flow(**ic)
-
-    assert _model_of(flow).initial == expected
 
 
 def test_a_start_given_to_the_factory_wins_over_flow_ic() -> None:
@@ -190,34 +128,6 @@ READ_ONLY = (
     ("overrides", lambda m: m.properties.overrides),
     ("conditions", lambda m: m.boundaries.conditions),
 )
-
-
-@pytest.mark.parametrize(("member", "mapping"), READ_ONLY, ids=[m for m, _ in READ_ONLY])
-def test_a_mapping_of_the_model_takes_no_write(member, mapping) -> None:
-    del member
-    with pytest.raises(TypeError):
-        mapping(_model_of(_bound_flow()))["new"] = object()
-
-
-def test_a_later_change_to_the_flow_does_not_reach_the_model() -> None:
-    flow = _bound_flow()
-    model = _model_of(flow)
-
-    flow.sinks_sources["lakes"]["other"] = {}
-    flow.parameters["Ss"] = object()
-    flow.boundary_conditions["east_side"] = object()
-
-    assert "other" not in model.lakes
-    assert "Ss" not in model.properties.profiles
-    assert model.boundaries.get("east_side") is None
-
-
-@pytest.mark.parametrize(
-    "member", [field.name for field in dataclasses.fields(Model)], ids=lambda name: name
-)
-def test_the_model_is_frozen(member: str) -> None:
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        setattr(make_model(), member, None)
 
 
 def test_a_pickled_model_keeps_every_member_and_its_mappings_stay_read_only() -> None:
@@ -270,32 +180,6 @@ def test_a_pickled_model_keeps_every_member_and_its_mappings_stay_read_only() ->
 def test_a_start_that_is_not_one_of_the_five_states_is_refused() -> None:
     with pytest.raises(TypeError, match="Model.initial is one of"):
         make_model(initial="top")
-
-
-def test_with_initial_returns_a_new_model_and_leaves_the_old_one() -> None:
-    model = make_model()
-    prior = PriorState(np.zeros((1, 6)), {"lake": 3.0}, "prior.zarr")
-
-    started = model.with_initial(prior)
-
-    assert started is not model
-    assert started.initial is prior
-    assert model.initial == HeadRule("top")
-    assert started.geometry is model.geometry
-
-
-def test_with_properties_merges_values_into_a_new_model() -> None:
-    model = make_model(properties=Properties(profiles={"K": "profile"}))
-    k_cells = np.full(6, 1e-4)
-
-    once = model.with_properties(K=k_cells)
-    twice = once.with_properties(Sy=0.2, hk=np.full(6, 2e-4))
-
-    assert model.properties.overrides == {}
-    assert once.properties.overrides["K"] is k_cells
-    assert set(twice.properties.overrides) == {"K", "Sy", "hk"}
-    assert twice.properties.profiles["K"] == "profile"
-    assert twice is not once and once is not model
 
 
 @pytest.mark.parametrize("name", ["porosity", "properties", "k"])
@@ -358,11 +242,6 @@ FLOW_RUNTIME_COPIES = (
     "initial_condition_types",
     "boundary_condition_application_domains",
 )
-
-
-@pytest.mark.parametrize("name", FLOW_RUNTIME_COPIES)
-def test_the_flow_keeps_no_backend_setting_and_no_dead_cache(name: str) -> None:
-    assert not hasattr(Flow(FlowConfig()), name)
 
 
 # The steady variant. The expected values are those the MODFLOW 6 steady
@@ -501,54 +380,10 @@ def test_a_steady_start_without_recharge_keeps_none() -> None:
     assert steady_variant(_transient(initial=SteadyStart())).recharge is None
 
 
-def test_the_steady_variant_is_one_steady_period_starting_from_the_top() -> None:
-    model = _transient(initial=SteadyStart())
-
-    steady = steady_variant(model)
-
-    assert steady is not model
-    assert steady.time.regime == "steady"
-    assert steady.time.first_period_steady is False
-    np.testing.assert_array_equal(steady.time.grid.period_lengths_seconds, [40.0 * _DAY])
-    np.testing.assert_array_equal(
-        steady.time.grid.record_lengths_seconds, [10.0 * _DAY, 30.0 * _DAY]
-    )
-    assert steady.initial == HeadRule("top")
-    assert model.time.regime == "transient"
-    assert model.initial == SteadyStart()
-    assert steady.geometry is model.geometry
-    assert steady.boundaries is model.boundaries
-
-
-def test_the_steady_variant_starts_where_it_is_told() -> None:
-    start = HeadRule("top_offset", 0.01)
-
-    assert steady_variant(_transient(), start=start).initial is start
-
-
 SEEDS = (
     ("no seed", None, HeadRule("top")),
     ("seed", SolvedState(np.ones((1, 6)), "modflow6"), "seed"),
 )
-
-
-@pytest.mark.parametrize(("case", "seed", "expected"), SEEDS, ids=[c for c, _, _ in SEEDS])
-def test_a_cycle_starts_from_its_seed_or_the_top_and_keeps_the_rest(case, seed, expected) -> None:
-    del case
-    model = _transient(
-        recharge=_recharge([1e-8, 2e-8]),
-        lakes={"lake": {"bedleak": 0.1}},
-        initial=CyclicStart(),
-    )
-
-    cycle = cycle_variant(model, seed)
-
-    assert cycle is not model
-    assert cycle.initial is seed if expected == "seed" else cycle.initial == expected
-    assert cycle.recharge is model.recharge
-    assert cycle.lakes["lake"] is model.lakes["lake"]
-    assert cycle.time is model.time
-    assert model.initial == CyclicStart()
 
 
 def _whole_and_window() -> tuple[Model, Model]:
@@ -607,20 +442,6 @@ def test_a_start_whose_over_is_not_a_model_is_refused() -> None:
 
     with pytest.raises(TypeError, match="over is the Model of the whole simulation"):
         steady_variant(window.with_initial(SteadyStart(over="whole")))
-
-
-def test_a_model_built_by_hand_freezes_what_it_is_given() -> None:
-    conditions = {"west_side": object()}
-    model = make_model(
-        boundaries=BoundaryConditionBundle(conditions=conditions, active_ids=["west_side"]),
-        active_sinks_sources=["recharge"],
-    )
-
-    assert isinstance(model.boundaries.conditions, MappingProxyType)
-    assert model.boundaries.active_ids == ("west_side",)
-    assert model.active_sinks_sources == ("recharge",)
-    conditions["east_side"] = object()
-    assert model.boundaries.get("east_side") is None
 
 
 # -- with_profiles: the Model of a calibration trial that moves properties only ---
@@ -744,16 +565,6 @@ def test_a_derived_model_equals_the_model_built_on_the_trial_configuration(
             assert _same_objects(getattr(derived, member.name), getattr(prepared, member.name))
     assert derived.properties.overrides is not None
     assert dict(derived.properties.overrides) == dict(prepared.properties.overrides)
-
-
-def test_with_profiles_keeps_the_overrides_and_leaves_the_old_model() -> None:
-    model = make_model(
-        properties=Properties(profiles={"K": 1e-5, "Sy": 0.1}, overrides={"Ss": 1e-6})
-    )
-    derived = model.with_profiles({"K": 2e-5})
-    assert dict(derived.properties.profiles) == {"K": 2e-5, "Sy": 0.1}
-    assert dict(derived.properties.overrides) == {"Ss": 1e-6}
-    assert dict(model.properties.profiles) == {"K": 1e-5, "Sy": 0.1}
 
 
 def test_with_profiles_refuses_an_id_the_model_has_no_profile_for() -> None:

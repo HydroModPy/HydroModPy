@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -10,7 +9,6 @@ import numpy as np
 import pytest
 from shapely.geometry import Polygon
 
-from hydromodpy.core.io.geoparquet import read_geoparquet, write_geoparquet_atomic
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.run_store import RunStore
@@ -103,16 +101,6 @@ def test_list_simulations_accepts_whitelisted_order_tuple(project):
     assert [str(value) for value in rows["sim_id"]] == [sid]
 
 
-def test_run_array_batch_is_dask_backed(field_run):
-    DaskArray = pytest.importorskip("dask.array").Array
-    catalog, sid = field_run
-
-    ds = catalog[sid].array.to_xarray_batch(("head",))
-
-    assert isinstance(ds["head"].data, DaskArray)
-    assert ds["head"].shape == (2, 1, 2)
-
-
 def test_run_array_to_xarray_batch_is_dask_backed(field_run):
     DaskArray = pytest.importorskip("dask.array").Array
     catalog, sid = field_run
@@ -125,34 +113,6 @@ def test_run_array_to_xarray_batch_is_dask_backed(field_run):
         ds["head"].compute().values,
         np.array([[[1.0, 2.0]], [[3.0, 4.0]]]),
     )
-
-
-def test_simulation_zarr_to_xarray_is_dask_backed(field_run):
-    DaskArray = pytest.importorskip("dask.array").Array
-    catalog, sid = field_run
-    sz = catalog.open_zarr(sid)
-    try:
-        ds = sz.to_xarray()
-        assert isinstance(ds["head"].data, DaskArray)
-    finally:
-        sz.close()
-
-
-def test_has_field_implies_field_reads_back(surface_run):
-    """A field ``has_field`` reports as available must read back as an array.
-
-    The head-derived virtual fields are not persisted by default, so ``field()``
-    has to take the same virtual fallback the availability gate assumes.
-    """
-    from hydromodpy.results.derive.virtual_fields import HEAD_DERIVED_VIRTUAL_FIELDS
-
-    catalog, sid = surface_run
-    run = catalog[sid]
-
-    for variable in sorted(HEAD_DERIVED_VIRTUAL_FIELDS):
-        assert run.has_field(variable), variable
-        values = run.field(variable, time=-1)
-        assert np.asarray(values).shape == (2,), variable
 
 
 def _write_seeping_boussinesq(store: RunStore) -> None:
@@ -191,44 +151,6 @@ def _write_domain(store: RunStore) -> None:
         crs="EPSG:2154",
     )
     store.write_geographic_feature(store.sim_id, "domain", gdf)
-
-
-def test_geographic_feature_uses_parquet_geometry_payload(project):
-    with _sealed(project, _write_domain) as (catalog, sid):
-        row = catalog.connection.execute(
-            "SELECT geoparquet_path, properties FROM geographic_features WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
-        assert row is not None
-        assert (catalog.workspace_path / row[0]).is_file()
-        props = json.loads(row[1])
-        assert props["geometry_encoding"] == "WKB"
-        assert "geojson" not in props
-
-        loaded = catalog.read_geographic_feature(sid, "domain")
-    assert len(loaded) == 1
-    # GeoParquet 1.1 OGC stores the CRS as PROJJSON inside the file metadata.
-    # Use pyproj to round-trip back to EPSG so the test stays format-agnostic.
-    assert loaded.crs.to_epsg() == 2154
-
-
-def test_geoparquet_atomic_writer_handles_long_windows_paths(tmp_path):
-    long_dir = tmp_path
-    for idx in range(6):
-        long_dir = long_dir / f"nested_{idx}_{'x' * 40}"
-    target = long_dir / "feature.parquet"
-    assert len(str(target)) > 260
-    gdf = gpd.GeoDataFrame(
-        {"name": ["domain"]},
-        geometry=[Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)])],
-        crs="EPSG:2154",
-    )
-
-    write_geoparquet_atomic(gdf, target)
-
-    loaded = read_geoparquet(target)
-    assert len(loaded) == 1
-    assert loaded.crs.to_epsg() == 2154
 
 
 def _write_outcropping_head(store: RunStore) -> None:

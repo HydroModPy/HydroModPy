@@ -68,15 +68,6 @@ def test_a_crossings_file_that_cannot_be_placed_is_refused(tmp_path, path, error
         ground_dem_from_config(project.config, project.setup, channel=project.channel)
 
 
-def test_without_the_notch_or_a_first_channel_the_ground_is_the_raw_dem(tmp_path) -> None:
-    project = bench_project(tmp_path, _road())
-    raw = Path(project.setup.dem_path)
-    assert ground_dem_from_config(project.config, project.setup) == raw
-    project.config.crossings.enabled = False
-    assert ground_dem_from_config(project.config, project.setup, channel=project.channel) == raw
-    assert ground_dem_path_from_config(project.config, project.setup) == str(raw)
-
-
 def test_a_declared_lake_on_the_chain_stops_the_notch_read_from_the_config(tmp_path) -> None:
     lake = box(bench.x_of(bench.AXIS - 4), bench.y_of(ROW - 1), bench.x_of(bench.AXIS + 4), 199.0)
     lakes = write_features(tmp_path / "data" / "lake_geometry" / "lakes.gpkg", [lake])

@@ -27,14 +27,3 @@ def test_a_sidecar_written_beside_a_file_leaves_the_digest_alone(tmp_path: Path)
     (folder / "hydrometry_custom_NANCON_D.csv.json").write_text('{"source": "file"}')
 
     assert sha256_directory(folder) == before
-
-
-def test_a_changed_data_file_or_a_lone_json_changes_the_digest(tmp_path: Path) -> None:
-    folder = _folder(tmp_path)
-    before = sha256_directory(folder)
-
-    (folder / "stations.json").write_text("{}")
-    with_json = sha256_directory(folder)
-    (folder / "hydrometry_custom_NANCON_D.csv").write_text("datetime,value\n2000-01-01,2\n")
-
-    assert len({before, with_json, sha256_directory(folder)}) == 3

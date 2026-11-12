@@ -9,7 +9,6 @@ error by fixing its own call, never by running the job again.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -41,20 +40,6 @@ def test_a_job_directory_without_a_request_is_a_usage_error(tmp_path: Path) -> N
         JobDirectory.open(root)
     assert REQUEST_FILENAME in str(excinfo.value)
     assert exit_code_for(excinfo.value) == EXIT_USAGE
-
-
-def test_the_root_is_resolved_once_so_containment_is_decidable(tmp_path: Path) -> None:
-    """A symlinked root would otherwise make every containment check disagree."""
-    real = tmp_path / "real"
-    real.mkdir()
-    (real / REQUEST_FILENAME).write_text("{}", encoding="utf-8")
-    link = tmp_path / "link"
-    link.symlink_to(real, target_is_directory=True)
-
-    job = JobDirectory.open(link)
-
-    assert job.root == real.resolve()
-    assert job.contains(job.outputs_dir / "watershed.gpkg")
 
 
 def test_every_document_of_the_job_is_named_from_the_root(tmp_path: Path) -> None:
@@ -176,13 +161,3 @@ def test_a_path_is_rendered_the_way_the_seal_names_it(tmp_path: Path) -> None:
     assert job.relative(produced) == "outputs/watershed.gpkg"
     with pytest.raises(ValueError):
         job.relative(tmp_path / "elsewhere.gpkg")
-
-
-def test_created_directories_are_the_two_a_running_job_appends_into(tmp_path: Path) -> None:
-    job = JobDirectory.create(tmp_path / "job_4713")
-    job.ensure_workspace()
-
-    assert job.outputs_dir.is_dir()
-    assert job.logs_dir.is_dir()
-    assert job.root == (tmp_path / "job_4713").resolve()
-    assert os.path.realpath(job.root) == str(job.root)

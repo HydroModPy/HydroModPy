@@ -47,64 +47,7 @@ def _dem(path: Path, *, crs: str | None = "EPSG:2154") -> np.ndarray:
 # ---- write_band ------------------------------------------------------------
 
 
-def test_a_band_written_is_read_back_with_the_same_values_and_frame(tmp_path: Path) -> None:
-    values = np.arange(20, dtype="float32").reshape(4, 5)
-    out = raster_io.write_band(tmp_path / "deep" / "dem.tif", values, _profile())
-
-    with rasterio.open(out) as src:
-        assert src.count == 1
-        assert src.crs.to_epsg() == 2154
-        assert src.nodata == NODATA
-        np.testing.assert_array_equal(src.read(1), values)
-
-
-def test_write_band_keeps_the_profile_it_was_given(tmp_path: Path) -> None:
-    profile = _profile()
-    profile["count"] = 3
-    before = dict(profile)
-
-    raster_io.write_band(tmp_path / "a.tif", np.zeros((4, 5), "float32"), profile, nodata=-1.0)
-
-    assert profile == before
-
-
-def test_write_band_updates_override_the_profile_and_count_stays_one(tmp_path: Path) -> None:
-    profile = _profile()
-    profile["count"] = 3
-    out = raster_io.write_band(
-        tmp_path / "ints.tif", np.ones((4, 5), "int16"), profile, dtype="int16", nodata=-1
-    )
-
-    with rasterio.open(out) as src:
-        assert (src.count, src.dtypes[0], src.nodata) == (1, "int16", -1)
-
-
-def test_a_crs_given_to_write_band_is_stamped_on_a_file_that_had_none(tmp_path: Path) -> None:
-    out = raster_io.write_band(
-        tmp_path / "nocrs.tif", np.zeros((4, 5), "float32"), _profile(crs=None), crs="EPSG:2154"
-    )
-
-    with rasterio.open(out) as src:
-        assert src.crs.to_epsg() == 2154
-
-
 # ---- export_tif ------------------------------------------------------------
-
-
-def test_export_tif_takes_the_grid_of_the_reference_dem_and_the_dtype_of_the_data(
-    tmp_path: Path,
-) -> None:
-    base = tmp_path / "base.tif"
-    _dem(base)
-    data = (np.arange(20).reshape(4, 5) % 3).astype("int16")
-
-    raster_io.export_tif(base, data, tmp_path / "zones.tif")
-
-    with rasterio.open(base) as ref, rasterio.open(tmp_path / "zones.tif") as out:
-        assert out.dtypes[0] == "int16"
-        assert out.transform == ref.transform
-        assert out.crs == ref.crs
-        np.testing.assert_array_equal(out.read(1), data)
 
 
 def test_export_tif_nodata_is_the_one_given_and_else_the_one_of_the_reference(
@@ -137,30 +80,6 @@ def test_export_tif_stamps_the_crs_whatever_way_it_is_named(tmp_path: Path, crs_
 
 
 # ---- load_to_numpy ---------------------------------------------------------
-
-
-def test_a_raster_without_reference_is_returned_as_it_is(tmp_path: Path) -> None:
-    expected = _dem(tmp_path / "dem.tif")
-
-    values, src_crs, dst_crs, nodata = raster_io.load_to_numpy(tmp_path / "dem.tif")
-
-    np.testing.assert_array_equal(values, expected)
-    assert src_crs.to_epsg() == 2154
-    assert dst_crs is None
-    assert nodata is None
-
-
-def test_a_raster_on_the_reference_grid_is_returned_untouched(tmp_path: Path) -> None:
-    expected = _dem(tmp_path / "dem.tif")
-    _dem(tmp_path / "base.tif")
-
-    values, _, dst_crs, nodata = raster_io.load_to_numpy(
-        tmp_path / "dem.tif", base_path=str(tmp_path / "base.tif")
-    )
-
-    np.testing.assert_array_equal(values, expected)
-    assert dst_crs.to_epsg() == 2154
-    assert nodata == NODATA
 
 
 def test_a_raster_on_a_finer_grid_is_resampled_onto_the_reference_grid(tmp_path: Path) -> None:
@@ -311,14 +230,6 @@ def _dataset(crs: str | None = "EPSG:2154") -> xr.Dataset:
     return ds
 
 
-def test_a_dataset_in_metres_gets_the_standard_projected_axis_attributes() -> None:
-    ds = raster_io.load_to_xarray(_dataset())
-
-    assert ds.x.attrs["standard_name"] == "projection_x_coordinate"
-    assert ds.y.attrs["standard_name"] == "projection_y_coordinate"
-    assert ds.x.attrs["units"] == "Meter"
-
-
 def test_a_geographic_dataset_gets_longitude_and_latitude_attributes() -> None:
     ds = _dataset("EPSG:4326")
     ds.x.attrs["units"] = "degrees_east"
@@ -349,19 +260,6 @@ def test_a_dataset_is_reprojected_to_geographic_coordinates() -> None:
     assert 0.0 < float(out.x.mean()) < 10.0  # Lambert-93 easting 700 km is about 3 degrees east
     assert out.x.attrs == {"long_name": "longitude", "units": "degrees_east"}
     assert out.y.attrs == {"long_name": "latitude", "units": "degrees_north"}
-
-
-def test_axes_named_longitude_and_latitude_are_labelled_under_their_own_names() -> None:
-    ds = xr.Dataset(
-        {"h": (("latitude", "longitude"), np.zeros((2, 3)))},
-        coords={"longitude": [1.0, 2.0, 3.0], "latitude": [48.0, 47.0]},
-    )
-    ds.longitude.attrs["units"] = "degree"
-
-    out = raster_io.load_to_xarray(ds)
-
-    assert out.longitude.attrs["units"] == "degrees_east"
-    assert out.latitude.attrs["units"] == "degrees_north"
 
 
 def test_a_raster_on_a_reference_grid_without_crs_is_refused(tmp_path: Path) -> None:

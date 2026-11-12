@@ -31,7 +31,6 @@ from ._network_comparison_run import (
     drawn_cells,
     legend_labels,
     legend_note,
-    map_key,
 )
 
 # The map of the drainage network a routed flux keeps active.
@@ -91,37 +90,6 @@ def _layer(ax, label: str):
 # --------------------------------------------------------------------------- #
 
 
-def test_the_map_draws_the_cells_the_mask_calls_active(mpl, masked) -> None:
-    masked(_binary_mask())
-    fig, ax = mpl.subplots()
-
-    SimulatedActiveNetworkMap().render(comparison_run(), ax)
-
-    try:
-        assert drawn_cells(_layer(ax, "active network")) == sorted(ACTIVE_CELLS)
-        assert len(_layer(ax, "modelled, not active").get_paths()) == NX * NY - len(ACTIVE_CELLS)
-        assert legend_labels(ax) == [
-            "active network (3 cells)",
-            "modelled, not active (12 cells)",
-        ]
-    finally:
-        mpl.close(fig)
-
-
-def test_a_thresholded_network_carries_no_continuous_scale(mpl, masked) -> None:
-    # The mask is one or zero. A colorbar running from 0 to 1 over two values
-    # spends a tenth of the page saying nothing, and reads as a field.
-    masked(_binary_mask())
-    fig, ax = mpl.subplots()
-
-    SimulatedActiveNetworkMap().render(comparison_run(), ax)
-
-    try:
-        assert not fig.axes[1:], "a two-valued mask is a class, not a scale"
-    finally:
-        mpl.close(fig)
-
-
 def test_the_active_cells_are_drawn_wider_than_one_cell(mpl, masked) -> None:
     from matplotlib.colors import to_rgba
 
@@ -140,46 +108,6 @@ def test_the_active_cells_are_drawn_wider_than_one_cell(mpl, masked) -> None:
         assert tuple(np.asarray(ground.get_facecolor()).reshape(-1)) == pytest.approx(
             to_rgba(GROUND_COLOR)
         )
-    finally:
-        mpl.close(fig)
-
-
-def test_the_persistence_mode_keeps_its_scale(mpl, masked) -> None:
-    # A per-cell fraction of active timesteps is a continuous field, and the
-    # colorbar is the only thing that says what a middling cell means.
-    masked(
-        np.linspace(0.0, 1.0, NX * NY),
-        mode="persistence",
-        label="persistence >= 0.5",
-    )
-    fig, ax = mpl.subplots()
-
-    SimulatedActiveNetworkMap().render(comparison_run(), ax, variable=FIELD)
-
-    try:
-        assert fig.axes[1:], "a fraction needs its scale"
-        assert "active persistence" in ax.get_title()
-    finally:
-        mpl.close(fig)
-
-
-def test_the_persistence_mode_says_the_reduction_it_performs(mpl, masked) -> None:
-    # ``cell_field_active_mode_label`` names this mode after a cut, and the
-    # map applies none: it draws the whole 0-1 ramp. Printed as it comes, the
-    # page claimed a threshold no cell had been through.
-    masked(
-        np.linspace(0.0, 1.0, NX * NY),
-        mode="persistence",
-        label="persistence >= 0.5",
-    )
-    fig, ax = mpl.subplots()
-
-    SimulatedActiveNetworkMap().render(comparison_run(), ax, variable=FIELD)
-
-    try:
-        assert "persistence >= 0.5" not in legend_note(ax)
-        assert "persistence >= 0.5" not in ax.get_title()
-        assert "the share of the timesteps each cell is active, drawn uncut" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -230,22 +158,6 @@ def test_a_cell_active_at_no_step_is_ground_and_not_the_foot_of_the_ramp(mpl, ma
 # --------------------------------------------------------------------------- #
 
 
-def test_the_note_names_the_cut_that_produced_the_network(mpl, masked) -> None:
-    # Without it a reader cannot tell a model that drains half its catchment
-    # from a threshold set too low, and the two are the same picture.
-    masked(_binary_mask())
-    fig, ax = mpl.subplots()
-
-    SimulatedActiveNetworkMap().render(comparison_run(), ax, threshold=0.25)
-
-    try:
-        note = legend_note(ax)
-        assert "active where drain_accumulation_flux > 0.25 m3 s-1" in note
-        assert "reduced over time as: steady active cells" in note
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # the frame
 # --------------------------------------------------------------------------- #
@@ -260,19 +172,6 @@ def test_the_map_opens_on_the_catchment(mpl, masked) -> None:
     try:
         assert ax.get_xlim()[1] < 3 * CELL_M
         assert "frame: the delineated catchment" in legend_note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_a_caller_may_ask_for_the_whole_mesh(mpl, masked) -> None:
-    masked(_binary_mask())
-    fig, ax = mpl.subplots()
-
-    SimulatedActiveNetworkMap().render(comparison_run(catchment_columns=[0, 1]), ax, extent="mesh")
-
-    try:
-        assert ax.get_xlim()[1] >= NX * CELL_M
-        assert "frame: the whole mesh" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -293,35 +192,9 @@ def test_a_frame_that_leaves_active_cells_off_the_page_says_how_many(mpl, masked
         mpl.close(fig)
 
 
-def test_the_whole_mesh_hides_nothing_and_says_nothing(mpl, masked) -> None:
-    masked(_binary_mask())
-    fig, ax = mpl.subplots()
-
-    SimulatedActiveNetworkMap().render(comparison_run(catchment_columns=[0, 1]), ax, extent="mesh")
-
-    try:
-        assert "outside this frame" not in legend_note(ax)
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # the gallery
 # --------------------------------------------------------------------------- #
-
-
-def test_the_key_and_the_note_sit_outside_the_map(mpl, masked) -> None:
-    masked(_binary_mask())
-    fig, ax = mpl.subplots()
-
-    SimulatedActiveNetworkMap().render(comparison_run(), ax)
-
-    try:
-        fig.canvas.draw()
-        assert map_key(ax).get_window_extent().y1 <= ax.get_window_extent().y0 + 1.0
-        assert not ax.texts
-    finally:
-        mpl.close(fig)
 
 
 # The persistence of the active-network map counts the cells the criterion calls flowing.

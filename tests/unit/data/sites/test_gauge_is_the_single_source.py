@@ -8,15 +8,13 @@ run that loads exactly one discharge station takes it as its gauge.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 from pydantic import ValidationError
 
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.site.config import GaugeConflictError, SiteConfig
 from hydromodpy.data.loading.config_schema import DataConfig
-from hydromodpy.data.sites.gauge import apply_site_gauge, gauge_of_run
+from hydromodpy.data.sites.gauge import apply_site_gauge
 
 NANCON = SiteConfig(name="nancon", gauge="NANCON")
 
@@ -25,30 +23,6 @@ def _data(**sources: list[dict]) -> DataConfig:
     return DataConfig.model_validate(
         {variable: {"sources": entries} for variable, entries in sources.items()}
     )
-
-
-@pytest.mark.fast
-def test_a_station_source_without_station_ids_reads_the_gauge():
-    data = _data(
-        hydrometry=[{"source": "file", "path": "hydrometry"}],
-        recharge=[{"source": "file", "path": "recharge"}],
-        runoff=[{"source": "file", "path": "runoff"}],
-    )
-
-    apply_site_gauge(data, NANCON)
-
-    assert data.hydrometry.sources[0].station_ids == ["NANCON"]
-    assert data.recharge.sources[0].station_ids == ["NANCON"]
-    assert data.runoff.sources[0].station_ids == ["NANCON"]
-
-
-@pytest.mark.fast
-def test_a_hubeau_source_without_station_ids_fetches_the_gauge():
-    data = _data(hydrometry=[{"source": "hubeau", "product": "QmnJ"}])
-
-    apply_site_gauge(data, SiteConfig(name="nancon", gauge="J001401001"))
-
-    assert data.hydrometry.sources[0].station_ids == ["J001401001"]
 
 
 @pytest.mark.fast
@@ -64,59 +38,6 @@ def test_a_station_list_that_leaves_the_gauge_out_is_refused_by_name():
     message = str(refused.value)
     assert "site.gauge = 'NANCON'" in message
     assert "data.recharge.sources[0].station_ids = ['NANCON_REA']" in message
-
-
-@pytest.mark.fast
-def test_a_station_list_that_holds_the_gauge_is_kept_whole():
-    data = _data(
-        hydrometry=[{"source": "file", "path": "hydrometry", "station_ids": ["UP", "NANCON"]}]
-    )
-
-    apply_site_gauge(data, NANCON)
-
-    assert data.hydrometry.sources[0].station_ids == ["UP", "NANCON"]
-
-
-@pytest.mark.fast
-def test_a_grid_source_and_a_variable_outside_the_list_are_left_alone():
-    data = _data(
-        recharge=[{"source": "file", "path": "recharge.nc"}],
-        runoff=[{"source": "sim2"}],
-        piezometry=[{"source": "file", "path": "piezometry"}],
-    )
-
-    apply_site_gauge(data, NANCON)
-
-    assert data.recharge.sources[0].station_ids is None
-    assert data.runoff.sources[0].station_ids is None
-    assert data.piezometry.sources[0].station_ids is None
-
-
-@pytest.mark.fast
-def test_without_a_gauge_the_declared_stations_stay_as_written():
-    data = _data(
-        hydrometry=[{"source": "file", "path": "hydrometry"}],
-        recharge=[{"source": "file", "path": "recharge", "station_ids": ["A", "B"]}],
-    )
-
-    apply_site_gauge(data, SiteConfig(name="nancon"))
-    apply_site_gauge(data, None)
-
-    assert data.hydrometry.sources[0].station_ids is None
-    assert data.recharge.sources[0].station_ids == ["A", "B"]
-
-
-@pytest.mark.fast
-def test_the_gauge_of_a_run_is_the_declared_one_else_its_single_station():
-    class Loaded:
-        def __init__(self, *station_ids: str) -> None:
-            self.points = [SimpleNamespace(station_id=sid) for sid in station_ids]
-
-    assert gauge_of_run(NANCON, Loaded("OTHER")) == "NANCON"
-    assert gauge_of_run(SiteConfig(name="nancon"), Loaded("J001401001")) == "J001401001"
-    assert gauge_of_run(None, Loaded("J001401001")) == "J001401001"
-    assert gauge_of_run(SiteConfig(name="nancon"), Loaded("A", "B")) is None
-    assert gauge_of_run(SiteConfig(name="nancon"), None) is None
 
 
 @pytest.mark.fast

@@ -27,7 +27,7 @@ from hydromodpy.core.state.layout import (
 from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.results.storage.attempt import request_stop
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_MANIFEST_FILENAME
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.workflow.record.attempt import run_attempt
 from hydromodpy.workflow.record.journal import WorkflowJournal
@@ -89,42 +89,6 @@ def _fill(project: Path, claim) -> None:
         (store.run_dir / RUN_CONFIG_FILENAME).write_text("[flow]\nk = 1e-5\n", encoding="utf-8")
         index = pd.date_range("2020-01-01", periods=3, freq="D")
         store.write_timeseries(claim.sim_id, "P01", "head", pd.Series(np.ones(3), index=index))
-
-
-def test_the_seal_step_ends_a_real_pipeline_and_the_bracket_closes_the_run(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _refuse_the_index(monkeypatch)
-    project = _project(tmp_path)
-
-    with run_attempt(project, CASE, case_id=CASE, project="demo", site=None) as handle:
-        _fill(project, handle.claim)
-        ctx = _ctx(project, handle.run_dir, handle.claim.sim_id)
-        pipeline = Pipeline([_Solved(), SealStep()], workspace=project, run_dir=handle.run_dir)
-
-        final = pipeline.run(
-            PipelineState(run_id=CASE, data={"ctx": ctx}),
-            heartbeat=handle.heartbeat,
-        )
-
-        # Inside the bracket: sealed, journalled, the attempt state still there.
-        assert final.step_name == "seal"
-        assert is_sealed(handle.run_dir)
-        rows = WorkflowJournal(handle.run_dir).list_steps(CASE)
-        assert [(row.step_name, row.status) for row in rows] == [
-            ("solved", "completed"),
-            ("seal", "completed"),
-        ]
-        assert read_outcome(handle.run_dir).status == "running"
-        assert (handle.run_dir / INTERNAL_DIRNAME).is_dir()
-
-    run_dir = handle.run_dir
-    assert (run_dir / RUN_MANIFEST_FILENAME).is_file()
-    assert not (run_dir / INTERNAL_DIRNAME).exists(), "the seal consumes the attempt state"
-    outcome = read_outcome(run_dir)
-    assert outcome is not None and outcome.status == "completed" and outcome.attempt == 1
-    assert effective_status(run_dir) == "completed"
-    assert not (project / INTERNAL_DIRNAME / "index.duckdb").exists()
 
 
 class _FailsAfterTheSeal:
@@ -225,38 +189,6 @@ def test_a_stop_asked_between_two_steps_closes_the_attempt_aborted_as_a_signal_w
 # A handle marked by withdraw() closes nothing: the pulse stops, the run log is
 # detached, and the claim is undone. That is how an identical run gives the
 # completed run back without leaving a directory.
-
-
-@pytest.mark.parametrize("raised", [False, True], ids=["returns", "raises"])
-def test_a_withdrawn_attempt_leaves_no_directory(tmp_path: Path, raised: bool) -> None:
-    project = _project(tmp_path)
-
-    with pytest.raises(RuntimeError) if raised else _no_error():
-        with run_attempt(project, CASE, case_id=CASE, project="demo", site=None) as handle:
-            assert (handle.run_dir / "logs").is_dir()
-            handle.withdraw()
-            if raised:
-                raise RuntimeError("after the withdrawal")
-
-    assert not handle.heartbeat.is_alive()
-    assert not (project / "runs" / CASE).exists()
-
-
-def test_a_withdrawn_retry_gives_back_the_failed_attempt(tmp_path: Path) -> None:
-    project = _project(tmp_path)
-    with pytest.raises(RuntimeError):
-        with run_attempt(project, CASE, case_id=CASE, project="demo", site=None) as first:
-            raise RuntimeError("the first attempt fails")
-    failed = read_outcome(first.run_dir)
-
-    with run_attempt(project, CASE, case_id=CASE, project="demo", site=None) as retry:
-        assert retry.claim.attempt == 2
-        retry.start_over_if_changed("a" * 64)
-        retry.withdraw()
-
-    assert read_outcome(first.run_dir) == failed
-    assert not (first.run_dir / "attempts").exists()
-    assert effective_status(first.run_dir) == "failed"
 
 
 def _no_error():

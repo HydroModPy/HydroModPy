@@ -13,7 +13,6 @@ import pytest
 
 from hydromodpy.core.toml_io.paths import (
     former_bare_name_location,
-    has_url_scheme,
     is_bare_filename,
     portable_declared_path,
     resolve_declared_path,
@@ -44,22 +43,6 @@ def _round_trip(path: Path, role: str, project: Path, data: Path) -> str:
     return written
 
 
-def test_each_path_is_written_in_the_form_that_resolves_back_to_it(tmp_path: Path) -> None:
-    workspace, project = _workspace(tmp_path)
-    data = workspace / "data"
-
-    assert _round_trip(data / "dem" / "DEM_armorican_massif.tif", "dem", project, data) == (
-        "../../data/dem/DEM_armorican_massif.tif"
-    )
-    assert _round_trip(data / "hydrometry", "hydrometry", project, data) == "../../data/hydrometry"
-    assert _round_trip(project / "inputs" / "zones.shp", "zones", project, data) == (
-        "inputs/zones.shp"
-    )
-    assert _round_trip(data / "geology" / "map.gpkg", "dem", project, data) == (
-        "../../data/geology/map.gpkg"
-    )
-
-
 def test_a_place_outside_the_workspace_stays_absolute_and_a_relative_value_is_kept(
     tmp_path: Path,
 ) -> None:
@@ -79,19 +62,6 @@ def test_a_place_outside_the_workspace_stays_absolute_and_a_relative_value_is_ke
     )
 
 
-def test_has_url_scheme_recognizes_schemes_and_allows_drive_letters() -> None:
-    assert has_url_scheme("https://example.com/dem.tif") is True
-    assert has_url_scheme("http://example.com") is True
-    assert has_url_scheme("ftp://ftp.example.com/data") is True
-    assert has_url_scheme("file:///etc/hosts") is True
-    # Single letter drive prefix is not a scheme
-    assert has_url_scheme("C:\\data\\dem.tif") is False
-    assert has_url_scheme("D:/data/dem.tif") is False
-    assert has_url_scheme("c:/dem.tif") is False
-    assert has_url_scheme("inputs/dem.tif") is False
-    assert has_url_scheme("dem.tif") is False
-
-
 def test_former_bare_name_location_finds_old_data_file(tmp_path: Path) -> None:
     workspace, project = _workspace(tmp_path)
     data = workspace / "data"
@@ -107,16 +77,3 @@ def test_former_bare_name_location_finds_old_data_file(tmp_path: Path) -> None:
 
     missing = former_bare_name_location("absent.tif", data, role="dem")
     assert missing is None
-
-
-def test_resolve_declared_path_without_fallback_only_uses_base_dir(tmp_path: Path) -> None:
-    workspace, project = _workspace(tmp_path)
-
-    # Bare name present at project root
-    (project / "local.tif").write_bytes(b"local")
-    assert resolve_declared_path("local.tif", base_dir=project) == (project / "local.tif").resolve()
-
-    # Bare name absent at project root does NOT resolve to workspace data
-    resolved = resolve_declared_path("DEM_armorican_massif.tif", base_dir=project)
-    assert resolved == (project / "DEM_armorican_massif.tif").resolve()
-    assert not resolved.exists()

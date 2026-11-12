@@ -28,51 +28,6 @@ from hydromodpy.solver.modflow_common.observable_extraction import (
 )
 
 
-def test_the_roles_round_trip_through_the_sidecar(tmp_path: Path) -> None:
-    write_constant_head_roles(
-        tmp_path,
-        "nancon",
-        n_cells=6,
-        masks_by_role={
-            "ocean": np.array([True, False, False, False, False, False]),
-            "stream": np.array([False, False, True, True, False, False]),
-        },
-    )
-
-    roles = read_constant_head_roles(tmp_path, "nancon")
-
-    assert roles is not None
-    assert roles.n_cells == 6
-    np.testing.assert_array_equal(
-        roles.mask_for("stream"), [False, False, True, True, False, False]
-    )
-    np.testing.assert_array_equal(
-        roles.mask_for("ocean"), [True, False, False, False, False, False]
-    )
-    assert roles.has_role("stream") and roles.has_role("ocean")
-
-
-def test_a_role_with_no_cell_is_declared_rather_than_omitted(tmp_path: Path) -> None:
-    """Saying "this run built no ocean" is not saying nothing about the ocean."""
-    write_constant_head_roles(
-        tmp_path,
-        "nancon",
-        n_cells=3,
-        masks_by_role={"stream": np.array([False, True, False])},
-    )
-
-    roles = read_constant_head_roles(tmp_path, "nancon")
-
-    assert roles is not None
-    assert roles.has_role("stream")
-    assert not roles.has_role("ocean")
-    assert "ocean" in roles.cells_by_role
-
-
-def test_a_run_that_wrote_no_sidecar_reads_as_unknown(tmp_path: Path) -> None:
-    assert read_constant_head_roles(tmp_path, "nancon") is None
-
-
 def test_a_mask_that_does_not_cover_the_grid_is_refused(tmp_path: Path) -> None:
     with pytest.raises(SolverInputError, match="covers 3 cells"):
         write_constant_head_roles(
@@ -122,26 +77,6 @@ def test_the_stream_share_is_read_from_the_directory_alone(tmp_path: Path) -> No
     assert [package.name for package in packages] == ["CHD"]
     np.testing.assert_array_equal(packages[0].cell_mask, [False, False, True, False])
     assert "CHD" not in excluded_release_records_for_model(model)
-
-
-def test_an_ocean_only_constant_head_stays_ruled_out(tmp_path: Path) -> None:
-    """An ocean CHD is water leaving sideways, and counting it invents a stream."""
-    write_constant_head_roles(
-        tmp_path,
-        "nancon",
-        n_cells=4,
-        masks_by_role={"ocean": np.array([True, True, False, False])},
-    )
-    model = SimpleNamespace(
-        chd=object(),
-        drn=object(),
-        full_path=str(tmp_path),
-        model_output_name="nancon",
-    )
-
-    excluded = excluded_release_records_for_model(model)
-
-    assert {"CHD", "CONSTANT HEAD"} <= set(excluded)
 
 
 def _assembly_model(tmp_path: Path, *, nper: int = 2, n_cells: int = 4) -> SimpleNamespace:

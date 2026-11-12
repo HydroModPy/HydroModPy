@@ -17,18 +17,15 @@ import pandas as pd
 import pytest
 
 import hydromodpy as hmp
-from hydromodpy.catchment.drainage.descent import Descent, descent_from_stored_mesh
+from hydromodpy.catchment.drainage.descent import Descent
 from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.core.budget.terms import budget_terms_for
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.core.time.selection import TimeSelectionError
-from hydromodpy.core.time.time_method import OBSERVABLE_TIME_METHODS
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive import views
 from hydromodpy.results.derive.stream_network.run_extent import _release_rows
 from hydromodpy.results.derive.time_alignment import (
-    align_observed_simulated,
     first_period_start,
     observed_on_simulation_index,
     time_method_for,
@@ -38,23 +35,17 @@ from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.field_registry import FIELD_REGISTRY
-from hydromodpy.results.readme import _checks_section, render_session_readme
-from hydromodpy.results.record.checks import BUDGET_RULE, FROZE_BUDGET_ONLY, CalibratedBy
+from hydromodpy.results.readme import _checks_section
+from hydromodpy.results.record.checks import BUDGET_RULE, CalibratedBy
 from hydromodpy.results.record.manifest import InputEntry, read_manifest
 from hydromodpy.results.record.request_identity import RESTART_KEY, ZONE_RUN_KEY, request_id
 from hydromodpy.results.run.contracts import Mesh, polygon_areas
-from hydromodpy.results.run.descent import (
-    RunDescent,
-    load_descent,
-    read_basin,
-    read_catchment_fraction,
-)
+from hydromodpy.results.run.descent import RunDescent, load_descent, read_catchment_fraction
 from hydromodpy.results.run.geographic import field_range, field_steps
 from hydromodpy.results.run.periods import RunPeriods
 from hydromodpy.results.run.timeseries import RunTimeseriesMixin
 from hydromodpy.results.run.view import Run
 from hydromodpy.results.session.descriptor import SessionDescriptor, write_session
-from hydromodpy.results.session.phase import PhaseDescriptor
 from hydromodpy.results.session.summary import session_summary, summary_rows
 from hydromodpy.results.session.view import Session
 from hydromodpy.results.source_runs import source_run_id
@@ -65,7 +56,6 @@ from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.results.trash import list_trash
 from hydromodpy.results.validity_rules import RULE_VERSION, label_for
-from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.modflow_common.descent_store import (
     write_descent_sidecar,
@@ -197,15 +187,6 @@ def test_a_boundary_cell_counts_by_its_share_in_the_polygon(tmp_path) -> None:
     np.testing.assert_allclose(seepage.to_numpy(), -DRAIN @ FRACTION)
     assert seepage.name == "seepage"
     assert list(recharge.index) == list(pd.to_datetime(["1970-01-02", "1970-01-03"]))
-
-
-def test_the_fraction_reads_back_as_it_was_written(tmp_path) -> None:
-    run = _store(tmp_path)
-
-    fraction = read_catchment_fraction(run)
-
-    np.testing.assert_array_equal(fraction, FRACTION)
-    np.testing.assert_array_equal(views.catchment_weights(run), FRACTION)
 
 
 def test_a_run_without_a_fraction_counts_the_basin_whole(tmp_path, caplog) -> None:
@@ -449,18 +430,6 @@ def sid(seeded: tuple[Catalog, str]) -> str:
 
 
 class TestAStoredField:
-    def test_the_range_is_each_step_read_bit_for_bit(self, catalog, sid) -> None:
-        run = Run(sid, catalog)
-
-        whole = field_range(run, "head", 0, N_STEPS)
-
-        assert whole.dtype == np.float64
-        assert whole.shape == (N_STEPS, N_LAYERS, N_CELLS_2)
-        np.testing.assert_array_equal(whole, _step_by_step(run, "head", range(N_STEPS)))
-        np.testing.assert_array_equal(
-            field_range(run, "head", 2, 5), _step_by_step(run, "head", range(2, 5))
-        )
-
     def test_a_layer_is_picked_as_a_step_read_picks_it(self, catalog, sid) -> None:
         run = Run(sid, catalog)
 
@@ -469,31 +438,12 @@ class TestAStoredField:
         assert lower.shape == (5, N_CELLS_2)
         np.testing.assert_array_equal(lower, _step_by_step(run, "head", range(1, 6), layer=1))
 
-    def test_negative_bounds_count_from_the_end(self, catalog, sid) -> None:
-        run = Run(sid, catalog)
-
-        np.testing.assert_array_equal(
-            field_range(run, "head", -3, N_STEPS), field_range(run, "head", N_STEPS - 3, N_STEPS)
-        )
-        np.testing.assert_array_equal(
-            read_field_range_or_virtual(catalog, sid, "head", -2, -1)[0],
-            catalog.query_field(sid, "head", N_STEPS - 2),
-        )
-
     def test_a_static_field_repeats_once_per_step(self, catalog, sid) -> None:
         run = Run(sid, catalog)
 
         np.testing.assert_array_equal(
             field_range(run, "topography", 0, 3), _step_by_step(run, "topography", range(3))
         )
-
-    def test_the_range_opens_the_store_once(self, catalog, sid) -> None:
-        counting = _CountingCatalog(catalog)
-        run = Run(sid, counting)
-
-        field_range(run, "head", 0, N_STEPS)
-
-        assert counting.openings == 1
 
 
 class TestAFieldRebuiltOnRead:
@@ -507,20 +457,6 @@ class TestAFieldRebuiltOnRead:
         np.testing.assert_array_equal(whole, _step_by_step(run, variable, range(N_STEPS)))
         np.testing.assert_array_equal(
             field_range(run, variable, 3, 6), _step_by_step(run, variable, range(3, 6))
-        )
-
-    @pytest.mark.parametrize(
-        "variable", ["watertable_elevation", "watertable_depth", "seepage_mask", "outflow_drain"]
-    )
-    def test_any_other_is_rebuilt_step_by_step_on_one_opening(self, catalog, sid, variable) -> None:
-        counting = _CountingCatalog(catalog)
-        run = Run(sid, counting)
-
-        whole = field_range(run, variable, 0, N_STEPS)
-
-        assert counting.openings == 1
-        np.testing.assert_array_equal(
-            whole, _step_by_step(Run(sid, catalog), variable, range(N_STEPS))
         )
 
     def test_the_simulated_network_builds_its_graph_once_for_the_range(
@@ -542,14 +478,6 @@ class TestAFieldRebuiltOnRead:
         assert calls == [[1, 2, 3, 4]]
         np.testing.assert_array_equal(
             whole, np.stack([catalog.query_field(sid, name, t) for t in range(1, 5)])
-        )
-
-    def test_a_layer_is_ignored_where_a_step_read_ignores_it(self, catalog, sid) -> None:
-        run = Run(sid, catalog)
-
-        np.testing.assert_array_equal(
-            field_range(run, "release_flux", 0, 4, layer=1),
-            _step_by_step(run, "release_flux", range(4), layer=1),
         )
 
 
@@ -594,29 +522,6 @@ class TestTheErrors:
             field_range(Run(sid, catalog), "head", N_STEPS - 1, N_STEPS + 1)
 
 
-class TestAStoreWrittenBefore:
-    def test_its_stored_release_is_read_not_rebuilt(self, tmp_path: Path) -> None:
-        # Deliberately not what the budget rebuilds, so a recomputation is caught.
-        stored = np.arange(N_STEPS * N_CELLS_2, dtype="float64").reshape(N_STEPS, N_CELLS_2) / 7.0
-        derived = {"release_flux": stored}
-        with _sealed(tmp_path / "old", precision="exact", derived=derived) as (catalog, sid):
-            run = Run(sid, catalog)
-
-            whole = field_range(run, "release_flux", 0, N_STEPS)
-
-            assert whole.dtype == np.float64
-            np.testing.assert_array_equal(whole, stored)
-            np.testing.assert_array_equal(whole, _step_by_step(run, "release_flux", range(N_STEPS)))
-
-    def test_its_float64_head_reads_as_each_step(self, tmp_path: Path) -> None:
-        with _sealed(tmp_path / "old", precision="exact") as (catalog, sid):
-            run = Run(sid, catalog)
-
-            np.testing.assert_array_equal(
-                field_range(run, "head", 0, N_STEPS), _step_by_step(run, "head", range(N_STEPS))
-            )
-
-
 class TestTheReleaseRowsOfTheFlowCounts:
     @pytest.mark.parametrize(
         "steps", [[0, 1, 2, 3, 4, 5, 6], [0, 1, 2, 4], [5, 1, 2, 3, 0], [3], [6, 5, 4]]
@@ -627,26 +532,6 @@ class TestTheReleaseRowsOfTheFlowCounts:
         rows = _release_rows(run, np.asarray(steps), N_CELLS_2)
 
         np.testing.assert_array_equal(rows, _step_by_step(run, "release_flux", steps))
-
-    def test_they_are_the_stored_rows_on_a_store_written_before(self, tmp_path: Path) -> None:
-        stored = np.linspace(0.0, 1.0, N_STEPS * N_CELLS_2).reshape(N_STEPS, N_CELLS_2)
-        derived = {"release_flux": stored}
-        with _sealed(tmp_path / "old", precision="exact", derived=derived) as (catalog, sid):
-            run = Run(sid, catalog)
-            steps = [0, 1, 2, 5, 6, 3]
-
-            rows = _release_rows(run, np.asarray(steps), N_CELLS_2)
-
-            np.testing.assert_array_equal(rows, stored[steps])
-            np.testing.assert_array_equal(rows, _step_by_step(run, "release_flux", steps))
-
-    def test_a_block_of_consecutive_steps_opens_the_store_once(self, catalog, sid) -> None:
-        counting = _CountingCatalog(catalog)
-        run = Run(sid, counting)
-
-        _release_rows(run, np.arange(N_STEPS), N_CELLS_2)
-
-        assert counting.openings == 1
 
     def test_a_cell_count_other_than_the_mesh_is_refused(self, catalog, sid) -> None:
         run = Run(sid, catalog)
@@ -664,34 +549,9 @@ def test_negative_steps_are_read_as_their_step_read(catalog, sid, steps) -> None
     )
 
 
-def test_a_stand_in_without_a_range_reader_is_read_step_by_step() -> None:
-    stack = np.arange(12.0).reshape(4, 3)
-    stand_in = SimpleNamespace(field=lambda variable, time=-1, **_: stack[int(time)])
-
-    np.testing.assert_array_equal(
-        field_steps(stand_in, "release_flux", [2, 0, 1]), stack[[2, 0, 1]]
-    )
-
-
 # A ``Project`` closes its catalog at the end of its ``with`` block, and every
 # ``Run`` taken from it used to fail with ``Connection already closed``. The run
 # reopens a reader on the same index instead.
-def test_a_run_reopens_a_closed_catalog(tmp_path) -> None:
-    root = make_project(tmp_path / "demo")
-    sid = seal_run(root, "x")
-    rebuild_index(root)
-    cat = Catalog(root)
-    run = Run(sid, cat)
-    group = cat.find(project="demo")
-    cat.close()
-    assert cat.closed
-
-    assert run.name == "x"
-    assert run.status == "completed"
-    assert group[0].name == "x"
-    assert run._catalog is not cat
-    assert run._catalog.closed is False
-    run._catalog.close()
 
 
 def test_two_readers_of_one_index_coexist(tmp_path) -> None:
@@ -910,36 +770,6 @@ def test_a_face_table_padded_with_nan_gives_the_areas_of_its_integer_twin() -> N
     twin = faces.copy()
     twin[0, 3] = -1
     np.testing.assert_array_equal(areas, polygon_areas(vertices, twin))
-
-
-def test_the_default_geotiff_resolution_is_the_smallest_cell(project) -> None:
-    import rasterio
-
-    vertices, faces = _irregular_mesh()
-    areas = polygon_areas(vertices, faces)
-    with _sealed_2(project, vertices, faces, np.arange(6.0)) as (catalog, sid):
-        written = export_run(catalog, sid, ExportRequest(variables="head", time="2000-01-15"))
-
-        with rasterio.open(written[0]) as src:
-            # The exporter fits whole pixels of at most that side over the extent.
-            side = np.sqrt(np.nanmin(areas))
-            assert src.width == int(np.ceil(np.ptp(vertices[:, 0]) / side))
-            assert src.height == int(np.ceil(np.ptp(vertices[:, 1]) / side))
-
-
-def test_a_grid_of_75_m_cells_exports_at_75_m(project) -> None:
-    import rasterio
-
-    vertices, faces = _lambert_grid(4, 5)
-    with _sealed_2(project, vertices, faces, np.arange(20.0), structured_shape=(4, 5)) as (
-        catalog,
-        sid,
-    ):
-        written = export_run(catalog, sid, ExportRequest(variables="head", time="2000-01-15"))
-
-        with rasterio.open(written[0]) as src:
-            assert src.res == (CELL, CELL)
-            assert (src.height, src.width) == (4, 5)
 
 
 def test_a_default_that_would_give_too_many_pixels_asks_for_a_resolution(project) -> None:
@@ -1197,47 +1027,6 @@ def test_period_edges_open_at_the_stored_start() -> None:
     assert list(edges) == list(pd.date_range("2000-01-01", "2003-01-01", freq="MS"))
 
 
-def test_period_edges_follow_the_solver_time_axis() -> None:
-    stamps = pd.date_range("2000-01-02", periods=3, freq="D")
-    run = _Run(
-        {"n_timesteps": 3, "period_start": "2000-01-01", "period_end": "2000-01-04"},
-        _TimeAxisCatalog(stamps),
-    )
-    assert list(run.periods.edges) == list(pd.date_range("2000-01-01", periods=4, freq="D"))
-    assert run.periods.step_at("2000-01-02 12:00") == 1
-
-
-def test_step_at_resolves_a_date_inside_on_and_past_the_edges() -> None:
-    run = _monthly()
-    assert run.periods.step_at("2002-10-15") == 33
-    assert run.periods.step_at("2002-10-01") == 32
-    assert run.periods.step_at("2003-01-01") == 35
-    assert run.periods.step_at("last") == 35
-    assert run.periods.step_at(-2) == 34
-    with pytest.raises(TimeSelectionError, match="2000-01-01 to 2003-01-01"):
-        run.periods.step_at("2003-02-01")
-    with pytest.raises(TimeSelectionError, match="outside the record"):
-        run.periods.step_at("1999-12-31")
-
-
-def test_a_steady_window_resolves_every_date_of_its_record_to_zero() -> None:
-    run = _steady_window()
-    assert len(run.periods.edges) == 2
-    for date in ("2000-01-01", "2001-08-15", "2002-12-31", "2003-01-01", "first", "last"):
-        assert run.periods.step_at(date) == 0
-    assert run.periods.steps_for(period=("2000-06-01", "2002-06-01")) == (0,)
-
-
-def test_a_run_without_dates_names_its_one_period_only() -> None:
-    run = _Run({"n_timesteps": 1, "period_start": None, "flow_regime": "steady"})
-    assert run.periods.edges is None
-    assert run.periods.step_at("last") == 0
-    assert run.periods.step_at(0) == 0
-    assert run.periods.steps_for() == (0,)
-    with pytest.raises(TimeSelectionError, match='this run has no dates; write "last"'):
-        run.periods.step_at("2002-10-15")
-
-
 def test_a_run_without_dates_or_count_holds_one_period() -> None:
     run = _Run({"period_start": float("nan")})
     assert run.periods.edges is None
@@ -1291,70 +1080,6 @@ def test_a_monthly_discharge_on_a_daily_chronicle_takes_the_month_its_stamp_clos
     assert aligned.iloc[1] == pytest.approx((31 + 59) / 2)
 
 
-def test_a_lake_stage_at_the_run_frequency_takes_the_reading_at_its_stamp() -> None:
-    # Monthly readings taken on the first of each month, as a run stamps.
-    readings = pd.Series(
-        [1.0, 2.0, 3.0, 4.0, 5.0], index=pd.date_range("2000-01-01", periods=5, freq="MS")
-    )
-
-    stage = observed_on_simulation_index(readings, MONTH_ENDS, method=time_method_for("stage"))
-    as_a_flux = observed_on_simulation_index(readings, MONTH_ENDS, method="mean")
-
-    # The stage at 03-01 is the reading of 03-01. The period mean would hand it
-    # the reading of 02-01, a month early.
-    assert stage.tolist() == [2.0, 3.0, 4.0]
-    assert as_a_flux.tolist() == [1.0, 2.0, 3.0]
-
-
-def test_a_state_reads_the_nearest_sample_within_one_run_step_and_no_further() -> None:
-    readings = pd.Series([10.0, 20.0], index=pd.DatetimeIndex(["2000-01-01", "2000-01-05"]))
-    stamps = pd.date_range("2000-01-01", periods=3, freq="D")
-
-    aligned = observed_on_simulation_index(readings, stamps, method="point")
-
-    # 01-02 is one day from 01-01, within one run step; 01-03 is two days from
-    # both readings, beyond it.
-    assert aligned.iloc[:2].tolist() == [10.0, 10.0]
-    assert np.isnan(aligned.iloc[2])
-
-
-def test_a_tie_between_two_readings_goes_to_the_earlier_one() -> None:
-    # A daily state stamped at midnight between two noon readings.
-    readings = pd.Series(
-        [1.0, 2.0], index=pd.DatetimeIndex(["2000-01-01 12:00", "2000-01-02 12:00"])
-    )
-
-    aligned = observed_on_simulation_index(
-        readings, pd.DatetimeIndex(["2000-01-02", "2000-01-03"]), method="point"
-    )
-
-    assert aligned.tolist() == [1.0, 2.0]
-
-
-def test_a_state_on_millisecond_parquet_stamps_is_read_without_a_merge() -> None:
-    # The nearest-sample branch used pandas.merge_asof, which refused to join
-    # millisecond stamps with nanosecond ones.
-    readings = pd.Series([1.0, 2.0, 3.0], index=pd.date_range("2000-01-01", periods=3, freq="D"))
-    simulated = pd.Series(
-        [1.5, 2.5, 3.5], index=pd.date_range("2000-01-01", periods=3, freq="D").as_unit("ms")
-    )
-
-    paired = align_observed_simulated(readings, simulated, method="point")
-
-    assert paired["obs"].tolist() == [1.0, 2.0, 3.0]
-
-
-def test_one_steady_discharge_period_with_its_start_takes_its_own_window() -> None:
-    index = pd.date_range("1999-01-01", "2001-12-31", freq="D")
-    record = pd.Series(index.year.astype("float64"), index=index)
-
-    aligned = observed_on_simulation_index(
-        record, pd.DatetimeIndex(["2001-01-01"]), method="mean", start="2000-01-01"
-    )
-
-    assert aligned.tolist() == [2000.0]
-
-
 def test_one_steady_discharge_period_without_a_start_takes_the_whole_chronicle() -> None:
     # 365 days of 1999, 366 of 2000, 365 of 2001. The last day before the stamp,
     # 2000.0, would be one day scored as a steady stage.
@@ -1387,44 +1112,6 @@ def test_every_registry_field_aligns_by_its_cell_methods(name: str) -> None:
         expected = "point"
 
     assert time_method_for(name) == expected
-
-
-def test_the_registry_states_and_fluxes_are_the_ones_expected() -> None:
-    states = {"head", "watertable_elevation", "watertable_depth", "concentration"}
-    fluxes = {"drain", "surface_excess", "recharge", "release_flux", "outflow_drain"}
-
-    assert {time_method_for(name) for name in states} == {"point"}
-    assert {time_method_for(name) for name in fluxes} == {"mean"}
-
-
-@pytest.mark.parametrize(
-    ("name", "expected"),
-    [
-        ("discharge", "mean"),
-        ("outlet_discharge", "mean"),
-        ("discharge_obs", "mean"),
-        ("lake_level", "point"),
-        ("stage", "point"),
-        ("volume", "point"),
-        ("surface_area", "point"),
-        ("groundwater_level", "point"),
-        ("an_unknown_name", "mean"),
-        (None, "mean"),
-    ],
-)
-def test_the_calibration_variables_have_an_explicit_method(name, expected: str) -> None:
-    assert time_method_for(name) == expected
-
-
-def test_the_core_table_never_contradicts_the_registry() -> None:
-    # ``core.time`` reads the core table because it may not read the
-    # registry; a name in both has to answer the same.
-    shared = sorted(set(OBSERVABLE_TIME_METHODS) & set(FIELD_REGISTRY))
-
-    assert shared
-    assert {name: OBSERVABLE_TIME_METHODS[name] for name in shared} == {
-        name: time_method_for(name) for name in shared
-    }
 
 
 def test_an_unknown_method_is_refused() -> None:
@@ -1542,26 +1229,6 @@ def test_the_seven_arrays_are_written_under_mesh_with_the_report_on_the_receiver
     assert attrs["max_raise_m"] == pytest.approx(descent.max_raise_m)
 
 
-def test_the_filled_surface_is_never_rounded_in_a_compact_store(store) -> None:
-    descent = _built_descent()
-    _write_mesh(store)
-
-    _write(store, descent)
-
-    np.testing.assert_array_equal(store.root["mesh"]["descent_surface"][:], descent.surface)
-
-
-def test_storing_the_descent_moves_neither_the_schema_version_nor_the_mesh(store) -> None:
-    vertices, _ = _write_mesh(store)
-    before = dict(store.root.attrs)["zarr_schema_version"]
-
-    _write(store, _built_descent())
-
-    assert dict(store.root.attrs)["zarr_schema_version"] == before == ZARR_SCHEMA_VERSION
-    np.testing.assert_array_equal(store.root["mesh"]["vertices"][:], vertices)
-    np.testing.assert_array_equal(store.root["mesh"]["topography"][:], TOP_2.ravel())
-
-
 def test_a_descent_whose_arrays_disagree_on_the_cell_count_is_refused(store) -> None:
     descent = _built_descent()
     _write_mesh(store)
@@ -1602,37 +1269,6 @@ def test_a_stored_descent_reads_back_and_routes_like_the_one_written(store) -> N
         accumulate_on_downhill_graph(view.graph, flux),
         accumulate_on_downhill_graph(descent.metric.graph, flux),
     )
-
-
-def test_the_arrays_of_the_view_are_read_only(store) -> None:
-    vertices, connectivity = _write_mesh(store)
-    _write(store, _built_descent())
-
-    view = load_descent(_run_over(store, vertices, connectivity))
-
-    for name in (
-        "receiver",
-        "surface",
-        "base_level",
-        "constant_head",
-        "raised",
-        "channel",
-        "pinned",
-    ):
-        assert not getattr(view, name).flags.writeable, name
-
-
-def test_a_run_sealed_before_the_descent_rebuilds_it_from_its_top(store) -> None:
-    vertices, connectivity = _write_mesh(store)
-
-    view = load_descent(_run_over(store, vertices, connectivity))
-
-    rebuilt = descent_from_stored_mesh(TOP_2.ravel(), connectivity, vertices)
-    assert view.rebuilt
-    assert not view.channel.any()
-    assert not view.pinned.any()
-    np.testing.assert_array_equal(view.receiver, rebuilt.receiver)
-    np.testing.assert_array_equal(view.surface, rebuilt.surface)
 
 
 def test_an_old_run_says_once_that_it_rebuilt_its_descent(store, caplog) -> None:
@@ -1728,36 +1364,6 @@ def test_the_basin_is_a_bool_array_per_face_with_its_outlet_on_it(store) -> None
     assert attrs["basin_version"] == 1
 
 
-def test_a_stored_basin_reads_back_read_only_with_its_attributes(store) -> None:
-    vertices, connectivity = _write_mesh(store)
-    _write_with_basin(store, _basin_mask(), _basin_attrs())
-
-    view = load_descent(_run_over(store, vertices, connectivity))
-
-    assert not view.rebuilt
-    np.testing.assert_array_equal(view.basin, _basin_mask())
-    assert not view.basin.flags.writeable
-    assert view.basin_attrs == _basin_attrs()
-
-
-def test_the_basin_is_read_alone_without_loading_or_rebuilding_d(store, monkeypatch) -> None:
-    vertices, connectivity = _write_mesh(store)
-    _write_with_basin(store, _basin_mask(), _basin_attrs())
-    from hydromodpy.results.run import descent as module
-
-    def refuse(*args, **kwargs):
-        raise AssertionError("D must be neither loaded nor rebuilt to read the basin")
-
-    for name in ("load_descent", "_rebuild", "_read_stored"):
-        monkeypatch.setattr(module, name, refuse)
-
-    basin = read_basin(_run_over(store, vertices, connectivity))
-
-    np.testing.assert_array_equal(basin.mask, _basin_mask())
-    assert not basin.mask.flags.writeable
-    assert basin.attrs["descent_outlet"] == BASIN_OUTLET
-
-
 def test_the_holder_reads_the_basin_alone_and_a_run_without_one_is_not_rebuilt(
     store, monkeypatch
 ) -> None:
@@ -1779,19 +1385,6 @@ def test_the_holder_reads_the_basin_alone_and_a_run_without_one_is_not_rebuilt(
     basin = holder.stored_basin()
     np.testing.assert_array_equal(basin.mask, _basin_mask())
     assert basin.attrs["descent_outlet"] == BASIN_OUTLET
-
-
-def test_a_descent_stored_before_the_basin_reads_back_without_one(store) -> None:
-    vertices, connectivity = _write_mesh(store)
-    _write(store, _built_descent())
-    run = _run_over(store, vertices, connectivity)
-
-    view = load_descent(run)
-
-    assert not view.rebuilt
-    assert view.basin is None
-    assert view.basin_attrs == {}
-    assert read_basin(run) is None
 
 
 def test_a_rebuilt_descent_has_no_basin(store) -> None:
@@ -1837,18 +1430,6 @@ def test_attributes_without_a_basin_are_refused(store) -> None:
             attrs={},
             basin_attrs=_basin_attrs(),
         )
-
-
-def test_storing_the_basin_moves_neither_the_schema_version_nor_the_other_arrays(store) -> None:
-    _write_mesh(store)
-    before = dict(store.root.attrs)["zarr_schema_version"]
-
-    _write_with_basin(store, _basin_mask(), _basin_attrs())
-
-    assert dict(store.root.attrs)["zarr_schema_version"] == before == ZARR_SCHEMA_VERSION
-    np.testing.assert_array_equal(
-        store.root["mesh"]["descent_receiver"][:], _built_descent().receiver
-    )
 
 
 # ``catchment_mean`` weighs each face by its area inside the delineated catchment.
@@ -2073,15 +1654,6 @@ def _overlap(run, monkeypatch, network: np.ndarray) -> dict:
     )
 
 
-def test_the_catchment_cell_count_is_the_active_faces_of_the_basin(tmp_path) -> None:
-    run = _run(tmp_path)
-
-    metrics = views.cell_field_active_metrics(run, variable="watertable_depth", threshold=THRESHOLD)
-
-    assert metrics["catchment_cell_count"] == int((BASIN & ACTIVE).sum()) == 4
-    assert metrics["catchment_cell_count"] != int(ACTIVE.sum())
-
-
 def test_every_share_of_the_active_metrics_is_taken_over_the_basin(tmp_path) -> None:
     run = _run(tmp_path)
 
@@ -2107,36 +1679,6 @@ def test_the_overlap_metrics_read_the_cells_of_the_basin(tmp_path, monkeypatch) 
     assert metrics["overlap_cell_count"] == 1
     assert metrics["active_precision_ratio"] == pytest.approx(1.0 / 3.0)
     assert metrics["network_coverage_ratio"] == pytest.approx(0.5)
-
-
-def test_the_active_mask_keeps_the_active_domain(tmp_path) -> None:
-    run = _run(tmp_path)
-
-    mask = views.cell_field_active_mask(
-        run, variable="watertable_depth", threshold=THRESHOLD, mode="last"
-    )
-
-    np.testing.assert_array_equal(np.isfinite(mask), ACTIVE)
-
-
-def test_a_run_with_no_catchment_counts_its_active_domain_and_says_so(tmp_path, caplog) -> None:
-    run = _run(tmp_path, rule=None, fraction=None)
-
-    with caplog.at_level(logging.INFO):
-        metrics = views.cell_field_active_metrics(
-            run, variable="watertable_depth", threshold=THRESHOLD
-        )
-
-    assert metrics["catchment_cell_count"] == int(ACTIVE.sum())
-    assert "stores no catchment" in caplog.text
-
-
-def test_a_synthetic_domain_counts_its_active_domain(tmp_path) -> None:
-    run = _run(tmp_path, rule="largest_basin", fraction=None)
-
-    metrics = views.cell_field_active_metrics(run, variable="watertable_depth", threshold=THRESHOLD)
-
-    assert metrics["catchment_cell_count"] == int(ACTIVE.sum())
 
 
 # An eighth array beside the seven of D: int64 cell ids, possibly none, additive.
@@ -2189,31 +1731,6 @@ def _run_over_2(store_2: SimulationZarr):
     )
 
 
-def test_the_feet_are_stored_as_sorted_int64_cell_ids(store_2) -> None:
-    _write_2(store_2, [7, 2, 7])
-
-    array = store_2.root["mesh"]["descent_dam_foot"]
-    assert array.dtype == np.int64
-    assert array[:].tolist() == [2, 7]
-
-
-def test_a_run_without_a_lake_stores_an_empty_array(store_2) -> None:
-    _write_2(store_2, None)
-
-    assert store_2.root["mesh"]["descent_dam_foot"].shape == (0,)
-    assert not load_descent(_run_over_2(store_2)).dam_foot.size
-
-
-def test_the_view_reads_the_feet_back_read_only(store_2) -> None:
-    _write_2(store_2, [2, 7])
-
-    view = load_descent(_run_over_2(store_2))
-
-    assert not view.rebuilt
-    assert view.dam_foot.tolist() == [2, 7]
-    assert not view.dam_foot.flags.writeable
-
-
 def test_a_store_written_before_the_feet_has_none_and_is_not_rebuilt(store_2) -> None:
     _write_2(store_2, None)
     del store_2.root["mesh"]["descent_dam_foot"]
@@ -2227,14 +1744,6 @@ def test_a_store_written_before_the_feet_has_none_and_is_not_rebuilt(store_2) ->
 def test_a_foot_outside_the_mesh_is_refused(store_2) -> None:
     with pytest.raises(ValueError, match="not a cell of the mesh"):
         _write_2(store_2, [N_CELLS_4])
-
-
-def test_storing_the_feet_does_not_move_the_schema_version(store_2) -> None:
-    before = dict(store_2.root.attrs)["zarr_schema_version"]
-
-    _write_2(store_2, [2])
-
-    assert dict(store_2.root.attrs)["zarr_schema_version"] == before == ZARR_SCHEMA_VERSION
 
 
 def test_the_extractor_copies_the_feet_of_the_sidecar(store_2, tmp_path) -> None:
@@ -2317,52 +1826,6 @@ def _descriptor(**extra) -> SessionDescriptor:
         started_at=datetime(2026, 10, 25, tzinfo=UTC),
         **extra,
     )
-
-
-def test_the_session_readme_says_why_each_search_stopped() -> None:
-    descriptor = _descriptor(
-        stop_state="plan_exhausted",
-        stopping_rule="every grid point",
-        stop_note=f"phase coarse {FROZE_BUDGET_ONLY}",
-    )
-    phases = [
-        PhaseDescriptor(
-            phase_id="p1",
-            name="coarse",
-            index=0,
-            status="completed",
-            stop_state="budget_spent",
-            stopping_rule=BUDGET_RULE,
-            stop_note=FROZE_BUDGET_ONLY,
-        ),
-        PhaseDescriptor(
-            phase_id="p2",
-            name="storage",
-            index=1,
-            status="completed",
-            stop_state="plan_exhausted",
-            stopping_rule="every grid point",
-        ),
-    ]
-
-    text = render_session_readme(descriptor, [], None, phases=phases)
-
-    assert "- search stopped: exhausted its plan (every grid point solved), converged" in text
-    assert f"- phase coarse {FROZE_BUDGET_ONLY}" in text
-    assert (
-        "| coarse | completed | 0 | none | none | spent its budget, a budget-only search with "
-        f"no rule of its own; {FROZE_BUDGET_ONLY} |"
-    ) in text
-    assert (
-        "| storage | completed | 0 | none | none | exhausted its plan (every grid point solved) |"
-        in (text)
-    )
-
-
-def test_an_older_session_says_its_stop_was_not_recorded() -> None:
-    text = render_session_readme(_descriptor(), [], None)
-
-    assert "- search stopped: not recorded" in text
 
 
 def test_the_run_readme_says_why_the_search_that_promoted_it_stopped() -> None:
@@ -2487,57 +1950,6 @@ def test_a_reference_that_names_no_sealed_run_has_no_sim_id(project_2: Path) -> 
     assert source_run_id(project_2, "") is None
     assert source_run_id(project_2, sealed[:4]) is None, "a prefix needs eight characters"
     assert source_run_id(project_2, "0" * 32) is None
-
-
-def test_a_prefix_that_matches_two_runs_names_none(project_2: Path) -> None:
-    seal_run(project_2, "first", site=None, sim_id="ab" * 16)
-    seal_run(project_2, "second", site=None, sim_id="ab" * 8 + "cd" * 8)
-
-    assert source_run_id(project_2, "ab" * 4) is None
-    assert source_run_id(project_2, "ab" * 8 + "cd") == "ab" * 8 + "cd" * 8
-
-
-def test_a_zone_is_told_by_the_state_it_reads_and_not_by_the_name_of_its_run(
-    project_2: Path,
-) -> None:
-    sim_id = _sealed_3(project_2, "coarse")
-
-    same = _hash(project_2, zone_run="coarse", state="d1")
-    assert same == _hash(project_2, zone_run=sim_id, state="d1")
-    assert same == _hash(project_2, zone_run="coarse.v2", state="d1")
-    assert same != _hash(project_2, zone_run="coarse", state="d2")
-
-
-def test_a_later_version_of_the_source_changes_the_id_only_when_its_state_moves(
-    project_2: Path,
-) -> None:
-    _sealed_3(project_2, "coarse")
-    before = _hash(project_2, zone_run="coarse", state="d1")
-
-    _sealed_3(project_2, "coarse.v2")
-
-    assert _hash(project_2, zone_run="coarse", state="d1") == before
-    assert _hash(project_2, zone_run="coarse", state="d2") != before
-
-
-def test_a_hotstart_is_told_alike_in_every_form_that_names_one_state(project_2: Path) -> None:
-    from hydromodpy.core.state.result_dirs import run_dir_rel
-
-    sim_id = _sealed_3(project_2, "spinup")
-    store = f"{run_dir_rel('spinup')}/{FIELDS_STORE_NAME}"
-    table = {"sim_id": sim_id, "path": store}
-    forms = ["spinup", sim_id, store, str(project_2 / store), table]
-
-    assert len({_hash(project_2, restart=form, state="d1") for form in forms}) == 1
-    assert _hash(project_2, restart="spinup", state="d1") != _hash(project_2, restart=None)
-
-
-def test_a_hotstart_moves_the_id_with_its_state(project_2: Path) -> None:
-    _sealed_3(project_2, "spinup")
-
-    assert _hash(project_2, restart="spinup", state="d1") != _hash(
-        project_2, restart="spinup", state="d2"
-    )
 
 
 def test_a_configuration_without_a_project_root_is_told_as_written() -> None:

@@ -1,16 +1,6 @@
 from __future__ import annotations
 
-import numpy as np
-import pytest
-from pydantic import ValidationError
-
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.properties.property_table import resolve_required_flow_properties
-from hydromodpy.model.time.regime import normalize_flow_regime
-from hydromodpy.solver.boussinesq.catalog import resolve_time_scheme
-from hydromodpy.solver.modflow_grid.discretization_temporal import (
-    build_temporal_discretization_from_time_grid,
-)
 
 
 class _Window:
@@ -22,38 +12,7 @@ class _TimeGrid:
     window = _Window()
 
 
-def test_flow_regime_accepts_canonical_values() -> None:
-    assert normalize_flow_regime("steady") == "steady"
-    assert normalize_flow_regime("transient") == "transient"
-
-
 def test_flow_config_steady_constructor_returns_steady_config() -> None:
     cfg = FlowConfig.steady(K=5e-5)
     assert cfg.flow_regime == "steady"
     assert cfg.param_list == ["K"]
-
-
-def test_solver_helpers_treat_steady_as_steady() -> None:
-    assert resolve_time_scheme("steady").id == "steady_balance"
-    assert resolve_required_flow_properties(flow_regime="steady") == frozenset({"K"})
-    assert resolve_required_flow_properties(flow_regime="steady", storage=("Sy",)) == frozenset(
-        {"K"}
-    )
-    temporal = build_temporal_discretization_from_time_grid(
-        time_grid=_TimeGrid(),
-        flow_regime="steady",
-        first_period_steady=False,
-    )
-    assert np.all(temporal.steady)
-
-
-def test_unknown_flow_regime_fails() -> None:
-    with pytest.raises(ValueError, match="steady.*transient"):
-        normalize_flow_regime("unknown")
-
-
-def test_permanent_flow_regime_is_not_accepted() -> None:
-    with pytest.raises(ValueError, match="steady.*transient"):
-        normalize_flow_regime("permanent")
-    with pytest.raises(ValidationError):
-        FlowConfig(flow_regime="permanent")

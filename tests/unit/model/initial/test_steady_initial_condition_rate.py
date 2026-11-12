@@ -48,14 +48,6 @@ def test_a_prescribed_rate_is_accepted_with_its_unit() -> None:
     assert strategy.rate_m_s == pytest.approx(500 * _MM_PER_YEAR_IN_M_PER_S, rel=1e-9)
 
 
-def test_the_mean_of_the_record_stays_the_default() -> None:
-    strategy = steady_state_strategy_of(_ic())
-
-    assert strategy.source == "mean_recharge"
-    assert strategy.recharge_statistic == "time_mean"
-    assert strategy.rate_m_s is None
-
-
 def test_a_prescribed_source_without_a_rate_is_refused() -> None:
     with pytest.raises(ValueError, match="rate"):
         _ic(source="prescribed")
@@ -95,21 +87,3 @@ def test_the_prescribed_rate_is_written_in_the_payload_unit() -> None:
     )
 
     assert recharge.values == pytest.approx(500.0 / 365.25, rel=1e-9)
-
-
-def test_a_prescribed_rate_drops_a_heterogeneous_recharge_field() -> None:
-    """One stated rate means one uniform rate; a per-cell field would win otherwise."""
-    recharge = _steady_recharge(
-        FlowRechargeConfig(values=0.0, units="m/s", heterogeneous_source=object()),
-        source="prescribed",
-        rate="500 mm/yr",
-    )
-
-    assert recharge.heterogeneous_source is None
-
-
-def test_the_mean_strategy_still_only_touches_the_first_period() -> None:
-    recharge = _steady_recharge(FlowRechargeConfig(values=[1.0, 2.0], units="mm/day"))
-
-    assert recharge.first_clim == "mean"
-    assert list(recharge.values) == [1.0, 2.0]

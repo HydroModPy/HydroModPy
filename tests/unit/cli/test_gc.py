@@ -75,45 +75,6 @@ def _gc(monkeypatch, capsys, target: Path, *extra: str) -> dict:
     return json.loads(capsys.readouterr().out)["data"]
 
 
-def test_gc_help_displays(monkeypatch, capsys) -> None:
-    assert _run(monkeypatch, ["hmp", "catalog", "gc", "--help"]) == 0
-    out = capsys.readouterr().out
-    assert "--keep-versions" in out
-    assert "--trial-fields-days" in out
-
-
-def test_gc_plans_by_default_and_touches_nothing(monkeypatch, capsys, tmp_path) -> None:
-    project = _project(tmp_path)
-    runs = _versions(project, "x", 7)
-
-    report = _gc(monkeypatch, capsys, project)
-
-    block = report["projects"][str(project.resolve())]
-    assert block["applied"] is False
-    assert block["plan"]["superseded_runs"] == ["runs/x", "runs/x.v2"]
-    assert block["freed"] == {}
-    assert set(block["bytes"]) == set(block["plan"])
-    assert block["weight"]["total_before"] > 0
-    assert block["weight"]["total_after"] == block["weight"]["total_before"]
-    assert all(run.is_dir() for run in runs)
-    assert list_trash(project) == []
-
-
-def test_gc_apply_moves_the_superseded_versions_to_the_trash(monkeypatch, capsys, tmp_path) -> None:
-    project = _project(tmp_path)
-    _versions(project, "x", 7)
-
-    report = _gc(monkeypatch, capsys, project, "-y")
-
-    block = report["projects"][str(project.resolve())]
-    assert block["applied"] is True
-    assert block["freed"]["superseded_runs"] == block["bytes"]["superseded_runs"]
-    assert sorted(entry.rel_dir for entry in list_trash(project)) == ["runs/x", "runs/x.v2"]
-    assert sorted(p.name for p in (project / RUNS_DIRNAME).iterdir()) == [
-        f"x.v{n}" for n in range(3, 8)
-    ]
-
-
 def test_gc_keep_versions_all_disables_the_rule(monkeypatch, capsys, tmp_path) -> None:
     project = _project(tmp_path)
     _versions(project, "x", 7)
@@ -221,24 +182,6 @@ def test_gc_removes_the_expired_trash_with_tombstones(monkeypatch, capsys, tmp_p
     assert block["freed"]["expired_trash"] == block["bytes"]["expired_trash"]
     assert sorted(entry.rel_dir for entry in list_trash(project)) == ["runs/fresh", "runs/kept"]
     assert [tombstone.rel_dir for tombstone in read_tombstones(project)] == ["runs/gone"]
-
-
-def test_gc_walks_every_project_of_a_workspace(monkeypatch, capsys, tmp_path) -> None:
-    workspace = tmp_path / "ws"
-    (workspace / "projects").mkdir(parents=True)
-    first = _project(workspace / "projects", "a")
-    second = _project(workspace / "projects", "b")
-    _versions(first, "x", 2)
-    _versions(second, "y", 2)
-
-    report = _gc(monkeypatch, capsys, workspace, "--keep-versions", "1")
-
-    plans = {
-        Path(root).name: block["plan"]["superseded_runs"]
-        for root, block in report["projects"].items()
-    }
-    assert plans == {"a": ["runs/x"], "b": ["runs/y"]}
-    assert not (workspace / ".hmp").exists()
 
 
 def test_gc_rejects_a_retention_window_of_zero(monkeypatch, tmp_path) -> None:

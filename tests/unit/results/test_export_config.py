@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 import textwrap
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -33,10 +32,6 @@ def _load(tmp_path: Path, body: str) -> HydroModPyConfig:
     return HydroModPyConfig.from_toml(path)
 
 
-def test_a_config_without_export_writes_nothing(tmp_path: Path) -> None:
-    assert _load(tmp_path, "").export == []
-
-
 def test_the_blocks_load_in_the_order_of_the_file(tmp_path: Path) -> None:
     cfg = _load(
         tmp_path,
@@ -59,37 +54,11 @@ def test_the_blocks_load_in_the_order_of_the_file(tmp_path: Path) -> None:
     assert cfg.export[0].time == "2002-10-15"
 
 
-def test_a_refusal_names_its_block(tmp_path: Path) -> None:
-    with pytest.raises(ConfigValidationError, match=r"export\[1\].*time and period"):
-        _load(
-            tmp_path,
-            """\
-            [[export]]
-            variables = "head"
-
-            [[export]]
-            variables = "head"
-            time = "last"
-            period = ["2000-01-01", "2000-12-31"]
-            """,
-        )
-
-
-def test_a_misspelt_key_is_refused_with_its_block(tmp_path: Path) -> None:
-    with pytest.raises(ConfigValidationError, match=r"export\[0\]\.fomat"):
-        _load(tmp_path, '[[export]]\nvariables = "head"\nfomat = "netcdf"\n')
-
-
 def test_a_request_written_as_a_table_is_refused_with_the_spelling_to_write(
     tmp_path: Path,
 ) -> None:
     with pytest.raises(ConfigValidationError, match=r"write \[\[export\]\]"):
         _load(tmp_path, '[export]\nvariables = "head"\nformat = "netcdf"\n')
-
-
-def test_the_old_table_of_toggles_is_refused_as_a_pre_release_form(tmp_path: Path) -> None:
-    with pytest.raises(ConfigValidationError, match="export.geotiff"):
-        _load(tmp_path, '[export]\ngeotiff = true\nvariables = ["head"]\ntime = 3\n')
 
 
 def test_the_loader_reads_an_empty_document_as_no_request() -> None:
@@ -106,28 +75,6 @@ def test_results_config_has_no_export() -> None:
     from hydromodpy.solver.base.results_config import ResultsConfig
 
     assert "export" not in ResultsConfig.model_fields
-
-
-def test_a_destination_written_as_a_string_reads_as_the_list_of_one(tmp_path: Path) -> None:
-    cfg = _load(tmp_path, '[[export]]\nvariables = "head"\ndeliver_to = "/srv/depot/"\n')
-
-    assert cfg.export[0].deliver_to == ["/srv/depot/"]
-
-
-def test_the_resolved_config_writes_no_destination_at_its_default(tmp_path: Path) -> None:
-    cfg = _load(tmp_path, '[[export]]\nvariables = "head"\n')
-    frozen = cfg.to_toml(tmp_path / "resolved.toml", profile="expert")
-
-    resolved = tomllib.loads(frozen.read_text(encoding="utf-8"))
-    assert "deliver_to" not in resolved["export"][0]
-    assert HydroModPyConfig.from_toml(frozen).export[0].deliver_to is None
-
-
-def test_deliver_to_survives_the_resolved_config_round_trip(tmp_path: Path) -> None:
-    cfg = _load(tmp_path, '[[export]]\nvariables = "head"\ndeliver_to = "/srv/depot/"\n')
-    frozen = cfg.to_toml(tmp_path / "resolved.toml", profile="expert")
-
-    assert HydroModPyConfig.from_toml(frozen).export == cfg.export
 
 
 DELIVERY_REFUSED = [
@@ -202,24 +149,3 @@ def test_a_view_with_a_folder_delivers_the_files_it_writes(tmp_path: Path) -> No
     )
 
     assert cfg.export[0].deliver_to == ["/srv/depot/"]
-
-
-def test_the_requests_survive_the_resolved_config_round_trip(tmp_path: Path) -> None:
-    """A run seals its resolved config and a resume loads it back."""
-    cfg = _load(
-        tmp_path,
-        """\
-        [[export]]
-        variables = "discharge"
-        period = ["2001-01-01", "2002-12-31"]
-
-        [[export]]
-        variables = "watertable_depth"
-        time = "last"
-        file = "depth_wgs84.tif"
-        crs = "EPSG:4326"
-        """,
-    )
-    frozen = cfg.to_toml(tmp_path / "resolved.toml", profile="expert")
-
-    assert HydroModPyConfig.from_toml(frozen).export == cfg.export

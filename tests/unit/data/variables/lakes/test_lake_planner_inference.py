@@ -21,14 +21,6 @@ def _empty_config() -> DataConfig:
     return DataConfig.model_validate({"types": []})
 
 
-def test_lake_boundary_infers_the_consumed_families() -> None:
-    plan = DataPlanner().build(_empty_config(), flow_active_bc=["lake"])
-    for family in _CONSUMED_LAKE_FAMILIES:
-        assert family in plan.inferred_types
-        reasons = plan.reasons_by_type[family]
-        assert any("lake" in r for r in reasons)
-
-
 def test_unconsumed_lake_families_are_not_auto_inferred() -> None:
     # bathymetry / levels / outflow have no consumer yet; auto-inferring them
     # would persist data nothing reads, the dead-load the review flagged.

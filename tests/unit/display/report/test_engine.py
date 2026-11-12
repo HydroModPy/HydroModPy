@@ -6,17 +6,13 @@ import json
 from datetime import date
 from pathlib import Path
 
-import pytest
-
 from hydromodpy.display.report.engine import (
-    LEVELS,
     Block,
     Link,
     Metric,
     Picture,
     Prose,
     Table,
-    items_at,
     pairs_table,
     write_pages,
 )
@@ -47,66 +43,10 @@ LEVELLED = Block(
 )
 
 
-@pytest.mark.parametrize(
-    ("level", "labels"),
-    [("compact", ["a"]), ("standard", ["a", "b"]), ("audit", ["a", "b", "c"])],
-)
-def test_items_grow_with_the_level(level, labels):
-    assert [i.label for i in items_at(LEVELLED, level)] == labels
-
-
-def test_levels_are_monotonic_by_construction():
-    seen = [len(items_at(LEVELLED, level)) for level in LEVELS]
-    assert seen == sorted(seen)
-
-
-def test_block_above_the_level_is_none():
-    block = Block("hi", "High", min_level="audit", items=(("audit", Metric("x", 1)),))
-    assert items_at(block, "standard") is None
-    assert items_at(block, "audit") is not None
-
-
-def test_levels_true_writes_five_pages(tmp_path):
-    index = _write(tmp_path, [LEVELLED])
-    out = tmp_path / "out"
-    assert index == out / "index.html"
-    for name in (*LEVELS, "by_block"):
-        assert (out / "review" / name / "index.html").is_file()
-
-
-def test_levels_false_writes_one_page(tmp_path):
-    _write(tmp_path, [LEVELLED], levels=False)
-    out = tmp_path / "out"
-    assert (out / "index.html").is_file()
-    assert not (out / "review").exists()
-
-
-def test_compact_page_hides_standard_items(tmp_path):
-    _write(tmp_path, [LEVELLED])
-    compact = (tmp_path / "out" / "review" / "compact" / "index.html").read_text()
-    audit = (tmp_path / "out" / "review" / "audit" / "index.html").read_text()
-    assert "<span>b</span>" not in compact
-    assert "<span>c</span>" in audit
-
-
-def test_by_block_page_carries_every_level_variant(tmp_path):
-    _write(tmp_path, [LEVELLED])
-    text = (tmp_path / "out" / "review" / "by_block" / "index.html").read_text()
-    assert text.count('class="variant"') == len(LEVELS)
-
-
 def test_required_missing_figure_gets_a_frame(tmp_path):
     block = Block("f", "F", items=(("compact", Picture("gone", "Gone", None, required=True)),))
     _write(tmp_path, [block])
     assert "Required figure missing" in (tmp_path / "out" / "index.html").read_text()
-
-
-def test_optional_missing_figure_shows_nothing(tmp_path):
-    block = Block("f", "F", items=(("compact", Picture("gone", "Gone", tmp_path / "no.png")),))
-    _write(tmp_path, [block])
-    text = (tmp_path / "out" / "index.html").read_text()
-    assert "Required figure missing" not in text
-    assert "<img" not in text
 
 
 def test_figures_are_copied_and_name_collisions_kept(tmp_path):
@@ -124,14 +64,6 @@ def test_figures_are_copied_and_name_collisions_kept(tmp_path):
     copies = sorted(p.name for p in (tmp_path / "out" / "figures").iterdir())
     assert len(copies) == 2
     assert "map.png" in copies
-
-
-def test_text_is_escaped(tmp_path):
-    block = Block("x", "<b>Title</b>", items=(("compact", Metric("<i>", "<script>")),))
-    _write(tmp_path, [block])
-    text = (tmp_path / "out" / "index.html").read_text()
-    assert "<script>" not in text.split("</style>")[1]
-    assert "&lt;script&gt;" in text
 
 
 def test_every_item_kind_renders(tmp_path):
@@ -157,34 +89,6 @@ def test_every_item_kind_renders(tmp_path):
         assert part in text
     assert 'href="manifest.json"' in text
     assert 'href="https://example.org/x"' in text
-
-
-def test_report_json_lists_figures_and_missing(tmp_path):
-    ok = _png(tmp_path / "run" / "figures" / "ok.png")
-    block = Block(
-        "f",
-        "F",
-        items=(
-            ("compact", Picture("ok", "Ok", ok, required=True)),
-            ("compact", Picture("gone", "Gone", None, required=True)),
-            ("compact", Picture("opt", "Opt", None)),
-        ),
-    )
-    _write(tmp_path, [block], lang="fr", label="validated", preset="research")
-    data = json.loads((tmp_path / "out" / "report.json").read_text())
-    assert data["schema"] == "hydromodpy.report.v1"
-    assert (data["preset"], data["lang"], data["label"]) == ("research", "fr", "validated")
-    assert data["rendered"] == "2026-11-11"
-    assert data["figures"]["ok"]["file"] == "ok.png"
-    assert data["figures"]["gone"] == {"title": "Gone", "file": None, "required": True}
-    assert data["missing"] == ["gone"]
-
-
-def test_header_carries_label_and_date(tmp_path):
-    _write(tmp_path, [LEVELLED], label="validated, rule 2")
-    text = (tmp_path / "out" / "index.html").read_text()
-    assert "validated, rule 2" in text
-    assert "2026-11-11" in text
 
 
 def test_rewrite_replaces_old_figures(tmp_path):

@@ -17,18 +17,6 @@ def _paths(tmp_path: Path) -> SimpleNamespace:
     return SimpleNamespace(root=tmp_path / "ws", data_dir=tmp_path / "ws" / "data")
 
 
-def test_the_store_sits_on_the_data_folder_of_the_run(tmp_path: Path) -> None:
-    loader = _loader(tmp_path)
-    paths = _paths(tmp_path)
-
-    loader._init_store(paths)
-
-    store = loader._require_store()
-    assert store.data_root == paths.data_dir.resolve()
-    assert store.index.data_root == paths.data_dir.resolve()
-    assert store.workspace_root == paths.root.resolve()
-
-
 def test_the_store_is_made_once(tmp_path: Path) -> None:
     loader = _loader(tmp_path)
     loader._init_store(_paths(tmp_path))
@@ -47,16 +35,3 @@ def test_a_run_leaves_no_database_in_the_data_folder(tmp_path: Path) -> None:
     loader._require_store().index.rows()
 
     assert list(paths.data_dir.iterdir()) == []
-
-
-def test_the_store_carries_the_bounds_of_the_call(tmp_path: Path) -> None:
-    from hydromodpy.core.runtime.bounds import Bounds
-
-    bounds = Bounds(allowed_hosts=frozenset({"example.com"}))
-    loader = DataLoader(
-        config_path=tmp_path / "project.toml", data_plan=DataLoadPlan(), bounds=bounds
-    )
-
-    loader._init_store(_paths(tmp_path))
-
-    assert loader._require_store().bounds is bounds

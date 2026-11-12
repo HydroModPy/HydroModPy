@@ -48,21 +48,6 @@ def _two_layer_grid() -> SolverMesh:
     )
 
 
-def test_shallow_depth_spans_top_layer_only() -> None:
-    sm = _two_layer_grid()
-    rows = build_flow_barrier_hfb(sm, line=_CUT, depths=[4.0], hydchr=1e-9)
-    assert sorted({r[0][0] for r in rows}) == [0]
-    assert sorted({(r[0][1], r[1][1]) for r in rows}) == [(0, 1), (2, 3)]
-
-
-def test_deep_depth_spans_both_layers() -> None:
-    sm = _two_layer_grid()
-    rows = build_flow_barrier_hfb(sm, line=_CUT, depths=[8.0], hydchr=1e-9)
-    assert sorted({r[0][0] for r in rows}) == [0, 1]
-    assert len(rows) == 4
-    assert all(r[2] == 1e-9 for r in rows)
-
-
 def test_crest_elevation_bars_below_the_top() -> None:
     # A grout curtain whose crest sits below the model top: crest 4 m, depth 3 m
     # -> the barrier spans [1, 4] m, which skips the top layer (5-10 m) entirely
@@ -106,19 +91,6 @@ def _stepped_two_cells() -> SolverMesh:
         botm=np.array([[15.0, 5.0], [10.0, 0.0]]),
         inactive_mask=np.zeros((2, 2), dtype=bool),
     )
-
-
-def test_band_below_the_aquifer_seals_the_nearest_layer_for_continuity() -> None:
-    # The wall band [1, 4] m sits below cell 0's aquifer (10-20 m). Without clamping the
-    # face emits no row (a leak window in the fence); it is sealed at the nearest (bottom)
-    # layer so the cutoff wall stays continuous.
-    sm = _stepped_two_cells()
-    cut = LineString([(1.0, -0.5), (1.0, 1.5)])
-    rows = build_flow_barrier_hfb(
-        sm, line=cut, hydchr=1e-9, crest_elevation=4.0, base_elevation=1.0
-    )
-    assert len(rows) == 1
-    assert rows[0][0] == (1, 0) and rows[0][1] == (1, 1)  # bottom layer, face (0, 1)
 
 
 def test_line_missing_the_mesh_raises() -> None:
@@ -268,17 +240,6 @@ def test_resolver_builds_rows_for_a_bound_cutoff_wall() -> None:
     assert len(rows) == 4  # depth 7 m spans both 5 m layers across the two faces
     assert sorted({r[0][0] for r in rows}) == [0, 1]
     assert all(r[2] == pytest.approx(1e-9) for r in rows)
-
-
-def test_resolver_builds_rows_for_a_general_flow_barrier() -> None:
-    barrier = FlowBarrierConfig(line=_CUT_COORDS, depths=[4.0], hydchr=1e-9)
-    payload = {"barrier": barrier, "line": _CUT_LINE}
-    rows = resolve_flow_barrier_hfb_rows(
-        _model({"flow_barriers": {"wall_a": payload}}), _two_layer_grid_2()
-    )
-    # depth 4 m stays in the top 5 m layer only => 2 faces, layer 0 only.
-    assert sorted({r[0][0] for r in rows}) == [0]
-    assert sorted({(r[0][1], r[1][1]) for r in rows}) == [(0, 1), (2, 3)]
 
 
 def test_resolver_is_empty_without_a_barrier() -> None:

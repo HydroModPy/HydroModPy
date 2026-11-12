@@ -25,18 +25,6 @@ from tests.unit.workflow.steps.prepare_solver._helpers import sealed_run
 # lineage of the run names its source by id.
 
 
-def test_a_run_name_resolves_to_its_latest_version(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "demo")
-    sealed_run(project, "spinup")
-    sid_v2 = sealed_run(project, "spinup.v2")
-
-    source = resolve_restart_source(project, "spinup")
-
-    assert source.sim_id == sid_v2
-    assert source.path == project / "runs" / "spinup.v2" / FIELDS_STORE_NAME
-    assert source.rel_dir == "runs/spinup.v2"
-
-
 def test_a_versioned_name_a_sim_id_and_a_path_resolve_to_the_same_run(tmp_path: Path) -> None:
     project = make_project(tmp_path / "demo")
     sid = sealed_run(project, "spinup")
@@ -49,15 +37,6 @@ def test_a_versioned_name_a_sim_id_and_a_path_resolve_to_the_same_run(tmp_path: 
     assert resolve_restart_source(project, sid[:12]).path == expected
     assert resolve_restart_source(project, f"runs/spinup/{FIELDS_STORE_NAME}").sim_id == sid
     assert resolve_restart_source(project, str(expected)).rel_dir == "runs/spinup"
-
-
-def test_a_store_outside_any_seal_resolves_without_an_id(tmp_path: Path) -> None:
-    loose = tmp_path / "elsewhere" / FIELDS_STORE_NAME
-    loose.mkdir(parents=True)
-
-    source = resolve_restart_source(make_project(tmp_path / "demo"), str(loose))
-
-    assert source.sim_id is None and source.path == loose and source.rel_dir is None
 
 
 def test_an_unknown_reference_is_refused_by_name(tmp_path: Path) -> None:

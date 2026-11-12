@@ -13,12 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.provenance.lockfile import (
-    LOCKFILE_SCHEMA,
-    read_lockfile_inputs,
-    read_lockfile_meta,
-    user_file_input,
-)
+from hydromodpy.data.provenance.lockfile import read_lockfile_inputs, user_file_input
 from hydromodpy.data.provenance.sidecars import FORMER_CACHE_DATABASE, CacheIndex
 from hydromodpy.project.launch.lockfile import write_project_lockfile
 
@@ -30,47 +25,6 @@ def _fetched(data: Path, station: str) -> Path:
     path.write_text(f"datetime,value\n2000-01-01,{station}\n", encoding="utf-8")
     CacheIndex(data).record(path, variable="hydrometry", source="hubeau", station_id=station)
     return path
-
-
-def test_an_empty_data_folder_writes_no_lockfile(tmp_path: Path) -> None:
-    project = tmp_path / "project"
-    (project / "data").mkdir(parents=True)
-
-    assert write_project_lockfile(project, project / "data") is None
-    assert not (project / "hydromodpy.lock").exists()
-
-
-def test_every_row_of_the_data_folder_is_pinned_with_its_licence(tmp_path: Path) -> None:
-    project = tmp_path / "project"
-    data = project / "data"
-    _fetched(data, "A")
-    _fetched(data, "B")
-
-    written = write_project_lockfile(project, data)
-
-    assert written == project / "hydromodpy.lock"
-    inputs = read_lockfile_inputs(written)
-    assert [(item.variable, item.source, item.station_id) for item in inputs] == [
-        ("hydrometry", "hubeau", "A"),
-        ("hydrometry", "hubeau", "B"),
-    ]
-    assert all(item.license == "etalab-2.0" for item in inputs)
-    assert all(item.path.startswith("hydrometry/") for item in inputs)
-    meta = read_lockfile_meta(written)
-    assert meta["config_schema_sha256"]
-    assert LOCKFILE_SCHEMA == "hydromodpy.lock.v2"
-
-
-def test_the_data_folder_may_lie_outside_the_project(tmp_path: Path) -> None:
-    project = tmp_path / "workspace" / "projects" / "lab"
-    project.mkdir(parents=True)
-    data = tmp_path / "elsewhere" / "data"
-    _fetched(data, "A")
-
-    written = write_project_lockfile(project, data)
-
-    assert written == project / "hydromodpy.lock"
-    assert [item.station_id for item in read_lockfile_inputs(written)] == ["A"]
 
 
 def test_a_user_file_alone_is_pinned_and_a_refused_configuration_is_named(

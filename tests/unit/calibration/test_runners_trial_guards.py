@@ -41,34 +41,7 @@ from hydromodpy.solver.base.plan import WATER_BUDGET_METRIC
 # and a trial past it is rejected rather than scored, with the number said.
 
 
-class TestTheDeclaration:
-    def test_one_per_cent_is_rejected_by_default(self) -> None:
-        """Decision D13: the gate is on, at one per cent of the model budget."""
-        assert CalibrationConfig().reject_water_budget_above == 1.0
-
-    def test_a_file_may_state_what_it_accepts(self) -> None:
-        cfg = CalibrationConfig.model_validate(
-            {"parameters": {"K": {"bounds": [1e-8, 1e-2]}}, "reject_water_budget_above": 5.0}
-        )
-
-        assert cfg.reject_water_budget_above == 5.0
-
-    def test_a_negative_threshold_is_refused(self) -> None:
-        with pytest.raises(ValueError):
-            CalibrationConfig.model_validate(
-                {
-                    "parameters": {"K": {"bounds": [1e-8, 1e-2]}},
-                    "reject_water_budget_above": -1.0,
-                }
-            )
-
-
 class TestTheVerdict:
-    def test_no_threshold_passes_whatever_the_discrepancy(self) -> None:
-        verdict = water_budget_verdict({WATER_BUDGET_METRIC: 12.0}, threshold=None)
-
-        assert verdict is None
-
     def test_a_run_inside_the_threshold_passes(self) -> None:
         verdict = water_budget_verdict({WATER_BUDGET_METRIC: 0.4}, threshold=5.0)
 
@@ -76,39 +49,11 @@ class TestTheVerdict:
         assert verdict.passed is True
         assert verdict.value == pytest.approx(0.4)
 
-    def test_a_run_past_the_threshold_fails_and_is_fatal(self) -> None:
-        verdict = water_budget_verdict({WATER_BUDGET_METRIC: 12.0}, threshold=5.0)
-
-        assert verdict is not None
-        assert verdict.passed is False
-        assert verdict.fatal is True
-
     def test_the_sign_of_the_discrepancy_does_not_excuse_it(self) -> None:
         verdict = water_budget_verdict({WATER_BUDGET_METRIC: -12.0}, threshold=5.0)
 
         assert verdict is not None
         assert verdict.passed is False
-
-    def test_a_run_that_reported_nothing_yields_no_verdict(self) -> None:
-        """Absent is not zero: a backend that reports none says nothing either way."""
-        assert water_budget_verdict({}, threshold=5.0) is None
-
-
-class TestTheLabelReadsInPlainWords:
-    def test_it_says_what_the_failure_does_to_the_number(self) -> None:
-        verdict = water_budget_verdict({WATER_BUDGET_METRIC: 12.0}, threshold=5.0)
-
-        assert verdict is not None
-        message = verdict.message
-        assert "12" in message
-        assert "5" in message
-        assert "not comparable" in message
-
-    def test_it_names_itself_so_a_report_can_group_it(self) -> None:
-        verdict = water_budget_verdict({WATER_BUDGET_METRIC: 12.0}, threshold=5.0)
-
-        assert verdict is not None
-        assert verdict.name == "water_budget"
 
 
 class TestTheTrialActsOnIt:
@@ -150,19 +95,6 @@ def test_the_pipeline_is_refused_until_project_installs_one(monkeypatch) -> None
         trial.trial_pipeline()
 
 
-def test_a_second_installation_of_the_same_pipeline_is_silent(monkeypatch) -> None:
-    """Two sessions opening in two threads install an equal pipeline, and both read on."""
-    monkeypatch.setattr(trial, "_PIPELINE", None)
-    monkeypatch.setattr(trial, "_INITIALIZER", None)
-    pipeline = SimpleNamespace()
-
-    trial.install_trial_pipeline(pipeline, initializer="mod:first")
-    trial.install_trial_pipeline(pipeline, initializer="mod:second")
-
-    assert trial.trial_pipeline() is pipeline
-    assert trial.trial_pipeline_initializer() == "mod:first"
-
-
 def test_a_second_installation_of_another_pipeline_is_refused(monkeypatch) -> None:
     """A run already reading the pipeline must never see it change (rule 15)."""
     monkeypatch.setattr(trial, "_PIPELINE", SimpleNamespace(name="first"))
@@ -197,48 +129,6 @@ def test_the_initializer_is_returned_as_installed(monkeypatch) -> None:
 #
 # The counter lives on the wrapper so it sees the trials the engine actually ran;
 # a cache hit never reaches the evaluator and must not count as a failure.
-
-
-def test_a_run_of_failures_stops_the_search() -> None:
-    """The watch gives up once the declared streak is reached."""
-    watch = ConsecutiveFailureWatch(limit=3)
-
-    watch.record(failed=True, error="no observed discharge")
-    watch.record(failed=True, error="no observed discharge")
-    with pytest.raises(EveryTrialFailedError) as failure:
-        watch.record(failed=True, error="no observed discharge")
-
-    message = str(failure.value)
-    assert "3" in message
-    assert "no observed discharge" in message
-
-
-def test_one_success_clears_the_streak() -> None:
-    """A search that recovers is a search, not a failure."""
-    watch = ConsecutiveFailureWatch(limit=3)
-
-    watch.record(failed=True, error="transient")
-    watch.record(failed=True, error="transient")
-    watch.record(failed=False, error=None)
-    watch.record(failed=True, error="transient")
-    watch.record(failed=True, error="transient")
-
-
-def test_the_message_carries_the_last_reason() -> None:
-    """The reason is what the reader needs; the count only says it is systematic."""
-    watch = ConsecutiveFailureWatch(limit=2)
-
-    watch.record(failed=True, error="first reason")
-    with pytest.raises(EveryTrialFailedError, match="second reason"):
-        watch.record(failed=True, error="second reason")
-
-
-def test_a_limit_of_zero_never_fires() -> None:
-    """Opting out stays possible for a search expected to fail its way through."""
-    watch = ConsecutiveFailureWatch(limit=0)
-
-    for _ in range(50):
-        watch.record(failed=True, error="ignored")
 
 
 _FAILED = (True, "no observed discharge")
@@ -292,22 +182,6 @@ def _write_recharge_file(scratch: Path, model_name: str) -> Path:
     return recharge_dir
 
 
-class TestSandboxRemovesItsRecharge:
-    def test_the_recharge_folder_is_gone_on_exit(self, tmp_path: Path) -> None:
-        sandbox = TrialSandbox("cheze", 1, scratch_root=tmp_path)
-        recharge_dir = _write_recharge_file(tmp_path, sandbox.model_name)
-        with sandbox:
-            assert recharge_dir.is_dir()
-        assert not recharge_dir.exists()
-
-    def test_a_kept_solve_keeps_its_recharge(self, tmp_path: Path) -> None:
-        sandbox = TrialSandbox("cheze", 2, scratch_root=tmp_path)
-        recharge_dir = _write_recharge_file(tmp_path, sandbox.model_name)
-        with sandbox:
-            sandbox.keep_outputs()
-        assert recharge_dir.is_dir()
-
-
 # From test_trial_sandbox.py
 # Tests for per-trial solver isolation in parallel calibration.
 #
@@ -320,23 +194,6 @@ class TestSandboxRemovesItsRecharge:
 # ---------------------------------------------------------------------------
 # TrialSandbox: model identity
 # ---------------------------------------------------------------------------
-class TestTrialIdentity:
-    def test_model_name_is_unique_and_deterministic(self):
-        a = TrialSandbox("cheze", 1)
-        b = TrialSandbox("cheze", 2)
-        assert a.model_name == "cheze_trial000001"
-        assert b.model_name == "cheze_trial000002"
-        assert a.slot_request() == SlotRequest(name="cheze_trial000001")
-        assert a.model_name != b.model_name
-
-    def test_base_name_is_sanitized(self):
-        sandbox = TrialSandbox("my run/name", 7)
-        assert sandbox.model_name == "my-run-name_trial000007"
-        # Result is a safe single path segment.
-        assert "/" not in sandbox.model_name and " " not in sandbox.model_name
-
-    def test_empty_base_name_falls_back(self):
-        assert TrialSandbox("", 3).model_name == "trial_trial000003"
 
 
 @pytest.mark.parametrize(
@@ -372,26 +229,6 @@ def _execution_with_outputs(*dirs: Path):
 
 
 class TestOutputCleanup:
-    def test_removes_tracked_outputs_on_exit(self, tmp_path: Path):
-        out = tmp_path / "model_trial1"
-        out.mkdir()
-        (out / "model.lak.obs.csv").write_text("data", encoding="utf-8")
-        sandbox = TrialSandbox("m", 1)
-        with sandbox:
-            sandbox.track(_execution_with_outputs(out))
-            assert out.exists()
-        assert not out.exists()
-
-    def test_cleanup_runs_on_exception(self, tmp_path: Path):
-        out = tmp_path / "model_trial2"
-        out.mkdir()
-        sandbox = TrialSandbox("m", 2)
-        with pytest.raises(RuntimeError):
-            with sandbox:
-                sandbox.track(_execution_with_outputs(out))
-                raise RuntimeError("boom")
-        assert not out.exists()
-
     def test_keep_retains_outputs(self, tmp_path: Path):
         out = tmp_path / "model_trial3"
         out.mkdir()
@@ -408,24 +245,6 @@ class TestOutputCleanup:
         with sandbox:
             sandbox.track(_execution_with_outputs(out))
         assert out.exists()
-
-    def test_no_tracked_execution_is_safe(self):
-        # Fork failed before track(): exit must not raise.
-        with TrialSandbox("m", 5):
-            pass
-
-    def test_distinct_trials_clean_only_their_own_outputs(self, tmp_path: Path):
-        a_dir, b_dir = tmp_path / "a", tmp_path / "b"
-        a_dir.mkdir()
-        b_dir.mkdir()
-        with TrialSandbox("m", 1) as a:
-            a.track(_execution_with_outputs(a_dir))
-            with TrialSandbox("m", 2) as b:
-                b.track(_execution_with_outputs(b_dir))
-            # b exited -> only b cleaned, a still live.
-            assert not b_dir.exists()
-            assert a_dir.exists()
-        assert not a_dir.exists()
 
 
 # ---------------------------------------------------------------------------

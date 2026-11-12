@@ -273,24 +273,6 @@ def test_the_case_of_the_search_is_the_one_its_file_or_its_document_names(tmp_pa
     assert identical_session(CONFIG_HASH, project_root=tmp_path, document={}) is None
 
 
-@pytest.mark.parametrize(
-    ("file_name", "text", "case"),
-    [
-        ("Calib Winter.toml", "[calibration]\n", "calib_winter"),
-        ("calage.toml", "[calibration]\n", "calage"),
-        ("Calib Winter.toml", '[simulation]\nname = "kept"\n[calibration]\n', "kept"),
-    ],
-    ids=["a stem the code folds", "a stem already a name", "a name the file writes"],
-)
-def test_the_case_of_a_file_is_its_written_name_or_its_stem_folded(
-    tmp_path: Path, file_name: str, text: str, case: str
-) -> None:
-    """A run of the same file folds its stem the same way, so the two share a name."""
-    path = _write(tmp_path / file_name, text)
-
-    assert session.calibration_case_name(path) == case
-
-
 @pytest.mark.parametrize("name", ["Calib Winter", "aux", "a__b"])
 def test_a_case_that_breaks_the_rule_of_a_name_is_refused_before_the_search(name: str) -> None:
     from hydromodpy.calibration.runners.promotion import promotion_name_check

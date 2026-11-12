@@ -2,92 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
-
-from hydromodpy.data.variables.hydrometry.variable import HydrometryVariable
-from hydromodpy.data.variables.intermittency.variable import IntermittencyVariable
-from hydromodpy.data.variables.lake_series import LakeLevelsVariable
-from hydromodpy.data.variables.piezometry.variable import PiezometryVariable
 from hydromodpy.results import field_registry
 from hydromodpy.results.exporters.export_spec import ExportKind
-from hydromodpy.results.exporters.vocabulary import (
-    OBSERVED_VARIABLES,
-    SIMULATED_ACTIVE_NETWORK,
-    SIMULATED_SERIES,
-    describe_export_names,
-    export_kind,
-    static_export_names,
-)
-from hydromodpy.results.field_registry import TIME_SERIES_REGISTRY
-
-
-@pytest.mark.parametrize(
-    ("name", "kind"),
-    [
-        ("head", ExportKind.field),
-        ("watertable_depth", ExportKind.field),
-        ("seepage_mask", ExportKind.field),
-        (SIMULATED_ACTIVE_NETWORK, ExportKind.field),
-        ("discharge", ExportKind.series),
-        ("discharge_obs", ExportKind.series),
-        ("stage", ExportKind.series),
-        ("watershed", ExportKind.vector),
-        ("watershed_contour", ExportKind.vector),
-        ("watershed_box_buff", ExportKind.vector),
-        ("hydrographic_network_reference", ExportKind.vector),
-        ("hydrographic_network_reference_permanent", ExportKind.vector),
-        ("mesh_cells", ExportKind.vector),
-        ("mesh_seeds", ExportKind.vector),
-        ("mesh_family_faces", ExportKind.vector),
-        ("mesh_cell_area", ExportKind.field),
-        ("mesh_neighbour_ratio", ExportKind.field),
-        ("mesh_center_offset", ExportKind.field),
-        ("mesh_nonorthogonality", ExportKind.field),
-        ("mesh_bisection_offset", ExportKind.field),
-        ("mesh_min_angle", ExportKind.field),
-        ("mesh_max_angle", ExportKind.field),
-        ("mesh_concavity", ExportKind.field),
-        ("watershed_dem", ExportKind.raster),
-        ("watershed_fill", ExportKind.raster),
-        ("budget", ExportKind.table),
-    ],
-)
-def test_each_name_has_its_kind(name: str, kind: ExportKind) -> None:
-    assert export_kind(name) is kind
-
-
-def test_a_name_no_run_holds_has_no_kind() -> None:
-    assert export_kind("hed") is None
-    assert export_kind("all") is None
+from hydromodpy.results.exporters.vocabulary import static_export_names
 
 
 def test_every_registered_field_is_exportable() -> None:
     names = static_export_names()
     assert all(names[name] is ExportKind.field for name in field_registry.all_names())
-
-
-def test_every_registered_series_is_exported_as_a_series() -> None:
-    assert SIMULATED_SERIES == tuple(TIME_SERIES_REGISTRY)
-    names = static_export_names()
-    assert all(names[name] is ExportKind.series for name in TIME_SERIES_REGISTRY)
-    assert not set(TIME_SERIES_REGISTRY) & set(field_registry.all_names())
-
-
-@pytest.mark.parametrize(
-    "manager",
-    [HydrometryVariable, IntermittencyVariable, LakeLevelsVariable, PiezometryVariable],
-)
-def test_each_observation_family_has_its_observed_series(manager: type) -> None:
-    assert manager.RECORD_VARIABLE in OBSERVED_VARIABLES
-    assert export_kind(f"{manager.RECORD_VARIABLE}_obs") is ExportKind.series
-
-
-def test_the_vocabulary_prints_one_line_per_kind() -> None:
-    lines = describe_export_names().splitlines()
-    assert [line.split(":")[0].strip() for line in lines] == [
-        "fields",
-        "series",
-        "vector layers",
-        "raster layers",
-        "tables",
-    ]

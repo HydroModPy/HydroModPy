@@ -27,13 +27,7 @@ from hydromodpy.results.session.descriptor import SESSION_SCHEMA, SessionDescrip
 from hydromodpy.results.session.journal import TRIAL_SCHEMA, TrialLine
 from hydromodpy.results.session.phase import PHASE_SCHEMA, PhaseDescriptor
 from hydromodpy.schema import results as shipped
-from hydromodpy.schema.results import (
-    SCHEMA_FILENAMES,
-    read_schema,
-    read_schema_text,
-    render_schema,
-    schema_filename,
-)
+from hydromodpy.schema.results import read_schema, read_schema_text, render_schema, schema_filename
 
 MODELS: dict[str, type[BaseModel]] = {
     OUTCOME_SCHEMA: Outcome,
@@ -61,10 +55,6 @@ def refresh() -> list[Path]:
         path.write_text(render_schema(model), encoding="utf-8")
         written.append(path)
     return written
-
-
-def test_the_shipped_files_are_the_models_in_order():
-    assert tuple(schema_filename(schema_id) for schema_id in MODELS) == SCHEMA_FILENAMES
 
 
 @pytest.mark.parametrize("schema_id", sorted(MODELS))

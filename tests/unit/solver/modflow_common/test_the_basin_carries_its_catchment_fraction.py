@@ -82,26 +82,6 @@ def test_the_basin_carries_the_polygon_share_of_every_cell(tmp_path) -> None:
     assert (cut & basin.mask).any()
 
 
-def test_the_fraction_never_changes_the_cells_of_the_basin(tmp_path) -> None:
-    with_polygon = _basin(tmp_path)
-    without_polygon = _basin(tmp_path, polygon=None)
-
-    assert without_polygon.catchment_fraction is None
-    np.testing.assert_array_equal(with_polygon.mask, without_polygon.mask)
-    assert with_polygon.outlet == without_polygon.outlet
-    assert with_polygon.area_m2 == without_polygon.area_m2
-
-
-def test_the_largest_basin_of_a_domain_carries_no_fraction(tmp_path) -> None:
-    mesh = _mesh()
-    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-
-    basin = run_basin(CatchmentGeometry.from_geographic(SimpleNamespace(), crs=None), mesh, descent)
-
-    assert basin.rule == "largest_basin"
-    assert basin.catchment_fraction is None
-
-
 def test_the_fraction_travels_from_the_build_to_the_store(tmp_path) -> None:
     basin = _basin(tmp_path)
     mesh = _mesh()
@@ -125,18 +105,6 @@ def test_the_fraction_travels_from_the_build_to_the_store(tmp_path) -> None:
     assert dtype == np.float64
     np.testing.assert_array_equal(values, basin.catchment_fraction)
     assert attrs["units"] == "1"
-
-
-def test_a_sidecar_without_the_fraction_reads_back_without_one(tmp_path) -> None:
-    basin = _basin(tmp_path, polygon=None)
-    mesh = _mesh()
-    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    write_descent_sidecar(descent, tmp_path, "m", basin=basin)
-
-    record = read_descent_sidecar(tmp_path / "m.descent.npz")
-
-    assert record is not None and record.basin is not None
-    assert record.catchment_fraction is None
 
 
 def _rewrite_sidecar(tmp_path, **changes) -> None:

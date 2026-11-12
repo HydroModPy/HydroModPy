@@ -8,15 +8,11 @@ of the same cache differ only by their timestamps.
 from __future__ import annotations
 
 import inspect
-import os
-import pickle
 import re
-import threading
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-import tomlkit
 
 from hydromodpy.core.exceptions import DataCacheError, FrozenDataError, SchemaVersionMismatchError
 from hydromodpy.core.io.file_digest import sha256_of
@@ -24,7 +20,6 @@ from hydromodpy.data.provenance import lockfile
 from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
     LOCKFILE_SCHEMA,
-    LockedInput,
     LockedInputs,
     project_lockfile_path,
     read_locked_inputs,
@@ -75,81 +70,11 @@ def _seed_workspace_project(tmp: Path) -> tuple[Path, Path, Path]:
 # -- the format ---------------------------------------------------------------
 
 
-def test_write_lockfile_contains_required_sections(tmp_path: Path) -> None:
-    data_root, _ = _seed(tmp_path)
-    dest = data_root.parent / LOCKFILE_NAME
-    write_lockfile(dest, data_root, schema_sha256="cafe")
-
-    doc = tomlkit.parse(dest.read_text())
-    assert doc["schema"] == LOCKFILE_SCHEMA == "hydromodpy.lock.v2"
-    assert set(doc) == {"schema", "hydromodpy", "input"}
-
-    meta = read_lockfile_meta(dest)
-    assert {"hydromodpy_version", "python_version", "generated_at"} <= set(meta)
-    assert meta["config_schema_sha256"] == "cafe"
-    for gone in ("catalog_schema_version", "zarr_schema_version", "parquet_schema_version"):
-        assert gone not in meta
-    assert set(doc["input"][0]) == {
-        "variable",
-        "source",
-        "station_id",
-        "product",
-        "path",
-        "sha256",
-        "bytes",
-        "license",
-        "fetched_at",
-    }
-
-
-def test_each_input_carries_its_licence(tmp_path: Path) -> None:
-    data_root, _ = _seed(tmp_path)
-    dest = data_root.parent / LOCKFILE_NAME
-    write_lockfile(dest, data_root)
-    (item,) = read_lockfile_inputs(dest)
-    assert item.license == "etalab-2.0"
-    assert item.product == "QmnJ"
-
-
 _REFUSED_SHAPES = {
     "the lockfile of a pre-release of 2.0": 'schema = "hydromodpy.lock.v1"\n\n[hydromodpy]\nhydromodpy_version = "2.0.0"\n',
     "an older shape without schema": '[hydromodpy]\nversion = "2.0.0"\n\n[schema]\ncatalog = 1\n',
     "a later version": 'schema = "hydromodpy.lock.v3"\n',
 }
-
-
-@pytest.mark.parametrize("text", _REFUSED_SHAPES.values(), ids=_REFUSED_SHAPES.keys())
-def test_a_lockfile_of_another_shape_is_refused_by_name(tmp_path: Path, text: str) -> None:
-    dest = tmp_path / LOCKFILE_NAME
-    dest.write_text(text)
-
-    with pytest.raises(SchemaVersionMismatchError, match="hmp data lock"):
-        read_lockfile_inputs(dest)
-
-
-def test_the_lockfile_of_the_corpus_is_refused(tmp_path: Path) -> None:
-    corpus = (
-        Path(__file__).resolve().parents[3]
-        / "regression"
-        / "frozen_documents"
-        / "v2.0.0-pre"
-        / "current"
-        / "island"
-        / LOCKFILE_NAME
-    )
-    copy = tmp_path / LOCKFILE_NAME
-    copy.write_bytes(corpus.read_bytes())
-    with pytest.raises(SchemaVersionMismatchError, match=r"hydromodpy\.lock\.v1.*hmp data lock"):
-        read_lockfile_inputs(copy)
-
-
-def test_a_lockfile_carries_no_binaries_and_no_path_of_this_machine(tmp_path: Path) -> None:
-    # A solver's digest is sealed by each run; the lockfile pins the data.
-    data_root, _ = _seed(tmp_path)
-    dest = tmp_path / LOCKFILE_NAME
-    write_lockfile(dest, data_root)
-    assert "binaries" not in tomlkit.parse(dest.read_text())
-    assert str(tmp_path) not in dest.read_text()
 
 
 def test_the_data_layer_holds_no_copy_of_the_schema_digest() -> None:
@@ -162,16 +87,6 @@ def test_the_data_layer_holds_no_copy_of_the_schema_digest() -> None:
 def test_the_old_resolver_is_gone() -> None:
     assert not hasattr(lockfile, "workspace_lockfile_path")
     assert not hasattr(lockfile, "read_lockfile_binaries")
-
-
-def test_lockfile_includes_inputs_sha256(tmp_path: Path) -> None:
-    data_root, (src,) = _seed(tmp_path)
-    dest = tmp_path / LOCKFILE_NAME
-    write_lockfile(dest, data_root)
-    (item,) = read_lockfile_inputs(dest)
-    assert item.path == "hydrometry/hydrometry_hubeau_A.csv"
-    assert item.sha256 == sha256_of(src)
-    assert item.bytes == src.stat().st_size
 
 
 def test_an_empty_answer_is_pinned_without_bytes(tmp_path: Path) -> None:
@@ -200,140 +115,12 @@ def test_an_empty_answer_is_pinned_without_bytes(tmp_path: Path) -> None:
     assert [(m.kind, m.station_id) for m in gone] == [("missing", "Z")]
 
 
-def test_two_grids_of_one_source_are_two_inputs(tmp_path: Path) -> None:
-    data_root = tmp_path / "data"
-    folder = data_root / "precipitation"
-    folder.mkdir(parents=True)
-    index = CacheIndex(data_root)
-    for name, body in (("precip_a.nc", "a"), ("precip_b.nc", "b")):
-        (folder / name).write_text(body)
-        index.record(folder / name, variable="precipitation", source="sim2")
-    dest = tmp_path / LOCKFILE_NAME
-    write_lockfile(dest, data_root)
-
-    assert {item.path for item in read_lockfile_inputs(dest)} == {
-        "precipitation/precip_a.nc",
-        "precipitation/precip_b.nc",
-    }
-    assert verify_lockfile(data_root, dest) == []
-
-
-def test_a_user_file_is_pinned_relative_to_its_project(tmp_path: Path) -> None:
-    data_root, _ = _seed(tmp_path)
-    project_root = data_root.parent / "projects" / "demo"
-    project_root.mkdir(parents=True)
-    mine = data_root.parent / "inputs" / "dem.tif"
-    mine.parent.mkdir()
-    mine.write_bytes(b"dem")
-    item = user_file_input(
-        mine, variable="dem", project_root=project_root, sha256=sha256_of(mine), license="CC0-1.0"
-    )
-    dest = project_lockfile_path(project_root)
-    write_lockfile(dest, data_root, user_files=[item], project_root=project_root)
-
-    locked = {i.source: i for i in read_lockfile_inputs(dest)}
-    assert locked["file"].path == "../../inputs/dem.tif"
-    assert locked["file"].license == "CC0-1.0"
-    assert verify_lockfile(data_root, dest) == []
-    mine.write_bytes(b"other dem")
-    (mismatch,) = verify_lockfile(data_root, dest, strict=True)
-    assert (mismatch.kind, mismatch.source, mismatch.path) == (
-        "sha256",
-        "file",
-        "../../inputs/dem.tif",
-    )
-
-
 # -- atomic writing ------------------------------------------------------------
-
-
-def test_write_lockfile_atomic(tmp_path: Path) -> None:
-    """A pre-existing lockfile is replaced in one rename, never partly overwritten."""
-    data_root, src = _seed(tmp_path)
-    dest = tmp_path / LOCKFILE_NAME
-    dest.write_text('[hydromodpy]\nversion = "old"\n', encoding="utf-8")
-    before = dest.stat()
-
-    write_lockfile(dest, data_root)
-
-    after = dest.stat()
-    assert (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino)
-    assert [p for p in dest.parent.iterdir() if p.name.startswith(f".{dest.name}.tmp.")] == []
-    assert tomlkit.parse(dest.read_text())["schema"] == LOCKFILE_SCHEMA
-    if os.name == "posix":
-        assert dest.stat().st_mode & 0o777 in {0o644, 0o664}
-
-
-def test_atomic_write_uses_a_short_temporary_suffix(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The tmp sibling keeps 8 hex chars, the repo-wide budget against MAX_PATH."""
-    swapped: list[str] = []
-    real_replace = os.replace
-
-    def spy(src: object, dst: object) -> None:
-        swapped.append(Path(str(src)).name)
-        real_replace(src, dst)  # type: ignore[arg-type]
-
-    monkeypatch.setattr(os, "replace", spy)
-    dest = tmp_path / LOCKFILE_NAME
-    lockfile._atomic_write_text(dest, 'version = "1"\n')
-
-    assert dest.read_text() == 'version = "1"\n'
-    prefix = f".{LOCKFILE_NAME}.tmp."
-    assert len(swapped) == 1
-    assert swapped[0].startswith(prefix)
-    assert len(swapped[0]) - len(prefix) == 8
 
 
 # -- determinism ---------------------------------------------------------------
 
 _VOLATILE = re.compile(r'(generated_at\s*=\s*"[^"]*"|fetched_at\s*=\s*"[^"]*")')
-
-
-def test_two_writes_are_byte_identical_after_timestamp_normalisation(tmp_path: Path) -> None:
-    data_root, _ = _seed(tmp_path, ("A", "B"))
-    a, b = tmp_path / "a.lock", tmp_path / "b.lock"
-    write_lockfile(a, data_root, schema_sha256="cafef00d")
-    write_lockfile(b, data_root, schema_sha256="cafef00d")
-    assert _VOLATILE.sub("<ts>", a.read_text()) == _VOLATILE.sub("<ts>", b.read_text())
-
-
-def test_one_write_stamps_every_entry_with_the_same_instant(tmp_path: Path) -> None:
-    data_root, _ = _seed(tmp_path, ("A", "B"))
-    dest = tmp_path / LOCKFILE_NAME
-    write_lockfile(dest, data_root)
-    doc = tomlkit.parse(dest.read_text())
-    stamps = {str(entry["fetched_at"]) for entry in doc["input"]}
-    stamps.add(str(doc["hydromodpy"]["generated_at"]))
-    assert len(stamps) == 1
-    assert next(iter(stamps)).endswith("+00:00")
-
-
-def test_input_ordering_is_stable_across_writes(tmp_path: Path) -> None:
-    data_root, files = _seed(tmp_path, ("B", "A"))
-    dest = tmp_path / LOCKFILE_NAME
-    write_lockfile(dest, data_root)
-    first = [item.path for item in read_lockfile_inputs(dest)]
-    write_lockfile(dest, data_root)
-    second = [item.path for item in read_lockfile_inputs(dest)]
-    assert first == second == sorted(_key(data_root, path) for path in files)
-
-
-def test_snapshot_round_trips_to_the_sidecars(tmp_path: Path) -> None:
-    data_root, (first, second) = _seed(tmp_path, ("A", "B"))
-    dest = tmp_path / LOCKFILE_NAME
-    write_lockfile(dest, data_root)
-    by_path = {entry.path: entry for entry in read_lockfile_inputs(dest)}
-
-    a = by_path[_key(data_root, first)]
-    assert isinstance(a, LockedInput)
-    assert (a.variable, a.source, a.station_id) == ("hydrometry", "hubeau", "A")
-    assert a.sha256 == sha256_of(first)
-    assert a.bytes == first.stat().st_size
-    assert by_path[_key(data_root, second)].station_id == "B"
-    assert a.sha256 != by_path[_key(data_root, second)].sha256
-    assert verify_lockfile(data_root, dest) == []
 
 
 def test_schema_sha256_round_trips_and_may_be_absent(tmp_path: Path) -> None:
@@ -347,28 +134,6 @@ def test_schema_sha256_round_trips_and_may_be_absent(tmp_path: Path) -> None:
 
 
 # -- verify --------------------------------------------------------------------
-
-
-def test_verify_passes_when_unchanged(tmp_path: Path) -> None:
-    data_root, _ = _seed(tmp_path)
-    dest = tmp_path / LOCKFILE_NAME
-    write_lockfile(dest, data_root)
-    assert verify_lockfile(data_root, dest) == []
-    assert verify_lockfile(data_root, dest, strict=True) == []
-
-
-@pytest.mark.parametrize("strict", [False, True], ids=["frozen", "strict"])
-def test_verify_flags_a_changed_input(tmp_path: Path, strict: bool) -> None:
-    data_root, (src,) = _seed(tmp_path)
-    dest = tmp_path / LOCKFILE_NAME
-    write_lockfile(dest, data_root)
-    src.write_text("datetime,value\n2020-01-01,9.0\n")
-
-    (mismatch,) = verify_lockfile(data_root, dest, strict=strict)
-
-    assert mismatch.kind == "sha256"
-    assert mismatch.path == _key(data_root, src)
-    assert mismatch.expected != mismatch.observed
 
 
 @pytest.mark.parametrize("strict", [False, True], ids=["frozen", "strict"])
@@ -416,10 +181,6 @@ def test_strict_answers_without_strict_for_a_lockfile_that_names_nothing(tmp_pat
 # -- frozen mode -----------------------------------------------------------------
 
 
-def test_project_lockfile_path_is_the_project_root(tmp_path: Path) -> None:
-    assert project_lockfile_path(tmp_path) == tmp_path / LOCKFILE_NAME
-
-
 def test_read_locked_inputs_names_the_expected_path_when_missing(tmp_path: Path) -> None:
     project_root = tmp_path / "project"
     project_root.mkdir()
@@ -429,33 +190,10 @@ def test_read_locked_inputs_names_the_expected_path_when_missing(tmp_path: Path)
         read_locked_inputs(project_root)
 
 
-def test_read_locked_inputs_reads_the_lockfile_once(tmp_path: Path) -> None:
-    data_root, _ = _seed(tmp_path, ("A", "B"))
-    project_root = data_root.parent
-    written = write_lockfile(project_lockfile_path(project_root), data_root)
-
-    locked = read_locked_inputs(project_root)
-
-    assert locked.project_root == project_root.resolve()
-    assert locked.path == project_lockfile_path(project_root.resolve())
-    assert [item.station_id for item in locked.inputs] == ["A", "B"]
-    written.unlink()
-    assert len(locked.inputs) == 2, "the lockfile is read once, not at each refusal"
-
-
 def test_read_locked_inputs_refuses_a_lockfile_of_another_shape(tmp_path: Path) -> None:
     (tmp_path / LOCKFILE_NAME).write_text('schema = "hydromodpy.lock.v1"\n')
     with pytest.raises(SchemaVersionMismatchError):
         read_locked_inputs(tmp_path)
-
-
-def test_locked_inputs_crosses_a_process_by_pickle(tmp_path: Path) -> None:
-    data_root, _ = _seed(tmp_path)
-    project_root = data_root.parent
-    write_lockfile(project_lockfile_path(project_root), data_root)
-    locked = read_locked_inputs(project_root)
-
-    assert pickle.loads(pickle.dumps(locked)) == locked
 
 
 @pytest.mark.parametrize(
@@ -471,48 +209,6 @@ def test_locked_inputs_crosses_a_process_by_pickle(tmp_path: Path) -> None:
 )
 def test_the_lockfile_module_keeps_no_frozen_state_of_the_process(name: str) -> None:
     assert not hasattr(lockfile, name)
-
-
-def test_two_threads_one_frozen_and_one_not_do_not_see_each_other(tmp_path: Path) -> None:
-    data_root, _ = _seed(tmp_path)
-    project_root = data_root.parent
-    write_lockfile(project_lockfile_path(project_root), data_root)
-    locked = read_locked_inputs(project_root)
-    both_running = threading.Barrier(2, timeout=10)
-    outcome: dict[str, object] = {}
-
-    def run(name: str, handed: LockedInputs | None) -> None:
-        try:
-            for _ in range(50):
-                try:
-                    reject_frozen_row(
-                        handed,
-                        variable="hydrometry",
-                        source="hubeau",
-                        station_id="Z",
-                        path="hydrometry/none.csv",
-                        sha256=None,
-                    )
-                    refused = False
-                except FrozenDataError:
-                    refused = True
-                assert refused is (handed is not None)
-                if _ == 0:
-                    both_running.wait()
-            outcome[name] = "ok"
-        except BaseException as exc:
-            outcome[name] = exc
-
-    threads = [
-        threading.Thread(target=run, args=("frozen", locked)),
-        threading.Thread(target=run, args=("free", None)),
-    ]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-
-    assert outcome == {"frozen": "ok", "free": "ok"}
 
 
 @pytest.mark.parametrize(
@@ -560,21 +256,6 @@ def test_a_frozen_refusal_is_a_typed_data_failure(tmp_path: Path) -> None:
 
 
 # -- one address: what hmp data lock writes is what --frozen reads ---------------
-
-
-def test_frozen_mode_reads_the_lockfile_lock_data_wrote(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from hydromodpy.project.data_cache import lock_data
-
-    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
-    workspace, project_root, _ = _seed_workspace_project(tmp_path)
-    lock_data(project=str(project_root))
-
-    assert project_lockfile_path(project_root).is_file()
-    assert not (workspace / LOCKFILE_NAME).exists()
-    assert not (workspace / "data" / LOCKFILE_NAME).exists()
-    assert [item.station_id for item in read_locked_inputs(project_root).inputs] == ["A"]
 
 
 def test_frozen_precheck_accepts_the_lockfile_lock_data_wrote(

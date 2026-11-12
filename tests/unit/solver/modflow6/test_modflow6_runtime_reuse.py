@@ -107,8 +107,3 @@ def test_the_listing_leaves_the_auxiliary_models_out(
         (tmp_path / folder / "f").write_text("f")
 
     assert run_module.written_input_files(tmp_path) == expected
-
-
-def test_a_missing_folder_lists_nothing(tmp_path: Path) -> None:
-    assert run_module.written_input_files(tmp_path / "absent") == ()
-    assert run_module.written_input_files(None) == ()

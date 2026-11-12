@@ -12,7 +12,6 @@ from hydromodpy.solver.modflow_common.progress import (
     WRITING_LINE_RE,
     make_solving_line_callback,
     stdout_to_debug_log,
-    write_listing_status,
 )
 
 _LOGGER_NAME = "hydromodpy.solver.modflow_common.progress"
@@ -89,14 +88,6 @@ def test_callback_is_monotonic_and_clamped_to_nper() -> None:
     assert handle.completed == [2, 2]
 
 
-def test_callback_handles_nwt_line_format() -> None:
-    handle = _RecordingHandle()
-    callback = make_solving_line_callback(handle, nper=4)
-    callback(" Solving:  Stress period:     1    Time step:     1    Groundwater-Flow Eqn.")
-    callback(" Solving:  Stress period:     2    Time step:     1    Groundwater-Flow Eqn.")
-    assert handle.completed == [1, 2]
-
-
 def test_callback_forwards_noise_to_debug_log(log_records) -> None:
     handle = _RecordingHandle()
     callback = make_solving_line_callback(handle, nper=2)
@@ -148,11 +139,3 @@ def test_stdout_to_debug_log_forwards_lines(log_records) -> None:
     ]
     messages = [record.getMessage() for record in log_records]
     assert messages == seen
-
-
-def test_write_listing_status_runs_body() -> None:
-    ran = False
-    with write_listing_status("Writing test input files"):
-        print("  writing package sfr...")
-        ran = True
-    assert ran

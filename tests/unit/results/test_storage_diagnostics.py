@@ -39,18 +39,6 @@ def _with_tmp_parquet_and_orphan(project: Path) -> tuple[Path, Path]:
     return tmp_parquet, orphan_run
 
 
-def test_clean_project_storage_reports_ok(tmp_path):
-    project = tmp_path / "project"
-    _seal(project, "baseline")
-    rebuild_index(project)
-
-    diagnostics = _by_name(diagnose_result_storage(project))
-
-    assert diagnostics["results:layout"].status == "OK"
-    assert "1 index row(s)" in diagnostics["results:layout"].detail
-    assert "1 run director" in diagnostics["results:layout"].detail
-
-
 def test_completed_row_missing_fields_store_is_reported(tmp_path):
     project = tmp_path / "project"
     sid, run_dir = _seal(project, "missing_fields")

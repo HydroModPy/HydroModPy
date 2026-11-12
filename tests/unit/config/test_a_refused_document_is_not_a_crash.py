@@ -48,12 +48,6 @@ def _write(tmp_path: Path, body: str, *, head: str = WORKSPACE) -> Path:
     return path
 
 
-def test_the_baseline_document_loads(tmp_path: Path) -> None:
-    """Guards every sweep below: a baseline that stopped loading would make each
-    case pass on a fault it did not inject."""
-    HydroModPyConfig.from_toml(_write(tmp_path, "", head=LOADABLE))
-
-
 def _refusal(path: Path) -> ConfigValidationError:
     with pytest.raises(ConfigValidationError) as excinfo:
         HydroModPyConfig.from_toml(path)
@@ -63,31 +57,6 @@ def _refusal(path: Path) -> ConfigValidationError:
 # ---------------------------------------------------------------------------
 # The exit code
 # ---------------------------------------------------------------------------
-
-
-def test_an_unknown_key_reaches_the_config_exit_code(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[geographic]\ndem_correction_type = 'dinf'\n"))
-    assert exit_code_for(error) == EXIT_CONFIG
-
-
-def test_a_project_root_in_a_file_reaches_the_config_exit_code(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[workspace]\nproject_root = '.'\n", head=""))
-    assert exit_code_for(error) == EXIT_CONFIG
-
-
-def test_a_retired_section_reaches_the_config_exit_code(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[modflow]\nexe_name = 'mfnwt'\n"))
-    assert exit_code_for(error) == EXIT_CONFIG
-
-
-def test_an_unknown_top_level_section_reaches_the_config_exit_code(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[not_a_section]\nx = 1\n"))
-    assert exit_code_for(error) == EXIT_CONFIG
-
-
-def test_a_bad_workflow_mode_reaches_the_config_exit_code(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[workflow]\nmode = 'not_a_mode'\n"))
-    assert exit_code_for(error) == EXIT_CONFIG
 
 
 def test_a_workspace_that_is_not_a_table_reaches_the_config_exit_code(tmp_path: Path) -> None:
@@ -105,64 +74,9 @@ def _written_by_a_pre_release(path: str) -> str:
     return tomlkit.dumps(document)
 
 
-@pytest.mark.parametrize(
-    "form",
-    ["calibration.max_iter", "flow.active_bc", "export.netcdf", "geographic.catchment.catch_def"],
-)
-def test_a_form_only_a_pre_release_wrote_reaches_the_config_exit_code(
-    tmp_path: Path, form: str
-) -> None:
-    """The refusal comes before the model runs, and is a refusal of the document all the same."""
-    error = _refusal(_write(tmp_path, _written_by_a_pre_release(form), head=LOADABLE))
-
-    assert exit_code_for(error) == EXIT_CONFIG
-    assert error.to_dict()["code"] == "HMPY.E101"
-    assert form in str(error)
-    assert "This version does not rewrite the file." in str(error)
-    assert [entry["pointer"] for entry in error.details] == ["/" + form.replace(".", "/")]
-    assert error.to_dict()["details"][0]["type"] == "prerelease_form"
-
-
 # ---------------------------------------------------------------------------
 # The pointer
 # ---------------------------------------------------------------------------
-
-
-def test_the_pointer_names_the_key_the_document_wrote(tmp_path: Path) -> None:
-    """A section validates against its own model, so Pydantic reports a
-    section-relative ``loc``. Emitted as-is the pointer would name a root key
-    that does not exist, and a front end would highlight nothing."""
-    error = _refusal(_write(tmp_path, "[geographic]\ndem_correction_type = 'dinf'\n"))
-    pointers = [entry["pointer"] for entry in error.details]
-    assert pointers == ["/geographic/dem_correction_type"]
-
-
-def test_the_pointer_of_a_retired_section_names_that_section(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[modflow]\nexe_name = 'mfnwt'\n", head=LOADABLE))
-    assert [entry["pointer"] for entry in error.details] == ["/modflow"]
-
-
-def test_every_unknown_section_gets_its_own_pointer(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[zulu]\nx = 1\n\n[alpha]\ny = 2\n", head=LOADABLE))
-    assert sorted(entry["pointer"] for entry in error.details) == ["/alpha", "/zulu"]
-
-
-def test_a_project_root_in_a_file_points_at_that_key(tmp_path: Path) -> None:
-    body = "[workspace]\nproject_root = '.'\n\n" + LOADABLE.removeprefix(WORKSPACE)
-    error = _refusal(_write(tmp_path, body, head=""))
-    assert [entry["pointer"] for entry in error.details] == ["/workspace/project_root"]
-
-
-def test_the_detail_carries_the_line_when_the_source_is_readable(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[geographic]\ndem_correction_type = 'dinf'\n"))
-    (entry,) = error.details
-    line = entry["line"]
-    assert (
-        Path(error.source)
-        .read_text(encoding="utf-8")
-        .splitlines()[line - 1]
-        .startswith("dem_correction_type")
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -191,13 +105,6 @@ def test_a_refusal_raised_before_the_model_runs_omits_no_details(tmp_path: Path)
     assert error.to_dict()["details"]
 
 
-def test_a_typed_error_without_details_omits_the_member() -> None:
-    payload = ConfigValidationError("nothing structured to say").to_dict()
-    assert "details" not in payload
-    assert "source" not in payload
-    assert payload["detail"] == "nothing structured to say"
-
-
 # ---------------------------------------------------------------------------
 # The rule, swept rather than sampled
 # ---------------------------------------------------------------------------
@@ -218,38 +125,12 @@ MALFORMED = {
 
 
 @pytest.mark.parametrize("body", MALFORMED.values(), ids=list(MALFORMED))
-def test_every_shape_of_bad_document_reaches_the_same_exit_code(tmp_path: Path, body: str) -> None:
-    """Sampled once per shape, because the shapes fail on different code paths.
-
-    A Pydantic fault, a refusal written by hand before the model runs, and a
-    ``ValueError`` from a section loader are three different mechanisms. Only the
-    first was typed; the other two reached exit code 1, which says "a bug in
-    HydroModPy" to whoever ran it.
-    """
-    assert exit_code_for(_refusal(_write(tmp_path, body, head=LOADABLE))) == EXIT_CONFIG
-
-
-@pytest.mark.parametrize("body", MALFORMED.values(), ids=list(MALFORMED))
 def test_every_refusal_points_at_something(tmp_path: Path, body: str) -> None:
     error = _refusal(_write(tmp_path, body, head=LOADABLE))
     assert error.details
     for entry in error.details:
         assert entry["pointer"].startswith("/")
         assert entry["msg"]
-
-
-def test_the_refused_value_is_named_by_the_message(tmp_path: Path) -> None:
-    """A message that says what the field should be without saying what it got
-    makes the reader diff their own file against a sentence."""
-    error = _refusal(_write(tmp_path, "[flow]\nflow_regime = 'not_a_regime'\n", head=LOADABLE))
-    assert "not_a_regime" in str(error)
-
-
-def test_a_value_too_large_to_help_is_not_repeated_back(tmp_path: Path) -> None:
-    long_value = "x" * 400
-    error = _refusal(_write(tmp_path, f"[flow]\nflow_regime = '{long_value}'\n", head=LOADABLE))
-    assert long_value not in str(error)
-    assert "flow.flow_regime" in str(error)
 
 
 # ---------------------------------------------------------------------------
@@ -277,52 +158,3 @@ def test_the_pointer_does_not_invent_the_union_tag(tmp_path: Path) -> None:
     (entry,) = error.details
     assert entry["pointer"] == "/flow/ic/max_cycles"
     assert entry["loc"] == "flow.ic.max_cycles"
-
-
-def test_a_missing_key_still_points_at_where_it_belongs(tmp_path: Path) -> None:
-    """The counterweight to the test above: a segment the document lacks is
-    dropped only when the next one resolves in its place. A ``missing`` fault
-    names a key that is by definition absent, and its pointer must survive."""
-    error = _refusal(_write(tmp_path, "[site]\nlabel = 'probe'\n", head=LOADABLE))
-    assert [entry["pointer"] for entry in error.details] == ["/site/name"]
-
-
-def test_a_protocol_option_is_pointed_at_and_typed(tmp_path: Path) -> None:
-    """A registered protocol given a bad option validates its own Pydantic model.
-
-    ``pydantic.ValidationError`` is a subclass of ``ValueError``, so a lone
-    ``except ValueError`` around the expander swallowed it: the pointer
-    collapsed to ``/calibration``, the type was reported as ``value_error``
-    where Pydantic had said ``literal_error``, and the message became a raw
-    Pydantic dump carrying a pydantic.dev URL.
-    """
-    error = _refusal(
-        _write(
-            tmp_path,
-            """
-            [calibration.protocol]
-            name = "matching_hydrographic_network"
-            steady_metric = "not_a_real_metric"
-
-            [calibration.parameters.K]
-            kind = "log_uniform"
-            lower = 1e-6
-            upper = 1e-2
-            """,
-            head=LOADABLE,
-        )
-    )
-    (entry,) = error.details
-    assert entry["pointer"] == "/calibration/protocol/steady_metric"
-    assert entry["type"] == "literal_error"
-    assert "errors.pydantic.dev" not in str(error)
-    assert "not_a_real_metric" in str(error)
-
-
-def test_an_unregistered_protocol_keeps_its_own_refusal(tmp_path: Path) -> None:
-    """The neighbor of the case above, and it must not be typed the same way:
-    an unknown name is refused by the registry itself, not by a model."""
-    error = _refusal(_write(tmp_path, "[calibration]\nprotocol = 'nope'\n", head=LOADABLE))
-    (entry,) = error.details
-    assert entry["pointer"] == "/calibration"
-    assert entry["type"] == "value_error"

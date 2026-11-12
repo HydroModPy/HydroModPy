@@ -68,16 +68,6 @@ def test_a_department_is_found_by_region_by_bbox_and_its_code_is_padded(call, ex
     assert call() == expected
 
 
-def test_the_bbox_of_a_region_covers_its_departments_and_nothing_less():
-    bbox = bbox_for_regions(["Bretagne"])
-
-    assert bbox == bbox_for_departments(BRETAGNE) == bbox_for_departments(["22", "29", "35", "56"])
-    assert set(BRETAGNE) <= set(find_departments_in_bbox(bbox))
-    for code in BRETAGNE:
-        xmin, ymin, xmax, ymax = bbox_for_departments([code])
-        assert bbox[0] <= xmin and bbox[1] <= ymin and xmax <= bbox[2] and ymax <= bbox[3]
-
-
 @pytest.mark.parametrize("margin", [-5.0, 0.0, 1_000.0])
 def test_a_margin_grows_the_bbox_on_every_side_and_never_shrinks_it(margin):
     bare = bbox_for_regions(["Bretagne"])

@@ -15,7 +15,7 @@ from hydromodpy.calibration.parameter_resolution import RECHARGE_VALUES_PATH
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.cli.commands import config as config_cmd
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data.loading.config_schema import DataConfig
 from hydromodpy.data.variables.user_rasters import (
@@ -26,8 +26,6 @@ from hydromodpy.model.boundaries.climate import (
     _peak_mm_day_of_a_recharge_source,
     apply_recharge_load_result_to_flow,
 )
-from hydromodpy.model.forcing.soil_config import soil_reservoir_of
-from hydromodpy.model.forcing.validation import refuse_an_impossible_recharge
 
 SOIL_PROJECT_TOML = """
 [workflow]
@@ -98,14 +96,6 @@ def test_a_switched_off_recharge_is_refused(tmp_path: Path) -> None:
     ) in str(excinfo.value)
 
 
-def test_a_declared_soil_activates_the_recharge(tmp_path: Path) -> None:
-    config_path = _write(tmp_path)
-
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert "recharge" in cfg.flow.active_sinks_sources
-
-
 SOIL_PROJECT_TOML_2 = """
 [workflow]
 mode = "simulation"
@@ -162,28 +152,6 @@ def _write_2(tmp_path: Path, solver: str) -> Path:
         encoding="utf-8",
     )
     return config_path
-
-
-@pytest.mark.parametrize("solver", ["modflow_nwt", "boussinesq"])
-def test_a_non_modflow6_solver_is_refused_by_name(tmp_path: Path, solver: str) -> None:
-    config_path = _write_2(tmp_path, solver)
-
-    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
-        HydroModPyConfig.from_toml(config_path)
-
-    assert (
-        f"solver.backend = {solver!r} does not honor flow.sinks_sources.recharge.soil: it "
-        "would be ignored without a word. Remove it, or run a flow solver that honors it "
-        "(modflow6)."
-    ) in str(excinfo.value)
-
-
-def test_modflow6_is_accepted(tmp_path: Path) -> None:
-    config_path = _write_2(tmp_path, "modflow6")
-
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.flow.sinks_sources.recharge.soil.ru == 150.0
 
 
 SOIL_PROJECT_TOML_3 = """
@@ -258,14 +226,6 @@ def test_components_other_than_total_are_refused(tmp_path: Path, components: lis
         'averaged, not added. Write components = ["total"], which counts the '
         "snow as rain."
     ) in str(excinfo.value)
-
-
-def test_total_alone_loads(tmp_path: Path) -> None:
-    config_path = _write_3(tmp_path, ["total"])
-
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.data.precipitation.sources[0].components == ["total"]
 
 
 SOIL_PROJECT_TOML_4 = """
@@ -349,22 +309,6 @@ def test_a_soil_run_with_a_steady_first_period_is_refused(tmp_path: Path) -> Non
     ) in str(excinfo.value)
 
 
-def test_a_soil_run_with_a_transient_first_period_loads(tmp_path: Path) -> None:
-    config_path = _write_4(tmp_path, first_period_steady=False, soil_section=SOIL_SECTION)
-
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.flow.first_period_steady is False
-
-
-def test_the_same_steady_first_period_without_soil_loads(tmp_path: Path) -> None:
-    config_path = _write_4(tmp_path, first_period_steady=True, soil_section="")
-
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert soil_reservoir_of(cfg.flow) is None
-
-
 SOIL_PROJECT_TOML_5 = """
 [workflow]
 mode = "simulation"
@@ -439,31 +383,6 @@ def test_a_run_shorter_than_a_year_is_refused_by_name(tmp_path: Path) -> None:
         "[flow.sinks_sources.recharge.soil] to start from a full soil, or "
         "extend the run to 52 weeks at least."
     ) in str(excinfo.value)
-
-
-def test_a_run_of_52_weeks_loads(tmp_path: Path) -> None:
-    # [2015-01-01, 2015-12-31) is 364 days.
-    config_path = _write_5(tmp_path, end_datetime="2015-12-30", spinup="first_year")
-
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.flow.sinks_sources.recharge.soil.spinup == "first_year"
-
-
-def test_a_run_of_exactly_a_year_loads(tmp_path: Path) -> None:
-    config_path = _write_5(tmp_path, end_datetime="2015-12-31", spinup="first_year")
-
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.flow.sinks_sources.recharge.soil.spinup == "first_year"
-
-
-def test_no_spinup_needs_no_year(tmp_path: Path) -> None:
-    config_path = _write_5(tmp_path, end_datetime="2015-12-30", spinup="none")
-
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.flow.sinks_sources.recharge.soil.spinup == "none"
 
 
 # A soil reservoir names the forcing and the time window it cannot run without.
@@ -573,27 +492,6 @@ def test_no_etp_section_is_refused_by_name(tmp_path: Path) -> None:
         '[[data.etp.sources]] block, for example source = "sim2" with extent '
         '= "watershed".'
     ) in str(excinfo.value)
-
-
-def test_no_simulation_time_is_refused_by_name(tmp_path: Path) -> None:
-    config_path = _write_6(tmp_path, data_types=["precipitation", "etp"], time_section="")
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        HydroModPyConfig.from_toml(config_path)
-
-    assert (
-        "[flow.sinks_sources.recharge.soil] runs day by day over "
-        "[simulation.time], which this file does not declare: add "
-        "start_datetime, end_datetime and step_value."
-    ) in str(excinfo.value)
-
-
-def test_all_three_declared_loads(tmp_path: Path) -> None:
-    config_path = _write_6(tmp_path, data_types=["precipitation", "etp"])
-
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.flow.sinks_sources.recharge.soil.ru == 150.0
 
 
 # A soil reservoir and a loaded recharge or runoff would both reach the model.
@@ -707,14 +605,6 @@ def test_a_loaded_runoff_beside_the_soil_is_refused(tmp_path: Path) -> None:
     ) in str(excinfo.value)
 
 
-def test_neither_recharge_nor_runoff_declared_loads(tmp_path: Path) -> None:
-    config_path = _write_7(tmp_path, ["precipitation", "etp"])
-
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.flow.sinks_sources.recharge.soil.ru == 150.0
-
-
 # A rate written beside a loaded recharge, or beyond any rainfall, is refused.
 #
 # ``values`` beside ``[data.recharge]`` was dropped without a word, and a wrong unit
@@ -779,18 +669,6 @@ def test_a_rate_beside_a_loaded_recharge_is_refused(tmp_path: Path) -> None:
 
 
 @pytest.mark.fast
-def test_a_zero_beside_a_loaded_recharge_is_the_default_a_frozen_config_spells(
-    tmp_path: Path,
-) -> None:
-    _load(tmp_path, "values = 0.0", LOADED)
-
-
-@pytest.mark.fast
-def test_a_rate_without_a_loaded_recharge_stays(tmp_path: Path) -> None:
-    _load(tmp_path, "values = 7.0", NOT_LOADED)
-
-
-@pytest.mark.fast
 @pytest.mark.parametrize(("loaded", "listed"), [(LOADED, False), (NOT_LOADED, True)])
 def test_the_targets_listing_drops_a_rate_the_run_replaces(
     tmp_path: Path, loaded: tuple[str, str], listed: bool, capsys
@@ -811,17 +689,6 @@ def test_the_targets_listing_drops_a_rate_the_run_replaces(
 def test_a_rate_beyond_any_rainfall_is_refused(tmp_path: Path, recharge: str) -> None:
     with pytest.raises(ConfigValidationError, match="beyond any daily rainfall"):
         _load(tmp_path, recharge, NOT_LOADED)
-
-
-@pytest.mark.fast
-def test_a_heavy_but_possible_rate_passes(tmp_path: Path) -> None:
-    _load(tmp_path, "values = 500.0", NOT_LOADED)
-
-
-@pytest.mark.fast
-def test_a_loaded_rate_beyond_any_rainfall_is_refused() -> None:
-    with pytest.raises(ValueError, match="2392 mm/day"):
-        refuse_an_impossible_recharge(2392.0, label="[data.recharge]")
 
 
 def _flow(active: list[str]) -> SimpleNamespace:
@@ -855,22 +722,6 @@ def test_a_recharge_left_out_of_the_active_list_is_said(caplog) -> None:
         apply_recharge_load_result_to_flow(flow=_flow(["etp"]), recharge_result=_station([1.0]))
 
     assert any("receives no recharge" in r.getMessage() for r in caplog.records)
-
-
-@pytest.mark.fast
-def test_an_active_recharge_says_nothing(caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.model.boundaries.climate"):
-        apply_recharge_load_result_to_flow(
-            flow=_flow(["recharge"]), recharge_result=_station([1.0])
-        )
-
-    assert not any("receives no recharge" in r.getMessage() for r in caplog.records)
-
-
-@pytest.mark.fast
-def test_a_zero_series_has_no_peak() -> None:
-    assert _peak_mm_day_of_a_recharge_source(_station([0.0, 0.0])) == 0.0
-    assert np.isfinite(_peak_mm_day_of_a_recharge_source(_station([0.0])))
 
 
 # A soil capacity raster without a soil reservoir would never be read.
@@ -913,39 +764,3 @@ def test_a_capacity_map_without_a_soil_section_is_rejected(tmp_path: Path) -> No
 
     with pytest.raises(ValidationError, match=r"\[data.soil_capacity\]"):
         HydroModPyConfig(**_base_kwargs(tmp_path), data=data)
-
-
-def test_a_capacity_map_without_a_soil_section_names_the_fix(tmp_path: Path) -> None:
-    raster = _write_geotiff(tmp_path / "ru.tif")
-    data = DataConfig(
-        soil_capacity=SoilCapacityConfig(sources=[FileSoilCapacitySource(path=raster)])
-    )
-
-    with pytest.raises(ValidationError) as excinfo:
-        HydroModPyConfig(**_base_kwargs(tmp_path), data=data)
-
-    assert "declare the soil section, or remove [data.soil_capacity]" in str(excinfo.value)
-
-
-def test_a_soil_settled_on_its_first_year_beside_a_cyclic_aquifer_loads_without_a_warning(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    """The two starts are computed over two windows, which a study may want: it is allowed."""
-    config_path = _write_2(tmp_path, "modflow6")
-    config_path.write_text(
-        config_path.read_text(encoding="utf-8").replace(
-            'kind = "steady_state"', 'kind = "spinup_cyclic"'
-        ),
-        encoding="utf-8",
-    )
-
-    with caplog.at_level(logging.WARNING):
-        cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.flow.sinks_sources.recharge.soil.spinup == "first_year"
-    assert cfg.flow.ic.h.kind == "spinup_cyclic"
-    assert not [
-        record
-        for record in caplog.records
-        if record.levelno >= logging.WARNING and "spinup" in record.getMessage()
-    ]

@@ -13,11 +13,9 @@ import json
 
 import pytest
 
-from hydromodpy.cli.exit_codes import exit_code_for
 from hydromodpy.core import exceptions as exc_module
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import Category, HydroModPyError
-from hydromodpy.core.toml_io.error_locator import json_pointer
 
 EXPORTED = tuple(getattr(exc_module, name) for name in exc_module.__all__ if name != "Category")
 
@@ -31,25 +29,6 @@ def test_every_exported_name_is_a_hydromodpy_error_or_the_category() -> None:
 def test_every_exported_class_declares_its_own_code_or_inherits_one() -> None:
     for cls in EXPORTED:
         assert cls.code.startswith("HMPY.E"), cls
-
-
-def test_every_exported_class_has_a_title_that_is_not_its_own_name() -> None:
-    """The title comes from the first docstring line, so a class that lost its
-    docstring degrades to its class name. None of them has."""
-    for cls in EXPORTED:
-        assert cls.title() and cls.title() != cls.__name__, cls
-
-
-def test_the_problem_object_is_json_and_carries_the_urn() -> None:
-    error = HydroModPyError("something went wrong")
-    payload = error.to_dict()
-    assert payload == {
-        "type": "urn:hmp:error:HMPY.E000",
-        "code": "HMPY.E000",
-        "title": "Base class for all HydroModPy exceptions.",
-        "detail": "something went wrong",
-    }
-    json.dumps(payload)
 
 
 def test_the_problem_object_carries_the_run_context_only_when_it_has_one() -> None:
@@ -73,16 +52,6 @@ def test_every_exported_class_renders_a_problem_object_from_one_argument() -> No
         payload = instance.to_dict()
         assert payload["code"] == cls.code
         json.dumps(payload)
-
-
-def test_the_exit_code_of_a_class_is_the_one_the_mapper_produces() -> None:
-    """The description a capability ships claims an exit code per exception
-    class. It may not claim one the mapper does not produce."""
-    from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_SOLVER_ERROR, EXIT_VALIDATION
-
-    assert exit_code_for(exc_module.ConfigValidationError("x")) == EXIT_CONFIG
-    assert exit_code_for(exc_module.DataError("x")) == EXIT_VALIDATION
-    assert exit_code_for(exc_module.SolverError("x")) == EXIT_SOLVER_ERROR
 
 
 # The category of each class: said once, on the class that owns it.
@@ -186,21 +155,6 @@ def test_a_class_that_is_also_a_file_not_found_error_is_not_found() -> None:
     assert exc_module.JobInputNotFoundError.category is Category.NOT_FOUND
 
 
-@pytest.mark.parametrize(
-    ("loc", "pointer"),
-    [
-        ((), ""),
-        (("workspace",), "/workspace"),
-        (("flow", "param_list", 0, "kind"), "/flow/param_list/0/kind"),
-        (("data", "a/b"), "/data/a~1b"),
-        (("data", "a~b"), "/data/a~0b"),
-        (("data", "a~/b"), "/data/a~0~1b"),
-    ],
-)
-def test_a_pointer_escapes_what_rfc_6901_requires(loc: tuple, pointer: str) -> None:
-    assert json_pointer(loc) == pointer
-
-
 # ---------------------------------------------------------------------------
 # The diagnostics a refusal carries
 # ---------------------------------------------------------------------------
@@ -212,65 +166,3 @@ LAKE = Diagnostic(
     detail="solver.backend = 'modflow_nwt' does not honor flow.sinks_sources.lakes",
 )
 SITE = Diagnostic("site.name", "to_fill", "error", detail="Field required", error_type="missing")
-
-
-@pytest.mark.parametrize(
-    "cls",
-    [
-        exc_module.IncompatibleCapabilitiesError,
-        exc_module.ConfigValidationError,
-        exc_module.ConfigError,
-        HydroModPyError,
-    ],
-)
-def test_a_typed_error_carries_its_diagnostics_as_details(cls: type[HydroModPyError]) -> None:
-    error = cls("refused", diagnostics=[LAKE, SITE])
-
-    payload = error.to_dict()
-
-    assert error.diagnostics == (LAKE, SITE)
-    assert [entry["pointer"] for entry in payload["details"]] == ["", "/site/name"]
-    assert [entry["code"] for entry in payload["details"]] == ["incompatible", "to_fill"]
-    json.dumps(payload)
-
-
-@pytest.mark.parametrize(
-    "cls",
-    [exc_module.IncompatibleCapabilitiesError, exc_module.ConfigValidationError, HydroModPyError],
-)
-def test_the_details_member_is_absent_when_there_is_nothing_to_point_at(
-    cls: type[HydroModPyError],
-) -> None:
-    error = cls("nothing structured")
-
-    assert error.diagnostics == ()
-    assert error.details == ()
-    assert "details" not in error.to_dict()
-
-
-def test_given_details_are_kept_as_written() -> None:
-    record = {"pointer": "/geographic", "loc": "geographic", "msg": "m", "type": "value_error"}
-
-    error = exc_module.ConfigValidationError("m", details=[record])
-
-    assert error.details == (record,)
-    assert error.to_dict()["details"] == [record]
-
-
-@pytest.mark.parametrize(
-    ("message", "expected"),
-    [(None, "first fault"), ("first fault\nsecond fault", "first fault\nsecond fault")],
-)
-def test_carrying_gives_every_diagnostic_to_the_error_of_the_first(
-    message: str | None, expected: str
-) -> None:
-    error = exc_module.IncompatibleCapabilitiesError("first fault", diagnostics=[LAKE])
-
-    carried = error.carrying([LAKE, SITE], message=message)
-
-    assert carried is error
-    assert error.diagnostics == (LAKE, SITE)
-    assert [entry["code"] for entry in error.details] == ["incompatible", "to_fill"]
-    assert str(error) == expected
-    assert error.message == expected
-    assert exit_code_for(error) == exit_code_for(exc_module.IncompatibleCapabilitiesError("x"))

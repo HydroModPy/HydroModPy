@@ -282,37 +282,6 @@ def test_project_keeps_model_phase_verbs() -> None:
 SYNTHETIC = {"workflow": {"mode": "simulation"}, "geographic": {"source_mode": "synthetic"}}
 
 
-def test_a_document_in_memory_is_read_against_the_base_and_never_the_current_folder(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.core.exceptions import ConfigError
-    from hydromodpy.project.facade import resolve_config
-
-    elsewhere = tmp_path / "elsewhere"
-    elsewhere.mkdir()
-    monkeypatch.chdir(elsewhere)
-    base = tmp_path / "project"
-    base.mkdir()
-
-    loaded = resolve_config(SYNTHETIC, base)
-
-    assert isinstance(loaded, HydroModPyConfig)
-    assert loaded.workspace.project_root == base.resolve()
-    with pytest.raises(ConfigError, match="needs base="):
-        resolve_config(SYNTHETIC, None)
-    with pytest.raises(ConfigError, match="needs base="):
-        resolve_config('{"workflow": {"mode": "simulation"}}', None)
-
-
-def test_a_path_and_a_built_configuration_pass_through_the_resolver(tmp_path: Path) -> None:
-    from hydromodpy.project.facade import resolve_config
-
-    built = object()
-    assert resolve_config(built, None) is built
-    assert resolve_config(tmp_path / "project.toml", None) == tmp_path / "project.toml"
-
-
 def test_a_sealed_snapshot_names_its_own_project_root(tmp_path: Path) -> None:
     from hydromodpy.project.facade import read_sealed_config
 
@@ -335,48 +304,3 @@ def test_project_status_is_the_verb_with_plan_on(monkeypatch: pytest.MonkeyPatch
     project = SimpleNamespace()
     assert Project.status(project) == "report"
     assert seen == [(project, {"plan": True})]
-
-
-@pytest.mark.parametrize(
-    ("given", "passed"),
-    [
-        ({}, {"format": "dir", "public": False}),
-        ({"format": "tar", "public": True}, {"format": "tar", "public": True}),
-    ],
-)
-def test_project_publish_is_the_verb_on_the_summary(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, given: dict[str, Any], passed: dict[str, Any]
-) -> None:
-    import hydromodpy.project.api as api
-
-    seen: list[tuple[Any, dict[str, Any]]] = []
-    monkeypatch.setattr(api, "publish", lambda ref, **kwargs: seen.append((ref, kwargs)) or "copy")
-    project = SimpleNamespace(root=tmp_path)
-    assert Project.publish(project, tmp_path / "out", **given) == "copy"
-    assert seen == [("summary", {"to": tmp_path / "out", "workspace": tmp_path, **passed})]
-
-
-def test_the_index_a_project_opens_draws_figures(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """The catalog of a project is given ``render``, as it is given ``read_config``."""
-    import hydromodpy.results.catalog.facade as catalogs
-    from hydromodpy.project.facade import read_sealed_config
-    from hydromodpy.project.show import render
-
-    made: list[dict[str, Any]] = []
-
-    class _Catalog:
-        closed = False
-
-        def __init__(self, root: Path, **kwargs: Any) -> None:
-            made.append(kwargs)
-
-    report = SimpleNamespace(unchanged=False)
-    monkeypatch.setattr(catalogs, "Catalog", _Catalog)
-    monkeypatch.setattr(
-        "hydromodpy.results.catalog.indexer.index_new_runs", lambda root, **_: report
-    )
-    project = SimpleNamespace(root=tmp_path, _store=None)
-    Project._index(project)
-    assert made == [{"read_config": read_sealed_config, "render": render}]

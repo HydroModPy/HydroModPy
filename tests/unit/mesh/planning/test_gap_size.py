@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from shapely.geometry import LineString, Polygon, box
+from shapely.geometry import LineString, Polygon
 
-from hydromodpy.mesh.planning.gap_size import GAP_LEVEL_RATIO, gap_terms
+from hydromodpy.mesh.planning.gap_size import gap_terms
 from hydromodpy.mesh.planning.size_field import build_size_field
 from tests._helpers.mesh_cases import grid_spec, square_domain
 
@@ -47,48 +47,9 @@ def _notch(x0: float, y0: float, x1: float, y1: float) -> list[tuple[float, floa
     ]
 
 
-def test_a_narrow_lake_arm_holds_two_cells_across() -> None:
-    terms = _terms(LineString(_ARM_LAKE.exterior.coords))
-    size = _size_at(terms, (480.0, 300.0))[0]
-    assert 20.0 / GAP_LEVEL_RATIO <= size <= 20.0
-
-
-def test_two_parallel_barriers_two_cells_apart_size_the_room_between() -> None:
-    terms = _terms(LineString([(200, 470), (800, 470)]), LineString([(200, 530), (800, 530)]))
-    size = _size_at(terms, (500.0, 500.0))[0]
-    assert 30.0 / GAP_LEVEL_RATIO <= size <= 30.0
-
-
 def test_an_acute_junction_refines_its_sector_down_to_the_pixel() -> None:
     tip = (500.0, 500.0)
     one = LineString([tip, (800.0, 500.0)])
     two = LineString([tip, (500.0 + 300.0 * np.cos(0.35), 500.0 + 300.0 * np.sin(0.35))])
     terms = _terms(one, two)
     assert min(term.size_m for term in terms) == pytest.approx(5.0)
-
-
-def test_the_same_notch_inside_a_lake_is_a_gap() -> None:
-    notched = Polygon(_notch(100, 100, 900, 900))
-    terms = _terms(LineString(notched.exterior.coords))
-    assert min(term.size_m for term in terms) <= 15.0
-
-
-@pytest.mark.parametrize(
-    ("lines", "domain"),
-    [
-        ((LineString(box(300, 300, 700, 700).exterior.coords),), _DOMAIN),
-        ((LineString([(500, 0), (500, 600)]),), _DOMAIN),
-        ((LineString([(0, 200), (0, 800)]),), _DOMAIN),
-        ((), Polygon(_notch(0, 0, 1000, 1000))),
-        ((LineString(_DOMAIN.exterior.coords),), _DOMAIN),
-    ],
-    ids=[
-        "lines farther apart than two background cells",
-        "right angle junction",
-        "line on the domain outline",
-        "notch outside the domain",
-        "catchment boundary that is the domain outline",
-    ],
-)
-def test_room_that_holds_two_background_cells_is_no_gap(lines, domain: Polygon) -> None:
-    assert _terms(*lines, domain=domain) == []

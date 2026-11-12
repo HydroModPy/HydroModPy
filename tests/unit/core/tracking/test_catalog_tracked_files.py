@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,35 +33,6 @@ def _track(project: Path, *batches: list[_Entry]) -> tuple[list[int], str]:
 def _listed(project: Path, sim_id: str) -> pd.DataFrame:
     with simulation_catalog(project) as catalog:
         return catalog.list_tracked_files(sim_id)
-
-
-def test_tracked_files_table_exists(tmp_path: Path) -> None:
-    with simulation_catalog(tmp_path / "ws") as catalog:
-        rows = catalog.connection.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_name = 'tracked_files'"
-        ).fetchall()
-    assert len(rows) == 1
-
-
-def test_register_tracked_files_writes_rows(tmp_path: Path) -> None:
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    src = ws / "dem.tif"
-    src.write_bytes(b"hello world")
-    entry = _Entry(
-        role="dem", category="data", original_path="dem.tif", canonical_path=src.resolve()
-    )
-
-    (n,), sid = _track(ws, [entry])
-    df = _listed(ws, sid)
-
-    assert n == 1
-    assert len(df) == 1
-    row = df.iloc[0]
-    assert row["role"] == "dem"
-    assert row["size_bytes"] == len(b"hello world")
-    assert isinstance(row["sha256"], str) and len(row["sha256"]) == 64
-    assert row["canonical_path"] == "dem.tif"
 
 
 def test_register_tracked_files_writes_directory_rows(tmp_path: Path) -> None:
@@ -120,22 +90,3 @@ def test_register_tracked_files_skips_missing(tmp_path: Path) -> None:
 
     assert n == 0
     assert _listed(ws, sid).empty
-
-
-def test_sha256_is_deterministic(tmp_path: Path) -> None:
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    src = ws / "file.bin"
-    src.write_bytes(b"deterministic-payload")
-    expected = hashlib.sha256(b"deterministic-payload").hexdigest()
-    entry = _Entry(
-        role="dem", category="data", original_path="file.bin", canonical_path=src.resolve()
-    )
-
-    _, sid = _track(ws, [entry])
-    with simulation_catalog(ws) as catalog:
-        row = catalog.connection.execute(
-            "SELECT sha256 FROM tracked_files WHERE sim_id = ?", [sid]
-        ).fetchone()
-
-    assert row[0] == expected

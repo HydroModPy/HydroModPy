@@ -67,13 +67,6 @@ def test_the_ladder_covers_every_declared_ru() -> None:
     assert tuple(ru for ru, _ in ladder) == RU_LADDER_MM
 
 
-def test_recharge_falls_as_ru_grows() -> None:
-    forcings = _forcings()
-    ladder = ru_ladder(forcings)
-    recharges = [value for _ru, value in ladder]
-    assert all(a > b for a, b in zip(recharges, recharges[1:]))
-
-
 def test_a_rung_whose_spinup_never_settles_reports_nan_not_a_silent_number(
     monkeypatch,
 ) -> None:

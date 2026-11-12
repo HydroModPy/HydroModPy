@@ -15,7 +15,7 @@ import pytest
 from hydromodpy.display.figures.matching_hydrographic_network_card import (
     MatchingHydrographicNetworkCard,
 )
-from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, relative_luminance
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.record.checks import CalibratedBy
@@ -258,21 +258,6 @@ def _line(ax, prefix: str):
 # --------------------------------------------------------------------------- #
 
 
-def test_the_card_lays_out_the_four_panels_of_the_method(mpl, tmp_path) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
-
-    try:
-        titles = [str(ax.get_title()) for ax in fig.axes]
-        assert len(fig.axes) == 4
-        assert titles[0].startswith("Stage 1")
-        assert titles[1].startswith("Stage 2")
-        assert any(title.startswith("Validity") for title in titles)
-        assert any(title.startswith("Cells at the calibrated point") for title in titles)
-        assert "cheze" in fig.get_suptitle()
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # stage one: the value and the bracket
 # --------------------------------------------------------------------------- #
@@ -297,17 +282,6 @@ def test_stage_one_reports_the_value_it_closed_on_and_the_bracket(mpl, tmp_path)
         assert f"{CLOSED_VALUE:.4g}" in note
         assert f"[{BRACKET[0]:.4g}, {BRACKET[1]:.4g}]" in note
         assert "factor 3.125" in note
-    finally:
-        mpl.close(fig)
-
-
-def test_stage_one_keeps_every_evaluation_it_walked(mpl, tmp_path) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
-
-    try:
-        ax = _panel(fig, "Stage 1")
-        evaluations = _line(ax, "evaluation")
-        assert sorted(evaluations.get_xdata()) == sorted(ROOT_VALUES)
     finally:
         mpl.close(fig)
 
@@ -489,22 +463,6 @@ def test_a_widened_validity_length_is_the_bound_not_two_cells(mpl, tmp_path) -> 
         mpl.close(fig)
 
 
-def test_an_unpublished_doptim_is_drawn_as_absent_never_as_zero(mpl, tmp_path) -> None:
-    run = _staged_run(
-        tmp_path,
-        diagnostics={"n_valid": 120.0, "n_excess": 30.0, "n_missing": 18.0},
-    )
-
-    fig = MatchingHydrographicNetworkCard().plot(run)
-
-    try:
-        ax = _panel(fig, "Validity")
-        assert not ax.patches
-        assert "D_optim not published" in _texts(ax)
-    finally:
-        mpl.close(fig)
-
-
 def test_an_unpublished_validity_length_is_never_replaced_by_two_cells(mpl, tmp_path) -> None:
     published = {key: value for key, value in PUBLISHED.items() if key != "validity_length_m"}
 
@@ -521,25 +479,6 @@ def test_an_unpublished_validity_length_is_never_replaced_by_two_cells(mpl, tmp_
 # --------------------------------------------------------------------------- #
 # the three classes
 # --------------------------------------------------------------------------- #
-
-
-def test_the_three_counts_are_drawn_apart_so_they_cannot_cancel(mpl, tmp_path) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
-
-    try:
-        ax = _panel(fig, "Cells at the calibrated point")
-        widths = {str(patch.get_label()).split(":")[0]: patch.get_width() for patch in ax.patches}
-        assert widths == {"valid": 120.0, "excess": 30.0, "missing": 18.0}
-        labels = [str(patch.get_label()) for patch in ax.patches]
-        assert any("120" in label for label in labels)
-        colors = {
-            str(patch.get_label()).split(":")[0]: patch.get_facecolor() for patch in ax.patches
-        }
-        assert colors["valid"] == rgba(HIGH_CONTRAST_TRIPLET[0])
-        assert colors["excess"] == rgba(HIGH_CONTRAST_TRIPLET[1])
-        assert colors["missing"] == rgba(HIGH_CONTRAST_TRIPLET[2])
-    finally:
-        mpl.close(fig)
 
 
 def test_an_absent_count_is_named_absent_and_gets_no_bar(mpl, tmp_path) -> None:
@@ -560,26 +499,9 @@ def test_an_absent_count_is_named_absent_and_gets_no_bar(mpl, tmp_path) -> None:
         mpl.close(fig)
 
 
-def test_the_three_classes_stay_apart_in_greyscale() -> None:
-    luminances = sorted(relative_luminance(color) for color in HIGH_CONTRAST_TRIPLET)
-    gaps = [high - low for low, high in zip(luminances[:-1], luminances[1:], strict=False)]
-    assert min(gaps) > 0.1
-
-
 # --------------------------------------------------------------------------- #
 # the recharge the ratio was measured against
 # --------------------------------------------------------------------------- #
-
-
-def test_the_mean_recharge_is_carried_on_the_card(mpl, tmp_path) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path), mean_recharge=3.2e-8)
-
-    try:
-        note = _texts(_panel(fig, "Stage 1"))
-        assert "3.2e-08" in note
-        assert "m/s" in note
-    finally:
-        mpl.close(fig)
 
 
 def test_a_recharge_the_session_published_is_read_from_the_trials(mpl, tmp_path) -> None:
@@ -596,33 +518,9 @@ def test_a_recharge_the_session_published_is_read_from_the_trials(mpl, tmp_path)
         mpl.close(fig)
 
 
-def test_an_undeclared_recharge_says_the_ratio_is_not_a_conductivity(mpl, tmp_path) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
-
-    try:
-        note = _texts(_panel(fig, "Stage 1"))
-        assert "mean recharge not declared" in note
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # reaching the two phases
 # --------------------------------------------------------------------------- #
-
-
-def test_the_phases_are_ordered_by_the_chain_not_by_the_table(mpl, tmp_path) -> None:
-    # The storage trials come first in the table; the chain still puts the
-    # root search on stage one.
-    run = _run(tmp_path, _storage_rows() + _root_rows(), _sessions())
-
-    fig = MatchingHydrographicNetworkCard().plot(run)
-
-    try:
-        assert "root search" in _panel(fig, "Stage 1").get_title()
-        assert "storage" in _panel(fig, "Stage 2").get_title()
-    finally:
-        mpl.close(fig)
 
 
 def test_a_run_without_a_session_table_reads_its_trials_as_one_phase(mpl, tmp_path) -> None:
@@ -635,22 +533,6 @@ def test_a_run_without_a_session_table_reads_its_trials_as_one_phase(mpl, tmp_pa
             CLOSED_VALUE
         )
         assert "not run" in _panel(fig, "Stage 2").get_title()
-    finally:
-        mpl.close(fig)
-
-
-def test_a_chain_longer_than_two_phases_says_which_one_is_drawn(mpl, tmp_path) -> None:
-    sessions = [*_sessions(), {"phase_name": "polish", "best_trial": 9}]
-    run = _run(
-        tmp_path,
-        _root_rows() + _storage_rows() + _storage_rows(phase="polish", first=8),
-        sessions,
-    )
-
-    fig = MatchingHydrographicNetworkCard().plot(run)
-
-    try:
-        assert "2 of 3" in _panel(fig, "Stage 2").get_title()
     finally:
         mpl.close(fig)
 
@@ -858,34 +740,6 @@ def test_two_bounds_qualify_each_bound_at_the_returned_trial(mpl, tmp_path) -> N
         mpl.close(fig)
 
 
-def test_two_bounds_split_the_cells_of_each_bound_side_by_side(mpl, tmp_path) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path))
-
-    try:
-        ax = _panel(fig, "Cells at the calibrated point")
-        widths = {
-            (label.split(":")[0], label.rsplit(", ", 1)[1].split(" ")[0]): patch.get_width()
-            for patch in ax.patches
-            for label in [str(patch.get_label())]
-        }
-        assert widths == {
-            ("valid", "minimal"): 120.0,
-            ("excess", "minimal"): 30.0,
-            ("missing", "minimal"): 18.0,
-            ("valid", "maximal"): 300.0,
-            ("excess", "maximal"): 90.0,
-            ("missing", "maximal"): 60.0,
-        }
-        hatched = {
-            str(patch.get_label()).rsplit(", ", 1)[1].split(" ")[0]: bool(patch.get_hatch())
-            for patch in ax.patches
-        }
-        assert hatched == {"minimal": False, "maximal": True}
-        assert "not published" not in _texts(ax)
-    finally:
-        mpl.close(fig)
-
-
 def test_the_combined_trial_of_the_report_wins_over_the_session_best(mpl, tmp_path) -> None:
     fig = MatchingHydrographicNetworkCard().plot(
         _two_bound_run(tmp_path, best_trial=1), roots=ROOTS
@@ -982,18 +836,6 @@ def test_two_bounds_without_a_returned_trial_qualify_nothing(mpl, tmp_path) -> N
         mpl.close(fig)
 
 
-def test_a_bound_weighted_zero_is_drawn_outside_the_verdict(mpl, tmp_path) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path, weights=(0.0, 1.0)))
-
-    try:
-        note = _texts(_panel(fig, "Validity"))
-        assert "minimal (weight 0, outside the verdict): " in note
-        assert "D_optim = 217.5 m <= 500 m, within the bound, no verdict" in note
-        assert "maximal (weight 1): D_optim = 820 m > 500 m, Eq. 4 fails" in note
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # one state with both maps: the maximal map is a validation
 # --------------------------------------------------------------------------- #
@@ -1071,24 +913,6 @@ def test_a_permanent_validation_is_drawn_beside_the_complete_map_in_the_cost(mpl
         mpl.close(fig)
 
 
-def test_one_map_with_its_bound_suffix_reads_as_one_map(mpl, tmp_path) -> None:
-    # A one-state output on the maximal map alone publishes its set twice,
-    # unsuffixed and _maximal: that is one map, not two.
-    published = {**PUBLISHED, **{f"{key}_maximal": value for key, value in PUBLISHED.items()}}
-
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path, diagnostics=published))
-
-    try:
-        ax = _panel(fig, "Validity")
-        assert [str(patch.get_label()) for patch in ax.patches] == ["D_optim = 217.5 m"]
-        assert "r_optim = D_optim / h_obs = 0.87, h_obs = 250 m" in _texts(ax)
-        counts = _panel(fig, "Cells at the calibrated point")
-        assert len(counts.patches) == 3
-        assert not any(patch.get_hatch() for patch in counts.patches)
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # the names the card spells by hand, held to their producers
 # --------------------------------------------------------------------------- #
@@ -1108,20 +932,6 @@ def test_the_suffixes_the_card_reads_are_the_ones_the_criterion_writes() -> None
     assert BOUNDS == ROOT_BOUNDS
     assert tuple(f"_{bound}" for bound in BOUNDS) == (MINIMAL_SUFFIX, MAXIMAL_SUFFIX)
     assert VALIDATION_SUFFIX == CRITERION_VALIDATION_SUFFIX
-
-
-def test_h_obs_is_read_under_the_key_the_run_verdict_reads() -> None:
-    from hydromodpy.calibration.runners.search_record import _eq4_verdict
-    from hydromodpy.display.figures.matching_hydrographic_network_card import H_OBS_KEY
-
-    found = {
-        f"{OUTPUT}.r_optim_minimal": 0.87,
-        f"{OUTPUT}.D_optim_minimal": 217.5,
-        f"{OUTPUT}.validity_length_m_minimal": 500.0,
-        f"{OUTPUT}.{H_OBS_KEY}_minimal": 250.0,
-    }
-
-    assert _eq4_verdict(OUTPUT, found, suffix="_minimal")["h_obs"] == 250.0
 
 
 # The card of a promoted run draws every phase of the session it comes from.

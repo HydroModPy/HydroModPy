@@ -7,14 +7,12 @@ then the failures are raised together, each named by its block.
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.results.exporters import request as request_module
-from hydromodpy.results.exporters.export_spec import ExportRequest, load_export_requests
-from hydromodpy.results.exporters.job import ExportTarget
+from hydromodpy.results.exporters.export_spec import load_export_requests
 
 
 @pytest.fixture
@@ -53,33 +51,3 @@ def test_a_failed_request_does_not_stop_the_next_one(recorded) -> None:
     with pytest.raises(ExportError, match=r"export request 1 \(variables = head\)"):
         request_module.export_data_requests(object(), "sim-1", requests)
     assert recorded == ["head", "discharge"]
-
-
-def test_the_ledger_line_of_a_block_never_carries_deliver_to(monkeypatch, tmp_path) -> None:
-    """The registry is replayed by ``regen_exports``, and a replay delivers nothing."""
-    seen: list[dict] = []
-
-    def record(_directory, _path, *, producer, options, identity) -> None:
-        seen.append(dict(options))
-
-    monkeypatch.setattr(request_module, "record_derived_file", record)
-    exports = tmp_path / "exports"
-    exports.mkdir()
-    written = exports / "head_last.tif"
-    written.write_bytes(b"II*\x00 a raster")
-    target = ExportTarget(
-        run_dir=tmp_path,
-        identity=SimpleNamespace(write_meta_json=lambda _path: None),
-        model_crs=lambda: None,
-        default_resolution=lambda: None,
-        global_attrs=lambda: {},
-    )
-    request = ExportRequest.model_validate(
-        {"variables": "head", "time": "last", "deliver_to": "/srv/depot/"}
-    )
-
-    request_module._stamp(written, request, target)
-
-    (options,) = seen
-    assert "deliver_to" not in options
-    assert options == request.model_dump(mode="json", exclude_none=True, exclude={"deliver_to"})

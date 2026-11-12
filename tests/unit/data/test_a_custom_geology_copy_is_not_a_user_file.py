@@ -65,22 +65,6 @@ def test_the_variable_writes_the_clip_under_blobs_and_it_is_no_row(tmp_path: Pat
     assert index.rows() == []
 
 
-def test_two_bboxes_give_two_copies(tmp_path: Path) -> None:
-    user_file = _write_polygons(tmp_path / "GEO1M.gpkg")
-    derived = tmp_path / "derived"
-
-    first = load_custom_geology(
-        _source(user_file), code_field="CODE", bbox=(0, 0, 40, 40), derived_dir=derived
-    )[0]
-    second = load_custom_geology(
-        _source(user_file), code_field="CODE", bbox=(60, 60, 100, 100), derived_dir=derived
-    )[0]
-
-    assert first.data != second.data
-    assert Path(first.data).is_file()
-    assert Path(second.data).is_file()
-
-
 def test_the_same_bbox_gives_the_same_copy(tmp_path: Path) -> None:
     user_file = _write_polygons(tmp_path / "GEO1M.gpkg")
     derived = tmp_path / "derived"

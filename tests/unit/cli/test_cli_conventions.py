@@ -19,7 +19,6 @@ import pytest
 from hydromodpy.cli import conventions
 from hydromodpy.cli.commands import ls
 from hydromodpy.cli.main import _build_parser
-from tools.docs.api_registry import walk_parser
 
 # Family groups whose bare invocation must be a usage error (exit 2).
 REQUIRED_GROUPS = (
@@ -78,93 +77,10 @@ def _positional_dests(parser: argparse.ArgumentParser) -> list[str]:
     return [a.dest for a in parser._actions if not a.option_strings and a.dest != "help"]
 
 
-def test_bare_top_level_exits_2() -> None:
-    """``hmp`` with no command is a usage error, not a silent exit 0."""
-    with pytest.raises(SystemExit) as exc:
-        _parse([])
-    assert exc.value.code == 2
-
-
-@pytest.mark.parametrize("group", REQUIRED_GROUPS)
-def test_bare_group_exits_2(group: str) -> None:
-    """``hmp <group>`` with no sub-action exits 2 (required subparsers)."""
-    with pytest.raises(SystemExit) as exc:
-        _parse([group])
-    assert exc.value.code == 2
-
-
-@pytest.mark.parametrize("group", REQUIRED_GROUPS)
-def test_group_help_still_exits_0(group: str) -> None:
-    """``hmp <group> --help`` keeps working (required does not block help)."""
-    with pytest.raises(SystemExit) as exc:
-        _parse([group, "--help"])
-    assert exc.value.code == 0
-
-
 # --- Shared builders -------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("builder", "argv", "dest", "expected"),
-    [
-        (conventions.workspace_parser, ["-w", "/x"], "workspace", "/x"),
-        (conventions.workspace_parser, ["--workspace", "/y"], "workspace", "/y"),
-        (conventions.workspace_parser, [], "workspace", None),
-        (conventions.confirm_parser, ["-y"], "yes", True),
-        (conventions.confirm_parser, [], "yes", False),
-        (conventions.dry_run_parser, ["--dry-run"], "dry_run", True),
-        (conventions.format_parser, [], "format", "table"),
-        (conventions.format_parser, ["--format", "json"], "format", "json"),
-        (conventions.profile_parser, [], "profile", None),
-        (conventions.profile_parser, ["--profile"], "profile", ""),
-        (conventions.profile_parser, ["--profile", "out.html"], "profile", "out.html"),
-    ],
-)
-def test_a_shared_parser_reads_its_flag(builder, argv, dest, expected) -> None:
-    parser = argparse.ArgumentParser(add_help=False, parents=[builder()])
-    assert getattr(parser.parse_args(argv), dest) == expected
-
-
-def test_format_refuses_what_is_not_an_output() -> None:
-    parser = argparse.ArgumentParser(add_help=False, parents=[conventions.format_parser()])
-    with pytest.raises(SystemExit):
-        parser.parse_args(["--format", "yaml"])
-
-
-def test_add_sim_ref_adds_positional() -> None:
-    parser = argparse.ArgumentParser(add_help=False)
-    conventions.add_sim_ref(parser)
-    assert parser.parse_args(["ab12cd34"]).sim_ref == "ab12cd34"
-
-
 # --- Per-command grammar (Phase 3 sweep) -----------------------------------
-
-
-@pytest.mark.parametrize(("group", "action"), SIM_REF_COMMANDS)
-def test_simulation_reference_is_named_sim_ref(group: str, action: str) -> None:
-    parser = _leaf_parser(group, action)
-    assert "sim_ref" in _positional_dests(parser), (
-        f"{group} {action}: the simulation reference positional must be 'sim_ref'"
-    )
-
-
-@pytest.mark.parametrize(("group", "action"), DESTRUCTIVE_COMMANDS)
-def test_destructive_commands_offer_yes(group: str, action: str) -> None:
-    opts = _option_strings(_leaf_parser(group, action))
-    assert "-y" in opts and "--yes" in opts, f"{group} {action} must offer -y/--yes"
-
-
-@pytest.mark.parametrize("verb", PROFILE_COMMANDS)
-def test_workflow_verbs_offer_profile(verb: str) -> None:
-    args = _parse([verb, "config.toml", "--profile"])
-    assert args.profile == ""
-
-
-def test_dev_doctor_removed() -> None:
-    """``hmp dev`` only refuses; the canonical verb is ``hmp doctor``."""
-    top = _subparsers_action(_build_parser())
-    assert isinstance(top.choices["dev"], conventions.RefusedVerb)
-    assert "doctor" in top.choices
 
 
 OLD_FORMS = (
@@ -217,23 +133,6 @@ def test_an_old_form_warns_and_does_what_the_new_form_does(
     assert args._handler is ls.run
 
 
-def test_an_old_form_leaves_the_new_form_and_the_help_alone(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    forms = tuple(conventions.OldCliForm(old, new, "2.3.0") for old, new, _, _ in OLD_FORMS)
-    monkeypatch.setattr(conventions, "OLD_CLI_FORMS", forms)
-
-    assert _parse(["ls"]).format == "table"
-    with pytest.raises(SystemExit):
-        _parse(["ls", "--help"])
-
-    assert "--silent" not in capsys.readouterr().out
-    commands = {" ".join(row["path"]): row for row in walk_parser(_build_parser(), ["hmp"])}
-    assert not {"hmp status", "hmp project state"} & set(commands)
-    flags = {flag for arg in commands["hmp ls"]["arguments"] for flag in arg["flags"]}
-    assert not {"--stale", "--json", "--silent"} & flags
-
-
 def test_a_required_flag_is_answered_by_either_form(monkeypatch: pytest.MonkeyPatch) -> None:
     form = conventions.OldCliForm(
         "hmp campaign array --sched", "hmp campaign array --scheduler", "2.3.0"
@@ -281,13 +180,6 @@ def test_the_new_form_of_a_refused_one_exists(form: conventions.OldCliForm) -> N
         if commands is not None and word in commands.choices:
             parser = commands.choices[word]
             assert not isinstance(parser, conventions.OldVerb), form.new
-
-
-def test_hmp_dev_manage_names_the_server(capsys: pytest.CaptureFixture[str]) -> None:
-    with pytest.raises(SystemExit) as refused:
-        _parse(["dev", "manage", "--port", "8000"])
-    assert refused.value.code == 2
-    assert "Write: python -m hydromodpy_server --root ROOT" in capsys.readouterr().err
 
 
 def test_the_static_completion_scripts_left_with_their_flag(

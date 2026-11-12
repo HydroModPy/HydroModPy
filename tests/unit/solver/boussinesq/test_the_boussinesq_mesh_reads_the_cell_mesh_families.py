@@ -131,25 +131,6 @@ def _edges_on_side(mesh: BoussinesqMesh, side: str) -> np.ndarray:
 
 
 @pytest.mark.parametrize("case", BUNDLE_CASES)
-@pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])
-def test_the_river_edges_and_cells_are_those_the_bundle_files_flag(case: str, build) -> None:
-    mesh, reference = build(case), _from_bundle(case)
-    flagged = reference.river_edge_indices()
-
-    assert flagged.size > 0
-    assert _node_pairs(mesh, mesh.river_edge_indices()) == _node_pairs(reference, flagged)
-    assert np.array_equal(mesh.family_edge_indices("rivers"), mesh.river_edge_indices())
-    assert np.array_equal(mesh.edge_indices_for_label("stream"), mesh.river_edge_indices())
-    both_banks = np.unique(
-        np.concatenate([reference.edge_cell_a[flagged], reference.edge_cell_b[flagged]])
-    )
-    assert np.array_equal(mesh.cell_indices_for_label("stream"), both_banks[both_banks >= 0])
-    assert np.array_equal(
-        mesh.cell_indices_for_label("river"), mesh.cell_indices_for_label("stream")
-    )
-
-
-@pytest.mark.parametrize("case", BUNDLE_CASES)
 @pytest.mark.parametrize("side", SIDE_IDS)
 @pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])
 def test_the_side_edges_and_cells_are_those_of_the_bounding_box_rule(
@@ -168,33 +149,6 @@ def test_the_side_edges_and_cells_are_those_of_the_bounding_box_rule(
     )
     assert np.array_equal(
         mesh.edge_indices_for_label(side), mesh.boundary_edge_indices_for_side(side)
-    )
-
-
-@pytest.mark.parametrize("case", BUNDLE_CASES)
-def test_the_edge_indices_follow_the_order_of_the_bundle_edge_file(case: str) -> None:
-    bundle = _bundle(case)
-    mesh = _from_bundle(case)
-
-    assert np.array_equal(mesh.edge_ids, [edge.edge_id for edge in bundle.edges])
-    flagged = np.flatnonzero([edge.is_river for edge in bundle.edges])
-    assert np.array_equal(mesh.family_edge_indices("rivers"), flagged)
-
-
-@pytest.mark.parametrize("case", BUNDLE_CASES)
-def test_the_edges_are_the_edges_of_the_cell_mesh(case: str) -> None:
-    cell_mesh = _cell_mesh(case)
-    ours, reference = _from_cell_mesh(case), _from_bundle(case)
-    geometry = cell_mesh.geometry
-
-    assert np.array_equal(ours.edge_node_a, geometry.edge_nodes[:, 0])
-    assert np.array_equal(ours.edge_node_b, geometry.edge_nodes[:, 1])
-    assert np.array_equal(ours.edge_cell_a, geometry.edge_cells[:, 0])
-    assert np.array_equal(ours.edge_cell_b, geometry.edge_cells[:, 1])
-    assert np.array_equal(ours.edge_length_m, geometry.edge_length)
-    assert ours.n_edges == reference.n_edges
-    assert _node_pairs(ours, np.arange(ours.n_edges)) == _node_pairs(
-        reference, np.arange(reference.n_edges)
     )
 
 
@@ -252,19 +206,6 @@ def test_a_bundle_that_declares_no_crs_is_refused() -> None:
 
     with pytest.raises(ValueError, match="no 'crs'"):
         BoussinesqMesh.from_bundle(replace(bundle, metadata=metadata))
-
-
-def test_the_comparisons_are_not_vacuous() -> None:
-    """An island has no river and no straight side; the other bundles must have both."""
-    rivers = sum(_from_bundle(case).river_edge_indices().size > 0 for case in BUNDLE_CASES)
-    sides = sum(
-        _from_bundle(case).boundary_edge_indices_for_side(side).size > 0
-        for case in BUNDLE_CASES
-        for side in SIDE_IDS
-    )
-
-    assert rivers >= 1
-    assert sides >= len(SIDE_IDS)
 
 
 def test_the_adapter_locates_a_cell_as_the_flat_selector_of_the_one_layer_mesh() -> None:

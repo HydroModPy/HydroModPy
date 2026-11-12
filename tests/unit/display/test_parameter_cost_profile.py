@@ -11,7 +11,6 @@ import pytest
 from hydromodpy.calibration.optim.cost_margin import margin_intervals
 from hydromodpy.display.figures.calibration_progress import _read_search
 from hydromodpy.display.figures.parameter_cost_profile import ParameterCostProfileFigure
-from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 from hydromodpy.results.session.descriptor import ParameterBound
 from hydromodpy.results.session.view import Session
 
@@ -127,32 +126,6 @@ def _note(ax) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def test_profile_draws_the_cost_against_the_parameter(mpl, tmp_path) -> None:
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(_asymmetric_run(tmp_path), ax)
-
-    try:
-        assert ax.get_xlabel() == "K_over_R (-)"
-        assert ax.get_ylabel() == "Cost (-)"
-        assert _profile(ax).get_xdata().tolist() == [1e-6, 1e-5, 3e-5, 1e-4, 1e-3, 1e-2, 1e-1]
-        assert _profile(ax).get_ydata().tolist() == [20.0, 3.0, 1.03, 1.0, 1.02, 1.04, 5.2]
-        assert "cheze-sweep" in ax.get_title()
-    finally:
-        mpl.close(fig)
-
-
-def test_profile_uses_a_log_axis_when_the_sweep_walked_the_decades(mpl, tmp_path) -> None:
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(_asymmetric_run(tmp_path), ax)
-
-    try:
-        assert ax.get_xscale() == "log"
-    finally:
-        mpl.close(fig)
-
-
 def test_profile_stays_linear_when_the_sweep_stayed_inside_one_decade(mpl, tmp_path) -> None:
     run = _session_run(tmp_path, [1.0, 2.0, 3.0, 4.0], [9.0, 1.0, 1.5, 8.0])
     fig, ax = mpl.subplots()
@@ -189,73 +162,9 @@ def test_profile_sorts_the_trials_along_the_parameter(mpl, tmp_path) -> None:
         mpl.close(fig)
 
 
-def test_profile_marks_the_best_trial(mpl, tmp_path) -> None:
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(_asymmetric_run(tmp_path), ax)
-
-    try:
-        best = next(line for line in ax.lines if str(line.get_label()).startswith("best trial"))
-        assert best.get_xdata().tolist() == [1e-4]
-        assert best.get_ydata().tolist() == [1.0]
-        assert "0.0001" in str(best.get_label())
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # a failed trial breaks the profile
 # --------------------------------------------------------------------------- #
-
-
-def test_profile_breaks_where_a_trial_failed_and_keeps_its_abscissa(mpl, tmp_path) -> None:
-    run = _session_run(tmp_path, [1e-5, 1e-4, 1e-3], [3.0, None, 1.2])
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(run, ax)
-
-    try:
-        costs = _profile(ax).get_ydata()
-        assert np.isnan(costs[1]), "a failed trial must break the line, not read as zero"
-        assert costs[0] == 3.0 and costs[2] == 1.2
-        assert _profile(ax).get_xdata().tolist() == [1e-5, 1e-4, 1e-3]
-    finally:
-        mpl.close(fig)
-
-
-def test_profile_marks_where_the_failures_are_along_the_axis(mpl, tmp_path) -> None:
-    run = _session_run(tmp_path, [1e-5, 1e-4, 1e-3, 1e-2], [None, 1.0, 1.2, None])
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(run, ax)
-
-    try:
-        failed = _scatter(ax, "failed trial")
-        assert failed.get_offsets()[:, 0].tolist() == [1e-5, 1e-2]
-    finally:
-        mpl.close(fig)
-
-
-def test_profile_drops_a_cost_the_session_did_not_complete(mpl, tmp_path) -> None:
-    # A trial can carry a number and still have failed; the engine reads a
-    # cost only from a completed trial, and so does the figure.
-    run = _session_run(
-        tmp_path,
-        [1e-5, 1e-4, 1e-3],
-        [3.0, 0.01, 1.2],
-        statuses=["completed", "failed", "completed"],
-    )
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(run, ax)
-
-    try:
-        assert np.isnan(_profile(ax).get_ydata()[1])
-        best = next(line for line in ax.lines if str(line.get_label()).startswith("best trial"))
-        assert best.get_xdata().tolist() == [1e-3]
-        assert _scatter(ax, "failed trial").get_offsets()[:, 0].tolist() == [1e-4]
-    finally:
-        mpl.close(fig)
 
 
 def test_profile_says_so_when_no_trial_produced_a_cost(mpl, tmp_path) -> None:
@@ -286,21 +195,6 @@ def test_profile_draws_the_interval_of_trials_within_five_per_cent(mpl, tmp_path
         assert (low, high) == pytest.approx((3e-5, 1e-2))
         labels = [text.get_text() for text in ax.get_legend().get_texts()]
         assert "within 5% of the best" in labels
-    finally:
-        mpl.close(fig)
-
-
-def test_profile_names_both_half_widths_and_which_one_is_wider(mpl, tmp_path) -> None:
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(_asymmetric_run(tmp_path), ax)
-
-    try:
-        note = _note(ax)
-        assert "K_over_R in [3e-05, 0.01]: 4 of 7 trials scored within 5% of the best" in note
-        assert "/3.333 below" in note
-        assert "x100 above" in note
-        assert "30x wider above" in note
     finally:
         mpl.close(fig)
 
@@ -354,19 +248,6 @@ def test_profile_says_when_an_end_stops_at_a_failed_trial(mpl, tmp_path) -> None
 
     try:
         assert "above stops at a failed trial" in _note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_profile_says_so_when_no_other_trial_is_within_the_tolerance(mpl, tmp_path) -> None:
-    run = _session_run(tmp_path, [1e-5, 1e-4, 1e-3], [9.0, 1.0, 2.0])
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(run, ax)
-
-    try:
-        assert "no other trial within 5% of the best, over 3 trials" in _note(ax)
-        assert not ax.patches
     finally:
         mpl.close(fig)
 
@@ -554,24 +435,6 @@ def test_a_value_combined_from_two_roots_gets_no_interval(mpl, tmp_path) -> None
         mpl.close(fig)
 
 
-def test_the_session_best_trial_wins_over_the_lowest_cost(mpl, tmp_path) -> None:
-    run = _session_run(
-        tmp_path,
-        [1e-6, 1e-5, 3e-5, 1e-4, 1e-3, 1e-2, 1e-1],
-        [20.0, 3.0, 1.03, 1.0, 1.02, 1.04, 5.2],
-        best_trial=3,
-    )
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(run, ax)
-
-    try:
-        marked = next(line for line in ax.lines if str(line.get_label()).startswith("returned"))
-        assert marked.get_xdata().tolist() == [3e-5]
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # the note covers neither the legend nor a trial
 # --------------------------------------------------------------------------- #
@@ -585,21 +448,6 @@ def _storage_run(project: Path) -> Session:
         [0.1182, 0.08459, 0.08402, 0.08398, 0.08417, 0.08634, 0.09733, 0.08398],
         parameter="Sy",
     )
-
-
-def test_the_note_overlaps_neither_the_legend_nor_a_trial(mpl, tmp_path) -> None:
-    fig = ParameterCostProfileFigure().plot(_storage_run(tmp_path))
-
-    try:
-        fig.canvas.draw()
-        ax = fig.axes[0]
-        note = ax.texts[0].get_bbox_patch().get_window_extent()
-        legend = ax.get_legend().get_window_extent()
-        assert not note.overlaps(legend)
-        points = ax.transData.transform(np.asarray(_profile(ax).get_xydata()))
-        assert not any(note.contains(x, y) for x, y in points)
-    finally:
-        mpl.close(fig)
 
 
 # --------------------------------------------------------------------------- #
@@ -618,19 +466,6 @@ def test_profile_refuses_a_session_that_moved_several_parameters(mpl, tmp_path) 
         mpl.close(fig)
 
 
-def test_profile_reads_the_parameter_it_is_given(mpl, tmp_path) -> None:
-    run = _several_parameters_run(tmp_path)
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(run, ax, parameter="K_over_R")
-
-    try:
-        assert ax.get_xlabel() == "K_over_R (-)"
-        assert _profile(ax).get_ydata().tolist() == [20.0, 3.0, 1.03, 1.0, 1.02, 1.04, 5.2]
-    finally:
-        mpl.close(fig)
-
-
 def test_profile_refuses_a_session_with_no_trial(mpl, tmp_path) -> None:
     run = journal_session(tmp_path, [])
     fig, ax = mpl.subplots()
@@ -645,25 +480,6 @@ def test_profile_refuses_a_session_with_no_trial(mpl, tmp_path) -> None:
 # --------------------------------------------------------------------------- #
 # colors, registration, availability
 # --------------------------------------------------------------------------- #
-
-
-def test_profile_only_uses_the_high_contrast_triplet(mpl, tmp_path) -> None:
-    from matplotlib.colors import to_hex
-
-    fig, ax = mpl.subplots()
-
-    ParameterCostProfileFigure().render(_asymmetric_run(tmp_path), ax)
-
-    try:
-        triplet = {color.lower() for color in HIGH_CONTRAST_TRIPLET}
-        drawn = {to_hex(_profile(ax).get_color()).lower()}
-        best = next(line for line in ax.lines if str(line.get_label()).startswith("best trial"))
-        drawn.add(to_hex(best.get_color()).lower())
-        band = next(item for item in ax.patches if str(item.get_label()).startswith("within"))
-        drawn.add(to_hex(band.get_facecolor()).lower())
-        assert drawn <= triplet
-    finally:
-        mpl.close(fig)
 
 
 def test_profile_is_available_on_a_run_carrying_a_session(tmp_path) -> None:

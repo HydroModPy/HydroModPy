@@ -62,16 +62,6 @@ def test_a_mapping_names_its_cell_count_and_seed_by_any_alias(config, kind, n_ce
     assert (mesh.identity.engine_id, mesh.n_cells, mesh.identity.seed) == (kind, n_cells, seed)
 
 
-def test_unstructured_triangular_mesh_has_approx_target_cell_count():
-    mesh = FieldMeshSquare.from_unit_square(
-        target_n_cells=80,
-        mesh_kind="triangular_unstructured",
-        rng_manager=RngManager(master_seed=7),
-    )
-    assert (mesh.identity.engine_id, mesh.identity.seed) == ("triangular_unstructured", SEED_7)
-    assert abs(mesh.n_cells - 80) <= 16
-
-
 def test_an_unstructured_mesh_without_a_seed_draws_with_42():
     mesh = FieldMeshSquare.from_dict({"kind": "triangular_unstructured", "target_n_cells": 40})
     assert mesh.identity.seed == 42

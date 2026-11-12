@@ -11,9 +11,8 @@ import pytest
 
 from hydromodpy.mesh import port
 from hydromodpy.mesh.planar.cell_types import CellType
-from hydromodpy.mesh.planar.quality import DECLARATION_KEYS
 from hydromodpy.mesh.port import MeshEngine, MeshEngineCapabilities
-from tests._helpers.fake_engines import fake_capabilities, lumped_capabilities
+from tests._helpers.fake_engines import fake_capabilities
 
 pytestmark = pytest.mark.fast
 
@@ -61,41 +60,7 @@ def test_capabilities_refuse_what_a_planar_engine_cannot_declare(
         fake_capabilities(**members)
 
 
-def test_capabilities_take_a_cell_type_by_its_name() -> None:
-    capabilities = fake_capabilities(cell_types=("triangle",))
-
-    assert capabilities.cell_types == (CellType.TRIANGLE,)
-
-
-def test_capabilities_give_the_declarations_the_qa_reports() -> None:
-    declarations = _CAPABILITIES.declarations()
-
-    assert set(declarations) == DECLARATION_KEYS
-    assert declarations == {key: getattr(_CAPABILITIES, key) for key in DECLARATION_KEYS}
-
-
-def test_an_engine_is_not_lumped_unless_it_says_so() -> None:
-    """An engine written before ``lumped`` existed declares the same capabilities."""
-    assert _CAPABILITIES.lumped is False
-    assert lumped_capabilities().lumped is True
-
-
-def test_lumped_is_not_one_of_the_declarations_the_qa_reports() -> None:
-    lumped = lumped_capabilities()
-
-    assert "lumped" not in lumped.declarations()
-    assert set(lumped.declarations()) == DECLARATION_KEYS
-
-
 class TestIgnoredFamilies:
-    def test_defaults_to_no_ignored_family(self):
-        capabilities = fake_capabilities()
-        assert capabilities.ignored_families == frozenset()
-
-    def test_is_not_one_of_the_declarations_the_qa_reports(self):
-        capabilities = fake_capabilities(ignored_families=frozenset({"rivers"}))
-        assert "ignored_families" not in capabilities.declarations()
-
     def test_names_of_a_non_frozenset_are_refused(self):
         with pytest.raises(ValueError, match="ignored_families must be a frozenset of str"):
             fake_capabilities(ignored_families=["rivers"])

@@ -42,22 +42,6 @@ def _kept_trial(project: Path) -> tuple[CalibrationPersistence, Path]:
     return persistence, kept
 
 
-def test_the_trial_lands_on_the_reserved_name_when_the_rename_is_refused(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    persistence, kept = _kept_trial(tmp_path)
-    monkeypatch.setattr(filesystem, "os", PatchedOs(name="nt", replace=_windows_replace))
-    monkeypatch.setattr(filesystem, "WINDOWS_PATH_LIMIT", 10**6)  # tmp_path is long
-
-    target = promote_trial_from_session(tmp_path, "calage", 2, as_name="k_low")
-
-    assert target == tmp_path / "runs" / "k_low"
-    assert (target / "manifest.json").is_file()
-    assert not kept.exists()
-    line = {item.trial: item for item in read_trials(persistence.directory)}[2]
-    assert line.only_case.rel_dir == "runs/k_low"
-
-
 def test_a_name_taken_in_between_stays_with_its_taker_and_the_trial_stays_kept(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

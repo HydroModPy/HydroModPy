@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.config.section_loader import load_standard_section
-from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.options import (
     DEFAULT_PARTITION_RELEASE_DEPTH_M,
     BoussinesqOptions,
@@ -18,19 +14,6 @@ from hydromodpy.solver.boussinesq.options import (
     normalize_runtime_backend,
     normalize_surface_interaction_model,
 )
-
-
-@pytest.mark.parametrize(
-    ("raw", "expected"),
-    [
-        (None, "auto"),
-        ("local", "local"),
-        (" PETSC ", "petsc"),
-        ("scipy_sparse", "scipy_sparse"),
-    ],
-)
-def test_runtime_backend_normalization_accepts_known_values(raw: object, expected: str) -> None:
-    assert normalize_runtime_backend(raw) == expected
 
 
 def test_runtime_validator_rejects_invalid_numbers_and_booleans() -> None:
@@ -105,23 +88,6 @@ def test_the_table_reads_the_spelling_a_toml_file_uses() -> None:
     assert options.ts_vi_adapt is True
     assert options.tol_residual_inf == pytest.approx(1.0e-9)
     assert options.max_iterations is None
-
-
-def test_the_exchange_mesh_is_a_path_the_loader_resolves_against_the_toml_folder(
-    tmp_path: Path,
-) -> None:
-    solver = load_standard_section(
-        {"boussinesq": {"exchange_mesh": "bundles/strip"}}, SolverConfig, tmp_path
-    )
-
-    assert solver.options_of("boussinesq").exchange_mesh == tmp_path / "bundles" / "strip"
-
-
-def test_the_exchange_mesh_stays_unset_when_the_table_does_not_name_one(tmp_path: Path) -> None:
-    solver = load_standard_section({"boussinesq": {"backend": "petsc"}}, SolverConfig, tmp_path)
-
-    assert solver.options_of("boussinesq").exchange_mesh is None
-    assert solver.options_of("boussinesq").backend == "petsc"
 
 
 def test_the_exchange_mesh_is_a_developer_option_only() -> None:

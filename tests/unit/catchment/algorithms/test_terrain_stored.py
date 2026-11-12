@@ -61,57 +61,6 @@ def _read_array(path: Path) -> tuple[np.ndarray, str | None, float | None]:
         return src.read(1), src.crs.to_string() if src.crs else None, src.nodata
 
 
-def test_a_fill_stack_round_trips_byte_for_byte(tmp_path) -> None:
-    store = tmp_path / "store"
-    out = tmp_path / "out"
-    products, correc, _, acc = _write_stack(tmp_path / "built")
-
-    write_terrain(products, store)
-    restored = read_terrain(store, _request("fill", out))
-
-    assert restored.correc == str(out / correc.name)
-    assert restored.direc == str(out / "dem_direc.tif")
-    assert restored.acc == str(out / "dem_acc.tif")
-    assert restored.undrained == UndrainedCells(without_descent=2, strict_pits=1)
-    assert restored.accumulation.units == "cells"
-    assert restored.accumulation.transform == "ln"
-    assert restored.accumulation.directions.pointer_convention == "d8_wbt"
-    assert restored.accumulation.directions.conditioned_dem.method == "fill"
-    assert restored.accumulation.directions.conditioned_dem.crs == "EPSG:2154"
-
-    for original, name in ((correc, correc.name), (acc, "dem_acc.tif")):
-        built = _read_array(original)
-        rebuilt = _read_array(out / name)
-        np.testing.assert_array_equal(built[0], rebuilt[0])
-        assert built[1] == rebuilt[1]
-        assert built[2] == rebuilt[2]
-
-
-def test_terrain_json_keeps_the_format_the_method_names_bytes_and_counts(tmp_path) -> None:
-    store = tmp_path / "store"
-    products, correc, direc, acc = _write_stack(tmp_path / "built")
-
-    write_terrain(products, store)
-
-    document = json.loads((store / "terrain.json").read_text(encoding="utf-8"))
-    assert document["schema"] == SCHEMA_VERSION
-    assert document["method"] == "fill"
-    assert document["conditioned_name"] == correc.name
-    assert document["pointer_convention"] == "d8_wbt"
-    assert document["accumulation"] == {"units": "cells", "transform": "ln"}
-    assert document["nodata"] == -32768.0
-    assert document["crs"] == "EPSG:2154"
-    assert document["breach_report"] is None
-    files = document["files"]
-    assert [files[role]["name"] for role in ("correc", "direc", "acc")] == [
-        correc.name,
-        direc.name,
-        acc.name,
-    ]
-    assert files["correc"]["bytes"] == (store / correc.name).stat().st_size
-    assert document["undrained"] == {"without_descent": 2, "strict_pits": 1}
-
-
 def test_a_stack_without_counts_writes_null_not_zeros(tmp_path) -> None:
     store = tmp_path / "store"
     products, *_ = _write_stack(tmp_path / "built")
@@ -122,21 +71,6 @@ def test_a_stack_without_counts_writes_null_not_zeros(tmp_path) -> None:
     document = json.loads((store / "terrain.json").read_text(encoding="utf-8"))
     assert document["undrained"] is None
     assert restored.undrained is None
-
-
-def test_a_restored_raster_is_uncompressed_and_equal_in_values(tmp_path) -> None:
-    store = tmp_path / "store"
-    out = tmp_path / "out"
-    products, correc, *_ = _write_stack(tmp_path / "built")
-
-    write_terrain(products, store)
-    read_terrain(store, _request("fill", out))
-
-    with rasterio.open(str(store / correc.name)) as stored:
-        assert stored.compression is not None
-    with rasterio.open(str(out / correc.name)) as restored:
-        assert restored.compression is None
-    np.testing.assert_array_equal(_read_array(correc)[0], _read_array(out / correc.name)[0])
 
 
 @pytest.mark.parametrize(

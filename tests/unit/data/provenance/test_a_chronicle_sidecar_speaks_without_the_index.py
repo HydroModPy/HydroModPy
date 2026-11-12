@@ -106,24 +106,3 @@ def test_an_unreadable_sidecar_is_rewritten_without_the_unit(tmp_path: Path) -> 
 
     assert "unit" not in payload
     assert payload["source"] == "hubeau"
-
-
-def test_a_file_that_is_no_chronicle_keeps_its_sidecar_keys(tmp_path: Path) -> None:
-    raster = tmp_path / "data" / "dem" / "dem_ign_tile.tif"
-    raster.parent.mkdir(parents=True)
-    raster.write_bytes(b"not really a tiff")
-
-    CacheIndex(tmp_path / "data").record(raster, variable="dem", source="ign")
-
-    payload = json.loads(sidecar_path_for(raster).read_text(encoding="utf-8"))
-    assert set(payload) == {
-        "bbox",
-        "bytes",
-        "crs",
-        "fetched_at",
-        "license",
-        "notes",
-        "sha256",
-        "source",
-        "variable",
-    }

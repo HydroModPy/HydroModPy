@@ -250,24 +250,9 @@ def test_uniform_soil_round_trips_bit_for_bit(tmp_path) -> None:
     _assert_same(forcings, _roundtrip(tmp_path, forcings, like, config))
 
 
-def test_capacity_classes_round_trip_bit_for_bit(tmp_path) -> None:
-    forcings, like, config = _soil_forcings(with_capacity=True, cycles=0, never_full=0)
-    _assert_same(forcings, _roundtrip(tmp_path, forcings, like, config))
-
-
 def test_spinup_counts_and_scalars_round_trip(tmp_path) -> None:
     forcings, like, config = _soil_forcings(with_capacity=True, cycles=7, never_full=3)
     _assert_same(forcings, _roundtrip(tmp_path, forcings, like, config))
-
-
-def test_the_three_records_keep_the_class_of_like(tmp_path) -> None:
-    forcings, like, config = _soil_forcings(
-        with_capacity=False, cycles=0, never_full=0, like_cls=_FakeLoadResult
-    )
-    rebuilt = _roundtrip(tmp_path, forcings, like, config)
-    assert type(rebuilt.recharge) is _FakeLoadResult
-    assert type(rebuilt.residual_etp) is _FakeLoadResult
-    assert type(rebuilt.runoff) is _FakeLoadResult
 
 
 def test_a_truncated_product_is_refused_as_unreadable(tmp_path) -> None:

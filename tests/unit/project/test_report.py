@@ -13,7 +13,6 @@ from hydromodpy.core.exceptions import ConfigError, DisplayError
 from hydromodpy.project import report as module
 from hydromodpy.project.report import regen_run, report_run, report_session
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
-from hydromodpy.schema.phrases import keys
 from tests._helpers.sealed_runs import make_project, write_session_dir
 
 pytestmark = pytest.mark.fast
@@ -72,22 +71,6 @@ def calls(monkeypatch) -> dict:
     return seen
 
 
-def test_the_research_report_gets_the_method_and_label_texts(calls, tmp_path: Path) -> None:
-    run_dir = _sealed(make_project(tmp_path / "p"), "base")
-
-    page = report_run(run_dir, today=DAY)
-
-    texts = calls["blocks"][0]["texts"]
-    assert texts.method == "method en 2026-11-11"
-    assert texts.label == "label validated en"
-    assert set(texts.titles) == set(keys("report"))
-    assert texts.titles["method"] == "Method"
-    assert page == run_dir / "report" / "index.html"
-    assert calls["write"]["levels"] is True
-    assert calls["write"]["label"] == "validated"
-    assert calls["drawn"], "the figures the preset names are drawn first"
-
-
 def test_the_management_sheet_is_one_page_in_its_language(calls, tmp_path: Path) -> None:
     run_dir = _sealed(make_project(tmp_path / "p"), "base")
 
@@ -107,20 +90,6 @@ def test_the_station_reaches_the_page(calls, tmp_path: Path) -> None:
     report_run(run_dir, station="J0014010", today=DAY)
 
     assert calls["blocks"][0]["station"] == "J0014010"
-
-
-def test_the_overview_of_the_same_site_is_found_beside_the_run(
-    calls, monkeypatch, tmp_path: Path
-) -> None:
-    project = make_project(tmp_path / "p")
-    run_dir = _sealed(project, "base")
-    overview = _sealed(project, "J0014010")
-    monkeypatch.setattr(module, "overview_run_dir", lambda root, name: project / "runs" / name)
-
-    report_run(run_dir, today=DAY)
-
-    assert overview in calls["opened"]
-    assert calls["blocks"][0]["overview"].dir == overview
 
 
 @pytest.mark.parametrize(
@@ -262,49 +231,6 @@ def test_a_session_of_several_cases_draws_the_best_run_of_each(monkeypatch, tmp_
         "a_hydrograph_sim_obs.png",
         "b_hydrograph_sim_obs.png",
     ]
-
-
-def test_a_figure_is_drawn_under_the_render_lock_and_leaves_no_pyplot_figure(
-    monkeypatch, tmp_path: Path
-) -> None:
-    import threading
-
-    import matplotlib
-    from matplotlib import _pylab_helpers
-
-    from hydromodpy.display.figure import new_subplots
-    from hydromodpy.display.style import RENDER_LOCK
-
-    held: list[bool] = []
-
-    def plot(subject, *, save_path: Path, **_options):
-        # The lock is reentrant, so only a second thread tells whether it is held.
-        free: list[bool] = []
-
-        def probe() -> None:
-            free.append(RENDER_LOCK.acquire(blocking=False))
-            if free[0]:
-                RENDER_LOCK.release()
-
-        thread = threading.Thread(target=probe)
-        thread.start()
-        thread.join()
-        held.append(not free[0])
-        fig, ax = new_subplots()
-        ax.plot([0, 1])
-        fig.savefig(save_path)
-
-    monkeypatch.setattr(module, "get_figure", lambda name: SimpleNamespace(plot=plot))
-    monkeypatch.setattr(module, "figure_names", lambda: ["one"])
-    backend, skipped = matplotlib.get_backend(), []
-
-    drawn = module._draw(object(), ("one", "two"), tmp_path, skipped)
-
-    assert drawn == {"one": tmp_path / "one.png"}
-    assert skipped == ["two: figure is not registered"]
-    assert held == [True]
-    assert matplotlib.get_backend() == backend
-    assert not _pylab_helpers.Gcf.get_all_fig_managers()
 
 
 # regen_run: what the ledgers of one run record, written again

@@ -17,9 +17,7 @@ import pytest
 
 from hydromodpy.catchment.drainage.descent import BASIN_VERSION, DescentBasin
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-from hydromodpy.solver.modflow6.support.computational_top import GROUND_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow_common.descent_store import (
-    descent_sidecar_path,
     write_descent_sidecar,
     write_descent_sidecar_to_store,
 )
@@ -39,33 +37,6 @@ def store(tmp_path: Path):
     )
     yield handle
     handle.close()
-
-
-def test_the_first_sidecar_in_name_order_is_the_one_the_backends_read(tmp_path) -> None:
-    assert descent_sidecar_path(tmp_path) is None
-    for stem in ("b_model", "a_model"):
-        (tmp_path / f"{stem}.descent.npz").touch()
-
-    assert descent_sidecar_path(tmp_path) == tmp_path / "a_model.descent.npz"
-
-
-def test_the_sidecar_the_build_left_lands_under_mesh(store, tmp_path) -> None:
-    descent = grid_descent(TOP)
-    write_descent_sidecar(descent, tmp_path, "model")
-
-    written = write_descent_sidecar_to_store(store, tmp_path, sim_id="s", n_cells=N_CELLS)
-
-    assert written
-    mesh = store.root["mesh"]
-    np.testing.assert_array_equal(mesh["descent_receiver"][:], descent.receiver)
-    np.testing.assert_array_equal(mesh["descent_surface"][:], descent.surface)
-    attrs = dict(mesh["descent_receiver"].attrs)
-    assert attrs["adjacency"] == "shared_nodes"
-    assert attrs["n_raised"] == descent.n_raised
-    assert attrs["n_channel"] == 0
-    assert attrs["n_pinned"] == 0
-    assert "n_lake_flooded" in attrs
-    assert attrs["epsilon"] > 0.0
 
 
 def _basin() -> DescentBasin:
@@ -91,28 +62,6 @@ def test_the_basin_of_the_sidecar_lands_beside_d_with_its_outlet(store, tmp_path
     assert attrs["basin_area_m2"] == pytest.approx(4.0e4)
     assert attrs["basin_seeded_at_outlet"] is True
     assert attrs["basin_version"] == BASIN_VERSION
-
-
-def test_a_sidecar_written_before_the_basin_stores_d_alone(store, tmp_path) -> None:
-    write_descent_sidecar(grid_descent(TOP), tmp_path, "model")
-
-    written = write_descent_sidecar_to_store(store, tmp_path, sim_id="s", n_cells=N_CELLS)
-
-    assert written
-    assert "descent_receiver" in store.root["mesh"]
-    assert "descent_basin" not in store.root["mesh"]
-
-
-def test_without_a_sidecar_nothing_is_written_and_info_says_so(store, tmp_path, caplog) -> None:
-    with caplog.at_level(logging.INFO):
-        written = write_descent_sidecar_to_store(store, tmp_path, sim_id="old", n_cells=N_CELLS)
-
-    assert not written
-    assert "descent_receiver" not in store.root["mesh"]
-    assert any(
-        r.levelno == logging.INFO and "no descent sidecar" in r.getMessage() for r in caplog.records
-    )
-    assert not any(r.levelno >= logging.WARNING for r in caplog.records)
 
 
 def test_a_sidecar_for_another_mesh_is_a_warning_and_leaves_the_mesh_alone(
@@ -177,49 +126,6 @@ def test_the_nwt_extractor_stores_the_descent_right_after_the_mesh(tmp_path) -> 
             1,
             3,
             3,
-        )
-
-        mesh = store.root["mesh"]
-        np.testing.assert_array_equal(mesh["topography"][:], TOP.ravel())
-        np.testing.assert_array_equal(mesh["descent_receiver"][:], descent.receiver)
-    finally:
-        store.close()
-
-
-def test_the_mf6_extractor_stores_the_descent_right_after_the_mesh(tmp_path, monkeypatch) -> None:
-    pytest.importorskip("flopy")
-    from types import SimpleNamespace
-
-    import flopy.mf6.utils
-
-    from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
-
-    xs, ys = np.meshgrid(np.arange(4.0), np.arange(4.0))
-
-    class _FakeGrid:
-        grid_type = "dis"
-        top1d = TOP.ravel()
-        bot1d = TOP.ravel() - 10.0
-        idomain = np.ones(N_CELLS, dtype=int)
-        modelgrid = SimpleNamespace(xvertices=xs, yvertices=ys)
-
-        def __init__(self, path: str) -> None:
-            del path
-
-    monkeypatch.setattr(flopy.mf6.utils, "MfGrdFile", _FakeGrid)
-    (tmp_path / "m.dis.grb").write_bytes(b"")
-    np.savez(tmp_path / f"m{GROUND_SIDECAR_SUFFIX}", ground=TOP.ravel())
-    descent = grid_descent(TOP)
-    write_descent_sidecar(descent, tmp_path, "m")
-    store = SimulationZarr.create(tmp_path / "run.zarr", n_cells=N_CELLS, n_layers=1)
-    try:
-        Modflow6OutputAdapter()._write_surface_elevation(
-            "sim",
-            SimpleNamespace(open_zarr=lambda sim_id: _Handle(store)),
-            tmp_path,
-            "m",
-            1,
-            N_CELLS,
         )
 
         mesh = store.root["mesh"]

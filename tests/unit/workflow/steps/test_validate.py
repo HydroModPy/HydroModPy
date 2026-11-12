@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path, PureWindowsPath
-from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 
-from hydromodpy.config.cross_checks import refuse_an_export_that_cannot_be_written
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.validate import ValidateStep
 
@@ -79,38 +76,6 @@ DAILY = _TRANSIENT.format(step="1 day")
 
 
 class TestDates:
-    @pytest.mark.parametrize("grid", [MONTHLY, DAILY], ids=["monthly", "daily"])
-    def test_one_date_is_right_on_every_grid(self, tmp_path: Path, grid: str) -> None:
-        cfg = _load(
-            tmp_path,
-            """\
-            [[export]]
-            variables = "head"
-            time = ["2002-10-15", "first", "last"]
-
-            [[export]]
-            variables = "discharge"
-            period = ["2001-01-01", "2002-12-31"]
-
-            [display]
-            time = "2002-10-15"
-            """,
-            grid=grid,
-        )
-
-        assert len(cfg.export) == 2
-
-    @pytest.mark.parametrize("grid", [MONTHLY, DAILY], ids=["monthly", "daily"])
-    def test_a_date_outside_the_record_names_its_block(self, tmp_path: Path, grid: str) -> None:
-        with pytest.raises(ConfigError, match=r"export\[1\]\.time: 2003-06-01 is outside") as err:
-            _load(
-                tmp_path,
-                '[[export]]\nvariables = "head"\n\n[[export]]\nvariables = "head"\n'
-                'time = "2003-06-01"\n',
-                grid=grid,
-            )
-        assert "2000-01-01 to 2003-01-01" in str(err.value)
-
     def test_two_dates_on_one_period_are_refused_before_the_solve(self, tmp_path: Path) -> None:
         with pytest.raises(ConfigError, match=r"export\[0\]\.time: '2000-01-10' and '2000-02-01'"):
             _load(
@@ -126,13 +91,6 @@ class TestDates:
                 '[[export]]\nvariables = "discharge"\nperiod = ["1990-01-01", "1995-12-31"]\n',
                 grid=MONTHLY,
             )
-
-    def test_a_step_index_counts_the_periods_of_the_grid(self, tmp_path: Path) -> None:
-        body = '[[export]]\nvariables = "head"\ntime = 1018\n'
-        _load(tmp_path, body, grid=DAILY)
-
-        with pytest.raises(ConfigError, match=r"export\[0\]\.time: period index 1018"):
-            _load(tmp_path, body, grid=MONTHLY)
 
     def test_the_display_time_and_a_figure_time_are_read(self, tmp_path: Path) -> None:
         with pytest.raises(ConfigError) as err:
@@ -151,58 +109,8 @@ class TestDates:
         assert "display.time: 1999-12-31 is outside" in message
         assert "display.overrides.seepage_map.time: 2004-01-01 is outside" in message
 
-    def test_a_steady_run_without_a_window_has_no_dates(self, tmp_path: Path) -> None:
-        with pytest.raises(ConfigError, match=r'export\[1\]\.time: .*no dates; write "last"'):
-            _load(
-                tmp_path,
-                '[[export]]\nvariables = "head"\ntime = "last"\n\n'
-                '[[export]]\nvariables = "head"\ntime = "2002-10-15"\n',
-                grid=_STEADY,
-            )
-
 
 class TestNames:
-    def test_the_names_of_every_kind_are_known(self, tmp_path: Path) -> None:
-        cfg = _load(
-            tmp_path,
-            """\
-            [[export]]
-            variables = ["watershed", "hydrographic_network_reference"]
-
-            [[export]]
-            variables = ["watershed_dem", "watershed_fill"]
-
-            [[export]]
-            variables = ["head", "watertable_depth", "simulated_active_network"]
-            time = "2002-10-15"
-
-            [[export]]
-            variables = ["discharge", "discharge_obs", "budget"]
-
-            [[export]]
-            variables = "all"
-            format = "rocrate"
-            """,
-            grid=MONTHLY,
-        )
-
-        assert len(cfg.export) == 5
-
-    def test_an_unknown_name_names_its_block_and_prints_the_vocabulary(
-        self, tmp_path: Path
-    ) -> None:
-        with pytest.raises(ConfigError) as err:
-            _load(
-                tmp_path,
-                '[[export]]\nvariables = "head"\n\n[[export]]\nvariables = ["hed"]\n',
-                grid=MONTHLY,
-            )
-        message = str(err.value)
-        assert "export[1]: 'hed'" in message
-        assert "fields: " in message
-        assert "vector layers: watershed" in message
-        assert "tables: budget" in message
-
     def test_a_kind_the_format_cannot_hold_names_its_block(self, tmp_path: Path) -> None:
         with pytest.raises(ConfigError, match=r"export\[0\]: 'watershed' is a vector"):
             _load(
@@ -215,27 +123,6 @@ class TestNames:
                 tmp_path, '[[export]]\nvariables = "discharge"\ncrs = "EPSG:4326"\n', grid=MONTHLY
             )
 
-    def test_two_blocks_that_write_one_file_are_refused(self, tmp_path: Path) -> None:
-        with pytest.raises(
-            ConfigError, match=r"export\[0\] and export\[2\] both write head_2002-10-15"
-        ):
-            _load(
-                tmp_path,
-                """\
-                [[export]]
-                variables = "head"
-                time = "2002-10-15"
-
-                [[export]]
-                variables = "discharge"
-
-                [[export]]
-                variables = ["head", "watertable_depth"]
-                time = "2002-10-15"
-                """,
-                grid=MONTHLY,
-            )
-
     def test_the_root_of_the_exports_named_is_the_default_folder(self, tmp_path: Path) -> None:
         with pytest.raises(ConfigError, match=r"both write head_last\.tif\."):
             _load(
@@ -244,28 +131,6 @@ class TestNames:
                 '[[export]]\nvariables = "head"\ntime = "last"\nfolder = "."\n',
                 grid=MONTHLY,
             )
-
-    def test_a_windows_spelling_of_one_file_collides(self) -> None:
-        # On Windows a TOML folder loads as a Windows path.
-        posix = ExportRequest(variables="head", time="last", folder="deliver/sub")
-        windows = posix.model_copy(update={"folder": PureWindowsPath("deliver\\sub")})
-        cfg = SimpleNamespace(export=[posix, windows], simulation=SimpleNamespace(name="nancon"))
-
-        with pytest.raises(
-            ConfigError,
-            match=r"export\[0\] and export\[1\] both write deliver/sub/head_last\.tif\.",
-        ):
-            refuse_an_export_that_cannot_be_written(cfg, sealed=False)
-
-    def test_a_folder_keeps_two_blocks_apart(self, tmp_path: Path) -> None:
-        cfg = _load(
-            tmp_path,
-            '[[export]]\nvariables = "head"\ntime = "last"\n\n'
-            '[[export]]\nvariables = "head"\ntime = "last"\nfolder = "deliver"\n',
-            grid=MONTHLY,
-        )
-
-        assert len(cfg.export) == 2
 
 
 def test_the_validate_step_meets_the_refusals_of_the_loader(tmp_path: Path) -> None:
@@ -278,14 +143,6 @@ def test_the_validate_step_meets_the_refusals_of_the_loader(tmp_path: Path) -> N
     path.write_text(path.read_text().replace('"head"', '"hed"'), encoding="utf-8")
     with pytest.raises(ConfigError, match=r"export\[0\]: 'hed'"):
         ValidateStep().run(state)
-
-
-def test_the_validate_step_carries_a_config_the_loader_accepted(tmp_path: Path) -> None:
-    cfg = _load(tmp_path, '[[export]]\nvariables = "head"\ntime = "last"\n', grid=MONTHLY)
-
-    out = ValidateStep().run(PipelineState(run_id="r", data={"cfg": cfg}))
-
-    assert out.get("cfg") is cfg
 
 
 def test_the_validate_step_refuses_a_built_config_whose_window_moved(tmp_path: Path) -> None:

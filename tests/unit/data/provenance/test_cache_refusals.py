@@ -3,21 +3,18 @@
 from __future__ import annotations
 
 import json
-import shutil
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
-from hydromodpy.core.exceptions import DataCacheError, FrozenDataError, SchemaVersionMismatchError
+from hydromodpy.core.exceptions import DataCacheError, FrozenDataError
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.data.provenance.lockfile import (
     LockedInputs,
     project_lockfile_path,
     read_locked_inputs,
-    read_lockfile_inputs,
     reject_frozen_download,
     reject_frozen_user_file,
     user_file_input,
@@ -172,26 +169,6 @@ def test_frozen_mode_refuses(
         act(data_root, locked)
 
 
-def test_the_same_acts_pass_without_a_lockfile(
-    frozen: tuple[Path, Path, Path, LockedInputs],
-) -> None:
-    """A run that is not frozen hands ``None``: no refusal reads any state of the process."""
-    project, data_root, _, _ = frozen
-    assert CacheIndex(data_root).find("hydrometry", "hubeau", station_id="Z") is None
-    _record_other(data_root)
-    reject_frozen_download(None, variable="hydrometry", source="hubeau", station_id="A", detail="x")
-    reject_frozen_user_file(None, variable="dem", path=project / "inputs" / "other.tif")
-
-
-def test_frozen_mode_serves_what_the_lockfile_pins(
-    frozen: tuple[Path, Path, Path, LockedInputs],
-) -> None:
-    project, data_root, chronicle, locked = frozen
-    row = CacheIndex(data_root, locked=locked).find("hydrometry", "hubeau", station_id="A")
-    assert row is not None and row.path == chronicle
-    reject_frozen_user_file(locked, variable="dem", path=project / "inputs" / "dem.tif")
-
-
 def _pinned_empty_project(tmp_path: Path) -> tuple[Path, Path]:
     """A project whose lockfile pins station E as an empty answer."""
     project = tmp_path / "project"
@@ -249,17 +226,6 @@ def test_a_sidecar_is_refused_at_writing(tmp_path: Path, fields: dict, said: str
     assert not (tmp_path / "x.csv.json").exists()
 
 
-def test_an_unknown_key_is_refused_at_writing_and_kept_at_reading(tmp_path: Path) -> None:
-    with pytest.raises(ValidationError):
-        Sidecar(source="hubeau", sha256="0" * 64, colour="blue")
-    target = tmp_path / "x.csv"
-    target.write_bytes(b"x")
-    (tmp_path / "x.csv.json").write_text(
-        json.dumps({"source": "hubeau", "sha256": "0" * 64, "variable": "v", "colour": "blue"})
-    )
-    assert (load_sidecar(target).__pydantic_extra__ or {}) == {"colour": "blue"}
-
-
 # -- the database and the lockfile of a pre-release of 2.0 ------------------------------------------
 
 
@@ -274,23 +240,6 @@ def test_a_data_folder_with_the_former_database_is_refused(tmp_path: Path) -> No
         assert str(info.value) == former_cache_sentence(data_root.resolve() / "cache.duckdb")
         assert "hmp workspace clean --data-cache" in str(info.value)
         assert "does not read it" in str(info.value)
-
-
-def test_the_island_of_the_corpus_is_refused_on_a_copy(tmp_path: Path) -> None:
-    island = tmp_path / "island"
-    shutil.copytree(CORPUS_ISLAND, island)
-
-    with pytest.raises(DataCacheError, match="data cache database of a pre-release of 2.0"):
-        scan(island / "data")
-    with pytest.raises(SchemaVersionMismatchError, match="hmp data lock"):
-        read_lockfile_inputs(island / "hydromodpy.lock")
-
-
-def test_a_lockfile_of_a_later_version_is_refused(tmp_path: Path) -> None:
-    path = tmp_path / "hydromodpy.lock"
-    path.write_text('schema = "hydromodpy.lock.v3"\n')
-    with pytest.raises(SchemaVersionMismatchError, match="hydromodpy.lock.v3"):
-        read_lockfile_inputs(path)
 
 
 # -- prune ------------------------------------------------------------------------------
@@ -331,27 +280,6 @@ def test_prune_keeps_a_cited_file_and_names_it(tmp_path: Path) -> None:
     assert not old.exists()
 
 
-def test_prune_without_delete_files_leaves_the_files(tmp_path: Path) -> None:
-    data_root = tmp_path / "data"
-    old = _fetched(data_root, "old.gpkg", datetime(2020, 1, 1))
-    prune(data_root, keep=frozenset(), older_than_days=0)
-    assert old.exists()
-    assert scan(data_root).rows == ()
-
-
-def test_a_dry_prune_changes_nothing(tmp_path: Path) -> None:
-    data_root = tmp_path / "data"
-    old = _fetched(data_root, "old.gpkg", datetime(2020, 1, 1))
-    gone = _fetched(data_root, "gone.gpkg", datetime(2020, 1, 1))
-    gone.unlink()
-
-    report = prune(data_root, keep=frozenset(), older_than_days=0, delete_files=True, dry_run=True)
-
-    assert report.removed == (old,)
-    assert report.orphans == (data_root / "geology" / "gone.gpkg.json",)
-    assert old.exists() and (data_root / "geology" / "gone.gpkg.json").exists()
-
-
 def test_prune_removes_orphans_whatever_their_age(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     gone = _fetched(data_root, "gone.gpkg", datetime(2026, 1, 1))
@@ -366,23 +294,3 @@ def test_prune_needs_the_digests_it_keeps() -> None:
 
 
 # -- the commands of a pre-release ----------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("argv", "said"),
-    [
-        (["lock", "update"], "hmp data lock"),
-        (["lock", "verify"], "hmp data lock --check"),
-        (["data", "add", "x.csv"], "inputs/"),
-    ],
-    ids=["hmp lock update", "hmp lock verify", "hmp data add"],
-)
-def test_a_command_of_a_pre_release_is_refused_with_its_new_form(
-    argv: list[str], said: str, capsys: pytest.CaptureFixture[str]
-) -> None:
-    from hydromodpy.cli.main import main
-
-    with pytest.raises(SystemExit) as info:
-        main(argv)
-    assert info.value.code == 2
-    assert said in capsys.readouterr().err

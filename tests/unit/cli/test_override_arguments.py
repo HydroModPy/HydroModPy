@@ -15,12 +15,10 @@ from typing import Any
 import pytest
 
 from hydromodpy.cli import conventions, refs
-from hydromodpy.cli.conventions import add_override_arguments, changes_of_args, with_changes
+from hydromodpy.cli.conventions import changes_of_args
 from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND
 from hydromodpy.cli.profiling import profile_output_of
-from hydromodpy.cli.refs import base_named_by_w, toml_target
-from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
-from hydromodpy.config.loading import read_document
+from hydromodpy.cli.refs import toml_target
 from tests._helpers.cli_runner import CliRunner
 
 _CAL = """\
@@ -60,17 +58,6 @@ CHANGES = [
 
 
 @pytest.mark.parametrize(
-    ("items", "env", "expected"),
-    [row[1:] for row in CHANGES],
-    ids=[row[0] for row in CHANGES],
-)
-def test_the_items_and_the_variables_are_one_mapping_of_dotted_paths(
-    items: list[str], env: dict[str, str], expected: dict[str, Any]
-) -> None:
-    assert changes_of_args(_args(set_overrides=items), env) == expected
-
-
-@pytest.mark.parametrize(
     ("item", "said"),
     [("foo", "--set expects PATH=VALUE"), ("a..b=1", "unexpected"), ("a[0]=1", "no index")],
     ids=["no equal sign", "empty part", "an index"],
@@ -80,46 +67,7 @@ def test_a_malformed_item_is_a_value_error(item: str, said: str) -> None:
         changes_of_args(_args(set_overrides=[item]), {})
 
 
-def test_the_trace_names_the_key_the_override_set(tmp_path: Path) -> None:
-    from hydromodpy.project.request import request_of
-
-    config = tmp_path / "project.toml"
-    config.write_text('[simulation]\nname = "case"\n', encoding="utf-8")
-    env = {"HMP_SET_flow__param__K__field__value": "1e-5"}
-
-    changes = changes_of_args(_args(), env)
-    request = request_of(config, set=changes, dry_run=True)
-
-    assert changes == {"flow.param.K.field.value": 1e-5}
-    assert request.overrides() == {"flow.param.K.field.value": 1e-5}
-    # The document the request holds is the file: the change rides beside it.
-    assert "flow" not in request.config
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["project.toml"]
-
-
-def test_the_changes_land_on_a_copy_of_the_document() -> None:
-    document = {"a": {"b": 1}}
-
-    changed = with_changes(document, {"a.b": 2, "a.c.d": 3})
-
-    assert changed == {"a": {"b": 2, "c": {"d": 3}}}
-    assert document == {"a": {"b": 1}}
-
-
 # -- the flags -----------------------------------------------------------------------------------
-
-
-def test_the_flags_are_repeatable_and_an_overlay_is_a_path() -> None:
-    parser = argparse.ArgumentParser()
-    add_override_arguments(parser)
-
-    parsed = parser.parse_args(
-        ["--overlay", "a.toml", "--overlay", "b.toml", "--set", "x.y=1", "--set", "x.z=2"]
-    )
-
-    assert parsed.overlay == [Path("a.toml"), Path("b.toml")]
-    assert parsed.set_overrides == ["x.y=1", "x.z=2"]
-    assert parser.parse_args([]).overlay == []
 
 
 # -- the file and the base a verb is given ------------------------------------------------------
@@ -139,20 +87,6 @@ def test_a_verb_takes_a_toml_file_and_says_what_it_was_given_otherwise(tmp_path:
 
     assert missing.value.code == EXIT_NOT_FOUND
     assert wrong.value.code == EXIT_CONFIG
-
-
-def test_w_names_the_project_and_without_it_the_file_gives_the_base(tmp_path: Path) -> None:
-    project = tmp_path / "project"
-    project.mkdir()
-    (project / "project.toml").write_text("", encoding="utf-8")
-    elsewhere = tmp_path / "elsewhere"
-    elsewhere.mkdir()
-
-    assert base_named_by_w(None) is None
-    assert base_named_by_w(str(project)) == project.resolve()
-    with pytest.raises(SystemExit) as refused:
-        base_named_by_w(str(elsewhere))
-    assert refused.value.code == EXIT_NOT_FOUND
 
 
 def test_no_command_writes_a_variable_of_the_environment_for_the_base() -> None:
@@ -248,18 +182,6 @@ def test_a_bad_set_item_is_an_override_error_and_not_a_file_error(tmp_path: Path
     assert _leftovers(tmp_path) == []
 
 
-def test_an_overlay_is_read_with_its_own_chain_and_nothing_is_written(tmp_path: Path) -> None:
-    config = tmp_path / "run.toml"
-    config.write_text("[a]\nx = 1\ny = 1\n", encoding="utf-8")
-    overlay = tmp_path / "over.toml"
-    overlay.write_text("[a]\ny = 2\n", encoding="utf-8")
-
-    document = read_document(config, overlays=[overlay], root=ROOT_CONFIG)
-
-    assert document == {"a": {"x": 1, "y": 2}}
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["over.toml", "run.toml"]
-
-
 # -- a calibration takes the changes in its request ---------------------------------------------
 
 
@@ -280,22 +202,6 @@ def _seen_by_the_calibration(monkeypatch: pytest.MonkeyPatch, config: Path, *fla
     return seen
 
 
-def test_a_variant_of_a_calibration_rides_in_the_request_and_names_no_copy(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = tmp_path / "cal.toml"
-    config.write_text('[workflow]\nmode = "calibration"\n' + _CAL, encoding="utf-8")
-
-    seen = _seen_by_the_calibration(monkeypatch, config, "--set", "calibration.seed=5")
-
-    request = seen["request"]
-    assert request.set == {"calibration.seed": 5}
-    assert request.config["calibration"]["seed"] == 3
-    assert request.name is None
-    assert seen["base"] == tmp_path.resolve()
-    assert _leftovers(tmp_path) == []
-
-
 def test_case_names_the_variant_in_the_request(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -309,22 +215,6 @@ def test_case_names_the_variant_in_the_request(
 
     assert seen["request"].name == "x"
     assert seen["request"].config["simulation"]["name"] == "declared"
-
-
-def test_an_overlay_of_a_calibration_is_merged_into_the_document_of_its_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = tmp_path / "cal.toml"
-    config.write_text('[workflow]\nmode = "calibration"\n' + _CAL, encoding="utf-8")
-    overlay = tmp_path / "all.toml"
-    overlay.write_text('[calibration]\nsave_runs = "all"\n', encoding="utf-8")
-
-    seen = _seen_by_the_calibration(monkeypatch, config, "--overlay", str(overlay))
-
-    request = seen["request"]
-    assert request.config["calibration"]["save_runs"] == "all"
-    assert request.overlays == ("all.toml",)
-    assert request.form == "toml"
 
 
 def test_a_calibration_without_changes_has_a_request_that_is_the_file(

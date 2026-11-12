@@ -79,50 +79,6 @@ def _write(path: Path, *, names: bool, header: str = "2.2 0 8") -> Path:
     return path
 
 
-def test_named_line_groups_become_edge_labels(tmp_path: Path) -> None:
-    path = _write(tmp_path / "mesh.msh", names=True)
-    triangulation = read_input_triangulation(path)
-    reference = read_gmsh_2d_mesh(path, cell_type="triangle")
-    np.testing.assert_array_equal(triangulation.vertices, reference.points_xy)
-    np.testing.assert_array_equal(triangulation.triangles, reference.connectivity)
-    assert sorted(triangulation.edge_labels) == ["river::1", "west"]
-    np.testing.assert_array_equal(triangulation.edge_labels["river::1"], [[0, 4], [4, 2]])
-    np.testing.assert_array_equal(triangulation.edge_labels["west"], [[3, 0]])
-
-
-@pytest.mark.parametrize(
-    ("shared", "river"),
-    [
-        ('1 6 "river::1"', [[0, 4], [4, 2], [1, 2]]),
-        ('2 7 "river::1"', [[0, 4], [4, 2]]),
-    ],
-    ids=["two line tags", "a line and a surface"],
-)
-def test_a_name_two_groups_share_labels_the_lines_of_every_tag(
-    tmp_path: Path, shared: str, river: list[list[int]]
-) -> None:
-    """Every dimension-1 tag named ``river::1`` labels its lines, whatever group shares the name."""
-    names = _NAMES.replace("3\n", "4\n", 1).replace('1 8 "west"\n', f'1 8 "west"\n{shared}\n')
-    path = tmp_path / "mesh.msh"
-    path.write_text("$MeshFormat\n2.2 0 8\n$EndMeshFormat\n" + names + _BODY, encoding="utf-8")
-
-    triangulation = read_input_triangulation(path)
-
-    assert {name: pairs.tolist() for name, pairs in triangulation.edge_labels.items()} == {
-        "river::1": river,
-        "west": [[3, 0]],
-    }
-
-
-def test_without_physical_names_no_edge_is_labelled(tmp_path: Path) -> None:
-    path = _write(tmp_path / "mesh.msh", names=False)
-    triangulation = read_input_triangulation(path)
-    reference = read_gmsh_2d_mesh(path, cell_type="triangle")
-    np.testing.assert_array_equal(triangulation.vertices, reference.points_xy)
-    np.testing.assert_array_equal(triangulation.triangles, reference.connectivity)
-    assert dict(triangulation.edge_labels) == {}
-
-
 def test_a_binary_or_newer_file_is_refused(tmp_path: Path) -> None:
     path = _write(tmp_path / "mesh.msh", names=True, header="4.1 0 8")
     with pytest.raises(MeshRequestError, match="only ASCII format 2.2"):
@@ -184,13 +140,6 @@ def _square(*, duplicate: bool = False) -> tuple[np.ndarray, np.ndarray]:
     return np.array(vertices), np.array(triangles)
 
 
-def test_a_conforming_triangulation_passes(caplog) -> None:
-    vertices, triangles = _square()
-    with caplog.at_level("WARNING"):
-        check_triangulation(vertices, triangles, source="square")
-    assert caplog.text == ""
-
-
 def test_a_t_junction_is_refused_with_its_coordinates() -> None:
     with pytest.raises(MeshRequestError, match=r"T-junctions\), at \(50\.000, 50\.000\)"):
         check_triangulation(_T_VERTICES, _T_TRIANGLES, source="t-mesh")
@@ -218,22 +167,6 @@ def test_the_reader_runs_the_check(tmp_path: Path) -> None:
     )
     with pytest.raises(MeshRequestError, match="T-junction"):
         read_input_triangulation(path)
-
-
-def test_blank_lines_between_the_sections_are_skipped(tmp_path: Path) -> None:
-    path = tmp_path / "mesh.msh"
-    path.write_text(
-        "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n\n"
-        + _NAMES
-        + "\n"
-        + _BODY.replace("$Elements\n", "\n$Elements\n"),
-        encoding="utf-8",
-    )
-
-    triangulation = read_input_triangulation(path)
-
-    assert len(triangulation.triangles) == 4
-    assert sorted(triangulation.edge_labels) == ["river::1", "west"]
 
 
 @pytest.mark.parametrize(

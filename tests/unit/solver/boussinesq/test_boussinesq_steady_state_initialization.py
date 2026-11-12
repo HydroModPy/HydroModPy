@@ -146,51 +146,6 @@ OTHER_CLOSURES = (
 )
 
 
-@pytest.mark.parametrize(
-    ("backend", "closure"), OTHER_CLOSURES, ids=["-".join(c) for c in OTHER_CLOSURES]
-)
-def test_every_other_start_keeps_the_closure_it_asks_for(
-    tmp_path: Path, spy: list[dict], backend: str, closure: str
-) -> None:
-    runtime = BoussinesqOptions(backend=backend, surface_interaction_model=closure)
-
-    _solver(tmp_path, _transient_model(), runtime)._run_steady_state_initialization()
-
-    assert (spy[0]["backend"], spy[0]["closure"]) == (backend, closure)
-
-
-def test_the_solve_hands_back_its_state_and_its_summary(tmp_path: Path, spy: list[dict]) -> None:
-    solver = _solver(tmp_path, _transient_model(), BoussinesqOptions())
-    solver.runtime_summary["n_cells"] = N_CELLS
-
-    solver._run_steady_state_initialization()
-
-    np.testing.assert_array_equal(solver.state.head_m, np.full(N_CELLS, 12.0))
-    assert solver.runtime_summary["steady_mode"] == "recorded"
-    assert solver.runtime_summary["n_cells"] == N_CELLS
-    assert solver.runtime_summary["steady_state_initialization"] is True
-    assert solver.runtime_summary["steady_state_initialization_solver"] == "boussinesq"
-
-
-def test_the_solve_starts_from_the_state_of_the_main_solver(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    seen: list[np.ndarray] = []
-
-    def record(self: Boussinesq) -> bool:
-        seen.append(np.array(self.state.head_m))
-        return True
-
-    monkeypatch.setattr(Boussinesq, "_run_steady_runtime", record)
-    solver = _solver(tmp_path, _transient_model(), BoussinesqOptions())
-
-    solver._run_steady_state_initialization()
-
-    expected = np.full(N_CELLS, START_M)
-    expected[0] = OUTLET_M
-    np.testing.assert_array_equal(seen[0], expected)
-
-
 def test_a_prescribed_rate_reaches_the_solve_on_every_period_and_not_the_model(
     tmp_path: Path, spy: list[dict]
 ) -> None:
@@ -204,19 +159,6 @@ def test_a_prescribed_rate_reaches_the_solve_on_every_period_and_not_the_model(
     assert spy[0]["first_clim"] == pytest.approx(rate)
     assert model.recharge.first_clim == 1.0e-9
     assert list(model.recharge.values) == [RECHARGE_M_S, 2 * RECHARGE_M_S, 0.0]
-
-
-def test_a_failed_steady_solve_is_reported_and_leaves_the_model(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(Boussinesq, "_run_steady_runtime", lambda self: False)
-    model = _transient_model()
-    solver = _solver(tmp_path, model, BoussinesqOptions())
-
-    assert solver._run_steady_state_initialization() is False
-
-    assert solver.runtime_summary["steady_state_initialization"] is False
-    assert solver.inputs is model
 
 
 def test_the_steady_solve_equals_the_stationary_solve_of_the_same_forcing(

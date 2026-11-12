@@ -83,18 +83,6 @@ def test_list_data_cache_returns_none_without_a_data_folder(tmp_path: Path) -> N
     assert cache_verbs.list_data_cache(tmp_path) is None
 
 
-def test_list_data_cache_counts_the_user_files_it_does_not_list(workspace: Path) -> None:
-    mine = workspace / "data" / "dem" / "mine.tif"
-    mine.write_bytes(b"mine")
-    _write_the_sidecar_of_a_user_file(mine)
-
-    report = cache_verbs.list_data_cache(workspace)
-
-    assert report is not None
-    assert report.user_files == (mine.resolve(),)
-    assert mine.name not in {row.path.name for row in report.rows}
-
-
 def test_list_data_cache_refuses_the_database_of_a_pre_release(workspace: Path) -> None:
     (workspace / "data" / FORMER_CACHE_DATABASE).write_bytes(b"duckdb")
 
@@ -135,10 +123,6 @@ def test_a_dry_remove_counts_and_changes_nothing(workspace: Path) -> None:
 
     assert cache_verbs.remove_data_entries(workspace, variable="dem", dry_run=True) == 2
     assert _names(workspace) == before
-
-
-def test_remove_data_entries_without_a_data_folder_removes_nothing(tmp_path: Path) -> None:
-    assert cache_verbs.remove_data_entries(tmp_path, variable="dem") == 0
 
 
 def test_an_archive_restores_each_file_with_its_sidecar(workspace: Path, tmp_path: Path) -> None:

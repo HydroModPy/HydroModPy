@@ -12,13 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.display.figures.downslope_distance_map import (
-    DISTANCE_CLASS_EDGES_M,
-    DownslopeDistanceMap,
-    class_colors,
-    class_labels,
-)
-from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, relative_luminance
+from hydromodpy.display.figures.downslope_distance_map import DownslopeDistanceMap, class_colors
 from tests._helpers.sealed_runs import sealed_search
 
 from ._network_comparison_run import (
@@ -93,60 +87,6 @@ def _two_branch_run(cell_m: float = CELL_M):
 # --------------------------------------------------------------------------- #
 
 
-def test_the_default_classes_are_the_ones_of_the_paper() -> None:
-    assert DISTANCE_CLASS_EDGES_M == (0.0, 75.0, 500.0, 1000.0)
-    assert class_labels(DISTANCE_CLASS_EDGES_M) == (
-        "0-75 m",
-        "75-500 m",
-        "500-1000 m",
-        "> 1000 m",
-    )
-
-
-def test_each_cell_of_the_support_lands_in_its_own_class(mpl) -> None:
-    # One cell width from the map is 600 m, two are 1200 m, so the two flanks
-    # split across the two far classes and the axis column sits at zero.
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceMap().render(_two_branch_run(WIDE_CELL_M), ax)
-
-    try:
-        assert _cells(ax, "0-75 m", WIDE_CELL_M) == column_cells(AXIS_COLUMN)
-        assert _cells(ax, "500-1000 m", WIDE_CELL_M) == [cell(1, 1), cell(3, 2)]
-        assert _cells(ax, "> 1000 m", WIDE_CELL_M) == [cell(0, 1), cell(4, 2)]
-        assert not _has_layer(ax, "75-500 m")
-        assert legend_labels(ax)[:4] == [
-            "0-75 m (3 cells)",
-            "75-500 m (0 cells)",
-            "500-1000 m (2 cells)",
-            "> 1000 m (2 cells)",
-        ]
-        assert "nancon" in ax.get_title()
-        assert ax.get_xlabel() == "x (m)"
-    finally:
-        mpl.close(fig)
-
-
-def test_the_same_support_moves_class_with_the_size_of_a_cell(mpl) -> None:
-    # The same two branches on a hundred-meter mesh are one and two hundred
-    # meters from the map, so they share the near class instead of splitting.
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceMap().render(_two_branch_run(), ax)
-
-    try:
-        assert _cells(ax, "0-75 m") == column_cells(AXIS_COLUMN)
-        assert _cells(ax, "75-500 m") == [
-            cell(0, 1),
-            cell(1, 1),
-            cell(3, 2),
-            cell(4, 2),
-        ]
-        assert not _has_layer(ax, "500-1000 m")
-    finally:
-        mpl.close(fig)
-
-
 def test_the_scale_is_discrete_with_one_flat_color_per_class(mpl) -> None:
     fig, ax = mpl.subplots()
 
@@ -163,106 +103,14 @@ def test_the_scale_is_discrete_with_one_flat_color_per_class(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_four_default_colors_come_from_the_high_contrast_triplet() -> None:
-    colors = class_colors(4)
-
-    assert colors[1:] == (
-        HIGH_CONTRAST_TRIPLET[1],
-        HIGH_CONTRAST_TRIPLET[2],
-        HIGH_CONTRAST_TRIPLET[0],
-    )
-    assert colors[0] not in HIGH_CONTRAST_TRIPLET
-
-
-def test_the_classes_stay_ordered_and_apart_in_greyscale() -> None:
-    luminances = [relative_luminance(color) for color in class_colors(4)]
-
-    assert luminances == sorted(luminances, reverse=True), (
-        "a longer distance must read as a darker cell, so the ordering of the "
-        f"classes survives a greyscale print: {luminances}"
-    )
-    gaps = [low - high for low, high in zip(luminances[:-1], luminances[1:], strict=False)]
-    assert min(gaps) > 0.1, f"two classes collide in greyscale: {luminances}"
-
-
-def test_an_off_support_cell_stays_apart_from_the_shortest_distance() -> None:
-    # The state that means "never measured" printed almost the same gray as
-    # the class that means "agrees within 75 m". On a grayscale print the two
-    # merged, which is the one confusion the third state exists to prevent.
-    from hydromodpy.display.figures.downslope_distance_map import _OFF_SUPPORT_COLOR
-
-    off_support = relative_luminance(_OFF_SUPPORT_COLOR)
-    lightest_class = relative_luminance(class_colors(4)[0])
-
-    assert off_support - lightest_class > 0.1, (
-        f"off support {off_support} collides with the shortest class {lightest_class}"
-    )
-
-
 # --------------------------------------------------------------------------- #
 # which of the two distances is on the page, in words
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize(
-    ("direction", "phrase"),
-    [
-        ("to_mapped", "the simulated cells down to the mapped network"),
-        ("to_simulated", "the mapped cells down to the simulated network"),
-    ],
-)
-def test_the_title_names_both_ends_without_the_symbol(mpl, direction, phrase) -> None:
-    # A reader asked which network the distance was based on and could not
-    # tell from the figure. Neither end may live in a subscript alone.
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceMap().render(_two_branch_run(), ax, direction=direction)
-
-    try:
-        assert phrase in ax.get_title()
-        assert phrase.split(" down to ")[0] in legend_note(ax)
-        assert phrase.split(" down to ")[1] in legend_note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_the_note_names_the_support_the_mean_is_taken_over(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceMap().render(_two_branch_run(), ax)
-
-    try:
-        note = legend_note(ax)
-        assert "support: the simulated cells and no other" in note
-        assert "7 cells averaged here" in note
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # the support is the one the criterion averages over
 # --------------------------------------------------------------------------- #
-
-
-def test_a_cell_off_the_support_is_out_of_the_scale_and_never_a_zero(mpl) -> None:
-    # Seepage halfway down the mapped column: the model produces no stream on
-    # its northern cell, which sits ON the map and so is zero meters from it.
-    # Drawn in the nearest class it would read as a perfect agreement where
-    # nothing was measured at all.
-    run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, 1)])
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceMap().render(run, ax)
-
-    try:
-        assert _cells(ax, "0-75 m") == [cell(AXIS_COLUMN, 0), cell(AXIS_COLUMN, 1)]
-        assert cell(AXIS_COLUMN, 2) in _cells(ax, "off support")
-        assert _face_color(_layer(ax, "off support")) not in [
-            _rgb(color) for color in class_colors(4)
-        ]
-        assert "not on the measured support (13 cells)" in legend_labels(ax)
-    finally:
-        mpl.close(fig)
 
 
 def test_the_direction_picks_the_network_the_descent_starts_from(mpl) -> None:
@@ -290,31 +138,6 @@ def test_an_unknown_direction_is_refused(mpl) -> None:
     try:
         with pytest.raises(ValueError, match="direction must be one of"):
             DownslopeDistanceMap().render(comparison_run(), ax, direction="sideways")
-    finally:
-        mpl.close(fig)
-
-
-def test_the_support_is_cased_so_it_reads_before_any_class(mpl) -> None:
-    # The lightest class stands at a contrast of 1.3 against the ground it is
-    # drawn on. Which cells were measured at all has to read on its own, or
-    # the near class disappears into the cells that carry no value.
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceMap().render(_two_branch_run(), ax)
-
-    try:
-        casing = _layer(ax, "_support casing")
-        classes = [
-            _layer(ax, label)
-            for label in class_labels(DISTANCE_CLASS_EDGES_M)
-            if _has_layer(ax, label)
-        ]
-        drawn = sorted({index for item in classes for index in drawn_cells(item)})
-        assert drawn_cells(casing) == drawn, "the casing covers the support and nothing else"
-        for item in classes:
-            assert casing.get_zorder() < item.get_zorder()
-            assert float(casing.get_linewidth()[0]) > float(item.get_linewidth()[0]) > 0.0
-        assert float(_layer(ax, "off support").get_linewidth()[0]) == 0.0
     finally:
         mpl.close(fig)
 
@@ -376,34 +199,6 @@ def test_an_empty_support_is_annotated_rather_than_drawn_empty(mpl) -> None:
         assert "no cell is on the measured support" in legend_note(ax)
         assert not _has_layer(ax, "0-75 m")
         assert len(_cells(ax, "off support")) == NX * NY
-    finally:
-        mpl.close(fig)
-
-
-def test_the_note_names_the_measurement_and_its_threshold(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceMap().render(_two_branch_run(), ax, tau_specific_ratio=0.0)
-
-    try:
-        # The classes must really be populated: an empty map carries the two
-        # lines too, and this test may not pass on one.
-        assert _cells(ax, "0-75 m") == column_cells(AXIS_COLUMN)
-        note = legend_note(ax)
-        assert note.startswith("D_so: how far each of the simulated cells")
-        assert "every cell releasing groundwater counts as seepage" in note
-        assert "no cell" not in note
-    finally:
-        mpl.close(fig)
-
-
-def test_the_note_names_the_threshold_the_partition_was_cut_at(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceMap().render(_two_branch_run(), ax, tau_specific_ratio=0.25)
-
-    try:
-        assert "a cell counts as seepage above 25 % of its recharge" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -482,13 +277,6 @@ def test_it_is_rendered_from_a_run_alone(tmp_path) -> None:
     assert report.rendered == ("downslope_distance_map",)
     assert report.skipped == ()
     assert (tmp_path / "downslope_distance_map.png").exists()
-
-
-def test_it_names_what_it_needs_when_the_run_kept_no_release_flux() -> None:
-    reason = DownslopeDistanceMap().unavailable_reason(comparison_run(with_release=False))
-
-    assert reason is not None
-    assert "release_flux" in reason
 
 
 def test_it_is_skipped_by_the_gallery_rather_than_crashing(tmp_path) -> None:

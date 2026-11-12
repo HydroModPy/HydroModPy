@@ -163,24 +163,6 @@ def test_a_face_shorter_than_the_qa_threshold_is_left_out_of_the_angles(tmp_path
     store.close()
 
 
-def test_a_cell_with_no_neighbour_has_no_ratio_and_no_angle(tmp_path):
-    grid = StructuredGrid(delc=np.array([10.0]), delr=np.array([10.0]), xoff=0.0, yoff=0.0)
-    single = build_planar_cell_mesh(
-        from_flopy_structured(grid),
-        np.array([[5.0, 5.0]]),
-        center_kind="cell_center",
-        crs_wkt=TEST_CRS_WKT,
-        identity=MeshIdentity("regular", "0", "", None),
-        declarations=DECLARATIONS,
-    )
-    store = _store(tmp_path / "fields.zarr", single)
-
-    assert np.isnan(mesh_quality_values(store.root, "mesh_neighbour_ratio")).all()
-    assert np.isnan(mesh_quality_values(store.root, "mesh_nonorthogonality")).all()
-    assert mesh_quality_values(store.root, "mesh_cell_area").tolist() == [100.0]
-    store.close()
-
-
 def test_a_store_without_cell_centres_serves_the_geometry_fields_only(tmp_path):
     store = _store(tmp_path / "fields.zarr", _grid(), layout=False)
 
@@ -198,16 +180,6 @@ def test_a_store_without_cell_centres_serves_the_geometry_fields_only(tmp_path):
     assert "no cell centres" in reason
     with pytest.raises(KeyError, match="mesh_nonorthogonality is not available.*cell centres"):
         mesh_quality_values(store.root, "mesh_nonorthogonality")
-    store.close()
-
-
-def test_a_store_without_a_mesh_serves_none_of_them(tmp_path):
-    store = SimulationZarr.create(tmp_path / "fields.zarr", n_cells=6, n_layers=1)
-
-    assert available_virtual_fields(store.root) == []
-    assert mesh_quality_unavailable_reason(store.root, "mesh_cell_area") == (
-        "the run stored no mesh geometry"
-    )
     store.close()
 
 

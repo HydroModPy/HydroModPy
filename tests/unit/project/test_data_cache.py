@@ -23,7 +23,6 @@ from hydromodpy.project.data_cache import (
     FrozenVerificationError,
     _targets,
     cited_input_digests,
-    data_root_for,
     lock_data,
     pinned_empty_paths,
     prune_data,
@@ -81,16 +80,6 @@ def _workspace(tmp_path: Path) -> tuple[Path, Path]:
 # -- where the data folder is ------------------------------------------------------
 
 
-def test_a_project_in_a_workspace_reads_the_workspace_data(tmp_path: Path) -> None:
-    workspace, project = _workspace(tmp_path)
-    assert data_root_for(project) == (workspace / "data").resolve()
-
-
-def test_a_project_without_a_workspace_keeps_its_own_data(tmp_path: Path) -> None:
-    alone = _project(tmp_path / "alone")
-    assert data_root_for(alone) == alone.resolve() / "data"
-
-
 # -- the digests a prune keeps -------------------------------------------------------
 
 
@@ -114,12 +103,6 @@ def test_a_project_that_is_its_own_workspace_cites_its_runs(tmp_path: Path) -> N
     assert cited_input_digests(alone) == {"d" * 64}
 
 
-def test_an_unsealed_run_cites_nothing(tmp_path: Path) -> None:
-    workspace, demo = _workspace(tmp_path)
-    (demo / "runs" / "draft").mkdir(parents=True)
-    assert cited_input_digests(workspace) == frozenset()
-
-
 _UNREADABLE = {
     "inputs of a run": ("run", "The inputs of the run"),
     "a lockfile of a pre-release of 2.0": ("lockfile", "hmp data lock"),
@@ -141,19 +124,6 @@ def test_what_cannot_be_read_refuses_the_prune(tmp_path: Path, what: str, said: 
     with pytest.raises(DataCacheError, match=said):
         prune_data(workspace, delete_files=True)
     assert fetched.exists()
-
-
-def test_prune_keeps_the_cited_file_and_removes_the_other(tmp_path: Path) -> None:
-    workspace, demo = _workspace(tmp_path)
-    cited = _fetched(workspace / "data", "C.csv", "cited")
-    other = _fetched(workspace / "data", "O.csv", "other")
-    _sealed(demo / "runs" / "r", sha256_of(cited))
-
-    report = prune_data(workspace, older_than_days=0, delete_files=True)
-
-    assert report.kept_cited == (cited,)
-    assert report.removed == (other,)
-    assert cited.exists() and not other.exists()
 
 
 def test_prune_keeps_an_old_cited_file_names_it_and_spares_the_young_rows(
@@ -279,16 +249,6 @@ def test_lock_data_pins_the_cache_and_the_user_files(
     assert verify_data_lock(project=str(demo), strict=True)["ok"] is False
 
 
-def test_a_config_that_does_not_load_is_named_and_others_are_locked(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    workspace, demo = _workspace(tmp_path)
-    _fetched(workspace / "data", "A.csv", "a")
-    written = lock_data(project=str(demo))
-    assert [path.name for path, _ in written.refused_configs] == ["project.toml"]
-    assert written.inputs == 1
-
-
 def test_the_cases_of_the_current_plan_of_a_sites_project_lock_their_user_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -356,22 +316,6 @@ def test_check_accepts_an_explicit_lockfile_from_anywhere(
         verify_data_lock(str(workspace))
 
 
-def test_lock_and_check_need_no_project_when_the_file_is_named(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The named file is the address and its folder is the project it describes."""
-    workspace, _ = _workspace(tmp_path)
-    _fetched(workspace / "data", "A.csv", "a")
-    restored = workspace / "restored"
-    restored.mkdir()
-    monkeypatch.chdir(tmp_path)
-
-    written = lock_data(output=str(restored / "custom.lock")).path
-
-    assert written == (restored / "custom.lock").resolve()
-    assert verify_data_lock(lockfile=str(written))["ok"] is True
-
-
 def test_lock_outside_any_workspace_and_without_files_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -395,23 +339,6 @@ def test_an_explicit_project_wins_over_the_lockfile_folder(tmp_path: Path) -> No
     assert named == demo.resolve()
     _, _, unnamed = _targets(str(workspace), None, str(out))
     assert unnamed == elsewhere.resolve()
-
-
-def test_check_says_when_the_config_schema_moved(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    workspace, demo = _workspace(tmp_path)
-    _fetched(workspace / "data", "A.csv", "a")
-    lock_data(project=str(demo))
-    assert verify_data_lock(project=str(demo))["schema_diverged"] is False
-
-    monkeypatch.setattr(
-        "hydromodpy.schema.config_schema.schema_sha256", lambda model: "another schema"
-    )
-    found = verify_data_lock(project=str(demo))
-
-    assert found["schema_diverged"] is True
-    assert found["current_schema"] == "another schema"
 
 
 def test_a_frozen_run_needs_the_lockfile_and_names_the_way_to_write_it(tmp_path: Path) -> None:

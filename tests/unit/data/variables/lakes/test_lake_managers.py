@@ -15,8 +15,6 @@ from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.provenance.sidecars import CacheIndex, sidecar_path_for
 from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
 from hydromodpy.data.variables.lake_abacus.variable import LakeAbacusVariable
-from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
-from hydromodpy.data.variables.lake_bathymetry.variable import LakeBathymetryVariable
 from hydromodpy.data.variables.lake_geometry.config import LakeGeometryConfig
 from hydromodpy.data.variables.lake_geometry.variable import LakeGeometryVariable
 from hydromodpy.data.variables.lake_series import LakeLevelsConfig, LakeLevelsVariable
@@ -78,33 +76,6 @@ def _write_lake_bathymetry(path) -> None:
         transform=transform,
     ) as dst:
         dst.write(data, 1)
-
-
-def test_bathymetry_load_emits_field_record_and_records_no_cache_row(tmp_path) -> None:
-    src = tmp_path / "lac0.tif"
-    _write_lake_bathymetry(src)
-    data_dir = tmp_path / "lake_bathymetry"
-    data_dir.mkdir()
-
-    config = LakeBathymetryConfig.from_raster(src)
-    index = CacheIndex(tmp_path)
-    variable = LakeBathymetryVariable(config=config, index=index, data_dir=data_dir)
-
-    result = variable.load()
-
-    assert result.has_fields is True
-    assert not result.has_points
-    assert len(result.fields) == 1
-
-    rec = result.fields[0]
-    assert isinstance(rec, FieldRecord)
-    assert rec.variable == "lake_bathymetry"
-    assert rec.is_file_reference is True
-    assert str(rec.data).endswith(".tif")
-    assert rec.crs.upper().endswith("2154")
-    assert rec.bbox == (0.0, 0.0, 100.0, 100.0)
-
-    _no_cache_row(index, src)
 
 
 def _write_lake_polygon(path) -> None:

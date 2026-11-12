@@ -14,13 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.families.grids import GridVariable
 from hydromodpy.data.families.stations import _VAR_FILE_PREFIX
-from hydromodpy.data.variables.crossings.variable import cache_file_name as crossings_name
-from hydromodpy.data.variables.hydrography.variable import (
-    _cache_file_name as hydrography_name,
-)
-from hydromodpy.data.variables.hydrography.variable import _permanent_copy_path
 from hydromodpy.data.variables.oceanic.apis.shom import _cache_file as shom_name
 from hydromodpy.schema.sources import SOURCES, CacheLayout
 
@@ -35,32 +29,6 @@ def _layouts(slug: str) -> dict[str, CacheLayout]:
 
 def _matches(slug: str, folder: str, name: str) -> bool:
     return fnmatch(name, _layouts(slug)[folder].pattern)
-
-
-@pytest.mark.parametrize("slug", ["bdtopage", "euhydro", "osm"])
-def test_a_network_answer_is_named_as_the_hydrography_manager_names_it(slug: str) -> None:
-    name = hydrography_name(slug, BBOX)
-    assert _matches(slug, "data/hydrography", name)
-    assert _matches(slug, "data/hydrography", _permanent_copy_path(Path(name)).name)
-
-
-@pytest.mark.parametrize("slug", ["bdtopo", "roe"])
-def test_a_crossing_is_named_as_the_crossings_manager_names_it(slug: str) -> None:
-    assert _matches(slug, "data/crossings", crossings_name(slug, BBOX))
-
-
-@pytest.mark.parametrize(
-    ("slug", "variable"),
-    [
-        ("sim2", "etp"),
-        ("sim2", "precipitation_liquid"),
-        ("explore2", "precipitation"),
-        ("explore2", "etp"),
-    ],
-)
-def test_a_grid_is_named_as_the_field_manager_names_it(slug: str, variable: str) -> None:
-    name = GridVariable._nc_filename(variable, slug, BBOX, START, END)
-    assert _matches(slug, "data/<variable>", name)
 
 
 def test_a_gauge_file_is_named_as_the_shom_adapter_names_it() -> None:

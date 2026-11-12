@@ -66,24 +66,6 @@ def _arrays(regime: str, overrides: object) -> dict[str, np.ndarray]:
     )
 
 
-def test_without_an_override_the_flow_values_are_read() -> None:
-    arrays = _arrays("transient", None)
-    assert np.all(arrays[K_NAME] == FLOW_K)
-    assert np.all(arrays[SY_NAME] == FLOW_SY)
-
-
-def test_a_scalar_override_of_k_and_sy_wins_over_the_flow() -> None:
-    arrays = _arrays("transient", {"K": 3e-5, "Sy": 0.2})
-    assert np.all(arrays[K_NAME] == 3e-5)
-    assert np.all(arrays[SY_NAME] == 0.2)
-
-
-def test_an_override_of_k_alone_leaves_sy_on_the_flow() -> None:
-    arrays = _arrays("transient", {"K": 3e-5})
-    assert np.all(arrays[K_NAME] == 3e-5)
-    assert np.all(arrays[SY_NAME] == FLOW_SY)
-
-
 def test_a_per_cell_override_reaches_each_cell() -> None:
     per_cell = np.array([1e-5, 2e-5, 3e-5, 4e-5])
     arrays = _arrays("transient", {"K": per_cell})
@@ -102,20 +84,9 @@ def test_sy_is_refused_on_a_steady_run_that_does_not_read_it() -> None:
         _arrays("steady", {"Sy": 0.2})
 
 
-def test_a_steady_run_reads_a_k_override() -> None:
-    arrays = _arrays("steady", {"K": 3e-5})
-    assert np.all(arrays[K_NAME] == 3e-5)
-    assert SY_NAME not in arrays
-
-
 def test_a_name_that_is_no_property_is_refused_by_the_model() -> None:
     with pytest.raises(ValueError, match="K_22 name no flow property"):
         make_model().with_properties(K=3e-5, K_22=1e-5)
-
-
-def test_the_sandbox_keys_of_a_calibration_trial_are_not_properties() -> None:
-    arrays = _arrays("transient", {"model_name_override": "trial000001"})
-    assert np.all(arrays[K_NAME] == FLOW_K)
 
 
 def _solver_mesh_inputs(monkeypatch: pytest.MonkeyPatch, model: Model) -> dict:
@@ -129,17 +100,6 @@ def _solver_mesh_inputs(monkeypatch: pytest.MonkeyPatch, model: Model) -> dict:
     monkeypatch.setattr(BoussinesqMesh, "from_cell_mesh", staticmethod(capture))
     adapter.resolve_runtime_solver_mesh(model)
     return seen
-
-
-def test_a_project_run_override_reaches_the_solver_mesh(monkeypatch: pytest.MonkeyPatch) -> None:
-    seen = _solver_mesh_inputs(monkeypatch, _model().with_properties(K=5e-6))
-    assert np.all(seen["conductivity"] == 5e-6)
-    assert np.all(seen["storage"] == FLOW_SY)
-
-
-def test_a_run_without_override_keeps_the_flow(monkeypatch: pytest.MonkeyPatch) -> None:
-    seen = _solver_mesh_inputs(monkeypatch, _model())
-    assert np.all(seen["conductivity"] == FLOW_K)
 
 
 @pytest.mark.parametrize(

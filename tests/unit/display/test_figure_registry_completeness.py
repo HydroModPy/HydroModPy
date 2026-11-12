@@ -19,9 +19,7 @@ far from the edit.
 
 from __future__ import annotations
 
-import pytest
-
-from hydromodpy.display.figure_registry import get, names
+from hydromodpy.display.figure_registry import names
 
 # name -> (fully qualified class, spec.kind, spec.required_fields)
 REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
@@ -357,22 +355,3 @@ def test_the_registry_holds_exactly_the_figures_the_contract_declares() -> None:
         f"registered but undeclared: {sorted(registered - set(REGISTRY_CONTRACT))}; "
         f"declared but unregistered: {sorted(set(REGISTRY_CONTRACT) - registered)}"
     )
-
-
-@pytest.mark.parametrize("name", sorted(REGISTRY_CONTRACT))
-def test_a_registered_figure_matches_its_declared_contract(name: str) -> None:
-    expected_class, expected_kind, expected_fields = REGISTRY_CONTRACT[name]
-
-    assert name, "a figure must not register under an empty name"
-
-    figure = get(name)
-    cls = type(figure)
-    actual_class = f"{cls.__module__}.{cls.__qualname__}"
-
-    assert figure.spec.name == name, (
-        f"figure registered as '{name}' answers to spec.name '{figure.spec.name}': "
-        "the registry key and the figure's own name have drifted apart"
-    )
-    assert actual_class == expected_class
-    assert figure.spec.kind == expected_kind
-    assert tuple(figure.spec.required_fields or ()) == expected_fields

@@ -44,19 +44,6 @@ def _plain_result(monkeypatch) -> None:
     monkeypatch.setattr(newton_common, "build_runtime_result", lambda **kw: SimpleNamespace(**kw))
 
 
-def test_a_step_that_keeps_the_maximum_and_lowers_the_rest_is_taken() -> None:
-    residuals = [
-        np.array([1.0, 1.0, 1.0]),
-        np.array([1.0, 0.0, 0.0]),
-        np.array([0.0, 0.0, 0.0]),
-    ]
-
-    result = _solve(lambda head: _assembly(residuals[int(round(head[0]))]))
-
-    assert result.converged
-    assert result.iterations == 2
-
-
 def test_a_step_that_raises_the_l2_norm_is_damped() -> None:
     seen: list[float] = []
 

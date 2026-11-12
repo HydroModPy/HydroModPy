@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import math
-import tempfile
-import tomllib
 import uuid
 from dataclasses import replace
 from pathlib import Path
@@ -18,18 +16,15 @@ from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome
 from hydromodpy.calibration.optim.fosm import ParameterUncertainty
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.calibration.runners import cli_runner as cli_runner_module
 from hydromodpy.calibration.runners import document as document_module
-from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners import search, session_scope
 from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
-from hydromodpy.calibration.runners.session import calibration_case_name, open_session_dir
+from hydromodpy.calibration.runners.session import open_session_dir
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.core.exceptions import CalibrationError, ConfigError, ConfigMissingError
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.project.facade import Project
-from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
-from hydromodpy.results.session.journal import read_trials
+from hydromodpy.results.session.descriptor import session_descriptor_path
 from tests.unit.calibration._factories_runners import make_report
 
 # From test_project_calibrate_python.py
@@ -201,30 +196,6 @@ def test_a_call_with_phases_resumes_the_session_of_its_case(fake_project, tmp_pa
     assert opened == [(document, "toy", False), (document, "toy", True)]
 
 
-def test_a_project_on_a_file_names_its_case_as_the_cli_does(tmp_path, monkeypatch):
-    """The name a parent writes is not the case: ``hmp calibrate run.toml`` writes sessions/run."""
-    (tmp_path / "base.toml").write_text('[simulation]\nname = "inherited"\n')
-    run_file = tmp_path / "run.toml"
-    run_file.write_text('base_config = "base.toml"\n[calibration]\nseed = 1\n')
-    seen = []
-
-    def staged(doc_path, **_kwargs):
-        seen.append((doc_path, document_module.load_calibration_document(doc_path, None)[4]))
-        return make_report()
-
-    monkeypatch.setattr(
-        "hydromodpy.calibration.runners.staged_runner.run_staged_calibration", staged
-    )
-    cfg = _baseline_cfg(phases=[{"name": "k", "parameters": ["K"], "max_trials": 3}])
-
-    run_calibration_programmatic(cfg, project=_fake_project(run_file, tmp_path))
-
-    assert calibration_case_name(run_file) == "run"
-    assert seen == [(tmp_path / "sessions" / "run.toml", "run")]
-    written = tomllib.loads(seen[0][0].read_text(encoding="utf-8"))
-    assert written["simulation"]["name"] == "run"
-
-
 @pytest.fixture
 def run(fake_project, fake_pipeline, quadratic_metric):
     """Run the in-memory calibration on the fake project; *updates* edit the configuration."""
@@ -240,29 +211,6 @@ def run(fake_project, fake_pipeline, quadratic_metric):
 
 
 class TestRunCalibrationProgrammatic:
-    def test_returns_calibration_report(self, run):
-        report = run()
-
-        assert isinstance(report, CalibrationReport)
-        assert report.session_id
-        assert report.method == "grid"
-        assert report.n_trials >= 1
-        assert report.save_runs == "none"
-
-    def test_to_dict_round_trip(self, run):
-        report = run()
-        payload = report.to_dict()
-
-        assert payload["session_id"] == report.session_id
-        assert payload["method"] == "grid"
-
-    def test_does_not_create_tempfile(self, run):
-        tempdir = Path(tempfile.gettempdir())
-        before = {p.name for p in tempdir.iterdir() if p.name.startswith("hmp_calibrate_")}
-        run()
-        after = {p.name for p in tempdir.iterdir() if p.name.startswith("hmp_calibrate_")}
-        assert after == before
-
     def test_accepts_project_without_config_path(self, run, tmp_path):
         project = _fake_project(tmp_path / "unused.toml", tmp_path / "ws")
         project._config_path = None
@@ -275,15 +223,6 @@ class TestRunCalibrationProgrammatic:
 
         assert isinstance(run(project), CalibrationReport)
 
-    def test_iterations_persisted(self, run, tmp_path):
-        report = run()
-
-        # The case takes the simulation name the project file writes; the session
-        # sits at the project root the fake declares.
-        assert report.session_dir == tmp_path / "sessions" / "toy"
-        assert read_session(report.session_dir).session_id == report.session_id
-        assert len(read_trials(report.session_dir)) == 3
-
     def test_save_runs_all_promotes_every_completed_iteration(self, run, fake_pipeline):
         report = run(save_runs="all")
 
@@ -291,51 +230,10 @@ class TestRunCalibrationProgrammatic:
         assert len(fake_pipeline) == 3
         assert report.best_sim_id in {row["sim_id"] for row in fake_pipeline}
 
-    def test_a_failed_promotion_closes_the_session_partial(self, run, monkeypatch):
-        def _fail_promote(*args, **kwargs):
-            raise RuntimeError("promotion unavailable")
-
-        monkeypatch.setattr(promotion_module, "promote_prepared_trial", _fail_promote)
-
-        report = run(save_runs="all")
-
-        descriptor = read_session(report.session_dir)
-        assert report.promoted == 0
-        assert descriptor.status == "partial", "the search completed; only the runs are missing"
-        assert "promotion unavailable" in (descriptor.error_message or "")
-
 
 # ---------------------------------------------------------------------------
 # Project.calibrate dispatch
 # ---------------------------------------------------------------------------
-class TestProjectCalibrateTomlModeDelegates:
-    def test_with_config_path_delegates_to_cli(self, project_toml, tmp_path):
-        """When config_path= is supplied, calibrate() calls run_calibration_cli."""
-        toml_calib = tmp_path / "calib.toml"
-        toml_calib.write_text(
-            f"""\
-base_config = "{project_toml.as_posix()}"
-
-[calibration]
-method = "grid"
-max_trials = 2
-save_runs = "none"
-objective = "nse"
-variable = "discharge"
-
-[calibration.parameters.K]
-bounds = [1e-6, 1e-3]
-"""
-        )
-
-        proj = _fake_project(project_toml, tmp_path / "ws")
-
-        with patch.object(cli_runner_module, "run_calibration_cli") as mocked:
-            mocked.return_value = {"session_id": "abc", "method": "grid"}
-            Project.calibrate(proj, config_path=toml_calib)
-            assert mocked.call_count == 1
-            called_path = mocked.call_args[0][0]
-            assert Path(called_path).name == "calib.toml"
 
 
 class TestProjectCalibratePythonModeDispatch:

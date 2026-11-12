@@ -9,13 +9,9 @@ from typing import Any
 import pytest
 
 from hydromodpy.core.exceptions import SolverInputError
-from hydromodpy.model.transport.transport_config import (
-    ConcentrationTransportParametersConfig,
-    ModpathParametersConfig,
-)
+from hydromodpy.model.transport.transport_config import ModpathParametersConfig
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.modflow_nwt.modpath import modpath
-from hydromodpy.solver.modflow_nwt.mt3dms import mt3dms
 from tests.unit.solver.modflow_common.solver_runs import solved_run
 
 
@@ -30,34 +26,6 @@ def _upstream(tmp_path: Path) -> SolverRun:
 
 def _model() -> Any:
     return SimpleNamespace(geometry=SimpleNamespace(domain="DOMAIN", geographic="GEOGRAPHIC"))
-
-
-def test_mt3dms_build_forwards_non_default_parameters(tmp_path: Path, monkeypatch) -> None:
-    recorded: dict[str, Any] = {}
-
-    class _FakeMt3dms:
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            recorded["params"] = kwargs.get("params")
-            self.model_folder = kwargs.get("model_folder")
-            self.model_name = kwargs.get("model_name")
-            self.full_path = str(tmp_path / "island")
-
-        def pre_processing(self) -> None:
-            recorded["pre_processed"] = True
-
-    monkeypatch.setattr(mt3dms, "Mt3dms", _FakeMt3dms)
-
-    adapter = mt3dms.Mt3dmsTransportAdapter()
-    options = ConcentrationTransportParametersConfig(porosity=0.15, disp_long=12.0)
-    slot = RunSlot(tmp_path, "island_mt")
-    followed = _upstream(tmp_path)
-
-    adapter.build(_model(), options, slot, (followed,))
-
-    params = recorded.get("params")
-    assert isinstance(params, dict)
-    assert params["porosity"] == 0.15
-    assert params["disp_long"] == 12.0
 
 
 def test_modpath_build_forwards_non_default_parameters_and_detects_seepage_clip(

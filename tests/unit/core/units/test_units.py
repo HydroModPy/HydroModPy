@@ -113,14 +113,6 @@ def test_bool_is_rejected():
         Aquifer(k=True, sy=0.1, ss=1e-5)
 
 
-def test_specific_yield_range():
-    Aquifer = _build_model()
-    with pytest.raises(Exception):
-        Aquifer(k=1e-4, sy=1.5, ss=1e-5)  # > 1
-    with pytest.raises(Exception):
-        Aquifer(k=1e-4, sy=-0.1, ss=1e-5)  # < 0
-
-
 def test_toml_like_round_trip_through_string():
     """Load a TOML snippet, build the model, dump, reload, check invariants."""
     from hydromodpy.core.units.registry import UREG

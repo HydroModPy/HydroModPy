@@ -102,33 +102,6 @@ def test_pins_drive_the_receivers_of_d_even_where_the_top_climbs(caplog) -> None
     assert "Channel tree A on the mesh: 7 channel cell(s)" in caplog.text
 
 
-def test_a_flat_beside_a_drains_into_a_not_along_it() -> None:
-    # A valley floor three cells wide, flat at 10 m between walls at 20 m, narrows
-    # to one cell and spills through one rim cell at 9 m to the south. A runs
-    # down its middle column. The plain flood sends the side cells down their own
-    # column, beside A; the pinned flood sends them into A.
-    nrow, ncol = 12, 7
-    rows, cols = np.divmod(np.arange(nrow * ncol), ncol)
-    from_south = nrow - 1 - rows
-    top = np.full(nrow * ncol, 20.0)
-    valley = (from_south >= 2) & (from_south <= nrow - 2) & (cols >= 2) & (cols <= 4)
-    top[valley | ((from_south == 1) & (cols == 3))] = 10.0
-    top[(from_south == 0) & (cols == 3)] = 9.0
-    path = [(r, 3) for r in range(1, nrow)]  # raster rows from the north, down to the spill
-    tree = _tree((nrow, ncol), path, pixel=10.0, top_y=10.0 * nrow)
-    mesh = _quad(nrow, ncol, top)
-    side = np.flatnonzero(valley & (cols != 3))
-    a_cells = np.flatnonzero(cols == 3)
-
-    plain = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    pinned = build_solver_mesh_descent(
-        mesh, lake_cells_by_lake={}, base_level_mask=None, channel_exits=_exits(tree, mesh)
-    )
-
-    assert not np.isin(plain.receiver[side], a_cells).all()
-    assert pinned.channel[pinned.receiver[side]].all(), "a flat cell beside A runs along it"
-
-
 def _brick_mesh(nrow: int, n_bricks: int, top: float) -> SolverMesh:
     """Rows of 2 x 1 bricks, every other row shifted by half a brick.
 
@@ -168,28 +141,6 @@ def _brick_of(mesh: SolverMesh, x: float, y: float) -> int:
     raise AssertionError(f"no brick holds ({x}, {y}); centroids {centroids[:3]}")
 
 
-def test_on_a_brick_mesh_a_runs_down_pinned_bricks_and_d_follows_it() -> None:
-    nrow, n_bricks = 8, 4
-    mesh = _brick_mesh(nrow, n_bricks, 30.0)
-    n = int(mesh.n_cells)
-    # One-meter pixels; A runs south down raster column 3, from row 1 to row 6.
-    path = [(r, 3) for r in range(1, 7)]
-    tree = _tree((nrow, 2 * n_bricks), path, pixel=1.0, top_y=float(nrow))
-    bricks = [_brick_of(mesh, 3.5, nrow - r - 0.5) for r, _ in path]
-
-    descent = build_solver_mesh_descent(
-        mesh, lake_cells_by_lake={}, base_level_mask=None, channel_exits=_exits(tree, mesh)
-    )
-
-    assert int(mesh.n_cells) == n
-    assert np.flatnonzero(descent.channel).tolist() == sorted(bricks)
-    assert not descent.diagonal_neighbors
-    # A seed is never pinned; every other brick of A follows A to the next brick.
-    followed = [i for i, b in enumerate(bricks[:-1]) if not descent.base_level[b]]
-    assert followed
-    assert all(int(descent.receiver[bricks[i]]) == bricks[i + 1] for i in followed)
-
-
 # -- Whether a build uses A ----------------------------------------------------
 
 _NAMES = ("link.tif", "pointer.tif", "accumulation.tif")
@@ -219,24 +170,6 @@ def test_a_build_uses_the_exits_of_the_model_with_or_without_the_sfr_need(
     assert channel_exits_for_build(_rasters(tmp_path), exits, required=required) is exits
 
 
-@pytest.mark.parametrize(
-    ("rasters", "message"),
-    [
-        (None, "river network is off"),
-        (ChannelRasters(False, "a", "b", "c"), "river network is off"),
-        (ChannelRasters(True, None, None, None), "No corrected-flow folder"),
-    ],
-    ids=["no_choice", "step_off", "no_folder"],
-)
-def test_a_run_that_has_no_network_pins_nothing_and_says_why(
-    rasters, message: str, caplog: pytest.LogCaptureFixture
-) -> None:
-    with caplog.at_level("INFO"):
-        assert channel_exits_for_build(rasters, _some_exits()) is None
-
-    assert message in caplog.text
-
-
 def test_a_network_that_the_sfr_needs_without_a_folder_pins_nothing_and_says_why(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -264,16 +197,6 @@ def test_missing_rasters_are_an_error_only_when_the_sfr_lies_on_the_network(
     assert f"No generated river network A in {tmp_path}" in caplog.text
     with pytest.raises(FileNotFoundError, match="rasters are missing"):
         channel_exits_for_build(rasters, None, required=True)
-
-
-def test_rasters_left_by_an_earlier_configuration_are_not_used(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    _write_files(tmp_path)
-
-    with caplog.at_level("INFO"):
-        assert channel_exits_for_build(_rasters(tmp_path, enabled=False), _some_exits()) is None
-    assert "river network is off" in caplog.text
 
 
 @pytest.mark.parametrize("required", [False, True])

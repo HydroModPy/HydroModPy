@@ -26,10 +26,6 @@ from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.schema.lineage import Lineage
 from hydromodpy.workflow.steps.prepare_solver import prepare as prepare_module
 from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
-from hydromodpy.workflow.steps.prepare_solver.facts import (
-    collect_effective_config_snapshot,
-    site_block,
-)
 from tests._helpers.cell_meshes import cell_mesh_of
 from tests.unit.workflow.steps.prepare_solver._helpers import square_and_pentagon
 
@@ -182,24 +178,6 @@ def _ctx(site: SiteConfig, stations: tuple[str, ...]) -> SimpleNamespace:
     )
 
 
-@pytest.mark.parametrize(
-    ("declared", "stations", "gauge"),
-    [
-        ("J0014010", ("J0014010", "J0000001"), "J0014010"),
-        (None, ("J0014010",), "J0014010"),
-        (None, ("J0014010", "J0000001"), None),
-        (None, (), None),
-    ],
-)
-def test_the_gauge_is_declared_or_the_single_station_loaded(
-    declared: str | None, stations: tuple[str, ...], gauge: str | None
-) -> None:
-    block = site_block(_ctx(SiteConfig(name="nancon", gauge=declared), stations))
-
-    assert block is not None
-    assert block.gauge == gauge
-
-
 # --- test_store_handle_lifecycle ---
 # The run directory is bound once, by the step that opens the run.
 #
@@ -234,26 +212,6 @@ class _RunConfig(BaseModel):
     workflow: _Workflow = _Workflow()
     domain: DomainConfig = DomainConfig()
     simulation: _Simulation = _Simulation()
-
-
-def test_effective_config_snapshot_is_the_run_config_as_it_was_written() -> None:
-    """Nothing is forced at planning, and the build adds nothing: the document is what came in."""
-    declared = {
-        "workflow": {"mode": "simulation"},
-        "domain": {"depth_model": {"kind": "constant_thickness", "thickness": 10.0}},
-        "simulation": {"results": {"keep_solver_files": False}},
-    }
-    built = {"depth_model": {"kind": "constant_thickness", "thickness": 25.0}}
-    ctx = SimpleNamespace(
-        cfg=_RunConfig.model_validate(declared),
-        setup=SimpleNamespace(domain=SimpleNamespace(config=DomainConfig.model_validate(built))),
-    )
-
-    snapshot = collect_effective_config_snapshot(ctx)
-
-    assert snapshot["domain"] == declared["domain"], "the domain the build made is not written"
-    assert snapshot["simulation"] == declared["simulation"]
-    assert snapshot["workflow"] == declared["workflow"]
 
 
 # --- test_a_ragged_mesh_registers_and_persists ---

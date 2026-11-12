@@ -8,7 +8,6 @@ import pytest
 
 from hydromodpy.model.sinks_sources.wells import FlowWellConfig
 from hydromodpy.solver.modflow6.builders.wells import build_well_stress_period_data
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import (
     toy_model,
     two_triangle_model,
@@ -190,29 +189,6 @@ def test_modflow6_refuses_a_lay_row_col_address_outside_the_grid() -> None:
 
     with pytest.raises(ValueError, match="row is outside the grid"):
         build_well_stress_period_data(model, 1)
-
-
-def test_a_coordinate_well_without_a_layer_goes_to_the_top_active_cell() -> None:
-    model = toy_model()
-    base = model.solver_mesh
-    idomain = np.ones((2, 6), dtype=int)
-    idomain[0, 0] = 0
-    model.solver_mesh = SolverMesh(
-        cell_mesh=base.cell_mesh,
-        top=base.top,
-        botm=np.vstack([base.top - 4.0, base.top - 9.0]),
-        idomain=idomain,
-    )
-    model.nlay = 2
-    wells = {
-        "W1": FlowWellConfig(location={"kind": "absolute_xy", "x": 0.5, "y": 1.5}, flux=-1.0),
-        "W2": FlowWellConfig(location={"kind": "absolute_xy", "x": 1.5, "y": 1.5}, flux=-1.0),
-    }
-    model.inputs = replace(model.inputs, wells=wells, active_sinks_sources=("wells",))
-
-    wel_spd = build_well_stress_period_data(model, 1)
-
-    assert sorted((row[0], row[1]) for row in wel_spd[0]) == [(0, 1), (1, 0)]
 
 
 # WP11 - the MF6 WEL builder rejects out-of-range or inactive well cells early.

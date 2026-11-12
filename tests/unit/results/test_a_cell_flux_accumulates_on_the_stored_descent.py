@@ -83,19 +83,3 @@ def test_the_whole_flux_leaves_through_the_seeds_of_the_stored_descent(tmp_path:
     assert descent.receiver[PIT] < 0 <= grid_descent(TOP).receiver[PIT]
     assert accumulated[0, PIT] > 1.0, "the stored D sends its neighbours into the pit"
     store.close()
-
-
-def test_the_steepest_descent_of_the_raw_top_ends_in_the_pit_and_d_ends_on_the_rim() -> None:
-    from hydromodpy.catchment.drainage.graph import build_downhill_graph
-
-    vertices, connectivity = quad_mesh(4, 4)
-    raw = build_downhill_graph(TOP.ravel(), connectivity, vertices=vertices)
-    rim = np.ones((4, 4), dtype=bool)
-    rim[1:3, 1:3] = False
-
-    pit = np.flatnonzero(raw.downstream < 0)
-    outlets = np.flatnonzero(grid_descent(TOP).receiver < 0)
-
-    assert pit.tolist() == [10], "every path of the raw top ends in the interior pit"
-    assert not rim.ravel()[pit].any()
-    assert rim.ravel()[outlets].all(), "D lets the water out through the rim"

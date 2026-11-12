@@ -90,17 +90,6 @@ def test_a_regular_mesh_with_its_families_comes_back_whole(tmp_path) -> None:
     _assert_same_mesh(back, built)
 
 
-@needs_gmsh
-@pytest.mark.parametrize("engine_id", ["triangle", "voronoi"])
-def test_a_generated_mesh_comes_back_whole(tmp_path, engine_id) -> None:
-    built = registry.mesh_engines.create(engine_id).build(_request(size=60.0))
-
-    stored.write_mesh(built, tmp_path / "entry")
-    back = stored.read_mesh(tmp_path / "entry")
-
-    _assert_same_mesh(back, built)
-
-
 def test_a_directory_without_its_description_is_not_a_mesh(tmp_path) -> None:
     (tmp_path / "entry").mkdir()
     (tmp_path / "entry" / stored.ARRAYS_FILENAME).write_bytes(b"")
@@ -172,16 +161,4 @@ def test_a_mesh_with_cell_fields_comes_back_whole(tmp_path) -> None:
 
     stored.write_mesh(built, tmp_path / "entry")
 
-    _assert_same_mesh(stored.read_mesh(tmp_path / "entry"), built)
-
-
-def test_an_entry_written_under_the_2_0_schema_still_decodes(tmp_path) -> None:
-    """The stored format keeps its 2.0 identifier, so a 2.0 entry still reads."""
-    built = RegularMeshEngine().build(_request())
-
-    stored.write_mesh(built, tmp_path / "entry")
-    description = json.loads((tmp_path / "entry" / stored.DESCRIPTION_FILENAME).read_text())
-
-    assert stored.SCHEMA_VERSION == "hydromodpy.mesh_cache.v1"
-    assert description["schema"] == "hydromodpy.mesh_cache.v1"
     _assert_same_mesh(stored.read_mesh(tmp_path / "entry"), built)

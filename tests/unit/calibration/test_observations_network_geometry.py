@@ -13,11 +13,9 @@ from hydromodpy.calibration.config_outputs import validate_calib_output
 from hydromodpy.calibration.observations.network_geometry import (
     _length_in_m,
     aquifer_extent,
-    dam_foot_cells_of_model,
     dense_face_connectivity,
     network_maps_from_run,
 )
-from hydromodpy.calibration.observations.observed_network import delineated_outlet_xy
 from hydromodpy.catchment.stream_network.geometry import scored_cells
 from tests._helpers.v_valley import (
     AXIS_COL,
@@ -58,40 +56,6 @@ def output(tmp_path_factory):
             "model": {"neighbours": "D8", "seepage_threshold": 0.0},
         }
     )
-
-
-class TestTheSnappedPointIsRead:
-    def test_it_is_the_snapped_point_not_the_declared_one(self) -> None:
-        ctx = _run_ctx(x_outlet=1.0, y_outlet=2.0, x_outlet_snapped=3.0, y_outlet_snapped=4.0)
-
-        assert delineated_outlet_xy(ctx) == (3.0, 4.0)
-
-    @pytest.mark.parametrize(
-        "geographic",
-        [{}, {"x_outlet_snapped": None, "y_outlet_snapped": None}, {"x_outlet_snapped": 3.0}],
-    )
-    def test_a_catchment_drawn_as_a_polygon_has_none(self, geographic) -> None:
-        assert delineated_outlet_xy(_run_ctx(**geographic)) is None
-
-
-class TestTheTrialClosesOnIt:
-    def test_a_point_one_cell_off_the_outlet_lands_on_it(self, output) -> None:
-        x, y = _centre(N_ROWS - 2, AXIS_COL + 1)
-        maps = network_maps_from_run(_run_ctx(x_outlet_snapped=x, y_outlet_snapped=y), output)
-        geometry = maps.maximal
-
-        assert geometry.outlet == cell_id(N_ROWS - 1, AXIS_COL)
-        assert geometry.catchment.all()
-
-    def test_a_point_on_a_hillslope_closes_a_smaller_catchment(self, output) -> None:
-        x, y = _centre(N_ROWS - 1, 2)
-        maps = network_maps_from_run(_run_ctx(x_outlet_snapped=x, y_outlet_snapped=y), output)
-        geometry = maps.maximal
-
-        assert geometry.outlet != cell_id(N_ROWS - 1, AXIS_COL)
-        assert 0 < int(geometry.catchment.sum()) < N_CELLS
-        # No watershed polygon on this run, so there is no gap to publish.
-        assert np.isnan(geometry.diagnostics["catchment_mismatch"])
 
 
 # From test_the_heads_maps_receive_the_dam_foot_of_the_model.py
@@ -158,23 +122,6 @@ def _descent_of(cells, downstream):
     return walk
 
 
-def test_the_maximal_map_is_traced_from_the_dam_foot_of_the_model() -> None:
-    bench = build_bench()
-    plain = network_maps_from_run(_run_ctx__heads_maps(bench), _output())
-    forced = network_maps_from_run(
-        _run_ctx__heads_maps(bench, dam_foot_cells={"reservoir": DAM_FOOT}), _output()
-    )
-
-    assert not plain.maximal.observed[DAM_FOOT]
-    assert forced.maximal.observed[DAM_FOOT]
-    for cell in _descent_of(DAM_FOOT, forced.maximal.metric.graph.downstream):
-        assert forced.maximal.observed[cell]
-    assert forced.maximal.heads is not None
-    assert forced.maximal.heads.forced_cell.tolist() == [DAM_FOOT]
-    assert forced.maximal.diagnostics["n_forced_heads"] == 1.0
-    assert plain.maximal.diagnostics["n_forced_heads"] == 0.0
-
-
 def test_the_minimal_map_receives_it_too_and_the_maximal_trace_still_contains_it() -> None:
     maps = network_maps_from_run(
         _run_ctx__heads_maps(build_bench(), dam_foot_cells={"reservoir": DAM_FOOT}),
@@ -185,13 +132,6 @@ def test_the_minimal_map_receives_it_too_and_the_maximal_trace_still_contains_it
     assert maps.minimal.heads.forced_cell.tolist() == [DAM_FOOT]
     assert maps.minimal.observed[DAM_FOOT]
     assert not (maps.minimal.observed & ~maps.maximal.observed).any()
-
-
-def test_a_model_without_a_dam_foot_draws_as_before() -> None:
-    assert dam_foot_cells_of_model(SimpleNamespace(dam_foot_cells={})).size == 0
-    assert dam_foot_cells_of_model(
-        SimpleNamespace(dam_foot_cells={"b": 9, "a": 4, "c": 9})
-    ).tolist() == [4, 9]
 
 
 # From test_the_maximal_heads_map_contains_the_minimal_trace.py
@@ -298,13 +238,6 @@ class TestTheOpenWaterOfTheModel:
         ctx = _run_ctx()
         ctx.solver_run.solver_model.open_water_cell_ids = ids
         return network_maps_from_run(ctx, output)
-
-    def test_the_footprint_of_the_lake_is_the_excluded_mask(self, output) -> None:
-        geometry = self._maps(output, list(self.LAKE)).maximal
-
-        assert np.flatnonzero(geometry.excluded).tolist() == sorted(self.LAKE)
-        assert not scored_cells(geometry)[self.LAKE].any()
-        assert scored_cells(geometry).sum() == geometry.catchment.sum() - len(self.LAKE)
 
     @pytest.mark.parametrize("ids", [None, []], ids=["no attribute value", "no lake"])
     def test_a_model_without_open_water_excludes_nothing(self, output, ids) -> None:

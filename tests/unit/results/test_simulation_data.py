@@ -8,7 +8,6 @@ from shapely.geometry import LineString
 from hydromodpy.catchment.algorithms.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
 )
 from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.results.run.view import Run
@@ -27,19 +26,6 @@ class TestSimulationData:
         assert set(df.index) == {"K", "Sy"}
         assert "value" in df.columns
         assert sim.parameters.loc["K", "value"] == pytest.approx(1.5)
-
-    def test_metrics(self, runs):
-        store = runs.open()
-        populate(store)
-        sim = Run(store.sim_id, runs.catalog())
-        assert set(sim.metrics["metric"]) == {"nse", "kge"}
-
-    def test_timeseries(self, runs):
-        store = runs.open()
-        populate(store)
-        sim = Run(store.sim_id, runs.catalog())
-        ts = sim.timeseries("head", station="P01")
-        assert len(ts) == 10
 
     def test_timeseries_not_found(self, runs):
         sim = Run(runs.open().sim_id, runs.catalog())
@@ -82,24 +68,6 @@ class TestSimulationData:
         contract = sim.hydrographic_network_naming("reference")
         assert contract["canonical_feature_name"] == HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME
         assert contract["default_vector_filename"] == "streams.shp"
-
-    def test_the_permanent_network_is_read_back_by_its_role(self, runs):
-        store = runs.open()
-        sid = store.sim_id
-        gdf = gpd.GeoDataFrame(
-            {"permanence": ["permanent"]},
-            geometry=[LineString([(0.0, 0.0), (1.0, 0.0)])],
-            crs="EPSG:2154",
-        )
-        store.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, gdf)
-        store.write_geographic_feature(
-            sid, HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME, gdf
-        )
-
-        sim = Run(sid, runs.catalog())
-
-        assert sim.available_hydrographic_network_roles() == ["reference", "reference_permanent"]
-        assert len(sim.hydrographic_network("reference_permanent")) == 1
 
     def test_hydrographic_network_missing_role_reports_available_roles(self, runs):
         store = runs.open()

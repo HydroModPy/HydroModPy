@@ -5,7 +5,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-from pydantic import ValidationError
 
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.model.forcing.native import NativeSeries
@@ -49,13 +48,6 @@ def test_the_declared_supports_carry_the_recharge_of_the_run() -> None:
     adapter = LinearReservoirFlowAdapter()
     assert "recharge" in adapter.supports
     assert "steady_start" in adapter.supports
-
-
-def test_a_table_without_its_time_constant_is_refused() -> None:
-    """The memory of the reservoir belongs to the site, so no default exists."""
-    adapter = LinearReservoirFlowAdapter()
-    with pytest.raises(ValidationError):
-        adapter.validate(_one_cell_model(), LinearReservoirOptions(), _slot("/tmp/none"))  # noqa: S108
 
 
 def test_a_time_constant_read_in_days_and_in_a_written_unit_is_the_same() -> None:

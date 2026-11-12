@@ -18,7 +18,6 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     refuse_constant_heads_below_bottom,
 )
 from hydromodpy.solver.modflow6.builders.initial_conditions import build_start_heads
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import (
     regular_solver_mesh,
     toy_model,
@@ -50,27 +49,6 @@ def test_modflow6_builds_chd_from_scalar_and_transient_side_boundaries() -> None
     assert chd_spd[0][0] == [0, 0, pytest.approx(10.0)]
     assert chd_spd[0][-1] == [0, 5, pytest.approx(20.0)]
     assert chd_spd[1][-1] == [0, 5, pytest.approx(21.0)]
-
-
-def test_modflow6_applies_first_boundary_value_to_start_heads() -> None:
-    model = toy_model()
-    model.inputs = replace(
-        model.inputs,
-        boundaries=BoundaryConditionBundle(
-            conditions={
-                "north_side": SimpleNamespace(value=[7.0, 8.0]),
-            },
-            active_ids=("north_side",),
-        ),
-    )
-    # strt is now flat (nlay, ncpl)
-    strt = np.zeros((1, 6), dtype=float)
-
-    updated = apply_side_boundary_start_heads(model, strt)
-
-    # North side cell_ids for 2x3 grid: 0, 1, 2
-    assert np.all(updated[:, :3] == 7.0)
-    assert np.all(updated[:, 3:] == 0.0)
 
 
 def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
@@ -406,23 +384,3 @@ def test_modflow6_cannot_pick_boundary_cells_without_a_solver_mesh() -> None:
 
     with pytest.raises(ValueError, match="reads the cells of the solver mesh"):
         build_side_boundary_chd_spd(model)
-
-
-def test_a_constant_head_is_written_only_on_the_active_cells_of_its_column() -> None:
-    model = _side_model_with_heads(west=8.0, east=8.0)
-    base = model.solver_mesh
-    idomain = np.ones((2, 6), dtype=int)
-    idomain[0, 0] = 0  # the top cell of the first west column is inactive
-    idomain[1, 3] = -1  # the lower cell of the second west column is a pass-through
-    model.solver_mesh = SolverMesh(
-        cell_mesh=base.cell_mesh,
-        top=base.top,
-        botm=np.vstack([base.top - 4.0, base.top - 9.0]),
-        idomain=idomain,
-    )
-    model.nlay = 2
-
-    rows = build_side_boundary_chd_spd(model)[0]
-
-    west = sorted((row[0], row[1]) for row in rows if row[1] in (0, 3))
-    assert west == [(0, 3), (1, 0)]

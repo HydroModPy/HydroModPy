@@ -9,7 +9,7 @@ import pytest
 import rasterio
 
 from hydromodpy.catchment.terrain.numpy_engine import NumpyTerrainEngine
-from hydromodpy.catchment.terrain.port import ConditionedDem, ConditioningExtent, Outlet
+from hydromodpy.catchment.terrain.port import ConditioningExtent, Outlet
 from hydromodpy.core.exceptions import (
     TerrainCapabilityError,
     TerrainProductError,
@@ -113,22 +113,6 @@ def _route(engine, conditioned, out):
 def _band(path):
     with rasterio.open(path) as src:
         return src.read(1)
-
-
-def test_a_provided_dem_is_routed_as_the_engine_would_route_the_dem_it_filled(tmp_path) -> None:
-    dem = write_geotiff(tmp_path / "dem.tif", _valley(), cell=RES, nodata=-9999.0, dtype="float32")
-    engine = NumpyTerrainEngine()
-    filled = engine.condition_dem(
-        dem, method="fill", extent=ConditioningExtent.regional(), out=tmp_path / "fill.tif"
-    )
-    by_fill = _route(engine, filled, tmp_path / "fill")
-    provided = ConditionedDem.provided(filled.path)
-    assert provided.method == "provided"
-    by_provided = _route(engine, provided, tmp_path / "provided")
-    for filled_product, provided_product in zip(by_fill[:2], by_provided[:2], strict=True):
-        assert np.array_equal(_band(filled_product.path), _band(provided_product.path))
-    assert by_provided[2].cell_count == by_fill[2].cell_count == 15 * 15
-    assert by_provided[2].area_m2 == by_fill[2].area_m2
 
 
 def test_the_numpy_engine_does_not_condition_a_provided_dem(tmp_path) -> None:

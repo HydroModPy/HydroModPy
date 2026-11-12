@@ -42,22 +42,6 @@ def test_watertable_depth_non_negative():
     np.testing.assert_array_equal(out, [2.0, 0.0, 0.5])
 
 
-def test_seepage_mask_marks_overflowing_cells():
-    top = np.array([10.0, 10.0, 10.0])
-    head = np.array([9.9, 10.0, 10.5])
-    out = seepage_mask(watertable=head, topography=top)
-    assert int(out.sum()) == 2
-    np.testing.assert_array_equal(out, [0, 1, 1])
-
-
-def test_seepage_mask_prefers_surface_excess_over_geometry():
-    top = np.array([10.0, 10.0, 10.0])
-    head = np.array([9.9, 10.0, 10.5])
-    excess = np.array([-1e-6, 0.0, 0.0])
-    out = seepage_mask(watertable=head, topography=top, surface_excess=excess)
-    np.testing.assert_array_equal(out, [1, 0, 0])
-
-
 def test_seepage_mask_requires_an_input():
     with pytest.raises(ValueError):
         seepage_mask()

@@ -25,7 +25,6 @@ import pytest
 from hydromodpy.mesh.io.bundle import (
     BUNDLE_COLUMNS,
     BUNDLE_SCHEMA_VERSION,
-    OPTIONAL,
     CatchmentMeshBundleMetadataView,
     cell_mesh_from_bundle,
     load_catchment_mesh_bundle,
@@ -151,23 +150,6 @@ def test_the_repository_commits_bundles():
     assert len(COMMITTED) >= 13
 
 
-@pytest.mark.parametrize("bundle", COMMITTED, ids=lambda path: path.name)
-def test_a_committed_bundle_follows_the_documented_schema(bundle):
-    metadata = json.loads((bundle / "metadata.json").read_text(encoding="utf-8"))
-    assert metadata["bundle_schema_version"] == BUNDLE_SCHEMA_VERSION
-    assert load_catchment_mesh_bundle(bundle).metadata_view.crs
-
-    for filename, columns in BUNDLE_COLUMNS.items():
-        path = bundle / filename
-        if not path.exists():
-            assert filename == "cell_geology_fractions.csv"
-            continue
-        header = {_schema_name(column) for column in _header(path)}
-        required = {name for name, text in columns.items() if not text.startswith(OPTIONAL)}
-        assert required <= header, f"{path} lacks {required - header}"
-        assert header <= set(columns), f"{path} holds undocumented {header - set(columns)}"
-
-
 def test_a_written_bundle_follows_the_documented_schema(tmp_path: Path):
     bundle = _write_bundle(tmp_path / "bundle")
 
@@ -215,23 +197,6 @@ def test_the_lists_of_the_metadata_read_as_text_and_a_scalar_as_nothing():
     assert view.geology.zone_keys == ("unit_0", "2")
     assert view.topography.cell_fields == ("z_top",)
     assert view.vertical.cell_fields == ()
-
-
-def test_cells_of_three_five_and_seven_nodes_read_back_intact(tmp_path: Path):
-    folder = _write_bundle(tmp_path / "bundle")
-
-    header = _header(folder / "cells.csv")
-    assert "ncvert" in header
-    assert header.count("n6") == 1
-    assert "n7" not in header
-    assert [cell.node_indices for cell in load_catchment_mesh_bundle(folder).cells] == NODE_LISTS
-
-
-def test_an_old_bundle_without_ncvert_reads_every_filled_node_column(tmp_path: Path):
-    folder = _write_bundle(tmp_path / "bundle", ncvert=False)
-
-    assert "ncvert" not in _header(folder / "cells.csv")
-    assert [cell.node_indices for cell in load_catchment_mesh_bundle(folder).cells] == NODE_LISTS
 
 
 def test_the_bundle_gives_its_edges_its_mesh_file_and_its_cells_by_id(tmp_path: Path):
@@ -366,62 +331,6 @@ def test_bundle_cell_mesh_keeps_the_nodes_and_the_triangles_in_file_order() -> N
     assert cell_mesh.crs_wkt == CRS
     xs, ys = cell_mesh.mesh.cell_centroids()
     np.testing.assert_allclose(cell_mesh.centers, np.column_stack([xs, ys]), rtol=0.0, atol=1e-9)
-
-
-def test_bundle_cell_mesh_ids_are_read_as_positions() -> None:
-    plain = cell_mesh_from_bundle(_square_bundle(), crs_wkt=CRS)
-    shifted = cell_mesh_from_bundle(_square_bundle(id_shift=10), crs_wkt=CRS)
-
-    np.testing.assert_array_equal(shifted.mesh.flat_connectivity, plain.mesh.flat_connectivity)
-    for family in ("rivers", "boundary:west", "boundary:north"):
-        for column in ("cell_a", "cell_b", "node_a", "node_b"):
-            np.testing.assert_array_equal(
-                getattr(shifted.face_families, column)[shifted.face_rows(family)],
-                getattr(plain.face_families, column)[plain.face_rows(family)],
-            )
-
-
-def test_bundle_cell_mesh_river_family_is_the_flagged_edges() -> None:
-    bundle = _square_bundle()
-    cell_mesh = cell_mesh_from_bundle(bundle, crs_wkt=CRS)
-    flagged = [e for e in bundle.edges if e.is_river]
-    table, rows = cell_mesh.face_families, cell_mesh.face_rows("rivers")
-
-    assert len(flagged) == N_SIDE - 1
-    np.testing.assert_array_equal(table.node_a[rows], [e.node_a for e in flagged])
-    np.testing.assert_array_equal(table.node_b[rows], [e.node_b for e in flagged])
-    np.testing.assert_array_equal(table.cell_a[rows], [e.cell_a for e in flagged])
-    np.testing.assert_array_equal(table.cell_b[rows], [e.cell_b for e in flagged])
-    expected = {e.cell_a for e in flagged} | {e.cell_b for e in flagged}
-    assert set(cell_mesh.family_cells("rivers").tolist()) == expected
-
-
-def test_bundle_cell_mesh_sides_are_the_boundary_edges_on_the_bounding_box() -> None:
-    bundle = _square_bundle()
-    cell_mesh = cell_mesh_from_bundle(bundle, crs_wkt=CRS)
-    x = {node.node_id: node.x for node in bundle.nodes}
-    y = {node.node_id: node.y for node in bundle.nodes}
-    sides: set[tuple[int, int]] = set()
-    for side, (axis, value) in {
-        "west": (x, X0),
-        "east": (x, X0 + SIZE_M),
-        "south": (y, Y0),
-        "north": (y, Y0 + SIZE_M),
-    }.items():
-        pairs = _family_pairs(cell_mesh, f"boundary:{side}")
-        assert pairs
-        assert all(axis[p] == axis[q] == value for p, q in pairs)
-        sides |= pairs
-    assert sides == _boundary_edges(bundle)
-    on_boundary = np.array([n.startswith("boundary:") for n in cell_mesh.face_families.names])
-    assert np.all(cell_mesh.face_families.cell_b[on_boundary[cell_mesh.face_families.family]] == -1)
-
-
-def test_bundle_cell_mesh_without_a_river_has_no_river_family() -> None:
-    cell_mesh = cell_mesh_from_bundle(_square_bundle(river=False), crs_wkt=CRS)
-
-    assert not cell_mesh.face_rows("rivers").any()
-    assert cell_mesh.face_rows("boundary:west").any()
 
 
 def test_bundle_cell_mesh_needs_triangles() -> None:

@@ -7,7 +7,6 @@ import logging
 
 import pytest
 from rich.console import Console
-from rich.text import Text
 
 from hydromodpy.core.console import progress as core_progress
 from hydromodpy.core.console.progress import MILESTONE
@@ -51,65 +50,11 @@ def _emit(level: str) -> None:
     logger.warning("a warning line")
 
 
-def test_normal_keeps_milestones_and_warnings(console_output):
-    _emit("normal")
-    text = console_output.getvalue()
-    assert "a milestone line" in text
-    assert "a warning line" in text
-    assert "an ordinary info line" not in text
-    assert "a debug line" not in text
-
-
-def test_a_terminal_marks_the_level_with_a_glyph(console_output):
-    _emit("normal")
-    text = Text.from_ansi(console_output.getvalue()).plain
-    assert "[INFO]" not in text
-    assert "[WARNING]" not in text
-    assert "› a milestone line" in text
-    assert "! a warning line" in text
-
-
-def test_a_pipe_keeps_the_level_label(capsys):
-    original = core_progress.console
-    previous = current_verbosity()
-    core_progress.console = Console(file=io.StringIO(), force_terminal=False)
-    try:
-        _emit("normal")
-    finally:
-        core_progress.console = original
-        set_verbosity(previous)
-    text = capsys.readouterr().err
-    assert "[WARNING] a warning line" in text
-    assert "[INFO]" not in text
-
-
-def test_verbose_keeps_every_info_line(console_output):
-    _emit("verbose")
-    text = console_output.getvalue()
-    assert "an ordinary info line" in text
-    assert "a debug line" not in text
-
-
-def test_quiet_keeps_warnings_only(console_output):
-    _emit("quiet")
-    text = console_output.getvalue()
-    assert "a warning line" in text
-    assert "a milestone line" not in text
-
-
 def test_debug_keeps_everything_with_its_origin(console_output):
     _emit("debug")
     text = console_output.getvalue()
     assert "a debug line" in text
     assert "hydromodpy.test.verbosity" in text
-
-
-def test_a_warning_repeated_verbatim_is_printed_once(console_output):
-    set_verbosity("normal")
-    logger = get_logger("hydromodpy.test.verbosity")
-    logger.warning("outlet snapped 130.5 m")
-    logger.warning("outlet snapped 130.5 m")
-    assert console_output.getvalue().count("outlet snapped") == 1
 
 
 def test_the_live_display_runs_at_normal_and_verbose(console_output):

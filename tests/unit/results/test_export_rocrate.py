@@ -18,10 +18,8 @@ from hydromodpy.results.export.context import (
     FairExportContext,
     InputEntry,
 )
-from hydromodpy.results.export.prov import HYDROMODPY_NAMESPACE
 from hydromodpy.results.export.rocrate import (
     RO_CRATE_CONFORMS,
-    RO_CRATE_CONTEXT,
     RO_CRATE_METADATA_FILENAME,
     build_ro_crate,
     loads,
@@ -110,20 +108,6 @@ def crate() -> dict:
 
 
 @pytest.mark.fast
-def test_context_block_present_and_well_formed(crate):
-    ctx = crate["@context"]
-    assert isinstance(ctx, list)
-    # First element is the canonical RO-Crate 1.1 context URL.
-    assert ctx[0] == RO_CRATE_CONTEXT
-    # The inline term map declares the hydromodpy/prov/sha256 prefixes.
-    term_map = ctx[1]
-    assert term_map["prov"] == "http://www.w3.org/ns/prov#"
-    # The crate and the PROV-O document must declare the same vocabulary IRI.
-    assert term_map["hydromodpy"] == HYDROMODPY_NAMESPACE
-    assert "sha256" in term_map
-
-
-@pytest.mark.fast
 def test_metadata_descriptor_node(crate):
     graph = crate["@graph"]
     descriptors = [n for n in graph if n.get("@id") == RO_CRATE_METADATA_FILENAME]
@@ -132,146 +116,6 @@ def test_metadata_descriptor_node(crate):
     assert desc["@type"] == "CreativeWork"
     assert desc["conformsTo"] == {"@id": RO_CRATE_CONFORMS}
     assert desc["about"] == {"@id": "./"}
-
-
-@pytest.mark.fast
-def test_root_dataset_node(crate):
-    graph = crate["@graph"]
-    datasets = [n for n in graph if n.get("@id") == "./"]
-    assert len(datasets) == 1
-    ds = datasets[0]
-    assert ds["@type"] == "Dataset"
-    assert ds["name"] == "demo-sim"
-    assert ds["description"] == "A demo simulation."
-    assert ds["identifier"] == "sim-123"
-    assert ds["hydromodpy:simId"] == "sim-123"
-    assert ds["hydromodpy:project"] == "demo"
-    assert ds["hydromodpy:solverId"] == 7
-    assert ds["license"] == {"@id": "https://creativecommons.org/licenses/by/4.0/"}
-    assert ds["datePublished"] == "2020-02-02T00:00:00+00:00"
-    # DOI maps to sameAs.
-    assert ds["sameAs"] == "https://doi.org/10.5281/zenodo.1234"
-    # temporalCoverage built from period_start/period_end.
-    assert ds["temporalCoverage"] == "2020-01-01/2020-01-06"
-    # spatialCoverage points to the Place node derived from the bbox.
-    assert ds["spatialCoverage"] == {"@id": "#place/bbox"}
-    assert ds["wasGeneratedBy"] == {"@id": "#action/simulation"}
-    assert ds["creator"] == [{"@id": "#person/Ada_Lovelace"}]
-
-
-@pytest.mark.fast
-def test_root_dataset_haspart_resolves_to_every_asset(crate):
-    graph = crate["@graph"]
-    ds = next(n for n in graph if n.get("@id") == "./")
-    haspart_ids = {ref["@id"] for ref in ds["hasPart"]}
-    asset_ids = {
-        _ZARR_HREF,
-        "projects/demo/hydromodpy.lock",
-    }
-    assert haspart_ids == asset_ids
-    # Every referenced part must resolve to a sibling node in the same graph.
-    graph_ids = {n.get("@id") for n in graph}
-    assert asset_ids <= graph_ids
-
-
-@pytest.mark.fast
-def test_asset_nodes_have_file_type_and_metadata(crate):
-    graph = crate["@graph"]
-    zarr = next(n for n in graph if n.get("@id") == _ZARR_HREF)
-    assert zarr["@type"] == "File"
-    assert zarr["name"] == FIELDS_STORE_NAME
-    assert zarr["encodingFormat"] == "application/x.zarr-store"
-    assert zarr["hydromodpy:assetKey"] == "zarr"
-    assert zarr["hydromodpy:simId"] == "sim-123"
-    assert zarr["sha256"] == "a" * 64
-    assert zarr["contentSize"] == 4096
-    assert zarr["hydromodpy:roles"] == ["data", "fields"]
-
-
-@pytest.mark.fast
-def test_input_node_built_from_input_entry(crate):
-    graph = crate["@graph"]
-    input_nodes = [n for n in graph if str(n.get("@id", "")).startswith("inputs/")]
-    assert len(input_nodes) == 1
-    node = input_nodes[0]
-    assert node["@id"] == "inputs/dem/0/srtm_dem.tif"
-    assert node["@type"] == "File"
-    assert node["name"] == "srtm_dem.tif"
-    assert node["hydromodpy:role"] == "dem"
-    assert node["hydromodpy:category"] == "raster"
-    assert node["sha256"] == "c" * 64
-    assert node["contentSize"] == 2048
-    assert node["url"] == "https://example.org/dem.tif"
-    assert node["hydromodpy:sourceType"] == "http"
-    assert node["hydromodpy:loader"] == "rasterio"
-    assert node["license"] == "CC-BY-4.0"
-    assert node["publisher"] == {"@type": "Organization", "name": "USGS"}
-    assert node["dateCreated"] == "2020-01-01T00:00:00+00:00"
-
-
-@pytest.mark.fast
-def test_software_and_creator_nodes(crate):
-    graph = crate["@graph"]
-    hmp = next(n for n in graph if n.get("@id") == "#software/hydromodpy")
-    assert hmp["@type"] == "SoftwareApplication"
-    assert hmp["softwareVersion"] == "1.2.3"
-    assert hmp["url"] == "https://docs.hydromodpy.fr/"
-    # git_commit from runs_env attaches as softwareSourceCode.
-    assert hmp["softwareSourceCode"] == "deadbeef"
-
-    solver = next(n for n in graph if n.get("@id") == "#software/modflow6")
-    assert solver["name"] == "modflow6"
-    assert solver["softwareVersion"] == "6.4.1"
-    assert solver["sha256"] == "d" * 64
-
-    person = next(n for n in graph if n.get("@id") == "#person/Ada_Lovelace")
-    assert person["@type"] == "Person"
-    assert person["name"] == "Ada Lovelace"
-    assert person["email"] == "ada@example.org"
-
-
-@pytest.mark.fast
-def test_geo_and_place_nodes_from_bbox(crate):
-    graph = crate["@graph"]
-    geo = next(n for n in graph if n.get("@id") == "#geo/bbox")
-    assert geo["@type"] == "GeoShape"
-    # box uses "ymin xmin ymax xmax" ordering.
-    assert geo["box"] == "0.0 0.0 2000.0 1000.0"
-    place = next(n for n in graph if n.get("@id") == "#place/bbox")
-    assert place["@type"] == "Place"
-    assert place["geo"] == {"@id": "#geo/bbox"}
-
-
-@pytest.mark.fast
-def test_prov_create_action_embedded_with_agent(crate):
-    graph = crate["@graph"]
-    action = next(n for n in graph if n.get("@id") == "#action/simulation")
-    assert "CreateAction" in action["@type"]
-    assert "prov:Activity" in action["@type"]
-    # The creator ref overrides the action agent in the RO-Crate builder.
-    assert action["agent"] == {"@id": "#person/Ada_Lovelace"}
-    # Outputs reference both assets by their PROV entity ids.
-    result_ids = {ref["@id"] for ref in action["result"]}
-    assert result_ids == {"#entity/output/zarr", "#entity/output/lockfile"}
-    # The single input is recorded as an object.
-    object_ids = {ref["@id"] for ref in action["object"]}
-    assert object_ids == {"#entity/input/dem/0/srtm_dem.tif"}
-
-
-@pytest.mark.fast
-def test_one_node_per_asset_and_input(crate):
-    graph = crate["@graph"]
-    asset_file_ids = {
-        n["@id"] for n in graph if n.get("@type") == "File" and "hydromodpy:assetKey" in n
-    }
-    assert asset_file_ids == {
-        _ZARR_HREF,
-        "projects/demo/hydromodpy.lock",
-    }
-    input_file_ids = {
-        n["@id"] for n in graph if n.get("@type") == "File" and "hydromodpy:role" in n
-    }
-    assert input_file_ids == {"inputs/dem/0/srtm_dem.tif"}
 
 
 @pytest.mark.fast

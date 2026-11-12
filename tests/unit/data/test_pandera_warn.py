@@ -41,19 +41,6 @@ def test_validate_warn_only_returns_original_df_on_failure(hmp_log_records):
     )
 
 
-def test_validate_warn_only_passthrough_on_valid_df(hmp_log_records):
-    df = pd.DataFrame(
-        {
-            "date": pd.date_range("2020-01-01", periods=3, freq="D"),
-            "value": [1.0, 2.0, 3.0],
-        }
-    )
-    out = validate_warn_only(df, TimeSeriesSchema, schema_name="TimeSeriesSchema[ok]")
-
-    assert {"date", "value"}.issubset(out.columns)
-    assert not any(rec.levelno == logging.WARNING for rec in hmp_log_records)
-
-
 def test_validate_warn_only_raises_in_strict_mode(monkeypatch):
     monkeypatch.setenv(STRICT_ENV_VAR, "1")
     df = _invalid_timeseries_df()

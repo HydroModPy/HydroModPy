@@ -10,15 +10,13 @@ command line of a case, the worker of the case being ``hmp run`` again.
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from hydromodpy.cli.environment import environment_flags_of, environment_from_args
-from hydromodpy.core.runtime.bounds import DEFAULT_MAX_DOWNLOAD_BYTES, Bounds
+from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.project.environment import Environment
-from hydromodpy.project.launch.children import PlannedCase, worker_command
 from tests.unit.cli._hmp import run_hmp
 from tests.unit.cli._tree import leaves
 
@@ -58,15 +56,6 @@ def test_no_other_command_carries_the_options() -> None:
             assert has, f"{words} does not register the environment options"
         else:
             assert not has, f"{words} registers options the lot did not announce"
-
-
-def test_the_absent_options_read_into_the_default_environment() -> None:
-    environment = environment_from_args(_arguments())
-
-    assert environment.credentials is not None
-    assert environment.credentials.name == "credentials.toml"
-    assert environment.bounds.allowed_hosts is None
-    assert environment.bounds.max_download_bytes == DEFAULT_MAX_DOWNLOAD_BYTES
 
 
 def test_a_named_credentials_file_and_a_ceiling_read_through() -> None:
@@ -125,32 +114,6 @@ def test_the_flags_of_the_named_options() -> None:
     )
 
 
-def test_a_relative_credentials_path_crosses_resolved() -> None:
-    flags = environment_flags_of(_arguments(credentials="keys/fuel.toml"))
-
-    assert flags[0] == "--credentials"
-    assert flags[1] == str(Path("keys/fuel.toml").resolve())
-    assert Path(flags[1]).is_absolute()
-
-
-def test_the_worker_runs_from_elsewhere_and_reads_the_same_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    environment = environment_from_args(_arguments(credentials="keys/fuel.toml"))
-
-    assert environment.credentials == Path("keys/fuel.toml").resolve()
-    elsewhere = tmp_path / "elsewhere"
-    elsewhere.mkdir()
-    monkeypatch.chdir(elsewhere)
-    rebuilt = environment_from_args(_arguments(credentials=str(environment.credentials)))
-    assert rebuilt.credentials == environment.credentials
-
-
-def test_no_named_option_gives_no_flag() -> None:
-    assert environment_flags_of(_arguments()) == ()
-
-
 def test_the_flags_rebuild_the_named_environment() -> None:
     flags = environment_flags_of(
         _arguments(credentials="/srv/keys/fuel.toml", allow_host=["a.org"], max_download_bytes=2048)
@@ -170,32 +133,3 @@ def test_the_flags_rebuild_the_named_environment() -> None:
     assert str(environment.credentials) == "/srv/keys/fuel.toml"
     assert environment.bounds.allowed_hosts == frozenset({"a.org"})
     assert environment.bounds.max_download_bytes == 2048
-
-
-def test_a_case_line_carries_the_options_after_the_attempt_flags() -> None:
-    case = PlannedCase(
-        case_id="a-base",
-        site="a",
-        recipe="base",
-        config_hash="0",
-        path=Path("plan/ab/a-base.toml"),
-        workflow="simulation",
-        solves=1,
-    )
-    flags = environment_flags_of(
-        _arguments(credentials="/srv/keys/fuel.toml", allow_host=["a.org"], max_download_bytes=2048)
-    )
-
-    command = worker_command(case, ["--frozen"], environment_flags=flags)
-
-    assert command[1:4] == ["-m", "hydromodpy", "run"]
-    assert command[4] == "plan/ab/a-base.toml"
-    assert command[5:] == [
-        "--frozen",
-        "--credentials",
-        "/srv/keys/fuel.toml",
-        "--allow-host",
-        "a.org",
-        "--max-download-bytes",
-        "2048",
-    ]

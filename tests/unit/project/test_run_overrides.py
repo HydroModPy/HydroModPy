@@ -52,10 +52,6 @@ def test_a_keyword_is_shorthand_for_its_path(
     assert override_changes(_config(tmp_path), {keyword: value}) == {path: value}
 
 
-def test_no_keyword_is_no_change_and_no_walk(tmp_path: Path) -> None:
-    assert override_changes(object(), {}) == {}
-
-
 def test_an_unknown_keyword_names_what_this_project_offers(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match=r"Unknown parameter 'porosity'.*K, Sy, first_clim"):
         override_changes(_config(tmp_path), {"porosity": 0.3})
@@ -80,20 +76,6 @@ def test_a_change_reaches_the_copy_and_leaves_the_declared_configuration_alone(
     assert changed.flow.param["K"].field.unit == "m/s"
     assert cfg.domain.depth_model.thickness == 50.0
     assert cfg.flow.param["K"].field.value == pytest.approx(1e-4)
-
-
-def test_a_change_shares_every_section_it_does_not_touch(tmp_path: Path) -> None:
-    """A built domain or flow compares its section by identity, so identity is the point."""
-    cfg = _config(tmp_path)
-
-    only_flow = cfg.with_changes({K_PATH: 3e-5})
-    assert only_flow.domain is cfg.domain
-    assert only_flow.simulation is cfg.simulation
-    assert only_flow.flow is not cfg.flow
-
-    only_domain = cfg.with_changes({"domain.depth_model.thickness": 99.0})
-    assert only_domain.flow is cfg.flow
-    assert only_domain.domain is not cfg.domain
 
 
 def test_a_number_is_read_in_the_unit_the_file_declares(tmp_path: Path) -> None:

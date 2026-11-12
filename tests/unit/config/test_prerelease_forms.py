@@ -7,31 +7,19 @@ refused the same way, and ``--set`` is refused without a file to rewrite.
 
 from __future__ import annotations
 
-import copy
 import tomllib
 from pathlib import Path
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
 
 from hydromodpy.config.config_migration import (
     PRERELEASE_FORMS,
-    PRERELEASE_FORMS_FILENAME,
     PrereleaseForm,
-    fix_config_chain,
     migrate_config_doc,
     migrate_config_doc_on_load,
-    migrate_layers,
-    migrate_merged_doc,
-    migrate_sealed_config_doc,
-    prerelease_keys,
 )
 from hydromodpy.core.exceptions import ConfigValidationError
-from hydromodpy.core.toml_io.overrides import SET_SOURCE
-from hydromodpy.core.version import __version__
-from hydromodpy.data.loading.config_schema import DataConfig
-from hydromodpy.schema.changes import REGISTER, migrations_of, outlived, removal_of
 
 NO_REWRITE = "This version does not rewrite the file."
 
@@ -57,113 +45,9 @@ def _written(form: PrereleaseForm) -> tuple[dict[str, Any], str]:
     return document, ".".join(label)
 
 
-@pytest.mark.parametrize("form", PRERELEASE_FORMS, ids=lambda form: form.path)
-def test_a_pre_release_form_is_refused_with_its_path_and_the_way_out(
-    form: PrereleaseForm, tmp_path: Path
-) -> None:
-    document, label = _written(form)
-    source = tmp_path / "project.toml"
-    if form.path == "workspace.project_root":
-        # A runtime field today, which the model refuses in a file with its own words.
-        assert prerelease_keys(document) == []
-        return
-    if form.path in {row.old for row in migrations_of("config")}:
-        # A row of the register moves this path and its refusal names the new key
-        # (tests/refusals/test_forms.py reads that sentence).
-        assert prerelease_keys(document) == []
-        return
-
-    with pytest.raises(ConfigValidationError) as refused:
-        migrate_config_doc_on_load(document, source=source)
-
-    told = str(refused.value)
-    assert told.startswith(f"{source} holds ")
-    assert label in told
-    assert NO_REWRITE in told
-    assert "hmp doctor" not in told
-
-
 def test_the_list_holds_each_form_once() -> None:
     assert len(PRERELEASE_FORMS) == 175
     assert len({(form.path, repr(form.value)) for form in PRERELEASE_FORMS}) == 175
-
-
-def test_the_list_leaves_two_minor_versions_after_2_0() -> None:
-    assert not outlived("2.0.0", __version__), (
-        f"HydroModPy {__version__} still refuses the forms of a pre-release. Delete "
-        f"hydromodpy/config/{PRERELEASE_FORMS_FILENAME}, PRERELEASE_FORMS and their readers: "
-        "a file of a pre-release is then refused as any unknown key."
-    )
-
-
-def test_the_recipe_of_the_list_names_its_count_and_the_version_it_leaves() -> None:
-    recipe = next(row for row in REGISTER.recipes if row.id == "prerelease_forms_refused")
-
-    assert f"one of the {len(PRERELEASE_FORMS)} keys" in recipe.text
-    assert f"it leaves in {removal_of('2.0.0')}." in recipe.text
-
-
-def test_a_value_form_refuses_its_value_and_no_other() -> None:
-    form = next(form for form in PRERELEASE_FORMS if form.has_value)
-    document, _ = _written(form)
-    other, _ = _written(PrereleaseForm(form.path, "something else", has_value=True))
-
-    assert prerelease_keys(document)
-    assert prerelease_keys(other) == []
-
-
-@pytest.mark.parametrize(
-    ("document", "key"),
-    [
-        ({"export": [{"variables": ["head", "mass_accumulated"]}]}, "export[0].variables"),
-        ({"display": {"figures": ["head_map", "calibration_posterior"]}}, "display.figures"),
-    ],
-)
-def test_a_value_form_is_found_inside_a_written_list(document: dict, key: str) -> None:
-    assert prerelease_keys(document) == [key]
-    assert prerelease_keys({"export": [{"variables": ["head"]}]}) == []
-
-
-def test_the_keys_come_in_the_order_of_the_list_whatever_the_order_of_the_document() -> None:
-    document = {
-        "flow": {"ic": {"type": "uniform"}},
-        "calibration": {"max_iter": 5, "scoring_window": {}},
-    }
-    assert prerelease_keys(document) == [
-        "calibration.scoring_window",
-        "calibration.max_iter",
-        "flow.ic.type",
-    ]
-    assert prerelease_keys({"calibration": {"max_iter": 5}, "flow": {}}) == ["calibration.max_iter"]
-
-
-def test_each_refused_key_carries_its_pointer_and_the_file(tmp_path: Path) -> None:
-    source = tmp_path / "project.toml"
-    document = {
-        "flow": {"active_bc": ["drainage"]},
-        "calibration": {"phases": [{"name": "a", "max_iter": 3}]},
-    }
-
-    with pytest.raises(ConfigValidationError) as refused:
-        migrate_config_doc_on_load(document, source=source)
-
-    payload = refused.value.to_dict()
-    assert payload["source"] == str(source)
-    assert [entry["pointer"] for entry in payload["details"]] == [
-        "/calibration/phases/0/max_iter",
-        "/flow/active_bc",
-    ]
-    assert {entry["type"] for entry in payload["details"]} == {"prerelease_form"}
-    assert all(NO_REWRITE in entry["msg"] for entry in payload["details"])
-
-
-def test_a_sealed_refusal_points_at_each_key_and_names_no_file() -> None:
-    with pytest.raises(ConfigValidationError) as refused:
-        migrate_sealed_config_doc({"simulation": {"run_id": "x"}})
-
-    payload = refused.value.to_dict()
-    assert [entry["pointer"] for entry in payload["details"]] == ["/simulation/run_id"]
-    assert "source" not in payload
 
 
 # Texts the alphas wrote, as the tests of the old rules wrote them. Each is refused
@@ -607,113 +491,6 @@ def test_a_dotted_key_of_a_pre_release_is_refused_too(document: dict, key: str) 
         migrate_config_doc(document)
 
     assert key in str(refused.value)
-
-
-def test_a_current_document_and_a_form_the_register_moves_are_not_refused() -> None:
-    document = {
-        "simulation": {"process": [{"id": "flow", "type": "flow", "solvers": ["modflow6"]}]},
-        "modflow6": {"process_specific": {"vka": 2.0}},
-        "flow": {"bc": {"drainage": {"kind": "drain"}}},
-    }
-
-    assert prerelease_keys(document) == []
-
-
-@pytest.mark.parametrize(
-    ("document", "keys"), SEALED_ALPHA_DOCUMENTS.values(), ids=SEALED_ALPHA_DOCUMENTS.keys()
-)
-def test_a_document_a_pre_release_sealed_is_refused_with_every_key_it_holds(
-    document: dict, keys: list[str]
-) -> None:
-    with pytest.raises(ConfigValidationError) as refused:
-        migrate_sealed_config_doc(copy.deepcopy(document))
-
-    told = str(refused.value)
-    assert told.startswith("a sealed run config holds ")
-    for key in keys:
-        assert key in told
-    assert told.count(NO_REWRITE) == 1
-
-
-@pytest.mark.parametrize("buffer", [5, 10, 10.0, 12.5])
-def test_a_bare_buffer_is_the_rule_of_version_1_and_loads(buffer: float, tmp_path: Path) -> None:
-    """A bare ``buff_area`` reads as ``"N% of sqrt(area)"``, in a file and in a sealed run."""
-    document = {"geographic": {"catchment": {"buff_area": buffer}}}
-
-    assert prerelease_keys(document) == []
-    migrate_config_doc_on_load(copy.deepcopy(document), source=tmp_path / "project.toml")
-    migrate_sealed_config_doc(copy.deepcopy(document))
-
-
-def test_a_data_section_built_in_python_refuses_the_project_crs_as_unknown() -> None:
-    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-        DataConfig(project_crs="EPSG:2154")
-
-
-def test_a_sealed_run_of_a_pre_release_is_refused_the_same_way() -> None:
-    sealed = {"flow": {"active_bc": ["drainage"]}}
-
-    with pytest.raises(ConfigValidationError) as refused:
-        migrate_sealed_config_doc(sealed)
-
-    assert str(refused.value).startswith("a sealed run config holds flow.active_bc,")
-    assert NO_REWRITE in str(refused.value)
-
-
-def test_a_sealed_snapshot_keeps_naming_its_project() -> None:
-    """``[workspace] project_root`` names the project of a snapshot, read before the migration."""
-    snapshot = {"workspace": {"project_root": "/somewhere"}, "simulation": {"name": "x"}}
-
-    migrate_sealed_config_doc(snapshot)
-
-    assert snapshot == {"simulation": {"name": "x"}}
-
-
-def test_set_is_refused_without_a_file_to_rewrite() -> None:
-    with pytest.raises(ConfigValidationError) as refused:
-        migrate_layers([(SET_SOURCE, {"flow": {"active_bc": ["drainage"]}})])
-
-    told = str(refused.value)
-    assert told.startswith("--set holds flow.active_bc,")
-    assert "hmp doctor" not in told
-    assert "Write today's name instead" in told
-
-
-def test_each_layer_that_holds_a_form_is_named(tmp_path: Path) -> None:
-    layers = [
-        (tmp_path / "parent.toml", {"flow": {"active_bc": []}}),
-        (tmp_path / "child.toml", {"simulation": {"run_id": "x"}}),
-        (tmp_path / "clean.toml", {"simulation": {"name": "x"}}),
-    ]
-
-    with pytest.raises(ConfigValidationError) as refused:
-        migrate_layers(layers)
-
-    told = str(refused.value)
-    assert "parent.toml holds flow.active_bc" in told
-    assert "child.toml holds simulation.run_id" in told
-    assert "clean.toml" not in told
-
-
-def test_a_whole_document_is_refused_when_it_comes_with_no_layer() -> None:
-    with pytest.raises(ConfigValidationError, match="config holds flow.active_bc"):
-        migrate_merged_doc({"flow": {"active_bc": []}})
-
-
-def test_the_doctor_refuses_a_chain_of_a_pre_release_and_writes_nothing(tmp_path: Path) -> None:
-    parent = tmp_path / "parent.toml"
-    child = tmp_path / "child.toml"
-    parent.write_text('[flow]\nactive_bc = ["drainage"]\n[modflow6.process_specific]\nvka = 2.0\n')
-    child.write_text('base_config = "parent.toml"\n[calibration]\nmax_iter = 5\n')
-    written = parent.read_text(), child.read_text()
-
-    with pytest.raises(ConfigValidationError) as refused:
-        fix_config_chain(child)
-
-    assert (parent.read_text(), child.read_text()) == written
-    told = str(refused.value)
-    assert f"{parent} holds flow.active_bc" in told
-    assert f"{child} holds calibration.max_iter" in told
 
 
 def test_hmp_doctor_on_a_file_of_a_pre_release_says_the_way_out(

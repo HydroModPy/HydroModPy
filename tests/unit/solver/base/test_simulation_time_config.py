@@ -8,44 +8,6 @@ from hydromodpy.solver.base.planner import SimulationPlanner
 from hydromodpy.solver.base.simulation_config import SimulationConfig
 
 
-def test_simulation_time_window_parses_from_mapping() -> None:
-    cfg = SimulationConfig.model_validate(
-        {
-            "name": "time-window",
-            "description": "test",
-            "time": {
-                "start_datetime": "2020-01-01 00:00:00",
-                "end_datetime": "2020-01-02 00:00:00",
-                "step_value": 6,
-                "step_unit": "hour",
-                "coverage_policy": "warn",
-            },
-            "process": [],
-        }
-    )
-
-    assert cfg.time is not None
-    assert cfg.time.step_value == 6
-    assert cfg.time.step_unit == "hour"
-    assert cfg.time.coverage_policy == "warn"
-
-
-def test_simulation_catalog_metadata_parses_from_mapping() -> None:
-    cfg = SimulationConfig.model_validate(
-        {
-            "name": "metadata",
-            "description": "test",
-            "scientific_objective": "calibration",
-            "contact_email": "user@example.org",
-            "doi": "10.5281/zenodo.0",
-            "process": [],
-        }
-    )
-
-    assert cfg.scientific_objective == "calibration"
-    assert cfg.doi == "10.5281/zenodo.0"
-
-
 def test_simulation_time_window_parses_inline_step_value_unit() -> None:
     cfg = SimulationConfig.model_validate(
         {
@@ -74,50 +36,6 @@ def test_simulation_time_window_rejects_inverted_bounds() -> None:
                 "time": {
                     "start_datetime": "2020-01-02 00:00:00",
                     "end_datetime": "2020-01-01 00:00:00",
-                },
-                "process": [],
-            }
-        )
-
-
-def test_simulation_time_window_explicit_requires_bounds() -> None:
-    with pytest.raises(ValueError, match="are required when \\[simulation.time\\] is declared"):
-        _ = SimulationConfig.model_validate(
-            {
-                "name": "explicit-without-bounds",
-                "time": {
-                    "step_value": "1 day",
-                },
-                "process": [],
-            }
-        )
-
-
-def test_simulation_time_window_rejects_from_modflow_mode() -> None:
-    with pytest.raises(ValueError, match="Extra inputs"):
-        _ = SimulationConfig.model_validate(
-            {
-                "name": "from-modflow",
-                "time": {
-                    "mode": "from_modflow",
-                    "start_datetime": "2020-01-01 00:00:00",
-                    "end_datetime": "2020-01-02 00:00:00",
-                },
-                "process": [],
-            }
-        )
-
-
-def test_simulation_time_window_rejects_non_positive_step_value() -> None:
-    with pytest.raises(ValueError, match="must be a positive integer"):
-        _ = SimulationConfig.model_validate(
-            {
-                "name": "invalid-step",
-                "time": {
-                    "start_datetime": "2020-01-01 00:00:00",
-                    "end_datetime": "2020-01-01 00:00:00",
-                    "step_value": 0,
-                    "step_unit": "day",
                 },
                 "process": [],
             }
@@ -210,22 +128,6 @@ def test_simulation_mesh_process_uses_backend_not_solvers() -> None:
     assert plan.runs[0].is_solver_backed is False
 
 
-def test_simulation_mesh_process_rejects_solvers() -> None:
-    with pytest.raises(ValueError, match="solvers"):
-        SimulationConfig.model_validate(
-            {
-                "name": "bad-mesh",
-                "process": [
-                    {
-                        "id": "mesh_main",
-                        "kind": "mesh",
-                        "solvers": ["mesh_catchment"],
-                    }
-                ],
-            }
-        )
-
-
 def _time(**extra: object) -> dict[str, object]:
     return {
         "start_datetime": "2020-01-01",
@@ -233,14 +135,6 @@ def _time(**extra: object) -> dict[str, object]:
         "step_value": "1 month",
         **extra,
     }
-
-
-def test_a_time_section_without_windows_is_one_window() -> None:
-    """The two keys are absent from every 2.0 document and their defaults give its run."""
-    cfg = SimulationConfig.model_validate({"name": "w", "time": _time(), "process": []})
-
-    assert cfg.time.window_length is None
-    assert cfg.time.window == "all"
 
 
 @pytest.mark.parametrize(

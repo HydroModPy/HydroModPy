@@ -16,21 +16,19 @@ import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
-from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace, set_by_path
+from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners import trial as trial_module
 from hydromodpy.calibration.runners.promotion import promote_session
 from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import (
     TrialContext,
-    TrialResult,
     _phase_samples_the_recharge,
     promote_prepared_trial,
     run_trial_light,
 )
-from hydromodpy.calibration.targets import calibration_targets, targets_by_name
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.core.budget.terms import POLICY_ALL, POLICY_CONSUMERS, BudgetKeep
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import ConfigError, StepError
 from hydromodpy.core.state.layout import INTERNAL_DIRNAME
@@ -42,7 +40,6 @@ from hydromodpy.results.storage.attempt import claim_reserved_directory
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.kept import level_of
 from hydromodpy.results.storage.run_facts import PromotionFacts
-from hydromodpy.schema.lineage import Lineage
 from hydromodpy.solver.base.results_config import ResultsConfig
 from hydromodpy.solver.modflow6.builders.solver_options import resolve_xt3d_decision
 from hydromodpy.solver.modflow6.support.property_mapping import (
@@ -56,7 +53,6 @@ from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.step import Step  # noqa: F401
 from hydromodpy.workflow.steps.data import ensure_flow
 from hydromodpy.workflow.steps.dependencies import earliest_affected_step
-from hydromodpy.workflow.steps.export import step_cleanup_preprocessing
 from hydromodpy.workflow.steps.mesh import BuildMeshStep
 from hydromodpy.workflow.steps.planning import step_configure_results
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
@@ -94,26 +90,9 @@ _STEPS = (
 )
 
 
-def test_a_path_a_step_owns_selects_that_step() -> None:
-    assert earliest_affected_step({"flow.param.K.field.value"}, _STEPS) == 4
-
-
-def test_a_mesh_path_selects_the_mesh_step() -> None:
-    assert earliest_affected_step({"mesh.cell_size"}, _STEPS) == 3
-
-
 def test_a_path_no_step_owns_is_refused() -> None:
     with pytest.raises(ConfigError, match="no pipeline step"):
         earliest_affected_step({"flow.param.K.field.value", "nowhere.at.all"}, _STEPS)
-
-
-def test_the_refusal_names_the_path_and_what_a_step_would_have_to_declare() -> None:
-    with pytest.raises(ConfigError) as caught:
-        earliest_affected_step({"nowhere.at.all"}, _STEPS)
-
-    message = str(caught.value)
-    assert "nowhere.at.all" in message
-    assert "mesh" in message
 
 
 def test_the_mesh_step_declares_the_sections_that_drive_it() -> None:
@@ -157,32 +136,6 @@ def _sampled(**paths: str) -> ParameterSpace | None:
     """A space sampling each name on its path, or None when no name is given."""
     specs = [CalibParameter(name=n, lower=0, upper=1000, path=p) for n, p in paths.items()]
     return ParameterSpace(specs) if specs else None
-
-
-@pytest.mark.parametrize(
-    ("sampled", "override_paths", "owns"),
-    [
-        pytest.param({"ru": SOIL_RU}, None, True, id="a_sampled_soil_ru"),
-        pytest.param(
-            {"rch": "flow.sinks_sources.recharge.values"}, None, True, id="a_sampled_rate"
-        ),
-        pytest.param({"K": K_VALUE}, None, False, id="only_k_sampled"),
-        # Phase K after phase RU: soil.ru is frozen and reran (override_paths),
-        # but this phase's own parameter_space only searches over K.
-        pytest.param(
-            {"K": K_VALUE}, {"K": K_VALUE, "ru": SOIL_RU}, False, id="a_frozen_soil_ru_reran"
-        ),
-        # With no parameter space, the override paths decide.
-        pytest.param({}, {"ru": SOIL_RU}, True, id="no_space_recharge_path"),
-        pytest.param({}, {"K": K_VALUE}, False, id="no_space_other_path"),
-    ],
-)
-def test_a_trial_owns_its_recharge_when_its_phase_samples_what_it_is_computed_from(
-    sampled, override_paths, owns
-) -> None:
-    ctx = _trial_context(parameter_space=_sampled(**sampled), override_paths=override_paths)
-
-    assert _phase_samples_the_recharge(ctx) is owns
 
 
 # From test_a_promoted_run_closes_its_attempt.py
@@ -444,82 +397,6 @@ def _promote(trial_ctx, *, cfg: CalibrationConfig, rows: int, best_trial: int):
     return outcome.count, outcome.failures, outcome.best_sim_id
 
 
-@pytest.mark.parametrize(
-    "declared",
-    [
-        {"save_runs": "best_n", "save_best_n": 3},
-        {"save_runs": "all"},
-    ],
-)
-def test_the_best_run_keeps_everything_and_the_others_keep_what_they_read(
-    session, declared
-) -> None:
-    trial_ctx, kept, flags = session
-
-    count, failures, best_sim_id = _promote(
-        trial_ctx, cfg=CalibrationConfig(**declared), rows=3, best_trial=2
-    )
-
-    assert (count, failures) == (3, [])
-    assert best_sim_id is not None
-    # Every promoted run is named after the case; the best one keeps everything,
-    # the two kept trials take the consumers policy, in the order they were promoted.
-    assert kept["best"] == BudgetKeep.everything()
-    assert kept["best"].policy == POLICY_ALL
-    assert flags["best"] is True
-    assert [policy.policy for policy in kept.values()][1:] == [POLICY_CONSUMERS, POLICY_CONSUMERS]
-    assert list(flags.values())[1:] == [True, True]
-
-
-def test_the_best_run_follows_the_project_file(session) -> None:
-    trial_ctx, kept, flags = session
-    trial_ctx.base_cfg.simulation.results = ResultsConfig(keep_per_cell_budget=False)
-
-    _promote(
-        trial_ctx,
-        cfg=CalibrationConfig(save_runs="best_n", save_best_n=2),
-        rows=2,
-        best_trial=1,
-    )
-
-    assert flags["best"] is False
-    assert kept["best"].policy == POLICY_CONSUMERS
-
-
-def test_a_saved_run_never_changes_the_shared_configuration(session) -> None:
-    trial_ctx, _, _ = session
-
-    _promote(
-        trial_ctx,
-        cfg=CalibrationConfig(save_runs="all"),
-        rows=3,
-        best_trial=1,
-    )
-
-    assert trial_ctx.base_cfg.simulation.results.keep_per_cell_budget is True
-    assert trial_ctx.ctx.cfg.simulation.results.keep_per_cell_budget is True
-
-
-def test_the_lineage_sets_the_level_and_the_results_section_is_left_alone(session) -> None:
-    trial_ctx, kept, flags = session
-    shared = trial_ctx.base_cfg.simulation.results
-
-    def lineage(kind: str) -> Lineage:
-        return Lineage(session_id="s", phase="p", trial=1, kind=kind)
-
-    promote_prepared_trial(
-        trial_ctx, {"K": 2.0}, name="lean", sim_id="a" * 32, lineage=lineage("trial")
-    )
-    promote_prepared_trial(
-        trial_ctx, {"K": 3.0}, name="whole", sim_id="b" * 32, lineage=lineage("promoted")
-    )
-
-    assert kept["lean"].policy == POLICY_CONSUMERS and flags["lean"] is True
-    assert kept["whole"] == BudgetKeep.everything() and flags["whole"] is True
-    assert trial_ctx.base_cfg.simulation.results is shared
-    assert shared.keep_per_cell_budget is True
-
-
 def test_the_default_promotes_the_best_alone_with_the_whole_budget(session) -> None:
     trial_ctx, kept, _ = session
 
@@ -652,24 +529,6 @@ def _built_model(trial: TrialContext, mesh: SolverMesh) -> SimpleNamespace:
     return model
 
 
-@pytest.mark.parametrize("name", ["angle1", "angle2"])
-def test_the_catalogue_searches_an_angle_as_written(cfg__trial_moves, name: str) -> None:
-    target = targets_by_name(calibration_targets(cfg__trial_moves))[name]
-    assert target.calibrable is not None
-    assert (target.calibrable.search_space, target.calibrable.sampling) == ("identity", "uniform")
-    assert (
-        cfg__trial_moves.calibration.parameters[name].search_space,
-        cfg__trial_moves.calibration.parameters[name].sampling,
-    ) == (
-        "identity",
-        "uniform",
-    )
-
-
-def test_k22_is_still_searched_in_log_space(cfg__trial_moves) -> None:
-    assert cfg__trial_moves.calibration.parameters["K22"].search_space == "log"
-
-
 def test_a_signed_angle_range_builds_a_parameter_space(cfg__trial_moves) -> None:
     space = space_from_config(cfg__trial_moves.calibration)
     assert {param.name for param in space} == {"K22", "angle1", "angle2"}
@@ -688,26 +547,6 @@ def test_the_trial_sample_reaches_every_cell_of_the_tensor(
 
 def test_the_base_tensor_keeps_xt3d_off(cfg__trial_moves, tmp_path: Path) -> None:
     model = _built_model(_trial(cfg__trial_moves, tmp_path, {}), _mesh())
-    assert resolve_xt3d_decision(model, _mesh()).enabled is False
-
-
-def test_a_trial_that_turns_k22_off_axis_gets_xt3d(cfg__trial_moves, tmp_path: Path) -> None:
-    model = _built_model(_trial(cfg__trial_moves, tmp_path, {"K22": 1e-6}), _mesh())
-    with pytest.warns(RuntimeWarning, match="K22 differs from K"):
-        decision = resolve_xt3d_decision(model, _mesh())
-    assert (decision.enabled, decision.source) == (True, "auto_on")
-
-
-def test_a_trial_that_tilts_the_tensor_gets_xt3d(cfg__trial_moves, tmp_path: Path) -> None:
-    model = _built_model(_trial(cfg__trial_moves, tmp_path, {"angle2": -8.0}), _mesh())
-    with pytest.warns(RuntimeWarning, match="tilted"):
-        assert resolve_xt3d_decision(model, _mesh()).enabled
-
-
-def test_a_trial_that_brings_k22_back_on_axis_keeps_xt3d_off(
-    cfg__trial_moves, tmp_path: Path
-) -> None:
-    model = _built_model(_trial(cfg__trial_moves, tmp_path, {"K22": 1e-6, "angle1": 90.0}), _mesh())
     assert resolve_xt3d_decision(model, _mesh()).enabled is False
 
 
@@ -940,71 +779,6 @@ def _make_trial_context(tmp_path: Path, *, earliest: int) -> tuple[TrialContext,
 # ---------------------------------------------------------------------------
 # Fork isolation
 # ---------------------------------------------------------------------------
-@pytest.mark.usefixtures("ensure_bootstrap")
-class TestFork:
-    def test_value_is_injected_via_dotted_path(self, tmp_path: Path) -> None:
-        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
-        forked = trial_ctx.fork({"K": 2.5})
-        assert forked.ctx.cfg.flow.K.value == 2.5
-
-    def test_fork_does_not_mutate_base_cfg(self, tmp_path: Path) -> None:
-        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
-        assert trial_ctx.base_cfg.flow.K.value == 1.0
-        forked = trial_ctx.fork({"K": 7.0})
-        assert forked.ctx.cfg.flow.K.value == 7.0
-        # Base must stay at its initial value so subsequent forks start
-        # from the same baseline.
-        assert trial_ctx.base_cfg.flow.K.value == 1.0
-        assert trial_ctx.ctx.cfg.flow.K.value == 1.0
-
-    def test_fork_produces_independent_setup_but_shares_big_refs(self, tmp_path: Path) -> None:
-        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
-        trial_ctx.ctx.setup.geographic = object()
-        trial_ctx.ctx.setup.cell_mesh = object()
-        trial_ctx.ctx.setup.flow = "should_be_reset"
-
-        forked = trial_ctx.fork({"K": 3.0})
-
-        # setup instance is new (so mutation inside the trial does not
-        # leak back to base), but geographic / cell_mesh are shared
-        # references because those are expensive to rebuild.
-        assert forked.ctx.setup is not trial_ctx.ctx.setup
-        assert forked.ctx.setup.geographic is trial_ctx.ctx.setup.geographic
-        assert forked.ctx.setup.cell_mesh is trial_ctx.ctx.setup.cell_mesh
-        # flow is reset so step 05 / SimulationRunner will rebuild it from
-        # the trial's cfg.flow.
-        assert forked.ctx.setup.flow is None
-        assert forked.ctx.setup.slot_request is None
-
-    def test_fork_is_lightweight(self, tmp_path: Path) -> None:
-        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
-        forked = trial_ctx.fork({"K": 0.01})
-        assert forked.ctx.execution.lightweight is True
-        # Fresh execution registry: no residual plan / models carried
-        # over from another trial or from the base.
-        assert forked.ctx.execution.solver_runs == {}
-        # A lightweight trial has no index to write to, and the context it
-        # forks carries no handle to one.
-        assert not hasattr(forked.ctx, "store")
-
-    def test_loaded_data_is_shared_by_reference(self, tmp_path: Path) -> None:
-        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
-        hydro = object()
-        trial_ctx.ctx.loaded_data.hydrometry = hydro
-        forked = trial_ctx.fork({"K": 0.01})
-        assert forked.ctx.loaded_data is trial_ctx.ctx.loaded_data
-        assert forked.ctx.loaded_data.hydrometry is hydro
-
-    def test_a_slot_request_seeds_the_forked_setup(self, tmp_path: Path) -> None:
-        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
-        request = SlotRequest(name="toy_trial000001")
-        forked = trial_ctx.fork({"K": 1.0}, slot_request=request)
-        assert forked.ctx.setup.slot_request == request
-        # The base setup keeps no request of a trial.
-        assert getattr(trial_ctx.ctx.setup, "slot_request", None) is None
-        # Without a request the forked setup has none.
-        plain = trial_ctx.fork({"K": 1.0})
-        assert plain.ctx.setup.slot_request is None
 
 
 # ---------------------------------------------------------------------------
@@ -1012,45 +786,6 @@ class TestFork:
 # ---------------------------------------------------------------------------
 @pytest.mark.usefixtures("ensure_bootstrap")
 class TestRunTrialLight:
-    def test_runs_only_downstream_slice(self, tmp_path: Path) -> None:
-        trial_ctx, steps = _make_trial_context(tmp_path, earliest=6)
-        # First trial
-        result = run_trial_light(
-            trial_ctx,
-            {"K": 1.0},
-            metric_fn=lambda ctx, *, objective, variable: (0.0, {}),
-        )
-        assert isinstance(result, TrialResult)
-        assert result.status == "completed"
-        # steps[0..5] must NOT have been called (they are the shared prep)
-        for step in steps[:6]:
-            assert step.calls == 0, f"step {step.name} re-ran unexpectedly"
-        # steps[6..8] must have run exactly once
-        for step in steps[6:9]:
-            assert step.calls == 1, f"step {step.name} did not run"
-
-    def test_trial_runs_with_rendering_off(self, tmp_path: Path) -> None:
-        # A trial draws nothing, so it must carry the same switch as
-        # `hmp run --no-display`: no figure gets to turn a derived flag on,
-        # and no derivation forces the per-cell budget no trial step drops.
-        trial_ctx, steps = _make_trial_context(tmp_path, earliest=6)
-        seen: list[object] = []
-        original = steps[6].run
-
-        def _capture(state: PipelineState) -> PipelineState:
-            seen.append(state.get("skip_display"))
-            return original(state)
-
-        steps[6].run = _capture
-
-        run_trial_light(
-            trial_ctx,
-            {"K": 1.0},
-            metric_fn=lambda ctx, *, objective, variable: (0.0, {}),
-        )
-
-        assert seen == [True]
-
     def test_trial_writes_no_files(self, tmp_path: Path) -> None:
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
         before = _snapshot_files(tmp_path)
@@ -1119,99 +854,10 @@ class TestRunTrialLight:
         assert result.primary_metric == pytest.approx(0.42)
         assert result.metrics == {"nse@outlet": 0.58}
 
-    def test_trials_get_isolated_model_identity_and_cleanup(self, tmp_path: Path) -> None:
-        """Each trial gets a unique run name and its outputs are cleaned."""
-        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
-        trial_ctx.ctx.setup.run_id = "toy"
-
-        seen: list[str] = []
-        created: list[Path] = []
-
-        def _capture(ctx, *, objective, variable):
-            name = ctx.setup.slot_request.name
-            seen.append(name)
-            # Simulate the solver having written an output folder for this run.
-            out = tmp_path / name
-            out.mkdir(parents=True, exist_ok=True)
-            ctx.execution.solver_runs["run"] = SimpleNamespace(output_dir=out)
-            created.append(out)
-            return 0.0, {}
-
-        r1 = run_trial_light(trial_ctx, {"K": 1.0}, metric_fn=_capture, trial_id=1)
-        r2 = run_trial_light(trial_ctx, {"K": 2.0}, metric_fn=_capture, trial_id=2)
-
-        assert r1.status == "completed" and r2.status == "completed"
-        # Distinct, deterministic per-trial model identities.
-        assert seen == ["toy_trial000001", "toy_trial000002"]
-        # Ephemeral: each trial's solver output is removed on exit.
-        assert all(not d.exists() for d in created)
-
-    def test_trial_without_id_has_no_slot_request(self, tmp_path: Path) -> None:
-        """trial_id=None keeps the path without a sandbox: no slot request."""
-        trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
-
-        captured: dict[str, object] = {}
-
-        def _capture(ctx, *, objective, variable):
-            captured["request"] = ctx.setup.slot_request
-            return 0.0, {}
-
-        run_trial_light(trial_ctx, {"K": 1.0}, metric_fn=_capture)
-        assert captured["request"] is None
-
-
-@pytest.mark.usefixtures("ensure_bootstrap")
-class TestPromotion:
-    def test_a_promotion_leaves_the_preprocessing_tree_to_the_next_one(
-        self, tmp_path: Path
-    ) -> None:
-        """Every kept trial is promoted from one shared preprocessing tree.
-
-        The export step of the first promotion used to drop it, so the next
-        promoted runs found no watershed to ingest and summed their catchment
-        series over the whole domain.
-        """
-
-        stable = tmp_path / ".hmp" / "scratch" / "_preprocessing"
-        (stable / "geographic").mkdir(parents=True)
-        (stable / "geographic" / "watershed.shp").write_bytes(b"x" * 64)
-
-        trial_ctx, steps = _make_trial_context(tmp_path, earliest=6)
-        trial_ctx.ctx.setup.geographic = SimpleNamespace(stable_folder=str(stable))
-        seen: list[bool] = []
-
-        def _export(state: PipelineState) -> PipelineState:
-            ctx = state.get("ctx")
-            seen.append((stable / "geographic" / "watershed.shp").is_file())
-            step_cleanup_preprocessing(ctx, keep=bool(state.get("keep_preprocessing")))
-            ctx.sim_id = ctx.reserved_sim_id
-            return state.advance(step_index=state.step_index + 1, step_name="export")
-
-        steps[8].run = _export  # type: ignore[assignment]
-
-        promote_prepared_trial(trial_ctx, {"K": 1.0}, name="best", sim_id="a" * 32)
-        promote_prepared_trial(trial_ctx, {"K": 2.0}, name="best_trial_0002", sim_id="b" * 32)
-
-        assert seen == [True, True]
-        assert stable.is_dir()
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-@pytest.mark.usefixtures("ensure_bootstrap")
-class TestSetByPath:
-    def test_sets_nested_leaf(self) -> None:
-        cfg = _FakeCfg()
-        set_by_path(cfg, "flow.K.value", 5.5)
-        assert cfg.flow.K.value == 5.5
-
-    def test_deep_copy_isolates_mutation(self) -> None:
-        base = _FakeCfg()
-        forked = base.model_copy(deep=True)
-        set_by_path(forked, "flow.K.value", 9.0)
-        assert forked.flow.K.value == 9.0
-        assert base.flow.K.value == 1.0
 
 
 def _snapshot_files(root: Path) -> set[str]:

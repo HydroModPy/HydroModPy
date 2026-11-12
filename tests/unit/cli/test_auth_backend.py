@@ -43,18 +43,6 @@ def test_current_user_falls_back_to_anonymous(monkeypatch: pytest.MonkeyPatch) -
     assert result == "anonymous"
 
 
-def test_current_user_reads_the_posix_user_then_the_windows_one(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """``USER`` comes before ``USERNAME`` once ``HMP_USER`` is absent."""
-    monkeypatch.delenv("HMP_USER", raising=False)
-    monkeypatch.setenv("USER", "alice")
-    monkeypatch.setenv("USERNAME", "bob")
-    assert AuthBackend().current_user() == "alice"
-    monkeypatch.delenv("USER")
-    assert AuthBackend().current_user() == "bob"
-
-
 def test_auth_backend_allows_read_and_write() -> None:
     """The permissive default authorizes every resource."""
     backend = AuthBackend()

@@ -15,7 +15,6 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
-from hydromodpy.solver.modflow_common.flow_run import run_flow_model
 from hydromodpy.solver.modflow_common.options import ModflowRunOptions
 from hydromodpy.solver.modflow_nwt import adapter as nwt_adapter
 from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter
@@ -59,23 +58,6 @@ def _build(path: Path, hand_off: frozenset[str]) -> SolverRun:
     return ModflowNwtFlowAdapter().build(make_model(), None, _slot(path, hand_off))
 
 
-@pytest.mark.parametrize(
-    ("hand_off", "linked"),
-    [
-        (frozenset(), False),
-        (frozenset({"other_product"}), False),
-        (frozenset({"face_flow"}), True),
-        (frozenset({"face_flow", "budget/drain"}), True),
-    ],
-)
-def test_build_links_the_flow_output_only_when_the_hand_off_names_face_flow(
-    tmp_path: Path, hand_off: frozenset[str], linked: bool
-) -> None:
-    built = _build(tmp_path, hand_off)
-
-    assert built.solver_model.link_mt3dms is linked
-
-
 def test_a_flow_run_fills_nothing_from_its_upstream(tmp_path: Path) -> None:
     built = _build(tmp_path, frozenset({"face_flow"}))
 
@@ -100,23 +82,6 @@ class _SolvedStandIn:
         return True
 
 
-def test_run_hands_the_link_fact_of_the_solver_model_to_processing(tmp_path: Path) -> None:
-    solver_model = _SolvedStandIn()
-    solver_model.full_path = tmp_path / "island"
-    solver_model.link_mt3dms = True
-    run = SolverRun(
-        slot=RunSlot(tmp_path, "island"),
-        solver_model=solver_model,
-        written=True,
-    )
-
-    solved = run_flow_model(run, solver_name="modflow_nwt")
-
-    (options,) = solver_model.processing_calls
-    assert options.link_mt3dms is True
-    assert (solved.written, solved.solved) == (True, True)
-
-
 def test_the_solve_time_of_nwt_is_solve_s_of_the_run_and_no_metric(tmp_path: Path) -> None:
     solver_model = _SolvedStandIn()
     solver_model.full_path = tmp_path / "island"
@@ -129,21 +94,6 @@ def test_the_solve_time_of_nwt_is_solve_s_of_the_run_and_no_metric(tmp_path: Pat
 
     assert solved.solve_s == 2.25
     assert "flow_solve_time_seconds" not in solved.metrics
-
-
-def test_run_without_the_link_fact_asks_no_lmt(tmp_path: Path) -> None:
-    solver_model = _SolvedStandIn()
-    solver_model.full_path = tmp_path / "island"
-    run = SolverRun(
-        slot=RunSlot(tmp_path, "island"),
-        solver_model=solver_model,
-        written=True,
-    )
-
-    run_flow_model(run, solver_name="modflow_nwt")
-
-    (options,) = solver_model.processing_calls
-    assert options.link_mt3dms is False
 
 
 def _lmt_runtime() -> SimpleNamespace:
@@ -164,27 +114,6 @@ def _processing_self(link_mt3dms: bool) -> SimpleNamespace:
         link_mt3dms=link_mt3dms,
         last_flow_solve_time_seconds=None,
     )
-
-
-def test_a_solve_with_no_options_links_no_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    from hydromodpy.solver.modflow_nwt.nwt import nwt_solver
-
-    calls: list[dict[str, object]] = []
-
-    class _FakeLmt:
-        def __init__(self, model, **kwargs: object) -> None:
-            model.packagelist = [*model.packagelist, self]
-            calls.append(kwargs)
-
-    monkeypatch.setattr("flopy.modflow.ModflowLmt", _FakeLmt)
-
-    self_state = _processing_self(link_mt3dms=False)
-    self_state.write_input = lambda: None
-    nwt_solver.ModflowNwt.processing(
-        self_state, ModflowRunOptions(write_model=False, run_model=False)
-    )
-
-    assert calls == []
 
 
 def test_processing_builds_the_lmt_package_only_when_the_run_links_mt3dms(

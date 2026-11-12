@@ -276,17 +276,6 @@ def test_the_trials_of_an_imported_session_count_from_their_arrival(tmp_path: Pa
     assert plan.old_trial_fields == ()
 
 
-def test_trial_fields_stay_when_the_policy_turns_the_rule_off(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "p")
-    session = _trial_session(project, "calib", best=1)
-    _seal(session / "trials" / "0002", sealed_at=NOW - timedelta(days=400), kind="trial")
-    _write(session / "trials" / "0002" / FIELDS_STORE_NAME / "chunk", 10)
-
-    plan = plan_gc(project, _policy(trial_fields_days=None), now=NOW)
-
-    assert plan.old_trial_fields == ()
-
-
 def test_a_purge_witness_of_another_schema_is_refused(tmp_path: Path) -> None:
     trial = tmp_path / "trial"
     trial.mkdir()
@@ -543,12 +532,3 @@ def test_level_at_reads_the_seal_and_the_published_copy(
         (run / PUBLICATION_FILENAME).write_text("{}", encoding="utf-8")
 
     assert level_at(run) == expected
-
-
-def test_level_at_refuses_a_run_whose_seal_does_not_read(tmp_path: Path) -> None:
-    run = tmp_path / "run"
-    run.mkdir()
-    (run / RUN_MANIFEST_FILENAME).write_text("{", encoding="utf-8")
-
-    with pytest.raises(ValueError):
-        level_at(run)

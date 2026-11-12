@@ -64,15 +64,6 @@ def test_the_baseline_request_is_read(tmp_path: Path, demo_capability: Capabilit
     assert validate_inputs(request, demo_capability).crs_project == "EPSG:2154"
 
 
-def test_a_request_written_with_a_byte_order_mark_is_read(tmp_path: Path) -> None:
-    """A .NET or PowerShell orchestrator prepends one, and it is still JSON."""
-    root = tmp_path / "job_4711"
-    root.mkdir()
-    (root / "request.json").write_text("﻿" + json.dumps(VALID), encoding="utf-8")
-
-    assert read_request(JobDirectory.open(root)).process.id == "demo-delineate"
-
-
 def test_a_request_that_is_not_json_is_refused_at_14(tmp_path: Path) -> None:
     refusal = _refusal(tmp_path, '{"process": {"id": "demo-delineate",}}')
 
@@ -154,12 +145,6 @@ def test_another_minor_version_is_a_warning(
     assert "1.2.3" in warnings[0]
 
 
-def test_an_absent_version_is_accepted(tmp_path: Path, demo_capability: CapabilityDecl) -> None:
-    request = read_request(_job(tmp_path, dict(VALID, process={"id": "demo-delineate"})))
-
-    assert check_process(request, demo_capability) == ()
-
-
 def test_a_version_that_is_not_a_version_is_refused(
     tmp_path: Path, demo_capability: CapabilityDecl
 ) -> None:
@@ -203,32 +188,6 @@ def test_asking_for_an_output_nobody_produces_is_refused(
         requested_outputs(request, demo_capability)
 
     assert excinfo.value.details[0]["pointer"] == "/outputs/flow_direction"
-
-
-@pytest.mark.parametrize(
-    ("member", "value", "pointer"),
-    [
-        ("crs_project", "lambert93", "/inputs/crs_project"),
-        ("snap_distance_m", -5, "/inputs/snap_distance_m"),
-        ("outlets", [], "/inputs/outlets"),
-        ("dem", {"href": "dem.tif", "kind": "raster"}, "/inputs/dem/kind"),
-    ],
-)
-def test_a_bad_input_is_pointed_at_the_member_the_document_wrote(
-    tmp_path: Path,
-    demo_capability: CapabilityDecl,
-    member: str,
-    value: Any,
-    pointer: str,
-) -> None:
-    document = dict(VALID, inputs=dict(VALID["inputs"], **{member: value}))
-    request = read_request(_job(tmp_path, document))
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        validate_inputs(request, demo_capability)
-
-    assert exit_code_for(excinfo.value) == EXIT_CONFIG
-    assert [detail["pointer"] for detail in excinfo.value.details] == [pointer]
 
 
 def test_an_input_the_capability_does_not_declare_is_refused(

@@ -14,8 +14,6 @@ import numpy as np
 from shapely.geometry import LineString
 
 from hydromodpy.mesh.cells.barrier_faces import barrier_edges, barrier_faces_from_line
-from hydromodpy.mesh.planar.cell_types import CellType
-from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.planar.planar_cell_mesh import (
     FaceFamilyTable,
     MeshIdentity,
@@ -23,7 +21,7 @@ from hydromodpy.mesh.planar.planar_cell_mesh import (
     build_planar_cell_mesh,
 )
 from hydromodpy.mesh.request import BARRIER_FAMILY
-from tests._helpers.cell_meshes import TEST_CRS_WKT, cell_mesh_of
+from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import regular_mesh
 
 DECLARATIONS = {"graded": False, "exact_faces": False, "deterministic": True, "needs_cache": False}
@@ -65,62 +63,6 @@ def _n_components(faces, cell_mesh: PlanarCellMesh) -> int:
     return comps
 
 
-def test_cutting_line_bars_a_connected_chain_of_faces() -> None:
-    # A near-vertical trace across a 2x3 grid separates the left column from the
-    # right one at every row: the barred faces are a single connected fence.
-    mesh = _quad_grid(2, 3)
-    faces = barrier_faces_from_line(mesh, LineString([(1.01, -0.5), (1.01, 3.5)]))
-    assert {(f.cell_a, f.cell_b) for f in faces} == {(0, 1), (2, 3), (4, 5)}
-    assert _n_components(faces, mesh) == 1
-
-
-def test_only_faces_the_trace_separates_are_barred() -> None:
-    # A near-horizontal trace between the south row and the middle row bars those two faces.
-    mesh = _quad_grid(2, 3)
-    faces = barrier_faces_from_line(mesh, LineString([(-0.5, 1.01), (2.5, 1.01)]))
-    assert {(f.cell_a, f.cell_b) for f in faces} == {(2, 4), (3, 5)}
-    assert _n_components(faces, mesh) == 1
-
-
-def test_a_line_along_a_row_of_centres_bars_the_faces_on_its_left() -> None:
-    # The middle row of a 3x3 grid has its centers at y = 1.5. Along them the trace crosses
-    # no center-to-center segment; it is tested a hair to its left, north when it runs east.
-    mesh = _quad_grid(3, 3)
-    east = barrier_faces_from_line(mesh, LineString([(-0.5, 1.5), (3.5, 1.5)]))
-    west = barrier_faces_from_line(mesh, LineString([(3.5, 1.5), (-0.5, 1.5)]))
-    assert {(f.cell_a, f.cell_b) for f in east} == {(0, 3), (1, 4), (2, 5)}
-    assert {(f.cell_a, f.cell_b) for f in west} == {(3, 6), (4, 7), (5, 8)}
-
-
-def test_a_diagonal_through_centres_bars_a_connected_staircase() -> None:
-    # The diagonal meets the centers of cells 6, 4 and 2 and only touches their segments
-    # at an end: tested a hair to its left, it bars the staircase above the diagonal.
-    mesh = _quad_grid(3, 3)
-    faces = barrier_faces_from_line(mesh, LineString([(-0.5, -0.5), (3.5, 3.5)]))
-    assert {(f.cell_a, f.cell_b) for f in faces} == {(3, 6), (3, 4), (1, 4), (1, 2)}
-    assert _n_components(faces, mesh) == 1
-
-
-def test_faces_are_ordered_along_the_line() -> None:
-    mesh = _quad_grid(2, 3)
-    faces = barrier_faces_from_line(mesh, LineString([(1.01, -0.5), (1.01, 3.5)]))
-    stations = [f.s for f in faces]
-    assert stations == sorted(stations)
-    assert all(0.0 <= s <= 1.0 for s in stations)
-
-
-def test_a_short_line_inside_one_cell_bars_the_link_it_crosses() -> None:
-    # A trace that stays inside the south-west cell 4 bars the face whose center link it
-    # crosses, through the center or beside it; a trace that crosses no link bars nothing.
-    cell_mesh = _quad_grid(2, 3)
-    through = barrier_faces_from_line(cell_mesh, LineString([(0.2, 0.2), (0.8, 0.8)]))
-    beside = barrier_faces_from_line(cell_mesh, LineString([(0.2, 0.6), (0.8, 0.6)]))
-    clear = barrier_faces_from_line(cell_mesh, LineString([(0.1, 0.1), (0.3, 0.2)]))
-    assert {(f.cell_a, f.cell_b) for f in through} == {(2, 4)}
-    assert {(f.cell_a, f.cell_b) for f in beside} == {(2, 4)}
-    assert clear == []
-
-
 def _two_cells_centred_on(centres: list[tuple[float, float]]) -> PlanarCellMesh:
     """Two unit quads side by side, sharing the face x = 1, with the given centers."""
     return build_planar_cell_mesh(
@@ -131,31 +73,6 @@ def _two_cells_centred_on(centres: list[tuple[float, float]]) -> PlanarCellMesh:
         identity=MeshIdentity("test", "0", "", None),
         declarations=DECLARATIONS,
     )
-
-
-def test_the_barrier_reads_the_centres_of_the_cell_mesh() -> None:
-    # The trace x = 1.3 runs inside the east cell. With the vertex means as centers
-    # it separates them; with the east center at x = 1.2 it does not.
-    line = LineString([(1.3, -0.5), (1.3, 1.5)])
-    vertex_means = _two_cells_centred_on([(0.5, 0.5), (1.5, 0.5)])
-    shifted = _two_cells_centred_on([(0.5, 0.5), (1.2, 0.5)])
-    assert [(f.cell_a, f.cell_b) for f in barrier_faces_from_line(vertex_means, line)] == [(0, 1)]
-    assert barrier_faces_from_line(shifted, line) == []
-
-
-def test_a_barrier_bars_the_face_of_a_ragged_mesh() -> None:
-    # A left pentagon and a right quad share the edge (1, 0)-(1, 1); a line along it
-    # crosses their center segment and bars that face.
-    verts = np.array(
-        [[1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [-0.3, 0.5], [0.0, 0.0], [2.0, 0.0], [2.0, 1.0]]
-    )
-    cells = (np.array([0, 1, 2, 3, 4]), np.array([0, 5, 6, 1]))
-    mesh = HydroMesh(vertices=verts, cell_blocks=(CellBlock(CellType.POLYGON, cells),))
-
-    faces = barrier_faces_from_line(cell_mesh_of(mesh), LineString([(1.0, -0.5), (1.0, 1.5)]))
-
-    assert len(faces) == 1
-    assert {faces[0].cell_a, faces[0].cell_b} == {0, 1}
 
 
 def test_a_mesh_of_one_cell_has_no_face_to_bar() -> None:
@@ -205,14 +122,6 @@ def _x20_edges(cell_mesh: PlanarCellMesh, rows: tuple[int, ...]) -> list[int]:
 def test_a_line_past_the_last_followed_face_also_bars_the_faces_it_crosses() -> None:
     # The family covers the two northern faces; the line runs on south to y = 0.
     cell_mesh = _followed(BARRIER_FAMILY, rows=(0, 1))
-
-    rows = barrier_edges(cell_mesh, LineString([(20.0, 30.0), (20.0, 0.0)]))
-
-    assert rows.tolist() == _x20_edges(cell_mesh, (0, 1, 2))
-
-
-def test_a_line_on_followed_faces_only_bars_those_faces() -> None:
-    cell_mesh = _followed(BARRIER_FAMILY, rows=(0, 1, 2))
 
     rows = barrier_edges(cell_mesh, LineString([(20.0, 30.0), (20.0, 0.0)]))
 

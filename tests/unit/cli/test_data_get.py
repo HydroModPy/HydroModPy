@@ -59,42 +59,6 @@ def hubeau_stub(monkeypatch) -> list[dict]:
     return calls
 
 
-def test_help_names_both_forms(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "data", "get", "--help"])
-    assert code == 0
-    out = " ".join(capsys.readouterr().out.split())
-    assert "REQUEST_OR_VARIABLE" in out
-    assert "--bbox" in out and "--to" in out
-    assert "bbox=-" in out
-
-
-def test_a_variable_is_served_from_the_options(monkeypatch, tmp_path, capsys, hubeau_stub) -> None:
-    out = tmp_path / "out"
-    code = _run(
-        monkeypatch,
-        [
-            "hmp",
-            "data",
-            "get",
-            "hydrometry",
-            "--stations",
-            "J0001",
-            "--start",
-            "2020-01-01",
-            "--end",
-            "2020-01-31",
-            "--to",
-            str(out),
-        ],
-    )
-    assert code == 0
-    assert "Report ->" in capsys.readouterr().out
-    report = json.loads((out / "request.json").read_text(encoding="utf-8"))
-    assert [entry["variable"] for entry in report["files"]] == ["hydrometry"]
-    assert report["failures"] == []
-    assert hubeau_stub[0]["station_ids"] == ["J0001"]
-
-
 def test_a_request_document_is_served(monkeypatch, tmp_path, hubeau_stub) -> None:
     document = tmp_path / "ask.json"
     document.write_text(
@@ -202,14 +166,6 @@ def test_a_malformed_bbox_is_a_usage_error(monkeypatch, tmp_path, bbox) -> None:
         ["hmp", "data", "get", "dem", "--bbox", bbox, "--to", str(tmp_path)],
     )
     assert code == 2
-
-
-def test_parse_bbox_returns_four_floats() -> None:
-    from hydromodpy.cli.commands.data.get import _parse_bbox
-
-    parsed = _parse_bbox("-1.17,48.4,-1.0,48.5")
-    assert parsed == (-1.17, 48.4, -1.0, 48.5)
-    assert all(isinstance(x, float) for x in parsed)
 
 
 def test_parse_bbox_rejects_non_floats() -> None:

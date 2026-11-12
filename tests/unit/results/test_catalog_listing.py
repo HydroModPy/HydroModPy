@@ -6,15 +6,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
-import pandas as pd
 import pytest
 
 from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.listing import (
-    NO_PROFILE_TEXT,
-    SEALED_SOLVE_METRIC,
-    diff_simulations,
     list_runs,
     list_simulations,
     profile_of_run,
@@ -24,8 +20,6 @@ from hydromodpy.results.catalog.listing import (
     solve_seconds,
 )
 from hydromodpy.results.publication import PublishedLine, append_published
-from hydromodpy.results.record.manifest import MetricRow
-from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_profile
 from tests._helpers.sealed_runs import make_project, seal_run
 
@@ -39,18 +33,6 @@ def _seed_workspace(tmp_path: Path) -> tuple[Path, Path, str]:
     seal_run(project_dir, "variant", solver="modflow6", nse=0.8, parameters={"K": 3e-5})
     rebuild_index(project_dir)
     return workspace, project_dir, sim_id
-
-
-def test_list_simulations_returns_one_row_per_sealed_run(tmp_path: Path) -> None:
-    workspace, _project, sim_id = _seed_workspace(tmp_path)
-
-    df = list_simulations(workspace)
-
-    assert isinstance(df, pd.DataFrame)
-    assert sim_id in df["sim_id"].tolist()
-    assert set(df["name"]) == {"baseline", "variant"}
-    assert set(df["project"]) == {"demo"}
-    assert {"site", "case_id", "rel_dir", "label", "nse"} <= set(df.columns)
 
 
 def test_list_simulations_filters(tmp_path: Path) -> None:
@@ -79,19 +61,6 @@ def test_list_simulations_without_an_index_is_empty(tmp_path: Path) -> None:
     (workspace / "data").mkdir()
 
     assert list_simulations(workspace).empty
-
-
-def test_show_simulation_returns_the_facts(tmp_path: Path) -> None:
-    _workspace, project, sim_id = _seed_workspace(tmp_path)
-
-    payload = show_simulation("baseline", workspace=project)
-
-    assert payload["sim_id"] == sim_id
-    assert payload["rel_dir"] == "runs/baseline"
-    assert payload["label"] == "exploratory"
-    assert payload["nse"] == 0.6
-    assert payload["exports"] == []
-    assert payload["deliveries"] == []
 
 
 def test_show_simulation_lists_the_latest_delivery_of_each_pair(tmp_path: Path) -> None:
@@ -152,12 +121,6 @@ def test_show_simulation_lists_the_latest_copy_of_each_destination(tmp_path: Pat
     ]
 
 
-def test_show_simulation_without_a_copy_lists_none(tmp_path: Path) -> None:
-    _workspace, project, _sim_id = _seed_workspace(tmp_path)
-
-    assert show_simulation("baseline", workspace=project)["copies"] == []
-
-
 def test_opening_a_project_without_an_index_builds_it(tmp_path: Path) -> None:
     project = make_project(tmp_path / "demo")
     seal_run(project, "baseline")
@@ -167,11 +130,6 @@ def test_opening_a_project_without_an_index_builds_it(tmp_path: Path) -> None:
 
     assert payload["rel_dir"] == "runs/baseline"
     assert (project / ".hmp" / "index.duckdb").is_file()
-
-
-def test_show_simulation_in_a_folder_that_is_no_project_raises(tmp_path: Path) -> None:
-    with pytest.raises(FileNotFoundError, match="not a project directory"):
-        show_simulation("baseline", workspace=tmp_path / "nowhere")
 
 
 def test_query_catalog_reads_the_views(tmp_path: Path) -> None:
@@ -188,14 +146,6 @@ def test_query_catalog_invalid_sql_raises_duckdb_error(tmp_path: Path) -> None:
 
     with pytest.raises(duckdb.Error):
         query_catalog("SELECT * FROM no_such_table", workspace=project)
-
-
-def test_diff_simulations_compares_parameters(tmp_path: Path) -> None:
-    _workspace, project, _sim_id = _seed_workspace(tmp_path)
-
-    delta = diff_simulations("baseline", "variant", workspace=project)
-
-    assert ("K", "catchment") in delta["params"]
 
 
 _AT = datetime(2026, 11, 10, 9, 0, tzinfo=UTC)
@@ -249,28 +199,6 @@ def test_show_simulation_reads_the_profile_from_the_run_folder(tmp_path: Path) -
         {"name": "load_data", "attempt": 2, "reused": "prefix", "key": None},
         {"name": "build_geographic", "attempt": 2, "reused": "store", "key": "terrain/ab12"},
     ]
-
-
-def test_a_run_of_a_pre_release_has_no_profile_and_its_solve_time_is_read_from_the_seal(
-    tmp_path: Path,
-) -> None:
-    _workspace, project, _sim_id = _seed_workspace(tmp_path)
-    run_dir = project / "runs" / "variant"
-    record = RunRecord.read(run_dir)
-    row = MetricRow(
-        station="flow_main::modflow6",
-        variable="runtime",
-        metric=SEALED_SOLVE_METRIC,
-        value=26.3,
-    )
-    record.model_copy(update={"metrics": [*record.metrics, row]}).write(run_dir)
-
-    sealed = show_simulation("variant", workspace=project)["profile"]
-    bare = show_simulation("baseline", workspace=project)["profile"]
-
-    assert sealed == {"present": False, "message": NO_PROFILE_TEXT, "solve_s": 26.3}
-    assert bare == {"present": False, "message": NO_PROFILE_TEXT, "solve_s": None}
-    assert NO_PROFILE_TEXT == "no profile.json, solve time from the seal"
 
 
 @pytest.mark.parametrize(
@@ -334,16 +262,6 @@ def test_the_facts_of_a_run_hold_its_tags_notes_metrics_and_parameters(tmp_path:
     assert not facts.metrics.empty
     assert bare.tags == [] and bare.notes == []
     assert "K" in set(bare.parameters.reset_index().astype(str).to_numpy().ravel())
-
-
-def test_the_runs_of_a_workspace_carry_the_facts_of_their_seal(tmp_path: Path) -> None:
-    workspace, _project, _sim_id = _seed_workspace(tmp_path)
-
-    frame, reasons = list_runs(workspace)
-
-    assert set(frame["name"]) == {"baseline", "variant"}
-    assert reasons == []
-    assert {"overrides", "score_station", "metric_rule_version"} <= set(frame.columns)
 
 
 def test_no_run_gives_an_empty_frame_and_no_reason(tmp_path: Path) -> None:

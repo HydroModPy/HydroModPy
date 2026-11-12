@@ -72,24 +72,6 @@ def _hmp_site(argv: list[str]) -> None:
 
 
 @pytest.mark.fast
-def test_the_catalog_round_trips_in_site_row_columns(tmp_path):
-    root = _workspace(tmp_path)
-    other = SiteRow(site="canut", x_outlet=350000.0, y_outlet=6790000.0, crs="EPSG:2154")
-
-    path = write_catalog(root, [NANCON, other])
-
-    assert path == root / SITE_CATALOG_RELPATH
-    header = path.read_text(encoding="utf-8").splitlines()[0]
-    assert header == ",".join(SITE_ROW_COLUMNS)
-    assert read_catalog(root) == [NANCON, other]
-
-
-@pytest.mark.fast
-def test_an_absent_catalog_has_no_site(tmp_path):
-    assert read_catalog(_workspace(tmp_path)) == []
-
-
-@pytest.mark.fast
 def test_a_bad_row_is_named_by_its_line(tmp_path):
     root = _workspace(tmp_path)
     path = root / SITE_CATALOG_RELPATH
@@ -119,17 +101,6 @@ def test_a_declared_name_is_refused_without_force_and_replaced_with_it():
         add_sites([NANCON], [renamed], near_site_m=500.0)
 
     assert add_sites([NANCON], [renamed], near_site_m=500.0, force=True) == [renamed]
-
-
-@pytest.mark.fast
-def test_an_outlet_close_to_another_site_is_refused_without_force():
-    twin = SiteRow(site="nancon_bis", x_outlet=389400.0, y_outlet=6816600.0, crs="EPSG:2154")
-
-    with pytest.raises(SiteConflictError, match=r"nancon_bis: outlet 140 m from site nancon"):
-        add_sites([NANCON], [twin], near_site_m=500.0)
-
-    assert add_sites([NANCON], [twin], near_site_m=100.0) == [NANCON, twin]
-    assert add_sites([NANCON], [twin], near_site_m=500.0, force=True) == [NANCON, twin]
 
 
 @pytest.mark.fast

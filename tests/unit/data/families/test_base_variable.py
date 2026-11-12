@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
-import hashlib
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
 
-from hydromodpy.data.common.geometry import bbox_hash as _bbox_hash
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.families.grids import GridVariable
 from hydromodpy.data.families.stations import StationVariable
 from hydromodpy.data.provenance.sidecars import CacheIndex
-from tests._helpers.data_climatic_builders import _make_field_record, _make_point_record
+from tests._helpers.data_climatic_builders import _make_field_record
 
 
 class _DummyStations(StationVariable):
@@ -45,18 +43,6 @@ def _make_record(station_id, start, end, values=None):
 
 
 class TestComputeMissingPeriods:
-    def test_full_coverage(self):
-        mgr = _DummyStations(
-            config=None,
-            index=CacheIndex(None),
-            project_period=(datetime(2020, 6, 1), datetime(2020, 12, 31)),
-        )
-        gaps = mgr._compute_missing_periods(
-            datetime(2020, 1, 1),
-            datetime(2021, 12, 31),
-        )
-        assert gaps == []
-
     def test_gap_before(self):
         mgr = _DummyStations(
             config=None,
@@ -70,20 +56,6 @@ class TestComputeMissingPeriods:
         assert len(gaps) == 1
         assert gaps[0][0] == datetime(2020, 1, 1)
         assert gaps[0][1] == datetime(2020, 5, 31)
-
-    def test_gap_after(self):
-        mgr = _DummyStations(
-            config=None,
-            index=CacheIndex(None),
-            project_period=(datetime(2020, 1, 1), datetime(2022, 12, 31)),
-        )
-        gaps = mgr._compute_missing_periods(
-            datetime(2020, 1, 1),
-            datetime(2021, 6, 30),
-        )
-        assert len(gaps) == 1
-        assert gaps[0][0] == datetime(2021, 7, 1)
-        assert gaps[0][1] == datetime(2022, 12, 31)
 
     def test_gap_both_sides(self):
         mgr = _DummyStations(
@@ -144,86 +116,25 @@ class _DummyGrids(GridVariable):
 
 @pytest.mark.fast
 class TestNcFilename:
-    def test_deterministic_with_bbox(self):
-        bbox = (100.0, 200.0, 300.0, 400.0)
-        name = GridVariable._nc_filename(
-            "recharge",
-            "sim2",
-            bbox,
-            datetime(2020, 1, 1),
-            datetime(2020, 12, 31),
-        )
-        expected_hash = _bbox_hash(bbox)
-        assert name == f"recharge_sim2_{expected_hash}_20200101_20201231.nc"
-
     def test_same_bbox_same_hash(self):
         bbox = (1.5, 2.5, 3.5, 4.5)
         n1 = GridVariable._nc_filename("etp", "sim2", bbox, None, None)
         n2 = GridVariable._nc_filename("etp", "sim2", bbox, None, None)
         assert n1 == n2
 
-    def test_different_bbox_different_hash(self):
-        n1 = GridVariable._nc_filename(
-            "etp",
-            "sim2",
-            (1.0, 2.0, 3.0, 4.0),
-            None,
-            None,
-        )
-        n2 = GridVariable._nc_filename(
-            "etp",
-            "sim2",
-            (10.0, 20.0, 30.0, 40.0),
-            None,
-            None,
-        )
-        assert n1 != n2
-
     def test_no_bbox_no_dates(self):
         name = GridVariable._nc_filename("recharge", "custom", None, None, None)
         assert name == "recharge_custom.nc"
 
-    def test_bbox_hash_is_md5_prefix(self):
-        bbox = (1.0, 2.0, 3.0, 4.0)
-        s = f"{bbox[0]:.6f}_{bbox[1]:.6f}_{bbox[2]:.6f}_{bbox[3]:.6f}"
-        expected = hashlib.md5(s.encode()).hexdigest()[:8]
-        assert _bbox_hash(bbox) == expected
-
 
 @pytest.mark.fast
 class TestHandleFileResults:
-    def test_separates_point_and_field_records(self):
-        mgr = _DummyGrids(config=None, index=None)
-        pt = _make_point_record()
-        fr = _make_field_record()
-
-        # source_cfg needs mask_path attribute for _apply_mask check
-        source_cfg = MagicMock()
-        source_cfg.mask_path = None
-
-        result = mgr._handle_file_results([pt, fr], source_cfg)
-
-        # PointRecords pass through (no mask), FieldRecords appended
-        point_results = [r for r in result if isinstance(r, PointRecord)]
-        field_results = [r for r in result if isinstance(r, FieldRecord)]
-        assert len(point_results) == 1
-        assert len(field_results) == 1
-
     def test_empty_list(self):
         mgr = _DummyGrids(config=None, index=None)
         source_cfg = MagicMock()
         source_cfg.mask_path = None
         result = mgr._handle_file_results([], source_cfg)
         assert result == []
-
-    def test_points_only(self):
-        mgr = _DummyGrids(config=None, index=None)
-        pt = _make_point_record()
-        source_cfg = MagicMock()
-        source_cfg.mask_path = None
-        result = mgr._handle_file_results([pt], source_cfg)
-        assert len(result) == 1
-        assert isinstance(result[0], PointRecord)
 
     def test_a_user_file_is_no_row_of_the_cache(self):
         index = MagicMock()

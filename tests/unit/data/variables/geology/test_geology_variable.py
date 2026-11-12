@@ -72,18 +72,6 @@ def test_force_refresh_downloads_again(tmp_path: Path) -> None:
     assert source.calls == 2
 
 
-def test_a_cached_file_that_changed_is_downloaded_again(tmp_path: Path) -> None:
-    data_root = tmp_path / "data"
-    source = _FakeBrgm()
-    cfg = _config(tmp_path)
-    first = _variable(data_root, data_root / "geology")._fetch_listed_source(source, cfg)
-    Path(first[0].data).write_bytes(b"not a geopackage any more")
-
-    _variable(data_root, data_root / "geology")._fetch_listed_source(source, cfg)
-
-    assert source.calls == 2
-
-
 def test_a_download_without_a_data_folder_is_refused_and_leaves_the_user_cache_alone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

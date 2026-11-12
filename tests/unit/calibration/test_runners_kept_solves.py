@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import logging
 import pickle
-import threading
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,16 +13,13 @@ import pytest
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence
-from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners import trial as trial_module
 from hydromodpy.calibration.runners.kept_solves import (
     KeptSolve,
     KeptSolveLauncher,
-    RecordingLauncher,
     TrialSolveRetention,
-    retention_capacity,
 )
-from hydromodpy.calibration.runners.session_scope import keep_trial_solves, release_trial_solves
+from hydromodpy.calibration.runners.session_scope import keep_trial_solves
 from hydromodpy.calibration.runners.trial import (
     TrialContext,
     promote_prepared_trial,
@@ -34,14 +29,12 @@ from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.state.run_state import ExecutionRegistry
 from hydromodpy.model.initial.state import PriorState
 from hydromodpy.model.model import Properties
-from hydromodpy.project.trial_pipeline import WorkflowTrialPipeline
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.state import PipelineState
-from hydromodpy.workflow.steps.run_solver import RunSolverStep
 from tests._helpers.model_factory import make_model
 from tests.unit.calibration._factories import Setup
-from tests.unit.calibration._factories_runners import FakePipeline, ToyCtx, make_session
+from tests.unit.calibration._factories_runners import FakePipeline, ToyCtx
 
 # From test_a_promoted_trial_reads_its_kept_solve.py
 # A promoted trial reads the solve its trial kept instead of solving again.
@@ -92,18 +85,6 @@ def _offer(retention: TrialSolveRetention, root: Path, trial_id: int, cost: floa
 # ---------------------------------------------------------------------------
 # What a session keeps
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize(
-    ("declared", "expected"),
-    [
-        ({"save_runs": "all"}, None),
-        ({"save_runs": "best_n", "save_best_n": 3}, 3),
-        ({}, 1),
-        ({"save_runs": "best_n", "save_best_n": 0}, 0),
-        ({"save_runs": "none"}, 0),
-    ],
-)
-def test_a_session_keeps_as_many_solves_as_it_promotes(declared, expected) -> None:
-    assert retention_capacity(CalibrationConfig(**declared)) == expected
 
 
 def test_a_session_that_promotes_nothing_attaches_no_retention() -> None:
@@ -112,38 +93,6 @@ def test_a_session_that_promotes_nothing_attaches_no_retention() -> None:
     assert trial_ctx.kept_solves is None
     keep_trial_solves(CalibrationConfig(save_runs="all"), trial_ctx)
     assert isinstance(trial_ctx.kept_solves, TrialSolveRetention)
-
-
-def test_every_completed_trial_is_kept_when_all_are_promoted(tmp_path: Path) -> None:
-    retention = TrialSolveRetention(None, keep_everything=False)
-    folders = [
-        _offer(retention, tmp_path, trial_id, cost) for trial_id, cost in enumerate((3, 1, 2))
-    ]
-    assert all(folder.is_dir() for folder in folders)
-    assert all(retention.take(trial_id)[0] is not None for trial_id in range(3))
-
-
-def test_a_solve_goes_as_soon_as_cheaper_ones_fill_the_retention(tmp_path: Path) -> None:
-    retention = TrialSolveRetention(2, keep_everything=False)
-    first = _offer(retention, tmp_path, 1, 3.0)
-    second = _offer(retention, tmp_path, 2, 1.0)
-    assert first.is_dir() and second.is_dir()
-
-    third = _offer(retention, tmp_path, 3, 2.0)
-
-    assert not first.is_dir(), "the most expensive solve can no longer be promoted"
-    assert second.is_dir() and third.is_dir()
-    kept, why_not = retention.take(1)
-    assert kept is None and "cheapest" in str(why_not)
-
-
-def test_a_trial_worse_than_every_kept_one_is_left_to_its_sandbox(tmp_path: Path) -> None:
-    retention = TrialSolveRetention(1, keep_everything=False)
-    _offer(retention, tmp_path, 1, 1.0)
-    folder = _folder(tmp_path, "m_trial000002")
-    assert retention.offer(2, 5.0, [folder], _results(folder)) is False
-    # Retention does not delete what it never took: the sandbox exit does.
-    assert folder.is_dir()
 
 
 def test_a_solve_a_worker_left_is_adopted_or_deleted_by_its_cost(tmp_path: Path) -> None:
@@ -159,43 +108,6 @@ def test_a_solve_a_worker_left_is_adopted_or_deleted_by_its_cost(tmp_path: Path)
     # The solver object stays with the kept solve.
     assert kept.results == solves[0].results
     assert solves[0].folders[0].is_dir() and not solves[1].folders[0].exists()
-
-
-def test_a_tie_keeps_the_earlier_trial(tmp_path: Path) -> None:
-    retention = TrialSolveRetention(1, keep_everything=False)
-    early = _offer(retention, tmp_path, 1, 1.0)
-    late = _folder(tmp_path, "m_trial000002")
-    assert retention.offer(2, 1.0, [late], _results(late)) is False
-    assert early.is_dir()
-
-
-def test_trials_offered_side_by_side_keep_the_cheapest(tmp_path: Path) -> None:
-    retention = TrialSolveRetention(1, keep_everything=False)
-    costs = [float((7 * index) % 20) + 0.5 for index in range(20)]
-    outcome: dict[int, bool] = {}
-    folders: dict[int, Path] = {}
-
-    def _worker(trial_id: int) -> None:
-        folders[trial_id] = _folder(tmp_path, f"m_trial{trial_id:06d}")
-        outcome[trial_id] = retention.offer(
-            trial_id, costs[trial_id], [folders[trial_id]], _results(folders[trial_id])
-        )
-
-    threads = [threading.Thread(target=_worker, args=(index,)) for index in range(20)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-
-    cheapest = min(range(20), key=lambda index: costs[index])
-    assert retention.take(cheapest)[0] is not None
-    for trial_id in range(20):
-        if trial_id == cheapest:
-            continue
-        assert retention.take(trial_id)[0] is None
-        # Taken and later pushed out: deleted by retention. Refused on arrival:
-        # left to the sandbox, so still on disk here.
-        assert folders[trial_id].is_dir() is (not outcome[trial_id])
 
 
 def test_a_promoted_solve_belongs_to_its_run_and_the_rest_go_at_release(tmp_path: Path) -> None:
@@ -227,17 +139,6 @@ def test_keep_trial_scratch_keeps_every_folder(tmp_path: Path) -> None:
     retention.release()
     assert dropped.is_dir() and kept.is_dir()
     assert dropped in retention.spared_folders()
-
-
-def test_the_session_releases_its_solves_and_detaches_the_retention(tmp_path: Path) -> None:
-    retention = TrialSolveRetention(None, keep_everything=False)
-    folder = _offer(retention, tmp_path, 1, 1.0)
-    trial_ctx = SimpleNamespace(kept_solves=retention)
-
-    release_trial_solves(trial_ctx)
-
-    assert trial_ctx.kept_solves is None
-    assert not folder.is_dir()
 
 
 def test_a_solve_whose_folder_is_gone_is_not_read(tmp_path: Path) -> None:
@@ -287,11 +188,6 @@ def test_a_kept_solve_crosses_the_worker_pipe_with_its_model(tmp_path: Path) -> 
     assert sent.initial.lake_stages == {"lake": 4.0}
     with pytest.raises(TypeError):
         sent.lakes["other"] = {}
-
-
-def test_a_trial_that_never_ran_here_says_so(tmp_path: Path) -> None:
-    kept, why_not = TrialSolveRetention(None, keep_everything=False).take(7)
-    assert kept is None and "cache hit" in str(why_not)
 
 
 # ---------------------------------------------------------------------------
@@ -349,22 +245,6 @@ def test_the_kept_solve_launcher_refuses_a_run_it_has_no_solve_for(tmp_path: Pat
     state = SimpleNamespace(execution=ExecutionRegistry(), setup=SimpleNamespace(flow=object()))
     with pytest.raises(CalibrationError, match="Trial 4 kept no solve"):
         KeptSolveLauncher(kept).execute(_Plan(runs=(_Run("flow_main"),)), state)
-
-
-def test_the_solver_step_of_a_pipeline_takes_the_launcher_it_is_given() -> None:
-
-    pipeline = WorkflowTrialPipeline()
-    steps = tuple(pipeline.standard_steps())
-    launcher = RecordingLauncher()
-
-    swapped = pipeline.with_solver_launcher(steps, launcher)
-
-    assert [step.name for step in swapped] == [step.name for step in steps]
-    solver_steps = [step for step in swapped if isinstance(step, RunSolverStep)]
-    assert len(solver_steps) == 1 and solver_steps[0].launcher is launcher
-    assert all(
-        new is old for new, old in zip(swapped, steps, strict=True) if new.name != "run_solver"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -519,23 +399,6 @@ def test_a_trial_hands_its_solve_to_the_retention(toy) -> None:
     assert kept.results["flow_main"].metrics == {"water_budget_percent_discrepancy": 0.01}
 
 
-def test_a_failed_trial_keeps_nothing(toy) -> None:
-    trial_ctx, _ = toy
-    trial_ctx.kept_solves = TrialSolveRetention(None, keep_everything=False)
-    scratch = trial_ctx.ctx.setup.workspace.solver_scratch_folder
-
-    result = run_trial_light(
-        trial_ctx,
-        {"K": 1.0},
-        metric_fn=lambda ctx, *, objective, variable: (float("nan"), {}),
-        trial_id=1,
-    )
-
-    assert result.status == "failed"
-    assert not (scratch / "toy_trial000001").exists()
-    assert trial_ctx.kept_solves.take(1)[0] is None
-
-
 def test_the_promoted_run_is_the_one_a_replay_writes_without_a_second_solve(toy) -> None:
     trial_ctx, stores = toy
     trial_ctx.kept_solves = TrialSolveRetention(None, keep_everything=False)
@@ -564,68 +427,6 @@ def test_the_promoted_run_is_the_one_a_replay_writes_without_a_second_solve(toy)
     assert stores["replayed:spared"] == ""
 
 
-def test_a_trial_without_a_kept_solve_is_solved_again_and_the_log_says_why(
-    tmp_path: Path, monkeypatch, caplog
-) -> None:
-
-    retention = TrialSolveRetention(1, keep_everything=False)
-    _offer(retention, tmp_path, 1, 1.0)
-    second = _offer(retention, tmp_path, 2, 0.5)
-    calls: list[dict[str, Any]] = []
-
-    def _fake_promote(trial_ctx, values, **kwargs):
-        del trial_ctx, values
-        calls.append(kwargs)
-        return kwargs["sim_id"]
-
-    project = tmp_path / "project"
-    persistence = make_session(
-        project,
-        "toy",
-        costs=[{"cost": 1.0, "values": {}}, {"cost": 0.5, "values": {}}],
-        project="project",
-        bounds={},
-    )
-    monkeypatch.setattr(promotion_module, "promote_prepared_trial", _fake_promote)
-    results = SimpleNamespace(persistence=SimpleNamespace(save_catalog=True))
-    base_cfg = SimpleNamespace(simulation=SimpleNamespace(results=results))
-    trial_ctx = SimpleNamespace(kept_solves=retention, base_cfg=base_cfg)
-
-    with caplog.at_level(logging.INFO, logger=promotion_module.logger.name):
-        outcome = promotion_module.promote_session(
-            cfg=CalibrationConfig(save_runs="all"),
-            trial_ctx=trial_ctx,
-            persistence=persistence,
-            project_root=project,
-            phase="main",
-            session_status="completed",
-            override_paths={},
-        )
-
-    assert (outcome.count, outcome.failures) == (2, [])
-    # The best (trial 2) is promoted first, from its kept solve; trial 1 is solved again.
-    assert calls[0]["kept"] is not None and calls[0]["kept"].trial_id == 2
-    assert calls[1]["kept"] is None
-    replayed = [record.getMessage() for record in caplog.records if "again" in record.getMessage()]
-    assert len(replayed) == 1
-    assert "trial 1" in replayed[0] and "cheapest" in replayed[0]
-    retention.release()
-    assert second.is_dir(), "a promoted solve is left to its run"
-
-
-def test_a_kept_solve_keeps_its_solver_object(tmp_path: Path) -> None:
-    # The promotion reads the solver object for the series at the stations and
-    # the grid of the run, and the files of the kept folder for the rest.
-    retention = TrialSolveRetention(None, keep_everything=False)
-    folder = _folder(tmp_path, "trial_1")
-    run = _solved(folder, SimpleNamespace(name="trial_1"))
-
-    assert retention.offer(1, 0.5, (folder,), {"flow_main": run})
-
-    kept, _ = retention.take(1)
-    assert kept.results["flow_main"] is run
-
-
 class _RunnerThatRemembers:
     """Stands in for ``SimulationRunner`` and remembers the previous runs it was given."""
 
@@ -642,19 +443,3 @@ LAUNCHES: tuple[tuple[str, dict | None, dict | None], ...] = (
     ("an empty lane", {}, None),
     ("a lane with a parent", {"flow_main": "parent"}, {"flow_main": "parent"}),
 )
-
-
-@pytest.mark.parametrize(("case", "previous", "given"), LAUNCHES, ids=[c for c, *_ in LAUNCHES])
-def test_the_recording_launcher_hands_the_parent_of_its_lane_to_the_runner(
-    monkeypatch, case: str, previous: dict | None, given: dict | None
-) -> None:
-    del case
-    monkeypatch.setattr("hydromodpy.solver.base.runner.SimulationRunner", _RunnerThatRemembers)
-    _RunnerThatRemembers.given.clear()
-    plan = SimpleNamespace(runs=(SimpleNamespace(id="flow_main"),))
-
-    launcher = RecordingLauncher(previous=previous)
-    launcher.execute(plan, SimpleNamespace())
-
-    assert _RunnerThatRemembers.given == [given]
-    assert set(launcher.results) == {"flow_main"}

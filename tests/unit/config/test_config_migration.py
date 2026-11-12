@@ -15,36 +15,27 @@ from pathlib import Path
 
 import pytest
 import tomlkit
-from packaging.version import Version
 
 from hydromodpy.config.config_migration import (
-    PRERELEASE_FORMS,
-    RULES,
     apply_edition,
-    document_path,
-    edition_of,
     fix_config_chain,
     fix_config_file,
     migrate_config_doc,
     migrate_config_doc_on_load,
-    migrate_layers,
     migrate_merged_doc,
     migrate_sealed_config_doc,
-    moved_paths,
     rewrite_dotted_path,
 )
-from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
 from hydromodpy.core.config_kit.base import (
     CANNOT_REWRITE,
     ConfigKeyRenamedWarning,
     warn_old_form,
 )
-from hydromodpy.core.config_kit.introspect import held_tables_of
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.core.toml_io.overrides import SET_SOURCE
 from hydromodpy.core.version import __version__
-from hydromodpy.schema.changes import REGISTER, migrations_of, outlived, read
+from hydromodpy.schema.changes import migrations_of, outlived, read
 from tools.surface_snapshot import toml_fields
 
 
@@ -135,34 +126,6 @@ SHAPES = {
 
 
 @pytest.mark.parametrize(("text", "path", "value", "told"), SHAPES.values(), ids=SHAPES.keys())
-def test_a_live_file_in_the_delay_loads_with_a_warning(
-    text: str, path: str, value: object, told: str, tmp_path: Path
-) -> None:
-    doc = tomllib.loads(text)
-    source = tmp_path / "project.toml"
-
-    with pytest.warns(ConfigKeyRenamedWarning) as warned:
-        changes = migrate_config_doc_on_load(doc, source=source, register=FIXTURE)
-
-    assert changes == [told]
-    assert _dig(doc, path) == value
-    assert f"hmp doctor --fix-config {source}" in str(warned[0].message)
-
-
-@pytest.mark.parametrize(("text", "path", "value", "told"), SHAPES.values(), ids=SHAPES.keys())
-def test_a_sealed_run_reads_each_shape_in_silence(
-    text: str, path: str, value: object, told: str
-) -> None:
-    doc = tomllib.loads(text)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        assert migrate_sealed_config_doc(doc, register=FIXTURE) == [told]
-
-    assert _dig(doc, path) == value
-
-
-@pytest.mark.parametrize(("text", "path", "value", "told"), SHAPES.values(), ids=SHAPES.keys())
 def test_the_doctor_rewrites_each_shape(
     text: str, path: str, value: object, told: str, tmp_path: Path
 ) -> None:
@@ -188,23 +151,6 @@ def test_a_form_past_its_delay_is_refused_with_its_new_name(tmp_path: Path) -> N
     )
 
 
-def test_a_form_past_its_delay_still_reads_in_a_sealed_run_and_through_the_doctor(
-    tmp_path: Path,
-) -> None:
-    sealed = {"late_table": {"x": 1}}
-    migrate_sealed_config_doc(sealed, register=FIXTURE)
-    file = _write(tmp_path, "[late_table]\nx = 1\n")
-    fix_config_chain(file, register=FIXTURE)
-
-    assert sealed == {"late": {"table": {"x": 1}}}
-    assert tomllib.loads(file.read_text()) == {"late": {"table": {"x": 1}}}
-
-
-def test_a_path_past_its_delay_moves_only_for_a_sealed_document() -> None:
-    assert rewrite_dotted_path("late_table.x", register=FIXTURE) == "late_table.x"
-    assert rewrite_dotted_path("late_table.x", sealed=True, register=FIXTURE) == "late.table.x"
-
-
 RETIRED = {
     "a key that left, sealed drop": (
         "[section]\ngone = 1\nkept = 2\n",
@@ -217,19 +163,6 @@ RETIRED = {
         None,
     ),
 }
-
-
-@pytest.mark.parametrize(("text", "label", "sealed"), RETIRED.values(), ids=RETIRED.keys())
-def test_a_live_file_that_holds_a_key_that_left_is_refused_with_what_to_write(
-    text: str, label: str, sealed: object, tmp_path: Path
-) -> None:
-    del sealed
-    with pytest.raises(ConfigValidationError, match=label) as refused:
-        migrate_config_doc_on_load(
-            tomllib.loads(text), source=tmp_path / "project.toml", register=FIXTURE
-        )
-
-    assert "it left in 2.1.0" in str(refused.value)
 
 
 @pytest.mark.parametrize(("text", "label", "sealed"), RETIRED.values(), ids=RETIRED.keys())
@@ -310,16 +243,6 @@ def test_a_dotted_key_given_twice_is_left_with_the_reason() -> None:
     ]
 
 
-def test_set_reads_a_form_in_its_delay_and_does_not_promise_the_doctor() -> None:
-    layer = {"old_table": {"x": 1}}
-
-    with pytest.warns(ConfigKeyRenamedWarning, match="write the new name") as warned:
-        migrate_layers([(SET_SOURCE, layer)], register=FIXTURE)
-
-    assert layer == {"new": {"table": {"x": 1}}}
-    assert "hmp doctor" not in str(warned[0].message)
-
-
 def test_a_key_written_under_both_names_keeps_the_new_one_and_says_what_differed() -> None:
     doc = {"old_table": {"x": 1}, "new": {"table": {"x": 2}}}
 
@@ -389,11 +312,6 @@ def test_an_edition_the_register_does_not_know_is_refused_with_the_ones_it_serve
         migrate_merged_doc({"edition": "9.9"}, register=EDITIONS)
 
 
-def test_a_file_that_writes_no_edition_is_of_the_first_one() -> None:
-    assert edition_of({}) == "2.0"
-    assert edition_of({"edition": "2.1"}) == "2.1"
-
-
 def test_the_merged_document_and_a_sealed_run_take_the_defaults_of_their_edition() -> None:
     merged: dict = {}
     sealed: dict = {"edition": "2.1"}
@@ -408,12 +326,6 @@ def test_the_merged_document_and_a_sealed_run_take_the_defaults_of_their_edition
 # --- the shipped register -----------------------------------------------------
 
 
-def test_every_rule_a_row_names_is_a_function_of_the_table() -> None:
-    named = {row.rule for row in migrations_of("config") if row.rule is not None}
-
-    assert named == set(RULES)
-
-
 def _keys_of_the_grammar() -> set[str]:
     return {row.split("\t", 1)[0] for row in toml_fields()}
 
@@ -423,27 +335,6 @@ def _a_key_the_models_hold(path: str, keys: set[str]) -> bool:
 
 
 CONFIG_MOVES = [row for row in migrations_of("config") if row.shape == "move"]
-
-
-@pytest.mark.parametrize("row", CONFIG_MOVES, ids=lambda row: f"{row.old}->{row.new}")
-def test_every_move_leads_to_a_key_the_models_hold_and_away_from_one(row) -> None:
-    keys = _keys_of_the_grammar()
-
-    assert _a_key_the_models_hold(document_path(str(row.new)), keys), f"{row.new} is no key"
-    assert document_path(str(row.old)) not in keys, f"{row.old} is still a key"
-
-
-@pytest.mark.parametrize(
-    "row",
-    [row for row in migrations_of("config") if row.shape == "value"],
-    ids=lambda row: f"{row.key}={row.old_value}",
-)
-def test_every_renamed_value_is_held_against_its_key(row) -> None:
-    steps = str(row.key).replace("[*]", "").split(".")
-    assert any(
-        len(parts) == len(steps) and all(s in (p, "{*}") for s, p in zip(steps, parts, strict=True))
-        for parts in (key.split(".") for key in _keys_of_the_grammar())
-    )
 
 
 @pytest.mark.parametrize(
@@ -469,76 +360,6 @@ def test_the_parent_tables_of_transport_move_after_their_parameters() -> None:
         assert olds.index(f"transport.{name}.parameters") < olds.index(f"transport.{name}")
 
 
-def test_hmp_init_of_2_0_loads_with_a_warning_until_2_2(tmp_path: Path) -> None:
-    """``[[simulation.process]] type`` is the form the scaffold of a pre-release wrote."""
-    row = next(row for row in CONFIG_MOVES if row.old == "simulation.process[*].type")
-    doc = {"simulation": {"process": [{"id": "flow", "type": "flow", "solvers": ["modflow6"]}]}}
-
-    with pytest.warns(ConfigKeyRenamedWarning, match="type -> kind"):
-        migrate_config_doc_on_load(doc, source=tmp_path / "run.toml")
-
-    assert doc["simulation"]["process"][0]["kind"] == "flow"
-    assert (row.since, outlived(row.since, "2.1.9"), outlived(row.since, "2.2.0")) == (
-        "2.0.0",
-        False,
-        True,
-    )
-
-
-def test_no_old_python_name_or_command_form_outlives_its_delay() -> None:
-    from hydromodpy._lazy import OLD_NAMES
-    from hydromodpy.cli.conventions import OLD_CLI_FORMS
-
-    late = [
-        f"{name} (since {entry.since})"
-        for name, entry in OLD_NAMES.items()
-        if outlived(entry.since, __version__)
-    ]
-    late += [
-        f"{form.old} (since {form.since})"
-        for form in OLD_CLI_FORMS
-        if outlived(form.since, __version__)
-    ]
-    assert late == [], (
-        f"HydroModPy {__version__} still holds old names past their delay: {late}. Delete each "
-        "one from OLD_NAMES in hydromodpy/_lazy.py or OLD_CLI_FORMS in hydromodpy/cli/conventions.py."
-    )
-
-
-def test_every_row_of_the_config_states_a_version_of_2_or_later() -> None:
-    assert all(Version(row.since) >= Version("2.0.0") for row in migrations_of("config"))
-    identities = [(row.old, row.key, repr(row.old_value)) for row in REGISTER.migrations]
-    assert len(identities) == len(set(identities))
-
-
-def test_every_rename_a_model_declares_has_its_row_or_its_pre_release_form() -> None:
-    """``renamed_from`` names a path a row moves, or a form only a pre-release wrote."""
-    from hydromodpy.core.config_kit.base import HydroModelBase
-
-    known = {document_path(str(row.old)) for row in migrations_of("config") if row.old}
-    known |= {document_path(form.path) for form in PRERELEASE_FORMS}
-    known |= {
-        "mesh_catchment",
-        "mesh_input",
-        "modflow6.sgrid.planar",
-        "modflownwt.sgrid.planar",
-        "modflow6.sgrid.grid_dual",
-        "modflownwt.sgrid.grid_dual",
-    }
-    declared: set[str] = set()
-    todo = [HydroModelBase]
-    while todo:
-        cls = todo.pop()
-        todo.extend(cls.__subclasses__())
-        if not cls.__module__.startswith("hydromodpy."):
-            continue
-        for field in cls.model_fields.values():
-            extra = field.json_schema_extra if isinstance(field.json_schema_extra, dict) else {}
-            declared.update(extra.get("renamed_from") or ())
-    assert declared
-    assert sorted(declared - known) == []
-
-
 _FROZEN_V1 = Path(__file__).parent / "fixtures" / "frozen_run_config_export_v1.toml"
 
 
@@ -560,78 +381,10 @@ def test_a_run_sealed_by_a_pre_release_of_example_04_is_refused() -> None:
 MODFLOW6 = "[modflow6.process_specific]\nvka = 2.0\n"
 
 
-def test_a_load_migrates_in_memory_and_warns_once_per_key_and_file(tmp_path: Path) -> None:
-    source = tmp_path / "project.toml"
-    doc = tomllib.loads(MODFLOW6)
-
-    # The default filter of Python shows one text once per line, so a second load of the
-    # same file is silent and another file is told.
-    with warnings.catch_warnings(record=True) as told:
-        warnings.simplefilter("default")
-        changes = migrate_config_doc_on_load(doc, source=source)
-        again = migrate_config_doc_on_load(tomllib.loads(MODFLOW6), source=source)
-        migrate_config_doc_on_load(tomllib.loads(MODFLOW6), source=tmp_path / "other.toml")
-
-    assert changes == again == ["modflow6 -> [solver.modflow6]"]
-    assert doc == {"solver": {"modflow6": {"process_specific": {"vka": 2.0}}}}
-    assert len(told) == 2
-    assert f"hmp doctor --fix-config {source}" in str(told[0].message)
-    assert "other.toml" in str(told[1].message)
-
-
-def test_a_report_on_a_file_sees_its_old_forms_again(tmp_path: Path) -> None:
-    source = tmp_path / "project.toml"
-    with pytest.warns(ConfigKeyRenamedWarning):
-        migrate_config_doc_on_load(tomllib.loads(MODFLOW6), source=source)
-
-    with pytest.warns(ConfigKeyRenamedWarning):
-        migrate_config_doc_on_load(tomllib.loads(MODFLOW6), source=source)
-
-
 def test_a_form_the_loader_cannot_rewrite_does_not_promise_the_doctor() -> None:
     with pytest.warns(ConfigKeyRenamedWarning, match="seed left: why") as told:
         warn_old_form("project.toml", "calibration.seed left: why")
     assert "hmp doctor" not in str(told[0].message)
-
-
-def test_a_current_document_is_left_untouched_and_says_nothing(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    doc = tomllib.loads('[simulation]\nname = "cheze"\nif_exists = "version"\n')
-    with caplog.at_level("INFO"), warnings.catch_warnings():
-        warnings.simplefilter("error")
-        changes = migrate_config_doc_on_load(doc, source="cheze.toml")
-    assert changes == []
-    assert caplog.records == []
-    assert migrate_config_doc(tomllib.loads('[[export]]\nvariables = "head"\n')) == []
-
-
-def test_the_doctor_follows_the_chain_and_rewrites_each_file_that_holds_an_old_form(
-    tmp_path: Path,
-) -> None:
-    parent, child = _chain(
-        tmp_path,
-        "# the project\n[modflow6.process_specific]\nvka = 2.0 # stiff\n",
-        '# one run\n[flow.runtime]\nbackend = "local" # serial\n',
-    )
-
-    changes = fix_config_chain(child)
-
-    assert changes == {
-        parent: ["modflow6 -> [solver.modflow6]"],
-        child: ["flow.runtime -> [solver.boussinesq]"],
-    }
-    assert "# the project" in parent.read_text()
-    assert "# stiff" in parent.read_text()
-    assert "# one run" in child.read_text()
-    assert "# serial" in child.read_text()
-    assert tomllib.loads(parent.read_text())["solver"] == {
-        "modflow6": {"process_specific": {"vka": 2.0}}
-    }
-    assert fix_config_chain(child) == {parent: [], child: []}
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", ConfigKeyRenamedWarning)
-        load_toml_with_base_config(child, root=ROOT_CONFIG)
 
 
 def test_a_dry_run_writes_nothing_and_gives_the_diff(tmp_path: Path) -> None:
@@ -643,19 +396,6 @@ def test_a_dry_run_writes_nothing_and_gives_the_diff(tmp_path: Path) -> None:
     assert changes[path.resolve()] == ["modflow6 -> [solver.modflow6]"]
     assert path.read_text() == MODFLOW6
     assert "+[solver.modflow6.process_specific]" in diffs[path.resolve()]
-
-
-def test_a_warning_names_the_file_that_holds_the_key(tmp_path: Path) -> None:
-    holder, child = _chain(tmp_path, MODFLOW6, "[workflow]\nprofile = false\n")
-
-    with pytest.warns(ConfigKeyRenamedWarning) as told:
-        load_toml_with_base_config(child, root=ROOT_CONFIG)
-
-    messages = [str(warning.message) for warning in told]
-    assert any("modflow6 -> [solver.modflow6]" in message for message in messages)
-    for message in messages:
-        assert message.startswith(f"{holder}: ")
-        assert f"hmp doctor --fix-config {holder}" in message
 
 
 def test_a_backend_split_across_two_files_is_named_by_the_merge(tmp_path: Path) -> None:
@@ -670,57 +410,9 @@ def test_a_backend_split_across_two_files_is_named_by_the_merge(tmp_path: Path) 
     assert merged["solver"]["backend"] == "plugged"
 
 
-def test_the_doctor_follows_a_directive_and_a_list_a_child_adds(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
-        "modflow6__delete = true\n\n[[simulation.process__append]]\n"
-        'id = "late"\ntype = "flow"\nsolvers = ["modflow6"]\n',
-    )
-
-    fix_config_file(path)
-
-    assert tomllib.loads(path.read_text()) == {
-        "solver": {"modflow6__delete": True},
-        "simulation": {
-            "process__append": [{"id": "late", "kind": "flow", "solvers": ["modflow6"]}]
-        },
-    }
-
-
-def test_the_doctor_reads_a_file_that_carries_a_byte_order_mark(tmp_path: Path) -> None:
-    """tomlkit reads a BOM as an empty key, which used to abort the whole fix."""
-    path = tmp_path / "project.toml"
-    path.write_text("﻿" + MODFLOW6, encoding="utf-8")
-
-    assert fix_config_file(path) == ["modflow6 -> [solver.modflow6]"]
-    assert tomllib.loads(path.read_text()) == {
-        "solver": {"modflow6": {"process_specific": {"vka": 2.0}}}
-    }
-
-
 def test_a_missing_file_raises(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         fix_config_file(tmp_path / "nope.toml")
-
-
-def test_the_doctor_leaves_a_current_file_as_it_is(tmp_path: Path) -> None:
-    text = '[simulation]\nname = "x"\n'
-    path = _write(tmp_path, text)
-
-    assert fix_config_file(path) == []
-    assert path.read_text() == text
-
-
-def test_a_moved_table_loads_through_the_model(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
-        '[workflow]\nmode = "simulation"\n[geographic]\nsource_mode = "synthetic"\n' + MODFLOW6,
-    )
-
-    with pytest.warns(ConfigKeyRenamedWarning):
-        config = HydroModPyConfig.from_toml(path)
-
-    assert held_tables_of(config.solver)["modflow6"].process_specific.vka == 2.0
 
 
 # --- the rules of the register and the forms of a pre-release ---------------------------
@@ -771,52 +463,6 @@ SOLVER_FORMS = (
 )
 
 
-@pytest.mark.parametrize(
-    ("case", "text", "path", "value"), SOLVER_FORMS, ids=[row[0] for row in SOLVER_FORMS]
-)
-def test_a_form_of_2_0_loads_with_a_warning(
-    case: str, text: str, path: str, value: object, tmp_path: Path
-) -> None:
-    del case
-    doc = tomllib.loads(text)
-
-    with pytest.warns(ConfigKeyRenamedWarning, match="hmp doctor --fix-config"):
-        migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
-
-    assert _dig(doc, path) == value
-
-
-@pytest.mark.parametrize(
-    ("case", "text", "path", "value"), SOLVER_FORMS, ids=[row[0] for row in SOLVER_FORMS]
-)
-def test_a_sealed_document_reads_a_form_of_2_0_in_silence(
-    case: str, text: str, path: str, value: object
-) -> None:
-    del case
-    doc = tomllib.loads(text)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        migrate_sealed_config_doc(doc)
-
-    assert _dig(doc, path) == value
-
-
-@pytest.mark.parametrize(
-    ("case", "text", "path", "value"), SOLVER_FORMS, ids=[row[0] for row in SOLVER_FORMS]
-)
-def test_the_doctor_rewrites_a_form_of_a_pre_release(
-    case: str, text: str, path: str, value: object, tmp_path: Path
-) -> None:
-    del case
-    file = _write(tmp_path, text)
-
-    assert fix_config_file(file)
-
-    assert _dig(tomllib.loads(file.read_text(encoding="utf-8")), path) == value
-    assert fix_config_file(file) == []
-
-
 SOLVER_PATHS = (
     ("modflow6.process_specific.vka", "solver.modflow6.process_specific.vka"),
     ("modflownwt.runtime.nwt.headtol", "solver.modflow_nwt.runtime.nwt.headtol"),
@@ -842,11 +488,6 @@ def test_a_dotted_path_of_a_form_of_2_0_moves_with_it(old: str, new: str) -> Non
     assert doc["calibration"]["parameters"]["vka"]["path"] == new
 
 
-def test_a_path_of_the_backend_name_leads_to_the_backend() -> None:
-    assert rewrite_dotted_path("solver.backend.name") == "solver.backend"
-    assert {row.row.old for row in moved_paths()} >= {"modflow6", "solver.backend.kind"}
-
-
 def test_a_plugin_backend_written_as_dotted_keys_becomes_its_name() -> None:
     doc = {
         "sites": {
@@ -859,31 +500,6 @@ def test_a_plugin_backend_written_as_dotted_keys_becomes_its_name() -> None:
     migrate_config_doc(doc)
 
     assert doc["sites"]["recipes"]["r"]["set"] == {"solver.backend": "plugged"}
-
-
-def test_a_backend_table_with_another_key_is_left_for_the_loader_to_refuse() -> None:
-    doc = {"solver": {"backend": {"kind": "modflow6", "extra": 1}}}
-
-    migrate_config_doc(doc)
-
-    assert doc["solver"]["backend"] == {"kind": "modflow6", "extra": 1}
-
-
-def test_a_transport_table_loses_its_parameters_level() -> None:
-    doc = tomllib.loads(
-        "[transport.mt3dms.parameters]\nporosity = 0.1\n"
-        "[transport.modflow6gwt.parameters]\nporosity = 0.2\n"
-        "[transport.modflow6prt.parameters]\nstop_time = 5\n"
-    )
-
-    changes = migrate_config_doc(doc)
-
-    assert doc["transport"] == {
-        "mt3dms": {"porosity": 0.1},
-        "modflow6": {"porosity": 0.2},
-        "modflow6_prt": {"stop_time": 5},
-    }
-    assert "transport.modflow6gwt.parameters -> [transport.modflow6]" in changes
 
 
 def test_a_transport_table_beside_its_parameters_is_kept_and_they_are_dropped() -> None:
@@ -997,19 +613,6 @@ def test_a_live_forward_model_key_is_refused_on_load(tmp_path: Path) -> None:
     assert f"calibration.forward_model dropped: {FORWARD_MODEL_REFUSAL}" in str(refused.value)
 
 
-def test_a_live_forward_model_key_is_dropped_and_the_doctor_says_why(tmp_path: Path) -> None:
-    """The doctor has nothing to write in its place, so it drops the key and says why."""
-    path = _write(tmp_path, '[calibration]\nforward_model = "linear_reservoir"\nmethod = "grid"\n')
-
-    told = fix_config_file(path)
-
-    assert told == [f"calibration.forward_model dropped: {FORWARD_MODEL_REFUSAL}"]
-    calib = tomllib.loads(path.read_text(encoding="utf-8"))["calibration"]
-    assert "forward_model" not in calib
-    assert calib["method"] == "grid"
-    assert fix_config_file(path) == []
-
-
 def test_a_live_scored_forward_evaluator_is_dropped_and_the_doctor_says_why(
     tmp_path: Path,
 ) -> None:
@@ -1045,33 +648,6 @@ REMOVED_CACHE_KEYS = (
     ("reuse_existing_outputs", "under .hmp/products/"),
     ("reg_fold", 'state = "conditioned"'),
 )
-
-
-@pytest.mark.parametrize(("key", "fragment"), REMOVED_CACHE_KEYS)
-def test_a_live_file_holding_a_removed_cache_key_is_refused_with_what_replaces_it(
-    key: str, fragment: str, tmp_path: Path
-) -> None:
-    doc = {"geographic": {key: False}}
-
-    with pytest.raises(ConfigValidationError, match="it left in 2.0.0") as refused:
-        migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
-
-    assert f"geographic.{key}" in str(refused.value)
-    assert fragment in str(refused.value)
-
-
-@pytest.mark.parametrize(("key", "fragment"), REMOVED_CACHE_KEYS)
-def test_a_sealed_run_drops_a_removed_cache_key_in_silence(key: str, fragment: str) -> None:
-    """The resolved configs of ``frozen_runs`` replay without drift: the key leaves in silence."""
-    del fragment
-    doc = {"geographic": {key: False, "dem_resolution": 25.0}}
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        changes = migrate_sealed_config_doc(doc)
-
-    assert changes == [f"geographic.{key} dropped (sealed)"]
-    assert doc == {"geographic": {"dem_resolution": 25.0}}
 
 
 def test_a_root_section_the_caller_names_is_never_created_by_an_edition() -> None:

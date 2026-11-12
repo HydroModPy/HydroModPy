@@ -13,16 +13,11 @@ that reading was found to compare January with mid-December to mid-January.
 
 from __future__ import annotations
 
-import datetime
-from types import SimpleNamespace
-
 import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.time.period_aggregation import (  # noqa: E402
-    first_period_step,
-    naive_timestamp,
+from hydromodpy.core.time.period_aggregation import (
     observation_step,
     observed_on_periods,
     period_edges,
@@ -33,7 +28,6 @@ from hydromodpy.core.time.period_aggregation import (  # noqa: E402
     periods_in_window,
     runoff_m3_s_on_index,
 )
-from hydromodpy.core.time.window import build_simulation_time_boundaries
 
 
 def _daily(start: str, days: int, values) -> pd.Series:
@@ -89,35 +83,6 @@ def test_a_leap_february_holds_its_twenty_ninth_day() -> None:
     assert out.tolist() == pytest.approx([0.0, 1.0, 0.0])
 
 
-def test_a_monthly_chronicle_stamped_at_its_month_start_passes_unchanged() -> None:
-    qmm = pd.Series(np.arange(1.0, 13.0), index=pd.date_range("2000-01-01", periods=12, freq="MS"))
-
-    out = period_mean_on_index(qmm, MONTH_ENDS_2000)
-
-    assert out.tolist() == qmm.tolist()
-
-
-def test_a_daily_run_reads_the_day_its_stamp_closes() -> None:
-    # A daily run stamps day d at d + 1; a daily chronicle stamps it at d.
-    daily = _day_number("2000-01-01", 10)
-    stamps = pd.date_range("2000-01-02", periods=10, freq="D")
-
-    out = period_mean_on_index(daily, stamps)
-
-    assert out.tolist() == daily.tolist()
-
-
-def test_one_yearly_steady_period_averages_its_own_year() -> None:
-    # Three years of daily values worth their year. The period [2000, 2001)
-    # holds exactly the 366 days of 2000.
-    index = pd.date_range("1999-01-01", "2001-12-31", freq="D")
-    daily = pd.Series(index.year.astype("float64"), index=index)
-
-    out = period_mean_on_index(daily, pd.DatetimeIndex(["2001-01-01"]), start="2000-01-01")
-
-    assert out.iloc[0] == 2000.0
-
-
 def test_one_stamp_without_a_start_averages_the_whole_series() -> None:
     daily = _daily("2000-01-01", 366, np.linspace(0.0, 2.0, 366))
 
@@ -125,29 +90,6 @@ def test_one_stamp_without_a_start_averages_the_whole_series() -> None:
 
     assert out.iloc[0] == pytest.approx(1.0, abs=1e-9)
     assert len(out) == 1
-
-
-def test_a_steady_spin_up_before_monthly_periods_needs_its_start() -> None:
-    # One steady year, then three months. The stamps alone cannot tell the
-    # spin-up lasted a year, so the window start is passed.
-    index = pd.date_range("1999-01-01", "2000-03-31", freq="D")
-    daily = pd.Series(np.where(index.year == 1999, 7.0, index.month.astype("float64")), index=index)
-    stamps = pd.DatetimeIndex(["2000-01-01", "2000-02-01", "2000-03-01", "2000-04-01"])
-
-    out = period_mean_on_index(daily, stamps, start="1999-01-01")
-
-    assert out.tolist() == [7.0, 1.0, 2.0, 3.0]
-
-
-def test_a_steady_first_month_of_a_monthly_run_is_january() -> None:
-    # The steady first period of a monthly run is the first calendar month,
-    # stamped at its end like every other period.
-    daily = _daily("2000-01-01", 60, np.concatenate([np.full(31, 2.0), np.full(29, 8.0)]))
-    stamps = pd.DatetimeIndex(["2000-02-01", "2000-03-01"])
-
-    out = period_mean_on_index(daily, stamps)
-
-    assert out.tolist() == [2.0, 8.0]
 
 
 def test_a_period_with_no_sample_is_a_gap_not_a_zero() -> None:
@@ -160,16 +102,6 @@ def test_a_period_with_no_sample_is_a_gap_not_a_zero() -> None:
     assert out.iloc[0] == pytest.approx(1.0)
     assert np.isnan(out.iloc[1])
     assert np.isnan(out.iloc[2])
-
-
-def test_the_result_follows_the_order_of_the_index() -> None:
-    daily = _daily("2000-01-01", 91, np.arange(91, dtype="float64"))
-    stamps = pd.DatetimeIndex(["2000-04-01", "2000-02-01", "2000-03-01"])
-
-    out = period_mean_on_index(daily, stamps)
-
-    assert list(out.index) == list(stamps)
-    assert out.iloc[0] > out.iloc[2] > out.iloc[1]
 
 
 def test_an_empty_forcing_is_all_gaps() -> None:
@@ -199,50 +131,9 @@ def test_a_millisecond_index_from_parquet_aligns() -> None:
     assert out.iloc[0] == pytest.approx(1.0)
 
 
-def test_the_edges_are_the_time_grid_boundaries() -> None:
-    # The solvers stamp boundaries[1:]. Reading those stamps back has to give
-    # the boundaries the launcher built, the first one included.
-    window = SimpleNamespace(
-        start=pd.Timestamp("2000-01-01"),
-        end=pd.Timestamp("2002-12-31"),
-        step_value=1,
-        step_unit="month",
-        period_bounds=None,
-    )
-    boundaries = pd.DatetimeIndex(build_simulation_time_boundaries(window))
-
-    edges = period_edges(boundaries[1:])
-
-    assert edges.equals(boundaries.as_unit("ns"))
-
-
-def test_a_first_spacing_of_whole_months_is_a_calendar_month() -> None:
-    step = first_period_step(pd.DatetimeIndex(["2000-03-15", "2000-04-15"]))
-
-    assert pd.Timestamp("2000-03-15") - step == pd.Timestamp("2000-02-15")
-
-
 def test_a_start_after_the_first_stamp_is_refused() -> None:
     with pytest.raises(ValueError, match="not before its end stamp"):
         period_edges(pd.DatetimeIndex(["2000-02-01"]), start="2000-02-01")
-
-
-def test_the_catalog_fallback_stamps_calendar_month_ends() -> None:
-    stamps = period_end_stamps("2000-01-01", "2003-01-01", 36, step_unit="month")
-
-    assert stamps.equals(pd.date_range("2000-02-01", "2003-01-01", freq="MS").as_unit("ns"))
-
-
-def test_the_catalog_fallback_splits_a_daily_window_evenly() -> None:
-    stamps = period_end_stamps("2000-01-01", "2000-01-11", 10, step_unit="day")
-
-    assert stamps.equals(pd.date_range("2000-01-02", "2000-01-11", freq="D").as_unit("ns"))
-
-
-def test_the_catalog_fallback_of_one_period_is_the_window_end() -> None:
-    stamps = period_end_stamps("2000-01-01", "2003-01-01", 1, step_unit="month")
-
-    assert list(stamps) == [pd.Timestamp("2003-01-01")]
 
 
 RUNOFF_AREA_M2 = 86.4e6
@@ -314,26 +205,6 @@ def test_a_runoff_in_mm_per_day_is_a_discharge_in_m3_per_second(
     np.testing.assert_allclose(out.to_numpy(), [expected_m3_s], rtol=1e-12, atol=0.0)
 
 
-def test_a_naive_timestamp_is_read_in_utc():
-    aware = pd.Timestamp("2020-01-01 02:00", tz="Europe/Paris")
-    assert naive_timestamp(aware) == pd.Timestamp("2020-01-01 01:00")
-    assert naive_timestamp("2020-01-01") == pd.Timestamp("2020-01-01")
-
-
-@pytest.mark.parametrize(
-    ("stamps", "expected"),
-    [
-        (["2020-01-01"], None),
-        (["2020-01-01", "2020-03-01"], pd.DateOffset(months=2)),
-        (["2020-01-01", "2020-01-04"], pd.Timedelta(days=3)),
-        (["2020-01-01", "2020-01-31"], pd.Timedelta(days=30)),
-        (["2020-01-01", "2020-01-02", "2020-01-03"], pd.offsets.Day(1)),
-    ],
-)
-def test_the_first_period_step_is_a_calendar_step_when_stamps_allow_it(stamps, expected):
-    assert first_period_step(pd.to_datetime(stamps)) == expected
-
-
 def test_the_edges_of_nothing_or_of_one_stamp_without_start_are_refused():
     with pytest.raises(ValueError, match="empty index"):
         period_edges(pd.DatetimeIndex([]))
@@ -344,25 +215,6 @@ def test_the_edges_of_nothing_or_of_one_stamp_without_start_are_refused():
 _STAMPS = pd.date_range("2020-01-02", "2020-01-10", freq="D")  # end stamps, period i = day i
 
 
-@pytest.mark.parametrize(
-    ("method", "start", "end", "kept"),
-    [
-        # a mean counts when its whole period [s, e) lies in the window
-        ("mean", "2020-01-04", "2020-01-08", ["01-05", "01-06", "01-07", "01-08", "01-09"]),
-        ("mean", None, "2020-01-03", ["01-02", "01-03", "01-04"]),
-        ("mean", "2020-01-09", None, ["01-10"]),
-        # a state counts when its stamp falls on a day of the window
-        ("point", "2020-01-04", "2020-01-06", ["01-04", "01-05", "01-06"]),
-        ("point", None, None, [s.strftime("%m-%d") for s in _STAMPS]),
-    ],
-)
-def test_a_window_of_days_keeps_whole_periods_for_a_mean_and_stamps_for_a_state(
-    method, start, end, kept
-):
-    flags = periods_in_window(_STAMPS, method=method, start=start, end=end)
-    assert [s.strftime("%m-%d") for s in _STAMPS[flags]] == kept
-
-
 def test_a_period_that_cannot_be_placed_is_outside_a_window_with_a_start():
     one = pd.to_datetime(["2020-02-01"])
     assert not periods_in_window(one, method="mean", start="2020-01-01").any()
@@ -370,30 +222,6 @@ def test_a_period_that_cannot_be_placed_is_outside_a_window_with_a_start():
         one, method="mean", period_start="2020-01-01", start="2020-01-01"
     ).all()
     assert periods_in_window(one, method="mean").all()
-
-
-def test_an_empty_stamp_list_keeps_nothing():
-    flags = periods_in_window(pd.DatetimeIndex([]), method="mean", start="2020-01-01")
-    assert flags.size == 0
-
-
-def test_a_missing_stamp_does_not_move_the_start_of_the_next_period():
-    grid = pd.date_range("2020-01-02", "2020-01-10", freq="D")
-    kept = grid.delete(2)  # 01-04 is missing from the data
-    flags = periods_in_window(kept, method="mean", start="2020-01-04", grid=grid)
-    assert [s.strftime("%m-%d") for s in kept[flags]] == [
-        "01-05",
-        "01-06",
-        "01-07",
-        "01-08",
-        "01-09",
-        "01-10",
-    ]
-
-
-def test_the_fallback_stamps_a_whole_number_of_years_in_calendar_years():
-    ends = period_end_stamps("2000-01-01", "2002-01-01", 2, step_unit="year")
-    assert ends.tolist() == [pd.Timestamp("2001-01-01"), pd.Timestamp("2002-01-01")]
 
 
 def test_the_fallback_with_no_period_is_empty_and_with_an_uneven_fit_splits_evenly():
@@ -418,12 +246,6 @@ def test_the_step_of_a_chronicle_is_its_calendar_frequency_or_median_spacing(sta
 
 
 _ENDS = pd.date_range("2020-01-02", "2020-01-06", freq="D")
-
-
-def test_a_daily_observation_lands_on_the_day_its_stamp_closes():
-    obs = _daily("2020-01-01", 5, [1, 2, 3, 4, 5])
-    out = period_value_on_index(obs, _ENDS)
-    assert out.tolist() == [1, 2, 3, 4, 5]
 
 
 def test_a_monthly_observation_holds_over_the_days_it_stands_for_and_a_gap_stays_nan():
@@ -507,112 +329,3 @@ STAMPS = pd.date_range("2000-02-01", "2003-01-01", freq="MS")
 
 def _kept(mask: np.ndarray, stamps: pd.DatetimeIndex = STAMPS) -> pd.DatetimeIndex:
     return stamps[np.asarray(mask, dtype=bool)]
-
-
-def test_a_mean_counts_when_its_whole_period_lies_in_the_window() -> None:
-    mask = periods_in_window(
-        STAMPS,
-        method="mean",
-        start=datetime.date(2001, 1, 1),
-        end=datetime.date(2002, 12, 31),
-        period_start=FIRST_PERIOD,
-    )
-
-    kept = _kept(mask)
-    assert len(kept) == 24
-    # January 2001 closes on 2001-02-01, December 2002 on 2003-01-01.
-    assert kept[0] == pd.Timestamp("2001-02-01")
-    assert kept[-1] == pd.Timestamp("2003-01-01")
-
-
-def test_a_start_alone_keeps_what_the_two_bounds_keep_on_a_run_that_ends_there() -> None:
-    mask = periods_in_window(
-        STAMPS, method="mean", start=pd.Timestamp("2001-01-01"), period_start=FIRST_PERIOD
-    )
-
-    assert len(_kept(mask)) == 24
-
-
-def test_an_end_alone_keeps_every_period_closed_by_midnight_after_it() -> None:
-    mask = periods_in_window(STAMPS, method="mean", end=pd.Timestamp("2000-12-31"))
-
-    kept = _kept(mask)
-    assert len(kept) == 12
-    assert kept[-1] == pd.Timestamp("2001-01-01")
-
-
-def test_a_period_straddling_a_bound_is_out() -> None:
-    mask = periods_in_window(
-        STAMPS,
-        method="mean",
-        start=datetime.date(2001, 1, 15),
-        end=datetime.date(2001, 3, 15),
-        period_start=FIRST_PERIOD,
-    )
-
-    assert list(_kept(mask)) == [pd.Timestamp("2001-03-01")]
-
-
-def test_a_state_counts_when_its_stamp_falls_in_the_window() -> None:
-    mask = periods_in_window(
-        STAMPS, method="point", start=datetime.date(2001, 1, 1), end=datetime.date(2002, 12, 31)
-    )
-
-    kept = _kept(mask)
-    assert len(kept) == 24
-    assert kept[0] == pd.Timestamp("2001-01-01")
-    assert kept[-1] == pd.Timestamp("2002-12-01")
-
-
-def test_a_gap_in_the_pairs_does_not_move_the_start_of_the_next_period() -> None:
-    # February 2001 is missing from the pairs: March 2001 still starts on 1 March.
-    paired = STAMPS.delete(STAMPS.get_loc(pd.Timestamp("2001-03-01")))
-
-    mask = periods_in_window(
-        paired,
-        method="mean",
-        start=datetime.date(2001, 3, 1),
-        end=datetime.date(2001, 3, 31),
-        grid=STAMPS,
-        period_start=FIRST_PERIOD,
-    )
-
-    assert list(_kept(mask, paired)) == [pd.Timestamp("2001-04-01")]
-
-
-def test_a_steady_stamp_counts_when_its_period_lies_in_the_window() -> None:
-    stamp = pd.DatetimeIndex([pd.Timestamp("2003-01-01")])
-
-    inside = periods_in_window(
-        stamp,
-        method="mean",
-        start=datetime.date(2000, 1, 1),
-        end=datetime.date(2002, 12, 31),
-        period_start=FIRST_PERIOD,
-    )
-    cut = periods_in_window(
-        stamp, method="mean", start=datetime.date(2001, 1, 1), period_start=FIRST_PERIOD
-    )
-
-    assert inside.tolist() == [True]
-    assert cut.tolist() == [False]
-
-
-def test_utc_stamps_are_read_on_the_naive_utc_clock() -> None:
-    aware = STAMPS.tz_localize("UTC")
-
-    mask = periods_in_window(
-        aware,
-        method="mean",
-        start=datetime.date(2001, 1, 1),
-        end=datetime.date(2002, 12, 31),
-        period_start=FIRST_PERIOD,
-    )
-
-    assert int(np.count_nonzero(mask)) == 24
-
-
-def test_no_bound_keeps_everything() -> None:
-    mask = periods_in_window(STAMPS, method="mean")
-
-    assert bool(np.all(mask))

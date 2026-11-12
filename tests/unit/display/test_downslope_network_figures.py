@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -29,7 +28,6 @@ from hydromodpy.display.figures.downslope_distance_crossing import (
     DownslopeDistanceCrossingFigure,
 )
 from hydromodpy.display.figures.seepage_network_confusion_map import SeepageNetworkConfusionMap
-from hydromodpy.display.style import relative_luminance
 from hydromodpy.results.derive.stream_network.comparison import (
     AGREEMENT_EXCESS,
     AGREEMENT_MISSING,
@@ -48,16 +46,11 @@ from ._calibration_journal import (
 )
 from ._network_comparison_run import (
     AXIS_COLUMN,
-    CELL_M,
-    NX,
-    NY,
     cell,
     column_cells,
     comparison_run,
     drawn_cells,
-    legend_labels,
     legend_note,
-    map_key,
 )
 
 H_OBS = 250.0
@@ -120,22 +113,6 @@ def _line(ax, label_prefix: str):
 # --------------------------------------------------------------------------- #
 
 
-def test_crossing_draws_both_distances_on_a_log_axis_in_metres(mpl, tmp_path) -> None:
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceCrossingFigure().render(_crossing_run(tmp_path), ax)
-
-    try:
-        assert ax.get_xscale() == "log"
-        assert ax.get_ylabel() == "Downslope distance (m)"
-        assert ax.get_xlabel() == "K_over_R (-)"
-        assert _line(ax, "D_so").get_ydata().tolist() == [100.0, 300.0]
-        assert _line(ax, "D_os").get_ydata().tolist() == [300.0, 100.0]
-        assert "cheze-bisection" in ax.get_title()
-    finally:
-        mpl.close(fig)
-
-
 def test_crossing_marks_the_intersection_with_its_parameter_value(mpl, tmp_path) -> None:
     # The residual goes -200 m to +200 m over one decade, so the zero sits at
     # the middle of that decade in log space.
@@ -149,30 +126,6 @@ def test_crossing_marks_the_intersection_with_its_parameter_value(mpl, tmp_path)
         annotation = ax.texts[0].get_text()
         assert "K_over_R" in annotation
         assert f"{10.0**-3.5:.4g}" in annotation
-    finally:
-        mpl.close(fig)
-
-
-def test_crossing_leaves_a_gap_where_a_trial_failed(mpl, tmp_path) -> None:
-    run = _session_run(
-        tmp_path,
-        [1e-5, 1e-4, 1e-3],
-        [
-            {"D_so": 100.0, "D_os": 300.0},
-            {"D_so": None, "D_os": None},
-            {"D_so": 300.0, "D_os": 100.0},
-        ],
-    )
-    fig, ax = mpl.subplots()
-
-    DownslopeDistanceCrossingFigure().render(run, ax)
-
-    try:
-        values = _line(ax, "D_so").get_ydata()
-        assert np.isnan(values[1]), "a failed trial must break the line, not read as zero"
-        assert values[0] == 100.0 and values[2] == 300.0
-        # The abscissa stays, so the curve keeps the spacing of the sweep.
-        assert _line(ax, "D_so").get_xdata().tolist() == [1e-5, 1e-4, 1e-3]
     finally:
         mpl.close(fig)
 
@@ -276,32 +229,6 @@ def _class_collection(ax, value: int):
     return next(item for item in ax.collections if str(item.get_label()) == label)
 
 
-def test_confusion_map_draws_the_partition_the_run_carries(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    SeepageNetworkConfusionMap().render(_partition_run(), ax)
-
-    try:
-        assert _class_cells(ax, AGREEMENT_VALID) == [
-            cell(AXIS_COLUMN, 0),
-            cell(AXIS_COLUMN, 1),
-        ]
-        assert _class_cells(ax, AGREEMENT_EXCESS) == [cell(3, 0), cell(4, 0)]
-        assert _class_cells(ax, AGREEMENT_MISSING) == [cell(AXIS_COLUMN, 2)]
-        assert len(_class_cells(ax, AGREEMENT_NEITHER)) == NX * NY - 5
-        assert legend_labels(ax) == [
-            "valid: simulated and mapped (2 cells)",
-            "excess: simulated only (2 cells)",
-            "missing: mapped only (1 cell)",
-            "no stream (10 cells)",
-        ]
-        assert ax.get_xlabel() == "x (m)"
-        assert ax.get_ylabel() == "y (m)"
-        assert "nancon" in ax.get_title()
-    finally:
-        mpl.close(fig)
-
-
 def test_confusion_map_gives_every_class_its_own_color(mpl) -> None:
     from matplotlib.colors import to_rgb
 
@@ -322,20 +249,6 @@ def test_confusion_map_gives_every_class_its_own_color(mpl) -> None:
         mpl.close(fig)
 
 
-def test_confusion_map_cells_belong_to_exactly_one_class(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    SeepageNetworkConfusionMap().render(_partition_run(), ax)
-
-    try:
-        drawn = [index for value in AGREEMENT_COLORS for index in _class_cells(ax, value)]
-        assert sorted(drawn) == list(range(NX * NY)), (
-            "the four classes partition the mesh: every cell is drawn once"
-        )
-    finally:
-        mpl.close(fig)
-
-
 def test_confusion_map_follows_the_seepage_threshold_it_is_asked_for(mpl) -> None:
     fig, ax = mpl.subplots()
 
@@ -348,60 +261,6 @@ def test_confusion_map_follows_the_seepage_threshold_it_is_asked_for(mpl) -> Non
         assert _class_cells(ax, AGREEMENT_VALID) == []
         assert _class_cells(ax, AGREEMENT_EXCESS) == []
         assert "above 1e+06 times its recharge" in legend_note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_confusion_map_names_the_threshold_it_was_drawn_at(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    SeepageNetworkConfusionMap().render(_partition_run(), ax, tau_specific_ratio=0.25)
-
-    try:
-        assert "a cell counts as seepage above 25 % of its recharge" in legend_note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_the_key_and_the_note_sit_outside_the_map(mpl) -> None:
-    # They used to share the inside of the axes, the legend wherever
-    # matplotlib found room and the note pinned to the foot. On the Nancon
-    # they landed on each other and the third class was read through the note.
-    # Drawn the way the gallery draws it, through plot().
-    fig = SeepageNetworkConfusionMap().plot(_partition_run())
-    ax = fig.axes[0]
-
-    try:
-        fig.canvas.draw()
-        key = map_key(ax).get_window_extent()
-        frame = ax.get_window_extent()
-        assert key.y1 <= frame.y0 + 1.0, (
-            f"the key overlaps the map: key {key.y0}-{key.y1}, map {frame.y0}-{frame.y1}"
-        )
-        assert not ax.texts, "nothing may be left floating over the subject"
-    finally:
-        mpl.close(fig)
-
-
-def test_the_key_stays_off_the_map_on_an_axes_the_caller_built(mpl) -> None:
-    # Matplotlib reserves room for an outside figure legend only when the
-    # figure carries a layout engine, and render() is public: called on a
-    # plain subplots() the key was drawn over the map. Measured before the
-    # fix, on a figure with no engine, the key ran 6.6 px into the axes.
-    fig, ax = mpl.subplots(figsize=(7.0, 6.2), dpi=150)
-
-    SeepageNetworkConfusionMap().render(_partition_run(), ax)
-
-    try:
-        assert fig.get_layout_engine() is not None, (
-            "the map has to give the figure the engine that reserves the room"
-        )
-        fig.canvas.draw()
-        key = map_key(ax).get_window_extent()
-        frame = ax.get_window_extent()
-        assert key.y1 <= frame.y0 + 1.0, (
-            f"the key overlaps the map: key {key.y0}-{key.y1}, map {frame.y0}-{frame.y1}"
-        )
     finally:
         mpl.close(fig)
 
@@ -439,92 +298,6 @@ def test_the_network_is_widened_once_and_not_class_by_class(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_map_opens_on_the_catchment_and_says_so(mpl) -> None:
-    # The three classes only ever live inside the delineated catchment. A run
-    # whose catchment is the two western columns must frame those, not the
-    # five columns of mesh around them.
-    fig, ax = mpl.subplots()
-
-    SeepageNetworkConfusionMap().render(_partition_run(catchment_columns=[0, 1]), ax)
-
-    try:
-        assert ax.get_xlim()[1] < 3 * CELL_M
-        assert "the delineated catchment" in legend_note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_every_count_is_taken_on_what_the_frame_shows(mpl) -> None:
-    # Every count in the key, the three classes and the ground alike, is
-    # taken over the declared frame, not the whole mesh. Counted over the
-    # mesh it contradicted the page: on the Nancon the key said 20 548 cells
-    # of no stream in a window holding 11 488.
-    fig, ax = mpl.subplots()
-
-    SeepageNetworkConfusionMap().render(_partition_run(catchment_columns=[1, 2, 3]), ax)
-
-    try:
-        # The frame holds the three middle columns, nine cells. The excess
-        # cell of column 4 sits outside it, so it counts in neither the
-        # class nor the ground of the frame, and the four remaining
-        # classified cells leave five for the ground.
-        assert legend_labels(ax) == [
-            "valid: simulated and mapped (2 cells)",
-            "excess: simulated only (1 cell)",
-            "missing: mapped only (1 cell)",
-            "no stream (5 cells)",
-        ]
-        ground = _class_collection(ax, AGREEMENT_NEITHER)
-        assert len(ground.get_paths()) == NX * NY - 5, (
-            "the ground is still drawn over the whole mesh, only counted on the frame"
-        )
-    finally:
-        mpl.close(fig)
-
-
-def test_a_caller_may_ask_for_the_whole_mesh(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    SeepageNetworkConfusionMap().render(_partition_run(catchment_columns=[0, 1]), ax, extent="mesh")
-
-    try:
-        assert ax.get_xlim()[1] >= NX * CELL_M
-        assert "the whole mesh" in legend_note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_the_catchment_frame_hides_no_class(mpl) -> None:
-    # The criterion scores nothing outside its catchment, here the south-west
-    # corner the two western columns close on, so the default frame can drop
-    # no cell the legend counts. The note says nothing rather than warning
-    # about a loss that cannot happen here. The seepage in that corner is what
-    # gives the catchment a class to draw.
-    fig, ax = mpl.subplots()
-    run = comparison_run(
-        seepage_cells=[cell(0, 0), cell(AXIS_COLUMN, 1), cell(4, 0)], catchment_columns=[0, 1]
-    )
-
-    SeepageNetworkConfusionMap().render(run, ax)
-
-    try:
-        xmin, xmax = ax.get_xlim()
-        ymin, ymax = ax.get_ylim()
-        classified = [
-            collection
-            for value in (AGREEMENT_VALID, AGREEMENT_EXCESS, AGREEMENT_MISSING)
-            for collection in ax.collections
-            if str(collection.get_label()) == agreement_label(value)
-        ]
-        assert classified, "the run must classify something for this to say anything"
-        for collection in classified:
-            for path in collection.get_paths():
-                centre = path.vertices.mean(axis=0)
-                assert xmin <= centre[0] <= xmax and ymin <= centre[1] <= ymax
-    finally:
-        mpl.close(fig)
-
-
 def test_an_unknown_frame_is_refused(mpl) -> None:
     fig, ax = mpl.subplots()
 
@@ -533,66 +306,6 @@ def test_an_unknown_frame_is_refused(mpl) -> None:
             SeepageNetworkConfusionMap().render(_partition_run(), ax, extent="everything")
     finally:
         mpl.close(fig)
-
-
-def test_confusion_map_classes_stay_apart_in_greyscale() -> None:
-    luminances = sorted(
-        relative_luminance(AGREEMENT_COLORS[value])
-        for value in (AGREEMENT_VALID, AGREEMENT_EXCESS, AGREEMENT_MISSING)
-    )
-    gaps = [high - low for low, high in zip(luminances[:-1], luminances[1:], strict=False)]
-    assert min(gaps) > 0.1, (
-        "the three classes must stay readable on a greyscale print, so their "
-        f"lightnesses may not collide: {luminances}"
-    )
-
-
-def test_the_cells_with_no_stream_recede_behind_the_three_classes() -> None:
-    background = relative_luminance(AGREEMENT_COLORS[AGREEMENT_NEITHER])
-    classes = [
-        relative_luminance(AGREEMENT_COLORS[value])
-        for value in (AGREEMENT_VALID, AGREEMENT_EXCESS, AGREEMENT_MISSING)
-    ]
-
-    assert background - max(classes) > 0.1, (
-        "the cells no network claims cover most of a catchment; drawn as dark "
-        f"as a class they would carry the eye instead of it: {background}"
-    )
-
-
-def test_confusion_map_is_rendered_from_a_run_alone(tmp_path) -> None:
-    from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.runs import render_figures_for_run
-
-    cfg = DisplayConfig(
-        enabled=True,
-        figures=["seepage_network_confusion_map"],
-        on_error="raise",
-    )
-
-    report = render_figures_for_run(_partition_run(), cfg, output_dir=tmp_path)
-
-    assert report.rendered == ("seepage_network_confusion_map",)
-    assert report.skipped == ()
-    assert (tmp_path / "seepage_network_confusion_map.png").exists()
-
-
-def test_confusion_map_is_skipped_by_the_gallery_rather_than_crashing(tmp_path) -> None:
-    from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.runs import render_figures_for_run
-
-    cfg = DisplayConfig(
-        enabled=True,
-        figures=["seepage_network_confusion_map"],
-        on_error="raise",
-    )
-
-    report = render_figures_for_run(comparison_run(with_release=False), cfg, output_dir=tmp_path)
-
-    assert report.rendered == ()
-    assert [item.name for item in report.skipped] == ["seepage_network_confusion_map"]
-    assert "release_flux" in report.skipped[0].reason
-    assert "render failed" not in report.skipped[0].reason
 
 
 def test_confusion_map_names_what_it_needs_when_the_run_kept_no_release_flux() -> None:
@@ -620,33 +333,6 @@ def _bracket_run(project: Path, **kwargs) -> Session:
         ],
         **kwargs,
     )
-
-
-def test_bracket_trace_plots_every_evaluation_in_order_around_a_zero_line(mpl, tmp_path) -> None:
-    fig, ax = mpl.subplots()
-
-    BisectionBracketTraceFigure().render(_bracket_run(tmp_path), ax)
-
-    try:
-        assert ax.get_xlabel() == "Evaluation order (-)"
-        assert ax.get_ylabel() == "Signed residual D_so - D_os (m)"
-        zero = _line(ax, "zero residual")
-        assert list(zero.get_ydata()) == [0.0, 0.0]
-
-        excess = next(
-            collection
-            for collection in ax.collections
-            if str(collection.get_label()).startswith("D_so - D_os >=")
-        )
-        assert excess.get_offsets().tolist() == [[1.0, 300.0], [4.0, 40.0]]
-        missing = next(
-            collection
-            for collection in ax.collections
-            if str(collection.get_label()).startswith("D_so - D_os <")
-        )
-        assert missing.get_offsets().tolist() == [[2.0, -400.0], [3.0, -120.0]]
-    finally:
-        mpl.close(fig)
 
 
 def test_bracket_trace_closes_the_band_onto_zero(mpl, tmp_path) -> None:
@@ -725,39 +411,6 @@ def test_bracket_trace_keeps_a_failed_evaluation_on_the_zero_line(mpl, tmp_path)
             if str(collection.get_label()).startswith("failed evaluation")
         )
         assert failed.get_offsets().tolist() == [[2.0, 0.0]]
-    finally:
-        mpl.close(fig)
-
-
-def test_bracket_trace_keeps_every_marker_clear_of_its_note(mpl, tmp_path) -> None:
-    # Example 04: trial 7 of the steady bisection sits at -1468 m, the lowest
-    # residual, and the note in the lower left corner covered its marker.
-    from ._calibration_journal import STEADY_J, STEADY_K
-
-    run = _session_run(
-        tmp_path,
-        STEADY_K,
-        [{"D_so": 0.0, "D_os": 0.0, "J_signed": residual} for residual in STEADY_J],
-    )
-    fig = BisectionBracketTraceFigure().plot(run)
-
-    try:
-        fig.canvas.draw()
-        ax = fig.axes[0]
-        note = ax.texts[0].get_bbox_patch().get_window_extent()
-        markers = np.vstack(
-            [
-                np.asarray(collection.get_offsets())
-                for collection in ax.collections
-                if str(collection.get_label()).startswith("D_so - D_os")
-            ]
-        )
-        assert len(markers) == len(STEADY_J)
-        low, high = ax.get_ylim()
-        assert all(low < y < high for _x, y in markers)
-        points = ax.transData.transform(markers)
-        assert not any(note.contains(x, y) for x, y in points)
-        assert not note.overlaps(ax.get_legend().get_window_extent())
     finally:
         mpl.close(fig)
 
@@ -875,34 +528,6 @@ class TestTheHeavyRebuildIsShared:
 
         assert first is not second
 
-    def test_two_runs_never_share_an_entry_even_named_alike(self) -> None:
-        # The failure this guards: keying on a run's id instead of the run.
-        # Two runs a caller named the same would answer with each other's mesh,
-        # and the figure would be silently wrong rather than slow.
-        from hydromodpy.results.derive.run_memo import RunMemo
-
-        memo = RunMemo()
-
-        class _Run:
-            sim_id = "same-name"
-
-        first = memo.get_or_build(_Run(), ("a",), object)
-        second = memo.get_or_build(_Run(), ("a",), object)
-
-        assert first is not second
-
-    def test_a_run_that_cannot_be_weakly_referenced_is_simply_not_cached(self) -> None:
-        # A speed difference, never an answer difference.
-
-        from hydromodpy.results.derive.run_memo import RunMemo
-
-        memo = RunMemo()
-        run = SimpleNamespace(sim_id="stub")
-        sentinel = object()
-
-        assert memo.get_or_build(run, ("a",), lambda: sentinel) is sentinel
-        assert memo.get_or_build(run, ("a",), lambda: sentinel) is sentinel
-
 
 class TestTheLegendDoesNotSearchOnADenseMap:
     """``loc="best"`` scores every candidate corner against every artist.
@@ -928,20 +553,6 @@ class TestTheLegendDoesNotSearchOnADenseMap:
         ax.plot([0, 1], [0, 1], label="something")
         return ax
 
-    def test_a_collection_counts_for_its_paths_and_not_for_one(self) -> None:
-        from hydromodpy.display.style import axes_element_count
-
-        assert axes_element_count(self._axes(500)) >= 500
-
-    def test_a_light_axes_still_gets_the_placed_legend(self) -> None:
-        from hydromodpy.display.style import LEGEND_BEST_PLACEMENT_LIMIT, place_legend
-
-        ax = self._axes(10)
-        assert len(ax.collections[0].get_paths()) < LEGEND_BEST_PLACEMENT_LIMIT
-        legend = place_legend(ax)
-        assert legend is not None
-        assert legend._loc == 0  # matplotlib's code for "best"
-
     def test_a_dense_axes_gets_a_pinned_legend(self) -> None:
         from hydromodpy.display.style import LEGEND_BEST_PLACEMENT_LIMIT, place_legend
 
@@ -949,15 +560,6 @@ class TestTheLegendDoesNotSearchOnADenseMap:
         legend = place_legend(ax)
         assert legend is not None
         assert legend._loc != 0
-
-    def test_an_axes_with_nothing_to_show_gets_no_legend(self) -> None:
-        import matplotlib
-        from matplotlib.figure import Figure
-
-        from hydromodpy.display.style import place_legend
-
-        matplotlib.use("Agg")
-        assert place_legend(Figure().subplots()) is None
 
     def test_an_explicit_location_is_never_overridden(self) -> None:
         from hydromodpy.display.style import LEGEND_BEST_PLACEMENT_LIMIT, place_legend

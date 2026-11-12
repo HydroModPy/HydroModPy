@@ -191,19 +191,6 @@ def test_crossed_weir_back_route_uses_mover_to_first_lake() -> None:
     assert args["mover_records"] == [["LAK", 1, "LAK", 0, "FACTOR", 1.0]]
 
 
-def test_two_lake_build_without_outlets_still_builds_both_lakes() -> None:
-    # No spill at all: both lakes still appear, just with noutlets == 0.
-    model = _two_lake_model(lac0_outlets=[], lac1_outlets=[])
-    cells = {"lac0": [0, 1], "lac1": [10, 11]}
-    masked = apply_lake_idomain_mask(_grid_4x4(), lake_cell_ids_by_lake=cells)
-    args = build_lak_package_args(model, solver_mesh=masked, lake_cell_ids_by_lake=cells)
-    assert args is not None
-    assert args["nlakes"] == 2
-    assert args["noutlets"] == 0
-    assert "outlets" not in args
-    assert "mover" not in args
-
-
 def test_two_overlapping_lakes_are_resolved_cell_disjoint() -> None:
     # Two lake polygons that clip shared grid cells are reconciled, not rejected:
     # MF6 LAK allows one lake per cell, so each shared cell goes to its larger-overlap

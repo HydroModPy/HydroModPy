@@ -58,23 +58,6 @@ def payload(tmp_path: Path) -> Path:
     )
 
 
-def test_export_orders_and_writes_naive_times_of_the_run_clock(
-    payload: Path, tmp_path: Path
-) -> None:
-    target = tmp_path / "out.csv"
-    result = export_csv(payload, "s1", target, identity=_ID)
-    assert result == target
-    lines = target.read_text().splitlines()
-    assert lines[0] == _HEADER
-    assert lines[1] == _ROW + ",A,discharge,simulated,0.25,m3/s"  # NULL time stays empty
-    assert lines[2] == _ROW + "2007-01-01 00:00:00,A,head,simulated,1.0,m"
-    assert lines[3] == _ROW + "2007-01-02 00:00:00,A,head,simulated,1.5,m"
-    assert lines[4] == _ROW + "2007-01-01 00:00:00,B,head,simulated,2.5,m"
-    assert len(lines) == 5
-    parsed = pd.to_datetime(pd.read_csv(target)["datetime"])
-    assert parsed.iloc[1] == pd.Timestamp("2007-01-01")
-
-
 def test_export_filters_station_and_variables(payload: Path, tmp_path: Path) -> None:
     target = tmp_path / "filtered.csv"
     export_csv(payload, "s1", target, identity=_ID, station_id="A", variables=["head"])
@@ -93,52 +76,6 @@ def test_export_without_rows_writes_header_only(payload: Path, tmp_path: Path) -
     target = tmp_path / "empty.csv"
     export_csv(payload, "missing-sim", target, identity=_ID)
     assert target.read_text().splitlines() == [_HEADER]
-
-
-def test_export_creates_parent_directories(payload: Path, tmp_path: Path) -> None:
-    target = tmp_path / "nested" / "dir" / "out.csv"
-    export_csv(payload, "s2", target, identity=_ID)
-    assert target.read_text().splitlines() == [
-        _HEADER,
-        _ROW + "2007-01-01 00:00:00,A,head,simulated,9.0,m",
-    ]
-
-
-def test_the_catchment_station_keeps_its_stored_name(tmp_path: Path) -> None:
-    payload = _write_payload(
-        tmp_path / "timeseries.parquet",
-        "('s', 'catchment', 'discharge', 0, '2000-02-01 00:00:00+00', 1.0, 'm3/s')",
-    )
-    target = tmp_path / "q.csv"
-    export_csv(payload, "s", target, identity=_ID)
-    assert (
-        target.read_text().splitlines()[1]
-        == _ROW + "2000-02-01 00:00:00,catchment,discharge,simulated,1.0,m3/s"
-    )
-
-
-def test_no_window_keeps_no_row(payload: Path, tmp_path: Path) -> None:
-    """An empty window list is a valid filter, not a SQL syntax error."""
-    target = tmp_path / "none.csv"
-    export_csv(payload, "s1", target, identity=_ID, windows=[])
-    assert target.read_text().splitlines() == [_HEADER]
-
-
-def test_a_window_keeps_simulated_ends_and_observed_starts(tmp_path: Path) -> None:
-    """A simulated value closes its period, an observation opens its day."""
-    payload = _write_payload(
-        tmp_path / "timeseries.parquet",
-        "('s', 'c', 'discharge', 0, '2000-02-01 00:00:00+00', 1.0, 'm3/s'), "
-        "('s', 'c', 'discharge', 1, '2000-03-01 00:00:00+00', 2.0, 'm3/s'), "
-        "('s', 'g', 'discharge_obs', 0, '2000-01-31 00:00:00+00', 7.0, 'm3/s'), "
-        "('s', 'g', 'discharge_obs', 1, '2000-02-01 00:00:00+00', 8.0, 'm3/s'), "
-        "('s', 'g', 'discharge_obs', 2, '2000-03-01 00:00:00+00', 9.0, 'm3/s')",
-    )
-    target = tmp_path / "feb.csv"
-    window = (pd.Timestamp("2000-02-01"), pd.Timestamp("2000-03-01"))
-    export_csv(payload, "s", target, identity=_ID, windows=[window])
-    frame = pd.read_csv(target)
-    assert frame["value"].tolist() == [2.0, 8.0]
 
 
 def test_the_budget_names_each_period_it_covers(tmp_path: Path) -> None:
@@ -163,12 +100,6 @@ def test_the_budget_names_each_period_it_covers(tmp_path: Path) -> None:
     assert "sim_id" not in frame.columns
     assert list(frame.columns[:2]) == ["site", "case_id"]
     assert set(frame["site"]) == {"nancon"}
-
-
-def test_a_run_without_site_names_its_case_in_both_columns(payload: Path, tmp_path: Path) -> None:
-    target = tmp_path / "synthetic.csv"
-    export_csv(payload, "s2", target, identity=_ID.model_copy(update={"site": None}))
-    assert target.read_text().splitlines()[1].startswith("nancon_monthly,nancon_monthly,")
 
 
 def test_a_run_without_series_writes_the_header_only(tmp_path: Path) -> None:

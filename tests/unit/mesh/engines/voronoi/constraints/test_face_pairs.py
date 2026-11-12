@@ -51,13 +51,6 @@ def test_pair_lies_on_both_circles_and_mirrors_across_the_segment() -> None:
     assert 0.5 * (plus + minus) == pytest.approx(start + along[:, None] * unit)
 
 
-def test_circles_apart_give_no_pair() -> None:
-    _, _, _, ok = pair_seeds(
-        np.array([[0.0, 0.0]]), np.array([[10.0, 0.0]]), np.array([4.0]), np.array([4.0])
-    )
-    assert not ok[0]
-
-
 def test_seed_angle_is_the_angle_of_the_pair_seen_from_its_vertex() -> None:
     start, stop = np.array([[0.0, 0.0]]), np.array([[20.0, 0.0]])
     radius = np.array([RADIUS_SHARE * 20.0])

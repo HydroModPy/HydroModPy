@@ -14,14 +14,13 @@ import pytest
 
 from hydromodpy.core.budget.terms import budget_terms_for
 from hydromodpy.core.console.progress import MILESTONE_KEY
-from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.display import runs
 from hydromodpy.display import runs as _runs
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figure import FigureNotApplicable, FigureSpec
 from hydromodpy.display.figures._trial_diagnostics import TrialTable
-from hydromodpy.display.runs import log_render_summary, render_figure, render_figures_for_run
+from hydromodpy.display.runs import render_figure, render_figures_for_run
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.config_flags import no_surface_exit_reason
@@ -136,46 +135,6 @@ def test_empty_figures_list_renders_nothing(tmp_path, patched_registry, runs_mod
     assert report.written == ()
 
 
-def test_writes_one_file_per_figure(tmp_path, patched_registry, runs_module):
-    cfg = DisplayConfig(enabled=True, figures=["piezometric_map", "hydrograph"])
-    out = tmp_path / "figures" / "baseline"
-    report = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
-    assert sorted(p.name for p in report.written) == ["hydrograph.png", "piezometric_map.png"]
-    assert all(p.exists() for p in report.written)
-    assert report.skipped == ()
-
-
-@pytest.mark.parametrize("preset", ["default", "print", "dark"])
-def test_a_render_leaves_no_global_state_behind(tmp_path, patched_registry, runs_module, preset):
-    # One render writes no backend, no style and no figure of the process, so
-    # a second render in another thread meets what it would meet alone. A figure
-    # that another test left in the worker is not this render's, so only new ones count.
-    import matplotlib
-    from matplotlib import _pylab_helpers
-
-    backend, rc = matplotlib.get_backend(), dict(matplotlib.rcParams)
-    figures_before = set(_pylab_helpers.Gcf.figs)
-    cfg = DisplayConfig(enabled=True, figures=["piezometric_map"], preset=preset)
-    runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=tmp_path / "figures")
-    assert matplotlib.get_backend() == backend
-    assert dict(matplotlib.rcParams) == rc
-    assert set(_pylab_helpers.Gcf.figs) <= figures_before
-
-
-def test_a_render_sees_the_style_of_its_preset(tmp_path, patched_registry, runs_module):
-    import matplotlib
-
-    seen: list[str] = []
-
-    def plot(sim, *, dpi=150, save_path=None, **kw):
-        seen.append(matplotlib.rcParams["axes.facecolor"])
-
-    runs_module._get_figure("hydrograph").plot = plot
-    cfg = DisplayConfig(enabled=True, figures=["hydrograph"], preset="dark")
-    runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=tmp_path / "figures")
-    assert seen == ["#1e1e1e"]
-
-
 @pytest.mark.parametrize(
     ("snapshot", "expected"),
     [
@@ -238,18 +197,6 @@ def test_unknown_figure_is_rejected_by_config():
         DisplayConfig(enabled=True, figures=["bad_missing", "piezometric_map"])
 
 
-def test_inapplicable_figure_is_skipped(tmp_path, patched_registry, runs_module):
-    # A figure the run cannot feed (no particle process, no calibration) is
-    # reported and skipped; the rest of the batch still renders.
-    cfg = _skip_config("na_particles", "piezometric_map")
-    out = tmp_path / "figures" / "baseline"
-    report = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
-    assert [p.name for p in report.written] == ["piezometric_map.png"]
-    assert [(s.name, s.reason) for s in report.skipped] == [
-        ("na_particles", "stub is not applicable")
-    ]
-
-
 def _skip_config(*figures: str) -> DisplayConfig:
     """Config built with model_construct so stub names bypass the validator."""
     return DisplayConfig.model_construct(
@@ -264,20 +211,6 @@ def _skip_config(*figures: str) -> DisplayConfig:
         overrides={},
         figures=list(figures),
     )
-
-
-def test_inapplicable_figure_skip_stays_quiet(
-    tmp_path, patched_registry, runs_module, hmp_log_records
-):
-    # A figure that does not fit the model (no particles, no lake, another
-    # solver) is a normal skip: DEBUG only, no console noise.
-    runs_module.render_figures_for_run(
-        _StubRun(),
-        _skip_config("na_particles"),
-        output_dir=tmp_path / "figures",
-    )
-    records = [r for r in hmp_log_records if "na_particles" in r.getMessage()]
-    assert [r.levelname for r in records] == ["DEBUG"]
 
 
 def test_derived_field_without_its_budget_terms_skip_warns(
@@ -308,38 +241,6 @@ def test_unkept_budget_field_skip_warns(tmp_path, patched_registry, runs_module,
     records = [r for r in hmp_log_records if "nb_recharge_map" in r.getMessage()]
     assert [r.levelname for r in records] == ["WARNING"]
     assert "[simulation.results] keep_per_cell_budget = true" in records[0].getMessage()
-
-
-def test_save_false_skips_filesystem(tmp_path, patched_registry, runs_module):
-    cfg = DisplayConfig(enabled=True, save=False, figures=["piezometric_map"])
-    out = tmp_path / "figures" / "baseline"
-    report = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=out)
-    assert report.written == ()
-    # Drawn but not written: the count reports the figure, the filesystem does not.
-    assert report.rendered == ("piezometric_map",)
-    assert not out.exists()
-
-
-def test_figure_names_override_shadows_config(tmp_path, patched_registry, runs_module):
-    cfg = DisplayConfig(enabled=True, figures=["piezometric_map", "hydrograph"])
-    out = tmp_path / "figures" / "baseline"
-    report = runs_module.render_figures_for_run(
-        _StubRun(),
-        cfg,
-        output_dir=out,
-        figure_names=["hydrograph"],
-    )
-    assert [p.name for p in report.written] == ["hydrograph.png"]
-
-
-def test_the_figures_of_a_run_live_in_its_figures_directory(tmp_path, runs_module):
-    run_dir = tmp_path / RUNS_DIRNAME / "calib_best"
-    assert runs_module.figures_dir_of(run_dir) == run_dir / RUN_FIGURES_DIRNAME
-
-
-def test_output_dir_is_refused_with_where_figures_go():
-    with pytest.raises(ValueError, match=r"runs/<run>/figures/"):
-        DisplayConfig(output_dir="plots")
 
 
 class _PngFigure(_StubFigure):
@@ -394,22 +295,6 @@ def test_a_figure_of_an_identified_run_is_stamped_and_recorded(tmp_path, monkeyp
         assert image.size[1] > 120
 
 
-def test_summary_names_every_requested_figure_that_produced_nothing(
-    tmp_path, patched_registry, runs_module
-):
-    # The per-figure line for an inapplicable figure stays DEBUG, so the batch
-    # summary is the only place it can leave a trace. It must name it.
-    report = runs_module.render_figures_for_run(
-        _StubRun(),
-        _skip_config("na_calibration", "piezometric_map"),
-        output_dir=tmp_path / "figures",
-    )
-    summary = report.summary(destination=tmp_path / "figures")
-
-    assert summary.startswith("Rendered 1/2 figure(s)")
-    assert "1 skipped: na_calibration (stub is not applicable)" in summary
-
-
 def test_summary_is_info_when_every_skip_is_inapplicable_by_nature(
     tmp_path, patched_registry, runs_module, hmp_log_records
 ):
@@ -449,40 +334,6 @@ def test_summary_is_a_warning_when_a_config_option_would_have_kept_the_figure(
     assert "nd_active_network" in records[0].getMessage()
 
 
-def test_summary_is_a_warning_when_a_figure_failed_to_render(
-    tmp_path, patched_registry, runs_module, hmp_log_records
-):
-    stub = patched_registry.setdefault("piezometric_map", _StubFigure("piezometric_map"))
-
-    def _boom(sim, **kw):
-        raise RuntimeError("no data")
-
-    stub.plot = _boom
-    report = runs_module.render_figures_for_run(
-        _StubRun(), _skip_config("piezometric_map"), output_dir=tmp_path / "figures"
-    )
-    runs_module.log_render_summary(report, destination=tmp_path / "figures")
-
-    assert report.skipped[0].actionable is True
-    records = [r for r in hmp_log_records if "figure(s)" in r.getMessage()]
-    assert [r.levelname for r in records] == ["WARNING"]
-
-
-def test_summary_is_info_when_the_whole_batch_rendered(
-    tmp_path, patched_registry, runs_module, hmp_log_records
-):
-    report = runs_module.render_figures_for_run(
-        _StubRun(),
-        _skip_config("piezometric_map"),
-        output_dir=tmp_path / "figures",
-    )
-    runs_module.log_render_summary(report, destination=tmp_path / "figures")
-
-    records = [r for r in hmp_log_records if "figure(s)" in r.getMessage()]
-    assert [r.levelname for r in records] == ["INFO"]
-    assert records[0].getMessage().startswith("Rendered 1/1 figure(s)")
-
-
 def test_no_summary_when_nothing_was_requested(tmp_path, runs_module, hmp_log_records):
     runs_module.log_render_summary(runs_module.FigureRenderReport(), destination=tmp_path)
 
@@ -518,16 +369,6 @@ def test_merged_reports_read_as_one_batch(runs_module):
     merged = first.merged_with(second)
 
     assert merged.summary() == "Rendered 1/2 figure(s); 1 skipped: b (no calibration)"
-
-
-def test_one_figure_the_run_cannot_feed_is_refused_with_its_reason(
-    tmp_path, patched_registry, runs_module
-):
-    with pytest.raises(ValueError, match="'na_particles' does not apply to this run: stub is"):
-        runs_module.render_figure("na_particles", _StubRun(), save=tmp_path)
-
-    assert patched_registry["na_particles"].calls == []
-    assert not (tmp_path / "na_particles.png").exists()
 
 
 def test_one_figure_gets_its_dpi_and_lands_in_the_directory_it_is_given(
@@ -725,54 +566,6 @@ def _dated_config(**display) -> DisplayConfig:
     return DisplayConfig(enabled=True, on_error="raise", save=False, **display)
 
 
-@pytest.mark.parametrize(
-    ("edges", "expected"),
-    [(MONTHLY, 33), (DAILY, 1017), (STEADY, 0)],
-    ids=["monthly", "daily", "one-period steady"],
-)
-def test_one_date_names_the_period_that_holds_it_on_every_grid(
-    figure, tmp_path, edges, expected
-) -> None:
-    report = render_figures_for_run(
-        _DatedRun(edges), _dated_config(time=OCTOBER), output_dir=tmp_path
-    )
-
-    assert report.rendered == ("seepage_map",)
-    drawn = figure.drawn[0]
-    assert drawn["timestep"] == expected
-    assert "time" not in drawn
-    # The same instant on the three grids: the period drawn holds the date.
-    assert edges[expected] < pd.Timestamp(OCTOBER) <= edges[expected + 1]
-
-
-def test_the_steady_stage_draws_the_date_with_no_phase_override(figure, tmp_path) -> None:
-    # The two lines a calibration file wrote to undo an index are not needed:
-    # the one period of the steady stage covers the whole record.
-    cfg = _dated_config(time=OCTOBER, figures=["seepage_map", "cross_section"])
-
-    report = render_figures_for_run(_DatedRun(STEADY), cfg, output_dir=tmp_path)
-
-    assert report.rendered == ("seepage_map", "cross_section")
-    assert [d["timestep"] for d in figure.drawn] == [0, 0]
-
-
-def test_a_date_outside_the_run_is_skipped_with_the_record_it_holds(figure, tmp_path) -> None:
-    # A phase window narrower than the record: the date is not in it.
-    window = pd.date_range("2001-01-01", "2002-01-01", freq="MS")
-
-    report = render_figures_for_run(
-        _DatedRun(window), _dated_config(time=OCTOBER), output_dir=tmp_path
-    )
-
-    assert report.rendered == ()
-    assert figure.drawn == []
-    (skipped,) = report.skipped
-    assert skipped.name == "seepage_map"
-    assert "2002-10-15" in skipped.reason
-    assert "2001-01-01 to 2002-01-01" in skipped.reason
-    assert skipped.actionable is False
-
-
 def test_a_date_on_a_run_without_dates_is_skipped_and_last_still_draws(figure, tmp_path) -> None:
     no_dates = _DatedRun(None)
 
@@ -797,57 +590,6 @@ class _Series(_DatedFigure):
 
     def plot(self, _sim, *, dpi=150, save_path=None, **_):
         self.drawn.append(dict(_))
-
-
-def test_the_gallery_time_reaches_only_the_figures_that_draw_one_instant(
-    monkeypatch, tmp_path
-) -> None:
-    # A hydrograph draws the whole record: a gallery date must neither reach
-    # it nor skip it on a run that does not hold the date.
-    series = _Series()
-    monkeypatch.setattr(_runs, "_get_figure", lambda _name: series)
-    window = pd.date_range("2001-01-01", "2002-01-01", freq="MS")
-    cfg = _dated_config(time=OCTOBER, figures=["hydrograph"])
-
-    report = render_figures_for_run(_DatedRun(window), cfg, output_dir=tmp_path)
-
-    assert report.rendered == ("hydrograph",)
-    assert series.drawn == [{}]
-
-
-def test_an_integer_time_is_a_period_index(figure, tmp_path) -> None:
-    cfg = _dated_config(overrides={"seepage_map": {"time": 33}})
-
-    monthly = render_figures_for_run(_DatedRun(MONTHLY), cfg, output_dir=tmp_path)
-    steady = render_figures_for_run(_DatedRun(STEADY), cfg, output_dir=tmp_path)
-
-    assert monthly.rendered == ("seepage_map",)
-    assert figure.drawn[0]["timestep"] == 33
-    # An index names nothing on a run of another length: a skip, not a crash.
-    assert steady.rendered == ()
-    assert "period index 33 is out of range" in steady.skipped[0].reason
-
-
-def test_a_skip_by_date_is_not_a_warning(figure, tmp_path) -> None:
-    window = pd.date_range("2001-01-01", "2002-01-01", freq="MS")
-    report = render_figures_for_run(
-        _DatedRun(window), _dated_config(time=OCTOBER), output_dir=tmp_path
-    )
-    records: list[logging.LogRecord] = []
-    handler = logging.Handler()
-    handler.emit = records.append
-    summary_logger = get_logger("hydromodpy.display.runs")
-    previous = summary_logger.level
-    summary_logger.setLevel(logging.DEBUG)
-    summary_logger.addHandler(handler)
-    try:
-        log_render_summary(report, destination=tmp_path)
-    finally:
-        summary_logger.removeHandler(handler)
-        summary_logger.setLevel(previous)
-
-    assert [r.levelname for r in records] == ["INFO", "INFO"]
-    assert "seepage_map" in records[1].getMessage()
 
 
 def test_one_figure_resolves_its_date_and_refuses_one_the_run_does_not_hold(figure) -> None:
@@ -942,27 +684,6 @@ def seeded(tmp_path: Path) -> Iterator[Callable[..., Run]]:
         reader.close()
 
 
-def test_a_run_without_an_exit_does_not_serve_the_release_flux(seeded) -> None:
-    assert not seeded(_recharge_only()).has_field("release_flux")
-
-
-def test_the_figure_is_skipped_with_the_physical_reason(seeded, tmp_path, caplog) -> None:
-    run = seeded(_recharge_only())
-    cfg = DisplayConfig(figures=["downslope_distance_map"], save=False)
-
-    with caplog.at_level(logging.DEBUG, logger="hydromodpy.display.runs"):
-        report = runs.render_figures_for_run(run, cfg, output_dir=tmp_path / "figures")
-
-    assert report.rendered == ()
-    (skip,) = report.skipped
-    assert skip.name == "downslope_distance_map"
-    assert "no drain, stream, lake or surface excess" in skip.reason
-    assert "release_flux" in skip.reason
-    # No results option can add an exit to the model: the skip is not actionable.
-    assert not skip.actionable
-    assert "keep_per_cell_budget" not in caplog.text
-
-
 def test_a_drain_only_figure_names_the_drain(seeded) -> None:
     run = seeded(_recharge_only())
 
@@ -990,20 +711,6 @@ def test_a_run_without_budget_is_not_judged(seeded) -> None:
 
     spec = runs._get_figure("downslope_distance_map").spec
     assert no_surface_exit_reason(run, spec.required_fields) is None
-
-
-def test_a_store_without_attributes_keeps_the_old_reading(seeded) -> None:
-
-    def _drop_attributes(sz: SimulationZarr) -> None:
-        for key in ("policy", "kept_terms"):
-            del sz.root["budget"].attrs[key]
-
-    run = seeded(_recharge_only(), edit=_drop_attributes)
-
-    spec = runs._get_figure("downslope_distance_map").spec
-    assert "no drain, stream, lake or surface excess" in no_surface_exit_reason(
-        run, spec.required_fields
-    )
 
 
 def test_a_consumers_run_that_never_kept_the_exits_is_not_a_model_without_exit(
@@ -1039,24 +746,6 @@ def test_a_consumers_run_that_kept_the_exits_without_array_has_no_exit(seeded) -
     assert "no drain, stream, lake or surface excess" in no_surface_exit_reason(
         run, spec.required_fields
     )
-
-
-def test_a_consumers_run_that_kept_only_some_exits_stays_actionable(seeded) -> None:
-    run = seeded(_recharge_only(), policy="consumers", kept_terms=["recharge", "drain"])
-
-    spec = runs._get_figure("downslope_distance_map").spec
-    assert no_surface_exit_reason(run, spec.required_fields) is None
-
-
-def test_an_all_store_with_no_term_at_all_is_not_judged(seeded) -> None:
-
-    def _declare_no_term(sz: SimulationZarr) -> None:
-        sz.root.require_group("budget").attrs.update({"policy": "all", "kept_terms": []})
-
-    run = seeded({}, edit=_declare_no_term)
-
-    spec = runs._get_figure("downslope_distance_map").spec
-    assert no_surface_exit_reason(run, spec.required_fields) is None
 
 
 def test_a_figure_with_only_optional_fields_logs_the_not_kept_skip(

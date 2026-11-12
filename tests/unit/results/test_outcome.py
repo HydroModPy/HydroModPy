@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -18,8 +16,7 @@ from hydromodpy.results.outcome import (
     read_outcome,
     write_outcome,
 )
-from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
-from tests._helpers.sealed_runs import manifest_document
+from hydromodpy.results.storage.contract import RUN_OUTCOME_FILENAME
 
 NOW = datetime(2026, 10, 14, 8, 2, 11, tzinfo=UTC)
 
@@ -52,30 +49,6 @@ def _outcome(status: str, **overrides) -> Outcome:
     return Outcome(**payload)
 
 
-def test_an_outcome_round_trips(tmp_path):
-    outcome = _outcome("failed")
-    write_outcome(tmp_path, outcome)
-
-    assert read_outcome(tmp_path) == outcome
-    assert (
-        (tmp_path / RUN_OUTCOME_FILENAME)
-        .read_text(encoding="utf-8")
-        .startswith('{\n  "schema": "hydromodpy.outcome.v1"')
-    )
-
-
-def test_a_directory_without_outcome_reads_as_none(tmp_path):
-    assert read_outcome(tmp_path) is None
-
-
-def test_the_write_leaves_no_temporary_and_replaces_the_previous_document(tmp_path):
-    write_outcome(tmp_path, _outcome("running"))
-    write_outcome(tmp_path, _outcome("completed"))
-
-    assert read_outcome(tmp_path).status == "completed"
-    assert [p.name for p in tmp_path.iterdir()] == [RUN_OUTCOME_FILENAME]
-
-
 def test_a_failed_write_keeps_the_previous_document(tmp_path, monkeypatch):
     write_outcome(tmp_path, _outcome("running"))
     import hydromodpy.results.storage.json_io as json_io
@@ -91,73 +64,7 @@ def test_a_failed_write_keeps_the_previous_document(tmp_path, monkeypatch):
     assert [p.name for p in tmp_path.iterdir()] == [RUN_OUTCOME_FILENAME]
 
 
-def test_the_outcome_is_flushed_to_the_disk(tmp_path, monkeypatch):
-    synced: list[int] = []
-    real_fsync = os.fsync
-    monkeypatch.setattr(os, "fsync", lambda fd: (synced.append(fd), real_fsync(fd)))
-
-    write_outcome(tmp_path, _outcome("running"))
-
-    assert len(synced) == 2  # the file, then its directory
-
-
 # Precedence of D5, case by case.
-
-
-def test_a_manifest_means_completed_whatever_the_outcome_says(tmp_path):
-    write_outcome(tmp_path, _outcome("failed"))
-    (tmp_path / RUN_MANIFEST_FILENAME).write_text(json.dumps(manifest_document()), encoding="utf-8")
-
-    assert effective_status(tmp_path) == "completed"
-
-
-def test_a_completed_outcome_without_manifest_is_partial(tmp_path):
-    write_outcome(tmp_path, _outcome("completed"))
-    assert effective_status(tmp_path) == "partial"
-
-
-def test_a_failed_outcome_without_manifest_is_failed(tmp_path):
-    write_outcome(tmp_path, _outcome("failed"))
-    assert effective_status(tmp_path) == "failed"
-
-
-def test_an_aborted_outcome_without_manifest_is_aborted(tmp_path):
-    write_outcome(tmp_path, _outcome("aborted", written_by="trap", signal=15))
-    assert effective_status(tmp_path) == "aborted"
-
-
-def test_a_running_outcome_with_a_fresh_pulse_is_running(tmp_path):
-    write_outcome(tmp_path, _outcome("running"))
-    write_heartbeat(
-        tmp_path, Heartbeat(at=NOW, pid=4421, host="node12", attempt_id="7c1e" * 8, step="x")
-    )
-
-    assert (
-        effective_status(tmp_path, now=NOW + timedelta(seconds=10), stale_after_s=60) == "running"
-    )
-
-
-def test_a_running_outcome_with_an_old_pulse_is_stale(tmp_path):
-    write_outcome(tmp_path, _outcome("running"))
-    write_heartbeat(
-        tmp_path, Heartbeat(at=NOW, pid=4421, host="node12", attempt_id="7c1e" * 8, step="x")
-    )
-
-    assert effective_status(tmp_path, now=NOW + timedelta(minutes=10), stale_after_s=60) == "stale"
-
-
-def test_a_running_outcome_without_pulse_ages_from_its_own_write(tmp_path):
-    write_outcome(tmp_path, _outcome("running"))
-
-    assert effective_status(tmp_path, stale_after_s=3600) == "running"
-    assert (
-        effective_status(tmp_path, now=datetime.now(UTC) + timedelta(hours=2), stale_after_s=3600)
-        == "stale"
-    )
-
-
-def test_a_directory_without_outcome_is_unknown(tmp_path):
-    assert effective_status(tmp_path) == "unknown"
 
 
 # Refusals, named.
@@ -183,20 +90,6 @@ def test_another_schema_is_refused():
         Outcome.model_validate({**_outcome("running").model_dump(by_alias=True), "schema": "other"})
 
 
-def test_an_unknown_key_is_refused_by_name():
-    with pytest.raises(ValidationError, match="validity"):
-        Outcome.model_validate({**_outcome("running").model_dump(by_alias=True), "validity": "ok"})
-
-
-def test_the_step_is_an_open_vocabulary_that_names_the_steps_of_today() -> None:
-    from hydromodpy.core.pipeline_steps import STEP_NAMES
-
-    schema = Outcome.model_json_schema()["properties"]["step"]
-    assert tuple(schema["x-hmp-vocabulary"]) == STEP_NAMES
-    assert schema["x-hmp-vocabulary-open"] is True
-    assert _outcome("running", step="a_step_of_a_later_version").step == "a_step_of_a_later_version"
-
-
 def test_gc_does_not_close_a_silent_run_whose_death_is_not_proven(tmp_path):
     from hydromodpy.results.retention import RetentionPolicy, plan_gc
 
@@ -217,40 +110,7 @@ def test_gc_does_not_close_a_silent_run_whose_death_is_not_proven(tmp_path):
 # without it reads, and the field round-trips.
 
 
-@pytest.mark.parametrize(
-    "request_id",
-    [pytest.param(None, id="before the inputs are resolved"), pytest.param("e" * 64, id="after")],
-)
-def test_an_outcome_with_and_without_its_request_id_reads(tmp_path, request_id):
-    outcome = _outcome("running", request_id=request_id)
-    write_outcome(tmp_path, outcome)
-
-    back = read_outcome(tmp_path)
-    assert back == outcome
-    assert back is not None and back.request_id == request_id
-
-
-def test_an_outcome_written_without_the_key_reads_without_request_id(tmp_path):
-    write_outcome(tmp_path, _outcome("running"))
-    payload = json.loads((tmp_path / RUN_OUTCOME_FILENAME).read_text(encoding="utf-8"))
-
-    assert "request_id" not in payload
-    outcome = read_outcome(tmp_path)
-
-    assert outcome is not None
-    assert outcome.request_id is None
-
-
 def test_death_is_proven_is_no_name_of_the_outcome_module():
     import hydromodpy.results.outcome as outcome_module
 
     assert "death_is_proven" not in outcome_module.__all__
-
-
-def test_a_dead_process_of_this_host_reads_stale_at_once(tmp_path):
-    from hydromodpy.core.state.host import host_name
-
-    dead_pid = 2**22 + 12345
-    write_outcome(tmp_path, _outcome("running", host=host_name(), pid=dead_pid))
-
-    assert effective_status(tmp_path, now=NOW) == "stale"

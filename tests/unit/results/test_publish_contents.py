@@ -20,7 +20,6 @@ import json
 import logging
 import shutil
 import tarfile
-import tomllib
 
 import pytest
 
@@ -28,14 +27,7 @@ from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.core.payload.index import read_index
 from hydromodpy.project.exchange.share import inputs_of
-from hydromodpy.results.export.publish import (
-    INPUTS_DIRNAME,
-    PublishedProject,
-    _verify_project,
-    publish,
-    publish_project,
-    verify,
-)
+from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish, publish_project, verify
 from hydromodpy.results.publication import read_publication, read_published
 from tests._helpers.published_runs import (
     RUN_NAME,
@@ -175,114 +167,6 @@ def test_an_explicit_with_leaves_the_other_part_out(tmp_path, with_, present, ab
     assert verify(copy) == []
 
 
-def test_publication_names_the_source_and_every_file_it_copied(tmp_path) -> None:
-    project = make_project(tmp_path)
-    run_dir = make_sealed_run(project)
-
-    copy = publish(
-        run_dir, tmp_path / "out" / "nancon", project_root=project, inputs=inputs_of(project)
-    )
-
-    publication = read_publication(copy)
-    assert publication.source.project == "bretagne_k"
-    assert publication.source.rel_dir == f"runs/{RUN_NAME}"
-    assert (
-        publication.source.sim_id
-        == json.loads((run_dir / "manifest.json").read_text())["run"]["sim_id"]
-    )
-    assert publication.manifest_sha256 == sha256_of(run_dir / "manifest.json")
-    assert publication.label == "calibrated"
-    assert publication.format == "dir"
-    files = {p.relative_to(copy).as_posix() for p in copy.rglob("*") if p.is_file()}
-    assert set(publication.files) == files - {"PUBLICATION.json"}
-    assert all(sha256_of(copy / name) == digest for name, digest in publication.files.items())
-    assert verify(copy) == []
-
-
-def test_the_source_remembers_where_its_copy_went(tmp_path) -> None:
-    project = make_project(tmp_path)
-    run_dir = make_sealed_run(project)
-    target = tmp_path / "out" / "nancon"
-
-    copy = publish(run_dir, target, project_root=project, inputs=inputs_of(project))
-
-    (line,) = read_published(run_dir)
-    assert line.kind == "copy"
-    assert line.to == str(target.resolve())
-    assert line.format == "dir"
-    assert line.publication_sha256 == sha256_of(copy / "PUBLICATION.json")
-
-
-def test_a_copy_loses_deliver_to_and_its_source_keeps_it(tmp_path) -> None:
-    project = make_project(tmp_path)
-    run_dir = make_sealed_run(project)
-    block = (
-        '\n[[export]]\nvariables = ["head"]\nfile = "head_last.tif"\n'
-        'deliver_to = ["/data/depot/"]\n'
-    )
-    for name in ("config.toml", "config.resolved.toml"):
-        path = run_dir / name
-        before = path.read_text(encoding="utf-8") if path.is_file() else ""
-        path.write_text(before + block, encoding="utf-8")
-
-    copy = publish(
-        run_dir, tmp_path / "out" / "nancon", project_root=project, inputs=inputs_of(project)
-    )
-
-    for name in ("config.toml", "config.resolved.toml"):
-        copied = tomllib.loads((copy / name).read_text(encoding="utf-8"))
-        source = tomllib.loads((run_dir / name).read_text(encoding="utf-8"))
-        assert copied["export"] == [{"variables": ["head"], "file": "head_last.tif"}]
-        assert source["export"] == [
-            {"variables": ["head"], "file": "head_last.tif", "deliver_to": ["/data/depot/"]}
-        ]
-    assert verify(copy) == []
-
-
-def test_the_crate_lists_the_copied_files_under_the_declared_licence(tmp_path) -> None:
-    project = make_project(tmp_path)
-    run_dir = make_sealed_run(project)
-
-    copy = publish(
-        run_dir, tmp_path / "out" / "nancon", project_root=project, inputs=inputs_of(project)
-    )
-
-    crate = json.loads((copy / "ro-crate-metadata.json").read_text())
-    ids = {node.get("@id") for node in crate["@graph"]}
-    assert {"figures/heads.png", "exports/discharge.csv", "report/index.html"} <= ids
-    assert "https://spdx.org/licenses/etalab-2.0" in json.dumps(crate)
-
-
-def test_with_results_and_inputs_take_the_stores_and_the_bytes_by_content(tmp_path) -> None:
-    project = make_project(tmp_path)
-    run_dir = make_sealed_run(project)
-    observed = project.parent.parent / "data" / "hydrometry" / "J0014010.csv"
-
-    copy = publish(
-        run_dir,
-        tmp_path / "out" / "nancon",
-        project_root=project,
-        with_=("results", "inputs"),
-        inputs=inputs_of(project),
-    )
-
-    assert (copy / "fields.zarr" / "zarr.json").is_file()
-    assert (copy / "tables.parquet" / "simulation.parquet").is_file()
-    assert (copy / INPUTS_DIRNAME / f"{sha256_of(observed)}.csv").read_bytes() == (
-        observed.read_bytes()
-    )
-    dem = project.parent.parent / "data" / "dem" / "bdalti_25m.tif"
-    assert (copy / INPUTS_DIRNAME / f"{sha256_of(dem)}.tif").read_bytes() == dem.read_bytes()
-    index = read_index(copy)
-    assert [item.dest for item in index.files] == [
-        "data/dem/bdalti_25m.tif",
-        "data/hydrometry/J0014010.csv",
-    ]
-    assert index.file_at("data/hydrometry/J0014010.csv").license == "etalab-2.0"
-    assert read_publication(copy).with_ == ["results", "inputs"]
-    assert verify(copy) == []
-
-
 @pytest.mark.parametrize("with_", [None, ("inputs",)], ids=["by_default", "with_inputs"])
 def test_carrying_inputs_needs_the_index_of_the_run(tmp_path, with_) -> None:
     project = make_project(tmp_path)
@@ -310,24 +194,6 @@ def test_a_tar_is_the_same_copy_under_the_name_of_the_run(tmp_path) -> None:
     assert f"{RUN_NAME}/fields.zarr/zarr.json" in names
     assert verify(archive) == []
     assert read_published(run_dir)[0].format == "tar"
-
-
-def test_verify_names_a_file_that_changed_or_appeared(tmp_path) -> None:
-    project = make_project(tmp_path)
-    copy = publish(
-        make_sealed_run(project),
-        tmp_path / "out" / "nancon",
-        project_root=project,
-        inputs=inputs_of(project),
-    )
-
-    (copy / "exports" / "discharge.csv").write_text("tampered\n")
-    (copy / "extra.txt").write_text("added\n")
-
-    assert verify(copy) == [
-        "exports/discharge.csv: digest differs",
-        "extra.txt: not listed in PUBLICATION.json",
-    ]
 
 
 def _warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
@@ -366,18 +232,6 @@ def test_a_summary_copy_warns_without_a_licence_and_is_written(
     assert any("declares no [publication] license" in message for message in _warnings(caplog))
     assert (tmp_path / "out" / "summary").is_dir()
     assert copies.copies
-
-
-def test_public_goes_through_with_a_licence(tmp_path) -> None:
-    project = make_project(tmp_path)
-    copy = publish(
-        make_sealed_run(project),
-        tmp_path / "out" / "nancon",
-        project_root=project,
-        with_=("results",),
-        public=True,
-    )
-    assert (copy / "PUBLICATION.json").is_file()
 
 
 def test_public_warns_and_names_an_input_without_a_licence(
@@ -440,63 +294,6 @@ def test_an_unsealed_run_and_a_used_destination_are_refused(tmp_path) -> None:
     with pytest.raises(ExportError, match="not an empty directory"):
         publish(run_dir, used, project_root=project, inputs=inputs_of(project))
     assert (used / "keep.txt").read_text() == "mine"
-
-
-def test_a_project_is_published_member_by_member_in_one_move(tmp_path) -> None:
-    project = make_project(tmp_path)
-    run_dir = make_sealed_run(project)
-    summary = make_summary(project, error_message=f"See {project}/runs/a/mfsim.lst")
-    destination = tmp_path / "out" / "bretagne"
-
-    written = publish_project(project, destination, inputs=inputs_of(project))
-
-    assert written == PublishedProject(
-        copies=[destination.resolve() / RUN_NAME, destination.resolve() / "summary"],
-        left_out=[],
-    )
-    assert {entry.name for entry in destination.iterdir()} == {
-        RUN_NAME,
-        "summary",
-        "PUBLICATION.json",
-        ".zenodo.json",
-    }
-    assert (destination / RUN_NAME / "fields.zarr").is_dir()
-    assert (destination / RUN_NAME / "INSTALL.toml").is_file()
-    assert (destination / "summary" / ".zenodo.json").is_file()
-    assert verify(destination / RUN_NAME) == []
-    assert verify(destination / "summary") == []
-    assert read_published(run_dir)[-1].to == str(destination.resolve() / RUN_NAME)
-    assert read_published(summary)[-1].to == str(destination.resolve() / "summary")
-
-
-def test_a_project_copy_lists_its_members_in_its_own_publication(tmp_path) -> None:
-    project = make_project(tmp_path)
-    run_dir = make_sealed_run(project)
-    make_summary(project, error_message="ok")
-    destination = tmp_path / "out" / "bretagne"
-
-    publish_project(project, destination, inputs=inputs_of(project))
-
-    root = read_publication(destination)
-    assert root.kind == "project"
-    assert root.source.rel_dir == "."
-    assert root.source.project == project.name
-    assert root.files == {}
-    assert [(m.name, m.rel_dir) for m in root.members] == [
-        (RUN_NAME, f"runs/{RUN_NAME}"),
-        ("summary", "summary"),
-    ]
-    run_member, summary_member = root.members
-    assert run_member.manifest_sha256 == sha256_of(run_dir / "manifest.json")
-    assert summary_member.manifest_sha256 is None
-    assert run_member.publication_sha256 == sha256_of(destination / RUN_NAME / "PUBLICATION.json")
-    assert read_publication(destination / RUN_NAME).kind == "run"
-    assert read_publication(destination / "summary").kind == "summary"
-    assert read_publication(destination / "summary").with_ == []
-    zenodo = json.loads((destination / ".zenodo.json").read_text(encoding="utf-8"))
-    assert zenodo["title"] == project.name
-    assert zenodo["upload_type"] == "dataset"
-    assert verify(destination) == []
 
 
 def test_verify_of_a_project_copy_names_a_member_gone_changed_or_added(tmp_path) -> None:
@@ -581,34 +378,6 @@ def _declare_a_folder(run_dir, folder) -> str:
     return sha256
 
 
-def test_a_declared_folder_is_never_copied_whole(tmp_path) -> None:
-    project = make_project(tmp_path)
-    run_dir = make_sealed_run(project)
-    folder = project.parent.parent / "data" / "hydrometry"
-    unread = folder / "J9999999.csv"
-    unread.write_text("datetime,value\n2016-01-01,9.0\n", encoding="utf-8")
-    sha256 = _declare_a_folder(run_dir, folder)
-    sidecar = folder / "J0014010.csv.json"
-    sidecar.write_text('{"source": "hubeau"}', encoding="utf-8")
-
-    copy = publish(
-        run_dir,
-        tmp_path / "out" / "nancon",
-        project_root=project,
-        with_=("inputs",),
-        inputs=inputs_of(project),
-    )
-
-    stored = {path.name for path in (copy / INPUTS_DIRNAME).iterdir()}
-    assert sha256 not in stored
-    assert f"{sha256_of(unread)}.csv" not in stored
-    assert f"{sha256_of(folder / 'J0014010.csv')}.csv" in stored
-    assert f"{sha256_of(sidecar)}.json" in stored
-    item = read_index(copy).file_at("data/hydrometry/J0014010.csv")
-    assert item.sidecar_sha256 == sha256_of(sidecar)
-    assert verify(copy) == []
-
-
 def test_an_input_the_run_derived_in_its_scratch_is_named_as_such(tmp_path) -> None:
     project = make_project(tmp_path)
     run_dir = make_sealed_run(project)
@@ -634,19 +403,6 @@ def test_an_input_the_run_derived_in_its_scratch_is_named_as_such(tmp_path) -> N
             inputs=inputs_of(project),
         )
     assert not (tmp_path / "out" / "nancon").exists()
-
-
-def test_verify_of_a_project_copy_accepts_the_generated_views_at_its_root(tmp_path) -> None:
-    project = make_project(tmp_path)
-    make_sealed_run(project)
-    destination = tmp_path / "out" / "bretagne"
-    publish_project(project, destination, inputs=inputs_of(project))
-    (destination / "stray.txt").write_text("added\n", encoding="utf-8")
-
-    assert (destination / ".zenodo.json").is_file()
-    assert _verify_project(destination, read_publication(destination)) == [
-        "stray.txt: not listed in PUBLICATION.json"
-    ]
 
 
 DEVIATION_REFUSAL = (

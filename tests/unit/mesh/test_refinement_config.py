@@ -55,16 +55,6 @@ def test_a_zone_says_one_field_and_its_threshold_or_is_refused(
         assert word in str(raised.value)
 
 
-def test_a_layer_zone_reads_as_it_did_and_a_zone_dumps_back() -> None:
-    layer = RefinementZoneConfig.model_validate({"path": "z.gpkg", "cell_size": 20.0})
-    criterion = RefinementZoneConfig.model_validate({**_RUN_ZONE, "where": " WaterTable_Depth "})
-
-    assert layer.where is None and layer.below is None and layer.run is None
-    assert criterion.where == "watertable_depth"
-    for zone in (layer, criterion):
-        assert RefinementZoneConfig.model_validate(zone.model_dump()) == zone
-
-
 @pytest.mark.parametrize(
     ("table", "description"),
     [

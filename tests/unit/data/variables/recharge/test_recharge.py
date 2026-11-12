@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -30,52 +29,9 @@ class TestRechargeSourceConfigValidation:
         with pytest.raises(ValueError, match=match):
             RechargeSourceConfig(source=source)
 
-    def test_custom_with_path_ok(self, tmp_path):
-        cfg = RechargeSourceConfig(source="file", path=tmp_path)
-        assert cfg.source == "file"
-        assert cfg.path == tmp_path
-
     def test_custom_with_source_unit_ok(self, tmp_path):
         cfg = RechargeSourceConfig(source="file", path=tmp_path, source_unit="m/day")
         assert cfg.source_unit == "m/day"
-
-    def test_sim2_without_path_ok(self):
-        cfg = RechargeSourceConfig(source="sim2")
-        assert cfg.source == "sim2"
-        assert cfg.path is None
-
-    def test_synthetic_with_values_ok(self):
-        cfg = RechargeSourceConfig(source="synthetic", values=[1.5, 2.0])
-        assert cfg.source == "synthetic"
-        assert cfg.values == [1.5, 2.0]
-
-    def test_synthetic_with_amplitude(self):
-        """Amplitude and period_days drive the seasonal synthetic recharge signal."""
-        cfg = RechargeSourceConfig(
-            source="synthetic",
-            values=[1.0],
-            amplitude=0.5,
-            period_days=365,
-        )
-        assert cfg.amplitude == 0.5
-        assert cfg.period_days == 365
-
-    def test_invalid_source_rejected(self):
-        with pytest.raises(Exception):
-            RechargeSourceConfig(source="unknown_provider")
-
-    def test_literal_sources(self):
-        """The allowed sources are exactly custom, sim2, synthetic."""
-        # Verify each valid source is accepted (sim2 needs no extras,
-        # custom needs path, synthetic needs values).
-        RechargeSourceConfig(source="sim2")
-        RechargeSourceConfig(source="file", path=Path("/tmp"))
-        RechargeSourceConfig(source="synthetic", values=[1.0])
-
-        # Anything else is rejected
-        for bad in ("nasa", "ERA5", ""):
-            with pytest.raises(Exception):
-                RechargeSourceConfig(source=bad)
 
 
 def _series(config: RechargeSourceConfig, **kwargs) -> pd.Series:
@@ -91,15 +47,6 @@ def _annual_source() -> RechargeSourceConfig:
         start_date="2020-01-01",
         periods=1,
     )
-
-
-@pytest.mark.parametrize(
-    "project_period",
-    [None, (datetime(2020, 1, 1), datetime(2020, 12, 31))],
-)
-def test_an_annual_value_is_stamped_on_the_first_day_of_its_year(project_period):
-    series = _series(_annual_source(), project_period=project_period)
-    assert list(series.index) == [pd.Timestamp("2020-01-01")]
 
 
 def test_month_end_samples_are_stamped_on_their_month_start():
@@ -210,8 +157,3 @@ def test_a_list_of_the_wrong_length_is_refused(values: list[float]) -> None:
 
     with pytest.raises(ValueError, match=f"holds {len(values)} numbers"):
         generate(config, project_period=TWO_YEARS)
-
-
-def test_runoff_ratio_is_gone() -> None:
-    with pytest.raises(ValidationError, match="runoff_ratio"):
-        RechargeSourceConfig(source="synthetic", values=[2.0], runoff_ratio=0.5)

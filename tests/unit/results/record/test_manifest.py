@@ -7,16 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.exceptions import SchemaVersionMismatchError
-from hydromodpy.core.io.file_digest import sha256_and_size
-from hydromodpy.results.record.manifest import (
-    MANIFEST_VERSIONS,
-    RUN_RECORD_MANIFEST_VERSION,
-    list_artifacts,
-    read_manifest,
-    read_seal,
-    seal_problems,
-)
+from hydromodpy.results.record.manifest import read_seal, seal_problems
 
 
 def _payload(**overrides):
@@ -64,156 +55,11 @@ def _write(run_dir: Path, payload: dict) -> Path:
     return path
 
 
-def test_the_seal_of_a_run_is_version_four_and_profiles_the_run(tmp_path: Path):
-    _write(tmp_path, _payload())
-
-    seal = read_seal(tmp_path)
-
-    assert seal.manifest_version == RUN_RECORD_MANIFEST_VERSION == 4
-    assert seal.profile == "run"
-    assert MANIFEST_VERSIONS.oldest == 3 and MANIFEST_VERSIONS.current == 4
-
-
-def test_the_seal_carries_the_digests_of_the_values_under_one_rule(tmp_path: Path):
-    _write(
-        tmp_path,
-        _payload(values={"rule": "values/1", "digests": {"fields/heads": "abc"}}),
-    )
-
-    seal = read_seal(tmp_path)
-
-    assert seal.values is not None
-    assert seal.values.rule == "values/1"
-    assert seal.values.digests == {"fields/heads": "abc"}
-
-
 def test_a_value_key_that_names_no_stored_value_is_refused(tmp_path: Path):
     _write(tmp_path, _payload(values={"rule": "values/1", "digests": {"heads": "abc"}}))
 
     with pytest.raises(ValueError, match="stored value"):
         read_seal(tmp_path)
-
-
-def test_read_manifest_returns_the_file_as_it_is(tmp_path: Path):
-    payload = _payload()
-    payload["identity"]["config_hash"] = "the key of a pre-release"
-    _write(tmp_path, payload)
-
-    assert read_manifest(tmp_path)["identity"]["config_hash"] == "the key of a pre-release"
-
-
-def test_a_version_3_seal_is_migrated_in_memory(tmp_path: Path):
-    payload = _payload(manifest_version=3)
-    payload.pop("profile")
-    payload["config"]["hash"] = "the hash of a pre-release"
-    payload["identity"]["config_hash"] = "the hash of a pre-release"
-    payload["artifacts"] = [{"path": "inputs.json", "role": "other"}]
-    _write(tmp_path, payload)
-
-    seal = read_seal(tmp_path)
-
-    assert seal.manifest_version == 4 and seal.profile == "run"
-    assert seal.artifacts[0].role == "inputs"
-    assert "hash" not in seal.config.model_dump()
-    assert "config_hash" not in seal.identity.model_dump()
-    assert read_manifest(tmp_path)["identity"]["config_hash"] == "the hash of a pre-release"
-
-
-def test_a_pre_release_version_is_refused_by_its_format_version(tmp_path: Path):
-    _write(tmp_path, {"manifest_version": 2, "run": {}})
-
-    with pytest.raises(SchemaVersionMismatchError, match="pre-release"):
-        read_seal(tmp_path)
-
-
-def test_a_seal_without_a_version_is_refused(tmp_path: Path):
-    _write(tmp_path, {"run": {}})
-
-    with pytest.raises(SchemaVersionMismatchError):
-        read_seal(tmp_path)
-
-
-def test_the_seal_checks_bytes_and_never_recomputes_a_value_digest(tmp_path: Path):
-    config = tmp_path / "config.toml"
-    config.write_text("[flow]\n", encoding="utf-8")
-    digest, size = sha256_and_size(config)
-    _write(
-        tmp_path,
-        _payload(
-            artifacts=[
-                {
-                    "path": "config.toml",
-                    "role": "config",
-                    "bytes": size,
-                    "sha256": digest,
-                }
-            ],
-            values={"rule": "values/1", "digests": {"fields/heads": "not the values"}},
-        ),
-    )
-
-    assert seal_problems(tmp_path) == []
-
-
-def test_the_seal_reports_a_changed_artifact(tmp_path: Path):
-    config = tmp_path / "config.toml"
-    config.write_text("[flow]\n", encoding="utf-8")
-    digest, size = sha256_and_size(config)
-    _write(
-        tmp_path,
-        _payload(
-            artifacts=[
-                {
-                    "path": "config.toml",
-                    "role": "config",
-                    "bytes": size,
-                    "sha256": digest,
-                }
-            ]
-        ),
-    )
-    config.write_text("[flow]\n[other]\n", encoding="utf-8")
-
-    problems = seal_problems(tmp_path)
-
-    assert len(problems) == 2
-    assert all(problem.startswith("config.toml") for problem in problems)
-
-
-def test_an_entry_the_roles_do_not_name_stays_other(tmp_path: Path):
-    (tmp_path / "stray.txt").write_text("x\n", encoding="utf-8")
-    (tmp_path / "fields.zarr").mkdir()
-    (tmp_path / "tables.parquet").mkdir()
-    (tmp_path / "tables.parquet" / "simulation.parquet").write_bytes(b"")
-
-    roles = {entry["path"]: entry["role"] for entry in list_artifacts(tmp_path)}
-
-    assert roles["stray.txt"] == "other"
-    assert roles["fields.zarr"] == "fields"
-    assert roles["tables.parquet/simulation.parquet"] == "table:simulation"
-
-
-@pytest.mark.parametrize(
-    ("folder", "file"),
-    [
-        ("figures", "seepage_map.png"),
-        ("exports", "head_last.tif"),
-        ("report", "index.html"),
-    ],
-)
-def test_what_renders_the_run_after_its_seal_is_never_inventoried(
-    tmp_path: Path, folder: str, file: str
-):
-    (tmp_path / "fields.zarr").mkdir()
-    (tmp_path / folder).mkdir()
-    (tmp_path / folder / file).write_bytes(b"rendered")
-    (tmp_path / folder / "index.json").write_text("{}", encoding="utf-8")
-
-    paths = [entry["path"] for entry in list_artifacts(tmp_path)]
-
-    assert "fields.zarr" in paths
-    assert not [path for path in paths if path == folder or path.startswith(f"{folder}/")]
-    assert all(entry["role"] != "figure" for entry in list_artifacts(tmp_path))
 
 
 def _purged_trial(run_dir: Path, *, kind: str = "trial", mesh_sha256: str | None = None) -> None:

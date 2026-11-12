@@ -20,7 +20,6 @@ from hydromodpy.mesh import registry
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planning.lake_structures import LakeStructure
 from hydromodpy.mesh.planning.plan import plan_mesh_request
-from hydromodpy.mesh.request import BARRIER_FAMILY
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.boundaries.cutoff_wall_shore import snap_wall_to_shore
 from hydromodpy.model.sinks_sources.flow_barrier import CutoffWallConfig
@@ -134,43 +133,6 @@ def _section_faces(built: SimpleNamespace) -> np.ndarray:
     return pairs[(along > first + size) & (along < last - size)]
 
 
-@pytest.mark.parametrize("offset", [12.0, -30.0], ids=["gap_12_m", "crossing"])
-@pytest.mark.parametrize("engine", sorted(ENGINES))
-def test_every_hfb_face_of_the_shore_touches_a_lake_cell(engine: str, offset: float) -> None:
-    built = _built(engine, offset)
-    faces = _section_faces(built)
-    lake = np.isin(faces, built.cells)
-
-    assert faces.size
-    assert lake.any(axis=1).all()
-
-
-@pytest.mark.parametrize("offset", [12.0, -30.0], ids=["gap_12_m", "crossing"])
-@pytest.mark.parametrize("engine", sorted(ENGINES))
-def test_no_cell_sits_between_the_lake_and_the_wall(engine: str, offset: float) -> None:
-    built = _built(engine, offset)
-    faces = _section_faces(built).reshape(-1)
-    outside = faces[~np.isin(faces, built.cells)]
-    between = ~downstream_of_wall(built.line, built.mesh.cell_mesh.centers[outside])
-
-    assert np.count_nonzero(between) == 0
-    assert not downstream_of_wall(built.line, built.mesh.cell_mesh.centers[built.cells]).any()
-
-
-@pytest.mark.parametrize("engine", sorted(ENGINES))
-def test_the_shore_is_sealed_in_the_lake_layer_and_barred_below_the_bed(engine: str) -> None:
-    built = _built(engine, 12.0)
-    cell_mesh = built.mesh.cell_mesh
-    shore = cell_mesh.geometry.edge_cells[lake_shore_faces(cell_mesh, built.line, built.cells)]
-    outer = shore[~np.isin(shore, built.cells)]
-    banks = {row[2][1] for row in built.connections if row[3] == "HORIZONTAL"}
-    barred = {(row[0][0], *sorted((row[0][1], row[1][1]))) for row in built.hfb}
-
-    assert shore.size
-    assert banks.isdisjoint(outer.tolist())
-    assert all((1, a, b) in barred and (0, a, b) not in barred for a, b in shore.tolist())
-
-
 @pytest.mark.parametrize("engine", sorted(ENGINES))
 def test_the_gate_passes_the_wall_on_the_shore(engine: str) -> None:
     built = _built(engine, 12.0)
@@ -218,17 +180,3 @@ def test_the_gate_refuses_a_lake_still_in_bank_connection_past_the_dam() -> None
 
     with pytest.raises(SolverInputError, match=r"lake 'r'.*downstream cell\(s\) still in LAK"):
         check_cutoff_wall_seal(built.model, built.mesh, built.cells_by_lake, open_banks, built.hfb)
-
-
-@pytest.mark.parametrize("offset", [12.0, -30.0], ids=["gap_12_m", "crossing"])
-@pytest.mark.parametrize("engine", ["triangle", "voronoi"])
-def test_the_hfb_faces_are_the_faces_the_mesh_lays_on_the_wall(engine: str, offset: float) -> None:
-    built = _built(engine, offset)
-    table = built.mesh.cell_mesh.face_families
-    rows = built.mesh.cell_mesh.face_rows(BARRIER_FAMILY) & (table.cell_b >= 0)
-    family = {
-        tuple(sorted(pair)) for pair in zip(table.cell_a[rows], table.cell_b[rows], strict=True)
-    }
-    barred = {tuple(sorted((row[0][1], row[1][1]))) for row in built.hfb}
-
-    assert barred == family

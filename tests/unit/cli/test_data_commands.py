@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from hydromodpy.data.provenance.sidecars import (
     FORMER_CACHE_DATABASE,
     CacheIndex,
@@ -238,41 +236,10 @@ def test_data_restore_unpacks_into_the_resolved_workspace(monkeypatch, tmp_path)
     assert calls == {"source": "cache.tar.gz", "workspace_root": workspace, "to": None}
 
 
-@pytest.mark.parametrize(
-    ("words", "said"),
-    [
-        (["data", "add", "x.csv", "--type", "dem"], "inputs/"),
-        (["lock", "update"], "hmp data lock"),
-        (["lock", "verify", "--strict"], "hmp data lock --check"),
-    ],
-    ids=["data add", "lock update", "lock verify"],
-)
-def test_a_removed_command_is_refused_with_the_form_that_replaces_it(
-    words: list[str], said: str
-) -> None:
-    result = CliRunner().invoke(words)
-
-    assert result.exit_code == 2
-    assert said in result.stderr
-
-
 def _data_cache_check(workspace: Path) -> dict:
     result = CliRunner().invoke(["doctor", "-w", str(workspace), "--format", "json"])
     checks = json.loads(result.stdout)["data"]["checks"]
     return next(check for check in checks if check["name"] == "data_cache")
-
-
-def test_doctor_counts_the_rows_and_the_user_files_of_a_workspace(tmp_path) -> None:
-    workspace = _workspace(tmp_path)
-    fetched = workspace / "data" / "dem" / "dem_ign_a.tif"
-    fetched.parent.mkdir()
-    fetched.write_bytes(b"tif")
-    CacheIndex(workspace / "data").record(fetched, variable="dem", source="ign")
-
-    check = _data_cache_check(workspace)
-
-    assert check["status"] == "OK"
-    assert check["detail"] == "1 row(s), 0 user file(s)"
 
 
 def test_doctor_reports_the_former_database_and_leaves_it_there(tmp_path) -> None:

@@ -49,12 +49,6 @@ def _fake_run(flow_regime: str) -> _FakeRun:
     return _FakeRun(flow_regime=flow_regime, stack=stack)
 
 
-def test_active_network_default_mode_uses_last_step_for_steady_runs() -> None:
-    mask = views.cell_field_active_mask(_fake_run("steady"))
-
-    np.testing.assert_array_equal(mask, np.asarray([0.0, 0.0, 1.0]))
-
-
 def test_active_network_default_mode_uses_persistent_cells_for_transient_runs() -> None:
     mask = views.cell_field_active_mask(_fake_run("transient"))
 

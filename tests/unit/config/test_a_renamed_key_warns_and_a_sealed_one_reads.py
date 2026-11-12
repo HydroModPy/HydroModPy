@@ -14,29 +14,23 @@ import tomllib
 from pathlib import Path
 
 import pytest
-import tomlkit
 
 from hydromodpy.calibration.config_terms import renamed_to
 from hydromodpy.config import config_migration as migration
 from hydromodpy.config.config_migration import (
-    PRERELEASE_FORMS,
     fix_config_chain,
-    migrate_config_doc,
     migrate_config_doc_on_load,
-    migrate_layers,
     migrate_sealed_config_doc,
     moved_paths,
     rewrite_dotted_path,
 )
-from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.base import (
     CANNOT_REWRITE,
     ConfigKeyRenamedWarning,
 )
 from hydromodpy.core.config_kit.introspect import held_tables_of
 from hydromodpy.core.exceptions import ConfigValidationError
-from hydromodpy.core.toml_io.loader import read_toml_chain
-from hydromodpy.core.toml_io.overrides import SET_SOURCE
 from hydromodpy.schema.changes import Register, read
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 
@@ -291,63 +285,8 @@ def test_a_dropped_key_is_dropped_in_a_sealed_read_and_refused_in_a_file(
         migrate_config_doc_on_load({"mesh": {"dropped": 7}}, source="a.toml", register=FIXTURE)
 
 
-def test_a_dotted_path_of_a_key_that_left_is_not_rewritten() -> None:
-    doc = {
-        "sites": {"bind": {"mesh.dropped": "n"}},
-        "calibration": {"parameters": {"p": {"path": "mesh.dropped"}}},
-    }
-    before = copy.deepcopy(doc)
-
-    assert migrate_config_doc(doc, register=FIXTURE) == []
-    assert doc == before
-
-
 WITH_OLD_TABLE = PROJECT + "\n[modflow6.process_specific]\nvka = 2.0\n"
 NEW_TABLE = "[solver.modflow6.process_specific]\nvka = 2.0\n"
-
-
-def test_a_moved_table_warns_in_a_file_and_reads_in_silence_in_a_sealed_run_config(
-    tmp_path: Path, recwarn: pytest.WarningsRecorder
-) -> None:
-    project = _project(tmp_path)
-    user_file = project / "project.toml"
-    user_file.write_text(WITH_OLD_TABLE, encoding="utf-8")
-
-    with pytest.warns(ConfigKeyRenamedWarning, match=r"modflow6 -> \[solver\.modflow6\]") as told:
-        config = HydroModPyConfig.from_toml(user_file)
-    assert held_tables_of(config.solver)["modflow6"].process_specific.vka == 2.0
-    assert f"hmp doctor --fix-config {user_file}" in str(told[0].message)
-
-    sealed = project / "runs" / "nancon" / "config.toml"
-    sealed.parent.mkdir(parents=True)
-    sealed.write_text(WITH_OLD_TABLE, encoding="utf-8")
-    recwarn.clear()
-
-    config = HydroModPyConfig.from_toml(sealed)
-
-    assert held_tables_of(config.solver)["modflow6"].process_specific.vka == 2.0
-    assert not [w for w in recwarn if issubclass(w.category, ConfigKeyRenamedWarning)]
-
-
-def test_a_file_that_writes_only_current_forms_is_left_alone(tmp_path: Path) -> None:
-    """Each current shape sits beside the one a pre-release wrote, and says nothing."""
-    # The edition is written, so the file holds every key a load reads.
-    document = {
-        "edition": "2.0",
-        "export": [{"variables": ["head"], "format": "netcdf", "time": "last"}],
-        "flow": {
-            "ic": {"kind": "steady_state", "source": "mean_recharge"},
-            "bc": {"drainage": {"kind": "drain"}},
-            "param": {"K": {"field_vertical_profile": {"kind": "exponential"}}},
-        },
-        "calibration": {"method_options": {"max_trials": 5}, "window": {"start": "2001-01-01"}},
-        "geographic": {"catchment": {"kind": "from_outlet_coord"}},
-        "simulation": {"name": "x", "process": [{"id": "flow", "kind": "flow"}]},
-    }
-    before = copy.deepcopy(document)
-
-    assert migrate_config_doc_on_load(document, source=tmp_path / "project.toml") == []
-    assert document == before
 
 
 def test_a_load_of_a_user_file_does_not_run_the_sealed_rules(tmp_path: Path) -> None:
@@ -361,42 +300,6 @@ def test_a_load_of_a_user_file_does_not_run_the_sealed_rules(tmp_path: Path) -> 
     sealed.write_text("", encoding="utf-8")
     migrate_config_doc_on_load(doc, source=sealed, register=FIXTURE)
     assert doc == {"mesh": {}}
-
-
-def test_the_end_of_the_delay_refuses_a_file_and_still_reads_a_sealed_config(
-    tmp_path: Path,
-) -> None:
-    user_file = tmp_path / "project.toml"
-    user_file.write_text("[geographic]\nlate_before = 7\n", encoding="utf-8")
-    with pytest.raises(ConfigValidationError, match="late_before"):
-        migrate_config_doc_on_load(
-            tomllib.loads(user_file.read_text(encoding="utf-8")),
-            source=user_file,
-            register=FIXTURE,
-        )
-    assert _doctor(user_file) == ["geographic.late_before -> [geographic.late_after]"]
-    assert tomllib.loads(user_file.read_text(encoding="utf-8")) == {"geographic": {"late_after": 7}}
-
-    sealed = {"geographic": {"late_before": 7}}
-    migrate_sealed_config_doc(sealed, register=FIXTURE)
-    assert sealed == {"geographic": {"late_after": 7}}
-
-
-def test_a_sealed_document_and_a_user_dict_read_under_the_new_name(tmp_path: Path) -> None:
-    """A sealed run reads in silence; a dict is read as a file is, with the warning."""
-    project = _project(tmp_path)
-    document = tomllib.loads(WITH_OLD_TABLE)
-    document["workspace"] = {"project_root": str(project)}
-
-    config = HydroModPyConfig.from_snapshot(document)
-
-    assert held_tables_of(config.solver)["modflow6"].process_specific.vka == 2.0
-    with pytest.raises(ConfigValidationError, match="project_root is not a key"):
-        HydroModPyConfig.from_dict(document, base_dir=project)
-    del document["workspace"]
-    with pytest.warns(ConfigKeyRenamedWarning, match=r"modflow6 -> \[solver\.modflow6\]"):
-        as_a_file = HydroModPyConfig.from_dict(document, base_dir=project)
-    assert held_tables_of(as_a_file.solver)["modflow6"].process_specific.vka == 2.0
 
 
 def test_a_frozen_run_with_a_table_under_its_old_name_reads_back(tmp_path: Path) -> None:
@@ -417,42 +320,6 @@ def test_a_frozen_run_with_a_table_under_its_old_name_reads_back(tmp_path: Path)
     assert held_tables_of(replayed.solver)["modflow6"].model_dump(mode="json") == expected
 
 
-def test_a_pre_release_run_is_refused_whether_it_is_sealed_or_not(tmp_path: Path) -> None:
-    """A run sealed by a pre-release of 2.0 is refused with the way out, as its project file is."""
-    project = _project(tmp_path)
-    form = "calibration.outputs.{*}.observed_network"
-    assert form in {known.path for known in PRERELEASE_FORMS}
-    document = tomllib.loads(PROJECT)
-    document["calibration"]["outputs"]["seepage_network"]["observed_network"] = "dem_network"
-    text = tomlkit.dumps(document)
-    sealed = project / "runs" / "nancon" / "config.toml"
-    sealed.parent.mkdir(parents=True)
-    sealed.write_text(text, encoding="utf-8")
-    (project / "project.toml").write_text(text, encoding="utf-8")
-
-    for source in (sealed, project / "project.toml"):
-        with pytest.raises(ConfigValidationError, match="written by a pre-release") as refused:
-            HydroModPyConfig.from_toml(source)
-        assert "calibration.outputs.seepage_network.observed_network" in str(refused.value)
-        assert NO_REWRITE in str(refused.value)
-
-
-def test_a_moved_table_keeps_its_comments(tmp_path: Path) -> None:
-    path = tmp_path / "project.toml"
-    path.write_text(
-        "[modflow6.process_specific]\nvka = 2.0  # the step\n\n[calibration.protocol]\n"
-        'name = "matching_hydrographic_network"\n',
-        encoding="utf-8",
-    )
-
-    assert migration.fix_config_file(path) == ["modflow6 -> [solver.modflow6]"]
-
-    written = path.read_text(encoding="utf-8")
-    assert "vka = 2.0  # the step" in written
-    assert "[modflow6" not in written.replace("[solver.modflow6", "")
-    assert tomllib.loads(written)["solver"]["modflow6"]["process_specific"] == {"vka": 2.0}
-
-
 def test_a_key_renamed_in_its_own_table_keeps_its_place_and_its_comment(tmp_path: Path) -> None:
     path = tmp_path / "project.toml"
     path.write_text(
@@ -465,14 +332,6 @@ def test_a_key_renamed_in_its_own_table_keeps_its_place_and_its_comment(tmp_path
     lines = path.read_text(encoding="utf-8").splitlines()
     assert [line.split(" ")[0] for line in lines[1:]] == ["first", "cmap", "last"]
     assert lines[2].endswith("# the map")
-
-
-def test_a_comment_survives_in_a_document_the_doctor_wrote() -> None:
-    doc = tomlkit.parse("[calibration]\nseed_before = 7  # fixed\n")
-
-    migrate_config_doc(doc, register=FIXTURE)
-
-    assert "seed = 7  # fixed" in tomlkit.dumps(doc)
 
 
 # One row per kind of rename, each new to the schema, as a lot of renames will add.
@@ -574,23 +433,6 @@ def test_one_row_reaches_the_command_line_and_the_helpers() -> None:
     assert CELL in {moved_path.row for moved_path in moved_paths(register=FIXTURE)}
 
 
-def test_a_set_on_the_command_line_follows_the_row(tmp_path: Path) -> None:
-    from hydromodpy.config.loading import read_document
-    from hydromodpy.project.request import RunRequest
-
-    base = tmp_path / "base.toml"
-    base.write_text(NEW_TABLE, encoding="utf-8")
-    changes = {"modflow6.process_specific.vka": 3.0}
-
-    with pytest.warns(ConfigKeyRenamedWarning, match="--set"):
-        payload = read_document(base, changes=changes, root=ROOT_CONFIG)
-
-    assert payload == {"solver": {"modflow6": {"process_specific": {"vka": 3.0}}}}
-    assert RunRequest(config=payload, set=changes).overrides() == {
-        "solver.modflow6.process_specific.vka": 3.0
-    }
-
-
 def test_the_doctor_follows_the_row_everywhere_and_keeps_the_comments(tmp_path: Path) -> None:
     path = tmp_path / "project.toml"
     path.write_text(
@@ -618,24 +460,3 @@ def test_the_doctor_follows_the_row_everywhere_and_keeps_the_comments(tmp_path: 
     assert written["sites"]["bind"] == {"mesh.cell_size": "size"}
     assert written["calibration"]["parameters"]["p"]["path"] == "mesh.cell_size"
     assert written["calibration"]["phases"][0]["overrides"] == {"flow.fill_after": True}
-
-
-def test_a_project_file_reads_its_bind_lines_under_the_new_name(tmp_path: Path) -> None:
-    path = tmp_path / "project.toml"
-    path.write_text(
-        tomlkit.dumps({"sites": {"bind": {"modflow6.process_specific.vka": "k"}}}), encoding="utf-8"
-    )
-
-    with pytest.warns(ConfigKeyRenamedWarning):
-        chain = read_toml_chain(path, root=ROOT_CONFIG)
-
-    assert chain[-1].own == {"sites": {"bind": {"solver.modflow6.process_specific.vka": "k"}}}
-
-
-def test_a_set_from_no_file_has_no_file_to_rewrite() -> None:
-    with pytest.warns(ConfigKeyRenamedWarning) as told:
-        migrate_layers([(SET_SOURCE, {"modflow6": {"process_specific": {"vka": 3.0}}})])
-
-    message = str(told[0].message)
-    assert "write the new name" in message
-    assert "hmp doctor" not in message

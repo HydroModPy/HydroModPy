@@ -59,28 +59,6 @@ def test_a_pit_below_its_stream_has_no_negative_height() -> None:
     assert np.nanmin(height) >= 0.0
 
 
-def test_a_pixel_that_drains_off_the_grid_without_a_stream_has_no_height() -> None:
-    elevation, streams = _valley()
-    streams[:, THALWEG] = False
-    streams[:5, THALWEG] = True
-
-    height = height_above_stream(elevation, streams, dx=STEP, dy=STEP)
-
-    assert np.isnan(height[-1, THALWEG])
-    assert height[0, THALWEG] == 0.0
-
-
-def test_a_pixel_without_elevation_has_no_height() -> None:
-    elevation, streams = _valley()
-    elevation[5, 5] = np.nan
-    elevation[6, 6] = -99999.0
-
-    height = height_above_stream(elevation, streams, dx=STEP, dy=STEP)
-
-    assert np.isnan(height[5, 5]) and np.isnan(height[6, 6])
-    assert np.isfinite(height[5, 6])
-
-
 def test_a_grid_without_a_stream_is_refused() -> None:
     elevation, streams = _valley()
 

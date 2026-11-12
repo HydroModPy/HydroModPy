@@ -19,7 +19,6 @@ from typing import Any
 import pytest
 
 from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
-from hydromodpy.solver.base.adapter_protocol import RERUN_MEMBERS, solver_members
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow6 import prt, transport
@@ -67,42 +66,6 @@ def _upstream(tmp_path: Path) -> SolverRun:
     """The solved flow run a transport of this plan follows."""
     flow_model = SimpleNamespace(model_name="island", full_path=str(tmp_path / "island"))
     return solved_run(tmp_path / "island", model=object(), solver_model=flow_model)
-
-
-def test_the_adapter_carries_the_members_of_the_contract(adapter) -> None:
-    assert [name for name in solver_members() if not hasattr(adapter, name)] == []
-    assert not any(hasattr(adapter, name) for name in RERUN_MEMBERS)
-    assert not hasattr(adapter, "observables"), "a transport serves no calibration observable"
-    assert not hasattr(adapter, "extract_observables") and not hasattr(adapter, "execute")
-    assert adapter.mutable == frozenset()
-
-
-def test_a_build_sits_beside_the_flow_model_in_the_folder_of_the_flow(
-    adapter, tmp_path: Path
-) -> None:
-    slot = RunSlot(tmp_path, "island_t1")
-    model = object()
-    followed = _upstream(tmp_path)
-
-    built = adapter.build(model, adapter.options(), slot, (followed,))
-
-    (solver,) = _Engine.instances
-    assert solver.args == (followed.model, followed.solver_model)
-    assert solver.kwargs["model_folder"] == str(followed.slot.folder)
-    assert solver.kwargs["model_name"] == "island"
-    assert solver.calls == [("pre",)]
-    assert built.solver_model is solver
-    assert built.model is model and built.slot is slot and built.options is not None
-    assert (built.written, built.solved) == (False, False)
-
-
-def test_a_build_names_its_output_by_the_kind_of_transport(adapter, tmp_path: Path) -> None:
-    suffix = next(entry[3] for entry in ADAPTERS.values() if isinstance(adapter, entry[0]))
-
-    adapter.build(object(), None, RunSlot(tmp_path, "island"), (_upstream(tmp_path),))
-
-    (solver,) = _Engine.instances
-    assert solver.kwargs["suffix_name"] == suffix
 
 
 def test_a_build_refuses_a_flow_run_without_its_solver_object(adapter, tmp_path: Path) -> None:

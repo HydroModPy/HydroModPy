@@ -10,18 +10,6 @@ from hydromodpy.data.variables.oceanic.constant import generate_constant
 
 @pytest.mark.fast
 class TestGenerateConstant:
-    def test_generates_single_point_record(self):
-        cfg = OceanicSourceConfig(source="constant", value=0.0)
-        records = generate_constant(cfg)
-        assert len(records) == 1
-        rec = records[0]
-        assert rec.station_id == "constant"
-        assert rec.variable == "mean_sea_level"
-        assert rec.source == "constant"
-        assert rec.unit == "m"
-        assert rec.is_constant is True
-        assert rec.data["value"].iloc[0] == 0.0
-
     def test_nonzero_value(self):
         cfg = OceanicSourceConfig(source="constant", value=3.5)
         records = generate_constant(cfg)

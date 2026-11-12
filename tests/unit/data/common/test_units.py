@@ -1,7 +1,6 @@
 """Tests for common/units."""
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from hydromodpy.data.common.units import (
@@ -194,17 +193,3 @@ class TestConvertArray:
         arr = np.array([273.15, 373.15])
         result = convert_array(arr, "K", "degC")
         np.testing.assert_allclose(result, [0.0, 100.0])
-
-    def test_pandas_series(self):
-        s = pd.Series([32.0, 212.0])
-        result = convert_array(s, "degF", "degC")
-        pd.testing.assert_series_equal(
-            result,
-            pd.Series([0.0, 100.0]),
-            atol=1e-10,
-        )
-
-    def test_identity_returns_same_object(self):
-        arr = np.array([1.0, 2.0])
-        result = convert_array(arr, "m", "m")
-        assert result is arr

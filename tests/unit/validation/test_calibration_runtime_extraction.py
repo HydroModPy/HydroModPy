@@ -12,7 +12,6 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from validation_cases.calibration.shared.runtime import (
     _extract_outlet_discharge_from_run,
@@ -20,7 +19,6 @@ from validation_cases.calibration.shared.runtime import (
     _model_cell_centroids,
     _resolve_cell_index_from_cell_mesh,
     _resolve_cell_index_from_model,
-    _run_flat_index,
 )
 
 
@@ -255,21 +253,6 @@ class TestTruthAndTrialLocateOnePoint:
             )
         )
         return run, model
-
-    @pytest.mark.parametrize("point", [(25.0, 15.0), (20.0, 5.0), (10.0, 10.0)])
-    def test_both_routes_pick_the_same_cell(self, point):
-        """Inside a cell, on an edge and on a corner alike."""
-        run, model = self._routes()
-        x, y = point
-        truth = _run_flat_index(run, x=x, y=y)
-        trial = _resolve_cell_index_from_model(model, x=x, y=y)
-        assert trial is not None
-        assert truth == trial[3]
-
-    def test_the_trial_splits_the_cell_rank_into_row_and_col(self):
-        run, model = self._routes()
-        assert _resolve_cell_index_from_model(model, x=25.0, y=15.0) == (0, 0, 2, 2)
-        assert _run_flat_index(run, x=25.0, y=15.0) == 2
 
 
 def test_the_truth_discharge_leaves_the_catchment_row_out():

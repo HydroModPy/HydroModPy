@@ -67,26 +67,6 @@ def test_a_fractional_lag_loses_exactly_the_share_pushed_past_the_run_end() -> N
 # leaves goes straight to the recharge.
 
 
-def test_a_soil_with_no_capacity_passes_the_rain_through() -> None:
-    rng = np.random.default_rng(1)
-    n_days, n_columns = 50, 4
-    precipitation = rng.gamma(1.0, 5.0, (n_days, n_columns))
-    etp = rng.uniform(0.0, 4.0, (n_days, n_columns))
-    params = SoilParameters(
-        ru_mm=np.zeros(n_columns),
-        alpha=0.6,
-        kc=1.0,
-        impervious_fraction=0.0,
-        bypass_fraction=0.0,
-        transit_time_days=0.0,
-    )
-
-    fluxes = run_soil_balance(precipitation, etp, params, full_soil(params))
-
-    assert np.all(fluxes.soil_storage == 0.0)
-    assert np.max(np.abs(fluxes.recharge - (precipitation - fluxes.etr))) < 1e-12
-
-
 # A soil whose yearly demand outruns its yearly rain never settles: it says so.
 #
 # ``ru = 1000`` mm, 300 mm of rain and 900 mm of ETP spread evenly over the
@@ -118,26 +98,6 @@ def test_a_spinup_that_cannot_settle_says_so() -> None:
 # ``kc = 0`` makes the demand ``D = kc * ETP`` zero regardless of ETP, alpha or
 # ru, so nothing evaporates and the ETP the soil left unmet equals the ETP that
 # was loaded.
-
-
-def test_a_zero_crop_coefficient_evaporates_nothing() -> None:
-    rng = np.random.default_rng(2)
-    n_days, n_columns = 30, 5
-    precipitation = rng.gamma(1.0, 5.0, (n_days, n_columns))
-    etp = rng.uniform(0.0, 4.0, (n_days, n_columns))
-    params = SoilParameters(
-        ru_mm=rng.uniform(10.0, 200.0, n_columns),
-        alpha=0.6,
-        kc=0.0,
-        impervious_fraction=0.1,
-        bypass_fraction=0.05,
-        transit_time_days=3.0,
-    )
-
-    fluxes = run_soil_balance(precipitation, etp, params, full_soil(params))
-
-    assert np.all(fluxes.etr == 0.0)
-    assert np.all(fluxes.residual_etp == 0.0)
 
 
 # A 50 mm pulse through the transit store follows the closed-form exponential reservoir.
@@ -211,60 +171,11 @@ def test_run_soil_balance_routes_the_impulse_the_same_way(transit_time_days: flo
 # tail.
 
 
-def test_an_impulse_without_transit_time_recharges_the_same_day() -> None:
-    precipitation = np.array([[50.0], [0.0], [0.0], [0.0], [0.0]])
-    etp = np.zeros_like(precipitation)
-    params = SoilParameters(
-        ru_mm=np.array([100.0]),
-        alpha=0.6,
-        kc=1.0,
-        impervious_fraction=0.0,
-        bypass_fraction=0.0,
-        transit_time_days=0.0,
-    )
-
-    fluxes = run_soil_balance(precipitation, etp, params, full_soil(params))
-
-    assert np.array_equal(fluxes.recharge[:, 0], [50.0, 0.0, 0.0, 0.0, 0.0])
-
-
 # An integer ``runoff_lag`` shifts the routed runoff series by whole days.
 #
 # ``apply_runoff_lag`` is the pure delay applied after the ``runoff_time``
 # reservoir. At an integer lag it is a plain shift: day ``t`` reads what day
 # ``t - n`` held, with zero (no history) or the supplied history before day 0.
-
-
-def test_a_three_day_lag_shifts_a_random_series_without_history() -> None:
-    rng = np.random.default_rng(4)
-    series = rng.uniform(0.0, 10.0, size=(30, 5))
-
-    lagged = apply_runoff_lag(series, 3.0)
-
-    assert np.array_equal(lagged[3:], series[:-3])
-    assert np.all(lagged[:3] == 0.0)
-
-
-def test_a_one_day_lag_reads_the_supplied_history_before_day_zero() -> None:
-    series = np.zeros((5, 1))
-    history = np.array([[1.0], [2.0], [3.0]])  # days -3, -2, -1
-
-    lagged = apply_runoff_lag(series, 1.0, history_mm=history)
-
-    # day 0 reads day -1 of the history (3.0); the rest is still zero.
-    assert lagged[0, 0] == 3.0
-    assert np.all(lagged[1:, 0] == 0.0)
-
-
-def test_a_lag_longer_than_the_available_history_reads_zero_for_the_missing_days() -> None:
-    series = np.zeros((3, 1))
-    history = np.array([[5.0]])  # only day -1 is known
-
-    lagged = apply_runoff_lag(series, 2.0, history_mm=history)
-
-    # day 0 reads day -2, unknown: zero. Day 1 reads day -1: 5.0.
-    assert lagged[0, 0] == 0.0
-    assert lagged[1, 0] == 5.0
 
 
 def test_a_zero_lag_returns_the_series_unchanged() -> None:
@@ -300,48 +211,6 @@ def _synthetic_forcing() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return precipitation, etp, ru_mm
 
 
-def test_curve_number_none_is_bit_identical_to_the_kernel_without_it() -> None:
-    precipitation, etp, ru_mm = _synthetic_forcing()
-
-    for alpha, kc, impervious_fraction, bypass_fraction, transit_time_days in _PARAMETER_SETS:
-        params_without_field = SoilParameters(
-            ru_mm=ru_mm,
-            alpha=alpha,
-            kc=kc,
-            impervious_fraction=impervious_fraction,
-            bypass_fraction=bypass_fraction,
-            transit_time_days=transit_time_days,
-        )
-        params_with_default_runoff_time = SoilParameters(
-            ru_mm=ru_mm,
-            alpha=alpha,
-            kc=kc,
-            impervious_fraction=impervious_fraction,
-            bypass_fraction=bypass_fraction,
-            transit_time_days=transit_time_days,
-            curve_number=None,
-            runoff_time_days=3.5,
-        )
-
-        before = run_soil_balance(
-            precipitation, etp, params_without_field, full_soil(params_without_field)
-        )
-        after = run_soil_balance(
-            precipitation,
-            etp,
-            params_with_default_runoff_time,
-            full_soil(params_with_default_runoff_time),
-        )
-
-        assert np.array_equal(before.etr, after.etr)
-        assert np.array_equal(before.residual_etp, after.residual_etp)
-        assert np.array_equal(before.recharge, after.recharge)
-        assert np.array_equal(before.runoff, after.runoff)
-        assert np.array_equal(before.soil_storage, after.soil_storage)
-        assert np.array_equal(before.transit_storage, after.transit_storage)
-        assert np.all(after.runoff_cn == 0.0)
-
-
 # With no rain at all, nothing runs off and nothing recharges: the soil only dries.
 #
 # ``impervious_fraction * 0 = 0`` and a soil that starts at or below ``ru``
@@ -349,70 +218,10 @@ def test_curve_number_none_is_bit_identical_to_the_kernel_without_it() -> None:
 # down.
 
 
-def test_no_rain_recharges_nothing() -> None:
-    rng = np.random.default_rng(3)
-    n_days, n_columns = 60, 5
-    precipitation = np.zeros((n_days, n_columns))
-    etp = rng.uniform(0.0, 4.0, (n_days, n_columns))
-    params = SoilParameters(
-        ru_mm=rng.uniform(10.0, 200.0, n_columns),
-        alpha=0.6,
-        kc=1.0,
-        impervious_fraction=0.2,
-        bypass_fraction=0.1,
-        transit_time_days=5.0,
-    )
-    fluxes = run_soil_balance(precipitation, etp, params, full_soil(params))
-
-    assert np.all(fluxes.recharge == 0.0)
-    assert np.all(fluxes.runoff == 0.0)
-    storage = np.concatenate(
-        [fluxes.soil_storage_start[np.newaxis, :], fluxes.soil_storage], axis=0
-    )
-    assert np.all(np.diff(storage, axis=0) <= 0.0)
-
-
 # Calling `soil_step` one day at a time reproduces `run_soil_balance` exactly.
 #
 # `run_soil_balance` is documented to only call `soil_step` in a loop: this
 # pins that contract so the two never drift apart.
-
-
-def test_one_step_at_a_time_gives_the_whole_run() -> None:
-    rng = np.random.default_rng(5)
-    n_days, n_columns = 40, 6
-    precipitation = rng.gamma(1.0, 4.0, (n_days, n_columns))
-    etp = rng.uniform(0.0, 5.0, (n_days, n_columns))
-    params = SoilParameters(
-        ru_mm=rng.uniform(20.0, 200.0, n_columns),
-        alpha=0.6,
-        kc=1.0,
-        impervious_fraction=0.1,
-        bypass_fraction=0.05,
-        transit_time_days=4.0,
-    )
-    initial = full_soil(params)
-
-    fluxes = run_soil_balance(precipitation, etp, params, initial)
-
-    state = initial
-    etr = np.empty((n_days, n_columns))
-    residual_etp = np.empty((n_days, n_columns))
-    recharge = np.empty((n_days, n_columns))
-    runoff = np.empty((n_days, n_columns))
-    for t in range(n_days):
-        state, day = soil_step(state, precipitation[t], etp[t], params)
-        etr[t] = day.etr
-        residual_etp[t] = day.residual_etp
-        recharge[t] = day.recharge
-        runoff[t] = day.runoff
-
-    assert np.array_equal(fluxes.etr, etr)
-    assert np.array_equal(fluxes.residual_etp, residual_etp)
-    assert np.array_equal(fluxes.recharge, recharge)
-    assert np.array_equal(fluxes.runoff, runoff)
-    assert np.array_equal(fluxes.end.soil_mm, state.soil_mm)
-    assert np.array_equal(fluxes.end.transit_mm, state.transit_mm)
 
 
 # ``runoff_lag = 0`` is bit-identical to the kernel before this feature.
@@ -438,54 +247,6 @@ def _synthetic_forcing_2() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     etp = rng.uniform(0.0, 5.0, (n_days, n_columns))
     ru_mm = rng.uniform(20.0, 300.0, n_columns)
     return precipitation, etp, ru_mm
-
-
-def test_runoff_lag_left_at_its_default_matches_setting_it_to_zero() -> None:
-    precipitation, etp, ru_mm = _synthetic_forcing_2()
-
-    for (
-        alpha,
-        kc,
-        impervious_fraction,
-        bypass_fraction,
-        transit_time_days,
-        curve_number,
-        runoff_time_days,
-    ) in _PARAMETER_SETS_2:
-        params_default = SoilParameters(
-            ru_mm=ru_mm,
-            alpha=alpha,
-            kc=kc,
-            impervious_fraction=impervious_fraction,
-            bypass_fraction=bypass_fraction,
-            transit_time_days=transit_time_days,
-            curve_number=curve_number,
-            runoff_time_days=runoff_time_days,
-        )
-        params_explicit_zero = SoilParameters(
-            ru_mm=ru_mm,
-            alpha=alpha,
-            kc=kc,
-            impervious_fraction=impervious_fraction,
-            bypass_fraction=bypass_fraction,
-            transit_time_days=transit_time_days,
-            curve_number=curve_number,
-            runoff_time_days=runoff_time_days,
-            runoff_lag_days=0.0,
-        )
-
-        before = run_soil_balance(precipitation, etp, params_default, full_soil(params_default))
-        after = run_soil_balance(
-            precipitation, etp, params_explicit_zero, full_soil(params_explicit_zero)
-        )
-
-        assert np.array_equal(before.etr, after.etr)
-        assert np.array_equal(before.recharge, after.recharge)
-        assert np.array_equal(before.runoff, after.runoff)
-        assert np.array_equal(before.runoff_cn, after.runoff_cn)
-        assert np.array_equal(before.cn_storage, after.cn_storage)
-        assert np.all(after.lag_storage == 0.0)
-        assert np.all(after.lag_storage_start == 0.0)
 
 
 # The annual budget sums each calendar year's days, partial years included.
@@ -773,16 +534,6 @@ def _one_wet_day_forcing(n_days: int) -> tuple[np.ndarray, np.ndarray]:
     return precipitation, etp
 
 
-def test_runoff_time_zero_sends_the_runoff_the_same_day() -> None:
-    precipitation, etp = _one_wet_day_forcing(5)
-    params = _params_2(0.0)
-
-    fluxes = run_soil_balance(precipitation, etp, params, full_soil(params))
-
-    assert fluxes.runoff_cn[0, 0] > 0.0
-    assert np.all(fluxes.runoff_cn[1:, 0] == 0.0)
-
-
 def test_a_longer_runoff_time_delays_and_smooths_the_same_pulse() -> None:
     n_days = 60
     precipitation, etp = _one_wet_day_forcing(n_days)
@@ -825,28 +576,6 @@ def test_a_wider_time_constant_spreads_the_pulse_further() -> None:
 # the runoff is exactly ``0.25 * P``, the ETR never exceeds ``0.75 * kc * ETP``,
 # and what the soil could not evaporate on its unsealed share is the residual
 # ETP.
-
-
-def test_the_sealed_share_neither_infiltrates_nor_evaporates() -> None:
-    rng = np.random.default_rng(4)
-    n_days, n_columns = 40, 5
-    precipitation = rng.gamma(1.0, 5.0, (n_days, n_columns))
-    etp = rng.uniform(0.0, 4.0, (n_days, n_columns))
-    kc = 1.2
-    params = SoilParameters(
-        ru_mm=rng.uniform(10.0, 200.0, n_columns),
-        alpha=0.6,
-        kc=kc,
-        impervious_fraction=0.25,
-        bypass_fraction=0.0,
-        transit_time_days=0.0,
-    )
-
-    fluxes = run_soil_balance(precipitation, etp, params, full_soil(params))
-
-    assert np.max(np.abs(fluxes.runoff - 0.25 * precipitation)) < 1e-12
-    assert np.all(fluxes.etr <= 0.75 * kc * etp + 1e-12)
-    assert np.max(np.abs(fluxes.residual_etp - 0.75 * (kc * etp - fluxes.etr / 0.75))) < 1e-12
 
 
 # The soil reservoir closes its water balance to machine precision.

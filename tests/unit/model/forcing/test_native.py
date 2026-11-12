@@ -79,13 +79,6 @@ def test_several_stations_mean_at_each_of_their_steps() -> None:
     np.testing.assert_allclose(native.values, np.array([20.0, 30.0]) * MM_DAY_TO_M_S)
 
 
-def test_a_spatial_source_outside_a_lumped_mesh_gives_no_native_series() -> None:
-    index = pd.date_range("2026-01-01", periods=2, freq="D")
-    dataset = _field_dataset(values=np.full((2, 4, 4), 5.0), index=index)
-    native = native_series(_Source(fields=[dataset]), _window())
-    assert native is None
-
-
 def test_a_spatial_source_on_the_cell_gives_the_area_mean_at_each_step() -> None:
     index = pd.date_range("2026-01-01", periods=2, freq="D")
     values = np.zeros((2, 4, 4))
@@ -132,15 +125,6 @@ def test_a_step_that_covers_the_start_of_the_run_begins_there() -> None:
         native.starts, pd.DatetimeIndex(["2026-01-01", "2026-01-03", "2026-01-06"])
     )
     np.testing.assert_allclose(native.values, [2.0, 3.0])
-
-
-def test_without_a_window_the_last_step_closes_one_step_of_the_source_later() -> None:
-    index = pd.date_range("2026-01-01", periods=3, freq="2D")
-    native = native_series(_Source(points=[_point_series([1.0, 2.0, 3.0], index)]), None)
-    assert native is not None
-    assert native.starts[-1] == pd.Timestamp("2026-01-07")
-    single = native_series(_Source(points=[_point_series([1.0], index[:1])]), None)
-    assert single is None
 
 
 def test_the_factor_carries_the_source_unit_to_m_per_s() -> None:

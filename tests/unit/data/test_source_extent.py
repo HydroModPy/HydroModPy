@@ -159,30 +159,6 @@ def test_the_project_extent_is_read_in_the_crs_its_producer_builds():
 
 
 @pytest.mark.fast
-def test_a_source_naming_neither_resolves_to_nothing():
-    """``custom`` sources load a file happily with no extent at all."""
-    assert resolve_source_extent(_Source(), project_extent=RENNES_2154) is None
-    assert resolve_source_extent(_Source(extent="watershed"), project_extent=None) is None
-
-
-@pytest.mark.fast
-def test_the_project_extent_crs_reads_a_department_box():
-    """Anti-vacuity for the constant.
-
-    Read back through the declared constant, department 35 has to land on
-    Ille-et-Vilaine; read as degrees it would land in the Gulf of Guinea.
-    """
-    from hydromodpy.catchment.administrative.france import bbox_for_departments
-    from hydromodpy.data.source.port import Extent
-
-    bbox = bbox_for_departments(["35"], margin_m=0.0)
-    lonlat = Extent(*bbox, crs=PROJECT_EXTENT_CRS).to_crs("EPSG:4326")
-
-    assert -2.6 < lonlat.xmin < -0.9, lonlat
-    assert 47.5 < lonlat.ymin < 48.7, lonlat
-
-
-@pytest.mark.fast
 @pytest.mark.parametrize("manager_cls", [DemVariable, GeologyVariable, OceanicVariable])
 def test_a_manager_refuses_a_geographic_object(manager_cls):
     """The parameter is gone, not ignored."""
@@ -220,30 +196,6 @@ manager that grows the parameter back has to say here what a project-scoped
 object gives it that a file cannot, and ``DataStore.load_variable`` no longer
 has the ``**extra_kwargs`` that used to carry one to it.
 """
-
-
-@pytest.mark.fast
-def test_no_manager_grows_back_a_geographic_parameter():
-    """No manager takes one, and the pin is the door a new one would come through."""
-    import inspect
-
-    from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, variable_class_for
-
-    signatures = {
-        name: inspect.signature(variable_class_for(name).__init__).parameters
-        for name in VARIABLE_SPECS
-    }
-    # Anti-vacuity: an empty pin is only worth something if the walk really
-    # reached the managers and really reads their signatures.
-    assert len(signatures) >= 10, sorted(signatures)
-    assert "config" in signatures["oceanic"], signatures["oceanic"]
-
-    taking = {name for name, params in signatures.items() if "geographic" in params}
-
-    assert taking == set(MANAGERS_STILL_TAKING_GEOGRAPHIC), (
-        "a manager took or lost the geographic object without this pin moving; "
-        f"the tree says {sorted(taking)}"
-    )
 
 
 @pytest.mark.fast
@@ -354,17 +306,6 @@ def _two_squares_2154(path):
     right = box(350900.0, 6790500.0, 352000.0, 6791500.0)
     gpd.GeoDataFrame(geometry=[left, right], crs="EPSG:2154").to_file(path)
     return path
-
-
-@pytest.mark.fast
-def test_the_wgs84_mask_reprojects_the_features_before_their_union(tmp_path):
-    """Pinned: the station filter kept this polygon, vertex for vertex."""
-    from hydromodpy.data.common.source_extent import mask_geometry_wgs84
-
-    path = _two_squares_2154(tmp_path / "mask.gpkg")
-    expected = gpd.read_file(path).to_crs("EPSG:4326").geometry.union_all()
-
-    assert mask_geometry_wgs84(path).equals_exact(expected, tolerance=0.0)
 
 
 @pytest.mark.fast

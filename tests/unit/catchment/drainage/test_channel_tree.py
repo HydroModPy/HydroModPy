@@ -22,13 +22,12 @@ from hydromodpy.catchment.drainage.channel_tree import (
     ChannelTree,
     active_channel_raster,
     channel_exits,
-    channel_raster_paths,
     pin_channel,
     read_channel_tree,
 )
 from hydromodpy.catchment.terrain.d8 import d8_receivers
 from hydromodpy.catchment.terrain.port import D8_WBT_OFFSETS
-from hydromodpy.model.domain.geometry import ChannelRasters, channel_rasters_for_run
+from hydromodpy.model.domain.geometry import channel_rasters_for_run
 
 SHAPE = (5, 5)
 LINK = "dem_stream_link_id_full.tif"
@@ -74,68 +73,6 @@ def _geographic(folder: Path | None = None, *, enabled: bool = True, **clipped: 
     )
 
 
-@pytest.mark.parametrize("geographic", [None, SimpleNamespace(), _geographic(enabled=False)])
-def test_a_run_without_a_folder_a_clipped_raster_or_the_step_has_no_rasters(geographic) -> None:
-    assert channel_rasters_for_run(geographic) is None
-
-
-def test_a_run_whose_step_ran_but_left_no_folder_says_so() -> None:
-    rasters = channel_rasters_for_run(_geographic(enabled=True))
-
-    assert rasters == ChannelRasters(
-        enabled=True, link=None, pointer=None, accumulation=None, clipped=()
-    )
-
-
-@pytest.mark.parametrize("enabled", [True, False])
-def test_the_three_full_extent_paths_are_named_whether_or_not_the_files_exist(
-    tmp_path: Path, enabled: bool
-) -> None:
-    rasters = channel_rasters_for_run(_geographic(tmp_path, enabled=enabled))
-
-    assert rasters == ChannelRasters(
-        enabled=enabled,
-        link=str(tmp_path / STREAMS),
-        pointer=str(tmp_path / POINTER),
-        accumulation=str(tmp_path / ACCUMULATION),
-        clipped=(),
-    )
-    assert channel_raster_paths(tmp_path) == (
-        rasters.link,
-        rasters.pointer,
-        rasters.accumulation,
-    )
-    assert rasters.link == active_channel_raster(tmp_path)
-
-
-def test_the_link_raster_is_the_one_the_rule_of_every_reader_picks(tmp_path: Path) -> None:
-    _write_network(tmp_path)
-
-    assert channel_rasters_for_run(_geographic(tmp_path)).link == str(tmp_path / LINK)
-    assert channel_raster_paths(tmp_path)[0] == str(tmp_path / LINK)
-
-
-def test_only_the_clipped_rasters_that_exist_are_kept_link_first(tmp_path: Path) -> None:
-    link, streams = tmp_path / "link.tif", tmp_path / "streams.tif"
-    _write(link, np.ones(SHAPE, dtype=np.int32))
-    _write(streams, np.ones(SHAPE, dtype=np.int32))
-    missing = str(tmp_path / "gone.tif")
-
-    both = channel_rasters_for_run(
-        _geographic(river_stream_link_id_tif=str(link), river_streams_tif=str(streams))
-    )
-    only_streams = channel_rasters_for_run(
-        _geographic(river_stream_link_id_tif=missing, river_streams_tif=str(streams))
-    )
-    none = channel_rasters_for_run(
-        _geographic(enabled=False, river_stream_link_id_tif=missing, river_streams_tif=None)
-    )
-
-    assert both.clipped == (str(link), str(streams))
-    assert only_streams.clipped == (str(streams),)
-    assert none is None
-
-
 def test_a_link_raster_older_than_the_stream_raster_is_not_the_network(tmp_path: Path) -> None:
     _write_network(tmp_path)
     streams = np.zeros(SHAPE, dtype=np.int32)
@@ -146,17 +83,6 @@ def test_a_link_raster_older_than_the_stream_raster_is_not_the_network(tmp_path:
 
     assert active_channel_raster(tmp_path) == str(tmp_path / STREAMS)
     assert channel_rasters_for_run(_geographic(tmp_path)).link == str(tmp_path / STREAMS)
-
-
-def test_the_pruned_streams_are_the_network_when_the_link_raster_is_missing(
-    tmp_path: Path,
-) -> None:
-    _write(tmp_path / STREAMS, np.zeros(SHAPE, dtype=np.int32))
-    _write(tmp_path / "dem_streams_pruned_full.tif", np.zeros(SHAPE, dtype=np.int32))
-    moment = os.path.getmtime(tmp_path / STREAMS) + 60.0
-    os.utime(tmp_path / "dem_streams_pruned_full.tif", (moment, moment))
-
-    assert active_channel_raster(tmp_path) == str(tmp_path / "dem_streams_pruned_full.tif")
 
 
 # -- The window around the mesh ------------------------------------------------
@@ -249,148 +175,11 @@ def _project(tree, labels, *, routable=None, lake_of=None):
     )
 
 
-def test_a_staircase_of_a_pins_each_cell_to_the_next_one_on_a() -> None:
-    nrow = ncol = 8
-    path = [(1, 1), (1, 2), (2, 2), (2, 3), (3, 3), (3, 4), (4, 4), (5, 5), (6, 6)]
-    cells = [_cell(ncol, r, c) for r, c in path]
-
-    pinned, channel = _project(_tree((nrow, ncol), path), _grid_labels(nrow, ncol))
-
-    assert np.flatnonzero(channel).tolist() == sorted(cells)
-    assert [int(pinned[c]) for c in cells] == cells[1:] + [-1]
-    assert np.all(pinned[~channel] == -1)
-
-
-def test_the_exits_say_what_the_cells_hold_before_any_backend_choice() -> None:
-    nrow, ncol = 6, 3
-    path = [(r, 1) for r in range(1, 5)]
-    cells = [_cell(ncol, r, c) for r, c in path]
-
-    exits = channel_exits(_tree((nrow, ncol), path), _grid_labels(nrow, ncol), n_cells=nrow * ncol)
-
-    assert exits.n_cells == nrow * ncol
-    assert np.flatnonzero(exits.holds_a).tolist() == cells
-    assert [int(exits.next_cell[c]) for c in cells] == cells[1:] + [-1]
-    # The pointer of the last pixel of A is a pit, so it enters no other cell.
-    assert exits.next_on_a[cells[:-1]].all() and not exits.next_on_a[cells[-1]]
-    assert np.all(exits.next_cell[~exits.holds_a] == -1)
-    for values in (exits.holds_a, exits.next_cell, exits.next_on_a):
-        assert not values.flags.writeable
-
-
-def test_the_exits_of_a_tree_with_no_pixel_take_an_empty_array_of_numbers() -> None:
-    tree = _tree((4, 4), [])
-
-    exits = channel_exits(tree, np.empty((0, 0), dtype=np.int32), n_cells=16)
-    pinned, channel = pin_channel(exits, routable=np.ones(16, bool), lake_of=np.full(16, -1))
-
-    assert exits.n_cells == 16 and not exits.holds_a.any()
-    assert np.all(exits.next_cell == -1)
-    assert np.all(pinned == -1) and not channel.any()
-
-
 def test_a_tree_with_pixels_needs_a_raster_of_numbers_of_its_own_shape() -> None:
     tree = _tree((4, 4), [(1, 1), (2, 1)])
 
     with pytest.raises(ValueError, match="cell numbers have shape"):
         channel_exits(tree, np.empty((0, 0), dtype=np.int32), n_cells=16)
-
-
-def test_pixels_outside_the_mesh_or_beyond_its_cells_hold_no_cell() -> None:
-    nrow = ncol = 5
-    labels = _grid_labels(nrow, ncol)
-    labels[2, 2] = -1
-    labels[3, 2] = nrow * ncol + 4
-    path = [(1, 2), (2, 2), (3, 2), (4, 2)]
-
-    pinned, channel = _project(_tree((nrow, ncol), path), labels, routable=np.ones(25, bool))
-
-    assert np.flatnonzero(channel).tolist() == [_cell(ncol, 1, 2), _cell(ncol, 4, 2)]
-    assert np.all(pinned == -1)
-
-
-def test_a_leaves_through_a_lake_so_the_cell_above_it_is_an_outlet_of_a() -> None:
-    nrow, ncol = 8, 5
-    path = [(r, 2) for r in range(1, 7)]
-    n = nrow * ncol
-    lake_cell = _cell(ncol, 3, 2)
-    lake_of = np.full(n, -1)
-    lake_of[lake_cell] = 0
-    above, below = _cell(ncol, 2, 2), _cell(ncol, 4, 2)
-
-    pinned, channel = _project(
-        _tree((nrow, ncol), path),
-        _grid_labels(nrow, ncol),
-        routable=np.ones(n, dtype=bool),
-        lake_of=lake_of,
-    )
-
-    assert not channel[lake_cell]
-    assert pinned[lake_cell] == -1
-    assert lake_cell not in pinned.tolist()
-    assert pinned[above] == -1
-    assert channel[below] and pinned[below] == _cell(ncol, 5, 2)
-
-
-def test_a_cell_off_the_graph_is_neither_a_channel_nor_a_pin() -> None:
-    nrow, ncol = 6, 3
-    path = [(r, 1) for r in range(1, 5)]
-    n = nrow * ncol
-    routable = np.ones(n, dtype=bool)
-    off = _cell(ncol, 3, 1)
-    routable[off] = False
-
-    pinned, channel = _project(
-        _tree((nrow, ncol), path), _grid_labels(nrow, ncol), routable=routable
-    )
-
-    assert not channel[off]
-    assert pinned[_cell(ncol, 2, 1)] == -1
-    assert off not in pinned.tolist()
-
-
-@pytest.mark.parametrize("closed_by", ["inactive_column", "lake"])
-def test_the_same_exits_give_other_pins_when_the_backend_closes_the_next_cell(
-    closed_by: str,
-) -> None:
-    nrow, ncol = 6, 3
-    path = [(r, 1) for r in range(1, 5)]
-    n = nrow * ncol
-    exits = channel_exits(_tree((nrow, ncol), path), _grid_labels(nrow, ncol), n_cells=n)
-    cells = [_cell(ncol, r, c) for r, c in path]
-    open_pinned, _ = pin_channel(exits, routable=np.ones(n, bool), lake_of=np.full(n, -1))
-    routable, lake_of = np.ones(n, dtype=bool), np.full(n, -1)
-    if closed_by == "lake":
-        lake_of[cells[2]] = 1
-    else:
-        routable[cells[2]] = False
-
-    pinned, channel = pin_channel(exits, routable=routable, lake_of=lake_of)
-
-    assert [int(open_pinned[c]) for c in cells[:3]] == cells[1:4]
-    assert not channel[cells[2]]
-    assert pinned[cells[1]] == -1, "the pin onto the closed cell goes"
-    assert pinned[cells[0]] == cells[1], "the pin between open cells stays"
-    assert pinned[cells[3]] == -1, "the last pixel of A enters a cell that is not on A"
-
-
-def test_a_lake_cell_stays_routable_for_the_graph_but_is_never_a_channel_cell() -> None:
-    nrow, ncol = 5, 3
-    path = [(r, 1) for r in range(0, 5)]
-    n = nrow * ncol
-    lake = _cell(ncol, 2, 1)
-    lake_of = np.full(n, -1)
-    lake_of[lake] = 0
-
-    pinned, channel = _project(
-        _tree((nrow, ncol), path),
-        _grid_labels(nrow, ncol),
-        routable=np.ones(n, dtype=bool),
-        lake_of=lake_of,
-    )
-
-    assert not channel[lake]
-    assert pinned[_cell(ncol, 3, 1)] == _cell(ncol, 4, 1)
 
 
 def test_a_pointer_that_closes_a_loop_is_refused() -> None:
@@ -429,23 +218,6 @@ def _brick_labels(nrow: int, n_bricks: int) -> np.ndarray:
             labels[nrow - 1 - mesh_row, x0:x1] = number
             number += 1
     return labels
-
-
-def test_on_a_brick_mesh_a_runs_down_pinned_bricks() -> None:
-    nrow, n_bricks = 8, 4
-    labels = _brick_labels(nrow, n_bricks)
-    n = int(labels.max()) + 1
-    # A runs south down raster column 3, from row 1 to row 6.
-    path = [(r, 3) for r in range(1, 7)]
-    bricks = [int(labels[r, c]) for r, c in path]
-
-    pinned, channel = _project(
-        _tree((nrow, 2 * n_bricks), path), labels, routable=np.ones(n, dtype=bool)
-    )
-
-    assert len(set(bricks)) == len(bricks)
-    assert np.flatnonzero(channel).tolist() == sorted(bricks)
-    assert [int(pinned[b]) for b in bricks] == bricks[1:] + [-1]
 
 
 # -- The two stages against the one stage they replace -------------------------

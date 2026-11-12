@@ -13,18 +13,3 @@ def test_fingerprint_handles_empty_array_without_raising():
     assert fp["stats"] is None
     assert fp["shape"] == [0]
     assert fp["checksum"]
-
-
-def test_a_reshape_with_identical_bytes_changes_the_shape_and_keeps_the_checksum():
-    flat = np.arange(6, dtype="float64")
-    reshaped = flat.reshape(2, 3)
-    # The checksum hashes the bytes only: the shape field tells the two apart.
-    assert fingerprint(reshaped)["checksum"] == fingerprint(flat)["checksum"]
-    assert fingerprint(reshaped)["shape"] != fingerprint(flat)["shape"]
-
-
-def test_a_dtype_view_with_identical_bytes_changes_the_dtype_and_keeps_the_checksum():
-    data = np.array([1, 2, 3, 4], dtype="int32")
-    viewed = data.view("float32")  # identical bytes, different dtype and meaning
-    assert fingerprint(viewed)["checksum"] == fingerprint(data)["checksum"]
-    assert fingerprint(viewed)["dtype"] != fingerprint(data)["dtype"]

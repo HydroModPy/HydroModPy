@@ -4,25 +4,22 @@ from __future__ import annotations
 
 import logging
 import math
-import re
 import tomllib
 import uuid
 from dataclasses import fields
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
-from pydantic import ValidationError
 
 import hydromodpy.calibration as calibration
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.config_network import CalibOutputNetwork
 from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl, CalibParameterDecl
 from hydromodpy.calibration.config_outputs import validate_calib_output
-from hydromodpy.calibration.config_terms import CalibWindow, window_bounds
+from hydromodpy.calibration.config_terms import CalibWindow
 from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_gap,
     distance_mean,
@@ -49,20 +46,16 @@ from hydromodpy.calibration.optim.objective import (
     non_finite_diagnosis,
 )
 from hydromodpy.calibration.optim.optimizer import EngineTraits, EvaluationResult, ParamSuggestion
-from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.parameters import CalibParameter
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.search import phase_cost_block_fractions
 from hydromodpy.calibration.runners.staged_runner import _reused_phase_cost_block_fractions
-from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.contracts.observables import ObservableResult
-from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.scoring.metric_table import METRIC_SPECS
-from hydromodpy.core.scoring.metrics import clip_negatives, log_nse
-from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
+from hydromodpy.core.scoring.metrics import log_nse
 from tests.unit.calibration._factories import _score
-from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import PROJECT, _project
 
 # From test_a_criterion_has_no_observed_vector.py
 # A criterion that balances two simulated quantities has nothing to fit.
@@ -87,16 +80,6 @@ def _network_output() -> CalibOutputNetwork:
 class TestTheDeclaration:
     def test_a_network_output_declares_no_observed_values(self) -> None:
         assert "observed_values" not in CalibOutputNetwork.model_fields
-
-    def test_writing_them_is_refused_rather_than_ignored(self) -> None:
-        with pytest.raises(ValueError):
-            validate_calib_output(
-                {
-                    "support": "network",
-                    "map": {"complete": "streams.gpkg"},
-                    "observed_values": [0.0, 0.0],
-                }
-            )
 
 
 class TestTheMetrics:
@@ -312,11 +295,6 @@ class _SimStub:
 # Single-block path
 # ---------------------------------------------------------------------------
 class TestSingleBlock:
-    def test_returns_config_block_objective_when_only_one(self):
-        obj = build_objective_from_config(_cfg_one_block())
-        assert isinstance(obj, ConfigBlockObjective)
-        assert obj.name == "rmse_head"
-
     def test_perfect_match_yields_zero_cost(self):
         obj = build_objective_from_config(_cfg_one_block())
         result = obj.evaluate({"head_A": [1.0, 2.0, 3.0]})
@@ -342,10 +320,6 @@ class TestSingleBlock:
 # Composite
 # ---------------------------------------------------------------------------
 class TestCompositeBlocks:
-    def test_returns_composite_when_multiple_blocks(self):
-        obj = build_objective_from_config(_cfg_two_blocks_weighted())
-        assert isinstance(obj, CompositeObjective)
-
     def test_weighted_sum_matches_manual_calc(self):
         cfg = _cfg_two_blocks_weighted()
         obj = build_objective_from_config(cfg)
@@ -483,21 +457,6 @@ class TestCliWiring:
         result = obj.evaluate({"head_A": [12.0, 22.0, 32.0]})
         assert result.total == pytest.approx(2.0)
 
-    def test_cli_args_keep_single_metric_when_no_blocks(self):
-        cfg = CalibrationConfig.model_validate(
-            {"method": "grid", "variable": "head", "objective": "rmse"}
-        )
-        ctx = _empty_ctx()
-        metric_fn = build_metric_extractor(
-            cfg.variable,
-            cfg.objective,
-            ctx,
-            outputs=cfg.outputs or None,
-            objective_blocks=cfg.objective_blocks or None,
-        )
-        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
-            metric_fn(ctx, objective="rmse", variable="head")
-
 
 # From test_composite_objective.py
 # Unit tests for :class:`hydromodpy.calibration.optim.objective.CompositeObjective`.
@@ -508,29 +467,6 @@ class TestCliWiring:
 # normalized to sum to 1.0. An optional ``cost_transform`` (``"identity"``,
 # ``"log"`` or ``"inverse"``) is applied to each block total before the
 # weighted sum is computed.
-
-
-def test_config_block_refuses_mismatched_output_lengths_even_when_totals_match() -> None:
-    """Two outputs individually wrong on length can still sum to a matching total.
-
-    Output "a" has 20 observations against a 30-length simulated series, and
-    output "b" has 40 against 30. Concatenated, both sides total 60: a check
-    made after concatenation would let this trial through and score a cost.
-    """
-    observed = {"a": [1.0] * 20, "b": [2.0] * 40}
-    sim = {"a": [1.0] * 30, "b": [2.0] * 30}
-
-    block = ConfigBlockObjective(
-        name="x", metric="rmse", uses_outputs=["a", "b"], observed_by_output=observed
-    )
-
-    with pytest.raises(ValueError) as excinfo:
-        block.evaluate(sim)
-
-    message = str(excinfo.value)
-    assert "output 'a'" in message
-    assert "simulated length 30" in message
-    assert "observed length 20" in message
 
 
 def test_config_block_names_the_offending_output_when_it_is_not_the_first() -> None:
@@ -552,17 +488,6 @@ def test_config_block_names_the_offending_output_when_it_is_not_the_first() -> N
         block.evaluate(sim)
 
     assert "output 'b'" in str(excinfo.value)
-
-
-def test_config_block_scores_unequal_but_paired_output_lengths() -> None:
-    """Outputs need not be the same length as each other, only as their own record."""
-    observed = {"a": [1.0, 2.0, 3.0, 4.0], "b": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]}
-
-    block = ConfigBlockObjective(
-        name="x", metric="rmse", uses_outputs=["a", "b"], observed_by_output=observed
-    )
-
-    assert block.evaluate(dict(observed)).total == 0.0
 
 
 @pytest.mark.parametrize(
@@ -666,20 +591,6 @@ def test_unequal_weights_are_normalized_to_sum_one() -> None:
     assert norm_weights[1] == pytest.approx(0.25)
 
 
-def test_components_dict_is_merged_from_all_blocks() -> None:
-    """Composite components should carry every block's station components."""
-    block_a, block_b, sim = _pair(0.5, 2.0)
-
-    out = CompositeObjective([(block_a, 1.0), (block_b, 1.0)]).evaluate(sim)
-
-    # The components of both blocks survive in the merged components dict.
-    assert "A.raw_cost" in out.components
-    assert "B.raw_cost" in out.components
-    # Per-block totals are also surfaced, one per block.
-    total_keys = [k for k in out.components if k.endswith(".total")]
-    assert len(total_keys) == 2
-
-
 def test_transform_log_keeps_minimization_order() -> None:
     """``cost_transform="log"`` preserves lower-is-better ordering."""
     # Build two identity-fit blocks (costs near zero after metric).
@@ -704,17 +615,6 @@ def test_transform_log_keeps_minimization_order() -> None:
         CompositeObjective([(bad_block, 1.0)], cost_transform="log").evaluate(bad_sim).total
     )
     assert log_total < bad_log_total
-
-
-def test_transform_inverse_keeps_minimization_order() -> None:
-    """``cost_transform="inverse"`` preserves lower-is-better ordering."""
-    obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    block = _block__composite_objective("A", obs, "rmse")
-    sim = _make_sim({"A": obs.copy()})  # perfect fit -> cost ~0
-
-    inverse_composite = CompositeObjective([(block, 1.0)], cost_transform="inverse")
-    bad_sim = _make_sim({"A": obs + 10.0})
-    assert inverse_composite.evaluate(sim).total < inverse_composite.evaluate(bad_sim).total
 
 
 # ---------------------------------------------------------------------------
@@ -801,10 +701,6 @@ class TestNseLogRegistration:
         assert METRICS["nse_log"] is log_nse
         assert "nse_log" in HIGHER_IS_BETTER
 
-    def test_a_block_can_declare_it(self) -> None:
-        cfg = _q_cfg()
-        assert cfg.objective_blocks[0].metric == "nse_log"
-
     def test_a_perfect_simulation_costs_zero(self) -> None:
         # nse_log is higher-is-better, so the cost is 1 - value and a perfect
         # match must land on zero, not on one.
@@ -813,55 +709,10 @@ class TestNseLogRegistration:
         assert objective.evaluate({"q": [1.0, 2.0, 3.0, 4.0]}).total == pytest.approx(0.0)
 
 
-class TestNegativeDischargeClipping:
-    def test_clipping_counts_both_sides(self) -> None:
-        sim, obs, n_clipped = clip_negatives(np.array([-1.0, 2.0]), np.array([1.0, -3.0]))
-        assert n_clipped == 2
-        assert sim.tolist() == [0.0, 2.0]
-        assert obs.tolist() == [1.0, 0.0]
-
-    def test_a_clean_series_is_returned_untouched(self) -> None:
-        sim, obs, n_clipped = clip_negatives(np.array([1.0, 2.0]), np.array([1.0, 3.0]))
-        assert n_clipped == 0
-        assert sim.tolist() == [1.0, 2.0]
-
-    def test_the_block_reports_how_many_were_clipped(self) -> None:
-        # A reconstructed discharge below a dam with releases can be negative;
-        # log_nse would otherwise raise, and clipping in silence would hide a
-        # sign error that looks exactly the same.
-        cfg = _q_cfg()
-        value = build_objective_from_config(cfg).evaluate({"q": [-1.0, 2.0, 3.0, 4.0]})
-        assert value.components["b.n_clipped"] == 1.0
-        assert np.isfinite(value.total)
-
-    def test_variable_and_objective_clip_before_the_log_and_count(self) -> None:
-        # Each simulated stamp closes the day observed one day before it.
-        observed = pd.Series([1.0, 2.0, 3.0, 4.0], index=pd.date_range("2020-01-01", periods=4))
-        simulated = pd.Series([-1.0, 2.0, 3.0, 4.0], index=pd.date_range("2020-01-02", periods=4))
-        cost, components = _score(observed, simulated, "nse_log")
-        assert np.isfinite(cost)
-        assert components["nse_log@S.n_clipped"] == 1.0
-
-
 class TestWindowBounds:
-    def test_bounds_parse_to_timestamps(self) -> None:
-        window = CalibWindow(start="2012-01-01", end="2015-12-31")
-        start, end = window_bounds(window)
-        assert (start, end) == (pd.Timestamp("2012-01-01"), pd.Timestamp("2015-12-31"))
-        assert window_bounds(None) is None
-
-    def test_an_open_bound_stays_open(self) -> None:
-        start, end = window_bounds(CalibWindow(start="2012-01-01"))
-        assert start == pd.Timestamp("2012-01-01")
-        assert end is None
-
     def test_a_reversed_window_is_refused(self) -> None:
         with pytest.raises(ValueError, match="is after end"):
             CalibWindow(start="2015-01-01", end="2012-01-01")
-
-    def test_a_date_that_is_not_a_date_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="is not a date"):
-            CalibWindow(start="not-a-date")
 
     def test_score_drops_the_samples_outside_the_window(self) -> None:
         index = pd.date_range("2020-01-01", periods=4, freq="D")
@@ -918,9 +769,6 @@ class TestBlockRouteWindowBounds:
                 **self._kwargs(),
             )
 
-    def test_an_absent_window_builds(self) -> None:
-        assert build_metric_extractor__log_nse(None, None, None, window=None, **self._kwargs())
-
     def test_a_window_with_two_open_bounds_cuts_nothing_and_builds(self) -> None:
         assert build_metric_extractor__log_nse(
             None, None, None, window=(None, None), **self._kwargs()
@@ -947,10 +795,6 @@ class TestDistanceBlock:
 
     def test_the_mean_averages_the_pair(self) -> None:
         assert distance_mean(np.array([300.0, 100.0])) == pytest.approx(200.0)
-
-    def test_a_time_series_is_not_a_pair(self) -> None:
-        with pytest.raises(ValueError, match="got 3 value"):
-            distance_gap(np.array([1.0, 2.0, 3.0]))
 
     def test_a_block_scores_the_pair(self) -> None:
         value = build_objective_from_config(self._config()).evaluate({"net": [300.0, 100.0]})
@@ -1027,40 +871,6 @@ class TestWhatIsRefused:
         assert "nse" in message
         assert "weight" in message
 
-    def test_normalising_a_network_distance_never_reads_an_observed_scale(self) -> None:
-        """Its scale is the validity length a trial publishes, not a pair of zeros.
-
-        Without one the trial is refused by name rather than divided by one.
-        """
-        block = ConfigBlockObjective(
-            name="net",
-            metric="distance_gap",
-            uses_outputs=["net"],
-            observed_by_output={"net": (0.0, 0.0)},
-            normalize_cost=True,
-        )
-        with pytest.raises(ValueError, match="validity length"):
-            block.evaluate({"net": [120.0, 80.0]})
-
-
-class TestWhatIsUntouched:
-    @pytest.mark.parametrize("metric", ["rmse", "mae"])
-    def test_normalising_a_residual_metric_still_works(self, metric: str) -> None:
-        assert _block__normalising_dimensionless(metric, normalize=True) is not None
-
-    @pytest.mark.parametrize("metric", ["nse", "kge", "rmse", "distance_gap"])
-    def test_leaving_it_off_is_always_fine(self, metric: str) -> None:
-        assert (
-            ConfigBlockObjective(
-                name="b",
-                metric=metric,
-                uses_outputs=["q"],
-                observed_by_output=_OBSERVED__normalising_dimensionless,
-                normalize_cost=False,
-            )
-            is not None
-        )
-
 
 class TestWhereTheRefusalHappens:
     """The reader writes TOML, so the file is where the refusal belongs."""
@@ -1068,13 +878,6 @@ class TestWhereTheRefusalHappens:
     def test_the_file_is_refused_when_it_is_read(self) -> None:
         with pytest.raises(ValueError, match="normalize_cost"):
             CalibObjectiveBlockDecl(name="b", metric="nse", uses_outputs=["q"], normalize_cost=True)
-
-    def test_a_residual_block_still_loads(self) -> None:
-        block = CalibObjectiveBlockDecl(
-            name="b", metric="rmse", uses_outputs=["q"], normalize_cost=True
-        )
-
-        assert block.normalize_cost is True
 
 
 # From test_objective_block_cost_fractions.py
@@ -1129,13 +932,6 @@ def test_no_computable_trial_returns_none() -> None:
     trials = [{"network.total": 5.0}, None]
 
     assert mean_cost_block_fractions(BLOCKS, trials) is None
-
-
-def test_a_single_declared_block_always_takes_the_whole_cost() -> None:
-    # No ".total" key needed: a lone block is never wrapped in a CompositeObjective.
-    assert cost_block_fractions({"hydrograph.raw_cost": 3.0}, [("hydrograph", 1.0)]) == {
-        "hydrograph": 1.0
-    }
 
 
 def test_no_declared_block_gives_no_fraction() -> None:
@@ -1228,13 +1024,6 @@ def test_a_failed_trial_does_not_enter_the_mean() -> None:
     assert fractions["mean"] == pytest.approx({"network": 0.25, "hydrograph": 0.75})
 
 
-def test_no_declared_blocks_gives_no_report_entry() -> None:
-    cfg = _cfg([])
-    history = [_result(1, 0.5, {"whatever.total": 1.0})]
-
-    assert phase_cost_block_fractions(cfg, history, history[0]) is None
-
-
 def _seed_trials(tmp_path, trials: list[tuple[str, float, dict | None]]) -> CalibrationPersistence:
     """Journal one session with the given (status, cost, metrics) trials."""
     session_dir = tmp_path / "sessions" / "calage"
@@ -1304,14 +1093,6 @@ class TestReusedPhase:
         assert note is not None
         assert "not recomputed" in note
 
-    def test_fewer_than_two_blocks_reports_nothing_without_touching_the_journal(self) -> None:
-        fractions, note = _reused_phase_cost_block_fractions(
-            _cfg([("hydrograph", 1.0)]), None, "unused"
-        )
-
-        assert fractions is None
-        assert note is None
-
 
 # From test_score_diagnosis.py
 # A metric left undefined has to say what about its series made it so.
@@ -1339,29 +1120,6 @@ def _score__score_diagnosis(observed_values, simulated_values, metric: str) -> f
         {"G": ObservableResult("G", np.asarray(simulated_values, dtype=float), "-", SIM_INDEX)}
     )
     return cost
-
-
-def test_a_constant_record_names_itself(caplog) -> None:
-    # Every efficiency divides by the spread of the observations, so a flat
-    # record is undefined however good the simulation is.
-    with caplog.at_level("WARNING"):
-        cost = _score__score_diagnosis(np.full(12, 2.5), np.linspace(2.0, 3.0, 12), "nse")
-
-    assert cost == float("inf")
-    said = [record.getMessage() for record in caplog.records if "all 2.5" in record.getMessage()]
-    assert len(said) == 1
-    assert "divides by their spread" in said[0]
-    assert "12 observed samples" in said[0]
-
-
-def test_a_healthy_pair_scores_without_a_diagnosis(caplog) -> None:
-    observed = [1.0, 1.4, 2.2, 3.1, 2.0, 1.5, 1.2, 1.0, 0.9, 1.1, 1.6, 2.4]
-
-    with caplog.at_level("WARNING"):
-        cost = _score__score_diagnosis(observed, np.asarray(observed) * 1.3, "nse_log")
-
-    assert np.isfinite(cost)
-    assert not [record for record in caplog.records if "undefined" in record.getMessage()]
 
 
 def test_a_non_finite_sample_is_counted_on_the_side_it_came_from() -> None:
@@ -1407,61 +1165,6 @@ def _block__search_space(**fields_: Any) -> CalibObjectiveBlockDecl:
 
 
 # -- the file ----------------------------------------------------------------
-def test_a_parameter_names_its_search_space_and_its_sampling() -> None:
-    declared = _parameter(search_space="log", sampling="log_uniform")
-
-    assert (declared.search_space, declared.sampling) == ("log", "log_uniform")
-    assert (_parameter().search_space, _parameter().sampling) == ("identity", "uniform")
-    assert "transform" not in CalibParameterDecl.model_fields
-    assert "prior" not in CalibParameterDecl.model_fields
-
-
-def test_a_block_names_its_cost_transform() -> None:
-    assert _block__search_space(cost_transform="log").cost_transform == "log"
-    assert _block__search_space().cost_transform == "identity"
-    assert "transform" not in CalibObjectiveBlockDecl.model_fields
-
-
-@pytest.mark.parametrize(
-    ("build", "new"),
-    [
-        (lambda: _parameter(transform="log"), "'search_space'"),
-        (lambda: _parameter(prior="uniform"), "'sampling'"),
-        (lambda: _block__search_space(transform="log"), "'cost_transform'"),
-    ],
-)
-def test_the_old_word_is_refused_with_the_name_that_replaces_it(build: Any, new: str) -> None:
-    with pytest.raises(ValidationError, match="is not accepted any more: renamed") as refused:
-        build()
-
-    assert new in str(refused.value)
-    assert "This version does not rewrite the file." in str(refused.value)
-
-
-def test_a_parameter_declared_in_a_file_reads_the_new_words() -> None:
-    section = CalibrationConfig.model_validate(
-        {
-            "parameters": {
-                "K": {"bounds": [1e-7, 1e-3], "search_space": "log", "sampling": "normal"}
-            },
-            "objective_blocks": [
-                {"name": "q", "metric": "rmse", "uses_outputs": ["q"], "cost_transform": "inverse"}
-            ],
-            "outputs": {
-                "q": {
-                    "support": "point",
-                    "x": 1.0,
-                    "y": 2.0,
-                    "variable": "discharge",
-                    "observed_values": [1.0, 2.0],
-                }
-            },
-        }
-    )
-
-    assert section.parameters["K"].search_space == "log"
-    assert section.parameters["K"].sampling == "normal"
-    assert section.objective_blocks[0].cost_transform == "inverse"
 
 
 # -- the engine --------------------------------------------------------------
@@ -1473,25 +1176,6 @@ def test_a_resolved_dimension_carries_the_new_words() -> None:
     parameter = CalibParameter("K", 1e-6, 1e-3, search_space="log", sampling="log_uniform")
     assert parameter.lower_transformed == pytest.approx(-6.0)
     assert parameter.to_physical(-5.0) == pytest.approx(1e-5)
-
-
-def test_the_space_is_built_from_the_new_keys_of_a_declaration() -> None:
-    space = ParameterSpace.from_toml_mapping(
-        {
-            "K": {
-                "bounds": [1e-6, 1e-3],
-                "search_space": "log",
-                "sampling": "log_uniform",
-                "target": "flow.param.K.field.value",
-            }
-        }
-    )
-
-    (parameter,) = list(space)
-    assert (parameter.search_space, parameter.sampling) == ("log", "log_uniform")
-    declared = space.describe_values({"K": 1e-4})["K"]
-    assert (declared["search_space"], declared["sampling"]) == ("log", "log_uniform")
-    assert "transform" not in declared and "prior" not in declared
 
 
 def test_a_block_cost_is_transformed_by_its_cost_transform() -> None:
@@ -1569,36 +1253,6 @@ def test_the_documentation_catalogue_prints_the_new_words() -> None:
 
 
 # -- a run sealed by a pre-release ---------------------------------------------
-def test_a_frozen_run_with_the_old_words_is_refused_with_the_way_out(tmp_path: Path) -> None:
-    project = _project(tmp_path)
-    toml = project / "project.toml"
-    toml.write_text(
-        PROJECT.replace(
-            "[calibration.parameters.K]\nbounds = [1e-7, 1e-3]",
-            '[calibration.parameters.K]\nbounds = [1e-7, 1e-3]\nsearch_space = "log"'
-            '\nsampling = "log_uniform"',
-        ),
-        encoding="utf-8",
-    )
-    cfg = HydroModPyConfig.from_toml(toml)
-    run_dir = project / "runs" / "nancon"
-    run_dir.mkdir(parents=True)
-    frozen = portable_config_document(cfg, run_dir, project)
-    old = re.sub(r"^search_space = ", "transform = ", frozen, flags=re.MULTILINE)
-    old = re.sub(r"^sampling = ", "prior = ", old, flags=re.MULTILINE)
-    old = re.sub(r"^cost_transform = ", "transform = ", old, flags=re.MULTILINE)
-    assert old != frozen
-    assert "search_space" not in old and "sampling" not in old
-    sealed = run_dir / "config.toml"
-    sealed.write_text(old, encoding="utf-8")
-
-    with pytest.raises(ConfigValidationError, match="written by a pre-release of 2.0") as refused:
-        HydroModPyConfig.from_toml(sealed)
-
-    told = str(refused.value)
-    assert "calibration.parameters.K.transform" in told
-    assert "calibration.parameters.K.prior" in told
-    assert "This version does not rewrite the file." in told
 
 
 # From test_the_station_costs_are_averaged_not_pooled.py

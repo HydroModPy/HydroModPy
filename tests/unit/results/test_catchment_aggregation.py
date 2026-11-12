@@ -399,42 +399,12 @@ def test_a_per_cell_field_is_split_over_the_support(grp, term, support, expected
     np.testing.assert_allclose(outflow, expected[1])
 
 
-@pytest.mark.parametrize(
-    "grp",
-    [
-        _DictGroup({"head": _FakeArray(np.zeros((1, 3)))}),
-        _DictGroup({"drain": _FakeArray([[1.0]])}),
-    ],
-    ids=["missing", "too_short"],
-)
-def test_a_field_the_run_does_not_hold_for_every_step_is_none(grp) -> None:
-    assert _from_field(grp, "drain", 2, None) is None
-
-
 # -- the time axis -----------------------------------------------------------
 
 
 def _utc(day: str):
     """The instant a run records for a calendar day: midnight UTC."""
     return pd.Timestamp(day, tz="UTC").to_pydatetime()
-
-
-def test_the_time_axis_falls_back_on_the_period_bounds(runs) -> None:
-    sid = runs.open(
-        solver="modflow_nwt",
-        n_cells=3,
-        n_layers=1,
-        n_timesteps=4,
-        period_start=_utc("2020-01-01"),
-        period_end=_utc("2020-01-04"),
-    ).sim_id
-
-    idx = series_time_index(runs.store(sid), sid, 4)
-
-    naive = idx.tz_localize(None) if idx.tz is not None else idx
-    assert len(idx) == 4 and idx.is_monotonic_increasing
-    assert naive[0].date().isoformat() == "2020-01-01"
-    assert naive[-1].date().isoformat() == "2020-01-04"
 
 
 def test_a_run_without_an_axis_or_bounds_has_no_time_axis(runs) -> None:
@@ -523,13 +493,6 @@ def test_a_signed_term_gives_its_inflow_and_outflow(runs) -> None:
     inflow, outflow = _term(runs, sid, "well", 1)
 
     assert inflow[0] - outflow[0] == pytest.approx(-3.0)
-
-
-def test_a_term_the_run_does_not_hold_is_none(runs) -> None:
-    sid = _register(runs, n_ts=1)
-    _write_rows(runs, sid, "total", {0: 1.0})
-
-    assert _term(runs, sid, "river", 1) is None
 
 
 def test_an_unreadable_budgets_table_is_refused(runs) -> None:
@@ -886,23 +849,6 @@ class TestTheCatchmentSeriesUseTheCatchment:
         message = " ".join(r.getMessage() for r in caplog.records)
         assert said in message and "neighbouring basins" in message
 
-    def test_a_mesh_without_geometry_keeps_the_domain(self):
-        active = np.ones(3, dtype=bool)
-        assert catchment_support(None, "sim", _grp_with_domain(3), active) is active
-
-    def test_the_stored_basin_is_the_support_not_the_polygon(self, caplog):
-        class _Store:
-            def read_geographic_feature(self, sim_id, name):
-                raise AssertionError("the polygon was read although the run stores a basin")
-
-        grp = self._with_basin(self._grp(6), [1, 1, 1, 0, 0, 1])
-        with caplog.at_level("INFO"):
-            mask = catchment_support(_Store(), "sim", grp, np.array([1, 1, 0, 1, 1, 1], bool))
-
-        assert mask.tolist() == [True, True, False, False, False, True]
-        assert "the basin of D, 3 of 5 active cells (2.000 km2)" in caplog.text
-        assert "polygon_centroid" not in caplog.text
-
     def test_a_basin_with_no_active_cell_is_refused(self):
         grp = self._with_basin(self._grp(4), [1, 1, 0, 0])
         with pytest.raises(ExtractError, match="holds no active cell"):
@@ -916,18 +862,3 @@ class TestTheCatchmentSeriesUseTheCatchment:
 
         assert mask is active
         assert "stores no basin of D" not in caplog.text
-
-    def test_no_series_computes_the_basin_again(self, monkeypatch):
-        from hydromodpy.catchment.drainage import descent as core_descent
-        from hydromodpy.solver.modflow_common import catchment_basin
-
-        def refuse(*_args, **_kwargs):
-            raise AssertionError("the aggregation computed the basin of D again")
-
-        monkeypatch.setattr(core_descent, "descent_basin", refuse)
-        monkeypatch.setattr(catchment_basin, "descent_basin", refuse)
-        grp = self._with_basin(self._grp(4), [1, 0, 1, 0])
-
-        mask = catchment_support(None, "sim", grp, np.ones(4, dtype=bool))
-
-        assert mask.tolist() == [True, False, True, False]

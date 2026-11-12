@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-import shapely
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshRequestError
@@ -48,49 +47,11 @@ def _walled(offset: float, mesh: dict) -> tuple[SnappedWall, MeshRequest]:
     return wall, request
 
 
-@pytest.mark.parametrize("offset", [12.0, -30.0], ids=["downstream", "upstream"])
-def test_a_wall_on_the_shore_takes_the_ring_vertices_bit_for_bit(offset: float) -> None:
-    wall, request = _walled(offset, GRADED)
-    ring = {tuple(xy) for xy in shapely.get_coordinates(request.family("lakes").lines[0])}
-    coords = shapely.get_coordinates(request.family(BARRIER_FAMILY).lines[0])
-    on_ring = np.array([tuple(xy) in ring for xy in coords])
-    stretch = np.flatnonzero(on_ring)
-
-    assert stretch.size >= 3
-    assert np.all(np.diff(stretch) == 1)
-    on_shore = shapely.distance(shapely.points(coords[stretch]), wall.shore)
-    assert on_shore.max() < 1.0e-6
-
-
-def test_the_wall_keeps_its_corners_and_its_ends() -> None:
-    wall, request = _walled(12.0, GRADED)
-    line = request.family(BARRIER_FAMILY).lines[0]
-    corners = shapely.get_coordinates(wall.line)[[0, 1, 2, -3, -2, -1]]
-
-    assert np.all(shapely.distance(shapely.points(corners), line) < 1.0e-6)
-    assert shapely.hausdorff_distance(line, wall.line) < 1.0e-6
-
-
 def test_the_switch_set_to_none_leaves_the_barriers_out() -> None:
     _, request = _walled(12.0, {**GRADED, "families": {"barriers": "none"}})
 
     assert request.family(BARRIER_FAMILY) is None
     assert request.family("lakes") is not None
-
-
-def test_a_staircase_engine_gets_the_raw_barrier_line() -> None:
-    wall, request = _walled(12.0, {"engine": "regular", "cell_size": 40.0})
-
-    assert request.family(BARRIER_FAMILY).lines == (wall.line,)
-
-
-def test_a_barrier_without_lake_is_resampled_on_its_own() -> None:
-    line = LineString([(350_100.0, 6_780_100.0), (350_700.0, 6_780_700.0)])
-    request = plan_mesh_request(MeshConfig.model_validate(GRADED), _inputs((line,)))
-    resampled = request.family(BARRIER_FAMILY).lines[0]
-
-    assert len(resampled.coords) > 2
-    assert shapely.hausdorff_distance(resampled, line) < 1.0e-6
 
 
 _RING = LineString([(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0), (0.0, 0.0)])

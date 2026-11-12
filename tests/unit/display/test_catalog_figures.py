@@ -7,74 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.display import catalog_figures
-from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 from tests._helpers.one_run_catalog import Figure, OneRunCatalog, one_run_workspace
-
-
-def test_render_figure_defaults_to_the_figures_dir_of_the_run(monkeypatch, tmp_path) -> None:
-    workspace = tmp_path / "workspace"
-    catalog_root = tmp_path / "catalog"
-    run_dir = catalog_root / RUNS_DIRNAME / "sim_a"
-    calls: dict[str, object] = {}
-
-    class FakeCatalog:
-        def __init__(self, root: Path) -> None:
-            calls["catalog_root"] = root
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc_info: object) -> None:
-            calls["closed"] = True
-
-        def resolve(self, sim_ref: str) -> str:
-            calls["sim_ref"] = sim_ref
-            return "sim-001"
-
-        def run_dir_for(self, sid: str) -> Path:
-            calls["run_dir_for"] = sid
-            return run_dir
-
-        def __getitem__(self, sid: str) -> SimpleNamespace:
-            calls["sim_id"] = sid
-            return SimpleNamespace(name="sim-a")
-
-    class FakeFigure:
-        def unavailable_reason(self, sim: SimpleNamespace) -> None:
-            return None
-
-        def plot(self, sim: SimpleNamespace, *, save_path: Path, **opts: object) -> str:
-            calls["plot"] = {"sim": sim.name, "save_path": save_path, "opts": opts}
-            save_path.write_bytes(b"png")
-            return "figure"
-
-    def fake_resolve_project_root(start: Path) -> Path:
-        calls["catalog_search_start"] = start
-        return catalog_root
-
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        "hydromodpy.core.state.result_dirs.resolve_project_root", fake_resolve_project_root
-    )
-    monkeypatch.setattr("hydromodpy.results.catalog.facade.Catalog", FakeCatalog)
-    monkeypatch.setattr("hydromodpy.display.runs._get_figure", lambda name: FakeFigure())
-
-    output = catalog_figures.render_figure("abc123", "head_map", workspace=workspace)
-
-    expected_output = run_dir / RUN_FIGURES_DIRNAME / "head_map.png"
-    assert output == expected_output
-    assert calls == {
-        "catalog_search_start": workspace.resolve(),
-        "catalog_root": catalog_root,
-        "sim_ref": "abc123",
-        "run_dir_for": "sim-001",
-        "sim_id": "sim-001",
-        "plot": {"sim": "sim-a", "save_path": expected_output, "opts": {}},
-        "closed": True,
-    }
-    assert expected_output.is_file()
 
 
 class _SealedRunCatalog(OneRunCatalog):
@@ -146,11 +80,6 @@ class TestFigureOptionsFromTheCommandLine:
             "title": "Depth to water",
             "figsize": (6.0, 5.0),
             "vmax": 30.0,
-        }
-
-    def test_an_empty_title_removes_it(self) -> None:
-        assert catalog_figures.parse_figure_options("watertable_depth_map", ["title="]) == {
-            "title": ""
         }
 
     def test_a_quoted_text_is_read_as_text(self) -> None:

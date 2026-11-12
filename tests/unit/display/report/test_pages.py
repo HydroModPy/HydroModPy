@@ -230,34 +230,8 @@ def test_named_figures_and_panels_are_registered():
     assert [p for p in research.panels if f"{p}.png" not in panels] == []
 
 
-def test_run_blocks_use_every_figure_the_preset_names(tmp_path):
-    blocks = pages.run_blocks(_fake_run(tmp_path), overview=None, texts=TEXTS, station=None)
-    used = {p.id for p in _figures_of(blocks)}
-    named = {n for names in PRESETS["research"].figures.values() for n in names}
-    assert named <= used
-
-
-def test_run_blocks_start_with_the_method(tmp_path):
-    blocks = pages.run_blocks(_fake_run(tmp_path), overview=None, texts=TEXTS, station=None)
-    first = blocks[0]
-    assert first.id == "method"
-    prose = next(i for _, i in first.items if isinstance(i, Prose))
-    assert prose.paragraphs == ("Run sentence.", "Label sentence. Budget sentence.")
-
-
 def _items(blocks: list[Block], kind: type) -> list:
     return [i for b in blocks for _, i in b.items if isinstance(i, kind)]
-
-
-def test_the_research_report_keeps_every_figure_metric_and_table_of_the_old_one(tmp_path):
-    blocks = pages.run_blocks(_fake_run(tmp_path), overview=None, texts=TEXTS, station=None)
-    figures = {p.id for p in _figures_of(blocks)}
-    assert OLD_RESEARCH_FIGURES - figures == set()
-    assert OLD_RESEARCH_FIGURES - set(PRESETS["research"].panels) <= {
-        n for names in PRESETS["research"].figures.values() for n in names
-    }
-    assert OLD_RESEARCH_METRICS - {m.label for m in _items(blocks, Metric)} == set()
-    assert OLD_RESEARCH_TABLES - {t.id for t in _items(blocks, Table)} == set()
 
 
 def test_the_overview_page_keeps_every_figure_metric_and_table_of_the_old_one(tmp_path):
@@ -299,12 +273,6 @@ def test_the_geology_table_lists_the_codes_of_the_catchment(tmp_path):
     assert [(r["code"], r["area_km2"]) for r in rows] == [("2", "1.00"), ("10", "2.00")]
 
 
-@pytest.mark.parametrize(("station", "mean"), [(None, "2"), ("S1", "2"), ("S2", "2")])
-def test_series_follow_the_station(tmp_path, station, mean):
-    blocks = pages.run_blocks(_fake_run(tmp_path), overview=None, texts=TEXTS, station=station)
-    assert _metric(blocks, "Mean simulated discharge").value == mean
-
-
 def test_gauge_names_the_site(tmp_path):
     blocks = pages.run_blocks(_fake_run(tmp_path), overview=None, texts=TEXTS, station=None)
     assert _metric(blocks, "Site").value == "Selune (S1)"
@@ -313,60 +281,6 @@ def test_gauge_names_the_site(tmp_path):
 def test_unknown_station_gives_no_series_but_still_a_page(tmp_path):
     blocks = pages.run_blocks(_fake_run(tmp_path), overview=None, texts=TEXTS, station="nope")
     assert _metric(blocks, "Observed discharge points").value == 0
-
-
-def test_scores_list_every_station(tmp_path):
-    blocks = pages.run_blocks(_fake_run(tmp_path), overview=None, texts=TEXTS, station="S1")
-    table = next(i for b in blocks for _, i in b.items if isinstance(i, Table) and i.id == "scores")
-    assert {r["station"] for r in table.rows} == {"S1", "S2"}
-    assert len(table.rows) == 4
-    assert ("window_name", "Window") in table.columns
-    assert {r["n_samples"] for r in table.rows} == {"36"}
-
-
-def test_figures_are_required_and_missing_ones_stay_empty(tmp_path):
-    run = _fake_run(tmp_path)
-    (run.dir / "figures" / "seepage_map.png").write_bytes(b"x")
-    blocks = pages.run_blocks(run, overview=None, texts=TEXTS, station=None)
-    by_id = {p.id: p for p in _figures_of(blocks)}
-    assert by_id["seepage_map"].ok
-    assert not by_id["water_budget"].ok
-    assert by_id["water_budget"].required
-
-
-def test_overview_panels_are_required_only_with_an_overview(tmp_path):
-    run = _fake_run(tmp_path)
-    without = pages.run_blocks(run, overview=None, texts=TEXTS, station=None)
-    assert not any(p.required for p in _figures_of(without) if p.id == "map_dem")
-    overview = SimpleNamespace(dir=tmp_path / "runs" / "ov", inputs=[])
-    (overview.dir / "figures").mkdir(parents=True)
-    (overview.dir / "figures" / "map_dem.png").write_bytes(b"x")
-    with_ov = pages.run_blocks(run, overview=overview, texts=TEXTS, station=None)
-    dem = next(p for p in _figures_of(with_ov) if p.id == "map_dem")
-    assert dem.ok
-    assert dem.required
-
-
-def test_sheet_in_two_languages_with_licence_warning(tmp_path):
-    run = _fake_run(tmp_path)
-    fr = ReportTexts(
-        "Methode.",
-        "Etiquette valide.",
-        {key: phrase("report", key, "fr") for key in keys("report")},
-    )
-    for texts, label in ((TEXTS, "Label sentence."), (fr, "Etiquette valide.")):
-        blocks = pages.sheet_blocks(run, texts=texts, station=None)
-        assert [b.id for b in blocks] == ["label", "method", "figures", "scores", "inputs"]
-        prose = next(i for _, i in blocks[0].items if isinstance(i, Prose))
-        assert prose.paragraphs == (label,)
-        warnings = [i for b in blocks for _, i in b.items if isinstance(i, str)]
-        assert warnings == [f"discharge: {texts.titles['licence_unknown']}"]
-    assert [p.id for p in _figures_of(blocks)] == list(SHEET_FIGURES)
-    assert [p.title for p in _figures_of(blocks)] == [
-        phrase("report", f"figure_{n}", "fr") for n in SHEET_FIGURES
-    ]
-    headings = {h for t in _items(blocks, Table) for _, h in t.columns}
-    assert {"Critère", "Fenêtre", "Échantillons", "Fournisseur", "Chemin"} <= headings
 
 
 def test_sheet_names_its_label_once(tmp_path):

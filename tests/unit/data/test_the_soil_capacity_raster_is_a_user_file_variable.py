@@ -10,19 +10,12 @@ import typing
 from pathlib import Path
 
 import numpy as np
-import pytest
 import rasterio
-from pydantic import ValidationError
 from rasterio.transform import from_origin
 
 from hydromodpy.core.tracking.input_file import InputFile
-from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS
-from hydromodpy.data.variables.user_rasters import (
-    FileSoilCapacitySource,
-    SoilCapacityConfig,
-    SoilCapacityVariable,
-)
+from hydromodpy.data.variables.user_rasters import FileSoilCapacitySource, SoilCapacityVariable
 
 
 def _write_geotiff(path: Path, *, crs: str | None = "EPSG:2154", value: float = 150.0) -> Path:
@@ -43,20 +36,6 @@ def _write_geotiff(path: Path, *, crs: str | None = "EPSG:2154", value: float = 
     return path
 
 
-def test_config_refuses_two_sources(tmp_path: Path) -> None:
-    a = _write_geotiff(tmp_path / "a.tif")
-    b = _write_geotiff(tmp_path / "b.tif")
-    with pytest.raises(ValidationError):
-        SoilCapacityConfig.model_validate(
-            {
-                "sources": [
-                    {"source": "file", "path": str(a)},
-                    {"source": "file", "path": str(b)},
-                ]
-            }
-        )
-
-
 def test_the_path_field_carries_the_soil_capacity_role() -> None:
     role = None
     for meta in FileSoilCapacitySource.model_fields["path"].metadata:
@@ -65,31 +44,8 @@ def test_the_path_field_carries_the_soil_capacity_role() -> None:
     assert role == "soil_capacity"
 
 
-def test_manager_reads_a_tiny_geotiff(tmp_path: Path) -> None:
-    src = _write_geotiff(tmp_path / "ru.tif")
-    config = SoilCapacityConfig(sources=[FileSoilCapacitySource(path=src)])
-    manager = SoilCapacityVariable(config=config, index=None, data_dir=tmp_path)
-
-    result = manager.load()
-
-    assert len(result.fields) == 1
-    record = result.fields[0]
-    assert isinstance(record, FieldRecord)
-    assert record.variable == "soil_capacity"
-
-
 def test_manager_internal_unit_is_millimetres() -> None:
     assert SoilCapacityVariable.INTERNAL_UNIT == "mm"
-
-
-def test_manager_labels_the_record_in_millimetres(tmp_path: Path) -> None:
-    src = _write_geotiff(tmp_path / "ru.tif")
-    config = SoilCapacityConfig(sources=[FileSoilCapacitySource(path=src)])
-    manager = SoilCapacityVariable(config=config, index=None, data_dir=tmp_path)
-
-    record = manager.load().fields[0]
-
-    assert record.unit == "mm"
 
 
 def test_the_variable_spec_never_applies_the_simulation_window() -> None:

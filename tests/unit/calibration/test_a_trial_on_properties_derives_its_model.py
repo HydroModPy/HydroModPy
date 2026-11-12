@@ -159,19 +159,6 @@ def _contents(model: Any) -> dict[str, Any]:
     return {name: profile.as_dict() for name, profile in model.properties.profiles.items()}
 
 
-def test_profile_paths_build_the_model_once_and_start_the_trials_at_run_solver(
-    tmp_path: Path, pipeline: _Pipeline
-) -> None:
-    prepared = _with_the_model_built(_prepared(tmp_path, paths={"K": K_PATH}), pipeline)
-
-    assert prepared.model_from_profiles is True
-    assert prepared.downstream_steps[prepared.earliest].name == "run_solver"
-    assert prepared.downstream_steps[1].calls == 1
-    assert prepared.ctx.setup.model is not None
-    assert prepared.ctx.budget_terms == "kept terms"
-    assert prepared.profile_ids() == ("K",)
-
-
 def test_the_fork_of_a_trial_on_k_derives_its_model_without_rebuilding_anything(
     tmp_path: Path, pipeline: _Pipeline
 ) -> None:

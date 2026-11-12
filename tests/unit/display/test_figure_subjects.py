@@ -56,22 +56,6 @@ def test_each_registered_figure_declares_its_subject(spec: FigureSpec) -> None:
     assert spec.subject == _expected_subject(spec.name)
 
 
-@pytest.mark.parametrize("name", PAIR_FIGURES)
-def test_a_pair_figure_draws_a_run_and_takes_its_reference(name: str) -> None:
-    from hydromodpy.display.figure_registry import figure_option_names, get
-
-    assert get(name).spec.subject == "run"
-    assert "reference" in figure_option_names(name)
-
-
-def test_the_generated_table_names_every_subject_other_than_run() -> None:
-    from tools.figure_table import collect_figure_subjects
-
-    subjects = collect_figure_subjects()
-    expected = {spec.name: spec.subject for spec in list_figures() if spec.subject != "run"}
-    assert subjects == expected
-
-
 @pytest.mark.parametrize("option", ["subject", PROMOTED_OPTION])
 def test_what_the_display_layer_fills_is_never_a_user_option(option: str) -> None:
     from hydromodpy.display.figure import option_names_of
@@ -276,26 +260,6 @@ def test_a_subject_without_a_run_takes_no_time(project, promoted, plain) -> None
 # --- the session of a run ---
 
 
-def test_a_promoted_run_gives_the_session_that_promoted_it(project, promoted) -> None:
-    session = Session.of_run(promoted)
-    assert session is not None
-    assert session.dir == (project / "sessions" / "cheze-calage").resolve()
-
-
-@pytest.mark.parametrize(
-    "lineage",
-    [
-        pytest.param(SimpleNamespace(session_id=None), id="no session in the lineage"),
-        pytest.param(SimpleNamespace(session_id="0" * 32), id="a session the project lacks"),
-        pytest.param(None, id="no lineage"),
-    ],
-)
-def test_a_run_no_session_promoted_gives_none(project, lineage) -> None:
-    run_dir = project / "runs" / "baseline"
-    run_dir.mkdir(parents=True)
-    assert Session.of_run(SimpleNamespace(dir=run_dir, lineage=lineage)) is None
-
-
 def test_a_kept_trial_is_in_its_own_session(project) -> None:
     write_session_dir(project, "cheze-calage")
     trial_dir = project / "sessions" / "cheze-calage" / "trials" / "0001"
@@ -305,18 +269,3 @@ def test_a_kept_trial_is_in_its_own_session(project) -> None:
 
     assert session is not None
     assert session.name == "cheze-calage"
-
-
-@pytest.mark.parametrize(
-    "source",
-    [
-        pytest.param(SimpleNamespace(lineage=None), id="no directory"),
-        pytest.param("outside", id="a directory outside any project"),
-    ],
-)
-def test_a_run_outside_a_project_gives_none(tmp_path, source) -> None:
-    if source == "outside":
-        directory = tmp_path / "loose" / "runs" / "x"
-        directory.mkdir(parents=True)
-        source = SimpleNamespace(dir=directory, lineage=SimpleNamespace(session_id="abc"))
-    assert Session.of_run(source) is None

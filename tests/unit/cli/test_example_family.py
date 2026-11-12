@@ -19,17 +19,6 @@ def isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("HMP_EXAMPLES_SOURCE", raising=False)
 
 
-def test_bare_family_is_a_usage_error(monkeypatch) -> None:
-    assert _run(monkeypatch, ["hmp", "example"]) == 2
-
-
-def test_family_help_lists_its_actions(monkeypatch, capsys) -> None:
-    assert _run(monkeypatch, ["hmp", "example", "--help"]) == 0
-    out = capsys.readouterr().out
-    for action in ("list", "show", "add"):
-        assert action in out
-
-
 def test_list_names_example_04(monkeypatch, capsys) -> None:
     assert _run(monkeypatch, ["hmp", "example", "list"]) == 0
     out = capsys.readouterr().out

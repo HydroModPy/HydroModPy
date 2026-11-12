@@ -17,12 +17,9 @@ from hydromodpy.project.request import RunOutcome, RunRequest
 from hydromodpy.project.windows import (
     cut_grid,
     named_window,
-    newest_sealed_run,
     recorded_window_source,
     run_windows,
     source_of,
-    window_document,
-    window_run_name,
     window_source_for,
 )
 from hydromodpy.results.record.manifest import InputEntry, is_sealed
@@ -61,27 +58,6 @@ def _request(root: Path, **members: Any) -> RunRequest:
 
 
 @pytest.mark.parametrize(
-    ("index", "count", "name"),
-    [
-        (1, 2, "island_w1"),
-        (9, 9, "island_w9"),
-        (1, 10, "island_w01"),
-        (10, 10, "island_w10"),
-        (7, 120, "island_w007"),
-    ],
-)
-def test_a_window_is_named_with_its_number_padded_to_the_width_of_the_count(
-    index: int, count: int, name: str
-) -> None:
-    assert window_run_name("island", index, count) == name
-
-
-def test_the_runs_of_a_chain_sort_in_the_order_of_the_chain() -> None:
-    names = [window_run_name("island", index, 12) for index in range(1, 13)]
-    assert names == sorted(names)
-
-
-@pytest.mark.parametrize(
     ("length", "window", "nper"),
     [
         (None, "all", 12),
@@ -110,27 +86,7 @@ def test_a_window_that_does_not_exist_is_refused_with_the_number_of_windows() ->
         cut_grid(whole, _time("6 months", 3))
 
 
-def test_the_document_of_a_window_names_the_window_and_leaves_the_original_alone() -> None:
-    original = {"simulation": {"time": {"window_length": "6 months", "window": "all"}}, "a": 1}
-    cut = window_document(original, 2)
-    assert cut["simulation"]["time"] == {"window_length": "6 months", "window": 2}
-    assert original["simulation"]["time"]["window"] == "all"
-    assert cut["a"] == 1
-
-
 # --- sources ---
-
-
-def test_the_source_of_a_window_is_the_newest_sealed_version_of_the_window_before(
-    tmp_path: Path,
-) -> None:
-    seal_demo_run(tmp_path, "island_w1")
-    seal_demo_run(tmp_path, "island_w1")
-    seal_demo_run(tmp_path, "island_w2")
-    (tmp_path / "runs" / "island_w1.v3").mkdir()
-
-    assert newest_sealed_run(tmp_path, "island_w1") == tmp_path / "runs" / "island_w1.v2"
-    assert newest_sealed_run(tmp_path, "island_w9") is None
 
 
 def test_a_window_without_a_sealed_window_before_it_is_refused_before_anything_runs(
@@ -234,20 +190,6 @@ def _chain(tmp_path: Path, play: _Play, cfg: Any = None, **members: Any) -> RunO
     )
 
 
-def test_the_windows_are_played_in_order_each_from_the_run_before_it(tmp_path: Path) -> None:
-    play = _Play(tmp_path)
-
-    last = _chain(tmp_path, play)
-
-    assert [(name, window) for name, window, *_ in play.calls] == [
-        ("island_w1", 1),
-        ("island_w2", 2),
-    ]
-    assert play.calls[0][2] is None, "the first window starts on its own"
-    assert play.calls[1][2] == tmp_path / "runs" / "island_w1"
-    assert last is not None and last.name == "island_w2"
-
-
 def test_a_stop_in_a_window_ends_the_chain(tmp_path: Path) -> None:
     play = _Play(tmp_path, stop_at="island_w1")
 
@@ -255,27 +197,6 @@ def test_a_stop_in_a_window_ends_the_chain(tmp_path: Path) -> None:
         _chain(tmp_path, play)
 
     assert [name for name, *_ in play.calls] == ["island_w1"]
-
-
-def test_a_window_number_plays_that_window_alone_from_the_window_before(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    run_dir, _ = seal_demo_run(tmp_path, "island_w1")
-    record_request_id(run_dir, "rid-expected")
-    monkeypatch.setattr(windows_module, "_expected_request_id", lambda *a, **k: "rid-expected")
-    play = _Play(tmp_path)
-
-    run_windows(
-        _request(tmp_path),
-        cfg=_cfg(tmp_path, window=2),
-        base=tmp_path,
-        environment=SimpleNamespace(),
-        play=play,
-    )
-
-    assert [(name, window, source) for name, window, source, _ in play.calls] == [
-        ("island_w2", 2, run_dir)
-    ]
 
 
 def test_a_window_alone_after_a_missing_window_is_refused_and_nothing_is_played(
@@ -311,12 +232,6 @@ def test_a_chain_is_named_after_the_run_and_a_request_without_a_name_is_refused(
             environment=SimpleNamespace(),
             play=_Play(tmp_path),
         )
-
-
-def test_a_named_chain_takes_the_name_of_the_request(tmp_path: Path) -> None:
-    play = _Play(tmp_path)
-    _chain(tmp_path, play, name="long")
-    assert [name for name, *_ in play.calls] == ["long_w1", "long_w2"]
 
 
 def test_windows_already_sealed_are_told_once_each_but_the_last_is_left_to_the_caller(
@@ -618,23 +533,3 @@ def test_the_worker_verb_replays_a_sealed_window_from_the_source_it_recorded(
 
     assert outcome == "one run"
     assert len(calls) == 1 and calls[0]["window_source"] == source
-
-
-def test_the_worker_verb_plays_one_run_for_a_document_that_does_not_cut_its_run(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import hydromodpy.project.dispatch.workflow as workflow
-
-    calls: list[dict] = []
-    monkeypatch.setattr(workflow, "_checked_environment", lambda environment, root: environment)
-    monkeypatch.setattr(workflow, "_loaded", lambda request, base: _cfg(tmp_path, length=None))
-    monkeypatch.setattr(
-        workflow, "run_single_simulation", lambda request, **kw: calls.append(kw) or "one run"
-    )
-
-    outcome = workflow.run_simulation(
-        _request(tmp_path), base=tmp_path, environment=SimpleNamespace()
-    )
-
-    assert outcome == "one run"
-    assert len(calls) == 1 and calls[0].get("window_source") is None

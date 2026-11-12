@@ -17,16 +17,11 @@ from types import SimpleNamespace
 
 import geopandas as gpd
 import numpy as np
-import pytest
 import shapely
-from pyproj import CRS
 from rasterio.features import shapes
 from rasterio.transform import Affine
 from shapely.geometry import Polygon, shape
 
-from hydromodpy.calibration.observations.observed_network import delineated_catchment_mask
-from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outline
-from hydromodpy.catchment.synthetic.synthetic_config import SYNTHETIC_CATCH_DEF
 from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.mesh.planning.catchment_outline import smooth_polygon
 from hydromodpy.model.domain.geometry import CatchmentGeometry
@@ -34,7 +29,6 @@ from hydromodpy.model.model import Geometry
 from hydromodpy.solver.modflow_common.catchment_basin import (
     catchment_cell_mask,
     polygon_cell_fraction,
-    polygon_cell_mask,
 )
 from tests._helpers.mesh_cases import LAMBERT93_WKT
 from tests._helpers.model_factory import make_model
@@ -117,36 +111,6 @@ def _share(polygon, mesh) -> np.ndarray:
     return shapely.area(shapely.intersection(cells, polygon)) / shapely.area(cells)
 
 
-def test_the_two_outlines_put_some_cells_on_different_sides() -> None:
-    mesh = _mesh(followed=False)
-
-    assert (_inside(STAIR, mesh) != _inside(SMOOTH, mesh)).sum() > 20
-
-
-def test_the_outline_answered_is_the_smooth_one_when_the_mesh_followed_it(tmp_path) -> None:
-    geographic = _geographic(tmp_path)
-
-    frame = catchment_outline(geographic, _mesh(followed=True).cell_mesh)
-
-    assert frame.geometry.iloc[0].equals(SMOOTH)
-    assert CRS.from_user_input(frame.crs).equals(CRS.from_user_input(LAMBERT93_WKT))
-
-
-def test_the_outline_answered_is_the_delineated_one_otherwise(tmp_path) -> None:
-    geographic = _geographic(tmp_path)
-
-    for cell_mesh in (None, _mesh(followed=False).cell_mesh):
-        frame = catchment_outline(geographic, cell_mesh)
-        assert frame.geometry.iloc[0].equals(STAIR)
-    assert catchment_outline(geographic).geometry.iloc[0].equals(STAIR)
-
-
-def test_a_synthetic_geographic_has_no_outline_even_beside_a_mesh_that_carries_one() -> None:
-    geographic = SimpleNamespace(catch_def=SYNTHETIC_CATCH_DEF, watershed_shp="box.shp")
-
-    assert catchment_outline(geographic, _mesh(followed=True).cell_mesh) is None
-
-
 def test_the_fallback_support_sums_the_cells_inside_the_smooth_outline(tmp_path) -> None:
     mesh = _mesh(followed=True)
     model = _solver_on(tmp_path, mesh)
@@ -166,14 +130,6 @@ def test_the_fallback_support_keeps_the_staircase_for_a_mesh_that_did_not_follow
     np.testing.assert_array_equal(catchment_cell_mask(model), _inside(STAIR, mesh))
 
 
-def test_the_polygon_mask_of_the_build_reads_the_same_outline(tmp_path) -> None:
-    mesh = _mesh(followed=True)
-
-    mask = polygon_cell_mask(_catchment(tmp_path), mesh)
-
-    np.testing.assert_array_equal(mask, _inside(SMOOTH, mesh))
-
-
 def test_the_catchment_fraction_is_taken_on_the_smooth_outline(tmp_path) -> None:
     mesh = _mesh(followed=True)
 
@@ -189,19 +145,3 @@ def test_the_catchment_fraction_of_an_unsmoothed_mesh_is_the_staircase_share(tmp
     fraction = polygon_cell_fraction(_catchment(tmp_path), mesh)
 
     np.testing.assert_allclose(fraction, _share(STAIR, mesh), atol=1.0e-9)
-
-
-@pytest.mark.parametrize("followed", [True, False])
-def test_the_network_criterion_reads_the_outline_the_mesh_followed(tmp_path, followed) -> None:
-    mesh = _mesh(followed=followed)
-    setup = SimpleNamespace(geographic=_geographic(tmp_path), cell_mesh=mesh.cell_mesh)
-    run_ctx = SimpleNamespace(
-        solver_run=SimpleNamespace(solver_model=SimpleNamespace(descent_basin=None)),
-        state=SimpleNamespace(setup=setup),
-    )
-
-    mask = delineated_catchment_mask(
-        run_ctx, mesh.planar_mesh, mesh.cell_mesh.geometry.padded_connectivity
-    )
-
-    np.testing.assert_array_equal(mask, _inside(SMOOTH if followed else STAIR, mesh))

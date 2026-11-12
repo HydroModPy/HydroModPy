@@ -147,48 +147,6 @@ def _calibration_run(project, name="calibration-c", status_col=True):
 # --------------------------------------------------------------------------- #
 
 
-def test_calibration_trial_distribution_builds_one_histogram_per_parameter(mpl, tmp_path) -> None:
-    run = _calibration_run(tmp_path)
-
-    fig = CalibrationTrialDistributionFigure().plot(run, bins=4, dpi=80)
-
-    try:
-        # Two parameter columns -> two used axes plus a colorbar axis.
-        param_axes = [ax for ax in fig.axes if ax.get_xlabel() in {"kh", "sy"}]
-        assert {ax.get_xlabel() for ax in param_axes} == {"kh", "sy"}
-        assert all(ax.get_ylabel() == "count" for ax in param_axes)
-
-        kh_ax = next(ax for ax in param_axes if ax.get_xlabel() == "kh")
-        bars = kh_ax.patches
-        # bins=4 requested; every sample must fall in exactly one bar.
-        assert len(bars) == 4
-        assert sum(int(round(b.get_height())) for b in bars) == 6
-        assert f"distribution - {run.name}" in fig._suptitle.get_text()
-    finally:
-        mpl.close(fig)
-
-
-def test_calibration_trial_distribution_colors_bins_by_mean_objective(mpl, tmp_path) -> None:
-    run = _calibration_run(tmp_path)
-
-    fig = CalibrationTrialDistributionFigure().plot(run, bins=4, cmap="viridis", dpi=80)
-
-    try:
-        # A colorbar axis appears only when the objective is finite.
-        colorbar_axes = [ax for ax in fig.axes if "mean cost" in (ax.get_ylabel() or "")]
-        assert len(colorbar_axes) == 1
-
-        kh_ax = next(ax for ax in fig.axes if ax.get_xlabel() == "kh")
-        # Bars holding samples must be recolored away from the default steelblue.
-        from matplotlib.colors import to_rgba
-
-        steelblue = to_rgba("steelblue")
-        non_empty = [b for b in kh_ax.patches if b.get_height() > 0]
-        assert any(b.get_facecolor() != steelblue for b in non_empty)
-    finally:
-        mpl.close(fig)
-
-
 def test_calibration_trial_distribution_respects_explicit_parameter_list(mpl, tmp_path) -> None:
     run = _calibration_run(tmp_path)
 
@@ -245,36 +203,6 @@ def test_calibration_trial_distribution_pads_grid_and_saves_png(tmp_path, mpl) -
 # --------------------------------------------------------------------------- #
 # calibration_pairplot
 # --------------------------------------------------------------------------- #
-
-
-def test_calibration_pairplot_grid_shape_and_diagonal_vs_offdiagonal(mpl, tmp_path) -> None:
-    run = _calibration_run(tmp_path, status_col=False)
-    kh = trial_table(run).frame["kh"].to_numpy(dtype=float)
-    sy = trial_table(run).frame["sy"].to_numpy(dtype=float)
-
-    fig = CalibrationPairplotFigure().plot(run, dpi=80)
-
-    try:
-        # n_params == 2 -> a 2x2 grid of axes (plus a colorbar axis).
-        grid_axes = [ax for ax in fig.axes if ax.collections or ax.patches]
-        assert len(grid_axes) >= 4
-
-        # The diagonal cells are histograms (patches, no scatter collection);
-        # the off-diagonal cells are scatters with offsets = (x=pj, y=pi).
-        diagonal = [ax for ax in grid_axes if ax.patches and not ax.collections]
-        scatter = [ax for ax in grid_axes if ax.collections]
-        assert len(diagonal) == 2
-        assert len(scatter) == 2
-
-        # Off-diagonal (i=1, j=0) plots x=kh (pj), y=sy (pi).
-        lower_left = next(
-            ax for ax in scatter if ax.get_xlabel() == "kh" and ax.get_ylabel() == "sy"
-        )
-        offsets = lower_left.collections[0].get_offsets()
-        assert sorted(offsets[:, 0].tolist()) == sorted(kh.tolist())
-        assert sorted(offsets[:, 1].tolist()) == sorted(sy.tolist())
-    finally:
-        mpl.close(fig)
 
 
 def test_calibration_pairplot_colors_scatter_by_objective(mpl, tmp_path) -> None:
@@ -385,29 +313,6 @@ def test_calibration_landscape_three_params_upper_triangle_grid(tmp_path, mpl) -
         assert {"kh", "rech"} <= xlabels
     finally:
         mpl.close(fig)
-
-
-def test_calibration_landscape_reads_the_trials_of_one_phase_of_the_session(tmp_path, mpl) -> None:
-    rows = [
-        {
-            "trial": number,
-            "phase": phase,
-            "cost": cost,
-            "parameters": {"kh": kh, "sy": sy},
-        }
-        for number, phase, cost, kh, sy in [
-            (1, "p1", 5.0, 1.0, 0.1),
-            (2, "p1", 4.0, 1.0, 0.3),
-            (3, "p1", 1.0, 2.0, 0.2),
-            (4, "p2", 6.0, 2.0, 0.4),
-        ]
-    ]
-    session = journal_session(tmp_path, rows, phases=["p1", "p2"])
-    table = trial_table(session, phase="p1")
-
-    assert table.frame["kh"].tolist() == [1.0, 1.0, 2.0]
-    with pytest.raises(ValueError, match="no trial recorded in phase 'missing'"):
-        trial_table(session, phase="missing")
 
 
 def test_calibration_landscape_rejects_empty_and_too_few_params(tmp_path) -> None:

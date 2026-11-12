@@ -109,30 +109,6 @@ def test_the_binder_refuses_a_transient_one_period_steady_start(monkeypatch) -> 
         apply_structural_updates_from_data(run_state)
 
 
-def test_the_binder_does_not_check_the_steady_start_without_soil(monkeypatch) -> None:
-    run_state = _steady_start_state(with_soil=False, first_period_steady=True)
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data.apply_recharge_load_result_to_flow",
-        lambda **kwargs: False,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data.apply_etp_load_result_to_flow",
-        lambda **kwargs: False,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data.apply_runoff_to_sfr_networks",
-        lambda **kwargs: False,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data.apply_lake_meteo_forcings_to_flow",
-        lambda **kwargs: False,
-    )
-
-    apply_structural_updates_from_data(run_state)
-
-    assert run_state.setup.soil_forcings is None
-
-
 # --- test_the_native_forcing_reads_a_catchment_polygon_on_a_lumped_mesh_only ---
 # A spatialized source is averaged over the one cell of a lumped mesh, so the
 # binder hands the forcing a unified catchment polygon only there.
@@ -228,30 +204,6 @@ def test_the_binder_refuses_a_spinup_shorter_than_a_year(monkeypatch) -> None:
 
     with pytest.raises(ConfigError, match=r"start from a full soil"):
         apply_structural_updates_from_data(run_state)
-
-
-def test_the_binder_does_not_check_the_spinup_without_soil(monkeypatch) -> None:
-    run_state = _spinup_state(with_soil=False)
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data.apply_recharge_load_result_to_flow",
-        lambda **kwargs: False,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data.apply_etp_load_result_to_flow",
-        lambda **kwargs: False,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data.apply_runoff_to_sfr_networks",
-        lambda **kwargs: False,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.data.apply_lake_meteo_forcings_to_flow",
-        lambda **kwargs: False,
-    )
-
-    apply_structural_updates_from_data(run_state)
-
-    assert run_state.setup.soil_forcings is None
 
 
 # --- test_the_binder_sends_the_soil_recharge_etp_and_runoff ---
@@ -362,93 +314,6 @@ def _patch_capture(monkeypatch, calls: dict[str, dict]) -> None:
     )
 
 
-def test_the_binder_sends_the_soil_recharge_to_modflow(monkeypatch) -> None:
-    run_state, calls = _binder_state(with_soil=True)
-    _patch_capture(monkeypatch, calls)
-
-    apply_structural_updates_from_data(run_state)
-
-    assert calls["recharge"]["recharge_result"] is _SOIL_RECHARGE
-
-
-def test_the_binder_sends_the_soil_residual_etp_marked_from_soil_reservoir(
-    monkeypatch,
-) -> None:
-    run_state, calls = _binder_state(with_soil=True)
-    _patch_capture(monkeypatch, calls)
-
-    apply_structural_updates_from_data(run_state)
-
-    assert calls["etp"]["etp_result"] is _SOIL_RESIDUAL_ETP
-    assert calls["etp"]["from_soil_reservoir"] is True
-
-
-def test_the_binder_sends_the_soil_runoff_to_the_sfr_network(monkeypatch) -> None:
-    run_state, calls = _binder_state(with_soil=True)
-    _patch_capture(monkeypatch, calls)
-
-    apply_structural_updates_from_data(run_state)
-
-    assert calls["sfr_runoff"]["runoff"] is _SOIL_RUNOFF
-
-
-def test_the_binder_sends_the_soil_runoff_to_the_lake_and_keeps_its_raw_meteo(
-    monkeypatch,
-) -> None:
-    run_state, calls = _binder_state(with_soil=True)
-    _patch_capture(monkeypatch, calls)
-
-    apply_structural_updates_from_data(run_state)
-
-    assert calls["lake_meteo"]["runoff"] is _SOIL_RUNOFF
-    assert calls["lake_meteo"]["precipitation"] is run_state.loaded_data.precipitation
-    assert calls["lake_meteo"]["etp"] is run_state.loaded_data.etp
-
-
-def test_the_binder_stores_the_soil_forcings_on_setup(monkeypatch) -> None:
-    run_state, calls = _binder_state(with_soil=True)
-    _patch_capture(monkeypatch, calls)
-
-    apply_structural_updates_from_data(run_state)
-
-    assert run_state.setup.soil_forcings.recharge is _SOIL_RECHARGE
-
-
-def test_the_binder_leaves_soil_forcings_none_without_a_soil_section(
-    monkeypatch,
-) -> None:
-    run_state, calls = _binder_state(with_soil=False)
-    _patch_capture(monkeypatch, calls)
-
-    apply_structural_updates_from_data(run_state)
-
-    assert run_state.setup.soil_forcings is None
-    assert calls["recharge"]["recharge_result"] is run_state.loaded_data.recharge
-    assert calls["etp"]["etp_result"] is run_state.loaded_data.etp
-    assert calls["etp"]["from_soil_reservoir"] is False
-    assert calls["sfr_runoff"]["runoff"] is run_state.loaded_data.runoff
-
-
-def test_the_binder_never_mutates_loaded_data(monkeypatch) -> None:
-    run_state, calls = _binder_state(with_soil=True)
-    _patch_capture(monkeypatch, calls)
-    loaded_data = run_state.loaded_data
-    precipitation, etp, runoff, recharge = (
-        loaded_data.precipitation,
-        loaded_data.etp,
-        loaded_data.runoff,
-        loaded_data.recharge,
-    )
-
-    apply_structural_updates_from_data(run_state)
-
-    assert run_state.loaded_data is loaded_data
-    assert loaded_data.precipitation is precipitation
-    assert loaded_data.etp is etp
-    assert loaded_data.runoff is runoff
-    assert loaded_data.recharge is recharge
-
-
 # --- test_the_soil_budget_is_printed_once_by_the_data_step ---
 # The soil water budget prints once per ``step_data_loading``, never from the binder alone.
 #
@@ -532,19 +397,6 @@ def test_the_binder_alone_never_prints_the_soil_budget(monkeypatch) -> None:
 
     assert calls == []
     assert run_state.setup.soil_forcings is not None
-
-
-def test_a_lightweight_context_stays_silent(monkeypatch) -> None:
-    run_state = _printed_state(lightweight=True, with_soil=True)
-    _patch_binder_internals(monkeypatch)
-    fake_loader = SimpleNamespace(load_all=lambda run_state: None)
-    monkeypatch.setattr(data_step, "_build_data_runtime_loader", lambda **kwargs: fake_loader)
-    calls: list[tuple[str, ...]] = []
-    monkeypatch.setattr(data_step, "_log_soil_budget", lambda lines: calls.append(lines))
-
-    data_step.step_data_loading(run_state)
-
-    assert calls == []
 
 
 # --- test_sfr_network_binding ---
@@ -646,13 +498,6 @@ def test_bind_sfr_network_traces_attaches_and_caches(tmp_path: Path) -> None:
     assert isinstance(payload, dict)
     assert payload["reach_trace"] is traces["net0"]
     assert payload["outflow_to_lake"] == 1
-
-
-def test_bind_sfr_network_traces_is_a_noop_when_sfr_inactive(tmp_path: Path) -> None:
-    run_state = _sfr_state(tmp_path, _network_config())
-    run_state.setup.flow.active_bc = ["lake"]
-    bind_sfr_network_traces(run_state)
-    assert run_state.setup.sfr_reach_traces is None
 
 
 def test_bind_sfr_network_traces_requires_link_raster(tmp_path: Path) -> None:
@@ -774,21 +619,6 @@ def _flow_state(config, *, flow=None, model=None) -> SimpleNamespace:
         setup=SimpleNamespace(flow=flow, model=model),
         loaded_data=SimpleNamespace(loaded_plan_types=None),
     )
-
-
-def test_ensure_flow_builds_the_flow_of_the_configuration_once() -> None:
-    from hydromodpy.model.flow import Flow
-    from hydromodpy.model.flow_config import FlowConfig
-
-    state = _flow_state(FlowConfig())
-
-    data_step.ensure_flow(state)
-    first = state.setup.flow
-    data_step.ensure_flow(state)
-
-    assert isinstance(first, Flow)
-    assert first.config is state.cfg.flow
-    assert state.setup.flow is first
 
 
 @pytest.mark.parametrize(

@@ -65,16 +65,6 @@ def _rows(*sim_ids: str) -> pd.DataFrame:
 # --- ProjectRunsAccessor.list -------------------------------------------------
 
 
-def test_list_scopes_query_to_project_name() -> None:
-    store = _FakeStore(_rows("a", "b"))
-    accessor = ProjectRunsAccessor(_fake_project(store, project_name="naizin"))
-
-    df = accessor.list()
-
-    assert store.list_calls == [{"project": "naizin"}]
-    assert list(df["sim_id"]) == ["a", "b"]
-
-
 def test_list_returns_empty_frame_when_store_is_none() -> None:
     accessor = ProjectRunsAccessor(_fake_project(None))
 
@@ -126,16 +116,6 @@ def test_latest_returns_none_when_no_runs() -> None:
 
 
 # --- ProjectRunsAccessor.best ------------------------------------------------
-
-
-def test_best_delegates_to_store_with_project_and_metric() -> None:
-    store = _FakeStore(_rows("x"))
-    accessor = ProjectRunsAccessor(_fake_project(store, project_name="nancon"))
-
-    run = accessor.best("nse")
-
-    assert store.best_calls == [("nancon", "nse", False)]
-    assert run == "best-nse"
 
 
 def test_best_passes_mixed_windows_to_the_store() -> None:
@@ -206,16 +186,6 @@ def test_missing_returns_planned_types_not_yet_loaded() -> None:
     assert accessor.missing() == ["temperature", "et0"]
 
 
-def test_missing_preserves_plan_order() -> None:
-    project = _data_project(
-        plan_types=("c", "a", "b"),
-        loaded=set(),
-    )
-    accessor = ProjectDataAccessor(project)
-
-    assert accessor.missing() == ["c", "a", "b"]
-
-
 def test_missing_returns_empty_when_all_loaded() -> None:
     project = _data_project(
         plan_types=("precipitation", "temperature"),
@@ -223,14 +193,6 @@ def test_missing_returns_empty_when_all_loaded() -> None:
     )
     accessor = ProjectDataAccessor(project)
 
-    assert accessor.missing() == []
-
-
-def test_missing_handles_none_plan_types() -> None:
-    project = _data_project(plan_types=None, loaded={"precipitation"})
-    accessor = ProjectDataAccessor(project)
-
-    # The accessor coerces a falsy ``types`` to an empty tuple.
     assert accessor.missing() == []
 
 

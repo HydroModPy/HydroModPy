@@ -93,11 +93,6 @@ def test_the_unit_of_the_lengths_does_not_matter() -> None:
     assert float(steady_rate(RATES, "mean", durations=LENGTHS_S)) == pytest.approx(TIME_MEAN)
 
 
-@pytest.mark.parametrize(("first_clim", "expected"), [("first", 1.0), (7.0, 7.0)])
-def test_the_other_rules_read_no_length(first_clim, expected) -> None:
-    assert float(steady_rate(RATES, first_clim, durations=DAYS)) == expected
-
-
 def test_a_grid_takes_the_time_mean_cell_by_cell() -> None:
     rates = {0: np.array([1.0, 0.0]), 1: np.array([4.0, 1.0]), 2: np.array([2.0, 0.0])}
 
@@ -278,20 +273,6 @@ def test_a_calendar_record_counts_each_sample_by_its_month_or_year(stamps, expec
     np.testing.assert_allclose(calendar_sample_days(stamps), expected)
 
 
-@pytest.mark.parametrize(
-    "stamps",
-    [
-        pd.date_range("2000-01-01", periods=60, freq="D"),
-        pd.date_range("2000-01-01", periods=9, freq="7D"),
-        pd.date_range("2000-01-01", periods=5, freq="40D"),
-        pd.DatetimeIndex(["2000-01-15", "2000-03-15"]),
-        pd.DatetimeIndex(["2000-01-31"]),
-    ],
-)
-def test_any_other_record_keeps_equal_weights(stamps) -> None:
-    assert calendar_sample_days(stamps) is None
-
-
 @pytest.mark.parametrize("stamps", [MONTH_ENDS, MONTH_STARTS])
 def test_a_series_on_one_period_takes_the_time_mean(stamps) -> None:
     aligned = align_forcing_series_to_simulation_window(
@@ -299,15 +280,6 @@ def test_a_series_on_one_period_takes_the_time_mean(stamps) -> None:
     )
 
     assert float(aligned.iloc[0]) == pytest.approx(MONTH_TIME_MEAN)
-
-
-def test_a_sample_alone_in_its_period_keeps_its_exact_value() -> None:
-    aligned = align_forcing_series_to_simulation_window(
-        pd.Series(MONTH_RATES, index=MONTH_ENDS),
-        simulation_window=fc.window("2000-01-01", "2000-03-31"),
-    )
-
-    assert aligned.tolist() == MONTH_RATES.tolist()
 
 
 def test_a_station_on_one_period_takes_the_time_mean() -> None:

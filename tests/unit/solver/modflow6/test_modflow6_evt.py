@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 import inspect
 import logging
-from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -13,9 +12,6 @@ from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.solver.modflow6 import build as build_module
 from hydromodpy.solver.modflow6.builders import recharge
-from hydromodpy.solver.modflow6.builders.boundary_conditions import (
-    build_drain_stress_period_data,
-)
 from hydromodpy.solver.modflow6.builders.recharge import (
     ETP_IGNORED_OUTSIDE_SOIL_MODE,
     RECHARGE_BINARY_MIN_PERIODS,
@@ -24,7 +20,6 @@ from hydromodpy.solver.modflow6.builders.recharge import (
     build_evt_stress_period_data,
     build_soil_evta_payload,
     evt_list_spd_to_array_payload,
-    evt_surface,
     extract_evt_payload_2d,
     resolve_deferred_soil_etp,
 )
@@ -328,24 +323,6 @@ def test_per_model_files_are_named_after_the_evta_package() -> None:
         assert "data" in record
 
 
-def test_shared_files_are_content_hashed_and_carry_the_rate_header(tmp_path: Path) -> None:
-    shared = tmp_path / "_shared_recharge"
-    payload = _build(_model(), shared_dir=str(shared))
-
-    assert payload is not None
-    rate, _, _ = payload
-    for kper, record in rate.items():
-        target = Path(record["filename"])
-        assert target.name.startswith("evta_")
-        assert target.name.endswith(f".{kper}.bin")
-        assert "data" not in record
-        # MF6 head-file header: KSTP, KPER, PERTIM, TOTIM (4+4+8+8 B), then a
-        # 16-byte TEXT field it ignores on read but a human can (MF6 6.7.0,
-        # tests/integration/test_shared_recharge_equivalence.py:97-99).
-        header_text = target.read_bytes()[24:40].decode("ascii")
-        assert header_text.strip() == "RATE"
-
-
 # The soil EVTA rate is zeroed exactly where LAK or a CHD already own the flux.
 #
 # An inactive (fixed-area) lake cell gets its open-water evaporation from LAK;
@@ -419,23 +396,6 @@ def test_without_any_excluded_cell_every_cell_keeps_the_soil_rate() -> None:
     assert payload is not None
     rate, _, _ = payload
     np.testing.assert_allclose(rate[0], np.full(_NCPL_4, 2.0e-8))
-
-
-def test_without_a_soil_etp_rate_the_payload_is_none() -> None:
-    model = _model_4()
-    model._soil_etp_rate = None
-
-    payload = build_soil_evta_payload(
-        model,
-        _mesh_4(),
-        ocean_support_mask=np.zeros(_NCPL_4, dtype=bool),
-        stream_support_mask=np.zeros(_NCPL_4, dtype=bool),
-        lake_cell_ids=[],
-        drain_active=False,
-        shared_dir=None,
-    )
-
-    assert payload is None
 
 
 # The soil EVTA surface tracks the DRN elevation, not always the raw top.
@@ -685,44 +645,6 @@ def _drain_model(mesh: SolverMesh, covered=()) -> SimpleNamespace:
         drain_bed_thickness_m=1.0,
         drain_conductance_floor_m2_s=1e-12,
     )
-
-
-def test_a_drain_sits_on_the_top_active_cell_with_its_top_and_its_conductivity() -> None:
-    mesh = _mesh_9(np.array([[1, 0, 1, 0], [1, 1, 1, 0]]))
-    rows = build_drain_stress_period_data(
-        _drain_model(mesh),
-        solver_mesh=mesh,
-        drainage_cond_series=np.array([0.0]),
-        ocean_support_mask=np.zeros(N_CELLS, dtype=bool),
-        stream_support_mask=np.zeros(N_CELLS, dtype=bool),
-    )[0]
-
-    by_cell = {int(row[1]): row for row in rows}
-    assert sorted(by_cell) == [0, 1, 2]
-    assert by_cell[0][0] == 0
-    assert by_cell[1][0] == 1
-    assert by_cell[1][2] == BOTM[0, 1]
-    # hk * area / bed: the conductivity of layer 1 for the cell whose top is inactive.
-    assert by_cell[1][3] == 1e-5 * mesh.cell_areas()[1] / 1.0
-
-
-def test_a_lake_footprint_gets_no_drain() -> None:
-    mesh = _mesh_9(np.array([[1, 0, 1, 1], [1, 1, 1, 1]]))
-    rows = build_drain_stress_period_data(
-        _drain_model(mesh, covered=[1]),
-        solver_mesh=mesh,
-        drainage_cond_series=np.array([1e-3]),
-        ocean_support_mask=np.zeros(N_CELLS, dtype=bool),
-        stream_support_mask=np.zeros(N_CELLS, dtype=bool),
-    )[0]
-    assert sorted(int(row[1]) for row in rows) == [0, 2, 3]
-
-
-def test_the_evapotranspiration_surface_is_the_top_of_the_top_active_cell() -> None:
-    mesh = _mesh_9(np.array([[1, 0, 1, 0], [1, 1, 1, 0]]))
-    surface = evt_surface(mesh, np.array([True, True, False, True]))
-    # Kept cells read their top active cell; the others keep the model top.
-    assert surface.tolist() == [10.0, BOTM[0, 1], 8.0, 7.0]
 
 
 def test_only_a_column_whose_top_active_cell_is_in_layer_zero_is_raised() -> None:

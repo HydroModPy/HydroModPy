@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-import tarfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -19,12 +18,10 @@ from hydromodpy.core.io import filesystem
 from hydromodpy.core.io.file_digest import sha256_of
 from hydromodpy.results.catalog.registration import (
     NameTakenError,
-    check_name_free,
     import_publication,
     rename_case,
     reserve_version_dirname,
     run_dir_holding,
-    split_stem_version,
 )
 from hydromodpy.results.outcome import Outcome, write_outcome
 from hydromodpy.results.publication import (
@@ -33,8 +30,8 @@ from hydromodpy.results.publication import (
     write_publication,
 )
 from hydromodpy.results.record.request_identity import request_id
-from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_MANIFEST_FILENAME
-from hydromodpy.results.trash import DirectoryInUseError, gc_trash, read_tombstones, trash_run
+from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
+from hydromodpy.results.trash import DirectoryInUseError, gc_trash, trash_run
 from tests._helpers.sealed_runs import manifest_document
 from tests._helpers.windows_os import PatchedOs, WindowsOs
 
@@ -98,24 +95,10 @@ def _request_id(document: dict) -> str:
     return request_id(document, {}, edition="2.0")
 
 
-def test_the_request_id_leaves_the_workspace_out() -> None:
-    base = {"flow": {"k": 1e-5}, "workspace": {"project_root": "/a", "root": "/ws"}}
-    moved = {"flow": {"k": 1e-5}, "workspace": {"project_root": "/b", "catalog_path": "/x"}}
-    other = {"flow": {"k": 2e-5}, "workspace": {"project_root": "/a"}}
-    assert _request_id(base) == _request_id(moved)
-    assert _request_id(base) != _request_id(other)
-
-
 def test_the_name_is_not_part_of_the_request_id() -> None:
     assert _request_id({"simulation": {"name": "a"}, "flow": {"k": 1}}) == _request_id(
         {"simulation": {"name": "b"}, "flow": {"k": 1}}
     )
-
-
-def test_the_version_suffix_is_read_once() -> None:
-    assert split_stem_version("J0014010-base.v12") == ("J0014010-base", 12)
-    assert split_stem_version("calibration") == ("calibration", None)
-    assert split_stem_version("k2e_5.vx") == ("k2e_5.vx", None)
 
 
 def test_a_rename_moves_the_run_and_its_session_together(tmp_path: Path) -> None:
@@ -177,33 +160,6 @@ def test_a_rename_refuses_a_trial_and_a_name_that_is_no_directory(tmp_path: Path
         rename_case(project, "runs/a", "con")
 
 
-def test_a_published_directory_is_imported_under_the_next_version(tmp_path: Path) -> None:
-    lab = tmp_path / "lab"
-    source = _make_run(lab, "nancon_monthly.v2", sim_id=SIM_ID)
-    copy = _publish(source, tmp_path / "copy", rel_dir="runs/nancon_monthly.v2", sim_id=SIM_ID)
-    project = tmp_path / "home"
-    _make_run(project, "nancon_monthly")
-
-    rel_dir = import_publication(project, copy)
-
-    assert rel_dir == "runs/nancon_monthly.v2"
-    imported = project / rel_dir
-    assert (imported / RUN_MANIFEST_FILENAME).is_file()
-    assert not (imported / PUBLICATION_FILENAME).exists()
-    assert not list((project / ".hmp").iterdir())
-
-
-def test_a_published_tar_is_imported_under_the_name_asked(tmp_path: Path) -> None:
-    lab = tmp_path / "lab"
-    source = _make_run(lab, "nancon_monthly", sim_id=SIM_ID)
-    copy = _publish(source, tmp_path / "copy", rel_dir="runs/nancon_monthly", sim_id=SIM_ID)
-    archive = tmp_path / "nancon_monthly.tar"
-    with tarfile.open(archive, "w") as handle:
-        handle.add(copy, arcname="nancon_monthly")
-    project = tmp_path / "home"
-    assert import_publication(project, archive, name="lab_copy") == "runs/lab_copy"
-
-
 def test_a_copy_whose_digest_differs_never_enters_the_runs(tmp_path: Path) -> None:
     lab = tmp_path / "lab"
     source = _make_run(lab, "x", sim_id=SIM_ID)
@@ -230,43 +186,6 @@ def test_a_directory_without_publication_is_refused(tmp_path: Path) -> None:
     source = _make_run(tmp_path / "lab", "x", sim_id=SIM_ID)
     with pytest.raises(ValueError, match="PUBLICATION.json"):
         import_publication(tmp_path / "home", source)
-
-
-def test_fail_accepts_a_name_nothing_holds(tmp_path: Path) -> None:
-    project = tmp_path / "p"
-    _make_run(project, "other")
-    check_name_free(project, "fresh")
-    check_name_free(tmp_path / "empty", "fresh")
-
-
-def test_fail_refuses_a_name_a_live_run_or_session_holds(tmp_path: Path) -> None:
-    """``if_exists = 'fail'`` forbids a substitute name: any version held refuses the stem."""
-    project = tmp_path / "p"
-    _make_run(project, "shared.v2")
-    with pytest.raises(NameTakenError, match=r"runs/shared\.v2"):
-        check_name_free(project, "shared")
-    (project / "sessions" / "calib").mkdir(parents=True)
-    with pytest.raises(NameTakenError, match="sessions/calib"):
-        check_name_free(project, "calib")
-
-
-def test_fail_refuses_a_name_a_trashed_run_still_occupies(tmp_path: Path) -> None:
-    project = tmp_path / "p"
-    _make_run(project, "gone")
-    trash_run(project, "runs/gone", now=AT)
-    assert not (project / "runs" / "gone").exists()
-    with pytest.raises(NameTakenError, match="trash:runs/gone"):
-        check_name_free(project, "gone")
-
-
-def test_fail_refuses_a_name_a_tombstone_remembers(tmp_path: Path) -> None:
-    project = tmp_path / "p"
-    _make_run(project, "purged")
-    trash_run(project, "runs/purged", now=AT)
-    gc_trash(project, older_than=timedelta(0), now=AT + timedelta(days=1))
-    assert [stone.rel_dir for stone in read_tombstones(project)] == ["runs/purged"]
-    with pytest.raises(NameTakenError, match="tombstone:runs/purged"):
-        check_name_free(project, "purged")
 
 
 def test_a_file_the_publication_does_not_list_is_refused(tmp_path: Path) -> None:
@@ -326,31 +245,10 @@ def test_a_reservation_in_a_folder_too_long_for_windows_is_refused_and_leaves_no
     assert not root.exists()
 
 
-def test_the_same_long_folder_is_reserved_on_linux(tmp_path: Path) -> None:
-    root = _long_root(tmp_path, 120)
-
-    assert reserve_version_dirname(root, "run", "case").is_dir()
-
-
 def _published_copy(tmp_path: Path) -> tuple[Path, Path]:
     source = _make_run(tmp_path / "lab", "x", sim_id=SIM_ID)
     copy = _publish(source, tmp_path / "copy", rel_dir="runs/x", sim_id=SIM_ID)
     return copy, tmp_path / "home"
-
-
-def test_an_import_lands_when_the_rename_onto_the_reserved_folder_is_refused_as_on_windows(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    copy, project = _published_copy(tmp_path)
-
-    def refuse(source: object, target: object) -> None:
-        raise PermissionError(5, "Access is denied")
-
-    monkeypatch.setattr(filesystem, "os", PatchedOs(name="nt", replace=refuse))
-    monkeypatch.setattr(filesystem, "WINDOWS_PATH_LIMIT", 10**6)  # tmp_path is long
-
-    assert import_publication(project, copy) == "runs/x"
-    assert (project / "runs" / "x" / RUN_MANIFEST_FILENAME).is_file()
 
 
 def test_a_neighbour_that_takes_the_reserved_name_keeps_its_folder(

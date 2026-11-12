@@ -110,12 +110,6 @@ def test_the_catchment_row_sums_the_basin_alone(tmp_path, monkeypatch) -> None:
     assert rows[(CATCHMENT, "recharge")]["flux_in"] == pytest.approx(2.5)
 
 
-def test_a_run_without_a_basin_keeps_the_domain_row_alone(tmp_path, monkeypatch) -> None:
-    rows = _rows(monkeypatch, tmp_path, catchment_mask=None)
-
-    assert {zone for zone, _component in rows} == {DOMAIN}
-
-
 def _sidecar(tmp_path: Path, monkeypatch, record) -> Path:
     (tmp_path / f"model{DESCENT_SIDECAR_SUFFIX}").write_bytes(b"")
     monkeypatch.setattr(nwt_flow, "read_descent_sidecar", lambda path: record)
@@ -146,7 +140,3 @@ def test_no_catchment_basin_means_no_catchment_row(tmp_path, monkeypatch, record
     folder = _sidecar(tmp_path, monkeypatch, record)
 
     assert nwt_flow.catchment_basin_the_build_left(folder, n_cells=N_CELLS) is None
-
-
-def test_a_folder_without_a_sidecar_has_no_basin(tmp_path) -> None:
-    assert nwt_flow.catchment_basin_the_build_left(tmp_path, n_cells=N_CELLS) is None

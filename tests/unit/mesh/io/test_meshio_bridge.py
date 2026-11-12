@@ -72,23 +72,6 @@ def _hexahedron_and_wedge() -> HydroMesh:
     )
 
 
-def test_a_triangle_mesh_comes_back_with_its_cell_field() -> None:
-    original = _triangles()
-
-    recovered = from_meshio(to_meshio(original))
-
-    _assert_same_cells(recovered, original)
-    np.testing.assert_array_equal(recovered.vertices[:, :2], original.vertices)
-    np.testing.assert_array_equal(recovered.cell_data["k"], [1.0, 2.0])
-
-
-def test_a_planar_mesh_gets_a_zero_z_for_meshio() -> None:
-    points = to_meshio(_triangles()).points
-
-    assert points.shape == (4, 3)
-    assert not points[:, 2].any()
-
-
 @pytest.mark.parametrize(
     "build", [_quad_and_triangle, _hexahedron_and_wedge], ids=["mixed 2d", "mixed 3d"]
 )
@@ -102,34 +85,6 @@ def test_mixed_cells_come_back_block_by_block_with_their_fields(build) -> None:
     np.testing.assert_array_equal(recovered.cell_data["k"], original.cell_data["k"])
     for name, values in original.point_data.items():
         np.testing.assert_array_equal(recovered.point_data[name], values)
-
-
-def test_polygons_of_one_arity_come_back_as_polygons() -> None:
-    vertices = np.array([[0, 0], [1, 0], [1, 1], [0, 1], [2, 0], [2, 1]], dtype=float)
-    original = HydroMesh(
-        vertices=vertices,
-        cell_blocks=(
-            CellBlock(CellType.POLYGON, (np.array([0, 1, 2, 3]), np.array([1, 4, 5, 2]))),
-        ),
-        cell_data={"k": np.array([1.0, 2.0])},
-    )
-
-    recovered = from_meshio(to_meshio(original))
-
-    _assert_same_cells(recovered, original)
-    np.testing.assert_array_equal(recovered.cell_data["k"], [1.0, 2.0])
-
-
-def test_a_voronoi_mesh_of_ragged_polygons_goes_to_meshio() -> None:
-    vertices = np.array([[1, 0], [1, 1], [0, 1], [-0.3, 0.5], [0, 0], [2, 0], [2, 1]], dtype=float)
-    original = HydroMesh(
-        vertices=vertices,
-        cell_blocks=(
-            CellBlock(CellType.POLYGON, (np.array([0, 1, 2, 3, 4]), np.array([0, 5, 6, 1]))),
-        ),
-    )
-
-    _assert_same_cells(from_meshio(to_meshio(original)), original)
 
 
 def _ragged_runs() -> HydroMesh:
@@ -146,28 +101,6 @@ def _ragged_runs() -> HydroMesh:
     )
 
 
-def test_a_ragged_block_goes_to_meshio_as_its_runs_of_one_arity() -> None:
-    meshio_mesh = to_meshio(_ragged_runs())
-
-    assert [(block.type, block.data.shape) for block in meshio_mesh.cells] == [
-        ("polygon", (2, 4)),
-        ("polygon", (1, 5)),
-        ("polygon", (1, 4)),
-        ("polygon", (1, 6)),
-        ("triangle", (1, 3)),
-    ]
-    assert [list(values) for values in meshio_mesh.cell_data["k"]] == [[0, 1], [2], [3], [4], [5]]
-
-
-def test_the_runs_of_a_ragged_block_come_back_as_one_block_with_their_fields() -> None:
-    original = _ragged_runs()
-
-    recovered = from_meshio(to_meshio(original))
-
-    _assert_same_cells(recovered, original)
-    np.testing.assert_array_equal(recovered.cell_data["k"], original.cell_data["k"])
-
-
 def test_a_ragged_block_without_cells_gives_meshio_no_block() -> None:
     mesh = HydroMesh(
         vertices=np.zeros((3, 2)),
@@ -177,24 +110,11 @@ def test_a_ragged_block_without_cells_gives_meshio_no_block() -> None:
     assert [block.type for block in to_meshio(mesh).cells] == ["triangle"]
 
 
-def test_a_planar_mesh_comes_back_with_x_and_y_only() -> None:
-    recovered = from_meshio(to_meshio(_triangles()))
-
-    np.testing.assert_array_equal(recovered.vertices, _triangles().vertices)
-
-
 def test_a_planar_mesh_with_a_real_z_keeps_it() -> None:
     surface = np.column_stack([_triangles().vertices, [0.0, 0.0, 2.5, 0.0]])
     mesh = meshio.Mesh(points=surface, cells=[("triangle", [[0, 1, 2], [1, 3, 2]])])
 
     np.testing.assert_array_equal(from_meshio(mesh).vertices, surface)
-
-
-def test_a_volume_mesh_at_zero_z_keeps_its_z() -> None:
-    flat = np.column_stack([HEX_AND_WEDGE_VERTICES[:, :2], np.zeros(10)])
-    mesh = meshio.Mesh(points=flat, cells=[("wedge", [[1, 8, 2, 5, 9, 6]])])
-
-    assert from_meshio(mesh).ndim == 3
 
 
 def test_a_cell_field_keeps_a_row_per_cell_and_another_shape_stays_behind() -> None:

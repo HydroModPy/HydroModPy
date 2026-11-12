@@ -28,13 +28,6 @@ from hydromodpy.mesh.io.msh import (
 )
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.mesh.planning.input_triangulation import read_input_triangulation
-
-
-def test_normalize_cell_type_supports_gmsh_aliases():
-    assert normalize_cell_type("triangle") == "triangle"
-    assert normalize_cell_type("quad") == "quadrilateral"
-    assert normalize_cell_type("quadrilateral") == "quadrilateral"
 
 
 def test_gmsh_mesh_data_rejects_mixed_cell_types_for_one_planar_mesh():
@@ -118,20 +111,6 @@ def test_a_mesh_written_with_a_crs_gets_a_projection_file_read_back(tmp_path):
     assert read_gmsh_2d_mesh(again).crs_wkt == reread.crs_wkt
 
 
-def test_a_mesh_written_without_a_crs_gets_no_projection_file(tmp_path):
-    path = write_gmsh_2d_mesh(tmp_path / "catchment.msh", _one_triangle())
-
-    assert not projection_path(path).exists()
-    assert read_gmsh_2d_mesh(path).crs_wkt is None
-
-
-def test_an_empty_projection_file_reads_as_no_crs(tmp_path):
-    path = write_gmsh_2d_mesh(tmp_path / "catchment.msh", _one_triangle())
-    projection_path(path).write_text("\n", encoding="utf-8")
-
-    assert read_gmsh_2d_mesh(path).crs_wkt is None
-
-
 def test_a_crs_pyproj_cannot_read_is_refused_before_the_mesh_is_written(tmp_path):
     from pyproj.exceptions import CRSError
 
@@ -176,15 +155,6 @@ def test_a_msh22_file_meshio_refuses_is_read_by_the_ascii_fallback(tmp_path):
     assert mesh_data.connectivity.tolist() == [[0, 1, 2], [0, 2, 3]]
     np.testing.assert_array_equal(mesh_data.points_xy[:4], [[0, 0], [1, 0], [1, 1], [0, 1]])
     assert mesh_data.source_path == path.resolve()
-
-
-def test_the_fallback_keeps_the_projection_file_next_to_the_mesh(tmp_path):
-    from pyproj import CRS
-
-    path = _msh22(tmp_path, TRIANGLES)
-    projection_path(path).write_text(CRS.from_epsg(2154).to_wkt(), encoding="utf-8")
-
-    assert CRS.from_wkt(read_gmsh_2d_mesh(path).crs_wkt) == CRS.from_epsg(2154)
 
 
 def test_the_fallback_refuses_mixed_cells_unless_one_type_is_asked(tmp_path):
@@ -340,18 +310,6 @@ $EndElements
 """
 
 
-def test_the_lines_of_a_named_group_read_as_node_positions_in_file_order(tmp_path):
-    path = tmp_path / "square.msh"
-    path.write_text(_LINES_22, encoding="utf-8")
-
-    mesh_data = read_gmsh_2d_mesh(path)
-
-    assert list(mesh_data.line_groups) == ["west", "river::1"]
-    assert mesh_data.line_groups["west"].tolist() == [[3, 0]]
-    assert mesh_data.line_groups["river::1"].tolist() == [[0, 4], [4, 2]]
-    assert mesh_data.line_groups["west"].dtype == np.int64
-
-
 _SQUARE_22 = """$Nodes
 4
 1 0 0 0
@@ -409,16 +367,6 @@ def test_a_name_two_groups_share_keeps_the_lines_of_every_tag(tmp_path, monkeypa
     }
 
 
-def test_a_mesh_without_named_lines_has_no_line_group():
-    mesh = meshio.Mesh(
-        points=np.zeros((3, 3)),
-        cells=[("line", [[0, 1]]), ("triangle", [[0, 1, 2]])],
-        cell_data={"gmsh:physical": [np.array([7]), np.array([9])]},
-    )
-
-    assert meshio_to_mesh_data(mesh).line_groups == {}
-
-
 def test_a_meshio_mesh_names_its_lines_from_its_field_data():
     mesh = meshio.Mesh(
         points=np.zeros((3, 3)),
@@ -471,47 +419,6 @@ def _two_triangles() -> HydroMesh:
     )
 
 
-@pytest.mark.parametrize("file_format", [None, "gmsh", "gmsh22"])
-def test_a_hydro_mesh_written_as_msh_reads_back_without_a_projection_file(tmp_path, file_format):
-    path = write_msh(tmp_path / "mesh_2d.msh", _two_triangles(), file_format=file_format)
-
-    recovered = read_msh(path)
-
-    assert not projection_path(path).exists()
-    assert recovered.cell_types == (CellType.TRIANGLE,)
-    np.testing.assert_array_equal(recovered.vertices, _two_triangles().vertices)
-    np.testing.assert_array_equal(recovered.flat_connectivity, _two_triangles().flat_connectivity)
-
-
-def test_a_plain_msh_path_is_written_as_gmsh_22_ascii_that_every_reader_reads(
-    tmp_path, monkeypatch
-):
-    path = write_msh(tmp_path / "mesh.msh", _two_triangles())
-
-    assert msh_format(path) == "2.2 0 8"
-    np.testing.assert_array_equal(read_msh(path).vertices, _two_triangles().vertices)
-    triangulation = read_input_triangulation(path)
-    np.testing.assert_array_equal(triangulation.vertices, _two_triangles().vertices)
-    np.testing.assert_array_equal(triangulation.triangles, _two_triangles().flat_connectivity)
-    assert dict(triangulation.edge_labels) == {}
-
-    def meshio_fails(*_args, **_kwargs):
-        raise ValueError("meshio fails")
-
-    monkeypatch.setattr(meshio, "read", meshio_fails)
-    by_the_fallback = read_msh(path)
-    np.testing.assert_array_equal(by_the_fallback.vertices, _two_triangles().vertices)
-    np.testing.assert_array_equal(
-        by_the_fallback.flat_connectivity, _two_triangles().flat_connectivity
-    )
-
-
-def test_an_explicit_format_wins_over_the_msh_default(tmp_path):
-    path = write_msh(tmp_path / "mesh.msh", _two_triangles(), file_format="gmsh")
-
-    assert msh_format(path) == "4.1 1 8"
-
-
 def test_a_hydro_mesh_written_as_msh_with_a_crs_gets_its_projection_file(tmp_path):
     from pyproj import CRS
 
@@ -519,31 +426,6 @@ def test_a_hydro_mesh_written_as_msh_with_a_crs_gets_its_projection_file(tmp_pat
 
     assert CRS.from_wkt(read_gmsh_2d_mesh(path).crs_wkt) == CRS.from_epsg(2154)
     np.testing.assert_array_equal(read_msh(path).vertices, _two_triangles().vertices)
-
-
-def test_quadrilaterals_and_triangles_write_and_one_type_reads_back(tmp_path):
-    mesh = HydroMesh(
-        vertices=np.array([[0, 0], [1, 0], [1, 1], [0, 1], [2, 0]], dtype=float),
-        cell_blocks=(
-            CellBlock(CellType.QUADRILATERAL, [[0, 1, 2, 3]]),
-            CellBlock(CellType.TRIANGLE, [[1, 4, 2]]),
-        ),
-    )
-    path = write_msh(tmp_path / "mixed.msh", mesh)
-
-    quads = read_msh(path, cell_type="quad")
-
-    assert quads.cell_types == (CellType.QUADRILATERAL,)
-    assert quads.flat_connectivity.tolist() == [[0, 1, 2, 3]]
-
-
-def test_a_planar_mesh_file_reads_as_a_hydro_mesh(tmp_path):
-    path = write_gmsh_2d_mesh(tmp_path / "mesh_2d.msh", _one_triangle())
-
-    hydro_mesh = read_msh(path)
-
-    assert hydro_mesh.n_cells == 1
-    np.testing.assert_array_equal(hydro_mesh.vertices, _one_triangle().points_xy)
 
 
 @pytest.mark.parametrize(

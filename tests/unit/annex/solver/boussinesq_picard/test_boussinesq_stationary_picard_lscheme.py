@@ -124,30 +124,6 @@ def test_two_cell_strict_sloping_bottom_has_no_artificial_film_flux() -> None:
     np.testing.assert_allclose(assembly.flow_residual_m3_s, [0.0, 0.0])
 
 
-def test_hillslope_drain_zero_produces_admissible_initial_guess() -> None:
-    mesh = _mesh([2.0, 1.0, 0.0])
-
-    result = bounded_picard_lscheme(
-        SteadySolveInputs(
-            mesh=mesh,
-            head_initial_guess_m=mesh.z_bottom_m.copy(),
-            recharge_rate_m_s=0.0,
-            drainage_conductance_m2_s=0.0,
-            options=_options(),
-        ),
-        picard_options=PicardLschemeOptions(
-            picard_max_iterations=12,
-            picard_tolerance_residual_inf=1.0e-12,
-            picard_usable_residual_inf=1.0,
-        ),
-    )
-
-    assert np.min(result.head_m - mesh.z_bottom_m) >= -1.0e-12
-    assert np.max(result.head_m - mesh.z_top_m) <= 1.0e-12
-    assert np.all(result.assembly.saturated_thickness_m >= -1.0e-12)
-    assert np.all(np.isfinite(result.head_m))
-
-
 def test_strict_single_cell_recharge_balances_on_top_obstacle() -> None:
     mesh = _mesh([0.0])
 

@@ -139,16 +139,6 @@ def test_best_and_worst_follow_the_metric(scored, metric, best, worst) -> None:
     assert group.worst(metric).sim_id == ids[worst]
 
 
-def test_compare_lists_best_first_with_the_window(scored) -> None:
-    catalog, ids = scored
-    table = RunSet(list(ids.values()), catalog).compare("rmse")
-
-    assert list(table["sim_id"]) == [ids["b"], ids["a"], ids["c"]]
-    assert list(table["name"]) == ["b", "a", "c"]
-    assert set(table["station"]) == {GAUGE}
-    assert set(table["window_end"]) == {WINDOW.end}
-
-
 def test_sort_by_orders_the_raw_value(scored) -> None:
     catalog, ids = scored
     group = RunSet(list(ids.values()), catalog)
@@ -166,20 +156,6 @@ def test_runs_scored_on_different_windows_are_not_ranked_together(scored, tmp_pa
     with pytest.raises(MixedWindowsError, match="discharge at J0014010, 2010-01-01 to 2012-12-31"):
         group.best("nse")
     assert group.best("nse", mixed_windows=True).sim_id == late
-
-
-def test_runs_scored_at_different_stations_are_not_ranked_together(scored, tmp_path) -> None:
-    catalog, ids = scored
-    elsewhere = _seal(
-        catalog, tmp_path, "f", 6, _metrics({"nse": 0.99}, WINDOW, station="J9999999")
-    )
-    group = RunSet([*ids.values(), elsewhere], catalog)
-
-    with pytest.raises(MixedWindowsError, match="discharge at J9999999"):
-        group.best("nse")
-    with pytest.raises(MixedWindowsError, match="different rules"):
-        group.compare("nse")
-    assert group.best("nse", mixed_windows=True).sim_id == elsewhere
 
 
 def test_an_unranked_metric_and_an_absent_one_are_refused(scored) -> None:

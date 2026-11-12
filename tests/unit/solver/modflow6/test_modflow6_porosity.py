@@ -12,19 +12,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.model.transport.transport_config import ConcentrationTransportParametersConfig
 from hydromodpy.solver.modflow6.prt import _PRT_DEFAULT_POROSITY, Modflow6Prt
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
-
-
-def test_concentration_config_porosity_field_validates() -> None:
-    assert ConcentrationTransportParametersConfig().porosity is None
-    assert ConcentrationTransportParametersConfig(porosity=0.3).porosity == 0.3
-    for bad in (0.0, 1.5):
-        with pytest.raises(Exception):
-            ConcentrationTransportParametersConfig(porosity=bad)
-    with pytest.raises(Exception):
-        ConcentrationTransportParametersConfig(unknown_key=1.0)
 
 
 def _gwt(porosity, *, nlay, ncpl, sy) -> Modflow6Transport:

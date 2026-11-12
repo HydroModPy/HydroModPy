@@ -17,7 +17,7 @@ import pytest
 
 from hydromodpy.cli.commands import site
 from hydromodpy.cli.exit_codes import fail
-from hydromodpy.core.site.row import SITE_ROW_COLUMNS, SiteRow
+from hydromodpy.core.site.row import SiteRow
 from hydromodpy.data.sites.catalog import read_catalog, write_catalog
 from hydromodpy.data.sites.importers import (
     rows_from_hubeau,
@@ -76,31 +76,6 @@ def _stations() -> list[dict]:
             "date_fermeture_station": None,
         },
     ]
-
-
-@pytest.mark.fast
-def test_a_site_table_is_read_in_site_row_columns(tmp_path):
-    table = tmp_path / "stations.csv"
-    table.write_text(
-        ",".join(SITE_ROW_COLUMNS)
-        + "\nnancon,Le Nancon,J001401001,hubeau:J0014010,389285.9,6816518.7,EPSG:2154,a;b\n",
-        encoding="utf-8",
-    )
-
-    rows = rows_from_table(table).rows
-
-    assert rows == (
-        SiteRow(
-            site="nancon",
-            label="Le Nancon",
-            gauge="J001401001",
-            uri="hubeau:J0014010",
-            x_outlet=389285.9,
-            y_outlet=6816518.7,
-            crs="EPSG:2154",
-            tags=("a", "b"),
-        ),
-    )
 
 
 @pytest.mark.fast

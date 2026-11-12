@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import pickle
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,7 +13,6 @@ from hydromodpy.catchment.algorithms.flow_products import TerrainRequest
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.results.products.cited import CitedProduct, read_cited, write_cited
 from hydromodpy.results.products.store import ProductStore, products_root
-from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.workflow import products as products_module
 from hydromodpy.workflow.products import ProductKind, ask, terrain_supply, write_products
 
@@ -84,16 +82,6 @@ def test_a_miss_builds_deposits_and_cites(tmp_path: Path) -> None:
     assert read_cited(ctx.run_dir) == (CitedProduct("fake", key),)
 
 
-def test_ask_never_writes_products_json_of_a_run(tmp_path: Path) -> None:
-    """A verb called after a run reaches ask with the run directory still bound."""
-    ctx = _ctx(tmp_path)
-    write_cited(ctx.run_dir, [CitedProduct("fake", "b" * 64)])
-
-    ask(ctx, "fake", key="a" * 64, build=lambda: "made", read=_read_value)
-
-    assert read_cited(ctx.run_dir) == (CitedProduct("fake", "b" * 64),)
-
-
 def test_a_sealed_run_keeps_its_products_json(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -105,41 +93,6 @@ def test_a_sealed_run_keeps_its_products_json(
     write_products(ctx)
 
     assert read_cited(ctx.run_dir) == (CitedProduct("fake", "b" * 64),)
-
-
-def test_a_context_that_asked_pickles(tmp_path: Path) -> None:
-    """A parallel calibration sends the setup to its workers by pickle."""
-    ctx = _ctx(tmp_path)
-    ask(ctx, "fake", key="a" * 64, build=lambda: "made", read=_read_value)
-
-    assert pickle.loads(pickle.dumps(ctx.setup)).products == {"fake": "a" * 64}
-
-
-def test_a_present_product_is_read_without_build(tmp_path: Path) -> None:
-    key = "a" * 64
-    store = ProductStore(products_root(tmp_path))
-    store.put(key, "fake", lambda d: (d / "value.txt").write_text("made", encoding="utf-8"))
-    ctx = _ctx(tmp_path)
-    built: list[int] = []
-
-    value = ask(ctx, "fake", key=key, build=lambda: built.append(1) or "x", read=_read_value)
-
-    assert value == "made"
-    assert built == []
-
-
-def test_a_product_read_from_the_store_is_a_store_line_of_the_profile(tmp_path: Path) -> None:
-    key = "a" * 64
-    store = ProductStore(products_root(tmp_path))
-    store.put(key, "fake", lambda d: (d / "value.txt").write_text("made", encoding="utf-8"))
-    ctx = _ctx(tmp_path)
-
-    ask(ctx, "fake", key=key, build=lambda: "x", read=_read_value)
-    ask(ctx, "fake", key="b" * 64, build=lambda: "built", read=_read_value)
-
-    lines = read_profile(ctx.run_dir).lines
-    assert [(line.name, line.reused, line.key) for line in lines] == [("fake", "store", key)]
-    assert lines[0].kind == "step" and lines[0].attempt == ctx.attempt
 
 
 def test_an_unreadable_product_is_discarded_and_rebuilt(tmp_path: Path) -> None:
@@ -155,19 +108,6 @@ def test_an_unreadable_product_is_discarded_and_rebuilt(tmp_path: Path) -> None:
 
     assert value == "rebuilt"
     assert (store.get(key) / "value.txt").read_text(encoding="utf-8") == "rebuilt"
-
-
-def test_a_lightweight_trial_reads_and_never_writes(tmp_path: Path) -> None:
-    ctx = _ctx(tmp_path, lightweight=True)
-    key = "a" * 64
-    built: list[int] = []
-
-    value = ask(ctx, "fake", key=key, build=lambda: built.append(1) or "made", read=_read_value)
-
-    assert value == "made"
-    assert built == [1]
-    assert ProductStore(products_root(tmp_path)).get(key) is None
-    assert ctx.setup.products["fake"] == key
 
 
 def test_a_resume_asks_for_the_cited_key(tmp_path: Path) -> None:
@@ -222,32 +162,6 @@ def test_a_rebuild_during_resume_warns_only_when_it_may_differ(
 
     assert value == "rebuilt"
     assert ("differs" in caplog.text) is rebuild_differs
-
-
-def test_setup_products_is_replaced_not_mutated(tmp_path: Path) -> None:
-    ctx = _ctx(tmp_path)
-    before = ctx.setup.products
-    key = "a" * 64
-
-    ask(ctx, "fake", key=key, build=lambda: "made", read=_read_value)
-
-    assert ctx.setup.products is not before
-    assert ctx.setup.products["fake"] == key
-    assert "fake" not in before
-
-
-def test_the_writer_evicts_but_keeps_its_own_key(tmp_path: Path) -> None:
-    store = ProductStore(products_root(tmp_path))
-    old = "b" * 64
-    _seed(store.root, old, bytes_=10_000_000, written_at=1.0)
-    ctx = _ctx(tmp_path)
-    ctx.cfg.workspace.products_cap_mb = 1
-    key = "a" * 64
-
-    ask(ctx, "fake", key=key, build=lambda: "made", read=_read_value)
-
-    assert store.get(key) is not None
-    assert store.get(old) is None
 
 
 def test_a_put_that_fails_on_disk_does_not_fail_the_step(

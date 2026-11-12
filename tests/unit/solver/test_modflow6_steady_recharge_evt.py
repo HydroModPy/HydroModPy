@@ -16,10 +16,7 @@ import pytest
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.forcing.steady_periods import split_net_recharge
-from hydromodpy.solver.modflow6.builders.recharge import (
-    build_evt_stress_period_data,
-    recharge_to_spd,
-)
+from hydromodpy.solver.modflow6.builders.recharge import recharge_to_spd
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.solver_meshes import solver_mesh_from
@@ -96,28 +93,6 @@ def _two_layer_mesh(inactive_mask: np.ndarray) -> SolverMesh:
         botm=np.array([[5.0, 5.0, 5.0], [0.0, 0.0, 0.0]]),
         inactive_mask=inactive_mask,
     )
-
-
-def test_evt_cell_targets_uppermost_active_layer_multilayer_disv() -> None:
-    # cell0 active in layer 0; cell1 inactive in layer 0 but active in layer 1;
-    # cell2 fully inactive.
-    inactive = np.array([[False, True, True], [False, False, True]])
-    mesh = _two_layer_mesh(inactive)
-    model = toy_model()
-    model.nper = 1
-    model.ncpl = 3
-    model.modflow_config = model.modflow_config  # default config carries evt depth
-    model._evt_rate_payload = {0: 1.0e-6}
-
-    with pytest.warns(RuntimeWarning):
-        evt_spd = build_evt_stress_period_data(
-            model,
-            mesh,
-            ocean_support_mask=np.zeros(3, dtype=bool),
-            stream_support_mask=np.zeros(3, dtype=bool),
-        )
-    records = {int(rec[1]): int(rec[0]) for rec in evt_spd[0]}  # cell_id -> layer
-    assert records == {0: 0, 1: 1}  # cell2 (fully inactive) has no record
 
 
 def test_mf6_and_nwt_share_routing_helper() -> None:

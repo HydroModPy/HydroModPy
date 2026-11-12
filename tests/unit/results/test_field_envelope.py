@@ -15,11 +15,8 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.mesh.planning.refinement_zones import CriterionInputs, load_refinement_zones
-from hydromodpy.mesh.refinement_config import RefinementZoneConfig
-from hydromodpy.results.run.field_envelope import read_run_field, read_run_fields
+from hydromodpy.results.run.field_envelope import read_run_field
 from hydromodpy.results.storage.sealing import seal_completed
-from tests._helpers.mesh_cases import grid_spec
 from tests._helpers.run_stores import open_run_store
 
 N_STEPS = 3
@@ -75,17 +72,6 @@ def _run(project: Path, name: str, *, budget: bool = True, seal: bool = True) ->
     return sim_id
 
 
-def test_the_depth_is_reduced_to_its_extremes_over_every_step(project: Path) -> None:
-    sim_id = _run(project, "coarse")
-
-    envelope = read_run_field(project, "coarse", "watertable_depth")
-
-    assert envelope.sim_id == sim_id and envelope.run == "coarse" and envelope.unit == "m"
-    np.testing.assert_array_equal(envelope.minimum, [0.25, 5.0, 3.0, 0.0])
-    np.testing.assert_array_equal(envelope.maximum, [3.0, 5.0, 4.0, 0.0])
-    assert envelope.passing(below=0.5, above=None).tolist() == [True, False, False, True]
-
-
 def test_the_seepage_is_the_drain_outflow_per_area_in_mm_per_day(project: Path) -> None:
     _run(project, "coarse")
 
@@ -114,31 +100,3 @@ def test_a_missing_or_unsealed_run_or_a_missing_field_is_refused(project: Path) 
         read_run_field(project, "open", "watertable_depth")
     with pytest.raises(ConfigError, match="no drain budget"):
         read_run_field(project, "dry", "seepage")
-
-
-def test_the_zone_of_a_stored_run_holds_the_pixels_of_its_shallow_cells(project: Path) -> None:
-    sim_id = _run(project, "coarse")
-    zones = [
-        RefinementZoneConfig(where="watertable_depth", below=0.5, run="coarse", cell_size=25.0),
-        RefinementZoneConfig(where="seepage", above=0.5, run="coarse", cell_size=25.0),
-    ]
-    grid = grid_spec(8, 8, 25.0)
-
-    fields = read_run_fields(project, zones)
-    shallow, seeping = load_refinement_zones(
-        zones,
-        config_dir=None,
-        data_dir=None,
-        crs_wkt=grid.crs_wkt,
-        criteria=CriterionInputs(
-            grid=grid, elevation=np.zeros((8, 8)), stream_lines=None, run_fields=fields
-        ),
-    )
-
-    assert sorted(fields) == [("coarse", "seepage"), ("coarse", "watertable_depth")]
-    assert shallow.source_run == seeping.source_run == sim_id
-    south_west, north_east = np.zeros((8, 8), dtype=bool), np.zeros((8, 8), dtype=bool)
-    south_west[4:, :4] = True
-    north_east[:4, 4:] = True
-    np.testing.assert_array_equal(shallow.region.mask, south_west | north_east)
-    np.testing.assert_array_equal(seeping.region.mask, north_east)

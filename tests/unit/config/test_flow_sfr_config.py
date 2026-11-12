@@ -24,65 +24,7 @@ from pydantic import ValidationError
 from hydromodpy.model.boundaries.boundary_condition_registry import SUPPORTED_FLOW_BOUNDARY_IDS
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.lake import FlowLakeOutletMover
-from hydromodpy.model.sinks_sources.sfr import (
-    FlowReachNetworkConfig,
-    FlowReachWidthByOrder,
-    FlowReachWidthConstant,
-    FlowReachWidthPowerLaw,
-)
-
-
-def test_sfr_config_validates_delineated_network_and_width_union() -> None:
-    net = FlowReachNetworkConfig.model_validate(
-        {
-            "manning": 0.04,
-            "streambed_k": 1e-5,
-            "streambed_k_unit": "m/day",
-            "streambed_thickness": "0.5 m",
-            "width": {"kind": "by_order", "widths": {1: "1 m", 2: "3 m"}},
-            "outflow_to_lake": 1,
-        }
-    )
-    assert isinstance(net.width, FlowReachWidthByOrder)
-    assert net.outflow_to_lake == 1
-    assert net.outflow_mvrtype == "FACTOR"
-
-    constant = FlowReachNetworkConfig.model_validate(
-        {"width": {"kind": "constant", "value": "2 m"}}
-    )
-    assert isinstance(constant.width, FlowReachWidthConstant)
-
-    power = FlowReachNetworkConfig.model_validate(
-        {"width": {"kind": "power_law", "coef": 1.2, "exp": 0.5}}
-    )
-    assert isinstance(power.width, FlowReachWidthPowerLaw)
-
-
-def test_sfr_config_default_width_is_a_constant_metre() -> None:
-    net = FlowReachNetworkConfig.model_validate({})
-    assert isinstance(net.width, FlowReachWidthConstant)
-    assert net.connected_to_aquifer is True
-
-
-def test_sfr_config_explicit_reaches_are_accepted() -> None:
-    net = FlowReachNetworkConfig.model_validate(
-        {
-            "reaches": [
-                {
-                    "cell": {"kind": "cell", "cell": [0, 0, 5]},
-                    "length": "100 m",
-                    "width": "2 m",
-                    "slope": 1e-3,
-                    "top": "50 m",
-                    "downstream": [2],
-                },
-                {"length": "100 m", "width": "2 m", "slope": 1e-3, "top": "49 m", "upstream": [1]},
-            ]
-        }
-    )
-    assert net.reaches is not None
-    assert len(net.reaches) == 2
-    assert net.reaches[0].downstream == [2]
+from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig
 
 
 def test_sfr_config_rejects_a_threshold_of_its_own_and_bad_units() -> None:

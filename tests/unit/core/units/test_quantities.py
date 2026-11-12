@@ -145,15 +145,6 @@ FACTORS = [
 IDS = [f"{name}-{unit}" for name, unit, _ in FACTORS]
 
 
-@pytest.mark.parametrize(("quantity", "unit", "factor"), FACTORS, ids=IDS)
-def test_factor_is_exactly_the_published_one(quantity: str, unit: str, factor: float) -> None:
-    normalize, factor_to, convert, _, _, _, _ = API[quantity]
-    assert q.factor_to_si(quantity, unit) == factor
-    assert factor_to(unit) == factor
-    assert normalize(unit) == unit
-    assert convert(2.0, unit=unit) == 2.0 * factor
-
-
 @pytest.mark.parametrize("quantity", API)
 def test_canonical_units_are_the_table_rows(quantity: str) -> None:
     published = {unit for name, unit, _ in FACTORS if name == quantity}

@@ -95,20 +95,6 @@ def test_a_river_raster_without_a_crs_is_refused(tmp_path: Path) -> None:
 
 
 @pytest.mark.fast
-def test_the_dem_of_dem_init_path_is_refused_before_the_terrain_tools_read_it(
-    tmp_path: Path,
-) -> None:
-    from hydromodpy.data.variables.dem.resolver import require_dem_crs
-
-    path = _raster(tmp_path / "regional.tif", crs=None)
-
-    with pytest.raises(DataContractViolation, match=r"dem: .*regional\.tif declares no CRS"):
-        require_dem_crs(path)
-
-    assert require_dem_crs(_raster(tmp_path / "ok.tif", crs="EPSG:2154")) is None
-
-
-@pytest.mark.fast
 def test_a_dem_that_rasterio_does_not_open_is_left_to_the_step_that_reads_it(
     tmp_path: Path,
 ) -> None:

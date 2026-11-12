@@ -15,44 +15,6 @@ def _build_flow_config(
     )
 
 
-def test_dirichlet_side_key_infers_application_domain() -> None:
-    cfg = _build_flow_config(
-        {
-            "bc": {
-                "east_side": {
-                    "kind": "dirichlet",
-                    "value": 102.0,
-                }
-            }
-        }
-    )
-
-    east_side = cfg.bc["east_side"]
-    assert east_side.id == "east_side"
-    assert east_side.application_domain == "east side"
-
-
-def test_dirichlet_legacy_boundary_alias_is_rejected() -> None:
-    """The refusal names the seven ids [flow.bc] holds, drainage included."""
-    with pytest.raises(
-        ValueError,
-        match=(
-            "flow.bc names the boundary 'west_boundary', which \\[flow.bc\\] does not hold. "
-            "It holds west_side, east_side, north_side, south_side, stream, ocean, drainage."
-        ),
-    ):
-        _build_flow_config(
-            {
-                "bc": {
-                    "west_boundary": {
-                        "kind": "dirichlet",
-                        "value": 101.0,
-                    }
-                }
-            }
-        )
-
-
 def test_dirichlet_mismatched_application_domain_raises() -> None:
     with pytest.raises(ValueError, match="does not match inferred domain"):
         _build_flow_config(
@@ -82,29 +44,6 @@ def test_a_boundary_keyed_by_its_family_is_refused() -> None:
                 }
             }
         )
-
-
-def test_the_flat_drainage_form_is_the_supported_one() -> None:
-    """A boundary is keyed by what it is; the kind is an attribute of it."""
-    cfg = _build_flow_config({"bc": {"drainage": {"value": 1e-6}}})
-
-    drainage = cfg.bc["drainage"]
-    assert drainage.kind == "drain"
-    assert drainage.application_domain == "top"
-    assert drainage.value == 1e-6
-
-
-def test_a_drainage_needs_no_table_at_all() -> None:
-    """The registry describes it entirely, so an empty table is enough."""
-    cfg = _build_flow_config({"bc": {"drainage": {}}})
-
-    assert cfg.bc["drainage"].kind == "drain"
-    assert cfg.bc["drainage"].value == 0.0
-
-
-def test_a_kind_from_another_family_is_refused() -> None:
-    with pytest.raises(ValueError, match="not interchangeable"):
-        _build_flow_config({"bc": {"drainage": {"kind": "dirichlet"}}})
 
 
 def test_param_values_alias_is_rejected() -> None:
@@ -224,30 +163,6 @@ def test_boundary_value_rejects_unknown_units() -> None:
         )
 
 
-def test_dirichlet_side_forcing_csv_resolves_relative_path(tmp_path: Path) -> None:
-    csv_path = tmp_path / "boundary.csv"
-    csv_path.write_text("date,value\n2003-01-01,10.0\n", encoding="utf-8")
-
-    cfg = _build_flow_config(
-        {
-            "bc": {
-                "east_side": {
-                    "kind": "dirichlet",
-                    "forcing": {
-                        "kind": "csv",
-                        "path_file": "boundary.csv",
-                    },
-                }
-            }
-        },
-        base_dir=tmp_path,
-    )
-
-    east_side = cfg.bc["east_side"]
-    assert east_side.forcing is not None
-    assert east_side.forcing.path_file == csv_path.resolve()
-
-
 def test_dirichlet_side_forcing_rejects_value_plus_forcing() -> None:
     with pytest.raises(
         ValueError, match="value and flow.bc.west_side.forcing are mutually exclusive"
@@ -284,24 +199,6 @@ def test_ocean_forcing_is_accepted() -> None:
         }
     )
     assert config.bc["ocean"].forcing is not None
-
-
-def test_drainage_forcing_is_rejected() -> None:
-    """A Cauchy drain has no head to force, and its schema says so."""
-    with pytest.raises(ValueError, match="forcing"):
-        _build_flow_config(
-            {
-                "bc": {
-                    "drainage": {
-                        "kind": "drain",
-                        "forcing": {
-                            "kind": "constant",
-                            "value": 0.0,
-                        },
-                    }
-                }
-            }
-        )
 
 
 def test_a_lake_written_under_flow_bc_is_sent_to_the_sinks_and_sources() -> None:

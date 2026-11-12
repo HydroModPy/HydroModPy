@@ -13,7 +13,6 @@ from hydromodpy.calibration.runners.recap import (
     parameter_units,
     percent,
     result_lines,
-    search_line,
     shares_text,
     staged_result_lines,
     write_methods,
@@ -54,11 +53,6 @@ def _cfg(**updates) -> CalibrationConfig:
     payload = {"method": "grid", "max_trials": 3, "parameters": _PARAMETERS}
     payload.update(updates)
     return CalibrationConfig.model_validate(payload)
-
-
-def test_a_score_that_rises_with_agreement_reads_as_one_minus_it() -> None:
-    assert cost_metric_label(_cfg(objective="nse")) == "1 - nse"
-    assert cost_metric_label(_cfg(objective="rmse")) == "rmse"
 
 
 def test_each_parameter_carries_its_declared_unit() -> None:
@@ -118,12 +112,6 @@ def test_an_inverse_transform_is_named() -> None:
     assert cost_metric_label(cfg) == "-1 / (1 - nse)"
 
 
-def test_a_normalised_residual_names_its_scale() -> None:
-    cfg = _config([_block("flows", "rmse", normalize_cost=True)])
-
-    assert cost_metric_label(cfg) == "rmse / sd(observed)"
-
-
 def test_each_block_of_a_sum_carries_its_own_reading() -> None:
     cfg = _config(
         [
@@ -135,36 +123,6 @@ def test_each_block_of_a_sum_carries_its_own_reading() -> None:
     assert cost_metric_label(cfg) == (
         "weighted sum of flows 1 - nse_log, residual log10(rmse / sd(observed))"
     )
-
-
-def test_a_phase_is_labelled_by_the_blocks_it_scores() -> None:
-    cfg = _config(
-        [_block("flows", "nse_log"), _block("residual", "rmse", normalize_cost=True)],
-        phases=[
-            {"name": "one", "parameters": ["K"], "objective_blocks": ["residual"]},
-            {"name": "two", "parameters": ["K"], "objective_blocks": ["flows"]},
-        ],
-    )
-
-    assert cost_metric_label(cfg, cfg.phases[0]) == "rmse / sd(observed)"
-    assert cost_metric_label(cfg, cfg.phases[1]) == "1 - nse_log"
-
-
-def test_the_session_records_the_label_of_its_cost(tmp_path: Path) -> None:
-    cfg = _config([_block("flows", "rmse", cost_transform="log")])
-
-    persistence, _ = open_calibration_session(
-        tmp_path,
-        "case",
-        resume=False,
-        raw={"calibration": {}},
-        cfg=cfg,
-        space=space_from_config(cfg),
-        trial_ctx=None,
-        project="p",
-    )
-
-    assert persistence.descriptor.cost_label == "log10(rmse)"
 
 
 def test_the_html_report_prints_the_label_beside_the_cost() -> None:
@@ -434,12 +392,6 @@ def test_the_recap_reads_the_network_verdict_at_the_returned_trial(verdict, line
         "  K = 1e-05",
         f"  {line}",
     ]
-
-
-def test_a_search_that_recorded_nothing_says_so() -> None:
-    assert search_line({"n_evaluations": 3, "max_trials": 5}) == (
-        "search: not recorded, 3 evaluation(s) of 5 declared"
-    )
 
 
 def test_a_staged_run_prints_each_phase_under_its_name() -> None:

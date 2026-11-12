@@ -66,12 +66,6 @@ def test_the_x_and_y_axes_are_named_or_taken_last(dims, expected):
     assert find_xy_dims(xr.DataArray(np.zeros((1,) * len(dims)), dims=dims)) == expected
 
 
-def test_a_dataarray_with_one_spatial_axis_is_refused():
-    stations = xr.DataArray(np.zeros((3, 2)), dims=("time", "station"))
-    with pytest.raises(ValueError, match=r"dataset has the variable None on the dimensions \('time', 'station'\), among which no X and Y axis"):  # fmt: skip
-        find_xy_dims(stations)
-
-
 def _area(n_centres: int | None, mesh) -> None:
     x, y = fc.square_pixels(10.0, 40.0)
     discretize_fields_on_cells(

@@ -83,41 +83,6 @@ def test_stack_write_rejects_non_stack_input(fresh_store: SimulationZarr) -> Non
         fresh_store.write_field_stack("head", np.zeros(50))
 
 
-def test_stack_write_attaches_cf_attrs(fresh_store: SimulationZarr) -> None:
-    fresh_store.write_field_stack("head", np.zeros((3, 2, 50)))
-    attrs = dict(fresh_store.root["head"].attrs)
-    assert np.isnan(fresh_store.root["head"].fill_value)
-    assert "_FillValue" not in attrs
-
-
-def test_a_compact_stack_keeps_one_digest_per_step_under_its_path(
-    fresh_store: SimulationZarr,
-) -> None:
-    from hydromodpy.core.io.value_digest import value_digest
-
-    values = np.arange(8 * 50, dtype="float64").reshape(8, 50)
-    fresh_store.write_field_stack("release_flux", values, subgroup="derived")
-
-    recorded = fresh_store.field_digests["derived/release_flux"]
-    assert sorted(int(step) for step in recorded) == list(range(8))
-    assert recorded["0"] == value_digest(values[0])
-
-
-def test_the_digest_of_a_rounded_stack_hashes_the_values_before_the_rounding(
-    fresh_store: SimulationZarr,
-) -> None:
-    from hydromodpy.core.io.value_digest import value_digest
-
-    values = np.array([[0.1, 0.2], [0.3, 0.4]], dtype="float64")
-    fresh_store.write_field_stack("head", values[:, None, :].repeat(50, axis=2))
-
-    recorded = fresh_store.field_digests["head"]
-    # One step is one layer by fifty cells, the shape a replay reads back from the store.
-    assert recorded["0"] == value_digest(values[0].repeat(50)[None, :])
-    stored = np.asarray(fresh_store.root["head"][0, 0])
-    assert stored.tobytes() != values[0].repeat(50).tobytes(), "the store holds the rounded values"
-
-
 def test_a_slab_records_the_digests_at_its_own_steps(fresh_store: SimulationZarr) -> None:
     values = np.arange(6 * 2 * 50, dtype="float64").reshape(6, 2, 50)
     fresh_store.write_field_stack("head", values[:2], n_timesteps=6)

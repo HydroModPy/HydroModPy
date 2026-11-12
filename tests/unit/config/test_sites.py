@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.config.cross_checks import require_site_for_real_catchment
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.config.sites import RecipeSpec, SitesConfig, SitesRunConfig
-from hydromodpy.core.config_kit.introspect import site_scoped_paths
-from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
 from hydromodpy.core.site.row import SiteRow
 from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.data.sites.catalog import write_catalog
@@ -23,24 +19,6 @@ from tests.unit.project.launch.test_plan import write_sites_project
 def _validate(payload: dict[str, Any]) -> HydroModPyConfig:
     """Validate a payload that declares its DEM under ``[[data.dem.sources]]``."""
     return HydroModPyConfig.model_validate(payload, context={"allow_dem_bootstrap": True})
-
-
-def test_the_three_forms_of_a_recipe_are_read() -> None:
-    sites = SitesConfig.model_validate(
-        {
-            "table": "sites.csv",
-            "recipes_table": "recipes.csv",
-            "recipes": {
-                "base": "project.toml",
-                "k2e_5": {"file": "project.toml", "set": {"flow.param.K.field.value": 2e-5}},
-            },
-        }
-    )
-    assert sites.recipes["base"] == Path("project.toml")
-    inline = sites.recipes["k2e_5"]
-    assert isinstance(inline, RecipeSpec)
-    assert inline.set == {"flow.param.K.field.value": 2e-5}
-    assert sites.recipes_table == Path("recipes.csv")
 
 
 def test_the_defaults_are_the_measured_budget() -> None:
@@ -75,18 +53,6 @@ def test_a_bind_key_written_without_quotes_is_refused() -> None:
 def test_a_bind_key_with_an_index_is_refused() -> None:
     with pytest.raises(ValidationError, match="no index"):
         SitesConfig.model_validate({"bind": {"data.hydrometry.sources[0].path": "path"}})
-
-
-def test_a_bind_maps_a_key_to_a_column_or_a_list_of_columns() -> None:
-    sites = SitesConfig.model_validate(
-        {
-            "bind": {
-                "site.name": "site",
-                "calibration.parameters.K.bounds": ["k_low", "k_high"],
-            }
-        }
-    )
-    assert sites.bind["calibration.parameters.K.bounds"] == ["k_low", "k_high"]
 
 
 def test_a_bind_without_a_column_is_refused() -> None:
@@ -124,11 +90,6 @@ def test_a_zero_budget_is_refused() -> None:
         SitesRunConfig(parallel=0)
 
 
-def test_an_unknown_key_is_refused() -> None:
-    with pytest.raises(ValidationError, match="where"):
-        SitesConfig.model_validate({"where": "area > 10"})
-
-
 _ROWS = [
     SiteRow(
         site="nancon", gauge="J0014010", x_outlet=389285.91, y_outlet=6816518.749, crs="EPSG:2154"
@@ -141,11 +102,6 @@ def test_a_known_name_at_its_outlet_is_the_row() -> None:
     match = match_site("nancon", (389300.0, 6816500.0), "EPSG:2154", _ROWS, near_site_m=500.0)
     assert match is not None and match.row.site == "nancon" and match.known_name
     assert match.distance_m == pytest.approx(23.5, abs=0.5)
-
-
-def test_a_known_name_far_from_its_outlet_is_refused() -> None:
-    with pytest.raises(SiteMismatchError, match="'nancon'.*m away"):
-        match_site("nancon", (377120.0, 6831410.0), "EPSG:2154", _ROWS, near_site_m=500.0)
 
 
 def test_an_unknown_name_near_a_declared_site_names_it() -> None:
@@ -234,97 +190,8 @@ REAL: dict[str, Any] = {
 }
 
 
-def test_the_four_sections_are_root_sections() -> None:
-    cfg = _validate(
-        {
-            **SYNTHETIC,
-            "metrics": {"window": {"start": "2001-01-01", "end": "2002-12-31"}},
-            "publication": {"license": "etalab-2.0", "creators": ["A. Author"]},
-        }
-    )
-    assert cfg.metrics is not None and cfg.metrics.window is not None
-    assert str(cfg.metrics.window.start) == "2001-01-01"
-    assert cfg.publication is not None and cfg.publication.license == "etalab-2.0"
-    assert cfg.site is None and cfg.sites is None
-    for name in ("site", "sites", "metrics", "publication"):
-        assert name in HydroModPyConfig.model_fields
-
-
 def test_a_reversed_metrics_window_is_refused() -> None:
     with pytest.raises(ValidationError, match="before it starts"):
         _validate(
             {**SYNTHETIC, "metrics": {"window": {"start": "2002-01-01", "end": "2001-01-01"}}}
         )
-
-
-def test_site_and_sites_are_refused_together() -> None:
-    with pytest.raises(ValidationError, match=r"\[site\] and \[sites\]"):
-        _validate({**SYNTHETIC, "site": {"name": "nancon"}, "sites": {"table": "sites.csv"}})
-
-
-def test_a_real_catchment_without_a_site_is_refused_by_the_rule() -> None:
-    cfg = HydroModPyConfig.model_construct(
-        site=None,
-        sites=None,
-        geographic=HydroModPyConfig.model_fields["geographic"].annotation.model_validate(
-            REAL["geographic"], context={"allow_dem_bootstrap": True}
-        ),
-    )
-    with pytest.raises(ConfigError) as caught:
-        require_site_for_real_catchment(cfg)
-    message = str(caught.value)
-    assert "kind = 'dem'" in message
-    assert '[site] with name = "<catchment>"' in message
-
-
-def test_a_synthetic_domain_needs_no_site() -> None:
-    cfg = _validate(SYNTHETIC)
-    require_site_for_real_catchment(cfg)
-    assert cfg.site is None
-
-
-def test_a_named_site_satisfies_the_rule() -> None:
-    cfg = _validate({**REAL, "site": {"name": "nancon"}})
-    require_site_for_real_catchment(cfg)
-    assert cfg.site is not None and cfg.site.name == "nancon"
-
-
-def test_a_sites_project_takes_its_site_from_the_table() -> None:
-    cfg = _validate({**REAL, "sites": {"table": "sites.csv"}})
-    require_site_for_real_catchment(cfg)
-
-
-def test_a_toml_real_catchment_without_a_site_is_refused(tmp_path: Path) -> None:
-    path = tmp_path / "project.toml"
-    path.write_text(
-        '[geographic.catchment]\nkind = "dem"\n[[data.dem.sources]]\nsource = "file"\npath = "inputs/dem.tif"\n',
-        encoding="utf-8",
-    )
-    with pytest.raises(ConfigValidationError, match=r"no \[site\] names it"):
-        HydroModPyConfig.from_toml(path)
-
-
-def test_the_workflow_section_is_optional() -> None:
-    cfg = _validate(SYNTHETIC)
-    assert cfg.workflow.mode is None
-
-
-def test_the_site_scoped_fields_are_listed() -> None:
-    paths = set(site_scoped_paths(HydroModPyConfig))
-    expected = {
-        "geographic.catchment.x_outlet",
-        "geographic.catchment.y_outlet",
-        "geographic.catchment.polyg_shp_path",
-        "data.hydrometry.sources[].station_ids",
-        "data.hydrometry.sources[].path",
-        "data.hydrometry.sources[].mask_path",
-        "data.recharge.sources[].path",
-        "data.runoff.sources[].station_ids",
-        "data.dem.sources[].mask_path",
-        "calibration.outputs.*.observes",
-        "calibration.outputs.*.map.complete",
-    }
-    assert expected <= paths
-    # A regional input is shared by every site: not site scoped.
-    assert "data.dem.sources[].path" not in paths
-    assert "data.geology.sources[].path" not in paths

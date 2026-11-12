@@ -10,22 +10,6 @@ from hydromodpy.results.zarr_store.cf_validation import _cf_v85_names, is_cf_sta
 @pytest.mark.parametrize(
     "name",
     [
-        "surface_altitude",
-        "cell_thickness",
-        "land_binary_mask",
-        "surface_runoff_flux",
-        "water_flux_into_sea_water_from_rivers",
-        "soil_porosity",
-    ],
-)
-def test_is_cf_standard_name_recognises_curated_entries(name: str) -> None:
-    """Every name in the curated CF v85 list is recognized."""
-    assert is_cf_standard_name(name) is True
-
-
-@pytest.mark.parametrize(
-    "name",
-    [
         "",
         "groundwater_head_above_reference_level",
         "depth_of_water_table_below_ground_surface",

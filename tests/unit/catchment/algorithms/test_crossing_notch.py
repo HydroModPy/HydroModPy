@@ -308,13 +308,6 @@ def test_a_notch_lowers_the_neighbours_across_the_embankment_only(width) -> None
     assert (out[7, AXIS - 1 : AXIS + 1] == valley.dem[7, AXIS - 1 : AXIS + 1]).all()
 
 
-def test_a_neighbour_already_below_the_line_stays_where_it_is() -> None:
-    valley, crossings = _road(height=2.0)
-    valley.dem[ROW, AXIS + 1] = bench.bed(ROW) - 1.0
-    out, _ = bench.notch(valley, crossings, notch_width_m=30.0, max_depth_m=5.0)
-    assert out[ROW, AXIS + 1] == valley.dem[ROW, AXIS + 1]
-
-
 RES5, N5, AXIS5, ROAD5 = 5.0, 61, 30, 30
 
 

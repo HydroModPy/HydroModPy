@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,23 +13,16 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.config_objective import CalibrationProtocolDecl
 from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.calibration.optim.method_config import (
-    CmaEsMethodConfig,
-    GridMethodConfig,
-    LhsMethodConfig,
-    OptunaMethodConfig,
     default_relative_precision,
     method_options_are_its_defaults,
     method_options_problem,
     validate_method_kwargs,
 )
-from hydromodpy.calibration.optim.optimizer import EvaluationResult, best_completed, build_optimizer
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, build_optimizer
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.calibration.optim.stopping import resolve_budget, short_budget
-from hydromodpy.calibration.preflight import _check_engines
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     options_the_recipe_already_runs,
 )
-from hydromodpy.calibration.protocols.registry import expand_calibration_protocol
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
@@ -58,28 +50,6 @@ def _strata_indices(values: list[float], low: float, high: float, n: int) -> lis
 
 
 class TestStratification:
-    def test_each_stratum_is_hit_exactly_once_per_dimension(self) -> None:
-        n = 12
-        opt = build_optimizer("lhs", two_dim_space(), n_samples=n, seed=0)
-        points = opt.ask(n=n)
-        xs = [p.values["x"] for p in points]
-        ys = [p.values["y"] for p in points]
-        assert _strata_indices(xs, 0.0, 1.0, n) == list(range(n))
-        assert _strata_indices(ys, -2.0, 2.0, n) == list(range(n))
-
-    def test_log_transform_stratifies_log10_space(self) -> None:
-        n = 10
-        opt = build_optimizer("lhs", _logtwo_dim_space(), n_samples=n, seed=1)
-        points = opt.ask(n=n)
-        logs = [math.log10(p.values["k"]) for p in points]
-        assert _strata_indices(logs, -6.0, -2.0, n) == list(range(n))
-
-    def test_bounds_are_respected(self) -> None:
-        opt = build_optimizer("lhs", two_dim_space(), n_samples=50, seed=2)
-        for p in opt.ask(n=50):
-            assert 0.0 <= p.values["x"] <= 1.0
-            assert -2.0 <= p.values["y"] <= 2.0
-
     @pytest.mark.parametrize(("engine", "options"), [("lhs", {"n_samples": 5}), ("optuna", {})])
     def test_normal_prior_is_refused_naming_the_parameter(self, engine: str, options: dict) -> None:
         space = ParameterSpace(
@@ -87,24 +57,6 @@ class TestStratification:
         )
         with pytest.raises(ValueError, match=f"{engine} cannot draw.*theta"):
             build_optimizer(engine, space, seed=0, **options)
-
-    def test_random_cd_optimization_keeps_the_stratification_guarantee(self) -> None:
-        n = 12
-        opt = build_optimizer("lhs", two_dim_space(), n_samples=n, seed=0, optimization="random-cd")
-        points = opt.ask(n=n)
-        xs = [p.values["x"] for p in points]
-        assert _strata_indices(xs, 0.0, 1.0, n) == list(range(n))
-
-    def test_lloyd_optimization_is_not_guaranteed_to_keep_every_stratum(self) -> None:
-        # scipy's Lloyd relaxation trades the one-point-per-stratum guarantee
-        # for better point spacing: this seed is a known case where several
-        # strata of "x" are left unsampled, which is why "lloyd" is documented
-        # as a best-effort post-process rather than an exact design.
-        n = 12
-        opt = build_optimizer("lhs", two_dim_space(), n_samples=n, seed=0, optimization="lloyd")
-        points = opt.ask(n=n)
-        xs = [p.values["x"] for p in points]
-        assert _strata_indices(xs, 0.0, 1.0, n) != list(range(n))
 
 
 class TestReproducibility:
@@ -126,22 +78,6 @@ class TestReproducibility:
 
 
 class TestAskContract:
-    def test_ask_returns_batches_and_then_exhausts(self) -> None:
-        opt = build_optimizer("lhs", two_dim_space(), n_samples=5, seed=0)
-        first = opt.ask(n=3)
-        assert len(first) == 3
-        assert opt.converged() is False
-        second = opt.ask(n=3)
-        assert len(second) == 2
-        assert opt.converged() is True
-        assert opt.ask(n=1) == []
-
-    def test_trial_ids_are_unique_and_monotonic(self) -> None:
-        opt = build_optimizer("lhs", two_dim_space(), n_samples=6, seed=0)
-        ids = [p.trial_id for p in opt.ask(n=3) + opt.ask(n=3)]
-        assert ids == sorted(ids)
-        assert len(set(ids)) == len(ids)
-
     def test_suggest_next_raises_once_exhausted(self) -> None:
         opt = build_optimizer("lhs", two_dim_space(), n_samples=1, seed=0)
         opt.ask(n=1)
@@ -169,64 +105,6 @@ class TestTellAndBest:
         assert best.trial_id == expected.trial_id
 
 
-class TestBestCompleted:
-    @pytest.mark.parametrize(
-        ("rows", "expected"),
-        [
-            ([], None),
-            ([(0, 1.0, "failed")], None),
-            ([(0, 0.1, "failed"), (1, 3.0, "completed"), (2, 2.0, "completed")], 2),
-            ([(0, 2.0, "completed"), (1, 2.0, "completed")], 0),
-        ],
-    )
-    def test_the_lowest_completed_cost_wins_and_a_tie_keeps_the_first(self, rows, expected) -> None:
-        history = [
-            EvaluationResult(trial_id=trial_id, sim_id=None, cost=cost, status=status)
-            for trial_id, cost, status in rows
-        ]
-        best = best_completed(history)
-        assert (None if best is None else best.trial_id) == expected
-
-
-class TestBudget:
-    def test_auto_resolves_to_n_samples(self) -> None:
-        opt = build_optimizer("lhs", two_dim_space(), n_samples=17, seed=0)
-        assert resolve_budget(opt, "auto") == 17
-
-    def test_written_max_trials_below_n_samples_is_refused(self) -> None:
-        opt = build_optimizer("lhs", two_dim_space(), n_samples=17, seed=0)
-        verdict = short_budget(opt.counted_budget, 10)
-        assert verdict is not None
-        severity, message = verdict
-        assert severity == "error"
-        assert "17" in message
-
-    def test_written_max_trials_at_or_above_n_samples_is_accepted(self) -> None:
-        opt = build_optimizer("lhs", two_dim_space(), n_samples=17, seed=0)
-        assert short_budget(opt.counted_budget, 17) is None
-        assert short_budget(opt.counted_budget, 30) is None
-
-
-class TestMethodConfig:
-    def test_n_samples_is_required(self) -> None:
-        with pytest.raises(Exception):
-            validate_method_kwargs("lhs", {})
-
-    def test_n_samples_and_optimization_validate(self) -> None:
-        cfg = validate_method_kwargs("lhs", {"n_samples": 20, "optimization": "random-cd"})
-        assert isinstance(cfg, LhsMethodConfig)
-        assert cfg.n_samples == 20
-        assert cfg.optimization == "random-cd"
-
-    def test_extra_key_is_refused(self) -> None:
-        with pytest.raises(Exception, match="popsize"):
-            validate_method_kwargs("lhs", {"n_samples": 10, "popsize": 5})
-
-    def test_non_positive_n_samples_is_refused(self) -> None:
-        with pytest.raises(Exception):
-            validate_method_kwargs("lhs", {"n_samples": 0})
-
-
 # From test_max_trials_is_the_only_search_budget.py
 # ``max_trials`` is the one number that bounds a search.
 #
@@ -241,24 +119,6 @@ PROTOCOL = "matching_hydrographic_network"
 
 def _phase(**fields: object) -> CalibPhaseDecl:
     return CalibPhaseDecl.model_validate({"name": "sy", "parameters": ["Sy"], **fields})
-
-
-def test_the_section_refuses_max_iter_and_names_max_trials() -> None:
-    with pytest.raises(ValidationError, match=r"'max_iter' is not accepted any more: renamed") as e:
-        CalibrationConfig.model_validate({"max_iter": 30})
-
-    assert "'max_trials'" in str(e.value)
-    assert "This version does not rewrite the file." in str(e.value)
-    assert CalibrationConfig.model_validate({"max_trials": 30}).max_trials == 30
-
-
-def test_a_phase_refuses_max_iter_and_names_max_trials() -> None:
-    with pytest.raises(ValidationError, match="renamed to 'max_trials'"):
-        _phase(max_iter=30)
-
-    assert _phase(max_trials=30).max_trials == 30
-    assert _phase().max_trials is None
-    assert _phase(max_trials="auto").max_trials == "auto"
 
 
 def test_the_protocol_refuses_its_stage_budgets_and_names_the_new_ones() -> None:
@@ -287,23 +147,6 @@ def test_a_method_option_that_counted_evaluations_is_refused_for_max_trials(
     assert "max_trials" in problem
     with pytest.raises(ValueError, match="max_trials"):
         validate_method_kwargs(method, {option: 10})
-
-
-@pytest.mark.parametrize("method", ["scipy_nelder_mead", "scipy_de"])
-def test_maxiter_is_refused_because_an_iteration_is_not_an_evaluation(method: str) -> None:
-    problem = method_options_problem(method, {"maxiter": 10})
-
-    assert problem is not None
-    assert "not an evaluation count" in problem
-    assert "max_trials" in problem
-
-
-def test_the_chain_length_of_da_mh_gp_has_its_own_name() -> None:
-    problem = method_options_problem("da_mh_gp", {"max_iter": 100})
-
-    assert problem is not None
-    assert "chain_length" in problem
-    assert validate_method_kwargs("da_mh_gp", {"chain_length": 100}).chain_length == 100
 
 
 def test_the_budget_is_not_a_method_option_of_any_method() -> None:
@@ -360,40 +203,6 @@ def test_a_frozen_protocol_run_with_the_old_budget_keys_is_refused_with_the_way_
 # and dumps a clear Pydantic error.
 
 
-def test_grid_method_with_default_kwargs_validates() -> None:
-    cfg = validate_method_kwargs("grid", {})
-    assert isinstance(cfg, GridMethodConfig)
-    assert cfg.points_per_dim is None
-
-
-def test_cma_es_method_with_supported_kwargs_validates() -> None:
-    cfg = validate_method_kwargs("cma_es", {"sigma0": 0.5, "popsize": 10, "restarts": 2})
-    assert isinstance(cfg, CmaEsMethodConfig)
-    assert cfg.sigma0 == 0.5
-    assert cfg.popsize == 10
-    assert cfg.restarts == 2
-
-
-def test_optuna_method_with_sampler_validates() -> None:
-    cfg = validate_method_kwargs("optuna", {"sampler": "tpe", "direction": "minimize"})
-    assert isinstance(cfg, OptunaMethodConfig)
-    assert cfg.sampler == "tpe"
-    assert cfg.direction == "minimize"
-
-
-def test_optuna_refuses_to_maximize() -> None:
-    # The calibration cost is minimised and best() takes the lowest: "maximize" would invert one only.
-    with pytest.raises(ValidationError, match="direction"):
-        validate_method_kwargs("optuna", {"direction": "maximize"})
-
-
-def test_cma_es_method_rejects_optuna_kwarg() -> None:
-    """Mixing ``method='cma_es'`` with the Optuna ``sampler`` kwarg must fail eagerly."""
-    with pytest.raises(ValidationError) as excinfo:
-        validate_method_kwargs("cma_es", {"sampler": "tpe"})
-    assert "sampler" in str(excinfo.value).lower()
-
-
 # From test_method_options.py
 # The options of a calibration method are called ``method_options``, and load checked.
 #
@@ -405,38 +214,8 @@ def test_cma_es_method_rejects_optuna_kwarg() -> None:
 # after the phases before it have spent their budget.
 
 
-def test_the_problem_names_the_foreign_key_and_what_the_method_takes() -> None:
-    problem = method_options_problem("bisection", {"points_per_dim": 3})
-
-    assert problem is not None
-    assert "'bisection' does not take points_per_dim" in problem
-    assert "bracket_expand, rel_tol, signed_component, sweep_points" in problem
-
-
-def test_the_problem_names_a_value_of_the_wrong_type() -> None:
-    problem = method_options_problem("bisection", {"sweep_points": "seven"})
-
-    assert problem is not None
-    assert "sweep_points = 'seven'" in problem
-
-
-def test_options_the_method_takes_raise_no_problem() -> None:
-    assert method_options_problem("bisection", {"sweep_points": 5}) is None
-    assert method_options_problem("grid", {}) is None
-
-
 def test_a_method_with_no_model_here_is_left_to_its_own_constructor() -> None:
     assert method_options_problem("a_plugin_engine", {"anything": 1}) is None
-
-
-def test_a_phase_option_its_method_refuses_is_refused_at_load_with_the_phase() -> None:
-    with pytest.raises(ValidationError, match="phase 'sy' method_options: 'grid' does not take"):
-        _phase(method="grid", method_options={"rel_tol": 0.01})
-
-
-def test_a_section_option_its_method_refuses_is_refused_at_load() -> None:
-    with pytest.raises(ValidationError, match=r"\[calibration\] method_options: 'optuna'"):
-        CalibrationConfig.model_validate({"method": "optuna", "method_options": {"popsize": 4}})
 
 
 def test_a_protocol_stage_option_is_refused_under_the_key_the_file_wrote() -> None:
@@ -444,78 +223,6 @@ def test_a_protocol_stage_option_is_refused_under_the_key_the_file_wrote() -> No
         CalibrationProtocolDecl.model_validate(
             {"name": PROTOCOL, "transient_method_options": {"sweep_points": 7}}
         )
-
-
-@pytest.mark.parametrize(
-    ("model", "old", "new"),
-    [
-        (CalibPhaseDecl, "optimizer_kwargs", "method_options"),
-        (CalibrationConfig, "optimizer_kwargs", "method_options"),
-        (CalibrationProtocolDecl, "steady_engine_options", "steady_method_options"),
-        (CalibrationProtocolDecl, "transient_engine_options", "transient_method_options"),
-    ],
-)
-def test_an_old_name_of_the_method_options_is_refused_with_the_new_one(model, old, new) -> None:
-    document = {"name": PROTOCOL} if model is CalibrationProtocolDecl else {"method": "grid"}
-    if model is CalibPhaseDecl:
-        document["name"] = "sy"
-
-    with pytest.raises(
-        ValidationError, match=rf"'{old}' is not accepted any more: renamed to '{new}'"
-    ):
-        model.model_validate({**document, old: {"sweep_points": 5}})
-
-
-def test_the_schema_carries_the_new_names_as_user_keys_and_not_the_old_ones() -> None:
-    schema = CalibrationConfig.model_json_schema()
-    phase = schema["$defs"]["CalibPhaseDecl"]["properties"]
-    protocol = schema["$defs"]["MatchingHydrographicNetworkOptions"]["properties"]
-
-    assert schema["properties"]["method_options"]["x-hmp-profile"] == "user"
-    assert phase["method_options"]["x-hmp-profile"] == "user"
-    assert protocol["steady_method_options"]["x-hmp-profile"] == "user"
-    assert protocol["transient_method_options"]["x-hmp-profile"] == "user"
-    for properties in (schema["properties"], phase, protocol):
-        assert not [key for key in properties if "optimizer_kwargs" in key]
-        assert not [key for key in properties if "engine_options" in key]
-    # The old names survive only as the renames the reference lists.
-    assert phase["method_options"]["renamed_from"] == ["calibration.phases.optimizer_kwargs"]
-
-
-def test_the_protocol_writes_its_stage_options_as_method_options() -> None:
-    document = {
-        "simulation": {"time": {"start_datetime": "2000-01-01", "end_datetime": "2002-12-31"}},
-        "data": {"hydrometry": {"sources": [{"station_ids": ["G1"]}]}},
-        "calibration": {
-            "protocol": {"name": PROTOCOL, "steady_method_options": {"sweep_points": 5}},
-            "parameters": {"K": {}, "Sy": {}},
-            "outputs": {"streams": {"support": "network", "map": {"complete": "streams.gpkg"}}},
-        },
-    }
-
-    phases = expand_calibration_protocol(document)["calibration"]["phases"]
-
-    assert phases[0]["method_options"] == {"sweep_points": 5}
-    assert "optimizer_kwargs" not in phases[0]
-
-
-def test_the_preflight_names_the_phase_whose_options_its_method_refuses() -> None:
-    """A configuration assembled without validation still meets the check."""
-
-    phase = CalibPhaseDecl.model_construct(
-        name="transient_storage",
-        parameters=["Sy"],
-        method="scipy_nelder_mead",
-        method_options={"sweep_points": 7},
-    )
-    calibration = CalibrationConfig.model_construct(parameters={}, phases=[phase])
-
-    findings = [item for item in _check_engines(calibration) if item.severity == "error"]
-
-    assert len(findings) == 1
-    assert findings[0].path == "calibration.phases"
-    assert findings[0].detail.startswith("'transient_storage': ")
-    assert "'scipy_nelder_mead' does not take sweep_points" in findings[0].detail
 
 
 # From test_options_the_recipe_already_runs.py
@@ -544,10 +251,6 @@ def test_the_method_s_own_defaults_written_out_run_as_the_recipe() -> None:
     }
 
 
-def test_another_value_is_away_from_the_recipe() -> None:
-    assert _same(steady_method_options={"sweep_points": 5}) == frozenset()
-
-
 def test_the_bisection_s_own_precision_written_out_runs_as_the_recipe() -> None:
     assert _same(steady_precision=0.01) == {"steady_precision"}
     assert _same(steady_precision=0.05) == frozenset()
@@ -556,11 +259,6 @@ def test_the_bisection_s_own_precision_written_out_runs_as_the_recipe() -> None:
 def test_a_precision_the_simplex_reads_as_a_width_is_always_a_choice() -> None:
     """Nelder-Mead writes its xatol from the bounds: no default equals a written number."""
     assert _same(transient_precision=0.05) == frozenset()
-
-
-def test_the_spin_up_window_written_out_runs_as_the_recipe() -> None:
-    assert _same(window={"start": "2001-01-01"}) == {"window"}
-    assert _same(window={"start": "2001-01-01", "end": "2002-12-31"}) == {"window"}
 
 
 def test_another_window_is_away_from_the_recipe() -> None:

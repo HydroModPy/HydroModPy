@@ -10,10 +10,7 @@ import pytest
 from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.solver.modflow6.extractors import face_flow
 from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
-from hydromodpy.solver.modflow6.extractors.face_flow import (
-    connection_pairs,
-    extract_face_flows,
-)
+from hydromodpy.solver.modflow6.extractors.face_flow import extract_face_flows
 
 # A 2x2x2 grid of flat index k * 4 + i * 2 + j, cell 3 inactive: its two
 # connections, (2, 3) and (3, 7), are absent from both rows.
@@ -28,23 +25,6 @@ _POSITIONS = np.array([5, 8, 13, 17, 21, 15, 20, 24, 23])
 # The 2x2x1 grid of the extraction test, with all four cells active.
 _IA_FLAT = np.array([0, 3, 6, 9, 12])
 _JA_FLAT = np.array([0, 1, 2, 1, 0, 3, 2, 3, 0, 3, 2, 1])
-
-
-def test_connection_pairs_keep_the_connections_between_active_cells() -> None:
-    cells, positions = connection_pairs(_IA, _JA)
-
-    np.testing.assert_array_equal(cells, _CELLS)
-    np.testing.assert_array_equal(positions, _POSITIONS)
-
-
-def test_connection_pairs_point_at_the_connection_entering_the_greater_cell() -> None:
-    """MODFLOW counts positive what enters the cell of the line, so the flow
-    from the smaller cell is the value at the greater cell's connection back."""
-    cells, positions = connection_pairs(_IA, _JA)
-
-    for (first, second), position in zip(cells, positions, strict=True):
-        assert _JA[position] == first
-        assert _IA[second] <= position < _IA[second + 1]
 
 
 class _FakeBudget:

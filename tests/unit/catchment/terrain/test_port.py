@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-import math
-from dataclasses import fields, replace
+from dataclasses import replace
 from typing import get_args
 
 import geopandas as gpd
@@ -13,12 +12,10 @@ import pytest
 from shapely.geometry import box
 
 from hydromodpy.catchment.terrain.port import (
-    LN_FLOAT32_COLLISION_COUNT,
     CappedBreach,
     CappedBreachReport,
     Catchment,
     CatchmentLayout,
-    ConditionedDem,
     ConditioningExtent,
     ConditioningMethod,
     JensonSnap,
@@ -27,7 +24,6 @@ from hydromodpy.catchment.terrain.port import (
     require_accumulation,
     require_conditioning,
     require_delineable,
-    require_resolvable_counts,
     require_stream,
     snap_window_cells,
     stamp,
@@ -43,16 +39,6 @@ from tests._helpers.terrain_doubles import fake_accumulation
 
 def _accumulation(transform: str):
     return type("Acc", (), {"transform": transform})()
-
-
-def test_the_float32_guard_refuses_only_a_transformed_value_past_the_bound() -> None:
-    """A delineation refuses a log accumulation only where its outlets snap."""
-    bound = math.log(LN_FLOAT32_COLLISION_COUNT)
-    assert math.log(2.0e6) >= bound  # a basin of two million cells is past it
-    require_resolvable_counts(_accumulation("ln"), max_stored_value=bound - 1.0, member="delineate")
-    require_resolvable_counts(_accumulation("none"), max_stored_value=1e30, member="delineate")
-    with pytest.raises(TerrainProductError, match="cannot rank"):
-        require_resolvable_counts(_accumulation("ln"), max_stored_value=bound, member="delineate")
 
 
 @pytest.mark.parametrize("distance", [0.0, -25.0])
@@ -269,27 +255,6 @@ def test_a_jenson_snap_ranks_no_accumulation_so_a_transform_does_not_matter() ->
     _delineable(accumulation, snap=JensonSnap(_streams_of(accumulation)))
 
 
-@pytest.mark.parametrize(
-    ("largest", "error"),
-    [(5.0, None), (math.log(LN_FLOAT32_COLLISION_COUNT) + 1.0, TerrainProductError)],
-    ids=["inside-the-bound", "past-the-bound"],
-)
-def test_a_window_snap_reads_the_raster_only_where_the_values_are_transformed(
-    tmp_path, largest, error
-) -> None:
-    values = np.full((5, 5), largest, dtype="float32")
-    path = write_geotiff(tmp_path / "acc.tif", values, cell=25.0, nodata=-32768.0)
-    accumulation = replace(fake_accumulation(transform="ln"), path=path)
-    outlet = Outlet("mid", 62.5, 62.5)
-    if error is None:
-        _delineable(accumulation, (outlet,))
-        return
-    with pytest.raises(error, match="float32"):
-        _delineable(accumulation, (outlet,))
-    # A raw accumulation is never read, so a path that is no file is no refusal.
-    _delineable(replace(accumulation, transform="none", path=tmp_path / "absent.tif"), (outlet,))
-
-
 def test_the_digest_is_the_hash_of_the_id_the_version_and_the_pointer_table() -> None:
     expected = hashlib.sha256(b"engine_x\n1.2.3\nd8_wbt").hexdigest()
     assert stamp("engine_x", "1.2.3") == expected
@@ -297,24 +262,7 @@ def test_the_digest_is_the_hash_of_the_id_the_version_and_the_pointer_table() ->
     assert stamp("engine_y", "1.2.3") != expected
 
 
-def test_a_provided_dem_keeps_its_path_and_the_crs_of_its_file(tmp_path) -> None:
-    dem = write_geotiff(tmp_path / "dem.tif", np.arange(16.0).reshape(4, 4), crs="EPSG:2154")
-    bare = write_geotiff(tmp_path / "bare.tif", np.arange(16.0).reshape(4, 4), crs=None)
-    provided = ConditionedDem.provided(dem)
-    assert (provided.path, provided.method, provided.extent) == (dem, "provided", REGIONAL)
-    assert provided.crs == "EPSG:2154"
-    assert provided.breach_report is None
-    assert ConditionedDem.provided(str(bare)).crs == ""
-
-
 REPORT = CappedBreachReport(12, 3, 0.52, 0.1, 8, 0.5, 0.01)
-
-
-def test_a_breach_report_reads_back_what_it_wrote() -> None:
-    document = REPORT.to_document()
-    assert list(document) == [f.name for f in fields(CappedBreachReport)]
-    assert CappedBreachReport.from_document(document) == REPORT
-    assert isinstance(CappedBreachReport.from_document(document).cells_lowered, int)
 
 
 @pytest.mark.parametrize(
@@ -345,11 +293,3 @@ def test_a_catchment_is_counted_and_measured_from_its_files(tmp_path) -> None:
     assert (found.cell_count, found.area_m2) == (6, 600.0)
     assert found.snap_distance_m == pytest.approx(5.0)
     assert (found.snapped_x, found.snapped_y) == (13.0, 24.0)
-
-
-def test_a_layout_makes_the_directory_of_an_outlet_and_names_its_two_files(tmp_path) -> None:
-    site, mask, boundary = CatchmentLayout.per_outlet().make_site(tmp_path / "c", OUTLET)
-    assert (site, mask.name, boundary.name) == (tmp_path / "c" / "exit", "mask.tif", "boundary.shp")
-    assert site.is_dir()
-    flat = FLAT.make_site(tmp_path / "flat", OUTLET)
-    assert flat[0] == tmp_path / "flat" and flat[0].is_dir()

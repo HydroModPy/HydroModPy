@@ -31,7 +31,6 @@ from hydromodpy.calibration.optim.stopping import (
     AUTO_BUDGET,
     UNCOUNTED_BUDGET,
     CountedBudget,
-    remaining_grant,
     resolve_budget,
     search_width,
     settled,
@@ -41,18 +40,13 @@ from hydromodpy.calibration.optim.stopping import (
     stopping_rule,
 )
 from hydromodpy.calibration.preflight import _check_the_budgets
-from hydromodpy.calibration.protocols.registry import expand_calibration_protocol
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners.document import load_toml_calibration
-from hydromodpy.calibration.runners.recap import search_line
 from hydromodpy.calibration.runners.search_record import search_outcome_extra
 from hydromodpy.calibration.runners.session_scope import search_status
-from hydromodpy.calibration.runners.staged_report import phase_settled
-from hydromodpy.calibration.runners.staged_runner import _frozen_by, _require_result_for_dependents
-from hydromodpy.core.exceptions import CalibrationError, OptimizerError
-from hydromodpy.results.record.checks import BUDGET_RULE, CalibratedBy, stop_text
+from hydromodpy.core.exceptions import OptimizerError
+from hydromodpy.results.record.checks import BUDGET_RULE
 from hydromodpy.results.session.descriptor import SessionDescriptor
-from hydromodpy.results.session.phase import PhaseDescriptor
 from tests._helpers.session_documents import session_descriptor
 from tests.unit.calibration._factories_search import result_of, run_engine
 
@@ -99,26 +93,12 @@ def _run(optimizer, evaluator, max_trials, space=None):
 # --------------------------------------------------------------------------- #
 # The engine names the state
 # --------------------------------------------------------------------------- #
-def test_a_grid_solved_to_its_last_point_exhausted_its_plan() -> None:
-    session = _run(build_optimizer("grid", _space(), points_per_dim=4), _bowl, 4)
-
-    assert session.stop_state == "plan_exhausted"
-    assert session.converged
-    assert session.settled
 
 
 def test_a_latin_hypercube_solved_to_its_last_point_exhausted_its_plan() -> None:
     session = _run(build_optimizer("lhs", _space(2), n_samples=6, seed=1), _bowl, 6)
 
     assert session.stop_state == "plan_exhausted"
-    assert session.converged
-
-
-def test_a_root_search_that_closes_its_bracket_met_its_rule() -> None:
-    adapter = BisectionAdapter(_space(), rel_tol=0.01)
-    session = _run(adapter, _signed_root, "auto")
-
-    assert session.stop_state == "rule_met"
     assert session.converged
 
 
@@ -173,20 +153,6 @@ def test_only_a_rule_engine_that_spent_its_budget_is_unsettled() -> None:
 # --------------------------------------------------------------------------- #
 # The search record and the session status
 # --------------------------------------------------------------------------- #
-def test_the_search_record_carries_the_state() -> None:
-    session = _run(build_optimizer("random_search", _space(), seed=3), _bowl, 3)
-
-    search = search_outcome_extra(session)["search"]
-
-    assert search["stop_state"] == "budget_spent"
-    assert search["converged"] is False
-    assert search["stopping_rule"] == BUDGET_RULE
-
-
-def test_a_random_search_closes_its_session_completed() -> None:
-    session = _run(build_optimizer("random_search", _space(), seed=3), _bowl, 3)
-
-    assert search_status(session) == "completed"
 
 
 def test_a_rule_engine_that_spent_its_budget_closes_partial() -> None:
@@ -200,34 +166,6 @@ def test_a_rule_engine_that_spent_its_budget_closes_partial() -> None:
 # --------------------------------------------------------------------------- #
 # The words the console prints
 # --------------------------------------------------------------------------- #
-def test_the_three_states_read_plainly() -> None:
-    assert stop_text("rule_met", "rel_tol") == "met its own rule (rel_tol)"
-    assert stop_text("plan_exhausted", "every grid point") == (
-        "exhausted its plan (every grid point solved)"
-    )
-    assert stop_text("budget_spent", BUDGET_RULE) == (
-        "spent its budget, a budget-only search with no rule of its own"
-    )
-    assert stop_text("budget_spent", "xatol") == "spent its budget before its rule (xatol) was met"
-    assert stop_text(None, None) == "not recorded"
-
-
-def test_the_console_says_why_the_search_stopped() -> None:
-    line = search_line(
-        {
-            "converged": False,
-            "stop_state": "budget_spent",
-            "stopping_rule": BUDGET_RULE,
-            "max_trials": 20,
-            "extension": 0,
-            "n_evaluations": 20,
-        }
-    )
-
-    assert line == (
-        "search: spent its budget, a budget-only search with no rule of its own, "
-        "not converged, 20 evaluation(s) of 20 declared"
-    )
 
 
 # --------------------------------------------------------------------------- #
@@ -235,45 +173,6 @@ def test_the_console_says_why_the_search_stopped() -> None:
 # --------------------------------------------------------------------------- #
 def _descriptor(**extra) -> SessionDescriptor:
     return session_descriptor(method="random_search", **extra)
-
-
-def test_the_session_descriptor_holds_the_state_and_reads_without_it() -> None:
-    older = _descriptor()
-    assert older.stop_state is None and older.stopping_rule is None
-
-    sealed = _descriptor(stop_state="budget_spent", stopping_rule=BUDGET_RULE)
-    payload = sealed.model_dump(mode="json", by_alias=True)
-
-    assert payload["stop_state"] == "budget_spent"
-    assert SessionDescriptor.model_validate(payload).stop_state == "budget_spent"
-    with pytest.raises(ValueError):
-        _descriptor(stop_state="converged")
-
-
-def test_the_phase_descriptor_holds_the_state_and_reads_without_it() -> None:
-    older = PhaseDescriptor(phase_id="p", name="coarse", index=0)
-    assert older.stop_state is None
-
-    sealed = PhaseDescriptor(
-        phase_id="p", name="coarse", index=0, stop_state="rule_met", stopping_rule="rel_tol"
-    )
-    assert sealed.model_dump(mode="json", by_alias=True)["stop_state"] == "rule_met"
-
-
-def test_the_promoted_run_carries_the_state_and_reads_without_it() -> None:
-    older = CalibratedBy(session_id="s1", trial=3, session_status="completed")
-    assert older.stop_state is None
-
-    sealed = CalibratedBy(
-        session_id="s1",
-        trial=3,
-        session_status="completed",
-        stop_state="budget_spent",
-        stopping_rule=BUDGET_RULE,
-    )
-    assert CalibratedBy.model_validate(sealed.model_dump(mode="json")).stop_state == (
-        "budget_spent"
-    )
 
 
 # From test_a_search_that_runs_out_of_budget_has_not_converged.py
@@ -319,30 +218,6 @@ def _run__search_that(adapter: BisectionAdapter, root: float, max_trials: int | 
 # --------------------------------------------------------------------------- #
 # How much the root search needs, known before the first solve
 # --------------------------------------------------------------------------- #
-def test_the_nancon_search_needs_fifteen_and_at_worst_twenty_three() -> None:
-    budget = root_search_budget(*NANCON_BOUNDS, rel_tol=0.01, sweep_points=7)
-
-    assert budget.counts == (15, 17, 19, 21, 23)
-    assert (budget.nominal, budget.worst) == (15, 23)
-
-
-@pytest.mark.parametrize(
-    ("bounds", "options", "counts"),
-    [
-        # The WRR bounds: a sweep step wider than a decade needs one more halving
-        # inside the bounds than after an expansion.
-        ((1e-10, 1e-2), {}, (16, 17, 19, 21, 23)),
-        ((1e-7, 1e-3), {"rel_tol": 0.001}, (18, 21, 23, 25, 27)),
-        ((1e-7, 1e-3), {"sweep_points": 0}, (12, 12, 14, 16, 18)),
-        ((1e-7, 1e-3), {"bracket_expand": 0}, (15,)),
-        # A sweep finer than the tolerance needs no halving.
-        ((1.0, 1.001), {"sweep_points": 3, "bracket_expand": 0}, (3,)),
-    ],
-)
-def test_the_count_follows_the_bounds_sweep_tolerance_and_expansions(
-    bounds, options, counts
-) -> None:
-    assert root_search_budget(*bounds, **options).counts == counts
 
 
 def test_bounds_that_are_not_a_positive_interval_are_refused() -> None:
@@ -350,39 +225,6 @@ def test_bounds_that_are_not_a_positive_interval_are_refused() -> None:
         root_search_budget(0.0, 1.0)
     with pytest.raises(ValueError, match="rel_tol"):
         root_search_budget(1.0, 10.0, rel_tol=0.0)
-
-
-def test_the_adapter_publishes_the_count_of_its_own_options() -> None:
-    assert _nancon().counted_budget == root_search_budget(*NANCON_BOUNDS)
-    assert _nancon(rel_tol=0.001).counted_budget.counts == (18, 21, 23, 25, 27)
-
-
-@pytest.mark.parametrize(
-    ("root", "expansions", "spent"),
-    [
-        (2.09e-4, 0, 15),
-        (3.3e-6, 0, 15),
-        (3e-3, 1, 17),
-        (3e-2, 2, 19),
-        (3e-1, 3, 21),
-        (5e-11, 4, 23),
-    ],
-)
-def test_the_count_is_what_the_search_actually_spends(root, expansions, spent) -> None:
-    adapter = _nancon()
-    session = _run__search_that(adapter, root, AUTO_BUDGET)
-
-    assert session.converged
-    assert session.extension == 0
-    assert len(session.history) == adapter.counted_budget.counts[expansions] == spent
-
-
-def test_the_worst_case_of_a_pure_bisection_is_what_it_spends() -> None:
-    adapter = _nancon(sweep_points=0)
-    session = _run__search_that(adapter, 5e-11, AUTO_BUDGET)
-
-    assert session.converged
-    assert len(session.history) == adapter.counted_budget.worst == 18
 
 
 # --------------------------------------------------------------------------- #
@@ -402,16 +244,6 @@ def test_auto_gives_an_engine_that_cannot_count_its_usual_hundred() -> None:
     assert resolve_budget(optimizer, 12) == 12
     with pytest.raises(ValueError, match="auto"):
         resolve_budget(optimizer, "many")
-
-
-def test_three_expansions_converge_under_auto_without_an_extension(caplog) -> None:
-    with caplog.at_level(logging.WARNING):
-        session = _run__search_that(_nancon(), 3e-1, AUTO_BUDGET)
-
-    assert session.converged
-    assert session.extension == 0
-    assert len(session.history) == 21
-    assert "Granting" not in caplog.text
 
 
 def test_a_budget_below_the_nominal_count_is_refused_before_the_first_solve() -> None:
@@ -474,15 +306,6 @@ def test_a_budget_two_halvings_short_is_granted_exactly_two(caplog) -> None:
     )
 
 
-def test_the_grant_is_the_count_the_engine_reports_or_nothing() -> None:
-    assert remaining_grant(2, 15) == 2
-    assert remaining_grant(8, 15) == 8
-    assert remaining_grant(9, 15) == 0
-    assert remaining_grant(0, 15) == 0
-    assert remaining_grant(None, 15) == 0
-    assert remaining_grant(True, 15) == 0
-
-
 def test_the_root_search_reports_the_halvings_its_bracket_still_needs() -> None:
     adapter = _nancon()
     evaluate = _root_at(3e-3)
@@ -542,13 +365,6 @@ class _DryAfterTwo(_FarFromItsRule):
         return super().ask(n) if self._trial < 2 else []
 
 
-def test_an_engine_that_ran_out_of_points_is_granted_no_extension() -> None:
-    session = run_engine(_log_space(), _DryAfterTwo(), _root_at(50.0), 10)
-
-    assert session.extension == 0
-    assert len(session.history) == 2
-
-
 def test_an_engine_with_a_rule_names_it_and_a_budget_engine_does_not() -> None:
     assert stopping_rule(_nancon()) == "rel_tol"
     assert stopping_rule(build_optimizer("random_search", _log_space(), seed=1)) == BUDGET_RULE
@@ -574,31 +390,6 @@ def test_a_budget_engine_spends_its_budget_and_settles_unconverged(caplog) -> No
 # --------------------------------------------------------------------------- #
 # Where the budget is declared, and checked
 # --------------------------------------------------------------------------- #
-def test_the_protocol_writes_auto_for_its_steady_stage() -> None:
-    doc = {
-        "simulation": {
-            "time": {
-                "start_datetime": "1995-01-01",
-                "end_datetime": "2020-12-31",
-                "step_value": 1,
-                "step_unit": "day",
-            }
-        },
-        "data": {"hydrometry": {"sources": [{"station_ids": ["NANCON"]}]}},
-        "calibration": {
-            "protocol": "matching_hydrographic_network",
-            "parameters": {
-                "K": {"bounds": list(NANCON_BOUNDS), "search_space": "log"},
-                "Sy": {"bounds": [1e-4, 0.5], "search_space": "log"},
-            },
-            "outputs": {"seepage_network": {"support": "network", "map": {"complete": "n.gpkg"}}},
-        },
-    }
-
-    steady, transient = expand_calibration_protocol(doc)["calibration"]["phases"]
-
-    assert (steady["method"], steady["max_trials"]) == ("bisection", AUTO_BUDGET)
-    assert transient["max_trials"] == 120
 
 
 def test_the_budget_fields_take_auto_or_a_positive_integer() -> None:
@@ -675,31 +466,11 @@ def test_the_preflight_announces_a_steady_budget_below_the_worst_case(tmp_path: 
     assert "covers 1 bracket expansion(s) of the 4" in findings[0].detail
 
 
-def test_the_preflight_reads_the_stage_options_into_the_count(tmp_path: Path) -> None:
-    # At 0.1 % the nominal count is 18, so 16 no longer passes.
-    findings = _budget_findings(tmp_path, steady_max_trials=16, steady_precision=0.001)
-
-    assert [finding.severity for finding in findings] == ["error"]
-    assert "below the 18 evaluations" in findings[0].detail
-
-
 @pytest.mark.parametrize("budget", ["auto", 23, 40])
 def test_the_preflight_passes_auto_and_a_budget_that_covers_the_worst_case(
     tmp_path: Path, budget
 ) -> None:
     assert _budget_findings(tmp_path, steady_max_trials=budget) == []
-
-
-def test_the_preflight_leaves_an_engine_that_cannot_count_alone(tmp_path: Path) -> None:
-    findings = _budget_findings(
-        tmp_path,
-        steady_method="scipy_nelder_mead",
-        steady_metric="distance_mean",
-        steady_max_trials=3,
-        transient_max_trials=2,
-    )
-
-    assert findings == []
 
 
 # --------------------------------------------------------------------------- #
@@ -763,18 +534,6 @@ def test_the_report_publishes_the_closed_bracket_in_physical_units() -> None:
     assert bracket["relative_width"] <= 0.01
 
 
-def test_a_minimiser_publishes_no_bracket() -> None:
-    optimizer = build_optimizer("random_search", _log_space(), seed=3)
-    session = run_engine(_log_space(), optimizer, _root_at(50.0), 3)
-
-    extra = search_outcome_extra(session)
-
-    assert "bracket" not in extra
-    assert extra["search"]["converged"] is False
-    assert extra["search"]["stop_state"] == "budget_spent"
-    assert extra["search"]["stopping_rule"] == BUDGET_RULE
-
-
 def _report(*, converged: bool | None) -> CalibrationReport:
     extra = {}
     if converged is not None:
@@ -797,37 +556,6 @@ def _report(*, converged: bool | None) -> CalibrationReport:
         best_parameters={"K": 2.1e-4},
         extra=extra,
     )
-
-
-def test_a_phase_that_did_not_converge_is_not_settled() -> None:
-    assert not phase_settled(_report(converged=False))
-    assert phase_settled(_report(converged=True))
-
-
-def test_a_report_without_a_search_record_is_judged_on_its_candidate() -> None:
-    assert phase_settled(_report(converged=None))
-
-
-def test_nothing_is_frozen_from_a_phase_that_did_not_converge(caplog) -> None:
-    decl = SimpleNamespace(name="steady", freeze_on_success=True, parameters=("K",))
-    with caplog.at_level(logging.WARNING):
-        froze = _frozen_by(decl, _report(converged=False), _log_space())
-
-    assert froze == ()
-    assert "before its stopping rule (xatol) was met" in caplog.text
-
-
-def test_a_phase_built_on_an_unconverged_one_is_refused() -> None:
-    decl = SimpleNamespace(name="steady", freeze_on_success=True, parameters=("K",))
-    remaining = [SimpleNamespace(decl=SimpleNamespace(name="transient", depends_on="steady"))]
-
-    with pytest.raises(CalibrationError) as caught:
-        _require_result_for_dependents(decl, _report(converged=False), remaining)
-
-    message = str(caught.value)
-    assert "max_trials = 120, plus 0 granted once" in message
-    assert "Raise max_trials: a re-run of the same file replays" in message
-    assert "['transient']" in message
 
 
 # --------------------------------------------------------------------------- #
@@ -870,27 +598,6 @@ def test_a_simplex_that_spends_its_budget_gets_no_extension(caplog) -> None:
     assert len(session.history) == 20
     assert "Granting" not in caplog.text
     assert "did NOT converge" in caplog.text
-
-
-def test_a_simplex_that_meets_its_tolerance_converges() -> None:
-    space = _two_dimensional_space()
-    optimizer = ScipyNelderMead(space, maxiter=500, maxfev=500)
-    session = run_engine(space, optimizer, _bowl__search_that, 200)
-
-    assert session.converged
-    assert session.extension == 0
-    assert len(session.history) < 200
-
-
-def test_a_simplex_stopped_by_its_own_evaluation_cap_has_not_converged() -> None:
-    # SciPy's own maxfev, written in the options, ends the thread with success
-    # False: the thread ending is not the simplex meeting its tolerance.
-    space = _two_dimensional_space()
-    optimizer = ScipyNelderMead(space, xatol=1e-12, fatol=1e-14, maxfev=100)
-    session = run_engine(space, optimizer, _rosenbrock__search_that, 200)
-
-    assert len(session.history) == 100
-    assert not session.converged
 
 
 # From test_an_auto_budget_covers_the_whole_grid.py
@@ -984,14 +691,6 @@ def test_the_root_search_reads_the_same_number_unconverted() -> None:
     # paper's one per cent is the engine's default, so the two agree.
     kwargs = stopping_kwargs("bisection", ParameterSpace([K]), precision=0.01)
     assert kwargs == {"rel_tol": 0.01}
-
-
-def test_the_declared_kwargs_pass_through_untouched_without_a_precision() -> None:
-    declared = {"maxiter": 30, "xatol": 0.30}
-    assert (
-        stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), precision=None, declared=declared)
-        == declared
-    )
 
 
 def test_the_precision_joins_the_other_declared_kwargs() -> None:

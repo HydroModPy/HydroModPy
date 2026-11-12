@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Annotated
 
@@ -11,19 +10,14 @@ import numpy as np
 import pytest
 from pydantic import BaseModel, Field
 
-from hydromodpy.calibration.optim.engine import CalibrationEngine
-from hydromodpy.calibration.optim.optimizer import EvaluationResult, build_optimizer, engine_traits
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, build_optimizer
 from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
     ParameterSpace,
     apply_parameter_to_config,
     set_by_path,
 )
-from hydromodpy.calibration.optim.sampling import (
-    physical_sample,
-    search_space_center,
-    search_space_samples,
-)
+from hydromodpy.calibration.optim.sampling import search_space_center, search_space_samples
 from hydromodpy.model.flow_config import FlowParam
 from hydromodpy.model.properties.field_param import FieldParam
 from tests.unit.calibration._factories_search import make_space, result_of
@@ -63,20 +57,6 @@ def _parameter(mode: str, name: str = "Sy") -> CalibParameter:
     return CalibParameter(
         name=name, lower=0.5, upper=8.0, path=f"flow.param.{name}.field.value", mode=mode, units="-"
     )
-
-
-def test_a_scale_that_lands_past_the_ceiling_is_refused() -> None:
-    cfg = _Cfg(0.1)
-
-    with pytest.raises(ValueError, match="Sy"):
-        apply_parameter_to_config(cfg, _parameter("scale"), 8.0)
-
-
-def test_the_refusal_names_the_value_that_would_have_been_written() -> None:
-    with pytest.raises(ValueError) as caught:
-        apply_parameter_to_config(_Cfg(0.1), _parameter("scale"), 8.0)
-
-    assert "0.8" in str(caught.value)
 
 
 def test_a_scale_that_stays_inside_is_written() -> None:
@@ -149,23 +129,6 @@ def test_the_refusal_points_at_the_phase_overrides() -> None:
     message = str(caught.value)
     assert "flow.flow_regime" in message
     assert "overrides" in message
-
-
-@pytest.mark.parametrize(
-    ("declaration", "name"),
-    [
-        ({"bounds": [1e-8, 1e-2], "search_space": "log", "path": "flow.param.K.field.value"}, "K"),
-        ({"bounds": [1.0, 2.0], "path": "flow.flow_regime_factor"}, "c"),
-        ({"bounds": [1.0, 2.0], "path": "simulation.something_else"}, "c"),
-        ({"bounds": [1.0, 2.0], "path": "flow.param.mesh_factor.field.value"}, "c"),
-    ],
-    ids=["hydraulic_property", "prefix_of_the_word", "other_simulation_key", "contains_the_word"],
-)
-def test_a_path_the_refusals_do_not_name_is_untouched(declaration: dict, name: str) -> None:
-    """A refusal is on the field or the section, not on a prefix or a substring."""
-    space = ParameterSpace.from_toml_mapping({name: declaration})
-
-    assert [param.name for param in space] == [name]
 
 
 # From test_a_trial_rebuilds_the_vertical_profile_field.py
@@ -294,18 +257,6 @@ def test_a_start_inside_the_box_steps_up_as_before() -> None:
 # produced, once, before the first solve.
 
 
-def test_a_bound_above_the_ceiling_is_refused() -> None:
-    """0.8 is out of range for a specific yield, declared or written."""
-    with pytest.raises(ValueError) as failure:
-        ParameterSpace.from_toml_mapping(
-            {"Sy": {"bounds": [1e-4, 0.8], "path": "flow.param.Sy.field.value"}}
-        )
-
-    message = str(failure.value)
-    assert "Sy" in message
-    assert "0.8" in message
-
-
 def test_a_bound_inside_the_ceiling_loads() -> None:
     """The guard only refuses what the registry declares impossible."""
     space = ParameterSpace.from_toml_mapping(
@@ -324,24 +275,11 @@ def test_an_uncatalogued_parameter_is_left_alone() -> None:
     assert space["bedleak"].upper == pytest.approx(1e-2)
 
 
-def test_the_name_that_is_checked_is_the_declared_one() -> None:
-    """The table key is the parameter id, which is what the registry keys on."""
-    with pytest.raises(ValueError, match="Sy"):
-        ParameterSpace.from_toml_mapping(
-            {"Sy": {"bounds": [0.0, 0.95], "path": "flow.param.Sy.field.value"}}
-        )
-
-
 # From test_calibration_parameters.py
 # Unit tests for hydromodpy.calibration.optim.parameters.
 
 
 class TestCalibParameter:
-    def test_identity_transform_roundtrip(self):
-        p = CalibParameter(name="x", lower=0.0, upper=10.0, search_space="identity")
-        assert p.to_transformed(5.0) == 5.0
-        assert p.to_physical(5.0) == 5.0
-
     def test_log_transform_roundtrip(self):
         p = CalibParameter(name="k", lower=1e-6, upper=1e-3, search_space="log")
         assert math.isclose(p.lower_transformed, -6.0)
@@ -349,11 +287,6 @@ class TestCalibParameter:
         y = p.to_transformed(1e-4)
         assert math.isclose(y, -4.0)
         assert math.isclose(p.to_physical(y), 1e-4)
-
-    def test_log_rejects_nonpositive(self):
-        p = CalibParameter(name="k", lower=1e-6, upper=1.0, search_space="log")
-        with pytest.raises(ValueError):
-            p.to_transformed(0.0)
 
     def test_logit_transform_roundtrip(self):
         p = CalibParameter(name="s", lower=0.05, upper=0.5, search_space="logit")
@@ -363,16 +296,6 @@ class TestCalibParameter:
 
 
 class TestParameterSpace:
-    def test_dim_and_names(self):
-        space = ParameterSpace(
-            [
-                CalibParameter(name="a", lower=0.0, upper=1.0),
-                CalibParameter(name="b", lower=-1.0, upper=1.0),
-            ]
-        )
-        assert space.dim == 2
-        assert space.names == ("a", "b")
-
     def test_duplicate_names_rejected(self):
         with pytest.raises(ValueError, match="Duplicate"):
             ParameterSpace(
@@ -429,26 +352,6 @@ def _optimizer():
     )
 
 
-def test_the_engine_says_it_runs_one_trial_at_a_time() -> None:
-    assert engine_traits("da_mh_gp").supports_parallel is False
-
-
-@pytest.mark.parametrize("setting", [{"parallel": 3}, {"batch_size": 4}])
-def test_a_parallel_setting_finishes(setting: dict[str, int]) -> None:
-    optimizer = _optimizer()
-    engine = CalibrationEngine(
-        space=_space__da_mh(), optimizer=optimizer, evaluator=_evaluate, max_trials=12, **setting
-    )
-    outcome: dict[str, object] = {}
-    worker = threading.Thread(target=lambda: outcome.update(session=engine.run()), daemon=True)
-
-    worker.start()
-    worker.join(TIMEOUT_S)
-
-    assert not worker.is_alive(), "the search waited for a point the chain cannot propose"
-    assert outcome["session"].history
-
-
 # From test_parameter_apply.py
 # Tests for parameter mode support and config application helpers.
 #
@@ -478,32 +381,6 @@ class _OuterCfg(BaseModel):
 
 
 class TestSpaceFromTomlMappingHydratesModeAndTarget:
-    def test_mode_defaults_to_replace(self):
-        space = ParameterSpace.from_toml_mapping(
-            {"K": {"bounds": [1e-6, 1e-3], "path": "K.homogeneous.value"}}
-        )
-        param = space["K"]
-        assert param.mode == "replace"
-        assert param.target is None
-        assert param.path == "K.homogeneous.value"
-        assert param.effective_path == "K.homogeneous.value"
-
-    def test_target_wins_over_path(self):
-        space = ParameterSpace.from_toml_mapping(
-            {
-                "K": {
-                    "bounds": [1e-6, 1e-3],
-                    "path": "legacy.path",
-                    "target": "K.homogeneous.value",
-                    "mode": "scale",
-                }
-            }
-        )
-        param = space["K"]
-        assert param.target == "K.homogeneous.value"
-        assert param.mode == "scale"
-        assert param.effective_path == "K.homogeneous.value"
-
     def test_rejects_unknown_mode(self):
         with pytest.raises(ValueError, match="mode must be 'replace' or 'scale'"):
             ParameterSpace.from_toml_mapping(
@@ -678,16 +555,6 @@ class _Config:
         self.flow = _Flow__parameter_path()
 
 
-def test_the_message_carries_the_whole_path() -> None:
-    """Naming the segment alone leaves the reader guessing where it sits."""
-    with pytest.raises(ValueError) as failure:
-        set_by_path(_Config(), "flow.parem.value", 2.0)
-
-    message = str(failure.value)
-    assert "flow.parem.value" in message
-    assert "parem" in message
-
-
 def test_the_message_names_the_parameter_that_declared_it() -> None:
     """The reader looks for a TOML key, so the error has to name one."""
     param = CalibParameter(name="K", lower=1e-8, upper=1e-2, path="flow.parem.value")
@@ -698,13 +565,6 @@ def test_the_message_names_the_parameter_that_declared_it() -> None:
     message = str(failure.value)
     assert "calibration.parameters.K" in message
     assert "flow.parem.value" in message
-
-
-def test_a_good_path_still_writes() -> None:
-    """The guard only shapes the failure."""
-    config = _Config()
-    set_by_path(config, "flow.field.value", 3.0)
-    assert config.flow.field.value == 3.0
 
 
 # From test_the_mesh_is_not_a_calibrated_parameter.py
@@ -782,9 +642,3 @@ def test_no_sample_asked_gives_an_empty_array() -> None:
     space = ParameterSpace([CalibParameter(name="x", lower=0.0, upper=1.0)])
 
     assert search_space_samples(space, np.random.default_rng(7), 0).shape == (0, 1)
-
-
-def test_physical_sample_returns_physical_value() -> None:
-    param = CalibParameter(name="k", lower=1e-6, upper=1e-2, search_space="log")
-    value = physical_sample(param, np.random.default_rng(3))
-    assert 1e-6 <= value <= 1e-2

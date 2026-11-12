@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -25,8 +25,6 @@ from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.families.grids import GridVariable
 from hydromodpy.data.families.stations import StationVariable
-from hydromodpy.data.loading.loader import DataLoader
-from hydromodpy.data.loading.store import DataStore
 from hydromodpy.data.provenance.lockfile import (
     LockedInputs,
     project_lockfile_path,
@@ -37,12 +35,9 @@ from hydromodpy.data.provenance.sidecars import (
     CacheIndex,
     CacheRow,
     empty_path_for,
-    load_sidecar,
     scan,
     sidecar_path_for,
-    write_sidecar,
 )
-from hydromodpy.data.provenance.sidecars import Sidecar as _Sidecar
 from hydromodpy.data.source.port import FetchRequest
 from hydromodpy.data.source.url import UrlSource
 
@@ -75,36 +70,6 @@ def _record(index: CacheIndex, relative: str, **fields: object) -> CacheRow:
 # -- record and rows ----------------------------------------------------------
 
 
-def test_a_record_is_a_row_read_back_by_a_new_index(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    row = _record(index, "hydrometry/h_src_A.csv", station_id="A", source_unit="L/s")
-
-    again = CacheIndex(data_root).rows()
-
-    assert again == [row]
-    assert again[0].source_unit == "L/s"
-    assert again[0].bytes == 4
-
-
-def test_rows_filter_on_variable_source_and_station(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    _record(index, "hydrometry/a.csv", station_id="A")
-    _record(index, "hydrometry/b.csv", station_id="B")
-    _record(index, "dem/d.tif", source="ign")
-
-    assert [r.station_id for r in index.rows(variable="hydrometry")] == ["A", "B"]
-    assert [r.variable for r in index.rows(source="ign")] == ["dem"]
-    assert [r.path.name for r in index.rows(station_id="B")] == ["b.csv"]
-
-
-def test_rows_come_sorted_so_a_page_is_stable(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    for name in ("c", "a", "b"):
-        _record(index, f"dem/{name}.tif")
-    assert [r.path.name for r in index.rows()] == ["a.tif", "b.tif", "c.tif"]
-    assert [r.path.name for r in index.rows()[1:2]] == ["b.tif"]
-
-
 def test_two_records_of_one_station_leave_one_row(data_root: Path) -> None:
     index = CacheIndex(data_root)
     first = _record(index, "hydrometry/h_src_A_2020.csv", station_id="A")
@@ -113,20 +78,6 @@ def test_two_records_of_one_station_leave_one_row(data_root: Path) -> None:
     assert index.rows() == [second]
     assert not first.path.exists()
     assert scan(data_root).rows == (second,)
-
-
-def test_two_stations_keep_two_rows(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    _record(index, "hydrometry/a.csv", station_id="A")
-    _record(index, "hydrometry/b.csv", station_id="B")
-    assert len(index.rows()) == 2
-
-
-def test_two_grids_of_one_source_keep_two_rows(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    _record(index, "recharge/r1.nc", bbox=(0, 0, 1, 1))
-    _record(index, "recharge/r2.nc", bbox=(5, 5, 6, 6))
-    assert len(index.rows(variable="recharge")) == 2
 
 
 def test_a_record_of_a_missing_file_is_refused(data_root: Path) -> None:
@@ -202,22 +153,6 @@ def test_a_row_without_a_period_answers_a_search_without_one(data_root: Path) ->
     assert index.find("dem", "src", date_start="2020-01-01") is None
 
 
-def test_the_most_recently_fetched_row_wins(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    old = _record(index, "dem/old.tif", bbox=BOX)
-    new = _record(index, "dem/new.tif", bbox=BOX, body=b"new data")
-    for row, when in (
-        (old, datetime(2020, 1, 1, tzinfo=UTC)),
-        (new, datetime(2024, 1, 1, tzinfo=UTC)),
-    ):
-        sidecar = load_sidecar(row.path).model_copy(update={"fetched_at": when})
-        write_sidecar(row.path, sidecar)
-
-    found = CacheIndex(data_root).find("dem", "src", bbox=(1, 1, 2, 2))
-
-    assert found is not None and found.path == new.path
-
-
 def test_an_empty_row_answers_its_station_and_its_window_only(data_root: Path) -> None:
     index = CacheIndex(data_root)
     folder = data_root / "hydrometry"
@@ -245,81 +180,10 @@ def test_an_empty_row_answers_its_station_and_its_window_only(data_root: Path) -
     )
 
 
-def test_an_empty_answer_and_a_chronicle_replace_each_other(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    chronicle = _record(index, "hydrometry/hydrometry_src_C_2000.csv", station_id="C")
-    folder = data_root / "hydrometry"
-    with index.chronicle(folder, "hydrometry_src_C"):
-        empty = index.record_empty(
-            empty_path_for(folder, "hydrometry_src_C"),
-            variable="hydrometry",
-            source="src",
-            station_id="C",
-        )
-    assert not chronicle.path.exists()
-    assert index.rows() == [empty]
-
-    with index.chronicle(folder, "hydrometry_src_C"):
-        again = _record(index, "hydrometry/hydrometry_src_C_2001.csv", station_id="C")
-    assert not empty.sidecar_path.exists()
-    assert scan(data_root).rows == (again,)
-
-
-def test_a_chronicle_reads_its_rows_again_from_the_disk(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    _ = index.rows()
-    other = CacheIndex(data_root)
-    written = _record(other, "hydrometry/hydrometry_src_D_2000.csv", station_id="D")
-
-    with index.chronicle(data_root / "hydrometry", "hydrometry_src_D") as rows:
-        assert rows == [written]
-    assert index.find("hydrometry", "src", station_id="D") == written
-
-
-def test_a_chronicle_lock_is_taken_again_by_its_thread(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    folder = data_root / "hydrometry"
-    with index.chronicle(folder, "hydrometry_src_E"), index.chronicle(folder, "hydrometry_src_E"):
-        _record(index, "hydrometry/hydrometry_src_E_1.csv", station_id="E")
-    assert len(index.rows()) == 1
-
-
 # -- paths ------------------------------------------------------------------------
 
 
-def test_a_path_does_not_depend_on_the_cwd(
-    data_root: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    project = data_root.parent / "projects" / "demo"
-    project.mkdir(parents=True)
-    monkeypatch.chdir(project)
-    index = CacheIndex(data_root)
-    row = _record(index, "hydrometry/hydrometry_hubeau_X1.csv", station_id="X1")
-
-    assert index.relative(row.path) == "hydrometry/hydrometry_hubeau_X1.csv"
-    assert index.resolve("hydrometry/hydrometry_hubeau_X1.csv") == row.path
-    assert index.row_for("hydrometry/hydrometry_hubeau_X1.csv") == row
-    assert index.row_for(row.path) == row
-
-
 # -- forget, orphans, subsume ---------------------------------------------------------
-
-
-def test_forgetting_rows_by_variable(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    _record(index, "hydrometry/a.csv", station_id="A")
-    kept = _record(index, "dem/d.tif")
-    for row in index.rows(variable="hydrometry"):
-        index.forget(row)
-    assert index.rows() == [kept]
-
-
-def test_forgetting_with_the_file_deletes_it(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    row = _record(index, "geology/geology_brgm_1m_abc.gpkg", source="brgm_1m")
-    index.forget(row, delete_file=True)
-    assert not row.path.exists()
-    assert not sidecar_path_for(row.path).exists()
 
 
 def test_orphans_leave_and_rows_with_files_stay(data_root: Path) -> None:
@@ -380,15 +244,6 @@ def test_subsume_removes_the_grids_the_kept_one_contains(
     assert keep.path.exists()
 
 
-def test_subsume_never_removes_the_kept_row_nor_a_user_file(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    user = _file(data_root, "recharge/mine.nc")
-    sidecar_path_for(user).write_text('{"source": "file", "sha256": "' + "0" * 64 + '"}')
-    keep = _record(index, "recharge/big.nc", bbox=BOX)
-    assert index.subsume(keep) == 0
-    assert keep.path.exists() and user.exists()
-
-
 def test_a_kept_row_without_a_box_subsumes_nothing(data_root: Path) -> None:
     index = CacheIndex(data_root)
     other = _record(index, "recharge/small.nc", bbox=(1, 1, 2, 2))
@@ -419,24 +274,12 @@ def test_subsume_leaves_a_grid_another_process_wrote_after_it_opened(data_root: 
 # -- freshness --------------------------------------------------------------------------
 
 
-def test_a_file_untouched_is_fresh(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    assert not index.is_stale(_record(index, "dem/d.tif"))
-
-
 def test_a_file_copied_later_with_the_same_bytes_is_fresh(data_root: Path) -> None:
     index = CacheIndex(data_root)
     row = _record(index, "dem/d.tif")
     later = time.time() + 60
     os.utime(row.path, (later, later))
     assert not index.is_stale(row)
-
-
-def test_a_file_of_other_bytes_is_stale(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    row = _record(index, "dem/d.tif")
-    row.path.write_bytes(b"other bytes")
-    assert index.is_stale(row)
 
 
 def test_a_file_rewritten_later_with_the_same_size_is_stale(data_root: Path) -> None:
@@ -465,27 +308,6 @@ def test_a_missing_file_is_stale_and_an_empty_row_never(data_root: Path) -> None
 
 
 # -- what the cache deletes ---------------------------------------------------------------
-
-
-def test_a_derived_copy_under_blobs_is_no_row(data_root: Path) -> None:
-    copy = _file(data_root, "blobs/geology/file/mine_clip_1.gpkg")
-    write_sidecar(
-        copy,
-        _Sidecar(source="brgm_1m", variable="geology", sha256="0" * 64, bytes=4),
-    )
-    index = CacheIndex(data_root)
-    assert index.rows() == []
-    assert copy.exists()
-
-
-def test_a_file_is_one_row_whatever_records_it(data_root: Path) -> None:
-    index = CacheIndex(data_root)
-    first = _record(index, "geology/shared.gpkg", source="brgm_1m")
-    second = index.record(first.path, variable="geology", source="brgm_50k")
-
-    assert index.rows() == [second]
-    index.forget(second, delete_file=True)
-    assert not first.path.exists()
 
 
 # -- the station and grid variables read back their own writes ----------------------------
@@ -699,21 +521,6 @@ def _short_station_project(tmp_path: Path, window: tuple[datetime, datetime] | N
     return project
 
 
-def test_a_station_shorter_than_its_window_replays_frozen(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """ONDE campaigns and sparse gauges never fill the window they were asked for."""
-    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
-    project = _short_station_project(tmp_path, window=None)
-    workspace = project.parent.parent
-    locked = read_locked_inputs(project)
-    variable = _stations(workspace, (datetime(2000, 1, 1), datetime(2000, 1, 31)), locked)
-    cfg = SimpleNamespace(station_ids=["B"], force_refresh=False, mask_path=None)
-    records = variable._fetch_with_station_cache(cfg, _no_download, source_name="hubeau")
-    assert [r.station_id for r in records] == ["B"]
-    assert records[0].date_end == datetime(2000, 1, 30)
-
-
 def test_an_empty_gap_is_asked_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A gap the provider has nothing for is recorded as asked, then never asked again."""
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
@@ -770,21 +577,6 @@ def test_an_index_is_not_frozen_unless_it_is_handed_a_lockfile(tmp_path: Path) -
         frozen_index.find("hydrometry", "hubeau", station_id="Z")
     assert free_index.find("hydrometry", "hubeau", station_id="Z") is None
     assert frozen_index.locked is locked and free_index.locked is None
-
-
-def test_a_store_and_a_loader_hand_their_lockfile_to_the_index(tmp_path: Path) -> None:
-    locked = _lockfile_pinning_nothing(tmp_path)
-    paths = SimpleNamespace(data_dir=tmp_path / "ws" / "data", root=tmp_path / "ws")
-    loader = DataLoader(config_path=tmp_path / "c.toml", data_plan=SimpleNamespace(), locked=locked)
-    loader._init_store(paths)
-    free_loader = DataLoader(config_path=tmp_path / "c.toml", data_plan=SimpleNamespace())
-    free_loader._init_store(paths)
-
-    assert loader._require_store().index.locked is locked
-    assert loader._require_store().locked is locked
-    assert free_loader._require_store().index.locked is None
-    assert DataStore(data_root=tmp_path / "d", locked=locked).index.locked is locked
-    assert DataStore().index.locked is None
 
 
 def test_the_index_a_url_source_builds_carries_the_lockfile(

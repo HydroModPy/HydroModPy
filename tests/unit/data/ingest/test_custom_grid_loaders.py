@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import builtins
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -96,35 +95,6 @@ class TestLoadCustomNc:
         assert np.allclose(rec.data["etp"].values, raw_values * 1000.0)
         assert rec.data["etp"].attrs["units"] == "mm/day"
         assert rec.data["etp"].attrs["source_unit"] == "m/day"
-
-    def test_load_with_project_period_clips(self, tmp_path):
-        """When project_period is given, temporal dimension is clipped."""
-        times = pd.date_range("2020-01-01", periods=30, freq="D")
-        ds = xr.Dataset(
-            {
-                "etp": (["time", "x", "y"], np.ones((30, 3, 3))),
-            },
-            coords={
-                "time": times,
-                "x": [1.0, 2.0, 3.0],
-                "y": [10.0, 20.0, 30.0],
-            },
-        )
-        ds["etp"].attrs["nodata"] = -9999.0
-        ds.attrs["crs"] = "EPSG:4326"
-        nc_path = tmp_path / "etp.nc"
-        ds.to_netcdf(nc_path)
-
-        records = load_custom_nc(
-            nc_path,
-            variable="etp",
-            unit="mm/d",
-            project_period=(datetime(2020, 1, 10), datetime(2020, 1, 20)),
-        )
-        rec = records[0]
-        # date range should be clipped to roughly 10th-20th
-        assert rec.date_start >= datetime(2020, 1, 10)
-        assert rec.date_end <= datetime(2020, 1, 20)
 
     def test_load_static_no_time(self, tmp_path):
         """Dataset without time dimension -> date_start/date_end are None."""

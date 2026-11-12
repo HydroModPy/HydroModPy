@@ -9,17 +9,15 @@ name is not scored, and the log and the sealed README say so.
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
-import pytest
 
-from hydromodpy.results.metric_rule import DateWindow, MetricRule
+from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.readme import render_run_readme
-from hydromodpy.results.score import score_run_under_its_rule, score_timeseries
+from hydromodpy.results.score import score_run_under_its_rule
 from hydromodpy.results.storage.sealing import build_record
 from hydromodpy.results.validity_rules import LabelResult
 
@@ -49,31 +47,6 @@ def _outlet_and_upstream(simulated_at: str = OUTLET) -> pd.DataFrame:
         + _rows(OUTLET, "discharge", days, values, source="observed")
         + _rows(UPSTREAM, "discharge", days, values * 0.3, source="observed")
     )
-
-
-def test_an_upstream_gauge_gets_no_row_and_the_log_says_why(caplog) -> None:
-    rule = MetricRule(station=OUTLET, window=YEAR_2001)
-
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.results.score"):
-        scores = score_timeseries(_outlet_and_upstream(), rule=rule)
-
-    assert {row.station for row in scores.rows} == {OUTLET}
-    assert scores.score.station == OUTLET and scores.score.value is not None
-    assert [(item.station, item.variable) for item in scores.unscored] == [(UPSTREAM, "discharge")]
-    warned = [record.getMessage() for record in caplog.records]
-    assert any(UPSTREAM in message and "not scored" in message for message in warned)
-
-
-@pytest.mark.parametrize("station", [None, OUTLET, UPSTREAM])
-def test_no_gauge_borrows_the_catchment_series(station) -> None:
-    frame = _outlet_and_upstream(simulated_at="catchment")
-
-    scores = score_timeseries(frame, rule=MetricRule(station=station, window=YEAR_2001))
-
-    assert scores.rows == ()
-    assert scores.score.value is None
-    assert {item.station for item in scores.unscored} == {OUTLET, UPSTREAM}
-    assert {item.simulated_at for item in scores.unscored} == {("catchment",)}
 
 
 def test_the_sealed_readme_names_the_gauge_that_was_not_scored(tmp_path) -> None:

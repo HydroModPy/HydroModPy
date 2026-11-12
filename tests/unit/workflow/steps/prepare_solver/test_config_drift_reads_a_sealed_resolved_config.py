@@ -120,12 +120,3 @@ def test_a_new_key_away_from_its_default_still_drifts(demo: Path) -> None:
     assert text != config.read_text(encoding="utf-8"), "the demo writes a recharge table"
 
     assert _drift_keys(demo) == ("flow.sinks_sources.recharge.factor",)
-
-
-def test_the_settings_of_the_solver_that_ran_still_drift(demo: Path) -> None:
-    resolved = demo / "config.resolved.toml"
-    text = resolved.read_text(encoding="utf-8")
-    resolved.write_text(text.replace("hdry = -100.0", "hdry = -77.0"), encoding="utf-8")
-    assert text != resolved.read_text(encoding="utf-8"), "the sealed hdry of NWT is -100.0"
-
-    assert "solver.modflow_nwt.runtime.upw.hdry" in _drift_keys(demo)

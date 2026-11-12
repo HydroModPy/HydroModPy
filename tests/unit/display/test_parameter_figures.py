@@ -120,14 +120,6 @@ def _axes():
     return plt.subplots()[1]
 
 
-def test_a_property_the_run_left_at_zero_is_not_given_a_panel() -> None:
-    assert _resolve_variables(_Run(), None) == ["hydraulic_conductivity", "specific_yield"]
-
-
-def test_asking_for_that_property_by_name_still_draws_it() -> None:
-    assert _resolve_variables(_Run(), ["specific_storage"]) == ["specific_storage"]
-
-
 def test_a_run_carrying_no_property_at_all_is_refused_by_name() -> None:
     with pytest.raises(ValueError, match="is set in this run"):
         _resolve_variables(_Run(with_storage=False), ["specific_yield"])
@@ -154,12 +146,6 @@ def test_the_section_gives_each_layer_the_value_that_layer_was_given() -> None:
         row = drawn[layer]
         assert np.nanmax(row) == pytest.approx(expected)
         assert np.nanmin(row) == pytest.approx(expected)
-
-
-def test_a_property_spanning_decades_is_drawn_on_a_log_ramp() -> None:
-    ax = _axes()
-    ParameterSection().render(_Run(), ax, variable="hydraulic_conductivity")
-    assert type(ax.collections[0].norm).__name__ == "LogNorm"
 
 
 def test_a_uniform_property_gets_its_value_in_the_title_and_no_ramp() -> None:

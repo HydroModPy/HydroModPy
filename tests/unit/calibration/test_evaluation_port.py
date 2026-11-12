@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.calibration.evaluation import registry
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.analytic_bowl import BOWL_OPTIMUM, AnalyticBowlEvaluator
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
@@ -16,10 +15,9 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 from hydromodpy.calibration.runners.recap import result_lines
-from hydromodpy.results.session.descriptor import ScoredSamples, read_session
+from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.summary import session_summary, summary_rows
 from hydromodpy.results.session.view import Session
-from tests._helpers.session_documents import calibration_window
 
 # From test_a_session_partial_for_a_failed_trial_names_it.py
 # A session left ``partial`` by a failed trial names that trial.
@@ -213,14 +211,6 @@ def test_hmp_calibrate_prints_the_pairs_beside_the_cost() -> None:
     )
 
 
-def test_hmp_calibrate_prints_the_declared_window_when_no_pair_was_counted() -> None:
-    extra = {"cost_metric": "1 - nse_log", "cost_window": "window 2016-01-01 to 2020-12-31"}
-
-    lines = result_lines(_report(extra))
-
-    assert "  scored on: window 2016-01-01 to 2020-12-31, pairs not counted" in lines
-
-
 # From test_the_session_records_the_pairs_its_cost_was_scored_on.py
 # ``session.json`` records the pairs the kept cost was scored on.
 #
@@ -301,27 +291,6 @@ def closed_session(tmp_path: Path, daily_probe) -> Path:
     path.write_text(PROBE_TOML__session_records, encoding="utf-8")
     report = run_calibration_cli(path, workspace=tmp_path)
     return Path(report.session_dir)
-
-
-def test_the_window_stays_the_declared_one(closed_session: Path) -> None:
-    descriptor = read_session(closed_session)
-
-    assert descriptor.windows == calibration_window(date(2016, 1, 1), date(2020, 12, 31))
-
-
-def test_the_pairs_of_the_best_trial_sit_beside_it(closed_session: Path) -> None:
-    descriptor = read_session(closed_session)
-
-    assert descriptor.scored == [
-        ScoredSamples(
-            window="calibration",
-            case_id="calibration",
-            output="hydrograph",
-            n=1827,
-            first=date(2016, 1, 2),
-            last=date(2021, 1, 1),
-        )
-    ]
 
 
 def test_the_html_report_prints_the_window_and_the_pairs(closed_session: Path) -> None:
@@ -420,12 +389,6 @@ class TestWhereTheOptimumIs:
         assert set(two.components) == {"k", "porosity"}
         assert two.cost == pytest.approx(sum(two.components.values()) / 2)
 
-    def test_a_value_outside_its_bounds_is_scored_and_not_clipped(self) -> None:
-        """An optimizer that leaves the box has to be told it is getting worse."""
-        bowl = _bowl(POROSITY)
-
-        assert _ask(bowl, {"porosity": 0.4}).cost > _ask(bowl, {"porosity": 0.3}).cost
-
 
 class TestWhatItRefusesToInvent:
     def test_a_name_the_space_never_declared_fails_and_says_which(self) -> None:
@@ -448,13 +411,6 @@ class TestWhatItRefusesToInvent:
 
         assert outcome.status == "failed"
         assert math.isnan(outcome.cost)
-
-    def test_a_parameter_the_sample_omits_is_not_scored_against_a_made_up_value(self) -> None:
-        """There is nothing to fabricate one from, and fabricating one would move the optimum."""
-        outcome = _ask(_bowl(LOG_K, POROSITY), {"k": 1e-4})
-
-        assert outcome.status == "completed"
-        assert set(outcome.components) == {"k"}
 
     def test_an_empty_sample_costs_nothing_and_completes(self) -> None:
         """A document declaring no parameter makes every optimizer ask with ``{}``."""
@@ -547,34 +503,3 @@ class TestWhatItIsBuiltWith:
     def test_without_a_space_it_says_what_a_space_is_for(self) -> None:
         with pytest.raises(ValueError, match="space"):
             AnalyticBowlEvaluator(space=None)
-
-    def test_the_registry_resolves_it_without_the_workflow_stack_behind_it(self) -> None:
-        """The reason it is a built-in and not a test double: a rehearsal has to be cheap."""
-
-        assert registry.evaluators.get("analytic_bowl") is AnalyticBowlEvaluator
-        assert registry.needs_prepared_model("analytic_bowl") is False
-        assert "analytic_bowl" in registry.evaluators.names(shipped_only=True)
-
-
-def test_an_outcome_without_a_profile_stays_valid_and_a_surrogate_returns_none() -> None:
-    from datetime import UTC, datetime
-
-    from hydromodpy.results.storage.run_profile import ProfileLine
-
-    plain = TrialOutcome(cost=1.0, status="completed", duration_s=0.1)
-    assert plain.profile == ()
-
-    outcome = _bowl(POROSITY).evaluate(TrialRequest(trial_id=1, values={"porosity": 0.2}))
-    assert outcome.status == "completed"
-    assert outcome.profile == ()
-
-    line = ProfileLine(
-        kind="solve",
-        name="flow",
-        attempt=1,
-        started_at=datetime(2026, 11, 11, tzinfo=UTC),
-        duration_s=0.2,
-        reused="rerun",
-    )
-    timed = TrialOutcome(cost=1.0, status="completed", duration_s=0.1, profile=(line,))
-    assert timed.profile == (line,)

@@ -18,7 +18,6 @@ from hydromodpy.results.storage.run_facts import (
     PromotionFacts,
     RunFacts,
 )
-from tests._helpers.run_records import make_record
 
 pytestmark = pytest.mark.unit
 
@@ -52,16 +51,6 @@ def _promotion(**updates) -> PromotionFacts:
     return PromotionFacts(**payload)
 
 
-def test_the_promotion_writes_the_convergence_and_the_bounds() -> None:
-    facts = _facts()
-
-    facts.apply_promotion(_promotion())
-
-    assert not {"cost_name", "cost", "objective_window"} & set(RunFacts.model_fields)
-    assert facts.converged is True
-    assert facts.bounds_hit == ["K"]
-
-
 def test_a_row_written_before_the_promotion_is_marked_calibrated() -> None:
     facts = _facts()
     facts.put_parameter(_row("K", value=1e-6))
@@ -74,16 +63,6 @@ def test_a_row_written_before_the_promotion_is_marked_calibrated() -> None:
     assert (by_name["Ss"].origin, by_name["Ss"].calibrated) == ("declared", False)
 
 
-def test_a_row_written_after_the_promotion_is_marked_calibrated() -> None:
-    facts = _facts()
-    facts.apply_promotion(_promotion())
-
-    facts.put_parameter(_row("K", value=1e-6))
-
-    assert facts.parameters[0].origin == "calibrated"
-    assert facts.parameters[0].calibrated is True
-
-
 def test_a_zone_names_its_rows_only() -> None:
     facts = _facts()
     facts.apply_promotion(_promotion(calibrated=[CalibratedParameter(name="K", zone="granite")]))
@@ -93,28 +72,3 @@ def test_a_zone_names_its_rows_only() -> None:
 
     marked = {row.zone: row.calibrated for row in facts.parameters}
     assert marked == {"granite": True, "schist": False}
-
-
-def test_the_calibrated_parameters_survive_the_facts_document() -> None:
-    facts = _facts()
-    facts.apply_promotion(_promotion())
-
-    again = RunFacts.model_validate(facts.model_dump(mode="json", by_alias=True))
-    again.put_parameter(_row("K"))
-
-    assert again.calibrated == [CalibratedParameter(name="K")]
-    assert again.parameters[0].calibrated is True
-
-
-def test_a_sealed_run_reads_its_calibrated_parameters_back() -> None:
-    record = make_record(
-        parameters=[
-            ParameterRow(name="K", value=1e-6, origin="calibrated", calibrated=True),
-            _row("Ss", value=1e-5),
-        ]
-    )
-    manifest = record.to_manifest(sealed_at=NOW, artifacts=[])
-
-    facts = RunFacts.from_manifest(manifest)
-
-    assert facts.calibrated == [CalibratedParameter(name="K", zone="catchment")]

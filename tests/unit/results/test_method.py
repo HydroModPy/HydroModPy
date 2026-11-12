@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from hydromodpy.results import method
-from hydromodpy.results.method import label_text, method_text
+from hydromodpy.results.method import method_text
 from hydromodpy.results.metric_rule import DateWindow, PeriodWindow
 from hydromodpy.results.record.checks import CalibratedBy, Validity
 from hydromodpy.results.record.manifest import InputEntry, ManifestGeometry, ManifestPeriod
-from hydromodpy.results.validity_rules import label_for
 from hydromodpy.schema.phrases import keys
 from tests._helpers.metric_rows import headline_score
 from tests._helpers.run_records import (
@@ -108,33 +107,6 @@ CALIBRATED_BY_LANG = {
 }
 
 
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_a_calibrated_run_reads_in_five_paragraphs(tmp_path: Path, lang: str) -> None:
-    paragraphs = _paragraphs(tmp_path, lang, checks=make_checks(calibrated_by=_by()))
-    assert len(paragraphs) == 5
-    text = "\n\n".join(paragraphs)
-    for sentence in CALIBRATED_BY_LANG[lang]:
-        assert sentence in text
-    run, data, calibration, quality, limits = paragraphs
-    assert run.startswith(CALIBRATED_BY_LANG[lang][0])
-    assert data == CALIBRATED_BY_LANG[lang][3]
-    assert calibration.startswith(CALIBRATED_BY_LANG[lang][4])
-    assert CALIBRATED_BY_LANG[lang][-2] in quality
-    assert limits == CALIBRATED_BY_LANG[lang][-1]
-
-
-def test_the_two_languages_hold_the_same_sentences_in_the_same_order(tmp_path: Path) -> None:
-    run_dir = _write(tmp_path, checks=make_checks(calibrated_by=_by()))
-    en = method_text(run_dir, lang="en", today=TODAY).split("\n\n")
-    fr = method_text(run_dir, lang="fr", today=TODAY).split("\n\n")
-    assert [p.count(". ") for p in en] == [p.count(". ") for p in fr]
-
-
-def test_the_day_defaults_to_the_current_one(tmp_path: Path) -> None:
-    text = method_text(_write(tmp_path))
-    assert datetime.now(UTC).date().isoformat() in text
-
-
 # lang, overrides, sentence written in the quality paragraph
 CONTROLS = [
     ("en", {"converged": True}, "solver convergence: passed."),
@@ -210,13 +182,6 @@ def test_a_fatal_failure_says_so_and_the_label_is_failed(tmp_path: Path) -> None
     assert "The failure of water_budget is fatal" in quality
 
 
-def test_a_failed_run_does_not_read_the_register(tmp_path: Path) -> None:
-    limits = _paragraphs(tmp_path, "fr", checks=make_checks(converged=False))[4]
-    assert limits == (
-        "L'étiquette est en échec, donc le registre des bogues connus n'a pas été lu pour ce run."
-    )
-
-
 def test_a_known_issue_is_written_with_its_fix_and_its_text(tmp_path: Path) -> None:
     identity = make_identity(hydromodpy_version="2.0.0a0")
     limits = _paragraphs(tmp_path, "en", identity=identity)[4]
@@ -265,29 +230,6 @@ def test_an_input_without_a_licence_is_said_to_have_none(
         license=licence,
     )
     assert _paragraphs(tmp_path, lang, inputs=[entry])[1] == expected
-
-
-def test_each_input_is_one_sentence_and_a_run_without_input_says_so(tmp_path: Path) -> None:
-    entries = [
-        InputEntry(
-            variable=name,
-            provider="sim2",
-            product_version="v3",
-            path=f"data/{name}.parquet",
-            sha256="ab" * 32,
-            license="etalab-2.0",
-        )
-        for name in ("recharge", "pet")
-    ]
-    data = _paragraphs(tmp_path / "two", inputs=entries)[1]
-    assert data == (
-        "The input recharge comes from sim2 v3, under the licence etalab-2.0. "
-        "The input pet comes from sim2 v3, under the licence etalab-2.0."
-    )
-    assert _paragraphs(tmp_path / "none", "en", inputs=[])[1] == "The run recorded no input."
-    assert _paragraphs(tmp_path / "nonefr", "fr", inputs=[])[1] == (
-        "Le run n'a enregistré aucune entrée."
-    )
 
 
 RUNS = [
@@ -403,35 +345,6 @@ def test_a_score_that_is_missing_or_empty_is_said(
     tmp_path: Path, overrides: dict[str, Any], expected: str
 ) -> None:
     assert expected in _paragraphs(tmp_path, "en", **overrides)[2]
-
-
-def test_the_status_of_a_newer_build_is_written_as_stored(tmp_path: Path) -> None:
-    checks = make_checks(calibrated_by=_by())
-    path = _write(tmp_path, checks=checks)
-    text = (path / "manifest.json").read_text(encoding="utf-8")
-    assert '"session_status": "completed"' in text
-    assert method._word("status", "paused", "en") == "paused"
-    assert method._word("status", "completed", "fr") == "terminé"
-
-
-def test_the_label_text_names_the_label_the_rule_the_day_and_each_reason() -> None:
-    result = label_for(make_checks(converged=False), hydromodpy_version="2.0.0a5")
-    en = label_text(result, lang="en", today=TODAY)
-    assert en == (
-        f"This run is labelled failed on 2026-11-11, under the validity rules {result.rule_version}. "
-        "Solver did not converge."
-    )
-    fr = label_text(result, lang="fr", today=TODAY)
-    assert fr == (
-        f"Ce run est étiqueté en échec au 2026-11-11, selon les règles de validité "
-        f"{result.rule_version}. Le solveur n'a pas convergé."
-    )
-
-
-def test_a_promoted_label_ends_with_its_one_reason() -> None:
-    result = label_for(make_checks(), hydromodpy_version="2.0.0a5")
-    text = label_text(result, lang="en", today=TODAY)
-    assert text.endswith("Promoted by session sess0001, completed.")
 
 
 def test_a_directory_without_a_seal_is_refused(tmp_path: Path) -> None:

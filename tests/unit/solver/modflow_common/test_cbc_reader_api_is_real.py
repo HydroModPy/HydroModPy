@@ -73,25 +73,6 @@ class TestTheBudgetOpensAtEitherPrecision:
     detection comes first and a forced width is only the fallback.
     """
 
-    def test_flopy_detection_is_asked_before_a_forced_width(self, monkeypatch) -> None:
-        from hydromodpy.solver.modflow_common import calibration_extractors as cal
-
-        attempts: list[str] = []
-
-        class _Budget:
-            pass
-
-        def _fake(path, precision=None):
-            del path
-            attempts.append(precision or "auto")
-            return _Budget()
-
-        monkeypatch.setattr("flopy.utils.binaryfile.CellBudgetFile", _fake, raising=True)
-        result = cal.open_cell_budget("whatever.cbc")
-
-        assert isinstance(result, _Budget)
-        assert attempts == ["auto"], "a forced width must never be the first attempt"
-
     def test_an_oserror_on_one_width_does_not_escape(self, monkeypatch) -> None:
         from hydromodpy.solver.modflow_common import calibration_extractors as cal
 

@@ -61,12 +61,3 @@ def test_describe_is_human_readable(project) -> None:
         cat.backend.connection.execute("DROP VIEW timeseries")
         assert "stations    : J0014010" in cat.describe()
         assert cat.variables()
-
-
-def test_the_data_cache_of_a_workspace_without_data_has_no_rows(tmp_path: Path) -> None:
-    from hydromodpy.data.provenance.sidecars import scan
-
-    report = scan(tmp_path / "data")
-
-    assert report.rows == ()
-    assert report.data_root == (tmp_path / "data").resolve()

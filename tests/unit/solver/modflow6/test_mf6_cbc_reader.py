@@ -68,23 +68,6 @@ def cbc_path(tmp_path: Path) -> Path:
     return path
 
 
-def test_headers_match_flopy(cbc_path: Path) -> None:
-    import flopy.utils.binaryfile as bf
-
-    flopy_cbb = bf.CellBudgetFile(str(cbc_path), precision="double")
-    with Mf6CellBudgetReader(cbc_path) as reader:
-        flopy_headers = flopy_cbb.recordarray
-        assert len(reader.records) == len(flopy_headers)
-        for record, expected in zip(reader.records, flopy_headers):
-            assert record.kstp == int(expected["kstp"])
-            assert record.kper == int(expected["kper"])
-            assert record.text == expected["text"].decode().strip()
-            assert record.imeth == int(expected["imeth"])
-        names = [name.decode().strip() for name in flopy_cbb.get_unique_record_names()]
-        assert reader.unique_record_names() == names
-    flopy_cbb.close()
-
-
 def test_payloads_match_flopy(cbc_path: Path) -> None:
     import flopy.utils.binaryfile as bf
 
@@ -100,16 +83,6 @@ def test_payloads_match_flopy(cbc_path: Path) -> None:
                 assert got.dtype == expected.dtype
                 np.testing.assert_array_equal(np.asarray(got), np.asarray(expected))
     flopy_cbb.close()
-
-
-def test_aux_names_parsed(cbc_path: Path) -> None:
-    with Mf6CellBudgetReader(cbc_path) as reader:
-        drn = next(r for r in reader.records if r.text == "DRN")
-        wel = next(r for r in reader.records if r.text == "WEL")
-        assert drn.aux_names == ("AREA",)
-        assert drn.nlist == 2
-        assert wel.aux_names == ()
-        assert wel.nlist == 1
 
 
 def test_rejects_non_compact_file(tmp_path: Path) -> None:

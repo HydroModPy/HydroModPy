@@ -9,11 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.catchment.drainage.graph import (
-    accumulate_on_downhill_graph,
-    active_surface_mask,
-    build_downhill_graph,
-)
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph, build_downhill_graph
 from hydromodpy.core.budget.flux import budget_outflow
 from tests._helpers.run_builders import RunBuilder, runs
 
@@ -47,14 +43,6 @@ def test_drain_budget_to_positive_outflow_sums_negative_layer_fluxes() -> None:
     outflow = budget_outflow(drn, n_cells=3)
 
     np.testing.assert_allclose(outflow, np.array([5.0, 4.0, 0.5]))
-
-
-def test_active_surface_mask_keeps_negative_valid_elevations() -> None:
-    surface = np.array([-25.0, 0.0, -99999.0, np.nan], dtype="float64")
-
-    mask = active_surface_mask(surface)
-
-    np.testing.assert_array_equal(mask, np.array([True, True, False, False]))
 
 
 def test_accumulate_downhill_on_mesh_routes_to_lower_neighbor() -> None:

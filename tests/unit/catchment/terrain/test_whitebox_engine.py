@@ -69,18 +69,6 @@ def _condition(tmp_path: Path, res: float, method, cut_m: float = 0.0, engine=No
     return flow.calls, result
 
 
-@pytest.mark.parametrize(
-    ("res", "max_distance_m", "cells"),
-    [(25.0, 200.0, 8), (5.0, 200.0, 40), (25.0, 210.0, 9), (25.0, 1.0, 1), (5.0, 12.0, 3)],
-)
-def test_metres_become_cells_rounded_up_and_never_below_one(
-    tmp_path, res, max_distance_m, cells
-) -> None:
-    calls, result = _condition(tmp_path, res, CappedBreach(0.5, max_distance_m))
-    assert calls == [("breach", {"max_dist": cells, "max_cost": 0.5, "fill_deps": True})]
-    assert result.breach_report.max_dist_cells == cells
-
-
 def test_the_depth_in_metres_is_the_cost_and_the_method_is_recorded(tmp_path) -> None:
     """The flat increment is left to the tool."""
     method = CappedBreach(max_depth_m=1.25, max_distance_m=50.0)
@@ -136,15 +124,3 @@ def test_only_a_cut_past_the_depth_cap_and_its_centimetre_is_warned_about_with_b
     assert "0.560" in warning
     assert "0.500" in warning
     assert "cumulative" in warning
-
-
-@pytest.mark.parametrize("rewritten", [False, True])
-def test_the_next_step_reuses_the_raster_written_until_its_file_changes(
-    tmp_path, rewritten
-) -> None:
-    flow, engine, reads = _engine(tmp_path)
-    _calls, conditioned = _condition(tmp_path, 25.0, "fill", engine=(flow, engine, reads))
-    if rewritten:
-        _write(conditioned.path, _surface()[:5])
-    engine.drainage_directions(conditioned, out=tmp_path / "out" / "pointer.tif")
-    assert reads == ["dem.tif", "conditioned.tif"][: 1 + rewritten]

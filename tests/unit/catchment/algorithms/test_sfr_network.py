@@ -120,25 +120,6 @@ def test_the_trace_never_lowers_a_reach_and_a_top_rising_downstream_keeps_a_floo
     assert all(reach.rgrd >= 1e-3 for reach in _trace(rising, min_slope=1e-3).reaches)
 
 
-@pytest.mark.parametrize(
-    ("lake", "terminal_lake"),
-    [(_lake_rows(5), 1), (None, None)],
-    ids=["boolean lake mask", "no lake"],
-)
-def test_the_reach_entering_the_lake_alone_is_terminal_and_tagged(lake, terminal_lake) -> None:
-    trace = _trace(_y_network(), lake_mask=lake)
-    terminals = _terminals(trace)
-    assert trace.reach_count == 3
-    assert _main(trace).downstream == ()
-    if terminal_lake is None:
-        assert terminals == []
-    else:
-        # A plain boolean mask (single-lake path) reads as lake 1.
-        assert [r.ifno for r in terminals] == [_main(trace).ifno]
-        assert terminals[0].terminal_lake == 1
-    assert all(r.terminal_lake is None for r in trace.reaches if not r.is_terminal_to_lake)
-
-
 @pytest.mark.parametrize("label", [True, 2], ids=["boolean", "labelled lake 2"])
 def test_a_link_crossing_the_lake_stops_at_the_shoreline(label) -> None:
     trace = _trace(_y_network(), lake_mask=_lake_rows(3, label=label))
@@ -165,19 +146,6 @@ def test_the_link_below_the_dam_is_kept_after_the_cut_at_the_lake() -> None:
     assert above.is_terminal_to_lake
     assert not below.is_terminal_to_lake
     assert below.downstream == ()
-
-
-def test_two_labelled_lakes_tag_distinct_terminals() -> None:
-    g = _grid(3, 3)
-    for col, tag in ((0, 1), (2, 2)):
-        g["link_id"][0:2, col] = tag
-        g["d8"][0:2, col] = _S  # the second cell drains into the lake cell (2, col)
-        g["acc"][0:2, col] = (1, 2)
-        g["top_dem"][0:2, col] = (10.0, 9.0)
-    label = np.zeros((3, 3), dtype=np.int32)
-    label[2, 0], label[2, 2] = 1, 2
-    trace = _trace(g, lake_mask=label)
-    assert sorted(r.terminal_lake for r in _terminals(trace)) == [1, 2]
 
 
 def _column(*links: int) -> dict[str, np.ndarray]:

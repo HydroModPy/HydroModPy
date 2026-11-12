@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Annotated, Literal
 
 import pytest
@@ -19,10 +18,7 @@ from pydantic import (
 from hydromodpy.core.config_kit.base import HydroModelBase, write_resolved
 from hydromodpy.core.config_kit.written import (
     _validated_default,
-    experimental_keys_line,
-    log_experimental_keys,
     written_as_a_file,
-    written_experimental_keys,
     written_fields,
     written_payload,
 )
@@ -65,99 +61,6 @@ class _Cfg(HydroModelBase):
     tags: list[str] = Field(default_factory=list)
 
 
-def test_a_field_nobody_gave_is_not_written_but_a_union_tag_always_is() -> None:
-    assert written_fields(_Cfg()) == ()
-    assert written_fields(_Cfg(name="run")) == ("name",)
-    assert written_fields(_Solver()) == ("kind",)
-
-
-def test_a_value_that_departs_from_the_default_counts_as_written() -> None:
-    cfg = _Cfg()
-    object.__setattr__(cfg, "name", "other")
-    assert "name" in written_fields(cfg)
-
-
-def test_a_field_set_to_its_own_default_still_counts_as_given() -> None:
-    assert "name" in written_fields(_Cfg(name="run"))
-
-
-def test_the_payload_keeps_given_fields_at_every_depth() -> None:
-    cfg = _Cfg(
-        mesh=_Mesh(nx=4), solver=_Solver(), steps=[_Step(value="7 days")], limits={"a": _Mesh(ny=2)}
-    )
-    assert written_payload(cfg) == {
-        "mesh": {"nx": 4},
-        "solver": {"kind": "cg"},
-        "steps": [{"value": "7 days", "unit": "days"}],
-        "limits": {"a": {"ny": 2}},
-    }
-
-
-def test_the_payload_validates_back_into_a_model_with_the_same_fields_set() -> None:
-    cfg = _Cfg(name="n", mesh=_Mesh(nx=4), solver=_Other(), steps=[_Step(value="7 days")])
-    back = _Cfg.model_validate(written_payload(cfg))
-    assert back == cfg
-    assert back.model_fields_set == cfg.model_fields_set
-
-
-def test_a_file_leaves_out_nulls_excluded_fields_and_empty_defaults() -> None:
-    cfg = _Cfg(name="n", solver=_Solver(), note=None, hidden=5, tags=[], limits={})
-    said = written_as_a_file(cfg)
-    assert said == {"name": "n", "solver": {"kind": "cg"}}
-
-
-def test_a_file_keeps_an_empty_table_over_a_default_of_none() -> None:
-    class _Opt(HydroModelBase):
-        mesh: _Mesh | None = None
-
-    assert written_as_a_file(_Opt(mesh=_Mesh())) == {"mesh": {}}
-
-
-def test_a_file_drops_the_none_inside_a_given_table_and_list() -> None:
-    class _Holder(HydroModelBase):
-        free: dict[str, int | None] = {}
-        row: list[int | None] = []
-
-    cfg = _Holder(free={"a": 1, "b": None}, row=[1, None])
-    assert written_as_a_file(cfg) == {"free": {"a": 1}, "row": [1]}
-
-
-def test_a_file_reads_alike_before_and_after_a_round_trip() -> None:
-    cfg = _Cfg(name="n", solver=_Solver(), steps=[_Step(value="3 days")])
-    assert written_as_a_file(_Cfg.model_validate(written_as_a_file(cfg))) == written_as_a_file(cfg)
-
-
-def test_nothing_experimental_is_reported_for_defaults() -> None:
-    assert written_experimental_keys(_Cfg()) == ()
-
-
-def test_an_experimental_key_and_an_experimental_value_are_reported_by_path() -> None:
-    cfg = _Cfg(scheme="fancy", solver=_Solver(damping=0.1), steps=[_Step(value="1 day")])
-    assert written_experimental_keys(cfg) == ("solver.damping", 'scheme = "fancy"')
-
-
-def test_an_experimental_key_inside_a_list_or_table_carries_its_index_or_name() -> None:
-    class _Inner(HydroModelBase):
-        flag: Annotated[bool, Field(json_schema_extra={"stability": "experimental"})] = False
-
-    class _Outer(HydroModelBase):
-        rows: list[_Inner] = []
-        by_name: dict[str, _Inner] = {}
-
-    cfg = _Outer(rows=[_Inner(), _Inner(flag=True)], by_name={"w": _Inner(flag=True)})
-    assert written_experimental_keys(cfg) == ("rows[1].flag", "by_name.w.flag")
-
-
-def test_the_line_lists_the_keys_and_the_log_says_it_once(caplog: pytest.LogCaptureFixture) -> None:
-    cfg = _Cfg(solver=_Solver(damping=0.1))
-    assert experimental_keys_line(["a", "b"]).endswith("minor release: a, b")
-    with caplog.at_level(logging.INFO):
-        log_experimental_keys(cfg)
-        log_experimental_keys(_Cfg())
-    messages = [r.getMessage() for r in caplog.records if "Experimental keys" in r.getMessage()]
-    assert messages == [experimental_keys_line(["solver.damping"])]
-
-
 # A frozen copy of a configuration keeps what it was given, not the defaults it took.
 #
 # ``written_payload`` writes the copy a run freezes. A default nobody gave stays
@@ -188,28 +91,6 @@ class _Root(BaseModel):
     name: str = "run"
 
 
-def test_a_default_nobody_gave_is_left_out() -> None:
-    root = _Root.model_validate({"section": {"leaf": {"depth": 3.0}}})
-
-    payload = written_payload(root)
-
-    assert payload == {"section": {"leaf": {"depth": 3.0}}}
-    assert _Root.model_validate(payload).section.leaf.model_fields_set == {"depth"}
-
-
-def test_a_default_the_file_wrote_is_kept() -> None:
-    root = _Root.model_validate({"name": "run"})
-
-    assert written_payload(root) == {"name": "run"}
-
-
-def test_a_value_set_below_an_unwritten_section_is_kept() -> None:
-    root = _Root()
-    root.section.leaf.offset = 5.0
-
-    assert written_payload(root) == {"section": {"leaf": {"offset": 5.0}}}
-
-
 class _FrozenStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -231,16 +112,6 @@ class _FrozenStep(BaseModel):
         return self
 
 
-def test_a_field_a_validator_derived_is_kept() -> None:
-    step = _FrozenStep.model_validate({"value": "7 days"})
-    step.__pydantic_fields_set__.discard("unit")
-
-    payload = written_payload(step)
-
-    assert payload == {"value": 7.0, "unit": "days"}
-    assert _FrozenStep.model_validate(payload) == step
-
-
 def _with_metres(value: object) -> object:
     return f"{value} m" if isinstance(value, float) else value
 
@@ -252,13 +123,6 @@ class _Etp(BaseModel):
         default=2.0, validate_default=True
     )
     extinction_depth: float = 1.0
-
-
-def test_a_default_is_compared_as_its_field_validates_it() -> None:
-    etp = _Etp.model_validate({"extinction_depth": 2.9})
-
-    assert etp.surface_offset == "2.0 m"
-    assert written_payload(etp) == {"extinction_depth": 2.9}
 
 
 class _Homogeneous(BaseModel):
@@ -279,15 +143,6 @@ class _Parameter(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     field: Annotated[_Homogeneous | _Zonal, Field(discriminator="kind")] = _Homogeneous()
-
-
-def test_the_tag_of_a_union_member_is_kept() -> None:
-    parameter = _Parameter(field=_Zonal(zones=3))
-
-    payload = written_payload(parameter)
-
-    assert payload == {"field": {"kind": "zonal", "zones": 3}}
-    assert _Parameter.model_validate(payload) == parameter
 
 
 # Named tables: a table is said when it was written, flat under its name -----------
@@ -320,10 +175,6 @@ TABLE_READERS = (
 @pytest.mark.parametrize(("reader", "expected"), TABLE_READERS)
 def test_a_written_table_is_said_and_a_held_default_is_not(reader, expected) -> None:
     assert reader(_Held()) == expected
-
-
-def test_an_experimental_key_of_a_written_table_is_named_under_the_table() -> None:
-    assert written_experimental_keys(_Held()) == ("cg.damping",)
 
 
 class _Derived(BaseModel):

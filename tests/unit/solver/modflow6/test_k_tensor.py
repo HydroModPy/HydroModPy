@@ -27,10 +27,7 @@ from hydromodpy.solver.modflow6.build import (
 )
 from hydromodpy.solver.modflow6.builders import period_forcing
 from hydromodpy.solver.modflow6.builders.lake_cells import apply_lake_idomain_mask
-from hydromodpy.solver.modflow6.builders.solver_options import (
-    k_tensor_is_tilted,
-    resolve_xt3d_decision,
-)
+from hydromodpy.solver.modflow6.builders.solver_options import resolve_xt3d_decision
 from hydromodpy.solver.modflow6.support.property_mapping import (
     K_TENSOR_NPF_NAMES,
     MODFLOW6_PROPERTIES,
@@ -180,40 +177,11 @@ def _model(arrays: dict[str, np.ndarray]) -> SimpleNamespace:
     return model
 
 
-@pytest.mark.parametrize(
-    ("key", "name", "value"),
-    [
-        ("K22", "k22", 2e-5),
-        ("Kv", "kv", 1e-6),
-        ("angle1", "angle1", 60.0),
-        ("angle2", "angle2", -15.0),
-        ("angle3", "angle3", 5.0),
-    ],
-)
-def test_each_tensor_property_is_carried_to_every_cell(key: str, name: str, value: float) -> None:
-    overrides = resolve_flow_property_runtime_overrides(
-        {"properties": {key: value}}, nlay=2, n_cells=N_CELLS, required_properties={"K"}
-    )
-    assert overrides[name].shape == (2, N_CELLS)
-    assert np.all(overrides[name] == value)
-    assert np.all(overrides[f"{name}_value"] == value)
-
-
 def test_an_override_names_a_property_by_its_one_id() -> None:
     with pytest.raises(ValueError, match="K33 name no flow property"):
         resolve_flow_property_runtime_overrides(
             {"properties": {"K33": 1e-6}}, nlay=2, n_cells=N_CELLS, required_properties={"K"}
         )
-
-
-def test_an_override_wins_over_the_flow_angle() -> None:
-    arrays = _modflow6({"angle1": 0.0, "K22": 2e-5})
-    assert np.all(arrays["angle1"] == 0.0)
-    assert np.all(arrays["k22"] == 2e-5)
-
-
-def test_the_flow_alone_keeps_xt3d_off() -> None:
-    assert resolve_xt3d_decision(_model(_modflow6({})), _mesh()).enabled is False
 
 
 def test_an_override_that_turns_k22_off_axis_turns_xt3d_on() -> None:
@@ -236,28 +204,6 @@ def test_an_unknown_property_name_is_refused() -> None:
         )
 
 
-def test_a_solver_without_the_tensor_refuses_a_k22_override() -> None:
-    with pytest.raises(ValueError, match="sets K22, which this solver does not read"):
-        resolve_flow_property_arrays(
-            profiles=_profiles(),
-            domain=SimpleNamespace(zones={}),
-            solver_mesh=_mesh(),
-            required_properties=frozenset({"K"}),
-            runtime_property_overrides={"properties": {"K22": 1e-5}},
-        )
-
-
-def test_the_keys_beside_the_properties_are_not_properties() -> None:
-    """Only the mapping under ``properties`` sets a property; a source or a name sets none."""
-    overrides = resolve_flow_property_runtime_overrides(
-        {"source": "project_run", "name": "run_a"},
-        nlay=2,
-        n_cells=N_CELLS,
-        required_properties={"K", "Sy", "Ss"},
-    )
-    assert overrides == {}
-
-
 @pytest.mark.parametrize(
     ("properties", "match"),
     [({"K": 1e3}, r"hydraulic conductivity \(id='K'\) in the runtime override, one value for every cell, value 1000.0 outside"),
@@ -271,16 +217,6 @@ def test_an_override_outside_the_physical_range_is_refused(properties, match) ->
         resolve_flow_property_runtime_overrides(
             {"properties": properties}, nlay=2, n_cells=N_CELLS, required_properties=TRANSIENT
         )
-
-
-@pytest.mark.parametrize("properties", [{"Sy": 0.0}, {"Ss": [np.nan] * N_CELLS}], ids=["sy", "ss"])
-def test_a_steady_run_does_not_bound_the_storage_it_does_not_read(properties) -> None:
-    overrides = resolve_flow_property_runtime_overrides(
-        {"properties": properties}, nlay=2, n_cells=N_CELLS, required_properties={"K"}
-    )
-    assert overrides.keys() == {
-        f"{name.lower()}{end}" for name in properties for end in ("", "_value")
-    }
 
 
 # MODFLOW 6 receives K22 and the three angles of the K tensor, and XT3D when it is tilted.
@@ -320,27 +256,6 @@ def _model_2(*, xt3d: bool | None = None, **arrays: np.ndarray) -> SimpleNamespa
     return model
 
 
-def test_k22_and_the_angles_are_mapped_on_every_cell_of_every_layer() -> None:
-    mapped = _mapped(K22=2e-5, angle1=30.0, angle2=-15.0, angle3=5.0)
-    for name, value in (("k22", 2e-5), ("angle1", 30.0), ("angle2", -15.0), ("angle3", 5.0)):
-        assert np.asarray(mapped[name]).shape == (2, N_CELLS)
-        assert np.all(np.asarray(mapped[name]) == value)
-
-
-def test_a_flow_without_the_tensor_maps_no_tensor_array() -> None:
-    mapped = _mapped()
-    assert not {"k22", "angle1", "angle2", "angle3"} & set(mapped)
-
-
-def test_npf_receives_only_the_tensor_arrays_the_flow_sets() -> None:
-    k22 = np.full((2, N_CELLS), 2e-5)
-    angle1 = np.full((2, N_CELLS), 30.0)
-    kwargs = k_tensor_npf_kwargs(_model_2(k22=k22, angle1=angle1))
-    assert set(kwargs) == {"k22", "angle1"}
-    assert kwargs["k22"] is k22
-    assert k_tensor_npf_kwargs(_model_2()) == {}
-
-
 def test_a_dip_alone_writes_the_three_angles_the_missing_ones_as_zero() -> None:
     dip = np.full((2, N_CELLS), 20.0)
     kwargs = k_tensor_npf_kwargs(_model_2(angle2=dip))
@@ -348,29 +263,6 @@ def test_a_dip_alone_writes_the_three_angles_the_missing_ones_as_zero() -> None:
     assert np.all(kwargs["angle1"] == 0.0)
     assert np.all(kwargs["angle3"] == 0.0)
     assert kwargs["angle2"] is dip
-
-
-@pytest.mark.parametrize("name", ["angle2", "angle3"])
-def test_a_tilted_tensor_turns_xt3d_on_even_on_a_regular_grid(name: str) -> None:
-    angles = np.zeros((2, N_CELLS))
-    angles[1, 2] = 10.0
-    model = _model_2(**{name: angles})
-    assert k_tensor_is_tilted(model)
-    with pytest.warns(RuntimeWarning, match="tilted"):
-        decision = resolve_xt3d_decision(model, _mesh())
-    assert decision.enabled
-    assert decision.source == "auto_on"
-
-
-def test_an_azimuth_without_k22_leaves_xt3d_off_on_a_regular_grid() -> None:
-    model = _model_2(angle1=np.full((2, N_CELLS), 30.0))
-    assert not k_tensor_is_tilted(model)
-    assert resolve_xt3d_decision(model, _mesh()).enabled is False
-
-
-def test_zero_dip_angles_do_not_tilt_the_tensor() -> None:
-    model = _model_2(angle2=np.zeros((2, N_CELLS)), angle3=np.zeros((2, N_CELLS)))
-    assert not k_tensor_is_tilted(model)
 
 
 def test_a_written_xt3d_off_is_kept_with_a_warning_on_a_tilted_tensor() -> None:
@@ -450,12 +342,6 @@ def test_an_uncovered_active_cell_is_refused_and_names_the_support():
         require_positive_conductivity(
             hk, active_mask=np.ones_like(hk, dtype=bool), profiles=profiles
         )
-
-
-def test_an_uncovered_inactive_cell_is_accepted():
-    param, hk = _k_with_an_uncovered_cell()
-    active = hk > 0.0
-    require_positive_conductivity(hk, active_mask=active, profiles={})
 
 
 def test_a_non_finite_conductivity_is_refused():

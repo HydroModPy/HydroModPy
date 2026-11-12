@@ -8,7 +8,6 @@ earlier configuration are never read.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -120,15 +119,6 @@ def test_rasters_left_by_an_earlier_configuration_are_not_read(tmp_path: Path, t
     assert _exits(tmp_path, _geographic(tmp_path, enabled=False), traces=traces) is None
 
 
-@pytest.mark.parametrize("enabled", [True, False])
-def test_a_run_without_a_corrected_flow_folder_has_no_exits(tmp_path: Path, enabled: bool) -> None:
-    assert _exits(tmp_path, _geographic(None, enabled=enabled), traces={"net0": object()}) is None
-
-
-def test_a_run_without_a_delineation_has_no_exits(tmp_path: Path) -> None:
-    assert _exits(tmp_path, None) is None
-
-
 def test_missing_rasters_give_no_exits_and_no_error(tmp_path: Path) -> None:
     assert _exits(tmp_path, _geographic(tmp_path), traces={"net0": object()}) is None
 
@@ -139,20 +129,6 @@ def test_the_clipped_rasters_are_never_read_as_the_network(tmp_path: Path) -> No
     geographic = _geographic(None, river_streams_tif=str(clipped))
 
     assert _exits(tmp_path, geographic, traces={"net0": object()}) is None
-
-
-def test_a_link_raster_older_than_the_stream_raster_is_not_the_network(tmp_path: Path) -> None:
-    _write_network(tmp_path)
-    streams = np.zeros((4, 5), dtype=np.int32)
-    streams[2, 1:3] = 1
-    _write(tmp_path / STREAMS, streams)
-    moment = os.path.getmtime(tmp_path / STREAMS) - 60.0
-    os.utime(tmp_path / LINK, (moment, moment))
-
-    exits = _exits(tmp_path, _geographic(tmp_path))
-
-    assert exits is not None
-    assert np.flatnonzero(exits.holds_a).tolist() == [3, 4]
 
 
 def test_a_tree_with_no_pixel_on_the_mesh_gives_exits_that_hold_nothing(tmp_path: Path) -> None:

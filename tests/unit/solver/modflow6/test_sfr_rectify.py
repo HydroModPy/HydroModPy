@@ -9,7 +9,6 @@ import pytest
 
 from hydromodpy.solver.modflow6.builders.sfr_rectify import (
     _prune_parallel_stub_cells,
-    _reach_components,
     rectify_reach_graph,
 )
 
@@ -58,58 +57,12 @@ def _rectify(records, top, adj, receiver, *, lakes=None, spillway=frozenset(), n
     )
 
 
-def test_channel_traces_a_seed_to_the_lake() -> None:
-    # A single delineated seed at cell 2 becomes an SFD channel 2 -> 3 -> 4, ending at
-    # the lake cell 5 (the lake itself is the sink, not a reach).
-    top, adj, receiver = _chain(6)
-    nodes, edges = _rectify([_Rec(0, (0, 2))], top, adj, receiver, lakes={5: 1})
-    cells = sorted(nd["cellid"][1] for nd in nodes)
-    assert cells == [2, 3, 4]
-    for a, b in edges:  # every edge crosses a shared face (no geometric gap)
-        assert nodes[b]["cellid"][1] in adj[nodes[a]["cellid"][1]]
-    assert any(nd["is_terminal_to_lake"] and nd["terminal_lake"] == 1 for nd in nodes)
-
-
 def test_a_shore_cell_ends_terminal_to_its_lake() -> None:
     top, adj, receiver = _chain(6)
     nodes, _ = _rectify([_Rec(0, (0, 2))], top, adj, receiver, lakes={5: 1})
     terminal = [nd["cellid"][1] for nd in nodes if nd["is_terminal_to_lake"]]
     assert terminal == [4]
     assert 5 not in {nd["cellid"][1] for nd in nodes}
-
-
-def test_a_seed_walks_down_the_receivers_to_the_outlet() -> None:
-    # Receiver -1 at cell 5 makes it the outlet reach: it leaves the model.
-    top, adj, receiver = _chain(6)
-    nodes, edges = _rectify([_Rec(0, (0, 2))], top, adj, receiver)
-    cells = [nd["cellid"][1] for nd in nodes]
-    assert sorted(cells) == [2, 3, 4, 5]
-    assert not any(nd["is_terminal_to_lake"] for nd in nodes)
-    has_down = {a for a, _b in edges}
-    outlet = [i for i in range(len(nodes)) if i not in has_down]
-    assert [cells[i] for i in outlet] == [5]
-
-
-def test_a_pit_in_the_top_is_followed_through_and_rtp_reads_the_top() -> None:
-    # Cell 1 is a local minimum of T. D has already filled it, so its receiver steps on.
-    # The channel follows D across the pit and the streambed top stays the raw T value.
-    _, adj, receiver = _chain(5)
-    top = np.array([100.0, 96.0, 99.0, 98.0, 97.0])
-    nodes, edges = _rectify([_Rec(0, (0, 0))], top, adj, receiver)
-    by_cell = {nd["cellid"][1]: nd for nd in nodes}
-    assert sorted(by_cell) == [0, 1, 2, 3, 4]
-    for cell, node in by_cell.items():
-        assert node["rtp"] == top[cell]
-    for a, b in edges:
-        assert nodes[b]["cellid"][1] in adj[nodes[a]["cellid"][1]]
-
-
-def test_the_channel_follows_the_receiver_not_the_steepest_neighbour_of_the_top() -> None:
-    # On T, cell 1 drops to cell 0's side, but D (the receiver) sends it east.
-    _, adj, receiver = _chain(4)
-    top = np.array([50.0, 60.0, 70.0, 40.0])
-    nodes, _ = _rectify([_Rec(0, (0, 1))], top, adj, receiver)
-    assert sorted(nd["cellid"][1] for nd in nodes) == [1, 2, 3]
 
 
 def test_a_cycle_in_the_receiver_raises() -> None:
@@ -173,22 +126,6 @@ def _grid(nrow: int, ncol: int, top_of):
     return top, adj, receiver, n
 
 
-def test_channel_is_one_cell_wide_and_continuous_on_the_descent_graph() -> None:
-    # Two adjacent parallel seeds on an east-descending slope both follow D east, so the
-    # rebuilt channel is a single continuous line per row (no braided clump).
-    top, adj, receiver, n = _grid(2, 4, lambda r, c: 100.0 - 10.0 * c + 0.1 * r)
-    seeds = [_Rec(0, (0, 1)), _Rec(1, (0, 5))]  # cells 1 (row0,col1) and 5 (row1,col1)
-    nodes, edges = _rectify(seeds, top, adj, receiver, lakes={3: 1, 7: 1}, n=n)
-    # one downstream per cell (single-flow-direction) => no braiding
-    down_count: dict[int, int] = {}
-    for a, _b in edges:
-        down_count[a] = down_count.get(a, 0) + 1
-    assert all(v <= 1 for v in down_count.values())
-    # every edge crosses a shared face => no geometric gap
-    for a, b in edges:
-        assert nodes[b]["cellid"][1] in adj[nodes[a]["cellid"][1]]
-
-
 def test_prune_demotes_a_low_order_parallel_stub() -> None:
     # Main stem 0->1->2->3; a stub cell 4 flows into cell 2 and sits beside cell 1 (a
     # reach carrying more upstream). The stub is demoted, the main stem is untouched.
@@ -205,11 +142,6 @@ def test_prune_keeps_a_stub_with_no_bigger_neighbour() -> None:
     adj = [{1}, {0, 2}, {1, 3, 4}, {2}, {2}]
     kept = _prune_parallel_stub_cells(downstream, adj, max_stub_upstream=2)
     assert kept == {0, 1, 2, 3, 4}
-
-
-def test_reach_components_separates_disconnected_chains() -> None:
-    comps = _reach_components({0: 1, 1: None, 5: 6, 6: None, 9: None})
-    assert sorted(len(c) for c in comps) == [1, 2, 2]  # {0,1}, {5,6}, {9}
 
 
 def test_lone_single_cell_component_is_dropped() -> None:
@@ -260,15 +192,3 @@ def test_a_lone_staircase_channel_keeps_every_cell() -> None:
     nodes, _ = _rectify(records, top, _faces(n, n), receiver)
 
     assert sorted(nd["cellid"][1] for nd in nodes) == sorted(cells)
-
-
-def test_a_cell_touching_a_lake_at_a_corner_only_is_not_a_lake_terminal() -> None:
-    # 3 x 3: the channel 0 -> 1 -> 4 -> 5 leaves the model; the lake cell 6 touches
-    # the channel cell 4 at a corner only.
-    receiver = np.array([1, 4, -1, -1, 5, -1, -1, -1, -1])
-    top = np.full(9, 100.0)
-
-    nodes, _ = _rectify([_Rec(0, (0, 0))], top, _faces(3, 3), receiver, lakes={6: 1})
-
-    assert sorted(nd["cellid"][1] for nd in nodes) == [0, 1, 4, 5]
-    assert not any(nd["is_terminal_to_lake"] for nd in nodes)

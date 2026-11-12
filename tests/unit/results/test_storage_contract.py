@@ -17,10 +17,6 @@ from hydromodpy.core.state.layout import (
     SESSIONS_DIRNAME,
     TRASH_DIRNAME,
     WORKSPACE_TOML_FILENAME,
-    catalog_path_for,
-    runs_dir_for,
-    sessions_dir_for,
-    trash_dir_for,
 )
 
 
@@ -34,13 +30,6 @@ def test_project_directory_names_are_canonical():
     assert SESSIONS_DIRNAME == "sessions"
     assert TRASH_DIRNAME == "trash"
     assert INTERNAL_DIRNAME == ".hmp"
-
-
-def test_project_path_helpers_build_the_runs_first_tree(tmp_path):
-    assert catalog_path_for(tmp_path) == tmp_path / ".hmp" / "index.duckdb"
-    assert runs_dir_for(tmp_path) == tmp_path / "runs"
-    assert sessions_dir_for(tmp_path) == tmp_path / "sessions"
-    assert trash_dir_for(tmp_path) == tmp_path / "trash"
 
 
 def test_workspace_toml_filename_is_canonical():

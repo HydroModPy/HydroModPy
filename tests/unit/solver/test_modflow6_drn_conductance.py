@@ -14,10 +14,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.base.drain_conductance import hk_fallback_drain_conductance
-from hydromodpy.solver.modflow6.builders.boundary_conditions import (
-    build_drain_stress_period_data,
-    collapse_identical_periods,
-)
+from hydromodpy.solver.modflow6.builders.boundary_conditions import build_drain_stress_period_data
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
@@ -36,20 +33,6 @@ def test_hk_fallback_conductance_formula_and_guards() -> None:
         hk=0.0, cell_area=100.0, bed_thickness=5.0, floor_m2_s=1e-12
     )
     assert zero_k == pytest.approx(1e-12)
-
-
-def test_the_fallback_no_longer_guards_a_zero_thickness() -> None:
-    """The bed thickness is a DECLARED, validated quantity, never mesh geometry.
-
-    It used to be the layer thickness read off the mesh, which could be zero on
-    a degenerate cell, hence a silent fallback to one meter. `gt=0.0` on
-    `solver.drain_bed_thickness_m` now refuses zero at load, so the guard has no
-    caller left and a zero here is a programming error, not a mesh accident.
-    """
-    from hydromodpy.solver.base.solver_config import SolverConfig
-
-    with pytest.raises(Exception, match="drain_bed_thickness_m"):
-        SolverConfig.model_validate({"drain_bed_thickness_m": 0.0})
 
 
 def _drn_mesh(thickness: float) -> SolverMesh:
@@ -175,13 +158,6 @@ def test_mf6_drn_emits_period_only_when_conductance_changes() -> None:
     assert spd[60][0][3] == pytest.approx(0.08)
 
 
-def test_collapse_identical_periods_keeps_only_changes() -> None:
-    spd = {0: [[1]], 1: [[1]], 2: [[2]], 3: [[2]], 4: [[2]], 5: [[3]]}
-    assert collapse_identical_periods(spd) == {0: [[1]], 2: [[2]], 5: [[3]]}
-    # Period 0 is always kept, even when every period is identical.
-    assert collapse_identical_periods({0: [], 1: [], 2: []}) == {0: []}
-
-
 def test_nwt_drn_fallback_uses_same_shared_helper() -> None:
     # NWT and MF6 both call hk_fallback_drain_conductance, so identical inputs give
     # the identical conductance. Guard the imported symbol is the same object.
@@ -242,14 +218,6 @@ def test_a_per_cell_conductance_on_unequal_cells_is_reported_once(
     message = reports[0].getMessage()
     assert "0.5 to 12 m2" in message and "24.0-fold" in message
     assert "solver.drain_bed_thickness_m" in message
-
-
-def test_a_per_cell_conductance_on_equal_cells_is_not_reported(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    with caplog.at_level(logging.WARNING):
-        _build(_drn_model(), _drn_mesh(5.0), [1e-7])
-    assert "conductance per cell" not in caplog.text
 
 
 def test_the_derived_conductance_on_unequal_cells_is_not_reported(

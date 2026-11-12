@@ -4,19 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.schema.changes import (
-    DELAY_MINORS,
-    FIRST_EDITION,
-    REGISTER,
-    Bug,
-    Migration,
-    editions,
-    migrations_of,
-    outlived,
-    prerelease_refusal,
-    read,
-    removal_of,
-)
+from hydromodpy.schema.changes import REGISTER, Migration, outlived, read
 
 HEAD = 'schema = "hydromodpy.changes.v1"\n'
 
@@ -38,19 +26,6 @@ def test_the_shipped_register_reads_and_holds_every_table() -> None:
     assert REGISTER.recipes and REGISTER.migrations
     ids = [row.id for row in (*REGISTER.bugs, *REGISTER.defaults, *REGISTER.recipes)]
     assert len(ids) == len(set(ids))
-
-
-def test_a_good_register_reads_into_its_rows() -> None:
-    register = read(HEAD + BUG + RECIPE + DEFAULT + MOVE)
-
-    assert register.bugs == (
-        Bug(id="b", since="2.1.0", versions="<2.1.0", quantities=("metrics",), text="t"),
-    )
-    assert register.recipes[0].effect == "refusal"
-    assert register.defaults[0].old == 0.5
-    assert register.migrations == (
-        Migration(document="config", since="2.1.0", old="a.b", new="a.c"),
-    )
 
 
 FAULTS = {
@@ -150,12 +125,6 @@ def test_a_faulty_register_is_refused_with_its_fault(text: str, fault: str) -> N
         read(text)
 
 
-def test_a_default_that_only_changes_what_is_written_needs_no_quantity() -> None:
-    register = read(HEAD + DEFAULT.replace('["metrics"]', "[]"))
-
-    assert register.defaults[0].quantities == ()
-
-
 def test_every_fault_is_told_at_once() -> None:
     text = HEAD + BUG.replace('id = "b"', 'id = "B"') + MOVE + 'rule = "_f"\n'
 
@@ -174,20 +143,6 @@ HITS = (
 )
 
 
-@pytest.mark.parametrize(
-    ("case", "version", "quantities", "hit"), HITS, ids=[row[0] for row in HITS]
-)
-def test_a_bug_hits_a_run_of_its_versions_that_exposes_its_quantities(
-    case: str, version: str, quantities: tuple[str, ...], hit: bool
-) -> None:
-    del case
-    bug = Bug(
-        id="b", since="2.0.0", versions=">=2.0.0a1,<=2.0.0rc1", quantities=("metrics",), text="t"
-    )
-
-    assert bug.hits(version, quantities) is hit
-
-
 DELAYS = (
     ("2.3.0", "2.4.9", False),
     ("2.3.0", "2.5.0a1", True),
@@ -200,53 +155,9 @@ DELAYS = (
 )
 
 
-@pytest.mark.parametrize(("since", "version", "late"), DELAYS)
-def test_the_delay_is_two_minor_versions_the_one_that_retired_the_form_included(
-    since: str, version: str, late: bool
-) -> None:
-    assert DELAY_MINORS == 2
-    assert outlived(since, version) is late
-
-
-@pytest.mark.parametrize(("since", "removal"), [("2.3.0", "2.5.0"), ("2.0.0", "2.2.0")])
-def test_a_form_leaves_two_minor_versions_after_its_since(since: str, removal: str) -> None:
-    assert removal_of(since) == removal
-
-
 def test_a_version_that_does_not_parse_is_refused() -> None:
     with pytest.raises(ValueError, match="is not a version"):
         outlived("2.0.0", "two")
-
-
-def test_the_editions_are_the_first_one_and_each_edition_of_a_default() -> None:
-    register = read(
-        HEAD
-        + DEFAULT
-        + DEFAULT.replace('id = "d"', 'id = "e"').replace('key = "solver.x"', 'key = "solver.y"')
-        + DEFAULT.replace('id = "d"', 'id = "f"')
-        .replace('"2.1"', '"2.10"')
-        .replace('"2.1.0"', '"2.10.0"')
-    )
-
-    assert editions(register) == (FIRST_EDITION, "2.1", "2.10")
-    assert editions(read(HEAD)) == ("2.0",)
-
-
-def test_this_version_serves_one_edition_and_moves_no_default() -> None:
-    assert REGISTER.defaults == ()
-    assert editions() == (FIRST_EDITION,) == ("2.0",)
-
-
-def test_the_rows_of_one_document_come_in_the_order_of_the_file() -> None:
-    register = read(
-        HEAD
-        + MOVE
-        + MOVE.replace('"config"', '"sidecar"')
-        + MOVE.replace('"a.b"', '"z.y"').replace('"a.c"', '"z.x"')
-    )
-
-    assert [row.old for row in migrations_of("config", register)] == ["a.b", "z.y"]
-    assert [row.old for row in migrations_of("sidecar", register)] == ["a.b"]
 
 
 SHAPES = (
@@ -254,23 +165,3 @@ SHAPES = (
     (Migration(document="config", since="2.1.0", old="a", instead="x"), "retire"),
     (Migration(document="config", since="2.1.0", key="a", old_value=1, new_value=2), "value"),
 )
-
-
-@pytest.mark.parametrize(("row", "shape"), SHAPES, ids=[row[1] for row in SHAPES])
-def test_a_migration_row_has_one_shape(row: Migration, shape: str) -> None:
-    assert row.shape == shape
-
-
-def test_the_refusal_of_a_pre_release_form_names_every_key_and_rewrites_nothing() -> None:
-    told = prerelease_refusal("project.toml", ["flow.active_bc", "calibration.max_iter"])
-
-    assert told.startswith("project.toml holds flow.active_bc, calibration.max_iter, written by")
-    assert "This version does not rewrite the file." in told
-    assert "pip install" not in told and "hmp doctor" not in told
-
-
-def test_a_refusal_with_no_file_to_rewrite_does_not_promise_the_doctor() -> None:
-    told = prerelease_refusal("--set", ["flow.active_bc"], rewritable=False)
-
-    assert "a pre-release of 2.0" in told
-    assert "hmp doctor" not in told

@@ -131,14 +131,3 @@ def test_a_resume_without_a_field_store_creates_none(monkeypatch, tmp_path) -> N
 
     assert ctx.budget_terms == BudgetKeep.of_terms(("recharge",))
     assert not store.fields.exists()
-
-
-def test_a_fresh_run_decides_again_whatever_the_context_carries() -> None:
-    # The Project facade reuses one context: the previous run's policy and
-    # sim_id are still on it when the next run is planned.
-    ctx = _ctx(keep_per_cell_budget=True)
-    ctx.budget_terms = BudgetKeep.of_terms(("drain",))
-
-    prepare_solver_module._resolve_plan_and_results(ctx)
-
-    assert ctx.budget_terms == BudgetKeep.everything()

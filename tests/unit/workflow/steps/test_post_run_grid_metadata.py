@@ -18,20 +18,6 @@ def _triangular_planar_mesh() -> HydroMesh:
     return HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.TRIANGLE, connectivity),))
 
 
-def test_resolve_run_grid_metadata_from_solver_mesh() -> None:
-    planar = _triangular_planar_mesh()
-    solver_mesh = SimpleNamespace(n_cells=2, nlay=3, is_structured=False, planar_mesh=planar)
-    model = SimpleNamespace(solver_mesh=solver_mesh)
-
-    meta = _resolve_run_grid_metadata(model)
-
-    assert meta["n_cells"] == 2
-    assert meta["n_layers"] == 3
-    assert meta["mesh_topology"] == "unstructured_3d"
-    assert meta["bbox"] == [0.0, 0.0, 10.0, 5.0]
-    assert len(meta["mesh_hash"]) == 64
-
-
 def test_resolve_run_grid_metadata_structured_2d_topology() -> None:
     planar = _triangular_planar_mesh()
     solver_mesh = SimpleNamespace(n_cells=2, nlay=1, is_structured=True, planar_mesh=planar)

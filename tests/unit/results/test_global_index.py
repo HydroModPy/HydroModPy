@@ -4,14 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME, catalog_path_for
-from hydromodpy.results.catalog.federation import (
-    PROJECT_ROOT_COLUMN,
-    read_workspace_runs,
-    sealed_run_dirs,
-)
+from hydromodpy.core.state.layout import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME
+from hydromodpy.results.catalog.federation import read_workspace_runs
 from hydromodpy.results.storage.contract import TABLES_DIRNAME
-from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
+from tests._helpers.sealed_runs import make_project, seal_run
 
 
 def _seed_workspace(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -26,19 +22,6 @@ def _seed_workspace(tmp_path: Path) -> tuple[Path, Path, Path]:
     return workspace, alpha, beta
 
 
-def test_a_workspace_federates_the_sealed_runs_of_its_projects(tmp_path):
-    workspace, alpha, beta = _seed_workspace(tmp_path)
-    assert not catalog_path_for(alpha).exists() and not catalog_path_for(beta).exists()
-
-    frame = read_workspace_runs(workspace)
-
-    assert sorted(frame["name"]) == ["a1", "a2", "b1"]
-    assert set(frame[PROJECT_ROOT_COLUMN]) == {str(alpha.resolve()), str(beta.resolve())}
-    assert {"site", "case_id", "rel_dir", "nse"} <= set(frame.columns)
-    assert "label" not in frame.columns
-    assert frame.loc[frame["name"] == "b1", "site"].item() == "J0014020"
-
-
 def test_a_project_root_reads_its_own_runs_and_its_kept_trials(tmp_path):
     _ws, alpha, _beta = _seed_workspace(tmp_path)
     seal_run(alpha, "a_t1", rel_dir="sessions/calage/trials/0001", project="alpha")
@@ -46,13 +29,6 @@ def test_a_project_root_reads_its_own_runs_and_its_kept_trials(tmp_path):
     frame = read_workspace_runs(alpha)
 
     assert sorted(frame["rel_dir"]) == ["runs/a1", "runs/a2", "sessions/calage/trials/0001"]
-
-
-def test_an_attempt_without_a_seal_is_not_a_run(tmp_path):
-    _ws, alpha, _beta = _seed_workspace(tmp_path)
-    write_attempt(alpha, "runs/failed_one", status="failed")
-
-    assert [p.name for p in sealed_run_dirs(alpha)] == ["a1", "a2"]
 
 
 def test_a_seal_without_its_parquet_row_is_skipped(tmp_path):

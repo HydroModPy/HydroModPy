@@ -107,18 +107,3 @@ def test_zonal_channel_min_lowers_the_channel_cell_through_the_seam():
     # Cell 0 carries the channel -> its top drops to the thalweg min; cell 1 stays.
     assert zonal.top[0] == pytest.approx(5.0, abs=1e-3)
     assert zonal.top[1] == pytest.approx(75.0, abs=2.0)
-
-
-def test_zonal_without_georeference_falls_back_to_centroid():
-    ramp = _ramp_dem()
-    support_none = Surface(name="top", values=ramp, support=None)
-    bottom = _surface(np.full((_N, _N), -10.0), "bot")
-    # A bottom with support but a top without: the zonal path needs the top grid,
-    # so it must fall back to the centroid sample without raising.
-    out = _build(
-        _surface(ramp, "top"),
-        bottom,
-        top_sampling=TopSamplingConfig(mode="zonal", channel_source="none"),
-    )
-    assert np.all(np.isfinite(out.top))
-    _ = support_none

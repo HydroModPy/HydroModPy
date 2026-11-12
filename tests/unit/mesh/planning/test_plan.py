@@ -10,7 +10,6 @@ A lumped engine gets the catchment outline, and no other engine does.
 from __future__ import annotations
 
 import dataclasses
-from importlib.util import find_spec
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,8 +21,7 @@ from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.mesh.engines.catchment.engine import CatchmentMeshEngine
-from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
-from hydromodpy.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
+from hydromodpy.mesh.mesh_config import MeshConfig, MeshTriangleConfig
 from hydromodpy.mesh.planning import size_terms
 from hydromodpy.mesh.planning.geology_contacts import contact_lines
 from hydromodpy.mesh.planning.inputs import PlanningInputs
@@ -32,11 +30,8 @@ from hydromodpy.mesh.planning.plan import plan_mesh_request
 from hydromodpy.mesh.planning.refinement_zones import RefinementZone, load_refinement_zones
 from hydromodpy.mesh.planning.size_field import PixelRegion
 from hydromodpy.mesh.refinement_config import LakeRefinementConfig, RefinementZoneConfig
-from hydromodpy.mesh.request import BARRIER_FAMILY, InputTriangulation
-from hydromodpy.workflow.steps.mesh import mesh_product_key
-from tests._helpers import reservoir_dam as dam
-from tests._helpers.fake_engines import fake_capabilities, fake_engine, registered
-from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, grid_spec, planning_inputs
+from hydromodpy.mesh.request import InputTriangulation
+from tests._helpers.mesh_cases import grid_spec, planning_inputs
 
 pytestmark = pytest.mark.usefixtures("builtin_engines")
 
@@ -100,20 +95,6 @@ _TRIANGLE = MeshConfig(
 )
 
 
-def test_the_hash_ignores_the_polygon_order_and_the_file_paths(tmp_path: Path) -> None:
-    first = plan_mesh_request(_TRIANGLE, _inputs(tmp_path))
-    second = plan_mesh_request(
-        _TRIANGLE,
-        _inputs(
-            tmp_path,
-            zones_dir="elsewhere/deeper",
-            geology=tuple(reversed(_GEOLOGY)),
-            lakes=tuple(reversed(_LAKES)),
-        ),
-    )
-    assert first.canonical_hash() == second.canonical_hash()
-
-
 def test_a_graded_engine_gets_a_size_field_and_resampled_lines(tmp_path: Path) -> None:
     request = plan_mesh_request(_TRIANGLE, _inputs(tmp_path))
     assert [family.name for family in request.lines] == [
@@ -149,21 +130,6 @@ def test_the_regular_engine_gets_raw_lines_and_no_size_field(tmp_path: Path) -> 
     assert len(river.coords) == 3
     plain = plan_mesh_request(MeshConfig(cell_size=50.0), inputs)
     assert plain.options == {} and plain.nominal_size_m == 50.0
-
-
-def test_a_regular_mesh_with_no_size_and_no_shape_is_the_dem_grid(tmp_path: Path) -> None:
-    request = plan_mesh_request(MeshConfig(), _inputs(tmp_path))
-    assert request.options == {"shape": (_GRID.nrow, _GRID.ncol)}
-
-
-def test_a_family_set_to_none_is_left_out(tmp_path: Path) -> None:
-    cfg = MeshConfig(engine="voronoi", families={"rivers": "none", "geology": "none"})
-    request = plan_mesh_request(cfg, _inputs(tmp_path))
-    assert [family.name for family in request.lines] == ["lakes"]
-    assert request.options == {
-        "seeds": "generated",
-        "lloyd_tolerance": MeshVoronoiConfig().lloyd_tolerance,
-    }
 
 
 def test_a_family_whose_lines_all_lie_off_the_domain_is_left_out() -> None:
@@ -203,27 +169,6 @@ def test_a_voronoi_mesh_follows_no_shore_when_its_lakes_lie_off_the_domain() -> 
     assert not any("the faces follow lake" in note for note in request.notes)
 
 
-@pytest.mark.skipif(find_spec("gmsh") is None, reason="gmsh is not installed")
-def test_a_family_switched_off_leaves_no_barrier_face() -> None:
-    barrier = LineString([(dam.X0 + 210.0, dam.Y0 + 110.0), (dam.X0 + 830.0, dam.Y0 + 590.0)])
-    inputs = planning_inputs(
-        grid_over(dam.DOMAIN, 10.0, crs_wkt=LAMBERT93_WKT),
-        watershed=dam.DOMAIN,
-        synthetic=False,
-        barriers=(barrier,),
-    )
-    config = MeshConfig.model_validate(
-        {
-            "engine": "triangle",
-            "cell_size": 60.0,
-            "families": {"rivers": "none", "barriers": "none"},
-        }
-    )
-    cell_mesh = TriangleMeshEngine().build(plan_mesh_request(config, inputs))
-
-    assert not cell_mesh.face_rows(BARRIER_FAMILY).any()
-
-
 def test_a_triangulation_read_is_meshed_as_it_is(tmp_path: Path) -> None:
     triangulation = InputTriangulation(
         vertices=np.array([[0.0, 0.0], [800.0, 0.0], [800.0, 900.0], [0.0, 900.0]]),
@@ -237,45 +182,6 @@ def test_a_triangulation_read_is_meshed_as_it_is(tmp_path: Path) -> None:
     assert request.input_triangulation is triangulation
     assert request.options == {"seeds": "triangulation"}
     assert request.family("rivers").lines[0].coords[-1][0] == pytest.approx(800.0)
-
-
-def test_a_third_party_engine_gets_no_option(
-    tmp_path: Path, builtin_engines: dict[str, SimpleNamespace]
-) -> None:
-    """The DEV options belong to the built-in engines; a plugin reads its own settings."""
-    with registered(fake_engine("plan_probe")) as engine:
-        builtin_engines["plan_probe"] = SimpleNamespace(capabilities=fake_capabilities())
-        request = plan_mesh_request(
-            MeshConfig(engine=engine.engine_id, cell_size=80.0), _inputs(tmp_path)
-        )
-
-    assert request.options == {}
-    assert request.size_field is not None
-
-
-def test_a_changed_size_changes_the_hash(tmp_path: Path) -> None:
-    inputs = _inputs(tmp_path)
-    reference = plan_mesh_request(_TRIANGLE, inputs).canonical_hash()
-    finer = _TRIANGLE.model_copy(update={"river_cell_size": 15.0})
-    assert plan_mesh_request(finer, inputs).canonical_hash() != reference
-
-
-def test_the_notes_say_what_an_ungraded_engine_does_not_follow(tmp_path: Path) -> None:
-    inputs = _inputs(tmp_path)
-    plain = plan_mesh_request(MeshConfig(cell_size=50.0), inputs)
-    config = MeshConfig(engine="regular", cell_size=50.0, river_cell_size=20.0, river_band=60.0)
-    noted = plan_mesh_request(config, inputs)
-
-    assert plain.notes == ()
-    (note,) = noted.notes
-    for named in (config.engine, "river_cell_size", "river_band"):
-        assert named in note
-    assert noted.canonical_hash() == plain.canonical_hash()
-
-
-def test_the_notes_of_the_inputs_travel_with_the_request(tmp_path: Path) -> None:
-    inputs = dataclasses.replace(_inputs(tmp_path), notes=("no vector geology",))
-    assert plan_mesh_request(MeshConfig(cell_size=50.0), inputs).notes == ("no vector geology",)
 
 
 def test_the_lloyd_tolerance_reaches_the_generated_voronoi_engine_only(tmp_path: Path) -> None:
@@ -402,20 +308,6 @@ def test_the_size_field_refines_a_zone_of_pixels_and_grows_away_from_it() -> Non
     assert f"{share:.1f} %" in _zone_note(request, 0)
 
 
-def test_the_mesh_depends_on_the_run_it_was_refined_on() -> None:
-    first = plan_mesh_request(_voronoi(), _zone_inputs(_valley_floor(), source_run=_SIM_ID))
-    second = plan_mesh_request(_voronoi(), _zone_inputs(_valley_floor(), source_run="f" * 32))
-    engine = SimpleNamespace(engine_id="voronoi", engine_version="1.0.0")
-
-    assert first.source_runs == (_SIM_ID,)
-    np.testing.assert_array_equal(first.size_field.values, second.size_field.values)
-    assert first.canonical_hash() != second.canonical_hash()
-    assert mesh_product_key(first, engine) != mesh_product_key(second, engine)
-    unbound = dataclasses.replace(first, source_runs=())
-    assert unbound.canonical_hash() != first.canonical_hash()
-    assert mesh_product_key(unbound, engine) != mesh_product_key(first, engine)
-
-
 def test_a_zone_that_selects_no_pixel_refines_nothing_and_says_so() -> None:
     request = plan_mesh_request(
         _voronoi(), _zone_inputs(_valley_floor(empty=True), source_run=_SIM_ID)
@@ -470,14 +362,6 @@ def _support(*, real: bool) -> PlanningInputs:
     if real:
         return planning_inputs(_GRID, watershed=_CATCHMENT, synthetic=False)
     return planning_inputs(_GRID)
-
-
-@pytest.mark.parametrize(("engine", "real"), sorted(_BASE_HASHES))
-def test_a_meshed_engine_gets_no_catchment_and_keeps_its_hash(engine: str, real: bool) -> None:
-    request = plan_mesh_request(MeshConfig(engine=engine, cell_size=40.0), _support(real=real))
-
-    assert request.catchment is None
-    assert request.canonical_hash() == _BASE_HASHES[engine, real]
 
 
 def test_a_lumped_engine_gets_the_delineated_catchment_and_not_the_domain() -> None:

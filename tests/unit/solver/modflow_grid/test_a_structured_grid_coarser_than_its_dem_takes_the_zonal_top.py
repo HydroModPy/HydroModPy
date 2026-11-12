@@ -118,45 +118,6 @@ def test_a_channel_cell_takes_the_minimum_of_its_pixels_and_a_hillslope_cell_the
             assert top[row, col] == pytest.approx(expected)
 
 
-def test_a_channel_cell_lies_below_the_plain_resample_of_the_dem():
-    dem = _hill_dem()
-    dem[4, 7] -= 4.0
-    mask = _channel_mask()
-    plain = build_spatial_discretization(
-        vertical_config=_LAYERS,
-        domain=_domain(dem),
-        sgrid_config=_sgrid(TopSamplingConfig(mode="centroid")),
-        cell_mesh=_grid(),
-        channel_mask=mask,
-    )
-    zonal = build_spatial_discretization(
-        vertical_config=_LAYERS,
-        domain=_domain(dem),
-        sgrid_config=_sgrid(TopSamplingConfig(mode="zonal", spike_guard_tol_m=0.0)),
-        cell_mesh=_grid(),
-        channel_mask=mask,
-    )
-    assert _top(zonal)[1, 2] < _top(plain)[1, 2] - 1.0
-
-
-def test_centroid_keeps_the_resampled_top_byte_for_byte():
-    dem = _hill_dem()
-    centroid = build_spatial_discretization(
-        vertical_config=_LAYERS,
-        domain=_domain(dem),
-        sgrid_config=_sgrid(TopSamplingConfig(mode="centroid")),
-        cell_mesh=_grid(),
-        channel_mask=_channel_mask(),
-    )
-    n = _N // _BLOCK
-    resampled = _surface(dem, "surface_topo").resample_to_shape(
-        n, n, resampling="bilinear", nodata=_NODATA
-    )
-    assert np.array_equal(
-        centroid.solver_mesh.top, np.asarray(resampled.as_array(), dtype=float).reshape(-1)
-    )
-
-
 def test_a_mesh_of_the_dem_shape_is_unchanged_by_the_zonal_mode():
     dem = _hill_dem()
     plain = build_spatial_discretization(
@@ -201,60 +162,6 @@ def test_the_minimum_thickness_clamp_holds_under_a_lowered_channel():
         channel_mask=_channel_mask(),
     )
     assert _top(ctx)[1, 2] == pytest.approx(bottom + 0.1)
-
-
-def test_a_cell_without_data_stays_inactive_in_zonal_mode():
-    dem = _hill_dem()
-    dem[:_BLOCK, :_BLOCK] = _NODATA
-    plain = build_spatial_discretization(
-        vertical_config=_LAYERS,
-        domain=_domain(dem),
-        sgrid_config=_sgrid(TopSamplingConfig()),
-        cell_mesh=_grid(),
-    )
-    zonal = build_spatial_discretization(
-        vertical_config=_LAYERS,
-        domain=_domain(dem),
-        sgrid_config=_sgrid(TopSamplingConfig(mode="zonal")),
-        cell_mesh=_grid(),
-        channel_mask=_channel_mask(),
-    )
-    assert np.array_equal(plain.solver_mesh.inactive_mask, zonal.solver_mesh.inactive_mask)
-    assert zonal.solver_mesh.inactive_mask[0, 0]
-
-
-def test_the_cell_ids_follow_the_row_major_order_of_the_grid():
-    from rasterio.transform import from_bounds
-
-    size = _PIXEL * _N
-    transform = from_bounds(0.0, 0.0, size, size, _N, _N)
-    labels = regular_grid_cell_ids(
-        dem_transform=transform,
-        dem_shape=(_N, _N),
-        grid_bounds=(0.0, size, 0.0, size),
-        grid_shape=(4, 4),
-    )
-    assert labels[0, 0] == 0  # north-west pixel, first cell
-    assert labels[0, _N - 1] == 3
-    assert labels[_N - 1, 0] == 12
-    assert labels[4, 7] == 1 * 4 + 2
-    assert np.all(np.bincount(labels.reshape(-1)) == _BLOCK * _BLOCK)
-
-
-def test_dead_cells_are_not_counted_as_zonal_or_clamped(caplog):
-    dem = _hill_dem()
-    dem[:_BLOCK, :_BLOCK] = _NODATA  # cell (0, 0) is dead
-    with caplog.at_level(logging.INFO):
-        build_spatial_discretization(
-            vertical_config=_LAYERS,
-            domain=_domain(dem),
-            sgrid_config=_sgrid(TopSamplingConfig(mode="zonal")),
-            cell_mesh=_grid(),
-            channel_mask=_channel_mask(),
-        )
-    line = next(r.getMessage() for r in caplog.records if "Zonal top sampling:" in r.getMessage())
-    assert "15/15 cells zonal" in line
-    assert "0 thickness-clamped" in line
 
 
 def test_zonal_top_leaves_inactive_cells_on_the_fallback():

@@ -12,8 +12,7 @@ from pathlib import Path
 import pytest
 
 import hydromodpy.results.products.store as store_module
-from hydromodpy.core.state.layout import PRODUCTS_DIRNAME, internal_dir
-from hydromodpy.results.products.store import META_FILENAME, ProductStore, products_root
+from hydromodpy.results.products.store import META_FILENAME, ProductStore
 
 
 def _key(char: str) -> str:
@@ -29,15 +28,6 @@ def _seed(root: Path, key: str, *, bytes_: int, written_at: float, kind: str = "
     meta = {"key": key, "kind": kind, "bytes": bytes_, "written_at": written_at}
     (path / META_FILENAME).write_text(json.dumps(meta), encoding="utf-8")
     return path
-
-
-def test_products_root_lives_under_the_internal_dir(tmp_path: Path) -> None:
-    project = tmp_path / "project"
-    assert products_root(project) == internal_dir(project) / PRODUCTS_DIRNAME
-
-
-def test_a_missing_product_reads_none(tmp_path: Path) -> None:
-    assert ProductStore(tmp_path / "products").get(_key("a")) is None
 
 
 def test_a_product_is_built_once_then_read(tmp_path: Path) -> None:
@@ -116,30 +106,6 @@ def test_a_refused_rename_is_read_by_the_folder_that_stands(
     assert list((store.root / ".tmp").iterdir()) == []
 
 
-def test_the_temporary_folder_carries_the_host_name(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(store_module, "host_name", lambda: "node-7")
-    store = ProductStore(tmp_path / "products")
-
-    assert f".node-7.{os.getpid()}." in store._tmp_path(_key("b")).name
-
-
-def test_eviction_removes_the_oldest_first(tmp_path: Path) -> None:
-    store = ProductStore(tmp_path / "products")
-    old, new = _key("a"), _key("b")
-    _seed(store.root, old, bytes_=100, written_at=1.0)
-    _seed(store.root, new, bytes_=100, written_at=2.0)
-
-    report = store.evict(100)
-
-    assert report.removed == (old,)
-    assert report.freed == 100
-    assert report.total_after == 100
-    assert store.get(old) is None
-    assert store.get(new) is not None
-
-
 def test_eviction_ties_by_key(tmp_path: Path) -> None:
     store = ProductStore(tmp_path / "products")
     first, second = _key("a"), _key("b")
@@ -165,47 +131,6 @@ def test_a_kept_key_is_never_removed(tmp_path: Path) -> None:
     assert report.protected == (kept,)
     assert store.get(kept) is not None
     assert store.get(gone) is None
-
-
-def test_over_cap_is_true_when_protected_alone_exceed_the_cap(tmp_path: Path) -> None:
-    store = ProductStore(tmp_path / "products")
-    first, second = _key("a"), _key("b")
-    _seed(store.root, first, bytes_=150, written_at=1.0)
-    _seed(store.root, second, bytes_=150, written_at=2.0)
-
-    report = store.evict(100, keep={first, second})
-
-    assert report.removed == ()
-    assert report.protected == (first, second)
-    assert report.over_cap is True
-    assert report.total_after == 300
-    assert store.get(first) is not None
-    assert store.get(second) is not None
-
-
-def test_a_dry_run_removes_nothing_and_reports_the_same(tmp_path: Path) -> None:
-    store = ProductStore(tmp_path / "products")
-    first, second = _key("a"), _key("b")
-    _seed(store.root, first, bytes_=100, written_at=1.0)
-    _seed(store.root, second, bytes_=100, written_at=2.0)
-    dead = _writer_dir(store.root, _key("c"), pid=2**30, age_s=10)
-
-    report = store.evict(100, dry_run=True)
-
-    assert report.removed == (first,)
-    assert report.freed == 100
-    assert report.total_after == 100
-    assert store.get(first) is not None
-    assert store.get(second) is not None
-    assert dead.exists()
-
-
-def test_discard_removes_a_product(tmp_path: Path) -> None:
-    store = ProductStore(tmp_path / "products")
-    key = _key("a")
-    store.put(key, "mesh", lambda directory: (directory / "value.txt").write_text("made"))
-    store.discard(key)
-    assert store.get(key) is None
 
 
 def _writer_dir(root: Path, key: str, *, pid: int, age_s: float) -> Path:

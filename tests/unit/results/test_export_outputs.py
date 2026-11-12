@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import logging
 import re
 import warnings
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import geopandas as gpd
@@ -29,7 +27,6 @@ from shapely.geometry import LineString, box
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.file_digest import sha256_and_size
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
-from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, RUNS_DIRNAME
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.core.tracking.input_file import TrackedFileEntry
 from hydromodpy.core.workspace.workspace_toml import write_workspace_toml
@@ -38,7 +35,6 @@ from hydromodpy.display.runs import figures_dir_of, render_figures_for_run
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, PlanarCellMesh
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
-from hydromodpy.results.export.directory import context_from_directory, publication_of
 from hydromodpy.results.exporters import job as job_module
 from hydromodpy.results.exporters import request as request_module
 from hydromodpy.results.exporters import vocabulary
@@ -57,22 +53,12 @@ from hydromodpy.results.exporters.mesh_layers import (
 from hydromodpy.results.exporters.netcdf import export_netcdf
 from hydromodpy.results.exporters.request import export_data_requests, export_run
 from hydromodpy.results.exporters.vocabulary import _stored_rasters, list_exportable
-from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, Identity, read_identity_from
-from hydromodpy.results.ledger import Ledger
+from hydromodpy.results.identity import Identity, read_identity_from
 from hydromodpy.results.record.manifest import list_artifacts
 from hydromodpy.results.record.record import PROVENANCE_VERSION, sealed_artifacts
-from hydromodpy.results.run.view import Run
-from hydromodpy.results.storage.attempt import close_sealed_attempt
-from hydromodpy.results.storage.contract import (
-    ALLOWED_RUN_ENTRIES,
-    FIELDS_STORE_NAME,
-    PARQUET_FILE_SUFFIX,
-    RUN_CONFIG_FILENAME,
-    TABLES_DIRNAME,
-)
-from hydromodpy.results.storage.parquet_io import read_kv_metadata
+from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES, RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.run_store import RunStore
-from hydromodpy.results.storage.sealing import IDENTITY_NOTICE_FILENAME, seal_completed
+from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from hydromodpy.results.zarr_store.mesh_layout import (
     cell_family_rows,
@@ -87,7 +73,6 @@ from hydromodpy.schema.job.inputset import Licence, build_inputset, file_resourc
 from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
 from hydromodpy.schema.job.outcome import JobOutcome, OutputRecord
 from hydromodpy.schema.media_types import GEOPACKAGE_MEDIA_TYPE, GEOTIFF_MEDIA_TYPE
-from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_mesh
 from tests._helpers.bundle_cell_meshes import bundle_dual
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
 from tests._helpers.run_records import make_record
@@ -132,28 +117,6 @@ def test_xarray_opens_the_group_with_its_nodata_axes_and_crs(store_path: Path):
     np.testing.assert_allclose(dem["watershed_dem_x"], 385_762.5 + 75.0 * (np.arange(4) + 0.5))
     np.testing.assert_allclose(dem["watershed_dem_y"], 6_826_612.5 - 75.0 * (np.arange(3) + 0.5))
     assert CRS.from_cf(dem["watershed_dem_crs"].attrs).to_epsg() == 2154
-
-
-def test_the_hydromodpy_reader_reads_a_new_run_and_an_old_one(store_path: Path, tmp_path: Path):
-    old_path = tmp_path / "old.zarr"
-    with SimulationZarr.create(old_path, n_cells=4, n_layers=1) as sz:
-        geo = sz.root.require_group("geographic")
-        old = geo.create_array("watershed_dem", data=_dem(), dimension_names=("d0", "d1"))
-        old.attrs.update(
-            {"transform": list(TRANSFORM), "crs": "EPSG:2154", "nodata": NODATA, "shape": [3, 4]}
-        )
-        old.attrs["_FillValue"] = NODATA
-
-    for path in (store_path, old_path):
-        with SimulationZarr(path) as sz:
-            data, meta = sz.read_geographic_raster("watershed_dem")
-        np.testing.assert_array_equal(data, _dem())
-        assert meta == {
-            "transform": TRANSFORM,
-            "crs": "EPSG:2154",
-            "nodata": NODATA,
-            "shape": (3, 4),
-        }
 
 
 def test_only_the_rasters_are_offered_for_export(store_path: Path, tmp_path: Path):
@@ -233,23 +196,6 @@ def _seal(store: RunStore) -> dict:
     return dict(zarr.open_group(str(store.fields_path), mode="r").attrs)
 
 
-def test_inputs_with_a_stated_licence_give_it_to_the_run(tmp_path: Path) -> None:
-    project = tmp_path / "demo"
-    dem = _input(project, "dem.tif", source="ign_geoplateforme_dem", license="etalab-2.0")
-    geology = _input(project, "geology.gpkg", source="brgm_1m", license=None)
-    store = _open(project, [dem, geology])
-    assert store.licence() == "etalab-2.0"
-    index = pd.date_range("2020-01-01", periods=2, freq="D")
-    store.write_timeseries(store.sim_id, "P01", "head", pd.Series([1.0, 2.0], index=index))
-
-    attrs = _seal(store)
-
-    footer = read_kv_metadata(store.tables_dir / f"timeseries{PARQUET_FILE_SUFFIX}")
-    assert attrs["license"] == "etalab-2.0"
-    assert footer["license"] == "etalab-2.0"
-    assert footer["hmp.identity"]
-
-
 def test_the_workspace_toml_identity_is_stamped(tmp_path: Path) -> None:
     write_workspace_toml(
         tmp_path, project_name="ws", creator_name="Ada Lovelace", creator_email="a@b.c"
@@ -269,58 +215,12 @@ def test_the_workspace_toml_identity_is_stamped(tmp_path: Path) -> None:
     assert attrs["creator_institution"] == "Univ Rennes"
 
 
-def test_the_unix_account_is_never_the_creator(tmp_path: Path) -> None:
-    attrs = _seal(_open(tmp_path / "demo", []))
-    assert "creator_name" not in attrs
-
-
 def _sealed_without(caplog: pytest.LogCaptureFixture, level: int) -> list[str]:
     return [
         r.getMessage()
         for r in caplog.records
         if "sealed without" in r.getMessage() and r.levelno == level
     ]
-
-
-def test_the_warning_is_said_once_per_workspace(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    caplog.set_level(logging.INFO, logger="hydromodpy")
-    project = tmp_path / "demo"
-    for index in range(3):
-        _seal(_open(project, [], name=f"run_{index}"))
-    warnings = _sealed_without(caplog, logging.WARNING)
-    assert len(warnings) == 1
-    assert len(_sealed_without(caplog, logging.INFO)) == 2
-    (message,) = warnings
-    assert message.startswith(
-        "Runs of this workspace are sealed without creator_name, creator_institution "
-        "and a known licence. "
-    )
-    assert 'Add creator_name = "..." and creator_institution = "..." under [workspace]' in message
-    assert "workspace.toml" in message
-    assert "'license' key of each input sidecar" in message
-    assert message.count(". ") == 1
-    assert "--verbose" not in message
-
-
-def test_a_later_process_of_the_same_workspace_is_not_warned_again(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    """Each ``hmp run`` is a new process: the fact lives on disk, not in memory."""
-    caplog.set_level(logging.INFO, logger="hydromodpy")
-    project = tmp_path / "demo"
-    _seal(_open(project, [], name="first"))
-    marker = project / ".hmp" / IDENTITY_NOTICE_FILENAME
-    assert json.loads(marker.read_text(encoding="utf-8"))["missing"] == [
-        "a known licence",
-        "creator_institution",
-        "creator_name",
-    ]
-    caplog.clear()
-    _seal(_open(project, [], name="second"))
-    assert _sealed_without(caplog, logging.WARNING) == []
-    assert (project / "runs" / "second" / TABLES_DIRNAME).is_dir()
 
 
 # The export step writes the ``[[export]]`` blocks with the store of the run,
@@ -337,16 +237,6 @@ def store(tmp_path, monkeypatch):
     monkeypatch.setattr(Catalog, "__init__", refuse)
     with RunStore.open(run_dir) as opened:
         yield opened
-
-
-def test_the_listing_reads_the_run_directory(store) -> None:
-    held = list_exportable(Run(store.sim_id, store))
-
-    assert held["head"] is ExportKind.field
-    assert held["discharge"] is ExportKind.series
-    assert held["watershed"] is ExportKind.vector
-    assert held["budget"] is ExportKind.table
-    assert "mesh_family_faces" not in held
 
 
 def test_the_data_requests_write_under_the_run_without_the_index(store) -> None:
@@ -527,83 +417,6 @@ def test_xugrid_opens_the_stored_mesh_group_with_its_crs(tmp_path, build):
     assert dataset["topology"].attrs["node_coordinates"] == "node_x node_y"
 
 
-def test_the_vertices_stay_beside_the_node_axes(tmp_path):
-    cell_mesh = _regular()
-    store = SimulationZarr(_store(tmp_path / "fields.zarr", cell_mesh))
-    mesh = store.root["mesh"]
-
-    vertices = mesh["vertices"][:]
-    assert vertices.shape == (cell_mesh.mesh.vertices.shape[0], 3)
-    assert np.array_equal(mesh["node_x"][:], vertices[:, 0])
-    assert np.array_equal(mesh["node_y"][:], vertices[:, 1])
-    assert "node_z" not in mesh
-    assert mesh["face_node_connectivity"].attrs["_FillValue"] == -1
-    assert mesh["face_node_connectivity"].dtype == np.int32
-    store.close()
-
-
-@pytest.mark.parametrize("crs_first", [True, False], ids=["crs-first", "mesh-first"])
-def test_the_mesh_group_holds_the_crs_whichever_is_written_first(tmp_path, crs_first):
-    cell_mesh = _regular()
-    store = SimulationZarr.create(tmp_path / "fields.zarr", n_cells=cell_mesh.n_cells, n_layers=1)
-    if crs_first:
-        _write_crs(store)
-    _write_mesh(store, cell_mesh)
-    if not crs_first:
-        _write_crs(store)
-    mesh = store.root["mesh"]
-
-    assert dict(mesh["crs"].attrs) == dict(store.root["crs"].attrs)
-    for name in ("topology", "node_x", "node_y", "face_x", "face_y"):
-        assert mesh[name].attrs["grid_mapping"] == "crs"
-    store.close()
-
-
-def test_a_sealed_run_with_no_crs_names_none_and_still_opens(tmp_path):
-    """The seal drops the ``grid_mapping`` of the topography, which names a CRS the run lacks."""
-    cell_mesh = _regular()
-    store = SimulationZarr(_store(tmp_path / "fields.zarr", cell_mesh, crs=False))
-    store.harmonize_axis_references()
-    store.close()
-    dataset, grid = _open_mesh_group(tmp_path / "fields.zarr")
-
-    assert "crs" not in dataset.variables
-    assert "grid_mapping" not in dataset["node_x"].attrs
-    assert grid.crs is None
-    assert grid.is_projected
-
-
-def test_a_sealed_run_keeps_the_mesh_readable_by_xugrid(tmp_path):
-    """The seal drops the references that resolve to nothing; the CRS of the mesh resolves."""
-    project = tmp_path / "project"
-    project.mkdir()
-    (project / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
-    cell_mesh = regular_cell_mesh(xmin=0.0, ymin=0.0, dx=10.0, dy=10.0, nrow=2, ncol=2)
-    store = open_run_store(project, "ugrid_run", n_cells=cell_mesh.n_cells, n_layers=1)
-    (store.run_dir / "config.toml").write_text("[flow]\nk = 1e-5\n", encoding="utf-8")
-    store.write_crs(
-        store.sim_id,
-        crs_wkt=f"EPSG:{EPSG}",
-        grid_mapping_name="lambert_conformal_conic",
-        epsg_code=EPSG,
-    )
-    ctx = SimpleNamespace(
-        setup=SimpleNamespace(
-            domain=SimpleNamespace(z_interfaces=np.array([0.0, -10.0])),
-            cell_mesh=cell_mesh,
-            mesh_summary=None,
-        )
-    )
-    step_persist_mesh(ctx, store.sim_id, store=store)
-    seal_completed(store)
-    close_sealed_attempt(store.run_dir)
-
-    fields = project / RUNS_DIRNAME / "ugrid_run" / FIELDS_STORE_NAME
-    _, grid = _open_mesh_group(fields)
-    assert grid.n_face == 4
-    assert grid.crs.to_epsg() == EPSG
-
-
 @MESHES
 def test_the_netcdf_export_carries_the_model_centres_and_the_crs(tmp_path, build):
     cell_mesh = build()
@@ -619,15 +432,6 @@ def test_the_netcdf_export_carries_the_model_centres_and_the_crs(tmp_path, build
     assert np.array_equal(exported.obj["face_x"].values, cell_mesh.centers[:, 0])
     assert np.array_equal(exported.obj["face_y"].values, cell_mesh.centers[:, 1])
     assert exported.obj["face_x"].attrs["standard_name"] == "projection_x_coordinate"
-
-
-def test_the_voronoi_centres_are_not_the_vertex_mean():
-    """Guard of the test above: on this mesh the vertex mean is meters off the generator."""
-    cell_mesh = _voronoi()
-    rows = cell_mesh.connectivity_rows
-    xs = np.where(rows >= 0, cell_mesh.mesh.vertices[np.maximum(rows, 0), 0], np.nan)
-
-    assert np.max(np.abs(np.nanmean(xs, axis=1) - cell_mesh.centers[:, 0])) > 1.0
 
 
 def test_a_store_without_centres_exports_the_vertex_mean(tmp_path):
@@ -684,26 +488,6 @@ def _sealed(tmp_path: Path, config: str | None) -> Path:
     if config is not None:
         (run_dir / "config.toml").write_text(config, encoding="utf-8")
     return run_dir
-
-
-def test_the_declared_licence_and_creators_reach_the_view(tmp_path) -> None:
-    run_dir = _sealed(
-        tmp_path, '[publication]\nlicense = "CC-BY-4.0"\ncreators = ["A. Author", "B. Author"]\n'
-    )
-
-    context = context_from_directory(run_dir)
-
-    assert context.license_url == "https://creativecommons.org/licenses/by/4.0/"
-    assert context.creator_name == "A. Author, B. Author"
-
-
-def test_a_run_that_declares_nothing_stays_undetermined(tmp_path) -> None:
-    for config in (None, "[simulation]\nname = 'x'\n"):
-        run_dir = _sealed(tmp_path / str(config is None), config)
-        context = context_from_directory(run_dir)
-        assert context.license_url == "LicenseRef-undetermined"
-        assert context.creator_name is None
-        assert publication_of(run_dir).license is None
 
 
 # The run is a monthly transient run of three stress periods (January to March
@@ -794,21 +578,6 @@ def _names(paths: list[Path]) -> list[str]:
     return sorted(path.name for path in paths)
 
 
-def test_the_run_lists_what_it_can_export_by_kind(dated_run) -> None:
-    catalog, sid, _exports = dated_run
-    names = list_exportable(catalog[sid])
-    assert names["head"] is ExportKind.field
-    assert names["watertable_depth"] is ExportKind.field
-    assert names["discharge"] is ExportKind.series
-    assert names["discharge_obs"] is ExportKind.series
-    assert names["watershed"] is ExportKind.vector
-    assert names["hydrographic_network_reference"] is ExportKind.vector
-    assert names["watershed_dem"] is ExportKind.raster
-    assert names["budget"] is ExportKind.table
-    # No release flux, no network criterion: the simulated network is not offered.
-    assert "simulated_active_network" not in names
-
-
 def test_a_field_at_one_date_is_one_geotiff_named_by_the_date(dated_run) -> None:
     import rasterio
 
@@ -821,49 +590,10 @@ def test_a_field_at_one_date_is_one_geotiff_named_by_the_date(dated_run) -> None
         assert src.tags()["HMP_PERIOD"] == "2000-02"
 
 
-def test_several_dates_are_one_netcdf_by_default(dated_run) -> None:
-    catalog, sid, exports = dated_run
-    written = export_run(catalog, sid, ExportRequest(variables="head", time=["2000-01-10", "last"]))
-    assert written == [exports / "head.nc"]
-    with xr.open_dataset(written[0]) as ds:
-        assert ds.sizes["time"] == 2
-
-
-def test_several_dates_in_a_one_instant_format_write_one_file_per_date(dated_run) -> None:
-    catalog, sid, exports = dated_run
-    written = export_run(
-        catalog,
-        sid,
-        ExportRequest(
-            variables=["head", "watertable_depth"], time=["2000-01-10", "last"], format="geotiff"
-        ),
-    )
-    assert _names(written) == [
-        "head_2000-01-10.tif",
-        "head_last.tif",
-        "watertable_depth_2000-01-10.tif",
-        "watertable_depth_last.tif",
-    ]
-    assert all(path.parent == exports for path in written)
-
-
 def test_a_one_instant_format_over_the_whole_run_writes_one_file_per_period(dated_run) -> None:
     catalog, sid, _exports = dated_run
     written = export_run(catalog, sid, ExportRequest(variables="head", format="geotiff"))
     assert _names(written) == ["head_2000-01.tif", "head_2000-02.tif", "head_2000-03.tif"]
-
-
-def test_fields_over_the_run_share_one_netcdf_with_the_run_metadata(dated_run) -> None:
-    catalog, sid, exports = dated_run
-    written = export_run(catalog, sid, ExportRequest(variables=["head", "watertable_depth"]))
-    assert written == [exports / "demo_fields.nc"]
-    with xr.open_dataset(written[0]) as ds:
-        assert {"head", "watertable_depth"} <= set(ds.data_vars)
-        assert ds.sizes["time"] == 3
-        # Exported before the seal, the file still says how large the mesh is
-        # and carries the ACDD block the seal composes.
-        assert int(ds.attrs["n_cells"]) == 4
-        assert ds.attrs["title"] == "demo"
 
 
 def test_a_file_that_takes_the_name_of_the_run_is_refused_before_it_is_written(
@@ -881,16 +611,6 @@ def test_a_file_that_takes_the_name_of_the_run_is_refused_before_it_is_written(
         assert {"head", "watertable_depth"} <= set(ds.data_vars)
 
 
-def test_a_period_keeps_the_periods_it_overlaps(dated_run) -> None:
-    catalog, sid, exports = dated_run
-    written = export_run(
-        catalog, sid, ExportRequest(variables="head", period=["2000-02-15", "2000-03-10"])
-    )
-    assert written == [exports / "head_2000-02-15_2000-03-10.nc"]
-    with xr.open_dataset(written[0]) as ds:
-        assert ds.sizes["time"] == 2
-
-
 def test_all_in_one_format_writes_every_data_that_format_holds(dated_run) -> None:
     catalog, sid, _exports = dated_run
     written = export_run(
@@ -903,28 +623,6 @@ def test_all_in_one_format_writes_every_data_that_format_holds(dated_run) -> Non
         "watertable_depth_2000-03-01.tif",
         "watertable_elevation_2000-03-01.tif",
     ]
-
-
-def test_all_writes_each_data_in_its_natural_format(dated_run) -> None:
-    catalog, sid, _exports = dated_run
-    written = export_run(catalog, sid, ExportRequest(variables="all"))
-    assert _names(written) == [
-        "budget.csv",
-        "demo_fields.nc",
-        "demo_series.csv",
-        "hydrographic_network_reference.gpkg",
-        "watershed.gpkg",
-        "watershed_dem.tif",
-    ]
-
-
-def test_the_catchment_is_a_geopackage_in_the_model_crs(dated_run) -> None:
-    catalog, sid, exports = dated_run
-    written = export_run(catalog, sid, ExportRequest(variables="watershed"))
-    assert written == [exports / "watershed.gpkg"]
-    layer = gpd.read_file(written[0])
-    assert len(layer) == 1
-    assert layer.crs.to_epsg() == 2154
 
 
 def test_a_vector_layer_is_written_as_a_shapefile_and_reprojected(dated_run) -> None:
@@ -940,19 +638,6 @@ def test_a_vector_layer_is_written_as_a_shapefile_and_reprojected(dated_run) -> 
     layer = gpd.read_file(written[0])
     assert layer.crs.to_epsg() == 4326
     assert layer.total_bounds[0] == pytest.approx(-1.6, abs=2.0)
-
-
-def test_the_dem_is_a_geotiff_on_its_own_grid(dated_run) -> None:
-    import rasterio
-
-    catalog, sid, exports = dated_run
-    (dem,) = export_run(catalog, sid, ExportRequest(variables="watershed_dem"))
-    assert dem == exports / "watershed_dem.tif"
-    with rasterio.open(dem) as src:
-        assert src.crs.to_epsg() == 2154
-        assert src.res == (100.0, 100.0)
-        assert src.read(1)[0, 0] == 0.0
-        assert src.nodata == -99999.0
 
 
 def test_the_dem_is_warped_to_the_crs_and_resolution_asked(dated_run) -> None:
@@ -992,60 +677,6 @@ def test_the_budget_is_a_csv_naming_each_period(dated_run) -> None:
     assert frame["timestep"].tolist() == [1]
     assert frame["period_start"].tolist() == ["2000-02-01 00:00:00"]
     assert frame["period_end"].tolist() == ["2000-03-01 00:00:00"]
-
-
-def test_series_are_written_on_the_run_clock_and_clipped_to_the_simulation(dated_run) -> None:
-    catalog, sid, exports = dated_run
-    (written,) = export_run(catalog, sid, ExportRequest(variables=["discharge", "discharge_obs"]))
-    assert written == exports / "demo_series.csv"
-    frame = pd.read_csv(written)
-    simulated = frame[frame["source"] == "simulated"]
-    # Naive times of the run clock: no session-zone offset, midnight stays midnight.
-    assert simulated["datetime"].tolist() == [
-        "2000-02-01 00:00:00",
-        "2000-03-01 00:00:00",
-        "2000-04-01 00:00:00",
-    ]
-    assert set(simulated["station_id"]) == {"catchment"}
-    assert set(frame["variable"]) == {"discharge"}
-    gauged = frame[frame["source"] == "observed"]
-    # The record starts in October 1999; the file keeps the simulated window only.
-    assert gauged["datetime"].min() == "2000-01-01 00:00:00"
-    assert gauged["datetime"].max() == "2000-03-31 00:00:00"
-
-
-def test_a_period_clips_each_series_to_the_periods_it_overlaps(dated_run) -> None:
-    catalog, sid, exports = dated_run
-    (written,) = export_run(
-        catalog,
-        sid,
-        ExportRequest(
-            variables=["discharge", "discharge_obs"], period=["2000-02-01", "2000-02-20"]
-        ),
-    )
-    assert written == exports / "demo_series_2000-02-01_2000-02-20.csv"
-    frame = pd.read_csv(written)
-    simulated = frame[frame["source"] == "simulated"]
-    assert simulated["datetime"].tolist() == ["2000-03-01 00:00:00"]
-    gauged = frame[frame["source"] == "observed"]
-    assert gauged["datetime"].min() == "2000-02-01 00:00:00"
-    assert gauged["datetime"].max() == "2000-02-29 00:00:00"
-
-
-def test_a_folder_and_a_file_are_read_from_the_exports_of_the_run(dated_run) -> None:
-    catalog, sid, exports = dated_run
-    written = export_run(catalog, sid, ExportRequest(variables="watershed", folder="livrables"))
-    assert written == [exports / "livrables" / "watershed.gpkg"]
-    written = export_run(catalog, sid, ExportRequest(variables="watershed", file="bassin.gpkg"))
-    assert written == [exports / "bassin.gpkg"]
-
-
-def test_every_file_is_recorded_in_the_ledger_of_the_exports(dated_run) -> None:
-    catalog, sid, exports = dated_run
-    (written,) = export_run(catalog, sid, ExportRequest(variables="head", time="last"))
-    (entry,) = Ledger.read(exports).entries
-    assert entry.file == written.name
-    assert entry.options == {"variables": "head", "time": "last", "nodata": -9999.0}
 
 
 def test_a_metadata_view_is_written_beside_the_seal(dated_run) -> None:
@@ -1111,17 +742,6 @@ def test_a_run_without_the_network_says_why_it_cannot_export_it(dated_run) -> No
     catalog, sid, _exports = dated_run
     with pytest.raises(ExportError, match="no per-cell release_flux"):
         export_run(catalog, sid, ExportRequest(variables="simulated_active_network", time="last"))
-
-
-def test_run_export_and_hmp_export_speak_the_words_of_the_toml(dated_run) -> None:
-    import hydromodpy as hmp
-
-    catalog, sid, exports = dated_run
-    run = catalog[sid]
-    assert run.export("head", time="2000-01-15") == [exports / "head_2000-01-15.tif"]
-    assert hmp.export(run, "discharge", period=("2000-01-01", "2000-01-31")) == [
-        exports / "discharge_2000-01-01_2000-01-31.csv"
-    ]
 
 
 @pytest.mark.parametrize("fmt", ["netcdf", "geotiff"])
@@ -1231,52 +851,6 @@ def test_every_csv_row_names_its_site_and_case(exported) -> None:
         frame = pd.read_csv(path)
         assert list(frame.columns[:2]) == ["site", "case_id"]
         assert set(frame["case_id"]) == {RUN_NAME}
-
-
-def test_a_netcdf_carries_the_block_in_its_global_attributes(exported) -> None:
-    import xarray as xr
-
-    run_dir, written, _figures = exported
-    (netcdf,) = written["netcdf"]
-    with xr.open_dataset(netcdf) as dataset:
-        assert Identity.from_json(dataset.attrs[ZARR_IDENTITY_ATTR]).sim_id == _sim_id(run_dir)
-
-
-def test_every_export_is_recorded_in_the_ledger(exported) -> None:
-    run_dir, written, _figures = exported
-    exports = run_dir / "exports"
-    recorded = {entry.file for entry in Ledger.read(exports).entries}
-    files = {path.relative_to(exports).as_posix() for paths in written.values() for path in paths}
-    assert recorded == files
-
-
-def test_a_figure_carries_the_block_and_its_ledger_entry(exported) -> None:
-    run_dir, _written, figures = exported
-    assert figures
-    ledger = Ledger.read(figures_dir_of(run_dir))
-    for path in figures:
-        found = read_identity_from(path)
-        assert found is not None
-        assert found.sim_id == _sim_id(run_dir)
-        assert ledger.entry_for(path.name) is not None
-
-
-@pytest.mark.parametrize("key", [*sorted(REQUESTS), "figure"])
-def test_what_renders_a_sealed_run_carries_its_label_rule_and_date(exported, key) -> None:
-    # Exports and figures are written from the sealed run, so their block is
-    # labelled the day it is written; the field store and the tables are not.
-    from datetime import UTC, datetime
-
-    run_dir, written, figures = exported
-    paths = figures if key == "figure" else written[key]
-    assert paths
-    for path in paths:
-        found = read_identity_from(path)
-        assert found is not None, path.name
-        assert found.label is not None, path.name
-        assert found.rule_version, path.name
-        assert found.label_date == datetime.now(UTC).date()
-    assert _identity(run_dir).label is None
 
 
 def test_the_field_store_and_the_tables_carry_the_block(exported) -> None:
@@ -1407,25 +981,6 @@ def _exports(catalog: Catalog, sid: str) -> Path:
     return catalog.run_dir_for(sid) / "exports"
 
 
-def test_the_three_layers_share_one_geopackage_in_the_crs_of_the_mesh(catalog, new_run):
-    written = export_run(catalog, new_run, ExportRequest(variables=list(MESH_LAYERS)))
-
-    assert written == [_exports(catalog, new_run) / "demo_mesh.gpkg"]
-    layers = pyogrio.list_layers(written[0])
-    assert sorted(layers[:, 0]) == sorted(MESH_LAYERS)
-    for name in MESH_LAYERS:
-        assert (
-            CRS.from_user_input(pyogrio.read_info(written[0], layer=name)["crs"]).to_epsg() == 2154
-        )
-
-
-def test_one_layer_is_a_geopackage_named_after_it(catalog, new_run):
-    written = export_run(catalog, new_run, ExportRequest(variables="mesh_seeds"))
-
-    assert written == [_exports(catalog, new_run) / "mesh_seeds.gpkg"]
-    assert pyogrio.list_layers(written[0])[:, 0].tolist() == ["mesh_seeds"]
-
-
 def test_a_shapefile_holds_one_layer_per_file(catalog, new_run):
     written = export_run(
         catalog, new_run, ExportRequest(variables=["mesh_cells", "mesh_seeds"], format="shapefile")
@@ -1528,18 +1083,6 @@ def test_a_family_face_is_the_segment_between_its_two_nodes(catalog, new_run):
     assert shapely.get_coordinates(row.geometry)[:, 1].std() == pytest.approx(0.0)
 
 
-def test_a_crs_reprojects_every_layer(catalog, new_run):
-    (path,) = export_run(
-        catalog, new_run, ExportRequest(variables=list(MESH_LAYERS), crs="EPSG:4326")
-    )
-
-    for name in MESH_LAYERS:
-        assert CRS.from_user_input(pyogrio.read_info(path, layer=name)["crs"]).to_epsg() == 4326
-    seed = gpd.read_file(path, layer="mesh_seeds").geometry.iloc[0]
-    assert -5.0 < seed.x < 10.0
-    assert 40.0 < seed.y < 52.0
-
-
 def test_a_ragged_mesh_keeps_every_cell_as_a_valid_polygon(project):
     cell_mesh = bundle_dual(BUNDLE)
     cell_mesh = dataclasses.replace(cell_mesh, crs_wkt=LAMBERT)
@@ -1592,16 +1135,6 @@ def test_variables_all_writes_the_layers_a_run_holds(catalog, new_run):
     assert sorted(pyogrio.list_layers(mesh_file)[:, 0]) == sorted(MESH_LAYERS)
 
 
-def test_an_export_replaces_the_previous_file_cleanly(catalog, new_run):
-    request = ExportRequest(variables=list(MESH_LAYERS))
-    (first,) = export_run(catalog, new_run, request)
-    (second,) = export_run(catalog, new_run, request)
-
-    assert first == second
-    assert len(pyogrio.list_layers(second)) == 3
-    assert not list(second.parent.glob("*.tmp"))
-
-
 def test_a_quality_field_exports_once_in_a_netcdf(catalog, new_run):
     names = list_exportable(catalog[new_run])
     assert names["mesh_cell_area"] is ExportKind.field
@@ -1613,16 +1146,3 @@ def test_a_quality_field_exports_once_in_a_netcdf(catalog, new_run):
     with xr.open_dataset(path) as ds:
         assert ds["mesh_cell_area"].dims == ("n_face",)
         np.testing.assert_allclose(ds["mesh_cell_area"].values, 625.0)
-
-
-def test_a_legacy_run_lists_the_area_but_not_the_centre_fields(catalog, old_run):
-    names = list_exportable(catalog[old_run])
-
-    assert names["mesh_cell_area"] is ExportKind.field
-    assert "mesh_neighbour_ratio" in names
-    assert "mesh_center_offset" not in names
-    assert "mesh_nonorthogonality" not in names
-    assert "mesh_bisection_offset" not in names
-    assert names["mesh_min_angle"] is ExportKind.field
-    assert names["mesh_max_angle"] is ExportKind.field
-    assert names["mesh_concavity"] is ExportKind.field

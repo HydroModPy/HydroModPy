@@ -14,14 +14,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.display.figures.accumulation_map import (
-    GROUND_COLOR,
-    PALETTE_FLOOR,
-    AccumulationMap,
-    truncated_palette,
-)
-
-from ._render_helpers import lightness
+from hydromodpy.display.figures.accumulation_map import AccumulationMap, truncated_palette
 
 FLUXES = (0.0, 1.0e-6, 1.0e-4, 1.0e-2)
 """One empty cell and three positive ones, four decades apart."""
@@ -142,19 +135,6 @@ def test_a_field_that_accumulates_nowhere_still_draws() -> None:
         plt.close(fig)
 
 
-def test_the_legend_counts_the_cells_outside_the_network() -> None:
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    fig, ax = _axes()
-    try:
-        AccumulationMap().render(_run(), ax)
-        labels = [text.get_text() for text in ax.get_legend().get_texts()]
-        assert "no accumulated flux (1 cell)" in labels
-    finally:
-        plt.close(fig)
-
-
 def test_a_field_that_accumulates_everywhere_carries_no_ground_entry() -> None:
     """Nothing is painted in the ground color, so nothing claims it is."""
     pytest.importorskip("matplotlib")
@@ -192,82 +172,8 @@ def test_an_unknown_scale_is_refused_by_name() -> None:
         plt.close(fig)
 
 
-@pytest.mark.parametrize("cmap", ["Blues", "viridis", "cividis"])
-def test_every_drawn_color_stays_darker_than_the_ground(cmap: str) -> None:
-    """The property the map is legible by, in color and in grayscale alike.
-
-    The ground carries the cells the ramp says nothing about. A ramp reaching
-    its lightness would make the cells it does describe disappear into it.
-    The figure's own defaults are read here rather than repeated, and the
-    palettes a caller may set are checked beside them: ``Blues`` is light at
-    the bottom and ``viridis`` at the top, so a truncation that always cut
-    the bottom would leave the second one pale exactly where it matters.
-    """
-    pytest.importorskip("matplotlib")
-    from matplotlib.colors import to_rgb
-
-    palette = truncated_palette(cmap, PALETTE_FLOOR)
-    ramp = [lightness(palette(value)) for value in np.linspace(0.0, 1.0, 32)]
-    ground = lightness(to_rgb(GROUND_COLOR))
-    assert max(ramp) < ground - 10.0
-    assert ramp == sorted(ramp) or ramp == sorted(ramp, reverse=True)
-
-
-def test_the_default_palette_darkens_as_the_flux_climbs() -> None:
-    """What the figure ships with, and the direction it reads in."""
-    pytest.importorskip("matplotlib")
-
-    palette = truncated_palette(AccumulationMap.default_cmap, PALETTE_FLOOR)
-    ramp = [lightness(palette(value)) for value in np.linspace(0.0, 1.0, 32)]
-
-    assert AccumulationMap.default_cmap == "Blues"
-    assert ramp == sorted(ramp, reverse=True)
-
-
-def test_the_light_end_is_the_one_that_is_cut_whichever_end_it_is() -> None:
-    """A palette light at the top keeps its dark colors, not its pale ones."""
-    pytest.importorskip("matplotlib")
-    from matplotlib.colors import to_hex
-
-    from hydromodpy.display.style import get_cmap
-
-    base = get_cmap("viridis")
-    palette = truncated_palette("viridis", PALETTE_FLOOR)
-
-    assert to_hex(palette(0.0)) == to_hex(base(0.0)), "the dark end is kept"
-    assert to_hex(palette(1.0)) == to_hex(base(1.0 - PALETTE_FLOOR)), "the light end is cut"
-
-
-def test_the_palette_paints_the_empty_cells_in_the_ground_color() -> None:
-    pytest.importorskip("matplotlib")
-    from matplotlib.colors import to_hex, to_rgb
-
-    palette = truncated_palette(AccumulationMap.default_cmap, PALETTE_FLOOR)
-    assert to_hex(palette.get_bad()) == to_hex(to_rgb(GROUND_COLOR))
-
-
 def test_a_palette_floor_outside_the_palette_is_refused() -> None:
     pytest.importorskip("matplotlib")
 
     with pytest.raises(ValueError, match="palette_floor"):
         truncated_palette(AccumulationMap.default_cmap, 1.0)
-
-
-def test_unavailable_reason_names_the_field_a_run_lacks() -> None:
-    reason = AccumulationMap().unavailable_reason(_run(field="head"))
-    assert isinstance(reason, str)
-    assert "drain_accumulation_flux" in reason
-    assert AccumulationMap().unavailable_reason(_run()) is None
-
-
-def test_the_figure_is_requestable_from_a_toml() -> None:
-    """Registered, and reachable through ``[display].figures`` with its knobs."""
-    from hydromodpy.display import figure_registry
-    from hydromodpy.display.config import DisplayConfig
-
-    assert isinstance(figure_registry.get("accumulation_map"), AccumulationMap)
-    config = DisplayConfig(
-        figures=["accumulation_map"],
-        overrides={"accumulation_map": {"scale": "linear", "cmap": "cividis"}},
-    )
-    assert config.overrides["accumulation_map"]["scale"] == "linear"

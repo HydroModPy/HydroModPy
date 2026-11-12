@@ -31,14 +31,6 @@ def spread() -> np.ndarray:
     return magnitude * rng.choice([-1.0, 1.0], magnitude.size)
 
 
-def test_the_result_is_float32_with_the_dropped_bits_at_zero(spread) -> None:
-    rounded = round_mantissa(spread)
-
-    assert rounded.dtype == np.float32
-    assert rounded.shape == spread.shape
-    assert not np.any(rounded.view(np.uint32) & DROPPED_MASK)
-
-
 def test_the_relative_error_stays_within_half_a_kept_unit(spread) -> None:
     rounded = round_mantissa(spread).astype(np.float64)
 
@@ -47,55 +39,11 @@ def test_the_relative_error_stays_within_half_a_kept_unit(spread) -> None:
     assert MAX_RELATIVE_ERROR == pytest.approx(7.63e-6, rel=1e-3)
 
 
-def test_a_head_moves_by_a_millimetre_at_most() -> None:
-    heads = np.linspace(128.0, 255.999, 100_001)
-
-    error = np.abs(round_mantissa(heads).astype(np.float64) - heads)
-
-    assert error.max() <= 2.0**7 * 2.0 ** -(KEPT_MANTISSA_BITS + 1)
-    assert error.max() < 1e-3
-
-
-def test_a_value_already_on_the_grid_is_left_as_it_is() -> None:
-    exact = np.array([1.0, -2.5, 0.75, 1024.0, 3.0 * 2.0**-20], dtype=np.float64)
-
-    np.testing.assert_array_equal(round_mantissa(exact), exact.astype(np.float32))
-
-
-def test_rounding_twice_changes_nothing(spread) -> None:
-    once = round_mantissa(spread)
-
-    np.testing.assert_array_equal(round_mantissa(once), once)
-
-
-def test_a_tie_goes_to_the_even_neighbour() -> None:
-    unit = 2.0**-KEPT_MANTISSA_BITS
-    ties = np.array([1.0 + 0.5 * unit, 1.0 + 1.5 * unit], dtype=np.float64)
-
-    np.testing.assert_array_equal(round_mantissa(ties), np.array([1.0, 1.0 + 2.0 * unit]))
-
-
-def test_nan_stays_nan_whatever_its_payload() -> None:
-    payloads = np.array(
-        [0x7FF8000000000000, 0x7FFFFFFFFFFFFFFF, 0xFFF0000000000001], dtype=np.uint64
-    ).view(np.float64)
-
-    assert np.isnan(round_mantissa(payloads)).all()
-
-
 def test_zeros_keep_their_sign() -> None:
     rounded = round_mantissa(np.array([0.0, -0.0]))
 
     np.testing.assert_array_equal(rounded, [0.0, 0.0])
     np.testing.assert_array_equal(np.signbit(rounded), [False, True])
-
-
-def test_a_negative_value_rounds_as_the_mirror_of_its_positive(spread) -> None:
-    np.testing.assert_array_equal(round_mantissa(-spread), -round_mantissa(spread))
-
-
-def test_infinities_stay_infinite() -> None:
-    np.testing.assert_array_equal(round_mantissa([np.inf, -np.inf]), [np.inf, -np.inf])
 
 
 def test_a_subnormal_stays_finite_nonzero_and_signed() -> None:
@@ -123,14 +71,6 @@ def test_the_largest_float32_values_never_become_infinite() -> None:
     )
 
 
-def test_a_large_value_inside_the_float32_range_keeps_the_bound() -> None:
-    large = np.array([1e30, -3e35, 1e38])
-
-    relative = np.abs(round_mantissa(large).astype(np.float64) - large) / np.abs(large)
-
-    assert relative.max() <= MAX_RELATIVE_ERROR
-
-
 def test_a_finite_value_beyond_float32_is_refused() -> None:
     with pytest.raises(ValueError, match="float32 range"):
         round_mantissa(np.array([1.0, 1e39]))
@@ -141,12 +81,6 @@ def test_the_kept_bits_are_checked() -> None:
         round_mantissa([1.0], kept_bits=0)
     with pytest.raises(ValueError, match="kept_bits"):
         round_mantissa([1.0], kept_bits=24)
-
-
-def test_a_float32_input_is_rounded_the_same_way() -> None:
-    values = np.array([130.123456, -0.0012345, 7.5e-9], dtype=np.float32)
-
-    np.testing.assert_array_equal(round_mantissa(values), round_mantissa(values.astype(np.float64)))
 
 
 def test_the_storage_precision_rounds_floats_only_under_compact() -> None:

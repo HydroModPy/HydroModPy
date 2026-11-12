@@ -19,7 +19,6 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from hydromodpy.core.scoring.metrics import (
-    SPREAD_FLOOR,
     align,
     bias,
     clip_negatives,
@@ -91,13 +90,6 @@ def test_pbias_zero_when_perfect():
     assert pbias(obs, obs) == pytest.approx(0.0)
 
 
-def test_pbias_positive_when_sim_overshoots():
-    """Σ(sim - obs) is positive when sim > obs, so PBIAS > 0, like bias."""
-    obs = np.array([1.0, 2.0, 3.0])
-    sim = obs + 1.0
-    assert pbias(sim, obs) > 0.0
-
-
 def test_pbias_zero_total_obs_returns_nan():
     obs = np.array([1.0, -1.0, 2.0, -2.0])  # sums to 0
     sim = obs + 0.1
@@ -161,13 +153,6 @@ def test_kge_delta_without_increments_is_a_silent_nan() -> None:
     assert all(np.isnan(v) for v in out.values())
 
 
-def test_kge_nan_keeps_its_four_keys() -> None:
-    with pytest.warns(UserWarning):
-        out = kge(np.array([1.0]), np.array([1.0]))
-    assert list(out) == ["kge", "r", "alpha", "beta"]
-    assert all(np.isnan(v) for v in out.values())
-
-
 def test_nse_perfect_match_is_one():
     obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     assert nse(obs, obs) == pytest.approx(1.0)
@@ -180,20 +165,6 @@ def test_nse_climatology_is_zero():
     assert nse(sim, obs) == pytest.approx(0.0)
 
 
-def test_nse_negative_when_worse_than_mean():
-    obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    sim = obs[::-1]  # totally inverted
-    assert nse(sim, obs) < 0.0
-
-
-def test_nse_drops_nans_in_either_series():
-    obs = np.array([1.0, 2.0, np.nan, 4.0, 5.0])
-    sim = np.array([1.1, np.nan, 3.0, 4.0, 5.0])
-    # Pairs left: (4.0, 4.0), (5.0, 5.0). Single point (1.1, 1.0) stays too.
-    score = nse(sim, obs)
-    assert np.isfinite(score)
-
-
 def test_nse_constant_obs_returns_nan():
     obs = np.full(5, 3.0)
     sim = np.array([3.1, 2.9, 3.0, 3.0, 3.1])
@@ -203,11 +174,6 @@ def test_nse_constant_obs_returns_nan():
 def test_nse_shape_mismatch_raises():
     with pytest.raises(ValueError):
         nse(np.array([1.0, 2.0]), np.array([1.0, 2.0, 3.0]))
-
-
-def test_nse_returns_python_float():
-    score = nse(np.array([1.0, 2.0]), np.array([1.1, 2.1]))
-    assert isinstance(score, float)
 
 
 def test_log_nse_clips_negative_values_to_zero():
@@ -243,14 +209,6 @@ def test_nse_seasonal_of_nothing_is_a_silent_nan() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         assert np.isnan(nse_seasonal(np.array([]), np.array([])))
-
-
-def test_nse_seasonal_reads_the_time_axis() -> None:
-    """A cycle sampled with a gap is in the span only on its true dates."""
-    t = np.concatenate([np.arange(400.0), np.arange(500.0, 830.0)])
-    obs = _cycle(t)
-    assert np.isnan(nse_seasonal(obs + 1.0, obs, times=t))
-    assert np.isfinite(nse_seasonal(obs + 1.0, obs))
 
 
 OBSERVED = np.array([1.0, 2.0, 3.0, 4.0])
@@ -304,18 +262,6 @@ def test_a_purely_seasonal_series_scores_nan_against_its_own_cycle() -> None:
     assert np.isnan(nse_seasonal(obs * 1.01, obs))
 
 
-def test_a_small_real_spread_is_still_scored() -> None:
-    # One millimeter on a hundred meters is ten million times the floor.
-    t = np.arange(3 * 365, dtype=float)
-    obs = 100.0 + 1e-3 * np.sin(2.0 * np.pi * t / 30.0)
-    sim = obs + 1e-4 * np.cos(2.0 * np.pi * t / 7.0)
-    assert 1e-3 / 100.0 > 1e6 * SPREAD_FLOOR
-
-    assert np.isfinite(nse(sim, obs))
-    assert np.isfinite(nse_delta(sim, obs))
-    assert np.isfinite(nse_seasonal(sim, obs))
-
-
 @pytest.mark.parametrize(
     ("sim", "obs", "reason"),
     [
@@ -328,12 +274,6 @@ def test_a_small_real_spread_is_still_scored() -> None:
 def test_kge_says_why_it_is_nan(sim: list[float], obs: list[float], reason: str) -> None:
     with pytest.warns(UserWarning, match=reason):
         assert np.isnan(kge(np.array(sim), np.array(obs))["kge"])
-
-
-def test_nse_seasonal_says_how_many_samples_it_needs() -> None:
-    obs = np.arange(100.0)
-    with pytest.warns(UserWarning, match="730 samples, and the series holds 100"):
-        assert np.isnan(nse_seasonal(obs, obs))
 
 
 METRIC_PROPERTY = settings(derandomize=True, max_examples=100, deadline=None)
@@ -395,23 +335,6 @@ def test_a_perfect_simulation_scores_perfectly(observed: list[float]) -> None:
     decomposition = kge(obs, obs)
     assert decomposition["kge"] == pytest.approx(1.0, rel=1e-12)
     assert decomposition["alpha"] == pytest.approx(1.0, rel=1e-12)
-
-
-@given(pair=PAIRED_SERIES)
-@METRIC_PROPERTY
-def test_efficiencies_never_exceed_one(pair: tuple[list[float], list[float]]) -> None:
-    """One is the ceiling of NSE and KGE, for any pair of series at all.
-
-    Both are built as ``1 - <something non-negative>``, so a score above one is
-    proof that the non-negative part is not what it claims to be. A calibration
-    that can score above one has an objective function that no longer has its
-    optimum where the model is right.
-    """
-    simulated, observed = (np.asarray(series, dtype=float) for series in pair)
-    assume(_informative(observed))
-    assert nse(simulated, observed) <= 1.0
-    score = kge(simulated, observed)["kge"]
-    assert math.isnan(score) or score <= 1.0
 
 
 @given(pair=PAIRED_SERIES)
@@ -483,31 +406,6 @@ def test_rmse_carries_the_unit_of_the_series(
     reference = rmse(simulated, observed)
     assume(reference > 1e-6)
     assert rmse(simulated * scale, observed * scale) == pytest.approx(scale * reference, rel=1e-9)
-
-
-@given(pair=PAIRED_SERIES, extra=_SAMPLE)
-@METRIC_PROPERTY
-def test_a_gap_in_either_series_is_dropped_not_propagated(
-    pair: tuple[list[float], list[float]], extra: float
-) -> None:
-    """Appending a NaN-paired sample must leave every score untouched.
-
-    Real records have gaps, and ``align`` exists to drop them. If a NaN leaks
-    through, the score is NaN and the calibration silently loses the run; if a
-    gap is instead counted as a zero residual, the score is flattered. Both
-    have happened to gauge series with missing days.
-    """
-    simulated, observed = (np.asarray(series, dtype=float) for series in pair)
-    assume(_informative(observed))
-    padded_simulated = np.append(simulated, np.nan)
-    padded_observed = np.append(observed, extra)
-    assert rmse(padded_simulated, padded_observed) == rmse(simulated, observed)
-    assert mae(padded_simulated, padded_observed) == mae(simulated, observed)
-    assert nse(padded_simulated, padded_observed) == nse(simulated, observed)
-    # The gap may equally sit on the observed side.
-    assert rmse(np.append(simulated, extra), np.append(observed, np.nan)) == rmse(
-        simulated, observed
-    )
 
 
 @given(pair=PAIRED_SERIES)

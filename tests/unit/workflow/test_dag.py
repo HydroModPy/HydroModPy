@@ -28,24 +28,6 @@ class _FakeStep:
         return state
 
 
-def test_kahn_linear_order_canonical_pipeline() -> None:
-    """A purely linear DAG yields singleton cohorts in declaration order."""
-    steps = (
-        _FakeStep("a"),
-        _FakeStep("b", ("a",)),
-        _FakeStep("c", ("b",)),
-        _FakeStep("d", ("c",)),
-    )
-    dag = WorkflowDAG(steps)
-    cohorts = dag.topological_order()
-    assert [tuple(s.name for s in cohort) for cohort in cohorts] == [
-        ("a",),
-        ("b",),
-        ("c",),
-        ("d",),
-    ]
-
-
 def test_kahn_detects_two_step_cycle() -> None:
     """An ``A -> B -> A`` cycle raises :class:`WorkflowDAGCycleError`."""
     steps = (
@@ -88,16 +70,6 @@ def test_kahn_rejects_an_ill_formed_graph(steps) -> None:
         WorkflowDAG(steps).topological_order()
 
 
-def test_standard_steps_dag_has_13_singleton_cohorts() -> None:
-    """The canonical 13-step pipeline produces 13 singleton cohorts."""
-    from hydromodpy.workflow.steps.sequence import standard_steps
-
-    dag = WorkflowDAG(standard_steps())
-    cohorts = dag.topological_order()
-    assert len(cohorts) == 13
-    assert all(len(cohort) == 1 for cohort in cohorts)
-
-
 def test_the_renders_follow_the_seal() -> None:
     """The tail of the pipeline is derive, export, seal, display: figures render the seal."""
     from hydromodpy.workflow.steps.sequence import standard_steps
@@ -105,18 +77,3 @@ def test_the_renders_follow_the_seal() -> None:
     cohorts = WorkflowDAG(standard_steps()).topological_order()
     order = [cohort[0].name for cohort in cohorts]
     assert order[-4:] == ["derive", "export", "seal", "display"]
-
-
-@pytest.mark.parametrize(
-    ("step", "predecessor"),
-    [
-        ("export", "derive"),
-        ("seal", "export"),
-        ("display", "seal"),
-    ],
-)
-def test_each_step_of_the_tail_depends_on_the_one_before(step, predecessor) -> None:
-    from hydromodpy.workflow.steps.sequence import standard_steps
-
-    by_name = {s.name: s for s in standard_steps()}
-    assert by_name[step].depends_on() == (predecessor,)

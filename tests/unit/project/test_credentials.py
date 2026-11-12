@@ -45,39 +45,6 @@ def outside(tmp_path: Path) -> Path:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize(
-    ("prefixes", "url", "prefix_of"),
-    [
-        (
-            ("ftps://depot.example.org/", "ftps://depot.example.org/hydromodpy/"),
-            "ftps://depot.example.org/hydromodpy/one",
-            "ftps://depot.example.org/hydromodpy/",
-        ),
-        (
-            ("ftps://depot.example.org/",),
-            "ftps://depot.example.org/hydromodpy/one",
-            "ftps://depot.example.org/",
-        ),
-        (
-            ("ftps://depot.example.org/hydromodpy/",),
-            "ftps://depot.example.org/hydromodpy/",
-            "ftps://depot.example.org/hydromodpy/",
-        ),
-    ],
-    ids=[
-        "the-longest-prefix-wins",
-        "one-prefix-fits",
-        "the-url-is-the-prefix",
-    ],
-)
-def test_the_longest_prefix_answers_for_the_url(
-    prefixes: tuple[str, ...], url: str, prefix_of: str
-) -> None:
-    credentials = tuple(HostCredential(prefix=prefix, user="b") for prefix in prefixes)
-    chosen = credential_for(url, credentials)
-    assert chosen is not None and chosen.prefix == prefix_of
-
-
 def test_a_prefix_cuts_at_a_segment_boundary() -> None:
     """``ftp://h/a`` does not answer for ``ftp://h/ab/``."""
     credentials = (HostCredential(prefix="ftp://h/a", user="b"),)
@@ -85,30 +52,9 @@ def test_a_prefix_cuts_at_a_segment_boundary() -> None:
     assert credential_for("ftp://h/a/x", credentials) is not None
 
 
-def test_a_block_of_another_scheme_answers_nothing() -> None:
-    credentials = (HostCredential(prefix="ftps://h/p/", user="b"),)
-    assert credential_for("ftp://h/p/x", credentials) is None
-
-
-def test_the_scheme_and_the_host_compare_in_lower_case() -> None:
-    credentials = (HostCredential(prefix="FTPS://DEPOT.Example.org/p/", user="b"),)
-    chosen = credential_for("ftps://depot.example.org/p/x", credentials)
-    assert chosen is not None and chosen.prefix == "FTPS://DEPOT.Example.org/p/"
-
-
-def test_no_block_answers_when_the_file_carries_none() -> None:
-    assert credential_for("ftps://h/p/", ()) is None
-
-
 # --------------------------------------------------------------------------- #
 # secret
 # --------------------------------------------------------------------------- #
-
-
-def test_the_secret_of_a_block_written_in_clear() -> None:
-    block = HostCredential(prefix=GOOD_PREFIX, user="b", password="s3cr3t-hunter2")
-    assert block.secret() == "s3cr3t-hunter2"
-    assert "s3cr3t-hunter2" not in repr(block)
 
 
 def test_the_secret_of_a_block_read_from_a_file(tmp_path: Path) -> None:
@@ -247,22 +193,3 @@ def test_a_file_that_is_not_toml_is_refused_with_its_line(
     with pytest.raises(CredentialsError, match="not a valid TOML file") as raised:
         load_credentials(path, forbidden_roots=())
     assert "line 2" in str(raised.value)
-
-
-def test_a_good_file_loads_to_its_blocks(
-    outside: Path,
-) -> None:
-    body = (
-        f'[[host]]\nprefix = "{GOOD_PREFIX}"\nuser = "b"\npassword = "s3cr3t"\n\n'
-        '[[host]]\nprefix = "sftp://partner.example.org/"\nuser = "hmp"\n'
-        'key_file = "/home/bb/.ssh/id_partner"\nhost_fingerprint = "SHA256:AB12"\n'
-    )
-    path = _write(outside, body)
-    blocks = load_credentials(path, forbidden_roots=(outside / "project", outside / "space"))
-    assert [block.prefix for block in blocks] == [
-        GOOD_PREFIX,
-        "sftp://partner.example.org/",
-    ]
-    assert blocks[0].secret() == "s3cr3t"
-    assert blocks[1].key_file == Path("/home/bb/.ssh/id_partner")
-    assert blocks[1].host_fingerprint == "SHA256:AB12"

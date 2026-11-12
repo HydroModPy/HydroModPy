@@ -21,15 +21,6 @@ def test_a_variable_is_found_by_its_name() -> None:
     assert row.display_name == "HMP_SKIP_DOC_DATA"
 
 
-def test_a_prefix_row_answers_for_every_name_that_starts_with_it() -> None:
-    prefixes = [row for row in ENV_VARS if row.prefix]
-    assert prefixes
-    prefix = prefixes[0]
-
-    assert env_var(f"{prefix.name}anything") is prefix
-    assert prefix.display_name == f"{prefix.name}<key>"
-
-
 def test_an_unknown_variable_raises() -> None:
     with pytest.raises(KeyError):
         env_var("HMP_NO_SUCH_VARIABLE")

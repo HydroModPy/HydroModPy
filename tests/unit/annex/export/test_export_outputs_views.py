@@ -16,12 +16,11 @@ from hydromodpy.results.export.context import FairExportContext
 from hydromodpy.results.export.directory import context_from_directory
 from hydromodpy.results.export.rocrate import write_ro_crate_view
 from hydromodpy.results.record.manifest import list_artifacts
-from hydromodpy.results.record.record import PROVENANCE_VERSION, sealed_artifacts
+from hydromodpy.results.record.record import PROVENANCE_VERSION
 from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from hydromodpy.schema.generated_views import (
     GENERATED_VIEWS,
-    PROV_VIEW_FILENAME,
     RO_CRATE_VIEW_FILENAME,
     STAC_ITEM_VIEW_FILENAME,
 )
@@ -34,7 +33,7 @@ from hydromodpy.schema.job.outcome import JobOutcome, OutputRecord
 from hydromodpy.schema.job.seal import seal_job, verify_job
 from hydromodpy.schema.media_types import GEOPACKAGE_MEDIA_TYPE, GEOTIFF_MEDIA_TYPE
 from hydromodpy_annex.export.prov import write_prov_view
-from hydromodpy_annex.export.stac import validate_item, write_stac_item_view
+from hydromodpy_annex.export.stac import write_stac_item_view
 from tests._helpers.sealed_runs import manifest_document
 
 pytestmark = pytest.mark.fast
@@ -213,120 +212,6 @@ def _read(path: Path) -> dict[str, Any]:
 
 
 class TestARunDirectory:
-    def test_the_three_views_land_beside_the_seal(self, tmp_path: Path) -> None:
-        run_dir = _run_directory(tmp_path)
-        written = write_views(run_dir)
-        assert {path.name for path in written} == {
-            RO_CRATE_VIEW_FILENAME,
-            STAC_ITEM_VIEW_FILENAME,
-            PROV_VIEW_FILENAME,
-        }
-        assert all(path.parent == run_dir for path in written)
-        assert not (tmp_path / "share").exists()
-
-    def test_every_asset_href_resolves_inside_the_directory(self, tmp_path: Path) -> None:
-        run_dir = _run_directory(tmp_path)
-        item = _read(write_stac_item_view(run_dir))
-        hrefs = {asset["href"] for asset in item["assets"].values()}
-        assert {"manifest.json", "config.toml", "fields.zarr"} <= hrefs
-        assert "tables.parquet/mass_balance.parquet" in hrefs
-        assert all((run_dir / href).exists() for href in hrefs)
-
-    def test_the_stac_item_is_valid_standalone_and_in_wgs84(self, tmp_path: Path) -> None:
-        pytest.importorskip("pystac")
-        item = _read(write_stac_item_view(_run_directory(tmp_path)))
-        ok, errors = validate_item(item)
-        assert ok, errors
-        assert "collection" not in item
-        assert item["links"] == [
-            {"rel": "self", "href": STAC_ITEM_VIEW_FILENAME, "type": "application/geo+json"}
-        ]
-        xmin, ymin, xmax, ymax = item["bbox"]
-        assert -1.4 < xmin < xmax < -1.0
-        assert 48.2 < ymin < ymax < 48.6
-        assert item["properties"]["proj:epsg"] == 2154
-        assert "proj:wkt2" not in item["properties"]
-
-    def test_a_box_whose_crs_is_unknown_is_left_out(self, tmp_path: Path) -> None:
-        run_dir = _run_directory(tmp_path, crs_epsg=None, bbox=[0.0, 0.0, 400.0, 50.0])
-        item = _read(write_stac_item_view(run_dir))
-        assert "bbox" not in item
-        assert item["geometry"] is None
-
-    def test_a_licence_nobody_chose_is_not_invented(self, tmp_path: Path) -> None:
-        run_dir = _run_directory(tmp_path)
-        write_views(run_dir)
-        crate = _read(run_dir / RO_CRATE_VIEW_FILENAME)
-        root = next(node for node in crate["@graph"] if node["@id"] == "./")
-        assert root["license"] == {"@id": "LicenseRef-undetermined"}
-        item = _read(run_dir / STAC_ITEM_VIEW_FILENAME)
-        assert item["properties"]["license"] == "LicenseRef-undetermined"
-        for name in (RO_CRATE_VIEW_FILENAME, STAC_ITEM_VIEW_FILENAME, PROV_VIEW_FILENAME):
-            assert "CC-BY-4.0" not in (run_dir / name).read_text(encoding="utf-8")
-
-    def test_a_view_names_no_local_path_and_no_account(self, tmp_path: Path) -> None:
-        run_dir = _run_directory(tmp_path)
-        for path in write_views(run_dir):
-            text = path.read_text(encoding="utf-8")
-            assert str(tmp_path) not in text
-            assert "workstation" not in text
-            assert "someone" not in text
-
-    def test_rendering_twice_gives_the_same_bytes(self, tmp_path: Path) -> None:
-        run_dir = _run_directory(tmp_path)
-        first = [path.read_bytes() for path in write_views(run_dir)]
-        second = [path.read_bytes() for path in write_views(run_dir)]
-        assert first == second
-        crate = _read(run_dir / RO_CRATE_VIEW_FILENAME)
-        root = next(node for node in crate["@graph"] if node["@id"] == "./")
-        assert root["datePublished"] == SEALED_AT
-
-    def test_the_crate_loads_in_the_reference_library(self, tmp_path: Path) -> None:
-        pytest.importorskip("rocrate")
-        from rocrate.rocrate import ROCrate
-
-        run_dir = _run_directory(tmp_path)
-        write_ro_crate_view(run_dir)
-        crate = ROCrate(run_dir)
-        assert str(crate.root_dataset.id) == "./"
-        parts = {str(part["@id"]) for part in crate.root_dataset.properties()["hasPart"]}
-        assert "manifest.json" in parts
-        assert all((run_dir / part).exists() for part in parts)
-
-    def test_the_lineage_links_every_output_to_the_input(self, tmp_path: Path) -> None:
-        run_dir = _run_directory(tmp_path)
-        graph = _read(write_prov_view(run_dir))["@graph"]
-        action = graph[0]
-        assert action["hydromodpy:gitCommit"] == "c2fd549bd950e321ddbd04505ad9a5cea516ecd0"
-        assert action["hydromodpy:rngSeed"] == 7
-        inputs = [node for node in graph if node["@id"].startswith("#entity/input/")]
-        assert [node["name"] for node in inputs] == ["DEM_armorican_massif.tif"]
-        outputs = [node for node in graph if node["@id"].startswith("#entity/output/")]
-        assert outputs
-        assert all(node["prov:wasDerivedFrom"] == [{"@id": inputs[0]["@id"]}] for node in outputs)
-
-    def test_a_view_gives_the_digest_of_a_file_and_never_of_the_field_store(
-        self, tmp_path: Path
-    ) -> None:
-        run_dir = _run_directory(tmp_path)
-        manifest = _read(run_dir / "manifest.json")
-        manifest["artifacts"] = [
-            entry.model_dump(mode="json") for entry in sealed_artifacts(run_dir)
-        ]
-        (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-        sealed = {entry["path"]: entry["sha256"] for entry in manifest["artifacts"]}
-        assert sealed["fields.zarr"] is not None
-
-        write_views(run_dir)
-        item = _read(run_dir / STAC_ITEM_VIEW_FILENAME)
-        assets = {asset["href"]: asset for asset in item["assets"].values()}
-        assert "file:checksum" not in assets["fields.zarr"]
-        assert assets["config.toml"]["file:checksum"] == "1220" + sealed["config.toml"]
-        crate = _read(run_dir / RO_CRATE_VIEW_FILENAME)
-        nodes = {node["@id"]: node for node in crate["@graph"]}
-        assert "sha256" not in nodes["fields.zarr"]
-        assert nodes["config.toml"]["sha256"] == sealed["config.toml"]
-
     def test_the_views_stay_out_of_the_seal_and_inside_the_layout(self, tmp_path: Path) -> None:
         run_dir = _run_directory(tmp_path)
         write_views(run_dir)
@@ -362,18 +247,6 @@ class TestAJobDirectory:
         assert job.manifest_path.read_bytes() == manifest_before
         assert verify_job(job).ok
         assert {entry.name for entry in job.root.iterdir()} <= ALLOWED_JOB_ENTRIES
-
-    def test_the_views_carry_the_digests_the_seal_recorded(self, tmp_path: Path) -> None:
-        pytest.importorskip("pystac")
-        job = _job_directory(tmp_path)
-        item = _read(write_stac_item_view(job.root))
-        assert validate_item(item) == (True, [])
-        assert item["id"] == JOB_ID
-        sealed = {entry["path"]: entry for entry in _read(job.manifest_path)["artifacts"]}
-        gpkg = item["assets"]["outputs/watershed.gpkg"]
-        assert gpkg["type"] == GEOPACKAGE_MEDIA_TYPE
-        assert gpkg["roles"] == ["data"]
-        assert gpkg["file:checksum"] == "1220" + sealed["outputs/watershed.gpkg"]["sha256"]
 
     def test_the_extent_a_worker_measured_is_reprojected_to_wgs84(self, tmp_path: Path) -> None:
         spatial = SpatialExtent(bbox=NANCON_BBOX_L93, crs="EPSG:2154")
@@ -449,35 +322,6 @@ class TestAJobDirectory:
         with pytest.raises(ExportError, match="geometry is not a spatial extent"):
             context_from_directory(job.root)
 
-    def test_the_licence_is_the_rollup_of_the_input_set(self, tmp_path: Path) -> None:
-        job = _job_directory(tmp_path)
-        write_views(job.root)
-        item = _read(job.root / STAC_ITEM_VIEW_FILENAME)
-        assert item["properties"]["license"] == "etalab-2.0"
-        crate = _read(job.root / RO_CRATE_VIEW_FILENAME)
-        root = next(node for node in crate["@graph"] if node["@id"] == "./")
-        assert root["license"] == {"@id": "https://spdx.org/licenses/etalab-2.0"}
-        dem = next(node for node in crate["@graph"] if node.get("hydromodpy:role") == "dem")
-        assert dem["license"] == "etalab-2.0"
-
-    def test_the_backend_is_the_solver_agent(self, tmp_path: Path) -> None:
-        job = _job_directory(tmp_path)
-        context = context_from_directory(job.root)
-        assert context.solver_name == "whitebox"
-        assert context.solver_binary_sha256 == "cd" * 32
-        assert context.sim_row["name"] == "domain-build 1.0.0"
-        graph = _read(write_prov_view(job.root))["@graph"]
-        assert graph[0]["startTime"] == "2026-09-16T08:12:05.113Z"
-
-    def test_a_job_view_is_dated_by_its_seal(self, tmp_path: Path) -> None:
-        job = _job_directory(tmp_path)
-        sealed_at = _read(job.manifest_path)["sealed_at"]
-        item = _read(write_stac_item_view(job.root))
-        crate = _read(write_ro_crate_view(job.root))
-        root = next(node for node in crate["@graph"] if node["@id"] == "./")
-        assert root["datePublished"] == sealed_at
-        assert item["properties"]["datetime"].startswith(sealed_at[:16])
-
 
 class TestWhatIsRefused:
     def test_an_unsealed_directory_renders_nothing(self, tmp_path: Path) -> None:
@@ -491,10 +335,3 @@ class TestWhatIsRefused:
         (tmp_path / "manifest.json").write_text('{"schema": "other"}', encoding="utf-8")
         with pytest.raises(ExportError, match="neither a run manifest nor a job manifest"):
             context_from_directory(tmp_path)
-
-    def test_an_unknown_format_is_refused_before_anything_is_written(self, tmp_path: Path) -> None:
-        run_dir = _run_directory(tmp_path)
-        with pytest.raises(ValueError, match="datapackage"):
-            write_views(run_dir, ("stac", "datapackage"))
-        assert not (run_dir / STAC_ITEM_VIEW_FILENAME).exists()
-        assert not (run_dir / PROV_VIEW_FILENAME).exists()

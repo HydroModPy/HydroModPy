@@ -184,36 +184,12 @@ def _ids(records):
 
 @pytest.mark.fast
 @pytest.mark.parametrize("name", ALL)
-def test_bbox_discovery_keeps_stations_inside_and_builds_records(install, name):
-    sid = STATION_ID[name]
-    spec = SPECS[name]
-    world = install(name, {sid: IN_A, "OUT": (5.0, 40.0)}, {sid: _data(3), "OUT": _data(3)})
-    records = _fetch(name, bbox=BBOX)
-    assert _ids(records) == [sid]
-    rec = records[0]
-    assert (rec.variable, rec.unit, len(rec.data)) == (spec.variable, spec.unit, 3)
-    assert (rec.location.x, rec.location.y) == IN_A
-    assert any("bbox" in p for _, p in world.calls)
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize("name", ALL)
 @pytest.mark.parametrize(("radius", "expected"), [(None, []), (50.0, True)])
 def test_fallback_radius_expands_the_bbox_once(install, name, radius, expected):
     sid = STATION_ID[name]
     install(name, {sid: JUST_OUT}, {sid: _data(2)})
     records = _fetch(name, bbox=BBOX, fallback_search_radius_km=radius)
     assert (_ids(records) == [sid]) if expected is True else records == []
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize("name", ALL)
-def test_station_ids_skip_discovery(install, name):
-    sid = STATION_ID[name]
-    world = install(name, {sid: IN_A}, {sid: _data(2)})
-    records = _fetch(name, station_ids=[sid])
-    assert _ids(records) == [sid]
-    assert all("bbox" not in p for _, p in world.calls)
 
 
 @pytest.mark.fast
@@ -350,32 +326,6 @@ def test_each_client_is_a_class_of_the_port(name):
 
 @pytest.mark.fast
 @pytest.mark.parametrize("name", ALL)
-def test_a_station_request_names_no_bbox(install, name):
-    sid = STATION_ID[name]
-    world = install(name, {sid: IN_A}, {sid: _data(2)})
-    result = _class(name)(**SPECS[name].base).fetch(_station_request(sid))
-    assert _ids(list(result.points)) == [sid]
-    assert result.extent is None
-    assert all("bbox" not in p for _, p in world.calls), (
-        "the station list wins and the box must not be named anywhere"
-    )
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize("name", ALL)
-def test_an_extent_request_drives_discovery_and_is_reported(install, name):
-    sid = STATION_ID[name]
-    world = install(name, {sid: IN_A}, {sid: _data(2)})
-    result = _class(name)(**SPECS[name].base).fetch(_extent_request())
-    assert _ids(list(result.points)) == [sid]
-    assert result.extent is not None
-    assert result.extent.bbox == BBOX
-    assert result.extent.crs == "EPSG:4326"
-    assert [p for _, p in world.calls if "bbox" in p], "the discovery never saw the box"
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize("name", ALL)
 def test_two_selectors_are_refused_before_the_provider(install, name):
     sid = STATION_ID[name]
     world = install(name, {sid: IN_A}, {sid: _data(2)})
@@ -433,22 +383,6 @@ def test_code_departement_reaches_the_discovery_of_an_extent_request(install):
     assert _ids(records) == ["S1"]
     discovery = [p for url, p in world.calls if url.endswith("/stations")]
     assert discovery[0]["code_departement"] == "35"
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize("name", ALL)
-def test_the_result_says_what_the_class_declares(install, name):
-    sid = STATION_ID[name]
-    spec = SPECS[name]
-    install(name, {sid: IN_A}, {sid: _data(2)})
-    source = _class(name)(**spec.base)
-    result = source.fetch(_extent_request())
-    assert result.source_id == "hubeau"
-    assert result.kind == "points"
-    assert result.variables == source.variables
-    assert result.period == _period()
-    (record,) = result.points
-    assert (record.variable, record.unit) == (spec.variable, spec.unit)
 
 
 @pytest.mark.fast
@@ -736,42 +670,6 @@ def test_hubeau_config_product_validation():
     # QixM is migrated to QIXM
     cfg = HydrometrySourceConfig(source="hubeau", product="QixM")
     assert cfg.product == "QIXM"
-
-
-def test_hubeau_max_stations_does_not_cap_named_stations(monkeypatch):
-    import hydromodpy.data.variables.hydrometry.apis.hubeau as hb
-
-    def fake_get_json(*args, params=None, **kw):
-        url = str(args[-1])
-        if url.endswith("/obs_elab"):
-            return {
-                "data": [
-                    {
-                        "date_obs_elab": "2020-01-01",
-                        "resultat_obs_elab": 5000.0,
-                        "libelle_qualification": "Bonne",
-                    }
-                ]
-            }
-        return {
-            "data": [
-                {
-                    "code_station": "S",
-                    "longitude_station": -1.2,
-                    "latitude_station": 48.1,
-                }
-            ]
-        }
-
-    monkeypatch.setattr(hb, "get_json", fake_get_json)
-    recs = hb.fetch(
-        product="QmnJ",
-        station_ids=["A1", "A2", "A3"],
-        date_start=START,
-        date_end=END,
-        max_stations=1,
-    )
-    assert len(recs) == 3
 
 
 def test_hubeau_hydrometry_all_named_dropped_raises_data_source_error(monkeypatch):

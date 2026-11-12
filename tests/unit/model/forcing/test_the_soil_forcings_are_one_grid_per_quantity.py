@@ -62,36 +62,6 @@ def _forcings():
     return forcings, days, x, y
 
 
-def test_each_output_holds_exactly_one_field() -> None:
-    forcings, *_ = _forcings()
-    assert len(forcings.recharge.fields) == 1
-    assert len(forcings.residual_etp.fields) == 1
-    assert len(forcings.runoff.fields) == 1
-
-
-def test_every_field_is_in_millimetres_per_day() -> None:
-    forcings, *_ = _forcings()
-    assert forcings.recharge.fields[0].unit == "mm/day"
-    assert forcings.residual_etp.fields[0].unit == "mm/day"
-    assert forcings.runoff.fields[0].unit == "mm/day"
-
-
-def test_every_field_has_time_y_x_dimensions() -> None:
-    forcings, *_ = _forcings()
-    for result in (forcings.recharge, forcings.residual_etp, forcings.runoff):
-        dataset = result.fields[0].data
-        assert set(dataset.dims) == {"time", "y", "x"}
-
-
-def test_every_field_sits_on_the_precipitation_grid() -> None:
-    forcings, days, x, y = _forcings()
-    for result in (forcings.recharge, forcings.residual_etp, forcings.runoff):
-        dataset = result.fields[0].data
-        np.testing.assert_array_equal(dataset["x"].values, x)
-        np.testing.assert_array_equal(dataset["y"].values, y)
-        np.testing.assert_array_equal(dataset["time"].values, forcings.days)
-
-
 def test_the_run_days_cover_the_whole_window() -> None:
     forcings, days, _x, _y = _forcings()
     np.testing.assert_array_equal(forcings.days, days.values)

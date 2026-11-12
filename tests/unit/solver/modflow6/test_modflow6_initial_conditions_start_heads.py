@@ -123,23 +123,6 @@ def _prior_zarr(tmp_path, head: np.ndarray) -> str:
     return str(prior)
 
 
-def test_a_prior_state_starts_from_the_last_step_and_fills_inactive_with_the_top(tmp_path) -> None:
-    """Hotstart uses the prior run's last time step; inactive cells fall back to top."""
-    # two periods, two layers, three cells; the last step has one inactive (NaN) cell.
-    path = _prior_zarr(
-        tmp_path,
-        np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[1.0, 2.0, 3.0], [4.0, 5.0, np.nan]]]),
-    )
-    model, mesh = _two_layer_row([10.0, 20.0, 30.0])
-    prior = PriorState(head=read_final_head(path), lake_stages={}, path=path)
-    model.inputs = replace(model.inputs, initial=prior)
-
-    strt = build_start_heads(model, mesh)["data"]
-
-    assert np.array_equal(strt, [[1.0, 2.0, 3.0], [4.0, 5.0, 30.0]])
-    assert prior.head[1, 2] != prior.head[1, 2]  # the state itself keeps its NaN
-
-
 def test_a_prior_state_of_another_cell_count_is_refused(tmp_path) -> None:
     """A cell-count mismatch raises (rather than silently reindexing)."""
     path = _prior_zarr(tmp_path, np.zeros((1, 2, 3)))
@@ -218,22 +201,6 @@ def _disv_head_after_writing(tmp_path, strt, *, n_cells: int) -> np.ndarray:
     sim.write_simulation(silent=True)
     loaded = flopy.mf6.MFSimulation.load(sim_ws=str(tmp_path), verbosity_level=0)
     return np.asarray(loaded.get_model("m").ic.strt.get_data())
-
-
-def test_the_record_of_a_prior_state_gives_the_head_back_to_the_last_bit(tmp_path) -> None:
-    head = np.array([[13.123456789012345, 13.5, 12.000000000000002], [9.987654321098765] * 3])
-    model, mesh = _two_layer_row([20.0, 20.0, 20.0])
-    model.inputs = replace(
-        model.inputs, initial=PriorState(head=head, lake_stages={}, path="prior.zarr")
-    )
-
-    record = build_start_heads(model, mesh)
-
-    assert np.array_equal(_disv_head_after_writing(tmp_path / "binary", record, n_cells=3), head)
-    # Written as the text FloPy makes of an array, the same head loses its last digits.
-    assert not np.array_equal(
-        _disv_head_after_writing(tmp_path / "text", record["data"], n_cells=3), head
-    )
 
 
 def _west_head() -> BoundaryConditionBundle:

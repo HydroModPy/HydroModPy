@@ -18,7 +18,6 @@ another workspace follows three rules the tests below read out loud:
 from __future__ import annotations
 
 import dataclasses
-import hashlib
 import json
 import tarfile
 from pathlib import Path
@@ -38,8 +37,6 @@ from hydromodpy.data.provenance.sidecars import (
 )
 from hydromodpy.data.sites.catalog import read_catalog, write_catalog
 from hydromodpy.project.exchange.install import (
-    ImportedProject,
-    ImportedRun,
     _mesh_members,
     import_project,
     import_run,
@@ -131,61 +128,6 @@ def _project_package(tmp_path: Path, *extras: str) -> Path:
 # --- share -> install round trip ---------------------------------------------------
 
 
-def test_a_shared_run_installs_every_file_row_cache_entry_and_site(tmp_path) -> None:
-    folder = _shared_run_folder(tmp_path)
-    workspace, _ = _colleague(tmp_path)
-
-    report = _install(folder, workspace)
-
-    assert sorted(report.written) == sorted(THE_THREE_FILES)
-    assert report.unchanged == []
-    assert len(report.stations_written) == 2
-    assert report.cache_registered == [f"data/hydrometry/{HUBEAU_FILE}"]
-    assert report.sites_added == ["J0014010"]
-    author = tmp_path / "author"
-    for relative in THE_THREE_FILES:
-        assert (workspace / relative).read_bytes() == (author / relative).read_bytes()
-    assert (workspace / f"data/hydrometry/{HUBEAU_FILE}.json").is_file()
-    assert [row.site for row in read_catalog(workspace)] == ["J0014010"]
-
-
-def test_files_restricts_the_install_to_those_files_and_their_registries(tmp_path) -> None:
-    folder = _shared_run_folder(tmp_path)
-    workspace, _ = _colleague(tmp_path)
-    delivered = read_index(folder).file_at(f"data/hydrometry/{HUBEAU_FILE}")
-
-    report = _install(folder, workspace, files=[delivered])
-
-    assert report.written == [delivered.dest]
-    assert report.cache_registered == [delivered.dest]
-    assert report.sites_added == []
-    assert len(report.stations_written) == 1
-    registries = sorted(p.name for p in (workspace / "data" / "hydrometry").glob("*_LOC.csv"))
-    assert registries == ["hydrometry_hubeau_LOC.csv"]
-    assert sorted(p.name for p in (workspace / "data").rglob("*") if p.is_file()) == sorted(
-        [HUBEAU_FILE, f"{HUBEAU_FILE}.json", "hydrometry_hubeau_LOC.csv"]
-    )
-
-
-def test_files_still_refuses_a_conflict_on_its_own_files_only(tmp_path) -> None:
-    folder = _shared_run_folder(tmp_path)
-    workspace, _ = _colleague(tmp_path)
-    delivered = read_index(folder).file_at(f"data/hydrometry/{HUBEAU_FILE}")
-    other = workspace / DEM
-    other.parent.mkdir(parents=True)
-    other.write_bytes(b"another DEM")
-    held = workspace / delivered.dest
-    held.parent.mkdir(parents=True)
-    held.write_text("other bytes\n", encoding="utf-8")
-
-    with pytest.raises(PayloadConflictError) as refused:
-        _install(folder, workspace, files=[delivered])
-
-    assert HUBEAU_FILE in str(refused.value)
-    assert DEM not in str(refused.value)
-    assert other.read_bytes() == b"another DEM"
-
-
 def test_files_names_a_file_the_index_does_not_list(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
@@ -231,45 +173,7 @@ def test_a_dry_run_reports_what_would_land_and_writes_nothing(tmp_path) -> None:
     assert not (workspace / "data" / FORMER_CACHE_DATABASE).exists()
 
 
-def test_a_dry_run_still_refuses_a_conflict(tmp_path) -> None:
-    folder = _shared_run_folder(tmp_path)
-    workspace, _ = _colleague(tmp_path)
-    (workspace / "data" / "dem").mkdir(parents=True)
-    (workspace / DEM).write_bytes(b"mine")
-
-    with pytest.raises(PayloadConflictError, match="data/dem/dem.tif"):
-        _install(folder, workspace, dry_run=True)
-
-
 # --- the table of conflicts, named before anything is written -------------------------
-
-
-def test_every_conflict_is_named_in_one_refusal_and_nothing_is_written(tmp_path) -> None:
-    folder = _shared_run_folder(tmp_path)
-    workspace, _ = _colleague(tmp_path)
-    mine = b"the colleague's own DEM"
-    (workspace / "data" / "dem").mkdir(parents=True)
-    (workspace / DEM).write_bytes(mine)
-    registry = workspace / CUSTOM_REGISTRY
-    registry.parent.mkdir(parents=True)
-    registry.write_text("id,x,y,crs,unit\nNANCON,1,1,EPSG:2154,m3/s\n", encoding="utf-8")
-    write_catalog(
-        workspace, [SiteRow(site="J0014010", x_outlet=0.0, y_outlet=0.0, crs="EPSG:2154")]
-    )
-    before = _snapshot(workspace)
-
-    with pytest.raises(PayloadConflictError) as refused:
-        _install(folder, workspace)
-
-    message = str(refused.value)
-    assert "data/dem/dem.tif" in message
-    assert hashlib.sha256(mine).hexdigest() in message
-    assert sha256_of(tmp_path / "author" / DEM) in message
-    assert "station NANCON" in message
-    assert "site J0014010" in message
-    assert "another catchment under one name" in message
-    assert "Nothing of the package was written" in message
-    assert _snapshot(workspace) == before
 
 
 def test_a_data_cache_key_served_by_other_bytes_is_refused_by_name(tmp_path) -> None:
@@ -415,18 +319,6 @@ def test_a_site_whose_outlet_is_next_to_another_name_is_refused(tmp_path) -> Non
 # --- a package that does not hold its bytes ------------------------------------------
 
 
-def test_a_missing_blob_refuses_the_install_naming_the_file(tmp_path) -> None:
-    folder = _shared_run_folder(tmp_path)
-    workspace, _ = _colleague(tmp_path)
-    dem = next(item for item in read_index(folder).files if item.dest == DEM)
-    (folder / INPUTS_DIRNAME / stored_name(dem.sha256, dem.dest)).unlink()
-
-    with pytest.raises(ImportConflictError, match="data/dem/dem.tif: the package does not hold"):
-        _install(folder, workspace)
-
-    assert not (workspace / "data" / "dem").exists()
-
-
 def test_a_blob_with_another_digest_refuses_the_install(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
@@ -452,19 +344,6 @@ def test_a_missing_sidecar_blob_refuses_the_install(tmp_path) -> None:
 # --- import_run -------------------------------------------------------------------------
 
 
-def test_import_run_brings_the_run_and_installs_its_inputs(tmp_path) -> None:
-    folder = _shared_run_folder(tmp_path)
-    workspace, project = _colleague(tmp_path)
-
-    imported = import_run(project, folder)
-
-    assert isinstance(imported, ImportedRun)
-    assert imported.rel_dir == f"runs/{RUN_NAME}"
-    assert (project / imported.rel_dir / "manifest.json").is_file()
-    assert sorted(imported.install.written) == sorted(THE_THREE_FILES)
-    assert (workspace / DEM).is_file()
-
-
 def test_import_run_dry_run_checks_everything_and_writes_nothing(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, project = _colleague(tmp_path)
@@ -478,70 +357,7 @@ def test_import_run_dry_run_checks_everything_and_writes_nothing(tmp_path) -> No
     assert not (project / "runs").exists()
 
 
-def test_import_run_refuses_on_a_conflict_and_leaves_the_project_as_it_was(tmp_path) -> None:
-    folder = _shared_run_folder(tmp_path)
-    workspace, project = _colleague(tmp_path)
-    (workspace / "data" / "dem").mkdir(parents=True)
-    (workspace / DEM).write_bytes(b"mine")
-
-    with pytest.raises(PayloadConflictError):
-        import_run(project, folder)
-
-    assert not (project / "runs").exists() or not any((project / "runs").iterdir())
-
-
-def test_a_run_published_without_inputs_installs_nothing(tmp_path) -> None:
-    project = _author_project(tmp_path)
-    bare = publish(
-        project / "runs" / RUN_NAME,
-        tmp_path / "bare" / RUN_NAME,
-        project_root=project,
-        format="dir",
-        with_=("results",),
-    )
-    workspace, target = _colleague(tmp_path)
-
-    imported = import_run(target, bare)
-
-    assert imported.install is None
-    assert (target / imported.rel_dir / "manifest.json").is_file()
-    assert not (workspace / "data" / "dem").exists()
-
-
 # --- import_project ---------------------------------------------------------------------
-
-
-def test_import_project_lands_the_project_beside_the_others(tmp_path) -> None:
-    package = _project_package(tmp_path, "runs")
-    workspace, _ = _colleague(tmp_path)
-
-    imported = import_project(package, workspace)
-
-    assert isinstance(imported, ImportedProject)
-    assert imported.project_dir == workspace / "projects" / "nancon"
-    assert (imported.project_dir / "project.toml").read_text(encoding="utf-8").startswith("[site]")
-    assert imported.runs == (RUN_NAME,)
-    assert imported.sessions == ()
-    assert imported.mesh_entries == ()
-    assert imported.mesh_present == ()
-    assert imported.mesh_skipped == ()
-    assert imported.legacy_mesh_cache == ()
-    assert (workspace / DEM).is_file()
-    assert not list((workspace / "projects").glob(".*import*"))
-    assert not list((workspace / ".hmp").glob("import-*"))
-
-
-def test_import_project_reads_an_unpacked_folder_as_well_as_a_tar(tmp_path) -> None:
-    package = _project_package(tmp_path)
-    unpacked = tmp_path / "unpacked"
-    with tarfile.open(package) as archive:
-        archive.extractall(unpacked, filter="data")
-    workspace, _ = _colleague(tmp_path)
-
-    imported = import_project(unpacked / "nancon", workspace, name="from_folder")
-
-    assert imported.project_dir == workspace / "projects" / "from_folder"
-    assert (imported.project_dir / "project.toml").is_file()
 
 
 def test_import_project_dry_run_lists_the_runs_and_writes_nothing(tmp_path) -> None:

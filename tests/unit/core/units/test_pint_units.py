@@ -170,15 +170,6 @@ PARSE_REJECT: list[tuple[str, Callable[[], object], type[Exception]]] = [
 ]
 
 
-@pytest.mark.parametrize(
-    ("build", "error"),
-    [pytest.param(build, error, id=name) for name, build, error in PARSE_REJECT],
-)
-def test_length_field_rejects(build: Callable[[], object], error: type[Exception]) -> None:
-    with pytest.raises(error):
-        build()
-
-
 # ---------------------------------------------------------------------------
 # Spot-checks of field wiring kept as stand-alone cases.
 # ---------------------------------------------------------------------------

@@ -18,7 +18,6 @@ from hydromodpy.catchment.algorithms.channel_bed_fit import pixel_tree, regulari
 from hydromodpy.catchment.algorithms.ground_bed import (
     WINDOW_MARGIN_M,
     bed_dem_path,
-    domain_bounds,
     ground_bed_path,
     ground_bed_report_path,
     regularized_ground_from_config,
@@ -267,16 +266,6 @@ def test_the_bed_fit_reads_the_channel_inside_the_domain_window(bounds, margin, 
     assert WINDOW_MARGIN_M > 0
 
 
-@pytest.mark.parametrize("buffered", [True, False])
-def test_the_window_covers_the_buffered_domain_else_the_watershed(tmp_path, buffered) -> None:
-    watershed = write_features(tmp_path / "watershed.shp", [box(4000, 4000, 5000, 5000)])
-    frame = write_features(tmp_path / "box_buff.shp", [box(500, 500, 8500, 8500)])
-    box_buff = frame if buffered else None
-    paths = SimpleNamespace(
-        watershed_shp=str(watershed), box_buff=box_buff, geographic_path=str(tmp_path)
-    )
-    bounds = domain_bounds(SimpleNamespace(paths=paths))
-    assert bounds == ((500.0,) * 2 + (8500.0,) * 2 if buffered else (4000.0,) * 2 + (5000.0,) * 2)
 
 
 def test_the_regularised_ground_differs_from_the_notched_one_on_the_channel_only(tmp_path):

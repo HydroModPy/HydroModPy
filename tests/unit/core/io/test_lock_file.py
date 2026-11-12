@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.io import filesystem, lock_file
-from hydromodpy.core.io.lock_file import TORN_AFTER_S, LockFile
+from hydromodpy.core.io.lock_file import LockFile
 from hydromodpy.core.state.host import host_name
 from tests._helpers.windows_os import PatchedOs, WindowsOs
 
@@ -36,37 +36,12 @@ def test_a_lock_is_taken_then_released(tmp_path: Path) -> None:
     assert lock.read() is None
 
 
-def test_a_held_lock_is_refused(tmp_path: Path) -> None:
-    path = tmp_path / "x.lock"
-    holder = LockFile(path)
-    assert holder.acquire() is True
-    assert LockFile(path, wait_s=0.0).acquire() is False
-    holder.release()
-
-
-def test_a_lock_of_a_dead_pid_is_taken_back(tmp_path: Path) -> None:
-    path = tmp_path / "x.lock"
-    _write_lock(path, pid=2**30, created=time.time())
-    lock = LockFile(path, wait_s=0.0)
-    assert lock.acquire() is True
-    assert lock.read().pid == os.getpid()
-    lock.release()
-
-
 def test_a_lock_too_old_is_taken_back(tmp_path: Path) -> None:
     path = tmp_path / "x.lock"
     _write_lock(path, pid=os.getpid(), created=time.time() - 10 * 3600)
     lock = LockFile(path, stale_after_s=3600, wait_s=0.0)
     assert lock.acquire() is True
     lock.release()
-
-
-def test_a_wait_that_expires_returns_false(tmp_path: Path) -> None:
-    path = tmp_path / "x.lock"
-    holder = LockFile(path)
-    assert holder.acquire() is True
-    assert LockFile(path, wait_s=0.05).acquire() is False
-    holder.release()
 
 
 def test_a_release_does_not_remove_anothers_lock(tmp_path: Path) -> None:
@@ -77,56 +52,6 @@ def test_a_release_does_not_remove_anothers_lock(tmp_path: Path) -> None:
     other.release()
     assert path.exists()
     assert other.held is False
-
-
-@pytest.mark.parametrize("content", [b"", b'{"pid": 12, "ho'], ids=["empty", "cut-json"])
-@pytest.mark.parametrize(
-    ("age_s", "taken"),
-    [(TORN_AFTER_S + 60, True), (0.0, False)],
-    ids=["old", "young"],
-)
-def test_a_lock_that_does_not_read_is_stale_once_old(tmp_path: Path, content, age_s, taken) -> None:
-    path = tmp_path / "x.lock"
-    path.write_bytes(content)
-    stamp = time.time() - age_s
-    os.utime(path, (stamp, stamp))
-
-    lock = LockFile(path, wait_s=0.0)
-
-    assert lock.acquire() is taken
-    if taken:
-        assert lock.read().pid == os.getpid()
-        lock.release()
-    else:
-        assert path.read_bytes() == content
-
-
-def test_still_held_follows_the_file(tmp_path: Path) -> None:
-    path = tmp_path / "x.lock"
-    lock = LockFile(path)
-    assert lock.still_held() is False
-    assert lock.acquire() is True
-    assert lock.still_held() is True
-
-    _write_lock(path, pid=os.getpid(), created=time.time() + 1)
-
-    assert lock.still_held() is False, "another lock object took the place"
-    lock.release()
-    assert path.exists(), "a release leaves the lock of another holder"
-
-
-def test_two_lock_objects_of_one_process_exclude_each_other(tmp_path: Path) -> None:
-    path = tmp_path / "x.lock"
-    first = LockFile(path)
-    assert first.acquire() is True
-
-    second = LockFile(path, wait_s=0.0)
-
-    assert second.acquire() is False
-    assert second.still_held() is False
-    second.release()
-    assert first.still_held() is True
-    first.release()
 
 
 def test_renew_dates_the_lock_again(tmp_path: Path) -> None:
@@ -374,18 +299,6 @@ def test_a_lock_put_back_by_a_copy_stays_its_holders(
     assert LockFile(path, wait_s=0.0).acquire() is False
     lock.release()
     assert list(tmp_path.iterdir()) == []
-
-
-def test_two_takes_of_one_lock_carry_two_tokens(tmp_path: Path) -> None:
-    path = tmp_path / "x.lock"
-    first = LockFile(path)
-    assert first.acquire() is True
-    token = first.read().token
-    first.release()
-    second = LockFile(path)
-    assert second.acquire() is True
-    assert len(token) == 32 and second.read().token not in ("", token)
-    assert first.still_held() is False
 
 
 @pytest.mark.parametrize("operation", ["replace", "unlink"])

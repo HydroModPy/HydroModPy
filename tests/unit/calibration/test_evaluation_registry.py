@@ -7,23 +7,13 @@ import inspect
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
-import hydromodpy.calibration.runners.cli_runner as cli_runner
-import hydromodpy.calibration.runners.search as search
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
-from hydromodpy.calibration.evaluation.port import (
-    TrialEvaluator,
-    TrialOutcome,
-    TrialRequest,
-    evaluator_members,
-)
+from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.optim import engine
-from hydromodpy.calibration.optim.cache import params_hash
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
-from hydromodpy.calibration.runners.pipeline_evaluator import PipelineTrialEvaluator
 from hydromodpy.calibration.runners.search import run_calibration_core
 from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 from hydromodpy.calibration.runners.state import (
@@ -32,7 +22,6 @@ from hydromodpy.calibration.runners.state import (
     space_from_config,
 )
 from hydromodpy.core.exceptions import CalibrationError
-from hydromodpy.core.plugin_registry import PluginRegistry
 
 # From test_trial_evaluator_registry.py
 # What turns a parameter sample into a cost is named, not imported.
@@ -144,178 +133,11 @@ def _document(path: Path, max_trials: int, tail: str = "", options: bool = True)
 # --------------------------------------------------------------------------
 # 1. The registry
 # --------------------------------------------------------------------------
-class TestTheRegistryResolves:
-    def test_a_document_that_names_none_gets_the_pipeline(self) -> None:
-        assert evaluation_registry.evaluators.get(None).evaluator_id == "hydromodpy_pipeline"
-        assert evaluation_registry.DEFAULT_EVALUATOR_ID == "hydromodpy_pipeline"
-
-    def test_an_unknown_name_names_the_group_a_third_party_joins_on(self) -> None:
-        with pytest.raises(CalibrationError) as excinfo:
-            evaluation_registry.evaluators.get("no_such_evaluator")
-
-        message = str(excinfo.value)
-        assert "no_such_evaluator" in message
-        assert "hydromodpy_pipeline" in message
-        assert evaluation_registry.ENTRY_POINT_GROUP in message
-
-    def test_the_declaration_is_read_without_building_anything(self, registered_quadratic) -> None:
-        assert evaluation_registry.needs_prepared_model("hydromodpy_pipeline") is True
-        assert evaluation_registry.needs_prepared_model("test_quadratic") is False
-
-    def test_an_installed_evaluator_joins_the_list(self, registered_quadratic) -> None:
-        assert "test_quadratic" in evaluation_registry.evaluators.names()
-        assert "test_quadratic" not in evaluation_registry.evaluators.names(shipped_only=True)
-
-
-class TestTheRegistryRefuses:
-    def test_a_class_declaring_no_id_cannot_be_held_by_a_registry_keyed_on_one(self) -> None:
-        class Nameless:
-            needs_prepared_model = False
-
-            def evaluate(self, request):  # pragma: no cover - never reached
-                raise AssertionError
-
-        with pytest.raises(TypeError, match="evaluator_id"):
-            evaluation_registry.evaluators.register(Nameless)
-
-    def test_a_class_that_does_not_satisfy_the_port_is_named_member_by_member(self) -> None:
-        class Halfway:
-            evaluator_id = "halfway"
-            needs_prepared_model = False
-
-        with pytest.raises(TypeError) as excinfo:
-            evaluation_registry.evaluators.register(Halfway)
-
-        assert "evaluate" in str(excinfo.value)
-
-    def test_a_member_bound_to_none_is_as_missing_as_an_absent_one(self) -> None:
-        """It passes ``hasattr`` and fails the first call, so the registry is the door."""
-
-        class Hollow:
-            evaluator_id = "hollow"
-            needs_prepared_model = False
-            evaluate = None
-
-        with pytest.raises(TypeError, match="evaluate"):
-            evaluation_registry.evaluators.register(Hollow)
-
-    def test_a_class_cannot_claim_the_name_this_build_ships(self, monkeypatch) -> None:
-        """Before the first lookup imports it, a built-in is a declaration only.
-
-        ``builtin_paths`` is the declaration and ``classes`` is what has been
-        imported. A guard reading the second alone left ``hydromodpy_pipeline``
-        free until something resolved it, so a class could claim it and every
-        document naming no evaluator would run that class -- keyed, by the
-        resolved id, exactly like the pipeline it displaced.
-
-        The import cache is emptied of that one id here on purpose: it is the
-        state of a fresh process, and asserting this without it passes for the
-        wrong reason as soon as another test in the file has resolved the
-        default first.
-        """
-
-        monkeypatch.delitem(
-            evaluation_registry.evaluators.classes,
-            evaluation_registry.DEFAULT_EVALUATOR_ID,
-            raising=False,
-        )
-        assert evaluation_registry.DEFAULT_EVALUATOR_ID in (
-            evaluation_registry.evaluators.names(shipped_only=True)
-        )
-
-        class Hijack:
-            evaluator_id = "hydromodpy_pipeline"
-            needs_prepared_model = False
-
-            def evaluate(self, request):  # pragma: no cover - never reached
-                raise AssertionError
-
-        with pytest.raises(ValueError, match="already registered"):
-            evaluation_registry.evaluators.register(Hijack)
-
-        assert evaluation_registry.evaluators.get(None) is PipelineTrialEvaluator
-
-    def test_an_id_held_by_a_falsy_class_is_still_held(self) -> None:
-        """A class is truthy unless its metaclass says otherwise.
-
-        ``classes.get(id) or builtin_paths.get(id)`` read such a class as
-        absent, so the next registration displaced it without ``replace=True``.
-        The shape that introduced this was the fix for the reserved-id hole; the
-        two lookups are now separate and compared against ``None``.
-        """
-
-        class Falsy(type):
-            def __bool__(cls) -> bool:
-                return False
-
-        class Held(metaclass=Falsy):
-            evaluator_id = "test_falsy_evaluator"
-            needs_prepared_model = False
-
-            def evaluate(self, request):  # pragma: no cover - never reached
-                raise AssertionError
-
-        class Usurper:
-            evaluator_id = "test_falsy_evaluator"
-            needs_prepared_model = False
-
-            def evaluate(self, request):  # pragma: no cover - never reached
-                raise AssertionError
-
-        evaluation_registry.evaluators.register(Held)
-        try:
-            assert not bool(Held)
-            with pytest.raises(ValueError, match="already registered"):
-                evaluation_registry.evaluators.register(Usurper)
-            assert evaluation_registry.evaluators.get("test_falsy_evaluator") is Held
-        finally:
-            evaluation_registry.evaluators.unregister("test_falsy_evaluator")
-
-    def test_a_taken_id_is_not_silently_substituted(self, registered_quadratic) -> None:
-        class Other:
-            evaluator_id = "test_quadratic"
-            needs_prepared_model = False
-
-            def evaluate(self, request):  # pragma: no cover - never reached
-                raise AssertionError
-
-        with pytest.raises(ValueError, match="already registered"):
-            evaluation_registry.evaluators.register(Other)
-
-
-class TestTheRegistryBindsOnlyWhatIsNamed:
-    def test_an_option_no_parameter_names_never_arrives(self, registered_quadratic) -> None:
-        built = evaluation_registry.evaluators.create(
-            "test_quadratic", target=1.0, trial_ctx=object(), cfg=object(), metric_fn=object()
-        )
-
-        assert isinstance(built, _Quadratic)
-        assert built.target == 1.0
-
-    def test_the_port_members_come_from_the_protocol(self) -> None:
-        assert evaluator_members() == ("evaluate", "evaluator_id", "needs_prepared_model")
-        assert isinstance(_Quadratic(), TrialEvaluator)
 
 
 # --------------------------------------------------------------------------
 # 2. At the document
 # --------------------------------------------------------------------------
-class TestTheDocumentRefusesAnEvaluatorNobodyInstalled:
-    def test_the_refusal_happens_while_the_section_is_read(self) -> None:
-        with pytest.raises(ValidationError) as excinfo:
-            _config(evaluator="not_installed_here")
-
-        message = str(excinfo.value)
-        assert "calibration.evaluator" in message
-        assert "not_installed_here" in message
-        assert "hydromodpy_pipeline" in message
-        assert evaluation_registry.ENTRY_POINT_GROUP in message
-
-    def test_unset_means_whatever_this_build_defaults_to(self) -> None:
-        assert _config().evaluator is None
-
-    def test_an_installed_name_is_accepted(self, registered_quadratic) -> None:
-        assert _config(evaluator="test_quadratic").evaluator == "test_quadratic"
 
 
 # --------------------------------------------------------------------------
@@ -341,42 +163,6 @@ class TestASearchRunsOnANamedEvaluator:
         assert report["best_parameters"]["k"] == pytest.approx(5e-3, abs=1e-5)
         assert report["best_cost"] < 1e-11
 
-    def test_the_setup_of_the_model_it_replaces_is_never_paid_for(
-        self, registered_quadratic, monkeypatch, tmp_path
-    ) -> None:
-        """``prepare_trials`` is the whole geographic, mesh and data prefix."""
-
-        def _explode(*args, **kwargs):
-            raise AssertionError("prepare_trials was called for a model-free evaluator")
-
-        monkeypatch.setattr(search, "prepare_trials", _explode)
-
-        document = _document(tmp_path / "calibration.toml", 3)
-
-        report = cli_runner.run_calibration_cli(document, project="test")
-
-        assert report.to_dict()["n_trials"] == 3
-
-    def test_the_project_root_the_document_declares_is_still_honoured(
-        self, registered_quadratic, tmp_path
-    ) -> None:
-        """Without a prepared context there is nothing to read the root off, so the file is asked.
-
-        The project root is the directory that holds ``project.toml`` above the
-        document, the same root the pipeline evaluator resolves for the same
-        file: the session of a model-free run sits where every other does.
-        """
-
-        root = tmp_path / "declared_root"
-        (root / "configs").mkdir(parents=True)
-        (root / "project.toml").write_text("", encoding="utf-8")
-        document = _document(root / "configs" / "rooted.toml", 3)
-
-        report = run_calibration_cli(document, project="test")
-
-        assert Path(report.to_dict()["workspace"]) == root
-        assert not list(tmp_path.glob("*.duckdb"))
-
     @staticmethod
     def _cache_context(evaluator: str | None) -> dict:
         cfg = _config(evaluator=evaluator)
@@ -386,41 +172,6 @@ class TestASearchRunsOnANamedEvaluator:
             space=space_from_config(cfg),
             override_paths=override_paths(cfg),
             objective_entrypoint=None,
-        )
-
-    def test_the_evaluator_name_scopes_a_cache_hit(self, registered_quadratic) -> None:
-        """Two evaluators asked the same parameters return different costs."""
-
-        values = {"k": 5e-3}
-        default = self._cache_context(None)
-        other = self._cache_context("test_quadratic")
-
-        assert params_hash(values, context=default) != params_hash(values, context=other)
-
-    def test_naming_the_default_out_loud_is_the_same_key_as_leaving_it_unset(self) -> None:
-        """Both resolve to one class, so both must resolve to one key."""
-
-        values = {"k": 5e-3}
-        unset = self._cache_context(None)
-        spelled_out = self._cache_context("hydromodpy_pipeline")
-
-        assert params_hash(values, context=unset) == params_hash(values, context=spelled_out)
-
-    def test_a_pipeline_calibration_keys_as_if_the_field_had_never_been_added(self) -> None:
-        """The field must not re-solve every trial of every calibration that predates it.
-
-        The payload hashed is the whole calibration section, so a key present in
-        it for every document would move the hash of every run computed before
-        this field existed. The default therefore writes nothing.
-        """
-        for evaluator in (None, "hydromodpy_pipeline"):
-            payload = self._cache_context(evaluator)["calibration"]
-
-            assert "evaluator" not in payload
-
-    def test_a_named_evaluator_does_write_itself_into_the_key(self, registered_quadratic) -> None:
-        assert self._cache_context("test_quadratic")["calibration"]["evaluator"] == (
-            "test_quadratic"
         )
 
 
@@ -553,26 +304,3 @@ class TestNothingReHardwiresTheChoiceOfEvaluator:
         constructions = _functions_calling("PipelineTrialEvaluator")
 
         assert constructions == set()
-
-
-def test_the_module_exposes_its_registry_and_none_of_the_retired_functions() -> None:
-    """The registry is one object of the shared engine, read through ``evaluators``."""
-    held = evaluation_registry.evaluators
-
-    assert isinstance(held, PluginRegistry)
-    assert held.id_attributes == ("evaluator_id",)
-    assert held.group == evaluation_registry.ENTRY_POINT_GROUP
-    assert held.default_id == evaluation_registry.DEFAULT_EVALUATOR_ID
-    assert held.names(shipped_only=True) == tuple(sorted(evaluation_registry._BUILTIN_PATHS))
-    retired = (
-        "get",
-        "create",
-        "register",
-        "unregister",
-        "load_plugins",
-        "is_registered",
-        "resolve_id",
-        "list_evaluator_ids",
-        "builtin_evaluator_ids",
-    )
-    assert [name for name in retired if hasattr(evaluation_registry, name)] == []

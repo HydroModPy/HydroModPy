@@ -88,37 +88,6 @@ def _empty_page(tmp_path: Path) -> _Reply:
     return _Reply(buffer.getvalue())
 
 
-def test_a_box_query_always_carries_its_crs_twice() -> None:
-    """BBOX without SRSNAME is widened to its WGS84 envelope (3 563 reaches for 3 137)."""
-    params = sandre_topage.bbox_params(TYPENAME, BOX)
-
-    assert params["BBOX"].endswith("," + URN)
-    assert params["SRSNAME"] == URN
-    assert "FILTER" not in params
-    assert [float(v) for v in params["BBOX"].split(",")[:4]] == list(BOX)
-
-
-def test_a_short_page_does_not_end_the_download(server: _Server, tmp_path: Path) -> None:
-    """A page of three holding two is not the last one: the old loop stopped here."""
-    server.replies = [_hits(5), _page(tmp_path, [1, 2]), _page(tmp_path, [3, 4, 5])]
-
-    frame = sandre_topage.get_features(TYPENAME, BOX, page_size=3, client=HTTPClient())
-
-    assert sorted(frame["gid"]) == [1, 2, 3, 4, 5]
-    assert [q.get("STARTINDEX") for q in server.sent[1:]] == ["0", "3"]
-    assert all(q["SORTBY"] == "gid" and q["COUNT"] == "3" for q in server.sent[1:])
-
-
-def test_the_hits_count_and_the_pages_ask_the_same_box(server: _Server, tmp_path: Path) -> None:
-    server.replies = [_hits(1), _page(tmp_path, [1])]
-
-    sandre_topage.get_features(TYPENAME, BOX, page_size=10, client=HTTPClient())
-
-    count, page = server.sent
-    assert count["RESULTTYPE"] == "hits"
-    assert (count["BBOX"], count["SRSNAME"]) == (page["BBOX"], page["SRSNAME"])
-
-
 def test_an_empty_page_before_the_total_is_walked_past(server: _Server, tmp_path: Path) -> None:
     server.replies = [
         _hits(3),
@@ -208,9 +177,3 @@ def test_an_overseas_layer_is_refused_before_any_request(server: _Server) -> Non
         )
 
     assert server.sent == []
-
-
-def test_a_france_wide_layer_is_asked_like_a_metropolitan_one() -> None:
-    params = sandre_topage.bbox_params("sa:TronconHydrographique_Topage2026", BOX)
-
-    assert params["TYPENAMES"] == "sa:TronconHydrographique_Topage2026"

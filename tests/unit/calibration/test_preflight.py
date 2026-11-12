@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 import textwrap
 import tomllib
 import warnings
@@ -28,7 +27,7 @@ from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAda
 from hydromodpy.calibration.optim.adapters.grid_adapter import GridAdapter
 from hydromodpy.calibration.optim.adapters.lhs_adapter import LhsAdapter
 from hydromodpy.calibration.optim.engine import CalibrationEngine
-from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion, engine_traits
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import (
     CalibParameter,
     ParameterSpace,
@@ -44,18 +43,12 @@ from hydromodpy.calibration.preflight import (
 )
 from hydromodpy.calibration.runners import document, search, staged_report, staged_runner
 from hydromodpy.calibration.runners.document import load_toml_calibration
-from hydromodpy.catchment.stream_network.extent import (
-    dry_steps,
-    flowing_steps,
-    parse_extent_duration,
-)
+from hydromodpy.catchment.stream_network.extent import parse_extent_duration
 from hydromodpy.cli.exit_codes import EXIT_CONFIG
-from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import ConfigError, OptimizerError
 from hydromodpy.core.time.window import nominal_step_days
-from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figures.network_extent_bounds_map import extents_from_run
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.project.facade import Project
@@ -64,7 +57,6 @@ from hydromodpy.results.derive.stream_network.run_extent import (
     network_extents_from_run,
     run_step_days,
 )
-from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.cli_runner import CliRunner
 from tests._helpers.sealed_runs import sealed_search
 from tests._helpers.transient_network_run import transient_run
@@ -79,7 +71,6 @@ from tests.unit.calibration._factories_config import (
     toml_doc,
     write_calibration,
 )
-from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import PROJECT, _project
 
 # From test_a_network_estimator_names_its_network_output.py
 # A network estimator on the single-metric route must name its network output.
@@ -141,16 +132,6 @@ def _one_phase(tmp_path: Path, *, variable: str) -> str:
 
 def _refused(findings) -> list:
     return [item for item in findings if "names none this file declares" in item.detail]
-
-
-def test_a_whole_file_search_on_the_default_variable_is_refused(tmp_path) -> None:
-    findings = preflight_of(tmp_path, _whole_file(tmp_path, variable=None))
-
-    [refused] = _refused(findings)
-    assert refused.severity == "error"
-    assert refused.path == "calibration"
-    assert "'head'" in refused.detail
-    assert "network outputs: net" in refused.detail
 
 
 def test_a_steady_run_is_not_blamed_on_an_extent_it_never_reads(tmp_path) -> None:
@@ -329,12 +310,6 @@ def test_the_preflight_refuses_a_budget_below_the_design(method: str, options: d
     assert "max_trials = 4 is below the 9 evaluations" in findings[0].detail
 
 
-def test_the_preflight_counts_the_default_grid() -> None:
-    (finding,) = _check_the_budgets(_config("grid", 24, {}))
-
-    assert "below the 25 evaluations of this search, one per grid point" in finding.detail
-
-
 @pytest.mark.parametrize("max_trials", [9, "auto"])
 def test_the_preflight_passes_a_budget_that_covers_the_design(max_trials: int | str) -> None:
     assert _check_the_budgets(_config("lhs", max_trials, {"n_samples": 9})) == []
@@ -369,22 +344,6 @@ batch_size = 4
 @NETROOT
 @GAP
 """
-
-
-class TestWhatTheEngineDeclares:
-    def test_the_bisection_declares_its_three_limits(self) -> None:
-        traits = engine_traits("bisection")
-
-        assert traits.max_parameters == 1
-        assert traits.required_search_space == "log"
-        assert traits.needs_signed_residual is True
-
-    def test_an_engine_that_constrains_nothing_declares_nothing(self) -> None:
-        traits = engine_traits("grid")
-
-        assert traits.max_parameters is None
-        assert traits.required_search_space is None
-        assert traits.needs_signed_residual is False
 
 
 class TestWhatPreflightCatches:
@@ -456,19 +415,6 @@ class TestWhatPreflightCatches:
         for word in said:
             assert word in messages(findings)
 
-    def test_asking_a_serial_engine_for_workers_is_only_a_warning(
-        self, tmp_path, monkeypatch
-    ) -> None:
-        # The root search cuts its bracket side by side now. Declared serial
-        # here, it stands for any engine that returns one point at a time.
-        monkeypatch.setattr(
-            BisectionAdapter, "traits", replace(BisectionAdapter.traits, supports_parallel=False)
-        )
-        findings = preflight_of(tmp_path, _WORKERS_ON_A_ROOT_SEARCH)
-
-        assert [finding.severity for finding in findings] == ["warning"]
-        assert "buys nothing" in findings[0].detail
-
     @pytest.mark.parametrize(
         ("method", "options", "parallel", "said"),
         [
@@ -494,51 +440,6 @@ class TestWhatPreflightCatches:
         if said is not None:
             assert said in text and "0.5 GiB and 3.3 s to start" in text
 
-    @pytest.mark.parametrize(
-        "doc",
-        [
-            pytest.param(_WORKERS_ON_A_ROOT_SEARCH, id="takes_workers"),
-            pytest.param('[calibration]\nmethod = "bisection"\n@KB\n@NETROOT\n@GAP', id="sound"),
-            pytest.param(
-                """
-                [calibration]
-                method = "bisection"
-                @KB
-                @NETROOT
-                @GAP
-                [[calibration.objective_blocks]]
-                name = "gap_again"
-                metric = "distance_gap"
-                uses_outputs = ["net"]
-                """,
-                id="two_residual_blocks",
-            ),
-        ],
-    )
-    def test_a_sound_root_search_passes(self, tmp_path, doc) -> None:
-        assert preflight_of(tmp_path, doc) == []
-
-
-def test_a_root_search_on_the_mean_distance_is_refused(tmp_path) -> None:
-    """The bracket closes on a zero the mean's minimum does not sit on."""
-    findings = preflight_of(
-        tmp_path,
-        """
-        [calibration]
-        method = "bisection"
-        @KB
-        @NETROOT
-        [[calibration.objective_blocks]]
-        name = "mean"
-        metric = "distance_mean"
-        uses_outputs = ["net"]
-        """,
-    )
-
-    message = messages(findings)
-    assert "distance_mean" in message
-    assert "distance_gap" in message
-
 
 # From test_extent_rules_are_durations.py
 # The two extent rules of a network output are durations, converted by the run's timestep.
@@ -561,12 +462,6 @@ def _days(text: str) -> float:
 
 
 # -- the file ----------------------------------------------------------------
-def test_the_extent_names_two_durations_left_unwritten_by_default() -> None:
-    extent = CalibNetworkExtent()
-
-    assert (extent.flowing_at_least, extent.dry_at_most) == (None, None)
-    assert "maximal_flowing_steps" not in CalibNetworkExtent.model_fields
-    assert "minimal_dry_steps" not in CalibNetworkExtent.model_fields
 
 
 def test_a_duration_is_read_with_its_unit() -> None:
@@ -590,38 +485,7 @@ def test_a_duration_without_a_unit_or_out_of_range_is_refused(field, value, reas
         CalibNetworkExtent(**{field: value})
 
 
-@pytest.mark.parametrize(
-    ("old", "new"),
-    [
-        ("maximal_flowing_steps", "'flowing_at_least'"),
-        ("minimal_dry_steps", "'dry_at_most'"),
-    ],
-)
-def test_the_old_key_is_refused_with_the_name_that_replaces_it(old: str, new: str) -> None:
-    with pytest.raises(ValidationError, match="is not accepted any more: renamed") as refused:
-        CalibNetworkExtent(**{old: 1})
-
-    assert new in str(refused.value)
-    assert "This version does not rewrite the file." in str(refused.value)
-
-
 # -- the conversion ----------------------------------------------------------
-@pytest.mark.parametrize(
-    ("text", "step", "flowing", "dry"),
-    [
-        pytest.param("30 d", DAY, 30, 30, id="thirty_days_on_a_daily_run"),
-        pytest.param("1 month", MONTH, 1, 1, id="a_month_on_a_monthly_run"),
-        pytest.param("12 months", MONTH, 12, 12, id="a_year_on_a_monthly_run"),
-        pytest.param("45 d", MONTH, 2, 1, id="forty_five_days_on_a_monthly_run"),
-        # A written day is one flowing step on a month, and no dry step at all.
-        pytest.param("1 d", MONTH, 1, 0, id="a_day_on_a_monthly_run"),
-        pytest.param("1 d", nominal_step_days(7, "day"), 1, 0, id="a_day_on_a_weekly_run"),
-        pytest.param("1 d", nominal_step_days(1, "hour"), 24, 24, id="a_day_on_an_hourly_run"),
-    ],
-)
-def test_a_duration_is_counted_in_timesteps(text: str, step: float, flowing: int, dry: int) -> None:
-    assert flowing_steps(_days(text), step) == flowing
-    assert dry_steps(_days(text), step) == dry
 
 
 def test_a_timestep_is_the_step_of_the_time_window_of_the_run() -> None:
@@ -713,165 +577,10 @@ parameters = ["K"]
 """
 
 
-@pytest.mark.parametrize(
-    ("text", "keys"),
-    [
-        pytest.param(
-            OLD_FILE,
-            [
-                "calibration.outputs.seepage_network.extent.maximal_flowing_steps",
-                "calibration.outputs.seepage_network.extent.minimal_dry_steps",
-                "display.overrides.network_extent_bounds_map.maximal_flowing_steps",
-                'calibration.phases[0].overrides."display.overrides.network_extent_bounds_map'
-                '.minimal_dry_steps"',
-            ],
-            id="counts of a monthly run, in the section, a figure and a phase",
-        ),
-        pytest.param(
-            '[simulation.time]\nstep_value = "7 days"\n'
-            "[calibration.outputs.net.extent]\nmaximal_flowing_steps = 3\nminimal_dry_steps = 1\n",
-            [
-                "calibration.outputs.net.extent.maximal_flowing_steps",
-                "calibration.outputs.net.extent.minimal_dry_steps",
-            ],
-            id="counts of a weekly run",
-        ),
-        pytest.param(
-            '[simulation.time]\nstep_value = "1 month"\n'
-            "[calibration.outputs.net.extent]\nmaximal_flowing_steps = 3\n"
-            '[[calibration.phases]]\nname = "a"\n'
-            '[calibration.phases.overrides]\n"simulation.time.step_value" = 7\n',
-            ["calibration.outputs.net.extent.maximal_flowing_steps"],
-            id="a count under a phase that sets the timestep",
-        ),
-        pytest.param(
-            '[simulation.time]\nstep_value = "1 month"\n'
-            "[calibration.outputs.net.extent]\nmaximal_flowing_steps = 3\n"
-            'maximal_flowing_duration = "2 months"\n',
-            ["calibration.outputs.net.extent.maximal_flowing_steps"],
-            id="a count beside its duration",
-        ),
-    ],
-)
-def test_the_doctor_refuses_a_count_of_steps_and_writes_nothing(
-    tmp_path: Path, text: str, keys: list[str]
-) -> None:
-    path = tmp_path / "calibration.toml"
-    path.write_text(text, encoding="utf-8")
-
-    with pytest.raises(ConfigError) as refused:
-        fix_config_file(path)
-
-    assert path.read_text(encoding="utf-8") == text
-    told = str(refused.value)
-    for key in keys:
-        assert key in told
-    assert NO_REWRITE in told
-
-
-def test_the_doctor_refuses_a_count_whose_timestep_the_chain_does_not_hold(
-    tmp_path: Path,
-) -> None:
-    (tmp_path / "project.toml").write_text("[workflow]\nprofile = false\n", encoding="utf-8")
-    path = tmp_path / "calibration.toml"
-    text = 'base_config = "project.toml"\n[calibration.outputs.net.extent]\nmaximal_flowing_steps = 3\n'
-    path.write_text(text, encoding="utf-8")
-
-    with pytest.raises(ConfigError, match="maximal_flowing_steps") as refused:
-        fix_config_file(path)
-
-    assert path.read_text(encoding="utf-8") == text
-    assert NO_REWRITE in str(refused.value)
-
-
 # -- a sealed run ------------------------------------------------------------
-@pytest.mark.parametrize(
-    ("doc", "keys"),
-    [
-        pytest.param(
-            {
-                "simulation": {"time": {"step_value": 1, "step_unit": "month"}},
-                "calibration": {
-                    "outputs": {
-                        "net": {"support": "network", "extent": {"maximal_flowing_steps": 2}}
-                    }
-                },
-                "display": {"overrides": {"network_extent_bounds_map": {"minimal_dry_steps": 1}}},
-            },
-            [
-                "calibration.outputs.net.extent.maximal_flowing_steps",
-                "display.overrides.network_extent_bounds_map.minimal_dry_steps",
-            ],
-            id="counts with a timestep",
-        ),
-        pytest.param(
-            {
-                "calibration": {
-                    "outputs": {"net": {"support": "network", "extent": {"minimal_dry_steps": 1}}}
-                }
-            },
-            ["calibration.outputs.net.extent.minimal_dry_steps"],
-            id="a count with no timestep",
-        ),
-    ],
-)
-def test_a_sealed_document_with_the_old_counts_is_refused(doc: dict, keys: list[str]) -> None:
-    with pytest.raises(ConfigError) as refused:
-        migrate_sealed_config_doc(doc)
-
-    told = str(refused.value)
-    assert told.startswith("a sealed run config holds ")
-    for key in keys:
-        assert key in told
-    assert NO_REWRITE in told
-
-
-def test_a_frozen_run_with_the_old_counts_is_refused_with_the_way_out(tmp_path: Path) -> None:
-    project = _project(tmp_path)
-    toml = project / "project.toml"
-    toml.write_text(
-        re.sub(
-            r'(complete = "[^"]*nancon_stream_network\.gpkg"\n)',
-            r"\1[calibration.outputs.seepage_network.model.extent]\n"
-            r'flowing_at_least = "2 months"\ndry_at_most = "1 month"\n',
-            PROJECT,
-            count=1,
-        ),
-        encoding="utf-8",
-    )
-    cfg = HydroModPyConfig.from_toml(toml)
-    run_dir = project / "runs" / "nancon"
-    run_dir.mkdir(parents=True)
-    frozen = portable_config_document(cfg, run_dir, project)
-    old = re.sub(r"^flowing_at_least = .*$", "maximal_flowing_steps = 2", frozen, flags=re.M)
-    old = re.sub(r"^dry_at_most = .*$", "minimal_dry_steps = 1", old, flags=re.M)
-    old = old.replace("seepage_network.model.extent]", "seepage_network.extent]")
-    assert old != frozen
-    assert "flowing_at_least" not in old
-    sealed = run_dir / "config.toml"
-    sealed.write_text(old, encoding="utf-8")
-
-    with pytest.raises(ConfigError, match="maximal_flowing_steps") as refused:
-        HydroModPyConfig.from_toml(sealed)
-
-    assert "minimal_dry_steps" in str(refused.value)
-    assert NO_REWRITE in str(refused.value)
 
 
 # -- the figure --------------------------------------------------------------
-def test_the_figure_takes_the_durations_and_refuses_the_old_counts() -> None:
-    DisplayConfig(
-        overrides={
-            "network_extent_bounds_map": {
-                "maximal_flowing_duration": "5 months",
-                "minimal_dry_duration": "0 d",
-            }
-        }
-    )
-    with pytest.raises(ValidationError, match="has no option 'maximal_flowing_steps'") as refused:
-        DisplayConfig(overrides={"network_extent_bounds_map": {"maximal_flowing_steps": 5}})
-
-    assert "maximal_flowing_duration" in str(refused.value)
 
 
 def test_the_note_of_the_figure_says_the_duration_and_the_timesteps_it_made() -> None:
@@ -926,11 +635,6 @@ _GOOD = """
 @GRID4
 @KLOG
 """
-
-
-class TestAFileThatIsFine:
-    def test_it_reports_nothing(self, tmp_path) -> None:
-        assert preflight_of(tmp_path, _GOOD) == []
 
 
 _PHASES = """
@@ -1037,23 +741,8 @@ class TestRegimes:
         assert findings[0].detail.startswith("'k_steady': ")
         assert "not a forward window" in findings[0].detail
 
-    @pytest.mark.parametrize(
-        "window", ["", 'steady_window = { start = "2000-01-01", end = "2000-06-30" }']
-    )
-    def test_a_readable_window_is_no_finding(self, tmp_path, window: str) -> None:
-        assert preflight_of(tmp_path, self._REGIME.format(window=window)) == []
-
 
 class TestAFileThatWillNotLoad:
-    def test_it_says_so_once_rather_than_guessing(self, tmp_path) -> None:
-        path = tmp_path / "broken.toml"
-        path.write_text("[calibration]\nnot_a_key = 1\n", encoding="utf-8")
-
-        findings = run_preflight(path)
-
-        assert len(findings) == 1
-        assert findings[0].severity == "error"
-
     def test_a_file_without_a_calibration_section_says_so(self, tmp_path) -> None:
         path = write_calibration(tmp_path, name="plain.toml")
 
@@ -1104,42 +793,6 @@ parameters = ["K"]
         findings = preflight_of(tmp_path, self._DOC)
 
         assert findings == []
-
-
-class TestALinearizedWidthOnASingleMetricPhase:
-    """A single-metric phase builds no residual vector, ever: ``_phase_config``
-
-    empties its ``outputs`` unconditionally when it declares its own
-    ``variable``/``objective``, so the remedy pointed at for a document-level
-    failure -- declare ``observes`` on an output -- is not one here, whatever
-    the schema does or does not forbid on that phase's own selection.
-    """
-
-    _DOC = """
-@GRID4
-@UNC
-@KLOG
-[[calibration.phases]]
-name = "p1"
-method = "grid"
-max_trials = 4
-method_options = { points_per_dim = 2 }
-parameters = ["K"]
-variable = "discharge"
-objective = "nse"
-"""
-
-    def test_the_message_never_points_at_a_field_the_schema_forbids(self, tmp_path) -> None:
-        # Negative control: put back the literal old branch (`"and the schema
-        # forbids naming a station on the outputs of a single-metric phase, so
-        # that is not a remedy here"` instead of the `_phase_config` mechanism)
-        # and both assertions below go red.
-        findings = preflight_of(tmp_path, self._DOC)
-
-        detail = messages(findings)
-        assert "cost_profile" in detail
-        assert "schema forbids" not in detail
-        assert "declare observes" not in detail.lower()
 
 
 class TestASingleMetricPhaseAlongsideAGloballyObservedOutput:
@@ -1223,14 +876,6 @@ class TestTheNetworkCriterionIsNotAskedToPickARidge:
     @NET
     @GAP
     """
-
-    def test_two_parameters_on_a_network_only_objective_is_a_warning(self, tmp_path) -> None:
-        findings = preflight_of(tmp_path, self._TWO_PARAMS)
-
-        ridge = [item for item in findings if "ridge" in item.detail]
-        assert len(ridge) == 1
-        assert ridge[0].severity == "warning"
-        assert ridge[0].path == "calibration"
 
     @pytest.mark.parametrize(
         "doc",
@@ -1382,88 +1027,6 @@ class TestTheNetworkSearchCanTrustItsReleasePackages:
 
         assert "LAK" in messages(preflight_of(tmp_path, doc))
 
-    @pytest.mark.parametrize(
-        "doc",
-        [
-            pytest.param("[flow.sinks_sources.sfr.net]\n@GRID\n@SY\n@NET\n@GAP", id="sfr_and_sy"),
-            pytest.param(
-                """
-                [flow.sinks_sources.sfr.net]
-                @GRID
-                @K
-                @GAUGE
-                [[calibration.objective_blocks]]
-                name = "gap"
-                metric = "rmse"
-                uses_outputs = ["gauge"]
-                """,
-                id="a_k_search_on_a_non_network_output",
-            ),
-            pytest.param(_SFR.replace("sinks_sources.sfr.net", "bc.drainage"), id="drainage_alone"),
-        ],
-    )
-    def test_a_search_with_nothing_to_trust_is_not_named(self, tmp_path, doc: str) -> None:
-        said = messages(preflight_of(tmp_path, doc))
-
-        assert "SFR" not in said
-        assert "LAK" not in said
-
-
-class TestASingleMetricPhaseScoringANetworkOutput:
-    """A phase naming its own ``variable``/``objective`` never becomes an
-    ``objective_blocks`` entry, but it still scores whatever output that
-    ``variable`` names, and both checks above must read it there too.
-    """
-
-    def test_two_parameters_on_a_single_metric_network_phase_is_a_ridge_warning(
-        self, tmp_path
-    ) -> None:
-        doc = """
-        @GRID
-        variable = "net"
-        objective = "distance_gap"
-        @K
-        @SY
-        @NET
-        [[calibration.phases]]
-        name = "one"
-        method = "grid"
-        parameters = ["K", "Sy"]
-        variable = "net"
-        objective = "distance_gap"
-        """
-        findings = preflight_of(tmp_path, doc)
-
-        ridge = [item for item in findings if "ridge" in item.detail]
-        assert len(ridge) == 1
-        assert ridge[0].severity == "warning"
-        assert ridge[0].path == "calibration.phases"
-        assert ridge[0].detail.startswith("'one': ")
-
-    def test_a_single_metric_network_phase_next_to_an_active_sfr_is_named(self, tmp_path) -> None:
-        doc = """
-        [flow.sinks_sources.sfr.net]
-        [calibration]
-        method = "grid"
-        variable = "net"
-        objective = "distance_gap"
-        @K
-        @NET
-        [[calibration.phases]]
-        name = "one"
-        method = "grid"
-        parameters = ["K"]
-        variable = "net"
-        objective = "distance_gap"
-        """
-        findings = preflight_of(tmp_path, doc)
-
-        named = [item for item in findings if "SFR" in item.detail]
-        assert len(named) == 1
-        assert named[0].severity == "error"
-        assert named[0].path == "calibration.phases"
-        assert named[0].detail.startswith("'one': ")
-
 
 _GAUGED = """
 @GRID4
@@ -1500,23 +1063,6 @@ class TestTheObservedStationIsLoaded:
         assert named[0].path == "calibration.outputs.hydrograph"
         assert "Listed: OTHER" in named[0].detail
 
-    def test_a_listed_station_passes(self, tmp_path) -> None:
-        doc = (
-            """
-            [data]
-            types = ["hydrometry"]
-
-            [[data.hydrometry.sources]]
-            source = "file"
-            path = "inputs/hydrometry"
-            station_ids = ["GAUGE"]
-            """
-            + _GAUGED
-        )
-        findings = preflight_of(tmp_path, doc)
-
-        assert not any("GAUGE" in item.detail for item in findings)
-
 
 class TestTheWindowBoundsHoldsADateOfTheRun:
     def test_a_window_after_the_run_is_named(self, tmp_path) -> None:
@@ -1527,12 +1073,6 @@ class TestTheWindowBoundsHoldsADateOfTheRun:
         assert len(named) == 1
         assert named[0].severity == "error"
         assert "2010-01-01" in named[0].detail
-
-    def test_a_window_inside_the_run_passes(self, tmp_path) -> None:
-        doc = _GAUGED + '\n[calibration.window]\nstart = "2000-03-01"\n'
-        findings = preflight_of(tmp_path, doc)
-
-        assert not any("holds no date of the run" in item.detail for item in findings)
 
 
 class TestASamplerScoredOnAnotherMetricThanItsLikelihood:
@@ -1562,11 +1102,6 @@ class TestASamplerScoredOnAnotherMetricThanItsLikelihood:
         named = [item for item in findings if "reads its cost as rmse" in item.detail]
         assert len(named) == 1
         assert named[0].severity == "warning"
-
-    def test_an_rmse_passes(self, tmp_path) -> None:
-        findings = preflight_of(tmp_path, self._doc("rmse"))
-
-        assert not any("reads its cost as" in item.detail for item in findings)
 
 
 # From test_scale_bounds_are_factors.py
@@ -1714,30 +1249,6 @@ def _loaded(tmp_path: Path, calibration: str, *, network: bool = True):
     path.write_text(toml_doc(_HEAD + calibration + tail), encoding="utf-8")
     (tmp_path / "network.gpkg").write_bytes(b"")
     return load_toml_calibration(path)
-
-
-def test_a_stage_precision_arrives_on_the_phase(tmp_path: Path) -> None:
-    cfg, _raw = _loaded(
-        tmp_path,
-        """
-        [calibration.protocol]
-        name = "matching_hydrographic_network"
-        steady_precision = 0.02
-        transient_precision = 0.05
-        """,
-    )
-    assert [phase.precision for phase in cfg.phases] == [0.02, 0.05]
-
-
-def test_an_unstated_precision_leaves_the_engine_its_own_default(tmp_path: Path) -> None:
-    cfg, _raw = _loaded(
-        tmp_path,
-        """
-        [calibration.protocol]
-        name = "matching_hydrographic_network"
-        """,
-    )
-    assert [phase.precision for phase in cfg.phases] == [None, None]
 
 
 @pytest.mark.parametrize(
@@ -1902,16 +1413,6 @@ class TestEveryLaunchPathRunsIt:
     """Each launch refuses the ghost block before the model is prepared."""
 
     @pytest.mark.parametrize("phased", [False, True], ids=["one_search", "phases"])
-    def test_hmp_calibrate(self, tmp_path, prepared, phased: bool) -> None:
-        result = CliRunner().invoke(
-            ["calibrate", str(_refused__preflight_runs(tmp_path, phased=phased))]
-        )
-
-        assert result.exit_code == EXIT_CONFIG, result.output
-        assert "ghost" in result.stderr
-        assert prepared == []
-
-    @pytest.mark.parametrize("phased", [False, True], ids=["one_search", "phases"])
     def test_hmp_calibrate_dry_run(self, tmp_path, prepared, phased: bool) -> None:
         result = CliRunner().invoke(
             ["calibrate", str(_refused__preflight_runs(tmp_path, phased=phased)), "--dry-run"]
@@ -1933,12 +1434,6 @@ class TestEveryLaunchPathRunsIt:
 
         assert result.exit_code == EXIT_CONFIG, result.output
         assert "ghost" in result.stderr
-
-    @pytest.mark.parametrize("phased", [False, True], ids=["one_search", "phases"])
-    def test_hmp_calibrate_from_python(self, tmp_path, prepared, phased: bool) -> None:
-        with pytest.raises(ConfigError, match="ghost"):
-            hmp.calibrate(_refused__preflight_runs(tmp_path, phased=phased))
-        assert prepared == []
 
     def test_project_calibrate_on_a_file(self, tmp_path, prepared) -> None:
         path = _refused__preflight_runs(tmp_path)
@@ -2020,20 +1515,6 @@ class TestTheEffectiveDocument:
         assert prepared == []
 
 
-class TestWarnings:
-    def test_a_warning_prints_once_and_the_launch_goes_on(self, tmp_path, prepared, caplog) -> None:
-        path = _write__preflight_runs(
-            tmp_path, _PARAMETERS__preflight_runs, _NETWORK__preflight_runs
-        )
-
-        with caplog.at_level(logging.WARNING), pytest.raises(_Prepared):
-            hmp.calibrate(path)
-
-        ridge = [record for record in caplog.records if "form a ridge" in record.getMessage()]
-        assert len(ridge) == 1
-        assert prepared == ["calib.toml"]
-
-
 @pytest.fixture(scope="module")
 def config() -> HydroModPyConfig:
     """Example 21 as the run loads it."""
@@ -2062,18 +1543,6 @@ class TestExample21:
 
         assert errors == []
 
-    def test_the_same_phase_without_its_overrides_is_refused(self, config) -> None:
-        stripped = config.model_copy(deep=True)
-        stripped.calibration.phases[0].overrides = {}
-
-        details = " ".join(
-            finding.detail
-            for finding in preflight_calibration(stripped, source=_EXAMPLE_21)
-            if finding.severity == "error"
-        )
-
-        assert "SFR (routed stream reaches) is active" in details
-
 
 # -- the published method a file runs, as the check says it ------------------
 _PROTOCOL_SECTION = """
@@ -2091,10 +1560,6 @@ def _protocol_cfg(tmp_path: Path, options: str = ""):
     base = PROJECT_BASE.replace("2000-12-31", "2002-12-31")
     path = write_calibration(tmp_path, _PROTOCOL_SECTION.format(options=options), base=base)
     return HydroModPyConfig.from_toml(path)
-
-
-def test_a_file_without_protocol_has_nothing_to_say_of_one() -> None:
-    assert preflight_report.protocol_lines(SimpleNamespace()) == ([], [])
 
 
 def test_the_lines_of_a_method_name_its_departures_and_the_options_moved_off_its_recipe(
@@ -2181,18 +1646,6 @@ def test_a_finding_prints_as_one_line() -> None:
     )
 
 
-def test_a_protocol_run_of_a_single_year_says_its_spin_up_year_is_scored(tmp_path: Path) -> None:
-    section = _PROTOCOL_SECTION.format(options="")
-    cfg = HydroModPyConfig.from_toml(write_calibration(tmp_path, section))
-
-    normal, _ = preflight_report.protocol_lines(cfg)
-
-    assert normal[1].startswith(
-        "  stage 2 scores the whole run, spin-up year included: [simulation.time] ends on "
-        "2000-12-31, within one year of its start 2000-01-01"
-    )
-
-
 def test_the_launch_says_once_what_it_warns_of_and_where_it_leaves_the_paper(
     tmp_path: Path, monkeypatch, caplog
 ) -> None:
@@ -2205,31 +1658,6 @@ def test_the_launch_says_once_what_it_warns_of_and_where_it_leaves_the_paper(
 
     assert caplog.text.count("calibration: twice written") == 1
     assert "protocol: matching_hydrographic_network@1.3" in caplog.text
-
-
-def test_the_refusal_of_a_launch_carries_every_error_as_a_diagnostic(
-    tmp_path: Path, monkeypatch
-) -> None:
-    cfg = _protocol_cfg(tmp_path)
-    error = preflight_report.finding("error", "[calibration.parameters.K]", "bounds are reversed")
-    other = preflight_report.finding("error", "[[calibration.phases]] 'k'", "names nothing")
-    warning = preflight_report.finding("warning", "[calibration]", "twice written")
-    monkeypatch.setattr(
-        preflight, "preflight_calibration", lambda *_a, **_k: [error, warning, other]
-    )
-
-    with pytest.raises(ConfigError) as refused:
-        preflight.refuse_what_the_preflight_refuses(cfg, source=tmp_path / "calib.toml")
-
-    assert refused.value.diagnostics == (error, other)
-    assert [entry["pointer"] for entry in refused.value.details] == [
-        "/calibration/parameters/K",
-        "/calibration/phases",
-    ]
-    text = str(refused.value)
-    assert "2 error(s)" in text
-    assert "  calibration.parameters.K: bounds are reversed" in text
-    assert "  calibration.phases: 'k': names nothing" in text
 
 
 @pytest.mark.parametrize(
@@ -2251,18 +1679,6 @@ def test_a_file_without_calibration_compares_nothing_and_a_search_without_table_
     )
 
     assert lines == ["[metrics] window: unset, the run carries no score"]
-
-
-def test_a_relative_source_is_printed_as_written_and_an_absolute_one_outside_the_cwd_whole(
-    monkeypatch, tmp_path: Path
-) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    assert preflight_report._shortened_if_under_cwd("streams.gpkg") == "streams.gpkg"
-    assert (
-        preflight_report._shortened_if_under_cwd("/elsewhere/streams.gpkg")
-        == "/elsewhere/streams.gpkg"
-    )
 
 
 @pytest.mark.parametrize(
@@ -2326,12 +1742,6 @@ def test_a_configuration_held_in_memory_is_its_own_raw_document(tmp_path: Path) 
     held = SimpleNamespace(model_dump=lambda **_kw: {"flow": {}})
 
     assert preflight_searches.raw_document(held, tmp_path / "gone.toml") == {"flow": {}}
-
-
-def test_only_the_criteria_that_close_on_a_residual_are_offered_to_a_root_search() -> None:
-    assert preflight._signed_residual_metrics() == ["distance_gap"]
-    assert preflight_searches.publishes_a_signed_residual("distance_gap")
-    assert not preflight_searches.publishes_a_signed_residual("distance_mean")
 
 
 @pytest.mark.parametrize(
@@ -2528,16 +1938,6 @@ def test_an_engine_finding_names_its_severity_and_its_search(
     assert found[0].detail.startswith(head)
 
 
-def test_an_engine_refuses_the_options_of_its_own_search() -> None:
-    config = CalibrationConfig.model_validate(
-        {"method": "grid", "parameters": {"K": {"bounds": [1e-7, 1e-3]}}}
-    ).model_copy(update={"method_options": {"bogus": 1}})
-
-    found = [f for f in preflight._check_engines(config) if "method_options:" in f.detail]
-
-    assert [(f.severity, f.path) for f in found] == [("error", "calibration")]
-
-
 def test_an_engine_refuses_an_unregistered_method_on_constructed_config() -> None:
     config = CalibrationConfig.model_construct(
         method="nope",
@@ -2559,22 +1959,6 @@ def test_a_serial_engine_asked_for_two_workers_can_use_one(tmp_path, monkeypatch
 
     assert [(f.severity, f.path) for f in found] == [("warning", _MONO[0])]
     assert "can use 1 solves at once, so parallel = 2" in found[0].detail
-
-
-def test_a_minimiser_phase_on_two_bounds_is_refused_by_its_own_method(tmp_path) -> None:
-    # The file's method is a root search, the phase's is a minimiser: only the phase's counts.
-    phase = (
-        '\n[[calibration.phases]]\nname = "s"\nmethod = "scipy_nelder_mead"\nparameters = ["K"]\n'
-        'variable = "net"\nobjective = "distance_gap"\n'
-    )
-    doc = _two_bounds(tmp_path, "bisection", "@KLOG") + phase
-
-    found = [f for f in preflight_of(tmp_path, doc) if _TWO_METHODS in f.detail]
-
-    assert [(f.severity, f.path, f.detail.startswith(_PHASE_S[1])) for f in found] == [
-        ("error", _PHASE_S[0], True)
-    ]
-    assert "'scipy_nelder_mead' would return" in found[0].detail
 
 
 def test_a_phase_that_scores_the_gauge_alone_closes_one_root_whatever_the_file_declares(

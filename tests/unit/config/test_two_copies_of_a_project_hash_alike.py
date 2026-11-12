@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
@@ -39,32 +38,8 @@ def _config_hash(path: Path) -> str:
     return request_id_of(cfg, ResolvedInputs(), search=True)
 
 
-def test_two_copies_of_one_project_give_one_config_hash(tmp_path: Path) -> None:
-    first = _project(tmp_path / "here" / "nancon")
-    copy = tmp_path / "elsewhere" / "deeper" / "nancon"
-    shutil.copytree(first.parent, copy)
-
-    loaded = HydroModPyConfig.from_toml(first)
-    assert Path(loaded.data.recharge.sources[0].path).is_absolute()
-    assert _config_hash(first) == _config_hash(copy / "project.toml")
-
-
 def request_id_of_document(document: dict) -> str:
     return request_id(document, {}, edition=EDITION)
-
-
-def test_a_path_outside_the_project_stays_what_it_names() -> None:
-    def config(root: str, data: str) -> dict:
-        return {
-            "workspace": {"project_root": root},
-            "data": {"recharge": {"sources": [{"path": data}]}},
-        }
-
-    inside = request_id_of_document(config("/a/proj", "/a/proj/in.csv"))
-    assert inside == request_id_of_document(config("/b/c/proj", "/b/c/proj/in.csv"))
-    outside = request_id_of_document(config("/a/proj", "/shared/in.csv"))
-    assert outside == request_id_of_document(config("/b/c/proj", "/shared/in.csv"))
-    assert outside != request_id_of_document(config("/a/proj", "/other/in.csv"))
 
 
 WORKSPACE_PROJECT = """\

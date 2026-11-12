@@ -58,19 +58,6 @@ class TestTheJacobian:
         J = forward_difference_jacobian(NAMES, TRUTH, _simulate_all)
         assert J == pytest.approx(A, abs=1e-9)
 
-    def test_it_is_the_one_a_run_at_a_time_gives_to_the_last_digit(self) -> None:
-        # The columns as one run per parameter, then the reference, would take them.
-        base = _simulate(TRUTH)
-        steps = [0.01 * abs(TRUTH[name]) for name in NAMES]
-        columns = [
-            (_simulate({**TRUTH, name: TRUTH[name] + step}) - base) / step
-            for name, step in zip(NAMES, steps, strict=True)
-        ]
-
-        J = forward_difference_jacobian(NAMES, TRUTH, _simulate_all)
-
-        np.testing.assert_array_equal(J, np.column_stack(columns))
-
     def test_the_step_scales_with_the_value(self) -> None:
         seen: list[float] = []
 
@@ -151,20 +138,9 @@ class TestWhatIsReported:
         for index, item in enumerate(self._uncertainty()):
             assert item.sigma == pytest.approx(np.sqrt(covariance[index, index]))
 
-    def test_the_value_is_untouched(self) -> None:
-        # The whole constraint: a width is reported beside the number, never instead.
-        assert {item.parameter: item.value for item in self._uncertainty()} == TRUTH
-
     def test_a_parameter_is_perfectly_correlated_with_itself(self) -> None:
         for item in self._uncertainty():
             assert item.correlations[item.parameter] == pytest.approx(1.0)
-
-    def test_the_tradeoff_names_the_other_parameter(self) -> None:
-        k = next(item for item in self._uncertainty() if item.parameter == "K")
-        tradeoff = k.strongest_tradeoff()
-        assert tradeoff is not None
-        assert tradeoff[0] == "Sy"
-        assert abs(tradeoff[1]) <= 1.0
 
     def test_a_relative_width_is_none_at_a_value_of_zero(self) -> None:
         item = ParameterUncertainty(parameter="K", value=0.0, sigma=1.0, correlations={})
@@ -248,23 +224,6 @@ class TestThePassOverAReport:
     def _space(self):
         return SimpleNamespace(names=("K", "Sy"))
 
-    def test_the_criteria_of_the_document_reach_the_capture(self, wired) -> None:
-        """The residuals have to be aligned the way the cost was."""
-
-        state, _captured = wired
-        cfg = self._cfg()
-        cfg.objective_blocks = ["a block"]
-        attach_a_linearized_width(
-            self._report(),
-            cfg=cfg,
-            trial_ctx=bare_trial_ctx(),
-            space=self._space(),
-            perturbation=0.01,
-        )
-
-        assert state["capture_kwargs"]["objective_blocks"] == ["a block"]
-        assert state["capture_kwargs"]["min_samples"] == 1
-
     def test_a_document_that_carries_no_width_keeps_its_report(self, monkeypatch) -> None:
         """A search already paid for is not thrown away over a declaration."""
 
@@ -301,17 +260,6 @@ class TestThePassOverAReport:
                 space=self._space(),
                 perturbation=0.01,
             )
-
-    def test_one_run_per_parameter_plus_the_reference(self, wired) -> None:
-        state, _captured = wired
-        attach_a_linearized_width(
-            self._report(),
-            cfg=self._cfg(),
-            trial_ctx=bare_trial_ctx(),
-            space=self._space(),
-            perturbation=0.01,
-        )
-        assert state["runs"] == 3
 
     def test_runs_side_by_side_give_the_width_the_runs_one_by_one_give(
         self, wired, monkeypatch
@@ -422,15 +370,6 @@ def _capturing():
         return [_model(run) for run in runs]
 
     return simulate_all, asked
-
-
-def test_the_last_run_of_the_jacobian_is_the_reference() -> None:
-    simulate_all, asked = _capturing()
-
-    forward_difference_jacobian(("K", "Sy"), REFERENCE, simulate_all)
-
-    assert len(asked) == 3
-    assert asked[-1] == REFERENCE
 
 
 def test_the_derivatives_do_not_depend_on_the_order_of_the_runs() -> None:

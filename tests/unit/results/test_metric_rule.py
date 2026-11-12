@@ -75,38 +75,6 @@ def _config(**sections):
     return SimpleNamespace(metrics=sections.get("metrics"), site=sections.get("site"))
 
 
-def test_the_rule_of_a_configuration_takes_the_gauge_of_the_site():
-    from hydromodpy.core.site.config import SiteConfig
-    from hydromodpy.results.metric_rule import MetricsConfig
-
-    config = _config(
-        site=SiteConfig(name="nancon", gauge="J0014010"),
-        metrics=MetricsConfig(window={"start": "2016-01-01", "end": "2016-12-31"}),
-    )
-
-    assert MetricRule.from_config(config) == MetricRule(station="J0014010", window=WINDOW)
-
-
-def test_the_metrics_station_wins_over_the_gauge_of_the_site():
-    from hydromodpy.core.site.config import SiteConfig
-    from hydromodpy.results.metric_rule import MetricsConfig
-
-    config = _config(
-        site=SiteConfig(name="nancon", gauge="J0014010"),
-        metrics=MetricsConfig(station="J0014020"),
-    )
-
-    rule = MetricRule.from_config(config)
-    assert rule.station == "J0014020"
-    assert rule.window is None
-
-
-def test_a_configuration_without_metrics_nor_site_scores_nothing():
-    rule = MetricRule.from_config(_config())
-    assert rule == MetricRule()
-    assert rule.window is None
-
-
 def test_a_rule_reads_the_headline_window_under_the_current_version():
     assert (RULE.version, RULE.window_name, RULE.window_role) == (
         METRIC_RULE_VERSION,

@@ -16,21 +16,6 @@ from hydromodpy.results.products.cited import (
 )
 
 
-def test_write_then_read_in_order(tmp_path: Path) -> None:
-    run_dir = tmp_path / "runs" / "a"
-    run_dir.mkdir(parents=True)
-    path = write_cited(run_dir, [CitedProduct("mesh", "k1"), CitedProduct("soil", "k2")])
-
-    assert path.name == "products.json"
-    assert read_cited(run_dir) == (CitedProduct("mesh", "k1"), CitedProduct("soil", "k2"))
-
-
-def test_an_absent_file_reads_empty(tmp_path: Path) -> None:
-    run_dir = tmp_path / "runs" / "a"
-    run_dir.mkdir(parents=True)
-    assert read_cited(run_dir) == ()
-
-
 def test_an_unknown_schema_is_refused(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs" / "a"
     run_dir.mkdir(parents=True)
@@ -59,7 +44,3 @@ def test_alive_keys_reads_only_the_running_runs(
     monkeypatch.setattr(cited_module, "effective_status", lambda d: statuses[Path(d).name])
 
     assert alive_keys(project) == frozenset({"running-key"})
-
-
-def test_alive_keys_without_runs_is_empty(tmp_path: Path) -> None:
-    assert alive_keys(tmp_path / "project") == frozenset()

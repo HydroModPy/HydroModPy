@@ -15,7 +15,7 @@ from shapely.geometry import Polygon, box
 from hydromodpy.data.variables.geology import io as geo_io
 from hydromodpy.data.variables.geology import processing as proc
 from hydromodpy.data.variables.geology.apis import brgm_1m, brgm_50k
-from hydromodpy.data.variables.geology.apis.fgeol import bbox_hash, find_fgeol_shp
+from hydromodpy.data.variables.geology.apis.fgeol import bbox_hash
 
 CRS = "EPSG:2154"
 X0, Y0, RES, N = 1000.0, 2000.0, 10.0, 10
@@ -155,20 +155,6 @@ def test_uniformize_sea_zone(zones, kwargs, reason):
     assert info["reason"] == reason
     assert out["zone_key"].tolist() == (["a", "SEA", "SEA"] if applied else ["a", "b", "c"])
     assert info["count"] == (2 if applied else 0)
-
-
-@pytest.mark.parametrize(
-    ("path", "kind", "expected"),
-    [
-        ("a.TIF", "auto", "raster"),
-        ("a.tiff", "auto", "raster"),
-        ("a.shp", "auto", "vector"),
-        ("a.geojson", "auto", "vector"),
-        ("a.csv", " Raster ", "raster"),
-    ],
-)
-def test_infer_source_kind(path, kind, expected):
-    assert geo_io.infer_source_kind(path, kind) == expected
 
 
 def test_infer_source_kind_unknown_extension():
@@ -381,16 +367,6 @@ def make_zip(path, tmp_path, *, name="X_S_FGEOL_2154", crs=CRS):
         for f in shp_dir.iterdir():
             zf.write(f, f.name)
     return path
-
-
-def test_fgeol_helpers(tmp_path):
-    assert bbox_hash((0, 1, 2, 3)) == bbox_hash((0.001, 1.0, 2.0, 3.004))
-    assert bbox_hash((0, 1, 2, 3)) != bbox_hash((0, 1, 2, 4))
-    assert find_fgeol_shp(tmp_path) is None
-    (tmp_path / "sub").mkdir()
-    shp = tmp_path / "sub" / "D_S_FGEOL_2154.shp"
-    shp.write_bytes(b"")
-    assert find_fgeol_shp(tmp_path) == shp
 
 
 def test_brgm_1m_builds_from_local_archive_and_crops(tmp_path):

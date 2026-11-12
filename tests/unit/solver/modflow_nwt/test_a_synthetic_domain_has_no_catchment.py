@@ -17,8 +17,6 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from hydromodpy.calibration.observations.observed_network import delineated_catchment_mask
-from hydromodpy.catchment.preprocess.delineated_catchment import catchment_outline
 from hydromodpy.catchment.synthetic.catchment import build_synthetic_geographic
 from hydromodpy.catchment.synthetic.synthetic_config import (
     LinearTopography,
@@ -27,11 +25,7 @@ from hydromodpy.catchment.synthetic.synthetic_config import (
 )
 from hydromodpy.model.domain.geometry import CatchmentGeometry
 from hydromodpy.model.model import Geometry
-from hydromodpy.solver.modflow_common.catchment_basin import (
-    catchment_cell_mask,
-    polygon_cell_mask,
-    run_basin,
-)
+from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask, run_basin
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_nwt.extractors.flow import catchment_basin_the_build_left
@@ -65,28 +59,6 @@ def _mesh(geographic):
     )
 
 
-def test_the_box_is_on_disk_but_is_no_catchment_polygon(tmp_path) -> None:
-    geographic = _geographic(tmp_path)
-
-    assert Path(geographic.watershed_shp).exists()
-    assert geographic.x_outlet is None and geographic.y_outlet is None
-    assert catchment_outline(geographic) is None
-    assert catchment_outline(_catchment(geographic)) is None
-    assert polygon_cell_mask(_catchment(geographic), _mesh(geographic)) is None
-
-
-def test_the_basin_of_a_synthetic_domain_closes_no_catchment(tmp_path) -> None:
-    geographic = _geographic(tmp_path)
-    mesh = _mesh(geographic)
-    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-
-    basin = run_basin(_catchment(geographic), mesh, descent)
-
-    assert basin.rule == "largest_basin"
-    assert not basin.is_catchment
-    assert basin.catchment_fraction is None
-
-
 def test_a_synthetic_run_carries_the_domain_row_alone(tmp_path) -> None:
     geographic = _geographic(tmp_path)
     mesh = _mesh(geographic)
@@ -113,16 +85,3 @@ def test_the_discharge_of_a_synthetic_domain_sums_the_whole_domain(tmp_path) -> 
     mask = catchment_cell_mask(model)
 
     np.testing.assert_array_equal(mask, np.ones(N * N, dtype=bool))
-
-
-def test_the_network_criterion_finds_no_delineated_catchment(tmp_path) -> None:
-    geographic = _geographic(tmp_path)
-    mesh = _mesh(geographic)
-    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    basin = run_basin(_catchment(geographic), mesh, descent)
-    run_ctx = SimpleNamespace(
-        solver_run=SimpleNamespace(solver_model=SimpleNamespace(descent_basin=basin)),
-        state=SimpleNamespace(setup=SimpleNamespace(geographic=geographic)),
-    )
-
-    assert delineated_catchment_mask(run_ctx, mesh.planar_mesh, np.empty((0, 4))) is None

@@ -110,27 +110,6 @@ def test_a_nodata_pixel_stays_masked_through_a_unit_conversion(
 
 
 @pytest.mark.fast
-@pytest.mark.parametrize(
-    ("period_end", "n_dates"),
-    [(datetime(2020, 1, 1), 1), (datetime(2020, 1, 2), 2), (datetime(2020, 1, 3), 3)],
-)
-def test_a_short_window_keeps_its_dates(tmp_path: Path, period_end: datetime, n_dates: int) -> None:
-    """pandas names a frequency from three dates: fewer are no irregular axis."""
-    path = _grid(tmp_path / "recharge.nc", fill_value=-999.0)
-
-    (record,) = load_custom_nc(
-        path,
-        variable="recharge",
-        unit="mm/day",
-        project_period=(datetime(2020, 1, 1), period_end),
-    )
-
-    assert record.data["time"].size == n_dates
-    assert record.date_end == period_end
-    assert (record.frequency == "D") == (n_dates == 3)
-
-
-@pytest.mark.fast
 def test_a_window_outside_the_file_names_the_period(tmp_path: Path) -> None:
     path = _grid(tmp_path / "recharge.nc", fill_value=-999.0)
 

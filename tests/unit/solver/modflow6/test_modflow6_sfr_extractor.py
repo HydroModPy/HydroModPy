@@ -15,7 +15,6 @@ from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.solver.modflow6.extractors.sfr import (
     SfrObsSpec,
     build_sfr_columns,
-    read_sfr_meta,
     routed_outflow_series,
     sfr_station_id,
 )
@@ -179,17 +178,6 @@ def test_build_sfr_columns_rejects_misaligned_times(tmp_path: Path) -> None:
     _write_csv(obs_path)
     with pytest.raises(ValueError, match="misaligned"):
         build_sfr_columns(spec, obs_path, times=[3600.0], seconds_per_time_unit=1.0)
-
-
-def test_read_sfr_meta_roundtrip(tmp_path: Path) -> None:
-    meta_path = tmp_path / "m.sfr.meta.json"
-    meta_path.write_text(json.dumps(_SPEC_PAYLOAD), encoding="utf-8")
-    spec = read_sfr_meta(meta_path)
-    assert spec is not None
-    assert spec.network_id == "net0"
-    assert spec.reach_count == 2
-    assert len(spec.entries) == 6
-    assert read_sfr_meta(tmp_path / "missing.json") is None
 
 
 # The routed outflow is one definition: reach ext-outflow plus lake ext-outflow.

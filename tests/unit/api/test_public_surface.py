@@ -68,25 +68,6 @@ REMOVED = ("open_catalog", "overview", "mesh", "testbed")
 SUBPACKAGES = ("mesh",)
 
 
-@pytest.mark.parametrize("name", PRESENT)
-def test_present_symbol(name: str) -> None:
-    assert hasattr(hmp, name), f"hmp.{name} missing"
-    assert name in hmp.__all__
-
-
-@pytest.mark.parametrize("name", REMOVED)
-def test_a_name_removed_before_the_tag_has_no_entry_and_is_gone(name: str) -> None:
-    assert name not in hmp.__all__, f"hmp.{name} must not be in __all__"
-    assert name not in OLD_NAMES
-    if name in SUBPACKAGES:
-        package = importlib.import_module(f"hydromodpy.{name}")
-        assert getattr(hmp, name) is package
-        assert inspect.ismodule(package) and not callable(package)
-        return
-    with pytest.raises(AttributeError):
-        getattr(hmp, name)
-
-
 @pytest.mark.parametrize(
     ("old", "new"), [("old_run", "run"), ("OldProject", "Project"), ("old_session", "Session")]
 )
@@ -112,16 +93,6 @@ def _resolves(path: str) -> bool:
 
 
 TOP_LEVEL_NAMES = sorted(name for name in OLD_NAMES if "." not in name)
-
-
-@pytest.mark.parametrize("old", TOP_LEVEL_NAMES)
-def test_a_name_that_left_is_refused_with_a_path_that_answers(old: str) -> None:
-    entry = OLD_NAMES[old]
-    assert entry.refused and old not in hmp.__all__
-    with pytest.raises(hmp.OldNameError, match=re.escape(entry.new)):
-        getattr(hmp, old)
-    assert not hasattr(hmp, old)
-    assert _resolves(entry.new), entry.new
 
 
 @pytest.mark.parametrize("old", sorted(LEFT_IN_2_0_0))

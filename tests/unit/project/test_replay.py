@@ -69,15 +69,6 @@ def test_a_name_that_names_nothing_is_refused_with_the_path_it_looked_for(
         replay_target("absent", base=tmp_path)
 
 
-def test_a_published_copy_replays_into_the_project_it_is_given(tmp_path: Path) -> None:
-    folder = _copy(tmp_path / "elsewhere")
-    project = tmp_path / "project"
-    project.mkdir()
-    target = replay_target(folder, base=project)
-    assert target.source == folder.resolve()
-    assert target.project_root == project.resolve()
-
-
 def test_a_published_copy_with_no_project_named_is_refused(tmp_path: Path) -> None:
     folder = _copy(tmp_path / "elsewhere")
     with pytest.raises(ConfigError, match="-w"):

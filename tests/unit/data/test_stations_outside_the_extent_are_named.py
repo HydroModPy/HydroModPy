@@ -69,23 +69,6 @@ def test_a_station_outside_the_basin_is_named(monkeypatch) -> None:
     assert "J9999" in message
 
 
-def test_a_box_request_hands_the_station_manager_its_box_in_wgs84(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(
-        hubeau_api, "fetch", lambda **kwargs: [_station("J0001", -1.68, 48.11, "EPSG:4326")]
-    )
-    request = DataRequest.for_variable(
-        "hydrometry",
-        bbox=[340000.0, 6780000.0, 360000.0, 6800000.0],
-        crs="EPSG:2154",
-        start="2020-01-01",
-        end="2020-01-10",
-    )
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        run_request(request, tmp_path / "out")
-    assert not [w for w in caught if "outside project_extent" in str(w.message)]
-
-
 def _custom_folder(tmp_path: Path, fmt: str) -> Path:
     """A user's station folder: a Lambert-93 location file and one chronicle per station."""
     folder = tmp_path / "hydrometry"

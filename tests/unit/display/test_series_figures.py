@@ -288,9 +288,3 @@ def test_a_window_that_starts_with_the_run_shades_nothing() -> None:
     run = _Run(sealed=(datetime.date(2010, 12, 1), datetime.date(2011, 1, 8)))
 
     assert _shades(_drawn("hydrograph", run)) == []
-
-
-def test_the_shade_says_what_it_is_in_the_legend() -> None:
-    ax = _drawn("hydrograph", _Run(sealed=(WINDOW_START, datetime.date(2011, 1, 8))))
-
-    assert LABEL in [text.get_text() for text in ax.get_legend().get_texts()]

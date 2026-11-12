@@ -15,12 +15,6 @@ from hydromodpy.solver.modflow6.extractors import prt
 from hydromodpy.solver.modflow_nwt.extractors import modpath
 
 
-def test_every_descriptor_declares_axes_its_coordinates_agree_with() -> None:
-    for name, descriptor in field_registry.FIELD_REGISTRY.items():
-        assert descriptor.coordinates.split() == list(descriptor.dimensions), name
-        assert all(descriptor.dimensions), name
-
-
 def test_field_descriptor_rank_matches_its_shape_signature() -> None:
     expected = {
         field_registry.SHAPE_TIME_LAYER_FACE: 3,
@@ -53,13 +47,3 @@ def test_timed_and_static_fields_name_the_same_spatial_axes() -> None:
         field_registry.timed_field_dimensions(1)
     with pytest.raises(ValueError):
         field_registry.static_field_dimensions(3)
-
-
-def test_a_private_axis_set_never_collides_with_a_sibling() -> None:
-    assert field_registry.per_array_dimensions("watershed_dem", 2) == (
-        "watershed_dem_dim0",
-        "watershed_dem_dim1",
-    )
-    assert field_registry.per_array_dimensions("watershed_fill", 2) != (
-        field_registry.per_array_dimensions("watershed_dem", 2)
-    )

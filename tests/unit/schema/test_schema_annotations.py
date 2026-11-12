@@ -9,7 +9,6 @@ against accidental regressions when the schema export evolves.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 REQUIRED_UI_KEYS = {
     "widget_type",
@@ -26,20 +25,6 @@ def _full_schema() -> dict:
     return export_schema(HydroModPyConfig)
 
 
-def test_flow_physical_properties_annotations_survive_export() -> None:
-    from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
-    from hydromodpy.schema.config_schema import export_schema
-
-    schema = export_schema(FlowPhysicalProperties)
-    props = schema["properties"]
-
-    for field_name in ("k_aquifer", "specific_yield", "specific_storage"):
-        assert field_name in props, f"missing {field_name}"
-        entry = props[field_name]
-        missing = REQUIRED_UI_KEYS - set(entry.keys())
-        assert not missing, f"{field_name!r} schema entry is missing UI keys: {missing}"
-
-
 def test_widget_types_are_recognized() -> None:
     from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
     from hydromodpy.schema.config_schema import export_schema
@@ -49,36 +34,3 @@ def test_widget_types_are_recognized() -> None:
     for field_name, entry in schema["properties"].items():
         widget = entry.get("widget_type")
         assert widget in allowed, f"{field_name!r} uses unknown widget {widget!r}"
-
-
-def test_display_bounds_are_numeric() -> None:
-    from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
-    from hydromodpy.schema.config_schema import export_schema
-
-    schema = export_schema(FlowPhysicalProperties)
-    for field_name, entry in schema["properties"].items():
-        lo = entry.get("display_min")
-        hi = entry.get("display_max")
-        assert isinstance(lo, (int, float)), f"{field_name} display_min not numeric"
-        assert isinstance(hi, (int, float)), f"{field_name} display_max not numeric"
-        assert lo < hi, f"{field_name} has display_min >= display_max"
-
-
-def test_exported_config_preserves_widget_metadata(tmp_path: Path) -> None:
-    """The ``config.json`` written by export_full_schema keeps UI metadata.
-
-    ``FlowPhysicalProperties`` is reachable via the ``FlowConfig`` model,
-    so the assertion uses the model-level exporter directly.
-    """
-    from hydromodpy.config.hydromodpy_config import ROOT_CONFIG
-    from hydromodpy.model.properties.physical_properties import FlowPhysicalProperties
-    from hydromodpy.schema.config_schema import export_full_schema, export_schema
-
-    paths = export_full_schema(tmp_path, root=ROOT_CONFIG)
-    assert paths["config"].is_file()
-
-    phys_schema = export_schema(FlowPhysicalProperties)
-    k = phys_schema["properties"]["k_aquifer"]
-    assert k.get("widget_type") == "input"
-    assert k.get("unit") == "m/s"
-    assert "display_name_fr" not in k

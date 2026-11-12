@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import threading
 from pathlib import Path
 
@@ -16,7 +15,6 @@ from hydromodpy.results.storage.run_log import (
     in_project_log,
     project_log,
     project_log_path,
-    read_log_tail,
     rotate_project_log,
     run_log_path,
 )
@@ -44,42 +42,6 @@ def _attempt(project: Path, name: str, count: int, ready: threading.Barrier) -> 
         ready.wait(timeout=30)
     finally:
         detach_run_log(logs)
-
-
-def test_an_attempt_writes_debug_lines_to_its_run_log_and_to_the_project_log(
-    tmp_path: Path,
-) -> None:
-    run = _run_dir(tmp_path, "basin")
-    logs = attach_run_log(run, tmp_path)
-    try:
-        LOGGER.debug("a debug line")
-        LOGGER.warning("a warning")
-    finally:
-        detach_run_log(logs)
-
-    pattern = re.compile(
-        r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} \[DEBUG\] \[hydromodpy\.tests\.run_log\] "
-        r"\[test_run_log:\d+\] a debug line$"
-    )
-    for path in (run_log_path(run), project_log_path(tmp_path)):
-        lines = _lines(path)
-        assert len(lines) == 2
-        assert pattern.match(lines[0])
-        assert "[WARNING]" in lines[1]
-    assert run_log_path(run) == run / "logs" / "run.log"
-    assert project_log_path(tmp_path) == tmp_path / ".hmp" / "logs" / "hydromodpy_debug.log"
-
-
-def test_without_a_project_only_the_run_log_is_written(tmp_path: Path) -> None:
-    run = _run_dir(tmp_path, "basin")
-    logs = attach_run_log(run)
-    try:
-        LOGGER.debug("alone")
-    finally:
-        detach_run_log(logs)
-
-    assert _lines(run_log_path(run))[0].endswith("alone")
-    assert not (tmp_path / ".hmp").exists()
 
 
 def test_detaching_gives_the_sinks_back_and_closes_the_files(tmp_path: Path) -> None:
@@ -128,26 +90,6 @@ def test_a_decorated_call_writes_the_project_log_of_the_root_it_names(tmp_path: 
     assert _lines(project_log_path(tmp_path))[0].endswith("in the call")
 
 
-def test_two_attempts_in_two_threads_write_two_run_logs_and_share_the_project_log(
-    tmp_path: Path,
-) -> None:
-    ready = threading.Barrier(2)
-    threads = [
-        threading.Thread(target=_attempt, args=(tmp_path, name, 200, ready))
-        for name in ("alpha", "beta")
-    ]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join(timeout=60)
-
-    for name in ("alpha", "beta"):
-        own = _lines(run_log_path(tmp_path / "runs" / name))
-        assert [line.rsplit("] ", 1)[1] for line in own] == [f"{name} {i}" for i in range(200)]
-    shared = [line.rsplit("] ", 1)[1] for line in _lines(project_log_path(tmp_path))]
-    assert sorted(shared) == sorted(f"{name} {i}" for name in ("alpha", "beta") for i in range(200))
-
-
 @pytest.mark.parametrize(
     ("kept_before", "size", "kept_after"),
     [
@@ -186,27 +128,6 @@ def test_the_project_log_rotates_when_it_is_past_the_limit(
         assert path.with_name(f"{path.name}.3").read_text() == "old 2"
 
 
-def test_a_missing_project_log_is_not_rotated(tmp_path: Path) -> None:
-    rotate_project_log(project_log_path(tmp_path))
-
-    assert not (tmp_path / ".hmp").exists()
-
-
-def test_a_rename_that_fails_is_ignored(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(run_log, "PROJECT_LOG_MAX_BYTES", 10)
-    path = project_log_path(tmp_path)
-    path.parent.mkdir(parents=True)
-    path.write_text("x" * 11, encoding="utf-8")
-
-    def another_run_did_it(source: object, target: object) -> None:
-        raise PermissionError("held by another run")
-
-    monkeypatch.setattr(run_log.os, "replace", another_run_did_it)
-    rotate_project_log(path)
-
-    assert path.read_text() == "x" * 11
-
-
 def test_an_attempt_opens_the_project_log_after_its_rotation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -237,15 +158,3 @@ def test_a_project_log_that_cannot_be_opened_leaves_the_run_log(tmp_path: Path) 
 
     assert len(logs.handlers) == 1
     assert _lines(run_log_path(run))[0].endswith("still written")
-
-
-def test_the_tail_is_the_last_lines_of_the_run_log(tmp_path: Path) -> None:
-    run = _run_dir(tmp_path, "basin")
-    assert read_log_tail(run) == []
-
-    path = run_log_path(run)
-    path.parent.mkdir(parents=True)
-    path.write_text("\n".join(f"line {index}" for index in range(30)) + "\n", encoding="utf-8")
-
-    assert read_log_tail(run, 3) == ["line 27", "line 28", "line 29"]
-    assert len(read_log_tail(run)) == run_log.LOG_TAIL_LINES

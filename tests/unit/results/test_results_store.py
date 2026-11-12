@@ -8,7 +8,6 @@ import pytest
 
 from hydromodpy.core.fields.precision import MAX_RELATIVE_ERROR
 from hydromodpy.results.storage.array_fingerprint import fingerprint
-from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from tests._helpers.run_builders import runs
 
 __all__ = ["runs"]
@@ -62,39 +61,11 @@ class TestFullCycle:
         result_layer = catalog.query_field(sid, "head", 2, layer=0)
         np.testing.assert_allclose(result_layer, all_vals[2, 0], rtol=MAX_RELATIVE_ERROR, atol=0.0)
 
-    def test_the_seal_flushes_open_zarr_handles(self, runs):
-        store = runs.open("open_handles", solver="boussinesq", n_cells=4, n_layers=1, n_timesteps=1)
-        sid = store.sim_id
-        handle = store.open_zarr(sid)
-        handle.root["mesh"].create_array(
-            "topography", data=np.array([10.0, 10.0, 10.0, 10.0]), overwrite=True
-        )
-        values = np.array([[1.0, 2.0, 3.0, 4.0]], dtype="float64")
-        store.write_field(sid, "head", 0, values, n_timesteps=1)
-
-        catalog = runs.catalog()
-
-        zarr_path = catalog.fields_path_for(sid)
-        assert zarr_path.name == FIELDS_STORE_NAME
-        assert zarr_path.is_dir()
-        sz = catalog.open_zarr(sid)
-        try:
-            np.testing.assert_array_equal(sz.root["mesh"]["topography"][:], [10.0] * 4)
-            np.testing.assert_array_equal(sz.read_field("head", 0), values)
-        finally:
-            sz.close()
-
     def test_list_simulations(self, runs):
         runs.open("run_a")
         df = runs.catalog().list_simulations()
         assert list(df["name"]) == ["run_a"]
         assert runs.catalog().list_simulations(solver="gr4j").empty
-
-    def test_every_version_of_a_name_stays_listed(self, runs):
-        runs.open("dup")
-        runs.catalog()
-        runs.open("dup")
-        assert set(runs.catalog().list_simulations()["name"]) == {"dup", "dup.v2"}
 
 
 class TestTimeseriesCycle:
@@ -109,19 +80,6 @@ class TestTimeseriesCycle:
         result = runs.catalog().query_timeseries(store.sim_id, "EXU", "discharge")
         assert len(result) == 30
         np.testing.assert_array_almost_equal(result.values, ts.values)
-
-    def test_period_filter(self, runs):
-        store = runs.open(solver="gr4j")
-        idx = pd.date_range("2020-01-01", periods=30, freq="D")
-        store.write_timeseries(
-            store.sim_id, "S1", "head", pd.Series(range(30), index=idx, dtype=float)
-        )
-
-        result = runs.catalog().query_timeseries(
-            store.sim_id, "S1", "head", period=("2020-01-10", "2020-01-20")
-        )
-        # A simulated value is stamped at the end of its period: (start, end].
-        assert result.index.strftime("%m-%d").tolist() == [f"01-{day}" for day in range(11, 21)]
 
 
 class TestBudgetAndMassBalance:

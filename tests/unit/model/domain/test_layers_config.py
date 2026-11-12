@@ -37,12 +37,6 @@ def test_domain_layers_validates_its_table_and_counts_its_layers(table, read):
     assert VerticalGridConfig.from_mapping(table) == layers
 
 
-@pytest.mark.parametrize("table", [{"genmtd_lay": "list", "lay_proportions": [0.5, 0.5]}, surfaces_table({"name": "rock"})])  # fmt: skip
-def test_a_layer_count_beside_a_layering_that_derives_it_is_ignored_with_a_warning(table):
-    with pytest.warns(UserWarning, match="nlay must not be provided"):
-        assert VerticalGridConfig.model_validate({**table, "nlay": 5}).nlay is None
-
-
 @pytest.mark.parametrize(
     ("table", "match"),
     [

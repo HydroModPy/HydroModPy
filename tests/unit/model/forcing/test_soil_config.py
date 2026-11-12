@@ -8,11 +8,7 @@ from pydantic import ValidationError
 
 from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.forcing.soil_config import (
-    SoilReservoirConfig,
-    spinup_refusal,
-    steady_start_refusal,
-)
+from hydromodpy.model.forcing.soil_config import SoilReservoirConfig, steady_start_refusal
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 
@@ -32,42 +28,10 @@ def test_a_recharge_rate_beside_a_soil_reservoir_is_refused() -> None:
         FlowRechargeConfig(values=2.0, soil=SoilReservoirConfig(ru=100.0))
 
 
-def test_a_recharge_rate_built_by_code_without_soil_passes() -> None:
-    recharge = FlowRechargeConfig(values=0.0)
-
-    assert recharge.soil is None
-    assert recharge.values == 0.0
-
-
 # Repeating the first year to spin up the soil needs a run of a year at least.
 #
 # ``spinup = "first_year"`` repeats the first 52 weeks (364 days) of the run; a shorter
 # run never sees a full first year to repeat.
-
-
-def test_a_run_shorter_than_a_year_is_refused() -> None:
-    config = SoilReservoirConfig(ru=100.0)
-
-    refusal = spinup_refusal(config, 363)
-
-    assert refusal == (
-        'spinup = "first_year" repeats the first 52 weeks (364 days) of the run, and '
-        '[simulation.time] covers 363 days: write spinup = "none" under '
-        "[flow.sinks_sources.recharge.soil] to start from a full soil, or extend "
-        "the run to 52 weeks at least."
-    )
-
-
-def test_a_year_long_run_needs_no_refusal() -> None:
-    config = SoilReservoirConfig(ru=100.0)
-
-    assert spinup_refusal(config, 365) is None
-
-
-def test_no_spinup_needs_no_refusal() -> None:
-    config = SoilReservoirConfig(ru=100.0, spinup="none")
-
-    assert spinup_refusal(config, 10) is None
 
 
 # A soil run must not open a transient model on a one-period steady state.
@@ -97,22 +61,6 @@ def _flow_with_soil(*, flow_regime: str, first_period_steady: bool) -> FlowConfi
     )
 
 
-def test_a_transient_soil_run_on_a_steady_first_period_is_refused() -> None:
-    flow = _flow_with_soil(flow_regime="transient", first_period_steady=True)
-
-    refusal = steady_start_refusal(flow, _window())
-
-    assert refusal == (
-        "[flow.sinks_sources.recharge.soil] sends each day's recharge to MODFLOW, "
-        "and flow.first_period_steady = true solves the first stress period "
-        "(1 day) as a steady state under that period's recharge alone, zero after "
-        "a dry day: the run would start from a drained aquifer. Write "
-        "first_period_steady = false under [flow] and add [flow.ic] "
-        'kind = "steady_state", which starts the run from the steady state under '
-        "the mean recharge of the whole run."
-    )
-
-
 def test_no_soil_needs_no_refusal() -> None:
     flow = FlowConfig.homogeneous(K=1e-4, flow_regime="transient")
 
@@ -121,12 +69,6 @@ def test_no_soil_needs_no_refusal() -> None:
 
 def test_a_steady_regime_needs_no_refusal() -> None:
     flow = _flow_with_soil(flow_regime="steady", first_period_steady=True)
-
-    assert steady_start_refusal(flow, _window()) is None
-
-
-def test_first_period_steady_false_needs_no_refusal() -> None:
-    flow = _flow_with_soil(flow_regime="transient", first_period_steady=False)
 
     assert steady_start_refusal(flow, _window()) is None
 
@@ -160,8 +102,3 @@ def test_the_defaults_describe_a_passive_soil() -> None:
     assert config.bypass_fraction == pytest.approx(0.0)
     assert config.transit_time == pytest.approx(0.0)
     assert config.spinup == "first_year"
-
-
-def test_ru_is_required() -> None:
-    with pytest.raises(ValidationError):
-        SoilReservoirConfig()

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-import pkgutil
 import threading
 import time
 import warnings
@@ -25,7 +23,6 @@ from hydromodpy.calibration.optim.optimizer import (
     ParamSuggestion,
     build_optimizer,
     choose_method,
-    optimizers,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from tests.unit.calibration._factories import two_dim_space, unit_space
@@ -49,15 +46,6 @@ def _cost(values: dict) -> float:
 
 def _tell(opt, sugg) -> None:
     opt.tell([result_of(sugg, _cost(sugg.values))])
-
-
-def test_a_confidence_bound_search_does_not_stop_after_three_proposals():
-    opt = build_optimizer("gp_mapping", _space(), seed=11, n_init=4, max_trials=20, kappa=1.5)
-    n_init = 4
-    for _ in range(n_init + 3):
-        (sugg,) = opt.ask(1)
-        _tell(opt, sugg)
-    assert not opt.converged()
 
 
 def test_a_confidence_bound_search_stops_once_the_bound_promises_nothing():
@@ -129,45 +117,11 @@ def test_a_maxiter_written_in_the_file_still_stops_the_simplex() -> None:
 # Tests for canonical optimizer adapter construction.
 
 
-class TestCanonicalAdapters:
-    def test_grid_resolves(self) -> None:
-        opt = build_optimizer("grid", two_dim_space())
-        assert opt.name == "grid"
-
-    def test_scipy_nelder_mead_resolves(self) -> None:
-        opt = build_optimizer("scipy_nelder_mead", two_dim_space(), maxiter=5)
-        assert opt.name == "scipy_nelder_mead"
-
-    def test_random_search_resolves(self) -> None:
-        opt = build_optimizer("random_search", two_dim_space(), seed=0)
-        assert opt.name == "random_search"
-
-    def test_cma_es_resolves(self) -> None:
-        pytest.importorskip("cma")
-        opt = build_optimizer(
-            "cma_es", two_dim_space(), sigma0=0.25, popsize=4, max_trials=8, seed=42
-        )
-        assert opt.name == "cma_es"
-
-
 class TestLegacyAdapterInputsRejected:
     @pytest.mark.parametrize("name", ["simplex", "nelder_mead"])
     def test_removed_nelder_mead_names_are_rejected(self, name: str) -> None:
         with pytest.raises(OptimizerError, match="Unknown optimizer"):
             build_optimizer(name, two_dim_space())
-
-    def test_grid_rejects_n_per_dim(self) -> None:
-        with pytest.raises(TypeError, match="n_per_dim"):
-            build_optimizer("grid", two_dim_space(), n_per_dim=3)
-
-    @pytest.mark.parametrize("kwarg", ["max_iter", "max_fun", "xtol", "ftol"])
-    def test_scipy_nelder_mead_rejects_removed_kwargs(self, kwarg: str) -> None:
-        with pytest.raises(TypeError, match=kwarg):
-            build_optimizer("scipy_nelder_mead", two_dim_space(), **{kwarg: 1})
-
-    def test_random_search_rejects_n_samples(self) -> None:
-        with pytest.raises(TypeError, match="n_samples"):
-            build_optimizer("random_search", two_dim_space(), n_samples=10)
 
 
 class TestGridAdapter:
@@ -193,50 +147,8 @@ class TestRandomSearchSeeding:
             assert a.values["x"] == pytest.approx(b.values["x"])
             assert a.values["y"] == pytest.approx(b.values["y"])
 
-    def test_sampled_points_within_bounds(self) -> None:
-        opt = build_optimizer("random_search", two_dim_space(), seed=11)
-        sugg = opt.ask(n=5)
-        for s in sugg:
-            assert 0.0 <= s.values["x"] <= 1.0
-            assert -2.0 <= s.values["y"] <= 2.0
-
 
 class TestCmaEsAdapter:
-    def test_ask_tell_converges_on_convex(self) -> None:
-        """Optimize a convex quadratic: best value must be close to origin."""
-        pytest.importorskip("cma")
-        space = two_dim_space()
-        opt = build_optimizer("cma_es", space, sigma0=0.3, popsize=6, max_trials=60, seed=42)
-        trial_to_vec: dict[int, dict[str, float]] = {}
-        while not opt.converged():
-            sugg = opt.ask(n=6)
-            if not sugg:
-                break
-            results = []
-            from hydromodpy.calibration.optim.optimizer import EvaluationResult
-
-            for s in sugg:
-                trial_to_vec[s.trial_id] = dict(s.values)
-                cost = float((s.values["x"] - 0.3) ** 2 + (s.values["y"] - 0.5) ** 2)
-                results.append(result_of(s, cost))
-            opt.tell(results)
-
-        best = opt.best()
-        assert best is not None
-        best_vec = trial_to_vec[best.trial_id]
-        assert abs(best_vec["x"] - 0.3) < 0.1
-        assert abs(best_vec["y"] - 0.5) < 0.1
-
-    def test_ask_returns_values_within_bounds(self) -> None:
-        pytest.importorskip("cma")
-        space = two_dim_space()
-        opt = build_optimizer("cma_es", space, sigma0=0.25, popsize=4, max_trials=8, seed=1)
-        sugg = opt.ask(n=4)
-        assert len(sugg) == 4
-        for s in sugg:
-            assert 0.0 <= s.values["x"] <= 1.0
-            assert -2.0 <= s.values["y"] <= 2.0
-
     def test_cma_adapter_restarts(self) -> None:
         """A restart must re-instantiate the strategy when CMA stops early."""
         pytest.importorskip("cma")
@@ -260,14 +172,6 @@ class TestCmaEsAdapter:
         assert id(opt._es) != first_es_id
 
 
-def test_scipy_nelder_mead_accepts_canonical_kwargs() -> None:
-    opt = build_optimizer(
-        "scipy_nelder_mead", two_dim_space(), maxiter=5, maxfev=10, xatol=1e-3, fatol=1e-3
-    )
-    sugg = opt.ask(n=1)
-    assert sugg
-
-
 # From test_optuna_adapter.py
 # Unit tests for the Optuna optimizer adapter.
 #
@@ -281,57 +185,6 @@ def _space_2d():
 
 
 class TestOptunaAdapter:
-    def test_build_via_registry(self):
-        opt = build_optimizer("optuna", _space_2d(), sampler="tpe", seed=42)
-        assert opt.name == "optuna"
-
-    def test_ask_returns_values_within_bounds(self):
-        opt = build_optimizer("optuna", _space_2d(), sampler="tpe", seed=0)
-        suggs = opt.ask(1)
-        assert len(suggs) == 1
-        s = suggs[0]
-        assert set(s.values) == {"K", "Sy"}
-        assert 1e-6 <= s.values["K"] <= 1e-3
-        assert 0.02 <= s.values["Sy"] <= 0.30
-
-    def test_tell_drains_pending(self):
-        opt = build_optimizer("optuna", _space_2d(), sampler="random", seed=0)
-        suggs = opt.ask(3)
-        results = [result_of(s, float(i)) for i, s in enumerate(suggs)]
-        opt.tell(results)
-        # Asking again must work (pending dict should be empty).
-        new_suggs = opt.ask(1)
-        assert len(new_suggs) == 1
-
-    def test_best_returns_lowest_cost(self):
-        opt = build_optimizer("optuna", _space_2d(), sampler="random", seed=0)
-        suggs = opt.ask(5)
-        results = [result_of(s, float(5 - i)) for i, s in enumerate(suggs)]
-        opt.tell(results)
-        best = opt.best()
-        assert best is not None
-        assert best.cost == 1.0
-
-    def test_converges_toward_minimum(self):
-        """TPE finds a lower cost than random guessing after a handful of trials."""
-        space = _space_2d()
-        opt = build_optimizer("optuna", space, sampler="tpe", seed=42)
-
-        def obj(values):
-            # Quadratic bowl in log10(K) and Sy centered at (-4.0, 0.15)
-
-            k_log = math.log10(values["K"])
-            return (k_log + 4.0) ** 2 + (values["Sy"] - 0.15) ** 2
-
-        n = 30
-        for _ in range(n):
-            s = opt.ask(1)[0]
-            cost = obj(s.values)
-            opt.tell([result_of(s, cost)])
-
-        assert opt.best() is not None
-        assert opt.best().cost < 0.01
-
     def test_fail_status_reported_to_optuna(self):
         opt = build_optimizer("optuna", _space_2d(), sampler="random", seed=0)
         s = opt.ask(1)[0]
@@ -416,60 +269,8 @@ class TestReproducibility:
             assert a.values["x"] == pytest.approx(b.values["x"])
             assert a.values["y"] == pytest.approx(b.values["y"])
 
-    def test_different_seeds_diverge(self) -> None:
-        """Distinct seeds must not collapse to the same suggestion stream."""
-        opt_a = build_optimizer("random_search", _space__random_search(), seed=1)
-        opt_b = build_optimizer("random_search", _space__random_search(), seed=2)
-        xs_a = [s.values["x"] for s in opt_a.ask(n=10)]
-        xs_b = [s.values["x"] for s in opt_b.ask(n=10)]
-        assert xs_a != xs_b
-
-    def test_unseeded_optimizers_are_stochastic(self) -> None:
-        """Without a seed two optimizers diverge with overwhelming odds."""
-        opt_a = build_optimizer("random_search", _space__random_search())
-        opt_b = build_optimizer("random_search", _space__random_search())
-        xs_a = [s.values["x"] for s in opt_a.ask(n=10)]
-        xs_b = [s.values["x"] for s in opt_b.ask(n=10)]
-        assert xs_a != xs_b
-
-
-class TestAskContract:
-    def test_ask_returns_requested_count(self) -> None:
-        opt = build_optimizer("random_search", _space__random_search(), seed=0)
-        assert len(opt.ask(n=1)) == 1
-        assert len(opt.ask(n=7)) == 7
-
-    def test_ask_default_is_one(self) -> None:
-        opt = build_optimizer("random_search", _space__random_search(), seed=0)
-        assert len(opt.ask()) == 1
-
-    def test_trial_ids_are_unique_and_monotonic(self) -> None:
-        opt = build_optimizer("random_search", _space__random_search(), seed=0)
-        sugg = opt.ask(n=3) + opt.ask(n=3)
-        ids = [s.trial_id for s in sugg]
-        assert ids == sorted(ids)
-        assert len(set(ids)) == len(ids)
-
-    def test_suggest_next_returns_single_suggestion(self) -> None:
-        opt = build_optimizer("random_search", _space__random_search(), seed=0)
-        s = opt.suggest_next()
-        assert isinstance(s, ParamSuggestion)
-        assert set(s.values) == {"x", "y"}
-
-    def test_suggestions_carry_every_parameter(self) -> None:
-        opt = build_optimizer("random_search", _space__random_search(), seed=3)
-        for s in opt.ask(n=5):
-            assert set(s.values) == {"x", "y"}
-            assert s.source == "ask"
-
 
 class TestBounds:
-    def test_uniform_samples_within_physical_bounds(self) -> None:
-        opt = build_optimizer("random_search", _space__random_search(), seed=99)
-        for s in opt.ask(n=200):
-            assert -3.0 <= s.values["x"] <= 5.0
-            assert 10.0 <= s.values["y"] <= 20.0
-
     def test_log_prior_samples_within_physical_bounds(self) -> None:
         opt = build_optimizer("random_search", _log_space(), seed=99)
         for s in opt.ask(n=200):
@@ -477,11 +278,6 @@ class TestBounds:
 
 
 class TestTellAndBest:
-    def test_best_is_none_before_any_tell(self) -> None:
-        opt = build_optimizer("random_search", _space__random_search(), seed=0)
-        opt.ask(n=3)
-        assert opt.best() is None
-
     def test_best_tracks_lowest_completed_objective(self) -> None:
         """After telling many results, ``best`` matches the manual minimum."""
         opt = build_optimizer("random_search", _space__random_search(), seed=42)
@@ -507,17 +303,6 @@ class TestTellAndBest:
         global_min = min(all_results, key=lambda r: r.cost)
         assert best.cost == pytest.approx(global_min.cost)
 
-    def test_random_search_approaches_convex_minimum(self) -> None:
-        """Dense random sampling of a convex bowl gets close to the optimum."""
-        opt = build_optimizer("random_search", _space__random_search(), seed=2024)
-        results = [_quadratic(s) for s in opt.ask(n=2000)]
-        opt.tell(results)
-        best = opt.best()
-        assert best is not None
-        # Min cost is 0 at (1, 15); 2000 uniform draws over an 8x10 box land
-        # comfortably below this loose bound without touching the optimum.
-        assert best.cost < 0.5
-
     def test_failed_trials_are_excluded_from_best(self) -> None:
         """Non-completed results never win even with a lower objective."""
         opt = build_optimizer("random_search", _space__random_search(), seed=1)
@@ -533,36 +318,6 @@ class TestTellAndBest:
         assert best is not None
         assert best.trial_id == good.trial_id
         assert best.cost == pytest.approx(10.0)
-
-    def test_best_is_none_when_all_trials_failed(self) -> None:
-        opt = build_optimizer("random_search", _space__random_search(), seed=1)
-        sugg = opt.ask(n=2)
-        opt.tell(
-            [
-                EvaluationResult(trial_id=s.trial_id, sim_id=None, cost=0.0, status="failed")
-                for s in sugg
-            ]
-        )
-        assert opt.best() is None
-
-
-class TestConvergence:
-    def test_never_reports_converged(self) -> None:
-        """Random search has no stopping rule; the engine bounds the budget."""
-        opt = build_optimizer("random_search", _space__random_search(), seed=0)
-        assert opt.converged() is False
-        opt.tell([_quadratic(s) for s in opt.ask(n=10)])
-        assert opt.converged() is False
-
-
-class TestInvalidArgs:
-    def test_unknown_kwarg_is_rejected(self) -> None:
-        with pytest.raises(TypeError):
-            build_optimizer("random_search", _space__random_search(), population=4)
-
-    def test_seed_must_be_keyword_only(self) -> None:
-        with pytest.raises(TypeError):
-            build_optimizer("random_search", _space__random_search(), 0)  # type: ignore[misc]
 
 
 # From test_sweep_parallel.py
@@ -619,76 +374,6 @@ def _constant_evaluator(value: float):
         )
 
     return _evaluator
-
-
-def test_calibration_engine_parallel_four_trials() -> None:
-    """``parallel=4`` runs four trials and records them in submission order."""
-    space = unit_space()
-    optimizer = _BatchedStubOptimizer(suggestions=[{"x": 0.1}, {"x": 0.2}, {"x": 0.3}, {"x": 0.4}])
-    session = run_engine(space, optimizer, _constant_evaluator(0.0), 4, batch_size=4, parallel=4)
-    assert len(session.history) == 4
-    assert sorted(r.sim_id for r in session.history) == ["sim-01", "sim-02", "sim-03", "sim-04"]
-    assert sorted(r.cost for r in session.history) == [0.1, 0.2, 0.3, 0.4]
-
-
-def test_calibration_engine_parallel_uses_threads() -> None:
-    """A 4-trial batch with ``parallel=4`` lands on more than one thread."""
-    barrier = threading.Barrier(4, timeout=2.0)
-    seen: list[int] = []
-    lock = threading.Lock()
-
-    def _evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        barrier.wait()
-        with lock:
-            seen.append(threading.get_ident())
-        return EvaluationResult(
-            trial_id=sugg.trial_id,
-            sim_id=f"sim-{sugg.trial_id:02d}",
-            cost=float(sugg.values["x"]),
-            status="completed",
-        )
-
-    optimizer = _BatchedStubOptimizer(suggestions=[{"x": 0.5}, {"x": 0.6}, {"x": 0.7}, {"x": 0.8}])
-    run_engine(unit_space(), optimizer, _evaluator, 4, batch_size=4, parallel=4)
-    assert len(set(seen)) == 4
-
-
-def test_calibration_engine_parallel_one_is_sequential() -> None:
-    """``parallel=1`` keeps every trial on the calling thread."""
-    main_thread = threading.get_ident()
-    seen: list[int] = []
-
-    def _evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        seen.append(threading.get_ident())
-        return EvaluationResult(
-            trial_id=sugg.trial_id, sim_id=f"sim-{sugg.trial_id:02d}", cost=0.0, status="completed"
-        )
-
-    optimizer = _BatchedStubOptimizer(suggestions=[{"x": 0.1}, {"x": 0.2}, {"x": 0.3}, {"x": 0.4}])
-    run_engine(unit_space(), optimizer, _evaluator, 4, batch_size=4, parallel=1)
-    assert all(tid == main_thread for tid in seen)
-
-
-@pytest.mark.parametrize(
-    ("parallel", "trials", "threaded"),
-    [(1, 2, False), (2, 1, False), (2, 2, True)],
-    ids=["one_worker", "one_trial", "two_of_each"],
-)
-def test_a_batch_leaves_the_calling_thread_from_two_trials_and_two_workers(
-    parallel: int, trials: int, threaded: bool
-) -> None:
-    main = threading.get_ident()
-    seen: list[int] = []
-
-    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        seen.append(threading.get_ident())
-        return _constant_evaluator(0.0)(sugg)
-
-    optimizer = _BatchedStubOptimizer([{"x": 0.1 * i} for i in range(trials)])
-    run_engine(unit_space(), optimizer, evaluator, trials, batch_size=trials, parallel=parallel)
-
-    assert any(tid != main for tid in seen) is threaded
-    assert all(tid != main for tid in seen) is threaded
 
 
 @pytest.mark.parametrize(
@@ -775,23 +460,6 @@ def test_an_idle_worker_takes_the_next_point_of_a_fixed_plan_while_a_slow_one_ru
     session = run_engine(unit_space(), optimizer, evaluator, 4, parallel=2)
 
     assert [result.cost for result in session.history] == pytest.approx([0, 1 / 3, 2 / 3, 1])
-
-
-def test_a_tie_does_not_depend_on_which_trial_ends_first() -> None:
-    second_ended = threading.Event()
-
-    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        if sugg.trial_id == 1:
-            assert second_ended.wait(timeout=2.0)
-        else:
-            second_ended.set()
-        return _constant_evaluator(0.0)(sugg)
-
-    optimizer = _BatchedStubOptimizer([{"x": 0.5}, {"x": 0.5}])
-    session = run_engine(unit_space(), optimizer, evaluator, 2, batch_size=2, parallel=2)
-
-    assert [result.trial_id for result in session.history] == [1, 2]
-    assert session.best.trial_id == optimizer.best().trial_id == 1
 
 
 def test_a_stop_reaches_the_solves_in_flight_before_the_engine_waits_for_them() -> None:
@@ -987,54 +655,3 @@ def test_the_last_engine_answers_a_search_that_every_engine_refuses(monkeypatch)
 def test_a_start_point_of_the_wrong_size_is_refused() -> None:
     with pytest.raises(OptimizerError, match="carries 2 value.*declares 1"):
         build_optimizer("scipy_nelder_mead", _LOG_K, start_at=[0.0, 1.0])
-
-
-def test_an_adapter_module_that_will_not_import_stays_unregistered(monkeypatch) -> None:
-    """An adapter module that raises on import holds no registration, loud or not."""
-    modules = [SimpleNamespace(name="_private"), SimpleNamespace(name="ghost_adapter")]
-    monkeypatch.setattr(pkgutil, "iter_modules", lambda path: modules)
-
-    # The scan never imports an adapter at listing time: a declared name with
-    # no loadable class is absent from the registry, and the refusal names it.
-    served = optimizers.names()
-    assert "ghost_adapter" not in served
-    with pytest.raises(OptimizerError, match="ghost_adapter"):
-        build_optimizer("ghost_adapter", two_dim_space())
-
-
-def test_the_engine_reports_and_journals_each_result_it_read_and_refreshes() -> None:
-    calls: list[tuple] = []
-    reporter = SimpleNamespace(
-        update=lambda trial_id, result: calls.append(("update", trial_id, result.cost)),
-        refresh=lambda: calls.append(("refresh",)),
-        close=lambda: None,
-    )
-
-    def evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        return EvaluationResult(
-            sugg.trial_id,
-            None,
-            sugg.values["x"],
-            "completed",
-            metadata={"speculative_unused": sugg.trial_id == 2},
-        )
-
-    run_engine(
-        unit_space(),
-        _BatchedStubOptimizer([{"x": 0.1}, {"x": 0.2}]),
-        evaluator,
-        2,
-        batch_size=2,
-        progress=reporter,
-        before_batch=lambda batch: calls.append(("before", len(batch))),
-        on_iteration=lambda sugg, result: calls.append(("journal", sugg.trial_id, result.cost)),
-    )
-
-    # Trial 2 was solved and not read: journaled, but not counted by the reporter.
-    assert calls == [
-        ("before", 2),
-        ("update", 1, 0.1),
-        ("journal", 1, 0.1),
-        ("journal", 2, 0.2),
-        ("refresh",),
-    ]

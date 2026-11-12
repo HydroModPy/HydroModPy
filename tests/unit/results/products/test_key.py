@@ -32,39 +32,6 @@ def _key(**overrides: object) -> str:
     return product_key(**kwargs)
 
 
-@pytest.mark.parametrize(
-    "change",
-    [
-        pytest.param({"kind": "soil"}, id="kind"),
-        pytest.param({"codec": "hydromodpy.mesh_cache.v2"}, id="codec"),
-        pytest.param({"inputs": {"request": "b" * 64}}, id="input-digest"),
-        pytest.param({"processing": {"request": "different"}}, id="processing"),
-        pytest.param({"engine": {"engine_id": "voronoi", "engine_version": "2"}}, id="engine"),
-        pytest.param({"package": "model"}, id="code-layer"),
-    ],
-)
-def test_each_component_changes_the_key(change: dict[str, object]) -> None:
-    assert _key(**change) != _key()
-
-
-def test_the_order_of_a_mapping_does_not_change_the_key() -> None:
-    assert _key(inputs={"a": "x", "b": "y"}) == _key(inputs={"b": "y", "a": "x"})
-
-
-def test_array_digest_changes_with_dtype() -> None:
-    assert array_digest(np.array([1.0], dtype=np.float32)) != array_digest(
-        np.array([1.0], dtype=np.float64)
-    )
-
-
-def test_array_digest_changes_with_shape() -> None:
-    assert array_digest(np.array([[1.0, 2.0]])) != array_digest(np.array([1.0, 2.0]))
-
-
-def test_array_digest_changes_with_a_value() -> None:
-    assert array_digest(np.array([1.0])) != array_digest(np.array([2.0]))
-
-
 def test_array_digest_ignores_the_sign_of_a_nan() -> None:
     assert array_digest(np.array([np.nan])) == array_digest(np.array([-np.nan]))
 

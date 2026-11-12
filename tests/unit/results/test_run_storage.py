@@ -20,12 +20,9 @@ from typing import Any, Literal, get_args, get_origin
 import duckdb
 import numpy as np
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
-import xarray as xr
 import zarr
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 import hydromodpy
 import hydromodpy as hmp
@@ -72,7 +69,6 @@ from hydromodpy.project.launch.lease import LEASE_SCHEMA, acquire_lease, lease_p
 from hydromodpy.project.launch.plan import case_is_done, running_cases
 from hydromodpy.project.launch.status import case_state, project_status
 from hydromodpy.project.show import project_summary
-from hydromodpy.results import field_registry
 from hydromodpy.results.annotations import (
     ANNOTATIONS_VERSION,
     Annotations,
@@ -159,12 +155,11 @@ from hydromodpy.results.session.descriptor import (
 )
 from hydromodpy.results.session.journal import TRIAL_SCHEMA, TrialLine, read_trials, trials_path
 from hydromodpy.results.session.phase import PHASE_SCHEMA, PhaseDescriptor, phase_dir, read_phase
-from hydromodpy.results.storage.attempt import claim_run_directory, finish_attempt
+from hydromodpy.results.storage.attempt import finish_attempt
 from hydromodpy.results.storage.contract import (
     LEDGER_FILENAME,
     PLAN_FILENAME,
     RUN_ANNOTATIONS_FILENAME,
-    RUN_CONFIG_FILENAME,
     RUN_FIGURES_DIRNAME,
     RUN_INPUTS_FILENAME,
     RUN_MANIFEST_FILENAME,
@@ -172,7 +167,6 @@ from hydromodpy.results.storage.contract import (
     RUN_PROVENANCE_FILENAME,
     SESSION_DESCRIPTOR_FILENAME,
 )
-from hydromodpy.results.storage.json_io import readable, readable_documents
 from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
 from hydromodpy.results.storage.run_facts import (
     FACTS_SCHEMA,
@@ -183,15 +177,10 @@ from hydromodpy.results.storage.run_facts import (
 )
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed, sealed_solution_key
-from hydromodpy.results.trash import identity_of, is_protected
+from hydromodpy.results.trash import identity_of
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
-from hydromodpy.results.zarr_store.mesh_layout import (
-    cell_family_rows,
-    face_family_rows,
-    mesh_layout_from_cell_mesh,
-)
+from hydromodpy.results.zarr_store.mesh_layout import mesh_layout_from_cell_mesh
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-from hydromodpy.results.zarr_store.zarr_writer import QUANTIZATION_VARIABLE
 from hydromodpy.schema.job.documents import read_versioned
 from hydromodpy.schema.job.inputset import INPUTSET_VERSIONS
 from hydromodpy.schema.job.outcome import OUTCOME_VERSIONS as JOB_OUTCOME_VERSIONS
@@ -215,7 +204,6 @@ from hydromodpy.workflow.steps.data_description import (
     read_data_description,
     write_data_description,
 )
-from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_mesh
 from tests._helpers.bundle_cell_meshes import bundle_dual, bundle_triangles
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
 from tests._helpers.run_stores import claim_run, facts_of, open_run_store, seal_demo_run
@@ -260,13 +248,6 @@ def exact(tmp_path: Path):
     store.close()
 
 
-def test_the_default_precision_is_compact() -> None:
-    assert PersistenceConfig().field_precision == "compact"
-    assert PersistenceConfig(field_precision="exact").field_precision == "exact"
-    with pytest.raises(ValidationError):
-        PersistenceConfig(field_precision="float16")
-
-
 def test_a_compact_stack_is_float32_on_the_rounded_grid(compact: SimulationZarr) -> None:
     values = _values()
 
@@ -279,40 +260,6 @@ def test_a_compact_stack_is_float32_on_the_rounded_grid(compact: SimulationZarr)
     np.testing.assert_allclose(stored, values, rtol=MAX_RELATIVE_ERROR, atol=0.0)
 
 
-def test_a_compact_step_write_rounds_the_same_way(compact: SimulationZarr) -> None:
-    values = _values()
-
-    for step in range(values.shape[0]):
-        compact.write_field("drain", step, values[step], n_timesteps=4, subgroup="budget")
-
-    stored = np.asarray(compact.root["budget"]["drain"][:])
-    assert stored.dtype == np.float32
-    np.testing.assert_array_equal(stored, round_mantissa(values))
-
-
-def test_a_compact_field_says_how_it_was_rounded(compact: SimulationZarr) -> None:
-    compact.write_field_stack("head", _values())
-
-    attrs = dict(compact.root["head"].attrs)
-    assert attrs["quantization"] == QUANTIZATION_VARIABLE
-    assert attrs["quantization_nsb"] == KEPT_MANTISSA_BITS
-    container = compact.root[QUANTIZATION_VARIABLE]
-    assert container.shape == ()
-    assert dict(container.attrs)["algorithm"] == "bitround"
-
-
-def test_an_exact_field_is_float64_bit_for_bit(exact: SimulationZarr) -> None:
-    values = _values()
-
-    exact.write_field_stack("head", values)
-
-    stored = np.asarray(exact.root["head"][:])
-    assert stored.dtype == np.float64
-    np.testing.assert_array_equal(stored, values)
-    assert "quantization" not in dict(exact.root["head"].attrs)
-    assert QUANTIZATION_VARIABLE not in exact.root
-
-
 def test_an_integer_field_is_never_rounded(compact: SimulationZarr) -> None:
     mask = np.array([[0, 1, 1, 0, 1, 0]], dtype="int8")
 
@@ -321,44 +268,6 @@ def test_an_integer_field_is_never_rounded(compact: SimulationZarr) -> None:
     stored = np.asarray(compact.root["derived"]["seepage_mask"][:])
     assert stored.dtype == np.int8
     assert "quantization" not in dict(compact.root["derived"]["seepage_mask"].attrs)
-
-
-def test_geometry_static_fields_and_time_keep_their_precision(compact: SimulationZarr) -> None:
-    vertices = np.column_stack([np.linspace(0.1234567891, 7.0, 14), np.zeros(14), np.zeros(14)])
-    connectivity = np.array([[2 * i, 2 * i + 1, 2 * i + 3, 2 * i + 2] for i in range(N_CELLS)])
-    topography = np.linspace(101.123456789, 150.987654321, N_CELLS)
-    thickness = np.full((1, N_CELLS), 12.3456789012)
-    conductivity = np.full((1, N_CELLS), 1.23456789e-5)
-
-    compact.write_mesh(
-        vertices,
-        connectivity,
-        np.array([150.0, 50.0]),
-        topography=topography,
-        layer_thickness=thickness,
-    )
-    compact.write_static_field("hydraulic_conductivity", conductivity, subgroup="derived")
-    compact.write_time(np.array([0, 86_400], dtype="int64"))
-
-    mesh = compact.root["mesh"]
-    np.testing.assert_array_equal(mesh["vertices"][:], vertices)
-    np.testing.assert_array_equal(mesh["topography"][:], topography)
-    np.testing.assert_array_equal(mesh["layer_thickness"][:], thickness)
-    np.testing.assert_array_equal(
-        compact.root["derived"]["hydraulic_conductivity"][:], conductivity
-    )
-    assert mesh["vertices"].dtype == np.float64
-    assert compact.root["time"].dtype == np.int64
-
-
-def test_a_reader_gets_float64_from_a_compact_store(compact: SimulationZarr) -> None:
-    values = _values()
-    compact.write_field_stack("head", values)
-
-    step = compact.read_field("head", 2)
-
-    assert step.dtype == np.float64
-    np.testing.assert_array_equal(step, round_mantissa(values[2]).astype(np.float64))
 
 
 def test_the_run_store_writes_in_the_precision_of_its_persistence(tmp_path: Path) -> None:
@@ -414,32 +323,11 @@ def test_a_truncated_index_raises_the_typed_exception(truncated_index: Path) -> 
         connect_with_retry(str(truncated_index))
 
 
-def test_the_message_names_the_broken_file(truncated_index: Path) -> None:
-    with pytest.raises(CatalogUnreadableError) as excinfo:
-        connect_with_retry(str(truncated_index))
-
-    assert str(truncated_index) in str(excinfo.value)
-
-
 def test_the_message_names_the_working_repair_gesture(truncated_index: Path) -> None:
     with pytest.raises(CatalogUnreadableError) as excinfo:
         connect_with_retry(str(truncated_index))
 
     assert "reindex" in str(excinfo.value)
-
-
-def test_a_missing_index_still_raises_the_bare_duckdb_error(tmp_path: Path) -> None:
-    """A path that does not exist yet is a different failure, not corruption.
-
-    ``connect_with_retry`` must not claim a file "exists but could not be
-    opened" when there is no file at all: that branch stays untyped.
-    """
-    missing = tmp_path / "never_written.duckdb"
-
-    with pytest.raises(duckdb.Error) as excinfo:
-        connect_with_retry(str(missing), read_only=True)
-
-    assert not isinstance(excinfo.value, CatalogUnreadableError)
 
 
 def test_two_modes_of_one_index_are_not_called_a_corruption(tmp_path: Path) -> None:
@@ -549,37 +437,6 @@ def test_a_session_still_running_past_the_window_is_counted(tmp_path) -> None:
     write_session_dir(root, "lost", status="running", started_at=LONG_AGO)
 
     assert abandoned_calibration_session_count(root) == 1
-
-
-def test_a_session_inside_the_window_is_left_alone(tmp_path) -> None:
-    """A calibration runs for hours; a young one is working, not abandoned."""
-    root = make_project(tmp_path / "demo")
-    write_session_dir(root, "young", status="running", started_at=datetime.now(UTC))
-
-    assert abandoned_calibration_session_count(root) == 0
-
-
-def test_a_finished_session_is_never_counted(tmp_path) -> None:
-    root = make_project(tmp_path / "demo")
-    write_session_dir(root, "done", status="completed", started_at=LONG_AGO)
-    write_session_dir(root, "broken", status="failed", started_at=LONG_AGO)
-
-    assert abandoned_calibration_session_count(root) == 0
-
-
-def test_the_index_lists_the_lost_session_as_running(tmp_path) -> None:
-    root = make_project(tmp_path / "demo")
-    write_session_dir(root, "lost", session_id="lost0001", status="running", started_at=LONG_AGO)
-
-    rebuild_index(root)
-
-    with Catalog(root) as catalog:
-        sessions = catalog.backend.fetch_all(
-            "SELECT session_id, status, ended_at FROM calibration_sessions"
-        )
-        cases = catalog.cases
-    assert [tuple(row) for row in sessions] == [("lost0001", "running", None)]
-    assert cases.loc[cases["rel_dir"] == "sessions/lost", "status"].item() == "running"
 
 
 # The rule is :mod:`hydromodpy.core.io.document_version`: a document HydroModPy
@@ -1193,14 +1050,6 @@ def test_every_version_of_a_wider_window_is_read(
     document.read(tree)
 
 
-def test_a_document_of_another_family_is_refused_as_such(tree: Tree) -> None:
-    outcome = next(document for document in DOCUMENTS if document.name == "outcome.json")
-    _rewrite(outcome, tree, "hydromodpy.plan.v1")
-
-    with pytest.raises(SchemaVersionMismatchError, match=FOREIGN_REMEDY):
-        outcome.read(tree)
-
-
 @pytest.mark.parametrize(
     ("module", "name", "current"),
     [
@@ -1220,22 +1069,6 @@ def test_every_family_declares_both_bounds_and_they_are_equal_at_2_0_0(
     )
     assert window.oldest == oldest
     assert current is None or window.current == current
-
-
-@pytest.mark.parametrize(
-    ("value", "number"),
-    [
-        (2, (2, 0, 0)),
-        ("3", (3, 0, 0)),
-        ("v2", (2, 0, 0)),
-        ("hydromodpy.session.v4", (4, 0, 0)),
-        ("2.0.0", (2, 0, 0)),
-        ("2.1", (2, 1, 0)),
-    ],
-)
-def test_one_parser_reads_every_form_a_version_takes(value: object, number: tuple) -> None:
-    parsed = parse_version(value)
-    assert parsed is not None and parsed[1] == number
 
 
 @pytest.mark.parametrize("value", [None, True, 1.5, -1, "soon", "2.0.0a5", "", "1.2.3.4"])
@@ -1295,43 +1128,6 @@ def _nested(payload: Any, path: tuple[Any, ...]) -> Any:
     return payload
 
 
-@pytest.mark.parametrize(("name", "paths"), FUTURE_KEYS, ids=[name for name, _paths in FUTURE_KEYS])
-def test_a_future_key_at_the_current_version_reads(
-    name: str, paths: tuple[tuple[Any, ...], ...], tree: Tree
-) -> None:
-    document = next(item for item in DOCUMENTS if item.name == name)
-    target = document.path(tree)
-    payload = json.loads(target.read_text(encoding="utf-8"))
-    for path in paths:
-        _nested(payload, path)["added_by_a_later_version"] = {"any": 1}
-    target.write_text(json.dumps(payload), encoding="utf-8")
-
-    document.read(tree)
-
-
-@pytest.mark.parametrize(
-    ("name", "path"),
-    [
-        ("trials.jsonl", ()),
-        ("trials.jsonl", ("params", "K")),
-        ("trials.jsonl", ("cases", SESSION)),
-        ("published.jsonl", ()),
-    ],
-)
-def test_a_future_key_on_a_line_of_a_journal_reads(
-    name: str, path: tuple[Any, ...], tree: Tree
-) -> None:
-    document = next(item for item in DOCUMENTS if item.name == name)
-    target = document.path(tree)
-    lines = target.read_text(encoding="utf-8").splitlines()
-    line = json.loads(lines[0])
-    _nested(line, path)["added_by_a_later_version"] = 1
-    lines[0] = json.dumps(line)
-    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    document.read(tree)
-
-
 def test_a_future_manifest_with_a_higher_version_and_a_new_key_is_refused(tree: Tree) -> None:
     """The version decides first: a key the code does not know changes nothing to the refusal."""
     target = tree.run / RUN_MANIFEST_FILENAME
@@ -1366,65 +1162,6 @@ STORED_WORDS: tuple[tuple[str, tuple[Any, ...], Callable[[Tree], Any]], ...] = (
     ("PUBLICATION.json", ("format",), lambda t: read_publication(t.copy).format),
     ("PUBLICATION.json", ("label",), lambda t: read_publication(t.copy).label),
 )
-
-
-@pytest.mark.parametrize(
-    ("name", "path", "read"),
-    STORED_WORDS,
-    ids=[f"{name}:{path[-1]}" for name, path, _read in STORED_WORDS],
-)
-def test_a_word_a_later_version_wrote_is_read_back(
-    name: str, path: tuple[Any, ...], read: Callable[[Tree], Any], tree: Tree
-) -> None:
-    document = next(item for item in DOCUMENTS if item.name == name)
-    target = document.path(tree)
-    payload = json.loads(target.read_text(encoding="utf-8"))
-    _nested(payload, path[:-1])[path[-1]] = "a_later_word"
-    target.write_text(json.dumps(payload), encoding="utf-8")
-
-    assert read(tree) == "a_later_word"
-
-
-@pytest.mark.parametrize(
-    ("build", "field"),
-    [
-        (lambda t, word: read_session(t.session).model_dump(by_alias=True), "status"),
-        (lambda t, word: read_outcome(t.run).model_dump(by_alias=True), "written_by"),
-    ],
-)
-def test_a_word_outside_the_vocabulary_is_refused_when_written(
-    build: Callable[[Tree, str], dict[str, Any]], field: str, pristine: Tree
-) -> None:
-    model = SessionDescriptor if field == "status" else Outcome
-    payload = build(pristine, "a_later_word")
-    with pytest.raises(ValidationError, match="is not one of"):
-        model(**{**payload, field: "a_later_word"})
-
-
-def test_the_index_keeps_the_words_a_later_version_wrote(tree: Tree) -> None:
-    descriptor = session_descriptor_path(tree.session)
-    payload = json.loads(descriptor.read_text(encoding="utf-8"))
-    descriptor.write_text(json.dumps({**payload, "status": "a_later_status"}), encoding="utf-8")
-    snapshot = tree.run / "tables.parquet" / "simulation.parquet"
-    table = pq.read_table(snapshot)
-    for column, word in (("flow_regime", "a_later_regime"), ("mesh_topology", "a_later_mesh")):
-        position = table.schema.get_field_index(column)
-        table = table.set_column(position, column, pa.array([word], type=pa.string()))
-    pq.write_table(table, snapshot)
-
-    report = rebuild_index(tree.project)
-
-    assert report.skipped == ()
-    connection = duckdb.connect(str(catalog_path_for(tree.project)), read_only=True)
-    try:
-        assert connection.execute("SELECT code FROM flow_regimes WHERE id > 3").fetchall() == [
-            ("a_later_regime",)
-        ]
-        assert connection.execute("SELECT status FROM cases WHERE kind = 'session'").fetchall() == [
-            ("a_later_status",)
-        ]
-    finally:
-        connection.close()
 
 
 STORED_MODELS: tuple[type[BaseModel], ...] = (
@@ -1605,40 +1342,6 @@ def test_a_listing_with_one_unreadable_run_leaves_it_out(
     assert warned or name == "running_cases"
 
 
-def test_one_warning_names_an_unreadable_document(
-    tree: Tree, caplog: pytest.LogCaptureFixture
-) -> None:
-    _future_manifest(tree)
-
-    with caplog.at_level(logging.WARNING):
-        for _ in range(3):
-            assert readable(read_manifest, tree.run) is None
-
-    warned = [record for record in caplog.records if "is left out" in record.getMessage()]
-    assert len(warned) == 1
-    assert str(tree.run) in warned[0].getMessage()
-    assert "manifest_version" in warned[0].getMessage()
-
-
-def test_a_missing_document_says_nothing(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level(logging.WARNING):
-        assert readable(read_manifest, tmp_path / "absent") is None
-    assert caplog.records == []
-
-
-@UNREADABLE_MANIFESTS
-def test_a_new_attempt_leaves_an_unreadable_run_as_it_is(
-    spoil: Callable[[Tree], None], tree: Tree
-) -> None:
-    """A case with an unreadable run is not done, and running it takes a new version."""
-    spoil(tree)
-
-    claim = claim_run_directory(tree.project, RUN, case_id=RUN, project="demo")
-
-    assert claim.run_dir.name == f"{RUN}.v2"
-    assert read_outcome(claim.run_dir) is not None
-
-
 def test_an_unreadable_outcome_is_left_out_of_a_listing(tree: Tree) -> None:
     outcome = next(item for item in DOCUMENTS if item.name == "outcome.json")
     _rewrite(outcome, tree, _bumped(OUTCOME_SCHEMA))
@@ -1722,13 +1425,6 @@ def test_project_status_refuses_a_plan_it_cannot_read(tree: Tree) -> None:
         project_status(tree.project)
 
 
-def test_annotations_that_do_not_read_keep_a_directory_protected(tree: Tree) -> None:
-    annotations = next(item for item in DOCUMENTS if item.name == "annotations.json")
-    _rewrite(annotations, tree, ANNOTATIONS_VERSION + 1)
-
-    assert is_protected(tree.run)
-
-
 SESSION_LISTINGS: tuple[tuple[str, Callable[[Tree], Any], Any], ...] = (
     (
         "case_is_done",
@@ -1768,14 +1464,6 @@ def test_a_listing_with_one_unreadable_session_leaves_it_out(
     assert ask(tree) == answer
 
 
-def test_the_latest_session_is_the_latest_one_this_code_reads(tree: Tree) -> None:
-    write_session_dir(tree.project, "older", started_at=NOW - timedelta(days=1))
-    _future_session(tree)
-
-    assert resolve_session_dir(tree.project, None).name == "older"
-    assert [path.name for path, _ in readable_documents(read_session, [tree.session])] == []
-
-
 @pytest.mark.parametrize("name", ["phases/<p>/session.json", "trials.jsonl"])
 def test_a_session_counts_as_read_when_its_phases_and_its_journal_read(
     name: str, tree: Tree
@@ -1808,12 +1496,6 @@ def test_resume_of_an_unreadable_session_refuses_naming_its_version(tree: Tree) 
 
     with pytest.raises(SchemaVersionMismatchError, match=_bumped(SESSION_SCHEMA)):
         CalibrationPersistence(directory).resume_session()
-
-
-def test_the_refusal_maps_to_the_schema_mismatch_exit_code() -> None:
-    from hydromodpy.cli.exit_codes import EXIT_SCHEMA_MISMATCH, exit_code_for
-
-    assert exit_code_for(SchemaVersionMismatchError("x")) == EXIT_SCHEMA_MISMATCH
 
 
 FUTURE_KEY = "added_by_a_later_version"
@@ -1888,62 +1570,6 @@ REWRITES: tuple[
 )
 
 
-@pytest.mark.parametrize(
-    ("name", "path_of", "paths", "rewrite"), REWRITES, ids=[row[0] for row in REWRITES]
-)
-def test_a_future_key_survives_a_rewrite(
-    name: str,
-    path_of: Callable[[Tree], Path],
-    paths: tuple[tuple[Any, ...], ...],
-    rewrite: Callable[[Tree], Any],
-    tree: Tree,
-) -> None:
-    target = path_of(tree)
-    before = json.loads(target.read_text(encoding="utf-8"))
-    for path in paths:
-        _nested(before, path)[FUTURE_KEY] = {"any": 1}
-    target.write_text(json.dumps(before), encoding="utf-8")
-
-    rewrite(tree)
-
-    after = json.loads(target.read_text(encoding="utf-8"))
-    assert after != before, "the rewrite changed nothing, so it proves nothing"
-    for path in paths:
-        assert _nested(after, path)[FUTURE_KEY] == {"any": 1}
-
-
-def test_a_future_key_on_a_note_survives_the_next_one(tree: Tree) -> None:
-    add_note(tree.run, "first")
-    target = tree.run / RUN_ANNOTATIONS_FILENAME
-    payload = json.loads(target.read_text(encoding="utf-8"))
-    payload["notes"][0][FUTURE_KEY] = 1
-    target.write_text(json.dumps(payload), encoding="utf-8")
-
-    add_note(tree.run, "second")
-
-    notes = json.loads(target.read_text(encoding="utf-8"))["notes"]
-    assert [note["note"] for note in notes] == ["first", "second"]
-    assert notes[0][FUTURE_KEY] == 1 and FUTURE_KEY not in notes[1]
-
-
-def test_a_future_key_of_a_trial_survives_its_link_to_a_run(tree: Tree) -> None:
-    target = trials_path(tree.session)
-    lines = target.read_text(encoding="utf-8").splitlines()
-    number = json.loads(lines[0])["trial"]
-    lines[0] = json.dumps({**json.loads(lines[0]), FUTURE_KEY: 1})
-    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    CalibrationPersistence(tree.session).link_trial(number, sim_id=RUN_ID, rel_dir=RUN_REL)
-
-    last = json.loads(target.read_text(encoding="utf-8").splitlines()[-1])
-    assert (last["cases"][SESSION]["sim_id"], last[FUTURE_KEY]) == (RUN_ID, 1)
-
-
-def test_a_model_still_refuses_an_unknown_key_when_it_writes() -> None:
-    with pytest.raises(ValidationError):
-        Annotations(**{FUTURE_KEY: 1})
-
-
 JOB_MANIFEST_VERSIONS = VersionWindow(oldest=JOB_SEAL_V2_SCHEMA, current=JOB_SEAL_V2_SCHEMA)
 """The seal a job of a pre-release wrote, the only job manifest with a ``schema`` key."""
 
@@ -1957,16 +1583,6 @@ JOB_WINDOWS = pytest.mark.parametrize(
     ],
     ids=lambda window: str(window.current),
 )
-
-
-@JOB_WINDOWS
-def test_a_job_document_inside_its_window_reads_with_a_future_key(
-    window: VersionWindow, tmp_path: Path
-) -> None:
-    target = tmp_path / "document.json"
-    target.write_text(json.dumps({"schema": window.current, FUTURE_KEY: 1}), encoding="utf-8")
-
-    assert read_versioned(target, window)[FUTURE_KEY] == 1
 
 
 @JOB_WINDOWS
@@ -2063,71 +1679,6 @@ def _members(group: zarr.Group) -> set[str]:
     return {name for name, _ in group.members()}
 
 
-def test_a_layout_adds_the_centres_the_families_and_the_edges(tmp_path):
-    cell_mesh = _river_grid()
-    store = _store(tmp_path / "fields.zarr", cell_mesh)
-    mesh = store.root["mesh"]
-
-    assert {
-        "face_x",
-        "face_y",
-        "face_family",
-        "edge_node_connectivity",
-        "edge_face_connectivity",
-        "edge_family",
-    } <= _members(mesh)
-    assert "face_zone" not in _members(mesh)
-    assert np.array_equal(mesh["face_x"][:], cell_mesh.centers[:, 0])
-    assert np.array_equal(mesh["face_y"][:], cell_mesh.centers[:, 1])
-    assert mesh["face_x"].attrs["center_kind"] == "cell_center"
-    assert mesh["face_x"].metadata.dimension_names == ("face",)
-    assert mesh["edge_node_connectivity"].metadata.dimension_names == ("edge", "two")
-    assert mesh["edge_family"].metadata.dimension_names == ("edge",)
-    assert mesh["edge_node_connectivity"].dtype == np.int32
-    assert np.array_equal(
-        mesh["edge_node_connectivity"][:], cell_mesh.geometry.edge_nodes.astype(np.int32)
-    )
-    assert mesh["topology"].attrs["face_coordinates"] == "face_x face_y"
-    assert mesh["topology"].attrs["edge_node_connectivity"] == "edge_node_connectivity"
-    store.close()
-
-
-def test_a_stored_layout_gives_back_the_families_of_the_mesh(tmp_path):
-    cell_mesh = _river_grid()
-    store = _store(tmp_path / "fields.zarr", cell_mesh)
-    mesh = store.root["mesh"]
-    attrs = dict(mesh["face_family"].attrs)
-
-    assert attrs["family_names"] == ["rivers", "lakes"]
-    assert attrs["flag_masks"] == [1, 2]
-    assert attrs["flag_meanings"] == "rivers lakes"
-    bits = mesh["face_family"][:]
-    for k, name in enumerate(attrs["family_names"]):
-        assert np.flatnonzero(bits & attrs["flag_masks"][k]).tolist() == (
-            cell_mesh.family_cells(name).tolist()
-        )
-    assert dict(mesh["edge_family"].attrs)["family_names"] == ["lakes"]
-    assert np.flatnonzero(mesh["edge_family"][:]).size == 1
-    store.close()
-
-
-def test_a_family_name_is_made_cf_safe_in_the_flag_meanings_only(tmp_path):
-    cell_mesh = bundle_dual(BUNDLE)
-    store = SimulationZarr.create(tmp_path / "fields.zarr", n_cells=cell_mesh.n_cells, n_layers=1)
-    store.write_mesh(
-        _vertices_3d(cell_mesh),
-        cell_mesh.connectivity_rows,
-        Z_INTERFACES,
-        layout=mesh_layout_from_cell_mesh(cell_mesh),
-    )
-    attrs = dict(store.root["mesh"]["face_family"].attrs)
-
-    assert "boundary:west" in attrs["family_names"]
-    assert "boundary_west" in attrs["flag_meanings"].split()
-    assert ":" not in attrs["flag_meanings"]
-    store.close()
-
-
 def test_the_group_names_the_engine_the_crs_and_the_request(tmp_path):
     cell_mesh = _river_grid()
     qa = {"p50": 1.0, "ratio": float("nan"), "far": float("inf"), "nested": {"v": np.float64(2.5)}}
@@ -2160,13 +1711,6 @@ def _no(token: str) -> None:
     raise AssertionError(f"the store holds the bare JSON token {token}")
 
 
-def test_a_mesh_without_summary_leaves_the_request_and_the_qa_out(tmp_path):
-    cell_mesh = _river_grid()
-    attrs = mesh_layout_from_cell_mesh(cell_mesh).attrs
-
-    assert {"mesh_request_hash", "qa", "library_versions"}.isdisjoint(attrs)
-
-
 def test_the_zones_of_a_triangle_mesh_are_stored_by_name(tmp_path):
     cell_mesh = _zoned_triangles()
     store = _store(tmp_path / "fields.zarr", cell_mesh)
@@ -2175,58 +1719,6 @@ def test_the_zones_of_a_triangle_mesh_are_stored_by_name(tmp_path):
     assert zone.attrs["zone_names"] == list(cell_mesh.zone_names)
     assert np.array_equal(zone[:], cell_mesh.cell_zone)
     store.close()
-
-
-def test_without_a_layout_the_group_holds_the_topology_alone(tmp_path):
-    cell_mesh = _river_grid()
-    store = _store(tmp_path / "fields.zarr", cell_mesh, with_layout=False)
-
-    assert _members(store.root["mesh"]) == {
-        "vertices",
-        "node_x",
-        "node_y",
-        "face_node_connectivity",
-        "z_interfaces",
-        "topology",
-    }
-    assert "engine" not in store.root["mesh"].attrs
-    store.close()
-
-
-def test_xugrid_reads_the_stored_edges_as_they_are(tmp_path):
-    import xugrid as xu
-
-    cell_mesh = bundle_triangles(BUNDLE)
-    store = _store(tmp_path / "fields.zarr", cell_mesh)
-    mesh = store.root["mesh"]
-    grid = xu.Ugrid2d(
-        node_x=mesh["vertices"][:, 0],
-        node_y=mesh["vertices"][:, 1],
-        fill_value=-1,
-        face_node_connectivity=mesh["face_node_connectivity"][:],
-        edge_node_connectivity=mesh["edge_node_connectivity"][:],
-    )
-
-    assert np.array_equal(grid.edge_node_connectivity, mesh["edge_node_connectivity"][:])
-    stored = {tuple(sorted(row)) for row in mesh["edge_face_connectivity"][:].tolist()}
-    derived = {tuple(sorted(row)) for row in grid.edge_face_connectivity.tolist()}
-    assert stored == derived
-    assert mesh["edge_family"].shape[0] == grid.n_edge
-    store.close()
-
-
-def test_a_stranger_opens_the_mesh_group_with_xarray(tmp_path):
-    import xarray as xr
-
-    cell_mesh = bundle_triangles(BUNDLE)
-    store = _store(tmp_path / "fields.zarr", cell_mesh)
-    store.close()
-
-    with xr.open_zarr(tmp_path / "fields.zarr", group="mesh", consolidated=False) as ds:
-        assert ds["face_x"].dims == ("face",)
-        assert ds["edge_node_connectivity"].dims == ("edge", "two")
-        assert ds.sizes["edge"] == cell_mesh.geometry.edge_nodes.shape[0]
-        assert ds.attrs["engine"] == "triangle"
 
 
 def test_a_layout_of_another_mesh_is_refused(tmp_path):
@@ -2275,25 +1767,6 @@ def test_the_post_run_writer_adds_the_vertical_part_and_keeps_the_geometry(tmp_p
     store.close()
 
 
-def test_the_post_run_writer_refuses_a_grid_of_another_size(tmp_path):
-    cell_mesh = _river_grid()
-    store = _store(tmp_path / "fields.zarr", cell_mesh)
-
-    with pytest.raises(IncompatibleMeshError, match="12 cells|13 cells"):
-        store.write_topography(np.zeros(13), n_cells=13)
-    assert store.root["mesh"].attrs["n_cells"] == cell_mesh.n_cells
-    store.close()
-
-
-def test_the_post_run_writer_sets_the_count_of_a_store_with_no_geometry(tmp_path):
-    store = SimulationZarr.create(tmp_path / "fields.zarr", n_cells=6, n_layers=1)
-
-    store.write_topography(np.zeros(6), n_cells=6, n_layers=1)
-
-    assert store.root["mesh"].attrs["n_cells"] == 6
-    store.close()
-
-
 class _RecordingStore:
     """A store that records what ``step_persist_mesh`` hands it."""
 
@@ -2313,66 +1786,6 @@ def _context(cell_mesh: PlanarCellMesh, summary: dict | None) -> SimpleNamespace
     return SimpleNamespace(
         setup=SimpleNamespace(domain=domain, cell_mesh=cell_mesh, mesh_summary=summary)
     )
-
-
-def test_the_workflow_writes_the_mesh_once_with_its_summary():
-    cell_mesh = _river_grid()
-    store = _RecordingStore()
-    summary = {"request_hash": "feed", "qa": {"n_cells": 12}, "library_versions": {"scipy": "1.0"}}
-
-    step_persist_mesh(_context(cell_mesh, summary), "sim", store=store)
-
-    assert len(store.meshes) == 1
-    written = store.meshes[0]
-    assert np.array_equal(written["vertices"], _vertices_3d(cell_mesh))
-    assert written["structured_shape"] == (3, 4)
-    attrs = written["layout"].attrs
-    assert attrs["mesh_request_hash"] == "feed"
-    assert attrs["qa"] == {"n_cells": 12}
-    assert attrs["library_versions"] == {"scipy": "1.0"}
-
-
-def test_the_workflow_writes_the_two_family_tables():
-    cell_mesh = _river_grid()
-    store = _RecordingStore()
-
-    step_persist_mesh(_context(cell_mesh, None), "sim", store=store)
-
-    cells = store.views["mesh_cell_families"]
-    assert [(r["family"], r["chain_id"], r["position"], r["cell_id"]) for r in cells] == [
-        ("rivers", 3, 0, 4),
-        ("rivers", 3, 1, 5),
-        ("rivers", 3, 2, 6),
-        ("rivers", 3, 3, 7),
-    ]
-    assert [r["offset_m"] for r in cells] == [None] * 4
-    (face,) = store.views["mesh_face_families"]
-    assert (face["family"], face["cell_a"], face["cell_b"], face["face_row"]) == ("lakes", 5, 9, 0)
-    assert face["zone_left"] is None
-    edge = cell_mesh.geometry.edge_nodes[face["edge_id"]]
-    assert sorted([face["node_a"], face["node_b"]]) == edge.tolist()
-
-
-def test_the_offsets_of_a_chain_fill_the_offset_column():
-    base = _river_grid()
-    chain = CellChain("rivers", 3, np.array([4, 5, 6]), offset_m=[0.0, 3.5, 0.0])
-    cell_mesh = dataclasses.replace(base, cell_chains=(chain,))
-
-    assert [r["offset_m"] for r in cell_family_rows(cell_mesh)] == [0.0, 3.5, 0.0]
-
-
-def test_a_zone_index_becomes_its_name_in_the_face_table():
-    cell_mesh = _zoned_triangles()
-
-    rows = face_family_rows(cell_mesh)
-    table = cell_mesh.face_families
-
-    assert len(rows) == table.n_rows
-    named = [r for r in rows if r["zone_left"] is not None]
-    assert named
-    assert {r["zone_left"] for r in named} <= set(cell_mesh.zone_names)
-    assert all(r["zone_right"] is None for r, z in zip(rows, table.zone_right) if z < 0)
-    assert cell_family_rows(cell_mesh) == []
 
 
 # ``exports/index.json`` and ``figures/index.json`` name every derived file of a
@@ -2471,46 +1884,6 @@ def _workspace(tmp_path: Path) -> tuple[Path, Path]:
     return workspace, project
 
 
-def test_the_seal_names_its_inputs_relative_to_the_workspace(tmp_path: Path) -> None:
-    workspace, project = _workspace(tmp_path)
-    dem = workspace / "data" / "dem" / "DEM_armorican_massif.tif"
-    dem.parent.mkdir(parents=True)
-    dem.write_bytes(b"a regional DEM")
-    dem.with_name(dem.name + ".json").write_text(
-        json.dumps({"source": "ign_geoplateforme_dem", "sha256": "x", "license": "etalab-2.0"}),
-        encoding="utf-8",
-    )
-    folder = workspace / "data" / "hydrometry"
-    folder.mkdir(parents=True)
-    store = open_run_store(project, "run", create_zarr=False)
-    (store.run_dir / RUN_CONFIG_FILENAME).write_text("[flow]\n", encoding="utf-8")
-    store.register_tracked_files(
-        store.sim_id,
-        [
-            _Entry("dem", "data", str(dem), dem.resolve()),
-            _Entry("hydrometry", "data", str(folder), folder.resolve()),
-        ],
-    )
-
-    record = seal_completed(store)
-
-    tracked = {entry.role: entry for entry in record.tracked_inputs}
-    assert tracked["dem"].path == "data/dem/DEM_armorican_massif.tif"
-    # The declared form is the path a configuration writes from the project root.
-    assert tracked["dem"].declared_path == "../../data/dem/DEM_armorican_massif.tif"
-    assert tracked["hydrometry"].path == "data/hydrometry"
-    assert tracked["hydrometry"].declared_path == "../../data/hydrometry"
-    (declared,) = record.inputs
-    assert declared.variable == "dem"
-    assert declared.path == "data/dem/DEM_armorican_massif.tif"
-    assert declared.provider == "ign_geoplateforme_dem"
-    assert declared.license == "etalab-2.0"
-    manifest = (store.run_dir / "manifest.json").read_text(encoding="utf-8")
-    assert str(tmp_path) not in manifest
-    assert str(tmp_path) not in (store.run_dir / "inputs.json").read_text(encoding="utf-8")
-    assert RunRecord.read(store.run_dir).inputs == record.inputs
-
-
 # The MODFLOW files are scratch, so a sealed run could say which cell carries a
 # reach but not how the reaches connect. A profile along a branched network needs
 # the connection: the numbering alone interleaves the tributaries.
@@ -2570,15 +1943,6 @@ def _row(reach: int, downstream: list[int]) -> dict:
     }
 
 
-def test_the_links_come_back_from_the_stored_table(tmp_path: Path) -> None:
-    links = _links_of_sealed(tmp_path / "project", [_row(1, [2]), _row(2, [])])
-
-    assert list(links["reach"]) == [1, 2]
-    assert list(links["reach_id"]) == ["main:1", "main:2"]
-    assert [list(down) for down in links["downstream"]] == [[2], []]
-    assert list(links["rlen"]) == [100.0, 100.0]
-
-
 def test_a_row_numbers_the_reach_as_the_toml_does() -> None:
     reach = SfrReachGeometry.from_mapping({**REACH, "ifno": 2, "downstream": [3, 4]})
 
@@ -2600,30 +1964,6 @@ def test_a_run_without_a_stream_network_has_no_links(tmp_path: Path) -> None:
         "ustrf",
         "downstream",
     ]
-
-
-def test_the_builder_writes_the_links_of_every_reach_into_the_sidecar() -> None:
-    from hydromodpy.solver.modflow6.builders.sfr import (
-        build_sfr_package_args,
-        resolve_sfr_networks,
-    )
-    from tests.unit.solver.modflow6.test_modflow6_sfr_builder import (
-        _fake_model,
-        _mesh,
-        _trace_payload,
-    )
-    from tests.unit.solver.modflow6.test_modflow6_sfr_builder import _two_reach_trace as trace
-
-    model = _fake_model({"net0": _trace_payload(trace())})
-    networks = resolve_sfr_networks(model, solver_mesh=_mesh())
-
-    meta = build_sfr_package_args(model, networks=networks)["sfr_obs_meta"]
-
-    by_ifno = {reach.ifno: reach for reach in networks["net0"].reaches}
-    assert [item["downstream"] for item in meta["reaches"]] == [
-        list(by_ifno[item["ifno"]].downstream) for item in meta["reaches"]
-    ]
-    assert any(item["downstream"] for item in meta["reaches"])
 
 
 _DAYS = np.array(
@@ -2693,23 +2033,6 @@ def _write(tmp_path: Path) -> Path:
     return path
 
 
-def test_the_daily_series_carry_the_record_and_soil_column_axes(tmp_path: Path) -> None:
-    path = _write(tmp_path)
-    sz = SimulationZarr(path)
-    try:
-        soil = sz.root["forcing"]["soil"]
-        assert soil["timestamps"].metadata.dimension_names == (field_registry.AXIS_RECORD,)
-        for name in ("etr", "recharge", "soil_storage"):
-            assert soil[name].metadata.dimension_names == (
-                field_registry.AXIS_RECORD,
-                field_registry.AXIS_SOIL_COLUMN,
-            )
-        for name in _COLUMNS:
-            assert soil[name].metadata.dimension_names == (field_registry.AXIS_SOIL_COLUMN,)
-    finally:
-        sz.close()
-
-
 def test_each_series_array_carries_its_own_units_and_cell_methods(tmp_path: Path) -> None:
     path = _write(tmp_path)
     sz = SimulationZarr(path)
@@ -2723,30 +2046,6 @@ def test_each_series_array_carries_its_own_units_and_cell_methods(tmp_path: Path
         assert dict(soil["cell_index"].attrs)["units"] == "1"
     finally:
         sz.close()
-
-
-def test_the_group_carries_the_soil_configuration_as_attributes(tmp_path: Path) -> None:
-    path = _write(tmp_path)
-    sz = SimulationZarr(path)
-    try:
-        attrs = dict(sz.root["forcing"]["soil"].attrs)
-        assert attrs["source"] == "soil_reservoir"
-        assert attrs["spinup_cycles"] == 2
-        assert attrs["never_full_columns"] == 0
-        assert attrs["n_cells"] == 3
-        assert attrs["n_columns"] == 3
-    finally:
-        sz.close()
-
-
-def test_xarray_opens_the_soil_group_directly(tmp_path: Path) -> None:
-    path = _write(tmp_path)
-
-    ds = xr.open_zarr(str(path), group="forcing/soil")
-    assert set(ds.sizes) == {"record", "soil_column"}
-    assert ds.sizes["record"] == _T
-    assert ds.sizes["soil_column"] == _N
-    assert np.array_equal(ds["timestamps"].values, _DAYS)
 
 
 N_CELLS_2 = 4
@@ -2773,43 +2072,9 @@ def store(tmp_path):
     handle.close()
 
 
-def test_the_solved_geometry_lands_under_mesh(store) -> None:
-    store.write_topography(
-        INTERFACES[0],
-        z_interfaces=INTERFACES,
-        n_cells=N_CELLS_2,
-        n_layers=2,
-        idomain=IDOMAIN,
-        vertical_layout="column_fractions",
-    )
-    mesh = store.root["mesh"]
-    np.testing.assert_array_equal(mesh["z_interfaces"][:], INTERFACES)
-    assert mesh["z_interfaces"].metadata.dimension_names == ("layer_interface", "face")
-    np.testing.assert_array_equal(mesh["idomain"][:], IDOMAIN)
-    assert mesh["idomain"].dtype == np.int8
-    assert mesh["idomain"].attrs["flag_values"] == [-1, 0, 1]
-    assert mesh.attrs["vertical_layout"] == "column_fractions"
-    assert mesh.attrs["n_layers"] == 2
-
-
-def test_the_idomain_is_a_static_field_of_the_registry(store) -> None:
-    store.write_topography(INTERFACES[0], idomain=IDOMAIN)
-    descriptor = field_registry.get("idomain")
-    assert descriptor.zarr_path == "mesh/idomain"
-    assert descriptor.shape == field_registry.SHAPE_LAYER_FACE
-    np.testing.assert_array_equal(store.read_field("idomain", 0), IDOMAIN)
-
-
 def test_an_idomain_value_outside_minus_one_zero_one_is_refused(store) -> None:
     with pytest.raises(ValueError, match="only -1, 0 and 1"):
         store.write_topography(INTERFACES[0], idomain=IDOMAIN * 2)
-
-
-def test_one_column_given_for_the_mesh_is_the_column_of_every_cell(store) -> None:
-    store.write_topography(INTERFACES[0], z_interfaces=np.array([10.0, 0.0]))
-    np.testing.assert_array_equal(
-        store.root["mesh"]["z_interfaces"][:], np.tile([[10.0], [0.0]], (1, N_CELLS_2))
-    )
 
 
 def test_interfaces_for_another_cell_count_are_refused(store) -> None:

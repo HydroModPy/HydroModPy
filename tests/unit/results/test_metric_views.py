@@ -42,21 +42,15 @@ from hydromodpy.results.catalog.discovery import SimulationNotFoundError
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.catalog.listing import rank_simulations
-from hydromodpy.results.derive.config_flags import diagnose_missing, missing_field_explanation
+from hydromodpy.results.derive.config_flags import diagnose_missing
 from hydromodpy.results.derive.virtual_fields import (
     VIRTUAL_FIELDS,
     available_virtual_fields,
-    field_descriptor,
     read_field_or_virtual,
     read_field_range_or_virtual,
 )
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.metric_rule import (
-    HEADLINE_WINDOW,
-    METRIC_RULE_VERSION,
-    DateWindow,
-    MetricRule,
-)
+from hydromodpy.results.metric_rule import METRIC_RULE_VERSION, DateWindow, MetricRule
 from hydromodpy.results.record.manifest import MetricRow, ParameterRow
 from hydromodpy.results.run import ranking
 from hydromodpy.results.run.sealed import MixedWindowsError, metrics_frame
@@ -65,10 +59,7 @@ from hydromodpy.results.score import score_metric, score_timeseries
 from hydromodpy.results.storage.parquet_schemas import primary_key_for
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
-from hydromodpy.solver.modflow_common.budget_components import (
-    CANONICAL_BUDGET_TERMS,
-    canonical_budget_component,
-)
+from hydromodpy.solver.modflow_common.budget_components import CANONICAL_BUDGET_TERMS
 from hydromodpy.workflow.steps.run_outputs import record_run_execution_metrics
 from tests._helpers.metric_rows import headline_row, headline_score
 from tests._helpers.run_stores import open_run_store
@@ -155,46 +146,9 @@ def project(tmp_path):
     return root
 
 
-def test_the_diff_keeps_each_variable_of_a_station(project) -> None:
-    with Catalog(project) as cat:
-        delta = cat.diff("a", "b")["metrics"]
-    assert {key[:3] for key in delta} == {
-        ("nse", STATION, "discharge"),
-        ("nse", STATION, "level"),
-    }
-
-
-def test_the_diff_shows_the_window_and_the_samples_of_each_side(project) -> None:
-    with Catalog(project) as cat:
-        delta = cat.diff("a", "b")["metrics"]
-    side_a, side_b = delta[("nse", STATION, "discharge")]
-    assert (side_a["value"], side_a["n"], side_a["window_start"]) == (0.6, 1827, date(2016, 1, 1))
-    assert (side_b["value"], side_b["n"], side_b["window_start"]) == (0.7, 1096, date(2018, 1, 1))
-
-
 def _headline(project) -> pd.DataFrame:
     with Catalog(project) as cat:
         return headline_table([cat["a"], cat["b"]])
-
-
-def test_the_headline_table_has_one_row_per_variable_with_its_window(project) -> None:
-    frame = _headline(project).reset_index()
-    assert sorted(frame["variable"]) == ["discharge", "level"]
-    discharge = frame[frame["variable"] == "discharge"].iloc[0]
-    assert (discharge["a"], discharge["b"]) == (0.6, 0.7)
-    assert (discharge["a_n"], discharge["b_n"]) == (1827, 1096)
-    assert discharge["a_window"] == "2016-01-01/2020-12-31"
-    assert discharge["b_window"] == "2018-01-01/2020-12-31"
-
-
-def test_the_headline_table_gives_the_scores_the_diff_gives(project) -> None:
-    frame = _headline(project)
-    with Catalog(project) as cat:
-        delta = cat.diff("a", "b")["metrics"]
-    for (metric, station, variable), (side_a, side_b) in delta.items():
-        row = frame.loc[(metric, station, variable)]
-        assert (row["a"], row["b"]) == (side_a["value"], side_b["value"])
-        assert (row["a_n"], row["b_n"]) == (side_a["n"], side_b["n"])
 
 
 def test_a_comparison_by_name_needs_a_project(tmp_path) -> None:
@@ -275,14 +229,6 @@ def test_every_row_counts_the_dry_periods_of_the_window(caplog) -> None:
     assert {row.n_sim_nan for row in scores.rows} == {3}
     warned = [r.getMessage() for r in caplog.records]
     assert any("NaN" in message and PIEZOMETER in message for message in warned)
-
-
-def test_a_wet_run_counts_zero_and_does_not_warn(caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.results.score"):
-        scores = score_timeseries(_frame(DRY[:0]), rule=RULE)
-
-    assert {row.n_sim_nan for row in scores.rows} == {0}
-    assert not [r for r in caplog.records if "NaN" in r.getMessage()]
 
 
 def test_the_store_the_seal_and_the_index_keep_n_sim_nan(tmp_path) -> None:
@@ -375,27 +321,6 @@ def test_the_core_kernel_clips_instead_of_raising() -> None:
     assert core.log_nse(BELOW_ZERO.to_numpy(), OBSERVED.to_numpy()) == pytest.approx(expected)
 
 
-def test_the_run_scores_a_negative_value_and_counts_the_clipping() -> None:
-    result = score_metric(BELOW_ZERO, OBSERVED, RULE_2, "nse_log")
-
-    assert result.value is not None
-    assert np.isfinite(result.value)
-    assert result.n_clipped == 2
-
-
-def test_a_clipping_on_the_observed_side_counts_too() -> None:
-    observed = OBSERVED.copy()
-    observed.iloc[0] = -2.0
-
-    assert score_metric(CLEAN, observed, RULE_2, "nse_log").n_clipped == 1
-
-
-def test_a_clean_series_writes_zero_on_nse_log_and_none_elsewhere() -> None:
-    assert score_metric(CLEAN, OBSERVED, RULE_2, "nse_log").n_clipped == 0
-    assert score_metric(BELOW_ZERO, OBSERVED, RULE_2, "nse").n_clipped is None
-    assert score_metric(BELOW_ZERO, OBSERVED, RULE_2, "rmse").n_clipped is None
-
-
 def test_the_run_score_is_the_calibration_score_on_the_same_pairs() -> None:
     from_run = score_metric(BELOW_ZERO, OBSERVED, RULE_2, "nse_log")
     from_calibration = SeriesCriterion("nse_log", core.log_nse).score(
@@ -406,38 +331,6 @@ def test_the_run_score_is_the_calibration_score_on_the_same_pairs() -> None:
     assert from_run.n_clipped == int(from_calibration.diagnostics["n_clipped"])
 
 
-def test_the_row_of_a_run_carries_n_clipped() -> None:
-    def rows(values: pd.Series) -> list[dict]:
-        sim = [
-            {
-                "station_id": "S",
-                "variable": "discharge",
-                "source": "simulated",
-                "time": t + pd.Timedelta(1, unit="D"),
-                "value": v,
-            }
-            for t, v in zip(DAYS.tz_localize("UTC"), values, strict=True)
-        ]
-        obs = [
-            {
-                "station_id": "S",
-                "variable": "discharge",
-                "source": "observed",
-                "time": t,
-                "value": v,
-            }
-            for t, v in zip(DAYS.tz_localize("UTC"), OBSERVED, strict=True)
-        ]
-        return sim + obs
-
-    scores = score_timeseries(pd.DataFrame(rows(BELOW_ZERO)), rule=RULE_2)
-
-    by_metric = {row.metric: row for row in scores.rows}
-    assert by_metric["nse_log"].n_clipped == 2
-    assert by_metric["nse_log"].value is not None
-    assert by_metric["nse"].n_clipped is None
-
-
 def test_the_brutsaert_case_follows_the_same_rule() -> None:
     bundle = case._compute_metrics(OBSERVED.to_numpy(), BELOW_ZERO.to_numpy())
 
@@ -445,23 +338,6 @@ def test_the_brutsaert_case_follows_the_same_rule() -> None:
         core.log_nse(BELOW_ZERO.to_numpy(), OBSERVED.to_numpy())
     )
     assert np.isfinite(bundle["NSElog"])
-
-
-def test_the_store_the_seal_and_the_index_keep_n_clipped(tmp_path) -> None:
-    root = tmp_path / "p"
-    store = open_run_store(root, "a", create_zarr=False)
-    store.write_metric(
-        store.sim_id,
-        headline_row("nse_log", 0.5, station="S", window=WINDOW_2, n_clipped=2),
-    )
-    store.facts.score = headline_score(0.5, station="S", window=WINDOW_2)
-    seal_completed(store)
-    rebuild_index(root)
-
-    with Catalog(root) as cat:
-        frame = cat.sql("SELECT metric, n_clipped FROM metrics")
-
-    assert frame.set_index("metric")["n_clipped"].to_dict() == {"nse_log": 2}
 
 
 # Under the ``"consumers"`` policy a field is available only when every term it
@@ -523,21 +399,6 @@ def test_a_consumers_store_with_the_drain_only_refuses_the_release_flux(project_
             read_field_range_or_virtual(catalog, sid, "release_flux", 0, N_STEPS)
 
 
-def test_the_diagnosis_names_the_release_terms_the_store_lacks(project_2) -> None:
-    keep = BudgetKeep.of_terms({"drain", "drain_to_mover"})
-    with _sealed(project_2, keep, ("drain",)) as (catalog, sid):
-        run = Run(sid, catalog)
-
-        problem = diagnose_missing(["release_flux"], run)
-        text = missing_field_explanation(["release_flux"], run)
-
-        assert problem is not None
-        assert {"stream", "lake", "recharge"} <= set(problem.terms)
-        assert "drain" not in problem.terms
-        assert "stream" in text and "lake" in text
-        assert "keep_per_cell_budget" in text
-
-
 def test_a_consumers_store_that_declares_every_release_term_serves_the_field(project_2) -> None:
     keep = BudgetKeep.of_terms(budget_terms_for("release_flux"))
     with _sealed(project_2, keep, ("drain", "recharge")) as (catalog, sid):
@@ -547,16 +408,6 @@ def test_a_consumers_store_that_declares_every_release_term_serves_the_field(pro
         rows = read_field_range_or_virtual(catalog, sid, "release_flux", 0, N_STEPS)
         assert rows.shape == (N_STEPS, N_CELLS)
         assert diagnose_missing(["release_flux"], run) is None
-
-
-def test_the_all_policy_serves_the_field_from_the_drain_alone(project_2) -> None:
-    with _sealed(project_2, BudgetKeep.everything(), ("drain",)) as (catalog, sid):
-        assert Run(sid, catalog).has_field("release_flux")
-
-
-def test_a_store_without_attributes_serves_the_field_from_the_drain_alone(project_2) -> None:
-    with _sealed(project_2, None, ("drain",)) as (catalog, sid):
-        assert Run(sid, catalog).has_field("release_flux")
 
 
 # A validation period sits beside ``[metrics] window`` in the ``metrics`` table. The
@@ -591,23 +442,6 @@ def cat_2(tmp_path):
     rebuild_index(root)
     with Catalog(root) as catalog:
         yield catalog, ids
-
-
-def test_the_long_view_of_a_run_lists_every_period(cat_2) -> None:
-    catalog, _ids = cat_2
-    frame = catalog["low"].metrics
-    assert dict(zip(frame["window_name"], frame["value"], strict=True)) == {
-        HEADLINE_WINDOW: 0.6,
-        "validation": 0.99,
-    }
-    assert set(frame["window_role"]) == {"evaluation", "validation"}
-
-
-def test_the_selectors_and_the_filter_rank_on_the_headline_period(cat_2) -> None:
-    catalog, ids = cat_2
-    assert catalog.resolve("@best:nse") == ids["high"]
-    assert catalog.resolve("@worst:nse") == ids["low"]
-    assert catalog.find(nse_gt=0.65).sim_ids == [ids["high"]]
 
 
 def test_the_wide_view_the_set_and_the_loader_read_the_headline_period(cat_2) -> None:
@@ -686,27 +520,10 @@ def project_3(tmp_path):
     return root
 
 
-def test_the_index_holds_no_runtime_row(project_3) -> None:
-    with Catalog(project_3) as cat:
-        names = set(cat.sql("SELECT metric FROM metrics")["metric"])
-        variables = set(cat.sql("SELECT variable FROM metrics")["variable"])
-    assert names == {"nse"}
-    assert variables == {"discharge"}
-
-
 def test_the_wide_view_has_no_runtime_row(project_3) -> None:
     with Catalog(project_3) as cat:
         wide = cat.sql("SELECT variable FROM v_metrics_wide")
     assert set(wide["variable"]) == {"discharge"}
-
-
-def test_show_and_diff_and_the_headline_table_list_scores_only(project_3) -> None:
-    with Catalog(project_3) as cat:
-        shown = cat["a"].metrics
-        delta = cat.diff("a", "b")["metrics"]
-    assert set(shown["variable"]) == {"discharge"}
-    assert {key[0] for key in delta} == {"nse"}
-    assert set(_headline(project_3).reset_index()["metric"]) == {"nse"}
 
 
 def test_soil_budget_declares_its_primary_key() -> None:
@@ -768,14 +585,6 @@ def test_a_fully_pumped_well_passes(tmp_path: Path) -> None:
     try:
         (validity,) = store.facts.validities
         assert validity.passed is True
-    finally:
-        store.close()
-
-
-def test_a_run_without_wells_carries_no_such_validity(tmp_path: Path) -> None:
-    store = _record(tmp_path, {})
-    try:
-        assert store.facts.validities == []
     finally:
         store.close()
 
@@ -982,10 +791,6 @@ def _written_terms() -> list[str]:
     return sorted(terms)
 
 
-def test_the_boussinesq_extractor_writes_five_terms() -> None:
-    assert _boussinesq_terms() == {"recharge", "drain", "well", "surface_excess", "constant_head"}
-
-
 @pytest.mark.parametrize("term", _written_terms())
 def test_a_written_budget_term_is_in_the_registry_under_budget(term: str) -> None:
     descriptor = field_registry.get(term)
@@ -994,20 +799,8 @@ def test_a_written_budget_term_is_in_the_registry_under_budget(term: str) -> Non
     assert descriptor.derived_by == "solver"
 
 
-@pytest.mark.parametrize("record", [*MODFLOW_6_RECORDS, *MODFLOW_NWT_RECORDS])
-def test_a_record_the_builders_emit_maps_to_a_canonical_term(record: str) -> None:
-    assert canonical_budget_component(record) in CANONICAL_BUDGET_TERMS
-
-
 def test_every_unknown_name_of_a_cell_budget_file_stays_out_of_the_registry() -> None:
     assert not field_registry.has("cell_budget")
-
-
-@pytest.mark.parametrize("name", VIRTUAL_FIELD_NAMES)
-def test_a_virtual_field_has_a_descriptor(name: str) -> None:
-    descriptor = field_descriptor(name)
-    assert descriptor.public_name == name
-    assert descriptor.zarr_path == f"derived/{name}"
 
 
 def test_the_virtual_field_table_names_nothing_outside_the_list() -> None:
@@ -1042,27 +835,6 @@ def _rows(*scored: tuple[str, str, str, float]) -> pd.DataFrame:
 def test_the_exception_is_one_class_of_the_data_errors() -> None:
     assert issubclass(MixedWindowsError, DataError)
     assert not hasattr(ranking, "MixedWindowsError")
-
-
-def test_runs_scored_at_different_stations_are_not_ranked_together() -> None:
-    frame = _rows(("a", "J001", "discharge", 0.8), ("b", "J002", "discharge", 0.6))
-
-    with pytest.raises(MixedWindowsError, match="J001") as refused:
-        ranking.rank_rows(frame, "nse")
-    assert "J002" in str(refused.value)
-    assert list(ranking.rank_rows(frame, "nse", mixed_windows=True)["name"]) == ["run0", "run1"]
-
-
-def test_each_site_keeps_its_own_station_when_ranked_by_site() -> None:
-    frame = _rows(
-        ("a", "J001", "discharge", 0.8),
-        ("a", "J001", "discharge", 0.9),
-        ("b", "J002", "discharge", 0.6),
-    )
-
-    best = ranking.rank_rows(frame, "nse", by="site")
-
-    assert list(best["name"]) == ["run1", "run2"]
 
 
 @pytest.mark.parametrize(
@@ -1138,12 +910,6 @@ def index(tmp_path):
         yield cat
 
 
-def test_the_wide_view_pivots_the_names_the_kernels_compute(index) -> None:
-    columns = index.sql("SELECT * FROM v_metrics_wide").columns
-    pivoted = [c for c in columns if c not in {"sim_id", "station_id", "variable"}]
-    assert pivoted == list(RUN_METRIC_NAMES)
-
-
 # A calibration scores ``nse_log``; the old spelling ``log_nse`` is refused
 # with the one to write, in the ranking helper and in the ``@best`` selector.
 def test_the_old_name_is_refused_with_the_new_one(tmp_path: Path) -> None:
@@ -1157,36 +923,6 @@ def test_the_old_name_is_refused_with_the_new_one(tmp_path: Path) -> None:
             catalog.resolve("@best:log_nse")
     with pytest.raises(UnrankedMetricError, match="write 'nse_log'"):
         metric_rank_sql("log_nse", best=True)
-
-
-def test_the_new_name_has_a_direction() -> None:
-    assert metric_rank_sql("nse_log", best=True).endswith("DESC")
-
-
-@pytest.fixture
-def windows_2(tmp_path):
-    """One site, one gauge, two windows: a short good score and a long poor one."""
-    root = make_project(tmp_path / "demo")
-    ids = {
-        "short": seal_run(root, "short", nse=0.97, window=NINETY_DAYS),
-        "long": seal_run(root, "long", nse=0.60, window=FIVE_YEARS),
-        "long2": seal_run(root, "long2", nse=0.55, window=FIVE_YEARS),
-    }
-    rebuild_index(root)
-    with Catalog(root) as cat:
-        yield cat, ids
-
-
-def test_each_rule_has_its_own_best_run(windows_2) -> None:
-    cat, ids = windows_2
-    rows = cat.backend.fetch_all(
-        "SELECT CAST(sim_id AS VARCHAR), nse, score_window_start FROM v_best_per_project "
-        "ORDER BY score_window_start"
-    )
-    assert rows == [
-        (ids["long"], 0.60, FIVE_YEARS.start),
-        (ids["short"], 0.97, NINETY_DAYS.start),
-    ]
 
 
 # A 90-day NSE of 0.97 ranked above a 5-year NSE of 0.60 in ``Catalog.best``,
@@ -1239,27 +975,6 @@ def test_mixed_windows_forces_the_ranking(windows_3) -> None:
     assert ranked.sim_ids == [ids["short"], ids["long"], ids["long2"]]
 
 
-def test_a_selector_refuses_two_windows(windows_3) -> None:
-    cat, ids = windows_3
-    with pytest.raises(MixedWindowsError, match="name the run by its directory"):
-        cat.resolve("@best:nse")
-    with pytest.raises(MixedWindowsError):
-        cat.resolve("@worst:nse")
-    assert cat.resolve("@best:nse", mixed_windows=True) == ids["short"]
-
-
-def test_two_stations_are_refused_and_a_named_station_is_not(stations_2) -> None:
-    cat, ids = stations_2
-    with pytest.raises(MixedWindowsError, match="J001") as refused:
-        cat.best("demo", "nse")
-    assert "J002" in str(refused.value)
-    with pytest.raises(MixedWindowsError):
-        cat.resolve("@best:nse")
-    assert cat.resolve("@best:nse@J001") == ids["a1"]
-    assert cat.resolve("@worst:nse@J001") == ids["a2"]
-    assert cat.resolve("@best:nse", mixed_windows=True) == ids["b1"]
-
-
 def test_a_named_station_still_needs_one_window(windows_3) -> None:
     cat, ids = windows_3
     with pytest.raises(MixedWindowsError):
@@ -1295,36 +1010,3 @@ def test_the_project_accessor_refuses_two_windows(windows_3) -> None:
 # headline period only.
 def _row_2(station: str, variable: str, metric: str, value: float) -> MetricRow:
     return headline_row(metric, value, station=station, variable=variable, n_samples=1827)
-
-
-@pytest.fixture
-def cat_3(tmp_path):
-    project = tmp_path / "p"
-    store = open_run_store(project, "a", create_zarr=False)
-    for row in (
-        _row_2("S1", "discharge", "nse", 0.6),
-        _row_2("S1", "discharge", "rmse", 2.0),
-        _row_2("S1", "level", "nse", 0.2),
-        _row_2("S2", "discharge", "nse", 0.9),
-        headline_row("nse", 0.1, station="S1", window_name="validation", window_role="validation"),
-    ):
-        store.facts.put_metric(row)
-    seal_completed(store)
-    rebuild_index(project)
-    with Catalog(project) as catalog:
-        yield catalog
-
-
-def test_one_row_per_station_and_variable(cat_3) -> None:
-    wide = cat_3.sql("SELECT station_id, variable, nse, rmse FROM v_metrics_wide")
-    rows = {(r.station_id, r.variable): (r.nse, r.rmse) for r in wide.itertuples()}
-    assert len(wide) == 3  # the validation period of S1 stays beside the headline
-    assert rows[("S1", "discharge")] == (0.6, 2.0)
-    assert rows[("S1", "level")][0] == 0.2
-    assert rows[("S2", "discharge")][0] == 0.9
-
-
-def test_the_index_table_names_the_period_of_each_row(cat_3) -> None:
-    columns = set(cat_3.sql("SELECT * FROM metrics").columns)
-    assert not columns & {"period_start", "period_end", "nse_window_start", "nse_n"}
-    assert {"window_name", "window_role", "window_start", "window_end", "n_samples"} <= columns

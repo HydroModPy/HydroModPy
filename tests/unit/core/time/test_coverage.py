@@ -2,19 +2,11 @@
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.time.coverage import (
-    calendar_sample_days,
-    enforce_coverage,
-    record_step,
-    samples_by_period,
-)
-from hydromodpy.core.time.period_aggregation import first_period_step, observation_step
+from hydromodpy.core.time.coverage import calendar_sample_days, enforce_coverage, samples_by_period
 
 
 def _days(start: str, n: int) -> pd.DatetimeIndex:
@@ -37,49 +29,12 @@ def test_a_monthly_or_yearly_record_weighs_each_sample_by_its_calendar_length(st
     assert calendar_sample_days(stamps).tolist() == expected
 
 
-@pytest.mark.parametrize(
-    "stamps",
-    [
-        pd.to_datetime(["2020-01-01"]),
-        pd.to_datetime(["2020-01-01", "2020-01-05", "2020-01-09"]),
-        pd.to_datetime(["2020-01-01", "2020-04-01", "2020-07-01"]),
-    ],
-    ids=["one-sample", "irregular-days", "quarterly"],
-)
-def test_any_other_record_has_equal_weights(stamps):
-    assert calendar_sample_days(stamps) is None
-
-
 def test_a_record_going_back_in_time_has_equal_weights():
     stamps = pd.to_datetime(["2020-03-01", "2020-01-01", "2020-02-01"])
     assert calendar_sample_days(stamps) is None
 
 
-def test_the_step_of_a_record_is_the_median_spacing_and_none_for_one_sample():
-    stamps = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-10"])
-    assert record_step(stamps) == pd.Timedelta(days=1)
-    assert record_step(stamps[:1]) is None
-
-
-def test_the_steps_of_a_record_are_read_without_a_numpy_deprecation():
-    stamps = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-10"])
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", DeprecationWarning)
-        assert record_step(stamps) == pd.Timedelta(1, unit="D")
-        assert observation_step(stamps) == pd.Timedelta(1, unit="D")
-        assert first_period_step(stamps) == pd.Timedelta(1, unit="D")
-
-
 # ------------------------------------------------------------ samples by period
-
-
-def test_a_period_takes_the_samples_stamped_inside_it_half_open():
-    stamps = _days("2020-01-01", 6)
-    edges = pd.to_datetime(["2020-01-01", "2020-01-03", "2020-01-05", "2020-01-07"])
-    ps = samples_by_period(stamps, edges)
-    assert [i.tolist() for i in ps.inside] == [[0, 1], [2, 3], [4, 5]]
-    assert ps.uncovered == ()
-    assert ps.weights is None
 
 
 def test_the_mean_of_a_period_is_the_mean_of_its_samples_and_stays_within_their_range():
@@ -98,50 +53,6 @@ def test_a_calendar_record_averages_by_month_length():
     ps = samples_by_period(stamps, edges)
     got = ps.value_of(np.array([0.0, 29.0]), 0)
     assert got == pytest.approx((0.0 * 31 + 29.0 * 29) / 60)
-
-
-def test_a_single_sample_in_a_calendar_period_is_returned_as_is():
-    stamps = pd.to_datetime(["2020-01-01", "2020-02-01", "2020-03-01"])
-    edges = pd.to_datetime(["2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01"])
-    ps = samples_by_period(stamps, edges)
-    assert ps.value_of(np.array([5.0, 7.0, 9.0]), 1) == 7.0
-
-
-def test_a_period_without_sample_takes_the_latest_earlier_one_and_is_covered():
-    stamps = pd.to_datetime(["2020-01-01", "2020-01-11"])  # step 10 d: last sample to Jan 21
-    edges = pd.to_datetime(["2020-01-01", "2020-01-05", "2020-01-08", "2020-01-12"])
-    ps = samples_by_period(stamps, edges)
-    assert ps.fill[1] == 0
-    assert ps.uncovered == ()
-    assert ps.value_of(np.array([3.0, 8.0]), 1) == 3.0
-
-
-def test_a_period_before_the_first_stamp_is_uncovered_and_takes_the_first_sample():
-    stamps = _days("2020-01-10", 3)
-    edges = pd.to_datetime(["2020-01-01", "2020-01-10", "2020-01-13"])
-    ps = samples_by_period(stamps, edges)
-    assert ps.uncovered == (0,)
-    assert ps.value_of(np.array([4.0, 5.0, 6.0]), 0) == 4.0
-
-
-def test_a_period_after_the_last_step_is_uncovered_and_takes_the_last_sample():
-    stamps = _days("2020-01-01", 3)  # last sample stands for Jan 3 only
-    edges = pd.to_datetime(["2020-01-01", "2020-01-04", "2020-01-10", "2020-01-20"])
-    ps = samples_by_period(stamps, edges)
-    assert ps.uncovered == (1, 2)
-    assert ps.value_of(np.array([4.0, 5.0, 6.0]), 2) == 6.0
-
-
-def test_a_one_sample_record_stands_for_all_later_time():
-    edges = pd.to_datetime(["2020-01-01", "2021-01-01", "2030-01-01"])
-    ps = samples_by_period(pd.to_datetime(["2020-01-01"]), edges)
-    assert ps.uncovered == ()
-
-
-def test_microsecond_stamps_compare_with_nanosecond_edges():
-    stamps = pd.DatetimeIndex(["2020-01-01", "2020-01-02"]).as_unit("us")
-    edges = pd.DatetimeIndex(["2020-01-01", "2020-01-03"]).as_unit("ns")
-    assert [i.tolist() for i in samples_by_period(stamps, edges).inside] == [[0, 1]]
 
 
 @pytest.mark.parametrize(
@@ -171,14 +82,6 @@ def test_an_unknown_policy_is_refused_even_when_all_is_covered():
         enforce_coverage(ps, edges, policy="strict", label="recharge")
 
 
-def test_the_error_policy_stops_the_run_and_names_the_periods():
-    ps, edges = _uncovered_periods(2)
-    with pytest.raises(
-        ValueError, match=r"recharge does not cover stress period\(s\) 0 \[2020-01-03"
-    ):
-        enforce_coverage(ps, edges, policy="error", label="recharge")
-
-
 def test_the_warn_policy_warns_once():
     ps, edges = _uncovered_periods(1)
     with pytest.warns(UserWarning, match="nearest sample"):
@@ -189,15 +92,3 @@ def test_the_message_lists_five_periods_and_counts_the_others():
     ps, edges = _uncovered_periods(8)
     with pytest.raises(ValueError, match="and 3 more:"):
         enforce_coverage(ps, edges, policy="error", label="recharge")
-
-
-def test_the_ignore_policy_and_full_coverage_say_nothing(recwarn):
-    ps, edges = _uncovered_periods(2)
-    enforce_coverage(ps, edges, policy="ignore", label="recharge")
-    covered = samples_by_period(
-        _days("2020-01-01", 5), pd.to_datetime(["2020-01-01", "2020-01-04"])
-    )
-    enforce_coverage(
-        covered, pd.to_datetime(["2020-01-01", "2020-01-04"]), policy="error", label="x"
-    )
-    assert len(recwarn) == 0

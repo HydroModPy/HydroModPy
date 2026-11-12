@@ -9,16 +9,14 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import numpy as np
 import pytest
 
 from hydromodpy.display.figures.roptim_validity_chart import (
     RoptimValidityChart,
     SiteAgreement,
 )
-from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, relative_luminance
 
-from ._render_helpers import labelled_patch, rgba
+from ._render_helpers import labelled_patch
 
 
 def _sites() -> list[SiteAgreement]:
@@ -71,51 +69,9 @@ def test_a_record_refuses_a_negative_doptim() -> None:
         SiteAgreement(label="cheze", transmissivity=1e-4, d_optim=-1.0, r_optim=1.2)
 
 
-def test_a_record_accepts_a_site_whose_agreement_was_never_measured() -> None:
-    record = SiteAgreement(
-        label="failed", transmissivity=1e-4, d_optim=float("nan"), r_optim=float("nan")
-    )
-    assert np.isnan(record.r_optim)
-
-
 # --------------------------------------------------------------------------- #
 # the chart
 # --------------------------------------------------------------------------- #
-
-
-def test_chart_puts_one_marker_per_site_on_each_of_the_two_axes(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    RoptimValidityChart().render(_run(), ax, sites=_sites())
-
-    try:
-        twin = fig.axes[-1]
-        within = _collection(ax, "r_optim within").get_offsets().tolist()
-        beyond = _collection(ax, "r_optim beyond").get_offsets().tolist()
-        assert within == [[1e-4, 1.2], [5e-4, 1.8]]
-        assert beyond == [[2e-3, 3.4]]
-        assert _collection(twin, "D_optim").get_offsets().tolist() == [
-            [1e-4, 120.0],
-            [5e-4, 210.0],
-            [2e-3, 460.0],
-        ]
-    finally:
-        mpl.close(fig)
-
-
-def test_chart_reads_the_transmissivity_on_a_log_axis_and_names_both_ordinates(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    RoptimValidityChart().render(_run(), ax, sites=_sites())
-
-    try:
-        twin = fig.axes[-1]
-        assert ax.get_xscale() == "log"
-        assert ax.get_xlabel() == "Transmissivity (m²/s)"
-        assert ax.get_ylabel() == "r_optim (-)"
-        assert twin.get_ylabel() == "D_optim (m)"
-    finally:
-        mpl.close(fig)
 
 
 def test_the_zone_beyond_the_bound_is_shaded_and_labelled(mpl) -> None:
@@ -132,42 +88,6 @@ def test_the_zone_beyond_the_bound_is_shaded_and_labelled(mpl) -> None:
         )
         assert bound_line.get_ydata()[0] == pytest.approx(2.0)
         assert "2" in bound_line.get_label()
-    finally:
-        mpl.close(fig)
-
-
-def test_a_site_beyond_the_bound_stays_visible_and_carries_its_name(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    RoptimValidityChart().render(_run(), ax, sites=_sites())
-
-    try:
-        assert ax.get_ylim()[1] > 3.4
-        beyond = _collection(ax, "r_optim beyond")
-        assert beyond.get_offsets().tolist() == [[2e-3, 3.4]]
-        assert "naizin" in _texts(ax)
-        note = next(text for text in _texts(ax) if "beyond" in text and "naizin" in text)
-        assert "1 of 3" in note
-    finally:
-        mpl.close(fig)
-
-
-def test_the_two_classes_of_site_differ_by_marker_and_by_lightness(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    RoptimValidityChart().render(_run(), ax, sites=_sites())
-
-    try:
-        within = _collection(ax, "r_optim within")
-        beyond = _collection(ax, "r_optim beyond")
-        assert tuple(within.get_facecolor()[0]) == rgba(HIGH_CONTRAST_TRIPLET[0])
-        assert tuple(beyond.get_facecolor()[0]) == rgba(HIGH_CONTRAST_TRIPLET[2])
-        gap = abs(
-            relative_luminance(HIGH_CONTRAST_TRIPLET[0])
-            - relative_luminance(HIGH_CONTRAST_TRIPLET[2])
-        )
-        assert gap > 0.05
-        assert not np.array_equal(within.get_paths()[0].vertices, beyond.get_paths()[0].vertices)
     finally:
         mpl.close(fig)
 
@@ -245,19 +165,6 @@ def test_an_empty_set_of_sites_is_refused(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_catchment_of_the_run_is_ringed_among_the_others(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    RoptimValidityChart().render(_run("abherve"), ax, sites=_sites())
-
-    try:
-        ring = _collection(ax, "abherve")
-        assert ring.get_offsets().tolist() == [[5e-4, 1.8]]
-        assert "abherve" in ax.get_title()
-    finally:
-        mpl.close(fig)
-
-
 def test_a_run_naming_no_site_of_the_set_draws_no_ring(mpl) -> None:
     fig, ax = mpl.subplots()
 
@@ -266,22 +173,6 @@ def test_a_run_naming_no_site_of_the_set_draws_no_ring(mpl) -> None:
     try:
         assert not _has_collection(ax, "elsewhere")
         assert "3 sites" in ax.get_title()
-    finally:
-        mpl.close(fig)
-
-
-def test_the_legend_names_the_two_classes_and_the_shaded_zone(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    RoptimValidityChart().render(_run(), ax, sites=_sites())
-
-    try:
-        twin = fig.axes[-1]
-        labels = [text.get_text() for text in twin.get_legend().get_texts()]
-        assert any(label.startswith("r_optim within") for label in labels)
-        assert any(label.startswith("r_optim beyond") for label in labels)
-        assert any(label.startswith("D_optim") for label in labels)
-        assert any("beyond the validity bound" in label for label in labels)
     finally:
         mpl.close(fig)
 

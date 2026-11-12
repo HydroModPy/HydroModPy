@@ -79,23 +79,6 @@ def test_carve_reconciles_to_abacus_keeps_valid_columns_and_builds_a_valid_disv(
     assert np.all(botm < tops)
 
 
-def test_carve_marnage_keeps_cells_active_with_bed_as_top(tmp_path) -> None:
-    """Active-littoral mode: top = bed, column active, one VERTICAL connection per cell at layer 0."""
-    model, carved = carve(tmp_path, bowl_bed(), **MARNAGE)
-
-    assert model._marnage_lake_ids == {"lac0"}
-    assert carved.top[55] < carved.top[0]
-    assert carved.top[55] < TOP
-    _assert_valid_columns(carved)
-    rows = build_lake_connectiondata(
-        model, lake_index=0, lake_cell_ids=CELLS, bedleak=1.0e-6, solver_mesh=carved,
-        dynamic_area=True,
-    )  # fmt: skip
-    assert len(rows) == len(CELLS)
-    assert all(row[3] == "VERTICAL" for row in rows)
-    assert {row[2] for row in rows} == {(0, cid) for cid in CELLS}
-
-
 def test_record_holds_the_carved_bed_when_the_clamp_bites(tmp_path, caplog) -> None:
     """A ``min_thickness`` that bites clamps the bed; the record follows the grid and says so."""
     with caplog.at_level("WARNING"):

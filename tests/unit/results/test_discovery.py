@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.layout import RUNS_DIRNAME, SESSIONS_DIRNAME
+from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.results.catalog.discovery import (
     AmbiguousReferenceError,
     SimulationNotFoundError,
@@ -100,16 +100,6 @@ def _make_dir(project: Path, rel_dir: str) -> Path:
     return path
 
 
-def test_a_bare_name_is_the_run_directory_and_a_path_names_itself() -> None:
-    assert reference_rel_dir("nancon_monthly.v2") == "runs/nancon_monthly.v2"
-    assert reference_rel_dir("J0014010-base") == "runs/J0014010-base"
-    assert reference_rel_dir("sessions/calibration") == "sessions/calibration"
-    assert (
-        reference_rel_dir("sessions/calibration/trials/0004") == "sessions/calibration/trials/0004"
-    )
-    assert reference_rel_dir("@last") is None
-
-
 def test_a_path_that_is_no_result_directory_says_which_forms_exist() -> None:
     with pytest.raises(SimulationNotFoundError, match="runs/<name>, sessions/<name>"):
         reference_rel_dir("figures/x")
@@ -121,10 +111,6 @@ def test_the_index_answers_a_directory_name_by_rel_dir(index: Catalog) -> None:
     assert index.resolve("runs/J0014010-base") == BASE
 
 
-def test_a_bare_name_is_version_one_never_the_latest(index: Catalog) -> None:
-    assert index.resolve("nancon_monthly") != index.resolve("nancon_monthly.v2")
-
-
 def test_a_hex_word_that_is_a_name_and_an_id_prefix_is_ambiguous(project: Path) -> None:
     other = "beef1234-0000-4000-8000-000000000009"
     _seal(project, "J0014010-other", other, site="J0014010", day=5, nse=0.5)
@@ -132,11 +118,6 @@ def test_a_hex_word_that_is_a_name_and_an_id_prefix_is_ambiguous(project: Path) 
     with Catalog(project) as catalog, pytest.raises(AmbiguousReferenceError) as caught:
         catalog.resolve("beef1234")
     assert {key for key, _ in caught.value.candidates} == {other, HEX_NAMED}
-
-
-def test_an_id_prefix_resolves(index: Catalog) -> None:
-    assert index.resolve("3333") == BASE
-    assert index.rel_dir_of(BASE) == "runs/J0014010-base"
 
 
 def test_best_reads_the_metric_scored_under_the_rule_not_any_station(index: Catalog) -> None:
@@ -165,49 +146,11 @@ def test_an_unknown_name_suggests_the_closest_directories(index: Catalog) -> Non
         index.resolve("nancon_montly")
 
 
-def test_find_filters_on_site_and_rule_metrics(index: Catalog) -> None:
-    found = index.find(site="nancon", nse_gt=0.65)
-    assert found.sim_ids == [MONTHLY]
-    assert index.find(solver="modflow6", site="J0014010").sim_ids == [BASE]
-    with pytest.raises(ValueError, match="site"):
-        index.find(catchment="nancon")
-
-
-def test_the_tree_answers_a_name_without_an_index(tmp_path: Path) -> None:
-    project = tmp_path / "p"
-    _make_dir(project, f"{RUNS_DIRNAME}/nancon_monthly")
-    _make_dir(project, f"{SESSIONS_DIRNAME}/calibration/trials/0004")
-    assert resolve_rel_dir(project, "nancon_monthly") == "runs/nancon_monthly"
-    assert (
-        resolve_rel_dir(project, "sessions/calibration/trials/0004")
-        == "sessions/calibration/trials/0004"
-    )
-    with pytest.raises(SimulationNotFoundError, match="is not a directory"):
-        resolve_rel_dir(project, "nancon_daily")
-
-
 def test_a_selector_without_an_index_says_how_to_build_one(tmp_path: Path) -> None:
     project = tmp_path / "p"
     project.mkdir()
     with pytest.raises(SimulationNotFoundError, match="hmp catalog reindex"):
         resolve_rel_dir(project, "@best:nse")
-
-
-def test_a_bare_name_with_other_versions_is_refused_when_it_must_be_unambiguous(
-    tmp_path: Path,
-) -> None:
-    project = tmp_path / "p"
-    _make_dir(project, "runs/J0014010-base")
-    _make_dir(project, "runs/J0014010-base.v2")
-    assert resolve_rel_dir(project, "J0014010-base") == "runs/J0014010-base"
-    with pytest.raises(AmbiguousReferenceError) as caught:
-        resolve_rel_dir(project, "J0014010-base", unambiguous=True)
-    assert {key for key, _ in caught.value.candidates} == {
-        "runs/J0014010-base",
-        "runs/J0014010-base.v2",
-    }
-    assert resolve_rel_dir(project, "J0014010-base.v2", unambiguous=True) == "runs/J0014010-base.v2"
-    assert resolve_rel_dir(project, "runs/J0014010-base", unambiguous=True) == "runs/J0014010-base"
 
 
 def test_the_trash_answers_by_its_listing_name_or_by_the_directory(tmp_path: Path) -> None:

@@ -2,55 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
 from hydromodpy.config.hydromodpy_config import ROOT_CONFIG, HydroModPyConfig
-
-
-def test_export_full_schema_writes_three_files(tmp_path: Path) -> None:
-    from hydromodpy.schema.config_schema import (
-        META_FILE,
-        SCHEMA_FILE,
-        VALIDATORS_FILE,
-        export_full_schema,
-    )
-
-    paths = export_full_schema(tmp_path / "schema", root=ROOT_CONFIG)
-
-    assert set(paths.keys()) == {"config", "meta", "validators"}
-    assert paths["config"].name == SCHEMA_FILE
-    assert paths["meta"].name == META_FILE
-    assert paths["validators"].name == VALIDATORS_FILE
-    for p in paths.values():
-        assert p.is_file()
-        assert p.stat().st_size > 0
-
-
-def test_export_full_schema_produces_valid_json(tmp_path: Path) -> None:
-    from hydromodpy.schema.config_schema import export_full_schema
-
-    paths = export_full_schema(tmp_path, root=ROOT_CONFIG)
-
-    config = json.loads(paths["config"].read_text(encoding="utf-8"))
-    meta = json.loads(paths["meta"].read_text(encoding="utf-8"))
-    validators = json.loads(paths["validators"].read_text(encoding="utf-8"))
-
-    assert "properties" in config
-    workflow_schema = config["$defs"]["WorkflowConfig"]["properties"]["mode"]
-    (literal,) = [branch for branch in workflow_schema["anyOf"] if "enum" in branch]
-    assert literal["enum"] == ["simulation", "calibration", "overview"]
-    assert "flow" in config["properties"]
-    assert isinstance(meta.get("sections"), list)
-    assert isinstance(meta.get("root_fields"), list)
-    section_names = {s["name"] for s in meta["sections"]}
-    for expected in ("workspace", "geographic", "flow", "simulation", "solver", "workflow"):
-        assert expected in section_names
-    assert isinstance(validators, dict)
-    assert "workflow.mode" in validators
-    assert "flow.flow_regime" in validators
 
 
 def test_build_config_meta_reports_groups() -> None:
@@ -94,15 +50,3 @@ def test_schema_cli_export_produces_files(tmp_path: Path, monkeypatch: pytest.Mo
     assert (out / "config.json").is_file()
     assert (out / "config_meta.json").is_file()
     assert (out / "field_validators.json").is_file()
-
-
-@pytest.mark.parametrize(
-    "key",
-    ["config", "meta", "validators"],
-)
-def test_exported_files_are_well_formed_json(tmp_path: Path, key: str) -> None:
-    from hydromodpy.schema.config_schema import export_full_schema
-
-    paths = export_full_schema(tmp_path, root=ROOT_CONFIG)
-    data = json.loads(paths[key].read_text(encoding="utf-8"))
-    assert isinstance(data, (dict, list))

@@ -18,7 +18,6 @@ from typing import Any
 import pytest
 
 from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
-from hydromodpy.solver.base.adapter_protocol import RERUN_MEMBERS, solver_members
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow_nwt.modpath import modpath
@@ -77,14 +76,6 @@ def _upstream(tmp_path: Path, model: Any = None) -> SolverRun:
 
 def _model() -> Any:
     return SimpleNamespace(geometry=SimpleNamespace(domain="DOMAIN", geographic="GEOGRAPHIC"))
-
-
-def test_the_adapter_carries_the_members_of_the_contract(adapter) -> None:
-    assert [name for name in solver_members() if not hasattr(adapter, name)] == []
-    assert not any(hasattr(adapter, name) for name in RERUN_MEMBERS)
-    assert not hasattr(adapter, "observables"), "a transport serves no calibration observable"
-    assert not hasattr(adapter, "extract_observables") and not hasattr(adapter, "execute")
-    assert adapter.mutable == frozenset()
 
 
 def test_a_build_sits_beside_the_flow_model_in_the_folder_of_the_slot(

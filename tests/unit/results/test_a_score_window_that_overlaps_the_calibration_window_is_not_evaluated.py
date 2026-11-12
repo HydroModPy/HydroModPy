@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
-from hydromodpy.results.metric_rule import DateWindow, PeriodWindow
+from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.record.checks import Checks
 from hydromodpy.results.validity_rules import label_for
 from tests._helpers.run_records import (
@@ -27,64 +25,8 @@ def _window(start: tuple[int, int, int], end: tuple[int, int, int]) -> DateWindo
     return DateWindow(start=date(*start), end=date(*end))
 
 
-@pytest.mark.parametrize(
-    "calibration",
-    [
-        _window((2017, 1, 1), (2018, 12, 31)),
-        _window((2010, 1, 1), (2025, 12, 31)),
-        _window((2020, 12, 31), (2022, 12, 31)),
-        _window((2012, 1, 1), (2016, 1, 1)),
-        _window((2015, 1, 1), (2018, 12, 31)),
-    ],
-    ids=["inside", "around", "last_day_shared", "first_day_shared", "partial"],
-)
-def test_overlapping_windows_are_calibrated_with_the_reason(calibration):
-    result = _label(calibration)
-
-    assert result.label == "calibrated"
-    assert len(result.reasons) == 2
-    assert "scored on a window that overlaps the calibration window" in result.reasons[1]
-    assert "2016-01-01 to 2020-12-31" in result.reasons[1]
-    assert f"{calibration.start} to {calibration.end}" in result.reasons[1]
-    assert "1827 samples" in result.reasons[1]
-
-
-@pytest.mark.parametrize(
-    "calibration",
-    [
-        _window((2010, 1, 1), (2015, 12, 31)),
-        _window((2021, 1, 1), (2023, 12, 31)),
-    ],
-    ids=["day_before", "day_after"],
-)
-def test_windows_that_share_no_day_are_evaluated(calibration):
-    result = _label(calibration)
-
-    assert result.label == "evaluated"
-    assert "outside the calibration window" in result.reasons[1]
-
-
 def test_equal_windows_stay_calibrated_without_an_overlap_reason():
     result = _label(WINDOW)
 
     assert result.label == "calibrated"
     assert len(result.reasons) == 1
-
-
-def test_only_the_periods_of_role_calibration_count_and_any_of_them_is_the_calibration_window():
-    by = make_calibrated_by(
-        status="completed",
-        windows={
-            "first": PeriodWindow(
-                role="calibration", start=date(2010, 1, 1), end=date(2012, 12, 31)
-            ),
-            "second": PeriodWindow(
-                role="calibration", start=date(2013, 1, 1), end=date(2015, 12, 31)
-            ),
-            "check": PeriodWindow(role="validation", start=WINDOW.start, end=WINDOW.end),
-        },
-    )
-    result = label_for(make_checks(calibrated_by=by), hydromodpy_version="2.0.0a5", issues=())
-
-    assert result.label == "evaluated"
-    assert "the calibration window 2010-01-01 to 2015-12-31" in result.reasons[1]

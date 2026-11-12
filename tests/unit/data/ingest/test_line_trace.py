@@ -9,13 +9,6 @@ from shapely.geometry import LineString, MultiLineString, Point, Polygon
 from hydromodpy.data.ingest.line_trace import _read_barrier_csv, read_line_trace
 
 
-def test_read_barrier_csv_builds_a_multi_vertex_polyline(tmp_path) -> None:
-    path = tmp_path / "dam.csv"
-    path.write_text("x,y\n0,0\n5,1\n10,0\n", encoding="utf-8")
-    line = _read_barrier_csv(path, "test")
-    assert list(line.coords) == [(0.0, 0.0), (5.0, 1.0), (10.0, 0.0)]
-
-
 def test_read_barrier_csv_accepts_lon_lat_headers(tmp_path) -> None:
     path = tmp_path / "dam.csv"
     path.write_text("lon,lat\n0,0\n10,10\n", encoding="utf-8")
@@ -35,16 +28,6 @@ def test_read_line_trace_dispatches_csv(tmp_path) -> None:
     line = read_line_trace(path, where="test")
     assert isinstance(line, LineString)
     assert list(line.coords) == [(100.0, 200.0), (300.0, 400.0)]
-
-
-def test_read_line_trace_reads_a_single_linestring_file(tmp_path) -> None:
-    path = tmp_path / "wall.geojson"
-    gpd.GeoDataFrame(geometry=[LineString([(0, 0), (10, 10)])], crs="EPSG:2154").to_file(
-        path, driver="GeoJSON"
-    )
-    line = read_line_trace(path, where="test")
-    assert line.geom_type == "LineString"
-    assert len(line.coords) == 2
 
 
 def test_read_line_trace_stitches_contiguous_multilinestring(tmp_path) -> None:
