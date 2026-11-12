@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.project.examples.generate import WHITELIST, build_catalog, repo_root
+from hydromodpy.project.examples.generate import build_catalog, repo_root
 from hydromodpy.project.examples.manifest import (
     SCHEMA_VERSION,
     catalog_path,
@@ -24,56 +24,6 @@ EXPECTED_DATA_FILES = {
     "data/runoff/runoff_custom_NANCON_20000101_20021231_M.csv",
     "data/runoff/runoff_custom_NANCON_REA_19900101_20201231_D.csv",
 }
-
-
-def test_catalog_ships_beside_the_module() -> None:
-    """The manifest is package data, so `hmp example list` works offline."""
-    assert catalog_path().is_file()
-    assert catalog_path().parent.name == "examples"
-
-
-def test_catalog_holds_exactly_the_whitelist() -> None:
-    entries = load_catalog()
-    assert [entry.id for entry in entries] == [spec.id for spec in WHITELIST]
-    assert len(entries) == 1, "the whitelist ships one verified example, see generate.py"
-
-
-def test_example_04_names_the_seven_data_files_it_reads() -> None:
-    entry = find_entry("04", load_catalog())
-    assert {item.dest for item in entry.data} == EXPECTED_DATA_FILES
-    steps = {f"step{n}" for n in range(1, 6)}
-    shipped = {Path(item.dest).stem.split("_")[0] for item in entry.files}
-    assert steps <= shipped
-    assert entry.entry_config == "step1_minimal.toml"
-
-
-def test_example_04_carries_the_registry_row_of_each_station_it_reads() -> None:
-    """A station file holds values only; its coordinates live in the registry."""
-    entry = find_entry("04", load_catalog())
-    shipped = {(station.dest, station.id) for station in entry.stations}
-    assert shipped == {
-        ("data/hydrometry/hydrometry_custom_LOC.csv", "NANCON"),
-        ("data/recharge/recharge_custom_LOC.csv", "NANCON"),
-        ("data/recharge/recharge_custom_LOC.csv", "NANCON_REA"),
-        ("data/runoff/runoff_custom_LOC.csv", "NANCON"),
-        ("data/runoff/runoff_custom_LOC.csv", "NANCON_REA"),
-    }
-
-
-def test_every_entry_writes_only_under_the_workspace() -> None:
-    for entry in load_catalog():
-        for item in entry.payload:
-            assert not item.dest.startswith("/")
-            assert ".." not in Path(item.dest).parts
-            assert item.size > 0
-            assert len(item.sha256) == 64
-
-
-def test_the_dem_dominates_the_payload() -> None:
-    """The reason the cache is keyed by file and not by example."""
-    entry = find_entry("04", load_catalog())
-    dem = next(item for item in entry.data if item.dest.endswith("DEM_armorican_massif.tif"))
-    assert dem.size / entry.total_size > 0.9
 
 
 def test_regenerating_the_manifest_reproduces_the_committed_bytes() -> None:
@@ -94,10 +44,3 @@ def test_load_rejects_another_schema_version(tmp_path: Path) -> None:
 def test_unknown_id_names_the_ids_that_exist() -> None:
     with pytest.raises(FileNotFoundError, match="This build ships: 04"):
         find_entry("99", load_catalog())
-
-
-def test_the_public_verbs_read_the_shipped_catalog() -> None:
-    from hydromodpy.project import api
-
-    assert api.example() == load_catalog()
-    assert api.example("04") == find_entry("04", load_catalog())

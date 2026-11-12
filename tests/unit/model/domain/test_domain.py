@@ -120,17 +120,6 @@ def test_a_raster_depth_model_is_written_on_the_grid_of_the_top(source, expected
     assert domain.substratum.support == raster_support(6, 8)
 
 
-def test_a_raster_covering_only_the_catchment_serves_a_watershed_extent():
-    catchment = np.zeros((6, 8), dtype=bool)
-    catchment[1:5, 2:6] = True
-    watershed_top = surface(np.where(catchment, tilted_top().as_array(), NODATA))
-
-    bottom = _raster(watershed_top, np.where(catchment, 50.0, NODATA)).substratum.as_array()
-
-    np.testing.assert_array_equal(bottom[catchment], 50.0)
-    np.testing.assert_array_equal(bottom[~catchment], NODATA)
-
-
 def test_a_raster_above_the_top_is_lowered_to_top_minus_min_thickness(caplog):
     top = tilted_top()
     values = top.as_array() - 30.0

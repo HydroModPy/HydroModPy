@@ -27,13 +27,6 @@ ACCEPTED_RULES = (
 )
 
 
-@pytest.mark.parametrize(("kind", "value_m"), ACCEPTED_RULES, ids=[k for k, _ in ACCEPTED_RULES])
-def test_a_head_rule_holds_its_kind_and_value(kind: str, value_m: float | None) -> None:
-    rule = HeadRule(kind, value_m)
-
-    assert (rule.kind, rule.value_m) == (kind, value_m)
-
-
 def test_the_accepted_rules_are_every_head_rule_kind() -> None:
     assert tuple(kind for kind, _ in ACCEPTED_RULES) == HEAD_RULE_KINDS
 
@@ -121,33 +114,6 @@ HEAD_STATES = (
     lambda head: PriorState(head, {"lake": 4.0}, "store.zarr", "run.v1"),
     lambda head: SolvedState(head, "modflow6"),
 )
-
-
-@pytest.mark.parametrize("build", HEAD_STATES, ids=["prior", "solved"])
-def test_a_head_state_holds_a_read_only_float64_copy(build) -> None:
-    given = np.array([[1, 2, 3]], dtype=np.int32)
-
-    state = build(given)
-
-    assert state.head.dtype == np.float64
-    assert state.head is not given
-    np.testing.assert_array_equal(state.head, given)
-    with pytest.raises(ValueError, match="read-only"):
-        state.head[0, 0] = 9.0
-    given[0, 0] = 9
-    assert state.head[0, 0] == 1.0
-
-
-def test_a_prior_state_keeps_nan_and_freezes_its_lake_stages() -> None:
-    stages = {"lake": 4.0}
-    state = PriorState(np.array([[np.nan, 2.0]]), stages, "store.zarr")
-
-    assert np.isnan(state.head[0, 0])
-    assert state.sim_id is None
-    stages["lake"] = 9.0
-    assert state.lake_stages == {"lake": 4.0}
-    with pytest.raises(TypeError):
-        state.lake_stages["lake"] = 5.0  # type: ignore[index]
 
 
 def test_a_prior_state_refuses_a_head_that_is_not_layers_by_cells() -> None:

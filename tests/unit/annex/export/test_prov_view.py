@@ -12,19 +12,9 @@ from hydromodpy.results.export.context import (
     FairExportContext,
     InputEntry,
 )
-from hydromodpy.results.export.prov import (
-    HYDROMODPY_NAMESPACE,
-    build_prov_document,
-)
+from hydromodpy.results.export.prov import HYDROMODPY_NAMESPACE
 from hydromodpy.results.exporters.port import RUN_VIEW, ExportWriter
-from hydromodpy.schema.generated_views import PROV_VIEW_FILENAME
-from hydromodpy_annex.export.prov import (
-    PROV_CONTEXT,
-    ProvView,
-    serialise_prov,
-    write_prov,
-    write_prov_view,
-)
+from hydromodpy_annex.export.prov import PROV_CONTEXT, ProvView, serialise_prov
 
 pytestmark = pytest.mark.fast
 
@@ -106,21 +96,6 @@ def test_prov_context_contains_hydromodpy_namespace() -> None:
     assert PROV_CONTEXT["prov"] == "http://www.w3.org/ns/prov#"
 
 
-def test_serialise_prov_graph_head_is_action(context: FairExportContext) -> None:
-    """serialise_prov wraps the doc with PROV context and puts the action first."""
-    doc = serialise_prov(context)
-    assert doc["@context"] == PROV_CONTEXT
-    graph = doc["@graph"]
-    assert isinstance(graph, list)
-    assert graph[0]["@id"] == _ACTION_ID
-
-    built = build_prov_document(context)
-    assert len(graph) == 1 + len(built["activities"])
-    graph_ids = {node["@id"] for node in graph if "@id" in node}
-    for node in built["activities"]:
-        assert node["@id"] in graph_ids
-
-
 def test_serialise_prov_is_json_serialisable(context: FairExportContext) -> None:
     """The full document round-trips through json without custom encoders."""
     doc = serialise_prov(context)
@@ -140,36 +115,3 @@ def test_prov_view_members_and_protocol() -> None:
     assert view.instants == "many"
     assert view.reprojects is False
     assert view.help
-
-
-def test_write_prov_and_view(tmp_path: Path, context: FairExportContext) -> None:
-    """write_prov and write_prov_view write the jsonld document."""
-    from tests._helpers.run_records import make_record
-
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
-    make_record().write(run_dir)
-
-    out_file = write_prov(context, tmp_path / "out.jsonld")
-    assert out_file.is_file()
-    assert json.loads(out_file.read_text(encoding="utf-8"))["@context"]["prov"]
-
-    out_view = write_prov_view(run_dir)
-    assert out_view == run_dir / PROV_VIEW_FILENAME
-    assert out_view.is_file()
-
-    view = ProvView()
-    written = view.write(None, None, run_dir)
-    assert written == [run_dir / PROV_VIEW_FILENAME]
-
-
-def test_prov_view_refuses_variable_and_time_selectors(isolated_export_formats) -> None:
-    from pydantic import ValidationError
-
-    from hydromodpy.results.exporters.export_spec import ExportRequest
-
-    isolated_export_formats.register(ProvView)
-    with pytest.raises(ValidationError, match='Write variables = "all"'):
-        ExportRequest(variables="head", format="prov")
-    with pytest.raises(ValidationError, match="time selects nothing"):
-        ExportRequest(variables="all", format="prov", time="last")

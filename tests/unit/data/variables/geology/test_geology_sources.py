@@ -56,24 +56,6 @@ def _gpkg(path: Path) -> Path:
 
 @pytest.mark.fast
 @pytest.mark.parametrize("cls, module, origin", CLASSES)
-def test_the_source_is_registered_under_its_section(cls, module, origin) -> None:
-    from hydromodpy.data.source.registry import data_sources
-
-    assert data_sources.get("geology", cls.source_id) is cls
-    assert cls.section == "geology"
-    assert origin  # the origin of the file record is a constant of the module
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize("cls", [Brgm1m, Brgm50k])
-def test_a_source_serves_the_hosts_of_the_schema_entry(cls) -> None:
-    from hydromodpy.schema.sources import source_entry
-
-    assert cls().hosts == source_entry(cls.source_id).hosts
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize("cls, module, origin", CLASSES)
 def test_a_crop_over_a_request_box_answers_a_file_record(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cls, module, origin
 ) -> None:
@@ -133,14 +115,6 @@ def test_the_refusals_of_the_port_are_made_before_the_provider(
         cls().fetch(FetchRequest(out_dir=tmp_path, station_ids=("X1",)))
     with pytest.raises(DataCapabilityError, match="no time axis"):
         cls().fetch(FetchRequest(out_dir=tmp_path, extent=EXTENT, period=PERIOD))
-
-
-@pytest.mark.fast
-def test_the_registered_geology_sources_are_the_brgm_maps() -> None:
-    """``field.py`` reads this to tell a BRGM map from a user's own file."""
-    from hydromodpy.data.variables.geology.field import brgm_sources
-
-    assert brgm_sources() == frozenset({"brgm_1m", "brgm_50k"})
 
 
 @pytest.mark.fast

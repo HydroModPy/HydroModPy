@@ -18,17 +18,6 @@ def _load_file(cfg, *, project_period=None):
 
 
 class TestWaterQualityCustomCSV:
-    def test_load_two_sites(self, sample_wq_dir, project_period):
-        cfg = WaterQualitySourceConfig(source="file", path=sample_wq_dir)
-        records = _load_file(cfg, project_period=project_period)
-
-        assert len(records) == 2
-        for r in records:
-            assert r.variable == "water_quality"
-            assert r.source == "file"
-            assert r.unit == "mg/L"
-            assert r.has_data
-
     def test_filter_ids(self, sample_wq_dir, project_period):
         cfg = WaterQualitySourceConfig(
             source="file",

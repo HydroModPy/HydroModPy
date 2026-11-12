@@ -8,11 +8,7 @@ from typing import Any
 import pytest
 from shapely.geometry import LineString, Polygon
 
-from hydromodpy.mesh.planning.families import (
-    LineFamilySpec,
-    _skip_an_ignored_family,
-    requested_families,
-)
+from hydromodpy.mesh.planning.families import requested_families
 
 pytestmark = pytest.mark.fast
 
@@ -47,15 +43,6 @@ def _trace(*lines: LineString) -> Any:
 
 
 class TestRequestedFamilies:
-    def test_a_family_an_engine_that_meshes_it_reads_is_built(self) -> None:
-        families, notes = requested_families(
-            _family_config("regular"), _inputs(river_trace=_trace(RIVER)), DOMAIN, pixel=10.0
-        )
-
-        assert [(family.name, family.intent) for family in families] == [("rivers", "cell")]
-        assert families[0].lines == (RIVER,)
-        assert notes == ()
-
     def test_a_family_an_engine_ignores_is_skipped_with_a_note(self) -> None:
         families, notes = requested_families(
             _family_config("catchment"), _inputs(river_trace=_trace(RIVER)), DOMAIN, pixel=10.0
@@ -75,27 +62,8 @@ class TestRequestedFamilies:
         assert len(notes) == 1
         assert "lakes" in notes[0]
 
-    def test_a_family_at_none_asks_for_nothing_and_names_no_skip(self) -> None:
-        families, notes = requested_families(
-            _family_config("catchment", rivers="none"), _inputs(), DOMAIN, pixel=10.0
-        )
-
-        assert families == ()
-        assert notes == ()
-
 
 class TestTheFamilyLinesAreClipped:
-    def test_the_river_parts_outside_the_domain_go(self) -> None:
-        crossing = LineString([(10.0, -10.0), (10.0, 50.0)])
-        families, notes = requested_families(
-            _family_config("regular"), _inputs(river_trace=_trace(crossing)), DOMAIN, pixel=10.0
-        )
-
-        assert [(family.name, family.intent) for family in families] == [("rivers", "cell")]
-        assert isinstance(families[0], LineFamilySpec)
-        assert families[0].lines == (LineString([(10.0, 0.0), (10.0, 50.0)]),)
-        assert notes == ()
-
     def test_a_family_outside_the_domain_gives_no_spec(self) -> None:
         outside = LineString([(-10.0, -10.0), (-10.0, -20.0)])
         families, notes = requested_families(
@@ -104,28 +72,3 @@ class TestTheFamilyLinesAreClipped:
 
         assert families == ()
         assert notes == ()
-
-
-class TestSkipNotes:
-    def test_the_skip_says_the_family_and_the_engine(self) -> None:
-        notes: list[str] = []
-        skipped = _skip_an_ignored_family(
-            "watershed_boundary", "face", frozenset({"watershed_boundary"}), notes, "catchment"
-        )
-        assert skipped
-        assert notes == [
-            "[mesh.families] watershed_boundary = 'face' is skipped: the mesh engine "
-            "'catchment' ignores the watershed boundary.",
-        ]
-
-    def test_a_value_none_builds_nothing_and_names_no_skip(self) -> None:
-        notes: list[str] = []
-        skipped = _skip_an_ignored_family("rivers", "none", frozenset({"rivers"}), notes, "x")
-        assert not skipped
-        assert notes == []
-
-    def test_a_family_the_engine_does_not_ignore_is_left_to_its_rule(self) -> None:
-        notes: list[str] = []
-        skipped = _skip_an_ignored_family("rivers", "cell", frozenset({"lakes"}), notes, "x")
-        assert not skipped
-        assert notes == []

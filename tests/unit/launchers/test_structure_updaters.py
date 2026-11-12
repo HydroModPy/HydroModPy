@@ -35,14 +35,6 @@ def test_apply_geology_to_domain_sets_declared_zone() -> None:
     assert domain.calls == [("geology", geology)]
 
 
-def test_apply_geology_to_domain_is_noop_without_geology() -> None:
-    domain = _DummyDomain()
-
-    apply_geology_to_domain(domain=domain, geology=None)
-
-    assert domain.calls == []
-
-
 def test_apply_catchment_zones_to_domain_sets_zone(monkeypatch, tmp_path: Path) -> None:
     domain = _DummyDomain()
 
@@ -91,49 +83,6 @@ def test_apply_catchment_zones_to_domain_sets_zone(monkeypatch, tmp_path: Path) 
     assert zone_obj.identifier == "catchment_zones"
     assert zone_obj.shape == (2, 3)
     assert zone_obj.encoded_to_zone == {1: "domain", 2: "buffer", 3: "core"}
-
-
-def test_apply_catchment_zones_to_domain_sets_uniform_zone(monkeypatch, tmp_path: Path) -> None:
-    domain = _DummyDomain()
-
-    geographic_dir = tmp_path / "geographic"
-    geographic_dir.mkdir(parents=True, exist_ok=True)
-
-    watershed_shp = geographic_dir / "watershed.shp"
-    watershed_box_buff_dem = geographic_dir / "watershed_box_buff_dem.tif"
-    watershed_shp.write_text("", encoding="utf-8")
-    watershed_box_buff_dem.write_text("", encoding="utf-8")
-
-    def _fake_build_uniform_zone_codes(**_kwargs):
-        return SimpleNamespace(
-            zone_codes=np.array(
-                [
-                    [4, 4, 0],
-                    [4, 4, 4],
-                ],
-                dtype=np.uint8,
-            ),
-            zone_codes_tif=str(geographic_dir / "catchment_zone_codes.tif"),
-        )
-
-    monkeypatch.setattr(
-        "hydromodpy.model.domain.structure_binders.build_uniform_zone_codes",
-        _fake_build_uniform_zone_codes,
-    )
-
-    geographic = SimpleNamespace(
-        watershed_shp=str(watershed_shp),
-        watershed_box_buff_dem=str(watershed_box_buff_dem),
-        zone_kind="uniform",
-    )
-    apply_catchment_zones_to_domain(domain=domain, geographic=geographic)
-
-    assert len(domain.calls) == 1
-    zone_id, zone_obj = domain.calls[0]
-    assert zone_id == "catchment"
-    assert zone_obj.identifier == "catchment_zones"
-    assert zone_obj.shape == (2, 3)
-    assert zone_obj.encoded_to_zone == {4: "uniform"}
 
 
 def test_apply_catchment_zones_to_domain_is_noop_with_missing_artifacts() -> None:

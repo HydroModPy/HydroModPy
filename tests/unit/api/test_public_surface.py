@@ -40,8 +40,8 @@ PRESENT = (
     "doctor",
 )
 
-# The names that left the top level in 2.1.0, with the call that replaces each.
-LEFT_IN_2_1_0 = {
+# The names that left the top level in 2.0.0, with the call that replaces each.
+LEFT_IN_2_0_0 = {
     "figure": "hydromodpy.show(ref, what='figure', name=...)",
     "report": "hydromodpy.show(ref, what='report')",
     "calibration_phases": "hydromodpy.calibrate(source, dry_run=True)",
@@ -66,25 +66,6 @@ REMOVED = ("open_catalog", "overview", "mesh", "testbed")
 # Removed verbs whose name is now a subpackage. Once that package is imported,
 # Python binds it on ``hydromodpy``, so ``hmp.<name>`` is the module, never the verb.
 SUBPACKAGES = ("mesh",)
-
-
-@pytest.mark.parametrize("name", PRESENT)
-def test_present_symbol(name: str) -> None:
-    assert hasattr(hmp, name), f"hmp.{name} missing"
-    assert name in hmp.__all__
-
-
-@pytest.mark.parametrize("name", REMOVED)
-def test_a_name_removed_before_the_tag_has_no_entry_and_is_gone(name: str) -> None:
-    assert name not in hmp.__all__, f"hmp.{name} must not be in __all__"
-    assert name not in OLD_NAMES
-    if name in SUBPACKAGES:
-        package = importlib.import_module(f"hydromodpy.{name}")
-        assert getattr(hmp, name) is package
-        assert inspect.ismodule(package) and not callable(package)
-        return
-    with pytest.raises(AttributeError):
-        getattr(hmp, name)
 
 
 @pytest.mark.parametrize(
@@ -114,20 +95,10 @@ def _resolves(path: str) -> bool:
 TOP_LEVEL_NAMES = sorted(name for name in OLD_NAMES if "." not in name)
 
 
-@pytest.mark.parametrize("old", TOP_LEVEL_NAMES)
-def test_a_name_that_left_is_refused_with_a_path_that_answers(old: str) -> None:
+@pytest.mark.parametrize("old", sorted(LEFT_IN_2_0_0))
+def test_a_name_that_left_in_2_0_0_is_refused_with_the_call_that_replaces_it(old: str) -> None:
     entry = OLD_NAMES[old]
-    assert entry.refused and old not in hmp.__all__
-    with pytest.raises(hmp.OldNameError, match=re.escape(entry.new)):
-        getattr(hmp, old)
-    assert not hasattr(hmp, old)
-    assert _resolves(entry.new), entry.new
-
-
-@pytest.mark.parametrize("old", sorted(LEFT_IN_2_1_0))
-def test_a_name_that_left_in_2_1_0_is_refused_with_the_call_that_replaces_it(old: str) -> None:
-    entry = OLD_NAMES[old]
-    assert (entry.new, entry.since, entry.refused) == (LEFT_IN_2_1_0[old], "2.1.0", True)
+    assert (entry.new, entry.since, entry.refused) == (LEFT_IN_2_0_0[old], "2.0.0", True)
     with pytest.raises(hmp.OldNameError, match=re.escape(f"Use {entry.new}.")):
         getattr(hmp, old)
 

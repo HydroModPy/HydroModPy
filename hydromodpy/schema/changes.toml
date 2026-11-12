@@ -18,7 +18,7 @@
 # Rules for every row:
 # - id is [a-z0-9_]+, unique in the whole file, and never reused. A migration row has
 #   no id.
-# - since is the first version that carries the change, such as "2.1.0".
+# - since is the first version that carries the change, such as "2.0.0".
 # - text is the changelog line, in plain English: the quantity, the case, the old
 #   value, the new value and the size of the change.
 # - quantities are the tokens a run exposes, as in results/validity_rules.py:
@@ -37,8 +37,8 @@ schema = "hydromodpy.changes.v1"
 #
 # [[bug]]
 # id = "<snake_case_name>"
-# since = "2.1.0"
-# versions = "<2.1.0"
+# since = "2.0.0"
+# versions = "<2.0.0"
 # quantities = ["metrics"]
 # text = "<The quantity, on which case, goes from <old> to <new>.>"
 # commit = "<sha of the fix, optional>"
@@ -48,7 +48,7 @@ schema = "hydromodpy.changes.v1"
 #
 # [[default]]
 # id = "<snake_case_name>"
-# since = "2.1.0"
+# since = "2.0.0"
 # edition = "2.1"
 # key = "<section>.<key>"
 # old = 0.5
@@ -61,7 +61,7 @@ schema = "hydromodpy.changes.v1"
 #
 # [[recipe]]
 # id = "<snake_case_name>"
-# since = "2.1.0"
+# since = "2.0.0"
 # effect = "numbers"
 # quantities = ["metrics"]
 # text = "<What the step computes now, on which case, and the size of the change.>"
@@ -75,7 +75,7 @@ schema = "hydromodpy.changes.v1"
 # document = "config"
 # old = "<section>.<old_key>"
 # new = "<section>.<new_key>"
-# since = "2.1.0"
+# since = "2.0.0"
 #
 # A key that leaves. A live file is refused with instead. A sealed run is refused
 # too, unless sealed = "drop" says that a replay never needed the key.
@@ -84,7 +84,7 @@ schema = "hydromodpy.changes.v1"
 # old = "<section>.<key>"
 # instead = "<What to write instead.>"
 # sealed = "drop"
-# since = "2.1.0"
+# since = "2.0.0"
 #
 # A value that is renamed under a key that keeps its name.
 # [[migration]]
@@ -92,7 +92,7 @@ schema = "hydromodpy.changes.v1"
 # key = "<section>.<key>"
 # old_value = "<old>"
 # new_value = "<new>"
-# since = "2.1.0"
+# since = "2.0.0"
 #
 # Any shape may add rule = "<name>" when one row cannot say the whole change. The
 # name is a key of the table RULES of the reader of the document, in
@@ -104,7 +104,7 @@ id = "seal_digests_the_field_store"
 since = "2.0.0"
 effect = "identity"
 quantities = []
-text = "The seal of a run gives the sha256 of its field store fields.zarr, over the path and the content of every file, so hmp doctor reports a store changed since the seal. A seal written before 2.0.0 has no digest for the store, which still reads and is not checked."
+text = "The seal of a run gives the sha256 of its field store fields.zarr, over the path and the content of every file, so hmp doctor reports a store changed since the seal. A seal written by a pre-release has no digest for the store, which still reads and is not checked."
 
 [[recipe]]
 id = "frozen_replay_is_never_skipped"
@@ -115,7 +115,7 @@ text = "hmp run --frozen on the config.toml of a completed run replays it withou
 
 [[recipe]]
 id = "modflow_steady_start_ignores_boussinesq_runtime"
-since = "2.1.0"
+since = "2.0.0"
 effect = "numbers"
 quantities = ["heads@modflow6", "fluxes@modflow6", "heads@modflow_nwt", "fluxes@modflow_nwt"]
 text = "The auxiliary steady solve that sets the initial heads of a MODFLOW 6 or MODFLOW-NWT run with [flow.ic] kind = \"steady_state\" always starts from the top of the model. It used to start 0.01 m below the top when [flow.runtime] set backend = \"petsc\" and surface_interaction_model = \"vi_obstacle\", two Boussinesq settings that MODFLOW does not use. Only that combination changes, by the order of the head closure of the auxiliary solve (at least 1e-3 m for MODFLOW 6, headtol, 1e-4 m by default, for NWT); no example, reference or validation case uses it."
@@ -124,37 +124,37 @@ text = "The auxiliary steady solve that sets the initial heads of a MODFLOW 6 or
 document = "config"
 old = "modflow6"
 new = "solver.modflow6"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "config"
 old = "modflownwt"
 new = "solver.modflow_nwt"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "config"
 old = "flow.runtime"
 new = "solver.boussinesq"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "config"
 old = "solver.backend.kind"
 new = "solver.backend"
-since = "2.1.0"
+since = "2.0.0"
 rule = "flatten_the_backend_table"
 
 [[recipe]]
 id = "keys_the_flow_solver_ignores_are_refused"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "A key the chosen flow solver does not honor is refused when the file is read, from the supports the solver declares, and the refusal names the solvers that honor it. This adds four refusals: solver.sink_fill = true, solver.drain_band_depth_m and solver.drain_conductance_floor_m2_s away from their defaults, and [flow.sinks_sources.etp], all under Boussinesq, which reads none of them. A transport solver whose requires does not name the flow solver is refused at the read too, where a MODFLOW 6 and MODFLOW-NWT pair used to be refused when the plan was built. A sealed run still reads, with a warning."
 
 [[recipe]]
 id = "transport_refused_behind_an_unconverged_steady_start"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "A transport run is refused with SolverDivergedError when the flow it follows started from a steady solve that did not converge. MODFLOW 6 accepted such a solve when its final water budget was closed, and the transport went on with a warning only. The replay of a sealed run warns instead of refusing. A steady start that converges, a cyclic spin-up and every run without a transport are unchanged."
@@ -162,8 +162,8 @@ text = "A transport run is refused with SolverDivergedError when the flow it fol
 
 [[bug]]
 id = "hubeau_qixm_discharge"
-since = "2.1.0"
-versions = "<2.1.0"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["source@hydrometry_hubeau"]
 text = "Hub'Eau product QIXM (monthly maximum instantaneous discharge) was read as a water level in m, with the l/s value unconverted. It is now a discharge in m3/s, 1000 times smaller. QixM, which Hub'Eau does not serve and which returned no observation, is read as QIXM."
 
@@ -172,46 +172,46 @@ document = "config"
 key = "data.hydrometry.sources[*].product"
 old_value = "QixM"
 new_value = "QIXM"
-since = "2.1.0"
+since = "2.0.0"
 
 [[bug]]
 id = "hubeau_named_stations_capped"
-since = "2.1.0"
-versions = "<2.1.0"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["source@hydrometry_hubeau"]
 text = "With station_ids and max_stations both set, Hub'Eau hydrometry loaded only the first max_stations named stations that had data and never said so. max_stations now counts only the stations a search over the extent finds, and every named station is loaded."
 
 [[bug]]
 id = "hubeau_cache_ignores_product"
-since = "2.1.0"
-versions = "<2.1.0"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["source@hydrometry_hubeau"]
 text = "Hub'Eau cache looked up cached series without product in the cache key. An entry whose product differed answered anyway."
 
 [[recipe]]
 id = "named_station_without_data"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "When every named station returns no observation, the variable is refused with DataSourceError."
 
 [[recipe]]
 id = "bare_input_names_refused"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "Bare file names are no longer looked up in the workspace data folder."
 
 [[recipe]]
 id = "input_path_scheme_refused"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "Input paths starting with a URL scheme are refused with a message directing users to source = 'url'."
 
 [[recipe]]
 id = "url_source"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "URL sources download into the data cache as data/<variable>/<variable>_url_<host>_<sha8><suffix>."
@@ -219,8 +219,8 @@ text = "URL sources download into the data cache as data/<variable>/<variable>_u
 [[migration]]
 document = "config"
 old = "geographic.catchment.dem_init_path"
-instead = "geographic.catchment.dem_init_path was removed in 2.1.0. Declare the DEM as [[data.dem.sources]] with source = \"file\" and path = \"<the same path>\". `hmp doctor --fix-config` rewrites it."
-since = "2.1.0"
+instead = "geographic.catchment.dem_init_path was removed in 2.0.0. Declare the DEM as [[data.dem.sources]] with source = \"file\" and path = \"<the same path>\". `hmp doctor --fix-config` rewrites it."
+since = "2.0.0"
 rule = "move_the_dem_init_path"
 
 [[migration]]
@@ -228,16 +228,16 @@ document = "config"
 key = "data.{*}.sources[*].source"
 old_value = "custom"
 new_value = "file"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "sidecar"
 key = "source"
 old_value = "custom"
 new_value = "file"
-since = "2.1.0"
+since = "2.0.0"
 
-# The [transport] tables of the 2.0.0 grammar sat one level deeper: the
+# The [transport] tables of the pre-release grammar sat one level deeper: the
 # parameters of each transport rise under [transport.<name>], the registry name
 # of that solver (E34), and the emptied parent table goes. Four moves, same
 # since as the solver tables.
@@ -246,31 +246,31 @@ since = "2.1.0"
 document = "config"
 old = "transport.modflow6gwt.parameters"
 new = "transport.modflow6"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "config"
 old = "transport.modflow6prt.parameters"
 new = "transport.modflow6_prt"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "config"
 old = "transport.mt3dms.parameters"
 new = "transport.mt3dms"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "config"
 old = "transport.modpath.parameters"
 new = "transport.modpath"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "fields"
 old = "concentration"
 new = "concentration.{*}"
-since = "2.1.0"
+since = "2.0.0"
 
 # The three bugs of the register of known issues, which this file replaces. A run
 # of the versions they name is labelled exploratory when it exposes a quantity
@@ -300,8 +300,8 @@ quantities = ["heads@modflow6", "fluxes@modflow6"]
 text = "The MODFLOW 6 DISV took the ground as its top, so the top layer had an uneven thickness and heads under a varying thickness were off by 0.16 to 0.31 m on the Nancon; the DISV now carries a computation top, fixed between b1fa87021 and ec7f8de88."
 commit = "b1fa87021"
 
-# hmp project new of 2.0.0 wrote [[simulation.process]] type = "flow". The key is kind
-# since 2.0.0, so a project made by that release loads in 2.1 with a warning.
+# hmp project new of a pre-release wrote [[simulation.process]] type = "flow". The key is kind
+# since 2.0.0, so a project made by that release loads in this version with a warning.
 
 [[migration]]
 document = "config"
@@ -309,132 +309,132 @@ old = "simulation.process[*].type"
 new = "simulation.process[*].kind"
 since = "2.0.0"
 
-# The forms of 2.0.0 that moved in 2.1.0 and had no row yet. The two parent
+# The forms of a pre-release that moved in 2.0.0 and had no row yet. The two parent
 # tables of [transport] come after the rows of their parameters, which empty them.
 
 [[migration]]
 document = "config"
 old = "solver.backend.name"
 new = "solver.backend"
-since = "2.1.0"
+since = "2.0.0"
 rule = "flatten_the_backend_table"
 
 [[migration]]
 document = "config"
 old = "transport.modflow6gwt"
 new = "transport.modflow6"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "config"
 old = "transport.modflow6prt"
 new = "transport.modflow6_prt"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "config"
 old = "calibration.forward_model"
-instead = "A forward model is a solver backend since 2.1.0: name it by solver.backend, register it in the hydromodpy.solver entry-point group, and calibrate it with the pipeline evaluator. evaluator = \"scored_forward_model\" leaves with it."
-since = "2.1.0"
+instead = "A forward model is a solver backend since 2.0.0: name it by solver.backend, register it in the hydromodpy.solver entry-point group, and calibrate it with the pipeline evaluator. evaluator = \"scored_forward_model\" leaves with it."
+since = "2.0.0"
 rule = "drop_the_forward_model"
 
 [[recipe]]
 id = "resolved_config_carries_edition"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "config.resolved.toml writes edition, the set of defaults the run used, \"2.0\" today. A resolved file without it reads as edition 2.0."
 
 [[recipe]]
 id = "frozen_replay_reads_a_new_key_at_its_edition"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "hmp run --frozen no longer refuses a run whose config.resolved.toml does not write a key that a later version added, when that key is at the default of the edition the run sealed. lineage.drift of a rerun lists such keys under new_at_default. A key the sealed file writes with another value is still a difference."
 
 [[recipe]]
 id = "prerelease_forms_refused"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
-text = "A file or a sealed run that holds one of the 175 keys or values only a pre-release of 2.0 wrote is refused, with every such key it holds. pip install \"hydromodpy~=2.0.0\" then hmp doctor --fix-config rewrites it. The list is hydromodpy/config/prerelease_forms.txt, and it leaves in 2.3.0."
+text = "A file or a sealed run that holds one of the 175 keys or values only a pre-release of 2.0 wrote is refused, with every such key it holds. This version does not rewrite the file. The list is hydromodpy/config/prerelease_forms.txt, and it leaves in 2.2.0."
 
 [[recipe]]
 id = "stac_and_prov_exports_need_the_annex"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "hmp export --as stac and --as prov, and [[export]] format = \"stac\" or \"prov\", are refused when hydromodpy_annex is not installed, with the module to install. Both views moved to the annex. RO-Crate stays in the wheel."
 
 [[recipe]]
 id = "data_cache_never_in_the_user_cache"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "A data request or a call without a data folder no longer caches a DEM, a geology map or a crossings layer under the user cache of the machine. The file goes under the data folder of the call, data/ of a project without a workspace, so a file fetched earlier is fetched again, and a newer product version can change the values read."
 
 [[recipe]]
 id = "data_cache_is_its_sidecars"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "The data cache is the sidecar next to each fetched file, and data/cache.duckdb is gone. A sidecar names the variable, the source, the station, the product, the box, the period, the window asked, the sha256, the size and the licence of its file. A station that answered nothing is a sidecar marked empty, without a file. A user file is never a row of the cache."
 
 [[recipe]]
 id = "stale_cache_file_rehashed"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "A cached file whose size differs from its sidecar, or that is newer than its sidecar by more than a second, is hashed again, and is fetched again only when its sha256 changed. A copy of a workspace by cp no longer fetches its files again."
 
 [[recipe]]
 id = "prune_keeps_cited_inputs"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "hmp data prune never removes a file whose sha256 a sealed run, a kept trial or a lockfile of the workspace cites, and names each one it keeps. When the inputs of a run or a lockfile cannot be read, it removes nothing."
 
 [[recipe]]
 id = "former_data_cache_refused"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
-text = "A data folder that still holds data/cache.duckdb of HydroModPy 2.0.0 is refused with a sentence that names hmp workspace clean --data-cache, and a lockfile hydromodpy.lock.v1 is refused with a sentence that names hmp data lock. Neither is read."
+text = "A data folder that still holds data/cache.duckdb of a pre-release of 2.0 is refused with a sentence that names hmp workspace clean --data-cache, and a lockfile hydromodpy.lock.v1 is refused with a sentence that names hmp data lock. Neither is read."
 
 [[recipe]]
 id = "frozen_replay_pins_empty_answers"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
-text = "hydromodpy.lock pins a station that answered nothing as an input with empty = true and no sha256. hmp run --frozen replays such a station when the lockfile pins it, refuses an empty answer the lockfile does not pin, and refuses a file for a station the lockfile pins empty. In 2.0.0 every empty answer was refused under --frozen, because the lockfile could not pin it."
+text = "hydromodpy.lock pins a station that answered nothing as an input with empty = true and no sha256. hmp run --frozen replays such a station when the lockfile pins it, refuses an empty answer the lockfile does not pin, and refuses a file for a station the lockfile pins empty. In a pre-release every empty answer was refused under --frozen, because the lockfile could not pin it."
 
 [[recipe]]
 id = "request_identity_composition"
-since = "2.1.0"
+since = "2.0.0"
 effect = "identity"
 quantities = []
-text = "A run is now told identical to a completed run by its request, the configuration as written with its edition and the digest and state of every input it reads, plus the code, the solver binaries and the numeric packages that compute it. The address of a URL and the path of a file no longer count, their bytes do. A run or a calibration that 2.0 would have skipped runs once again."
+text = "A run is now told identical to a completed run by its request, the configuration as written with its edition and the digest and state of every input it reads, plus the code, the solver binaries and the numeric packages that compute it. The address of a URL and the path of a file no longer count, their bytes do. A run or a calibration that a pre-release would have skipped runs once again."
 
 [[recipe]]
 id = "json_paths_need_a_base"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "A configuration given as a dict or as JSON text reads its relative paths from the base the caller names, never from the current folder, and is refused without one. JSON text is read as a file is, with the same refusals."
 
 [[recipe]]
 id = "run_and_project_names_refused"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "A run name or a project name holds lower case letters, digits, _ and -, forty characters at most, and holds neither a doubled underscore nor a device name Windows reserves. A name written otherwise is refused with the folded name to write. A name the code makes, from a file stem or a case of a plan, is folded in silence and still refused when it is too long or reserved."
 
 [[recipe]]
 id = "stage_products_in_one_store"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "The meshes, and the output of the soil reservoir, are kept in one product store under .hmp/products/, keyed by what they read and by the code that computes them, under the cap [workspace] products_cap_mb. The mesh cache of 2.0 under .hmp/mesh_cache/ is no longer read, so a triangle mesh is drawn once more, the same mesh with the same gmsh."
+text = "The meshes, and the output of the soil reservoir, are kept in one product store under .hmp/products/, keyed by what they read and by the code that computes them, under the cap [workspace] products_cap_mb. The mesh cache of a pre-release under .hmp/mesh_cache/ is no longer read, so a triangle mesh is drawn once more, the same mesh with the same gmsh."
 
 # The DEM header contract, read by the pipeline and by check(inputs=True).
 # A DEM that breaks it was routed or snapped without a word before, so the
@@ -442,7 +442,7 @@ text = "The meshes, and the output of the soil reservoir, are kept in one produc
 
 [[recipe]]
 id = "dem_header_contract"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "A DEM that breaks the header contract is refused before routing: no CRS, a CRS that is not projected or not in metres, a rotated grid, pixels not square within 1 %, a routed resolution outside 1 to 250 m, elevations outside -500 to 9000 m, or an outlet outside the raster or on a nodata cell."
@@ -452,7 +452,7 @@ text = "A DEM that breaks the header contract is refused before routing: no CRS,
 
 [[recipe]]
 id = "terrain_product_store"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "The corrected DEM, the D8 directions and the D8 accumulation are now a stage product under .hmp/products/, keyed by the DEM digest, its state, the conditioning method and the terrain engine; a rerun reads the stored terrain instead of rebuilding it."
@@ -462,70 +462,70 @@ text = "The corrected DEM, the D8 directions and the D8 accumulation are now a s
 [[migration]]
 document = "config"
 old = "geographic.reuse_existing_outputs"
-instead = "The terrain cache is the product store under .hmp/products/ since 2.1.0, and a rerun reads it without a switch."
-since = "2.1.0"
+instead = "The terrain cache is the product store under .hmp/products/ since 2.0.0, and a rerun reads it without a switch."
+since = "2.0.0"
 sealed = "drop"
 rule = "drop_the_cache_switches"
 
 [[migration]]
 document = "config"
 old = "geographic.reg_fold"
-instead = 'The regional flow folder is the terrain product since 2.1.0. To reuse a conditioned DEM between projects, declare state = "conditioned" on its [data.dem.sources] entry.'
-since = "2.1.0"
+instead = 'The regional flow folder is the terrain product since 2.0.0. To reuse a conditioned DEM between projects, declare state = "conditioned" on its [data.dem.sources] entry.'
+since = "2.0.0"
 sealed = "drop"
 rule = "drop_the_cache_switches"
 
 [[recipe]]
 id = "solve_time_leaves_the_tables"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "The wall time of the solve is no longer a row of metrics.parquet nor of the seal. It is in profile.json, with the time of every step. A 2.0 run keeps its row, and show reads it."
+text = "The wall time of the solve is no longer a row of metrics.parquet nor of the seal. It is in profile.json, with the time of every step. A run of a pre-release keeps its row, and show reads it."
 
 [[recipe]]
 id = "restart_head_written_exact"
-since = "2.1.0"
+since = "2.0.0"
 effect = "numbers"
 quantities = ["heads@modflow6", "fluxes@modflow6"]
 text = "The start head of a run that restarts from another one is written to MODFLOW 6 as a double precision binary array, and its lake stages with all their digits, no longer rounded as text. Heads move by about 1e-9 m and lake stages by up to 5e-9 m."
 
 [[bug]]
 id = "restart_read_the_rounded_head"
-since = "2.1.0"
-versions = "<2.1.0"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["start@restart_from"]
 text = "A run started from flow.restart_from read the last head of the earlier run as stored, rounded to 2^-17 under the compact precision, up to 0.8 mm on 100 m of head. It now reads final_state, in double precision."
 
 [[bug]]
 id = "cyclic_spinup_restarted_the_lake"
-since = "2.1.0"
-versions = "<2.1.0"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["start@spinup_cyclic_lake"]
 text = "The cyclic spin-up carried the heads from one cycle to the next and restarted every lake from its initial_stage, so the lake never settled. Each cycle now starts from the final stage of the previous one."
 
 [[recipe]]
 id = "restart_reach_stage_under_sfr_storage"
-since = "2.1.0"
+since = "2.0.0"
 effect = "numbers"
 quantities = ["heads@modflow6", "fluxes@modflow6"]
-text = "MODFLOW 6 with SFR storage: a run that restarts from another one, and each window of a chain, gives each reach the stage it ended on as INITIALSTAGES, read from final_state, where the reach used to start from the stage the package computes. On a two-window chain the head of window 2 moves by about 1e-4 m, and the chain then differs from the run in one piece by 6e-10 m. A source run of 2.0 has no final_state, and its reaches start as before."
+text = "MODFLOW 6 with SFR storage: a run that restarts from another one, and each window of a chain, gives each reach the stage it ended on as INITIALSTAGES, read from final_state, where the reach used to start from the stage the package computes. On a two-window chain the head of window 2 moves by about 1e-4 m, and the chain then differs from the run in one piece by 6e-10 m. A source run of a pre-release of 2.0 has no final_state, and its reaches start as before."
 
 
-# The run seal of 2.0.0 (manifest_version = 3) read by run_seal_v3.
+# The run seal of a pre-release of 2.0 (manifest_version = 3) read by run_seal_v3.
 
 [[migration]]
 document = "manifest"
 old = "identity.config_hash"
-instead = "identity.config_hash carried the solution key of the run. Identity.solution_key and Identity.request_id carry it since 2.1.0."
+instead = "identity.config_hash carried the solution key of the run. Identity.solution_key and Identity.request_id carry it since 2.0.0."
 sealed = "drop"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "manifest"
 old = "config.hash"
-instead = "The hash of the configuration is Identity.solution_key since 2.1.0, which also carries the code, the solver binaries and the key package versions."
+instead = "The hash of the configuration is Identity.solution_key since 2.0.0, which also carries the code, the solver binaries and the key package versions."
 sealed = "drop"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "manifest"
@@ -533,39 +533,39 @@ key = "artifacts[*].role"
 old_value = "other"
 new_value = "inputs"
 rule = "inputs_artifact_role"
-since = "2.1.0"
+since = "2.0.0"
 
-# The identity block of 2.0.0, in a .meta.json sidecar, a Zarr attribute, a
+# The identity block of a pre-release of 2.0, in a .meta.json sidecar, a Zarr attribute, a
 # Parquet footer, a PNG chunk or a GeoPackage row.
 
 [[migration]]
 document = "identity"
 old = "config_hash"
-instead = "Identity.solution_key and Identity.request_id carry the solution key of the run since 2.1.0."
+instead = "Identity.solution_key and Identity.request_id carry the solution key of the run since 2.0.0."
 sealed = "drop"
-since = "2.1.0"
+since = "2.0.0"
 
-# The job seal of 2.0.0 (schema = "hmp-manifest/v2") read by read_job_seal.
+# The job seal of a pre-release of 2.0 (schema = "hmp-manifest/v2") read by read_job_seal.
 
 [[migration]]
 document = "job.manifest"
 old = "job_id"
 new = "request_id"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "job.manifest"
 old = "artifacts[*].mediaType"
 new = "artifacts[*].media_type"
-since = "2.1.0"
+since = "2.0.0"
 
 [[migration]]
 document = "job.manifest"
 old = "schema"
-instead = "A job seal carries manifest_version = 4 and profile = \"job\" since 2.1.0, and each artifact names its role."
+instead = "A job seal carries manifest_version = 4 and profile = \"job\" since 2.0.0, and each artifact names its role."
 sealed = "drop"
 rule = "job_artifact_role"
-since = "2.1.0"
+since = "2.0.0"
 
 # The initial stage of a lake had another name in a pre-release of 2.0. The refusal names the key that replaces it.
 [[migration]]
@@ -576,24 +576,24 @@ since = "2.0.0"
 
 [[recipe]]
 id = "seal_v4_one_model"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "A run seal and a job seal are one document, manifest_version = 4 with profile = \"run\" or \"job\". A run seal carries the digests of its values and one lineage block, and its identity names the run by solution_key and request_id instead of config_hash; a job seal carries the request id, the process and the input set it read. A version 3 run seal and an hmp-manifest/v2 job seal are read in memory, and the file is never rewritten."
 
 [[recipe]]
 id = "seal_hashes_the_values"
-since = "2.1.0"
+since = "2.0.0"
 effect = "identity"
 quantities = []
 text = "A run seal carries one values/1 digest per array of fields.zarr, per array of final_state/ and per floating column of every table, simulation and parameters included, with the wall-clock row of metrics left out. A field rounded at write time is hashed on the float64 values the writer received, kept per step in the facts of the run. Two runs of the same values seal the same digests, verify_artifacts still compares bytes only, and no value of an ordinary run moves."
 
 [[recipe]]
 id = "replay_plays_then_classes"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
-text = "A replay plays the sealed run again, then compares its values to the seal: bit when every field, every column of a quantity and the final state hash the same in double precision, deviation otherwise, with the size of each difference, the keys added and removed, the basis of the comparison and the changes of this register it crossed. A source sealed before 2.1.0 is compared on the stored values of both runs, and a final_state/ array it could not hold is listed as added without making the replay a deviation. A moved default or another solver binary no longer refuses a replay, it is written in the lineage. Only --strict refuses a deviation, and an input with another digest is still refused."
+text = "A replay plays the sealed run again, then compares its values to the seal: bit when every field, every column of a quantity and the final state hash the same in double precision, deviation otherwise, with the size of each difference, the keys added and removed, the basis of the comparison and the changes of this register it crossed. A source sealed by a pre-release is compared on the stored values of both runs, and a final_state/ array it could not hold is listed as added without making the replay a deviation. A moved default or another solver binary no longer refuses a replay, it is written in the lineage. Only --strict refuses a deviation, and an input with another digest is still refused."
 
 
 # The one-row table of a run loses the hash of its configuration, which the
@@ -601,24 +601,24 @@ text = "A replay plays the sealed run again, then compares its values to the sea
 
 [[recipe]]
 id = "simulation_table_leaves_the_config_hash"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "simulation.parquet loses its config_hash column and keeps version v3: an old reader never asked for that column, and a new reader ignores the column of a 2.0.0 table. refhash/1 already excluded config_hash from that table, so no reference moves."
+text = "simulation.parquet loses its config_hash column and keeps version v3: an old reader never asked for that column, and a new reader ignores the column of a table of a pre-release. refhash/1 already excluded config_hash from that table, so no reference moves."
 
 [[recipe]]
 id = "seal_copies_the_mesh"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "The seal of a run copies the mesh product it read into mesh/ of its directory, as mesh.json and mesh.npz, and lists that folder in its inventory with the digest of its tree. A replay of an engine that cannot rebuild its mesh bit for bit reads the mesh sealed beside its source when its tree still hashes to the seal and its identity matches the request, logs reused = sealed, and seals those bytes in its own mesh/; otherwise it builds again. A run sealed before 2.1.0 has no mesh/ and a replay reads the store."
+text = "The seal of a run copies the mesh product it read into mesh/ of its directory, as mesh.json and mesh.npz, and lists that folder in its inventory with the digest of its tree. A replay of an engine that cannot rebuild its mesh bit for bit reads the mesh sealed beside its source when its tree still hashes to the seal and its identity matches the request, logs reused = sealed, and seals those bytes in its own mesh/; otherwise it builds again. A run sealed by a pre-release has no mesh/ and a replay reads the store."
 
 
 # The replay verb, the values it classes and the mesh it reads.
 
 [[recipe]]
 id = "replay_is_its_own_verb"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "hmp replay REF plays a sealed run or a published copy again, and --strict refuses a value that did not reproduce its source before the seal. hmp run --frozen on the config.toml of a sealed run or of a published copy is refused and names the verb; it used to replay them, and a copy no longer replays through hmp run."
@@ -628,10 +628,10 @@ text = "hmp replay REF plays a sealed run or a published copy again, and --stric
 
 [[recipe]]
 id = "delivery_lines_in_published"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "A run delivers the files of an [[export]] block that names deliver_to once it is sealed, to a local or UNC folder or an ftp, ftps or sftp address. Each line of published.jsonl now says kind = \"copy\" or \"delivery\" (hydromodpy.published.v2); a line written by HydroModPy 2.0 is refused with a sentence that names this form. No number of a run changes."
+text = "A run delivers the files of an [[export]] block that names deliver_to once it is sealed, to a local or UNC folder or an ftp, ftps or sftp address. Each line of published.jsonl now says kind = \"copy\" or \"delivery\" (hydromodpy.published.v2); a line written by a pre-release of 2.0 is refused with a sentence that names this form. No number of a run changes."
 
 
 # A calibration journal of events, the version of its trial series and the
@@ -639,208 +639,195 @@ text = "A run delivers the files of an [[export]] block that names deliver_to on
 
 [[recipe]]
 id = "trial_journal_in_events"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "The trial journal writes one line per event, schema hydromodpy.trial.v3: proposed when the optimizer asks, finished with the cost, its components, their rule and window and where the time went, linked when the trial becomes a run. A reader keeps the highest event of each trial. A 2.0 line reads as a finished trial."
+text = "The trial journal writes one line per event, schema hydromodpy.trial.v3: proposed when the optimizer asks, finished with the cost, its components, their rule and window and where the time went, linked when the trial becomes a run. A reader keeps the highest event of each trial. A line of a pre-release reads as a finished trial."
 
 [[recipe]]
 id = "session_names_its_optimizer"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "session.json names, for each phase, the options of its search method resolved to their defaults, the seed the session received, the seed each restart was given and the versions of the libraries the method runs on. The method itself stays in method. A 2.0 session.json has none and still reads."
+text = "session.json names, for each phase, the options of its search method resolved to their defaults, the seed the session received, the seed each restart was given and the versions of the libraries the method runs on. The method itself stays in method. A session.json of a pre-release has none and still reads."
 
 [[recipe]]
 id = "trial_series_carry_their_version"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "Each file of trial_series/ written by a calibration carries hmp.schema_version = \"hydromodpy.trial_series.v1\" and hydromodpy_version in its footer. The columns and the values are the same. A file without the key, written by 2.0.0, is read as v1, and a version this code does not know is refused by name."
+text = "Each file of trial_series/ written by a calibration carries hmp.schema_version = \"hydromodpy.trial_series.v1\" and hydromodpy_version in its footer. The columns and the values are the same. A file without the key, written by a pre-release of 2.0, is read as v1, and a version this code does not know is refused by name."
 
 [[recipe]]
 id = "run_level_decides_what_is_kept"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "A run keeps what its level asks. A kept calibration trial is research: it keeps its head, its final state and the per-cell budget terms its criterion reads, and draws no figure and writes no export. Every other run is a result and keeps the whole per-cell budget unless keep_per_cell_budget = false, so the best of an earlier phase keeps what the project asks instead of the terms its figures read. No value changes."
 
 [[recipe]]
 id = "face_flows_on_demand"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "[simulation.results] keep_face_flows = true keeps the flow between each pair of connected cells, once per connection, in face_flow beside connection_cells, under MODFLOW 6 and MODFLOW-NWT; a flow that does not write it is refused. About 350 MB in float32 on the daily six-year run of example 04, where FLOW-JA-FACE weighs 1.87 GB in float64."
 
 [[recipe]]
 id = "identical_run_needs_its_level"
-since = "2.1.0"
+since = "2.0.0"
 effect = "identity"
 quantities = []
 text = "A run is skipped only for an identical completed run of its level or above. A kept calibration trial moved under runs/ no longer stands for a run that was asked, which then runs."
 
 [[recipe]]
 id = "gc_measures_and_purges"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "hmp catalog gc measures the project, removes the scratch of dead attempts and what the earlier attempts of sealed runs hold beside their outcome.json, removes the product keys over the store cap that its dry run lists, and removes fields.zarr of the kept trials that reached the project more than 90 days ago, all but the best of a session that names one, keeping their seal, mesh, tables, final state and series; purged.json says what left and when."
 
 
-# Edition 2.1 writes the series of every trial by default.
-
-[[default]]
-id = "trial_series_by_default"
-since = "2.1.0"
-edition = "2.1"
-key = "calibration.persist_trial_series"
-old = false
-new = true
-quantities = []
-text = "Under edition 2.1, a calibration writes the scored series of every trial to sessions/<case>/trial_series/ by default, about 2 kB per trial on the island case. A document without edition is of edition 2.0 and keeps false, and a calibration document of that edition receives false as a written value, so the value enters its identity. A document with no [calibration] section, a simulation for one, keeps none."
-
-
-# Edition 2.1 writes the project index under its lock and publishes a copy with its results and inputs.
+# 2.0.0 writes the project index under its lock and publishes a copy with its results and inputs.
 
 [[recipe]]
 id = "index_written_under_its_lock"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "One process at a time writes the project index .hmp/index.duckdb, under .hmp/index.duckdb.lock, which names its process, its host and its date and is taken over when that process died on this host or after 10 minutes without renewal; a pass no longer drops a run another pass indexed meanwhile. The index is written in DuckDB blocks of 16 KiB, 2.6 MB for a project of 100 runs instead of 14.7 MB, opening a project builds a missing index, metrics.metric_name is now metric as in metrics.parquet, and cases.bytes holds the size of each directory. The ledger of figures/ and exports/ takes the same kind of lock on every system. No value of a run changes."
 
 [[recipe]]
 id = "publish_carries_inputs_and_results"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "hmp publish takes along the results (fields.zarr, tables.parquet, final_state/), the inputs with INSTALL.toml, the sealed mesh and products.json by default, and writes .zenodo.json beside the RO-Crate; --without results and --without inputs leave them out, and --with is refused for a copy with a sentence that names --without. No value changes."
 
 [[recipe]]
 id = "replay_deviation_is_not_published"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "hmp publish refuses a replay that is not classed bit, a deviation or a replay of a copy without values, because a published copy states that it gives the sealed numbers; hmp publish . leaves such a replay out and names it."
 
 
-# Edition 2.1 reads the stream criterion once, scores a promoted run by its rule, labels by rule 3 and carries licences as facts.
+# 2.0.0 reads the stream criterion once, scores a promoted run by its rule, labels by rule 3 and carries licences as facts.
 
 [[recipe]]
 id = "stream_criterion_read_once"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "The stream criterion reads each of its inputs once, for a trial and for the figure drawn from the run. The run keeps mesh/open_water, the cells of open water the criterion leaves out of both supports, and mesh/catchment_cells, the cells whose center the catchment outline covers, beside the mean recharge it already kept. A figure takes the centers of the solver, the open water and the outline of the trial, not the polygon centroids and the delineated polygon, so on a mesh whose seeds are not the centroids it draws the partition the trial scored (5 cells of 56 moved with seeds 3 m off on cells of 25 m, none on a quad grid). It refuses a run that kept no mean recharge when the seepage threshold is above zero, and a run that kept no mesh/open_water, with a sentence that says to replay it. frac_minimal_outside_maximal, a diagnostic of the journal, is read on the scored cells and moves from 0.6883 to 0.6842 with 1 % of open water. No value of metrics.parquet changes."
 
 [[recipe]]
 id = "one_pairing_scores_the_promoted_run"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "A calibration trial and the run it promotes pair their series by one function, so on the same series they keep the same periods and give the same score, bit for bit (647, 19 and 727 pairs on a daily discharge, a monthly discharge and a daily head). A run a session promoted also gets the rows of each calibration period of its seal in metrics.parquet, with window_role calibration and metric_rule_version, written before the seal. These rows score the station of [metrics] on the days of the case, or every paired station when [metrics] names none, and not the observations the search fitted. The headline rows of [metrics] do not change, so the new rows are values a replay adds and no existing value moves."
 
 [[recipe]]
 id = "promoted_run_seals_its_objective"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "The calibrated_by block of the seal of a promoted run gains rule, the version of the metric rule the cost of its case was read under, and components, the parts of that cost without the validation cost, which keeps its own field. The block keeps the schema hydromodpy.checks.v2, since both fields are optional, and a seal written before carries null and an empty table. No value changes."
 
 [[recipe]]
 id = "label_rule_3"
-since = "2.1.0"
+since = "2.0.0"
 effect = "label"
 quantities = []
 text = "Labels follow rule 3. A promoted run is calibrated or evaluated only when a window was scored: a calibration period of its seal, the headline window with enough samples, or the single state of a steady run whose session read a finite cost. A transient run promoted without a scored window is now exploratory, with the reason no_scored_window, and a steady calibration stays calibrated. A parameter on a bound of its range adds the reason bound_reached to any label, last, without changing it. Each reason is a code with a sentence in English and in French, and the English sentences are those of rule 2."
 
 [[recipe]]
 id = "licence_is_a_carried_fact"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "hmp publish --public warns instead of refusing when the project declares no [publication] license, and when the copy carries its inputs it warns and names each input that has no licence. The copy is written and states LicenseRef-undetermined for what has no licence. hmp replay of a published copy installs the files a provider delivered by their sha256 in the workspace of the project, where it used to refuse them. A delivered file whose destination holds other bytes is still refused, and nothing is written. A run states the roll-up of the licences its inputs.json entries carry, read from the sidecar of each file when the run recorded it, where it used to look a loaded record up by provider. A source that reads no file (constant, synthetic, a record built in memory) and a record read from a product of the run write no entry, so they add no licence. A run that read such a source beside files that all carry one licence states that licence, where it used to state LicenseRef-undetermined."
 
 [[recipe]]
 id = "basin_budget_split_per_element"
-since = "2.1.0"
+since = "2.0.0"
 effect = "numbers"
 quantities = ["fluxes@modflow6", "fluxes@modflow_nwt", "fluxes@boussinesq"]
 text = "The catchment series and budget_over count the inflow and the outflow of each element (layer, cell) on its own, as the extractors do, where the catchment series summed the layers of a cell first. A drain only leaves the aquifer, so the discharge does not move: 0 on the six reference runs and on two runs of example 04, all one layer. On a multilayer run the inflow and the outflow of a term whose sign changes between layers move, and their difference does not."
 
 [[recipe]]
 id = "plan_in_one_table"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "A plan keeps its cases and the cells of their sites in plan/<hash>/cases.csv beside plan.json (schema hydromodpy.plan.v2), where 2.0 wrote sites.parquet and cases.parquet. The hash of a plan now starts from its schema, so every project gets a new hash. A plan written by 2.0 is refused with the command that writes it again, hmp project plan."
+text = "A plan keeps its cases and the cells of their sites in plan/<hash>/cases.csv beside plan.json (schema hydromodpy.plan.v2), where a pre-release wrote sites.parquet and cases.parquet. The hash of a plan now starts from its schema, so every project gets a new hash. A plan written by a pre-release of 2.0 is refused with the command that writes it again, hmp project plan."
 
 [[recipe]]
 id = "basin_budget_non_finite_elements"
-since = "2.1.0"
+since = "2.0.0"
 effect = "numbers"
 quantities = ["fluxes@modflow6", "fluxes@modflow_nwt", "fluxes@boussinesq"]
-text = "The catchment series and budget_over drop a non-finite element (layer, cell) alone, where 2.0 dropped the whole cell when one of its layers held a NaN, so the discharge of a multilayer run whose drain cell holds a NaN in one layer now counts its finite layers. A time step with no finite element under the weights gives NaN, where 2.0 gave 0, and a family such as storage is NaN on a step where one of its terms is NaN. A run of one layer with finite fluxes does not move: 0 on the six reference runs."
+text = "The catchment series and budget_over drop a non-finite element (layer, cell) alone, where a pre-release dropped the whole cell when one of its layers held a NaN, so the discharge of a multilayer run whose drain cell holds a NaN in one layer now counts its finite layers. A time step with no finite element under the weights gives NaN, where a pre-release gave 0, and a family such as storage is NaN on a step where one of its terms is NaN. A run of one layer with finite fluxes does not move: 0 on the six reference runs."
 
 [[recipe]]
 id = "root_interval_counts_points"
-since = "2.1.0"
+since = "2.0.0"
 effect = "numbers"
 quantities = ["metrics"]
-text = "The root interval of a bisection counts in n_trials and n_within the distinct points of the search variable that solved, where 2.0 counted the solved trials, so a point solved twice counts once and keeps its first cost. 0 cases out of 3,000 searches move."
+text = "The root interval of a bisection counts in n_trials and n_within the distinct points of the search variable that solved, where a pre-release counted the solved trials, so a point solved twice counts once and keeps its first cost. 0 cases out of 3,000 searches move."
 
 [[recipe]]
 id = "renders_carry_the_label"
-since = "2.1.0"
+since = "2.0.0"
 effect = "label"
 quantities = []
 text = "The figures and the data exports of a run are written after its seal, from the sealed run, so each one carries the label of the day. The steps of a run end with derive, export, seal, display: the export step only drops the solver files and cleans the scratch, the data exports and the metadata views follow the seal, then the figures. The footer of a figure reads the site, the period, the HydroModPy version, then the label, the rule it follows and the date, as calibrated, rule 3, 2026-11-11, and stays unlabelled on a directory without a seal. A figure or an export that fails after the seal leaves the run sealed and completed, and the command exits with the category of the display or export error and names hmp viz show or hmp export. The seal no longer lists figures/, exports/ and report/, and the STAC view of a run no longer carries a figure asset. No value of a result changes."
 
 [[recipe]]
 id = "catchment_report_reads_a_sealed_run"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "hmp report catchment reads a sealed run, and an overview run of the same site for the context panels, with the options --preset research or management, --lang, --station and --strict. The report is written by one engine that replaces the two block renderers, in two presets. The research preset writes a Method block first, then the page at three levels with the figures the preset names, all registered figures, and report.json, which replaces block_report_manifest.json and block_report_postflight.json and lists each figure with its file or null and the required figures that are missing. The figures the run did not draw are drawn from the [display] it sealed. The management preset writes one page, report/sheet-en or report/sheet-fr, with the label and its reasons, the method text, three figures, the headline score of each station and the inputs with a warning for each one whose licence is undetermined. A report TOML, with its [report] and [layout] tables, and the flags --run-overview, --run-simulation, --context-only, --report-only, --stream-run-logs and --strict-figure-postflight are refused with a sentence that names hmp run and hmp report catchment RUN. The preset generic is gone. The variable HMP_OVERVIEW_HTML_REVIEW_LEVELS is gone and the pages of the levels are always written. No value of a result changes."
 
 [[recipe]]
 id = "overview_keeps_its_inventory"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "The seal of a data overview writes tables.parquet/data_inventory.parquet, with one row per data family, per station and per well (row_kind, family, source, item_id, name, x, y, crs_epsg, first, last, records, mean_value, unit), and lists the inputs it loaded in inputs.json as a simulation does. The stats card, the station table and the page are drawn from these rows, so a count the page shows can be read from the sealed directory. The page is written after the seal from the sealed run, and the review pages are always written, so the variable HMP_OVERVIEW_HTML_REVIEW_LEVELS is no longer read. No simulation value changes and no run of a simulation writes the new table."
 
 [[recipe]]
 id = "windows_project_folder_is_bounded"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "On Windows a project folder longer than 99 characters is refused when the project is created and when a run or a calibration session takes its folder, before anything is computed: a project writes paths up to 160 characters below its folder, and MODFLOW 6 and DuckDB open no path longer than 259. A geographic feature file keeps its name on every system instead of a hash under a long Windows path. Nothing changes on Linux or macOS, and no value of a run changes."
 
 [[recipe]]
 id = "image_in_provenance"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
 text = "A run played inside the HydroModPy image writes the image tag and digest under environment.image of provenance.json. The tag comes from the image, the digest from HMP_IMAGE_DIGEST, which the server requires when it starts. A run that finds a malformed digest keeps going and seals it under environment.image.digest_refused. A run outside an image writes the same provenance.json as before, and a replay in another image names the digest change in its lineage."
 
 [[recipe]]
 id = "undeclared_writes_refused"
-since = "2.1.0"
+since = "2.0.0"
 effect = "refusal"
 quantities = []
 text = "A run refuses with DataContractViolation a field or a table that its backend adds to the store outside its writes, checked after the extract step, and a simulated series whose name neither the series registry nor the field registry describes, at write time. A LAK output sidecar that names a quantity no lake series holds, as storage before the rename, is refused at extract. A run read from disk is never judged."
 
 [[recipe]]
 id = "lake_storage_series"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "A lake writes the storage term of its water balance as the series lake_storage under its lake station, where a 2.0.0 run wrote storage. The name storage now names only the budget field of the aquifer. The value and its MODFLOW 6 sign do not change."
+text = "A lake writes the storage term of its water balance as the series lake_storage under its lake station, where a run of a pre-release wrote storage. The name storage now names only the budget field of the aquifer. The value and its MODFLOW 6 sign do not change."
 
 [[recipe]]
 id = "boussinesq_model_name_is_the_simulation"
-since = "2.1.0"
+since = "2.0.0"
 effect = "layout"
 quantities = []
-text = "A Boussinesq run names its solver folder and the model_name of its solver summary after the simulation, as the MODFLOW backends do, where a 2.0.0 run wrote the process and the solver joined by two underscores, as flow_main__boussinesq. No value of a result changes."
+text = "A Boussinesq run names its solver folder and the model_name of its solver summary after the simulation, as the MODFLOW backends do, where a run of a pre-release wrote the process and the solver joined by two underscores, as flow_main__boussinesq. No value of a result changes."

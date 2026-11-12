@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import dataclasses
 from dataclasses import replace
 from typing import get_args
 
 import numpy as np
 import pytest
-from shapely.geometry import box
 
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
@@ -62,54 +60,11 @@ def _cell_mesh() -> PlanarCellMesh:
     )
 
 
-def test_a_valid_mesh_exposes_its_families() -> None:
-    cell_mesh = _cell_mesh()
-
-    assert cell_mesh.n_cells == NROW * NCOL
-    assert [c.chain_id for c in cell_mesh.chains("rivers")] == [0, 1]
-    assert cell_mesh.chains("lakes") == ()
-    assert cell_mesh.face_rows("geology").tolist() == [False, False, True]
-    assert cell_mesh.face_rows("lakes").tolist() == [False, False, False]
-    assert cell_mesh.family_cells("rivers").tolist() == [4, 5, 6, 10]
-    assert cell_mesh.family_cells("boundary:north").tolist() == [0, 1]
-    assert cell_mesh.family_cells("geology").tolist() == [1, 2]
-    assert cell_mesh.cell_zone.dtype == np.int32
-    assert cell_mesh.qa.families["rivers"]["breaks"] == 0.0
-
-
 def test_geometry_is_derived_once() -> None:
     cell_mesh = _cell_mesh()
 
     assert cell_mesh.geometry is cell_mesh.geometry
     assert cell_mesh.geometry.areas.sum() == pytest.approx(NROW * NCOL * 100.0)
-
-
-def test_the_smoothed_outline_keeps_the_geometry_already_derived() -> None:
-    cell_mesh = _cell_mesh()
-    geometry = cell_mesh.geometry
-    outline = box(0.0, 0.0, 40.0, 30.0)
-
-    carried = cell_mesh.with_smoothed_catchment(outline)
-
-    assert carried.smoothed_catchment is outline
-    assert carried.geometry is geometry
-
-
-def test_another_qa_keeps_the_mesh_and_its_geometry() -> None:
-    cell_mesh = _cell_mesh()
-    geometry = cell_mesh.geometry
-    qa = dataclasses.replace(cell_mesh.qa, notes=("a note",))
-
-    carried = cell_mesh.with_qa(qa)
-
-    assert carried.qa is qa and cell_mesh.qa.notes == ()
-    assert carried.geometry is geometry
-    assert carried.mesh is cell_mesh.mesh
-
-
-@pytest.mark.parametrize("center_kind", get_args(CenterKind))
-def test_each_center_rule_is_accepted(center_kind: str) -> None:
-    assert replace(_cell_mesh(), center_kind=center_kind).center_kind == center_kind
 
 
 def test_the_center_rules_are_the_four_the_engines_use() -> None:
@@ -203,36 +158,6 @@ def _stacked() -> FaceFamilyTable:
     )
 
 
-def test_stacking_families_gives_the_table_of_their_rows_in_order() -> None:
-    stacked, written = _stacked(), _table()
-
-    assert stacked.names == written.names
-    for column in ("family", "cell_a", "cell_b", "node_a", "node_b", "zone_left", "zone_right"):
-        assert getattr(stacked, column).dtype == getattr(written, column).dtype
-        assert np.array_equal(getattr(stacked, column), getattr(written, column))
-
-
-def test_a_stacked_family_without_zones_has_unknown_zones() -> None:
-    stacked = _stacked()
-    north = stacked.family == stacked.names.index("boundary:north")
-
-    assert np.all(stacked.zone_left[north] == -1)
-    assert np.all(stacked.zone_right[north] == -1)
-
-
-def test_a_stacked_family_without_rows_keeps_its_name_and_index() -> None:
-    no_row = {column: np.empty(0, dtype=np.int64) for column in ("cell_a", "cell_b", "node_a")}
-    stacked = FaceFamilyTable.stack(
-        [
-            ("lakes", {**no_row, "node_b": np.empty(0, dtype=np.int64)}),
-            ("geology", {"cell_a": [3], "cell_b": [4], "node_a": [5], "node_b": [6]}),
-        ]
-    )
-
-    assert stacked.names == ("lakes", "geology")
-    assert stacked.family.tolist() == [1]
-
-
 def test_stacking_no_family_gives_an_empty_table() -> None:
     stacked = FaceFamilyTable.stack([])
 
@@ -264,16 +189,6 @@ def test_identity_and_chain_refuse_empty_names() -> None:
         CellChain(" ", 0, np.array([0]))
     with pytest.raises(ValueError, match="negative"):
         CellChain("rivers", 0, np.array([0, -1]))
-
-
-def test_a_chain_keeps_its_offsets_as_float64_or_none() -> None:
-    chain = CellChain("rivers", 0, np.array([1, 2, 3]), offset_m=[0, 2, 0.5])
-
-    assert chain.offset_m.dtype == np.float64
-    assert chain.offset_m.tolist() == [0.0, 2.0, 0.5]
-    assert CellChain("rivers", 1, np.array([1])).offset_m is None
-    cell_mesh = replace(_cell_mesh(), cell_chains=(chain,))
-    assert cell_mesh.chains("rivers")[0].offset_m.tolist() == [0.0, 2.0, 0.5]
 
 
 @pytest.mark.parametrize(

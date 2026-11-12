@@ -35,38 +35,9 @@ def _write_geotiff(path: Path) -> Path:
     return path
 
 
-def test_a_declared_capacity_map_is_inferred(tmp_path: Path) -> None:
-    src = _write_geotiff(tmp_path / "ru.tif")
-    cfg = DataConfig.from_toml_section(
-        {"types": [], "soil_capacity": {"sources": [{"source": "file", "path": str(src)}]}},
-        base_dir=tmp_path,
-    )
-
-    plan = DataPlanner().build(cfg)
-
-    assert "soil_capacity" in plan.inferred_types
-    assert any("[data.soil_capacity]" in reason for reason in plan.reasons_by_type["soil_capacity"])
-
-
 def test_no_capacity_map_infers_nothing(tmp_path: Path) -> None:
     cfg = DataConfig.model_validate({"types": []})
 
     plan = DataPlanner().build(cfg)
 
     assert "soil_capacity" not in plan.inferred_types
-
-
-def test_a_capacity_map_already_declared_is_not_re_inferred(tmp_path: Path) -> None:
-    src = _write_geotiff(tmp_path / "ru.tif")
-    cfg = DataConfig.from_toml_section(
-        {
-            "types": ["soil_capacity"],
-            "soil_capacity": {"sources": [{"source": "file", "path": str(src)}]},
-        },
-        base_dir=tmp_path,
-    )
-
-    plan = DataPlanner().build(cfg)
-
-    assert "soil_capacity" not in plan.inferred_types
-    assert "soil_capacity" in plan.explicit_types

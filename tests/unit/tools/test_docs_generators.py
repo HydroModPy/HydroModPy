@@ -243,11 +243,12 @@ def test_the_snapshot_of_2_0_0_is_the_newest_release_and_names_its_commit() -> N
     data = json.loads((folder / "fields-2.0.0.json").read_text())
 
     assert newest == "2.0.0"
-    assert "d8d099a28" in data["meta"]["source"]
-    # A field of 2.0.0 that the resolved file of a release candidate did not write yet.
+    assert "tree prepared for the 2.0.0 tag" in data["meta"]["source"]
+    # A field the 2.0.0 tree has and the alphas did not.
     assert data["nodes"]["flow.sinks_sources.recharge.factor"]["default"] == "1.0"
-    # The tables the 2.1.0 grammar moves are still at their 2.0.0 place.
-    assert {"modflow6", "modflownwt"} <= set(data["nodes"])
+    # The solver tables sit under [solver], where the alphas had them at the top.
+    assert {"solver.modflow6", "solver.modflow_nwt"} <= set(data["nodes"])
+    assert not {"modflow6", "modflownwt"} & set(data["nodes"])
 
 
 def test_a_key_of_the_report_file_is_not_a_change_of_the_project_file(registry: dict) -> None:

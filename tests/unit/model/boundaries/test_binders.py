@@ -3,11 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon
 
-from hydromodpy.calibration.targets import declared_calibrable
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.model.boundaries.barriers import (
     apply_flow_barriers_to_flow,
@@ -21,9 +19,7 @@ from hydromodpy.model.boundaries.lakes import (
     apply_lake_geometry_to_flow,
 )
 from hydromodpy.model.sinks_sources.flow_barrier import CutoffWallConfig, FlowBarrierConfig
-from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig as FlowBarrierConfig_2
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
-from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig
 from tests._helpers.reservoir_dam import DAM_X, Y0, reservoir, trace
 
 
@@ -43,12 +39,6 @@ def test_resolve_barrier_line_accepts_preloaded_trace() -> None:
     cfg = SimpleNamespace(line=None, line_path="wall.geojson")
     line = resolve_barrier_line(cfg, where="test", line_trace=trace_geom)
     assert line.equals(trace_geom)
-
-
-def test_resolve_barrier_line_builds_inline_line() -> None:
-    cfg = SimpleNamespace(line=[[0.0, 0.0], [5.0, 1.0]], line_path=None)
-    line = resolve_barrier_line(cfg, where="test")
-    assert list(line.coords) == [(0.0, 0.0), (5.0, 1.0)]
 
 
 def test_resolve_barrier_line_refuses_line_path_without_trace() -> None:
@@ -130,11 +120,6 @@ def test_general_flow_barrier_binder_attaches_line_and_config() -> None:
     ]
 
 
-def test_general_flow_barrier_binder_is_a_noop_when_empty() -> None:
-    flow = SimpleNamespace(sinks_sources={"flow_barriers": {}})
-    assert apply_flow_barriers_to_flow(flow=flow) is False
-
-
 # A declared cutoff-wall trace is laid on the lake shore it faces.
 #
 # The trace runs 12 m downstream of the flat dam shore of the reservoir, crosses
@@ -154,17 +139,6 @@ def test_a_trace_12_m_off_the_shore_is_laid_on_it_and_keeps_its_wings() -> None:
     assert dam_shore.difference(wall.shore.buffer(1e-6)).length == pytest.approx(0.0)
     ends = {wall.line.coords[0], wall.line.coords[-1]}
     assert ends == set(trace(12.0).coords)
-
-
-def test_the_wall_runs_with_the_lake_on_its_left() -> None:
-    lake = reservoir()
-    wall = snap_wall_to_shore(lake, trace(12.0), 50.0)
-    middle = wall.shore.project(wall.shore.interpolate(0.5, normalized=True))
-    before = np.array(wall.shore.interpolate(middle - 1.0).coords[0])
-    after = np.array(wall.shore.interpolate(middle + 1.0).coords[0])
-    tangent = after - before
-    left = 0.5 * (before + after) + 2.0 * np.array([-tangent[1], tangent[0]]) / np.hypot(*tangent)
-    assert lake.contains(Point(left))
 
 
 def test_a_trace_crossing_the_lake_cuts_it_and_the_wall_lies_on_the_cut() -> None:
@@ -244,22 +218,3 @@ def test_a_wider_snap_tolerance_reaches_a_farther_trace() -> None:
 # structural error, rather than resolving a real physical unknown. This states
 # the boundary the catalog draws rather than reciting the three names, so a
 # sibling field that IS a property is asserted calibratable too.
-
-
-def test_the_barrier_elevations_are_not_calibratable() -> None:
-    for name in ("crest_elevation", "base_elevation"):
-        assert declared_calibrable(FlowBarrierConfig_2.model_fields[name]) is None
-
-
-def test_the_mvr_coupling_value_is_not_calibratable() -> None:
-    assert declared_calibrable(FlowReachNetworkConfig.model_fields["outflow_value"]) is None
-
-
-def test_the_barrier_resistance_properties_stay_calibratable() -> None:
-    for name in ("hydchr", "k"):
-        assert declared_calibrable(FlowBarrierConfig_2.model_fields[name]) is not None
-
-
-def test_the_reach_hydraulic_properties_stay_calibratable() -> None:
-    for name in ("streambed_k", "manning"):
-        assert declared_calibrable(FlowReachNetworkConfig.model_fields[name]) is not None

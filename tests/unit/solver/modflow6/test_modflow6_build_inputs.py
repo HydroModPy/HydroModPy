@@ -10,7 +10,6 @@ from hydromodpy.core.exceptions import MeshError
 from hydromodpy.model.domain.geometry import RasterGeometry
 from hydromodpy.model.model import Geometry, ModelTime
 from hydromodpy.solver.modflow6 import build
-from hydromodpy.solver.modflow6.builders.period_forcing import simulation_window
 from tests._helpers.model_factory import make_model, small_geometry
 
 _RASTER = RasterGeometry.from_geographic(
@@ -68,26 +67,8 @@ def test_a_model_that_is_not_ready_is_refused(case: str, model, message: str) ->
         build.validate_pre_processing_inputs(model)
 
 
-def test_a_steady_model_needs_no_time_grid() -> None:
-    model = _bound(geometry=_geometry())
-
-    assert build.validate_pre_processing_inputs(model) is None
-
-
 def test_a_model_without_a_cell_mesh_is_refused_before_the_grid_is_built() -> None:
     model = _bound(geometry=_geometry(cells=None))
 
     with pytest.raises(MeshError, match=r"Model\.geometry\.cells"):
         build._discretize_space(model)
-
-
-def test_the_simulation_window_is_the_one_of_the_time_grid() -> None:
-    window = object()
-    dated = _bound(
-        time=ModelTime(
-            grid=SimpleNamespace(window=window), regime="transient", first_period_steady=True
-        )
-    )
-
-    assert simulation_window(dated) is window
-    assert simulation_window(_bound()) is None

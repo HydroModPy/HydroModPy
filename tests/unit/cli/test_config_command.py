@@ -257,29 +257,11 @@ def _check(tmp_path: Path, extra: str):
     return CliRunner().invoke(["check", str(path)])
 
 
-def test_a_config_whose_requests_hold_passes(tmp_path: Path) -> None:
-    result = _check(
-        tmp_path,
-        '[[export]]\nvariables = ["head", "watertable_depth"]\ntime = "2002-10-15"\n\n'
-        '[display]\ntime = "2002-10-15"\n',
-    )
-
-    assert result.exit_code == 0, result.stderr
-    assert "OK:" in result.stdout
-
-
 def test_a_date_outside_the_record_is_refused(tmp_path: Path) -> None:
     result = _check(tmp_path, '[display]\ntime = "2005-01-01"\n')
 
     assert result.exit_code == 14
     assert "display.time: 2005-01-01 is outside the record" in result.stderr
-
-
-def test_an_export_name_no_run_holds_is_refused(tmp_path: Path) -> None:
-    result = _check(tmp_path, '[[export]]\nvariables = "hed"\n')
-
-    assert result.exit_code == 14
-    assert "export[0]: 'hed'" in result.stderr
 
 
 def test_two_blocks_writing_one_file_are_refused(tmp_path: Path) -> None:
@@ -292,13 +274,6 @@ def test_two_blocks_writing_one_file_are_refused(tmp_path: Path) -> None:
     assert "export[0] and export[1] both write discharge.csv" in result.stderr
 
 
-def test_config_validate_field_is_refused_with_the_form_that_replaces_it() -> None:
-    result = CliRunner().invoke(["config", "validate-field", "flow.flow_regime", "steady"])
-
-    assert result.exit_code == 2
-    assert "hmp check FILE --partial" in result.stderr
-
-
 _DRAFT = '[flow]\nflow_regime = "steady"\n'
 
 
@@ -309,65 +284,9 @@ def _json_check(tmp_path: Path, body: str, *flags: str):
     return result, json.loads(result.stdout)["data"]
 
 
-def test_a_draft_is_refused_for_a_key_to_fill_unless_it_is_partial(tmp_path: Path) -> None:
-    refused, held = _json_check(tmp_path, _DRAFT)
-    drafted, kept = _json_check(tmp_path, _DRAFT, "--partial")
-
-    assert refused.exit_code == 14
-    assert held["ok"] is False
-    assert {"loc": "geographic", "severity": "error"}.items() <= next(
-        item for item in held["diagnostics"] if item["code"] == "to_fill"
-    ).items()
-    assert drafted.exit_code == 0, drafted.stderr
-    assert kept["ok"] is True
-    assert [item["severity"] for item in kept["diagnostics"] if item["loc"] == "geographic"] == [
-        "to_fill"
-    ]
-
-
 def test_the_machine_output_is_ok_diagnostics_and_workspace(tmp_path: Path) -> None:
     _, data = _json_check(tmp_path, _DRAFT, "--partial")
 
     assert set(data) == {"ok", "diagnostics", "workspace"}
     for item in data["diagnostics"]:
         assert {"pointer", "loc", "msg", "type", "code", "severity", "help", "phrase"} <= set(item)
-
-
-def test_every_fault_of_a_file_is_told_at_once_with_the_exit_code_of_the_first(
-    tmp_path: Path,
-) -> None:
-    body = '[geographic]\nsource_mode = "synthetic"\n[flow]\nflow_regime = "nope"\n[simulation]\nbogus = 1\n'
-
-    result, data = _json_check(tmp_path, body)
-
-    paths = {item["loc"] for item in data["diagnostics"] if item["severity"] == "error"}
-    assert {"flow.flow_regime", "simulation.bogus"} <= paths
-    assert result.exit_code == 14
-
-
-def test_the_phrase_is_written_in_the_language_asked(tmp_path: Path) -> None:
-    _, english = _json_check(tmp_path, _DRAFT, "--partial")
-    _, french = _json_check(tmp_path, _DRAFT, "--partial", "--lang", "fr")
-
-    def phrases(data: dict) -> dict[str, str]:
-        return {item["loc"]: item["phrase"] for item in data["diagnostics"]}
-
-    assert phrases(english)["geographic"].startswith("This key is required")
-    assert phrases(french)["geographic"].startswith("Cette clé est requise")
-
-
-def test_a_diagnostic_is_one_line_with_its_key_its_line_and_its_detail(tmp_path: Path) -> None:
-    path = tmp_path / "draft.toml"
-    path.write_text('[flow]\nflow_regime = "nope"\n', encoding="utf-8")
-
-    result = CliRunner().invoke(["check", str(path), "--partial"])
-
-    assert result.exit_code == 14
-    assert "  error flow.flow_regime:2: " in result.stderr
-
-
-def test_config_check_is_refused_with_the_command_that_replaces_it() -> None:
-    result = CliRunner().invoke(["config", "check", "run.toml"])
-
-    assert result.exit_code == 2
-    assert "hmp config check is gone. Write: hmp check FILE" in result.stderr

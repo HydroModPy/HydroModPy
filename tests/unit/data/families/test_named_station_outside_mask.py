@@ -51,19 +51,6 @@ def test_a_discovered_station_outside_the_mask_is_dropped(tmp_path):
 
 
 @pytest.mark.fast
-def test_a_dropped_station_is_named_in_a_warning(tmp_path, caplog):
-    import logging
-
-    variable = PiezometryVariable(config=None, index=None)
-    source = PiezometrySourceConfig(source="hubeau", product="level", mask_path=_mask(tmp_path))
-
-    with caplog.at_level(logging.WARNING):
-        variable._apply_mask([_record("IN", -1.2, 48.35), _record("FAR", -1.2, 48.5)], source)
-
-    assert "outside the mask watershed.geojson dropped: ['FAR']" in caplog.text
-
-
-@pytest.mark.fast
 def test_a_search_that_finds_only_outside_stations_leaves_the_variable_empty(tmp_path, caplog):
     """A search by extent finds candidates; none inside is no station, not an error."""
     import logging

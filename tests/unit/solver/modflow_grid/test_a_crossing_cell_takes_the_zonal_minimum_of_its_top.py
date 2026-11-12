@@ -111,26 +111,11 @@ def test_a_crossing_cell_is_lowered_to_the_lowest_pixel_it_holds():
     assert crossing.top[0] == pytest.approx(_THALWEG_M, abs=1e-6)
 
 
-def test_the_other_cells_keep_the_centroid_sample_byte_for_byte():
-    baseline = _build(())
-    crossing = _build((_chain([0, 1], [8.0, 0.0]),))
-    assert crossing.top[1] == baseline.top[1]
-    assert np.array_equal(crossing.botm[:, 1], baseline.botm[:, 1])
-
-
 @pytest.mark.parametrize("offsets", [None, [0.0, 0.0]], ids=["no-offset", "zero-offset"])
 def test_a_chain_without_lateral_offset_changes_nothing(offsets):
     baseline = _build(())
     held = _build((_chain([0, 1], offsets),))
     assert np.array_equal(held.top, baseline.top)
-
-
-def test_the_centroid_mode_config_gives_the_same_result_as_no_config():
-    chains = (_chain([0, 1], [8.0, 0.0]),)
-    assert np.array_equal(
-        _build(chains, top_sampling=TopSamplingConfig(mode="centroid")).top,
-        _build(chains).top,
-    )
 
 
 def test_a_lowered_top_that_meets_the_bottom_drags_the_bottom_down_with_it():

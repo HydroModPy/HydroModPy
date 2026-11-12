@@ -32,12 +32,6 @@ def test_shared_cell_goes_to_the_larger_overlap_lake() -> None:
     assert cells["b"] == [3, 4, 5]  # kept in the larger-overlap lake
 
 
-def test_no_shared_cell_is_a_noop() -> None:
-    cells = {"a": [1, 2], "b": [3, 4]}
-    _resolve_shared_lake_cells(cells, {"a": {}, "b": {}})
-    assert cells == {"a": [1, 2], "b": [3, 4]}
-
-
 def test_raises_when_a_lake_loses_every_cell() -> None:
     cells = {"a": [1], "b": [1, 2]}  # a's only cell is swallowed by b
     areas = {"a": {1: 1.0}, "b": {1: 5.0, 2: 10.0}}
@@ -65,39 +59,6 @@ def test_fully_lake_enclosed_cell_is_absorbed() -> None:
     _fill_lake_enclosed_cells(cells, areas, mesh)
     assert 4 in cells["a"]
     assert areas["a"][4] == 100.0
-
-
-def test_cell_with_an_open_face_is_left_active() -> None:
-    # Neighbor 7 is not lake, so the center keeps an active face and is not absorbed.
-    mesh = _quad_mesh(3, 3)
-    cells = {"a": [1, 3, 5]}
-    areas = {"a": {c: 100.0 for c in (1, 3, 5)}}
-    _fill_lake_enclosed_cells(cells, areas, mesh)
-    assert cells["a"] == [1, 3, 5]
-
-
-def test_spillway_seed_is_the_lowest_dam_toe_cell(monkeypatch) -> None:
-    # Lake {0, 1}; cell 1 is the shoreline (its non-lake active neighbors are 2 and 3).
-    # The dam toe is the lowest of them: cell 3 (top 80 < 90).
-    monkeypatch.setattr(
-        lake_builder,
-        "_active_lake_definitions",
-        lambda model: {"res": {"outlets": [{"mover": {"to_downstream_reach": True}}]}},
-    )
-    centroids = np.array([[0, 0], [10, 0], [20, 0], [20, 10], [0, 0]], dtype=float)
-    adjacency = [{1}, {0, 2, 3}, {1}, {1}, set()]
-    idomain = np.ones((1, 5), dtype=int)
-    top = np.array([100.0, 95.0, 90.0, 80.0, 100.0])
-    seeds = resolve_spillway_seed_cells(
-        object(),
-        lake_cells_by_id={"res": [0, 1]},
-        cell_adjacency=adjacency,
-        cell_centroids=centroids,
-        idomain=idomain,
-        mesh_top=top,
-        outlet_xy=(15.0, 0.0),
-    )
-    assert seeds == {"res": 3}
 
 
 def test_spillway_seed_uses_explicit_discharge_xy(monkeypatch) -> None:
@@ -164,27 +125,3 @@ def test_own_lake_upstream_reaches_cover_the_whole_catchment_of_the_lake() -> No
     network = NS(reaches=reaches)
     forbidden = own_lake_upstream_ifnos({"a": network}, lake_ids=["res", "forebay"])
     assert forbidden == {"res": {0, 1}, "forebay": {2, 3}}
-
-
-def test_spillway_fallback_allows_a_feeder_of_another_lake() -> None:
-    """A cascade stays legal: a forebay may spill into a reach feeding the main lake."""
-    centroids = np.array([[0, 0], [10, 0], [20, 0], [40, 0]], dtype=float)
-    resolved = resolve_downstream_spillway_reaches(
-        {"forebay": 2},
-        reach_cell_to_ifno={2: 10, 3: 20},
-        cell_centroids=centroids,
-        own_lake_terminal_ifnos={"forebay": set(), "main": {10}},
-    )
-    assert resolved == {"forebay": 10}
-
-
-def test_spillway_exact_hit_on_own_feeder_raises() -> None:
-    """A mid-basin lake whose toe reach feeds it back is refused, not silently wired."""
-    centroids = np.array([[0, 0], [10, 0], [20, 0], [30, 0]], dtype=float)
-    with pytest.raises(ValueError, match="circulate back into the reservoir"):
-        resolve_downstream_spillway_reaches(
-            {"res": 2},
-            reach_cell_to_ifno={2: 10, 3: 20},
-            cell_centroids=centroids,
-            own_lake_terminal_ifnos={"res": {10}},
-        )

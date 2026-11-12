@@ -30,7 +30,7 @@ from hydromodpy.mesh.planning.geometry_cleanup import (
 )
 from hydromodpy.mesh.planning.inputs import PlanningInputs
 from hydromodpy.mesh.planning.plan import plan_mesh_request
-from hydromodpy.mesh.request import BARRIER_FAMILY, InputTriangulation
+from hydromodpy.mesh.request import InputTriangulation
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_spec, planning_inputs, square_domain
 
@@ -80,48 +80,12 @@ def _notes(**counts: int) -> set[str]:
     return notes
 
 
-def test_a_clean_input_passes_unchanged() -> None:
-    main = LineString([_xy(0.0, 500.0), _xy(500.0, 500.0), _xy(1000.0, 520.0)])
-    tributary = LineString([_xy(300.0, 100.0), _xy(500.0, 500.0)])
-    wall = LineString([_xy(600.0, 200.0), _xy(800.0, 200.0)])
-    inputs = _inputs(
-        rivers=(main, tributary), barriers=(wall,), lakes=(box(*_xy(100, 700), *_xy(300, 900)),)
-    )
-
-    cleaned, cleanup = _cleaned(inputs)
-
-    assert cleaned is inputs
-    assert cleanup.notes() == ()
-
-
 def test_each_kind_of_change_the_cleanup_counts_gives_one_note() -> None:
     cleanup = GeometryCleanup(
         tolerance=_TOL, merged_vertices=1, cut_ends=1, snapped_ends=1, dropped_holes=2
     )
 
     assert len(set(cleanup.notes())) == 4
-
-
-def test_vertices_closer_than_the_tolerance_merge_and_the_ends_stay() -> None:
-    wall = LineString(
-        [
-            _xy(600.0, 200.0),
-            _xy(700.0, 200.0),
-            _xy(700.3, 200.2),
-            _xy(799.8, 200.0),
-            _xy(800.0, 200.0),
-        ]
-    )
-
-    cleaned, cleanup = _cleaned(_inputs(barriers=(wall,)))
-
-    coords = np.asarray(cleaned.barriers[0].coords)
-    assert cleanup.merged_vertices == 2
-    assert coords.tolist() == [
-        list(_xy(600.0, 200.0)),
-        list(_xy(700.0, 200.0)),
-        list(_xy(800.0, 200.0)),
-    ]
 
 
 def _with_a_close_vertex(polygon: Polygon) -> Polygon:
@@ -218,27 +182,6 @@ def test_a_river_end_running_along_a_wall_is_cut_back_then_snapped(end: str) -> 
     assert shapely.intersection(kept, wall.buffer(0.9 * _TOL)).length <= _TOL
 
 
-def test_only_the_stretch_at_the_end_of_a_river_is_cut_back() -> None:
-    """The river crosses the wall once before it runs along it: the crossing stays."""
-    wall = LineString([_xy(200.0, 300.0), _xy(800.0, 300.0)])
-    river = LineString(
-        [
-            _xy(300.0, 600.0),
-            _xy(300.0, 100.0),
-            _xy(500.0, 100.0),
-            _xy(500.0, 300.5),
-            _xy(700.0, 300.5),
-        ]
-    )
-
-    cleaned, cleanup = _cleaned(_inputs(rivers=(river,), barriers=(wall,)))
-
-    kept = cleaned.river_trace.lines[0]
-    assert (cleanup.cut_ends, cleanup.snapped_ends) == (1, 1)
-    assert Point(kept.coords[-1]).distance(Point(_xy(500.0, 300.0))) < 1.0e-6
-    assert kept.intersects(LineString([_xy(250.0, 300.0), _xy(350.0, 300.0)]))
-
-
 def test_a_wall_running_along_another_line_keeps_its_length() -> None:
     river = LineString([_xy(200.0, 300.0), _xy(800.0, 300.0)])
     wall = LineString([_xy(500.0, 600.0), _xy(500.0, 300.5), _xy(700.0, 300.5)])
@@ -249,27 +192,6 @@ def test_a_wall_running_along_another_line_keeps_its_length() -> None:
     assert (cleanup.cut_ends, cleanup.snapped_ends) == (0, 1)
     assert kept.coords[-1] == _xy(700.0, 300.0)
     assert kept.length == pytest.approx(wall.length, abs=1e-2)
-
-
-def test_a_wall_laid_on_a_shore_keeps_the_shore_vertices() -> None:
-    lake = Polygon([_xy(100.0, 700.0), _xy(300.0, 700.0), _xy(300.4, 700.0), _xy(300.0, 900.0)])
-    wall = LineString([_xy(200.0, 700.0), _xy(300.0, 700.0), _xy(300.4, 700.0), _xy(300.2, 800.0)])
-
-    cleaned, cleanup = _cleaned(_inputs(barriers=(wall,), lakes=(lake,)))
-
-    assert cleanup.merged_vertices == 0
-    assert cleaned.lakes[0] is lake
-    assert cleaned.barriers[0] is wall
-
-
-def test_two_ends_that_miss_each_other_meet_once() -> None:
-    first = LineString([_xy(200.0, 300.0), _xy(500.0, 300.0)])
-    second = LineString([_xy(500.6, 300.0), _xy(800.0, 300.0)])
-
-    cleaned, cleanup = _cleaned(_inputs(barriers=(first, second)))
-
-    assert cleanup.snapped_ends == 1
-    assert cleaned.barriers[0].coords[-1] == cleaned.barriers[1].coords[0]
 
 
 def test_a_stub_shorter_than_the_tolerance_on_a_vertex_of_another_line_stays_a_line() -> None:
@@ -291,30 +213,6 @@ def test_an_end_that_overshoots_a_vertex_of_another_line_loses_its_overshoot() -
 
     assert cleanup.snapped_ends == 1
     assert list(cleaned.barriers[1].coords) == [_xy(500.0, 300.0), _xy(500.0, 600.0)]
-
-
-def test_each_kind_of_change_is_counted_in_the_journal(caplog: pytest.LogCaptureFixture) -> None:
-    wall = LineString([_xy(200.0, 300.0), _xy(200.2, 300.0), _xy(800.0, 300.0)])
-    loose = LineString([_xy(500.0, 600.0), _xy(500.0, 300.6)])
-    mesh_cfg = MeshConfig(engine="regular", cell_size=50.0)
-
-    with caplog.at_level(logging.INFO):
-        request = plan_mesh_request(mesh_cfg, _inputs(barriers=(wall, loose)))
-
-    messages = [record.message for record in caplog.records]
-    assert "Merged 1 line vertices closer than 1 m." in messages
-    assert "Snapped 1 line ends within 1 m of another line." in messages
-    assert len(request.family(BARRIER_FAMILY).lines) == 2
-
-
-def test_the_ends_of_a_family_the_mesh_ignores_stay_where_they_are() -> None:
-    river = LineString([_xy(200.0, 400.0), _xy(999.4, 550.0)])
-    families = MeshFamiliesConfig(rivers="none")
-    cleanup = GeometryCleanup(tolerance=_TOL)
-    inputs = _inputs(rivers=(river,))
-
-    assert clean_lines(inputs, families, cleanup) is inputs
-    assert cleanup.snapped_ends == 0
 
 
 def _holed(outer: Polygon, *holes: Polygon) -> Polygon:

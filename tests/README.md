@@ -21,7 +21,7 @@ tests/
 │   ├── fast/                    # routine non-regression tier
 │   ├── extensive/               # deeper end-to-end non-regression tier
 │   ├── frozen_runs/             # a run and a session as 2.0.0 stored them, never edited
-│   ├── frozen_documents/        # the other documents of 2.0.0, read or refused by name
+│   ├── frozen_documents/        # documents written before the 2.0.0 tag, read or refused by name
 │   ├── frozen_replay/           # one MODFLOW 6 run that must replay bit for bit
 │   └── reference/               # committed golden JSON files
 ├── validation/                  # scientific benchmarks (analytical, MMS)

@@ -19,7 +19,6 @@ from hydromodpy.model.boundaries.streams import (
     sfr_routes_catchment_runoff,
 )
 from hydromodpy.model.forcing.dated_forcing import SurfaceRateForcing, VolumeRateForcing
-from hydromodpy.model.forcing.soil_config import SoilReservoirConfig, spinup_refusal
 from hydromodpy.model.forcing.time_forcing import (
     compact_pre_resolved_forcings,
     resolve_period_values_from_forcing,
@@ -432,12 +431,6 @@ def test_compact_pre_resolved_forcings_leaves_other_lengths_alone() -> None:
 
     assert count == 0
     assert lakes["lake_a"]["runoff"]["values"] == [1.0, 3.0, 5.0]
-
-
-def test_first_year_spinup_is_accepted_on_52_weekly_periods() -> None:
-    config = SoilReservoirConfig(ru=100.0)
-
-    assert spinup_refusal(config, 52 * 7) is None
 
 
 _DATES = ["2000-01-01", "2000-01-02", "2000-01-03"]

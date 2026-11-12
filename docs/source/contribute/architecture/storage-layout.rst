@@ -283,7 +283,7 @@ inputs in ``inputs.json``. Its page is written after the seal, in ``runs/<overvi
 the product store into the run, as ``mesh.json`` and ``mesh.npz`` and certified by the digest of
 its tree. It weighs 28 kB on the Boussinesq reference. A replay reads it instead of asking the
 store, compares its identity as the product store does, and rebuilds when the identity differs.
-A run of 2.0 has no such folder and rebuilds.
+A run of a pre-release of 2.0 has no such folder and rebuilds.
 
 ``request.json`` is the run request of a run given as JSON or as a dict, the object that
 ``hmp run x.json`` reads. It is written whole at the claim, by one rename, and it is never
@@ -388,7 +388,7 @@ period, score window, label, label date, rule version, version, ``request_id``,
 Parquet file, ``gpkg_metadata`` of a GeoPackage, metadata and a visible footer of a figure, and a
 ``<file>.meta.json`` next to a CSV. The block keeps the schema id ``hydromodpy.identity.v1`` and
 loses ``config_hash``: ``solution_key`` holds what that field held, ``request_id`` groups the runs
-of one base, and ``solver`` names the flow backend. A block of 2.0 carries ``config_hash``, which
+of one base, and ``solver`` names the flow backend. A block of a pre-release of 2.0 carries ``config_hash``, which
 the reader ignores, and the GeoPackage reader still finds it by ``md_standard_uri``.
 
 Levels of a run
@@ -460,7 +460,7 @@ A session folder
    ├── methods.md
    ├── phases/<phase>/     session.json of the phase: status, frozen values, best, cost, windows
    ├── trials/<nnnn>/      kept trials, each shaped like a run; <nnnn>/<case_id>/ with several cases
-   ├── trial_series/       scored series, one file per trial (persist_trial_series, true by default from edition 2.1)
+   ├── trial_series/       scored series, one file per trial (persist_trial_series, true by default)
    ├── candidates/         TOML overlays of the candidates (materialize_candidates)
    ├── figures/            trajectory, cost profile, and the figures of a session
    ├── report/             index.html, report.json, review/; written by hmp calibrate or hmp show SESSION --report
@@ -534,7 +534,7 @@ Above the run
        ``cases.csv`` holds one row of text per case, the columns ``case_id``, ``site``,
        ``recipe``, ``config_hash`` and ``config_path`` then the columns of the sites table;
        ``plan/current`` names the plan in force; ``cases.csv`` has no ``status`` column, the
-       state comes from the outcomes; a plan of 2.0 is refused with ``hmp project plan``
+       state comes from the outcomes; a plan of a pre-release of 2.0 is refused with ``hmp project plan``
      - ``hmp project plan``
      - yes, never rewritten in place
    * - ``hydromodpy.lock``
@@ -578,7 +578,7 @@ the folded name. A name the code makes from a text that is not a run name (a fil
 ``case_id`` of a plan, a name of the validation cases) is folded to ASCII and lower case, then
 refused when it is still too long or reserved, and a plan whose two cases fold to one name is
 refused. Nothing is cut, because two long names with one prefix would fall into one folder. The
-rule holds for every name a run takes or continues, so a folder written by 2.0 with capital
+rule holds for every name a run takes or continues, so a folder written by a pre-release of 2.0 with capital
 letters can still be read and opened, and cannot be continued. No output path carries the
 ``sim_id`` or a part of it.
 
@@ -636,8 +636,8 @@ through that fingerprint. The table is in ``provenance.json``, block ``tool``, s
 differ say in which layer. The sha256 of a binary is kept in memory by resolved path, size and
 time, so a plan of thousands of cases reads each binary once.
 
-The composition is the one of 2.1. A run or a session sealed by 2.0 carries a key made another way,
-so the first identical request that 2.1 meets is computed once more.
+The composition is the one of this version. A run or a session sealed by a pre-release of 2.0 carries a key made another way,
+so the first identical request that this version meets is computed once more.
 
 The request id reads the run a case starts from by the arrays it takes. A ``restart_from``, and a
 ``run`` of a ``[[mesh.refinement_zone]]``, name an earlier run. The request id takes the sha256 of
@@ -709,10 +709,10 @@ the reader of the old version with it. Nothing upgrades a stored document to ano
 a sealed file stays as it was written.
 
 ``published.jsonl`` is at ``hydromodpy.published.v2``. Each line says ``kind = "copy"`` or
-``kind = "delivery"``. A line at v1, written by 2.0, is refused with a sentence that names the
-form of 2.1.
+``kind = "delivery"``. A line at v1, written by a pre-release of 2.0, is refused with a sentence that names the
+form of this version.
 
-A seal of the 2.0.0 converts on read, one row per key that moved, and the file keeps its form.
+A seal of a pre-release (``hmp-manifest/v2``) converts on read, one row per key that moved, and the file keeps its form.
 The seal of a run at ``manifest_version`` 3 loses ``identity.config_hash`` and ``config.hash`` in
 memory, and its ``inputs.json`` entry of role ``other`` reads as ``inputs``. The block
 ``identity`` loses ``config_hash``. A seal of a job that wrote ``schema = "hmp-manifest/v2"``
@@ -779,8 +779,7 @@ The one migration of a file HydroModPy keeps is the grammar of a configuration. 
 ``hmp doctor --fix-config <file>`` rewrites the file in place. A stored document that changes
 its shape, such as a sidecar or the field store, has its own row, ``document = "<id>"``, that the
 reader of that document applies. A key that only a pre-release of 2.0 wrote has no row. It is
-listed in ``config/prerelease_forms.txt`` and refused, with the way to the doctor of a 2.0.x
-release. A file another one inherits stays as it is when its rewrite hangs on a key only
+listed in ``config/prerelease_forms.txt`` and refused, and the file is not rewritten. A file another one inherits stays as it is when its rewrite hangs on a key only
 that child writes, since a sibling can write another one, and the doctor says what to write.
 ``tests/unit/results/test_run_storage.py`` holds the rule and lists the
 exempt files with their reason.
@@ -1179,7 +1178,7 @@ index and bloom filters on the primary-key columns where the linked
 pyarrow build supports them. Each file carries
 ``hmp.schema_version = "v3"`` plus its schema name, primary key and the
 run's ``identity`` block in Parquet key-value metadata, and is exposed as a DuckDB
-view named after the payload. The column ``config_hash`` left ``simulation`` at 2.1, and no
+view named after the payload. The column ``config_hash`` left ``simulation`` in 2.0.0, and no
 column entered: the index reads ``solution_key`` and ``request_id`` in the seal. The version
 stays ``v3``, because a reader ignores a column a table of 2.0 carries and that this code does
 not declare.
@@ -1318,8 +1317,8 @@ edition the source sealed gives its defaults back. A key this version added, abs
 file and at the default of that edition, is no difference. A solver binary that differs is written
 in ``lineage.replay.producer`` with an advising line, and it refuses nothing.
 
-The class says whether the replay reproduced the values. On a seal of 2.1 the basis is
-``float64``: the digests of the source seal against those of the replay. On a seal of 2.0 the
+The class says whether the replay reproduced the values. On a seal of this version the basis is
+``float64``: the digests of the source seal against those of the replay. On a seal of a pre-release of 2.0 the
 basis is ``stored``: the stored values of both sides, read again, so ``bit`` there means bit to
 the rounding of 2^-17 on a compact source, and to the last bit on an exact one. The flat
 ``concentration`` of 2.0 is compared with the one species of the replay, and a ``final_state/``

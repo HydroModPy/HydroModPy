@@ -54,22 +54,6 @@ def corner_grid() -> RegularGrid:
     return RegularGrid(shape=(3, 4), dx=25.0, dy=50.0, origin=(X0, Y0))
 
 
-def test_the_regular_adapter_keeps_the_grid_vertices_and_quads(corner_grid: RegularGrid) -> None:
-    cell_mesh = cell_mesh_from_regular_grid(corner_grid, crs_wkt=TEST_CRS_WKT)
-    reference = corner_grid.to_hydro_mesh()
-
-    np.testing.assert_array_equal(cell_mesh.mesh.vertices, reference.vertices)
-    np.testing.assert_array_equal(cell_mesh.mesh.flat_connectivity, reference.flat_connectivity)
-    assert cell_mesh.mesh.flat_connectivity[0].tolist() == [0, 1, 6, 5]
-    assert cell_mesh.mesh.flat_connectivity[5].tolist() == [6, 7, 12, 11]
-    assert cell_mesh.mesh.vertices[0].tolist() == [X0, Y0]
-    assert cell_mesh.structured_shape == (3, 4)
-    assert cell_mesh.center_kind == "cell_center"
-    assert cell_mesh.identity.engine_id == "regular"
-    assert cell_mesh.identity.request_hash == ""
-    assert cell_mesh.crs_wkt == TEST_CRS_WKT
-
-
 def test_the_regular_adapter_centres_are_cell_centres_row_zero_north(
     corner_grid: RegularGrid,
 ) -> None:

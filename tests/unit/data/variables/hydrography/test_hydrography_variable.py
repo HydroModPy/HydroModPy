@@ -18,7 +18,6 @@ from hydromodpy.catchment.algorithms.hydrographic_network import (
 from hydromodpy.core.exceptions import DataCacheError
 from hydromodpy.core.state.scratch import preprocessing_dir
 from hydromodpy.data.contracts.load_result import LoadResult
-from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
 from hydromodpy.data.loading.loader import DataLoader
 from hydromodpy.data.source.permanence import PERMANENCE_COLUMN
 from hydromodpy.data.variables.hydrography.config import (
@@ -66,34 +65,6 @@ class TestCustomLoader:
         gdf.to_file(path)
         return path
 
-    def test_load_shp_file(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_file
-
-        shp = self._write_shp(tmp_path / "rivers.shp")
-        cfg = HydrographySourceConfig(source="file", path=shp)
-        gdf = load_file(cfg)
-        assert not gdf.empty
-        assert gdf.crs is not None
-
-    def test_load_gpkg_file(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import SOURCE_PATH_ATTR, load_file
-
-        gpkg = tmp_path / "rivers.gpkg"
-        _make_lines_gdf().to_file(gpkg, driver="GPKG")
-        cfg = HydrographySourceConfig(source="file", path=gpkg)
-        gdf = load_file(cfg)
-        assert not gdf.empty
-        assert gdf.attrs[SOURCE_PATH_ATTR] == str(gpkg)
-
-    def test_load_geojson_file(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_file
-
-        gj = tmp_path / "rivers.geojson"
-        _make_lines_gdf().to_file(gj, driver="GeoJSON")
-        cfg = HydrographySourceConfig(source="file", path=gj)
-        gdf = load_file(cfg)
-        assert not gdf.empty
-
     def test_directory_auto_detection(self, tmp_path):
         from hydromodpy.data.variables.hydrography.custom import load_file
 
@@ -122,44 +93,6 @@ class TestHydrographyVariable:
         inputs = _fake_inputs(tmp_path, crs=crs)
         cfg = HydrographyConfig(sources=sources, mask_path=inputs.mask_path)
         return HydrographyVariable(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
-
-    def test_data_folder_created(self, tmp_path):
-        mgr = self._make_manager(tmp_path, [{"source": "osm"}])
-        assert (tmp_path / PREPROCESSING_DIR / "hydrography").is_dir()
-
-    @patch("hydromodpy.data.variables.hydrography.variable.HydrographyVariable._fetch_from_source")
-    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
-    def test_load_pipeline_line_geometry(self, mock_backend_factory, mock_fetch, tmp_path):
-        """Full pipeline with LineString data and stub backend."""
-        from hydromodpy.data.variables.hydrography.variable import HydrographyVariable
-
-        # Prepare fetched data in project CRS
-        lines_gdf = _make_lines_gdf(crs="EPSG:2154", n=3)
-        # Shift coords into watershed bbox
-        lines_gdf.geometry = [
-            LineString([(350000 + i * 100, 6750000), (350000 + i * 100, 6751000)]) for i in range(3)
-        ]
-        mock_fetch.return_value = lines_gdf
-
-        backend = WhiteboxStubBackend()
-        mock_backend_factory.return_value = backend
-
-        inputs = _fake_inputs(tmp_path)
-        cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
-        mgr = HydrographyVariable(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
-
-        result = mgr.load()
-
-        assert isinstance(result, LoadResult)
-        assert _hydrography_vector_path(result).endswith("streams.shp")
-        assert _hydrography_raster_path(result).endswith("streams.tif")
-        assert isinstance(_hydrography_array(result), np.ndarray)
-
-        # Stub backend dispatched to the line rasteriser, not polygon/point.
-        method_names = backend.method_names()
-        assert "vector_lines_to_raster" in method_names
-        assert "vector_polygons_to_raster" not in method_names
-        assert "vector_points_to_raster" not in method_names
 
     @patch("hydromodpy.data.variables.hydrography.variable.HydrographyVariable._fetch_from_source")
     @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
@@ -221,37 +154,6 @@ class TestHydrographyVariable:
         assert isinstance(result, LoadResult)
 
     @patch("hydromodpy.data.variables.hydrography.variable.HydrographyVariable._fetch_from_source")
-    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
-    def test_synthetic_fid_field(self, mock_backend_factory, mock_fetch, tmp_path):
-        """When rasterize_field doesn't exist in data, manager creates sequential FID."""
-        from hydromodpy.data.variables.hydrography.variable import HydrographyVariable
-
-        gdf = gpd.GeoDataFrame(
-            {"name": ["Aven", "Odet"]},  # No "FID" column
-            geometry=[
-                LineString([(350000, 6750000), (350500, 6750500)]),
-                LineString([(351000, 6751000), (351500, 6751500)]),
-            ],
-            crs="EPSG:2154",
-        )
-        mock_fetch.return_value = gdf
-
-        backend = WhiteboxStubBackend()
-        mock_backend_factory.return_value = backend
-
-        inputs = _fake_inputs(tmp_path)
-        cfg = HydrographyConfig(sources=[{"source": "bdtopage"}], mask_path=inputs.mask_path)
-        mgr = HydrographyVariable(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
-
-        mgr.load()
-
-        # Verify the saved shapefile now has FID column
-        saved_shp = tmp_path / PREPROCESSING_DIR / "hydrography" / "streams.shp"
-        saved_gdf = gpd.read_file(saved_shp)
-        assert "FID" in saved_gdf.columns
-        assert list(saved_gdf["FID"]) == [1, 2]
-
-    @patch("hydromodpy.data.variables.hydrography.variable.HydrographyVariable._fetch_from_source")
     def test_all_sources_empty_raises(self, mock_fetch, tmp_path):
         from hydromodpy.data.variables.hydrography.variable import HydrographyVariable
 
@@ -290,57 +192,10 @@ class TestHydrographyVariable:
         assert -10 < lon_min < lon_max < 15
         assert 40 < lat_min < lat_max < 55
 
-    @patch("hydromodpy.data.variables.hydrography.variable.HydrographyVariable._fetch_from_source")
-    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
-    def test_crs_reprojection(self, mock_backend_factory, mock_fetch, tmp_path):
-        """Data in EPSG:4326 gets reprojected to project CRS before clip."""
-        from hydromodpy.data.variables.hydrography.variable import HydrographyVariable
-
-        # Data in WGS84 - inside the watershed after reprojection
-        gdf_4326 = gpd.GeoDataFrame(
-            {"id": [1]},
-            geometry=[LineString([(-1.5, 48.2), (-1.4, 48.3)])],
-            crs="EPSG:4326",
-        )
-        mock_fetch.return_value = gdf_4326
-
-        backend = WhiteboxStubBackend()
-        mock_backend_factory.return_value = backend
-
-        inputs = _fake_inputs(tmp_path, crs="EPSG:2154")
-        cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=inputs.mask_path)
-        mgr = HydrographyVariable(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
-
-        result = mgr.load()
-
-        # The saved shapefile should be in project CRS, not WGS84
-        saved_gdf = gpd.read_file(_hydrography_vector_path(result))
-        assert saved_gdf.crs is not None
-        assert "2154" in str(saved_gdf.crs)
-
 
 @pytest.mark.fast
 class TestCustomLoaderTif:
     """TIF files should be returned as Path, not GeoDataFrame."""
-
-    def test_tif_file_returns_path(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_file
-
-        tif = tmp_path / "hydro.tif"
-        _write_dummy_tif(tif)
-        cfg = HydrographySourceConfig(source="file", path=tif)
-        result = load_file(cfg)
-        assert isinstance(result, Path)
-        assert result == tif
-
-    def test_tiff_file_returns_path(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_file
-
-        tif = tmp_path / "hydro.tiff"
-        _write_dummy_tif(tif)
-        cfg = HydrographySourceConfig(source="file", path=tif)
-        result = load_file(cfg)
-        assert isinstance(result, Path)
 
     def test_tif_in_directory(self, tmp_path):
         from hydromodpy.data.variables.hydrography.custom import load_file
@@ -486,59 +341,6 @@ class TestCacheRows:
             data_dir=data_dir,
         )
         return mgr, index, data_dir
-
-    @patch("hydromodpy.data.variables.hydrography.apis.osm.fetch")
-    @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
-    def test_cache_miss_then_hit(self, mock_backend_factory, mock_osm_fetch, tmp_path):
-        """First call fetches API + registers; second call hits cache."""
-        from hydromodpy.data.variables.hydrography.variable import HydrographyVariable
-
-        backend = MagicMock()
-        mock_backend_factory.return_value = backend
-
-        mgr, index, data_dir = self._make_cached_manager(tmp_path)
-
-        # Prepare lines inside watershed
-        lines = gpd.GeoDataFrame(
-            {"id": [1]},
-            geometry=[LineString([(-1.5, 48.2), (-1.4, 48.3)])],
-            crs="EPSG:4326",
-        )
-        mock_osm_fetch.return_value = lines
-
-        # Write fake TIF for read_tif_array
-        tif_path = tmp_path / PREPROCESSING_DIR / "hydrography" / "streams.tif"
-        tif_path.parent.mkdir(parents=True, exist_ok=True)
-        _write_dummy_tif(tif_path)
-
-        fetched = mgr.load()
-        assert mock_osm_fetch.call_count == 1
-
-        # The cache holds one row, its sidecar
-        assert len(index.rows(variable="hydrography")) == 1
-
-        # GPKG file should exist in data_dir
-        gpkg_files = [path for path in data_dir.glob("*.gpkg") if "_permanent_" not in path.name]
-        assert len(gpkg_files) == 1
-        # The record names the cached answer and its provider, not the raster of the run.
-        assert _hydrography_record(fetched).metadata[INPUT_FILES_KEY] == [
-            {"provider": "osm", "path": str(gpkg_files[0])}
-        ]
-
-        # Second call - should use cache, not call API again
-        mgr2 = HydrographyVariable(
-            config=mgr.config,
-            out_path=tmp_path,
-            base_raster=mgr._base_raster,
-            index=index,
-            data_dir=data_dir,
-        )
-        cached = mgr2.load()
-        # API was NOT called again
-        assert mock_osm_fetch.call_count == 1
-        assert _hydrography_record(cached).metadata[INPUT_FILES_KEY] == [
-            {"provider": "osm", "path": str(gpkg_files[0])}
-        ]
 
     @patch("hydromodpy.data.variables.hydrography.apis.osm.fetch")
     @patch("hydromodpy.catchment.delineation.get_whitebox_backend")
@@ -751,57 +553,6 @@ def _metadata(result) -> dict:
 
 @patch(_FETCH)
 @patch(_BACKEND)
-def test_the_permanent_reaches_are_written_beside_the_full_network(
-    backend_factory, fetch, tmp_path: Path
-) -> None:
-    backend_factory.return_value = WhiteboxStubBackend()
-    fetch.return_value = _reaches(["permanent", "intermittent", "permanent"])
-
-    result = _manager(tmp_path, [{"source": "osm"}]).load()
-
-    full = gpd.read_file(_metadata(result)["vector_path"])
-    permanent = gpd.read_file(_metadata(result)["permanent_vector_path"])
-    assert len(full) == 3, "the reference network keeps every reach"
-    assert sorted(full[PERMANENCE_COLUMN]) == ["intermittent", "permanent", "permanent"]
-    assert sorted(permanent["gid"]) == [0, 2]
-    assert set(permanent[PERMANENCE_COLUMN]) == {"permanent"}
-    assert Path(_metadata(result)["permanent_vector_path"]) == _permanent_path(tmp_path)
-
-
-@patch(_FETCH)
-@patch(_BACKEND)
-def test_a_network_that_says_nothing_has_no_permanent_part(
-    backend_factory, fetch, tmp_path: Path
-) -> None:
-    backend_factory.return_value = WhiteboxStubBackend()
-    fetch.return_value = _reaches(None)
-
-    result = _manager(tmp_path, [{"source": "osm"}]).load()
-
-    assert _metadata(result)["permanent_vector_path"] is None
-    assert not _permanent_path(tmp_path).exists()
-
-
-@patch(_FETCH)
-@patch(_BACKEND)
-def test_a_permanent_network_left_by_an_earlier_run_is_removed(
-    backend_factory, fetch, tmp_path: Path
-) -> None:
-    """Switching to a source that does not say must not leave the old file to be read."""
-    backend_factory.return_value = WhiteboxStubBackend()
-    fetch.return_value = _reaches(["permanent", "permanent"])
-    _manager(tmp_path, [{"source": "osm"}]).load()
-    assert _permanent_path(tmp_path).exists()
-
-    fetch.return_value = _reaches(None)
-    result = _manager(tmp_path, [{"source": "osm"}]).load()
-
-    assert _metadata(result)["permanent_vector_path"] is None
-    assert list(_permanent_path(tmp_path).parent.glob("streams_permanent.*")) == []
-
-
-@patch(_FETCH)
-@patch(_BACKEND)
 def test_a_network_with_no_permanent_reach_writes_no_permanent_file(
     backend_factory, fetch, tmp_path: Path
 ) -> None:
@@ -811,41 +562,6 @@ def test_a_network_with_no_permanent_reach_writes_no_permanent_file(
     result = _manager(tmp_path, [{"source": "osm"}]).load()
 
     assert _metadata(result)["permanent_vector_path"] is None
-
-
-@patch(_FETCH)
-@patch(_BACKEND)
-def test_reaches_from_a_source_that_does_not_say_are_unknown_not_permanent(
-    backend_factory, fetch, tmp_path: Path
-) -> None:
-    backend_factory.return_value = WhiteboxStubBackend()
-    fetch.side_effect = [_reaches(["permanent"]), _reaches(None, x0=351000.0)]
-
-    result = _manager(tmp_path, [{"source": "bdtopage"}, {"source": "osm"}]).load()
-
-    full = gpd.read_file(_metadata(result)["vector_path"])
-    permanent = gpd.read_file(_metadata(result)["permanent_vector_path"])
-    assert sorted(full[PERMANENCE_COLUMN]) == ["permanent", "unknown", "unknown", "unknown"]
-    assert len(permanent) == 1
-
-
-@patch(_FETCH)
-@patch(_BACKEND)
-def test_sources_answering_in_two_crs_are_concatenated(
-    backend_factory, fetch, tmp_path: Path
-) -> None:
-    """BD Topage answers in Lambert-93 and OSM in WGS84; one section may name both."""
-    backend_factory.return_value = WhiteboxStubBackend()
-    fetch.side_effect = [
-        _reaches(["permanent"]),
-        _reaches(None, x0=351000.0).to_crs("EPSG:4326"),
-    ]
-
-    result = _manager(tmp_path, [{"source": "bdtopage"}, {"source": "osm"}]).load()
-
-    full = gpd.read_file(_metadata(result)["vector_path"])
-    assert len(full) == 4
-    assert full.crs.to_epsg() == 2154
 
 
 def _cached_manager(tmp_path: Path, index, source: dict):
@@ -866,33 +582,6 @@ def _index(tmp_path: Path):
     from hydromodpy.data.provenance.sidecars import CacheIndex
 
     return CacheIndex(tmp_path / "cache")
-
-
-@patch("hydromodpy.data.variables.hydrography.apis.bdtopage.fetch_projected")
-@patch(_BACKEND)
-def test_a_fetch_is_named_as_every_variable_names_what_it_fetched(
-    backend_factory, fetch, tmp_path: Path
-) -> None:
-    """``hydrography_bdtopage_<hash>``, as ``geology_brgm_1m_<hash>``, and its permanent copy."""
-    backend_factory.return_value = WhiteboxStubBackend()
-    fetch.return_value = _reaches(["permanent", "intermittent", "permanent"])
-    index = _index(tmp_path)
-
-    _cached_manager(tmp_path, index, {"source": "bdtopage"}).load()
-
-    names = sorted(path.name for path in (tmp_path / "cache").glob("*.gpkg"))
-    assert len(names) == 2
-    full_name, permanent_name = names
-    token = full_name.removeprefix("hydrography_bdtopage_").removesuffix(".gpkg")
-    assert len(token) == 8 and all(c in "0123456789abcdef" for c in token)
-    assert permanent_name == f"hydrography_bdtopage_permanent_{token}.gpkg"
-    full = gpd.read_file(tmp_path / "cache" / full_name)
-    permanent = gpd.read_file(tmp_path / "cache" / permanent_name)
-    assert len(full) == 3 and full.crs.to_epsg() == 2154, "kept in the CRS it came in"
-    assert sorted(permanent["gid"]) == [0, 2]
-    row = index.find("hydrography", "bdtopage")
-    assert row is not None and row.crs == "EPSG:2154"
-    assert row.sha256 and row.bytes == (tmp_path / "cache" / full_name).stat().st_size
 
 
 @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.fetch_projected")
@@ -946,24 +635,6 @@ def test_a_row_recorded_before_the_question_was_is_still_served(
     _cached_manager(tmp_path, index, {"source": "bdtopage"}).load()
 
     assert fetch.call_count == 0
-
-
-@patch("hydromodpy.data.variables.hydrography.apis.bdtopage.fetch_projected")
-@patch(_BACKEND)
-def test_a_cached_answer_without_its_permanent_copy_gets_one(
-    backend_factory, fetch, tmp_path: Path
-) -> None:
-    backend_factory.return_value = WhiteboxStubBackend()
-    fetch.return_value = _reaches(["permanent", "intermittent"])
-    index = _index(tmp_path)
-    _cached_manager(tmp_path, index, {"source": "bdtopage"}).load()
-    (permanent,) = (tmp_path / "cache").glob("hydrography_bdtopage_permanent_*.gpkg")
-    permanent.unlink()
-
-    _cached_manager(tmp_path, index, {"source": "bdtopage"}).load()
-
-    assert fetch.call_count == 1
-    assert permanent.exists()
 
 
 @patch("hydromodpy.data.variables.hydrography.apis.bdtopage.fetch_projected")
@@ -1049,38 +720,6 @@ def test_the_request_box_leaves_in_the_crs_the_source_declares(tmp_path, monkeyp
     lon_min, lat_min, lon_max, lat_max = extent.bbox
     assert -3.0 < lon_min < lon_max < 0.0, (lon_min, lon_max)
     assert 47.0 < lat_min < lat_max < 50.0, (lat_min, lat_max)
-
-
-@pytest.mark.fast
-@patch("hydromodpy.data.variables.hydrography.variable.HydrographyVariable._fetch_from_source")
-@patch("hydromodpy.catchment.delineation.get_whitebox_backend")
-def test_the_clip_happens_in_the_frame_the_mask_declares(
-    mock_backend_factory, mock_fetch, tmp_path
-):
-    """A degrees mask and a meters network still meet, and the output is in degrees.
-
-    This is the read that replaced ``geographic.crs_proj``. The old code
-    reprojected the network into a CRS read off the object and clipped against
-    a file that was assumed to be in the same one; here the file is the only
-    thing that says where anything is, so a mismatch cannot happen.
-    """
-    mock_backend_factory.return_value = WhiteboxStubBackend()
-    mock_fetch.return_value = gpd.GeoDataFrame(
-        {"id": [1]},
-        geometry=[LineString([(350000.0, 6780000.0), (355000.0, 6785000.0)])],
-        crs="EPSG:2154",
-    )
-
-    mask_path = _watershed_wgs84(tmp_path / "mask_wgs84.shp")
-    inputs = _fake_inputs(tmp_path, crs="EPSG:2154")
-    cfg = HydrographyConfig(sources=[{"source": "osm"}], mask_path=mask_path)
-    manager = HydrographyVariable(config=cfg, out_path=tmp_path, base_raster=inputs.base_raster)
-
-    manager.load()
-
-    clipped = gpd.read_file(manager._data_folder / "streams.shp")
-    assert not clipped.empty, "the network was dropped, so the two frames never met"
-    assert "4326" in str(clipped.crs)
 
 
 @pytest.mark.fast

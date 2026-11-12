@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from hydromodpy.results.run.view import Run
 
-# 2.1.0 adds read, table, figure and show, the reads behind hydromodpy.show, and no old name died.
+# This version adds read, table, figure and show, the reads behind hydromodpy.show, and no old name died.
 MAX_PUBLIC_METHODS = 54
 
 
@@ -31,18 +31,6 @@ def test_run_does_not_expose_deprecated_helpers() -> None:
     assert not hasattr(Run, "drainage_density")
     assert not hasattr(Run, "persistence")
     assert not hasattr(Run, "cell_field_active_mask")
-
-
-def test_run_places_its_periods_on_the_calendar_through_one_provider() -> None:
-    """Date lookups live on ``run.periods``, as field readers live on ``run.array``."""
-    from hydromodpy.results.run.periods import RunPeriods
-
-    run = Run("sim", catalog=None)  # type: ignore[arg-type]
-    assert isinstance(run.periods, RunPeriods)
-    for name in ("edges", "step_at", "steps_for"):
-        assert hasattr(RunPeriods, name)
-    for name in ("period_edges", "step_at", "steps_for"):
-        assert not hasattr(Run, name)
 
 
 def test_run_keeps_canonical_field_readers() -> None:

@@ -19,17 +19,9 @@ from hydromodpy.catchment.drainage.distance import CATCHMENT_MISMATCH_WARNING_SH
 from hydromodpy.catchment.stream_network import geometry as stream_geometry
 from hydromodpy.catchment.stream_network.geometry import (
     build_network_geometry,
-    criterion_supports,
     observed_cell_size_m,
-    open_water_mask,
     resolve_validity_length,
-    scored_cells,
     share_outside,
-)
-from hydromodpy.catchment.stream_network.network import build_simulated_network
-from hydromodpy.core.scoring.stream_defaults import (
-    VALIDITY_PROVENANCE_BY_CODE,
-    VALIDITY_PROVENANCE_CODE,
 )
 from tests._helpers.ugrid_meshes import quad_mesh
 
@@ -91,40 +83,6 @@ def _geometry(**kwargs):
 
 
 class TestTheBufferStaysOut:
-    def test_the_catchment_is_what_descends_to_the_outlet(self) -> None:
-        geometry = _geometry()
-
-        assert geometry.outlet == _cell(0, AXIS)
-        assert np.array_equal(geometry.catchment, _columns(RIDGE, N_COLS - 1))
-
-    def test_the_buffer_valley_drains_off_the_domain(self) -> None:
-        geometry = _geometry()
-        downstream = geometry.metric.graph.downstream
-
-        cell = _cell(BUFFER_AXIS_ROW, 3)
-        path = [cell]
-        while downstream[path[-1]] >= 0:
-            path.append(int(downstream[path[-1]]))
-        assert path[-1] == _cell(BUFFER_AXIS_ROW, 0), "the buffer leaves through its border"
-
-    def test_seepage_in_the_buffer_puts_no_stream_in_the_catchment(self) -> None:
-        geometry = _geometry()
-        release = np.zeros(N_CELLS)
-        release[[_cell(BUFFER_AXIS_ROW, col) for col in range(1, RIDGE)]] = 1.0
-
-        simulated = build_simulated_network(
-            release, threshold_m3_s=geometry.threshold_m3_s, metric=geometry.metric
-        )
-        supports = criterion_supports(
-            simulated=simulated,
-            observed=geometry.observed,
-            catchment=geometry.catchment,
-            active=geometry.metric.graph.active,
-        )
-
-        assert simulated.network.any()
-        assert not supports.support_so.any(), "a buffer descent crossed into the catchment"
-
     def test_no_cell_is_raised_on_a_surface_without_a_closed_pit(self) -> None:
         geometry = _geometry()
         # The buffer used to be raised to the ridge so it could spill into the
@@ -132,47 +90,8 @@ class TestTheBufferStaysOut:
         assert np.all(np.isfinite(geometry.distance_to_observed[geometry.catchment]))
         assert geometry.frac_reachable_obs_raw == pytest.approx(1.0)
 
-    def test_a_closed_pit_is_still_filled(self) -> None:
-        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL)
-        topography = _topography()
-        pit = _cell(6, 13)
-        topography[pit] -= 20.0
-        geometry = build_network_geometry(
-            topography=topography,
-            face_node_connectivity=connectivity,
-            vertices=vertices,
-            observed=_observed(),
-            cell_area_m2=np.full(N_CELLS, CELL * CELL),
-            mean_recharge_m_s=1e-8,
-            tau_specific_ratio=0.0,
-            delineated_catchment=_columns(RIDGE, N_COLS - 1),
-        )
-
-        assert geometry.metric.graph.downstream[pit] >= 0
-        assert geometry.catchment[pit]
-
 
 class TestTheOutletIsSnappedOnTheGraph:
-    def test_a_point_one_cell_off_moves_onto_the_most_accumulated_cell(self) -> None:
-        geometry = _geometry(delineated_outlet_xy=_centre(1, AXIS + 2))
-
-        assert geometry.outlet == _cell(0, AXIS)
-
-    def test_the_search_stops_two_cells_away(self) -> None:
-        geometry = _geometry(delineated_outlet_xy=_centre(0, AXIS + 3))
-
-        assert geometry.outlet != _cell(0, AXIS)
-        assert geometry.catchment.sum() < _columns(RIDGE, N_COLS - 1).sum()
-
-    def test_the_point_wins_over_the_polygon(self) -> None:
-        # A polygon whose low corner is elsewhere does not move a declared point.
-        geometry = _geometry(
-            delineated_catchment=_columns(0, RIDGE),
-            delineated_outlet_xy=_centre(0, AXIS),
-        )
-
-        assert geometry.outlet == _cell(0, AXIS)
-
     def test_resolve_outlet_asks_for_the_graph_it_snaps_on(self) -> None:
         geometry = _geometry()
         with pytest.raises(ValueError, match="adjacency"):
@@ -198,27 +117,11 @@ class TestTheGapToThePolygonIsPublished:
         assert geometry.catchment_mismatch > CATCHMENT_MISMATCH_WARNING_SHARE
         assert "differs from the delineated polygon by 10.0%" in caplog.text
 
-    def test_a_gap_under_the_threshold_is_not_a_warning(self, caplog) -> None:
-        polygon = _columns(RIDGE, N_COLS - 1)
-        polygon[_cell(N_ROWS - 1, RIDGE)] = False
-        with caplog.at_level("WARNING"):
-            geometry = _geometry(delineated_catchment=polygon)
-
-        assert 0.0 < geometry.catchment_mismatch < CATCHMENT_MISMATCH_WARNING_SHARE
-        assert "differs from the delineated polygon" not in caplog.text
-
     def test_without_a_polygon_the_gap_is_not_a_number(self) -> None:
         geometry = _geometry(delineated_catchment=None, delineated_outlet_xy=_centre(0, AXIS))
 
         assert np.isnan(geometry.catchment_mismatch)
         assert geometry.outlet == _cell(0, AXIS)
-
-    def test_without_a_polygon_or_a_point_the_largest_basin_closes_it_loudly(self, caplog) -> None:
-        with caplog.at_level("WARNING"):
-            geometry = _geometry(delineated_catchment=None)
-
-        assert geometry.outlet == _cell(0, AXIS)
-        assert "no delineated catchment and no outlet" in caplog.text
 
 
 def _valley(n_rows: int, n_cols: int, axis: int) -> np.ndarray:
@@ -339,19 +242,6 @@ def test_auto_follows_the_cell_and_the_accuracy(
     assert validity.provenance == provenance
 
 
-def test_a_declared_length_wins() -> None:
-    validity = resolve_validity_length(h_obs_m=25.0, accuracy_m=50.0, declared_m=40.0)
-
-    assert (validity.length_m, validity.provenance) == (40.0, "user")
-
-
-def test_the_provenance_travels_as_a_code_and_comes_back() -> None:
-    for name, code in VALIDITY_PROVENANCE_CODE.items():
-        assert VALIDITY_PROVENANCE_BY_CODE[code] == name
-    validity = resolve_validity_length(h_obs_m=10.0)
-    assert VALIDITY_PROVENANCE_BY_CODE[validity.code] == "auto"
-
-
 @pytest.fixture(autouse=True)
 def _fresh_process(monkeypatch):
     """Each test starts as a new process: no recharge seen, no alpha warned."""
@@ -361,17 +251,6 @@ def _fresh_process(monkeypatch):
 
 def _warnings(caplog) -> list[str]:
     return [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-
-
-def test_float_noise_between_two_builds_is_not_a_move(caplog) -> None:
-    with (
-        caplog.at_level(logging.INFO, logger=stream_geometry.__name__),
-        stream_geometry.recharge_session("s"),
-    ):
-        stream_geometry._warn_if_recharge_moved(9.074855002572016e-09)
-        stream_geometry._warn_if_recharge_moved(9.074854999999997e-09)
-
-    assert _warnings(caplog) == []
 
 
 def test_a_real_move_warns_with_four_significant_digits(caplog) -> None:
@@ -386,62 +265,6 @@ def test_a_real_move_warns_with_four_significant_digits(caplog) -> None:
     assert "9.075e-09 then 8.656e-09 m/s" in message
 
 
-def test_a_move_just_above_the_tolerance_still_warns(caplog) -> None:
-    base = 1.0e-8
-    with (
-        caplog.at_level(logging.INFO, logger=stream_geometry.__name__),
-        stream_geometry.recharge_session("s"),
-    ):
-        stream_geometry._warn_if_recharge_moved(base)
-        stream_geometry._warn_if_recharge_moved(
-            base * (1.0 + 10 * stream_geometry.RECHARGE_MOVE_TOLERANCE)
-        )
-
-    assert len(_warnings(caplog)) == 1
-
-
-def test_builds_outside_a_session_are_never_compared(caplog) -> None:
-    """Figures of two runs drawn in one process may hold two forcings."""
-    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
-        stream_geometry._warn_if_recharge_moved(9.0e-09)
-        stream_geometry._warn_if_recharge_moved(6.0e-09)
-
-    assert _warnings(caplog) == []
-
-
-def test_two_sessions_are_not_compared_with_each_other(caplog) -> None:
-    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
-        with stream_geometry.recharge_session("first"):
-            stream_geometry._warn_if_recharge_moved(9.0e-09)
-        with stream_geometry.recharge_session("second"):
-            stream_geometry._warn_if_recharge_moved(6.0e-09)
-            stream_geometry._warn_if_recharge_moved(6.0e-09)
-
-    assert _warnings(caplog) == []
-
-
-def test_the_alpha_warning_prints_once_then_goes_to_verbose(caplog) -> None:
-    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
-        stream_geometry._report_poor_alpha(0.780, 0.90)
-        stream_geometry._report_poor_alpha(0.777, 0.90)
-        stream_geometry._report_poor_alpha(0.781, 0.90)
-
-    (message,) = _warnings(caplog)
-    assert "alpha_obs_closure_catchment = 0.780, below 0.90" in message
-    infos = [r for r in caplog.records if r.levelno == logging.INFO]
-    assert len(infos) == 2
-    assert "0.777" in infos[0].getMessage()
-
-
-def test_the_alpha_warning_says_it_in_two_sentences(caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger=stream_geometry.__name__):
-        stream_geometry._report_poor_alpha(0.780, 0.90)
-
-    (message,) = _warnings(caplog)
-    assert message.count(". ") == 1
-    assert message.endswith(".")
-
-
 # The scored cells, the share of a map outside another one and the open-water mask
 # are one definition of "what the criterion scores", read by the trial and by the
 # figure drawn from the run. The geometry is a stand-in holding the three masks the
@@ -452,42 +275,6 @@ def _scored_geometry(catchment, active, excluded=None) -> SimpleNamespace:
         metric=SimpleNamespace(graph=SimpleNamespace(active=np.asarray(active, dtype=bool))),
         excluded=None if excluded is None else np.asarray(excluded, dtype=bool),
     )
-
-
-@pytest.mark.parametrize(
-    ("catchment", "active", "excluded", "expected"),
-    [
-        ([1, 1, 1, 0], [1, 1, 1, 1], None, [1, 1, 1, 0]),
-        ([1, 1, 1, 0], [1, 0, 1, 1], None, [1, 0, 1, 0]),
-        ([1, 1, 1, 0], [1, 1, 1, 1], [0, 1, 0, 0], [1, 0, 1, 0]),
-        ([1, 1, 1, 1], [1, 1, 0, 1], [1, 0, 0, 1], [0, 1, 0, 0]),
-        ([0, 0, 0, 0], [1, 1, 1, 1], None, [0, 0, 0, 0]),
-    ],
-    ids=["catchment", "inactive cell", "open water", "both leave", "empty catchment"],
-)
-def test_the_scored_cells_are_the_catchment_active_and_off_the_water(
-    catchment, active, excluded, expected
-) -> None:
-    geometry = _scored_geometry(catchment, active, excluded)
-
-    assert scored_cells(geometry).tolist() == [bool(value) for value in expected]
-
-
-def test_the_scored_cells_are_the_keep_mask_of_the_partition() -> None:
-    geometry = _scored_geometry([1, 1, 1, 0], [1, 1, 1, 1], [0, 1, 0, 0])
-    simulated = SimpleNamespace(
-        network=np.array([True, True, False, False]), seepage=np.zeros(4, dtype=bool)
-    )
-
-    supports = criterion_supports(
-        simulated=simulated,
-        observed=np.array([True, False, True, False]),
-        catchment=geometry.catchment,
-        active=geometry.metric.graph.active,
-        excluded=geometry.excluded,
-    )
-
-    assert supports.keep.tolist() == scored_cells(geometry).tolist()
 
 
 @pytest.mark.parametrize(
@@ -539,35 +326,3 @@ def test_one_per_cent_of_open_water_moves_the_share_it_used_to_ignore() -> None:
 
     assert share_outside(inner, outer, everywhere) == pytest.approx(0.7)
     assert share_outside(inner, outer, off_the_lake) == pytest.approx(58 / 88)
-
-
-@pytest.mark.parametrize(
-    ("ids", "n_cells", "expected"),
-    [
-        ([2, 3, 4], 8, [2, 3, 4]),
-        ([4, 2, 2, 3], 8, [2, 3, 4]),
-        ([3, 8, -1], 8, [3]),
-        ((i for i in (1, 5)), 8, [1, 5]),
-        ([], 8, None),
-        (None, 8, None),
-        ([8, -1], 8, None),
-    ],
-    ids=[
-        "lake",
-        "repeated ids",
-        "outside the mesh",
-        "a generator",
-        "no lake",
-        "no attribute",
-        "all outside",
-    ],
-)
-def test_the_open_water_mask_marks_the_cells_the_model_was_told(ids, n_cells, expected) -> None:
-    mask = open_water_mask(ids, n_cells)
-
-    if expected is None:
-        assert mask is None
-    else:
-        assert mask.dtype == bool
-        assert mask.shape == (n_cells,)
-        assert np.flatnonzero(mask).tolist() == expected

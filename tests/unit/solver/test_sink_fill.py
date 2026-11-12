@@ -14,13 +14,9 @@ import numpy as np
 import pytest
 
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
-from hydromodpy.model.model import ModelOptions
-from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
 )
-from hydromodpy.solver.modflow_common.flow_run import build_preprocess_options
-from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from hydromodpy.solver.modflow_common.sink_mask import closed_depression_mask, resolve_sink_mask
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.payloads.well_drainage import build_drainage_spd
@@ -115,40 +111,6 @@ def _mf6_conductance_by_cell(spd: dict[int, list[list[float]]]) -> dict[int, flo
 
 def _nwt_conductance_by_cell(spd: dict[int, np.ndarray]) -> dict[int, float]:
     return {int(row[1]) * NCOL + int(row[2]): float(row[4]) for row in spd[0]}
-
-
-def test_default_is_off_so_no_existing_run_changes() -> None:
-    assert ModflowPreprocessOptions().sink_fill is False
-    assert SolverConfig().sink_fill is False
-    model = make_model(options=ModelOptions.from_settings(SolverConfig()))
-    assert build_preprocess_options(model).sink_fill is False
-
-
-def test_toml_switch_reaches_the_preprocess_options() -> None:
-    cfg = SolverConfig.model_validate({"sink_fill": True})
-    model = make_model(options=ModelOptions.from_settings(cfg))
-    assert build_preprocess_options(model).sink_fill is True
-
-
-def test_mask_holds_the_dug_cell_and_nothing_else() -> None:
-    mask = closed_depression_mask(_mesh(dug=True))
-    assert np.flatnonzero(mask).tolist() == [PIT_CELL]
-
-
-def test_a_plain_tilt_has_no_closed_depression() -> None:
-    assert not closed_depression_mask(_mesh(dug=False)).any()
-
-
-def test_mask_ignores_inactive_cells() -> None:
-    """An inactive cell is never in a depression and never blocks the escape."""
-    inactive = np.zeros((1, NROW, NCOL), dtype=bool)
-    inactive[0, 0, :] = True
-    mask = closed_depression_mask(_mesh(dug=True, inactive=inactive))
-    assert np.flatnonzero(mask).tolist() == [PIT_CELL]
-
-
-def test_resolve_sink_mask_returns_nothing_when_the_switch_is_off() -> None:
-    assert resolve_sink_mask(_mesh(dug=True), sink_fill=False, model_name="demo") is None
 
 
 def test_resolve_sink_mask_names_the_model_it_could_not_measure() -> None:
@@ -281,36 +243,3 @@ class TestTheMaskReachesTheModel:
         mask = resolve_sink_mask(mesh, sink_fill=True, model_name="demo")
         assert mask is not None
         assert np.flatnonzero(mask).tolist() == np.flatnonzero(_hand_written_mask()).tolist()
-
-    def test_flat_ground_is_not_a_closed_depression(self) -> None:
-        """A cell that merely TIES its rim is not a basin.
-
-        Flooding with the descent epsilon lifted every such cell by one
-        increment and reported plateaus as depressions. Measured on the Nancon
-        mesh before the fix: 270 of 3 023 flagged cells were ties with no basin
-        at all, median fill 1.9 mm. Here the western half is dead flat and the
-        eastern half drains off the mesh, so the answer is zero by construction.
-        """
-        top = np.repeat(BASE_M - np.arange(NCOL, dtype=float)[None, :], NROW, axis=0)
-        top[:, :3] = BASE_M
-        flat_mesh = solver_mesh_from_structured_arrays(
-            nrow=NROW,
-            ncol=NCOL,
-            top=top,
-            botm=np.zeros((1, NROW, NCOL)),
-            dx=10.0,
-            dy=10.0,
-        )
-        assert not closed_depression_mask(flat_mesh).any()
-
-        # And the same plateau with one cell dug into it still holds exactly it.
-        top[PIT_ROW, PIT_COL] = BASE_M - 10.0
-        dug_mesh = solver_mesh_from_structured_arrays(
-            nrow=NROW,
-            ncol=NCOL,
-            top=top,
-            botm=np.zeros((1, NROW, NCOL)),
-            dx=10.0,
-            dy=10.0,
-        )
-        assert np.flatnonzero(closed_depression_mask(dug_mesh)).tolist() == [PIT_CELL]

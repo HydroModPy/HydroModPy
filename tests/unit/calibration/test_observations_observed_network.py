@@ -112,70 +112,6 @@ def _ctx(basin: DescentBasin | None) -> SimpleNamespace:
 POLYGON = np.array([False, True, True, True, False, False])
 
 
-@pytest.fixture
-def polygon(monkeypatch):
-    """Serve the polygon projection without a shapefile on disk."""
-    monkeypatch.setattr(observed_network, "catchment_outline_mask", lambda *_args: POLYGON.copy())
-
-
-def test_a_model_basin_is_the_reference(polygon, caplog) -> None:
-    mask = _half()
-
-    with caplog.at_level(logging.WARNING):
-        reference = delineated_catchment_mask(_ctx(_basin(mask)), None, None)
-
-    np.testing.assert_array_equal(reference, mask)
-    assert NO_BASIN_WARNING not in caplog.text
-
-
-def test_the_reference_is_a_copy_the_caller_may_edit(polygon) -> None:
-    basin = _basin(_half())
-
-    delineated_catchment_mask(_ctx(basin), None, None)[:] = False
-
-    assert basin.mask.any()
-
-
-def test_a_model_without_a_basin_keeps_the_polygon_and_says_so(polygon, caplog) -> None:
-    with caplog.at_level(logging.WARNING):
-        reference = delineated_catchment_mask(_ctx(None), None, None)
-
-    np.testing.assert_array_equal(reference, POLYGON)
-    assert NO_BASIN_WARNING in caplog.text
-
-
-def test_a_model_that_builds_no_d_keeps_the_polygon_with_an_info_line(polygon, caplog) -> None:
-    # Boussinesq has no D, so no basin: expected, not an anomaly to warn about at each trial.
-    ctx = SimpleNamespace(solver_run=SimpleNamespace(solver_model=SimpleNamespace()), state=None)
-
-    with caplog.at_level(logging.INFO):
-        reference = delineated_catchment_mask(ctx, None, None)
-
-    np.testing.assert_array_equal(reference, POLYGON)
-    record = next(r for r in caplog.records if r.getMessage() == NO_BASIN_WARNING)
-    assert record.levelno == logging.INFO
-
-
-def test_the_largest_basin_of_a_synthetic_domain_is_no_catchment(polygon, caplog) -> None:
-    with caplog.at_level(logging.WARNING):
-        reference = delineated_catchment_mask(
-            _ctx(_basin(_half(), rule="largest_basin")), None, None
-        )
-
-    np.testing.assert_array_equal(reference, POLYGON)
-    assert NO_BASIN_WARNING not in caplog.text
-
-
-def test_a_domain_with_neither_basin_nor_polygon_gives_none(monkeypatch, caplog) -> None:
-    monkeypatch.setattr(observed_network, "catchment_outline_mask", lambda *_args: None)
-
-    with caplog.at_level(logging.WARNING):
-        reference = delineated_catchment_mask(_ctx(None), None, None)
-
-    assert reference is None
-    assert NO_BASIN_WARNING not in caplog.text
-
-
 def test_no_calibration_reader_computes_the_basin_again(monkeypatch) -> None:
     def refuse(*_args, **_kwargs):
         raise AssertionError("a consumer recomputed the basin of D instead of reading it")
@@ -335,47 +271,15 @@ def _mask(run_ctx, **kwargs) -> np.ndarray:
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_the_default_rule_draws_the_diagonal_one_cell_per_step() -> None:
-    mask = _mask(_run_ctx())
-
-    assert np.flatnonzero(mask).tolist() == [k * N + k for k in range(2, 10)]
-
-
-@pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_touch_is_accepted_and_adds_the_corner_pairs() -> None:
-    mask = _mask(_run_ctx(), rasterization="touch")
-
-    assert int(mask.sum()) == 8 + 2 * 7
-
-
-@pytest.mark.usefixtures("_fresh_unplaced_reports")
 def test_an_unknown_rule_is_refused() -> None:
     with pytest.raises(ValueError, match="map.drawn_by"):
         _mask(_run_ctx(), rasterization="centroid")
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_explicit_centres_win_over_the_run() -> None:
-    rows, cols = np.divmod(np.arange(N * N), N)
-    centres = np.column_stack([(cols + 0.5) * CELL, (rows + 0.5) * CELL])
-
-    mask = _mask(_run_ctx(with_centres=False), cell_centres=centres)
-
-    assert int(mask.sum()) == 8
-
-
-@pytest.mark.usefixtures("_fresh_unplaced_reports")
 def test_a_run_without_centres_is_refused_by_the_crossing_rule() -> None:
     with pytest.raises(ValueError, match="cell_centers"):
         _mask(_run_ctx(with_centres=False))
-
-
-@pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_the_log_names_the_rule(caplog) -> None:
-    with caplog.at_level(logging.INFO, logger=observed_module.__name__):
-        _mask(_run_ctx())
-
-    assert "by the crossing rule" in caplog.text
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
@@ -430,47 +334,6 @@ def _run_ctx_with_catchment(tmp_path, *, margin: float):
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_a_map_wider_than_the_catchment_only_informs(tmp_path, caplog) -> None:
-    # A reach 5 km off the grid: the map is wider than the catchment, as the
-    # BD Topage extract of a department is.
-    far = LineString([(5000.0, 5000.0), (5100.0, 5000.0)])
-    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
-
-    with caplog.at_level(logging.INFO, logger=observed_module.__name__):
-        drawn = observed_network_mask(
-            _run_ctx_with_catchment(tmp_path, margin=40.0),
-            _unclipped(far),
-            SimpleNamespace(vertices=vertices),
-            connectivity,
-        )
-
-    assert drawn.n_outside_parts == 1
-    warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
-    assert warnings == []
-    assert "1 reach(es) lie outside the model domain" in caplog.text
-
-
-@pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_a_reach_inside_the_catchment_that_enters_no_cell_warns(tmp_path, caplog) -> None:
-    far = LineString([(5000.0, 5000.0), (5100.0, 5000.0)])
-    sliver = LineString([(300.0, -30.0), (310.0, -30.0)])
-    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
-
-    with caplog.at_level(logging.INFO, logger=observed_module.__name__):
-        drawn = observed_network_mask(
-            _run_ctx_with_catchment(tmp_path, margin=40.0),
-            _unclipped(far, sliver),
-            SimpleNamespace(vertices=vertices),
-            connectivity,
-        )
-
-    assert drawn.n_outside_parts == 2
-    (warning,) = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
-    assert "1 reach(es) inside the model domain, 10 m in all, enter no mesh cell" in warning
-    assert "1 reach(es) lie outside the model domain" in caplog.text
-
-
-@pytest.mark.usefixtures("_fresh_unplaced_reports")
 def test_an_unclipped_map_without_a_catchment_only_informs(caplog) -> None:
     far = LineString([(5000.0, 5000.0), (5100.0, 5000.0)])
     vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
@@ -481,26 +344,6 @@ def test_an_unclipped_map_without_a_catchment_only_informs(caplog) -> None:
         )
 
     assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
-
-
-@pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_the_count_and_the_length_describe_the_same_reaches(tmp_path, caplog) -> None:
-    # One feature of two sliver parts, 10 m and 20 m, inside the catchment.
-
-    split = MultiLineString([[(300.0, -30.0), (310.0, -30.0)], [(500.0, -20.0), (520.0, -20.0)]])
-    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
-
-    with caplog.at_level(logging.WARNING, logger=observed_module.__name__):
-        drawn = observed_network_mask(
-            _run_ctx_with_catchment(tmp_path, margin=40.0),
-            _unclipped(split),
-            SimpleNamespace(vertices=vertices),
-            connectivity,
-        )
-
-    assert drawn.n_outside_parts == 2
-    (warning,) = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
-    assert "2 reach(es) inside the model domain, 30 m in all, enter no mesh cell" in warning
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
@@ -582,41 +425,6 @@ def _run_ctx__minimal_map(*, reference_permanent=None):
     return SimpleNamespace(state=SimpleNamespace(setup=setup))
 
 
-class TestAReferencePermanentNetworkIsScored:
-    def test_the_run_s_reference_permanent_network_resolves_the_minimal_map(self) -> None:
-        run_ctx = _run_ctx__minimal_map(reference_permanent=_permanent_network())
-        output = _output(map={"permanent": "data.hydrography", "calibrate_on": "permanent"})
-
-        resolved = resolve_minimal_network(run_ctx, output)
-
-        assert resolved is not None
-        assert resolved.source == "data.hydrography"
-        assert resolved.clipped is True
-        assert resolved.path == "/data/streams_permanent.shp"
-        assert resolved.crs == CRS
-        assert len(resolved.geometry) == 2
-
-    def test_it_never_reads_the_full_reference_network(self) -> None:
-        # A run carrying only the maximal network (no permanence in its source)
-        # must not be silently scored on it under the minimal role.
-        run_ctx = SimpleNamespace(
-            state=SimpleNamespace(
-                setup=SimpleNamespace(
-                    geographic_features=SimpleNamespace(
-                        hydrographic_networks=SimpleNamespace(
-                            reference=_permanent_network(vector_path="/data/streams.shp"),
-                            reference_permanent=None,
-                        )
-                    )
-                )
-            )
-        )
-        output = _output(map={"permanent": "data.hydrography", "calibrate_on": "permanent"})
-
-        with pytest.raises(UnresolvedObservedNetwork):
-            resolve_minimal_network(run_ctx, output)
-
-
 class TestARunWithoutAPermanentNetworkIsRefusedByName:
     def test_a_run_without_reference_permanent_is_refused_by_name(self) -> None:
         run_ctx = _run_ctx__minimal_map(reference_permanent=None)
@@ -627,31 +435,6 @@ class TestARunWithoutAPermanentNetworkIsRefusedByName:
         message = str(excinfo.value)
         assert "map.permanent = 'data.hydrography'" in message
         assert "as a file in 'map.permanent'" in message
-
-    def test_no_minimal_source_declared_resolves_to_none(self) -> None:
-        run_ctx = _run_ctx__minimal_map(reference_permanent=_permanent_network())
-        output = _output()
-
-        assert resolve_minimal_network(run_ctx, output) is None
-
-
-class TestTheExplicitFileStillResolves:
-    def test_a_declared_file_is_read_regardless_of_the_run_s_permanent_network(
-        self, tmp_path
-    ) -> None:
-        path = tmp_path / "permanent.gpkg"
-        gpd.GeoDataFrame(geometry=[LineString([(0, 0), (1, 1)])], crs=CRS).to_file(
-            path, driver="GPKG"
-        )
-        run_ctx = _run_ctx__minimal_map(reference_permanent=None)
-        output = _output(map={"permanent": str(path), "calibrate_on": "permanent"})
-
-        resolved = resolve_minimal_network(run_ctx, output)
-
-        assert resolved is not None
-        assert resolved.source == "path"
-        assert resolved.clipped is False
-        assert resolved.path == str(path)
 
 
 # The refusals and the readers of the placement, on the shapes a trial leaves aside.

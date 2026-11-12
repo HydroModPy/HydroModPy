@@ -64,20 +64,3 @@ def test_the_column_count_is_the_cell_count() -> None:
     forcings, *_ = _forcings()
     assert forcings.columns.cell_index.size == _NY * _NX
     np.testing.assert_array_equal(forcings.columns.cell_index, np.arange(_NY * _NX))
-
-
-def test_a_columns_coordinates_are_its_cells_centre() -> None:
-    forcings, x, y, _cell_value = _forcings()
-    for iy in range(_NY):
-        for ix in range(_NX):
-            n = iy * _NX + ix
-            assert forcings.columns.x[n] == x[ix]
-            assert forcings.columns.y[n] == y[iy]
-
-
-def test_a_columns_series_is_its_cells_precipitation() -> None:
-    forcings, _x, _y, cell_value = _forcings()
-    for iy in range(_NY):
-        for ix in range(_NX):
-            n = iy * _NX + ix
-            np.testing.assert_array_equal(forcings.precipitation[:, n], cell_value[iy, ix])

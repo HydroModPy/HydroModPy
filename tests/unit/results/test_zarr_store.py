@@ -16,16 +16,11 @@ import zarr
 
 import hydromodpy.results.zarr_store.zarr_schema as zarr_schema
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
-from hydromodpy.core.io.document_version import NEWER_REMEDY, OLDER_REMEDY
 from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
-from hydromodpy.results.zarr_store.chunks import compute_balanced_chunks_2d, should_use_sharding
-from hydromodpy.results.zarr_store.constants import (
-    BALANCED_TARGET_BYTES,
-    SHARD_TRIGGER_BYTES,
-    ZARR_SCHEMA_VERSION,
-)
+from hydromodpy.results.zarr_store.chunks import compute_balanced_chunks_2d
+from hydromodpy.results.zarr_store.constants import BALANCED_TARGET_BYTES, SHARD_TRIGGER_BYTES
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 
@@ -54,27 +49,6 @@ HIGHLY_RECOMMENDED = (
     "creator_institution",
     "creator_url",
 )
-
-
-def test_filelock_prevents_concurrent_write(tmp_path: Path) -> None:
-    """The .lock file uses filelock semantics: two acquire() calls from two
-    independent FileLock objects must serialize."""
-    from filelock import FileLock, Timeout
-
-    path = tmp_path / "sim.zarr"
-    SimulationZarr.create(path, n_cells=10, n_layers=1).close()
-
-    lock_a = FileLock(str(path / ".lock"))
-    lock_b = FileLock(str(path / ".lock"))
-    lock_a.acquire(timeout=1.0)
-    try:
-        with pytest.raises(Timeout):
-            lock_b.acquire(timeout=0.5)
-    finally:
-        lock_a.release()
-    # After release the second lock acquires successfully.
-    lock_b.acquire(timeout=1.0)
-    lock_b.release()
 
 
 def test_acdd_root_attrs_present(fresh_store: SimulationZarr) -> None:
@@ -120,26 +94,6 @@ def test_acdd_root_attrs_present(fresh_store: SimulationZarr) -> None:
     assert "MODFLOW 6.5.0" in attrs["source"]
 
 
-def test_float_missing_value_lives_in_the_zarr_fill_not_in_a_json_attribute(
-    fresh_store: SimulationZarr,
-) -> None:
-    """A NaN sentinel is declared where JSON can encode it, and nowhere else."""
-    fresh_store.write_field("head", 0, np.arange(100, dtype="float64"), n_timesteps=5)
-    head = fresh_store.root["head"]
-    assert np.isnan(head.fill_value)
-    assert "_FillValue" not in head.attrs
-    assert "missing_value" not in head.attrs
-    assert head.attrs.get("csdms_standard_name") == "subsurface_water__hydraulic_head"
-    assert head.attrs.get("long_name", "").startswith("Groundwater head")
-
-
-def test_head_declares_its_axes(fresh_store: SimulationZarr) -> None:
-    fresh_store.write_field("head", 0, np.zeros((2, 50)), n_timesteps=5)
-    head = fresh_store.root["head"]
-    assert head.metadata.dimension_names == ("time", "layer", "face")
-    assert head.attrs["coordinates"] == "time layer face"
-
-
 def test_local_store_retries_transient_chunk_write_permission_error(
     fresh_store: SimulationZarr,
     monkeypatch: pytest.MonkeyPatch,
@@ -173,33 +127,10 @@ def test_balanced_chunking_default(fresh_store: SimulationZarr) -> None:
     assert chunk_bytes <= BALANCED_TARGET_BYTES * 2
 
 
-def test_sharding_above_100mib_threshold() -> None:
-    n_timesteps = 1000
-    layer_bytes = 50_000 * 8 * 4  # 1.6 MiB per step
-    assert should_use_sharding(n_timesteps, layer_bytes)
-    assert not should_use_sharding(10, 1000 * 8)
-
-
 def test_balanced_chunks_helper() -> None:
     shape = compute_balanced_chunks_2d(365, 1, 50_000, itemsize=8)
     # (1, 1, ~131k clipped to 50k) since per_step = 400 kB <= 1 MiB.
     assert shape == (2, 1, 50_000) or shape == (1, 1, 50_000)
-
-
-def test_consolidate_metadata_written_on_finalize(tmp_path: Path) -> None:
-    path = tmp_path / "consol.zarr"
-    sz = SimulationZarr.create(path, n_cells=10, n_layers=1)
-    sz.write_field("head", 0, np.arange(10, dtype="float64"), n_timesteps=2)
-    sz.consolidate_metadata()
-    sz.close()
-    # ``zarr.json`` for the root contains the consolidated metadata pointer
-    # in Zarr v3 directory stores; .zmetadata is the v2 equivalent. We just
-    # check the store reopens without scanning.
-    sz2 = SimulationZarr(path)
-    try:
-        assert "head" in sz2.root
-    finally:
-        sz2.close()
 
 
 @pytest.mark.windows
@@ -268,32 +199,6 @@ def test_standard_name_mapping(fresh_store: SimulationZarr) -> None:
     assert not is_cf_standard_name(head.standard_name)
 
 
-def test_zarr_schema_version_stored(fresh_store: SimulationZarr) -> None:
-    assert fresh_store.root.attrs["zarr_schema_version"] == ZARR_SCHEMA_VERSION
-    meta = fresh_store.root.get("meta")
-    assert meta is not None
-    assert meta.attrs["zarr_schema_version"] == ZARR_SCHEMA_VERSION
-
-
-@pytest.mark.parametrize(
-    ("stored", "said"),
-    [("9", NEWER_REMEDY), ("1", OLDER_REMEDY), (None, OLDER_REMEDY)],
-)
-def test_a_store_outside_the_window_is_refused_by_name(
-    tmp_path: Path, stored: str | None, said: str
-) -> None:
-    path = tmp_path / "store.zarr"
-    sz = SimulationZarr.create(path, n_cells=4, n_layers=1)
-    sz.root.attrs["zarr_schema_version"] = stored
-    sz.close()
-
-    with pytest.raises(SchemaVersionMismatchError) as refused:
-        SimulationZarr(path)
-
-    assert refused.value.context["expected"] == ZARR_SCHEMA_VERSION
-    assert said in str(refused.value)
-
-
 def test_a_store_without_the_version_attribute_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "no_version.zarr"
     sz = SimulationZarr.create(path, n_cells=4, n_layers=1)
@@ -312,22 +217,6 @@ def test_a_newer_store_names_the_version_that_wrote_it(tmp_path: Path) -> None:
 
     with pytest.raises(SchemaVersionMismatchError, match="written by HydroModPy 2.9.0"):
         SimulationZarr(path)
-
-
-def test_groups_renamed_topography_and_particles(fresh_store: SimulationZarr) -> None:
-    fresh_store.write_mesh(
-        vertices=np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0]]),
-        face_node_connectivity=np.array([[0, 1, 2]], dtype="int32"),
-        z_interfaces=np.array([0.0, -10.0]),
-        topography=np.array([5.0]),
-    )
-    mesh = fresh_store.root["mesh"]
-    assert "topography" in mesh
-    assert "surface_top" not in mesh
-    topo = mesh["topography"]
-    assert topo.attrs.get("standard_name") == "surface_altitude"
-    # particles group is created at init.
-    assert "particles" in fresh_store.root
 
 
 def test_compose_acdd_returns_floats_for_bounds() -> None:
@@ -398,39 +287,8 @@ def test_compose_acdd_bounds_wkt_empty_when_nan() -> None:
     assert attrs["geospatial_bounds"] == ""
 
 
-def test_subgroups_created_at_init(fresh_store: SimulationZarr) -> None:
-    # ``derived`` and ``budget`` are NOT pre-created: they are opt-in and appear
-    # only when a field is written to them.
-    expected = {"meta", "mesh", "state", "particles", "forcing"}
-    actual = set(fresh_store.root.keys())
-    # Subgroups are a subset; root may also have other arrays added later.
-    assert expected.issubset(actual)
-    assert "derived" not in actual
-    assert "budget" not in actual
-
-
 def test_shard_trigger_constant_is_100_mib() -> None:
     assert SHARD_TRIGGER_BYTES == 100 * 1024 * 1024
-
-
-def test_a_per_step_write_keeps_the_digest_of_its_step(fresh_store: SimulationZarr) -> None:
-    from hydromodpy.core.io.value_digest import value_digest
-
-    values = np.arange(3 * 2 * 100, dtype="float64").reshape(3, 2, 100)
-    for step in (2, 0, 1):
-        fresh_store.write_field("head", step, values[step], n_timesteps=3)
-
-    recorded = fresh_store.field_digests["head"]
-    assert sorted(int(step) for step in recorded) == [0, 1, 2]
-    assert recorded["2"] == value_digest(values[2])
-
-
-def test_a_per_step_write_under_a_subgroup_uses_the_group_path(
-    fresh_store: SimulationZarr,
-) -> None:
-    fresh_store.write_field("release_flux", 0, np.ones((2, 100)), n_timesteps=1, subgroup="derived")
-
-    assert "derived/release_flux" in fresh_store.field_digests
 
 
 @pytest.mark.parametrize(

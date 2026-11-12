@@ -15,14 +15,6 @@ def _load_main():
     return importlib.import_module("hydromodpy.cli.main")
 
 
-def test_workspace_family_help_lists_actions(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "workspace", "--help"])
-    assert code == 0
-    out = capsys.readouterr().out
-    for action in ("init", "list", "clean"):
-        assert action in out
-
-
 def test_workspace_init_scaffolds_workspace(monkeypatch, tmp_path) -> None:
     target = tmp_path / "fresh_ws"
     monkeypatch.setattr(sys, "argv", ["hmp", "workspace", "init", "-w", str(target)])

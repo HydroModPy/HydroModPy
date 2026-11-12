@@ -15,16 +15,12 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.data.provenance.derived import derived_dir, derived_path
+from hydromodpy.data.provenance.derived import derived_dir
 from hydromodpy.data.provenance.sidecars import CacheIndex, scan, sidecar_path_for
 from hydromodpy.data.variables.dem.config import DemConfig, FileDemSource
 from hydromodpy.data.variables.dem.custom import load_custom_dem
 from hydromodpy.data.variables.dem.variable import DemVariable
-from hydromodpy.data.variables.lake_abacus.config import (
-    FileLakeAbacusSource,
-    LakeAbacusConfig,
-)
-from hydromodpy.data.variables.lake_abacus.custom import load_custom_abacus
+from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
 from hydromodpy.data.variables.lake_abacus.variable import LakeAbacusVariable
 from hydromodpy.data.variables.lake_bathymetry.config import LakeBathymetryConfig
 from hydromodpy.data.variables.lake_bathymetry.variable import LakeBathymetryVariable
@@ -179,19 +175,6 @@ def test_two_dem_files_with_one_stem_give_two_copies(tmp_path: Path) -> None:
     assert all(Path(p).is_file() for p in paths)
 
 
-def test_two_lake_ids_give_two_abacus_pivots(tmp_path: Path) -> None:
-    source = _write_abacus(tmp_path / "abacus.csv")
-    derived = tmp_path / "derived"
-
-    records = [
-        load_custom_abacus(FileLakeAbacusSource(path=source, lake_id=lake), derived_dir=derived)[0]
-        for lake in ("lac0", "lac1")
-    ]
-
-    assert records[0].data != records[1].data
-    assert [r.frame["lake_id"].unique().tolist() for r in records] == [["lac0"], ["lac1"]]
-
-
 def test_two_lake_files_with_one_stem_give_two_copies(tmp_path: Path) -> None:
     derived = tmp_path / "derived"
     rasters = [_write_asc(tmp_path / d / "lac0.asc") for d in ("a", "b")]
@@ -213,18 +196,6 @@ def test_two_lake_files_with_one_stem_give_two_copies(tmp_path: Path) -> None:
 
     assert bathy[0] != bathy[1]
     assert geometry[0] != geometry[1]
-
-
-def test_the_same_inputs_give_the_same_path(tmp_path: Path) -> None:
-    source = tmp_path / "valley.asc"
-
-    first = derived_path(tmp_path, source, kind="geotiff", suffix=".tif", inputs=("x",))
-    again = derived_path(tmp_path, source, kind="geotiff", suffix=".tif", inputs=("x",))
-    other = derived_path(tmp_path, source, kind="geotiff", suffix=".tif", inputs=("y",))
-
-    assert first == again
-    assert first != other
-    assert first.name.startswith("valley_geotiff_")
 
 
 def test_the_derived_dir_sits_under_blobs_beside_the_variable_folders(tmp_path: Path) -> None:

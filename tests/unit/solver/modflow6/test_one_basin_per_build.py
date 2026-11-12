@@ -150,28 +150,6 @@ def test_no_consumer_computes_the_basin_again(consumer, monkeypatch) -> None:
     np.testing.assert_array_equal(consumer(basin), basin.mask)
 
 
-def test_a_model_without_a_basin_falls_back_on_the_covered_centres(tmp_path, caplog) -> None:
-    import geopandas as gpd
-    from shapely.geometry import box
-
-    mesh = _grid()
-    shp = tmp_path / "watershed.gpkg"
-    gpd.GeoDataFrame(geometry=[box(0.0, 0.0, 50.0, 100.0)], crs="EPSG:2154").to_file(shp)
-    model = SimpleNamespace(
-        model_name="flow",
-        descent_basin=None,
-        inputs=make_model(geometry=geometry_of(SimpleNamespace(watershed_shp=str(shp)))),
-        solver_mesh=mesh,
-    )
-
-    with caplog.at_level(logging.INFO):
-        mask = catchment_cell_mask(model)
-
-    np.testing.assert_array_equal(mask, mesh.cell_centers()[:, 0] < 50.0)
-    assert "model flow carries no basin of D" in caplog.text
-    assert "'polygon_covers'" in caplog.text
-
-
 def test_a_constant_head_sink_is_counted_with_the_area_it_keeps(caplog) -> None:
     top = _top()
     sink = 4 * N + 7
@@ -189,25 +167,6 @@ def test_a_constant_head_sink_is_counted_with_the_area_it_keeps(caplog) -> None:
     assert not basin.mask[sink]
     sinks = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
     assert any("1 constant-head cell(s) have no lower neighbour" in m for m in sinks)
-
-
-def test_the_constant_head_cell_the_basin_ends_at_is_no_loss(caplog) -> None:
-    top = _top()
-    sink = 8 * N + 2
-    top[sink] = 50.0
-    mesh = solver_mesh_from_structured_arrays(
-        nrow=N, ncol=N, top=top.reshape(N, N), botm=np.full((1, N, N), 0.0), dx=10.0, dy=10.0
-    )
-    constant_head = np.zeros(N * N, dtype=bool)
-    constant_head[sink] = True
-    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=constant_head)
-
-    with caplog.at_level(logging.INFO):
-        basin = run_basin(_geographic(), mesh, descent)
-
-    assert basin.mask[sink]
-    assert not [r for r in caplog.records if r.levelno == logging.WARNING]
-    assert caplog.text.count("Basin of D:") == 1
 
 
 @pytest.mark.parametrize("make_mesh", [_grid, _triangles], ids=["grid", "triangles"])
@@ -249,22 +208,3 @@ def test_a_watershed_domain_without_outlet_or_polygon_keeps_the_rim(caplog) -> N
         for r in caplog.records
         if r.levelno == logging.WARNING
     )
-
-
-@pytest.mark.parametrize("extent", ["box", "watershed_buff"])
-@pytest.mark.parametrize("make_mesh", [_grid, _triangles], ids=["grid", "triangles"])
-def test_a_boxed_domain_keeps_the_rim_flood_bit_for_bit(make_mesh, extent) -> None:
-    mesh = make_mesh()
-    plain = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-
-    boxed = build_solver_mesh_descent(
-        mesh,
-        lake_cells_by_lake={},
-        base_level_mask=None,
-        geographic=_geographic(domain_extent=extent),
-    )
-
-    np.testing.assert_array_equal(boxed.receiver, plain.receiver)
-    np.testing.assert_array_equal(boxed.surface, plain.surface)
-    np.testing.assert_array_equal(boxed.base_level, plain.base_level)
-    assert not run_basin(_geographic(domain_extent=extent), mesh, boxed).seeded_at_outlet

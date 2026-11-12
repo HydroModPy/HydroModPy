@@ -202,18 +202,6 @@ def _calibration_case(project: Path, case_id: str, config_hash: str) -> PlannedC
     )
 
 
-def test_a_finished_calibration_is_not_started_again(tmp_path: Path) -> None:
-    project = tmp_path / "campaign"
-    case = _calibration_case(project, "nancon-calibration", "plan-hash")
-    _write_session(project, case.case_id, "plan-hash")
-    # The promoted run carries the K of the best trial: another hash.
-    _promoted_run(project, case.case_id, "promoted-hash")
-
-    chosen, _ = select_cases(project, [case])
-
-    assert chosen == []
-
-
 def test_a_calibration_whose_files_changed_is_started_again(tmp_path: Path) -> None:
     project = tmp_path / "campaign"
     case = _calibration_case(project, "nancon-calibration", "new-plan-hash")

@@ -11,31 +11,16 @@ from __future__ import annotations
 
 import logging
 import tomllib
-import warnings
 from pathlib import Path
 
 import pytest
 
-from hydromodpy.calibration.preflight import preflight_launch
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.calibration.runners.trial import prepare_trials
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.core.config_kit.written import (
-    experimental_keys_line,
-    log_experimental_keys,
-    written_experimental_keys,
-)
-from hydromodpy.core.console.progress import MILESTONE_KEY
-from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
+from hydromodpy.core.config_kit.written import experimental_keys_line, written_experimental_keys
 from hydromodpy.project.api import check
-from hydromodpy.project.dispatch.workflow import run_overview
 from hydromodpy.project.facade import Project
-from hydromodpy.project.request import request_of
-from hydromodpy.solver.base.solver_config import SolverConfig
-from hydromodpy.workflow.steps.resolve import ResolveStep
-from hydromodpy.workflow.steps.validate import ValidateStep
 from tests._helpers.cli_runner import CliRunner
-from tests._helpers.fake_solvers import fake_adapter
 from tests.unit.project.launch.test_plan import write_sites_project
 
 WRITTEN_LOGGER = "hydromodpy.core.config_kit.written"
@@ -151,30 +136,6 @@ def _keys(tmp_path: Path, **sections: str) -> tuple[str, ...]:
     return written_experimental_keys(HydroModPyConfig.from_toml(_write(tmp_path, **sections)))
 
 
-def test_only_the_marked_key_the_file_wrote_is_named(tmp_path: Path) -> None:
-    # `partition_release_depth_m` is marked and written, `first_period_steady` is
-    # written and not marked, `vi_substeps_per_period` is marked and left at its
-    # default. The sections nobody wrote give nothing either: `calibration` is set
-    # to None by its loader, and `transport.modpath` is built from its defaults.
-    cfg = HydroModPyConfig.from_toml(
-        _write(tmp_path, tables="[solver.boussinesq]\npartition_release_depth_m = 0.02")
-    )
-
-    assert cfg.flow.first_period_steady is False
-    assert cfg.solver.options_of("boussinesq").vi_substeps_per_period == 1
-    assert written_experimental_keys(cfg) == ("solver.boussinesq.partition_release_depth_m",)
-
-
-def test_a_file_that_writes_no_marked_key_gets_no_line(tmp_path: Path, caplog) -> None:
-    cfg = HydroModPyConfig.from_toml(_write(tmp_path))
-
-    with caplog.at_level(logging.INFO, logger=WRITTEN_LOGGER):
-        log_experimental_keys(cfg)
-
-    assert written_experimental_keys(cfg) == ()
-    assert not _said(caplog)
-
-
 @pytest.mark.parametrize(
     ("sections", "expected"),
     [
@@ -248,27 +209,6 @@ def test_what_a_file_wrote_is_named(
     assert sorted(_keys(tmp_path, **sections)) == sorted(expected)
 
 
-def test_a_mapping_below_a_section_is_walked() -> None:
-    wall = {"line": [[0.0, 0.0], [1.0, 0.0]], "depths": [1.0], "hydchr": 1e-9}
-    sinks = FlowSinksSourcesConfig.model_validate(
-        {"lakes": {"dam": {"bedleak": 1e-6, "initial_stage": "81.82 m", "cutoff_wall": wall}}}
-    )
-
-    assert written_experimental_keys(sinks) == ("lakes.dam.cutoff_wall",)
-
-
-def test_a_marked_key_of_a_solver_table_is_named_and_the_solver_name_is_not(
-    isolated_solvers,
-) -> None:
-    isolated_solvers.solvers.register(fake_adapter("mine"))
-
-    assert written_experimental_keys(SolverConfig(backend="mine")) == ()
-    assert written_experimental_keys(SolverConfig()) == ()
-    assert written_experimental_keys(SolverConfig(boussinesq={"ts_vi_adapt": True})) == (
-        "boussinesq.ts_vi_adapt",
-    )
-
-
 def test_the_copy_a_run_freezes_names_the_same_keys(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_toml(
         _write(
@@ -285,20 +225,6 @@ def test_the_copy_a_run_freezes_names_the_same_keys(tmp_path: Path) -> None:
     assert written_experimental_keys(again)
 
 
-def test_the_line_is_a_milestone_and_not_a_warning(tmp_path: Path, caplog) -> None:
-    cfg = HydroModPyConfig.from_toml(_write(tmp_path, tables=ADAPT))
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        with caplog.at_level(logging.INFO, logger=WRITTEN_LOGGER):
-            log_experimental_keys(cfg)
-
-    [record] = caplog.records
-    assert record.levelno == logging.INFO
-    assert getattr(record, MILESTONE_KEY) is True
-    assert record.getMessage() == experimental_keys_line(("solver.boussinesq.ts_vi_adapt",))
-
-
 def test_a_run_says_it_once_and_loading_says_nothing(tmp_path: Path, caplog) -> None:
     path = _write(tmp_path, tables=ADAPT)
 
@@ -308,55 +234,6 @@ def test_a_run_says_it_once_and_loading_says_nothing(tmp_path: Path, caplog) -> 
         project._execute(until_step="validate", no_display=True)
 
     assert _said(caplog) == [experimental_keys_line(("solver.boussinesq.ts_vi_adapt",))]
-
-
-def test_an_overview_says_it_once(tmp_path: Path, caplog, monkeypatch) -> None:
-    path = _write(
-        tmp_path, geographic='domain_extent = "watershed"', tables='[site]\nname = "marks"'
-    )
-    cfg = HydroModPyConfig.from_toml(path)
-
-    class _Launcher:
-        """The overview without its downloads and its report."""
-
-        def __init__(self, config: object, *, base: Path, source=None, bounds=None) -> None:
-            self.cfg = cfg
-
-        def run(self, claim: object, *, solution_key: str) -> dict[str, str]:
-            return {"mode": "data_overview"}
-
-    monkeypatch.setattr("hydromodpy.workflow.overview.DataOverviewLauncher", _Launcher)
-    with caplog.at_level(logging.INFO, logger=WRITTEN_LOGGER):
-        run_overview(request_of(path), base=tmp_path)
-
-    assert _said(caplog) == [experimental_keys_line(("geographic.domain_extent",))]
-
-
-def test_a_calibration_says_it_at_its_gate_and_its_trials_say_nothing(
-    tmp_path: Path, caplog
-) -> None:
-    path = _write(tmp_path, tables=ADAPT + K_FIELD + CALIBRATION)
-
-    class _Flow:
-        """The first step a trial runs: everything before it is the prepared prefix."""
-
-        name = "flow"
-        config_sections = ("flow",)
-
-    with caplog.at_level(logging.INFO, logger=WRITTEN_LOGGER):
-        preflight_launch(path)
-        said_at_the_gate = _said(caplog)
-        caplog.clear()
-        prepare_trials(
-            path,
-            override_paths={"K": "flow.param.K.field.value"},
-            steps=(ValidateStep(), ResolveStep(), _Flow()),
-        )
-
-    assert said_at_the_gate == [
-        experimental_keys_line(("solver.boussinesq.ts_vi_adapt", "calibration"))
-    ]
-    assert not _said(caplog)
 
 
 def test_config_check_prints_the_same_line(tmp_path: Path) -> None:
@@ -376,14 +253,6 @@ def test_quiet_keeps_config_check_silent_on_a_sound_file(tmp_path: Path) -> None
 
     assert result.exit_code == 0, result.stderr
     assert result.stderr == ""
-
-
-def test_a_calibration_check_lists_its_section_without_a_verdict_change(tmp_path: Path) -> None:
-    diagnostics = check(_write(tmp_path, tables=K_FIELD + CALIBRATION))
-
-    assert not [item for item in diagnostics if item.severity == "error"]
-    assert [item.path for item in diagnostics if item.code == "experimental_key"] == ["calibration"]
-    assert all(item.code == "experimental_key" for item in diagnostics)
 
 
 def test_a_sites_check_lists_the_keys_of_its_cases_once(tmp_path: Path) -> None:

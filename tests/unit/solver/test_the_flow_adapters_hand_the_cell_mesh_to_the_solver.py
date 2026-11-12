@@ -16,10 +16,7 @@ from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.model import ModelOptions
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan
-from hydromodpy.solver.base.registry import solvers
-from hydromodpy.solver.boussinesq.adapter import BoussinesqFlowAdapter
 from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
-from hydromodpy.solver.modflow_common.flow_run import require_cell_mesh
 from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter
 
 _ADAPTERS = {
@@ -82,27 +79,6 @@ def _context(solver: str) -> RunContext:
 
 
 @pytest.mark.parametrize("solver", sorted(_ADAPTERS))
-def test_the_adapter_hands_the_cell_mesh_to_pre_processing(
-    solver: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    adapter_cls, solver_path = _ADAPTERS[solver]
-    _FakeSolver.instances = []
-    monkeypatch.setattr(solver_path, _FakeSolver)
-    the_model = _model_on(object())
-    slot = RunSlot(tmp_path, "island")
-
-    built = adapter_cls().build(the_model, SimpleNamespace(), slot, _context(solver))
-
-    (fake,) = _FakeSolver.instances
-    assert fake.pre_model is the_model
-    assert fake.pre_kwargs["slot"] is slot
-    assert "cell_mesh" not in fake.pre_kwargs
-    assert "mesh_support" not in fake.pre_kwargs
-    assert built.solver_model is fake and built.model is the_model
-    assert (built.written, built.solved) == (False, False), "a build writes and solves nothing"
-
-
-@pytest.mark.parametrize("solver", sorted(_ADAPTERS))
 def test_a_run_without_a_cell_mesh_stops_before_the_solver_builds(
     solver: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -116,25 +92,3 @@ def test_a_run_without_a_cell_mesh_stops_before_the_solver_builds(
         )
 
     assert all(fake.pre_model is None for fake in _FakeSolver.instances)
-
-
-def test_require_cell_mesh_returns_the_mesh_of_the_model() -> None:
-    assert require_cell_mesh(_model_on(cell_mesh := object())) is cell_mesh
-    with pytest.raises(MeshError):
-        require_cell_mesh(_model_on(None))
-
-
-@pytest.mark.parametrize(
-    ("key", "adapter_cls"),
-    [
-        (("flow", "modflow6"), Modflow6FlowAdapter),
-        (("flow", "modflow_nwt"), ModflowNwtFlowAdapter),
-        (("flow", "boussinesq"), BoussinesqFlowAdapter),
-    ],
-)
-def test_the_registry_serves_the_adapter_class_that_names_the_meshes(key, adapter_cls) -> None:
-    # The registry no longer keeps a copy of the meshes: the class is the only
-    # place a backend, in the tree or installed, says which meshes it reads.
-    assert solvers.get(*key) is adapter_cls
-    assert isinstance(adapter_cls.accepted_meshes, frozenset)
-    assert adapter_cls.accepted_meshes

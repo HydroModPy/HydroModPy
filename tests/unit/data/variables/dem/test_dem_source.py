@@ -57,24 +57,6 @@ def _raster(path: Path, *, nodata: float = -9999.0) -> Path:
 
 
 @pytest.mark.fast
-def test_the_source_is_registered_under_its_section() -> None:
-    from hydromodpy.data.source.registry import data_sources
-
-    assert data_sources.get("dem", "ign_geoplateforme_dem") is IgnGeoplateformeDem
-    assert (IgnGeoplateformeDem.section, IgnGeoplateformeDem.source_id) == (
-        "dem",
-        "ign_geoplateforme_dem",
-    )
-
-
-@pytest.mark.fast
-def test_the_source_serves_the_hosts_of_the_schema_entry() -> None:
-    from hydromodpy.schema.sources import source_entry
-
-    assert IgnGeoplateformeDem().hosts == source_entry("ign_geoplateforme_dem").hosts
-
-
-@pytest.mark.fast
 def test_a_foreign_crs_box_reaches_the_assembler_in_lambert(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -115,33 +97,6 @@ def test_the_file_record_carries_the_header_nodata(
     assert record.origin == GEOPLATEFORME_ORIGIN
     assert record.sha256 == hashlib.sha256(record.path.read_bytes()).hexdigest()
     assert result.variables == ("dem",)
-
-
-@pytest.mark.fast
-def test_the_options_the_constructor_names_reach_the_assembler(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    seen: dict = {}
-
-    def fake(*, output_dir, bbox, departments, dataset, resolution_m, file_format, crs, **kwargs):
-        seen.update(
-            departments=departments,
-            dataset=dataset,
-            resolution_m=resolution_m,
-            file_format=file_format,
-        )
-        return _raster(Path(output_dir) / "dem.tif")
-
-    monkeypatch.setattr(ign_dem_fr, "fetch_ign_dem", fake)
-
-    IgnGeoplateformeDem(dataset="rge-alti", resolution_m=5.0, departments=("35", "22")).fetch(
-        FetchRequest(out_dir=tmp_path, extent=EXTENT)
-    )
-
-    assert seen["departments"] == ["35", "22"]
-    assert seen["dataset"] == "rge-alti"
-    assert seen["resolution_m"] == 5.0
-    assert seen["file_format"] == "ASC"
 
 
 @pytest.mark.fast

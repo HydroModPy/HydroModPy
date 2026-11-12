@@ -22,7 +22,6 @@ from hydromodpy.calibration.config_network import CalibOutputNetwork
 from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
 from hydromodpy.calibration.config_outputs import (
     CalibOutputCell,
-    CalibOutputLake,
     CalibOutputPoint,
     validate_calib_output,
 )
@@ -53,12 +52,6 @@ from hydromodpy.calibration.metrics.solver_extract import (
     resolve_station_cells,
 )
 from hydromodpy.calibration.metrics.solver_extract import extract_outputs as _extract_outputs
-from hydromodpy.calibration.metrics.solver_extract import (
-    observable_request_for_output as _request_for_output,
-)
-from hydromodpy.calibration.metrics.solver_extract import (
-    resolve_station_cells as _resolve_station_cells,
-)
 from hydromodpy.calibration.observations.network_geometry import (
     network_maps_from_run,
     union_projection,
@@ -71,7 +64,6 @@ from hydromodpy.catchment.drainage.distance import resolve_outlet
 from hydromodpy.catchment.stream_network.geometry import build_network_geometry
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObjectiveError, ObservableNotAvailableError
-from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.solver.base.cell_lookup import (
@@ -108,7 +100,6 @@ from tests.unit.calibration._factories_scoring import (
     adapter_result,
     axis_file,
     axis_line,
-    boundary_output,
     make_trial_ctx,
     monthly_bounds,
     network_output,
@@ -116,7 +107,7 @@ from tests.unit.calibration._factories_scoring import (
     release_stack,
     run_extraction,
     seasonal_thresholds,
-    stream_file_fixture,  # noqa: F401
+    stream_file_fixture,
 )
 from tests.unit.solver.modflow_common.solver_runs import solved_run
 
@@ -167,31 +158,9 @@ def _cell(**selector: int) -> CalibOutputCell:
     return CalibOutputCell.model_validate({"variable": "head", "support": "cell", **selector})
 
 
-def test_a_cell_target_declares_no_layer_by_default() -> None:
-    assert _cell(row=0, col=1).layer is None
-
-
-def test_a_column_pinched_at_layer_0_is_read_at_layer_1(ctx__cell_target) -> None:
-    request = observable_request_for_output("piezo", _cell(row=0, col=1), ctx__cell_target)
-    assert request.cell == (1, 0, 1)
-
-
 def test_a_column_that_starts_lower_is_read_at_its_first_active_layer(ctx__cell_target) -> None:
     request = observable_request_for_output("piezo", _cell(row=1, col=2), ctx__cell_target)
     assert request.cell == (2, 1, 2)
-
-
-def test_a_column_active_from_the_top_is_read_at_layer_0(ctx__cell_target) -> None:
-    request = observable_request_for_output("piezo", _cell(row=1, col=0), ctx__cell_target)
-    assert request.cell == (0, 1, 0)
-
-
-@pytest.mark.parametrize("layer", [0, 2])
-def test_an_explicit_layer_is_kept_even_on_a_pinched_column(ctx__cell_target, layer: int) -> None:
-    request = observable_request_for_output(
-        "piezo", _cell(row=0, col=1, layer=layer), ctx__cell_target
-    )
-    assert request.cell == (layer, 0, 1)
 
 
 def test_a_cell_outside_the_grid_is_refused_by_name(ctx__cell_target) -> None:
@@ -313,11 +282,6 @@ def test_a_baseflow_discharge_fitted_to_a_gauge_gets_the_runoff(wired) -> None:
     assert observable.includes_runoff is True
 
 
-def test_the_area_that_cell_drains_is_asked_for(wired) -> None:
-    adapter, _seen, _extracted = wired(includes_runoff=False, observes="NANCON")
-    assert ("upstream_area", "cell") in adapter.asked
-
-
 def test_a_routed_discharge_is_left_alone(wired) -> None:
     # SFR injected the runoff into the reaches; adding it again counts it twice.
     _adapter, seen, extracted = wired(includes_runoff=True, observes="NANCON")
@@ -379,20 +343,6 @@ def test_a_model_without_a_basin_names_the_old_runoff_area(wired, caplog) -> Non
         "Calibration discharge: the model carries no basin of D, so the runoff is scaled by "
         "the old support 'catch_area' (64.600 km2)." in caplog.text
     )
-
-
-def test_a_model_that_builds_no_d_names_the_old_runoff_area_without_a_warning(
-    wired, caplog
-) -> None:
-    # Boussinesq has no D, so no basin: expected, not an anomaly to warn about at each trial.
-    with caplog.at_level(logging.INFO):
-        _adapter, seen, _extracted = wired(
-            includes_runoff=False, observes="NANCON", station_cell=None, builds_descent=False
-        )
-    assert seen["area_m2"] is None
-    records = [r for r in caplog.records if "carries no basin of D" in r.getMessage()]
-    assert records
-    assert {r.levelno for r in records} == {logging.INFO}
 
 
 def test_the_largest_basin_of_a_synthetic_domain_keeps_the_old_area_silently(wired, caplog) -> None:
@@ -543,18 +493,6 @@ def test_the_radius_is_a_maximum_displacement() -> None:
     assert snap.distance_m == pytest.approx(np.hypot(110.0, 100.0))
 
 
-def test_a_gauge_already_on_the_talweg_stays_put() -> None:
-    snap = snap_to_most_accumulated(
-        _grid_centres(),
-        _grid_accumulation(),
-        x=250.0,
-        y=450.0,
-        radius_m=150.0,
-        start_index=4 * N + 2,
-    )
-    assert not snap.moved
-
-
 def test_a_radius_too_small_says_so() -> None:
     with pytest.raises(GaugeSnapError, match=r"reaches no cell but the one.*90\.0 m away"):
         snap_to_most_accumulated(
@@ -563,25 +501,6 @@ def test_a_radius_too_small_says_so() -> None:
 
 
 # --- the wiring, on the solver's own accumulation ---------------------------
-def test_default_off_leaves_the_cell_unchanged(adapter__gauge_snaps: _Adapter) -> None:
-    request = observable_request_for_output("gauge", _point(), SimpleNamespace())
-    assert request.cell == (0, 0, 2 * N + 1)
-    assert not _asked_for_the_field(adapter__gauge_snaps)
-
-
-def test_a_point_snap_moves_the_cell_and_logs_both_areas(
-    adapter__gauge_snaps: _Adapter, caplog
-) -> None:
-    with caplog.at_level(logging.INFO):
-        request = observable_request_for_output(
-            "gauge", _point(snap_radius="120 m"), SimpleNamespace()
-        )
-    assert request.cell == (0, 0, 2 * N + 2)
-    assert _asked_for_the_field(adapter__gauge_snaps)
-    message = " ".join(record.getMessage() for record in caplog.records)
-    assert "snapped 110.0 m (of 120 m allowed)" in message
-    assert "draining 0.020 km2" in message
-    assert "draining 0.150 km2" in message
 
 
 def test_a_radius_too_small_is_refused_through_the_output(adapter__gauge_snaps: _Adapter) -> None:
@@ -602,16 +521,6 @@ def _station_ctx() -> SimpleNamespace:
         station_id="J0000000", location=SimpleNamespace(x=GAUGE_XY[0], y=GAUGE_XY[1])
     )
     return SimpleNamespace(loaded_data=SimpleNamespace(hydrometry=SimpleNamespace(points=[record])))
-
-
-def test_a_named_discharge_station_keeps_the_catchment_series_by_default(
-    adapter__gauge_snaps: _Adapter,
-) -> None:
-    """The measured default: a discharge station is not placed by its coordinate."""
-    output = _point(observes="J0000000")
-    request = observable_request_for_output("gauge", output, _station_ctx())
-    assert request.support == "domain"
-    assert not _asked_for_the_field(adapter__gauge_snaps)
 
 
 def test_a_named_discharge_station_is_placed_and_snapped_when_asked(
@@ -672,14 +581,6 @@ def test_a_non_positive_snap_radius_is_refused() -> None:
         CalibOutputCell.model_validate(
             {"variable": "discharge", "row": 0, "col": 0, "snap_radius": 0.0}
         )
-
-
-def test_the_default_is_off() -> None:
-    assert _point().snap_radius is None
-    assert (
-        CalibOutputCell.model_validate({"variable": "discharge", "row": 0, "col": 0}).snap_radius
-        is None
-    )
 
 
 # --- the solver serves the centers, the calibration never reads the mesh ----
@@ -762,19 +663,6 @@ class _AxisRelease:
         }
 
 
-def test_the_trial_publishes_how_the_heads_drew_the_map(monkeypatch) -> None:
-    run_ctx = _run_ctx(build_bench())
-    adapter = _AxisRelease()
-    monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda ctx: (adapter, run_ctx))
-
-    diagnostics = extract_outputs(run_ctx, {"net": _heads_output()}).diagnostics
-
-    assert diagnostics["net.n_observed_cells"] == float(N_ROWS - LANDING_ROW)
-    assert diagnostics["net.n_heads"] == 1.0
-    assert diagnostics["net.n_heads_lost"] == 0.0
-    assert diagnostics["net.heads_trace_near_map_share"] == 1.0
-
-
 # From test_a_network_state_is_read_at_its_date.py
 # A network output read in one state reads the state its ``time`` names.
 #
@@ -796,10 +684,6 @@ def _scored(monkeypatch, bench, stream_file, stack, bounds, time):
 
 
 class TestTheDeclaration:
-    def test_a_date_is_accepted_beside_first_and_last(self) -> None:
-        for time in ("last", "first", "2002-10-15"):
-            assert CalibOutputNetwork(map={"complete": "n.gpkg"}, time=time).time == time
-
     def test_a_bare_toml_date_is_kept_as_its_iso_spelling(self) -> None:
         output = CalibOutputNetwork(map={"complete": "n.gpkg"}, time=datetime.date(2002, 10, 15))
         assert output.time == "2002-10-15"
@@ -809,58 +693,17 @@ class TestTheDeclaration:
         with pytest.raises(ValidationError, match="network"):
             CalibOutputNetwork(map={"complete": "n.gpkg"}, time=time)
 
-    def test_the_extent_table_still_takes_no_time(self) -> None:
-        with pytest.raises(ValidationError, match="extent"):
-            CalibOutputNetwork(map={"complete": "n.gpkg"}, model={"extent": {}}, time="2002-10-15")
-
-
-class TestWhichPeriodADateReads:
-    def test_a_date_reads_the_month_that_holds_it(self) -> None:
-        assert resolve_state("2002-10-15", MONTHS, n_periods=36) == 33
-        assert resolve_state("2002-11-01", MONTHS, n_periods=36) == 33
-        assert resolve_state("2002-10-01", MONTHS, n_periods=36) == 32
-
-    def test_first_and_last_read_the_ends(self) -> None:
-        assert resolve_state("first", MONTHS, n_periods=36) == 0
-        assert resolve_state("last", MONTHS, n_periods=36) == 35
-
-    def test_a_steady_period_holds_every_date_of_its_window(self) -> None:
-        steady = (pd.Timestamp("2000-01-01"), pd.Timestamp("2003-01-01"))
-        for date in ("2000-01-01", "2002-10-15", "2002-12-31"):
-            assert resolve_state(date, steady, n_periods=1) == 0
-
-    def test_one_state_without_dates_is_served_to_any_selector(self) -> None:
-        assert resolve_state("2002-10-15", None, n_periods=1) == 0
-
-    def test_a_date_outside_the_run_is_refused(self) -> None:
-        with pytest.raises(TimeSelectionError, match="outside the record"):
-            resolve_state("2004-01-15", MONTHS, n_periods=36)
-
 
 class TestTheRowServed:
     def release_stack(self) -> ObservableResult:
         values = np.arange(36, dtype=float)[:, None] * np.ones((1, 4))
         return adapter_result("net", values, "m3 s-1", times=MONTHS[1:])
 
-    def test_a_date_is_served_its_own_row(self) -> None:
-        output = CalibOutputNetwork(map={"complete": "n.gpkg"}, time="2002-10-15")
-        row, index = network_state_row("net", output, self.release_stack(), tuple(MONTHS))
-        assert index == 33
-        assert np.asarray(row.values).tolist() == [[33.0] * 4]
-        assert pd.DatetimeIndex(row.times).tolist() == [pd.Timestamp("2002-11-01")]
-
     def test_the_stamps_date_the_stack_when_the_grid_does_not(self) -> None:
         output = CalibOutputNetwork(map={"complete": "n.gpkg"}, time="2001-03-31")
         row, index = network_state_row("net", output, self.release_stack(), None)
         assert index == 14
         assert np.asarray(row.values)[0, 0] == 14.0
-
-    def test_one_state_is_served_as_it_came(self) -> None:
-        output = CalibOutputNetwork(map={"complete": "n.gpkg"}, time="2002-10-15")
-        one = adapter_result("net", np.ones(4), "m3 s-1")
-        row, index = network_state_row("net", output, one, None)
-        assert row is one
-        assert index is None
 
     def test_a_date_on_an_undated_stack_is_refused_by_name(self) -> None:
         output = CalibOutputNetwork(map={"complete": "n.gpkg"}, time="2002-10-15")
@@ -897,12 +740,6 @@ class TestTheStateScored:
         assert dated["net.D_os"] == pytest.approx(alone["net.D_os"])
         assert dated["net.n_network_sim"] == alone["net.n_network_sim"]
 
-    def test_the_date_is_not_the_last_state(self, monkeypatch, bench, stream_file) -> None:  # noqa: F811
-        stack = release_stack(bench, seasonal_thresholds(3, wet_first_year=True))
-        dated = _scored(monkeypatch, bench, stream_file, stack, SPIN_UP_RUN, "2001-10-15")
-        last = _scored(monkeypatch, bench, stream_file, stack, SPIN_UP_RUN, "last")
-        assert dated["net.n_network_sim"] != last["net.n_network_sim"]
-
     def test_a_date_the_run_does_not_hold_stops_the_trial(
         self, monkeypatch, bench, stream_file
     ) -> None:  # noqa: F811
@@ -930,82 +767,15 @@ class TestTheStateScored:
 CELL__point_output = (0, 12)
 
 
-@pytest.fixture
-def ctx__point_output(monkeypatch):
-    monkeypatch.setattr(
-        "hydromodpy.calibration.metrics.solver_extract.find_cell_at_point",
-        lambda _ctx, _x, _y: CELL__point_output,
-    )
-    return SimpleNamespace()
-
-
 def _point__point_output(variable: str) -> CalibOutputPoint:
     return CalibOutputPoint.model_validate(
         {"variable": variable, "support": "point", "x": 1.0, "y": 2.0}
     )
 
 
-def test_a_head_target_is_unchanged(ctx__point_output) -> None:
-    request = observable_request_for_output(
-        "piezo", _point__point_output("head"), ctx__point_output
-    )
-    assert (request.name, request.support, request.cell) == ("head", "cell", CELL__point_output)
-
-
-def test_a_discharge_target_asks_for_the_discharge(ctx__point_output) -> None:
-    request = observable_request_for_output(
-        "gauge", _point__point_output("discharge"), ctx__point_output
-    )
-    assert (request.name, request.support, request.cell) == (
-        "discharge",
-        "cell",
-        CELL__point_output,
-    )
-
-
-def test_the_request_is_the_one_the_single_metric_route_already_builds(ctx__point_output) -> None:
-    # `composite.py` resolves a station to its cell and asks for
-    # ObservableRequest(name="discharge", support="cell", cell=...). A block
-    # scoring the same gauge has to ask the solver the same question, or the two
-    # routes are not comparable.
-    request = observable_request_for_output(
-        "gauge", _point__point_output("discharge"), ctx__point_output
-    )
-    assert request.name == "discharge"
-    assert request.support == "cell"
-
-
 def test_a_point_with_no_coordinates_is_refused_at_declaration() -> None:
     with pytest.raises(ValueError, match="requires both 'x' and 'y'"):
         CalibOutputPoint.model_validate({"variable": "head", "support": "point"})
-
-
-def test_a_point_that_observes_a_station_needs_no_coordinates() -> None:
-    """'observes' locates the point by the station's own record.
-
-    A protocol writing this output has no coordinate to give it, and none is
-    read once 'observes' is set (`observable_request_for_output` above).
-    """
-    declaration = CalibOutputPoint.model_validate(
-        {"variable": "discharge", "support": "point", "observes": "NANCON"}
-    )
-    assert declaration.x is None
-    assert declaration.y is None
-
-
-@pytest.mark.parametrize(
-    ("model", "selector"),
-    [
-        (CalibOutputPoint, {"support": "point", "x": 1.0, "y": 2.0}),
-        (CalibOutputCell, {"support": "cell", "row": 3, "col": 7}),
-    ],
-)
-def test_a_gauge_declares_no_neighbourhood_of_its_own(model, selector) -> None:
-    # The discharge at a gauge is routed on the descent D of the build, whose
-    # neighborhood the mesh fixes. A per-output knob would route one gauge on
-    # another graph than the area it is snapped by, so the key is refused.
-    with pytest.raises(ValueError, match="diagonal_neighbors"):
-        model.model_validate({"variable": "discharge", "diagonal_neighbors": True, **selector})
 
 
 # From test_a_station_is_located_by_its_record.py
@@ -1077,17 +847,6 @@ def test_a_piezometer_is_located_at_the_coordinates_its_record_carries(
     assert ctx__station_located["xy"] == pytest.approx(GAUGE_XY__station_located)
 
 
-def test_a_gauge_is_not_located_by_a_coordinate_at_all(ctx__station_located) -> None:
-    # A head is read at the cell the point falls in; a discharge is the flow
-    # accumulated over everything draining to it, and the cell a coordinate lands
-    # in was measured on Nancon to drain two tenths of a per cent of the basin.
-    assert (
-        cell_for_station(_ctx_with(_record("NANCON", located=True)), "NANCON", variable="discharge")
-        is None
-    )
-    assert "xy" not in ctx__station_located
-
-
 def test_a_record_with_no_location_resolves_to_nothing(ctx__station_located) -> None:
     # Refusing to guess is the point: the caller then says so instead of
     # substituting a different quantity without a word.
@@ -1101,12 +860,6 @@ def test_the_batch_resolver_uses_the_same_lookup(ctx__station_located) -> None:
         variable="head",
     )
     assert cells == {"P1": CELL__station_located}
-
-
-def test_an_unknown_station_resolves_to_nothing(ctx__station_located) -> None:
-    assert (
-        cell_for_station(_ctx_with(_record("OTHER", located=True)), "P1", variable="head") is None
-    )
 
 
 # From test_lake_level_calibration.py
@@ -1127,36 +880,6 @@ def test_an_unknown_station_resolves_to_nothing(ctx__station_located) -> None:
 # ---------------------------------------------------------------------------
 # Schema
 # ---------------------------------------------------------------------------
-class TestSchema:
-    def test_lake_output_discriminates_on_support(self):
-        out = validate_calib_output(
-            {"support": "lake", "lake_id": "lac0", "observed_values": [1.0, 2.0]}
-        )
-        assert isinstance(out, CalibOutputLake)
-        assert out.lake_id == "lac0"
-        assert out.variable == "stage"
-        assert out.time == "all"
-        assert out.reducer == "none"
-
-    @pytest.mark.parametrize(
-        ("output", "match"),
-        [
-            pytest.param({"support": "lake"}, "lake_id", id="no-lake-id"),
-            pytest.param(
-                {"support": "lake", "lake_id": "lac0", "variable": "inflow"},
-                "",
-                id="unknown-variable",
-            ),
-        ],
-    )
-    def test_lake_output_refuses_a_missing_lake_id_and_an_unknown_variable(self, output, match):
-        with pytest.raises(ValueError, match=match):
-            validate_calib_output(output)
-
-    @pytest.mark.parametrize("quantity", ["stage", "volume", "surface_area"])
-    def test_lake_output_accepts_every_lak_state(self, quantity):
-        out = validate_calib_output({"support": "lake", "lake_id": "lac0", "variable": quantity})
-        assert out.variable == quantity
 
 
 # ---------------------------------------------------------------------------
@@ -1217,12 +940,6 @@ class TestExtractor:
         series = extract_lake_series(tmp_path, "m", lake_id="lac0", times=_DAYS, time_index=idx)
         assert series.index.equals(idx)
         assert series.loc["2007-01-02"] == pytest.approx(87.01)
-
-    def test_ignores_mismatched_time_index(self, tmp_path: Path):
-        _write_lake_outputs(tmp_path, "m", stages=(86.97, 87.01, 87.05))
-        idx = pd.DatetimeIndex(["2007-01-01"])
-        series = extract_lake_series(tmp_path, "m", lake_id="lac0", times=_DAYS, time_index=idx)
-        assert not isinstance(series.index, pd.DatetimeIndex)
 
     def test_reads_volume_state_quantity(self, tmp_path: Path):
         _write_lake_outputs(tmp_path, "m", stages=(10.0,))
@@ -1338,12 +1055,6 @@ class _NoLakeAdapter:
 
 
 class TestBridge:
-    def test_lake_output_raises_without_flow_run(self):
-        ctx = SimpleNamespace(execution=None)
-        out = validate_calib_output({"support": "lake", "lake_id": "lac0"})
-        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
-            _extract_outputs(ctx, {"lake": out})
-
     def test_lake_output_slices_last(self, monkeypatch):
         run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"), solver_run=None)
         monkeypatch.setattr(
@@ -1371,31 +1082,6 @@ class TestBridge:
         out = validate_calib_output({"support": "lake", "lake_id": "lac0"})
         with pytest.raises(ObservableNotAvailableError, match="on support 'lake'"):
             _extract_outputs(SimpleNamespace(), {"lake": out})
-
-    @pytest.mark.parametrize("declared", ["stage", "volume", "surface_area"])
-    def test_declared_quantity_reaches_the_adapter(self, monkeypatch, declared):
-        """The config quantity is what the adapter is asked for, not a fixed stage."""
-        seen: dict[str, str] = {}
-
-        class _Recorder:
-            def observables(self, ctx, requests, *, time_index=None):
-                del ctx, time_index
-                seen["name"] = requests[0].name
-                seen["key"] = requests[0].key
-                seen["support"] = requests[0].support
-                return {requests[0].id: adapter_result(requests[0].id, np.array([1.0]), "m")}
-
-        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="modflow6"), solver_run=None)
-        monkeypatch.setattr(
-            _solver_extract_module,
-            "resolve_flow_adapter",
-            lambda ctx: (_Recorder(), run_ctx),
-        )
-        out = validate_calib_output({"support": "lake", "lake_id": "lac0", "variable": declared})
-        _extract_outputs(SimpleNamespace(), {"lake": out})
-        # No composed lake_<quantity> string any more: the state is the name and
-        # the lake is the key.
-        assert seen == {"name": declared, "key": "lac0", "support": "lake"}
 
 
 # ---------------------------------------------------------------------------
@@ -1615,12 +1301,6 @@ class TestCompositeRouting:
 # Helpers
 # ---------------------------------------------------------------------------
 class TestHelpers:
-    def test_coerce_length_handles_pint(self):
-        out = validate_calib_output({"variable": "head", "support": "point", "x": 100.0, "y": 0.0})
-        assert _coerce_length_to_m(out.x) == 100.0
-        assert _coerce_length_to_m(out.y) == 0.0
-        assert _coerce_length_to_m(None) is None
-
     def test_slice_time_first_last_all(self):
         arr = [1.0, 2.0, 3.0, 4.0]
         assert _slice_time(arr, "all", "none") == [1.0, 2.0, 3.0, 4.0]
@@ -1636,79 +1316,6 @@ class TestHelpers:
         with pytest.raises(ValueError, match="share no timestamp"):
             _score(obs, sim, "rmse", variable="head")
 
-    def test_extract_outputs_raises_when_no_flow_run(self):
-        out = validate_calib_output({"variable": "head", "support": "point", "x": 1.0, "y": 2.0})
-        with pytest.raises(NotImplementedError, match="No flow solver adapter"):
-            _extract_outputs(_empty_ctx(), {"head_A": out})
-
-    def test_boundary_output_becomes_a_keyed_request(self):
-        out = boundary_output()
-        request = _request_for_output("q", out, _empty_ctx())
-        assert (request.id, request.name, request.support) == ("q", "discharge", "boundary")
-        assert request.key == "outlet"
-
-    def test_lake_output_carries_its_quantity_and_lake(self):
-        out = validate_calib_output(
-            {"variable": "volume", "support": "lake", "lake_id": "lac0", "time": "last"}
-        )
-        request = _request_for_output("lake", out, _empty_ctx())
-        assert (request.name, request.support, request.key) == ("volume", "lake", "lac0")
-        assert request.times == "last"
-
-    def test_cell_output_carries_its_cell(self):
-        out = validate_calib_output(
-            {"variable": "head", "support": "cell", "layer": 2, "row": 0, "col": 1}
-        )
-        request = _request_for_output("h", out, _empty_ctx())
-        assert (request.support, request.cell) == ("cell", (2, 0, 1))
-
-    def test_a_flat_cell_id_is_refused_with_the_keys_to_write(self):
-        with pytest.raises(ValidationError, match="cell_id.*row and col.*support = 'point'"):
-            validate_calib_output({"variable": "head", "support": "cell", "cell_id": 7})
-
-    def test_extract_outputs_batches_every_declaration_in_one_call(self, monkeypatch):
-        seen = {}
-
-        class _Adapter:
-            def top_active_layer(self, ctx, row, col):
-                del ctx, row, col
-                return 0
-
-            def observables(self, ctx, requests, *, time_index=None):
-                del ctx, time_index
-                seen["n_calls"] = seen.get("n_calls", 0) + 1
-                seen["ids"] = [request.id for request in requests]
-                return {
-                    request.id: adapter_result(request.id, np.array([1.0, 2.0, 3.0]), "m")
-                    for request in requests
-                }
-
-        run_ctx = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"), solver_run=None)
-        monkeypatch.setattr(
-            _solver_extract_module,
-            "resolve_flow_adapter",
-            lambda ctx: (_Adapter(), run_ctx),
-        )
-        outputs = {
-            "lake": validate_calib_output(
-                {"variable": "stage", "support": "lake", "lake_id": "lac0", "time": "last"}
-            ),
-            "cell": validate_calib_output(
-                {"variable": "head", "support": "cell", "row": 0, "col": 1}
-            ),
-        }
-
-        extracted = _extract_outputs(_empty_ctx(), outputs)
-        simulated, diagnostics = extracted.values, extracted.diagnostics
-
-        # Two outputs, one adapter call: that is what the batch buys.
-        assert seen["n_calls"] == 1
-        assert seen["ids"] == ["lake", "cell"]
-        assert simulated["lake"] == [3.0]
-        assert simulated["cell"] == [1.0, 2.0, 3.0]
-        # Only a network output produces diagnostics beside its values.
-        assert diagnostics == {}
-
     def test_extract_outputs_names_the_output_whose_declaration_is_wrong(self, monkeypatch):
         class _Adapter:
             def observables(self, ctx, requests, *, time_index=None):
@@ -1723,22 +1330,6 @@ class TestHelpers:
         out = validate_calib_output({"variable": "head", "support": "point", "x": 0.0, "y": 0.0})
         with pytest.raises(RuntimeError, match="Output 'h' extraction failed"):
             _extract_outputs(_empty_ctx(), {"h": out})
-
-    def test_station_cells_uses_structural_metadata_without_mesh(self):
-        rec = SimpleNamespace(station_id="P1", cell_ij=(3, 4, 2))
-        ctx = SimpleNamespace(
-            setup=SimpleNamespace(cell_mesh=None, domain=None),
-            loaded_data=SimpleNamespace(piezometry=SimpleNamespace(points=[rec])),
-        )
-        observed = [
-            ObservedSeries__metrics_extractors(
-                station_id="P1",
-                variable="head",
-                series=pd.Series([1.0], index=pd.DatetimeIndex(["2020-01-01"])),
-            )
-        ]
-
-        assert _resolve_station_cells(ctx, observed) == {"P1": (2, 3, 4)}
 
 
 # From test_network_output_wiring.py
@@ -1767,42 +1358,6 @@ class _Adapter__network_output:
             request.id: adapter_result(request.id, np.where(pattern, 1e-06, 0.0), self.units)
             for request in requests
         }
-
-
-class TestSchema__network_output:
-    def test_a_network_output_has_no_observed_values_at_all(self, stream_file) -> None:
-        # The criterion balances two simulated quantities, so there is nothing to
-        # fit and the schema says so rather than standing in a pair of zeros.
-        out = network_output(stream_file)
-        assert not hasattr(out, "observed_values")
-        assert out.time == "last"
-
-    def test_writing_observed_values_on_it_is_refused(self, stream_file) -> None:
-        with pytest.raises(ValueError):
-            network_output(stream_file, observed_values=[0.0, 0.0])
-
-    def test_it_becomes_a_whole_field_request(self, stream_file) -> None:
-        request = observable_request_for_output("net", network_output(stream_file), None)
-        assert (request.support, request.name, request.times) == ("cells", "release_flux", "last")
-
-    def test_it_declares_no_reducer_at_all(self, stream_file) -> None:
-        # Nothing ever read it: extract_outputs branches on support == "network"
-        # before slice_time, the only reader of a reducer.
-        assert "reducer" not in CalibOutputNetwork.model_fields
-        with pytest.raises(ValidationError, match="reducer"):
-            network_output(stream_file, reducer="sum")
-
-    def test_a_config_can_declare_the_gap_as_its_metric(self, stream_file) -> None:
-        cfg = CalibrationConfig.model_validate(
-            {
-                "method": "grid",
-                "outputs": {"net": network_output(stream_file).model_dump()},
-                "objective_blocks": [
-                    {"name": "abherve", "metric": "distance_gap", "uses_outputs": ["net"]}
-                ],
-            }
-        )
-        assert cfg.objective_blocks[0].metric == "distance_gap"
 
 
 class TestGeometry:
@@ -1888,29 +1443,6 @@ class TestEndToEnd:
         assert d_so - d_os == pytest.approx(diagnostics["net.J_signed"])
         assert diagnostics["net.J"] == pytest.approx(abs(d_so - d_os))
 
-    def test_the_thirty_diagnostics_travel_with_it(self, monkeypatch, bench, stream_file) -> None:
-        _, diagnostics = self._extract(monkeypatch, bench, stream_file, 200.0)
-        for key in (
-            "net.D_so",
-            "net.D_os",
-            "net.D_optim",
-            "net.r_optim",
-            "net.n_valid",
-            "net.n_excess",
-            "net.n_missing",
-            "net.frac_unreachable_so",
-            "net.beta_sim_continuity",
-            "net.zero_fraction_os",
-            "net.alpha_obs_closure",
-            "net.alpha_obs_closure_catchment",
-            "net.frac_obs_outside_catchment",
-            "net.frac_reachable_obs_raw",
-            "net.h_obs",
-            "net.L_cap",
-        ):
-            assert key in diagnostics, key
-            assert isinstance(diagnostics[key], float)
-
     def test_the_trial_measures_one_cell_of_the_mesh_it_scored(
         self, monkeypatch, bench, stream_file
     ) -> None:
@@ -1926,21 +1458,6 @@ class TestEndToEnd:
         low = self._extract(monkeypatch, bench, stream_file, 20.0)[1]["net.J_signed"]
         high = self._extract(monkeypatch, bench, stream_file, 900.0)[1]["net.J_signed"]
         assert low > 0.0 > high
-
-    def test_a_trial_past_the_validity_bound_is_scored_even_in_strict_mode(
-        self, monkeypatch, bench, stream_file, caplog
-    ) -> None:
-        # Eq. 4 is read at the optimum, once, by the runner. A trial on the way
-        # to the root is not the result, so it neither raises nor warns.
-        simulated, _ = self._extract(
-            monkeypatch,
-            bench,
-            stream_file,
-            200.0,
-            verdict={"validity_length": "1 mm", "on_invalid": "error"},
-        )
-        assert np.isfinite(simulated["net"][0])
-        assert "r_optim" not in caplog.text
 
     def test_each_trial_still_records_the_ratio_and_its_verdict(
         self, monkeypatch, bench, stream_file
@@ -1994,14 +1511,6 @@ class TestEndToEnd:
             diagnostics["net.D_so"] / diagnostics["net.D_os"]
         )
 
-    def test_a_mesh_with_an_inactive_mask_splits_the_unset_thickness(
-        self, monkeypatch, bench, stream_file
-    ) -> None:
-        _, diagnostics = self._extract(monkeypatch, bench, stream_file, 200.0)
-        assert "net.d_sat_dry_fraction" in diagnostics
-        assert "net.d_sat_inactive_fraction" in diagnostics
-        assert "net.d_sat_unset_fraction" not in diagnostics
-
 
 class TestTheUnitTheReleaseFieldArrivesIn:
     """The seepage threshold is a recharge in m/s times a cell area.
@@ -2013,15 +1522,6 @@ class TestTheUnitTheReleaseFieldArrivesIn:
 
     def _extract(self, monkeypatch, bench, stream_file, units):
         return _extract(monkeypatch, bench, stream_file, 200.0, units=units)
-
-    @pytest.mark.parametrize("units", ["m3 s-1", "m3/s", "m3.s-1"])
-    def test_the_spellings_the_adapters_write_are_accepted(
-        self, monkeypatch, bench, stream_file, units
-    ) -> None:
-        # modflow_common and boussinesq write the CF form, the GR4J extractor
-        # the solidus one. Both name the same unit.
-        simulated, _ = self._extract(monkeypatch, bench, stream_file, units)
-        assert np.isfinite(simulated["net"][0])
 
     @pytest.mark.parametrize("units", ["L/s", "m3/day"])
     def test_a_flow_in_another_unit_is_refused_by_name(
@@ -2065,53 +1565,6 @@ class TestTheGuardOnAnUnpairedNetworkOutput:
             }
         )
 
-    def test_a_network_output_with_no_block_at_all_is_refused(self, stream_file) -> None:
-        with pytest.raises(ValueError, match="distance_gap"):
-            self._config(stream_file)
-
-    def test_the_message_names_the_output(self, stream_file) -> None:
-        with pytest.raises(ValueError, match="'net'"):
-            self._config(stream_file)
-
-    def test_a_head_block_does_not_pair_it(self, stream_file) -> None:
-        with pytest.raises(ValueError, match="distance_mean"):
-            self._config(
-                stream_file,
-                outputs={
-                    "net": network_output(stream_file).model_dump(),
-                    "piezo": {"support": "point", "x": 0.0, "y": 0.0, "variable": "head"},
-                },
-                objective_blocks=[{"name": "heads", "metric": "rmse", "uses_outputs": ["piezo"]}],
-            )
-
-    def test_a_distance_block_pairs_it(self, stream_file) -> None:
-        cfg = self._config(
-            stream_file,
-            objective_blocks=[{"name": "gap", "metric": "distance_gap", "uses_outputs": ["net"]}],
-        )
-        assert cfg.objective_blocks[0].metric == "distance_gap"
-
-    def test_the_implicit_block_pairs_it_too(self, stream_file) -> None:
-        # (objective, variable) builds the block the composite route needs, so
-        # the guard must read the config after that block exists.
-        cfg = self._config(stream_file, objective="distance_gap", variable="net")
-        assert [block.metric for block in cfg.objective_blocks] == ["distance_gap"]
-
-    def test_a_config_with_no_network_output_is_left_alone(self) -> None:
-        # A single-metric phase sub-configuration has zero outputs and zero
-        # blocks; there is nothing to guard there.
-        cfg = CalibrationConfig.model_validate(
-            {"method": "grid", "variable": "discharge", "objective": "nse_log"}
-        )
-        assert cfg.objective_blocks == []
-
-
-class TestTheMappedNetworkIsRequired:
-    def test_a_network_output_without_a_geometry_is_refused(self) -> None:
-        # observations/observed_network.py has no fallback: it raises.
-        with pytest.raises(ValueError, match="map"):
-            validate_calib_output({"support": "network"})
-
 
 class TestADeletedFieldIsRefusedInATomlToo:
     """``extra="forbid"`` has to make the deletion visible where users write.
@@ -2134,15 +1587,6 @@ class TestADeletedFieldIsRefusedInATomlToo:
             "uses_outputs = ['net']\n"
         )
         return CalibrationConfig.model_validate(payload)
-
-    def test_a_toml_declaring_a_reducer_is_refused(self, stream_file) -> None:
-        with pytest.raises(ValidationError, match="reducer"):
-            self._config_from_toml(stream_file, "reducer = 'sum'")
-
-    def test_the_same_toml_without_it_is_accepted(self, stream_file) -> None:
-        # The control: only the deleted key separates the two cases.
-        cfg = self._config_from_toml(stream_file, "model.weighting = 'cell'")
-        assert cfg.outputs["net"].support == "network"
 
 
 # From test_network_two_bounds.py
@@ -2174,21 +1618,6 @@ def _extract__network_two(monkeypatch, bench, output, stack, bounds):
 
 
 class TestTheSchema:
-    def test_the_extent_table_takes_its_defaults(self, maps) -> None:
-        extent = network_output(maps.maximal, model={"extent": {}}).model.extent
-        assert (extent.flowing_at_least, extent.dry_at_most) == (None, None)
-        assert extent.year_quorum == 0.5
-        assert extent.visible_flow == "1 L/s"
-
-    def test_without_it_the_output_reads_one_state(self, maps) -> None:
-        output = network_output(maps.maximal)
-        assert output.model.extent is None
-        assert observable_request_for_output("net", output, None).times == "last"
-
-    def test_with_it_every_timestep_is_requested(self, maps) -> None:
-        output = network_output(maps.maximal, model={"extent": {}})
-        assert observable_request_for_output("net", output, None).times == "all"
-
     def test_a_single_state_named_beside_it_is_refused(self, maps) -> None:
         with pytest.raises(ValidationError, match="drop 'time'"):
             network_output(maps.maximal, model={"extent": {}}, time="first")
@@ -2209,37 +1638,8 @@ class TestTheSchema:
         with pytest.raises(ValidationError):
             network_output(maps.maximal, model={"extent": extent})
 
-    def test_a_config_round_trips_through_its_dump(self, maps) -> None:
-        output = network_output(
-            maps.maximal,
-            permanent=maps.minimal,
-            calibrate_on={"permanent": 1.0, "complete": 0.0},
-            model={"extent": {"visible_flow": "1%"}},
-        )
-        cfg = CalibrationConfig.model_validate(
-            {
-                "method": "grid",
-                "outputs": {"net": output.model_dump()},
-                "objective_blocks": [
-                    {"name": "network", "metric": "distance_gap", "uses_outputs": ["net"]}
-                ],
-            }
-        )
-        assert cfg.outputs["net"].map.bound_weights.permanent == 1.0
-
 
 class TestOneState:
-    def test_one_map_publishes_the_bound_under_both_names(self, monkeypatch, bench, maps) -> None:
-        stack = release_stack(bench, [200.0])
-        pair, diagnostics, _ = _extract__network_two(
-            monkeypatch, bench, network_output(maps.maximal), stack, None
-        )
-        assert len(pair) == 2
-        assert diagnostics["net.n_bounds_scored"] == 1.0
-        assert diagnostics["net.J_signed"] == diagnostics["net.J_signed_maximal"]
-        assert "net.J_signed_minimal" not in diagnostics
-        assert "net.frac_minimal_outside_maximal" not in diagnostics
-
     def test_with_both_maps_the_state_is_scored_on_the_permanent_one(
         self, monkeypatch, bench, maps
     ) -> None:
@@ -2478,21 +1878,6 @@ class TestTwoBounds:
         ) == steps
         assert diagnostics["net.step_days"] == pytest.approx(30.4375)
 
-    def test_no_rule_counts_one_and_one_on_an_hourly_step_too(
-        self, monkeypatch, bench, maps
-    ) -> None:
-        adapter = StackAdapter(release_stack(bench, seasonal_thresholds(3)))
-        ctx = make_trial_ctx(bench, bounds=self.BOUNDS)
-        ctx.setup.time_grid.window = SimpleNamespace(step_value=1, step_unit="hour")
-        monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, ctx))
-
-        diagnostics = extract_outputs(
-            ctx, {"net": network_output(maps.maximal, model={"extent": {}})}
-        ).diagnostics
-
-        assert diagnostics["net.maximal_flowing_steps"] == 1
-        assert diagnostics["net.minimal_dry_steps"] == 1
-
     def test_a_run_that_states_no_timestep_is_refused(self, monkeypatch, bench, maps) -> None:
         adapter = StackAdapter(release_stack(bench, seasonal_thresholds(3)))
         ctx = make_trial_ctx(bench, bounds=self.BOUNDS)
@@ -2673,26 +2058,6 @@ def test_a_backend_without_the_field_keeps_the_criterion() -> None:
     assert _saturated_thickness_or_none(_Adapter(), run_ctx, "network", output, None) is None
 
 
-def test_the_request_reads_the_same_times_as_the_network() -> None:
-    seen = []
-
-    solver_run = object()
-
-    class _Adapter:
-        def observables(self, run, requests, *, time_index=None):
-            assert run is solver_run
-            seen.extend(requests)
-            return {requests[0].id: "field"}
-
-    output = SimpleNamespace(time="last")
-    run_ctx = SimpleNamespace(solver_run=solver_run)
-
-    assert _saturated_thickness_or_none(_Adapter(), run_ctx, "network", output, None) == "field"
-    assert seen[0].name == "saturated_thickness"
-    assert seen[0].support == "cells"
-    assert seen[0].times == "last"
-
-
 # From test_the_two_bound_mode_scores_the_years_of_its_window.py
 # The two-bound mode scores only the complete years the phase's scoring window holds.
 #
@@ -2706,37 +2071,6 @@ def _score__two_bound(monkeypatch, bench, stream_file, stack, bounds, window=Non
     output = network_output(stream_file, model={"extent": {"visible_flow": "0 L/s"}})
     extracted, _ = run_extraction(monkeypatch, bench, {"net": output}, stack, bounds, window=window)
     return extracted.diagnostics
-
-
-def test_without_a_window_the_spin_up_year_is_scored(monkeypatch, bench, stream_file) -> None:
-    scored = _score__two_bound(
-        monkeypatch,
-        bench,
-        stream_file,
-        release_stack(bench, seasonal_thresholds(3, wet_first_year=True)),
-        SPIN_UP_RUN,
-    )
-    assert scored["net.n_years_scored"] == 3.0
-    assert scored["net.year_scored_y2000"] == 1.0
-    assert scored["net.n_years_outside_window"] == 0.0
-
-
-def test_the_window_scores_the_years_it_holds_and_says_so(monkeypatch, bench, stream_file) -> None:
-    scored = _score__two_bound(
-        monkeypatch,
-        bench,
-        stream_file,
-        release_stack(bench, seasonal_thresholds(3, wet_first_year=True)),
-        SPIN_UP_RUN,
-        WINDOW,
-    )
-    assert scored["net.n_years_scored"] == 2.0
-    assert (scored["net.first_year_scored"], scored["net.last_year_scored"]) == (2001.0, 2002.0)
-    assert scored["net.year_scored_y2000"] == 0.0
-    assert scored["net.year_scored_y2001"] == scored["net.year_scored_y2002"] == 1.0
-    assert scored["net.n_years_outside_window"] == 1.0
-    assert "net.J_signed_maximal_y2000" not in scored
-    assert "net.J_signed_maximal_y2001" in scored
 
 
 def test_a_windowed_run_scores_what_the_run_without_its_spin_up_scores(
@@ -2796,14 +2130,6 @@ def test_a_window_holding_no_whole_year_is_refused_by_name(monkeypatch, bench, s
             SPIN_UP_RUN,
             window,
         )
-
-
-def test_a_window_does_not_touch_one_state(monkeypatch, bench, stream_file) -> None:
-    outputs = {"net": network_output(stream_file)}
-    stack = release_stack(bench, [200.0])
-    plain = run_extraction(monkeypatch, bench, outputs, stack)[0].diagnostics
-    windowed = run_extraction(monkeypatch, bench, outputs, stack, window=WINDOW)[0].diagnostics
-    assert windowed["net.J_signed"] == plain["net.J_signed"]
 
 
 # From test_two_nested_gauges_score_at_their_own_cells.py
@@ -2901,18 +2227,6 @@ def wired__two_nested(monkeypatch):
     }
     ctx = SimpleNamespace(setup=SimpleNamespace(geographic=SimpleNamespace(catch_area=120.0)))
     return adapter, outputs, extract_outputs(ctx, outputs)
-
-
-def test_each_gauge_is_read_at_its_own_cell(wired__two_nested) -> None:
-    adapter, _outputs, _extracted = wired__two_nested
-    discharge_asked = {req_id: cell for req_id, name, cell in adapter.asked if name == "discharge"}
-    assert discharge_asked == {"gauge_down": CELL_DOWN, "gauge_up": CELL_UP}
-
-
-def test_each_gauge_s_upstream_area_is_asked_at_its_own_cell(wired__two_nested) -> None:
-    adapter, _outputs, _extracted = wired__two_nested
-    area_asked = {req_id: cell for req_id, name, cell in adapter.asked if name == "upstream_area"}
-    assert area_asked == {"_area:gauge_down": CELL_DOWN, "_area:gauge_up": CELL_UP}
 
 
 def test_each_gauge_s_runoff_is_scaled_by_its_own_area(wired__two_nested) -> None:

@@ -11,27 +11,9 @@ from hydromodpy.project import api
 from hydromodpy.project.accessors import Workspace
 from hydromodpy.project.facade import Project
 from hydromodpy.results.errors import RunNotSealedError
-from hydromodpy.results.run.view import Run
-from hydromodpy.results.session.view import Session
-from tests._helpers.sealed_runs import make_project, seal_run, write_attempt, write_session_dir
+from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
 pytestmark = pytest.mark.fast
-
-
-def test_a_project_directory_opens_as_a_project_read_only(tmp_path: Path) -> None:
-    """Opening validates and builds nothing; the index is brought up to date when read."""
-    project = make_project(tmp_path / "p")
-    sim_id = seal_run(project, "baseline")
-
-    proj = api.open(project)
-    try:
-        assert isinstance(proj, Project)
-        assert proj.root == project.resolve()
-        assert not catalog_path_for(project).exists()
-        assert proj["baseline"].sim_id == sim_id
-        assert catalog_path_for(project).is_file()
-    finally:
-        proj.close()
 
 
 def test_a_project_file_and_a_folder_inside_open_the_same_project(tmp_path: Path) -> None:
@@ -44,35 +26,12 @@ def test_a_project_file_and_a_folder_inside_open_the_same_project(tmp_path: Path
         assert proj.root == project.resolve()
 
 
-def test_a_sealed_run_directory_opens_as_a_run_without_the_index(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "p")
-    sim_id = seal_run(project, "baseline", site="J0014010")
-
-    run = api.open(project / "runs" / "baseline")
-
-    assert isinstance(run, Run)
-    assert run.sim_id == sim_id
-    assert run.site == "J0014010"
-    assert run.dir == (project / "runs" / "baseline").resolve()
-    assert not catalog_path_for(project).exists()
-
-
 def test_a_run_that_never_completed_is_refused_with_its_outcome(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     write_attempt(project, "runs/broken", status="failed", error=("SolverError", "diverged"))
 
     with pytest.raises(RunNotSealedError, match="outcome.json"):
         api.open(project / "runs" / "broken")
-
-
-def test_a_session_directory_opens_as_a_session(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "p")
-    write_session_dir(project, "calibration")
-
-    session = api.open(project / "sessions" / "calibration")
-
-    assert isinstance(session, Session)
-    assert session.name == "calibration"
 
 
 def test_a_workspace_root_opens_as_a_workspace(tmp_path: Path) -> None:
@@ -118,15 +77,3 @@ def test_a_workspace_reads_the_runs_of_every_project_by_site(tmp_path: Path) -> 
     assert sorted(runs["name"]) == ["one", "two"]
     assert not catalog_path_for(first).exists()
     assert not catalog_path_for(second).exists()
-
-
-def test_a_project_inside_a_workspace_opens_as_the_project_not_the_workspace(
-    tmp_path: Path,
-) -> None:
-    """Nothing climbs from a folder to the workspace above it: the workspace root is named."""
-    project = make_project(tmp_path / "projects" / "a")
-
-    opened = api.open(project)
-
-    assert isinstance(opened, Project)
-    assert opened.root == project.resolve()

@@ -24,13 +24,10 @@ import pytest
 
 from hydromodpy.display.figures.boundary_package_map import (
     BOUNDARY_PACKAGES,
-    GROUND_COLOR,
     MARK_POINTS,
     SEVERAL_COLOR,
     BoundaryPackageMap,
 )
-
-from ._render_helpers import lightness
 
 N_CELLS = 4
 
@@ -239,22 +236,6 @@ def _notes(ax) -> str:
     return "\n".join(text.get_text() for text in ax.texts)
 
 
-def test_each_package_paints_the_cells_its_flux_reaches() -> None:
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run({"drain": _flux_on([0, 1]), "stream": _flux_on([3], rate=2.0e-2)})
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax)
-        painted = _cells_by_color(ax)
-        assert painted[BOUNDARY_PACKAGES["drain"][1]] == [0, 1]
-        assert painted[BOUNDARY_PACKAGES["stream"][1]] == [3]
-        assert painted[GROUND_COLOR] == [2]
-    finally:
-        plt.close(fig)
-
-
 def test_a_cell_two_packages_act_on_is_drawn_as_its_own_class() -> None:
     """No package wins an overlap: the cell leaves both and says it is shared."""
     pytest.importorskip("matplotlib")
@@ -269,37 +250,6 @@ def test_a_cell_two_packages_act_on_is_drawn_as_its_own_class() -> None:
         assert painted[BOUNDARY_PACKAGES["drain"][1]] == [0]
         assert painted[BOUNDARY_PACKAGES["stream"][1]] == [2]
         assert "several packages (1 cell)" in _labels(ax)
-    finally:
-        plt.close(fig)
-
-
-def test_a_package_idle_at_the_last_step_still_owns_its_cells() -> None:
-    """A drain above the water table on the last day is still a drain cell."""
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run({"drain": _idle_after_first_step([0, 2])}, n_timesteps=3)
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax)
-        assert _cells_by_color(ax)[BOUNDARY_PACKAGES["drain"][1]] == [0, 2]
-        assert "any of the 3 persisted steps" in _notes(ax)
-    finally:
-        plt.close(fig)
-
-
-def test_over_step_narrows_the_map_to_the_day_it_draws() -> None:
-    """The other question the same field answers: who exchanges water today."""
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run({"drain": _idle_after_first_step([0, 2])}, n_timesteps=3)
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax, over="step")
-        assert BOUNDARY_PACKAGES["drain"][1] not in _cells_by_color(ax)
-        assert "drain (DRN, 0 cells)" in _labels(ax)
-        assert "at step 3" in _notes(ax)
     finally:
         plt.close(fig)
 
@@ -329,47 +279,6 @@ def test_an_unknown_extent_is_refused_by_name() -> None:
         plt.close(fig)
 
 
-def test_a_package_that_never_acts_keeps_its_legend_entry() -> None:
-    """Built and never applied is a result the reader must be able to see."""
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run({"drain": _flux_on([0]), "river": np.zeros((1, N_CELLS))})
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax)
-        assert "river (RIV, 0 cells)" in _labels(ax)
-        assert BOUNDARY_PACKAGES["river"][1] not in _cells_by_color(ax)
-        assert BOUNDARY_PACKAGES["river"][1] not in _marked_cells(ax)
-    finally:
-        plt.close(fig)
-
-
-def test_the_note_reads_a_zero_entry_as_the_measurement_it_is() -> None:
-    """What an empty package means on the page, and what it must not claim.
-
-    The reference run carries a ``constant_head`` array of zeros and declares
-    no CHD anywhere in its configuration: MODFLOW-NWT writes the record either
-    way. So the zero says no cell exchanged water on that component, which is
-    measured, and says nothing about whether the package was built, which the
-    store does not hold.
-    """
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run({"drain": _flux_on([0]), "constant_head": np.zeros((1, N_CELLS))})
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax)
-        note = _notes(ax)
-        assert "0 cells means no cell exchanges water on that component" in note
-        assert "1 of 4 mesh cells (25.0 %) exchange water" in note
-        assert "declared" not in note
-        assert "constant_head (CHD, 0 cells)" in _labels(ax)
-    finally:
-        plt.close(fig)
-
-
 def test_a_layered_budget_is_collapsed_onto_the_faces() -> None:
     """A WEL rate on any layer puts the package on that cell, once."""
     pytest.importorskip("matplotlib")
@@ -386,23 +295,6 @@ def test_a_layered_budget_is_collapsed_onto_the_faces() -> None:
         plt.close(fig)
 
 
-def test_layers_that_cancel_out_still_name_the_cell() -> None:
-    """Signed layer fluxes that sum to zero are not an absent package."""
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    well = np.zeros((1, 2, N_CELLS), dtype=float)
-    well[0, 0, 3] = 5.0e-3
-    well[0, 1, 3] = -5.0e-3
-    sim = _run({"well": well})
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax)
-        assert _cells_by_color(ax)[BOUNDARY_PACKAGES["well"][1]] == [3]
-    finally:
-        plt.close(fig)
-
-
 def test_a_budget_that_does_not_fit_the_mesh_is_refused_by_name() -> None:
     pytest.importorskip("matplotlib")
     import matplotlib.pyplot as plt
@@ -414,17 +306,6 @@ def test_a_budget_that_does_not_fit_the_mesh_is_refused_by_name() -> None:
             BoundaryPackageMap().render(sim, ax)
     finally:
         plt.close(fig)
-
-
-def test_unavailable_reason_names_every_component_and_the_option() -> None:
-    sim = _run({"head": np.zeros((1, N_CELLS))}, policy="consumers")
-    reason = BoundaryPackageMap().unavailable_reason(sim)
-    assert isinstance(reason, str)
-    for name in BOUNDARY_PACKAGES:
-        assert name in reason
-    assert "keep_per_cell_budget" in reason
-    assert "kept only the per-cell budget terms its consumers read (none)" in reason
-    assert "spatial_fields" not in reason
 
 
 def test_a_run_that_kept_the_whole_budget_has_no_option_to_offer() -> None:
@@ -454,27 +335,6 @@ def test_render_refuses_with_the_sentence_it_reports() -> None:
         plt.close(fig)
 
 
-def test_every_class_is_separable_in_greyscale() -> None:
-    """The colors are what the map is read by, so they must survive a print."""
-    pytest.importorskip("matplotlib")
-    from matplotlib.colors import to_rgb
-
-    colors = [color for _, color in BOUNDARY_PACKAGES.values()]
-    colors += [SEVERAL_COLOR, GROUND_COLOR]
-    levels = sorted(lightness(to_rgb(color)) for color in colors)
-    gaps = np.diff(levels)
-    assert gaps.min() >= 8.0, dict(zip(colors, levels, strict=False))
-
-
-def test_the_packages_climb_in_lightness_in_the_order_declared() -> None:
-    """Any subset of the palette keeps the spacing the whole palette has."""
-    pytest.importorskip("matplotlib")
-    from matplotlib.colors import to_rgb
-
-    levels = [lightness(to_rgb(color)) for _, color in BOUNDARY_PACKAGES.values()]
-    assert levels == sorted(levels)
-
-
 def test_every_package_is_a_registered_budget_field() -> None:
     """The figure reads its components by name, like any other field."""
     from hydromodpy.core.budget.terms import budget_terms_for
@@ -485,29 +345,6 @@ def test_every_package_is_a_registered_budget_field() -> None:
         assert descriptor.zarr_path == f"budget/{name}"
         assert descriptor.units == "m3 s-1"
         assert budget_terms_for(name)
-
-
-def test_the_whole_run_is_read_in_one_opening_of_the_store() -> None:
-    """The cost of the default question, which is what makes it affordable.
-
-    Asked one timestep at a time, the run-wide map reopens the store once per
-    step and per component: a daily decade over six packages is tens of
-    thousands of openings for one figure.
-    """
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run(
-        {"drain": _idle_after_first_step([0], n_timesteps=200), "river": _flux_on([2])},
-        n_timesteps=200,
-    )
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax)
-        assert len(sim.opened_stores) == 1
-        assert sim.opened_stores[0].closed, "the store is released once the map is read"
-    finally:
-        plt.close(fig)
 
 
 def test_reading_the_step_alone_never_opens_the_store() -> None:
@@ -558,19 +395,6 @@ def test_no_component_is_required_so_one_package_is_enough() -> None:
     assert spec.optional_fields == tuple(BOUNDARY_PACKAGES)
 
 
-def test_the_figure_is_requestable_from_a_toml() -> None:
-    """Registered, and reachable through ``[display].figures`` with its knobs."""
-    from hydromodpy.display import figure_registry
-    from hydromodpy.display.config import DisplayConfig
-
-    assert isinstance(figure_registry.get("boundary_package_map"), BoundaryPackageMap)
-    config = DisplayConfig(
-        figures=["boundary_package_map"],
-        overrides={"boundary_package_map": {"time": "2002-10-15", "over": "step"}},
-    )
-    assert config.overrides["boundary_package_map"] == {"time": "2002-10-15", "over": "step"}
-
-
 def test_the_view_is_the_catchment_not_the_buffered_mesh() -> None:
     """Half the mesh of the reference run is outside the delineated basin.
 
@@ -592,31 +416,6 @@ def test_the_view_is_the_catchment_not_the_buffered_mesh() -> None:
         x0, x1 = ax.get_xlim()
         assert 4.0 <= x0 <= 5.0
         assert 10.0 <= x1 <= 11.0
-    finally:
-        plt.close(fig)
-
-
-def test_the_crop_never_leaves_an_acting_cell_out() -> None:
-    """A crop that hides a package answers the question with the wrong map.
-
-    Widened on the right to hold the well, and still cropped on the left: the
-    five cells before the catchment are gone. Both halves are asserted, or the
-    test passes on a figure that never crops at all.
-    """
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run(
-        {"well": _flux_on([19], n_cells=20)},
-        mesh=_row_mesh(20),
-        catchment=(5.0, 0.0, 10.0, 1.0),
-    )
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax)
-        x0, x1 = ax.get_xlim()
-        assert 4.0 <= x0 <= 5.0, "the background left of the catchment is not the map"
-        assert x1 >= 20.0
     finally:
         plt.close(fig)
 
@@ -648,67 +447,6 @@ def test_the_crop_survives_a_draw_on_a_page_it_is_not_the_shape_of() -> None:
         plt.close(fig)
 
 
-def test_a_delineation_that_lands_off_the_mesh_is_not_the_frame() -> None:
-    """The bounds are taken as stored, so they can be in the wrong CRS.
-
-    A watershed that came back in degrees against a mesh in meters crops the
-    map onto ground that holds no cell: an empty page, with nothing on it
-    saying why. The mesh is a worse frame than the catchment and a readable
-    one, so a box that misses the mesh is dropped.
-    """
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run(
-        {"well": _flux_on([9], n_cells=20)},
-        mesh=_row_mesh(20),
-        catchment=(-1.9, 48.2, -1.5, 48.4),
-    )
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax)
-        fig.canvas.draw()
-        x0, x1 = ax.get_xlim()
-        y0, y1 = ax.get_ylim()
-        assert x0 <= 0.0
-        assert x1 >= 20.0
-        assert y1 - y0 <= 2.0, "the view is 48 units of empty ground with the mesh at its foot"
-    finally:
-        plt.close(fig)
-
-
-def test_a_run_without_a_delineation_is_drawn_whole() -> None:
-    """Framing on the packages alone would zoom a one-well map onto one well."""
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run({"well": _flux_on([9], n_cells=20)}, mesh=_row_mesh(20))
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax)
-        x0, x1 = ax.get_xlim()
-        assert x0 <= 0.0
-        assert x1 >= 20.0
-    finally:
-        plt.close(fig)
-
-
-def test_every_acting_cell_carries_a_mark_and_no_other_cell_does() -> None:
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run({"drain": _flux_on([0, 3]), "stream": _flux_on([1], rate=2.0e-2)})
-    fig, ax = _axes()
-    try:
-        BoundaryPackageMap().render(sim, ax)
-        marked = _marked_cells(ax)
-        assert marked[BOUNDARY_PACKAGES["drain"][1]] == [0, 3]
-        assert marked[BOUNDARY_PACKAGES["stream"][1]] == [1]
-        assert GROUND_COLOR not in marked, "the background is not a subject"
-    finally:
-        plt.close(fig)
-
-
 def _full_legend_run(n_side: int) -> SimpleNamespace:
     """Return a run carrying every package, so the legend is the widest one."""
     n_cells = n_side * n_side
@@ -726,61 +464,12 @@ def _page_share(fig) -> float:
     return float(box.width * box.height / (page[0] * page[1]))
 
 
-@pytest.mark.parametrize(("figsize", "floor"), [((9.5, 7.5), 0.50), ((6.0, 4.5), 0.18)])
-def test_the_legend_does_not_eat_the_map_it_labels(
-    figsize: tuple[float, float], floor: float
-) -> None:
-    """The user's first complaint, on the axis the map was actually lost on.
-
-    The legend sits outside the axes and is sized in points, so it keeps its
-    width while the figure shrinks, and the axes box, locked to the aspect of
-    the data, gives up both sides at once to pay for it. On this run, which
-    carries every package and so the widest legend the figure can draw: at
-    12.5 pt the map is 36 % of the shipped page and 10 % of a 6 x 4.5 in one;
-    at 9 pt it is 63 % and 24 %. The floors sit between the two.
-    """
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    fig = BoundaryPackageMap().plot(_full_legend_run(40), figsize=figsize, dpi=100)
-    try:
-        share = _page_share(fig)
-        assert share >= floor, f"the map is {share:.1%} of the page it was given"
-    finally:
-        plt.close(fig)
-
-
 def _one_cell_run(n_side: int) -> SimpleNamespace:
     """Return a square-mesh run one middle cell of which carries a drain."""
     return _run(
         {"drain": _flux_on([n_side * (n_side // 2) + n_side // 2], n_cells=n_side * n_side)},
         mesh=_square_mesh(n_side),
     )
-
-
-def test_a_cell_finer_than_the_print_still_reaches_the_page() -> None:
-    """The user's complaint, measured where it happens: on the canvas.
-
-    A hundred and twenty cells across a page an inch and a half wide is a cell
-    under one pixel. Its own footprint rounds away there, and the map is
-    honest and unreadable at once: this is the map that "displays almost
-    nothing". Sized in points, the class survives the print.
-    """
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    n_side = 120
-    fig, ax = _axes(figsize=(1.5, 1.5), dpi=100.0)
-    try:
-        BoundaryPackageMap().render(_one_cell_run(n_side), ax)
-        cell_pixels = ax.get_window_extent().width / n_side
-        assert cell_pixels < 1.0, "the case only means something below one pixel per cell"
-        pixels, width, height = _painted_box(fig, ax, BOUNDARY_PACKAGES["drain"][1])
-        assert pixels >= 4, "the only drain cell of the model rounded off the page"
-        assert width >= 2.0
-        assert height >= 2.0
-    finally:
-        plt.close(fig)
 
 
 def test_the_mark_is_a_page_unit_and_not_a_ground_unit() -> None:

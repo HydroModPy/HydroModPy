@@ -1,6 +1,6 @@
 """Thread-local capture of the simulated/observed series one trial scored.
 
-Only opt-in, when ``[calibration].persist_trial_series`` is on. A trial writes
+Only when ``[calibration].persist_trial_series`` is on, the default. A trial writes
 no field (fields.zarr is never touched here), only the point/series values an
 output was actually scored on, at their own aligned time stamps: the pairs
 :mod:`hydromodpy.calibration.metrics.observed_pairing` already builds to

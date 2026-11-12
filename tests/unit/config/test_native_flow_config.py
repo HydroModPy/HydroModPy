@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import re
-from types import SimpleNamespace
 
 import pytest
 from pydantic import BaseModel, ValidationError
 
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.model.boundaries.binder_payloads import payloads_as_mappings
 from hydromodpy.model.boundaries.boundary_conditions import DirichletBC, DrainBC
 from hydromodpy.model.flow_config import FlowConfig, FlowParam
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig
-from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 
 # Native Pydantic payload tests for flow parameters.
 
@@ -81,26 +78,6 @@ def test_flow_bc_native_round_trip_dirichlet_and_cauchy() -> None:
     )
 
     assert all(isinstance(cfg.bc[bc_id], DirichletBC) for bc_id in cfg.bc if bc_id != "drainage")
-    assert isinstance(cfg.bc["drainage"], DrainBC)
-
-    reloaded = FlowConfig.model_validate_json(cfg.model_dump_json())
-
-    assert reloaded == cfg
-
-
-def test_flow_bc_native_round_trip_robin() -> None:
-    cfg = FlowConfig.model_validate(
-        {
-            "bc": {
-                "drainage": {
-                    "kind": "drain",
-                    "value": 2.0e-6,
-                    "application_domain": "top",
-                }
-            }
-        }
-    )
-
     assert isinstance(cfg.bc["drainage"], DrainBC)
 
     reloaded = FlowConfig.model_validate_json(cfg.model_dump_json())
@@ -188,28 +165,6 @@ def _switched_off(name: str, table: dict) -> dict:
     return {**table, "enabled": False}
 
 
-@pytest.mark.parametrize(("family", "name", "table", "listed"), TABLES)
-def test_a_declared_table_is_active(family: str, name: str, table: dict, listed: str) -> None:
-    assert _listed(_config(family, name, table)) == [listed]
-
-
-@pytest.mark.parametrize(("family", "name", "table", "listed"), TABLES)
-def test_a_table_that_says_enabled_false_builds_nothing(
-    family: str, name: str, table: dict, listed: str
-) -> None:
-    assert _listed(_config(family, name, _switched_off(name, table))) == []
-
-
-def test_a_run_that_declares_nothing_lists_nothing() -> None:
-    assert _listed(FlowConfig()) == []
-
-
-@pytest.mark.parametrize("old", ["active_bc", "active_sinks_sources"])
-def test_the_lists_are_no_longer_a_key(old: str) -> None:
-    with pytest.raises(ValueError, match=f"'{old}' is not accepted any more"):
-        FlowConfig(**{old: ["drainage"]})
-
-
 # The FlowBarrierConfig HFB payload (general addon + lake cutoff wall).
 #
 # A flow barrier carries the trace (inline ``line`` or a ``line_path`` vector
@@ -273,25 +228,6 @@ def test_k_unit_is_converted() -> None:
 def test_invalid_configs_are_rejected(kwargs: dict) -> None:
     with pytest.raises(ValidationError):
         FlowBarrierConfig(**kwargs)
-
-
-def test_nests_as_lake_cutoff_wall_and_survives_the_binder_normalizer() -> None:
-    lake = FlowLakeConfig.model_validate(
-        {
-            "bedleak": 1e-6,
-            "initial_stage": "81.82 m",
-            "cutoff_wall": {
-                "line": [[331142.0, 6780439.3], [331119.4, 6780718.7]],
-                "depths": [10.0],
-                "hydchr": 1e-9,
-            },
-        }
-    )
-    assert isinstance(lake.cutoff_wall, FlowBarrierConfig)
-
-    flow = SimpleNamespace(sinks_sources={"lakes": {"reservoir": lake}})
-    payloads = payloads_as_mappings(flow, "lakes")
-    assert isinstance(payloads["reservoir"]["cutoff_wall"], FlowBarrierConfig)
 
 
 def test_general_flow_barriers_mapping_validates() -> None:

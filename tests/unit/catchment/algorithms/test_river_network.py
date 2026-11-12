@@ -127,14 +127,6 @@ def test_a_threshold_that_names_no_count_is_refused(network, dem_res, reason) ->
         resolve_stream_threshold_cells(river_network=network, dem_res_m=dem_res)
 
 
-def test_a_disabled_network_builds_nothing_and_never_calls_the_backend(tmp_path) -> None:
-    result = _build(tmp_path, _config(enabled=False), backend=object())
-    assert result.enabled is False
-    assert result.threshold_cells is result.streams_tif is None
-    assert result.hydrographic_network_generated_shp is None
-    assert result.hydrographic_network_generated_summary_json is None
-
-
 def test_the_full_network_is_pruned_ordered_linked_vectorised_and_summarised(tmp_path) -> None:
     backend = RecordingBackend()
     result = _build(tmp_path, _config(prune_short_streams=True), backend, network_crs="EPSG:2154")

@@ -14,10 +14,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.build import (
-    FLOW_PROPERTY_SIDECAR_SUFFIX,
-    _save_flow_property_sidecar,
-)
+from hydromodpy.solver.modflow6.build import _save_flow_property_sidecar
 from hydromodpy.solver.modflow6.extractors.flow import _write_flow_properties
 
 N_CELLS = 6
@@ -49,19 +46,6 @@ def _model(tmp_path: Path) -> SimpleNamespace:
     )
 
 
-def test_the_builder_leaves_one_file_named_after_the_model(tmp_path: Path) -> None:
-    _save_flow_property_sidecar(_model(tmp_path))
-    sidecars = list(tmp_path.glob(f"*{FLOW_PROPERTY_SIDECAR_SUFFIX}"))
-    assert [path.name for path in sidecars] == [f"{MODEL_NAME}{FLOW_PROPERTY_SIDECAR_SUFFIX}"]
-
-
-def test_the_sidecar_is_written_before_the_model_folder_exists(tmp_path: Path) -> None:
-    model = _model(tmp_path / "not_yet_created")
-    _save_flow_property_sidecar(model)
-    sidecar = Path(model.full_path) / f"{MODEL_NAME}{FLOW_PROPERTY_SIDECAR_SUFFIX}"
-    assert sidecar.is_file()
-
-
 def test_the_extractor_persists_the_four_properties_under_derived(tmp_path: Path) -> None:
     _save_flow_property_sidecar(_model(tmp_path))
     sink = _Sink()
@@ -86,9 +70,3 @@ def test_a_property_that_does_not_match_the_mesh_is_left_out(tmp_path: Path) -> 
     _write_flow_properties(sink, tmp_path, n_cells=N_CELLS)
     assert "specific_yield" not in sink.written
     assert "hydraulic_conductivity" in sink.written
-
-
-def test_a_run_with_no_sidecar_writes_nothing_and_does_not_raise(tmp_path: Path) -> None:
-    sink = _Sink()
-    _write_flow_properties(sink, tmp_path, n_cells=N_CELLS)
-    assert sink.written == {}

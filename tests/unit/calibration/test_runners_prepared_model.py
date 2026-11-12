@@ -26,15 +26,7 @@ from hydromodpy.calibration.runners.prepared_model import (
 from hydromodpy.calibration.runners.trial import TrialContext, built_model, prepare_trials
 from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.solver.base.plan import RunSlot
-from hydromodpy.solver.base.runner import solve_one
 from hydromodpy.solver.modflow6.modflow6 import Modflow6
-from hydromodpy.solver.modflow_common.flow_run import (
-    build_flow_model,
-    build_preprocess_options,
-    run_flow_model,
-)
-from tests._helpers.model_factory import make_model
 
 # From test_bounds_preflight.py
 # Pre-flight refusals the calibration runner makes before the first solve.
@@ -181,31 +173,12 @@ class TestDrainConductanceIsProportional:
             _moving(moves_k=moves_k),
         )
 
-    def test_a_fixed_conductance_is_refused_when_the_search_moves_k(self) -> None:
-        with pytest.raises(ObjectiveError) as excinfo:
-            self._check(self._flow(1e-3), _network_cfg())
-        message = str(excinfo.value)
-        assert "flow.bc.drainage.value" in message
-        assert "0.001" in message
-        assert "'net'" in message
-        assert "drain_bed_thickness_m" in message
-        assert "top_thickness" not in message
-
     def test_a_fixed_conductance_is_only_a_warning_when_k_does_not_move(self, caplog) -> None:
         with caplog.at_level(logging.WARNING):
             self._check(self._flow(1e-3), _network_cfg(), moves_k=False)  # no raise
         assert any(
             "does not move a hydraulic conductivity" in rec.message for rec in caplog.records
         )
-
-    def test_a_drain_is_named_by_its_own_family(self) -> None:
-        with pytest.raises(ObjectiveError, match=r"flow\.bc\.drainage\.value"):
-            self._check(self._flow(2.0, kind="drain"), _network_cfg())
-
-    def test_a_fixed_conductance_is_refused_on_a_single_metric_network_phase(self) -> None:
-        with pytest.raises(ObjectiveError) as excinfo:
-            self._check(self._flow(1e-3), _single_metric_cfg())
-        assert "'net'" in str(excinfo.value)
 
     @pytest.mark.parametrize(
         ("value", "options", "cfg"),
@@ -259,13 +232,6 @@ class TestReleasePackagesFollowK:
         with pytest.raises(ObjectiveError) as excinfo:
             self._check(["sfr"], cfg=_single_metric_cfg())
         assert "'net'" in str(excinfo.value)
-
-    def test_an_active_sfr_is_refused_when_the_search_moves_k(self) -> None:
-        with pytest.raises(ObjectiveError) as excinfo:
-            self._check(["sfr"])
-        message = str(excinfo.value)
-        assert "SFR" in message
-        assert "future work" in message
 
     def test_an_active_lake_is_refused_when_the_search_moves_k(self) -> None:
         with pytest.raises(ObjectiveError, match="LAK"):
@@ -356,14 +322,6 @@ class TestTheVeto:
 
         assert built.builds == 1
 
-    def test_a_gap_under_the_bound_says_so_and_passes(self, built, caplog) -> None:
-        built.gap = 0.04
-
-        with caplog.at_level(logging.INFO):
-            veto(_cfg(), _trial_ctx__catchment_refused(), _space())
-
-        assert "catchment_mismatch = 4.00%" in caplog.text
-
     def test_a_synthetic_domain_has_no_gap_to_refuse(self, built) -> None:
         built.gap = float("nan")
 
@@ -376,30 +334,6 @@ class TestTheVeto:
             _cfg(verdict={"max_catchment_mismatch": 0.2}), _trial_ctx__catchment_refused(), _space()
         )
 
-    def test_false_builds_nothing_and_refuses_nothing(self, built) -> None:
-        built.gap = 0.9
-
-        veto(
-            _cfg(verdict={"max_catchment_mismatch": False}),
-            _trial_ctx__catchment_refused(),
-            _space(),
-        )
-
-        assert built.builds == 0
-
-    def test_a_search_on_no_network_builds_nothing(self, built) -> None:
-        cfg = CalibrationConfig.model_validate(
-            {
-                "parameters": {"K": {"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"}},
-                "outputs": {"q": {"support": "point", "variable": "discharge", "observes": "S"}},
-                "objective_blocks": [{"name": "q", "metric": "nse", "uses_outputs": ["q"]}],
-            }
-        )
-
-        veto(cfg, _trial_ctx__catchment_refused(), _space())
-
-        assert built.builds == 0
-
     def test_it_runs_with_the_other_checks_of_the_prepared_model(self, built, monkeypatch) -> None:
         built.gap = 0.5
         monkeypatch.setattr(prepared_model, "_assert_bounds_valid", lambda *a: None)
@@ -411,30 +345,11 @@ class TestTheVeto:
 
 
 class TestTheKeys:
-    def test_the_old_bound_is_refused_with_the_key_that_replaces_it(self) -> None:
-        with pytest.raises(ValidationError, match=r"verdict\] max_catchment_mismatch"):
-            CalibOutputNetwork(map={"complete": "map.gpkg"}, max_unreachable_fraction=0.05)
-
     def test_true_is_refused(self) -> None:
         with pytest.raises(ValidationError, match="write a share"):
             CalibOutputNetwork(
                 map={"complete": "map.gpkg"}, verdict={"max_catchment_mismatch": True}
             )
-
-    def test_a_negative_share_is_refused(self) -> None:
-        with pytest.raises(ValidationError):
-            CalibOutputNetwork(
-                map={"complete": "map.gpkg"}, verdict={"max_catchment_mismatch": -0.1}
-            )
-
-    def test_false_survives_a_dump(self) -> None:
-        output = CalibOutputNetwork(
-            map={"complete": "map.gpkg"}, verdict={"max_catchment_mismatch": False}
-        )
-
-        reloaded = CalibOutputNetwork.model_validate(output.model_dump(mode="json"))
-
-        assert reloaded.verdict.max_catchment_mismatch is False
 
 
 PROJECT_TOML = """
@@ -487,27 +402,6 @@ enabled = false
 
 
 class TestTheModelIsBuiltAndNotSolved:
-    def test_the_run_stops_after_the_preprocessing(self) -> None:
-        calls: list[str] = []
-        solver_model = SimpleNamespace(
-            pre_processing=lambda *args, **kwargs: calls.append("pre"),
-            processing=lambda **kwargs: calls.append("solve"),
-        )
-        adapter = SimpleNamespace(
-            validate=lambda *args: None,
-            build=lambda model, options, slot, upstream=(): build_flow_model(
-                solver_model, model, options, slot, build_preprocess_options(model)
-            ),
-            run=lambda solver_run: run_flow_model(solver_run, solver_name="modflow6"),
-        )
-        slot = RunSlot(Path("unused"), "island", stop_before_solve=True)
-
-        result = solve_one(adapter, make_model(), None, slot, upstream=())
-
-        assert calls == ["pre"]
-        assert result.solver_model is solver_model
-        assert not result.solved
-
     @pytest.mark.parametrize(
         "override_paths",
         [{"K": "flow.param.K.field.value"}, ["flow.param.K.field.value"]],

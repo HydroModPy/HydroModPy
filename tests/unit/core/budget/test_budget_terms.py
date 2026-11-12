@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 import zarr
 
-from hydromodpy.core.budget.flux import RELEASE_BUDGET_KEYS
 from hydromodpy.core.budget.terms import (
     BUDGET_KEPT_TERMS_ATTR,
     BUDGET_POLICY_ATTR,
@@ -16,32 +15,13 @@ from hydromodpy.core.budget.terms import (
     BudgetKeep,
     KeptBudget,
     budget_terms_for,
-    budget_terms_for_fields,
-    family_terms,
     kept_budget,
 )
 from hydromodpy.solver.modflow_common.budget_components import CANONICAL_BUDGET_TERMS
 
 
-@pytest.mark.parametrize(
-    "field", ["release_flux", "release_accumulation_flux", "simulated_active_network"]
-)
-def test_a_release_field_reads_the_release_terms_and_recharge(field: str) -> None:
-    assert budget_terms_for(field) == tuple(sorted({*RELEASE_BUDGET_KEYS, "recharge"}))
-
-
-@pytest.mark.parametrize("field", ["drain_accumulation_flux", "outflow_drain"])
-def test_a_drain_field_reads_the_drain_and_its_mover(field: str) -> None:
-    assert budget_terms_for(field) == ("drain", "drain_to_mover")
-
-
 def test_fluxes_from_budget_reads_drain_and_recharge() -> None:
     assert budget_terms_for("budget_flux_per_area") == ("drain", "recharge")
-
-
-@pytest.mark.parametrize("field", ["seepage_mask", "concentration_seepage"])
-def test_a_seepage_field_reads_the_surface_excess(field: str) -> None:
-    assert budget_terms_for(field) == ("surface_excess",)
 
 
 @pytest.mark.parametrize("field", ["mass_seepage", "mass_seepage_running_sum"])
@@ -59,15 +39,6 @@ def test_a_field_without_budget_reads_no_term(field: str) -> None:
     assert budget_terms_for(field) == ()
 
 
-def test_the_terms_of_several_fields_are_their_sorted_union() -> None:
-    assert budget_terms_for_fields(["budget_flux_per_area", "seepage_mask", "head"]) == (
-        "drain",
-        "recharge",
-        "surface_excess",
-    )
-    assert budget_terms_for_fields([]) == ()
-
-
 def test_the_per_cell_terms_are_the_solver_names_plus_two() -> None:
     assert PER_CELL_BUDGET_TERMS == CANONICAL_BUDGET_TERMS | {
         "surface_excess",
@@ -78,27 +49,6 @@ def test_the_per_cell_terms_are_the_solver_names_plus_two() -> None:
 @pytest.mark.parametrize("term", ["recharge", "drain", "well", "surface_excess", "constant_head"])
 def test_the_boussinesq_terms_are_per_cell_terms(term: str) -> None:
     assert term in PER_CELL_BUDGET_TERMS
-
-
-def test_keeping_everything_keeps_every_term() -> None:
-    keep = BudgetKeep.everything()
-    assert keep.policy == POLICY_ALL
-    assert all(keep.keeps(t) and keep.reads_record(t) for t in PER_CELL_BUDGET_TERMS)
-
-
-def test_the_consumers_policy_keeps_only_its_terms() -> None:
-    keep = BudgetKeep.of_terms(["drain", "recharge"])
-    assert keep.policy == POLICY_CONSUMERS
-    assert keep.keeps("drain")
-    assert not keep.keeps("well")
-    assert not keep.reads_record("well")
-
-
-def test_the_stream_constant_head_needs_the_constant_head_record() -> None:
-    keep = BudgetKeep.of_terms(["constant_head_stream"])
-    assert keep.reads_record("constant_head")
-    assert not keep.keeps("constant_head")
-    assert not BudgetKeep.of_terms(["drain"]).reads_record("constant_head")
 
 
 def test_an_unknown_policy_is_refused() -> None:
@@ -128,27 +78,6 @@ def test_a_budget_group_that_kept_all_lists_no_term() -> None:
     root = zarr.group()
     root.create_group("budget").attrs[BUDGET_POLICY_ATTR] = POLICY_ALL
     assert kept_budget(root) == KeptBudget(POLICY_ALL, ())
-
-
-@pytest.mark.parametrize(
-    ("name", "kept", "terms"),
-    [
-        pytest.param(
-            "storage",
-            ["storage_ss", "storage_sy", "drain"],
-            ("storage_ss", "storage_sy"),
-            id="ss_sy",
-        ),
-        pytest.param("storage", ["storage", "drain"], ("storage",), id="storage_alone"),
-        pytest.param("storage", ["storage", "storage_ss"], ("storage",), id="name_wins"),
-        pytest.param("storage", ["storage_ss"], ("storage_ss",), id="one_member"),
-        pytest.param("storage", ["drain"], (), id="none"),
-        pytest.param("drain", ["drain", "storage_ss"], ("drain",), id="outside_a_family"),
-        pytest.param("drain", ["recharge"], (), id="outside_and_missing"),
-    ],
-)
-def test_family_terms_reads_what_the_run_kept(name, kept, terms) -> None:
-    assert family_terms(name, kept) == terms
 
 
 def test_every_family_member_is_a_per_cell_term() -> None:

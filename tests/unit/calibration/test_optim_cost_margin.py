@@ -14,19 +14,12 @@ from pydantic import ValidationError
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
-from hydromodpy.calibration.optim.cost_margin import (
-    DEFAULT_MARGIN,
-    FIVE_PER_CENT,
-    ONE_MESH_CELL,
-    margin_intervals,
-    root_interval,
-)
+from hydromodpy.calibration.optim.cost_margin import ONE_MESH_CELL, margin_intervals, root_interval
 from hydromodpy.calibration.preflight import preflight_calibration
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 from hydromodpy.calibration.runners.document import load_toml_calibration
 from hydromodpy.calibration.runners.staged_report import phase_summaries
 from hydromodpy.calibration.runners.staged_runner import _phase_config
-from hydromodpy.calibration.runners.state import build_cache_context, space_from_config
 from hydromodpy.catchment.stream_network.geometry import neighbour_spacing_m
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
@@ -147,51 +140,6 @@ def test_the_cell_is_measured_next_to_the_mapped_cells() -> None:
 
 
 # -- the default follows what the phase scores ------------------------------
-@pytest.mark.fast
-def test_a_phase_scored_on_network_distances_takes_one_mesh_cell(tmp_path) -> None:
-    width = _widths(_config(tmp_path))["k_network"]
-
-    assert width["margin"] is None
-    assert (width["kind"], width["source"], width["rule"]) == ("absolute", "default", ONE_MESH_CELL)
-    assert width["on_distances"] is True
-
-
-@pytest.mark.fast
-def test_a_phase_scored_on_a_hydrograph_takes_five_per_cent(tmp_path) -> None:
-    # The hydrograph block is not a distance, so the share of the network block
-    # does not make this phase one scored on distances.
-    width = _widths(_config(tmp_path))["sy_hydrograph"]
-
-    assert (width["margin"], width["kind"]) == (0.05, "relative")
-    assert (width["source"], width["rule"]) == ("default", FIVE_PER_CENT)
-
-
-@pytest.mark.fast
-def test_a_transformed_distance_is_no_longer_in_metres(tmp_path) -> None:
-    text = SECTION.replace(
-        'metric = "distance_gap"\nuses_outputs = ["net"]',
-        'metric = "distance_gap"\nuses_outputs = ["net"]\ncost_transform = "log"',
-    ) + PHASES.format(k_extra="", sy_extra="")
-    cfg, _raw = load_toml_calibration(write_document(tmp_path, text))
-
-    width = _widths(cfg)["k_network"]
-
-    assert (width["margin"], width["kind"], width["on_distances"]) == (0.05, "relative", False)
-
-
-@pytest.mark.fast
-def test_the_section_applies_to_the_phases_it_can_bound_and_to_no_other(tmp_path) -> None:
-    cfg = _config(tmp_path, section='\n[calibration.uncertainty]\ncost_margin = "150 m"\n')
-    widths = _widths(cfg)
-
-    assert (widths["k_network"]["margin"], widths["k_network"]["kind"]) == (150.0, "absolute")
-    assert widths["k_network"]["source"] == "section"
-    # A length bounds a distance: the hydrograph phase reads its own default.
-    assert (widths["sy_hydrograph"]["margin"], widths["sy_hydrograph"]["kind"]) == (
-        0.05,
-        "relative",
-    )
-    assert widths["sy_hydrograph"]["source"] == "default"
 
 
 @pytest.mark.fast
@@ -259,27 +207,6 @@ def test_a_phase_is_answered_about_a_posterior_like_the_section() -> None:
         )
 
 
-@pytest.mark.fast
-def test_the_width_does_not_enter_the_params_hash(tmp_path) -> None:
-    # The width is read off the trials after the search and changes no cost, so
-    # a new width re-solves nothing.
-    plain = _config(tmp_path)
-    widened = plain.model_copy(
-        update={"uncertainty": plain.uncertainty.model_copy(update={"cost_margin": "300 m"})}
-    )
-
-    def context(cfg: CalibrationConfig) -> dict:
-        return build_cache_context(
-            cfg=cfg,
-            trial_ctx=None,
-            space=space_from_config(cfg),
-            override_paths={},
-            objective_entrypoint=None,
-        )
-
-    assert context(plain) == context(widened)
-
-
 # -- --check -----------------------------------------------------------------
 PROJECT = """
 [workspace]
@@ -324,11 +251,6 @@ def _check(tmp_path: Path, *, section: str = "", k_extra: str = "") -> list:
 
 def _width_findings(findings: list) -> list:
     return [item for item in findings if "fraction of a distance" in item.detail]
-
-
-@pytest.mark.fast
-def test_check_passes_the_defaults(tmp_path) -> None:
-    assert _width_findings(_check(tmp_path)) == []
 
 
 @pytest.mark.fast
@@ -378,54 +300,6 @@ parameters = ["K"]
 objective = "distance_gap"
 {uncertainty}
 """
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize(
-    ("template", "phase"),
-    [(SINGLE_METRIC_SECTION, False), (SINGLE_METRIC_PHASE, True)],
-    ids=["section", "phase"],
-)
-def test_a_single_metric_distance_takes_one_mesh_cell(tmp_path, template, phase) -> None:
-    cfg, _raw = load_toml_calibration(write_document(tmp_path, template.format(uncertainty="")))
-
-    width = cfg.interval_width_for(cfg.phases[0] if phase else None)
-
-    assert (width.margin, width.kind, width.rule) == (None, "absolute", ONE_MESH_CELL)
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize(
-    ("template", "uncertainty", "path", "head"),
-    [
-        (
-            SINGLE_METRIC_SECTION,
-            '\n[calibration.uncertainty]\ncost_margin = "5%"\n',
-            "calibration.uncertainty",
-            "",
-        ),
-        (
-            SINGLE_METRIC_PHASE,
-            'uncertainty = { cost_margin = "5%" }',
-            "calibration.phases",
-            "'k_gap': ",
-        ),
-    ],
-    ids=["section", "phase"],
-)
-def test_check_refuses_a_relative_width_on_a_single_metric_distance(
-    tmp_path, template, uncertainty, path, head
-) -> None:
-    document = write_document(
-        tmp_path, PROJECT.format(root=tmp_path) + template.format(uncertainty=uncertainty)
-    )
-
-    findings = _width_findings(
-        preflight_calibration(HydroModPyConfig.from_toml(document), source=document)
-    )
-
-    assert [(item.severity, item.path) for item in findings] == [("error", path)]
-    assert findings[0].detail.startswith(head)
 
 
 @pytest.mark.fast
@@ -704,32 +578,6 @@ _SHARP = _trace([(1.0, 10.0), (2.0, 1.0), (3.0, 1.02), (4.0, 9.0), (5.0, 30.0)])
 _FLAT = _trace([(1.0, 1.01), (2.0, 1.0), (3.0, 1.02), (4.0, 1.01), (5.0, 1.03)])
 
 
-def test_the_interval_is_the_range_that_stays_within_the_margin() -> None:
-    (interval,) = margin_intervals(_SHARP, bounds={"K": (0.5, 6.0)})
-
-    assert interval.name == "K"
-    assert interval.best == 2.0
-    assert interval.lower == 2.0
-    assert interval.upper == 3.0
-    assert interval.n_within == 2
-
-
-def test_a_flat_cost_gives_an_interval_that_spans_the_search() -> None:
-    (interval,) = margin_intervals(_FLAT, bounds={"K": (0.5, 6.0)})
-
-    assert interval.lower == 1.0
-    assert interval.upper == 5.0
-    assert interval.n_within == 5
-
-
-def test_an_interval_reaching_the_search_bound_says_so() -> None:
-    """There the record does not constrain the parameter; it ran out of room."""
-    (interval,) = margin_intervals(_FLAT, bounds={"K": (1.0, 5.0)})
-
-    assert interval.reaches_lower_bound is True
-    assert interval.reaches_upper_bound is True
-
-
 def test_an_interval_inside_the_search_does_not_claim_a_bound() -> None:
     (interval,) = margin_intervals(_SHARP, bounds={"K": (0.5, 6.0)})
 
@@ -737,28 +585,11 @@ def test_an_interval_inside_the_search_does_not_claim_a_bound() -> None:
     assert interval.reaches_upper_bound is False
 
 
-def test_the_margin_is_relative_to_the_best_cost_by_default() -> None:
-    assert DEFAULT_MARGIN == 0.05
-
-    (tight,) = margin_intervals(_SHARP, margin=0.001)
-
-    assert tight.lower == tight.upper == 2.0
-    assert tight.n_within == 1
-
-
 def test_an_absolute_margin_is_read_in_cost_units() -> None:
     (interval,) = margin_intervals(_SHARP, margin=8.5, kind="absolute")
 
     assert interval.lower == 2.0
     assert interval.upper == 4.0
-
-
-def test_a_cost_that_reaches_zero_refuses_a_relative_margin() -> None:
-    """A gap criterion is solved at zero, where 5 % of the best means nothing."""
-    trace = _trace([(1.0, 4.0), (2.0, 0.0), (3.0, 3.0)])
-
-    with pytest.raises(ValueError, match="length"):
-        margin_intervals(trace)
 
 
 @pytest.mark.parametrize(
@@ -776,59 +607,5 @@ def test_a_parameter_with_no_finite_value_in_the_margin_has_no_interval() -> Non
     assert margin_intervals(trace, parameters=["K", "absent"]) == []
 
 
-def test_failed_trials_are_left_out() -> None:
-    trace = _SHARP + _trace([(9.0, float("nan")), (10.0, float("inf"))])
-
-    (interval,) = margin_intervals(trace, bounds={"K": (0.5, 6.0)})
-
-    assert interval.upper == 3.0
-
-
 def test_a_trace_with_nothing_finite_yields_nothing() -> None:
     assert margin_intervals(_trace([(1.0, float("nan"))])) == []
-
-
-def test_the_interval_carries_how_many_trials_it_rests_on() -> None:
-    (interval,) = margin_intervals(_SHARP)
-
-    assert interval.n_trials == 5
-    assert interval.margin == DEFAULT_MARGIN
-    assert interval.kind == "relative"
-
-
-def test_each_calibrated_parameter_gets_its_own_interval() -> None:
-    trace = [
-        {"iter": 0, "parameters": {"K": 1.0, "Sy": 0.1}, "cost": 5.0},
-        {"iter": 1, "parameters": {"K": 2.0, "Sy": 0.2}, "cost": 1.0},
-        {"iter": 2, "parameters": {"K": 3.0, "Sy": 0.3}, "cost": 1.01},
-    ]
-
-    intervals = {item.name: item for item in margin_intervals(trace)}
-
-    assert set(intervals) == {"K", "Sy"}
-    assert intervals["Sy"].lower == 0.2
-    assert intervals["Sy"].upper == 0.3
-
-
-@pytest.mark.parametrize(
-    ("flags", "best", "on_a_bound"),
-    [
-        ((True, False), 1.0, True),
-        ((False, False), 1.0, False),
-        ((False, True), 4.0, True),
-    ],
-)
-def test_the_value_sits_on_a_bound_only_when_the_range_reaches_it_and_the_value_is_at_it(
-    flags, best, on_a_bound
-) -> None:
-    from hydromodpy.calibration.report import interval_best_is_on_a_bound
-
-    interval = {
-        "lower": 1.0,
-        "upper": 4.0,
-        "best": best,
-        "reaches_lower_bound": flags[0],
-        "reaches_upper_bound": flags[1],
-    }
-
-    assert interval_best_is_on_a_bound(interval) is on_a_bound

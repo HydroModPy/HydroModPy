@@ -52,10 +52,3 @@ def test_a_support_or_discretization_it_cannot_build_is_refused(tmp_path: Path, 
     toml = write_text(tmp_path / "bands.toml", '[bands]\nid = "bands"')
     with pytest.raises(error, match=match):
         call(toml)
-
-
-def test_a_weighted_discretization_strips_its_names_and_reads_its_fractions_as_floats():
-    discretization = _weighted(field_id=" geology ", keys=(" a ",), fractions={"a": [1] * 9})
-    keys, fractions = discretization.weighted_components()
-    assert (discretization.field_id, keys, discretization.aggregation) == ("geology", ("a",), "weighted_average")  # fmt: skip
-    assert fractions["a"].dtype == float

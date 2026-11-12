@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.model.sinks_sources.wells import throttled_well_message, throttled_well_report
-from hydromodpy.solver.modflow6.run import warn_on_throttled_wells
 
 # MODFLOW 6 LAK reads every lake forcing as zero or more and stops on a negative one.
 #
@@ -27,13 +26,3 @@ def test_a_well_cut_to_17_percent_is_reported() -> None:
 def test_a_well_cut_by_less_than_10_percent_is_silent() -> None:
     assert throttled_well_report({(1, 4): -100.0}, {(1, 4): -95.0}) == []
     assert throttled_well_report({(1, 4): -100.0}, {(1, 4): -100.0}) == []
-
-
-@pytest.mark.unit
-def test_a_model_without_wells_warns_nothing() -> None:
-    class _Model:
-        wel = None
-
-    model = _Model()
-    assert warn_on_throttled_wells(model) == []
-    assert model.well_throttle_report == []

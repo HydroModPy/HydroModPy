@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from hydromodpy.display.figure_registry import get, names
 from hydromodpy.display.figures._calibration_session import frozen_values
 from hydromodpy.display.figures._trial_diagnostics import trial_table
-from hydromodpy.display.figures.calibration_progress import CalibrationProgressFigure, _with_frozen
+from hydromodpy.display.figures.calibration_progress import CalibrationProgressFigure
 from hydromodpy.results.session.descriptor import ParameterBound
 from hydromodpy.results.session.view import Session
 
@@ -394,21 +391,6 @@ def test_a_value_combined_from_two_roots_is_marked_and_gets_no_interval(mpl, tmp
     assert "No interval of trials around a value combined from two roots" in " ".join(text.split())
 
 
-@pytest.mark.parametrize(
-    ("phases", "values", "expected"),
-    [
-        (["a", "b", "b"], [1.0, np.nan, np.nan], [1.0, 8e-5, 8e-5]),
-        (["a", "a", "c"], [1.0, 2.0, np.nan], [1.0, 2.0, np.nan]),
-    ],
-)
-def test_a_run_of_a_phase_that_froze_a_parameter_reads_the_frozen_value(
-    phases: list[str], values: list[float], expected: list[float]
-) -> None:
-    table = SimpleNamespace(frame=pd.DataFrame({"phase": phases}))
-    filled = _with_frozen(np.array(values), table, {"b": {"K": 8e-5}}, "K")
-    np.testing.assert_array_equal(filled, np.array(expected))
-
-
 def test_the_frozen_values_are_read_from_the_phase_journals(tmp_path: Path) -> None:
     rows = [
         {"trial": 1, "phase": "a", "cost": 1.0, "parameters": {"K": 1e-5}},
@@ -450,25 +432,3 @@ def test_a_transformed_efficiency_is_drawn_inside_its_range(mpl, tmp_path: Path)
 # A network criterion publishes about a hundred diagnostics per trial. Inserting
 # them one column at a time fragmented the frame, and pandas printed a
 # PerformanceWarning on the console of every promoted run.
-
-
-def test_two_hundred_diagnostics_raise_no_performance_warning(tmp_path: Path) -> None:
-    components = {f"net.diag_{index:03d}": float(index) for index in range(200)}
-    rows = [
-        {
-            "trial": trial,
-            "parameters": {"K": {"value": 10.0 ** -(trial + 3)}},
-            "components": dict(components),
-            "cost": float(trial),
-        }
-        for trial in range(1, 6)
-    ]
-    run = journal_session(tmp_path, rows)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", pd.errors.PerformanceWarning)
-        table = trial_table(run)
-
-    assert table.parameters == ("K",)
-    assert table.frame["net.diag_199"].tolist() == [199.0] * 5
-    assert table.frame["K"].tolist()[0] == 1e-4

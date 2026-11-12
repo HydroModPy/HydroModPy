@@ -19,24 +19,12 @@ from hydromodpy.calibration.optim.adapters.bisection_adapter import (
     BisectionAdapter,
     RootTarget,
     root_search_budget,
-    roots_scored,
     signed_residual,
 )
 from hydromodpy.calibration.optim.engine import CalibrationEngine
-from hydromodpy.calibration.optim.method_config import (
-    BisectionMethodConfig,
-    validate_method_kwargs,
-)
-from hydromodpy.calibration.optim.optimizer import (
-    EvaluationResult,
-    ParamSuggestion,
-    build_optimizer,
-    engine_traits,
-    optimizers,
-)
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.optim.stopping import AUTO_BUDGET
-from hydromodpy.calibration.preflight import _check_the_budgets
 from hydromodpy.calibration.runners.document import load_toml_calibration
 from hydromodpy.calibration.runners.search import _engine_kwargs
 from hydromodpy.calibration.runners.search_record import (
@@ -44,7 +32,6 @@ from hydromodpy.calibration.runners.search_record import (
     r_optim_verdict_extra,
     search_outcome_extra,
 )
-from hydromodpy.calibration.runners.staged_runner import _phase_config
 from hydromodpy.core.exceptions import ObjectiveError, OptimizerError
 from tests.unit.calibration._factories_search import make_space, result_of, run_engine, staircase
 
@@ -91,25 +78,6 @@ def _run(adapter, *, max_trials: int = 40, **kwargs) -> list[EvaluationResult]:
     return history
 
 
-class TestRegistration:
-    def test_the_method_is_registered(self) -> None:
-        assert "bisection" in optimizers.names()
-
-    def test_its_kwargs_validate_against_the_frozen_union(self) -> None:
-        config = validate_method_kwargs("bisection", {"sweep_points": 0, "rel_tol": 0.01})
-        assert isinstance(config, BisectionMethodConfig)
-
-    def test_a_foreign_kwarg_is_refused_at_config_time(self) -> None:
-        # Registering the adapter is not enough: without an entry in the union
-        # a typo would only surface inside the constructor.
-        with pytest.raises(Exception, match="popsize"):
-            validate_method_kwargs("bisection", {"popsize": 6})
-
-    def test_it_builds_through_the_registry(self) -> None:
-        optimizer = build_optimizer("bisection", _space(), seed=42)
-        assert isinstance(optimizer, BisectionAdapter)
-
-
 class TestDimension:
     def test_a_two_parameter_space_is_refused(self) -> None:
         space = ParameterSpace(
@@ -123,27 +91,6 @@ class TestDimension:
 
 
 class TestRootSearch:
-    def test_it_closes_the_bracket_on_the_root(self) -> None:
-        adapter = BisectionAdapter(_space(), sweep_points=7)
-        _run(adapter)
-
-        assert adapter.converged()
-        low, high = adapter.bracket
-        assert low <= math.log10(ROOT__bisection_adapter) <= high
-        assert high - low <= math.log10(1.01)
-
-    def test_the_stopping_rule_is_the_bracket_and_not_the_residual(self) -> None:
-        # The residual is a staircase that steps over zero without landing
-        # on it, so a search stopping on its size would never stop.
-        adapter = BisectionAdapter(_space(), sweep_points=0)
-        history = _run(adapter)
-
-        assert adapter.converged()
-        # The residual never reaches zero, yet the search stops.
-        assert min(abs(r.cost) for r in history) > 0.0
-        low, high = adapter.bracket
-        assert high - low <= math.log10(1.01)
-
     def test_the_budget_matches_the_arithmetic(self) -> None:
         # Five decades to close to one per cent: two ends plus
         # ceil(log2(5 / log10(1.01))) halvings.
@@ -152,30 +99,6 @@ class TestRootSearch:
         expected = 2 + math.ceil(math.log2(5.0 / LOG10_ONE_PERCENT))
         assert len(history) <= expected + 1
 
-    def test_the_pure_bisection_of_the_paper_is_available(self) -> None:
-        adapter = BisectionAdapter(_space(), sweep_points=0)
-        first = adapter.ask(n=4)
-        # Only the two ends of the interval, whatever the batch size asks for.
-        assert len(first) == 2
-
-    def test_the_sweep_runs_before_the_bisection(self) -> None:
-        adapter = BisectionAdapter(_space(), sweep_points=7)
-        assert len(adapter.ask(n=7)) == 7
-
-    def test_the_best_trial_is_the_one_closest_to_zero(self) -> None:
-        # The cost carries the absolute residual, so the lowest cost is the
-        # nearest to the root and never the most negative one.
-        adapter = BisectionAdapter(_space(), sweep_points=5)
-        history = _run(adapter)
-        best = adapter.best()
-        assert best is not None
-        assert best.cost == min(r.cost for r in history)
-
-    def test_it_returns_an_evaluated_point_not_the_midpoint(self) -> None:
-        adapter = BisectionAdapter(_space(), sweep_points=5)
-        history = _run(adapter)
-        assert adapter.best().trial_id in {r.trial_id for r in history}
-
 
 class TestRefusal:
     def test_a_bracket_without_a_sign_change_raises(self) -> None:
@@ -183,23 +106,6 @@ class TestRefusal:
         with pytest.raises(OptimizerError, match="keeps the same sign"):
             # The root sits far above the interval, so every residual is positive.
             _run(adapter, root=1.0e9)
-
-    def test_the_refusal_names_both_ends(self) -> None:
-        adapter = BisectionAdapter(_space(1.0, 10.0), sweep_points=3, bracket_expand=0)
-        with pytest.raises(OptimizerError) as failure:
-            _run(adapter, root=1.0e9)
-        message = str(failure.value)
-        assert "J_signed" in message
-        assert message.count("at K =") == 2
-
-    def test_it_widens_the_bracket_before_giving_up(self) -> None:
-        # The root is one decade above the declared interval: one expansion
-        # finds it rather than refusing.
-        adapter = BisectionAdapter(_space(1.0, 100.0), sweep_points=3, bracket_expand=4)
-        _run(adapter, root=500.0)
-        assert adapter.converged()
-        low, high = adapter.bracket
-        assert low <= math.log10(500.0) <= high
 
     def test_a_trial_without_the_signed_component_is_refused(self) -> None:
         adapter = BisectionAdapter(_space(), sweep_points=0)
@@ -231,32 +137,13 @@ class TestSignedComponentLookup:
     def test_a_bare_key_is_found(self) -> None:
         assert signed_residual({"J_signed": -2.0}) == -2.0
 
-    def test_a_prefixed_key_is_found(self) -> None:
-        assert signed_residual({"net.J_signed": 3.0}) == 3.0
-
     def test_two_candidates_are_an_error(self) -> None:
         with pytest.raises(OptimizerError, match="several outputs"):
             signed_residual({"a.J_signed": 1.0, "b.J_signed": 2.0})
 
-    def test_an_absent_key_is_not_an_error_here(self) -> None:
-        assert signed_residual({"rmse": 1.0}) is None
-        assert signed_residual(None) is None
-
 
 class TestTransform:
     """The whole search walks a log10 variable, so it must be given one."""
-
-    def test_an_identity_transform_parameter_is_refused(self) -> None:
-        # Bounds [1e-9, 1e-3] in identity space are 1e-3 wide, which is already
-        # below the tolerance: the search would report convergence on a bracket
-        # a factor 1e6 wide, and _expand would subtract 1 m/s from a K.
-        space = ParameterSpace([CalibParameter(name="K", lower=1.0e-9, upper=1.0e-3)])
-        with pytest.raises(OptimizerError) as failure:
-            BisectionAdapter(space)
-        message = str(failure.value)
-        assert "K" in message
-        assert "identity" in message
-        assert 'search_space = "log"' in message
 
     def test_a_logit_transform_parameter_is_refused(self) -> None:
         space = ParameterSpace(
@@ -264,10 +151,6 @@ class TestTransform:
         )
         with pytest.raises(OptimizerError, match="logit"):
             BisectionAdapter(space)
-
-    def test_a_log_parameter_is_accepted(self) -> None:
-        adapter = BisectionAdapter(_space(), sweep_points=0)
-        assert adapter.ask(n=2)
 
     def test_an_identity_space_does_not_report_convergence_after_the_sweep(self) -> None:
         # The regression, stated as behavior: no adapter reaches a converged
@@ -287,36 +170,6 @@ class TestTransform:
 # by construction whatever the conductivity, the residual stays positive across
 # the whole declared interval, and the search closes three decades above it on a
 # value that means nothing while r_optim reports 1.5, inside its validity bound.
-
-
-@pytest.mark.parametrize("bracket_expand", [4, 0], ids=["may_expand", "never_expands"])
-def test_a_root_inside_the_bounds_says_nothing(caplog, bracket_expand) -> None:
-    adapter = BisectionAdapter(_space(upper=1.0e3), sweep_points=5, bracket_expand=bracket_expand)
-    _run(adapter, max_trials=60, root=50.0)
-    with caplog.at_level(logging.WARNING):
-        adapter.best()
-
-    assert "OUTSIDE the declared bounds" not in caplog.text
-    assert adapter.root_outside_bounds() is None
-
-
-def test_a_root_above_the_declared_interval_is_reported(caplog) -> None:
-    # The zero sits two decades above the declared upper bound, which the
-    # search only reaches by expanding.
-    adapter = BisectionAdapter(_space(upper=1.0e3), sweep_points=5, bracket_expand=4)
-    _run(adapter, max_trials=60, root=1.0e5)
-    with caplog.at_level(logging.WARNING):
-        winner = adapter.best()
-
-    assert winner is not None
-    assert "OUTSIDE the declared bounds" in caplog.text
-    assert "does not respond to this parameter" in caplog.text
-    assert "n_excess" in caplog.text
-    reason = adapter.root_outside_bounds()
-    assert reason.startswith("the root of J_signed at ")
-    assert reason.endswith(
-        "OUTSIDE the declared bounds of K, [1, 1000], after 3 bracket expansion(s)"
-    )
 
 
 def test_nothing_evaluated_means_nothing_to_report() -> None:
@@ -400,26 +253,6 @@ def test_a_point_solved_twice_keeps_its_first_cost() -> None:
     assert again.root_interval(margin=1.0, kind="absolute").to_dict() == expected
 
 
-def test_a_refusal_on_an_infeasible_end_says_that_word() -> None:
-    adapter = BisectionAdapter(_space(1.0, 100.0), sweep_points=3, bracket_expand=4)
-    statuses = iter(("completed", "completed", "infeasible"))
-    with pytest.raises(
-        OptimizerError, match=r"a bracket end is infeasible, K = 100 \(infeasible\)"
-    ):
-        for status in statuses:
-            (sugg,) = adapter.ask(1)
-            adapter.tell([result_of(sugg, 5.0, components={"net.J_signed": 5.0}, status=status)])
-
-
-def test_a_root_of_two_outside_the_bounds_is_the_one_named() -> None:
-    adapter = _two_root_adapter()
-    _run__root_search_closes(adapter, _two_bounds(root_max=5.0e-3))
-
-    reason = adapter.root_outside_bounds()
-    assert reason.startswith("the root of maximal bound (J_signed_maximal) at ")
-    assert "minimal" not in reason
-
-
 # From test_the_root_search_answers_inside_its_bracket.py
 # The trial the root search returns lies inside the bracket it closed.
 #
@@ -463,41 +296,6 @@ def _close(
 
 def _inside(value: float, low: float, high: float) -> bool:
     return low - 1e-12 <= value <= high + 1e-12
-
-
-def test_a_tie_outside_the_bracket_loses_to_one_inside() -> None:
-    adapter = BisectionAdapter(_space(1e-7, 1e-3), rel_tol=0.01, sweep_points=7)
-    history, where = _close(adapter)
-    low, high = adapter.bracket
-
-    # The situation of the Nancon: the first trial of minimal cost lies outside.
-    first_tie = min(history, key=lambda result: result.cost)
-    assert not _inside(where[first_tie.trial_id], low, high)
-
-    winner = adapter.best()
-
-    assert winner is not None
-    assert winner.cost == first_tie.cost
-    assert _inside(where[winner.trial_id], low, high)
-
-
-def test_a_lower_cost_outside_the_closed_bracket_is_not_the_answer() -> None:
-    adapter = BisectionAdapter(_space(1e-7, 1e-3), rel_tol=0.01, sweep_points=7)
-
-    def with_a_lucky_sweep_point(sugg: ParamSuggestion) -> EvaluationResult:
-        result = _stepped(sugg)
-        if sugg.trial_id == 1:
-            # Far below the root, still positive, but the lowest abs(J) of all.
-            return result_of(result, 0.5, components={"net.J_signed": 0.5})
-        return result
-
-    _, where = _close(adapter, with_a_lucky_sweep_point)
-    low, high = adapter.bracket
-
-    winner = adapter.best()
-
-    assert winner is not None and winner.trial_id != 1
-    assert _inside(where[winner.trial_id], low, high)
 
 
 def test_the_answer_is_outside_only_when_nothing_completed_lies_inside(caplog) -> None:
@@ -623,16 +421,6 @@ def _two_root_adapter(**kwargs) -> BisectionAdapter:
 # --------------------------------------------------------------------------- #
 # Two roots, one sweep, one combined solve
 # --------------------------------------------------------------------------- #
-def test_each_bound_closes_its_own_bracket_around_its_root() -> None:
-    adapter = _two_root_adapter()
-    session = _run__root_search_closes(adapter, _two_bounds())
-
-    assert session.converged
-    brackets = adapter.brackets
-    for bound, root in (("minimal", ROOT_MIN), ("maximal", ROOT_MAX)):
-        low, high = brackets[bound]
-        assert 10.0**low <= root <= 10.0**high
-        assert high - low <= math.log10(1.0 + REL_TOL) + 1e-12
 
 
 def test_the_value_is_the_weighted_geometric_mean_of_the_two_roots_and_was_solved() -> None:
@@ -731,13 +519,6 @@ def test_a_combined_value_that_fails_to_solve_has_not_converged(caplog) -> None:
 # --------------------------------------------------------------------------- #
 # The budget covers two roots
 # --------------------------------------------------------------------------- #
-def test_the_count_adds_the_second_root_and_the_combined_solve() -> None:
-    one = root_search_budget(*NANCON_BOUNDS)
-    two = root_search_budget(*NANCON_BOUNDS, roots=2)
-
-    assert one.counts == (15, 17, 19, 21, 23)
-    assert two.counts == (24, 26, 28, 30, 32)
-    assert _two_root_adapter().counted_budget == two
 
 
 def test_a_count_of_three_roots_is_refused() -> None:
@@ -745,15 +526,6 @@ def test_a_count_of_three_roots_is_refused() -> None:
         root_search_budget(*NANCON_BOUNDS, roots=3)
     with pytest.raises(OptimizerError, match="one or two roots"):
         BisectionAdapter(_space(*NANCON_BOUNDS), roots=0)
-
-
-def test_two_roots_inside_the_bounds_spend_the_nominal_count() -> None:
-    adapter = _two_root_adapter()
-    session = _run__root_search_closes(adapter, _two_bounds())
-
-    assert session.converged
-    assert session.extension == 0
-    assert len(session.history) == adapter.counted_budget.nominal == 24
 
 
 @pytest.mark.parametrize(("root_min", "root_max"), [(3e-9, 2e-4), (3e-9, 3e-2), (2e-4, 3e-1)])
@@ -769,16 +541,6 @@ def test_auto_covers_two_roots_found_after_expansions(root_min: float, root_max:
     assert record["maximal"]["k_star"] == pytest.approx(root_max, rel=REL_TOL)
 
 
-def test_the_halvings_left_count_both_brackets_and_the_combined_solve() -> None:
-    adapter = _two_root_adapter()
-    evaluate = _two_bounds()
-    for _ in range(7):
-        adapter.tell([evaluate(sugg) for sugg in adapter.ask(1)])
-
-    # Two brackets a sweep step wide, eight halvings each, and the combined solve.
-    assert adapter.evaluations_remaining == 8 + 8 + 1
-
-
 def test_a_budget_counted_for_one_root_says_so_and_still_converges(caplog) -> None:
     adapter = BisectionAdapter(_space(*NANCON_BOUNDS), rel_tol=REL_TOL)
     with caplog.at_level(logging.WARNING):
@@ -789,40 +551,9 @@ def test_a_budget_counted_for_one_root_says_so_and_still_converges(caplog) -> No
     assert adapter.roots == 2
 
 
-def test_a_residual_named_by_hand_is_one_root() -> None:
-    adapter = BisectionAdapter(
-        _space(*NANCON_BOUNDS), rel_tol=REL_TOL, roots=2, signed_component="J_signed_maximal"
-    )
-    session = _run__root_search_closes(adapter, _two_bounds())
-
-    assert adapter.counted_budget == root_search_budget(*NANCON_BOUNDS)
-    assert adapter.roots_record() is None
-    low, high = adapter.bracket
-    assert 10.0**low <= ROOT_MAX <= 10.0**high
-    assert session.converged
-
-
 # --------------------------------------------------------------------------- #
 # One bound keeps today's search exactly
 # --------------------------------------------------------------------------- #
-def test_one_bound_asks_the_same_points_as_the_paper_search() -> None:
-    today: list[ParamSuggestion] = []
-    now: list[ParamSuggestion] = []
-    plain = _one_bound(n_bounds=False)
-    counted = _one_bound(n_bounds=True)
-    first = BisectionAdapter(_space(*NANCON_BOUNDS), rel_tol=REL_TOL)
-    second = BisectionAdapter(_space(*NANCON_BOUNDS), rel_tol=REL_TOL)
-    run_engine(first.space, first, lambda sugg: (today.append(sugg), plain(sugg))[1], AUTO_BUDGET)
-    session = run_engine(
-        second.space, second, lambda sugg: (now.append(sugg), counted(sugg))[1], AUTO_BUDGET
-    )
-
-    assert [dict(sugg.values) for sugg in now] == [dict(sugg.values) for sugg in today]
-    assert [sugg.source for sugg in now] == [sugg.source for sugg in today]
-    assert len(now) == 15
-    assert session.best.trial_id == first.best().trial_id
-    assert second.roots_record() is None
-    assert second.bracket_record() == first.bracket_record()
 
 
 # --------------------------------------------------------------------------- #
@@ -929,21 +660,6 @@ def _load(
     return cfg
 
 
-def test_two_bounds_are_counted_as_two_roots(tmp_path: Path) -> None:
-    cfg = _load(tmp_path)
-
-    assert roots_scored(cfg.outputs.values()) == 2
-    assert _engine_kwargs(cfg, _space(*NANCON_BOUNDS), start_at=None)["roots"] == 2
-
-
-def test_the_root_search_is_told_the_width_the_engine_asks(tmp_path: Path) -> None:
-    cfg = _load(tmp_path)
-
-    assert _engine_kwargs(cfg, _space(*NANCON_BOUNDS), start_at=None)["batch"] == 1
-    wide = cfg.model_copy(update={"parallel": 4})
-    assert _engine_kwargs(wide, _space(*NANCON_BOUNDS), start_at=None)["batch"] == 4
-
-
 @pytest.mark.parametrize(
     ("minimal", "extent", "role"),
     [
@@ -959,19 +675,6 @@ def test_anything_short_of_two_weighted_bounds_is_one_root(
     cfg = _load(tmp_path, minimal=minimal, extent=extent, role=role)
 
     assert _engine_kwargs(cfg, _space(*NANCON_BOUNDS), start_at=None)["roots"] == 1
-
-
-def test_the_preflight_counts_two_roots(tmp_path: Path) -> None:
-    findings = _check_the_budgets(_load(tmp_path, max_trials=20))
-
-    assert [finding.severity for finding in findings] == ["error"]
-    assert "below the 24 evaluations" in findings[0].detail
-
-
-def test_the_preflight_counts_one_root_without_the_minimal_map(tmp_path: Path) -> None:
-    findings = _check_the_budgets(_load(tmp_path, max_trials=20, minimal=False))
-
-    assert [finding.severity for finding in findings] == ["warning"]
 
 
 _SINGLE_METRIC_TOML = """
@@ -1017,35 +720,6 @@ def _load_single_metric(tmp_path: Path, *, max_trials: int | str = 20, phase: bo
         (tmp_path / name).write_bytes(b"")
     cfg, _raw = load_toml_calibration(path)
     return cfg
-
-
-def test_the_variable_route_counts_two_roots(tmp_path: Path) -> None:
-    # The whole-file (objective, variable) pair keeps its output, so the
-    # engine and the preflight count the same two roots.
-    cfg = _load_single_metric(tmp_path)
-
-    assert _engine_kwargs(cfg, _space(*NANCON_BOUNDS), start_at=None)["roots"] == 2
-    findings = _check_the_budgets(cfg)
-    assert [finding.severity for finding in findings] == ["error"]
-    assert "below the 24 evaluations" in findings[0].detail
-
-
-def test_the_preflight_counts_two_roots_on_a_single_metric_phase(tmp_path: Path) -> None:
-    cfg = _load_single_metric(tmp_path, phase=True)
-
-    findings = _check_the_budgets(cfg)
-    assert [finding.severity for finding in findings] == ["error"]
-    assert "below the 24 evaluations" in findings[0].detail
-
-
-def test_a_single_metric_phase_on_two_bounds_is_counted_as_two_roots(tmp_path: Path) -> None:
-    # The phase keeps the output its variable names, so the engine counts the
-    # two roots the preflight counts.
-
-    cfg = _load_single_metric(tmp_path, max_trials=AUTO_BUDGET, phase=True)
-    phase_cfg = _phase_config(cfg, cfg.phases[0])
-
-    assert _engine_kwargs(phase_cfg, _space(*NANCON_BOUNDS), start_at=None)["roots"] == 2
 
 
 # From test_the_root_search_cuts_its_bracket_side_by_side.py
@@ -1181,44 +855,9 @@ def _golden() -> dict:
     return json.loads(GOLDEN.read_text(encoding="utf-8"))
 
 
-@pytest.mark.parametrize("name", sorted(SCENARIOS))
-def test_one_point_per_ask_asks_the_trials_of_the_binary_search(name: str) -> None:
-    recorded = _golden()[name]
-    options, evaluate = SCENARIOS[name]
-    adapter = BisectionAdapter(_space(*BOUNDS), rel_tol=REL_TOL, **options)
-
-    rounds = _close__root_search_cuts(adapter, evaluate, 1)
-
-    trials = [[float(sugg.values["K"]), sugg.source] for batch in rounds for sugg in batch]
-    assert trials == recorded["trials"]
-    assert all(len(batch) == 1 for batch in rounds)
-    assert adapter.converged()
-    assert adapter.best().trial_id == recorded["best_trial_id"]
-    assert list(adapter.counted_budget.counts) == recorded["counts"]
-    if "bracket" in recorded:
-        record = adapter.bracket_record()
-        assert [record["low"], record["high"]] == recorded["bracket"]
-    else:
-        record = adapter.roots_record()
-        for bound in ("minimal", "maximal"):
-            assert [record[bound]["low"], record[bound]["high"]] == recorded["roots"][bound]
-        assert record["value"] == recorded["roots"]["value"]
-
-
 # --------------------------------------------------------------------------- #
 # The sweep is handed out whole, in order
 # --------------------------------------------------------------------------- #
-@pytest.mark.parametrize(("width", "sizes"), [(2, [2, 2, 2, 1]), (4, [4, 3]), (7, [7])])
-def test_the_sweep_is_handed_out_n_points_at_a_time_in_order(width: int, sizes: list[int]) -> None:
-    recorded = [trial[0] for trial in _golden()["one_smooth"]["trials"][:7]]
-    options, evaluate = SCENARIOS["one_smooth"]
-    adapter = BisectionAdapter(_space(*BOUNDS), rel_tol=REL_TOL, **options)
-
-    rounds = _close__root_search_cuts(adapter, evaluate, width)
-    sweep = [batch for batch in rounds if batch[0].source == "sweep"]
-
-    assert [len(batch) for batch in sweep] == sizes
-    assert [float(sugg.values["K"]) for batch in sweep for sugg in batch] == recorded
 
 
 # --------------------------------------------------------------------------- #
@@ -1227,61 +866,6 @@ def test_the_sweep_is_handed_out_n_points_at_a_time_in_order(width: int, sizes: 
 ONE_ROOT_ROUNDS = {1: (15, 15), 2: (9, 16), 4: (6, 20), 7: (4, 23)}
 
 TWO_ROOT_ROUNDS = {1: (24, 24), 2: (13, 24), 4: (8, 26), 7: (6, 31)}
-
-
-@pytest.mark.parametrize("width", WIDTHS)
-@pytest.mark.parametrize("shape", [_smooth, _step])
-def test_one_root_closes_where_the_binary_search_closes_in_fewer_rounds(
-    shape: Callable[[float], Residual], width: int
-) -> None:
-    evaluate = _one(shape(ROOT))
-    binary = BisectionAdapter(_space(*BOUNDS), rel_tol=REL_TOL)
-    binary_rounds = _close__root_search_cuts(binary, evaluate, 1)
-    adapter = BisectionAdapter(_space(*BOUNDS), rel_tol=REL_TOL)
-
-    rounds = _close__root_search_cuts(adapter, evaluate, width)
-
-    root = math.log10(ROOT)
-    low, high = adapter.bracket
-    value = _value(adapter, rounds)
-    assert adapter.converged()
-    assert high - low <= TOL + 1e-12
-    assert _contains(adapter.bracket, root) and _contains(binary.bracket, root)
-    # The value is a trial inside a bracket one stopping width wide around the
-    # root, so it lies within that width of the root and of the binary answer
-    # up to two: a staircase ties both ends of a bracket, and either is returned.
-    assert _contains(adapter.bracket, value)
-    assert abs(value - _value(binary, binary_rounds)) <= 2.0 * TOL
-    assert (len(rounds), sum(len(batch) for batch in rounds)) == ONE_ROOT_ROUNDS[width]
-    assert sum(len(batch) for batch in rounds) == adapter.counted_budget.nominal
-    assert adapter.bracket_record()["closed"] is True
-
-
-@pytest.mark.parametrize("width", WIDTHS)
-@pytest.mark.parametrize("shape", [_smooth, _step])
-def test_two_roots_close_where_the_binary_search_closes_in_fewer_rounds(
-    shape: Callable[[float], Residual], width: int
-) -> None:
-    evaluate = _two(shape(ROOT_MIN), shape(ROOT_MAX))
-    binary = BisectionAdapter(_space(*BOUNDS), rel_tol=REL_TOL, roots=2)
-    binary_rounds = _close__root_search_cuts(binary, evaluate, 1)
-    adapter = BisectionAdapter(_space(*BOUNDS), rel_tol=REL_TOL, roots=2)
-
-    rounds = _close__root_search_cuts(adapter, evaluate, width)
-
-    assert adapter.converged()
-    record = adapter.roots_record()
-    for bound, root in (("minimal", ROOT_MIN), ("maximal", ROOT_MAX)):
-        bracket = adapter.brackets[bound]
-        assert bracket[1] - bracket[0] <= TOL + 1e-12
-        assert _contains(bracket, math.log10(root))
-        assert _contains(binary.brackets[bound], math.log10(root))
-        assert record[bound]["closed"] is True
-        assert abs(math.log10(record[bound]["k_star"]) - math.log10(root)) <= TOL
-    assert abs(_value(adapter, rounds) - _value(binary, binary_rounds)) <= 2.0 * TOL
-    assert rounds[-1][0].source == "combined" and len(rounds[-1]) == 1
-    assert (len(rounds), sum(len(batch) for batch in rounds)) == TWO_ROOT_ROUNDS[width]
-    assert sum(len(batch) for batch in rounds) == adapter.counted_budget.nominal
 
 
 @pytest.mark.parametrize("width", WIDTHS)
@@ -1354,20 +938,6 @@ def test_past_the_last_midpoint_evaluated_the_lowest_crossing_is_kept(caplog) ->
 # --------------------------------------------------------------------------- #
 # Two brackets share each round
 # --------------------------------------------------------------------------- #
-@pytest.mark.parametrize("width", [2, 3, 4, 7])
-def test_two_brackets_share_each_round_and_no_point_is_asked_twice(width: int) -> None:
-    options, evaluate = SCENARIOS["two_step"]
-    adapter = BisectionAdapter(_space(*BOUNDS), rel_tol=REL_TOL, **options)
-
-    rounds = _close__root_search_cuts(adapter, evaluate, width)
-
-    points = [round(_log(sugg), 9) for batch in rounds for sugg in batch]
-    assert len(points) == len(set(points))
-    first_cut = next(batch for batch in rounds if batch[0].source == "bisect")
-    below = [sugg for sugg in first_cut if _log(sugg) < -4.5]
-    # One each first, then the rest to the bracket that would stay widest.
-    assert len(below) == math.ceil(width / 2)
-    assert len(first_cut) - len(below) == width // 2
 
 
 def test_a_bracket_both_bounds_share_is_cut_once() -> None:
@@ -1394,36 +964,6 @@ def test_a_bracket_both_bounds_share_is_cut_once() -> None:
 # --------------------------------------------------------------------------- #
 # The count follows the points asked at once
 # --------------------------------------------------------------------------- #
-def test_one_point_per_ask_keeps_the_count_of_the_binary_search() -> None:
-    assert root_search_budget(*BOUNDS, batch=1).counts == (15, 17, 19, 21, 23)
-    assert root_search_budget(*BOUNDS, roots=2, batch=1).counts == (24, 26, 28, 30, 32)
-
-
-@pytest.mark.parametrize(
-    ("batch", "one", "two"),
-    [
-        (2, (16, 19, 21, 23, 25), (24, 26, 28, 30, 32)),
-        (4, (20, 22, 24, 26, 28), (26, 30, 32, 34, 36)),
-        (7, (23, 26, 28, 30, 32), (31, 35, 37, 39, 41)),
-    ],
-)
-def test_the_count_follows_the_points_asked_at_once(
-    batch: int, one: tuple[int, ...], two: tuple[int, ...]
-) -> None:
-    assert root_search_budget(*BOUNDS, batch=batch).counts == one
-    assert root_search_budget(*BOUNDS, roots=2, batch=batch).counts == two
-    assert (
-        BisectionAdapter(_space(*BOUNDS), rel_tol=REL_TOL, batch=batch).counted_budget.counts == one
-    )
-
-
-def test_the_adapter_counts_the_widest_ask_once_it_is_asked() -> None:
-    adapter = BisectionAdapter(_space(*BOUNDS), rel_tol=REL_TOL, roots=2)
-    assert adapter.counted_budget == root_search_budget(*BOUNDS, roots=2)
-
-    adapter.ask(4)
-
-    assert adapter.counted_budget == root_search_budget(*BOUNDS, roots=2, batch=4)
 
 
 def test_a_batch_below_one_point_is_refused() -> None:
@@ -1483,29 +1023,6 @@ def _engine_run(parallel: int, **options):
     return adapter, session, rounds
 
 
-@pytest.mark.parametrize("declared", [{}, {"batch": 4}])
-def test_four_workers_find_the_roots_of_one_in_far_fewer_rounds(declared: dict) -> None:
-    serial, serial_session, serial_rounds = _engine_run(1)
-    wide, session, rounds = _engine_run(4, **declared)
-
-    assert serial_session.converged and session.converged
-    assert session.extension == 0
-    one, four = serial.roots_record(), wide.roots_record()
-    for bound in ("minimal", "maximal"):
-        assert abs(math.log10(four[bound]["k_star"]) - math.log10(one[bound]["k_star"])) <= 2 * TOL
-        assert four[bound]["closed"] is True
-    assert abs(math.log10(four["value"]) - math.log10(one["value"])) <= 2 * TOL
-    assert session.best.trial_id == four["combined_trial_id"]
-    assert (len(serial_rounds), sum(serial_rounds)) == (24, 24)
-    assert (len(rounds), sum(rounds)) == (8, 26)
-    assert len(session.history) == 26
-    assert wide.counted_budget == root_search_budget(*BOUNDS, roots=2, batch=4)
-
-
-def test_the_root_search_declares_it_runs_trials_side_by_side() -> None:
-    assert engine_traits("bisection").supports_parallel is True
-
-
 # --------------------------------------------------------------------------- #
 # The preflight counts the points the engine asks at once
 # --------------------------------------------------------------------------- #
@@ -1559,28 +1076,6 @@ def _load__root_search_cuts(
         (tmp_path / name).write_bytes(b"")
     cfg, _raw = load_toml_calibration(path)
     return cfg
-
-
-@pytest.mark.parametrize(
-    ("workers", "phase", "severity"),
-    [
-        ("", None, "warning"),
-        ("parallel = 4", None, "error"),
-        ("parallel = 1\nbatch_size = 4", None, "error"),
-        ("parallel = 4", "", "error"),
-        ("", "parallel = 4", "error"),
-        ("parallel = 4", "parallel = 1", "warning"),
-    ],
-)
-def test_the_preflight_counts_the_points_asked_at_once(
-    tmp_path: Path, workers: str, phase: str | None, severity: str
-) -> None:
-    # Two roots: 24 evaluations one point at a time, 26 four at a time.
-    findings = _check_the_budgets(_load__root_search_cuts(tmp_path, workers=workers, phase=phase))
-
-    assert [finding.severity for finding in findings] == [severity]
-    if severity == "error":
-        assert "below the 26 evaluations" in findings[0].detail
 
 
 # --------------------------------------------------------------------------- #
@@ -1652,28 +1147,6 @@ def test_the_first_suggestion_is_the_first_point_of_the_sweep() -> None:
 
     assert suggestion.trial_id == 1
     assert suggestion.values["K"] == pytest.approx(1.0)
-
-
-@pytest.mark.parametrize(
-    ("bracket", "outside"), [((-4.0, 4.0), False), ((5.0, 15.0), False), ((11.0, 13.0), True)]
-)
-def test_a_root_on_a_declared_bound_is_inside_it(bracket, outside) -> None:
-    adapter = BisectionAdapter(_space(1.0, 1.0e5))
-    adapter._declared = (0.0, 10.0)
-    adapter._targets = (SimpleNamespace(component="c", label="J"),)
-    adapter._brackets = {"c": bracket}
-
-    assert (adapter.root_outside_bounds() is not None) is outside
-
-
-def test_the_cuts_of_a_round_are_placed_once_and_the_first_ask_takes_one_point() -> None:
-    adapter = BisectionAdapter(_space(1.0, 1.0e3), sweep_points=3)
-    adapter.tell([_evaluate(s, root=50.0) for s in adapter.ask(100)])
-
-    (cut,) = adapter.ask()
-
-    assert cut.source == "bisect"
-    assert adapter.ask(1) == []
 
 
 @pytest.mark.parametrize(

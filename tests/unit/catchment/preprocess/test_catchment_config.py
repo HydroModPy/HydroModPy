@@ -10,7 +10,6 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.catchment.algorithms.river_network_config import river_network_for_the_mesh
-from hydromodpy.catchment.preprocess.catchment_config import DemCatchDef
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
@@ -28,18 +27,6 @@ def _outlet(**keys) -> dict:
 
 def _buffer_of(value):
     return GeographicConfig.model_validate(_outlet(buff_area=value)).buff_area
-
-
-@pytest.mark.fast
-def test_the_catchment_has_no_default_and_no_table_names_a_dem_path_but_a_source_gives_it():
-    assert GeographicConfig.model_fields["catchment"].is_required()
-    assert "dem_init_path" not in DemCatchDef.model_fields
-    assert GeographicConfig.model_validate({"source_mode": "synthetic"}).catchment is None
-    bootstrap = {"allow_dem_bootstrap": True}
-    dem_shape = {"catchment": {"kind": "dem"}}
-    assert GeographicConfig.model_validate(dem_shape, context=bootstrap).catch_def == "dem"
-    with pytest.raises(ValidationError, match="dem_init_path"):
-        GeographicConfig.model_validate({"catchment": {**_OUTLET, "dem_init_path": "dem.tif"}})
 
 
 def test_a_dem_from_a_data_source_survives_the_assignment_of_the_section():

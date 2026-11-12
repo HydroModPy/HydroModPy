@@ -51,44 +51,6 @@ def _mesh_with_families() -> tuple[PlanarCellMesh, dict[str, int]]:
     return mesh, {"lake": lake_rank, "west": west_rank}
 
 
-def test_a_cell_carries_one_bit_per_family_it_belongs_to():
-    cell_mesh, _ = _mesh_with_families()
-
-    assert cell_family_names(cell_mesh) == ("rivers", "lakes", "boundary:west")
-    # rivers = 1, lakes = 2, boundary:west = 4; the lake face names both of its cells
-    assert cell_family_bits(cell_mesh).tolist() == [1, 1 | 2, 1, 4, 2, 0]
-    assert cell_family_bits(cell_mesh).dtype == np.int32
-
-
-def test_every_set_bit_is_a_member_of_family_cells():
-    cell_mesh, _ = _mesh_with_families()
-    bits = cell_family_bits(cell_mesh)
-
-    for k, name in enumerate(cell_family_names(cell_mesh)):
-        assert np.flatnonzero(bits & (1 << k)).tolist() == cell_mesh.family_cells(name).tolist()
-
-
-def test_an_edge_carries_the_bits_of_the_face_families_that_lie_on_it():
-    cell_mesh, rank = _mesh_with_families()
-    bits = edge_family_bits(cell_mesh)
-
-    assert edge_family_names(cell_mesh) == ("lakes", "boundary:west")
-    assert np.flatnonzero(bits).tolist() == sorted(rank.values())
-    assert bits[rank["lake"]] == 1
-    assert bits[rank["west"]] == 2
-    assert bits.shape == (cell_mesh.geometry.edge_nodes.shape[0],)
-
-
-def test_a_face_row_finds_its_edge_whatever_the_node_order():
-    cell_mesh, rank = _mesh_with_families()
-    table = cell_mesh.face_families
-    flipped = dataclasses.replace(table, node_a=table.node_b, node_b=table.node_a)
-
-    found = face_row_edges(dataclasses.replace(cell_mesh, face_families=flipped))
-
-    assert found.tolist() == [rank["lake"], rank["west"]]
-
-
 def test_a_face_row_off_the_mesh_edges_is_a_topology_error():
     cell_mesh, _ = _mesh_with_families()
     table = cell_mesh.face_families

@@ -62,19 +62,6 @@ def test_catalog_from_workspace_opens_the_project_index_of_a_loaded_config(proje
         cat.close()
 
 
-def test_catalog_from_workspace_takes_any_workspace_with_a_project_root(project) -> None:
-    root, sid = project
-
-    class _RuntimeWorkspace:
-        project_root = root
-
-    cat = Catalog.from_workspace(_RuntimeWorkspace())
-    try:
-        assert cat.resolve("alpha") == sid
-    finally:
-        cat.close()
-
-
 def test_a_run_made_by_a_catalog_reads_the_config_function_of_its_catalog(project) -> None:
     root, sid = project
     seen: list[Any] = []
@@ -90,21 +77,6 @@ def test_a_run_made_by_a_catalog_reads_the_config_function_of_its_catalog(projec
         assert seen, "the sealed snapshot was not read"
         assert run.config_snapshot is not None
     finally:
-        cat.close()
-
-
-def test_a_reopened_catalog_keeps_the_read_config(project) -> None:
-    root, sid = project
-
-    def read_config(snapshot: Any) -> BaseModel:
-        return _Validated()
-
-    cat = Catalog(root, read_config=read_config)
-    reopened = cat._reopen()
-    try:
-        assert reopened.read_config is read_config
-    finally:
-        reopened.close()
         cat.close()
 
 

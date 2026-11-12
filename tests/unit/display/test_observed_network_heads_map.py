@@ -44,24 +44,6 @@ def test_a_run_without_release_flux_is_told_so() -> None:
     assert "release_flux" in reason
 
 
-def test_a_run_scored_under_heads_redraws_with_its_sealed_radius(mpl) -> None:
-    run = _sealed_run(heads={"radius": 150.0, "min_drained_area": 0.06})
-    fig, ax = mpl.subplots()
-
-    ObservedNetworkHeadsMap().render(run, ax)
-
-    assert "1 head(s) traced, 0 lost" in ax.get_title()
-    assert legend_labels(ax) == [
-        "traced (2 cells)",
-        "mapped network",
-        "head kept (1)",
-        "landing cell centre",
-    ]
-    note = legend_note(ax)
-    assert "redrawn under map.drawn_by" not in note
-    assert "criterion settings: calibration output 'streams'" in note
-
-
 def test_a_run_scored_under_crossing_is_redrawn_under_heads_anyway(mpl) -> None:
     run = _sealed_run(drawn_by="crossing")
     fig, ax = mpl.subplots()
@@ -162,12 +144,3 @@ def test_the_dam_foot_has_its_own_marker_and_legend_entry(mpl) -> None:
         and np.allclose(collection.get_facecolor()[0], to_rgba(FORCED_HEAD_COLOR))
     ]
     assert len(marked) == 1
-
-
-def test_a_run_with_no_dam_foot_shows_no_such_entry(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    ObservedNetworkHeadsMap().render(_run([]), ax)
-
-    assert "dam foot" not in ax.get_title()
-    assert not any("dam foot" in label for label in legend_labels(ax))

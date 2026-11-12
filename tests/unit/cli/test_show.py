@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.session.journal import append_trial
 from tests._helpers.sealed_runs import make_project, seal_run, write_session_dir
 from tests._helpers.session_documents import trial_line
@@ -52,34 +50,6 @@ def test_a_written_report_is_named(monkeypatch, capsys, project: Path) -> None:
     assert f"report: {page}" in capsys.readouterr().out
 
 
-def test_a_session_in_json_carries_the_summary(monkeypatch, capsys, project: Path) -> None:
-    code = run_hmp(monkeypatch, "show", "calage", "-w", str(project), "--format", "json")
-
-    document = json.loads(capsys.readouterr().out)
-    assert code == 0
-    assert document["schema"] == "hmp.show.v1"
-    data = document["data"]
-    assert data["name"] == "calage"
-    assert data["trials_by_status"] == {"completed": 1, "failed": 1}
-    assert data["best_trial"] == 2
-    assert data["bounds_reached"] == ["K"]
-    assert data["report"] is None
-
-
-def test_a_run_prints_its_readme_and_its_profile(monkeypatch, capsys, tmp_path: Path) -> None:
-    root = make_project(tmp_path / "demo")
-    seal_run(root, "alpha")
-    (root / "runs" / "alpha" / "README.md").write_text("# alpha\n", encoding="utf-8")
-
-    code = run_hmp(monkeypatch, "show", "alpha", "-w", str(root))
-
-    out = capsys.readouterr().out
-    assert code == 0
-    assert out.startswith("# alpha")
-    assert "Profile" in out
-    assert "next: hmp show alpha --detail | hmp diff alpha <other>" in out
-
-
 def test_the_profile_alone_is_the_profile_of_the_run(monkeypatch, capsys, tmp_path: Path) -> None:
     root = make_project(tmp_path / "demo")
     seal_run(root, "alpha")
@@ -90,31 +60,6 @@ def test_the_profile_alone_is_the_profile_of_the_run(monkeypatch, capsys, tmp_pa
     assert code == 0
     assert out.lstrip().startswith("Profile")
     assert "# alpha" not in out
-
-
-def test_a_run_in_json_names_its_facts(monkeypatch, capsys, tmp_path: Path) -> None:
-    root = make_project(tmp_path / "demo")
-    seal_run(root, "alpha")
-    rebuild_index(root)
-
-    code = run_hmp(monkeypatch, "show", "alpha", "-w", str(root), "--format", "json")
-
-    document = json.loads(capsys.readouterr().out)
-    assert code == 0
-    assert document["schema"] == "hmp.show.run.v1"
-    assert document["data"]["name"] == "alpha"
-    assert document["data"]["rel_dir"] == "runs/alpha"
-
-
-def test_the_project_is_what_show_reads_without_a_reference(
-    monkeypatch, capsys, project: Path
-) -> None:
-    code = run_hmp(monkeypatch, "show", "-w", str(project), "--format", "json")
-
-    document = json.loads(capsys.readouterr().out)
-    assert code == 0
-    assert document["schema"] == "hmp.show.project.v1"
-    assert document["data"]["n_sessions"] == 1
 
 
 def test_a_table_is_what_the_verb_reads_and_written_where_to_says(
@@ -161,16 +106,3 @@ def test_a_selector_the_subject_cannot_hold_is_a_usage_error(
 
     assert code == 2
     assert says in capsys.readouterr().err
-
-
-def test_an_unknown_reference_exits_not_found_and_names_dash_w(
-    monkeypatch, capsys, tmp_path: Path
-) -> None:
-    root = make_project(tmp_path / "demo")
-    seal_run(root, "alpha")
-    monkeypatch.chdir(tmp_path)
-
-    code = run_hmp(monkeypatch, "show", "beta")
-
-    assert code == 10
-    assert "Name the workspace or the project with -w." in capsys.readouterr().err

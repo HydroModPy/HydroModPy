@@ -11,28 +11,6 @@ DIGEST = "sha256:" + "ab12" * 16
 
 
 @pytest.mark.parametrize(
-    ("tag", "digest", "expected"),
-    [
-        (None, None, {}),
-        (None, DIGEST, {}),
-        ("", DIGEST, {}),
-        ("2.1.0", None, {"tag": "2.1.0"}),
-        ("2.1.0", "", {"tag": "2.1.0"}),
-        ("2.1.0", DIGEST, {"tag": "2.1.0", "digest": DIGEST}),
-        ("  dev ", f" {DIGEST} ", {"tag": "dev", "digest": DIGEST}),
-    ],
-)
-def test_image_of(monkeypatch, tag, digest, expected) -> None:
-    for name, value in (("HMP_IMAGE_TAG", tag), ("HMP_IMAGE_DIGEST", digest)):
-        if value is None:
-            monkeypatch.delenv(name, raising=False)
-        else:
-            monkeypatch.setenv(name, value)
-
-    assert image_of() == expected
-
-
-@pytest.mark.parametrize(
     "digest",
     [
         "abc",

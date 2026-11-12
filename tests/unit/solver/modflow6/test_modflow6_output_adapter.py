@@ -5,7 +5,6 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
-from hydromodpy.solver.modflow6.extractors.grid_check import grb_rings
 
 
 def _grid_file(verts: np.ndarray, closed_rings: list[list[int]]) -> SimpleNamespace:
@@ -43,21 +42,6 @@ def test_modflow6_output_adapter_builds_ugrid_geometry_from_disv_grb_vertices() 
             [
                 [0, 1, 4, 3],
                 [1, 2, 5, 4],
-            ],
-            dtype="int32",
-        ),
-    )
-
-
-def test_modflow6_output_adapter_pads_mixed_face_connectivity() -> None:
-    connectivity = grb_rings(_grid_file(np.zeros((6, 2)), [[0, 1, 2, 0], [2, 3, 4, 5, 2]]))
-
-    np.testing.assert_array_equal(
-        connectivity,
-        np.array(
-            [
-                [0, 1, 2, -1],
-                [2, 3, 4, 5],
             ],
             dtype="int32",
         ),

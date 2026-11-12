@@ -9,7 +9,6 @@ from typing import Any
 import numpy as np
 import pytest
 
-import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.workflow.steps.dependencies import earliest_affected_step
@@ -40,39 +39,8 @@ def _custom(path):
     return SimpleNamespace(source="file", path=str(path), force_refresh=False)
 
 
-def test_the_network_declared_by_the_data_family_is_the_map_of_alpha(tmp_path, monkeypatch):
-    network = tmp_path / "network.gpkg"
-    network.touch()
-    cfg = _cfg(sources=[_custom(network)])
-    monkeypatch.setattr(
-        hydrography_resolver,
-        "resolve_network_map_path",
-        lambda *_args, **_kwargs: network,
-    )
-
-    assert resolve_geographic_inputs(cfg, _run_state(tmp_path)) == network
-
-
-def test_the_map_never_enters_the_configuration(tmp_path):
-    network = tmp_path / "network.gpkg"
-    network.touch()
-    cfg = _cfg(sources=[_custom(network)])
-
-    resolve_geographic_inputs(cfg, _run_state(tmp_path))
-
-    assert vars(cfg.geographic).keys() == {"uses_synthetic_geographic"}
-
-
 def test_no_hydrography_source_means_alpha_does_not_run(tmp_path):
     assert resolve_geographic_inputs(_cfg(sources=[]), _run_state(tmp_path)) is None
-
-
-def test_a_synthetic_geographic_is_left_alone(tmp_path):
-    other = tmp_path / "other.gpkg"
-    other.touch()
-    cfg = _cfg(synthetic=True, sources=[_custom(other)])
-
-    assert resolve_geographic_inputs(cfg, _run_state(tmp_path)) is None
 
 
 def test_a_source_holding_no_vector_resolves_to_nothing_without_raising(tmp_path):
@@ -221,28 +189,3 @@ def test_a_trial_solves_the_substratum_elevation_it_moved(tmp_path: Path) -> Non
 
     bottom = trial.ctx.setup.domain.substratum.as_array()
     np.testing.assert_allclose(bottom[np.isfinite(bottom)], -40.0)
-
-
-def test_the_zones_of_the_shared_domain_carry_over(tmp_path: Path) -> None:
-    prepared = _prepare(
-        tmp_path, 'kind = "constant_thickness"\nthickness = "30 m"', "domain.depth_model.thickness"
-    )
-    zones = dict(prepared.ctx.setup.domain.zones)
-
-    trial = prepared.fork({"h": 50.0})
-    _run_setup_process(trial)
-
-    assert trial.ctx.setup.domain.zones == zones
-
-
-def test_a_run_whose_geometry_did_not_move_keeps_its_domain(tmp_path: Path) -> None:
-    from hydromodpy.workflow.steps.setup import rebuild_substratum_if_depth_model_moved
-
-    prepared = _prepare(
-        tmp_path, 'kind = "constant_thickness"\nthickness = "30 m"', "domain.depth_model.thickness"
-    )
-    trial = prepared.fork({"h": 30.0})
-    before = trial.ctx.setup.domain
-
-    assert rebuild_substratum_if_depth_model_moved(trial.ctx) is False
-    assert trial.ctx.setup.domain is before

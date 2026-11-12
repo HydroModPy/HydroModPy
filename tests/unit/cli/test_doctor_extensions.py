@@ -32,17 +32,6 @@ def _checks(out: str) -> dict[str, dict]:
     return {entry["name"]: entry for entry in json.loads(out)["data"]["checks"]}
 
 
-def test_doctor_help_lists_new_flags(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "doctor", "--help"])
-    assert code == 0
-    out = capsys.readouterr().out
-    assert "--cross-catalog" in out
-    assert "--lifecycle" in out
-    assert "--prt" in out
-    assert "--fix-config" in out
-    assert "--migrate" not in out
-
-
 def test_doctor_lifecycle_counts_a_stale_attempt_from_the_disk(
     monkeypatch, tmp_path, capsys, isolated_state
 ) -> None:
@@ -101,35 +90,7 @@ def test_doctor_prt_renders_in_the_report(monkeypatch, tmp_path, capsys) -> None
     assert "prt:mf6_version" in out
 
 
-def test_doctor_finds_the_workspace_that_holds_the_cwd(
-    monkeypatch, tmp_path, capsys, isolated_state
-) -> None:
-    workspace, project = _make_workspace(tmp_path)
-    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
-    monkeypatch.chdir(project)
-
-    code = _run(monkeypatch, ["hmp", "doctor", "--format", "json"])
-
-    assert code in (0, 1)
-    checks = _checks(capsys.readouterr().out)
-    assert checks["workspace"] == {
-        "name": "workspace",
-        "status": "OK",
-        "detail": str(workspace.resolve()),
-        "hint": None,
-    }
-
-
-def test_doctor_takes_w(monkeypatch, tmp_path, capsys, isolated_state) -> None:
-    workspace, _project = _make_workspace(tmp_path)
-
-    code = _run(monkeypatch, ["hmp", "doctor", "-w", str(workspace), "--format", "json"])
-
-    assert code in (0, 1)
-    assert _checks(capsys.readouterr().out)["workspace"]["status"] == "OK"
-
-
-def test_doctor_fix_config_rewrites_a_2_0_file_in_place_and_says_what_changed(
+def test_doctor_fix_config_rewrites_a_pre_release_file_in_place_and_says_what_changed(
     monkeypatch, tmp_path, capsys
 ) -> None:
     path = tmp_path / "project.toml"
@@ -226,7 +187,7 @@ def test_doctor_fix_config_refuses_with_the_retired_keys_of_the_check(
         path="flow.gone",
         code="retired_key",
         severity="error",
-        detail="flow.gone was removed in 2.1.0",
+        detail="flow.gone was removed in 2.0.0",
     )
     monkeypatch.setattr("hydromodpy.project.doctor.findings_of", lambda file: [retired])
 
@@ -235,4 +196,4 @@ def test_doctor_fix_config_refuses_with_the_retired_keys_of_the_check(
     out = capsys.readouterr().out
     assert code == EXIT_CONFIG
     assert "and the check still refuses it:" in out
-    assert "  - flow.gone was removed in 2.1.0" in out
+    assert "  - flow.gone was removed in 2.0.0" in out

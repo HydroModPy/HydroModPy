@@ -441,7 +441,7 @@ def prerelease_form_for(path: str) -> Any | None:
     """Return the form of ``prerelease_forms.txt`` that refuses a TOML path, or ``None``.
 
     Such a key left the grammar before 2.0.0 was released, so the ledger holds it and
-    the doctor of 2.0.x rewrites it. It never covers a key that leaves today. A form of a
+    this version refuses it without a rewrite. It never covers a key that leaves today. A form of a
     value refuses one value of a key that stays, so it covers no path. A form that ends
     in ``{*}`` refuses the tables a pre-release wrote under a key, so it covers what lies
     below that key and not the key itself.

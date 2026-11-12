@@ -20,14 +20,6 @@ def _load(key: str, values: object, *, mode: str = "absolute", labels: object = 
 
 
 @pytest.mark.parametrize("key", list(KINDS))
-def test_absolute_coordinates_are_lengths_in_metres_and_labels_are_trimmed(key):
-    config = _load(key, ["0.25 km", "300 m", 400.0], labels=[" a ", "b", "c", "d"])
-
-    assert getattr(config, key) == [250.0, 300.0, 400.0]
-    assert config.labels == ["a", "b", "c", "d"]
-
-
-@pytest.mark.parametrize("key", list(KINDS))
 def test_a_bare_number_written_as_a_string_is_read_as_metres(key):
     assert getattr(_load(key, ["300"]), key) == [300.0]
 

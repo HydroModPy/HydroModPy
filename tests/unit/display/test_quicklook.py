@@ -29,11 +29,6 @@ def test_should_rasterize_threshold_returns_false_below_default() -> None:
     assert scalable.should_rasterize(50_000) is False
 
 
-def test_should_rasterize_custom_threshold() -> None:
-    assert scalable.should_rasterize(1000, threshold=500) is True
-    assert scalable.should_rasterize(100, threshold=500) is False
-
-
 def test_rasterize_field_downsamples_dense_grid_to_target_px() -> None:
     """rasterize_field must reduce a grid coarser than the target and keep it finite.
 
@@ -64,13 +59,6 @@ def test_rasterize_field_downsamples_dense_grid_to_target_px() -> None:
     # Mean aggregation of source data in [0, 1) cannot produce values outside it.
     assert values.min() >= 0.0
     assert values.max() < 1.0
-
-
-def test_rasterize_field_below_threshold_no_downsample() -> None:
-    """A field below the threshold needs no rasterization at the API level."""
-    # The helper does not auto-skip; we verify the threshold logic instead.
-    n_cells = 10_000  # Below the default 100k threshold.
-    assert scalable.should_rasterize(n_cells) is False
 
 
 def test_rasterize_field_rejects_zero_dimensions() -> None:

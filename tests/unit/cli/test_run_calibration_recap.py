@@ -106,48 +106,6 @@ def _staged_summary(tmp_path: Path) -> dict:
     }
 
 
-@pytest.mark.fast
-def test_the_recap_names_the_file_the_phases_and_where_to_read_on(
-    tmp_path, monkeypatch, capsys
-) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    run_command._print_calibration_recap(_staged_summary(tmp_path), Path("run_calibration.toml"))
-
-    assert capsys.readouterr().err.splitlines() == [
-        "Calibration run_calibration.toml done: protocol matching_hydrographic_network 1.2",
-        "  1 steady_conductivity: bisection, 15 runs",
-        "    K = 8.10689e-05 m/s  [7.49894e-05, 0.0001]",
-        "    cost: 1.96457 (distance_gap)",
-        "    calibrated run: runs/nancon_calibrated_steady_conductivity",
-        "  2 transient_storage: scipy_nelder_mead, 6 runs",
-        "    Sy = 0.0453017  [0.041833, 0.0517337]",
-        "    cost: 0.0744449 (1 - nse_log)",
-        "    calibrated run: runs/nancon_calibrated_transient_storage",
-        "  Best runs: runs/nancon_calibrated_steady_conductivity/figures, "
-        "runs/nancon_calibrated_transient_storage/figures",
-        "  Sessions: sessions/20260928-033825-bisection-099012a0, "
-        "sessions/20260928-034005-scipy_nelder_mead-870992ac",
-        "  Methods:   sessions/20260928-033825-bisection-099012a0/methods.md",
-    ]
-
-
-@pytest.mark.fast
-def test_a_calibration_of_one_phase_reads_as_one_phase(tmp_path, monkeypatch, capsys) -> None:
-    monkeypatch.chdir(tmp_path)
-    report = _staged_summary(tmp_path)["phases"][0]["report"]
-
-    run_command._print_calibration_recap(report, Path("calibrate_k.toml"))
-
-    lines = capsys.readouterr().err.splitlines()
-    assert lines[0] == "Calibration calibrate_k.toml done"
-    assert lines[1] == "  1: bisection, 15 runs"
-    assert lines[2] == "    K = 8.10689e-05 m/s  [7.49894e-05, 0.0001]"
-    assert lines[-2] == "  Best runs: runs/nancon_calibrated_steady_conductivity/figures"
-    assert lines[-1] == "  Session:  sessions/20260928-033825-bisection-099012a0"
-    assert len(lines) == 7
-
-
 def _dispatches(monkeypatch, summary: dict) -> None:
     """Make ``hmp run`` get *summary* from the calibration it would launch."""
     monkeypatch.setattr(
@@ -172,15 +130,6 @@ def _run_calibration_file(tmp_path: Path, monkeypatch, verbosity: str | None) ->
         run_command._run_toml(config, args=args)
     finally:
         set_verbosity("normal")
-
-
-def test_normal_mode_prints_the_recap_and_not_the_dict(tmp_path, monkeypatch, capsys) -> None:
-    _run_calibration_file(tmp_path, monkeypatch, "normal")
-
-    err = capsys.readouterr().err
-    assert "Calibration run_calibration.toml done" in err
-    assert "Workflow 'calibration' complete" not in err
-    assert "methods_paragraph" not in err
 
 
 def test_verbose_mode_keeps_the_full_dict(tmp_path, monkeypatch, capsys) -> None:

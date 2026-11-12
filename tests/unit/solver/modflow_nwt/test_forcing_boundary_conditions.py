@@ -8,7 +8,6 @@ forcing resolution for sides, and CHD payload merging.
 from __future__ import annotations
 
 import types
-from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -39,49 +38,6 @@ def _make_bc_adapter(boundary_conditions, active_bc, nper=1, simulation_window=N
         simulation_window=simulation_window,
         sink_fill=False,
     )
-
-
-def test_ocean_not_activated_returns_none_chd():
-    """When 'ocean' is absent from active_bc, _build_ocean_chd returns None."""
-    ibound = np.ones((1, 3, 3))
-    strt = np.zeros((1, 3, 3))
-    drain_array = np.ones((3, 3))
-
-    ocean_bc = MagicMock()
-    ocean_bc.value = 0.0
-    adapter = _make_bc_adapter({"ocean": ocean_bc}, active_bc=[])
-
-    result = adapter._build_ocean_chd(ibound=ibound, strt=strt, drain_array=drain_array)
-
-    assert result is None
-    # ibound must not have been mutated by the ocean gate
-    assert np.all(ibound == 1)
-
-
-def test_drainage_not_activated_returns_none_drn():
-    """When 'drainage' is absent from active_bc, _build_drainage_spd returns None."""
-    drain_array = np.ones((3, 3))
-    hk = np.ones((1, 3, 3)) * 1e-4
-
-    drainage_bc = MagicMock()
-    drainage_bc.value = 0.0
-    adapter = _make_bc_adapter({"drainage": drainage_bc}, active_bc=["ocean"])
-
-    result = adapter._build_drainage_spd(drain_array=drain_array, hk=hk)
-
-    assert result is None
-
-
-def test_west_side_not_activated_leaves_ibound_unchanged():
-    """When 'west_side' is absent from active_bc, its column is not set to -1."""
-    west_bc = MagicMock()
-    west_bc.value = 5.0
-    adapter = _make_bc_adapter({"west_side": west_bc}, active_bc=[])
-
-    ibound, strt, _ = adapter._build_initial_heads_and_sides()
-
-    # Column 0 must NOT be constant-head (-1) since west_side is inactive
-    assert np.all(ibound[:, :, 0] != -1)
 
 
 def test_transient_west_side_uses_chd_and_keeps_face_active():

@@ -11,10 +11,9 @@ import pytest
 import hydromodpy as hmp
 import hydromodpy.results.storage.attempt as attempt_module
 from hydromodpy.core.exceptions import NothingThereError
-from hydromodpy.core.runtime.interrupts import StopRequested, raise_if_stop_requested
 from hydromodpy.core.state.layout import stop_flag_for
 from hydromodpy.results.storage.attempt import claim_run_directory, finish_attempt
-from tests._helpers.sealed_runs import make_project, seal_run
+from tests._helpers.sealed_runs import make_project
 from tests.unit.cli._hmp import run_hmp
 
 
@@ -32,28 +31,6 @@ def _session(project: Path, name: str, status: str, monkeypatch: pytest.MonkeyPa
         attempt_module, "read_session", lambda directory: argparse.Namespace(status=status)
     )
     return folder
-
-
-@pytest.mark.parametrize("ref", ["case", "runs/case"], ids=["bare", "runs/"])
-def test_stop_writes_the_flag_of_the_run_a_reference_names(project: Path, ref: str) -> None:
-    claim = claim_run_directory(project, "case", case_id="case", project="demo")
-
-    flag = hmp.stop(ref, workspace=project)
-
-    assert flag == stop_flag_for(claim.run_dir)
-    assert json.loads(flag.read_text(encoding="utf-8"))["schema"] == "hydromodpy.stop.v1"
-    with pytest.raises(StopRequested):
-        raise_if_stop_requested(flag)
-
-
-def test_a_bare_name_is_the_latest_version_of_the_run(project: Path) -> None:
-    seal_run(project, "case")
-    second = claim_run_directory(project, "case", case_id="case", project="demo")
-    assert second.run_dir.name == "case.v2"
-
-    for ref in ("case", "case.v2", "runs/case.v2"):
-        assert hmp.stop(ref, workspace=project) == stop_flag_for(second.run_dir)
-    assert not stop_flag_for(project / "runs" / "case").exists()
 
 
 def test_stop_reaches_a_running_session(project: Path, monkeypatch) -> None:

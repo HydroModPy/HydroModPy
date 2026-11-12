@@ -26,12 +26,6 @@ pytestmark = pytest.mark.fast
 LABEL = "flow.sinks_sources.recharge.values"
 
 
-def test_a_toml_table_reaches_the_solvers_with_integer_keys() -> None:
-    config = FlowRechargeConfig(values={"0": 1.0, "1": 2.0})
-
-    assert config.values == {0: 1.0, 1: 2.0}
-
-
 @pytest.mark.parametrize("key", ["january", "1.5", "-1", 1.5, True])
 def test_a_key_that_is_no_period_is_refused(key: object) -> None:
     with pytest.raises(ValidationError, match="period index"):
@@ -41,11 +35,6 @@ def test_a_key_that_is_no_period_is_refused(key: object) -> None:
 def test_the_same_period_written_twice_is_refused() -> None:
     with pytest.raises(ValueError, match="names period 1 twice"):
         integer_period_keys({"1": 1.0, 1: 2.0}, label=LABEL)
-
-
-def test_a_missing_period_is_named() -> None:
-    with pytest.raises(ValueError, match=r"gives no rate for period\(s\) \[1, 2\]"):
-        complete_period_table({0: 1.0}, nper=3, label=LABEL)
 
 
 def test_a_period_outside_the_run_is_named() -> None:

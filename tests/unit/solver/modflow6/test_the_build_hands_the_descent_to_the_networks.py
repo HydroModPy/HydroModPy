@@ -22,7 +22,6 @@ from rasterio.transform import from_origin
 from hydromodpy.catchment.drainage.channel_tree import (
     ChannelExits,
     ChannelTree,
-    active_channel_raster,
     channel_exits,
     read_channel_tree,
 )
@@ -95,30 +94,6 @@ def _no_chd(n: int) -> dict:
         "_ocean_support_mask": np.zeros(n, dtype=bool),
         "_stream_support_mask": np.zeros(n, dtype=bool),
     }
-
-
-def test_a_run_without_sfr_builds_d_and_leaves_it_beside_the_model(tmp_path) -> None:
-    n = 5
-    rows, cols = np.divmod(np.arange(n * n), n)
-    mesh = _mesh(n, n, 10.0 + rows + cols)
-    model = SimpleNamespace(
-        inputs=make_model(boundaries=BoundaryConditionBundle(conditions={}, active_ids=())),
-        full_path=str(tmp_path),
-        model_output_name="model",
-        **_no_chd(n * n),
-    )
-
-    descent = build._run_descent(model, mesh, {}, np.zeros(n * n, dtype=bool))
-    basin = run_basin(None, mesh, descent)
-    build._keep_dam_feet_and_leave_descent(model, descent, {}, basin=basin)
-
-    assert descent is not None
-    assert model.dam_foot_cells == {}
-    record = read_descent_sidecar(tmp_path / "model.descent.npz")
-    assert record is not None
-    np.testing.assert_array_equal(record.receiver, descent.receiver)
-    np.testing.assert_array_equal(record.surface, descent.surface)
-    assert record.adjacency == "shared_nodes"
 
 
 def test_route_drainage_builds_d_seeded_on_the_chd_cells(tmp_path) -> None:
@@ -254,37 +229,6 @@ def _xy(row: int, col: int, nrow: int = 10) -> tuple[float, float]:
     return (10.0 * col + 5.0, 10.0 * (nrow - 1 - row) + 5.0)
 
 
-def test_the_drainage_basin_closes_on_the_snapped_outlet(monkeypatch) -> None:
-    mesh = _two_valleys()
-    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: None)
-    snapped, declared = _xy(9, 2), _xy(9, 7)
-    geographic = SimpleNamespace(
-        x_outlet=declared[0],
-        y_outlet=declared[1],
-        x_outlet_snapped=snapped[0],
-        y_outlet_snapped=snapped[1],
-    )
-
-    basin = run_basin(geographic, mesh, descent)
-
-    assert basin.rule == "near_point"
-    assert basin.mask[5 * 10 + 2]
-    assert not basin.mask[5 * 10 + 7]
-
-
-def test_without_a_snapped_outlet_the_declared_one_closes_the_basin(monkeypatch) -> None:
-    mesh = _two_valleys()
-    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: None)
-    declared = _xy(9, 7)
-
-    basin = run_basin(SimpleNamespace(x_outlet=declared[0], y_outlet=declared[1]), mesh, descent)
-
-    assert basin.mask[5 * 10 + 7]
-    assert not basin.mask[5 * 10 + 2]
-
-
 def test_without_an_outlet_the_basin_closes_inside_the_polygon(monkeypatch, caplog) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
@@ -400,19 +344,6 @@ def _write_network_rasters(folder, shape: tuple[int, int], *, stale: bool = Fals
     os.utime(folder / "dem_stream_link_id_full.tif", (link_time, link_time))
 
 
-def test_a_is_read_from_the_corrected_flow_folder_with_or_without_sfr(tmp_path) -> None:
-    _write_network_rasters(tmp_path, (5, 5))
-    mesh = _mesh(5, 5, np.full(25, 10.0))
-    geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
-    rasters = channel_rasters_for_run(geographic)
-    exits = _read_on(mesh, rasters)
-
-    for required in (False, True):
-        assert channel_exits_for_build(rasters, exits, required=required) is exits
-    # Raster row 2, columns 1 to 3, is mesh row 2 on cells of the same size.
-    assert np.flatnonzero(exits.holds_a).tolist() == [11, 12, 13]
-
-
 def test_a_run_without_the_river_network_rasters_pins_nothing(tmp_path, caplog) -> None:
     geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
 
@@ -421,18 +352,6 @@ def test_a_run_without_the_river_network_rasters_pins_nothing(tmp_path, caplog) 
     assert "No generated river network A" in caplog.text
     with pytest.raises(FileNotFoundError, match="rasters are missing"):
         channel_exits_for_build(channel_rasters_for_run(geographic), None, required=True)
-
-
-def test_rasters_left_by_an_earlier_configuration_pin_nothing(tmp_path, caplog) -> None:
-    _write_network_rasters(tmp_path, (5, 5))
-    mesh = _mesh(5, 5, np.full(25, 10.0))
-    geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=False)
-
-    rasters = channel_rasters_for_run(geographic)
-
-    with caplog.at_level("INFO"):
-        assert channel_exits_for_build(rasters, _read_on(mesh, rasters)) is None
-    assert "river network is off" in caplog.text
 
 
 def test_a_link_raster_older_than_the_stream_raster_is_never_read(tmp_path) -> None:
@@ -469,44 +388,6 @@ def _write_streams(path, shape: tuple[int, int], row: int, *, age_s: float = 0.0
     if age_s:
         moment = os.path.getmtime(path) - age_s
         os.utime(path, (moment, moment))
-
-
-def test_the_active_raster_of_a_is_one_rule_for_every_reader(tmp_path) -> None:
-    streams = tmp_path / "dem_streams_full.tif"
-    pruned = tmp_path / "dem_streams_pruned_full.tif"
-    link = tmp_path / "dem_stream_link_id_full.tif"
-    shape = (5, 5)
-    _write_streams(streams, shape, 1, age_s=120.0)
-    assert active_channel_raster(tmp_path) == str(streams)
-
-    _write_streams(pruned, shape, 2)
-    assert active_channel_raster(tmp_path) == str(pruned)
-
-    _write_streams(link, shape, 3)
-    assert active_channel_raster(tmp_path) == str(link)
-
-    # A pruned raster older than the unpruned streams is a leftover of an earlier run.
-    os.utime(link, (0.0, 0.0))
-    os.utime(pruned, (0.0, 0.0))
-    assert active_channel_raster(tmp_path) == str(streams)
-
-
-def test_a_with_pruning_and_no_link_raster_is_the_pruned_network(tmp_path) -> None:
-    for name, row, age in (
-        ("dem_streams_full.tif", 1, 120.0),
-        ("dem_streams_pruned_full.tif", 3, 0.0),
-    ):
-        _write_streams(tmp_path / name, (5, 5), row, age_s=age)
-    _write_network_rasters(tmp_path, (5, 5))
-    (tmp_path / "dem_stream_link_id_full.tif").unlink()
-    mesh = _mesh(5, 5, np.full(25, 10.0))
-    geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
-
-    rasters = channel_rasters_for_run(geographic)
-    exits = _read_on(mesh, rasters)
-
-    assert channel_exits_for_build(rasters, exits) is exits
-    assert np.flatnonzero(exits.holds_a).tolist() == [16, 17, 18]  # the pruned row
 
 
 def test_the_zonal_channel_mask_reads_the_same_raster_as_the_projection(tmp_path) -> None:

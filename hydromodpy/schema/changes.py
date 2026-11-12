@@ -41,7 +41,7 @@ DELAY_MINORS: Final[int] = 2
 """
 
 FIRST_EDITION: Final[str] = "2.0"
-"""The edition of a file that writes none: the defaults of 2.0."""
+"""The edition of a file that writes none: the defaults of edition 2.0."""
 
 EFFECTS: Final[frozenset[str]] = frozenset({"numbers", "refusal", "label", "identity", "layout"})
 """What a recipe changes."""
@@ -159,7 +159,7 @@ class Register:
 def _version_errors(row: dict[str, Any], where: str) -> list[str]:
     since = row.get("since")
     if not (isinstance(since, str) and _SINCE.match(since)):
-        return [f"{where}: since must be a full version such as '2.1.0', got {since!r}"]
+        return [f"{where}: since must be a full version such as '2.0.0', got {since!r}"]
     return []
 
 
@@ -461,20 +461,18 @@ def outlived(since: str, version: str) -> bool:
 
 
 def prerelease_refusal(where: str, names: Sequence[str], *, rewritable: bool = True) -> str:
-    """Return the one sentence that refuses what only a pre-release of 2.0 wrote.
+    """Return the one sentence that refuses what only a pre-release wrote.
 
     *where* is the file, or what holds the keys. *rewritable* is false for a source
-    with no file to rewrite, such as ``--set``.
+    with no file, such as ``--set``. This version rewrites no such file.
     """
     held = ", ".join(names)
-    told = (
-        f"{where} holds {held}, written by a pre-release of 2.0. HydroModPy 2.1 no longer reads it."
-    )
+    told = f"{where} holds {held}, written by a pre-release of 2.0. This version does not read it."
     if not rewritable:
         return f"{told} Write today's name instead."
     return (
-        f'{told} Run `pip install "hydromodpy~=2.0.0"` then `hmp doctor --fix-config <file>`, '
-        "which rewrites it, and come back to this version."
+        f"{told} This version does not rewrite the file. "
+        'The page "What changed in the TOML" gives the current name of each key.'
     )
 
 

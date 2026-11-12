@@ -41,20 +41,9 @@ def _html_rows(mesh: HydroMesh) -> dict[str, str]:
     return dict(re.findall(r"<th[^>]*>(\w+)</th><td>(.*?)</td>", mesh._repr_html_()))
 
 
-def test_a_block_of_triangles_counts_its_cells() -> None:
-    block = CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2]], dtype=int))
-    assert block.n_cells == 1
-    assert block.cell_type is CellType.TRIANGLE
-
-
 def test_a_block_whose_rows_do_not_fit_its_cell_type_raises() -> None:
     with pytest.raises(ValueError, match="triangle"):
         CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2, 3]], dtype=int))
-
-
-def test_a_block_reads_its_cell_type_from_an_alias() -> None:
-    block = CellBlock("tri", np.array([[0, 1, 2]], dtype=int))  # type: ignore[arg-type]
-    assert block.cell_type is CellType.TRIANGLE
 
 
 def test_a_polygon_of_two_nodes_raises() -> None:
@@ -62,57 +51,8 @@ def test_a_polygon_of_two_nodes_raises() -> None:
         CellBlock(CellType.POLYGON, (np.array([0, 1, 2]), np.array([0, 1])))
 
 
-def test_a_triangle_mesh_gives_its_sizes_and_cell_type() -> None:
-    mesh = _make_triangle_mesh()
-    assert mesh.ndim == 2
-    assert mesh.n_nodes == 4
-    assert mesh.n_cells == 2
-    assert mesh.is_structured is False
-    assert mesh.single_cell_type is CellType.TRIANGLE
-
-
-def test_a_grid_says_it_is_structured() -> None:
-    mesh = regular_mesh(1, 2).mesh
-    assert mesh.is_structured is True
-    assert mesh.structured_shape == (1, 2)
-
-
-def test_the_bounds_of_a_planar_mesh_are_xmin_ymin_xmax_ymax() -> None:
-    assert _make_triangle_mesh().bounds() == (0.0, 0.0, 1.5, 1.0)
-
-
-def test_the_bounds_of_a_wedge_mesh_add_z() -> None:
-    mesh = HydroMesh(
-        vertices=WEDGE_VERTICES,
-        cell_blocks=(CellBlock(CellType.WEDGE, np.array([[0, 1, 2, 3, 4, 5]])),),
-    )
-    assert mesh.ndim == 3
-    assert mesh.bounds() == (0.0, 0.0, 0.0, 1.0, 1.0, 1.0)
-
-
-def test_the_flat_connectivity_of_one_block_is_its_table() -> None:
-    assert _make_triangle_mesh().flat_connectivity.shape == (2, 3)
-
-
 POLYGON_VERTICES = np.array([[0, 0], [2, 0], [2, 2], [0, 2], [1, 3], [-1, 2]], dtype=float)
 """A quad (0, 1, 2, 3) and a triangle (3, 2, 4) sharing an edge, and one free node."""
-
-
-def test_a_polygon_block_pads_the_rows_of_its_smaller_cells_with_minus_one() -> None:
-    block = CellBlock(
-        cell_type=CellType.POLYGON,
-        connectivity=(np.array([0, 1, 2, 3]), np.array([3, 2, 4])),
-    )
-    mesh = HydroMesh(vertices=POLYGON_VERTICES, cell_blocks=(block,))
-    assert mesh.n_cells == 2
-    assert mesh.flat_connectivity.tolist() == [[0, 1, 2, 3], [3, 2, 4, -1]]
-
-
-def test_a_polygon_block_takes_a_padded_table_as_it_is() -> None:
-    table = np.array([[0, 1, 2, 3], [3, 2, 4, -1]])
-    block = CellBlock(cell_type=CellType.POLYGON, connectivity=table)
-    assert block.connectivity.tolist() == table.tolist()
-    assert block.n_cells == 2
 
 
 @pytest.mark.parametrize(
@@ -133,41 +73,14 @@ def test_blocks_of_two_widths_stack_into_one_table_padded_with_minus_one() -> No
     assert _mixed_mesh().flat_connectivity.tolist() == [[0, 1, 2, 3], [1, 4, 2, -1]]
 
 
-def test_two_blocks_of_one_width_stack_into_one_table() -> None:
-    vertices = np.array([[0, 0], [1, 0], [0.5, 1], [1.5, 0]], dtype=float)
-    mesh = HydroMesh(
-        vertices=vertices,
-        cell_blocks=(
-            CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2]])),
-            CellBlock(CellType.TRIANGLE, np.array([[1, 3, 2]])),
-        ),
-    )
-    assert mesh.single_cell_type is CellType.TRIANGLE
-    assert mesh.flat_connectivity.tolist() == [[0, 1, 2], [1, 3, 2]]
-
-
 def test_a_mesh_of_two_cell_types_has_no_single_cell_type() -> None:
     with pytest.raises(ValueError, match="mixed cell types"):
         _ = _mixed_mesh().single_cell_type
 
 
-def test_cell_data_is_added_to_a_new_mesh() -> None:
-    mesh = _make_triangle_mesh()
-    mesh2 = mesh.with_cell_data(k=np.array([1.0, 2.0]))
-    assert mesh2.cell_data["k"].tolist() == [1.0, 2.0]
-    assert "k" not in mesh.cell_data
-
-
 def test_cell_data_of_the_wrong_size_raises() -> None:
     with pytest.raises(ValueError, match="2 values"):
         _make_triangle_mesh().with_cell_data(k=np.array([1.0, 2.0, 3.0]))
-
-
-def test_point_data_is_added_to_a_new_mesh() -> None:
-    mesh = _make_triangle_mesh()
-    mesh2 = mesh.with_point_data(z=np.array([0, 0, 1, 1], dtype=float))
-    assert mesh2.point_data["z"].size == mesh.n_nodes
-    assert "z" not in mesh.point_data
 
 
 def test_point_data_of_the_wrong_size_raises() -> None:

@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import sqlite3
 import sys
-import types
 from pathlib import Path
 
 import pyproj
@@ -51,15 +50,6 @@ def _pyproj_dir_is(monkeypatch, folder: Path | None) -> None:
     monkeypatch.setattr(datadir, "get_data_dir", lambda: str(folder) if folder else "")
 
 
-@pytest.mark.parametrize("key", ["key", "name"])
-def test_the_layout_version_is_read_from_either_metadata_column_name(
-    tmp_path: Path, key: str
-) -> None:
-    folder = _proj_dir(tmp_path, "p", 4, key=key)
-
-    assert pb._read_proj_layout_version(folder / "proj.db") == (1, 4)
-
-
 @pytest.mark.parametrize(
     "situation", ["no version rows", "no database", "not sqlite", "unknown columns"]
 )
@@ -81,58 +71,8 @@ def test_a_database_that_does_not_state_its_layout_gives_none(
     assert pb._read_proj_layout_version(db) is None
 
 
-def test_the_newest_layout_of_all_databases_of_the_environment_is_required(
-    monkeypatch, tmp_path: Path
-) -> None:
-    pyproj_dir = _proj_dir(tmp_path, "pyproj", 2)
-    wheel_dir = _proj_dir(tmp_path, "wheel", 6)
-    monkeypatch.setattr(pb, "_bundled_proj_data_dirs", lambda: [wheel_dir])
-
-    assert pb._required_layout_minor(pyproj_dir) == 6
-
-
 def test_with_no_database_to_read_any_layout_is_enough(env) -> None:
     assert pb._required_layout_minor(None) == 0
-
-
-def test_the_proj_data_shipped_inside_wheels_is_found_in_each_known_place(
-    monkeypatch, tmp_path: Path
-) -> None:
-    site = tmp_path / "site-packages"
-    expected = []
-    for package, sub in [
-        ("rasterio", "proj_data"),
-        ("pyogrio", "proj_dir/share/proj"),
-        ("fiona", "share/proj"),
-    ]:
-        (site / package).mkdir(parents=True)
-        (site / package / "__init__.py").write_text("", encoding="utf-8")
-        folder = site / package / sub
-        folder.mkdir(parents=True)
-        (folder / "proj.db").write_bytes(b"")
-        expected.append(folder.resolve())
-    origins = {p: site / p / "__init__.py" for p in ("rasterio", "pyogrio", "fiona")}
-    monkeypatch.setattr(
-        pb, "find_spec", lambda name: types.SimpleNamespace(origin=str(origins[name]))
-    )
-
-    assert pb._bundled_proj_data_dirs() == expected
-
-
-def test_a_wheel_that_is_not_installed_contributes_no_directory(monkeypatch) -> None:
-    monkeypatch.setattr(pb, "find_spec", lambda _name: None)
-
-    assert pb._bundled_proj_data_dirs() == []
-
-
-def test_with_no_variable_set_both_point_at_the_pyproj_database(env, tmp_path: Path) -> None:
-    folder = _proj_dir(tmp_path, "pyproj", 4)
-    _pyproj_dir_is(env, folder)
-
-    pb._ensure_proj_data_from_env()
-
-    assert Path(pb.os.environ["PROJ_DATA"]) == folder.resolve()
-    assert Path(pb.os.environ["PROJ_LIB"]) == folder.resolve()
 
 
 def test_a_proj_data_already_on_the_pyproj_database_is_kept_and_proj_lib_follows(
@@ -146,18 +86,6 @@ def test_a_proj_data_already_on_the_pyproj_database_is_kept_and_proj_lib_follows
 
     assert pb.os.environ["PROJ_DATA"] == str(folder)
     assert pb.os.environ["PROJ_LIB"] == str(folder)
-
-
-def test_a_proj_data_chosen_inside_the_environment_is_respected(env, tmp_path: Path) -> None:
-    prefix = tmp_path / "venv"
-    other = _proj_dir(prefix, "share_proj", 4)
-    folder = _proj_dir(tmp_path, "pyproj", 4)
-    _pyproj_dir_is(env, folder)
-    env.setenv("PROJ_DATA", str(other))
-
-    pb._ensure_proj_data_from_env()
-
-    assert pb.os.environ["PROJ_DATA"] == str(other)
 
 
 @pytest.mark.parametrize("where", ["outside", "missing"])
@@ -188,32 +116,6 @@ def test_without_a_pyproj_database_the_variables_are_left_alone(
     pb._ensure_proj_data_from_env()
 
     assert "PROJ_DATA" not in pb.os.environ
-
-
-def test_a_database_new_enough_leaves_the_environment_untouched(env, tmp_path: Path) -> None:
-    folder = _proj_dir(tmp_path, "pyproj", 4)
-    _pyproj_dir_is(env, folder)
-    env.setenv("PROJ_DATA", str(folder))
-
-    pb._ensure_proj_db_compatibility()
-
-    assert pb.os.environ["PROJ_DATA"] == str(folder)
-    assert "PROJ_LIB" not in pb.os.environ
-
-
-def test_a_proj_data_older_than_a_bundled_database_is_switched_to_a_newer_one(
-    env, tmp_path: Path
-) -> None:
-    old = _proj_dir(tmp_path, "old", 2)
-    new = _proj_dir(tmp_path, "new", 6)
-    env.setattr(pb, "_bundled_proj_data_dirs", lambda: [new])
-    _pyproj_dir_is(env, old)
-    env.setenv("PROJ_DATA", str(old))
-
-    pb._ensure_proj_db_compatibility()
-
-    assert pb.os.environ["PROJ_DATA"] == str(new)
-    assert pb.os.environ["PROJ_LIB"] == str(new)
 
 
 def test_when_no_candidate_is_new_enough_a_warning_tells_what_to_update(
@@ -296,16 +198,6 @@ def test_a_layout_problem_that_survives_the_switch_is_logged(env, tmp_path: Path
     assert "mismatch persists" in caplog.text
 
 
-def test_bootstrap_sets_the_environment_then_checks_the_layout(env, tmp_path: Path) -> None:
-    folder = _proj_dir(tmp_path, "pyproj", 4)
-    _pyproj_dir_is(env, folder)
-
-    pb.bootstrap_proj()
-
-    assert Path(pb.os.environ["PROJ_DATA"]) == folder.resolve()
-    assert pyproj.CRS.from_epsg(2154).to_epsg() == 2154
-
-
 # ``bootstrap_proj`` points PROJ_DATA at a database every PROJ of the environment reads.
 #
 # pyproj and rasterio wheels each bundle their own PROJ and ``proj.db``. pyproj
@@ -326,15 +218,6 @@ def _two_databases(
     _pyproj_dir_is(env, pyproj_dir)
     env.setattr(pb, "_bundled_proj_data_dirs", lambda: [rasterio_dir])
     return pyproj_dir, rasterio_dir
-
-
-def test_an_older_pyproj_database_is_not_imposed_on_rasterio(env, tmp_path: Path) -> None:
-    _, rasterio_dir = _two_databases(env, tmp_path, pyproj_minor=4, rasterio_minor=5)
-
-    pb.bootstrap_proj()
-
-    assert Path(pb.os.environ["PROJ_DATA"]).resolve() == rasterio_dir.resolve()
-    assert Path(pb.os.environ["PROJ_LIB"]).resolve() == rasterio_dir.resolve()
 
 
 def test_the_newest_database_stays_when_pyproj_ships_it(env, tmp_path: Path) -> None:

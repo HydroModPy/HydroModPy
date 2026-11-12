@@ -127,12 +127,12 @@ class Identity(HydroModelBase):
 
     @classmethod
     def from_json(cls, text: str) -> Identity:
-        """Read a block :meth:`as_json` wrote, a 2.0.0 block included."""
+        """Read a block :meth:`as_json` wrote, a block of a pre-release included."""
         return cls.from_stored(json.loads(text))
 
     @classmethod
     def from_stored(cls, payload: dict[str, Any]) -> Identity:
-        """Read a block from any format, dropping the keys the 2.0.0 wrote and 2.1 retired."""
+        """Read a block from any format, dropping the keys a pre-release wrote and this version retired."""
         return read_stored(cls, identity_block(payload))
 
     def as_zarr_attrs(self) -> dict[str, Any]:

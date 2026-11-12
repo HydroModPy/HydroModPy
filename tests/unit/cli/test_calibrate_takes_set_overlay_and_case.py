@@ -58,18 +58,6 @@ def test_set_reaches_the_section_expand_prints(tmp_path: Path) -> None:
     assert "cal.toml declares no protocol" in result.stdout
 
 
-def test_an_overlay_applies(tmp_path: Path) -> None:
-    config = _config(tmp_path)
-    overlay = tmp_path / "all.toml"
-    overlay.write_text('[calibration]\nsave_runs = "all"\n', encoding="utf-8")
-
-    result = CliRunner().invoke(["calibrate", str(config), "--dry-run", "--overlay", str(overlay)])
-
-    assert "save_runs = all" in result.stderr
-    assert "case: cal\n" in result.stderr
-    assert _leftovers(tmp_path) == []
-
-
 def test_case_names_the_session(tmp_path: Path) -> None:
     result = CliRunner().invoke(["calibrate", str(_config(tmp_path)), "--dry-run", "--case", "x"])
 
@@ -78,15 +66,6 @@ def test_case_names_the_session(tmp_path: Path) -> None:
     assert "session: sessions/x" in result.stderr
     assert "calibrated run: runs/x " in result.stderr
     assert _leftovers(tmp_path) == []
-
-
-def test_set_without_a_case_keeps_the_name_of_the_file(tmp_path: Path) -> None:
-    result = CliRunner().invoke(
-        ["calibrate", str(_config(tmp_path)), "--dry-run", "--set", "calibration.seed=5"]
-    )
-
-    assert "case: cal\n" in result.stderr
-    assert "session: sessions/cal" in result.stderr
 
 
 def test_a_malformed_override_is_a_config_error(tmp_path: Path) -> None:

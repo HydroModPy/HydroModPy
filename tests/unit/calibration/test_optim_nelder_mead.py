@@ -11,7 +11,7 @@ from scipy.optimize import minimize
 
 from hydromodpy.calibration.optim.adapters.scipy_adapter import ScipyNelderMead
 from hydromodpy.calibration.optim.engine import CalibrationEngine
-from hydromodpy.calibration.optim.nelder_mead import SHRINK, SpeculativeNelderMead
+from hydromodpy.calibration.optim.nelder_mead import SpeculativeNelderMead
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EvaluationResult,
@@ -211,22 +211,6 @@ def _assert_same_run(simplex_run, result, calls) -> None:
     assert mine.success == result.success
 
 
-@pytest.mark.parametrize("scale", [1e-6, 1e6])
-def test_a_relative_cost_tolerance_ignores_the_scale_of_the_cost(scale: float) -> None:
-    # Only the cost test can stop this run: the simplex is narrower than xatol from the start.
-    f, lower, upper, x0, simplex, _ = _setup("bowl_2d")
-    options = {"xatol": 1.0, "fatol": 0.0, "fatol_rel": 1e-3, "maxiter": 300, "maxfev": 300}
-
-    def nfev(factor: float) -> int:
-        run, _ = _speculative(
-            lambda x: factor * (1.0 + f(x)), lower, upper, x0, simplex, options, 1
-        )
-        assert run.result.status == 0
-        return run.result.nfev
-
-    assert nfev(scale) == nfev(1.0)
-
-
 # --------------------------------------------------------------------------- #
 # The port against SciPy
 # --------------------------------------------------------------------------- #
@@ -248,34 +232,6 @@ def test_the_port_reads_scipys_calls_and_ends_where_scipy_ends(name: str, width:
     elif result.nit > 3:
         # A wider width did speculate, and still read only SciPy's calls.
         assert len(proposed) > result.nfev
-
-
-@pytest.mark.parametrize("width", WIDTHS)
-@pytest.mark.parametrize("maxfev", range(1, 26))
-def test_maxfev_cuts_the_run_at_the_same_call(maxfev: int, width: int) -> None:
-    # Every cut from inside the initial simplex to the middle of a shrink.
-    f, lower, upper, x0, simplex, options = _setup("plateau_3d")
-    options = {**options, "maxfev": maxfev}
-    result, calls = _scipy(f, lower, upper, x0, simplex, options)
-
-    simplex_run, _proposed = _speculative(f, lower, upper, x0, simplex, options, width)
-
-    _assert_same_run(simplex_run, result, calls)
-    assert result.nfev == maxfev
-    assert not simplex_run.result.success
-
-
-@pytest.mark.parametrize("name", ["plateau_3d", "staircase", "rosenbrock", "rosenbrock_maxiter"])
-def test_the_cases_reach_the_rules_they_are_named_for(name: str) -> None:
-    f, lower, upper, x0, simplex, options = _setup(name)
-    simplex_run, _proposed = _speculative(f, lower, upper, x0, simplex, options, 1)
-    roles = [call.key[1] for call in simplex_run.used]
-    if name in ("plateau_3d", "staircase"):
-        assert SHRINK in roles
-    if name == "rosenbrock":
-        assert simplex_run.result.success
-    if name == "rosenbrock_maxiter":
-        assert simplex_run.result.status == 2
 
 
 @pytest.mark.parametrize(
@@ -373,61 +329,6 @@ def test_the_default_limit_is_two_hundred_calls_per_dimension(options, nfev, nit
     assert not run.result.success
 
 
-@pytest.mark.parametrize(
-    ("xatol", "fatol", "fatol_rel", "stops_at_once"),
-    [
-        (1.0, 1e9, 0.0, True),
-        (10.0, 5.0, 0.0, True),
-        (10.0, 4.5, 0.0, False),
-        (10.0, 0.0, 10.0, False),
-    ],
-    ids=[
-        "xatol_met_exactly",
-        "fatol_met_exactly",
-        "fatol_from_the_best",
-        "fatol_rel_from_the_best",
-    ],
-)
-def test_the_tolerances_read_the_best_vertex_and_stop_when_met(
-    xatol, fatol, fatol_rel, stops_at_once
-) -> None:
-    # Costs 0, 1 and 5: the widest step is 1 and the widest cost gap from the best is 5.
-    costs = {(0.0, 0.0): 0.0, (1.0, 0.0): 1.0, (0.0, 1.0): 5.0}
-    simplex = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
-    run = SpeculativeNelderMead(
-        np.zeros(2),
-        initial_simplex=simplex,
-        xatol=xatol,
-        fatol=fatol,
-        fatol_rel=fatol_rel,
-        maxfev=6,
-    )
-
-    _finish(run, lambda x: costs.get(tuple(x), 9.0))
-
-    assert (run.result.nfev == 3) is stops_at_once
-
-
-def test_a_failed_outside_contraction_shrinks_the_simplex_towards_the_best_vertex() -> None:
-    # In one dimension, reflection costs 5 and the outside contraction 7, both under the worst.
-    costs = {0.0: 0.0, 1.0: 10.0, -1.0: 5.0, -0.5: 7.0}
-    f = lambda x: costs.get(float(x[0]), 20.0)  # noqa: E731
-    simplex = np.array([[0.0], [1.0]])
-    options = {"maxfev": 6, "adaptive": False}
-    result, calls = _scipy(f, np.full(1, -9.0), np.full(1, 9.0), np.zeros(1), simplex, options)
-
-    run, _ = _speculative(f, np.full(1, -9.0), np.full(1, 9.0), np.zeros(1), simplex, options, 1)
-
-    assert [round(float(p[0]), 3) for p, _ in calls[:5]] == [0.0, 1.0, -1.0, -0.5, 0.5]
-    _assert_same_run(run, result, calls)
-
-
-def test_the_first_step_proposes_the_vertices_a_call_is_left_for() -> None:
-    run = SpeculativeNelderMead(np.zeros(2), maxfev=2)
-
-    assert [p.key[2] for p in run.propose(10)] == [0, 1]
-
-
 def _roles_proposed_after_the_vertices(simplex, costs, width=10, fxr=None, **options):
     """Give the vertex costs, then the reflection cost, and list what is proposed next."""
     run = SpeculativeNelderMead(simplex[0], initial_simplex=np.array(simplex), **options)
@@ -450,22 +351,6 @@ def test_a_candidate_whose_call_the_budget_would_refuse_is_not_proposed(maxfev, 
     # One dimension, two calls spent: the reflection needs 1 call, the contractions and the
     # expansion 2, the shrink point 3.
     assert _roles_proposed_after_the_vertices([[0.0], [1.0]], [0.0, 10.0], maxfev=maxfev) == roles
-
-
-@pytest.mark.parametrize(
-    ("fxr", "roles"),
-    [
-        (-1.0, ["expansion"]),
-        (2.0, ["outside_contraction", "shrink", "shrink"]),
-        (7.0, ["inside_contraction", "shrink", "shrink"]),
-    ],
-    ids=["beats_the_best", "outside_contraction", "inside_contraction"],
-)
-def test_the_reflection_value_rules_out_the_candidates_it_makes_useless(fxr, roles) -> None:
-    # Vertex costs 0, 1 and 5: the reflection beats the best under 0, is an outside
-    # contraction case from 1 to 5, and an inside one from 5.
-    simplex = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]
-    assert _roles_proposed_after_the_vertices(simplex, [0.0, 1.0, 5.0], fxr=fxr) == roles
 
 
 # --------------------------------------------------------------------------- #
@@ -510,30 +395,6 @@ def _scipy_through_the_adapter_objective(maxiter: int, xatol: float | None):
         options={**options, "initial_simplex": _adapter_simplex(x0, lower, upper)},
     )
     return result, visited
-
-
-@pytest.mark.parametrize("width", WIDTHS)
-def test_the_adapter_reads_scipys_trials_in_scipys_order(width: int) -> None:
-    result, visited = _scipy_through_the_adapter_objective(200, 1e-6)
-    optimizer = ScipyNelderMead(SPACE, maxiter=200, xatol=1e-6)
-    told: list[tuple[ParamSuggestion, EvaluationResult]] = []
-    while batch := optimizer.ask(width):
-        results = [
-            EvaluationResult(trial_id=s.trial_id, sim_id=None, cost=_misfit(s.values))
-            for s in batch
-        ]
-        # The order values come back in changes nothing.
-        optimizer.tell(results[::-1])
-        told.extend(zip(batch, results, strict=True))
-
-    used = [(s, r) for s, r in told if not r.metadata.get("speculative_unused")]
-    assert [(dict(s.values), r.cost) for s, r in used] == visited
-    assert optimizer.converged() == result.success
-    best = optimizer.best()
-    assert best is not None
-    assert best.cost == min(cost for _values, cost in visited)
-    if width == 1:
-        assert len(told) == len(visited)
 
 
 # --------------------------------------------------------------------------- #

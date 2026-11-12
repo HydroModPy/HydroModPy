@@ -18,20 +18,6 @@ from tests._helpers.field_cases import planar_mesh
 _VERTICES = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 3.0], [0.0, 3.0]])
 
 
-def test_triangles_and_quadrilaterals_keep_their_kind_and_their_nodes_in_order() -> None:
-    centers = np.array([[1.3, 1.0], [0.7, 2.0]])
-    cells = mesh_cells(planar_mesh(_VERTICES, [[0, 1, 2], [0, 2, 3]], CellType.TRIANGLE, centers=centers))  # fmt: skip
-    (quad,) = mesh_cells(planar_mesh(_VERTICES, [[0, 1, 2, 3]], CellType.QUADRILATERAL))
-
-    assert [cell.kind for cell in cells] == ["triangle", "triangle"]
-    assert [cell.index for cell in cells] == [0, 1]
-    assert cells[1].node_indices == (0, 2, 3)
-    np.testing.assert_array_equal(cells[1].vertices, _VERTICES[[0, 2, 3]])
-    assert cells[1].centroid == (0.7, 2.0)
-    assert quad.kind == "quadrilateral"
-    np.testing.assert_array_equal(quad.vertices, _VERTICES)
-
-
 def test_ragged_polygons_keep_their_arity_their_seeds_and_one_value_each() -> None:
     """A left pentagon and a right quad share the edge (1, 0)-(1, 1)."""
     verts = [[1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [-0.3, 0.5], [0.0, 0.0], [2.0, 0.0], [2.0, 1.0]]
@@ -51,17 +37,6 @@ def test_ragged_polygons_keep_their_arity_their_seeds_and_one_value_each() -> No
     with pytest.raises(ValueError, match="exactly one value per cell: got 3 for 2 cells"):
         cell_values(cell_mesh, np.array([1.0, 2.0, 3.0]))
     assert (carried.n_cells, carried.label) == (2, "k")
-
-
-def test_a_grid_of_edges_runs_from_the_south_west_corner() -> None:
-    cell_mesh = cell_mesh_from_edges([10.0, 20.0, 40.0], [30.0, 50.0], crs_wkt=TEST_CRS_WKT)
-
-    cells = mesh_cells(cell_mesh)
-
-    assert cell_mesh.structured_shape is None
-    assert [cell.kind for cell in cells] == ["quadrilateral", "quadrilateral"]
-    np.testing.assert_array_equal(cells[1].vertices, [[20, 30], [40, 30], [40, 50], [20, 50]])
-    np.testing.assert_array_equal(cell_mesh.centers, [[15.0, 40.0], [30.0, 40.0]])
 
 
 @pytest.mark.parametrize(

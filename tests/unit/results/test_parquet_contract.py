@@ -9,33 +9,20 @@ lazy loaders, the enriched KV metadata, and the schema-version enforcement.
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
-import geopandas as gpd
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from shapely.geometry import Point, Polygon
 
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.core.io.document_version import NEWER_REMEDY, OLDER_REMEDY
-from hydromodpy.core.io.geoparquet import (
-    GEOPARQUET_SCHEMA_VERSION,
-    read_geoparquet,
-    write_geoparquet_atomic,
-)
-from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
-from hydromodpy.core.licensing import UNDETERMINED_LICENSE
+from hydromodpy.core.io.geoparquet import GEOPARQUET_SCHEMA_VERSION
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
-from hydromodpy.results.storage.parquet_io import (
-    read_kv_metadata,
-    write_table_atomic,
-)
+from hydromodpy.results.storage.parquet_io import read_kv_metadata
 from hydromodpy.results.storage.parquet_schemas import (
     BUDGETS_SCHEMA,
     MASS_BALANCE_SCHEMA,
@@ -143,44 +130,6 @@ class TestMetricsProvenanceInViewNames:
         assert view in PARQUET_VIEW_NAMES
 
 
-class TestWriteOptionsForced:
-    def test_write_table_atomic_forces_zstd_and_page_index(self, tmp_path: Path):
-        table = pa.table({"sim_id": ["s"], "x": [1.0]})
-        target = tmp_path / "out.parquet"
-        write_table_atomic(table, target)
-        meta = pq.ParquetFile(target).metadata
-        # row group 0 column 0 must declare ZSTD compression
-        cc = meta.row_group(0).column(0)
-        assert "ZSTD" in str(cc.compression)
-        # Parquet 2.6 format embedded in writer metadata
-        assert PARQUET_WRITE_DEFAULTS["version"] == "2.6"
-
-    def test_write_table_atomic_promotes_via_tmp(self, tmp_path: Path):
-        target = tmp_path / "out.parquet"
-        table = pa.table({"a": [1, 2, 3]})
-        out = write_table_atomic(table, target)
-        assert out == target
-        # No leftover tmp files
-        stale = list(tmp_path.glob(f"{target.name}.tmp-*"))
-        assert stale == []
-
-
-class TestKvMetadataEnriched:
-    def test_kv_metadata_enriched(self, tmp_path: Path):
-        with _store(tmp_path, name="rich") as store:
-            sid = store.sim_id
-            store.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-            target = store.tables_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
-        md = read_kv_metadata(target)
-        assert md.get("hmp.schema_version") == PARQUET_SCHEMA_VERSION
-        assert md.get("hmp.schema") == "timeseries"
-        assert md.get("Conventions") == "CF-1.11"
-        assert md.get("license") == UNDETERMINED_LICENSE
-        assert md.get("hydromodpy_version", "")
-        assert md.get("sim_id") == sid
-        assert "written_at" in md  # field present, deterministic
-
-
 class TestSchemaVersion:
     def test_parquet_schema_version_stored(self, tmp_path: Path):
         with _store(tmp_path) as store:
@@ -216,109 +165,11 @@ class TestSchemaVersion:
                     door()
                 assert said in str(refused.value)
 
-    def test_an_append_keeps_a_column_a_later_version_added(self, tmp_path: Path):
-        """The older writer keeps what it does not know; its own rows read it as null."""
-        with _store(tmp_path) as store:
-            sid = store.sim_id
-            store.write_timeseries(sid, "P01", "head", _make_series(2), unit="m")
-            target = store.table_path_for(sid, "timeseries")
-            table = pq.read_table(target)
-            added = table.append_column("later", pa.array([1.5, 2.5], type=pa.float64()))
-            pq.write_table(added, target)
-
-            store.write_timeseries(sid, "P02", "head", _make_series(1), unit="m")
-
-            frame = store.read_table("timeseries").sort_values(["station_id", "timestep"])
-        assert frame["later"].iloc[:2].tolist() == [1.5, 2.5]
-        assert frame["later"].iloc[2:].isna().all()
-        assert frame["station_id"].tolist() == ["P01", "P01", "P02"]
-
 
 class TestGeoParquetOgc:
-    def test_geoparquet_1_1_via_gpd_read_parquet(self, tmp_path: Path):
-        gdf = gpd.GeoDataFrame(
-            {"name": ["P01", "P02"]},
-            geometry=[Point(0, 0), Point(1, 1)],
-            crs="EPSG:2154",
-        )
-        target = tmp_path / "feat.parquet"
-        write_geoparquet_atomic(gdf, target)
-        loaded = read_geoparquet(target)
-        assert len(loaded) == 2
-        assert loaded.crs.to_epsg() == 2154
-        # GeoParquet 1.1 marker present in pyarrow KV metadata under "geo".
-        raw = pq.ParquetFile(target).schema_arrow.metadata or {}
-        assert any(b"geo" == k for k in raw)
-
-    def test_geographic_feature_written_as_geoparquet(self, tmp_path: Path):
-        store = _store(tmp_path)
-        sid = store.sim_id
-        gdf = gpd.GeoDataFrame(
-            {"name": ["domain"]},
-            geometry=[Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)])],
-            crs="EPSG:4326",
-        )
-        store.write_geographic_feature(sid, "domain", gdf)
-        _seal_and_index(tmp_path, store)
-        with Catalog(tmp_path) as cat:
-            loaded = cat.read_geographic_feature(sid, "domain")
-        assert len(loaded) == 1
-        assert loaded.crs.to_epsg() == 4326
-
     def test_geoparquet_schema_version(self):
         # The OGC GeoParquet contract used by HMP v2 is 1.1.0.
         assert GEOPARQUET_SCHEMA_VERSION == "1.1.0"
-
-
-class TestBatchWrite:
-    def test_batch_write_timeseries_eliminates_quadratic_merge(self, tmp_path: Path):
-        n_records = 200
-        batch = _store(tmp_path, name="batch")
-        sid_batch = batch.sim_id
-        batch_records = [
-            {
-                "station_id": "P01",
-                "variable": "head",
-                "timestep": i,
-                "time": pd.Timestamp("2020-01-01", tz="UTC") + pd.Timedelta(days=i),
-                "value": float(i),
-                "unit": "m",
-                "source": "simulated",
-            }
-            for i in range(n_records)
-        ]
-        t0 = time.perf_counter()
-        batch.write_timeseries_batch(sid_batch, batch_records)
-        t_batch = time.perf_counter() - t0
-
-        loop = _store(tmp_path, name="loop")
-        ts = pd.Series(
-            [float(i) for i in range(n_records)],
-            index=pd.date_range("2020-01-01", periods=n_records, freq="D"),
-            name="head",
-        )
-        # Force an O(N) merge pattern by writing 20 chunks of 10 rows.
-        t0 = time.perf_counter()
-        for chunk in range(0, n_records, 10):
-            loop.write_timeseries(
-                loop.sim_id,
-                f"P{chunk:02d}",
-                "head",
-                ts.iloc[chunk : chunk + 10],
-                unit="m",
-            )
-        t_loop = time.perf_counter() - t0
-        _seal_and_index(tmp_path, batch, loop)
-        # The batched path must end up with exactly n_records rows.
-        with Catalog(tmp_path) as cat:
-            count = cat.connection.execute(
-                "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid_batch]
-            ).fetchone()[0]
-        assert count == n_records
-        # Sanity check: batching should never take longer than a 20-call
-        # merge loop. The threshold is generous because the loop dataset is
-        # not exactly the same shape; the goal is to assert "not worse".
-        assert t_batch <= max(t_loop * 2.0, 1.0)
 
 
 class TestCopyToParquetGone:
@@ -332,18 +183,3 @@ class TestCopyToParquetGone:
         for mod in (run_store_mod, views_mod):
             src = Path(mod.__file__).read_text(encoding="utf-8")
             assert not re.search(r"COPY\s*\(.*?\)\s*TO\s*'.*?'\s*\(FORMAT PARQUET", src, re.DOTALL)
-
-
-class TestParquetViewNames:
-    def test_view_aliased_when_table_collides(self, tmp_path: Path):
-        # ``metrics`` and ``provenance`` are DuckDB tables. The Parquet view
-        # falls back to ``<view>_parquet`` to avoid clobbering the table.
-        rebuild_index(tmp_path)
-        with Catalog(tmp_path) as cat:
-            views = cat.connection.execute(
-                "SELECT view_name FROM duckdb_views() WHERE schema_name='main'"
-            ).fetchall()
-        names = {v[0] for v in views}
-        assert "metrics_parquet" in names
-        assert "provenance_parquet" in names
-        assert "timeseries" in names

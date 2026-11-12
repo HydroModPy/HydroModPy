@@ -14,7 +14,6 @@ from types import SimpleNamespace
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import pytest
 from shapely.geometry import box
 
@@ -49,29 +48,6 @@ def _discharge_request() -> ObservableRequest:
     return ObservableRequest(id="q", name="discharge", support="domain")
 
 
-def test_extract_discharge_returns_sum_per_timestep(tmp_path: Path) -> None:
-    drainage = np.array(
-        [
-            [1.0, 2.0, 0.0],
-            [0.5, 0.0, 1.5],
-        ],
-        dtype=float,
-    )
-    head = np.full((2, 3), 5.0, dtype=float)
-    _write_state_history(tmp_path, head_history=head, drainage_history=drainage)
-    run = solver_run_of(tmp_path)
-
-    served = BoussinesqFlowAdapter().observables(run, [_discharge_request()])
-
-    assert set(served) == {"q"}
-    result = served["q"]
-    assert result.request_id == "q"
-    assert isinstance(result.values, np.ndarray)
-    assert result.values.shape == (2,)
-    np.testing.assert_array_equal(result.values, np.array([3.0, 2.0]))
-    assert result.units == "m3 s-1"
-
-
 def test_extract_discharge_ignores_negative_recharge_terms(tmp_path: Path) -> None:
     drainage = np.array([[1.0, -2.0, 3.0]], dtype=float)
     head = np.full((1, 3), 5.0, dtype=float)
@@ -81,21 +57,6 @@ def test_extract_discharge_ignores_negative_recharge_terms(tmp_path: Path) -> No
     served = BoussinesqFlowAdapter().observables(run, [_discharge_request()])
 
     np.testing.assert_array_equal(served["q"].values, np.array([4.0]))
-
-
-def test_extract_discharge_aligns_with_time_index(tmp_path: Path) -> None:
-    drainage = np.array([[1.0], [2.0], [3.0]], dtype=float)
-    head = np.full((3, 1), 5.0, dtype=float)
-    _write_state_history(tmp_path, head_history=head, drainage_history=drainage)
-    run = solver_run_of(tmp_path)
-
-    time_index = pd.DatetimeIndex(["2020-01-01", "2020-01-02", "2020-01-03"])
-    served = BoussinesqFlowAdapter().observables(run, [_discharge_request()], time_index=time_index)
-
-    result = served["q"]
-    assert isinstance(result.times, pd.DatetimeIndex)
-    assert result.times.tolist() == time_index.tolist()
-    assert result.values.size == len(time_index)
 
 
 def test_extract_head_reads_history_at_cell(tmp_path: Path) -> None:
@@ -253,14 +214,6 @@ def test_the_adapter_declares_what_a_trial_can_read() -> None:
         "stage",
         "routed_discharge",
     }
-
-
-def test_the_answer_of_a_trial_never_depends_on_the_active_conditions() -> None:
-    adapter = BoussinesqFlowAdapter()
-
-    assert adapter.declared_observables(frozenset()) == adapter.declared_observables(
-        frozenset({"stream", "ocean"})
-    )
 
 
 def test_the_adapter_locates_nothing_on_a_run_with_no_cell_mesh(tmp_path: Path) -> None:

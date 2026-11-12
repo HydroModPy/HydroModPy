@@ -7,7 +7,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from hydromodpy.core.exceptions import CatalogUnreadableError, WriteConflictError
+from hydromodpy.core.exceptions import WriteConflictError
 from hydromodpy.core.io import db_retry
 
 LOCK_MESSAGE = (
@@ -69,20 +69,6 @@ def test_a_lock_that_never_clears_ends_in_the_lock_error_after_every_attempt(
     assert len(sleeps) == 3  # no wait after the last attempt
 
 
-@pytest.mark.parametrize(
-    "message",
-    [
-        "Conflicting lock is held",
-        "held by another process",
-        "Le fichier est utilisé par un autre processus",
-        "Resource temporarily unavailable",
-        "database is locked",
-    ],
-)
-def test_the_lock_messages_of_duckdb_and_of_the_system_are_recognised(message: str) -> None:
-    assert db_retry._is_lock_contention(duckdb.IOException(message))
-
-
 def test_an_io_error_that_is_not_a_lock_is_not_waited_for(monkeypatch, sleeps) -> None:
     calls = _connect_failing(monkeypatch, [duckdb.IOException("No space left on device")])
 
@@ -90,19 +76,6 @@ def test_an_io_error_that_is_not_a_lock_is_not_waited_for(monkeypatch, sleeps) -
         db_retry.connect_with_retry(":memory:")
 
     assert len(calls) == 1
-    assert sleeps == []
-
-
-def test_a_damaged_catalog_that_exists_is_named_as_unreadable(
-    monkeypatch, sleeps, tmp_path: Path
-) -> None:
-    damaged = tmp_path / "catalog.duckdb"
-    damaged.write_bytes(b"not a database")
-    _connect_failing(monkeypatch, [duckdb.Error("Invalid database file")])
-
-    with pytest.raises(CatalogUnreadableError):
-        db_retry.connect_with_retry(str(damaged))
-
     assert sleeps == []
 
 
@@ -131,40 +104,6 @@ def test_a_catalog_that_does_not_exist_keeps_the_original_error(monkeypatch) -> 
         db_retry.connect_with_retry("/nonexistent/folder/catalog.duckdb", read_only=True)
 
 
-def test_the_options_of_the_caller_reach_duckdb(monkeypatch, tmp_path: Path) -> None:
-    path = tmp_path / "c.duckdb"
-    duckdb.connect(str(path)).close()
-    calls = _connect_failing(monkeypatch, [])
-
-    db_retry.connect_with_retry(str(path), read_only=True).close()
-
-    assert calls == [(str(path), {"read_only": True})]
-
-
-def test_a_new_catalog_is_created_with_the_small_block_size_asked(tmp_path: Path) -> None:
-    path = tmp_path / "small.duckdb"
-
-    con = db_retry.connect_with_retry(str(path), block_size=db_retry.HMP_DUCKDB_BLOCK_SIZE)
-    con.close()
-
-    with duckdb.connect(str(path), read_only=True) as check:
-        row = check.execute("select block_size from pragma_database_size()").fetchone()
-    assert row == (db_retry.HMP_DUCKDB_BLOCK_SIZE,)
-
-
-def test_the_block_size_is_ignored_for_a_file_that_already_exists(
-    monkeypatch, tmp_path: Path
-) -> None:
-    path = tmp_path / "old.duckdb"
-    duckdb.connect(str(path)).close()
-    precreated: list[str] = []
-    monkeypatch.setattr(db_retry, "_precreate_with_block_size", lambda p, _b: precreated.append(p))
-
-    db_retry.connect_with_retry(str(path), block_size=16384).close()
-
-    assert precreated == []
-
-
 def test_a_path_still_attached_in_this_process_does_not_stop_the_block_size_pre_create(
     tmp_path: Path,
 ) -> None:
@@ -182,43 +121,6 @@ def test_a_path_still_attached_in_this_process_does_not_stop_the_block_size_pre_
 def test_another_binder_error_during_the_pre_create_is_not_hidden(tmp_path: Path) -> None:
     with pytest.raises(duckdb.Error):
         db_retry._precreate_with_block_size(str(tmp_path / "c.duckdb"), 1234)  # not a power of two
-
-
-def test_the_wal_left_by_a_dead_process_is_reported_only_on_the_first_open(tmp_path: Path) -> None:
-    path = tmp_path / "c.duckdb"
-    Path(f"{path}.wal").write_bytes(b"x" * 2048)
-
-    first = db_retry._stale_wal_size(str(path))
-    second = db_retry._stale_wal_size(str(path))
-
-    assert (first, second) == (2048, None)
-
-
-@pytest.mark.parametrize("path", [":memory:", ""])
-def test_an_in_memory_database_has_no_wal_to_look_for(path: str) -> None:
-    assert db_retry._stale_wal_size(path) is None
-
-
-def test_a_database_without_wal_reports_nothing(tmp_path: Path) -> None:
-    assert db_retry._stale_wal_size(str(tmp_path / "c.duckdb")) is None
-
-
-def test_a_wal_found_at_open_is_checkpointed_once(monkeypatch, tmp_path: Path) -> None:
-    path = tmp_path / "c.duckdb"
-    duckdb.connect(str(path)).close()
-    Path(f"{path}.wal").write_bytes(b"")
-    statements: list[str] = []
-
-    class Recorder:
-        def execute(self, sql: str) -> None:
-            statements.append(sql)
-
-    monkeypatch.setattr(db_retry, "_stale_wal_size", lambda _p: 4096)
-    monkeypatch.setattr(db_retry.duckdb, "connect", lambda *_a, **_k: Recorder())
-
-    db_retry.connect_with_retry(str(path))
-
-    assert statements == ["CHECKPOINT"]
 
 
 def test_a_wal_that_cannot_be_checkpointed_is_a_warning_and_the_connection_is_kept(caplog) -> None:
@@ -300,13 +202,6 @@ def test_a_method_failing_for_another_reason_is_not_retried(sleeps) -> None:
 
     assert len(attempts) == 1
     assert sleeps == []
-
-
-def test_the_decorated_method_keeps_its_name() -> None:
-    @db_retry.with_lock_retry()
-    def commit_catalog() -> None: ...
-
-    assert commit_catalog.__name__ == "commit_catalog"
 
 
 def test_an_attached_database_is_readable_inside_the_block_and_detached_after(

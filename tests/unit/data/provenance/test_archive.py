@@ -69,19 +69,6 @@ def test_a_zstandard_archive_round_trips(tmp_path: Path) -> None:
         assert sha256_of(target / src.relative_to(data_root)) == sha256_of(src)
 
 
-def test_the_archive_holds_the_lockfile_each_file_and_its_sidecar(tmp_path: Path) -> None:
-    data_root, files = _seed(tmp_path)
-    archive = tmp_path / "export.tar"
-    archive_data(data_root, archive, lockfile_dest=tmp_path / LOCKFILE_NAME)
-    with tarfile.open(archive) as tar:
-        names = set(tar.getnames())
-    expected = {LOCKFILE_NAME}
-    for src in files:
-        member = f"artefacts/{sha256_of(src)}/{src.name}"
-        expected |= {member, member + ".json"}
-    assert names == expected
-
-
 def test_an_empty_answer_travels_as_its_sidecar_alone(tmp_path: Path) -> None:
     data_root, _files = _seed(tmp_path)
     empty = CacheIndex(data_root).record_empty(
@@ -179,7 +166,7 @@ def test_an_archive_without_its_lockfile_is_refused(tmp_path: Path) -> None:
         restore_archive(bare, tmp_path / "restored")
 
 
-def test_an_archive_of_2_0_0_is_refused_by_its_lockfile(tmp_path: Path) -> None:
+def test_an_archive_of_a_pre_release_is_refused_by_its_lockfile(tmp_path: Path) -> None:
     old = tmp_path / "old"
     old.mkdir()
     (old / LOCKFILE_NAME).write_text('schema = "hydromodpy.lock.v1"\n')

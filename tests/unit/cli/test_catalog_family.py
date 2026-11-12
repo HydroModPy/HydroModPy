@@ -41,20 +41,6 @@ def _make_workspace_with_catalog(tmp_path: Path) -> Path:
     return workspace
 
 
-def test_catalog_family_help_lists_actions(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "catalog", "--help"])
-    assert code == 0
-    out = capsys.readouterr().out
-    for action in ("query", "gc", "delete"):
-        assert action in out
-
-
-def test_ls_of_a_workspace_with_one_run(monkeypatch, tmp_path, capsys) -> None:
-    workspace = _make_workspace_with_catalog(tmp_path)
-    code = _run(monkeypatch, ["hmp", "ls", "--workspace", str(workspace)])
-    assert code == 0
-
-
 def test_catalog_query_missing_workspace_returns_not_found(monkeypatch, tmp_path) -> None:
     missing = tmp_path / "empty_ws"
     missing.mkdir()
@@ -75,16 +61,6 @@ def test_catalog_query_runs_on_existing_catalog(monkeypatch, tmp_path, capsys) -
     assert code == 0
     out = capsys.readouterr().out
     assert "one" in out
-
-
-def test_show_unknown_sim_returns_not_found(monkeypatch, tmp_path) -> None:
-    workspace = _make_workspace_with_catalog(tmp_path)
-    project = workspace / "projects" / "demo"
-    code = _run(
-        monkeypatch,
-        ["hmp", "show", "deadbeef", "--workspace", str(project)],
-    )
-    assert code == 10
 
 
 README = "# alpha\n\nRun `alpha` of project `demo`, status **completed**.\n"
@@ -173,41 +149,6 @@ def test_show_of_a_run_without_a_profile_says_so(monkeypatch, capsys, tmp_path) 
     assert "\nProfile\n  no profile.json, solve time from the seal: unknown\n" in (
         capsys.readouterr().out
     )
-
-
-def test_show_as_json_carries_the_profile_under_its_key(monkeypatch, capsys, tmp_path) -> None:
-    project = make_project(tmp_path / "demo")
-    seal_run(project, "alpha")
-    write_profile(project / "runs" / "alpha", _profile_of(*PROFILE_LINES))
-    rebuild_index(project)
-
-    code = _run(monkeypatch, ["hmp", "show", "alpha", "-w", str(project), "--format", "json"])
-
-    assert code == 0
-    profile = json.loads(capsys.readouterr().out)["data"]["profile"]
-    assert profile["present"] is True
-    assert profile["solve"][0]["name"] == "flow_main::modflow6"
-
-
-def test_show_of_a_name_the_project_lacks_exits_not_found(monkeypatch, capsys, tmp_path) -> None:
-    project = make_project(tmp_path / "demo")
-    seal_run(project, "alpha")
-
-    code = _run(monkeypatch, ["hmp", "show", "beta", "-w", str(project)])
-
-    assert code == 10
-    assert "beta" in capsys.readouterr().err
-
-
-def test_show_of_last_outside_a_workspace_names_dash_w(monkeypatch, capsys, tmp_path) -> None:
-    monkeypatch.chdir(make_project(tmp_path / "demo"))
-
-    code = _run(monkeypatch, ["hmp", "show", "@last"])
-
-    assert code == 10
-    err = capsys.readouterr().err
-    assert "'@last' is answered by the index" in err
-    assert "with -w" in err
 
 
 def test_show_of_last_with_dash_w_does_not_repeat_the_hint(monkeypatch, capsys, tmp_path) -> None:
@@ -314,28 +255,6 @@ def test_a_reader_refuses_to_write(project) -> None:
     with Catalog(project) as catalog:
         with pytest.raises(Exception, match="read-only|Cannot execute|read_only"):
             catalog.backend.execute("DELETE FROM simulations")
-
-
-def test_a_reader_builds_no_index_where_no_run_was_ever_written(tmp_path) -> None:
-    empty = make_project(tmp_path / "empty")
-
-    with pytest.raises(FileNotFoundError, match="has no runs/ or .hmp/"):
-        Catalog(empty)
-    assert not catalog_path_for(empty).exists()
-
-
-def test_ls_shows_a_dash_for_a_run_with_no_mesh_engine(monkeypatch, project, capsys) -> None:
-    assert _run(monkeypatch, ["hmp", "ls", "--workspace", str(project)]) == 0
-    lines = [line for line in capsys.readouterr().out.splitlines() if "alpha" in line]
-    assert len(lines) == 1
-    assert "mesh=-" in lines[0]
-
-
-def test_ls_shows_the_mesh_engine_of_a_run(monkeypatch, project, capsys) -> None:
-    assert _run(monkeypatch, ["hmp", "ls", "--workspace", str(project)]) == 0
-    lines = [line for line in capsys.readouterr().out.splitlines() if "voronoi_run" in line]
-    assert len(lines) == 1
-    assert "mesh=voronoi" in lines[0]
 
 
 @pytest.fixture

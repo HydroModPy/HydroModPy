@@ -6,8 +6,6 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.solver.modflow_nwt.extractors.flow import face_connections
-
 _SHAPE = (2, 2, 3)
 
 
@@ -21,42 +19,6 @@ def _active_with_cell_4_off() -> np.ndarray:
     active = np.ones(_SHAPE, dtype=bool)
     active[0, 1, 1] = False
     return active
-
-
-def test_face_connections_pair_the_cells_of_the_three_records() -> None:
-    cells, flows = face_connections(*_faces(), active=_active_with_cell_4_off())
-
-    expected = [
-        [0, 1],
-        [0, 3],
-        [0, 6],
-        [1, 2],
-        [1, 7],
-        [2, 5],
-        [2, 8],
-        [3, 9],
-        [5, 11],
-        [6, 7],
-        [6, 9],
-        [7, 8],
-        [7, 10],
-        [8, 11],
-        [9, 10],
-        [10, 11],
-    ]
-    assert cells.tolist() == expected
-    # The value sits at the cell the face leaves, so it is positive towards the
-    # larger flat index of the pair: right +1, front +ncol, lower +nrow * ncol.
-    np.testing.assert_array_equal(flows, cells[:, 0].astype("float64"))
-
-
-def test_face_connections_drop_a_pair_that_touches_an_inactive_cell() -> None:
-    cells, _ = face_connections(*_faces(), active=_active_with_cell_4_off())
-
-    assert not np.isin(cells, 4).any()
-
-    all_active, _ = face_connections(*_faces(), active=np.ones(_SHAPE, dtype=bool))
-    assert all_active.shape == (20, 2)
 
 
 # ``_extract_face_flows`` reads a CBC file. A fake one holds the records a

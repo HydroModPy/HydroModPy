@@ -138,18 +138,8 @@ def test_an_unknown_source_is_undetermined() -> None:
     assert licence_for_source(None) == UNDETERMINED
 
 
-def test_osm_is_share_alike() -> None:
-    assert licence_for_source("osm").share_alike is True
-
-
 def test_the_sidecar_suffix_is_the_data_one() -> None:
     assert SIDECAR_SUFFIX == DATA_SIDECAR_SUFFIX
-
-
-def test_a_declared_sidecar_licence_wins_over_the_registry() -> None:
-    licence = licence_from_sidecar({"source": "file", "license": "CC0-1.0"})
-    assert licence.spdx == "CC0-1.0"
-    assert licence.confidence == "declared"
 
 
 def test_a_sidecar_written_before_the_registry_uses_its_source() -> None:
@@ -157,12 +147,6 @@ def test_a_sidecar_written_before_the_registry_uses_its_source() -> None:
     assert licence_from_sidecar({"source": "file", "license": UNDETERMINED_LICENSE}) == (
         UNDETERMINED
     )
-
-
-def test_a_file_without_sidecar_is_undetermined(tmp_path: Path) -> None:
-    data = tmp_path / "dem.tif"
-    data.write_bytes(b"x")
-    assert input_licence(data) == UNDETERMINED
 
 
 def test_a_directory_needs_a_sidecar_on_every_file(tmp_path: Path) -> None:

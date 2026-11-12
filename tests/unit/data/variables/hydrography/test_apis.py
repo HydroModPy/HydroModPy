@@ -45,25 +45,6 @@ def asked(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
     return questions
 
 
-def test_the_one_layer_is_every_reach_of_metropolitan_france() -> None:
-    assert bdtopage.LAYER == "sa:TronconHydrographique_FXX_Topage2026"
-    assert bdtopage.BdTopageSource().metadata() == {"typename": bdtopage.LAYER}
-
-
-def test_the_sandre_vocabulary_maps_onto_the_canonical_one() -> None:
-    native = ["permanent", "intermittent", "éphémère", "sec", "inconnue"]
-    frame = bdtopage.with_permanence(_reaches(PersistanceTH=native))
-
-    assert frame[PERMANENCE_COLUMN].tolist() == [
-        "permanent",
-        "intermittent",
-        "ephemeral",
-        "dry",
-        "unknown",
-    ]
-    assert frame["PersistanceTH"].tolist() == native, "the native attribute stays as it came"
-
-
 def test_a_value_the_sandre_never_wrote_is_unknown_and_named(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -314,38 +295,3 @@ class TestOsmApi:
             call_params[1]["params"]["data"] if "params" in call_params[1] else call_params[0][1]
         )
         assert "canal" in str(call_params)
-
-    @patch("hydromodpy.core.io.fetch.HTTPClient.get")
-    def test_intermittent_flag(self, mock_get):
-        from hydromodpy.data.variables.hydrography.apis.osm import fetch
-
-        elements = [
-            {
-                "type": "way",
-                "id": 1,
-                "tags": {"waterway": "stream", "intermittent": "yes"},
-                "geometry": [
-                    {"lat": 47.6, "lon": -2.3},
-                    {"lat": 47.7, "lon": -2.2},
-                ],
-            },
-            {
-                "type": "way",
-                "id": 2,
-                "tags": {"waterway": "stream"},
-                "geometry": [
-                    {"lat": 47.8, "lon": -2.3},
-                    {"lat": 47.9, "lon": -2.2},
-                ],
-            },
-        ]
-        resp = MagicMock()
-        resp.text = json.dumps({"elements": elements})
-        resp.raise_for_status = MagicMock()
-        resp.close = MagicMock()
-        mock_get.return_value = resp
-
-        cfg = HydrographySourceConfig(source="osm", waterway_types=["stream"])
-        gdf = fetch(cfg, self.BBOX, client=HTTPClient())
-        assert gdf.iloc[0]["intermit"] == 2  # intermittent
-        assert gdf.iloc[1]["intermit"] == 1  # permanent

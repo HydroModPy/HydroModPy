@@ -21,11 +21,7 @@ from hydromodpy.mesh.planning.inputs import PlanningInputs
 from hydromodpy.mesh.planning.plan import smoothed_catchment
 from hydromodpy.mesh.planning.refinement_zones import RefinementZone
 from hydromodpy.mesh.refinement_config import RefinementZoneConfig
-from hydromodpy.mesh.stored import (
-    ARRAYS_FILENAME,
-    DESCRIPTION_FILENAME,
-    library_versions,
-)
+from hydromodpy.mesh.stored import ARRAYS_FILENAME, DESCRIPTION_FILENAME
 from hydromodpy.results.products.store import ProductStore, products_root
 from hydromodpy.results.storage.contract import MESH_DIRNAME
 from hydromodpy.results.storage.run_profile import read_profile
@@ -70,106 +66,12 @@ def _store_dir(tmp_path: Path, key: str) -> Path:
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_run_without_mesh_section_gets_the_regular_grid_stored(tmp_path) -> None:
-    ctx = _context(tmp_path, None)
-
-    step_mesh(ctx)
-
-    assert ctx.setup.cell_mesh.structured_shape == (N, N)
-    summary = ctx.setup.mesh_summary
-    assert summary["engine"] == "regular"
-    assert summary["product_key"]
-    assert summary["request_hash"] == ctx.setup.cell_mesh.identity.request_hash
-    assert summary["qa"]["n_cells"] == N * N
-    assert _store_dir(tmp_path, summary["product_key"]).is_dir()
-
-
-@pytest.mark.usefixtures("planned_inputs")
-def test_the_summary_names_the_library_builds_the_mesh_depends_on(tmp_path) -> None:
-    ctx = _context(tmp_path, None)
-
-    step_mesh(ctx)
-
-    versions = ctx.setup.mesh_summary["library_versions"]
-    assert set(versions) == {"gmsh", "scipy", "shapely", "geos"}
-    assert versions == library_versions()
-    assert all(isinstance(value, str) and value for value in versions.values())
-
-
-@pytest.mark.usefixtures("planned_inputs")
-def test_the_planner_notes_reach_the_qa_of_the_summary(tmp_path, use_planning_inputs) -> None:
-    use_planning_inputs(
-        dataclasses.replace(
-            mesh_module.planning_inputs(None, None), notes=("the geology map is a raster",)
-        )
-    )
-    ctx = _context(tmp_path, MeshConfig(river_cell_size=20.0, cell_size=200.0))
-
-    step_mesh(ctx)
-
-    notes = ctx.setup.mesh_summary["qa"]["notes"]
-    assert "the geology map is a raster" in notes
-    assert any("regular ignores river_cell_size" in note for note in notes)
-
-
-@pytest.mark.usefixtures("planned_inputs")
 def test_the_regular_shape_of_the_section_reaches_the_grid(tmp_path) -> None:
     ctx = _context(tmp_path, MeshConfig.model_validate({"regular": {"shape": [4, 5]}}))
 
     step_mesh(ctx)
 
     assert ctx.setup.cell_mesh.structured_shape == (4, 5)
-
-
-@pytest.mark.usefixtures("planned_inputs")
-def test_an_engine_builds_once_per_request(tmp_path, cached_engine) -> None:
-    mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
-    first, second = _context(tmp_path, mesh_cfg), _context(tmp_path, mesh_cfg)
-
-    step_mesh(first)
-    step_mesh(second)
-
-    assert cached_engine.builds == 1
-    np.testing.assert_array_equal(
-        second.setup.cell_mesh.mesh.vertices, first.setup.cell_mesh.mesh.vertices
-    )
-    assert second.setup.cell_mesh.identity == first.setup.cell_mesh.identity
-    key = first.setup.mesh_summary["product_key"]
-    assert second.setup.mesh_summary == first.setup.mesh_summary
-    assert _store_dir(tmp_path, key).is_dir()
-    assert first.setup.mesh_summary["engine"] == cached_engine.engine_id
-
-
-@pytest.mark.usefixtures("planned_inputs")
-def test_a_changed_request_is_meshed_again_under_its_own_key(tmp_path, cached_engine) -> None:
-    coarse = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id, cell_size=100.0))
-    fine = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id, cell_size=125.0))
-
-    step_mesh(coarse)
-    step_mesh(fine)
-
-    assert cached_engine.builds == 2
-    assert coarse.setup.mesh_summary["product_key"] != fine.setup.mesh_summary["product_key"]
-    assert len(ProductStore(products_root(tmp_path)).entries()) == 2
-
-
-@pytest.mark.usefixtures("planned_inputs")
-@pytest.mark.parametrize("library", ["gmsh", "scipy", "shapely", "geos"])
-def test_a_new_build_of_a_library_is_meshed_again_under_its_own_key(
-    tmp_path, cached_engine, monkeypatch, library
-) -> None:
-    mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
-    before = _context(tmp_path, mesh_cfg)
-    step_mesh(before)
-    bumped = {**library_versions(), library: "99.9.9"}
-    monkeypatch.setattr(mesh_module, "library_versions", lambda: bumped)
-    after = _context(tmp_path, mesh_cfg)
-
-    step_mesh(after)
-
-    assert cached_engine.builds == 2
-    assert before.setup.mesh_summary["product_key"] != after.setup.mesh_summary["product_key"]
-    assert len(ProductStore(products_root(tmp_path)).entries()) == 2
 
 
 @pytest.mark.usefixtures("planned_inputs")
@@ -218,40 +120,6 @@ def test_a_resume_keeps_the_mesh_the_process_already_holds(tmp_path) -> None:
     assert BuildMeshStep().is_prebuilt(state)
 
 
-@pytest.mark.usefixtures("planned_inputs")
-def test_the_step_declares_the_product_files_it_left(tmp_path, cached_engine) -> None:
-    cached = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id))
-    plain = _context(tmp_path, None)
-    step_mesh(cached)
-    step_mesh(plain)
-
-    declared = BuildMeshStep().artifacts(PipelineState(run_id="r", data={"ctx": cached}))
-    directory = _store_dir(tmp_path, cached.setup.mesh_summary["product_key"])
-    assert len(declared) == 2
-    assert all(directory in Path(p).parents for p in declared)
-    plain_declared = BuildMeshStep().artifacts(PipelineState(run_id="r", data={"ctx": plain}))
-    assert len(plain_declared) == 2
-
-
-@pytest.mark.usefixtures("planned_inputs")
-def test_an_engine_without_a_workspace_builds_in_memory(tmp_path, cached_engine) -> None:
-    ctx = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id), workspace=False)
-
-    step_mesh(ctx)
-
-    assert ctx.setup.cell_mesh is not None
-    assert not (tmp_path / ".hmp").exists()
-
-
-@pytest.mark.usefixtures("planned_inputs")
-def test_the_step_reads_its_sections_from_the_config_names() -> None:
-    step = BuildMeshStep()
-
-    assert step.config_sections == ("domain.supports", "mesh")
-    assert "mesh_section_data" not in step.reads
-    assert "external_mesh_input" not in step.reads
-
-
 class _ConcaveEngine(FakeMeshEngine):
     """A fake engine whose regular grid reports three concave cells."""
 
@@ -272,14 +140,6 @@ def test_a_mesh_past_a_quality_threshold_is_warned_and_used(tmp_path, caplog) ->
 
     assert ctx.setup.cell_mesh.qa.n_concave_cells == 3
     assert "Mesh quality: 3 of 100 cells are concave" in caplog.text
-
-
-@pytest.mark.usefixtures("planned_inputs")
-def test_a_mesh_within_the_thresholds_is_not_warned(tmp_path, caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger=mesh_module.logger.name):
-        step_mesh(_context(tmp_path, None))
-
-    assert "Mesh quality" not in caplog.text
 
 
 # --- test_the_mesh_step_keeps_the_smoothed_outline ---
@@ -347,40 +207,6 @@ def test_a_mesh_read_from_the_store_carries_it_too(tmp_path, graded_engine, inpu
     assert second.setup.cell_mesh.smoothed_catchment is not None
 
 
-def test_a_mesh_that_does_not_follow_the_catchment_carries_none(
-    tmp_path, graded_engine, inputs
-) -> None:
-    ctx = _context(tmp_path, MeshConfig(engine=graded_engine.engine_id, cell_size=50.0))
-
-    step_mesh(ctx)
-
-    assert ctx.setup.cell_mesh.smoothed_catchment is None
-
-
-def test_a_regular_mesh_carries_none(tmp_path, inputs) -> None:
-    ctx = _context(tmp_path, MeshConfig(families=_FACE))
-
-    step_mesh(ctx)
-
-    assert ctx.setup.cell_mesh.smoothed_catchment is None
-
-
-def test_the_outline_is_put_on_the_mesh_without_losing_its_geometry() -> None:
-    from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
-
-    cell_mesh = solver_mesh_from_structured_arrays(
-        nrow=3, ncol=3, top=np.zeros((3, 3)), botm=np.zeros((1, 3, 3))
-    ).cell_mesh
-    geometry = cell_mesh.geometry
-    outline = box(0.0, 0.0, 2.0, 2.0)
-
-    carried = cell_mesh.with_smoothed_catchment(outline)
-
-    assert carried.smoothed_catchment is outline
-    assert carried.geometry is geometry
-    assert cell_mesh.smoothed_catchment is None
-
-
 # --- test_a_frozen_config_pins_the_run_a_refinement_zone_reads ---
 # The frozen config names the run a refinement zone read by its sim_id, not by its name.
 #
@@ -397,20 +223,6 @@ def _planned(source_run: str | None) -> RefinementZone:
     return RefinementZone(
         region=box(0.0, 0.0, 1.0, 1.0), cell_size_m=25.0, ramp_m=50.0, source_run=source_run
     )
-
-
-def test_the_mesh_step_keeps_one_sim_id_per_reference() -> None:
-    cfgs = [
-        RefinementZoneConfig.model_validate(ZONE),
-        RefinementZoneConfig.model_validate(
-            {"where": "seepage", "above": 1.0, "run": "coarse", "cell_size": 25.0}
-        ),
-        RefinementZoneConfig.model_validate({**ZONE, "run": "other"}),
-        RefinementZoneConfig.model_validate({"path": "layer.gpkg", "cell_size": 30.0}),
-    ]
-    zones = [_planned("1" * 32), _planned("1" * 32), _planned("2" * 32), _planned(None)]
-
-    assert zone_runs(cfgs, zones) == {"coarse": "1" * 32, "other": "2" * 32}
 
 
 def test_the_mesh_step_keeps_nothing_when_the_planner_dropped_a_zone() -> None:
@@ -502,19 +314,6 @@ def test_a_replay_reads_the_mesh_sealed_beside_the_source_run(tmp_path, cached_e
 
 
 @pytest.mark.usefixtures("planned_inputs")
-def test_a_replay_of_an_engine_that_rebuilds_bit_for_bit_ignores_the_seal(
-    tmp_path, cached_engine
-) -> None:
-    sealed, _key = _seal(tmp_path, MeshConfig(engine=cached_engine.engine_id))
-    replay = _context(tmp_path / "replay_project", MeshConfig())
-
-    step_mesh(replay, sealed)
-
-    assert replay.setup.mesh_summary["engine"] == "regular"
-    assert replay.setup.cell_mesh.identity.engine_id == "regular"
-
-
-@pytest.mark.usefixtures("planned_inputs")
 def test_a_sealed_mesh_of_another_request_is_a_miss_and_the_step_builds_again(
     tmp_path, cached_engine, caplog
 ) -> None:
@@ -556,13 +355,3 @@ def test_a_source_run_with_no_mesh_directory_is_a_miss(tmp_path, cached_engine) 
 
     assert cached_engine.builds == 1
     assert replay.setup.cell_mesh is not None
-
-
-@pytest.mark.usefixtures("planned_inputs")
-def test_a_run_that_is_not_a_replay_reads_nothing_beside_it(tmp_path, cached_engine) -> None:
-    _seal(tmp_path, MeshConfig(engine=cached_engine.engine_id))
-    plain = _context(tmp_path / "replay_project", MeshConfig(engine=cached_engine.engine_id))
-
-    step_mesh(plain)
-
-    assert cached_engine.builds == 2

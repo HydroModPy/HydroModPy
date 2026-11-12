@@ -1054,7 +1054,7 @@ class ChangelogDirective(SphinxDirective):
                 "and hmp doctor --fix-config rewrites the file"
             ),
         }
-        REFUSED = "refused since 2.1.0; the message names each such key"
+        REFUSED = "refused since 2.0.0; the message names each such key"
 
         def rename_note(c: dict) -> str:
             """What the loader does with an old name, read from the loader (legacy_keys)."""

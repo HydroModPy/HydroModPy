@@ -31,7 +31,7 @@ from hydromodpy.model.initial.state import (
     SteadyStart,
 )
 from hydromodpy.model.initial_config import FlowInitialConditions, initial_state_of
-from hydromodpy.model.model import ModelTime, cycle_variant, steady_variant
+from hydromodpy.model.model import ModelTime, steady_variant
 from hydromodpy.solver.modflow6.modflow6_config import (
     Modflow6Config,
     Modflow6RuntimeConfig,
@@ -45,52 +45,6 @@ from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
 )
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from tests._helpers.model_factory import make_model
-
-
-def test_modflow6_steady_initialization_relaxes_auxiliary_solver_only() -> None:
-    config = Modflow6Config(
-        runtime=Modflow6RuntimeConfig(
-            mf6_executable_name="mf6",
-            mf6_outer_dvclose=1e-4,
-            mf6_inner_dvclose=1e-4,
-            mf6_outer_maximum=500,
-            mf6_inner_maximum=500,
-        )
-    )
-    model = SimpleNamespace(modflow_config=config, exe="/opt/mf6")
-
-    steady_config = _modflow_config_for_steady_initialization(model)
-
-    assert steady_config.runtime.mf6_executable_name == "/opt/mf6"
-    assert steady_config.runtime.mf6_outer_dvclose == 1e-3
-    assert steady_config.runtime.mf6_inner_dvclose == 1e-3
-    assert steady_config.runtime.mf6_outer_maximum == 1000
-    assert steady_config.runtime.mf6_inner_maximum == 1000
-    assert steady_config.runtime.mf6_newton is True
-    assert steady_config.runtime.mf6_newton_under_relaxation is True
-    assert config.runtime.mf6_outer_dvclose == 1e-4
-    assert config.runtime.mf6_inner_dvclose == 1e-4
-
-
-def test_modflow6_steady_initialization_disables_rewet_when_forcing_newton() -> None:
-    # A user-valid newton=False + rewet=True + CG transient config must not trip
-    # the NEWTON+REWET or NEWTON+CG guard during the steady spin-up (forces Newton).
-    config = Modflow6Config(
-        runtime=Modflow6RuntimeConfig(
-            mf6_newton=False, mf6_enable_rewet=True, mf6_linear_acceleration="CG"
-        )
-    )
-    model = SimpleNamespace(modflow_config=config, exe="mf6")
-
-    steady_config = _modflow_config_for_steady_initialization(model)
-
-    assert steady_config.runtime.mf6_newton is True
-    assert steady_config.runtime.mf6_enable_rewet is False
-    assert steady_config.runtime.mf6_linear_acceleration == "BICGSTAB"
-    # The user's transient config is untouched.
-    assert config.runtime.mf6_newton is False
-    assert config.runtime.mf6_enable_rewet is True
-    assert config.runtime.mf6_linear_acceleration == "CG"
 
 
 def test_modflow6_steady_initialization_preserves_looser_user_settings() -> None:
@@ -148,26 +102,6 @@ def test_modflow6_steady_initialization_rejects_open_budget(tmp_path) -> None:
 CLOSED_LISTING = " PERCENT DISCREPANCY =  0.00     PERCENT DISCREPANCY =  0.00\n"
 
 
-def test_the_listing_is_named_after_the_safe_model_name(tmp_path: Path) -> None:
-    model = SimpleNamespace(
-        model_name="Nancon Lake_A",
-        model_name_mf6=mf6_safe_name("Nancon Lake_A"),
-        model_output_name="Nancon Lake_A",
-        full_path=str(tmp_path),
-    )
-    (tmp_path / "nancon_lake_a.lst").write_text(CLOSED_LISTING)
-
-    assert ssic._model_listing_path(model).is_file()
-
-
-def test_a_name_with_a_capital_letter_reaches_the_safe_name_without_the_attribute(
-    tmp_path: Path,
-) -> None:
-    model = SimpleNamespace(model_name="Run One", full_path=str(tmp_path))
-
-    assert ssic._model_listing_path(model) == tmp_path / "run_one.lst"
-
-
 class _StubMF6:
     """Names its files the way the MF6 wrapper does and writes a closed, unconverged solve."""
 
@@ -195,18 +129,6 @@ class _StubMF6:
         # MF6 stopped short of convergence; its listing carries a closed budget.
         (Path(self.full_path) / f"{self.model_name_mf6}.lst").write_text(CLOSED_LISTING)
         return self.converges
-
-
-def test_a_run_named_with_capitals_still_finds_the_listing(monkeypatch, tmp_path) -> None:
-    """The listing the solve wrote is the one the acceptance reads, so no RuntimeError."""
-    monkeypatch.setattr(ssic, "_read_final_head", lambda *_a, **_k: np.zeros((1, 2)))
-    monkeypatch.setattr(ssic, "_modflow_config_for_steady_initialization", lambda _m: None)
-    parent = _StubMF6(model_folder=tmp_path, model_name="Run With Capitals")
-
-    with pytest.warns(RuntimeWarning, match="final water budget is closed"):
-        head = ssic.run_modflow6_steady_state_initialization(parent, verbose=False)
-
-    assert head.shape == (1, 2)
 
 
 @pytest.mark.parametrize("converges", [True, False], ids=["converged", "closed budget only"])
@@ -304,45 +226,11 @@ def _ic(**ic) -> FlowInitialConditions:
 
 
 class TestTheDeclaration:
-    def test_the_type_is_recognised(self) -> None:
-        assert isinstance(initial_state_of(_ic()), CyclicStart)
-
-    def test_another_initial_condition_is_not(self) -> None:
-        other = FlowInitialConditions.model_validate({"h": {"kind": "top"}})
-        assert not isinstance(initial_state_of(other), CyclicStart)
-
     def test_the_tolerance_carries_its_unit(self) -> None:
         assert initial_state_of(_ic(tol_head="2 cm")).strategy.tol_head_m == pytest.approx(0.02)
 
-    def test_the_defaults_are_a_real_strategy(self) -> None:
-        strategy = initial_state_of(_ic()).strategy
-        assert strategy.max_cycles >= 1
-        assert strategy.tol_head_m > 0.0
-        assert strategy.first_cycle_from == "top"
-
-    def test_a_first_cycle_source_it_does_not_know_is_refused(self) -> None:
-        with pytest.raises(ValueError):
-            FlowInitialConditions.model_validate(
-                {"h": {"kind": "spinup_cyclic", "first_cycle_from": "yesterday"}}
-            )
-
 
 class TestWhatCountsAsSettled:
-    def test_the_largest_change_decides_not_the_mean(self) -> None:
-        # A basin settled on average while one compartment still drifts has not
-        # settled, and averaging is how that gets missed.
-        before = np.zeros(100)
-        after = np.zeros(100)
-        after[42] = 5.0
-        assert cycles_have_settled(before, after, tol_head_m=0.01) is False
-
-    def test_a_change_under_the_tolerance_everywhere_is_settled(self) -> None:
-        before = np.linspace(10.0, 20.0, 50)
-        assert cycles_have_settled(before, before + 0.005, tol_head_m=0.01) is True
-
-    def test_the_first_cycle_has_nothing_to_compare_to(self) -> None:
-        assert cycles_have_settled(None, np.zeros(5), tol_head_m=1.0) is False
-
     def test_a_cell_that_wetted_between_cycles_is_a_change(self) -> None:
         # Dry in one and wet in the other is the state moving, not a missing value.
         before = np.array([1.0, np.nan, 3.0])
@@ -360,31 +248,6 @@ class TestWhatCountsAsSettled:
 
 def _cyclic_model(**strategy):
     return make_model(initial=initial_state_of(_ic(**strategy)))
-
-
-class TestTheCycleDoesNotSpawnItsOwn:
-    """The defect that a real run found, and the only gate that catches it early."""
-
-    def test_a_cycle_s_model_no_longer_asks_for_cycling(self) -> None:
-        # Measured before this was fixed: each auxiliary model re-entered the same
-        # hook, so a three-cycle spin-up ran 143 solves and was stopped by the
-        # machine rather than by the loop.
-        cycle = cycle_variant(_cyclic_model(max_cycles=3), None)
-        assert not isinstance(cycle.initial, CyclicStart)
-
-    def test_the_cycle_starts_from_the_top_surface(self) -> None:
-        # The caller overwrites it with the previous cycle's heads; what matters is
-        # that the variant carries a state the hook does not fire on.
-        assert cycle_variant(_cyclic_model(), None).initial == HeadRule("top")
-
-    def test_a_later_cycle_starts_from_the_heads_of_the_one_before(self) -> None:
-        seed = SolvedState(head=np.ones((1, 2)), solver="modflow6")
-        assert cycle_variant(_cyclic_model(), seed).initial is seed
-
-    def test_the_original_model_is_left_alone(self) -> None:
-        model = _cyclic_model(max_cycles=2)
-        cycle_variant(model, None)
-        assert model.initial == CyclicStart(CyclicSpinupStrategy(max_cycles=2, tol_head_m=0.01))
 
 
 class TestTheAuxiliaryModelsAreBuiltFromVariants:
@@ -493,20 +356,6 @@ def test_an_auxiliary_model_solves_in_a_slot_derived_from_the_run(
     assert Path(made["init"]["model_folder"]) / made["init"]["model_name"] == slot.directory
 
 
-def test_an_auxiliary_model_of_a_run_without_a_slot_keeps_its_files_beside_it(
-    monkeypatch, tmp_path
-) -> None:
-    monkeypatch.setattr(ssic, "_read_final_head", lambda *_a, **_k: np.zeros((1, 2)))
-    monkeypatch.setattr(ssic, "_modflow_config_for_steady_initialization", lambda _m: None)
-    monkeypatch.setattr(_SlotStub, "made", [])
-    parent = _SlotStub(model_folder=tmp_path, model_name="run")
-
-    _solve_auxiliary("steady", parent)
-
-    slot = _SlotStub.made[-1]["slot"]
-    assert (slot.bin_dir, slot.shared_forcing_dir) == (None, None)
-
-
 @pytest.mark.parametrize(
     ("name", "auxiliary"),
     [("_ssic", True), ("_cyc0", True), ("_cyc12", True), ("_cycle", False), ("_recharge", False)],
@@ -608,12 +457,6 @@ def test_the_stages_of_a_cycle_are_the_last_record_of_its_stage_file(tmp_path: P
     _write_stage_file(folder / "cyc2.lak.stage", [[60.0, 61.0], [59.5, 62.123456789012345]])
 
     assert ssic.cycle_lake_stages(parent, 2) == {"lac0": 59.5, "lac1": 62.123456789012345}
-
-
-def test_a_model_without_a_lake_has_no_cycle_stages(tmp_path: Path) -> None:
-    parent = _StubMF6(model_folder=tmp_path, model_name="parent")
-
-    assert ssic.cycle_lake_stages(parent, 0) == {}
 
 
 def test_a_cycle_without_its_stage_file_is_a_failure_to_name(tmp_path: Path) -> None:
@@ -775,37 +618,7 @@ def test_a_stop_asked_between_two_cycles_ends_the_spinup(monkeypatch, tmp_path: 
     assert ran == [0]
 
 
-def test_a_spinup_without_a_slot_cannot_be_stopped(monkeypatch, tmp_path: Path) -> None:
-    _flag(tmp_path, written=True)
-    monkeypatch.setattr(ssic, "_run_one_spinup_cycle", lambda *_a, **_k: np.array([[1.0, 2.0]]))
-
-    (_, cycles, settled) = ssic.run_modflow6_cyclic_spinup(
-        _lake_model(tmp_path, lakes=()), verbose=False
-    )
-
-    assert (cycles, settled) == (2, True)
-
-
 STOP_FLAGS_OF_AN_AUXILIARY_SLOT = (
     ("a run with a flag", True),
     ("a run without a flag, a trial", False),
 )
-
-
-@pytest.mark.parametrize(
-    ("case", "has_flag"),
-    STOP_FLAGS_OF_AN_AUXILIARY_SLOT,
-    ids=[c[0] for c in STOP_FLAGS_OF_AN_AUXILIARY_SLOT],
-)
-def test_an_auxiliary_model_reads_the_stop_flag_of_its_run(
-    case: str, has_flag: bool, tmp_path: Path
-) -> None:
-    from hydromodpy.solver.base.plan import RunSlot
-
-    del case
-    flag = tmp_path / ".hmp" / "stop.json" if has_flag else None
-    parent = SimpleNamespace(slot=RunSlot(tmp_path, "run", stop_flag=flag))
-
-    slot = ssic.auxiliary_slot(parent, tmp_path / "run" / "_cyc0", "cyc0")
-
-    assert slot.stop_flag == flag

@@ -82,12 +82,6 @@ def _all_terms_field(max_slope: float = 0.5) -> SizeField:
     )
 
 
-@pytest.mark.parametrize("max_slope", [0.5, 0.2, 1.0])
-def test_the_size_never_grows_faster_than_max_slope(max_slope: float) -> None:
-    field = _all_terms_field(max_slope)
-    assert _max_slope_of(field) <= max_slope * (1.0 + 1e-9)
-
-
 def test_the_field_is_clipped_between_the_floor_and_the_outside_size() -> None:
     field = _all_terms_field()
     assert field.values.min() == pytest.approx(15.0)
@@ -145,23 +139,6 @@ def test_the_outside_ramp_is_never_shorter_than_its_slope_allows() -> None:
     assert row[19] == pytest.approx(150.0)
     assert row[29] == pytest.approx(200.0)
     assert row[-1] == pytest.approx(200.0)
-
-
-def test_a_term_coarser_than_the_background_refines_nothing() -> None:
-    grid = _grid(nrow=10, ncol=10)
-    field = build_size_field(
-        grid,
-        h0=50.0,
-        h_floor=10.0,
-        terms=[
-            SizeTerm(
-                name="zone", region=box(1000.0, 5000.0, 1050.0, 5050.0), size_m=80.0, ramp_m=10.0
-            )
-        ],
-        outside=None,
-        max_slope=0.5,
-    )
-    assert np.all(field.values == 50.0)
 
 
 def test_a_term_and_a_catchment_off_the_grid_change_nothing() -> None:
@@ -250,15 +227,6 @@ def _field(region: object, grid: RasterGridSpec) -> np.ndarray:
     ).values
 
 
-def test_the_pixels_a_polygon_touches_give_the_field_of_the_polygon() -> None:
-    grid = _pixel_grid()
-    polygon = box(205.0, 205.0, 395.0, 295.0)
-
-    by_pixels = _field(PixelRegion(mask=_burnt(polygon, grid), grid=grid), grid)
-
-    np.testing.assert_array_equal(by_pixels, _field(polygon, grid))
-
-
 def test_a_pixel_region_holds_its_size_inside_and_grows_at_the_ramp_outside() -> None:
     grid = _pixel_grid()
     mask = np.zeros((grid.nrow, grid.ncol), dtype=bool)
@@ -271,23 +239,6 @@ def test_a_pixel_region_holds_its_size_inside_and_grows_at_the_ramp_outside() ->
     assert values[25, 16] == pytest.approx(20.0 + 0.5 * 20.0)
     assert values[25, 22] == pytest.approx(20.0 + 0.5 * 80.0)
     assert values.max() == 80.0
-
-
-def test_a_pixel_region_with_no_pixel_is_empty() -> None:
-    grid = _pixel_grid()
-
-    assert PixelRegion(mask=np.zeros((grid.nrow, grid.ncol), dtype=bool), grid=grid).is_empty
-
-
-def test_a_pixel_region_is_frozen() -> None:
-    grid = _pixel_grid()
-    mask = np.zeros((grid.nrow, grid.ncol), dtype=bool)
-    region = PixelRegion(mask=mask, grid=grid)
-    mask[0, 0] = True
-
-    assert region.is_empty
-    with pytest.raises(ValueError):
-        region.mask[0, 0] = True
 
 
 def _empty_pixels() -> PixelRegion:

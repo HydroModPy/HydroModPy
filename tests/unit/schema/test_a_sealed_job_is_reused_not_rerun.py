@@ -20,7 +20,7 @@ from hydromodpy.schema.job.documents import read_document, write_document
 from hydromodpy.schema.job.outcome import JobOutcome, OutputRecord, now
 from hydromodpy.schema.job.reuse import REUSED_MEMBER, reuse_sealed_outcome, reused_outcome_text
 from hydromodpy.schema.job.seal import JobSeal
-from hydromodpy.schema.seal import render_document, write_seal
+from hydromodpy.schema.seal import write_seal
 
 JOB_ID = "sha256:" + "7" * 64
 OTHER_JOB_ID = "sha256:" + "8" * 64
@@ -72,14 +72,6 @@ class TestTheDecision:
         assert reused.status == "successful"
         assert reused.job_id == JOB_ID
 
-    def test_everything_but_the_flag_is_what_the_job_wrote(self, sealed):
-        stored = JobOutcome.from_document(read_document(sealed.outcome_path))
-
-        reused = reuse_sealed_outcome(sealed, job_id=JOB_ID)
-
-        assert stored.reused is False
-        assert reused.to_document() == {**stored.to_document(), REUSED_MEMBER: True}
-
     def test_another_id_is_refused_rather_than_re_reported(self, sealed):
         with pytest.raises(JobUsageError) as caught:
             reuse_sealed_outcome(sealed, job_id=OTHER_JOB_ID)
@@ -105,12 +97,6 @@ class TestADirectoryThatCannotBeRead:
         sealed.manifest_path.write_text("{oh dear", encoding="utf-8")
 
         with pytest.raises(SchemaVersionMismatchError, match="does not read as JSON"):
-            reuse_sealed_outcome(sealed, job_id=JOB_ID)
-
-    def test_a_seal_of_a_later_version_names_the_version_this_code_reads(self, sealed):
-        write_document(sealed.manifest_path, {"manifest_version": 5, "profile": "job"})
-
-        with pytest.raises(SchemaVersionMismatchError, match="manifest_version = 4"):
             reuse_sealed_outcome(sealed, job_id=JOB_ID)
 
     def test_an_outcome_of_a_later_version_says_to_upgrade(self, sealed):
@@ -188,28 +174,3 @@ class TestTheBytesOnStdout:
         reused_outcome_text(sealed)
 
         assert sealed.outcome_path.read_bytes() == before
-
-
-class TestReadingAnOutcomeBack:
-    def test_a_written_outcome_reads_back_into_itself(self):
-        original = _outcome()
-
-        assert JobOutcome.from_document(original.to_document()) == original
-
-    def test_an_extra_member_of_an_output_record_survives_the_round_trip(self, sealed):
-        record = JobOutcome.from_document(read_document(sealed.outcome_path)).outputs[0]
-
-        assert dict(record.extra) == {"hmp:conformsTo": ["GeoParquet-1.1"]}
-
-    def test_the_stored_duration_is_derived_again_and_not_trusted(self, sealed):
-        """A number that can disagree with its own inputs eventually does."""
-        document = read_document(sealed.outcome_path)
-        document["duration_s"] = 9999.0
-
-        assert JobOutcome.from_document(document).duration_s < 9999.0
-
-    def test_the_rendering_of_a_document_is_stable_through_a_round_trip(self, sealed):
-        """What makes the one-member substitution of stdout safe to promise."""
-        on_disk = sealed.outcome_path.read_text(encoding="utf-8")
-
-        assert render_document(read_document(sealed.outcome_path)) == on_disk

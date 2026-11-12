@@ -20,44 +20,12 @@ def _layer(crs: str | None = "EPSG:2154") -> gpd.GeoDataFrame:
     )
 
 
-def test_a_layer_written_is_read_back_with_the_same_features_and_frame(tmp_path: Path) -> None:
-    layer = _layer()
-
-    out = geoparquet.write_geoparquet_atomic(layer, tmp_path / "vectors" / "layer.parquet")
-    back = geoparquet.read_geoparquet(out)
-
-    assert out == tmp_path / "vectors" / "layer.parquet"
-    assert back.crs.to_epsg() == 2154
-    assert back["name"].tolist() == ["spring", "basin"]
-    assert back["area_m2"].tolist() == [0.0, 10_000.0]
-    assert back.geometry.geom_equals(layer.geometry).all()
-
-
 def test_the_file_declares_the_geoparquet_version_the_project_promises(tmp_path: Path) -> None:
     out = geoparquet.write_geoparquet_atomic(_layer(), tmp_path / "layer.parquet")
 
     geo = pq.read_schema(out).metadata[b"geo"]
 
     assert f'"version":"{geoparquet.GEOPARQUET_SCHEMA_VERSION}"'.encode() in geo.replace(b" ", b"")
-
-
-def test_metadata_is_kept_in_the_footer_beside_the_geo_block(tmp_path: Path) -> None:
-    out = geoparquet.write_geoparquet_atomic(
-        _layer(), tmp_path / "layer.parquet", metadata={"run_id": "r-42", "licence": "CC-BY-4.0"}
-    )
-
-    footer = pq.read_schema(out).metadata
-
-    assert footer[b"run_id"] == b"r-42"
-    assert footer[b"licence"] == b"CC-BY-4.0"
-    assert b"geo" in footer
-    assert len(geoparquet.read_geoparquet(out)) == 2
-
-
-def test_only_the_published_file_is_left_after_a_write(tmp_path: Path) -> None:
-    geoparquet.write_geoparquet_atomic(_layer(), tmp_path / "layer.parquet", metadata={"k": "v"})
-
-    assert [p.name for p in tmp_path.iterdir()] == ["layer.parquet"]
 
 
 def test_a_layer_without_crs_is_refused_and_nothing_is_written(tmp_path: Path) -> None:

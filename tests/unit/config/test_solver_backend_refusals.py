@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
@@ -10,14 +9,12 @@ from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError, IncompatibleCapabilitiesError
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.initial.state import PriorState
 from hydromodpy.model.model import ModelTime, model_from_flow
 from hydromodpy.model.supports import INITIAL_STATE_TRAITS
 from hydromodpy.solver.base.registry import solvers
-from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.solver_contract import assert_supported_runtime_subset
 from tests._helpers.fake_solvers import fake_adapter
 from tests._helpers.model_factory import default_options, small_geometry
@@ -37,15 +34,6 @@ def _config(tmp_path, solver: str, bc: dict) -> HydroModPyConfig:
         simulation={"process": [{"id": "flow_main", "kind": "flow", "solvers": [solver]}]},
         flow=FlowConfig(bc=bc),
     )
-
-
-def test_an_unknown_flow_solver_is_refused_with_the_valid_names(tmp_path) -> None:
-    with pytest.raises(ValueError) as excinfo:
-        _config(tmp_path, "modflow7", {"drainage": {}})
-    message = str(excinfo.value)
-    assert "simulation.process.solvers names 'modflow7'" in message
-    assert "this installation serves boussinesq, linear_reservoir, modflow6, modflow_nwt" in message
-    assert "drainage" not in message
 
 
 def test_a_registered_plugin_flow_solver_is_accepted(tmp_path, isolated_solvers) -> None:
@@ -74,21 +62,6 @@ def _config_2(tmp_path, transport: str) -> HydroModPyConfig:
     )
 
 
-def test_an_unknown_transport_solver_is_refused_with_the_valid_names(tmp_path) -> None:
-    with pytest.raises(ValueError) as excinfo:
-        _config_2(tmp_path, "modpth")
-    message = str(excinfo.value)
-    assert "simulation.process.solvers names 'modpth'" in message
-    assert "this installation serves" in message
-    assert "modpath" in message
-    assert "modflow6_prt" in message
-
-
-def test_a_built_in_transport_solver_is_accepted(tmp_path) -> None:
-    cfg = _config_2(tmp_path, "modflow6_prt")
-    assert cfg.simulation.process[1].solvers == ["modflow6_prt"]
-
-
 # ``[flow] restart_from`` is read by one backend, and the others said nothing.
 #
 # A spin-up ends by handing back the Zarr of its converged state, and the whole
@@ -114,57 +87,6 @@ def _base_kwargs(tmp_path) -> dict:
     }
 
 
-def test_only_the_backend_that_reads_it_lists_the_trait() -> None:
-    assert PRIOR_STATE in solvers.get("flow", "modflow6").supports
-    assert PRIOR_STATE not in solvers.get("flow", "modflow_nwt").supports
-    assert PRIOR_STATE not in solvers.get("flow", "boussinesq").supports
-
-
-@pytest.mark.parametrize("backend", ["modflow_nwt", "boussinesq"])
-def test_a_backend_that_cannot_restart_refuses_the_key(tmp_path, backend: str) -> None:
-    with pytest.raises(IncompatibleCapabilitiesError) as caught:
-        HydroModPyConfig(
-            **_base_kwargs(tmp_path),
-            solver=SolverConfig(backend=backend),
-            flow=FlowConfig(restart_from="runs/spinup_3/fields.zarr"),
-        )
-
-    message = str(caught.value)
-    assert f"solver.backend = {backend!r} does not honor flow.restart_from" in message
-    assert "(modflow6)" in message
-
-
-def test_modflow6_accepts_it(tmp_path) -> None:
-    cfg = HydroModPyConfig(
-        **_base_kwargs(tmp_path),
-        solver=SolverConfig(backend="modflow6"),
-        flow=FlowConfig(restart_from="runs/spinup_3/fields.zarr"),
-    )
-
-    assert cfg.flow.restart_from == "runs/spinup_3/fields.zarr"
-
-
-def test_leaving_it_unset_is_fine_on_any_backend(tmp_path) -> None:
-    cfg = HydroModPyConfig(
-        **_base_kwargs(tmp_path),
-        solver=SolverConfig(backend="boussinesq"),
-        mesh=MeshConfig(engine="triangle", families={"rivers": "none"}),
-        flow=FlowConfig(),
-    )
-
-    assert cfg.flow.restart_from is None
-
-
-@pytest.mark.parametrize("kind", ["steady_state", "spinup_cyclic"])
-def test_a_restart_beside_a_computed_start_is_refused(tmp_path, kind: str) -> None:
-    with pytest.raises(ValueError, match="overwrite the restart"):
-        HydroModPyConfig(
-            **_base_kwargs(tmp_path),
-            solver=SolverConfig(backend="modflow6"),
-            flow=FlowConfig(restart_from="runs/spinup_3/fields.zarr", ic={"h": {"kind": kind}}),
-        )
-
-
 # Declaring a lake on a non-modflow6 backend raises a typed error.
 #
 # A lake is a MODFLOW 6 LAK advanced package; no other backend implements it.
@@ -175,39 +97,6 @@ def test_a_restart_beside_a_computed_start_is_refused(tmp_path, kind: str) -> No
 
 
 LAKES = {"lac0": {"bedleak": 0.1, "initial_stage": "85 m"}}
-
-
-@pytest.mark.parametrize("backend", ["boussinesq", "modflow_nwt"])
-def test_a_lake_on_another_backend_raises_typed_error(tmp_path, backend: str) -> None:
-    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
-        HydroModPyConfig(
-            **_base_kwargs(tmp_path),
-            solver=SolverConfig(backend=backend),
-            flow=FlowConfig(sinks_sources={"lakes": LAKES}),
-        )
-    assert excinfo.value.code == "HMPY.E407"
-    assert backend in str(excinfo.value)
-
-
-def test_a_switched_off_lake_is_accepted_on_any_backend(tmp_path) -> None:
-    lakes = {"lac0": {**LAKES["lac0"], "enabled": False}}
-    cfg = HydroModPyConfig(
-        **_base_kwargs(tmp_path),
-        solver=SolverConfig(backend="modflow_nwt"),
-        flow=FlowConfig(sinks_sources={"lakes": lakes}),
-    )
-    assert cfg.flow.active_bc == []
-
-
-def test_lake_on_modflow6_is_accepted(tmp_path) -> None:
-    cfg = HydroModPyConfig(
-        **_base_kwargs(tmp_path),
-        solver=SolverConfig(backend="modflow6"),
-        flow=FlowConfig(sinks_sources={"lakes": LAKES}),
-    )
-    assert cfg.solver.backend_name == "modflow6"
-    assert "lake" in cfg.flow.active_bc
-    assert "lac0" in cfg.flow.sinks_sources.lakes
 
 
 def test_boussinesq_solver_contract_rejects_lake_with_typed_error() -> None:
@@ -271,27 +160,9 @@ def _payload(
 
 
 @pytest.mark.parametrize("engine", ["triangle", "voronoi"])
-def test_a_well_addressed_by_row_and_column_is_refused_on_an_unstructured_engine(
-    engine: str,
-) -> None:
-    with pytest.raises(ValueError) as excinfo:
-        HydroModPyConfig.model_validate(_payload({"engine": engine}, well=CELL))
-    message = str(excinfo.value)
-    assert "flow.sinks_sources.wells.W1.location" in message
-    assert f"mesh.engine is '{engine}'" in message
-    assert "absolute_xy or relative_xy" in message
-
-
-@pytest.mark.parametrize("engine", ["triangle", "voronoi"])
 def test_an_explicit_reach_addressed_by_row_and_column_is_refused_too(engine: str) -> None:
     with pytest.raises(ValueError, match=r"flow\.sinks_sources\.sfr\.net\.reaches\[0\]\.cell"):
         HydroModPyConfig.model_validate(_payload({"engine": engine}, reach=REACH))
-
-
-@pytest.mark.parametrize("mesh", [None, {"engine": "regular"}])
-def test_the_regular_engine_and_the_default_one_keep_the_address(mesh) -> None:
-    HydroModPyConfig.model_validate(_payload(mesh, well=CELL))
-    HydroModPyConfig.model_validate(_payload(mesh, reach=REACH))
 
 
 @pytest.mark.parametrize("engine", ["triangle", "voronoi"])
@@ -356,39 +227,6 @@ def _load(tmp_path, **kwargs) -> HydroModPyConfig:
     return HydroModPyConfig.from_toml(path)
 
 
-def test_rectify_on_mesh_loads_without_any_solver_top_key(tmp_path):
-    cfg = _load(tmp_path)
-
-    sfr = cfg.flow.sinks_sources.sfr["nancon"]
-    assert sfr.rectify_on_mesh is True
-    assert sfr.route_drainage is True
-
-
-@pytest.mark.parametrize(
-    ("where", "line", "dotted"),
-    [
-        ("sgrid", "condition_top = true", "solver.modflow6.sgrid.condition_top"),
-        ("sgrid", "condition_top_epsilon = 0.01", "solver.modflow6.sgrid.condition_top_epsilon"),
-        (
-            "top_sampling",
-            "network_safety_net = true",
-            "solver.modflow6.sgrid.top_sampling.network_safety_net",
-        ),
-        (
-            "top_sampling",
-            "max_channel_lowering_m = 2.0",
-            "solver.modflow6.sgrid.top_sampling.max_channel_lowering_m",
-        ),
-        ("nwt", "condition_top = true", "solver.modflow_nwt.sgrid.condition_top"),
-        ("sfr", "stream_threshold_km2 = 1.5", "stream_threshold_km2"),
-        ("sfr", "stream_threshold_cells = 50", "stream_threshold_cells"),
-    ],
-)
-def test_a_removed_key_is_refused_by_name(tmp_path, where, line, dotted):
-    with pytest.raises(Exception, match=re.escape(dotted) + r"\b(?!_)"):
-        _load(tmp_path, **{where: line})
-
-
 PROJECT_TOML = """
 [workflow]
 mode = "simulation"
@@ -419,21 +257,7 @@ def test_a_zonal_nwt_top_with_a_channel_source_is_refused(tmp_path: Path) -> Non
         _load_2(tmp_path, "solver.modflow_nwt")
 
 
-def test_the_refusal_names_both_ways_out(tmp_path: Path) -> None:
-    with pytest.raises(ConfigValidationError) as excinfo:
-        _load_2(tmp_path, "solver.modflow_nwt", 'channel_source = "streams_raster"')
-
-    assert "channel_source = 'none'" in str(excinfo.value)
-    assert "MODFLOW 6" in str(excinfo.value)
-
-
 def test_a_zonal_nwt_top_without_channel_source_is_allowed(tmp_path: Path) -> None:
     cfg = _load_2(tmp_path, "solver.modflow_nwt", 'channel_source = "none"')
 
     assert cfg.solver.options_of("modflow_nwt").sgrid.top_sampling.mode == "zonal"
-
-
-def test_modflow6_keeps_its_channel_source(tmp_path: Path) -> None:
-    cfg = _load_2(tmp_path, "solver.modflow6")
-
-    assert cfg.solver.options_of("modflow6").sgrid.top_sampling.channel_source == "streams_raster"

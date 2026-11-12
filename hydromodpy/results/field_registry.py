@@ -200,7 +200,7 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         csdms_standard_name="subsurface_water__mass_concentration",
         long_name=(
             "Solute mass concentration in groundwater, one solute per run, "
-            "read under concentration/<spc_name> or, for a run written by 2.0.0, "
+            "read under concentration/<spc_name> or, for a run written by a pre-release, "
             "under the flat concentration array"
         ),
         units="kg m-3",

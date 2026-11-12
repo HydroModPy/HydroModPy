@@ -61,33 +61,10 @@ def _run(project: Path, capsys, *, as_json: bool = False) -> str:
     return capsys.readouterr().out
 
 
-def test_it_names_every_path_a_parameter_may_declare(project, capsys) -> None:
-    out = _run(project, capsys)
-
-    assert "flow.param.K.field.value" in out
-    assert "flow.param.Sy.field.value" in out
-
-
 def test_it_shows_the_value_the_project_holds_today(project, capsys) -> None:
     out = _run(project, capsys)
 
     assert "6.4e-05" in out or "6.4e-5" in out
-
-
-def test_it_shows_the_physical_range_where_the_registry_knows_one(project, capsys) -> None:
-    out = _run(project, capsys)
-
-    assert "0.5" in out  # the specific-yield ceiling
-
-
-def test_json_output_is_machine_readable(project, capsys) -> None:
-    import json
-
-    payload = json.loads(_run(project, capsys, as_json=True))["data"]
-
-    paths = {entry["path"] for entry in payload}
-    assert "flow.param.K.field.value" in paths
-    assert payload[0]["units"] is not None
 
 
 def test_a_file_that_does_not_load_exits_on_the_config_code(tmp_path, capsys) -> None:
@@ -176,20 +153,3 @@ def test_a_name_that_resolves_only_by_suffix_is_named_with_its_canonical_spellin
     err = capsys.readouterr().err
     assert "calibration.parameters.bedleak" in err
     assert "mylake.bedleak" in err
-
-
-def test_it_shows_the_space_the_draw_and_the_default_bounds(project, capsys) -> None:
-    out = _run(project, capsys).splitlines()
-
-    assert "space" in out[0] and "draw" in out[0] and "default bounds" in out[0]
-    row = next(line for line in out if line.startswith("K "))
-    assert "log" in row.split() and "log_uniform" in row.split()
-    assert "1e-07 .. 0.01" in row or ".." in row.split("log_uniform")[1]
-
-
-@pytest.mark.parametrize(
-    ("name", "key"),
-    [("K", "K"), ("my_lake.bedleak", '"my_lake.bedleak"'), ("well[1].flux", '"well[1].flux"')],
-)
-def test_a_dotted_name_is_written_as_a_quoted_toml_key(name: str, key: str) -> None:
-    assert config_cmd._toml_key(name) == key

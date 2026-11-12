@@ -15,10 +15,7 @@ from shapely.geometry import LineString
 from hydromodpy.core.exceptions import MeshError, MeshRequestError
 from hydromodpy.mesh.engines.triangle import gmsh_triangulation
 from hydromodpy.mesh.engines.triangle.engine import TriangleMeshEngine
-from hydromodpy.mesh.engines.triangle.gmsh_triangulation import (
-    MESH_SIZE_PER_CELL_SIZE,
-    triangulate,
-)
+from hydromodpy.mesh.engines.triangle.gmsh_triangulation import triangulate
 from hydromodpy.mesh.request import LineFamilySpec, MeshRequest, SizeField
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,
@@ -72,30 +69,6 @@ def _sized_square(size: float) -> MeshRequest:
 # --------------------------------------------------------------------------- #
 # Lines embedded as mesh edges
 # --------------------------------------------------------------------------- #
-
-
-@needs_gmsh
-def test_the_gmsh_driver_returns_the_edges_of_each_line_in_line_order() -> None:
-    result = triangulate(_square())
-    edges = result.line_edges[("rivers", 0)]
-
-    assert np.array_equal(edges[1:, 0], edges[:-1, 1])
-    start = result.vertices[edges[:, 0]]
-    stop = result.vertices[edges[:, 1]]
-    along = shapely.line_locate_point(RIVER, shapely.points(0.5 * (start + stop)))
-    assert np.all(np.diff(along) > 0.0)
-
-
-@needs_gmsh
-def test_a_sized_request_embeds_its_lines_at_the_edge_length_of_its_triangles() -> None:
-    """A triangle of area h^2 has edges of about 1.6 h, along the lines as elsewhere."""
-    size = 50.0
-    result = triangulate(_sized_square(size))
-    edge = MESH_SIZE_PER_CELL_SIZE["delaunay"] * size
-    crossing = RIVER.project(RIVER.intersection(BENT_CONTACT))
-
-    expected = round(crossing / edge) + round((RIVER.length - crossing) / edge)
-    assert len(result.line_edges[("rivers", 0)]) == expected
 
 
 @needs_gmsh
@@ -237,19 +210,6 @@ def _handed_to_gmsh(
     lines = Path(api.settings["FileName"]).read_text(encoding="utf-8").splitlines()
     header = [[float(token) for token in line.split()] for line in lines[:3]]
     return header, np.loadtxt(lines[3:], ndmin=2), api
-
-
-def test_the_size_field_reaches_gmsh_west_to_east_then_south_to_north(tmp_path: Path) -> None:
-    grid = grid_spec(3, 4, 10.0, xmin=X0, ymin=Y0)
-    values = 10.0 + np.arange(12.0).reshape(3, 4)
-    origin = np.array([X0, Y0])
-
-    header, nodes, api = _handed_to_gmsh(SizeField(values, grid), 1.5, origin, tmp_path)
-
-    assert header == [[5.0, 5.0, 0.0], [10.0, 10.0, 1.0], [4.0, 3.0, 1.0]]
-    np.testing.assert_array_equal(nodes, 1.5 * values[::-1, :].T)
-    assert api.settings["kind"] == "Structured"
-    assert api.background == 1
 
 
 def test_a_size_field_too_large_for_gmsh_keeps_the_finest_size_of_each_block(

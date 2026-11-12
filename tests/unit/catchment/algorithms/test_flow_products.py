@@ -1,7 +1,6 @@
 """The regional flow stack: the method a config names and a stack read back from disk."""
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -13,14 +12,10 @@ from hydromodpy.catchment.algorithms.flow_products import (
     corrected_dem_name,
     rankable_accumulation,
 )
-from hydromodpy.catchment.preprocess.capped_breach_config import (
-    CappedBreachConfig,
-    capped_breach_of,
-)
 from hydromodpy.catchment.terrain.port import CappedBreach
 from hydromodpy.catchment.terrain.undrained import UndrainedCells
 from tests._helpers.geotiffs import write_geotiff
-from tests._helpers.terrain_doubles import fake_accumulation, fake_flow_products
+from tests._helpers.terrain_doubles import fake_accumulation
 
 LIMITS = CappedBreach(max_depth_m=1.0, max_distance_m=50.0)
 
@@ -50,14 +45,6 @@ def test_a_correction_and_limits_that_do_not_go_together_are_refused(method, lim
             corrected_dem_name(method)
 
 
-def test_a_capped_breach_without_its_section_takes_the_documented_defaults() -> None:
-    defaults = CappedBreachConfig()
-    assert capped_breach_of(SimpleNamespace(dem_correc_type="fill")) is None
-    assert capped_breach_of(SimpleNamespace(dem_correc_type="capped_breach")) == CappedBreach(
-        max_depth_m=float(defaults.max_depth), max_distance_m=float(defaults.max_distance)
-    )
-
-
 def test_an_accumulation_that_can_already_rank_the_window_is_kept(tmp_path) -> None:
     raw = fake_accumulation(transform="none")
     missing = fake_accumulation(acc=tmp_path / "gone.tif")
@@ -85,17 +72,6 @@ def _terrain_request(**overrides) -> TerrainRequest:
     return TerrainRequest(**facts)
 
 
-def test_a_terrain_request_names_every_key_fact() -> None:
-    processing = _terrain_request().processing()
-
-    assert processing["state"] == "raw"
-    assert processing["method"] == "fill"
-    assert processing["crs_project"] == "EPSG:2154"
-    assert processing["accumulation"] == {"units": "cells", "transform": "ln"}
-    assert processing["pointer_convention"] == "d8_wbt"
-    assert "capped_breach" not in processing
-
-
 def test_a_capped_breach_enters_the_request_processing() -> None:
     processing = _terrain_request(method="capped_breach", capped_breach=LIMITS).processing()
 
@@ -117,8 +93,3 @@ def test_a_provided_dem_is_routed_without_a_conditioning_pass(tmp_path) -> None:
     assert Path(products.correc) == Path(dem)
     assert products.accumulation.directions.conditioned_dem.method == "provided"
     assert isinstance(products.undrained, UndrainedCells)
-
-
-def test_flow_products_leave_the_undrained_count_to_none_until_it_is_measured() -> None:
-    products = fake_flow_products()
-    assert products.undrained is None

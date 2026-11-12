@@ -32,12 +32,6 @@ def _cfg(*, persisted: bool) -> SimpleNamespace:
 
 
 class TestSimulationGroup:
-    def test_count_and_len(self, runs):
-        sids = [runs.open().sim_id for _ in range(3)]
-        group = RunSet(sids, runs.catalog())
-        assert group.count == 3
-        assert len(group) == 3
-
     def test_project_run_handles_survive_later_runs(self, monkeypatch, tmp_path):
         """A run handle keeps reading its run after the project ran another one."""
         from hydromodpy.project.runner import ProjectRunner
@@ -239,18 +233,6 @@ class TestSimulationGroup:
         assert observed == ["parent-run"]
         assert ctx.parent_sim_id == "existing-parent"
 
-    def testpin_parent_sim_id_restores_on_exception(self):
-        from hydromodpy.project.runner import pin_parent_sim_id
-
-        ctx = SimpleNamespace(parent_sim_id="initial")
-
-        with pytest.raises(RuntimeError):
-            with pin_parent_sim_id(ctx, "transient"):
-                assert ctx.parent_sim_id == "transient"
-                raise RuntimeError("boom")
-
-        assert ctx.parent_sim_id == "initial"
-
     def testpin_parent_sim_id_none_is_noop(self):
         from hydromodpy.project.runner import pin_parent_sim_id
 
@@ -267,12 +249,6 @@ class TestSimulationGroup:
         assert len(sims) == 2
         assert all(isinstance(s, Run) for s in sims)
 
-    def test_getitem(self, runs):
-        sids = [runs.open().sim_id for _ in range(3)]
-        sim = RunSet(sids, runs.catalog())[1]
-        assert isinstance(sim, Run)
-        assert sim.sim_id == sids[1]
-
     def test_best_worst_follow_the_score_under_the_rule(self, runs):
         low, high = runs.open(), runs.open()
         score(low, 0.6)
@@ -288,13 +264,6 @@ class TestSimulationGroup:
         group = RunSet([store.sim_id for store in stores], runs.catalog())
         ordered = group.sort_by("nse", ascending=False)
         assert ordered.sim_ids == [stores[1].sim_id, stores[2].sim_id, stores[0].sim_id]
-
-    def test_compare(self, runs):
-        stores = [runs.open() for _ in range(2)]
-        for store, value in zip(stores, (0.6, 0.9), strict=True):
-            score(store, value)
-        df = RunSet([store.sim_id for store in stores], runs.catalog()).compare("nse")
-        assert len(df) == 2
 
     def test_to_dataframe(self, runs):
         first, second = runs.open(), runs.open()

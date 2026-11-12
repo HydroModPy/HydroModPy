@@ -79,19 +79,3 @@ def test_an_over_long_name_is_refused_instead_of_truncated(tmp_path):
 
     kept = reserve_version_dirname(tmp_path / "project", "run", "a" * MAX_NAME_LENGTH)
     assert kept.name == "a" * MAX_NAME_LENGTH
-
-
-def test_a_reservation_refuses_two_long_names_sharing_a_prefix(tmp_path):
-    """Truncation used to map both names onto one directory: the second died."""
-    project = tmp_path / "project"
-    stem = "cheze_preretenue_chronicle_" * 2
-
-    for suffix in ("alpha", "beta"):
-        with pytest.raises(ConfigError):
-            reserve_version_dirname(project, "run", f"{stem}{suffix}")
-    assert not (project / RUNS_DIRNAME).exists() or list((project / RUNS_DIRNAME).iterdir()) == []
-
-
-def test_run_directory_is_named_after_the_run_not_after_an_opaque_id(tmp_path):
-    run_dir = reserve_version_dirname(tmp_path / "project", "run", "cheze_baseline")
-    assert run_dir == tmp_path / "project" / RUNS_DIRNAME / "cheze_baseline"

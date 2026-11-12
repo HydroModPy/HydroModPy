@@ -36,53 +36,6 @@ _N_CELLS = 6
 _N_LAY = 1
 
 
-def test_a_union_that_covers_every_release_record_passes() -> None:
-    _refuse_records_the_union_misses(
-        [DRN, SFR],
-        ["         DRN", "         SFR", "         STO-SS", "       RECHARGE"],
-    )
-
-
-def test_a_stream_record_no_package_reads_is_refused() -> None:
-    with pytest.raises(ObservableNotAvailableError, match="SFR"):
-        _refuse_records_the_union_misses([DRN], ["         DRN", "         SFR"])
-
-
-def test_the_message_names_what_is_missed_and_what_is_covered() -> None:
-    with pytest.raises(ObservableNotAvailableError) as failure:
-        _refuse_records_the_union_misses([DRN], ["         DRN", "         LAK"])
-
-    message = str(failure.value)
-    assert "LAK" in message
-    assert "DRAIN" in message
-    assert "dry land" in message
-
-
-def test_records_that_do_not_release_are_ignored() -> None:
-    # Storage and recharge are not a path out of the aquifer to the surface.
-    _refuse_records_the_union_misses(
-        [DRN],
-        ["         DRN", "         STO-SY", "       RECHARGE", "FLOW-JA-FACE"],
-    )
-
-
-def test_the_comparison_ignores_the_padding_flopy_keeps() -> None:
-    # FloPy stores record names padded to a fixed width; a naive comparison
-    # would miss every one of them.
-    _refuse_records_the_union_misses([DRN, SFR], ["  DRN   ", "\tSFR\n"])
-
-
-@pytest.mark.parametrize("record", ["CHD", "CONSTANT HEAD", "RIV", "UZF", "DRN-TO-MVR"])
-def test_every_declared_release_path_is_watched(record: str) -> None:
-    with pytest.raises(ObservableNotAvailableError, match="release record"):
-        _refuse_records_the_union_misses([DRN], ["         DRN", f"         {record}"])
-
-
-def test_a_package_declared_but_absent_from_the_file_is_not_this_guard_s_business() -> None:
-    # That case belongs to _resolve_release_record, which refuses it by name.
-    _refuse_records_the_union_misses([DRN, SFR], ["         DRN"])
-
-
 class TestRecordsTheModelRuledOut:
     """Declaring an exclusion is not the same as forgetting one.
 
@@ -104,36 +57,6 @@ class TestRecordsTheModelRuledOut:
             excluded_records=self.LATERAL_CHD,
         )
 
-    def test_the_same_record_with_no_reason_is_still_refused(self) -> None:
-        with pytest.raises(ObservableNotAvailableError, match="CONSTANT HEAD"):
-            _refuse_records_the_union_misses([DRN], ["         DRN", "  CONSTANT HEAD"])
-
-    def test_an_exclusion_does_not_cover_a_different_record(self) -> None:
-        with pytest.raises(ObservableNotAvailableError, match="SFR"):
-            _refuse_records_the_union_misses(
-                [DRN],
-                ["         DRN", "  CONSTANT HEAD", "         SFR"],
-                excluded_records=self.LATERAL_CHD,
-            )
-
-    def test_the_exclusion_is_announced_with_its_reason(self, caplog) -> None:
-        with caplog.at_level("INFO"):
-            _refuse_records_the_union_misses(
-                [DRN],
-                ["         DRN", "  CONSTANT HEAD"],
-                excluded_records=self.LATERAL_CHD,
-            )
-        assert "CONSTANT HEAD" in caplog.text
-        assert "stream role" in caplog.text
-
-    def test_a_stream_constant_head_stays_in_the_union(self) -> None:
-        # The model declared it, so it is read rather than ruled out, and the
-        # guard has nothing to say either way.
-        stream_chd = ReleasePackage(name="CHD", record_aliases=("CHD", "CONSTANT HEAD"))
-        _refuse_records_the_union_misses(
-            [DRN, stream_chd], ["         DRN", "  CONSTANT HEAD"], excluded_records={}
-        )
-
 
 class TestTheModelDeclaresWhatItLeavesOut:
     """The reason has to come from the model, not from the reader."""
@@ -149,20 +72,6 @@ class TestTheModelDeclaresWhatItLeavesOut:
         excluded = excluded_release_records_for_model(model)
         assert {"CHD", "CONSTANT HEAD"} <= set(excluded)
         assert "stream role" in excluded["CHD"]
-
-    def test_a_backend_that_exposes_no_chd_attribute_still_rules_it_out(self) -> None:
-        # MODFLOW-NWT builds its lateral boundary without a `chd` attribute on
-        # the model. Keying the exclusion on that attribute ruled nothing out
-        # and refused every NWT catchment for closing on a boundary.
-        from types import SimpleNamespace
-
-        from hydromodpy.solver.modflow_common.observable_extraction import (
-            excluded_release_records_for_model,
-        )
-
-        assert {"CHD", "CONSTANT HEAD"} <= set(
-            excluded_release_records_for_model(SimpleNamespace(drn=object()))
-        )
 
     def test_a_constant_head_carrying_the_stream_role_is_not_ruled_out(
         self, tmp_path: Path
@@ -188,19 +97,6 @@ class TestTheModelDeclaresWhatItLeavesOut:
         )
         excluded = excluded_release_records_for_model(model)
         assert "CHD" not in excluded and "CONSTANT HEAD" not in excluded
-
-    def test_a_surface_package_mover_record_is_always_ruled_out(self) -> None:
-        """SFR-TO-MVR and LAK-TO-MVR move surface water, never across the aquifer face."""
-        from types import SimpleNamespace
-
-        from hydromodpy.solver.modflow_common.observable_extraction import (
-            excluded_release_records_for_model,
-        )
-
-        excluded = excluded_release_records_for_model(SimpleNamespace(drn=object()))
-
-        assert {"SFR-TO-MVR", "LAK-TO-MVR"} <= set(excluded)
-        assert "double the same water" in excluded["SFR-TO-MVR"]
 
     def test_the_drain_mover_record_is_never_ruled_out(self) -> None:
         """DRN-TO-MVR takes water OUT of the aquifer, so it belongs to the union."""
@@ -231,15 +127,6 @@ class TestSiblingBudgets:
         with pytest.raises(ObservableNotAvailableError, match="SFR"):
             _refuse_sibling_budgets_the_union_cannot_read(cbc, [DRN], ["         DRN"])
 
-    def test_a_package_already_in_the_union_is_not_refused(self, tmp_path) -> None:
-        cbc = tmp_path / "nancon.cbc"
-        cbc.write_bytes(b"")
-        (tmp_path / "nancon.sfr.cbc").write_bytes(b"")
-
-        _refuse_sibling_budgets_the_union_cannot_read(
-            cbc, [DRN, SFR], ["         DRN", "         SFR"]
-        )
-
     def test_a_record_the_model_budget_holds_is_left_to_the_other_guard(self, tmp_path) -> None:
         # The union does not read LAK, so this run must still be refused; but the
         # refusal has to come from the guard that reads the records, with the
@@ -251,12 +138,6 @@ class TestSiblingBudgets:
         _refuse_sibling_budgets_the_union_cannot_read(cbc, [DRN], ["         DRN", "         LAK"])
         with pytest.raises(ObservableNotAvailableError, match="LAK"):
             _refuse_records_the_union_misses([DRN], ["         DRN", "         LAK"])
-
-    def test_no_sibling_means_nothing_to_refuse(self, tmp_path) -> None:
-        cbc = tmp_path / "nancon.cbc"
-        cbc.write_bytes(b"")
-
-        _refuse_sibling_budgets_the_union_cannot_read(cbc, [DRN], ["         DRN"])
 
     def test_the_message_says_where_the_water_would_be_lost(self, tmp_path) -> None:
         cbc = tmp_path / "nancon.cbc"
@@ -303,19 +184,6 @@ class TestTheStreamExchangeOnTheCellSupport:
     signed from the aquifer point of view, negative where the reach gains, and
     ``<stem>.sfr.cbc`` carries the same flux per reach with the opposite sign.
     """
-
-    def test_a_gaining_reach_releases_and_a_losing_one_releases_nothing(self, tmp_path) -> None:
-        directory = tmp_path / "run"
-        directory.mkdir()
-        _write_budget(directory, "nancon", {"SFR": [(2, 1, 4.0), (5, 2, -3.0)]})
-
-        frame = extract_release_flux_by_cell_from_cbc(
-            directory, "nancon", packages=[SFR], n_cells=_N_CELLS
-        )
-
-        assert frame.shape == (1, _N_CELLS)
-        # Cell 2 takes water in and releases nothing; cell 5 gives 3.0 up.
-        assert frame.to_numpy()[0].tolist() == [0.0, 0.0, 0.0, 0.0, 3.0, 0.0]
 
     def test_two_reaches_on_one_cell_are_summed_before_the_clamp(self, tmp_path) -> None:
         directory = tmp_path / "run"

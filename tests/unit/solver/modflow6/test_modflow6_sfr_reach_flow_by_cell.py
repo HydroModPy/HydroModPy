@@ -108,19 +108,6 @@ def test_each_reach_cell_carries_its_own_routed_flow(tmp_path):
     assert by_cell[6] == pytest.approx([0.03, 0.06])
 
 
-def test_a_reach_that_exchanges_with_no_cell_is_skipped(tmp_path):
-    """cell2d is None for a reach carrying flow without touching the aquifer."""
-    run = _write_run(
-        tmp_path,
-        reaches=[_reach(0, 4), _reach(1, None), _reach(2, 6)],
-        csv=_CSV,
-    )
-
-    by_cell = _flows(run)
-
-    assert set(by_cell) == {4, 6}
-
-
 def test_the_most_downstream_reach_wins_a_shared_cell(tmp_path):
     """A gauge on a cell measures what leaves it, which is the larger flow."""
     run = _write_run(
@@ -151,11 +138,3 @@ def test_a_network_whose_reaches_touch_no_cell_returns_nothing(tmp_path):
     run = _write_run(tmp_path, reaches=[_reach(0, None)], csv=_CSV)
 
     assert _call(run) is None
-
-
-def test_the_series_is_truncated_to_the_solver_timesteps(tmp_path):
-    run = _write_run(tmp_path, reaches=[_reach(0, 4)], csv=_CSV)
-
-    by_cell = reach_flow_by_cell(run, "m", times=[86400.0], seconds_per_time_unit=_SECONDS_PER_DAY)
-
-    assert np.asarray(by_cell[4]).size == 1

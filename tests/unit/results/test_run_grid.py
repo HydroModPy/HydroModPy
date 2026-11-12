@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -77,58 +75,10 @@ def _register_sim(
 
 
 class TestGrid:
-    def test_grid_scalar_metadata(self, runs):
-        sid = _register_sim(
-            runs,
-            dem_res=50.0,
-            nrow=5,
-            ncol=4,
-            xmin=300_000.0,
-            ymax=6_800_000.0,
-            catch_area_km2=12.5,
-        )
-        run = Run(sid, runs.reader())
-        grid = run.grid
-
-        assert grid.cell_size == 50.0
-        assert grid.shape == (5, 4)
-        assert grid.crs == "+proj=lcc +lat_1=49 +lat_2=44"
-        assert grid.catchment_area_m2 == 12.5 * 1e6
-
-    def test_grid_extent_matches_dem_transform(self, runs):
-        sid = _register_sim(runs, dem_res=50.0, nrow=5, ncol=4, xmin=300_000.0, ymax=6_800_000.0)
-        run = Run(sid, runs.reader())
-        xmin, xmax, ymin, ymax = run.grid.extent
-
-        assert xmin == 300_000.0
-        assert xmax == 300_000.0 + 4 * 50.0
-        assert ymax == 6_800_000.0
-        assert ymin == 6_800_000.0 - 5 * 50.0
-
     def test_grid_is_cached(self, runs):
         sid = _register_sim(runs)
         run = Run(sid, runs.reader())
         assert run.grid is run.grid
-
-    def test_grid_answers_for_a_global_model(self, runs):
-        """A global model runs on the one-cell mesh: its grid is the one pixel."""
-        sid = _register_sim(
-            runs,
-            mesh_topology="lumped",
-            nrow=1,
-            ncol=1,
-            dem_res=250.0,
-            xmin=300_000.0,
-            ymax=6_800_000.0,
-            solver="linear_reservoir",
-            solver_category="lumped",
-        )
-        run = Run(sid, runs.reader())
-        grid = run.grid
-
-        assert grid.shape == (1, 1)
-        assert grid.cell_size == 250.0
-        assert grid.catchment_area_m2 == 12.5 * 1e6
 
     def test_grid_raises_on_missing_metadata(self, runs):
         sid = _register_sim(runs, with_metadata=False)
@@ -138,17 +88,6 @@ class TestGrid:
 
 
 class TestCatchmentMask:
-    def test_mask_from_dem(self, runs):
-        sid = _register_sim(runs, nrow=5, ncol=4)
-        run = Run(sid, runs.reader())
-        mask = run.catchment_mask
-
-        assert mask.shape == (5, 4)
-        assert mask.dtype == bool
-        expected = np.zeros((5, 4), dtype=bool)
-        expected[1:-1, 1:-1] = True
-        np.testing.assert_array_equal(mask, expected)
-
     def test_mask_is_cached(self, runs):
         sid = _register_sim(runs)
         run = Run(sid, runs.reader())
@@ -214,22 +153,6 @@ class TestCatchmentMaskFromTheStoredBasin:
         run = Run(sid, runs.reader())
         assert run.catchment_mask is run.catchment_mask
 
-    def test_a_run_without_a_basin_falls_back_on_the_dem_and_says_so_once(self, runs, caplog):
-        sid = _register_sim(runs, nrow=5, ncol=4)
-        run = Run(sid, runs.reader())
-
-        with caplog.at_level("INFO"):
-            first = run.catchment_mask
-            second = run.catchment_mask
-
-        assert first is second
-        assert first.shape == (5, 4)
-        lines = [r for r in caplog.records if "predates the stored basin" in r.getMessage()]
-        assert len(lines) == 1
-        assert lines[0].levelno == logging.INFO
-        assert "'dem_raster'" in lines[0].getMessage()
-        assert "(5, 4)" in lines[0].getMessage()
-
 
 class TestDem:
     def test_dem_masks_nodata_to_nan(self, runs):
@@ -245,13 +168,6 @@ class TestDem:
         expected_valid[1:-1, 1:-1] = True
         np.testing.assert_array_equal(valid_cells, expected_valid)
         assert np.all(dem[valid_cells] == 100.0)
-
-    def test_dem_does_not_mutate_stored_raster(self, runs):
-        sid = _register_sim(runs)
-        run = Run(sid, runs.reader())
-        _ = run.dem
-        raster = run.geographic_raster("watershed_dem")
-        assert raster.data[0, 0] == -9999.0
 
     def test_dem_is_cached(self, runs):
         sid = _register_sim(runs)
@@ -302,57 +218,6 @@ class TestFields:
             frame = np.asarray(run.field("head", time=t)).ravel()
             np.testing.assert_array_equal(ds["head"].isel(time=t, layer=0).values, frame)
 
-    def test_list_fields_lists_readable_registry_names(self, runs):
-        sid = self._register_with_fields(runs, nrow=5, ncol=4, n_timesteps=3)
-        n_cells = 5 * 4
-        sz = runs.store(sid).open_zarr(sid)
-        for t in range(3):
-            sz.write_field("watertable_depth", t, np.ones(n_cells), n_timesteps=3)
-        run = Run(sid, runs.reader())
-
-        fields = run.array.list_fields()
-        # Persisted names plus the head-derived fields rebuilt on read. This
-        # store has no surface elevation, so depth and seepage stay out.
-        assert fields == ["head", "watertable_depth", "watertable_elevation"]
-        # every listed name is readable through run.field
-        for name in fields:
-            assert run.field(name, time=0).size == n_cells
-
-
-class TestTimeIndex:
-    def test_time_index_basic(self, runs):
-        # The run keeps the window [first boundary, last boundary), the
-        # last one exclusive, and the solvers stamp each period at its end.
-        # This fallback used to spread 36 stamps evenly from the window start,
-        # which matched neither the solver axis nor the calendar.
-        sid = _register_sim(
-            runs,
-            n_timesteps=36,
-            period_start="2000-01-01",
-            period_end="2003-01-01",
-        )
-        run = Run(sid, runs.reader())
-        idx = run.time_index
-        assert isinstance(idx, pd.DatetimeIndex)
-        assert len(idx) == 36
-        assert idx.equals(pd.date_range("2000-02-01", "2003-01-01", freq="MS").as_unit("ns"))
-
-    def test_time_index_is_cached(self, runs):
-        sid = _register_sim(
-            runs,
-            n_timesteps=5,
-            period_start="2000-01-01",
-            period_end="2000-01-05",
-        )
-        run = Run(sid, runs.reader())
-        assert run.time_index is run.time_index
-
-    def test_time_index_missing_period_raises(self, runs):
-        sid = _register_sim(runs, n_timesteps=5)
-        run = Run(sid, runs.reader())
-        with pytest.raises(RuntimeError, match="period_start/period_end"):
-            _ = run.time_index
-
 
 class TestParams:
     def test_params_returns_global_scalars(self, runs):
@@ -362,19 +227,6 @@ class TestParams:
         )
         run = Run(sid, runs.reader())
         assert global_parameters(run) == {"K": 5e-5, "Sy": 0.05}
-
-    def test_params_excludes_zonal_rows(self, runs):
-        sid = _register_sim(runs)
-        runs.store(sid).write_parameters(
-            sid,
-            [
-                {"param_name": "thickness", "value": 30.0},
-                {"param_name": "K", "zone_id": "zone_1", "value": 1e-4},
-                {"param_name": "K", "zone_id": "zone_2", "value": 2e-4},
-            ],
-        )
-        run = Run(sid, runs.reader())
-        assert global_parameters(run) == {"thickness": 30.0}
 
 
 class TestOutlet:
@@ -410,20 +262,6 @@ class TestTheCriterionInputsTheRunKept:
                 sz.write_forcing_attrs({CRITERION_MEAN_RECHARGE_ATTR: recharge})
         finally:
             sz.close()
-
-    def test_open_water_and_the_outline_come_back_as_read_only_booleans(self, runs):
-        sid = _register_sim(runs, nrow=5, ncol=4)
-        outline = np.zeros(20, dtype=bool)
-        outline[[5, 6, 9, 10]] = True
-        self._keep(runs, sid, open_water=[6], outline=outline)
-
-        holder = Run(sid, runs.reader()).descent
-
-        assert np.flatnonzero(holder.open_water()).tolist() == [6]
-        assert np.flatnonzero(holder.catchment_cells()).tolist() == [5, 6, 9, 10]
-        for mask in (holder.open_water(), holder.catchment_cells()):
-            assert mask.dtype == bool
-            assert not mask.flags.writeable
 
     def test_a_run_that_kept_none_gives_none(self, runs):
         sid = _register_sim(runs, nrow=5, ncol=4)

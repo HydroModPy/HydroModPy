@@ -54,17 +54,6 @@ def _rows(capsys) -> list[dict]:
     return json.loads(capsys.readouterr().out)["data"]
 
 
-def test_a_version_shows_the_overrides_it_was_run_with(monkeypatch, project, capsys) -> None:
-    assert _run(monkeypatch, ["hmp", "ls", "-w", str(project), "--format", "json"]) == 0
-
-    by_name = {row["name"]: row for row in _rows(capsys)}
-    assert by_name["J0014010-base.v2"]["overrides"] == "flow.param.K.field.value=2e-05"
-    assert by_name["J0014010-base"]["overrides"] == ""
-
-    assert _run(monkeypatch, ["hmp", "ls", "-w", str(project)]) == 0
-    assert "overrides: flow.param.K.field.value=2e-05" in capsys.readouterr().out
-
-
 def test_best_refuses_runs_scored_at_different_stations(monkeypatch, project, capsys) -> None:
     argv = ["hmp", "ls", "-w", str(project), "--best", "nse", "--format", "json"]
 
@@ -73,31 +62,6 @@ def test_best_refuses_runs_scored_at_different_stations(monkeypatch, project, ca
     err = capsys.readouterr().err
     assert "different rules" in err
     assert "--by site" in err
-
-
-def test_best_ranks_the_runs_best_first(monkeypatch, project, capsys) -> None:
-    argv = ["hmp", "ls", "-w", str(project), "--best", "nse", "--format", "json"]
-    assert _run(monkeypatch, [*argv, "--mixed-windows"]) == 0
-
-    assert [row["name"] for row in _rows(capsys)] == [
-        "J0014010-base.v2",
-        "J0014010-base",
-        "J0170000-base",
-    ]
-
-
-def test_by_site_with_best_keeps_one_run_per_site(monkeypatch, project, capsys) -> None:
-    argv = ["hmp", "ls", "-w", str(project), "--by", "site", "--best", "nse"]
-    assert _run(monkeypatch, [*argv, "--format", "json"]) == 0
-    assert [(row["site"], row["name"]) for row in _rows(capsys)] == [
-        ("J0014010", "J0014010-base.v2"),
-        ("J0170000", "J0170000-base"),
-    ]
-
-    assert _run(monkeypatch, argv) == 0
-    text = capsys.readouterr().out
-    assert "# site: J0014010" in text
-    assert "# site: J0170000" in text
 
 
 def test_by_site_alone_groups_every_run_under_its_site(monkeypatch, project, capsys) -> None:

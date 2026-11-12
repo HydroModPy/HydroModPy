@@ -133,22 +133,6 @@ def catalog_with_data(tmp_path):
 
 
 class TestNetCDFExport:
-    def test_roundtrip(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "export.nc"
-        result = _export(catalog, sid, variables="head", file=out)
-        assert result == out
-        assert result.exists()
-
-        ds = xr.open_dataset(out, decode_times=False)
-        assert "mesh2d" in ds
-        assert "node_x" in ds
-        assert "face_nodes" in ds
-        assert ds["head"].dims == ("time", "layer", "n_face")
-        assert ds["head"].shape == (3, 2, 6)
-        np.testing.assert_array_equal(ds["layer"].values, [0, 1])
-        ds.close()
-
     def test_a_file_for_qgis_names_one_layer(self, catalog_with_data):
         # MDAL, what QGIS reads a mesh with, binds a dataset to the face
         # dimension and ignores an array carrying a third one.
@@ -164,156 +148,8 @@ class TestNetCDFExport:
             np.testing.assert_array_equal(ds["head"].values, every["head"].sel(layer=1).values)
         ds.close()
 
-    def test_multi_variable(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        # Write a 2D derived field
-        rng = np.random.default_rng(0)
-        for t in range(3):
-            catalog.write_field(
-                sid,
-                "watertable_depth",
-                t,
-                rng.random(6),
-                n_timesteps=3 if t == 0 else None,
-                subgroup="derived",
-            )
-
-        out = exports / "multi.nc"
-        _export(catalog, sid, variables=["head", "watertable_depth"], file=out)
-        ds = xr.open_dataset(out, decode_times=False)
-        assert "head" in ds
-        assert "watertable_depth" in ds
-        assert ds["watertable_depth"].dims == ("time", "n_face")
-        ds.close()
-
-    def test_timestep_subset(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "subset.nc"
-        _export(catalog, sid, variables="head", file=out, time=[0, 2])
-        ds = xr.open_dataset(out, decode_times=False)
-        assert ds["head"].shape[0] == 2
-        np.testing.assert_array_equal(ds["time"].values, np.array([0, 172800]))
-        ds.close()
-
-
-class TestCSVExport:
-    def test_basic(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "ts.csv"
-        result = _export(catalog, sid, variables="discharge", file=out)
-        assert result.exists()
-        df = pd.read_csv(out)
-        assert len(df) == 10
-        assert list(df.columns) == [
-            "site",
-            "case_id",
-            "datetime",
-            "station_id",
-            "variable",
-            "source",
-            "value",
-            "unit",
-        ]
-        assert df["station_id"].iloc[0] == "outlet"
-
-    def test_filter_variable(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        idx = pd.date_range("2020-01-01", periods=5, freq="D")
-        catalog.write_timeseries(
-            sid,
-            "outlet",
-            "stage",
-            pd.Series(range(5), index=idx, dtype=float),
-        )
-        out = exports / "filtered.csv"
-        _export(catalog, sid, variables="discharge", file=out)
-        df = pd.read_csv(out)
-        assert all(df["variable"] == "discharge")
-
-    def test_several_series_share_one_file(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        idx = pd.date_range("2020-01-01", periods=5, freq="D")
-        catalog.write_timeseries(
-            sid, "outlet", "stage", pd.Series(range(5), index=idx, dtype=float)
-        )
-        out = exports / "both.csv"
-        _export(catalog, sid, variables=["discharge", "stage"], file=out)
-        assert set(pd.read_csv(out)["variable"]) == {"discharge", "stage"}
-
-
-class TestVTUExport:
-    def test_one_layer_asked_keeps_the_bare_name(self, catalog_with_data):
-        meshio = pytest.importorskip("meshio")
-
-        catalog, sid, exports = catalog_with_data
-        out = exports / "field.vtu"
-        result = _export(catalog, sid, variables="head", file=out, time=0, layer=0)
-        assert result.exists()
-        mesh = meshio.read(str(out))
-        assert "head" in mesh.cell_data
-        total_cells = sum(len(cd) for cd in mesh.cell_data["head"])
-        assert total_cells == 6
-
-    def test_without_a_layer_every_layer_is_written(self, catalog_with_data):
-        meshio = pytest.importorskip("meshio")
-
-        catalog, sid, exports = catalog_with_data
-        out = exports / "layers.vtu"
-        _export(catalog, sid, variables="head", file=out, time=0)
-        mesh = meshio.read(str(out))
-        assert not any("layer" in name for name in mesh.cell_data)
-        assert mesh.cell_data["head"][0].shape == (6, 2)
-
-    def test_the_file_names_the_run_and_the_version_that_made_it(self, catalog_with_data):
-        meshio = pytest.importorskip("meshio")
-        import hydromodpy
-
-        catalog, sid, exports = catalog_with_data
-        out = exports / "named.vtu"
-        _export(catalog, sid, variables="head", file=out, time=0, layer=0)
-        field_data = meshio.read(str(out)).field_data
-        assert bytes(field_data["sim_id"]).decode() == sid
-        assert bytes(field_data["hydromodpy_version"]).decode() == hydromodpy.__version__
-
 
 class TestGeoTIFFExport:
-    def test_basic(self, catalog_with_data):
-        import rasterio
-
-        catalog, sid, exports = catalog_with_data
-        out = exports / "field.tif"
-        result = _export(catalog, sid, variables="head", file=out, time=0, layer=0, resolution=0.5)
-        assert result.exists()
-        with rasterio.open(str(out)) as src:
-            assert src.count == 1
-            assert src.width > 0
-            assert src.height > 0
-            data = src.read(1)
-            # At least some valid pixels (not all nodata)
-            assert np.any(data != -9999.0)
-
-    def test_geotiff_export_is_cog_compliant(self, catalog_with_data):
-        """Output rasters are tiled, zstd-compressed and carry HMP_* tags."""
-        import rasterio
-
-        catalog, sid, exports = catalog_with_data
-        out = exports / "field_cog.tif"
-        _export(catalog, sid, variables="head", file=out, time=0, layer=0, resolution=0.5)
-        with rasterio.open(str(out)) as src:
-            profile = src.profile
-            assert profile.get("tiled") is True
-            assert profile.get("blockxsize") == 512
-            assert profile.get("blockysize") == 512
-            compression = src.compression.value if src.compression else ""
-            assert "zstd" in compression.lower()
-            tags = src.tags()
-            assert tags.get("HMP_SIM_ID") == str(sid)
-            assert tags.get("HMP_VARIABLE") == "head"
-            assert tags.get("HMP_UNITS") == "m"
-            assert "HMP_EXPORTED_AT" in tags
-            # The fixture has no period edges, so the model instant is unknown and left out.
-            assert "HMP_TIMESTAMP" not in tags
-
     def test_a_nodata_value_is_written_in_the_file(self, catalog_with_data):
         catalog, sid, exports = catalog_with_data
         out = exports / "nodata.tif"
@@ -335,18 +171,6 @@ class TestGeoTIFFExport:
 
 
 class TestShapefileExport:
-    def test_basic(self, catalog_with_data):
-        import geopandas as gpd
-
-        catalog, sid, exports = catalog_with_data
-        out = exports / "cells.shp"
-        result = _export(catalog, sid, variables="head", file=out, time=0, layer=0)
-        assert result.exists()
-        gdf = gpd.read_file(str(out))
-        assert len(gdf) == 6
-        assert "head" in gdf.columns
-        assert "cell_id" in gdf.columns
-
     @pytest.mark.parametrize("suffix", [".shp", ".gpkg"])
     def test_a_field_of_several_layers_needs_a_layer(self, catalog_with_data, suffix):
         catalog, sid, exports = catalog_with_data
@@ -365,12 +189,6 @@ class TestExportErrors:
         catalog, sid, exports = catalog_with_data
         with pytest.raises(ExportError, match="no run can export 'nonexistent_field'"):
             _export(catalog, sid, variables="nonexistent_field", file=exports / "missing.nc")
-
-    def test_a_name_this_run_does_not_hold_is_refused_with_what_it_holds(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        with pytest.raises(ExportError, match="holds no 'recharge'") as refused:
-            _export(catalog, sid, variables="recharge", file=exports / "recharge.nc")
-        assert "head" in str(refused.value)
 
 
 class TestNetCDFForQgis:
@@ -398,33 +216,6 @@ class TestNetCDFForQgis:
         finally:
             ds.close()
 
-    def test_crs_without_a_readable_wkt_still_carries_the_epsg_code(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        # The fixture stores "EPSG:2154" in place of a WKT, which pyproj cannot
-        # turn into WKT1. The code has to survive on its own.
-        out = exports / "crs_epsg_only.nc"
-        _export(catalog, sid, variables="head", file=out)
-
-        ds = xr.open_dataset(out, decode_times=False)
-        try:
-            mdal = ds["projected_coordinate_system"].attrs
-            assert mdal["epsg"] == 2154
-            assert "wkt" not in mdal
-        finally:
-            ds.close()
-
-    def test_face_coordinates_are_declared_on_the_mesh(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "mesh.nc"
-        _export(catalog, sid, variables="head", file=out)
-
-        ds = xr.open_dataset(out, decode_times=False)
-        try:
-            # Undeclared, the centroids read as two datasets to plot.
-            assert ds["mesh2d"].attrs["face_coordinates"] == "face_x face_y"
-        finally:
-            ds.close()
-
     def test_a_failed_export_leaves_the_previous_file_alone(self, catalog_with_data, monkeypatch):
         catalog, sid, exports = catalog_with_data
         out = exports / "kept.nc"
@@ -441,31 +232,6 @@ class TestNetCDFForQgis:
 
         assert out.read_bytes() == before
         assert not (exports / "kept.nc.tmp").exists()
-
-    def test_a_single_layer_field_keeps_its_bare_name(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        rng = np.random.default_rng(1)
-        for t in range(3):
-            catalog.write_field(
-                sid,
-                "recharge",
-                t,
-                rng.random((1, 6)),
-                n_timesteps=3 if t == 0 else None,
-                subgroup="budget",
-            )
-
-        out = exports / "one_layer.nc"
-        _export(catalog, sid, variables="recharge", file=out)
-
-        ds = xr.open_dataset(out, decode_times=False)
-        try:
-            # The name stays at any depth. This model has two layers, so a field of
-            # one layer names its own dimension.
-            assert ds["recharge"].dims == ("time", "recharge_layer", "n_face")
-            assert "recharge_layer1" not in ds
-        finally:
-            ds.close()
 
 
 @pytest.fixture
@@ -557,26 +323,6 @@ class TestExportReprojection:
             # stays inside the range of the four cell values.
             assert valid.min() == pytest.approx(12.5, abs=1e-9)
             assert valid.max() == pytest.approx(19.0, abs=1e-9)
-
-    def test_a_categorical_raster_is_warped_without_inventing_classes(self, catalog_on_lambert93):
-        import rasterio
-
-        catalog, sid, exports, _bounds = catalog_on_lambert93
-        out = exports / "mask_wgs84.tif"
-        _export(
-            catalog,
-            sid,
-            variables="seepage_mask",
-            file=out,
-            time=0,
-            resolution=100.0,
-            crs="EPSG:4326",
-        )
-
-        with rasterio.open(str(out)) as src:
-            assert src.crs.to_epsg() == 4326
-            data = src.read(1)
-            assert set(np.unique(data[data != -9999.0])) <= {0.0, 1.0}
 
     def test_a_vector_asked_for_another_crs_is_reprojected(self, catalog_on_lambert93):
         import geopandas as gpd

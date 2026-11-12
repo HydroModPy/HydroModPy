@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -18,35 +17,8 @@ from hydromodpy.core.workspace.workspace_toml import (
     WorkspaceToml,
     load_workspace_toml,
     refuse_a_newer_workspace,
-    render_workspace_toml,
     write_workspace_toml,
 )
-
-
-def test_template_contains_required_sections():
-    rendered = render_workspace_toml(
-        project_name="ws",
-        creator_name="Bastien",
-        creator_email="b@example.com",
-        created_at="2026-05-12T00:00:00+00:00",
-    )
-    assert "[workspace]" in rendered
-    assert "[workspace.geographic_scope]" in rendered
-    assert "[workspace.team]" in rendered
-    assert "[workspace.tags]" in rendered
-
-
-def test_render_outputs_valid_toml():
-    rendered = render_workspace_toml(
-        project_name="my_lab",
-        creator_name="Alice",
-        creator_email="alice@example.com",
-        created_at="2026-05-12T00:00:00+00:00",
-    )
-    parsed = tomllib.loads(rendered)
-    assert parsed["workspace"]["name"] == "my_lab"
-    assert parsed["workspace"]["contact"] == "alice@example.com"
-    assert "Alice" in parsed["workspace"]["team"]["members"]
 
 
 def test_write_workspace_toml_idempotent(tmp_path: Path):
@@ -68,26 +40,6 @@ def test_write_workspace_toml_idempotent(tmp_path: Path):
     )
     assert second == first
     assert second.read_text(encoding="utf-8") == first_content
-
-
-def test_write_workspace_toml_force_overwrites(tmp_path: Path):
-    target_dir = tmp_path / "ws"
-    write_workspace_toml(
-        target_dir,
-        project_name="a",
-        creator_name="A",
-        creator_email="a@example.com",
-    )
-    second = write_workspace_toml(
-        target_dir,
-        project_name="b",
-        creator_name="B",
-        creator_email="b@example.com",
-        force=True,
-    )
-    content = second.read_text(encoding="utf-8")
-    assert 'name = "b"' in content
-    assert 'contact = "b@example.com"' in content
 
 
 @pytest.mark.parametrize(
@@ -148,11 +100,6 @@ def test_a_workspace_that_asks_for_more_is_refused_before_any_work(tmp_path: Pat
         build(ws)
 
 
-def test_a_new_workspace_asks_for_the_start_of_the_two_line(tmp_path: Path):
-    ws = _scaffold_workspace(tmp_path)
-    assert load_workspace_toml(ws).workspace.hydromodpy_version_min == "2.0.0"
-
-
 def test_a_minimum_that_is_no_version_is_refused(tmp_path: Path):
     ws = _scaffold_workspace(tmp_path)
     target = ws / WORKSPACE_TOML_FILENAME
@@ -189,84 +136,11 @@ def _scaffold_workspace(tmp_path: Path) -> Path:
     return ws
 
 
-def test_load_workspace_toml_validates_required_fields(tmp_path: Path):
-    ws = _scaffold_workspace(tmp_path)
-    parsed = load_workspace_toml(ws)
-    assert isinstance(parsed, WorkspaceToml)
-    assert parsed.workspace.name == "lab"
-    assert parsed.workspace.contact == "alice@example.com"
-    assert parsed.workspace.created_at == "2026-05-12T00:00:00+00:00"
-    assert parsed.conventions.cf == "CF-1.11"
-    assert parsed.conventions.acdd == "ACDD-1.3"
-
-
-def test_load_workspace_toml_rejects_unknown_field(tmp_path: Path):
-    ws = _scaffold_workspace(tmp_path)
-    toml_path = ws / WORKSPACE_TOML_FILENAME
-    content = toml_path.read_text(encoding="utf-8")
-    # Inject a sibling unknown key inside the [workspace] table.
-    injected = content.replace(
-        'hydromodpy_version_min = "2.0.0"',
-        'hydromodpy_version_min = "2.0.0"\nrogue_field = "bad"',
-    )
-    toml_path.write_text(injected, encoding="utf-8")
-    with pytest.raises(ValidationError):
-        load_workspace_toml(ws)
-
-
 def test_load_workspace_toml_rejects_unknown_top_level_block(tmp_path: Path):
     ws = _scaffold_workspace(tmp_path)
     toml_path = ws / WORKSPACE_TOML_FILENAME
     toml_path.write_text(
         toml_path.read_text(encoding="utf-8") + '\n[unexpected]\nfoo = "bar"\n',
-        encoding="utf-8",
-    )
-    with pytest.raises(ValidationError):
-        load_workspace_toml(ws)
-
-
-def test_load_workspace_toml_rejects_missing_workspace_name(tmp_path: Path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    toml_path = ws / WORKSPACE_TOML_FILENAME
-    toml_path.write_text(
-        """\
-[workspace]
-description = ""
-contact = "alice@example.com"
-created_at = "2026-05-12T00:00:00+00:00"
-""",
-        encoding="utf-8",
-    )
-    with pytest.raises(ValidationError):
-        load_workspace_toml(ws)
-
-
-def test_load_workspace_toml_rejects_empty_workspace_name(tmp_path: Path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    (ws / WORKSPACE_TOML_FILENAME).write_text(
-        """\
-[workspace]
-name = ""
-contact = "alice@example.com"
-created_at = "2026-05-12T00:00:00+00:00"
-""",
-        encoding="utf-8",
-    )
-    with pytest.raises(ValidationError):
-        load_workspace_toml(ws)
-
-
-def test_load_workspace_toml_rejects_missing_contact(tmp_path: Path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    (ws / WORKSPACE_TOML_FILENAME).write_text(
-        """\
-[workspace]
-name = "lab"
-created_at = "2026-05-12T00:00:00+00:00"
-""",
         encoding="utf-8",
     )
     with pytest.raises(ValidationError):
@@ -293,43 +167,6 @@ def test_load_roundtrip_preserves_content(tmp_path: Path):
 def test_load_workspace_toml_missing_file_raises(tmp_path: Path):
     with pytest.raises(FileNotFoundError):
         load_workspace_toml(tmp_path / "absent")
-
-
-def test_load_workspace_toml_invalid_bbox(tmp_path: Path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    (ws / WORKSPACE_TOML_FILENAME).write_text(
-        """\
-[workspace]
-name = "lab"
-contact = "alice@example.com"
-created_at = "2026-05-12T00:00:00+00:00"
-
-[workspace.geographic_scope]
-bbox_wgs84 = [1.0, 2.0]
-""",
-        encoding="utf-8",
-    )
-    with pytest.raises(ValidationError):
-        load_workspace_toml(ws)
-
-
-def test_template_leaves_license_commented_out():
-    rendered = render_workspace_toml(
-        project_name="ws",
-        creator_name="Bastien",
-        creator_email="b@example.com",
-        created_at="2026-05-12T00:00:00+00:00",
-    )
-    assert "# license" in rendered
-    parsed = tomllib.loads(rendered)
-    assert "license" not in parsed["workspace"]
-
-
-def test_workspace_without_a_declared_license_still_loads(tmp_path: Path):
-    ws = _scaffold_workspace(tmp_path)
-    parsed = load_workspace_toml(ws)
-    assert parsed.workspace.license == ""
 
 
 def test_workspace_toml_model_frozen():

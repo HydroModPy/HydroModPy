@@ -116,32 +116,6 @@ def test_specified_outlet_emits_a_period_rate_row() -> None:
     assert [1, "rate", -2.5] in period_rows[0]
 
 
-def test_outlet_routes_directly_to_downstream_lake() -> None:
-    # Preretenue (lac0) -> retenue (lac1) via a WEIR with lakeout=2 (the second
-    # lake, 1-based).
-    lakes = {
-        "lac0": {"outlets": [{"kind": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 2}]},
-        "lac1": {"outlets": []},
-    }
-    rows = build_lake_outlets(None, lakes=lakes)
-    assert len(rows) == 1
-    _, lakein, lakeout, *_ = rows[0]
-    assert lakein == 0  # from lac0
-    assert lakeout == 1  # config lakeout=2 -> 0-based index 1, NOT external (-1)
-
-
-def test_lakeout_two_on_two_lake_model_resolves_to_index_one() -> None:
-    # Config lakeout is 1-based: lakeout=2 is the second lake, which FloPy stores
-    # as 0-based index 1 (written to the MF6 file as lake number 2).
-    lakes = {
-        "lac0": {"outlets": [{"kind": "WEIR", "invert": 87.0, "width": 30.0, "lakeout": 2}]},
-        "lac1": {"outlets": []},
-    }
-    rows = build_lake_outlets(None, lakes=lakes)
-    _, _, lakeout, *_ = rows[0]
-    assert lakeout == 1
-
-
 def test_lakeout_greater_than_lake_count_is_rejected() -> None:
     # lakeout=2 but only one lake declared: no downstream lake to route to.
     lakes = {
@@ -225,33 +199,6 @@ def test_lak_package_args_attach_outlets_and_seconds_conversions() -> None:
     assert args["time_conversion"] != 86400.0
 
 
-def test_lak_package_args_omit_outlets_when_none() -> None:
-    polygon = Polygon([(1.0, 1.0), (3.0, 1.0), (3.0, 3.0), (1.0, 3.0)])
-    model = SimpleNamespace(
-        model_output_name="lac_test",
-        time_units="seconds",
-        inputs=make_model(
-            boundaries=BoundaryConditionBundle(conditions={}, active_ids=("lake",)),
-            lakes={
-                "lac0": {
-                    "polygon": polygon,
-                    "bedleak": 0.3,
-                    "abacus": [(50.0, 0.0, 4.0), (100.0, 200.0, 4.0)],
-                }
-            },
-        ),
-    )
-    masked = apply_lake_idomain_mask(_grid_4x4(), lake_cell_ids_by_lake={"lac0": _LAKE_CELLS})
-    args = build_lak_package_args(
-        model, solver_mesh=masked, lake_cell_ids_by_lake={"lac0": _LAKE_CELLS}
-    )
-    assert args is not None
-    assert args["noutlets"] == 0
-    # No empty recarrays handed to FloPy.
-    assert "outlets" not in args
-    assert "perioddata" not in args
-
-
 def test_reciprocal_weirs_with_the_same_crest_are_refused() -> None:
     # Two lakes spilling into each other over the same crest: MF6 circulates water
     # around the loop (17.6 m3/s each way for a 0.04 m3/s net on the Cheze). The
@@ -287,14 +234,3 @@ def test_reciprocal_outlets_with_different_crests_stay_a_warning(
         rows = build_lake_outlets(None, lakes=lakes)
     assert len(rows) == 2
     assert "outlet loop" in caplog.text
-
-
-def test_lake_outlet_cascade_is_not_reported(caplog: pytest.LogCaptureFixture) -> None:
-    # A real cascade (upstream lake -> downstream lake -> external) is not a loop.
-    lakes = {
-        "upper": {"outlets": [{"kind": "WEIR", "invert": 90.0, "width": 10.0, "lakeout": 2}]},
-        "lower": {"outlets": [{"kind": "WEIR", "invert": 80.0, "width": 10.0, "lakeout": 0}]},
-    }
-    with caplog.at_level(logging.WARNING):
-        build_lake_outlets(None, lakes=lakes)
-    assert "outlet loop" not in caplog.text

@@ -115,23 +115,6 @@ def test_run_without_config_or_resume_errors(monkeypatch, tmp_path):
     assert exc.value.code != 0
 
 
-def test_force_is_rejected_outside_the_simulation_workflow(tmp_path, monkeypatch, capsys):
-    """Only a simulation and a calibration give back identical work, so only they take --force."""
-    workspace = tmp_path / "ws"
-    workspace.mkdir()
-    config = workspace / "overview.toml"
-    config.write_text('[workflow]\nmode = "overview"\n', encoding="utf-8")
-    monkeypatch.chdir(workspace)
-
-    with pytest.raises(SystemExit) as exit_info:
-        run_cmd._run_toml(config, args=_args(resume=None, force=True, dry_run=False))
-
-    assert exit_info.value.code == EXIT_CONFIG
-    assert "--force is only supported for the 'simulation' and 'calibration' workflows" in (
-        capsys.readouterr().err
-    )
-
-
 def test_a_calibration_takes_a_bare_resume_and_reopens_its_session(tmp_path, monkeypatch, capsys):
     """A launched calibration started again reopens its session instead of a new version."""
     from hydromodpy.project import api

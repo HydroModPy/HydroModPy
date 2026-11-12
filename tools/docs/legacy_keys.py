@@ -9,8 +9,8 @@ applies and not written by hand:
   its new name with ``ConfigKeyRenamedWarning``, and ``hmp doctor --fix-config``
   rewrites the file. The dotted override of a calibration phase moves with it.
 - refused as a pre-release form: a key listed in ``hydromodpy/config/prerelease_forms.txt``.
-  Only a pre-release of 2.0 wrote it, so 2.1 refuses it with a sentence that names the
-  doctor of 2.0.x (:func:`prerelease_paths`).
+  Only a pre-release of 2.0 wrote it, so this version refuses it with a sentence that names the
+  current name of the key (:func:`prerelease_paths`).
 
 A rename in neither group is refused (``extra="forbid"``).
 """
@@ -47,7 +47,7 @@ def accepted_old_names(register: Register = REGISTER) -> dict[str, str]:
 
 
 def prerelease_paths() -> frozenset[str]:
-    """The keys only a pre-release of 2.0 wrote, which 2.1 refuses, as the docs write a path.
+    """The keys only a pre-release of 2.0 wrote, which this version refuses, as the docs write a path.
 
     A form that refuses a value of a key that still exists is not a removed key, so it
     is left out.

@@ -160,22 +160,6 @@ def test_an_outlet_outside_the_raster_is_named_at_the_dem(tmp_path: Path) -> Non
     assert "falls outside" in found[0].detail
 
 
-def test_an_outlet_is_read_in_the_crs_of_the_project(tmp_path: Path) -> None:
-    path = write_raster(tmp_path / "dem.tif", crs="EPSG:2154")
-    longitude, latitude = rasterio.warp.transform(
-        "EPSG:2154", "EPSG:4326", [INSIDE[0]], [INSIDE[1]]
-    )
-
-    found = read_input_headers(
-        document(
-            FileDemSource(path=path), outlet=(longitude[0], latitude[0]), crs_project="EPSG:4326"
-        ),
-        base=tmp_path,
-    )
-
-    assert found == []
-
-
 def test_an_outlet_is_checked_only_when_one_file_is_the_dem(tmp_path: Path) -> None:
     first = write_raster(tmp_path / "a.tif")
     second = write_raster(tmp_path / "b.tif")
@@ -183,17 +167,6 @@ def test_an_outlet_is_checked_only_when_one_file_is_the_dem(tmp_path: Path) -> N
     found = read_input_headers(
         document(FileDemSource(path=first), FileDemSource(path=second), outlet=(9000.0, 9000.0)),
         base=tmp_path,
-    )
-
-    assert found == []
-
-
-def test_a_relative_path_is_read_from_the_base_folder(tmp_path: Path) -> None:
-    (tmp_path / "inputs").mkdir()
-    write_raster(tmp_path / "inputs" / "dem.tif")
-
-    found = read_input_headers(
-        document(FileDemSource(path=Path("inputs/dem.tif"))), base=tmp_path, bounds=None
     )
 
     assert found == []

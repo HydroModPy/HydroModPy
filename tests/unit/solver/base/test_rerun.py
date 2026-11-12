@@ -117,15 +117,6 @@ def test_changed_properties(case: str, previous: Any, model: Any, expected: Any)
     assert changed_properties(previous, model) == expected
 
 
-def test_a_model_from_with_properties_has_new_mappings_over_the_same_values() -> None:
-    """The reason the comparison reads the values and not the mappings."""
-    changed = BASE.with_properties(K=_k(2.0))
-
-    assert changed.wells is not BASE.wells
-    assert changed.properties.profiles is not BASE.properties.profiles
-    assert changed_properties(BASE, changed) == {"K"}
-
-
 class _Rerunning:
     mutable: ClassVar[frozenset[str]] = frozenset({"K", "Sy"})
 

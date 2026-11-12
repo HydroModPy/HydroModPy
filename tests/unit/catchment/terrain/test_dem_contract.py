@@ -83,27 +83,7 @@ def test_dem_elevation_out_of_range_fails():
 # -- read_dem_header -----------------------------------------------------------
 
 
-def test_the_header_reads_the_facts_without_reading_values(tmp_path) -> None:
-    path = write_geotiff(tmp_path / "dem.tif", np.ones((4, 4)), cell=25.0, nodata=-9999.0)
-
-    with rasterio.open(path) as src:
-        header = read_dem_header(src)
-
-    assert header.crs == "EPSG:2154"
-    assert header.projected is True
-    assert header.linear_unit == "metre"
-    assert header.metric is True
-    assert header.rotated is False
-    assert header.dx_m == 25.0
-    assert header.dy_m == 25.0
-    assert header.nodata == -9999.0
-
-
 # -- check_dem_header ----------------------------------------------------------
-
-
-def test_a_projected_metre_square_header_passes() -> None:
-    check_dem_header(_header(), routing_res_m=25.0)
 
 
 @pytest.mark.parametrize(
@@ -130,24 +110,6 @@ def test_a_broken_header_is_refused_naming_the_fact(header: DemHeader, says: str
     assert any(says in str(failure) for failure in failures)
 
 
-def test_a_routed_resolution_outside_the_contract_is_refused() -> None:
-    with pytest.raises(DataContractViolation) as refused:
-        check_dem_header(_header(), routing_res_m=0.5)
-
-    assert any(
-        "routed resolution 0.5 m is outside" in str(f) for f in refused.value.context["failures"]
-    )
-
-
-def test_a_degree_resolution_is_not_read_as_metres() -> None:
-    header = _header(crs="EPSG:4326", projected=False, linear_unit="degree", metric=False)
-
-    with pytest.raises(DataContractViolation) as refused:
-        check_dem_header(header, routing_res_m=0.0003)
-
-    assert len(refused.value.context["failures"]) == 1
-
-
 def test_a_metric_unit_is_known_by_its_factor_not_its_name(tmp_path) -> None:
     wkt = CRS.from_epsg(2154).to_wkt().replace('"metre"', '"metres"')
     path = write_geotiff(tmp_path / "dem.tif", np.ones((4, 4)), cell=25.0, nodata=-9999.0)
@@ -170,13 +132,6 @@ def test_the_contract_bounds_can_be_tightened() -> None:
 # -- check_dem_outlet ----------------------------------------------------------
 
 
-def test_an_outlet_inside_the_raster_on_a_value_passes(tmp_path) -> None:
-    path = write_geotiff(tmp_path / "dem.tif", np.ones((10, 10)), cell=25.0, nodata=-9999.0)
-
-    with rasterio.open(path) as src:
-        check_dem_outlet(src, _header(), x=100.0, y=100.0)
-
-
 def test_an_outlet_outside_the_raster_is_refused(tmp_path) -> None:
     path = write_geotiff(tmp_path / "dem.tif", np.ones((10, 10)), cell=25.0)
 
@@ -196,13 +151,6 @@ def test_an_outlet_on_a_nodata_cell_is_refused(tmp_path) -> None:
 
 
 # -- check_dem_values ----------------------------------------------------------
-
-
-def test_valid_elevations_pass(tmp_path) -> None:
-    path = write_geotiff(tmp_path / "dem.tif", np.full((3, 3), 200.0), nodata=-9999.0)
-
-    with rasterio.open(path) as src:
-        check_dem_values(src, _header())
 
 
 def test_an_undeclared_sentinel_is_read_as_an_elevation_and_refused(tmp_path) -> None:

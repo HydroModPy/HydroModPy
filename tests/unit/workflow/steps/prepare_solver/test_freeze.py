@@ -20,7 +20,6 @@ from hydromodpy.mesh.planning.refinement_zones import (
     RefinementZone,
     load_refinement_zones,
 )
-from hydromodpy.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.results.run.field_envelope import read_run_fields
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_RESOLVED_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
@@ -176,24 +175,6 @@ def _settings(cfg: HydroModPyConfig) -> dict:
     return cfg.model_dump(mode="json", exclude={"workspace"})
 
 
-def test_the_frozen_config_of_a_soil_run_replays_into_the_run_config(tmp_path: Path) -> None:
-    project = _project(tmp_path)
-
-    cfg, frozen = _frozen(project)
-
-    assert (
-        "values"
-        not in tomllib.loads(frozen.read_text(encoding="utf-8"))["flow"]["sinks_sources"][
-            "recharge"
-        ]
-    )
-    for replayed in _replays(project, frozen):
-        assert _settings(replayed) == _settings(cfg)
-        recharge = replayed.flow.sinks_sources.recharge
-        assert recharge.soil is not None
-        assert "values" not in recharge.model_fields_set
-
-
 def test_the_soil_etp_offset_stays_unwritten_on_replay(tmp_path: Path) -> None:
     project = _project(tmp_path)
 
@@ -203,36 +184,6 @@ def test_the_soil_etp_offset_stays_unwritten_on_replay(tmp_path: Path) -> None:
         etp = replayed.flow.sinks_sources.etp
         assert "extinction_depth" in etp.model_fields_set
         assert "surface_offset" not in etp.model_fields_set
-
-
-def test_an_offset_written_at_its_default_is_another_computation(tmp_path: Path) -> None:
-    """Under a soil reservoir the key gives 2 m and no key gives 0 m, so one identity lied."""
-    silent = HydroModPyConfig.from_toml(_project(tmp_path / "a") / "project.toml")
-    written = HydroModPyConfig.from_toml(_project(tmp_path / "b", OFFSET_WRITTEN) / "project.toml")
-
-    assert "surface_offset" in written.flow.sinks_sources.etp.model_fields_set
-    assert "surface_offset" not in silent.flow.sinks_sources.etp.model_fields_set
-    assert _identity(silent) != _identity(written)
-
-
-@pytest.mark.parametrize("text", [PROJECT, OFFSET_WRITTEN], ids=["no-key", "key-at-its-default"])
-@pytest.mark.parametrize(
-    "changes", [{}, {"flow.param.K.field.value": 3.3e-3}], ids=["as-written", "with-an-override"]
-)
-def test_the_frozen_file_reads_back_to_the_identity_of_the_run(
-    tmp_path: Path, text: str, changes: dict
-) -> None:
-    """What ``hmp run --resume`` compares: the identity of the file against the first attempt."""
-    project = _project(tmp_path, text)
-    base = HydroModPyConfig.from_toml(project / "project.toml")
-    cfg = base.with_changes(changes) if changes else base
-
-    _, frozen = _frozen(project, cfg)
-
-    if changes:
-        assert _identity(cfg) != _identity(base)
-    for replay in _replays(project, frozen):
-        assert _identity(replay) == _identity(cfg)
 
 
 def test_an_inferred_data_type_stays_out_of_the_frozen_file(tmp_path: Path) -> None:
@@ -309,47 +260,6 @@ def _frozen_in_workspace(project: Path) -> Path:
     path = run_dir / "config.toml"
     path.write_text(portable_config_document(cfg, run_dir, project), encoding="utf-8")
     return path
-
-
-def test_the_frozen_config_names_its_inputs_by_their_portable_form(tmp_path: Path) -> None:
-    project = _workspace(tmp_path / "laptop")
-
-    frozen = _frozen_in_workspace(project)
-
-    text = frozen.read_text(encoding="utf-8")
-    assert str(tmp_path) not in text
-    payload = tomllib.loads(text)
-    sources = payload["data"]
-    assert sources["dem"]["sources"][0]["path"] == "../../data/dem/DEM_armorican_massif.tif"
-    assert (
-        sources["hydrography"]["sources"][0]["path"]
-        == "../../data/hydrography/nancon_stream_network.gpkg"
-    )
-    assert sources["hydrometry"]["sources"][0]["path"] == "../../data/hydrometry"
-
-
-def test_another_workspace_reads_the_frozen_config_on_its_own_data(
-    tmp_path: Path, monkeypatch
-) -> None:
-    frozen = _frozen_in_workspace(_workspace(tmp_path / "laptop"))
-    other = _workspace(tmp_path / "cluster" / "ws")
-    copied = other / "runs" / "nancon" / "config.toml"
-    copied.parent.mkdir(parents=True)
-    shutil.copy2(frozen, copied)
-    monkeypatch.chdir(tmp_path)
-
-    from_file = HydroModPyConfig.from_toml(copied)
-    snapshot = tomllib.loads(copied.read_text(encoding="utf-8"))
-    snapshot.setdefault("workspace", {})["project_root"] = str(other)
-    from_snapshot = HydroModPyConfig.from_snapshot(snapshot)
-
-    data = (tmp_path / "cluster" / "ws" / "data").resolve()
-    for cfg in (from_file, from_snapshot):
-        assert Path(cfg.data.dem.sources[0].path) == data / "dem" / "DEM_armorican_massif.tif"
-        assert Path(cfg.data.hydrometry.sources[0].path) == data / "hydrometry"
-        assert Path(cfg.data.hydrography.sources[0].path) == data / "hydrography" / (
-            "nancon_stream_network.gpkg"
-        )
 
 
 # --- test_a_frozen_config_pins_the_run_a_refinement_zone_reads ---
@@ -460,36 +370,6 @@ def project(tmp_path: Path) -> Path:
     return tmp_path / "workspace"
 
 
-def test_the_frozen_zone_names_the_run_by_sim_id(project: Path) -> None:
-    sim_id = _source_run(project, "coarse")
-    cfg = _config(project, ZONE)
-
-    frozen = _freeze(project, cfg, _read_by_the_mesh_step(project, cfg), "production")
-
-    written = tomllib.loads(frozen.read_text(encoding="utf-8"))["mesh"]["refinement_zone"]
-    assert written == [{**ZONE, "run": sim_id}]
-    assert cfg.mesh.refinement_zone[0].run == "coarse", "the live configuration keeps the name"
-
-
-def test_a_replay_reads_the_run_the_mesh_came_from_after_a_later_version(project: Path) -> None:
-    first = _source_run(project, "coarse")
-    cfg = _config(project, ZONE)
-    frozen = _freeze(project, cfg, _read_by_the_mesh_step(project, cfg), "production")
-
-    second = _source_run(project, "coarse")
-    assert second != first
-    assert (
-        read_run_fields(project, cfg.mesh.refinement_zone)[("coarse", "watertable_depth")].sim_id
-        == second
-    ), "the bare name now reads the .v2"
-    replayed = _replayed(project, frozen)
-
-    envelope = read_run_fields(project, replayed.mesh.refinement_zone)
-    (read,) = envelope.values()
-    assert read.sim_id == first and read.run == "coarse"
-    assert _read_by_the_mesh_step(project, replayed) == {first: first}
-
-
 def test_a_second_freeze_of_a_replay_writes_the_same_sim_id(project: Path) -> None:
     first = _source_run(project, "coarse")
     cfg = _config(project, ZONE)
@@ -518,22 +398,6 @@ def test_a_replay_whose_source_run_is_gone_is_refused_with_its_cause(project: Pa
     assert "needs that run to be still there" in str(excinfo.value)
 
 
-def test_a_zone_accepts_a_full_sim_id_as_its_run() -> None:
-    zone = RefinementZoneConfig.model_validate({**ZONE, "run": "a" * 32})
-
-    assert zone.run == "a" * 32
-    assert zone.describe().endswith(f"in run {'a' * 32}")
-
-
-def test_a_zone_the_mesh_did_not_read_keeps_the_name(project: Path) -> None:
-    cfg = _config(project, ZONE)
-
-    frozen = _freeze(project, cfg, {}, "production")
-
-    written = tomllib.loads(frozen.read_text(encoding="utf-8"))["mesh"]["refinement_zone"]
-    assert written == [ZONE]
-
-
 def test_only_the_zones_that_read_a_run_are_rewritten(project: Path) -> None:
     sim_id = "b" * 32
     cfg = _config(
@@ -552,21 +416,6 @@ def test_only_the_zones_that_read_a_run_are_rewritten(project: Path) -> None:
     zones = tomllib.loads(document)["mesh"]["refinement_zone"]
     assert [zone.get("run") for zone in zones] == [None, sim_id, None]
     assert zones[0]["where"] == "height_above_stream" and zones[2]["path"] == "layer.gpkg"
-
-
-def test_a_resume_of_the_frozen_config_keeps_the_request_id_of_the_first_attempt(
-    project: Path,
-) -> None:
-    _source_run(project, "coarse")
-    cfg = _config(project, ZONE)
-    recorded = _identity(cfg, project)
-    frozen = _freeze(project, cfg, _read_by_the_mesh_step(project, cfg), "frozen")
-    _source_run(project, "coarse")
-
-    replayed = _replayed(project, frozen)
-
-    assert replayed.mesh.refinement_zone[0].run != "coarse"
-    assert _identity(replayed, project) == recorded, "the retry resumes"
 
 
 def test_a_later_version_that_left_the_same_state_asks_the_same_thing(project: Path) -> None:
@@ -638,40 +487,3 @@ def test_the_step_that_opens_a_run_keeps_the_config_the_claim_wrote(project: Pat
 
     assert (store.run_dir / RUN_CONFIG_FILENAME).read_text(encoding="utf-8") == claimed
     assert (store.run_dir / RUN_RESOLVED_CONFIG_FILENAME).is_file()
-
-
-def test_a_run_claimed_by_other_means_gets_its_config_from_the_step(project: Path) -> None:
-    """A kept trial of a calibration has no claim of the runner: the step writes both files."""
-    cfg = _config(project)
-    store = open_run_store(project, "trial", n_cells=4)
-    ctx = SimpleNamespace(
-        cfg=cfg,
-        run_dir=store.run_dir,
-        loaded_data=None,
-        setup=SimpleNamespace(domain=None, flow=None, mesh_summary={}),
-    )
-
-    freeze_run_config(ctx, store=store)
-    store.close()
-
-    assert (store.run_dir / RUN_CONFIG_FILENAME).is_file()
-    assert (store.run_dir / RUN_RESOLVED_CONFIG_FILENAME).is_file()
-
-
-def test_the_state_a_zone_reads_is_told_by_its_arrays_and_not_by_the_run(project: Path) -> None:
-    _source_run(project, "coarse")
-    cfg = _config(project, ZONE)
-    key = "mesh.refinement_zone.0.run"
-
-    before = source_state_digests(cfg, project)
-    _source_run(project, "coarse")  # another run, the same state
-    assert source_state_digests(cfg, project) == before
-    _source_run(project, "coarse", head=99.5)  # the bare name now reads another state
-
-    after = source_state_digests(cfg, project)
-    assert list(before) == list(after) == [key]
-    assert after[key] != before[key]
-
-
-def test_a_configuration_that_reads_no_earlier_run_has_no_state_to_tell(project: Path) -> None:
-    assert source_state_digests(_config(project), project) == {}

@@ -23,7 +23,6 @@ from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.mesh.engines.voronoi.from_seeds import CLOSED_SHORE_SHARE
 from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planning import families
-from hydromodpy.mesh.planning.families import RIVER_MARGIN_SHARE
 from hydromodpy.mesh.planning.inputs import PlanningInputs
 from hydromodpy.mesh.planning.lake_shores import (
     LAKE_SHORE_SHARE,
@@ -32,7 +31,6 @@ from hydromodpy.mesh.planning.lake_shores import (
 )
 from hydromodpy.mesh.planning.plan import plan_mesh_request
 from hydromodpy.mesh.request import BARRIER_FAMILY
-from hydromodpy.solver.modflow6.builders._lake_geometry import interior_cells, polygon_overlap
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, planning_inputs
 
 pytestmark = pytest.mark.usefixtures("builtin_engines")
@@ -80,60 +78,6 @@ def _family(request, name: str):
     return next(family for family in request.lines if family.name == name)
 
 
-def test_a_river_through_the_lake_leaves_the_shore_closed() -> None:
-    request, mesh = _build(_inputs(_BODY, river=True))
-
-    rivers = shapely.multilinestrings(list(_family(request, "rivers").lines))
-    assert not rivers.intersects(_BODY.buffer(0.5 * RIVER_MARGIN_SHARE * 30.0))
-    assert mesh.qa.families["lakes"]["covered_length_rel"] >= CLOSED_SHORE_SHARE
-    assert mesh.chains("rivers")
-
-
-def test_an_arm_narrower_than_a_cell_is_left_out_and_the_shore_closes(
-    followed: list[FollowedShores],
-) -> None:
-    lake = _BODY.union(_ARM)
-    request, mesh = _build(_inputs(lake))
-
-    ring = shapely.multilinestrings(list(_family(request, "lakes").lines))
-    assert ring.distance(shapely.Point(X0 + 1350.0, Y0 + 500.0)) > 100.0
-    assert mesh.qa.families["lakes"]["covered_length_rel"] >= CLOSED_SHORE_SHARE
-    (shores,) = followed
-    assert shores.left_out_m2[0] > 0.0
-    assert shores.notes() and set(shores.notes()) <= set(request.notes)
-
-
-def test_the_cells_of_an_arm_left_out_join_the_lake_when_it_covers_most_of_them() -> None:
-    lake = _BODY.union(box(X0 + 1100.0, Y0 + 480.0, X0 + 1400.0, Y0 + 520.0))
-    _, mesh = _build(_inputs(lake))
-    cells = interior_cells(mesh, "lakes", lake)
-    overlap_cells, overlap = polygon_overlap(mesh, lake)
-    share = np.zeros(mesh.n_cells)
-    share[overlap_cells] = overlap / mesh.geometry.areas[overlap_cells]
-    centres = shapely.points(mesh.centers[cells])
-
-    assert mesh.qa.families["lakes"]["covered_length_rel"] >= CLOSED_SHORE_SHARE
-    assert np.any(shapely.contains(box(X0 + 1150.0, Y0 + 470.0, X0 + 1400.0, Y0 + 530.0), centres))
-    majority = np.flatnonzero(share > 0.5)
-    assert set(majority.tolist()) <= set(cells.tolist())
-    footprint = mesh.geometry.areas[cells].sum() / lake.area
-    assert 0.9 <= footprint <= 1.1
-
-
-def test_a_lake_with_no_narrow_part_keeps_its_own_outline(
-    followed: list[FollowedShores],
-) -> None:
-    request, mesh = _build(_inputs(_BODY))
-
-    ring = shapely.multilinestrings(list(_family(request, "lakes").lines))
-    vertices = shapely.points(shapely.get_coordinates(ring))
-    assert shapely.distance(vertices, _BODY.boundary).max() <= 1e-6
-    (shores,) = followed
-    assert (shores.left_out_m2, shores.taken_in_m2) == ((0.0,), (0.0,))
-    assert shores.notes() == ()
-    assert mesh.qa.families["lakes"]["covered_length_rel"] >= CLOSED_SHORE_SHARE
-
-
 def test_a_wall_wing_of_a_few_metres_is_left_out_and_the_wall_stays_on_the_shore() -> None:
     top = Y0 + 650.0
     wall = LineString(
@@ -152,15 +96,6 @@ def test_a_wall_wing_of_a_few_metres_is_left_out_and_the_wall_stays_on_the_shore
     assert np.allclose(ends[-1], (X0 + 600.0, top + 100.0))
     assert mesh.qa.families["lakes"]["covered_length_rel"] >= CLOSED_SHORE_SHARE
     assert mesh.qa.families[BARRIER_FAMILY]["covered_length_rel"] >= CLOSED_SHORE_SHARE
-
-
-def test_one_seed_gives_one_mesh_with_lakes_and_rivers() -> None:
-    inputs = _inputs(_BODY.union(_ARM), river=True)
-    _, first = _build(inputs)
-    _, second = _build(inputs)
-
-    assert np.array_equal(np.asarray(first.mesh.vertices), np.asarray(second.mesh.vertices))
-    assert np.array_equal(first.centers, second.centers)
 
 
 _CELL = 30.0

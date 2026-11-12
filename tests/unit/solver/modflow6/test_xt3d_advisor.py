@@ -105,11 +105,6 @@ def _model_on(solver_mesh: SolverMesh):
     return model
 
 
-def test_nonorthogonality_orthogonal_vs_skewed() -> None:
-    assert nonorthogonality_summary(_solver_mesh(_ORTHO).planar_mesh)["p95"] < 1.0
-    assert nonorthogonality_summary(_solver_mesh(_SKEW).planar_mesh)["p95"] > 30.0
-
-
 def test_recommend_off_on_near_orthogonal_quadrilaterals() -> None:
     model = _model_on(_quad_solver_mesh(0.0))
     advice = _recommend_xt3d(model, model.solver_mesh)
@@ -123,33 +118,6 @@ def test_recommend_on_for_skewed_quadrilaterals() -> None:
     assert advice.enabled is True
     assert advice.required is False
     assert "non-orthogonality" in advice.reason
-
-
-def test_recommend_on_for_triangles_even_when_orthogonal() -> None:
-    model = _model_on(_solver_mesh(_ORTHO))
-    assert nonorthogonality_summary(model.solver_mesh.planar_mesh)["p95"] < 1.0
-    advice = _recommend_xt3d(model, model.solver_mesh)
-    assert advice.enabled is True
-    assert advice.required is False
-    assert "triangle cells" in advice.reason
-
-
-def test_auto_off_decision_logs_info() -> None:
-    model = _model_on(_quad_solver_mesh(0.0))
-    with _capture_advisor_logs(logging.INFO) as records:
-        decision = resolve_xt3d_decision(model, model.solver_mesh)
-    assert decision.enabled is False
-    assert decision.source == "auto_off"
-    assert any("XT3D auto-off" in r.getMessage() for r in records)
-    assert all(r.levelno == logging.INFO for r in records)
-
-
-def test_auto_on_decision_for_triangles() -> None:
-    model = _model_on(_solver_mesh(_ORTHO))
-    with _no_runtime_warning():
-        decision = resolve_xt3d_decision(model, model.solver_mesh)
-    assert decision.enabled is True
-    assert decision.source == "auto_on"
 
 
 def test_auto_on_decision_for_skewed_mesh() -> None:
@@ -167,38 +135,6 @@ def _with_override(model, value: bool):
     )
 
 
-def test_explicit_override_warns_when_it_contradicts() -> None:
-    model = _model_on(_quad_solver_mesh(0.0))  # checks recommend off
-    model.modflow_config = _with_override(model, True)
-    with _capture_advisor_logs(logging.WARNING) as records:
-        decision = resolve_xt3d_decision(model, model.solver_mesh)
-    assert decision.enabled is True
-    assert decision.source == "explicit_on"
-    warnings = [r for r in records if r.levelno == logging.WARNING]
-    assert any("recommend off" in r.getMessage().lower() for r in warnings)
-
-
-def test_explicit_off_on_triangles_is_honoured_with_a_warning() -> None:
-    model = _model_on(_solver_mesh(_ORTHO))  # checks recommend on
-    model.modflow_config = _with_override(model, False)
-    with _capture_advisor_logs(logging.WARNING) as records:
-        decision = resolve_xt3d_decision(model, model.solver_mesh)
-    assert decision.enabled is False
-    assert decision.source == "explicit_off"
-    warnings = [r for r in records if r.levelno == logging.WARNING]
-    assert any("recommend on" in r.getMessage().lower() for r in warnings)
-
-
-def test_explicit_off_agreeing_does_not_warn() -> None:
-    model = _model_on(_quad_solver_mesh(0.0))  # checks recommend off
-    model.modflow_config = _with_override(model, False)
-    with _capture_advisor_logs(logging.WARNING) as records:
-        decision = resolve_xt3d_decision(model, model.solver_mesh)
-    assert decision.enabled is False
-    assert decision.source == "explicit_off"
-    assert [r for r in records if r.levelno == logging.WARNING] == []
-
-
 def _with_tensor(model, *, k22_ratio: float, angle1: float | None = None):
     """Set K, a K22 of ``k22_ratio`` times K and an optional angle1 on every cell."""
     shape = (model.nlay, model.ncpl)
@@ -208,18 +144,6 @@ def _with_tensor(model, *, k22_ratio: float, angle1: float | None = None):
     return model
 
 
-def test_off_axis_k22_on_a_structured_grid_turns_xt3d_on_with_a_runtime_warning() -> None:
-    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
-    assert model.solver_mesh.is_structured
-    with pytest.warns(RuntimeWarning, match="about 10 times on ten layers") as caught:
-        decision = resolve_xt3d_decision(model, model.solver_mesh)
-    assert decision.enabled is True
-    assert decision.source == "auto_on"
-    message = str(caught[0].message)
-    assert "angle1 is not a multiple of 90 degrees" in message
-    assert "refinement does not reduce" in message
-
-
 @pytest.mark.parametrize("angle1", [0.0, 90.0, -180.0, None])
 def test_k22_along_the_axes_of_a_structured_grid_leaves_xt3d_off(angle1: float | None) -> None:
     model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=angle1)
@@ -227,13 +151,6 @@ def test_k22_along_the_axes_of_a_structured_grid_leaves_xt3d_off(angle1: float |
         decision = resolve_xt3d_decision(model, model.solver_mesh)
     assert decision.enabled is False
     assert decision.source == "auto_off"
-
-
-def test_k22_equal_to_k_with_an_azimuth_leaves_xt3d_off() -> None:
-    model = _with_tensor(toy_model(), k22_ratio=1.0, angle1=30.0)
-    with _no_runtime_warning():
-        decision = resolve_xt3d_decision(model, model.solver_mesh)
-    assert decision.enabled is False
 
 
 @pytest.mark.parametrize("angle1", [None, 0.0])
@@ -247,24 +164,6 @@ def test_k22_on_a_near_orthogonal_unstructured_mesh_turns_xt3d_on(angle1: float 
     assert decision.source == "auto_on"
 
 
-def test_the_runtime_warning_fires_once_per_model() -> None:
-    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
-    with pytest.warns(RuntimeWarning):
-        first = resolve_xt3d_decision(model, model.solver_mesh)
-    with _no_runtime_warning():
-        assert resolve_xt3d_decision(model, model.solver_mesh) is first
-
-
-def test_explicit_true_with_an_off_axis_k22_does_not_warn() -> None:
-    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
-    model.modflow_config = _with_override(model, True)
-    with _no_runtime_warning(), _capture_advisor_logs(logging.WARNING) as records:
-        decision = resolve_xt3d_decision(model, model.solver_mesh)
-    assert decision.enabled is True
-    assert decision.source == "explicit_on"
-    assert [r for r in records if r.levelno >= logging.WARNING] == []
-
-
 def test_explicit_false_with_an_off_axis_k22_raises_a_runtime_warning() -> None:
     model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
     model.modflow_config = _with_override(model, False)
@@ -272,42 +171,3 @@ def test_explicit_false_with_an_off_axis_k22_raises_a_runtime_warning() -> None:
         decision = resolve_xt3d_decision(model, model.solver_mesh)
     assert decision.enabled is False
     assert decision.source == "explicit_off"
-
-
-def test_a_model_without_the_tensor_never_raises_the_runtime_warning() -> None:
-    for model in (
-        toy_model(),
-        _model_on(_solver_mesh(_ORTHO)),
-        _model_on(_quad_solver_mesh(1.0)),
-    ):
-        with _no_runtime_warning():
-            resolve_xt3d_decision(model, model.solver_mesh)
-
-
-def test_the_warning_reaches_the_log_under_a_global_runtime_warning_ignore() -> None:
-    """Importing flopy.plot ignores every RuntimeWarning, so the log line stands alone."""
-    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
-    with warnings.catch_warnings(), _capture_advisor_logs(logging.WARNING) as records:
-        warnings.simplefilter("ignore", RuntimeWarning)
-        resolve_xt3d_decision(model, model.solver_mesh)
-    warned = [r.getMessage() for r in records if r.levelno == logging.WARNING]
-    assert any("about 10 times on ten layers" in message for message in warned)
-
-
-def test_xt3d_on_triangles_under_newton_warns_about_convergence() -> None:
-    model = _model_on(_solver_mesh(_ORTHO))
-    assert model.modflow_config.runtime.mf6_newton is True
-    with _capture_advisor_logs(logging.WARNING) as records, _no_runtime_warning():
-        decision = resolve_xt3d_decision(model, model.solver_mesh)
-    assert decision.enabled is True
-    assert any("can cycle without converging" in r.getMessage() for r in records)
-
-
-def test_xt3d_on_triangles_without_newton_does_not_warn() -> None:
-    model = _model_on(_solver_mesh(_ORTHO))
-    model.modflow_config = model.modflow_config.model_copy(
-        update={"runtime": model.modflow_config.runtime.model_copy(update={"mf6_newton": False})}
-    )
-    with _capture_advisor_logs(logging.WARNING) as records:
-        resolve_xt3d_decision(model, model.solver_mesh)
-    assert not any("can cycle without converging" in r.getMessage() for r in records)

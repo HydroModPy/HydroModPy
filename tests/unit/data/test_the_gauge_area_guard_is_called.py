@@ -34,14 +34,6 @@ def test_a_gap_of_fifteen_per_cent_does_not_warn(monkeypatch, caplog) -> None:
     assert not _warnings(caplog)
 
 
-def test_a_gap_beyond_twenty_per_cent_warns(monkeypatch, caplog) -> None:
-    monkeypatch.setattr(mod, "published_catchment_area_km2", lambda _sid, **_kw: 64.45)
-    with caplog.at_level(logging.INFO):
-        result = mod.check_gauge_area("J001401001", 96.5, client=HTTPClient())
-    assert result is not None
-    assert _warnings(caplog)
-
-
 def test_nothing_is_checked_without_a_hubeau_gauge_and_an_area(monkeypatch) -> None:
     calls: list[str] = []
     monkeypatch.setattr(

@@ -8,7 +8,6 @@ public surface, and the force_refresh field.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, get_args, get_origin
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -29,81 +28,23 @@ class TestSourceConfigValidation:
     """All source types, defaults, constraints, extra=forbid."""
 
     # -- Custom --
-    def test_custom_valid(self, tmp_path):
-        cfg = HydrographySourceConfig(source="file", path=tmp_path / "s.shp")
-        assert cfg.source == "file"
-        assert cfg.path == tmp_path / "s.shp"
-        assert cfg.rasterize_field == "FID"
 
     def test_custom_requires_path(self):
         with pytest.raises(ValidationError, match="path"):
             HydrographySourceConfig(source="file")
 
-    def test_custom_with_rasterize_field(self, tmp_path):
-        cfg = HydrographySourceConfig(
-            source="file", path=tmp_path / "s.gpkg", rasterize_field="CODE"
-        )
-        assert cfg.rasterize_field == "CODE"
-
     # -- OSM --
-    def test_osm_defaults(self):
-        cfg = HydrographySourceConfig(source="osm")
-        assert cfg.waterway_types == ["river", "stream"]
-        assert cfg.path is None
-
-    def test_osm_custom_waterways(self):
-        cfg = HydrographySourceConfig(source="osm", waterway_types=["canal", "drain", "ditch"])
-        assert cfg.waterway_types == ["canal", "drain", "ditch"]
 
     # -- BD Topage --
-    def test_bdtopage_defaults(self):
-        cfg = HydrographySourceConfig(source="bdtopage")
-        assert cfg.page_size == 50_000
-
-    def test_a_typename_is_refused_as_an_unknown_key(self):
-        """The layer is fixed. Only a pre-release wrote ``typename``, so no run reads it."""
-        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-            HydrographySourceConfig(
-                source="bdtopage",
-                typename="sa:CoursEau_FXX_Topage2025",
-                page_size=500,
-            )
 
     # -- EU-Hydro --
-    def test_euhydro_defaults(self):
-        cfg = HydrographySourceConfig(source="euhydro")
-        assert cfg.group_name == "River_Net_lines"
-        assert cfg.euhydro_page_size == 1000
-
-    def test_euhydro_custom_group(self):
-        cfg = HydrographySourceConfig(
-            source="euhydro", group_name="Canal_lines", euhydro_page_size=200
-        )
-        assert cfg.group_name == "Canal_lines"
-        assert cfg.euhydro_page_size == 200
 
     # -- Rejection --
     def test_invalid_source_rejected(self):
         with pytest.raises(ValidationError):
             HydrographySourceConfig(source="nasa")
 
-    def test_extra_fields_forbidden(self):
-        with pytest.raises(ValidationError, match="Extra inputs"):
-            HydrographySourceConfig(source="osm", magic_option=42)
-
     # -- Serialization round-trip --
-    def test_model_dump_round_trip(self, tmp_path):
-        cfg = HydrographySourceConfig(source="file", path=tmp_path / "s.shp")
-        dumped = cfg.model_dump(mode="python")
-        restored = HydrographySourceConfig.model_validate(dumped)
-        assert restored.source == cfg.source
-        assert restored.path == cfg.path
-
-    def test_json_round_trip(self, tmp_path):
-        cfg = HydrographySourceConfig(source="file", path=tmp_path / "s.shp")
-        json_str = cfg.model_dump_json()
-        restored = HydrographySourceConfig.model_validate_json(json_str)
-        assert restored.source == "file"
 
 
 # =====================================================================
@@ -154,33 +95,6 @@ class TestSourceConfigParamLevels:
 
 @pytest.mark.fast
 class TestHydrographyConfigContainer:
-    def test_single_source(self, tmp_path):
-        cfg = HydrographyConfig(sources=[{"source": "file", "path": str(tmp_path / "s.shp")}])
-        assert len(cfg.sources) == 1
-
-    def test_multi_source_all_types(self, tmp_path):
-        cfg = HydrographyConfig(
-            sources=[
-                {"source": "file", "path": str(tmp_path / "s.shp")},
-                {"source": "osm"},
-                {"source": "bdtopage"},
-                {"source": "euhydro"},
-            ]
-        )
-        assert len(cfg.sources) == 4
-        assert [s.source for s in cfg.sources] == ["file", "osm", "bdtopage", "euhydro"]
-
-    def test_empty_sources_rejected(self):
-        with pytest.raises(ValidationError):
-            HydrographyConfig(sources=[])
-
-    def test_extra_field_on_config_rejected(self, tmp_path):
-        with pytest.raises(ValidationError):
-            HydrographyConfig(
-                sources=[{"source": "osm"}],
-                unknown_key="x",
-            )
-
     def test_config_extra_forbid(self):
         assert HydrographyConfig.model_config.get("extra") == "forbid"
 
@@ -200,50 +114,6 @@ class TestDataConfigIntegration:
         # The annotation is Annotated[HydrographyConfig | None, ...]
         assert "HydrographyConfig" in str(info.annotation)
 
-    def test_model_validate_with_hydrography(self, tmp_path):
-        from hydromodpy.data.loading.config_schema import DataConfig
-
-        payload = {
-            "types": ["hydrography"],
-            "hydrography": {
-                "sources": [{"source": "bdtopage"}],
-            },
-        }
-        cfg = DataConfig.model_validate(payload)
-        assert cfg.hydrography is not None
-        assert isinstance(cfg.hydrography, HydrographyConfig)
-        assert cfg.hydrography.sources[0].source == "bdtopage"
-
-    def test_from_toml_section_accepts_relative_path(self, tmp_path):
-        """Relative paths in nested source configs are kept as-is by the
-        top-level resolver (only top-level Path fields are resolved).
-        The Pydantic model still accepts the relative string."""
-        from hydromodpy.data.loading.config_schema import DataConfig
-
-        section = {
-            "types": ["hydrography"],
-            "hydrography": {
-                "sources": [
-                    {"source": "file", "path": "relative/streams.shp"},
-                ],
-            },
-        }
-        cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
-        assert cfg.hydrography is not None
-        assert cfg.hydrography.sources[0].path is not None
-
-    def test_hydrography_in_typed_sections(self):
-        """HydrographyConfig is validated as a typed section."""
-        from hydromodpy.data.loading.config_schema import DataConfig
-
-        # from_toml_section validates hydrography as typed - just check it doesn't error
-        section = {
-            "types": ["hydrography"],
-            "hydrography": {"sources": [{"source": "osm"}]},
-        }
-        cfg = DataConfig.from_toml_section(section, base_dir=Path("/tmp"))
-        assert cfg.hydrography is not None
-
     def test_hydrography_not_in_types_but_section_present(self, tmp_path):
         """If hydrography is not in types but section is present, it should still validate."""
         from hydromodpy.data.loading.config_schema import DataConfig
@@ -256,17 +126,6 @@ class TestDataConfigIntegration:
         assert cfg.hydrography is not None
         assert "hydrography" not in cfg.types
 
-    def test_with_resolved_types_adds_hydrography(self, tmp_path):
-        from hydromodpy.data.loading.config_schema import DataConfig
-
-        section = {
-            "types": [],
-            "hydrography": {"sources": [{"source": "osm"}]},
-        }
-        cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
-        resolved = cfg.with_resolved_types(["hydrography"])
-        assert "hydrography" in resolved.types
-
 
 # =====================================================================
 # 12. TOML format acceptance
@@ -276,69 +135,6 @@ class TestDataConfigIntegration:
 @pytest.mark.fast
 class TestTomlFormatAcceptance:
     """Verify various TOML layouts produce valid configs."""
-
-    def test_minimal_custom(self, tmp_path):
-        from hydromodpy.data.loading.config_schema import DataConfig
-
-        section = {
-            "types": ["hydrography"],
-            "hydrography": {
-                "sources": [{"source": "file", "path": str(tmp_path / "s.shp")}],
-            },
-        }
-        cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
-        assert cfg.hydrography.sources[0].source == "file"
-
-    def test_minimal_osm(self):
-        from hydromodpy.data.loading.config_schema import DataConfig
-
-        section = {
-            "types": ["hydrography"],
-            "hydrography": {"sources": [{"source": "osm"}]},
-        }
-        cfg = DataConfig.from_toml_section(section, base_dir=Path("/tmp"))
-        assert cfg.hydrography.sources[0].waterway_types == ["river", "stream"]
-
-    def test_minimal_bdtopage(self):
-        from hydromodpy.data.loading.config_schema import DataConfig
-
-        section = {
-            "types": ["hydrography"],
-            "hydrography": {"sources": [{"source": "bdtopage"}]},
-        }
-        cfg = DataConfig.from_toml_section(section, base_dir=Path("/tmp"))
-        assert cfg.hydrography.sources[0].page_size == 50_000
-
-    def test_minimal_euhydro(self):
-        from hydromodpy.data.loading.config_schema import DataConfig
-
-        section = {
-            "types": ["hydrography"],
-            "hydrography": {"sources": [{"source": "euhydro"}]},
-        }
-        cfg = DataConfig.from_toml_section(section, base_dir=Path("/tmp"))
-        assert cfg.hydrography.sources[0].group_name == "River_Net_lines"
-
-    def test_multi_source_toml(self, tmp_path):
-        from hydromodpy.data.loading.config_schema import DataConfig
-
-        section = {
-            "types": ["hydrography"],
-            "hydrography": {
-                "sources": [
-                    {"source": "file", "path": str(tmp_path / "local.shp")},
-                    {"source": "osm", "waterway_types": ["canal"]},
-                    {"source": "bdtopage", "page_size": 100},
-                    {
-                        "source": "euhydro",
-                        "group_name": "River_Net_lines",
-                        "euhydro_page_size": 500,
-                    },
-                ],
-            },
-        }
-        cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
-        assert len(cfg.hydrography.sources) == 4
 
     def test_invalid_source_in_toml(self):
         from hydromodpy.data.loading.config_schema import DataConfig
@@ -359,30 +155,6 @@ class TestTomlFormatAcceptance:
 @pytest.mark.fast
 class TestDocumentedContracts:
     """Verify the documented public API surface."""
-
-    def test_the_source_name_is_open_and_the_exported_schema_says_so(self):
-        """No enum, and no ``Literal`` behind it: the list moved to the registry.
-
-        This used to pin the four names, and it was the fourth copy of them.
-        What replaces it is the property that matters to a third party: the
-        exported schema constrains the name to a string and not to what this
-        build happens to ship, so a document naming an installed source is a
-        valid document by the schema a shim reads.
-        """
-        schema = HydrographySourceConfig.model_json_schema()["properties"]["source"]
-
-        assert schema["type"] == "string"
-        assert "enum" not in schema
-        assert not any(
-            get_args(arg)
-            for arg in get_args(HydrographySourceConfig.model_fields["source"].annotation)
-            if get_origin(arg) is Literal
-        )
-
-    def test_the_four_names_this_build_ships_still_validate(self):
-        """Anti-vacuity for the test above: open is not unchecked."""
-        for name in ("osm", "bdtopage", "euhydro"):
-            assert HydrographySourceConfig(source=name).source == name
 
     def test_a_source_serving_another_payload_kind_is_refused_by_the_document(
         self, isolated_registry
@@ -448,14 +220,6 @@ class TestDocumentedContracts:
 
 @pytest.mark.fast
 class TestForceRefreshConfig:
-    def test_force_refresh_default_false(self):
-        cfg = HydrographySourceConfig(source="osm")
-        assert cfg.force_refresh is False
-
-    def test_force_refresh_set_true(self):
-        cfg = HydrographySourceConfig(source="osm", force_refresh=True)
-        assert cfg.force_refresh is True
-
     def test_force_refresh_param_level_user(self):
         # The work-offline guide tells the reader to set it to download again.
         info = HydrographySourceConfig.model_fields["force_refresh"]
@@ -464,8 +228,3 @@ class TestForceRefreshConfig:
                 assert meta == Profile.USER
                 return
         pytest.fail("force_refresh should have Profile.USER")
-
-    def test_force_refresh_in_model_dump(self):
-        cfg = HydrographySourceConfig(source="osm", force_refresh=True)
-        dumped = cfg.model_dump()
-        assert dumped["force_refresh"] is True

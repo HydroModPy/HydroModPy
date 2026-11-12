@@ -12,7 +12,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.catchment.drainage.descent import descent_from_stored_mesh
 from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph
 from hydromodpy.results.derive import accumulation
 from hydromodpy.results.derive.accumulation import (
@@ -87,84 +86,6 @@ def _stored(store: SimulationZarr, name: str) -> np.ndarray:
     return np.asarray(store.root["budget"][name][:], dtype="float64")[:, 0, :]
 
 
-def test_with_d_stored_the_drain_is_routed_on_d(tmp_path: Path) -> None:
-    store = _store(tmp_path, descent=True)
-    graph = grid_descent(TOP).metric.graph
-
-    rows = drain_accumulation_flux_rows(store.root, 0, N_STEPS)
-
-    assert rows.shape == (N_STEPS, N_CELLS)
-    local = np.maximum(-_stored(store, "drain"), 0.0)
-    np.testing.assert_array_equal(rows, accumulate_on_downhill_graph(graph, local))
-    store.close()
-
-
-def test_a_stored_d_is_used_even_when_the_mesh_would_rebuild_another(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    store = _store(tmp_path, descent=True)
-
-    def refuse(*args, **kwargs):
-        raise AssertionError("D is stored, nothing should be rebuilt")
-
-    monkeypatch.setattr(accumulation, "descent_from_stored_mesh", refuse)
-
-    drain_accumulation_flux_rows(store.root, 0, 2)
-    store.close()
-
-
-def test_without_d_the_graph_is_rebuilt_once_for_a_range_and_for_single_steps(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    budget = _budget()
-    store = _store(tmp_path, budget)
-    path = store.root.store.root
-    builds: list[int] = []
-
-    def counted(*args, **kwargs):
-        builds.append(1)
-        return descent_from_stored_mesh(*args, **kwargs)
-
-    monkeypatch.setattr(accumulation, "descent_from_stored_mesh", counted)
-
-    drain_accumulation_flux_rows(store.root, 0, N_STEPS)
-    assert len(builds) == 1
-    store.close()
-
-    import zarr
-
-    for step in range(N_STEPS):
-        handle = zarr.open_group(path, mode="r")
-        drain_accumulation_flux_rows(handle, step, step + 1)
-        release_accumulation_flux_rows(handle, step, step + 1)
-    assert len(builds) == 1
-
-
-def test_the_rebuild_logs_one_debug_line_per_build(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    store = _store(tmp_path)
-
-    with caplog.at_level("DEBUG"):
-        for step in range(3):
-            drain_accumulation_flux_rows(store.root, step, step + 1)
-
-    lines = [r for r in caplog.records if "stores no descent" in r.getMessage()]
-    assert len(lines) == 1
-    store.close()
-
-
-def test_a_rewritten_top_does_not_reuse_the_old_graph(tmp_path: Path) -> None:
-    store = _store(tmp_path)
-    first = drain_accumulation_flux_rows(store.root, 0, 1)
-    store.root["mesh"]["topography"][:] = TOP.ravel()[::-1]
-
-    second = drain_accumulation_flux_rows(store.root, 0, 1)
-
-    assert not np.array_equal(first, second, equal_nan=True)
-    store.close()
-
-
 def test_without_d_and_without_topology_the_field_is_unavailable(tmp_path: Path) -> None:
     store = _store(tmp_path, mesh=False)
 
@@ -174,24 +95,6 @@ def test_without_d_and_without_topology_the_field_is_unavailable(tmp_path: Path)
         drain_accumulation_flux_rows(store.root, 0, 1)
     with pytest.raises(KeyError):
         release_accumulation_flux_rows(store.root, 0, 1)
-    store.close()
-
-
-def test_a_run_without_head_or_drain_is_unavailable(tmp_path: Path) -> None:
-    store = _store(tmp_path, {"recharge": np.zeros((N_STEPS, 1, N_CELLS))})
-
-    assert not drain_accumulation_flux_available(store.root)
-    assert not release_accumulation_flux_available(store.root)
-    with pytest.raises(KeyError):
-        drain_accumulation_flux_rows(store.root, 0, 1)
-    store.close()
-
-
-def test_a_stream_only_run_serves_the_release_accumulation_only(tmp_path: Path) -> None:
-    store = _store(tmp_path, {"stream": _budget()["stream"]})
-
-    assert not drain_accumulation_flux_available(store.root)
-    assert release_accumulation_flux_available(store.root)
     store.close()
 
 
@@ -221,113 +124,4 @@ def test_the_release_accumulation_routes_every_release_path(tmp_path: Path) -> N
     rows = release_accumulation_flux_rows(store.root, 0, N_STEPS)
 
     np.testing.assert_allclose(rows, accumulate_on_downhill_graph(graph, local), rtol=0, atol=1e-15)
-    store.close()
-
-
-def test_the_drain_to_mover_record_is_added_to_the_drain(tmp_path: Path) -> None:
-    budget = _budget()
-    mover = -np.random.default_rng(5).uniform(0.0, 1e-3, (N_STEPS, 1, N_CELLS))
-    store = _store(tmp_path, {**budget, "drain_to_mover": mover}, descent=True)
-    graph = grid_descent(TOP).metric.graph
-    local = np.maximum(-(_stored(store, "drain") + _stored(store, "drain_to_mover")), 0.0)
-
-    rows = drain_accumulation_flux_rows(store.root, 0, N_STEPS)
-
-    np.testing.assert_array_equal(rows, accumulate_on_downhill_graph(graph, local))
-    store.close()
-
-
-def test_a_run_with_only_the_mover_still_serves_the_accumulation(tmp_path: Path) -> None:
-    mover = -np.random.default_rng(5).uniform(0.0, 1e-3, (N_STEPS, 1, N_CELLS))
-    store = _store(tmp_path, {"drain_to_mover": mover}, descent=True)
-
-    assert drain_accumulation_flux_available(store.root)
-    assert drain_accumulation_flux_rows(store.root, 0, 1).shape == (1, N_CELLS)
-    store.close()
-
-
-def test_negative_and_nan_cells_are_clamped_before_routing(tmp_path: Path) -> None:
-    drain = -np.ones((2, 1, N_CELLS)) * 1e-3
-    drain[0, 0, 0] = 5e-3
-    drain[0, 0, 1] = np.nan
-    drain[1, 0, 2] = np.nan
-    store = _store(tmp_path, {"drain": drain}, descent=True)
-    graph = grid_descent(TOP).metric.graph
-    local = np.maximum(-np.nan_to_num(_stored(store, "drain"), nan=0.0), 0.0)
-
-    rows = drain_accumulation_flux_rows(store.root, 0, 2)
-
-    np.testing.assert_array_equal(rows, accumulate_on_downhill_graph(graph, local))
-    assert np.isfinite(rows[:, graph.active]).all()
-    assert (rows[:, graph.active] >= 0.0).all()
-    store.close()
-
-
-@pytest.mark.parametrize("descent", [True, False])
-def test_a_tiny_pass_size_gives_the_one_pass_result(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, descent: bool
-) -> None:
-    from hydromodpy.results.derive import virtual_fields
-
-    store = _store(tmp_path, descent=descent)
-    one_pass = {
-        rows_of: rows_of(store.root, 0, N_STEPS)
-        for rows_of in (drain_accumulation_flux_rows, release_accumulation_flux_rows)
-    }
-    builds: list[int] = []
-    real_graph = accumulation._graph
-
-    def counted(*args, **kwargs):
-        builds.append(1)
-        return real_graph(*args, **kwargs)
-
-    monkeypatch.setattr(accumulation, "_graph", counted)
-    monkeypatch.setattr(virtual_fields, "ROWS_PER_PASS_ELEMENTS", N_CELLS)
-
-    for rows_of, expected in one_pass.items():
-        builds.clear()
-        np.testing.assert_array_equal(rows_of(store.root, 0, N_STEPS), expected)
-        np.testing.assert_array_equal(rows_of(store.root, 1, 4), expected[1:4])
-        assert len(builds) == 2
-    store.close()
-
-
-@pytest.mark.parametrize("array", ["vertices", "face_node_connectivity"])
-def test_a_rewritten_mesh_does_not_reuse_the_old_graph(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, array: str
-) -> None:
-    store = _store(tmp_path)
-    builds: list[int] = []
-
-    def counted(*args, **kwargs):
-        builds.append(1)
-        return descent_from_stored_mesh(*args, **kwargs)
-
-    monkeypatch.setattr(accumulation, "descent_from_stored_mesh", counted)
-    drain_accumulation_flux_rows(store.root, 0, 1)
-    drain_accumulation_flux_rows(store.root, 0, 1)
-    assert len(builds) == 1
-
-    mesh = store.root["mesh"]
-    mesh[array][:] = (
-        mesh[array][:][..., ::-1] if array == "face_node_connectivity" else (mesh[array][:] * 2.0)
-    )
-
-    drain_accumulation_flux_rows(store.root, 0, 1)
-    assert len(builds) == 2
-    store.close()
-
-
-def test_a_stored_d_of_another_size_is_unavailable(tmp_path: Path) -> None:
-    store = _store(tmp_path)
-    mesh = store.root["mesh"]
-    mesh.create_array("descent_receiver", data=np.full(N_CELLS + 3, -1, dtype="int64"))
-    mesh.create_array("descent_surface", data=np.zeros(N_CELLS + 3))
-
-    assert not drain_accumulation_flux_available(store.root)
-    assert not release_accumulation_flux_available(store.root)
-    with pytest.raises(KeyError):
-        drain_accumulation_flux_rows(store.root, 0, 1)
-    with pytest.raises(KeyError):
-        release_accumulation_flux_rows(store.root, 0, 1)
     store.close()

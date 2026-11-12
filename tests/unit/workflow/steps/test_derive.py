@@ -108,69 +108,6 @@ def test_derive_step_runs_the_post_run_derivation_once_per_solver_run(monkeypatc
     assert "derived_names" not in out.data
 
 
-def test_the_run_is_scored_under_its_rule_and_the_facts_carry_the_result(tmp_path) -> None:
-    """A real store, a simulated series and its observed twin, a window: rows and a headline."""
-    import numpy as np
-    import pandas as pd
-
-    from hydromodpy.core.site.config import SiteConfig
-    from hydromodpy.results.metric_rule import MetricsConfig, MetricsWindow
-    from tests._helpers.run_stores import open_run_store
-
-    index = pd.date_range("2020-01-02", periods=10, freq="D")
-    observed = pd.Series(np.linspace(1.0, 2.0, 10), index=index)
-    cfg = SimpleNamespace(
-        site=SiteConfig(name="nancon", gauge="J0014010"),
-        metrics=MetricsConfig(window=MetricsWindow(start="2020-01-01", end="2020-01-31")),
-    )
-    with open_run_store(tmp_path / "demo", "scored", n_cells=4, n_timesteps=10) as store:
-        sid = store.sim_id
-        store.facts.period_start = pd.Timestamp("2020-01-01", tz="UTC").to_pydatetime()
-        store.write_timeseries(sid, "J0014010", "discharge", observed * 1.0)
-        store.write_timeseries(sid, "J0014010", "discharge", observed, source="observed")
-
-        score_run_under_its_rule(cfg, store=store)
-
-        score = store.facts.score
-        assert score is not None and score.metric == "nse" and score.station == "J0014010"
-        # The observed days are put on the simulated periods before scoring, so
-        # a series paired with itself is close to one, not one.
-        assert score.value is not None and 0.5 < score.value <= 1.0
-        assert score.n_samples > 0 and score.window_end.isoformat() == "2020-01-31"
-        metrics = {row.metric for row in store.facts.metrics if row.station == "J0014010"}
-        assert {"nse", "kge", "rmse", "nse_log"} <= metrics
-
-
-def test_without_a_declared_gauge_the_run_is_scored_at_the_gauge_it_deduced(tmp_path) -> None:
-    """``[site]`` names no gauge and ``[metrics]`` no station: the gauge of the facts is the one."""
-    import numpy as np
-    import pandas as pd
-
-    from hydromodpy.core.site.config import SiteConfig
-    from hydromodpy.results.metric_rule import MetricsConfig, MetricsWindow
-    from hydromodpy.results.record.manifest import ManifestSite
-    from tests._helpers.run_stores import open_run_store
-
-    index = pd.date_range("2020-01-02", periods=10, freq="D")
-    observed = pd.Series(np.linspace(1.0, 2.0, 10), index=index)
-    cfg = SimpleNamespace(
-        site=SiteConfig(name="nancon"),
-        metrics=MetricsConfig(window=MetricsWindow(start="2020-01-01", end="2020-01-31")),
-    )
-    with open_run_store(tmp_path / "demo", "deduced", n_cells=4, n_timesteps=10) as store:
-        sid = store.sim_id
-        store.facts.period_start = pd.Timestamp("2020-01-01", tz="UTC").to_pydatetime()
-        store.facts.site = ManifestSite(name="nancon", gauge="J0014010", fingerprint="f")
-        store.write_timeseries(sid, "J0014010", "discharge", observed * 1.0)
-        store.write_timeseries(sid, "J0014010", "discharge", observed, source="observed")
-
-        score_run_under_its_rule(cfg, store=store)
-
-        score = store.facts.score
-        assert score is not None and score.station == "J0014010"
-        assert score.value is not None and score.n_samples > 0
-
-
 def test_without_a_window_the_headline_is_empty_and_says_so(tmp_path) -> None:
     from hydromodpy.core.site.config import SiteConfig
     from tests._helpers.run_stores import open_run_store

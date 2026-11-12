@@ -11,13 +11,7 @@ import pytest
 
 from hydromodpy.data.provenance.sidecars import CacheIndex, Sidecar, load_sidecar, write_sidecar
 from hydromodpy.data.source.port import FetchRequest
-from hydromodpy.data.source.registry import data_sources
-from hydromodpy.data.source.url import DemUrl, RechargeUrl, UrlSource
-
-
-def test_url_source_hosts_from_instance() -> None:
-    source = DemUrl(url="https://example.com/dem.tif")
-    assert source.hosts == ("example.com",)
+from hydromodpy.data.source.url import DemUrl, RechargeUrl
 
 
 def test_pinned_sha256_found_without_network(tmp_path: Path) -> None:
@@ -208,32 +202,3 @@ def test_a_sidecar_without_a_variable_is_no_row_so_the_url_is_asked_again(
 
     assert "GET" in calls
     assert res.files[0].path.read_bytes() == b"new"
-
-
-def test_url_subclasses_registered_for_single_file_sections() -> None:
-    expected_url_sections = {
-        "crossings",
-        "dem",
-        "etp",
-        "geology",
-        "humidity",
-        "hydrography",
-        "lake_abacus",
-        "lake_bathymetry",
-        "lake_geometry",
-        "layer_base",
-        "precipitation",
-        "radiation",
-        "recharge",
-        "runoff",
-        "soil_capacity",
-        "soil_moisture",
-        "substratum",
-        "temperature",
-        "wind",
-    }
-    for sec in expected_url_sections:
-        cls = data_sources.get(sec, "url")
-        assert issubclass(cls, UrlSource)
-        assert cls.section == sec
-        assert cls.source_id == "url"

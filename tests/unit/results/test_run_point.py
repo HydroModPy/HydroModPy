@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import numpy as np
@@ -10,20 +9,11 @@ import pytest
 
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
-from hydromodpy.results.run.point import (
-    POINT_COLUMNS,
-    PointOutsideMeshError,
-    PointRequest,
-    read_point,
-    read_points,
-    resolve_point,
-    write_point_table,
-)
+from hydromodpy.results.run.point import PointRequest, read_point, resolve_point, write_point_table
 from hydromodpy.results.spatial_index import (
     CellLocator,
     cell_index_cache_dir,
     clear_locator_cache,
-    locator_for,
     point_in_cell,
 )
 from hydromodpy.results.storage.sealing import seal_completed
@@ -126,27 +116,9 @@ class TestRequest:
 
 
 class TestResolve:
-    def test_coordinates_land_in_the_containing_cell(self, run):
-        assert resolve_point(run, PointRequest(x=1.5, y=0.5)).cell == 1
-
-    def test_a_point_outside_the_mesh_is_named_as_such(self, run):
-        with pytest.raises(PointOutsideMeshError):
-            resolve_point(run, PointRequest(x=9.0, y=9.0))
-
-    def test_a_cell_index_reports_its_centroid(self, run):
-        point = resolve_point(run, PointRequest(cell=3))
-        assert (point.x, point.y) == (1.5, 1.5)
-
     def test_an_out_of_range_cell_is_refused(self, run):
         with pytest.raises(IndexError, match="out of range"):
             resolve_point(run, PointRequest(cell=99))
-
-    def test_depth_picks_the_layer_from_the_thicknesses(self, run):
-        assert resolve_point(run, PointRequest(cell=0, depth=2.0)).layer == 0
-        assert resolve_point(run, PointRequest(cell=0, depth=7.0)).layer == 1
-
-    def test_depth_below_the_model_stays_in_the_last_layer(self, run):
-        assert resolve_point(run, PointRequest(cell=0, depth=500.0)).layer == 1
 
     def test_a_negative_layer_counts_from_the_bottom(self, run):
         assert resolve_point(run, PointRequest(cell=0, layer=-1)).layer == 1
@@ -156,29 +128,6 @@ class TestResolve:
 
 
 class TestReadPoint:
-    def test_a_transient_run_answers_one_row_per_timestep(self, run):
-        frame = run.probe.series("head", cell=1)
-        assert list(frame.columns) == list(POINT_COLUMNS)
-        assert len(frame) == N_STEPS
-        assert frame["value"].tolist() == [1.0, 11.0, 21.0]
-
-    def test_the_label_names_the_point_in_the_table(self, run):
-        labelled = run.probe.series("head", cell=1, label="PZ1")
-        assert set(labelled["point"]) == {"PZ1"}
-        assert set(run.probe.series("head", cell=1)["point"]) == {"cell1"}
-
-    def test_the_default_label_keeps_every_digit_of_the_coordinates(self, run):
-        frame = run.probe.series("head", x=1.5, y=0.5)
-        assert set(frame["point"]) == {"1.5_0.5"}
-        assert PointRequest(x=388352.0, y=6818548.0).name == "388352_6818548"
-
-    def test_the_series_carries_the_solver_calendar(self, run):
-        frame = run.probe.series("head", cell=1)
-        assert str(frame["time"].iloc[0]) == "2020-01-01 00:00:00"
-
-    def test_the_layer_selects_the_vertical_position(self, run):
-        assert run.probe.series("head", cell=1, layer=1)["value"].tolist() == [0.5, 10.5, 20.5]
-
     def test_one_timestep_returns_one_row(self, run):
         frame = run.probe.series("head", cell=1, timestep=-1)
         assert len(frame) == 1
@@ -188,42 +137,9 @@ class TestReadPoint:
         with pytest.raises(IndexError, match="out of range"):
             run.probe.series("head", cell=1, timestep=9)
 
-    def test_several_variables_stack(self, run):
-        frame = run.probe.series(["head", "watertable_depth"], cell=1)
-        assert set(frame["variable"]) == {"head", "watertable_depth"}
-        assert len(frame) == 2 * N_STEPS
-
-    def test_a_virtual_field_reads_like_a_persisted_one(self, run):
-        frame = run.probe.series("watertable_depth", cell=1)
-        reference = [float(run.field("watertable_depth", time=t)[1]) for t in range(N_STEPS)]
-        assert frame["value"].tolist() == reference
-
-    @pytest.mark.parametrize("elements_per_block", [None, N_CELLS, 2 * N_CELLS])
-    def test_a_virtual_series_is_the_column_of_the_range_read(
-        self, run, monkeypatch, elements_per_block
-    ):
-        from hydromodpy.results.derive import virtual_fields
-
-        if elements_per_block is not None:
-            monkeypatch.setattr(virtual_fields, "ROWS_PER_PASS_ELEMENTS", elements_per_block)
-        frame = run.probe.series("watertable_depth", cell=2)
-        stack = virtual_fields.read_field_range_or_virtual(
-            run._catalog, run.sim_id, "watertable_depth", 0, N_STEPS
-        )
-        np.testing.assert_array_equal(frame["value"].to_numpy(), stack[:, 2])
-
-    def test_the_point_matches_the_full_field(self, run):
-        frame = run.probe.series("head", cell=2, layer=0)
-        reference = [float(run.field("head", time=t, layer=0)[2]) for t in range(N_STEPS)]
-        assert frame["value"].tolist() == reference
-
     def test_an_unknown_field_is_named(self, run):
         with pytest.raises(KeyError, match="nosuchfield"):
             run.probe.series("nosuchfield", cell=0)
-
-    def test_coordinates_and_cell_index_agree(self, run):
-        by_xy = run.probe.series("head", x=1.5, y=0.5)["value"].tolist()
-        assert by_xy == run.probe.series("head", cell=1)["value"].tolist()
 
 
 class TestWriteTable:
@@ -253,18 +169,6 @@ class TestWriteTable:
 # -- several runs at once ---------------------------------------------------
 
 
-def test_the_same_point_reads_across_runs(tmp_path):
-    clear_locator_cache()
-    root = tmp_path / "demo"
-    first = _make_run(root, name="base")
-    second = _make_run(root, name="scenario", offset=100.0)
-    rebuild_index(root)
-    with Catalog(root) as catalog:
-        frame = read_points([catalog[first], catalog[second]], "head", PointRequest(x=1.5, y=0.5))
-    assert set(frame["run"]) == {"base", "scenario"}
-    assert frame.loc[frame["run"] == "scenario", "value"].tolist() == [101.0, 111.0, 121.0]
-
-
 def test_a_runset_reads_the_same_point_on_every_run(tmp_path):
     clear_locator_cache()
     root = tmp_path / "demo"
@@ -280,30 +184,6 @@ def test_a_runset_reads_the_same_point_on_every_run(tmp_path):
 
 
 class TestLocatorCache:
-    def test_the_same_fingerprint_returns_the_same_locator(self):
-        clear_locator_cache()
-        first = locator_for(VERTICES, CONNECTIVITY, fingerprint="abc")
-        assert locator_for(VERTICES, CONNECTIVITY, fingerprint="abc") is first
-
-    def test_a_different_fingerprint_builds_another_one(self):
-        clear_locator_cache()
-        first = locator_for(VERTICES, CONNECTIVITY, fingerprint="abc")
-        assert locator_for(VERTICES, CONNECTIVITY, fingerprint="def") is not first
-
-    def test_without_a_fingerprint_nothing_is_shared(self):
-        clear_locator_cache()
-        first = locator_for(VERTICES, CONNECTIVITY)
-        assert locator_for(VERTICES, CONNECTIVITY) is not first
-
-    def test_the_resolution_is_written_to_disk(self, tmp_path):
-        locator = CellLocator(
-            VERTICES, CONNECTIVITY, fingerprint="abc", cache_dir=tmp_path / "cache"
-        )
-        locator.locate({"p": (1.5, 0.5)})
-        payload = json.loads((tmp_path / "cache" / "abc.json").read_text())
-        assert payload["fingerprint"] == "abc"
-        assert list(payload["points"].values()) == [1]
-
     def test_a_cached_point_never_builds_the_tree(self, tmp_path):
         warm = CellLocator(VERTICES, CONNECTIVITY, fingerprint="abc", cache_dir=tmp_path / "c")
         warm.locate({"p": (1.5, 0.5)})

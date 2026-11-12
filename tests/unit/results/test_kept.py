@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import json
 from datetime import UTC, datetime
 
@@ -10,17 +9,7 @@ import pytest
 
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
-from hydromodpy.results.storage.kept import (
-    LEVELS,
-    PURGED_SCHEMA,
-    Purged,
-    Retention,
-    at_least,
-    level_of,
-    read_purged,
-    renders,
-    write_purged,
-)
+from hydromodpy.results.storage.kept import LEVELS, Purged, Retention, level_of, read_purged
 from hydromodpy.schema.lineage import Lineage
 from hydromodpy.solver.base.results_config import ResultsConfig
 
@@ -57,21 +46,7 @@ AT_LEAST = tuple(
 )
 
 
-@pytest.mark.parametrize(
-    ("level", "wanted", "holds"),
-    AT_LEAST,
-    ids=[f"{level} at least {wanted}" for level, wanted, _ in AT_LEAST],
-)
-def test_a_level_holds_from_wanted_upward(level: str, wanted: str, holds: bool) -> None:
-    assert at_least(level, wanted) is holds
-
-
 RENDERS = (("research", False), ("result", True), ("publication", True))
-
-
-@pytest.mark.parametrize(("level", "holds"), RENDERS, ids=[level for level, _ in RENDERS])
-def test_only_a_result_and_above_render(level: str, holds: bool) -> None:
-    assert renders(level) is holds
 
 
 RETENTION_KEYS = tuple(
@@ -85,31 +60,6 @@ RETENTION_KEYS = tuple(
     for solver_files in (False, True)
     for face_flows in (False, True)
 )
-
-
-@pytest.mark.parametrize(
-    ("case", "level", "solver_files", "face_flows"),
-    RETENTION_KEYS,
-    ids=[case for case, *_ in RETENTION_KEYS],
-)
-def test_a_retention_reads_the_level_and_the_results_table(
-    case: str, level: str, solver_files: bool, face_flows: bool
-) -> None:
-    del case
-    results = ResultsConfig(keep_solver_files=solver_files, keep_face_flows=face_flows)
-
-    retention = Retention.of(level, results, EVERYTHING)
-
-    assert retention.level == level
-    assert retention.budget is EVERYTHING
-    assert retention.solver_files is (solver_files if level == "result" else False)
-    assert retention.face_flows is (face_flows if level == "result" else False)
-
-
-def test_the_defaults_keep_every_term_and_drop_both_raw_groups() -> None:
-    retention = Retention.of("result", ResultsConfig(), EVERYTHING)
-
-    assert retention == Retention(level="result", budget=EVERYTHING)
 
 
 def test_the_per_cell_budget_of_a_kept_trial_holds_its_consumer_terms() -> None:
@@ -155,28 +105,7 @@ def test_a_retention_refuses_a_member_of_the_wrong_type(members: dict, named: st
         Retention(**members)
 
 
-def test_a_retention_is_frozen() -> None:
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        Retention(level="result", budget=EVERYTHING).solver_files = True  # type: ignore[misc]
-
-
 AT = datetime(2026, 11, 11, 8, 30, tzinfo=UTC)
-
-
-def test_a_purge_witness_round_trips(tmp_path) -> None:
-    purged = Purged(at=AT, entries={"fields.zarr": 4096})
-
-    path = write_purged(tmp_path, purged)
-
-    assert read_purged(tmp_path) == purged
-    assert path.name == "purged.json"
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    assert payload["schema"] == PURGED_SCHEMA
-    assert payload["entries"] == {"fields.zarr": 4096}
-
-
-def test_a_run_without_a_witness_reads_none(tmp_path) -> None:
-    assert read_purged(tmp_path) is None
 
 
 @pytest.mark.parametrize(

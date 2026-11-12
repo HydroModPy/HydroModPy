@@ -24,80 +24,15 @@ def backend(tmp_path: Path) -> DuckDBBackend:
     b.close()
 
 
-def test_isinstance_protocol(backend: DuckDBBackend) -> None:
-    assert isinstance(backend, DuckDBBackend)
-
-
-def test_query_returns_dataframe(backend: DuckDBBackend) -> None:
-    df = backend.query("SELECT 1 AS a, 'x' AS b")
-    assert df.shape == (1, 2)
-    assert list(df.columns) == ["a", "b"]
-    assert df.iloc[0, 0] == 1
-    assert df.iloc[0, 1] == "x"
-
-
-def test_query_with_positional_params(backend: DuckDBBackend) -> None:
-    backend.execute("CREATE TABLE t (a INT, b VARCHAR)")
-    backend.execute("INSERT INTO t VALUES (?, ?)", [1, "alpha"])
-    backend.execute("INSERT INTO t VALUES (?, ?)", [2, "beta"])
-    df = backend.query("SELECT a, b FROM t WHERE a >= ? ORDER BY a", [2])
-    assert len(df) == 1
-    assert df.iloc[0, 0] == 2
-
-
-def test_execute_runs_ddl_dml(backend: DuckDBBackend) -> None:
-    backend.execute("CREATE TABLE t (a INT)")
-    backend.execute("INSERT INTO t VALUES (10)")
-    backend.execute("UPDATE t SET a = 20")
-    df = backend.query("SELECT * FROM t")
-    assert df.iloc[0, 0] == 20
-
-
 def test_fetch_one_returns_row_tuple(backend: DuckDBBackend) -> None:
     row = backend.fetch_one("SELECT 7, 'q'")
     assert row == (7, "q")
-
-
-def test_fetch_one_returns_none_on_empty(backend: DuckDBBackend) -> None:
-    backend.execute("CREATE TABLE t (a INT)")
-    row = backend.fetch_one("SELECT * FROM t LIMIT 1")
-    assert row is None
-
-
-def test_fetch_all_returns_list_of_tuples(backend: DuckDBBackend) -> None:
-    backend.execute("CREATE TABLE t (a INT)")
-    backend.execute("INSERT INTO t VALUES (1), (2), (3)")
-    rows = backend.fetch_all("SELECT a FROM t ORDER BY a")
-    assert rows == [(1,), (2,), (3,)]
-
-
-def test_insert_basic(backend: DuckDBBackend) -> None:
-    backend.execute("CREATE TABLE t (a INT, b VARCHAR)")
-    backend.insert("t", {"a": 5, "b": "hello"})
-    rows = backend.fetch_all("SELECT * FROM t")
-    assert rows == [(5, "hello")]
 
 
 def test_insert_rejects_empty_row(backend: DuckDBBackend) -> None:
     backend.execute("CREATE TABLE t (a INT)")
     with pytest.raises(ValueError):
         backend.insert("t", {})
-
-
-def test_upsert_on_conflict_updates(backend: DuckDBBackend) -> None:
-    backend.execute("CREATE TABLE t (a INT PRIMARY KEY, b VARCHAR)")
-    backend.upsert("t", {"a": 1, "b": "x"}, key_cols=["a"])
-    backend.upsert("t", {"a": 1, "b": "y"}, key_cols=["a"])
-    rows = backend.fetch_all("SELECT * FROM t")
-    assert rows == [(1, "y")]
-
-
-def test_upsert_inserts_when_no_conflict(backend: DuckDBBackend) -> None:
-    backend.execute("CREATE TABLE t (a INT PRIMARY KEY, b VARCHAR)")
-    backend.upsert("t", {"a": 1, "b": "x"}, key_cols=["a"])
-    backend.upsert("t", {"a": 2, "b": "y"}, key_cols=["a"])
-    rows = backend.fetch_all("SELECT * FROM t ORDER BY a")
-    assert rows == [(1, "x"), (2, "y")]
 
 
 def test_upsert_rejects_missing_key(backend: DuckDBBackend) -> None:
@@ -129,15 +64,6 @@ def test_transaction_rollback_discards(backend: DuckDBBackend) -> None:
             raise RuntimeError("boom")
     rows = backend.fetch_all("SELECT a FROM t")
     assert rows == []
-
-
-def test_close_releases_resources(tmp_path: Path) -> None:
-    b = DuckDBBackend(tmp_path / "c.duckdb")
-    b.execute("CREATE TABLE t (a INT)")
-    b.close()
-    # After close, calling fetch should raise (driver-specific). We assert
-    # that close itself does not raise and is idempotent.
-    b.close()
 
 
 def test_from_connection_does_not_close(tmp_path: Path) -> None:

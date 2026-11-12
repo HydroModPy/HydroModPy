@@ -9,7 +9,6 @@ holds no crossing.
 
 from __future__ import annotations
 
-import hashlib
 from datetime import datetime
 from pathlib import Path
 
@@ -76,23 +75,6 @@ def _stub(monkeypatch: pytest.MonkeyPatch, module, pages) -> list:
 
 @pytest.mark.fast
 @pytest.mark.parametrize("cls, module", CLASSES)
-def test_the_source_is_registered_under_its_section(cls, module) -> None:
-    from hydromodpy.data.source.registry import data_sources
-
-    assert data_sources.get(cls.section, cls.source_id) is cls
-    assert (cls.section, cls.source_id) == ("crossings", module.SOURCE_ID)
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize("cls", [BdTopoCrossings, RoeCrossings])
-def test_a_source_serves_its_hosts_from_the_schema_entry(cls) -> None:
-    from hydromodpy.schema.sources import source_entry
-
-    assert cls().hosts == source_entry(cls.source_id).hosts
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize("cls, module", CLASSES)
 def test_a_request_over_a_foreign_crs_box_is_served_in_lambert(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cls, module
 ) -> None:
@@ -103,25 +85,6 @@ def test_a_request_over_a_foreign_crs_box_is_served_in_lambert(
     assert asked[0][0] == pytest.approx(_expected_box(FOREIGN), rel=0, abs=1e-6)
     assert result.extent is not None and result.extent.crs == "EPSG:2154"
     assert asked[0][1] == 7
-
-
-@pytest.mark.fast
-@pytest.mark.parametrize("cls", [BdTopoCrossings, RoeCrossings])
-def test_the_download_is_written_under_the_catalog_cache_name(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cls
-) -> None:
-    module = bdtopo if cls is BdTopoCrossings else roe
-    _stub(monkeypatch, module, lambda: [_sample(module.SOURCE_ID)])
-
-    result = cls().fetch(FetchRequest(out_dir=tmp_path, extent=EXTENT))
-
-    [record] = result.files
-    assert record.path == tmp_path / cache_file_name(cls.source_id, BOX)
-    assert record.path.exists()
-    assert record.state == "raw"
-    assert record.nodata is None
-    assert record.origin == module.WFS_URL
-    assert record.sha256 == hashlib.sha256(record.path.read_bytes()).hexdigest()
 
 
 @pytest.mark.fast

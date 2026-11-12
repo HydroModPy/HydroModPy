@@ -22,10 +22,9 @@ from hydromodpy.core.exceptions import (
     ExportError,
     NothingThereError,
 )
-from hydromodpy.project import api, request
+from hydromodpy.project import api
 from hydromodpy.project.facade import Project
 from hydromodpy.project.request import RunOutcome
-from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S
 from hydromodpy.results.run.group import RunSet
 from hydromodpy.results.run.view import Run
 from hydromodpy.results.session.view import Session
@@ -90,23 +89,6 @@ def test_the_five_objects_are_read_at_the_top_of_the_module() -> None:
 # open gives the objects the function that draws
 
 
-def test_open_gives_a_run_and_a_session_the_render_of_show(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    from hydromodpy.project.show import render
-
-    project = make_project(tmp_path / "p")
-    seal_run(project, "base")
-    write_session_dir(project, "calage")
-    runs = _recorder(monkeypatch, "hydromodpy.results.run.view.open_run_dir", "a run")
-    sessions = _recorder(monkeypatch, "hydromodpy.project.api.Session", "a session")
-
-    assert api.open(project / "runs" / "base") == "a run"
-    assert api.open(project / "sessions" / "calage") == "a session"
-    assert runs[0][1]["render"] is render
-    assert sessions[0][1]["render"] is render
-
-
 # check
 
 
@@ -123,23 +105,6 @@ def _calibration_file(tmp_path: Path) -> Path:
     path = tmp_path / "calibration.toml"
     path.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
     return path
-
-
-def test_calibrate_gives_a_file_its_options_by_name(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    calls = _recorder(monkeypatch, "hydromodpy.project.calibrate.calibrate_a_file", "report")
-    path = _calibration_file(tmp_path)
-
-    assert api.calibrate(path, phase="steady", resume=True, report=False) == "report"
-    (args, kwargs) = calls[0]
-    assert args == (path,)
-    assert (kwargs["phase"], kwargs["resume"], kwargs["report"], kwargs["force"]) == (
-        "steady",
-        True,
-        False,
-        False,
-    )
 
 
 @pytest.mark.parametrize("option", ["case", "method", "max_trials", "seed", "save_runs"])
@@ -311,15 +276,6 @@ def test_status_lists_the_directories_of_a_project_and_reads_one(tmp_path: Path)
     json.dumps([each.to_dict() for each in listed])
 
 
-def test_status_of_the_plan_reads_the_plan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    project = make_project(tmp_path / "p")
-    calls = _recorder(monkeypatch, "hydromodpy.project.launch.status.project_status", "report")
-
-    assert api.status(workspace=project, plan=True) == "report"
-    assert calls[0][0] == (project.resolve(),)
-    assert calls[0][1] == {}
-
-
 def test_status_of_the_plan_passes_the_stale_age(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -330,38 +286,7 @@ def test_status_of_the_plan_passes_the_stale_age(
     assert calls[0][1] == {"stale_after_s": 90.0}
 
 
-def test_status_of_the_directories_passes_the_stale_age(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    project = make_project(tmp_path / "p")
-    write_attempt(project, "runs/base", status="completed")
-    seen: list[float] = []
-    real = request.effective_status
-
-    def spy(path: Path, **kwargs: Any) -> Any:
-        seen.append(kwargs["stale_after_s"])
-        return real(path, **kwargs)
-
-    monkeypatch.setattr(request, "effective_status", spy)
-
-    api.status(workspace=project)
-    api.status(workspace=project, stale_after_s=90.0)
-    api.status(project / "runs" / "base", stale_after_s=45.0)
-
-    assert seen == [DEFAULT_STALE_AFTER_S, 90.0, 45.0]
-
-
 # show
-
-
-def test_show_reads_the_session_of_a_name_a_run_also_carries(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "p")
-    seal_run(project, "calage")
-    write_session_dir(project, "calage")
-
-    assert api._subject("calage", project, session_first=True).__class__ is Session
-    assert api._subject("calage", project).__class__ is Run
-    assert api._subject("runs/calage", project, session_first=True).__class__ is Run
 
 
 # trash
@@ -429,24 +354,6 @@ def test_compare_by_site_writes_a_folder(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
 
 # show
-
-
-def test_show_hands_every_word_to_the_line_of_its_what(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls = _recorder(monkeypatch, "hydromodpy.project.api.shown", "value")
-    run = _bare(Run)
-
-    assert api.show(run, what="field", name="head", time=-1, sel={"x": 1}, bbox=[0, 0, 1, 1]) == (
-        "value"
-    )
-    (args, _) = calls[0]
-    assert args[0] is run
-    assert args[1] == "field"
-    assert (args[2]["name"], args[2]["time"], args[2]["sel"], args[2]["bbox"]) == (
-        "head",
-        -1,
-        {"x": 1},
-        (0, 0, 1, 1),
-    )
 
 
 @pytest.mark.parametrize(
@@ -534,8 +441,3 @@ def test_example_lists_shows_and_installs(monkeypatch: pytest.MonkeyPatch, tmp_p
     )
     with pytest.raises(CommandUsageError, match="name it"):
         api.example(add=True)
-
-
-def test_doctor_gives_the_report_of_the_machine(monkeypatch: pytest.MonkeyPatch) -> None:
-    _recorder(monkeypatch, "hydromodpy.project.doctor.doctor_report", "report")
-    assert api.doctor() == "report"

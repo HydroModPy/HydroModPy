@@ -36,14 +36,14 @@ and the new one, once per key and per file. `hmp doctor --fix-config <file>` rew
 and the files it inherits, and keeps your comments. The changelog lists the rename under
 `Changed` with both names, and later its removal under `Removed`.
 
-A key or a table that only a pre-release wrote (an alpha, a beta or `2.0.0rc1`) is refused
-from 2.1.0. The message names every such key the file holds, at once. HydroModPy does not
+A key or a table that only a pre-release wrote (an alpha, a beta or a release candidate) is refused
+from 2.0.0. The message names every such key the file holds, at once. HydroModPy does not
 rewrite the file. The {doc}`list of key changes </reference/changes>` shows each such key with the
 version that refuses it and the name that replaces it. A run stored by a pre-release is refused
 the same way. The keys are listed in
-`hydromodpy/config/prerelease_forms.txt`, and the list leaves in 2.3.0. One key is not on it.
-In 2.0.0, `hmp project new` wrote `type` in `[[simulation.process]]`. So a project it made still
-loads in 2.1 with the warning, and `hmp doctor --fix-config` writes `kind`.
+`hydromodpy/config/prerelease_forms.txt`, and the list leaves in 2.2.0. One key is not on it.
+A pre-release wrote `type` in `[[simulation.process]]`. So a project it made still
+loads with a warning, and `hmp doctor --fix-config` writes `kind`.
 
 Each move of a key is one row of the register of changes,
 `hydromodpy/schema/changes.toml`, that the loader, the doctor and the {doc}`generated list of
@@ -52,12 +52,11 @@ a sidecar or a field store, has its row there too.
 
 An old name of Python, or an old `hmp` command or flag, follows the rule of two minor versions
 when the change comes in 2.2.0 or later. It prints a `FutureWarning` with both names and then
-does what the new one does. A name, a command or a flag that leaves in 2.1.0 or earlier has no
-alias. It is refused, with a message that names its new form, for two minor versions. What
-left before 2.0.0 is refused until 2.2.
+does what the new one does. A name, a command or a flag that left before 2.0.0 or in it has no
+alias. It is refused, with a message that names its new form, until 2.2.
 
-In 2.1.0 the top level became the fifteen verbs of `hydromodpy.project.api` and their five
-objects. `hmp.read`, `hmp.index` and `hmp.Catalog` stay beside them, because the runs of 2.0.0
+In 2.0.0 the top level became the fifteen verbs of `hydromodpy.project.api` and their five
+objects. `hmp.read`, `hmp.index` and `hmp.Catalog` stay beside them, because the runs of a pre-release
 are read through them. `hmp.figure`, `hmp.report`, `hmp.calibration_phases`, `hmp.compare_pair`,
 `hmp.example_add`, `hmp.example_list`, `hmp.example_show`, `hmp.Workspace` and seven exceptions of
 `results` and `project` are refused with the call that replaces them, such as
@@ -88,13 +87,7 @@ version does not know is refused, with the list of the editions it knows. Each d
 moves is a `default` row of the register of changes, and the page of each key in the
 parameter reference lists its default by edition.
 
-Edition `"2.1"` changes one default. {toml}`calibration.persist_trial_series` is `false` in edition
-2.0 and `true` in edition 2.1, so a calibration of that edition writes the series of every
-trial, one file per trial in `trial_series/`, about 2 kB for each trial of the example. `hmp project new`
-writes `edition = "2.1"` in the project file it creates. A file without an edition stays in
-edition 2.0 and keeps writing no series. No number of a run moves. Because the identity of a
-calibration document counts the fields it writes, a calibration document of edition 2.0 that
-writes no `persist_trial_series` now has the identity of one that writes `false`.
+There is one edition, `"2.0"`, and `hmp project new` writes `edition = "2.0"` in the project file it creates. A later minor version may add one, with the rows of the register that say which defaults move.
 
 ### What makes two runs the same
 
@@ -112,8 +105,8 @@ what it writes: a key written at its default value is another identity than no k
 validator can tell the two apart, and it costs one more computation at worst. A calibration is not
 part of the identity of the run it promotes, whose file holds its own solve.
 
-A run or a calibration session stored by 2.0 carries an identity made another way. The first time
-2.1 meets the same request, it computes it once more, and the new run carries the new identity.
+A run or a calibration session stored by a pre-release carries an identity made another way. The first time
+this version meets the same request, it computes it once more, and the new run carries the new identity.
 Its numbers are the same.
 
 ### What a sealed run keeps, and how a replay is classed
@@ -123,7 +116,7 @@ same with every default written. The seal also gives the digest of the values it
 per field, per column of a quantity and per array of the final state, taken in double precision
 before a field is rounded for storage. `hmp replay <run>` plays the run again from those bytes and
 classes what it compared: `bit` when every value hashes the same, `deviation` otherwise, with the
-size of each difference and the changes of this register it crossed. A source of 2.0 is classed on
+size of each difference and the changes of this register it crossed. A source of a pre-release is classed on
 its stored values, and a copy that carries no values has no class. A moved default or another
 solver binary goes in the lineage of the replay and refuses nothing, and an input whose digest
 differs is still refused. `--strict` refuses a deviation: the attempt ends failed, its fields stay

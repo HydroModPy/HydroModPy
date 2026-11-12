@@ -22,7 +22,7 @@ from tools.docs import field_registry, legacy_keys, toml_changelog
 
 ROOT = Path(__file__).resolve().parents[3]
 EXT = ROOT / "docs" / "source" / "_ext"
-LAST_RELEASE = ROOT / "tools" / "docs" / "snapshots" / "fields-2.0.0.json"
+LAST_PUBLISHED = ROOT / "tools" / "docs" / "snapshots" / "fields-2.0.0a4.json"
 
 LAYERING_MOVES = {
     "modflow6.sgrid.vertical": "domain.layers",
@@ -200,10 +200,10 @@ def test_the_history_passes_the_moves_to_every_pair() -> None:
     assert [r["from"] for r in out["pairs"][0]["renamed"]] == list(LAYERING_MOVES)
 
 
-def test_the_solver_tables_of_this_tree_are_a_move_against_the_last_release() -> None:
+def test_the_solver_tables_of_this_tree_are_a_move_against_the_last_pre_release() -> None:
     payload, _gates = field_registry.build_payload("current")
-    release = json.loads(LAST_RELEASE.read_text())
-    assert release["meta"]["label"] == "2.0.0"
+    release = json.loads(LAST_PUBLISHED.read_text())
+    assert release["meta"]["label"] == "2.0.0a4"
     assert {"modflow6", "modflownwt"} <= set(release["nodes"])
 
     out = toml_changelog.diff(release, toml_changelog.snapshot(payload), MOVES)

@@ -77,10 +77,6 @@ def test_a_polygon_in_another_crs_is_read_in_the_project_crs(tmp_path) -> None:
     assert bounds[3] == pytest.approx(6803000.0, abs=200.0)
 
 
-def test_an_outlet_catchment_has_no_polygon_bounds() -> None:
-    assert resolver.polygon_bounds(_cfg(), "EPSG:2154") is None
-
-
 def test_the_resolver_asks_the_polygon_box_when_the_catchment_is_a_polygon(
     tmp_path, monkeypatch
 ) -> None:

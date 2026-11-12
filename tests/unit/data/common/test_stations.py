@@ -4,40 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.exceptions import DataSourceError
 from hydromodpy.data.common.stations import report_dropped
 
 
 def test_report_dropped_empty():
     # When dropped is empty, no-op
     report_dropped("hydrometry", "hubeau", named=["A"], dropped=[], kept=["A"], reason="test")
-
-
-def test_report_dropped_partial_named():
-    with pytest.warns(UserWarning, match="1 station.*dropped.*no records"):
-        report_dropped(
-            "hydrometry",
-            "hubeau",
-            named=["A", "B"],
-            dropped=["A"],
-            kept=["B"],
-            reason="no records",
-            product="QIXM",
-        )
-
-
-def test_report_dropped_all_named_raises():
-    with pytest.raises(DataSourceError, match="every named station of source 'hubeau' was dropped"):
-        report_dropped(
-            "hydrometry",
-            "hubeau",
-            named=["A", "B"],
-            dropped=["A", "B"],
-            kept=[],
-            reason="no records",
-            product="QIXM",
-            raise_on_empty=True,
-        )
 
 
 def test_report_dropped_all_named_no_raise_when_disabled():

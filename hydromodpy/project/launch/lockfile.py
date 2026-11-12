@@ -61,7 +61,7 @@ def write_project_lockfile(
     The lockfile pins every row of the data cache and every user file the
     project declares. Returns the lockfile path, or ``None`` when there is
     nothing to pin or the write fails (a data folder that still holds the
-    database of HydroModPy 2.0.0 is refused by the scan, and is logged): the
+    database of a pre-release of 2.0 is refused by the scan, and is logged): the
     runs stay the source of truth.
     """
     from hydromodpy.config.hydromodpy_config import ROOT_CONFIG

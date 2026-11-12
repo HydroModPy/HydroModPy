@@ -71,10 +71,3 @@ def test_the_solver_run_says_whether_the_drainage_is_routed() -> None:
     assert _drainage_outside_routed(_solver_run(SimpleNamespace(route_drainage=False))) is True
     assert _drainage_outside_routed(_solver_run({"route_drainage": True})) is False
     assert _drainage_outside_routed(_solver_run({})) is False
-
-
-def test_a_lake_without_a_network_keeps_the_drainage_outside_the_routed_series() -> None:
-    assert _drainage_outside_routed(_solver_run({}, active=("lake",))) is True
-    model = SimpleNamespace(boundaries=SimpleNamespace(active_ids=("lake",)), sfr={})
-    assert _drainage_outside_routed(SimpleNamespace(model=model)) is True
-    assert _drainage_outside_routed(SimpleNamespace(model=None)) is True

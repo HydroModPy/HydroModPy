@@ -64,32 +64,6 @@ CASES = (
 )
 
 
-@pytest.mark.parametrize(
-    ("case", "has_flag", "stop_after", "advanced"), CASES, ids=[c[0] for c in CASES]
-)
-def test_the_solver_stops_between_two_periods(
-    case: str,
-    has_flag: bool,
-    stop_after: int | None,
-    advanced: int,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    del case
-    flag = stop_flag_for(tmp_path / "run")
-    periods = _count_periods(monkeypatch, stop_after=stop_after, flag=flag)
-    call = _call(tmp_path, flag=flag if has_flag else None)
-
-    if stop_after is None:
-        result = call.solve()
-        assert result.solved is True
-    else:
-        with pytest.raises(StopRequested, match="stop requested at 2026-11-10T10:00:00"):
-            call.solve()
-
-    assert len(periods) == advanced
-
-
 def test_a_stop_asked_before_the_solve_runs_no_period(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

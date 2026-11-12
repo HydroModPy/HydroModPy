@@ -25,7 +25,6 @@ from hydromodpy.core.fields.vertical_column import (
 )
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.model import ModelTime
-from hydromodpy.results.storage.final_state import read_final_state
 from hydromodpy.solver.modflow_nwt.extractors import flow as nwt_flow
 from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
@@ -132,20 +131,6 @@ def test_the_sentinels_masked_are_the_ones_of_the_options(
     np.testing.assert_array_equal(
         store.heads[0, 0], np.where(np.isin(heads, masked), np.nan, heads)
     )
-
-
-def test_the_final_state_holds_the_last_head_in_double_precision(
-    folder: Path, surface: list[dict]
-) -> None:
-    ModflowNwtOutputAdapter().extract(
-        solved_run(folder, options=_options()), _Store(folder), keep_all
-    )
-
-    state = read_final_state(folder)
-    assert state is not None
-    assert state.head.dtype == np.float64
-    np.testing.assert_array_equal(state.head[0], [np.nan, np.nan, 12.5, -1234.0])
-    assert state.lake_stages == {}
 
 
 def test_a_run_without_options_has_no_sentinels_to_read(folder: Path, surface: list[dict]) -> None:

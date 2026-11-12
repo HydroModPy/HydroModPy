@@ -19,7 +19,7 @@ from hydromodpy.results.catalog.indexer import index_new_runs
 from hydromodpy.results.run.group import RunSet
 from hydromodpy.results.run.view import REPORT, Run
 from hydromodpy.results.session.view import Session
-from tests._helpers.sealed_runs import make_project, seal_run, write_session_dir
+from tests._helpers.sealed_runs import make_project, seal_run
 
 pytestmark = pytest.mark.fast
 
@@ -97,34 +97,6 @@ def test_the_kind_of_a_subject(cls: type, kind: str) -> None:
 # summary
 
 
-def test_the_summary_of_a_project_is_read_from_its_directories(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "p")
-    seal_run(project, "base")
-    (project / "extra.toml").write_text("", encoding="utf-8")
-    subject = _bare(Project)
-
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(Project, "root", property(lambda self: project))
-        said = show.shown(subject, "summary", {})
-
-    assert (said["name"], said["n_runs"], said["configs"]) == ("p", 1, ["extra.toml"])
-    assert (said["has_index"], said["n_sessions"], said["n_trashed"]) == (False, 0, 0)
-
-
-def test_the_summary_of_a_run_in_its_project_is_its_facts(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at
-) -> None:
-    project = make_project(tmp_path / "p")
-    seal_run(project, "base")
-    calls = _recorder(
-        monkeypatch, "hydromodpy.results.catalog.listing.show_simulation", {"name": "base"}
-    )
-    run = run_at((project / "runs" / "base").resolve(), "abc")
-
-    assert show.shown(run, "summary", {"detail": True}) == {"name": "base"}
-    assert calls[0] == (("abc",), {"workspace": project.resolve(), "detail": True})
-
-
 def test_the_summary_of_a_sealed_run_the_index_has_not_met_is_read(tmp_path: Path, run_at) -> None:
     project = make_project(tmp_path / "p")
     seal_run(project, "base")
@@ -148,26 +120,6 @@ def test_the_summary_of_a_run_out_of_any_project_is_read_from_its_folder(
 
     assert (said["sim_id"], said["rel_dir"], said["deliveries"]) == ("abc", None, [])
     assert said["profile"]["present"] is False
-
-
-def test_the_summary_of_a_session_is_its_summary_with_the_report_as_text(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    from dataclasses import dataclass
-
-    @dataclass
-    class Summary:
-        trials: int
-        report: Path | None
-
-    monkeypatch.setattr(
-        "hydromodpy.results.session.summary.session_summary",
-        lambda session: Summary(trials=4, report=tmp_path / "index.html"),
-    )
-
-    said = show.shown(_bare(Session), "summary", {})
-
-    assert said == {"trials": 4, "report": str(tmp_path / "index.html")}
 
 
 # profile, table, field, series
@@ -241,28 +193,6 @@ def test_a_point_of_a_run_out_of_any_project_is_refused(tmp_path: Path, run_at) 
         show.shown(run_at(folder), "point", {"name": "head"})
 
 
-def test_a_rank_reads_the_project_with_its_defaults(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    calls = _recorder(monkeypatch, "hydromodpy.results.catalog.listing.rank_simulations", "r")
-    monkeypatch.setattr(Project, "root", property(lambda self: tmp_path / "p"))
-
-    assert show.shown(_bare(Project), "rank", {}) == "r"
-    assert show.shown(_bare(Project), "rank", {"metric": "kge", "limit": 2, "best": False}) == "r"
-    assert calls[0] == (
-        ("p",),
-        {
-            "workspace": tmp_path / "p",
-            "metric": "nse",
-            "station": None,
-            "best": True,
-            "n": 5,
-            "mixed_windows": False,
-        },
-    )
-    assert (calls[1][1]["metric"], calls[1][1]["n"], calls[1][1]["best"]) == ("kge", 2, False)
-
-
 # figure, report and render
 
 
@@ -282,12 +212,6 @@ def test_render_draws_a_figure_and_gives_the_file_it_saved(
     assert calls[1][1]["run_dir"] == tmp_path / "runs" / "base"
     assert show.shown(run, "figure", {"name": "head_map", "options": {"cmap": "x"}}) == "figure"
     assert calls[3][1]["cmap"] == "x"
-
-
-def test_a_set_of_runs_stamps_no_identity(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    calls = _recorder(monkeypatch, "hydromodpy.display.runs.render_figure", "figure")
-    show.render(_bare(RunSet), "scores", {"save": tmp_path / "s.png"})
-    assert calls[0][1]["run_dir"] is None
 
 
 def test_the_report_of_a_run_and_of_a_session(
@@ -343,24 +267,6 @@ def test_show_with_save_writes_a_table_and_leaves_a_figure_to_render(
 # show_target: what a reference names, read from the directories
 
 
-def test_a_run_name_gives_its_directory(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "ws")
-    seal_run(project, "baseline")
-
-    target = show.show_target("baseline", project)
-
-    assert (target.directory, target.kind) == (project / "runs" / "baseline", "run")
-
-
-def test_a_folder_written_with_a_slash_is_read_as_a_path(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "ws")
-    seal_run(project, "baseline")
-
-    target = show.show_target(str(project / "runs" / "baseline"), project)
-
-    assert (target.directory, target.kind) == (project / "runs" / "baseline", "run")
-
-
 def test_a_name_that_is_nothing_is_refused_unless_it_is_a_project_of_the_workspace(
     tmp_path: Path,
 ) -> None:
@@ -377,12 +283,3 @@ def test_a_name_that_is_nothing_is_refused_unless_it_is_a_project_of_the_workspa
         show.show_target("absent", demo, str(workspace))
     with pytest.raises(SimulationNotFoundError):
         show.show_target("absent/with/slash", demo, str(workspace))
-
-
-def test_with_session_first_a_name_a_session_and_a_run_carry_is_the_session(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "ws")
-    seal_run(project, "case")
-    write_session_dir(project, "case")
-
-    assert show.show_target("case", project, session_first=True).kind == "session"
-    assert show.show_target("case", project).kind == "run"

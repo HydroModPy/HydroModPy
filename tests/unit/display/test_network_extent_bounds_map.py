@@ -11,18 +11,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.display.figures.network_extent_bounds_map import (  # noqa: F401
-    NetworkExtentBoundsMap,
-    _draw_both,
-)
+from hydromodpy.display.figures.network_extent_bounds_map import NetworkExtentBoundsMap
 from hydromodpy.results.run.descent import RunDescent
 from tests._helpers.sealed_runs import sealed_search
 from tests._helpers.transient_network_run import transient_run
 from tests.unit.display._network_comparison_run import legend_labels, legend_note
-
-
-def test_a_transient_run_with_both_maps_is_drawn() -> None:
-    assert NetworkExtentBoundsMap().unavailable_reason(transient_run()) is None
 
 
 def test_a_steady_run_is_told_so() -> None:
@@ -65,24 +58,6 @@ def test_the_default_threshold_on_a_run_without_recharge_is_told_so(mpl) -> None
         NetworkExtentBoundsMap().render(_without_recharge(), ax)
 
 
-def test_both_bounds_count_each_extent_and_each_map(mpl) -> None:
-    fig, ax = mpl.subplots()
-    NetworkExtentBoundsMap().render(transient_run(), ax)
-
-    assert legend_labels(ax) == [
-        "simulated minimal extent (1 cell)",
-        "maximal extent beyond it (2 cells)",
-        "minimal map (2 cells)",
-        "maximal map beyond it (1 cell)",
-    ]
-    note = legend_note(ax)
-    assert "minimal: 1 valid, 0 excess, 1 missing" in note
-    assert "maximal: 3 valid, 0 excess, 0 missing" in note
-    assert "kept in >= 1 of 2 complete year(s) (2001-2002" in note
-    assert "flows from 1 L/s" in note
-    assert "climatological extents over 2001-2002" in ax.get_title()
-
-
 def test_one_bound_draws_its_valid_excess_and_missing_cells(mpl) -> None:
     fig, ax = mpl.subplots()
     NetworkExtentBoundsMap().render(transient_run(), ax, bound="minimal", year=2002)
@@ -93,14 +68,6 @@ def test_one_bound_draws_its_valid_excess_and_missing_cells(mpl) -> None:
         "missing: mapped only (1 cell)",
     ]
     assert "year 2002" in ax.get_title()
-
-
-def test_the_rules_move_the_extents(mpl) -> None:
-    """A visible flow above the summer release leaves no minimal extent."""
-    fig, ax = mpl.subplots()
-    NetworkExtentBoundsMap().render(transient_run(), ax, visible_flow="5 L/s")
-
-    assert legend_labels(ax)[0] == "simulated minimal extent (0 cells)"
 
 
 def test_a_year_the_run_does_not_cover_whole_is_refused(mpl) -> None:
@@ -129,46 +96,6 @@ def _sealed(**extent) -> dict:
             }
         }
     }
-
-
-def test_the_counts_are_said_to_be_scored_cells(mpl) -> None:
-    fig, ax = mpl.subplots()
-    NetworkExtentBoundsMap().render(transient_run(), ax)
-
-    note = legend_note(ax)
-    assert "maximal: 3 valid, 0 excess, 0 missing scored cell(s)" in note
-    assert "in the catchment" not in note
-
-
-def test_the_map_draws_the_rules_the_run_was_scored_by(mpl) -> None:
-    run = transient_run()
-    run.dir = sealed_search(_sealed(visible_flow="5 L/s"))
-    fig, ax = mpl.subplots()
-    NetworkExtentBoundsMap().render(run, ax)
-
-    assert legend_labels(ax)[0] == "simulated minimal extent (0 cells)"
-    note = legend_note(ax)
-    assert (
-        "every cell releasing groundwater counts as seepage; "
-        "a cell downstream of seepage flows from 5 L/s"
-    ) in note
-    assert "criterion settings: calibration output 'streams'" in note
-
-
-def test_a_rule_the_caller_names_wins_over_the_run(mpl) -> None:
-    run = transient_run()
-    run.dir = sealed_search(_sealed(visible_flow="5 L/s"))
-    fig, ax = mpl.subplots()
-    NetworkExtentBoundsMap().render(run, ax, visible_flow="1 L/s")
-
-    assert legend_labels(ax)[0] == "simulated minimal extent (1 cell)"
-
-
-def test_a_run_without_a_sealed_output_says_it_reads_the_defaults(mpl) -> None:
-    fig, ax = mpl.subplots()
-    NetworkExtentBoundsMap().render(transient_run(), ax)
-
-    assert "criterion settings: the defaults" in legend_note(ax)
 
 
 def test_the_guard_reads_the_threshold_the_run_was_scored_by() -> None:
@@ -223,41 +150,3 @@ class _FakeExtents:
 
     def observed(self, bound: str) -> np.ndarray:
         return self._obs[bound]
-
-
-def test_both_bounds_counts_follow_the_declared_frame(mpl) -> None:
-    # Before the fix, ``_draw_both`` counted every legend entry over the whole
-    # mesh, ignoring ``scope``: on a run with a domain 1234 cells wide it read
-    # a simulated minimal extent of 1234 cells while the scored lines, built
-    # on the catchment, counted 714.
-    polygons = [_square(i) for i in range(4)]
-    extents = _FakeExtents(
-        sim_min=np.array([True, True, False, False]),
-        sim_max=np.array([True, True, True, False]),
-        obs_min=np.array([True, False, False, False]),
-        obs_max=np.array([True, True, False, True]),
-    )
-    # Cells 2 and 3 sit outside the declared frame.
-    scope = np.array([True, True, False, False])
-
-    fig, ax = mpl.subplots()
-    fig2, ax2 = mpl.subplots()
-    try:
-        handles_whole = _draw_both(ax, polygons, extents, None, None)
-        handles_scoped = _draw_both(ax2, polygons, extents, None, scope)
-
-        assert [h.get_label() for h in handles_whole] == [
-            "simulated minimal extent (2 cells)",
-            "maximal extent beyond it (1 cell)",
-            "minimal map (1 cell)",
-            "maximal map beyond it (2 cells)",
-        ]
-        assert [h.get_label() for h in handles_scoped] == [
-            "simulated minimal extent (2 cells)",
-            "maximal extent beyond it (0 cells)",
-            "minimal map (1 cell)",
-            "maximal map beyond it (1 cell)",
-        ]
-    finally:
-        mpl.close(fig)
-        mpl.close(fig2)

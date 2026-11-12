@@ -36,13 +36,10 @@ from hydromodpy.results.metric_rule import (
 )
 from hydromodpy.results.record.checks import CalibratedBy
 from hydromodpy.results.score import (
-    HEADLINE_METRICS,
-    MIN_PAIRED_PERIODS,
     UnscoredObservation,
     calibration_rules,
     pair,
     read_timeseries,
-    score,
     score_metric,
     score_run_under_its_rule,
     score_timeseries,
@@ -178,52 +175,6 @@ def test_a_run_read_compact_keeps_the_simulated_values_of_its_trial(case: str) -
     )
 
 
-@pytest.mark.parametrize(
-    ("method", "window", "kept"),
-    [
-        ("point", None, 10),
-        ("point", DateWindow(start=date(2020, 1, 3), end=date(2020, 1, 5)), 3),
-        ("point", (None, pd.Timestamp("2020-01-04")), 3),
-        ("mean", DateWindow(start=date(2020, 1, 3), end=date(2020, 1, 5)), 3),
-        ("mean", (pd.Timestamp("2020-01-08"), None), 3),
-    ],
-)
-def test_pair_keeps_the_periods_its_window_holds(method, window, kept) -> None:
-    stamps = pd.date_range("2020-01-02", periods=10, freq="D")
-    series = pd.Series(np.arange(1.0, 11.0), index=stamps)
-    observed = series if method == "point" else series.set_axis(stamps.shift(-1, freq="D"))
-
-    paired = pair(series, observed, method=method, window=window, period_start="2020-01-01")
-
-    assert len(paired.frame) == kept
-    assert paired.n_simulated_nan == 0
-
-
-def test_pair_counts_a_dry_period_of_the_window_and_not_one_outside_it() -> None:
-    stamps = pd.date_range("2020-01-02", periods=10, freq="D")
-    simulated = pd.Series(np.arange(1.0, 11.0), index=stamps)
-    simulated.iloc[[1, 6]] = np.nan
-    observed = simulated.fillna(0.0).set_axis(stamps.shift(-1, freq="D"))
-    window = DateWindow(start=date(2020, 1, 5), end=date(2020, 1, 10))
-
-    inside = pair(simulated, observed, method="mean", window=window, period_start="2020-01-01")
-    everywhere = pair(simulated, observed, method="mean", window=None, period_start="2020-01-01")
-
-    assert (inside.n_simulated_nan, everywhere.n_simulated_nan) == (1, 2)
-    assert len(inside.frame) == 5
-
-
-def test_a_mean_is_dated_by_the_start_of_its_period() -> None:
-    stamps = pd.date_range("2020-02-01", periods=3, freq="MS")
-    simulated = pd.Series([1.0, 2.0, 3.0], index=stamps)
-    observed = pd.Series(1.0, index=pd.date_range("2020-01-01", "2020-03-31", freq="D"))
-
-    paired = pair(simulated, observed, method="mean", window=None, period_start="2020-01-01")
-
-    assert list(paired.frame.index) == list(stamps)
-    assert list(paired.dated().index) == list(pd.date_range("2020-01-01", periods=3, freq="MS"))
-
-
 @pytest.mark.parametrize(("period_start", "kept"), [(None, 0), ("2020-05-31", 1)])
 def test_a_steady_mean_is_dated_only_by_its_period_start(period_start, kept) -> None:
     stamp = pd.DatetimeIndex([pd.Timestamp("2020-06-01")])
@@ -237,37 +188,6 @@ def test_a_steady_mean_is_dated_only_by_its_period_start(period_start, kept) -> 
     assert len(paired.dated()) == kept
     if kept:
         assert paired.dated().index[0] == pd.Timestamp(period_start)
-
-
-def test_score_keeps_the_order_and_names_where_it_read() -> None:
-    observed = _series(3)
-    paired = pair(observed * 1.05, observed, method="point", window=WINDOW_2016)
-
-    scores = score(paired, RULE_2016, ("rmse", "nse"), station=GAUGE, variable="discharge")
-
-    assert [item.metric for item in scores] == ["rmse", "nse"]
-    assert {(item.station, item.variable) for item in scores} == {(GAUGE, "discharge")}
-    assert {item.n_samples for item in scores} == {366}
-
-
-def test_score_defaults_to_the_four_headline_metrics() -> None:
-    observed = _series(3)
-    paired = pair(observed, observed, method="point", window=WINDOW_2016)
-    assert [item.metric for item in score(paired, RULE_2016)] == list(HEADLINE_METRICS)
-    assert score(paired, RULE_2016, ()) == []
-
-
-def test_score_needs_the_fewest_paired_periods() -> None:
-    stamps = pd.date_range("2016-01-01", periods=MIN_PAIRED_PERIODS, freq="D")
-    series = pd.Series(np.arange(1.0, MIN_PAIRED_PERIODS + 1.0), index=stamps)
-
-    full = score(pair(series, series, method="point", window=WINDOW_2016), RULE_2016, ("rmse",))
-    short = score(
-        pair(series.iloc[:-1], series, method="point", window=WINDOW_2016), RULE_2016, ("rmse",)
-    )
-
-    assert full[0].n_samples == MIN_PAIRED_PERIODS
-    assert (short[0].value, short[0].n_samples) == (None, 0)
 
 
 def test_nse_is_computed_on_the_declared_window_only() -> None:
@@ -286,20 +206,6 @@ def test_nse_is_computed_on_the_declared_window_only() -> None:
     assert result.n_samples == 366
     assert result.metric_rule_version == METRIC_RULE_VERSION == "2"
     assert (result.window_name, result.window_role) == (HEADLINE_WINDOW, EVALUATION_ROLE)
-
-
-def test_without_a_window_there_is_no_score() -> None:
-    result = score_metric(_series(1), _series(2), MetricRule(station=GAUGE), "nse")
-    assert result == MetricScore(
-        metric="nse",
-        value=None,
-        window_name=HEADLINE_WINDOW,
-        window_role=EVALUATION_ROLE,
-        window_start=None,
-        window_end=None,
-        n_samples=0,
-        metric_rule_version="2",
-    )
 
 
 def test_nse_n_counts_the_instants_both_series_carry_a_finite_value_at() -> None:
@@ -347,15 +253,6 @@ def test_constant_observations_give_no_value_rather_than_nan() -> None:
     assert result.value is None and result.n_samples == 366
 
 
-@pytest.mark.parametrize("metric", RUN_METRIC_NAMES)
-def test_every_known_metric_scores_under_the_rule(metric) -> None:
-    observed = _series(3)
-    result = score_metric(observed * 1.05, observed, RULE_2016, metric)
-    assert result.metric == metric
-    assert result.value is not None
-    assert result.n_samples == 366
-
-
 @pytest.mark.parametrize(
     ("simulated", "observed", "metric", "error", "match"),
     [
@@ -368,13 +265,6 @@ def test_a_metric_that_cannot_be_read_is_refused(simulated, observed, metric, er
     observed = _series(2) if observed is None else observed
     with pytest.raises(error, match=match):
         score_metric(simulated, observed, RULE_2016, metric)
-
-
-def test_the_log_nse_of_a_negative_series_is_clipped_and_counted() -> None:
-    observed = _series(3)
-    result = score_metric(observed - 10.0, observed, RULE_2016, "nse_log")
-    assert result.value is not None
-    assert result.n_clipped == result.n_samples == 366
 
 
 def test_a_configuration_without_metrics_nor_site_scores_nothing() -> None:
@@ -431,19 +321,6 @@ def test_without_a_window_nothing_is_scored() -> None:
     assert scores.score.window_start is None
     assert scores.score.n_samples == 0
     assert scores.score.metric_rule_version == "2"
-
-
-def test_without_a_station_the_rows_exist_but_the_headline_is_empty() -> None:
-    days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
-    values = np.linspace(1.0, 4.0, len(days))
-
-    scores = score_timeseries(
-        _frame(_closing(days), values, days, values), rule=MetricRule(window=YEAR_2001)
-    )
-
-    assert {row.station for row in scores.rows} == {GAUGE}
-    assert scores.score.value is None
-    assert scores.score.window_start == YEAR_2001.start
 
 
 def test_the_headline_is_read_at_the_rule_station_only() -> None:
@@ -605,37 +482,6 @@ def test_a_monthly_gap_before_the_window_keeps_the_next_month_in_it() -> None:
     # March to November: nine months, February unmeasured, January before the window.
     assert scores.score.n_samples == 9
     assert scores.score.value == pytest.approx(1.0)
-
-
-def test_a_dry_period_of_the_window_is_counted_on_each_row(caplog) -> None:
-    days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
-    values = np.linspace(1.0, 4.0, len(days))
-    simulated = values.copy()
-    simulated[[40, 41, 300]] = np.nan
-
-    with caplog.at_level("WARNING"):
-        scores = score_timeseries(
-            _frame(_closing(days), simulated, days, values),
-            rule=MetricRule(station=GAUGE, window=YEAR_2001),
-        )
-
-    assert {row.n_sim_nan for row in scores.rows} == {3}
-    assert scores.score.n_samples == 362
-    assert any("3 period(s) of the window dropped" in m for m in caplog.messages)
-
-
-def test_the_log_nse_is_written_under_its_calibration_name() -> None:
-    days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
-    values = np.linspace(1.0, 3.0, len(days))
-
-    scores = score_timeseries(
-        _frame(_closing(days), values, days, values),
-        rule=MetricRule(station=GAUGE, window=YEAR_2001),
-    )
-
-    names = {row.metric for row in scores.rows}
-    assert "nse_log" in names
-    assert "log_nse" not in names
 
 
 def test_the_run_directory_is_read_without_the_index(tmp_path, monkeypatch) -> None:

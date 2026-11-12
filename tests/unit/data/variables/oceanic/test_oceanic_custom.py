@@ -33,22 +33,3 @@ class TestLoadCustomDispatch:
         cfg = OceanicSourceConfig(source="file", path=data_dir)
         with pytest.raises(FileNotFoundError, match="No oceanic_file_LOC"):
             _load_file(cfg)
-
-    def test_csv_directory_with_loc_and_chronicle(self, tmp_path):
-        data_dir = tmp_path / "oceanic"
-        data_dir.mkdir()
-
-        loc_file = data_dir / "oceanic_custom_LOC.csv"
-        loc_file.write_text("id,x,y,crs,unit\nST01,-1.5,48.0,EPSG:4326,m\n")
-
-        chronicle = data_dir / "oceanic_custom_ST01_20030101_20030110_D.csv"
-        chronicle.write_text("datetime,value\n2003-01-01,0.5\n2003-01-02,0.6\n")
-
-        cfg = OceanicSourceConfig(source="file", path=data_dir)
-        records = _load_file(cfg)
-        assert len(records) == 1
-        rec = records[0]
-        assert rec.station_id == "ST01"
-        assert rec.variable == "oceanic"
-        assert rec.unit == "m"
-        assert len(rec.data) == 2

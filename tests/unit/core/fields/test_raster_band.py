@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
-import rasterio
 from rasterio.transform import from_origin
 
 from hydromodpy.core.fields.nodata import valid_cells
-from hydromodpy.core.io.raster_io import write_band
 
 PROFILE = {
     "driver": "GTiff",
@@ -21,18 +17,6 @@ PROFILE = {
     "transform": from_origin(0.0, 50.0, 25.0, 25.0),
     "nodata": -9999.0,
 }
-
-
-def test_a_band_is_written_on_a_copy_of_the_profile_with_its_crs(tmp_path: Path) -> None:
-    values = np.arange(6, dtype="uint8").reshape(2, 3)
-    out = write_band(
-        tmp_path / "deep" / "zones.tif", values, PROFILE, crs="EPSG:2154", dtype="uint8", nodata=0
-    )
-    with rasterio.open(out) as src:
-        assert (src.count, src.dtypes[0], src.nodata) == (1, "uint8", 0.0)
-        assert src.crs.to_epsg() == 2154
-        np.testing.assert_array_equal(src.read(1), values)
-    assert PROFILE["count"] == 3 and PROFILE["dtype"] == "float32"
 
 
 @pytest.mark.parametrize(

@@ -80,7 +80,7 @@ The checklist
    because a live file is then refused with the new name and a sealed run still reads
    it, so it is never removed. What does go is a name of ``_lazy.py`` or
    ``conventions.py`` past its delay, which ``tests/unit/architecture`` names, and the
-   list ``hydromodpy/config/prerelease_forms.txt``, which goes in 2.3.0.
+   list ``hydromodpy/config/prerelease_forms.txt``, which goes in 2.2.0.
 7. **Regenerate the example catalog.** ``hmp example add`` fetches the files at the
    tag of the installed version and checks them against ``catalog.toml``. Run
    ``python -m tools.dev examples manifest`` and commit the result, or every download of the
@@ -105,10 +105,11 @@ The checklist
 12. **Merge back.** After a final release, merge the release branch into ``main``
     and ``dev``. After a maintenance release, merge the fix forward into ``dev`` if
     the bug is still there.
-13. **Open the next version on dev.** Set ``pyproject.toml`` and
-    ``_FALLBACK_VERSION`` of ``dev`` to the next minor version with ``.dev0``, for
-    example ``2.1.0.dev0`` after ``v2.0.0``. A run seals the version it was made with,
-    and a ``[[bug]]`` row covers the released versions, ``versions = "<2.1.0"``. A
+13. **Open the next version on dev.** Before the tag, ``pyproject.toml`` and
+    ``_FALLBACK_VERSION`` say the number of the release, here ``2.0.0``. After it, set both on
+    ``dev`` to the next minor version with ``.dev0``, for example ``2.1.0.dev0`` after
+    ``v2.0.0``. A run seals the version it was made with, and a ``[[bug]]`` row covers the
+    released versions, for example ``versions = ">=2.0.0a1,<=2.0.0rc1"``. A
     run of ``dev`` that still said ``2.0.0`` would carry for good a bug that ``dev``
     has fixed. ``tests/unit/architecture/test_surfaces.py`` fails when a row
     covers the version of the tree.

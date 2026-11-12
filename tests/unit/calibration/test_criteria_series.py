@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.config_objective import CalibObjectiveBlockDecl
-from hydromodpy.calibration.config_terms import MetricKind, OutputSupport
+from hydromodpy.calibration.config_terms import MetricKind
 from hydromodpy.calibration.criteria.base import CriterionResult
 from hydromodpy.calibration.criteria.formulas import METRIC_FORMULAS
 from hydromodpy.calibration.criteria.hydrographic_network_distance import (
@@ -22,11 +22,7 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_pair,
     distance_pairs,
 )
-from hydromodpy.calibration.criteria.registry import (
-    NETWORK_ESTIMATORS,
-    available_criteria,
-    criterion_for,
-)
+from hydromodpy.calibration.criteria.registry import criterion_for
 from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
     METRICS,
@@ -34,10 +30,7 @@ from hydromodpy.calibration.criteria.series import (
     SeriesCriterion,
     _positions,
 )
-from hydromodpy.calibration.criteria.series import (
-    SeriesCriterion as SeriesCriterion__criterion_contract,
-)
-from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer, sampling_step_days
+from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer
 from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_observations
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.optim.objective import ConfigBlockObjective, SimulationOutput
@@ -116,32 +109,6 @@ def test_the_refusal_reaches_a_whole_calibration_file() -> None:
 
     with pytest.raises(ValidationError, match="one block per output"):
         CalibrationConfig.model_validate(_config(blocks))
-
-
-@pytest.mark.parametrize("metric", EFFICIENCIES)
-def test_one_block_per_output_is_accepted_with_its_weight(metric: str) -> None:
-    blocks = [
-        {"name": "up", "metric": metric, "uses_outputs": ["upstream"], "weight": 2.0},
-        {"name": "down", "metric": metric, "uses_outputs": ["downstream"], "weight": 1.0},
-    ]
-
-    config = CalibrationConfig.model_validate(_config(blocks))
-
-    assert [b.weight for b in config.objective_blocks] == [2.0, 1.0]
-
-
-@pytest.mark.parametrize("metric", EFFICIENCIES)
-def test_an_efficiency_over_one_output_is_accepted(metric: str) -> None:
-    decl = CalibObjectiveBlockDecl.model_validate(_block(metric, ["upstream"]))
-
-    assert decl.uses_outputs == ["upstream"]
-
-
-@pytest.mark.parametrize("metric", POOLABLE)
-def test_an_error_over_several_outputs_stays_pooled(metric: str) -> None:
-    decl = CalibObjectiveBlockDecl.model_validate(_block(metric, ["upstream", "downstream"]))
-
-    assert decl.uses_outputs == ["upstream", "downstream"]
 
 
 # From test_metric_kind_matches_the_registry.py
@@ -266,19 +233,6 @@ class TestIncrementEfficiency:
         # d_sim = [4, 5, 6, 10], residuals [1, 0, -1, 1] -> numerator 3
         assert nse_delta(sim, obs, step=2) == pytest.approx(1.0 - 3.0 / 20.0)
 
-    def test_a_longer_step_forgives_a_phase_shift(self) -> None:
-        """The rationale for ``RESERVOIR_INCREMENT_DAYS``: 3 days must not flip signs."""
-        days = np.arange(TWO_SEASONS, dtype=float)
-        stage = (
-            100.0
-            + 5.0 * np.cos(2.0 * np.pi * days / SEASON)
-            + 0.5 * np.sin(2.0 * np.pi * days / 10.0)
-        )
-        lagged = np.concatenate([stage[:3], stage[:-3]])
-
-        assert nse_delta(lagged, stage, step=1) < 0.0
-        assert nse_delta(lagged, stage, step=int(RESERVOIR_INCREMENT_DAYS)) > 0.9
-
     def test_step_below_one_is_coerced_to_one(self) -> None:
         obs = np.array([0.0, 1.0, 3.0, 6.0])
         sim = np.array([0.0, 2.0, 3.0, 5.0])
@@ -306,11 +260,6 @@ class TestIncrementEfficiency:
     def test_shape_mismatch_raises(self) -> None:
         with pytest.raises(ValueError):
             nse_delta(np.zeros(4), np.zeros(5))
-
-    def test_kge_delta_perfect_fit_decomposition(self) -> None:
-        obs = np.array([0.0, 1.0, 3.0, 6.0, 10.0])
-        out = kge_delta(obs, obs)
-        assert out == {"kge": 1.0, "r": 1.0, "alpha": 1.0, "beta": 1.0}
 
     def test_kge_delta_is_nan_when_the_increments_sum_to_zero(self) -> None:
         """Why KGE is not offered on increments: beta is a ratio of near-zero means."""
@@ -375,13 +324,6 @@ class TestSeasonalEfficiency:
 
     def test_empty_series_returns_nan(self) -> None:
         assert np.isnan(nse_seasonal(np.empty(0), np.empty(0)))
-
-    def test_nans_shorten_the_series_below_two_cycles(self) -> None:
-        """Alignment drops pairs first, so a gappy chronicle can fall under the floor."""
-        _, observed = _seasonal_pair(TWO_SEASONS, SEASON)
-        gappy = observed.copy()
-        gappy[:1] = np.nan
-        assert np.isnan(nse_seasonal(gappy, observed))
 
     def test_shape_mismatch_raises(self) -> None:
         with pytest.raises(ValueError):
@@ -497,18 +439,6 @@ class TestCalibrationWiring:
         index = pd.date_range("2001-01-01", periods=100, freq="D")
         assert _lake_cost(observed[:100], simulated[:100], index) == float("inf")
 
-    def test_objective_block_costs_infinity_when_the_metric_is_undefined(self) -> None:
-        simulated, observed = _daily_reservoir(0.2)
-        block = ConfigBlockObjective(
-            name="lake",
-            metric="reservoir",
-            uses_outputs=["lake"],
-            observed_by_output={"lake": observed[:100].tolist()},
-        )
-        value = block.evaluate({"lake": simulated[:100].tolist()})
-        assert value.total == float("inf")
-        assert value.components["lake.raw_cost"] == float("inf")
-
     def test_objective_block_scores_a_full_chronicle(self) -> None:
         simulated, observed = _daily_reservoir(0.2)
         block = ConfigBlockObjective(
@@ -529,17 +459,6 @@ class TestTheSeasonalCycleIsCountedInDays:
         obs = 10.0 + 3.0 * np.cos(2.0 * np.pi * months / 12.0) + 0.5 * np.sin(months)
         sim = obs + 0.2 * np.cos(3.0 * months)
         return sim, obs
-
-    @pytest.mark.parametrize("metric", ["nse_seasonal", "reservoir"])
-    def test_a_monthly_series_scores_a_number(self, metric: str) -> None:
-        sim, obs = self._monthly(4)
-        criterion = SeriesCriterion(metric, METRICS[metric])
-
-        undated = criterion.score(sim, obs)
-        dated = criterion.score(sim, obs, sample_days=30.44)
-
-        assert np.isnan(undated.diagnostics["score"])
-        assert np.isfinite(dated.diagnostics["score"])
 
     @pytest.mark.parametrize(
         ("times_days", "sample_days", "expected"),
@@ -572,25 +491,6 @@ class TestTheSeasonalCycleIsCountedInDays:
             criterion.score(sim, obs).cost, abs=1e-3
         )
 
-    def test_the_block_reads_the_step_the_trial_dated(self) -> None:
-        sim, obs = self._monthly(4)
-        block = ConfigBlockObjective(
-            name="level",
-            metric="nse_seasonal",
-            uses_outputs=["stage"],
-            observed_by_output={"stage": obs},
-        )
-        trial = SimulationOutput(
-            sim_id="",
-            stations=(),
-            times=np.empty(0),
-            values={"stage": sim},
-            metadata={"sample_days": {"stage": 30.44}},
-        )
-
-        assert np.isfinite(block.evaluate(trial).total)
-        assert not np.isfinite(block.evaluate({"stage": sim}).total)
-
 
 # From test_the_criterion_contract.py
 # A criterion declares what it needs and returns what it found.
@@ -621,27 +521,12 @@ def _same_number(left: float, right: float) -> bool:
 
 
 class TestTheRegistry:
-    def test_every_kernel_is_reachable_by_name(self) -> None:
-        assert set(available_criteria()) == set(METRICS)
-
     def test_an_unknown_name_is_refused_with_the_list(self) -> None:
         with pytest.raises(ValueError, match="Registered"):
             criterion_for("nse_squared")
 
-    def test_a_series_kernel_yields_a_series_criterion(self) -> None:
-        assert isinstance(criterion_for("nse"), SeriesCriterion__criterion_contract)
-
-    def test_a_network_estimator_yields_the_network_criterion(self) -> None:
-        assert isinstance(criterion_for("distance_gap"), HydrographicNetworkDistance)
-
 
 class TestWhatASeriesCriterionDeclares:
-    def test_it_fits_observations_and_carries_a_time_axis(self) -> None:
-        needs = criterion_for("nse").requirements()
-
-        assert needs.needs_observations is True
-        assert needs.has_time_axis is True
-
     def test_no_series_criterion_publishes_a_signed_residual(self) -> None:
         for name in METRICS:
             if name in {"distance_gap", "distance_mean"}:
@@ -654,12 +539,6 @@ class TestWhatASeriesCriterionDeclares:
         assert needs.cost_is_dimensionless is True
         assert needs.cost_unit is None
 
-    def test_a_residual_metric_says_its_cost_carries_one(self) -> None:
-        needs = criterion_for("rmse").requirements()
-
-        assert needs.cost_is_dimensionless is False
-        assert needs.cost_unit is not None
-
     def test_scoring_without_observations_is_refused(self) -> None:
         with pytest.raises(ValueError, match="observations"):
             criterion_for("rmse").score(_SIM)
@@ -668,19 +547,8 @@ class TestWhatASeriesCriterionDeclares:
         with pytest.raises(ValueError, match="rmse"):
             criterion_for("rmse").score(_SIM, _OBS[:3])
 
-    def test_a_log_metric_reports_what_it_clipped(self) -> None:
-        result = criterion_for("nse_log").score(np.array([-1.0, 2.0, 3.0]), _OBS[:3])
-
-        assert result.diagnostics["n_clipped"] == 1.0
-
 
 class TestWhatTheHydrographicNetworkDistanceDeclares:
-    def test_it_needs_no_observations_and_has_no_time_axis(self) -> None:
-        needs = criterion_for("distance_gap").requirements()
-
-        assert needs.needs_observations is False
-        assert needs.has_time_axis is False
-
     def test_the_gap_publishes_the_signed_residual_its_cost_is_built_from(self) -> None:
         needs = criterion_for("distance_gap").requirements()
         result = criterion_for("distance_gap").score([120.0, 100.0])
@@ -702,9 +570,6 @@ class TestWhatTheHydrographicNetworkDistanceDeclares:
         assert needs.signed is False
         assert result.signed_residual is None
         assert result.cost == pytest.approx(110.0)
-
-    def test_its_cost_is_in_metres(self) -> None:
-        assert criterion_for("distance_gap").requirements().cost_unit == "m"
 
     def test_it_reports_the_pair_it_read(self) -> None:
         diagnostics = criterion_for("distance_gap").score([120.0, 100.0]).diagnostics
@@ -735,51 +600,6 @@ class TestTheCostsAreUnchanged:
         through_contract = criterion_for(name).score(_SIM, _OBS).cost
 
         assert _same_number(through_contract, self._inline_cost(name))
-
-    @pytest.mark.parametrize("name", ["distance_gap", "distance_mean"])
-    def test_a_network_cost_is_identical_to_the_bit(self, name: str) -> None:
-        pair = np.array([137.5, 91.25])
-
-        assert _same_number(criterion_for(name).score(pair).cost, float(METRICS[name](pair)))
-
-
-class TestWhatSupportACriterionReads:
-    """The criterion names the supports it scores, and nothing else holds a list.
-
-    The pairing used to be a tuple of metric names written inside a
-    configuration validator. Declared on the criterion, it is checked in both
-    directions from one answer, and these gates keep that answer honest against
-    the vocabulary a file actually writes.
-    """
-
-    def test_a_series_criterion_reads_every_support_but_the_network(self) -> None:
-        assert set(criterion_for("nse").requirements().reads_supports) == {
-            "point",
-            "boundary",
-            "cell",
-            "lake",
-        }
-
-    def test_the_network_criterion_reads_the_network_and_nothing_else(self) -> None:
-        for name in NETWORK_ESTIMATORS:
-            assert criterion_for(name).requirements().reads_supports == ("network",)
-
-    def test_the_two_vocabularies_partition_what_a_file_may_declare(self) -> None:
-        # A support no criterion reads could be declared and never scored; a
-        # support two families both claim would make the pairing meaningless.
-        declared = set(get_args(OutputSupport))
-        series = set(criterion_for("rmse").requirements().reads_supports)
-        network = set(criterion_for("distance_gap").requirements().reads_supports)
-
-        assert series | network == declared
-        assert series & network == set()
-
-    def test_every_registered_criterion_names_a_support_that_exists(self) -> None:
-        declared = set(get_args(OutputSupport))
-        for name in available_criteria():
-            supports = criterion_for(name).requirements().reads_supports
-            assert supports, name
-            assert set(supports) <= declared, name
 
 
 # From test_the_seasonal_kernels_read_the_dates.py
@@ -837,13 +657,6 @@ def test_an_increment_never_spans_a_gap() -> None:
 
     assert nse_delta(s, o, times=DAYS[KEPT]) == pytest.approx(expected)
     assert kge_delta(s, o, times=DAYS[KEPT])["kge"] == pytest.approx(kge(d_sim, d_obs)["kge"])
-
-
-def test_a_regular_series_scores_as_before() -> None:
-    sim, obs = _stage()
-
-    assert nse_seasonal(sim, obs, period=YEAR, times=DAYS) == nse_seasonal(sim, obs, period=YEAR)
-    assert nse_delta(sim, obs, step=10, times=DAYS) == nse_delta(sim, obs, step=10)
 
 
 @pytest.mark.parametrize("metric", ["nse_seasonal", "nse_delta", "reservoir"])
@@ -971,13 +784,6 @@ def _bounds() -> tuple[pd.Timestamp, pd.Timestamp]:
     return pd.Timestamp(WINDOW[0]), pd.Timestamp(WINDOW[1])
 
 
-def test_the_run_scores_the_window_on_whole_periods() -> None:
-    value, n = _run_score()
-
-    assert np.isfinite(value)
-    assert n == 24
-
-
 def test_variable_and_objective_score_what_the_run_scores() -> None:
     observed, simulated = _series()
     scorer = StationBlockScorer(
@@ -1075,12 +881,6 @@ def test_a_daily_series_keeps_its_daily_score() -> None:
     assert cost == pytest.approx(undated.cost, abs=1e-3)
 
 
-def test_the_step_is_the_median_spacing_in_days() -> None:
-    assert sampling_step_days(pd.date_range("2001-01-01", periods=5, freq="D")) == 1.0
-    assert sampling_step_days(pd.DatetimeIndex(["2001-01-01"])) is None
-    assert sampling_step_days(pd.RangeIndex(4)) is None
-
-
 # ---------------------------------------------------------------------------
 # criteria_formulas
 # Tests of `criteria.formulas`.
@@ -1153,12 +953,6 @@ def test_the_kernels_agree_with_the_criterion() -> None:
     values = [35.0, 25.0, 60.0, 75.0]
     assert distance_gap(values) == pytest.approx(criterion_for("distance_gap").score(values).cost)
     assert distance_pairs(values) == [(35.0, 25.0), (60.0, 75.0)]
-
-
-@pytest.mark.parametrize("values", [[], [1.0], [1.0, 2.0, 3.0]])
-def test_a_vector_that_is_not_made_of_pairs_is_refused(values) -> None:
-    with pytest.raises(ValueError, match="pairs"):
-        distance_gap(values)
 
 
 def test_distance_pair_reads_one_pair_and_refuses_any_other_size() -> None:

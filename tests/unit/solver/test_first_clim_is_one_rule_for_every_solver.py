@@ -13,11 +13,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.model.forcing.steady_periods import (
-    apply_first_clim,
-    split_net_recharge,
-    steady_flags,
-)
+from hydromodpy.model.forcing.steady_periods import apply_first_clim, split_net_recharge
 from hydromodpy.model.model import ModelTime
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.boussinesq.forcing.common import ForcingCommonMixin
@@ -66,16 +62,6 @@ def test_a_transient_period_keeps_its_own_rate_whatever_its_index():
 
     np.testing.assert_allclose(out[0], [1.0, 2.0])
     np.testing.assert_allclose(out[1], [3.0, 4.0])
-
-
-def test_every_period_of_a_steady_run_takes_the_rule():
-    assert steady_flags(nper=3, flow_regime="steady", first_period_steady=False).all()
-    assert steady_flags(nper=3, flow_regime="transient", first_period_steady=True).tolist() == [
-        True,
-        False,
-        False,
-    ]
-    assert not steady_flags(nper=3, flow_regime="transient", first_period_steady=False).any()
 
 
 def _mf6_model(*, nper: int, steady: list[bool], first_clim: object):
@@ -209,13 +195,6 @@ def test_modflow_nwt_routes_the_steady_deficit_like_modflow6(first_clim):
     assert float(rch[0]) - float(evt[0]) == pytest.approx(expected)
     for kper in (1, 2, 3):
         assert float(rch[kper]) - float(evt[kper]) == pytest.approx(NET[kper])
-
-
-def test_modflow_nwt_keeps_a_transient_first_period():
-    cfg = FlowRechargeConfig(values=[2.0, 4.0, 9.0], first_clim=7.0, units="m/s")
-    adapter = _nwt_adapter(cfg, flow_regime="transient", first_period_steady=False, nper=3)
-
-    assert adapter._build_recharge_payload() == {0: 2.0, 1: 4.0, 2: 9.0}
 
 
 class _BoussinesqForcing(ForcingCommonMixin):

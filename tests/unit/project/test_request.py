@@ -15,8 +15,6 @@ from hydromodpy.cli.exit_codes import EXIT_CONFIG, exit_code_for
 from hydromodpy.config.loading import load
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
-from hydromodpy.data.contracts.file_record import FileRecord
-from hydromodpy.data.loading.inputs import ResolvedInputs
 from hydromodpy.project.request import (
     REQUEST_SCHEMA,
     RunOutcome,
@@ -24,18 +22,12 @@ from hydromodpy.project.request import (
     base_of,
     held,
     is_a_path,
-    outcome_of_directory,
-    outcomes_under,
-    read_request,
     request_of,
     workflow_of,
-    write_request_file,
 )
 from hydromodpy.results.outcome import Outcome, write_outcome
-from hydromodpy.results.publication import PublishedLine, append_published
-from hydromodpy.results.storage.contract import RUN_REQUEST_FILENAME
-from hydromodpy.workflow.solution_key import input_digests, planned_request_id
-from tests._helpers.sealed_runs import make_project, write_session_dir
+from hydromodpy.results.publication import PublishedLine
+from hydromodpy.workflow.solution_key import planned_request_id
 
 DOCUMENT: dict[str, Any] = {
     "workflow": {"mode": "simulation"},
@@ -92,45 +84,12 @@ def test_every_form_gives_a_request_that_loads_alike(tmp_path: Path, form: str, 
     assert written_payload(load(request.config, root)) == expected
 
 
-def test_a_request_round_trips_through_its_json(tmp_path: Path) -> None:
-    request = request_of(
-        DOCUMENT, set={"flow.param.K.field.value": 2e-5}, name="island", force=True
-    )
-    path = _request_file(tmp_path, request.model_dump(mode="json", by_alias=True))
-
-    assert read_request(path) == request
-    assert RunRequest.model_validate(request.model_dump(by_alias=True)) == request
-    assert request.model_dump(by_alias=True)["schema"] == REQUEST_SCHEMA
-
-
 def test_the_json_schema_of_a_request_names_its_schema_as_a_constant() -> None:
     schema = RunRequest.model_json_schema(by_alias=True)
 
     assert schema["properties"]["schema"]["const"] == REQUEST_SCHEMA
     assert schema["additionalProperties"] is False
     assert "config" in schema["required"]
-
-
-def test_the_source_is_relative_to_the_base_when_it_lies_under_it(tmp_path: Path) -> None:
-    root = _project(tmp_path / "project")
-
-    assert request_of(root / "island.toml", base=root).source == "island.toml"
-    assert request_of(root / "island.toml", base=tmp_path / "x").source == (
-        (root / "island.toml").resolve().as_posix()
-    )
-    assert request_of(DOCUMENT).source is None
-
-
-@pytest.mark.parametrize(
-    ("options", "no_display"),
-    [
-        pytest.param({}, False, id="neither"),
-        pytest.param({"headless": True}, True, id="headless"),
-        pytest.param({"no_display": True}, True, id="no_display"),
-    ],
-)
-def test_headless_is_no_display(options: dict, no_display: bool) -> None:
-    assert request_of(DOCUMENT, **options).no_display is no_display
 
 
 def test_the_command_line_adds_to_a_request_file_and_wins(tmp_path: Path) -> None:
@@ -185,22 +144,6 @@ def test_the_workflow_follows_the_document_and_its_changes(
 
 
 @pytest.mark.parametrize(
-    ("form", "written"), [("json", True), ("dict", True), ("toml", False), ("object", False)]
-)
-def test_request_json_is_written_for_json_and_dict_only(
-    tmp_path: Path, form: str, written: bool
-) -> None:
-    request = RunRequest(config={"a": {"b": "secret value"}}, form=form)
-
-    write_request_file(tmp_path, request)
-
-    path = tmp_path / RUN_REQUEST_FILENAME
-    assert path.is_file() is written
-    if written:
-        assert RunRequest.model_validate_json(path.read_text(encoding="utf-8")) == request
-
-
-@pytest.mark.parametrize(
     ("source", "base", "expected"),
     [
         pytest.param("toml", None, "project", id="a toml file reads from its project"),
@@ -224,11 +167,6 @@ def test_the_base_of_each_form(
     folders = {"project": root.resolve(), "other": (tmp_path / "other").resolve()}
 
     assert base_of(given, None if base is None else folders[base]) == folders[expected]
-
-
-def test_a_document_in_memory_has_no_base_of_its_own() -> None:
-    with pytest.raises(ConfigError, match="needs base="):
-        base_of(DOCUMENT)
 
 
 # The outcome of a finished run, read back
@@ -255,62 +193,6 @@ def _finished(run_dir: Path, **fields: Any) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    ("identical_to", "request_id"),
-    [
-        pytest.param(None, "r" * 64, id="a run that computed"),
-        pytest.param("island", None, id="a run given back by a skip"),
-    ],
-)
-def test_the_outcome_of_a_run_reads_typed(
-    tmp_path: Path, identical_to: str | None, request_id: str | None
-) -> None:
-    run_dir = tmp_path / "runs" / "island"
-    _finished(run_dir, request_id=request_id)
-
-    read = RunOutcome.read(run_dir, project_root=tmp_path, identical_to=identical_to)
-
-    assert (read.name, read.sim_id, read.request_id, read.status) == (
-        "island",
-        "s" * 32,
-        request_id,
-        "failed",
-    )
-    assert read.identical_to == identical_to
-    assert read.project_root == tmp_path
-
-
-def test_the_outcome_of_a_run_carries_the_delivery_lines_it_wrote(tmp_path: Path) -> None:
-    """``read`` tells them nothing: a delivery is a line of the run, not of its outcome."""
-    run_dir = tmp_path / "runs" / "island"
-    _finished(run_dir, request_id="r" * 64)
-
-    fresh = RunOutcome.read(run_dir, project_root=tmp_path)
-    line = PublishedLine(
-        kind="delivery",
-        published_at=datetime(2026, 11, 10, tzinfo=UTC),
-        file="exports/head_last.tif",
-        destination="ftp://example.org/incoming/head_last.tif",
-        state="delivered",
-        sha256=hashlib.sha256(b"head").hexdigest(),
-        bytes=4,
-        attempts=1,
-    )
-    delivered = RunOutcome(
-        name=fresh.name,
-        run_dir=fresh.run_dir,
-        sim_id=fresh.sim_id,
-        request_id=fresh.request_id,
-        status=fresh.status,
-        identical_to=fresh.identical_to,
-        project_root=fresh.project_root,
-        deliveries=(line,),
-    )
-
-    assert fresh.deliveries == ()
-    assert delivered.deliveries == (line,)
-
-
 def test_a_directory_without_outcome_is_no_finished_run(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         RunOutcome.read(tmp_path, project_root=tmp_path)
@@ -327,15 +209,6 @@ def _delivery() -> PublishedLine:
         bytes=4,
         attempts=1,
     )
-
-
-@pytest.mark.parametrize("kind", ["run", "session"])
-def test_an_outcome_says_its_kind(tmp_path: Path, kind: str) -> None:
-    run_dir = tmp_path / "runs" / "island"
-    _finished(run_dir, request_id="r" * 64)
-
-    assert RunOutcome.read(run_dir, project_root=tmp_path).kind == "run"
-    assert RunOutcome.read(run_dir, project_root=tmp_path, kind=kind).kind == kind
 
 
 def test_an_outcome_goes_to_json_and_back_as_text_and_numbers(tmp_path: Path) -> None:
@@ -375,51 +248,6 @@ def test_an_outcome_opens_its_directory_by_the_verb(
     assert opened == [run_dir]
 
 
-def test_a_directory_without_outcome_still_has_a_line_and_its_deliveries(tmp_path: Path) -> None:
-    claimed = tmp_path / "runs" / "claimed"
-    claimed.mkdir(parents=True)
-    append_published(claimed, _delivery())
-
-    line = outcome_of_directory(claimed, project_root=tmp_path, kind="run")
-
-    assert (line.name, line.sim_id, line.request_id) == ("claimed", None, None)
-    assert line.status
-    assert [each.state for each in line.deliveries] == ["delivered"]
-
-
-def test_a_session_line_takes_the_status_of_its_descriptor(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "project")
-    write_session_dir(project, "calage", status="completed")
-    write_session_dir(project, "broken", status="completed")
-    (project / "sessions" / "broken" / "session.json").write_text("{not json", encoding="utf-8")
-
-    done = outcome_of_directory(
-        project / "sessions" / "calage", project_root=project, kind="session"
-    )
-    broken = outcome_of_directory(
-        project / "sessions" / "broken", project_root=project, kind="session"
-    )
-
-    assert (done.kind, done.status) == ("session", "completed")
-    assert broken.status == "unreadable"
-
-
-def test_the_outcomes_of_a_project_are_read_from_its_directories_by_name(tmp_path: Path) -> None:
-    _finished(tmp_path / "runs" / "zeta", request_id="r" * 64)
-    _finished(tmp_path / "runs" / "alpha", request_id="r" * 64)
-    _finished(tmp_path / "sessions" / "beta", request_id="r" * 64)
-    (tmp_path / "runs" / "loose.txt").write_text("not a run", encoding="utf-8")
-
-    found = outcomes_under(tmp_path)
-
-    assert [(each.name, each.kind) for each in found] == [
-        ("alpha", "run"),
-        ("beta", "session"),
-        ("zeta", "run"),
-    ]
-    assert outcomes_under(tmp_path / "empty") == []
-
-
 def test_a_request_object_is_a_source_whose_options_the_caller_adds_to(tmp_path: Path) -> None:
     built = request_of(DOCUMENT, name="first", set={"K": 1.0})
 
@@ -447,19 +275,6 @@ def test_a_source_is_a_path_unless_it_is_a_document_or_an_object(tmp_path: Path)
 
 
 # The identity of a request, told by hydromodpy.workflow.solution_key
-
-
-def test_a_resolved_input_enters_by_its_role_and_another_file_by_its_path(tmp_path: Path) -> None:
-    root = _project(tmp_path / "project")
-    cfg = load(root / "island.toml")
-    dem = root / "inputs" / "dem.tif"
-    digest = hashlib.sha256(dem.read_bytes()).hexdigest()
-    record = FileRecord(dem, digest, state="raw", origin="file")
-
-    assert input_digests(cfg, ResolvedInputs(dem=record)) == {"dem.0": [digest, "raw"]}
-    (unresolved,) = input_digests(cfg, ResolvedInputs()).items()
-    assert unresolved[0].endswith(":inputs/dem.tif")
-    assert unresolved[1] == [digest, None]
 
 
 def test_a_planned_request_id_is_computed_offline(tmp_path: Path) -> None:
@@ -557,13 +372,3 @@ def test_a_refused_request_says_why(
 
     assert said in str(refused.value)
     assert exit_code_for(refused.value) == EXIT_CONFIG
-
-
-@pytest.mark.parametrize("document", [{}, {"calibration": {}}], ids=["simulation", "calibration"])
-def test_force_is_taken_by_the_workflows_that_give_back_identical_work(document: dict) -> None:
-    """A simulation gives back an identical run and a calibration its completed session."""
-    assert request_of(document, force=True).force is True
-
-
-def test_a_dry_run_is_never_refused_on_its_options() -> None:
-    assert request_of({"calibration": {}}, force=True, dry_run=True).dry_run

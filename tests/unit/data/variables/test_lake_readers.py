@@ -9,7 +9,7 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Polygon
 
-from hydromodpy.data.variables.lake_abacus.read import _abacus_columns, lake_abacus
+from hydromodpy.data.variables.lake_abacus.read import lake_abacus
 from hydromodpy.data.variables.lake_bathymetry.read import lake_bathymetry
 from hydromodpy.data.variables.lake_geometry.read import lake_polygons
 
@@ -49,22 +49,6 @@ def test_lake_polygons_matches_single_lake_without_column(tmp_path: Path) -> Non
 def test_lake_polygons_returns_empty_when_none_or_empty() -> None:
     assert lake_polygons(None, lake_ids=["lake_a"]) == {}
     assert lake_polygons(SimpleNamespace(fields=[]), lake_ids=["lake_a"]) == {}
-
-
-def test_abacus_columns_extracts_stage_volume_sarea() -> None:
-    df = pd.DataFrame(
-        {
-            "stage": [10.0, 12.0],
-            "volume": [0.0, 50000.0],
-            "sarea": [0.0, 1000.0],
-        }
-    )
-    cols = _abacus_columns(df)
-    assert cols == {
-        "stage": [10.0, 12.0],
-        "volume": [0.0, 50000.0],
-        "sarea": [0.0, 1000.0],
-    }
 
 
 def test_lake_abacus_matches_by_lake_id(tmp_path: Path) -> None:

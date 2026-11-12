@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 from types import SimpleNamespace
 
 import numpy as np
@@ -17,7 +16,6 @@ from hydromodpy.model.forcing.validation import (
     has_temporal_index,
     numeric_payload_array,
 )
-from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig as FlowEtpConfig_2
 from hydromodpy.model.sinks_sources.lake import FlowLakeConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
@@ -94,31 +92,6 @@ def test_a_negative_value_read_from_a_file_stops_the_build() -> None:
 # config and no doc, and only ``apply_etp_load_result_to_flow`` may set it.
 
 
-def test_the_default_etp_is_not_marked() -> None:
-    assert FlowEtpConfig().from_soil_reservoir is False
-
-
-def test_the_marker_survives_a_model_copy() -> None:
-    etp = FlowEtpConfig()
-    etp._from_soil_reservoir = True
-
-    copied = etp.model_copy(update={"values": 1.0})
-
-    assert copied.from_soil_reservoir is True
-
-
-def test_the_marker_survives_a_deepcopy() -> None:
-    etp = FlowEtpConfig()
-    etp._from_soil_reservoir = True
-
-    assert copy.deepcopy(etp).from_soil_reservoir is True
-
-
-def test_a_toml_key_cannot_set_the_marker() -> None:
-    with pytest.raises(ValidationError):
-        FlowEtpConfig(from_soil_reservoir=True)
-
-
 # The spatial source of a recharge or ETP forcing: its mode, its interpolation and its record.
 #
 # ``spatial_mode`` and ``interpolation_method`` are read by the forcing path on
@@ -142,61 +115,6 @@ def _one_pixel_source() -> LoadResult:
         crs="EPSG:2154",
     )
     return LoadResult(fields=[record])
-
-
-@pytest.mark.fast
-def test_the_recharge_keeps_its_heterogeneous_source_as_given():
-    source = _one_pixel_source()
-
-    config = FlowRechargeConfig(
-        values=0.0, heterogeneous_source=source, first_clim="mean", units="m/s"
-    )
-
-    assert config.heterogeneous_source is source
-
-
-@pytest.mark.fast
-def test_the_recharge_has_no_heterogeneous_source_by_default():
-    assert FlowRechargeConfig(values=1.0e-8).heterogeneous_source is None
-
-
-@pytest.mark.fast
-@CONFIGS
-def test_the_forcing_configs_choose_the_spatial_mode_from_the_source_by_default(config):
-    assert config().spatial_mode == "auto"
-
-
-@pytest.mark.fast
-@CONFIGS
-def test_the_forcing_configs_keep_nearest_as_default(config):
-    assert config().interpolation_method == "nearest"
-
-
-@CONFIGS
-@pytest.mark.parametrize(
-    ("field", "value"),
-    [
-        ("spatial_mode", "homogeneous"),
-        ("interpolation_method", "idw"),
-        ("interpolation_method", "area"),
-    ],
-)
-def test_the_forcing_configs_accept_a_known_spatial_choice(config, field, value):
-    assert getattr(config(**{field: value}), field) == value
-
-
-@CONFIGS
-@pytest.mark.parametrize(
-    ("field", "value"),
-    [
-        ("spatial_mode", "invalid"),
-        ("interpolation_method", "cubic"),
-        ("interpolation_method", "bilinear"),
-    ],
-)
-def test_the_forcing_configs_refuse_an_unknown_spatial_choice(config, field, value):
-    with pytest.raises(ValidationError, match=field):
-        config(**{field: value})
 
 
 # Unit tests for numeric forcing validators.

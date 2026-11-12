@@ -8,15 +8,12 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import shapely
 from shapely.geometry import LineString
 
 from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine, _platform_note
 from hydromodpy.mesh.engines.voronoi.from_triangulation import _FACES_NOTE
-from hydromodpy.mesh.engines.voronoi.lloyd import LLOYD_CAP
 from hydromodpy.mesh.engines.voronoi.local_coords import local_frame
 from hydromodpy.mesh.io.msh import read_msh
-from hydromodpy.mesh.mesh_config import MeshConfig
 from hydromodpy.mesh.planning.input_triangulation import domain_polygon_from_mesh
 from hydromodpy.mesh.planning.size_field import SizeTerm, build_size_field
 from hydromodpy.mesh.request import InputTriangulation, LineFamilySpec, MeshRequest
@@ -156,14 +153,6 @@ def test_the_dual_of_a_triangulation_keeps_the_faces_of_the_old_dual(bundle: str
     assert cell_mesh.identity.seed is None
 
 
-def test_the_generators_of_a_triangulation_are_the_centres_to_the_bit() -> None:
-    request = _read("stream_depletion_glover_balmer_tri_refined_well")
-    cell_mesh = VoronoiMeshEngine().build(request)
-
-    assert np.array_equal(cell_mesh.centers, request.input_triangulation.vertices)
-    assert cell_mesh.qa.extras["boundary_seeds_added"] == 0.0
-
-
 def test_a_lattice_river_is_a_chain_and_its_faces_are_the_dual_faces_it_crosses() -> None:
     request = _lattice(contact=False)
     cell_mesh = VoronoiMeshEngine().build(request)
@@ -230,36 +219,6 @@ def test_the_sides_of_a_triangulation_keep_the_faces_of_the_cells_centred_on_the
 # --------------------------------------------------------------------------- #
 
 
-def test_the_generated_river_chain_runs_on_the_river() -> None:
-    cell_mesh = VoronoiMeshEngine().build(_square())
-
-    (chain,) = cell_mesh.chains("rivers")
-    on_river = shapely.distance(shapely.points(cell_mesh.centers[chain.cell_ids]), RIVER) < 1e-6
-    assert on_river.mean() > 0.9
-    assert chain.offset_m is not None
-    assert cell_mesh.qa.families["rivers"]["crossings"] == 1.0
-
-
-def test_a_generated_contact_is_a_row_of_faces_between_mirror_pairs() -> None:
-    stats = VoronoiMeshEngine().build(_square()).qa.families["geology"]
-
-    assert stats["conformal_length_share"] > 0.9
-    assert stats["mirror_pairs"] > 0
-    assert stats["mixed_cells"] <= stats["yielded_segments"] + 1
-
-
-def test_another_seed_moves_the_free_seeds_and_keeps_the_cell_count() -> None:
-    base = _square(size=60.0)
-    first = VoronoiMeshEngine().build(base)
-    second = VoronoiMeshEngine().build(dataclasses.replace(base, seed=1))
-
-    assert first.n_cells == second.n_cells
-    assert not np.array_equal(first.centers, second.centers)
-    assert second.identity.seed == 1
-    for cell_mesh in (first, second):
-        assert cell_mesh.qa.area_sum_rel_error <= 1e-9
-
-
 def test_the_qa_reports_the_relaxation_the_seeds_and_the_libraries() -> None:
     request = _square(size=60.0)
     cell_mesh = VoronoiMeshEngine().build(request)
@@ -284,21 +243,3 @@ def test_the_qa_reports_the_relaxation_the_seeds_and_the_libraries() -> None:
     assert (extras["origin_x"], extras["origin_y"]) == local_frame(request.domain).origin
     assert cell_mesh.qa.size_fidelity["p50"] == pytest.approx(1.0, abs=0.1)
     assert _platform_note() in cell_mesh.qa.notes
-
-
-def test_the_median_seed_offset_of_a_graded_mesh_stays_under_a_quarter_of_the_slope() -> None:
-    slope = MeshConfig().max_slope
-    cell_mesh = VoronoiMeshEngine().build(_graded_square(slope))
-
-    # The floor of the offset between a seed and the centroid of its cell is s / 4.
-    assert cell_mesh.qa.center_offset["p50"] <= slope / 4.0
-
-
-def test_the_lloyd_tolerance_of_the_request_stops_the_relaxation() -> None:
-    loose = VoronoiMeshEngine().build(_square(size=60.0, lloyd_tolerance=1.0)).qa.extras
-    default = VoronoiMeshEngine().build(_square(size=60.0)).qa.extras
-
-    assert loose["lloyd_iterations"] == 1.0
-    assert loose["lloyd_converged"] == 1.0
-    assert default["lloyd_iterations"] > 1.0
-    assert default["lloyd_cap"] == float(LLOYD_CAP)

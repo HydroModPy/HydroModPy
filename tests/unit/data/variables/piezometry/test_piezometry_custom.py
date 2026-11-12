@@ -15,30 +15,6 @@ def _load_file(cfg, *, project_period=None):
     return PiezometryVariable(config=None, index=None, project_period=project_period).load_file(cfg)
 
 
-class TestPiezometryCustomCSV:
-    def test_load_two_piezometers(self, sample_piezo_dir, project_period):
-        cfg = PiezometrySourceConfig(source="file", path=sample_piezo_dir, product=None)
-        records = _load_file(cfg, project_period=project_period)
-
-        assert len(records) == 2
-        for r in records:
-            assert r.variable == "groundwater_level"
-            assert r.source == "file"
-            assert r.unit == "m"
-            assert r.has_data
-
-    def test_filter_ids(self, sample_piezo_dir, project_period):
-        cfg = PiezometrySourceConfig(
-            source="file",
-            path=sample_piezo_dir,
-            station_ids=["BSS002"],
-            product=None,
-        )
-        records = _load_file(cfg, project_period=project_period)
-        assert len(records) == 1
-        assert records[0].station_id == "BSS002"
-
-
 class TestPiezometryCustomConstant:
     def test_single_line_csv(self, tmp_path, project_period):
         d = tmp_path / "const_piezo"

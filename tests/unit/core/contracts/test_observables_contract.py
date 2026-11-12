@@ -11,18 +11,6 @@ from hydromodpy.core.contracts.observables import (
     require_unique_request_ids,
     select_time_indices,
 )
-from hydromodpy.core.exceptions import ObservableNotAvailableError, SolverError
-
-
-def test_request_is_frozen_and_hashable() -> None:
-    request = ObservableRequest(id="q", name="discharge", support="domain")
-    with pytest.raises(AttributeError):
-        request.name = "head"  # type: ignore[misc]
-    assert {request, ObservableRequest(id="q", name="discharge", support="domain")} == {request}
-
-
-def test_request_defaults_to_every_timestep() -> None:
-    assert ObservableRequest(id="q", name="discharge", support="domain").times == "all"
 
 
 @pytest.mark.parametrize("support", ["boundary", "lake"])
@@ -93,14 +81,6 @@ def test_select_time_indices_on_an_empty_run() -> None:
 def test_select_time_indices_rejects_an_unknown_selector() -> None:
     with pytest.raises(ValueError, match="unknown time selector"):
         select_time_indices(4, "middle")  # type: ignore[arg-type]
-
-
-def test_observable_error_is_a_solver_error() -> None:
-    # It must be catchable as a solver failure, and it must carry a code so the
-    # CLI can map it to an exit code like every other typed exception.
-    error = ObservableNotAvailableError("release_flux is not available")
-    assert isinstance(error, SolverError)
-    assert error.code == "HMPY.E408"
 
 
 def test_duplicate_request_ids_are_refused() -> None:

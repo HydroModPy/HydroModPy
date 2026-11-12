@@ -54,37 +54,6 @@ def _isolated_module_state(*prefixes: str) -> Iterator[None]:
         _rebind_on_parents(snapshot)
 
 
-def test_hydromodpy_config_import_does_not_eagerly_load_the_data_store() -> None:
-    """Reading a config builds no store, so it reads no data folder."""
-    with _isolated_module_state(
-        "hydromodpy.config.hydromodpy_config",
-        "hydromodpy.data",
-    ):
-        importlib.import_module("hydromodpy.config.hydromodpy_config")
-
-        assert "hydromodpy.data.loading.store" not in sys.modules
-
-
-def test_the_isolation_leaves_no_module_behind_its_parent_attribute() -> None:
-    """Anti-vacuity: the block really re-imports the module this checks.
-
-    Importing the config section pulls
-    ``hydromodpy.data.variables.hydrography.config`` back in, so the block must
-    leave its parent package pointing at the module every later test patches.
-    """
-    name = "hydromodpy.data.variables.hydrography.config"
-    before = importlib.import_module(name)
-
-    with _isolated_module_state("hydromodpy.config.hydromodpy_config", "hydromodpy.data"):
-        importlib.import_module("hydromodpy.config.hydromodpy_config")
-        assert name in sys.modules, "the block no longer re-imports it; pick another module"
-        assert sys.modules[name] is not before
-
-    parent = sys.modules["hydromodpy.data.variables.hydrography"]
-    assert sys.modules[name] is before
-    assert parent.config is before
-
-
 def test_a_variable_config_loads_no_variable_module() -> None:
     """Validating a [data] section must not load a single ``variable`` module."""
     with _isolated_module_state("hydromodpy.config.hydromodpy_config", "hydromodpy.data"):

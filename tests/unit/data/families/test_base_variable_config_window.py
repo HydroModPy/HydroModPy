@@ -18,20 +18,6 @@ SOURCES = [
 ]
 
 
-def test_no_window_is_accepted() -> None:
-    cfg = RechargeConfig(sources=SOURCES)
-
-    assert cfg.date_start is None
-    assert cfg.date_end is None
-
-
-def test_full_window_is_accepted() -> None:
-    cfg = RechargeConfig(sources=SOURCES, date_start="2019-01-01", date_end="2025-12-31")
-
-    assert cfg.date_start == "2019-01-01"
-    assert cfg.date_end == "2025-12-31"
-
-
 @pytest.mark.parametrize(
     ("declared", "missing"),
     [

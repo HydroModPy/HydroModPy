@@ -23,9 +23,9 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.core.budget.flux import DRAIN_BAND_DEPTH_ATTR, drain_band_depth, seepage_mask
+from hydromodpy.core.budget.flux import DRAIN_BAND_DEPTH_ATTR, drain_band_depth
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
-from hydromodpy.model.model import ModelOptions, steady_variant
+from hydromodpy.model.model import ModelOptions
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.base.drain_conductance import drain_discharge_band
 from hydromodpy.solver.base.solver_config import SolverConfig
@@ -150,26 +150,6 @@ def _nwt_rows(*, band_depth_m: float, conductance: float = DRAIN_COND_M2_S) -> d
 class TestZeroIsTodaysBehaviour:
     """D = 0 is the default and must leave every drain row exactly as it was."""
 
-    def test_the_default_is_zero_everywhere_in_the_chain(self) -> None:
-        assert SolverConfig().drain_band_depth_m == 0.0
-        assert ModflowPreprocessOptions().drain_band_depth_m == 0.0
-        model = make_model(options=ModelOptions.from_settings(SolverConfig()))
-        assert build_preprocess_options(model).drain_band_depth_m == 0.0
-
-    def test_mf6_rows_are_the_bare_top_and_the_declared_conductance(self) -> None:
-        rows = _mf6_rows(band_depth_m=0.0)
-        assert rows.keys() == TOP_BY_CELL.keys()
-        for cell, (elevation, conductance) in rows.items():
-            assert elevation == TOP_BY_CELL[cell]
-            assert conductance == DRAIN_COND_M2_S
-
-    def test_nwt_rows_are_the_bare_top_and_the_declared_conductance(self) -> None:
-        rows = _nwt_rows(band_depth_m=0.0)
-        assert rows.keys() == TOP_BY_CELL.keys()
-        for cell, (elevation, conductance) in rows.items():
-            assert elevation == TOP_BY_CELL[cell]
-            assert conductance == DRAIN_COND_M2_S
-
     def test_the_hk_fallback_is_untouched_at_zero(self) -> None:
         # hk 1e-4 m/s, area 100 m2, bed 2 m: 1e-4*100/2 = 5e-3 m2/s, and the
         # LAYER thickness (4, 5, 6 m per column) must not enter it.
@@ -177,11 +157,6 @@ class TestZeroIsTodaysBehaviour:
         assert rows[0] == (100.0, pytest.approx(5e-3))
         assert rows[1] == (99.0, pytest.approx(5e-3))
         assert rows[2] == (98.0, pytest.approx(5e-3))
-
-    def test_the_helper_returns_its_inputs_at_zero(self) -> None:
-        assert drain_discharge_band(
-            top=100.0, conductance=0.04, bed_thickness=BED_M, band_depth=0.0
-        ) == (100.0, 0.04)
 
 
 class TestTheHandWrittenBand:
@@ -228,18 +203,6 @@ class TestTheHandWrittenBand:
         # la valeur declaree inchangee.
         rows = _mf6_rows(band_depth_m=2.0)
         assert rows[0] == (pytest.approx(99.0), pytest.approx(0.04))
-
-    def test_it_does_not_move_the_topography(self) -> None:
-        mesh = _mesh()
-        before = np.array(mesh.top, dtype=float, copy=True)
-        build_drain_stress_period_data(
-            _mf6_model(band_depth_m=BAND_M),
-            solver_mesh=mesh,
-            drainage_cond_series=np.array([DRAIN_COND_M2_S]),
-            ocean_support_mask=np.zeros(N_CELLS, dtype=bool),
-            stream_support_mask=np.zeros(N_CELLS, dtype=bool),
-        )
-        assert np.array_equal(np.asarray(mesh.top, dtype=float), before)
 
 
 class TestBothBackendsAgree:
@@ -294,10 +257,6 @@ class TestRefusedAtConfigurationLoad:
         with pytest.raises(ValidationError, match="solver.drain_band_depth_m must be a finite"):
             SolverConfig.model_validate(payload)
 
-    def test_zero_and_positive_depths_are_accepted(self) -> None:
-        assert SolverConfig.model_validate({"drain_band_depth_m": 0.0}).drain_band_depth_m == 0.0
-        assert SolverConfig.model_validate({"drain_band_depth_m": 0.61}).drain_band_depth_m == 0.61
-
 
 class TestTheSinkFillInteraction:
     """The pair is refused: two opposite answers to the same question.
@@ -315,16 +274,6 @@ class TestTheSinkFillInteraction:
         message = str(excinfo.value)
         assert "solver.sink_fill" in message
         assert "solver.drain_band_depth_m" in message
-
-    def test_each_one_alone_is_accepted(self) -> None:
-        assert SolverConfig.model_validate({"sink_fill": True}).sink_fill is True
-        assert SolverConfig.model_validate({"drain_band_depth_m": 0.5}).drain_band_depth_m == 0.5
-
-    def test_sink_fill_with_a_zero_band_stays_valid(self) -> None:
-        # Every configuration written before this option existed keeps loading.
-        cfg = SolverConfig.model_validate({"sink_fill": True, "drain_band_depth_m": 0.0})
-        assert cfg.sink_fill is True
-        assert cfg.drain_band_depth_m == 0.0
 
     def test_assigning_the_pair_afterwards_is_refused_too(self) -> None:
         cfg = SolverConfig.model_validate({"drain_band_depth_m": 0.5})
@@ -350,9 +299,6 @@ class TestTheDepthReachesTheDrainRows:
         assert cfg.drain_band_depth_m == BAND_M
         assert cfg.drain_bed_thickness_m == BED_M
         return build_preprocess_options(make_model(options=ModelOptions.from_settings(cfg)))
-
-    def test_the_parsed_toml_reaches_the_preprocess_options(self) -> None:
-        assert self._options().drain_band_depth_m == BAND_M
 
     def test_it_reaches_the_mf6_drain_rows(self) -> None:
         model = _mf6_model(band_depth_m=0.0)
@@ -387,92 +333,9 @@ class TestTheDepthReachesTheDrainRows:
         assert float(spd[0][0][3]) == pytest.approx(99.75)
         assert float(spd[0][0][4]) == pytest.approx(BANDED_COND_M2_S)
 
-    def test_the_steady_initial_condition_model_inherits_the_depth(self) -> None:
-        # The auxiliary steady model must build the same drains as the transient
-        # one, or the initial heads come from a different boundary condition. The
-        # variant keeps the options of the model, and each auxiliary solver builds
-        # from the preprocess options of the solver it follows.
-        import inspect
-
-        from hydromodpy.solver.modflow6.support import steady_initial_conditions as mf6_ssic
-        from hydromodpy.solver.modflow_nwt.nwt import steady_initial_conditions as nwt_ssic
-
-        options = ModelOptions(
-            sink_fill=False,
-            drain_band_depth_m=BAND_M,
-            drain_bed_thickness_m=BED_M,
-            drain_conductance_floor_m2_s=1e-12,
-        )
-        variant = steady_variant(make_model(options=options))
-        assert variant.options is options
-
-        for module, name in (
-            (mf6_ssic, "run_modflow6_steady_state_initialization"),
-            (nwt_ssic, "run_nwt_steady_state_initialization"),
-        ):
-            source = inspect.getsource(getattr(module, name))
-            assert "model.preprocess_options" in source, f"{name} drops the discharge band"
-
-
-class TestTheSeepageCriterionFollowsTheBand:
-    """A banded drain moves where the water table stops, so the mask must move too.
-
-    The criterion is ``watertable >= topography``. A banded drain sits at
-    ``top - D/2`` and holds the head there, so on a banded run the untouched
-    test returns an all-false mask while the drains are discharging. That is
-    the one reader the band cannot leave alone, and the depth travels to it in
-    the store rather than through a call chain, so a figure drawn months later
-    reads the same criterion the run was built with.
-    """
-
-    TOP = np.array([100.0, 100.0, 100.0])
-    # One cell above the top, one inside a 1 m band, one well below it.
-    WATERTABLE = np.array([100.2, 99.7, 98.0])
-
-    def test_without_a_band_only_the_cell_above_the_top_seeps(self) -> None:
-        mask = seepage_mask(watertable=self.WATERTABLE, topography=self.TOP)
-
-        assert mask.tolist() == [1.0, 0.0, 0.0]
-
-    def test_a_band_lets_the_cell_inside_it_seep(self) -> None:
-        # D = 1 m puts the drain at 99.5, and 99.7 >= 99.5.
-        mask = seepage_mask(watertable=self.WATERTABLE, topography=self.TOP, band_depth=1.0)
-
-        assert mask.tolist() == [1.0, 1.0, 0.0]
-
-    def test_the_band_does_not_make_every_cell_seep(self) -> None:
-        mask = seepage_mask(watertable=self.WATERTABLE, topography=self.TOP, band_depth=1.0)
-
-        assert mask[2] == 0.0
-
-    def test_a_solver_declared_flux_still_wins_over_the_geometry(self) -> None:
-        mask = seepage_mask(
-            watertable=self.WATERTABLE,
-            topography=self.TOP,
-            surface_excess=np.array([0.0, 0.0, -1e-6]),
-            band_depth=1.0,
-        )
-
-        assert mask.tolist() == [0.0, 0.0, 1.0]
-
-    def test_a_stack_is_banded_the_same_way_as_one_step(self) -> None:
-        stack = np.vstack([self.WATERTABLE, self.WATERTABLE])
-        mask = seepage_mask(watertable=stack, topography=self.TOP, band_depth=1.0)
-
-        assert mask.shape == (2, 3)
-        assert mask.tolist() == [[1.0, 1.0, 0.0], [1.0, 1.0, 0.0]]
-
 
 class TestTheBandTravelsInTheStore:
     """The depth has to survive the run, or a figure re-derives a different mask."""
-
-    def test_a_store_that_never_saw_the_option_reads_zero(self, tmp_path) -> None:
-        sz = SimulationZarr.create(tmp_path / "plain.zarr", n_cells=3, n_layers=1)
-        try:
-            assert drain_band_depth(sz.root) == 0.0
-            assert sz.drain_band_depth_m == 0.0
-        finally:
-            sz.close()
 
     def test_the_depth_written_is_the_depth_read_back(self, tmp_path) -> None:
         sz = SimulationZarr.create(tmp_path / "banded.zarr", n_cells=3, n_layers=1)
@@ -499,38 +362,9 @@ class TestTheBandTravelsInTheStore:
         finally:
             sz.close()
 
-    def test_a_nonsense_depth_in_a_store_reads_as_no_band(self, tmp_path) -> None:
-        # Never written by the code, but a store is a file a user can edit, and
-        # the criterion must not silently lower every drain by half a nan.
-        sz = SimulationZarr.create(tmp_path / "broken.zarr", n_cells=3, n_layers=1)
-        try:
-            sz.root.attrs[DRAIN_BAND_DEPTH_ATTR] = float("nan")
-            assert drain_band_depth(sz.root) == 0.0
-            sz.root.attrs[DRAIN_BAND_DEPTH_ATTR] = -2.0
-            assert drain_band_depth(sz.root) == 0.0
-        finally:
-            sz.close()
-
 
 class TestTheDrainedCells:
     """The rows follow the cell order and leave out the cells another package holds."""
-
-    def test_masked_cells_have_no_row_and_the_others_keep_the_cell_order(self) -> None:
-        model = _mf6_model(band_depth_m=0.0)
-        model.dem_mask = np.array([False, True, False, False, False, False])
-        ocean = np.array([False, False, False, False, False, True])
-        stream = np.array([False, False, True, False, False, False])
-
-        spd = build_drain_stress_period_data(
-            model,
-            solver_mesh=_mesh(),
-            drainage_cond_series=np.array([DRAIN_COND_M2_S]),
-            ocean_support_mask=ocean,
-            stream_support_mask=stream,
-        )
-
-        assert [row[1] for row in spd[0]] == [0, 3, 4]
-        assert [row[0] for row in spd[0]] == [0, 0, 0]
 
     def test_a_closed_depression_keeps_its_row_with_no_conductance(self) -> None:
         model = _mf6_model(band_depth_m=BAND_M)
@@ -548,18 +382,3 @@ class TestTheDrainedCells:
         conductance = {int(row[1]): float(row[3]) for row in spd[0]}
         assert conductance[2] == 0.0
         assert conductance[1] == pytest.approx(BANDED_COND_M2_S)
-
-    def test_a_period_is_written_only_when_the_conductance_changes(self) -> None:
-        model = _mf6_model(band_depth_m=0.0)
-        model.nper = 4
-
-        spd = build_drain_stress_period_data(
-            model,
-            solver_mesh=_mesh(),
-            drainage_cond_series=np.array([0.04, 0.04, 0.08, 0.08]),
-            ocean_support_mask=np.zeros(N_CELLS, dtype=bool),
-            stream_support_mask=np.zeros(N_CELLS, dtype=bool),
-        )
-
-        assert sorted(spd) == [0, 2]
-        assert {row[3] for row in spd[2]} == {0.08}

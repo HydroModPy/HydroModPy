@@ -64,7 +64,7 @@ found is a limit and not a best estimate. The method text of a run
 each check, passed, failed or unknown.
 
 The label, with its rule and the date, is printed in the footer of every figure of a sealed run, for
-instance "Nancon · 2010-2015 · HydroModPy 2.1 · calibrated, rule 3, 2026-11-07". A figure drawn from
+instance "Nancon · 2010-2015 · HydroModPy 2.0 · calibrated, rule 3, 2026-11-07". A figure drawn from
 a directory without a seal reads "unlabelled".
 
 ## What this means for a decision

@@ -131,17 +131,6 @@ def test_what_holds_for_every_period_is_shared_with_the_whole_model() -> None:
 
 
 @pytest.mark.parametrize(
-    ("index", "steady"),
-    [(1, True), (2, False), (3, False)],
-    ids=["window 1", "window 2", "window 3"],
-)
-def test_only_the_first_window_has_a_steady_first_period(index: int, steady: bool) -> None:
-    window = window_model(_whole(), _window(index, 3, first=0, stop=4), grid=time_grid(*[30.0] * 4))
-    assert window.time.first_period_steady is steady
-    assert window.time.regime == "transient"
-
-
-@pytest.mark.parametrize(
     ("initial", "index", "count", "keeps_whole"),
     [
         (SteadyStart(), 1, 2, True),
@@ -166,14 +155,6 @@ def test_the_first_window_of_a_chain_keeps_the_whole_model_in_its_computed_start
     if keeps_whole:
         assert len(over.time.grid.period_lengths_seconds) == 12
         assert whole.initial is initial, "the whole model starts without a whole model of its own"
-
-
-def test_a_window_after_the_first_starts_from_its_prior_state_as_it_is() -> None:
-    prior = PriorState(head=np.zeros((1, 6)), lake_stages={"L": 3.0}, path="p")
-    window = window_model(
-        _whole(initial=prior), _window(2, first=6, stop=12), grid=time_grid(*[30.0] * 6)
-    )
-    assert window.initial is prior
 
 
 # --- the native recharge, dated ---

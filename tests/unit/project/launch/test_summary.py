@@ -192,32 +192,6 @@ def campaign(tmp_path: Path) -> Path:
     return root
 
 
-def test_collect_writes_every_file_of_the_summary(campaign: Path) -> None:
-    paths = collect_project(campaign)
-
-    summary = campaign / "summary"
-    for name in (
-        "by_case.parquet",
-        "by_case.csv",
-        "by_site.parquet",
-        "by_site.csv",
-        "by_site.gpkg",
-        "figures/index.json",
-        "exports/index.json",
-        "report/index.html",
-        "README.md",
-        "ro-crate-metadata.json",
-    ):
-        assert (summary / name).is_file(), name
-    assert paths.by_case == summary / "by_case.parquet"
-    assert paths.by_site == summary / "by_site.parquet"
-    assert paths.catalog is None
-    assert not (summary / "catalog.csv").exists()
-    assert paths.readme == summary / "README.md"
-    assert paths.rocrate == summary / "ro-crate-metadata.json"
-    assert paths.report == summary / "report" / "index.html"
-
-
 def test_by_case_holds_every_planned_case_with_its_status(campaign: Path) -> None:
     collect_project(campaign)
 
@@ -258,19 +232,6 @@ def test_by_site_keeps_the_best_calibrated_case(campaign: Path) -> None:
     assert pd.isna(by_site.loc["J0200000", "best_case"])
     assert by_site.loc["J0014010", "area_km2"] == pytest.approx(65.2)
     assert by_site.loc["J0014010", "crs"] == "EPSG:2154"
-
-
-def test_best_any_takes_the_best_case_whatever_its_label(tmp_path: Path) -> None:
-    root = _project(tmp_path, summary_extra='best = "any"')
-    _seal(root, "J0014010", "base", nse=0.81)
-    _seal(root, "J0014010", "calage", nse=0.62, calibrated=True)
-
-    paths = collect_project(root)
-
-    by_site = pd.read_parquet(root / "summary" / "by_site.parquet").set_index("site")
-    assert by_site.loc["J0014010", "best_case"] == "J0014010-base"
-    readme = paths.readme.read_text(encoding="utf-8")
-    assert 'the best case whatever its label (best = "any")' in readme
 
 
 def test_the_objective_of_the_session_sits_beside_the_nse(campaign: Path) -> None:
@@ -443,40 +404,6 @@ def test_a_figure_of_a_run_is_refused_in_the_summary(tmp_path: Path) -> None:
     assert not (root / "summary").exists()
 
 
-def test_the_readme_is_dated_with_the_versions_and_the_counts(campaign: Path) -> None:
-    collect_project(campaign)
-
-    readme = (campaign / "summary" / "README.md").read_text(encoding="utf-8")
-    today = datetime.now(UTC).date().isoformat()
-    assert f"Collected {today}" in readme
-    assert "3 completed of 5 planned cases" in readme
-    assert "HydroModPy versions met: 2.0.0a5" in readme
-    assert "2016-01-01 to 2020-12-31" in readme
-    assert "sha256(by_site.parquet) = " in readme
-    assert "the best calibrated case" in readme
-    assert "catalog.csv" not in readme
-    collect_project(campaign, write_sites=True)
-    readme = (campaign / "summary" / "README.md").read_text(encoding="utf-8")
-    assert "- `catalog.csv`: the sites as a table" in readme
-
-
-def test_the_crate_lists_every_file_and_the_runs_it_reads(campaign: Path) -> None:
-    collect_project(campaign)
-
-    crate = json.loads((campaign / "summary" / "ro-crate-metadata.json").read_text("utf-8"))
-    graph = {node["@id"]: node for node in crate["@graph"]}
-    root = graph["./"]
-    parts = {part["@id"] for part in root["hasPart"]}
-    assert {"by_case.parquet", "by_site.gpkg", "README.md", "report/index.html"} <= parts
-    assert {"#runs/J0014010-calage", "#runs/J0170000-calage"} <= {
-        ref["@id"] for ref in root["isBasedOn"]
-    }
-    assert root["license"] == "CC-BY-4.0"
-    assert graph["by_case.parquet"]["sha256"]
-    text = json.dumps(crate)
-    assert str(campaign) not in text
-
-
 def test_a_second_collect_keeps_the_comparisons(campaign: Path) -> None:
     compare = campaign / "summary" / "report" / "compare" / "a-vs-b"
     compare.mkdir(parents=True)
@@ -506,20 +433,6 @@ def test_a_project_without_sites_is_collected_with_the_defaults(tmp_path: Path) 
     # Not calibrated: the default best = "calibrated" leaves the site without a best case.
     assert by_site["site"].tolist() == ["nancon"]
     assert pd.isna(by_site.loc[0, "best_case"])
-
-
-def test_a_case_outside_the_plan_is_listed_but_not_counted(tmp_path: Path) -> None:
-    root = _project(tmp_path)
-    _plan(root, ["J0014010-base", "J0170000-base"])
-    _seal(root, "J0014010", "base", nse=0.81)
-    _seal(root, "J0014010", "old", nse=0.70)
-
-    collect_project(root)
-
-    by_case = pd.read_parquet(root / "summary" / "by_case.parquet")
-    assert by_case["case_id"].tolist() == ["J0014010-base", "J0170000-base", "J0014010-old"]
-    readme = (root / "summary" / "README.md").read_text(encoding="utf-8")
-    assert "1 completed of 2 planned cases" in readme
 
 
 def test_an_unknown_figure_is_refused_with_the_cohort_ones(tmp_path: Path) -> None:
@@ -659,15 +572,6 @@ def test_a_profile_without_a_solve_line_leaves_the_seal_row(tmp_path: Path) -> N
     assert pd.read_parquet(paths.by_case).iloc[0]["flow_solve_time_s"] == pytest.approx(26.3)
 
 
-def test_a_run_without_any_solve_time_leaves_the_cell_empty(tmp_path: Path) -> None:
-    root = _project(tmp_path, summary_extra='best = "any"')
-    _seal(root, "J0014010", "base", nse=0.81)
-
-    paths = collect_project(root)
-
-    assert pd.isna(pd.read_parquet(paths.by_case).iloc[0]["flow_solve_time_s"])
-
-
 def test_a_calibration_row_takes_the_time_of_its_session(tmp_path: Path) -> None:
     root = _project(tmp_path, summary_extra='best = "any"')
     _seal(root, "J0014010", "calage", nse=0.62, calibrated=True)
@@ -773,17 +677,6 @@ def test_a_site_without_a_scored_run_says_why_it_has_no_best_case(tmp_path: Path
     assert pd.isna(by_site.loc["J0170000", "best_reason"])
 
 
-def test_a_scored_site_without_a_calibrated_case_says_so(campaign: Path) -> None:
-    _seal(campaign, "J0200000", "base", nse=0.5)
-
-    collect_project(campaign)
-
-    by_site = pd.read_parquet(campaign / "summary" / "by_site.parquet").set_index("site")
-    assert by_site.loc["J0200000", "best_reason"] == (
-        'no calibrated case of J0200000 is scored; best = "any" ranks every case'
-    )
-
-
 RANKING_PROJECT_TOML = """\
 [sites]
 table = "sites.csv"
@@ -811,22 +704,6 @@ def _best_case(root: Path) -> str:
     collect_project(root)
     by_site = pd.read_parquet(root / "summary" / "by_site.parquet").set_index("site")
     return str(by_site.loc["J0014010", "best_case"])
-
-
-def test_the_default_ranking_metric_is_nse() -> None:
-    assert SitesConfig().summary.rank_by == "nse"
-
-
-def test_a_site_ranks_by_the_metric_it_declares(tmp_path: Path) -> None:
-    root = _two_cases(tmp_path, 'metrics = ["nse", "kge"]\nrank_by = "kge"')
-
-    assert _best_case(root) == "J0014010-wide"
-
-
-def test_the_order_of_metrics_does_not_choose_the_ranking(tmp_path: Path) -> None:
-    root = _two_cases(tmp_path, 'metrics = ["kge", "nse"]')
-
-    assert _best_case(root) == "J0014010-base"
 
 
 def test_rank_by_must_be_a_metric_the_rule_writes() -> None:

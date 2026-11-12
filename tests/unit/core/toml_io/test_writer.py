@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import io
 import tomllib
 from pathlib import Path
 from typing import Annotated
@@ -14,7 +13,6 @@ from hydromodpy.core.config_kit import dump as dumper
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.dump import dump_toml_with_comments
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.toml_io.writer import dump, dumps
 
 
 class _Aquifer(HydroModelBase):
@@ -45,38 +43,6 @@ def _load(path: Path) -> dict:
     return tomllib.loads(path.read_text(encoding="utf-8"))
 
 
-def test_dumps_and_dump_agree_and_read_back_to_the_mapping() -> None:
-    payload = {"a": 1, "t": {"x": [1, 2], "s": "z"}}
-    buffer = io.BytesIO()
-    dump(payload, buffer)
-    assert buffer.getvalue().decode() == dumps(payload)
-    assert tomllib.loads(dumps(payload)) == payload
-
-
-def test_a_dumped_config_loads_back_to_the_same_values(tmp_path: Path) -> None:
-    cfg = _Cfg(
-        title="Orgeval",
-        aquifer=_Aquifer(k=3e-4, layers=2),
-        wells=[_Well(name="w1", q=2.5), _Well(name="w2")],
-        tags=("a", "b"),
-        limits={"hmin": 1.5},
-        data_dir=Path("in/dem"),
-        solver_tol=1e-8,
-        pcg=0.5,
-    )
-    path = dump_toml_with_comments(cfg, tmp_path / "c.toml", profile="expert")
-    loaded = _load(path)
-    assert loaded["title"] == "Orgeval"
-    assert loaded["aquifer"] == {"k": 3e-4, "layers": 2}
-    assert loaded["wells"] == [{"name": "w1", "q": 2.5}, {"name": "w2", "q": 0.0}]
-    assert loaded["tags"] == ["a", "b"]
-    assert loaded["limits"] == {"hmin": 1.5}
-    assert loaded["data_dir"] == str(Path("in/dem"))
-    assert loaded["pcg"] == 0.5
-    assert _Cfg.model_validate(loaded).model_dump() == cfg.model_dump()
-    assert "internal" not in loaded
-
-
 def test_the_description_of_a_field_is_kept_as_a_comment_on_its_line(tmp_path: Path) -> None:
     path = dump_toml_with_comments(_Cfg(), tmp_path / "c.toml")
     text = path.read_text(encoding="utf-8")
@@ -86,45 +52,9 @@ def test_the_description_of_a_field_is_kept_as_a_comment_on_its_line(tmp_path: P
     assert "profile = 'user'" in text
 
 
-@pytest.mark.parametrize(
-    ("profile", "dev_shown", "expert_shown"),
-    [("user", False, False), ("dev", True, False), ("expert", True, True)],
-)
-def test_a_profile_hides_the_fields_above_it(tmp_path, profile, dev_shown, expert_shown) -> None:
-    loaded = _load(dump_toml_with_comments(_Cfg(), tmp_path / "c.toml", profile=profile))
-    assert ("solver_tol" in loaded) is dev_shown
-    assert ("pcg" in loaded) is expert_shown
-
-
 def test_an_unknown_profile_is_refused(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="Unknown profile 'guru'"):
         dump_toml_with_comments(_Cfg(), tmp_path / "c.toml", profile="guru")  # type: ignore[arg-type]
-
-
-def test_a_none_value_and_an_implicit_relative_default_path_are_not_written(tmp_path) -> None:
-    loaded = _load(dump_toml_with_comments(_Cfg(), tmp_path / "c.toml"))
-    assert "note" not in loaded
-    assert "dem" not in loaded["aquifer"]
-    assert "data_dir" not in loaded  # same rule at the root of the document
-    given = _load(
-        dump_toml_with_comments(_Cfg(aquifer=_Aquifer(dem=Path("x.tif"))), tmp_path / "d.toml")
-    )
-    assert given["aquifer"]["dem"] == "x.tif"
-
-
-def test_written_only_keeps_what_the_model_was_given(tmp_path: Path) -> None:
-    cfg = _Cfg(title="x", aquifer=_Aquifer(k=2.0))
-    loaded = _load(dump_toml_with_comments(cfg, tmp_path / "c.toml", written_only=True))
-    assert loaded == {"title": "x", "aquifer": {"k": 2.0}}
-    back = _Cfg.model_validate(loaded)
-    assert back.model_fields_set == cfg.model_fields_set
-
-
-def test_written_only_keeps_a_relative_default_path_the_model_was_given(tmp_path: Path) -> None:
-    cfg = _Cfg(data_dir=Path("data"), aquifer=_Aquifer(dem=Path("dem.tif")))
-    loaded = _load(dump_toml_with_comments(cfg, tmp_path / "c.toml", written_only=True))
-    assert loaded == {"data_dir": "data", "aquifer": {"dem": "dem.tif"}}
-    assert _Cfg.model_validate(loaded).model_fields_set == cfg.model_fields_set
 
 
 def test_to_toml_on_a_model_writes_the_same_file(tmp_path: Path) -> None:

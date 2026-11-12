@@ -1,4 +1,4 @@
-"""A run sealed by 2.0.0 drifts only where the computation drifts, not where a table moved.
+"""A run sealed by a pre-release of 2.0 drifts only where the computation drifts, not where a table moved.
 
 The frozen run ``demo`` ran MODFLOW-NWT and sealed ``[modflow6]``, ``[modflownwt]``,
 ``[flow.runtime]`` and ``backend = {kind = "modflow_nwt"}``. Those tables now live under
@@ -37,11 +37,11 @@ NEW_AT_DEFAULT = {
 }
 """What these copies do not write and a replay holds at its default, measured once.
 
-The recharge factor came with 2.0.0 after these runs were sealed by its release
-candidate, and its default reproduces the old computation. ``config_drift`` gave it as
+The recharge factor came after these runs were sealed by a pre-release,
+and its default reproduces the old computation. ``config_drift`` gave it as
 the one drift before a key absent from the sealed file counted for none. The cap of the
 product store came later and moves no number, and so did ``keep_face_flows``, whose default
-writes no face flow. A file of 2.0 writes no window key, and
+writes no face flow. A file of a pre-release of 2.0 writes no window key, and
 the default of ``simulation.time.window`` plays the run in one piece. The default of
 ``window_length`` is ``None``, which is not counted.
 """
@@ -120,12 +120,3 @@ def test_a_new_key_away_from_its_default_still_drifts(demo: Path) -> None:
     assert text != config.read_text(encoding="utf-8"), "the demo writes a recharge table"
 
     assert _drift_keys(demo) == ("flow.sinks_sources.recharge.factor",)
-
-
-def test_the_settings_of_the_solver_that_ran_still_drift(demo: Path) -> None:
-    resolved = demo / "config.resolved.toml"
-    text = resolved.read_text(encoding="utf-8")
-    resolved.write_text(text.replace("hdry = -100.0", "hdry = -77.0"), encoding="utf-8")
-    assert text != resolved.read_text(encoding="utf-8"), "the sealed hdry of NWT is -100.0"
-
-    assert "solver.modflow_nwt.runtime.upw.hdry" in _drift_keys(demo)

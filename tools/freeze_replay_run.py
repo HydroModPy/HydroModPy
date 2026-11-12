@@ -1,8 +1,8 @@
 """Write the frozen MODFLOW 6 run that ``tests/regression/frozen_replay/`` replays.
 
-Write it again from the version that tags, with one command::
+Write it again when the version moves, with one command::
 
-    python -m tools.freeze_replay_run --out tests/regression/frozen_replay/v2.1 --work <folder>
+    python -m tools.freeze_replay_run --out tests/regression/frozen_replay/v2.0.0 --work <folder>
 
 It runs the transient island on 434 gmsh triangles with MODFLOW 6, XT3D off, through
 the same ``hmp run`` a user types, in a throwaway project under ``--work``. It then

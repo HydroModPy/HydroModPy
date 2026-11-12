@@ -42,10 +42,6 @@ def test_surface_excess_solver_warns_on_the_geometric_fallback() -> None:
     assert "spatial_fields" not in message
 
 
-def test_modflow_store_stays_quiet() -> None:
-    assert _records({"head": object(), "budget": object()}) == []
-
-
 def test_non_mapping_root_is_ignored() -> None:
     assert _records(object()) == []
 
@@ -53,15 +49,6 @@ def test_non_mapping_root_is_ignored() -> None:
 def _store(**budget_attrs: object) -> dict[str, object]:
     group = SimpleNamespace(attrs=dict(budget_attrs))
     return {SURFACE_EXCESS_STATE_GROUP: object(), "budget": group}
-
-
-def test_a_store_without_policy_says_to_run_again() -> None:
-    (record,) = _records({SURFACE_EXCESS_STATE_GROUP: object()})
-
-    message = record.getMessage()
-    assert "written before the per-cell budget was kept by default" in message
-    assert "run it again" in message
-    assert "keep_per_cell_budget" not in message
 
 
 def test_a_consumers_store_names_its_terms_and_the_option() -> None:

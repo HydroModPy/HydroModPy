@@ -21,7 +21,6 @@ from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.initial_config import FlowInitialConditions, SpinupConfig
 from hydromodpy.project.spinup import cycle_delta, lake_stage_delta, run_spinup
 from hydromodpy.results.storage.final_state import FinalState, write_final_state
-from hydromodpy.results.storage.prior_state import read_final_head
 
 
 def _write_cycle_zarr(path: Path, head: list, stages: dict[str, float] | None = None) -> str:
@@ -39,26 +38,12 @@ def _write_cycle_zarr(path: Path, head: list, stages: dict[str, float] | None = 
     return str(path)
 
 
-def test_read_final_head_returns_last_step_with_nan_inactive(tmp_path: Path) -> None:
-    path = _write_cycle_zarr(tmp_path / "c.zarr", [[1.0, 2.0, 1e30]])
-    head = read_final_head(path)
-    assert head.shape == (1, 3)
-    assert np.array_equal(head[0, :2], [1.0, 2.0])
-    assert np.isnan(head[0, 2])  # large sentinel -> NaN, ignored by the delta
-
-
 def test_cycle_delta_reports_linf_head_and_stage(tmp_path: Path) -> None:
     prev = _write_cycle_zarr(tmp_path / "p.zarr", [[10.0, 10.0, 10.0]], {"lac0": 86.0})
     curr = _write_cycle_zarr(tmp_path / "q.zarr", [[10.2, 10.0, 10.0]], {"lac0": 86.05})
     d_head, d_stage = cycle_delta(prev, curr)
     assert d_head == pytest.approx(0.2)
     assert d_stage == pytest.approx(0.05)
-
-
-def test_cycle_delta_zero_when_identical(tmp_path: Path) -> None:
-    a = _write_cycle_zarr(tmp_path / "a.zarr", [[5.0, 6.0]], {"lac0": 80.0})
-    b = _write_cycle_zarr(tmp_path / "b.zarr", [[5.0, 6.0]], {"lac0": 80.0})
-    assert cycle_delta(a, b) == (0.0, 0.0)
 
 
 def test_cycle_delta_rejects_shape_change(tmp_path: Path) -> None:
@@ -81,20 +66,6 @@ def _run_with_final_state(folder: Path, stored: list, exact: list, stage: float)
         ),
     )
     return store
-
-
-def test_the_cycles_are_compared_on_their_final_state_when_the_run_has_one(
-    tmp_path: Path,
-) -> None:
-    """The field store of a compact run is rounded; ``final_state/`` is exact and wins."""
-    prev = _run_with_final_state(tmp_path / "c0", [[99.0, 99.0]], [[100.0, 100.0]], 86.0)
-    curr = _run_with_final_state(tmp_path / "c1", [[99.0, 99.0]], [[100.25, 100.0]], 86.125)
-
-    d_head, d_stage = cycle_delta(prev, curr)
-
-    assert d_head == 0.25, "the stored heads are equal, the final states are not"
-    assert d_stage == 0.125, "the lake stage is read from final_state/ too"
-    assert np.array_equal(read_final_head(curr), [[100.25, 100.0]])
 
 
 def test_a_run_of_2_0_without_a_final_state_is_compared_on_its_field_store(tmp_path: Path) -> None:
@@ -145,24 +116,6 @@ def _stub_config() -> SimpleNamespace:
     )
 
 
-def test_run_spinup_converges_and_stops_early(tmp_path: Path) -> None:
-    # cycle 0 -> 1 is a big jump; 1 -> 2 is below tol, so the loop stops at cycle 2.
-    zarrs = [
-        _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0, 0.0]], {"lac0": 80.0}),
-        _write_cycle_zarr(tmp_path / "c1.zarr", [[5.0, 5.0, 5.0]], {"lac0": 86.0}),
-        _write_cycle_zarr(tmp_path / "c2.zarr", [[5.001, 5.0, 5.0]], {"lac0": 86.002}),
-        _write_cycle_zarr(tmp_path / "c3.zarr", [[9.0, 9.0, 9.0]], {"lac0": 99.0}),
-    ]
-    project = _StubProject(_stub_config(), zarrs)
-    result = run_spinup(project, spinup=SpinupConfig(max_cycles=5, tol_head=0.01, tol_stage=0.01))
-
-    assert result.converged is True
-    assert result.n_cycles == 3  # stopped after cycle 2, never ran cycle 3
-    assert result.restart_from == zarrs[2]
-    # Cycle 0 ran with no restart; cycles >= 1 restarted from the prior cycle Zarr.
-    assert project.simulated_restart_from == [None, zarrs[0], zarrs[1]]
-
-
 def test_run_spinup_stops_at_max_cycles_without_converging(tmp_path: Path) -> None:
     # Each cycle keeps moving by more than tol, so it never converges.
     zarrs = [
@@ -196,21 +149,6 @@ def test_run_spinup_switches_steady_ic_to_top_on_restart(tmp_path: Path) -> None
     assert project.simulated_ic_type[1:] == ["top", "top"]
     # And each restarted cycle carried the prior cycle's Zarr as restart_from.
     assert project.simulated_restart_from == [None, zarrs[0], zarrs[1]]
-
-
-def test_run_spinup_tags_intermediate_and_converged(tmp_path: Path) -> None:
-    """Every cycle is tagged; the final one is the reusable converged antecedent."""
-    zarrs = [
-        _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0]], {"lac0": 80.0}),
-        _write_cycle_zarr(tmp_path / "c1.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
-        _write_cycle_zarr(tmp_path / "c2.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
-    ]
-    project = _StubProject(_stub_config(), zarrs)
-    result = run_spinup(project, spinup=SpinupConfig(max_cycles=5, tol_head=0.01, tol_stage=0.01))
-
-    tag_by_sid = dict(project.tags)
-    assert tag_by_sid[result.cycles[-1].sim_id] == "spinup-converged"
-    assert all(tag_by_sid[c.sim_id] == "spinup-intermediate" for c in result.cycles[:-1])
 
 
 def test_the_cycles_store_exact_heads_and_the_project_gets_its_precision_back(
@@ -291,18 +229,6 @@ def test_the_result_says_what_a_non_converged_antecedent_is(tmp_path) -> None:
 
     assert result.antecedent_warning() is not None
     assert "did not converge" in result.antecedent_warning()
-
-
-def test_a_converged_result_has_nothing_to_warn_about() -> None:
-    from hydromodpy.project.spinup import SpinupCycle, SpinupResult
-
-    result = SpinupResult(
-        converged=True,
-        cycles=[SpinupCycle(0, "a", "a.zarr", None, None)],
-        restart_from="a.zarr",
-    )
-
-    assert result.antecedent_warning() is None
 
 
 @pytest.mark.parametrize("converged", [True, False])

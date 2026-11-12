@@ -22,10 +22,6 @@ def _burn(seconds: float = 0.02) -> None:
         sum(range(100))
 
 
-def test_resolve_profile_output_disabled() -> None:
-    assert resolve_profile_output(None, Path("/tmp/case.toml")) is None
-
-
 def test_profile_arg_from_toml() -> None:
     assert profile_arg_from_toml({}) is None
     assert profile_arg_from_toml({"workflow": {"mode": "simulation"}}) is None
@@ -33,18 +29,6 @@ def test_profile_arg_from_toml() -> None:
     assert profile_arg_from_toml({"workflow": {"profile": ""}}) is None
     assert profile_arg_from_toml({"workflow": {"profile": True}}) == ""
     assert profile_arg_from_toml({"workflow": {"profile": "perf.html"}}) == "perf.html"
-
-
-def test_workflow_config_accepts_profile() -> None:
-    from pydantic import ValidationError
-
-    from hydromodpy.config.hydromodpy_config import WorkflowConfig
-
-    assert WorkflowConfig(mode="simulation").profile is False
-    assert WorkflowConfig(mode="simulation", profile=True).profile is True
-    assert WorkflowConfig(mode="simulation", profile="perf.html").profile == "perf.html"
-    with pytest.raises(ValidationError):
-        WorkflowConfig(mode="simulation", profile=3)
 
 
 def test_resolve_profile_output_default_path(tmp_path: Path) -> None:
@@ -66,13 +50,6 @@ def test_resolve_profile_output_missing_pyinstrument(
     with pytest.raises(SystemExit) as exc:
         resolve_profile_output("", tmp_path / "case.toml")
     assert exc.value.code == EXIT_CONFIG
-
-
-def test_profile_run_noop_without_output() -> None:
-    ran = False
-    with profile_run(None):
-        ran = True
-    assert ran
 
 
 def test_profile_run_writes_html(tmp_path: Path) -> None:

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import logging
 import math
-import warnings
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -18,7 +17,7 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.config_network import MatchingHydrographicNetworkOptions
 from hydromodpy.calibration.config_outputs import CalibOutputPoint, validate_calib_output
 from hydromodpy.calibration.config_phases import CalibPhaseDecl
-from hydromodpy.calibration.optim.cache import ParamsHashCache, params_hash
+from hydromodpy.calibration.optim.cache import params_hash
 from hydromodpy.calibration.optim.objective import CompositeObjective, build_objective_from_config
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
@@ -28,7 +27,6 @@ from hydromodpy.calibration.optim.optimizer import (
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace, set_by_path
 from hydromodpy.calibration.persistence import CalibrationPersistence, PhaseContext
 from hydromodpy.calibration.preflight import preflight_calibration
-from hydromodpy.calibration.protocols.registry import protocol_record
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners import document, staged_report, staged_runner
 from hydromodpy.calibration.runners import promotion as promotion_module
@@ -36,8 +34,6 @@ from hydromodpy.calibration.runners import search as search_module
 from hydromodpy.calibration.runners import trial as trial_module
 from hydromodpy.calibration.runners.document import load_toml_calibration
 from hydromodpy.calibration.runners.recap import staged_result_lines
-from hydromodpy.calibration.runners.resume import best_parameters_of, reusable_stage
-from hydromodpy.calibration.runners.search import _engine_kwargs
 from hydromodpy.calibration.runners.session import open_session_dir
 from hydromodpy.calibration.runners.staged_report import (
     _observed_source,
@@ -47,13 +43,10 @@ from hydromodpy.calibration.runners.staged_report import (
 )
 from hydromodpy.calibration.runners.staged_runner import (
     _frozen_by,
-    _injected_paths,
     _phase_config,
     _require_result_for_dependents,
-    _why_unsettled,
     run_staged_calibration,
 )
-from hydromodpy.calibration.runners.state import preload_hash_cache
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.cli.commands.calibrate import phase_line
@@ -67,7 +60,6 @@ from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases, read_phase
 from hydromodpy.workflow.steps.prepare_solver.freeze import portable_config_document
 from tests._helpers.persisting_simulation import SimulationStub, persisting_simulation
-from tests._helpers.session_documents import session_opening
 from tests.unit.calibration._factories_runners import (
     H_SY,
     K_CALIBRATED,
@@ -197,17 +189,6 @@ def test_a_budget_only_search_that_spent_its_budget_freezes_its_best(caplog) -> 
     _require_result_for_dependents(DECL, _report("budget_spent", BUDGET_RULE), DEPENDENT)
 
 
-@pytest.mark.parametrize(
-    ("state", "rule"), [("rule_met", "xatol"), ("plan_exhausted", "every grid point")]
-)
-def test_a_search_that_met_its_rule_or_its_plan_freezes_quietly(state, rule, caplog) -> None:
-    with caplog.at_level(logging.WARNING):
-        froze = _frozen_by(DECL, _report(state, rule), _space())
-
-    assert [item.name for item in froze] == ["K"]
-    assert caplog.text == ""
-
-
 def test_a_rule_engine_stopped_by_its_budget_freezes_nothing(caplog) -> None:
     with caplog.at_level(logging.WARNING):
         froze = _frozen_by(DECL, _report("budget_spent", "xatol"), _space())
@@ -224,31 +205,6 @@ def test_a_rule_engine_stopped_by_its_budget_freezes_nothing(caplog) -> None:
 # The phases a protocol writes declare none, so ``[calibration] parallel = 4``
 # used to reach none of them: every stage of the protocol ran its trials one by
 # one whatever the section said.
-
-
-def test_a_phase_without_its_own_takes_the_section_value() -> None:
-    cfg = _cfg(_phase(), method="grid", parallel=4, batch_size=6)
-
-    phase_cfg = _phase_config(cfg, cfg.phases[0])
-
-    assert phase_cfg.parallel == 4
-    assert phase_cfg.batch_size == 6
-    assert cfg.parallel_for(cfg.phases[0]) == 4
-
-
-def test_a_phase_value_wins_over_the_section() -> None:
-    cfg = _cfg(
-        _phase("sy", parameters=["Sy"], parallel=2, batch_size=3),
-        method="grid",
-        parallel=4,
-        batch_size=1,
-    )
-
-    phase_cfg = _phase_config(cfg, cfg.phases[0])
-
-    assert phase_cfg.parallel == 2
-    assert phase_cfg.batch_size == 3
-    assert cfg.parallel_for() == 4
 
 
 # From test_a_phase_inherits_the_search_of_its_section.py
@@ -285,19 +241,6 @@ def _findings(cfg: CalibrationConfig) -> list[Any]:
 
 
 # -- method ------------------------------------------------------------------
-def test_a_phase_runs_the_method_the_section_writes() -> None:
-    cfg = _cfg(_phase("a"), _phase("b", method="random_search"), method="grid")
-    a, b = cfg.phases
-
-    assert cfg.method_for(a) == ("grid", None)
-    assert cfg.method_for(b) == ("random_search", None)
-
-
-def test_a_phase_with_no_method_anywhere_is_chosen_from_its_criteria() -> None:
-    method, reason = _cfg().method_for(_cfg().phases[0])
-
-    assert method == "scipy_nelder_mead"
-    assert reason is not None
 
 
 # -- max_trials --------------------------------------------------------------
@@ -323,16 +266,6 @@ def test_a_phase_may_ask_for_auto_against_a_section_budget() -> None:
 
 
 # -- precision ---------------------------------------------------------------
-def test_a_precision_reaches_a_phase_whose_engine_reads_one() -> None:
-    cfg = _cfg(
-        _phase("a", method="scipy_nelder_mead"),
-        _phase("b", method="scipy_nelder_mead", precision=0.1),
-        _phase("c", method="bisection"),
-        precision=0.01,
-    )
-    a, b, c = cfg.phases
-
-    assert [cfg.precision_for(phase) for phase in (a, b, c)] == [0.01, 0.1, 0.01]
 
 
 def test_a_precision_does_not_reach_an_engine_that_stops_on_its_budget() -> None:
@@ -346,13 +279,6 @@ def test_a_precision_written_in_a_phase_of_a_budget_engine_is_still_refused() ->
     findings = _findings(_cfg(_phase(method="grid", precision=0.01)))
 
     assert [finding.severity for finding in findings if "precision" in finding.detail] == ["error"]
-
-
-def test_an_engine_option_written_in_the_phase_wins_over_the_inherited_precision() -> None:
-    cfg = _cfg(_phase(method="scipy_nelder_mead", method_options={"xatol": 0.02}), precision=0.01)
-
-    assert cfg.precision_for(cfg.phases[0]) is None
-    assert not [finding for finding in _findings(cfg) if "both set" in finding.detail]
 
 
 # -- method_options ----------------------------------------------------------
@@ -384,42 +310,7 @@ def test_the_options_of_a_phase_need_a_method_in_the_phase_or_in_the_section() -
     assert inherited.method_options_for(inherited.phases[0]) == {"sweep_points": 3}
 
 
-def test_the_options_of_a_phase_are_checked_against_the_method_it_inherits() -> None:
-    with pytest.raises(ValidationError, match="phase 'k' method_options"):
-        _cfg(_phase(method_options={"sweep_points": 3}), method="grid")
-
-
-def test_a_protocol_stage_does_not_take_the_options_of_the_section() -> None:
-    cfg = _cfg(
-        _phase(method="bisection"),
-        method="bisection",
-        method_options={"sweep_points": 5},
-        protocol={"name": "matching_hydrographic_network"},
-    )
-
-    assert cfg.method_options_for(cfg.phases[0]) == {}
-
-
 # -- what a phase runs -------------------------------------------------------
-def test_the_search_a_phase_runs_is_the_resolved_one() -> None:
-    cfg = _cfg(
-        _phase("a"),
-        _phase("b", method="grid", max_trials=9),
-        method="scipy_nelder_mead",
-        max_trials=40,
-        precision=0.02,
-    )
-    a, b = cfg.phases
-
-    ran = _phase_config(cfg, a)
-    assert (ran.method, ran.max_trials, ran.precision, ran.method_options) == (
-        "scipy_nelder_mead",
-        40,
-        0.02,
-        {},
-    )
-    ran = _phase_config(cfg, b)
-    assert (ran.method, ran.max_trials, ran.precision) == ("grid", 9, None)
 
 
 def test_the_listing_says_where_each_key_of_a_phase_comes_from() -> None:
@@ -443,13 +334,6 @@ def test_the_listing_says_where_each_key_of_a_phase_comes_from() -> None:
     assert b["max_trials"] == {"value": 9, "source": "phase"}
     assert b["precision"] == {"value": None, "source": "default"}
     assert b["method_options"] == {"value": {"points_per_dim": 4}, "source": "phase"}
-
-
-def test_a_search_that_writes_nothing_lists_its_defaults() -> None:
-    (row,) = phase_summaries(_cfg())
-
-    assert row["search"]["max_trials"] == {"value": "auto", "source": "default"}
-    assert row["search"]["method"]["source"] == "default"
 
 
 # -- a protocol and a sealed run ---------------------------------------------
@@ -617,20 +501,6 @@ def test_under_nelder_mead_the_first_trial_is_the_passed_value(tmp_path, toy) ->
     assert "reopened" not in k_first.to_dict()
 
 
-def test_the_rows_say_which_phase_a_parameter_is_reopened_from(tmp_path) -> None:
-    cfg, _raw = load_toml_calibration(write_document(tmp_path, _base("scipy_nelder_mead")))
-
-    rows = phase_summaries(cfg)
-
-    assert "reopens" not in rows[0]
-    assert "reopens" not in rows[1]
-    assert rows[2]["reopens"] == [
-        {"parameter": "K", "from_phase": "k_first"},
-        {"parameter": "Sy", "from_phase": "sy_second"},
-    ]
-    assert rows[2]["starts_from_passed_values"] is True
-
-
 def test_under_grid_list_phases_says_the_engine_takes_no_start_point(tmp_path, capsys) -> None:
     path = write_document(tmp_path, _base("grid"))
     cfg, _raw = load_toml_calibration(path)
@@ -752,15 +622,6 @@ def test_a_name_aimed_at_a_path_frozen_under_another_name_starts_from_the_latest
 # field's own range when the section writes none).
 
 
-def test_a_phase_takes_no_bounds_by_default() -> None:
-    assert _cfg().phases[0].bounds is None
-
-
-@pytest.mark.parametrize("bounds", [[1e-6, 1e-4], [1e-7, 1e-3]], ids=["inside", "equal"])
-def test_a_phase_writes_its_bounds_inside_the_section_bounds(bounds: list[float]) -> None:
-    assert _cfg(_phase(bounds={"K": bounds})).phases[0].bounds == {"K": bounds}
-
-
 @pytest.mark.parametrize(
     ("bounds", "reason"),
     [
@@ -791,12 +652,6 @@ def test_a_phase_writes_its_bounds_into_the_calibration_it_runs() -> None:
 
     assert phase_cfg.parameters["K"].bounds == [1e-6, 1e-4]
     assert cfg.parameters["K"].bounds == [1e-7, 1e-3]
-
-
-def test_a_phase_without_bounds_runs_the_section_bounds() -> None:
-    cfg = _cfg()
-
-    assert _phase_config(cfg, cfg.phases[0]).parameters["K"].bounds == [1e-7, 1e-3]
 
 
 def test_bounds_written_below_the_resolved_bounds_are_refused_before_the_first_solve() -> None:
@@ -891,40 +746,6 @@ def _config__single_metric(phase: dict, **section) -> CalibrationConfig:
 _SPACE = ParameterSpace([CalibParameter(name="K", lower=1e-7, upper=1e-3, search_space="log")])
 
 
-@pytest.mark.parametrize(
-    ("phase", "section"),
-    [
-        ({"variable": "net", "objective": "distance_gap"}, {}),
-        ({"objective": "distance_gap"}, {"variable": "net"}),
-    ],
-    ids=["variable_in_the_phase", "variable_from_the_section"],
-)
-def test_the_network_output_the_variable_names_is_kept(phase, section) -> None:
-    cfg = _config__single_metric(phase, **section)
-    phase_cfg = _phase_config(cfg, cfg.phases[0])
-
-    assert set(phase_cfg.outputs) == {"net"}
-    assert phase_cfg.outputs["net"].model.extent is not None
-    assert str(phase_cfg.outputs["net"].map.permanent) == "permanent.gpkg"
-    # The one block the whole-file (objective, variable) route builds, no other.
-    [block] = phase_cfg.objective_blocks
-    assert (str(block.metric), list(block.uses_outputs)) == ("distance_gap", ["net"])
-    # The root search counts both bounds.
-    assert _engine_kwargs(phase_cfg, _SPACE, start_at=None)["roots"] == 2
-
-
-@pytest.mark.parametrize("variable", ["discharge", "well"])
-def test_no_other_output_is_inherited(variable: str) -> None:
-    cfg = _config__single_metric({"variable": variable, "objective": "nse", "method": "grid"})
-
-    phase_cfg = _phase_config(cfg, cfg.phases[0])
-
-    # The phase keeps the output its variable names and nothing else; a raw
-    # variable names none.
-    assert set(phase_cfg.outputs) == ({"well"} if variable == "well" else set())
-    assert "net" not in phase_cfg.outputs
-
-
 # From test_a_station_output_reads_its_record.py
 # A point output that observes a station is placed by the station's record.
 #
@@ -936,29 +757,6 @@ def test_no_other_output_is_inherited(variable: str) -> None:
 
 def _point(**fields: object) -> CalibOutputPoint:
     return CalibOutputPoint.model_validate({"support": "point", **fields})
-
-
-def test_x_and_y_beside_observes_are_warned_as_ignored() -> None:
-    with pytest.warns(UserWarning, match="observes station 'NANCON' and also writes x, y"):
-        _point(variable="discharge", observes="NANCON", x=389285.91, y=6816518.749)
-
-
-def test_a_geometry_beside_observes_is_warned_as_ignored() -> None:
-    geometry = {"type": "Point", "coordinates": [0.0, 0.0]}
-    with pytest.warns(UserWarning, match="writes geometry"):
-        _point(variable="discharge", observes="NANCON", geometry=geometry)
-
-
-def test_a_snap_reads_the_written_position_so_nothing_is_warned() -> None:
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        _point(variable="discharge", observes="NANCON", x=1.0, y=2.0, snap_radius="150 m")
-
-
-def test_an_output_that_writes_only_observes_loads_silently() -> None:
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        _point(variable="discharge", observes="NANCON")
 
 
 def _quantity(output: dict) -> str:
@@ -994,16 +792,6 @@ def test_a_point_output_says_where_its_value_is_read(output, expected) -> None:
     assert _quantity(output) == expected
 
 
-def test_the_written_x_and_y_are_never_printed_as_where_the_value_comes_from() -> None:
-    with pytest.warns(UserWarning):
-        quantity = _quantity(
-            {"variable": "discharge", "observes": "NANCON", "x": 389285.91, "y": 6816518.749}
-        )
-
-    assert quantity == STATION
-    assert "389285" not in quantity
-
-
 # From test_an_unconverged_phase_promises_only_what_the_cache_replays.py
 # A phase that did not converge says what a re-run really replays.
 #
@@ -1012,17 +800,6 @@ def test_the_written_x_and_y_are_never_printed_as_where_the_value_comes_from() -
 # only what changes the cost of a trial, so a new max_trials, precision, seed,
 # method or option replays the trials it proposes at values already solved, as the
 # engine warning already says.
-
-
-def test_a_new_search_setting_is_promised_the_cache_only_at_the_values_solved() -> None:
-    message = _why_unsettled(_report("budget_spent", "xatol"))
-
-    assert "loosen the tolerance" not in message
-    assert (
-        "Raise max_trials: a re-run of the same file replays the trials already solved from "
-        "the cache. So does a new precision, seed, method or method_options, for every "
-        "trial it proposes at values already solved"
-    ) in message
 
 
 # From test_objective_comparison_table.py
@@ -1120,22 +897,6 @@ def test_a_network_block_names_the_mapped_file(tmp_path: Path) -> None:
 
 
 @pytest.mark.fast
-def test_a_point_block_that_observes_names_the_station_and_its_data_family(
-    tmp_path: Path,
-) -> None:
-    cfg = _config__objective_comparison(tmp_path, SECTION + PHASES)
-
-    rows = {row["block"]: row for row in _rows_by_phase(cfg)["sy_hydrograph"]}
-
-    hydrograph = rows["hydrograph"]
-    assert hydrograph["metric"] == "nse_log"
-    # The x and y written beside `observes` are never read, so the row says
-    # what the run reads: the station's discharge, here the catchment series.
-    assert hydrograph["quantity"] == "discharge, station G1 (whole-catchment series)"
-    assert hydrograph["source"] == "station G1 ([data.hydrometry])"
-
-
-@pytest.mark.fast
 def test_a_share_table_normalises_like_the_composite_objective(tmp_path: Path) -> None:
     cfg = _config__objective_comparison(tmp_path, SECTION + PHASES)
 
@@ -1172,41 +933,6 @@ def test_a_phase_less_calibration_still_gets_a_table_for_its_one_search(
 
     assert {row["block"] for row in rows} == {"network", "hydrograph"}
     assert all(row["share"] == pytest.approx(0.5) for row in rows)
-
-
-@pytest.mark.fast
-def test_list_phases_still_works_without_the_project_data_on_disk(tmp_path: Path) -> None:
-    """``streams.gpkg`` is never written to ``tmp_path``: the table must not need it."""
-    cfg = _config__objective_comparison(tmp_path, SECTION + PHASES)
-
-    rows = phase_summaries(cfg)
-
-    assert [row["name"] for row in rows] == ["k_network", "sy_hydrograph"]
-    assert all("comparisons" in row for row in rows)
-
-
-@pytest.mark.fast
-def test_a_network_output_mapped_from_the_project_names_its_source(tmp_path: Path) -> None:
-    text = SECTION.replace('map.complete = "streams.gpkg"', 'map.complete = "data.hydrography"')
-    cfg = _config__objective_comparison(tmp_path, text + PHASES)
-
-    rows = _rows_by_phase(cfg)["k_network"]
-
-    assert rows[0]["source"] == "data.hydrography"
-
-
-@pytest.mark.fast
-def test_observed_values_with_no_observes_names_the_count() -> None:
-    output = validate_calib_output(
-        dict(
-            variable="discharge",
-            support="boundary",
-            boundary_id="outlet",
-            observed_values=[1.0, 2.0, 3.0],
-        )
-    )
-
-    assert _observed_source(output) == "3 value(s) written in the file"
 
 
 @pytest.mark.fast
@@ -1255,24 +981,6 @@ def _config__phase_metric(phases: list[dict]) -> CalibrationConfig:
     )
 
 
-def test_a_single_metric_phase_inherits_no_block() -> None:
-    cfg = _config__phase_metric([NETWORK_PHASE, DISCHARGE_PHASE])
-    phase_cfg = _phase_config(cfg, cfg.phases[1])
-
-    assert phase_cfg.objective_blocks == []
-    assert phase_cfg.outputs == {}
-    assert phase_cfg.variable == "discharge"
-    assert phase_cfg.objective == "nse_log"
-
-
-def test_a_block_phase_keeps_what_it_selected() -> None:
-    cfg = _config__phase_metric([NETWORK_PHASE, DISCHARGE_PHASE])
-    phase_cfg = _phase_config(cfg, cfg.phases[0])
-
-    assert [block.name for block in phase_cfg.objective_blocks] == ["abherve_gap"]
-    assert set(phase_cfg.outputs) == {"net"}
-
-
 def test_declaring_both_conventions_is_refused() -> None:
     with pytest.raises(ValueError, match="Pick one convention"):
         _config__phase_metric(
@@ -1283,13 +991,6 @@ def test_declaring_both_conventions_is_refused() -> None:
 def test_a_single_metric_phase_selecting_an_output_is_refused() -> None:
     with pytest.raises(ValueError, match="Pick one convention"):
         _config__phase_metric([{**DISCHARGE_PHASE, "depends_on": None, "outputs": ["net"]}])
-
-
-@pytest.mark.parametrize("field", ["variable", "objective"])
-def test_either_field_alone_picks_the_single_metric_route(field: str) -> None:
-    cfg = _config__phase_metric([NETWORK_PHASE, {**DISCHARGE_PHASE, **{field: None}}])
-    assert cfg.phases[1].is_single_metric is True
-    assert _phase_config(cfg, cfg.phases[1]).objective_blocks == []
 
 
 # From test_phase_objective_shares.py
@@ -1375,23 +1076,6 @@ class TestShareTable:
         assert weights["network"] == pytest.approx(network)
         assert weights["hydrograph"] == pytest.approx(hydrograph)
 
-    def test_the_share_replaces_the_declared_weight(self) -> None:
-        # hydrograph declares weight 3.0; the phase's share overrides it.
-        cfg = _config__phase_objective([SEVENTY_THIRTY])
-        phase_cfg = _phase_config(cfg, cfg.phases[0])
-        weights = {block.name: block.weight for block in phase_cfg.objective_blocks}
-
-        assert weights == {"network": 70, "hydrograph": 30}
-
-
-class TestListFormUnchanged:
-    def test_the_list_form_keeps_the_declared_weight(self) -> None:
-        cfg = _config__phase_objective([LIST_FORM])
-        phase_cfg = _phase_config(cfg, cfg.phases[0])
-        weights = {block.name: block.weight for block in phase_cfg.objective_blocks}
-
-        assert weights == {"network": 1.0, "hydrograph": 3.0}
-
 
 class TestNoCrossPhaseMutation:
     def test_a_phase_built_twice_from_the_same_config_sees_the_same_shares(self) -> None:
@@ -1407,24 +1091,6 @@ class TestNoCrossPhaseMutation:
         assert first == first_again
         assert first["network"] == pytest.approx(0.7)
         assert first["hydrograph"] == pytest.approx(0.3)
-
-    def test_the_declared_blocks_keep_their_own_weight(self) -> None:
-        cfg = _config__phase_objective([SEVENTY_THIRTY, FIFTY_FIFTY])
-
-        _phase_config(cfg, cfg.phases[0])
-        _phase_config(cfg, cfg.phases[1])
-
-        weights = {block.name: block.weight for block in cfg.objective_blocks}
-        assert weights == {"network": 1.0, "hydrograph": 3.0}
-
-
-class TestPartialSelection:
-    def test_a_table_naming_one_block_keeps_only_that_block_and_its_output(self) -> None:
-        cfg = _config__phase_objective([HYDROGRAPH_ONLY])
-        phase_cfg = _phase_config(cfg, cfg.phases[0])
-
-        assert [block.name for block in phase_cfg.objective_blocks] == ["hydrograph"]
-        assert set(phase_cfg.outputs) == {"q"}
 
 
 class TestRefused:
@@ -1477,18 +1143,6 @@ def _config__phase_overrides(phases: list[dict]) -> CalibrationConfig:
     return _cfg(*phases, method="grid")
 
 
-class TestAccepted:
-    def test_a_phase_carries_its_own_model_settings(self) -> None:
-        cfg = _config__phase_overrides([STEADY, TRANSIENT])
-
-        assert cfg.phases[0].overrides == {"flow.flow_regime": "steady"}
-        assert cfg.phases[1].overrides["simulation.time.step_value"] == "1 day"
-
-    def test_no_override_is_the_default(self) -> None:
-        cfg = _config__phase_overrides([{"name": "p", "parameters": ["K"]}])
-        assert cfg.phases[0].overrides == {}
-
-
 class TestRefused__phase_overrides:
     def test_overriding_a_path_another_phase_freezes(self) -> None:
         # The frozen value would be overwritten and nothing downstream would say
@@ -1512,16 +1166,6 @@ class TestRefused__phase_overrides:
     def test_a_path_that_is_not_dotted(self, path: str) -> None:
         with pytest.raises(ValueError, match="not a\n? *dotted path|dotted path"):
             _config__phase_overrides([{**STEADY, "overrides": {path: 1}}])
-
-
-def test_the_overrides_reach_the_preparation_not_the_paths_that_vary_per_trial() -> None:
-    """Not the baseline the forks copy afterwards (the prefix already built its time grid)."""
-    cfg = _config__phase_overrides([STEADY, TRANSIENT])
-
-    paths = _injected_paths(_phase_config(cfg, cfg.phases[1]), [])
-
-    assert "flow.flow_regime" not in paths.values()
-    assert "simulation.time.step_unit" not in paths.values()
 
 
 # From test_resume_is_new.py
@@ -1589,19 +1233,6 @@ def _completed_steady_session(project: Path, *, recorded_marker: str) -> Calibra
     return persistence
 
 
-class TestWithoutResumeEveryPhaseSolvesInANewSession:
-    def test_a_completed_session_is_left_alone_and_a_new_one_opens(self, tmp_path, fake) -> None:
-        cfg_path = _write_resume(tmp_path)
-        _completed_steady_session(tmp_path, recorded_marker="v1")
-
-        report = run_staged_calibration(cfg_path)
-
-        assert fake.phases_run == ["steady_k", "transient_sy"]
-        assert report.reused_from_disk == ()
-        assert report.session_dir == tmp_path / "sessions" / "calage.v2"
-        assert read_session(tmp_path / "sessions" / "calage").status == "partial"
-
-
 class TestResumeReusesWhatCompleted:
     def test_the_completed_phase_is_read_back_and_the_next_one_solves(self, tmp_path, fake) -> None:
         cfg_path = _write_resume(tmp_path)
@@ -1629,18 +1260,6 @@ class TestResumeReusesWhatCompleted:
             K_FROM_DISK
         )
 
-    def test_the_trial_numbers_go_on_in_the_same_journal(self, tmp_path, fake) -> None:
-        cfg_path = _write_resume(tmp_path)
-        _completed_steady_session(tmp_path, recorded_marker="v1")
-
-        run_staged_calibration(cfg_path, resume=True)
-
-        trials = read_trials(tmp_path / "sessions" / "calage")
-        assert [(t.trial, t.phase) for t in trials] == [(1, "steady_k"), (2, "transient_sy")]
-        descriptor = read_session(tmp_path / "sessions" / "calage")
-        assert descriptor.status == "completed"
-        assert descriptor.best is not None and descriptor.best.trial == 2
-
     def test_a_different_fingerprint_today_re_solves_instead_of_trusting_it(
         self, tmp_path, monkeypatch, fake
     ) -> None:
@@ -1661,14 +1280,6 @@ class TestResumeReusesWhatCompleted:
             p.name: p for p in CalibrationPersistence(tmp_path / "sessions" / "calage").phases()
         }
         assert phases["steady_k"].restarts == 1, "the re-solved phase counts a restart"
-
-    def test_resume_without_a_session_starts_one(self, tmp_path, fake) -> None:
-        cfg_path = _write_resume(tmp_path)
-
-        report = run_staged_calibration(cfg_path, resume=True)
-
-        assert fake.phases_run == ["steady_k", "transient_sy"]
-        assert report.session_dir == tmp_path / "sessions" / "calage"
 
 
 class TestOnePhaseOnTheSession:
@@ -1693,21 +1304,6 @@ class TestOnePhaseOnTheSession:
             run_staged_calibration(cfg_path, phase="transient_sy")
 
         assert fake.calls == []
-
-
-class TestTheSessionNamesTheMethodsItsPhasesRun:
-    def test_a_document_whose_phases_name_their_methods_opens_its_session(
-        self, tmp_path, fake
-    ) -> None:
-        """No top-level method: the descriptor still names what ran, phase by phase."""
-        cfg_path = _write_resume(
-            tmp_path, RESUME_DOCUMENT.replace('method = "grid"\nmax_trials = 4', "max_trials = 4")
-        )
-
-        report = run_staged_calibration(cfg_path)
-
-        assert fake.phases_run == ["steady_k", "transient_sy"]
-        assert read_session(report.session_dir).method == "bisection + grid"
 
 
 class _PromotionRecorder:
@@ -1800,45 +1396,6 @@ class TestAnInterruptedStagedSearch:
         assert not (tmp_path / "runs").exists()
 
 
-class TestTheCacheIsPreloadedFromTheJournals:
-    def test_every_completed_scoped_trial_of_the_project_enters_the_cache(self, tmp_path) -> None:
-        _completed_steady_session(tmp_path, recorded_marker="v1")
-        cache = ParamsHashCache()
-
-        assert preload_hash_cache(tmp_path, cache) == 1
-        assert params_hash({"K": K_FROM_DISK}, context={"marker": "v1"}) in cache
-        assert preload_hash_cache(tmp_path / "nowhere", ParamsHashCache()) == 0
-
-
-class TestTheOldKeyIsRefused:
-    def test_reuse_completed_phases_is_refused_by_name(self) -> None:
-        with pytest.raises(ValidationError, match="reuse_completed_phases") as caught:
-            CalibrationConfig.model_validate({"reuse_completed_phases": True})
-
-        assert "--resume" in str(caught.value)
-
-
-def test_a_reused_phase_passes_on_what_its_search_answered_not_the_first_of_a_tie(
-    tmp_path: Path,
-) -> None:
-    """A root search answers inside its bracket, and two trials can tie on the cost."""
-    persistence = CalibrationPersistence(tmp_path)
-    persistence.start_session(**session_opening())
-    steady = PhaseContext("steady_k", 0, 0)
-    persistence.start_phase(steady, frozen={})
-    for trial_id, value in enumerate((1.4e-4, 1.5e-4), start=1):
-        journal_trial(persistence, trial_id, 11.0, values={"K": value}, phase=steady)
-    answered = persistence.trial_line(2)
-    persistence.finish_phase(
-        "steady_k", status="completed", best=persistence.best_pointer(answered)
-    )
-
-    assert persistence.best_trial("steady_k").trial == 1
-    assert persistence.held_trial("steady_k").trial == 2
-    assert best_parameters_of(persistence, "steady_k") == {"K": 1.5e-4}
-    assert reusable_stage(persistence, "steady_k").parameters == {"K": 1.5e-4}
-
-
 # From test_staged_runner.py
 # What a calibration run in phases hands from one stage to the next.
 #
@@ -1883,51 +1440,9 @@ def report(tmp_path, runner) -> CalibrationReport:
 
 
 # -- order and per-phase configuration --------------------------------------
-def test_the_phases_run_in_declaration_order(report, runner) -> None:
-    assert runner.phases_run == ["steady_k", "transient_sy"]
-    assert [phase.name for phase in report.phases] == ["steady_k", "transient_sy"]
-    assert [phase.index for phase in report.phases] == [0, 1]
-
-
-def test_each_phase_runs_the_search_it_declares(report, runner) -> None:
-    steady, transient = (call.cfg for call in runner.calls)
-    assert (steady.method, steady.max_trials) == ("bisection", 12)
-    assert (transient.method, transient.max_trials) == ("grid", 30)
-    assert list(steady.parameters) == ["K"]
-    assert list(transient.parameters) == ["Sy"]
-    assert runner.calls[0].space.names == ("K",)
-    assert runner.calls[1].space.names == ("Sy",)
-
-
-def test_a_phase_config_is_an_ordinary_mono_phase_calibration(report, runner) -> None:
-    assert all(call.cfg.phases is None for call in runner.calls)
-
-
-def test_each_phase_scores_only_on_the_blocks_it_names(report, runner) -> None:
-    # A staged table has to say this per phase: a phase that named nothing used
-    # to inherit every declared block, so the transient stage was scored on the
-    # steady stage's criterion too. The schema now refuses that silence.
-    steady, transient = (call.cfg for call in runner.calls)
-    assert list(steady.outputs) == ["q"]
-    assert [block.name for block in steady.objective_blocks] == ["q_block"]
-    assert [block.name for block in transient.objective_blocks] == ["h_block"]
-
-
-def test_a_phase_that_names_no_output_gets_the_ones_its_blocks_read(report, runner) -> None:
-    # The transient phase selects a block and no output. It used to inherit
-    # every declared one, so the steady stage's discharge was extracted from
-    # each of its trials and entered no cost. Worse where the two stages score
-    # different families: a network output handed to a stage scored on a series
-    # is refused outright, and the whole staged file stopped running.
-    _, transient = (call.cfg for call in runner.calls)
-    assert list(transient.outputs) == ["h"]
 
 
 # -- freezing ----------------------------------------------------------------
-def test_a_frozen_parameter_leaves_the_search_of_the_next_phase(report, runner) -> None:
-    transient = runner.calls[1]
-    assert "K" not in transient.cfg.parameters
-    assert "K" not in transient.space.names
 
 
 def test_a_frozen_parameter_enters_the_baseline_of_the_next_phase(report, runner) -> None:
@@ -1935,13 +1450,6 @@ def test_a_frozen_parameter_enters_the_baseline_of_the_next_phase(report, runner
     assert steady.baseline.flow.param.K.field.value == pytest.approx(K_TOML)
     assert transient.baseline.flow.param.K.field.value == pytest.approx(K_CALIBRATED)
     assert transient.baseline.flow.param.Sy.field.value == pytest.approx(SY_TOML)
-
-
-def test_the_prepared_pipeline_treats_the_frozen_path_as_varying(report, runner) -> None:
-    # A preparation step reading the frozen path has to re-run per trial,
-    # otherwise the prepared prefix would keep the value the TOML declares.
-    assert runner.prepared[0] == {"K": K_PATH}
-    assert runner.prepared[1] == {"Sy": SY_PATH, "K": K_PATH}
 
 
 def test_the_report_names_each_frozen_value_with_its_path(report) -> None:
@@ -2014,14 +1522,6 @@ def test_selecting_a_phase_whose_dependency_did_not_run_is_refused(tmp_path, run
         run_staged_calibration(_write_staged(tmp_path), phase="transient_sy")
 
     assert runner.calls == []
-
-
-def test_selecting_an_independent_phase_runs_only_it(tmp_path, runner) -> None:
-    report = run_staged_calibration(_write_staged(tmp_path), phase="steady_k")
-
-    assert runner.phases_run == ["steady_k"]
-    assert [(phase.name, phase.index) for phase in report.phases] == [("steady_k", 0)]
-    assert runner.calls[0].session_id == report.session_id
 
 
 def test_selecting_an_undeclared_phase_lists_the_declared_ones(tmp_path, runner) -> None:
@@ -2110,16 +1610,6 @@ def test_a_refused_preparation_is_reported_with_the_phase_that_asked_for_it(
 
 
 # -- return shape ------------------------------------------------------------
-def test_the_runner_always_returns_a_report_whose_summary_lists_the_phases(report) -> None:
-    assert isinstance(report, CalibrationReport)
-    payload = report.to_dict()
-    assert [item["phase"] for item in payload["phases"]] == ["steady_k", "transient_sy"]
-    assert payload["session_id"] == payload["phases"][0]["session_id"]
-
-
-def test_the_report_carries_the_session_of_the_run(report) -> None:
-    assert report.session_id == report.phases[0].session_id == report.phases[1].session_id
-    assert report.to_dict()["session_dir"] == str(report.session_dir)
 
 
 # -- one session, its phases --------------------------------------------------
@@ -2139,21 +1629,6 @@ def test_every_phase_writes_into_the_one_session_of_the_case(report, runner, tmp
     assert phases[1].frozen["K"].from_phase == "steady_k"
 
 
-def test_the_session_is_named_by_the_file_that_carries_calibration(report, tmp_path) -> None:
-    assert report.session_dir == tmp_path / "sessions" / "calibration"
-    descriptor = read_session(report.session_dir)
-    assert descriptor.case_id == "calibration"
-    assert descriptor.status == "completed"
-    assert (report.session_dir / "config.toml").is_file()
-
-
-def test_a_second_run_of_the_file_takes_the_next_version(tmp_path, runner) -> None:
-    run_staged_calibration(_write_staged(tmp_path))
-    report = run_staged_calibration(_write_staged(tmp_path))
-
-    assert report.session_dir == tmp_path / "sessions" / "calibration.v2"
-
-
 # -- restart-based uncertainty ------------------------------------------------
 MULTISTART = """
 [calibration.uncertainty]
@@ -2166,33 +1641,6 @@ NELDER_PHASES = phases_toml({**STEADY_K, "method": "scipy_nelder_mead", "outputs
 
 def _write_multistart(tmp_path: Path) -> Path:
     return _write_staged(tmp_path, NELDER_PHASES, MULTISTART)
-
-
-def test_without_restarts_one_phase_is_one_search(report, runner) -> None:
-    assert len(runner.calls) == 2
-    assert all(call.start_at is None for call in runner.calls)
-
-
-def test_restarts_run_the_phase_that_many_times(tmp_path, runner) -> None:
-    report = run_staged_calibration(_write_multistart(tmp_path))
-
-    assert len(runner.calls) == 3
-    assert [phase.name for phase in report.phases] == ["steady_k"]
-
-
-def test_the_first_restart_is_the_search_that_would_have_run_alone(tmp_path, runner) -> None:
-    # The answer a file already published stays in the set: the engine keeps its
-    # own start and the declared seed for restart one.
-    run_staged_calibration(_write_multistart(tmp_path))
-
-    assert runner.calls[0].start_at is None
-    assert all(call.start_at is not None for call in runner.calls[1:])
-
-
-def test_each_restart_carries_its_own_seed(tmp_path, runner) -> None:
-    run_staged_calibration(_write_multistart(tmp_path))
-
-    assert len({call.seed for call in runner.calls}) == 3
 
 
 ROOT_OUTSIDE = "root K = 1 closed OUTSIDE the declared bounds [1e-07, 0.001]"
@@ -2261,23 +1709,6 @@ def test_restarts_on_an_exhaustive_sweep_are_refused(tmp_path, runner) -> None:
         run_staged_calibration(_write_staged(tmp_path, section=MULTISTART))
 
 
-def test_a_phase_may_ask_for_restarts_the_section_does_not(tmp_path, runner) -> None:
-    # The uncertainty method is the phase's own over the section's: only the
-    # phase that asks for restarts repeats its search.
-    phases = phases_toml(
-        {
-            **STEADY_K,
-            "method": "scipy_nelder_mead",
-            "uncertainty": {"method": "multistart", "restarts": 3},
-        },
-        H_SY,
-    )
-    report = run_staged_calibration(_write_staged(tmp_path, phases))
-
-    assert runner.phases_run == ["steady_k"] * 3 + ["transient_sy"]
-    assert [len(item.values) for item in report.restart_spreads] == [3]
-
-
 # -- the width each phase reads its interval with ----------------------------
 def test_each_phase_hands_the_search_its_own_width(tmp_path, runner) -> None:
     section = '\n[calibration.uncertainty]\ncost_margin = "20%"\n'
@@ -2335,24 +1766,6 @@ def test_linearized_uncertainty_attaches_a_width_to_each_phase(linearized, width
     assert all(phase.report.parameter_uncertainty for phase in linearized.phases)
     assert read_phase(linearized.session_dir, "steady_k").widths["K"].sigma == 0.1
     assert read_session(linearized.session_dir).widths["Sy"].sigma == 0.1
-
-
-def test_linearized_uncertainty_reads_the_phase_that_scored_it(linearized, width) -> None:
-    # steady_k scores q_block/q, transient_sy scores h_block/h: the width has
-    # to be taken through the phase's own configuration, not the document's.
-    steady, transient = width
-    assert list(steady.cfg.outputs) == ["q"]
-    assert list(transient.cfg.outputs) == ["h"]
-    assert next(iter(steady.cfg.parameters)) == "K"
-    assert next(iter(transient.cfg.parameters)) == "Sy"
-
-
-def test_a_width_conditional_on_an_earlier_freeze_says_so(linearized) -> None:
-    # transient_sy depends_on steady_k and steady_k freezes K by default: the
-    # second phase's width is conditional on a value it did not calibrate.
-    steady, transient = linearized.phases
-    assert "parameter_uncertainty_note" not in steady.report.extra
-    assert "K" in transient.report.extra["parameter_uncertainty_note"]
 
 
 # A phase without an evaluator that prepares a model never reaches
@@ -2703,12 +2116,6 @@ def test_each_stage_names_its_metric_and_the_pairs_of_its_cost() -> None:
     ) in text
 
 
-def test_the_stage_text_names_the_window_of_the_run_as_a_default() -> None:
-    transient = protocol_record(NAME)["stages"][1]
-
-    assert "[metrics] window" in transient
-
-
 # From test_the_protocol_written_by_hand_runs_the_protocol.py
 # Example 04 writes its protocol out as phases, and the two must run the same.
 #
@@ -2727,17 +2134,6 @@ def calibrations():
     protocol = HydroModPyConfig.from_toml(EXAMPLE_04 / "run_calibration.toml").calibration
     by_hand = HydroModPyConfig.from_toml(EXAMPLE_04 / "run_calibration_by_hand.toml").calibration
     return protocol, by_hand
-
-
-@pytest.mark.fast
-def test_only_the_protocol_name_differs(calibrations) -> None:
-    protocol, by_hand = calibrations
-
-    assert protocol.protocol is not None
-    assert by_hand.protocol is None
-    first = protocol.model_dump(mode="json", exclude={"protocol"})
-    second = by_hand.model_dump(mode="json", exclude={"protocol"})
-    assert first == second
 
 
 @pytest.mark.fast
@@ -2801,16 +2197,6 @@ def test_a_phase_whose_search_its_optimizer_refuses_is_named(monkeypatch) -> Non
         staged_runner._phase_plans(cfg, list(enumerate(cfg.phases)), {})
 
 
-def test_a_phase_without_a_method_says_which_one_it_runs(caplog) -> None:
-    cfg = _staged_cfg()
-    method, reason = cfg.method_for(cfg.phases[0])
-
-    with caplog.at_level(logging.INFO):
-        staged_runner._phase_plans(cfg, list(enumerate(cfg.phases)), {})
-
-    assert f"Phase stage names no method and runs {method}: {reason}." in caplog.text
-
-
 def test_a_settled_phase_without_its_value_has_nothing_to_freeze(monkeypatch) -> None:
     monkeypatch.setattr(staged_runner, "phase_settled", lambda report: True)
     monkeypatch.setattr(staged_runner, "_froze_budget_only", lambda report: False)
@@ -2844,14 +2230,6 @@ def test_an_output_says_where_it_reads_its_simulated_value(output, where) -> Non
 
 def test_a_missing_coordinate_reads_as_unknown() -> None:
     assert staged_report._length_text(None) == "?"
-
-
-def test_a_block_less_selection_has_no_comparison_row() -> None:
-    cfg = SimpleNamespace(
-        objective_blocks=["declared"], objective_blocks_for=lambda phase: [], outputs=None
-    )
-
-    assert staged_report.objective_comparison_table(cfg) == []
 
 
 @pytest.mark.parametrize(

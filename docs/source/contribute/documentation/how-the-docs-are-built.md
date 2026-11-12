@@ -14,7 +14,7 @@ those data files.
 | Python API and command line (`reference/python/`, `reference/cli/`) | `hydromodpy.__all__`, the signatures, the docstrings and the `argparse` parser | `tools/docs/api_registry.py`, then `_ext/hmp_api.py` |
 | Catalogs of solvers, figures and data sources | the registries of the code | `tools/docs/catalogs.py`, then `_ext/hmp_catalogs.py` |
 | Validation page and "Checked by" boxes | `tests/` and `validation_cases/` | `tools/docs/tests_index.py`, then `_ext/hmp_validation.py` |
-| TOML changes since the last release | the field snapshot of each release under `tools/docs/snapshots/` (the last is `fields-2.0.0.json`), the current registry, the `move` rows of the register of changes and `hydromodpy/config/prerelease_forms.txt` | `tools/docs/toml_changelog.py` and `tools/docs/legacy_keys.py` |
+| TOML changes since the last release | the field snapshot of each release under `tools/docs/snapshots/` (the last is `fields-2.0.0.json`, a snapshot of the unreleased tree that the tag replaces), the current registry, the `move` rows of the register of changes and `hydromodpy/config/prerelease_forms.txt` | `tools/docs/toml_changelog.py` and `tools/docs/legacy_keys.py` |
 | Register of changes (`reference/changes-register`) | `hydromodpy/schema/changes.toml` | `_ext/hmp_changes_register.py` |
 | Layer matrix | `tests/unit/architecture/layer_matrix.yaml` | `tools/doc_contracts.py` |
 | JSON Schema of the configuration | `HydroModPyConfig` | `tools/docs/schema_export.py` |
@@ -32,7 +32,7 @@ Renamed on the changes page, with the note that it still loads. The loader and t
 same rows, the `[[migration]]` rows of `hydromodpy/schema/changes.toml`, so they cannot disagree.
 A new move is one row there. The keys of the moved table keep their names, so the page compares
 them from one release to the next, and a change of default, profile or unit shows under Changed.
-A key that only a pre-release wrote shows under Renamed or Removed with the note that 2.1.0
+A key that only a pre-release wrote shows under Renamed or Removed with the note that 2.0.0
 refuses it. The page reads that list from
 `hydromodpy/config/prerelease_forms.txt`.
 

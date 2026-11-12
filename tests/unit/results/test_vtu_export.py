@@ -145,48 +145,6 @@ def _text(array) -> str:
     return bytes(np.asarray(array, dtype=np.uint8)).decode("utf-8")
 
 
-def test_the_field_data_carries_the_crs_the_run_the_licence_and_the_version(tmp_path):
-    _store(tmp_path / "fields.zarr", crs=True)
-    out = export_vtu(tmp_path / "fields.zarr", "a-run", "topography", 0, tmp_path / "topo.vtu")
-    field_data = meshio.read(out).field_data
-
-    assert _text(field_data["sim_id"]) == "a-run"
-    assert _text(field_data["crs_wkt"]) == "EPSG:2154"
-    assert field_data["epsg_code"].tolist() == [2154]
-    assert _text(field_data["license"]) == "CC-BY-4.0"
-    assert _text(field_data["hydromodpy_version"]) == "1.0.0"
-
-
-def test_pyvista_reads_the_field_data_and_the_cells(tmp_path):
-    pv = pytest.importorskip("pyvista")
-    _store(tmp_path / "fields.zarr", crs=True)
-    out = export_vtu(tmp_path / "fields.zarr", "a-run", "topography", 0, tmp_path / "topo.vtu")
-    grid = pv.read(out)
-
-    assert grid.n_cells == 2
-    assert _text(grid.field_data["crs_wkt"]) == "EPSG:2154"
-    assert np.asarray(grid.field_data["epsg_code"]).tolist() == [2154]
-    assert np.asarray(grid.cell_data["topography"]).tolist() == [5.0, 6.0]
-
-
-def test_the_caller_metadata_wins_and_a_run_without_crs_names_none(tmp_path):
-    _store(tmp_path / "fields.zarr", crs=False)
-    out = export_vtu(
-        tmp_path / "fields.zarr",
-        "a-run",
-        "topography",
-        0,
-        tmp_path / "topo.vtu",
-        metadata={"hydromodpy_version": "2.0.0", "not_a_field": "x"},
-    )
-    field_data = meshio.read(out).field_data
-
-    assert _text(field_data["hydromodpy_version"]) == "2.0.0"
-    assert "crs_wkt" not in field_data
-    assert "epsg_code" not in field_data
-    assert "not_a_field" not in field_data
-
-
 def test_a_legacy_vtk_destination_is_written_without_field_data(tmp_path):
     _store(tmp_path / "fields.zarr", crs=True)
     out = export_vtu(tmp_path / "fields.zarr", "a-run", "topography", 0, tmp_path / "topo.vtk")

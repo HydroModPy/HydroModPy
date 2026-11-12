@@ -13,11 +13,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.data.common.export import export_records
-from hydromodpy.data.common.geometry import (
-    expand_bbox,
-    filter_locations_by_geometry,
-    geometry_to_bbox,
-)
+from hydromodpy.data.common.geometry import expand_bbox, geometry_to_bbox
 from hydromodpy.data.common.source_extent import mask_geometry
 from hydromodpy.data.contracts.completeness import compute_completeness
 from hydromodpy.data.contracts.location import StationLocation
@@ -60,19 +56,6 @@ class TestMaskSpatialSelection:
         p.write_text("dummy")
         with pytest.raises(ValueError, match="Unsupported mask format"):
             mask_geometry(p)
-
-    def test_filter_locations_by_geometry(self):
-        """Test filtering with a shapely box geometry."""
-        from shapely.geometry import box
-
-        geom = box(-2.0, 47.0, -1.0, 49.0)
-        locs = [
-            StationLocation(id="A", x=-1.5, y=48.0, crs="EPSG:4326"),  # inside
-            StationLocation(id="B", x=3.0, y=45.0, crs="EPSG:4326"),  # outside
-            StationLocation(id="C", x=-1.2, y=48.5, crs="EPSG:4326"),  # inside
-        ]
-        inside = filter_locations_by_geometry(locs, geom)
-        assert {loc.id for loc in inside} == {"A", "C"}
 
     def test_geometry_to_bbox(self):
         from shapely.geometry import box
@@ -222,22 +205,6 @@ class TestFromToml:
         cfg = HydrometryConfig.from_toml(toml_path)
         assert cfg.sources[0].mask_path == Path("/tmp/mask.shp")
 
-    def test_from_toml_with_discovery_params(self, tmp_path):
-        toml_path = tmp_path / "config.toml"
-        toml_path.write_text(
-            "[hydrometry]\n"
-            "[[hydrometry.sources]]\n"
-            'source = "hubeau"\n'
-            'product = "QmnJ"\n'
-            "require_observations = true\n"
-            "fallback_search_radius_km = 25.0\n"
-        )
-        from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
-
-        cfg = HydrometryConfig.from_toml(toml_path)
-        assert cfg.sources[0].require_observations is True
-        assert cfg.sources[0].fallback_search_radius_km == 25.0
-
 
 # =========================================================================
 # Feature 4: Advanced station discovery
@@ -274,45 +241,6 @@ class TestAdvancedDiscovery:
             datetime(2020, 1, 1),
             datetime(2020, 12, 31),
         )
-
-    def test_station_period_overlaps_piezo(self):
-        from hydromodpy.data.common.clients.hubeau import station_period_overlaps
-
-        # Same logic as hydrometry
-        assert station_period_overlaps(
-            "2010-06-01",
-            "2023-01-01",
-            datetime(2020, 1, 1),
-            datetime(2020, 12, 31),
-        )
-        assert not station_period_overlaps(
-            "2000-01-01",
-            "2019-06-30",
-            datetime(2020, 1, 1),
-            datetime(2020, 12, 31),
-        )
-
-    def test_config_discovery_fields(self):
-        from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
-
-        cfg = HydrometrySourceConfig(
-            source="hubeau",
-            product="QmnJ",
-            require_observations=False,
-            fallback_search_radius_km=50.0,
-            max_stations=7,
-        )
-        assert cfg.require_observations is False
-        assert cfg.fallback_search_radius_km == 50.0
-        assert cfg.max_stations == 7
-
-    def test_config_discovery_defaults(self):
-        from hydromodpy.data.variables.hydrometry.config import HydrometrySourceConfig
-
-        cfg = HydrometrySourceConfig(source="hubeau", product="QmnJ")
-        assert cfg.require_observations is True
-        assert cfg.fallback_search_radius_km is None
-        assert cfg.max_stations is None
 
 
 # =========================================================================

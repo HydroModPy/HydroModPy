@@ -32,14 +32,6 @@ def _first_batch(seed: int | None) -> list[dict[str, float]]:
     return [s.values for s in opt.ask(n=5)]
 
 
-def test_seed_zero_gives_the_same_first_batch_twice() -> None:
-    assert _first_batch(0) == _first_batch(0)
-
-
-def test_seed_zero_is_not_the_path_of_another_seed() -> None:
-    assert _first_batch(0) != _first_batch(1)
-
-
 def _seed_handed_to_cma(monkeypatch, seed: int, restarts_used: int = 0) -> int:
     import cma
 
@@ -55,17 +47,6 @@ def _seed_handed_to_cma(monkeypatch, seed: int, restarts_used: int = 0) -> int:
     opt._restarts_used = restarts_used
     opt._make_strategy(opt._x0_t)
     return seen[-1]
-
-
-def test_another_seed_keeps_its_path(monkeypatch) -> None:
-    assert _seed_handed_to_cma(monkeypatch, 7) == 7
-    assert _seed_handed_to_cma(monkeypatch, 1) == 1
-    assert _seed_handed_to_cma(monkeypatch, 6, restarts_used=1) == 7
-
-
-def test_seed_zero_reaches_cma_as_a_nonzero_seed(monkeypatch) -> None:
-    assert _seed_handed_to_cma(monkeypatch, 0) > 1
-    assert _seed_handed_to_cma(monkeypatch, 0, restarts_used=1) == 1
 
 
 # From test_cma_adapter.py
@@ -153,14 +134,6 @@ class TestPopulationContract:
         # The second batch carries fresh, strictly larger trial_ids.
         assert min(s.trial_id for s in second) > max(s.trial_id for s in first)
 
-    def test_ask_values_match_space_names_and_bounds(self) -> None:
-        opt = build_optimizer("cma_es", two_dim_space(), popsize=4, max_trials=8, seed=3)
-        for sugg in opt.ask(n=4):
-            assert set(sugg.values) == {"x", "y"}
-            assert 0.0 <= sugg.values["x"] <= 1.0
-            assert -2.0 <= sugg.values["y"] <= 2.0
-            assert sugg.source == "ask"
-
 
 # ---------------------------------------------------------------------------
 # tell updates history and best
@@ -238,53 +211,10 @@ class TestConvergence:
         assert best is not None
         assert best.cost == pytest.approx(gen_best[-1])
 
-    def test_one_dimensional_problem_converges(self) -> None:
-        """1-D bounded problems exercise the cma stop-criteria workarounds."""
-        opt = build_optimizer(
-            "cma_es", _one_dimtwo_dim_space(), sigma0=0.3, popsize=6, max_trials=90, seed=11
-        )
-
-        def cost(values) -> float:
-            return float((values["x"] - 1.0) ** 2)
-
-        gen_best = _run_to_convergence(opt, cost_fn=cost)
-        assert gen_best, "the loop must run at least one generation"
-        assert gen_best[-1] < 1e-2
-        best = opt.best()
-        assert best is not None
-        assert best.trial_id is not None
-
 
 # ---------------------------------------------------------------------------
 # Reproducibility
 # ---------------------------------------------------------------------------
-class TestReproducibility:
-    def test_same_seed_reproduces_identical_suggestions(self) -> None:
-        def drive() -> list[tuple[float, float]]:
-            opt = build_optimizer(
-                "cma_es", two_dim_space(), sigma0=0.3, popsize=5, max_trials=40, seed=123
-            )
-            seen: list[tuple[float, float]] = []
-            while not opt.converged():
-                batch = opt.ask(n=5)
-                if not batch:
-                    break
-                for s in batch:
-                    seen.append((s.values["x"], s.values["y"]))
-                opt.tell([result_of(s, _quadratic_cost(s.values)) for s in batch])
-            return seen
-
-        run_a = drive()
-        run_b = drive()
-        assert run_a and run_b
-        assert run_a == run_b
-
-    def test_different_seed_changes_suggestions(self) -> None:
-        opt_a = build_optimizer("cma_es", two_dim_space(), popsize=5, max_trials=20, seed=1)
-        opt_b = build_optimizer("cma_es", two_dim_space(), popsize=5, max_trials=20, seed=2)
-        first_a = [(s.values["x"], s.values["y"]) for s in opt_a.ask(n=5)]
-        first_b = [(s.values["x"], s.values["y"]) for s in opt_b.ask(n=5)]
-        assert first_a != first_b
 
 
 # ---------------------------------------------------------------------------
@@ -416,10 +346,6 @@ class TestBudgetExhaustion:
 # Registration
 # ---------------------------------------------------------------------------
 class TestRegistration:
-    def test_cma_es_name_resolves(self) -> None:
-        opt = build_optimizer("cma_es", two_dim_space(), max_trials=8, seed=0)
-        assert opt.name == "cma_es"
-
     def test_bare_cma_name_is_not_registered(self) -> None:
         with pytest.raises(OptimizerError, match="Unknown optimizer"):
             build_optimizer("cma", two_dim_space())

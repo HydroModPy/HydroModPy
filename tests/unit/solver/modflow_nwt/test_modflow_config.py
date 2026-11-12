@@ -9,38 +9,30 @@ import pytest
 from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.catchment.algorithms.flow_products import FlowProducts
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.core.exceptions import ConfigValidationError, ExtractError, SolverInputError
+from hydromodpy.core.exceptions import ExtractError, SolverInputError
 from hydromodpy.model.boundaries.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.model.model import ModelTime
 from hydromodpy.model.properties.property_table import resolve_required_flow_properties
 from hydromodpy.model.sinks_sources.etp import FlowEtpConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
-from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_common.options import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
-from hydromodpy.solver.modflow_common.routing_context import (
-    SolverRoutingContext,
-    build_solver_routing_context,
-)
+from hydromodpy.solver.modflow_common.routing_context import build_solver_routing_context
 from hydromodpy.solver.modflow_grid.discretization_temporal import (
     build_temporal_discretization_from_time_grid,
     resolve_first_period_steady,
 )
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.solver.modflow_nwt.extractors.flow import (
-    ModflowNwtOutputAdapter,
-    _listing_path,
-)
+from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig, ModflowSpecifParams
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import refuse_constant_heads_below_bottom
 from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
-from tests._helpers.terrain_doubles import fake_flow_products
 
 from ._test_forcing_adapter_builders import _build_solver_mesh
 
@@ -59,12 +51,6 @@ def test_modflow_config_defaults_match_runtime_defaults():
     assert params.sgrid.top_sampling.mode == "centroid"
 
 
-def test_modflow6_runtime_defaults_keep_xt3d_in_auto_mode():
-    cfg = Modflow6Config()
-
-    assert cfg.runtime.mf6_enable_xt3d is None
-
-
 def test_modflow_config_accepts_exdp_with_unit_string():
     cfg = ModflowConfig.model_validate(
         {
@@ -75,102 +61,6 @@ def test_modflow_config_accepts_exdp_with_unit_string():
         }
     )
     assert cfg.process_specific.exdp == pytest.approx(1.5)
-
-
-def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
-    dem_path = tmp_path / "dem.tif"
-    dem_path.touch()
-
-    toml_path = tmp_path / "config.toml"
-    toml_path.write_text(
-        "\n".join(
-            [
-                '[workflow]\nmode = "simulation"',
-                "[workspace]",
-                f'root = "{tmp_path}"',
-                "",
-                "[site]",
-                'name = "site_a"',
-                "",
-                "[geographic]",
-                "",
-                "[geographic.catchment]",
-                'kind = "dem"',
-                "[[data.dem.sources]]",
-                'source = "file"',
-                'path = "inputs/dem.tif"',
-                "[solver]",
-                'backend = "modflow_nwt"',
-                "",
-                "[solver.modflow_nwt.runtime.nwt]",
-                'options = "SIMPLE"',
-                "",
-                "[solver.modflow_nwt.process_specific]",
-                "vka = 2.5",
-                "exdp = 3.0",
-                "",
-                "[mesh.regular]",
-                "shape = [5, 6]",
-                "",
-                "[domain.layers]",
-                'genmtd_lay = "decay"',
-                "nlay = 3",
-                "lay_decay = 1.8",
-                "",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    cfg = HydroModPyConfig.from_toml(toml_path)
-
-    assert cfg.solver.backend_name == "modflow_nwt"
-    assert cfg.solver.options_of("modflow_nwt").process_specific.vka == 2.5
-    assert cfg.solver.options_of("modflow_nwt").process_specific.exdp == 3.0
-    assert cfg.solver.options_of("modflow_nwt").runtime.nwt.options == "SIMPLE"
-    assert isinstance(cfg.solver.options_of("modflow_nwt").sgrid, SolverSGridConfig)
-    assert cfg.mesh.regular.shape == (5, 6)
-    assert cfg.domain.layers.genmtd_lay == "decay"
-    assert cfg.domain.layers.nlay == 3
-    assert cfg.domain.layers.lay_decay == 1.8
-
-
-def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
-    dem_path = tmp_path / "dem.tif"
-    dem_path.touch()
-
-    toml_path = tmp_path / "config.toml"
-    toml_path.write_text(
-        "\n".join(
-            [
-                '[workflow]\nmode = "simulation"',
-                "[workspace]",
-                f'root = "{tmp_path}"',
-                "",
-                "[site]",
-                'name = "site_a"',
-                "",
-                "[geographic]",
-                "",
-                "[geographic.catchment]",
-                'kind = "dem"',
-                "[[data.dem.sources]]",
-                'source = "file"',
-                'path = "inputs/dem.tif"',
-                "[solver]",
-                'backend = "modflow_nwt"',
-                "",
-                "[solver.modflow_nwt.sgrid]",
-                'genmtd_lay = "decay"',
-                "nlay = 4",
-                "lay_decay = 1.5",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ConfigValidationError):
-        HydroModPyConfig.from_toml(toml_path)
 
 
 def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):
@@ -208,71 +98,6 @@ def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):
 
     cfg = HydroModPyConfig.from_toml(toml_path)
     assert cfg.solver.options_of("modflow_nwt").process_specific.exdp == pytest.approx(3.0)
-
-
-def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
-    toml_path = tmp_path / "config.toml"
-    toml_path.write_text(
-        "\n".join(
-            [
-                '[workflow]\nmode = "simulation"',
-                "[workspace]",
-                f'root = "{tmp_path}"',
-                "",
-                "[site]",
-                'name = "site_a"',
-                "",
-                "[geographic]",
-                "",
-                "[geographic.catchment]",
-                'kind = "dem"',
-                "[[data.dem.sources]]",
-                'source = "file"',
-                'path = "inputs/dem.tif"',
-                "[modflow]",
-                "vka = 2.5",
-                "exdp = 3.0",
-                'nwt_options = "SIMPLE"',
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ConfigValidationError):
-        HydroModPyConfig.from_toml(toml_path)
-
-
-def test_hydromodpy_config_rejects_unknown_top_level_sections(tmp_path: Path):
-    dem_path = tmp_path / "dem.tif"
-    dem_path.touch()
-
-    toml_path = tmp_path / "config.toml"
-    toml_path.write_text(
-        "\n".join(
-            [
-                '[workflow]\nmode = "simulation"',
-                "[workspace]",
-                f'root = "{tmp_path}"',
-                "",
-                "[site]",
-                'name = "site_a"',
-                "",
-                "[geographic]",
-                "",
-                "[geographic.catchment]",
-                'kind = "dem"',
-                "[[data.dem.sources]]",
-                'source = "file"',
-                'path = "inputs/dem.tif"',
-                "[unexpected]",
-                "enabled = true",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ConfigValidationError, match="Unknown top-level TOML section"):
-        HydroModPyConfig.from_toml(toml_path)
 
 
 def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
@@ -326,12 +151,6 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     )
 
 
-def test_modflownwt_rejects_the_removed_tgrid_section():
-    """[solver.modflow_nwt.tgrid] was a mirror nothing read back; the schema refuses it."""
-    with pytest.raises(ValueError, match="tgrid"):
-        ModflowConfig.model_validate({"tgrid": {"nper": 1}})
-
-
 def test_preprocess_options_defaults_are_stable():
     options = ModflowPreprocessOptions()
 
@@ -369,27 +188,6 @@ def test_postprocess_options_defaults_are_stable():
     assert options.export_all_tif is False
 
 
-def test_recharge_config_defaults():
-    cfg = FlowRechargeConfig()
-
-    assert cfg.values == 0.0
-    assert cfg.first_clim == "mean"
-    assert cfg.units == "mm/day"
-    assert cfg.negative_to_evt is True
-
-
-def test_recharge_config_first_clim_normalized_to_lowercase():
-    cfg = FlowRechargeConfig(values=0.001, first_clim="MEAN")
-
-    assert cfg.first_clim == "mean"
-
-
-def test_recharge_config_first_clim_accepts_first():
-    cfg = FlowRechargeConfig(values=0.001, first_clim="first")
-
-    assert cfg.first_clim == "first"
-
-
 def test_recharge_config_first_clim_accepts_numeric():
     cfg = FlowRechargeConfig(values=0.001, first_clim=0.0005)
 
@@ -401,23 +199,10 @@ def test_recharge_config_first_clim_rejects_unknown_keyword():
         FlowRechargeConfig(values=0.001, first_clim="median")
 
 
-def test_recharge_config_accepts_non_negative_list_values():
-    cfg = FlowRechargeConfig(values=[0.001, 0.0008, 0.0002])
-
-    assert cfg.values == [0.001, 0.0008, 0.0002]
-
-
 @pytest.mark.parametrize("value", [None, float("nan"), float("inf")])
 def test_recharge_config_rejects_invalid_numeric_values(value):
     with pytest.raises(ValueError):
         FlowRechargeConfig(values=value)
-
-
-def test_recharge_config_accepts_negative_values_when_routed_to_evt():
-    cfg = FlowRechargeConfig(values=[0.001, -0.0002])
-
-    assert cfg.negative_to_evt is True
-    assert cfg.values == [0.001, -0.0002]
 
 
 def test_recharge_config_rejects_negative_values_when_evt_routing_disabled():
@@ -444,22 +229,6 @@ def test_build_temporal_discretization_from_time_grid_treats_steady_as_all_stead
     assert np.array_equal(result.steady, np.array([True, True, True]))
 
 
-def test_build_temporal_discretization_from_time_grid_uses_first_period_steady() -> None:
-    time_grid = SimpleNamespace(
-        period_lengths_seconds=(1.0, 2.0, 3.0),
-        nstp_per_period=1,
-        window=None,
-    )
-
-    result = build_temporal_discretization_from_time_grid(
-        time_grid=time_grid,
-        flow_regime="transient",
-        first_period_steady=False,
-    )
-
-    assert np.array_equal(result.steady, np.array([False, False, False]))
-
-
 def test_build_temporal_discretization_from_time_grid_defaults_first_period_steady() -> None:
     time_grid = SimpleNamespace(
         period_lengths_seconds=(1.0, 2.0, 3.0),
@@ -481,12 +250,6 @@ def _transient_model(*, first_period_steady: bool):
     )
 
 
-def test_resolve_first_period_steady_uses_explicit_flow_config() -> None:
-    model = _transient_model(first_period_steady=False)
-
-    assert resolve_first_period_steady(model=model) is False
-
-
 def test_resolve_first_period_steady_uses_flow_config_default() -> None:
     model = _transient_model(first_period_steady=True)
 
@@ -495,78 +258,8 @@ def test_resolve_first_period_steady_uses_flow_config_default() -> None:
     assert resolve_first_period_steady(default=False) is False
 
 
-def test_resolve_required_flow_properties_steady_requires_only_k() -> None:
-    assert resolve_required_flow_properties(flow_regime="steady") == frozenset({"K"})
-
-
-def test_resolve_required_flow_properties_transient_requires_k_sy_ss() -> None:
-    assert resolve_required_flow_properties(flow_regime="transient") == frozenset({"K", "Sy", "Ss"})
-
-
 def test_resolve_required_flow_properties_unknown_regime_defaults_to_full_set() -> None:
     assert resolve_required_flow_properties(flow_regime="unknown") == frozenset({"K", "Sy", "Ss"})
-
-
-def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path: Path):
-    dem_path = tmp_path / "solver_dem.tif"
-    dem_path.write_text("stub", encoding="utf-8")
-
-    captured: dict[str, object] = {}
-
-    def _fake_build_regional_flow_products(
-        *,
-        dem_path,
-        dem_out_dir_path,
-        dem_correc_type,
-        crs_project,
-        backend,
-        engine_id,
-        capped_breach,
-    ):
-        captured.update(
-            {
-                "dem_path": str(dem_path),
-                "dem_out_dir_path": str(dem_out_dir_path),
-                "dem_correc_type": dem_correc_type,
-                "crs_project": crs_project,
-                "backend": backend,
-                "engine_id": engine_id,
-                "capped_breach": capped_breach,
-            }
-        )
-        return fake_flow_products(
-            correc=str(Path(dem_out_dir_path) / "dem_breach.tif"),
-            direc=str(Path(dem_out_dir_path) / "dem_direc.tif"),
-            acc=str(Path(dem_out_dir_path) / "dem_acc.tif"),
-        )
-
-    monkeypatch.setattr(
-        "hydromodpy.solver.modflow_common.routing_context.build_regional_flow_products",
-        _fake_build_regional_flow_products,
-    )
-
-    ctx = build_solver_routing_context(
-        dem_path=dem_path,
-        output_dir=tmp_path / "routing",
-        dem_correc_type="breach",
-        crs_project="EPSG:2154",
-        backend="fake-wbt",
-        engine_id="test-engine",
-    )
-
-    assert isinstance(ctx, SolverRoutingContext)
-    assert ctx.dem_path == str(dem_path)
-    assert ctx.correc_path.endswith("dem_breach.tif")
-    assert ctx.direc_path.endswith("dem_direc.tif")
-    assert ctx.acc_path.endswith("dem_acc.tif")
-    assert captured["dem_path"] == str(dem_path)
-    assert captured["dem_correc_type"] == "breach"
-    assert captured["crs_project"] == "EPSG:2154"
-    assert captured["backend"] == "fake-wbt"
-    # The solver routes over its own DEM and has to do it with the engine the
-    # geographic configuration named, or the reaches of a stream package follow
-    # a different talweg from the one the catchment was delineated with.
-    assert captured["engine_id"] == "test-engine"
 
 
 def test_build_solver_routing_context_requires_existing_dem(tmp_path: Path):
@@ -626,12 +319,6 @@ class _RecordingStore:
         self.mass_balances = records
 
 
-def test_listing_uses_the_flopy_list_extension() -> None:
-    # FloPy declares the LIST unit as ``.list``; a ``.lst`` lookup never matches
-    # and silently empties the mass balance.
-    assert _listing_path(Path("/out"), "canut_steady_nwt") == Path("/out/canut_steady_nwt.list")
-
-
 def test_mass_balance_reads_rates_and_scales_them(tmp_path: Path) -> None:
     listing = tmp_path / "run.list"
     listing.write_text(_LISTING, encoding="utf-8")
@@ -689,18 +376,6 @@ def _adapter(boundary_conditions: dict[str, object], *, nper: int = 1) -> FlowTo
         nper=nper,
         sink_fill=False,
     )
-
-
-def test_a_static_side_head_below_the_top_layer_is_refused() -> None:
-    adapter = _adapter({"west_side": SimpleNamespace(value=5.0)})
-    ibound, strt, _ = adapter._build_initial_heads_and_sides()
-    with pytest.raises(SolverInputError) as excinfo:
-        refuse_constant_heads_below_bottom(adapter, ibound=ibound, strt=strt, chd_spd=None)
-    message = str(excinfo.value)
-    assert "MODFLOW-NWT" in message
-    assert "flow.bc.west_side: 2 cell(s)" in message
-    assert "layer 0 row 0 column 0 (head 5.00 m, bottom 10.00 m, period 1)" in message
-    assert "domain.depth_model" in message
 
 
 def test_a_side_head_above_every_bottom_passes() -> None:

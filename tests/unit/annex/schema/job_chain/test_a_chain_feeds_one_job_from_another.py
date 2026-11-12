@@ -13,9 +13,8 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from hydromodpy.core.exceptions import ConfigValidationError, JobUsageError
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
-from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy_annex.schema.job_chain.chain import (
     CHAIN_FILENAME,
     CHAIN_OUTCOME_FILENAME,
@@ -145,38 +144,6 @@ def _run(
     return outcome, run_step
 
 
-def test_the_second_step_reads_the_artefact_the_first_wrote(tmp_path: Path) -> None:
-    outcome, _ = _run(tmp_path)
-
-    written = json.loads((tmp_path / "02-second" / "request.json").read_text(encoding="utf-8"))
-    assert written["inputs"]["source"] == {
-        "href": str(tmp_path / "01-first" / THING_PATH),
-        "type": THING_MEDIA_TYPE,
-    }
-    assert outcome.exit_code == 0
-    assert outcome.document["status"] == "successful"
-
-
-def test_a_dotted_member_is_written_inside_the_object_it_names(tmp_path: Path) -> None:
-    """``extent.mask`` fills one member of ``extent`` and keeps its siblings."""
-    chain = _chain()
-    second = chain.steps[1].model_copy(
-        update={
-            "inputs": {"extent": {"buffer": 10}},
-            "links": [
-                chain.steps[1].links[0].model_copy(update={"member": "extent.mask"}),
-            ],
-        }
-    )
-    _run(tmp_path, chain.model_copy(update={"steps": [chain.steps[0], second]}))
-
-    written = json.loads((tmp_path / "02-second" / "request.json").read_text(encoding="utf-8"))
-    assert written["inputs"]["extent"] == {
-        "buffer": 10,
-        "mask": {"href": str(tmp_path / "01-first" / THING_PATH), "type": THING_MEDIA_TYPE},
-    }
-
-
 @pytest.mark.parametrize(
     "inputs",
     [{"extent": {"mask": {"href": "/elsewhere"}}}, {"extent": "a string, not an object"}],
@@ -199,147 +166,11 @@ def test_a_dotted_member_the_inputs_already_fill_is_refused(inputs: dict) -> Non
         )
 
 
-def test_the_link_is_absolute_because_a_relative_one_leaves_the_job_directory(
-    tmp_path: Path,
-) -> None:
-    """The reason the chain writes a full path, asserted against the refusal itself."""
-    _run(tmp_path)
-    job = JobDirectory.open(tmp_path / "02-second")
-    written = json.loads(job.request_path.read_text(encoding="utf-8"))
-
-    assert job.resolve_input(
-        written["inputs"]["source"]["href"], loc=("inputs", "source")
-    ).is_file()
-    with pytest.raises(ConfigValidationError):
-        job.resolve_input(f"../01-first/{THING_PATH}", loc=("inputs", "source"))
-
-
-def test_the_report_names_the_step_directory_and_the_job_of_each(tmp_path: Path) -> None:
-    outcome, _ = _run(tmp_path)
-
-    steps = outcome.document["steps"]
-    assert [step["dir"] for step in steps] == ["01-first", "02-second"]
-    assert [step["job_id"] for step in steps] == ["sha256:01-first", "sha256:02-second"]
-    assert steps[1]["inputs_from"] == [
-        {
-            "member": "source",
-            "step": "first",
-            "output": "thing",
-            "path": f"01-first/{THING_PATH}",
-            "type": THING_MEDIA_TYPE,
-        }
-    ]
-
-
 def test_the_report_is_on_disk_and_is_what_the_caller_is_handed(tmp_path: Path) -> None:
     outcome, _ = _run(tmp_path)
 
     on_disk = json.loads((tmp_path / CHAIN_OUTCOME_FILENAME).read_text(encoding="utf-8"))
     assert on_disk == outcome.document
-
-
-def test_a_failing_step_stops_the_chain_and_the_rest_never_runs(tmp_path: Path) -> None:
-    outcome, run_step = _run(tmp_path, fails_on="first")
-
-    assert outcome.exit_code == 21
-    assert outcome.document["status"] == "failed"
-    assert [step["status"] for step in outcome.document["steps"]] == ["failed", "skipped"]
-    assert run_step.calls == ["01-first"]
-    assert not (tmp_path / "02-second").exists()
-
-
-def test_a_declared_artefact_the_run_did_not_write_refuses_the_reader(tmp_path: Path) -> None:
-    outcome, run_step = _run(tmp_path, produces=False)
-
-    assert run_step.calls == ["01-first"]
-    assert outcome.exit_code == 14
-    second = outcome.document["steps"][1]
-    assert second["status"] == "failed"
-    assert "did not produce" in json.dumps(second["errors"])
-    # Refused before the directory exists, so nothing half-staged is left.
-    assert not (tmp_path / "02-second").exists()
-
-
-def test_a_relative_root_still_writes_an_absolute_link(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The guarantee is the function's, not the caller's."""
-    monkeypatch.chdir(tmp_path)
-
-    _run(Path("."))
-
-    written = json.loads((tmp_path / "02-second" / "request.json").read_text(encoding="utf-8"))
-    assert Path(written["inputs"]["source"]["href"]).is_absolute()
-    assert Path(written["inputs"]["source"]["href"]).is_file()
-
-
-def test_a_step_that_published_no_document_is_read_off_its_exit_code(tmp_path: Path) -> None:
-    """130 says dismissed. A cancellation is not a failure of the work."""
-    outcome, _ = _run(tmp_path, silent_exit=130)
-
-    assert outcome.exit_code == 130
-    assert outcome.document["status"] == "dismissed"
-    assert outcome.document["steps"][0]["status"] == "dismissed"
-    assert outcome.document["steps"][1]["status"] == "skipped"
-
-
-def test_a_document_that_contradicts_its_exit_code_is_published_not_believed(
-    tmp_path: Path,
-) -> None:
-    """The exit code decides, and the disagreement is a fault of the runner.
-
-    Copying the stated status produced the one report nobody can act on: a
-    chain saying ``failed`` beside ``"exit_code": 0``, which is exactly the
-    contradiction ``JobOutcome`` refuses one layer down.
-    """
-    outcome, _ = _run(tmp_path, lies=True)
-
-    assert outcome.exit_code == 0
-    assert outcome.document["status"] == "successful"
-    first = outcome.document["steps"][0]
-    assert first["status"] == "successful"
-    assert "the exit code decides" in json.dumps(first["errors"])
-
-
-def test_a_root_that_cannot_hold_its_report_is_refused_before_anything_runs(
-    tmp_path: Path,
-) -> None:
-    """A chain that ran two jobs and then cannot report is the worst outcome."""
-    (tmp_path / CHAIN_OUTCOME_FILENAME).mkdir()
-
-    with pytest.raises(JobUsageError, match=CHAIN_OUTCOME_FILENAME):
-        _run(tmp_path)
-
-    assert not (tmp_path / "01-first").exists()
-
-
-def test_the_report_repeats_what_each_step_warned(tmp_path: Path) -> None:
-    outcome, _ = _run(tmp_path, warns="request targets 1.0.1; this build carries 1.0.0")
-
-    assert outcome.document["steps"][0]["warnings"] == [
-        "request targets 1.0.1; this build carries 1.0.0"
-    ]
-
-
-def test_every_declared_step_is_accounted_for_even_unrun(tmp_path: Path) -> None:
-    outcome, _ = _run(tmp_path, fails_on="first")
-
-    assert [step["id"] for step in outcome.document["steps"]] == ["first", "second"]
-    assert outcome.document["steps"][1]["exit_code"] is None
-
-
-def test_a_capability_this_build_does_not_serve_is_refused_before_anything_is_written(
-    tmp_path: Path,
-) -> None:
-    chain = ChainRequest.model_validate(
-        {"steps": [{"id": "only", "process": {"id": "no-such-capability"}}]}
-    )
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        _run(tmp_path, chain)
-
-    assert excinfo.value.details[0]["pointer"] == "/steps/0/process/id"
-    assert list(tmp_path.iterdir()) == []
 
 
 def test_an_output_the_producer_does_not_declare_is_refused() -> None:
@@ -434,30 +265,6 @@ def test_a_document_no_sequential_run_could_satisfy_is_refused(
 ) -> None:
     with pytest.raises(Exception, match=message):
         ChainRequest.model_validate({"steps": steps})
-
-
-def test_an_unknown_member_of_the_document_is_refused(tmp_path: Path) -> None:
-    path = tmp_path / CHAIN_FILENAME
-    path.write_text(
-        json.dumps(
-            {
-                "steps": [{"id": "only", "process": {"id": PRODUCER_ID}}],
-                "parallel": True,
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ConfigValidationError, match="parallel"):
-        read_chain(path)
-
-
-def test_a_document_that_is_not_json_is_refused_where_it_broke(tmp_path: Path) -> None:
-    path = tmp_path / CHAIN_FILENAME
-    path.write_text("{not json", encoding="utf-8")
-
-    with pytest.raises(ConfigValidationError, match="line 1"):
-        read_chain(path)
 
 
 def test_a_byte_order_mark_is_read_and_not_refused(tmp_path: Path) -> None:

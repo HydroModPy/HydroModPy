@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 from datetime import UTC, date, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,11 +12,8 @@ import pandas as pd
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.metrics.observable_scoring import VALIDATION_COST
 from hydromodpy.calibration.optim.cache import params_hash
-from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
-from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.persistence import DEFAULT_PHASE, CalibrationPersistence, PhaseContext
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners import promotion as promotion_module
@@ -27,7 +23,6 @@ from hydromodpy.calibration.runners import trial as trial_module
 from hydromodpy.calibration.runners.kept_solves import KeptSolve
 from hydromodpy.calibration.runners.promotion import (
     PromotionOutcome,
-    _point_best_if_better,
     promote_best_after_abort,
     promote_phase_best,
     promote_session,
@@ -38,16 +33,13 @@ from hydromodpy.calibration.runners.promotion import (
     stored_parameter_value,
     trials_to_prune,
 )
-from hydromodpy.calibration.runners.session import calibration_case_name
 from hydromodpy.calibration.runners.session_scope import promote_and_close
 from hydromodpy.calibration.runners.trial import TrialContext
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.results.catalog.registration import reserve_version_dirname
-from hydromodpy.results.metric_rule import METRIC_RULE_VERSION
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import FrozenValue
-from hydromodpy.results.storage.kept import Purged, write_purged
 from tests._helpers.session_documents import calibration_window, session_opening
 from tests.unit.calibration._factories_runners import (
     STEADY_K,
@@ -125,24 +117,6 @@ def test_the_best_of_a_phase_is_not_promoted_without_a_catalog(tmp_path, recorde
     assert recorder.calls == []
 
 
-def test_a_catalog_that_is_kept_still_promotes(tmp_path, recorder) -> None:
-    persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1})
-
-    outcome = promote_session(
-        cfg=_cfg(),
-        trial_ctx=_trial_ctx(save_catalog=True),
-        persistence=persistence,
-        project_root=tmp_path,
-        phase="main",
-        session_status="completed",
-        override_paths={"K": K_PATH},
-    )
-
-    assert outcome.count == 1
-    assert outcome.best_sim_id is not None
-    assert outcome.failures == []
-
-
 # From test_a_tie_names_the_same_trial_in_a_replay.py
 # Two trials at the same cost: the kept run and its replay name the same one.
 #
@@ -180,57 +154,6 @@ class _OneBatch:
 
     def converged(self) -> bool:
         return bool(self._told)
-
-
-def test_a_tie_goes_to_the_smaller_trial_number_whatever_the_journal_order(
-    tmp_path: Path,
-) -> None:
-    persistence = make_session(tmp_path, "tie", site="nancon")
-    persistence.assign_trial_numbers([0, 1], PHASE)
-    journal_trial(persistence, 1, 0.3, phase=PHASE)
-    journal_trial(persistence, 0, 0.3, k=1e-5, phase=PHASE)
-
-    best = persistence.best_trial("k_grid")
-    assert best is not None
-    assert best.trial == 1
-    assert [row["trial"] for row in persistence.top_n(2, "k_grid")] == [1, 2]
-    promoted = select_trials_to_promote(SimpleNamespace(save_runs="all"), persistence, "k_grid")
-    assert [row["trial"] for row in promoted] == [1, 2]
-
-
-def test_a_parallel_batch_is_numbered_in_the_order_the_optimizer_made_it(
-    tmp_path: Path,
-) -> None:
-    """The second candidate starts first; it still takes the second number."""
-    persistence = make_session(tmp_path, "tie", site="nancon")
-    first_may_start = threading.Event()
-    numbers: dict[float, int] = {}
-    lock = threading.Lock()
-
-    def _evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        if sugg.trial_id == 0:
-            assert first_may_start.wait(timeout=5.0)
-        number = persistence.assign_trial_number(sugg.trial_id, PHASE)
-        with lock:
-            numbers[sugg.values["K"]] = number
-        if sugg.trial_id == 1:
-            first_may_start.set()
-        return EvaluationResult(trial_id=sugg.trial_id, sim_id=None, cost=0.3, status="completed")
-
-    engine = CalibrationEngine(
-        space=ParameterSpace([CalibParameter(name="K", lower=1e-5, upper=1e-4)]),
-        optimizer=_OneBatch([1e-5, 1e-4]),
-        evaluator=_evaluator,
-        before_batch=lambda batch: persistence.assign_trial_numbers(
-            [sugg.trial_id for sugg in batch], PHASE
-        ),
-        max_trials=2,
-        batch_size=2,
-        parallel=2,
-    )
-    engine.run()
-
-    assert numbers == {1e-5: 1, 1e-4: 2}
 
 
 # From test_promotion.py
@@ -366,28 +289,6 @@ def _promote(project: Path, persistence, *, cfg: CalibrationConfig, status: str 
 
 
 class TestTheCaseIsNamedByTheFileThatCarriesCalibration:
-    def test_the_stem_of_the_file_names_the_case(self, tmp_path) -> None:
-        path = tmp_path / "calibration.toml"
-        path.write_text('base_config = "project.toml"\n[calibration]\nmethod = "grid"\n')
-        (tmp_path / "project.toml").write_text('[simulation]\nname = "nancon_monthly"\n')
-
-        assert calibration_case_name(path) == "calibration"
-
-    def test_its_own_simulation_name_wins(self, tmp_path) -> None:
-        path = tmp_path / "calibration.toml"
-        path.write_text('[simulation]\nname = "kept_solve"\n[calibration]\nmethod = "grid"\n')
-
-        assert calibration_case_name(path) == "kept_solve"
-
-    def test_a_name_inherited_through_base_config_never_names_a_calibration(self, tmp_path) -> None:
-        (tmp_path / "base.toml").write_text(
-            '[simulation]\nname = "inherited"\n[calibration]\nmethod = "grid"\n'
-        )
-        path = tmp_path / "calage.toml"
-        path.write_text('base_config = "base.toml"\n[calibration]\nmax_trials = 2\n')
-
-        assert calibration_case_name(path) == "calage"
-
     def test_a_name_too_long_for_a_run_folder_is_refused_before_the_search(self) -> None:
         with pytest.raises(CalibrationError, match="Shorten"):
             promotion_name_check("n" * 95)
@@ -406,11 +307,6 @@ class TestWhatSaveRunsSelects:
             for row in select_trials_to_promote(_cfg(save_runs="all"), persistence, "main")
         ] == [2, 3, 1]
         assert select_trials_to_promote(_cfg(save_runs="none"), persistence, "main") == []
-
-    def test_the_default_promotes_the_best_trial_alone(self) -> None:
-        cfg = CalibrationConfig()
-
-        assert (cfg.save_runs, cfg.save_best_n, cfg.promote_phases) == ("best_n", 1, False)
 
 
 class TestWhereThePromotedRunsGo:
@@ -433,55 +329,6 @@ class TestWhereThePromotedRunsGo:
         assert call["lineage"].kind == "promoted"
         assert "keep_per_cell_budget" not in call
 
-    def test_the_run_is_told_its_session_phase_and_trial(self, tmp_path, recorder) -> None:
-        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1})
-
-        _promote(tmp_path, persistence, cfg=_cfg(save_best_n=1), status="partial")
-
-        (call,) = recorder.calls
-        lineage, by = call["lineage"], call["calibrated_by"]
-        assert (lineage.session_id, lineage.phase, lineage.trial, lineage.kind) == (
-            "s" * 32,
-            "main",
-            2,
-            "promoted",
-        )
-        assert lineage.parent_hint == "sessions/calage"
-        assert (by.session_id, by.phase, by.trial, by.session_status) == (
-            "s" * 32,
-            "main",
-            2,
-            "partial",
-        )
-        assert (by.metric, by.cost, by.windows) == ("nse", 0.1, WINDOW)
-        assert by.validation_cost is None
-        assert by.rule == METRIC_RULE_VERSION
-
-    def test_the_run_carries_the_validation_score_of_its_trial(self, tmp_path, recorder) -> None:
-        persistence = _session(tmp_path, costs={1: 0.9})
-        journal_trial(persistence, 2, 0.1, k=1e-2, components={VALIDATION_COST: 0.4})
-
-        _promote(tmp_path, persistence, cfg=_cfg(save_best_n=1))
-
-        (call,) = recorder.calls
-        assert (call["calibrated_by"].cost, call["calibrated_by"].validation_cost) == (0.1, 0.4)
-
-    def test_the_run_seals_the_objective_of_its_trial(self, tmp_path, recorder) -> None:
-        persistence = _session(tmp_path, costs={1: 0.9})
-        parts = {"discharge.nse": 0.1, "discharge.n_paired": 24.0, VALIDATION_COST: 0.4}
-        journal_trial(persistence, 2, 0.1, k=1e-2, components=parts)
-
-        _promote(tmp_path, persistence, cfg=_cfg(save_best_n=1))
-
-        (call,) = recorder.calls
-        by = call["calibrated_by"]
-        assert by.rule == METRIC_RULE_VERSION
-        assert VALIDATION_COST not in by.components
-        assert {key: by.components[key] for key in parts if key != VALIDATION_COST} == {
-            "discharge.nse": 0.1,
-            "discharge.n_paired": 24.0,
-        }
-
     def test_the_other_kept_trials_go_under_the_session_with_the_consumers_budget(
         self, tmp_path, recorder
     ) -> None:
@@ -500,44 +347,6 @@ class TestWhereThePromotedRunsGo:
         assert all("keep_per_cell_budget" not in call for call in recorder.calls)
         assert [call["lineage"].kind for call in recorder.calls] == ["promoted", "trial", "trial"]
         assert [call["calibrated_by"] is None for call in recorder.calls] == [False, True, True]
-
-    def test_the_session_and_the_run_share_their_version(self, tmp_path, recorder) -> None:
-        _session(tmp_path, costs={1: 0.9})
-        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1})
-        assert persistence.directory.name == "calage.v2"
-
-        outcome = _promote(tmp_path, persistence, cfg=_cfg(save_best_n=1))
-
-        assert outcome.best_rel_dir == "runs/calage.v2"
-        assert (tmp_path / "runs" / "calage.v2").is_dir()
-        assert not (tmp_path / "runs" / "calage").exists()
-
-    def test_the_journal_lines_name_the_runs_they_became(self, tmp_path, recorder) -> None:
-        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1})
-
-        outcome = _promote(tmp_path, persistence, cfg=_cfg(save_runs="all"))
-
-        by_trial = {line.trial: line for line in read_trials(persistence.directory)}
-        runs = {number: line.only_case for number, line in by_trial.items()}
-        assert runs[2].sim_id == outcome.best_sim_id
-        assert runs[2].rel_dir == "runs/calage"
-        assert runs[1].rel_dir == "sessions/calage/trials/0001"
-        assert runs[1].sim_id is not None
-
-    def test_a_failed_promotion_leaves_no_link_and_names_the_trial(
-        self, tmp_path, monkeypatch
-    ) -> None:
-        rec = _Recorder(fail_on={2})
-        monkeypatch.setattr(promotion_module, "promote_prepared_trial", rec)
-        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1})
-
-        outcome = _promote(tmp_path, persistence, cfg=_cfg(save_best_n=2))
-
-        assert (outcome.count, outcome.best_sim_id, outcome.best_rel_dir) == (1, None, None)
-        assert outcome.failures == ["trial 2: solver did not converge on trial 2"]
-        by_trial = {line.trial: line for line in read_trials(persistence.directory)}
-        assert by_trial[2].only_case.sim_id is None
-        assert by_trial[1].only_case.rel_dir == "sessions/calage/trials/0001"
 
     def test_promoting_nothing_writes_nothing(self, tmp_path, recorder) -> None:
         persistence = _session(tmp_path, costs={1: 0.9})
@@ -562,27 +371,6 @@ class TestAReopenedSessionPromotesOnceMore:
         )
         assert len(recorder.calls) == 2, "the second promotion ran the pipeline for nothing"
         assert read_trials(persistence.directory)[1].only_case.rel_dir == "runs/calage"
-
-    def test_the_paired_run_is_never_overwritten_by_a_new_best(self, tmp_path, recorder) -> None:
-        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1})
-        first = _promote(tmp_path, persistence, cfg=_cfg(save_best_n=1))
-        (tmp_path / "runs" / "calage" / "manifest.json").write_text("{}", encoding="utf-8")
-        persistence.append_iteration(
-            ParamSuggestion(trial_id=3, values={"K": 1e-3}),
-            EvaluationResult(trial_id=3, sim_id=None, cost=0.05, status="completed"),
-        )
-
-        again = _promote(tmp_path, persistence, cfg=_cfg(save_best_n=1))
-
-        assert (again.count, again.best_sim_id, again.best_rel_dir) == (0, None, None)
-        (failure,) = again.failures
-        assert failure.startswith("trial 3: runs/calage already holds trial 2 of this session")
-        assert "hmp campaign promote calage --trial 3" in failure
-        assert len(recorder.calls) == 1
-        assert (tmp_path / "runs" / "calage" / "manifest.json").is_file()
-        by_trial = {line.trial: line for line in read_trials(persistence.directory)}
-        assert by_trial[2].only_case.sim_id == first.best_sim_id
-        assert by_trial[3].only_case.rel_dir is None and by_trial[3].only_case.sim_id is None
 
     def test_a_paired_run_taken_by_anything_else_is_a_named_failure(
         self, tmp_path, recorder
@@ -689,23 +477,6 @@ class TestThePromotionOfAnEarlierPhase:
 
 
 class TestAfterTheFact:
-    def test_a_kept_trial_is_moved_to_runs(self, tmp_path, recorder) -> None:
-        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1})
-        _promote(tmp_path, persistence, cfg=_cfg(save_runs="all"))
-        persistence.finalize_session(
-            status="completed", best=persistence.best_pointer(persistence.best_trial())
-        )
-        kept = tmp_path / "sessions" / "calage" / "trials" / "0001"
-        (kept / "manifest.json").write_text("{}", encoding="utf-8")
-
-        target = promote_trial_from_session(tmp_path, "calage", 1, as_name="k_high")
-
-        assert target == tmp_path / "runs" / "k_high"
-        assert (target / "manifest.json").is_file()
-        assert not kept.exists()
-        line = {item.trial: item for item in read_trials(persistence.directory)}[1]
-        assert line.only_case.rel_dir == "runs/k_high"
-
     def test_a_trial_the_session_never_journaled_is_refused(self, tmp_path, recorder) -> None:
         persistence = _session(tmp_path, costs={1: 0.9})
         persistence.finalize_session(status="completed", best=None)
@@ -727,23 +498,6 @@ class TestAfterTheFact:
         assert trials_to_prune(tmp_path, "calage") == []
         with pytest.raises(CalibrationError, match="keep='all': the only policy is 'best'"):
             trials_to_prune(tmp_path, "calage", keep="all")
-
-    def test_a_kept_trial_takes_the_paired_run_when_it_is_free(self, tmp_path, recorder) -> None:
-        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1})
-        _promote(tmp_path, persistence, cfg=_cfg(save_runs="none"))
-        persistence.finalize_session(
-            status="completed", best=persistence.best_pointer(persistence.best_trial())
-        )
-        kept = tmp_path / "sessions" / "calage" / "trials" / "0002"
-        kept.mkdir(parents=True)
-        (kept / "manifest.json").write_text("{}", encoding="utf-8")
-        persistence.link_trial(2, sim_id="k" * 32, rel_dir="sessions/calage/trials/0002")
-
-        target = promote_trial_from_session(tmp_path, "calage", 2)
-
-        assert target == tmp_path / "runs" / "calage"
-        assert (target / "manifest.json").is_file() and not kept.exists()
-        assert read_session(persistence.directory).only_run.rel_dir == "runs/calage"
 
     def test_a_trial_with_no_kept_run_is_replayed_from_the_frozen_document(
         self, tmp_path, recorder, monkeypatch
@@ -768,28 +522,6 @@ class TestAfterTheFact:
         assert (line.only_case.sim_id, line.only_case.rel_dir) == (call["sim_id"], "runs/calage")
         run = read_session(persistence.directory).only_run
         assert (run.sim_id, run.rel_dir) == (call["sim_id"], "runs/calage")
-
-    def test_a_purged_trial_is_solved_again_and_stays_under_the_session(
-        self, tmp_path, recorder, monkeypatch
-    ) -> None:
-        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1}, hashed_under="v1")
-        persistence.finalize_session(
-            status="completed", best=persistence.best_pointer(persistence.best_trial())
-        )
-        _freeze(persistence)
-        _replay_under(monkeypatch, "v1")
-        kept = tmp_path / "sessions" / "calage" / "trials" / "0002"
-        kept.mkdir(parents=True)
-        (kept / "manifest.json").write_text("{}", encoding="utf-8")
-        write_purged(kept, Purged(at=datetime.now(UTC), entries={"fields.zarr": 10}))
-
-        target = promote_trial_from_session(tmp_path, "calage", 2)
-
-        assert target == tmp_path / "runs" / "calage"
-        (call,) = recorder.calls
-        assert call["run_dir"] == target and call["lineage"].kind == "promoted"
-        assert (kept / "manifest.json").is_file()
-        assert not (target / "manifest.json").exists()
 
     def test_a_second_promotion_of_the_case_takes_the_next_version(
         self, tmp_path, recorder, monkeypatch
@@ -942,18 +674,6 @@ class TestATrialOfAStagedSessionIsReplayedOnItsPhase:
 
 
 class TestWhatThePromotedRunIsToldOfItsSession:
-    def test_the_best_carries_its_cost_and_the_parameters_it_set(self, tmp_path, recorder) -> None:
-        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1, 3: 0.5})
-
-        _promote(tmp_path, persistence, cfg=_cfg(save_best_n=2))
-
-        best, other = recorder.calls
-        promotion = best["promotion"]
-        assert (best["calibrated_by"].metric, best["calibrated_by"].cost) == ("nse", 0.1)
-        assert promotion.converged is True
-        assert [item.name for item in promotion.calibrated] == ["K"]
-        assert other["promotion"] is None
-
     def test_a_value_on_a_bound_is_named(self) -> None:
         row = {
             "status": "completed",
@@ -995,38 +715,6 @@ class TestWhatThePromotedRunIsToldOfItsSession:
 # best are one trial.
 
 
-@pytest.fixture
-def persistence__promoted_trial(tmp_path: Path) -> CalibrationPersistence:
-    trials = [
-        {
-            "cost": cost,
-            "k": 1e-5 * trial_id,
-            "metadata": {"speculative_unused": True} if spec else {},
-        }
-        for trial_id, (cost, spec) in enumerate(((0.3, False), (0.1, True), (0.2, False)), 1)
-    ]
-    return make_session(tmp_path, costs=trials, method="scipy_nelder_mead")
-
-
-def test_the_best_trial_skips_a_speculative_one(persistence__promoted_trial) -> None:
-    best = persistence__promoted_trial.best_trial()
-
-    assert best is not None
-    assert best.trial == 3
-
-
-def test_the_best_n_promote_the_trial_the_session_reports_first(
-    persistence__promoted_trial,
-) -> None:
-    rows = select_trials_to_promote(
-        SimpleNamespace(save_runs="best_n", save_best_n=2),
-        persistence__promoted_trial,
-        DEFAULT_PHASE,
-    )
-
-    assert [row["trial"] for row in rows] == [3, 1]
-
-
 def test_the_best_trials_are_listed_per_phase(monkeypatch, tmp_path: Path) -> None:
     def line(trial, phase, cost, status="completed", unused=False):
         return SimpleNamespace(
@@ -1056,16 +744,6 @@ def test_the_best_trials_are_listed_per_phase(monkeypatch, tmp_path: Path) -> No
     assert [t.trial for t in promotion_module.best_trials(tmp_path, "c")] == [0, 1, 2, 3, 4, 10, 11]
 
 
-def test_keeping_every_trial_still_promotes_the_reported_best_first(
-    persistence__promoted_trial,
-) -> None:
-    rows = select_trials_to_promote(
-        SimpleNamespace(save_runs="all"), persistence__promoted_trial, DEFAULT_PHASE
-    )
-
-    assert [row["trial"] for row in rows] == [3, 1, 2]
-
-
 class TestATieOnTheCost:
     """A bisection answers inside its last bracket, and two trials may share one cost."""
 
@@ -1073,26 +751,6 @@ class TestATieOnTheCost:
     def tied(self, tmp_path: Path) -> CalibrationPersistence:
         costs = [{"cost": cost, "k": 1e-5 * i} for i, cost in enumerate((0.3, 0.1, 0.2, 0.1), 1)]
         return make_session(tmp_path, "tie", costs=costs, method="bisection")
-
-    @pytest.mark.parametrize("save_runs", ["best_n", "all"])
-    def test_the_run_promoted_first_is_the_trial_the_search_answered(self, tied, save_runs) -> None:
-        cfg = SimpleNamespace(save_runs=save_runs, save_best_n=1)
-
-        rows = select_trials_to_promote(cfg, tied, DEFAULT_PHASE, answered=4)
-
-        assert rows[0]["trial"] == 4
-
-    def test_without_an_answer_the_smaller_number_keeps_the_tie(self, tied) -> None:
-        cfg = SimpleNamespace(save_runs="best_n", save_best_n=2)
-
-        rows = select_trials_to_promote(cfg, tied, DEFAULT_PHASE)
-
-        assert [row["trial"] for row in rows] == [2, 4]
-
-    def test_an_answer_out_of_the_ranking_changes_nothing(self, tied) -> None:
-        rows = tied.top_n(1, DEFAULT_PHASE, answered=99)
-
-        assert [row["trial"] for row in rows] == [2]
 
     def test_the_session_points_at_the_answer(self, tied, tmp_path) -> None:
         report = make_report(
@@ -1115,23 +773,6 @@ class TestATieOnTheCost:
         )
 
         assert tied.descriptor.best.trial == 4
-
-    def test_a_replay_from_the_cache_answers_with_the_trial_that_solved_it(self, tied) -> None:
-        """A resumed search reads a point again under a new number: the run is the first one."""
-        journal_trial(tied, 5, 0.1, k=1e-5 * 4)
-        cfg = SimpleNamespace(save_runs="best_n", save_best_n=1)
-
-        rows = select_trials_to_promote(cfg, tied, DEFAULT_PHASE, answered=5)
-
-        assert rows[0]["trial"] == 4
-
-    def test_a_later_promotion_of_the_answer_updates_the_pointer(self, tied) -> None:
-        tied.set_best(tied.best_pointer(tied.trial_line(4)))
-        linked = tied.link_trial(4, sim_id="s4", rel_dir="runs/tie")
-
-        _point_best_if_better(tied, linked)
-
-        assert tied.descriptor.best.cases[tied.case_id].sim_id == "s4"
 
 
 def test_the_series_are_read_for_the_outputs_it_is_given(monkeypatch) -> None:

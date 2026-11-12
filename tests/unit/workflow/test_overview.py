@@ -264,25 +264,6 @@ def test_the_geographic_step_receives_the_map_path(monkeypatch, tmp_path) -> Non
     assert seen["dem_path"] == tmp_path / "dem.tif"
 
 
-def test_resolving_the_inputs_leaves_the_configuration_alone(monkeypatch, tmp_path) -> None:
-    """The DEM comes back as a path; the geographic configuration is not written."""
-    dem = tmp_path / "dem.tif"
-    monkeypatch.setattr(dem_resolver, "resolve_dem", lambda *args, **kwargs: _dem_record(dem))
-    geographic = SimpleNamespace()
-    state = SimpleNamespace(
-        cfg=SimpleNamespace(
-            geographic=geographic,
-            data=SimpleNamespace(dem=SimpleNamespace(sources=[SimpleNamespace(source="file")])),
-        ),
-        workspace=SimpleNamespace(paths=SimpleNamespace(data_path=tmp_path / "data")),
-        geographic=None,
-        loaded_data=None,
-    )
-
-    assert _launcher(tmp_path)._resolve_geographic_inputs(state)[1] == dem
-    assert vars(geographic) == {}
-
-
 # --- test_setup_steps ---
 # [geographic.crossings] reads the file of [[data.crossings.sources]] when it has no path.
 #

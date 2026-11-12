@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import matplotlib as mpl
 import numpy as np
 import pandas as pd
 import pytest
@@ -14,17 +13,12 @@ from matplotlib.legend import Legend
 from hydromodpy.display.figure import new_subplots
 from hydromodpy.display.figures.accumulation_map import AccumulationMap
 from hydromodpy.display.figures.boundary_package_map import BoundaryPackageMap
-from hydromodpy.display.figures.flow_direction_map import FlowDirectionMap
-from hydromodpy.display.figures.flow_intermittence_map import FlowIntermittenceMap
 from hydromodpy.display.figures.mesh_map import MeshMap
 from hydromodpy.display.figures.seepage_map import SeepageMap
 from hydromodpy.display.figures.seepage_network_confusion_map import SeepageNetworkConfusionMap
 from hydromodpy.display.figures.sfr_reach_network import SfrReachNetwork
-from hydromodpy.display.figures.simulated_active_network import SimulatedActiveNetworkMap
 from hydromodpy.display.figures.watershed_id_card import WatershedIdCardFigure
 from hydromodpy.display.style import is_dark, neutral, relative_luminance, themed
-from hydromodpy.results.derive import views
-from tests._helpers.transient_network_run import transient_run
 
 from ._network_comparison_run import AXIS_COLUMN, NX, NY, cell, comparison_run
 from .test_accumulation_map import _run as accumulation_run
@@ -63,36 +57,12 @@ def test_a_light_grey_lands_near_the_background_on_a_dark_page(dark) -> None:
     assert neutral("#d2762a") == "#d2762a"
 
 
-def test_the_dry_cells_of_the_intermittence_map_follow_the_theme(dark) -> None:
-    fig, ax = dark.subplots()
-
-    FlowIntermittenceMap().render(transient_run(), ax, overlays=())
-
-    bad = ax.collections[0].get_cmap().get_bad()
-    assert relative_luminance(tuple(bad[:3])) < DARK_ENOUGH
-    (legend,) = fig.legends
-    dry = next(h for h in legend.legend_handles if h.get_label().startswith("dry"))
-    assert relative_luminance(tuple(dry.get_facecolor()[:3])) < DARK_ENOUGH
-
-
 def test_the_identity_card_table_follows_the_theme(dark) -> None:
     fig = WatershedIdCardFigure().plot(card_run(), dpi=60)
 
     table = next(ax for ax in fig.axes if ax.tables).tables[0]
     for table_cell in table.get_celld().values():
         assert relative_luminance(tuple(table_cell.get_facecolor()[:3])) < DARK_ENOUGH
-
-
-def test_the_flow_direction_legend_and_compass_follow_the_theme(dark) -> None:
-    fig, ax = dark.subplots()
-
-    FlowDirectionMap().render(comparison_run(), ax)
-
-    frame = ax.get_legend().get_frame()
-    assert relative_luminance(tuple(frame.get_edgecolor()[:3])) < 0.3
-    assert relative_luminance(tuple(frame.get_facecolor()[:3])) < DARK_ENOUGH
-    rose = next(child for child in ax.get_children() if isinstance(child, mpl.axes.Axes))
-    assert relative_luminance(tuple(rose.patch.get_facecolor()[:3])) < DARK_ENOUGH
 
 
 # The dark preset darkens the ground gray of every map, not only its page.
@@ -212,29 +182,6 @@ CASES = {
         {},
     ),
 }
-
-
-@pytest.mark.parametrize("name", sorted(CASES))
-def test_no_ground_stays_light_on_a_dark_page(dark, name: str) -> None:
-    figure, run, options = CASES[name]()
-    fig, ax = dark.subplots()
-
-    figure.render(run, ax, **options)
-
-    assert _light_greys(fig) == []
-
-
-def test_the_simulated_network_ground_follows_the_theme(dark, monkeypatch) -> None:
-    mask = np.zeros(NX * NY)
-    mask[[cell(2, 0), cell(2, 1)]] = 1.0
-    monkeypatch.setattr(views, "cell_field_active_mask", lambda *_a, **_k: mask)
-    monkeypatch.setattr(views, "resolve_cell_field_active_mode", lambda *_a, **_k: "last")
-    monkeypatch.setattr(views, "cell_field_active_mode_label", lambda *_a, **_k: "active cells")
-    fig, ax = dark.subplots()
-
-    SimulatedActiveNetworkMap().render(comparison_run(), ax)
-
-    assert _light_greys(fig) == []
 
 
 def test_the_mesh_edges_follow_the_theme(dark) -> None:

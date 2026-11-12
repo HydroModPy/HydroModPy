@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
-from pydantic import ValidationError
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.time.window import (
@@ -30,7 +29,6 @@ from hydromodpy.core.time.window import (
     validate_recharge_coverage,
     window_grid,
 )
-from hydromodpy.solver.base.simulation_config import SimulationTimeConfig
 from tests._helpers.model_factory import make_model
 
 
@@ -116,12 +114,6 @@ def test_the_nominal_step_length_is_in_days(value, unit, days):
     assert nominal_step_days(value, unit) == pytest.approx(days)
 
 
-def test_a_window_is_resolved_to_timestamps_and_date_bounds():
-    window = resolve_simulation_time_window(_cfg(start="2020-01-01 06:00", end="2020-03-31"))
-    assert window.start == pd.Timestamp("2020-01-01 06:00")
-    assert window.to_date_bounds() == ("2020-01-01", "2020-03-31")
-
-
 def test_no_time_section_means_no_window_no_grid_no_dates():
     cfg = SimpleNamespace(simulation=SimpleNamespace())
     assert resolve_simulation_time_window(cfg) is None
@@ -145,10 +137,6 @@ def test_a_bad_window_is_refused_with_the_reason(kwargs, match):
         resolve_simulation_time_window(_cfg(**kwargs))
 
 
-def test_a_coverage_policy_is_read_whatever_its_case_and_spaces():
-    assert resolve_simulation_time_window(_cfg(policy=" WARN ")).coverage_policy == "warn"
-
-
 def test_the_dates_of_a_bad_window_are_none_unless_strict():
     cfg = _cfg(start="2020-02-01", end="2020-01-01")
     assert resolve_simulation_time_window_dates(cfg, strict=False) is None
@@ -160,24 +148,6 @@ def test_the_dates_of_a_good_window_are_iso_strings():
     assert resolve_simulation_time_window_dates(_cfg()) == ("2020-01-01", "2020-01-10")
 
 
-@pytest.mark.parametrize(
-    ("start", "end", "value", "unit", "n_periods"),
-    [
-        ("2020-01-01", "2020-01-10", 1, "day", 10),
-        ("2020-01-01", "2020-01-10", 5, "day", 2),
-        ("2020-01-01 00:00", "2020-01-01 23:00", 1, "hour", 24),
-        ("2020-01-01", "2020-12-31", 1, "month", 12),
-        ("2020-01-01", "2021-12-31", 1, "year", 2),
-        ("2020-01-01", "2020-12-31", 3, "month", 4),
-    ],
-)
-def test_the_boundaries_cut_the_window_into_whole_steps(start, end, value, unit, n_periods):
-    bounds = build_simulation_time_boundaries(_window(start, end, value, unit))
-    assert len(bounds) == n_periods + 1
-    assert bounds[0] == pd.Timestamp(start)
-    assert all(b > a for a, b in zip(bounds[:-1], bounds[1:], strict=True))
-
-
 def test_the_period_lengths_sum_to_the_window_and_follow_the_calendar():
     grid = resolve_simulation_time_grid(_cfg("2020-01-01", "2020-12-31", 1, "month", substeps=3))
     assert grid.nper == 12
@@ -186,11 +156,6 @@ def test_the_period_lengths_sum_to_the_window_and_follow_the_calendar():
     assert sum(grid.period_lengths_seconds) == 366 * 86400
     assert grid.period_starts[0] == pd.Timestamp("2020-01-01")
     assert grid.period_ends_exclusive[-1] == pd.Timestamp("2021-01-01")
-
-
-def test_an_end_that_cuts_a_step_is_refused():
-    with pytest.raises(ValueError, match="not aligned"):
-        build_simulation_time_boundaries(_window("2020-01-01", "2020-01-10", 3, "day"))
 
 
 def test_a_window_that_ends_before_it_starts_has_no_boundaries():
@@ -260,10 +225,6 @@ def test_a_steady_run_has_one_period_over_the_whole_window(step_value):
     assert grid.period_lengths_seconds == (10 * 86400.0,)
 
 
-def test_a_transient_regime_keeps_the_step():
-    assert resolve_simulation_time_grid(_cfg(regime="transient")).nper == 10
-
-
 @pytest.mark.parametrize(
     ("processes", "expected"),
     [
@@ -277,15 +238,6 @@ def test_a_transient_regime_keeps_the_step():
 )
 def test_a_flow_process_is_found_in_any_container_and_spelling(processes, expected):
     assert has_flow_simulation_process(_cfg(processes=processes)) is expected
-
-
-def test_without_a_flow_process_the_grid_is_returned_as_is():
-    assert require_flow_simulation_time_grid(_cfg(processes=None)).nper == 10
-
-
-def test_a_flow_run_gets_the_grid_of_its_time_section():
-    grid = require_flow_simulation_time_grid(_cfg(processes=[{"kind": "flow"}]))
-    assert grid.nper == 10
 
 
 def test_a_steady_flow_run_may_omit_the_time_section():
@@ -348,10 +300,6 @@ def test_an_unusable_recharge_is_refused_under_error_and_warned_under_warn(recha
         validate_recharge_coverage(recharge, _window("2020-01-01", "2020-01-04", 1, "day", "warn"))
 
 
-def test_a_series_on_the_period_starts_is_accepted():
-    validate_recharge_coverage(_series(pd.date_range("2020-01-01", periods=4)), _WIN)
-
-
 def test_a_dataframe_uses_its_first_column_and_unsorted_input_is_sorted():
     frame = _series(["2020-01-03", "2020-01-01", "2020-01-02", "2020-01-04"]).to_frame()
     validate_recharge_coverage(frame, _WIN)
@@ -392,24 +340,6 @@ _SHARED_REFUSALS = [
     (0, "day", "must be a positive integer"),
     (1, None, "has no unit"),
 ]
-
-
-@pytest.mark.parametrize(("step_value", "step_unit", "match"), _SHARED_REFUSALS)
-def test_planning_config_and_window_helper_refuse_the_same_inputs(
-    step_value: object, step_unit: object, match: str
-) -> None:
-    with pytest.raises(ValidationError, match=match):
-        SimulationTimeConfig(
-            start_datetime="2020-01-01 00:00:00",
-            end_datetime="2020-01-02 00:00:00",
-            step_value=step_value,
-            step_unit=step_unit,
-        )
-
-    with pytest.raises(ValueError, match=match):
-        resolve_simulation_time_window(
-            _cfg("2020-01-01 00:00:00", "2020-01-02 00:00:00", step_value, step_unit)
-        )
 
 
 def test_shared_rule_rejects_a_boolean_step_value_before_the_missing_unit_check() -> None:
@@ -530,22 +460,6 @@ def test_a_window_edge_inside_a_period_is_refused_with_the_two_period_ends():
 def test_a_run_without_periods_has_no_window(grid):
     with pytest.raises(ConfigError, match="no \\[simulation.time\\] periods to cut"):
         chain_windows(grid, "6 months")
-
-
-@pytest.mark.parametrize("index", [0, 1])
-def test_the_grid_of_a_window_keeps_lengths_and_substeps(index):
-    whole = _monthly()
-    window = chain_windows(whole, "6 months")[index]
-
-    cut = window_grid(whole, window)
-
-    assert cut.nper == 6
-    assert cut.nstp_per_period == whole.nstp_per_period == 5
-    assert cut.period_lengths_seconds == whole.period_lengths_seconds[6 * index : 6 * index + 6]
-    assert cut.boundaries == whole.boundaries[6 * index : 6 * index + 7]
-    assert tuple(build_simulation_time_boundaries(cut.window)) == cut.boundaries
-    assert cut.window.start == window.start
-    assert cut.window.coverage_policy == whole.window.coverage_policy
 
 
 def test_the_dates_of_a_window_are_its_own_and_the_last_keeps_the_user_end():

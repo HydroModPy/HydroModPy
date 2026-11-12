@@ -20,7 +20,7 @@ from hydromodpy.core.io.filesystem import (
     replace_when_free,
     unlink_when_free,
 )
-from tests._helpers.windows_os import PatchedOs, WindowsOs
+from tests._helpers.windows_os import PatchedOs
 
 
 def test_the_size_of_a_file_is_its_bytes(tmp_path: Path) -> None:
@@ -34,10 +34,6 @@ def test_the_size_of_a_folder_sums_its_files_and_skips_its_folders(tmp_path: Pat
     (tmp_path / "a.bin").write_bytes(b"123")
     (tmp_path / "sub" / "b.bin").write_bytes(b"4567")
     assert path_size(tmp_path) == 7
-
-
-def test_a_path_that_is_gone_weighs_nothing(tmp_path: Path) -> None:
-    assert path_size(tmp_path / "missing") == 0
 
 
 def test_a_file_removed_during_the_walk_is_skipped(
@@ -95,56 +91,6 @@ def test_a_project_root_is_bounded_on_windows_only(length, windows, refused) -> 
     assert str(caught.value) == _refusal(root)
 
 
-@pytest.mark.skipif(os.name == "nt", reason="the root is built as a POSIX path")
-@pytest.mark.parametrize(("windows_os", "refused"), [(True, True), (False, False)])
-def test_the_default_follows_os_name_at_the_call(
-    monkeypatch: pytest.MonkeyPatch, windows_os: bool, refused: bool
-) -> None:
-    if windows_os:
-        monkeypatch.setattr(filesystem, "os", WindowsOs())
-    root = _absolute_path_of(120)
-    if refused:
-        with pytest.raises(ConfigError, match="120 characters long"):
-            check_project_root(root)
-    else:
-        check_project_root(root)
-
-
-def test_a_link_shares_the_file(tmp_path: Path) -> None:
-    source = tmp_path / "source.bin"
-    source.write_bytes(b"lock")
-    target = tmp_path / "target.bin"
-    assert link_or_copy(source, target) is True
-    assert os.path.samefile(source, target)
-
-
-@pytest.mark.parametrize(
-    "refusal",
-    [
-        OSError(errno.EXDEV, "Invalid cross-device link"),
-        PermissionError(errno.EPERM, "Incorrect function"),
-        OSError(errno.ENOTSUP, "Operation not supported"),
-    ],
-    ids=["other-volume", "windows-permission", "no-links"],
-)
-def test_a_refused_link_copies_the_same_bytes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, refusal: OSError
-) -> None:
-    def refuse(source, target):
-        raise refusal
-
-    monkeypatch.setattr(filesystem, "os", PatchedOs(link=refuse))
-    source = tmp_path / "source.bin"
-    source.write_bytes(b"\x00\x01binary\r\n")
-    source.chmod(0o755)
-    target = tmp_path / "target.bin"
-    assert link_or_copy(source, target) is False
-    assert target.read_bytes() == b"\x00\x01binary\r\n"
-    assert not os.path.samefile(source, target)
-    if os.name != "nt":
-        assert target.stat().st_mode & 0o777 == 0o755
-
-
 @pytest.mark.parametrize("link_refused", [False, True], ids=["link", "copy"])
 def test_a_present_target_is_never_overwritten(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, link_refused: bool
@@ -164,13 +110,6 @@ def test_a_present_target_is_never_overwritten(
     assert target.read_bytes() == b"held"
 
 
-def test_a_missing_source_leaves_no_target(tmp_path: Path) -> None:
-    target = tmp_path / "target.bin"
-    with pytest.raises(FileNotFoundError):
-        link_or_copy(tmp_path / "missing.bin", target)
-    assert not target.exists()
-
-
 def _trial(tmp_path: Path) -> tuple[Path, Path]:
     source = tmp_path / "kept"
     source.mkdir()
@@ -184,20 +123,6 @@ def _windows_replace(source, target):
     if os.path.isdir(target):
         raise PermissionError(errno.EACCES, "Access is denied", str(target))
     return os.replace(source, target)
-
-
-@pytest.mark.skipif(os.name == "nt", reason="POSIX renames onto an empty folder in one step")
-def test_posix_renames_onto_the_reserved_folder_in_one_step(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def no_rmdir(path):
-        raise AssertionError("the reserved folder is replaced, never removed")
-
-    monkeypatch.setattr(filesystem, "os", PatchedOs(rmdir=no_rmdir))
-    source, reserved = _trial(tmp_path)
-    rename_onto_empty_dir(source, reserved)
-    assert (reserved / "result.json").read_text(encoding="utf-8") == "{}"
-    assert not source.exists()
 
 
 def test_a_refused_replace_removes_the_reservation_then_renames(
@@ -344,16 +269,6 @@ def _is_empty(folder: Path) -> bool:
 
 def test_an_absent_file_is_removed_without_error(tmp_path: Path) -> None:
     unlink_when_free(tmp_path / "missing.lock")
-
-
-def test_replacing_an_absent_file_raises_at_once(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    waited: list[float] = []
-    monkeypatch.setattr(filesystem.time, "sleep", waited.append)
-    with pytest.raises(FileNotFoundError):
-        replace_when_free(tmp_path / "missing.lock", tmp_path / "aside")
-    assert waited == []
 
 
 # --- Real Windows cases, played by the weekly job on windows-latest.

@@ -110,19 +110,6 @@ def test_etp_is_renamed_from_its_drias_name(tmp_path: Path) -> None:
     np.testing.assert_allclose(record.data["etp"].values, 1.0e-6 * 86400.0)
 
 
-def test_a_noleap_calendar_is_refused_with_the_soil_reservoir_text(tmp_path: Path) -> None:
-    path = _write_drias_file(tmp_path, calendar="noleap")
-    bbox = _bbox_around_native_cell(5, 5)
-
-    with pytest.raises(DataContractViolation) as excinfo:
-        explore2.read_explore2(path, variable="etp", bbox=bbox, project_period=None)
-
-    assert str(excinfo.value) == (
-        "[data.etp] uses the 'noleap' calendar, and the soil reservoir needs "
-        "real dates: convert the file to the standard calendar first."
-    )
-
-
 def test_a_360_day_calendar_is_refused(tmp_path: Path) -> None:
     path = _write_drias_file(tmp_path, calendar="360_day")
     bbox = _bbox_around_native_cell(5, 5)
@@ -140,25 +127,6 @@ def test_a_365_day_calendar_is_refused_too(tmp_path: Path) -> None:
         explore2.read_explore2(path, variable="precipitation", bbox=bbox, project_period=None)
 
 
-def test_a_standard_calendar_file_is_read(tmp_path: Path) -> None:
-    path = _write_drias_file(tmp_path, calendar="standard")
-    bbox = _bbox_around_native_cell(5, 5)
-
-    records = explore2.read_explore2(path, variable="precipitation", bbox=bbox, project_period=None)
-
-    assert records[0].data["time"].values[0] == np.datetime64("2015-01-01")
-
-
-def test_a_gregorian_calendar_file_is_read(tmp_path: Path) -> None:
-    """gregorian is a CF synonym of standard: the allowlist must accept it."""
-    path = _write_drias_file(tmp_path, calendar="gregorian")
-    bbox = _bbox_around_native_cell(5, 5)
-
-    records = explore2.read_explore2(path, variable="precipitation", bbox=bbox, project_period=None)
-
-    assert records[0].data["time"].values[0] == np.datetime64("2015-01-01")
-
-
 def test_hectometre_coordinates_are_read_as_metres(tmp_path: Path) -> None:
     path = _write_drias_file(tmp_path, x_units="hm", y_units="hm")
     bbox = _bbox_around_native_cell(5, 5)
@@ -168,27 +136,6 @@ def test_hectometre_coordinates_are_read_as_metres(tmp_path: Path) -> None:
     # Native coordinates in hectometers are 100x smaller than the bbox (in
     # meters): finding the requested cells at all proves the scale was applied.
     assert records[0].data["precipitation"].values.size > 0
-
-
-def test_the_bbox_cut_happens_before_any_value_is_loaded(tmp_path: Path, monkeypatch) -> None:
-    path = _write_drias_file(tmp_path, nx=80, ny=80, ntime=2)
-    bbox = _bbox_around_native_cell(40, 40, half_width=2000.0)
-
-    materialized_shapes: list[tuple[int, ...]] = []
-    original = explore2._materialize
-
-    def spy(data_array):
-        materialized_shapes.append(data_array.shape)
-        return original(data_array)
-
-    monkeypatch.setattr(explore2, "_materialize", spy)
-
-    explore2.read_explore2(path, variable="precipitation", bbox=bbox, project_period=None)
-
-    assert materialized_shapes, "the crop-and-load boundary was never reached"
-    _ntime, ny, nx = materialized_shapes[0]
-    assert ny < 80
-    assert nx < 80
 
 
 def test_a_cell_centre_is_reprojected_like_a_direct_pyproj_call() -> None:

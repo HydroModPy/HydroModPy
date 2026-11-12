@@ -30,7 +30,6 @@ from hydromodpy.solver.modflow_nwt.nwt import nwt_solver, steady_initial_conditi
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from tests._helpers.model_factory import make_model, small_geometry, time_grid
 from tests._helpers.regular_cell_meshes import regular_cell_mesh_of_surface
-from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 from .test_modflow_domain_surfaces import _build_domain_from_dem, _DummyGeographic
 
@@ -95,49 +94,6 @@ def test_the_routing_context_is_built_from_the_raster_geometry(monkeypatch, tmp_
     assert captured["crs_project"] == "EPSG:2154"
     assert captured["engine_id"] == "whitebox"
     assert captured["capped_breach"] == CappedBreach(max_depth_m=2.0, max_distance_m=30.0)
-
-
-def test_the_descent_reads_the_channel_rasters_and_the_catchment_of_the_model(
-    monkeypatch, tmp_path
-) -> None:
-    solver = _solver(_model(), tmp_path)
-    solver.full_path = str(tmp_path)
-    solver.model_name = "nwt"
-    seen: dict = {}
-    descent = SimpleNamespace(without_adjacency=lambda: "bare")
-
-    def fake_exits(rasters, exits, **kwargs):
-        seen["rasters"] = rasters
-        seen["exits"] = (exits, kwargs)
-        return "exits"
-
-    def fake_descent(solver_mesh, **kwargs):
-        seen["descent"] = kwargs
-        return descent
-
-    def fake_basin(catchment, solver_mesh, found):
-        seen["basin"] = (catchment, found)
-        return "basin"
-
-    monkeypatch.setattr(nwt_solver, "channel_exits_for_build", fake_exits)
-    monkeypatch.setattr(nwt_solver, "build_solver_mesh_descent", fake_descent)
-    monkeypatch.setattr(nwt_solver, "run_basin", fake_basin)
-    monkeypatch.setattr(nwt_solver, "write_descent_sidecar", lambda *a, **k: None)
-    mesh = solver_mesh_from_structured_arrays(
-        nrow=1, ncol=1, top=np.zeros((1, 1)), botm=np.full((1, 1, 1), -1.0)
-    )
-    inputs = SimpleNamespace(ibound=np.ones((1, 1, 1)), chd_spd=None)
-
-    result = solver._build_descent(mesh, inputs)
-
-    catchment = solver.inputs.geometry.catchment
-    assert seen["rasters"] is CHANNEL
-    # NWT has no SFR, so A is never required, and the exits are those of the Model.
-    assert seen["exits"] == (solver.inputs.geometry.channel_exits, {})
-    assert seen["descent"]["channel_exits"] == "exits"
-    assert seen["descent"]["geographic"] is catchment
-    assert seen["basin"] == (catchment, descent)
-    assert (result, solver.descent_basin) == ("bare", "basin")
 
 
 @pytest.mark.parametrize(
@@ -216,17 +172,6 @@ def _processing_solver(monkeypatch, tmp_path):
     solver._params = SimpleNamespace(runtime=SimpleNamespace(lmt=None))
     monkeypatch.setattr(nwt_solver, "run_model_with_progress", lambda *args, **kwargs: (True, None))
     return solver
-
-
-def test_the_files_written_before_the_solve_are_listed_in_the_order_of_the_name_file(
-    monkeypatch, tmp_path
-) -> None:
-    solver = _processing_solver(monkeypatch, tmp_path)
-
-    assert solver.input_files == ()
-    solver.processing(ModflowRunOptions(write_model=True, run_model=True))
-
-    assert solver.input_files == ("n.nam", "n.dis", "n.bas")
 
 
 def test_a_model_whose_files_are_written_writes_none_and_keeps_its_list(

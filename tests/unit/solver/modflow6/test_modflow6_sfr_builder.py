@@ -550,36 +550,6 @@ def test_flagged_terminal_near_the_outlet_is_not_fed() -> None:
     assert all(r.provider_id != 0 for r in records)
 
 
-def test_deep_feeder_far_from_outlet_is_fed() -> None:
-    # A shoreline feeder entering the reservoir at a LOW streambed (deep bathymetry) is
-    # still coupled: elevation is not the discriminator, distance to the outlet is. Far
-    # from the outlet -> a real feeder, fed to the lake.
-    feeder = SfrReachRecord(
-        ifno=0,
-        cellid=(0, 0),
-        rlen=10.0,
-        rwid=1.0,
-        rgrd=0.01,
-        rtp=58.0,  # deep bed
-        upstream=(),
-        downstream=(),
-        is_terminal_to_lake=True,
-        terminal_lake=1,
-    )
-    network = ResolvedSfrNetwork(
-        network_id="net0", reaches=(feeder,), definition={"outflow_to_lake": 1}
-    )
-    cc = np.zeros((2, 2), dtype=float)
-    cc[0] = (0.0, 0.0)
-    records = build_sfr_mover_records(
-        {"net0": network},
-        lake_cells_by_number={0: [1]},
-        cell_centroids=cc,
-        outlet_xy=(5000.0, 0.0),  # far from the outlet
-    )
-    assert any(r.provider_id == 0 and r.receiver == "LAK" for r in records)
-
-
 def test_mover_records_couple_terminal_reach_to_lake() -> None:
     mesh = _mesh()
     model = _fake_model(

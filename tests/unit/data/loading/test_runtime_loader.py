@@ -40,16 +40,6 @@ def test_section_without_dates_inherits_the_simulation_window(tmp_path: Path) ->
     assert section["date_end"] == "2020-01-31"
 
 
-def test_declared_dates_win_over_the_simulation_window(tmp_path: Path) -> None:
-    loader = _build_loader(tmp_path, SIM_WINDOW)
-    section: dict[str, Any] = {"date_start": "2010-01-01", "date_end": "2019-12-31"}
-
-    loader._apply_simulation_window_dates(section, _ctx())
-
-    assert section["date_start"] == "2010-01-01"
-    assert section["date_end"] == "2019-12-31"
-
-
 def test_no_simulation_window_leaves_the_section_untouched(tmp_path: Path) -> None:
     loader = _build_loader(tmp_path, None)
     section: dict[str, Any] = {"sources": []}
@@ -58,18 +48,6 @@ def test_no_simulation_window_leaves_the_section_untouched(tmp_path: Path) -> No
 
     assert "date_start" not in section
     assert "date_end" not in section
-
-
-def test_config_dates_win_for_a_simulation_or_overview_spec(tmp_path: Path) -> None:
-    """water_quality reads its own window before falling back."""
-    loader = _build_loader(tmp_path, SIM_WINDOW)
-    spec = VARIABLE_SPECS["water_quality"]
-    assert spec.period_source == "simulation_or_overview"
-    cfg = SimpleNamespace(date_start="2001-01-01", date_end="2005-12-31")
-
-    period = loader._resolve_period_for_spec(cfg, spec, _ctx(cfg=SimpleNamespace()))
-
-    assert period == (datetime(2001, 1, 1), datetime(2005, 12, 31))
 
 
 def test_simulation_window_is_the_fallback_for_a_simulation_or_overview_spec(

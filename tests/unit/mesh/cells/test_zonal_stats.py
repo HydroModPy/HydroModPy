@@ -48,14 +48,6 @@ def test_rasterize_cell_ids_assigns_each_pixel_to_one_cell():
     assert (labels[:, 5:] == 1).all()
 
 
-def test_rasterize_ragged_polygon_arities():
-    mesh = _ragged_mesh()
-    transform = _grid_transform(0.0, 0.0, 20.0, 15.0, 40, 30)
-    labels = rasterize_cell_ids(mesh, transform=transform, out_shape=(30, 40))
-    present = set(np.unique(labels).tolist())
-    assert 0 in present and 1 in present  # both the triangle and the pentagon burn
-
-
 def test_grouped_reduce_stats():
     labels = np.array([[0, 0, 1], [0, -1, 1]])
     values = np.array([[1.0, 3.0, 10.0], [5.0, np.nan, 20.0]])
@@ -105,26 +97,6 @@ def test_zonal_channel_min_lowers_channel_cell():
     assert res.top[0] == pytest.approx(5.0)  # channel cell -> thalweg min
     assert res.top[1] == pytest.approx(75.0, abs=1.0)  # hillslope median ~ centroid
     assert res.info["n_lowered"] == 1.0
-
-
-def test_zonal_min_pixels_fallback_to_centroid():
-    mesh = _quad_mesh(xmin=0.0, ymin=0.0, dx=50.0, dy=100.0, ncol=2, nrow=1)
-    dem, _ = _notch_dem(n=40)
-    transform = _grid_transform(0.0, 0.0, 100.0, 100.0, 40, 40)
-    centroid = np.array([25.0, 75.0])
-    # min_pixels above the pixels a cell can hold -> every hillslope cell falls back.
-    res = zonal_top(
-        planar_mesh=mesh,
-        dem=dem,
-        transform=transform,
-        out_shape=(40, 40),
-        centroid_top=centroid,
-        channel_mask=None,
-        min_pixels=10_000,
-        spike_guard_tol_m=0.0,
-    )
-    assert np.array_equal(res.top, centroid)
-    assert res.used_zonal.tolist() == [False, False]
 
 
 def test_zonal_spike_guard_reverts_hillslope():

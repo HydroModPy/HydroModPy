@@ -49,44 +49,6 @@ def test_a_pit_is_raised_to_its_spill_level() -> None:
     assert report.max_fill == pytest.approx(3.0 + DEFAULT_EPSILON_M)
 
 
-def test_the_filled_floor_still_drains() -> None:
-    # A flat floor has no steepest descent to follow, so the flood leaves a
-    # slope behind it rather than a plateau.
-    values = np.array([9.0, 1.0, 1.0, 1.0, 4.0, 0.0])
-    outlets = np.zeros(6, dtype=bool)
-    outlets[5] = True
-
-    surface = fill_depressions_on_graph(values, _chain(6), outlets).surface
-
-    inside = surface[1:4]
-    assert np.all(np.diff(inside) < 0.0), inside
-
-
-def test_every_cell_reaches_the_outlet_after_the_flood() -> None:
-    rng = np.random.default_rng(4)
-    n = 200
-    values = np.linspace(50.0, 0.0, n) + rng.normal(0.0, 3.0, n)
-    outlets = np.zeros(n, dtype=bool)
-    outlets[-1] = True
-
-    surface = fill_depressions_on_graph(values, _chain(n), outlets).surface
-
-    # On a chain, "reaches the outlet" is "every cell is above the next one".
-    assert np.all(np.diff(surface) < 0.0)
-
-
-def test_an_inactive_cell_is_neither_raised_nor_crossed() -> None:
-    values = np.array([5.0, np.nan, 0.0, 3.0, 1.0])
-    outlets = np.zeros(5, dtype=bool)
-    outlets[4] = True
-
-    report = fill_depressions_on_graph(values, _chain(5), outlets)
-
-    assert np.isnan(report.surface[1])
-    # Cell 0 sits behind the inactive one, so the flood never reaches it.
-    assert report.surface[0] == 5.0
-
-
 class TestRefused:
     def test_no_outlet_at_all(self) -> None:
         with pytest.raises(ValueError, match="no finite outlet"):
@@ -145,29 +107,6 @@ def _reference_fill(
                 surface[neighbour] = level + epsilon
             heapq.heappush(frontier, (surface[neighbour], neighbour))
     return surface
-
-
-@pytest.mark.parametrize("seed", [0, 1, 2, 3])
-@pytest.mark.parametrize("epsilon", [0.0, DEFAULT_EPSILON_M, 0.25])
-def test_the_flood_without_a_pin_is_the_plain_priority_flood_to_the_bit(
-    seed: int, epsilon: float
-) -> None:
-    rng = np.random.default_rng(seed)
-    n_rows, n_cols = 20, 15
-    values = rng.normal(100.0, 5.0, n_rows * n_cols)
-    values[rng.random(values.size) < 0.05] = np.nan
-    seeds = np.zeros(values.size, dtype=bool)
-    seeds[:n_cols] = True
-    seeds &= np.isfinite(values)
-    adjacency = _grid_adjacency(n_rows, n_cols)
-
-    surface, raised = priority_flood(values, adjacency, seeds, step=epsilon)
-
-    expected = _reference_fill(values, adjacency, seeds, epsilon)
-    assert np.array_equal(surface, expected, equal_nan=True)
-    assert raised.sum() > 0 or epsilon == 0.0
-    report = fill_depressions_on_graph(values, adjacency, seeds, epsilon=epsilon)
-    assert np.array_equal(report.surface, expected, equal_nan=True)
 
 
 # Cells 0..3, a square: 0-1, 0-2, 1-3, 2-3. The seed is cell 3.

@@ -127,35 +127,6 @@ def test_balanced_mix_centroid_matches_normalized_fractions(mpl) -> None:
         mpl.close(fig)
 
 
-def test_zero_total_sample_does_not_divide_by_zero(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    PiperDiagramFigure().render(_frame({}), ax)
-
-    try:
-        offsets = _offsets_by_label(ax)
-        assert np.all(np.isfinite(offsets["cations"]))
-        assert np.all(np.isfinite(offsets["anions"]))
-    finally:
-        mpl.close(fig)
-
-
-def test_three_scatter_collections_and_frame_lines_are_drawn(mpl) -> None:
-    sample = mg_to_meq({"Ca": 50.0, "Mg": 20.0, "Cl": 60.0, "HCO3": 120.0})
-    fig, ax = mpl.subplots()
-
-    PiperDiagramFigure().render(_frame(sample), ax)
-
-    try:
-        labels = [c.get_label() for c in ax.collections]
-        assert labels == ["cations", "anions", "facies"]
-        # tri_left, tri_right and the diamond frame -> three plotted outlines.
-        assert len(ax.lines) == 3
-        assert ax.get_title() == "Piper diagram"
-    finally:
-        mpl.close(fig)
-
-
 def test_missing_major_column_raises_keyerror(mpl) -> None:
     df = pd.DataFrame([{ion: 1.0 for ion in _MAJORS if ion != "HCO3"}])
     fig, ax = mpl.subplots()

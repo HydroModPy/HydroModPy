@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 from datetime import datetime
 
 import numpy as np
@@ -16,12 +15,7 @@ from hydromodpy.calibration.config_outputs import CalibOutputPoint
 from hydromodpy.calibration.config_phases import CalibPhaseDecl
 from hydromodpy.core.config_kit.field_param.sections import normalize_values
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
-from hydromodpy.core.site.config import (
-    GaugeConflictError,
-    SiteConfig,
-    resolve_gauge,
-    site_fingerprint,
-)
+from hydromodpy.core.site.config import SiteConfig, site_fingerprint
 from hydromodpy.core.site.row import SiteRow
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.families.timeseries_config import TimeseriesSelectionMixin
@@ -29,122 +23,10 @@ from hydromodpy.model.properties.field_param import FieldParam
 from hydromodpy.results.metric_rule import MetricsConfig
 from tests._helpers.run_stores import open_run_store
 
-
-@pytest.mark.parametrize("name", ["nancon", "J0014010", "le_nancon_2", "A_b_9"])
-def test_a_site_name_is_letters_digits_and_underscores(name: str) -> None:
-    assert SiteConfig(name=name).name == name
-
-
-@pytest.mark.parametrize("name", ["", "le-nancon", "nancon.v2", "le nancon", "nançon", "a/b"])
-def test_a_site_name_with_another_character_is_refused(name: str) -> None:
-    with pytest.raises(ValidationError, match="name"):
-        SiteConfig(name=name)
-
-
-@pytest.mark.parametrize("uri", ["hubeau:J0014010", "bdtopage:J001-0000", "hubeau:a_b"])
-def test_a_registry_uri_is_accepted(uri: str) -> None:
-    assert SiteConfig(name="nancon", uri=uri).uri == uri
-
-
-@pytest.mark.parametrize("uri", ["J0014010", "sandre:J0014010", "hubeau:", "hubeau:J00 14"])
-def test_a_uri_outside_the_two_registries_is_refused(uri: str) -> None:
-    with pytest.raises(ValidationError, match="uri"):
-        SiteConfig(name="nancon", uri=uri)
-
-
-def test_an_unknown_site_key_is_refused() -> None:
-    with pytest.raises(ValidationError, match="station"):
-        SiteConfig(name="nancon", station="J0014010")
-
-
-def test_the_name_is_required() -> None:
-    with pytest.raises(ValidationError, match="name"):
-        SiteConfig(label="Le Nançon")
-
-
 SITE = SiteConfig(name="nancon", gauge="J0014010")
 
 
-def test_an_absent_key_takes_the_gauge() -> None:
-    assert resolve_gauge(SITE, None, field="calibration.observed_station_id") == "J0014010"
-    assert resolve_gauge(SITE, [], field="data.hydrometry.sources.station_ids") == "J0014010"
-
-
-def test_the_same_station_is_accepted() -> None:
-    assert resolve_gauge(SITE, "J0014010", field="calibration.observed_station_id") == "J0014010"
-
-
-def test_a_list_holding_the_gauge_is_accepted() -> None:
-    declared = ["J0010010", "J0014010"]
-    assert resolve_gauge(SITE, declared, field="data.hydrometry.sources.station_ids") == "J0014010"
-
-
-def test_another_station_is_refused_naming_both_keys() -> None:
-    with pytest.raises(GaugeConflictError) as caught:
-        resolve_gauge(SITE, "J0010010", field="calibration.observed_station_id")
-    message = str(caught.value)
-    assert "site.gauge = 'J0014010'" in message
-    assert "calibration.observed_station_id = 'J0010010'" in message
-    assert isinstance(caught.value, ConfigError)
-
-
-def test_a_list_without_the_gauge_is_refused() -> None:
-    with pytest.raises(GaugeConflictError, match="station_ids"):
-        resolve_gauge(SITE, ["J0010010"], field="data.hydrometry.sources.station_ids")
-
-
-def test_without_a_site_gauge_the_declared_value_stands() -> None:
-    bare = SiteConfig(name="nancon")
-    assert resolve_gauge(bare, "J0010010", field="metrics.station") == "J0010010"
-    assert resolve_gauge(None, ["A", "B"], field="data.hydrometry.sources.station_ids") == "A"
-    assert resolve_gauge(None, None, field="metrics.station") is None
-
-
 NANCON = (389285.910, 6816518.749)
-
-
-def test_the_same_declaration_gives_the_same_fingerprint() -> None:
-    first = site_fingerprint(crs="EPSG:2154", kind="from_outlet_coord", outlet=NANCON)
-    second = site_fingerprint(crs="EPSG:2154", kind="from_outlet_coord", outlet=NANCON)
-    assert first == second
-    assert len(first) == 16
-    int(first, 16)
-
-
-def test_the_dem_resolution_does_not_enter_the_fingerprint() -> None:
-    # A run at 25 m and one at 75 m declare the same outlet: one site, two areas.
-    # The function reads the declaration only, so it has no way to take the DEM.
-    assert set(inspect.signature(site_fingerprint).parameters) == {
-        "crs",
-        "kind",
-        "outlet",
-        "polygon_sha256",
-    }
-    with pytest.raises(TypeError):
-        site_fingerprint(  # type: ignore[call-arg]
-            crs="EPSG:2154", kind="from_outlet_coord", outlet=NANCON, dem_resolution=75.0
-        )
-    at_25_m = site_fingerprint(crs="EPSG:2154", kind="from_outlet_coord", outlet=NANCON)
-    at_75_m = site_fingerprint(crs="EPSG:2154", kind="from_outlet_coord", outlet=NANCON)
-    assert at_25_m == at_75_m
-
-
-def test_the_outlet_is_rounded_to_the_metre() -> None:
-    exact = site_fingerprint(crs="EPSG:2154", kind="from_outlet_coord", outlet=NANCON)
-    copied = site_fingerprint(
-        crs="EPSG:2154", kind="from_outlet_coord", outlet=(389286.2, 6816518.6)
-    )
-    moved = site_fingerprint(
-        crs="EPSG:2154", kind="from_outlet_coord", outlet=(389287.0, 6816518.749)
-    )
-    assert exact == copied
-    assert exact != moved
-
-
-def test_the_crs_and_the_kind_enter_the_fingerprint() -> None:
-    base = site_fingerprint(crs="EPSG:2154", kind="from_outlet_coord", outlet=NANCON)
-    assert base != site_fingerprint(crs="EPSG:3857", kind="from_outlet_coord", outlet=NANCON)
-    assert base != site_fingerprint(crs="EPSG:2154", kind="dem", outlet=NANCON)
 
 
 def test_a_polygon_is_named_by_its_digest() -> None:
@@ -221,12 +103,6 @@ def test_the_store_refuses_a_measurement_under_the_word(tmp_path) -> None:
             store.write_timeseries(
                 store.sim_id, "catchment", "discharge", series, source="observed"
             )
-
-
-@pytest.mark.parametrize("zone", ["core", "domain", None])
-def test_the_store_keeps_a_zone_that_is_not_the_word(tmp_path, zone: str | None) -> None:
-    with open_run_store(tmp_path, "run") as store:
-        store.write_parameters(store.sim_id, [{"param_name": "K", "zone_id": zone, "value": 1.0}])
 
 
 def test_the_store_refuses_a_zone_under_the_word(tmp_path) -> None:

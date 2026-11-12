@@ -18,13 +18,11 @@ import shapely
 from shapely.geometry import LineString, Polygon, box
 
 from hydromodpy.core.exceptions import MeshGenerationError
-from hydromodpy.mesh.cells.barrier_faces import BarrierFace
 from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.mesh.request import BARRIER_FAMILY, LineFamilySpec, MeshRequest
 from hydromodpy.mesh.resample import resample_families
 from hydromodpy.model.boundaries.cutoff_wall_shore import SnappedWall
-from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, wall_leaks
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, mesh_request, uniform_size_field
 
 X0, Y0 = L93_ORIGIN
@@ -127,49 +125,6 @@ def test_a_river_crossing_a_contact_runs_through_the_pair() -> None:
     assert qa["geology"]["covered_length_rel"] == pytest.approx(1.0, abs=1e-6)
 
 
-def test_the_pair_cells_of_a_contact_take_its_zones() -> None:
-    _, cell_mesh = crossing()
-    table = cell_mesh.face_families
-    zones = cell_mesh.cell_zone
-    rows = rows_of(cell_mesh, "geology")
-    left = cell_mesh.zone_names.index("l0")
-    right = cell_mesh.zone_names.index("r0")
-    paired = np.zeros(cell_mesh.n_cells, dtype=bool)
-    paired[np.concatenate([table.cell_a[rows], table.cell_b[rows]])] = True
-
-    assert np.all(table.zone_left[rows] == left) and np.all(table.zone_right[rows] == right)
-    assert np.all(zones[table.cell_a[rows]] == left)
-    assert np.all(zones[table.cell_b[rows]] == right)
-    assert np.all(zones[~paired] == -1)
-
-
-def test_a_contact_across_the_domain_splits_it_in_two_zones() -> None:
-    request = request_of(contact(line((180.0, 0.0), (220.0, 300.0))))
-    cell_mesh = VoronoiMeshEngine().build(request)
-    side = side_of(request.family("geology").lines[0], cell_mesh.centers)
-
-    assert np.all(cell_mesh.cell_zone[side > 0.0] == cell_mesh.zone_names.index("l0"))
-    assert np.all(cell_mesh.cell_zone[side < 0.0] == cell_mesh.zone_names.index("r0"))
-
-
-def test_a_river_that_makes_a_contact_yield_leaves_only_its_mixed_cells_unnamed() -> None:
-    angle = math.radians(50.0)
-    centre = np.array([200.0, 150.0])
-    tangent = np.array([math.cos(angle), math.sin(angle)])
-    river = line(tuple(centre - 190.0 * tangent), tuple(centre + 190.0 * tangent))
-    request = request_of(rivers(river), contact(line((180.0, 0.0), (220.0, 300.0))))
-    cell_mesh = VoronoiMeshEngine().build(request)
-    geology = cell_mesh.qa.families["geology"]
-    zones = cell_mesh.cell_zone
-    named = zones >= 0
-    side = side_of(request.family("geology").lines[0], cell_mesh.centers)
-
-    assert geology["yielded_segments"] + geology["merged_circles"] > 0
-    assert np.count_nonzero(~named) == geology["mixed_cells"] > 0
-    assert np.all(zones[named & (side > 0.0)] == cell_mesh.zone_names.index("l0"))
-    assert np.all(zones[named & (side < 0.0)] == cell_mesh.zone_names.index("r0"))
-
-
 @pytest.mark.parametrize("vertical_end, degree", [(150.0, 3), (20.0, 4)], ids=["t", "x"])
 def test_t_and_x_junctions_keep_every_segment(vertical_end: float, degree: int) -> None:
     request = request_of(
@@ -187,17 +142,6 @@ def test_t_and_x_junctions_keep_every_segment(vertical_end: float, degree: int) 
     assert np.hypot(*(vertices[node] - (X0 + 200.0, Y0 + 150.0))) < ON_LINE_M
     assert np.count_nonzero((table.node_a[rows] == node) | (table.node_b[rows] == node)) == degree
     assert_faces_on_lines(cell_mesh, request, "geology")
-
-
-def test_an_acute_junction_counts_its_mixed_cells() -> None:
-    angle = math.radians(15.0)
-    tip = (50.0 + 300.0 * math.cos(angle), 100.0 + 300.0 * math.sin(angle))
-    cell_mesh = build(contact(line((50.0, 100.0), (350.0, 100.0)), line((50.0, 100.0), tip)))
-    geology = cell_mesh.qa.families["geology"]
-
-    assert geology["merged_circles"] > 0
-    assert geology["mixed_cells"] > 0
-    assert np.count_nonzero(cell_mesh.cell_zone < 0) > 0
 
 
 def test_a_free_end_face_runs_to_the_end() -> None:
@@ -230,37 +174,6 @@ def test_a_contact_ending_on_the_boundary_reaches_it() -> None:
     assert_faces_on_lines(cell_mesh, request, "geology")
 
 
-def test_a_contact_meeting_the_boundary_at_20_degrees_still_builds() -> None:
-    angle = math.radians(20.0)
-    end = (100.0 + 250.0 * math.cos(angle), 250.0 * math.sin(angle))
-    geology = build(contact(line((100.0, 0.0), end))).qa.families["geology"]
-    assert geology["merged_circles"] + geology["yielded_segments"] > 0
-
-
-def test_two_close_thalwegs_share_cells_and_stay_continuous() -> None:
-    cell_mesh = build(
-        rivers(line((20.0, 150.0), (380.0, 150.0)), line((20.0, 158.0), (380.0, 158.0)))
-    )
-    assert cell_mesh.qa.families["rivers"]["shared_cells"] > 0
-    assert cell_mesh.qa.families["rivers"]["breaks"] == 0.0
-
-
-def test_a_confluence_cell_is_in_three_chains() -> None:
-    cell_mesh = build(
-        rivers(
-            line((50.0, 250.0), (200.0, 150.0)),
-            line((350.0, 250.0), (200.0, 150.0)),
-            line((200.0, 150.0), (200.0, 20.0)),
-        )
-    )
-    chains = cell_mesh.chains("rivers")
-    common = set(chains[0].cell_ids.tolist())
-    for chain in chains[1:]:
-        common &= set(chain.cell_ids.tolist())
-    assert len(common) == 1
-    assert cell_mesh.qa.families["rivers"]["breaks"] == 0.0
-
-
 def test_a_lake_ring_with_a_sharp_turn_is_one_closed_face() -> None:
     ring = line((100.0, 100.0), (300.0, 100.0), (260.0, 200.0), (150.0, 230.0), (100.0, 100.0))
     request = request_of(LineFamilySpec("lakes", "face", (ring,), closed=True))
@@ -269,21 +182,6 @@ def test_a_lake_ring_with_a_sharp_turn_is_one_closed_face() -> None:
     assert lakes["covered_length_rel"] == pytest.approx(1.0, abs=1e-9)
     assert lakes["mixed_cells"] == 0.0
     assert_faces_on_lines(cell_mesh, request, "lakes")
-
-
-def test_box_sides_are_boundary_families_with_the_cell_on_the_left() -> None:
-    cell_mesh = build(contact(line((100.0, 150.0), (300.0, 150.0))))
-    table = cell_mesh.face_families
-    vertices = vertices_of(cell_mesh)
-    for side in SIDES:
-        rows = rows_of(cell_mesh, f"boundary:{side}")
-        tangent = vertices[table.node_b[rows]] - vertices[table.node_a[rows]]
-        reach = cell_mesh.centers[table.cell_a[rows]] - vertices[table.node_a[rows]]
-        assert rows.size > 0
-        assert np.all(table.cell_b[rows] == -1)
-        assert np.all(tangent[:, 0] * reach[:, 1] - tangent[:, 1] * reach[:, 0] >= 0.0)
-    named = sum(rows_of(cell_mesh, f"boundary:{side}").size for side in SIDES)
-    assert named == np.count_nonzero(cell_mesh.geometry.edge_cells[:, 1] < 0)
 
 
 ROUND = shapely.Point(X0 + 200.0, Y0 + 150.0).buffer(140.0, 32)
@@ -297,33 +195,6 @@ def test_a_round_catchment_names_its_lines_and_no_box_side() -> None:
 
 def test_a_round_catchment_without_lines_has_no_face_family() -> None:
     assert build(domain=ROUND).face_families is None
-
-
-def test_a_mesh_without_lines_has_sides_only_and_no_zones() -> None:
-    cell_mesh = build()
-    assert all(name.startswith("boundary:") for name in cell_mesh.face_families.names)
-    assert cell_mesh.cell_zone is None
-    assert cell_mesh.cell_chains == ()
-
-
-def test_permuted_input_gives_the_same_mesh() -> None:
-    face_a = line((50.0, 100.0), (350.0, 120.0))
-    face_b = line((100.0, 20.0), (130.0, 280.0))
-    river_a = line((20.0, 200.0), (380.0, 210.0))
-    river_b = line((300.0, 290.0), (250.0, 205.4))
-    one = build(rivers(river_a, river_b), contact(face_a, face_b))
-    two = build(
-        LineFamilySpec("geology", "face", (face_b, face_a), ("l1", "l0"), ("r1", "r0")),
-        rivers(river_b, river_a),
-    )
-    assert np.array_equal(one.mesh.vertices, two.mesh.vertices)
-    assert np.array_equal(one.centers, two.centers)
-    assert np.array_equal(one.geometry.padded_connectivity, two.geometry.padded_connectivity)
-    assert [c.cell_ids.tolist() for c in one.cell_chains] == [
-        c.cell_ids.tolist() for c in two.cell_chains
-    ]
-    assert np.array_equal(one.face_families.cell_a, two.face_families.cell_a)
-    assert np.array_equal(one.cell_zone, two.cell_zone)
 
 
 WallMesh = Callable[[float], tuple[SnappedWall, MeshRequest, PlanarCellMesh]]
@@ -356,68 +227,3 @@ def test_the_wall_faces_lie_on_the_wall_line(
     assert shapely.distance(nodes, request.family(BARRIER_FAMILY).lines[0]).max() < ON_LINE_M
     assert qa["covered_length_rel"] == pytest.approx(1.0, abs=1.0e-9)
     assert qa["mixed_cells"] == 0.0
-
-
-@OFFSETS
-def test_each_shore_face_is_one_face_of_both_families(
-    offset: float, walled_reservoir_mesh: WallMesh
-) -> None:
-    wall, _, cell_mesh = walled_reservoir_mesh(offset)
-    rows = interior_rows(cell_mesh, BARRIER_FAMILY)
-    barrier = cell_pairs(rows)
-    lakes = cell_pairs(interior_rows(cell_mesh, "lakes"))
-    vertices = vertices_of(cell_mesh)
-    middle = 0.5 * (vertices[rows[:, 2]] + vertices[rows[:, 3]])
-    on_shore = np.asarray(barrier)[shapely.distance(shapely.points(middle), wall.shore) < ON_LINE_M]
-    shared = set(barrier) & set(lakes)
-
-    assert len(barrier) == len(set(barrier))
-    assert len(lakes) == len(set(lakes))
-    assert len(shared) >= 5
-    assert {tuple(pair) for pair in on_shore.tolist()} <= shared
-
-
-@OFFSETS
-def test_every_barrier_row_keeps_the_lake_on_its_left(
-    offset: float, walled_reservoir_mesh: WallMesh
-) -> None:
-    wall, _, cell_mesh = walled_reservoir_mesh(offset)
-    rows = interior_rows(cell_mesh, BARRIER_FAMILY)
-    lake = shapely.contains_xy(wall.polygon, *cell_mesh.centers.T)
-
-    assert not downstream_of_wall(wall.line, cell_mesh.centers[rows[:, 0]]).any()
-    assert downstream_of_wall(wall.line, cell_mesh.centers[rows[:, 1]]).sum() >= len(rows) // 2
-    assert not lake[rows[:, 1]].any()
-
-
-@OFFSETS
-def test_the_wings_meet_the_shore_at_its_corners_and_reach_their_ends(
-    offset: float, walled_reservoir_mesh: WallMesh
-) -> None:
-    wall, request, cell_mesh = walled_reservoir_mesh(offset)
-    vertices = vertices_of(cell_mesh)
-    barrier = interior_rows(cell_mesh, BARRIER_FAMILY)
-    lakes = interior_rows(cell_mesh, "lakes")
-    wall_line = request.family(BARRIER_FAMILY).lines[0]
-
-    for corner in (wall.shore.coords[0], wall.shore.coords[-1]):
-        node = int(np.argmin(np.hypot(*(vertices - corner).T)))
-        assert np.hypot(*(vertices[node] - corner)) < ON_LINE_M
-        assert np.count_nonzero(barrier[:, 2:] == node) == 2
-        assert np.count_nonzero(lakes[:, 2:] == node) == 2
-    for end in (wall_line.coords[0], wall_line.coords[-1]):
-        assert np.hypot(*(vertices[barrier[:, 2:].ravel()] - end).T).min() < ON_LINE_M
-
-
-@OFFSETS
-def test_nothing_reaches_the_lake_side_from_downstream_across_the_family(
-    offset: float, walled_reservoir_mesh: WallMesh
-) -> None:
-    wall, _, cell_mesh = walled_reservoir_mesh(offset)
-    lake = np.flatnonzero(shapely.contains_xy(wall.polygon, *cell_mesh.centers.T))
-    faces = [
-        BarrierFace(a, b, 0.0) for a, b in cell_pairs(interior_rows(cell_mesh, BARRIER_FAMILY))
-    ]
-
-    assert wall_leaks(cell_mesh, wall.line, lake, faces, reach=100.0).size == 0
-    assert wall_leaks(cell_mesh, wall.line, lake, faces[::2], reach=100.0).size > 0

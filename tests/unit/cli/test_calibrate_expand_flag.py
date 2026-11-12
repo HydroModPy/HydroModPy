@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import textwrap
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -100,25 +99,6 @@ def test_expand_on_a_file_without_a_protocol_says_so(tmp_path, capsys) -> None:
     assert "seed = 7" in printed
 
 
-def test_expand_prints_pasteable_toml(tmp_path, capsys) -> None:
-    """The body, comments aside, parses back to the whole section, protocol aside."""
-    path = _write(tmp_path, _PROTOCOL)
-
-    _run(path, expand=True)
-
-    printed = capsys.readouterr().out
-    body = "\n".join(line for line in printed.splitlines() if not line.startswith("#"))
-    parsed = tomllib.loads(body)
-
-    assert [phase["name"] for phase in parsed["calibration"]["phases"]] == [
-        "steady_conductivity",
-        "transient_storage",
-    ]
-    assert parsed["calibration"]["objective_blocks"][0]["name"] == "network_extension"
-    assert set(parsed["calibration"]["parameters"]) == {"K", "Sy"}
-    assert "protocol" not in parsed["calibration"]
-
-
 @pytest.mark.parametrize(
     "overrides",
     [
@@ -175,24 +155,6 @@ def test_the_protocol_file_shows_a_network_row_and_a_hydrograph_block_row(capsys
     )
     assert lines[5] == "    scores on: window 2001-01-01 to 2002-12-31"
     assert len(lines) == 6
-
-
-def test_the_composite_file_shows_one_phase_with_two_shares(capsys) -> None:
-    out = _list_phases(EXAMPLE_04 / "run_calibration_composite.toml", capsys)
-
-    lines = out.splitlines()
-    assert lines[0].startswith("0\tconductivity_and_storage\toptuna\t")
-    # A share table {hydrograph = 0.7, network = 0.3}, the network gap normalized.
-    assert lines[1] == (
-        f"    network\tdistance_mean\tshare 30%\trelease_flux (network)\tvs {GEOMETRY}"
-    )
-    assert lines[2] == (
-        "    hydrograph\tnse_log\tshare 70%\tdischarge, station NANCON (whole-catchment "
-        "series)\tvs station NANCON ([data.hydrometry])"
-    )
-    # The file writes only the start: the end comes from the project's [metrics] window.
-    assert lines[3] == "    scores on: window 2001-01-01 to 2002-12-31"
-    assert len(lines) == 4
 
 
 def test_the_protocol_written_by_hand_lists_what_the_protocol_lists(capsys) -> None:

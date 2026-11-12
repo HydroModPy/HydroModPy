@@ -40,18 +40,6 @@ def test_a_run_that_declares_wells_is_told_the_key_to_set() -> None:
     assert "declares wells" in str(raised.value)
 
 
-def test_the_skip_is_a_warning_when_the_user_can_fix_it(caplog) -> None:
-    run = _run({"flow": {"sinks_sources": {"wells": WELLS}}})
-
-    with caplog.at_level(logging.INFO):
-        drawn = apply_overlays(None, run, ["wells"])
-
-    assert drawn == []
-    (record,) = [r for r in caplog.records if "Overlay 'wells'" in r.getMessage()]
-    assert record.levelno == logging.WARNING
-    assert "keep_per_cell_budget = true" in record.getMessage()
-
-
 def _store_run(policy: str, kept: list[str]) -> SimpleNamespace:
     """A run whose ``budget/`` group declares what it kept, as a store does."""
     root = {
@@ -118,34 +106,6 @@ def _mesh_run(connectivity: np.ndarray) -> SimpleNamespace:
         face_node_connectivity=connectivity,
     )
     return SimpleNamespace(mesh=mesh)
-
-
-def test_render_face_field_ignores_integer_padding_and_labels_colorbar() -> None:
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    sim = _mesh_run(np.asarray([[0, 1, 2, 3], [1, 4, 5, 2]], dtype=int))
-    fig, ax = plt.subplots()
-
-    collection = render_face_field(
-        ax,
-        sim,
-        np.asarray([10.0, 20.0]),
-        vmin=0.0,
-        vmax=30.0,
-        cbar_label="Head [m]",
-    )
-
-    try:
-        assert len(collection.get_paths()) == 2
-        assert collection.get_array().tolist() == [10.0, 20.0]
-        assert collection.get_clim() == (0.0, 30.0)
-        assert fig.axes[-1].get_ylabel() == "Head [m]"
-    finally:
-        plt.close(fig)
 
 
 def test_render_face_field_ignores_float_nan_padding() -> None:

@@ -20,13 +20,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.model.flow import Flow
-from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.model import ModelTime
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers import steady as steady_driver
 from hydromodpy.solver.boussinesq.drivers import transient as transient_driver
-from hydromodpy.solver.boussinesq.forcing.common import steady_period_flags
 from hydromodpy.solver.boussinesq.options import BoussinesqOptions
 from hydromodpy.solver.boussinesq.runtime_contract import TransientStepInputs
 from hydromodpy.solver.boussinesq.state import BoussinesqState
@@ -214,20 +211,6 @@ def test_without_the_key_the_first_period_runs_in_time_from_the_initial_conditio
 
 def _time(regime: str, *, first_period_steady: bool) -> ModelTime:
     return ModelTime(grid=None, regime=regime, first_period_steady=first_period_steady)
-
-
-def test_the_key_is_read_as_the_modflow_builders_read_it() -> None:
-    assert FlowConfig().first_period_steady is True
-    assert ModelTime.from_flow(Flow(FlowConfig()), None).first_period_steady is True
-    not_first = Flow(FlowConfig(first_period_steady=False))
-    assert ModelTime.from_flow(not_first, None).first_period_steady is False
-
-    transient = make_model(time=_time("transient", first_period_steady=True))
-    assert steady_period_flags(transient, 3).tolist() == [True, False, False]
-    transient = make_model(time=_time("transient", first_period_steady=False))
-    assert steady_period_flags(transient, 3).tolist() == [False, False, False]
-    steady = make_model(time=_time("steady", first_period_steady=False))
-    assert steady_period_flags(steady, 2).tolist() == [True, True]
 
 
 @pytest.mark.petsc

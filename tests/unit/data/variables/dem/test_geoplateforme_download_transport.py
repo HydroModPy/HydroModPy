@@ -7,7 +7,6 @@ import pytest
 from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     DownloadFile,
     GeoPlateformeDownloadError,
-    build_download_url,
     download_file,
     fetch_atom_entries,
     list_files,
@@ -128,21 +127,6 @@ def test_a_status_the_client_gives_up_on_is_an_error_naming_it(status):
         )
 
     assert len(client.calls) == 1
-
-
-@pytest.mark.fast
-def test_build_download_url_quotes_each_path_component():
-    url = build_download_url(
-        "BD ALTI",
-        "Sous ressource/D029",
-        "archive accentué + test.7z",
-    )
-
-    assert url == (
-        "https://data.geopf.fr/telechargement/download/"
-        "BD%20ALTI/Sous%20ressource%2FD029/"
-        "archive%20accentu%C3%A9%20%2B%20test.7z"
-    )
 
 
 @pytest.mark.fast

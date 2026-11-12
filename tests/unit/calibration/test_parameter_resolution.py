@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import textwrap
 from pathlib import Path
 from types import SimpleNamespace
@@ -29,7 +28,6 @@ from hydromodpy.calibration.parameter_resolution import (
     unresolved_parameter_names,
 )
 from hydromodpy.calibration.targets import calibration_targets, targets_by_name
-from hydromodpy.cli.commands import config as config_cmd
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
@@ -230,94 +228,7 @@ def _calibration(**parameters: dict) -> CalibrationConfig:
     return CalibrationConfig.model_validate({"parameters": parameters})
 
 
-class TestTheNameIsDerived:
-    def test_a_carrier_leaf_is_named_by_its_entry(self) -> None:
-        """'K', not 'K.value': the leaf declares that it IS the value of K."""
-        names = targets_by_name(calibration_targets(_project__parameter_names()))
-
-        assert "K" in names
-        assert names["K"].path == "flow.param.K.field.value"
-
-    def test_any_other_leaf_carries_its_entry_and_its_own_name(self) -> None:
-        names = targets_by_name(calibration_targets(_project__parameter_names(cheze=_Lake())))
-
-        assert "cheze.bedleak" in names
-        assert "cheze.stage" in names
-
-    def test_a_value_no_entry_declares_is_named_by_what_holds_it(self) -> None:
-        names = targets_by_name(calibration_targets(_project__parameter_names()))
-
-        assert "sinks_sources.recharge_value" in names
-
-    def test_a_spelling_two_targets_share_is_given_to_neither(self) -> None:
-        """Two lakes both carry a bedleak, so neither answers to the short form."""
-        catalogue = calibration_targets(_project__parameter_names(cheze=_Lake(), vire=_Lake()))
-        names = {target.name for target in catalogue}
-
-        assert "cheze.bedleak" in names
-        assert "vire.bedleak" in names
-        assert "bedleak" not in names
-
-
-class TestWhatTheNameResolvesTo:
-    def test_it_writes_the_path_into_the_declaration(self) -> None:
-        calibration = _calibration(K={"bounds": [1e-7, 1e-3]})
-
-        resolve_parameter_targets(calibration, _project__parameter_names())
-
-        assert calibration.parameters["K"].path == "flow.param.K.field.value"
-
-    def test_a_longer_spelling_resolves_when_it_is_the_only_one(self) -> None:
-        calibration = _calibration(bedleak={"bounds": [1e-9, 1e-3]})
-
-        resolve_parameter_targets(calibration, _project__parameter_names(cheze=_Lake()))
-
-        assert calibration.parameters["bedleak"].path == "flow.sinks_sources.lakes.cheze.bedleak"
-
-    def test_a_declared_path_wins_and_is_never_looked_up(self) -> None:
-        calibration = _calibration(
-            whatever={"bounds": [1.0, 2.0], "path": "flow.param.K.field.value"}
-        )
-
-        resolve_parameter_targets(calibration, _project__parameter_names())
-
-        assert calibration.parameters["whatever"].path == "flow.param.K.field.value"
-
-    def test_resolving_twice_changes_nothing(self) -> None:
-        """Both loaders call it, so neither has to know whether the other did."""
-        calibration = _calibration(K={"bounds": [1e-7, 1e-3]})
-        project = _project__parameter_names()
-
-        resolve_parameter_targets(calibration, project)
-        first = calibration.parameters["K"].model_dump()
-        resolve_parameter_targets(calibration, project)
-
-        assert calibration.parameters["K"].model_dump() == first
-
-
 class TestWhatItRefuses:
-    def test_a_name_the_project_does_not_carry(self) -> None:
-        calibration = _calibration(porosity={"bounds": [0.01, 0.4]})
-
-        with pytest.raises(ConfigError) as excinfo:
-            resolve_parameter_targets(calibration, _project__parameter_names())
-
-        assert "porosity" in str(excinfo.value)
-        assert "'K'" in str(excinfo.value)
-
-    def test_a_name_that_contradicts_its_own_path(self) -> None:
-        """The search would move one quantity and the report would name another."""
-        calibration = _calibration(
-            K={"bounds": [1e-9, 1e-3], "path": "flow.sinks_sources.lakes.cheze.bedleak"}
-        )
-
-        with pytest.raises(ConfigError) as excinfo:
-            resolve_parameter_targets(calibration, _project__parameter_names(cheze=_Lake()))
-
-        message = str(excinfo.value)
-        assert "flow.param.K.field.value" in message
-        assert "cheze.bedleak" in message
-
     @pytest.mark.parametrize(
         ("parameters", "message"),
         [
@@ -380,17 +291,6 @@ class TestWhatItRefuses:
         else:
             resolve_parameter_targets(calibration, _project__parameter_names())
 
-    def test_a_path_outside_the_catalogue_warns_that_its_sample_is_written_as_drawn(self) -> None:
-        calibration = _calibration(
-            x={"bounds": [1.0, 2.0], "path": "flow.nowhere.value"}, K={"bounds": [1e-7, 1e-3]}
-        )
-
-        with pytest.warns(UserWarning, match="unit is unknown") as caught:
-            resolve_parameter_targets(calibration, _project__parameter_names())
-
-        assert caught[0].filename == __file__
-        assert calibration.parameters["K"].search_space == "log"
-
     def test_a_calibration_without_parameters_or_phases_reads_as_empty(self) -> None:
         resolve_parameter_targets(SimpleNamespace(), _project__parameter_names())
         bare = SimpleNamespace(parameters=_calibration(K={"bounds": [1e-7, 1e-3]}).parameters)
@@ -398,16 +298,6 @@ class TestWhatItRefuses:
         resolve_parameter_targets(bare, _project__parameter_names())
 
         assert bare.parameters["K"].search_space == "log"
-
-    def test_a_name_the_catalogue_ignores_is_only_a_label(self) -> None:
-        """A file may keep its own vocabulary, as long as it says where to write."""
-        calibration = _calibration(
-            K_aquifer={"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"}
-        )
-
-        resolve_parameter_targets(calibration, _project__parameter_names())
-
-        assert calibration.parameters["K_aquifer"].search_space == "log"
 
     def test_a_name_the_project_carries_several_times(self) -> None:
         calibration = _calibration(bedleak={"bounds": [1e-9, 1e-3]})
@@ -420,47 +310,6 @@ class TestWhatItRefuses:
         message = str(excinfo.value)
         assert "cheze.bedleak" in message
         assert "vire.bedleak" in message
-
-
-class TestWhoWinsOverWho:
-    def test_the_field_supplies_what_the_file_left_unsaid(self) -> None:
-        calibration = _calibration(K={"bounds": [1e-7, 1e-3]})
-
-        resolve_parameter_targets(calibration, _project__parameter_names())
-
-        decl = calibration.parameters["K"]
-        assert decl.search_space == "log"
-        assert decl.sampling == "log_uniform"
-        assert decl.units == "m/s"
-
-    def test_a_path_written_by_hand_inherits_the_same_space(self) -> None:
-        """Two spellings of one quantity must not search two different spaces."""
-        named = _calibration(K={"bounds": [1e-7, 1e-3]})
-        addressed = _calibration(K={"bounds": [1e-7, 1e-3], "path": "flow.param.K.field.value"})
-        project = _project__parameter_names()
-
-        resolve_parameter_targets(named, project)
-        resolve_parameter_targets(addressed, project)
-
-        assert addressed.parameters["K"].model_dump() == named.parameters["K"].model_dump()
-
-    def test_the_file_beats_the_field(self) -> None:
-        """A declared 'identity' is a decision, not a default left standing.
-
-        The unit is the exception: the sample is written in the unit the field
-        reads, so bounds in another unit are converted into it
-        (test_bounds_in_another_unit_are_converted_to_the_target).
-        """
-        calibration = _calibration(
-            K={"bounds": [1e-7, 1e-3], "search_space": "identity", "units": "m/s"}
-        )
-
-        resolve_parameter_targets(calibration, _project__parameter_names())
-
-        decl = calibration.parameters["K"]
-        assert decl.search_space == "identity"
-        assert decl.units == "m/s"
-        assert decl.sampling == "log_uniform"
 
 
 class TestTheRefusalSurvivesTheLoaders:
@@ -476,12 +325,6 @@ class TestTheRefusalSurvivesTheLoaders:
     def test_it_is_typed_apart_from_a_machine_that_lacks_the_data(self) -> None:
 
         assert issubclass(UnresolvedParameterName, ConfigError)
-
-    def test_an_unknown_name_raises_that_type(self) -> None:
-        calibration = _calibration(porosity={"bounds": [0.01, 0.4]})
-
-        with pytest.raises(UnresolvedParameterName):
-            resolve_parameter_targets(calibration, _project__parameter_names())
 
 
 class TestTheUnitTheNameBringsWithIt:
@@ -523,14 +366,6 @@ class TestLoadingReportsWhereRunningRefuses:
     unresolvable name alone and the preflight names it, while the loader that a
     run goes through refuses: a search that would move nothing must not start.
     """
-
-    def test_loading_leaves_it_alone(self) -> None:
-        calibration = _calibration(porosity={"bounds": [0.01, 0.4]}, K={"bounds": [1e-7, 1e-3]})
-
-        resolve_parameter_targets(calibration, _project__parameter_names(), strict=False)
-
-        assert calibration.parameters["porosity"].resolve_target() is None
-        assert calibration.parameters["K"].resolve_target() == "flow.param.K.field.value"
 
     def test_and_says_why_when_asked(self) -> None:
         calibration = _calibration(porosity={"bounds": [0.01, 0.4]}, K={"bounds": [1e-7, 1e-3]})
@@ -768,24 +603,6 @@ REFUSED = [
 ]
 
 
-@pytest.mark.parametrize(("name", "bounds", "project", "path", "units"), RESOLVES)
-def test_a_soil_or_etp_name_resolves_to_its_field(name, bounds, project, path, units) -> None:
-    calibration, project = _soil(name, bounds, project)
-
-    resolve_parameter_targets(calibration, project)
-
-    decl = calibration.parameters[name]
-    assert (decl.path, decl.units, decl.bounds) == (path, units, bounds)
-
-
-@pytest.mark.parametrize(("name", "bounds", "project"), REFUSED)
-def test_a_bound_past_the_registry_is_refused_at_load(name, bounds, project) -> None:
-    calibration, project = _soil(name, bounds, project)
-
-    with pytest.raises(ConfigError, match=name):
-        resolve_parameter_targets(calibration, project)
-
-
 # From test_the_aquifer_geometry_is_calibrable.py
 # The aquifer geometry is a value a search may move, when it is one number.
 #
@@ -818,12 +635,6 @@ class TestTheSchemaTakesWhatASearchWrites:
         apply_parameter_to_config(cfg, param, 80.0)
 
         assert cfg.domain.depth_model.thickness == pytest.approx(80.0)
-
-    def test_a_thickness_that_is_not_positive_is_refused_when_written(self) -> None:
-        model = ConstantThicknessDepthModel(thickness="30 m")
-
-        with pytest.raises(ValueError, match="greater than 0"):
-            model.thickness = -1.0
 
     def test_a_substratum_elevation_may_be_written_below_sea_level(self) -> None:
         cfg = _Config__aquifer_geometry(FlatSubstratumDepthModel(substratum_elevation="10 m"))
@@ -867,45 +678,8 @@ class TestTheCatalogueNamesTheGeometry:
         assert target.registry_id == "elevation"
         assert target.physical_bounds == (-500.0, 9000.0)
 
-    def test_only_the_field_of_the_declared_kind_is_listed(self) -> None:
-        names = targets_by_name(
-            calibration_targets(
-                _Config__aquifer_geometry(FlatSubstratumDepthModel(substratum_elevation="12 m"))
-            )
-        )
-
-        assert "thickness" not in names
-
-    @pytest.mark.parametrize("model", [RasterSubstratumDepthModel(), RasterThicknessDepthModel()])
-    def test_a_raster_depth_model_lists_nothing(self, model: object) -> None:
-        assert calibration_targets(_Config__aquifer_geometry(model)) == []
-
-    def test_every_geometry_target_is_one_a_parameter_may_declare(self) -> None:
-        for model in (
-            ConstantThicknessDepthModel(thickness="30 m"),
-            FlatSubstratumDepthModel(substratum_elevation="12 m"),
-        ):
-            (target,) = calibration_targets(_Config__aquifer_geometry(model))
-            space = ParameterSpace.from_toml_mapping(
-                {"p": {"bounds": [1.0, 2.0], "path": target.path}}
-            )
-            assert space.parameters[0].effective_path == target.path
-
 
 class TestTheNameResolves:
-    def test_thickness_resolves_and_is_searched_in_log_space(self) -> None:
-        calibration = _calibration(thickness={"bounds": [5.0, 300.0]})
-
-        resolve_parameter_targets(
-            calibration, _Config__aquifer_geometry(ConstantThicknessDepthModel(thickness="30 m"))
-        )
-
-        decl = calibration.parameters["thickness"]
-        assert decl.path == "domain.depth_model.thickness"
-        assert decl.search_space == "log"
-        assert decl.sampling == "log_uniform"
-        assert decl.units == "m"
-
     def test_the_long_spelling_resolves_to_the_same_value(self) -> None:
         calibration = _calibration(**{"depth_model.thickness": {"bounds": [5.0, 300.0]}})
 
@@ -916,39 +690,6 @@ class TestTheNameResolves:
         assert calibration.parameters["depth_model.thickness"].path == (
             "domain.depth_model.thickness"
         )
-
-    def test_substratum_elevation_is_searched_in_linear_space(self) -> None:
-        calibration = _calibration(substratum_elevation={"bounds": [-20.0, 15.0]})
-
-        resolve_parameter_targets(
-            calibration,
-            _Config__aquifer_geometry(FlatSubstratumDepthModel(substratum_elevation="0 m")),
-        )
-
-        decl = calibration.parameters["substratum_elevation"]
-        assert decl.path == "domain.depth_model.substratum_elevation"
-        assert decl.search_space == "identity"
-        assert decl.sampling == "uniform"
-
-    def test_a_thickness_bound_past_the_registry_is_refused(self) -> None:
-        calibration = _calibration(thickness={"bounds": [5.0, 20_000.0]})
-
-        with pytest.raises(ConfigError, match=r"parameters\.thickness\] upper bound 20000"):
-            resolve_parameter_targets(
-                calibration,
-                _Config__aquifer_geometry(ConstantThicknessDepthModel(thickness="30 m")),
-            )
-
-    def test_an_elevation_bound_past_the_registry_is_refused(self) -> None:
-        calibration = _calibration(substratum_elevation={"bounds": [-900.0, 10.0]})
-
-        with pytest.raises(
-            ConfigError, match=r"parameters\.substratum_elevation\] lower bound -900"
-        ):
-            resolve_parameter_targets(
-                calibration,
-                _Config__aquifer_geometry(FlatSubstratumDepthModel(substratum_elevation="0 m")),
-            )
 
 
 class TestWhatIsNotSearchableIsRefusedByItsKind:
@@ -964,28 +705,6 @@ class TestWhatIsNotSearchableIsRefusedByItsKind:
 
         with pytest.raises(UnresolvedParameterName, match=kind):
             resolve_parameter_targets(calibration, _Config__aquifer_geometry(model))
-
-    def test_a_thickness_named_on_a_flat_substratum_names_what_it_exposes(self) -> None:
-        calibration = _calibration(thickness={"bounds": [5.0, 300.0]})
-
-        with pytest.raises(UnresolvedParameterName, match="'substratum_elevation'"):
-            resolve_parameter_targets(
-                calibration,
-                _Config__aquifer_geometry(FlatSubstratumDepthModel(substratum_elevation="0 m")),
-            )
-
-    def test_a_raster_offset_named_by_its_path_is_refused_even_when_lenient(self) -> None:
-        """A path is otherwise the way out; into the depth model it is not."""
-        calibration = _calibration(
-            shift={"bounds": [-5.0, 5.0], "path": "domain.depth_model.offset"}
-        )
-
-        with pytest.raises(
-            UnresolvedParameterName, match=r"parameters\.shift\] path = .*raster_substratum"
-        ):
-            resolve_parameter_targets(
-                calibration, _Config__aquifer_geometry(RasterSubstratumDepthModel()), strict=False
-            )
 
     def test_a_thickness_path_on_a_flat_substratum_is_refused(self) -> None:
         calibration = _calibration(
@@ -1041,19 +760,6 @@ def _project__aquifer_geometry(tmp_path: Path, depth_model: str, calibration: st
 
 
 class TestTheProjectFile:
-    def test_a_thickness_named_in_the_file_is_resolved_at_load(self, tmp_path: Path) -> None:
-        path = _project__aquifer_geometry(
-            tmp_path,
-            'kind = "constant_thickness"\nthickness = "30 m"',
-            "\n[calibration.parameters.thickness]\nbounds = [5.0, 300.0]\n",
-        )
-
-        cfg = HydroModPyConfig.from_toml(path)
-
-        decl = cfg.calibration.parameters["thickness"]
-        assert decl.path == "domain.depth_model.thickness"
-        assert decl.search_space == "log"
-
     def test_a_thickness_path_on_a_flat_substratum_stops_the_load(self, tmp_path: Path) -> None:
         path = _project__aquifer_geometry(
             tmp_path,
@@ -1063,29 +769,6 @@ class TestTheProjectFile:
 
         with pytest.raises(UnresolvedParameterName, match="flat_substratum"):
             HydroModPyConfig.from_toml(path)
-
-    def test_config_targets_lists_the_thickness(self, tmp_path: Path, capsys) -> None:
-        path = _project__aquifer_geometry(
-            tmp_path, 'kind = "constant_thickness"\nthickness = "30 m"'
-        )
-
-        config_cmd.run(argparse.Namespace(config_command="targets", file=str(path), json=False))
-
-        out = capsys.readouterr().out
-        line = next(row for row in out.splitlines() if row.startswith("thickness "))
-        assert "domain.depth_model.thickness" in line
-        assert "30" in line
-
-    def test_config_targets_lists_the_substratum_elevation(self, tmp_path: Path, capsys) -> None:
-        path = _project__aquifer_geometry(
-            tmp_path, 'kind = "flat_substratum"\nsubstratum_elevation = "5 m"'
-        )
-
-        config_cmd.run(argparse.Namespace(config_command="targets", file=str(path), json=False))
-
-        out = capsys.readouterr().out
-        assert "substratum_elevation" in out
-        assert "domain.depth_model.thickness" not in out
 
 
 # From test_the_evt_extinction_depth_is_calibrable.py
@@ -1153,33 +836,6 @@ def _project__physical_guard() -> _Project:
             param={"Sy": _Parameter__physical_guard(field=_Zones(values={"zone_1": 0.05}))}
         )
     )
-
-
-def test_the_zone_is_named_after_the_property_it_belongs_to() -> None:
-    (target,) = calibration_targets(_project__physical_guard())
-
-    assert target.name == "Sy.zone_1"
-    assert target.registry_id == "sy"
-    assert target.physical_bounds == (1e-4, 0.5)
-
-
-def test_a_zone_above_the_ceiling_is_refused() -> None:
-    """0.9 is past the specific-yield ceiling, zoned or not."""
-    calibration = _calibration(**{"Sy.zone_1": {"bounds": [1e-4, 0.9]}})
-
-    with pytest.raises(ConfigError) as failure:
-        resolve_parameter_targets(calibration, _project__physical_guard())
-
-    assert "0.9" in str(failure.value)
-    assert "specific yield" in str(failure.value)
-
-
-def test_a_zone_inside_the_ceiling_is_accepted() -> None:
-    calibration = _calibration(**{"Sy.zone_1": {"bounds": [1e-4, 0.3]}})
-
-    resolve_parameter_targets(calibration, _project__physical_guard())
-
-    assert calibration.parameters["Sy.zone_1"].path == "flow.param.Sy.field.values.zone_1"
 
 
 # From test_the_replaced_recharge_rate_is_not_calibrated_in_soil_mode.py

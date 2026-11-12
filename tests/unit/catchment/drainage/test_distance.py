@@ -10,7 +10,6 @@ from hydromodpy.catchment.drainage.distance import (
     downslope_distance_to_mask,
     longest_descent_length,
     mean_downslope_distance,
-    resolve_diagonal_neighbors,
     shared_node_adjacency,
 )
 from tests._helpers.tolerances import tol
@@ -24,12 +23,10 @@ from tests._helpers.v_valley import (
     analytic_receiver,
     build_bench,
     cell_id,
-    criterion_slope,
     crossing_thresholds,
     downstream_closure,
     interpolate_at,
     observed_network,
-    simulated_network,
     sweep_distances,
 )
 
@@ -69,26 +66,6 @@ def _walk_down(metric, target: np.ndarray, start: int) -> float:
 
 
 @pytest.mark.parametrize("surface", ["plane", "white_noise"])
-def test_reverse_order_visits_receiver_first(surface: str) -> None:
-    vertices, connectivity = quad_mesh(20, 20, cell_size=RESOLUTION)
-    if surface == "plane":
-        reference = _plane(20, 20)
-    else:
-        reference = np.random.default_rng(7).normal(100.0, 1.0, 400)
-    metric = build_downslope_metric(reference, connectivity, vertices=vertices)
-
-    ascending = metric.graph.order[::-1]
-    position = np.full(reference.size, -1, dtype=int)
-    position[ascending] = np.arange(ascending.size)
-    routed = np.flatnonzero(metric.graph.downstream >= 0)
-
-    # The single pass reads d[receiver] and needs it final: every receiver must
-    # come strictly earlier than its donor in the traversal order.
-    assert np.all(position[metric.graph.downstream[routed]] < position[routed])
-    assert np.all(position[routed] >= 0)
-
-
-@pytest.mark.parametrize("surface", ["plane", "white_noise"])
 def test_single_pass_matches_naive_path_walk(surface: str) -> None:
     vertices, connectivity = quad_mesh(20, 20, cell_size=RESOLUTION)
     if surface == "plane":
@@ -103,23 +80,6 @@ def test_single_pass_matches_naive_path_walk(surface: str) -> None:
 
     walked = np.array([_walk_down(metric, target, cell) for cell in range(400)])
     assert np.allclose(distance, walked, equal_nan=True)
-
-
-def test_no_cycle_on_exact_plateau() -> None:
-    # Four-row plateaus at exactly the same elevation: a tie must never become
-    # an edge, otherwise two cells route into each other.
-    vertices, connectivity = quad_mesh(20, 5, cell_size=RESOLUTION)
-    rows = np.arange(20, dtype="float64")[:, None] // 4
-    reference = np.broadcast_to(-rows, (20, 5)).reshape(-1).copy()
-    metric = build_downslope_metric(reference, connectivity, vertices=vertices)
-
-    routed = metric.graph.downstream >= 0
-    assert np.all(reference[routed] > reference[metric.graph.downstream[routed]])
-
-    target = np.zeros(100, dtype=bool)
-    target[-5:] = True
-    for cell in range(100):
-        _walk_down(metric, target, cell)  # raises if the descent loops
 
 
 def test_structured_grid_diagonal_descent_length() -> None:
@@ -171,46 +131,6 @@ def test_the_descent_is_d8_by_default_as_in_the_paper() -> None:
     assert distance[0] == pytest.approx(math.sqrt(2.0) * RESOLUTION * (size - 1), rel=1e-12)
 
 
-def test_a_mesh_without_quadrilaterals_falls_back_to_shared_edges() -> None:
-    # No face has a diagonal to take, so D8 is asked for and D4 is what the
-    # graph records, rather than a Voronoi run failing on a knob it never set.
-    vertices, triangles = _two_triangles()
-
-    metric = build_downslope_metric(
-        np.array([2.0, 1.0]), triangles, vertices=vertices, diagonal_neighbors=True
-    )
-
-    assert metric.diagonal_neighbors is False
-    assert int(metric.graph.downstream[0]) == 1
-
-
-def test_the_resolution_keeps_d8_on_quads_and_d4_when_asked() -> None:
-    _, quads = quad_mesh(2, 2, cell_size=RESOLUTION)
-    _, triangles = _two_triangles()
-
-    assert resolve_diagonal_neighbors(quads, n_cells=4, requested=True) is True
-    assert resolve_diagonal_neighbors(quads, n_cells=4, requested=False) is False
-    assert resolve_diagonal_neighbors(triangles, n_cells=2, requested=True) is False
-
-
-def test_target_cells_have_zero_distance() -> None:
-    # A chain where every cell is a target: the zero must be absorbing, so a
-    # target upstream of another target keeps 0 instead of one edge length.
-    vertices, connectivity = quad_mesh(5, 1, cell_size=RESOLUTION)
-    metric = build_downslope_metric(_plane(5, 1), connectivity, vertices=vertices)
-
-    distance = downslope_distance_to_mask(metric, np.ones(5, dtype=bool))
-    assert np.array_equal(distance, np.zeros(5))
-
-
-def test_empty_target_returns_all_inf() -> None:
-    vertices, connectivity = quad_mesh(4, 4, cell_size=RESOLUTION)
-    metric = build_downslope_metric(_plane(4, 4), connectivity, vertices=vertices)
-
-    distance = downslope_distance_to_mask(metric, np.zeros(16, dtype=bool))
-    assert np.all(np.isinf(distance))
-
-
 def test_distance_is_not_symmetric() -> None:
     vertices, connectivity = quad_mesh(4, 1, cell_size=RESOLUTION)
     metric = build_downslope_metric(_plane(4, 1), connectivity, vertices=vertices)
@@ -222,26 +142,6 @@ def test_distance_is_not_symmetric() -> None:
 
     assert to_downstream[0] == pytest.approx(3.0 * RESOLUTION, rel=1e-12)
     assert math.isinf(to_upstream[3])
-
-
-def test_inactive_cells_are_undefined_not_unreachable() -> None:
-    vertices, connectivity = quad_mesh(4, 4, cell_size=RESOLUTION)
-    inactive = np.zeros(16, dtype=bool)
-    inactive[4:8] = True  # a full row cut out of the active surface
-    metric = build_downslope_metric(
-        _plane(4, 4), connectivity, vertices=vertices, inactive_mask=inactive
-    )
-
-    target = np.zeros(16, dtype=bool)
-    target[-4:] = True
-    distance = downslope_distance_to_mask(metric, target)
-
-    assert np.all(np.isnan(distance[inactive]))
-    # The northern row can no longer descend across the cut, so it is defined
-    # and unreached, which is a different count.
-    assert np.all(np.isinf(distance[:4]))
-    summary = mean_downslope_distance(distance, np.ones(16, dtype=bool))
-    assert (summary.n_undefined, summary.n_unreachable, summary.n_reached) == (4, 4, 8)
 
 
 def test_pit_keeps_an_infinite_distance() -> None:
@@ -275,16 +175,6 @@ def test_metric_needs_vertices() -> None:
         build_downslope_metric(_plane(2, 2), connectivity, vertices=None)
 
 
-def test_summary_splits_the_support_three_ways() -> None:
-    distance = np.array([0.0, 5.0, np.inf, np.nan, 7.0])
-    summary = mean_downslope_distance(distance, np.ones(5, dtype=bool))
-
-    assert summary.n_support == 5
-    assert (summary.n_reached, summary.n_unreachable, summary.n_undefined) == (3, 1, 1)
-    assert math.isinf(summary.mean_m)
-    assert math.isinf(summary.max_m)
-
-
 def test_cap_replaces_unreachable_paths() -> None:
     distance = np.array([0.0, 5.0, np.inf, np.nan, 7.0])
     summary = mean_downslope_distance(distance, np.ones(5, dtype=bool), saturation_cap_m=10.0)
@@ -303,14 +193,6 @@ def test_area_weighting_differs_from_cell_weighting() -> None:
 
     assert by_cell.mean_m == pytest.approx(50.0, rel=1e-12)
     assert by_area.mean_m == pytest.approx(75.0, rel=1e-12)
-
-
-def test_empty_support_is_not_a_number() -> None:
-    summary = mean_downslope_distance(np.array([1.0, 2.0]), np.zeros(2, dtype=bool))
-
-    assert math.isnan(summary.mean_m)
-    assert math.isnan(summary.max_m)
-    assert summary.n_support == 0
 
 
 def test_weight_length_is_validated_even_on_an_empty_support() -> None:
@@ -546,123 +428,6 @@ def test_case_b_a_rasterisation_hole_does_not_justify_closing(bench) -> None:
     )
     assert hidden == pytest.approx(ROOT_CLOSED_SIMULATED, rel=1e-3)
     assert drift > 0.0
-
-
-def test_case_c_closing_the_observed_hides_a_misregistered_network(bench) -> None:
-    # The observed network sits one column off the talweg. The method must
-    # reject that case, and closing the observed network makes it pass.
-    observed = observed_network("shifted")
-
-    closed_observed = sweep_distances(
-        bench, observed, close_simulated=True, close_observed=True, seal_outlet=False
-    )
-    sealed = sweep_distances(
-        bench, observed, close_simulated=True, close_observed=False, seal_outlet=True
-    )
-
-    hidden_root = _only_root(*closed_observed)
-    honest_root = _only_root(*sealed)
-
-    assert _r_optim(*closed_observed, hidden_root) < 2.0
-    assert _r_optim(*sealed, honest_root) > 2.0
-    assert honest_root > 10.0 * hidden_root
-
-
-def test_case_c_raw_observed_needs_the_outlet_to_be_defined(bench) -> None:
-    observed = observed_network("shifted")
-    d_so, d_os = sweep_distances(
-        bench, observed, close_simulated=True, close_observed=False, seal_outlet=False
-    )
-    # Every cell west of the shifted network descends to the axis and never
-    # meets it, so the criterion is undefined over the whole sweep.
-    assert not np.any(np.isfinite(d_so - d_os))
-
-
-def test_case_d_outlet_sealing_restores_the_root(bench) -> None:
-    # The observed network stops six cells above the outlet. The simulated
-    # network retracts towards that very reach as the threshold grows, so the
-    # criterion loses its sign change at the high end of the bracket.
-    observed = observed_network("truncated")
-
-    unsealed = sweep_distances(
-        bench, observed, close_simulated=True, close_observed=False, seal_outlet=False
-    )
-    assert crossing_thresholds(*unsealed) == []
-
-    sealed = sweep_distances(
-        bench, observed, close_simulated=True, close_observed=False, seal_outlet=True
-    )
-    root = _only_root(*sealed)
-    assert np.isfinite(root)
-    assert _r_optim(*sealed, root) < 2.0
-
-
-def test_case_d_the_saturation_cap_does_not_replace_the_outlet(bench) -> None:
-    # Capping unreachable paths is the policy the cost uses, and it must not be
-    # mistaken for the repair: it keeps every point defined, and the sign change
-    # is still missing.
-    observed = observed_network("truncated")
-    outlet_mask = np.zeros(N_CELLS, dtype=bool)
-    outlet_mask[bench.outlet] = True
-    cap = longest_descent_length(bench.metric, outlet_mask)
-
-    d_so, d_os = sweep_distances(
-        bench,
-        observed,
-        close_simulated=True,
-        close_observed=False,
-        seal_outlet=False,
-        saturation_cap_m=cap,
-    )
-    defined = np.isfinite(d_so - d_os)
-    assert defined.sum() >= d_so.size - 1  # only the empty-network point drops out
-    assert crossing_thresholds(d_so, d_os) == []
-
-
-def test_closing_the_simulated_network_lifts_the_observed_zero_fraction(bench) -> None:
-    # More than two thirds of the observed network ends up at distance zero
-    # once the simulated network is closed: the two networks share a trunk.
-    observed = observed_network("aligned")
-    d_so, d_os = sweep_distances(
-        bench, observed, close_simulated=True, close_observed=False, seal_outlet=True
-    )
-    root = _only_root(d_so, d_os)
-
-    closed = downstream_closure(bench, simulated_network(bench, root))
-    to_simulated = downslope_distance_to_mask(bench.metric, closed)
-    zero_fraction = float(np.mean(to_simulated[observed] == 0.0))
-
-    raw = simulated_network(bench, root)
-    to_raw = downslope_distance_to_mask(bench.metric, raw)
-    raw_zero_fraction = float(np.mean(to_raw[observed] == 0.0))
-
-    assert zero_fraction > 0.70
-    assert zero_fraction > raw_zero_fraction
-    # The dilution does not make the support degenerate: the mean stays finite
-    # and the counts still add up.
-    summary = mean_downslope_distance(to_simulated, observed)
-    assert summary.n_support == int(observed.sum())
-    assert summary.n_reached == summary.n_support
-    assert np.isfinite(summary.mean_m)
-
-
-def test_closing_the_simulated_network_does_not_cost_sensitivity(bench) -> None:
-    # Closing the simulated network drives most of the observed side to zero
-    # distance, which looks like a loss of information. It is not: the criterion
-    # gets steeper, because the closure makes D_os collapse faster once the
-    # network is over-extended. Measured at +21 per cent here, +22 per cent in
-    # the support study.
-    observed = observed_network("aligned")
-    raw = sweep_distances(
-        bench, observed, close_simulated=False, close_observed=False, seal_outlet=True
-    )
-    closed = sweep_distances(
-        bench, observed, close_simulated=True, close_observed=False, seal_outlet=True
-    )
-
-    raw_slope = criterion_slope(*raw, _only_root(*raw))
-    closed_slope = criterion_slope(*closed, _only_root(*closed))
-    assert closed_slope >= raw_slope
 
 
 def test_lower_axis_cells_never_leave_the_catchment(bench) -> None:

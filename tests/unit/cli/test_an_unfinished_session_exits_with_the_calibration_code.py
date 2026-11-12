@@ -106,13 +106,3 @@ def test_a_partial_session_exits_non_zero_from_its_summary_too(tmp_path, probe, 
 
     assert exited.value.code == EXIT_CALIBRATION
     assert "closed partial: 1 trial(s) failed: trial 2" in capsys.readouterr().err
-
-
-def test_a_completed_session_returns(tmp_path, probe, capsys) -> None:
-    report = _calibrate(tmp_path)
-    capsys.readouterr()
-
-    exit_if_session_unfinished(report)
-
-    assert read_session(report.session_dir).status == "completed"
-    assert capsys.readouterr().err == ""

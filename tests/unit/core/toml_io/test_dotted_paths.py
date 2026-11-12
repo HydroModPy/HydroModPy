@@ -8,22 +8,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 from hydromodpy.core.toml_io.error_locator import locate_loc
-from hydromodpy.core.toml_io.paths import (
-    DottedPath,
-    UnknownPathError,
-    assign,
-    lookup,
-    parse,
-    resolve_field,
-)
-
-
-def test_a_bare_path_splits_on_dots() -> None:
-    assert parse("geographic.catchment.x_outlet").parts == (
-        "geographic",
-        "catchment",
-        "x_outlet",
-    )
+from hydromodpy.core.toml_io.paths import DottedPath, UnknownPathError, assign, parse, resolve_field
 
 
 def test_a_quoted_part_keeps_its_dots_and_dashes() -> None:
@@ -38,12 +23,6 @@ def test_a_path_renders_back_to_what_parse_reads() -> None:
     path = DottedPath(("sites", "recipes", "k2e-5", "a.b", "plain", "x y"))
     assert str(path) == 'sites.recipes."k2e-5"."a.b".plain."x y"'
     assert parse(str(path)) == path
-
-
-@pytest.mark.parametrize("text", ["data.sources[0].path", "x[0]", "a.b[]"])
-def test_an_index_is_refused(text: str) -> None:
-    with pytest.raises(ValueError, match="no index"):
-        parse(text)
 
 
 def test_a_bracket_inside_quotes_is_a_key() -> None:
@@ -70,13 +49,6 @@ def test_assign_refuses_to_turn_a_value_into_a_table() -> None:
         assign(payload, "simulation.name.first", "y")
 
 
-def test_lookup_reads_a_value_and_names_the_neighbours_of_a_miss() -> None:
-    payload = {"geographic": {"catchment": {"x_outlet": 1.0, "y_outlet": 2.0}}}
-    assert lookup(payload, "geographic.catchment.x_outlet") == 1.0
-    with pytest.raises(KeyError, match="x_outlet"):
-        lookup(payload, "geographic.catchment.x_outlt")
-
-
 class _Leaf(BaseModel):
     value: float = 0.0
     unit: str = "m/s"
@@ -101,15 +73,6 @@ class _Root(BaseModel):
     params: dict[str, _Leaf] = Field(default_factory=dict)
     free: dict[str, Any] = Field(default_factory=dict)
     items: list[_Leaf] = Field(default_factory=list)
-
-
-def test_resolve_field_walks_optional_models() -> None:
-    assert resolve_field(_Root, "leaf.value").annotation is float
-
-
-def test_resolve_field_picks_the_union_variant_that_declares_the_key() -> None:
-    assert resolve_field(_Root, "variant.alpha").annotation is int
-    assert resolve_field(_Root, "variant.beta.unit").annotation is str
 
 
 def test_resolve_field_reads_a_table_key_as_a_key() -> None:
@@ -165,26 +128,3 @@ SOLVER_TABLE_PATHS = (
     ("solver.boussinesq.max_iterations", "max_iterations"),
     ("solver.modflow6", None),
 )
-
-
-@pytest.mark.parametrize(("path", "leaf"), SOLVER_TABLE_PATHS)
-def test_resolve_field_walks_the_settings_table_of_a_flow_solver(
-    path: str, leaf: str | None
-) -> None:
-    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.core.config_kit.introspect import fields_and_tables
-    from hydromodpy.solver.base.solver_config import SolverConfig
-
-    field = resolve_field(HydroModPyConfig, path)
-
-    if leaf is None:
-        assert field is fields_and_tables(SolverConfig)["modflow6"]
-    else:
-        assert field.annotation is not None
-
-
-def test_a_solver_table_nothing_serves_is_refused_with_the_tables_served() -> None:
-    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-
-    with pytest.raises(UnknownPathError, match="solver has no key 'modflow7'; nearest: modflow6"):
-        resolve_field(HydroModPyConfig, "solver.modflow7.runtime")

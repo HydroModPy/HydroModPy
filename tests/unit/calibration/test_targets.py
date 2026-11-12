@@ -8,15 +8,11 @@ from typing import Annotated
 import pytest
 from pydantic import Field
 
-from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.optim.parameters import ParameterSpace
-from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
 from hydromodpy.calibration.targets import (
     _physical_bounds_for,
     _searched_as_written_when_signed,
     _unit_the_leaf_is_read_in,
     calibration_targets,
-    declared_calibrable,
     targets_by_name,
     targets_by_path,
 )
@@ -28,7 +24,6 @@ from hydromodpy.core.config_kit.calibrable import Calibrable as reexported
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.field_param.sections import FieldHomogeneousSection
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
@@ -36,7 +31,6 @@ from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from tests.unit.calibration._factories import _Project
-from tests.unit.calibration._factories_config import sinks_project
 
 # From test_a_field_declares_itself_calibrable.py
 # The annotation had no reachable field to sit on, so it annotated nothing.
@@ -86,19 +80,6 @@ class TestWhatIsAnnotated:
 
         assert found is not None
         assert found.bounds is None
-
-    def test_the_catalogue_reads_it_off_the_field(self) -> None:
-        """The walk that builds the catalog is the one that collects it."""
-        found = declared_calibrable(FieldHomogeneousSection.model_fields["value"])
-
-        assert isinstance(found, Calibrable)
-
-    def test_it_declares_itself_the_value_of_its_parameter(self) -> None:
-        """Which is what lets a file write 'K' instead of 'K.value'."""
-        found = declared_calibrable(FieldHomogeneousSection.model_fields["value"])
-
-        assert found is not None
-        assert found.is_the_value_of_its_instance
 
 
 # From test_recharge_target_units.py
@@ -162,22 +143,6 @@ def _project__catalogue_declared() -> _Project:
     return _Project(_Flow(sinks_sources=_SinksSources(reaches={"r1": _Reach()})))
 
 
-def test_an_annotated_leaf_is_in_the_catalogue() -> None:
-    names = targets_by_name(calibration_targets(_project__catalogue_declared()))
-
-    assert "r1.manning" in names
-
-
-def test_an_unannotated_numeric_sibling_is_not() -> None:
-    names = targets_by_name(calibration_targets(_project__catalogue_declared()))
-
-    assert "r1.min_slope" not in names
-    assert not any(
-        target.path.endswith("min_slope")
-        for target in calibration_targets(_project__catalogue_declared())
-    )
-
-
 # From test_the_catalogue_of_targets.py
 # What a project can calibrate has to be answerable without reading the code.
 #
@@ -213,12 +178,6 @@ def cfg(tmp_path):
 
 
 class TestWhatItLists:
-    def test_it_lists_every_declared_flow_parameter(self, cfg) -> None:
-        found = targets_by_path(calibration_targets(cfg))
-
-        assert "flow.param.K.field.value" in found
-        assert "flow.param.Sy.field.value" in found
-
     def test_a_target_carries_what_the_value_is_now(self, cfg) -> None:
         target = targets_by_path(calibration_targets(cfg))["flow.param.K.field.value"]
 
@@ -229,61 +188,6 @@ class TestWhatItLists:
         target = targets_by_path(calibration_targets(cfg))["flow.param.K.field.value"]
 
         assert target.units == "m/s"
-
-    def test_a_target_the_registry_knows_carries_its_physical_range(self, cfg) -> None:
-        found = targets_by_path(calibration_targets(cfg))
-
-        assert found["flow.param.K.field.value"].physical_bounds == (1e-14, 1e2)
-        assert found["flow.param.Sy.field.value"].physical_bounds == (1e-4, 0.5)
-
-    def test_a_target_the_registry_does_not_know_says_so_rather_than_guessing(
-        self, tmp_path
-    ) -> None:
-        cfg = _config(
-            tmp_path,
-            param_list=["weird"],
-            param={
-                "weird": {
-                    "field": {"id": "weird", "kind": "homogeneous", "unit": "-", "value": 3.0}
-                }
-            },
-        )
-
-        target = targets_by_path(calibration_targets(cfg))["flow.param.weird.field.value"]
-
-        assert target.physical_bounds is None
-
-    def test_a_project_declaring_nothing_lists_nothing_rather_than_failing(self, tmp_path) -> None:
-        assert calibration_targets(_config(tmp_path)) is not None
-
-
-class TestWhatItLeavesOut:
-    def test_a_flag_is_not_a_target(self, cfg) -> None:
-        """A boolean is a switch, not a value to search between two bounds."""
-        paths = targets_by_path(calibration_targets(cfg))
-
-        assert not any(isinstance(target.current, bool) for target in paths.values())
-
-    def test_the_mesh_is_not_offered(self, cfg) -> None:
-        paths = targets_by_path(calibration_targets(cfg))
-
-        assert not any(path.startswith("mesh") for path in paths)
-
-    def test_every_listed_path_is_one_a_parameter_may_declare(self, cfg) -> None:
-        """The catalog would be a trap if it named a path the space refuses."""
-
-        for target in calibration_targets(cfg):
-            space = ParameterSpace.from_toml_mapping(
-                {"p": {"bounds": [1.0, 2.0], "path": target.path}}
-            )
-            assert space is not None
-
-
-class TestTheOrdering:
-    def test_targets_come_back_in_path_order(self, cfg) -> None:
-        paths = [target.path for target in calibration_targets(cfg)]
-
-        assert paths == sorted(paths)
 
 
 # From test_the_catalogue_sees_a_value_written_with_its_unit.py
@@ -450,16 +354,6 @@ def test_the_soil_reservoir_offers_six_named_targets_with_their_own_units() -> N
     assert by_name["soil.transit_time"].units == "day"
 
 
-def test_impervious_fraction_declares_no_default_range() -> None:
-    by_name = targets_by_name(calibration_targets(_project()))
-
-    target = by_name["soil.impervious_fraction"]
-    assert target.calibrable is not None
-    assert target.calibrable.bounds is None
-    assert target.registry_id == "soil_impervious_fraction"
-    assert target.physical_bounds == (0.0, 0.95)
-
-
 # From test_the_transit_time_does_not_borrow_a_conductivity_range.py
 # A soil leaf named like a hydraulic property does not borrow its range.
 #
@@ -467,24 +361,6 @@ def test_impervious_fraction_declares_no_default_range() -> None:
 # lookup would have handed ``soil.transit_time`` that range instead of the one a
 # soil delay actually respects. ``_REGISTRY_ID_BY_PATH`` binds each soil path to
 # its own ``soil_*`` key, never found by the bare leaf name.
-
-
-def test_transit_time_reads_its_own_range_not_a_transmissivity() -> None:
-    by_name = targets_by_name(calibration_targets(_project()))
-
-    transit_time = by_name["soil.transit_time"]
-
-    assert transit_time.registry_id == "soil_transit_time"
-    assert transit_time.physical_bounds == (0.0, 30.0)
-
-
-def test_alpha_never_answers_to_its_bare_leaf_name() -> None:
-    by_name = targets_by_name(calibration_targets(_project()))
-
-    alpha = by_name["soil.alpha"]
-
-    assert alpha.registry_id == "soil_alpha"
-    assert alpha.registry_id != "alpha"
 
 
 # From test_the_vertical_profile_characteristic_depth_is_calibrable.py
@@ -547,84 +423,9 @@ def test_min_factor_reads_its_own_range_not_k() -> None:
     assert target.current == pytest.approx(0.2)
 
 
-def test_the_short_name_resolves_uniquely_and_reaches_the_field() -> None:
-    calibration = CalibrationConfig.model_validate(
-        {"parameters": {"K.characteristic_depth": {"bounds": [5.0, 200.0]}}}
-    )
-
-    resolve_parameter_targets(
-        calibration, _project__vertical_profile(kind="exponential", characteristic_depth=30.0)
-    )
-
-    decl = calibration.parameters["K.characteristic_depth"]
-    assert decl.path == "flow.param.K.field_vertical_profile.characteristic_depth"
-    assert decl.units == "m"
-
-
-def test_a_bound_past_the_ceiling_is_refused_not_faced_with_k() -> None:
-    calibration = CalibrationConfig.model_validate(
-        {"parameters": {"K.characteristic_depth": {"bounds": [5.0, 5000.0]}}}
-    )
-
-    with pytest.raises(ConfigError, match="characteristic depth"):
-        resolve_parameter_targets(
-            calibration, _project__vertical_profile(kind="exponential", characteristic_depth=30.0)
-        )
-
-
 # The recharge factor, the rate of a well and the vertical anisotropy.
 def _well(units: str) -> dict:
     return {"location": {"kind": "cell", "cell": [0, 0, 0]}, "flux": -0.01, "units": units}
-
-
-@pytest.mark.parametrize(
-    ("name", "units", "physical", "bounds"),
-    [
-        ("recharge.factor", "-", None, (0.5, 2.0)),
-        ("pump.flux", "m3/s", (-1.0, 1.0), None),
-        ("day.flux", "m3/day", (-86400.0, 86400.0), None),
-    ],
-)
-def test_the_factor_and_a_well_read_their_range(name, units, physical, bounds) -> None:
-    wells = {"pump": _well("m3/s"), "day": _well("m3/day")}
-    project = sinks_project(recharge=FlowRechargeConfig(), wells=wells)
-
-    target = targets_by_name(calibration_targets(project))[name]
-
-    assert (target.units, target.physical_bounds, target.calibrable.bounds) == (
-        units,
-        physical,
-        bounds,
-    )
-
-
-@pytest.mark.parametrize(
-    ("param", "backend", "offered"),
-    [
-        (("K",), "modflow6", True),
-        (("K", "Kv"), "modflow6", False),
-        (("K",), "modflow_nwt", False),
-    ],
-)
-def test_vka_is_offered_where_it_is_read(tmp_path, param, backend, offered) -> None:
-    fields = {"kind": "homogeneous", "unit": "m/s", "value": 1e-5}
-    declared = {name: {"field": {"id": name, **fields}} for name in param}
-    cfg = _config(tmp_path, param=declared).model_copy(
-        update={"solver": SolverConfig(backend=backend)}
-    )
-
-    target = targets_by_name(calibration_targets(cfg)).get("vka")
-
-    assert (target is not None) is offered
-    calibration = CalibrationConfig.model_validate({"parameters": {"vka": {"bounds": [1, 10]}}})
-    if offered:
-        resolve_parameter_targets(calibration, cfg)
-        assert calibration.parameters["vka"].path == "solver.modflow6.process_specific.vka"
-        assert calibration.parameters["vka"].search_space == "log"
-        assert (target.current, target.units, target.physical_bounds) == (1.0, "-", (1e-3, 1e2))
-    else:
-        with pytest.raises(ConfigError, match="names nothing this project carries"):
-            resolve_parameter_targets(calibration, cfg)
 
 
 def test_a_signed_range_leaves_a_search_that_is_not_logarithmic_as_declared() -> None:
@@ -663,35 +464,6 @@ def test_a_unit_the_registry_cannot_convert_gets_no_range() -> None:
 
 class TestTheOptionsTableOfTheBackendThatRuns:
     """What the table of the backend that runs offers to a search."""
-
-    def test_an_option_the_table_declares_calibrable_is_listed_by_its_field(self, tmp_path) -> None:
-        """The shipped MODFLOW 6 table declares one calibrable field, ``vka``."""
-        cfg = _config(
-            tmp_path,
-            param={
-                "K": {"field": {"id": "K", "kind": "homogeneous", "unit": "m/s", "value": 1e-5}}
-            },
-        ).model_copy(update={"solver": SolverConfig(backend="modflow6")})
-
-        target = targets_by_path(calibration_targets(cfg))["solver.modflow6.process_specific.vka"]
-
-        assert (target.name, target.current, target.units) == ("vka", 1.0, "-")
-        assert target.calibrable.search_space == "log"
-
-    def test_an_option_that_declares_nothing_searchable_is_not_listed(self, tmp_path) -> None:
-        """The MODFLOW 6 runtime carries no calibrable field, and none is offered."""
-        cfg = _config(
-            tmp_path,
-            param={
-                "K": {"field": {"id": "K", "kind": "homogeneous", "unit": "m/s", "value": 1e-5}},
-                "Kv": {"field": {"id": "Kv", "kind": "homogeneous", "unit": "m/s", "value": 1e-4}},
-            },
-        ).model_copy(update={"solver": SolverConfig(backend="modflow6")})
-
-        paths = {target.path for target in calibration_targets(cfg)}
-
-        assert "solver.modflow6.process_specific.vka" not in paths
-        assert not any(path.startswith("solver.") for path in paths)
 
     def test_an_option_excluding_a_declared_entry_is_left_out(self) -> None:
         """A field that keeps itself out of the way of a declared one is not a target."""

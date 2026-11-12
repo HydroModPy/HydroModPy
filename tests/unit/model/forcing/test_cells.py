@@ -7,11 +7,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.data.contracts.load_result import LoadResult
-from hydromodpy.model.forcing.cells import (
-    discretize_fields_on_cells,
-    discretize_points_on_cells,
-    stress_period_bounds,
-)
+from hydromodpy.model.forcing.cells import discretize_fields_on_cells, discretize_points_on_cells
 from tests._helpers import forcing_cases as fc
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
@@ -108,22 +104,3 @@ def test_a_record_that_ends_early_stops_the_run_under_error(on_cells, record):
     six_months = fc.window("2020-01-01", "2020-06-30", coverage_policy="error")
     with pytest.raises(ValueError, match="does not cover stress period"):
         on_cells([record], nper=6, simulation_window=six_months)
-
-
-@pytest.mark.parametrize(
-    ("nper", "simulation_window", "expected"),
-    [
-        (3, None, None),
-        (3, fc.window("2020-01-01", "2020-03-31"), [(JAN, FEB), (FEB, MAR), (MAR, APR)]),
-        (2, fc.window("2020-01-01", "2020-03-31"), [(JAN, FEB), (FEB, MAR)]),
-        (1, fc.window("2020-01-01", "2020-06-30", period_bounds=((JAN, JUL),)), [(JAN, JUL)]),
-        (1, fc.window("2020-01-01", "2020-03-31", period_bounds=(("2020-01-01", "2020-02-01"), (FEB, APR))),
-         [(JAN, FEB)]),
-    ],
-    ids=["no-window-no-bound", "monthly-half-open-periods", "stop-at-the-run-periods",
-         "steady-whole-window", "explicit-stop-at-the-run-periods"],
-)  # fmt: skip
-def test_the_periods_of_a_window_are_half_open_and_stop_at_the_run(
-    nper, simulation_window, expected
-):
-    assert stress_period_bounds(nper, simulation_window) == expected

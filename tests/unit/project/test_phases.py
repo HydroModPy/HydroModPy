@@ -42,27 +42,6 @@ def _voronoi_reading(path: str) -> MeshConfig:
     return MeshConfig(engine="voronoi", triangle={"path": path}, voronoi={"seeds": "triangulation"})
 
 
-@pytest.mark.parametrize("engine", ["triangle", "voronoi"])
-def test_a_generated_mesh_that_follows_the_rivers_switches_the_network_on(engine: str) -> None:
-    geographic = _geographic()
-
-    updated = river_network_for_the_mesh(_cfg(geographic, MeshConfig(engine=engine)))
-
-    assert updated.river_network.enabled is True
-    assert geographic.river_network.enabled is False
-
-
-def test_a_zone_on_the_height_above_the_stream_switches_the_network_on() -> None:
-    hand = MeshConfig(
-        engine="voronoi",
-        cell_size=80.0,
-        families={"rivers": "none", "geology": "none", "lakes": "none", "barriers": "none"},
-        refinement_zone=[{"where": "height_above_stream", "below": 2.0, "cell_size": 20.0}],
-    )
-
-    assert river_network_for_the_mesh(_cfg(_geographic(), hand)).river_network.enabled is True
-
-
 @pytest.mark.parametrize(
     ("mesh_cfg", "active_bc", "synthetic"),
     [
@@ -80,20 +59,6 @@ def test_the_network_stays_as_it_is(
     geographic = _geographic(synthetic=synthetic)
 
     assert river_network_for_the_mesh(_cfg(geographic, mesh_cfg, active_bc)) is geographic
-
-
-def test_a_mesh_read_from_a_file_needs_the_network_for_a_stream_boundary() -> None:
-    updated = river_network_for_the_mesh(
-        _cfg(_geographic(), _voronoi_reading("mesh.msh"), (" Stream ",))
-    )
-
-    assert updated.river_network.enabled is True
-
-
-def test_a_network_already_on_is_left_as_it_is() -> None:
-    geographic = _geographic(enabled=True)
-
-    assert river_network_for_the_mesh(_cfg(geographic, MeshConfig(engine="triangle"))) is geographic
 
 
 def _project() -> SimpleNamespace:

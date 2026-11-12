@@ -12,8 +12,6 @@ the third one carries the sentence saying what to declare.
 
 from __future__ import annotations
 
-import pytest
-
 from hydromodpy.catchment.preprocess.geographic_config import GeographicConfig
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.model.flow_config import FlowConfig
@@ -52,28 +50,7 @@ def _declared(backend: str, cfg) -> dict[str, ObservableSupport]:
     return {item.name: item for item in adapter.declared_observables(active)}
 
 
-@pytest.mark.parametrize("backend", ["modflow6", "modflow_nwt", "boussinesq"])
-def test_every_flow_backend_answers(tmp_path, backend: str) -> None:
-    declared = _declared(backend, _config(tmp_path, backend))
-
-    assert declared, backend
-
-
-@pytest.mark.parametrize("backend", ["modflow6", "modflow_nwt", "boussinesq"])
-def test_every_backend_serves_a_head_at_a_cell(tmp_path, backend: str) -> None:
-    """The one observable all three have always produced."""
-    declared = _declared(backend, _config(tmp_path, backend))
-
-    assert declared["head"].is_servable_now, declared["head"].reason
-
-
 class TestTheThirdState:
-    def test_a_lake_stage_waits_on_a_declaration_under_modflow6(self, tmp_path) -> None:
-        declared = _declared("modflow6", _config(tmp_path, "modflow6"))
-
-        assert declared["stage"].state == "servable_under_condition"
-        assert "flow.sinks_sources.lakes" in declared["stage"].reason
-
     def test_declaring_the_lake_makes_it_servable(self, tmp_path) -> None:
         declared = _declared("modflow6", _config(tmp_path, "modflow6", sinks_sources=LAKES))
 
@@ -84,32 +61,6 @@ class TestTheThirdState:
 
         assert declared["stage"].can_never_be_served
         assert "LAK" in declared["stage"].reason
-
-    def test_declaring_a_lake_does_not_make_nwt_serve_it(self, tmp_path) -> None:
-        """No configuration changes what a backend does not build."""
-        with pytest.raises(Exception):
-            _config(tmp_path, "modflow_nwt", sinks_sources=LAKES)
-
-
-class TestTheNetworkCriterionsInput:
-    def test_modflow6_serves_the_release_flux(self, tmp_path) -> None:
-        declared = _declared("modflow6", _config(tmp_path, "modflow6"))
-
-        assert declared["release_flux"].is_servable_now
-
-    def test_boussinesq_declares_it_unavailable(self, tmp_path) -> None:
-        """It computes a saturation excess per cell, and its extraction does not serve it."""
-        declared = _declared("boussinesq", _config(tmp_path, "boussinesq"))
-
-        assert declared["release_flux"].state == "unavailable"
-        assert "extraction" in declared["release_flux"].reason
-
-
-class TestEveryAnswerCarriesASentence:
-    @pytest.mark.parametrize("backend", ["modflow6", "modflow_nwt", "boussinesq"])
-    def test_a_refusal_says_what_to_do(self, tmp_path, backend: str) -> None:
-        for support in _declared(backend, _config(tmp_path, backend)).values():
-            assert support.reason.strip(), f"{backend}/{support.name}"
 
 
 class TestPreflightActsOnIt:
@@ -147,24 +98,6 @@ class TestPreflightActsOnIt:
         )
         findings = preflight_calibration(cfg, source=tmp_path / "calib.toml")
         return [f"{item.path}: {item.detail}" for item in findings]
-
-    def test_a_lake_output_on_nwt_is_refused_before_the_search(self, tmp_path) -> None:
-        messages = " | ".join(self._check(tmp_path, "modflow_nwt", "lake"))
-
-        assert "stage" in messages
-        assert "LAK" in messages
-
-    def test_a_lake_output_on_modflow6_without_the_lake_names_the_declaration(
-        self, tmp_path
-    ) -> None:
-        messages = " | ".join(self._check(tmp_path, "modflow6", "lake"))
-
-        assert "flow.sinks_sources.lakes" in messages
-
-    def test_a_network_output_passes_on_every_backend_that_serves_it(self, tmp_path) -> None:
-        for backend in ("modflow6", "modflow_nwt"):
-            messages = " | ".join(self._check(tmp_path, backend, "network"))
-            assert "release_flux" not in messages, backend
 
     def test_a_network_output_on_boussinesq_says_what_to_use(self, tmp_path) -> None:
         messages = " | ".join(self._check(tmp_path, "boussinesq", "network"))

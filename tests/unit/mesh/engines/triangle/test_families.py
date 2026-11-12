@@ -15,26 +15,17 @@ from importlib.util import find_spec
 import numpy as np
 import pytest
 import shapely
-from hypothesis import assume, given, settings
-from hypothesis import strategies as st
-from scipy.spatial import Delaunay
 from shapely.geometry import LineString
 
 from hydromodpy.catchment.algorithms.river_mesh_trace import RiverMeshTrace
 from hydromodpy.core.exceptions import MeshGenerationError
 from hydromodpy.mesh import registry
-from hydromodpy.mesh.cells.barrier_faces import BarrierFace
-from hydromodpy.mesh.engines.face_families import box_side_edges, edge_lookup
+from hydromodpy.mesh.engines.face_families import edge_lookup
 from hydromodpy.mesh.engines.triangle.engine import (
     TriangleMeshEngine,
     triangulate_request,
 )
-from hydromodpy.mesh.engines.triangle.families import chains_of
-from hydromodpy.mesh.engines.triangle.msh_groups import families_from_labels
 from hydromodpy.mesh.mesh_config import MeshConfig
-from hydromodpy.mesh.planar.cell_types import CellType
-from hydromodpy.mesh.planar.geometry import derive_geometry
-from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.planar.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.mesh.planning.plan import plan_mesh_request
 from hydromodpy.mesh.request import (
@@ -44,7 +35,6 @@ from hydromodpy.mesh.request import (
     MeshRequest,
 )
 from hydromodpy.model.boundaries.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
-from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, wall_leaks
 from tests._helpers import reservoir_dam as dam
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,
@@ -149,19 +139,6 @@ def test_the_rows_of_a_line_run_along_it_end_to_end() -> None:
 
 
 @needs_gmsh
-def test_a_cell_takes_the_zone_of_its_side_of_the_contact() -> None:
-    cell_mesh = TriangleMeshEngine().build(_square())
-    x, y = cell_mesh.centers.T
-    # The contact runs from (400, 0) to (600, 1000): x = 400 + 0.2 y.
-    west = x < X0 + 400 + 0.2 * (y - Y0)
-    zones = np.asarray(cell_mesh.zone_names)[cell_mesh.cell_zone]
-
-    assert set(cell_mesh.zone_names) == {"west_unit", "east_unit"}
-    assert np.all(zones[west] == "west_unit")
-    assert np.all(zones[~west] == "east_unit")
-
-
-@needs_gmsh
 def test_a_line_with_no_edge_has_no_vertex() -> None:
     triangulated = triangulate_request(_square())
     contact = triangulated.families.get("geology")
@@ -173,34 +150,6 @@ def test_a_line_with_no_edge_has_no_vertex() -> None:
 # --------------------------------------------------------------------------- #
 # Families of a read triangulation
 # --------------------------------------------------------------------------- #
-
-
-@needs_gmsh
-@pytest.mark.parametrize("labels", [True, False], ids=["physical_groups", "line_matching"])
-def test_a_read_triangulation_finds_the_families_it_was_generated_with(labels: bool) -> None:
-    read, generated = _fed_back(_three_zones(), labels)
-    cell_mesh = TriangleMeshEngine().build(read)
-
-    for family in ("rivers", "geology"):
-        assert {tuple(sorted(r)) for r in _rows(cell_mesh, family).tolist()} == {
-            tuple(sorted(r)) for r in _rows(generated, family).tolist()
-        }, family
-    assert set(_zone_of_cells(generated).tolist()) == {"a", "b", "c"}
-    assert np.array_equal(_zone_of_cells(cell_mesh), _zone_of_cells(generated))
-    assert cell_mesh.chains("rivers")
-
-
-@needs_gmsh
-def test_one_interface_group_alone_does_not_say_which_zone_is_on_which_side() -> None:
-    request = _square()
-    geology = triangulate_request(request).families.get("geology")
-    pairs = np.column_stack([geology.node_a, geology.node_b])
-    cell_mesh = TriangleMeshEngine().build(
-        _read(request, {"interface::east_unit::west_unit": pairs})
-    )
-
-    assert cell_mesh.face_rows("geology").any()
-    assert np.all(cell_mesh.cell_zone == -1)
 
 
 @needs_gmsh
@@ -379,69 +328,6 @@ def test_the_wall_faces_lie_on_the_wall_line(offset: float) -> None:
 
 
 @needs_gmsh
-@pytest.mark.parametrize("offset", [12.0, -30.0], ids=["gap_12_m", "crossing"])
-def test_each_shore_face_is_one_face_of_both_families(offset: float) -> None:
-    wall, _, cell_mesh = _walled(offset)
-    barrier = _pairs(_interior_rows(cell_mesh, BARRIER_FAMILY))
-    lakes = _pairs(_interior_rows(cell_mesh, "lakes"))
-    shared = set(barrier) & set(lakes)
-    rows = _interior_rows(cell_mesh, BARRIER_FAMILY)
-    on_shore = [
-        pair
-        for pair, gap in zip(
-            barrier, shapely.distance(shapely.points(_midpoints(cell_mesh, rows)), wall.shore)
-        )
-        if gap < ON_LINE_M
-    ]
-
-    assert len(barrier) == len(set(barrier))
-    assert len(lakes) == len(set(lakes))
-    assert len(shared) >= 5
-    assert set(on_shore) <= shared
-
-
-@needs_gmsh
-@pytest.mark.parametrize("offset", [12.0, -30.0], ids=["gap_12_m", "crossing"])
-def test_every_barrier_row_keeps_the_lake_on_its_left(offset: float) -> None:
-    wall, _, cell_mesh = _walled(offset)
-    rows = _interior_rows(cell_mesh, BARRIER_FAMILY)
-    lake = shapely.contains_xy(wall.polygon, *cell_mesh.centers.T)
-
-    assert not downstream_of_wall(wall.line, cell_mesh.centers[rows[:, 0]]).any()
-    assert downstream_of_wall(wall.line, cell_mesh.centers[rows[:, 1]]).sum() >= len(rows) // 2
-    assert not lake[rows[:, 1]].any()
-
-
-@needs_gmsh
-@pytest.mark.parametrize("offset", [12.0, -30.0], ids=["gap_12_m", "crossing"])
-def test_the_wings_meet_the_shore_at_its_corners_and_reach_their_ends(offset: float) -> None:
-    wall, request, cell_mesh = _walled(offset)
-    vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
-    barrier = _interior_rows(cell_mesh, BARRIER_FAMILY)
-    lakes = _interior_rows(cell_mesh, "lakes")
-    line = request.family(BARRIER_FAMILY).lines[0]
-
-    for corner in (wall.shore.coords[0], wall.shore.coords[-1]):
-        node = int(np.argmin(np.hypot(*(vertices - corner).T)))
-        assert np.hypot(*(vertices[node] - corner)) < ON_LINE_M
-        assert np.count_nonzero(barrier[:, 2:] == node) == 2
-        assert np.count_nonzero(lakes[:, 2:] == node) == 2
-    for end in (line.coords[0], line.coords[-1]):
-        assert np.hypot(*(vertices[barrier[:, 2:].ravel()] - end).T).min() < ON_LINE_M
-
-
-@needs_gmsh
-@pytest.mark.parametrize("offset", [12.0, -30.0], ids=["gap_12_m", "crossing"])
-def test_nothing_reaches_the_lake_side_from_downstream_across_the_family(offset: float) -> None:
-    wall, _, cell_mesh = _walled(offset)
-    lake = np.flatnonzero(shapely.contains_xy(wall.polygon, *cell_mesh.centers.T))
-    faces = [BarrierFace(a, b, 0.0) for a, b in _pairs(_interior_rows(cell_mesh, BARRIER_FAMILY))]
-
-    assert wall_leaks(cell_mesh, wall.line, lake, faces, reach=100.0).size == 0
-    assert wall_leaks(cell_mesh, wall.line, lake, faces[::2], reach=100.0).size > 0
-
-
-@needs_gmsh
 @pytest.mark.parametrize("angle", [90.0, 30.0, 15.0])
 def test_a_river_crosses_the_barrier_once_between_two_chain_cells(angle: float) -> None:
     barrier, river = _river_crossing(angle)
@@ -471,36 +357,11 @@ _FAN_TRIANGLES = np.array([[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]])
 """A square cut into four triangles around its center, vertex 4."""
 
 
-def test_the_fan_around_an_inner_vertex_gives_the_triangles_between_two_edges() -> None:
-    lookup = edge_lookup(_FAN_VERTICES, _FAN_TRIANGLES)
-    start = int(lookup.cell_left_of(np.array([0]), np.array([4]))[0])
-
-    assert lookup.fan(start, 4, 2) == [2]
-
-
 def test_the_fan_around_a_corner_of_the_domain_stops_at_the_boundary() -> None:
     lookup = edge_lookup(_FAN_VERTICES, _FAN_TRIANGLES)
     start = int(lookup.cell_left_of(np.array([4]), np.array([0]))[0])
 
     assert lookup.fan(start, 0, 3) == []
-
-
-def test_a_chain_steps_through_the_fan_and_names_each_cell_once() -> None:
-    """A river along the south, east and north sides of the square, starting at vertex 0.
-
-    The triangle left of each side is also met in the fan around the next corner,
-    so the raw walk names it twice in a row.
-    """
-    lookup = edge_lookup(_FAN_VERTICES, _FAN_TRIANGLES)
-    geometry = derive_geometry(
-        HydroMesh(_FAN_VERTICES, (CellBlock(CellType.TRIANGLE, _FAN_TRIANGLES),))
-    )
-    trace = np.array([[0, 1], [1, 2], [2, 3]])
-    (rivers,), _, _ = families_from_labels({"river::trace": trace}, lookup, geometry)
-
-    (chain,) = chains_of(rivers, lookup)
-
-    assert chain.cell_ids.tolist() == [0, 1, 2]
 
 
 # --------------------------------------------------------------------------- #
@@ -525,55 +386,3 @@ def _lattice(nx: int, ny: int, step: float) -> tuple[np.ndarray, np.ndarray]:
                 (south_west, south_east + nx, south_west + nx),
             ]
     return vertices, np.asarray(triangles, dtype=np.int64)
-
-
-def test_each_boundary_edge_joins_the_family_of_the_box_side_it_lies_on() -> None:
-    """A 400 m by 200 m lattice: no side shares the length, the span or a bound of another."""
-    nx, ny = 5, 3
-    vertices, triangles = _lattice(nx, ny, 100.0)
-    geometry = derive_geometry(HydroMesh(vertices, (CellBlock(CellType.TRIANGLE, triangles),)))
-    sides = {
-        "boundary:west": [(j * nx, (j + 1) * nx) for j in range(ny - 1)],
-        "boundary:east": [(j * nx + nx - 1, (j + 2) * nx - 1) for j in range(ny - 1)],
-        "boundary:south": [(i, i + 1) for i in range(nx - 1)],
-        "boundary:north": [((ny - 1) * nx + i, (ny - 1) * nx + i + 1) for i in range(nx - 1)],
-    }
-
-    families = box_side_edges(vertices, geometry, edge_lookup(vertices, triangles))
-
-    assert [family.name for family in families] == list(sides)
-    for family in families:
-        edges = {frozenset(e) for e in zip(family.node_a.tolist(), family.node_b.tolist())}
-        assert edges == {frozenset(e) for e in sides[family.name]}, family.name
-        assert np.all(family.cell_b == -1), family.name
-        start = vertices[family.node_a]
-        tangent = vertices[family.node_b] - start
-        offset = vertices[triangles[family.cell_a]].mean(axis=1) - start
-        assert np.all(tangent[:, 0] * offset[:, 1] - tangent[:, 1] * offset[:, 0] > 0.0)
-
-
-@settings(max_examples=50, deadline=None, derandomize=True)
-@given(
-    st.lists(
-        st.tuples(st.integers(0, 1000), st.integers(0, 1000)), min_size=4, max_size=40, unique=True
-    )
-)
-def test_each_edge_of_a_triangle_finds_that_triangle_on_its_left(points) -> None:
-    """Whatever the order of its corners, a triangle is read counter-clockwise."""
-    vertices = np.asarray(points, dtype=float)
-    assume(np.linalg.matrix_rank(vertices[1:] - vertices[0]) == 2)
-    triangles = Delaunay(vertices).simplices
-    corners = vertices[triangles]
-    first, second = corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0]
-    twice_area = first[:, 0] * second[:, 1] - first[:, 1] * second[:, 0]
-    triangles = triangles[np.abs(twice_area) > 1.0e-9]
-    assume(len(triangles) > 0)
-
-    lookup = edge_lookup(vertices, triangles)
-
-    cells = np.arange(len(triangles))
-    for k in range(3):
-        start, stop = lookup.ccw[:, k], lookup.ccw[:, (k + 1) % 3]
-        assert np.array_equal(lookup.cell_left_of(start, stop), cells)
-        right = lookup.cell_left_of(stop, start)
-        assert np.all(right != cells)

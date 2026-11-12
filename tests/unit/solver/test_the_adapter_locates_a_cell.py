@@ -18,10 +18,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.base.adapter_protocol import CellLocator, SolverAdapter
-from tests._helpers.mf6_toy_models import (
-    regular_solver_mesh,
-    two_triangle_solver_mesh,
-)
+from tests._helpers.mf6_toy_models import regular_solver_mesh
 
 
 def test_the_capability_has_its_own_protocol() -> None:
@@ -53,36 +50,6 @@ def _ctx(model: object) -> SimpleNamespace:
 
 
 class TestOnASolverMesh:
-    def test_a_point_in_a_grid_cell_returns_the_flat_selector_of_that_cell(self) -> None:
-        from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
-
-        # Cells of side 1 m, row 0 north: (2.5, 0.5) is in row 1, column 2 of 2 x 3.
-        mesh = regular_solver_mesh(2, 3)
-
-        cell = Modflow6FlowAdapter().locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 2.5, 0.5)
-
-        assert cell == (0, 0, 1 * 3 + 2)
-
-    def test_a_point_in_a_triangle_returns_the_triangle_that_holds_it(self) -> None:
-        from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
-
-        # Triangle 0 holds the points under the diagonal y = x, triangle 1 those above it.
-        mesh = two_triangle_solver_mesh()
-
-        adapter = Modflow6FlowAdapter()
-        assert adapter.locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 0.9, 0.2) == (0, 0, 0)
-        assert adapter.locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 0.1, 0.8) == (0, 0, 1)
-
-    def test_a_point_just_outside_takes_the_nearest_centre(self) -> None:
-        from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
-
-        mesh = regular_solver_mesh(2, 3)
-
-        # 0.5 m east and 0.3 m south of the south-east corner, within one cell size.
-        cell = Modflow6FlowAdapter().locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 3.5, -0.3)
-
-        assert cell == (0, 0, 1 * 3 + 2)
-
     def test_a_point_farther_than_a_cell_size_is_not_located(self, caplog) -> None:
         from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
 

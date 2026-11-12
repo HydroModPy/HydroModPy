@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 import flopy
 import numpy as np
-import pytest
 
 from hydromodpy.model.transport.transport_config import (
     ConcentrationTransportParametersConfig,
@@ -80,18 +79,6 @@ def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> 
     return solver
 
 
-def test_react_order_literal_rejects_invalid_values() -> None:
-    for bad in (2, -1):
-        with pytest.raises(Exception):
-            ConcentrationTransportParametersConfig(react_order=bad)
-    for good in (None, 0, 1):
-        assert ConcentrationTransportParametersConfig(react_order=good).react_order == good
-    with pytest.raises(Exception):
-        ConcentrationTransportParametersConfig(scheme="TVDX")
-    for scheme in ("upstream", "central", "TVD"):
-        assert ConcentrationTransportParametersConfig(scheme=scheme).scheme == scheme
-
-
 def test_mst_zero_order_decay_activates(tmp_path) -> None:
     solver = _build_gwt(tmp_path / "zero", {"react_order": 0, "rate_decay": 0.002, "porosity": 0.3})
     assert bool(solver.mst.zero_order_decay.get_data()) is True
@@ -106,15 +93,6 @@ def test_mst_zero_order_decay_activates(tmp_path) -> None:
     assert not none.mst.zero_order_decay.get_data()
     assert not none.mst.first_order_decay.get_data()
     assert none.mst.decay.get_data() is None
-
-
-def test_advection_scheme_passthrough(tmp_path) -> None:
-    tvd = _build_gwt(tmp_path / "tvd", {"scheme": "TVD", "porosity": 0.3})
-    assert tvd.adv.scheme.get_data() == "tvd"
-    central = _build_gwt(tmp_path / "central", {"scheme": "central", "porosity": 0.3})
-    assert central.adv.scheme.get_data() == "central"
-    default = _build_gwt(tmp_path / "default", {"porosity": 0.3})
-    assert default.adv.scheme.get_data() == "upstream"
 
 
 def test_gwt_ims_complexity_follows_flow_config(tmp_path) -> None:

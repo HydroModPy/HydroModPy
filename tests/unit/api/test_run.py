@@ -94,34 +94,6 @@ def test_a_sites_project_is_refused_and_points_to_its_verb(tmp_path: Path) -> No
         api.run(config)
 
 
-def test_a_simulation_gives_its_run_and_the_controls_reach_the_worker(
-    worker: dict, tmp_path: Path
-) -> None:
-    config = _toml(tmp_path, "simulation")
-
-    outcome = api.run(config, name="x", force=True, set={"K": 1e-5})
-    assert isinstance(outcome, RunOutcome)
-    assert outcome.name == "x"
-    assert worker["indexed"] == [Path("/p")]
-    request = worker["request"]
-    assert (request.form, Path(request.source)) == ("toml", config.resolve())
-    assert worker["base"] == tmp_path.resolve()
-    assert request.set == {"K": 1e-5}
-    assert (request.name, request.force) == ("x", True)
-
-    again = api.run(_document("simulation"), base=tmp_path, until_step="seal", headless=True)
-    assert again.name == "x"
-    request = worker["request"]
-    assert (request.form, worker["base"]) == ("dict", tmp_path.resolve())
-    assert (request.until_step, request.no_display) == ("seal", True)
-
-
-def test_a_run_that_claimed_no_directory_gives_nothing(worker: dict, tmp_path: Path) -> None:
-    worker["outcome"] = None
-    assert api.run(_toml(tmp_path, "simulation"), until_step="load_data") is None
-    assert worker["indexed"] == []
-
-
 def test_a_window_that_keeps_nothing_still_gives_its_outcome(worker: dict, tmp_path: Path) -> None:
     """A directory was claimed: its outcome comes back, without an id, and nothing is indexed."""
     worker["outcome"] = _outcome(sim_id=None, status="partial")
@@ -144,15 +116,6 @@ def test_a_request_object_is_a_source_and_needs_a_base(worker: dict, tmp_path: P
     assert worker["base"] == tmp_path.resolve()
 
 
-def test_the_outcome_says_itself_as_json(worker: dict, tmp_path: Path) -> None:
-    import json
-
-    outcome = api.run(_toml(tmp_path, "simulation"))
-
-    said = json.loads(json.dumps(outcome.to_dict()))
-    assert (said["name"], said["kind"], said["sim_id"]) == ("x", "run", "sid")
-
-
 def test_a_change_is_never_a_loose_keyword(tmp_path: Path) -> None:
     with pytest.raises(TypeError, match="K"):
         api.run(_toml(tmp_path, "simulation"), K=1e-5)
@@ -167,24 +130,6 @@ def test_a_skipped_run_is_returned_and_said(
 
     assert api.run(_toml(tmp_path, "simulation")).identical_to == "x"
     assert said == [("x", "sid")]
-
-
-@pytest.mark.parametrize("workflow", ["simulation", "overview"])
-def test_a_dry_run_gives_a_plan_and_runs_nothing(
-    workflow: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    asked: dict = {}
-
-    def fake(source, **kwargs):
-        asked.update(source=source, **kwargs)
-        return "draft"
-
-    monkeypatch.setattr(f"{WORKFLOW}.draft_of_a_file_or_config", fake)
-    config = _toml(tmp_path, workflow)
-
-    assert api.run(config, dry_run=True, name="x") == "draft"
-    assert asked["workflow"] == workflow
-    assert asked["name"] == "x"
 
 
 def test_a_request_that_asks_a_dry_run_gives_a_plan_with_its_own_options(

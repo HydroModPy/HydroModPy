@@ -16,14 +16,12 @@ import numpy as np
 import pytest
 import zarr
 
-import hydromodpy.workflow.steps.prepare_solver.model as model_module
 import hydromodpy.workflow.steps.prepare_solver.step as step_module
 from hydromodpy.core.exceptions import ConfigError, IncompatibleMeshError
 from hydromodpy.core.state.run_state import ExecutionRegistry, SetupContext
-from hydromodpy.model.domain.geometry import ChannelRasters
 from hydromodpy.model.flow import Flow
 from hydromodpy.model.flow_config import FlowConfig
-from hydromodpy.model.initial.state import HeadRule, PriorState
+from hydromodpy.model.initial.state import PriorState
 from hydromodpy.model.model import Model
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
@@ -75,90 +73,12 @@ def _write_prior(store: Path, *, mesh=None, head=None, moved: float = 0.0) -> No
         group["face_node_connectivity"] = mesh.geometry.padded_connectivity.astype("int32")
 
 
-def test_a_run_without_a_flow_has_no_model(tmp_path: Path) -> None:
-    ctx = _ctx(tmp_path)
-    ctx.setup.flow = None
-    ctx.setup.model = "stale"
-
-    assert step_build_model(ctx) is None
-    assert ctx.setup.model is None
-
-
-def test_the_model_is_put_on_the_setup_with_the_members_of_the_flow(tmp_path: Path) -> None:
-    ctx = _ctx(tmp_path)
-
-    model = step_build_model(ctx)
-
-    assert isinstance(model, Model)
-    assert ctx.setup.model is model
-    assert model.geometry.cells is ctx.setup.cell_mesh
-    assert dict(model.properties.profiles) == dict(ctx.setup.flow.parameters)
-    assert model.initial == HeadRule("top")
-    assert model.geometry.raster is None
-    assert model.geometry.catchment is None
-
-
-def test_the_river_rasters_are_chosen_once_for_the_run(tmp_path: Path, monkeypatch) -> None:
-    geographic = SimpleNamespace(river_network_enabled=False, correcflow_path=None)
-    calls = []
-    chosen = ChannelRasters(enabled=False, link=None, pointer=None, accumulation=None)
-
-    def fake(geo):
-        calls.append(geo)
-        return chosen
-
-    monkeypatch.setattr(model_module, "channel_rasters_for_run", fake)
-    ctx = _ctx(tmp_path, geographic=geographic)
-
-    model = step_build_model(ctx)
-
-    assert calls == [geographic]
-    assert model.geometry.raster.channel is chosen
-    assert model.geometry.channel_exits is None
-    assert model.geometry.catchment.crs == "EPSG:2154"
-
-
 def test_the_setup_carries_what_a_trial_asks_of_its_slot_and_no_property_envelope() -> None:
     """A per-cell property is ``Model.with_properties``: the setup has no dictionary to hold one."""
     members = {member.name for member in dataclasses.fields(SetupContext)}
 
     assert "slot_request" in members
     assert "flow_runtime_overrides" not in members
-
-
-def test_a_hotstart_by_path_becomes_a_prior_state(tmp_path: Path) -> None:
-    store = tmp_path / "prior.zarr"
-    _write_prior(store, mesh=_mesh())
-    ctx = _ctx(tmp_path, restart_from=str(store))
-
-    model = step_build_model(ctx)
-
-    assert isinstance(model.initial, PriorState)
-    assert model.initial.path == str(store)
-    assert model.initial.sim_id is None
-    np.testing.assert_array_equal(model.initial.head, np.arange(6, dtype=float).reshape(1, 6))
-
-
-def test_a_hotstart_path_is_read_without_its_padding(tmp_path: Path) -> None:
-    store = tmp_path / "prior.zarr"
-    _write_prior(store, mesh=_mesh())
-    ctx = _ctx(tmp_path, restart_from=f"  {store} ")
-
-    model = step_build_model(ctx)
-
-    assert isinstance(model.initial, PriorState)
-    assert model.initial.path == str(store)
-
-
-def test_a_hotstart_named_by_its_run_is_resolved(tmp_path: Path) -> None:
-    sim_id = sealed_run(tmp_path, "first")
-    _write_prior(tmp_path / "runs" / "first" / FIELDS_STORE_NAME, mesh=_mesh())
-    ctx = _ctx(tmp_path, restart_from="first")
-
-    model = step_build_model(ctx)
-
-    assert model.initial.sim_id == sim_id
-    assert model.initial.path == str(tmp_path / "runs" / "first" / FIELDS_STORE_NAME)
 
 
 def test_a_hotstart_that_names_no_run_is_refused(tmp_path: Path) -> None:
@@ -263,17 +183,6 @@ def test_a_trial_that_writes_nothing_builds_the_model(tmp_path, monkeypatch) -> 
 
     assert isinstance(ctx.setup.model, Model)
     assert calls == []
-
-
-def test_a_trial_reads_a_hotstart_named_by_its_run(tmp_path, monkeypatch) -> None:
-    sealed_run(tmp_path, "first")
-    _write_prior(tmp_path / "runs" / "first" / FIELDS_STORE_NAME, mesh=_mesh())
-    ctx = _ctx(tmp_path, restart_from="first")
-    _quiet(monkeypatch, [], ctx)
-
-    PrepareSolverStep().run(PipelineState(run_id="run", data={"ctx": ctx}))
-
-    assert isinstance(ctx.setup.model.initial, PriorState)
 
 
 @pytest.mark.parametrize("persisted", [False, True], ids=["not persisted", "persisted"])

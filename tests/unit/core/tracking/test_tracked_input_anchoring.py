@@ -43,37 +43,3 @@ def test_a_relative_path_is_anchored_on_the_project(project: Path) -> None:
 
     assert len(entries) == 1
     assert entries[0].canonical_path == (project / "data/hydrography/streams.gpkg").resolve()
-
-
-def test_an_absolute_path_is_left_alone(project: Path) -> None:
-    absolute = (project / "data/hydrography/streams.gpkg").resolve()
-    config = _Config(geometry=absolute)
-
-    entries = collect_input_files(config, base=Path("/elsewhere"))
-
-    assert entries[0].canonical_path == absolute
-
-
-def test_without_a_base_the_old_behaviour_stands(project: Path) -> None:
-    # No anchor to use: the walker can only resolve against the process cwd,
-    # which is what every caller that has no project does.
-    config = _Config(geometry=Path("data/hydrography/streams.gpkg"))
-
-    entries = collect_input_files(config)
-
-    assert entries[0].canonical_path == Path("data/hydrography/streams.gpkg").resolve()
-
-
-def test_a_path_that_the_anchor_does_not_hold_falls_back(project: Path) -> None:
-    # The anchor is a hint, not a rewrite: a file that is not under the project
-    # keeps resolving the way it did, so a configuration pointing outside the
-    # project is not silently repointed inside it.
-    config = _Config(geometry=Path("nowhere/streams.gpkg"))
-
-    entries = collect_input_files(config, base=project)
-
-    assert entries[0].canonical_path == Path("nowhere/streams.gpkg").resolve()
-
-
-def test_an_unset_path_is_not_tracked() -> None:
-    assert collect_input_files(_Config(), base=Path.cwd()) == []

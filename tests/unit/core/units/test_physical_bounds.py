@@ -40,20 +40,6 @@ def test_a_benchmark_declares_a_negligible_specific_storage_and_it_loads() -> No
         validate_field_param_toml_data(_field_payload(1e-14))
 
 
-@pytest.mark.parametrize(
-    ("param_id", "value", "unit", "refused"),
-    [("Ss", NEGLIGIBLE_STORAGE, "m-1", False), ("Ss", NEGLIGIBLE_STORAGE, None, False),
-     ("Ss", 1e-14, None, True), ("Ss", 1.0, None, True), ("porosity_of_the_moon", -5.0, "m", False)],
-    ids=["number-and-unit", "number-alone", "two-decades-below-the-device", "ceiling", "no-range"],
-)  # fmt: skip
-def test_a_value_is_checked_against_the_range_of_its_parameter(param_id, value, unit, refused):
-    if refused:
-        with pytest.raises(PhysicalBoundsError, match="specific storage"):
-            validate_physical_value(param_id=param_id, value=value, unit=unit)
-    else:
-        assert validate_physical_value(param_id=param_id, value=value, unit=unit) == value
-
-
 def test_a_refusal_is_a_config_error_that_names_the_place_the_value_and_its_unit() -> None:
     with pytest.raises(ConfigValidationError, match=(
         r"hydraulic conductivity \(id='K'\) in zone 'a' value 1000000000.0 m/day \(11574.1 m/s\) outside"

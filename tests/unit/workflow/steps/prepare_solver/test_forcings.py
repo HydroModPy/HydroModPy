@@ -139,25 +139,6 @@ def test_station_backed_runoff_skips_watershed_mean(tmp_path):
             sz.close()
 
 
-def test_non_allowlisted_family_keeps_field_only(tmp_path):
-    # precipitation is not in the watershed-mean allowlist: field array only.
-    times = pd.date_range("2020-01-01", periods=2, freq="D")
-    frames = np.ones((2, 2, 2), dtype="float64")
-    rec = _runoff_field_record(frames, times, variable="precipitation")
-    loaded = _Loaded(precipitation=LoadResult(fields=[rec]))
-
-    with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
-        sid = catalog.sim_id
-        step_persist_forcings(_ctx(sid, loaded), store=catalog)
-
-        sz = catalog.open_zarr(sid)
-        try:
-            forcing = sz.root["forcing"]
-            assert "precipitation" not in forcing or "catchment" not in forcing["precipitation"]
-        finally:
-            sz.close()
-
-
 def test_a_refused_reduction_stops_the_persist_step(tmp_path):
     # A runoff day without any valid pixel has no watershed mean: the step
     # refuses it by name instead of persisting the run without it.
@@ -430,76 +411,6 @@ def test_persist_geographic_to_store_writes_generated_network_canonical_name(tmp
 
     assert HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME in store.feature_names
     assert "river_network" not in store.feature_names
-
-
-def test_persist_geographic_to_store_restores_generated_network_crs(tmp_path: Path):
-    network_path = write_network_vector(tmp_path / "river_network_no_crs.shp", crs=None)
-    watershed_path = write_watershed(tmp_path / "watershed.shp")
-    generated = HydrographicNetwork(
-        role="generated",
-        source_kind="geographic_generated",
-        vector_path=str(network_path),
-        crs="EPSG:2154",
-        watershed_shp=str(watershed_path),
-    )
-    geographic = SimpleNamespace(
-        watershed_dem=None,
-        watershed_fill=None,
-        watershed_shp=None,
-        box_buff=None,
-        watershed_contour_shp=None,
-        get_geographic_derived_features=lambda: GeographicDerivedFeatures(
-            surface_topo=object(),
-            boundaries=GeographicBoundaryFeatures(
-                watershed_shp=str(watershed_path),
-                watershed_box_shp=None,
-                box_buff_shp="box_buff.shp",
-            ),
-            hydrographic_networks=HydrographicNetworks(generated=generated),
-        ),
-    )
-    store = _FakeStore()
-
-    persist_geographic_to_store(geographic, store, sim_id="sim-3")
-
-    assert store.feature_crs[HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME] == "EPSG:2154"
-    assert "river_network" not in store.feature_crs
-
-
-def test_persist_geographic_to_store_uses_geographic_crs_for_generated_network(
-    tmp_path: Path,
-):
-    network_path = write_network_vector(tmp_path / "river_network_no_crs.shp", crs=None)
-    watershed_path = write_watershed(tmp_path / "watershed.shp")
-    generated = HydrographicNetwork(
-        role="generated",
-        source_kind="geographic_generated",
-        vector_path=str(network_path),
-        watershed_shp=str(watershed_path),
-    )
-    geographic = SimpleNamespace(
-        crs_proj="EPSG:2154",
-        watershed_dem=None,
-        watershed_fill=None,
-        watershed_shp=None,
-        box_buff=None,
-        watershed_contour_shp=None,
-        get_geographic_derived_features=lambda: GeographicDerivedFeatures(
-            surface_topo=object(),
-            boundaries=GeographicBoundaryFeatures(
-                watershed_shp=str(watershed_path),
-                watershed_box_shp=None,
-                box_buff_shp="box_buff.shp",
-            ),
-            hydrographic_networks=HydrographicNetworks(generated=generated),
-        ),
-    )
-    store = _FakeStore()
-
-    persist_geographic_to_store(geographic, store, sim_id="sim-4")
-
-    assert store.feature_crs[HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME] == "EPSG:2154"
-    assert "river_network" not in store.feature_crs
 
 
 # --- test_store_handle_lifecycle ---

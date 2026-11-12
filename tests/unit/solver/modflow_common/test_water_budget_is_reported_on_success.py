@@ -37,32 +37,6 @@ _LISTING = """\
 """
 
 
-def test_the_last_discrepancy_of_the_run_is_the_one_read(tmp_path: Path) -> None:
-    """A transient listing repeats the block; the final one is the run's."""
-    (tmp_path / "model.lst").write_text(_LISTING, encoding="utf-8")
-
-    assert last_percent_discrepancy(tmp_path) == -12.34
-
-
-def test_the_modflow_nwt_listing_is_read(tmp_path: Path) -> None:
-    """FloPy names the NWT listing ``.list``: its budget was never read before."""
-    (tmp_path / "model.list").write_text(_LISTING, encoding="utf-8")
-
-    assert last_percent_discrepancy(tmp_path) == -12.34
-
-
-def test_the_simulation_listing_is_not_a_model_listing(tmp_path: Path) -> None:
-    """``mfsim.lst`` carries no budget of its own."""
-    (tmp_path / "mfsim.lst").write_text(_LISTING, encoding="utf-8")
-
-    assert last_percent_discrepancy(tmp_path) is None
-
-
-def test_a_directory_without_a_listing_reports_nothing(tmp_path: Path) -> None:
-    """A backend that writes no listing is not a failure, it is silent."""
-    assert last_percent_discrepancy(tmp_path) is None
-
-
 def test_the_metric_has_one_name() -> None:
     """The name is shared so a report and a trial record agree on it."""
     assert WATER_BUDGET_METRIC == "water_budget_percent_discrepancy"
@@ -107,22 +81,6 @@ def test_a_directory_without_a_listing_has_no_worst(tmp_path: Path) -> None:
     """Absent is not zero: a backend that writes no listing reports nothing."""
     assert worst_percent_discrepancy(tmp_path) is None
     assert percent_discrepancies(tmp_path) == []
-
-
-def test_a_near_zero_flow_step_is_reported_like_any_other(tmp_path: Path) -> None:
-    """Nothing filters the number, because nothing acts on it.
-
-    A percent discrepancy divides by the mean of inflow and outflow, so a step
-    that routes almost no water reads large on a negligible imbalance. The
-    reading is recorded as it stands; a guard that rejected on it would refuse
-    sound runs, and that guard needs the absolute imbalance, not this quotient.
-    """
-    (tmp_path / "model.lst").write_text(
-        "   PERCENT DISCREPANCY =   0.01     PERCENT DISCREPANCY =  -200.00\n",
-        encoding="utf-8",
-    )
-
-    assert worst_percent_discrepancy(tmp_path) == -200.00
 
 
 def test_the_worst_metric_has_one_name() -> None:

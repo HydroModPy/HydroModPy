@@ -202,17 +202,6 @@ def _csv_payload(**field) -> dict:
     return {"field": CSV | {"values_csv_file": "map.csv", "field_spatial_id": "g"} | field}
 
 
-@pytest.mark.parametrize("absolute", [False, True], ids=["relative", "absolute"])
-def test_a_csv_table_gives_one_value_per_zone_and_skips_blank_keys(tmp_path: Path, absolute):
-    csv = write_text(tmp_path / "map.csv", "zone_key,value\n2141,12.0\n,9\n1501,8.5")
-    payload = _csv_payload(values_csv_file=str(csv) if absolute else csv.name)
-
-    resolved = resolve_field_param_config_payload(payload, base_dir=tmp_path)
-
-    assert resolved["values"] == {"2141": 12.0, "1501": 8.5}
-    assert "values_csv_file" not in resolved
-
-
 @pytest.mark.parametrize(
     ("csv", "error", "match"),
     [

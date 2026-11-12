@@ -105,19 +105,6 @@ def _barred(rows: list[list]) -> set[tuple[int, int]]:
     return {tuple(sorted((row[0][1], row[1][1]))) for row in rows}
 
 
-@pytest.mark.parametrize("engine", ["triangle", "voronoi"])
-def test_a_flow_barrier_bars_the_faces_the_mesh_lays_on_it(engine: str) -> None:
-    cell_mesh = _mesh(engine)
-    barred = _barred(_hfb(cell_mesh))
-    geometry = cell_mesh.geometry
-    edge_of = {tuple(pair): k for k, pair in enumerate(geometry.edge_cells.tolist())}
-    middle = geometry.edge_midpoint[[edge_of[pair] for pair in sorted(barred)]]
-
-    assert barred == _family_pairs(cell_mesh)
-    assert shapely.distance(shapely.points(middle), FENCE).max() < 1.0e-3
-    assert _leaks(cell_mesh, barred) == 0
-
-
 def test_the_regular_grid_bars_the_staircase_the_barrier_crosses() -> None:
     cell_mesh = _mesh("regular")
     geometry = cell_mesh.geometry

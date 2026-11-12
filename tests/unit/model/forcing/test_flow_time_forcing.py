@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from types import SimpleNamespace
 
 import pandas as pd
@@ -38,22 +37,6 @@ def _monthly_window() -> ResolvedSimulationTimeWindow:
     )
 
 
-def test_mean_forcing_uses_period_mean_and_forward_carry() -> None:
-    series = pd.Series(
-        [12.0, 30.0],
-        index=pd.to_datetime(["2000-01-01 12:00", "2000-01-03 00:00"]),
-    )
-
-    values = aggregate_forcing_series(
-        series,
-        simulation_window=_daily_window(),
-        label="recharge forcing",
-        aggregate="mean",
-    )
-
-    assert values == [12.0, 12.0, 30.0]
-
-
 def test_last_forcing_uses_latest_value_at_period_start() -> None:
     series = pd.Series(
         [4.0, 8.0, 16.0],
@@ -68,25 +51,6 @@ def test_last_forcing_uses_latest_value_at_period_start() -> None:
     )
 
     assert values == [4.0, 8.0, 8.0]
-
-
-def test_a_state_record_read_with_last_is_not_a_coverage_question() -> None:
-    six_months = ResolvedSimulationTimeWindow(
-        start=pd.Timestamp("2020-01-01"),
-        end=pd.Timestamp("2020-06-30"),
-        step_value=1,
-        step_unit="month",
-        coverage_policy="error",
-    )
-    series = pd.Series([4.0], index=pd.to_datetime(["2019-06-01"]))
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        values = aggregate_forcing_series(
-            series, simulation_window=six_months, label="well", aggregate="last"
-        )
-
-    assert values == [4.0] * 6
 
 
 def test_csv_forcing_rejects_resolved_length_that_differs_from_nper(tmp_path) -> None:

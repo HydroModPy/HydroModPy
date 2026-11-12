@@ -11,7 +11,7 @@ Three steps:
 2. ``hmp publish island --to light --without results`` then ``hmp replay light``:
    the seal of the island holds the digest of each value, so the replay is
    compared on the ``float64`` basis, classed bit and published. A copy without
-   results of the ``demo`` run of the 2.0.0, whose seal holds no value digest,
+   results of the ``demo`` run of a pre-release, whose seal holds no value digest,
    replays with no class: ``hmp publish`` of that replay is refused with the
    sentence that says why, and ``hmp publish .`` publishes the rest and names
    the replay in ``left_out``.
@@ -139,7 +139,7 @@ def test_a_copy_is_published_and_the_index_is_shared(
     accepted = _hmp(root, scenario_env, "publish", bit_dir.name, "--to", str(tmp_path / "bit"))
     assert accepted.returncode == 0, _said(accepted)
 
-    # A copy without results of the 2.0.0 demo carries no value to compare: its replay has no
+    # A copy without results of the demo of a pre-release carries no value to compare: its replay has no
     # class, so it is refused alone and left out of the copy of the project.
     frozen = tmp_path / "frozen"
     shutil.copytree(FROZEN, frozen)

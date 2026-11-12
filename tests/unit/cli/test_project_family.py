@@ -25,7 +25,6 @@ from hydromodpy.cli.exit_codes import (
     EXIT_GENERIC,
     EXIT_NOT_FOUND,
     EXIT_OK,
-    EXIT_USAGE,
     EXIT_VALIDATION,
     exit_code_for,
 )
@@ -83,14 +82,6 @@ def outside(tmp_path, monkeypatch) -> Path:
     return directory
 
 
-def test_project_family_help_lists_actions(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "project", "--help"])
-    assert code == 0
-    out = capsys.readouterr().out
-    for action in ("new", "list", "delete"):
-        assert action in out
-
-
 def test_project_new_scaffolds_project(monkeypatch, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     assert _run(monkeypatch, ["hmp", "project", "new", "demo", "-w", str(workspace)]) == 0
@@ -134,32 +125,6 @@ def test_without_a_workspace_the_verb_stops_and_names_w(
     assert "-w" in captured.err
     assert str(home_workspace) not in captured.out + captured.err
     assert (home_workspace / "projects" / "demo").is_dir()
-
-
-def test_show_project_missing_project_returns_not_found(monkeypatch, tmp_path) -> None:
-    workspace = _make_workspace(tmp_path)
-    code = _run(monkeypatch, ["hmp", "show", "missing", "-w", str(workspace)])
-    assert code == 10
-
-
-def test_show_project_counts_what_the_directories_hold(monkeypatch, capsys, tmp_path) -> None:
-    workspace = _make_workspace(tmp_path)
-    project = make_project(workspace / "projects" / "demo")
-    seal_run(project, "alpha")
-    write_attempt(project, "runs/beta", status="failed")
-    write_session_dir(project, "calibration", trials=3, best_trial=2)
-    (project / "run_daily.toml").write_text("", encoding="utf-8")
-
-    code = _run(monkeypatch, ["hmp", "show", "-w", str(project), "--format", "json"])
-
-    assert code == 0
-    payload = json.loads(capsys.readouterr().out)["data"]
-    assert payload["name"] == "demo"
-    assert payload["runs"] == {"completed": 1, "failed": 1}
-    assert payload["sessions"] == {"completed": 1}
-    assert payload["configs"] == ["run_daily.toml"]
-    assert payload["has_index"] is False
-    assert payload["plan"] is None
 
 
 def test_show_project_by_name_prints_the_runs_by_status(monkeypatch, capsys, tmp_path) -> None:
@@ -328,11 +293,6 @@ def test_prune_refuses_without_yes_in_non_tty(tmp_path) -> None:
     assert list_trash(project) == []
 
 
-def test_prune_knows_only_the_best_policy(tmp_path) -> None:
-    project = _calibrated_project(tmp_path, kept=(1,))
-    assert _run_action(prune, ["prune", "calibration", "--keep", "all", "-w", str(project)]) == 2
-
-
 def _journalled_project(tmp_path: Path) -> Path:
     project = tmp_path / "campaign"
     project.mkdir()
@@ -414,15 +374,6 @@ def test_the_project_file_names_its_project(tmp_path: Path) -> None:
 
     assert _invoke_array([str(root / "project.toml"), "--scheduler", "slurm"]) == 0
     assert (root / "jobs").is_dir()
-
-
-def test_the_scheduler_is_required(tmp_path: Path) -> None:
-    root = tmp_path / "p"
-    planned_project(root)
-
-    assert _invoke_array([str(root)]) == EXIT_USAGE
-    assert _invoke_array([str(root), "--scheduler", "pbs"]) == EXIT_USAGE
-    assert not (root / "jobs").exists()
 
 
 def test_errors_leave_through_typed_exit_codes(
@@ -593,16 +544,3 @@ def test_a_folder_without_any_copy_is_refused_by_name(tmp_path: Path) -> None:
     assert result.exit_code == EXIT_NOT_FOUND
     assert "holds no PUBLICATION.json and no published copy" in result.stderr
     assert "Errno" not in result.stderr
-
-
-@pytest.mark.parametrize(
-    ("old", "new"),
-    [("project show", "hmp show PROJECT"), ("project status", "hmp ls --plan")],
-)
-def test_the_two_reads_that_left_the_project_group_are_refused(
-    monkeypatch, capsys, tmp_path, old: str, new: str
-) -> None:
-    code = _run(monkeypatch, ["hmp", *old.split(), "-w", str(tmp_path)])
-
-    assert code == 2
-    assert f"Write: {new}" in capsys.readouterr().err

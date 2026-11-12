@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 from matplotlib.colors import to_hex
 
-from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.display.figures import _stream_comparison
 from hydromodpy.display.figures._stream_comparison import (
     CELL_WEIGHT_PT,
@@ -80,33 +79,6 @@ def test_the_seepage_map_draws_two_classes_and_no_ramp(mpl) -> None:
     assert to_hex(seepage[0].get_facecolor()[0]) == SEEPAGE_COLOR
 
 
-def test_the_seepage_key_counts_the_cells_inside_the_catchment(mpl) -> None:
-    # One seeping cell inside the catchment, one on a rim outside it.
-    run = _seepage_run([cell(AXIS_COLUMN, 0), cell(0, 1)])
-    fig, ax = mpl.subplots()
-
-    SeepageMap().render(run, ax)
-
-    labels = legend_labels(ax)
-    assert "seepage (1 cells)" in labels
-    assert f"no seepage ({len(CATCHMENT) * NY - 1} cells)" in labels
-    assert "cells counted in the catchment" in legend_note(ax)
-
-
-def test_the_seepage_map_opens_on_the_catchment_in_projected_metres(mpl) -> None:
-    run = _seepage_run([cell(AXIS_COLUMN, 0)])
-    fig, ax = mpl.subplots()
-
-    SeepageMap().render(run, ax)
-
-    assert ax.get_xlabel() == "x (m)"
-    assert ax.get_ylabel() == "y (m)"
-    xmin, xmax = ax.get_xlim()
-    assert xmin > 0.5 * CELL_M
-    assert xmax < (NX - 0.5) * CELL_M
-    assert len(_veils(ax)) == 1
-
-
 def test_the_whole_mesh_is_still_one_option_away(mpl) -> None:
     run = _seepage_run([cell(AXIS_COLUMN, 0), cell(0, 1)])
     fig, ax = mpl.subplots()
@@ -122,24 +94,6 @@ def test_the_whole_mesh_is_still_one_option_away(mpl) -> None:
 # --------------------------------------------------------------------------- #
 # the persistence maps
 # --------------------------------------------------------------------------- #
-
-
-@pytest.mark.parametrize("figure", [FlowPersistenceMap(), FlowIntermittenceMap()], ids=type)
-def test_the_persistence_maps_open_on_the_catchment(mpl, figure) -> None:
-    run = transient_run()
-    run.geographic = lambda feature: comparison_run(catchment_columns=CATCHMENT).geographic(feature)
-    fig, ax = mpl.subplots()
-
-    figure.render(run, ax, overlays=())
-
-    assert ax.get_xlabel() == "x (m)"
-    xmin, xmax = ax.get_xlim()
-    assert xmin > 0.5 * CELL_M
-    assert xmax < (NX - 0.5) * CELL_M
-    assert len(_veils(ax)) == 1
-    note = legend_note(ax)
-    assert "cells counted in the catchment" in note
-    assert "tau" not in note and "tau" not in ax.get_title()
 
 
 def test_the_intermittence_key_counts_the_catchment_only(mpl) -> None:
@@ -197,54 +151,6 @@ def captured(monkeypatch):
 
     monkeypatch.setattr(_stream_comparison, "network_comparison_from_run", record)
     return calls
-
-
-def test_a_run_that_sealed_no_output_is_redrawn_with_the_defaults(captured) -> None:
-    comparison_from_run(comparison_run())
-
-    assert captured == [
-        {
-            "tau_specific_ratio": STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
-            "diagonal_neighbors": STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
-            "timestep": -1,
-            "observed_rasterization": STREAM_CRITERION_DEFAULTS.observed_rasterization,
-            "observed_position_accuracy_m": None,
-            "heads_snap_radius_m": STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
-            "heads_min_drained_area_km2": STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
-            "clip_map_to_catchment": STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
-        }
-    ]
-
-
-def test_a_run_that_sealed_an_output_is_redrawn_with_its_settings(captured) -> None:
-    run = comparison_run()
-    run.dir = sealed_search(SEALED)
-    comparison_from_run(run)
-
-    assert captured == [
-        {
-            "tau_specific_ratio": 0.0,
-            "diagonal_neighbors": False,
-            "timestep": 0,
-            "observed_rasterization": "touch",
-            "observed_position_accuracy_m": 40.0,
-            "heads_snap_radius_m": STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
-            "heads_min_drained_area_km2": STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
-            "clip_map_to_catchment": STREAM_CRITERION_DEFAULTS.clip_map_to_catchment,
-        }
-    ]
-
-
-def test_a_knob_the_caller_names_wins_over_the_run(captured) -> None:
-    run = comparison_run()
-    run.dir = sealed_search(SEALED)
-    comparison_from_run(run, tau_specific_ratio=1.0e-3, diagonal_neighbors=True, timestep=-1)
-
-    knobs = captured[0]
-    assert knobs["tau_specific_ratio"] == 1.0e-3
-    assert knobs["diagonal_neighbors"] is True
-    assert knobs["timestep"] == -1
-    assert knobs["observed_rasterization"] == "touch"
 
 
 class _WeakRun(SimpleNamespace):

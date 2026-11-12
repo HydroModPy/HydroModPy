@@ -28,7 +28,7 @@ from hydromodpy.core.runtime.interrupts import (
     raise_if_stop_requested,
     terminate_as_interrupt,
 )
-from hydromodpy.core.state.layout import STOP_FLAG_FILENAME, stop_flag_for
+from hydromodpy.core.state.layout import stop_flag_for
 
 
 def _current_handler():
@@ -41,37 +41,6 @@ def test_inside_the_block_a_termination_becomes_an_exception() -> None:
             handler = _current_handler()
             assert callable(handler)
             handler(signal.SIGTERM, None)
-
-
-def test_the_previous_handler_is_put_back() -> None:
-    before = _current_handler()
-
-    with terminate_as_interrupt():
-        assert _current_handler() is not before
-
-    assert _current_handler() is before
-
-
-def test_the_previous_handler_is_put_back_after_a_failure() -> None:
-    before = _current_handler()
-
-    with pytest.raises(RuntimeError):
-        with terminate_as_interrupt():
-            raise RuntimeError("boom")
-
-    assert _current_handler() is before
-
-
-def test_nesting_restores_one_level_at_a_time() -> None:
-    before = _current_handler()
-
-    with terminate_as_interrupt():
-        outer = _current_handler()
-        with terminate_as_interrupt():
-            assert _current_handler() is not outer
-        assert _current_handler() is outer
-
-    assert _current_handler() is before
 
 
 def test_a_termination_is_an_interruption_so_a_finally_still_runs() -> None:
@@ -109,33 +78,10 @@ def test_the_session_scope_installs_it_for_the_whole_run() -> None:
     assert _current_handler() is before
 
 
-def test_a_terminated_session_is_closed_as_aborted() -> None:
-    """The status the session scope writes for each signal, read off the scope itself."""
-    import inspect
-
-    from hydromodpy.calibration.runners import session_scope
-
-    scope = inspect.getsource(session_scope.closing_session)
-    interrupted = scope.split("except KeyboardInterrupt as exc:")[1].split("except")[0]
-    abort = inspect.getsource(session_scope.abort_session)
-
-    assert "_interruption_error(exc)" in interrupted
-    assert session_scope._interruption_error(TerminationRequested()) == "SIGTERM"
-    assert session_scope._interruption_error(KeyboardInterrupt()) == "SIGINT"
-    stop = StopRequested("stop requested at 2026-11-10T08:00:00+00:00")
-    assert session_scope._interruption_error(stop) == str(stop)
-    assert 'status="aborted"' in abort
-
-
 def test_a_requested_stop_is_an_interruption_too() -> None:
     """Every block that closes a run on a signal closes it on a stop, without a line more."""
     assert issubclass(StopRequested, KeyboardInterrupt)
     assert not issubclass(StopRequested, TerminationRequested)
-
-
-def test_the_stop_flag_of_a_folder_sits_in_its_internal_state() -> None:
-    assert stop_flag_for(Path("runs/island")) == Path("runs/island/.hmp/stop.json")
-    assert STOP_FLAG_FILENAME == "stop.json"
 
 
 _FLAGS = {

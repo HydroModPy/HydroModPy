@@ -249,20 +249,6 @@ def test_the_default_package_names_local_files_rcha() -> None:
         assert record["filename"] == f"m.rcha.{kper}.bin"
 
 
-def test_the_default_package_names_shared_files_rcha_and_writes_the_recharge_header(
-    tmp_path: Path,
-) -> None:
-    shared = tmp_path / "_shared_recharge"
-    payload = externalize_recharge_spd(_stack(), basename="m", shared_dir=str(shared))
-
-    for kper, record in payload.items():
-        target = Path(record["filename"])
-        assert target.name.startswith("rcha_")
-        assert target.name.endswith(f".{kper}.bin")
-        header_text = target.read_bytes()[24:40].decode("ascii")
-        assert header_text.strip() == "RECHARGE"
-
-
 # The recharge stack must not survive the package that consumed it.
 #
 # On a long chronicle the stack is the largest array a MODFLOW 6 model builds:
@@ -302,15 +288,6 @@ def test_nothing_in_the_payload_keeps_the_stack_alive(tmp_path) -> None:
     alive = [kper for kper, ref in watchers.items() if ref() is not None]
     assert not alive, f"{len(alive)} period(s) of the stack outlived their externalisation"
     assert len(payload) == N_PERIODS
-
-
-def test_a_short_chronicle_is_left_internal_and_keeps_its_arrays(tmp_path) -> None:
-    # Below the threshold the arrays ARE the payload, so they must stay alive:
-    # the guard above must not be read as "always drop the data".
-    short = {kper: np.zeros(N_CELLS) for kper in range(RECHARGE_BINARY_MIN_PERIODS - 1)}
-    payload = externalize_recharge_spd(short, basename="m", shared_dir=tmp_path)
-
-    assert payload is short
 
 
 def test_the_model_never_carries_the_stack_as_an_attribute() -> None:

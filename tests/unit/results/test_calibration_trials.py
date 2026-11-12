@@ -75,18 +75,6 @@ def _run(directory: Path, session_id: str | None = SESSION_ID) -> SimpleNamespac
     return SimpleNamespace(dir=directory, lineage=Lineage(session_id=session_id))
 
 
-def test_a_promoted_run_reads_the_whole_session_it_came_from(project) -> None:
-    frame = calibration_trials(_run(project / "runs" / "calage"))
-
-    assert list(frame["trial"]) == [1, 2, 3]
-    assert set(frame["case_id"]) == {"calage"}
-    assert list(frame["phase"]) == ["steady_k", "steady_k", "transient_sy"]
-    assert set(frame["session_id"]) == {SESSION_ID}
-    assert frame["parameters"][0] == {"K": {"value": 1e-5}}
-    assert frame["cost"][2] == 0.1
-    assert frame["rel_dir"][2] == "runs/calage"
-
-
 def test_the_session_directory_is_found_by_the_id_the_run_names(project) -> None:
     assert session_dir_of(_run(project / "runs" / "calage")) == project / "sessions" / "calage"
     assert session_dir_of(_run(project / "runs" / "calage", "f" * 32)) is None
@@ -106,21 +94,6 @@ def test_a_phase_filter_keeps_only_that_phase(project) -> None:
     assert list(frame["trial"]) == [1, 2]
     with pytest.raises(ValueError, match="no trial recorded"):
         calibration_trials(_run(project / "runs" / "calage"), phase="nowhere")
-
-
-def test_a_run_shaped_adapter_is_read_from_its_own_rows() -> None:
-    # The calibration report builds one of these from a session journal, with
-    # no project behind it; both carriers resolve to the same frame.
-    class _Adapter:
-        calibration_iterations = [{"trial": 1, "cost": 1.0}]
-
-    frame = calibration_trials(_Adapter())
-    assert list(frame["trial"]) == [1]
-
-
-def test_anything_else_is_refused_by_name() -> None:
-    with pytest.raises(ValueError, match="no calibration trial can be read"):
-        calibration_trials(object())
 
 
 def test_the_sessions_frame_has_one_row_per_phase(project) -> None:

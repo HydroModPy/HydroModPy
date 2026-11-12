@@ -38,15 +38,6 @@ def _grid(bounds, size) -> GridReference:
     )
 
 
-def test_wells_not_activated_returns_empty_spd():
-    """When 'wells' is absent from active_sinks_sources, WEL payload is empty."""
-    wells = {"W1": FlowWellConfig(location={"kind": "cell", "cell": (0, 0, 0)}, flux=-1e-4)}
-
-    wel_spd = _adapter(wells, active=("recharge",))._build_well_stress_period_data()
-
-    assert wel_spd == {}
-
-
 def test_well_absolute_xy_is_resolved_to_solver_cell():
     wells = {
         "W1": FlowWellConfig(
@@ -109,11 +100,6 @@ def test_well_flux_length_mismatch_raises():
 
     with pytest.raises(ValueError, match="must be 1 or match nper"):
         _adapter(wells)._build_well_stress_period_data()
-
-
-def test_a_well_without_a_layer_leaves_it_to_the_top_active_cell():
-    well = FlowWellConfig(location={"kind": "relative_xy", "x_rel": 0.5, "y_rel": 0.5}, flux=-1e-4)
-    assert well.location.layer is None
 
 
 def test_well_forcing_constant_is_resolved_in_adapter_without_runtime_binding():

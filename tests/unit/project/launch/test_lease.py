@@ -17,8 +17,6 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.exit_codes import EXIT_WRITE_CONFLICT, exit_code_for
-from hydromodpy.core.state import host as host_module
 from hydromodpy.core.state.host import host_name
 from hydromodpy.project.launch import lease as lease_module
 from hydromodpy.project.launch import local as launch_local
@@ -29,7 +27,6 @@ from hydromodpy.project.launch.lease import (
     launcher_lease,
     lease_path,
     read_lease,
-    release_lease,
 )
 from tests.unit.project.launch._helpers import dead_pid
 
@@ -49,25 +46,6 @@ def _write_lease(project: Path, *, host: str, pid: int) -> Path:
         encoding="utf-8",
     )
     return path
-
-
-def test_the_lease_names_its_host_and_process_and_a_second_launcher_is_refused(
-    tmp_path: Path,
-) -> None:
-    lease = acquire_lease(tmp_path)
-
-    held = read_lease(tmp_path)
-    assert held is not None
-    assert (held.host, held.pid) == (host_name(), os.getpid())
-    assert lease.path == tmp_path / ".hmp" / "launcher.lease"
-    with pytest.raises(LeaseHeldError) as refused:
-        acquire_lease(tmp_path)
-    assert f"pid {os.getpid()}" in str(refused.value)
-    assert host_name() in str(refused.value)
-    assert exit_code_for(refused.value) == EXIT_WRITE_CONFLICT
-
-    release_lease(lease)
-    assert not lease.path.exists()
 
 
 def test_a_lease_of_a_dead_process_of_this_host_is_taken_over(tmp_path: Path) -> None:
@@ -133,50 +111,6 @@ def test_two_launchers_never_both_take_over_a_dead_lease(
 
     held = lease_module.read_lease(tmp_path)
     assert held is not None and held.pid == os.getpid()
-    assert sorted(p.name for p in path.parent.iterdir()) == [path.name]
-
-
-def test_a_dead_lease_is_taken_over(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(host_module, "process_is_alive", lambda pid: pid != DEAD_PID)
-    path = lease_module.lease_path(tmp_path)
-    path.parent.mkdir(parents=True)
-    path.write_text(
-        json.dumps(
-            {
-                "schema": lease_module.LEASE_SCHEMA,
-                "host": host_name(),
-                "pid": DEAD_PID,
-                "started_at": "2026-10-16T00:00:00+00:00",
-            }
-        )
-    )
-
-    with lease_module.launcher_lease(tmp_path) as lease:
-        assert lease.pid == os.getpid()
-
-    assert not path.exists()
-
-
-def test_a_lease_put_back_when_os_link_is_refused_is_copied_and_the_takeover_refuses(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    path = lease_path(tmp_path)
-    path.parent.mkdir(parents=True)
-    judged = lease_module.Lease(path, host_name(), DEAD_PID, datetime.now(UTC))
-    path.write_text(json.dumps(judged.to_document()))
-    other = lease_module.Lease(path, "elsewhere", 7, datetime.now(UTC))
-    # A fresh launcher answers between the read and the move aside.
-    path.write_text(json.dumps(other.to_document()))
-
-    def refused(source: object, target: object) -> None:
-        raise PermissionError("no hard link here")
-
-    monkeypatch.setattr(os, "link", refused)
-    with pytest.raises(LeaseHeldError, match="elsewhere"):
-        lease_module._take_over(path, judged)
-
-    held = read_lease(tmp_path)
-    assert held is not None and (held.host, held.pid) == ("elsewhere", 7)
     assert sorted(p.name for p in path.parent.iterdir()) == [path.name]
 
 

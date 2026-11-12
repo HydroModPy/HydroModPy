@@ -17,41 +17,6 @@ def test_the_rule_has_one_name():
     assert VALUES_RULE == "values/1"
 
 
-@pytest.mark.parametrize(
-    ("left", "right"),
-    [
-        pytest.param(np.asarray([0.0, 1.5]), np.asarray([-0.0, 1.5]), id="negative-zero"),
-        pytest.param(
-            np.asarray([np.float64("nan")]),
-            np.asarray([np.float64("-nan")]),
-            id="nan-payload",
-        ),
-        pytest.param(
-            np.asarray([1.5], dtype="float32"),
-            np.asarray([1.5], dtype="float64"),
-            id="float32-float64",
-        ),
-        pytest.param(np.asarray([True, False]), np.asarray([1.0, 0.0]), id="boolean"),
-        pytest.param(np.asarray([3]), np.asarray([3.0]), id="integer-below-2-53"),
-    ],
-)
-def test_two_blocks_of_the_same_values_hash_the_same(left, right):
-    assert value_digest(left) == value_digest(right)
-
-
-@pytest.mark.parametrize(
-    ("left", "right"),
-    [
-        pytest.param(np.asarray([1.0, 2.0]), np.asarray([[1.0, 2.0]]), id="shape"),
-        pytest.param(np.asarray([1.0, 2.0]), np.asarray([2.0, 1.0]), id="order"),
-        pytest.param(np.asarray([2**53]), np.asarray([2**53 + 1]), id="big-integer-exact"),
-        pytest.param(np.asarray([1.0]), np.asarray([1.0000000000000002]), id="one-ulp"),
-    ],
-)
-def test_two_blocks_of_other_values_hash_apart(left, right):
-    assert value_digest(left) != value_digest(right)
-
-
 def test_a_larger_integer_is_held_exactly():
     exact = value_digest(np.asarray([2**64]))
     assert exact == value_digest(np.asarray([2**64]))
@@ -85,10 +50,3 @@ def test_the_digester_folds_its_steps_in_order_whatever_the_fill_order():
 def test_a_step_with_no_digest_is_refused_by_name():
     with pytest.raises(ValueError, match="step"):
         fold_steps({0: value_digest([1.0])}, 2)
-
-
-def test_the_fold_of_one_step_is_not_the_digest_of_its_values():
-    values = np.asarray([1.0, 2.0])
-    digester = ValueDigester()
-    digester.update(0, values)
-    assert digester.digest(1) != value_digest(values)

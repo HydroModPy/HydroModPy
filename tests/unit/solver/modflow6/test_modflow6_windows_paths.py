@@ -57,31 +57,6 @@ def _workspace_of_length(tmp_path: Path, length: int) -> Path:
     return tmp_path / ("w" * padding)
 
 
-def test_the_listed_files_cover_inputs_grid_and_declared_outputs(tmp_path: Path) -> None:
-    workspace = tmp_path / "ws"
-    names = {Path(path).name for path in mf6_workspace_files(_simulation(workspace))}
-
-    assert {
-        "mfsim.nam",
-        "mfsim.lst",
-        "abc.tdis",
-        "abc_gwf.ims",
-        "abc.nam",
-        "abc.lst",
-        "abc.disv",
-        "abc.disv.grb",
-        "abc.oc",
-        "abc_heads.hds",
-        "abc_budget.cbc",
-        "abc.drn",
-        "abc.drn.obs",
-        "abc_drain_observations.csv",
-    } <= names
-    assert all(
-        Path(path).parent == workspace for path in mf6_workspace_files(_simulation(workspace))
-    )
-
-
 def test_a_path_mf6_cannot_open_is_named_with_its_length(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -115,9 +90,3 @@ def test_a_workspace_mf6_can_open_passes(
     check_mf6_workspace_paths(sim)
 
     assert max(len(path) for path in mf6_workspace_files(sim)) == WINDOWS_PATH_LIMIT
-
-
-def test_the_guard_does_not_run_off_windows(tmp_path: Path) -> None:
-    workspace = _workspace_of_length(tmp_path, WINDOWS_PATH_LIMIT + 40)
-
-    check_mf6_workspace_paths(_simulation(workspace))

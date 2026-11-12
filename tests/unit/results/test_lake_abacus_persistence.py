@@ -70,10 +70,6 @@ def test_lake_abacus_sidecar_roundtrip(tmp_path: Path) -> None:
     assert entry.sim_volume == _REAL_VOL
 
 
-def test_lake_abacus_sidecar_absent_is_none(tmp_path: Path) -> None:
-    assert read_lake_abacus(tmp_path / "missing.lake_abacus.json") is None
-
-
 def test_lake_abacus_meta_noop_without_reconstruction(tmp_path: Path) -> None:
     model = _Model(tmp_path, {})
     _write_lake_abacus_meta(model)

@@ -675,7 +675,7 @@ class CalibrationPersistence:
     def link_trial(self, trial: int, *, sim_id: str | None, rel_dir: str | None) -> TrialLine:
         """Write the linked line of a trial, the finished line with the run it became.
 
-        A trial written by 2.0 keeps its schema and is written as it was read,
+        A trial written by a pre-release of 2.0 keeps its schema and is written as it was read,
         with its run.
         """
         line = next(item for item in read_trials(self._directory) if item.trial == trial)

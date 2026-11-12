@@ -765,11 +765,13 @@ def _run_once(config: Path, run_name: str, *, timeout: int) -> float:
         "hydromodpy",
         "run",
         "--no-display",
+        # A run that the project already holds is computed again, under its own name.
+        "--force",
+        "--case",
+        run_name,
         # The comparison reads no export: skip writing them.
         "--set",
         "export=[]",
-        "--set",
-        f"simulation.name={run_name}",
         str(config),
     ]
     started = time.monotonic()

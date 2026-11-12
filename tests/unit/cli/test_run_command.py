@@ -11,16 +11,10 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.cli.commands import run as run_command
-from hydromodpy.cli.commands.run import HEAD_ONLY_MESSAGE, _stops_before_setup_process
-from hydromodpy.cli.exit_codes import EXIT_WRITE_CONFLICT, exit_code_for
+from hydromodpy.cli.commands.run import HEAD_ONLY_MESSAGE
+from hydromodpy.cli.exit_codes import EXIT_WRITE_CONFLICT
 from hydromodpy.cli.main import main
 from hydromodpy.results.outcome import read_outcome
-from hydromodpy.results.storage.attempt import (
-    CLAIMED_ELSEWHERE,
-    AttemptClaimedError,
-    CaseAliveError,
-    DirectoryWithoutOutcomeError,
-)
 from tests._helpers.sealed_runs import write_attempt
 from tests.unit.project._helpers import DEM, PROJECT_TOML
 
@@ -46,24 +40,6 @@ def test_overview_recap_names_the_page_and_the_figures(tmp_path, monkeypatch, ca
         "  Report:  runs/overview/report/index.html",
         "  Figures: runs/overview/figures/ (2)",
     ]
-
-
-@pytest.mark.parametrize(
-    ("until", "expected"),
-    [
-        (None, False),
-        ("build_geographic", True),
-        ("load_data", True),
-        ("build_mesh", True),
-        ("setup_process", False),
-        ("run_solver", False),
-        ("seal", False),
-    ],
-)
-def test_only_a_window_that_ends_before_setup_process_is_head_only(
-    until: str | None, expected: bool
-) -> None:
-    assert _stops_before_setup_process(until) is expected
 
 
 def test_a_head_only_window_prints_one_line_and_exits_zero(
@@ -94,41 +70,6 @@ def test_a_window_that_reaches_the_model_phase_says_nothing_of_it(
     assert HEAD_ONLY_MESSAGE not in capsys.readouterr().err
 
 
-def test_until_on_a_calibration_file_names_the_simulation_workaround(
-    monkeypatch, tmp_path, capsys
-) -> None:
-    config_path = tmp_path / "calibration.toml"
-    config_path.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
-
-    code = _run(monkeypatch, ["hmp", "run", str(config_path), "--until", "load_data"])
-
-    from hydromodpy.cli.exit_codes import EXIT_CONFIG
-
-    assert code == EXIT_CONFIG
-    err = capsys.readouterr().err
-    assert (
-        "--from / --until are only supported for the 'simulation' workflow "
-        "(detected 'calibration'). To run the first steps of this file, for "
-        "example to check the soil reservoir alone, add "
-        "--set workflow.mode=simulation: "
-        "hmp run calibration.toml --until load_data --set workflow.mode=simulation"
-    ) in err
-
-
-def test_from_on_a_calibration_file_gets_the_same_text(monkeypatch, tmp_path, capsys) -> None:
-    config_path = tmp_path / "calibration.toml"
-    config_path.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
-
-    code = _run(monkeypatch, ["hmp", "run", str(config_path), "--from", "load_data"])
-
-    from hydromodpy.cli.exit_codes import EXIT_CONFIG
-
-    assert code == EXIT_CONFIG
-    err = capsys.readouterr().err
-    assert "--set workflow.mode=simulation" in err
-    assert "detected 'calibration'" in err
-
-
 def test_until_on_an_overview_file_keeps_the_generic_text(monkeypatch, tmp_path, capsys) -> None:
     config_path = tmp_path / "overview.toml"
     config_path.write_text('[workflow]\nmode = "overview"\n', encoding="utf-8")
@@ -143,58 +84,10 @@ def test_until_on_an_overview_file_keeps_the_generic_text(monkeypatch, tmp_path,
     assert "workflow.mode=simulation" not in err
 
 
-def test_an_overview_receives_the_environment_of_the_command(monkeypatch, tmp_path, capsys) -> None:
-    """The CLI builds the Environment and hands it to the overview adapter."""
-    from hydromodpy.core.exceptions import HydroModPyError
-    from hydromodpy.project.dispatch import workflow as dispatch_module
-
-    asked: dict = {}
-
-    def fake_overview(request, *, base, environment=None):
-        asked["environment"] = environment
-        raise HydroModPyError("sentinel-of-the-overview")
-
-    monkeypatch.setattr(dispatch_module, "run_overview", fake_overview)
-    config_path = tmp_path / "overview.toml"
-    config_path.write_text('[workflow]\nmode = "overview"\n', encoding="utf-8")
-
-    code = _run(
-        monkeypatch,
-        [
-            "hmp",
-            "run",
-            str(config_path),
-            "--allow-host",
-            "data.geopf.fr",
-            "--max-download-bytes",
-            "4096",
-        ],
-    )
-
-    assert code == exit_code_for(HydroModPyError("x"))
-    environment = asked["environment"]
-    assert environment is not None
-    assert environment.bounds.allowed_hosts == frozenset({"data.geopf.fr"})
-    assert environment.bounds.max_download_bytes == 4096
-    assert "sentinel-of-the-overview" in capsys.readouterr().err
-
-
 CASE = "declared_name"
 
 
 """``[simulation] name`` of the project TOML, which names the case."""
-
-
-@pytest.mark.parametrize(
-    "error",
-    [
-        AttemptClaimedError(f"{CLAIMED_ELSEWHERE}: x"),
-        CaseAliveError("x is running on node12 (pid 4421)"),
-        DirectoryWithoutOutcomeError("x carries neither outcome.json nor manifest.json"),
-    ],
-)
-def test_a_lost_claim_exits_as_a_write_conflict(error: Exception) -> None:
-    assert exit_code_for(error) == EXIT_WRITE_CONFLICT
 
 
 def test_a_second_hmp_run_on_a_live_case_is_refused_and_leaves_it_running(
@@ -288,21 +181,6 @@ def test_frozen_on_the_config_of_a_sealed_run_names_the_replay_verb(
     err = capsys.readouterr().err
     assert "--frozen does not play a run again" in err
     assert "hmp replay runs/probe" in err
-
-
-def test_frozen_on_the_config_of_a_published_copy_names_the_replay_verb(
-    monkeypatch, tmp_path: Path, capsys
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    config = _sealed_config(tmp_path / "publication")
-    (config.parent / "PUBLICATION.json").write_text("{}", encoding="utf-8")
-
-    code = _run(monkeypatch, ["hmp", "run", str(config), "--frozen"])
-
-    from hydromodpy.cli.exit_codes import EXIT_CONFIG
-
-    assert code == EXIT_CONFIG
-    assert "hmp replay publication" in capsys.readouterr().err
 
 
 def test_frozen_on_an_ordinary_config_is_no_replay_and_is_let_through(

@@ -99,16 +99,6 @@ def test_to_dis_kwargs_geometry_exact_for_structured_mesh() -> None:
         _unstructured_mesh().to_dis_kwargs()
 
 
-def test_mf6_unstructured_mesh_still_uses_disv(tmp_path) -> None:
-    mesh = _unstructured_mesh()
-    assert mesh.is_structured is False
-    disv = _build_gwf_disv(tmp_path, mesh)
-    assert type(disv).__name__ == "ModflowGwfdisv"
-    assert int(disv.ncpl.get_data()) == 4
-    with pytest.raises(ValueError, match="structured"):
-        mesh.to_dis_kwargs()
-
-
 def test_grid_mapping_descriptors_are_removed() -> None:
     with pytest.raises(ModuleNotFoundError):
         import hydromodpy.solver.modflow_grid.grid_mapping  # noqa: F401

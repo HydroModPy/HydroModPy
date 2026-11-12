@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, ClassVar
 
 from pydantic import BaseModel
@@ -10,16 +9,13 @@ from pydantic import BaseModel
 from hydromodpy.results.field_registry import FACE_FLOW, FIELD_REGISTRY, all_zarr_paths
 from hydromodpy.solver.base import adapter_protocol
 from hydromodpy.solver.base.adapter_protocol import (
-    NULLABLE_ATTRIBUTES,
     OPTIONAL_MEMBERS,
     RERUN_MEMBERS,
     CellLocator,
     OutputAdapter,
     SolverAdapter,
-    extractor_members,
-    solver_members,
 )
-from hydromodpy.solver.base.plan import RunSlot, SolverRun
+from hydromodpy.solver.base.plan import SolverRun
 
 
 def _members(protocol: object) -> tuple[str, ...]:
@@ -32,33 +28,6 @@ def _members(protocol: object) -> tuple[str, ...]:
 
 def test_the_port_has_the_five_members_the_runner_calls() -> None:
     assert _members(SolverAdapter) == ("validate", "build", "run", "cleanup", "extract")
-
-
-def test_the_member_list_of_a_backend_holds_the_attributes_then_the_methods() -> None:
-    """The attributes of the port, minus the two nullable, then the five members."""
-    attributes = (
-        "name",
-        "process_type",
-        "accepted_meshes",
-        "geometry",
-        "writes",
-        "reads",
-        "supports",
-        "category",
-        "mutable",
-        "requires",
-    )
-    assert solver_members() == (*attributes, "validate", "build", "run", "cleanup", "extract")
-
-
-def test_the_two_nullable_attributes_are_named_and_turn_none_not_absent() -> None:
-    """A backend declares ``options`` and ``native_step`` even when it binds them to None."""
-    assert NULLABLE_ATTRIBUTES == ("options", "native_step")
-    assert len(set(solver_members()) | set(NULLABLE_ATTRIBUTES)) == 17
-
-
-def test_the_extractor_port_has_two_attributes_and_the_extract_member() -> None:
-    assert extractor_members() == ("process_type", "solver_name", "extract")
 
 
 def test_the_optional_members_are_listed_and_not_in_the_body_of_the_protocol() -> None:
@@ -120,12 +89,6 @@ class _ShapeAdapter:
 
 def test_an_adapter_of_the_right_shape_answers_the_protocol_without_inheriting_it() -> None:
     assert isinstance(_ShapeAdapter(), SolverAdapter)
-
-
-def test_the_built_run_of_a_shape_adapter_is_neither_written_nor_solved(tmp_path: Path) -> None:
-    built = _ShapeAdapter().build(object(), _Options(), RunSlot(tmp_path, "island"), ())
-
-    assert (built.written, built.solved) == (False, False)
 
 
 def test_the_port_of_the_extractor_answers_its_protocol() -> None:

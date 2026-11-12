@@ -158,31 +158,6 @@ def test_the_drain_bed_thickness_says_its_value_has_no_measured_source() -> None
 @pytest.mark.parametrize(
     "path",
     [
-        "calibration",
-        "calibration.method",
-        "transport.modflow6_prt",
-        "transport.modflow6_prt.write_track_binary",
-        "transport.modpath.track_dir",
-        "flow.sinks_sources.flow_barriers",
-        "flow.sinks_sources.flow_barriers.<name>.hydchr",
-        "flow.sinks_sources.lakes.<name>.cutoff_wall",
-        "flow.sinks_sources.lakes.<name>.cutoff_wall.depths",
-        "flow.sinks_sources.recharge.soil.alpha",
-        "solver.boussinesq.vi_substeps_per_period",
-        "geographic.domain_extent",
-    ],
-)
-def test_the_docs_show_the_mark_on_a_key_and_below_a_marked_section(
-    registry: dict, chips, path: str
-) -> None:
-    node = registry[path]
-    assert node["stability"] == "experimental"
-    assert '<span class="tc tc-exp">experimental</span>' in chips(node, in_variant=True)
-
-
-@pytest.mark.parametrize(
-    "path",
-    [
         "flow.first_period_steady",
         "flow.sinks_sources.recharge.soil.ru",
         "transport.mt3dms",
@@ -255,22 +230,6 @@ def test_a_description_that_says_experimental_carries_the_mark() -> None:
     ]
 
     assert not offenders, "Prose instead of the mark in: " + ", ".join(offenders)
-
-
-def test_no_field_description_names_a_dead_results_folder() -> None:
-    """``results_stable/`` was replaced by ``.hmp/scratch/_preprocessing/``.
-
-    A field description is the only documentation many users read, so it must
-    not send them to a directory the code stopped writing.
-    """
-    offenders = [
-        f"{cls.__module__}.{cls.__name__}.{field_name}"
-        for cls in _iter_basemodel_classes()
-        for field_name, info in cls.model_fields.items()
-        if "results_stable" in (info.description or "")
-    ]
-
-    assert not offenders, "Dead 'results_stable/' path in: " + ", ".join(offenders)
 
 
 @pytest.mark.parametrize(

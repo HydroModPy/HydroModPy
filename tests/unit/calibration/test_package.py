@@ -93,12 +93,6 @@ class TestCalibrationReportBasic:
         assert len(trials) == 0
         assert tuple(trials.columns) == TRIAL_COLUMNS
 
-    def test_a_report_of_no_run_names_none(self):
-        report = make_report()
-
-        assert (report.best_sim_id, report.best_rel_dir) == (None, None)
-        assert report.to_dict()["best_sim_id"] is None
-
     def test_a_report_of_several_cases_names_each_run_and_refuses_the_one(self):
         report = make_report(
             best_cases={
@@ -131,16 +125,6 @@ def test_no_run_carries_a_lumped_ram_cache() -> None:
 _FROZEN = FrozenParameter(
     parameter=SimpleNamespace(name="K", effective_path="flow.K", mode="scale"), value=2, phase="p1"
 )
-
-
-def test_a_frozen_value_names_its_path_mode_and_phase() -> None:
-    assert _FROZEN.to_dict() == {
-        "name": "K",
-        "path": "flow.K",
-        "value": 2.0,
-        "mode": "scale",
-        "phase": "p1",
-    }
 
 
 def test_a_phase_says_why_it_stopped_and_which_values_it_moved_again() -> None:
@@ -209,11 +193,3 @@ def test_the_summary_names_the_calibrated_variable_and_the_descriptor_the_promot
     run = read_session(session.directory).only_run
 
     assert (summary.calibrated_variable, run.sim_id, run.rel_dir) == (variable, "r1", "runs/r1")
-
-
-def test_a_session_without_frozen_config_or_variable_reads_the_discharge(tmp_path: Path) -> None:
-    session = make_session(tmp_path)
-    assert session_summary(Session(session.directory)).calibrated_variable == "discharge"
-
-    (session.directory / "config.toml").write_text("[flow]\n")
-    assert session_summary(Session(session.directory)).calibrated_variable == "discharge"

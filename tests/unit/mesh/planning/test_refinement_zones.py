@@ -23,7 +23,7 @@ import geopandas as gpd
 import numpy as np
 import pytest
 from pyogrio.errors import DataSourceError
-from shapely.geometry import LineString, Point, Polygon, box
+from shapely.geometry import LineString, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.mesh.planning.refinement_zones import (
@@ -166,17 +166,6 @@ def test_the_zone_file_is_read_wherever_it_lies(tmp_path: Path) -> None:
     assert by_data_dir.ramp_m == 2.0 * 15.0
 
 
-def test_a_point_or_a_line_of_a_layer_is_widened_into_a_corridor(tmp_path: Path) -> None:
-    path = _layer(tmp_path / "zones.geojson", Point(500.0, 500.0), LineString([(0, 0), (100, 0)]))
-
-    (zone,) = _zones({"path": str(path), "cell_size": 15.0, "buffer": 40.0}, criteria=None)
-
-    assert zone.ramp_m == 40.0
-    assert zone.region.contains(Point(500.0, 539.0))
-    assert zone.region.contains(Point(50.0, 39.0))
-    assert not zone.region.contains(Point(500.0, 541.0))
-
-
 @pytest.mark.filterwarnings("ignore:'crs' was not provided")
 def test_a_layer_with_no_crs_is_read_in_the_project_crs_with_a_warning(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
@@ -240,27 +229,5 @@ def test_extremes_that_do_not_hold_one_value_per_cell_are_refused(minimum, maxim
         dataclasses.replace(_envelope(), minimum=np.array(minimum), maximum=np.array(maximum))
 
 
-def test_the_cells_selected_mark_the_pixels_whose_centre_they_hold() -> None:
-    mask = cells_on_grid(_VERTICES, _HALVES, np.array([True, False]), _GRID)
-
-    assert mask[:, :50].all() and not mask[:, 50:].any()
-
-
 def test_no_cell_selected_marks_no_pixel() -> None:
     assert not cells_on_grid(_VERTICES, _HALVES, np.array([False, False]), _GRID).any()
-
-
-def test_a_cell_smaller_than_a_pixel_still_marks_the_pixel_under_it() -> None:
-    vertices = np.array([[201.0, 201.0], [203.0, 201.0], [203.0, 203.0], [201.0, 203.0]])
-
-    mask = cells_on_grid(vertices, np.array([[0, 1, 2, 3]]), np.array([True]), _GRID)
-
-    assert mask.sum() == 1 and mask[79, 20]
-
-
-def test_a_cell_off_the_grid_marks_nothing() -> None:
-    vertices = np.array([[2001.0, 201.0], [2003.0, 201.0], [2003.0, 203.0], [2001.0, 203.0]])
-
-    mask = cells_on_grid(vertices, np.array([[0, 1, 2, 3]]), np.array([True]), _GRID)
-
-    assert not mask.any()

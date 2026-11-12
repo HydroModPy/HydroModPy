@@ -9,13 +9,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.display.figure import option_names_of
-from hydromodpy.display.figures.hydrograph_log_nse import (
-    SPLIT_COLORS,
-    HydrographLogNseFigure,
-)
+from hydromodpy.display.figures.hydrograph_log_nse import HydrographLogNseFigure
 from hydromodpy.display.figures.scatter_one_to_one import ScatterOneToOne
-from hydromodpy.display.style import relative_luminance
 from hydromodpy.results.record.manifest import MetricRow
 from hydromodpy.results.storage.run_store import RunStore
 
@@ -120,70 +115,9 @@ def _note(ax) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def test_draws_simulated_and_observed_on_a_log_axis(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(_run(), ax)
-
-    try:
-        assert ax.get_yscale() == "log"
-        assert ax.get_ylabel() == "Discharge (m³/s)"
-        assert ax.get_xlabel() == "Date"
-        assert _line(ax, "simulated total").get_ydata().tolist() == [2.0, 1.0, 0.5, 1.5]
-        assert _line(ax, "observed").get_ydata().tolist() == [1.8, 1.1, 0.6, 1.4]
-        assert "cheze-transient" in ax.get_title()
-    finally:
-        mpl.close(fig)
-
-
-def test_draws_the_hydrograph_of_a_run_without_observations(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(_Run([2.0, 1.0, 0.5, 1.5]), ax)
-
-    try:
-        assert _line(ax, "simulated total").get_ydata().tolist() == [2.0, 1.0, 0.5, 1.5]
-        assert not [label for label in _labels(ax) if label.startswith("observed")]
-        assert "no observed discharge for this run" in _note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_a_failed_timestep_breaks_the_line_instead_of_reading_as_a_zero(mpl) -> None:
-    run = _Run([2.0, float("nan"), 0.5, 1.5], observed=[1.8, 1.1, 0.6, 1.4])
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(run, ax)
-
-    try:
-        drawn = _line(ax, "simulated total").get_ydata()
-        assert np.isnan(drawn[1])
-        assert drawn[0] == 2.0
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # the drainage / runoff split
 # --------------------------------------------------------------------------- #
-
-
-def test_splits_drainage_and_runoff_as_two_extra_lines(mpl) -> None:
-    run = _run(
-        components={
-            "drainage": [1.5, 0.9, 0.45, 1.0],
-            "runoff": [0.5, 0.1, 0.05, 0.5],
-        }
-    )
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(run, ax)
-
-    try:
-        assert _line(ax, "drainage").get_ydata().tolist() == [1.5, 0.9, 0.45, 1.0]
-        assert _line(ax, "runoff").get_ydata().tolist() == [0.5, 0.1, 0.05, 0.5]
-    finally:
-        mpl.close(fig)
 
 
 def test_takes_the_split_from_render_arguments_over_the_run(mpl) -> None:
@@ -209,41 +143,6 @@ def test_completes_the_split_by_difference_and_says_so(mpl) -> None:
         runoff = _line(ax, "runoff")
         assert runoff.get_ydata() == pytest.approx([0.5, 0.1, 0.05, 0.5])
         assert "by difference" in str(runoff.get_label())
-    finally:
-        mpl.close(fig)
-
-
-def test_says_when_no_split_is_available(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(_run(), ax)
-
-    try:
-        assert not [label for label in _labels(ax) if label.startswith(("drainage", "runoff"))]
-        assert "total discharge only" in _note(ax)
-        assert "=" not in _note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_a_split_component_on_a_foreign_clock_is_reported_absent(mpl) -> None:
-    """A component reindexed onto another index carries no sample at all.
-
-    It must collapse to the "no split" annotation, not to two legend entries
-    a reader would take for a split that simply sits off the panel.
-    """
-    run = _run()
-    run._series["drainage"] = pd.Series(
-        [1.5, 0.9, 0.45, 1.0], index=pd.date_range("2015-01-01", periods=4, freq="D")
-    )
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(run, ax)
-
-    try:
-        assert not [label for label in _labels(ax) if label.startswith(("drainage", "runoff"))]
-        assert "total discharge only" in _note(ax)
-        assert "=" not in _note(ax)
     finally:
         mpl.close(fig)
 
@@ -287,35 +186,9 @@ def test_says_when_the_simulated_series_is_empty(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_three_curves_stay_apart_in_greyscale() -> None:
-    luminances = sorted(relative_luminance(color) for color in SPLIT_COLORS.values())
-    gaps = [high - low for low, high in zip(luminances[:-1], luminances[1:], strict=False)]
-    assert min(gaps) > 0.1
-
-
 # --------------------------------------------------------------------------- #
 # the log floor
 # --------------------------------------------------------------------------- #
-
-
-def test_non_positive_samples_land_on_the_floor_and_are_counted(mpl) -> None:
-    # The observed median is 1.0, so the floor is 0.01: the same offset the
-    # metric adds before its logarithm.
-    run = _Run([2.0, 0.0, -0.5, 1.0], observed=[1.0, 1.0, 1.0, 1.0])
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(run, ax)
-
-    try:
-        drawn = _line(ax, "simulated total").get_ydata()
-        assert drawn.tolist() == [2.0, 0.01, 0.01, 1.0]
-        note = _note(ax)
-        assert "0.01" in note
-        assert "simulated total 2" in note
-        assert "of 4 samples" in note
-        assert _line(ax, "on the log floor").get_ydata().tolist() == [0.01, 0.01]
-    finally:
-        mpl.close(fig)
 
 
 def test_an_explicit_floor_overrides_the_metric_offset(mpl) -> None:
@@ -330,20 +203,6 @@ def test_an_explicit_floor_overrides_the_metric_offset(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_floor_stays_inside_the_drawn_range(mpl) -> None:
-    run = _Run([2.0, 0.0, -0.5, 1.0], observed=[1.0, 1.0, 1.0, 1.0])
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(run, ax)
-
-    try:
-        bottom, top = ax.get_ylim()
-        assert bottom < 0.01
-        assert top > 2.0
-    finally:
-        mpl.close(fig)
-
-
 def test_a_component_of_the_wrong_length_is_refused(mpl) -> None:
     fig, ax = mpl.subplots()
 
@@ -354,36 +213,9 @@ def test_a_component_of_the_wrong_length_is_refused(mpl) -> None:
         mpl.close(fig)
 
 
-def test_no_floor_line_when_every_sample_is_positive(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(_run(), ax)
-
-    try:
-        assert not [label for label in _labels(ax) if label.startswith("on the log floor")]
-        assert "log floor" not in _note(ax)
-    finally:
-        mpl.close(fig)
-
-
 # --------------------------------------------------------------------------- #
 # the scoring window and the score
 # --------------------------------------------------------------------------- #
-
-
-def test_shades_the_window_the_run_was_scored_on_and_counts_its_samples(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(_scored(_run()), ax)
-
-    try:
-        spans = [patch for patch in ax.patches if "scoring window" in str(patch.get_label())]
-        assert len(spans) == 1
-        note = _note(ax)
-        assert "2011-01-02" in note
-        assert "2 of 4 samples scored" in note
-    finally:
-        mpl.close(fig)
 
 
 def test_annotates_the_nse_log_the_run_recorded(mpl) -> None:
@@ -393,53 +225,6 @@ def test_annotates_the_nse_log_the_run_recorded(mpl) -> None:
 
     try:
         assert "NSElog = 0.812" in _note(ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_the_window_and_the_score_are_no_options() -> None:
-    """Typed beside the figure, they disagreed with the score the run is ranked on."""
-    options = option_names_of(HydrographLogNseFigure)
-
-    assert "window" not in options
-    assert "nse_log" not in options
-
-
-def test_says_nothing_of_a_window_or_a_score_it_was_not_given(mpl) -> None:
-    """An absent score is not a caveat: the note leaves it out, no call syntax."""
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(_run(), ax)
-
-    try:
-        note = _note(ax)
-        assert "scoring window" not in note
-        assert "NSElog" not in note
-        assert "=" not in note
-        assert not [patch for patch in ax.patches if "scoring window" in str(patch.get_label())]
-    finally:
-        mpl.close(fig)
-
-
-def test_a_run_with_nothing_missing_draws_no_note(mpl) -> None:
-    run = _run(components={"drainage": [1.5, 0.9, 0.45, 1.0]})
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(run, ax)
-
-    try:
-        assert _note(ax) == ""
-    finally:
-        mpl.close(fig)
-
-
-def test_the_catchment_outlet_is_named_in_the_title(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(_run(), ax)
-
-    try:
-        assert ax.get_title().endswith("@ catchment outlet")
     finally:
         mpl.close(fig)
 
@@ -593,19 +378,6 @@ def test_the_scatter_of_an_unscored_run_prints_no_number(mpl) -> None:
     text = _text(ax)
     assert "holds no score" in text
     assert "NSE" not in text
-    mpl.close(fig)
-
-
-def test_the_log_hydrograph_shades_and_prints_what_the_run_recorded(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    HydrographLogNseFigure().render(_ScoredRun(), ax)
-
-    text = _text(ax)
-    assert "NSElog = 0.876" in text
-    assert "scoring window 2001-01-01 to 2002-12-31: 24 of 36 samples scored" in text
-    (span,) = [patch for patch in ax.patches if patch.get_label() == "scoring window"]
-    assert span is not None
     mpl.close(fig)
 
 

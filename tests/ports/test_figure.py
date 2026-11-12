@@ -6,7 +6,7 @@ raises ``FigureNotApplicable`` with a sentence, which the renderer turns into
 a skipped figure with that reason. Any other exception is a defect, because a
 run that asks ``on_error = "raise"`` stops on it.
 
-The subjects are the frozen example of 2.0.0, copied out of the tree: the
+The subjects are the frozen example of a pre-release, copied out of the tree: the
 runs ``demo`` and ``calage``, the session ``calage`` and the ``RunSet`` of the
 project. Each figure meets each subject once. A figure the example cannot draw
 is named with its reasons, never dropped. Figures of transport and of lakes

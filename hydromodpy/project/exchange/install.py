@@ -49,7 +49,7 @@ from hydromodpy.results.products.store import META_FILENAME, ProductStore, produ
 DATA_DIRNAME: Final[str] = "data"
 
 LEGACY_PACKAGE_MESH_DIRNAME: Final[str] = "mesh_cache"
-"""Folder a 2.0 package used for the mesh cache entries; a 2.1 install skips it."""
+"""Folder a package of a pre-release used for the mesh cache entries; this version skips it."""
 
 _ADVICE: Final[str] = (
     "Nothing of the package was written. Move the file of your workspace aside, or import "

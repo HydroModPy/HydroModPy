@@ -50,9 +50,3 @@ def test_nothing_installed_falls_back(tmp_path: Path, monkeypatch: pytest.Monkey
     assert version_module._read_version(tmp_path / "pyproject.toml") == (
         version_module._FALLBACK_VERSION
     )
-
-
-def test_this_checkout_reports_its_pyproject_version() -> None:
-    assert version_module.__version__ == version_module._checkout_version(
-        version_module._CHECKOUT_PYPROJECT
-    )

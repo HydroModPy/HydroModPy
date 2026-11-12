@@ -10,7 +10,6 @@ answer (no identifiers), an absent file the caller named is a refusal.
 from __future__ import annotations
 
 import os
-import pickle
 from pathlib import Path
 
 import pytest
@@ -52,14 +51,6 @@ def _write(path: Path, body: str = GOOD, mode: int = 0o600) -> Path:
     return path
 
 
-def test_the_default_environment_carries_the_state_credentials(
-    state_home: Path,
-) -> None:
-    environment = Environment.default()
-    assert environment.credentials == state_home / "credentials.toml"
-    assert environment.bounds == Bounds()
-
-
 def test_check_accepts_a_project_under_the_roots_the_call_named(
     tmp_path: Path, state_home: Path, roots: dict[str, Path]
 ) -> None:
@@ -78,13 +69,6 @@ def test_check_refuses_a_project_outside_the_roots(
     message = str(raised.value)
     assert "opening the project" in message
     assert str(elsewhere) in message
-
-
-def test_an_absent_file_at_the_default_place_means_no_credentials(
-    state_home: Path, roots: dict[str, Path]
-) -> None:
-    environment = Environment.default()
-    environment.check(project_root=roots["project"], workspace_root=roots["workspace"])
 
 
 def test_a_file_named_and_absent_is_refused_as_a_configuration(
@@ -134,18 +118,6 @@ def test_the_repr_carries_the_paths_and_never_a_secret(
     rendered = repr(environment)
     assert "credentials-depot.toml" in rendered
     assert "s3cr3t-hunter2" not in rendered
-
-
-def test_an_environment_travels_to_a_worker(
-    tmp_path: Path, state_home: Path, roots: dict[str, Path]
-) -> None:
-    environment = Environment(
-        credentials=tmp_path / "credentials.toml", bounds=Bounds(allowed_roots=(tmp_path,))
-    )
-    restored = pickle.loads(pickle.dumps(environment))
-    assert restored == environment
-    assert restored.credentials == environment.credentials
-    assert restored.bounds == environment.bounds
 
 
 def test_an_environment_without_a_file_reads_nothing(

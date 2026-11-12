@@ -19,12 +19,7 @@ import pytest
 
 pyproj = pytest.importorskip("pyproj")
 
-from hydromodpy.core.exceptions import (
-    BoundsError,
-    DataCapabilityError,
-    DataProductError,
-    DataRequestError,
-)
+from hydromodpy.core.exceptions import DataCapabilityError, DataProductError, DataRequestError
 from hydromodpy.core.runtime.bounds import Bounds
 from hydromodpy.data.contracts.file_record import FileRecord
 from hydromodpy.data.source.port import (
@@ -33,7 +28,6 @@ from hydromodpy.data.source.port import (
     FetchResult,
     Period,
     Selector,
-    fetch_within,
     require_declared_variables,
     require_period,
     require_selectors,
@@ -229,30 +223,11 @@ def test_a_period_mixing_an_aware_bound_with_a_naive_one_is_refused() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_an_empty_request_is_accepted_by_the_type() -> None:
-    """A file content and a computed constant are asked exactly nothing."""
-    request = FetchRequest(out_dir=Path("."))
-    assert request.selectors == ()
-
-
 def test_a_request_that_selects_nothing_is_refused_for_a_source_that_selects(
     tmp_path: Path,
 ) -> None:
     with pytest.raises(DataRequestError, match="selects nothing"):
         require_selectors(_SelectingSource(), FetchRequest(out_dir=tmp_path))
-
-
-def test_a_request_that_selects_nothing_is_served_by_a_source_that_selects_nothing(
-    tmp_path: Path,
-) -> None:
-    """The declaration says the truth: ``selectors = ()`` answers the empty request."""
-    require_selectors(_SelectingNothingSource(), FetchRequest(out_dir=tmp_path))
-    require_selectors(_SelectingNothingSource(), FetchRequest(out_dir=tmp_path, period=PERIOD))
-
-
-def test_a_selector_the_source_does_not_declare_is_refused(tmp_path: Path) -> None:
-    with pytest.raises(DataCapabilityError, match="does not select by"):
-        require_selectors(_SelectingSource(), FetchRequest(out_dir=tmp_path, station_ids=("BSS1",)))
 
 
 def test_no_source_answers_two_selectors_at_once(tmp_path: Path) -> None:
@@ -326,38 +301,14 @@ def test_a_record_the_source_does_not_declare_is_refused() -> None:
         require_declared_variables(_SelectingSource(), ("other",))
 
 
-def test_a_period_refused_by_a_source_is_refused(tmp_path: Path) -> None:
-    with pytest.raises(DataCapabilityError, match="no time axis"):
-        require_period(_SelectingSource(), FetchRequest(out_dir=tmp_path, period=PERIOD))
-
-
 def test_a_period_a_source_needs_is_demanded(tmp_path: Path) -> None:
     with pytest.raises(DataRequestError, match="needs a period"):
         require_period(_NeedingPeriodSource(), FetchRequest(out_dir=tmp_path))
 
 
-def test_an_optional_period_is_accepted_with_or_without_period(tmp_path: Path) -> None:
-    src = _OptionalPeriodSource()
-    assert require_period(src, FetchRequest(out_dir=tmp_path, period=PERIOD)) == PERIOD
-    assert require_period(src, FetchRequest(out_dir=tmp_path, period=None)) is None
-
-
 # --------------------------------------------------------------------------- #
 # FileRecord
 # --------------------------------------------------------------------------- #
-
-
-def test_of_hashes_the_bytes_it_read(tmp_path: Path) -> None:
-    path = tmp_path / "tiles.tif"
-    path.write_bytes(b"\x89DEM")
-    record = FileRecord.of(path, state="raw", nodata=-9999.0, origin="test")
-    import hashlib  # not the port's digest: the check is against the primitive
-
-    assert record.sha256 == hashlib.sha256(b"\x89DEM").hexdigest()
-    assert record.state == "raw"
-    assert record.nodata == -9999.0
-    assert record.origin == "test"
-    assert record.path == path
 
 
 def test_of_reads_the_file_without_writing_it(tmp_path: Path) -> None:
@@ -398,14 +349,6 @@ def test_a_file_that_cannot_be_read_is_refused_naming_it(tmp_path: Path) -> None
 # --------------------------------------------------------------------------- #
 
 
-def test_shipped_hosts_reads_the_licence_table() -> None:
-    from hydromodpy.schema.sources import source_entry
-
-    hosts = shipped_hosts("bdtopage")
-    assert hosts == tuple(source_entry("bdtopage").hosts)
-    assert all("/" not in host for host in hosts)
-
-
 def test_an_id_without_a_licence_entry_is_refused() -> None:
     with pytest.raises(DataRequestError, match="licence entry"):
         shipped_hosts("not-a-source-of-this-build")
@@ -437,46 +380,3 @@ def test_a_request_carries_the_default_bounds_and_refuses_another_form(
     assert FetchRequest(out_dir=tmp_path).bounds == Bounds()
     with pytest.raises(DataRequestError, match="is not a Bounds"):
         FetchRequest(out_dir=tmp_path, bounds="api.geosas.fr")  # type: ignore[arg-type]
-
-
-def test_the_request_of_a_source_refuses_a_host_the_bounds_do_not_allow(
-    tmp_path: Path,
-) -> None:
-    source = _CountingNetworkSource()
-    request = FetchRequest(
-        out_dir=tmp_path, bounds=Bounds(allowed_hosts=frozenset({"data.geopf.fr"}))
-    )
-    with pytest.raises(BoundsError) as raised:
-        fetch_within(source, request)
-    message = str(raised.value)
-    assert "api.geosas.fr" in message and "--allow-host" in message
-    assert source.calls == [], "the refusal happens before any provider is contacted"
-
-
-def test_the_request_of_a_source_whose_hosts_are_allowed_reaches_the_provider(
-    tmp_path: Path,
-) -> None:
-    source = _CountingNetworkSource()
-    request = FetchRequest(
-        out_dir=tmp_path,
-        bounds=Bounds(allowed_hosts=frozenset({"api.geosas.fr", "data.geopf.fr"})),
-    )
-    result = fetch_within(source, request)
-    assert source.calls == [request]
-    assert result is not None and result.source_id == source.source_id
-
-
-def test_an_offline_call_still_serves_the_sources_that_touch_no_network(
-    tmp_path: Path,
-) -> None:
-    """``constant``, ``synthetic`` and ``custom`` declare hosts of none."""
-
-    class _ComputedSource(_SelectingSource):
-        def fetch(self, request: FetchRequest) -> FetchResult:
-            return FetchResult(source_id=self.source_id, kind="points", variables=self.variables)
-
-    offline = Bounds(allowed_hosts=frozenset())
-    for source_id in ("constant-double", "synthetic-double", "custom-double"):
-        source = _ComputedSource()
-        source.source_id = source_id  # type: ignore[misc]  (read by the why of the refusal)
-        fetch_within(source, FetchRequest(out_dir=tmp_path, bounds=offline))

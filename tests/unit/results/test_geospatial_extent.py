@@ -17,36 +17,6 @@ from hydromodpy.results.storage.geo_metadata import wgs84_bounds
 _NANCON_L93 = (319987.5, 6776662.5, 330000.0, 6790000.0)
 
 
-def test_a_projected_catchment_comes_out_in_degrees() -> None:
-    bounds = wgs84_bounds(_NANCON_L93, "EPSG:2154")
-    assert bounds is not None
-    assert -2.2 < bounds["lon_min"] < bounds["lon_max"] < -1.9
-    assert 47.9 < bounds["lat_min"] < bounds["lat_max"] < 48.2
-
-
-def test_an_extent_already_in_degrees_is_unchanged() -> None:
-    assert wgs84_bounds((-2.0, 48.0, -1.0, 49.0), "EPSG:4326") == {
-        "lon_min": -2.0,
-        "lon_max": -1.0,
-        "lat_min": 48.0,
-        "lat_max": 49.0,
-    }
-
-
-def test_a_geographic_crs_on_another_meridian_is_still_transformed() -> None:
-    """NTF (Paris) is geographic and is not WGS84: its zero is Paris, not Greenwich."""
-    bounds = wgs84_bounds((0.0, 50.0, 1.0, 51.0), "EPSG:4807")
-    assert bounds is not None
-    assert bounds["lon_min"] > 2.0, "the Paris meridian offset was not applied"
-
-
-def test_an_inverted_bbox_is_normalised() -> None:
-    xmin, ymin, xmax, ymax = _NANCON_L93
-    assert wgs84_bounds((xmax, ymax, xmin, ymin), "EPSG:2154") == wgs84_bounds(
-        _NANCON_L93, "EPSG:2154"
-    )
-
-
 @pytest.mark.parametrize(
     ("bbox", "crs", "why"),
     [

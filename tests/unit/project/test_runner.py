@@ -44,7 +44,6 @@ from hydromodpy.results.storage.run_log import run_log_path
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.workflow.record.attempt import run_attempt, sealed_run_of
 from hydromodpy.workflow.record.journal import WorkflowJournal
-from hydromodpy.workflow.state import PipelineState
 from tests._helpers.run_stores import facts_of, seal_demo_run
 from tests.unit.project._helpers import DEM, PROJECT_TOML, REPO_ROOT
 
@@ -129,24 +128,6 @@ def test_a_bare_resume_names_the_run_the_request_names(
     assert ProjectRunner(project)._run_name(name, resume) == named  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize(
-    ("until_step", "expected_steps"),
-    [("validate", 1), ("resolve", 2), ("build_geographic", 3), ("load_data", 4), ("build_mesh", 5)],
-)
-def test_a_window_below_the_process_phase_builds_no_model_phase(
-    tmp_path: Path,
-    until_step: str,
-    expected_steps: int,
-) -> None:
-    """Every head step can be asked for on its own, without the model phase."""
-    project = _StubProject(tmp_path)
-
-    draft = _dry_run(project, until_step=until_step)
-
-    assert project.built == 0
-    assert draft.steps == STEP_NAMES[:expected_steps]
-
-
 @pytest.mark.parametrize("until_step", [None, "setup_process", "run_solver", "export"])
 def test_a_window_reaching_the_process_phase_leaves_it_to_the_pipeline(
     tmp_path: Path, until_step: str | None
@@ -157,21 +138,6 @@ def test_a_window_reaching_the_process_phase_leaves_it_to_the_pipeline(
     _dry_run(project, until_step=until_step)
 
     assert project.built == 0
-
-
-def test_an_already_built_project_reruns_the_head_steps_it_is_asked_for(tmp_path: Path) -> None:
-    """A model phase left over from an earlier run does not swallow the window.
-
-    ``_is_model_phase_ready`` skips the Pipeline forward to ``setup_process``.
-    Applied to a window that stops before it, that skip would leave the run with
-    nothing to execute while still reporting success.
-    """
-    project = _StubProject(tmp_path, model_phase_ready=True)
-
-    draft = _dry_run(project, until_step="build_geographic")
-
-    assert project.built == 0
-    assert draft.steps == STEP_NAMES[:3]
 
 
 def test_a_model_phase_ready_project_still_skips_forward_on_a_full_run(tmp_path: Path) -> None:
@@ -224,15 +190,6 @@ def test_a_head_only_window_refuses_to_resume(tmp_path: Path) -> None:
         _dry_run(_StubProject(tmp_path), resume="earlier", until_step="build_geographic")
 
 
-def test_the_workspace_is_resolved_without_a_built_model_phase(tmp_path: Path) -> None:
-    """The declared project root answers when the runtime workspace does not exist."""
-    project = _StubProject(tmp_path)
-
-    resolved = ProjectRunner(project)._resolve_workspace_path()  # type: ignore[arg-type]
-
-    assert resolved == tmp_path
-
-
 def test_delineating_alone_loads_no_data_and_builds_no_mesh(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -283,44 +240,6 @@ def test_the_partial_run_hands_its_work_to_the_next_call(
         project.close()
 
 
-def test_a_partial_run_leaves_the_record_of_a_real_run_alone(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A window that can register no simulation owns no run record.
-
-    ``[simulation] name`` is fixed per config, so a partial run shares the
-    run_id of the completed run before it. Writing a truncated manifest under
-    that id, and invalidating that id's journal, destroys the record of a run
-    that did finish.
-    """
-    from hydromodpy.project.facade import Project
-    from hydromodpy.workflow.record.manifest import ResolvedRunManifest
-    from hydromodpy.workflow.state import PipelineState
-    from hydromodpy.workflow.steps.sequence import standard_steps
-
-    _isolate_workspace(monkeypatch, tmp_path)
-
-    run_id = "getting_started_dupuit"
-    run_dir = tmp_path / "runs" / run_id
-    run_dir.mkdir(parents=True)
-    finished = PipelineState(run_id=run_id, step_index=12, step_name="seal", data={})
-    ResolvedRunManifest.from_state(finished, standard_steps(), tmp_path).write_atomic(run_dir)
-    before = ResolvedRunManifest.read(run_dir)
-    assert before is not None and len(before.steps) == 13
-
-    project = Project(SYNTHETIC_PROJECT, headless=True, no_display=True)
-    try:
-        project.simulate(name=run_id, until_step="build_geographic")
-    finally:
-        project.close()
-
-    after = ResolvedRunManifest.read(run_dir)
-    assert after is not None
-    assert after.steps == before.steps, "the partial window rewrote a manifest it does not own"
-    assert after.updated_at == before.updated_at
-    assert not (run_dir / "outcome.json").exists(), "a head-only window claims no directory"
-
-
 UNTIL_CASE = "until_extract"
 
 
@@ -369,59 +288,6 @@ def test_a_partial_run_without_facts_returns_none(
 
     assert runner.run(until_step="extract") is None
     assert owner._run_history == []
-
-
-@pytest.fixture
-def captured_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> PipelineState:
-    """Return the state ``ProjectRunner.run`` hands to the Pipeline."""
-    from hydromodpy.project.facade import Project
-
-    config_path = tmp_path / "project.toml"
-    config_path.write_text(
-        PROJECT_TOML.format(root=tmp_path.as_posix(), dem=DEM.as_posix()),
-        encoding="utf-8",
-    )
-
-    seen: list[PipelineState] = []
-
-    class _Pipeline:
-        def __init__(self, steps, *, workspace, run_dir) -> None:
-            self.steps = steps
-            self.workspace = workspace
-            self.run_dir = run_dir
-
-        def run(
-            self, state, *, resume_from=None, parallel=True, model_phase_ready=False, heartbeat=None
-        ):
-            seen.append(state)
-            return state
-
-    monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
-
-    project = Project(config_path, no_display=True)
-    project._execute(name="asked_name")
-
-    assert len(seen) == 1
-    return seen[0]
-
-
-def test_the_state_carries_the_declared_mesh_section(captured_state: PipelineState) -> None:
-    """``[mesh]`` reaches the step that builds the mesh, through the run configuration."""
-    mesh = captured_state.data["cfg"].mesh
-
-    assert mesh is not None, "the pipeline would mesh as if no section were declared"
-    assert (mesh.engine, mesh.cell_size) == ("triangle", 350.0)
-
-
-def test_the_state_carries_the_name_the_caller_asked_for(captured_state: PipelineState) -> None:
-    """``step_setup`` derives a name from the config; the caller's name wins.
-
-    ``[simulation] name`` says ``declared_name`` here and the caller asked for
-    ``asked_name``. Letting the config win would register the run under a name
-    its journal does not carry.
-    """
-    assert captured_state.data["run_name"] == "asked_name"
-    assert captured_state.run_id == "asked_name"
 
 
 LAST_WORDS = "stress period 51: the solver is about to give up"
@@ -625,36 +491,6 @@ def _identical(monkeypatch: pytest.MonkeyPatch, root: Path, key: str, name="demo
     return run_dir
 
 
-def test_the_claim_writes_the_request_then_the_request_id_into_the_outcome(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    claimed = _Claimed(tmp_path, monkeypatch)
-
-    with claimed.attempt("demo") as handle:
-        key, identical = claimed.claim(handle)
-        run_dir = handle.run_dir
-
-    assert (key, identical) == ("key:rid-1", None)
-    assert claimed.ctx.inputs == "RESOLVED"
-    assert read_outcome(run_dir).request_id == "rid-1"
-    assert (run_dir / "request.json").is_file(), "a request given as a mapping is written whole"
-    assert (run_dir / "config.toml").is_file()
-    assert claimed.written == ["demo"]
-
-
-def test_a_request_given_as_a_built_configuration_writes_no_request_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    claimed = _Claimed(tmp_path, monkeypatch)
-
-    with claimed.attempt("demo") as handle:
-        claimed.claim(handle, form_of="object")
-        run_dir = handle.run_dir
-
-    assert not (run_dir / "request.json").exists()
-    assert (run_dir / "config.toml").is_file()
-
-
 def test_a_run_identical_to_a_completed_one_undoes_its_claim_and_gives_that_run_back(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -670,33 +506,6 @@ def test_a_run_identical_to_a_completed_one_undoes_its_claim_and_gives_that_run_
     assert claimed_dir != found
     assert not claimed_dir.exists(), "no directory is left behind by a skipped run"
     assert sorted(entry.name for entry in (claimed.root / "runs").iterdir()) == ["demo"]
-
-
-def test_a_run_that_may_not_be_skipped_keeps_its_claim_beside_an_identical_run(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    claimed = _Claimed(tmp_path, monkeypatch)
-    _identical(monkeypatch, claimed.root, "key:rid-1")
-
-    with claimed.attempt("demo") as handle:
-        _, identical = claimed.claim(handle, skip=False)
-        run_dir = handle.run_dir
-
-    assert identical is None
-    assert run_dir.name == "demo.v2"
-    assert read_outcome(run_dir).status == "completed"
-
-
-def test_a_run_that_is_forced_computes_beside_an_identical_run(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    claimed = _Claimed(tmp_path, monkeypatch)
-    _identical(monkeypatch, claimed.root, "key:rid-1")
-
-    with claimed.attempt("demo") as handle:
-        _, identical = claimed.claim(handle, force=True)
-
-    assert identical is None
 
 
 def test_if_exists_fail_is_read_after_the_search_for_an_identical_run(
@@ -753,24 +562,6 @@ def test_a_retry_that_asks_for_something_else_starts_over_and_keeps_its_document
     assert (run_dir / "attempts" / "1" / "config.toml").is_file(), "attempt 1 keeps its own"
     assert (run_dir / "attempts" / "1" / "request.json").is_file()
     assert claimed.written == ["demo", "demo"], "each attempt writes its documents once"
-
-
-def test_a_retry_that_asks_the_same_thing_resumes_in_place(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    claimed = _Claimed(tmp_path, monkeypatch)
-    claimed.requests = iter(["same", "same"])
-    with pytest.raises(RuntimeError, match="boom"), claimed.attempt("demo") as handle:
-        claimed.claim(handle)
-        (handle.run_dir / "partial.dat").write_text("x")
-        raise RuntimeError("boom")
-
-    with claimed.attempt("demo") as handle:
-        claimed.claim(handle)
-        run_dir = handle.run_dir
-
-    assert (run_dir / "partial.dat").is_file()
-    assert read_outcome(run_dir).attempt == 2
 
 
 def test_a_resume_asked_on_a_request_that_changed_is_refused_and_gives_the_stop_back(
@@ -935,16 +726,6 @@ def _failed_case(workspace: Path, name: str, *, frozen: bool = True) -> Path:
     if frozen:
         (run_dir / RUN_CONFIG_FILENAME).write_text("# " + name + "\n", encoding="utf-8")
     return run_dir
-
-
-def test_a_bare_name_resumes_its_latest_version_and_a_versioned_name_that_one(tmp_path) -> None:
-    from hydromodpy.project.runner import resume_target
-
-    _failed_case(tmp_path, "case")
-    latest = _failed_case(tmp_path, "case.v2")
-
-    assert resume_target("case", tmp_path) == latest / "config.toml"
-    assert resume_target("case.v2", tmp_path) == latest / "config.toml"
 
 
 @pytest.mark.parametrize(

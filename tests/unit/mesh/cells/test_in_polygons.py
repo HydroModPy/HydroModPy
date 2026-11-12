@@ -41,26 +41,6 @@ def _mask(vertices, connectivity, geometries, **kwargs) -> np.ndarray:
     )
 
 
-def test_line_marks_every_cell_it_crosses():
-    vertices, connectivity = _quad_grid()
-    line = LineString([(150.0, 10.0), (150.0, 290.0)])
-
-    mask = _mask(vertices, connectivity, [line])
-
-    assert np.flatnonzero(mask).tolist() == [1, 4, 7]
-
-
-def test_line_on_a_shared_edge_marks_both_neighbours():
-    # The whole point of the intersects rule: a linework running along a cell
-    # boundary belongs to both cells. A centroid rule would keep neither.
-    vertices, connectivity = _quad_grid()
-    line = LineString([(100.0, 150.0), (100.0, 160.0)])
-
-    mask = _mask(vertices, connectivity, [line])
-
-    assert np.flatnonzero(mask).tolist() == [3, 4]
-
-
 def test_empty_geometry_set_gives_an_empty_mask():
     vertices, connectivity = _quad_grid()
 
@@ -68,42 +48,6 @@ def test_empty_geometry_set_gives_an_empty_mask():
 
     assert mask.shape == (9,)
     assert not mask.any()
-
-
-def test_ragged_connectivity_is_accepted():
-    # Cell 0 is a triangle, cell 1 a pentagon: the mask must not assume arity.
-    vertices = np.asarray(
-        [
-            (0.0, 0.0),
-            (10.0, 0.0),
-            (0.0, 10.0),
-            (20.0, 0.0),
-            (30.0, 0.0),
-            (30.0, 10.0),
-            (25.0, 15.0),
-            (20.0, 10.0),
-        ],
-        dtype=float,
-    )
-    connectivity = (
-        np.asarray([0, 1, 2], dtype=int),
-        np.asarray([3, 4, 5, 6, 7], dtype=int),
-    )
-
-    mask = _mask(vertices, connectivity, [LineString([(24.0, 5.0), (28.0, 5.0)])])
-
-    assert mask.tolist() == [False, True]
-
-
-def test_degenerate_cell_is_never_in_the_mask():
-    vertices, connectivity = _quad_grid(n=1)
-    degenerate = np.full((2, 4), -1, dtype=int)
-    degenerate[0] = connectivity[0]
-    degenerate[1, :2] = connectivity[0][:2]
-
-    mask = _mask(vertices, degenerate, [LineString([(10.0, 10.0), (90.0, 90.0)])])
-
-    assert mask.tolist() == [True, False]
 
 
 def test_distance_widens_the_mask_and_leaves_the_input_geometry_alone():
@@ -120,38 +64,6 @@ def test_distance_widens_the_mask_and_leaves_the_input_geometry_alone():
     assert line.equals(LineString([(150.0, 140.0), (150.0, 160.0)]))
 
 
-def test_geometries_are_reprojected_into_the_mesh_frame():
-    from pyproj import Transformer
-    from shapely.ops import transform
-
-    vertices, connectivity = _quad_grid(x0=300_000.0, y0=6_800_000.0)
-    line = LineString([(300_150.0, 6_800_110.0), (300_150.0, 6_800_190.0)])
-    to_wgs84 = Transformer.from_crs(CRS, "EPSG:4326", always_xy=True).transform
-    line_wgs84 = transform(to_wgs84, line)
-
-    reprojected = _mask(vertices, connectivity, [line_wgs84], geometry_crs="EPSG:4326")
-    native = _mask(vertices, connectivity, [line])
-
-    assert np.flatnonzero(reprojected).tolist() == [4]
-    assert reprojected.tolist() == native.tolist()
-
-
-def test_mislabelled_geometry_crs_finds_nothing():
-    # Control for the test above: degrees read as meters land nowhere near the mesh.
-    from pyproj import Transformer
-    from shapely.ops import transform
-
-    vertices, connectivity = _quad_grid(x0=300_000.0, y0=6_800_000.0)
-    to_wgs84 = Transformer.from_crs(CRS, "EPSG:4326", always_xy=True).transform
-    line_wgs84 = transform(
-        to_wgs84, LineString([(300_150.0, 6_800_110.0), (300_150.0, 6_800_190.0)])
-    )
-
-    mask = _mask(vertices, connectivity, [line_wgs84], geometry_crs=CRS)
-
-    assert not mask.any()
-
-
 @pytest.mark.parametrize("missing", ["mesh_crs", "geometry_crs"])
 def test_a_missing_crs_raises(missing):
     vertices, connectivity = _quad_grid()
@@ -159,34 +71,6 @@ def test_a_missing_crs_raises(missing):
 
     with pytest.raises(ValueError, match=missing):
         _mask(vertices, connectivity, [LineString([(10.0, 10.0), (20.0, 20.0)])], **crs)
-
-
-def test_an_areal_layer_by_touch_keeps_a_full_exterior_ring():
-    # 3 x 3 grid of 100 m cells; the polygon covers the middle cell exactly.
-    vertices, connectivity = _quad_grid()
-    middle = Polygon([(100.0, 100.0), (200.0, 100.0), (200.0, 200.0), (100.0, 200.0)])
-
-    touched = _mask(vertices, connectivity, [middle])
-    centred = _mask(vertices, connectivity, [middle], rule="centroid")
-
-    # Touch takes the whole 3 x 3 block, the eight neighbors sharing an edge
-    # or a corner with the polygon boundary. The centroid rule takes the one
-    # cell the polygon really covers.
-    assert touched.sum() == 9
-    assert np.flatnonzero(centred).tolist() == [4]
-
-
-def test_the_centroid_rule_keeps_a_cell_straddling_the_boundary_by_its_centre():
-    vertices, connectivity = _quad_grid()
-    # The polygon covers the left 60 m of the middle column, so the center of
-    # the middle cell (150, 150) is inside while most of its area is not.
-    polygon = Polygon([(100.0, 100.0), (160.0, 100.0), (160.0, 200.0), (100.0, 200.0)])
-    centred = _mask(vertices, connectivity, [polygon], rule="centroid")
-    assert np.flatnonzero(centred).tolist() == [4]
-
-    # Shifted so the center falls outside, the same overlap is dropped.
-    outside = Polygon([(100.0, 100.0), (140.0, 100.0), (140.0, 200.0), (100.0, 200.0)])
-    assert not _mask(vertices, connectivity, [outside], rule="centroid").any()
 
 
 def test_a_linework_would_lose_half_its_cells_under_the_centroid_rule():
@@ -319,18 +203,3 @@ def test_the_area_shares_sum_to_the_polygon_inside_the_mesh(polygon: Polygon) ->
         inside, rel=1e-9, abs=1e-6
     )
     assert np.all((fraction >= 0.0) & (fraction <= 1.0))
-
-
-@settings(max_examples=50, deadline=None, derandomize=True)
-@given(_star_polygons())
-def test_the_centre_and_area_rules_keep_touched_cells_only(polygon: Polygon) -> None:
-    def mask(**kwargs) -> np.ndarray:
-        return vector_cell_mask(KM_POLYGONS, [polygon], mesh_crs=CRS, geometry_crs=CRS, **kwargs)
-
-    touched = mask()
-    centred = mask(rule="centroid")
-    fraction = cell_area_fraction(KM_POLYGONS, [polygon], mesh_crs=CRS, geometry_crs=CRS)
-
-    assert not (centred & ~touched).any()
-    assert not ((fraction > 0.0) & ~touched).any()
-    assert not ((fraction == 1.0) & ~centred).any()

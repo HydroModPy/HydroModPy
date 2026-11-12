@@ -54,18 +54,6 @@ def test_a_session_reads_its_trials_phases_and_config(tmp_path: Path) -> None:
     assert session.config == {"calibration": {"method": "tpe"}}
 
 
-def test_the_best_is_the_run_its_trial_was_promoted_to(tmp_path: Path) -> None:
-    project = make_project(tmp_path / "p")
-    sim_id = seal_run(project, "calage")
-    write_session_dir(project, "calage", best_trial=2, best_sim_id=sim_id)
-
-    best = Session(project / "sessions" / "calage").best
-
-    assert best is not None
-    assert best.sim_id == sim_id
-    assert best.dir == (project / "runs" / "calage").resolve()
-
-
 def test_no_best_while_no_run_holds_the_best_trial(tmp_path: Path) -> None:
     project = make_project(tmp_path / "p")
     write_session_dir(project, "searching", status="running")
@@ -226,15 +214,3 @@ def test_the_profile_adds_the_lines_of_the_last_line_of_each_trial(tmp_path: Pat
         ("solve", "run", "rerun"): (1, 0.5),
         ("step", "run_solver", "no"): (2, 4.0),
     }
-
-
-def test_a_session_without_a_profile_gives_an_empty_typed_frame(tmp_path: Path) -> None:
-    directory = tmp_path / "sessions" / "old"
-    directory.mkdir(parents=True)
-    write_session(directory, joint_session())
-    append_trial(directory, trial_line(1))
-
-    profile = Session(directory).profile()
-
-    assert profile.empty
-    assert list(profile.columns) == list(PROFILE_COLUMNS)

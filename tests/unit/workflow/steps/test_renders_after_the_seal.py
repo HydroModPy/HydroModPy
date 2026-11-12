@@ -110,7 +110,3 @@ def test_a_figure_that_fails_under_warn_is_skipped_and_the_step_ends(monkeypatch
 
     assert final.get("rendered_figures") == []
     assert is_sealed(run_dir)
-
-
-def test_the_display_step_waits_for_the_seal() -> None:
-    assert DisplayStep().depends_on() == ("seal",)

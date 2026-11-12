@@ -39,7 +39,7 @@ source. Its block `lineage.replay` holds what it compared and what it found.
 
 | field | says |
 |---|---|
-| `basis` | `float64` for a seal of 2.1, `stored` for a run of 2.0, `none` when the source carries no values |
+| `basis` | `float64` for a seal of this version, `stored` for a run of a pre-release, `none` when the source carries no values |
 | `class` | `bit` when every value hashes the same, `deviation` otherwise, and none without a basis |
 | `differs` | each key that differs, with `max_abs` and `rel_l2` of the whole field and the precision of the values it read |
 | `added`, `removed` | the keys present on one side only |
@@ -47,9 +47,9 @@ source. Its block `lineage.replay` holds what it compared and what it found.
 | `changes` | the entries of the register of changes the source crossed |
 | `strict` | whether I asked for the refusal |
 
-On a run of 2.1 the comparison reads the value digests of the source seal, one per field and per
+On a run of this version the comparison reads the value digests of the source seal, one per field and per
 column of a quantity, taken in double precision. A field that is rounded for storage is hashed
-before the rounding, so `bit` holds the calculated value and not the stored one. On a run of 2.0
+before the rounding, so `bit` holds the calculated value and not the stored one. On a run of a pre-release of 2.0
 the comparison reads the stored values of both sides, so `bit` holds to the rounding of 2^-17 on
 a compact precision and to the last bit on an exact one, which is the case of most of the
 reference runs.
@@ -71,8 +71,8 @@ Two things still refuse. An input whose digest differs is refused before anythin
 the run cannot read the bytes it sealed. A folder with no seal is refused, because there is
 nothing to compare with.
 
-## Replay a run of 2.0
+## Replay a run of a pre-release
 
-A run sealed by 2.0 opens as it is and replays like any other. The comparison reads its stored
+A run sealed by a pre-release opens as it is and replays like any other. The comparison reads its stored
 values, so its `basis` is `stored`. A run sealed by a pre-release has no stable reader and is
 refused with its sentence; I play its `config.toml` again if I still have it.

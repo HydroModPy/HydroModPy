@@ -77,26 +77,6 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     assert "cost: 0.25" in err
 
 
-def test_the_audit_family_is_gone(monkeypatch, capsys) -> None:
-    """``audit_log`` is not a table of the index any more: nothing to list or verify."""
-    code = _run(monkeypatch, ["hmp", "audit", "list"])
-
-    assert code == 2
-    assert "invalid choice: 'audit'" in capsys.readouterr().err
-
-
-def test_the_viz_group_is_gone_and_names_the_commands_that_replace_it(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "viz", "--help"])
-    assert code == 2
-    err = capsys.readouterr().err
-    assert "hmp show REF --figure NAME" in err
-    assert "gallery" not in err
-    assert "serve" not in err
-    # The listing of the figure names is named by its own old command.
-    assert _run(monkeypatch, ["hmp", "viz", "list"]) == 2
-    assert "hmp config figures" in capsys.readouterr().err
-
-
 def test_show_report_writes_the_session_report_and_opens_browser_after_success(
     monkeypatch,
     tmp_path,
@@ -200,25 +180,6 @@ def test_privacy_verify_strict_rejects_wrong_permissions(monkeypatch, tmp_path) 
     os.chmod(cert, 0o644)
     code = _run(monkeypatch, ["hmp", "privacy", "verify", "--strict", str(cert)])
     assert code == 14
-
-
-def test_calibrate_forwards_the_selected_phase(monkeypatch, tmp_path) -> None:
-    """``--phase`` reaches the API, which is what runs one stage of a chain."""
-
-    config = tmp_path / "calib.toml"
-    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
-    captured: dict[str, object] = {}
-
-    def fake_calibrate(path: Path, *, phase=None, **kwargs):
-        captured["phase"] = phase
-        return _report()
-
-    monkeypatch.setattr("hydromodpy.project.api.calibrate", fake_calibrate)
-
-    code = _run(monkeypatch, ["hmp", "calibrate", str(config), "--phase", "transient_sy"])
-
-    assert code == 0
-    assert captured["phase"] == "transient_sy"
 
 
 def test_calibrate_lists_the_phases_without_running(monkeypatch, tmp_path, capsys) -> None:

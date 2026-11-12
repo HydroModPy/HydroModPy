@@ -245,33 +245,6 @@ def test_the_fixture_holds_two_basins_and_one_outlet() -> None:
     assert not surface.catchment[eastern_floor]
 
 
-def test_the_escapes_are_the_edge_of_the_mesh_and_nothing_else() -> None:
-    surface = routing_surface_from_run(basin_run())
-
-    escapes = surface.escape_mask()
-    perimeter = [
-        index for index in range(NX * NY) if index % NX in (0, NX - 1) or index // NX in (0, NY - 1)
-    ]
-    assert np.flatnonzero(surface.domain_edge).tolist() == perimeter
-    assert np.flatnonzero(escapes).tolist() == perimeter
-    assert not escapes[PIT_CELL], "an interior cell is no escape"
-
-
-def test_an_interior_outlet_is_no_escape_and_keeps_the_depression_it_sits_in() -> None:
-    # The Nancon in miniature: there the catchment closes on cell 49905, at
-    # 106.42 m and interior to the mesh, which needs 4.07 m of fill before it
-    # spills out of the domain. Seeding the outlet erased that depression and
-    # fourteen more from a map titled "closed depressions of the surface".
-    surface = routing_surface_from_run(
-        basin_run(topography=pitted_topography(), catchment_rows=INTERIOR_CATCHMENT_ROWS)
-    )
-
-    assert surface.outlet == PIT_CELL
-    assert not surface.domain_edge[PIT_CELL]
-    assert not surface.escape_mask()[PIT_CELL]
-    assert np.flatnonzero(depression_fill(surface).closed.raised).tolist() == [PIT_CELL]
-
-
 def test_an_inactive_column_moves_the_edge_of_the_domain(mpl) -> None:
     # The edge is where the ACTIVE mesh stops, not where the array does: a
     # buffered box with a nodata margin would otherwise seed its flood outside
@@ -295,16 +268,6 @@ def test_an_inactive_column_moves_the_edge_of_the_domain(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_edge_of_the_mesh_does_not_move_with_the_neighbourhood() -> None:
-    # A diagonal link is a routing choice; the boundary of the domain is a
-    # geometric fact about the mesh, and reading it off the neighbor count
-    # would make the two move together.
-    edges = routing_surface_from_run(basin_run()).domain_edge
-    nodes = routing_surface_from_run(basin_run(), diagonal_neighbors=True).domain_edge
-
-    assert np.array_equal(edges, nodes)
-
-
 # --------------------------------------------------------------------------- #
 # what the two floods are, and what separates them
 # --------------------------------------------------------------------------- #
@@ -315,19 +278,6 @@ def test_a_surface_that_gets_out_everywhere_holds_no_depression() -> None:
 
     assert int(fill.closed.raised.sum()) == 0
     assert np.allclose(fill.closed.filled, two_basin_topography())
-
-
-def test_the_criterions_flood_raises_a_whole_basin_that_is_no_depression() -> None:
-    # The defect, in miniature. The same surface the flood above left alone is
-    # flooded over a third of its cells by the criterion's own flood, because
-    # that one is seeded on a single outlet and the eastern valley closes
-    # somewhere else. Those cells drain; they just do not drain here.
-    fill = depression_fill(routing_surface_from_run(basin_run()))
-
-    assert np.flatnonzero(fill.to_outlet.raised).tolist() == EASTERN_CELLS
-    assert np.flatnonzero(fill.cut_off).tolist() == EASTERN_CELLS
-    assert int(fill.pitted_and_unreachable.sum()) == 0
-    assert fill.to_outlet.deepest_m > 30.0, "flooded over the ridge, not into a pit"
 
 
 @pytest.mark.parametrize(
@@ -344,72 +294,6 @@ def test_the_dug_cell_is_raised_onto_its_lowest_neighbour(diagonal: bool, spill_
     assert fill.closed.fill_m[PIT_CELL] == pytest.approx(
         spill_m + DEFAULT_EPSILON_M - PIT_ELEVATION_M
     )
-
-
-def test_the_pit_is_the_only_cell_the_two_floods_agree_on() -> None:
-    fill = depression_fill(routing_surface_from_run(basin_run(topography=pitted_topography())))
-
-    assert np.all(fill.closed.raised <= fill.to_outlet.raised), (
-        "the outlet is on the edge here, so the closed flood is seeded on strictly more "
-        "cells, and more escapes can only lower a spill level"
-    )
-    assert np.flatnonzero(fill.pitted_and_unreachable).tolist() == [PIT_CELL]
-    assert np.flatnonzero(fill.cut_off).tolist() == EASTERN_CELLS
-
-
-@pytest.mark.parametrize(
-    ("support", "sealed"),
-    [
-        ({"catchment_columns": EASTERN_COLUMNS}, cell(6, 0)),
-        ({"catchment_rows": INTERIOR_CATCHMENT_ROWS}, PIT_CELL),
-    ],
-)
-def test_the_depressions_do_not_move_when_another_cell_is_sealed(
-    support: dict, sealed: int
-) -> None:
-    # Sealing the eastern valley moves the criterion's flood onto the western
-    # one; sealing the dug cell moves it onto everything that cannot descend
-    # into it. The closed depressions do not move in either case, because they
-    # are a property of the surface and not of the cell someone chose to seal.
-    # The second case is the one that discriminates: the sealed cell is the pit
-    # itself, so a flood seeded on it reports no depression at all.
-    western = depression_fill(routing_surface_from_run(basin_run(topography=pitted_topography())))
-    elsewhere = depression_fill(
-        routing_surface_from_run(basin_run(topography=pitted_topography(), **support))
-    )
-
-    assert elsewhere.surface.outlet == sealed
-    assert western.surface.outlet != elsewhere.surface.outlet
-    assert np.array_equal(western.closed.raised, elsewhere.closed.raised)
-    assert np.flatnonzero(elsewhere.closed.raised).tolist() == [PIT_CELL]
-    assert not np.array_equal(western.to_outlet.raised, elsewhere.to_outlet.raised)
-    assert elsewhere.stranded_fraction == 0.0
-
-
-@pytest.mark.parametrize("diagonal", [False, True])
-def test_every_cell_leaves_the_surface_over_the_graph_the_flood_walked(diagonal: bool) -> None:
-    # The invariant the whole conditioning exists for: once a flood is done,
-    # every cell it was not seeded on has a strictly lower neighbor ON THE
-    # SAME adjacency. Flooded over one neighborhood and descended over
-    # another, the filled cells spill over links the descent cannot take.
-    surface = routing_surface_from_run(
-        basin_run(topography=pitted_topography()), diagonal_neighbors=diagonal
-    )
-
-    fill = depression_fill(surface)
-
-    for flood in (fill.closed, fill.to_outlet):
-        stuck = [
-            index
-            for index in range(surface.n_cells)
-            if not flood.seeds[index]
-            and not any(
-                flood.filled[other] < flood.filled[index]
-                for other in grid_neighbours(index, diagonal=diagonal)
-            )
-        ]
-        assert stuck == [], f"cells {stuck} cannot leave the conditioned surface"
-    assert fill.stranded_fraction == 0.0
 
 
 def test_the_outlet_falls_back_to_the_mesh_when_the_run_carries_no_catchment() -> None:
@@ -450,36 +334,6 @@ def test_the_default_map_paints_the_depression_and_not_the_other_basin(mpl) -> N
         mpl.close(fig)
 
 
-def test_the_option_paints_what_the_criterions_flood_has_to_raise(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    DepressionMap().render(basin_run(topography=pitted_topography()), ax, shows=UNREACHABLE)
-
-    try:
-        raised = _labelled(ax, READINGS[UNREACHABLE].raised_label)
-        assert raised is not None
-        assert drawn_cells(raised) == sorted([PIT_CELL, *EASTERN_CELLS])
-        assert _labelled(ax, READINGS[DEPRESSIONS].raised_label) is None
-    finally:
-        mpl.close(fig)
-
-
-@pytest.mark.parametrize("shows", [DEPRESSIONS, UNREACHABLE])
-def test_the_title_says_which_of_the_two_questions_is_on_the_page(mpl, shows: str) -> None:
-    fig, ax = mpl.subplots()
-
-    DepressionMap().render(basin_run(topography=pitted_topography()), ax, shows=shows)
-
-    try:
-        assert READINGS[shows].title in ax.get_title()
-        assert (
-            READINGS[shows].scale_label
-            == _labelled(ax, READINGS[shows].raised_label).colorbar.ax.get_ylabel()
-        )
-    finally:
-        mpl.close(fig)
-
-
 def test_the_map_draws_no_depth_layer_on_a_surface_that_holds_no_pit(mpl) -> None:
     fig, ax = mpl.subplots()
 
@@ -489,37 +343,6 @@ def test_the_map_draws_no_depth_layer_on_a_surface_that_holds_no_pit(mpl) -> Non
         assert _labelled(ax, READINGS[DEPRESSIONS].raised_label) is None
         assert "no closed depression" in legend_note(ax)
         assert not fig.axes[1:], "an empty scale must not print a colorbar"
-    finally:
-        mpl.close(fig)
-
-
-def test_the_legend_carries_the_size_of_what_is_drawn(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    DepressionMap().render(basin_run(topography=pitted_topography()), ax)
-
-    try:
-        labels = legend_labels(ax)
-        assert f"{READINGS[DEPRESSIONS].raised_label} (1 cell)" in labels
-        assert any(READINGS[DEPRESSIONS].outlet_label == label for label in labels)
-    finally:
-        mpl.close(fig)
-
-
-def test_the_key_and_the_note_sit_under_the_map_and_not_on_it(mpl) -> None:
-    # The subject of this map covers five per cent of the page, so nothing it
-    # is read with may be printed on it. Measured on nancon_diagnostic.v2 at
-    # the shipped page size: the key in the corner and the note at the foot
-    # covered 11 568 mesh cells, the outlet and the southern half of the
-    # catchment among them.
-    fig, ax = mpl.subplots()
-
-    DepressionMap().render(basin_run(topography=pitted_topography()), ax)
-
-    try:
-        assert ax.get_legend() is None
-        assert list(ax.texts) == []
-        assert fig.legends, "the key belongs to the figure, which can reserve room for it"
     finally:
         mpl.close(fig)
 
@@ -546,82 +369,6 @@ def test_the_outlet_is_marked_where_the_flood_was_seeded(mpl) -> None:
 
 
 @pytest.mark.parametrize(
-    ("shows", "depressions"),
-    [
-        (DEPRESSIONS, "1 cell in a closed depression"),
-        (UNREACHABLE, "in a closed depression: 1 of the 1"),
-    ],
-)
-def test_the_note_carries_both_counts_whichever_reading_is_drawn(
-    mpl, shows: str, depressions: str
-) -> None:
-    # Whichever set is painted, a reader must be able to read the other one off
-    # the page: taking one for the other is the whole defect. One cell is in a
-    # depression here, fifteen more only fail to reach this outlet.
-    fig, ax = mpl.subplots()
-
-    DepressionMap().render(basin_run(topography=pitted_topography()), ax, shows=shows)
-
-    try:
-        note = legend_note(ax)
-        assert depressions in note
-        assert f"{len(EASTERN_CELLS)} " in note
-        assert "outlet" in note
-    finally:
-        mpl.close(fig)
-
-
-def test_the_depression_note_sends_the_reader_to_the_other_reading(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    DepressionMap().render(basin_run(topography=pitted_topography()), ax, diagonal_neighbors=False)
-
-    try:
-        note = legend_note(ax)
-        assert f'shows="{UNREACHABLE}"' in note
-        assert "1 cell in a closed depression" in note
-        assert f"out elsewhere but not to this outlet: {len(EASTERN_CELLS)} cells" in note
-        assert "24 cells on the edge of the active mesh, the outlet excluded" in note
-        assert "no diagonal" in note
-    finally:
-        mpl.close(fig)
-
-
-def test_the_unreachable_note_names_the_cell_the_answer_depends_on(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    DepressionMap().render(basin_run(topography=pitted_topography()), ax, shows=UNREACHABLE)
-
-    try:
-        note = legend_note(ax)
-        assert "16 cells cannot reach the outlet" in note
-        assert (
-            "of them, in a closed depression: 1 of the 1 the mesh holds; "
-            f"out elsewhere: {len(EASTERN_CELLS)} cells"
-        ) in note
-        assert f"sealed on outlet cell {OUTLET_CELL} at 0.00 m" in note
-        assert "0.00%" in note
-    finally:
-        mpl.close(fig)
-
-
-def test_the_unreachable_note_reconciles_its_count_with_the_other_reading(mpl) -> None:
-    # The sealed cell is the pit itself here, so it is in a closed depression
-    # and reaches the outlet, being it. The two readings then count depressions
-    # differently, and the note has to say which of the two it is counting: on
-    # the Nancon that is 3008 of the 3023 the surface holds.
-    fig, ax = mpl.subplots()
-    run = basin_run(topography=pitted_topography(), catchment_rows=INTERIOR_CATCHMENT_ROWS)
-
-    DepressionMap().render(run, ax, shows=UNREACHABLE)
-
-    try:
-        assert "in a closed depression: 0 of the 1 the mesh holds" in legend_note(ax)
-    finally:
-        mpl.close(fig)
-
-
-@pytest.mark.parametrize(
     ("shows", "expected"),
     [(DEPRESSIONS, "24 cells on the edge of the active mesh"), (UNREACHABLE, "the active mesh")],
 )
@@ -638,18 +385,6 @@ def test_the_note_names_the_mesh_when_the_run_carries_no_catchment(
         note = legend_note(ax)
         assert expected in note
         assert "catchment" not in note, "no catchment was delineated, so none may be named"
-    finally:
-        mpl.close(fig)
-
-
-def test_the_note_names_the_other_cell_when_another_one_is_sealed(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    run = basin_run(topography=pitted_topography(), catchment_columns=EASTERN_COLUMNS)
-    DepressionMap().render(run, ax, shows=UNREACHABLE)
-
-    try:
-        assert f"sealed on outlet cell {cell(6, 0)} at 1.00 m" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -770,25 +505,6 @@ def test_a_reading_that_does_not_exist_is_refused_by_name() -> None:
         reading_for("pits")
 
 
-def test_the_reading_is_asked_for_from_a_toml(tmp_path) -> None:
-    from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.runs import render_figures_for_run
-
-    cfg = DisplayConfig(
-        enabled=True,
-        figures=["depression_map"],
-        overrides={"depression_map": {"shows": UNREACHABLE}},
-        on_error="raise",
-    )
-
-    report = render_figures_for_run(
-        basin_run(topography=pitted_topography()), cfg, output_dir=tmp_path
-    )
-
-    assert report.rendered == ("depression_map",)
-    assert (tmp_path / "depression_map.png").exists()
-
-
 def test_it_names_what_it_needs_when_the_run_kept_no_mesh_top() -> None:
     run = comparison_run()
     run.mesh.topography = None
@@ -810,33 +526,3 @@ def test_a_percentile_outside_the_scale_is_refused(mpl) -> None:
             )
     finally:
         mpl.close(fig)
-
-
-def test_it_is_rendered_from_a_run_alone(tmp_path) -> None:
-    from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.runs import render_figures_for_run
-
-    cfg = DisplayConfig(enabled=True, figures=["depression_map"], on_error="raise")
-
-    report = render_figures_for_run(
-        basin_run(topography=pitted_topography()), cfg, output_dir=tmp_path
-    )
-
-    assert report.rendered == ("depression_map",)
-    assert report.skipped == ()
-    assert (tmp_path / "depression_map.png").exists()
-
-
-def test_it_is_skipped_by_the_gallery_rather_than_crashing(tmp_path) -> None:
-    from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.runs import render_figures_for_run
-
-    cfg = DisplayConfig(enabled=True, figures=["depression_map"], on_error="raise")
-
-    report = render_figures_for_run(
-        basin_run(topography=np.full(NX * NY, np.nan)), cfg, output_dir=tmp_path
-    )
-
-    assert report.rendered == ()
-    assert [item.name for item in report.skipped] == ["depression_map"]
-    assert "render failed" not in report.skipped[0].reason

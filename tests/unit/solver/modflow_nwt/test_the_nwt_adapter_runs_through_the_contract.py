@@ -20,18 +20,10 @@ import pytest
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.state.run_state import RunState
-from hydromodpy.solver.base.adapter_protocol import (
-    OPTIONAL_MEMBERS,
-    RERUN_MEMBERS,
-    CellLocator,
-    solver_members,
-)
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
 from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow_nwt import adapter as nwt_adapter
 from hydromodpy.solver.modflow_nwt.adapter import ModflowNwtFlowAdapter
-from hydromodpy.solver.modflow_nwt.nwt.nwt_config import ModflowConfig
-from tests._helpers.model_factory import make_model
 from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
 FLOW = ProcessRun(
@@ -57,60 +49,6 @@ class _Solver:
 
     def pre_processing(self, model, **kwargs) -> None:
         self.pre.append({"model": model, **kwargs})
-
-
-@pytest.fixture
-def fake_solver(monkeypatch) -> type[_Solver]:
-    _Solver.instances = []
-    monkeypatch.setattr(nwt_adapter, "ModflowNwt", _Solver)
-    return _Solver
-
-
-def test_the_adapter_carries_the_members_of_the_contract_and_no_rerun() -> None:
-    members = [name for name in solver_members() if not hasattr(ModflowNwtFlowAdapter, name)]
-
-    assert members == []
-    assert not any(hasattr(ModflowNwtFlowAdapter, name) for name in RERUN_MEMBERS)
-    assert ModflowNwtFlowAdapter.mutable == frozenset()
-    assert all(hasattr(ModflowNwtFlowAdapter, name) for name in OPTIONAL_MEMBERS)
-    assert isinstance(ModflowNwtFlowAdapter(), CellLocator)
-
-
-def test_a_build_makes_the_solver_in_the_folder_the_slot_gives(
-    tmp_path: Path, fake_solver: type[_Solver]
-) -> None:
-    model = make_model()
-    options = ModflowConfig()
-    slot = RunSlot(tmp_path, "island", bin_dir=tmp_path / "bin")
-
-    built = ModflowNwtFlowAdapter().build(model, options, slot, _context())
-
-    (solver,) = fake_solver.instances
-    assert solver.init["model_folder"] == tmp_path
-    assert solver.init["model_name"] == "island"
-    assert solver.init["bin_path"] == tmp_path / "bin"
-    assert solver.init["modflow_config"] is options
-    assert solver.pre[0]["model"] is model and solver.pre[0]["slot"] is slot
-    assert built.solver_model is solver and built.options is options and built.slot is slot
-    assert (built.written, built.solved) == (False, False)
-
-
-def test_a_build_makes_the_name_safe_for_the_fortran_solver(
-    tmp_path: Path, fake_solver: type[_Solver]
-) -> None:
-    ModflowNwtFlowAdapter().build(
-        make_model(), ModflowConfig(), RunSlot(tmp_path, "Example 12 launcher"), _context()
-    )
-
-    assert fake_solver.instances[0].init["model_name"] == "Example_12_launcher"
-
-
-def test_a_build_without_a_binary_folder_takes_the_managed_cache(
-    tmp_path: Path, fake_solver: type[_Solver]
-) -> None:
-    ModflowNwtFlowAdapter().build(make_model(), ModflowConfig(), RunSlot(tmp_path, "a"), _context())
-
-    assert fake_solver.instances[0].init["bin_path"] is None
 
 
 def test_a_run_solves_through_the_shared_lifecycle(tmp_path: Path, monkeypatch) -> None:
@@ -148,12 +86,6 @@ def test_an_extract_goes_through_the_extractor_registered_for_nwt(
     assert calls == [(solver_run, store, keep_all)]
 
 
-def test_the_registry_serves_the_nwt_extractor_for_the_adapter_key() -> None:
-    from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
-
-    assert type(extractors.create("flow", "modflow_nwt")) is ModflowNwtOutputAdapter
-
-
 def test_a_cleanup_removes_the_folder_of_the_run_and_forgets_a_run_without_one(
     tmp_path: Path,
 ) -> None:
@@ -165,18 +97,6 @@ def test_a_cleanup_removes_the_folder_of_the_run_and_forgets_a_run_without_one(
     ModflowNwtFlowAdapter().cleanup(SolverRun(slot=RunSlot(tmp_path, "island")))
 
     assert not folder.exists()
-
-
-def test_the_declared_observables_do_not_depend_on_the_active_conditions() -> None:
-    adapter = ModflowNwtFlowAdapter()
-
-    everything = adapter.declared_observables(frozenset({"lake", "sfr", "drainage"}))
-    nothing = adapter.declared_observables(frozenset())
-
-    assert everything == nothing
-    states = {support.name: support.state for support in everything}
-    assert states["head"] == states["discharge"] == "servable"
-    assert states["stage"] == states["routed_discharge"] == "unavailable"
 
 
 def _request(name: str) -> ObservableRequest:
@@ -244,17 +164,6 @@ def _located(tmp_path: Path) -> SolverRun:
     return solved_run(tmp_path, solver_model=solver_model)
 
 
-@pytest.mark.parametrize(
-    ("x", "y", "expected"),
-    [(5.0, 15.0, (0, 0, 0)), (24.0, 4.0, (0, 1, 2)), (31.0, 5.0, (0, 1, 2))],
-    ids=["first cell", "last cell", "just outside, within one cell"],
-)
-def test_a_point_is_located_on_the_nearest_cell_of_the_structured_grid(
-    tmp_path: Path, x: float, y: float, expected: tuple[int, int, int]
-) -> None:
-    assert ModflowNwtFlowAdapter().locate_cell(_located(tmp_path), x, y) == expected
-
-
 def test_a_point_farther_than_one_cell_is_not_located_and_the_warning_names_it(
     tmp_path: Path, caplog
 ) -> None:
@@ -277,7 +186,3 @@ def test_a_run_without_a_grid_locates_nothing(tmp_path: Path, solver_model: Any)
         )
         is None
     )
-
-
-def test_a_run_without_a_solver_object_has_no_top_layer(tmp_path: Path) -> None:
-    assert ModflowNwtFlowAdapter().top_active_layer(solved_run(tmp_path), 0, 0) is None

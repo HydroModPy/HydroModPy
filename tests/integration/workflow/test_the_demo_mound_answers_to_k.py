@@ -1,6 +1,6 @@
 """The scaffolded demo answers to K: a higher K gives a lower mound, of the Dupuit size.
 
-Until 2.0.0 the demo had no recharge and no drain, so the head was flat at 22.53 m whatever K
+Before this version the demo had no recharge and no drain, so the head was flat at 22.53 m whatever K
 was, and a run proved nothing about a physical effect. It now takes a uniform recharge and
 drains it at the land surface. The water balance closes, and on the K range where the water
 table stays under the surface the mound is the one Dupuit gives over the sloping base.

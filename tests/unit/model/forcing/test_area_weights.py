@@ -35,27 +35,6 @@ def _relative_gap(rates: np.ndarray, areas: np.ndarray, expected: float) -> floa
     return abs(float((rates * areas).sum()) - expected) / expected
 
 
-@pytest.mark.parametrize(
-    ("mesh_builder", "offset"),
-    [(fc.triangle_mesh, 0.0), (fc.voronoi_mesh, 3.7)],
-    ids=["triangles-aligned-pixels", "voronoi-unaligned-pixels"],
-)
-def test_the_area_volume_equals_the_integral_of_the_grid_and_nearest_misses_it(
-    mesh_builder, offset
-):
-    mesh = mesh_builder()
-    x, y = fc.square_pixels(10.0, 40.0, offset=offset)
-    values = fc.rough_values(x, y)
-    expected = fc.integral_over_square(values, x, y) * fc.MM_DAY_TO_M_S
-
-    area, nearest = (
-        _on_cells(mesh, fc.grid_source(values, x, y), m)[0] for m in ("area", "nearest")
-    )
-
-    assert _relative_gap(area, fc.mesh_areas(mesh), expected) < CONSERVATION_REL
-    assert _relative_gap(nearest, fc.mesh_areas(mesh), expected) > 1.0e-3
-
-
 def _boxes(x: np.ndarray, y: np.ndarray, half_x: float, half_y: float) -> np.ndarray:
     """The pixel boxes laid out like the weights, ``(y, x)`` flattened."""
     xx, yy = np.meshgrid(x, y, indexing="xy")

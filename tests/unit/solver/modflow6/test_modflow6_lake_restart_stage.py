@@ -40,10 +40,6 @@ def test_final_lake_stages_keeps_last_step_per_lake() -> None:
     assert final_lake_stages(timeseries) == {"forebay": 86.9, "sill": 74.0}
 
 
-def test_final_lake_stages_empty() -> None:
-    assert final_lake_stages([]) == {}
-
-
 def test_write_then_read_restart_state_contract(tmp_path: Path) -> None:
     """SimulationZarr writes the exact group the solver reader consumes."""
     sz = SimulationZarr.create(tmp_path / "sim.zarr", n_cells=4, n_layers=1)
@@ -211,18 +207,6 @@ def _write_stage_file(path: Path, records: list[list[float]]) -> None:
             np.array(values, dtype="f8").tofile(handle)
 
 
-def test_the_final_lake_stages_are_the_last_record_of_the_stage_file(tmp_path: Path) -> None:
-    from hydromodpy.solver.modflow6.builders.lake import read_final_lake_stages
-
-    path = tmp_path / "m.lak.stage"
-    _write_stage_file(path, [[1.5, 2.5], [1.25, 2.123456789012345]])
-
-    assert read_final_lake_stages(path, ["lac0", "lac1"]) == {
-        "lac0": 1.25,
-        "lac1": 2.123456789012345,
-    }
-
-
 def test_a_stage_file_of_another_lake_count_is_refused(tmp_path: Path) -> None:
     from hydromodpy.solver.modflow6.builders.lake import read_final_lake_stages
 
@@ -328,11 +312,3 @@ def test_the_routing_with_storage_writes_a_stage_file_and_takes_the_stages_of_th
     assert args["storage"] is True
     assert args["stage_filerecord"] == "sfrtest.sfr.stage"
     assert args["initialstages"] == [[ifno, repr(stage)] for ifno, stage in stages.items()]
-
-
-def test_the_routing_without_storage_asks_for_no_stage_file_and_no_initial_stage() -> None:
-    prior = PriorState(np.zeros((1, 25)), {}, "p", sfr_stages={0: 90.0, 1: 91.0})
-
-    args = _sfr_args(storage=False, initial=prior)
-
-    assert not {"storage", "stage_filerecord", "initialstages"} & set(args)

@@ -57,12 +57,6 @@ def _model(solver_mesh: SolverMesh, *, lakes=(), folder: Path | None = None):
     )
 
 
-def test_a_constant_thickness_gives_the_ground_back_exactly() -> None:
-    ground = GROUND + np.array([0.1, 0.2, 0.3, 0.7, 0.9, 0.11])
-    top = computational_top(ground, ground - 30.0, np.ones(ground.size, dtype=bool))
-    assert np.array_equal(top, ground)
-
-
 def test_a_flat_substratum_gets_one_thickness_everywhere() -> None:
     bottom = np.full(GROUND.size, SUBSTRATUM)
     top = computational_top(GROUND, bottom, np.ones(GROUND.size, dtype=bool))

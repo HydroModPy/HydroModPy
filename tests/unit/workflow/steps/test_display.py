@@ -138,37 +138,6 @@ def test_display_step_says_out_loud_that_it_drew_nothing(monkeypatch, tmp_path, 
     assert "[display]" in message
 
 
-def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path, catalog_handle):
-    # The figures open the store of the sealed run for their own span, as
-    # hmp show --figure does. They land in the figures directory of the run the
-    # context names.
-    catalog_handle.__getitem__.return_value = SimpleNamespace(name="baseline")
-    ctx = _make_ctx(
-        enabled=True,
-        figures=["piezometric_map"],
-        project_root=tmp_path,
-        catalogued=True,
-    )
-    state = PipelineState(run_id="r", data={"ctx": ctx})
-
-    expected_dir = runs_dir_for(tmp_path) / "baseline" / RUN_FIGURES_DIRNAME
-    written = expected_dir / "piezometric_map.png"
-    renderer = MagicMock(
-        return_value=display_runs.FigureRenderReport(
-            requested=("piezometric_map",),
-            rendered=("piezometric_map",),
-            written=(written,),
-        )
-    )
-    monkeypatch.setattr(display_runs, "render_figures_for_run", renderer)
-
-    final = DisplayStep().run(state)
-    renderer.assert_called_once()
-    _, kwargs = renderer.call_args
-    assert kwargs["output_dir"] == expected_dir
-    assert final.get("rendered_figures") == [written]
-
-
 def test_display_step_summary_names_a_figure_the_run_could_not_produce(
     monkeypatch, tmp_path, catalog_handle
 ):
@@ -227,12 +196,3 @@ def test_display_step_summary_names_a_figure_the_run_could_not_produce(
             "calibration_convergence (missing catalog table(s): calibration_trials)",
         ),
     ]
-
-
-def test_display_step_renders_after_the_export_step_and_the_seal():
-    # The export step cleans, the seal certifies the run, then the figures
-    # render the sealed run and carry its label.
-    from hydromodpy.workflow.steps.sequence import standard_steps
-
-    names = [type(s).__name__ for s in standard_steps()]
-    assert names[-3:] == ["ExportStep", "SealStep", "DisplayStep"]

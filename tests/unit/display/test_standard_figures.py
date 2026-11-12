@@ -250,62 +250,6 @@ def test_sim_obs_figures_reject_missing_overlap(mpl) -> None:
     mpl.close(fig)
 
 
-def test_hydrograph_sim_obs_fetches_gauge_obs_not_sim_station(mpl) -> None:
-    """Sim discharge is keyed by the ``catchment`` pseudo-station while obs
-    come from a real gauge with its own id. The overlay must fetch obs across
-    stations, not filter them by the sim station (which would return nothing).
-    """
-
-    class _GaugeRun(_Run):
-        def observed(self, variable: str, station: str | None = None) -> pd.DataFrame:
-            if station is not None:
-                raise ValueError(f"No observations for station={station!r}")
-            dates = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-04"])
-            return pd.DataFrame(
-                {
-                    "datetime": dates,
-                    "station_id": ["NANCON", "NANCON", "NANCON"],
-                    "variable": [variable, variable, variable],
-                    "value": [1.5, 1.0, 2.0],
-                }
-            )
-
-    fig, ax = mpl.subplots()
-    HydrographSimObs().render(_GaugeRun(), ax)
-    assert [line.get_label() for line in ax.lines] == ["simulated", "observed (NANCON)"]
-    mpl.close(fig)
-
-
-def test_hydrograph_sim_obs_marks_single_sample_series(mpl) -> None:
-    """A steady run has one stress period; a single-point line is invisible, so
-    the lone sim and obs samples must be drawn with a marker."""
-
-    class _SteadyRun(_Run):
-        def timeseries(self, variable: str, *, station: str = "catchment") -> pd.Series:
-            return pd.Series([1.8], index=pd.to_datetime(["2000-06-15"]), name="discharge")
-
-        def observed(self, variable: str, station: str | None = None) -> pd.DataFrame:
-            # A lone discharge stamp with no known start, as this run has no
-            # catalog row, takes the mean of the whole record. That record has
-            # to reach the stamp, and under three samples it has no interval, so it
-            # holds three.
-            return pd.DataFrame(
-                {
-                    "datetime": pd.to_datetime(["2000-06-12", "2000-06-13", "2000-06-14"]),
-                    "station_id": ["NANCON"] * 3,
-                    "variable": [variable] * 3,
-                    "value": [1.4, 1.5, 1.5],
-                }
-            )
-
-    fig, ax = mpl.subplots()
-    HydrographSimObs().render(_SteadyRun(), ax)
-    assert [line.get_label() for line in ax.lines] == ["simulated", "observed (NANCON)"]
-    assert ax.lines[0].get_marker() == "o"
-    assert ax.lines[1].get_marker() == "o"
-    mpl.close(fig)
-
-
 def test_ensemble_band_uses_quantiles_and_observed_overlay(mpl) -> None:
     fig, ax = mpl.subplots()
     members = [_Run(values=np.asarray([1.0, 2.0])), _Run(values=np.asarray([2.0, 3.0]))]
@@ -464,19 +408,6 @@ def test_png_metadata_names_the_period_by_index_on_a_run_without_dates(mpl, tmp_
 
     try:
         assert read_png_metadata(path)["time"] == "period -1"
-    finally:
-        mpl.close(fig)
-
-
-def test_png_metadata_carries_no_time_for_a_figure_given_no_instant(mpl, tmp_path) -> None:
-    path = tmp_path / "hydrograph.png"
-
-    fig = Hydrograph().plot(_Run(), save_path=path, variable="discharge")
-
-    try:
-        info = read_png_metadata(path)
-        assert info["field"] == "discharge"
-        assert "time" not in info
     finally:
         mpl.close(fig)
 

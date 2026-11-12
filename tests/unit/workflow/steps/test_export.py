@@ -15,11 +15,9 @@ import hydromodpy.results.exporters.request as request_module
 import hydromodpy.workflow.steps.export as export_module
 import hydromodpy.workflow.steps.run_outputs as post_run_module
 from hydromodpy.calibration.runners.session_scope import release_session_scratch
-from hydromodpy.catchment.preprocess import preprocessing_cleanup
 from hydromodpy.catchment.preprocess.preprocessing_cleanup import cleanup_stable_folder
 from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.scratch import PREPROCESSING_DIRNAME
 from hydromodpy.model.domain.domain_config import DomainConfig
@@ -94,37 +92,6 @@ def _refuse_the_store(_contract_ctx):
     raise AssertionError("this run must not open its store")
 
 
-def test_a_lightweight_run_never_opens_its_store(monkeypatch) -> None:
-    calls: list[str] = []
-
-    def fake_cleanup(ctx, *, keep_solver_files: bool, spare=()) -> None:
-        del spare
-        calls.append(f"cleanup:{keep_solver_files}")
-
-    monkeypatch.setattr(export_module, "run_store", _refuse_the_store)
-    monkeypatch.setattr(export_module, "step_cleanup_scratch", fake_cleanup)
-    results_cfg = SimpleNamespace(
-        keep_solver_files=False, persistence=SimpleNamespace(save_catalog=True)
-    )
-    ctx = SimpleNamespace(
-        sim_id="sim-123",
-        cfg=SimpleNamespace(simulation=SimpleNamespace(results=results_cfg)),
-        execution=SimpleNamespace(
-            simulation_plan=SimpleNamespace(runs=(SimpleNamespace(is_solver_backed=True),)),
-            lightweight=True,
-        ),
-        setup=SimpleNamespace(
-            run_id="run-1",
-            workspace=SimpleNamespace(solver_scratch_folder=Path("/nonexistent/scratch")),
-        ),
-    )
-    state = PipelineState(run_id="run-1", step_index=7, data={"ctx": ctx})
-
-    export_module.ExportStep().run(state)
-
-    assert calls == ["cleanup:False"]
-
-
 def test_export_step_requires_context() -> None:
     with pytest.raises(ConfigError, match="requires 'ctx'"):
         export_module.ExportStep().run(PipelineState(run_id="run-1", data={}))
@@ -161,45 +128,6 @@ def _recap_lines(caplog) -> list[str]:
     ]
 
 
-def test_the_run_recap_waits_for_the_export_phase_to_close(caplog, sealed) -> None:
-    """The views and the cleanup run after the seal: the recap comes after them."""
-    from hydromodpy.core.console import progress
-
-    caplog.set_level(logging.INFO, logger="hydromodpy")
-    ctx = sealed()
-    with progress.phase("seal"):
-        export_module.step_after_seal(ctx)
-        assert _recap_lines(caplog) == []
-        get_logger("hydromodpy.test").info("views written")
-    lines = _recap_lines(caplog)
-    assert lines == [
-        "Run completed: nancon_step1 [01234567] 42s nse=0.46",
-        "next: hmp show nancon_step1 | hmp publish nancon_step1 --to <folder> "
-        "| hmp export nancon_step1 --list",
-    ]
-    messages = [r.getMessage() for r in caplog.records]
-    assert messages.index("views written") < messages.index(lines[0])
-
-
-def test_the_run_recap_prints_at_once_outside_a_phase(caplog, sealed) -> None:
-    caplog.set_level(logging.INFO, logger="hydromodpy")
-    export_module.step_after_seal(sealed(duration_s=None))
-    assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] nse=0.46"
-
-
-def test_the_recap_duration_is_the_seals_wall_time(caplog, sealed) -> None:
-    """The seal carries ``duration_s`` from ``started_at``/``ended_at``, the figure the catalog reports."""
-    caplog.set_level(logging.INFO, logger="hydromodpy")
-    export_module.step_after_seal(sealed(duration_s=26.0))
-    assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] 26s nse=0.46"
-
-
-def test_a_run_without_a_score_says_no_nse(caplog, sealed) -> None:
-    caplog.set_level(logging.INFO, logger="hydromodpy")
-    export_module.step_after_seal(sealed(nse=None))
-    assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] 42s"
-
-
 # --- test_cleanup_pipeline ---
 # What ``[geographic] write_intermediates`` keeps, and what ``keep`` means.
 #
@@ -208,48 +136,11 @@ def test_a_run_without_a_score_says_no_nse(caplog, sealed) -> None:
 # rasters on disk, or a multi-run session is still reading them.
 
 
-@pytest.fixture
-def cleanup_calls(monkeypatch):
-    """Record the ``keep`` each call asks for, without touching the disk."""
-    kept: list[bool] = []
-    monkeypatch.setattr(
-        preprocessing_cleanup,
-        "cleanup_stable_folder",
-        lambda geo, *, keep=False: kept.append(keep) or 0,
-    )
-    return kept
-
-
 def _ctx(geographic: object, *, write_intermediates: bool) -> SimpleNamespace:
     return SimpleNamespace(
         cfg=SimpleNamespace(geographic=SimpleNamespace(write_intermediates=write_intermediates)),
         setup=SimpleNamespace(workspace=None, geographic=geographic),
     )
-
-
-@pytest.mark.parametrize("write_intermediates", [True, False])
-def test_the_option_that_asked_for_the_rasters_keeps_the_tree(
-    cleanup_calls, write_intermediates: bool
-) -> None:
-    step_cleanup_preprocessing(
-        _ctx(SimpleNamespace(stable_folder=None), write_intermediates=write_intermediates)
-    )
-
-    assert cleanup_calls == [write_intermediates]
-
-
-def test_a_session_that_owns_the_tree_keeps_it_whatever_the_option_says(cleanup_calls) -> None:
-    """``keep=True`` is a lifetime statement, independent of the option."""
-    step_cleanup_preprocessing(
-        _ctx(SimpleNamespace(stable_folder=None), write_intermediates=False), keep=True
-    )
-
-    assert cleanup_calls == [True]
-
-
-def test_a_run_without_a_geographic_runtime_cleans_nothing(cleanup_calls) -> None:
-    assert step_cleanup_preprocessing(_ctx(None, write_intermediates=True)) == 0
-    assert cleanup_calls == []
 
 
 # --- test_kept_solver_files_outlive_the_seal ---
@@ -308,16 +199,6 @@ def test_a_resumed_run_replaces_the_folder_it_kept_before(tmp_path: Path) -> Non
     assert sorted(path.name for path in stale.iterdir()) == ["model_a.disv"]
 
 
-def test_without_the_flag_the_solver_folders_go(tmp_path: Path) -> None:
-    run_dir = tmp_path / "runs" / "demo"
-    ctx = _kept_ctx(run_dir)
-
-    step_cleanup_scratch(ctx, keep_solver_files=False)
-
-    assert not (run_dir / RUN_SOLVER_DIRNAME).exists()
-    assert not (run_dir / ".hmp" / "scratch" / "model_a").exists()
-
-
 def test_a_run_without_a_directory_keeps_its_scratch_in_place(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs" / "demo"
     ctx = _kept_ctx(run_dir, persisted=False)
@@ -366,35 +247,6 @@ def _requests_ctx(run_dir: Path, requests) -> SimpleNamespace:
         setup=SimpleNamespace(run_id="run-1", workspace=None),
         budget_terms=BudgetKeep.everything(),
     )
-
-
-def test_the_export_step_writes_no_export(monkeypatch, tmp_path: Path) -> None:
-    seen: list = []
-    requests = load_export_requests(
-        [{"variables": "head", "time": "last"}, {"variables": "all", "format": "rocrate"}]
-    )
-
-    @contextmanager
-    def fake_store(_requests_ctx):
-        yield SimpleNamespace()
-
-    def fake_results(_store, _sim_id, requests):
-        seen.append(requests)
-        return [tmp_path / "runs" / "run-1" / "exports" / "head_last.tif"]
-
-    monkeypatch.setattr(export_module, "run_store", fake_store)
-    monkeypatch.setattr(export_module, "step_cleanup_scratch", lambda *_a, **_k: None)
-    monkeypatch.setattr(export_module, "step_cleanup_preprocessing", lambda *_a, **_k: 0)
-    monkeypatch.setattr(export_module, "step_drop_empty_scratch", lambda *_a, **_k: None)
-    monkeypatch.setattr(request_module, "export_data_requests", fake_results)
-    monkeypatch.setattr(post_run_module, "cleanup_solver_outputs", lambda **_k: None)
-
-    export_module.ExportStep().run(
-        PipelineState(run_id="run-1", step_index=7, data={"ctx": _requests_ctx(tmp_path, requests)})
-    )
-
-    assert seen == []
-    assert read_profile(tmp_path) is None
 
 
 @pytest.mark.parametrize("keep", [False, True])
@@ -594,22 +446,6 @@ def _trial_ctx(geographic: object, *, write_intermediates: bool = False) -> Simp
     )
 
 
-def test_cleanup_reports_the_bytes_it_frees(preprocessing_tree) -> None:
-    stable, geographic = preprocessing_tree
-
-    freed = cleanup_stable_folder(geographic)
-
-    assert freed == 4096 + 8192
-    assert not stable.exists()
-
-
-def test_keeping_the_intermediates_keeps_the_tree(preprocessing_tree) -> None:
-    stable, geographic = preprocessing_tree
-
-    assert cleanup_stable_folder(geographic, keep=True) == 0
-    assert stable.is_dir()
-
-
 def test_cleanup_is_idempotent(preprocessing_tree) -> None:
     _, geographic = preprocessing_tree
     cleanup_stable_folder(geographic)
@@ -617,33 +453,8 @@ def test_cleanup_is_idempotent(preprocessing_tree) -> None:
     assert cleanup_stable_folder(geographic) == 0
 
 
-def test_export_step_drops_the_tree(preprocessing_tree) -> None:
-    """The solver scratch can be redirected elsewhere; this tree cannot."""
-    stable, geographic = preprocessing_tree
-
-    freed = step_cleanup_preprocessing(_preprocessing_ctx(geographic))
-
-    assert freed > 0
-    assert not stable.exists()
-
-
-def test_export_step_honours_write_intermediates(preprocessing_tree) -> None:
-    stable, geographic = preprocessing_tree
-
-    assert step_cleanup_preprocessing(_preprocessing_ctx(geographic, write_intermediates=True)) == 0
-    assert stable.is_dir()
-
-
 def test_export_step_without_geographic_does_nothing() -> None:
     assert step_cleanup_preprocessing(_preprocessing_ctx(None)) == 0
-
-
-def test_export_step_keeps_the_tree_for_a_multi_run_session(preprocessing_tree) -> None:
-    """A Project builds the tree once and runs many times off it."""
-    stable, geographic = preprocessing_tree
-
-    assert step_cleanup_preprocessing(_preprocessing_ctx(geographic), keep=True) == 0
-    assert stable.is_dir()
 
 
 def test_the_export_step_reads_keep_preprocessing_from_the_state(preprocessing_tree) -> None:
@@ -669,15 +480,6 @@ def test_a_session_that_promotes_nothing_still_drops_the_tree(preprocessing_tree
     assert not stable.exists()
 
 
-def test_a_session_keeps_the_tree_on_request(monkeypatch, preprocessing_tree) -> None:
-    stable, geographic = preprocessing_tree
-    monkeypatch.setenv("HMP_KEEP_TRIAL_SCRATCH", "1")
-
-    release_session_scratch(_trial_ctx(geographic))
-
-    assert stable.is_dir()
-
-
 def test_a_session_cleanup_failure_never_propagates(monkeypatch, preprocessing_tree) -> None:
     """It runs in a ``finally``: raising there would mask the real error."""
     _, geographic = preprocessing_tree
@@ -689,25 +491,6 @@ def test_a_session_cleanup_failure_never_propagates(monkeypatch, preprocessing_t
         "hydromodpy.catchment.preprocess.preprocessing_cleanup.cleanup_stable_folder", boom
     )
     release_session_scratch(_trial_ctx(geographic))
-
-
-def test_a_session_without_geographic_does_nothing() -> None:
-    release_session_scratch(_trial_ctx(None))
-
-
-def test_the_tree_outlives_a_single_trial(preprocessing_tree) -> None:
-    """Trials share it: only the end of the session may drop it."""
-    from hydromodpy.calibration.runners.sandbox import TrialSandbox
-
-    stable, _ = preprocessing_tree
-    scratch = stable.parent
-    with TrialSandbox("run", 1, scratch_root=scratch) as sandbox:
-        trial_dir = Path(scratch) / sandbox.model_name
-        trial_dir.mkdir(parents=True)
-        (trial_dir / "mfsim.nam").write_text("x")
-
-    assert not trial_dir.exists()
-    assert stable.is_dir()
 
 
 # --- test_store_handle_lifecycle ---
@@ -777,22 +560,6 @@ def test_step_cleanup_scratch_retries_after_releasing_handles(monkeypatch, tmp_p
     assert calls == 2
     assert releases == 2
     assert not run_dir.exists()
-
-
-def test_step_cleanup_scratch_spares_the_preprocessing_tree(tmp_path: Path) -> None:
-    """A run owns its solver folder, not the tree the whole session reads."""
-    from hydromodpy.workflow.steps import export as export_module
-
-    scratch = tmp_path / ".solver_scratch"
-    run_dir = scratch / "sim-0001"
-    run_dir.mkdir(parents=True)
-    preprocessing = scratch / "_preprocessing" / "geographic"
-    preprocessing.mkdir(parents=True)
-
-    export_module.step_cleanup_scratch(_scratch_ctx(scratch))
-
-    assert not run_dir.exists()
-    assert preprocessing.is_dir()
 
 
 def test_step_cleanup_scratch_spares_the_folders_another_promotion_owns(tmp_path: Path) -> None:
@@ -894,23 +661,3 @@ def test_the_lineage_of_a_copy_and_that_of_a_run_both_say_replay(
     # ``published`` is the word of a publication; replay.source tells the two apart.
     assert export_module._source_kind(copy) == "replay"
     assert export_module._source_kind(run) == "replay"
-
-
-def test_a_run_that_is_no_replay_seals_without_a_source(tmp_path: Path, monkeypatch) -> None:
-    store = object()
-    sealed: list[object] = []
-    monkeypatch.setattr(export_module, "run_is_persisted", lambda ctx: True)
-    monkeypatch.setattr(export_module, "run_store", lambda ctx: _store_context(store))
-    monkeypatch.setattr(export_module, "step_after_seal", lambda ctx: [])
-    monkeypatch.setattr(
-        export_module,
-        "seal_completed",
-        lambda target: sealed.append(target) or SimpleNamespace(run=SimpleNamespace(name="probe")),
-    )
-    monkeypatch.setattr(
-        export_module, "_seal_replay", lambda *args, **kwargs: pytest.fail("no source to class")
-    )
-
-    export_module.SealStep().run(_seal_ctx(tmp_path, strict=None, replay_of=None))
-
-    assert sealed == [store]

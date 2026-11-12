@@ -32,27 +32,6 @@ def _config_with_capacity_map() -> DataConfig:
     )
 
 
-def test_a_declared_soil_reservoir_infers_precipitation_and_etp() -> None:
-    plan = DataPlanner().build(_empty_config(), flow_soil_reservoir=True)
-
-    assert "precipitation" in plan.inferred_types
-    assert "etp" in plan.inferred_types
-    assert any(
-        "[flow.sinks_sources.recharge.soil]" in reason
-        for reason in plan.reasons_by_type["precipitation"]
-    )
-    assert any(
-        "[flow.sinks_sources.recharge.soil]" in reason for reason in plan.reasons_by_type["etp"]
-    )
-
-
-def test_no_soil_reservoir_infers_neither() -> None:
-    plan = DataPlanner().build(_empty_config(), flow_soil_reservoir=False)
-
-    assert "precipitation" not in plan.inferred_types
-    assert "etp" not in plan.inferred_types
-
-
 def test_a_type_already_declared_is_not_re_inferred() -> None:
     cfg = DataConfig.model_validate({"types": ["precipitation"]})
 

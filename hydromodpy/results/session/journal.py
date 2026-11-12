@@ -21,7 +21,7 @@ trial gave in each case sits under ``cases``, keyed by ``case_id``. ``cost`` is
 the number the search minimized, null on a failed trial, on a proposed one or
 when the search keeps no single cost. A trial with only its ``proposed`` line
 was cut by a stop: it reads ``running``, without a cost. A ``hydromodpy.trial.v2``
-line, written by 2.0, reads as a ``finished`` line without the fields v3 added.
+line, written by a pre-release, reads as a ``finished`` line without the fields v3 added.
 A trailing line without its newline is the remnant of a crash and is ignored;
 any other unreadable line is an error.
 """
@@ -51,7 +51,7 @@ TRIAL_SCHEMA: Final[str] = "hydromodpy.trial.v3"
 """Schema id of one line of ``trials.jsonl``."""
 
 _PRERELEASE_SCHEMA: Final[str] = "hydromodpy.trial.v1"
-"""Schema id only a pre-release of 2.0 wrote, refused by name."""
+"""Schema id only a pre-release wrote, refused by name."""
 
 TRIAL_EVENTS: Final[dict[str, int]] = {"proposed": 0, "finished": 1, "linked": 2}
 """The events of a trial and their rank: the reader keeps the highest one."""
@@ -137,11 +137,11 @@ class TrialCase(HydroModelBase):
     )
     rule: str | None = Field(
         default=None,
-        description="Version of the scoring rule the cost was computed under, null on a 2.0 line",
+        description="Version of the scoring rule the cost was computed under, null on a line of a pre-release",
     )
     window: str | None = Field(
         default=None,
-        description="Name of the scored period of role calibration, null on a 2.0 line",
+        description="Name of the scored period of role calibration, null on a line of a pre-release",
     )
 
     @field_validator("rel_dir")
@@ -159,7 +159,7 @@ class TrialLine(HydroModelBase):
     event: TrialEvent = Field(
         default="finished",
         description="proposed when the optimizer asks, finished when the cost is known, "
-        "linked when the trial became a run. A 2.0 line has none and reads as finished",
+        "linked when the trial became a run. A line of a pre-release has none and reads as finished",
     )
     trial: int = Field(ge=1, description="Trial number, unique in the session")
     phase: str = Field(description="Phase the trial belongs to")
@@ -168,7 +168,7 @@ class TrialLine(HydroModelBase):
         default=None,
         ge=1,
         description="Rank of the optimizer call that proposed the trial in its phase and "
-        "restart, from 1. Null on a 2.0 line",
+        "restart, from 1. Null on a line of a pre-release",
     )
     proposed_at: datetime | None = Field(
         default=None, description="When the optimizer proposed the trial, UTC"
@@ -322,7 +322,7 @@ def trial_rows(line: TrialLine) -> Iterator[dict[str, Any]]:
     and on which period the case was scored, ``solve_s`` is the sum of the solve
     lines of the profile and ``reused`` is ``rerun`` when one run of the trial was
     rerun from its lane, ``no`` when every run was built. The three are null on a
-    trial without a solve line, a cached one or a 2.0 line.
+    trial without a solve line, a cached one or a line of a pre-release.
     """
     duration = (
         (line.ended_at - line.started_at).total_seconds()

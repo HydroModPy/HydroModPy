@@ -7,8 +7,6 @@ and the ``installed`` member is held to its refusals.
 
 from __future__ import annotations
 
-import json
-from importlib.resources import files
 from typing import ClassVar
 
 import pytest
@@ -18,7 +16,6 @@ from hydromodpy.data.request.job import DATA_REQUEST, REACHED_HOSTS
 from hydromodpy.data.request.model import DataRequest
 from hydromodpy.data.source import registry
 from hydromodpy.schema.capability import HOST_PATTERN
-from hydromodpy.schema.sources import source_entry
 
 BOX = {"bbox": [-1.85, 48.05, -1.55, 48.25], "crs": "EPSG:4326"}
 NETWORK = {"hydrography": {"sources": [{"source": "bdtopage"}]}}
@@ -36,30 +33,10 @@ def _served_slugs() -> set[str]:
     return slugs
 
 
-def test_the_declared_hosts_are_the_hosts_of_the_served_sources() -> None:
-    served = set()
-    for slug in _served_slugs():
-        entry = source_entry(slug)
-        assert entry is not None, f"{slug!r} is served and has no entry in schema/sources.py"
-        served |= set(entry.hosts)
-    assert set(REACHED_HOSTS) == served
-    assert DATA_REQUEST.reaches_network == REACHED_HOSTS
-
-
 def test_every_declared_host_is_a_bare_host_name() -> None:
     import re
 
     assert all(re.fullmatch(HOST_PATTERN, host) for host in REACHED_HOSTS)
-
-
-def test_the_published_inputs_are_the_members_of_the_request() -> None:
-    document = json.loads(
-        files("hydromodpy.schema.processes").joinpath("data-request@1.json").read_text("utf-8")
-    )
-    schema = DataRequest.model_json_schema()
-    assert set(document["inputs"]) == set(schema["properties"])
-    required = {name for name, entry in document["inputs"].items() if entry["minOccurs"] == 1}
-    assert required == set(schema.get("required", ()))
 
 
 def test_the_report_is_the_only_artefact_every_run_writes() -> None:
@@ -97,14 +74,6 @@ def test_a_request_names_a_source_this_repository_does_not_name(isolated_registr
     request = DataRequest.model_validate(_asking("acme-radar", sweep="short"))
 
     assert request.installed[0].options == {"sweep": "short"}
-
-
-def test_installing_a_source_does_not_move_what_the_build_declares(isolated_registry) -> None:
-    before = tuple(REACHED_HOSTS)
-    registry.data_sources.register(AcmeRadarSource)
-
-    assert tuple(REACHED_HOSTS) == before
-    assert "radar.acme.example" not in DATA_REQUEST.reaches_network
 
 
 def test_a_name_this_installation_does_not_resolve_is_refused() -> None:

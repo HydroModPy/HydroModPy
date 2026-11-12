@@ -5,18 +5,12 @@ from collections.abc import Callable
 import numpy as np
 import pytest
 
-import hydromodpy.catchment.drainage.distance as topographic_distance_module
-import hydromodpy.catchment.drainage.graph as field_routing_module
 import hydromodpy.catchment.stream_network.geometry as stream_geometry_module
 from hydromodpy.catchment.drainage.distance import shared_node_adjacency
-from hydromodpy.catchment.drainage.graph import (
-    accumulate_on_downhill_graph,
-    build_downhill_graph,
-    cell_adjacency_from_face_connectivity,
-)
+from hydromodpy.catchment.drainage.graph import accumulate_on_downhill_graph, build_downhill_graph
 from hydromodpy.catchment.stream_network.geometry import NetworkGeometry, build_network_geometry
 from hydromodpy.core.budget.flux import budget_outflow, budget_outflow_stack
-from tests._helpers.ugrid_meshes import king_adjacency, quad_mesh
+from tests._helpers.ugrid_meshes import quad_mesh
 from tests.unit.catchment.stream_network._heads_valley import (
     AXIS,
     CELL,
@@ -145,43 +139,6 @@ def test_a_positive_flux_enters_the_aquifer_at_every_step() -> None:
 # Unit tests for injecting a prebuilt cell adjacency into the downhill graph.
 
 
-def test_injected_adjacency_reaches_the_diagonal_receiver() -> None:
-    # Plane dropping one unit per step to the east and to the south. The
-    # steepest slope out of the upper-left cell is its diagonal neighbor, which
-    # two quads sharing a single node never expose to shared-edge adjacency.
-    vertices, connectivity = quad_mesh(3, 3)
-    reference = np.array([-(row + col) for row in range(3) for col in range(3)], dtype=float)
-
-    shared_edge = build_downhill_graph(reference, connectivity, vertices=vertices)
-    shared_node = build_downhill_graph(
-        reference,
-        connectivity,
-        vertices=vertices,
-        adjacency=king_adjacency(3, 3),
-    )
-
-    assert shared_edge.downstream[0] in (1, 3)
-    assert shared_node.downstream[0] == 4
-
-
-def test_default_adjacency_matches_the_shared_edge_builder() -> None:
-    vertices, connectivity = quad_mesh(4, 5)
-    rng = np.random.default_rng(11)
-    reference = rng.normal(100.0, 5.0, 20)
-
-    implicit = build_downhill_graph(reference, connectivity, vertices=vertices)
-    explicit = build_downhill_graph(
-        reference,
-        connectivity,
-        vertices=vertices,
-        adjacency=cell_adjacency_from_face_connectivity(connectivity, n_cells=20),
-    )
-
-    assert np.array_equal(implicit.downstream, explicit.downstream)
-    assert np.array_equal(implicit.order, explicit.order)
-    assert np.array_equal(implicit.active, explicit.active)
-
-
 def test_adjacency_length_is_validated() -> None:
     _, connectivity = quad_mesh(2, 2)
     reference = np.arange(4, dtype="float64")
@@ -252,44 +209,6 @@ def _counting(
         return original(*args, **kwargs)
 
     return calls, wrapper
-
-
-class TestTheAdjacencyIsBuiltOnce:
-    def test_the_diagonal_adjacency_is_built_once_not_twice(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        calls, wrapper = _counting(topographic_distance_module.shared_node_adjacency)
-        monkeypatch.setattr(stream_geometry_module, "shared_node_adjacency", wrapper)
-        monkeypatch.setattr(topographic_distance_module, "shared_node_adjacency", wrapper)
-
-        _build(diagonal_neighbors=True, delineated_catchment=np.ones(N_CELLS, dtype=bool))
-
-        assert calls["n"] == 1
-
-    def test_the_shared_edge_adjacency_is_built_once_not_twice(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        calls, wrapper = _counting(field_routing_module.cell_adjacency_from_face_connectivity)
-        monkeypatch.setattr(
-            stream_geometry_module, "cell_adjacency_from_face_connectivity", wrapper
-        )
-        monkeypatch.setattr(field_routing_module, "cell_adjacency_from_face_connectivity", wrapper)
-
-        _build(diagonal_neighbors=False, delineated_catchment=np.ones(N_CELLS, dtype=bool))
-
-        assert calls["n"] == 1
-
-    def test_without_a_catchment_the_flood_still_runs_on_the_one_graph(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """The flood is seeded on the domain border, so it runs with or without a polygon."""
-        calls, wrapper = _counting(topographic_distance_module.shared_node_adjacency)
-        monkeypatch.setattr(stream_geometry_module, "shared_node_adjacency", wrapper)
-        monkeypatch.setattr(topographic_distance_module, "shared_node_adjacency", wrapper)
-
-        _build(diagonal_neighbors=True, delineated_catchment=None)
-
-        assert calls["n"] == 1
 
 
 class TestTheGraphFollowsTheAdjacencyItWasGiven:

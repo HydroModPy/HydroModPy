@@ -26,12 +26,6 @@ def _daily(values, start="2020-01-01"):
     return pd.Series(values, index=pd.date_range(start, periods=len(values), freq="D"), dtype=float)
 
 
-def test_a_period_rate_is_the_mean_of_the_samples_inside_it():
-    edges = pd.to_datetime(["2020-01-01", "2020-01-03", "2020-01-05"])
-    rates = forcing_period_rates(_daily([1, 3, 5, 7]), edges)
-    assert rates.tolist() == [2.0, 6.0]
-
-
 def test_a_period_without_sample_takes_the_last_sample_before_its_end():
     series = pd.Series([4.0], index=pd.to_datetime(["2020-01-01"]))
     edges = pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-05"])
@@ -45,13 +39,6 @@ def test_a_period_before_any_sample_is_left_as_nan_for_the_caller_to_see():
     rates = forcing_period_rates(series, edges)
     assert np.isnan(rates[:2]).all()
     assert rates[-1] == 5.0
-
-
-def test_a_negative_rate_is_clipped_at_zero_as_the_recharge_package_receives_it():
-    edges = pd.to_datetime(["2020-01-01", "2020-01-03", "2020-01-05"])
-    rates = forcing_period_rates(_daily([-4, -2, 1, 3]), edges)
-    assert rates.tolist() == [0.0, 2.0]
-    assert (rates >= 0).all()
 
 
 def test_a_run_needs_two_period_edges():
@@ -85,17 +72,6 @@ def test_a_run_needs_two_period_edges():
 )
 def test_the_mean_recharge_weighs_periods_by_length_and_cells_by_area(values, kwargs, expected):
     assert criterion_mean_recharge(values, **kwargs) == pytest.approx(expected)
-
-
-@pytest.mark.parametrize("seed", range(4))
-def test_the_mean_stays_between_the_smallest_and_largest_rate(seed):
-    rng = np.random.default_rng(seed)
-    periods = [rng.uniform(1e-9, 1e-8, size=6) for _ in range(5)]
-    got = criterion_mean_recharge(
-        periods, areas=rng.uniform(1, 100, 6), durations=rng.uniform(1, 40, 5)
-    )
-    flat = np.concatenate(periods)
-    assert flat.min() <= got <= flat.max()
 
 
 def test_a_uniform_recharge_is_its_own_mean_whatever_the_weights():

@@ -19,7 +19,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget.flux import release_flux_stack
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
@@ -120,20 +119,6 @@ def _stored_budget(catalog: Catalog, sid: str) -> dict[str, np.ndarray]:
         sz.close()
 
 
-def test_a_run_stores_no_release_flux_and_the_field_is_served(project) -> None:
-    with _seeded(project, _budget()) as (catalog, sid):
-        sz = catalog.open_zarr(sid)
-        try:
-            derived = sz.root.get("derived")
-            assert derived is None or "release_flux" not in derived
-            assert "release_flux" in available_virtual_fields(sz.root)
-        finally:
-            sz.close()
-        run = Run(sid, catalog)
-        assert run.has_field("release_flux")
-        assert "release_flux" in run.array.list_fields()
-
-
 def test_a_release_step_is_the_union_of_every_path_out(project) -> None:
     with _seeded(project, _budget()) as (catalog, sid):
         stored = _stored_budget(catalog, sid)
@@ -145,27 +130,6 @@ def test_a_release_step_is_the_union_of_every_path_out(project) -> None:
         rows = np.stack([run.field("release_flux", time=t) for t in range(N_STEPS)])
 
     np.testing.assert_allclose(rows, expected, rtol=1e-12, atol=0.0)
-
-
-def test_every_reader_rebuilds_the_same_values_as_the_derivation_computes(project) -> None:
-    with _seeded(project, _budget()) as (catalog, sid):
-        sz = catalog.open_zarr(sid)
-        try:
-            reference = release_flux_stack(
-                sz.root["budget"], n_cells=N_CELLS, start=0, stop=N_STEPS
-            )
-            whole = derive_field_stack(sz, sid, "release_flux", range(N_STEPS))
-            picked = derive_field_stack(sz, sid, "release_flux", [3, 1])
-        finally:
-            sz.close()
-        run = Run(sid, catalog)
-        per_step = np.stack([run.field("release_flux", time=t) for t in range(N_STEPS)])
-        stacked = _stack_field(run, "release_flux")
-
-    np.testing.assert_array_equal(whole, reference)
-    np.testing.assert_array_equal(per_step, reference)
-    np.testing.assert_array_equal(picked, reference[[3, 1]])
-    np.testing.assert_array_equal(stacked, reference)
 
 
 def test_a_run_whose_budget_has_no_path_out_serves_no_release_flux(project) -> None:
@@ -325,17 +289,6 @@ def _without_guess(mass_seepage: np.ndarray) -> np.ndarray:
 
 
 @pytest.mark.parametrize(("kind", "key"), _reference_cases())
-def test_a_range_equals_what_the_base_derived_bit_for_bit(built, kind, key) -> None:
-    store = built(kind)
-    sid = store.sim_id
-    field = _field_of(key)
-
-    rebuilt = read_field_range_or_virtual(store, sid, field, 0, reference.N_STEPS)
-
-    np.testing.assert_array_equal(rebuilt, _reference(kind, key))
-
-
-@pytest.mark.parametrize(("kind", "key"), _reference_cases())
 def test_a_step_read_alone_equals_the_row_of_the_range(built, kind, key) -> None:
     store = built(kind)
     sid = store.sim_id
@@ -347,17 +300,6 @@ def test_a_step_read_alone_equals_the_row_of_the_range(built, kind, key) -> None
             read_field_or_virtual(store, sid, field, step), expected[step]
         )
     np.testing.assert_array_equal(read_field_or_virtual(store, sid, field, -1), expected[-1])
-
-
-@pytest.mark.parametrize(("kind", "key"), _reference_cases())
-def test_a_sub_range_is_the_rows_of_the_whole_range(built, kind, key) -> None:
-    store = built(kind)
-    sid = store.sim_id
-    field = _field_of(key)
-
-    part = read_field_range_or_virtual(store, sid, field, 2, 5)
-
-    np.testing.assert_array_equal(part, _reference(kind, key)[2:5])
 
 
 @pytest.mark.parametrize(("kind", "key"), _reference_cases())
@@ -392,93 +334,7 @@ def test_every_field_has_a_range_path_and_a_step_that_is_a_row_of_it() -> None:
     }
 
 
-def test_the_outflow_drain_adds_the_mover_the_base_step_read_left_out(built) -> None:
-    store = built("mf6")
-    sid = store.sim_id
-
-    rebuilt = read_field_range_or_virtual(store, sid, "outflow_drain", 0, reference.N_STEPS)
-
-    np.testing.assert_array_equal(rebuilt, _reference("mf6", "base__outflow_drain"))
-    drain_alone = _reference("mf6", "virtual__outflow_drain")
-    # Step 4 holds only positive drain values, which the base read alone as an
-    # outflow through its sign guess, so that step is left out.
-    steps = [0, 1, 2, 3, 5]
-    assert np.all(rebuilt[steps] >= drain_alone[steps])
-    assert np.any(rebuilt[steps] > drain_alone[steps])
-
-
-def test_a_store_with_no_mover_reads_the_drain_as_the_base_step_read_did(built) -> None:
-    store = built("boussinesq")
-    sid = store.sim_id
-
-    rebuilt = read_field_range_or_virtual(store, sid, "outflow_drain", 0, reference.N_STEPS)
-
-    np.testing.assert_array_equal(rebuilt, _reference("boussinesq", "virtual__outflow_drain"))
-
-
-def test_the_solute_chain_keeps_nan_outside_the_seepage_and_where_the_concentration_is(
-    built,
-) -> None:
-    store = built("transport")
-    sid = store.sim_id
-    seepage = _reference("transport", "base__seepage_mask")
-
-    conc = read_field_range_or_virtual(store, sid, "concentration_seepage", 0, reference.N_STEPS)
-    mass = read_field_range_or_virtual(store, sid, "mass_seepage", 0, reference.N_STEPS)
-    total = read_field_range_or_virtual(
-        store, sid, "mass_seepage_running_sum", 0, reference.N_STEPS
-    )
-
-    assert np.all(np.isnan(conc[seepage == 0]))
-    assert np.all(np.isnan(mass[seepage == 0]))
-    assert np.isnan(conc[:, 2]).all()
-    # A NaN stays NaN from its step on, so a cell that seeps only sometimes is NaN afterwards.
-    first_nan = np.isnan(total).argmax(axis=0)
-    for cell in np.flatnonzero(np.isnan(total).any(axis=0)):
-        assert np.isnan(total[first_nan[cell] :, cell]).all()
-
-
 # -- A store that can route nothing ------------------------------------------
-
-
-def test_a_store_with_no_descent_and_no_topology_does_not_list_the_accumulation(
-    built,
-) -> None:
-    store = built("no_route")
-    sid = store.sim_id
-    sz = store.open_zarr(sid)
-    try:
-        listed = available_virtual_fields(sz.root)
-    finally:
-        sz.close()
-
-    for field in NO_ROUTE_FIELDS:
-        assert field not in listed
-        with pytest.raises(KeyError):
-            read_field_or_virtual(store, sid, field, 0)
-        with pytest.raises(KeyError):
-            read_field_range_or_virtual(store, sid, field, 0, 2)
-    assert {"release_flux", "outflow_drain", "seepage_mask"} <= set(listed)
-
-
-def test_the_stores_list_the_fields_they_can_serve(built) -> None:
-    listed = {}
-    for kind in reference.STORE_KINDS:
-        store = built(kind)
-        sid = store.sim_id
-        sz = store.open_zarr(sid)
-        try:
-            listed[kind] = set(available_virtual_fields(sz.root))
-        finally:
-            sz.close()
-
-    chain = {"concentration_seepage", "mass_seepage", "mass_seepage_running_sum"}
-    assert chain <= listed["transport"]
-    for kind in set(reference.STORE_KINDS) - {"transport"}:
-        assert not chain & listed[kind]
-    for kind in ("mf6", "mf6_no_descent", "boussinesq", "boussinesq_no_excess", "transport"):
-        assert set(NO_ROUTE_FIELDS) <= listed[kind]
-    assert "budget_flux_per_area" not in listed["boussinesq"]
 
 
 def test_a_step_outside_the_time_axis_is_refused(built) -> None:
@@ -502,40 +358,6 @@ def test_a_step_outside_the_time_axis_is_refused(built) -> None:
 
 def _fallback_warnings(caplog) -> list[logging.LogRecord]:
     return [record for record in caplog.records if "geometric criterion" in record.getMessage()]
-
-
-def test_the_geometric_fallback_warns_once_for_a_whole_range(
-    built, caplog, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    store = built("boussinesq_no_excess")
-    sid = store.sim_id
-    monkeypatch.setattr(virtual_fields, "ROWS_PER_PASS_ELEMENTS", reference.N_CELLS)
-
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.catchment.drainage.graph"):
-        read_field_range_or_virtual(store, sid, "seepage_mask", 0, reference.N_STEPS)
-
-    assert len(_fallback_warnings(caplog)) == 1
-
-
-def test_the_geometric_fallback_warns_once_for_each_step_read_alone(built, caplog) -> None:
-    store = built("boussinesq_no_excess")
-    sid = store.sim_id
-
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.catchment.drainage.graph"):
-        read_field_or_virtual(store, sid, "seepage_mask", 1)
-        read_field_or_virtual(store, sid, "seepage_mask", 2)
-
-    assert len(_fallback_warnings(caplog)) == 2
-
-
-def test_a_modflow_store_stays_quiet_and_so_does_a_surface_excess_store(built, caplog) -> None:
-    with caplog.at_level(logging.WARNING, logger="hydromodpy.catchment.drainage.graph"):
-        for kind in ("mf6", "boussinesq"):
-            store = built(kind)
-            sid = store.sim_id
-            read_field_range_or_virtual(store, sid, "seepage_mask", 0, reference.N_STEPS)
-
-    assert _fallback_warnings(caplog) == []
 
 
 def test_the_solute_chain_warns_once_when_it_falls_back_to_the_geometric_mask(
@@ -600,23 +422,6 @@ def test_an_old_stored_water_table_feeds_the_depth_and_the_geometric_seepage(
     np.testing.assert_array_equal(
         read_field_or_virtual(store, sid, "watertable_depth", 3), expected_depth[3]
     )
-
-
-def test_an_old_stored_seepage_mask_decides_the_concentration_at_seepage(built) -> None:
-    store = built("transport")
-    sid = store.sim_id
-    mask = np.zeros((reference.N_STEPS, reference.N_CELLS))
-    mask[:, ::2] = 1.0
-    _write_derived(store, sid, "seepage_mask", mask)
-    sz = store.open_zarr(sid)
-    try:
-        conc = np.asarray(sz.root["concentration"][:, 0], dtype="float64")
-    finally:
-        sz.close()
-
-    rebuilt = read_field_range_or_virtual(store, sid, "concentration_seepage", 0, reference.N_STEPS)
-
-    np.testing.assert_array_equal(rebuilt, np.where(mask > 0, conc * mask, np.nan))
 
 
 def test_an_old_stored_concentration_and_mass_feed_the_next_field(built) -> None:

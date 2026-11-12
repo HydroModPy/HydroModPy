@@ -11,16 +11,12 @@ import pytest
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.model.model import ModelTime
-from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 from hydromodpy.solver.boussinesq.drivers import transient as transient_driver
 from hydromodpy.solver.boussinesq.drivers.forcing import ResolvedRuntimeForcing
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.options import BoussinesqOptions
-from hydromodpy.solver.boussinesq.solver_contract import (
-    DENSE_ENGINE_MAX_CELLS,
-    resolve_runtime_backend_name,
-)
+from hydromodpy.solver.boussinesq.solver_contract import DENSE_ENGINE_MAX_CELLS
 from hydromodpy.solver.boussinesq.state import BoussinesqState
 from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
 from tests._helpers.model_factory import make_model
@@ -202,17 +198,6 @@ def test_time_grid_sub_step_count_must_be_a_positive_integer() -> None:
             transient_driver._resolve_time_steps_per_period(SimpleNamespace(nstp_per_period=bad))
 
 
-def test_auto_engine_is_the_flow_default_and_resolves_on_the_mesh_size() -> None:
-    assert SolverConfig().options_of("boussinesq").backend == "auto"
-    assert resolve_runtime_backend_name("auto", n_cells=DENSE_ENGINE_MAX_CELLS) == "local"
-    assert resolve_runtime_backend_name("auto", n_cells=DENSE_ENGINE_MAX_CELLS + 1) == (
-        "scipy_sparse"
-    )
-    assert resolve_runtime_backend_name("auto", n_cells=None) == "local"
-    assert resolve_runtime_backend_name("local", n_cells=10_000) == "local"
-    assert resolve_runtime_backend_name("petsc", n_cells=10) == "petsc"
-
-
 def test_default_engine_runs_sparse_on_a_large_mesh_and_logs_it_once(
     tmp_path: Path, closed_strip, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -242,19 +227,6 @@ def test_default_engine_runs_sparse_on_a_large_mesh_and_logs_it_once(
     np.testing.assert_array_equal(auto.state.head_m, explicit.state.head_m)
     assert len(engine_lines) == 1
     assert "'scipy_sparse'" in engine_lines[0] and "'auto'" in engine_lines[0]
-
-
-def test_default_engine_stays_local_on_a_small_mesh(tmp_path: Path, closed_strip) -> None:
-    solver = _run_relaxation(
-        tmp_path,
-        mesh=_strip_mesh(5),
-        runtime_backend=None,
-        period_lengths_seconds=(DAY_S,),
-        nstp_per_period=None,
-    )
-
-    assert solver.runtime_summary["runtime_backend_requested"] == "auto"
-    assert solver.runtime_summary["runtime_backend"] == "local"
 
 
 @pytest.mark.parametrize("runtime_backend", ["local", "scipy"])

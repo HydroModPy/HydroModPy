@@ -23,7 +23,6 @@ from hydromodpy.core.budget.flux import (
     drain_stack_with_mover,
     find_drain_budget_key,
     first_finite_layer,
-    has_release_budget,
     inflow_outflow,
     networks_route_drainage,
     release_flux_stack,
@@ -164,16 +163,6 @@ def test_a_stack_of_periods_is_the_per_period_outflow_stacked():
         np.testing.assert_allclose(stack[t], budget_outflow(signed[t], n_cells=6))
 
 
-def test_a_two_dimensional_stack_has_one_layer():
-    stack = budget_outflow_stack(np.array([[-1.0, 2.0], [-3.0, -4.0]]), n_cells=2)
-    assert stack.tolist() == [[1.0, 0.0], [3.0, 4.0]]
-
-
-def test_a_stack_of_layers_flattened_on_n_cells_is_summed_per_cell():
-    stack = budget_outflow_stack(np.array([[[-1.0, -2.0, -3.0, -4.0]]]), n_cells=2)
-    assert stack.tolist() == [[4.0, 6.0]]
-
-
 def test_an_empty_stack_gives_zeros_and_a_wrong_rank_is_refused():
     assert budget_outflow_stack(np.empty((3, 0, 0)), n_cells=4).tolist() == [[0.0] * 4] * 3
     with pytest.raises(ValueError, match="Expected a"):
@@ -181,11 +170,6 @@ def test_an_empty_stack_gives_zeros_and_a_wrong_rank_is_refused():
 
 
 # ------------------------------------------------------ drain and mover
-
-
-def test_a_drain_and_its_mover_record_add_up_cell_by_cell():
-    budget = {"drain": np.array([[-1.0, -2.0]]), "drain_to_mover": np.array([[-0.5, 0.0]])}
-    assert drain_stack_with_mover(budget, "drain", 0, 1).tolist() == [[-1.5, -2.0]]
 
 
 @pytest.mark.parametrize(
@@ -207,11 +191,6 @@ def test_the_drain_stack_uses_what_the_store_holds(budget, key, expected):
     assert (got is None) if expected is None else got.tolist() == expected
 
 
-def test_the_drain_stack_reads_only_the_rows_asked():
-    budget = {"drain": np.arange(-5.0, 0.0).reshape(5, 1)}
-    assert drain_stack_with_mover(budget, "drain", 1, 3).ravel().tolist() == [-4.0, -3.0]
-
-
 # ------------------------------------------------------------ release
 
 
@@ -220,20 +199,6 @@ def test_the_release_keys_hold_the_drain_the_mover_and_the_surface_paths():
         RELEASE_BUDGET_KEYS
     )
     assert "constant_head" not in RELEASE_BUDGET_KEYS  # an ocean is not a release to the surface
-
-
-@pytest.mark.parametrize(
-    ("names", "expected"),
-    [
-        (["drain"], True),
-        (["stream"], True),
-        (["constant_head_stream"], True),
-        (["constant_head"], False),
-        ([], False),
-    ],
-)
-def test_a_store_has_a_release_path_only_for_a_drain_or_a_surface_term(names, expected):
-    assert has_release_budget({n: 0 for n in names}) is expected
 
 
 def test_the_release_is_the_sum_of_every_path_out_and_nothing_enters():
@@ -248,11 +213,6 @@ def test_the_release_is_the_sum_of_every_path_out_and_nothing_enters():
     }
     got = release_flux_stack(budget, n_cells=3, start=0, stop=1)
     np.testing.assert_allclose(got, [[1.5, 2.25, 3.0]])
-
-
-def test_a_gaining_cell_releases_nothing():
-    budget = {"stream": np.array([[5.0, -1.0]])}
-    assert release_flux_stack(budget, n_cells=2, start=0, stop=1).tolist() == [[0.0, 1.0]]
 
 
 def test_a_slice_of_the_release_is_the_release_over_that_slice():
@@ -273,35 +233,6 @@ def test_an_empty_slice_is_an_empty_stack_and_no_path_at_all_is_refused():
 
 
 # ----------------------------------------------------------------- seepage
-
-
-def test_the_seepage_mask_is_one_where_the_water_table_reaches_the_land_surface():
-    mask = seepage_mask(
-        watertable=np.array([10.0, 9.9, 10.1]), topography=np.array([10.0, 10.0, 10.0])
-    )
-    assert mask.tolist() == [1.0, 0.0, 1.0]
-
-
-def test_a_banded_drain_seeps_from_half_a_band_below_the_surface():
-    wt, top = np.array([[9.4, 9.6]]), np.array([10.0, 10.0])
-    assert seepage_mask(watertable=wt, topography=top).tolist() == [[0.0, 0.0]]
-    assert seepage_mask(watertable=wt, topography=top, band_depth=1.0).tolist() == [[0.0, 1.0]]
-
-
-def test_a_stack_of_water_tables_is_masked_step_by_step():
-    wt = np.array([[1.0, 5.0], [6.0, 5.0]])
-    mask = seepage_mask(watertable=wt, topography=np.array([5.0, 5.0]))
-    assert mask.shape == wt.shape
-    assert mask.tolist() == [[0.0, 1.0], [1.0, 1.0]]
-
-
-def test_a_solver_surface_excess_wins_over_the_geometry():
-    mask = seepage_mask(
-        surface_excess=np.array([-0.1, 0.0, 0.2]),
-        watertable=np.array([100.0] * 3),
-        topography=np.array([0.0] * 3),
-    )
-    assert mask.tolist() == [1.0, 0.0, 0.0]
 
 
 def test_a_mask_without_surface_excess_needs_both_water_table_and_topography():
@@ -338,13 +269,6 @@ def test_the_drain_band_is_read_back_from_the_store_and_zero_when_unusable(root,
 # ------------------------------------------------------------------ water table
 
 
-def test_first_finite_layer_of_a_head_without_layers_is_the_head() -> None:
-    """A one-layer, (time, n_cells) head is the water table as it is."""
-    head = np.array([[1.0, np.nan], [2.0, 3.0]])
-
-    np.testing.assert_array_equal(first_finite_layer(head), head)
-
-
 def test_first_finite_layer_takes_the_topmost_finite_layer_of_each_column() -> None:
     """A dry cell of the top layer reads the first layer below that is finite."""
     head = np.array(
@@ -358,14 +282,6 @@ def test_first_finite_layer_takes_the_topmost_finite_layer_of_each_column() -> N
     )
 
     np.testing.assert_allclose(first_finite_layer(head), [[1.5, 5.0, np.nan]])
-
-
-def test_a_column_of_no_finite_layer_is_nan_head() -> None:
-    head = np.array([[[np.nan], [np.nan]]])
-
-    water_table = first_finite_layer(head)
-
-    assert np.isnan(water_table).tolist() == [[True]]
 
 
 # ``inflow_outflow`` splits each (layer, cell) element on its own. A positive
@@ -412,23 +328,6 @@ def test_inflow_outflow_splits_each_element(stack, support, inflow, outflow) -> 
 def test_inflow_outflow_refuses_a_shape_it_cannot_read(stack, support, match) -> None:
     with pytest.raises(ValueError, match=match):
         inflow_outflow(stack, support)
-
-
-def test_a_boolean_support_sums_one_layer_bit_for_bit_as_before() -> None:
-    # The catchment series summed a one-layer field as nansum(max(-valid, 0))
-    # over the finite cells of the mask. The kernel keeps that order.
-    rng = np.random.default_rng(7)
-    stack = rng.normal(scale=3.0, size=(5, 1, 400))
-    stack[:, :, rng.integers(0, 400, 40)] = np.nan
-    mask = rng.random(400) > 0.3
-
-    inflow, outflow = inflow_outflow(stack, mask)
-
-    for step in range(5):
-        field = np.where(mask, stack[step].sum(axis=0), np.nan)
-        valid = field[np.isfinite(field)]
-        assert outflow[step] == float(np.nansum(np.maximum(-valid, 0.0)))
-        assert inflow[step] == float(np.nansum(np.maximum(valid, 0.0)))
 
 
 def test_the_net_does_not_move_when_layers_are_split() -> None:

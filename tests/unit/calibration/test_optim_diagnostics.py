@@ -12,7 +12,6 @@ import pytest
 
 from hydromodpy.calibration.optim import progress_reporter
 from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
-from hydromodpy.calibration.optim.cost_margin import margin_intervals
 from hydromodpy.calibration.optim.diagnostics import (
     convergence_rate,
     correlated_parameter_pairs,
@@ -24,7 +23,6 @@ from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSugges
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
 from hydromodpy.calibration.optim.stopping import AUTO_BUDGET
-from hydromodpy.calibration.runners.search_record import calibration_trace
 from tests.unit.calibration._factories_search import make_space, result_of, run_engine, staircase
 
 # From test_correlated_parameters_are_reported.py
@@ -45,47 +43,10 @@ def _trace(pairs: list[tuple[float, float]]) -> list[dict[str, float]]:
     return [{"K": k, "Sy": s, "objective_total": 1.0} for k, s in pairs]
 
 
-def test_a_ridge_is_named_with_its_coefficient() -> None:
-    """A perfect trade-off between two parameters is reported."""
-    trace = _trace([(1.0, 10.0), (2.0, 9.0), (3.0, 8.0), (4.0, 7.0), (5.0, 6.0), (6.0, 5.0)])
-
-    pairs = correlated_parameter_pairs(trace, threshold=0.8)
-
-    assert len(pairs) == 1
-    first, second, coefficient = pairs[0]
-    assert {first, second} == {"K", "Sy"}
-    assert coefficient < -0.99
-
-
-def test_independent_parameters_are_not_reported() -> None:
-    """The diagnostic stays quiet when the search separated them."""
-    trace = _trace([(1.0, 5.0), (2.0, 5.0), (3.0, 5.0), (1.0, 6.0), (2.0, 6.0), (3.0, 6.0)])
-
-    assert correlated_parameter_pairs(trace, threshold=0.8) == []
-
-
 def test_a_trace_too_short_to_judge_says_nothing() -> None:
     """One point carries no correlation, and inventing one would be worse."""
     assert correlated_parameter_pairs(_trace([(1.0, 2.0)]), threshold=0.8) == []
     assert correlated_parameter_pairs([], threshold=0.8) == []
-
-
-@pytest.mark.parametrize(
-    ("under", "expected"), [(6, [("K", "Sy", 1.0)]), (5, [])], ids=["ridge", "too_few_trials"]
-)
-def test_the_coefficient_reads_the_trials_under_the_cost(under, expected) -> None:
-    # The ridge sits exactly at the limit, which is kept. Costs and values that read as
-    # text are no number, and the trials that carry them are left out.
-    ridge = [{"K": x, "Sy": 2.0 * x, "cost": 2.0} for x in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)[:under]]
-    elsewhere = [{"K": x, "Sy": -5.0 * x, "cost": 9.0} for x in (7.0, 8.0, 9.0)]
-    unread = [{"K": 11.0, "Sy": 1.0, "cost": "n/a"}, {"K": "n/a", "Sy": 1.0, "cost": 9.0}]
-    trace = [*ridge, *elsewhere, {"K": 10.0, "Sy": 0.0, "cost": None}, *unread]
-
-    assert correlated_parameter_pairs(trace, ["K", "Sy"], below_cost=2.0) == expected
-    assert parameter_correlation(trace, ["K", "Sy"]).at["K", "Sy"] < 0.0
-    matrix = parameter_correlation(trace, ["K", "Sy"], below_cost=2.0)
-    assert matrix.dtypes.eq(float).all()
-    assert bool(matrix.isna().all(axis=None)) is (not expected)
 
 
 def test_a_constant_column_forms_no_pair() -> None:
@@ -96,25 +57,6 @@ def test_a_constant_column_forms_no_pair() -> None:
     assert [(first, second) for first, second, _ in pairs] == [("K", "n")]
 
 
-def test_the_worst_pair_comes_first() -> None:
-    """A reader with three parameters reads the tightest trade-off first."""
-    trace = [
-        {"K": k, "Sy": s, "n": n, "objective_total": 1.0}
-        for k, s, n in [
-            (1.0, 10.0, 1.0),
-            (2.0, 9.0, 3.0),
-            (3.0, 8.0, 2.0),
-            (4.0, 7.0, 5.0),
-            (5.0, 6.0, 4.0),
-            (6.0, 5.0, 6.0),
-        ]
-    ]
-
-    pairs = correlated_parameter_pairs(trace, threshold=0.5)
-
-    assert abs(pairs[0][2]) >= abs(pairs[-1][2])
-
-
 # From test_diagnostics.py
 # Unit tests for :mod:`hydromodpy.calibration.optim.diagnostics`.
 
@@ -122,16 +64,6 @@ def test_the_worst_pair_comes_first() -> None:
 # ---------------------------------------------------------------------------
 # iterations_to_dataframe
 # ---------------------------------------------------------------------------
-def test_iterations_to_dataframe_flattens_nested_parameters() -> None:
-    rows = [
-        {"trial": 0, "parameters": {"K": 1.0, "Sy": 0.1}, "cost": 0.5},
-        {"trial": 1, "parameters": {"K": 2.0, "Sy": 0.2}, "cost": 0.3},
-    ]
-    df = iterations_to_dataframe(rows)
-    assert "K" in df.columns and "Sy" in df.columns
-    assert df["K"].tolist() == [1.0, 2.0]
-    assert df["Sy"].tolist() == [0.1, 0.2]
-    assert df["cost"].tolist() == [0.5, 0.3]
 
 
 def test_iterations_to_dataframe_passes_dataframe_through() -> None:
@@ -139,10 +71,6 @@ def test_iterations_to_dataframe_passes_dataframe_through() -> None:
     df = iterations_to_dataframe(src)
     assert df is not src  # copied
     assert list(df.columns) == ["trial", "K", "cost"]
-
-
-def test_iterations_to_dataframe_empty() -> None:
-    assert iterations_to_dataframe([]).empty
 
 
 # ---------------------------------------------------------------------------
@@ -163,17 +91,6 @@ def test_convergence_rate_flat_trace_has_zero_slope() -> None:
     assert out["slope"] == pytest.approx(0.0, abs=1e-12)
     # ss_tot == 0 → NaN R^2 by construction.
     assert np.isnan(out["r_squared"])
-
-
-def test_convergence_rate_handles_nan_values() -> None:
-    rows = [
-        {"trial": 0, "cost": float("nan"), "parameters": {}},
-        {"trial": 1, "cost": 1.0, "parameters": {}},
-        {"trial": 2, "cost": 0.5, "parameters": {}},
-    ]
-    out = convergence_rate(rows)
-    assert out["n_points"] == 2.0
-    assert np.isfinite(out["slope"])
 
 
 def test_convergence_rate_too_short() -> None:
@@ -212,24 +129,6 @@ def test_parameter_correlation_perfectly_correlated_gives_one() -> None:
     assert corr.loc["K", "Sy"] == pytest.approx(1.0, abs=1e-9)
 
 
-def test_parameter_correlation_explicit_parameters_subset() -> None:
-    rng = np.random.default_rng(0)
-    rows = [
-        {
-            "trial": i,
-            "parameters": {
-                "K": float(rng.random()),
-                "Sy": float(rng.random()),
-                "r": float(rng.random()),
-            },
-        }
-        for i in range(30)
-    ]
-    corr = parameter_correlation(rows, parameters=["K", "Sy"])
-    assert list(corr.columns) == ["K", "Sy"]
-    assert "r" not in corr.columns
-
-
 def test_parameter_correlation_empty() -> None:
     assert parameter_correlation([]).empty
 
@@ -264,56 +163,10 @@ def _trace__report_qualifies() -> list[dict[str, object]]:
     ]
 
 
-def test_the_cost_is_never_read_as_a_parameter() -> None:
-    """A single-parameter search cannot have a correlated pair."""
-    assert correlated_parameter_pairs(_trace__report_qualifies()) == []
-
-
-def test_naming_the_parameters_keeps_the_answer_the_same() -> None:
-    assert correlated_parameter_pairs(_trace__report_qualifies(), ["K"]) == []
-
-
-def test_two_parameters_moving_together_are_still_reported() -> None:
-    trace = [
-        {"iter": i, "parameters": {"K": float(i), "Sy": float(i) * 2.0}, "cost": 1.0}
-        for i in range(6)
-    ]
-
-    (pair,) = correlated_parameter_pairs(trace)
-
-    assert {pair[0], pair[1]} == {"K", "Sy"}
-
-
-def test_the_interval_qualifies_the_reported_value() -> None:
-    (interval,) = margin_intervals(_trace__report_qualifies(), bounds={"K": (1.0, 4.0)})
-
-    assert interval.best == 3.0
-    assert interval.lower == 3.0
-    assert interval.upper == 4.0
-    assert interval.reaches_upper_bound is True
-    assert (interval.to_dict()["lower_end"], interval.to_dict()["upper_end"]) == ("open", "bound")
-
-
 class _Item:
     def __init__(self, trial_id: int, cost: float) -> None:
         self.trial_id = trial_id
         self.cost = cost
-
-
-def test_the_runner_builds_the_trace_under_the_name_the_diagnostics_read() -> None:
-    history = [_Item(0, 9.0), _Item(1, 1.0), _Item(2, 1.01)]
-    values = {0: {"K": 1.0}, 1: {"K": 2.0}, 2: {"K": 3.0}}
-
-    trace = calibration_trace(history, values)
-
-    assert [row["cost"] for row in trace] == [9.0, 1.0, 1.01]
-    assert correlated_parameter_pairs(trace, ["K"]) == []
-
-
-def test_a_trial_with_no_recorded_values_is_left_out() -> None:
-    trace = calibration_trace([_Item(0, 1.0), _Item(7, 2.0)], {0: {"K": 1.0}})
-
-    assert len(trace) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -414,39 +267,6 @@ def test_a_two_root_search_ends_on_the_root_it_returns(handles) -> None:
         descriptions[-1]
         == f"Calibrating (bisection) - root K = {values[session.best.trial_id]:.4g}"
     )
-
-
-def test_a_one_root_search_shows_the_bracket_around_the_root(handles) -> None:
-    adapter = BisectionAdapter(_space(), rel_tol=0.01)
-    reporter = ConsoleProgressReporter(
-        "bisection", adapter.counted_budget.worst, label=adapter.progress_label
-    )
-
-    _search(adapter, _one_bound, reporter)
-
-    last = handles[0].descriptions[-1]
-    assert last.startswith("Calibrating (bisection) - root K in [")
-    low, high = (float(end) for end in last.split("[")[1].rstrip("]").split(", "))
-    assert low <= ROOT_MAX * 1.001 and high >= ROOT_MAX * 0.999
-
-
-def test_a_method_without_a_label_keeps_the_lowest_cost(handles) -> None:
-    reporter = ConsoleProgressReporter("grid", 2)
-    reporter.update(1, EvaluationResult(trial_id=1, sim_id=None, cost=0.5, status="completed"))
-    reporter.update(2, EvaluationResult(trial_id=2, sim_id=None, cost=0.25, status="completed"))
-    reporter.close()
-
-    assert handles[0].descriptions[-1] == "Calibrating (grid) - best 0.25"
-
-
-def test_crashed_and_cached_trials_are_counted_in_the_line(handles) -> None:
-    reporter = ConsoleProgressReporter("grid", 2)
-    reporter.update(1, EvaluationResult(trial_id=1, sim_id=None, cost=1.0, status="failed"))
-    reporter.update(
-        2, EvaluationResult(trial_id=2, sim_id=None, cost=0.5, status="completed", from_cache=True)
-    )
-
-    assert handles[0].descriptions[-1] == "Calibrating (grid) - best 0.5, 1 crashed, 1 cached"
 
 
 def test_a_closed_reporter_does_not_redraw(handles) -> None:

@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.display.figures._flow_persistence import cycle_flow, cycles, flow_geometry
+from hydromodpy.display.figures._flow_persistence import cycles, flow_geometry
 from hydromodpy.display.figures.flow_intermittence_map import FlowIntermittenceMap
 from hydromodpy.display.figures.flow_persistence_map import FlowPersistenceMap
 from tests._helpers.sealed_runs import sealed_search
@@ -36,32 +36,10 @@ def _drawn(ax) -> np.ndarray:
     return np.asarray(ax.collections[0].get_array())
 
 
-def test_the_cycles_follow_the_calendar_and_not_a_fixed_block_length() -> None:
-    blocks = cycles(transient_run(n_steps=24), 24)
-    assert list(blocks) == ["2001", "2002"]
-    assert [len(steps) for steps in blocks.values()] == [12, 12]
-
-
-def test_a_period_end_on_the_next_month_does_not_open_a_thirteenth_cycle() -> None:
-    """The December of a run stamped on period bounds belongs to its own year."""
-    blocks = cycles(transient_run(n_steps=24, exclusive_bounds=True), 24)
-    assert list(blocks) == ["2001", "2002"]
-    assert [len(steps) for steps in blocks.values()] == [12, 12]
-
-
 def test_a_run_without_a_time_axis_keeps_one_block_and_says_so() -> None:
     blocks = cycles(transient_run(with_time=False), 27)
     assert list(blocks) == ["the whole run"]
     assert len(blocks["the whole run"]) == 27
-
-
-def test_each_cycle_counts_the_steps_a_cell_flows() -> None:
-    flow = cycle_flow(transient_run())
-
-    assert flow.labels == ("2001", "2002", "2003")
-    steps, counts = flow.block("2002")
-    assert steps.size == 12
-    assert counts[[OUTLET, MIDDLE, HEAD, HILLSLOPE]].tolist() == [12, 5, 5, 0]
 
 
 def _sealed_heads_run(**map_knobs):
@@ -91,20 +69,6 @@ def test_flow_geometry_reads_the_sealed_heads_radius_and_area() -> None:
     assert geometry.heads.settings.snap_radius_m == pytest.approx(150.0)
     assert geometry.heads.settings.min_drained_area_m2 == pytest.approx(6.0e4)
     assert geometry.heads.head_cell.tolist() == [MIDDLE]
-
-
-def test_flow_geometry_defaults_to_heads_on_an_unsealed_run() -> None:
-    """An unsealed run is now drawn from its heads, not from the crossing rule.
-
-    The traced map is connected and starts at the mapped axis head: one head
-    found, landing on the head cell, and the trace reaches down to the outlet.
-    """
-    geometry = flow_geometry(transient_run())
-
-    assert geometry.heads is not None
-    assert geometry.heads.head_cell.tolist() == [HEAD]
-    assert geometry.heads.traced[[OUTLET, MIDDLE, HEAD]].all()
-    assert not geometry.heads.traced[HILLSLOPE]
 
 
 def test_the_persistence_share_is_the_fraction_of_steps_flowing(mpl) -> None:

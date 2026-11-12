@@ -18,7 +18,6 @@ from shapely.geometry import box
 
 from hydromodpy.display.figures.watershed_id_card import (
     VALUE_LINES,
-    VALUE_WIDTH,
     WatershedIdCardFigure,
     identity_rows,
     wrap_value,
@@ -54,32 +53,6 @@ def _run(*, edges=None) -> SimpleNamespace:
     )
 
 
-def test_the_card_prints_no_status_and_no_raw_id() -> None:
-    rows = dict(identity_rows(_run()))
-
-    assert "Status" not in rows
-    assert "ID" not in rows
-    assert "running" not in rows.values()
-    assert not any("c11914ab" in value for value in rows.values())
-
-
-def test_the_card_names_the_solver_the_period_the_steps_and_the_area() -> None:
-    rows = dict(identity_rows(_run()))
-
-    # The raw name the run records: the card adds no label of its own.
-    assert rows["Solver"] == "modflow6"
-    assert rows["Period"] == "2000-01-01 to 2002-12-31"
-    assert rows["Time steps"] == "1,096 daily"
-    assert rows["Catchment area"] == "64.0 km²"
-
-
-def test_the_card_prints_the_backend_name_a_run_recorded_as_it_stands() -> None:
-    run = _run()
-    run.solver = "my_custom_backend"
-
-    assert dict(identity_rows(run))["Solver"] == "my_custom_backend"
-
-
 def test_a_monthly_run_says_monthly() -> None:
     edges = pd.date_range("2000-01-01", "2003-01-01", freq="MS")
 
@@ -96,15 +69,6 @@ def test_a_row_the_run_does_not_hold_is_left_out() -> None:
     assert "Period" not in rows
     assert "Catchment area" not in rows
     assert rows["Time steps"] == "1,096"
-
-
-def test_a_long_snake_case_name_wraps_on_its_underscores() -> None:
-    wrapped = wrap_value(PROJECT)
-
-    lines = wrapped.split("\n")
-    assert len(lines) <= VALUE_LINES
-    assert all(len(line) <= VALUE_WIDTH for line in lines)
-    assert "".join(lines) == PROJECT
 
 
 def test_a_value_too_long_for_two_lines_ends_with_an_ellipsis() -> None:

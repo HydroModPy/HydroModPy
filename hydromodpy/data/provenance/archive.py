@@ -7,7 +7,7 @@ each file and its sidecar back at its place in the data folder, so the
 restored files are rows of the cache at once. ``.tar``, ``.tar.gz`` and
 ``.tar.zst`` are written and read; the last needs ``zstandard``.
 
-An archive of HydroModPy 2.0.0 carries a lockfile ``hydromodpy.lock.v1`` and
+An archive of a pre-release of 2.0 carries a lockfile ``hydromodpy.lock.v1`` and
 no sidecar. Its lockfile is refused with the sentence that names
 ``hmp data lock``.
 """

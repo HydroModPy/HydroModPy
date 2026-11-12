@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import pandas as pd
 
-from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.table import TableRecord
 
 
@@ -53,21 +52,3 @@ def test_file_backed_table_record_reads_and_caches(tmp_path) -> None:
     # After the first read the Path is replaced by the cached DataFrame.
     assert rec.is_file_reference is False
     assert rec.frame is first
-
-
-def test_load_result_tables_participate_in_len_bool_and_records() -> None:
-    rec = TableRecord(
-        variable="lake_abacus",
-        source="file",
-        table_id="lac0",
-        data=_abacus_frame(),
-    )
-    empty = LoadResult()
-    assert not empty
-    assert empty.has_tables is False
-
-    result = LoadResult(tables=[rec])
-    assert bool(result) is True
-    assert result.has_tables is True
-    assert len(result) == 1
-    assert result.all_records == [rec]

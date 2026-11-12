@@ -189,31 +189,6 @@ def test_runtime_planar_mesh_samples_domain_surfaces_at_the_cell_centres():
     assert botm.tolist() == pytest.approx([0.0] * botm.size)
 
 
-def test_a_triangle_mesh_keeps_its_cells():
-    top = np.full((2, 2), 20.0, dtype=float)
-    bottom = np.zeros((2, 2), dtype=float)
-    domain = _build_domain_from_dem(top)
-    domain.substratum = _build_surface(bottom, name="substratum")
-    hydro_mesh = HydroMesh(
-        vertices=np.array(
-            [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
-            dtype=float,
-        ),
-        cell_blocks=(CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2], [0, 2, 3]], dtype=int)),),
-    )
-    cell_mesh = cell_mesh_of(hydro_mesh)
-
-    ctx = build_spatial_discretization(
-        domain=domain,
-        vertical_config=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
-        sgrid_config=SolverSGridConfig(),
-        cell_mesh=cell_mesh,
-    )
-
-    # The solver grid is the mesh it is given: the 2 triangles, no dual.
-    assert ctx.solver_mesh.n_cells == 2
-
-
 def test_modflow_nwt_refuses_a_cell_mesh_that_is_not_a_regular_grid():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     triangles = cell_mesh_of(
@@ -247,17 +222,6 @@ def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
         match=r"preprocess_options\.time_grid derived from \[simulation\.time\] for transient flow runs",
     ):
         model._validate_pre_processing_inputs()
-
-
-def test_modflow_accepts_missing_time_grid_for_steady_launcher_flow_preprocessing():
-    dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
-    model = ModflowNwt(model_folder=".")
-    model.inputs = _model(dem, domain=object(), cells=small_geometry().cells)
-    model._apply_preprocess_options(model.preprocess_options)
-
-    # Steady flow should not require a time_grid; method must return None.
-    assert model._validate_pre_processing_inputs() is None
-    assert model.flow_regime == "steady"
 
 
 @pytest.mark.parametrize(

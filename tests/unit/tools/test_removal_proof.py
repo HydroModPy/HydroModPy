@@ -519,8 +519,9 @@ DECISION_ROWS = [
     ("kept tests kill it", (1, ("k2",)), (0, ()), "killed", "k2", ()),
     ("both survive", (0, ()), (0, ()), "proved", None, ()),
     ("only a removed test kills it", (0, ()), (1, ("g2[p]",)), "lost", "g2", ("g2",)),
-    ("timeout of the kept tests counts as killed", (124, ()), (0, ()), "killed", None, ()),
-    ("kill by signal counts as killed", (137, ()), (0, ()), "killed", None, ()),
+    ("timeout of the kept tests proves nothing", (124, ()), (0, ()), "error", None, ("g1", "g2")),
+    ("kill by signal names no red test", (137, ()), (0, ()), "error", None, ("g1", "g2")),
+    ("exit 1 with no red test proves nothing", (1, ()), (0, ()), "error", None, ("g1", "g2")),
     ("timeout of the removed tests is a loss", (0, ()), (124, ()), "lost", None, ("g1", "g2")),
     ("killer that is not a removed test", (0, ()), (1, ("zz",)), "lost", "zz", ("g1", "g2")),
     ("exit 2 on the kept side", (2, ()), (0, ()), "error", None, ("g1", "g2")),
@@ -541,6 +542,18 @@ def test_decision_on_a_mutant(kept, gone, status, killer, put_back, fork_first):
     run, _ = scripted({("m", "kept"): kept, ("m", "gone"): gone})
     (verdict,) = rp.prove_mutants([case()], run, 2, fork_first)
     assert (verdict.status, verdict.killer, verdict.put_back) == (status, killer, put_back)
+
+
+def test_a_fork_kill_that_names_no_red_test_is_played_again_fresh():
+    calls: list[rp.Job] = []
+
+    def run(job: rp.Job) -> rp.Outcome:
+        calls.append(job)
+        return rp.Outcome(1, ("k2",) if job.fresh else (), 1.0)
+
+    (verdict,) = rp.prove_mutants([case()], run, 2, True)
+    assert (verdict.status, verdict.killer) == ("killed", "k2")
+    assert [job.fresh for job in calls] == [False, True]
 
 
 def test_a_fork_survivor_is_played_again_in_a_fresh_process():
@@ -735,10 +748,12 @@ class Scene:
         )
         self.run_dir = t / "run"
         self.modules: list[str] = []
-        for rel in (IMPL_PATH, "hydromodpy/pkg/other.py"):
-            names = (
-                {MUTANT: 33} if rel == IMPL_PATH else {"hydromodpy.pkg.other.x_twice__mutmut_1": 33}
-            )
+        self.baseline_code = 0
+        for rel in (IMPL_PATH, "hydromodpy/pkg/other.py", "hydromodpy/pkg/__init__.py"):
+            names = {
+                IMPL_PATH: {MUTANT: 33},
+                "hydromodpy/pkg/other.py": {"hydromodpy.pkg.other.x_twice__mutmut_1": 33},
+            }.get(rel, {})
             write(self.run_dir, f"{rel}.meta", json.dumps({"exit_code_by_key": names}))
         self.calls: list[rp.Job] = []
         self.codes = mutant_codes
@@ -759,7 +774,7 @@ class Scene:
     def run(self, job: rp.Job) -> rp.Outcome:
         self.calls.append(job)
         if job.mutant == "":
-            return rp.Outcome(0, (), self.seconds)
+            return rp.Outcome(self.baseline_code, (), self.seconds)
         return rp.Outcome(*self.codes[job.ids[0].split("::")[0].rsplit("/", 1)[-1]])
 
     def args(self, tmp_path: Path, **over) -> list[str]:
@@ -1292,3 +1307,113 @@ def test_a_child_that_exceeds_its_time_is_killed_and_gives_124(monkeypatch):
     monkeypatch.setattr(rp.os, "killpg", lambda pid, sig: killed.append(pid))
     assert rp.wait_child(123, 0.05) == 124
     assert killed == [123]
+
+
+# ---------------------------------------------------------------------------
+# Generation of the mutants, baseline in error, red cases of the measure
+# ---------------------------------------------------------------------------
+
+
+class FakeMutmut:
+    """A mutmut process that has written the files of ``written`` and then exits."""
+
+    def __init__(self, written: dict[str, str | None]):
+        self.written = written
+        self.pid = 1
+
+    def __call__(self, command, cwd, **kwargs):
+        for rel, text in self.written.items():
+            mutants = Path(cwd) / "mutants"
+            if text is not None:
+                write(mutants, f"{rel}.meta", "{}")
+            write(mutants, rel, (Path(cwd) / rel).read_text() if text == "copy" else "")
+        return self
+
+    def poll(self) -> int:
+        return 0
+
+    def wait(self) -> int:
+        return 0
+
+
+GENERATE_ROWS = [
+    ("all written", {IMPL_PATH: "copy", "hydromodpy/pkg/other.py": "copy"}, None),
+    ("one meta missing", {IMPL_PATH: "copy", "hydromodpy/pkg/other.py": None}, (1, 2)),
+    ("one mutated file empty", {IMPL_PATH: "copy", "hydromodpy/pkg/other.py": ""}, (1, 2)),
+]
+
+
+@pytest.mark.parametrize(
+    ("written", "refused"), [r[1:] for r in GENERATE_ROWS], ids=[r[0] for r in GENERATE_ROWS]
+)
+def test_a_partial_set_of_mutants_is_refused(tmp_path, monkeypatch, written, refused):
+    tree = make_tree(tmp_path)
+    monkeypatch.setattr(rp.subprocess, "Popen", FakeMutmut(written))
+    monkeypatch.setattr(rp.time, "sleep", lambda seconds: None)
+    modules = [IMPL_PATH, "hydromodpy/pkg/other.py"]
+    if refused is None:
+        assert (
+            rp.generate_mutants(tree, modules, tmp_path / "w", "py", []) == tmp_path / "w/mutants"
+        )
+        return
+    with pytest.raises(rp.Refusal) as info:
+        rp.generate_mutants(tree, modules, tmp_path / "w", "py", [])
+    assert str(info.value).startswith(
+        f"mutmut wrote the mutants of {refused[0]} of {refused[1]} modules in "
+    )
+    assert "hydromodpy/pkg/other.py is the first one missing" in str(info.value)
+
+
+def test_a_module_with_no_meta_file_is_not_a_module_with_no_mutant(tmp_path):
+    write(tmp_path, "m.py.meta", json.dumps({"exit_code_by_key": {}}))
+    assert rp.module_names(tmp_path, "m.py") == []
+    with pytest.raises(rp.Refusal, match="is missing"):
+        rp.module_names(tmp_path, "other.py")
+
+
+def test_plan_puts_back_the_functions_of_a_module_whose_baseline_is_in_error(tmp_path, monkeypatch):
+    scene = PlanScene(tmp_path, monkeypatch)
+    scene.baseline_code = 4
+    plan = scene.plan()
+    assert plan["removed"] == [] and plan["mutants"] == []
+    assert plan["put_back"] == [{"id": TEST_TWO, "reason": "baseline_error"}]
+    assert plan["modules"][0]["taken"] is False
+    assert not [j for j in scene.calls if j.mutant]
+
+
+def test_check_gives_1_when_a_baseline_is_in_error(tmp_path, monkeypatch):
+    scene = Scene(tmp_path, monkeypatch, KILLED_BY_ONE)
+    scene.baseline_code = 4
+    assert rp.main(scene.args(tmp_path)) == 1
+    result = json.loads((tmp_path / "check.json").read_text())
+    assert result["baseline_errors"] == [IMPL_PATH]
+    assert not [j for j in scene.calls if j.mutant]
+
+
+@pytest.mark.parametrize(
+    ("red", "refused"), [(1, False), (rp.MAX_RED_CASES, False), (rp.MAX_RED_CASES + 1, True)]
+)
+def test_measure_accepts_a_few_red_cases_and_refuses_a_red_suite(
+    tmp_path, monkeypatch, red, refused
+):
+    tree = make_tree(tmp_path, "mt")
+    out = tmp_path / "out"
+    rows = [("tests.unit.test_x", f"test_{n}", "failed") for n in range(red)]
+    rows.append(("tests.unit.test_x", "test_ok", "passed"))
+
+    def fake_run(command, **kwargs):
+        out.joinpath("junit.xml").write_text(junit(rows))
+        make_cov(out, tree, {ctx("tests/unit/test_x.py::test_ok"): {IMPL_PATH: ARCS}})
+        return Done(returncode=1)
+
+    monkeypatch.setattr(rp.importlib.metadata, "version", lambda name: "7.16.0")
+    monkeypatch.setattr(
+        rp, "library_location", lambda python, tree, cwd: str(tree / "hydromodpy/__init__.py")
+    )
+    monkeypatch.setattr(rp.subprocess, "run", fake_run)
+    if refused:
+        with pytest.raises(rp.Refusal, match="has failing tests"):
+            rp.run_measure(tree, out, ["tests/unit"], [], 1)
+        return
+    meta = rp.run_measure(tree, out, ["tests/unit"], [], 1)
+    assert len(meta["red"]) == red and meta["pytest_code"] == 1

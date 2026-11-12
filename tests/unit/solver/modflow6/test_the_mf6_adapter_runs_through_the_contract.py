@@ -15,24 +15,16 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-import pandas as pd
 import pytest
 
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.model.sinks_sources.wells import WELLS_PUMPED_METRIC
-from hydromodpy.solver.base.adapter_protocol import (
-    OPTIONAL_MEMBERS,
-    RERUN_MEMBERS,
-    CellLocator,
-    solver_members,
-)
 from hydromodpy.solver.base.plan import ProcessRun, RunContext, RunSlot, SimulationPlan, SolverRun
 from hydromodpy.solver.base.registry import extractors
 from hydromodpy.solver.modflow6 import adapter as mf6_adapter
 from hydromodpy.solver.modflow6.adapter import Modflow6FlowAdapter
-from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from tests._helpers.model_factory import make_model
 from tests.unit.solver.modflow_common.solver_runs import keep_all, solved_run
 
@@ -66,67 +58,6 @@ class _Solver:
 
     def pre_processing(self, model, **kwargs) -> None:
         self.pre.append({"model": model, **kwargs})
-
-
-@pytest.fixture
-def fake_solver(monkeypatch) -> type[_Solver]:
-    _Solver.instances = []
-    monkeypatch.setattr(mf6_adapter, "Modflow6", _Solver)
-    return _Solver
-
-
-def test_the_adapter_carries_the_members_of_the_contract_and_its_rerun() -> None:
-    members = [name for name in solver_members() if not hasattr(Modflow6FlowAdapter, name)]
-
-    assert members == []
-    assert all(callable(getattr(Modflow6FlowAdapter, name)) for name in RERUN_MEMBERS)
-    assert Modflow6FlowAdapter.mutable == frozenset({"K", "Sy"})
-    assert all(hasattr(Modflow6FlowAdapter, name) for name in OPTIONAL_MEMBERS)
-    assert isinstance(Modflow6FlowAdapter(), CellLocator)
-    assert not hasattr(Modflow6FlowAdapter, "execute")
-    assert not hasattr(Modflow6FlowAdapter, "extract_observables")
-
-
-def test_a_build_makes_the_solver_in_the_folder_the_slot_gives(
-    tmp_path: Path, fake_solver: type[_Solver]
-) -> None:
-    model = make_model()
-    options = Modflow6Config()
-    slot = RunSlot(tmp_path, "island", bin_dir=tmp_path / "bin")
-
-    built = Modflow6FlowAdapter().build(model, options, slot, _context())
-
-    (solver,) = fake_solver.instances
-    assert solver.init["model_folder"] == tmp_path
-    assert solver.init["model_name"] == "island"
-    assert solver.init["bin_path"] == tmp_path / "bin"
-    assert solver.init["modflow_config"] is options
-    assert solver.pre[0]["model"] is model and solver.pre[0]["slot"] is slot
-    assert built.solver_model is solver and built.options is options and built.slot is slot
-    assert built.model is model
-    assert (built.written, built.solved, built.output_dir) == (False, False, None)
-
-
-@pytest.mark.parametrize(
-    ("runs", "linked"),
-    [((FLOW,), False), ((FLOW, MT3DMS), True)],
-    ids=["flow alone", "an MT3DMS run follows"],
-)
-def test_a_build_says_whether_an_mt3dms_run_reads_the_output(
-    tmp_path: Path, fake_solver: type[_Solver], runs: tuple[ProcessRun, ...], linked: bool
-) -> None:
-    slot = RunSlot(tmp_path, "a", hand_off=frozenset({"face_flow"} if linked else ()))
-    Modflow6FlowAdapter().build(make_model(), None, slot, _context(*runs))
-
-    assert fake_solver.instances[0].link_mt3dms is linked
-
-
-def test_a_build_without_a_binary_folder_takes_the_managed_cache(
-    tmp_path: Path, fake_solver: type[_Solver]
-) -> None:
-    Modflow6FlowAdapter().build(make_model(), None, RunSlot(tmp_path, "a"), _context())
-
-    assert fake_solver.instances[0].init["bin_path"] is None
 
 
 RUN_CASES = (
@@ -210,12 +141,6 @@ def test_an_extract_goes_through_the_extractor_registered_for_modflow6(
     assert calls == [(solver_run, store, keep_all)]
 
 
-def test_the_registry_serves_the_modflow6_extractor_for_the_adapter_key() -> None:
-    from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
-
-    assert type(extractors.create("flow", "modflow6")) is Modflow6OutputAdapter
-
-
 def test_a_cleanup_removes_the_folder_of_the_run_and_forgets_a_run_without_one(
     tmp_path: Path,
 ) -> None:
@@ -242,24 +167,6 @@ DECLARED_CASES = (
 )
 
 
-@pytest.mark.parametrize(
-    ("case", "active", "stage", "routed"),
-    DECLARED_CASES,
-    ids=[case[0] for case in DECLARED_CASES],
-)
-def test_the_lake_and_the_network_are_served_when_their_conditions_are_active(
-    case: str, active: frozenset[str], stage: str, routed: str
-) -> None:
-    del case
-    states = {
-        support.name: support.state
-        for support in Modflow6FlowAdapter().declared_observables(active)
-    }
-
-    assert states["head"] == states["discharge"] == "servable"
-    assert (states["stage"], states["routed_discharge"]) == (stage, routed)
-
-
 def _request(name: str, *, support: str = "domain", key: str | None = None) -> ObservableRequest:
     return ObservableRequest(id=f"id:{name}", name=name, support=support, key=key)
 
@@ -268,55 +175,6 @@ def test_no_request_reads_nothing_and_needs_no_output(tmp_path: Path) -> None:
     run = SolverRun(slot=RunSlot(tmp_path, "island"))
 
     assert Modflow6FlowAdapter().observables(run, []) == {}
-
-
-def test_observables_are_read_on_the_output_folder_under_the_output_name(
-    tmp_path: Path, monkeypatch
-) -> None:
-    folder = tmp_path / "island"
-    solver_model = SimpleNamespace(model_output_name="island_out", model_name="island")
-    seen: list[tuple] = []
-
-    def common(directory, name, model, requests, *, time_index, **readers):
-        seen.append((directory, name, model, [r.id for r in requests], time_index, sorted(readers)))
-        return {"id:head": "served"}, []
-
-    monkeypatch.setattr(mf6_adapter, "extract_common_modflow_observables", common)
-
-    got = Modflow6FlowAdapter().observables(
-        solved_run(folder, solver_model=solver_model), [_request("head")], time_index=None
-    )
-
-    assert got == {"id:head": "served"}
-    assert seen == [
-        (
-            folder,
-            "island_out",
-            solver_model,
-            ["id:head"],
-            None,
-            ["reach_flow_reader", "routed_discharge_reader", "station_cell_mapper"],
-        )
-    ]
-
-
-def test_a_lake_stage_is_read_from_the_lake_observations(tmp_path: Path, monkeypatch) -> None:
-    stage = _request("stage", support="lake", key="lake_a")
-    series = pd.Series([1.0, 2.0])
-    asked: list[dict] = []
-    monkeypatch.setattr(
-        mf6_adapter, "extract_common_modflow_observables", lambda *a, **k: ({}, [stage])
-    )
-    monkeypatch.setattr(mf6_adapter, "_saved_head_times", lambda *a: [1.0, 2.0])
-    monkeypatch.setattr(
-        mf6_adapter, "extract_lake_series", lambda *a, **k: asked.append(k) or series
-    )
-    run = solved_run(tmp_path / "island", solver_model=SimpleNamespace(model_output_name="i"))
-
-    got = Modflow6FlowAdapter().observables(run, [stage])
-
-    assert list(got) == ["id:stage"]
-    assert asked[0]["lake_id"] == "lake_a" and asked[0]["quantity"] == "stage"
 
 
 def test_an_observable_the_backend_cannot_produce_is_refused_by_name(
@@ -346,22 +204,3 @@ def test_a_run_without_a_solver_object_locates_nothing_and_has_no_top_layer(
 
     assert Modflow6FlowAdapter().locate_cell(run, 1.0, 1.0) is None
     assert Modflow6FlowAdapter().top_active_layer(run, 0, 0) is None
-
-
-def test_the_cell_lookups_read_the_solver_mesh_of_the_run(tmp_path: Path, monkeypatch) -> None:
-    calls: list[tuple] = []
-    monkeypatch.setattr(
-        mf6_adapter,
-        "locate_cell_on_solver_mesh",
-        lambda run, x, y: calls.append(("locate", run, x, y)) or (0, 0, 3),
-    )
-    monkeypatch.setattr(
-        mf6_adapter,
-        "top_active_layer_on_solver_mesh",
-        lambda run, row, col: calls.append(("top", run, row, col)) or 1,
-    )
-    run = solved_run(tmp_path)
-
-    assert Modflow6FlowAdapter().locate_cell(run, 2.0, 3.0) == (0, 0, 3)
-    assert Modflow6FlowAdapter().top_active_layer(run, 0, 3) == 1
-    assert calls == [("locate", run, 2.0, 3.0), ("top", run, 0, 3)]

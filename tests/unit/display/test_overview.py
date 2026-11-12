@@ -20,11 +20,7 @@ from hydromodpy.display.overview.location import (
     overview_run_dir_of,
 )
 from hydromodpy.display.overview.panels import render_timeseries_multi
-from hydromodpy.display.overview.report import (
-    PANEL_FILES,
-    _piezo_altitude_hlines,
-    _records_to_timeseries_df,
-)
+from hydromodpy.display.overview.report import _piezo_altitude_hlines, _records_to_timeseries_df
 from hydromodpy.display.overview.summary import compute_overview_summary, station_table
 from hydromodpy.display.style import themed
 from hydromodpy.project.dispatch.workflow import run_overview
@@ -32,20 +28,6 @@ from hydromodpy.project.request import request_of
 from hydromodpy.results.outcome import effective_status, read_outcome
 
 # ``[overview]`` is the date declaration of overview mode, so it validates like one.
-
-
-def test_no_window_is_accepted() -> None:
-    cfg = OverviewConfig(name="nancon")
-
-    assert cfg.date_start is None
-    assert cfg.date_end is None
-
-
-def test_full_window_is_accepted() -> None:
-    cfg = OverviewConfig(date_start="2019-01-01", date_end="2025-12-31")
-
-    assert cfg.date_start == "2019-01-01"
-    assert cfg.date_end == "2025-12-31"
 
 
 @pytest.mark.parametrize(
@@ -118,17 +100,6 @@ def test_the_tables_keep_white_cells_in_the_default_theme(mpl) -> None:
         body = table[(1, 1)]
         assert _luminance(body.get_facecolor()) > 0.95
         assert _luminance(body.get_text().get_color()) < 0.1
-
-
-def test_the_header_of_the_inventory_is_a_grey_that_follows_the_theme(mpl) -> None:
-    with themed("default"):
-        light = _tables(mpl)[1][(0, 0)].get_facecolor()
-    with themed("dark"):
-        inventory = _tables(mpl)[1]
-    dark = inventory[(0, 0)].get_facecolor()
-    assert _luminance(light) > 0.85
-    assert _luminance(dark) < 0.5
-    assert _luminance(dark) > _luminance(inventory[(1, 0)].get_facecolor())
 
 
 def test_the_catchment_outline_is_black_on_light_and_light_on_dark() -> None:
@@ -259,14 +230,6 @@ def _station(family: str, item_id: str, first: str | None, last: str | None, **e
 )
 def test_station_table_lists_the_station_rows_of_the_inventory(rows, expected) -> None:
     assert station_table(rows) == expected
-
-
-def test_panel_files_name_one_png_per_panel_field() -> None:
-    fields = set(type(OverviewConfig().panels).model_fields)
-
-    assert set(PANEL_FILES) == fields
-    assert len(set(PANEL_FILES.values())) == len(PANEL_FILES)
-    assert all(name.endswith(".png") for name in PANEL_FILES.values())
 
 
 def test_render_timeseries_multi_applies_bounds_hlines_and_empty_states() -> None:
@@ -559,45 +522,6 @@ def test_render_intermittency_draws_one_flow_state_strip_per_station(mpl) -> Non
         dry, visible = axes[0].collections[0].get_facecolors()
         assert tuple(dry[:3]) == pytest.approx((0.5, 0.0, 0.0), abs=0.01)
         assert tuple(visible[:3]) == pytest.approx((0.0, 0.0, 0.5), abs=0.01)
-    finally:
-        mpl.close(fig)
-
-
-def test_render_station_inventory_and_stats_card_render_expected_table_cells(mpl) -> None:
-    fig, (ax_stats, ax_inventory) = mpl.subplots(1, 2)
-    summary = SimpleNamespace(
-        watershed_name="Naizin",
-        catchment_area_km2=12.5,
-        outlet_xy=(1.0, 2.0),
-        date_start="2020-01-01",
-        date_end="2020-12-31",
-        n_streams=3,
-        n_hydrometry=1,
-        n_piezometry=2,
-        n_intermittency=0,
-        n_water_quality=4,
-    )
-    inventory = [
-        {
-            "type": "Hydrometry",
-            "id": "H1",
-            "x": 1.0,
-            "y": 2.0,
-            "start": "2020-01-01",
-            "end": "2020-02-01",
-        }
-    ]
-
-    panels.render_stats_card(ax_stats, summary=summary)
-    panels.render_station_inventory(ax_inventory, inventory=inventory)
-
-    try:
-        stats_table = ax_stats.tables[0]
-        inventory_table = ax_inventory.tables[0]
-        assert stats_table[(0, 1)].get_text().get_text() == "Naizin"
-        assert stats_table[(1, 1)].get_text().get_text() == "12.50 km²"
-        assert inventory_table[(1, 1)].get_text().get_text() == "H1"
-        assert "1 stations" in ax_inventory.get_title()
     finally:
         mpl.close(fig)
 

@@ -73,7 +73,7 @@ FLOW_RUNTIME_KEYS: dict[str, str] = {
 """What a key of [flow] was once called, mapped to its name in [solver.boussinesq].
 
 These keys moved to ``[flow.runtime]`` first, and that table is ``[solver.boussinesq]``
-since 2.1.0.
+since 2.0.0.
 """
 
 

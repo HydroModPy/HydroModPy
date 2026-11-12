@@ -90,7 +90,7 @@ RUN_RECORD_MANIFEST_VERSION: Final[int] = SEAL_VERSION
 """Version of ``manifest.json``, written by :class:`~hydromodpy.results.record.record.RunRecord`.
 
 Version 4 is the run profile of the common seal: ``profile``, ``values``, the
-identity block of 2.1 and the closed list of certified entries.
+identity block of this version and the closed list of certified entries.
 """
 
 MANIFEST_DOCUMENT_SCHEMA: Final[str] = f"hydromodpy.manifest.v{RUN_RECORD_MANIFEST_VERSION}"

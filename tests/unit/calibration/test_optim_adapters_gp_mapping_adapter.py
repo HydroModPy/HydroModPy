@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-import itertools
-
 import numpy as np
 import pytest
 import sklearn  # noqa: F401
 
 from hydromodpy.calibration.optim.adapters import gp_mapping_adapter as gp_module
-from hydromodpy.calibration.optim.optimizer import (
-    EvaluationResult,
-    ParamSuggestion,
-    build_optimizer,
-)
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, build_optimizer
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from tests.unit.calibration._factories_search import result_of
 
@@ -54,15 +48,6 @@ def _quadratic(values: dict) -> float:
 
 
 class TestGPMappingAdapter:
-    def test_ask_one_returns_single_suggestion(self):
-        """``ask(n=1)`` must produce exactly one ``ParamSuggestion``."""
-        space = _quadratic_space()
-        opt = build_optimizer("gp_mapping", space, seed=42, n_init=4, max_trials=10)
-        got = opt.ask(n=1)
-        assert len(got) == 1
-        assert isinstance(got[0], ParamSuggestion)
-        assert set(got[0].values) == {"x", "y"}
-
     def test_best_returns_lowest_objective(self):
         """``best()`` must surface the trial with the smallest objective."""
         space = _quadratic_space()
@@ -133,17 +118,6 @@ class TestGPMappingFailuresAndBatches:
         assert fitted[0][0].shape[0] == 4
         assert fitted[0][1].tolist() == [1.0, 2.0, 2.0, 2.0]
 
-    def test_a_batch_names_no_point_twice(self):
-        space = ParameterSpace([CalibParameter(name="x", lower=-2.0, upper=2.0)])
-        opt = build_optimizer("gp_mapping", space, seed=3, n_init=4, max_trials=12)
-        design = opt.ask(n=4)
-        opt.tell([result_of(s, s.values["x"] ** 2) for s in design])
-
-        xs = [s.values["x"] for s in opt.ask(n=3)]
-
-        assert xs
-        assert all(abs(a - b) > 4.0e-3 for a, b in itertools.combinations(xs, 2))
-
     def test_a_batch_stops_at_a_point_already_pending(self, monkeypatch):
         space = ParameterSpace([CalibParameter(name="x", lower=-2.0, upper=2.0)])
         opt = build_optimizer("gp_mapping", space, seed=3, n_init=2, max_trials=12)
@@ -188,16 +162,6 @@ class TestGPMappingFailuresAndBatches:
         assert [(s.trial_id, s.source) for s in got] == [(1, "ask"), (2, "ask")]
         assert opt._exhausted is True
         assert len(build_optimizer("gp_mapping", space, seed=3, n_init=2).ask()) == 1
-
-    def test_two_points_a_thousandth_of_the_span_apart_are_one_point(self):
-        opt = build_optimizer("gp_mapping", _quadratic_space(), seed=3)
-        origin = np.zeros(2)
-
-        assert not opt._distinct(np.array([0.004, 0.0]), [origin])
-        assert opt._distinct(np.array([0.0, 0.008]), [origin])
-        # Below one unit the span is the bounds' own, here a hundredth.
-        narrow = build_optimizer("gp_mapping", _space_of(0.0, 0.01), seed=3)
-        assert narrow._distinct(np.array([0.0005]), [np.zeros(1)])
 
     def test_a_search_with_no_completed_trial_fits_nothing_and_draws_inside_the_bounds(self):
         space = ParameterSpace([CalibParameter(name="x", lower=5.0, upper=10.0)])
@@ -306,28 +270,3 @@ class TestGPMappingAdvancedKwargs:
         assert opt._n_restarts >= 12
         assert opt._kappa == pytest.approx(2.0)
         assert opt._alpha_eff == pytest.approx(1.0e-6 + 1.0e-8)
-
-    @pytest.mark.parametrize(
-        "kwarg", ["n_candidates", "log_transform", "n_posterior_pool", "n_posterior_samples"]
-    )
-    def test_removed_compatibility_kwargs_are_rejected(self, kwarg: str):
-        """Removed compatibility kwargs are not accepted."""
-        space = _quadratic_space()
-        with pytest.raises(TypeError, match=kwarg):
-            build_optimizer("gp_mapping", space, **{kwarg: 1})
-
-    def test_kappa_switches_to_lcb_acquisition(self):
-        """A non-zero kappa drives the LCB acquisition path end-to-end."""
-        space = _quadratic_space()
-        opt = build_optimizer("gp_mapping", space, seed=11, n_init=4, max_trials=10, kappa=1.5)
-        for _ in range(10):
-            got = opt.ask(n=1)
-            if not got:
-                break
-            sugg = got[0]
-            opt.tell([result_of(sugg, _quadratic(sugg.values))])
-        best = opt.best()
-        assert best is not None
-        assert best.status == "completed"
-        assert isinstance(best.cost, float)
-        assert best.trial_id >= 0

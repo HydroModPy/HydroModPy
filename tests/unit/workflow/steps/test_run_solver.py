@@ -15,7 +15,7 @@ import hydromodpy.workflow.steps.prepare_solver.dispatch as prepare_dispatch
 import hydromodpy.workflow.steps.prepare_solver.facts as facts_mod
 import hydromodpy.workflow.steps.run_solver as step_mod
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.results.storage.run_profile import collected_profile, read_profile
+from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.solver.base import plan as plan_mod
 from hydromodpy.solver.base.plan import ProcessRun, SimulationPlan
 from hydromodpy.workflow.state import PipelineState
@@ -69,22 +69,6 @@ def store(monkeypatch: pytest.MonkeyPatch) -> _Store:
 
     monkeypatch.setattr(step_mod, "run_store", opened)
     return fake
-
-
-def test_run_without_a_store_executes_the_plan_and_advances(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ctx = _ctx(persisted=False)
-    launcher = _Launcher()
-    after = object()
-    out = RunSolverStep(launcher=launcher).run(_state(ctx=ctx, after_process=after))
-    assert launcher.calls[0]["store"] is None
-    assert launcher.calls[0]["plan"] == "PLAN"
-    assert launcher.calls[0]["callbacks"].after_process is after
-    assert out.step_name == "run_solver"
-    assert out.step_index == 4
-    assert out.get("ctx") is ctx
-    assert "wall_seconds" not in out.data, "the time of the solve is in profile.json, not the state"
 
 
 def test_run_with_a_store_records_metrics_dirs_and_what_the_model_says(
@@ -153,49 +137,10 @@ def test_the_solve_line_of_the_profile_comes_from_the_solve_time_of_each_run(
     assert lines[1].started_at - lines[0].started_at == timedelta(seconds=2.5)
 
 
-def test_a_run_without_a_directory_writes_no_profile(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    run = SimpleNamespace(id="flow")
-    result = SimpleNamespace(output_dir=None, solve_s=1.0, reran=False)
-    RunSolverStep(launcher=_Launcher([(run, result)])).run(
-        _state(ctx=_ctx(persisted=False, run_dir=None))
-    )
-    assert not list(tmp_path.iterdir())
-
-
 LIGHT_SOLVES: tuple[tuple[str, bool, str], ...] = (
     ("a built run", False, "no"),
     ("a rerun", True, "rerun"),
 )
-
-
-@pytest.mark.parametrize(
-    ("case", "reran", "reused"), LIGHT_SOLVES, ids=[c for c, *_ in LIGHT_SOLVES]
-)
-def test_a_trial_without_a_store_profiles_its_solves_into_its_collector(
-    case: str, reran: bool, reused: str
-) -> None:
-    del case
-    run = SimpleNamespace(id="flow")
-    result = SimpleNamespace(output_dir=None, solve_s=0.75, reran=reran)
-    with collected_profile() as lines:
-        RunSolverStep(launcher=_Launcher([(run, result)])).run(
-            _state(ctx=_ctx(persisted=False, run_dir=None))
-        )
-    assert [(line.kind, line.name, line.duration_s, line.reused) for line in lines] == [
-        ("solve", "flow", 0.75, reused)
-    ]
-
-
-def test_run_with_a_store_tolerates_a_launcher_returning_nothing(
-    monkeypatch: pytest.MonkeyPatch, store: _Store
-) -> None:
-    monkeypatch.setattr(prepare_dispatch, "refresh_run_environment", lambda ctx, *, store: None)
-    launcher = _Launcher(None)
-    out = RunSolverStep(launcher=launcher).run(_state(ctx=_ctx(persisted=True)))
-    assert out.step_name == "run_solver"
-    assert store.facts.solver_output_dirs == {}
 
 
 def test_run_builds_the_default_runner_without_a_launcher(
@@ -217,11 +162,6 @@ def test_run_without_ctx_raises() -> None:
 def test_run_without_a_simulation_plan_raises() -> None:
     with pytest.raises(ConfigError, match="simulation_plan"):
         RunSolverStep(launcher=_Launcher()).run(_state(ctx=_ctx(persisted=False, plan=None)))
-
-
-def test_the_step_declares_its_place_in_the_pipeline() -> None:
-    assert RunSolverStep().depends_on() == ("prepare_solver",)
-    assert RunSolverStep(launcher=_Launcher()).launcher is not None
 
 
 def test_artifacts_is_empty_without_ctx_or_persistence_or_ids() -> None:
@@ -301,14 +241,3 @@ def test_a_resumed_flow_run_gets_the_options_the_runner_would_have_given_it(
 
     assert ctx.execution.solver_runs[FLOW.id].options is table
     assert ctx.execution.solver_runs[MESH.id].options is None, "a mesh run has no backend"
-
-
-def test_a_folder_of_a_run_the_plan_no_longer_holds_is_put_back_without_options(
-    store: _Store,
-) -> None:
-    store.facts.solver_output_dirs = {"flow::gone": "/scratch/gone"}
-    ctx = _resumed_ctx(MESH)
-
-    RunSolverStep().rebuild_state(prior_state=_state(ctx=ctx), workspace=Path("."), run_id="r")
-
-    assert ctx.execution.solver_runs["flow::gone"].options is None

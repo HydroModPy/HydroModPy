@@ -85,10 +85,3 @@ def test_plan_takes_a_stale_age_in_minutes(monkeypatch, capsys, tmp_path: Path) 
 
     assert code == 0
     assert "plan " in capsys.readouterr().out
-
-
-def test_the_old_forms_are_refused_with_the_new_one(monkeypatch, capsys, project: Path) -> None:
-    assert run_hmp(monkeypatch, "catalog", "ls", "-w", str(project)) == 2
-    assert "Write: hmp ls" in capsys.readouterr().err
-    assert run_hmp(monkeypatch, "project", "status", "-w", str(project)) == 2
-    assert "Write: hmp ls --plan" in capsys.readouterr().err

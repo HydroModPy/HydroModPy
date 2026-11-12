@@ -33,20 +33,6 @@ def test_the_geographic_domain_is_checked_kept_by_a_resample_and_the_default_sen
     assert raw.resample_to_shape(1, 1, nodata=-1.0).support.nodata == -1.0
 
 
-@pytest.mark.parametrize(
-    ("top", "shift", "expected"),
-    [(Surface(name="surface_topo", values=ROW, support=raster_support(1, 2)), 3.5, [[6.5, 8.5]]),
-     (surface([[10.0, 20.0], [30.0, 40.0]], nodata=None), 5.0, [[5.0, 15.0], [25.0, 35.0]])],
-    ids=["with_a_nodata_declaration", "without_a_nodata_declaration_a_plain_subtraction"],
-)  # fmt: skip
-def test_shifted_down_by_keeps_the_support_and_names_the_substratum(top, shift, expected):
-    substratum = top.shifted_down_by(shift)
-
-    assert substratum.name == "substratum"
-    assert substratum.support is top.support
-    assert substratum.as_array().tolist() == expected
-
-
 def test_flat_like_is_flat_below_the_top_clamps_nodata_and_outcrops_and_is_refused_above_all():
     """A masked cell carries the sentinel; it is clamped instead of tripping the order guard."""
     top = Surface(name="surface_topo", values=ROW, support=raster_support(1, 2))

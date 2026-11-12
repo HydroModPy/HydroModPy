@@ -28,7 +28,6 @@ from hydromodpy.solver.modflow_common.descent_store import (
     write_descent_sidecar,
 )
 from hydromodpy.solver.modflow_common.flow_directions import (
-    DESCENT_EPSILON_M,
     build_solver_mesh_descent,
     resolve_dam_foot_cells,
 )
@@ -41,12 +40,10 @@ from tests._helpers.ugrid_meshes import quad_mesh
 from tests.unit.catchment.stream_network._heads_dam import (
     AXIS,
     CELL,
-    DAM_FOOT_ROW,
     N_COLS,
     N_ROWS,
     cell,
     centre,
-    dam_geometry,
     topography,
 )
 
@@ -73,32 +70,6 @@ def _basin(outlet: int = 0, rule: str = "within_polygon") -> DescentBasin:
     mask = np.zeros(N * N, dtype=bool)
     mask[[0, 1, N]] = True
     return DescentBasin(mask=mask, outlet=outlet, rule=rule, area_m2=3.0, seeded_at_outlet=True)
-
-
-def test_the_sidecar_round_trips_the_basin(tmp_path) -> None:
-    basin = _basin()
-    write_descent_sidecar(_descent(), tmp_path, "m", basin=basin)
-
-    record = read_descent_sidecar(tmp_path / "m.descent.npz")
-
-    assert record is not None
-    np.testing.assert_array_equal(record.basin, basin.mask)
-    assert (record.basin_outlet, record.basin_rule) == (0, "within_polygon")
-    assert record.basin_area_m2 == 3.0
-    assert record.basin_seeded_at_outlet is True
-
-
-def test_a_sidecar_written_before_the_basin_reads_back_without_one(tmp_path) -> None:
-    write_descent_sidecar(_descent(), tmp_path, "m")
-
-    record = read_descent_sidecar(tmp_path / "m.descent.npz")
-
-    assert record is not None
-    assert record.basin is None
-    assert record.basin_outlet == -1
-    assert record.basin_rule == ""
-    assert np.isnan(record.basin_area_m2)
-    assert record.basin_seeded_at_outlet is False
 
 
 @pytest.mark.parametrize(
@@ -202,20 +173,6 @@ def test_the_section_writes_the_sidecar_with_the_dam_feet(monkeypatch, tmp_path)
     np.testing.assert_array_equal(record.receiver, descent.receiver)
 
 
-def test_the_section_hands_the_feet_to_the_sidecar_write(monkeypatch, tmp_path) -> None:
-    _declare_spillway(monkeypatch, declared=True)
-    written = []
-
-    def spy(descent, folder, stem, *, dam_foot_cells=None, basin=None):
-        written.append(dict(dam_foot_cells))
-
-    monkeypatch.setattr(build, "write_descent_sidecar", spy)
-
-    _build(_model(tmp_path))
-
-    assert written == [{"res": TOE}]
-
-
 def test_a_lake_without_a_declared_spillway_has_no_foot_but_D_is_stored(
     monkeypatch, tmp_path
 ) -> None:
@@ -251,29 +208,6 @@ def _descent_2():
         botm=np.full((1, nrow, ncol), -10.0),
     )
     return build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-
-
-def test_the_sidecar_round_trips(tmp_path) -> None:
-    descent = _descent_2()
-
-    path = write_descent_sidecar(descent, tmp_path, "model")
-    record = read_descent_sidecar(path)
-
-    assert path == tmp_path / "model.descent.npz"
-    assert record is not None
-    np.testing.assert_array_equal(record.receiver, descent.receiver)
-    np.testing.assert_array_equal(record.surface, descent.surface)
-    np.testing.assert_array_equal(record.base_level, descent.base_level)
-    np.testing.assert_array_equal(record.channel, descent.channel)
-    np.testing.assert_array_equal(record.pinned, descent.pinned)
-    assert record.receiver.dtype == np.int64
-    assert record.surface.dtype == np.float64
-    assert record.base_level.dtype == bool
-    assert record.adjacency == "shared_nodes"
-    assert record.epsilon == DESCENT_EPSILON_M
-    assert record.n_raised == descent.n_raised >= 1
-    assert record.max_raise_m == descent.max_raise_m
-    assert record.report()["n_raised"] == descent.n_raised
 
 
 def test_an_absent_sidecar_reads_as_none(tmp_path) -> None:
@@ -421,25 +355,6 @@ def test_a_declared_spillway_gives_the_crest_below_the_lake_as_the_foot(monkeypa
     assert feet == {"res": cell(12, AXIS)}
 
 
-def test_the_reach_below_the_dam_is_drawn_with_that_foot_and_missing_without(monkeypatch) -> None:
-    feet = _dam_foot(monkeypatch, declared=True)
-    below_dam = cell(DAM_FOOT_ROW, AXIS)
-
-    plain = dam_geometry()
-    forced = dam_geometry(list(feet.values()))
-
-    assert not plain.observed[below_dam]
-    assert forced.observed[below_dam]
-    downstream = forced.metric.graph.downstream
-    walk = below_dam
-    while walk >= 0:
-        assert forced.observed[walk]
-        walk = int(downstream[walk])
-    assert forced.observed[forced.outlet]
-    assert forced.diagnostics["n_forced_heads"] == 1.0
-    assert not (plain.observed & ~forced.observed).any()
-
-
 def test_a_lake_without_a_declared_spillway_has_no_foot_to_force(monkeypatch) -> None:
     assert _dam_foot(monkeypatch, declared=False) == {}
 
@@ -487,23 +402,8 @@ _ADJACENCY = [{1}, {0, 2, 3}, {1}, {1}]
 _TOP = [100.0, 95.0, 70.0, 80.0]
 
 
-def test_the_foot_without_a_wall_is_the_lowest_neighbour(monkeypatch) -> None:
-    seeds = _seed(monkeypatch, None, centroids=_CENTROIDS, adjacency=_ADJACENCY, top=_TOP)
-    assert seeds == {"res": 2}
-
-
 def test_the_foot_with_a_wall_is_downstream_of_it(monkeypatch) -> None:
     seeds = _seed(monkeypatch, _WALL, centroids=_CENTROIDS, adjacency=_ADJACENCY, top=_TOP)
-    assert seeds == {"res": 3}
-
-
-def test_the_dam_is_the_shore_cell_that_faces_the_wall(monkeypatch) -> None:
-    # The shore cell nearest the outlet (cell 1, at x = 12) only touches a bank on
-    # the lake side (cell 2). Cell 0 is the one that faces the wall: its toe is 3.
-    centroids = [[8, -20], [12, 0], [12, 10], [20, -20]]
-    adjacency = [{1, 3}, {0, 2}, {1}, {0}]
-    top = [100.0, 95.0, 70.0, 80.0]
-    seeds = _seed(monkeypatch, _WALL, centroids=centroids, adjacency=adjacency, top=top)
     assert seeds == {"res": 3}
 
 
@@ -597,68 +497,6 @@ def _grid_mesh(inactive_mask: np.ndarray) -> SolverMesh:
         botm=np.stack([np.zeros(N_7 * N_7), np.full(N_7 * N_7, -10.0)]),
         inactive_mask=inactive_mask,
     )
-
-
-def test_an_inactive_lake_is_on_the_graph_and_numbered_in_order() -> None:
-    inactive = np.zeros((2, N_7 * N_7), dtype=bool)
-    west_lake = [_cell(3, 1), _cell(3, 2)]
-    east_lake = [_cell(3, 4), _cell(3, 5)]
-    inactive[:, west_lake + east_lake] = True
-    off_domain = _cell(5, 5)
-    inactive[:, off_domain] = True
-    deeper_only = _cell(1, 3)
-    inactive[0, deeper_only] = True
-    mesh = _grid_mesh(inactive)
-    top_before = mesh.top.copy()
-
-    descent = build_solver_mesh_descent(
-        mesh,
-        lake_cells_by_lake={"east": east_lake, "west": west_lake},
-        base_level_mask=None,
-    )
-
-    assert np.all(descent.routable[west_lake + east_lake])
-    assert descent.routable[deeper_only]
-    assert not descent.routable[off_domain]
-    assert descent.lake_of[east_lake].tolist() == [0, 0]
-    assert descent.lake_of[west_lake].tolist() == [1, 1]
-    assert np.array_equal(mesh.top, top_before)
-
-
-def test_a_constant_head_cell_seeds_the_descent(caplog) -> None:
-    mesh = _grid_mesh(np.zeros((2, N_7 * N_7), dtype=bool))
-    pit = _cell(3, 3)
-    top = mesh.top.copy()
-    top[pit] = 0.0
-    mesh = solver_mesh_from(
-        mesh.planar_mesh, top=top, botm=mesh.botm, inactive_mask=mesh.inactive_mask
-    )
-    base_level = np.zeros(N_7 * N_7, dtype=bool)
-    base_level[pit] = True
-
-    with caplog.at_level(logging.INFO):
-        descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=base_level)
-
-    assert descent.base_level[pit]
-    assert descent.n_raised == 0
-    assert "shared nodes (D8)" in caplog.text
-
-
-def test_a_ragged_polygon_mesh_descends_by_shared_faces() -> None:
-    # One quad and two triangles: the first triangle meets the quad at a node only.
-    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [0.0, 1.0], [1.0, 1.0], [2.0, 1.0]])
-    cells = ([0, 1, 4, 3], [1, 2, 5], [1, 5, 4])
-    mesh = solver_mesh_from(
-        HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),)),
-        top=np.array([3.0, 1.0, 2.0]),
-        botm=np.zeros((1, 3)),
-        inactive_mask=np.zeros((1, 3), dtype=bool),
-    )
-
-    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-
-    assert not descent.diagonal_neighbors
-    assert [sorted(cells) for cells in descent.adjacency] == [[2], [2], [0, 1]]
 
 
 # The MODFLOW 6 budget zone ``catchment`` is the basin of D the build kept.

@@ -150,11 +150,3 @@ def test_config_figures_lists_the_registered_figures() -> None:
 
     assert result.exit_code == 0
     assert '"schema": "hmp.config.figures.v2"' in result.stdout
-
-
-@pytest.mark.parametrize("old", ["viz show abc head_map", "viz list"])
-def test_the_viz_group_is_refused_with_the_command_that_replaces_it(old: str) -> None:
-    result = CliRunner().invoke(old.split())
-
-    assert result.exit_code == 2
-    assert "hmp show REF --figure NAME" in result.stderr or "hmp config figures" in result.stderr

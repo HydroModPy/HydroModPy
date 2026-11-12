@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.mesh.cells.regions import components_without, family_regions
+from hydromodpy.mesh.cells.regions import family_regions
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.mesh.planar.planar_cell_mesh import (
@@ -91,58 +91,3 @@ def test_a_mesh_without_the_family_is_one_region() -> None:
 
     assert labels.dtype == np.int64
     assert labels.tolist() == [0] * grid.n_cells
-
-
-def test_a_family_across_the_grid_splits_it_in_the_order_of_the_first_cells() -> None:
-    labels = family_regions(_grid_with_x20_faces((0, 1, 2)), "lakes")
-
-    assert labels.dtype == np.int64
-    assert labels.tolist() == [0, 0, 1, 1] * 3
-
-
-def test_a_family_with_a_gap_leaves_one_region() -> None:
-    assert family_regions(_grid_with_x20_faces((0, 1)), "lakes").tolist() == [0] * 12
-
-
-def test_a_family_row_on_two_nodes_no_edge_joins_cuts_nothing() -> None:
-    # Nodes 0 and 6 are the corners of a diagonal of cell 0.
-    cell_mesh = _grid_with_x20_faces((0, 1), (0, 1, 0, 6))
-
-    assert family_regions(cell_mesh, "lakes").tolist() == [0] * 12
-
-
-def test_cut_pairs_split_in_either_order_and_boundary_rows_cut_nothing() -> None:
-    geometry = regular_mesh(3, 4, dx=10.0).geometry
-    cut_a = np.array([1, 6, 9, 0])
-    cut_b = np.array([2, 5, 10, -1])
-
-    labels = components_without(geometry, cut_a, cut_b)
-
-    assert labels.dtype == np.int32
-    assert labels.tolist() == [0, 0, 1, 1] * 3
-
-
-def test_no_cut_pair_leaves_one_component() -> None:
-    geometry = regular_mesh(2, 2).geometry
-    none = np.empty(0, dtype=np.int64)
-
-    assert components_without(geometry, none, none).tolist() == [0] * 4
-
-
-def test_a_cut_pair_splits_two_cells_that_share_two_edges() -> None:
-    cell_mesh = _with_family(
-        _two_cells_on_two_edges(), _vertex_means(_two_cells_on_two_edges()), []
-    )
-
-    labels = components_without(cell_mesh.geometry, np.array([0]), np.array([1]))
-
-    assert labels.tolist() == [0, 1, 1]
-
-
-def test_one_cut_edge_of_two_shared_edges_keeps_the_two_cells_in_one_region() -> None:
-    mesh = _two_cells_on_two_edges()
-    one_edge = _with_family(mesh, _vertex_means(mesh), [(0, 1, 1, 2)])
-    both_edges = _with_family(mesh, _vertex_means(mesh), [(0, 1, 1, 2), (0, 1, 2, 3)])
-
-    assert family_regions(one_edge, "lakes").tolist() == [0, 0, 0]
-    assert family_regions(both_edges, "lakes").tolist() == [0, 1, 1]

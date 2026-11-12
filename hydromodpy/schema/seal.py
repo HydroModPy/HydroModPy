@@ -11,7 +11,7 @@ answered, the process that answered it and the input set it read.
 Format
 ------
 ``manifest_version`` is the integer 4 for both profiles, and ``profile`` says
-which one the document is. A job seal of the 2.0.0 wrote ``schema =
+which one the document is. A job seal of a pre-release wrote ``schema =
 "hmp-manifest/v2"`` instead; ``read_job_seal`` of
 :mod:`hydromodpy.schema.job.seal` reads both families in memory and never
 rewrites the file. This module reads only ``core`` and ``schema.lineage``. ``artifacts`` inventories every entry the

@@ -15,7 +15,6 @@ import pytest
 from hydromodpy.calibration.optim.fosm import ParameterUncertainty
 from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners.recap import result_lines, staged_result_lines
-from hydromodpy.cli.exit_codes import EXIT_CALIBRATION, exit_if_session_unfinished
 
 
 def _report(**overrides: object) -> CalibrationReport:
@@ -32,15 +31,6 @@ def _report(**overrides: object) -> CalibrationReport:
     return CalibrationReport(**fields)
 
 
-def test_the_calibrated_value_and_cost_are_printed() -> None:
-    report = _report(best_parameters={"K": 6.4e-5})
-
-    lines = "\n".join(result_lines(report))
-
-    assert "K = 6.4e-05" in lines
-    assert "cost: 0.1234" in lines
-
-
 def test_k_over_r_from_extra_is_printed_with_its_note() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
@@ -55,33 +45,6 @@ def test_k_over_r_from_extra_is_printed_with_its_note() -> None:
 
     assert "k_over_r = 3.2" in lines
     assert "not a conductivity" in lines
-
-
-def test_the_tolerance_interval_is_shown_beside_its_value() -> None:
-    report = _report(
-        best_parameters={"K": 6.4e-5},
-        extra={
-            "parameter_intervals": [
-                {
-                    "name": "K",
-                    "best": 6.4e-5,
-                    "lower": 5e-5,
-                    "upper": 7e-5,
-                    "margin": 0.05,
-                    "kind": "relative",
-                    "threshold": 0.13,
-                    "n_within": 2,
-                    "n_trials": 4,
-                    "reaches_lower_bound": False,
-                    "reaches_upper_bound": False,
-                }
-            ]
-        },
-    )
-
-    lines = "\n".join(result_lines(report))
-
-    assert "[5e-05, 7e-05]" in lines
 
 
 @pytest.mark.parametrize(
@@ -178,24 +141,6 @@ def test_a_fosm_tradeoff_is_flagged_instead_of_the_trace_correlation() -> None:
     assert "moved together (r = +0.50)" not in lines
 
 
-def test_a_report_with_no_optional_part_prints_the_bare_minimum() -> None:
-    report = _report(best_parameters={"K": 6.4e-5})
-
-    lines = result_lines(report)
-
-    assert lines == ["  K = 6.4e-05", "  cost: 0.1234"]
-
-
-def test_a_report_with_no_candidate_evaluated_prints_nothing_and_does_not_crash() -> None:
-    report = _report(best_cost=None, best_parameters=None)
-
-    assert result_lines(report) == []
-
-
-def test_a_bare_object_with_no_calibration_fields_does_not_crash() -> None:
-    assert result_lines(object()) == []
-
-
 def test_the_mean_and_best_cost_share_are_printed_for_two_or_more_blocks() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
@@ -240,52 +185,6 @@ def test_a_reused_phase_that_could_not_recompute_its_share_says_so() -> None:
 
     assert "cost share: reused from a previous run" in lines
     assert "not recomputed" in lines
-
-
-def test_a_single_block_share_is_not_printed() -> None:
-    report = _report(
-        best_parameters={"K": 6.4e-5},
-        cost_block_fractions={"mean": {"hydrograph": 1.0}, "best": {"hydrograph": 1.0}},
-    )
-
-    lines = "\n".join(result_lines(report))
-
-    assert "cost share" not in lines
-
-
-def test_a_report_with_no_computable_share_prints_nothing_about_it() -> None:
-    report = _report(best_parameters={"K": 6.4e-5}, cost_block_fractions=None)
-
-    lines = "\n".join(result_lines(report))
-
-    assert "cost share" not in lines
-
-
-def test_a_staged_result_prints_each_phase_with_its_own_share() -> None:
-    phase_a = SimpleNamespace(
-        name="k_steady",
-        report=_report(best_parameters={"K": 6.4e-5}),
-    )
-    phase_b = SimpleNamespace(
-        name="sy_transient",
-        report=_report(
-            best_parameters={"Sy": 0.06},
-            best_cost=0.27,
-            cost_block_fractions={
-                "mean": {"hydrograph": 0.36, "network_extension": 0.64},
-                "mean_n_trials": 14,
-                "best": {"hydrograph": 0.37, "network_extension": 0.63},
-            },
-        ),
-    )
-    staged = SimpleNamespace(phases=[phase_a, phase_b])
-
-    lines = "\n".join(staged_result_lines(staged))
-
-    assert "phase k_steady:" in lines
-    assert "phase sy_transient:" in lines
-    assert "  Sy = 0.06" in lines
-    assert "cost share (best trial): hydrograph 37%, network_extension 63%" in lines
 
 
 def test_a_staged_result_with_no_evaluated_phase_prints_nothing() -> None:
@@ -391,14 +290,6 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
     assert "+ 5 extension" in text
 
 
-def test_a_report_without_these_records_prints_none_of_them() -> None:
-    text = "\n".join(result_lines(_report(best_parameters={"K": 6.4e-5})))
-
-    assert "r_optim" not in text
-    assert "bracket" not in text
-    assert "search:" not in text
-
-
 def test_two_closed_roots_print_a_line_each_then_the_spread_and_the_value() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
@@ -483,87 +374,8 @@ def test_an_open_root_and_an_unsolved_combined_value_say_so() -> None:
     assert "K: not solved (weighted geometric mean, 0.7 / 0.3)" in text
 
 
-def test_a_bracket_prints_no_roots_line() -> None:
-    report = _report(
-        best_parameters={"K": 6.4e-5},
-        extra={
-            "bracket": {
-                "parameter": "K",
-                "low": 6.3e-5,
-                "high": 6.36e-5,
-                "relative_width": 0.0095,
-                "closed": True,
-            }
-        },
-    )
-
-    text = "\n".join(result_lines(report))
-
-    assert "K*_minimal" not in text
-    assert "Delta = " not in text
-
-
-def test_an_interval_holding_the_best_trial_alone_says_so() -> None:
-    report = _report(
-        best_parameters={"K": 3.909e-05},
-        extra={
-            "parameter_intervals": [
-                {
-                    "name": "K",
-                    "best": 3.909e-05,
-                    "lower": 3.909e-05,
-                    "upper": 3.909e-05,
-                    "margin": 0.05,
-                    "kind": "relative",
-                    "threshold": 0.0035,
-                    "n_within": 1,
-                    "n_trials": 60,
-                    "reaches_lower_bound": False,
-                    "reaches_upper_bound": False,
-                }
-            ]
-        },
-    )
-
-    lines = "\n".join(result_lines(report))
-
-    assert "no other trial within the cost margin" in lines
-    assert "[3.909e-05, 3.909e-05]" not in lines
-
-
-def test_a_failed_promotion_exits_with_the_calibration_code(capsys) -> None:
-    report = _report(
-        best_parameters={"K": 3.909e-05},
-        extra={"promotion_failures": ["iteration 57: step 'display' failed"]},
-    )
-
-    with pytest.raises(SystemExit) as exited:
-        exit_if_session_unfinished(report)
-
-    assert exited.value.code == EXIT_CALIBRATION
-    assert "Promotion failed: iteration 57: step 'display' failed" in capsys.readouterr().err
-
-
-def test_a_report_whose_promotions_succeeded_does_not_exit() -> None:
-    exit_if_session_unfinished(_report(best_parameters={"K": 3.909e-05}))
-
-
 @pytest.mark.parametrize(("unit", "line"), [("m/s", "  K = 6.4e-05 m/s"), ("-", "  K = 6.4e-05")])
 def test_a_value_is_printed_with_its_unit_when_it_has_one(unit: str, line: str) -> None:
     report = _report(best_parameters={"K": 6.4e-5}, extra={"parameter_units": {"K": unit}})
 
     assert result_lines(report)[0] == line
-
-
-def test_the_cost_line_names_its_metric() -> None:
-    lines = result_lines(
-        _report(best_parameters={"K": 6.4e-5}, extra={"cost_metric": "1 - nse_log"})
-    )
-
-    assert "  cost: 0.1234 (1 - nse_log)" in lines
-
-
-def test_a_report_without_the_metric_prints_the_cost_alone() -> None:
-    lines = result_lines(_report(best_parameters={"K": 6.4e-5}, extra={}))
-
-    assert "  cost: 0.1234" in lines

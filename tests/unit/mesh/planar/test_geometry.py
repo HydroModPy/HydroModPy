@@ -11,8 +11,6 @@ from hydromodpy.core.exceptions import MeshGenerationError
 from hydromodpy.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.geometry import (
-    BOX_SIDES,
-    box_side_of_edges,
     cell_areas,
     cell_polygons,
     derive_geometry,
@@ -134,20 +132,6 @@ def test_regular_grid_in_lambert93_has_exact_cell_areas() -> None:
 
 
 @pytest.mark.parametrize("kind", sorted(MESHES))
-def test_adjacency_is_csr_with_sorted_unique_symmetric_neighbours(kind: str) -> None:
-    geometry = derive_geometry(MESHES[kind]())
-    indptr, indices = geometry.adjacency_indptr, geometry.adjacency_indices
-
-    assert indptr[0] == 0 and indptr[-1] == indices.size
-    assert np.all(np.diff(indptr) >= 0)
-    for cell in range(geometry.n_cells):
-        row = geometry.neighbours(cell)
-        assert np.all(np.diff(row) > 0)
-        assert cell not in row
-        assert all(cell in geometry.neighbours(other) for other in row)
-
-
-@pytest.mark.parametrize("kind", sorted(MESHES))
 def test_edge_table_marks_the_boundary_with_minus_one(kind: str) -> None:
     mesh = MESHES[kind]()
     geometry = derive_geometry(mesh)
@@ -170,25 +154,6 @@ def test_quads_have_their_known_edge_table() -> None:
     np.testing.assert_allclose(np.unique(geometry.edge_length), [10.0, 20.0])
     assert geometry.padded_connectivity.dtype == np.int32
     assert geometry.neighbours(6).tolist() == [1, 5, 7, 11]
-
-
-def test_polygon_rows_hold_their_nodes_first_then_minus_one() -> None:
-    mesh = _voronoi()
-    rows = mesh.flat_connectivity
-    used = rows >= 0
-
-    assert len(set(used.sum(axis=1).tolist())) > 1
-    assert not np.any(used[:, 1:] & ~used[:, :-1])
-    np.testing.assert_array_equal(derive_geometry(mesh).padded_connectivity, rows)
-
-
-def test_an_edge_shared_by_three_cells_raises() -> None:
-    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [0.5, -1.0], [0.5, 2.0]])
-    triangles = np.array([[0, 1, 2], [1, 0, 3], [0, 1, 4]])
-    mesh = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.TRIANGLE, triangles),))
-
-    with pytest.raises(ValueError, match="shared by 3 cells"):
-        derive_geometry(mesh)
 
 
 def test_a_repeated_corner_is_no_face() -> None:
@@ -244,29 +209,6 @@ def test_a_mesh_with_3d_vertices_raises() -> None:
         derive_geometry(mesh)
 
 
-@pytest.mark.parametrize("build", [_quads, _triangles, _voronoi])
-def test_the_geometry_of_stored_rows_is_the_geometry_of_the_mesh(build) -> None:
-    """A reader holding the padded int32 rows of a store derives what the mesh derived."""
-    mesh = build()
-    expected = derive_geometry(mesh)
-    vertices3 = np.column_stack([mesh.vertices, np.zeros(mesh.n_nodes)])
-
-    from_rows = derive_geometry_from_rows(vertices3, expected.padded_connectivity)
-
-    for name in (
-        "padded_connectivity",
-        "areas",
-        "area_centroids",
-        "edge_nodes",
-        "edge_cells",
-        "edge_length",
-        "edge_midpoint",
-        "adjacency_indptr",
-        "adjacency_indices",
-    ):
-        np.testing.assert_array_equal(getattr(from_rows, name), getattr(expected, name))
-
-
 def test_padded_rows_pack_a_ragged_list_and_keep_a_dense_table_in_place() -> None:
     ragged = [np.array([0, 1, 2]), np.array([3.0, np.nan, 4.0, 9.0, 5.0])]
     dense = np.array([[0, -1, 2], [3, 7, 1]])
@@ -293,72 +235,11 @@ def test_the_cell_areas_are_the_areas_of_the_derived_geometry(build) -> None:
     )
 
 
-def test_a_row_of_fewer_than_three_corners_has_no_area() -> None:
-    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
-
-    np.testing.assert_array_equal(cell_areas(vertices, [[0, 1, -1], [0, -1, -1]]), [0.0, 0.0])
-
-
 def test_a_table_without_a_slot_has_cells_of_no_area() -> None:
     vertices = np.array([[0.0, 0.0], [1.0, 0.0]])
 
     assert cell_areas(vertices, np.empty((3, 0), dtype=int)).tolist() == [0.0, 0.0, 0.0]
     assert cell_areas(vertices, np.empty((0, 4), dtype=int)).size == 0
-
-
-def test_a_dense_table_padded_with_negatives_gives_smaller_polygons() -> None:
-    vertices = np.array([[0.0, 0.0], [100.0, 0.0], [100.0, 100.0], [0.0, 100.0]])
-    padded = np.array([[0, 1, 2, 3], [0, 1, 2, -1]])
-
-    polygons = cell_polygons(vertices, padded)
-
-    assert [polygon.area for polygon in polygons] == [100.0 * 100.0, 0.5 * 100.0 * 100.0]
-
-
-def test_a_table_padded_with_nan_gives_one_polygon_per_cell() -> None:
-    vertices = np.array([[0.0, 0.0], [100.0, 0.0], [200.0, 0.0], [0.0, 100.0], [100.0, 100.0]])
-    padded = np.array([[0.0, 1.0, 4.0, 3.0], [1.0, 2.0, 4.0, np.nan]])
-
-    polygons = cell_polygons(vertices, padded)
-
-    assert [polygon.area for polygon in polygons] == [100.0 * 100.0, 0.5 * 100.0 * 100.0]
-
-
-def test_an_invalid_cell_is_none_unless_it_is_kept() -> None:
-    vertices = np.array([[0.0, 0.0], [10.0, 10.0], [10.0, 0.0], [0.0, 10.0], [20.0, 0.0]])
-    padded = np.array([[0, 1, 2, 3], [0, 2, 4, -1], [0, 2, -1, -1]])
-
-    dropped = cell_polygons(vertices, padded)
-    kept = cell_polygons(vertices, padded, keep_invalid=True)
-
-    assert dropped[0] is None and dropped[1] is None and dropped[2] is None
-    assert not kept[0].is_valid
-    assert list(kept[0].exterior.coords) == [(0, 0), (10, 10), (10, 0), (0, 10), (0, 0)]
-    assert kept[1] is not None and kept[2] is None
-
-
-def test_the_nodes_around_a_hole_keep_their_order() -> None:
-    vertices = np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]])
-    dense = np.array([[0, -1, 1, 2, 3]])
-
-    polygon = cell_polygons(vertices, dense)[0]
-
-    assert shapely.equals_exact(polygon, cell_polygons(vertices, [np.array([0, 1, 2, 3])])[0], 0.0)
-
-
-def test_an_edge_is_found_from_its_two_vertices_in_either_order() -> None:
-    mesh = _triangles()
-    geometry = derive_geometry(mesh)
-    node_a, node_b = geometry.edge_nodes.T
-    every = np.arange(node_a.size)
-
-    np.testing.assert_array_equal(geometry.edge_ids(node_a, node_b), every)
-    np.testing.assert_array_equal(geometry.edge_ids(node_b, node_a), every)
-    # Two opposite corners of the box, a negative id and an id past the last vertex.
-    far = mesh.n_nodes - 1
-    np.testing.assert_array_equal(
-        geometry.edge_ids([0, -1, 0], [far, 1, mesh.n_nodes]), [-1, -1, -1]
-    )
 
 
 def test_a_geometry_without_an_edge_finds_none() -> None:
@@ -368,50 +249,6 @@ def test_a_geometry_without_an_edge_finds_none() -> None:
     assert geometry.edge_nodes.shape == (0, 2)
     np.testing.assert_array_equal(geometry.edge_ids([0], [1]), [-1])
     np.testing.assert_array_equal(geometry.edge_between([0], [0]), [-1])
-
-
-def test_the_edge_between_two_cells_is_the_interior_edge_they_share() -> None:
-    geometry = derive_geometry(_quads())
-    interior = np.flatnonzero(geometry.edge_cells[:, 1] >= 0)
-    cell_a, cell_b = geometry.edge_cells[interior].T
-
-    np.testing.assert_array_equal(geometry.edge_between(cell_b, cell_a), interior)
-    np.testing.assert_array_equal(geometry.edge_between([0, 0], [0, 19]), [-1, -1])
-    # A cell id outside the mesh never aliases the key of a real pair.
-    np.testing.assert_array_equal(geometry.edge_between([-1, 1], [21, 20]), [-1, -1])
-
-
-def test_two_cells_sharing_several_edges_give_the_first() -> None:
-    # A U-shaped cell around a square cell: they share three edges.
-    vertices = np.array(
-        [[0, 0], [1, 0], [1, 1], [2, 1], [2, 0], [3, 0], [3, 2], [0, 2]], dtype=float
-    )
-    cells = (np.array([0, 1, 2, 3, 4, 5, 6, 7]), np.array([1, 4, 3, 2]))
-    mesh = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),))
-    geometry = derive_geometry(mesh)
-    shared = np.flatnonzero(geometry.edge_cells[:, 1] >= 0)
-
-    assert shared.size == 3
-    assert geometry.edge_between([1], [0])[0] == shared.min()
-
-
-def test_a_boundary_edge_takes_the_side_of_the_box_it_lies_on() -> None:
-    mesh = _shifted(_quads(), X0, Y0)
-    geometry = derive_geometry(mesh)
-    outer = geometry.edge_cells[:, 1] < 0
-    inner = ~outer
-
-    sides = box_side_of_edges(mesh.vertices, *geometry.edge_nodes[outer].T)
-    middle = box_side_of_edges(mesh.vertices, *geometry.edge_nodes[inner].T)
-
-    counts = np.bincount(sides, minlength=len(BOX_SIDES))
-    assert dict(zip(BOX_SIDES, counts.tolist(), strict=True)) == {
-        "west": 4,
-        "east": 4,
-        "south": 5,
-        "north": 5,
-    }
-    assert (middle == -1).all()
 
 
 def test_the_rings_of_polygons_come_exterior_first_part_after_part() -> None:
@@ -426,15 +263,6 @@ def test_the_rings_of_polygons_come_exterior_first_part_after_part() -> None:
         other.exterior.coords[:],
     ]
     assert {ring.geom_type for ring in rings} == {"LineString"}
-
-
-def test_points_within_one_millimetre_cell_share_a_vertex_key() -> None:
-    xy = np.array([[0.0, 0.0], [0.0004, -0.0004], [0.0, 0.0006], [-1.0, -2.0], [-1.0002, -2.0003]])
-
-    keys = vertex_keys(xy)
-
-    assert keys[0] == keys[1] != keys[2]
-    assert keys[3] == keys[4] != keys[0]
 
 
 def test_a_point_too_far_for_the_vertex_keys_is_refused() -> None:

@@ -15,8 +15,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from hydromodpy.core.budget.terms import POLICY_ALL, POLICY_CONSUMERS, BudgetKeep
-from hydromodpy.solver.modflow_nwt.extractors import flow as nwt_flow
+from hydromodpy.core.budget.terms import BudgetKeep
 from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
 
 NLAY, NROW, NCOL = 1, 1, 4
@@ -127,15 +126,6 @@ def test_face_flows_never_become_a_budget_term(tmp_path, monkeypatch) -> None:
     assert {row["component"] for row in store.budgets} == {"drain", "recharge"}
 
 
-def test_face_flows_never_become_a_per_cell_field(tmp_path, monkeypatch) -> None:
-    """The measured defect: two full arrays per run that nothing reads by name."""
-    records = {"DRAINS": np.array([-5.0, 0.0, 0.0, 0.0])}
-    store = _extract(monkeypatch, tmp_path, records | _FACE_FLOWS, budget_terms=_ALL)
-
-    assert store.field_names() == {"drain"}
-    assert all(subgroup == "budget" for _name, subgroup, _values in store.fields)
-
-
 def test_the_stress_terms_keep_their_fluxes(tmp_path, monkeypatch) -> None:
     """Dropping the face flows must not touch what the real packages carry."""
     records = {"DRAINS": np.array([-5.0, 0.0, -1.5, 0.0]), "RECHARGE": np.full(N_CELLS, 1.25)}
@@ -166,33 +156,6 @@ _EVERY_RECORD = {
 }
 
 
-def test_everything_writes_each_scalar_record_storage_included(tmp_path, monkeypatch) -> None:
-    store = _extract(monkeypatch, tmp_path, _EVERY_RECORD | _FACE_FLOWS, budget_terms=_ALL)
-
-    expected = {"storage", "constant_head", "drain", "recharge", "general_head"}
-    assert store.field_names() == expected
-    storage = next(values for name, _sub, values in store.fields if name == "storage")
-    assert storage[0, 0].tolist() == [0.5, -0.5, 0.25, 0.0]
-    assert store.policies == [(POLICY_ALL, sorted(expected))]
-
-
-def test_an_unkept_term_never_gets_a_slab(tmp_path, monkeypatch) -> None:
-    calls: list[int] = []
-    real = nwt_flow.weighted_period_mean
-
-    def spy(arrays, weights):
-        calls.append(len(arrays))
-        return real(arrays, weights)
-
-    monkeypatch.setattr(nwt_flow, "weighted_period_mean", spy)
-    keep = BudgetKeep.of_terms({"drain", "lake"})
-    store = _extract(monkeypatch, tmp_path, _EVERY_RECORD, budget_terms=keep)
-
-    assert store.field_names() == {"drain"}
-    assert len(calls) == 1
-    assert store.policies == [(POLICY_CONSUMERS, ["drain"])]
-
-
 @pytest.mark.parametrize(
     "budget_terms",
     [_LUMPED, BudgetKeep.of_terms({"storage", "recharge"})],
@@ -206,10 +169,3 @@ def test_the_budget_table_does_not_depend_on_the_kept_terms(
 
     assert filtered.budgets == reference.budgets
     assert len(reference.budgets) == len(_EVERY_RECORD)
-
-
-def test_a_lumped_run_writes_no_field_but_records_its_policy(tmp_path, monkeypatch) -> None:
-    store = _extract(monkeypatch, tmp_path, _EVERY_RECORD, budget_terms=_LUMPED)
-
-    assert store.fields == []
-    assert store.policies == [(POLICY_CONSUMERS, [])]

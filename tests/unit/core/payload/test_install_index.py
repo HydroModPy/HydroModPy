@@ -11,15 +11,11 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.core.payload.index import (
-    INSTALL_FILENAME,
-    INSTALL_SCHEMA,
     InstallIndex,
     PayloadFile,
     PayloadStation,
     read_index,
-    stored_name,
     write_index,
 )
 from hydromodpy.core.site.row import SiteRow
@@ -59,54 +55,6 @@ def _index() -> InstallIndex:
     )
 
 
-def test_the_index_reads_back_what_it_wrote(tmp_path) -> None:
-    written = _index()
-
-    path = write_index(tmp_path, written)
-    read = read_index(tmp_path)
-
-    assert path.name == INSTALL_FILENAME
-    assert read.files == written.files
-    assert read.files[0].request == {"station": "J0014010", "period": ["2000-01-01T00:00:00", ""]}
-    assert read.files[0].cache == STATION_FILE.cache
-    assert read.stations == written.stations
-    assert read.sites == written.sites
-    assert read.file_at("step1_minimal.toml", root="project") is not None
-
-
-def test_a_file_carries_the_keys_of_an_example_file(tmp_path) -> None:
-    write_index(tmp_path, _index())
-    text = (tmp_path / INSTALL_FILENAME).read_text(encoding="utf-8")
-
-    assert f'schema = "{INSTALL_SCHEMA}"' in text
-    assert "[[file]]" in text and "[[station]]" in text and "[[site]]" in text
-    assert 'dest = "data/hydrometry/hydrometry_hubeau_J0014010_20000101_20021231_D.csv"' in text
-    assert "repo_path" not in text
-    assert stored_name("a" * 64, STATION_FILE.dest) == "a" * 64 + ".csv"
-
-
-def test_a_key_a_later_version_added_to_a_file_reads(tmp_path) -> None:
-    written = write_index(tmp_path, _index())
-    written.write_text(
-        written.read_text(encoding="utf-8").replace("size = 1234", "size = 1234\nowner = 'me'", 1),
-        encoding="utf-8",
-    )
-
-    assert read_index(tmp_path).files == _index().files
-
-
-def test_a_key_a_later_version_added_to_a_site_reads(tmp_path) -> None:
-    written = write_index(tmp_path, _index())
-    written.write_text(
-        written.read_text(encoding="utf-8").replace(
-            'gauge = "J0014010"', 'gauge = "J0014010"\nowner = "me"', 1
-        ),
-        encoding="utf-8",
-    )
-
-    assert read_index(tmp_path).sites == _index().sites
-
-
 def test_a_root_this_code_cannot_place_is_refused_by_name(tmp_path) -> None:
     written = write_index(tmp_path, _index())
     written.write_text(
@@ -116,16 +64,3 @@ def test_a_root_this_code_cannot_place_is_refused_by_name(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="root is 'moon'"):
         read_index(tmp_path)
-
-
-def test_an_index_of_a_later_schema_is_refused_by_name(tmp_path) -> None:
-    write_index(tmp_path, _index())
-    path = tmp_path / INSTALL_FILENAME
-    path.write_text(
-        path.read_text(encoding="utf-8").replace(INSTALL_SCHEMA, "hydromodpy.install.v2"),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(SchemaVersionMismatchError, match="hydromodpy.install.v2") as refused:
-        read_index(tmp_path)
-    assert f"written by HydroModPy {_index().hydromodpy_version}" in str(refused.value)

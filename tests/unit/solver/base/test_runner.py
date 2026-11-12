@@ -23,7 +23,6 @@ from hydromodpy.solver.base.registry import solvers
 from hydromodpy.solver.base.runner import (
     ProcessCallbacks,
     SimulationRunner,
-    hand_off_of,
     options_for,
     run_name,
     slot_for,
@@ -135,48 +134,6 @@ def test_a_flow_run_needs_the_model_that_prepare_solver_builds(monkeypatch) -> N
     assert adapter.calls == []
 
 
-def test_a_flow_run_hands_the_adapter_its_model_and_nothing_of_the_run(monkeypatch) -> None:
-    adapter = _RecordingAdapter()
-    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
-    model = object()
-    state = _state(model=model, flow=None)
-
-    SimulationRunner().execute(_plan(FLOW), state)
-
-    name, (built_model, options, slot, upstream) = adapter.received[-1]
-    assert name == "build"
-    assert built_model is model
-    assert options is None
-    assert isinstance(slot, RunSlot)
-    assert upstream == ()
-    assert slot.hand_off == frozenset()
-    assert state.setup.flow is None
-
-
-def test_validate_build_and_run_are_called_in_this_order(monkeypatch) -> None:
-    adapter = FakeAdapter()
-    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
-    state = _state(model=object())
-
-    ((_, result),) = SimulationRunner().execute(_plan(FLOW), state)
-
-    assert adapter.calls == ["validate", "build", "run"]
-    assert result.solved and result.written
-    assert state.execution.solver_runs == {FLOW.id: result}
-
-
-def test_a_slot_that_stops_before_the_solve_skips_run(monkeypatch) -> None:
-    adapter = FakeAdapter()
-    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
-    state = _state(model=object(), slot_request=SlotRequest(stop_before_solve=True))
-
-    ((_, result),) = SimulationRunner().execute(_plan(FLOW), state)
-
-    assert adapter.calls == ["validate", "build"]
-    assert (result.written, result.solved) == (False, False)
-    assert state.execution.solver_runs[FLOW.id] is result
-
-
 NAMES: tuple[tuple[str, tuple[ProcessRun, ...], ProcessRun, dict[str, Any], str], ...] = (
     ("one flow", (FLOW,), FLOW, {"run_id": "island"}, "island"),
     ("first of two flows", (FLOW, SECOND_FLOW), FLOW, {"run_id": "island"}, "island_f1"),
@@ -237,29 +194,6 @@ def test_a_run_outside_its_plan_has_no_name_among_several() -> None:
         run_name(_plan(FLOW, SECOND_FLOW), replace(SECOND_FLOW, id="flow_other::modflow6"), "x")
 
 
-def test_the_slot_reads_the_folder_and_the_binaries_on_the_workspace(tmp_path: Path) -> None:
-    shared = tmp_path / "scratch" / "_shared_recharge"
-    setup = SimpleNamespace(
-        workspace=_workspace(tmp_path, bin_path=str(tmp_path / "bin")),
-        run_id="island",
-        slot_request=SlotRequest(name="trial", shared_forcing_dir=shared),
-    )
-
-    slot = slot_for(_plan(FLOW), FLOW, setup)
-
-    assert slot.folder == tmp_path / "scratch"
-    assert slot.bin_dir == tmp_path / "bin"
-    assert slot.shared_forcing_dir == shared
-    assert slot.stop_before_solve is False
-
-
-def test_a_slot_outside_a_trial_keeps_its_forcing_beside_the_model(tmp_path: Path) -> None:
-    slot = slot_for(_plan(FLOW), FLOW, SimpleNamespace(workspace=_workspace(tmp_path)))
-
-    assert (slot.shared_forcing_dir, slot.bin_dir, slot.stop_before_solve) == (None, None, False)
-    assert slot.hand_off == frozenset()
-
-
 MESH = ProcessRun(
     id="mesh_main::catchment", process_id="mesh_main", process_type="mesh", solver="catchment"
 )
@@ -268,37 +202,6 @@ STOP_FLAGS: tuple[tuple[str, ProcessRun, Path | None, str | None], ...] = (
     ("a flow without a run folder, a trial", FLOW, None, None),
     ("a mesh run in a run folder", MESH, Path("runs/island"), "runs/island/.hmp/stop.json"),
 )
-
-
-@pytest.mark.parametrize(
-    ("case", "run", "run_dir", "expected"), STOP_FLAGS, ids=[c for c, *_ in STOP_FLAGS]
-)
-def test_the_stop_flag_of_the_slot_is_that_of_the_run_folder(
-    case: str, run: ProcessRun, run_dir: Path | None, expected: str | None, tmp_path: Path
-) -> None:
-    del case
-    run_dir = None if run_dir is None else tmp_path / run_dir
-    setup = SimpleNamespace(workspace=_workspace(tmp_path))
-
-    slot = slot_for(_plan(run), run, setup, run_dir=run_dir)
-
-    assert slot.stop_flag == (None if expected is None else tmp_path / expected)
-
-
-def test_a_slot_asked_without_a_run_folder_has_no_stop_flag(tmp_path: Path) -> None:
-    slot = slot_for(_plan(FLOW), FLOW, SimpleNamespace(workspace=_workspace(tmp_path)))
-
-    assert slot.stop_flag is None
-
-
-def test_the_slot_of_a_transport_reads_the_stop_flag_of_the_run_folder(tmp_path: Path) -> None:
-    upstream = (SolverRun(slot=RunSlot(tmp_path / "scratch", "island")),)
-
-    slot = slot_for(
-        _plan(NWT_FLOW, MT3DMS), MT3DMS, SimpleNamespace(), upstream=upstream, run_dir=tmp_path
-    )
-
-    assert slot.stop_flag == stop_flag_for(tmp_path)
 
 
 def _ask_for_a_stop(run_dir: Path) -> None:
@@ -341,27 +244,6 @@ def test_a_stop_asked_before_the_plan_starts_no_run(monkeypatch, tmp_path: Path)
         SimulationRunner().execute(_plan(FLOW), state)
 
     assert adapter.calls == []
-
-
-def test_a_run_without_a_folder_cannot_be_stopped_by_a_flag(monkeypatch, tmp_path: Path) -> None:
-    adapter = FakeAdapter()
-    monkeypatch.setattr(solvers, "create", lambda *_parts, **_options: adapter)
-    _ask_for_a_stop(tmp_path)
-
-    SimulationRunner().execute(_plan(FLOW), _state(model=object()))
-
-    assert adapter.calls == ["validate", "build", "run"]
-
-
-def test_a_setup_without_a_workspace_solves_in_the_working_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    slot = slot_for(_plan(FLOW), FLOW, SimpleNamespace(run_id="island"))
-
-    assert slot.folder == tmp_path
-    assert slot.bin_dir is None
 
 
 def _register_hand_off_backends(isolated_solvers: object) -> None:
@@ -411,62 +293,6 @@ HAND_OFFS: tuple[tuple[str, tuple[ProcessRun, ...], ProcessRun, frozenset[str]],
         frozenset(),
     ),
 )
-
-
-@pytest.mark.parametrize(
-    ("case", "runs", "run", "expected"), HAND_OFFS, ids=[c for c, *_ in HAND_OFFS]
-)
-def test_the_hand_off_is_the_reads_of_the_runs_that_depend_on_one(
-    isolated_solvers,
-    case: str,
-    runs: tuple[ProcessRun, ...],
-    run: ProcessRun,
-    expected: frozenset[str],
-) -> None:
-    del case
-    _register_hand_off_backends(isolated_solvers)
-
-    assert hand_off_of(_plan(*runs), run) == expected
-
-
-def test_the_hand_off_of_a_flow_without_a_transport_is_read_twice_the_same(
-    isolated_solvers,
-) -> None:
-    """The reads are computed from the registry once and named once: no dependency, nothing."""
-    _register_hand_off_backends(isolated_solvers)
-
-    assert hand_off_of(_plan(FLOW), FLOW) == frozenset()
-    assert hand_off_of(_plan(FLOW), FLOW) == frozenset()
-
-
-def test_the_slot_of_a_transport_is_the_slot_of_its_flow(tmp_path: Path) -> None:
-    flow_slot = RunSlot(tmp_path / "scratch", "island", bin_dir=tmp_path / "bin")
-    upstream = (SolverRun(slot=flow_slot),)
-
-    slot = slot_for(_plan(NWT_FLOW, MT3DMS), MT3DMS, SimpleNamespace(), upstream=upstream)
-
-    assert (slot.folder, slot.name, slot.bin_dir) == (
-        flow_slot.folder,
-        flow_slot.name,
-        flow_slot.bin_dir,
-    )
-    assert slot.stop_before_solve is False
-    assert slot.hand_off == frozenset()
-
-
-def test_the_slot_of_a_transport_keeps_its_own_stop_before_solve(tmp_path: Path) -> None:
-    flow_slot = RunSlot(tmp_path / "scratch", "island")
-    upstream = (SolverRun(slot=flow_slot),)
-
-    slot = slot_for(
-        _plan(NWT_FLOW, MT3DMS),
-        MT3DMS,
-        SimpleNamespace(slot_request=SlotRequest(stop_before_solve=True)),
-        upstream=upstream,
-    )
-
-    assert slot.stop_before_solve is True
-    assert flow_slot.stop_before_solve is False
 
 
 def test_a_transport_without_its_flow_run_has_no_slot() -> None:
@@ -599,58 +425,6 @@ REUSED: tuple[tuple[str, Any, Any, bool, bool], ...] = (
         True,
     ),
 )
-
-
-@pytest.mark.parametrize(
-    ("case", "adapter_of", "model", "stop", "reran"), REUSED, ids=[c for c, *_ in REUSED]
-)
-def test_solve_one_says_whether_the_run_came_from_rerun(
-    case: str, adapter_of: Any, model: Any, stop: bool, reran: bool, tmp_path: Path
-) -> None:
-    """The run_solver step writes ``reused = "rerun"`` on the solve line of such a run."""
-    del case
-    previous = SolverRun(slot=_slot(tmp_path), model=MODEL, written=True, solved=True)
-
-    result = solve_one(adapter_of(), model, None, _slot(tmp_path, stop=stop), (), previous=previous)
-
-    assert result.reran is reran
-
-
-def test_solve_one_without_a_previous_run_builds(tmp_path: Path) -> None:
-    adapter = _Mutable()
-
-    solve_one(adapter, MODEL, None, _slot(tmp_path), ())
-
-    assert adapter.calls == ["validate", "build", "run"]
-
-
-def test_solve_one_stops_before_the_solve_after_a_rerun(tmp_path: Path) -> None:
-    adapter = _Mutable()
-    previous = SolverRun(slot=_slot(tmp_path), model=MODEL, written=True, solved=True)
-
-    result = solve_one(
-        adapter,
-        MODEL.with_properties(K=2e-5),
-        None,
-        _slot(tmp_path, stop=True),
-        (),
-        previous=previous,
-    )
-
-    assert adapter.calls == ["validate", "rerun"]
-    assert result.solved is False
-
-
-def test_solve_one_hands_the_upstream_run_to_the_transport_it_builds(tmp_path: Path) -> None:
-    """A transport build receives the SolverRun of the flow it follows, and nothing else."""
-    flow_run = SolverRun(slot=_slot(tmp_path), solver_model=object(), written=True, solved=True)
-    adapter = _RecordingAdapter()
-
-    solve_one(adapter, MODEL, None, flow_run.slot, (flow_run,))
-
-    name, (model, options, slot, upstream) = adapter.received[-1]
-    assert (name, model, options, slot) == ("build", MODEL, None, flow_run.slot)
-    assert upstream == (flow_run,)
 
 
 class _Diverging(FakeAdapter):

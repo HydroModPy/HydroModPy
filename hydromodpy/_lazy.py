@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from hydromodpy.core.old_members import OLD_MEMBERS
-from hydromodpy.project.old_paths import LEFT_BEFORE_2_0, REFUSED_IN_2_1_0
+from hydromodpy.project.old_paths import LEFT_BEFORE_2_0, RETIRED_MODULES
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,7 +50,7 @@ VERBS: tuple[str, ...] = (
 OBJECTS: tuple[str, ...] = ("Project", "Run", "RunSet", "Session", "HydroModPyConfig")
 """The five objects the verbs take and return. ``hydromodpy.project.api`` imports them."""
 
-# The frozen runs of 2.0.0 are read through these three names.
+# The frozen runs of a pre-release are read through these three names.
 KEPT_READERS: tuple[str, ...] = ("read", "index", "Catalog")
 """The readers the top level keeps beside the verbs, from ``hydromodpy.project.kept_readers``."""
 
@@ -155,7 +155,7 @@ _LEAF_EXCEPTIONS: dict[str, str] = {
 Written as text and frozen: it only refuses names that left the top level.
 """
 
-_LEAVES_REFUSED_IN_2_1_0: dict[str, str] = {
+_LEFT_LEAVES: dict[str, str] = {
     "AmbiguousReferenceError": "hydromodpy.results.catalog.discovery.AmbiguousReferenceError",
     "CatalogError": "hydromodpy.core.exceptions.CatalogError",
     "ComparisonCaseError": "hydromodpy.project.compare.ComparisonCaseError",
@@ -164,9 +164,9 @@ _LEAVES_REFUSED_IN_2_1_0: dict[str, str] = {
     "RunNotSealedError": "hydromodpy.results.errors.RunNotSealedError",
     "SimulationNotFoundError": "hydromodpy.results.catalog.discovery.SimulationNotFoundError",
 }
-"""The seven exceptions of ``results`` and ``project`` that left the top level in 2.1.0."""
+"""The seven exceptions of ``results`` and ``project`` that left the top level in 2.0.0."""
 
-_CALLS_REFUSED_IN_2_1_0: dict[str, str] = {
+_LEFT_CALLS: dict[str, str] = {
     "figure": "hydromodpy.show(ref, what='figure', name=...)",
     "report": "hydromodpy.show(ref, what='report')",
     "calibration_phases": "hydromodpy.calibrate(source, dry_run=True)",
@@ -176,27 +176,24 @@ _CALLS_REFUSED_IN_2_1_0: dict[str, str] = {
     "example_add": "hydromodpy.example(name, add=True)",
     "Workspace": "hydromodpy.project.accessors.Workspace",
 }
-"""The verbs and objects that left the top level in 2.1.0, with the call that replaces them."""
+"""The verbs and objects that left the top level in 2.0.0, with the call that replaces them."""
 
 OLD_NAMES: dict[str, OldName] = {
     name: OldName(path, "2.0.0", refused=True)
-    for name, path in {**LEFT_BEFORE_2_0, **OLD_MEMBERS, **_LEAF_EXCEPTIONS}.items()
+    for name, path in {
+        **LEFT_BEFORE_2_0,
+        **OLD_MEMBERS,
+        **_LEAF_EXCEPTIONS,
+        **RETIRED_MODULES,
+        **_LEFT_LEAVES,
+        **_LEFT_CALLS,
+    }.items()
 }
-OLD_NAMES.update(
-    {
-        name: OldName(path, "2.1.0", refused=True)
-        for name, path in {
-            **REFUSED_IN_2_1_0,
-            **_LEAVES_REFUSED_IN_2_1_0,
-            **_CALLS_REFUSED_IN_2_1_0,
-        }.items()
-    }
-)
 """The old names ``hydromodpy.__getattr__`` answers: it refuses them or forwards them.
 
-A dotted name is a member of a public object, and that object refuses it. At 2.0.0 this
-table only holds the names refused because they left before that version. From
-then on ``tools/surface_snapshot.py`` refuses a name that leaves ``__all__`` without an
+A dotted name is a member of a public object, and that object refuses it. The table
+holds the names refused because they left before 2.0.0 or in it.
+``tools/surface_snapshot.py`` refuses a name that leaves ``__all__`` without an
 entry here, and a test fails once an entry outlives its delay. The policy is
 ``docs/source/about/versions.md``.
 """

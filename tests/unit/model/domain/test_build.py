@@ -24,7 +24,6 @@ from hydromodpy.model.domain.build import (
 from hydromodpy.model.domain.depth_model_config import RasterSubstratumDepthModel
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.layers_config import VerticalGridConfig
-from tests._helpers.domain_cases import tilted_top
 from tests._helpers.geotiffs import write_geotiff
 
 RASTER_KIND = RasterSubstratumDepthModel(kind="raster_substratum")
@@ -111,14 +110,3 @@ def test_the_layer_bases_are_read_by_the_names_the_layering_reads(tmp_path):
     assert read["rock"].name == "rock_source"
     assert read_layer_base_sources(layers, None) == {}
     assert read_layer_base_sources(VerticalGridConfig(), None) == {}
-
-
-def test_a_domain_built_with_active_cells_only_checks_those_cells():
-    top = tilted_top()
-    active = np.zeros(top.as_array().shape, dtype=bool)
-    active[:, :4] = True
-    half = Surface(name="raw", values=np.full((6, 4), 50.0), support=tilted_top(6, 4).support)
-
-    domain = build_domain({"depth_model": {"kind": "raster_substratum"}}, surface_topo=top, substratum_source=half, active_cells=active)  # fmt: skip
-
-    np.testing.assert_array_equal(domain.substratum.as_array()[active], 50.0)

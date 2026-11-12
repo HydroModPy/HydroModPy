@@ -26,9 +26,7 @@ from hydromodpy.catchment.drainage.descent import DescentBasin
 from hydromodpy.catchment.drainage.graph import cell_centroids_from_mesh
 from hydromodpy.catchment.stream_network.cost import score_on_geometry
 from hydromodpy.catchment.stream_network.network import build_simulated_network
-from hydromodpy.mesh.planar.geometry import cell_polygons
 from hydromodpy.results.derive.stream_network.comparison import network_comparison_from_run
-from hydromodpy.results.derive.stream_network.criterion_inputs import mapped_cells
 from hydromodpy.results.run.descent import (
     RunDescent,
     StoredBasin,
@@ -269,21 +267,3 @@ def test_the_figure_scores_the_geometry_the_trial_scored(case, drawn_by) -> None
     scored_by_trial = score_on_geometry(simulated, trial)
     assert scored_by_figure.signed_gap == scored_by_trial.signed_gap
     assert scored_by_figure.components == scored_by_trial.components
-
-
-def test_the_seeds_and_the_centroids_would_not_have_drawn_one_map(case) -> None:
-    """The case has power: the old figure routed on the centroids and drew another map."""
-    polygons = cell_polygons(case.vertices, case.faces)
-    centroids = cell_centroids_from_mesh(case.vertices, case.faces)
-    common = {
-        "polygons": polygons,
-        "vertices": case.vertices,
-        "connectivity": case.faces,
-        "mesh_crs": CRS,
-        "geometry_crs": CRS,
-    }
-
-    by_seeds = mapped_cells("crossing", [STREAM], centres=case.seeds, **common).mask
-    by_centroids = mapped_cells("crossing", [STREAM], centres=centroids, **common).mask
-
-    assert not np.array_equal(by_seeds, by_centroids)

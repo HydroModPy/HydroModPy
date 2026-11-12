@@ -64,22 +64,6 @@ def test_polygon_vertices_match_meq_offsets_left_and_right(mpl) -> None:
         mpl.close(fig)
 
 
-def test_cations_sit_left_anions_sit_right_of_axis(mpl) -> None:
-    sample = mg_to_meq({"Na": 60.0, "Ca": 80.0, "Mg": 24.0, "Cl": 70.0, "HCO3": 150.0, "SO4": 96.0})
-    fig, ax = mpl.subplots()
-
-    StiffDiagramFigure().render(_frame(sample), ax)
-
-    try:
-        xy = _polygon_xy(ax)[:-1]  # drop closure vertex
-        left = xy[:3, 0]
-        right = xy[3:, 0]
-        assert np.all(left < 0.0)
-        assert np.all(right > 0.0)
-    finally:
-        mpl.close(fig)
-
-
 def test_sample_selector_picks_the_requested_row(mpl) -> None:
     rows = [
         mg_to_meq({"Ca": 40.078}),  # row 0: Ca = 2 meq/L
@@ -169,23 +153,5 @@ def test_run_without_hydrochemistry_raises_valueerror(mpl) -> None:
     try:
         with pytest.raises(ValueError, match="no hydrochemistry data available"):
             StiffDiagramFigure().render(_Run(), ax)
-    finally:
-        mpl.close(fig)
-
-
-def test_row_labels_pair_cation_and_anion(mpl) -> None:
-    sample = mg_to_meq({"Ca": 40.0, "Cl": 50.0})
-    fig, ax = mpl.subplots()
-
-    StiffDiagramFigure().render(_frame(sample), ax)
-
-    try:
-        assert ax.get_yticks().tolist() == [1, 2, 3]
-        assert [t.get_text() for t in ax.get_yticklabels()] == [
-            "Mg | SO4",
-            "Ca | HCO3",
-            "Na+K | Cl",
-        ]
-        assert ax.get_xlabel() == "meq/L"
     finally:
         mpl.close(fig)

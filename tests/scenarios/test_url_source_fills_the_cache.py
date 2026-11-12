@@ -234,8 +234,8 @@ def test_project_with_dem_init_path_is_refused(
     assert played_dem.returncode != 0
     log = played_dem.log.read_text(encoding="utf-8")
     assert (
-        "geographic.catchment.dem_init_path was removed in 2.1.0" in log
-        or "dem_init_path was removed in 2.1.0" in log
+        "geographic.catchment.dem_init_path was removed in 2.0.0" in log
+        or "dem_init_path was removed in 2.0.0" in log
     )
 
 

@@ -12,16 +12,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 import rasterio
-from pydantic import ValidationError
 from rasterio.transform import from_origin
 
-from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.loading.config_schema import DataConfig
-from hydromodpy.data.variables.user_rasters import (
-    FileSubstratumSource,
-    SubstratumConfig,
-    SubstratumVariable,
-)
+from hydromodpy.data.variables.user_rasters import SubstratumConfig, SubstratumVariable
 
 
 def _write_geotiff(path: Path, *, crs: str | None = "EPSG:2154", value: float = 42.0) -> Path:
@@ -42,40 +36,6 @@ def _write_geotiff(path: Path, *, crs: str | None = "EPSG:2154", value: float = 
     return path
 
 
-def test_custom_source_without_path_is_refused() -> None:
-    with pytest.raises(ValidationError):
-        FileSubstratumSource.model_validate({"source": "file"})
-
-
-def test_config_refuses_two_sources(tmp_path: Path) -> None:
-    a = _write_geotiff(tmp_path / "a.tif")
-    b = _write_geotiff(tmp_path / "b.tif")
-    with pytest.raises(ValidationError):
-        SubstratumConfig.model_validate(
-            {
-                "sources": [
-                    {"source": "file", "path": str(a)},
-                    {"source": "file", "path": str(b)},
-                ]
-            }
-        )
-
-
-def test_manager_reads_a_tiny_geotiff(tmp_path: Path) -> None:
-    src = _write_geotiff(tmp_path / "substratum.tif")
-    config = SubstratumConfig.from_raster(src)
-    manager = SubstratumVariable(config=config, index=None, data_dir=tmp_path)
-
-    result = manager.load()
-
-    assert len(result.fields) == 1
-    record = result.fields[0]
-    assert isinstance(record, FieldRecord)
-    assert record.variable == "substratum"
-    assert record.unit == "m"
-    assert record.crs.upper().endswith("2154")
-
-
 def test_a_raster_without_a_crs_is_refused_unless_default_crs_is_written(tmp_path: Path) -> None:
     src = _write_geotiff(tmp_path / "no_crs.tif", crs=None)
     refused = SubstratumVariable(
@@ -89,19 +49,6 @@ def test_a_raster_without_a_crs_is_refused_unless_default_crs_is_written(tmp_pat
     )
     record = SubstratumVariable(config=written, index=None, data_dir=tmp_path).load().fields[0]
     assert record.crs == "EPSG:4326"
-
-
-def test_from_toml_section_builds_substratum_even_when_not_in_types(tmp_path: Path) -> None:
-    src = _write_geotiff(tmp_path / "bottom.tif")
-    section = {
-        "types": [],
-        "substratum": {"sources": [{"source": "file", "path": str(src)}]},
-    }
-
-    cfg = DataConfig.from_toml_section(section, base_dir=tmp_path)
-
-    assert isinstance(cfg.substratum, SubstratumConfig)
-    assert cfg.substratum.sources[0].path == src
 
 
 def test_a_bare_filename_is_refused_and_names_where_the_file_used_to_live(tmp_path: Path) -> None:

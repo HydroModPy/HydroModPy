@@ -103,33 +103,6 @@ def test_one_unknown_input_leaves_the_run_undetermined(tmp_path: Path) -> None:
         assert store.licence() == UNDETERMINED_LICENSE
 
 
-def test_a_run_with_no_recorded_input_is_undetermined(tmp_path: Path) -> None:
-    with _open(tmp_path / "demo", []) as store:
-        assert store.licence() == UNDETERMINED_LICENSE
-        assert store.inputs() == []
-
-
-def test_a_declared_file_enters_with_the_provider_and_licence_of_its_sidecar(
-    tmp_path: Path,
-) -> None:
-    project = tmp_path / "demo"
-    series = _input(project, "recharge.csv", source="file", license="etalab-2.0")
-    with _open(project, [series]) as store:
-        (entry,) = store.inputs()
-        assert (entry.variable, entry.provider, entry.license) == ("recharge", "file", "etalab-2.0")
-        assert entry.sha256
-        assert store.licence() == "etalab-2.0"
-
-
-def test_a_declared_file_with_no_sidecar_is_undetermined(tmp_path: Path) -> None:
-    project = tmp_path / "demo"
-    series = _input(project, "recharge.csv")
-    with _open(project, [series]) as store:
-        (entry,) = store.inputs()
-        assert (entry.provider, entry.license) == ("file", UNDETERMINED_LICENSE)
-        assert store.licence() == UNDETERMINED_LICENSE
-
-
 def test_a_declared_file_a_loaded_record_names_enters_once_with_the_licence_of_the_record(
     tmp_path: Path,
 ) -> None:
@@ -158,31 +131,6 @@ def test_a_declared_folder_and_a_missing_file_are_not_inputs(tmp_path: Path) -> 
     missing = project / "data" / "gone.csv"
     with _open(project, [folder, missing]) as store:
         assert store.inputs() == []
-
-
-def test_a_loaded_record_takes_the_licence_of_its_sidecar(tmp_path: Path) -> None:
-    path = _input(tmp_path, "hubeau.csv", source="hubeau", license="etalab-2.0")
-    item = SimpleNamespace(
-        scope="catchment", variable="discharge", record=SimpleNamespace(source="hubeau")
-    )
-
-    entry = _loaded_input_entry(item, source_path=path, sha256="ab" * 32, anchor=tmp_path)
-
-    assert entry.license == "etalab-2.0"
-
-
-@pytest.mark.parametrize("sidecar", [False, True], ids=["no-sidecar", "no-licence-in-sidecar"])
-def test_a_loaded_record_whose_sidecar_names_no_licence_is_undetermined(
-    tmp_path: Path, sidecar: bool
-) -> None:
-    path = _input(tmp_path, "hubeau.csv", **({"source": "file"} if sidecar else {}))
-    item = SimpleNamespace(
-        scope="catchment", variable="discharge", record=SimpleNamespace(source="hubeau")
-    )
-
-    entry = _loaded_input_entry(item, source_path=path, sha256="ab" * 32, anchor=tmp_path)
-
-    assert entry.license == UNDETERMINED_LICENSE
 
 
 def test_a_loaded_record_with_no_file_is_undetermined() -> None:

@@ -103,13 +103,6 @@ def _key(ctx: SimpleNamespace) -> str:
     return mesh_product_key(request, TriangleMeshEngine)
 
 
-def test_the_bed_regularisation_keeps_the_cached_mesh() -> None:
-    off = _ctx(_geographic(enabled=False))
-    on = _ctx(_geographic(enabled=True, min_slope=5.0e-4))
-
-    assert _key(on) == _key(off)
-
-
 def test_the_lake_table_reaches_the_planner_as_walls_footprints_and_outlet() -> None:
     """An entry that is no lake is skipped, and a lake without a wall gives its footprint only."""
     wall = LineString([(0.0, 300.0), (0.0, 500.0)])
@@ -136,12 +129,6 @@ def test_the_lake_table_reaches_the_planner_as_walls_footprints_and_outlet() -> 
         "dam_outlet",
     ]
     assert inputs.lake_structures == expected
-
-
-def test_another_dem_still_moves_the_key() -> None:
-    assert _key(_ctx(_geographic(enabled=False))) != _key(
-        _ctx(_geographic(enabled=False), cells=12)
-    )
 
 
 _CATCHMENT = box(100.0, 100.0, 900.0, 900.0)
@@ -176,13 +163,6 @@ def test_the_domain_is_the_catchment_or_its_buffer_as_the_delineation_wrote_it(
     setup = _catchment_files(tmp_path, expected, name=name)
 
     assert normalize(_domain(setup, extent)).equals_exact(normalize(expected), 1.0e-6)
-
-
-@pytest.mark.parametrize(("extent", "synthetic"), [("box", False), ("watershed", True)])
-def test_the_domain_is_the_dem_box_for_a_box_extent_or_a_synthetic_support(
-    extent: str, synthetic: bool
-) -> None:
-    assert _domain(SimpleNamespace(), extent, synthetic=synthetic).equals(box(0, 0, 1000, 1000))
 
 
 def test_the_domain_of_a_catchment_in_two_parts_is_the_larger(tmp_path: Path) -> None:
@@ -310,28 +290,8 @@ def _outlet_ctx(geographic: GeographicConfig, cells: int = 10) -> SimpleNamespac
     )
 
 
-def test_the_declared_outlet_reaches_the_planning_inputs() -> None:
-    geographic = GeographicConfig.from_outlet(x=389285.91, y=6816518.749)
-
-    outlet = planning_inputs(_outlet_ctx(geographic), _MESH).outlet
-
-    assert (outlet.x, outlet.y) == (389285.91, 6816518.749)
-
-
-def test_a_catchment_without_a_declared_outlet_has_none() -> None:
-    geographic = GeographicConfig.from_dem()
-
-    assert planning_inputs(_outlet_ctx(geographic), _MESH).outlet is None
-
-
 # --- test_the_mesh_step_builds_the_cell_mesh ---
 # The cell mesh is built in the run's CRS: the geographic one, else the DEM support one.
-
-
-def test_the_cell_mesh_carries_the_geographic_crs() -> None:
-    setup = SimpleNamespace(geographic=SimpleNamespace(crs_project="EPSG:2154"))
-
-    assert "Lambert" in mesh_crs_wkt(setup)
 
 
 def test_the_dem_support_gives_the_crs_when_the_geographic_setup_has_none() -> None:

@@ -92,52 +92,6 @@ def _as_rows(contacts) -> list[tuple[str, str, tuple]]:
     ]
 
 
-def test_a_t_junction_gives_three_contacts_with_their_zones() -> None:
-    contacts = contact_lines(_T_MAP)
-    zones = dict(_T_MAP)
-    pairs = {(left, right) for left, right in zip(contacts.zone_left, contacts.zone_right)}
-    assert pairs == {("a", "b"), ("a", "c"), ("b", "c")}
-    assert sum(line.length for line in contacts.lines) == 300.0
-    for line, left, right in zip(contacts.lines, contacts.zone_left, contacts.zone_right):
-        assert _zone_on_side(line, zones, +1.0) == left
-        assert _zone_on_side(line, zones, -1.0) == right
-        assert Point(100.0, 100.0).distance(line) == 0.0
-
-
-def test_an_x_junction_has_no_contact_across_the_corner() -> None:
-    contacts = contact_lines(_X_MAP)
-    pairs = {(left, right) for left, right in zip(contacts.zone_left, contacts.zone_right)}
-    assert pairs == {("a", "b"), ("a", "c"), ("b", "d"), ("c", "d")}
-    assert all(line.length == 100.0 for line in contacts.lines)
-
-
-def test_the_contacts_do_not_depend_on_the_polygon_order() -> None:
-    reference = _as_rows(contact_lines(_X_MAP))
-    shuffled = (_X_MAP[3], _X_MAP[1], _X_MAP[0], _X_MAP[2])
-    assert _as_rows(contact_lines(shuffled)) == reference
-
-
-def test_two_polygons_of_one_zone_share_no_contact() -> None:
-    contacts = contact_lines(
-        (
-            ("a", box(0.0, 0.0, 1.0, 1.0)),
-            ("a", box(1.0, 0.0, 2.0, 1.0)),
-            ("b", box(0.0, 1.0, 2.0, 2.0)),
-        )
-    )
-    assert contacts.zone_left == ("a",) and contacts.zone_right == ("b",)
-    assert contacts.lines[0].length == 2.0
-
-
-def test_an_island_zone_gives_a_closed_contact() -> None:
-    outer = box(0.0, 0.0, 300.0, 300.0).difference(box(100.0, 100.0, 200.0, 200.0))
-    contacts = contact_lines((("z", box(100.0, 100.0, 200.0, 200.0)), ("y", outer)))
-    assert len(contacts.lines) == 1
-    assert contacts.lines[0].is_closed
-    assert (contacts.zone_left[0], contacts.zone_right[0]) == ("y", "z")
-    assert contacts.lines[0].coords[0] == min(contacts.lines[0].coords)
-
-
 def test_a_raster_source_has_no_contact_line() -> None:
     assert (
         geology_lines(

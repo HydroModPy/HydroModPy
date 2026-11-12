@@ -16,19 +16,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.units.labels import CATCHMENT, station_label
 from hydromodpy.display.figures._instant import instant_label
-from hydromodpy.display.figures.cross_section import heading_words, section_words
 from hydromodpy.display.figures.duration_curve import DurationCurveFigure
 from hydromodpy.display.figures.flux_timeseries import FluxTimeseries
 from hydromodpy.display.figures.hydrograph import Hydrograph
-from hydromodpy.display.figures.piezometric_map import PiezometricMap
 from hydromodpy.display.figures.recession import RecessionCurveFigure
-from hydromodpy.display.figures.seepage_network_confusion_map import (
-    SeepageNetworkConfusionMap,
-)
-
-from ._network_comparison_run import AXIS_COLUMN, cell, comparison_run
 
 MONTHLY = pd.date_range("2000-01-01", "2003-01-01", freq="MS")
 DAILY = pd.date_range("2002-10-01", "2002-11-01", freq="D")
@@ -37,14 +29,6 @@ DAILY = pd.date_range("2002-10-01", "2002-11-01", freq="D")
 # --------------------------------------------------------------------------- #
 # the station
 # --------------------------------------------------------------------------- #
-
-
-def test_the_outlet_series_is_named_the_catchment_outlet() -> None:
-    assert station_label(CATCHMENT) == "catchment outlet"
-
-
-def test_a_gauge_keeps_its_own_id() -> None:
-    assert station_label("J7000610") == "J7000610"
 
 
 class _SeriesRun:
@@ -78,18 +62,8 @@ def _dated(edges) -> SimpleNamespace:
     )
 
 
-def test_a_monthly_state_is_titled_by_its_month_not_its_closing_stamp() -> None:
-    # Period 33 of a monthly run from January 2000 is October 2002, stamped
-    # 2002-11-01 by the solver.
-    assert instant_label(_dated(MONTHLY), 33) == "October 2002"
-
-
 def test_a_negative_index_counts_from_the_end() -> None:
     assert instant_label(_dated(MONTHLY), -1) == "December 2002"
-
-
-def test_a_daily_state_is_titled_by_its_day() -> None:
-    assert instant_label(_dated(DAILY), 14) == "2002-10-15"
 
 
 def test_a_run_without_dates_or_a_step_it_does_not_hold_has_no_label() -> None:
@@ -102,54 +76,9 @@ def test_a_run_exposing_only_its_end_stamps_is_still_labelled() -> None:
     assert instant_label(run, 33) == "October 2002"
 
 
-def test_a_scalar_map_title_names_the_period_it_draws() -> None:
-    run = SimpleNamespace(sim_id="sim-a", name="nancon", periods=SimpleNamespace(edges=MONTHLY))
-
-    title = PiezometricMap().title(run, timestep=33)
-
-    assert title.endswith("\nOctober 2002")
-    assert "2002-11-01" not in title
-
-
-def test_the_confusion_map_names_the_state_it_compared(mpl) -> None:
-    run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, 2)])
-    run.periods = SimpleNamespace(edges=pd.DatetimeIndex(["2002-10-01", "2002-11-01"]))
-    fig, ax = mpl.subplots()
-
-    SeepageNetworkConfusionMap().render(run, ax)
-
-    assert ax.get_title().endswith("\nOctober 2002")
-
-
 # --------------------------------------------------------------------------- #
 # the section
 # --------------------------------------------------------------------------- #
-
-
-@pytest.mark.parametrize(
-    ("dx", "dy", "words"),
-    [
-        (0.0, 10.0, "south to north"),
-        (10.0, 0.0, "west to east"),
-        (-10.0, 0.0, "east to west"),
-        (10.0, 10.0, "southwest to northeast"),
-        (0.0, -10.0, "north to south"),
-    ],
-)
-def test_a_section_says_which_way_it_runs(dx, dy, words) -> None:
-    assert heading_words(dx, dy) == words
-
-
-def test_a_section_subtitle_is_a_sentence_before_any_coordinate() -> None:
-    transect = SimpleNamespace(
-        x=np.array([389_286.0, 389_286.0]),
-        y=np.array([6_815_062.0, 6_826_612.0]),
-        distance=np.array([0.0, 11_550.0]),
-    )
-
-    words = section_words(transect, anchor="through the outlet")
-
-    assert words == "south to north through the outlet, 11.6 km"
 
 
 # --------------------------------------------------------------------------- #

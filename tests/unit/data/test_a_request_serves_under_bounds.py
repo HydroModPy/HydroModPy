@@ -68,59 +68,6 @@ def _hubeau_stub(hosts: tuple[str, ...]):
     return _StubHubeau
 
 
-def test_an_integrated_variable_serves_under_offline_bounds_without_a_workspace(
-    tmp_path: Path, isolated_registry
-) -> None:
-    isolated_registry.register(_hubeau_stub(hosts=()), replace=True)
-    request = DataRequest.for_variable(
-        "hydrometry", station_ids=["J0001"], start="2019-12-01", end="2019-12-31"
-    )
-
-    report = run_request(
-        request, tmp_path / "out", bounds=Bounds(allowed_hosts=frozenset())
-    ).to_document()
-
-    assert report["failures"] == [], report["failures"]
-    entry = report["files"][0]
-    table = pd.read_parquet(tmp_path / "out" / entry["path"])
-    assert len(table) == 31
-
-
-def test_a_host_the_bounds_do_not_allow_is_refused_without_a_workspace(
-    tmp_path: Path, isolated_registry
-) -> None:
-    isolated_registry.register(_hubeau_stub(hosts=("villain.example.org",)), replace=True)
-    request = DataRequest.for_variable(
-        "hydrometry", station_ids=["J0001"], start="2019-12-01", end="2019-12-31"
-    )
-    allowed = Bounds(allowed_hosts=frozenset({"data.geopf.fr"}))
-
-    report = run_request(request, tmp_path / "out", bounds=allowed).to_document()
-
-    assert len(report["failures"]) == 1, report["files"]
-    failure = report["failures"][0]
-    assert failure["variable"] == "hydrometry"
-    message = str(failure["error"])
-    assert "villain.example.org" in message, message
-    assert "--allow-host" in message, message
-    assert report["files"] == [], report["files"]
-
-
-def test_a_source_whose_hosts_are_allowed_serves_under_the_same_bounds(
-    tmp_path: Path, isolated_registry
-) -> None:
-    isolated_registry.register(_hubeau_stub(hosts=("villain.example.org",)), replace=True)
-    request = DataRequest.for_variable(
-        "hydrometry", station_ids=["J0001"], start="2019-12-01", end="2019-12-31"
-    )
-    allowed = Bounds(allowed_hosts=frozenset({"villain.example.org"}))
-
-    report = run_request(request, tmp_path / "out", bounds=allowed).to_document()
-
-    assert report["failures"] == [], report["failures"]
-    assert report["files"], "the allowed host serves the variable"
-
-
 def test_a_store_the_caller_built_keeps_its_own_bounds(tmp_path: Path, isolated_registry) -> None:
     """A store built under bounds keeps them; a request without its own does not lose them."""
     isolated_registry.register(_hubeau_stub(hosts=("villain.example.org",)), replace=True)

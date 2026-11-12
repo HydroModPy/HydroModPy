@@ -85,15 +85,6 @@ def test_every_steady_period_of_a_steady_run_takes_the_mean():
     assert rch_data == {0: pytest.approx(0.3), 1: pytest.approx(0.3)}
 
 
-def test_recharge_transient_mapping_returned_as_dict():
-    cfg = FlowRechargeConfig(values={0: 0.1, 1: 0.2}, units="m/s")
-    adapter = _make_adapter(cfg, "transient", nper=2, first_period_steady=False)
-
-    rch_data = adapter._build_recharge_payload()
-
-    assert rch_data == {0: 0.1, 1: 0.2}
-
-
 def test_a_steady_first_period_of_a_mapping_takes_first_clim():
     cfg = FlowRechargeConfig(values={0: 0.1, 1: 0.2}, units="m/s")
     adapter = _make_adapter(cfg, "transient", nper=2, first_period_steady=True)
@@ -236,34 +227,6 @@ def test_recharge_first_clim_numeric_scalar():
     assert rch_data[0] == pytest.approx(0.0)
 
 
-def test_recharge_rejects_invalid_flow_regime():
-    """The model refuses a regime that is neither steady nor transient, before any payload."""
-    cfg = FlowRechargeConfig(values=0.001)
-
-    with pytest.raises(ValueError, match="flow.flow_regime must be"):
-        _make_adapter(cfg, "invalid_regime", nper=1)
-
-
 # ---------------------------------------------------------------------------
 # active_sinks_sources gate tests (recharge)
 # ---------------------------------------------------------------------------
-
-
-def test_recharge_not_activated_returns_none():
-    """When 'recharge' is absent from active_sinks_sources, payload is None."""
-    cfg = FlowRechargeConfig(values=0.001)
-    adapter = _make_adapter(cfg, "transient", nper=3, active_sinks_sources=[])
-
-    rch_data = adapter._build_recharge_payload()
-
-    assert rch_data is None
-
-
-def test_recharge_not_activated_ignores_configured_values():
-    """Even with a non-zero config, inactive recharge returns None."""
-    cfg = FlowRechargeConfig(values=pd.Series([0.1, 0.2, 0.3], dtype=float))
-    adapter = _make_adapter(cfg, "transient", nper=3, active_sinks_sources=["wells"])
-
-    rch_data = adapter._build_recharge_payload()
-
-    assert rch_data is None

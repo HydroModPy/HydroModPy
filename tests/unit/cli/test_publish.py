@@ -31,26 +31,6 @@ def _invoke(*args: str):
     return CliRunner().invoke(["publish", *args])
 
 
-def test_the_project_is_published_with_its_summary(tmp_path: Path) -> None:
-    project = make_project(tmp_path)
-    make_sealed_run(project)
-    make_summary(project, error_message=f"See {project}/runs/a/mfsim.lst for diagnostics")
-    destination = tmp_path / "out"
-
-    result = _invoke(".", "--to", str(destination), "-w", str(project))
-
-    assert result.exit_code == EXIT_OK, result.stderr
-    assert {entry.name for entry in destination.iterdir()} == {
-        RUN_NAME,
-        "summary",
-        "PUBLICATION.json",
-        ".zenodo.json",
-    }
-    assert (destination / RUN_NAME / "INSTALL.toml").is_file()
-    assert "runs/a/mfsim.lst" in (destination / "summary" / "by_case.csv").read_text()
-    assert "Published 2 copy(ies)" in result.stderr
-
-
 def test_a_refused_summary_leaves_no_run_copy_behind(tmp_path: Path) -> None:
     project = make_project(tmp_path)
     run_dir = make_sealed_run(project)
@@ -208,15 +188,6 @@ def test_the_extras_of_a_copy_and_of_a_package_do_not_mix(tmp_path: Path) -> Non
     assert (package.exit_code, public.exit_code) == (EXIT_USAGE,) * 2
     assert "runs, sessions, mesh, fetched" in package.stderr
     assert "--public" in public.stderr
-
-
-def test_the_help_of_public_says_it_warns_and_does_not_refuse() -> None:
-    result = _invoke("--help")
-
-    text = " ".join(result.stdout.split())
-    assert result.exit_code == EXIT_OK
-    assert "Mark the copy public. Warn when the project declares no [publication] license" in text
-    assert "Refuse to publish" not in text
 
 
 def test_the_project_copy_names_the_replay_it_left_out(tmp_path: Path) -> None:

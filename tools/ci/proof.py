@@ -295,6 +295,10 @@ def describe_losses(check: dict) -> list[str]:
             f"{mutant['status']}, killed before by {killer}"
         )
     lines.extend(f"unaccounted test: {fid}" for fid in check.get("unaccounted_ids", []))
+    lines.extend(
+        f"module not proved, its tests fail with no mutant: {m}"
+        for m in check.get("baseline_errors", [])
+    )
     restore = check.get("restore_files", [])
     if restore:
         lines.append("put back: " + ", ".join(restore))
@@ -340,7 +344,8 @@ def bound_check(check: dict, files: set[str]) -> dict:
 
 
 def has_loss(check: dict) -> bool:
-    return bool(check["lost_coverage"] or check["lost_mutants"] or check["unaccounted_ids"])
+    lost = check["lost_coverage"] or check["lost_mutants"] or check["unaccounted_ids"]
+    return bool(lost or check["baseline_errors"])
 
 
 def prove_alone(selection: dict, work: Path, options: dict) -> tuple[int, dict | None, str | None]:
@@ -388,6 +393,7 @@ def prove_alone(selection: dict, work: Path, options: dict) -> tuple[int, dict |
         "lost_coverage": lost,
         "lost_mutants": [],
         "unaccounted_ids": [],
+        "baseline_errors": [],
         "restore_files": sorted(selection["files"]) if lost else [],
         "estimated_minutes": 0.0,
     }

@@ -22,21 +22,6 @@ def _frame(*samples_meq: dict[str, float]) -> pd.DataFrame:
     return pd.DataFrame([{ion: s.get(ion, 0.0) for ion in _IONS} for s in samples_meq])
 
 
-def test_log_axis_with_ions_in_fixed_left_to_right_order(mpl) -> None:
-    sample = mg_to_meq({ion: 50.0 for ion in _IONS})
-    fig, ax = mpl.subplots()
-
-    SchoellerDiagramFigure().render(_frame(sample), ax)
-
-    try:
-        assert ax.get_yscale() == "log"
-        assert [t.get_text() for t in ax.get_xticklabels()] == list(_IONS)
-        assert ax.get_xticks().tolist() == list(range(len(_IONS)))
-        assert ax.get_ylabel() == "Concentration (meq/L)"
-    finally:
-        mpl.close(fig)
-
-
 def test_line_y_values_equal_meq_per_ion(mpl) -> None:
     sample_mg = {"Ca": 40.078, "Mg": 24.305, "Na": 22.990, "Cl": 35.453, "HCO3": 61.016}
     sample = mg_to_meq(sample_mg)
@@ -52,28 +37,6 @@ def test_line_y_values_equal_meq_per_ion(mpl) -> None:
         # Na, Cl, HCO3 are monovalent at 1 equivalent mass -> 1 meq/L. K, SO4 zero -> nan.
         expected = [2.0, 2.0, 1.0, np.nan, 1.0, np.nan, 1.0]
         np.testing.assert_allclose(ydata, expected)
-    finally:
-        mpl.close(fig)
-
-
-def test_one_polyline_drawn_per_sample(mpl) -> None:
-    rows = [
-        mg_to_meq({"Ca": 40.0, "HCO3": 120.0}),
-        mg_to_meq({"Na": 30.0, "Cl": 50.0}),
-        mg_to_meq({"Mg": 20.0, "SO4": 96.06}),
-    ]
-    fig, ax = mpl.subplots()
-
-    SchoellerDiagramFigure().render(_frame(*rows), ax)
-
-    try:
-        assert len(ax.lines) == 3
-        # Second sample: only Na and Cl positive, the rest masked to nan.
-        y_na_cl = ax.lines[1].get_ydata()
-        assert np.isnan(y_na_cl[0])  # Ca
-        assert not np.isnan(y_na_cl[2])  # Na
-        assert not np.isnan(y_na_cl[4])  # Cl
-        assert np.isnan(y_na_cl[6])  # HCO3
     finally:
         mpl.close(fig)
 

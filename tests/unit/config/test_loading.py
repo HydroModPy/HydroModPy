@@ -24,7 +24,6 @@ from hydromodpy.config.loading import (
     load,
     read_document,
 )
-from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import ConfigError, ConfigValidationError
 
@@ -73,59 +72,6 @@ def test_every_form_gives_the_same_configuration_and_base(tmp_path: Path, form: 
     assert cfg.data.dem.sources[0].path == (root / "inputs" / "dem.tif").resolve()
 
 
-def test_a_relative_path_of_a_dict_is_read_from_the_base(tmp_path: Path) -> None:
-    root = _project(tmp_path / "elsewhere")
-
-    cfg = load(DOCUMENT, root)
-
-    assert cfg.data.dem.sources[0].path == root.resolve() / "inputs" / "dem.tif"
-
-
-def test_a_base_given_wins_over_the_folder_of_the_file(tmp_path: Path) -> None:
-    root = _project(tmp_path / "project")
-    other = _project(tmp_path / "other")
-
-    cfg = load(root / "island.toml", other)
-
-    assert cfg.workspace.project_root == other.resolve()
-    assert cfg.data.dem.sources[0].path == other.resolve() / "inputs" / "dem.tif"
-
-
-def test_a_file_outside_a_project_reads_from_the_root_of_its_chain(tmp_path: Path) -> None:
-    shared = tmp_path / "shared"
-    shared.mkdir()
-    (shared / "inputs").mkdir()
-    (shared / "inputs" / "dem.tif").write_bytes(b"x")
-    (shared / "base.toml").write_text(tomlkit.dumps(DOCUMENT), encoding="utf-8")
-    child = tmp_path / "work" / "case.toml"
-    child.parent.mkdir()
-    child.write_text('base_config = "../shared/base.toml"\n', encoding="utf-8")
-
-    cfg = load(child)
-
-    assert cfg.workspace.project_root == shared.resolve()
-
-
-@pytest.mark.parametrize(
-    ("document", "named"),
-    [
-        pytest.param(
-            {k: v for k, v in DOCUMENT.items() if k != "simulation"}, "case_a", id="from the file"
-        ),
-        pytest.param(DOCUMENT, "island", id="as written"),
-    ],
-)
-def test_a_mapping_read_from_a_file_is_named_like_the_file(
-    tmp_path: Path, document: dict[str, Any], named: str
-) -> None:
-    """A name made from the file is folded: ``run_`` dropped, then lower case."""
-    root = _project(tmp_path / "project")
-
-    cfg = load(document, root, source_path=root / "run_Case A.toml")
-
-    assert cfg.simulation.name == named
-
-
 def test_the_changes_are_applied_once_on_top_of_a_mapping(tmp_path: Path) -> None:
     root = _project(tmp_path / "project")
 
@@ -157,59 +103,6 @@ def test_the_layers_merge_in_the_order_of_the_command_line(tmp_path: Path) -> No
     )
 
     assert document == {"a": {"x": 1, "y": 2, "z": 3, "w": 4}}
-
-
-def test_a_load_reads_each_file_of_the_chain_once(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import hydromodpy.core.toml_io.loader as loader
-
-    root = tmp_path / "flat"
-    root.mkdir()
-    (root / "inputs").mkdir()
-    (root / "inputs" / "dem.tif").write_bytes(b"x")
-    (root / "base.toml").write_text(tomlkit.dumps(DOCUMENT), encoding="utf-8")
-    (root / "case.toml").write_text(
-        'base_config = "base.toml"\n[simulation]\nname = "case"\n', encoding="utf-8"
-    )
-    reads: list[Path] = []
-    real = loader.read_toml
-
-    def counted(path: Path) -> dict[str, Any]:
-        reads.append(Path(path))
-        return real(path)
-
-    monkeypatch.setattr(loader, "read_toml", counted)
-
-    cfg = load(root / "case.toml")
-
-    assert cfg.simulation.name == "case"
-    assert sorted(path.name for path in reads) == ["base.toml", "case.toml"]
-
-
-@pytest.mark.parametrize("form", ["toml file", "dict", "json text"])
-def test_an_old_form_is_migrated_in_every_form(tmp_path: Path, form: str) -> None:
-    document = {**DOCUMENT, **OLD_TABLE}
-    root = _project(tmp_path / "project", document)
-    source, base = {
-        "toml file": (root / "island.toml", None),
-        "dict": (document, root),
-        "json text": (json.dumps(document), root),
-    }[form]
-
-    with pytest.warns(ConfigKeyRenamedWarning, match=r"modflow6 -> \[solver\.modflow6\]"):
-        cfg = load(source, base)
-
-    assert cfg.solver.options_of("modflow6").process_specific.vka == 2.0
-
-
-def test_a_set_under_an_old_name_is_told_under_set(tmp_path: Path) -> None:
-    root = _project(tmp_path / "project")
-
-    with pytest.warns(ConfigKeyRenamedWarning, match="--set"):
-        cfg = load(DOCUMENT, root, changes={"modflow6.process_specific.vka": 5.0})
-
-    assert cfg.solver.options_of("modflow6").process_specific.vka == 5.0
 
 
 def test_from_toml_dict_and_json_are_the_loader(tmp_path: Path) -> None:

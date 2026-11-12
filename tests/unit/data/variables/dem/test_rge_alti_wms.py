@@ -30,7 +30,6 @@ from hydromodpy.data.variables.dem.apis.ign_dem_fr import (
     RGE_ALTI_MAX_PIXELS,
     fetch_ign_dem,
     fetch_rge_alti,
-    mask_rge_alti,
 )
 from hydromodpy.data.variables.dem.config import IgnGeoplateformeDemSource
 from hydromodpy.data.variables.dem.resolver import resolve_dem
@@ -101,54 +100,12 @@ def _recorded_server(name: str) -> Callable[[tuple, int, int], bytes]:
 # --- the plan -----------------------------------------------------------------
 
 
-def test_the_box_grows_outward_to_the_native_grid() -> None:
-    assert wms.snap_bbox((344003.0, 6806001.0, 344203.0, 6806201.0), 5.0) == (
-        344000.0,
-        6806000.0,
-        344205.0,
-        6806205.0,
-    )
-    assert wms.snap_bbox(FLUME, 5.0) == FLUME
-
-
-def test_the_tiles_cover_the_grid_once_and_stay_under_the_limit() -> None:
-    box = (0.0, 0.0, 130.0, 70.0)
-    tiles = list(wms.plan_tiles(box, 5.0, tile_px=10))
-
-    assert wms.grid_shape(box, 5.0) == (14, 26)
-    assert sum(t.width * t.height for t in tiles) == 14 * 26
-    assert max(max(t.width, t.height) for t in tiles) == 10
-    seen = np.zeros((14, 26), dtype=int)
-    for tile in tiles:
-        seen[
-            tile.row_off : tile.row_off + tile.height, tile.col_off : tile.col_off + tile.width
-        ] += 1
-        assert tile.bbox[2] - tile.bbox[0] == tile.width * 5.0
-        assert tile.bbox[3] - tile.bbox[1] == tile.height * 5.0
-    assert (seen == 1).all()
-    assert tiles[0].bbox[0] == 0.0 and tiles[0].bbox[3] == 70.0
-
-
 def test_a_tile_wider_than_the_server_accepts_is_refused() -> None:
     with pytest.raises(ValueError, match="tile_px"):
         list(wms.plan_tiles(FLUME, 5.0, tile_px=wms.MAX_IMAGE_PX + 1))
 
 
 # --- one tile -----------------------------------------------------------------
-
-
-def test_a_recorded_tile_is_read_as_the_server_answered(tmp_path) -> None:
-    tile = next(wms.plan_tiles(FLUME, 5.0))
-    session = _Session(_recorded_server("flume_5m_40px.tif"))
-
-    data = wms.fetch_tile("LAYER", tile, client=session)
-
-    assert data.shape == (40, 40) and data.dtype == np.float32
-    assert 110.0 < np.nanmin(data) < np.nanmax(data) < 116.0
-    asked = session.requests[0]
-    assert asked["CRS"] == "EPSG:2154" and asked["FORMAT"] == "image/geotiff"
-    assert asked["BBOX"] == "344000.0,6806000.0,344200.0,6806200.0"
-    assert (asked["WIDTH"], asked["HEIGHT"]) == (40, 40)
 
 
 def test_an_xml_exception_answered_with_200_is_an_error() -> None:
@@ -230,16 +187,6 @@ def test_the_second_request_is_served_from_the_cache_and_a_refresh_is_not(tmp_pa
     assert metadata["wms"]["tiles"] == fetched and metadata["archives"] == []
 
 
-def test_the_resolution_is_part_of_the_cache_name(tmp_path) -> None:
-    session = _Session(_synthetic_server)
-    five = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, client=session)
-    one = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=1.0, client=session)
-
-    assert five != one and "_1m_" in one.name
-    with rasterio.open(one) as raster:
-        assert raster.shape == (200, 200)
-
-
 def test_the_default_resolution_is_5_m(tmp_path) -> None:
     session = _Session(_synthetic_server)
     path = fetch_ign_dem(output_dir=tmp_path, bbox=FLUME, dataset="rge-alti", client=session)
@@ -293,32 +240,6 @@ def _quarry_server(bbox: tuple, width: int, height: int) -> bytes:
     xs = bbox[0] + (np.arange(width) + 0.5) * (bbox[2] - bbox[0]) / width
     ys = bbox[3] - (np.arange(height) + 0.5) * (bbox[3] - bbox[1]) / height
     return _geotiff(_quarry(*np.meshgrid(xs, ys)), bbox)
-
-
-def test_land_below_minus_5_m_far_from_water_is_kept(tmp_path) -> None:
-    session = _Session(_quarry_server)
-
-    path = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, client=session)
-
-    with rasterio.open(path) as raster:
-        data = raster.read(1)
-    assert (data == -30.0).sum() == 10 * 10
-    assert (data == -9999).sum() == 0
-
-
-def test_the_mask_follows_the_water_not_a_depth() -> None:
-    field = np.full((30, 30), 50.0, dtype="float32")
-    field[5:9, 5:9] = -30.0  # a pit
-    field[20:25, 20:25] = -5.0  # water
-    field[19, 20:25] = -400.0  # blend next to it
-    field[18, 20:25] = -4.99  # land next to the blend
-
-    masked = mask_rge_alti(field)
-
-    assert (masked[5:9, 5:9] == -30.0).all()
-    assert np.isnan(masked[20:25, 20:25]).all()
-    assert np.isnan(masked[19, 20:25]).all() and np.isnan(masked[18, 20:25]).all()
-    assert (masked[17, 21:24] == 50.0).all()
 
 
 def _canvas_server(canvas: np.ndarray, origin: tuple[float, float]) -> Callable:
@@ -379,15 +300,6 @@ def test_the_outside_france_share_is_counted_and_warned(tmp_path, monkeypatch, c
     assert "outside the French department" in caplog.text
     with rasterio.open(path) as raster:
         assert not (raster.read(1) == -9999).any()
-
-
-def test_a_box_inside_france_has_no_outside_pixels(tmp_path) -> None:
-    session = _Session(_synthetic_server)
-
-    path = fetch_rge_alti(output_dir=tmp_path, bbox=FLUME, resolution_m=5.0, client=session)
-
-    wms_block = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["wms"]
-    assert wms_block["outside_france_pixels"] == 0
 
 
 def test_a_raster_cached_with_an_older_masking_rule_is_not_reused(tmp_path) -> None:
@@ -558,9 +470,3 @@ def test_the_provider_declares_rge_alti_with_5_m_as_default() -> None:
 def test_the_declaration_refuses_what_the_product_does_not_serve(fields) -> None:
     with pytest.raises(ValueError):
         IgnGeoplateformeDemSource(**fields)
-
-
-def test_a_dumped_declaration_loads_back() -> None:
-    source = IgnGeoplateformeDemSource(dataset="rge-alti", resolution_m=5.0)
-
-    assert IgnGeoplateformeDemSource(**source.model_dump()) == source

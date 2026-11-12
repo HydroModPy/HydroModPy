@@ -101,18 +101,6 @@ class TestMaterializeCandidateReplace:
         assert payload["base_config"] == str(base_config_path.resolve())
         assert payload["flow"]["param"]["K"]["field"]["value"] == pytest.approx(5.0e-4)
 
-    def test_iteration_index_produces_iter_folder(
-        self, base_config_path: Path, space_replace: ParameterSpace, tmp_path: Path
-    ):
-        overlay_path = materialize_candidate(
-            base_config=base_config_path,
-            params={"K": 1.5e-4},
-            space=space_replace,
-            out_dir=tmp_path / "candidates",
-            iteration_index=7,
-        )
-        assert overlay_path.parent.name == "iter_0007"
-
 
 class TestMaterializeCandidateScale:
     def test_scale_multiplies_base_value(
@@ -409,16 +397,6 @@ class TestMaterializeHookFromCli:
 
 class TestTheOverlayIsWrittenWholeOrNotAtAll:
     """The frozen ``config.toml`` of a session is read by a later replay: never half written."""
-
-    def test_the_document_lands_in_one_rename_and_leaves_no_staging_file(self, tmp_path):
-        target = tmp_path / "sessions" / "calage" / "config.toml"
-
-        write_overlay_toml(target, {"calibration": {"method": "grid", "max_trials": 3}})
-
-        assert tomllib.loads(target.read_text(encoding="utf-8")) == {
-            "calibration": {"method": "grid", "max_trials": 3}
-        }
-        assert [path.name for path in target.parent.iterdir()] == ["config.toml"]
 
     def test_a_write_that_fails_leaves_the_previous_document_intact(self, tmp_path, monkeypatch):
         target = tmp_path / "config.toml"

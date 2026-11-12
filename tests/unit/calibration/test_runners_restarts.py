@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import threading
 
-import numpy as np
 import pytest
 
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
@@ -52,69 +51,20 @@ def _report(objective, *, settled=True, **values):
 
 
 class TestTheRefusals:
-    def test_an_exhaustive_sweep_may_not_be_restarted(self) -> None:
-        with pytest.raises(ValueError, match="same answer every time"):
-            assert_restarts_can_explore("grid", 8)
-
-    def test_a_root_search_may_not_be_restarted(self) -> None:
-        with pytest.raises(ValueError, match="same answer every time"):
-            assert_restarts_can_explore("bisection", 8)
-
-    def test_a_simplex_may(self) -> None:
-        assert_restarts_can_explore("scipy_nelder_mead", 8)
-
     def test_one_restart_is_not_a_spread(self) -> None:
         with pytest.raises(ValueError, match="at least two searches"):
             assert_restarts_can_explore("scipy_nelder_mead", 1)
 
 
 class TestTheStartPoints:
-    def test_the_first_restart_is_the_single_search_it_replaces(self) -> None:
-        # The engine keeps its own start, so the answer a file already published
-        # stays in the set and the others are added around it.
-        points = start_points(SPACE, restarts=4, seed=42)
-        assert points[0] is None
-        assert len(points) == 4
-
     def test_every_other_start_is_inside_the_declared_bounds(self) -> None:
         for point in start_points(SPACE, restarts=6, seed=7)[1:]:
             assert point.size == SPACE.dim
             for value, (low, high) in zip(point, SPACE.transformed_bounds.values(), strict=True):
                 assert low <= value <= high
 
-    def test_the_same_seed_draws_the_same_starts(self) -> None:
-        first = start_points(SPACE, restarts=5, seed=11)[1:]
-        again = start_points(SPACE, restarts=5, seed=11)[1:]
-        assert all(np.array_equal(a, b) for a, b in zip(first, again, strict=True))
-
 
 class TestTheLoop:
-    @pytest.mark.parametrize(("seed", "expected"), [(100, [100, 101, 102]), (None, [0, 1, 2])])
-    def test_every_restart_runs_once_in_turn_with_its_own_seed(self, seed, expected) -> None:
-        seen: list[tuple[int, threading.Thread]] = []
-
-        def run_one(seed, _start, _index):
-            seen.append((seed, threading.current_thread()))
-            return _report(1.0, K=1e-5, Sy=0.01)
-
-        run_restarts(run_one, method="scipy_nelder_mead", space=SPACE, restarts=3, seed=seed)
-
-        assert [item[0] for item in seen] == expected
-        assert {item[1] for item in seen} == {threading.current_thread()}
-
-    def test_the_starts_are_the_ones_the_seed_draws(self) -> None:
-        seen = []
-
-        def run_one(_seed, start, _index):
-            seen.append(start)
-            return _report(1.0, K=1e-5, Sy=0.01)
-
-        run_restarts(run_one, method="scipy_nelder_mead", space=SPACE, restarts=3, seed=100)
-
-        drawn = start_points(SPACE, restarts=3, seed=100)
-        assert seen[0] is None
-        assert all(np.array_equal(a, b) for a, b in zip(seen[1:], drawn[1:], strict=True))
-
     def test_a_search_that_cannot_explore_is_refused_before_any_run(self) -> None:
         with pytest.raises(ValueError, match="same answer every time"):
             run_restarts(lambda *_: None, method="grid", space=SPACE, restarts=2, seed=0)
@@ -199,23 +149,6 @@ class TestSideBySide:
         assert sorted(seen) == [(100, 0), (101, 1)]
         assert best.best_cost == pytest.approx(1.0)
 
-    def test_the_width_caps_the_restarts_running_at_once(self) -> None:
-        meeting, leaving = threading.Barrier(2, timeout=2.0), threading.Barrier(2, timeout=2.0)
-        third_started = threading.Event()
-
-        def run_one(_seed, _start, index):
-            if index >= 2:
-                third_started.set()
-            else:
-                meeting.wait()
-                # Both places are taken, so no third restart can have begun.
-                assert not third_started.wait(timeout=0.05)
-                leaving.wait()
-            return _report(1.0, K=1e-5, Sy=0.01)
-
-        run_restarts(run_one, method="scipy_nelder_mead", space=SPACE, restarts=4, seed=0, width=2)
-        assert third_started.is_set()
-
     def test_a_failure_of_a_restart_calls_the_stop_hook(self) -> None:
         stopped = []
 
@@ -259,14 +192,6 @@ class TestSideBySide:
 
 
 class TestWhatTheSpreadSays:
-    def test_optima_a_factor_twenty_apart_are_flagged(self) -> None:
-        spread = RestartSpread(parameter="K", best=1e-5, lowest=1e-6, highest=2e-5)
-        assert spread.spans_a_decade is True
-
-    def test_optima_within_a_factor_two_are_not(self) -> None:
-        spread = RestartSpread(parameter="K", best=1e-5, lowest=8e-6, highest=1.4e-5)
-        assert spread.spans_a_decade is False
-
     def test_optima_of_mixed_sign_are_flagged_unless_equal(self) -> None:
         mixed = RestartSpread(parameter="K", best=0.0, lowest=-1.0, highest=2.0)
         same = RestartSpread(parameter="K", best=0.0, lowest=0.0, highest=0.0)

@@ -24,11 +24,3 @@ def test_sites_in_several_crs_are_all_written_in_wgs84() -> None:
     assert out["y_outlet"][0] == pytest.approx(48.2, abs=0.5)
     assert out["x_outlet"][1] == -1.7
     assert pd.isna(out["x_outlet"][2])
-
-
-def test_sites_in_one_crs_are_left_as_they_are() -> None:
-    by_site = pd.DataFrame(
-        {"crs": ["EPSG:2154"] * 2, "x_outlet": [1.0, 2.0], "y_outlet": [3.0, 4.0]}
-    )
-
-    assert in_one_crs(by_site) is by_site

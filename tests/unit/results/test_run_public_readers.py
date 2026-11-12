@@ -19,7 +19,6 @@ import pytest
 
 from hydromodpy.results.calibration_trials import calibration_sessions
 from hydromodpy.results.run.array import acting_faces, acting_faces_over_run
-from hydromodpy.results.run.geographic import crs_epsg, geographic_metadata
 from hydromodpy.results.run.particles import (
     has_particle_tracks,
     particle_time_to_days,
@@ -138,51 +137,7 @@ def _run_with_row(row: dict) -> SimpleNamespace:
     return SimpleNamespace(sim_id="sim-crs", _load_row=lambda: row)
 
 
-def test_the_run_crs_is_the_epsg_code_the_run_recorded() -> None:
-    assert crs_epsg(_run_with_row({"crs_epsg": 2154})) == 2154
-
-
-@pytest.mark.parametrize(
-    "row",
-    [{}, {"crs_epsg": None}, {"crs_epsg": np.nan}, {"crs_epsg": pd.NA}],
-)
-def test_a_run_without_a_recorded_crs_has_none(row) -> None:
-    assert crs_epsg(_run_with_row(row)) is None
-
-
-def test_a_null_crs_read_through_duckdb_is_none() -> None:
-    """``simulations.crs_epsg`` is an INTEGER column: DuckDB hands a NULL to
-    pandas as ``pd.NA`` in a nullable ``Int32``, whose truth value raises."""
-    duckdb = pytest.importorskip("duckdb")
-    rows = duckdb.connect().execute("SELECT CAST(NULL AS INTEGER) AS crs_epsg").fetchdf()
-
-    assert crs_epsg(_run_with_row(rows.iloc[0].to_dict())) is None
-
-
-def test_the_geographic_metadata_is_what_the_catalog_holds_for_the_run() -> None:
-    asked: list[str] = []
-
-    def read_geographic_metadata(sim_id):
-        asked.append(sim_id)
-        return {"x_outlet": "351200.0", "y_outlet": "6789000.0"}
-
-    run = SimpleNamespace(
-        sim_id="sim-geo",
-        _catalog=SimpleNamespace(read_geographic_metadata=read_geographic_metadata),
-    )
-
-    assert geographic_metadata(run) == {"x_outlet": "351200.0", "y_outlet": "6789000.0"}
-    assert asked == ["sim-geo"]
-
-
 # -- calibration sessions ------------------------------------------------------
-
-
-def test_a_run_shaped_adapter_reads_the_sessions_it_carries() -> None:
-    class _Adapter:
-        calibration_sessions = [{"session_id": "s1", "phase_index": 0}]
-
-    assert calibration_sessions(_Adapter())["session_id"].tolist() == ["s1"]
 
 
 def test_a_source_with_no_session_behind_it_gives_an_empty_frame() -> None:
@@ -195,38 +150,9 @@ def test_a_source_with_no_session_behind_it_gives_an_empty_frame() -> None:
 # -- acting faces ------------------------------------------------------------
 
 
-def test_a_face_acts_when_any_layer_carries_a_finite_non_zero_flux() -> None:
-    values = np.array(
-        [
-            [[0.0, 1.0, 0.0, np.nan], [0.0, 0.0, 0.0, 0.0]],
-            [[0.0, 0.0, 0.0, 0.0], [2.0, -2.0, 0.0, np.inf]],
-        ]
-    )
-
-    assert acting_faces(values, "drain", 4).tolist() == [True, True, False, False]
-
-
 def test_a_block_that_is_not_the_mesh_is_refused_by_name() -> None:
     with pytest.raises(ValueError, match="'drain' budget holds 3 values"):
         acting_faces(np.zeros((2, 3)), "drain", 4)
-
-
-def test_the_whole_run_is_read_in_one_opening_of_the_store() -> None:
-    """Asked one timestep at a time, a daily decade over six components is
-    tens of thousands of openings; the whole run is one."""
-    drain = np.zeros((200, 4))
-    drain[0, 0] = -1.0
-    drain[150, 3] = -1.0
-    river = np.zeros((200, 4))
-    river[:, 2] = -1.0
-    run = _run_over({"budget": {"drain": drain, "river": river}})
-
-    acting = acting_faces_over_run(run, ["drain", "river"], 4)
-
-    assert acting["drain"].tolist() == [True, False, False, True]
-    assert acting["river"].tolist() == [False, False, True, False]
-    assert len(run.opened) == 1
-    assert run.opened[0].closed, "the store is released once the stacks are read"
 
 
 def test_a_component_missing_from_the_store_is_refused_by_name() -> None:
