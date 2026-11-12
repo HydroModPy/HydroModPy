@@ -915,6 +915,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Numbers
 
+Sizes come from example 04 unless another case is named. Runs of a pre-release are not comparable on these quantities.
+
 <!-- numbers:begin -->
 - Hub'Eau product QIXM (monthly maximum instantaneous discharge) was read as a water level in m, with the l/s value unconverted. It is now a discharge in m3/s, 1000 times smaller. QixM, which Hub'Eau does not serve and which returned no observation, is read as QIXM.
 - With station_ids and max_stations both set, Hub'Eau hydrometry loaded only the first max_stations named stations that had data and never said so. max_stations now counts only the stations a search over the extent finds, and every named station is loaded.
@@ -930,25 +932,21 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The catchment series and budget_over count the inflow and the outflow of each element (layer, cell) on its own, as the extractors do, where the catchment series summed the layers of a cell first. A drain only leaves the aquifer, so the discharge does not move: 0 on the six reference runs and on two runs of example 04, all one layer. On a multilayer run the inflow and the outflow of a term whose sign changes between layers move, and their difference does not.
 - The catchment series and budget_over drop a non-finite element (layer, cell) alone, where a pre-release dropped the whole cell when one of its layers held a NaN, so the discharge of a multilayer run whose drain cell holds a NaN in one layer now counts its finite layers. A time step with no finite element under the weights gives NaN, where a pre-release gave 0, and a family such as storage is NaN on a step where one of its terms is NaN. A run of one layer with finite fluxes does not move: 0 on the six reference runs.
 - The root interval of a bisection counts in n_trials and n_within the distinct points of the search variable that solved, where a pre-release counted the solved trials, so a point solved twice counts once and keeps its first cost. 0 cases out of 3,000 searches move.
+- The MODFLOW 6 discharge of a run with a lake and no SFR was the lake outlet alone. On a three-month valley with a buffer it was 3.855e-05, 3.856e-05 and 3.855e-05 m3/s and is now 0.100996, 0.143696 and 0.087693 m3/s, about 2 600 to 3 700 times more. A run with SFR, with or without a lake, does not move.
+- The Boussinesq discharge on the island of the test suite, over three months, was 4.2e-9, 9.6e-10 and 4.2e-11 m3/s and is now 0.012709, 0.025505 and 0.010800 m3/s, where MODFLOW 6 on the same mesh reads 0.011417, 0.023888 and 0.009734 m3/s. Any score of a Boussinesq discharge changes with it.
+- A Boussinesq calibration trial on a mesh wider than its catchment scored the sum over the domain, 2.0 times the published series on an island cut in half. It now scores the published series. With no buffer nothing moves.
+- Boussinesq budget/drain and budget/surface_excess change sign and keep their size. The signed fields now close against the change of storage, to 3.7e-7 of the recharge on the steady period, where they were off by 1.48 times the recharge. Steady runs and the MODFLOW solvers do not move.
+- A date written on a stamp belongs to the period that the stamp closes, so a network output whose time falls on a stamp reads one period earlier. With time = "2002-10-01", distance_gap goes from 86.32 to 79.08 m (-8.4 %) and D_optim from 142.4 to 139.2 m (-2.2 %). A date inside a period does not move.
+- A window that ends on a stamp keeps one period fewer. 2001-01-01 to 2002-01-01 on a monthly run is 12 periods, where it was 13, and February 2000 reads 1 simulated value and 29 measurements, where it read 2 and 30.
+- The soil reservoir defaults move: alpha from 0.6 to 0.45 (FAO-56 table 22, cereals and maize) and flow.sinks_sources.etp.extinction_depth from 1 m to 2 m. A file that writes these keys reads as before. The basin mean that the soil reservoir prints also gives each SAFRAN cell its share of the catchment. On example 04, 2015 to 2020, for a capacity of 50, 100, 150, 200 and 250 mm, the soil recharge was 443, 392, 356, 325 and 295 mm/year and is now 443, 389, 350, 315 and 280 mm/year: the shares add 7 to 9 mm/year and the lower alpha takes back 7 to 24 mm/year. The discharge of step 6 of example 04 (K = 3.16e-5 m/s, Sy = 0.04) goes from NSE log 0.903 to 0.932, KGE 0.911 to 0.947 and NSE 0.904 to 0.929, and its July to September bias from +0.022 to 0.000 m3/s.
+- A tie on the cost in the last phase of a search promotes the trial that the search answered. On the shipped mesh of example 04 the promoted K goes from 8.058e-5 to 7.962e-5 m/s (-1.2 %), and on 30 x 30 from 1.4678e-4 to 1.5034e-4 m/s (+2.4 %). A phase before the last does not move.
+- A calibration with no pin on the protocol follows 1.3: the map is cut to the catchment and the network is rasterized from the heads of the observed streams. On the shipped mesh of example 04 every K and cost is the same, and the heads examined fall from 154 to 29. On 30 x 30, J at the best trial goes from 11.0 to 50.3 m.
+- catchment_mismatch changes meaning and enters no cost, and the number it held is now basin_mismatch. On the shipped mesh of 21 406 cells 0 becomes 0.37 %, and on 30 x 30 it becomes 11.0 %.
+- calibration.precision writes a relative fatol, so Nelder-Mead stops on the same simplex two trials earlier. On example 04 the calibrated Sy goes from 0.04411 to 0.04296 and 1 - nse_log from 0.083976 to 0.083988, with two solves less. K does not move.
 <!-- numbers:end -->
 
-Sizes come from example 04 unless another case is named. Runs of a pre-release are not comparable on these quantities.
-
-- Soil recharge on example 04, 2015 to 2020, for a capacity of 50, 100, 150, 200 and 250 mm. It was 443, 392, 356, 325 and 295 mm/year and is now 443, 389, 350, 315 and 280 mm/year.
-- Discharge of step 6 of example 04 (K = 3.16e-5 m/s, Sy = 0.04). NSE log goes from 0.903 to 0.932, KGE from 0.911 to 0.947 and NSE from 0.904 to 0.929. The July to September bias goes from +0.022 to 0.000 m3/s.
-- MODFLOW 6 with a lake and no SFR, `discharge` over a three-month valley with a buffer. It was about 3.855e-05 m3/s and is now 0.087693 to 0.143696 m3/s, 2 600 to 3 700 times more. The old number was the lake outlet alone. SFR runs do not move.
-- Boussinesq `discharge` on the test island, three months. It was 4.2e-9, 9.6e-10 and 4.2e-11 m3/s and is now 0.012709, 0.025505 and 0.010800 m3/s. MODFLOW 6 on the same mesh reads 0.011417, 0.023888 and 0.009734 m3/s.
-- Boussinesq calibration trial on a mesh wider than its catchment. The old series was 2.0 times the published one on an island cut in half. It now equals it. With no buffer nothing moves.
-- Boussinesq `budget/drain` and `budget/surface_excess` change sign, the size stays. The signed fields now close against the change of storage, to 3.7e-7 of the recharge on the steady period. Steady runs and the MODFLOW solvers do not move.
-- A network output whose `time` falls on a stamp reads one period earlier. With `time = "2002-10-01"`, `distance_gap` goes from 86.32 to 79.08 m and `D_optim` from 142.4 to 139.2 m. A date inside a period does not move.
-- A window that ends on a stamp keeps one period fewer. `2001-01-01` to `2002-01-01` on a monthly run is 12 periods, it was 13.
-- A tie on the cost in a last phase. On the shipped mesh the promoted K goes from 8.058e-5 to 7.962e-5 m/s (-1.2 %). On 30 x 30 it goes from 1.4678e-4 to 1.5034e-4 m/s (+2.4 %).
-- The cut to the catchment under `heads`. On the shipped mesh every K and cost is the same, and the heads examined fall from 154 to 29. On 30 x 30, J at the best trial goes from 11.0 to 50.3 m.
-- `catchment_mismatch` changes meaning and enters no cost. On the shipped mesh of 21 406 cells 0 becomes 0.37 %, and on 30 x 30 it becomes 11.0 %.
-- Every cache key of a calibration changes once, so the trials of an earlier session are solved again.
 - No number moves for MODFLOW 6 on example 04 (the 55 arrays, `timeseries`, `budgets` and the 11 scores, NSE 0.9345), nor for a run with no override.
 - A Python calibration without phases and with a `linearized` width now pays one model run per parameter plus one at the optimum. Search results and costs are unchanged.
-- Example 04 calibrated Sy goes from 0.04411 to 0.04296 and `1 - nse_log` from 0.083976 to 0.083988, with two solves less. K does not move. `calibration.precision` now writes a relative `fatol`.
 - `run_calibration_api_daily.toml` ranks its five K on 2016-2018 instead of 2016-2020. The size of the change was not measured.
 - At `parallel` above 1 trial costs are equal to the last digit, with 63 trials checked at widths 2, 4 and 8 on example 04. Peak memory at width 8 is 6.5 GiB.
 - `scipy_de` at width 4 needs more evaluations than at width 1 for the same late precision, up to 1.5 to 5 times, and wins when solves dominate. `tpe` with `constant_liar` is neutral at width 2 and better from 4.
