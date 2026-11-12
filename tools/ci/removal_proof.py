@@ -52,6 +52,7 @@ MUTMUT_VERSION = "3.8.0"
 COVERAGE_MINIMUM = (7, 10)
 TIMEOUT_SECONDS = 300
 GENERATE_SECONDS = 1200
+GENERATE_PER_MODULE = 3
 ERROR_CODES = (2, 3, 4, 5)
 SURVIVOR_SHARE = 0.25
 FORK_SPEEDUP = 3.0
@@ -75,6 +76,11 @@ PHRASES = {
         "<module>.x_<function>__mutmut_<n> or <module>.xǁ<Class>ǁ<method>__mutmut_<n> is expected."
     ),
     "measure": "{path} is not a measure: run `removal_proof.py measure` on the tree first.",
+    "partial": (
+        "mutmut wrote the mutants of {written} of {asked} modules in {seconds} s, "
+        "{first} is the first one missing: a partial set of mutants proves nothing."
+    ),
+    "nometa": "{path} is missing: mutmut wrote no mutants for this module.",
     "stale": "the measure in {path} was made on {measured}, not on {tree}: measure the tree again.",
 }
 MUTANT_NAME = re.compile(
@@ -636,7 +642,7 @@ def module_names(run_dir: Path, rel: str) -> list[str]:
     """Mutant names of a module, read from the ``.meta`` file that mutmut wrote for it."""
     meta = run_dir / f"{rel}.meta"
     if not meta.is_file():
-        return []
+        refuse("nometa", path=meta)
     return sorted(json.loads(meta.read_text(encoding="utf-8")).get("exit_code_by_key", {}))
 
 
@@ -806,14 +812,17 @@ def open_runner(
                 os.killpg(proc.pid, signal.SIGKILL)
 
 
-def run_jobs(jobs: Sequence[Job], run: Runner, processes: int) -> list[Outcome]:
+def run_jobs(jobs: Sequence[Job], run: Runner, processes: int, label: str = "") -> list[Outcome]:
     """Run jobs in parallel. A job without ids has no test to kill its mutant, so it survives."""
     outcomes = [Outcome(0)] * len(jobs)
     todo = [i for i, job in enumerate(jobs) if job.ids]
     if todo:
         with ThreadPoolExecutor(max_workers=max(1, min(processes, len(todo)))) as pool:
-            for i, outcome in zip(todo, pool.map(run, [jobs[i] for i in todo]), strict=True):
+            results = pool.map(run, [jobs[i] for i in todo])
+            for n, (i, outcome) in enumerate(zip(todo, results, strict=True), 1):
                 outcomes[i] = outcome
+                if label and n * 10 // len(todo) > (n - 1) * 10 // len(todo):
+                    log(f"{label}: {n} of {len(todo)} done")
     return outcomes
 
 
@@ -849,6 +858,9 @@ def worker_serve(run_dir: str) -> None:
             except BaseException:
                 traceback.print_exc()
             finally:
+                # os._exit flushes nothing, and the failed tests are read from this output.
+                sys.stdout.flush()
+                sys.stderr.flush()
                 os._exit(code)
         reply.write(json.dumps({"code": wait_child(pid, float(request["timeout"]))}) + "\n")
         reply.flush()
@@ -887,10 +899,10 @@ def prove_mutants(
 ) -> list[Verdict]:
     """Play each mutant against the kept tests, then its survivors against the removed ones."""
     first = [Job(c.name, c.kept_ids, c.kept_tree, fresh=not fork_first) for c in cases]
-    outcomes = run_jobs(first, run, processes)
+    outcomes = run_jobs(first, run, processes, "mutants")
     if fork_first:
         # A cache filled at import in the warm parent may hide a mutant, so only kills count.
-        again = [i for i, o in enumerate(outcomes) if classify(o.code) != "killed"]
+        again = [i for i, o in enumerate(outcomes) if classify(o.code) != "killed" or not o.failed]
         fresh = [Job(first[i].mutant, first[i].ids, first[i].tree, fresh=True) for i in again]
         for i, outcome in zip(again, run_jobs(fresh, run, processes), strict=True):
             outcomes[i] = outcome
@@ -904,9 +916,11 @@ def prove_mutants(
 
 def decide(case: MutantCase, kept: Outcome, gone: Outcome | None) -> Verdict:
     state = classify(kept.code)
+    if state == "killed" and not kept.failed:
+        # A timeout or a crash names no red test: it does not prove that a test sees the mutant.
+        state = "error"
     if state == "killed":
-        killer = function_id_of(kept.failed[0]) if kept.failed else None
-        return Verdict(case.name, case.function, "killed", killer)
+        return Verdict(case.name, case.function, "killed", function_id_of(kept.failed[0]))
     second = classify(gone.code) if gone else "survived"
     if state == "error" or second == "error":
         return Verdict(case.name, case.function, "error", None, case.removed_ids)
@@ -937,6 +951,12 @@ def require_coverage(version: str) -> None:
         refuse("coverage")
 
 
+def emptied(work: Path, rel: str) -> bool:
+    """Whether the mutated copy of a module is empty while the module is not."""
+    mutated = work / "mutants" / rel
+    return mutated.is_file() and mutated.stat().st_size == 0 and (work / rel).stat().st_size > 0
+
+
 def generate_mutants(
     tree: Path, modules: Sequence[str], work: Path, python: str, selection: Sequence[str]
 ) -> Path:
@@ -964,7 +984,8 @@ def generate_mutants(
         proc = subprocess.Popen(
             command, cwd=work, stdout=logfile, stderr=subprocess.STDOUT, start_new_session=True
         )
-        deadline = time.monotonic() + GENERATE_SECONDS
+        started = time.monotonic()
+        deadline = started + GENERATE_SECONDS + GENERATE_PER_MODULE * len(modules)
         while time.monotonic() < deadline and proc.poll() is None:
             if all(p.is_file() for p in metas):
                 break
@@ -973,6 +994,13 @@ def generate_mutants(
         if proc.poll() is None:
             os.killpg(proc.pid, signal.SIGKILL)
         proc.wait()
+    written = [
+        m for m in modules if (work / "mutants" / f"{m}.meta").is_file() and not emptied(work, m)
+    ]
+    if len(written) < len(modules):
+        seconds = round(time.monotonic() - started)
+        first = sorted(set(modules) - set(written))[0]
+        refuse("partial", written=len(written), asked=len(modules), seconds=seconds, first=first)
     return work / "mutants"
 
 
@@ -1103,6 +1131,10 @@ def library_location(python: str, tree: Path, cwd: Path) -> str:
     return done.stdout.strip().splitlines()[-1] if done.stdout.strip() else ""
 
 
+# More red cases than this and the measure is refused.
+MAX_RED_CASES = 20
+
+
 def run_measure(
     tree: Path, out: Path, tests: Sequence[str], ignores: Sequence[str], workers: int
 ) -> dict:
@@ -1134,12 +1166,17 @@ def run_measure(
     }
     started = time.monotonic()
     code = subprocess.run(command, cwd=tree, env=env, check=False).returncode
-    if code != 0:
+    # pytest returns 1 when tests fail and more when it could not run them.
+    if code not in (0, 1) or not junit.is_file():
+        refuse("failing", tree=tree)
+    cases = parse_junit(junit.read_text(encoding="utf-8"), tree)
+    red = sorted(node for node, case in cases.items() if case.status in ("failed", "error"))
+    # A few red tests are kept as they are by the plan. A red suite proves nothing.
+    if len(red) > MAX_RED_CASES:
         refuse("failing", tree=tree)
     if any(out.glob(".coverage.*")):
         combine = [python, "-m", "coverage", "combine", f"--rcfile={rc}", "--append"]
         subprocess.run(combine, cwd=out, env=env, check=True)
-    cases = parse_junit(junit.read_text(encoding="utf-8"), tree)
     (out / "ids.txt").write_text("\n".join(sorted(cases)) + "\n", encoding="utf-8")
     meta = {
         "format": "hmp-removal-measure/1",
@@ -1153,6 +1190,7 @@ def run_measure(
         "pytest_code": code,
         "seconds": round(time.monotonic() - started, 1),
         "cases": len(cases),
+        "red": red,
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     return meta
@@ -1207,6 +1245,7 @@ def measure_baseline(
             "removed_seconds": b.seconds,
             "red_kept": sorted({function_id_of(i) for i in a.failed}),
             "red_removed": sorted({function_id_of(i) for i in b.failed}),
+            "error": a.code in ERROR_CODES or b.code in ERROR_CODES,
         }
     return result
 
@@ -1284,9 +1323,12 @@ def run_plan(args: argparse.Namespace) -> int:
             free = [m for m in modules if m not in case_map]
             seconds.update({m: 0.0 for m in free})
             taken = take_modules(gain, seconds, args.budget_hours * 3600 * args.processes)
+            broken = {m for m, row in base.items() if row["error"]}
+            taken = [m for m in taken if m not in broken]
             red = {i for m in taken if m in base for i in base[m]["red_removed"]}
             for fid in sorted(removed):
                 reason = "red_without_mutant" if fid in red else "module_not_proved"
+                reason = "baseline_error" if subjects[fid] & broken else reason
                 if fid in red or not subjects[fid] <= set(taken):
                     put_back.append({"id": fid, "reason": reason})
                     del removed[fid]
@@ -1578,6 +1620,7 @@ def run_check(args: argparse.Namespace) -> int:
     verdicts: list[Verdict] = []
     carried: set[str] = set()
     minutes = 0.0
+    broken: list[str] = []
     if modules:
         selection = sorted({fid.split("::", 1)[0] for fid in side_a.ids})
         side_a.run_dir = generate_mutants(
@@ -1592,7 +1635,10 @@ def run_check(args: argparse.Namespace) -> int:
             minutes = round(seconds / args.processes / 60, 1)
             if args.budget_minutes is not None and minutes > args.budget_minutes:
                 refuse("budget", n=minutes, m=args.budget_minutes)
-            todo = [c for m, cs in case_map.items() for c in drop_red(cs, base[m])]
+            broken = sorted(m for m, row in base.items() if row["error"])
+            todo = [
+                c for m, cs in case_map.items() if m not in broken for c in drop_red(cs, base[m])
+            ]
             verdicts = prove_mutants(todo, run, args.processes, args.runner == "fork")
     bad = [v for v in verdicts if v.status in ("lost", "error")]
     restore = {f for v in bad for f in v.put_back} | set(unaccounted)
@@ -1605,6 +1651,7 @@ def run_check(args: argparse.Namespace) -> int:
         "removed_ids": len(removed_ids),
         "unaccounted_ids": unaccounted,
         "lost_coverage": lost,
+        "baseline_errors": broken,
         "lost_mutants": [
             {"name": v.name, "function": v.function, "status": v.status, "killer": v.killer}
             | {"put_back": list(v.put_back)}
@@ -1623,9 +1670,9 @@ def run_check(args: argparse.Namespace) -> int:
     Path(args.out).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(
         f"check: {len(removed_ids)} test functions gone, {len(lost)} files lose coverage, "
-        f"{len(bad)} mutants lost, {len(unaccounted)} ids unaccounted"
+        f"{len(bad)} mutants lost, {len(unaccounted)} ids unaccounted, {len(broken)} baselines in error"
     )
-    return 1 if (lost or bad or unaccounted) else 0
+    return 1 if (lost or bad or unaccounted or broken) else 0
 
 
 # ---------------------------------------------------------------------------
@@ -1684,7 +1731,12 @@ def build_parser() -> argparse.ArgumentParser:
     for flag in ("measure", "keep", "mutmut", "work", "out"):
         plan.add_argument(f"--{flag}", required=True)
     plan.add_argument("--scope-dir", action="append", default=[], required=True)
-    plan.add_argument("--budget-hours", type=float, default=10.0)
+    plan.add_argument(
+        "--budget-hours",
+        type=float,
+        default=10.0,
+        help="choose the modules from the baseline estimate of their cost, it does not stop the run",
+    )
     runner(plan)
     command("apply", "edit a checkout so that the planned functions leave", ["plan", "tree"])
     check = command("check", "compare two trees with the same library code", ["before", "after"])

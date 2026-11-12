@@ -130,6 +130,7 @@ def check_json(**fields: object) -> dict:
         "lost_coverage": {},
         "lost_mutants": [],
         "unaccounted_ids": [],
+        "baseline_errors": [],
         "restore_files": [],
         "estimated_minutes": 0.0,
     } | fields
@@ -649,11 +650,15 @@ def test_the_loss_lines_of_a_check_result_are_exact():
     check = check_json(
         lost_coverage={"hydromodpy/a.py": {"lines_count": 1, "arcs_count": 0}},
         unaccounted_ids=["tests/unit/test_x.py::test_y"],
+        baseline_errors=["hydromodpy/b.py"],
     )
     assert proof.describe_losses(check) == [
         "lost coverage: hydromodpy/a.py, 1 lines and 0 branches, run by the removed tests",
         "unaccounted test: tests/unit/test_x.py::test_y",
+        "module not proved, its tests fail with no mutant: hydromodpy/b.py",
     ]
+    assert proof.has_loss(check_json(baseline_errors=["hydromodpy/b.py"]))
+    assert not proof.has_loss(check_json())
 
 
 def test_the_budget_phrase_is_recognised(monkeypatch):

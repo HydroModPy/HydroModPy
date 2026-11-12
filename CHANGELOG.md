@@ -763,6 +763,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Fixed
 
+- `tools/ci/removal_proof.py` refuses a set of mutants that mutmut did not finish to write, and waits longer for a larger set. A module with no mutant file was counted as proved at no cost, and a cut generation could leave a mutated module empty, which made every test set that imports it fail at collection. A module whose tests fail with no mutant is now set aside before any mutant is played, in `plan` and in `check`, and `tools/ci/proof.py` reports it as a loss. The plan logs its progress by tenths. A mutant counts as killed only when the kept tests end with a red test that the run names. A timeout, a crash or a run with no named red test proves nothing, and the tests it would have let go are put back. The warm runner flushes the output of each run, which it lost before, so a kill names its test.
 - A published run whose document names its data by a relative path such as `../../data/rain.nc` keeps that
   path. The redaction of absolute paths took the `/` after `..` for a root and wrote `..<absolute path>`, so
   `hmp catalog rerun` of the shared copy refused the document.
