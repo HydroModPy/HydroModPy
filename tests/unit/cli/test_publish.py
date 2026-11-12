@@ -194,7 +194,7 @@ def test_replay_left_out(tmp_path: Path) -> None:
     manifest["lineage"] = {
         **manifest["lineage"],
         "kind": "replay",
-        "replay": {"of": "f" * 32, "source": "copy", "source_version": "2.1.0", "basis": "none"},
+        "replay": {"of": "f" * 32, "source": "copy", "source_version": "3.0.0", "basis": "none"},
     }
     manifest["run"]["sim_id"] = "1b2c0000-0000-4000-8000-000000000002"
     (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")

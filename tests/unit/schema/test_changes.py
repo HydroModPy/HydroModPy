@@ -8,13 +8,13 @@ from hydromodpy.schema.changes import REGISTER, outlived, read
 
 HEAD = 'schema = "hydromodpy.changes.v1"\n'
 
-BUG = '[[bug]]\nid = "b"\nsince = "2.1.0"\nversions = "<2.1.0"\nquantities = ["metrics"]\ntext = "t"\n'
-RECIPE = '[[recipe]]\nid = "r"\nsince = "2.1.0"\neffect = "refusal"\nquantities = []\ntext = "t"\n'
+BUG = '[[bug]]\nid = "b"\nsince = "3.0.0"\nversions = "<3.0.0"\nquantities = ["metrics"]\ntext = "t"\n'
+RECIPE = '[[recipe]]\nid = "r"\nsince = "3.0.0"\neffect = "refusal"\nquantities = []\ntext = "t"\n'
 DEFAULT = (
-    '[[default]]\nid = "d"\nsince = "2.1.0"\nedition = "2.1"\nkey = "solver.x"\nold = 0.5\n'
+    '[[default]]\nid = "d"\nsince = "3.0.0"\nedition = "3.0"\nkey = "solver.x"\nold = 0.5\n'
     'new = 0.45\nquantities = ["metrics"]\ntext = "t"\n'
 )
-MOVE = '[[migration]]\ndocument = "config"\nold = "a.b"\nnew = "a.c"\nsince = "2.1.0"\n'
+MOVE = '[[migration]]\ndocument = "config"\nold = "a.b"\nnew = "a.c"\nsince = "3.0.0"\n'
 
 
 def test_shipped_register() -> None:
@@ -40,12 +40,12 @@ FAULTS = {
         HEAD + BUG + RECIPE.replace('id = "r"', 'id = "b"'),
         "already used",
     ),
-    "a short since": (HEAD + BUG.replace('since = "2.1.0"', 'since = "2.1"'), "since must be"),
+    "a short since": (HEAD + BUG.replace('since = "3.0.0"', 'since = "3.0"'), "since must be"),
     "versions that are no specifier": (
-        HEAD + BUG.replace('versions = "<2.1.0"', 'versions = "soon"'),
+        HEAD + BUG.replace('versions = "<3.0.0"', 'versions = "soon"'),
         "PEP 440",
     ),
-    "empty versions": (HEAD + BUG.replace('versions = "<2.1.0"', 'versions = ""'), "PEP 440"),
+    "empty versions": (HEAD + BUG.replace('versions = "<3.0.0"', 'versions = ""'), "PEP 440"),
     "a bug without a quantity": (
         HEAD + BUG.replace('["metrics"]', "[]"),
         "quantities is empty",
@@ -61,11 +61,11 @@ FAULTS = {
         "quantities is empty",
     ),
     "a default whose since is not its edition": (
-        HEAD + DEFAULT.replace('since = "2.1.0"', 'since = "2.1.1"'),
-        "has since '2.1.0'",
+        HEAD + DEFAULT.replace('since = "3.0.0"', 'since = "3.0.1"'),
+        "has since '3.0.0'",
     ),
     "a default with a bad edition": (
-        HEAD + DEFAULT.replace('edition = "2.1"', 'edition = "2"'),
+        HEAD + DEFAULT.replace('edition = "3.0"', 'edition = "2"'),
         "edition must be a minor version",
     ),
     "a default that moves nothing": (
@@ -81,14 +81,14 @@ FAULTS = {
         "exactly one shape",
     ),
     "a migration with no shape": (
-        HEAD + '[[migration]]\ndocument = "config"\nsince = "2.1.0"\n',
+        HEAD + '[[migration]]\ndocument = "config"\nsince = "3.0.0"\n',
         "exactly one shape",
     ),
     "sealed on a move": (HEAD + MOVE + 'sealed = "drop"\n', "sealed only takes 'drop'"),
     "sealed that is not drop": (
         HEAD
         + '[[migration]]\ndocument = "config"\nold = "a.b"\ninstead = "x"\nsealed = "keep"\n'
-        + 'since = "2.1.0"\n',
+        + 'since = "3.0.0"\n',
         "sealed only takes 'drop'",
     ),
     "a rule that is a module path": (
@@ -100,19 +100,19 @@ FAULTS = {
     "a path that is no dotted path": (HEAD + MOVE.replace('"a.c"', '"a..c"'), "dotted path"),
     "a move to itself": (HEAD + MOVE.replace('"a.c"', '"a.b"'), "same path"),
     "an empty instead": (
-        HEAD + '[[migration]]\ndocument = "config"\nold = "a.b"\ninstead = " "\nsince = "2.1.0"\n',
+        HEAD + '[[migration]]\ndocument = "config"\nold = "a.b"\ninstead = " "\nsince = "3.0.0"\n',
         "instead must be",
     ),
     "a value renamed to itself": (
         HEAD
         + '[[migration]]\ndocument = "config"\nkey = "a.b"\nold_value = "x"\nnew_value = "x"\n'
-        + 'since = "2.1.0"\n',
+        + 'since = "3.0.0"\n',
         "same value",
     ),
     "a value that is a table": (
         HEAD
         + '[[migration]]\ndocument = "config"\nkey = "a.b"\nold_value = { x = 1 }\n'
-        + 'new_value = "x"\nsince = "2.1.0"\n',
+        + 'new_value = "x"\nsince = "3.0.0"\n',
         "string, a number or a boolean",
     ),
     "the same row twice": (HEAD + MOVE + MOVE.replace('"a.c"', '"a.d"'), "same row as"),

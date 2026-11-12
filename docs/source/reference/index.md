@@ -38,6 +38,13 @@ The functions of `import hydromodpy as hmp`, the objects they return, the except
 Every `hmp` command and subcommand, with its arguments, examples and exit codes, read from the parser.
 :::
 
+:::{grid-item-card} Outputs of a run
+:link: outputs
+:link-type: doc
+
+Every field array and every time series a run stores, with its path, unit and dimensions, read from the registry of the code.
+:::
+
 :::{grid-item-card} Data sources
 :link: data-sources
 :link-type: doc
@@ -66,6 +73,13 @@ Every process and solver pair, the TOML lines that select it, its executable and
 Every search method with its options and defaults, and every metric with its formula, read from the registries of the code.
 :::
 
+:::{grid-item-card} Glossary
+:link: glossary
+:link-type: doc
+
+The terms used on this site, with a short definition, and the setting in the configuration file when there is one.
+:::
+
 ::::
 
 ```{toctree}
@@ -89,8 +103,10 @@ cli/index
 :hidden:
 :caption: Catalogs
 
+outputs
 data-sources
 figures
 solvers
 calibration-methods
+glossary
 ```

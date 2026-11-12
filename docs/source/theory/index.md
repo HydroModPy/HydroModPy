@@ -21,14 +21,14 @@ that set its terms; the steps of a run are in the
 {doc}`solvers` gathers the links package by package. Every citation is listed in
 the {doc}`bibliography`.
 
-## Same subject, four doors
+## Same subject, four places
 
 Take the soil reservoir. Each door says something different about it.
 
-| Door | What it says | Example |
+| Place | What it says | Example |
 |---|---|---|
-| {doc}`Understand <../understand/what-it-computes>` | What it means, in plain words | Part of the rain never reaches the water table: the soil keeps it and plants take it back. |
-| {doc}`Get started <../get-started/staircase/step6>` | How to do it | Switch the soil reservoir on, in step 6 of example 04. |
+| {doc}`User guide, the overview <../understand/what-it-computes>` | What it means, in plain words | Part of the rain never reaches the water table: the soil keeps it and plants take it back. |
+| {doc}`User guide, the staircase <../get-started/staircase/step6>` | How to do it | Switch the soil reservoir on, in step 6 of example 04. |
 | {toml}`Reference\|flow.sinks_sources.recharge.soil` | Every key, generated | `ru`: capacity of the store, in mm, default and range. |
 | {doc}`Theory <soil-reservoir>` | What HydroModPy computes, with its assumptions | $S_t = W_t - \mathrm{ETR}_t - X_t$, where $X_t$ is the water above $\mathrm{RU}$. |
 

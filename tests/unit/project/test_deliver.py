@@ -119,7 +119,7 @@ def _make_run(
                     file=name,
                     producer=EXPORT_PRODUCER,
                     options=_options(request),
-                    hydromodpy_version="2.1.0",
+                    hydromodpy_version="3.0.0",
                     at=NOW,
                     sha256=hashlib.sha256(payload).hexdigest(),
                 )

@@ -17,7 +17,7 @@ Gives
 Step 1 cuts the catchment out of a regional DEM upslope of an outlet point, gives the
 aquifer one K and one recharge rate, and lets any cell drain at the ground surface: the
 excess water leaves as seepage. It inherits nothing, so this page shows the whole file. The
-aquifer is 30 m thick instead of the 50 m default.
+aquifer is 30 m thick instead of the default {default}`domain.depth_model.thickness`.
 
 ```{image} /_static/figures/staircase/step1/watertable_depth_map.webp
 :alt: Depth to the water table over the Nançon catchment, from 0 to 30 m. Shallow in the valleys, deep on the ridges.

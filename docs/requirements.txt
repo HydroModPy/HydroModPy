@@ -3,8 +3,6 @@ pydata-sphinx-theme==0.23.0
 myst-parser==5.1.0
 sphinx-copybutton==0.5.2
 sphinx-design==0.7.0
-sphinx-polyversion>=1.0
-sphinxcontrib-plantuml
 sphinxcontrib-bibtex
 sphinx-favicon==1.1.0
 sphinx-sitemap
@@ -12,8 +10,6 @@ sphinx-last-updated-by-git
 sphinxext-opengraph
 sphinxext-rediraffe
 pagefind[bin]==1.5.2
-sphinx-lint
-doc8
 
 numpy>=2.4.4,<3
 pandas>=2.3.3,<3

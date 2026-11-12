@@ -65,62 +65,69 @@ The foundations
 
       How an interrupted run restarts from the artifacts on disk.
 
-Subsystems
-----------
+Engine notes
+------------
+
+What a developer of an engine needs and cannot read at a glance in the code.
 
 .. grid:: 1 2 3 3
    :gutter: 2 2 3 3
 
-   .. grid-item-card:: Simulation
+   .. grid-item-card:: Mesh engines
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: simulation/toml-to-solver-walkthrough
+      :link: engines/mesh-engines
       :link-type: doc
 
-      From TOML to solver outputs. The comparison of sealed runs follows.
+      The mesh engines behind one port and the cell mesh every solver reads.
+
+   .. grid-item-card:: Mesh pivot
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: engines/mesh-pivot
+      :link-type: doc
+
+      The HydroMesh pivot and who reads it.
 
    .. grid-item-card:: Solver backends
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: solver/backends
+      :link: engines/backends
       :link-type: doc
 
-      MODFLOW 6, MODFLOW-NWT and Boussinesq, and the contracts of the MODFLOW family. The
-      Boussinesq diagrams follow.
+      MODFLOW 6, MODFLOW-NWT and Boussinesq, and the contracts of the MODFLOW family.
 
-   .. grid-item-card:: Mesh
+   .. grid-item-card:: Boussinesq engines
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: mesh/index
+      :link: engines/boussinesq-engines
       :link-type: doc
 
-      The four mesh engines behind one port, the cell mesh every solver reads, and the
-      HydroMesh pivot.
+      The engines step by step, the experimental closures and the diagnostics of a run.
 
-   .. grid-item-card:: Calibration
+   .. grid-item-card:: From TOML to solver outputs
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: calibration/index
+      :link: engines/toml-to-solver
       :link-type: doc
 
-      The loop of a session and its classes, and the operational guide for adding methods.
+      The path of a run with the objects named. The comparison of sealed runs follows.
 
-   .. grid-item-card:: Data loading
+   .. grid-item-card:: Calibration internals
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: data_loading/index
+      :link: engines/calibration-internals
       :link-type: doc
 
-      Planning and loading of input data, and the external provider constraints.
+      The loop of a session and its classes.
 
-   .. grid-item-card:: Spatial support and field
+   .. grid-item-card:: Processes and boundaries
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: spatial_support/index
-      :link-type: doc
-
-      Supports, zones, the field layer, hydrography, and the simulated active network.
-
-   .. grid-item-card:: Processes
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: process/process-architecture
+      :link: engines/processes-and-boundaries
       :link-type: doc
 
       The runtime objects ``Flow`` and ``Transport``, and the flow boundary conditions.
+
+   .. grid-item-card:: Stream network and spatial support
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: engines/stream-network-support
+      :link-type: doc
+
+      Supports, zones, hydrography, and the simulated active network.
 
 .. toctree::
    :hidden:
@@ -140,17 +147,13 @@ Subsystems
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Subsystems
+   :caption: Engine notes
 
-   simulation/toml-to-solver-walkthrough
-   simulation/comparison-workflow
-   solver/backends
-   solver/boussinesq-engines
-   solver/boussinesq-uml-diagrams
-   mesh/index
-   calibration/index
-   data_loading/index
-   spatial_support/index
-   field/index
-   process/process-architecture
-   process/flow-boundary-conditions
+   engines/mesh-engines
+   engines/mesh-pivot
+   engines/backends
+   engines/boussinesq-engines
+   engines/toml-to-solver
+   engines/calibration-internals
+   engines/processes-and-boundaries
+   engines/stream-network-support

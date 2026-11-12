@@ -16,4 +16,4 @@ Four engines ship as dotted paths in `_BUILTIN_PATHS` of `registry.py`: `regular
 
 ## Where the rest is told
 
-The page of the package in the developer docs gives the steps of a mesh, the two mesh objects and the rules between the folders. The developer pages of `docs/source/contribute/architecture/mesh/` cover the engines, and `docs/source/theory/mesh.md` explains the choice of an engine and of the cell size.
+The page of the package in the developer docs gives the steps of a mesh, the two mesh objects and the rules between the folders. The developer pages of `docs/source/contribute/architecture/engines/` cover the engines, and `docs/source/theory/mesh.md` explains the choice of an engine and of the cell size.

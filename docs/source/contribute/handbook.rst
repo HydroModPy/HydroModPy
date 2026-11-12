@@ -137,8 +137,7 @@ The three a contributor needs every day:
        ``coverage``, ``hypothesis``, ``pyinstrument``, ``pyyaml`` and
        ``jsonschema``.
    * - ``[docs]``
-     - Sphinx, the PyData theme, MyST and every extension this site uses,
-       plus ``doc8`` and ``sphinx-lint``. The PlantUML jar is not part of it
+     - Sphinx, the PyData theme, MyST and every extension this site uses
        (see :doc:`documentation/how-the-docs-are-built`).
 
 Every extra, including ``calibration``, ``mesh``, ``duckdb``, ``mf6api``,
@@ -178,8 +177,9 @@ Coding style
   :doc:`docstring-policy`.
 - Add a comment only when the reason is not obvious from the code.
 - File names are ``snake_case``, class names ``CamelCase``. Common suffixes:
-  ``Config``, ``Adapter``, ``Manager``, ``Builder``, ``Resolver``,
-  ``Optimizer``, ``Provider``, ``Backend``.
+  ``Config``, ``Adapter``, ``Builder``, ``Resolver``,
+  ``Optimizer``, ``Backend``. A module name never holds manager, handler,
+  provider, service or helper.
 - Reuse the helpers of ``hydromodpy/core/io/`` instead of repeating raster,
   folder or path logic.
 - The import layers are a contract: see :doc:`architecture/layered-architecture`.
@@ -194,8 +194,7 @@ the staged files they run:
 - ``trailing-whitespace``, ``end-of-file-fixer``, ``check-yaml``,
   ``check-toml`` and ``check-added-large-files`` (1 MB);
 - ``gitleaks``, which scans the staged diff for secrets with the engine of
-  the CI job;
-- ``doc8`` on ``docs/source/**/*.rst``, with a line limit of 130 characters.
+  the CI job.
 
 If a hook changes a file or refuses a commit, fix the file, stage it again and
 commit again.

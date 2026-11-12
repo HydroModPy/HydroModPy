@@ -2,7 +2,7 @@
 
 This site is built from the code as much as the code allows. A parameter, a
 command, a solver, a figure and a test list are written by the build from the
-repository. What you write by hand are Get started, Understand, the theory
+repository. What you write by hand are the user guide, the theory
 pages and the contributor pages.
 
 ## Three rules

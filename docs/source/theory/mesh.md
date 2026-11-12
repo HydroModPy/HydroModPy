@@ -5,7 +5,7 @@ This page explains how the code builds these cells from the DEM and how it check
 
 :::{note}
 MODFLOW 6 reads every grid as a DISV grid, and this page follows it. MODFLOW-NWT and
-Boussinesq read one engine each ({doc}`../contribute/architecture/mesh/mesh-engines`), and
+Boussinesq read one engine each ({doc}`../contribute/architecture/engines/mesh-engines`), and
 Boussinesq ignores the top sampling of {ref}`mesh-top`. The use of the cells by the solvers is
 on {doc}`solvers`, the XT3D terms on {doc}`solvers/xt3d-on-irregular-disv-meshes` and the keys
 on {doc}`../reference/parameters/mesh`.
@@ -243,7 +243,7 @@ chain crosses it through a barrier face. Every face is the perpendicular bisecto
 generators, so $\varphi_{nm} = 0$ where both cells kept their generator as center. As a check,
 36 generators on a $6 \times 6$ lattice, the 16 inner ones moved at random, give 36 cells at
 $0^\circ$ on every connection. The construction and its gates are on
-{doc}`../contribute/architecture/mesh/voronoi-engine`.
+{doc}`../contribute/architecture/engines/mesh-engines`.
 
 (mesh-angle)=
 ## 5. Flow between two cells, and the angle
@@ -688,4 +688,4 @@ hydromodpy.solver.modflow6.builders.solver_options
 - {doc}`solvers/xt3d-on-irregular-disv-meshes`: the XT3D terms and their trigger.
 - {doc}`groundwater-flow`: the equation the cells discretize.
 - {doc}`../reference/parameters/mesh`: the mesh section as a reference page.
-- {doc}`../contribute/architecture/mesh/mesh-engines`: the port, the planner and the four engines.
+- {doc}`../contribute/architecture/engines/mesh-engines`: the port, the planner and the four engines.

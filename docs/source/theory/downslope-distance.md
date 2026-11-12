@@ -520,7 +520,8 @@ What the code does not represent:
   over example 04 no longer falls under 0.3 mm/day after it ({doc}`soil-reservoir`).
 - **The visible flow.** In one state the simulated network is the closure of the
   sources, whatever it carries. A visible flow exists in a transient run only, in
-  the two-bound mode and in the persistence figures, which apply 1 L/s by default,
+  the two-bound mode and in the persistence figures, which apply
+  {toml}`calibration.outputs.<name>.model.extent.visible_flow` ({doc}`../understand/stream-network`),
   so such a figure and a one-state score do not read the same network.
 - **The two-bound mode is outside the protocol.** The protocol scores its network
   output at its steady stage, and an extent table is refused on a steady search. Its

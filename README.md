@@ -109,8 +109,7 @@ Full documentation lives at
 
 | Section | What it covers |
 |---------|----------------|
-| [Understand](https://docs.hydromodpy.fr/main/understand/index.html) | What the model computes and how to read its maps, in plain words. |
-| [Get started](https://docs.hydromodpy.fr/main/get-started/index.html) | Install, then example 04 file by file. |
+| [User guide](https://docs.hydromodpy.fr/main/user-guide/index.html) | Install, then example 04 file by file. One page per task. How to read the maps and how far to trust them. |
 | [Reference](https://docs.hydromodpy.fr/main/reference/index.html) | Every TOML parameter, every `hmp` command and the Python API, generated from the code. |
 | [Theory](https://docs.hydromodpy.fr/main/theory/index.html) | The equations, their assumptions and limits, and the validation against references. |
 | [Contribute](https://docs.hydromodpy.fr/main/contribute/index.html) | Contributor handbook, layer matrix, storage layout, one page per package with its modules. |

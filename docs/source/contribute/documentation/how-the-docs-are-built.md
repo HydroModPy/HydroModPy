@@ -9,7 +9,7 @@ those data files.
 
 | Part of the site | Source of truth | Written by |
 |---|---|---|
-| Theory, Understand, Get started, About, Contribute | `docs/source/**/*.md` and `*.rst` | a person |
+| User guide, Theory, About, Contribute | `docs/source/**/*.md` and `*.rst` | a person |
 | Parameter reference (`reference/parameters/`) | the Pydantic models under `HydroModPyConfig` | `tools/docs/field_registry.py`, then `_ext/hmp_params.py` and `_ext/hmp_tview.py` |
 | Python API and command line (`reference/python/`, `reference/cli/`) | `hydromodpy.__all__`, the signatures, the docstrings and the `argparse` parser | `tools/docs/api_registry.py`, then `_ext/hmp_api.py` |
 | Catalogs of solvers, figures and data sources | the registries of the code | `tools/docs/catalogs.py`, then `_ext/hmp_catalogs.py` |
@@ -101,13 +101,9 @@ markers, a role that was not resolved).
 
 ## Diagrams
 
-The architecture pages draw their diagrams with PlantUML (`.. uml::`). The build
-renders them only when it finds a PlantUML command: the `PLANTUML_COMMAND`
-environment variable, the jar installed by `python tools/setup_plantuml.py`
-(it needs Java), or a `plantuml` on the path. Without one, each diagram is a
-banner that names the file, and the build still passes. The deploy workflow
-installs the `plantuml` package. The pull-request build (`docs.yml`) does not, so
-there the diagrams are banners.
+A page draws a diagram with `.. graphviz::` and plain `dot`, which `sphinx.ext.graphviz`
+renders with the `dot` command of Graphviz. Keep a diagram only when it shows an order or a
+flow that the text does not give.
 
 ## Preview
 
@@ -115,8 +111,7 @@ there the diagrams are banners.
 make -C docs livehtml
 ```
 
-serves the site with `sphinx-autobuild` and reloads on save. The `lint` target
-runs `sphinx-lint` and `doc8` on the sources.
+serves the site with `sphinx-autobuild` and reloads on save.
 
 ## What CI does with it
 

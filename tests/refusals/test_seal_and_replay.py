@@ -379,7 +379,7 @@ def _make_replay(run_dir: Path, *, basis: str, class_: str | None) -> None:
     replay: dict[str, Any] = {
         "of": SOURCE_SIM_ID,
         "source": "copy" if basis == "none" else "run",
-        "source_version": "2.1.0",
+        "source_version": "3.0.0",
         "basis": basis,
     }
     if class_ is not None:

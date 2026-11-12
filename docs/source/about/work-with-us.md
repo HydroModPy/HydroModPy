@@ -29,7 +29,7 @@ contacts above, who say whether and how the team can take it on. To help them an
 
 Observed data such as a gauged discharge or a mapped stream network are used to compare the
 model with the field and to calibrate it. They are not inputs of the model. The
-{doc}`Understand </understand/index>` pages explain what a result shows and what it does not.
+{doc}`user guide </user-guide/index>` explains what a result shows and what it does not.
 
 ## Add your work to this site
 

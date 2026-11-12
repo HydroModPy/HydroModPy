@@ -135,7 +135,7 @@ def no_recharge_reason() -> str:
     """Say why the recharge a seepage threshold is a fraction of cannot be read."""
     return (
         "This run kept no criterion mean recharge, so a seepage threshold cannot be read "
-        "on it. Replay it with hmp replay, or set tau_specific_ratio = 0."
+        "on it. Replay it with hmp replay, or set seepage_threshold = 0."
     )
 
 

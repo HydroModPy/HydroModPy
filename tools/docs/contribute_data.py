@@ -47,7 +47,7 @@ WORKFLOWS_DIR = Path(".github/workflows")
 
 ENV_NAME = re.compile(r"HMP_[A-Z][A-Z0-9_]*")
 ENV_PY_ROOTS = ("hydromodpy", "tools", "tests", "validation_cases", "validity_frame")
-ENV_PY_FILES = ("docs/source/conf.py", "poly.py")
+ENV_PY_FILES = ("docs/source/conf.py",)
 ENV_PY_DIRS = ("docs/source/_ext",)
 ENV_TEXT_GLOBS = (".github/workflows/*.yml", "docs/Makefile", "Dockerfile")
 ENV_SCAN_EXCLUDED = (

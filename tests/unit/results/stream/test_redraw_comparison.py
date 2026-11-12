@@ -454,7 +454,7 @@ def test_no_recharge_refusal() -> None:
     assert reason == no_recharge_reason()
     assert reason == (
         "This run kept no criterion mean recharge, so a seepage threshold cannot be read on it. "
-        "Replay it with hmp replay, or set tau_specific_ratio = 0."
+        "Replay it with hmp replay, or set seepage_threshold = 0."
     )
     with pytest.raises(ValueError, match="kept no criterion mean recharge"):
         network_comparison_from_run(run, tau_specific_ratio=1e-4)

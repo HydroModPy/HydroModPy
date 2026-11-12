@@ -179,3 +179,26 @@ def test_french_is_read_without_the_code_and_the_names_of_places() -> None:
     assert check_page.looks_french("An accent in café is enough.")
     assert not check_page.looks_french("The model reads `le la des` from a table.")
     assert not check_page.looks_french("The Nançon basin is small.")
+
+
+def test_a_cited_path_must_exist_and_a_placeholder_is_skipped(page_env: Path) -> None:
+    root = page_env.parents[1]
+    (root / "hydromodpy").mkdir()
+    (root / "hydromodpy" / "real.py").write_text("")
+    page = page_env / "guides" / "paths.md"
+    page.write_text(
+        "# Paths\n\nSee `hydromodpy/real.py`, `hydromodpy/real.py:12` and `hydromodpy/<pkg>/a.py`,\n"
+        "also `tests/*.py`, `tools/{a,b}`, `docs/...` and `tools/gone.py` or `other/gone.py`.\n\n"
+        "```text\nhydromodpy/inside_a_block.py\n```\n"
+    )
+    problems = run_check(page)
+    assert len(problems) == 1
+    assert "guides/paths.md:4" in problems[0]
+    assert problems[0].endswith("tools/gone.py")
+
+
+def test_the_history_page_may_cite_a_gone_path(page_env: Path) -> None:
+    (page_env / "about").mkdir()
+    page = page_env / "about" / "changes-during-the-alphas.md"
+    page.write_text("# History\n\nThe file `hydromodpy/gone.py` was removed.\n")
+    assert run_check(page) == []

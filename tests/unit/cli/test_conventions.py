@@ -183,8 +183,8 @@ def test_refused_group_choice(typed, named) -> None:
 
 def test_refused_group_unknown_word() -> None:
     forms = [
-        conventions.OldCliForm("hmp gone a", "hmp new a", "2.1.0", refused=True),
-        conventions.OldCliForm("hmp gone b", "hmp new b", "2.1.0", refused=True),
+        conventions.OldCliForm("hmp gone a", "hmp new a", "3.0.0", refused=True),
+        conventions.OldCliForm("hmp gone b", "hmp new b", "3.0.0", refused=True),
     ]
     refused = conventions.RefusedVerb(forms[0], prog="hmp gone")
     refused.forms.append(forms[1])

@@ -193,56 +193,56 @@ RENAMES = read(
 document = "config"
 old = "calibration.seed_before"
 new = "calibration.seed"
-since = "2.1.0"
+since = "3.0.0"
 
 [[migration]]
 document = "config"
 old = "calibration.phases[*].description_before"
 new = "calibration.phases[*].description"
-since = "2.1.0"
+since = "3.0.0"
 
 [[migration]]
 document = "config"
 old = "calibration.protocol.steady_window_before"
 new = "calibration.protocol.steady_window"
-since = "2.1.0"
+since = "3.0.0"
 
 [[migration]]
 document = "config"
 old = "calibration.parameters.{*}.bounds_before"
 new = "calibration.parameters.{*}.bounds"
-since = "2.1.0"
+since = "3.0.0"
 
 [[migration]]
 document = "config"
 old = "mesh.size_before"
 new = "mesh.cell_size"
-since = "2.1.0"
+since = "3.0.0"
 
 [[migration]]
 document = "config"
 old = "display.overrides.{*}.shade_before"
 new = "display.overrides.{*}.cmap"
-since = "2.1.0"
+since = "3.0.0"
 
 [[migration]]
 document = "config"
 old = "solver.fill_before"
 new = "flow.fill_after"
-since = "2.1.0"
+since = "3.0.0"
 
 [[migration]]
 document = "config"
 old = "geographic.outlet_before"
 new = "site.outlet_after"
-since = "2.1.0"
+since = "3.0.0"
 
 [[migration]]
 document = "config"
 old = "mesh.dropped"
 instead = "Write nothing, the key was never read"
 sealed = "drop"
-since = "2.1.0"
+since = "3.0.0"
 
 [[migration]]
 document = "config"
@@ -254,7 +254,7 @@ since = "1.0.0"
 STUCK = read(
     HEAD
     + '[[migration]]\ndocument = "config"\nold = "mesh.stuck_before"\n'
-    + 'new = "mesh.stuck_after"\nrule = "stuck"\nsince = "2.1.0"\n'
+    + 'new = "mesh.stuck_after"\nrule = "stuck"\nsince = "3.0.0"\n'
 )
 
 # One row per kind of rename, each new to the schema, as a lot of renames will add.
@@ -272,24 +272,24 @@ CELL, OPTION, FILL, OUTLET = (
 # a value renamed, a move past its delay and two keys that left.
 SHAPES_REGISTER = read(
     HEAD
-    + '[[migration]]\ndocument = "config"\nold = "old_table"\nnew = "new.table"\nsince = "2.1.0"\n'
+    + '[[migration]]\ndocument = "config"\nold = "old_table"\nnew = "new.table"\nsince = "3.0.0"\n'
     + '[[migration]]\ndocument = "config"\nold = "items[*].type"\nnew = "items[*].kind"\n'
-    + 'since = "2.1.0"\n'
+    + 'since = "3.0.0"\n'
     + '[[migration]]\ndocument = "config"\nkey = "section.kind"\nold_value = "a"\n'
-    + 'new_value = "b"\nsince = "2.1.0"\n'
+    + 'new_value = "b"\nsince = "3.0.0"\n'
     + '[[migration]]\ndocument = "config"\nold = "late_table"\nnew = "late.table"\nsince = "1.0.0"\n'
     + '[[migration]]\ndocument = "config"\nold = "section.gone"\n'
-    + 'instead = "Nothing replaces it."\nsealed = "drop"\nsince = "2.1.0"\n'
+    + 'instead = "Nothing replaces it."\nsealed = "drop"\nsince = "3.0.0"\n'
     + '[[migration]]\ndocument = "config"\nold = "section.left"\n'
-    + 'instead = "Write section.right instead."\nsince = "2.1.0"\n'
+    + 'instead = "Write section.right instead."\nsince = "3.0.0"\n'
 )
 
-# Register of the editions: two defaults that moved in edition 2.1.
+# Register of the editions: two defaults that moved in edition 3.0.
 EDITIONS = read(
     HEAD
-    + '[[default]]\nid = "d"\nsince = "2.1.0"\nedition = "2.1"\nkey = "solver.x"\nold = 0.5\n'
+    + '[[default]]\nid = "d"\nsince = "3.0.0"\nedition = "3.0"\nkey = "solver.x"\nold = 0.5\n'
     + 'new = 0.45\nquantities = ["metrics"]\ntext = "t"\n'
-    + '[[default]]\nid = "e"\nsince = "2.1.0"\nedition = "2.1"\nkey = "flow.bc.{*}.y"\n'
+    + '[[default]]\nid = "e"\nsince = "3.0.0"\nedition = "3.0"\nkey = "flow.bc.{*}.y"\n'
     + 'old = 1\nnew = 2\nquantities = ["metrics"]\ntext = "t"\n'
 )
 
@@ -549,7 +549,7 @@ def test_dropped_key() -> None:
     migrate_sealed_config_doc(doc, register=RENAMES)
 
     assert doc == {"mesh": {}}
-    with pytest.raises(ConfigValidationError, match=r"mesh\.dropped left: it left in 2\.1\.0"):
+    with pytest.raises(ConfigValidationError, match=r"mesh\.dropped left: it left in 3\.0\.0"):
         migrate_config_doc_on_load({"mesh": {"dropped": 7}}, source="a.toml", register=RENAMES)
 
 
@@ -772,7 +772,7 @@ APPLIED = [
         [],
         id="an older edition, the key written",
     ),
-    pytest.param({}, "2.1", {}, [], id="the edition of the default"),
+    pytest.param({}, "3.0", {}, [], id="the edition of the default"),
 ]
 
 
@@ -786,19 +786,19 @@ def test_file_keeps_edition_defaults(
 
 def test_merged_and_sealed_editions() -> None:
     merged: dict = {}
-    sealed: dict = {"edition": "2.1"}
+    sealed: dict = {"edition": "3.0"}
 
     migrate_merged_doc(merged, register=EDITIONS)
     migrate_sealed_config_doc(sealed, register=EDITIONS)
 
     assert merged == {"solver": {"x": 0.5}}
-    assert sealed == {"edition": "2.1"}
+    assert sealed == {"edition": "3.0"}
 
 
 def test_unknown_edition_refused() -> None:
     doc: dict = {"edition": "9.9"}
 
-    with pytest.raises(ConfigValidationError, match="serves 2.0, 2.1") as refused:
+    with pytest.raises(ConfigValidationError, match="serves 2.0, 3.0") as refused:
         apply_edition(doc, edition="9.9", register=EDITIONS)
 
     assert doc == {"edition": "9.9"}

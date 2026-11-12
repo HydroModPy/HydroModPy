@@ -12,7 +12,7 @@ edges, are in :doc:`generated/layers`.
 Ports and adapters at the storage edge
 --------------------------------------
 
-The V1 storage contract is DuckDB-first, not backend-agnostic in every runtime
+The storage contract is DuckDB-first, not backend-agnostic in every runtime
 path. The project catalog uses
 ``DuckDBBackend`` (``hydromodpy/results/catalog/adapters/duckdb.py``), its one backend. The data cache uses a separate DuckDB cache adapter.
 CLI diagnostics, migration runners and portable-package snapshots may open DuckDB
@@ -29,8 +29,8 @@ The rules
 ``Architecture / layers, surface and two threads``.
 
 1. One layer per top-level subpackage, and one row per package in the matrix.
-2. An import is an edge, and the edge must be in the matrix or in its list of
-   tolerances, each with a reason. The scanner counts every import: at module level, inside a function, under ``TYPE_CHECKING``,
+2. An import is an edge, and the edge must be in the matrix. The target has no
+   tolerance and no exempt file. The scanner counts every import: at module level, inside a function, under ``TYPE_CHECKING``,
    ``import_module`` on a literal, and a dotted path written in a lazy-import
    table.
 3. ``core`` is the kernel leaf. It imports no sibling layer.
@@ -79,8 +79,8 @@ When a refactor needs a new edge
 
 1. Look for an intermediary layer that already carries the dependency.
 2. If none fits, propose the change in an issue before touching code.
-3. Change the YAML and the prose together, and say why in the tolerance entry.
-4. Never add a tolerance silently.
+3. Change the YAML and the prose together, and say why in the pull request.
+4. Never add an edge silently.
 
 See also
 --------

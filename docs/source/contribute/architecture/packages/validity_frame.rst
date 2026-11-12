@@ -9,7 +9,7 @@ import it, and CI installs it (``pip install -e validity_frame``) for the tests 
 Status
 ------
 
-It is outside the stable V1 public API and has no compatibility guarantee. It depends on no
+It is outside the stable public API and has no compatibility guarantee. It depends on no
 other framework and expects compatible objects through duck-typing. It must stay isolated from
 the modeling layers, and it is not a layer of ``layer_matrix.yaml``.
 
@@ -30,14 +30,6 @@ Paths are relative to ``validity_frame/src/validity_frame/``.
 - ``semantic_model/``: the knowledge model of a run: ``ContextModel``, ``ValidityDomain``,
   ``ExpertAnnotation``, ``ExecutionKnowledgeRecord``, ``ValidationStore`` and the loader
   ``load_semantic_model``.
-
-Capture sequence
-----------------
-
-The envelope around a run: a snapshot before, the run, then a snapshot of the end state or
-of the exception.
-
-.. uml:: ../process/diagrams/validity_frame_runtime_sequence.puml
 
 See also
 --------

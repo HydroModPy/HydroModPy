@@ -394,11 +394,9 @@ for each. A threshold is a bound a test accepts, not a measured error, so it ran
 
 ## The Boussinesq solver
 
-The in-house solver writes one residual per triangle of the `triangle` engine. It solves each stress
-period in {toml}`simulation.time.substeps_per_period` backward Euler steps.
-{toml}`solver.boussinesq.backend` picks the nonlinear solver, `auto` by default: the dense `local`
-engine up to 400 cells and the sparse `scipy_sparse` above; a dense engine asked by name
-stops on a larger mesh. {toml}`solver.boussinesq.surface_interaction_model` picks the closure for the
+The in-house solver writes one residual per triangle of the `triangle` engine. Its time steps and
+the choice of its engine ({toml}`solver.boussinesq.backend`) are on {doc}`boussinesq`.
+{toml}`solver.boussinesq.surface_interaction_model` picks the closure for the
 water that reaches the surface. It builds recharge, wells, the side, stream and ocean
 imposed heads, and top drainage, and refuses the rest. Its flux between two cells uses the
 two cell centers only: on triangles far from equilateral it is not consistent, and the
@@ -521,8 +519,8 @@ warning instead of a refusal. The refusals are these.
 
 - **Mesh.** MODFLOW 6 reads every engine, MODFLOW-NWT the `regular` engine and Boussinesq the
   `triangle` engine. A file that pairs a solver with another engine is refused when it is read:
-  the message starts `solver 'modflow_nwt' reads the meshes of the engines`. A dense Boussinesq
-  runtime asked by name stops on a mesh of more than 400 cells.
+  the message starts `solver 'modflow_nwt' reads the meshes of the engines`. The size limit of the
+  dense Boussinesq engines is on {doc}`boussinesq`.
 - **Boundaries.** Lakes, reservoirs, SFR and barriers need MODFLOW 6. The `stream` boundary
   needs MODFLOW 6 or Boussinesq. With {toml}`solver.backend` at `modflow_nwt`, the file is
   refused when it is read if it declares a stream network, a lake or a `stream` boundary, flow

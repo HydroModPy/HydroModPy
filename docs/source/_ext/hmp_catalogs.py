@@ -448,8 +448,42 @@ class DataSourcesDirective(SphinxDirective):
         return [H.raw("".join(parts))]
 
 
+class OutputsDirective(SphinxDirective):
+    """The field arrays or the time series a run stores, from the results registry."""
+
+    required_arguments = 1
+
+    def run(self):
+        kind = self.arguments[0]
+        if kind not in ("fields", "series"):
+            raise self.error(f"hmp-outputs takes 'fields' or 'series', not {kind!r}")
+        rows = DATA.get("outputs", {}).get(kind)
+        if not rows:
+            return missing("outputs")
+        groups: dict[str, list[dict]] = defaultdict(list)
+        for r in rows:
+            groups[r.get("group", "")].append(r)
+        head = (
+            "<thead><tr><th>Name</th><th>Path in the store</th><th>Unit</th>"
+            "<th>Dimensions</th><th>What it holds</th></tr></thead>"
+        )
+        parts = []
+        for group, items in groups.items():
+            if kind == "fields":
+                parts.append(f"<h3>{esc(group) if group else 'Top level'}</h3>")
+            body = "".join(
+                f"<tr><td><code>{esc(r['name'])}</code></td><td><code>{esc(r['path'])}</code></td>"
+                f"<td><code>{esc(r['unit'])}</code></td><td>{esc(r['dimensions'])}</td>"
+                f"<td>{esc(r['long_name'])}</td></tr>"
+                for r in items
+            )
+            parts.append(f'<table class="api-t">{head}<tbody>{body}</tbody></table>')
+        return [H.raw("".join(parts))]
+
+
 def setup_catalogs(app) -> None:
     app.connect("builder-inited", lambda a: load(Path(a.srcdir)))
     app.add_directive("hmp-solvers", SolversDirective)
     app.add_directive("hmp-figures", FiguresDirective)
     app.add_directive("hmp-data-sources", DataSourcesDirective)
+    app.add_directive("hmp-outputs", OutputsDirective)

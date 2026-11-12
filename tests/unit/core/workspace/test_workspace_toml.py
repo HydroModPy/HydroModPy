@@ -71,8 +71,8 @@ VERSIONS = [
     pytest.param(WORKSPACE_VERSION_MIN, "2.0.0", True, id="current minimum, same version"),
     pytest.param(WORKSPACE_VERSION_MIN, "2.0.0a5", True, id="prerelease of the minimum"),
     pytest.param(WORKSPACE_VERSION_MIN, "2.3.1", True, id="newer install"),
-    pytest.param("2.1.0", "2.1.0rc1", True, id="release candidate opens"),
-    pytest.param("2.1.0", "2.0.9", False, id="install too old"),
+    pytest.param("2.0.1", "2.0.1rc1", True, id="release candidate opens"),
+    pytest.param("2.0.1", "2.0.0", False, id="install too old"),
     pytest.param("3.0.0", "2.9.0", False, id="next major"),
 ]
 

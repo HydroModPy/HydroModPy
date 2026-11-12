@@ -126,14 +126,14 @@ def test_engine_in_provenance_json(library_run) -> None:
     ("image", "expected"),
     [
         ({}, None),
-        ({"tag": "2.1.0"}, {"tag": "2.1.0"}),
+        ({"tag": "3.0.0"}, {"tag": "3.0.0"}),
         (
-            {"tag": "2.1.0", "digest": "sha256:" + "ab" * 32},
-            {"tag": "2.1.0", "digest": "sha256:" + "ab" * 32},
+            {"tag": "3.0.0", "digest": "sha256:" + "ab" * 32},
+            {"tag": "3.0.0", "digest": "sha256:" + "ab" * 32},
         ),
         (
-            {"tag": "2.1.0", "digest": "sha256:typo"},
-            {"tag": "2.1.0", "digest_refused": "sha256:typo"},
+            {"tag": "3.0.0", "digest": "sha256:typo"},
+            {"tag": "3.0.0", "digest_refused": "sha256:typo"},
         ),
     ],
 )

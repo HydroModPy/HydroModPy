@@ -26,7 +26,7 @@ def _normalize_requirement(requirement: str) -> str:
     return requirement.strip().lower().replace("_", "-")
 
 
-def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
+def test_docs_extra_covers_local_sphinx_notebook_build_deps() -> None:
     pyproject = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
     docs_extra = {
         _normalize_requirement(requirement)
@@ -39,8 +39,6 @@ def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
         "myst-parser",
         "sphinx-copybutton",
         "sphinx-design",
-        "sphinx-polyversion",
-        "sphinxcontrib-plantuml",
     }
     docs_requirements = {
         _normalize_requirement(line)
@@ -52,7 +50,7 @@ def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
     missing = expected - docs_extra
 
     assert not missing, (
-        "The docs extra should install the core local Sphinx/PlantUML/notebook "
+        "The docs extra should install the core local Sphinx/notebook "
         f"build dependencies. Missing: {sorted(missing)}"
     )
 

@@ -57,8 +57,6 @@ help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  html       to make standalone HTML files"
 	@echo "  livehtml   to serve HTML with sphinx-autobuild and reload on save"
-	@echo "  polyversion       to build a merged multi-version site (main + dev + archive-v1 + tags)"
-	@echo "  polyversion-local to build only the current working tree under docs/build/html"
 	@echo "  dirhtml    to make HTML files named index.html in directories"
 	@echo "  singlehtml to make a single large HTML file"
 	@echo "  pickle     to make pickle files"
@@ -78,8 +76,14 @@ help:
 	@echo "  linkcheck  to check all external links for integrity"
 	@echo "  doctest    to run all doctests embedded in the documentation (if enabled)"
 
+# The folders below are written by the build and ignored by git (.gitignore).
+# reference/parameters keeps grammar.md and _generated keeps CHANGELOG.md.
 clean:
 	-rm -rf $(BUILDDIR)/*
+	-rm -rf $(SOURCEDIR)/api/generated $(SOURCEDIR)/_data \
+		$(SOURCEDIR)/reference/python $(SOURCEDIR)/reference/cli
+	-find $(SOURCEDIR)/_generated -mindepth 1 ! -name CHANGELOG.md -delete
+	-find $(SOURCEDIR)/reference/parameters -mindepth 1 ! -name grammar.md -delete
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
@@ -100,22 +104,8 @@ html-strict:
 	@echo
 	@echo "Strict build finished (warnings treated as errors)."
 
-lint:
-	@echo "Running sphinx-lint on $(SOURCEDIR)..."
-	@python -m sphinxlint --enable all --max-line-length 100 $(SOURCEDIR) || true
-	@echo "Running doc8 on $(SOURCEDIR)..."
-	@python -m doc8 --max-line-length 100 $(SOURCEDIR) || true
-
 livehtml:
 	sphinx-autobuild -b html --open-browser --watch ../hydromodpy --watch ../examples --watch ../tools $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
-
-polyversion:
-	cd .. && python -m sphinx_polyversion poly.py
-	@echo "Multi-version site at docs/build/html/<branch-or-tag>/index.html"
-
-polyversion-local:
-	cd .. && python -m sphinx_polyversion poly.py -l --sequential
-	@echo "Local mock build at docs/build/html/<current-branch>/index.html"
 
 dirhtml:
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
@@ -223,7 +213,7 @@ doctest:
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
 
-.PHONY: help Makefile clean html html-strict lint livehtml polyversion polyversion-local dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
+.PHONY: help Makefile clean html html-strict livehtml dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).

@@ -19,15 +19,13 @@ each study one project ``<root>/<org>/projects/<project>``. The server creates n
 operator makes them first, for example with ``hmp workspace init`` and ``hmp project new``.
 ``--credentials-dir`` holds one ``<org>.toml`` per organisation and must lie outside the root.
 ``--allow-host`` (repeated) names the hosts a call may fetch from, and
-``--max-download-bytes`` bounds a download and an upload. ``--host`` defaults to ``127.0.0.1``
-and ``--port`` to 8765, where ``0`` takes a free port. ``--warm`` names more documents to check
-before the server answers.
+``--max-download-bytes`` bounds a download and an upload. ``--host``, ``--port`` and ``--warm``
+are described by ``--help``.
 
 The server refuses to start, with exit code 2, when the root does not exist, when the
 credentials folder lies under the root, or when it runs inside the image without
-``HMP_IMAGE_DIGEST``. At start it removes what an earlier upload left in ``<root>/.inbox/``, then
-it checks a full document once, so the first ``check`` of a client is as fast as the next ones.
-It prints ``serving on http://<host>:<port>`` once it is ready.
+``HMP_IMAGE_DIGEST``. At start it removes what an earlier upload left in ``<root>/.inbox/``
+and checks a full document once, so the first ``check`` of a client is fast.
 
 Put a proxy in front
 --------------------
@@ -40,27 +38,14 @@ call, and it refuses a path argument that is absolute or climbs with ``..``.
 Routes
 ------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 40 60
-
-   * - Route
-     - What it does
-   * - ``GET /v1/health``
-     - The version and, inside the image, its tag and digest.
-   * - ``GET /v1/schema/request``
-     - The JSON Schema of a run request, also published as
-       ``_static/hydromodpy-request-schema.json``.
-   * - ``POST /v1/<org>/<verb>``
-     - ``example`` and ``doctor``, the two verbs of a space.
-   * - ``POST /v1/<org>/<project>/<verb>``
-     - Any other verb of the facade. ``check``, ``stop``, ``status``, ``trash``, ``compare``,
-       ``show``, ``export`` and ``publish`` answer in the request with 200. ``run``,
-       ``calibrate``, ``spinup`` and ``replay`` answer 202 with a job.
-   * - ``GET /v1/<org>/<project>/jobs/<job>``
-     - The state of a job of this project.
-   * - ``PUT /v1/<org>/<project>/inputs/<name>``
-     - Upload a file under ``inputs/`` of the project. Answers 201.
+- ``GET /v1/health`` gives the version and, inside the image, its tag and digest.
+- ``GET /v1/schema/request`` gives the JSON Schema of a run request.
+- ``POST /v1/<org>/<verb>`` serves ``example`` and ``doctor``, the two verbs of a space.
+- ``POST /v1/<org>/<project>/<verb>`` serves any other verb of the facade. ``check``,
+  ``stop``, ``status``, ``trash``, ``compare``, ``show``, ``export`` and ``publish`` answer
+  200. ``run``, ``calibrate``, ``spinup`` and ``replay`` answer 202 with a job.
+- ``GET /v1/<org>/<project>/jobs/<job>`` gives the state of a job of this project.
+- ``PUT /v1/<org>/<project>/inputs/<name>`` uploads a file under ``inputs/`` and answers 201.
 
 The body of a verb is a JSON object of its keyword arguments, 16 MiB at most. The server fills
 ``base``, ``workspace``, ``environment`` and ``headless`` itself and refuses them in the body.
@@ -70,25 +55,17 @@ The body of a verb is a JSON object of its keyword arguments, 16 MiB at most. Th
 because its download would not read the allowed hosts.
 
 A refusal is a JSON object with ``code``, ``message`` and, when the library gives them,
-``diagnostics``. The status says the family: 400 for a body that cannot be read or an argument
-the server does not take, 404 for an unknown route, organisation, project or job, 409 for an
-upload under a name that holds other bytes, 413 for a body too long, 422 for a refusal of the
-library with its ``HMPY`` code, and 500 for any other fault.
+``diagnostics``. The status says the family. It is 400 for a body or argument the server does
+not take, 404 for an unknown route, organisation, project or job, 409 for an upload under a
+name that holds other bytes, 413 for a body too long, 422 for a refusal of the library and 500
+for any other fault.
 
 Check and run
 -------------
 
-.. code-block:: console
-
-   $ curl -s -X POST http://127.0.0.1:8765/v1/acme/island/check \
-       -H 'Content-Type: application/json' \
-       -d '{"source": {"geographic": {"source_mode": "synthetic"}}}'
-   $ curl -s -X POST http://127.0.0.1:8765/v1/acme/island/run \
-       -H 'Content-Type: application/json' \
-       -d '{"source": {"schema": "hydromodpy.request.v1", "config": {...}, "name": "baseline"}}'
-   {"job": "4f0c...", "pid": 41207}
-   $ curl -s http://127.0.0.1:8765/v1/acme/island/jobs/4f0c...
-   {"state": "done", "result": {"name": "baseline", "status": "completed", ...}}
+A client posts ``{"source": {...}}`` to ``/v1/<org>/<project>/check`` and a run request to
+``/v1/<org>/<project>/run``. The run answers ``{"job": "4f0c...", "pid": 41207}``, and
+``GET .../jobs/4f0c...`` gives ``{"state": "done", "result": {...}}``.
 
 A run, a calibration, a spin-up and a replay each play in their own process, started by
 ``spawn``. The process takes the run folder and names it, and its ``RunOutcome`` comes back
@@ -100,10 +77,8 @@ restart.
 Upload a file
 -------------
 
-.. code-block:: console
-
-   $ curl -s -X PUT --data-binary @rain.csv http://127.0.0.1:8765/v1/acme/island/inputs/rain.csv
-   {"path": "inputs/5c859d8b_rain.csv", "sha256": "5c859d8b...", "bytes": 25}
+A ``PUT`` of the bytes to ``/v1/<org>/<project>/inputs/rain.csv`` answers
+``{"path": "inputs/5c859d8b_rain.csv", "sha256": "...", "bytes": 25}``.
 
 The file is written through ``<root>/.inbox/`` and renamed under ``inputs/`` as
 ``<sha256[:8]>_<name>``, with the name in lower case and its odd characters turned into ``_``.

@@ -117,12 +117,12 @@ def test_a_removed_name_keeps_its_entry_until_its_delay_ends(
 
 
 def test_an_entry_that_outlives_its_delay_is_named(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(_lazy, "OLD_NAMES", {"gone": OldName("run", "2.0.0")})
-    form = conventions.OldCliForm("hmp old", "hmp new", "2.0.0")
+    monkeypatch.setattr(_lazy, "OLD_NAMES", {"gone": OldName("run", "3.0.0")})
+    form = conventions.OldCliForm("hmp old", "hmp new", "3.0.0")
     monkeypatch.setattr(conventions, "OLD_CLI_FORMS", (form,))
 
-    assert surface.outlived_interface_forms("2.1.9") == ()
-    late = surface.outlived_interface_forms("2.2.0a1")
+    assert surface.outlived_interface_forms("3.1.9") == ()
+    late = surface.outlived_interface_forms("3.2.0a1")
     assert [entry.old for entry in late] == ["gone", "hmp old"]
 
 
@@ -130,18 +130,18 @@ def test_the_delay_of_the_interface_tables_is_the_one_of_the_register(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``schema.changes`` writes the delay once, and the surface gate reads no other."""
-    monkeypatch.setattr(_lazy, "OLD_NAMES", {"gone": OldName("run", "2.0.0")})
+    monkeypatch.setattr(_lazy, "OLD_NAMES", {"gone": OldName("run", "3.0.0")})
     monkeypatch.setattr(
-        conventions, "OLD_CLI_FORMS", (conventions.OldCliForm("hmp old", "hmp new", "2.1.0"),)
+        conventions, "OLD_CLI_FORMS", (conventions.OldCliForm("hmp old", "hmp new", "3.1.0"),)
     )
 
-    assert [entry.old for entry in surface.outlived_interface_forms("2.2.0")] == ["gone"]
-    assert [entry.old for entry in surface.outlived_interface_forms("2.3.0")] == ["gone", "hmp old"]
+    assert [entry.old for entry in surface.outlived_interface_forms("3.2.0")] == ["gone"]
+    assert [entry.old for entry in surface.outlived_interface_forms("3.3.0")] == ["gone", "hmp old"]
 
     monkeypatch.setattr(changes, "DELAY_MINORS", changes.DELAY_MINORS + 1)
 
-    assert surface.outlived_interface_forms("2.2.0") == ()
-    assert [entry.old for entry in surface.outlived_interface_forms("2.3.0")] == ["gone"]
+    assert surface.outlived_interface_forms("3.2.0") == ()
+    assert [entry.old for entry in surface.outlived_interface_forms("3.3.0")] == ["gone"]
 
 
 def test_an_old_form_of_hmp_is_not_surface(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -366,11 +366,11 @@ def test_a_form_the_loader_only_refuses_is_no_migration(
 _RETIRE_ROWS = (
     'schema = "hydromodpy.changes.v1"\n'
     '[[migration]]\ndocument = "config"\nold = "table.left"\n'
-    'instead = "Write table.right."\nsince = "2.1.0"\n'
+    'instead = "Write table.right."\nsince = "3.0.0"\n'
     '[[migration]]\ndocument = "config"\nold = "table.moved_by_a_rule"\n'
-    'instead = "Write table.right."\nsince = "2.1.0"\nrule = "a_rule"\n'
+    'instead = "Write table.right."\nsince = "3.0.0"\nrule = "a_rule"\n'
     '[[migration]]\ndocument = "sidecar"\nold = "sidecar_key"\nnew = "sidecar_new"\n'
-    'since = "2.1.0"\n'
+    'since = "3.0.0"\n'
 )
 
 
@@ -707,7 +707,7 @@ def _instances() -> list[Any]:
         ),
         ExampleEntry("04", "04_x", "Title", "Summary", "1 min", "project.toml", (), ()),
         InstallReport("04", here, here / "04", "bundled"),
-        DoctorReport("3.12", "2.1.0", {"mf6": None}, {"dask": "2024.1"}),
+        DoctorReport("3.12", "2.0.0", {"mf6": None}, {"dask": "2024.1"}),
     ]
 
 

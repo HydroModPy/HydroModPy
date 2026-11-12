@@ -203,7 +203,7 @@ One set of patterns governs the two databases.
   transaction / close``, and the catalog mixins call it. It is the one backend,
   with no Protocol in front of it.
 - **Authentication**:
-  :class:`hydromodpy.cli.auth.AuthBackend` is the one actor of V1, the local
+  :class:`hydromodpy.cli.auth.AuthBackend` is the one actor today, the local
   user. It exposes ``current_user / can_read / can_write`` and allows every
   read and write. Only the command line reads it.
 - **URI-aware paths**: every workspace, cache and state argument is

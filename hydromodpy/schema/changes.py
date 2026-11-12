@@ -207,7 +207,7 @@ def _default_errors(row: dict[str, Any], where: str) -> list[str]:
     errors = _path_errors(row, "key", where)
     edition = row.get("edition")
     if not (isinstance(edition, str) and _EDITION.match(edition)):
-        errors.append(f"{where}: edition must be a minor version such as '2.1', got {edition!r}")
+        errors.append(f"{where}: edition must be a minor version such as '2.0', got {edition!r}")
     elif row.get("since") != f"{edition}.0":
         # A default joins an edition when it comes out. Later, it would change the
         # files already written with that edition.

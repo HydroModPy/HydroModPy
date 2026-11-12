@@ -350,11 +350,9 @@ In the code: `sto_period_settings`.
 (gwf-windows)=
 ### A long run in windows
 
-A long transient run can be cut into windows. {toml}`simulation.time.window_length` gives the
-length of a window as a calendar length, such as `"6 months"`, and {toml}`simulation.time.window`
-plays all the windows one after the other (`"all"`) or only window $k$. Each window is a run of its
-own, sealed with its own `final_state/`, and window $k$ starts from the final state of window
-$k-1$. A window edge must fall on the end of a stress period, because a period cut in two would be
+A long transient run can be cut into windows, and {doc}`../how-to/long-transient-runs-in-windows`
+gives the commands. Each window is a run of its own, sealed with its own `final_state/`, and
+window $k$ starts from the final state of window $k-1$. A window edge must fall on the end of a stress period, because a period cut in two would be
 another problem than the one the run in one piece solves.
 
 ```{hmp-params}
@@ -393,8 +391,7 @@ difference, so it does not come from the text.
 The starting heads of a computed start (`steady_state` and `spinup_cyclic`) are those of the run
 in one piece, and they apply to window 1 only. {toml}`flow.restart_from` is the start of window 1.
 The soil reservoir runs on the whole simulation, and each window takes its own periods of that
-run ({doc}`soil-reservoir`). A transport process and a backend that cannot restart from a state
-refuse a chain, and the file is refused when it is read.
+run ({doc}`soil-reservoir`).
 
 (gwf-start)=
 ## The starting heads

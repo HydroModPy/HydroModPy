@@ -190,7 +190,7 @@ and logs a warning, and `hmp.run(path, force=True)` computes it again.
 
 Edit the file, even one value, and the second run is a new one. It lands next to the first,
 as `runs/nancon_step1_minimal.v2/`, then `.v3`, because {toml}`simulation.if_exists` is
-`"version"` by default. Set it to `"fail"` and the second run stops instead. A name is never
+{default}`simulation.if_exists` by default. Set it to `"fail"` and the second run stops instead. A name is never
 given out again: {doc}`hmp ls <../../reference/cli/ls>` lists the versions,
 {doc}`hmp diff <../../reference/cli/diff>` compares them, {doc}`hmp catalog <../../reference/cli/catalog>` deletes them, and a deleted run goes to the project trash.
 

@@ -1,48 +1,46 @@
 Add a block to the HTML report
 ==============================
 
-Use this recipe to add a block to a report page, or to change which figures a
-preset shows. A report is a static HTML page built from blocks. A block holds
-metrics, tables, pictures, links and prose.
+Use this recipe to add a block to a report page, or to change which figures a preset
+shows. A report is a static HTML page built from blocks. A block holds metrics, tables,
+pictures, links and prose.
 
-The engine lives in ``hydromodpy.display.report``. It has three modules.
+The engine lives in ``hydromodpy.display.report``, in three modules.
 
-- ``engine.py`` holds the frozen dataclasses and ``write_pages``. It writes the
-  HTML shell, the anchors, the level navigation and the per-block level
-  switches. It copies the figures and frames a missing required figure.
+- ``engine.py`` holds the frozen dataclasses and ``write_pages``. It writes the HTML
+  shell, the anchors, the level navigation and the per-block level switches. It copies
+  the figures and frames a missing required figure.
 - ``pages.py`` builds blocks and nothing else (``run_blocks``, ``sheet_blocks``,
   ``overview_blocks``, ``session_blocks``, ``draw_named_figures``).
 - ``presets.py`` holds ``ReportTexts`` and ``PRESETS``.
 
-``hydromodpy/project/report.py`` (``report_run`` and ``report_session``) is the
-one place that assembles the texts and the pages. ``hydromodpy.display`` never
-imports the schema, so the texts reach it as a ``ReportTexts`` value.
+``hydromodpy/project/report.py`` (``report_run`` and ``report_session``) is the one place
+that assembles the texts and the pages. ``display`` never imports the schema, so the
+texts reach it as a ``ReportTexts`` value. The help of ``hmp show --report`` says when a report is produced and how to read it.
 
-Where to document it
---------------------
+Files to edit
+-------------
 
-- The descriptions of the keys and the help of ``hmp show --report`` say when a report
-  is produced, its output paths and how to read it. The reference pages are
-  generated from them. Example: :doc:`/reference/cli/show`.
-- This page is the contributor recipe.
-- :doc:`/contribute/architecture/packages/display` summarizes the ownership.
+A block is a function of a ``Run`` in ``pages.py``. Add it to the list that
+``run_blocks`` returns, or to ``sheet_blocks``, ``overview_blocks`` or ``session_blocks``
+for the other pages. Read the sealed run, never the solver folder. A block holds no
+HTML, only items. A sentence the reader sees comes from ``ReportTexts``, which
+``project/report.py`` fills from the phrase table. Keep the ``id`` stable, because it
+drives the anchors, the table of contents and the local-storage key of the per-block
+level selector.
 
-Audits and working notes stay out of the repository.
+Contract
+--------
 
-The items of a block
---------------------
+A block is a titled group of items, each with the first level that shows it.
+
+.. literalinclude:: /../../hydromodpy/display/report/engine.py
+   :pyobject: Block
+
+The items are ``Metric``, ``Picture``, ``Table``, ``Link`` and ``Prose``, and
+``pairs_table`` builds a two-column table.
 
 .. code-block:: python
-
-   from hydromodpy.display.report.engine import (
-       Block,
-       Link,
-       Metric,
-       Picture,
-       Prose,
-       Table,
-       pairs_table,
-   )
 
    block = Block(
        "run_identity",
@@ -51,109 +49,69 @@ The items of a block
        min_level="compact",
        items=(
            ("compact", Metric("Sites", 6)),
-           ("standard", Metric("Failed runs", 0)),
            ("standard", Picture("catchment_map", "Map", map_path, required=True)),
            ("audit", pairs_table("strategy", "Strategy", (("Profile", "gauged"),))),
            ("audit", Link("manifest", manifest_path, "manifest")),
        ),
    )
 
-The levels are ``compact``, ``standard`` and ``audit``, in that order, and
-``LEVELS`` lists them. Each item carries the first level that shows it, and a
-page at a higher level shows it too. ``min_level`` is the first level that
-shows the block at all. ``compact`` should be enough to decide whether the run
-looks plausible, ``standard`` explains the main interpretation, and ``audit``
-exposes provenance, detailed tables and links.
+The levels are ``compact``, ``standard`` and ``audit``, in that order, and a page at a
+higher level shows the items of the lower ones too. ``compact`` should be enough to
+decide whether the run looks plausible. ``standard`` explains the main interpretation,
+and ``audit`` exposes provenance, detailed tables and links.
 
 ``Picture`` takes a path, or ``None`` when the file does not exist. With
-``required=True`` a missing file is shown as "Required figure missing" and is
-listed under ``missing`` in ``report.json``. With ``required=False`` it just
-does not appear.
-
-Add a block
------------
-
-A block is a function of a ``Run`` in ``pages.py``. Add it to the list that
-``run_blocks`` returns, or to ``sheet_blocks``, ``overview_blocks`` or
-``session_blocks`` for the other pages. Read the sealed run, never the solver
-folder. A block holds no HTML, only items. Text the reader sees in a sentence
-is not written there: it comes from ``ReportTexts``, which ``project/report.py``
-fills from the phrase table.
-
-Keep the ``id`` stable. It drives the anchors, the table of contents and the
-local-storage key of the per-block level selector.
+``required=True`` a missing file shows as "Required figure missing" and is listed under
+``missing`` in ``report.json``. Mark a picture ``required=False`` when the run may not
+be able to draw it, so that it does not look like a failure.
 
 Name a figure in a preset
 -------------------------
 
-``PRESETS`` maps a preset name to a ``Preset``. Its ``figures`` field names the
-run figures by level, and its ``panels`` field names the overview panels that
-fill the context blocks.
+``PRESETS`` maps a preset name to a ``Preset``. Its ``figures`` field names the run
+figures by level, and its ``panels`` field names the overview panels that fill the
+context blocks.
 
-.. code-block:: python
+.. literalinclude:: /../../hydromodpy/display/report/presets.py
+   :pyobject: Preset
 
-   "research": Preset(
-       name="research",
-       levels=True,
-       figures={"compact": ("watershed_id_card",), "standard": ("water_budget",), "audit": ()},
-       panels=("map_dem",),
-   )
+A name must be a registered figure, see :doc:`add-a-figure`. ``run_blocks`` turns each
+name into a required ``Picture`` at its level. ``draw_named_figures`` draws the same
+names after the seal, so a figure named here appears in ``figures/`` of the run and on
+the page. The ``research`` preset writes three levels, and ``management`` writes one
+page with ``levels=False``.
 
-A name must be a registered figure (see :doc:`add-a-figure`). ``run_blocks``
-turns each name into a required ``Picture`` at its level. The same names are
-drawn by ``draw_named_figures`` after the seal, so a figure named here appears
-in ``figures/`` of the run and on the page. The ``research`` preset writes three
-levels. The ``management`` preset writes one page, ``levels=False``.
+Output
+------
 
-Output layout
--------------
+``write_pages`` writes under ``runs/<run>/report/`` for a run and
+``sessions/<s>/report/`` for a session. ``index.html`` is the standard page. With
+``levels=True`` it also writes ``review/compact/``, ``review/standard/``,
+``review/audit/`` and ``review/by_block/``, where each block chooses its own level. The
+management preset writes ``sheet-<lang>/index.html``. ``report.json`` (schema
+``hydromodpy.report.v1``) lists the preset, the language, each figure with its file and
+whether it was required, and ``missing`` and ``copied``. A new render removes only the
+files listed in ``copied``.
 
-``write_pages`` writes under the folder it is given, ``runs/<run>/report/`` for
-a run and ``sessions/<s>/report/`` for a session.
+The report is not in the seal inventory, and ``hmp show RUN --report`` writes it again.
+Keep generated HTML and copied figures out of version control.
 
-- ``index.html`` is the standard page.
-- ``review/compact/``, ``review/standard/``, ``review/audit/`` and
-  ``review/by_block/``, each with an ``index.html``, when ``levels=True``.
-  ``by_block`` lets each block choose its own level.
-- ``sheet-<lang>/index.html`` is the one page of the management preset, in
-  ``en`` or ``fr``.
-- ``figures/`` holds the copied pictures.
-- ``report.json`` (schema ``hydromodpy.report.v1``) lists the preset, the
-  language, the label, the render date and each figure with its title, its file
-  or null, and whether it was required, plus ``missing`` and ``copied``, the
-  files the engine copied under ``figures/``. A new render removes only those.
+A documentation illustration is a reviewed image under ``docs/source/_static/``, and
+the page names the command that produced it.
 
-The generated HTML is not a source of truth. The sealed run and the figure
-code are. The report is not in the seal inventory and can be written again with
-``hmp show RUN --report`` or ``hmp show SESSION --report``.
+Test
+----
 
-Documentation illustrations
----------------------------
+- Engine tests under ``tests/unit/display/report`` for escaping, anchors, missing
+  figures, links, levels and ``report.json``.
+- A test of the new block on a small sealed run, for its ids and its items at each
+  level.
 
-Generate an illustration from a small versioned source. Commit the reviewed
-image under ``docs/source/_static/`` and name in the page the command that
-produced it. Do not make the docs build run a solver, a provider or a long job.
-Avoid an image whose only source is a local browser screenshot.
+Layer boundaries
+----------------
 
-Tests to add
-------------
-
-- Engine tests under ``tests/unit/display/report`` for escaping, anchors,
-  missing figures, links, levels and ``report.json``.
-- A test of the new block on a small sealed run, for its ids and its items at
-  each level.
-
-Pitfalls
---------
-
-- Do not write a large HTML template when a ``Block`` can express the content.
-- Do not put business rules in ``engine.py``. A block reads the run in
-  ``pages.py``.
-- Do not import the schema from ``display``. Pass what is needed through
-  ``ReportTexts`` from ``project/report.py``.
-- Mark an optional picture ``required=False``, so that a figure the run could
-  not draw does not look like a failure.
-- Keep generated HTML and copied figures out of version control.
+Business rules stay out of ``engine.py``. ``display`` reads only ``core`` and ``results``, see
+:doc:`../generated/layers`, so anything from the schema goes through ``ReportTexts``.
 
 See also
 --------

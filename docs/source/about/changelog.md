@@ -10,8 +10,10 @@ fixes.
 The `[Unreleased]` section is the work merged since the last release. It ships with the next
 version.
 
-The long development notes of the alphas and of the release candidate are in
-{doc}`Development notes of 2.0.0 <changes-during-the-alphas>`.
+The long development notes of the alphas and of the release candidate are kept in the
+repository, in
+[changes-during-the-alphas.md](https://github.com/HydroModPy/HydroModPy/blob/main/docs/changes-during-the-alphas.md).
+They are not a page of this site.
 
 The keys added, removed or changed in the TOML file between two versions are listed, from the
 models, in {doc}`What changed in the TOML </reference/changes>`. For what a version number

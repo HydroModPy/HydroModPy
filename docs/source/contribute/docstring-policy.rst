@@ -94,4 +94,4 @@ doctests of the modules that carry examples (``pytest --doctest-modules`` on eve
 ``hydromodpy/`` that ``git grep`` finds with a ``>>>`` line, so no list is kept). ``tests/unit/docs/`` pins other facts of the documentation, such as the fact
 that every ``hmp`` command named in a page exists.
 
-A tutorial does not belong in a docstring. It belongs in Get started or the theory pages.
+A tutorial does not belong in a docstring. It belongs in the user guide or the theory pages.

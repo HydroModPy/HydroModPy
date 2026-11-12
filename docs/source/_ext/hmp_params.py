@@ -1267,6 +1267,25 @@ def toml_role(name, rawtext, text, lineno, inliner, options=None, content=None):
     return [ref], []
 
 
+NO_DEFAULT = (None, "not set", "(computed)")
+
+
+def default_role(name, rawtext, text, lineno, inliner, options=None, content=None):
+    """``{default}`path``: the default of a key, with its unit, read from the registry."""
+    env = inliner.document.settings.env
+    target = text.strip()
+    canon = resolve(target)
+    n = node(canon) if canon else {}
+    value = n.get("default")
+    if canon is None or n.get("kind") != "leaf" or value in NO_DEFAULT:
+        why = "unknown TOML path" if canon is None else "TOML key without default"
+        logger.warning(f"[hmp] {why} {target!r}", location=(env.docname, lineno))
+        return [nodes.literal(rawtext, target, classes=["hmp-broken"])], []
+    unit = shown_unit(n)
+    shown = f"{value} {unit}" if unit else str(value)
+    return [nodes.literal(rawtext, shown)], []
+
+
 # ---------------------------------------------------------------- setup
 
 
@@ -1391,6 +1410,7 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.connect("builder-inited", on_builder_inited)
     app.connect("build-finished", on_build_finished)
     app.add_role("toml", toml_role)
+    app.add_role("default", default_role)
     app.add_directive("hmp-anchor", AnchorDirective)
     app.add_directive("hmp-intro", IntroDirective)
     app.add_directive("hmp-index", IndexDirective)

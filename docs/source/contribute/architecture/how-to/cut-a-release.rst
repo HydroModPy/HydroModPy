@@ -107,9 +107,9 @@ The checklist
     the bug is still there.
 13. **Open the next version on dev.** Before the tag, ``pyproject.toml`` and
     ``_FALLBACK_VERSION`` say the number of the release, here ``2.0.0``. After it, set both on
-    ``dev`` to the next minor version with ``.dev0``, for example ``2.1.0.dev0`` after
-    ``v2.0.0``. A run seals the version it was made with, and a ``[[bug]]`` row covers the
-    released versions, for example ``versions = ">=2.0.0a1,<=2.0.0rc1"``. A
+    ``dev`` to the version that comes next, with ``.dev0``. A run seals the version it
+    was made with, and a ``[[bug]]`` row covers the released versions, for example
+    ``versions = ">=2.0.0a1,<=2.0.0rc1"``. A
     run of ``dev`` that still said ``2.0.0`` would carry for good a bug that ``dev``
     has fixed. ``tests/unit/architecture/test_surfaces.py`` fails when a row
     covers the version of the tree.

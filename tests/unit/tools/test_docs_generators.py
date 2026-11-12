@@ -109,6 +109,17 @@ def test_the_catalogs_read_the_solver_figure_and_source_registries(registry: dic
     assert {"file", "url", "ign_geoplateforme_dem"} <= {s["value"] for s in dem["sources"]}
 
 
+def test_outputs_hold_one_row_per_registry_key_with_a_unit_and_a_path() -> None:
+    from hydromodpy.results.field_registry import FIELD_REGISTRY, TIME_SERIES_REGISTRY
+
+    result = catalogs.outputs()
+    assert [r["name"] for r in result["fields"]] == list(FIELD_REGISTRY)
+    assert [r["name"] for r in result["series"]] == list(TIME_SERIES_REGISTRY)
+    for row in result["fields"] + result["series"]:
+        assert row["unit"], row["name"]
+        assert row["path"], row["name"]
+
+
 def test_k_ss_sy_and_porosity_are_named_nodes_with_unit_and_range(registry: dict) -> None:
     nodes = registry["nodes"]
     for key, unit in (("K", "m/s"), ("Ss", "1/m"), ("Sy", "-"), ("porosity", "-")):

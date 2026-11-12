@@ -20,7 +20,7 @@ from hydromodpy.schema.changes import read
 
 # A row of a later edition, which the register of this version does not hold.
 ROW = (
-    '[[default]]\nid = "trial_series_by_default"\nsince = "2.1.0"\nedition = "2.1"\n'
+    '[[default]]\nid = "trial_series_by_default"\nsince = "3.0.0"\nedition = "3.0"\n'
     'key = "calibration.persist_trial_series"\nold = false\nnew = true\n'
     'quantities = ["metrics"]\ntext = "t"\n'
 )
@@ -51,7 +51,7 @@ def simulation_document() -> dict[str, Any]:
 
 def test_an_unserved_edition_is_refused(tmp_path: Path) -> None:
     with pytest.raises(Exception, match="2.0") as refused:
-        HydroModPyConfig.from_dict(calibration_document(edition="2.1"), base_dir=tmp_path)
+        HydroModPyConfig.from_dict(calibration_document(edition="3.0"), base_dir=tmp_path)
 
     assert "edition" in str(refused.value)
 

@@ -250,7 +250,7 @@ def test_sites_plan_user_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     tomls = {"S1-base": 'user = "a.tif"\n', "S2-base": "user = false\n"}
     plan = Plan(
         plan_hash="a3f9c2e1",
-        hydromodpy_version="2.1.0",
+        hydromodpy_version="3.0.0",
         created_at=datetime(2026, 11, 9, tzinfo=UTC),
         n_cases=2,
     )

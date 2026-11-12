@@ -36,7 +36,7 @@ def _payload(**overrides):
             "case_id": "island",
             "sim_id": "sim",
             "attempt_id": "att",
-            "hydromodpy_version": "2.1.0",
+            "hydromodpy_version": "3.0.0",
             "solution_key": "sha256:solution",
             "request_id": "sha256:request",
             "solver": "modflow6",

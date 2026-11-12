@@ -30,15 +30,17 @@ CANONICAL = re.compile(r'<link rel="canonical" href="([^"]+)"')
 VERSION_MATCH = re.compile(r"theme_switcher_version_match = '([^']+)'")
 # Where a door starts, in the order of the site header.
 DOORS = (
-    ("understand", "Understand"),
-    ("get-started", "Get started"),
+    ("user-guide", "User guide"),
+    ("get-started", "User guide"),
+    ("how-to", "User guide"),
+    ("understand", "User guide"),
     ("reference", "Reference"),
     ("theory", "Theory"),
     ("about", "About"),
     ("contribute", "Contribute"),
 )
 NOT_LISTED = {"genindex.html", "search.html", "reference/parameters/explorer.html"}
-SKIP_DIRS = {"_static", "_sources", "_images", "_downloads", "_plantuml", "pagefind"}
+SKIP_DIRS = {"_static", "_sources", "_images", "_downloads", "pagefind"}
 BLOCKS = {
     "p", "div", "section", "article", "ul", "ol", "dl", "table", "tr", "figure",
     "figcaption", "details", "summary", "blockquote", "dt", "dd", "li", "caption",

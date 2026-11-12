@@ -28,136 +28,56 @@ to an exact tag such as `v1.0.0`.
 ::::::{grid} 1 1 2 2
 :gutter: 3
 
-:::::{grid-item-card} Understand
-:link: understand/index
+:::::{grid-item-card} New here?
+:link: get-started/index
 :link-type: doc
 :class-card: hmp-door
 
-What the maps and numbers of HydroModPy show, how to read them, and what they do not
-say. In plain words, no prerequisites.
+Install, run a first model in under a minute, then climb example 04 in six files, from the
+shortest file that runs to the soil reservoir.
 +++
-Water managers, elected officials, consultancies, the public
+User guide, getting started
 :::::
 
-:::::{grid-item-card} Reference
+:::::{grid-item-card} A task to do, a result to read
+:link: user-guide/index
+:link-type: doc
+:class-card: hmp-door
+
+Calibrate, run many catchments, share a run. Then read each map and each curve, and see how
+far to trust it.
++++
+User guide
+:::::
+
+:::::{grid-item-card} A key, a command, an output
 :link: reference/index
 :link-type: doc
 :class-card: hmp-door
 
-Every TOML parameter, every `hmp` command and the Python API, generated from the code.
+Every TOML parameter, every `hmp` command, the Python API and the outputs of a run, generated
+from the code.
 +++
-Anyone writing a TOML file or a script
+Reference
 :::::
 
-::::::
-
-::::::{grid} 1 1 3 3
-:gutter: 3
-
-:::::{grid-item-card} Get started
-:link: get-started/index
-:link-type: doc
-
-Install, then climb example 04 in six files, from the shortest file that runs to the
-soil reservoir.
-:::::
-
-:::::{grid-item-card} Find a parameter
-:link: reference/parameters/explorer
-:link-type: doc
-
-The whole file as a tree, filterable by key, value or word: *snap*, *conductivity*,
-*recharge*, *voronoi*.
-:::::
-
-:::::{grid-item-card} Theory and validation
+:::::{grid-item-card} The equations and the checks
 :link: theory/index
 :link-type: doc
+:class-card: hmp-door
 
-The equations, in the order the water meets them, and every check of the code
-against a reference.
+The equations, in the order the water meets them, and every check of the code against a
+reference.
++++
+Theory
 :::::
 
 ::::::
 
-## What HydroModPy does
-
-Physically based groundwater models are expensive to deploy at the scale of a
-catchment: data, mesh, parameters, calibration and post-processing rarely follow the
-same path from one site to the next. HydroModPy turns the construction, the run, the
-calibration and the analysis of a shallow groundwater model into one workflow that can
-be replayed on many catchments, with the same inputs and the same outputs.
-
-It automates the steps that take the most time:
-
-1. **Catchment extraction** from a digital elevation model.
-2. **Forcing and observations**: recharge, climate series, groundwater heads, gauged
-   discharge, mapped stream networks and intermittency.
-3. **Mesh and vertical discretization** suited to shallow basement aquifers, with
-   parameters given per zone or per cell, in steady state or in transient.
-4. **Calibration** that combines heads, discharge and the extent of the stream network
-   to constrain the hydraulic properties.
-5. **Outputs that can be reopened**, stored with their provenance and the licence of
-   the data they come from, then drawn as figures or exported to standard formats.
-
-First a FloPy-driven MODFLOW-NWT toolbox, HydroModPy now runs several solvers behind
-one configuration validated by Pydantic, and stores its runs in a columnar layout
-(DuckDB catalog, Zarr fields, Parquet tables) that makes them reproducible and easy to
-inspect.
-
-## Highlights
-
-::::{grid} 1 2 3 3
-:gutter: 3
-
-:::{grid-item-card} Several solvers, one file
-:link: reference/solvers
-:link-type: doc
-
-MODFLOW 6, MODFLOW-NWT and a Boussinesq solver for the flow; MODFLOW 6, MT3DMS and
-MODPATH for solutes and particles.
-:::
-
-:::{grid-item-card} A typed configuration
-:link: reference/parameters/index
-:link-type: doc
-
-One `HydroModPyConfig` root, every key typed and checked by Pydantic. The `hmp`
-command runs the same file without writing any Python.
-:::
-
-:::{grid-item-card} From a DEM to a model
-:link: reference/data-sources
-:link-type: doc
-
-Catchment delineation, forcing, mesh and observations from one configuration, with
-public data downloaded and cached.
-:::
-
-:::{grid-item-card} Calibration
-:link: reference/calibration-methods
-:link-type: doc
-
-Heads, discharge and mapped stream networks combined into calibrations you can replay.
-:::
-
-:::{grid-item-card} Results you can reopen
-:link: reference/cli/catalog
-:link-type: doc
-
-A catalog of runs, Zarr fields and Parquet tables, with exports to standard
-geospatial formats.
-:::
-
-:::{grid-item-card} Checked against references
-:link: theory/validation
-:link-type: doc
-
-Every validation test: the reference it compares with, the solvers it runs and the
-thresholds it must stay under, read from the tests.
-:::
-
-::::
+Looking for one parameter? {doc}`The whole file as a tree <reference/parameters/explorer>`
+filters every key by name, value or word. You read a report made with HydroModPy and you do
+not run it yourself? Start with {doc}`understand/what-it-computes`, then
+{doc}`understand/reading-results`.
 
 ## What's new
 
@@ -203,9 +123,7 @@ For questions or collaboration requests:
 ```{toctree}
 :hidden:
 
-Home <self>
-Understand <understand/index>
-Get started <get-started/index>
+User guide <user-guide/index>
 Reference <reference/index>
 Theory <theory/index>
 Contribute <contribute/index>

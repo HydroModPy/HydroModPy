@@ -80,5 +80,4 @@ operates is included in the package docs:
 	adapter/entry-point resolution, collector start/end, probe collection,
 	and how the runner writes the capture artifacts.
 
-Render the diagram with PlantUML or view the original in the main
-project docs at `docs/source/contribute/architecture/process/diagrams/validity_frame_runtime_sequence.puml`.
+Render the diagram with PlantUML.
