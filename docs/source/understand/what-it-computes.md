@@ -1,14 +1,54 @@
-# What the model computes
+# What HydroModPy does
+
+One map and five sentences first. The rest of the page says what the model computes, from
+what, with which assumptions, and when not to use it. It needs no prerequisite, and every
+technical term links to the {doc}`glossary </reference/glossary>`.
+
+```{figure} /_static/figures/understand/ex04_flow_intermittence_map.webp
+:alt: Map of the Nançon catchment for the year 2002. Perennial streams in blue form a trunk and its main branches. Intermittent streams in orange are at the upstream ends and on side branches. The rest of the catchment is dry, in gray.
+:width: 75%
+
+{bdg-warning}`Indicative` **Look at:** the blue trunk that flows all year and the orange ends that dry up first.
+**Does not show:** which reaches dry up in the field, or any other year.
+
+`flow_intermittence_map`, year 2002, demonstration model of example 04.
+```
+
+1. HydroModPy computes, for a whole catchment and for each month, the level of the
+   {term}`groundwater` under the ground, from the relief, the properties of the rock and the
+   rain that reaches the water table.
+2. Where that level reaches the ground, water comes out: these points are the {term}`springs
+   <spring>` of the model.
+3. The streams are what these springs feed downhill. On the map, a stream is blue when it flows
+   all year, orange when it flows part of the year, and gray when it never flows.
+4. This map is a demonstration, not a study of the catchment: it was not compared with
+   observations of dry reaches, so it is labeled *indicative*. Other results carry the labels
+   *calibrated* or *numerical check*, and the label says how far to trust them
+   ({term}`reliability label`).
+5. Every result depends on assumptions and on data, so read its caption, its label and the
+   limits before you decide anything with it.
+
+## What it automates
+
+One TOML file drives these steps, the same way on every catchment:
+
+1. Catchment extraction from a digital elevation model.
+2. Forcing and observations: recharge, climate series, groundwater heads, gauged
+   discharge, mapped stream networks and intermittency.
+3. Mesh and vertical discretization suited to shallow basement aquifers, with
+   parameters given per zone or per cell, in steady state or in transient.
+4. Calibration that combines heads, discharge and the extent of the stream network
+   to constrain the hydraulic properties.
+5. Outputs that can be reopened, stored with their provenance and the licence of
+   the data they come from, then drawn as figures or exported to standard formats.
+
+## In one diagram
 
 HydroModPy solves the flow of water in the saturated part of the ground of a catchment, the
 part that lies below the {term}`water table`. For each {term}`cell` of the map and each time
 step, it computes the height of the water table (the {term}`hydraulic head`), given how much
 water arrives from the soil, how fast the ground carries and stores it, and where it can leave.
 Everything else (water table depth, seepage, flow, stream network) is derived from this.
-
-Terms that link to the {doc}`glossary` are defined there.
-
-## In one diagram
 
 ::::{grid} 1 1 3 3
 :gutter: 3
@@ -149,5 +189,36 @@ of this method are those of
   use them.
 - A 75 m cell: a map is read at the scale of the hillside, not of the field.
 
-Next: {doc}`reading-results`. To know when not to use the model, see the end of the
-{doc}`door index <index>`.
+## When not to use this
+
+HydroModPy is built for shallow groundwater at the scale of a catchment. Do not rely on it
+for these cases, or only with an expert.
+
+- **Deep or confined aquifers, and large sedimentary basins.** The model describes a shallow
+  aquifer whose top rises and falls with the recharge. See the
+  [limits in the theory](../theory/groundwater-flow.md#limits).
+- **Aquifers where water moves mostly through conduits,** such as karst. The model treats the
+  ground as a continuous porous medium.
+- **Floods and river hydraulics.** In the default setup there is no water level, no flood and no
+  travel time in the channel ({doc}`stream-network`).
+- **Decisions at the scale of a field or a plot.** A cell is 75 m wide in example 04, and a map
+  is read at the scale of the hillside.
+- **Water quality,** unless a transport computation has been set up for it. The maps of this
+  part of the site are about water, not about what it carries.
+- **Climate projections taken as forecasts.** The model replays the forcing it is given. A
+  projection is only as good as the climate data and the evaluation behind it.
+- **A single result taken as certain.** Read a result as an indication unless it was validated
+  ({doc}`what-validated-means`, {doc}`how-sure`).
+
+## One catchment as a common thread
+
+The pages rely on example 04 of HydroModPy: the Nançon catchment (Ille-et-Vilaine,
+64.6 km²), simulated from 2000 to 2002 with a monthly step. The example shows how the
+seepage network grows in winter and shrinks in summer, and how the
+{term}`hydraulic conductivity` and the {term}`specific yield` of the aquifer are calibrated
+against the {term}`mapped network` and against the flow measured at the outlet.
+
+This is a demonstration example. Its results illustrate how to read the outputs. They are not
+a study of the catchment.
+
+Next: {doc}`reading-results`.

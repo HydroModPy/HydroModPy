@@ -1,4 +1,4 @@
-# Get started
+# A first run
 
 Install HydroModPy, run a first model in under a minute, then climb example 04 in six
 files. The first file of the staircase is the shortest configuration that solves. The last
@@ -65,60 +65,8 @@ You see `WARNING` lines on the way. They are expected, and
 
 ## Then
 
-::::{grid} 1 1 3 3
-:gutter: 3
-
-:::{grid-item-card} 1. Install
-:link: install
-:link-type: doc
-
-2 to 5 minutes. Tabs for Linux, macOS, Windows and conda, the solver binaries, the
-platforms tested, and what to do when it fails.
-:::
-
-:::{grid-item-card} 2. Concepts
-:link: concepts
-:link-type: doc
-
-2 minutes. Workspace, project, site, run, session, catalog: six words, one folder tree.
-:::
-
-:::{grid-item-card} 3. The staircase
-:link: staircase/index
-:link-type: doc
-
-From 15 s to 20 min per step. Six files of example 04. Each page: what the step adds, how to
-run it, what you get.
-:::
-
-::::
-
-When the staircase is done, {doc}`staircase/next` leads to your own catchment, to the
-calibration files of example 04 and to the Python API. {doc}`many-catchments` runs the same
-model on a table of catchments, and {doc}`cluster` on a Slurm cluster. {doc}`share-a-simulation`
-hands a run or a project, with its data, to a colleague. {doc}`../how-to/use-your-own-files`
-explains how to bring your own local files or remote URLs into a project.
-{doc}`../how-to/deliver-exports` sends the exported files of a run to a folder of the machine
-or to an FTP server once the run is sealed.
-{doc}`../how-to/long-transient-runs-in-windows` cuts a long run into windows that are sealed one by one,
-stops it and starts it again.
+{doc}`concepts` gives the six words that name the things on disk, in two minutes. Then
+{doc}`the staircase <staircase/index>` climbs example 04 in six files, from 15 s to 20 min
+per step. {doc}`install` has the variants of the installation and what to do when it fails.
 
 Looking for one parameter? Go to the {doc}`reference <../reference/parameters/index>`.
-
-```{toctree}
-:hidden:
-
-Install <install>
-Concepts <concepts>
-The staircase <staircase/index>
-After the staircase <staircase/next>
-Use your own files <../how-to/use-your-own-files>
-Deliver exports <../how-to/deliver-exports>
-Replay a run <../how-to/replay-a-run>
-Long transient runs in windows <../how-to/long-transient-runs-in-windows>
-Calibrate on a network and a discharge <calibrate-k>
-Many catchments <many-catchments>
-On a cluster <cluster>
-Share a simulation <share-a-simulation>
-Coming from version 1 <from-v1>
-```

@@ -66,6 +66,5 @@ wanted. With ``HMP_REQUIRE_GMSH=1``, a missing gmsh fails the triangle tests ins
 skipping them. A new ``[mesh]`` key is a field of the Pydantic model of ``mesh_config.py``
 with its description, and the parameter reference is built from it.
 
-The developer pages :doc:`../mesh/mesh-pivot`, :doc:`../mesh/mesh-engines`,
-:doc:`../mesh/triangle-engine` and :doc:`../mesh/voronoi-engine` cover the mesh objects,
-the port, the two engines that need the most care, and the product store.
+The developer notes :doc:`../engines/mesh-engines` and :doc:`../engines/mesh-pivot` cover the
+mesh objects, the port, the engines and the product store.

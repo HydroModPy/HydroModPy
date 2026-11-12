@@ -40,3 +40,34 @@ def test_no_explanation_only_when_nothing_explains_the_value(H) -> None:
         "description": "'replace' writes the value as is.",
     }
     assert H.unexplained(n) == {"logit"}
+
+
+def test_the_default_role_gives_the_default_with_its_unit_and_warns_otherwise(
+    H, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    leaf = {"kind": "leaf", "numeric": True}
+    nodes = {
+        "a": {"kind": "table", "children": ["a.d", "a.mode", "a.none", "a.unset"]},
+        "a.d": {**leaf, "default": "150", "unit": "m", "unit_source": "type"},
+        "a.mode": {"kind": "leaf", "default": '"version"'},
+        "a.none": {**leaf, "default": None},
+        "a.unset": {**leaf, "default": "not set"},
+    }
+    monkeypatch.setattr(H, "S", {"nodes": nodes})
+    warnings: list[str] = []
+    monkeypatch.setattr(H, "logger", SimpleNamespace(warning=lambda msg, **kw: warnings.append(msg)))
+    inliner = SimpleNamespace(
+        document=SimpleNamespace(settings=SimpleNamespace(env=SimpleNamespace(docname="p")))
+    )
+
+    def shown(key: str) -> str:
+        return H.default_role("default", "", key, 1, inliner)[0][0].astext()
+
+    assert shown("a.d") == "150 m"
+    assert shown("a.mode") == '"version"'
+    assert warnings == []
+    for key in ("a.none", "a.unset", "a.gone"):
+        shown(key)
+    assert len(warnings) == 3

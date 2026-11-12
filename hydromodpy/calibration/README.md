@@ -10,4 +10,4 @@ A calibration occupies two sibling directories of one name, `sessions/<case>/` f
 
 The two ports of the package are `optim/` (search methods) and `evaluation/` (what one trial answers), and each has its own README. The order of the parts and the modules other layers may import are in `tests/unit/architecture/calibration_layout.yaml`.
 
-The page `docs/source/contribute/architecture/packages/calibration.rst` lists the modules and holds the import rules, the ten steps of a calibration, the phases and where to add what.
+The page `docs/source/contribute/architecture/packages/calibration.rst` lists the modules and holds the ten steps of a calibration and where to add what. The phases are in `docs/source/how-to/write-calibration-phases.rst`.

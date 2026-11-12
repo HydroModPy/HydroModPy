@@ -239,7 +239,7 @@ Each stress period is split into :toml:`simulation.time.substeps_per_period`
 backward Euler steps of equal length :math:`\Delta t`, one by default. The forcing is
 constant over the period and is evaluated at the end of each step. The PETSc obstacle
 runtimes can refine each of these steps further (see
-:doc:`/contribute/architecture/solver/boussinesq-engines`).
+:doc:`/contribute/architecture/engines/boussinesq-engines`).
 
 A stamp closes its period (:doc:`time-alignment`). A period exports the heads at
 its end, those of its last step, and the mean of the fluxes of its steps, weighted
@@ -473,7 +473,7 @@ that the backend does not implement is refused when the solve starts. The defaul
 such limit. ``petsc`` needs ``petsc4py``, runs on Linux only, in
 serial, and is the only engine of the mixed closure. The engines step by step, the
 experimental closures and the diagnostics a run writes are on
-:doc:`/contribute/architecture/solver/boussinesq-engines`. What each solver supports is
+:doc:`/contribute/architecture/engines/boussinesq-engines`. What each solver supports is
 listed in :doc:`../reference/solvers`.
 
 The starting state and the time loop
@@ -627,8 +627,6 @@ See also
 
 - :doc:`groundwater-flow`: the discrete problem of the three solvers side by side.
 - :doc:`notation`: the symbols used on every theory page.
-- :doc:`/contribute/architecture/solver/boussinesq-engines`: the engines step by step,
+- :doc:`/contribute/architecture/engines/boussinesq-engines`: the engines step by step,
   the experimental closures and the diagnostics of a run.
-- :doc:`/contribute/architecture/solver/boussinesq-uml-diagrams`: the module
-  diagrams of the solver.
 - :doc:`bibliography`: the references.

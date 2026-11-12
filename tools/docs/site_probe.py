@@ -39,7 +39,7 @@ ALLOW = Path(__file__).with_name("site_probe_allow.toml")
 # One page of each type. The key names the type in the report.
 PAGES: dict[str, str] = {
     "home": "index.html",
-    "understand-index": "understand/index.html",
+    "user-guide-index": "user-guide/index.html",
     "understand-figures": "understand/reading-results.html",
     "understand-tables": "understand/what-it-computes.html",
     "get-started-index": "get-started/index.html",

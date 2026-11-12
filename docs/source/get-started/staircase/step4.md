@@ -117,6 +117,6 @@ flow.param.Ss.field.value
 display.time
 ```
 
-The time step is not written: {toml}`simulation.time.step_value` defaults to one month.
+The time step is not written: {toml}`simulation.time.step_value` defaults to {default}`simulation.time.step_value`.
 
 Next: {doc}`step5`, which writes the results in every format.

@@ -1,7 +1,7 @@
 # Contribute
 
 This part is for people who change HydroModPy itself. If you only write TOML
-files, {doc}`Get started <../get-started/index>` and the
+files, the {doc}`user guide <../user-guide/index>` and the
 {doc}`Reference <../reference/index>` are for you.
 
 ## I want to

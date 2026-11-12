@@ -1,12 +1,11 @@
 Fix a failing architecture gate
 ===============================
 
-``tests/unit/architecture/`` holds the structural contracts of the code. CI runs
-it as the job ``Architecture / layers, surface and two threads``. It fails on a pull request when an
-import, a declaration or an allowlist no longer matches the contract, and the
-failure names the rule. This page says how to read it and what to do for each
-kind of failure. The list of every rule, with the file that holds it, is
-generated: :doc:`../generated/guards`.
+``tests/unit/architecture/`` holds the structural contracts of the code. CI runs it as the
+job ``Architecture / layers, surface and two threads``. It fails when an import, a
+declaration or an allowlist no longer matches the contract, and the failure names the rule.
+The list of every rule, with the file that holds it, is generated in
+:doc:`../generated/guards`. This page says what to do for the common failures.
 
 Run it
 ------
@@ -15,13 +14,11 @@ Run it
 
    python -m pytest tests/unit/architecture -q -n 2
 
-It takes about a minute and a half with two workers. To run one rule, name the
-file and select the test with ``-k``.
-
-Most rules live in three files: ``test_layers.py`` (who reads whom),
-``test_run_path.py`` (what the path of a run reads and writes) and
-``test_surfaces.py`` (what is public and held). The test name of the first
-failure says which rule broke. Find it below, by file and rule.
+To run one rule, name the file and select the test with ``-k``. Most rules live in
+``test_layers.py`` (who reads whom), ``test_run_path.py`` (what the path of a run reads and
+writes), ``test_surfaces.py`` (what is public and held) and ``test_code_rules.py`` (the
+numbered rules of the repository ``CLAUDE.md``). The test name of the first failure says
+which rule broke.
 
 What to do, by failing test
 ---------------------------
@@ -41,20 +38,16 @@ What to do, by failing test
               print(f"{e.src_file}:{e.lineno} {e.kind} {e.target_module}")
       PY
 
-   Replace the pair with the one in the message. Then fix the import. Move the
-   symbol down to a layer both sides may import (often ``core``), or call it
-   through a port the lower layer defines. Do not add the edge to the YAML to make
-   the test pass: a new edge that violates the matrix is a regression, so propose
-   it in an issue first. An import under ``TYPE_CHECKING``, inside a function, or
-   written as a string in a lazy-import table counts like any other. The same file
-   fails when a package has no row in the matrix, a row has no package, a
-   row cites a row written below it, or a package has no
-   page in :doc:`../packages/index`.
+   Replace the pair with the one in the message, then fix the import. Move the symbol down
+   to a layer both sides may import, often ``core``, or call it through a port the lower
+   layer defines. Never add the edge to the YAML to make the test pass, because a new edge
+   that breaks the matrix is a regression and needs an issue first. An import under
+   ``TYPE_CHECKING`` or inside a function counts like any other. The layers are rendered in
+   :doc:`../generated/layers`.
 
 ``test_layers.py``, the generated matrix page
-   *"docs/source/contribute/architecture/layer-matrix.partial.rst is stale"*. The
-   committed fragment is generated from the YAML. Run
-   ``python -m tools.doc_contracts`` and commit the result.
+   The committed fragment is stale against the YAML. Run ``python -m tools.doc_contracts``
+   and commit the result.
 
 ``test_package_layouts.py``
    A package with a ``<package>_layout.yaml`` orders its parts, and a part may
@@ -65,21 +58,13 @@ What to do, by failing test
    only the modules listed under ``public``.
 
 ``test_layers.py``, a port that stands alone
-   A port promises a third-party plugin that it needs nothing of HydroModPy beyond
-   the port module and its contracts. The layer matrix cannot see this, because
-   the parts sit in one layer. Remove the import: a source must not reach a
-   manager, a catalog or a workspace, and a terrain engine must not import another
-   part of ``catchment``.
-
-``test_layers.py``, the CLI boundary
-   Only ``hydromodpy/__main__.py`` may import ``hydromodpy.cli``. Put the logic in
-   the layer it belongs to and have the command call it. The CLI stays thin.
+   A port promises a third-party plugin that it needs nothing of HydroModPy beyond the port
+   module and its contracts. Remove the import. A source must not reach a manager, a catalog
+   or a workspace.
 
 ``test_layers.py``, the storage boundary
-   A direct ``duckdb.connect`` in the public API or a user-facing command. Go
-   through the catalog or cache adapter. The files allowed to open DuckDB directly are
-   listed in ``ALLOWED_DIRECT_DUCKDB_FILES`` of the test, and the cases are
-   described in :ref:`direct-duckdb-access`.
+   A direct ``duckdb.connect`` outside the files the rule allows. Go through the catalog or
+   cache adapter, as :ref:`direct-duckdb-access` says.
 
 ``test_layers.py``, private solver attributes
    A private name (``obj._name``) read inside ``solver/<package>/`` must be declared
@@ -93,15 +78,10 @@ What to do, by failing test
    touches must go.
 
 ``test_run_path.py``, what a solver adapter reads
-   These keep what a solver adapter receives narrow. A flow adapter reads the
-   ``Model``, its options and its ``RunSlot``, and nothing of ``ctx.state`` or
-   ``ctx.store``. A transport adapter reads the view ``ctx.state`` (``setup``,
-   ``cfg`` and ``sim_id``), the runs it depends on from ``ctx.upstream`` and the
-   catalog handle from ``ctx.store``. Neither reaches into the execution
-   registries. A member of ``WorkflowContext``
-   that nothing reads is removed. A module that really needs a registry is added
-   to the short allowlist of the test, which is a decision to state in the pull
-   request.
+   A flow adapter reads the ``Model``, its options and its ``RunSlot``, and nothing of
+   ``ctx.state`` or ``ctx.store``. A transport adapter reads the view ``ctx.state``, the runs
+   in ``ctx.upstream`` and the catalog handle ``ctx.store``. A module that really needs a
+   registry goes to the short allowlist of the test, a decision to state in the pull request.
 
 ``test_surfaces.py``, typed exceptions
    ``raise ValueError`` and ``raise RuntimeError`` are banned in the modules of its
@@ -125,8 +105,5 @@ When the contract is what is wrong
 ----------------------------------
 
 Sometimes the code is right and the contract is old. The contract files are
-``layer_matrix.yaml`` (rows, siblings and transitional edges) and the
-``*_layout.yaml`` files. Change them in a pull request of their own that says
-why. Then regenerate the pages (``python -m tools.doc_contracts``) and update
-the page of the package whose rows moved, under "Inside the package". Never add an
-edge silently.
+``layer_matrix.yaml`` and the ``*_layout.yaml`` files. Change them in a pull request of their
+own that says why, then run ``python -m tools.doc_contracts``. Never add an edge silently.

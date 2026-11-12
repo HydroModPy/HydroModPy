@@ -72,4 +72,4 @@ demonstration of how to read the outputs, and it does not claim the precision of
 
 - {doc}`what-validated-means`: what has been checked, and how.
 - {doc}`../reference/parameters/calibration/uncertainty`: the ranges, method by method.
-- {doc}`glossary`: the terms of this page.
+- {doc}`/reference/glossary`: the terms of this page.

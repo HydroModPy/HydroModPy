@@ -6,8 +6,8 @@ as far as the paper states it.
 ```{hmp-studies}
 ```
 
-The tutorial of {doc}`Get started </get-started/index>` and the pages of
-{doc}`Understand </understand/index>` follow one catchment, the Nançon (example 04).
+The tutorial and the reading pages of the {doc}`user guide </user-guide/index>` follow
+one catchment, the Nançon (example 04).
 
 ## Add a study
 

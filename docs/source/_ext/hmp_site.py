@@ -46,13 +46,14 @@ from sphinx.util.docutils import SphinxDirective
 _RELATIONS: dict[str, list[str | None]] = {}
 _DOORS = {
     "index": "Home",
-    "understand": "Understand",
-    "get-started": "Get started",
+    "user-guide": "User guide",
     "reference": "Reference",
     "theory": "Theory",
     "contribute": "Contribute",
     "about": "About",
 }
+# The user guide holds the pages of three folders.
+_FOLDER_DOORS = {"understand": "user-guide", "get-started": "user-guide", "how-to": "user-guide"}
 _NOT_SEARCHED = {"genindex", "search", "reference/parameters/explorer"}
 # The second cell of a row of the "known keys" table is the quantity the key
 # carries (Hydraulic conductivity, Porosity...). The card under a key holds
@@ -77,7 +78,8 @@ def _uml_alt(match: re.Match[str]) -> str:
 
 
 def _door(docname: str | None) -> str | None:
-    return docname.split("/", 1)[0] if docname else None
+    head = docname.split("/", 1)[0] if docname else None
+    return _FOLDER_DOORS.get(head, head)
 
 
 def _has_slider(doctree: nodes.document) -> bool:

@@ -348,8 +348,7 @@ def test_the_calibration_evaluator_registry_names_only_its_builtin_evaluators() 
 
 def test_config_reads_the_upper_parts_only_inside_its_validators() -> None:
     """``config`` may import criteria, evaluation and optim, but only from
-    inside a validator (packages/calibration.rst, "Inside the package":
-    "inside validators only"), never at module level, so the schema classes
+    inside a validator (calibration_layout.yaml, row "config"), never at module level, so the schema classes
     stay importable without validating anything.
 
     The scanner has no notion of "a pydantic validator"; the closest thing it
@@ -370,7 +369,7 @@ def test_config_reads_the_upper_parts_only_inside_its_validators() -> None:
 
 def test_evaluation_reads_optim_only_for_types() -> None:
     """``evaluation`` may import optim, but only for type hints
-    (packages/calibration.rst, "Inside the package": "optim (types only)").
+    (calibration_layout.yaml, row "evaluation").
 
     The scanner has no notion of "a type hint"; the closest thing it can see
     is whether the import sits under ``if TYPE_CHECKING:``.
@@ -390,8 +389,7 @@ def test_evaluation_reads_optim_only_for_types() -> None:
 def test_preflight_reads_the_other_parts_only_inside_its_checks() -> None:
     """``preflight`` may import criteria, metrics, observations, optim,
     parameter_resolution, runners and targets, but only from inside one of its
-    checks (packages/calibration.rst, "Inside the package": "inside its
-    checks"), never at module level: ``hmp check`` runs every check
+    checks (calibration_layout.yaml, row "preflight"), never at module level: ``hmp check`` runs every check
     and reports once, and a module-level import would pull in the whole upper
     half of the package before any check runs.
 

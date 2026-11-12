@@ -53,7 +53,8 @@ comments of the example file ({doc}`reading-results`).
 The map above shows the raw state of the water table. For the network, the model asks a
 slightly different question: how much water leaves the cell. A cell counts as a source when it
 gives back more than a small share of the mean {term}`recharge` over its area
-(the {term}`seepage threshold`). The test is
+(the {term}`seepage threshold`, 0.01 % of its own recharge by default). Another threshold
+changes the network maps. The test is
 made on the flux because the water budget fixes the flux, while "the head touches the ground"
 is a geometric condition that changes a lot when the drain conductance moves. The setting
 is {toml}`seepage_threshold|calibration.outputs.<name>.model.seepage_threshold`.
@@ -97,8 +98,11 @@ Three things follow from this construction.
   hillside, not of the field (see {term}`resolution`).
 - **A flow threshold keeps only cells that carry water.** On the flow maps, a downstream cell
   flows only if the water routed to it reaches a minimum discharge
-  (the {term}`visible flow`). It is a convention. See
-  {term}`visible flow`.
+  (the {term}`visible flow`, {toml}`calibration.outputs.<name>.model.extent.visible_flow`,
+  1 L/s by default). It is a convention, and it does not mean the same as the seepage
+  threshold, which counts only the exit points. No value is agreed on. Thresholds from 1
+  to 3 L/s are used in the field, and Zanetti et al. (2024) use 10 L/s for a simulated
+  discharge. Another threshold changes the layout.
 
 ## Why the network grows in winter and shrinks in summer
 
@@ -201,17 +205,11 @@ that kept no mean recharge cannot show a seepage threshold above zero, and a run
 of open water cannot be drawn. Both are refused with a sentence that says to replay the run with
 `hmp replay`, or to set `seepage_threshold = 0` for the first.
 
-Calibrating on the map is not {term}`validating <validation>` against it. The agreement of a calibrated run with
-the map is what the calibration looked for.
+Calibrating on the map is not {term}`validating <validation>` against it ({doc}`what-validated-means`).
 
-## What the network is not
+## Limits of the simulated network
 
-- It is not a river model. In the drain setup there is no hydraulics in the channel.
-- It is not a budget term. The water that leaves the aquifer is the release of the drains.
-  The network is a way to read where it leaves and where it goes.
-- It is not a measurement. It becomes evidence only through a comparison with a map that the
-  calibration has not seen.
-- It is not a line. It is a set of cells, one set for each time step.
+In the drain setup the channel has no hydraulics, so the network gives no water depth and no velocity. The budget counts the water that leaves the aquifer as the release of the drains, and the network shows where this water leaves and where it goes. A simulated network counts as evidence once it is compared with a map that the calibration has not seen. The network is a set of cells, and this set changes at each time step.
 
 ## Where to go next
 

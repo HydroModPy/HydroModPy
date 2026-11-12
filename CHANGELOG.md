@@ -10,7 +10,7 @@ Each release lists what was added, changed, deprecated, removed, fixed or secure
 During development, write each change under `[Unreleased]`, in a line or two that a user can act
 on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a new empty
 `[Unreleased]`. The long development notes of 2.0.0 are kept in
-`docs/source/about/changes-during-the-alphas.md`.
+`docs/changes-during-the-alphas.md`.
 
 <!-- releases start here -->
 
@@ -161,6 +161,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `vka` can be calibrated under MODFLOW 6 as `[calibration.parameters.vka]`, in log space. It is not offered when the project declares `Kv`.
 - `hmp campaign promote CASE` without `--trial` lists the five best completed trials. `hmp config targets` shows the search space, the draw and the default bounds of each target.
 - `hmp check` refuses `normal` sampling on `lhs` and `optuna`, and a calibrated recharge factor when the run has no recharge to multiply.
+- `docs/source/reference/outputs.md` lists every field array and every station series a run stores, with its path, unit and dimensions, read from `hydromodpy/results/field_registry.py`.
+- In the docs, the `{default}` role writes the default of a TOML key from the registry, and `python -m tools.docs.check_page` refuses a cited path of the repository that does not exist.
 
 ### Changed
 - The register of changes is `hydromodpy/schema/changes.toml`, read by `hydromodpy/schema/changes.py`. It lists each bug fix and each rule that moves a number, each default that moves with an edition, and each key that moves. The migration of a configuration is its rows of `document = "config"`, the label of a run reads its bugs, and the `Numbers` section of this changelog is generated from it. `hydromodpy/results/known_issues.toml` is removed.
@@ -698,6 +700,9 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - The version is 2.0.0, set in `pyproject.toml`, `CITATION.cff` and `hydromodpy/core/version.py`.
 - A key or a table that only a pre-release wrote is refused, and the message names every such key the file holds. The one that still loads is `type` in `[[simulation.process]]`, with a warning, and `hmp doctor --fix-config` writes `kind`. The rule of two minor versions holds for a TOML key or table changed from 2.0.0 on. A name of Python, an `hmp` command or a flag that left in 2.0.0 or earlier has no alias and is refused with a message that names its new form. The alias with a `FutureWarning` holds for a change from 2.2.0 on. The warning of an old form no longer states a delay.
 - The two irregular-mesh runs of example 06 (`run_selune_mf6_irregular.toml` and `run_vire_mf6_irregular.toml`) use the current keys. They resolve to the same configuration.
+- The documentation site has five doors: User guide, Reference, Theory, Contribute and About. The user guide holds the pages of Get started, How-to and Understand in three parts, the glossary is in the reference, and the old addresses redirect.
+- The contributor pages no longer copy what the code or a generated page states. The package pages, the recipes and the storage layout are shorter, and eight engine notes under `docs/source/contribute/architecture/engines/` replace twenty-two pages.
+- The development notes of the alphas are `docs/changes-during-the-alphas.md`. They are no longer a page of the site.
 
 ### Removed
 

@@ -37,7 +37,7 @@ SUFFIXES = (".md", ".rst", ".py", ".toml", ".yml", ".yaml", ".txt", ".cff", ".cf
 # dead paths on purpose. The alphas page records paths that were true then.
 SKIP_FILES = (
     "CHANGELOG.md",
-    "docs/source/about/changes-during-the-alphas.md",
+    "docs/changes-during-the-alphas.md",
     "tools/docs/check_refs.py",
     "tests/unit/docs/test_check_refs.py",
 )

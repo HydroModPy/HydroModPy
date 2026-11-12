@@ -31,14 +31,6 @@ Paths are relative to ``validity_frame/src/validity_frame/``.
   ``ExpertAnnotation``, ``ExecutionKnowledgeRecord``, ``ValidationStore`` and the loader
   ``load_semantic_model``.
 
-Capture sequence
-----------------
-
-The envelope around a run: a snapshot before, the run, then a snapshot of the end state or
-of the exception.
-
-.. uml:: ../process/diagrams/validity_frame_runtime_sequence.puml
-
 See also
 --------
 

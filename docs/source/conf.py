@@ -505,8 +505,10 @@ html_theme_options = {
         pattern: ["page-toc"]
         for pattern in (
             "index",
+            "user-guide/**",
             "understand/**",
             "get-started/**",
+            "how-to/**",
             "theory/**",
             "contribute/**",
             "about/**",

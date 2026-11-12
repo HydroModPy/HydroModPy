@@ -1,29 +1,22 @@
 Add a process
 =============
 
-A *process* is a kind of run of the plan of a simulation, with the solvers and
-the options that serve it. Two ship today: ``flow`` (groundwater flow) and
-``transport`` (particle tracking and concentration). This page shows what a
-third one touches, using ``flow`` where a process carries a runtime payload and
-``transport`` where it does not. It is the process that was added after
-``flow``, so every site it appears in is a site a new process needs.
+A *process* is a kind of run of the plan of a simulation, with the solvers and the options
+that serve it. Two ship, ``flow`` and ``transport``. This page shows what a third one
+touches, with ``flow`` as the process that carries a runtime payload and ``transport`` as
+the one that does not.
 
-Most additions are not a new process. A new solver for ``flow`` or
-``transport`` is an adapter bound to the pair that already exists: see
-:doc:`add-a-solver`. Add a process only when the runs themselves are new,
-with their own options and their own declared reads and requires.
+Most additions are not a new process. A new solver for ``flow`` or ``transport`` is an
+adapter, see :doc:`add-a-solver`. Add a process only when the runs themselves are new, with
+their own options, ``reads`` and ``requires``.
 
 The shape of a process
 ----------------------
 
-A process holds a configuration, a process entry, and registered solvers. The
-configuration is a ``HydroModelBase`` under ``model/<name>/<name>_config.py``
-that declares what the process reads. Flow declares ``param``, ``ic``, ``bc``
-and ``sinks_sources``. Transport declares one validated block per solver, and
-each solver of the process has a table under the name the solver registry uses,
-``[transport.modflow6]`` for instance, checked the way ``[solver.<name>]`` is.
-A process shares no base configuration, so a process never carries a key it
-does not read.
+A process holds a configuration, a process entry and registered solvers. The
+configuration is a ``HydroModelBase`` under ``model/<name>/<name>_config.py`` that declares
+what the process reads. Transport declares one validated block per solver, under the name
+the solver registry uses, ``[transport.modflow6]`` for instance.
 
 One process also carries a runtime payload, an object built once by the
 pipeline and read by its adapters. ``flow`` does: the ``Flow`` of
@@ -34,37 +27,21 @@ built for it. Its adapters work from the arguments the runner passes,
 and ``upstream[0]`` the ``SolverRun`` that produced what ``reads`` declares.
 A transport works in the folder of that upstream run.
 
-Where a process lives
----------------------
+Files to create
+---------------
 
-``hydromodpy/model/transport/`` is the smallest complete example:
+``hydromodpy/model/transport/`` is the smallest complete example. It holds a docstring-only
+``__init__.py`` and ``transport_config.py`` with ``TransportConfig`` and one parameter
+block per solver. The solvers of the process live with their backends, in the file of the
+engine they drive, as the MT3DMS adapter is in
+``hydromodpy/solver/modflow_nwt/mt3dms/mt3dms.py``. ``hydromodpy/model/flow_config.py`` is
+the large case. Read ``transport`` first.
 
-.. code-block:: text
+Register
+--------
 
-   hydromodpy/model/transport/
-   |-- __init__.py             a docstring only
-   `-- transport_config.py     TransportConfig and one parameter block per solver
-
-The solvers of the process live with their backends:
-
-.. code-block:: text
-
-   hydromodpy/solver/<backend>/
-   |-- adapter.py              the flow adapter, when the process runs on a flow run
-   `-- <engine module>         one transport solver: its model and its adapter
-
-The MT3DMS adapter, for instance, is in
-``hydromodpy/solver/modflow_nwt/mt3dms/mt3dms.py``, beside the engine model it
-drives, because a solver of a process is filed with the code it solves.
-``hydromodpy/model/`` holds the large configuration case: ``flow_config.py``,
-with ``boundaries/`` (boundary condition registry and binders) and
-``sinks_sources/``. Read ``transport`` first.
-
-Where a process is wired
-------------------------
-
-Search the tree for ``transport`` to find every site. These are the ones that
-make it a process and not just a package:
+Search the tree for ``transport`` to find every site. These make it a process and not
+just a package:
 
 .. list-table::
    :header-rows: 1
@@ -78,8 +55,8 @@ make it a process and not just a package:
        name of each solver.
    * - ``config/hydromodpy_config.py``
      - A field on ``HydroModPyConfig`` that makes ``[<name>]`` a TOML section
-       (``transport`` is declared there), and its entry in the section loader
-       table of the same file.
+       (``transport`` is declared there). Its row goes in ``SECTIONS`` of
+       ``config/section_loader.py``.
    * - ``solver/base/simulation_config.py``
      - A ``<Name>ProcessConfig`` with ``kind: Literal["<name>"]`` and a list of
        ``solvers``, added to the ``SimulationProcessConfig`` union. This is what
@@ -90,7 +67,7 @@ make it a process and not just a package:
        names this installation serves.
    * - ``solver/base/registry.py``
      - One adapter and one extractor per solver in ``_BUILTIN_PATHS`` and
-       ``_BUILTIN_EXTRACTOR_PATHS``, keyed ``"<process_type>_<name>"``. The
+       ``_BUILTIN_EXTRACTOR_PATHS``, keyed ``"<process_type>_<name>"``. A plugin publishes the groups of :doc:`plug-into-a-port` instead. The
        adapter carries the twelve attributes of the port. The process type
        becomes known to the planner as soon as one adapter is registered.
    * - ``config/solver_supports.py``
@@ -112,33 +89,18 @@ make it a process and not just a package:
 Order of work
 -------------
 
-1. **Write the configuration** in ``model/<name>/<name>_config.py``, in the
-   shape of ``transport_config.py``. Give every field a ``Profile``, a unit and
-   a description: the parameter reference is generated from them
-   (:doc:`add-a-config-field`). A solver that needs no option of its own keeps
-   none.
-2. **Declare the TOML section** on ``HydroModPyConfig`` and add the matching
-   ``<Name>ProcessConfig`` to the ``SimulationProcessConfig`` union.
-3. **Bind a solver.** The adapter declares ``process_type = "<name>"``, a
-   ``name``, ``reads`` and ``requires`` (and the other attributes of the port),
-   and lives in the file of its engine under ``hydromodpy/solver/<backend>/``.
-   ``Modflow6GwtTransportAdapter`` requires ``("flow", "modflow6")``, so the
-   planner refuses a transport run that comes before its flow run. The adapter
-   is the subject of :doc:`add-a-solver`; the planner reads ``requires`` in
-   ``solver/base/planner.py``.
-4. **Refuse impossible combinations** in ``config/solver_supports.py``, from what
-   the backends declare, without naming a backend: a ``reads`` name the flow
-   does not write, a ``requires`` the plan does not hold, a trait of the model
-   left out of ``supports``.
+Write the configuration first, with a ``Profile``, a unit and a description on every field
+(:doc:`add-a-config-field`). Declare the section on ``HydroModPyConfig`` and add the
+``<Name>ProcessConfig`` to the union. Then bind a solver: the adapter declares
+``process_type = "<name>"``, ``reads`` and ``requires``, as
+``Modflow6GwtTransportAdapter`` requires ``("flow", "modflow6")``, so the planner refuses a
+transport run that comes before its flow run (:doc:`add-a-solver`). Last, refuse impossible
+combinations in ``config/solver_supports.py`` from what the backends declare, without
+naming a backend. A process with a payload adds its runtime class, its member on
+``SetupContext`` and the step that builds it.
 
-A process that carries a payload adds to this list the runtime class, its
-member on ``SetupContext``, the step that builds it and an adapter that reads
-only that object and its arguments. The workflow steps are process-agnostic
-beyond that, so a new process needs no new pipeline step unless it needs its
-own data chain.
-
-Tests to add
-------------
+Test
+----
 
 - **Unit** under ``tests/unit/model/<name>/``, in the style of
   ``test_transport_config.py``: the config loads, a block is checked by the
@@ -154,18 +116,9 @@ Tests to add
   non-trivial mathematics, so tolerances are explicit from the start
   (:doc:`add-a-test`).
 
-Layer rules
------------
-
-- ``model`` imports ``core``, ``schema``, ``catchment``, ``mesh`` and itself
-  (``tests/unit/architecture/layer_matrix.yaml``). Solver code is in
-  ``solver/<backend>/``, never in ``model/``, and the adapter of a solver is in
-  the file of its engine.
-- The shared models in ``model/payloads.py`` are
-  deliberately narrow, and a process whose solvers read options plus upstream
-  runs adds nothing to it.
-- Run the architecture gate after the first import you add:
-  ``python -m pytest tests/unit/architecture -q``.
+Run ``python -m pytest tests/unit/architecture -q`` after the first import you add. The
+imports the layer matrix allows are in :doc:`../generated/layers`. Solver code stays in
+``solver/<backend>/``, never in ``model/``.
 
 See also
 --------
@@ -173,4 +126,4 @@ See also
 - :doc:`../packages/model` for the model package map.
 - :doc:`add-a-solver` for the adapter side.
 - :doc:`add-a-config-field` for the configuration side.
-- :doc:`../process/process-architecture` for the runtime handoff diagrams.
+- :doc:`../engines/processes-and-boundaries` for the runtime handoff.

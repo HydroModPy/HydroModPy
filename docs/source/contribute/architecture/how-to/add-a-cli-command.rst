@@ -1,208 +1,103 @@
 Add a CLI command
 =================
 
-The ``hmp`` and ``hydromodpy`` CLIs share the same dispatcher in
-``hydromodpy/cli/main.py``. Each verb is one module under
-``hydromodpy/cli/commands/`` registered through ``ALL_COMMANDS`` in
-``cli/commands/__init__.py``.
-
-Today's verbs, in ``ALL_COMMANDS`` order: ``workspace``, ``project``,
-``campaign``, ``example``, ``catalog``, ``data``, ``export``, ``publish``,
-``viz``, ``config``, ``lock``, ``completion``, ``privacy``, ``run``,
-``calibrate``, ``spinup``, ``site``, ``report``, ``doctor``,
-``install-binaries``. That tuple is the inventory; anything not in it is not a
-verb.
-
-Nine of them are families, not leaves: ``workspace``, ``project``,
-``campaign``, ``example``, ``catalog``, ``data``, ``lock``, ``viz`` and ``site``
-are sub-packages whose ``__init__.py`` carries ``NAME``, ``HELP`` and an
-``ACTIONS`` tuple.
+The ``hmp`` and ``hydromodpy`` commands share the dispatcher in
+``hydromodpy/cli/main.py``. A verb is one module under ``hydromodpy/cli/commands/``,
+and the tuple ``ALL_COMMANDS`` in ``hydromodpy/cli/commands/__init__.py`` is the
+inventory. The verbs and their flags are rendered in :doc:`/reference/cli/index`, so
+this page does not list them.
 
 Contract
 --------
 
-Each command file exposes:
+A command module exposes ``NAME``, ``HELP``, ``register(subparsers)`` and ``run(args)``.
+``register`` adds the parser and sets ``_handler=run``. ``run`` parses nothing new, calls
+one verb of ``hydromodpy.project.api``, formats the result and lets errors propagate.
+Business logic never lives in the CLI layer, so a unit test can reach it without a
+subprocess.
 
-.. code-block:: python
+``hmp stop`` is the shortest complete example.
 
-   import argparse
+.. literalinclude:: /../../hydromodpy/cli/commands/stop.py
+   :pyobject: register
 
+.. literalinclude:: /../../hydromodpy/cli/commands/stop.py
+   :pyobject: run
 
-   NAME: str = "myverb"
-   HELP: str = "Short one-line description."
+The shared flags come from ``hydromodpy/cli/conventions.py``. Use ``workspace_parser()``
+for ``-w``, ``format_parser()`` for ``--format``, ``confirm_parser()`` for ``-y``,
+``dry_run_parser()`` for ``--dry-run``, ``add_destination()`` for ``--to`` and
+``add_sim_ref()`` for the ``sim_ref`` positional. ``tests/unit/cli/test_machine_output.py``
+walks the argparse tree and fails on a verb without ``-w`` or ``--format``, or with a flag
+that left the grammar.
 
+Steps
+-----
 
-   def register(subparsers) -> argparse.ArgumentParser:
-       parser = subparsers.add_parser(NAME, help=HELP)
-       parser.add_argument("target", help="Positional argument.")
-       parser.add_argument("--option", default=None)
-       parser.set_defaults(_handler=run)
-       return parser
-
-
-   def run(args: argparse.Namespace) -> None:
-       """Handler called by the dispatcher."""
-       ...
-
-The dispatcher iterates ``ALL_COMMANDS``, calls ``register`` on each,
-and forwards the parsed namespace to ``args._handler``.
-
-Reuse the shared grammar from ``hydromodpy/cli/conventions.py`` instead
-of re-declaring flags: ``workspace_parser()`` for ``-w/--workspace``,
-``confirm_parser()`` for ``-y/--yes``, ``dry_run_parser()`` for
-``--dry-run``, ``format_parser()`` for ``--format {table,json,csv}``,
-``add_destination()`` for ``--to``, ``add_sim_ref()`` for the canonical
-``sim_ref`` positional. ``tests/unit/cli/test_machine_output.py`` walks
-the argparse tree and fails on a verb without ``-w`` or ``--format``, or
-with a flag that left the grammar.
-
-Files to create
----------------
-
-Two edits.
-
-**Create the module** ``hydromodpy/cli/commands/myverb.py``:
-
-.. code-block:: python
-
-   import argparse
-
-   from hydromodpy.cli.conventions import format_parser, workspace_parser
-   from hydromodpy.cli.refs import project_root_of
-   from hydromodpy.cli.output import emit
-
-
-   NAME = "myverb"
-   HELP = "Do my thing."
-
-
-   def register(subparsers):
-       parser = subparsers.add_parser(
-           NAME,
-           help=HELP,
-           parents=[workspace_parser(), format_parser()],
-           epilog="Example:\n  hmp myverb my_project -w ~/hydromodpy",
-           formatter_class=argparse.RawDescriptionHelpFormatter,
-       )
-       parser.add_argument("project", help="Project name.")
-       parser.set_defaults(_handler=run)
-       return parser
-
-
-   def run(args):
-       from hydromodpy.project.api import show
-
-       summary = show(args.project, what="summary", workspace=project_root_of(args))
-       emit(args, "myverb", summary, table=lambda: print(summary))
-
-**Declare what it writes** in ``OUTPUTS`` of ``hydromodpy/cli/output.py``. ``emit`` is the only
-function that writes JSON or CSV, and the page on what a program reads is generated from that
-table. A verb whose output is a document, such as a TOML file, has no entry and no ``--format``.
-
-**Register it** in ``hydromodpy/cli/commands/__init__.py``:
-
-.. code-block:: python
-
-   from . import myverb  # noqa: F401
-
-   ALL_COMMANDS = (
-       ...,
-       myverb,
-   )
-
-Order in ``ALL_COMMANDS`` controls the order in ``hmp --help``.
+1. Create ``hydromodpy/cli/commands/<verb>.py`` with the four symbols.
+2. Add the module to the import list and to ``ALL_COMMANDS`` in
+   ``hydromodpy/cli/commands/__init__.py``. The order in the tuple is the order in
+   ``hmp --help``.
+3. Declare what the verb writes in ``OUTPUTS`` of ``hydromodpy/cli/output.py``. ``emit`` is
+   the only function that writes JSON or CSV. A verb whose output is a document, such as a
+   TOML file, has no entry and no ``--format``.
+4. Add the tests below. The reference page is generated at every build, so it needs no edit.
 
 Conventions
 -----------
 
-- Use kebab-case for the verb (``my-verb`` becomes ``NAME =
-  "my-verb"``).
-- Keep the handler thin: it calls the verb of ``hydromodpy.project.api``
-  it stands for, and never ``import hydromodpy as hmp``. A verb needs a
-  ``workspace=``: the command passes ``-w``, or the project of its working
-  directory, which only the command line reads.
-- Import expensive subpackages (``flopy``, ``zarr``,
-  ``geopandas``) **inside** the handler, not at the top of the
-  module. The CLI must boot fast.
-- ``stdout`` carries the result the user asked for; diagnostics and
-  progress go to ``stderr`` or through ``logging``. Under ``--format
-  json`` the dispatcher keeps stdout for what ``emit`` writes.
-- A destination is ``--to``. A preview is ``--dry-run``. A verb that
-  removes something takes ``-y``. ``--force`` means one thing: go past
-  a refusal the verb makes because of what is already there or what
-  protects it, and the refusal names ``--force``. A name is ``--name``.
-- Let an exception propagate: the dispatcher prints its ``HMPY.Exxx``
-  and ends with ``exit_code_for``, which reads the ``category`` of the
-  exception class in ``EXIT_CODE_OF``. A new exception sets its category
-  once on its class, and the command line needs no new line. A refusal of
-  the verb itself is ``hydromodpy.cli.exit_codes.refuse(message, EXIT_...)``.
-  Exit codes are 0 success, 1 generic, 2 usage, 10..23 specific failure
-  categories, 130 SIGINT.
+- The verb is in kebab-case, and ``NAME`` holds that form.
+- The handler calls the verb of ``hydromodpy.project.api`` it stands for, and never
+  ``import hydromodpy as hmp``. A verb needs ``workspace=``. The command passes ``-w``, or
+  the project of its working directory, which only the command line reads.
+- Expensive imports (``flopy``, ``zarr``, ``geopandas``) go inside the handler, so the CLI
+  boots fast.
+- ``stdout`` carries the result the user asked for. Diagnostics and progress go to
+  ``stderr`` or to ``logging``.
+- A destination is ``--to``, a preview is ``--dry-run``, a name is ``--name``, and a verb
+  that removes something takes ``-y``. ``--force`` goes past a refusal that the verb makes
+  because of what is already there, and the refusal names ``--force``.
+- Let an exception propagate. The dispatcher prints its ``HMPY.Exxx`` and ends with
+  ``exit_code_for``, which reads the ``category`` of the exception class in ``EXIT_CODE_OF``
+  (``hydromodpy/cli/exit_codes.py``). A new exception sets its category once on its class.
+  A refusal of the verb itself is ``refuse(message, EXIT_...)`` from the same module. Exit
+  codes are 0 success, 1 generic, 2 usage, 10 to 23 for the categories and 130 for SIGINT.
 
-Workflow flags
---------------
+Verbs that run a workflow
+-------------------------
 
-If the verb dispatches to a workflow, accept the standard overlay
-flags (``--overlay``, ``--set``, ``--frozen``, ``--no-display``,
-``--from``, ``--until``, ``--resume``) so the override precedence
-(defaults < ``base_config`` chain < overlays < ``--set`` < env) stays
-consistent. ``hmp run`` is the canonical example; it also carries
-``--dry-run``, ``--force``, ``--no-parallel`` and
-``--profile``.
+A verb that dispatches to a workflow takes the standard overlay flags (``--overlay``,
+``--set``, ``--frozen``, ``--no-display``, ``--from``, ``--until``, ``--resume``), so the
+precedence defaults, ``base_config`` chain, overlays, ``--set``, environment stays the same
+everywhere. ``hmp run`` is the reference.
 
-Subcommands
------------
+Families
+--------
 
-A verb with a handful of actions nests a second ``add_subparsers`` in
-its own module: ``hmp config template``, ``hmp check``,
-``hmp show SESSION --report``.
+A verb with a lifecycle is a family. It is a sub-package of ``cli/commands/`` whose
+``__init__.py`` carries ``NAME``, ``HELP``, an ``ACTIONS`` tuple and ``register``, with one
+module per action that repeats the four symbols. ``hydromodpy/cli/commands/catalog/`` is the
+reference. Attach the actions with ``add_action_subparsers``, so a bare ``hmp catalog`` is a
+usage error and exits 2. A small verb can also nest its own ``add_subparsers``, as
+``hmp config`` does.
 
-``hmp check`` shows how thin a handler stays. ``run`` parses the arguments
-and calls ``check(path, partial=args.partial, inputs=args.inputs, ...)`` of
-``hydromodpy.project.api``, which
-gives a list of ``Diagnostic``. It prints ``line()`` of each one, or, under
-``--format json``, emits ``{ok, diagnostics, workspace}``, and it ends with the
-exit code 14 when a diagnostic has the severity ``error``. Reading the file,
-walking the sections and the rules between them all happen below the command.
-
-A verb with a whole lifecycle becomes a **family**: a sub-package under
-``cli/commands/`` whose ``__init__.py`` declares ``NAME``, ``HELP`` and
-an ``ACTIONS`` tuple, with one module per action following the same
-four-symbol shape. ``hmp catalog`` (``ls``, ``query``, ``show``,
-``point``, ``rank``, ``gc``, ``reindex``, ``delete``, ``restore``, ``trash``,
-``tag``, ``note``, ``rename``, ``diff``, ``watch``, ``import``,
-``rerun``) is the reference. Attach the group with
-``add_action_subparsers`` so a bare ``hmp catalog`` is a usage error and
-exits 2.
+``hmp check`` shows how thin a handler stays. Its ``run`` calls ``check`` of
+``hydromodpy.project.api``, prints the diagnostics, or emits them under ``--format json``,
+and ends with exit code 14 when one has the severity ``error``. Reading the file and the
+rules between the sections happen below the command.
 
 Tests to add
 ------------
 
-- **Unit** under ``tests/unit/cli/`` with ``argparse.Namespace``
-  assertions and a stubbed handler.
-- **Integration** under ``tests/integration/cli/`` with
-  ``subprocess.run([sys.executable, "-m", "hydromodpy", ...])`` for
-  one realistic invocation.
+- A unit test under ``tests/unit/cli/`` with ``argparse.Namespace`` assertions and a
+  stubbed handler.
+- An integration test under ``tests/integration/cli/`` that runs
+  ``subprocess.run([sys.executable, "-m", "hydromodpy", ...])`` for one realistic call.
 
-Update the docs
----------------
-
-The page :doc:`/reference/cli/index` is generated from the command
-registry at every build, so it needs no edit.
-
-Pitfalls flagged by the layer matrix
-------------------------------------
-
-- ``cli`` is the top row of the matrix. It may import every layer below
-  it, ``project`` included. It must not depend on experimental
-  ``validity_frame`` tooling.
-- Do not implement business logic inside the command file. The CLI
-  is a thin dispatcher; logic belongs to the relevant package so
-  unit tests can exercise it without subprocess overhead.
+The layers that ``cli`` may import are in :doc:`../generated/layers`.
 
 See also
 --------
 
-- :doc:`../packages/cli` for the existing verb inventory.
+- :doc:`../packages/cli` for the package.
 - :doc:`../mental-model` for the ``hmp run`` dispatch model.
-- :doc:`/reference/cli/index` for the user-facing CLI page.

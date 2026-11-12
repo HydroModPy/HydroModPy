@@ -17,6 +17,15 @@ project needs the project it goes to:
 hmp replay ~/shared/nancon_copy -w ~/projects/nancon
 ```
 
+A published copy carries its own bytes. The replay reads your files under `inputs/` of the copy.
+It installs the files a provider delivered by their sha256 in the workspace of the project,
+with their sidecars and their station rows, then plays the run from the data cache. A file
+already at that path with other bytes refuses the replay and nothing is written, and without
+`-w` a copy is refused.
+
+A run folder copied by hand carries no such bytes. The replay reads its inputs from the
+project `-w` names, each at the digest its seal records. Nothing is ever written in the copy.
+
 The replay writes a new version of the same stem, `runs/nancon_daily.v2`, and seals it. It reads
 the configuration the run sealed and the digests of `inputs.json`, so an input whose bytes moved
 is refused with both digests. A URL is contacted only when the cache lacks the file. Its bytes

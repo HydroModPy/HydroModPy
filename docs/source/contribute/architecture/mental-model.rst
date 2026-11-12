@@ -41,27 +41,6 @@ The first path answers:
 The second path answers:
 "where do the input data come from, and how are they cached?"
 
-Overview diagram
-----------------
-
-The diagram below is the compact visual version of those two paths.
-
-.. uml:: diagrams/overview_toml_to_run_components.wsd
-
-What this diagram explains:
-
-- the user-facing entry points,
-- the separation between planning and execution,
-- the parallel input-data path,
-- the difference between persistence and later result reading.
-
-What it intentionally simplifies:
-
-- the internal pipeline steps,
-- the detailed process runtime payloads,
-- backend-specific solver internals,
-- post-processing detail after ingestion.
-
 Why so many layers?
 -------------------
 
@@ -183,8 +162,6 @@ Hydrographic network class structure
 The hydrographic-network stack is intentionally split across several classes
 because they do not answer the same question.
 
-.. uml:: spatial_support/diagrams/hydrographic_network_class_map.wsd
-
 The key distinction is:
 
 - ``HydrographicNetwork`` is the canonical cross-layer concept for one network.
@@ -230,7 +207,7 @@ and ``run.cell_field_network_distance_metrics()``, and the figures
 ``simulated_active_network`` and ``simulated_active_network_reference_overlay``.
 They live in ``hydromodpy.results.derive.views`` and read fields, mesh geometry
 and the stored roles without changing the catalog.
-:doc:`spatial_support/hydrographic-network-simulated-active-inventory` states
+:doc:`engines/stream-network-support` states
 what each view returns.
 
 Where to start reading
@@ -258,7 +235,7 @@ add what. For a path through the code, start here.
 3. ``hydromodpy/mesh/port.py`` and ``registry.py``, then the engine in
    ``hydromodpy/mesh/engines/``;
 4. ``hydromodpy/mesh/planar/planar_cell_mesh.py`` (``PlanarCellMesh``);
-5. the pages of :doc:`mesh/index`.
+5. the pages of :doc:`engines/mesh-engines`.
 
 **A calibration**
 
@@ -266,7 +243,7 @@ add what. For a path through the code, start here.
 2. ``hydromodpy/calibration/optim/engine.py``;
 3. ``hydromodpy/calibration/runners/trial.py``, the prepare-once and
    evaluate-many primitive;
-4. the pages of :doc:`calibration/index`.
+4. the pages of :doc:`engines/calibration-internals`.
 
 **Where backend-specific logic starts**
 
@@ -282,6 +259,6 @@ Next
 
 - :doc:`layered-architecture` for the import rules between packages.
 - :doc:`data-scopes` for the three databases.
-- :doc:`simulation/toml-to-solver-walkthrough` for the same path with the objects
+- :doc:`engines/toml-to-solver` for the same path with the objects
   named.
-- :doc:`spatial_support/hydrographic-network-uml-diagrams`.
+- :doc:`engines/stream-network-support`.

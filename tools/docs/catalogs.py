@@ -4,6 +4,7 @@ Each one is read from a registry of the code, never typed in a page:
 
 - solvers: ``hydromodpy.solver.base.registry`` (the attributes each backend declares);
 - figures: ``hydromodpy.display`` (``FigureSpec``, the figure classes, their options);
+- outputs of a run: ``hydromodpy.results.field_registry`` (field arrays and time series);
 - data sources: the ``source`` keys of the ``[data.<variable>]`` sections in the
   field registry, joined with ``hydromodpy.schema.sources`` (publisher, licence, hosts).
 
@@ -265,6 +266,36 @@ def data_sources(nodes: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def outputs() -> dict[str, list[dict[str, str]]]:
+    """The field arrays and the time series a run stores, read from the results registry."""
+    from hydromodpy.results import field_registry as reg
+
+    fields = []
+    for name, d in reg.FIELD_REGISTRY.items():
+        path = d.zarr_path
+        fields.append(
+            {
+                "name": name,
+                "group": path.split("/", 1)[0] + "/" if "/" in path else "",
+                "path": path,
+                "unit": d.units,
+                "dimensions": ", ".join(d.dimensions),
+                "long_name": d.long_name,
+            }
+        )
+    series = [
+        {
+            "name": name,
+            "path": f"tables.parquet/timeseries.parquet, variable {name}",
+            "unit": d.units,
+            "dimensions": d.shape,
+            "long_name": d.long_name,
+        }
+        for name, d in reg.TIME_SERIES_REGISTRY.items()
+    ]
+    return {"fields": fields, "series": series}
+
+
 def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
     sources = data_sources(nodes)
     return {
@@ -272,6 +303,7 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "figures": figures(),
         "data_sources": sources,
         "providers": providers(sources),
+        "outputs": outputs(),
     }
 
 

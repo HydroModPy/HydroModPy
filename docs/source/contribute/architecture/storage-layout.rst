@@ -29,58 +29,9 @@ No other module spells them.
 Project layout
 --------------
 
-A project with one catchment, two runs and a calibration:
-
-.. code-block:: text
-
-   <project>/
-   ├── project.toml            the configuration and the marker of the project root
-   ├── README.md               written by the author, never rewritten
-   ├── daily.toml              a variant, base_config = "project.toml"
-   ├── calibration.toml        base_config = "project.toml" + [calibration]
-   ├── hydromodpy.lock         pin of the data cache and of the files of the user
-   ├── inputs/                 the author's input files, made by hmp project new
-   ├── configs/                the author's variants and overlays, made by hmp project new
-   ├── runs/
-   │   ├── baseline/           hmp run project.toml
-   │   ├── baseline.v2/        hmp run project.toml --set flow.param.K.field.value=2e-5
-   │   ├── daily/              hmp run daily.toml
-   │   └── calibration/        the promoted best trial of sessions/calibration
-   ├── sessions/
-   │   └── calibration/        hmp calibrate calibration.toml
-   ├── trash/                  runs and sessions deleted by a move; tombstones.txt
-   └── .hmp/                   rebuildable: index.duckdb, logs/, products/
-
-A project of N catchments declares ``[sites]`` and a table of sites; each case is a site crossed
-with a recipe, named ``<site>-<recipe>``:
-
-.. code-block:: text
-
-   <project>/
-   ├── project.toml            [sites] instead of [site]
-   ├── README.md
-   ├── sites.csv               one row per site: site, label, gauge, x_outlet, y_outlet, ...
-   ├── site_overrides/         one ordinary TOML per site, read when present
-   ├── k2e-5.toml              a recipe
-   ├── calage.toml             a recipe with [calibration]
-   ├── hydromodpy.lock
-   ├── plan/
-   │   ├── current             text: the hash of the plan in force
-   │   └── a3f9c2e1/           plan.json, cases.csv, <case>.toml
-   ├── runs/
-   │   ├── J0014010-base/
-   │   ├── J0014010-k2e-5/
-   │   ├── J0014010-calage/    promoted run of the calibration of the site
-   │   └── ...
-   ├── sessions/
-   │   ├── J0014010-calage/
-   │   └── ...
-   ├── summary/                hmp campaign collect: by_case.*, by_site.*, catalog.csv, ...
-   ├── jobs/
-   │   ├── 20261020-091500-local/   journal.jsonl of the local launcher
-   │   └── 20261020-143000-slurm/   prepare.sh, array.sh, cases.txt, journal.jsonl
-   ├── trash/
-   └── .hmp/                   index.duckdb, logs/, launcher.lease, products/
+The generated :doc:`generated/storage-tree` renders the folders of a project, a run and a
+session. A project of N catchments declares ``[sites]`` and a table of sites; each case is a
+site crossed with a recipe, named ``<site>-<recipe>``.
 
 ``runs/`` is flat and sorted by site, so ``ls runs/ | grep J0014010`` lists every case of one site.
 
@@ -144,72 +95,27 @@ same product again and delineates on it.
 Classes of artifacts
 --------------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 12 30 22 18 8 10
+.. csv-table::
+   :header: Class, Run, Session, Project (N cases), Sealed, Regenerable
+   :widths: 12, 30, 22, 18, 8, 10
 
-   * - Class
-     - Run
-     - Session
-     - Project (N cases)
-     - Sealed
-     - Regenerable
-   * - raw result
-     - ``fields.zarr/``, ``final_state/``, ``tables.parquet/``, ``config.toml``,
-       ``config.resolved.toml``, ``inputs.json``, ``provenance.json``, ``products.json``,
-       ``mesh/``, ``manifest.json``
-     - ``config.toml``, ``session.json``, ``trials.jsonl``, ``phases/``
-     - ``plan/<hash>/``
-     - yes
-     - no
-   * - derived
-     - ``figures/`` + ``index.json``
-     - ``figures/``
-     - ``summary/``
-     - no
-     - yes
-   * - deliverable
-     - ``exports/`` + ``index.json``
-     -
-     - ``summary/exports/``
-     - no
-     - yes (``hmp export``)
-   * - report
-     - ``report/index.html``, ``report/report.json``
-     - ``report/index.html``, ``report/report.json``
-     - ``summary/report/index.html``
-     - no
-     - yes (``hmp show --report``)
-   * - human map
-     - ``README.md``, generated, sha256 of the manifest in its footer
-     - ``README.md``
-     - ``summary/README.md`` only; the root ``README.md`` is the author's
-     - no
-     - yes
-   * - outcome
-     - ``outcome.json``, ``attempts/<n>/``
-     - ``outcome.json``
-     - ``jobs/<stamp>/journal.jsonl``
-     - ``outcome.json`` frozen at the seal
-     - no
-   * - publication
-     - ``published.jsonl``
-     - ``published.jsonl``
-     -
-     - no
-     - no
-   * - diagnostic
-     - ``logs/``: ``run.log``, ``heartbeat.json``, ``job-<id>.out``; ``profile.json``
-     - ``logs/``
-     - ``.hmp/logs/``
-     - no
-     - disposable
-   * - machine state
-     - ``.hmp/``: scratch, locks, checkpoints of the attempt in progress
-     - ``.hmp/``
-     - ``.hmp/``: index, lease, product store
-     - no
-     - rebuilt (project) or consumed by the seal (run)
+   raw result, "``fields.zarr/``, ``final_state/``, ``tables.parquet/``, ``config.toml``,
+   ``config.resolved.toml``, ``inputs.json``, ``provenance.json``, ``products.json``, ``mesh/``,
+   ``manifest.json``", "``config.toml``, ``session.json``, ``trials.jsonl``, ``phases/``", "
+   ``plan/<hash>/``", yes, no
+   derived, ``figures/`` + ``index.json``, ``figures/``, ``summary/``, no, yes
+   deliverable, ``exports/`` + ``index.json``, , ``summary/exports/``, no, yes (``hmp export``)
+   report, "``report/index.html``, ``report/report.json``", "``report/index.html``,
+   ``report/report.json``", ``summary/report/index.html``, no, yes (``hmp show --report``)
+   human map, "``README.md``, generated, sha256 of the manifest in its footer", ``README.md``, "
+   ``summary/README.md`` only; the root ``README.md`` is the author's", no, yes
+   outcome, "``outcome.json``, ``attempts/<n>/``", ``outcome.json``, "
+   ``jobs/<stamp>/journal.jsonl``", ``outcome.json`` frozen at the seal, no
+   publication, ``published.jsonl``, ``published.jsonl``, , no, no
+   diagnostic, "``logs/``: ``run.log``, ``heartbeat.json``, ``job-<id>.out``; ``profile.json``", "
+   ``logs/``", ``.hmp/logs/``, no, disposable
+   machine state, "``.hmp/``: scratch, locks, checkpoints of the attempt in progress", ``.hmp/``, "
+   ``.hmp/``: index, lease, product store", no, rebuilt (project) or consumed by the seal (run)
 
 ``CERTIFIED_RUN_ENTRIES`` in ``hydromodpy/results/storage/contract.py`` is the closed list the
 seal certifies, one role each: ``config.toml``, ``config.resolved.toml``, ``inputs.json``,
@@ -224,34 +130,7 @@ invisible to the reader of the seal and the seal judges nothing.
 A run folder
 ------------
 
-.. code-block:: text
-
-   runs/<case>/
-   ├── outcome.json        attempt, attempt_id, host, pid, status, sim_id, request_id; written before any step
-   ├── request.json        the request as given in JSON or as a dict; written at the claim, never redacted
-   ├── README.md           generated at the seal: site, period, version, checks, label, sha256
-   ├── config.toml         what the run was given, overrides included; written at the claim; paths relative to the project root
-   ├── config.resolved.toml  the same with every default, and what the build decided; a replay compares to it
-   ├── inputs.json         sealed: provider, product, version, request, fetched_at, sha256, licence
-   ├── provenance.json     environment, versions, git, solver binaries; host and user stay here
-   ├── products.json       the products the run read from the store, one per kind, in first-demand order
-   ├── mesh/               the mesh the run built, when its engine caches one: mesh.json, mesh.npz
-   ├── manifest.json       the seal, written last
-   ├── annotations.json    tags and notes, written after the seal
-   ├── fields.zarr/        the array store
-   ├── final_state/        sealed: last head, lake and reach stages in float64, read by a restart and the next window
-   ├── profile.json        time and memory of each step, solve, figure and export; outside the seal and the identity
-   ├── tables.parquet/     the tabular payloads
-   ├── figures/            index.json + the figures of this run; written after the seal
-   ├── exports/            index.json + the files of each [[export]]; written after the seal
-   ├── report/             index.html, report.json, review/ or sheet-<lang>/; written by hmp show --report
-   ├── logs/               run.log, heartbeat.json
-   ├── published.jsonl     one line per copy and per delivered file; absent until one is made
-   ├── purged.json         gc removed the field store of this kept trial; what left, and when; outside the seal
-   ├── attempts/<n>/       outcome.json, logs/ and stop.json of an earlier attempt; absent at the first
-   ├── solver/             the solver folder, kept only with keep_solver_files = true
-   ├── ro-crate-metadata.json, stac-item.json, prov.jsonld: views rendered from the seal
-   └── .hmp/               state of the attempt in progress; removed by the seal of a completed run
+The generated :doc:`generated/storage-tree` lists the entries of a run folder with their role.
 
 Those names are the whole vocabulary: ``ALLOWED_RUN_ENTRIES`` in
 ``hydromodpy/results/storage/contract.py`` lists them as the union of the certified entries and
@@ -265,15 +144,8 @@ has no figure asset. A figure or an export that fails after the seal leaves the 
 completed. The command then exits with an error that names ``hmp show <run> --figure <figure>`` or
 ``hmp export <run>``.
 
-``report/`` holds what ``hmp show RUN --report`` writes from a sealed run. The research preset
-writes ``index.html`` and the pages ``review/compact/``, ``review/standard/``, ``review/audit/``
-and ``review/by_block/``, each with its own ``index.html``, and copies the figures it shows under
-``figures/``. The management preset writes one page, ``sheet-<lang>/index.html``, in English or
-French. Both write ``report.json`` (schema ``hydromodpy.report.v1``), which lists the preset, the
-language, the label, the render date and each figure with its title, its file or null, and whether
-it was required. A required figure that is missing is listed under ``missing`` and shown on the
-page as "Required figure missing". ``copied`` lists the files the engine copied under ``figures/``.
-A new render removes those and no other file, so a figure drawn there by someone else stays.
+``report/`` holds what ``hmp show RUN --report`` writes from a sealed run. Its pages and its
+``report.json`` are described in :doc:`how-to/add-a-block-html-report`.
 
 The seal of a data overview writes ``tables.parquet/data_inventory.parquet``, with the columns of
 ``DATA_INVENTORY_SCHEMA`` in ``hydromodpy/results/storage/parquet_schemas.py``, and lists the loaded
@@ -352,13 +224,7 @@ rounding of 2^-17, taken by the writer and kept in the checkpoints of the attemp
 covers the values as calculated. A seal of the references weighs 24 to 36 kB, of which 14 to 19 kB
 are these digests.
 
-``lineage.replay`` says what a replay compared and what it found: the ``sim_id`` of its source,
-whether it read ``run`` or ``copy``, the version that sealed the source, the ``basis`` of the
-comparison (``float64``, ``stored`` or ``none``), its ``class`` (``bit`` or ``deviation``, and
-none without a basis), each key that ``differs`` with ``max_abs``, ``rel_l2`` and the precision
-of the values it read, the keys ``added`` and ``removed``, the ``producer`` fields that differ
-with both values, the ``changes`` of the register the source crossed, and whether ``--strict``
-asked.
+``lineage.replay`` says what a replay compared and what it found (:doc:`/how-to/replay-a-run`).
 
 ``products.json`` names the products the run read from the product store, one entry per kind, in
 the order the steps first asked for them, under the schema ``hydromodpy.products.v1``. A run of
@@ -397,48 +263,8 @@ Levels of a run
 A run has a level, read from its lineage and never written into the seal: ``research``, ``result`` or
 ``publication``, lowest first. :func:`~hydromodpy.results.storage.kept.level_of` gives ``research``
 for a kept calibration trial (``lineage.kind = "trial"``), ``publication`` for a copy that carries
-``PUBLICATION.json``, and ``result`` for every other run. The level decides what the run keeps:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 34 22 22 22
-
-   * - kept
-     - research
-     - result
-     - publication
-   * - log line, series at scored points
-     - yes
-     - n/a
-     - n/a
-   * - end-of-period head, compact
-     - if the trial is kept
-     - yes
-     - yes
-   * - per-cell budget
-     - the criterion's terms
-     - all
-     - all
-   * - final state in float64
-     - yes
-     - yes
-     - yes
-   * - tables, seal, inputs by digest
-     - yes
-     - yes
-     - yes
-   * - figures and exports
-     - no
-     - dated
-     - at the copy
-   * - bytes of inputs, image digest
-     - no
-     - no
-     - by default
-   * - face flows, solver files
-     - no
-     - on demand
-     - on demand
+``PUBLICATION.json``, and ``result`` for every other run. The level decides what the run keeps,
+by the table of :mod:`hydromodpy.results.storage.kept`.
 
 :class:`~hydromodpy.results.storage.kept.Retention` carries the level of one run with the
 ``BudgetKeep`` its planning decided and the two switches ``solver_files`` and ``face_flows``, which
@@ -449,22 +275,7 @@ each with ``lineage.kind = "trial"``, and a skip reads a completed run of the le
 A session folder
 ----------------
 
-.. code-block:: text
-
-   sessions/<case>/
-   ├── outcome.json
-   ├── README.md           method, phases, best trial, the promoted run and its sim_id
-   ├── config.toml         the resolved configuration of the case: the base of a promotion replay
-   ├── session.json        session_id, sites, cases, bounds, cost, windows, best trial, status
-   ├── trials.jsonl        one line per event (proposed, finished, linked); trial unique within the session
-   ├── methods.md
-   ├── phases/<phase>/     session.json of the phase: status, frozen values, best, cost, windows
-   ├── trials/<nnnn>/      kept trials, each shaped like a run; <nnnn>/<case_id>/ with several cases
-   ├── trial_series/       scored series, one file per trial (persist_trial_series, true by default)
-   ├── candidates/         TOML overlays of the candidates (materialize_candidates)
-   ├── figures/            trajectory, cost profile, and the figures of a session
-   ├── report/             index.html, report.json, review/; written by hmp calibrate or hmp show SESSION --report
-   └── logs/
+The generated :doc:`generated/storage-tree` lists the entries of a session folder.
 
 ``session.json`` and ``trials.jsonl`` are written while the calibration runs: the descriptor
 before the first trial, one line per trial as it completes, the descriptor again at the end with
@@ -537,10 +348,6 @@ Above the run
        state comes from the outcomes; a plan of a pre-release of 2.0 is refused with ``hmp project plan``
      - ``hmp project plan``
      - yes, never rewritten in place
-   * - ``hydromodpy.lock``
-     - pin of the workspace input cache, read by ``--frozen``
-     - the ``prepare`` phase, once per plan
-     - no (provenance)
    * - ``jobs/<stamp>-<local|slurm>/journal.jsonl``
      - one JSON line per event, append-only, one writer (the launcher holding the lease)
      - the launcher; on a cluster, ``hmp project log`` rebuilds it from the outcomes
@@ -912,18 +719,13 @@ descent), ``state`` (solver state fields), ``forcing`` (recharge and other forci
 ``forcing/soil/`` in soil mode), ``particles``, ``derived``, ``budget`` and ``geographic``, and the
 root arrays ``head``, ``time`` and ``crs`` (plus ``quantization_info`` when a field is rounded, and
 ``face_flow`` with ``connection_cells`` when the run keeps face flows).
-The generated :doc:`generated/storage-tree` lists them.
+:doc:`/reference/outputs` lists each field array with its path, unit and dimensions.
 
 ``meta``, ``mesh``, ``state``, ``particles`` and ``forcing`` are created
 at store init. ``derived``, ``budget`` and ``geographic`` are created when a
-writer first needs them. ``budget/`` holds the per-cell budget terms and a
-default run keeps all of them, storage terms included
-(see the per-cell budget below). ``derived/`` holds only the static parameter
+writer first needs them. ``derived/`` holds only the static parameter
 fields (hydraulic conductivity, specific yield, ...); no time-varying
-derived field is ever written there. A MODFLOW 6 run writes
-``derived/hydraulic_conductivity_k33`` every time, and ``derived/hydraulic_conductivity_k22``
-and ``derived/conductivity_tensor_angle1`` to ``angle3`` when the flow sets them. All of them
-are fields of ``run.field``.
+derived field is ever written there.
 
 Compression defaults to Blosc-zstd with bitshuffle, each variable carries
 CF ``standard_name`` and ``_FillValue`` attributes where the CF table has
@@ -953,19 +755,12 @@ whichever precision the store holds.
 **Face flows.** ``[simulation.results] keep_face_flows = true`` keeps the flow between each pair of
 connected cells, under MODFLOW 6 and MODFLOW-NWT. ``face_flow`` holds one value per connection of
 two active cells and per stored stamp, the mean of the steps of the period weighted by their length,
-in m3/s and positive from the smaller flat index to the larger. ``connection_cells`` holds the two
-flat cell indices of each connection, int32, smaller first, so a reader reads a pair without the
-grid. ``mesh/edge_face_connectivity`` gives the edges and ``mesh/idomain`` the active cells. The
+in m3/s and positive from the smaller flat index to the larger. The
 diagonal of MODFLOW 6 ``FLOW-JA-FACE`` is never kept, and a flow that writes neither array is refused
 when a transport reads ``face_flow``.
 
 **Per-cell budget.** A run of the result level writes under ``budget/`` every per-cell term its
-extractor produces, under the canonical CBC name: the exchange terms
-(``recharge``, ``drain``, ``river``, ``constant_head``, ``lake``, ``stream``,
-``evapotranspiration``, ...) and the storage terms (``storage`` under
-MODFLOW-NWT and Boussinesq, ``storage_ss`` and ``storage_sy`` under MODFLOW 6). Each term has
-a descriptor in :mod:`hydromodpy.results.field_registry`, so it can be listed,
-exported and read with ``run.field``. The storage terms stay raw, so ``storage_ss`` and
+extractor produces, under the canonical CBC name. The storage terms stay raw, so ``storage_ss`` and
 ``storage_sy`` are never summed on write, and a reader that asks for ``storage`` sums the
 members its run kept, by ``TERM_FAMILIES`` of :mod:`hydromodpy.core.budget.terms`. A kept calibration trial is a research run and writes only
 the terms its criterion reads, about 170 MB on the island case instead of the whole budget. The
@@ -985,11 +780,7 @@ The lumped ``budgets`` table is not affected by the policy.
 **Fields rebuilt on read.** Every derived field is rebuilt from the stored
 terms and the stored mesh by the readers
 (:mod:`hydromodpy.results.derive.virtual_fields`), on the same grid, with a
-range path so a window of steps reads only its slab: ``watertable_elevation``,
-``watertable_depth``, ``seepage_mask``, ``release_flux``, ``outflow_drain``,
-``drain_accumulation_flux``, ``release_accumulation_flux``, ``budget_flux_per_area`` and
-the solute fields ``concentration_seepage``, ``mass_seepage`` and
-``mass_seepage_running_sum``. Nothing time-varying is written under ``derived/``. A
+range path so a window of steps reads only its slab. Nothing time-varying is written under ``derived/``. A
 store written before holds some of these arrays under ``derived/`` (in
 float64 for ``release_flux`` and ``budget_flux_per_area``), and every reader
 returns the stored array first, so it reads as it always did.
@@ -999,76 +790,22 @@ shapes and the meaning of every stored array are unchanged, the float width
 is declared by each array's own Zarr metadata, and both an old store and a
 new one read the same through every reader.
 
+**Version 4.** ``zarr_schema_version`` is 4 since every budget flux of every solver has the sign
+of MODFLOW, negative when water leaves the aquifer. The sign rule is written once, in
+:mod:`hydromodpy.core.budget`. Boussinesq stored ``drain`` and
+``surface_excess`` positive before. Both bounds of the window of the versions are 4, so a store of
+an alpha is refused and must be run again.
+
 **Cell mesh.** ``step_persist_mesh`` writes the mesh of a run once, before the solve, from the
 ``PlanarCellMesh`` the mesh step built. The solver extractors then check their grid against it and
 add only what the solved model owns (topography, layer thickness, streambed levels, ``grid_type``)
 through ``write_topography``; none of them rewrites vertices or connectivity, and a grid whose
-cell count differs from the stored one raises ``IncompatibleMeshError``. Besides ``vertices``,
-``face_node_connectivity``, ``z_interfaces`` and ``topology``, ``mesh/`` holds the arrays below.
-The vertical geometry follows the table.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 22 12 18 48
-
-   * - Array
-     - dtype
-     - Axes
-     - Content
-   * - ``node_x``, ``node_y``
-     - float64
-     - ``node``
-     - The first two columns of ``vertices``, one array per axis, which is what UGRID asks for;
-       ``node_coordinates`` of ``topology`` names them
-   * - ``crs``
-     - int32
-     - none
-     - A copy of the root ``crs``, written when the run has one, so that ``mesh/`` read alone
-       still has its CRS
-   * - ``face_x``, ``face_y``
-     - float64
-     - ``face``
-     - Cell center, by the one center rule of the mesh; the attribute ``center_kind`` says
-       ``generator``, ``cell_center``, ``vertex_mean`` or ``interior_point``
-   * - ``face_family``
-     - int32
-     - ``face``
-     - Bit field of the line families a cell belongs to; ``flag_masks``, ``flag_meanings``
-       (CF-safe names) and ``family_names`` (exact names) give the bit of each family
-   * - ``face_zone``
-     - int32
-     - ``face``
-     - Index into the attribute ``zone_names``, ``-1`` when unknown; written only when the mesh
-       has zones
-   * - ``edge_node_connectivity``
-     - int32
-     - ``edge``, ``two``
-     - The two end nodes of every mesh edge, smaller node first, sorted
-   * - ``edge_face_connectivity``
-     - int32
-     - ``edge``, ``two``
-     - The cells on the two sides of every edge, ``-1`` for the domain side of a boundary edge
-   * - ``edge_family``
-     - int32
-     - ``edge``
-     - Bit field of the face families an edge lies on; its own ``flag_masks``, ``flag_meanings``
-       and ``family_names`` attributes name the bits, which need not match those of ``face_family``
-   * - ``z_interfaces``
-     - float64
-     - ``layer_interface``, ``face``
-     - The elevation of every interface of every cell, from the top of the first layer to the
-       bottom of the last one
-   * - ``idomain``
-     - int8
-     - ``layer``, ``face``
-     - The activity of the solved model: 1 active, 0 inactive, -1 vertical pass-through; the
-       attribute ``flag_values`` lists them. It is a static field of ``run.field`` and of
-       the exports
-
-**Version 4.** ``zarr_schema_version`` is 4 since every budget flux of every solver has the sign
-of MODFLOW, negative when water leaves the aquifer. Boussinesq stored ``drain`` and
-``surface_excess`` positive before. Both bounds of the window of the versions are 4, so a store of
-an alpha is refused and must be run again.
+cell count differs from the stored one raises ``IncompatibleMeshError``. The arrays and attributes
+of ``mesh/`` beyond the geometry are described in :mod:`hydromodpy.results.zarr_store.mesh_layout`.
+A family has one bit, so a mesh holds at most 31 families. A run whose mesh has no such family
+writes no table: an absent table is an empty one when the ``engine`` attribute is present. A run
+sealed before it has none of these arrays, no ``engine`` and no ``crs`` attribute on ``mesh/``; its
+readers say so and do not rebuild them.
 
 **Vertical geometry.** Since version 3 a run stores the vertical geometry of
 every cell. ``mesh/z_interfaces`` has one column per cell, where it held the column of cell 0
@@ -1085,55 +822,23 @@ above).
 The array ``idomain`` is never rounded, and a reader that needs the top active cell of a column
 takes ``top_active_layer`` of ``hydromodpy/core/fields/vertical_column.py``.
 
-The attributes of ``mesh/`` add the ``engine``, its ``engine_version``, its ``engine_seed`` when it
-draws random numbers, the ``mesh_request_hash``, the ``crs`` (WKT) the vertices are expressed in,
-the mesh ``qa`` (JSON, no ``NaN``), the ``library_versions`` the mesh depends on, the
-``vertical_layout`` and, on a regular grid, ``structured_shape``. The edge arrays are the UGRID ones, with the same fill value as
-xugrid, so ``xugrid.Ugrid2d`` takes them as stored. A family has one bit, so a mesh holds at most 31
-families. ``cell_family_bits`` and ``edge_family_bits`` of ``results/zarr_store/mesh_layout.py``
-compute the two bit fields. The order along a river, which a bit field cannot keep, is in the ``mesh_cell_families``
-table (``family``, ``chain_id``, ``position`` from upstream, ``cell_id``, and ``offset_m``, null
-when the engine publishes no offset for the chain); the faces of the face-intent families (lakes, geology, the
-``boundary:*`` sides) are in ``mesh_face_families`` (``face_row``, ``family``, ``edge_id``, the two
-nodes, the cell on each side and the zone names). A run whose mesh has no such family writes no
-table: an absent table is an empty one when the ``engine`` attribute is present. All of this is
-additive. A run sealed before it has none of these
-arrays, no ``engine`` and no ``crs`` attribute on ``mesh/``; its readers say so and do not
-rebuild them.
-
 **Read by UGRID tools.** ``mesh/`` opens in xugrid as it is stored, with
 ``xugrid.UgridDataset(xarray.open_zarr(store, group="mesh"))``. A tool that reads NetCDF and not
 Zarr, such as QGIS or ParaView, reads the NetCDF export, which carries the same topology.
-``node_x``, ``node_y``, ``face_x`` and ``face_y`` carry ``standard_name``
-``projection_x_coordinate`` or ``projection_y_coordinate``, and ``face_node_connectivity``
-declares ``_FillValue = -1`` for the padding of the short rows. On a run with a CRS, ``topology``
-and these coordinates name the ``crs`` of the group in ``grid_mapping``. ``node_coordinates`` of
-``topology`` names ``node_x node_y``, where it named ``vertices`` before, and ``vertices`` stays
-for the readers of HydroModPy. Its third column, z = 0 for a planar mesh, gets no array of its
-own.
 
 **Routing descent.** A MODFLOW 6 or MODFLOW-NWT run stores the descent D it was built with under
-``mesh/``, one value per face and none rounded: ``descent_receiver``, ``descent_surface``, the
-masks ``descent_base_level``, ``descent_constant_head``, ``descent_raised``, ``descent_channel``
-and ``descent_pinned``, the list ``descent_dam_foot`` and the mask ``descent_basin``, the basin of D
-at the catchment outlet, whose attributes name the outlet cell (``descent_outlet``), the rule that
-found it (``basin_rule``), the area (``basin_area_m2``), whether D was seeded at the outlet
-(``basin_seeded_at_outlet``) and the rule version (``basin_version``). The attributes of
-``descent_receiver`` name the neighborhood and carry the build report. The solver build leaves D
+``mesh/``, one value per face and none rounded. The solver build leaves D
 and its basin in the solver folder as ``<model>.descent.npz`` and the extractor copies them into
 the store right after the mesh. ``run.descent`` reads them back, and the flow direction map and ``drain_accumulation_flux`` route on it
-(the contract of D is in :doc:`solver/backends`). A Boussinesq run stores the mesh of its
+(the contract of D is in :doc:`engines/backends`). A Boussinesq run stores the mesh of its
 setup like any other and stores no D: its readers rebuild D from the stored top, as for a run
-sealed before D was stored. The
-arrays are new datasets. A run sealed before D was stored has no
+sealed before D was stored. A run sealed before D was stored has no
 ``descent_*`` array, and its readers rebuild D from the stored top, with no channel pin, no
 constant-head seed and no lake. A run sealed with D but before ``descent_basin`` has no basin, and
 each reader of the catchment says which older support it falls back to.
 
 **Catchment fraction.** When the basin of D closes a catchment and the run has a delineated
-polygon, the store also holds ``mesh/catchment_fraction``: a float64 value per face in [0, 1], the
-share of the area of the face that lies inside the polygon, with ``units = "1"``. A cell inside the
-polygon has 1. The build writes it with ``descent_basin`` and the sidecar of D carries it. It does
+polygon, the store also holds ``mesh/catchment_fraction``. It does
 not change the basin, which stays all or nothing, and it weights the total over the catchment of a
 quantity that varies in space (``hydromodpy.results.derive.views.budget_over``, see
 :doc:`/theory/mesh`). The sidecar and the store refuse a fraction with no basin, a value outside
@@ -1143,21 +848,13 @@ so it stores no fraction, its basin is the largest one of the domain, and its bu
 domain row only.
 
 **Criterion cells.** ``run_outputs`` writes two boolean arrays per face for every run with a
-cell mesh, beside ``catchment_fraction``. ``mesh/open_water`` holds the cells of open water, all
-false without a lake: the stream criterion leaves them out of both its supports.
-``mesh/catchment_cells`` holds the cells whose center the outline covers, and is written only when
-an outline exists. They are what a calibration trial reads, so a figure drawn from the run reads
+cell mesh, ``mesh/open_water`` and ``mesh/catchment_cells``. They are what a calibration trial reads, so a figure drawn from the run reads
 them back. A run sealed before them shows both as new fields at replay, adopted with
 ``--adopt-new`` on two passes, and a redraw of its stream criterion is refused until it is replayed.
 
 **Soil reservoir.** A run whose recharge comes from
 ``[flow.sinks_sources.recharge.soil]`` writes its daily columns under
-``forcing/soil/``: ``etr``, ``residual_etp``, ``recharge`` and ``runoff`` in
-mm/day, ``soil_storage`` and ``transit_storage`` in mm at the end of the day,
-plus the position and capacity of each column (``cell_index``,
-``class_index``, ``x``, ``y``, ``ru_mm``, ``cell_fraction``,
-``basin_weight``). Two axes carry it, ``record`` and the new
-``soil_column``, and every array is float64: these are daily forcing inputs,
+``forcing/soil/``. Every array there is float64: these are daily forcing inputs,
 not a solved field, so ``field_precision`` never quantizes them. The recharge
 grid MODFLOW receives is written the same way a SIM2 recharge would be, as
 ``forcing/recharge_recharge``.
@@ -1184,17 +881,11 @@ stays ``v3``, because a reader ignores a column a table of 2.0 carries and that 
 not declare.
 
 The container directory is ``tables.parquet/`` and the payloads inside
-are plain ``.parquet`` files. No suffix marks a container.
+are plain ``.parquet`` files. No suffix marks a container. The columns of each payload are
+declared in ``hydromodpy/results/storage/parquet_schemas.py``, and :doc:`/reference/outputs` lists
+the time series. ``sfr_reaches`` is the only record of which cell carries which reach.
 
-The payloads are ``simulation``, ``parameters``, ``metrics``, ``timeseries``, ``budgets``,
-``mass_balance``, ``observation_points``, ``sfr_reaches`` (the resolved SFR reach geometry, the
-only record of which cell carries which reach, absent when the run built no stream network; its
-``reach_id`` is the ``station_id`` of the reach in ``timeseries`` and its ``reach`` counts from 1, as
-the TOML does),
-``soil_budget`` (one row per soil column and calendar year, absent outside soil mode),
-``mesh_cell_families`` and ``mesh_face_families`` (the line families of the mesh, see the cell
-mesh above), ``provenance`` and the GeoParquet 1.1 layers ``geographic_*``. Their columns are generated in
-:doc:`generated/storage-tree`. ``timeseries`` keys a series on its ``source``, ``simulated`` or
+``timeseries`` keys a series on its ``source``, ``simulated`` or
 ``observed``, so a series and its gauge carry one variable name. A series of a backend
 (``discharge``, ``reservoir_storage`` of the ``linear_reservoir`` backend) carries the shape
 ``time`` of the field registry: one value per period of the time grid, stored at the
@@ -1209,17 +900,10 @@ station means ``catchment`` when it has the variable. A table says ``catchment``
 whole catchment and ``domain`` for the whole model (:doc:`/understand/conventions`), and writes every
 ``unit`` in udunits spelling.
 
-``simulation.parquet`` is written by the run from its ``RunRecord``: it carries ``project``,
-``site``, ``site_fingerprint``, ``recipe``, ``case_id``, ``rel_dir``, ``attempt``, ``attempt_id``,
-the flattened ``checks``, ``nse`` and where it was read (``score_station``, ``score_variable``) and
-``metric_rule_version``. ``score_window_start``, ``score_window_end`` and ``n_samples`` give the window
-and the pairs of the headline score. A promoted run carries the cost of its case in
-``calibrated_by_metric`` and ``calibrated_by_cost``, and ``calibrated_by_window_start`` and
-``calibrated_by_window_end`` span the periods of role ``calibration`` its case read. Without a
+``simulation.parquet`` is written by the run from its ``RunRecord``. Without a
 declared gauge and window, ``nse`` is null.
 
-``metrics.parquet`` holds one row per metric, station, variable and period, keyed on ``sim_id``,
-``station_id``, ``variable``, ``metric`` and ``window_name``. The scores of a run and the numbers of
+``metrics.parquet`` holds one row per metric, station, variable and period. The scores of a run and the numbers of
 the run itself (``variable = "runtime"``, with no period) both land there, through one writer. The
 period ``metrics`` is ``[metrics] window``, of role ``evaluation``, and it is the headline: a reader
 that wants one row per metric filters on it, so a validation period can sit beside it. A run a
@@ -1228,9 +912,24 @@ period of ``calibrated_by.windows``, named after the period and written before t
 same writer, with ``metric_rule_version``. In the seal, ``checks.calibrated_by`` gains ``rule``,
 the metric rule version of the cost (a string, or null), and ``components``, a table of floats that
 holds the parts of the cost without ``validation_cost``. The block keeps ``hydromodpy.checks.v2``.
-``parameters.parquet`` carries ``calibrated`` and ``origin`` (``declared``, ``site_table``,
-``site_override``, ``recipe`` or ``calibrated``).
 
+Reading one cell
+----------------
+
+A finished run answers for one precise cell, after the fact, through ``run.probe.series`` and
+``group.probe.series`` (``hydromodpy/results/run/point.py``). A virtual field
+(``watertable_depth`` ...) answers exactly like a persisted one, so a
+map read and a point read can never disagree.
+
+A location known before the run is declared in ``[observation]`` rather
+than interrogated afterwards (``sample_declared_points`` in ``results/run/observation_points.py``).
+A declaration mistake is logged
+and skipped: it must not lose a run whose results are already in. The series lands in
+``tables.parquet/timeseries.parquet`` under the station id
+``obs:<point id>``, so a declared probe never collides with a solver
+station (gauge, SFR reach, lake). The declaration itself lands in
+``tables.parquet/observation_points.parquet``, so ``hmp catalog reindex`` finds it again with the
+files.
 Concurrency and atomic writes
 -----------------------------
 
@@ -1306,16 +1005,8 @@ The inputs of one run are sealed in its own ``inputs.json``: one entry per loade
 its provider, product, product version, the full request (extent, period, stations, step),
 ``fetched_at``, path, SHA-256, size and licence. A replay never depends on the project-wide file.
 
-A replay is its own verb, ``hmp replay REF`` and ``hmp.replay(ref)``. ``REF`` is a sealed run
-directory or a published copy, and a folder without a seal is refused. The verb plays the run again
-from the bytes the seal certifies, then classes what it compared. Its inputs come from
-``inputs.json`` with their digests pinned: an input whose digest differs is refused, naming the file
-and both digests, and a URL is contacted only to fill an absent cache; its bytes are not pinned, so
-values that move with them show in the class. A configuration that differs from
-``config.resolved.toml`` runs, and the keys that moved are written in ``lineage.drift``, because the
-edition the source sealed gives its defaults back. A key this version added, absent from the sealed
-file and at the default of that edition, is no difference. A solver binary that differs is written
-in ``lineage.replay.producer`` with an advising line, and it refuses nothing.
+A replay is its own verb, ``hmp replay REF`` and ``hmp.replay(ref)``, described in
+:doc:`/how-to/replay-a-run`.
 
 The class says whether the replay reproduced the values. On a seal of this version the basis is
 ``float64``: the digests of the source seal against those of the replay. On a seal of a pre-release of 2.0 the
@@ -1386,71 +1077,6 @@ writes the site in ``data/sites/catalog.csv``, then extracts the run under ``run
 reindex. ``hmp publish --package`` writes a whole project on the same index, and
 ``hmp project import`` installs it as ``projects/<name>``.
 
-Reading one cell
-----------------
-
-A finished run answers for one precise cell, after the fact.
-``hydromodpy/results/run/point.py`` binds the point-to-cell lookup
-(``results/spatial_index``) and the on-the-fly derivations
-(``results/derive/virtual_fields``) to a run, and exposes the gesture as
-``run.probe.series`` and ``group.probe.series``. The cell is named by
-project-CRS coordinates, by its zero-based index, or by a depth in
-meters below the local model top that picks the layer. A virtual field
-(``watertable_depth`` ...) answers exactly like a persisted one, so a
-map read and a point read can never disagree.
-
-.. code-block:: python
-
-   run.probe.series("head", x=352000.0, y=6789000.0)
-   run.probe.series("watertable_depth", cell=1204, timestep=-1)
-   group.probe.series("head", x=352000.0, y=6789000.0, depth=12.5)
-
-The answer is a long-format table (``run``, ``sim_id``, ``variable``,
-``timestep``, ``time``, ``value``, ``unit``, ``cell``, ``layer``, ``x``,
-``y``), which makes the multi-run form a plain concatenation ready for a
-scenario comparison.
-
-A persisted field is sliced in a single Zarr call
-(``array[:, layer, cell]``), so the series costs one decompression pass
-over the touched chunks instead of one per timestep. A virtual field is
-rebuilt timestep by timestep and reduced to the cell right away, so
-memory stays at one field.
-
-Declared observation points
----------------------------
-
-A location known before the run is declared in ``[observation]`` rather
-than interrogated afterwards:
-
-.. code-block:: toml
-
-   [observation]
-   variables = ["head", "watertable_depth"]
-
-   [[observation.points]]
-   id = "piezo_amont"
-   x = 395100.0
-   y = 6824925.0
-   depth = 12.5
-
-Each point names ``x``, ``y`` and either ``layer`` or ``depth``, and may
-override the section-level ``variables``. ``ObservationConfig``
-(``hydromodpy/solver/base/observation_config.py``) validates the
-ids and the vertical selector; the run samples the points at the end of
-extraction, while it still holds its fields
-(``workflow/steps/run_outputs.py``,
-``sample_declared_points`` in ``results/run/observation_points.py``). A declaration mistake is logged
-and skipped: it must not lose a run whose results are already in.
-
-Both halves of a declared point are run artifacts. The series lands in
-``tables.parquet/timeseries.parquet`` under the station id
-``obs:<point id>``, so a declared probe never collides with a solver
-station (gauge, SFR reach, lake). The declaration itself lands in
-``tables.parquet/observation_points.parquet`` and is exposed as a
-Parquet-backed view, so ``hmp catalog reindex`` finds it again with the
-files. This is not ``[data.piezometry]``: that section loads *measured*
-series, this one declares *where the model is read*.
-
 Tested invariants
 -----------------
 
@@ -1500,3 +1126,4 @@ See also
 - :doc:`/contribute/architecture/packages/results` for the Python API on top of
   this storage.
 - :doc:`/contribute/architecture/packages/data` for the input cache writer.
+

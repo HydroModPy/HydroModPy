@@ -30,7 +30,7 @@ FLOOR = 200
 # The one file that names commands that left, so that each is refused by name.
 RETIRED_FORMS = REPO_ROOT / "hydromodpy" / "cli" / "conventions.py"
 # The history of the alphas records commands that existed then and left since.
-HISTORY_PAGE = REPO_ROOT / "docs" / "source" / "about" / "changes-during-the-alphas.md"
+HISTORY_PAGE = REPO_ROOT / "docs" / "changes-during-the-alphas.md"
 
 requires_git = pytest.mark.skipif(
     not (REPO_ROOT / ".git").exists(),

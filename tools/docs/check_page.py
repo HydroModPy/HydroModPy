@@ -16,7 +16,10 @@ For each page (Markdown or reStructuredText under docs/source):
 - no French, no em dash, no wording of the mock-up;
 - a key of the field registry written between backticks outside a code block is
   refused: it goes through the ``toml`` role, so the card generated from the
-  model is the one place that gives its default and its unit.
+  model is the one place that gives its default and its unit;
+- an inline-code path that starts with ``hydromodpy/``, ``tests/``, ``tools/`` or
+  ``docs/source/`` exists in the repository. A path with ``<``, ``*``, ``{`` or ``...``
+  is a placeholder and is skipped.
 
 Reads ``docs/source/_data/registry.json``, written by the last build. Exit
 code 1 when a page has a problem.
@@ -63,6 +66,8 @@ ALLOWED_NAMES = (
     "Brévilly",
     "Chèze",
 )
+CITED_PREFIXES = ("hydromodpy/", "tests/", "tools/", "docs/source/")
+PLACEHOLDER = ("<", "*", "{", "...")
 BANNED = (
     "mock-up",
     "mockup",
@@ -93,6 +98,22 @@ def bare_keys(line: str, reg: Registry) -> list[str]:
         for m in CODE_SPAN.finditer(rest)
         if "." in m.group(1) and m.group(1) in reg.nodes
     ]
+
+
+def cited_paths(line: str) -> list[str]:
+    """The repository paths a line cites in inline code, placeholders left out.
+
+    A trailing ``:line``, ``::name`` or ``#anchor`` is cut before the test.
+    """
+    out = []
+    for m in CODE_SPAN.finditer(ANY_ROLE.sub("", line)):
+        text = m.group(1)
+        if not text.startswith(CITED_PREFIXES) or any(c.isspace() for c in text):
+            continue
+        if any(mark in text for mark in PLACEHOLDER):
+            continue
+        out.append(re.split(r"::|:\d|#", text, maxsplit=1)[0])
+    return out
 
 
 def docnames() -> set[str]:
@@ -299,6 +320,10 @@ def check(page: Path, reg: Registry, docs: set[str]) -> list[str]:
                 problems.append(
                     f"{where(n)}: write the key {key_role}`{key}` so its card gives the default and the unit"
                 )
+        if rel not in BARE_KEYS_ALLOWED and (code_fence is None if is_md else rst_code is None):
+            for cited in cited_paths(line):
+                if not (SRC.parents[1] / cited).exists():
+                    problems.append(f"{where(n)}: cited path does not exist: {cited}")
         if in_params and stripped and not stripped.startswith(":"):
             if reg.resolve(stripped) is None:
                 problems.append(f"{where(n)}: unknown key in hmp-params: {stripped}")

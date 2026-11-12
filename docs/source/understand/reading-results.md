@@ -1,8 +1,8 @@
 # Reading the results
 
 This page is a reading guide to the main outputs of example 04 (the Nançon catchment, see
-{doc}`index`). For each map or curve: what it shows, how to read it, the pitfalls, and what makes
-it reliable or only indicative. For a first look, {doc}`in-five-minutes` is shorter. Every figure and every number on this page comes from one run, described in
+{doc}`what-it-computes`). For each map or curve: what it shows, how to read it, the pitfalls, and what makes
+it reliable or only indicative. Every figure and every number on this page comes from one run, described in
 [Where these figures come from](#where-these-figures-come-from).
 
 ## Three rules before reading
@@ -12,10 +12,9 @@ it reliable or only indicative. For a first look, {doc}`in-five-minutes` is shor
    shows the case where the network is at its smallest. A map of a wet month would show much more.
 2. **A cell is 75 m wide.** A stream fills one cell in width, and we count cells, not meters of
    stream. The maps are read at the hillslope scale (see {term}`resolution`).
-3. **Calibrating is not validating.** In a calibrated run, the simulated network and the discharge
-   are what the {term}`calibration` tried to reproduce ({ref}`two-stage-calibration`). Their
-   agreement is expected. A {term}`validation` compares with measurements that the calibration
-   has not seen ({doc}`what-validated-means`).
+3. **Calibrating is not validating.** The simulated network and the discharge are what the
+   {term}`calibration` tried to reproduce ({ref}`two-stage-calibration`), so their agreement is
+   expected ({doc}`what-validated-means`).
 
 ## In one table
 
@@ -24,8 +23,7 @@ one:
 
 - {bdg-success}`Numerical check` An internal check of the computation, independent of the
   calibration.
-- {bdg-info}`Calibrated` The agreement was sought by the calibration, so it is not independent
-  evidence.
+- {bdg-info}`Calibrated` The agreement was sought by the calibration.
 - {bdg-warning}`Indicative` No field measurement was compared with this result in the example.
 
 | Figure | Question | Label |
@@ -162,10 +160,9 @@ previous map: the two maps do not count exactly the same cells. How the scores a
 - *The mapped network holds only the permanent reaches.* An "excess" can be a real temporary
   stream that the map ignores, or an error of the model: the map does not settle it.
 - *One month only,* October 2002.
-- *The threshold matters.* A cell is counted as seepage if it returns more than 0.01% of its own
-  recharge (the {term}`seepage threshold`, setting
-  {toml}`calibration.outputs.<name>.model.seepage_threshold`). Another threshold moves the three
-  classes.
+- *The threshold matters.* A cell is counted as seepage above the
+  {toml}`calibration.outputs.<name>.model.seepage_threshold` ({doc}`stream-network`). Another
+  threshold moves the three classes.
 - *The mapped network is placed on the 75 m grid* with a transfer rule: a one-cell gap can come
   from the transfer and not from the model. This run uses the default rule
   ({toml}`calibration.outputs.<name>.map.drawn_by`): it places each stream head of the
@@ -173,8 +170,7 @@ previous map: the two maps do not count exactly the same cells. How the scores a
   model, so that field ditches below a head do not count as model errors
   ({doc}`stream-network`).
 
-**Reliability.** Calibrated. K was adjusted so that this network looks like the map: a good
-agreement is the goal reached, not an independent validation. The method itself is published and
+**Reliability.** Calibrated. K was adjusted so that this network looks like the map. The method itself is published and
 peer reviewed (Abhervé et al., 2023).
 
 (reading-persistence)=
@@ -209,17 +205,15 @@ The second map classes each cell over a single calendar year (2002): *perennial*
 {term}`heads <stream head>` are orange: they dry up first.
 
 **How to read it.** A cell "flows" if it is downstream of a seepage cell and carries at least
-1 L/s of water coming from the aquifer (the {term}`visible flow`, setting
-{toml}`calibration.outputs.<name>.model.extent.visible_flow`). This is not the same meaning as on the seepage map, which counts only
+the {toml}`calibration.outputs.<name>.model.extent.visible_flow` of water coming from the
+aquifer ({doc}`stream-network`). This is not the same meaning as on the seepage map, which counts only
 the exit points.
 
 **Pitfalls.**
 
 - *The time step is monthly.* A reach that dries up for two weeks does not appear. "Intermittent"
   means: dry at least one month in the year.
-- *The 1 L/s threshold is a convention.* The parameter documentation notes that no value is
-  agreed on: thresholds from 1 to 3 L/s are used in the field, and Zanetti et al. (2024) use
-  10 L/s for a simulated discharge. Another threshold changes the layout.
+- *The visible flow is a convention.* Another threshold changes the layout ({doc}`stream-network`).
 - *The three years include the first year,* 2000, which serves as the {term}`spin-up` of the
   model. And three years say nothing about the year-to-year variability.
 - *The year 2002 is the driest year of the series* according to the comment in the example. So the
@@ -273,7 +267,7 @@ reference, not a threshold specific to HydroModPy.
 - *Runoff is an input.* It is given to the model as data: only the groundwater part
   is computed. A good agreement of the total does not prove that the groundwater part is right.
 - *Sy was calibrated on this window.* A high NSE on 2001 and 2002 shows that the calibration
-  worked, not that the model would predict another period.
+  worked.
 - *A good discharge agreement does not tell K values apart.* Several K values give a similar
   discharge (see {ref}`reading-seepage`). This is {term}`equifinality`, and
   {doc}`how-sure` comes back to it.
@@ -281,8 +275,7 @@ reference, not a threshold specific to HydroModPy.
   day.
 
 **Reliability.** Calibrated. The season and the volume are well reproduced over the calibrated
-period. The test that would count, a period or a catchment not used for calibration, is not in
-the example.
+period. The example holds no test on a period or a catchment that the calibration did not use.
 
 (reading-budget)=
 ## The water budget
@@ -373,5 +366,5 @@ To draw a figure of an existing run again, at another date, see the
 
 - {doc}`what-it-computes`: what the model assumes and does not do.
 - {doc}`how-sure`: how far a result can be wrong.
-- {doc}`glossary`: the terms used on this page.
+- {doc}`/reference/glossary`: the terms used on this page.
 - {doc}`../get-started/staircase/index`: rebuild this model step by step, in six files.

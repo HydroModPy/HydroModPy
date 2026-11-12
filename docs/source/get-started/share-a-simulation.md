@@ -53,11 +53,6 @@ file is a row of the data cache of the other workspace and a rerun reads it ther
 downloading it again. A run of example 04 that read Hub'Eau and BD
 Topage reruns with no network at all.
 
-`hmp replay <copy> -w <project>` does the same for the files a provider delivered. It installs
-them by their sha256 in the workspace of the project, with their sidecars and their station
-rows, then plays the run from the data cache. A file already at that path with other bytes
-refuses the replay and nothing is written.
-
 ## The rules of an import
 
 | What the workspace already holds | What the import does |
@@ -119,14 +114,7 @@ names.
 
 ## Without importing
 
-`hmp replay <copy> -w <project>` replays a published copy from the bytes it carries and
-writes the new run in that project. Your own files are read under `inputs/` of the copy, and
-the files a provider delivered are installed in the workspace first, as above. Without `-w`
-a copy is refused.
-
-A run folder you copied by hand carries no such bytes. `hmp replay <folder> -w <project>`
-reads its inputs from the project `-w` names, each at the digest its seal records, and writes
-the new run there. Nothing is ever written in the copy.
+`hmp replay <copy> -w <project>` replays a published copy from the bytes it carries ({doc}`../how-to/replay-a-run`).
 
 ## Check an archive
 

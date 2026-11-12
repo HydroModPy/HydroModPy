@@ -2,194 +2,64 @@ Add a config field
 ==================
 
 Every TOML knob in HydroModPy is backed by a Pydantic v2 model that forbids
-extra keys. This page describes how to add a field to an existing section, how
-to add a section, and how to write the field so the generated parameter
-reference documents it. The reference is built from the models alone, so the
-declaration of the field is its documentation.
+extra keys. This page covers a field in an existing section, a new section, and
+the way to write the field so that the generated parameter reference documents
+it. The reference is built from the models alone, so the declaration of the
+field is its documentation.
 
-Find the right model
---------------------
-
-Sections live close to the package they configure:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 24 56
-
-   * - TOML section
-     - Pydantic model
-     - File
-   * - ``[workflow]``
-     - ``WorkflowConfig``
-     - ``hydromodpy/config/hydromodpy_config.py``
-   * - ``[workspace]``
-     - ``WorkspaceConfig``
-     - ``hydromodpy/core/workspace/config.py``
-   * - ``[geographic]``
-     - ``GeographicConfig``
-     - ``hydromodpy/catchment/preprocess/geographic_config.py``
-   * - ``[domain]``
-     - ``DomainConfig``
-     - ``hydromodpy/model/domain/domain_config.py``
-   * - ``[data]``
-     - ``DataConfig``
-     - ``hydromodpy/data/loading/config_schema.py``
-   * - ``[flow]``
-     - ``FlowConfig``
-     - ``hydromodpy/model/flow_config.py``
-   * - ``[transport]``
-     - ``TransportConfig``
-     - ``hydromodpy/model/transport/transport_config.py``
-   * - ``[simulation]``
-     - ``SimulationConfig``
-     - ``hydromodpy/solver/base/simulation_config.py``
-   * - ``[solver]``
-     - ``SolverConfig``, and the settings table of each flow solver under it
-       (``[solver.modflow6]``, ``[solver.modflow_nwt]``, ``[solver.boussinesq]``)
-     - ``hydromodpy/solver/base/solver_config.py``
-   * - ``[display]``
-     - ``DisplayConfig``
-     - ``hydromodpy/display/config.py``
-   * - ``[site]``
-     - ``SiteConfig``
-     - ``hydromodpy/core/site/config.py``
-   * - ``[sites]``
-     - ``SitesConfig``
-     - ``hydromodpy/config/sites.py``
-   * - ``[metrics]``
-     - ``MetricsConfig``
-     - ``hydromodpy/results/metric_rule.py``
-   * - ``[publication]``
-     - ``PublicationConfig``
-     - ``hydromodpy/results/publication.py``
-   * - ``[overview]``
-     - ``OverviewConfig``
-     - ``hydromodpy/display/overview/config.py``
-   * - ``[mesh]``
-     - ``MeshConfig``
-     - ``hydromodpy/mesh/mesh_config.py``
-   * - ``[calibration]``
-     - ``CalibrationConfig``
-     - ``hydromodpy/calibration/config.py``
-
-A named table
+Files to edit
 -------------
 
-The settings of a flow solver are not a section of the root. A key of ``[solver]`` that is not one
-of its own fields is the name of a flow solver, and its table is validated by the ``options`` class
-that the adapter declares (``hydromodpy/solver/modflow6/modflow6_config.py``,
-``hydromodpy/solver/modflow_nwt/nwt/nwt_config.py``, ``hydromodpy/solver/boussinesq/options.py``).
-To add a field to such a table, add it on that class with the same rules as any other field.
-``SolverConfig.named_tables(shipped_only=True)`` hands the classes of the shipped solvers to the
-schema, the template, the parameter pages and the dotted paths, so none of them needs a line for a
-new field. A field that every flow solver reads belongs to ``[solver]`` itself. If a solver ignores
-it, the solver leaves it out of ``supports`` and a file that sets it is refused when it is read.
+A section lives in the package it configures. ``SECTIONS`` in
+``hydromodpy/config/section_loader.py`` holds one row per section of the root and
+names its loader and its model, and ``HydroModPyConfig`` in
+``hydromodpy/config/hydromodpy_config.py`` holds the field of each section. Open the
+model there and add the field to it.
 
-Pydantic invariants
--------------------
+The settings of a flow solver are not a section of the root. A key of ``[solver]``
+that is not one of its own fields names a flow solver, and its table is validated by
+the options class that the adapter declares, for example
+``hydromodpy/solver/modflow6/modflow6_config.py``. To add a field to such a table,
+add it on that class with the same rules. ``SolverConfig.named_tables`` hands these
+classes to the schema, the template and the parameter pages, so none of them needs a
+line for the new field. A field that every flow solver reads belongs to ``[solver]``
+itself. If a solver ignores it, the solver leaves it out of ``supports`` and a file
+that sets it is refused when it is read.
 
-Every model in HydroModPy must:
+A model inherits from ``HydroModelBase``, which forbids extra keys and validates on
+assignment. Each field carries a ``Profile`` annotation and a
+``Field(..., description="...")``.
 
-- inherit from ``HydroModelBase`` (or a model that does), which forbids extra
-  keys and validates on assignment;
-- use a unit type for unit-bearing fields (see below);
-- carry a ``Profile`` annotation on every field;
-- ship a ``Field(..., description="...")``.
+The contract of a field
+-----------------------
 
-Pick a unit type
-----------------
+A quantity uses the unit aliases of ``hydromodpy/core/units/types.py`` (``Length``,
+``Area``, ``Time``, ``FlowRate``, ``Velocity``, ``HydraulicConductivity``, and so on).
+Each one has a canonical SI unit. A bare number in the file is read in that unit, and
+a string such as ``"50 m"`` or ``"0.36 m/h"`` is converted.
 
-Quantitative fields use the unit aliases declared in
-``hydromodpy/core/units/types.py``:
+The profile says who sees the field in the templates, the JSON Schema and the
+frontend forms. Use ``Profile.USER`` unless the field is irrelevant to a
+hydrogeologist.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 28 24 48
+.. literalinclude:: /../../hydromodpy/core/config_kit/profile.py
+   :pyobject: Profile
 
-   * - Alias
-     - Canonical unit
-     - Use for
-   * - ``Length``
-     - m
-     - Lengths, distances, depths
-   * - ``Area``
-     - m²
-     - Surfaces
-   * - ``Volume``
-     - m³
-     - Volumes
-   * - ``Time``
-     - s
-     - Durations
-   * - ``FlowRate``
-     - m³/s
-     - Discharges
-   * - ``Velocity``
-     - m/s
-     - Fluxes, recharge rates
-   * - ``HydraulicConductivity``
-     - m/s
-     - K
-   * - ``SpecificStorage``
-     - 1/m
-     - Ss
-   * - ``SpecificYield``
-     - dimensionless
-     - Sy
-   * - ``Dimensionless``
-     - dimensionless
-     - Pure ratios
-
-Bare numbers are interpreted in the canonical SI unit; users can also
-pass strings such as ``"50 m"`` or ``"0.36 m/h"`` and Pydantic will
-auto-convert.
-
-Pick a profile
---------------
-
-``hydromodpy/core/config_kit/profile.py`` declares three visibility
-levels:
+The minimal skeleton of a field reads as follows.
 
 .. code-block:: python
 
-   class Profile(IntEnum):
-       USER = 1     # hydrogeologist: physics, paths, project I/O
-       DEV = 2      # developer: tolerances, backends, cache
-       EXPERT = 3   # MODFLOW / Boussinesq / pint internals
-
-Default to ``Profile.USER``. Demote to ``DEV`` or ``EXPERT`` only
-when the field is genuinely irrelevant for non-developer users.
-
-Template generation, JSON Schema export, and frontend forms all
-respect the chosen Profile.
-
-Add a field to an existing section
-----------------------------------
-
-.. code-block:: python
-
-   # hydromodpy/model/flow_config.py
    from typing import Annotated
    from pydantic import Field
    from hydromodpy.core.config_kit.profile import Profile
    from hydromodpy.core.units.types import HydraulicConductivity
-   class FlowConfig(HydroModelBase):
-       # ... existing fields ...
 
+   class FlowConfig(HydroModelBase):
        k_aquifer: Annotated[HydraulicConductivity, Profile.USER] = Field(
            default=1e-5,
            description="Aquifer hydraulic conductivity (canonical: m/s).",
            examples=[1e-4, "0.36 m/h"],
        )
-
-In TOML, a bare number is read in the canonical unit and a string carries its
-own:
-
-.. code-block:: toml
-
-   # not checked: k_aquifer is the example of this page, not a key of the model
-   [flow]
-   k_aquifer = 1e-4         # interpreted as m/s
 
 .. code-block:: toml
 
@@ -197,60 +67,49 @@ own:
    [flow]
    k_aquifer = "0.36 m/h"   # converted to m/s
 
-Tracked input files
--------------------
+A field that holds a path carries the marker ``InputFile(role=..., category=...,
+portable=...)`` of ``hydromodpy/core/tracking/input_file.py`` in its ``Annotated``
+metadata. The manifest of a run then lists the file with its canonical path and its
+SHA-256.
 
-If the field carries a path, annotate it with ``InputFile`` from
-``hydromodpy/core/tracking/input_file.py``:
+.. literalinclude:: /../../hydromodpy/core/tracking/input_file.py
+   :pyobject: InputFile
 
-.. code-block:: python
+Validators
+----------
 
-   from hydromodpy.core.tracking.input_file import InputFile
-
-   dem_path: Annotated[Path, InputFile(role="dem", category="data", portable=True)] = ...
-
-The reproducibility manifest will list the file, its canonical path,
-and its SHA-256 automatically.
-
-Cross-field validators
-----------------------
-
-Use ``@field_validator(mode="before")`` for normalization
-(parse-then-validate) and ``@model_validator(mode="after")`` for
-cross-field invariants. Keep them small and explicit.
+Use ``@field_validator(mode="before")`` to normalize and ``@model_validator(mode="after")``
+for a rule between fields of one model. Keep them small.
 
 A rule that reads two sections belongs to neither of them. It is one row of
-``CROSS_RULES`` in ``hydromodpy/config/cross_checks.py``, a
-``CrossRule(rule, reads)``, named by its function. ``rule(sections, *, sealed)`` reads the validated
-sections as attributes, raises ``ValueError`` when it refuses and returns the
-sentences of its warnings. ``reads`` names the sections it reads. The check of an
-incomplete document runs the rule once every one of them is complete, and a test
-holds ``reads`` equal to what the function reads, so a section missing from it
-would let the rule run too early.
+``CROSS_RULES`` in ``hydromodpy/config/cross_checks.py``, a ``CrossRule`` named by its
+function.
 
-Add a brand-new section
------------------------
+.. literalinclude:: /../../hydromodpy/config/cross_checks.py
+   :pyobject: CrossRule
 
-1. Create the Pydantic model in the appropriate package.
-2. Add the field to ``HydroModPyConfig`` in
-   ``hydromodpy/config/hydromodpy_config.py``, with a default factory or
-   ``None``, and its row in ``SECTIONS`` of
-   ``hydromodpy/config/section_loader.py``. ``from_toml`` and ``check`` walk that
-   one table.
-3. If a launcher should dispatch on the new section, wire it through
-   ``hydromodpy/project/dispatch/workflow.py`` (or the equivalent dispatcher).
-4. Regenerate the committed JSON Schema with
-   ``python -m tools.docs.schema_export`` and commit the diff.
+The check of an incomplete document runs the rule once every section in ``reads`` is
+complete. A test holds ``reads`` equal to what the function reads, so a section
+missing from it would let the rule run too early.
+
+Add a new section
+-----------------
+
+1. Create the Pydantic model in the package it configures.
+2. Add the field to ``HydroModPyConfig``, with a default factory or ``None``, and its
+   row in ``SECTIONS``. ``from_toml`` and ``check`` walk that one table.
+3. If a launcher dispatches on the section, wire it in
+   ``hydromodpy/project/dispatch/workflow.py``.
+4. Regenerate the committed JSON Schema with ``python -m tools.docs.schema_export``.
    ``tests/unit/docs/test_docs_config_consistency.py`` fails while the file in
-   ``docs/source/_static/`` differs from what the code exports. The frontend
-   export, ``hmp config schema --bundle --to DIR``, is written on demand and is not committed.
+   ``docs/source/_static/`` differs from what the code exports.
 
 Describe the field
 ------------------
 
-The parameter reference is generated from the models, so nothing is written on
-a page. Change the field, and the next build shows the change everywhere the
-key appears. This is what the reference reads from a declaration:
+The parameter reference is generated from the models, so nothing is written on a
+page. Change the field and the next build shows the change wherever the key appears.
+The table says what the reference reads from a declaration.
 
 .. list-table::
    :header-rows: 1
@@ -258,150 +117,107 @@ key appears. This is what the reference reads from a declaration:
 
    * - The reader sees
      - It comes from
-   * - The path of the key and its place in the file
+   * - The path of the key
      - The model tree under ``HydroModPyConfig``.
-   * - The one-line summary
-     - The first sentence of ``description``.
-   * - The text of the card
-     - The whole ``description``.
-   * - The form of the value: number, text, list, table
-     - The annotation.
+   * - The summary line, and the text of the card
+     - The first sentence of ``description``, and the whole ``description``.
    * - The unit
-     - A quantity type (``Length``, ``HydraulicConductivity``, ...), else
-       ``field_metadata(unit=...)``, else ``Calibrable(units=...)``, else a
-       suffix of the field name such as ``_m`` or ``_days``.
+     - A quantity type, else ``field_metadata(unit=...)``, else
+       ``Calibrable(units=...)``, else a suffix of the name such as ``_m``.
    * - The default, or *required*
      - ``default``, ``default_factory``, or no default.
-   * - The range
-     - ``ge``, ``gt``, ``le``, ``lt``.
-   * - The allowed values
-     - ``Literal[...]``.
+   * - The range, the allowed values
+     - ``ge``, ``gt``, ``le``, ``lt``, and ``Literal[...]``.
    * - What each value does
      - ``field_metadata(value_docs={...})``.
-   * - The value written on a required line
+   * - The value on a required line
      - The first item of ``Field(examples=[...])``.
    * - Shown by default, or behind the developer and expert button
-     - ``Profile.USER``, ``Profile.DEV``, ``Profile.EXPERT`` in the annotation.
+     - The ``Profile`` in the annotation.
    * - When the key is read
      - ``VisibleWhen("sibling", value)`` in the annotation.
    * - The *calibrable* badge and its search space
      - ``field_metadata(calibrable=Calibrable(...))``.
    * - The *experimental* and *deprecated* badges
      - ``field_metadata(stability="experimental")`` and ``Field(deprecated=...)``.
-   * - "Connections found in the code"
-     - Other sections named in the same function or string of ``hydromodpy/``.
 
 ``field_metadata`` lives in ``hydromodpy/core/config_kit/field_metadata.py``. It
-refuses an unknown key when the module is imported, so a typo fails the tests
-and not the page.
+refuses an unknown key at import, so a typo fails the tests and not the page.
 
-The first sentence of the description is the summary: it shows on the line of
-the key, in the tree of the whole file and in the search. Make it say what the
-key sets, in the words of the person who writes the file. The conditions where
-the key applies and its exceptions come after it.
-
-.. code-block:: python
-
-   geology: Annotated[Literal["face", "none"], StripLower, Profile.USER] = Field(
-       default="face",
-       description=(
-           "How the mesh follows the contacts between the zones of the vector geology "
-           "map that a flow parameter reads."
-       ),
-       json_schema_extra=field_metadata(
-           value_docs={
-               "face": "Cell faces lie on the contacts between geology zones.",
-               "none": "The mesh ignores the geology contacts.",
-           }
-       ),
-   )
+The first sentence of the description is the summary. It shows on the line of the
+key, in the tree of the whole file and in the search. Make it say what the key sets,
+in the words of the person who writes the file. The conditions and the exceptions
+come after it.
 
 Rules for the values:
 
 - A choice between values is a ``Literal``, and every value is explained in
-  ``value_docs``. The card lists the values with their explanation, and the
-  search finds a key by the name of one of its values.
-- A number has a unit. A quantity type also lets the file write ``"150 m"`` or
-  ``"3 days"``, and a bare number is read in the canonical unit.
-- A key read only in some cases says so with ``VisibleWhen``, not only in the
-  prose: the card then shows the condition on its own line.
-- A required key with no default has an example in ``Field(examples=[...])``. It
-  is the value the reference writes on the line of the key. Never take it from
-  an example project.
+  ``value_docs``. The search finds a key by the name of one of its values.
+- A number has a unit.
+- A key read only in some cases says so with ``VisibleWhen``, so the card shows the
+  condition on its own line.
+- A required key with no default has an example in ``Field(examples=[...])``. Never
+  take it from an example project.
 
-Build the documentation and open the page of the section to check it
-(``make -C docs html-strict``). The build fails on a cited key that does not
-exist. The tree of the whole file, :doc:`/reference/parameters/explorer`, is the
-fastest way to see the key in context.
+Build the documentation (``make -C docs html-strict``) to check the page of the
+section. The build fails on a cited key that does not exist. The tree of the whole
+file, :doc:`/reference/parameters/explorer`, shows the key in context.
 
-Tests to add
-------------
+Test
+----
 
-- **Unit** under ``tests/unit/config/`` for accept / reject cases
-  (extra fields rejected, units parsed, validators raised on bad
-  combos).
-- **Integration** if the field changes the dispatched workflow.
+- A unit test under ``tests/unit/config/`` for the accept and reject cases: extra
+  keys refused, units parsed, validators raised on bad combinations.
+- An integration test if the field changes the dispatched workflow.
 
-Run ``hmp check <toml>`` to validate any candidate TOML
-against the new model. It lists every fault at once, and ``--partial`` accepts a
-file that still lacks required keys.
+``hmp check <toml>`` validates a candidate file against the model. It lists every
+fault at once, and ``--partial`` accepts a file that still lacks required keys.
 
 Rename, move or remove a key
 ----------------------------
 
-A stable key leaves under the rules of :doc:`/about/versions`, so it keeps loading
-for two minor versions. In one change:
+A stable key leaves under the rules of :doc:`/about/versions`, so it keeps loading for
+two minor versions. In one change:
 
 1. Add a ``[[migration]]`` row of ``document = "config"`` to
-   ``hydromodpy/schema/changes.toml``, with ``old`` and ``new`` for a key or a table that
-   moves, ``key``, ``old_value`` and ``new_value`` for a value that takes another name,
-   or ``old`` and ``instead`` for a key that leaves. ``since`` is the version that will
-   ship the change. Add ``rule`` when the row cannot say the whole change: it names a
-   function of ``RULES`` in ``hydromodpy/config/config_migration.py``. A load then reads
-   the old name with a warning, and ``hmp doctor --fix-config`` rewrites the file and
-   the files it inherits.
-   That one row also carries the dotted paths that name the key: the ``overrides`` of a
-   calibration phase, ``path`` and ``target`` of a calibration parameter, the keys of
-   ``[sites.bind]`` and of the ``set`` table of a recipe, ``--set``, ``HMP_SET_*``, and
-   the directives ``<old>__append``, ``<old>__merge`` and ``<old>__delete``. A figure
-   option is a row with the scope ``display.overrides.{*}``.
+   ``hydromodpy/schema/changes.toml``. Use ``old`` and ``new`` for a key or a table
+   that moves, ``key``, ``old_value`` and ``new_value`` for a value that takes another
+   name, or ``old`` and ``instead`` for a key that leaves. ``since`` is the version
+   that ships the change. Add ``rule`` when the row cannot say the whole change. It
+   names a function of ``RULES`` in ``hydromodpy/config/config_migration.py``. A load
+   then reads the old name with a warning, and ``hmp doctor --fix-config`` rewrites the
+   file and the files it inherits. The same row also covers the dotted paths that name
+   the key, such as the ``overrides`` of a calibration phase, ``--set``, ``HMP_SET_*``
+   and the keys of ``[sites.bind]``. A figure option is a row with the scope
+   ``display.overrides.{*}``.
 2. List the old key in the ``model_refused_keys`` of the model, so a config built in
-   Python is told what to write. Under ``[calibration]``, ``renamed_to(old, new, meaning)``
-   of ``hydromodpy/calibration/config_terms.py`` writes that sentence.
+   Python is told what to write. Under ``[calibration]``, ``renamed_to(old, new,
+   meaning)`` of ``hydromodpy/calibration/config_terms.py`` writes that sentence.
 3. Name the old path in ``renamed_from`` on the new field, so the changes page lists
    the rename.
-4. Run ``python -m tools.surface_snapshot``. It refuses a removed stable key that has no
-   such row, and it records the key in ``removed_toml_keys.tsv``.
+4. Run ``python -m tools.surface_snapshot``. It refuses a removed stable key that has
+   no such row, and it records the key in ``removed_toml_keys.tsv``.
 5. Write the old and the new name under ``Changed`` in the changelog.
 
-``tests/unit/config/test_historical_configs.py`` reads real files of the published alphas
-from ``tests/unit/config/corpus/``. A file that holds a key only a pre-release wrote is
-refused with every such key, and the others load, so a rename with no row fails there.
+``tests/unit/config/test_historical_configs.py`` reads real files of the published
+alphas from ``tests/unit/config/corpus/``, so a rename with no row fails there.
 
 A row stays in the register after its delay, which ends when the version of the
 package reaches ``since`` plus two minor versions. From then on a live file is refused
 with the new name, and a run sealed under the old name stays readable for the whole
 major line.
 
-Pitfalls flagged by the layer matrix
-------------------------------------
+Layer boundaries
+----------------
 
-- The Pydantic model lives in the **same** layer as the package it
-  configures. Do not move it to ``config/``: ``config/`` is the root
-  composition only.
-- ``config/`` is the one layer that composes the sections, so it imports the
-  layers that own them. No layer below it imports ``config/``, and ``schema/``
-  and ``results/`` never read it.
-- The committed JSON Schema must stay in sync with the models. Re-run the
-  export after every field addition.
+The model lives in the layer of the package it configures. Only ``config``,
+``workflow``, ``project`` and ``cli`` import ``config``, and ``schema`` and ``results``
+never read it. The full rules are on :doc:`../generated/layers`.
 
 See also
 --------
 
 - :doc:`../packages/config` for the configuration root.
-- :doc:`../packages/core` for ``Profile``, units, and tracking
-  helpers.
-- :doc:`build-a-frontend` if your field powers a UI widget.
-- :doc:`/contribute/documentation/index` for the rest of the documentation.
-- :doc:`/reference/parameters/index` for the user-facing TOML
-  reference (auto-generated from these models).
+- :doc:`../packages/core` for ``Profile``, units, and tracking helpers.
+- :doc:`build-a-frontend` if the field powers a UI widget.
+- :doc:`/reference/parameters/index` for the generated TOML reference.
