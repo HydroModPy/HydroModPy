@@ -251,7 +251,7 @@ REFUSALS = (
 @pytest.mark.parametrize(
     ("case", "prepare", "mapping", "reason"), REFUSALS, ids=[case[0] for case in REFUSALS]
 )
-def test_a_change_that_needs_a_build_is_refused_and_touches_nothing(
+def test_refusals_touch_nothing(
     tmp_path: Path, mapped: dict, case: str, prepare, mapping: dict, reason: str
 ) -> None:
     del case
@@ -283,7 +283,7 @@ def test_a_change_that_needs_a_build_is_refused_and_touches_nothing(
         _untouched(previous, tmp_path, model_before)
 
 
-def test_an_xt3d_written_in_the_options_holds_whatever_k_is(tmp_path: Path, mapped: dict) -> None:
+def test_xt3d_option_always_holds(tmp_path: Path, mapped: dict) -> None:
     previous = _previous(tmp_path)
     previous.solver_model.k22 = K
     previous.solver_model.modflow_config.runtime.mf6_enable_xt3d = True
@@ -315,7 +315,7 @@ ACCEPTED = (
 @pytest.mark.parametrize(
     ("case", "fields", "properties", "writes"), ACCEPTED, ids=[case[0] for case in ACCEPTED]
 )
-def test_a_rerun_copies_the_input_files_and_writes_what_changed(
+def test_rerun_writes_what_changed(
     tmp_path: Path, mapped: dict, case: str, fields: dict, properties: dict, writes: tuple
 ) -> None:
     del case
@@ -347,9 +347,7 @@ def test_a_rerun_copies_the_input_files_and_writes_what_changed(
         assert getattr(solver, name) is values
 
 
-def test_a_new_k_sets_k_and_k33_and_the_drain_conductance_it_reaches(
-    tmp_path: Path, mapped: dict
-) -> None:
+def test_new_k_reaches_npf_and_drn(tmp_path: Path, mapped: dict) -> None:
     previous = _previous(tmp_path)
     solver = previous.solver_model
     mapped["fields"] = _fields(hk=K * 3.0, k33=K * 0.3)
@@ -369,9 +367,7 @@ def test_a_new_k_sets_k_and_k33_and_the_drain_conductance_it_reaches(
     assert [row[3] for row in rows[0]] == pytest.approx([0.6, 0.9], rel=1e-12)
 
 
-def test_a_drain_with_a_configured_conductance_stays_the_copied_one(
-    tmp_path: Path, mapped: dict
-) -> None:
+def test_configured_drain_stays_copied(tmp_path: Path, mapped: dict) -> None:
     previous = _previous(tmp_path)
     previous.solver_model._drainage_uses_hk = False
     mapped["fields"] = _fields(hk=K * 3.0)
@@ -387,9 +383,7 @@ def test_a_drain_with_a_configured_conductance_stays_the_copied_one(
     assert previous.solver_model.npf.writes == 1
 
 
-def test_a_rerun_into_the_folder_of_the_previous_run_copies_nothing(
-    tmp_path: Path, mapped: dict
-) -> None:
+def test_rerun_in_place_copies_nothing(tmp_path: Path, mapped: dict) -> None:
     previous = _previous(tmp_path)
     mapped["fields"] = _fields(sy=SY * 2.0)
 
@@ -401,9 +395,7 @@ def test_a_rerun_into_the_folder_of_the_previous_run_copies_nothing(
     assert (previous.output_dir / "run.hds").is_file(), "the folder keeps what it held"
 
 
-def test_a_chain_reruns_from_the_run_a_rerun_returned_and_not_from_its_parent(
-    tmp_path: Path, mapped: dict
-) -> None:
+def test_chain_reruns_from_last_rerun(tmp_path: Path, mapped: dict) -> None:
     previous = _previous(tmp_path)
     model_k = previous.model.with_properties(K=2e-5)
     mapped["fields"] = _fields(hk=K * 2.0)

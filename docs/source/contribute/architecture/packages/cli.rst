@@ -72,8 +72,8 @@ what it writes in ``OUTPUTS`` of ``output.py``, and a form that moved gets its l
 code is a ``Category`` on the exception class, and a new category is a value of
 ``Category`` and a line of ``EXIT_CODE_OF``.
 
-Three tests guard the package. ``tests/unit/cli/test_cli_help.py`` walks ``ALL_COMMANDS``
-and checks the help of each verb. ``tests/unit/cli/test_cli_surface_matches_the_target.py``
+Three tests guard the package. ``tests/unit/cli/test_main.py`` walks ``ALL_COMMANDS``
+and checks the help of each verb. ``tests/unit/cli/test_main.py``
 holds the list of verbs and actions that the command line must expose and the ones it must
 not, so a verb added or removed is a line there. ``tests/unit/cli/test_machine_output.py``
 walks the tree for the grammar and the envelope. Start reading at ``main.py`` for the

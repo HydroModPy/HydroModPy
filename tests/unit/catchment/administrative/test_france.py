@@ -44,7 +44,7 @@ def serve(monkeypatch):
     return _serve
 
 
-def test_french_regions_are_known_by_name_alias_or_code_and_an_unknown_one_lists_them():
+def test_region_names_and_codes():
     assert {"Auvergne-Rhone-Alpes", "Bretagne", "Ile-de-France", "Guadeloupe", "La-Reunion", "Mayotte"} <= set(known_french_region_names())  # fmt: skip
     assert normalize_french_region_key("La Reunion") == "la-reunion"
     assert [french_region_code(name) for name in ("Auvergne-Rhone-Alpes", "La Reunion", "Reunion")] == ["84", "04", "04"]  # fmt: skip
@@ -64,12 +64,12 @@ def test_french_regions_are_known_by_name_alias_or_code_and_an_unknown_one_lists
     ],
     ids=["departments_of_la_reunion", "departments_of_bretagne", "a_point_in_rennes_falls_in_ille_et_vilaine", *(f"padded_{c}" for c in ("35", "7", "2a", "02B", "971", "x1"))],
 )  # fmt: skip
-def test_a_department_is_found_by_region_by_bbox_and_its_code_is_padded(call, expected):
+def test_department_lookup_and_padding(call, expected):
     assert call() == expected
 
 
 @pytest.mark.parametrize("margin", [-5.0, 0.0, 1_000.0])
-def test_a_margin_grows_the_bbox_on_every_side_and_never_shrinks_it(margin):
+def test_bbox_margin(margin):
     bare = bbox_for_regions(["Bretagne"])
     grown = bbox_for_regions(["Bretagne"], margin_m=margin)
 
@@ -77,7 +77,7 @@ def test_a_margin_grows_the_bbox_on_every_side_and_never_shrinks_it(margin):
     assert grown == pytest.approx((bare[0] - pad, bare[1] - pad, bare[2] + pad, bare[3] + pad))
 
 
-def test_the_geometry_of_a_region_is_the_union_of_its_departments():
+def test_region_is_union_of_departments():
     region = geometry_for_regions(["Bretagne"])
     parts = [geometry_for_departments([code]) for code in BRETAGNE]
 
@@ -86,7 +86,7 @@ def test_the_geometry_of_a_region_is_the_union_of_its_departments():
     assert total * (1 - 1e-4) < region.area <= total
 
 
-def test_a_department_geometry_is_reprojected_to_the_target_crs():
+def test_department_crs():
     lonlat = geometry_for_departments(["35"], target_crs="EPSG:4326")
     native = geometry_for_departments(["35"], target_crs=None)
 
@@ -105,14 +105,14 @@ def test_a_department_geometry_is_reprojected_to_the_target_crs():
     ],
     ids=["lon_lat_is_brought_back_to_lambert_93", "without_crs_is_never_reprojected", "code", "code_dept", "CODE_DEPT", "INSEE_DEP"],
 )  # fmt: skip
-def test_a_frame_in_another_crs_or_with_another_code_column_reads_the_same_departments(bundled, serve, change, read, same):  # fmt: skip
+def test_other_crs_or_code_column(bundled, serve, change, read, same):  # fmt: skip
     reference = read()
     serve(change(bundled))
 
     assert same(reference)
 
 
-def test_the_union_falls_back_on_unary_union_without_union_all(monkeypatch):
+def test_union_fallback(monkeypatch):
     reference = geometry_for_regions(["Bretagne"])
     monkeypatch.delattr(gpd.base.GeoPandasBase, "union_all")
 

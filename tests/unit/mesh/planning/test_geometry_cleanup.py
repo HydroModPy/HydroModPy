@@ -80,7 +80,7 @@ def _notes(**counts: int) -> set[str]:
     return notes
 
 
-def test_each_kind_of_change_the_cleanup_counts_gives_one_note() -> None:
+def test_one_note_per_kind() -> None:
     cleanup = GeometryCleanup(
         tolerance=_TOL, merged_vertices=1, cut_ends=1, snapped_ends=1, dropped_holes=2
     )
@@ -98,7 +98,7 @@ def _with_a_close_vertex(polygon: Polygon) -> Polygon:
     return Polygon([coords[0], close, *coords[1:]])
 
 
-def test_close_vertices_of_the_domain_a_lake_and_the_catchment_merge() -> None:
+def test_close_vertices_merge() -> None:
     domain = _with_a_close_vertex(_DOMAIN)
     lake = _with_a_close_vertex(box(*_xy(100, 700), *_xy(300, 900)))
     catchment = _with_a_close_vertex(box(*_xy(50, 50), *_xy(950, 950)))
@@ -113,7 +113,7 @@ def test_close_vertices_of_the_domain_a_lake_and_the_catchment_merge() -> None:
     assert len(cleaned.watershed.exterior.coords) == len(catchment.exterior.coords) - 1
 
 
-def test_a_merge_that_would_leave_the_domain_invalid_keeps_its_vertices() -> None:
+def test_invalid_merge_is_skipped() -> None:
     """A wall pins the tip of a spike: flattening it would put the hole beside it outside."""
     tip = _xy(40.4, 0.5)
     domain = Polygon(
@@ -129,7 +129,7 @@ def test_a_merge_that_would_leave_the_domain_invalid_keeps_its_vertices() -> Non
     assert cleanup.merged_vertices == 0
 
 
-def test_a_lake_of_two_parts_passes_as_it_is() -> None:
+def test_two_part_lake_unchanged() -> None:
     lakes = MultiPolygon(
         [
             box(*_xy(100, 700), *_xy(200, 800)),
@@ -143,7 +143,7 @@ def test_a_lake_of_two_parts_passes_as_it_is() -> None:
     assert cleanup.merged_vertices == 0
 
 
-def test_a_river_end_short_of_the_boundary_is_snapped_onto_it() -> None:
+def test_river_end_snaps_to_boundary() -> None:
     river = LineString([_xy(200.0, 400.0), _xy(600.0, 500.0), _xy(999.4, 550.0)])
     mesh_cfg = MeshConfig(engine="regular", cell_size=50.0)
 
@@ -154,7 +154,7 @@ def test_a_river_end_short_of_the_boundary_is_snapped_onto_it() -> None:
     assert _notes(snapped_ends=1) <= set(request.notes)
 
 
-def test_a_contact_end_short_of_the_boundary_is_snapped_onto_it() -> None:
+def test_contact_end_snaps_to_boundary() -> None:
     contact = LineString([_xy(500.0, 999.5), _xy(500.0, 0.0)])
     geology = GeologyLines(lines=(contact,), zone_left=("granite",), zone_right=("schist",))
 
@@ -166,7 +166,7 @@ def test_a_contact_end_short_of_the_boundary_is_snapped_onto_it() -> None:
 
 
 @pytest.mark.parametrize("end", ["tail", "head"])
-def test_a_river_end_running_along_a_wall_is_cut_back_then_snapped(end: str) -> None:
+def test_river_along_wall_cut_back(end: str) -> None:
     wall = LineString([_xy(200.0, 300.0), _xy(800.0, 300.0)])
     river = LineString([_xy(500.0, 600.0), _xy(500.0, 300.5), _xy(700.0, 300.5)])
     if end == "head":
@@ -182,7 +182,7 @@ def test_a_river_end_running_along_a_wall_is_cut_back_then_snapped(end: str) -> 
     assert shapely.intersection(kept, wall.buffer(0.9 * _TOL)).length <= _TOL
 
 
-def test_a_wall_running_along_another_line_keeps_its_length() -> None:
+def test_wall_along_river_keeps_length() -> None:
     river = LineString([_xy(200.0, 300.0), _xy(800.0, 300.0)])
     wall = LineString([_xy(500.0, 600.0), _xy(500.0, 300.5), _xy(700.0, 300.5)])
 
@@ -194,7 +194,7 @@ def test_a_wall_running_along_another_line_keeps_its_length() -> None:
     assert kept.length == pytest.approx(wall.length, abs=1e-2)
 
 
-def test_a_stub_shorter_than_the_tolerance_on_a_vertex_of_another_line_stays_a_line() -> None:
+def test_short_stub_stays_a_line() -> None:
     """Snapping its free end onto the vertex it already ends on would leave a point."""
     wall = LineString([_xy(200.0, 300.0), _xy(500.0, 300.0), _xy(800.0, 300.0)])
     stub = LineString([_xy(500.0, 300.5), _xy(500.0, 300.0)])
@@ -205,7 +205,7 @@ def test_a_stub_shorter_than_the_tolerance_on_a_vertex_of_another_line_stays_a_l
     assert cleanup.snapped_ends == 0
 
 
-def test_an_end_that_overshoots_a_vertex_of_another_line_loses_its_overshoot() -> None:
+def test_overshoot_is_cut() -> None:
     wall = LineString([_xy(200.0, 300.0), _xy(500.0, 300.0), _xy(800.0, 300.0)])
     fence = LineString([_xy(500.0, 299.5), _xy(500.0, 300.0), _xy(500.0, 600.0)])
 
@@ -219,7 +219,7 @@ def _holed(outer: Polygon, *holes: Polygon) -> Polygon:
     return Polygon(outer.exterior.coords, [hole.exterior.coords for hole in holes])
 
 
-def test_a_lake_with_holes_of_one_square_metre_meshes_in_voronoi() -> None:
+def test_cheze_lakes_mesh_in_voronoi() -> None:
     """The Cheze case: nine 1 m2 holes of a polygonized bathymetry in two lakes."""
 
     def square(x: float, y: float) -> Polygon:
@@ -286,9 +286,7 @@ def _with_holes(*, tiny: bool = True, **overrides: object) -> PlanningInputs:
     ],
     ids=["graded", "regular"],
 )
-def test_a_hole_under_one_cell_squared_is_dropped_for_every_engine(
-    mesh_cfg: MeshConfig, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_small_holes_dropped(mesh_cfg: MeshConfig, caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.INFO):
         request = plan_mesh_request(mesh_cfg, _with_holes())
 
@@ -315,7 +313,7 @@ def cleanups(monkeypatch: pytest.MonkeyPatch) -> list[GeometryCleanup]:
     return made
 
 
-def test_without_a_small_hole_the_request_is_the_one_of_the_inputs(
+def test_clean_input_unchanged(
     cleanups: list[GeometryCleanup],
 ) -> None:
     inputs = _with_holes(tiny=False)
@@ -336,7 +334,7 @@ def test_without_a_small_hole_the_request_is_the_one_of_the_inputs(
     assert cleanup.notes() == ()
 
 
-def test_a_triangulation_read_keeps_every_hole(cleanups: list[GeometryCleanup]) -> None:
+def test_triangulation_keeps_holes(cleanups: list[GeometryCleanup]) -> None:
     triangulation = InputTriangulation(
         vertices=np.array([_xy(0.0, 0.0), _xy(800.0, 0.0), _xy(800.0, 900.0), _xy(0.0, 900.0)]),
         triangles=np.array([[0, 1, 2], [0, 2, 3]]),
@@ -378,9 +376,7 @@ def _lines_near_each_other(draw: st.DrawFn) -> list[LineString]:
 
 @_PROPERTY
 @given(lines=_lines_near_each_other(), rivers=st.integers(0, 4))
-def test_a_cleaned_line_keeps_a_length_and_stays_within_two_tolerances(
-    lines: list[LineString], rivers: int
-) -> None:
+def test_cleaned_line_stays_within_tolerance(lines: list[LineString], rivers: int) -> None:
     """Merging moves a line by less than the tolerance, snapping an end by at most one."""
     inputs = _inputs(rivers=lines[:rivers], barriers=lines[rivers:])
 
@@ -393,7 +389,7 @@ def test_a_cleaned_line_keeps_a_length_and_stays_within_two_tolerances(
         assert before.buffer(2.0 * _TOL + 1.0e-6).covers(line)
 
 
-def test_a_close_vertex_within_a_line_merged_twice_is_counted_once() -> None:
+def test_merge_counted_once() -> None:
     """The counts are what changed, so a second cleanup of a clean result counts nothing."""
     wall = LineString([_xy(600.0, 200.0), _xy(700.0, 200.0), _xy(700.3, 200.2), _xy(800.0, 200.0)])
     once, first = _cleaned(_inputs(barriers=(wall,)))

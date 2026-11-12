@@ -6,10 +6,12 @@ from contextlib import nullcontext
 from dataclasses import replace
 
 import numpy as np
+import pandas as pd
 import pytest
 from pyproj import CRS
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.model.forcing.stations import period_means
 from tests._helpers.forcing_cases import MM_DAY_TO_M_S, points_on_cells, station, window
 
 pytestmark = pytest.mark.fast
@@ -87,3 +89,16 @@ def test_a_station_in_another_crs_than_the_mesh_is_refused(station_crs, mesh_crs
         np.testing.assert_allclose(
             points_on_cells([record], mesh_crs=mesh_crs)[0], 8.0 * MM_DAY_TO_M_S
         )
+
+
+def test_station_on_one_period_takes_the_time_mean():
+    # Month-end samples of 2, 8 and 1 over 31, 29 and 31 days.
+    month_ends = pd.DatetimeIndex(["2000-01-31", "2000-02-29", "2000-03-31"])
+    values = period_means(
+        pd.Series([2.0, 8.0, 1.0], index=month_ends),
+        period_bounds=[(pd.Timestamp("2000-01-01"), pd.Timestamp("2000-04-01"))],
+        coverage_policy="error",
+        label="station",
+    )
+
+    assert values.tolist() == pytest.approx([np.average([2.0, 8.0, 1.0], weights=[31, 29, 31])])

@@ -132,12 +132,12 @@ def _stand_in_parameters(monkeypatch: pytest.MonkeyPatch) -> None:
         ([make_run(), make_run("b", head=[[1.0, 2.0]])], "watertable_elevation is not one value"),
     ],
 )
-def test_what_cannot_be_compared_is_refused(runs, message) -> None:
+def test_refusals(runs, message) -> None:
     with pytest.raises(c.ComparisonCaseError, match=message):
         c.compare(runs)
 
 
-def test_two_series_pair_on_their_shared_dates_only() -> None:
+def test_series_on_shared_dates() -> None:
     late = make_run("b", start="2000-01-03", q=3.0)  # two days shared with the reference
     rows = c.compare([make_run(), late]).tables["series"].to_dict("records")
     assert rows[0] == {
@@ -160,7 +160,7 @@ def test_two_series_pair_on_their_shared_dates_only() -> None:
     )
 
 
-def test_a_period_mean_is_weighted_by_duration_and_the_stamp_closes_its_period() -> None:
+def test_period_mean_weights() -> None:
     dates = pd.to_datetime(["2000-01-01", "2000-01-02", "2000-01-04"])
     series = pd.Series([100.0, 1.0, 4.0], index=dates, name="q")
     means = c.period_means(series, D("2000-01-01"), pd.DatetimeIndex(["2000-01-04"]))
@@ -168,31 +168,31 @@ def test_a_period_mean_is_weighted_by_duration_and_the_stamp_closes_its_period()
     assert means.name == "q"
 
 
-def test_a_daily_series_compares_on_the_months_of_a_monthly_one() -> None:
+def test_daily_against_monthly() -> None:
     daily = make_run("d", n=60, q=2.0)
     row = c.compare([daily, make_run("m", freq="MS", n=2, q=1.0)]).tables["series"].iloc[0]
     assert (row["n"], row["bias"], row["last"]) == (2, -1.0, "2000-03-01 00:00:00")
 
 
-def test_a_period_covered_in_part_is_left_out() -> None:
+def test_partial_period_left_out() -> None:
     daily = make_run("d", start="2000-01-16", n=60, q=2.0)  # to 16 March, so February only
     row = c.compare([daily, make_run("m", freq="MS", n=3, q=1.0)]).tables["series"].iloc[0]
     assert (row["n"], row["bias"], row["first"]) == (1, -1.0, "2000-03-01 00:00:00")
 
 
-def test_no_whole_period_in_common_gives_no_series() -> None:
+def test_no_common_period() -> None:
     tables = c.compare([make_run(), make_run("m", freq="MS", n=1)]).tables
     assert tables["series"].empty
     assert tables["maps"].empty
 
 
-def test_steps_that_never_meet_give_series_but_no_map() -> None:
+def test_steps_never_meet() -> None:
     tables = c.compare([make_run(freq="2D"), make_run("b", start="2000-01-02", freq="2D")]).tables
     assert tables["maps"].empty
     assert tables["series"]["n"].iloc[0] == 3
 
 
-def test_steady_runs_compare_whatever_date_their_solver_wrote(tmp_path: Path) -> None:
+def test_steady_runs(tmp_path: Path) -> None:
     first = make_run(regime="steady", n=1)
     second = make_run("b", start="2003-06-01", regime="steady", n=1, q=3.0, head=(2.0, 3.0))
     result = c.compare([first, second], ["head"])
@@ -207,7 +207,7 @@ def test_steady_runs_compare_whatever_date_their_solver_wrote(tmp_path: Path) ->
     assert not list(tmp_path.glob("discharge*.png"))
 
 
-def test_a_map_error_is_weighted_by_surface_at_the_last_shared_date() -> None:
+def test_map_error_by_area() -> None:
     wide = {"areas": (100.0, 300.0)}
     ahead = make_run("b", start="1999-12-31", n=3, head=(1.0, 1.0), **wide)  # one step ahead
     rows = c.compare([make_run(**wide), ahead], ["head"]).tables["maps"].to_dict("records")
@@ -227,7 +227,7 @@ def test_a_map_error_is_weighted_by_surface_at_the_last_shared_date() -> None:
     ]
 
 
-def test_another_mesh_is_read_at_its_nearest_cell_and_never_too_far() -> None:
+def test_other_mesh_nearest_cell() -> None:
     reference = make_run(centers=((0.0, 0.0), (30.0, 0.0)))
     other = make_run("b", mesh="n", centers=((10.0, 0.0), (500.0, 0.0)), head=(4.0, 9.0))
     row = c.compare([reference, other], ["head"]).tables["maps"].iloc[0]
@@ -236,14 +236,14 @@ def test_another_mesh_is_read_at_its_nearest_cell_and_never_too_far() -> None:
     assert c.compare([reference, apart], ["head"]).tables["maps"]["n"].iloc[0] == 0
 
 
-def test_a_field_is_mapped_when_every_run_has_it_and_a_named_one_must_be() -> None:
+def test_mapped_fields() -> None:
     runs = [make_run(), make_run("b", fields=("watertable_depth",))]
     assert c.compare(runs).tables["maps"]["variable"].tolist() == ["watertable_depth"]
     with pytest.raises(c.ComparisonCaseError, match="'head'.*not fields of every"):
         c.compare(runs, ["head"])
 
 
-def test_budget_terms_stay_per_zone_and_are_weighted_by_duration_on_the_shared_dates() -> None:
+def test_budget_by_zone() -> None:
     uneven = make_run(n=4)
     uneven.time_index = pd.to_datetime(["2000-01-02", "2000-01-03", "2000-01-04", "2000-01-07"])
     uneven.record.period.end = "2000-01-07"
@@ -254,12 +254,12 @@ def test_budget_terms_stay_per_zone_and_are_weighted_by_duration_on_the_shared_d
     assert set(table["zone"]) == {"domain", "catchment"}
 
 
-def test_a_run_without_budget_rows_is_left_out_of_the_budget() -> None:
+def test_run_without_budget() -> None:
     table = c.compare([make_run(has_budget=False), make_run("b")]).tables["budget"]
     assert set(table["run"]) == {"b"}
 
 
-def test_each_mapped_network_gives_one_row_with_overlap_and_distance(monkeypatch) -> None:
+def test_network_table(monkeypatch) -> None:
     def overlap(run, network_role):
         assert run.name == "a"
         return {"network_role": network_role, "cell_f1_ratio": 0.5, "other": 1}
@@ -285,7 +285,7 @@ def test_each_mapped_network_gives_one_row_with_overlap_and_distance(monkeypatch
     assert c.network_table(runs[1:]).empty
 
 
-def test_the_runs_table_says_what_each_run_is() -> None:
+def test_runs_table() -> None:
     runs = [make_run(), make_run("b", mesh="0123456789")]
     assert c.compare(runs).tables["runs"].to_dict("records")[1] == {
         "run": "b",
@@ -298,7 +298,7 @@ def test_the_runs_table_says_what_each_run_is() -> None:
     }
 
 
-def test_only_the_parameters_that_differ_are_listed() -> None:
+def test_differing_parameters() -> None:
     first = make_run(params={"K": 1.0, "Sy": 0.1})
     second = make_run("b", params={"K": 2.0, "Sy": 0.1, "Ss": 0.3})
     table = c.compare([first, second]).tables["parameters"].set_index("parameter")
@@ -306,7 +306,7 @@ def test_only_the_parameters_that_differ_are_listed() -> None:
     assert table.loc["K"].to_dict() == {"a": 1.0, "b": 2.0}
 
 
-def test_scores_keep_their_window_and_samples_and_a_run_without_gauge_gives_none() -> None:
+def test_scores_table() -> None:
     table = c.compare([make_run(), make_run("b", gauge=None)]).tables["scores"]
     assert table.to_dict("records") == [
         {
@@ -323,7 +323,7 @@ def test_scores_keep_their_window_and_samples_and_a_run_without_gauge_gives_none
     assert c.scores_table([make_run(gauge=None)]).empty
 
 
-def test_the_folder_holds_every_table_and_figure_named_in_its_readme(tmp_path: Path) -> None:
+def test_written_folder(tmp_path: Path) -> None:
     readme = c.compare([make_run(), make_run("b", head=(2.0, 3.0))]).write(tmp_path / "new" / "dir")
     tmp_path = readme.parent
     text = readme.read_text()
@@ -377,7 +377,7 @@ def project(tmp_path: Path) -> Path:
     return root
 
 
-def test_a_reference_is_a_directory_a_name_or_the_latest_run_of_a_recipe(project: Path) -> None:
+def test_resolve_references(project: Path) -> None:
     directory = _seal(project, "x-base", recipe="base")
     _seal(project, "y-base", recipe="base", site="y")
     _seal(project, "y-base.v2", recipe="base", site="y", version=2)
@@ -393,20 +393,20 @@ def test_a_reference_is_a_directory_a_name_or_the_latest_run_of_a_recipe(project
 
 
 @pytest.mark.parametrize("root", ["project", None])
-def test_a_reference_that_names_no_sealed_run_is_refused(project: Path, root: str | None) -> None:
+def test_unsealed_reference_refused(project: Path, root: str | None) -> None:
     (project / "runs" / "failed").mkdir(parents=True)
     with pytest.raises(c.ComparisonReferenceError, match="'failed' names no sealed run"):
         c.resolve_references(["failed"], project_root=project if root else None)
 
 
-def test_references_reach_the_comparison_with_their_variables(monkeypatch) -> None:
+def test_references_reach_comparison(monkeypatch) -> None:
     monkeypatch.setattr(c, "resolve_references", lambda refs, project_root: [[project_root], refs])
     monkeypatch.setattr(c, "compare", lambda runs, variables: (runs, variables))
     compared = c.compare_references(["a", "b"], project_root="root", variables=["head"])
     assert compared == (["root", "a", "b"], ["head"])
 
 
-def test_the_facade_compares_and_writes_only_when_asked(project: Path, monkeypatch) -> None:
+def test_facade_writes_when_asked(project: Path, monkeypatch) -> None:
     written: list[Path] = []
     comparison = NS(write=written.append)
     monkeypatch.setattr(c, "compare_references", lambda refs, **_: comparison)
@@ -416,7 +416,7 @@ def test_the_facade_compares_and_writes_only_when_asked(project: Path, monkeypat
     assert written == [project / "study"]
 
 
-def test_sites_are_compared_apart_and_their_scores_joined(tmp_path: Path, monkeypatch) -> None:
+def test_compare_by_site(tmp_path: Path, monkeypatch) -> None:
     first = [make_run("a1", site="x", gauge=None), make_run("a2", site="y")]
     second = [make_run("b1", site="x")]
     monkeypatch.setattr(c, "resolve_references", lambda refs, project_root: project_root and refs)
@@ -442,7 +442,7 @@ def _scored(name: str, *scores: tuple[str, str, str, float, str, str, int]) -> N
     return NS(name=name, metrics=frame)
 
 
-def test_the_headline_table_sets_the_scores_of_the_runs_side_by_side() -> None:
+def test_headline_table() -> None:
     first = _scored(
         "a",
         ("G", "discharge", "nse", 0.6, "2016-01-01", "2020-12-31", 1827),
@@ -460,7 +460,7 @@ def test_the_headline_table_sets_the_scores_of_the_runs_side_by_side() -> None:
     assert pd.isna(kge["b"]) and pd.isna(kge["b_window"])
 
 
-def test_the_headline_table_leaves_out_a_window_that_is_not_the_headline() -> None:
+def test_headline_window_only() -> None:
     run = _scored("a", ("G", "discharge", "nse", 0.6, "2016-01-01", "2020-12-31", 10))
     run.metrics.loc[len(run.metrics)] = (
         "G",
@@ -475,11 +475,11 @@ def test_the_headline_table_leaves_out_a_window_that_is_not_the_headline() -> No
     assert c.headline_table([run])["a"].tolist() == [0.6]
 
 
-def test_the_headline_table_is_empty_when_no_run_has_a_score() -> None:
+def test_headline_table_empty() -> None:
     assert c.headline_table([_scored("a"), _scored("b")]).empty
 
 
-def test_a_comparison_gives_its_table_and_a_json_form(monkeypatch) -> None:
+def test_comparison_json(monkeypatch) -> None:
     import json
 
     comparison = c.compare([make_run(), make_run("b", head=(2.0, 3.0))])
@@ -495,7 +495,7 @@ def test_a_comparison_gives_its_table_and_a_json_form(monkeypatch) -> None:
     assert set(document["maps"]) == {"watertable_elevation", "watertable_depth"}
 
 
-def test_a_steady_comparison_says_steady_in_its_json_form() -> None:
+def test_steady_comparison_json() -> None:
     comparison = c.compare([make_run(regime="steady", n=1), make_run("b", regime="steady", n=1)])
     assert comparison.to_dict()["end"] == "steady"
 
@@ -508,7 +508,7 @@ def test_a_steady_comparison_says_steady_in_its_json_form() -> None:
         (["a" * 100, "b"], None),
     ],
 )
-def test_the_comparison_folder_is_named_by_its_references(tmp_path, refs, name) -> None:
+def test_comparison_folder_name(tmp_path, refs, name) -> None:
     """A long name becomes a hash of twelve characters."""
     folder = c.compare_folder(refs, tmp_path)
 
@@ -516,6 +516,6 @@ def test_the_comparison_folder_is_named_by_its_references(tmp_path, refs, name) 
     assert folder.name == name if name else len(folder.name) == 12
 
 
-def test_a_comparison_folder_needs_a_project() -> None:
+def test_comparison_folder_needs_project() -> None:
     with pytest.raises(c.ComparisonCaseError, match="pass --to"):
         c.compare_folder(["a", "b"], None)

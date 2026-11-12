@@ -13,7 +13,7 @@ from tests._helpers.geotiffs import write_geotiff
 NODATA = -9999.0
 
 
-def test_each_coarse_cell_is_the_mean_of_the_fine_pixels_it_covers(tmp_path: Path) -> None:
+def test_coarse_cell_mean(tmp_path: Path) -> None:
     values = np.arange(100, dtype=float).reshape(10, 10)
     values[1, 1] = NODATA
     dem = write_geotiff(tmp_path / "dem.tif", values, cell=100.0, nodata=NODATA, dtype="float32")
@@ -33,7 +33,7 @@ def test_each_coarse_cell_is_the_mean_of_the_fine_pixels_it_covers(tmp_path: Pat
     assert coarse[3, 0] == pytest.approx(values[9, :3].mean(), rel=1e-6)
 
 
-def test_a_dem_without_nodata_leaves_its_non_finite_pixels_out_of_the_mean(tmp_path) -> None:
+def test_nan_left_out_of_the_mean(tmp_path) -> None:
     values = np.ones((4, 4), dtype="float32")
     values[0, 0] = np.nan
     dem = write_geotiff(tmp_path / "dem.tif", values, cell=100.0, nodata=None)
@@ -61,6 +61,6 @@ def _rotated(tmp_path: Path) -> Path:
     ],
     ids=["finer than the pixel", "zero", "rotated"],
 )
-def test_a_cell_size_the_dem_cannot_be_aggregated_to_is_refused(tmp_path, dem, resolution, reason):
+def test_refusals(tmp_path, dem, resolution, reason):
     with pytest.raises(ValueError, match=reason):
         aggregate_dem(dem(tmp_path), tmp_path / "out.tif", resolution_m=resolution)

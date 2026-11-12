@@ -1,4 +1,9 @@
-"""The checks that cross a document with its flow solver read ``supports`` and name no solver."""
+"""Cross-section rules of a configuration.
+
+A rule reads sections of a document, such as the flow solver, the mesh or the time grid,
+and refuses a pair that cannot run together. The solver rules read ``supports`` and name
+no solver. A sealed document only warns.
+"""
 
 from __future__ import annotations
 
@@ -21,8 +26,11 @@ from hydromodpy.config.section_loader import SECTIONS
 from hydromodpy.config.solver_supports import (
     TRAIT_USES,
     coarse_conductivity_profile,
+    refuse_a_native_step_finer_than_the_time_grid,
+    refuse_a_point_method_under_a_lumped_mesh,
     refuse_a_transport_its_flow_does_not_feed,
     refuse_a_window_chain_the_run_cannot_carry,
+    refuse_an_ignored_family_written,
     refuse_face_flows_the_flow_does_not_write,
     refuse_the_reads_the_flow_does_not_write,
     refuse_the_traits_the_solver_ignores,
@@ -32,6 +40,7 @@ from hydromodpy.core.exceptions import HydroModPyError, IncompatibleCapabilities
 from hydromodpy.model.supports import SUPPORTS
 from hydromodpy.results.exporters.export_spec import ExportRequest
 from hydromodpy.solver.base.registry import solvers
+from tests._helpers.fake_solvers import fake_adapter
 
 SHIPPED_FLOWS = ("boussinesq", "modflow6", "modflow_nwt")
 LAKE = {"bedleak": 0.1, "initial_stage": "85 m"}
@@ -160,13 +169,13 @@ def _honoring(trait: str) -> str:
     return f"({', '.join(names)})"
 
 
-def test_the_trait_table_and_the_rows_here_cover_the_closed_set() -> None:
+def test_trait_rows_cover_supports() -> None:
     assert set(TRAIT_USES) == SUPPORTS
     assert set(TRAIT_ROWS) == SUPPORTS
 
 
 @pytest.mark.parametrize("trait", sorted(TRAIT_ROWS))
-def test_each_trait_is_found_with_what_the_file_wrote(tmp_path: Path, trait: str) -> None:
+def test_trait_found_where_written(tmp_path: Path, trait: str) -> None:
     extra, where = TRAIT_ROWS[trait]
     cfg = _load(tmp_path, extra)
 
@@ -175,9 +184,7 @@ def test_each_trait_is_found_with_what_the_file_wrote(tmp_path: Path, trait: str
 
 @pytest.mark.parametrize("backend", SHIPPED_FLOWS)
 @pytest.mark.parametrize("trait", sorted(TRAIT_ROWS))
-def test_a_trait_passes_if_and_only_if_the_solver_lists_it(
-    tmp_path: Path, trait: str, backend: str
-) -> None:
+def test_solver_honors_listed_traits(tmp_path: Path, trait: str, backend: str) -> None:
     extra, where = TRAIT_ROWS[trait]
     cfg = _under(_load(tmp_path, extra), backend)
     if trait in solvers.get("flow", backend).supports:
@@ -191,7 +198,7 @@ def test_a_trait_passes_if_and_only_if_the_solver_lists_it(
     assert f"run a flow solver that honors it {_honoring(trait)}." in message
 
 
-def test_the_sentence_of_the_design_reads_as_written(tmp_path: Path) -> None:
+def test_ignored_trait_sentence(tmp_path: Path) -> None:
     cfg = _under(_load(tmp_path, {"solver": {"sink_fill": True}}), "boussinesq")
 
     with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
@@ -203,7 +210,7 @@ def test_the_sentence_of_the_design_reads_as_written(tmp_path: Path) -> None:
     )
 
 
-def test_a_trait_no_solver_honors_says_so(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_trait_no_solver_honors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("modflow6", "modflow_nwt"):
         flow = solvers.get("flow", name)
         monkeypatch.setattr(flow, "supports", flow.supports - {"sink_fill"})
@@ -239,7 +246,7 @@ def _with_transport(cfg: HydroModPyConfig, transport: str) -> HydroModPyConfig:
         ("boussinesq", "modflow6_prt", True),
     ],
 )
-def test_a_transport_follows_the_flows_its_requires_names(
+def test_transport_follows_its_flow(
     tmp_path: Path, backend: str, transport: str, refused: bool
 ) -> None:
     cfg = _with_transport(_under(_load(tmp_path, {}), backend), transport)
@@ -265,8 +272,6 @@ def _register_a_flow_and_a_greedy_transport(
     flow_name: str = "writer",
 ) -> str:
     """Register a fake flow backend that writes *writes*, and a transport that reads *reads*."""
-    from tests._helpers.fake_solvers import fake_adapter
-
     flow = fake_adapter(flow_name, process_type="flow", writes=writes, reads=())
     transport = fake_adapter(
         "greedy_transport",
@@ -279,10 +284,7 @@ def _register_a_flow_and_a_greedy_transport(
     return flow_name
 
 
-def test_a_transport_that_reads_a_product_nobody_writes_names_no_flow(
-    tmp_path: Path, isolated_solvers: object
-) -> None:
-    """A product no flow solver writes is refused, and the message says so."""
+def test_read_nobody_writes(tmp_path: Path, isolated_solvers: object) -> None:
     flow_name = _register_a_flow_and_a_greedy_transport(
         isolated_solvers,
         writes=("face_flow",),
@@ -294,10 +296,9 @@ def test_a_transport_that_reads_a_product_nobody_writes_names_no_flow(
         refuse_the_reads_the_flow_does_not_write(cfg, sealed=False)
 
 
-def test_a_sealed_document_whose_read_is_not_written_warns_and_reads(
+def test_sealed_unwritten_read_warns(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, isolated_solvers: object
 ) -> None:
-    """The refusal of reads ways a sealed document as the other refusals do: a warning."""
     flow_name = _register_a_flow_and_a_greedy_transport(
         isolated_solvers, writes=(), reads=("face_flow",)
     )
@@ -319,9 +320,7 @@ def test_a_sealed_document_whose_read_is_not_written_warns_and_reads(
         ("modflow_nwt", False),
     ],
 )
-def test_keep_face_flows_needs_a_flow_that_writes_them(
-    tmp_path: Path, backend: str, refused: bool
-) -> None:
+def test_keep_face_flows_needs_writer(tmp_path: Path, backend: str, refused: bool) -> None:
     extra = {"simulation": {"results": {"keep_face_flows": True}}}
     cfg = _under(_load(tmp_path, extra), backend)
 
@@ -339,9 +338,7 @@ def test_keep_face_flows_needs_a_flow_that_writes_them(
     )
 
 
-def test_a_sealed_document_warns_for_every_refusal_and_loads(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_sealed_document_warns_and_loads(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     extra = {
         "solver": {"backend": "modflow_nwt", "sink_fill": True},
         "flow": {
@@ -372,7 +369,7 @@ def test_a_sealed_document_warns_for_every_refusal_and_loads(
     assert caplog.text.count("This sealed run is read as it ran.") == 3
 
 
-def test_an_assignment_on_a_sealed_config_keeps_it_sealed(tmp_path: Path) -> None:
+def test_assignment_keeps_seal(tmp_path: Path) -> None:
     extra = {"solver": {"backend": "modflow_nwt"}, "flow": {"restart_from": "runs/a/fields.zarr"}}
     document = {
         "workflow": {"mode": "simulation"},
@@ -391,7 +388,7 @@ def test_an_assignment_on_a_sealed_config_keeps_it_sealed(tmp_path: Path) -> Non
     [(False, True), (True, False)],
     ids=["live-refuses", "sealed-warns"],
 )
-def test_a_change_keeps_the_seal_of_the_document(
+def test_change_keeps_seal(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, sealed: bool, refused: bool
 ) -> None:
     cfg = _load(tmp_path, {"solver": {"backend": "modflow_nwt"}}, sealed=sealed)
@@ -417,7 +414,7 @@ def test_a_change_keeps_the_seal_of_the_document(
         ("modflow6", 5, None, "five layers"),
     ],
 )
-def test_a_vertical_k_profile_is_warned_about_where_it_is_not_read_in_full(
+def test_coarse_k_profile_warning(
     tmp_path: Path,
     backend: str,
     layers: int,
@@ -440,147 +437,109 @@ def test_a_vertical_k_profile_is_warned_about_where_it_is_not_read_in_full(
     assert absent not in said
 
 
-class _ADocument:
+def a_document(
+    *,
+    backend: str = "modflow6",
+    engine: str = "catchment",
+    families_written: tuple[str, ...] = (),
+    rivers: str = "cell",
+    county_point_method: str | None = None,
+) -> SimpleNamespace:
     """A document as the rules read it, built by hand and not by the loader.
 
-    The rules read a validated document through its attributes alone: the
-    solver the run builds, the flow regime, the families the mesh file wrote
-    and the time section. A document built here carries the same attributes
-    with the values the card of the test needs, so a rule is tested without
-    loading the sources a real file would name.
+    It carries the attributes the rules read, with the values the case needs, so a
+    rule runs without loading the sources a real file would name.
     """
-
-    def __init__(
-        self,
-        *,
-        backend: str = "modflow6",
-        engine: str = "catchment",
-        families_written: tuple[str, ...] = (),
-        rivers: str = "cell",
-        county_point_method: str | None = None,
-    ) -> None:
-        from types import SimpleNamespace
-
-        solver = SimpleNamespace(backend_name=backend)
-        recharge = None
-        if county_point_method is not None:
-            recharge = SimpleNamespace(
-                model_fields_set={"interpolation_method"},
-                interpolation_method=county_point_method,
-            )
-        families = SimpleNamespace(
-            model_fields_set=set(families_written),
-            rivers=rivers,
-            geology="face",
-            lakes="face",
-            barriers="face",
-            watershed_boundary="none",
+    recharge = None
+    if county_point_method is not None:
+        recharge = SimpleNamespace(
+            model_fields_set={"interpolation_method"},
+            interpolation_method=county_point_method,
         )
-        self.solver = solver
-        self.flow = SimpleNamespace(
+    families = SimpleNamespace(
+        model_fields_set=set(families_written),
+        rivers=rivers,
+        geology="face",
+        lakes="face",
+        barriers="face",
+        watershed_boundary="none",
+    )
+    return SimpleNamespace(
+        solver=SimpleNamespace(backend_name=backend),
+        flow=SimpleNamespace(
             flow_regime="transient",
             first_period_steady=False,
             sinks_sources=SimpleNamespace(recharge=recharge, etp=None),
-        )
-        self.mesh = SimpleNamespace(engine=engine, families=families, model_fields_set=set())
-        self.simulation = SimpleNamespace(
+        ),
+        mesh=SimpleNamespace(engine=engine, families=families, model_fields_set=set()),
+        simulation=SimpleNamespace(
             time=SimpleNamespace(
                 start_datetime="2015-01-01",
                 end_datetime="2015-03-01",
                 step_value="30 day",
                 step_unit="day",
             ),
-        )
+        ),
+    )
 
 
-class TestNativeStepOfTheFlowSolver:
-    def test_a_native_step_finer_than_a_transient_period_is_refused(self, isolated_solvers) -> None:
-        from hydromodpy.config.solver_supports import refuse_a_native_step_finer_than_the_time_grid
-        from tests._helpers.fake_solvers import fake_adapter
+NATIVE_STEPS = [
+    pytest.param(
+        "snail",
+        "1.5D",
+        "transient",
+        ("snail", "1 days 12:00:00", "simulation.time.step_value"),
+        id="finer than a period",
+    ),
+    pytest.param("calendar", "MS", "transient", ("fixed frequency",), id="calendar alias"),
+    pytest.param("steady", "30D", "transient", None, id="as long as the periods"),
+    pytest.param("snail", "1.5D", "steady", None, id="steady run"),
+]
 
-        isolated_solvers.solvers.register(fake_adapter("snail", native_step="1.5D"))
-        cfg = _ADocument(backend="snail")
 
-        with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
-            refuse_a_native_step_finer_than_the_time_grid(cfg, sealed=False)
+@pytest.mark.parametrize(("name", "native_step", "regime", "says"), NATIVE_STEPS)
+def test_native_step_refusals(isolated_solvers, name, native_step, regime, says) -> None:
+    isolated_solvers.solvers.register(fake_adapter(name, native_step=native_step))
+    cfg = a_document(backend=name)
+    cfg.flow.flow_regime = regime
 
-        message = str(excinfo.value)
-        assert "snail" in message
-        assert "1 days 12:00:00" in message
-        assert "simulation.time.step_value" in message
-
-    def test_a_native_step_as_long_as_the_periods_loads(self, isolated_solvers) -> None:
-        from hydromodpy.config.solver_supports import refuse_a_native_step_finer_than_the_time_grid
-        from tests._helpers.fake_solvers import fake_adapter
-
-        isolated_solvers.solvers.register(fake_adapter("steady", native_step="30D"))
-        refuse_a_native_step_finer_than_the_time_grid(_ADocument(backend="steady"), sealed=False)
-
-    def test_a_native_step_on_a_steady_run_loads(self, isolated_solvers) -> None:
-        from hydromodpy.config.solver_supports import refuse_a_native_step_finer_than_the_time_grid
-        from tests._helpers.fake_solvers import fake_adapter
-
-        isolated_solvers.solvers.register(fake_adapter("snail", native_step="1.5D"))
-        cfg = _ADocument(backend="snail")
-        cfg.flow.flow_regime = "steady"
+    if says is None:
+        refuse_a_native_step_finer_than_the_time_grid(cfg, sealed=False)
+        return
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
         refuse_a_native_step_finer_than_the_time_grid(cfg, sealed=False)
 
-    def test_a_calendar_alias_native_step_is_refused(self, isolated_solvers) -> None:
-        from hydromodpy.config.solver_supports import refuse_a_native_step_finer_than_the_time_grid
-        from tests._helpers.fake_solvers import fake_adapter
-
-        isolated_solvers.solvers.register(fake_adapter("calendar", native_step="MS"))
-        cfg = _ADocument(backend="calendar")
-
-        with pytest.raises(IncompatibleCapabilitiesError, match="fixed frequency"):
-            refuse_a_native_step_finer_than_the_time_grid(cfg, sealed=False)
+    for fragment in says:
+        assert fragment in str(excinfo.value)
 
 
-class TestAnIgnoredFamilyWritten:
-    def test_a_family_the_engine_ignores_written_with_a_value_is_refused(self) -> None:
-        from hydromodpy.config.solver_supports import refuse_an_ignored_family_written
+def test_ignored_family_refused() -> None:
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
+        refuse_an_ignored_family_written(a_document(families_written=("rivers",)), sealed=False)
 
-        cfg = _ADocument(families_written=("rivers",))
-
-        with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
-            refuse_an_ignored_family_written(cfg, sealed=False)
-
-        message = str(excinfo.value)
-        assert "[mesh.families] rivers" in message
-        assert "mesh engine 'catchment'" in message
-
-    def test_a_family_written_to_none_is_kept(self) -> None:
-        from hydromodpy.config.solver_supports import refuse_an_ignored_family_written
-
-        cfg = _ADocument(families_written=("rivers",), rivers="none")
-
-        refuse_an_ignored_family_written(cfg, sealed=False)
+    assert "[mesh.families] rivers" in str(excinfo.value)
+    assert "mesh engine 'catchment'" in str(excinfo.value)
 
 
-class TestAPointMethodUnderALumpedMesh:
-    def test_a_point_method_written_for_the_recharge_is_refused(self) -> None:
-        from hydromodpy.config.solver_supports import refuse_a_point_method_under_a_lumped_mesh
+def test_family_none_is_kept() -> None:
+    cfg = a_document(families_written=("rivers",), rivers="none")
 
-        cfg = _ADocument(county_point_method="nearest")
+    refuse_an_ignored_family_written(cfg, sealed=False)
 
-        with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
-            refuse_a_point_method_under_a_lumped_mesh(cfg, sealed=False)
 
-        message = str(excinfo.value)
-        assert "flow.sinks_sources.recharge.interpolation_method" in message
-        assert "area" in message
-
-    def test_a_point_method_written_to_area_loads(self) -> None:
-        from hydromodpy.config.solver_supports import refuse_a_point_method_under_a_lumped_mesh
-
+def test_point_method_lumped_refused() -> None:
+    with pytest.raises(IncompatibleCapabilitiesError) as excinfo:
         refuse_a_point_method_under_a_lumped_mesh(
-            _ADocument(county_point_method="area"), sealed=False
+            a_document(county_point_method="nearest"), sealed=False
         )
 
+    assert "flow.sinks_sources.recharge.interpolation_method" in str(excinfo.value)
+    assert "area" in str(excinfo.value)
 
-# ---------------------------------------------------------------------------
-# The rules of the sections that read one another
-# ---------------------------------------------------------------------------
+
+def test_area_method_lumped_loads() -> None:
+    refuse_a_point_method_under_a_lumped_mesh(a_document(county_point_method="area"), sealed=False)
+
 
 SOLVER_ROWS = frozenset(
     {
@@ -1028,7 +987,7 @@ ROWS += [
     ],
     ids=["a chain on a solver that restarts", "window 1 alone", "one window"],
 )
-def test_a_window_chain_the_run_can_carry_passes(
+def test_window_chain_passes(
     documents: SimpleNamespace, time: dict[str, Any], backend: str
 ) -> None:
     document = _document(
@@ -1041,9 +1000,7 @@ def test_a_window_chain_the_run_can_carry_passes(
 
 
 @pytest.mark.parametrize("first_clim", ["first", 2.0], ids=["first", "a number"])
-def test_a_steady_first_period_that_reads_no_mean_passes_a_chain(
-    documents: SimpleNamespace, first_clim: Any
-) -> None:
+def test_first_period_without_mean_passes(documents: SimpleNamespace, first_clim: Any) -> None:
     rates = _ns(recharge=_ns(first_clim=first_clim), etp=None)
     document = _windowed_document(
         documents, flow=_soil_flow(documents, first_period_steady=True, sinks_sources=rates)
@@ -1052,18 +1009,18 @@ def test_a_steady_first_period_that_reads_no_mean_passes_a_chain(
     refuse_a_window_chain_the_run_cannot_carry(document, sealed=False)
 
 
-def test_the_rows_here_and_the_solver_rows_are_the_table() -> None:
+def test_rows_cover_cross_rules() -> None:
     assert {rule for rule, *_ in ROWS} | SOLVER_ROWS == set(CROSS_RULES)
 
 
-def test_the_rules_run_in_the_order_the_loader_refused_in() -> None:
+def test_rules_run_in_loader_order() -> None:
     assert tuple(CROSS_RULES) == ORDER
 
 
 @pytest.mark.parametrize(
     ("rule", "case", "build", "says"), ROWS, ids=[f"{r}:{c}" for r, c, *_ in ROWS]
 )
-def test_each_rule_refuses_the_document_that_trips_it(
+def test_rule_refusals(
     documents: SimpleNamespace, rule: str, case: str, build: Any, says: str
 ) -> None:
     document = build(documents)
@@ -1073,7 +1030,7 @@ def test_each_rule_refuses_the_document_that_trips_it(
 
 
 @pytest.mark.parametrize("which", ["plain", "soil"])
-def test_every_rule_passes_a_document_that_loads(documents: SimpleNamespace, which: str) -> None:
+def test_rules_pass_loaded_document(documents: SimpleNamespace, which: str) -> None:
     outcomes = run_cross_rules(getattr(documents, which), sealed=False)
 
     assert [outcome.error for outcome in outcomes] == [None] * len(CROSS_RULES)
@@ -1083,7 +1040,7 @@ def test_every_rule_passes_a_document_that_loads(documents: SimpleNamespace, whi
 @pytest.mark.parametrize(
     "rule", ["refuse_a_time_the_run_does_not_hold", "refuse_an_export_that_cannot_be_written"]
 )
-def test_a_sealed_document_only_warns_of_an_export_it_cannot_write(
+def test_sealed_export_only_warns(
     documents: SimpleNamespace, caplog: pytest.LogCaptureFixture, rule: str
 ) -> None:
     row = next(row for row in ROWS if row[0] == rule)
@@ -1096,7 +1053,7 @@ def test_a_sealed_document_only_warns_of_an_export_it_cannot_write(
     assert "This sealed run is read as it ran." in caplog.text
 
 
-def test_the_walk_logs_the_warnings_before_a_refusal_and_raises_the_first_row(
+def test_walk_warns_then_raises(
     documents: SimpleNamespace, caplog: pytest.LogCaptureFixture
 ) -> None:
     outside = _ns(window=_ns(start=date(2001, 1, 1), end=date(2001, 2, 1)))
@@ -1169,37 +1126,15 @@ def _sections_read(function: Any) -> set[str]:
 
 
 @pytest.mark.parametrize("name", sorted(CROSS_RULES))
-def test_a_rule_reads_the_sections_its_row_says(name: str) -> None:
+def test_rule_reads_its_sections(name: str) -> None:
     rule = CROSS_RULES[name]
 
     assert _sections_read(rule.rule) == set(rule.reads)
 
 
-def test_every_section_a_rule_reads_is_a_section_of_the_loader() -> None:
+def test_read_sections_are_loader_sections() -> None:
     assert frozenset().union(*(rule.reads for rule in CROSS_RULES.values())) <= set(SECTIONS)
 
 
-def test_the_name_of_a_rule_is_the_name_of_its_function() -> None:
+def test_rule_name_is_function_name() -> None:
     assert all(name == rule.rule.__name__ for name, rule in CROSS_RULES.items())
-
-
-# ---------------------------------------------------------------------------
-# The vocabulary of ``[[export]]``
-# ---------------------------------------------------------------------------
-
-TERMS = ("storage", "storage_ss", "storage_sy", "evapotranspiration")
-
-
-# ---------------------------------------------------------------------------
-# Two ``[[export]]`` blocks that write one file
-# ---------------------------------------------------------------------------
-
-
-def _exports(*requests: dict[str, Any]) -> SimpleNamespace:
-    return SimpleNamespace(
-        simulation=SimpleNamespace(name=None),
-        export=[ExportRequest(**request) for request in requests],
-    )
-
-
-GROUP = {"variables": ["head", "watertable_depth"]}

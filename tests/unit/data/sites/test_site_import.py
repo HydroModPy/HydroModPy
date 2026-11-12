@@ -79,7 +79,7 @@ def _stations() -> list[dict]:
 
 
 @pytest.mark.fast
-def test_a_free_column_in_a_site_table_is_refused_with_its_line(tmp_path):
+def test_unknown_table_column_is_refused(tmp_path):
     table = tmp_path / "stations.csv"
     table.write_text("site,k_table\nnancon,k.csv\n", encoding="utf-8")
 
@@ -89,7 +89,7 @@ def test_a_free_column_in_a_site_table_is_refused_with_its_line(tmp_path):
         rows_from_table(table)
 
 
-def test_a_layer_of_outlet_points_is_read_with_its_crs(tmp_path):
+def test_outlet_layer_is_read_with_crs(tmp_path):
     gpd = pytest.importorskip("geopandas")
     from shapely.geometry import Point
 
@@ -109,7 +109,7 @@ def test_a_layer_of_outlet_points_is_read_with_its_crs(tmp_path):
     assert rows[0].x_outlet == pytest.approx(389285.9)
 
 
-def test_a_layer_field_that_does_not_exist_is_named(tmp_path):
+def test_missing_layer_field_is_named(tmp_path):
     gpd = pytest.importorskip("geopandas")
     from shapely.geometry import Point
 
@@ -123,7 +123,7 @@ def test_a_layer_field_that_does_not_exist_is_named(tmp_path):
 
 
 @pytest.mark.fast
-def test_hubeau_stations_become_one_site_per_hubeau_site():
+def test_hubeau_stations_group_by_site():
     asked: list[tuple] = []
 
     def discover(bbox):
@@ -148,7 +148,7 @@ def test_hubeau_stations_become_one_site_per_hubeau_site():
     assert imported.skipped == ("station J002001001: open 6.8 years, under --min-years 10",)
 
 
-def test_hubeau_outlets_are_snapped_onto_the_network_or_skipped(tmp_path):
+def test_hubeau_outlets_snap_or_skip(tmp_path):
     gpd = pytest.importorskip("geopandas")
     from pyproj import Transformer
     from shapely.geometry import LineString
@@ -176,14 +176,14 @@ def test_hubeau_outlets_are_snapped_onto_the_network_or_skipped(tmp_path):
 
 
 @pytest.mark.fast
-def test_site_name_keeps_only_the_site_name_grammar():
+def test_site_name_grammar():
     assert site_name(" aber-wrach 2 ") == "aber_wrach_2"
     with pytest.raises(ValueError):
         site_name("---")
 
 
 @pytest.mark.fast
-def test_hmp_site_import_tags_every_row_and_writes_the_catalog(tmp_path, capsys):
+def test_import_tags_rows(tmp_path, capsys):
     root = _workspace(tmp_path)
     table = tmp_path / "stations.csv"
     table.write_text(
@@ -201,7 +201,7 @@ def test_hmp_site_import_tags_every_row_and_writes_the_catalog(tmp_path, capsys)
 
 
 @pytest.mark.fast
-def test_hmp_site_import_dry_run_writes_nothing(tmp_path, capsys):
+def test_import_dry_run(tmp_path, capsys):
     root = _workspace(tmp_path)
     table = tmp_path / "stations.csv"
     table.write_text("site\nnancon\n", encoding="utf-8")
@@ -213,7 +213,7 @@ def test_hmp_site_import_dry_run_writes_nothing(tmp_path, capsys):
 
 
 @pytest.mark.fast
-def test_hmp_site_import_refuses_a_close_outlet_and_writes_nothing(tmp_path, capsys):
+def test_import_refuses_close_outlet(tmp_path, capsys):
     root = _workspace(tmp_path)
     write_catalog(
         root, [SiteRow(site="nancon", x_outlet=389285.9, y_outlet=6816518.7, crs="EPSG:2154")]
@@ -235,7 +235,7 @@ def test_hmp_site_import_refuses_a_close_outlet_and_writes_nothing(tmp_path, cap
 
 
 @pytest.mark.fast
-def test_hmp_site_import_reads_exactly_one_source(tmp_path, capsys):
+def test_import_needs_one_source(tmp_path, capsys):
     root = _workspace(tmp_path)
     table = tmp_path / "stations.csv"
     table.write_text("site\nnancon\n", encoding="utf-8")

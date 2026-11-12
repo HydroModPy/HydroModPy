@@ -1,4 +1,8 @@
-"""The extract step."""
+"""The extract step hands each solver run and the retention of the run to its backend.
+
+The retention (what budget terms the run keeps) is decided at extraction when planning
+did not.
+"""
 
 from __future__ import annotations
 
@@ -16,8 +20,7 @@ from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.extract import ExtractStep, retention_of
 
 
-def _solved(output_dir: Path) -> SolverRun:
-    """The solver run a finished solve recorded for its folder."""
+def solved(output_dir: Path) -> SolverRun:
     return SolverRun(
         slot=RunSlot(output_dir.parent, output_dir.name),
         output_dir=output_dir,
@@ -26,7 +29,7 @@ def _solved(output_dir: Path) -> SolverRun:
     )
 
 
-def _uncomputed_context(tmp_path: Path, results: ResultsConfig, display) -> SimpleNamespace:
+def uncomputed_context(tmp_path: Path, results: ResultsConfig, display) -> SimpleNamespace:
     run = ProcessRun(
         id="flow_main::modflow6",
         process_id="flow_main",
@@ -40,7 +43,7 @@ def _uncomputed_context(tmp_path: Path, results: ResultsConfig, display) -> Simp
         execution=ExecutionRegistry(
             lightweight=False,
             simulation_plan=plan,
-            solver_runs={run.id: _solved(output_dir)},
+            solver_runs={run.id: solved(output_dir)},
         ),
         setup=SimpleNamespace(workspace=object()),
         sim_id="sim-1",
@@ -58,7 +61,7 @@ def _uncomputed_context(tmp_path: Path, results: ResultsConfig, display) -> Simp
     return ctx
 
 
-def _stub_extraction(monkeypatch) -> list[BudgetKeep]:
+def stub_extraction(monkeypatch) -> list[BudgetKeep]:
     seen: list[BudgetKeep] = []
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.run_outputs.extract_run_outputs",
@@ -77,12 +80,12 @@ def _stub_extraction(monkeypatch) -> list[BudgetKeep]:
     return seen
 
 
-def test_extract_step_decides_the_budget_when_planning_did_not(monkeypatch, tmp_path) -> None:
-    """A pipeline entered at extraction still extracts under the run's policy."""
+def test_step_decides_the_budget_when_planning_did_not(monkeypatch, tmp_path) -> None:
+    # A pipeline entered at extraction still extracts under the run's policy.
     from hydromodpy.display.config import DisplayConfig
 
-    seen = _stub_extraction(monkeypatch)
-    ctx = _uncomputed_context(
+    seen = stub_extraction(monkeypatch)
+    ctx = uncomputed_context(
         tmp_path,
         ResultsConfig(keep_per_cell_budget=False),
         DisplayConfig(figures=["recharge_map"]),
@@ -94,8 +97,8 @@ def test_extract_step_decides_the_budget_when_planning_did_not(monkeypatch, tmp_
     assert ctx.budget_terms == BudgetKeep.of_terms(("recharge",))
 
 
-def test_a_run_that_keeps_every_per_cell_budget_term_says_so(tmp_path) -> None:
-    ctx = _uncomputed_context(tmp_path, ResultsConfig(), display=None)
+def test_default_keeps_every_budget_term(tmp_path) -> None:
+    ctx = uncomputed_context(tmp_path, ResultsConfig(), display=None)
 
     retention = retention_of(ctx, ctx.execution.simulation_plan)
 
@@ -103,8 +106,8 @@ def test_a_run_that_keeps_every_per_cell_budget_term_says_so(tmp_path) -> None:
     assert ctx.budget_terms == BudgetKeep.everything(), "the decision is kept on the context"
 
 
-def test_a_run_that_keeps_no_catalog_extracts_nothing(monkeypatch, tmp_path) -> None:
-    ctx = _uncomputed_context(tmp_path, ResultsConfig(), display=None)
+def test_run_without_a_catalog_extracts_nothing(monkeypatch, tmp_path) -> None:
+    ctx = uncomputed_context(tmp_path, ResultsConfig(), display=None)
     ctx.execution.lightweight = True
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.run_outputs.extract_run_outputs",
@@ -114,18 +117,3 @@ def test_a_run_that_keeps_no_catalog_extracts_nothing(monkeypatch, tmp_path) -> 
     out = ExtractStep().run(PipelineState(run_id="rid", data={"ctx": ctx}))
 
     assert out.data["extraction_summary"] == {"runs": 0}
-
-
-# --- test_modpath_ingestion ---
-# Unit tests for ``workflow.steps.extract``: the seepage raster rebuilt from a run store.
-
-
-class _FakeRasterSrc:
-    height = 2
-    width = 2
-
-    def __enter__(self) -> _FakeRasterSrc:
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        pass

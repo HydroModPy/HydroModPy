@@ -60,18 +60,18 @@ def _field(name: str):
     ("name", "expected"),
     [("by_name", True), ("free", True), ("abstract", True), ("plain", False), ("models", False)],
 )
-def test_a_mapping_field_is_told_from_a_model_or_a_list(name: str, expected: bool) -> None:
+def test_mapping_field(name: str, expected: bool) -> None:
     assert is_mapping_field(_field(name)) is expected
 
 
-def test_a_default_instance_decides_the_member_of_a_union() -> None:
+def test_default_picks_union_member() -> None:
     class WithDefault(BaseModel):
         either: Flat | Constant = Constant()
 
     assert resolve_basemodel_type(WithDefault.model_fields["either"]) is Constant
 
 
-def test_a_default_factory_that_fails_is_ignored() -> None:
+def test_failing_default_factory() -> None:
     def broken() -> list[Flat]:
         raise RuntimeError("boom")
 
@@ -105,7 +105,7 @@ def test_the_member_a_value_pins(values: Any, expected: type[BaseModel]) -> None
     assert variant_for_values(_field("union"), Constant, values) is expected
 
 
-def test_an_enum_tag_is_written_as_its_value() -> None:
+def test_enum_tag_value() -> None:
     values: dict[str, Any] = {}
 
     restore_variant_tags(Tagged(), values)
@@ -113,7 +113,7 @@ def test_an_enum_tag_is_written_as_its_value() -> None:
     assert values == {"kind": "rock"}
 
 
-def test_a_tag_already_in_the_dump_and_a_non_table_are_left_alone() -> None:
+def test_tags_left_alone() -> None:
     values = {"kind": "other"}
     restore_variant_tags(Flat(), values)
     assert values == {"kind": "other"}

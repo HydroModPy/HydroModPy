@@ -42,23 +42,6 @@ def grid() -> PlanarCellMesh:
     return _grid(XMIN, YMIN, SIZE)
 
 
-def _wells_arithmetic(grid: PlanarCellMesh, x: float, y: float) -> int:
-    """The coordinate branch of ``resolve_well_disv_cell`` on a structured grid; -1 outside."""
-    nrow, ncol = grid.structured_shape
-    xmin, ymin, xmax, ymax = grid.mesh.bounds()
-    dx = (xmax - xmin) / ncol
-    dy = (ymax - ymin) / nrow
-    if x < xmin or x > xmax or y < ymin or y > ymax:
-        return -1
-    col = int((x - xmin) / dx)
-    row = int((ymax - y) / dy)
-    if col == ncol and x == xmax:
-        col = ncol - 1
-    if row == nrow and y == ymin:
-        row = nrow - 1
-    return row * ncol + col
-
-
 def _probes(cell_mesh: PlanarCellMesh, seed: int) -> np.ndarray:
     """Random points over the bounds, cell centers, vertices, then the edge midpoints last."""
     rng = np.random.default_rng(seed)
@@ -73,7 +56,7 @@ def _probes(cell_mesh: PlanarCellMesh, seed: int) -> np.ndarray:
     return np.vstack([random, cell_mesh.centers[picked], vertices, edges])
 
 
-def test_a_point_outside_a_grid_takes_the_nearest_centre_when_allowed(grid) -> None:
+def test_nearest_centre_outside(grid) -> None:
     outside = np.array([[XMIN - 40.0, YMIN + 30.0], [XMIN + 80.0, YMIN + 400.0]])
     cells = locate_cells(grid, outside, allow_nearest=True)
     for point, cell in zip(outside, cells.tolist(), strict=True):
@@ -81,7 +64,7 @@ def test_a_point_outside_a_grid_takes_the_nearest_centre_when_allowed(grid) -> N
         assert cell == int(np.argmin(np.einsum("ij,ij->i", deltas, deltas)))
 
 
-def test_a_point_inside_a_cell_keeps_it_when_the_nearest_is_allowed(grid) -> None:
+def test_inside_point_keeps_its_cell(grid) -> None:
     held = [0, 17, grid.n_cells - 1]
 
     cells = locate_cells(grid, grid.centers[held], allow_nearest=True)
@@ -98,7 +81,7 @@ def _covering_polygons(cell_mesh: PlanarCellMesh) -> np.ndarray:
 
 @pytest.mark.parametrize("case", BUNDLE_CASES)
 @pytest.mark.parametrize("producer", [bundle_triangles, bundle_dual])
-def test_an_unstructured_mesh_is_located_like_a_brute_force_search(case, producer) -> None:
+def test_unstructured_vs_brute_force(case, producer) -> None:
     cell_mesh = producer(case)
     polygons = _covering_polygons(cell_mesh)
     probes = _probes(cell_mesh, seed=2)[:-N_EDGE_PROBES]
@@ -110,7 +93,7 @@ def test_an_unstructured_mesh_is_located_like_a_brute_force_search(case, produce
     assert (cells[:N_RANDOM] >= 0).sum() > 0.4 * N_RANDOM
 
 
-def test_one_point_and_a_wrong_shape(grid) -> None:
+def test_one_point_and_wrong_shape(grid) -> None:
     assert locate_cells(grid, np.array([XMIN + 1.0, YMIN + 1.0]), allow_nearest=False).shape == (1,)
     with pytest.raises(ValueError, match="shape"):
         locate_cells(grid, np.zeros((3, 3)), allow_nearest=False)
@@ -124,7 +107,7 @@ def _small_grid() -> PlanarCellMesh:
     return RegularMeshEngine().build(mesh_request(grid_spec(2, 3, SMALL_SIZE)))
 
 
-def test_the_boussinesq_adapter_locates_no_cell_far_from_its_mesh() -> None:
+def test_adapter_far_from_the_mesh() -> None:
     cell_mesh = _small_grid()
     solver_run = SimpleNamespace(
         solver_model=SimpleNamespace(mesh=SimpleNamespace(cell_mesh=cell_mesh))

@@ -1,4 +1,8 @@
-"""``reserve_version_dirname``: the version is read on disk, ``mkdir`` makes the claim atomic."""
+"""``reserve_version_dirname`` picks the next free ``<name>.vN`` directory of a project.
+
+The version is read from the folders on disk, the trash and the tombstones, and
+``mkdir`` makes the claim atomic. Runs and sessions share one version counter.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,7 @@ from hydromodpy.core.state.layout import (
     TOMBSTONES_FILENAME,
     TRASH_DIRNAME,
 )
+from hydromodpy.core.state.names import MAX_NAME_LENGTH
 from hydromodpy.results.catalog import registration
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.trash import trashed_dirname
@@ -116,18 +121,27 @@ def test_a_tombstoned_version_counts(tmp_path):
     assert reserve_version_dirname(tmp_path, "run", "nancon").name == "nancon.v6"
 
 
-def test_a_name_with_a_version_suffix_is_refused(tmp_path):
-    with pytest.raises(ValueError, match="bare name 'nancon'"):
-        reserve_version_dirname(tmp_path, "run", "nancon.v2")
+REFUSED_NAMES = [
+    pytest.param("nancon.v2", ValueError, "bare name 'nancon'", id="version suffix"),
+    pytest.param("nancon amont", ConfigError, "nancon_amont", id="not a directory name"),
+    pytest.param("a" * (MAX_NAME_LENGTH + 1), ConfigError, str(MAX_NAME_LENGTH), id="too long"),
+]
 
 
-def test_a_name_that_is_not_a_directory_name_is_refused(tmp_path):
-    with pytest.raises(ConfigError, match="nancon_amont"):
-        reserve_version_dirname(tmp_path, "run", "nancon amont")
+@pytest.mark.parametrize(("name", "error", "message"), REFUSED_NAMES)
+def test_refused_names(tmp_path, name, error, message):
+    with pytest.raises(error, match=message):
+        reserve_version_dirname(tmp_path, "run", name)
 
 
-def test_a_lost_mkdir_race_computes_the_version_again(tmp_path, monkeypatch):
-    """A neighbor creates the directory between the computation and the mkdir."""
+def test_the_longest_name_is_kept_whole(tmp_path):
+    longest = "a" * MAX_NAME_LENGTH
+
+    assert reserve_version_dirname(tmp_path, "run", longest).name == longest
+
+
+def test_a_lost_mkdir_race_is_retried(tmp_path, monkeypatch):
+    # A neighbour creates the directory between the computation and the mkdir.
     real_mkdir = os.mkdir
     stolen: list[str] = []
 

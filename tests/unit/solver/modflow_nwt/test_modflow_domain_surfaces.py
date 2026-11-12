@@ -1,3 +1,9 @@
+"""The domain surfaces, the mesh and the time grid ModflowNwt checks before it builds.
+
+A model needs a Domain with its top and substratum on one grid, a structured cell mesh, a raster
+geometry and, for a transient run, a time grid. The DEM grid (m) is read off the raster geometry.
+"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -11,15 +17,11 @@ from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.domain.domain import Domain
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.domain.geometry import RasterGeometry
-from hydromodpy.model.domain.layers_config import VerticalGridConfig
 from hydromodpy.model.model import Geometry, ModelTime
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
-from hydromodpy.solver.modflow_grid.discretization_spatial import build_spatial_discretization
-from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from tests._helpers.cell_meshes import cell_mesh_of
 from tests._helpers.model_factory import make_model, small_geometry
-from tests._helpers.regular_cell_meshes import regular_cell_mesh_of_surface
 
 
 class _DummyGeographic:
@@ -76,7 +78,7 @@ def _build_domain_from_dem(dem: np.ndarray) -> Domain:
     )
 
 
-def test_modflow_requires_domain_object_for_spatial_geometry():
+def test_domain_object_is_required():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
 
     model = ModflowNwt(model_folder=".")
@@ -85,7 +87,7 @@ def test_modflow_requires_domain_object_for_spatial_geometry():
         model._get_domain_surfaces()
 
 
-def test_modflow_domain_surfaces_are_required():
+def test_top_and_substratum_are_required():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     domain = _build_domain_from_dem(dem)
 
@@ -99,7 +101,7 @@ def test_modflow_domain_surfaces_are_required():
         model._get_domain_surfaces()
 
 
-def test_modflow_validates_domain_support_match_on_surface_build():
+def test_substratum_on_another_grid_is_refused():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     domain = _build_domain_from_dem(dem)
     domain.substratum = _build_surface(
@@ -115,81 +117,7 @@ def test_modflow_validates_domain_support_match_on_surface_build():
         model._get_domain_surfaces()
 
 
-def test_build_spatial_discretization_resamples_to_solver_shape():
-    top = np.array([[20.0, 22.0], [24.0, 26.0]], dtype=float)
-    domain = _build_domain_from_dem(top)
-
-    ctx = build_spatial_discretization(
-        domain=domain,
-        vertical_config=VerticalGridConfig(
-            genmtd_lay="constant",
-            nlay=2,
-            nodata=-9999.0,
-        ),
-        sgrid_config=SolverSGridConfig(),
-        cell_mesh=regular_cell_mesh_of_surface(domain.surface_topo, nrow=3, ncol=4),
-    )
-
-    assert ctx.nrow == 3
-    assert ctx.ncol == 4
-    assert ctx.top_elevation.shape == (12,)  # flat (n_cells,)
-    assert ctx.bottom_layer.shape == (12,)
-    assert ctx.solver_mesh.botm.shape == (2, 12)
-    assert ctx.grid.dx == pytest.approx(0.5)
-    assert ctx.grid.dy == pytest.approx(2.0 / 3.0)
-    assert ctx.grid.cell_area == pytest.approx((0.5) * (2.0 / 3.0))
-
-
-def test_runtime_planar_mesh_samples_domain_surfaces_at_the_cell_centres():
-    top = np.full((2, 2), 20.0, dtype=float)
-    bottom = np.zeros((2, 2), dtype=float)
-    domain = _build_domain_from_dem(top)
-    domain.substratum = _build_surface(bottom, name="substratum")
-    hydro_mesh = HydroMesh(
-        vertices=np.array(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [1.0, 1.0],
-                [0.0, 1.0],
-            ],
-            dtype=float,
-        ),
-        cell_blocks=(
-            CellBlock(
-                CellType.TRIANGLE,
-                np.array(
-                    [
-                        [0, 1, 2],
-                        [0, 2, 3],
-                    ],
-                    dtype=int,
-                ),
-            ),
-        ),
-    )
-    cell_mesh = cell_mesh_of(hydro_mesh)
-
-    ctx = build_spatial_discretization(
-        domain=domain,
-        vertical_config=VerticalGridConfig(
-            genmtd_lay="constant",
-            nlay=1,
-            nodata=-9999.0,
-        ),
-        sgrid_config=SolverSGridConfig(),
-        cell_mesh=cell_mesh,
-    )
-
-    # Top and botm are sampled from the domain surfaces at the cell centers: every
-    # cell takes the DEM top (20) and substratum (0).
-    top = ctx.solver_mesh.top.reshape(-1)
-    botm = ctx.solver_mesh.botm.reshape(-1)
-    assert top.tolist() == pytest.approx([20.0] * top.size)
-    assert botm.tolist() == pytest.approx([0.0] * botm.size)
-
-
-def test_modflow_nwt_refuses_a_cell_mesh_that_is_not_a_regular_grid():
+def test_triangle_mesh_is_refused():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     triangles = cell_mesh_of(
         HydroMesh(
@@ -206,7 +134,7 @@ def test_modflow_nwt_refuses_a_cell_mesh_that_is_not_a_regular_grid():
         model._build_spatial_discretization()
 
 
-def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
+def test_transient_run_needs_a_time_grid():
     dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     model = ModflowNwt(model_folder=".")
     model.inputs = _model(
@@ -234,7 +162,7 @@ def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():
     ],
     ids=["no_model", "no_domain", "no_cell_mesh", "no_raster"],
 )
-def test_pre_processing_refuses_a_model_that_lacks_what_nwt_builds_on(members, error, match):
+def test_model_lacking_a_member_is_refused(members, error, match):
     model = ModflowNwt(model_folder=".")
     if "inputs" not in members:
         geometry = {"cells": small_geometry().cells, "domain": object(), "raster": object()}
@@ -251,7 +179,7 @@ def test_pre_processing_refuses_a_model_that_lacks_what_nwt_builds_on(members, e
     [(True, (3, 4), "box.tif"), (False, (2, 2), "watershed.tif")],
     ids=["box", "watershed"],
 )
-def test_the_dem_grid_is_read_off_the_raster_geometry(box, shape, path):
+def test_dem_grid_from_raster_geometry(box, shape, path):
     geographic = _DummyGeographic(np.zeros((2, 2)))
     geographic.dem_box_buff_data = np.zeros((3, 4))
     geographic.dem_res = 25.0

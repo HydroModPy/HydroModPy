@@ -1,11 +1,7 @@
-"""Tests for the helper accessors in :mod:`hydromodpy.project.accessors`.
+"""What ``hydromodpy/project/accessors.py`` selects: the runs and the data of one project.
 
-The accessors are thin wrappers that pre-filter catalog queries by the current
-project name and apply small selection rules. We drive them through a single
-seam: a tiny fake store that records the filters it receives and returns
-deterministic rows. This keeps the test focused on the accessor's own behavior
-(project scoping, latest/best/find/delete dispatch, missing-variable diff)
-without standing up a real DuckDB catalog.
+The accessors filter catalog queries by project name. A small fake store records the
+filters it receives and returns fixed rows, so no DuckDB catalog is needed.
 """
 
 from __future__ import annotations
@@ -62,22 +58,7 @@ def _rows(*sim_ids: str) -> pd.DataFrame:
     return pd.DataFrame({"sim_id": list(sim_ids)})
 
 
-# --- ProjectRunsAccessor.list -------------------------------------------------
-
-
-def test_list_returns_empty_frame_when_store_is_none() -> None:
-    accessor = ProjectRunsAccessor(_fake_project(None))
-
-    df = accessor.list()
-
-    assert isinstance(df, pd.DataFrame)
-    assert df.empty
-
-
-# --- ProjectRunsAccessor.find -------------------------------------------------
-
-
-def test_find_injects_project_and_forwards_filters() -> None:
+def test_find_adds_project() -> None:
     store = _FakeStore(_rows())
     accessor = ProjectRunsAccessor(_fake_project(store, project_name="flume"))
 
@@ -87,16 +68,7 @@ def test_find_injects_project_and_forwards_filters() -> None:
     assert result == ["run-modflow6"]
 
 
-def test_find_returns_empty_list_when_store_is_none() -> None:
-    accessor = ProjectRunsAccessor(_fake_project(None))
-
-    assert accessor.find(solver="modflow6") == []
-
-
-# --- ProjectRunsAccessor.latest ----------------------------------------------
-
-
-def test_latest_selects_last_row_and_resolves_run() -> None:
+def test_latest_is_last_row() -> None:
     store = _FakeStore(_rows("first", "second", "third"))
     accessor = ProjectRunsAccessor(_fake_project(store))
 
@@ -107,7 +79,7 @@ def test_latest_selects_last_row_and_resolves_run() -> None:
     assert run == "run-object-third"
 
 
-def test_latest_returns_none_when_no_runs() -> None:
+def test_latest_without_runs() -> None:
     store = _FakeStore(_rows())
     accessor = ProjectRunsAccessor(_fake_project(store))
 
@@ -115,10 +87,7 @@ def test_latest_returns_none_when_no_runs() -> None:
     assert store.getitem_calls == []
 
 
-# --- ProjectRunsAccessor.best ------------------------------------------------
-
-
-def test_best_passes_mixed_windows_to_the_store() -> None:
+def test_best_mixed_windows() -> None:
     store = _FakeStore(_rows("x"))
     accessor = ProjectRunsAccessor(_fake_project(store, project_name="nancon"))
 
@@ -127,20 +96,24 @@ def test_best_passes_mixed_windows_to_the_store() -> None:
     assert store.best_calls == [("nancon", "nse", True)]
 
 
-@pytest.mark.parametrize(
-    "ask",
-    [
-        pytest.param(lambda accessor: accessor.latest(), id="latest"),
-        pytest.param(lambda accessor: accessor.best("nse"), id="best"),
-    ],
-)
-def test_a_run_asked_of_a_project_without_a_store_is_none(ask) -> None:
+def test_list_without_store() -> None:
+    assert ProjectRunsAccessor(_fake_project(None)).list().empty
+
+
+WITHOUT_STORE = [
+    pytest.param("find", {"solver": "modflow6"}, [], id="find"),
+    pytest.param("latest", {}, None, id="latest"),
+    pytest.param("best", {"metric": "nse"}, None, id="best"),
+    # Must not raise even though there is no store to delegate to.
+    pytest.param("delete", {"sim_id": "sim-1"}, None, id="delete"),
+]
+
+
+@pytest.mark.parametrize(("method", "kwargs", "expected"), WITHOUT_STORE)
+def test_runs_without_store(method: str, kwargs: dict, expected: object) -> None:
     accessor = ProjectRunsAccessor(_fake_project(None))
 
-    assert ask(accessor) is None
-
-
-# --- ProjectRunsAccessor.delete ----------------------------------------------
+    assert getattr(accessor, method)(**kwargs) == expected
 
 
 @pytest.mark.parametrize(
@@ -150,9 +123,7 @@ def test_a_run_asked_of_a_project_without_a_store_is_none(ask) -> None:
         pytest.param("sim-7", {}, True, id="defaults-remove-storage-to-true"),
     ],
 )
-def test_delete_forwards_sim_id_and_remove_storage_flag(
-    sim_id: str, kwargs: dict, remove_storage: bool
-) -> None:
+def test_delete_flag(sim_id: str, kwargs: dict, remove_storage: bool) -> None:
     store = _FakeStore(_rows("a"))
     accessor = ProjectRunsAccessor(_fake_project(store))
 
@@ -161,75 +132,59 @@ def test_delete_forwards_sim_id_and_remove_storage_flag(
     assert store.delete_calls == [(sim_id, remove_storage)]
 
 
-def test_delete_is_noop_when_store_is_none() -> None:
-    accessor = ProjectRunsAccessor(_fake_project(None))
-
-    # Must not raise even though there is no store to delegate to.
-    accessor.delete("sim-1")
-
-
-# --- ProjectDataAccessor.missing ---------------------------------------------
-
-
 def _data_project(plan_types: Any, loaded: set[str]) -> SimpleNamespace:
     ctx = SimpleNamespace(data_plan=SimpleNamespace(types=plan_types))
     return SimpleNamespace(_ctx=ctx, data_loaded=loaded)
 
 
-def test_missing_returns_planned_types_not_yet_loaded() -> None:
-    project = _data_project(
-        plan_types=("precipitation", "temperature", "et0"),
-        loaded={"precipitation"},
-    )
-    accessor = ProjectDataAccessor(project)
-
-    assert accessor.missing() == ["temperature", "et0"]
-
-
-def test_missing_returns_empty_when_all_loaded() -> None:
-    project = _data_project(
-        plan_types=("precipitation", "temperature"),
-        loaded={"precipitation", "temperature", "extra"},
-    )
-    accessor = ProjectDataAccessor(project)
-
-    assert accessor.missing() == []
+MISSING = [
+    pytest.param(
+        ("precipitation", "temperature", "et0"),
+        {"precipitation"},
+        ["temperature", "et0"],
+        id="planned and not loaded",
+    ),
+    pytest.param(
+        ("precipitation", "temperature"),
+        {"precipitation", "temperature", "extra"},
+        [],
+        id="all loaded",
+    ),
+]
 
 
-# --- ProjectDataAccessor.list ------------------------------------------------
+@pytest.mark.parametrize(("plan_types", "loaded", "expected"), MISSING)
+def test_missing_types(plan_types: tuple, loaded: set[str], expected: list[str]) -> None:
+    accessor = ProjectDataAccessor(_data_project(plan_types, loaded))
+
+    assert accessor.missing() == expected
 
 
-def test_data_list_returns_sorted_loaded_variables() -> None:
-    project = _data_project(plan_types=(), loaded={"temperature", "precipitation", "et0"})
-    accessor = ProjectDataAccessor(project)
-
-    df = accessor.list()
-
-    assert list(df["variable"]) == ["et0", "precipitation", "temperature"]
-
-
-def test_data_list_filters_to_requested_variable() -> None:
-    project = _data_project(plan_types=(), loaded={"temperature", "precipitation"})
-    accessor = ProjectDataAccessor(project)
-
-    df = accessor.list(variable="temperature")
-
-    assert list(df["variable"]) == ["temperature"]
+DATA_LISTS = [
+    pytest.param(
+        {"temperature", "precipitation", "et0"},
+        None,
+        ["et0", "precipitation", "temperature"],
+        id="sorted",
+    ),
+    pytest.param(
+        {"temperature", "precipitation"}, "temperature", ["temperature"], id="one variable"
+    ),
+    pytest.param({"temperature"}, "nope", [], id="unknown variable"),
+]
 
 
-def test_data_list_unknown_variable_yields_empty_frame() -> None:
-    project = _data_project(plan_types=(), loaded={"temperature"})
-    accessor = ProjectDataAccessor(project)
+@pytest.mark.parametrize(("loaded", "variable", "expected"), DATA_LISTS)
+def test_data_list(loaded: set[str], variable: str | None, expected: list[str]) -> None:
+    accessor = ProjectDataAccessor(_data_project(plan_types=(), loaded=loaded))
 
-    df = accessor.list(variable="nope")
+    df = accessor.list() if variable is None else accessor.list(variable=variable)
 
-    assert list(df["variable"]) == []
+    assert list(df["variable"]) == expected
 
 
 @pytest.mark.parametrize("name", ["calage", "calage.v2"])
-def test_a_session_of_a_project_reads_its_config_and_draws_figures(
-    monkeypatch: pytest.MonkeyPatch, tmp_path, name: str
-) -> None:
+def test_session_by_name(monkeypatch: pytest.MonkeyPatch, tmp_path, name: str) -> None:
     import hydromodpy.project.accessors as accessors
     from hydromodpy.project.facade import read_sealed_config
     from hydromodpy.project.show import render

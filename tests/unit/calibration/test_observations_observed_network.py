@@ -1,4 +1,9 @@
-"""Tests of `observations.observed_network`."""
+"""Cell projection of a mapped stream network on the solver mesh (cell size in m).
+
+The map is drawn with the crossing rule (thin line through cell centres) or the heads
+rule (free ends, on the criterion graph). Reaches that enter no cell are reported once.
+The catchment the criterion closes is compared with the basin of D and the outline.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +18,6 @@ from shapely.geometry import GeometryCollection, LineString, MultiLineString, Po
 from hydromodpy.calibration.config_outputs import validate_calib_output
 from hydromodpy.calibration.metrics.solver_extract import catchment_area_the_discharge_sums
 from hydromodpy.calibration.observations import observed_network
-from hydromodpy.calibration.observations import observed_network as observed_module
 from hydromodpy.calibration.observations.network_geometry import network_maps_from_run
 from hydromodpy.calibration.observations.network_source import (
     ObservedNetwork,
@@ -39,15 +43,8 @@ from tests._helpers.v_valley import (
     build_bench,
 )
 
-# From test_the_cell_projection_refuses_the_heads_rule.py
-# The cell projection of a mapped network refuses the heads rule by name.
-#
-# Under ``"heads"`` the map is drawn on the criterion graph from the free ends of
-# the lines, so no cell projection exists to hand back; a caller asking for one
-# would score a map the trial never drew.
 
-
-def test_the_cell_projection_refuses_the_heads_rule() -> None:
+def test_cell_projection_refuses_the_heads_rule() -> None:
     run_ctx = SimpleNamespace(
         state=SimpleNamespace(
             setup=SimpleNamespace(geographic=SimpleNamespace(crs_project="EPSG:2154"))
@@ -68,16 +65,6 @@ def test_the_cell_projection_refuses_the_heads_rule() -> None:
             np.zeros((1, 4), dtype=int),
             rasterization="heads",
         )
-
-
-# From test_the_criterion_reads_the_basin_of_d.py
-# The catchment the criterion is compared with is the basin of D the model kept.
-#
-# The criterion closes its own catchment on its own graph and publishes how far it
-# sits from two references. ``basin_mismatch`` reads the basin of D of the build, the
-# cells the budget zone and the discharge observable also sum. ``catchment_mismatch``
-# reads the delineated outline. A model without a basin keeps the delineated polygon
-# and says so.
 
 
 CRS = "EPSG:2154"
@@ -112,7 +99,7 @@ def _ctx(basin: DescentBasin | None) -> SimpleNamespace:
 POLYGON = np.array([False, True, True, True, False, False])
 
 
-def test_no_calibration_reader_computes_the_basin_again(monkeypatch) -> None:
+def test_basin_of_d_is_read_never_recomputed(monkeypatch) -> None:
     def refuse(*_args, **_kwargs):
         raise AssertionError("a consumer recomputed the basin of D instead of reading it")
 
@@ -126,7 +113,6 @@ def test_no_calibration_reader_computes_the_basin_again(monkeypatch) -> None:
     assert area == pytest.approx(ctx.solver_run.solver_model.descent_basin.area_m2)
 
 
-# --- the criterion publishes its gap to that reference --------------------------------
 def _bench_ctx(basin: DescentBasin | None, outlet_xy: tuple[float, float]):
     bench = build_bench()
     vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
@@ -180,7 +166,7 @@ def output(tmp_path_factory):
 OUTLET_XY = ((AXIS_COL + 0.5) * CELL_SIZE, (N_ROWS - 0.5) * CELL_SIZE)
 
 
-def test_a_basin_that_is_the_graph_catchment_leaves_no_gap(output) -> None:
+def test_basin_equal_to_the_graph_catchment_leaves_no_gap(output) -> None:
     ctx = _bench_ctx(_basin(np.ones(N_CELLS, dtype=bool)), OUTLET_XY)
 
     geometry = network_maps_from_run(ctx, output).maximal
@@ -189,9 +175,7 @@ def test_a_basin_that_is_the_graph_catchment_leaves_no_gap(output) -> None:
     assert geometry.diagnostics["catchment_mismatch"] == pytest.approx(0.0)
 
 
-def test_the_gap_reads_the_delineated_outline_and_the_basin_has_its_own(
-    output, monkeypatch
-) -> None:
+def test_gap_reads_the_outline_and_the_basin_has_its_own(output, monkeypatch) -> None:
     # An outlet on another branch closes the basin of D on that branch too, so the
     # basin cannot tell. The outline can, and the veto reads the gap to it.
     half = np.zeros(N_CELLS, dtype=bool)
@@ -205,7 +189,7 @@ def test_the_gap_reads_the_delineated_outline_and_the_basin_has_its_own(
     assert diagnostics["basin_mismatch"] == pytest.approx(0.0)
 
 
-def test_a_smaller_basin_is_published_as_the_gap(output) -> None:
+def test_smaller_basin_is_published_as_the_gap(output) -> None:
     mask = np.zeros(N_CELLS, dtype=bool)
     mask[: N_CELLS // 2] = True
     ctx = _bench_ctx(_basin(mask), OUTLET_XY)
@@ -217,15 +201,6 @@ def test_a_smaller_basin_is_published_as_the_gap(output) -> None:
     )
 
 
-# From test_the_mapped_network_is_drawn_thin.py
-# The criterion draws the mapped network with the crossing rule unless told otherwise.
-#
-# ``observed_network_mask`` picks between ``"crossing"``, the thin line of
-# WhiteboxTools VectorLinesToRaster that the paper used, and ``"touch"``, the
-# rule before 2026-09, kept to replay an old session. The crossing rule joins
-# the centers the solver mesh sampled its top at, so it reads them from the run.
-
-
 N = 12
 CELL = 75.0
 
@@ -233,9 +208,9 @@ CELL = 75.0
 @pytest.fixture()
 def _fresh_unplaced_reports():
     """Each test sees its placement for the first time."""
-    observed_module._UNPLACED_REPORTS.clear()
+    observed_network._UNPLACED_REPORTS.clear()
     yield
-    observed_module._UNPLACED_REPORTS.clear()
+    observed_network._UNPLACED_REPORTS.clear()
 
 
 def _centre(row: int, col: int) -> tuple[float, float]:
@@ -271,19 +246,19 @@ def _mask(run_ctx, **kwargs) -> np.ndarray:
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_an_unknown_rule_is_refused() -> None:
+def test_unknown_rule_is_refused() -> None:
     with pytest.raises(ValueError, match="map.drawn_by"):
         _mask(_run_ctx(), rasterization="centroid")
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_a_run_without_centres_is_refused_by_the_crossing_rule() -> None:
+def test_crossing_rule_needs_cell_centres() -> None:
     with pytest.raises(ValueError, match="cell_centers"):
         _mask(_run_ctx(with_centres=False))
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_a_reach_off_the_mesh_is_reported_as_left_out(caplog) -> None:
+def test_reach_off_the_mesh_is_reported(caplog) -> None:
     # A 10 m reach 30 m below the grid, in the sliver outside every cell.
     off_mesh = LineString([(300.0, -30.0), (310.0, -30.0)])
     network = ObservedNetwork(
@@ -297,7 +272,7 @@ def test_a_reach_off_the_mesh_is_reported_as_left_out(caplog) -> None:
     )
     vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
 
-    with caplog.at_level(logging.WARNING, logger=observed_module.__name__):
+    with caplog.at_level(logging.WARNING, logger=observed_network.__name__):
         drawn = observed_network_mask(
             _run_ctx(), network, SimpleNamespace(vertices=vertices), connectivity
         )
@@ -334,11 +309,11 @@ def _run_ctx_with_catchment(tmp_path, *, margin: float):
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_an_unclipped_map_without_a_catchment_only_informs(caplog) -> None:
+def test_unclipped_map_without_a_catchment_only_informs(caplog) -> None:
     far = LineString([(5000.0, 5000.0), (5100.0, 5000.0)])
     vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
 
-    with caplog.at_level(logging.INFO, logger=observed_module.__name__):
+    with caplog.at_level(logging.INFO, logger=observed_network.__name__):
         observed_network_mask(
             _run_ctx(), _unclipped(far), SimpleNamespace(vertices=vertices), connectivity
         )
@@ -347,22 +322,20 @@ def test_an_unclipped_map_without_a_catchment_only_informs(caplog) -> None:
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_a_second_build_of_the_same_placement_skips_the_geometry_work(
-    tmp_path, caplog, monkeypatch
-) -> None:
+def test_same_placement_is_measured_once(tmp_path, caplog, monkeypatch) -> None:
     sliver = LineString([(300.0, -30.0), (310.0, -30.0)])
     vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
     run_ctx = _run_ctx_with_catchment(tmp_path, margin=40.0)
     calls: list[int] = []
-    measured = observed_module._unplaced_parts
+    measured = observed_network._unplaced_parts
 
     def _counting(*args, **kwargs):
         calls.append(1)
         return measured(*args, **kwargs)
 
-    monkeypatch.setattr(observed_module, "_unplaced_parts", _counting)
+    monkeypatch.setattr(observed_network, "_unplaced_parts", _counting)
 
-    with caplog.at_level(logging.INFO, logger=observed_module.__name__):
+    with caplog.at_level(logging.INFO, logger=observed_network.__name__):
         for _ in range(3):
             drawn = observed_network_mask(
                 run_ctx, _unclipped(sliver), SimpleNamespace(vertices=vertices), connectivity
@@ -375,13 +348,13 @@ def test_a_second_build_of_the_same_placement_skips_the_geometry_work(
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_a_new_placement_is_measured_again(tmp_path, caplog) -> None:
+def test_new_placement_is_measured_again(tmp_path, caplog) -> None:
     sliver = LineString([(300.0, -30.0), (310.0, -30.0)])
     other = LineString([(500.0, -20.0), (540.0, -20.0)])
     vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
     run_ctx = _run_ctx_with_catchment(tmp_path, margin=40.0)
 
-    with caplog.at_level(logging.WARNING, logger=observed_module.__name__):
+    with caplog.at_level(logging.WARNING, logger=observed_network.__name__):
         for reach in (sliver, other):
             observed_network_mask(
                 run_ctx, _unclipped(reach), SimpleNamespace(vertices=vertices), connectivity
@@ -391,18 +364,6 @@ def test_a_new_placement_is_measured_again(tmp_path, caplog) -> None:
     assert len(messages) == 2
     assert "10 m in all" in messages[0]
     assert "40 m in all" in messages[1]
-
-
-# From test_the_minimal_map_reads_the_permanent_network.py
-# The minimal map resolves from the run's permanent hydrographic network, or refuses by name.
-#
-# ``minimal_observed_network = "data.hydrography"`` reads the network the
-# geographic pipeline attached under the ``reference_permanent`` role
-# (:class:`hydromodpy.catchment.algorithms.hydrographic_network.HydrographicNetworks`),
-# never the full ``reference`` one: a source that does not say which reaches are
-# permanent (a custom file with no permanence column, OSM) leaves that role
-# ``None``, and the output is refused by name rather than silently scored on the
-# maximal map.
 
 
 def _output(map=None, **overrides):
@@ -425,64 +386,60 @@ def _run_ctx__minimal_map(*, reference_permanent=None):
     return SimpleNamespace(state=SimpleNamespace(setup=setup))
 
 
-class TestARunWithoutAPermanentNetworkIsRefusedByName:
-    def test_a_run_without_reference_permanent_is_refused_by_name(self) -> None:
-        run_ctx = _run_ctx__minimal_map(reference_permanent=None)
-        output = _output(map={"permanent": "data.hydrography", "calibrate_on": "permanent"})
+def test_run_without_a_permanent_network_is_refused():
+    run_ctx = _run_ctx__minimal_map(reference_permanent=None)
+    output = _output(map={"permanent": "data.hydrography", "calibrate_on": "permanent"})
 
-        with pytest.raises(UnresolvedObservedNetwork) as excinfo:
-            resolve_minimal_network(run_ctx, output)
-        message = str(excinfo.value)
-        assert "map.permanent = 'data.hydrography'" in message
-        assert "as a file in 'map.permanent'" in message
-
-
-# The refusals and the readers of the placement, on the shapes a trial leaves aside.
+    with pytest.raises(UnresolvedObservedNetwork) as excinfo:
+        resolve_minimal_network(run_ctx, output)
+    message = str(excinfo.value)
+    assert "map.permanent = 'data.hydrography'" in message
+    assert "as a file in 'map.permanent'" in message
 
 
-def test_a_map_cannot_be_placed_on_a_run_with_no_projected_crs() -> None:
+def test_map_needs_a_projected_crs() -> None:
     run_ctx = _run_ctx()
     run_ctx.state.setup.geographic = SimpleNamespace()
 
     with pytest.raises(ValueError, match="declares no projected CRS"):
-        observed_module._placeable(run_ctx, _diagonal())
+        observed_network._placeable(run_ctx, _diagonal())
 
 
 @pytest.mark.usefixtures("_fresh_unplaced_reports")
-def test_the_placement_memory_is_emptied_when_it_is_full(monkeypatch) -> None:
-    observed_module._UNPLACED_REPORTS["old"] = (0, 0, 0.0)
-    monkeypatch.setattr(observed_module, "_UNPLACED_REPORTS_MAX", 1)
+def test_placement_memory_is_emptied_when_full(monkeypatch) -> None:
+    observed_network._UNPLACED_REPORTS["old"] = (0, 0, 0.0)
+    monkeypatch.setattr(observed_network, "_UNPLACED_REPORTS_MAX", 1)
 
     vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
     network = _unclipped(LineString([(300.0, -30.0), (310.0, -30.0)]))
     observed_network_mask(_run_ctx(), network, SimpleNamespace(vertices=vertices), connectivity)
 
-    assert "old" not in observed_module._UNPLACED_REPORTS
-    assert len(observed_module._UNPLACED_REPORTS) == 1
+    assert "old" not in observed_network._UNPLACED_REPORTS
+    assert len(observed_network._UNPLACED_REPORTS) == 1
 
 
-def test_the_parts_no_cell_touches_are_every_line_of_a_nested_collection() -> None:
+def test_unplaced_parts_are_every_line_of_a_collection() -> None:
     nested = GeometryCollection(
         [Point(0, 0), MultiLineString([[(0, 0), (1, 0)], [(0, 1), (1, 1)]])]
     )
     observed = SimpleNamespace(crs=CRS, geometry=gpd.GeoDataFrame(geometry=[nested], crs=CRS))
 
-    parts = observed_module._unplaced_parts(observed, np.array([None]), CRS)
+    parts = observed_network._unplaced_parts(observed, np.array([None]), CRS)
 
     assert [part.wkt for part in parts] == ["LINESTRING (0 0, 1 0)", "LINESTRING (0 1, 1 1)"]
 
 
-def test_a_domain_outline_needs_a_file_with_a_crs(tmp_path) -> None:
+def test_domain_outline_needs_a_crs(tmp_path) -> None:
     shp = tmp_path / "outline.gpkg"
     gpd.GeoDataFrame(geometry=[box(0, 0, 1, 1)]).to_file(shp)
     run_ctx = SimpleNamespace(
         state=SimpleNamespace(setup=SimpleNamespace(geographic=SimpleNamespace(watershed_shp=shp)))
     )
 
-    assert observed_module._domain_outline(run_ctx, CRS) is None
+    assert observed_network._domain_outline(run_ctx, CRS) is None
 
 
-def test_the_catchment_outline_marks_the_cells_whose_centre_it_holds(tmp_path) -> None:
+def test_outline_marks_the_cells_whose_centre_it_holds(tmp_path) -> None:
     vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
     planar_mesh = SimpleNamespace(vertices=vertices)
     delineated = _run_ctx_with_catchment(tmp_path, margin=0.0)

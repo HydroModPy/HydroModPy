@@ -53,7 +53,7 @@ def _no_disks() -> tuple[DiskSet, DiskSet]:
     return DiskSet(empty, np.empty(0)), DiskSet(empty, np.empty(0))
 
 
-def test_a_constant_size_gives_the_area_centroid_whatever_the_ring_orientation() -> None:
+def test_centroid_of_a_constant_size() -> None:
     h = _sampler(10.0)
     cell = shapely.Polygon([(0, 0), (40, 0), (40, 10), (0, 30)])
     seed = np.array([[5.0, 5.0]])
@@ -91,17 +91,12 @@ def _plan() -> ConstraintPlan:
     return ConstraintPlan(seeds, faces, (chain,), ("rivers",), (), {}, {})
 
 
-def test_the_disks_scale_the_berge_gabriel_and_protection_radii() -> None:
+def test_constraint_disks() -> None:
     hard, protect = constraint_disks(_plan())
     assert np.allclose(hard.center, [[0.0, 0.0], [4.0, 10.0]])
     assert np.allclose(hard.radius, [BERGE_CIRCLE_SCALE * 5.0, GABRIEL_SCALE * 8.0])
     assert np.allclose(protect.center, _plan().seeds.xy)
     assert np.allclose(protect.radius, PROTECTION_SHARE * np.array([20.0, 30.0, 30.0]))
-
-
-def test_the_disks_need_one_radius_per_centre() -> None:
-    with pytest.raises(ValueError, match="one radius per centre"):
-        DiskSet(np.zeros((2, 2)), [1.0])
 
 
 def _seeds(h: SizeSampler) -> tuple[np.ndarray, int, object]:
@@ -115,7 +110,7 @@ def _seeds(h: SizeSampler) -> tuple[np.ndarray, int, object]:
     return np.vstack([fixed, free]), len(fixed), domain
 
 
-def test_no_free_seed_and_a_zero_cap_leave_the_seeds_alone() -> None:
+def test_relax_leaves_seeds_alone() -> None:
     h = _sampler(10.0)
     seeds, n_fixed, domain = _seeds(h)
     fixed_only = relax(seeds[:n_fixed], n_fixed, h, domain, *_no_disks())

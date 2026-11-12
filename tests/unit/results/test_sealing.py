@@ -11,7 +11,6 @@ the identity and the ACDD attributes; the whole thing is read back by
 
 from __future__ import annotations
 
-import errno
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -96,15 +95,15 @@ def filled(tmp_path: Path) -> RunStore:
     return store
 
 
-def test_an_unsealed_attempt_is_never_closed_as_completed(filled: RunStore) -> None:
+def test_unsealed_attempt_not_closed(filled: RunStore) -> None:
     with pytest.raises(FileNotFoundError, match=RUN_MANIFEST_FILENAME):
         close_sealed_attempt(filled.run_dir)
     assert read_outcome(filled.run_dir).status == "running"
     assert (filled.run_dir / INTERNAL_DIRNAME).is_dir()
 
 
-def test_the_manifest_keeps_the_catchment_area_the_outlet_and_the_grid(filled: RunStore) -> None:
-    """Losing these turns a derived discharge into a silently wrong series."""
+def test_manifest_catchment(filled: RunStore) -> None:
+    # Losing these turns a derived discharge into a silently wrong series.
     seal_completed(filled)
     catchment = read_manifest(filled.run_dir)["geometry"]["catchment"]
 
@@ -117,9 +116,6 @@ def test_the_manifest_keeps_the_catchment_area_the_outlet_and_the_grid(filled: R
     assert catchment["kind"] == "from_outlet_coord"
 
 
-# -- kept budget ---------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     ("keep", "written", "expected"),
     [
@@ -129,9 +125,7 @@ def test_the_manifest_keeps_the_catchment_area_the_outlet_and_the_grid(filled: R
     ],
     ids=["all", "consumers", "lumped"],
 )
-def test_the_manifest_repeats_what_the_store_kept_of_the_budget(
-    tmp_path: Path, keep, written, expected
-) -> None:
+def test_manifest_budget(tmp_path: Path, keep, written, expected) -> None:
     store = open_run_store(tmp_path / "demo", "budget", n_cells=4, n_layers=1)
     sz = store.open_zarr(store.sim_id)
     try:
@@ -145,7 +139,7 @@ def test_the_manifest_repeats_what_the_store_kept_of_the_budget(
     assert manifest["budget"] == {"policy": keep.policy, "kept_terms": expected}
 
 
-def test_a_store_without_budget_attributes_writes_no_budget_block(tmp_path: Path) -> None:
+def test_no_budget_block(tmp_path: Path) -> None:
     store = open_run_store(tmp_path / "demo", "no_budget", n_cells=4, n_layers=1)
 
     seal_completed(store)
@@ -153,10 +147,7 @@ def test_a_store_without_budget_attributes_writes_no_budget_block(tmp_path: Path
     assert read_manifest(store.run_dir).get("budget") is None
 
 
-# -- the field store -----------------------------------------------------------
-
-
-def test_the_readme_summarises_the_run_and_signs_the_manifest(filled: RunStore) -> None:
+def test_readme_signs_manifest(filled: RunStore) -> None:
     from hydromodpy.core.io.file_digest import sha256_of
 
     seal_completed(filled)
@@ -168,13 +159,13 @@ def test_the_readme_summarises_the_run_and_signs_the_manifest(filled: RunStore) 
     assert text.rstrip().endswith(sha256_of(filled.run_dir / RUN_MANIFEST_FILENAME))
 
 
-def test_a_run_without_a_solver_cannot_seal(tmp_path: Path) -> None:
+def test_seal_needs_a_solver(tmp_path: Path) -> None:
     store = open_run_store(tmp_path / "demo", solver=None)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="solver"):
         seal_completed(store)
 
 
-def test_a_failing_seal_leaves_no_manifest(filled: RunStore, monkeypatch) -> None:
+def test_failed_seal_keeps_running(filled: RunStore, monkeypatch) -> None:
     def refuse(*args, **kwargs):
         raise OSError("disk full")
 
@@ -186,37 +177,7 @@ def test_a_failing_seal_leaves_no_manifest(filled: RunStore, monkeypatch) -> Non
     assert read_outcome(filled.run_dir).status == "running"
 
 
-# -- the inventory -------------------------------------------------------------
-
-
-# -- the values and the mesh ---------------------------------------------------
-
-
-def _cited_mesh(store: RunStore, key: str = "a" * 64) -> Path:
-    """Put a two-file mesh product in the store and cite it from the run."""
-    from hydromodpy.mesh.stored import ARRAYS_FILENAME, DESCRIPTION_FILENAME
-    from hydromodpy.results.products.cited import CitedProduct, write_cited
-    from hydromodpy.results.products.store import ProductStore, products_root
-
-    def write(product: Path) -> None:
-        (product / DESCRIPTION_FILENAME).write_text("{}\n", encoding="utf-8")
-        (product / ARRAYS_FILENAME).write_bytes(b"npz")
-
-    workspace = store.workspace_path
-    assert workspace is not None
-    product = ProductStore(products_root(workspace)).put(key, "mesh", write)
-    write_cited(store.run_dir, [CitedProduct(kind="mesh", key=key)])
-    return product
-
-
-LINK_REFUSALS = [
-    pytest.param(OSError(errno.EXDEV, "cross-device link"), id="EXDEV"),
-    pytest.param(PermissionError(1, "not permitted"), id="PermissionError (Windows)"),
-    pytest.param(OSError(errno.ENOTSUP, "not supported"), id="ENOTSUP"),
-]
-
-
-def test_a_cited_mesh_the_store_no_longer_holds_leaves_the_run_sealed(filled: RunStore) -> None:
+def test_missing_cited_mesh(filled: RunStore) -> None:
     from hydromodpy.results.products.cited import CitedProduct, write_cited
     from hydromodpy.results.storage.contract import MESH_DIRNAME
 
@@ -229,9 +190,7 @@ def test_a_cited_mesh_the_store_no_longer_holds_leaves_the_run_sealed(filled: Ru
     assert all(item.variable != MESH_DIRNAME for item in RunRecord.read(filled.run_dir).inputs)
 
 
-def test_a_replay_that_read_the_sealed_mesh_seals_it_from_its_source(
-    filled: RunStore, tmp_path: Path
-) -> None:
+def test_replay_seals_mesh_from_source(filled: RunStore, tmp_path: Path) -> None:
     from datetime import UTC, datetime
 
     from hydromodpy.mesh.stored import ARRAYS_FILENAME, DESCRIPTION_FILENAME

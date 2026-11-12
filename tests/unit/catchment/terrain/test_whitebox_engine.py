@@ -1,4 +1,8 @@
-"""The capped breach translates meters to the tool's units, and only for itself."""
+"""The Whitebox engine conditions a DEM, and translates a capped breach from m to the tool's units.
+
+A fake flow tool records what the engine hands it. A breach lowers cell (3, 3) of a
+6 x 6 surface of 25 m cells by a chosen cut (m).
+"""
 
 from __future__ import annotations
 
@@ -16,17 +20,17 @@ from hydromodpy.core.exceptions import TerrainCapabilityError, TerrainRequestErr
 from tests._helpers.geotiffs import write_geotiff
 
 
-def _surface() -> np.ndarray:
+def surface():
     return np.arange(36.0).reshape(6, 6)
 
 
-def _write(path: Path, values: np.ndarray, res: float = 25.0) -> SimpleNamespace:
-    path = write_geotiff(path, values, cell=res, nodata=-9999.0, dtype="float32")
+def write_surface(path: Path, values: np.ndarray, cell_m: float = 25.0) -> SimpleNamespace:
+    path = write_geotiff(path, values, cell=cell_m, nodata=-9999.0, dtype="float32")
     return SimpleNamespace(path=str(path))
 
 
-class _FakeFlowOps:
-    """Records what the engine hands the tool; a breach lowers cell (3, 3) by ``cut_m``."""
+class FakeFlowOps:
+    """Records the calls of the engine. A breach lowers cell (3, 3) by ``cut_m``."""
 
     def __init__(self, directory: Path, cut_m: float) -> None:
         self.calls: list[tuple[str, dict[str, object]]] = []
@@ -37,9 +41,9 @@ class _FakeFlowOps:
         self.calls.append(("breach", options))
         if not self._cut_m:
             return source
-        values = _surface()
+        values = surface()
         values[3, 3] -= self._cut_m
-        return _write(self._directory / "lowered.tif", values)
+        return write_surface(self._directory / "lowered.tif", values)
 
     def fill_depressions_raster(self, source, **options: object):
         self.calls.append(("fill", options))
@@ -49,77 +53,97 @@ class _FakeFlowOps:
         return source
 
 
-def _engine(tmp_path: Path, cut_m: float = 0.0):
-    flow, reads = _FakeFlowOps(tmp_path, cut_m), []
+def engine_with_fake_tool(tmp_path: Path, cut_m: float = 0.0):
+    flow = FakeFlowOps(tmp_path, cut_m)
     raster = SimpleNamespace(
-        read_raster=lambda path: reads.append(Path(path).name) or SimpleNamespace(path=path),
+        read_raster=lambda path: SimpleNamespace(path=path),
         write_raster=lambda raster, path: shutil.copyfile(raster.path, path),
     )
-    return flow, WhiteboxTerrainEngine(SimpleNamespace(raster=raster, flow=flow)), reads
+    return flow, WhiteboxTerrainEngine(SimpleNamespace(raster=raster, flow=flow))
 
 
-def _condition(tmp_path: Path, res: float, method, cut_m: float = 0.0, engine=None):
-    flow, engine, _reads = engine or _engine(tmp_path, cut_m)
-    result = engine.condition_dem(
-        _write(tmp_path / "dem.tif", _surface(), res).path,
+def condition(tmp_path: Path, engine: WhiteboxTerrainEngine, method):
+    return engine.condition_dem(
+        write_surface(tmp_path / "dem.tif", surface()).path,
         method=method,
         extent=ConditioningExtent.regional(),
         out=tmp_path / "out" / "conditioned.tif",
     )
-    return flow.calls, result
 
 
-def test_the_depth_in_metres_is_the_cost_and_the_method_is_recorded(tmp_path) -> None:
-    """The flat increment is left to the tool."""
+def test_capped_breach_cost_in_metres(tmp_path):
+    # The flat increment is left to the tool.
     method = CappedBreach(max_depth_m=1.25, max_distance_m=50.0)
-    calls, result = _condition(tmp_path, 25.0, method)
-    assert calls[0][1]["max_cost"] == 1.25
-    assert "flat_increment" not in calls[0][1]
+    flow, engine = engine_with_fake_tool(tmp_path)
+
+    result = condition(tmp_path, engine, method)
+
+    assert flow.calls[0][1]["max_cost"] == 1.25
+    assert "flat_increment" not in flow.calls[0][1]
     assert result.breach_report.max_cost_m == 1.25
     assert result.method == method
 
 
 @pytest.mark.parametrize("method", ["fill", "breach"])
-def test_fill_and_breach_call_the_tool_as_they_always_did(tmp_path, method) -> None:
-    calls, result = _condition(tmp_path, 25.0, method)
-    assert calls == [(method, {})]
+def test_plain_methods_call_tool_bare(tmp_path, method):
+    flow, engine = engine_with_fake_tool(tmp_path)
+
+    result = condition(tmp_path, engine, method)
+
+    assert flow.calls == [(method, {})]
     assert result.breach_report is None
 
 
-@pytest.mark.parametrize(
-    ("method", "error", "match"),
-    [
-        ("carve", TerrainCapabilityError, "carve"),
-        ("provided", TerrainRequestError, r"ConditionedDem\.provided"),
-    ],
-)
-def test_a_method_no_engine_names_is_still_refused(tmp_path, method, error, match) -> None:
-    """``provided`` names a DEM nobody conditions here, so the refusal says how to build it."""
-    flow, engine, _reads = _engine(tmp_path)
+# "provided" names a DEM nobody conditions here, so the refusal says how to build it.
+METHOD_REFUSALS = [
+    pytest.param("carve", TerrainCapabilityError, "carve", id="unknown method"),
+    pytest.param("provided", TerrainRequestError, r"ConditionedDem\.provided", id="provided"),
+]
+
+
+@pytest.mark.parametrize(("method", "error", "match"), METHOD_REFUSALS)
+def test_method_refusals(tmp_path, method, error, match):
+    flow, engine = engine_with_fake_tool(tmp_path)
+
     with pytest.raises(error, match=match):
-        _condition(tmp_path, 25.0, method, engine=(flow, engine, _reads))
+        condition(tmp_path, engine, method)
+
     assert flow.calls == []
 
 
-@pytest.mark.parametrize(
-    ("depth", "distance"), [(0.0, 200.0), (-1.0, 200.0), (0.5, 0.0), (float("nan"), 200.0)]
-)
-def test_a_cap_that_bounds_nothing_is_refused(depth, distance) -> None:
+CAP_REFUSALS = [
+    pytest.param(0.0, 200.0, id="no depth"),
+    pytest.param(-1.0, 200.0, id="negative depth"),
+    pytest.param(0.5, 0.0, id="no distance"),
+    pytest.param(float("nan"), 200.0, id="nan depth"),
+]
+
+
+@pytest.mark.parametrize(("depth", "distance"), CAP_REFUSALS)
+def test_cap_refusals(depth, distance):
     with pytest.raises(TerrainRequestError):
         CappedBreach(max_depth_m=depth, max_distance_m=distance)
 
 
-@pytest.mark.parametrize(("cut_m", "warned"), [(0.56, True), (0.3, False), (0.505, False)])
-def test_only_a_cut_past_the_depth_cap_and_its_centimetre_is_warned_about_with_both_values(
-    tmp_path, caplog: pytest.LogCaptureFixture, cut_m, warned
-) -> None:
+# Depth cap is 0.5 m, and a cut is tolerated up to the next centimetre.
+@pytest.mark.parametrize("cut_m", [0.3, 0.505], ids=["under the cap", "within the centimetre"])
+def test_cut_within_cap_is_silent(tmp_path, caplog, cut_m):
+    _, engine = engine_with_fake_tool(tmp_path, cut_m)
+
     with caplog.at_level(logging.WARNING):
-        _calls, result = _condition(tmp_path, 25.0, CappedBreach(0.5, 200.0), cut_m=cut_m)
+        condition(tmp_path, engine, CappedBreach(0.5, 200.0))
+
+    assert not [r for r in caplog.records if r.levelno == logging.WARNING]
+
+
+def test_cut_past_cap_warns(tmp_path, caplog):
+    _, engine = engine_with_fake_tool(tmp_path, 0.56)
+
+    with caplog.at_level(logging.WARNING):
+        result = condition(tmp_path, engine, CappedBreach(0.5, 200.0))
+
     warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    if not warned:
-        assert not warnings
-        return
-    assert result.breach_report.max_lowering_m == pytest.approx(cut_m, abs=1e-5)
+    assert result.breach_report.max_lowering_m == pytest.approx(0.56, abs=1e-5)
     (warning,) = warnings
     assert "0.560" in warning
     assert "0.500" in warning

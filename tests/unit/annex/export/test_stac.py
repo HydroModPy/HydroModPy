@@ -1,7 +1,4 @@
-"""Unit tests for the pure STAC helpers, ``build_stac_item`` and ``StacItemView``.
-
-Moved to the annex tests beside the STAC exporter.
-"""
+"""STAC item of a run: bounding box polygon, UTC instants, union of boxes (degrees or metres)."""
 
 from __future__ import annotations
 
@@ -21,13 +18,14 @@ from hydromodpy_annex.export.stac import (
     validate_item,
 )
 
+pytestmark = pytest.mark.fast
+
 
 def _make_context(
     *,
     sim_row: dict | None = None,
     assets: tuple[AssetEntry, ...] = (),
 ) -> FairExportContext:
-    """Build a minimal synthetic context mirroring the catalog row shape."""
     row = {
         "sim_id": "sim-001",
         "name": "fair-sim",
@@ -66,123 +64,102 @@ def _make_context(
     )
 
 
-@pytest.mark.fast
-class TestBboxToPolygon:
-    def test_closed_five_point_ring(self):
-        poly = _bbox_to_polygon((0.0, 0.0, 1000.0, 1000.0))
-        assert poly["type"] == "Polygon"
-        ring = poly["coordinates"][0]
-        assert len(ring) == 5
-        # The ring must be closed: first vertex equals the last.
-        assert ring[0] == ring[-1] == [0.0, 0.0]
-
-    def test_corner_ordering(self):
-        poly = _bbox_to_polygon((1.0, 2.0, 3.0, 4.0))
-        ring = poly["coordinates"][0]
-        assert ring == [
-            [1.0, 2.0],
-            [3.0, 2.0],
-            [3.0, 4.0],
-            [1.0, 4.0],
-            [1.0, 2.0],
-        ]
+def test_bbox_to_polygon_ring() -> None:
+    ring = _bbox_to_polygon((1.0, 2.0, 3.0, 4.0))["coordinates"][0]
+    # Counter-clockwise from the lower left corner, closed on its first vertex.
+    assert _bbox_to_polygon((1.0, 2.0, 3.0, 4.0))["type"] == "Polygon"
+    assert ring == [[1.0, 2.0], [3.0, 2.0], [3.0, 4.0], [1.0, 4.0], [1.0, 2.0]]
 
 
-@pytest.mark.fast
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        ("2020-01-01", "2020-01-01T00:00:00Z"),
-        ("2020-06-01T12:00:00+02:00", "2020-06-01T10:00:00Z"),
-        ("2020-06-01T12:00:00Z", "2020-06-01T12:00:00Z"),
-        ("not-a-date", "not-a-date"),
-    ],
-    ids=["naive-date-at-midnight", "offset-to-utc", "trailing-z", "unparseable-verbatim"],
-)
-def test_to_utc_iso(value, expected):
+UTC_INSTANTS = [
+    pytest.param("2020-01-01", "2020-01-01T00:00:00Z", id="naive date at midnight"),
+    pytest.param("2020-06-01T12:00:00+02:00", "2020-06-01T10:00:00Z", id="offset to utc"),
+    pytest.param("2020-06-01T12:00:00Z", "2020-06-01T12:00:00Z", id="trailing z"),
+    pytest.param("not-a-date", "not-a-date", id="unparseable kept verbatim"),
+]
+
+
+@pytest.mark.parametrize(("value", "expected"), UTC_INSTANTS)
+def test_to_utc_iso(value, expected) -> None:
     assert _to_utc_iso(value) == expected
 
 
-@pytest.mark.fast
-class TestMidpoint:
-    @pytest.mark.parametrize(
-        ("start", "end", "expected"),
+MIDPOINTS = [
+    pytest.param("2020-01-01", "2020-01-05", "2020-01-03T00:00:00Z", id="between start and end"),
+    pytest.param("2020-01-01", None, "2020-01-01T00:00:00Z", id="start only"),
+    pytest.param(None, "2020-01-06", "2020-01-06T00:00:00Z", id="end only"),
+    pytest.param("not-a-date", "also-bad", "not-a-date", id="invalid falls back to start"),
+]
+
+
+@pytest.mark.parametrize(("start", "end", "expected"), MIDPOINTS)
+def test_midpoint(start, end, expected) -> None:
+    assert _midpoint(start, end) == expected
+
+
+def test_midpoint_without_bounds_is_now() -> None:
+    out = _midpoint(None, None)
+    # Falls back to now in UTC, still shaped as a STAC datetime.
+    assert out.endswith("Z")
+    assert len(out) == len("2020-01-01T00:00:00Z")
+
+
+UNIONS = [
+    pytest.param(
         [
-            ("2020-01-01", "2020-01-05", "2020-01-03T00:00:00Z"),
-            ("2020-01-01", None, "2020-01-01T00:00:00Z"),
-            (None, "2020-01-06", "2020-01-06T00:00:00Z"),
-            ("not-a-date", "also-bad", "not-a-date"),
-        ],
-        ids=["between-start-and-end", "start-only", "end-only", "invalid-falls-back-to-start"],
-    )
-    def test_midpoint(self, start, end, expected):
-        assert _midpoint(start, end) == expected
-
-    def test_no_bounds_returns_z_suffixed_now(self):
-        out = _midpoint(None, None)
-        # Falls back to "now" in UTC; shape must still be valid STAC datetime.
-        assert out.endswith("Z")
-        assert len(out) == len("2020-01-01T00:00:00Z")
-
-
-@pytest.mark.fast
-class TestUnionBbox:
-    def test_multi_item_min_max(self):
-        items = [
             {"bbox": [0.0, 0.0, 10.0, 10.0]},
             {"bbox": [-5.0, 2.0, 8.0, 20.0]},
             {"bbox": [3.0, -1.0, 4.0, 4.0]},
-        ]
-        assert _union_bbox(items) == [-5.0, -1.0, 10.0, 20.0]
-
-    def test_single_item_is_its_own_bbox(self):
-        assert _union_bbox([{"bbox": [1.0, 2.0, 3.0, 4.0]}]) == [1.0, 2.0, 3.0, 4.0]
-
-    def test_no_bbox_returns_none(self):
-        assert _union_bbox([{"properties": {}}, {"bbox": None}]) is None
-
-    def test_empty_list_returns_none(self):
-        assert _union_bbox([]) is None
+        ],
+        [-5.0, -1.0, 10.0, 20.0],
+        id="min and max over three items",
+    ),
+    pytest.param([{"bbox": [1.0, 2.0, 3.0, 4.0]}], [1.0, 2.0, 3.0, 4.0], id="single item"),
+    pytest.param([{"properties": {}}, {"bbox": None}], None, id="no bbox"),
+    pytest.param([], None, id="empty list"),
+]
 
 
-@pytest.mark.fast
-class TestValidateItem:
-    def test_valid_item_passes(self):
-        pytest.importorskip("pystac")
-        item = build_stac_item(_make_context())
-        ok, reasons = validate_item(item)
-        assert ok is True
-        assert reasons == []
-
-    def test_invalid_item_reports_reasons(self):
-        pytest.importorskip("pystac")
-        # A bare dict missing every required STAC field must fail parsing.
-        ok, reasons = validate_item({"type": "Feature"})
-        assert ok is False
-        assert reasons
-        assert all(isinstance(r, str) for r in reasons)
+@pytest.mark.parametrize(("items", "expected"), UNIONS)
+def test_union_bbox(items, expected) -> None:
+    assert _union_bbox(items) == expected
 
 
-@pytest.mark.fast
-class TestStacItemView:
-    def test_stac_item_view_members_and_protocol(self):
-        view = StacItemView()
-        assert isinstance(view, ExportWriter)
-        assert view.name == "stac"
-        assert view.suffix == ".json"
-        assert RUN_VIEW in view.writes
-        assert view.natural == ()
-        assert view.instants == "many"
-        assert view.reprojects is False
-        assert view.help
+def test_valid_item_passes() -> None:
+    pytest.importorskip("pystac")
+    ok, reasons = validate_item(build_stac_item(_make_context()))
+    assert ok is True
+    assert reasons == []
 
-    def test_stac_item_view_refuses_variable_and_time_selectors(self, isolated_export_formats):
-        from pydantic import ValidationError
 
-        from hydromodpy.results.exporters.export_spec import ExportRequest
+def test_invalid_item_reports_reasons() -> None:
+    pytest.importorskip("pystac")
+    # A bare dict missing every required STAC field must fail parsing.
+    ok, reasons = validate_item({"type": "Feature"})
+    assert ok is False
+    assert reasons
+    assert all(isinstance(r, str) for r in reasons)
 
-        isolated_export_formats.register(StacItemView)
-        with pytest.raises(ValidationError, match='Write variables = "all"'):
-            ExportRequest(variables="head", format="stac")
-        with pytest.raises(ValidationError, match="time selects nothing"):
-            ExportRequest(variables="all", format="stac", time="last")
+
+def test_view_members_and_protocol() -> None:
+    view = StacItemView()
+    assert isinstance(view, ExportWriter)
+    assert view.name == "stac"
+    assert view.suffix == ".json"
+    assert RUN_VIEW in view.writes
+    assert view.natural == ()
+    assert view.instants == "many"
+    assert view.reprojects is False
+    assert view.help
+
+
+def test_view_refuses_variable_and_time_selectors(isolated_export_formats) -> None:
+    from pydantic import ValidationError
+
+    from hydromodpy.results.exporters.export_spec import ExportRequest
+
+    isolated_export_formats.register(StacItemView)
+    with pytest.raises(ValidationError, match='Write variables = "all"'):
+        ExportRequest(variables="head", format="stac")
+    with pytest.raises(ValidationError, match="time selects nothing"):
+        ExportRequest(variables="all", format="stac", time="last")

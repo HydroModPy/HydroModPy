@@ -32,50 +32,7 @@ def _quad_grid(ncol: int, nrow: int) -> PlanarCellMesh:
     return regular_mesh(nrow, ncol)
 
 
-def _n_components(faces, cell_mesh: PlanarCellMesh) -> int:
-    """Connected components of the graph formed by the barred faces' shared edges."""
-    conn = cell_mesh.mesh.flat_connectivity
-
-    def edges(ci: int) -> set[tuple[int, int]]:
-        cell = [int(k) for k in conn[ci]]
-        return {tuple(sorted((cell[k], cell[(k + 1) % len(cell)]))) for k in range(len(cell))}
-
-    barred: set[tuple[int, int]] = set()
-    for f in faces:
-        barred |= edges(f.cell_a) & edges(f.cell_b)
-    adj: dict[int, set[int]] = {}
-    for a, b in barred:
-        adj.setdefault(a, set()).add(b)
-        adj.setdefault(b, set()).add(a)
-    seen: set[int] = set()
-    comps = 0
-    for start in adj:
-        if start in seen:
-            continue
-        comps += 1
-        stack = [start]
-        while stack:
-            u = stack.pop()
-            if u in seen:
-                continue
-            seen.add(u)
-            stack.extend(adj[u])
-    return comps
-
-
-def _two_cells_centred_on(centres: list[tuple[float, float]]) -> PlanarCellMesh:
-    """Two unit quads side by side, sharing the face x = 1, with the given centers."""
-    return build_planar_cell_mesh(
-        _quad_grid(2, 1).mesh,
-        np.asarray(centres, dtype=float),
-        center_kind="generator",
-        crs_wkt=TEST_CRS_WKT,
-        identity=MeshIdentity("test", "0", "", None),
-        declarations=DECLARATIONS,
-    )
-
-
-def test_a_mesh_of_one_cell_has_no_face_to_bar() -> None:
+def test_one_cell_has_no_face() -> None:
     assert barrier_faces_from_line(_quad_grid(1, 1), LineString([(0.5, -1.0), (0.5, 2.0)])) == []
 
 
@@ -119,7 +76,7 @@ def _x20_edges(cell_mesh: PlanarCellMesh, rows: tuple[int, ...]) -> list[int]:
     return sorted(pairs.index([_x20_face(row)[0], _x20_face(row)[1]]) for row in rows)
 
 
-def test_a_line_past_the_last_followed_face_also_bars_the_faces_it_crosses() -> None:
+def test_line_past_followed_faces() -> None:
     # The family covers the two northern faces; the line runs on south to y = 0.
     cell_mesh = _followed(BARRIER_FAMILY, rows=(0, 1))
 
@@ -128,7 +85,7 @@ def test_a_line_past_the_last_followed_face_also_bars_the_faces_it_crosses() -> 
     assert rows.tolist() == _x20_edges(cell_mesh, (0, 1, 2))
 
 
-def test_exact_faces_of_another_family_leave_the_crossed_faces() -> None:
+def test_other_family_faces_ignored() -> None:
     cell_mesh = _followed("lakes", rows=(0, 1, 2))
     line = LineString([(15.0, 30.0), (35.0, 0.0)])
 

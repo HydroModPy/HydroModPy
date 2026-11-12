@@ -7,17 +7,17 @@ import pytest
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
 
 
-def test_append_adds_after_the_inherited_items_or_creates_the_list() -> None:
+def test_append() -> None:
     assert merge_toml_payloads({"p": ["A"]}, {"p__append": ["B"]}) == {"p": ["A", "B"]}
     assert merge_toml_payloads({}, {"p__append": ["B"]}) == {"p": ["B"]}
 
 
-def test_a_directive_inside_a_table_the_base_lacks_is_applied_and_stripped() -> None:
+def test_a_directive_in_a_new_table_is_applied() -> None:
     merged = merge_toml_payloads({}, {"flow": {"p__append": ["x"]}})
     assert merged == {"flow": {"p": ["x"]}}
 
 
-def test_merge_pairs_tables_by_identity_and_keeps_the_ones_not_named() -> None:
+def test_merge_pairs_tables_by_identity() -> None:
     base = {"s": [{"id": "a", "v": 1, "w": 1}, {"id": "b", "v": 2, "w": 2}]}
     over = {"s__merge": [{"id": "b", "v": 20}]}
     assert merge_toml_payloads(base, over) == {
@@ -25,13 +25,13 @@ def test_merge_pairs_tables_by_identity_and_keeps_the_ones_not_named() -> None:
     }
 
 
-def test_merge_falls_back_to_the_next_identity_key_every_table_holds() -> None:
+def test_merge_falls_back_to_the_next_identity_key() -> None:
     base = {"s": [{"name": "a", "v": 1}, {"name": "b", "v": 2}]}
     merged = merge_toml_payloads(base, {"s__merge": [{"name": "a", "v": 9}]})
     assert merged["s"][0]["v"] == 9
 
 
-def test_merge_of_one_table_with_one_table_needs_no_identity() -> None:
+def test_merge_of_a_single_table() -> None:
     merged = merge_toml_payloads({"s": [{"v": 1, "w": 2}]}, {"s__merge": [{"v": 5}]})
     assert merged == {"s": [{"v": 5, "w": 2}]}
 
@@ -75,6 +75,6 @@ _REFUSED: list[tuple[str, dict, dict, str]] = [
     ("base", "over", "message"),
     [pytest.param(b, o, m, id=i) for i, b, o, m in _REFUSED],
 )
-def test_a_wrong_directive_is_refused_with_the_reason(base, over, message) -> None:
+def test_refusals(base, over, message) -> None:
     with pytest.raises(ValueError, match=message):
         merge_toml_payloads(base, over)

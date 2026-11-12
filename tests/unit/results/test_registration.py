@@ -1,13 +1,12 @@
-"""Names of result directories: hash, rename, import of a published run.
-
-Reservation of versions is covered by ``test_reserve_version_dirname.py`` and
-``test_a_name_is_never_reassigned.py``.
+"""Names of result directories: the request id, rename, import of a published run, and the
+reservation of a name under the Windows path limit (characters).
 """
 
 from __future__ import annotations
 
 import json
 import os
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -68,9 +67,7 @@ def _running(run_dir: Path) -> None:
 
 
 def _publish(source: Path, destination: Path, *, rel_dir: str, sim_id: str) -> Path:
-    """Write what ``hmp publish --format dir`` writes: the run files and PUBLICATION.json."""
-    import shutil
-
+    # What `hmp publish --format dir` writes: the run files and PUBLICATION.json.
     shutil.copytree(source, destination)
     (destination / "ro-crate-metadata.json").write_text("{}", encoding="utf-8")
     files = {
@@ -95,13 +92,13 @@ def _request_id(document: dict) -> str:
     return request_id(document, {}, edition="2.0")
 
 
-def test_the_name_is_not_part_of_the_request_id() -> None:
+def test_name_is_not_in_the_request_id() -> None:
     assert _request_id({"simulation": {"name": "a"}, "flow": {"k": 1}}) == _request_id(
         {"simulation": {"name": "b"}, "flow": {"k": 1}}
     )
 
 
-def test_a_rename_moves_the_run_and_its_session_together(tmp_path: Path) -> None:
+def test_rename_moves_run_and_session(tmp_path: Path) -> None:
     project = tmp_path / "p"
     _make_run(project, "calibration", sim_id=SIM_ID)
     (project / "sessions" / "calibration").mkdir(parents=True)
@@ -116,7 +113,7 @@ def test_a_rename_moves_the_run_and_its_session_together(tmp_path: Path) -> None
     assert run_dir_holding(project, SIM_ID) == "runs/calage_nm"
 
 
-def test_a_rename_onto_a_live_name_is_refused(tmp_path: Path) -> None:
+def test_rename_onto_a_live_name(tmp_path: Path) -> None:
     project = tmp_path / "p"
     _make_run(project, "a")
     _make_run(project, "b")
@@ -128,7 +125,7 @@ def test_a_rename_onto_a_live_name_is_refused(tmp_path: Path) -> None:
     assert (project / "runs" / "a").is_dir()
 
 
-def test_a_rename_never_takes_a_deleted_name(tmp_path: Path) -> None:
+def test_rename_onto_a_deleted_name(tmp_path: Path) -> None:
     project = tmp_path / "p"
     _make_run(project, "old")
     _make_run(project, "kept")
@@ -141,7 +138,7 @@ def test_a_rename_never_takes_a_deleted_name(tmp_path: Path) -> None:
     assert rename_case(project, "runs/kept", "old.v2") == ("runs/old.v2",)
 
 
-def test_a_running_directory_is_never_renamed(tmp_path: Path) -> None:
+def test_rename_of_a_running_directory(tmp_path: Path) -> None:
     project = tmp_path / "p"
     _running(_make_run(project, "busy"))
     with pytest.raises(DirectoryInUseError, match="running"):
@@ -149,7 +146,7 @@ def test_a_running_directory_is_never_renamed(tmp_path: Path) -> None:
     assert (project / "runs" / "busy").is_dir()
 
 
-def test_a_rename_refuses_a_trial_and_a_name_that_is_no_directory(tmp_path: Path) -> None:
+def test_rename_refusals(tmp_path: Path) -> None:
     project = tmp_path / "p"
     _make_run(project, "a")
     with pytest.raises(ValueError, match="kept trial"):
@@ -160,7 +157,7 @@ def test_a_rename_refuses_a_trial_and_a_name_that_is_no_directory(tmp_path: Path
         rename_case(project, "runs/a", "con")
 
 
-def test_a_copy_whose_digest_differs_never_enters_the_runs(tmp_path: Path) -> None:
+def test_import_of_a_changed_copy(tmp_path: Path) -> None:
     lab = tmp_path / "lab"
     source = _make_run(lab, "x", sim_id=SIM_ID)
     copy = _publish(source, tmp_path / "copy", rel_dir="runs/x", sim_id=SIM_ID)
@@ -171,7 +168,7 @@ def test_a_copy_whose_digest_differs_never_enters_the_runs(tmp_path: Path) -> No
     assert not (project / "runs" / "x").exists()
 
 
-def test_a_run_already_in_the_project_is_a_write_conflict(tmp_path: Path) -> None:
+def test_import_of_a_run_already_there(tmp_path: Path) -> None:
     lab = tmp_path / "lab"
     source = _make_run(lab, "x", sim_id=SIM_ID)
     copy = _publish(source, tmp_path / "copy", rel_dir="runs/x", sim_id=SIM_ID)
@@ -182,13 +179,13 @@ def test_a_run_already_in_the_project_is_a_write_conflict(tmp_path: Path) -> Non
     assert sorted(path.name for path in (project / "runs").iterdir()) == ["x"]
 
 
-def test_a_directory_without_publication_is_refused(tmp_path: Path) -> None:
+def test_import_without_publication(tmp_path: Path) -> None:
     source = _make_run(tmp_path / "lab", "x", sim_id=SIM_ID)
     with pytest.raises(ValueError, match="PUBLICATION.json"):
         import_publication(tmp_path / "home", source)
 
 
-def test_a_file_the_publication_does_not_list_is_refused(tmp_path: Path) -> None:
+def test_import_with_an_unlisted_file(tmp_path: Path) -> None:
     lab = tmp_path / "lab"
     source = _make_run(lab, "x", sim_id=SIM_ID)
     copy = _publish(source, tmp_path / "copy", rel_dir="runs/x", sim_id=SIM_ID)
@@ -199,7 +196,7 @@ def test_a_file_the_publication_does_not_list_is_refused(tmp_path: Path) -> None
     assert not (project / "runs").exists() or not list((project / "runs").iterdir())
 
 
-def test_an_interrupted_import_leaves_no_partial_directory(tmp_path: Path, monkeypatch) -> None:
+def test_interrupted_import(tmp_path: Path, monkeypatch) -> None:
     lab = tmp_path / "lab"
     source = _make_run(lab, "x", sim_id=SIM_ID)
     copy = _publish(source, tmp_path / "copy", rel_dir="runs/x", sim_id=SIM_ID)
@@ -227,14 +224,12 @@ LONG_ROOT_SENTENCE = (
 
 
 def _long_root(tmp_path: Path, length: int) -> Path:
-    """A folder of at least ``length`` characters (the scratch root is already long)."""
+    # A folder of at least `length` characters (the scratch root is already long).
     root = tmp_path / "p"
     return Path(str(root) + "x" * max(length - len(str(root)), 0))
 
 
-def test_a_reservation_in_a_folder_too_long_for_windows_is_refused_and_leaves_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_reservation_in_a_long_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _long_root(tmp_path, 120)
     monkeypatch.setattr(filesystem, "os", WindowsOs())
 
@@ -251,9 +246,7 @@ def _published_copy(tmp_path: Path) -> tuple[Path, Path]:
     return copy, tmp_path / "home"
 
 
-def test_a_neighbour_that_takes_the_reserved_name_keeps_its_folder(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_neighbour_takes_the_reserved_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     copy, project = _published_copy(tmp_path)
     real_rmdir = os.rmdir
 

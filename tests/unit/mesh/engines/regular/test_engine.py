@@ -14,7 +14,7 @@ DEM = grid_spec(12, 20, 50.0, crs_wkt=LAMBERT93_WKT)
 """A 1 km by 600 m DEM at 50 m."""
 
 
-def test_an_input_triangulation_is_refused() -> None:
+def test_refusals() -> None:
     triangulation = InputTriangulation(
         np.array([[0.0, 0.0], [1000.0, 0.0], [0.0, 600.0]]), np.array([[0, 1, 2]]), {}
     )

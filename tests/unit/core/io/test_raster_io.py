@@ -44,13 +44,7 @@ def _dem(path: Path, *, crs: str | None = "EPSG:2154") -> np.ndarray:
     return values
 
 
-# ---- write_band ------------------------------------------------------------
-
-
-# ---- export_tif ------------------------------------------------------------
-
-
-def test_export_tif_nodata_is_the_one_given_and_else_the_one_of_the_reference(
+def test_export_tif_nodata(
     tmp_path: Path,
 ) -> None:
     base = tmp_path / "base.tif"
@@ -69,7 +63,7 @@ def test_export_tif_nodata_is_the_one_given_and_else_the_one_of_the_reference(
 
 
 @pytest.mark.parametrize("crs_like", ["EPSG:27572", 27572, CRS.from_epsg(27572)])
-def test_export_tif_stamps_the_crs_whatever_way_it_is_named(tmp_path: Path, crs_like) -> None:
+def test_export_tif_crs(tmp_path: Path, crs_like) -> None:
     base = tmp_path / "base.tif"
     _dem(base)
 
@@ -79,10 +73,7 @@ def test_export_tif_stamps_the_crs_whatever_way_it_is_named(tmp_path: Path, crs_
         assert out.crs.to_epsg() == 27572
 
 
-# ---- load_to_numpy ---------------------------------------------------------
-
-
-def test_a_raster_on_a_finer_grid_is_resampled_onto_the_reference_grid(tmp_path: Path) -> None:
+def test_finer_raster_is_resampled(tmp_path: Path) -> None:
     _dem(tmp_path / "base.tif")
     fine = _profile(8, 10)
     fine["transform"] = from_origin(ORIGIN_X, ORIGIN_Y, CELL / 2, CELL / 2)
@@ -96,7 +87,7 @@ def test_a_raster_on_a_finer_grid_is_resampled_onto_the_reference_grid(tmp_path:
     np.testing.assert_allclose(values, 7.0)
 
 
-def test_a_raster_with_a_missing_crs_takes_the_one_declared_by_the_caller(tmp_path: Path) -> None:
+def test_missing_crs_takes_declared_one(tmp_path: Path) -> None:
     _dem(tmp_path / "nocrs.tif", crs=None)
 
     _, src_crs, *_ = raster_io.load_to_numpy(tmp_path / "nocrs.tif", src_crs=2154)
@@ -105,7 +96,7 @@ def test_a_raster_with_a_missing_crs_takes_the_one_declared_by_the_caller(tmp_pa
 
 
 @pytest.mark.parametrize("crs_like", ["EPSG:2154", 2154])
-def test_load_to_numpy_reads_the_crs_given_as_text_or_code(tmp_path: Path, crs_like) -> None:
+def test_crs_as_text_or_code(tmp_path: Path, crs_like) -> None:
     _dem(tmp_path / "nocrs.tif", crs=None)
 
     _, src_crs, *_ = raster_io.load_to_numpy(
@@ -115,7 +106,7 @@ def test_load_to_numpy_reads_the_crs_given_as_text_or_code(tmp_path: Path, crs_l
     assert src_crs.to_epsg() == 2154
 
 
-def test_a_polygon_layer_is_burnt_onto_the_reference_grid(tmp_path: Path) -> None:
+def test_polygon_layer_is_burnt(tmp_path: Path) -> None:
     _dem(tmp_path / "base.tif")
     cell = box(
         ORIGIN_X, ORIGIN_Y - 2 * CELL, ORIGIN_X + 2 * CELL, ORIGIN_Y
@@ -133,7 +124,7 @@ def test_a_polygon_layer_is_burnt_onto_the_reference_grid(tmp_path: Path) -> Non
     assert src_crs.to_epsg() == 2154
 
 
-def test_a_layer_without_crs_takes_the_source_crs_given(tmp_path: Path) -> None:
+def test_layer_without_crs_takes_source_crs(tmp_path: Path) -> None:
     _dem(tmp_path / "base.tif")
     cell = box(ORIGIN_X, ORIGIN_Y - CELL, ORIGIN_X + CELL, ORIGIN_Y)
     layer = gpd.GeoDataFrame(geometry=[cell])
@@ -145,7 +136,7 @@ def test_a_layer_without_crs_takes_the_source_crs_given(tmp_path: Path) -> None:
     assert (values == 1).sum() == 1
 
 
-def test_a_shapefile_is_read_then_burnt_like_a_layer(tmp_path: Path) -> None:
+def test_shapefile_is_burnt(tmp_path: Path) -> None:
     _dem(tmp_path / "base.tif")
     cell = box(ORIGIN_X, ORIGIN_Y - CELL, ORIGIN_X + CELL, ORIGIN_Y)
     gpd.GeoDataFrame(geometry=[cell], crs="EPSG:2154").to_file(tmp_path / "zone.shp")
@@ -157,7 +148,7 @@ def test_a_shapefile_is_read_then_burnt_like_a_layer(tmp_path: Path) -> None:
     assert (values == 1).sum() == 1
 
 
-def test_a_coordinate_csv_becomes_points_in_the_returned_frame(tmp_path: Path) -> None:
+def test_coordinate_csv_becomes_points(tmp_path: Path) -> None:
     _dem(tmp_path / "base.tif")
     csv = tmp_path / "points.csv"
     csv.write_text(f"id;x;y\n1;{ORIGIN_X + 50};{ORIGIN_Y - 50}\n", encoding="utf-8")
@@ -169,32 +160,33 @@ def test_a_coordinate_csv_becomes_points_in_the_returned_frame(tmp_path: Path) -
     assert values.shape == (4, 5)
 
 
-@pytest.mark.parametrize(
-    "situation",
-    ["vector without reference grid", "layer without any crs", "csv without x and y"],
-)
-def test_load_to_numpy_gives_up_with_none_when_it_cannot_place_the_data(
-    tmp_path: Path, situation: str
-) -> None:
-    _dem(tmp_path / "base.tif")
-    cell = box(ORIGIN_X, ORIGIN_Y - CELL, ORIGIN_X + CELL, ORIGIN_Y)
-    if situation == "vector without reference grid":
-        result = raster_io.load_to_numpy(gpd.GeoDataFrame(geometry=[cell], crs="EPSG:2154"))
-    elif situation == "layer without any crs":
-        result = raster_io.load_to_numpy(
-            gpd.GeoDataFrame(geometry=[cell]), base_path=str(tmp_path / "base.tif")
-        )
-    else:
-        csv = tmp_path / "bad.csv"
-        csv.write_text("a;b\n1;2\n", encoding="utf-8")
-        with pytest.raises(Exception):  # the unread csv falls through to rasterio  # noqa: B017
-            raster_io.load_to_numpy(str(csv), base_path=str(tmp_path / "base.tif"))
-        return
+CELL_POLYGON = box(ORIGIN_X, ORIGIN_Y - CELL, ORIGIN_X + CELL, ORIGIN_Y)
+BASE = "base.tif"
 
-    assert result is None
+UNPLACED_LAYERS = [
+    pytest.param(gpd.GeoDataFrame(geometry=[CELL_POLYGON], crs="EPSG:2154"), False, id="no grid"),
+    pytest.param(gpd.GeoDataFrame(geometry=[CELL_POLYGON]), True, id="no crs"),
+]
 
 
-def test_a_raster_without_crs_cannot_be_reprojected_onto_another_grid(tmp_path: Path) -> None:
+@pytest.mark.parametrize(("layer", "with_base"), UNPLACED_LAYERS)
+def test_unplaced_layer_gives_none(tmp_path: Path, layer, with_base) -> None:
+    _dem(tmp_path / BASE)
+    kwargs = {"base_path": str(tmp_path / BASE)} if with_base else {}
+
+    assert raster_io.load_to_numpy(layer, **kwargs) is None
+
+
+def test_csv_without_xy_falls_to_rasterio(tmp_path: Path) -> None:
+    _dem(tmp_path / BASE)
+    csv = tmp_path / "bad.csv"
+    csv.write_text("a;b\n1;2\n", encoding="utf-8")
+
+    with pytest.raises(rasterio.errors.RasterioIOError):
+        raster_io.load_to_numpy(str(csv), base_path=str(tmp_path / BASE))
+
+
+def test_raster_without_crs_is_not_regridded(tmp_path: Path) -> None:
     _dem(tmp_path / "base.tif")
     fine = _profile(8, 10, crs=None)
     fine["transform"] = from_origin(ORIGIN_X, ORIGIN_Y, CELL / 2, CELL / 2)
@@ -205,16 +197,13 @@ def test_a_raster_without_crs_cannot_be_reprojected_onto_another_grid(tmp_path: 
     assert result is None
 
 
-def test_load_to_numpy_can_write_what_it_loaded(tmp_path: Path) -> None:
+def test_loaded_raster_is_written(tmp_path: Path) -> None:
     expected = _dem(tmp_path / "dem.tif")
 
     raster_io.load_to_numpy(tmp_path / "dem.tif", out_path=str(tmp_path / "copy.tif"))
 
     with rasterio.open(tmp_path / "copy.tif") as copy:
         np.testing.assert_array_equal(copy.read(1), expected)
-
-
-# ---- load_to_xarray --------------------------------------------------------
 
 
 def _dataset(crs: str | None = "EPSG:2154") -> xr.Dataset:
@@ -230,7 +219,7 @@ def _dataset(crs: str | None = "EPSG:2154") -> xr.Dataset:
     return ds
 
 
-def test_a_geographic_dataset_gets_longitude_and_latitude_attributes() -> None:
+def test_geographic_dataset_attributes() -> None:
     ds = _dataset("EPSG:4326")
     ds.x.attrs["units"] = "degrees_east"
     ds = ds.assign_coords(longitude=("x", ds.x.values), latitude=("y", ds.y.values))
@@ -241,20 +230,20 @@ def test_a_geographic_dataset_gets_longitude_and_latitude_attributes() -> None:
     assert out.latitude.attrs["units"] == "degrees_north"
 
 
-def test_a_dataset_without_crs_receives_the_source_crs_given() -> None:
+def test_dataset_takes_source_crs() -> None:
     out = raster_io.load_to_xarray(_dataset(crs=None), src_crs=2154)
 
     assert out.rio.crs.to_epsg() == 2154
 
 
-def test_a_dataset_is_reprojected_to_the_crs_asked() -> None:
+def test_dataset_is_reprojected() -> None:
     out = raster_io.load_to_xarray(_dataset(), dst_crs="EPSG:27572")  # Lambert II etendu
 
     assert out.rio.crs.to_epsg() == 27572
     assert out.x.attrs["units"] == "Meter"
 
 
-def test_a_dataset_is_reprojected_to_geographic_coordinates() -> None:
+def test_dataset_to_geographic() -> None:
     out = raster_io.load_to_xarray(_dataset(), dst_crs="EPSG:4326")
 
     assert 0.0 < float(out.x.mean()) < 10.0  # Lambert-93 easting 700 km is about 3 degrees east
@@ -262,7 +251,7 @@ def test_a_dataset_is_reprojected_to_geographic_coordinates() -> None:
     assert out.y.attrs == {"long_name": "latitude", "units": "degrees_north"}
 
 
-def test_a_raster_on_a_reference_grid_without_crs_is_refused(tmp_path: Path) -> None:
+def test_reference_grid_without_crs_is_refused(tmp_path: Path) -> None:
     _dem(tmp_path / "base.tif", crs=None)
     _dem(tmp_path / "dem.tif")
 
@@ -271,11 +260,11 @@ def test_a_raster_on_a_reference_grid_without_crs_is_refused(tmp_path: Path) -> 
     assert result is None
 
 
-def test_a_dataset_without_any_crs_cannot_be_reprojected() -> None:
+def test_dataset_without_crs_is_not_reprojected() -> None:
     assert raster_io.load_to_xarray(_dataset(crs=None), dst_crs=4326) is None
 
 
-def test_a_dataset_is_resampled_onto_the_reference_grid(tmp_path: Path) -> None:
+def test_dataset_is_resampled(tmp_path: Path) -> None:
     _dem(tmp_path / "base.tif")
     ds = _dataset()
     ds = ds.rio.reproject("EPSG:2154", resolution=CELL / 2)
@@ -285,14 +274,14 @@ def test_a_dataset_is_resampled_onto_the_reference_grid(tmp_path: Path) -> None:
     assert out.h.shape == (4, 5)
 
 
-def test_a_dataset_without_crs_cannot_be_put_on_a_reference_grid(tmp_path: Path) -> None:
+def test_dataset_without_crs_is_not_regridded(tmp_path: Path) -> None:
     _dem(tmp_path / "base.tif")
     ds = _dataset(crs=None).rio.write_transform(from_origin(0, 0, 1, 1))
 
     assert raster_io.load_to_xarray(ds, base_path=str(tmp_path / "base.tif")) is None
 
 
-def test_a_geotiff_is_loaded_as_a_flat_dataset_with_the_variable_name_asked(tmp_path: Path) -> None:
+def test_geotiff_loads_as_dataset(tmp_path: Path) -> None:
     expected = _dem(tmp_path / "dem.tif")
 
     ds = raster_io.load_to_xarray(str(tmp_path / "dem.tif"), main_var="elevation")
@@ -301,7 +290,7 @@ def test_a_geotiff_is_loaded_as_a_flat_dataset_with_the_variable_name_asked(tmp_
     assert "band" not in ds.dims
 
 
-def test_a_netcdf_round_trips_through_the_loader(tmp_path: Path) -> None:
+def test_netcdf_round_trip(tmp_path: Path) -> None:
     ds = _dataset()
     ds.to_netcdf(tmp_path / "h.nc")
 
@@ -318,7 +307,7 @@ def test_a_netcdf_round_trips_through_the_loader(tmp_path: Path) -> None:
         ("jours since 01/02/2001", 0, "2001-02-01"),
     ],
 )
-def test_a_netcdf_with_unreadable_time_units_is_read_by_hand(
+def test_unreadable_time_units(
     tmp_path: Path, monkeypatch, units: str, first_value: int, expected_first: str
 ) -> None:
     ds = _dataset()
@@ -340,9 +329,7 @@ def test_a_netcdf_with_unreadable_time_units_is_read_by_hand(
     assert len(out.time) == 3
 
 
-def test_a_netcdf_with_unreadable_time_and_no_unit_is_refused_with_none(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_unreadable_time_without_unit(tmp_path: Path, monkeypatch) -> None:
     _dataset().expand_dims(time=[0, 1]).to_netcdf(tmp_path / "t.nc")
     real_open = xr.open_dataset
 
@@ -356,7 +343,7 @@ def test_a_netcdf_with_unreadable_time_and_no_unit_is_refused_with_none(
     assert raster_io.load_to_xarray(str(tmp_path / "t.nc")) is None
 
 
-def test_a_file_of_an_unsupported_kind_is_refused_with_none(tmp_path: Path) -> None:
+def test_unsupported_file_gives_none(tmp_path: Path) -> None:
     (tmp_path / "notes.txt").write_text("x", encoding="utf-8")
 
     assert raster_io.load_to_xarray(str(tmp_path / "notes.txt")) is None

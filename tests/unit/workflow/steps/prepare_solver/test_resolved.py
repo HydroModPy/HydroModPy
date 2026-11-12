@@ -1,8 +1,15 @@
-"""The resolved config a run seals."""
+"""``config.resolved.toml``: the whole configuration a run used, and what a replay compares.
+
+Every key is written with its value, so a key differs on replay only when a default moved, the file
+changed, or a rule that derives a value changed. The frozen runs ``demo`` and ``calage`` were sealed
+by a pre-release of 2.0 and must not drift where a table only moved. Lengths are in m, K in m/s.
+"""
 
 from __future__ import annotations
 
+import shutil
 import tomllib
+import warnings
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -23,13 +30,6 @@ from hydromodpy.workflow.steps.prepare_solver.resolved import (
     resolved_at_build,
     resolved_config_document,
 )
-
-# --- test_a_run_seals_its_resolved_config ---
-# ``config.resolved.toml``: every key with its value, and what a replay compares.
-#
-# It is compared and never read back as a configuration. A replay computes the same
-# document from the configuration it would run, so a key differs only when a default
-# moved, the file changed, or a rule that derives a value changed.
 
 
 def _config(tmp_path: Path, **sections) -> HydroModPyConfig:
@@ -53,7 +53,7 @@ def _sealed(run_dir: Path, cfg: HydroModPyConfig, project: Path, **kwargs) -> Pa
     return run_dir
 
 
-def test_every_default_is_written_and_no_machine_key(tmp_path: Path) -> None:
+def test_defaults_written_no_machine_key(tmp_path: Path) -> None:
     resolved = _resolved(_config(tmp_path), tmp_path)
 
     assert resolved["solver"]["drain_bed_thickness_m"] == pytest.approx(1.0)
@@ -84,7 +84,7 @@ def test_every_default_is_written_and_no_machine_key(tmp_path: Path) -> None:
         ({"metrics": {"station": "G2"}}, ("metrics", "station"), "G2"),
     ],
 )
-def test_a_value_a_rule_derives_is_spelled_out(
+def test_derived_values_spelled_out(
     tmp_path: Path, sections: dict, path: tuple[str, ...], value: object
 ) -> None:
     held: object = _resolved(_config(tmp_path, **sections), tmp_path)
@@ -93,11 +93,11 @@ def test_a_value_a_rule_derives_is_spelled_out(
     assert held == value
 
 
-def test_a_run_that_sealed_no_file_says_so(tmp_path: Path) -> None:
+def test_run_without_sealed_file(tmp_path: Path) -> None:
     assert config_drift(_config(tmp_path), tmp_path, project_root=tmp_path) is None
 
 
-def test_a_change_is_named_with_both_values(tmp_path: Path) -> None:
+def test_change_names_both_values(tmp_path: Path) -> None:
     run_dir = _sealed(
         tmp_path / "runs" / "x", _config(tmp_path, solver={"drain_bed_thickness_m": 1.0}), tmp_path
     )
@@ -111,7 +111,7 @@ def test_a_change_is_named_with_both_values(tmp_path: Path) -> None:
     assert drift[0].record() == {"sealed": 1.0, "effective": 2.0}
 
 
-def test_a_key_on_one_side_only_says_which(tmp_path: Path) -> None:
+def test_key_on_one_side_only(tmp_path: Path) -> None:
     run_dir = _sealed(tmp_path / "runs" / "x", _config(tmp_path), tmp_path)
     document = tomllib.loads((run_dir / RUN_RESOLVED_CONFIG_FILENAME).read_text())
     document["solver"]["a_key_of_an_older_version"] = 3
@@ -125,7 +125,7 @@ def test_a_key_on_one_side_only_says_which(tmp_path: Path) -> None:
     assert drift[0].record() == {"sealed": 3}
 
 
-def test_where_an_input_file_sits_is_no_drift_and_its_digest_answers_for_it(tmp_path: Path) -> None:
+def test_input_file_location_is_no_drift(tmp_path: Path) -> None:
     def with_dem(path: str) -> HydroModPyConfig:
         return HydroModPyConfig.from_dict(
             {
@@ -153,8 +153,8 @@ def _build_ctx(cfg: HydroModPyConfig, *, etp=None, sizes=None, hydrometry=None) 
     )
 
 
-def test_the_etp_the_data_step_injected_is_recorded_with_its_surface(tmp_path: Path) -> None:
-    """Without a table ``[flow.sinks_sources.etp]``, nothing in the file says so."""
+def test_injected_etp_recorded_with_surface(tmp_path: Path) -> None:
+    # Without a table ``[flow.sinks_sources.etp]``, nothing in the file says so.
     decided = resolved_at_build(
         _build_ctx(_config(tmp_path), etp=FlowEtpConfig(surface_offset=2.0, extinction_depth=1.5))
     )
@@ -165,7 +165,7 @@ def test_the_etp_the_data_step_injected_is_recorded_with_its_surface(tmp_path: P
     assert etp["extinction_depth_m"] == pytest.approx(1.5)
 
 
-def test_the_etp_is_read_from_the_model_once_it_is_built(tmp_path: Path) -> None:
+def test_etp_read_from_built_model(tmp_path: Path) -> None:
     ctx = _build_ctx(_config(tmp_path))
     ctx.setup.model = SimpleNamespace(etp=FlowEtpConfig(surface_offset=3.0))
 
@@ -174,7 +174,7 @@ def test_the_etp_is_read_from_the_model_once_it_is_built(tmp_path: Path) -> None
     assert held["surface_offset_m"] == pytest.approx(3.0)
 
 
-def test_the_etp_a_soil_leaves_is_read_against_the_drain(tmp_path: Path) -> None:
+def test_soil_etp_read_against_drain(tmp_path: Path) -> None:
     etp = FlowEtpConfig(surface_offset=0.0)
     etp._from_soil_reservoir = True
     decided = resolved_at_build(_build_ctx(_config(tmp_path), etp=etp))
@@ -183,14 +183,14 @@ def test_the_etp_a_soil_leaves_is_read_against_the_drain(tmp_path: Path) -> None
     assert held["surface_reference"] == "drain elevation"
 
 
-def test_the_sizes_the_mesh_took_from_the_pixel_are_recorded(tmp_path: Path) -> None:
+def test_mesh_sizes_recorded(tmp_path: Path) -> None:
     decided = resolved_at_build(
         _build_ctx(_config(tmp_path), sizes={"pixel": 25.0, "cell_size": 25.0})
     )
     assert decided["mesh"] == {"pixel": 25.0, "cell_size": 25.0}
 
 
-def test_the_gauge_a_run_deduced_is_recorded_when_the_file_names_none(tmp_path: Path) -> None:
+def test_deduced_gauge_recorded(tmp_path: Path) -> None:
     one_station = SimpleNamespace(points=[SimpleNamespace(station_id="ST1", id="ST1")])
     decided = resolved_at_build(_build_ctx(_config(tmp_path), hydrometry=one_station))
     assert decided["metrics"]["station"] == "ST1"
@@ -199,7 +199,7 @@ def test_the_gauge_a_run_deduced_is_recorded_when_the_file_names_none(tmp_path: 
     assert "metrics" not in resolved_at_build(_build_ctx(named, hydrometry=one_station))
 
 
-def test_what_the_build_decided_is_kept_apart_and_compared_after_the_build(tmp_path: Path) -> None:
+def test_build_decisions_kept_apart(tmp_path: Path) -> None:
     cfg = _config(tmp_path)
     source = _sealed(tmp_path / "runs" / "x", cfg, tmp_path, build={"mesh": {"pixel": 25.0}})
     replay = _sealed(tmp_path / "runs" / "y", cfg, tmp_path, build={"mesh": {"pixel": 50.0}})
@@ -209,17 +209,6 @@ def test_what_the_build_decided_is_kept_apart_and_compared_after_the_build(tmp_p
     assert [item.line() for item in build_drift(source, replay)] == [
         "mesh.pixel: sealed 25.0, now 50.0",
     ]
-
-
-SOLVER_TABLE_DRIFTS = (
-    ("the table of another solver", "boussinesq", {"max_iterations": 7}, []),
-    (
-        "the table of the solver that ran",
-        "modflow6",
-        {"process_specific": {"vka": 3.0}},
-        ["solver.modflow6.process_specific.vka: sealed 3.0, now 1.0"],
-    ),
-)
 
 
 def _without(run_dir: Path, section: str, key: str) -> None:
@@ -255,7 +244,7 @@ NEW_KEYS = (
 @pytest.mark.parametrize(
     ("case", "sections", "lines", "at_default"), NEW_KEYS, ids=[row[0] for row in NEW_KEYS]
 )
-def test_a_key_the_sealed_file_does_not_write_drifts_only_away_from_its_default(
+def test_new_key_drifts_away_from_default(
     tmp_path: Path, case: str, sections: dict, lines: list[str], at_default: dict
 ) -> None:
     del case
@@ -273,5 +262,106 @@ def test_a_key_the_sealed_file_does_not_write_drifts_only_away_from_its_default(
     )
 
 
-def test_a_comparison_of_a_run_that_sealed_no_file_says_so(tmp_path: Path) -> None:
+def test_comparison_without_sealed_file(tmp_path: Path) -> None:
     assert compare_with_sealed(_config(tmp_path), tmp_path, project_root=tmp_path) is None
+
+
+FROZEN_DEMO = (
+    Path(__file__).resolve().parents[5]
+    / "tests/regression/frozen_runs/v2.0.0/current/projects/example/runs/demo"
+)
+FROZEN_CALAGE = (
+    Path(__file__).resolve().parents[5]
+    / "tests/regression/frozen_runs/v2.0.0/current/projects/example/runs/calage"
+)
+
+NEW_AT_DEFAULT = {
+    "flow.sinks_sources.recharge.factor": 1.0,
+    "simulation.results.keep_face_flows": False,
+    "simulation.time.window": "all",
+    "workspace.products_cap_mb": 5000,
+}
+"""What these copies do not write and a replay holds at its default, measured once.
+
+The recharge factor came after these runs were sealed by a pre-release,
+and its default reproduces the old computation. ``config_drift`` gave it as
+the one drift before a key absent from the sealed file counted for none. The cap of the
+product store came later and moves no number, and so did ``keep_face_flows``, whose default
+writes no face flow. A file of a pre-release of 2.0 writes no window key, and
+the default of ``simulation.time.window`` plays the run in one piece. The default of
+``window_length`` is ``None``, which is not counted.
+"""
+
+COPIED = ("config.toml", "config.resolved.toml")
+
+
+def copy_frozen_run(source: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    run = tmp_path / "runs" / source.name
+    run.mkdir(parents=True)
+    for name in COPIED:
+        shutil.copyfile(source / name, run / name)
+    monkeypatch.chdir(tmp_path)
+    return run
+
+
+@pytest.fixture
+def demo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    return copy_frozen_run(FROZEN_DEMO, tmp_path, monkeypatch)
+
+
+@pytest.fixture
+def calage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    return copy_frozen_run(FROZEN_CALAGE, tmp_path, monkeypatch)
+
+
+def _config_of(run: Path) -> HydroModPyConfig:
+    snapshot = tomllib.loads((run / "config.toml").read_text(encoding="utf-8"))
+    return HydroModPyConfig.from_snapshot(snapshot)
+
+
+def _drift_keys(run: Path) -> tuple[str, ...]:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        cfg = _config_of(run)
+        drift = config_drift(cfg, run, project_root=Path(cfg.workspace.project_root))
+    assert drift is not None
+    return tuple(item.key for item in drift)
+
+
+def _new_at_default(run: Path) -> dict:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        cfg = _config_of(run)
+        compared = compare_with_sealed(cfg, run, project_root=Path(cfg.workspace.project_root))
+    assert compared is not None
+    return {key: value for key, value in compared.new_at_default.items() if key != "edition"}
+
+
+def test_sealed_document_tables(demo: Path) -> None:
+    sealed = tomllib.loads((demo / "config.resolved.toml").read_text(encoding="utf-8"))
+
+    assert {"modflow6", "modflownwt"} <= set(sealed)
+    assert "runtime" in sealed["flow"]
+    assert sealed["solver"]["backend"] == {"kind": "modflow_nwt"}
+
+
+@pytest.mark.parametrize("name", ["demo", "calage"])
+def test_replay_of_2_0_run_does_not_drift(name: str, request: pytest.FixtureRequest) -> None:
+    run = request.getfixturevalue(name)
+
+    assert _drift_keys(run) == ()
+    assert _new_at_default(run) == NEW_AT_DEFAULT
+
+
+def test_new_key_away_from_default_drifts(demo: Path) -> None:
+    config = demo / "config.toml"
+    text = config.read_text(encoding="utf-8")
+    config.write_text(
+        text.replace(
+            "[flow.sinks_sources.recharge]\n", "[flow.sinks_sources.recharge]\nfactor = 2.0\n"
+        ),
+        encoding="utf-8",
+    )
+    assert text != config.read_text(encoding="utf-8"), "the demo writes a recharge table"
+
+    assert _drift_keys(demo) == ("flow.sinks_sources.recharge.factor",)

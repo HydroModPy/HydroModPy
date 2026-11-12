@@ -83,19 +83,17 @@ SENSE_BEFORE = {
     ],
     ids=["trial", "run", "network", "MetricKind", "Estimator"],
 )
-def test_a_name_list_derived_from_the_table_is_the_one_it_replaced(
-    derived: tuple[str, ...], before: tuple[str, ...]
-) -> None:
+def test_derived_name_lists(derived: tuple[str, ...], before: tuple[str, ...]) -> None:
     assert derived == before
 
 
-def test_the_table_holds_sixteen_names_once() -> None:
+def test_sixteen_names_once() -> None:
     assert len(METRIC_SPECS) == 16
     assert all(name == spec.name for name, spec in METRIC_SPECS.items())
     assert set(METRIC_SPECS) == set(TRIAL_BEFORE) | set(RUN_BEFORE)
 
 
-def test_ten_names_score_a_trial_eleven_a_run_and_five_both() -> None:
+def test_trial_and_run_name_counts() -> None:
     both = set(TRIAL_METRIC_NAMES) & set(RUN_METRIC_NAMES)
     assert (len(TRIAL_METRIC_NAMES), len(RUN_METRIC_NAMES), len(both)) == (10, 11, 5)
     assert all(METRIC_SPECS[name].scores_a_trial for name in TRIAL_METRIC_NAMES)
@@ -103,11 +101,11 @@ def test_ten_names_score_a_trial_eleven_a_run_and_five_both() -> None:
 
 
 @pytest.mark.parametrize("name", sorted(METRIC_SPECS))
-def test_every_name_has_the_direction_it_had(name: str) -> None:
+def test_metric_direction(name: str) -> None:
     assert METRIC_SENSE[name] == SENSE_BEFORE[name]
 
 
-def test_the_positions_of_a_side_are_a_run_of_integers_from_zero() -> None:
+def test_positions_count_from_zero() -> None:
     for side in ("trial_position", "run_position"):
         positions = sorted(
             getattr(s, side) for s in METRIC_SPECS.values() if getattr(s, side) is not None
@@ -115,7 +113,7 @@ def test_the_positions_of_a_side_are_a_run_of_integers_from_zero() -> None:
         assert positions == list(range(len(positions)))
 
 
-def test_the_flags_mark_the_names_the_hand_written_sets_held() -> None:
+def test_flag_sets() -> None:
     clipping = {n for n, s in METRIC_SPECS.items() if s.clips_negatives}
     dimensionless = {n for n, s in METRIC_SPECS.items() if s.dimensionless}
     assert clipping == {"nse_log"}
@@ -123,26 +121,26 @@ def test_the_flags_mark_the_names_the_hand_written_sets_held() -> None:
     assert dimensionless <= set(TRIAL_METRIC_NAMES)
 
 
-def test_the_trial_kernels_are_the_trial_names() -> None:
+def test_trial_kernels() -> None:
     assert set(METRICS) == set(TRIAL_METRIC_NAMES)
 
 
-def test_the_run_kernels_are_the_run_names_in_order() -> None:
+def test_run_kernels() -> None:
     assert tuple(_KERNELS) == RUN_METRIC_NAMES
 
 
-def test_the_headline_scores_and_the_formulas_are_names_of_the_table() -> None:
+def test_headlines_and_formulas_are_known() -> None:
     assert set(HEADLINE_METRICS) <= set(RUN_METRIC_NAMES)
     assert set(METRIC_FORMULAS) <= set(METRIC_SPECS)
 
 
-def test_every_trial_name_has_a_sentence_in_the_field_documentation() -> None:
+def test_trial_names_are_documented() -> None:
     extra = CalibObjectiveBlockDecl.model_fields["metric"].json_schema_extra
     assert isinstance(extra, dict)
     assert extra["value_docs"] == {n: METRIC_SPECS[n].doc for n in TRIAL_METRIC_NAMES}
     assert all(spec.doc for spec in METRIC_SPECS.values())
 
 
-def test_the_steady_metric_of_the_network_stage_offers_the_network_names() -> None:
+def test_steady_metric_names() -> None:
     annotation = MatchingHydrographicNetworkOptions.model_fields["steady_metric"].annotation
     assert get_args(annotation) == NETWORK_METRIC_NAMES

@@ -16,7 +16,7 @@ from hydromodpy.core.fields.nodata import (
     valid_cells,
 )
 
-# One row per case: values, the nodata of the raster, and the cells that hold a value.
+# values, the nodata of the raster, and the cells that hold a value
 _VALID_CELLS = [
     pytest.param([1.0, -9999.0, 3.0], -9999.0, [True, False, True], id="raster_nodata"),
     pytest.param([1.0, -9999.0, 3.0], None, [True, True, True], id="no_nodata_kept"),
@@ -26,21 +26,23 @@ _VALID_CELLS = [
     pytest.param([0.0, -0.0, 1e-30], -9999.0, [True, True, True], id="zero_is_a_value"),
     pytest.param([-32768.0, -9999.0], -32768.0, [False, True], id="own_nodata_of_the_raster"),
     pytest.param([1e30, -6e30], -9999.0, [True, True], id="finite_sentinel_slips_through"),
+    pytest.param([1.0, np.nan, -9999.0, np.inf], -9999.0, [True, False, False, False], id="mixed"),
+    pytest.param([1, 0], None, [True, True], id="integers_without_nodata"),
 ]
 
 
 @pytest.mark.parametrize(("values", "nodata", "expected"), _VALID_CELLS)
-def test_valid_cells_are_the_finite_cells_that_differ_from_the_nodata(values, nodata, expected):
+def test_valid_cells(values, nodata, expected):
     mask = valid_cells(np.array(values), nodata)
     assert mask.tolist() == expected
 
 
-def test_the_default_raster_nodata_is_the_one_every_writer_uses() -> None:
+def test_default_raster_nodata() -> None:
     assert RASTER_NODATA == -9999.0
     assert not valid_cells(np.array([RASTER_NODATA]), RASTER_NODATA)[0]
 
 
-# One row per value: the magnitude, and whether the head sentinel threshold calls it a sentinel.
+# a magnitude, and whether the head sentinel threshold calls it a sentinel
 _SENTINEL_THRESHOLD = [
     pytest.param(1e30, True, id="hdry"),
     pytest.param(-1e30, True, id="hnoflo_negative"),
@@ -53,5 +55,5 @@ _SENTINEL_THRESHOLD = [
 
 
 @pytest.mark.parametrize(("value", "is_sentinel"), _SENTINEL_THRESHOLD)
-def test_a_magnitude_above_the_threshold_is_a_sentinel(value, is_sentinel) -> None:
+def test_sentinel_threshold(value, is_sentinel) -> None:
     assert (abs(value) > SENTINEL_ABS_THRESHOLD) is is_sentinel

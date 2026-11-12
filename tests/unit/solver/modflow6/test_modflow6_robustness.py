@@ -1,4 +1,8 @@
-"""WP9 - MF6 numerical robustness defaults and the IMS configuration surface."""
+"""MF6 numerical robustness defaults, the IMS configuration surface and the listing readers.
+
+Newton is on by default, the linear solver complexity is promoted under Newton, and the budget
+discrepancy of a run is read in percent from the model listing.
+"""
 
 from __future__ import annotations
 
@@ -24,7 +28,7 @@ from hydromodpy.solver.modflow_common.listing import (
 )
 from tests._helpers.tolerances import tol
 
-# tests/TOLERANCES.md row 2 (fraction; the MF6 listing reports percent).
+# tests/TOLERANCES.md row 2, a fraction while the MF6 listing reports percent.
 _BUDGET_CLOSURE_FRACTION = tol("global_water_budget_closure")
 
 
@@ -39,7 +43,7 @@ def _model(runtime: Modflow6RuntimeConfig, *, is_structured: bool = True) -> Sim
     )
 
 
-def test_modflow6_ims_complexity_literal_rejects_typo() -> None:
+def test_ims_complexity_values() -> None:
     with pytest.raises(ValidationError):
         Modflow6RuntimeConfig(mf6_ims_complexity="COMPLE")
     for value in ("SIMPLE", "MODERATE", "COMPLEX"):
@@ -47,7 +51,7 @@ def test_modflow6_ims_complexity_literal_rejects_typo() -> None:
     assert Modflow6RuntimeConfig().mf6_ims_complexity == "COMPLEX"
 
 
-def test_modflow6_vka_must_be_positive() -> None:
+def test_vka_must_be_positive() -> None:
     from hydromodpy.solver.modflow6.modflow6_config import Modflow6ProcessSpecificConfig
 
     for bad in (0.0, -2.0):
@@ -56,7 +60,7 @@ def test_modflow6_vka_must_be_positive() -> None:
     assert Modflow6ProcessSpecificConfig(vka=2.0).vka == 2.0
 
 
-def test_modflow6_newton_enabled_by_default() -> None:
+def test_newton_is_on_by_default() -> None:
     runtime = Modflow6RuntimeConfig()
     assert runtime.mf6_newton is True
     assert runtime.mf6_newton_under_relaxation is True
@@ -67,7 +71,7 @@ def test_modflow6_newton_enabled_by_default() -> None:
     ]
 
 
-def test_modflow6_optional_ims_fields_default_none_and_omitted() -> None:
+def test_optional_ims_fields_are_omitted_by_default() -> None:
     runtime = Modflow6RuntimeConfig()
     assert runtime.mf6_inner_rclose is None
     assert runtime.mf6_linear_acceleration is None
@@ -90,7 +94,7 @@ def test_modflow6_optional_ims_fields_default_none_and_omitted() -> None:
         Modflow6RuntimeConfig(mf6_under_relaxation="FAST")
 
 
-def test_modflow6_optional_ims_kwargs_accepted_by_flopy_ims() -> None:
+def test_ims_kwargs_build_a_flopy_package() -> None:
     """Guard the inner_rclose fix at the flopy layer: a bare inner_rclose kwarg
     raises FlopyException, so the kwargs optional_ims_kwargs emits must build a
     real ModflowIms package."""
@@ -110,7 +114,7 @@ def test_modflow6_optional_ims_kwargs_accepted_by_flopy_ims() -> None:
         flopy.mf6.ModflowIms(sim, complexity="COMPLEX", inner_rclose=1e-3, pname="ims_bad")
 
 
-def test_modflow6_preconditioner_fields_reach_the_ims_package() -> None:
+def test_preconditioner_reaches_the_ims_package() -> None:
     """The ILUT fill and drop tolerance are omitted by default and written when set."""
     import flopy
 
@@ -131,7 +135,7 @@ def test_modflow6_preconditioner_fields_reach_the_ims_package() -> None:
         Modflow6RuntimeConfig(mf6_preconditioner_levels=0)
 
 
-def test_modflow6_newton_cg_conflict_raises() -> None:
+def test_newton_with_cg_is_refused() -> None:
     runtime = _runtime(mf6_newton=True, mf6_linear_acceleration="CG")
     with pytest.raises(ValueError, match="E406"):
         guard_newton_linear_acceleration(runtime)
@@ -141,7 +145,7 @@ def test_modflow6_newton_cg_conflict_raises() -> None:
     guard_newton_linear_acceleration(_runtime(mf6_newton=True))
 
 
-def test_modflow6_newton_rewet_conflict_raises() -> None:
+def test_newton_with_rewet_is_refused() -> None:
     runtime = _runtime(mf6_newton=True)
     with pytest.raises(ValueError, match="mutually exclusive"):
         guard_newton_rewet(runtime, rewet_record=["WETFCT", 0.1])
@@ -150,22 +154,32 @@ def test_modflow6_newton_rewet_conflict_raises() -> None:
     guard_newton_rewet(_runtime(mf6_newton=False), rewet_record=["WETFCT", 0.1])
 
 
-def test_modflow6_complexity_promoted_under_newton() -> None:
-    simple_newton = _model(
-        _runtime(mf6_ims_complexity="SIMPLE", mf6_newton=True, mf6_enable_xt3d=False)
-    )
-    assert resolve_ims_complexity(simple_newton) == "MODERATE"
-    simple_no_newton = _model(
-        _runtime(mf6_ims_complexity="SIMPLE", mf6_newton=False, mf6_enable_xt3d=False)
-    )
-    assert resolve_ims_complexity(simple_no_newton) == "SIMPLE"
-    simple_xt3d = _model(_runtime(mf6_ims_complexity="SIMPLE", mf6_enable_xt3d=True))
-    assert resolve_ims_complexity(simple_xt3d) == "COMPLEX"
-    moderate = _model(_runtime(mf6_ims_complexity="MODERATE", mf6_newton=True))
-    assert resolve_ims_complexity(moderate) == "MODERATE"
+COMPLEXITIES = [
+    pytest.param(
+        {"mf6_ims_complexity": "SIMPLE", "mf6_newton": True, "mf6_enable_xt3d": False},
+        "MODERATE",
+        id="simple under Newton",
+    ),
+    pytest.param(
+        {"mf6_ims_complexity": "SIMPLE", "mf6_newton": False, "mf6_enable_xt3d": False},
+        "SIMPLE",
+        id="simple without Newton",
+    ),
+    pytest.param(
+        {"mf6_ims_complexity": "SIMPLE", "mf6_enable_xt3d": True}, "COMPLEX", id="simple with XT3D"
+    ),
+    pytest.param(
+        {"mf6_ims_complexity": "MODERATE", "mf6_newton": True}, "MODERATE", id="moderate kept"
+    ),
+]
 
 
-def test_modflow6_steady_init_promotes_complexity_under_newton() -> None:
+@pytest.mark.parametrize(("runtime", "complexity"), COMPLEXITIES)
+def test_complexity_is_promoted_under_newton(runtime: dict, complexity: str) -> None:
+    assert resolve_ims_complexity(_model(_runtime(**runtime))) == complexity
+
+
+def test_steady_start_promotes_complexity() -> None:
     model = SimpleNamespace(
         modflow_config=Modflow6Config(runtime=Modflow6RuntimeConfig(mf6_ims_complexity="SIMPLE")),
         exe="mf6",
@@ -179,7 +193,7 @@ def test_modflow6_steady_init_promotes_complexity_under_newton() -> None:
     assert resolve_ims_complexity(steady_model) != "SIMPLE"
 
 
-def test_modflow6_divergence_message_includes_percent_discrepancy(tmp_path) -> None:
+def test_percent_discrepancy_from_the_model_listing(tmp_path) -> None:
     (tmp_path / "flow.lst").write_text(
         "...\n PERCENT DISCREPANCY =  -3.50\n more\n", encoding="utf-8"
     )
@@ -188,42 +202,46 @@ def test_modflow6_divergence_message_includes_percent_discrepancy(tmp_path) -> N
     assert last_percent_discrepancy(tmp_path) == pytest.approx(-3.5)
 
 
-def test_modflow6_divergence_message_fallback_when_lst_missing(tmp_path) -> None:
+def test_percent_discrepancy_without_listing(tmp_path) -> None:
     assert last_percent_discrepancy(tmp_path) is None
 
 
-def test_modflow6_failure_lines_quote_the_convergence_failure(tmp_path) -> None:
-    (tmp_path / "mfsim.lst").write_text(
+LISTING_FAILURES = [
+    pytest.param(
         " OUTER ITERATION CONVERGENCE CRITERION    (DVCLOSE) =    0.100000E-06\n"
         " Solution 1 did not converge for stress period 1 and time step 1\n"
         " Simulation convergence failure. Simulation will terminate after output.\n"
         "\nERROR REPORT:\n\n  1.  Simulation convergence failure occurred 1 time(s).\n"
         " Premature termination of simulation.\n",
-        encoding="utf-8",
-    )
-    assert simulation_listing_failure_lines(tmp_path) == [
-        "Solution 1 did not converge for stress period 1 and time step 1",
-        "Simulation convergence failure. Simulation will terminate after output.",
-        "ERROR REPORT:",
-        "1. Simulation convergence failure occurred 1 time(s).",
-        "Premature termination of simulation.",
-    ]
-
-
-def test_modflow6_failure_lines_quote_an_input_error(tmp_path) -> None:
-    (tmp_path / "mfsim.lst").write_text(
+        [
+            "Solution 1 did not converge for stress period 1 and time step 1",
+            "Simulation convergence failure. Simulation will terminate after output.",
+            "ERROR REPORT:",
+            "1. Simulation convergence failure occurred 1 time(s).",
+            "Premature termination of simulation.",
+        ],
+        id="convergence failure",
+    ),
+    pytest.param(
         "ERROR REPORT:\n\n  1. MODEL **M** PRODUCES AN ASYMMETRIC COEFFICIENT MATRIX,\n"
         "     BUT THE       CONJUGATE GRADIENT METHOD WAS SELECTED.\n",
-        encoding="utf-8",
-    )
-    assert simulation_listing_failure_lines(tmp_path) == [
-        "ERROR REPORT:",
-        "1. MODEL **M** PRODUCES AN ASYMMETRIC COEFFICIENT MATRIX,",
-        "BUT THE CONJUGATE GRADIENT METHOD WAS SELECTED.",
-    ]
+        [
+            "ERROR REPORT:",
+            "1. MODEL **M** PRODUCES AN ASYMMETRIC COEFFICIENT MATRIX,",
+            "BUT THE CONJUGATE GRADIENT METHOD WAS SELECTED.",
+        ],
+        id="input error",
+    ),
+]
 
 
-def test_modflow6_failure_lines_name_a_missing_listing(tmp_path) -> None:
+@pytest.mark.parametrize(("listing", "lines"), LISTING_FAILURES)
+def test_failure_lines_quote_the_listing(tmp_path, listing, lines) -> None:
+    (tmp_path / "mfsim.lst").write_text(listing, encoding="utf-8")
+    assert simulation_listing_failure_lines(tmp_path) == lines
+
+
+def test_failure_lines_of_a_missing_listing(tmp_path) -> None:
     assert simulation_listing_failure_lines(tmp_path) == [
         "mfsim.lst was not written: mf6 did not start or could not create it"
     ]
@@ -235,7 +253,7 @@ def test_modflow6_failure_lines_name_a_missing_listing(tmp_path) -> None:
 @pytest.mark.slow
 @pytest.mark.mf6
 @pytest.mark.allow_subprocess
-def test_modflow6_newton_unconfined_converges_with_default_solver(tmp_path) -> None:
+def test_newton_converges_an_unconfined_run(tmp_path) -> None:
     import flopy
 
     from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary

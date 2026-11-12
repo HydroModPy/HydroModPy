@@ -1,4 +1,7 @@
-"""The DEM pixels of each cell, their statistics, and the zonal top of a cell mesh."""
+"""The DEM pixels of each cell, their statistics, and the zonal top of a cell mesh.
+
+Elevations and lengths are in meters. A pixel label is a cell id, -1 outside every cell.
+"""
 
 from __future__ import annotations
 
@@ -13,8 +16,7 @@ from hydromodpy.mesh.cells.zonal_stats import (
     rasterize_cell_ids,
     zonal_top,
 )
-from hydromodpy.mesh.planar.cell_types import CellType
-from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.mesh.planar.hydro_mesh import HydroMesh
 from tests._helpers.mesh_cases import regular_mesh
 
 
@@ -23,21 +25,11 @@ def _quad_mesh(*, xmin, ymin, dx, dy, ncol, nrow) -> HydroMesh:
     return regular_mesh(nrow, ncol, dx=dx, dy=dy, xmin=xmin, ymin=ymin).mesh
 
 
-def _ragged_mesh() -> HydroMesh:
-    """A triangle (cell 0) and a pentagon (cell 1) side by side."""
-    vertices = np.asarray(
-        [(0.0, 0.0), (10.0, 0.0), (0.0, 10.0), (20.0, 0.0), (20.0, 10.0), (15.0, 15.0)],
-        dtype=float,
-    )
-    cells = (np.asarray([0, 1, 2]), np.asarray([1, 3, 4, 5, 2]))
-    return HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),))
-
-
 def _grid_transform(xmin, ymin, xmax, ymax, ncols, nrows):
     return from_bounds(xmin, ymin, xmax, ymax, ncols, nrows)
 
 
-def test_rasterize_cell_ids_assigns_each_pixel_to_one_cell():
+def test_rasterize_cell_ids():
     mesh = _quad_mesh(xmin=0.0, ymin=0.0, dx=50.0, dy=100.0, ncol=2, nrow=1)
     transform = _grid_transform(0.0, 0.0, 100.0, 100.0, 10, 10)
     labels = rasterize_cell_ids(mesh, transform=transform, out_shape=(10, 10))
@@ -48,17 +40,25 @@ def test_rasterize_cell_ids_assigns_each_pixel_to_one_cell():
     assert (labels[:, 5:] == 1).all()
 
 
-def test_grouped_reduce_stats():
-    labels = np.array([[0, 0, 1], [0, -1, 1]])
-    values = np.array([[1.0, 3.0, 10.0], [5.0, np.nan, 20.0]])
-    assert grouped_reduce(labels, values, n_cells=2, stat="min").tolist() == [1.0, 10.0]
-    assert grouped_reduce(labels, values, n_cells=2, stat="max").tolist() == [5.0, 20.0]
-    assert grouped_reduce(labels, values, n_cells=2, stat="mean").tolist() == [3.0, 15.0]
-    med = grouped_reduce(labels, values, n_cells=2, stat="median")
-    assert med[0] == pytest.approx(3.0) and med[1] == pytest.approx(15.0)
+LABELS = np.array([[0, 0, 1], [0, -1, 1]])
+VALUES = np.array([[1.0, 3.0, 10.0], [5.0, np.nan, 20.0]])
+STATS = [
+    pytest.param("min", [1.0, 10.0], id="min"),
+    pytest.param("max", [5.0, 20.0], id="max"),
+    pytest.param("mean", [3.0, 15.0], id="mean"),
+    pytest.param("median", [3.0, 15.0], id="median"),
+]
 
 
-def test_grouped_reduce_rejects_unknown_stat():
+@pytest.mark.parametrize(("stat", "expected"), STATS)
+def test_grouped_reduce(stat, expected):
+    # Pixel labelled -1 and NaN values are left out.
+    reduced = grouped_reduce(LABELS, VALUES, n_cells=2, stat=stat)
+
+    np.testing.assert_allclose(reduced, expected)
+
+
+def test_unknown_stat():
     labels = np.zeros((2, 2), dtype=int)
     values = np.ones((2, 2))
     with pytest.raises(ValueError, match="Unsupported zonal stat"):
@@ -76,7 +76,7 @@ def _notch_dem(n=40):
     return dem, channel
 
 
-def test_zonal_channel_min_lowers_channel_cell():
+def test_channel_min():
     mesh = _quad_mesh(xmin=0.0, ymin=0.0, dx=50.0, dy=100.0, ncol=2, nrow=1)
     dem, channel = _notch_dem(n=40)
     transform = _grid_transform(0.0, 0.0, 100.0, 100.0, 40, 40)
@@ -99,7 +99,7 @@ def test_zonal_channel_min_lowers_channel_cell():
     assert res.info["n_lowered"] == 1.0
 
 
-def test_zonal_spike_guard_reverts_hillslope():
+def test_spike_guard():
     mesh = _quad_mesh(xmin=0.0, ymin=0.0, dx=50.0, dy=100.0, ncol=2, nrow=1)
     dem, _ = _notch_dem(n=40)  # hillslope median of cell 0 ~ 25 over [0,50]
     transform = _grid_transform(0.0, 0.0, 100.0, 100.0, 40, 40)
@@ -122,7 +122,7 @@ def test_zonal_spike_guard_reverts_hillslope():
     _ = centroid  # cell 0 median ~25 == its centroid, no guard
 
 
-def test_zonal_min_thickness_clamps_lowered_top():
+def test_min_thickness():
     mesh = _quad_mesh(xmin=0.0, ymin=0.0, dx=50.0, dy=100.0, ncol=2, nrow=1)
     dem, channel = _notch_dem(n=40)  # channel cell 0 min = 5.0
     transform = _grid_transform(0.0, 0.0, 100.0, 100.0, 40, 40)
@@ -145,7 +145,7 @@ def test_zonal_min_thickness_clamps_lowered_top():
     assert res.info["n_thickness_clamped"] == 1.0
 
 
-def test_zonal_nodata_pixels_excluded():
+def test_nodata_excluded():
     mesh = _quad_mesh(xmin=0.0, ymin=0.0, dx=100.0, dy=100.0, ncol=1, nrow=1)
     n = 20
     dem = np.full((n, n), 10.0)
@@ -165,7 +165,7 @@ def test_zonal_nodata_pixels_excluded():
     assert res.top[0] == pytest.approx(10.0)  # nodata not dragged into the min
 
 
-def test_the_low_percentiles_of_a_cell_are_its_lower_pixels():
+def test_low_percentiles():
     labels = np.zeros((1, 11), dtype=int)
     values = np.arange(11.0).reshape(1, 11)
 
@@ -173,7 +173,7 @@ def test_the_low_percentiles_of_a_cell_are_its_lower_pixels():
     assert grouped_reduce(labels, values, n_cells=1, stat="p25").tolist() == [2.5]
 
 
-def test_a_cell_of_fewer_than_three_nodes_burns_no_pixel():
+def test_short_cell_burns_no_pixel():
     transform = _grid_transform(0.0, 0.0, 10.0, 10.0, 10, 10)
     line_cell = np.asarray([0, 1])
     stand_in = SimpleNamespace(
@@ -188,7 +188,7 @@ def test_a_cell_of_fewer_than_three_nodes_burns_no_pixel():
     assert (rasterize_cell_ids(only_lines, transform=transform, out_shape=(10, 10)) == -1).all()
 
 
-def test_the_zonal_top_needs_a_mesh_or_its_pixel_labels():
+def test_zonal_top_needs_a_mesh():
     with pytest.raises(ValueError, match="needs a planar_mesh or the pixel labels"):
         zonal_top(
             planar_mesh=None,

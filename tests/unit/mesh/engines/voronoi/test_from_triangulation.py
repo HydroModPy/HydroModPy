@@ -61,7 +61,7 @@ def squeezed_river() -> PlanarCellMesh:
     return VoronoiMeshEngine().build(request)
 
 
-def test_two_river_cells_that_do_not_touch_are_bridged_by_their_nearest_common_neighbour() -> None:
+def test_squeezed_river_is_bridged() -> None:
     cell_mesh = squeezed_river()
     (chain,) = cell_mesh.chains("rivers")
     neighbours = cell_mesh.geometry.neighbours
@@ -73,6 +73,6 @@ def test_two_river_cells_that_do_not_touch_are_bridged_by_their_nearest_common_n
     assert cell_mesh.qa.families["rivers"]["breaks"] == 0.0
 
 
-def test_a_contact_edge_that_parts_no_triangle_gives_no_staircase() -> None:
+def test_contact_edge_without_triangle() -> None:
     names = squeezed_river().face_families.names
     assert all(name == "rivers" or name.startswith("boundary:") for name in names)

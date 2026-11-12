@@ -31,7 +31,7 @@ def _line(name: str, attempt: int = 1, **extra: object) -> ProfileLine:
     )
 
 
-def test_a_resume_adds_its_lines_under_its_attempt(tmp_path: Path) -> None:
+def test_a_resume_adds_lines_under_its_attempt(tmp_path: Path) -> None:
     first = Profile().with_start(1, 6.4).with_line(_line("build_mesh"))
     write_profile(tmp_path, first)
 
@@ -52,28 +52,24 @@ def test_a_resume_adds_its_lines_under_its_attempt(tmp_path: Path) -> None:
     assert dict(back.process_age_s) == {1: 6.4, 2: 7.1}
 
 
-def test_the_reuse_vocabulary_is_no_prefix_store_sealed_rerun() -> None:
+def test_reuse_vocabulary() -> None:
     assert REUSED_KINDS == ("no", "prefix", "store", "sealed", "rerun")
 
 
-REFUSED_LINES = (
-    ("kind", {"kind": "trial"}, "kind is one of step, solve, figure, export"),
-    ("reuse", {"reused": "cache"}, "reused as one of no, prefix, store"),
-    ("store without key", {"reused": "store"}, "store key exactly when"),
-    ("key without store", {"key": "recharge-3f2a"}, "store key exactly when"),
-    ("attempt zero", {"attempt": 0}, "attempt counts from 1"),
-)
+REFUSED_LINES = [
+    pytest.param({"kind": "trial"}, "kind is one of step, solve, figure, export", id="kind"),
+    pytest.param({"reused": "cache"}, "reused as one of no, prefix, store", id="reuse"),
+    pytest.param({"reused": "store"}, "store key exactly when", id="store without key"),
+    pytest.param({"key": "recharge-3f2a"}, "store key exactly when", id="key without store"),
+    pytest.param({"attempt": 0}, "attempt counts from 1", id="attempt zero"),
+]
 
 
-@pytest.mark.parametrize(
-    ("case", "change", "message"), REFUSED_LINES, ids=[case for case, _, _ in REFUSED_LINES]
-)
-def test_a_line_refuses_what_it_cannot_hold(case: str, change: dict, message: str) -> None:
-    del case
-    attempt = int(change.pop("attempt", 1))
+@pytest.mark.parametrize(("change", "message"), REFUSED_LINES)
+def test_a_line_refuses_what_it_cannot_hold(change: dict, message: str) -> None:
     with pytest.raises(ValueError, match=message):
-        _line("build_mesh", attempt=attempt, **change)
+        _line("build_mesh", **change)
 
 
-def test_the_profile_is_outside_the_seal() -> None:
+def test_profile_is_outside_the_seal() -> None:
     assert RUN_PROFILE_FILENAME in UNSEALED_RUN_ENTRIES

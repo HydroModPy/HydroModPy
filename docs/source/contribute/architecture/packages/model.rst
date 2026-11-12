@@ -319,7 +319,7 @@ the module it tests. They build their grids, surfaces, layerings, masks, cell ce
 records and cell meshes with the helpers ``tests/_helpers/domain_cases.py``,
 ``lake_bed_cases.py``, ``forcing_cases.py`` and ``field_cases.py``. The worker is tested in
 ``tests/integration/domain/test_worker.py``, and the soil kernel in
-``tests/unit/model/soil/test_soil_kernel.py``. The job ``Coverage / floors per sub-package`` of
+``tests/unit/model/soil/test_kernel.py``. The job ``Coverage / floors per sub-package`` of
 ``.github/workflows/main-ci.yml`` keeps a coverage floor for each sub-package of ``model/`` in
 ``tools/ci/coverage_floors.toml``, and the floors only go up. The theory pages are
 :doc:`/theory/groundwater-flow` for the top, the bottom and the layers, :doc:`/theory/mesh` for

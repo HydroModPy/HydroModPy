@@ -56,7 +56,7 @@ _RUN_FORMAT_FILES = {
 }
 
 
-def test_the_known_extensions_are_the_ones_the_request_names() -> None:
+def test_known_extensions() -> None:
     assert known_extensions() == tuple(sorted(_SUFFIX_TO_FORMAT))
 
 
@@ -70,7 +70,7 @@ class _FailingEntryPoint:
         raise ModuleNotFoundError("No module named 'hydromodpy_annex'")
 
 
-def test_a_declared_format_that_cannot_be_imported_is_refused_with_its_reason(
+def test_unimportable_format_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The refusal names the module to put on sys.path, and the name is served nowhere."""

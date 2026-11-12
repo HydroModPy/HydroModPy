@@ -48,9 +48,7 @@ def _column(first: int, last: int) -> object:
     ],
     ids=["two lakes", "lake on the edge", "lake at the head"],
 )
-def test_each_lake_takes_the_ground_that_drains_to_it_first(
-    tmp_path: Path, lakes, expected_columns
-) -> None:
+def test_lake_contributing_areas(tmp_path: Path, lakes, expected_columns) -> None:
     areas = lake_contributing_areas_m2(
         d8_pointer_tif=str(_write_pointer(tmp_path / "d8.tif")),
         lake_polygons={name: _column(*columns) for name, columns in lakes.items()},
@@ -60,7 +58,7 @@ def test_each_lake_takes_the_ground_that_drains_to_it_first(
     assert sum(areas.values()) <= _ROWS * _COLS * _CELL_M**2
 
 
-def test_the_count_stays_inside_the_watershed_and_a_pond_smaller_than_a_cell_catches_it(tmp_path):
+def test_watershed_limit_and_small_pond(tmp_path):
     pointer = str(_write_pointer(tmp_path / "d8.tif"))
     first_two_rows = box(0.0, (_ROWS - 2) * _CELL_M, _COLS * _CELL_M, _ROWS * _CELL_M)
     pond = box(41.0, 21.0, 44.0, 24.0)  # 3 m x 3 m, center inside no cell center
@@ -85,7 +83,7 @@ def _setup_state(pointer: Path, *, lakes: dict, sfr: bool = False) -> SimpleName
     return SimpleNamespace(flow=flow, geographic=geographic)
 
 
-def test_two_lakes_without_sfr_are_fed_the_basin_runoff_once_by_their_own_area(tmp_path) -> None:
+def test_basin_runoff_shared_by_lake_area(tmp_path) -> None:
     lakes = {"upper": {"polygon": _column(3, 3)}, "lower": {"polygon": _column(9, 9)}}
     state = _setup_state(_write_pointer(tmp_path / "d8.tif"), lakes=lakes)
     basin_m2 = _ROWS * _COLS * _CELL_M**2
@@ -123,7 +121,7 @@ def test_two_lakes_without_sfr_are_fed_the_basin_runoff_once_by_their_own_area(t
     assert total == pytest.approx(rate * basin_m2)
 
 
-def test_a_routed_network_a_lone_lake_or_a_lake_without_footprint_keeps_the_default(tmp_path):
+def test_default_runoff_split(tmp_path):
     pointer = _write_pointer(tmp_path / "d8.tif")
     two = {"a": {"polygon": _column(2, 2)}, "b": {"polygon": _column(6, 6)}}
     assert lake_runoff_areas(_setup_state(pointer, lakes=two, sfr=True)) is None

@@ -51,7 +51,7 @@ def _mesh_with_families() -> tuple[PlanarCellMesh, dict[str, int]]:
     return mesh, {"lake": lake_rank, "west": west_rank}
 
 
-def test_a_face_row_off_the_mesh_edges_is_a_topology_error():
+def test_face_row_off_the_edges():
     cell_mesh, _ = _mesh_with_families()
     table = cell_mesh.face_families
     # nodes 0 and 11 are the two far corners of the grid: never an edge
@@ -61,7 +61,7 @@ def test_a_face_row_off_the_mesh_edges_is_a_topology_error():
         face_row_edges(dataclasses.replace(cell_mesh, face_families=broken))
 
 
-def test_a_mesh_without_family_has_empty_bit_fields():
+def test_mesh_without_family():
     base = regular_mesh(2, 3, dx=10.0)
 
     assert cell_family_names(base) == ()
@@ -71,7 +71,7 @@ def test_a_mesh_without_family_has_empty_bit_fields():
     assert face_row_edges(base).size == 0
 
 
-def test_more_families_than_an_int32_holds_is_refused():
+def test_too_many_families():
     base = regular_mesh(2, 3, dx=10.0)
     chains = tuple(
         CellChain(family=f"line_{k}", chain_id=k, cell_ids=np.array([0]))

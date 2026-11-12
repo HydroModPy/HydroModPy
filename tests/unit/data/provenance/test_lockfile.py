@@ -8,7 +8,6 @@ of the same cache differ only by their timestamps.
 from __future__ import annotations
 
 import inspect
-import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -67,18 +66,7 @@ def _seed_workspace_project(tmp: Path) -> tuple[Path, Path, Path]:
     return workspace, project_root, config_path
 
 
-# -- the format ---------------------------------------------------------------
-
-
-_REFUSED_SHAPES = {
-    "the lockfile of a pre-release of 2.0": 'schema = "hydromodpy.lock.v1"\n\n[hydromodpy]\nhydromodpy_version = "2.0.0"\n',
-    "an older shape without schema": '[hydromodpy]\nversion = "2.0.0"\n\n[schema]\ncatalog = 1\n',
-    "a later version": 'schema = "hydromodpy.lock.v3"\n',
-}
-
-
-def test_the_data_layer_holds_no_copy_of_the_schema_digest() -> None:
-    """The digest of the config schema is read by project and handed in: no default value."""
+def test_schema_digest_has_no_default() -> None:
     parameters = inspect.signature(write_lockfile).parameters
     assert parameters["schema_sha256"].default is None
     assert not {"zarr_schema_version", "parquet_schema_version", "solvers"} & set(parameters)
@@ -89,8 +77,7 @@ def test_the_old_resolver_is_gone() -> None:
     assert not hasattr(lockfile, "read_lockfile_binaries")
 
 
-def test_an_empty_answer_is_pinned_without_bytes(tmp_path: Path) -> None:
-    """A station that answered nothing is a row, pinned so that ``--frozen`` replays it."""
+def test_empty_answer_is_pinned(tmp_path: Path) -> None:
     data_root, _ = _seed(tmp_path)
     folder = data_root / "hydrometry"
     empty = CacheIndex(data_root).record_empty(
@@ -115,15 +102,7 @@ def test_an_empty_answer_is_pinned_without_bytes(tmp_path: Path) -> None:
     assert [(m.kind, m.station_id) for m in gone] == [("missing", "Z")]
 
 
-# -- atomic writing ------------------------------------------------------------
-
-
-# -- determinism ---------------------------------------------------------------
-
-_VOLATILE = re.compile(r'(generated_at\s*=\s*"[^"]*"|fetched_at\s*=\s*"[^"]*")')
-
-
-def test_schema_sha256_round_trips_and_may_be_absent(tmp_path: Path) -> None:
+def test_schema_digest_round_trip(tmp_path: Path) -> None:
     data_root, _ = _seed(tmp_path)
     dest = tmp_path / LOCKFILE_NAME
     write_lockfile(dest, data_root, schema_sha256="0123abcd")
@@ -131,9 +110,6 @@ def test_schema_sha256_round_trips_and_may_be_absent(tmp_path: Path) -> None:
     no_header = tmp_path / "noheader.lock"
     no_header.write_text(f'schema = "{LOCKFILE_SCHEMA}"\n')
     assert read_lockfile_schema_sha256(no_header) is None
-
-
-# -- verify --------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("strict", [False, True], ids=["frozen", "strict"])
@@ -149,7 +125,7 @@ def test_verify_flags_a_deleted_input(tmp_path: Path, strict: bool) -> None:
     assert (mismatch.kind, mismatch.expected, mismatch.observed) == ("missing", expected, None)
 
 
-def test_verify_flags_a_row_recorded_after_the_lock(tmp_path: Path) -> None:
+def test_verify_flags_a_late_row(tmp_path: Path) -> None:
     data_root, _ = _seed(tmp_path, ("A", "B"))
     dest = tmp_path / LOCKFILE_NAME
     write_lockfile(dest, data_root)
@@ -164,7 +140,7 @@ def test_verify_flags_a_row_recorded_after_the_lock(tmp_path: Path) -> None:
     assert verify_lockfile(data_root, dest, strict=True) == []
 
 
-def test_strict_answers_without_strict_for_a_lockfile_that_names_nothing(tmp_path: Path) -> None:
+def test_strict_on_an_empty_lockfile(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     (data_root / "hydrometry").mkdir(parents=True)
     dest = tmp_path / LOCKFILE_NAME
@@ -178,10 +154,7 @@ def test_strict_answers_without_strict_for_a_lockfile_that_names_nothing(tmp_pat
     assert [m.kind for m in verify_lockfile(data_root, dest, strict=True)] == ["missing"]
 
 
-# -- frozen mode -----------------------------------------------------------------
-
-
-def test_read_locked_inputs_names_the_expected_path_when_missing(tmp_path: Path) -> None:
+def test_missing_lockfile_names_its_path(tmp_path: Path) -> None:
     project_root = tmp_path / "project"
     project_root.mkdir()
 
@@ -190,7 +163,7 @@ def test_read_locked_inputs_names_the_expected_path_when_missing(tmp_path: Path)
         read_locked_inputs(project_root)
 
 
-def test_read_locked_inputs_refuses_a_lockfile_of_another_shape(tmp_path: Path) -> None:
+def test_old_lockfile_shape_refused(tmp_path: Path) -> None:
     (tmp_path / LOCKFILE_NAME).write_text('schema = "hydromodpy.lock.v1"\n')
     with pytest.raises(SchemaVersionMismatchError):
         read_locked_inputs(tmp_path)
@@ -207,7 +180,7 @@ def test_read_locked_inputs_refuses_a_lockfile_of_another_shape(tmp_path: Path) 
         "locked_inputs",
     ],
 )
-def test_the_lockfile_module_keeps_no_frozen_state_of_the_process(name: str) -> None:
+def test_no_frozen_state_in_module(name: str) -> None:
     assert not hasattr(lockfile, name)
 
 
@@ -220,10 +193,9 @@ def test_the_lockfile_module_keeps_no_frozen_state_of_the_process(name: str) -> 
     ],
     ids=["pinned", "another digest", "not pinned"],
 )
-def test_frozen_matching_reads_the_one_record(
+def test_frozen_matching(
     tmp_path: Path, station: str, digest: str | None, refusal: str | None
 ) -> None:
-    """A row and a new record are both matched against ``[[input]]``."""
     data_root, (src,) = _seed(tmp_path)
     project_root = data_root.parent
     write_lockfile(project_lockfile_path(project_root), data_root)
@@ -241,8 +213,7 @@ def test_frozen_matching_reads_the_one_record(
         check(None, **found, path=path, sha256=sha256)
 
 
-def test_a_frozen_refusal_is_a_typed_data_failure(tmp_path: Path) -> None:
-    """A frozen run that meets a refusal exits as a data failure."""
+def test_frozen_refusal_exit_code(tmp_path: Path) -> None:
     from hydromodpy.cli.exit_codes import EXIT_VALIDATION, exit_code_for
 
     project_root = tmp_path / "project"
@@ -255,13 +226,7 @@ def test_a_frozen_refusal_is_a_typed_data_failure(tmp_path: Path) -> None:
     assert exit_code_for(info.value) == EXIT_VALIDATION
 
 
-# -- one address: what hmp data lock writes is what --frozen reads ---------------
-
-
-def test_frozen_precheck_accepts_the_lockfile_lock_data_wrote(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """``hmp run --frozen`` resolves the address ``hmp data lock`` writes."""
+def test_precheck_accepts_written_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from hydromodpy.project.data_cache import lock_data, verify_frozen_inputs
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
@@ -271,10 +236,7 @@ def test_frozen_precheck_accepts_the_lockfile_lock_data_wrote(
     verify_frozen_inputs(project_root, {"project_root": str(project_root)})
 
 
-def test_a_named_project_root_beats_the_declared_one(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The project a command names moves the lockfile ``--frozen`` reads, as it moves the config."""
+def test_named_root_beats_declared(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from hydromodpy.project.data_cache import (
         FrozenVerificationError,
         lock_data,
@@ -294,9 +256,7 @@ def test_a_named_project_root_beats_the_declared_one(
         verify_frozen_inputs(declared)
 
 
-def test_the_lockfile_records_the_project_commit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_lockfile_records_git_commit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from hydromodpy.project.data_cache import lock_data
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
@@ -309,9 +269,7 @@ def test_the_lockfile_records_the_project_commit(
     assert read_lockfile_meta(written.path)["project_git_commit"] == "commit-of-demo"
 
 
-def test_project_runner_hands_the_lockfile_it_reads_to_the_setup(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_runner_hands_lock_to_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """``ProjectRunner.run(frozen=True)`` reads the lockfile once and puts it on ``setup``.
 
     Only the pipeline is replaced: the lockfile is read by the real runner from
@@ -383,7 +341,6 @@ def test_project_runner_hands_the_lockfile_it_reads_to_the_setup(
 
 
 def test_a_run_writes_no_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``hmp run`` leaves the project lockfile alone; disk is the contract."""
     import argparse
 
     from hydromodpy.cli.commands import run as run_cmd
@@ -410,9 +367,6 @@ def test_a_run_writes_no_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     assert not (workspace / LOCKFILE_NAME).exists()
 
 
-# -- a station folder of the user, pinned as a run records it -------------------
-
-
 @pytest.mark.parametrize(
     ("pins", "lock_name", "edit", "refusal"),
     [
@@ -423,10 +377,9 @@ def test_a_run_writes_no_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         ("series+location", "inputs.json", "piezometry_custom_LOC.csv", "does not match"),
     ],
 )
-def test_a_station_folder_replays_frozen_from_the_files_its_records_name(
+def test_frozen_replay_of_a_station_folder(
     tmp_path: Path, pins: str, lock_name: str, edit: str | None, refusal: str | None
 ) -> None:
-    """The series and the location file a record names are the pins a frozen replay checks."""
     from hydromodpy.data.ingest.custom_points import load_file_points
     from hydromodpy.data.source.file import FileSource
     from hydromodpy.data.source.port import FetchRequest

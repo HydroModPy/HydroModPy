@@ -1,4 +1,4 @@
-"""The runtime summary of a Boussinesq solve reports rates in mm/day, volumes in m3/day and times in days.
+"""Runtime summary of a Boussinesq solve: rates in mm/day, volumes in m3/day and times in days.
 
 The solver holds a rate in m/s. A rate of 1 m/s is 1000 mm * 86 400 s/day mm/day, and over a
 cell of area A it is A m3/s, so A * 86 400 m3/day. A negative rate is no excess and no deficit.

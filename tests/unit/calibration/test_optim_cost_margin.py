@@ -1,4 +1,7 @@
-"""Tests of `optim.cost_margin`."""
+"""Width of the answer of each phase (`optim.cost_margin`).
+The width is a cost margin, in meters for a network distance and in per cent
+of the best cost otherwise. No solver runs.
+"""
 
 from __future__ import annotations
 
@@ -26,21 +29,9 @@ from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.results.session.descriptor import read_session
 from tests.unit.calibration._factories_runners import write_document
 
-# From test_each_phase_states_how_wide_its_answer_is.py
-# Each phase states how wide its answer is, with a default that follows what it scores.
-#
-# A phase may write its own ``uncertainty``, with the keys of
-# ``[calibration.uncertainty]``, which stays the default of every phase. Key by
-# key, the phase wins, then the section, then a default read off what the phase
-# scores: one mesh cell, in meters, for a phase scored only by network distances,
-# and five per cent of the best cost for any other. The cell is the median
-# distance between the centers of neighboring cells, measured by the network
-# criterion on the mesh it scores.
-#
-# No solver runs. The widths are read off the configuration, the check off
-# preflight, and the one search goes through an evaluator that returns a gap in
-# meters and the cell it was measured on, the way the network criterion does.
-
+# The default width is one mesh cell (m) for a phase scored only by network
+# distances, and 5 % of the best cost for any other. A phase key beats the
+# section key, which beats the default. No solver runs.
 
 SECTION = """
 [calibration]
@@ -103,7 +94,6 @@ def _widths(cfg: CalibrationConfig) -> dict[str, dict]:
     return {row["name"]: row["interval_width"] for row in phase_summaries(cfg)}
 
 
-# -- the cell ----------------------------------------------------------------
 def _rectangles(nrow: int, ncol: int, dx: float, dy: float) -> tuple[np.ndarray, np.ndarray]:
     """Return (centers, face_node_connectivity) of a grid of dx by dy cells."""
     nodes_per_row = ncol + 1
@@ -117,7 +107,7 @@ def _rectangles(nrow: int, ncol: int, dx: float, dy: float) -> tuple[np.ndarray,
 
 
 @pytest.mark.fast
-def test_one_cell_is_the_median_distance_between_neighbouring_centres() -> None:
+def test_cell_is_median_neighbour_spacing() -> None:
     # Two rows of three cells, 40 m wide and 60 m tall: four pairs side by side
     # at 40 m, three pairs one above the other at 60 m. Diagonals share no edge.
     centres, connectivity = _rectangles(2, 3, dx=40.0, dy=60.0)
@@ -126,7 +116,7 @@ def test_one_cell_is_the_median_distance_between_neighbouring_centres() -> None:
 
 
 @pytest.mark.fast
-def test_the_cell_is_measured_next_to_the_mapped_cells() -> None:
+def test_cell_spacing_near_mapped_cells() -> None:
     # The right column touches three pairs: two side by side at 40 m, whose
     # other cell lies outside it, and one stacked at 60 m. At least one of
     # the two cells is enough, so the median is 40 m.
@@ -139,11 +129,8 @@ def test_the_cell_is_measured_next_to_the_mapped_cells() -> None:
     assert neighbour_spacing_m(centres, connectivity, touching=alone) == pytest.approx(50.0)
 
 
-# -- the default follows what the phase scores ------------------------------
-
-
 @pytest.mark.fast
-def test_a_share_in_the_section_applies_to_every_phase_that_can_read_it(tmp_path) -> None:
+def test_section_share_reaches_every_phase(tmp_path) -> None:
     cfg = _config(tmp_path, section='\n[calibration.uncertainty]\ncost_margin = "8%"\n')
 
     assert [
@@ -152,7 +139,7 @@ def test_a_share_in_the_section_applies_to_every_phase_that_can_read_it(tmp_path
 
 
 @pytest.mark.fast
-def test_a_value_written_in_the_phase_wins_over_the_section_and_the_default(tmp_path) -> None:
+def test_phase_width_wins(tmp_path) -> None:
     cfg = _config(
         tmp_path,
         section='\n[calibration.uncertainty]\ncost_margin = "150 m"\n',
@@ -175,7 +162,7 @@ def test_a_value_written_in_the_phase_wins_over_the_section_and_the_default(tmp_
 
 
 @pytest.mark.fast
-def test_a_phase_that_names_another_method_leaves_the_section_restarts(tmp_path) -> None:
+def test_phase_method_drops_section_restarts(tmp_path) -> None:
     cfg = _config(
         tmp_path,
         section='\n[calibration.uncertainty]\nmethod = "multistart"\nrestarts = 4\n',
@@ -189,13 +176,13 @@ def test_a_phase_that_names_another_method_leaves_the_section_restarts(tmp_path)
 
 
 @pytest.mark.fast
-def test_a_phase_uncertainty_that_does_not_hold_over_the_section_is_refused(tmp_path) -> None:
+def test_phase_uncertainty_refusal(tmp_path) -> None:
     with pytest.raises(Exception, match="phase 'k_network' writes an uncertainty"):
         _config(tmp_path, k_extra='uncertainty = { method = "multistart" }')
 
 
 @pytest.mark.fast
-def test_a_phase_is_answered_about_a_posterior_like_the_section() -> None:
+def test_posterior_refusal() -> None:
     with pytest.raises(ValidationError, match="'posterior' is not offered"):
         CalibrationConfig.model_validate(
             {
@@ -207,7 +194,6 @@ def test_a_phase_is_answered_about_a_posterior_like_the_section() -> None:
         )
 
 
-# -- --check -----------------------------------------------------------------
 PROJECT = """
 [workspace]
 
@@ -253,28 +239,31 @@ def _width_findings(findings: list) -> list:
     return [item for item in findings if "fraction of a distance" in item.detail]
 
 
+CHECK_REFUSALS = [
+    pytest.param(
+        {"k_extra": 'uncertainty = { cost_margin = "5%" }'},
+        "written in this phase",
+        id="written in the phase",
+    ),
+    # The hydrograph phase takes the same relative width and is not named.
+    pytest.param(
+        {"section": '\n[calibration.uncertainty]\ncost_margin = "5%"\n'},
+        "written in [calibration.uncertainty]",
+        id="handed by the section",
+    ),
+]
+
+
 @pytest.mark.fast
-def test_check_refuses_a_relative_width_written_in_a_network_phase(tmp_path) -> None:
-    findings = _width_findings(_check(tmp_path, k_extra='uncertainty = { cost_margin = "5%" }'))
+@pytest.mark.parametrize(("kwargs", "origin"), CHECK_REFUSALS)
+def test_check_refuses_relative_width(tmp_path, kwargs, origin) -> None:
+    findings = _width_findings(_check(tmp_path, **kwargs))
 
     assert [(item.severity, item.path) for item in findings] == [("error", "calibration.phases")]
     assert findings[0].detail.startswith("'k_network': ")
-    assert "written in this phase" in findings[0].detail
+    assert origin in findings[0].detail
 
 
-@pytest.mark.fast
-def test_check_refuses_a_relative_width_the_section_hands_a_network_phase(tmp_path) -> None:
-    # The hydrograph phase takes the same relative width and is not named.
-    findings = _width_findings(
-        _check(tmp_path, section='\n[calibration.uncertainty]\ncost_margin = "5%"\n')
-    )
-
-    assert [item.path for item in findings] == ["calibration.phases"]
-    assert findings[0].detail.startswith("'k_network': ")
-    assert "written in [calibration.uncertainty]" in findings[0].detail
-
-
-# -- the single-metric route scores a distance too ---------------------------
 SINGLE_METRIC_SECTION = """
 [calibration]
 objective = "distance_gap"
@@ -303,7 +292,7 @@ objective = "distance_gap"
 
 
 @pytest.mark.fast
-def test_list_phases_says_where_each_width_comes_from(tmp_path, capsys) -> None:
+def test_list_phases_width_source(tmp_path, capsys) -> None:
     text = SECTION + '\n[calibration.uncertainty]\ncost_margin = "150 m"\n'
     path = write_document(tmp_path, text + PHASES.format(k_extra="", sy_extra=""))
     calibrate_cmd.run(
@@ -319,7 +308,6 @@ def test_list_phases_says_where_each_width_comes_from(tmp_path, capsys) -> None:
     assert sy_line.split("\t")[4] == "width 5 % of the best cost (default)"
 
 
-# -- the run reads the cell off its trials and reports the width it used ----
 class _GapInMetres:
     """A network gap in meters, zero at K = 10 ** root, measured on 60 m cells."""
 
@@ -377,7 +365,7 @@ def _run(tmp_path: Path, uncertainty: str = ""):
 
 
 @pytest.mark.fast
-def test_the_run_reads_one_mesh_cell_off_the_trials(tmp_path, gap_in_metres) -> None:
+def test_run_reads_one_mesh_cell(tmp_path, gap_in_metres) -> None:
     report = _run(tmp_path)
 
     width = report.extra["interval_width"]
@@ -393,7 +381,7 @@ def test_the_run_reads_one_mesh_cell_off_the_trials(tmp_path, gap_in_metres) -> 
 
 
 @pytest.mark.fast
-def test_the_run_reports_a_written_width_and_where_it_was_written(tmp_path, gap_in_metres) -> None:
+def test_run_reports_written_width(tmp_path, gap_in_metres) -> None:
     report = _run(tmp_path, '\n[calibration.uncertainty]\ncost_margin = "120 m"\n')
 
     width = report.extra["interval_width"]
@@ -402,17 +390,7 @@ def test_the_run_reports_a_written_width_and_where_it_was_written(tmp_path, gap_
     assert interval["threshold"] == pytest.approx(report.best_cost + 120.0)
 
 
-@pytest.mark.parametrize(
-    ("root", "status", "note"),
-    [
-        (-5.1, "completed", None),
-        (-2.5, "partial", "OUTSIDE the declared bounds of K, [1e-07, 0.001]"),
-    ],
-    ids=["inside", "outside"],
-)
-def test_a_root_search_reads_its_width_on_its_curve(
-    tmp_path, gap_in_metres, monkeypatch, root, status, note
-) -> None:
+def bisect_for_root(tmp_path, monkeypatch, root):
     monkeypatch.setattr(_GapInMetres, "root", root)
     text = (
         SINGLE_SEARCH.format(uncertainty="")
@@ -421,18 +399,27 @@ def test_a_root_search_reads_its_width_on_its_curve(
         .replace("max_trials = 9", "max_trials = 40")
     )
     report = run_calibration_cli(write_document(tmp_path, text), workspace=tmp_path)
+    return report, read_session(report.session_dir)
 
-    descriptor = read_session(report.session_dir)
-    assert (report.status, descriptor.status) == (status, status)
-    if note is not None:
-        assert note in descriptor.error_message
-        assert note in descriptor.stop_note
-        return
+
+def test_root_inside_bounds(tmp_path, gap_in_metres, monkeypatch) -> None:
+    report, descriptor = bisect_for_root(tmp_path, monkeypatch, -5.1)
+
+    assert (report.status, descriptor.status) == ("completed", "completed")
     interval = descriptor.widths["K"].interval
     assert (interval.lower_end, interval.upper_end) == ("crossed", "crossed")
     # A slope of 100 m a decade and a cell of 60 m: 0.6 decade on each side.
     assert interval.lower == pytest.approx(10.0**-5.7, rel=0.02)
     assert interval.upper == pytest.approx(10.0**-4.5, rel=0.02)
+
+
+def test_root_outside_bounds(tmp_path, gap_in_metres, monkeypatch) -> None:
+    report, descriptor = bisect_for_root(tmp_path, monkeypatch, -2.5)
+
+    note = "OUTSIDE the declared bounds of K, [1e-07, 0.001]"
+    assert (report.status, descriptor.status) == ("partial", "partial")
+    assert note in descriptor.error_message
+    assert note in descriptor.stop_note
 
 
 class _OnARidge:
@@ -463,7 +450,7 @@ path = "flow.param.Sy.field.value"
 """
 
 
-def test_a_ridge_shows_under_the_margin_on_a_grid_that_hides_it(tmp_path) -> None:
+def test_ridge_shows_as_correlation(tmp_path) -> None:
     evaluation_registry.evaluators.register(_OnARidge, replace=True)
     try:
         report = run_calibration_cli(write_document(tmp_path, RIDGE), workspace=tmp_path)
@@ -543,7 +530,7 @@ def test_the_root_interval_walks_the_curve(
     assert (found["margin"], found["kind"]) == (margin, kind)
 
 
-def test_a_crossing_past_the_declared_bound_is_still_a_crossing() -> None:
+def test_crossing_past_declared_bound() -> None:
     parameter = SimpleNamespace(name="K", to_physical=_SCALES["identity"])
 
     found = root_interval({0.0: 1.0, 1.0: 9.0}, (0.0, 1.0), 1.0, "absolute", parameter, (-1.0, 0.1))
@@ -552,19 +539,7 @@ def test_a_crossing_past_the_declared_bound_is_still_a_crossing() -> None:
     assert (found.upper_crossed, found.reaches_upper_bound) == (True, False)
 
 
-# From test_margin_intervals.py
-# A calibrated value on its own says nothing about how well it is determined.
-#
-# The report gives one number per parameter. Two searches can return the same
-# number with entirely different standing: one where the cost climbs steeply on
-# both sides, one where it is flat over three decades. Nothing in the output told
-# them apart, so a conductivity read off a report carried no way to know whether
-# the record constrained it.
-#
-# The interval is read off the trials the search already ran: the range of values
-# whose cost stays within a stated margin of the best. It assumes no error
-# model and costs nothing extra, and it says explicitly when it runs into the
-# search bound, because there the record does not constrain the parameter at all.
+# The interval is the range of values whose cost stays within a margin of the best.
 
 
 def _trace(pairs: list[tuple[float, float]]) -> list[dict[str, object]]:
@@ -578,14 +553,14 @@ _SHARP = _trace([(1.0, 10.0), (2.0, 1.0), (3.0, 1.02), (4.0, 9.0), (5.0, 30.0)])
 _FLAT = _trace([(1.0, 1.01), (2.0, 1.0), (3.0, 1.02), (4.0, 1.01), (5.0, 1.03)])
 
 
-def test_an_interval_inside_the_search_does_not_claim_a_bound() -> None:
+def test_interval_inside_bounds() -> None:
     (interval,) = margin_intervals(_SHARP, bounds={"K": (0.5, 6.0)})
 
     assert interval.reaches_lower_bound is False
     assert interval.reaches_upper_bound is False
 
 
-def test_an_absolute_margin_is_read_in_cost_units() -> None:
+def test_absolute_margin() -> None:
     (interval,) = margin_intervals(_SHARP, margin=8.5, kind="absolute")
 
     assert interval.lower == 2.0
@@ -596,16 +571,21 @@ def test_an_absolute_margin_is_read_in_cost_units() -> None:
     ("kwargs", "match"),
     [({"margin": -0.1}, "must not be negative"), ({"kind": "ratio"}, "'relative' or 'absolute'")],
 )
-def test_a_margin_it_cannot_read_is_refused(kwargs, match) -> None:
+def test_margin_refusals(kwargs, match) -> None:
     with pytest.raises(ValueError, match=match):
         margin_intervals(_SHARP, **kwargs)
 
 
-def test_a_parameter_with_no_finite_value_in_the_margin_has_no_interval() -> None:
-    trace = _trace([(float("nan"), 1.0), (5.0, 10.0)])
+NO_INTERVAL = [
+    pytest.param(
+        _trace([(float("nan"), 1.0), (5.0, 10.0)]),
+        {"parameters": ["K", "absent"]},
+        id="no finite value",
+    ),
+    pytest.param(_trace([(1.0, float("nan"))]), {}, id="no finite cost"),
+]
 
-    assert margin_intervals(trace, parameters=["K", "absent"]) == []
 
-
-def test_a_trace_with_nothing_finite_yields_nothing() -> None:
-    assert margin_intervals(_trace([(1.0, float("nan"))])) == []
+@pytest.mark.parametrize(("trace", "kwargs"), NO_INTERVAL)
+def test_no_interval(trace, kwargs) -> None:
+    assert margin_intervals(trace, **kwargs) == []

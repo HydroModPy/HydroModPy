@@ -9,6 +9,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from hydromodpy.project.launch import local as launch_local
 from hydromodpy.project.launch.children import calibration_width
 
@@ -39,12 +41,22 @@ def test_a_calibration_counts_its_own_parallel_in_the_budget(tmp_path: Path) -> 
     assert planned["a-cal"].rel_path == "plan/abc/a-cal.toml"
 
 
-def test_the_width_of_a_calibration_is_its_widest_phase() -> None:
-    assert calibration_width({}) == 1
-    assert calibration_width({"parallel": 5}) == 5
-    assert calibration_width({"parallel": 2, "phases": [{"name": "a"}, {"parallel": 40}]}) == 40
-    assert calibration_width({"parallel": 8, "phases": [{"parallel": 3}, {"parallel": 2}]}) == 3
-    assert calibration_width({"parallel": 4, "phases": [{"parallel": 1}, {"name": "b"}]}) == 4
+WIDTHS = [
+    pytest.param({}, 1, id="no parallel"),
+    pytest.param({"parallel": 5}, 5, id="flat"),
+    pytest.param(
+        {"parallel": 2, "phases": [{"name": "a"}, {"parallel": 40}]}, 40, id="widest phase"
+    ),
+    pytest.param({"parallel": 8, "phases": [{"parallel": 3}, {"parallel": 2}]}, 3, id="phases win"),
+    pytest.param(
+        {"parallel": 4, "phases": [{"parallel": 1}, {"name": "b"}]}, 4, id="phase without it"
+    ),
+]
+
+
+@pytest.mark.parametrize(("calibration", "width"), WIDTHS)
+def test_width_of_a_calibration(calibration, width) -> None:
+    assert calibration_width(calibration) == width
 
 
 def test_the_command_line_of_a_case_carries_the_environment_flags() -> None:

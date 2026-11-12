@@ -1,36 +1,9 @@
-"""Media type strings live in one table, and the table's values are pinned.
+"""Media type strings live in one table, ``hydromodpy.schema.media_types``, and its values are pinned.
 
-An artifact carries its media type in three places (capability declaration,
-``outcome.json`` output record, ``manifest.json`` artifact record). Each
-place that spells the string as a literal instead of importing
-``hydromodpy.schema.media_types`` is a chance to drift by one character
-(a missing space in ``image/tiff; application=geotiff`` is enough for an
-orchestrator filtering on the type to miss the file it asked for).
-
-Two independent gates:
-
-- ``test_media_types_table_values_are_pinned`` imports the module and checks
-  its constants by value, so a drifted string, a silently removed constant
-  or a silently added one all fail. This is the one that actually reads the
-  table's content; the literal scan below only checks that nothing outside
-  the table repeats a string.
-- ``test_no_stray_media_type_literals_outside_the_table`` scans source text
-  for a quoted media type literal and fails on any hit that is not either
-  the table itself or an explicitly named, justified exception.
-
-The scan covers the whole package, and that is the measurement, not a
-preference: the six call sites of ``GEOTIFF_MEDIA_TYPE``, the three of
-``GEOPACKAGE_MEDIA_TYPE`` and the only one of ``NETCDF_MEDIA_TYPE`` all live
-under ``model/domain/`` and ``data/fetch/``, none under ``results/`` or
-``schema/``. A gate scoped to the exporters would leave every writer of the
-drift it exists to catch outside its reach - including four runtime paths
-that stamp ``media_type`` into ``outcome.json`` and ``manifest.json``.
-
-Scanning wide costs one thing: the four legitimate foreign literals it meets
-belong to other slices of the codebase, one of them in a package another
-session owns. So an allowlist entry pins a path and the media type string,
-never the whole line: reformatting that line, renaming around it or moving it
-leaves this gate green, while adding a new literal in the same file does not.
+A string spelled as a literal elsewhere can drift by one character and an orchestrator that
+filters on the type then misses the file. The scan covers the whole package, since the call
+sites of the geotiff, geopackage and netcdf constants sit under ``model/`` and ``data/``.
+An allowlist entry pins a path and the media type string, never the whole line.
 """
 
 from __future__ import annotations

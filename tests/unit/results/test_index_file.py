@@ -1,4 +1,8 @@
-"""The index file: its lock, its staging copy in blocks of 16 KiB, its publication and its readers."""
+"""The index file: its lock, its staging copy in blocks of 16 KiB, its publication and its readers.
+
+A writer builds a staging copy under the lock and publishes it by a rename. The lease of the
+lock is in seconds.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +12,6 @@ import socket
 import time
 from pathlib import Path
 
-import duckdb
 import pytest
 
 from hydromodpy.core.exceptions import CatalogUnreadableError, WriteConflictError
@@ -45,10 +48,6 @@ def _publish_value(root: Path, value: int) -> None:
         publish_staging(staging, index_path, lock)
 
 
-def _value(connection: duckdb.DuckDBPyConnection) -> int:
-    return int(connection.execute("SELECT x FROM t").fetchone()[0])
-
-
 def _foreign_lock(root: Path) -> dict:
     """Write a fresh lock in the name of a live process of this host that is not this one."""
     holder = {"pid": os.getppid(), "host": socket.gethostname(), "created": time.time()}
@@ -58,20 +57,8 @@ def _foreign_lock(root: Path) -> dict:
     return holder
 
 
-# -- the lock ---------------------------------------------------------------
-
-
-# -- the staging file ---------------------------------------------------------
-
-
-# -- publication --------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "lose",
-    ["released", "taken_back", "never_taken"],
-)
-def test_a_staging_file_is_not_published_without_the_lock(root, lose):
+@pytest.mark.parametrize("lose", ["released", "taken_back", "never_taken"])
+def test_no_publication_without_the_lock(root, lose):
     _publish_value(root, 1)
     index_path = catalog_path_for(root)
     before = index_path.read_bytes()
@@ -94,15 +81,12 @@ def test_a_staging_file_is_not_published_without_the_lock(root, lose):
     assert index_path.read_bytes() == before
 
 
-# -- readers ------------------------------------------------------------------
-
-
-def test_open_index_without_an_index_is_file_not_found(root):
+def test_no_index_yet(root):
     with pytest.raises(FileNotFoundError, match="the project has no index yet"):
         open_index(root)
 
 
-def test_open_index_on_a_broken_file_is_unreadable(root):
+def test_broken_index_file(root):
     index_path = catalog_path_for(root)
     index_path.parent.mkdir(parents=True, exist_ok=True)
     index_path.write_bytes(b"not a database")

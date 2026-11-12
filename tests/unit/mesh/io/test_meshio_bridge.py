@@ -87,20 +87,6 @@ def test_mixed_cells_come_back_block_by_block_with_their_fields(build) -> None:
         np.testing.assert_array_equal(recovered.point_data[name], values)
 
 
-def _ragged_runs() -> HydroMesh:
-    """Polygons of 4, 4, 5, 4 and 6 nodes, then a triangle, with one value per cell."""
-    vertices = np.random.default_rng(3).random((12, 2))
-    polygons = ([0, 1, 2, 3], [4, 5, 6, 7], [0, 2, 4, 6, 8], [1, 3, 5, 7], [2, 4, 6, 8, 10, 11])
-    return HydroMesh(
-        vertices=vertices,
-        cell_blocks=(
-            CellBlock(CellType.POLYGON, tuple(np.array(p) for p in polygons)),
-            CellBlock(CellType.TRIANGLE, [[9, 10, 11]]),
-        ),
-        cell_data={"k": np.arange(6.0)},
-    )
-
-
 def test_a_ragged_block_without_cells_gives_meshio_no_block() -> None:
     mesh = HydroMesh(
         vertices=np.zeros((3, 2)),

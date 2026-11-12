@@ -1,3 +1,10 @@
+"""Sparse Jacobian triplets of the Boussinesq residual, checked against finite differences.
+
+The residual is in m3/s, the head in m and the time step in s. A triplet set (data, rows, cols)
+is summed into a dense matrix, and each column is compared with a centred difference of the
+residual of the assembly.
+"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -124,7 +131,7 @@ def _surface_residual_contribution(
     return np.asarray(mesh.cell_area_m2, dtype=float) * surface_rate
 
 
-def _transient_residual(
+def _transient_assembly(
     mesh: _MiniMesh,
     head_m: np.ndarray,
     *,
@@ -133,8 +140,8 @@ def _transient_residual(
     boundary_head_m_by_edge: np.ndarray | None = None,
     prescribed_head_m_by_cell: np.ndarray | None = None,
     drainage_conductance_m2_s: np.ndarray | float | None = None,
-) -> np.ndarray:
-    assembly = assemble_transient_residual_with_saturation_excess(
+):
+    return assemble_transient_residual_with_saturation_excess(
         mesh,
         head_m=head_m,
         head_prev_m=head_prev_m,
@@ -147,42 +154,35 @@ def _transient_residual(
         drainage_conductance_m2_s=drainage_conductance_m2_s,
         regularization_radius=0.25,
     )
-    return np.asarray(assembly.residual_m3_s, dtype=float)
 
 
-def _transient_solver_residual(
-    mesh: _MiniMesh,
-    head_m: np.ndarray,
-    *,
-    head_prev_m: np.ndarray,
-    dt_seconds: float,
-    boundary_head_m_by_edge: np.ndarray | None = None,
-    prescribed_head_m_by_cell: np.ndarray | None = None,
-    drainage_conductance_m2_s: np.ndarray | float | None = None,
-) -> np.ndarray:
-    assembly = assemble_transient_residual_with_saturation_excess(
-        mesh,
-        head_m=head_m,
-        head_prev_m=head_prev_m,
-        dt_seconds=dt_seconds,
-        saturation_excess_rate_m_s=0.0,
-        recharge_rate_m_s=0.0,
-        well_flux_m3_s=0.0,
-        boundary_head_m_by_edge=boundary_head_m_by_edge,
-        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
-        drainage_conductance_m2_s=drainage_conductance_m2_s,
-        regularization_radius=0.25,
-    )
-    return np.asarray(assembly.solver_residual, dtype=float)
+def _transient_residual(mesh: _MiniMesh, head_m: np.ndarray, **kwargs) -> np.ndarray:
+    return np.asarray(_transient_assembly(mesh, head_m, **kwargs).residual_m3_s, dtype=float)
 
 
-def test_boussinesq_mesh_is_read_from_its_own_module() -> None:
+def _transient_solver_residual(mesh: _MiniMesh, head_m: np.ndarray, **kwargs) -> np.ndarray:
+    return np.asarray(_transient_assembly(mesh, head_m, **kwargs).solver_residual, dtype=float)
+
+
+def _finite_difference(residual_of_head, head: np.ndarray, step: float = 1.0e-6) -> np.ndarray:
+    """Centred difference of a residual vector with respect to each head, one column per cell."""
+    columns = []
+    for col in range(head.size):
+        direction = np.zeros(head.size, dtype=float)
+        direction[col] = step
+        columns.append(
+            (residual_of_head(head + direction) - residual_of_head(head - direction)) / (2.0 * step)
+        )
+    return np.column_stack(columns)
+
+
+def test_mesh_class_lives_in_its_module() -> None:
     from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
     assert BoussinesqMesh.__name__ == "BoussinesqMesh"
 
 
-def test_partition_triplets_match_finite_difference_surface_contribution() -> None:
+def test_partition_triplets_match_finite_differences() -> None:
     mesh = _build_mesh()
     head = np.asarray([1.2, 0.8], dtype=float)
     regularization_radius = 0.25
@@ -200,29 +200,20 @@ def test_partition_triplets_match_finite_difference_surface_contribution() -> No
         ),
     )
 
-    step = 1.0e-6
-    fd = np.zeros_like(dense)
-    for col in range(mesh.n_cells):
-        direction = np.zeros(mesh.n_cells, dtype=float)
-        direction[col] = step
-        plus = _surface_residual_contribution(
+    fd = _finite_difference(
+        lambda h: _surface_residual_contribution(
             mesh,
-            head + direction,
+            h,
             regularization_radius=regularization_radius,
             surface_input_rate_m_s=surface_input_rate_m_s,
-        )
-        minus = _surface_residual_contribution(
-            mesh,
-            head - direction,
-            regularization_radius=regularization_radius,
-            surface_input_rate_m_s=surface_input_rate_m_s,
-        )
-        fd[:, col] = (plus - minus) / (2.0 * step)
+        ),
+        head,
+    )
 
     np.testing.assert_allclose(dense, fd, rtol=1.0e-5, atol=1.0e-7)
 
 
-def test_partition_triplets_drop_out_when_surface_ramp_is_inactive() -> None:
+def test_partition_triplets_vanish_without_surface_input() -> None:
     mesh = _build_mesh()
     data, rows, cols = build_sparse_semianalytic_partition_saturation_triplets(
         mesh,
@@ -238,7 +229,7 @@ def test_partition_triplets_drop_out_when_surface_ramp_is_inactive() -> None:
     assert cols.size == 0
 
 
-def test_partition_triplets_zero_prescribed_rows_and_columns() -> None:
+def test_partition_triplets_zero_prescribed_cells() -> None:
     mesh = _build_mesh()
     dense = _dense_from_triplets(
         mesh,
@@ -256,7 +247,7 @@ def test_partition_triplets_zero_prescribed_rows_and_columns() -> None:
     np.testing.assert_allclose(dense[:, 1], 0.0, atol=0.0)
 
 
-def test_operator_triplets_match_finite_difference_transient_residual() -> None:
+def test_operator_triplets_match_finite_differences() -> None:
     mesh = _build_mesh_with_boundary_edge()
     head = np.asarray([1.2, 0.8], dtype=float)
     head_prev = np.asarray([1.1, 0.7], dtype=float)
@@ -281,33 +272,22 @@ def test_operator_triplets_match_finite_difference_transient_residual() -> None:
         ),
     )
 
-    step = 1.0e-6
-    fd = np.zeros_like(dense)
-    for col in range(mesh.n_cells):
-        direction = np.zeros(mesh.n_cells, dtype=float)
-        direction[col] = step
-        plus = _transient_residual(
+    fd = _finite_difference(
+        lambda h: _transient_residual(
             mesh,
-            head + direction,
+            h,
             head_prev_m=head_prev,
             dt_seconds=dt_seconds,
             boundary_head_m_by_edge=boundary_head,
             drainage_conductance_m2_s=drainage_conductance,
-        )
-        minus = _transient_residual(
-            mesh,
-            head - direction,
-            head_prev_m=head_prev,
-            dt_seconds=dt_seconds,
-            boundary_head_m_by_edge=boundary_head,
-            drainage_conductance_m2_s=drainage_conductance,
-        )
-        fd[:, col] = (plus - minus) / (2.0 * step)
+        ),
+        head,
+    )
 
     np.testing.assert_allclose(dense, fd, rtol=1.0e-5, atol=1.0e-7)
 
 
-def test_transient_storage_uses_lower_bounded_saturated_thickness() -> None:
+def test_storage_uses_bounded_saturated_thickness() -> None:
     mesh = _build_single_cell_mesh()
     dt_seconds = 10.0
 
@@ -336,7 +316,7 @@ def test_transient_storage_uses_lower_bounded_saturated_thickness() -> None:
     np.testing.assert_allclose(residual, np.asarray([0.03], dtype=float))
 
 
-def test_operator_storage_diagonal_keeps_memory_above_surface() -> None:
+def test_storage_diagonal_above_surface() -> None:
     mesh = _build_single_cell_mesh()
     dt_seconds = 10.0
 
@@ -363,7 +343,7 @@ def test_operator_storage_diagonal_keeps_memory_above_surface() -> None:
     np.testing.assert_allclose(_storage_jacobian(3.0), np.asarray([[0.02]], dtype=float))
 
 
-def test_operator_triplets_match_finite_difference_with_prescribed_identity() -> None:
+def test_operator_triplets_with_prescribed_identity() -> None:
     mesh = _build_mesh()
     head = np.asarray([1.2, 0.8], dtype=float)
     head_prev = np.asarray([1.1, 0.6], dtype=float)
@@ -387,25 +367,15 @@ def test_operator_triplets_match_finite_difference_with_prescribed_identity() ->
         ),
     )
 
-    step = 1.0e-6
-    fd = np.zeros_like(dense)
-    for col in range(mesh.n_cells):
-        direction = np.zeros(mesh.n_cells, dtype=float)
-        direction[col] = step
-        plus = _transient_solver_residual(
+    fd = _finite_difference(
+        lambda h: _transient_solver_residual(
             mesh,
-            head + direction,
+            h,
             head_prev_m=head_prev,
             dt_seconds=dt_seconds,
             prescribed_head_m_by_cell=prescribed,
-        )
-        minus = _transient_solver_residual(
-            mesh,
-            head - direction,
-            head_prev_m=head_prev,
-            dt_seconds=dt_seconds,
-            prescribed_head_m_by_cell=prescribed,
-        )
-        fd[:, col] = (plus - minus) / (2.0 * step)
+        ),
+        head,
+    )
 
     np.testing.assert_allclose(dense, fd, rtol=1.0e-5, atol=1.0e-7)

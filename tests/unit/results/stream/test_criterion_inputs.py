@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
@@ -21,7 +20,6 @@ from hydromodpy.results.derive.stream_network.criterion_inputs import (
     map_heads,
     mapped_cells,
 )
-from hydromodpy.results.run.descent import StoredBasin
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from tests._helpers.ugrid_meshes import quad_mesh
 
@@ -43,10 +41,6 @@ def _grid():
     return vertices, faces, polygons, centres
 
 
-def _cells(mask: np.ndarray) -> list[int]:
-    return np.flatnonzero(mask).tolist()
-
-
 def _draw(rule: str, line: LineString, *, centres=True):
     vertices, faces, polygons, grid_centres = _grid()
     return mapped_cells(
@@ -61,30 +55,10 @@ def _draw(rule: str, line: LineString, *, centres=True):
     )
 
 
-# --- the cells a line draws ----------------------------------------------------------
 INSIDE_COLUMN_ONE = LineString([(1.5 * CELL, 0.1 * CELL), (1.5 * CELL, 2.9 * CELL)])
-ALONG_AN_EDGE = LineString([(2.0 * CELL, 0.1 * CELL), (2.0 * CELL, 2.9 * CELL)])
 
 
-def test_the_heads_rule_has_no_cell_projection() -> None:
-    with pytest.raises(ValueError, match="criterion graph"):
-        _draw("heads", INSIDE_COLUMN_ONE)
-
-
-def test_an_unknown_rule_is_refused_by_name() -> None:
-    with pytest.raises(ValueError, match="'crossing' or 'touch', got 'bresenham'"):
-        _draw("bresenham", INSIDE_COLUMN_ONE)
-
-
-def test_the_crossing_rule_needs_the_centers_it_joins() -> None:
-    with pytest.raises(ValueError, match="joins cell centers"):
-        _draw("crossing", INSIDE_COLUMN_ONE, centres=False)
-
-
-# --- the free ends of a line ---------------------------------------------------------
-
-
-def test_an_end_the_cut_made_is_no_head() -> None:
+def test_cut_end_is_no_head() -> None:
     cut = box(0.0, 1.0 * CELL, COLUMNS * CELL, 2.9 * CELL + 1.0)
     along = LineString([(1.5 * CELL, 1.0 * CELL), (1.5 * CELL, 2.9 * CELL)])
 
@@ -94,27 +68,6 @@ def test_an_end_the_cut_made_is_no_head() -> None:
     assert candidates.n_candidates == 1
 
 
-# --- the snapped outlet --------------------------------------------------------------
-
-
-# --- the cells of the outline --------------------------------------------------------
-def _outline(*boxes) -> gpd.GeoDataFrame:
-    return gpd.GeoDataFrame(geometry=list(boxes), crs=CRS)
-
-
-# --- the reference of basin_mismatch -------------------------------------------------
-NO_BASIN = (
-    "Network criterion: run sim-x carries no basin of D, so the catchment mismatch is "
-    "measured against the old reference 'polygon_centroid'."
-)
-OUTLINE = np.array([False, True, True, False])
-
-
-def _basin(mask, rule: str = "near_point") -> StoredBasin:
-    return StoredBasin(mask=np.asarray(mask), area_m2=float(np.sum(mask)) * CELL**2, rule=rule)
-
-
-# --- the mean recharge ---------------------------------------------------------------
 # One rule, three sources, in the order a figure used to try them: the model its
 # trials built, then the station forcing the run stores on its period edges, then the
 # recharge budget the solver wrote. The order is part of the number: on the monthly
@@ -158,14 +111,14 @@ def _budget(rates_m_s, *, layers: int = 0) -> np.ndarray:
     return stack
 
 
-def test_the_built_model_gives_the_number_its_trials_read(tmp_path) -> None:
+def test_built_model_rate(tmp_path) -> None:
     model = SimpleNamespace(recharge=pd.Series([4.0e-9]))
     fields = _store(tmp_path, forcing=FORCING_MM_D)
 
     assert criterion_recharge_of_run(model, fields, EDGES) == pytest.approx(4.0e-9, rel=1e-12)
 
 
-def test_a_model_that_holds_no_finite_rate_falls_through_to_the_forcing(tmp_path) -> None:
+def test_model_without_finite_rate(tmp_path) -> None:
     model = SimpleNamespace(recharge=pd.Series([np.nan]))
     fields = _store(tmp_path, forcing=FORCING_MM_D)
 
@@ -174,15 +127,22 @@ def test_a_model_that_holds_no_finite_rate_falls_through_to_the_forcing(tmp_path
     assert recharge == pytest.approx(FORCING_MEAN_M_S, rel=1e-9)
 
 
-def test_a_station_forced_run_reads_the_forcing_on_its_edges(tmp_path) -> None:
-    fields = _store(tmp_path, forcing=FORCING_MM_D)
+FORCING_SCALES = [
+    pytest.param(1.0, id="station forcing"),
+    pytest.param(0.8, id="other data"),
+]
+
+
+@pytest.mark.parametrize("scale", FORCING_SCALES)
+def test_forcing_mean_on_edges(tmp_path, scale) -> None:
+    fields = _store(tmp_path, forcing=FORCING_MM_D * scale)
 
     recharge = criterion_recharge_of_run(SimpleNamespace(), fields, EDGES)
 
-    assert recharge == pytest.approx(FORCING_MEAN_M_S, rel=1e-9)
+    assert recharge == pytest.approx(scale * FORCING_MEAN_M_S, rel=1e-9)
 
 
-def test_another_window_gives_another_number(tmp_path) -> None:
+def test_another_window_other_number(tmp_path) -> None:
     fields = _store(tmp_path, forcing=FORCING_MM_D)
 
     shifted = criterion_recharge_of_run(SimpleNamespace(), fields, EDGES[1:])
@@ -190,15 +150,7 @@ def test_another_window_gives_another_number(tmp_path) -> None:
     assert shifted != pytest.approx(FORCING_MEAN_M_S, rel=1e-3)
 
 
-def test_other_data_gives_another_number(tmp_path) -> None:
-    fields = _store(tmp_path, forcing=FORCING_MM_D * 0.8)
-
-    recharge = criterion_recharge_of_run(SimpleNamespace(), fields, EDGES)
-
-    assert recharge == pytest.approx(0.8 * FORCING_MEAN_M_S, rel=1e-9)
-
-
-def test_stations_are_averaged_before_the_periods(tmp_path) -> None:
+def test_stations_averaged_before_periods(tmp_path) -> None:
     fields = _store(tmp_path, forcing=FORCING_MM_D)
     with SimulationZarr(fields.path) as writer:
         writer.write_forcing_timeseries(
@@ -214,44 +166,49 @@ def test_stations_are_averaged_before_the_periods(tmp_path) -> None:
     assert recharge == pytest.approx(2.0 * FORCING_MEAN_M_S, rel=1e-9)
 
 
-def test_a_forcing_with_no_dates_to_place_it_on_is_not_a_source(tmp_path) -> None:
+def test_forcing_without_dates_is_no_source(tmp_path) -> None:
     fields = _store(tmp_path, forcing=FORCING_MM_D)
 
     assert criterion_recharge_of_run(SimpleNamespace(), fields, None) is None
 
 
-def test_a_run_without_a_stored_forcing_reads_its_budget(tmp_path) -> None:
-    stamps = pd.DatetimeIndex(["2000-02-01", "2000-03-01", "2000-04-01"])
-    fields = _store(tmp_path, budget=_budget(RATES_M_S), stamps=stamps)
-    model = SimpleNamespace(solver_mesh=MESH)
+# Budget rates per period (m/s), the three or two stamps closing them, the edges, the mean.
+BUDGETS = [
+    pytest.param(
+        RATES_M_S,
+        ["2000-02-01", "2000-03-01", "2000-04-01"],
+        EDGES,
+        FORCING_MEAN_M_S,
+        id="forcing rates",
+    ),
+    pytest.param(
+        np.array([1.0e-8, 1.0e-8, 7.0e-8]),
+        ["2000-02-01", "2000-03-01", "2000-04-01"],
+        EDGES,
+        np.average([1.0e-8, 1.0e-8, 7.0e-8], weights=PERIOD_DAYS),  # each step by its length
+        id="weighted by period length",
+    ),
+    pytest.param(
+        np.array([1.0e-8, 3.0e-8]),
+        ["2000-02-01", "2000-03-01"],
+        None,
+        2.0e-8,  # no dates, each step once
+        id="no dates",
+    ),
+]
 
-    recharge = criterion_recharge_of_run(model, fields, EDGES)
 
-    assert recharge == pytest.approx(FORCING_MEAN_M_S, rel=1e-3)
+@pytest.mark.parametrize(("rates", "stamps", "edges", "mean"), BUDGETS)
+def test_budget_mean(tmp_path, rates, stamps, edges, mean) -> None:
+    fields = _store(tmp_path, budget=_budget(rates), stamps=pd.DatetimeIndex(stamps))
 
+    recharge = criterion_recharge_of_run(SimpleNamespace(solver_mesh=MESH), fields, edges)
 
-def test_the_budget_counts_every_timestep_by_its_length_not_the_last_alone(tmp_path) -> None:
-    rates = np.array([1.0e-8, 1.0e-8, 7.0e-8])
-    stamps = pd.DatetimeIndex(["2000-02-01", "2000-03-01", "2000-04-01"])
-    fields = _store(tmp_path, budget=_budget(rates), stamps=stamps)
-
-    recharge = criterion_recharge_of_run(SimpleNamespace(solver_mesh=MESH), fields, EDGES)
-
-    assert recharge == pytest.approx(np.average(rates, weights=PERIOD_DAYS), rel=1e-3)
+    assert recharge == pytest.approx(mean, rel=1e-3)
     assert recharge != pytest.approx(rates[-1], rel=1e-2)
 
 
-def test_a_budget_without_dates_counts_each_step_once(tmp_path) -> None:
-    rates = np.array([1.0e-8, 3.0e-8])
-    stamps = pd.DatetimeIndex(["2000-02-01", "2000-03-01"])
-    fields = _store(tmp_path, budget=_budget(rates), stamps=stamps)
-
-    recharge = criterion_recharge_of_run(SimpleNamespace(solver_mesh=MESH), fields, None)
-
-    assert recharge == pytest.approx(2.0e-8, rel=1e-3)
-
-
-def test_recharge_split_over_two_layers_scores_the_same_number(tmp_path) -> None:
+def test_layers_do_not_change_budget(tmp_path) -> None:
     rates = np.array([1.0e-8, 3.0e-8])
     stamps = pd.DatetimeIndex(["2000-02-01", "2000-03-01"])
     model = SimpleNamespace(solver_mesh=MESH)
@@ -265,8 +222,27 @@ def test_recharge_split_over_two_layers_scores_the_same_number(tmp_path) -> None
     )
 
 
-def test_a_run_with_no_source_gives_none(tmp_path) -> None:
+def test_no_source_gives_none(tmp_path) -> None:
     fields = _store(tmp_path)
 
     assert criterion_recharge_of_run(SimpleNamespace(), fields, EDGES) is None
     assert criterion_recharge_of_run(SimpleNamespace(solver_mesh=MESH), fields, EDGES) is None
+
+
+DRAW_REFUSALS = [
+    pytest.param("heads", INSIDE_COLUMN_ONE, True, "criterion graph", id="heads rule"),
+    pytest.param(
+        "bresenham",
+        INSIDE_COLUMN_ONE,
+        True,
+        "'crossing' or 'touch', got 'bresenham'",
+        id="unknown rule",
+    ),
+    pytest.param("crossing", INSIDE_COLUMN_ONE, False, "joins cell centers", id="no centres"),
+]
+
+
+@pytest.mark.parametrize(("rule", "line", "centres", "match"), DRAW_REFUSALS)
+def test_draw_refusals(rule, line, centres, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        _draw(rule, line, centres=centres)

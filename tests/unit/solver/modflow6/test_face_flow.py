@@ -1,7 +1,13 @@
-"""The face flows of a MODFLOW 6 run: pairs, sign, period mean and refusal."""
+"""Face flows (m3/s) between connected cells of a MODFLOW 6 run, read from the .cbc file.
+
+Each stamp (kper, kstp) takes the mean of its steps weighted by step length (delt),
+the connection list gives each pair of cells once, and a record that does not
+match the grid is refused.
+"""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -12,22 +18,12 @@ from hydromodpy.solver.modflow6.extractors import face_flow
 from hydromodpy.solver.modflow6.extractors.cbc_reader import CbcRecord
 from hydromodpy.solver.modflow6.extractors.face_flow import extract_face_flows
 
-# A 2x2x2 grid of flat index k * 4 + i * 2 + j, cell 3 inactive: its two
-# connections, (2, 3) and (3, 7), are absent from both rows.
-_IA = np.array([0, 4, 7, 10, 10, 14, 18, 22, 25])
-_JA = np.array([0, 1, 2, 4, 1, 0, 5, 2, 0, 6, 4, 5, 6, 0, 5, 4, 7, 1, 6, 7, 4, 2, 7, 6, 5])
-_CELLS = np.array(
-    [[0, 1], [0, 2], [0, 4], [1, 5], [2, 6], [4, 5], [4, 6], [5, 7], [6, 7]],
-    dtype=np.int32,
-)
-_POSITIONS = np.array([5, 8, 13, 17, 21, 15, 20, 24, 23])
-
-# The 2x2x1 grid of the extraction test, with all four cells active.
-_IA_FLAT = np.array([0, 3, 6, 9, 12])
-_JA_FLAT = np.array([0, 1, 2, 1, 0, 3, 2, 3, 0, 3, 2, 1])
+# A 2x2x1 grid with its four cells active.
+IA = np.array([0, 3, 6, 9, 12])
+JA = np.array([0, 1, 2, 1, 0, 3, 2, 3, 0, 3, 2, 1])
 
 
-class _FakeBudget:
+class FakeBudget:
     def __init__(self, records: list[CbcRecord], payloads: list[np.ndarray]) -> None:
         self.records = tuple(records)
         self._payloads = payloads
@@ -40,8 +36,8 @@ class _FakeBudget:
         self.closed = True
 
 
-class _FakeHandle:
-    def __init__(self, owner: _FakeStore) -> None:
+class FakeHandle:
+    def __init__(self, owner: FakeStore) -> None:
         self._owner = owner
 
     def write_static_field(self, variable: str, values: np.ndarray) -> None:
@@ -51,7 +47,7 @@ class _FakeHandle:
         pass
 
 
-class _FakeStore:
+class FakeStore:
     def __init__(self) -> None:
         self.stacks: dict[str, np.ndarray] = {}
         self.static: dict[str, np.ndarray] = {}
@@ -61,11 +57,11 @@ class _FakeStore:
     ) -> None:
         self.stacks[variable] = np.asarray(values)
 
-    def open_zarr(self, sim_id: str) -> _FakeHandle:
-        return _FakeHandle(self)
+    def open_zarr(self, sim_id: str) -> FakeHandle:
+        return FakeHandle(self)
 
 
-def _record(kstp: int, kper: int, delt: float) -> CbcRecord:
+def step_record(kstp: int, kper: int, delt: float) -> CbcRecord:
     return CbcRecord(
         kstp=kstp,
         kper=kper,
@@ -82,23 +78,26 @@ def _record(kstp: int, kper: int, delt: float) -> CbcRecord:
     )
 
 
-def _prepare(monkeypatch: pytest.MonkeyPatch) -> _FakeBudget:
-    budget = _FakeBudget(
-        [_record(1, 1, 1.0), _record(2, 1, 3.0)],
-        [np.ones(_JA_FLAT.size), np.full(_JA_FLAT.size, 5.0)],
-    )
+STORAGE = replace(step_record(1, 1, 1.0), text="STO-SS", ndim1=4)
+
+# Steps of stamp (2, 1): 1 m3/s for 1 s then 5 m3/s for 3 s, so (1 + 3 * 5) / 4 = 4.
+FLOW_STEPS = [step_record(1, 1, 1.0), step_record(2, 1, 3.0)]
+FLOW_PAYLOADS = [np.ones(JA.size), np.full(JA.size, 5.0)]
+
+BUDGETS = [
+    pytest.param(FLOW_STEPS, FLOW_PAYLOADS, id="flow records only"),
+    pytest.param(
+        [STORAGE, FLOW_STEPS[0], STORAGE, FLOW_STEPS[1]],
+        [np.zeros(4), FLOW_PAYLOADS[0], np.zeros(4), FLOW_PAYLOADS[1]],
+        id="storage records between",
+    ),
+]
+
+
+def extract(monkeypatch: pytest.MonkeyPatch, budget: FakeBudget, store: FakeStore) -> int:
     monkeypatch.setattr(face_flow, "Mf6CellBudgetReader", lambda path: budget)
-    monkeypatch.setattr(face_flow, "grid_connections", lambda solver_dir: (_IA_FLAT, _JA_FLAT, 4))
-    return budget
-
-
-def test_extract_face_flows_weights_the_steps_of_one_stamp(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    budget = _prepare(monkeypatch)
-    store = _FakeStore()
-
-    count = extract_face_flows(
+    monkeypatch.setattr(face_flow, "grid_connections", lambda solver_dir: (IA, JA, 4))
+    return extract_face_flows(
         "sim",
         store,
         Path("sim.cbc"),
@@ -107,6 +106,13 @@ def test_extract_face_flows_weights_the_steps_of_one_stamp(
         seconds_per_time_unit=1.0,
         precision="exact",
     )
+
+
+@pytest.mark.parametrize(("records", "payloads"), BUDGETS)
+def test_stamp_weights_its_steps(monkeypatch, records, payloads) -> None:
+    budget, store = FakeBudget(records, payloads), FakeStore()
+
+    count = extract(monkeypatch, budget, store)
 
     assert count == 4
     assert budget.closed
@@ -117,50 +123,8 @@ def test_extract_face_flows_weights_the_steps_of_one_stamp(
     )
 
 
-def test_extract_face_flows_reads_each_step_at_its_index_in_the_file(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from dataclasses import replace
-
-    storage = replace(_record(1, 1, 1.0), text="STO-SS", ndim1=4)
-    budget = _FakeBudget(
-        [storage, _record(1, 1, 1.0), storage, _record(2, 1, 3.0)],
-        [np.zeros(4), np.ones(_JA_FLAT.size), np.zeros(4), np.full(_JA_FLAT.size, 5.0)],
-    )
-    monkeypatch.setattr(face_flow, "Mf6CellBudgetReader", lambda path: budget)
-    monkeypatch.setattr(face_flow, "grid_connections", lambda solver_dir: (_IA_FLAT, _JA_FLAT, 4))
-    store = _FakeStore()
-
-    extract_face_flows(
-        "sim",
-        store,
-        Path("sim.cbc"),
-        Path("out"),
-        stamps=[(2, 1)],
-        seconds_per_time_unit=1.0,
-        precision="exact",
-    )
-
-    np.testing.assert_allclose(store.stacks["face_flow"], np.full((1, 4), 4.0))
-
-
-def test_extract_face_flows_refuses_a_record_that_does_not_match_the_grid(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    budget = _FakeBudget(
-        [_record(2, 1, 1.0)],
-        [np.ones(_JA_FLAT.size - 1)],
-    )
-    monkeypatch.setattr(face_flow, "Mf6CellBudgetReader", lambda path: budget)
-    monkeypatch.setattr(face_flow, "grid_connections", lambda solver_dir: (_IA_FLAT, _JA_FLAT, 4))
+def test_refuses_record_off_the_grid(monkeypatch) -> None:
+    budget = FakeBudget([step_record(2, 1, 1.0)], [np.ones(JA.size - 1)])
 
     with pytest.raises(ExtractError, match="FLOW-JA-FACE holds 11 values and the binary grid 12"):
-        extract_face_flows(
-            "sim",
-            _FakeStore(),
-            Path("sim.cbc"),
-            Path("out"),
-            stamps=[(2, 1)],
-            seconds_per_time_unit=1.0,
-            precision="exact",
-        )
+        extract(monkeypatch, budget, FakeStore())

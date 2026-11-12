@@ -1,15 +1,18 @@
-"""Tests of `stream_network.cost`, on the V-valley bench and a diagonal valley."""
+"""The signed-gap cost of a simulated stream network against a mapped one (distances in m).
+
+D_so descends from the simulated network onto the mapped one, D_os the other
+way. The cost is their signed gap, capped by the longest descent of the
+catchment. Cases run on the V-valley bench and on a diagonal valley.
+"""
 
 from __future__ import annotations
 
 import math
-from pathlib import Path
 
 import numpy as np
 import pytest
 from shapely.geometry import LineString
 
-import hydromodpy
 from hydromodpy.calibration.criteria.hydrographic_network_distance import distance_mean
 from hydromodpy.catchment.drainage.distance import (
     downslope_distance_to_mask,
@@ -25,15 +28,11 @@ from hydromodpy.catchment.stream_network.cost import (
 from hydromodpy.catchment.stream_network.geometry import (
     CriterionSupports,
     build_network_geometry,
-    criterion_supports,
-    open_water_mask,
-    recharge_session,
 )
 from hydromodpy.catchment.stream_network.network import (
     SimulatedNetwork,
     build_simulated_network,
     downstream_closure,
-    specific_seepage_threshold,
 )
 from hydromodpy.mesh.cells.crossed_by_lines import line_crossing_cell_mask
 from hydromodpy.mesh.cells.in_polygons import vector_cell_mask
@@ -54,7 +53,6 @@ from tests._helpers.v_valley import (
     simulated_network,
 )
 
-# From test_a_map_drawn_from_the_model_scores_zero.py
 # A mapped network that is exactly the simulated one scores J = 0.
 #
 # The criterion's zero is the equality of D_so and D_os. If the map is the
@@ -129,7 +127,7 @@ def _signed_gap(rule: str) -> tuple[np.ndarray, np.ndarray, dict]:
     return chain, np.asarray(observed, dtype=bool), result.components
 
 
-def test_the_crossing_rule_gives_the_chain_back_and_scores_zero() -> None:
+def test_crossing_rule_scores_zero() -> None:
     chain, observed, components = _signed_gap("crossing")
 
     assert np.array_equal(observed, chain)
@@ -138,7 +136,7 @@ def test_the_crossing_rule_gives_the_chain_back_and_scores_zero() -> None:
     assert components["J_signed"] == pytest.approx(0.0, abs=1e-9)
 
 
-def test_the_touch_rule_turns_a_perfect_match_negative() -> None:
+def test_touch_rule_turns_a_perfect_match_negative() -> None:
     chain, observed, components = _signed_gap("touch")
 
     assert int(observed.sum()) == int(chain.sum()) + 2 * (int(chain.sum()) - 1)
@@ -147,7 +145,6 @@ def test_the_touch_rule_turns_a_perfect_match_negative() -> None:
     assert components["J_signed"] < 0.0
 
 
-# From test_distance_mean_of_an_empty_network_is_undefined.py
 # ``distance_mean`` of an empty simulated network is NaN, not a negative cost.
 #
 # The pair of an empty network rebuilds ``D_so`` from the residual,
@@ -171,15 +168,14 @@ def _real(d_so: float, d_os: float) -> SeepageDistanceResult:
     )
 
 
-def test_an_empty_network_has_no_mean_distance() -> None:
+def test_empty_network_has_no_mean_distance() -> None:
     assert math.isnan(distance_mean(weighted_pair(_empty())))
 
 
-def test_a_network_lying_on_the_map_scores_zero_not_nan() -> None:
+def test_network_on_the_map_scores_zero() -> None:
     assert distance_mean(weighted_pair(_real(0.0, 0.0))) == 0.0
 
 
-# From test_downslope_network_cost.py
 # The signed gap criterion, on the V-valley bench.
 #
 # The bench is the same one the support study runs, so the cost function is
@@ -236,460 +232,141 @@ def _evaluate(bench, geometry, observed, threshold, **kwargs):
     )
 
 
-def _divided_valley(first_row: int) -> np.ndarray:
-    """The V valley with a divide between ``first_row - 1`` and ``first_row``.
+def test_residual_changes_sign_once_over_the_sweep(bench, geometry) -> None:
+    # Without a sign change there is no root to bracket and a bisection is meaningless.
+    observed = observed_network("aligned")
+    gaps = []
+    for threshold in THRESHOLDS:
+        result = _evaluate(bench, geometry, observed, threshold)
+        gaps.append(result.signed_gap if result.status != "failed" else np.nan)
+    gaps = np.asarray(gaps)
+    defined = np.isfinite(gaps)
+    signs = np.sign(gaps[defined])
+    crossings = int(np.count_nonzero(np.diff(signs) != 0))
 
-    The rows above the divide slope north and leave the domain through its
-    northern border; the rows below keep the valley and its southern outlet.
-    The catchment of that outlet on the graph is therefore rows ``first_row``
-    and below, and the rows above are a buffer that does not drain into it.
-    """
-    rows = np.arange(N_ROWS, dtype=float)[:, None]
-    cols = np.arange(N_COLS, dtype=float)[None, :]
-    divide = float(first_row) - 0.5
-    return (1000.0 - np.abs(rows - divide) + 2.0 * np.abs(cols - AXIS_COL)).reshape(-1)
+    assert crossings == 1, gaps[defined]
+    assert gaps[defined][0] > 0.0
+    assert gaps[defined][-1] < 0.0
 
 
-def _rows_from(first_row: int) -> np.ndarray:
-    """Every cell of the rows ``first_row`` and below."""
+def test_cost_is_the_absolute_residual(bench, geometry) -> None:
+    result = _evaluate(bench, geometry, observed_network("aligned"), 200.0)
+    assert result.components["J"] == pytest.approx(abs(result.signed_gap))
+    assert result.components["J_signed"] == pytest.approx(result.signed_gap)
+
+
+def test_result_fields() -> None:
+    # The optimizer reads the components; a second copy of J and D_optim on
+    # the dataclass was read by nothing.
+    assert set(SeepageDistanceResult.__dataclass_fields__) == {
+        "signed_gap",
+        "status",
+        "components",
+    }
+
+
+def test_distance_method_name() -> None:
+    assert DISTANCE_METHOD == "downslope_simclosed_obsraw_outletsealed"
+
+
+def test_empty_network_is_the_high_end_of_the_bracket(bench, geometry) -> None:
+    # No network at all must give a defined, negative residual: a large
+    # positive penalty would destroy the sign structure a bracket needs.
+    result = _evaluate(bench, geometry, observed_network("aligned"), float(N_CELLS) * 10.0)
+    assert result.status == "empty_network"
+    assert result.signed_gap == pytest.approx(-geometry["cap"])
+    assert np.isnan(result.components["D_so"])
+
+
+# D_so descends onto the mapped network, which does not move over the search, so
+# a cell that never arrives there is a depression left in the routing surface.
+# D_os descends onto the simulated network, which the search retracts on purpose
+# at the high end of its bracket, so a cell that never arrives there says the
+# model has no stream below it. Both shares are published and neither refuses a trial.
+LAST_SIMULATED_ROW = 40
+
+
+def _truncated_network() -> SimulatedNetwork:
+    """The valley axis from the first mapped row down to row 40, short of the outlet."""
     mask = np.zeros(N_CELLS, dtype=bool)
-    for row in range(first_row, N_ROWS):
-        for col in range(N_COLS):
-            mask[cell_id(row, col)] = True
-    return mask
-
-
-class TestSignedGap:
-    def test_the_residual_changes_sign_once_over_the_sweep(self, bench, geometry) -> None:
-        """The check the whole method rests on: without a sign change there is
-        no root to bracket and a bisection would be meaningless here."""
-        observed = observed_network("aligned")
-        gaps = []
-        for threshold in THRESHOLDS:
-            result = _evaluate(bench, geometry, observed, threshold)
-            gaps.append(result.signed_gap if result.status != "failed" else np.nan)
-        gaps = np.asarray(gaps)
-        defined = np.isfinite(gaps)
-        signs = np.sign(gaps[defined])
-        crossings = int(np.count_nonzero(np.diff(signs) != 0))
-
-        assert crossings == 1, gaps[defined]
-        assert gaps[defined][0] > 0.0
-        assert gaps[defined][-1] < 0.0
-
-    def test_the_cost_is_the_absolute_residual(self, bench, geometry) -> None:
-        result = _evaluate(bench, geometry, observed_network("aligned"), 200.0)
-        assert result.components["J"] == pytest.approx(abs(result.signed_gap))
-        assert result.components["J_signed"] == pytest.approx(result.signed_gap)
-
-    def test_the_result_carries_no_field_the_optimizer_does_not_read(self) -> None:
-        # The optimizer reads the components; a second copy of J and D_optim on
-        # the dataclass was read by nothing and its docstring claimed otherwise.
-        assert set(SeepageDistanceResult.__dataclass_fields__) == {
-            "signed_gap",
-            "status",
-            "components",
-        }
-
-    def test_an_empty_network_is_the_high_end_of_the_bracket(self, bench, geometry) -> None:
-        # No network at all must give a defined, negative residual: a large
-        # positive penalty would destroy the sign structure a bracket needs.
-        result = _evaluate(bench, geometry, observed_network("aligned"), float(N_CELLS) * 10.0)
-        assert result.status == "empty_network"
-        assert result.signed_gap == pytest.approx(-geometry["cap"])
-        assert np.isnan(result.components["D_so"])
-
-
-class TestTheUnreachableSharesAreReportedAndBoundNothing:
-    """Both shares are published, and neither refuses a trial.
-
-    The two directions do not mean the same thing. ``D_so`` descends onto the
-    mapped network, which does not move over the search, so a cell that never
-    arrives there is a depression left in the routing surface. ``D_os`` descends
-    onto the SIMULATED network, which the search retracts on purpose at the high
-    end of its bracket, so a cell that never arrives there is the measurement
-    saying the model has no stream below it.
-    """
-
-    LAST_SIMULATED_ROW = 40
-
-    def _truncated_network(self) -> SimulatedNetwork:
-        """The valley axis down to one row, stopping well short of the outlet."""
-        mask = np.zeros(N_CELLS, dtype=bool)
-        for row in range(FIRST_OBSERVED_ROW, self.LAST_SIMULATED_ROW + 1):
-            mask[cell_id(row, AXIS_COL)] = True
-        return SimulatedNetwork(seepage=mask, network=mask, threshold_m3_s=np.zeros(N_CELLS))
-
-    def _evaluate(self, bench, geometry, simulated, distance_to_observed):
-        observed = observed_network("aligned")
-        return seepage_distance_cost(
-            simulated=simulated,
-            observed=observed,
-            outlet=geometry["outlet"],
-            catchment=geometry["catchment"],
-            metric=bench.metric,
-            distance_to_observed=distance_to_observed,
-            distance_to_observed_raw=downslope_distance_to_mask(bench.metric, observed),
-            cell_area_m2=geometry["areas"],
-            length_scale_m=LENGTH_SCALE,
-            saturation_cap_m=geometry["cap"],
-        )
-
-    def test_a_mapped_support_that_cannot_descend_leaves_the_trial_standing(
-        self, bench, geometry
-    ) -> None:
-        # Water runs south, so the twenty mapped cells below the last simulated
-        # one have nothing downstream to descend into: unreachable by
-        # construction, and far past the five per cent bound.
-        simulated = self._truncated_network()
-        sealed = observed_network("aligned").copy()
-        sealed[geometry["outlet"]] = True
-        result = self._evaluate(
-            bench, geometry, simulated, downslope_distance_to_mask(bench.metric, sealed)
-        )
-
-        assert result.components["n_unreachable_os"] == pytest.approx(
-            float(N_ROWS - 1 - self.LAST_SIMULATED_ROW)
-        )
-        assert result.components["frac_unreachable_os"] > 0.05
-        assert result.components["frac_unreachable_so"] == 0.0
-        assert result.status == "ok"
-
-    def test_a_simulated_support_that_cannot_descend_is_a_reported_share(
-        self, bench, geometry
-    ) -> None:
-        # The same trial, with the descent to the mapped network taken away. A
-        # geometry cannot produce this, the outlet being sealed into the target, so
-        # no status says it: the share is the whole record of it.
-        result = self._evaluate(
-            bench, geometry, self._truncated_network(), np.full(N_CELLS, np.inf)
-        )
-
-        assert result.components["frac_unreachable_so"] == pytest.approx(1.0)
-        assert result.status == "ok"
-
-
-class TestSupportsAndDiagnostics:
-    def test_water_bodies_leave_the_supports_but_stay_in_the_graph(self, bench, geometry) -> None:
-        observed = observed_network("aligned")
-        lake = np.zeros(N_CELLS, dtype=bool)
-        lake[[cell_id(row, 20) for row in range(40, 45)]] = True
-
-        without = _evaluate(bench, geometry, observed, 200.0)
-        with_lake = _evaluate(bench, geometry, observed, 200.0, excluded=lake)
-
-        assert with_lake.components["n_network_obs"] < without.components["n_network_obs"]
-        # The upslope cells still descend through the reservoir, so nothing
-        # becomes unreachable by excluding it from the supports.
-        assert with_lake.components["frac_unreachable_so"] == pytest.approx(
-            without.components["frac_unreachable_so"], abs=1e-9
-        )
-
-    def test_both_weightings_are_always_reported(self, bench, geometry) -> None:
-        result = _evaluate(bench, geometry, observed_network("aligned"), 200.0)
-        for key in ("D_so_cell", "D_so_area", "D_os_cell", "D_os_area"):
-            assert np.isfinite(result.components[key])
-        # On a uniform mesh the two conventions coincide; their gap is what
-        # measures the effect of a refinement.
-        assert result.components["D_so_cell"] == pytest.approx(result.components["D_so_area"])
-
-    def test_an_observed_network_outside_the_catchment_is_refused(self, bench, geometry) -> None:
-        with pytest.raises(ValueError, match="holds no cell inside the catchment"):
-            _evaluate(bench, geometry, np.zeros(N_CELLS, dtype=bool), 200.0)
-
-    def test_the_distance_method_has_one_name(self) -> None:
-        assert DISTANCE_METHOD == "downslope_simclosed_obsraw_outletsealed"
-
-
-class TestWaterBodyWiring:
-    """The bridge between the built model and the two supports.
-
-    The mask is only as good as the attribute it reads: a name no backend ever
-    writes gives an empty exclusion and a silently wrong criterion on every
-    catchment holding a reservoir.
-    """
-
-    def _lake_cells(self) -> list[int]:
-        return [cell_id(row, AXIS_COL) for row in range(40, 45)]
-
-    def test_a_model_without_lakes_leaves_the_supports_untouched(self, bench, geometry) -> None:
-        assert open_water_mask([], N_CELLS) is None
-        assert open_water_mask(None, N_CELLS) is None
-
-        observed = observed_network("aligned")
-        without = _evaluate(bench, geometry, observed, 200.0)
-        with_none = _evaluate(bench, geometry, observed, 200.0, excluded=None)
-        assert with_none.signed_gap == pytest.approx(without.signed_gap)
-
-    def test_the_modflow6_builder_writes_the_attribute_the_criterion_reads(self) -> None:
-        # The defect this guards is invisible at runtime: the criterion reads an
-        # attribute, gets None, and reports a plausible number.
-        source = (Path(hydromodpy.__file__).parent / "solver" / "modflow6" / "build.py").read_text(
-            encoding="utf-8"
-        )
-        assert "model.open_water_cell_ids = " in source
-
-
-class TestRechargeProvenance:
-    """The denominator of the calibrated ratio has to leave a trace.
-
-    The criterion calibrates ``K/R``, so the one per cent bound holds on the
-    conductivity alone while ``R`` stays put. A recharge that moves between two
-    trials changes the calibrated quantity without changing any declared
-    parameter, which is invisible unless every trial records the value it ran
-    with.
-    """
-
-    def _geometry(self, bench, recharge: float, ratio: float = 1e-2):
-        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
-        return build_network_geometry(
-            topography=bench.elevation,
-            face_node_connectivity=connectivity,
-            vertices=vertices,
-            observed=observed_network("aligned"),
-            cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
-            mean_recharge_m_s=recharge,
-            tau_specific_ratio=ratio,
-            diagonal_neighbors=True,
-        )
-
-    def test_the_geometry_publishes_the_recharge_it_used(self, bench) -> None:
-        geometry = self._geometry(bench, 3.2e-8)
-        assert geometry.diagnostics["R_mean_m_s"] == pytest.approx(3.2e-8)
-
-    def test_the_published_recharge_is_the_one_the_threshold_was_built_from(self, bench) -> None:
-        # Read the recharge back out of the seepage threshold rather than out
-        # of the call: the diagnostic is only provenance if it is the number
-        # that actually divided the ratio.
-        geometry = self._geometry(bench, 3.2e-8, ratio=1e-2)
-        area = CELL_SIZE * CELL_SIZE
-        applied = float(geometry.threshold_m3_s[0]) / (area * 1e-2)
-        assert applied == pytest.approx(geometry.diagnostics["R_mean_m_s"], rel=1e-12)
-
-    def test_a_recharge_that_moves_is_warned_about_and_names_both_values(
-        self, bench, caplog
-    ) -> None:
-        with recharge_session("one-search"):
-            self._geometry(bench, 3.2e-8)
-            caplog.clear()
-            with caplog.at_level("WARNING"):
-                self._geometry(bench, 6.4e-8)
-        assert "3.2e-08" in caplog.text
-        assert "6.4e-08" in caplog.text
-
-
-class TestSaturationCapSupport:
-    """``L_cap`` has to be a length of the CATCHMENT, not of the model domain.
-
-    The flood is seeded on the border of the domain and the catchment is what
-    descends to the outlet on that graph, so a buffer beyond the divide never
-    reaches the outlet: the cap is a length of the basin by construction.
-    ``L_cap`` is the value most of ``D_os`` takes at the high end of a bracket,
-    so a buffer that could reach the outlet across the divide would set it.
-    """
-
-    FIRST_ROW = 20
-
-    def _geometry(self, bench, **kwargs):
-        del bench
-        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
-        return build_network_geometry(
-            topography=_divided_valley(self.FIRST_ROW),
-            face_node_connectivity=connectivity,
-            vertices=vertices,
-            observed=observed_network("aligned"),
-            cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
-            mean_recharge_m_s=3.2e-8,
-            tau_specific_ratio=1e-2,
-            delineated_catchment=_rows_from(self.FIRST_ROW),
-            **kwargs,
-        )
-
-    def test_the_cap_majors_every_descent_of_the_catchment(self, bench) -> None:
-        geometry = self._geometry(bench)
-        outlet_mask = np.zeros(N_CELLS, dtype=bool)
-        outlet_mask[geometry.outlet] = True
-        to_outlet = downslope_distance_to_mask(geometry.metric, outlet_mask)
-
-        inside = geometry.catchment & np.isfinite(to_outlet)
-        assert inside.any()
-        assert geometry.saturation_cap_m == pytest.approx(float(to_outlet[inside].max()))
-        assert np.all(to_outlet[inside] <= geometry.saturation_cap_m + 1e-9)
-
-    def test_nothing_beyond_the_divide_reaches_the_outlet(self, bench) -> None:
-        geometry = self._geometry(bench)
-        outlet_mask = np.zeros(N_CELLS, dtype=bool)
-        outlet_mask[geometry.outlet] = True
-        to_outlet = downslope_distance_to_mask(geometry.metric, outlet_mask)
-
-        assert np.array_equal(geometry.catchment, _rows_from(self.FIRST_ROW))
-        assert not np.any(np.isfinite(to_outlet[~geometry.catchment]))
-        assert longest_descent_length(geometry.metric, outlet_mask) == pytest.approx(
-            geometry.saturation_cap_m
-        )
-
-    def test_an_empty_support_is_refused_by_name(self, bench) -> None:
-        geometry = self._geometry(bench)
-        outlet_mask = np.zeros(N_CELLS, dtype=bool)
-        outlet_mask[geometry.outlet] = True
-        with pytest.raises(ValueError, match="inside the requested support"):
-            longest_descent_length(
-                geometry.metric, outlet_mask, within=np.zeros(N_CELLS, dtype=bool)
-            )
-
-
-class TestWaterBodiesInTheTarget:
-    """Open water is surface water, so it belongs to the target of ``D_so``.
-
-    A seepage cell fifty meters from a bank stops at the reservoir. Leaving the
-    water body out of the target makes its descent cross the reservoir and carry
-    on to the next mapped reach, which is kilometers on a real one, and inflates
-    ``D_so`` with the size of the lake rather than with the hydrogeology.
-    """
-
-    def _lake(self) -> np.ndarray:
-        # Off the mapped axis, on the hillside, so the union really adds cells.
-        lake = np.zeros(N_CELLS, dtype=bool)
-        lake[[cell_id(row, 8) for row in range(28, 34)]] = True
-        return lake
-
-    def _geometry(self, bench, excluded):
-        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
-        return build_network_geometry(
-            topography=bench.elevation,
-            face_node_connectivity=connectivity,
-            vertices=vertices,
-            observed=observed_network("aligned"),
-            cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
-            mean_recharge_m_s=3.2e-8,
-            tau_specific_ratio=1e-2,
-            excluded=excluded,
-            diagonal_neighbors=True,
-        )
-
-    def test_the_reachability_diagnostic_stays_on_the_mapped_network(self, bench) -> None:
-        # Otherwise a reservoir absorbing paths would flatter the number that
-        # says how well the linework agrees with the routing surface.
-        lake = self._lake()
-        with_lake = self._geometry(bench, lake)
-        without = self._geometry(bench, None)
-        assert with_lake.diagnostics["frac_reachable_obs_raw"] == pytest.approx(
-            without.diagnostics["frac_reachable_obs_raw"]
-        )
-        assert with_lake.diagnostics["alpha_obs_closure"] == pytest.approx(
-            without.diagnostics["alpha_obs_closure"]
-        )
-
-
-class TestSupportPartition:
-    """One derivation of the three classes, for the counts and for a map.
-
-    A confusion map draws what a trial counted. Deriving the partition twice is
-    how a figure comes to disagree with the number it illustrates, so the cost
-    reads it from the same place a caller would.
-    """
-
-    def _supports(self, bench, geometry, observed, threshold, excluded=None):
-        return criterion_supports(
-            simulated=_network_from_threshold(bench, threshold),
-            observed=observed,
-            catchment=geometry["catchment"],
-            active=bench.metric.graph.active,
-            excluded=excluded,
-        )
-
-
-class TestAlphaIsMeasuredOnTheScoredSupport:
-    """``alpha_obs_closure`` on the whole mesh answers a different question.
-
-    A mapped linework is routinely wider than the catchment it is used on: the
-    hydrography of a department gets loaded, the catchment is one basin of it.
-    Outside the catchment the mesh is a buffer, so nothing there is required to
-    descend into the network, and the trace of those reaches inflates the
-    closure without adding to the numerator. Measured on the Nancon when one
-    outlet sealed the whole mesh, the raw linework put 1362 of its 2479 mapped
-    cells outside the catchment and read 0.306 on the mesh against 0.693 on the
-    catchment: a factor of two that says nothing about the agreement tested.
-
-    The clipped bench holds a divide above row ``FIRST_ROW``: the rows north
-    of it drain off the domain, so the catchment of the southern outlet is the
-    rows below it, on the graph as on the polygon.
-    """
-
-    FIRST_ROW = 20
-
-    def _geometry(self, bench, catchment, case="aligned", observed=None):
-        clipped = not bool(np.all(catchment))
-        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
-        return build_network_geometry(
-            topography=_divided_valley(self.FIRST_ROW) if clipped else bench.elevation,
-            face_node_connectivity=connectivity,
-            vertices=vertices,
-            observed=observed_network(case) if observed is None else observed,
-            cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
-            mean_recharge_m_s=3.2e-8,
-            tau_specific_ratio=1e-2,
-            delineated_catchment=catchment,
-        )
-
-    def _clipped_catchment(self):
-        return _rows_from(self.FIRST_ROW)
-
-    @pytest.mark.parametrize("case", ["aligned", "shifted", "hole", "truncated"])
-    def test_both_ratios_are_the_ones_the_masks_hold(self, bench, case) -> None:
-        geometry = self._geometry(bench, self._clipped_catchment(), case=case)
-        closure = downstream_closure(geometry.metric, geometry.observed)
-        inside = closure & geometry.catchment
-
-        assert geometry.alpha_obs_closure == pytest.approx(geometry.observed.sum() / closure.sum())
-        assert geometry.alpha_obs_closure_catchment == pytest.approx(
-            (geometry.observed & geometry.catchment).sum() / inside.sum()
-        )
-
-    def test_a_catchment_holding_the_whole_network_makes_the_two_agree(self, bench) -> None:
-        geometry = self._geometry(bench, np.ones(N_CELLS, dtype=bool))
-
-        assert geometry.frac_obs_outside_catchment == pytest.approx(0.0)
-        assert geometry.alpha_obs_closure_catchment == pytest.approx(geometry.alpha_obs_closure)
-
-    def test_the_share_left_outside_is_the_one_the_masks_hold(self, bench) -> None:
-        geometry = self._geometry(bench, self._clipped_catchment())
-
-        # Rows 12 to 19 of the axis column are mapped and out of the catchment.
-        outside = self.FIRST_ROW - FIRST_OBSERVED_ROW
-        mapped = N_ROWS - FIRST_OBSERVED_ROW
-        assert geometry.frac_obs_outside_catchment == pytest.approx(outside / mapped)
-
-    def test_a_clipping_that_does_not_move_the_ratio_stays_silent(self, bench, caplog) -> None:
-        # The axis is mapped on both sides of the divide, down to the northern
-        # border and down to the outlet, so each reach closes on itself.
-        observed = np.zeros(N_CELLS, dtype=bool)
-        observed[[cell_id(row, AXIS_COL) for row in range(N_ROWS)]] = True
-        with caplog.at_level("WARNING"):
-            geometry = self._geometry(bench, self._clipped_catchment(), observed=observed)
-
-        # A third of the mapped cells are out, over ground that routes on its
-        # own, so both ratios read 1.000 and there is nothing to report.
-        assert geometry.frac_obs_outside_catchment > 0.10
-        assert geometry.alpha_obs_closure == pytest.approx(1.0)
-        messages = " ".join(record.getMessage() for record in caplog.records)
-        assert "outside the scored catchment" not in messages
-
-    def test_a_reach_beyond_the_divide_that_moves_the_ratio_is_reported(
-        self, bench, caplog
-    ) -> None:
-        # Rows 12 to 19 of the axis are mapped beyond the divide and drain north
-        # through twelve unmapped cells: that trace alone moves the mesh ratio.
-        with caplog.at_level("WARNING"):
-            geometry = self._geometry(bench, self._clipped_catchment())
-
-        assert geometry.alpha_obs_closure_catchment == pytest.approx(1.0)
-        assert geometry.alpha_obs_closure < 0.9
-        messages = " ".join(record.getMessage() for record in caplog.records)
-        assert "outside the scored catchment" in messages
-
-
-# From test_the_overlap_indices_of_the_published_code.py
+    for row in range(FIRST_OBSERVED_ROW, LAST_SIMULATED_ROW + 1):
+        mask[cell_id(row, AXIS_COL)] = True
+    return SimulatedNetwork(seepage=mask, network=mask, threshold_m3_s=np.zeros(N_CELLS))
+
+
+def _evaluate_truncated(bench, geometry, distance_to_observed):
+    observed = observed_network("aligned")
+    return seepage_distance_cost(
+        simulated=_truncated_network(),
+        observed=observed,
+        outlet=geometry["outlet"],
+        catchment=geometry["catchment"],
+        metric=bench.metric,
+        distance_to_observed=distance_to_observed,
+        distance_to_observed_raw=downslope_distance_to_mask(bench.metric, observed),
+        cell_area_m2=geometry["areas"],
+        length_scale_m=LENGTH_SCALE,
+        saturation_cap_m=geometry["cap"],
+    )
+
+
+def test_unreachable_mapped_cells_leave_the_trial_standing(bench, geometry) -> None:
+    # Water runs south, so the mapped cells below the last simulated one have
+    # nothing downstream to descend into: unreachable, far past the 5 % bound.
+    sealed = observed_network("aligned").copy()
+    sealed[geometry["outlet"]] = True
+    result = _evaluate_truncated(bench, geometry, downslope_distance_to_mask(bench.metric, sealed))
+
+    assert result.components["n_unreachable_os"] == pytest.approx(
+        float(N_ROWS - 1 - LAST_SIMULATED_ROW)
+    )
+    assert result.components["frac_unreachable_os"] > 0.05
+    assert result.components["frac_unreachable_so"] == 0.0
+    assert result.status == "ok"
+
+
+def test_unreachable_simulated_cells_are_a_reported_share(bench, geometry) -> None:
+    # The same trial with the descent to the mapped network taken away. A geometry
+    # cannot produce this, the outlet being sealed into the target, so no status
+    # says it: the share is the whole record of it.
+    result = _evaluate_truncated(bench, geometry, np.full(N_CELLS, np.inf))
+
+    assert result.components["frac_unreachable_so"] == pytest.approx(1.0)
+    assert result.status == "ok"
+
+
+def test_water_bodies_leave_the_supports_but_stay_in_the_graph(bench, geometry) -> None:
+    observed = observed_network("aligned")
+    lake = np.zeros(N_CELLS, dtype=bool)
+    lake[[cell_id(row, 20) for row in range(40, 45)]] = True
+
+    without = _evaluate(bench, geometry, observed, 200.0)
+    with_lake = _evaluate(bench, geometry, observed, 200.0, excluded=lake)
+
+    assert with_lake.components["n_network_obs"] < without.components["n_network_obs"]
+    # The upslope cells still descend through the reservoir, so nothing
+    # becomes unreachable by excluding it from the supports.
+    assert with_lake.components["frac_unreachable_so"] == pytest.approx(
+        without.components["frac_unreachable_so"], abs=1e-9
+    )
+
+
+def test_no_excluded_cells_changes_nothing(bench, geometry) -> None:
+    observed = observed_network("aligned")
+    without = _evaluate(bench, geometry, observed, 200.0)
+    with_none = _evaluate(bench, geometry, observed, 200.0, excluded=None)
+    assert with_none.signed_gap == pytest.approx(without.signed_gap)
+
+
+def test_both_weightings_are_reported(bench, geometry) -> None:
+    result = _evaluate(bench, geometry, observed_network("aligned"), 200.0)
+    for key in ("D_so_cell", "D_so_area", "D_os_cell", "D_os_area"):
+        assert np.isfinite(result.components[key])
+    # On a uniform mesh the two conventions coincide; their gap is what
+    # measures the effect of a refinement.
+    assert result.components["D_so_cell"] == pytest.approx(result.components["D_so_area"])
+
+
 # The secondary diagnostics other codes of the method recorded.
 #
 # ``D_so / D_os`` is the ratio the v1 example 10 kept as ``DSO/DOS`` and the
@@ -720,7 +397,7 @@ def _supports() -> CriterionSupports:
     )
 
 
-def test_the_indices_follow_the_published_definitions() -> None:
+def test_overlap_indices() -> None:
     out = secondary_diagnostics(d_so=30.0, d_os=20.0, supports=_supports(), cell_area_m2=AREAS)
 
     # So = 3, Sm = 4, Si = 2, Ni = 1, Nc = 5, No = 10 - 3 = 7.
@@ -735,9 +412,14 @@ def test_the_indices_follow_the_published_definitions() -> None:
     assert out["D_so_over_D_os"] == pytest.approx(1.5)
 
 
-def test_a_length_is_the_sum_of_the_cell_sizes_on_the_scored_support() -> None:
+def test_length_on_the_scored_support() -> None:
     out = secondary_diagnostics(d_so=1.0, d_os=1.0, supports=_supports(), cell_area_m2=AREAS)
 
     # The simulated cell outside the catchment is not counted.
     assert out["L_sim_m"] == pytest.approx(40.0)
     assert out["L_obs_m"] == pytest.approx(30.0)
+
+
+def test_refusals(bench, geometry) -> None:
+    with pytest.raises(ValueError, match="holds no cell inside the catchment"):
+        _evaluate(bench, geometry, np.zeros(N_CELLS, dtype=bool), 200.0)

@@ -163,15 +163,13 @@ CONTROLS = [
 
 
 @pytest.mark.parametrize(("lang", "facts", "expected"), CONTROLS)
-def test_a_control_has_three_states(
-    tmp_path: Path, lang: str, facts: dict[str, Any], expected: str
-) -> None:
+def test_control_sentences(tmp_path: Path, lang: str, facts: dict[str, Any], expected: str) -> None:
     checks = make_checks(**facts)
     quality = _paragraphs(tmp_path, lang, checks=checks)[3]
     assert expected in quality
 
 
-def test_a_fatal_failure_says_so_and_the_label_is_failed(tmp_path: Path) -> None:
+def test_fatal_failure(tmp_path: Path) -> None:
     checks = make_checks(
         validities=[Validity("water_budget", False, 40.0, "the budget is off", True)]
     )
@@ -182,7 +180,7 @@ def test_a_fatal_failure_says_so_and_the_label_is_failed(tmp_path: Path) -> None
     assert "The failure of water_budget is fatal" in quality
 
 
-def test_a_known_issue_is_written_with_its_fix_and_its_text(tmp_path: Path) -> None:
+def test_known_issue(tmp_path: Path) -> None:
     identity = make_identity(hydromodpy_version="2.0.0a0")
     limits = _paragraphs(tmp_path, "en", identity=identity)[4]
     assert limits.startswith("Known issue ")
@@ -218,7 +216,7 @@ LICENCES = [
 
 
 @pytest.mark.parametrize(("lang", "licence", "expected"), LICENCES)
-def test_an_input_without_a_licence_is_said_to_have_none(
+def test_input_licence_sentence(
     tmp_path: Path, lang: str, licence: str | None, expected: str
 ) -> None:
     entry = InputEntry(
@@ -244,13 +242,11 @@ RUNS = [
 
 
 @pytest.mark.parametrize(("overrides", "expected"), RUNS)
-def test_the_run_paragraph_follows_the_mesh_and_the_period(
-    tmp_path: Path, overrides: dict[str, Any], expected: str
-) -> None:
+def test_run_paragraph(tmp_path: Path, overrides: dict[str, Any], expected: str) -> None:
     assert expected in _paragraphs(tmp_path, "en", **overrides)[0]
 
 
-def test_a_mesh_with_no_cells_is_left_out(tmp_path: Path) -> None:
+def test_mesh_without_cells(tmp_path: Path) -> None:
     run = _paragraphs(tmp_path, "en", geometry=_geometry())[0]
     assert "mesh" not in run
 
@@ -277,14 +273,14 @@ STOPS = [
 
 
 @pytest.mark.parametrize(("state", "rule", "expected"), STOPS)
-def test_the_search_says_why_it_stopped(
+def test_why_the_search_stopped(
     tmp_path: Path, state: str | None, rule: str | None, expected: str
 ) -> None:
     checks = make_checks(calibrated_by=_by(stop_state=state, stopping_rule=rule))
     assert expected in _paragraphs(tmp_path, "en", checks=checks)[2]
 
 
-def test_a_search_with_no_name_phase_cost_rule_or_period_keeps_to_what_it_has(
+def test_sparse_search(
     tmp_path: Path,
 ) -> None:
     by = make_calibrated_by(
@@ -300,7 +296,7 @@ def test_a_search_with_no_name_phase_cost_rule_or_period_keeps_to_what_it_has(
         assert absent not in calibration
 
 
-def test_a_bound_is_said_and_the_search_roles_have_their_words(tmp_path: Path) -> None:
+def test_bounds_and_period_roles(tmp_path: Path) -> None:
     windows = {
         "a": CALIBRATION,
         "b": VALIDATION,
@@ -321,7 +317,7 @@ def test_a_bound_is_said_and_the_search_roles_have_their_words(tmp_path: Path) -
     )
 
 
-def test_a_run_no_session_promoted_keeps_its_declared_parameters(tmp_path: Path) -> None:
+def test_run_without_session(tmp_path: Path) -> None:
     checks = make_checks(calibrated_by=None)
     calibration = _paragraphs(tmp_path, "en", checks=checks)[2]
     assert calibration.startswith(
@@ -341,20 +337,16 @@ SCORES = [
 
 
 @pytest.mark.parametrize(("overrides", "expected"), SCORES)
-def test_a_score_that_is_missing_or_empty_is_said(
-    tmp_path: Path, overrides: dict[str, Any], expected: str
-) -> None:
+def test_missing_or_empty_score(tmp_path: Path, overrides: dict[str, Any], expected: str) -> None:
     assert expected in _paragraphs(tmp_path, "en", **overrides)[2]
 
 
-def test_a_directory_without_a_seal_is_refused(tmp_path: Path) -> None:
+def test_directory_without_seal(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         method_text(tmp_path)
 
 
-def test_every_sentence_of_the_file_is_written_by_some_run(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_every_sentence_is_used(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     used: set[str] = set()
     real = method.phrase
 

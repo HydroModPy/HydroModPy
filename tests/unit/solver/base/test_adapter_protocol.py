@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import importlib
 from typing import Any, ClassVar
 
+import pytest
 from pydantic import BaseModel
 
 from hydromodpy.results.field_registry import FACE_FLOW, FIELD_REGISTRY, all_zarr_paths
@@ -26,26 +28,49 @@ def _members(protocol: object) -> tuple[str, ...]:
     )
 
 
-def test_the_port_has_the_five_members_the_runner_calls() -> None:
+def test_solver_adapter_members() -> None:
     assert _members(SolverAdapter) == ("validate", "build", "run", "cleanup", "extract")
 
 
-def test_the_optional_members_are_listed_and_not_in_the_body_of_the_protocol() -> None:
+def test_optional_members_outside() -> None:
     for name in (*RERUN_MEMBERS, *OPTIONAL_MEMBERS):
         assert not hasattr(SolverAdapter, name), name
 
 
-def test_a_flow_locates_a_cell_and_a_transport_has_no_grid_of_its_own() -> None:
+def test_cell_locator_members() -> None:
     assert _members(CellLocator) == ("locate_cell", "top_active_layer")
 
 
-def test_build_takes_the_model_the_options_the_slot_and_the_upstream_runs() -> None:
+def test_locator_apart_from_adapter() -> None:
+    # A transport adapter has no grid to look on.
+    assert hasattr(CellLocator, "locate_cell")
+    assert not hasattr(SolverAdapter, "locate_cell")
+
+
+FLOW_BACKENDS = [
+    pytest.param("hydromodpy.solver.modflow6.adapter", "Modflow6FlowAdapter", id="modflow6"),
+    pytest.param(
+        "hydromodpy.solver.modflow_nwt.adapter", "ModflowNwtFlowAdapter", id="modflow nwt"
+    ),
+    pytest.param("hydromodpy.solver.boussinesq.adapter", "BoussinesqFlowAdapter", id="boussinesq"),
+]
+
+
+@pytest.mark.parametrize(("module", "cls"), FLOW_BACKENDS)
+def test_flow_backend_locates_cell(module: str, cls: str) -> None:
+    adapter = getattr(importlib.import_module(module), cls)
+
+    assert callable(getattr(adapter, "locate_cell", None))
+    assert isinstance(adapter(), CellLocator)
+
+
+def test_build_arguments() -> None:
     parameters = [one for one in SolverAdapter.build.__annotations__ if one != "return"]
     assert parameters == ["model", "options", "slot", "upstream"]
 
 
-def test_the_face_flow_a_transport_reads_is_a_field_of_the_registry() -> None:
-    """One name, one place: the stored form of the hand-off lives in the registry."""
+def test_face_flow_is_a_registry_field() -> None:
+    # One name, one place: the stored form of the hand-off lives in the registry.
     assert FACE_FLOW in FIELD_REGISTRY
     assert FACE_FLOW in all_zarr_paths()
     assert not hasattr(adapter_protocol, "HANDOFF_PRODUCTS")
@@ -87,11 +112,11 @@ class _ShapeAdapter:
         return None
 
 
-def test_an_adapter_of_the_right_shape_answers_the_protocol_without_inheriting_it() -> None:
+def test_protocol_is_structural() -> None:
     assert isinstance(_ShapeAdapter(), SolverAdapter)
 
 
-def test_the_port_of_the_extractor_answers_its_protocol() -> None:
+def test_extractor_protocol() -> None:
     class _Reader:
         process_type: ClassVar[str] = "flow"
         solver_name: ClassVar[str] = "shape"

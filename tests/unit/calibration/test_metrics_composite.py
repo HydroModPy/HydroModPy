@@ -1,4 +1,10 @@
-"""Tests of `metrics.composite`."""
+"""Cost of a trial from simulated series (m3/s, m) paired with observed records.
+
+Builds the metric function a trial calls. Gauges are scored on the discharge at
+their own cell, heads and lake levels on their stamps, and a window or a minimum
+overlap decides which pairs count. Also covers the residual capture and the
+station series a promoted run writes.
+"""
 
 from __future__ import annotations
 
@@ -54,27 +60,11 @@ from tests.unit.calibration._factories_scoring import (
     wire_stack,
 )
 
-# From test_a_block_can_name_an_observation.py
-# A weighted block had no way to score a real observed record.
-#
-# Two routes to a cost coexisted and excluded each other. ``variable`` +
-# ``objective`` aligns genuine chronicles on their dates, but averages the
-# stations it scores and cannot weight them. ``outputs`` +
-# ``objective_blocks`` weights, normalizes and persists the per-block
-# diagnostics, but read only ``observed_values``: a vector typed into the TOML
-# by hand, positional, with no dates. So "the outlet carries 65 % of the cost,
-# the piezometer 25 %, the lake 10 %" was expressible only against numbers
-# somebody had transcribed.
-#
-# ``observes`` is the bridge: the output names a station, the loaded record is
-# aligned on the simulated timestamps, and the block scores that.
 
-
-class TestTheDeclaration:
-    def test_naming_a_station_and_typing_the_values_is_refused(self) -> None:
-        """Two answers to one question; picking one silently would hide it."""
-        with pytest.raises(ValueError, match="observes"):
-            boundary_output(observes="J7branch", observed_values=[1.0, 2.0])
+def test_station_and_typed_values_refused() -> None:
+    # Two answers to one question; picking one silently would hide it.
+    with pytest.raises(ValueError, match="observes"):
+        boundary_output(observes="J7branch", observed_values=[1.0, 2.0])
 
 
 class _Point:
@@ -126,137 +116,124 @@ _TYPED = validate_calib_output(
 )
 
 
-class TestLoadingTheRecords:
-    def test_an_output_that_names_nothing_is_left_out(self) -> None:
-        assert observed_series_for_outputs({"typed": _TYPED}, _ctx()) == {}
-
-    def test_a_station_the_project_never_loaded_is_named_in_the_refusal(self) -> None:
-        missing = boundary_output(observes="nowhere")
-
-        with pytest.raises(ValueError, match="nowhere"):
-            observed_series_for_outputs({"outlet": missing}, _ctx())
+def test_unnamed_station_left_out() -> None:
+    assert observed_series_for_outputs({"typed": _TYPED}, _ctx()) == {}
 
 
-class TestPairing:
-    def test_a_pair_with_nothing_in_common_is_refused_by_name(self) -> None:
-        with pytest.raises(ValueError, match="outlet"):
-            pair_outputs_with_observations(
-                observed={"outlet": pd.Series([1.0], index=pd.DatetimeIndex(["1990-01-01"]))},
-                simulated={"outlet": pd.Series([1.1], index=pd.DatetimeIndex(["2020-01-01"]))},
-            )
+def test_unloaded_station_refused() -> None:
+    missing = boundary_output(observes="nowhere")
 
-    def test_a_simulated_output_with_no_timestamps_is_refused_by_name(self) -> None:
-        with pytest.raises(ValueError, match="outlet"):
-            pair_outputs_with_observations(
-                observed={"outlet": pd.Series([1.0], index=pd.DatetimeIndex(["2000-01-01"]))},
-                simulated={"outlet": pd.Series([1.1])},
-            )
+    with pytest.raises(ValueError, match="nowhere"):
+        observed_series_for_outputs({"outlet": missing}, _ctx())
 
 
-class TestTheExtractor:
-    """The weighted route, end to end, against records rather than typed vectors."""
+UNPAIRABLE = [
+    pytest.param(
+        pd.Series([1.0], index=pd.DatetimeIndex(["1990-01-01"])),
+        pd.Series([1.1], index=pd.DatetimeIndex(["2020-01-01"])),
+        id="nothing in common",
+    ),
+    pytest.param(
+        pd.Series([1.0], index=pd.DatetimeIndex(["2000-01-01"])),
+        pd.Series([1.1]),
+        id="simulated without timestamps",
+    ),
+]
 
-    @staticmethod
-    def _outputs() -> dict[str, object]:
-        return {
-            "outlet": boundary_output(observes="J7branch"),
-            "piezo": validate_calib_output(
-                {"variable": "head", "support": "point", "x": 1.0, "y": 2.0, "observes": "P1"}
-            ),
-        }
 
-    @staticmethod
-    def _blocks() -> list[object]:
-        return [
-            objective_block("hydrograph", "rmse", ["outlet"], weight=0.65),
-            objective_block("piezometry", "rmse", ["piezo"], weight=0.35),
-        ]
-
-    @staticmethod
-    def _extracted(
-        monkeypatch,
-        *,
-        sim_outlet: list[float],
-        sim_piezo: list[float],
-    ) -> None:
-
-        # A discharge is the mean of the period its stamp closes, so the outlet
-        # stamps close the two days _ctx() records. A head is the state AT its
-        # stamp, so the piezometer is stamped at the record instants.
-        times = pd.DatetimeIndex(["2000-01-02", "2000-01-03"])
-        head_times = pd.DatetimeIndex(["2000-01-01", "2000-01-02"])
-        monkeypatch.setattr(
-            composite,
-            "extract_outputs",
-            lambda ctx, outputs, window=None: ExtractedOutputs(
-                observables={
-                    "outlet": ObservableResult("outlet", np.asarray(sim_outlet), "m3/s", times),
-                    "piezo": ObservableResult("piezo", np.asarray(sim_piezo), "m", head_times),
-                },
-                values={"outlet": sim_outlet, "piezo": sim_piezo},
-                series={
-                    "outlet": pd.Series(sim_outlet, index=times),
-                    "piezo": pd.Series(sim_piezo, index=head_times),
-                },
-                diagnostics={},
-            ),
+@pytest.mark.parametrize(("observed", "simulated"), UNPAIRABLE)
+def test_unpairable_output_refused(observed, simulated) -> None:
+    with pytest.raises(ValueError, match="outlet"):
+        pair_outputs_with_observations(
+            observed={"outlet": observed}, simulated={"outlet": simulated}
         )
 
-    def test_a_perfect_match_costs_nothing(self, monkeypatch) -> None:
-        self._extracted(monkeypatch, sim_outlet=[1.0, 2.0], sim_piezo=[40.0, 41.0])
-        metric_fn = build_metric_extractor(
-            None, None, _ctx(), outputs=self._outputs(), objective_blocks=self._blocks()
-        )
 
-        total, components = metric_fn(None)
-
-        assert total == pytest.approx(0.0)
-        assert components["outlet.n_paired"] == 2.0
-        assert components["piezo.n_paired"] == 2.0
-
-    def test_the_weights_decide_how_much_each_target_carries(self, monkeypatch) -> None:
-        """One meter of error on the piezometer, one m3/s on the outlet."""
-
-        self._extracted(monkeypatch, sim_outlet=[2.0, 3.0], sim_piezo=[41.0, 42.0])
-        metric_fn = build_metric_extractor(
-            None, None, _ctx(), outputs=self._outputs(), objective_blocks=self._blocks()
-        )
-
-        total, components = metric_fn(None)
-
-        assert components["hydrograph.raw_cost"] == pytest.approx(1.0)
-        assert components["piezometry.raw_cost"] == pytest.approx(1.0)
-        assert total == pytest.approx(1.0)
-
-    def test_a_window_now_applies_because_the_series_carry_dates(self, monkeypatch) -> None:
-        # The window opens on 2000-01-02: the outlet keeps the period of that
-        # day (stamped 2000-01-03), the piezometer its state at that instant.
-        self._extracted(monkeypatch, sim_outlet=[9.0, 2.0], sim_piezo=[40.0, 41.0])
-        metric_fn = build_metric_extractor(
-            None,
-            None,
-            _ctx(),
-            outputs=self._outputs(),
-            objective_blocks=self._blocks(),
-            window=(pd.Timestamp("2000-01-02"), None),
-        )
-
-        total, components = metric_fn(None)
-
-        # The first day, where the outlet is out by 8, is outside the window.
-        assert components["outlet.n_paired"] == 1.0
-        assert total == pytest.approx(0.0)
+def _record_outputs() -> dict[str, object]:
+    return {
+        "outlet": boundary_output(observes="J7branch"),
+        "piezo": validate_calib_output(
+            {"variable": "head", "support": "point", "x": 1.0, "y": 2.0, "observes": "P1"}
+        ),
+    }
 
 
-# From test_a_calibration_run_windows_its_two_bound_network.py
-# A calibration run hands its scoring window to a two-bound network output.
-#
-# The metric function a calibration builds is the route every trial takes. It
-# must pass the phase's window to the extraction, so the spin-up year leaves
-# the score, and must not refuse the window on a network output scored by
-# calendar year. A network output in one state is dated at the stamp of the
-# state it reads: a window holding that stamp scores it, one that does not is
-# refused at the first trial, naming both.
+def _record_blocks() -> list[object]:
+    return [
+        objective_block("hydrograph", "rmse", ["outlet"], weight=0.65),
+        objective_block("piezometry", "rmse", ["piezo"], weight=0.35),
+    ]
+
+
+def _serve_extraction(
+    monkeypatch,
+    *,
+    sim_outlet: list[float],
+    sim_piezo: list[float],
+) -> None:
+    # A discharge is the mean of the period its stamp closes, so the outlet stamps close
+    # the two days _ctx() records. A head is the state AT its stamp.
+    times = pd.DatetimeIndex(["2000-01-02", "2000-01-03"])
+    head_times = pd.DatetimeIndex(["2000-01-01", "2000-01-02"])
+    monkeypatch.setattr(
+        composite,
+        "extract_outputs",
+        lambda ctx, outputs, window=None: ExtractedOutputs(
+            observables={
+                "outlet": ObservableResult("outlet", np.asarray(sim_outlet), "m3/s", times),
+                "piezo": ObservableResult("piezo", np.asarray(sim_piezo), "m", head_times),
+            },
+            values={"outlet": sim_outlet, "piezo": sim_piezo},
+            series={
+                "outlet": pd.Series(sim_outlet, index=times),
+                "piezo": pd.Series(sim_piezo, index=head_times),
+            },
+            diagnostics={},
+        ),
+    )
+
+
+# Outlet in m3/s and piezometer in m, weighted 0.65 and 0.35. RMSE is the constant error.
+COSTS = [
+    pytest.param([1.0, 2.0], [40.0, 41.0], 0.0, 0.0, 0.0, id="perfect match"),
+    pytest.param([2.0, 3.0], [41.0, 42.0], 1.0, 1.0, 1.0, id="one unit of error"),
+]
+
+
+@pytest.mark.parametrize(("sim_outlet", "sim_piezo", "hydrograph", "piezometry", "total"), COSTS)
+def test_weighted_cost(monkeypatch, sim_outlet, sim_piezo, hydrograph, piezometry, total) -> None:
+    _serve_extraction(monkeypatch, sim_outlet=sim_outlet, sim_piezo=sim_piezo)
+    metric_fn = build_metric_extractor(
+        None, None, _ctx(), outputs=_record_outputs(), objective_blocks=_record_blocks()
+    )
+
+    cost, components = metric_fn(None)
+
+    assert components["hydrograph.raw_cost"] == pytest.approx(hydrograph, abs=1e-12)
+    assert components["piezometry.raw_cost"] == pytest.approx(piezometry, abs=1e-12)
+    assert cost == pytest.approx(total, abs=1e-12)
+    assert components["outlet.n_paired"] == 2.0
+    assert components["piezo.n_paired"] == 2.0
+
+
+def test_window_cuts_dated_series(monkeypatch) -> None:
+    # The window opens on 2000-01-02: the outlet keeps the period of that
+    # day (stamped 2000-01-03), the piezometer its state at that instant.
+    _serve_extraction(monkeypatch, sim_outlet=[9.0, 2.0], sim_piezo=[40.0, 41.0])
+    metric_fn = build_metric_extractor(
+        None,
+        None,
+        _ctx(),
+        outputs=_record_outputs(),
+        objective_blocks=_record_blocks(),
+        window=(pd.Timestamp("2000-01-02"), None),
+    )
+
+    total, components = metric_fn(None)
+
+    # The first day, where the outlet is out by 8, is outside the window.
+    assert components["outlet.n_paired"] == 1.0
+    assert total == pytest.approx(0.0)
 
 
 BLOCKS = [objective_block("network", "distance_gap", ["net"])]
@@ -276,14 +253,14 @@ def _components(monkeypatch, bench, output, window):
     return components
 
 
-def test_the_run_scores_only_the_years_of_its_window(monkeypatch, bench, stream_file) -> None:  # noqa: F811
+def test_network_scored_on_window_years(monkeypatch, bench, stream_file) -> None:  # noqa: F811
     scored = _components(monkeypatch, bench, _two_bound_output(stream_file), WINDOW)
     assert scored["net.n_years_scored"] == 2.0
     assert scored["net.year_scored_y2000"] == 0.0
     assert scored["net.n_years_outside_window"] == 1.0
 
 
-def test_a_window_missing_the_state_of_a_network_in_one_state_is_refused(
+def test_missing_network_state_refused(
     monkeypatch,
     bench,  # noqa: F811
     stream_file,  # noqa: F811
@@ -298,27 +275,11 @@ def test_a_window_missing_the_state_of_a_network_in_one_state_is_refused(
     assert "2002-11-01" in message
 
 
-# From test_a_single_metric_calibration_is_scored_by_its_implicit_blocks.py
-# ``variable`` + ``objective`` is scored by the block route, at the same cost.
-#
-# Decision m10 of the audit of 2026-10-20: the one-line form becomes, once the
-# records are loaded, one implicit output and one implicit block per scored
-# station, and the block route scores them. ``PINNED`` holds the costs the old
-# single-metric route (``StationScorer`` and ``scalar.score``) returned on these
-# exact series at 4ca07e106, so a cost that moves is caught here. One station
-# reproduces the old cost to the bit; several are averaged by the block weights,
-# which may round differently in the last place.
-#
-# What the old route did not publish is now there: the pairs each cost was
-# scored on, which ``scored`` of ``session.json`` is read from.
-
-
 FIRST = pd.Timestamp("2000-01-01")
 
 # A monthly run stamps each period at the first day of the next month.
 STAMPS = pd.date_range("2000-02-01", periods=36, freq="MS")
 BOUNDARIES = tuple(period_edges(STAMPS, start=FIRST))
-WINDOW__single_metric = (pd.Timestamp("2001-01-01"), None)
 
 PINNED = {
     "discharge_nse_log_window": 0.17866174604070295,
@@ -351,7 +312,7 @@ def _simulated(seed: float, level: float = 1.0) -> np.ndarray:
     )
 
 
-def _ctx__single_metric(family: str, records: list[SimpleNamespace]) -> SimpleNamespace:
+def _record_ctx(family: str, records: list[SimpleNamespace]) -> SimpleNamespace:
     loaded = {"hydrometry": None, "piezometry": None, "lake_levels": None, "runoff": None}
     loaded[family] = SimpleNamespace(points=records)
     return SimpleNamespace(
@@ -417,9 +378,9 @@ def _score(variable: str, objective: str, ctx, **kwargs) -> tuple[float, dict[st
     return float(cost), dict(components)
 
 
-def test_two_heads_average_as_they_did(monkeypatch) -> None:
+def test_two_heads_average(monkeypatch) -> None:
     _serve(monkeypatch, {"PZ1": _state(0.1), "PZ2": _state(0.9)})
-    ctx = _ctx__single_metric("piezometry", [_piezometer("PZ1", 0.0), _piezometer("PZ2", 1.0)])
+    ctx = _record_ctx("piezometry", [_piezometer("PZ1", 0.0), _piezometer("PZ2", 1.0)])
 
     cost, components = _score("head", "rmse", ctx)
 
@@ -429,7 +390,7 @@ def test_two_heads_average_as_they_did(monkeypatch) -> None:
     )
 
 
-def test_three_heads_average_to_the_last_place(monkeypatch) -> None:
+def test_three_heads_average(monkeypatch) -> None:
     _serve(
         monkeypatch,
         {
@@ -438,7 +399,7 @@ def test_three_heads_average_to_the_last_place(monkeypatch) -> None:
             "PZ3": _state(2.0),
         },
     )
-    ctx = _ctx__single_metric(
+    ctx = _record_ctx(
         "piezometry",
         [_piezometer("PZ1", 0.0), _piezometer("PZ2", 1.0), _piezometer("PZ3", 2.0)],
     )
@@ -451,9 +412,9 @@ def test_three_heads_average_to_the_last_place(monkeypatch) -> None:
 @pytest.mark.parametrize(
     ("metric", "pin"), [("reservoir", "lake_reservoir"), ("nse_seasonal", "lake_nse_seasonal")]
 )
-def test_a_lake_on_a_seasonal_kernel_costs_what_it_cost(monkeypatch, metric, pin) -> None:
+def test_lake_cost_pinned(monkeypatch, metric, pin) -> None:
     _serve(monkeypatch, {"lac0": _state(0.4)})
-    ctx = _ctx__single_metric("lake_levels", [_lake("lac0", 0.0)])
+    ctx = _record_ctx("lake_levels", [_lake("lac0", 0.0)])
 
     cost, components = _score("lake_level", metric, ctx)
 
@@ -462,10 +423,8 @@ def test_a_lake_on_a_seasonal_kernel_costs_what_it_cost(monkeypatch, metric, pin
     assert _pairs(components)["lake_level@lac0"] == 36
 
 
-# The run promoted from a trial is scored on what the trial read.
-#
-# The derive step writes each station's series through the readers of a trial, and
-# the table goes to the score of the run. Fake series on one served solve, no MODFLOW.
+# A promoted run is scored on what its trial read: the derive step writes each station
+# series through the readers of a trial. Fake series on one served solve, no MODFLOW.
 
 
 def _table_rows(station, variable, times, values, source) -> pd.DataFrame:
@@ -507,7 +466,7 @@ def _runoff_points() -> SimpleNamespace:
     return SimpleNamespace(points=[SimpleNamespace(data=record)])
 
 
-def test_an_output_that_observes_a_station_says_where_it_is_read(monkeypatch) -> None:
+def test_output_written_at_station(monkeypatch) -> None:
     """A snapped gauge is scored off the cell of its record, and the run writes that series."""
     snapped = _simulated(0.6, 0.4)
     _serve(monkeypatch, {"catchment": _simulated(0.3)})
@@ -517,7 +476,7 @@ def test_an_output_that_observes_a_station_says_where_it_is_read(monkeypatch) ->
         "extract_outputs",
         lambda ctx, outputs: ExtractedOutputs({"up": result}, {}, {}, {}),
     )
-    ctx = _ctx__single_metric("hydrometry", [_gauge("UP", 0.0)])
+    ctx = _record_ctx("hydrometry", [_gauge("UP", 0.0)])
 
     (written,) = _promoted(ctx, {"up": boundary_output(observes="UP")})
 
@@ -542,20 +501,16 @@ def test_an_output_that_observes_a_station_says_where_it_is_read(monkeypatch) ->
             "Gauge UP is not placed on the mesh",
         ),
     ],
-    ids=[
-        "a_family_the_backend_does_not_serve",
-        "an_output_on_a_station_never_loaded",
-        "a_gauge_the_mesh_does_not_place",
-    ],
+    ids=["family not served", "output on unloaded station", "gauge not on mesh"],
 )
-def test_what_cannot_be_read_is_logged_and_the_rest_is_written(
+def test_unreadable_logged_rest_written(
     monkeypatch, caplog, outputs, served, stations, said
 ) -> None:
     _serve(monkeypatch, served)
     monkeypatch.setattr(
         composite, "extract_outputs", lambda ctx, outputs: ExtractedOutputs({}, {}, {}, {})
     )
-    ctx = _ctx__single_metric("piezometry", [_piezometer("PZ1", 0.0)])
+    ctx = _record_ctx("piezometry", [_piezometer("PZ1", 0.0)])
     ctx.loaded_data.hydrometry = SimpleNamespace(points=[_gauge("UP", 0.0)])
 
     with caplog.at_level("WARNING"):
@@ -565,9 +520,9 @@ def test_what_cannot_be_read_is_logged_and_the_rest_is_written(
     assert said in caplog.text
 
 
-def test_no_flow_run_or_an_undated_answer_writes_nothing(monkeypatch, caplog) -> None:
+def test_no_flow_run_writes_nothing(monkeypatch, caplog) -> None:
     monkeypatch.setattr(composite, "resolve_flow_adapter", lambda ctx: None)
-    ctx = _ctx__single_metric("piezometry", [_piezometer("PZ1", 0.0)])
+    ctx = _record_ctx("piezometry", [_piezometer("PZ1", 0.0)])
     with caplog.at_level("WARNING"):
         assert _promoted(ctx) == []
     assert (
@@ -580,14 +535,6 @@ def test_no_flow_run_or_an_undated_answer_writes_nothing(monkeypatch, caplog) ->
         promotion, "series_at_the_stations", lambda ctx, outputs: {("PZ1", "head"): undated}
     )
     assert _promoted(ctx) == []
-
-
-# From test_discharge_per_station_series.py
-# Each gauge is scored against the simulated discharge AT ITS OWN cell.
-#
-# The whole-catchment series answers for the outlet gauge alone. A station upstream
-# closes a smaller catchment, so it gets its own routed series and its own upstream
-# area for the runoff.
 
 
 _INDEX = pd.date_range("2000-01-01", periods=3, freq="D")
@@ -618,7 +565,7 @@ def _observed(*station_ids: str) -> list[ObservedSeries]:
     ]
 
 
-def _ctx__discharge_per(station_cells: dict[str, tuple[int, int, int]]) -> SimpleNamespace:
+def _station_ctx(station_cells: dict[str, tuple[int, int, int]]) -> SimpleNamespace:
     points = [
         SimpleNamespace(station_id=sid, cell_ij=(cell[1], cell[2], cell[0]))
         for sid, cell in station_cells.items()
@@ -648,13 +595,13 @@ def _served_up(**flags):
 
 
 def _by_station(adapter, cells, *stations, time_index=_INDEX):
-    ctx = _ctx__discharge_per(cells)
+    ctx = _station_ctx(cells)
     return _discharge_by_station(
         adapter, _RUN_CTX, ctx, _observed(*stations), time_index=time_index
     )
 
 
-def test_a_station_with_a_cell_gets_its_own_routed_series():
+def test_station_cell_series():
     served = _served_up()
     adapter = FakeAdapter(served)
 
@@ -664,8 +611,8 @@ def test_a_station_with_a_cell_gets_its_own_routed_series():
     pd.testing.assert_index_equal(pd.DatetimeIndex(out["UP"].times), _INDEX)
 
 
-def test_an_undated_series_is_carried_back_undated():
-    """The solver returned no time grid; nothing here invents one."""
+def test_undated_series_stays_undated():
+    # The solver returned no time grid; nothing here invents one.
     served = _served_up(dated=False)
 
     out = _by_station(FakeAdapter(served), {"UP": (0, 1, 2)}, "UP", time_index=None)
@@ -674,7 +621,7 @@ def test_an_undated_series_is_carried_back_undated():
     assert out["UP"].values == pytest.approx([2.0, 2.0, 2.0])
 
 
-def test_two_stations_get_two_different_series():
+def test_two_stations_two_series():
     served = {
         "catchment": _result([9.0, 9.0, 9.0]),
         _cell_id("UP"): _result([2.0, 2.0, 2.0]),
@@ -690,7 +637,7 @@ def test_two_stations_get_two_different_series():
     assert out["DOWN"].values == pytest.approx([8.0, 8.0, 8.0])
 
 
-def test_a_station_without_a_cell_falls_back_to_the_catchment_series():
+def test_no_cell_gets_catchment():
     served = {"catchment": _result([9.0, 9.0, 9.0])}
     adapter = FakeAdapter(served)
 
@@ -713,7 +660,7 @@ class _Recorder(FakeAdapter):
         return super().observables(solver_run, requests, time_index=time_index)
 
 
-def test_a_backend_without_per_cell_discharge_falls_back_and_warns(caplog):
+def test_no_per_cell_backend_warns(caplog):
     served = {"catchment": _result([9.0, 9.0, 9.0])}
     adapter = _Recorder(served, fail_on_cell=True)
 
@@ -731,7 +678,7 @@ def test_a_backend_without_per_cell_discharge_falls_back_and_warns(caplog):
     assert solver_run is _RUN_CTX.solver_run and time_index is _INDEX
 
 
-def test_a_catchment_the_solver_does_not_answer_is_named():
+def test_silent_solver_names_catchment():
     class _Silent:
         def observables(self, *_args, **_kwargs):
             return {}
@@ -742,15 +689,15 @@ def test_a_catchment_the_solver_does_not_answer_is_named():
         _by_station(_Silent(), {}, "UP")
 
 
-def test_an_empty_catchment_series_is_refused():
+def test_empty_catchment_refused():
     adapter = FakeAdapter({"catchment": _result([])})
 
     with pytest.raises(NotImplementedError, match="no discharge calibration series"):
         _by_station(adapter, {}, "NOWHERE")
 
 
-def test_a_routed_reach_series_is_not_given_the_runoff_twice(monkeypatch):
-    """A reach already carries the runoff injected into the network."""
+def test_routed_reach_no_second_runoff(monkeypatch):
+    # A reach already carries the runoff injected into the network.
     calls: list[float | None] = []
 
     def _spy(series, ctx, *, area_m2=None):
@@ -768,18 +715,7 @@ def test_a_routed_reach_series_is_not_given_the_runoff_twice(monkeypatch):
     assert calls == []
 
 
-# From test_residual_capture_shares_the_scorer.py
-# The residuals a width is taken from come from the scorer the search used.
-#
-# A first-order width is read off the residual at each observation. Those
-# residuals used to be aligned by a second reader holding its own copy of the
-# records, the window and the minimum overlap; now they come from
-# ``ObservableScorer.pair``, one step short of the cost. What this pins is that
-# the two cannot drift apart, and that a burn-in, which the cost applies and a
-# residual vector cannot, is refused instead of ignored.
-
-
-_INDEX__residual_capture = pd.date_range("2020-01-01", periods=4, freq="D")
+_CAPTURE_INDEX = pd.date_range("2020-01-01", periods=4, freq="D")
 
 # The record is stamped at the day each simulated stamp closes, one day before.
 _RECORD_INDEX = pd.date_range("2019-12-31", periods=4, freq="D")
@@ -795,7 +731,7 @@ def _block(**extra):
     )
 
 
-def _ctx__residual_capture():
+def _capture_ctx():
     frame = pd.DataFrame({"datetime": _RECORD_INDEX, "value": [1.0, 2.0, 3.0, 4.0]})
     record = SimpleNamespace(station_id="NANCON", variable="discharge", data=frame)
     return SimpleNamespace(
@@ -809,12 +745,12 @@ def _answer(values):
         "gauge",
         np.asarray(values, dtype=float),
         "m3 s-1",
-        times=_INDEX__residual_capture[: len(values)],
+        times=_CAPTURE_INDEX[: len(values)],
     )
 
 
 def _extracted(values, *, time="all"):
-    """What `extract_outputs` returns: the selection is already applied."""
+    """What `extract_outputs` returns, with the time selection applied."""
     result = select_observable_times(_answer(values), time)
     return ExtractedOutputs(
         observables={"gauge": result},
@@ -824,110 +760,103 @@ def _extracted(values, *, time="all"):
     )
 
 
-class TestTheCaptureAndTheCostReadTheSamePairing:
-    def test_the_captured_vectors_are_what_the_former_reader_produced(self, monkeypatch) -> None:
-        """The reference is the reader this replaced, not the one that replaced it."""
-        simulated = [1.5, 2.5, 3.5, 4.5]
-        extracted = _extracted(simulated)
-        monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs, window=None: extracted
-        )
-        capture_fn, captured = build_paired_vector_capture(
-            _outputs(), ctx=_ctx__residual_capture(), objective_blocks=[_block()]
-        )
+def test_captured_vectors_match_pairing(monkeypatch) -> None:
+    # The reference is the reader this replaced, not the one that replaced it.
+    simulated = [1.5, 2.5, 3.5, 4.5]
+    extracted = _extracted(simulated)
+    monkeypatch.setattr(composite, "extract_outputs", lambda ctx, outputs, window=None: extracted)
+    capture_fn, captured = build_paired_vector_capture(
+        _outputs(), ctx=_capture_ctx(), objective_blocks=[_block()]
+    )
 
+    capture_fn(None)
+
+    # What HEAD did: load the records itself, and pair them on the dated
+    # series `extract_outputs` had already built.
+    former = pair_outputs_with_observations(
+        observed=observed_series_for_outputs(_outputs(), _capture_ctx()),
+        simulated={"gauge": extracted.series["gauge"]},
+        window=None,
+        min_samples=1,
+    )
+
+    assert captured["order"] == ("gauge",)
+    assert list(captured["simulated"]) == pytest.approx(former.simulated["gauge"])
+    assert list(captured["observed"]) == pytest.approx(former.observed["gauge"])
+
+
+def test_selected_timestep_pairing(monkeypatch) -> None:
+    # `pair` re-selects the times `extract_outputs` had already selected.
+    outputs = {"gauge": boundary_output(observes="NANCON", time="last")}
+    extracted = _extracted([1.5, 2.5, 3.5, 4.5], time="last")
+    monkeypatch.setattr(composite, "extract_outputs", lambda ctx, outputs_, window=None: extracted)
+    capture_fn, captured = build_paired_vector_capture(
+        outputs, ctx=_capture_ctx(), objective_blocks=[_block()]
+    )
+
+    # The selection left one stamp, 2020-01-04. The run's time grid says its
+    # period is the day 2020-01-03, which the record measured at 4.0.
+    grid = SimpleNamespace(boundaries=tuple(pd.date_range("2019-12-31", periods=5, freq="D")))
+    capture_fn(SimpleNamespace(setup=SimpleNamespace(time_grid=grid)))
+
+    former = pair_outputs_with_observations(
+        observed=observed_series_for_outputs(outputs, _capture_ctx()),
+        simulated={"gauge": extracted.series["gauge"]},
+        window=None,
+        min_samples=1,
+    )
+    assert list(captured["simulated"]) == pytest.approx(former.simulated["gauge"])
+    assert list(captured["observed"]) == pytest.approx([4.0])
+
+
+def test_window_cuts_residuals(monkeypatch) -> None:
+    monkeypatch.setattr(
+        composite,
+        "extract_outputs",
+        lambda ctx, outputs, window=None: _extracted([1.5, 2.5, 3.5, 4.5]),
+    )
+    capture_fn, captured = build_paired_vector_capture(
+        _outputs(),
+        ctx=_capture_ctx(),
+        objective_blocks=[_block()],
+        # The days from 2020-01-02 on: the periods the last two stamps close.
+        window=(pd.Timestamp("2020-01-02"), None),
+    )
+
+    capture_fn(None)
+
+    assert list(captured["observed"]) == pytest.approx([3.0, 4.0])
+
+
+def test_short_overlap_refused(monkeypatch) -> None:
+    monkeypatch.setattr(
+        composite,
+        "extract_outputs",
+        lambda ctx, outputs, window=None: _extracted([1.5, 2.5]),
+    )
+    capture_fn, _ = build_paired_vector_capture(
+        _outputs(), ctx=_capture_ctx(), objective_blocks=[_block()], min_samples=3
+    )
+
+    with pytest.raises(ValueError, match="min_samples"):
         capture_fn(None)
 
-        # What HEAD did: load the records itself, and pair them on the dated
-        # series `extract_outputs` had already built.
-        former = pair_outputs_with_observations(
-            observed=observed_series_for_outputs(_outputs(), _ctx__residual_capture()),
-            simulated={"gauge": extracted.series["gauge"]},
-            window=None,
-            min_samples=1,
-        )
 
-        assert captured["order"] == ("gauge",)
-        assert list(captured["simulated"]) == pytest.approx(former.simulated["gauge"])
-        assert list(captured["observed"]) == pytest.approx(former.observed["gauge"])
+def test_unobserved_output_cannot_pair() -> None:
+    typed = {"typed": boundary_output(observed_values=[1.0, 2.0])}
+    block = objective_block("b", "rmse", ["typed"])
+    scorer = ObservableScorer(typed, [block])
 
-    def test_a_selected_timestep_is_paired_the_way_it_always_was(self, monkeypatch) -> None:
-        """`pair` re-selects the times `extract_outputs` had already selected."""
-        outputs = {"gauge": boundary_output(observes="NANCON", time="last")}
-        extracted = _extracted([1.5, 2.5, 3.5, 4.5], time="last")
-        monkeypatch.setattr(
-            composite, "extract_outputs", lambda ctx, outputs_, window=None: extracted
-        )
-        capture_fn, captured = build_paired_vector_capture(
-            outputs, ctx=_ctx__residual_capture(), objective_blocks=[_block()]
-        )
-
-        # The selection left one stamp, 2020-01-04. The run's time grid says its
-        # period is the day 2020-01-03, which the record measured at 4.0.
-        grid = SimpleNamespace(boundaries=tuple(pd.date_range("2019-12-31", periods=5, freq="D")))
-        capture_fn(SimpleNamespace(setup=SimpleNamespace(time_grid=grid)))
-
-        former = pair_outputs_with_observations(
-            observed=observed_series_for_outputs(outputs, _ctx__residual_capture()),
-            simulated={"gauge": extracted.series["gauge"]},
-            window=None,
-            min_samples=1,
-        )
-        assert list(captured["simulated"]) == pytest.approx(former.simulated["gauge"])
-        assert list(captured["observed"]) == pytest.approx([4.0])
-
-    def test_the_window_the_search_used_cuts_the_residuals_too(self, monkeypatch) -> None:
-        monkeypatch.setattr(
-            composite,
-            "extract_outputs",
-            lambda ctx, outputs, window=None: _extracted([1.5, 2.5, 3.5, 4.5]),
-        )
-        capture_fn, captured = build_paired_vector_capture(
-            _outputs(),
-            ctx=_ctx__residual_capture(),
-            objective_blocks=[_block()],
-            # The days from 2020-01-02 on: the periods the last two stamps close.
-            window=(pd.Timestamp("2020-01-02"), None),
-        )
-
-        capture_fn(None)
-
-        assert list(captured["observed"]) == pytest.approx([3.0, 4.0])
-
-    def test_a_shorter_overlap_than_the_document_asks_for_is_refused(self, monkeypatch) -> None:
-        monkeypatch.setattr(
-            composite,
-            "extract_outputs",
-            lambda ctx, outputs, window=None: _extracted([1.5, 2.5]),
-        )
-        capture_fn, _ = build_paired_vector_capture(
-            _outputs(), ctx=_ctx__residual_capture(), objective_blocks=[_block()], min_samples=3
-        )
-
-        with pytest.raises(ValueError, match="min_samples"):
-            capture_fn(None)
+    with pytest.raises(ValueError, match="no residual to align"):
+        scorer.pair({"typed": _answer([1.0, 2.0])})
 
 
-class TestTheScorerRefusesToPairWhatHasNoRecord:
-    def test_a_scorer_with_no_observing_output_cannot_pair(self) -> None:
-        typed = {"typed": boundary_output(observed_values=[1.0, 2.0])}
-        block = objective_block("b", "rmse", ["typed"])
-        scorer = ObservableScorer(typed, [block])
-
-        with pytest.raises(ValueError, match="no residual to align"):
-            scorer.pair({"typed": _answer([1.0, 2.0])})
-
-
-# From test_routed_discharge_skips_runoff.py
-# A routed discharge already carries the runoff; adding it again double-counts.
-
-
-def test_the_flag_defaults_to_false_so_drain_discharge_still_gets_its_runoff():
+def test_runoff_flag_defaults_false():
     result = adapter_result("x", np.zeros(3), "m3/s")
     assert result.includes_runoff is False
 
 
-def test_the_composite_metric_guards_the_runoff_addition():
+def test_runoff_addition_guarded():
     # The guard lives in a branch a unit test cannot reach without a solver run,
     # so assert the source: a refactor that drops it would double-count the
     # runoff on every routed SFR calibration, inflating discharge by ~25 %.
@@ -948,15 +877,6 @@ def test_the_composite_metric_guards_the_runoff_addition():
     )
 
 
-# From test_the_protocol_s_window_reaches_a_two_bound_network.py
-# The window the protocol writes on its transient stage reaches a two-bound network.
-#
-# The window is the phase's, not the hydrograph block's, so a network output
-# scored in that phase over calendar years leaves the spin-up year out too. The
-# protocol's window is expanded from the dates of the run, validated as a phase
-# window, and handed to the metric route every trial takes.
-
-
 def _protocol_window(start: str, end: str, **protocol: object):
     """Return the ``(start, end)`` the protocol's transient stage scores between."""
     document = {
@@ -972,9 +892,6 @@ def _protocol_window(start: str, end: str, **protocol: object):
     return window_bounds(CalibPhaseDecl.model_validate(transient).window)
 
 
-# The refusals of the routes, on the state a run can be in.
-
-
 class _Raises:
     calls = 0
 
@@ -983,7 +900,7 @@ class _Raises:
         raise RuntimeError("boom")
 
 
-def test_an_outlet_series_the_solver_cannot_serve_is_raised_as_it_is() -> None:
+def test_outlet_error_raised() -> None:
     adapter = _Raises()
     with pytest.raises(RuntimeError, match="boom"):
         _by_station(adapter, {}, "UP")
@@ -997,9 +914,7 @@ def test_an_outlet_series_the_solver_cannot_serve_is_raised_as_it_is() -> None:
         (_ctx(), RuntimeError("boom"), RuntimeError, "boom"),
     ],
 )
-def test_the_variable_route_names_what_stops_a_trial(
-    monkeypatch, caplog, ctx, producer, error, message
-) -> None:
+def test_variable_route_errors(monkeypatch, caplog, ctx, producer, error, message) -> None:
     run_ctx = SimpleNamespace(run=SimpleNamespace(solver="s"), solver_run=None)
     monkeypatch.setattr(composite, "resolve_flow_adapter", lambda _ctx: (object(), run_ctx))
 
@@ -1015,7 +930,7 @@ def test_the_variable_route_names_what_stops_a_trial(
     assert ("Metric extractor failed" in caplog.text) is (producer is not None)
 
 
-def test_a_run_with_no_solver_and_no_station_says_nothing(monkeypatch, caplog) -> None:
+def test_no_solver_is_silent(monkeypatch, caplog) -> None:
     monkeypatch.setattr(composite, "resolve_flow_adapter", lambda _ctx: None)
 
     with caplog.at_level("WARNING"):
@@ -1024,7 +939,7 @@ def test_a_run_with_no_solver_and_no_station_says_nothing(monkeypatch, caplog) -
     assert caplog.text == ""
 
 
-def test_each_producer_is_given_the_run_and_its_time_index_and_an_output_replaces_its_answer(
+def test_producers_get_run_and_grid(
     monkeypatch,
 ) -> None:
     ctx, pair = object(), ("adapter", "run_ctx")
@@ -1058,6 +973,6 @@ def test_each_producer_is_given_the_run_and_its_time_index_and_an_output_replace
     assert seen == [(("adapter", "run_ctx", ctx, record), "T")] * 2
 
 
-def test_a_covariance_needs_an_output_that_names_a_station() -> None:
+def test_covariance_needs_a_station() -> None:
     with pytest.raises(ValueError, match="no calibration output names a station"):
         build_paired_vector_capture({}, ctx=_Ctx(_Loaded()))

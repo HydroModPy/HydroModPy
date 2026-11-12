@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from importlib.util import find_spec
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -80,7 +79,7 @@ def _assert_same_mesh(back, built) -> None:
             )
 
 
-def test_a_regular_mesh_with_its_families_comes_back_whole(tmp_path) -> None:
+def test_regular_mesh_round_trip(tmp_path) -> None:
     built = RegularMeshEngine().build(_request())
     assert built.cell_chains and built.face_families is not None
 
@@ -90,7 +89,7 @@ def test_a_regular_mesh_with_its_families_comes_back_whole(tmp_path) -> None:
     _assert_same_mesh(back, built)
 
 
-def test_a_directory_without_its_description_is_not_a_mesh(tmp_path) -> None:
+def test_missing_description(tmp_path) -> None:
     (tmp_path / "entry").mkdir()
     (tmp_path / "entry" / stored.ARRAYS_FILENAME).write_bytes(b"")
 
@@ -98,7 +97,7 @@ def test_a_directory_without_its_description_is_not_a_mesh(tmp_path) -> None:
         stored.read_mesh(tmp_path / "entry")
 
 
-def test_an_entry_of_another_schema_is_refused_by_name(tmp_path) -> None:
+def test_other_schema(tmp_path) -> None:
     stored.write_mesh(RegularMeshEngine().build(_request()), tmp_path / "entry")
     description = tmp_path / "entry" / stored.DESCRIPTION_FILENAME
     description.write_text(description.read_text().replace(stored.SCHEMA_VERSION, "older"))
@@ -107,7 +106,7 @@ def test_an_entry_of_another_schema_is_refused_by_name(tmp_path) -> None:
         stored.read_mesh(tmp_path / "entry")
 
 
-def test_an_entry_whose_arrays_are_unreadable_is_refused_by_name(tmp_path) -> None:
+def test_unreadable_arrays(tmp_path) -> None:
     stored.write_mesh(RegularMeshEngine().build(_request()), tmp_path / "entry")
     (tmp_path / "entry" / stored.ARRAYS_FILENAME).write_bytes(b"not an npz")
 
@@ -123,9 +122,7 @@ def test_an_entry_whose_arrays_are_unreadable_is_refused_by_name(tmp_path) -> No
         pytest.param("voronoi", marks=needs_gmsh),
     ],
 )
-def test_an_entry_stored_before_the_shape_entries_is_read_with_them_measured(
-    tmp_path, engine_id
-) -> None:
+def test_entry_without_shape_entries(tmp_path, engine_id) -> None:
     request = _request() if engine_id == "regular" else _request(size=60.0)
     built = registry.mesh_engines.create(engine_id).build(request)
     stored.write_mesh(built, tmp_path / "entry")
@@ -141,23 +138,22 @@ def test_an_entry_stored_before_the_shape_entries_is_read_with_them_measured(
     _assert_same_mesh(back, built)
 
 
-def test_a_mesh_without_family_and_with_node_fields_comes_back_whole(tmp_path) -> None:
-    grid = regular_mesh(3, 4, dx=25.0, xmin=X0, ymin=Y0)
-    built = replace(
-        grid, mesh=grid.mesh.with_point_data(z=np.arange(grid.mesh.n_nodes, dtype=float))
-    )
+GRID = regular_mesh(3, 4, dx=25.0, xmin=X0, ymin=Y0)
+FIELD_MESHES = [
+    pytest.param(
+        replace(GRID, mesh=GRID.mesh.with_point_data(z=np.arange(GRID.mesh.n_nodes, dtype=float))),
+        id="node field",
+    ),
+    pytest.param(
+        replace(GRID, mesh=GRID.mesh.with_cell_data(k=np.linspace(1e-5, 1e-4, GRID.mesh.n_cells))),
+        id="cell field",
+    ),
+]
+
+
+@pytest.mark.parametrize("built", FIELD_MESHES)
+def test_fields_round_trip(tmp_path, built) -> None:
     assert built.face_families is None and built.cell_zone is None
-
-    stored.write_mesh(built, tmp_path / "entry")
-
-    _assert_same_mesh(stored.read_mesh(tmp_path / "entry"), built)
-
-
-def test_a_mesh_with_cell_fields_comes_back_whole(tmp_path) -> None:
-    grid = regular_mesh(3, 4, dx=25.0, xmin=X0, ymin=Y0)
-    built = replace(
-        grid, mesh=grid.mesh.with_cell_data(k=np.linspace(1e-5, 1e-4, grid.mesh.n_cells))
-    )
 
     stored.write_mesh(built, tmp_path / "entry")
 

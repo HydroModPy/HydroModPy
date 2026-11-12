@@ -10,20 +10,6 @@ from hydromodpy.model.model import ModelTime, steady_variant
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from tests._helpers.model_factory import make_model, time_grid
 
-# A steady initial state must be reachable at a rate the user chooses.
-#
-# The steady-state initial condition solved under the mean of the whole chronicle
-# and nothing else: its ``source`` was a closed pair whose two values both forced
-# the same time mean. A study that wants its transient to start from equilibrium
-# under a stated recharge, a design rate, a pre-development baseline or a
-# scenario, had no way to say so through this mechanism.
-#
-# The rate carries its unit, and it reaches the solve whatever shape the recharge
-# payload has: ``first_clim`` alone is read only for a sequence payload, so a
-# prescribed rate that only wrote ``first_clim`` would be a silent no-op on a
-# scalar or per-cell recharge.
-
-
 _MM_PER_YEAR_IN_M_PER_S = 1e-3 / (365.25 * 86400.0)
 
 
@@ -48,31 +34,15 @@ def test_a_prescribed_rate_is_accepted_with_its_unit() -> None:
     assert strategy.rate_m_s == pytest.approx(500 * _MM_PER_YEAR_IN_M_PER_S, rel=1e-9)
 
 
-def test_a_prescribed_source_without_a_rate_is_refused() -> None:
-    with pytest.raises(ValueError, match="rate"):
-        _ic(source="prescribed")
-
-
-def test_a_rate_without_a_prescribed_source_is_refused() -> None:
-    """A rate that nothing reads would be a silent no-op."""
-    with pytest.raises(ValueError, match="prescribed"):
-        _ic(source="mean_recharge", rate="500 mm/yr")
-
-
-def test_a_chronicle_statistic_alongside_a_prescribed_rate_is_refused() -> None:
-    with pytest.raises(ValueError, match="recharge_statistic"):
-        _ic(source="prescribed", rate="500 mm/yr", recharge_statistic="time_mean")
-
-
 def test_a_bare_number_is_read_in_metres_per_second() -> None:
-    """The unit is part of the value, and a bare number keeps the SI meaning."""
+    # A bare number keeps the SI meaning, m/s.
     strategy = steady_state_strategy_of(_ic(source="prescribed", rate=1.5844e-8))
 
     assert strategy.rate_m_s == pytest.approx(1.5844e-8)
 
 
 def test_the_prescribed_rate_replaces_a_scalar_recharge_payload() -> None:
-    """`first_clim` is ignored for a scalar payload, so the values must move too."""
+    # first_clim alone is ignored for a scalar payload, so the values must move too.
     recharge = _steady_recharge(
         FlowRechargeConfig(values=1e-9, units="m/s"), source="prescribed", rate="500 mm/yr"
     )
@@ -87,3 +57,22 @@ def test_the_prescribed_rate_is_written_in_the_payload_unit() -> None:
     )
 
     assert recharge.values == pytest.approx(500.0 / 365.25, rel=1e-9)
+
+
+REFUSALS = [
+    pytest.param({"source": "prescribed"}, "rate", id="prescribed without a rate"),
+    pytest.param(
+        {"source": "mean_recharge", "rate": "500 mm/yr"}, "prescribed", id="rate without prescribed"
+    ),
+    pytest.param(
+        {"source": "prescribed", "rate": "500 mm/yr", "recharge_statistic": "time_mean"},
+        "recharge_statistic",
+        id="statistic beside a prescribed rate",
+    ),
+]
+
+
+@pytest.mark.parametrize(("payload", "match"), REFUSALS)
+def test_refusals(payload, match):
+    with pytest.raises(ValueError, match=match):
+        _ic(**payload)

@@ -86,7 +86,7 @@ _CLOSED_CASES = {
 
 @pytest.mark.parametrize("case", list(_CLOSED_CASES))
 @pytest.mark.parametrize("cell_kind", ["quadrilateral", "triangle", "polygon"])
-def test_a_vector_zone_takes_its_exact_area_in_the_cells(case: str, cell_kind: str) -> None:
+def test_vector_zone_area(case: str, cell_kind: str) -> None:
     zones, key, analytical_area = _CLOSED_CASES[case]
     cell_mesh, support = _square_meshes()[cell_kind], _VectorSupport(zones)
     assert abs(_zone_area(cell_mesh, support, key) - analytical_area) / analytical_area < 1e-9
@@ -95,7 +95,7 @@ def test_a_vector_zone_takes_its_exact_area_in_the_cells(case: str, cell_kind: s
     np.testing.assert_allclose(fractions.values.sum(axis=1), 1.0, rtol=0.0, atol=1e-12)
 
 
-def test_the_fractions_are_shares_of_the_area_the_map_covers() -> None:
+def test_fractions_of_covered_area() -> None:
     cell_mesh = _mesh(
         np.array([[0, 0], [10, 0], [20, 0], [30, 0], [30, 10], [20, 10], [10, 10], [0, 10]]),
         [[0, 1, 6, 7], [1, 2, 5, 6], [2, 3, 4, 5]],
@@ -133,7 +133,7 @@ def _map_with_contact_at(x: float) -> _VectorSupport:
     return _VectorSupport({"west": shapely.box(0, 0, x, 2), "east": shapely.box(x, 0, 4, 2)})
 
 
-def test_the_engine_zone_wins_when_the_engine_drew_the_contact_of_this_map() -> None:
+def test_engine_zone_wins() -> None:
     support, zone = _map_with_contact_at(2.1), _west_east_zone()
     names = ("west", "east")
 
@@ -154,14 +154,14 @@ def test_the_engine_zone_wins_when_the_engine_drew_the_contact_of_this_map() -> 
     assert other_map.n_mixed_cells > 0
 
 
-def test_engine_zones_that_contradict_the_map_stop_the_run() -> None:
+def test_engine_zone_contradiction() -> None:
     swapped = 1 - _west_east_zone()
     cell_mesh = _contact_triangulation(swapped, exact_faces=True, zone_names=("west", "east"))
     with pytest.raises(MeshError, match="spatial support 'geology'"):
         zone_fractions(cell_mesh, _map_with_contact_at(2.0))
 
 
-def test_a_support_without_polygons_keeps_its_sampling() -> None:
+def test_sampled_support() -> None:
     cell_mesh = _square_meshes()["triangle"]
     bands = GeneratedBandsSupportField(
         identifier="bands", axis="x", breaks_abs=[X0 + 3.0], labels=["low", "high"],
@@ -176,7 +176,7 @@ def test_a_support_without_polygons_keeps_its_sampling() -> None:
         np.testing.assert_array_equal(fractions.by_zone()[key], sampled.fractions_by_zone[key])
 
 
-def test_a_geology_field_reads_its_polygons_rather_than_its_raster() -> None:
+def test_geology_reads_polygons() -> None:
     cell_mesh = _square_meshes()["quadrilateral"]
     keys = ("granite", "schist")
     boxes = [_shifted(shapely.box(0, 0, 3, 10)), _shifted(shapely.box(3, 0, 10, 10))]
@@ -190,7 +190,7 @@ def test_a_geology_field_reads_its_polygons_rather_than_its_raster() -> None:
     np.testing.assert_allclose(zone_fractions(cell_mesh, field).values, [[0.3, 0.7]], rtol=1e-12)
 
 
-def test_zone_polygons_split_multi_parts_and_cut_to_a_box() -> None:
+def test_polygons_split_and_clip() -> None:
     two_squares = shapely.MultiPolygon([shapely.box(0, 0, 1, 1), shapely.box(5, 0, 6, 1)])
     zones = ZonePolygons.from_geometries(
         [two_squares, shapely.box(0, 2, 6, 3)], ["a", "b"], zone_keys=("a", "b")
@@ -217,12 +217,12 @@ _UNIT = shapely.box(0.0, 0.0, 1.0, 1.0)
     ],
     ids=["unknown-key", "index-count", "index-out-of-range", "multi-part"],
 )  # fmt: skip
-def test_zone_polygons_refuse_parts_they_cannot_key(build, match) -> None:
+def test_polygon_refusals(build, match) -> None:
     with pytest.raises(ValueError, match=match):
         build()
 
 
-def test_a_collection_keeps_its_polygons_and_an_empty_map_gives_no_zone() -> None:
+def test_collection_and_empty_map() -> None:
     parts = [shapely.MultiPolygon([_UNIT, shapely.box(2, 0, 3, 1)]), shapely.LineString([(0, 0), (5, 5)])]  # fmt: skip
     zones = ZonePolygons.from_geometries([shapely.GeometryCollection(parts)], ["a"], zone_keys=("a",))  # fmt: skip
     empty = ZonePolygons.from_geometries([], [], zone_keys=("a",))
@@ -236,7 +236,7 @@ def test_a_collection_keeps_its_polygons_and_an_empty_map_gives_no_zone() -> Non
     np.testing.assert_array_equal(fractions.values, [[0.0], [0.0]])
 
 
-def test_a_polygon_that_crosses_itself_keeps_its_area_and_does_not_stop_the_cut() -> None:
+def test_bow_tie_area() -> None:
     """A bow tie is two triangles of 25 m2."""
     bow_tie = shapely.Polygon([(0.0, 0.0), (10.0, 10.0), (10.0, 0.0), (0.0, 10.0)])
     assert not bow_tie.is_valid

@@ -1,3 +1,9 @@
+"""Reading a sealed two-cell run through the catalog: virtual fields, views, budget attributes.
+
+Heads are in m, flows in m/s. A virtual field is not stored and is rebuilt from the
+stored head and topography. The budget group of the field store records which terms were kept.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
@@ -18,7 +24,7 @@ from tests._helpers.sealed_runs import seal_run
 
 
 def _write_field(store: RunStore) -> None:
-    """Write two periods of head and the DEM grid of a two-cell run."""
+    # Two periods of head and the DEM grid of a two-cell run.
     sid = store.sim_id
     store.write_field(sid, "head", 0, np.array([[1.0, 2.0]]), n_timesteps=2)
     store.write_field(sid, "head", 1, np.array([[3.0, 4.0]]), n_timesteps=2)
@@ -79,7 +85,7 @@ def surface_run(project: Path) -> Iterator[tuple[Catalog, str]]:
         yield pair
 
 
-def test_list_simulations_rejects_unknown_filter_and_order(project):
+def test_list_refuses_unknown_filter(project):
     seal_run(project, "run", project="p")
     rebuild_index(project)
 
@@ -91,7 +97,7 @@ def test_list_simulations_rejects_unknown_filter_and_order(project):
             catalog.list_simulations(order_by="created_at;DROP TABLE simulations")
 
 
-def test_list_simulations_accepts_whitelisted_order_tuple(project):
+def test_list_order_tuple(project):
     sid = seal_run(project, "run", project="p")
     rebuild_index(project)
 
@@ -101,7 +107,7 @@ def test_list_simulations_accepts_whitelisted_order_tuple(project):
     assert [str(value) for value in rows["sim_id"]] == [sid]
 
 
-def test_run_array_to_xarray_batch_is_dask_backed(field_run):
+def test_xarray_batch_is_dask(field_run):
     DaskArray = pytest.importorskip("dask.array").Array
     catalog, sid = field_run
 
@@ -134,7 +140,7 @@ def _write_seeping_boussinesq(store: RunStore) -> None:
     )
 
 
-def test_virtual_seepage_mask_prefers_surface_excess_budget(project):
+def test_seepage_mask_from_excess(project):
     with _sealed(project, _write_seeping_boussinesq, solver="boussinesq", n_timesteps=1) as (
         catalog,
         sid,
@@ -159,13 +165,9 @@ def _write_outcropping_head(store: RunStore) -> None:
     store.write_field(sid, "head", 1, np.array([[11.0, 12.0]]), n_timesteps=2)
 
 
-def test_catchment_view_reads_an_unpersisted_derived_field(project):
-    """A lazy view must take the same virtual fallback as ``Run.field``.
-
-    ``seepage_mask`` is not persisted by default. A view reading the Zarr
-    store directly would raise ``FieldNotFoundError`` on every default run,
-    while the field is derivable from the stored head.
-    """
+def test_view_reads_virtual_field(project):
+    # seepage_mask is not stored by default. A view that read the Zarr store
+    # directly would fail on every default run, so it must rebuild the field.
     from datetime import UTC, datetime
 
     from hydromodpy.results.derive.views import saturated_fraction
@@ -186,14 +188,8 @@ def test_catchment_view_reads_an_unpersisted_derived_field(project):
     np.testing.assert_allclose(series.to_numpy(), [50.0, 100.0])
 
 
-def test_read_returns_data_for_every_available_field(surface_run):
-    """``has_field`` and ``Run.read`` must agree, with or without ``time``.
-
-    The virtual fields are not persisted, so the batch reader has to rebuild
-    them: reporting a field as available and then raising on the documented
-    default read (``time=None``) is a broken contract.
-    """
-    import hydromodpy as hmp
+def test_read_every_available_field(surface_run):
+    # A field reported as available must also read without a time argument.
     from hydromodpy.results import field_registry
 
     catalog, sid = surface_run
@@ -207,7 +203,7 @@ def test_read_returns_data_for_every_available_field(surface_run):
         assert np.asarray(run.read(name, time=slice(0, 2))).size > 0, name
 
 
-def test_list_fields_matches_has_field(surface_run):
+def test_list_fields(surface_run):
     from hydromodpy.results import field_registry
 
     catalog, sid = surface_run
@@ -218,8 +214,7 @@ def test_list_fields_matches_has_field(surface_run):
     assert listed == sorted(available)
 
 
-def test_exportable_fields_include_the_virtual_ones(surface_run):
-    """A default run exports its water table, not just the raw head."""
+def test_exportable_virtual_fields(surface_run):
     from hydromodpy.results.exporters.export_spec import ExportKind
     from hydromodpy.results.exporters.vocabulary import list_exportable
 
@@ -232,8 +227,7 @@ def test_exportable_fields_include_the_virtual_ones(surface_run):
     assert {"watertable_elevation", "watertable_depth", "seepage_mask"} <= fields
 
 
-def test_view_names_the_key_when_the_terms_of_a_field_were_not_kept(surface_run):
-    """A view on a field whose budget terms are missing must name the key."""
+def test_missing_terms_name_key(surface_run):
     from hydromodpy.results.derive.views import drainage_density
     from hydromodpy.results.errors import FieldNotFoundError
 
@@ -261,7 +255,7 @@ def _budget_attrs(store: RunStore) -> dict:
         sz.close()
 
 
-def test_the_budget_group_says_it_kept_every_written_term(open_store):
+def test_budget_kept_all(open_store):
     from hydromodpy.core.budget.terms import BudgetKeep, kept_budget
 
     sid = open_store.sim_id
@@ -279,7 +273,7 @@ def test_the_budget_group_says_it_kept_every_written_term(open_store):
     }
 
 
-def test_the_budget_group_says_it_kept_the_planned_terms_produced_or_not(open_store):
+def test_budget_kept_planned(open_store):
     from hydromodpy.core.budget.terms import BudgetKeep
 
     sz = open_store.open_zarr(open_store.sim_id)

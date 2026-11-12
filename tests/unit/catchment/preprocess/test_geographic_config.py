@@ -62,19 +62,19 @@ _TXT = {"kind": "txt"}
         pytest.param({"enforce_streams": {"enabled": True}}, "enforce_streams", id="burn"),
     ],
 )
-def test_a_geographic_table_is_refused(payload, match) -> None:
+def test_refusals(payload, match) -> None:
     with pytest.raises(ValidationError, match=match):
         GeographicConfig.model_validate(payload)
 
 
-def test_the_description_says_what_each_method_does_and_why_fill_leads() -> None:
+def test_dem_correction_description() -> None:
     description = GeographicConfig.model_fields["dem_correc_type"].description or ""
     for words in ("'fill' (default)", "spill level", "'breach'", "Lindsay 2016", "FillDepressions"):
         assert words in description
     assert "recommended" not in description
 
 
-def test_the_notch_and_the_bed_regularisation_are_off_by_default_with_their_limits() -> None:
+def test_corrections_off_by_default() -> None:
     config = outlet_document()
     notch, bed = config.crossings, config.bed_regularization
     assert (notch.enabled, notch.path, notch.kinds) == (False, None, ["road", "railway", "bridge"])
@@ -88,7 +88,7 @@ def test_the_notch_and_the_bed_regularisation_are_off_by_default_with_their_limi
     assert bed.min_slope == pytest.approx(1.0e-4)
 
 
-def test_the_notch_is_accepted_with_a_river_network_and_its_lengths_take_units() -> None:
+def test_notch_with_a_river_network() -> None:
     assert outlet_document(**_ON).crossings.enabled
     assert outlet_document(crossings={"enabled": False}).crossings.enabled is False
     notch = outlet_document(
@@ -124,23 +124,24 @@ def test_the_notch_is_accepted_with_a_river_network_and_its_lengths_take_units()
         ),
     ],
 )
-def test_an_outlet_document_with_a_correction_it_cannot_carry_is_refused(sections, match) -> None:
+def test_correction_refusals(sections, match) -> None:
     with pytest.raises(ValidationError, match=match):
         outlet_document(**sections)
 
 
 @pytest.mark.parametrize(
-    ("build", "match"),
+    ("build", "sections", "match"),
     [
-        pytest.param(lambda: GeographicConfig.from_dem(**_ON), "kind", id="notch"),
+        pytest.param(GeographicConfig.from_dem, _ON, "kind", id="notch"),
         pytest.param(
-            lambda: GeographicConfig.from_dem(river_network=BENCH_RIVER, **_BED),
+            GeographicConfig.from_dem,
+            {"river_network": BENCH_RIVER, **_BED},
             "kind = dem",
             id="bed",
         ),
-        pytest.param(lambda: GeographicConfig.synthetic_case(**_ON), "synthetic", id="synthetic"),
+        pytest.param(GeographicConfig.synthetic_case, _ON, "synthetic", id="synthetic"),
     ],
 )
-def test_a_correction_on_a_support_with_no_catchment_is_refused(build, match) -> None:
+def test_correction_without_catchment_refused(build, sections, match) -> None:
     with pytest.raises(ValidationError, match=match):
-        build()
+        build(**sections)

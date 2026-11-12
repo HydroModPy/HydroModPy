@@ -1,4 +1,4 @@
-"""Unit tests for the RootConfig dataclass."""
+"""RootConfig: the frozen record of a root model and its two migration functions."""
 
 from __future__ import annotations
 
@@ -22,36 +22,25 @@ def _dummy_migrate_merged(document, layers):
     return []
 
 
-def test_root_config_stores_model_and_migration_callables() -> None:
-    root = RootConfig(
+def make_root() -> RootConfig:
+    return RootConfig(
         model=_DummyModel,
         migrate_layers=_dummy_migrate_layers,
         migrate_merged=_dummy_migrate_merged,
     )
+
+
+def test_root_stores_model_and_migrations() -> None:
+    root = make_root()
     assert root.model is _DummyModel
     assert root.migrate_layers([(None, {})]) == []
     assert root.migrate_merged({}, [(None, {})]) == []
 
 
-def test_root_config_is_frozen() -> None:
-    root = RootConfig(
-        model=_DummyModel,
-        migrate_layers=_dummy_migrate_layers,
-        migrate_merged=_dummy_migrate_merged,
-    )
+def test_root_is_frozen() -> None:
     with pytest.raises(FrozenInstanceError):
-        root.model = BaseModel  # type: ignore[misc]
+        make_root().model = BaseModel  # type: ignore[misc]
 
 
-def test_root_config_instances_are_equal_when_fields_are_equal() -> None:
-    root1 = RootConfig(
-        model=_DummyModel,
-        migrate_layers=_dummy_migrate_layers,
-        migrate_merged=_dummy_migrate_merged,
-    )
-    root2 = RootConfig(
-        model=_DummyModel,
-        migrate_layers=_dummy_migrate_layers,
-        migrate_merged=_dummy_migrate_merged,
-    )
-    assert root1 == root2
+def test_roots_with_equal_fields_are_equal() -> None:
+    assert make_root() == make_root()

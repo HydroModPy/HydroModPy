@@ -1,4 +1,9 @@
-"""The report pages: figures named by the presets, two stations, drawn figures, overview, sheet, session."""
+"""Report pages built from a fake run: figures, metrics and tables of each page.
+
+The run is two gauged stations over three monthly steps (discharge in m3/s). The
+OLD_ sets list what the earlier research and overview pages showed, so a page
+that loses one of them fails.
+"""
 
 from __future__ import annotations
 
@@ -214,15 +219,30 @@ def _no_geographic(name):
     raise KeyError(name)
 
 
+def _items(blocks: list[Block], kind: type) -> list:
+    return [i for b in blocks for _, i in b.items if isinstance(i, kind)]
+
+
 def _figures_of(blocks: list[Block]) -> list[Picture]:
-    return [i for b in blocks for _, i in b.items if isinstance(i, Picture)]
+    return _items(blocks, Picture)
+
+
+def bare_overview(directory: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        dir=directory,
+        name="ov",
+        record=SimpleNamespace(site=SimpleNamespace(label="Selune", crs="EPSG:2154")),
+        config_snapshot={},
+        figures=[],
+        inputs=[],
+    )
 
 
 def _metric(blocks: list[Block], label: str) -> Metric:
-    return next(i for b in blocks for _, i in b.items if isinstance(i, Metric) and i.label == label)
+    return next(m for m in _items(blocks, Metric) if m.label == label)
 
 
-def test_named_figures_and_panels_are_registered():
+def test_preset_names_are_registered():
     research = PRESETS["research"]
     named = [n for names in research.figures.values() for n in names]
     assert [n for n in (*named, *SHEET_FIGURES) if n not in FIGURES] == []
@@ -230,32 +250,20 @@ def test_named_figures_and_panels_are_registered():
     assert [p for p in research.panels if f"{p}.png" not in panels] == []
 
 
-def _items(blocks: list[Block], kind: type) -> list:
-    return [i for b in blocks for _, i in b.items if isinstance(i, kind)]
-
-
-def test_the_overview_page_keeps_every_figure_metric_and_table_of_the_old_one(tmp_path):
-    overview = SimpleNamespace(
-        dir=tmp_path / "runs" / "ov",
-        name="ov",
-        record=SimpleNamespace(site=SimpleNamespace(label="Selune", crs="EPSG:2154")),
-        config_snapshot={},
-        figures=[],
-        inputs=[],
-    )
-    blocks = pages.overview_blocks(overview)
+def test_overview_keeps_old_content(tmp_path):
+    blocks = pages.overview_blocks(bare_overview(tmp_path / "runs" / "ov"))
     assert OLD_OVERVIEW_FIGURES - {p.id for p in _figures_of(blocks)} == set()
     assert OLD_OVERVIEW_METRICS - {m.label for m in _items(blocks, Metric)} == set()
     assert OLD_OVERVIEW_TABLES - {t.id for t in _items(blocks, Table)} == set()
 
 
-def test_the_forcing_origin_and_the_configuration_read_the_sealed_config(tmp_path):
+def test_sealed_config_feeds_metrics(tmp_path):
     blocks = pages.run_blocks(_fake_run(tmp_path), overview=None, texts=TEXTS, station=None)
     assert _metric(blocks, "Forcing origin").value == "custom recharge (R1)"
     assert _metric(blocks, "DEM extraction threshold").value == "0.5"
 
 
-def test_the_geology_table_lists_the_codes_of_the_catchment(tmp_path):
+def test_geology_rows(tmp_path):
     import geopandas as gpd
     from shapely.geometry import box
 
@@ -273,27 +281,25 @@ def test_the_geology_table_lists_the_codes_of_the_catchment(tmp_path):
     assert [(r["code"], r["area_km2"]) for r in rows] == [("2", "1.00"), ("10", "2.00")]
 
 
-def test_gauge_names_the_site(tmp_path):
+def test_site_metric_names_gauge(tmp_path):
     blocks = pages.run_blocks(_fake_run(tmp_path), overview=None, texts=TEXTS, station=None)
     assert _metric(blocks, "Site").value == "Selune (S1)"
 
 
-def test_unknown_station_gives_no_series_but_still_a_page(tmp_path):
+def test_unknown_station_keeps_page(tmp_path):
     blocks = pages.run_blocks(_fake_run(tmp_path), overview=None, texts=TEXTS, station="nope")
     assert _metric(blocks, "Observed discharge points").value == 0
 
 
-def test_sheet_names_its_label_once(tmp_path):
+def test_sheet_label_once(tmp_path):
     blocks = pages.sheet_blocks(_fake_run(tmp_path), texts=TEXTS, station=None)
     text = " ".join(p for prose in _items(blocks, Prose) for p in prose.paragraphs)
     assert text.count("Label sentence.") == 1
 
 
-def test_sheet_headline_is_the_score_of_the_seal(tmp_path):
+def test_sheet_headline_score(tmp_path):
     blocks = pages.sheet_blocks(_fake_run(tmp_path), texts=TEXTS, station="S1")
-    scores = next(
-        i for b in blocks for _, i in b.items if isinstance(i, Table) and i.id == "scores"
-    )
+    scores = next(t for t in _items(blocks, Table) if t.id == "scores")
     assert scores.rows == (
         {
             "station": "S2",
@@ -306,12 +312,12 @@ def test_sheet_headline_is_the_score_of_the_seal(tmp_path):
     )
 
 
-def test_the_undetermined_licence_is_the_one_of_core():
+def test_undetermined_license():
     assert not hasattr(pages, "UNDETERMINED_LICENCE")
     assert pages.UNDETERMINED_LICENSE == "LicenseRef-undetermined"
 
 
-def test_overview_blocks_read_the_sealed_inventory(tmp_path, monkeypatch):
+def test_overview_reads_inventory(tmp_path, monkeypatch):
     inventory = pd.DataFrame(
         [
             {
@@ -332,16 +338,8 @@ def test_overview_blocks_read_the_sealed_inventory(tmp_path, monkeypatch):
         ]
     )
     monkeypatch.setattr(pages, "read_run_table", lambda run, name: inventory)
-    overview = SimpleNamespace(
-        dir=tmp_path / "ov",
-        name="ov",
-        record=SimpleNamespace(site=SimpleNamespace(label="Selune", crs="EPSG:2154")),
-        config_snapshot={},
-        figures=[],
-        inputs=[],
-    )
-    blocks = pages.overview_blocks(overview)
-    tables = {i.id: i for b in blocks for _, i in b.items if isinstance(i, Table)}
+    blocks = pages.overview_blocks(bare_overview(tmp_path / "ov"))
+    tables = {t.id: t for t in _items(blocks, Table)}
     assert [r["family"] for r in tables["families"].rows] == ["hydrometry"]
     assert [r["name"] for r in tables["stations"].rows] == ["S1"]
     assert [r["name"] for r in tables["wells"].rows] == ["W1"]
@@ -350,7 +348,7 @@ def test_overview_blocks_read_the_sealed_inventory(tmp_path, monkeypatch):
     assert _metric(blocks, "Wells").value == 1
 
 
-def test_session_blocks_cut_the_trial_trace():
+def test_session_trial_trace_cut():
     trials = pd.DataFrame(
         {
             "trial": range(1, 31),
@@ -378,7 +376,7 @@ class _SeveralCases:
         raise SeveralCasesError("session s holds one run per case (a, b): read best_by_case.")
 
 
-def test_a_session_of_several_cases_has_its_page_with_a_row_per_case(tmp_path):
+def test_several_cases_session(tmp_path):
     cases = [
         {"case": "a", "site": "A", "best_run": "a.v1", "note": ""},
         {"case": "b", "site": "B", "best_run": "", "note": "best run not opened: broken"},
@@ -407,7 +405,7 @@ def draw_spy(monkeypatch):
     return calls
 
 
-def test_draw_named_figures_draws_only_the_missing(tmp_path, draw_spy):
+def test_draw_only_missing(tmp_path, draw_spy):
     run = SimpleNamespace(dir=tmp_path, config_snapshot=None)
     (tmp_path / "figures").mkdir()
     (tmp_path / "figures" / "seepage_map.png").write_bytes(b"x")
@@ -421,7 +419,7 @@ def test_draw_named_figures_draws_only_the_missing(tmp_path, draw_spy):
     assert display.on_error == "warn"
 
 
-def test_draw_named_figures_does_nothing_when_all_exist(tmp_path, draw_spy):
+def test_draw_nothing_when_all_exist(tmp_path, draw_spy):
     (tmp_path / "figures").mkdir()
     (tmp_path / "figures" / "seepage_map.png").write_bytes(b"x")
     run = SimpleNamespace(dir=tmp_path, config_snapshot=None)
@@ -429,7 +427,7 @@ def test_draw_named_figures_does_nothing_when_all_exist(tmp_path, draw_spy):
     assert draw_spy == []
 
 
-def test_sealed_display_keeps_only_values_the_run_chose():
+def test_sealed_display_keeps_chosen():
     run = SimpleNamespace(config_snapshot={"display": {"dpi": 220}})
     display = pages._sealed_display(run, ["seepage_map"])
     assert display.dpi == 220
@@ -437,7 +435,7 @@ def test_sealed_display_keeps_only_values_the_run_chose():
     assert display.on_error == "warn"
 
 
-def test_sealed_display_falls_back_to_the_defaults():
+def test_sealed_display_falls_back():
     run = SimpleNamespace(config_snapshot={"display": {"dpi": "not a number"}})
     display = pages._sealed_display(run, ["seepage_map"])
     assert list(display.figures) == ["seepage_map"]

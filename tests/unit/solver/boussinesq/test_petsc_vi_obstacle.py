@@ -1,3 +1,9 @@
+"""PETSc variational-inequality runtime of Boussinesq: obstacle reactions and sub-steps.
+
+Heads are in m between a bottom and a top obstacle, rates in m/s and time steps in s. Recharge
+pushes a cell against its top (surface excess), pumping against its bottom (dry deficit).
+"""
+
 from __future__ import annotations
 
 import csv

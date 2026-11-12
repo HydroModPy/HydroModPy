@@ -18,9 +18,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.layout import runs_dir_for
 from hydromodpy.project.launch import local as launch_local
 from hydromodpy.project.launch.local import plan_project, run_plan
-from hydromodpy.project.launch.selection import (
-    select_cases,
-)
+from hydromodpy.project.launch.selection import select_cases
 from hydromodpy.project.launch.status import case_state, project_status
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.plan_store import read_plan
@@ -36,9 +34,7 @@ from tests.unit.project.launch._launch_fakes import (
 pytestmark = pytest.mark.allow_subprocess
 
 
-def test_every_case_runs_in_a_process_of_its_own_and_is_journalled(
-    tmp_path: Path, fake_worker: Path
-) -> None:
+def test_one_process_per_case(tmp_path: Path, fake_worker: Path) -> None:
     project = write_project(tmp_path, sites_extra="[sites.run]\nparallel = 2\n")
     plan_project(project)
 
@@ -58,7 +54,7 @@ def test_every_case_runs_in_a_process_of_its_own_and_is_journalled(
     assert not (project / ".hmp" / "launcher.lease").exists()
 
 
-def test_the_index_is_refreshed_by_the_launcher_after_every_end(
+def test_index_refreshed_after_each_end(
     tmp_path: Path, fake_worker: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project = write_project(tmp_path)
@@ -75,9 +71,7 @@ def test_the_index_is_refreshed_by_the_launcher_after_every_end(
     assert {seen(project, case_id)["env"]["HMP_LAUNCHED_CASE"] for case_id in CASES} == {"local"}
 
 
-def test_a_worker_that_dies_without_its_outcome_is_closed_failed_by_the_launcher(
-    tmp_path: Path, fake_worker: Path
-) -> None:
+def test_dead_worker_is_closed_failed(tmp_path: Path, fake_worker: Path) -> None:
     project = write_project(tmp_path)
     write_behaviour(project, {"alpha-base": {"run": "die"}, "beta-base": {"run": "fail"}})
     plan_project(project)
@@ -96,9 +90,7 @@ def test_a_worker_that_dies_without_its_outcome_is_closed_failed_by_the_launcher
     assert report.n_failed == 2 and report.n_completed == 2
 
 
-def test_only_failed_starts_the_failed_cases_again_in_place(
-    tmp_path: Path, fake_worker: Path
-) -> None:
+def test_only_failed_reruns_in_place(tmp_path: Path, fake_worker: Path) -> None:
     project = write_project(tmp_path)
     write_behaviour(project, {"alpha-k2e_5": {"run": "fail"}})
     plan_project(project)
@@ -113,9 +105,7 @@ def test_only_failed_starts_the_failed_cases_again_in_place(
     assert flags[flags.index("--resume") + 1] == "alpha-k2e_5"
 
 
-def test_a_completed_plan_starts_nothing_and_site_keeps_one_site(
-    tmp_path: Path, fake_worker: Path
-) -> None:
+def test_completed_plan_starts_nothing(tmp_path: Path, fake_worker: Path) -> None:
     project = write_project(tmp_path)
     plan_project(project)
 
@@ -129,9 +119,7 @@ def test_a_completed_plan_starts_nothing_and_site_keeps_one_site(
     }
 
 
-def test_on_error_raise_skips_the_cases_left_after_a_failure(
-    tmp_path: Path, fake_worker: Path
-) -> None:
+def test_on_error_raise_skips_the_rest(tmp_path: Path, fake_worker: Path) -> None:
     project = write_project(tmp_path, sites_extra='[sites.run]\nparallel = 1\non_error = "raise"\n')
     write_behaviour(project, {"alpha-base": {"run": "fail"}})
     plan_project(project)
@@ -146,7 +134,7 @@ def test_on_error_raise_skips_the_cases_left_after_a_failure(
     )
 
 
-def test_until_data_stops_after_the_prepare_phase(tmp_path: Path, fake_worker: Path) -> None:
+def test_until_data_stops_after_prepare(tmp_path: Path, fake_worker: Path) -> None:
     project = write_project(tmp_path)
     plan_project(project)
 
@@ -161,9 +149,7 @@ def test_until_data_stops_after_the_prepare_phase(tmp_path: Path, fake_worker: P
         run_plan(project, until="build_mesh")
 
 
-def test_a_launch_until_data_names_the_cases_it_prepared_and_solves_nothing(
-    tmp_path: Path, fake_worker: Path
-) -> None:
+def test_until_data_names_prepared_cases(tmp_path: Path, fake_worker: Path) -> None:
     project = write_project(tmp_path)
     plan_project(project)
 
@@ -171,14 +157,12 @@ def test_a_launch_until_data_names_the_cases_it_prepared_and_solves_nothing(
     report = run_plan(project, until="data", parallel=50)
 
     assert report.until == "data"
-    assert sorted(report.prepared) == sorted(
-        ["alpha-base", "alpha-k2e_5", "beta-base", "beta-k2e_5"]
-    )
+    assert sorted(report.prepared) == sorted(CASES)
     assert report.cases == ()
     assert not runs_dir_for(project).exists()
 
 
-def test_a_case_refused_before_its_claim_is_failed(tmp_path: Path, fake_worker: Path) -> None:
+def test_refused_case_is_failed(tmp_path: Path, fake_worker: Path) -> None:
     project = write_project(tmp_path)
     write_behaviour(project, {"beta-k2e_5": {"run": "refuse"}})
     plan_project(project)
@@ -212,7 +196,7 @@ def _sessions(project: Path) -> list[str]:
     return sorted(entry.name for entry in (project / "sessions").iterdir())
 
 
-def test_a_dead_calibration_worker_leaves_a_failed_session_that_starts_again(
+def test_dead_calibration_leaves_failed_session(
     tmp_path: Path, fake_worker: Path, calibration_case: str
 ) -> None:
     project = write_project(tmp_path, sites_extra="[sites.run]\nparallel = 2\n")
@@ -232,15 +216,15 @@ def test_a_dead_calibration_worker_leaves_a_failed_session_that_starts_again(
     by_case = {case.case_id: case for case in report.cases}
     assert by_case[calibration_case].status == "failed"
     # Started again by default and by --only failed.
-    chosen, _ = select_cases(project, launch_local.planned_cases(_stored(project)))
+    chosen, _ = select_cases(project, launch_local.planned_cases(read_plan(project)))
     assert calibration_case in {case.case_id for case, _ in chosen}
     chosen, _ = select_cases(
-        project, launch_local.planned_cases(_stored(project)), only=("failed",)
+        project, launch_local.planned_cases(read_plan(project)), only=("failed",)
     )
     assert [case.case_id for case, _ in chosen] == [calibration_case]
 
 
-def test_a_failed_calibration_reopens_its_session_and_fresh_opens_a_new_one(
+def test_failed_calibration_reopens_or_starts_fresh(
     tmp_path: Path, fake_worker: Path, calibration_case: str
 ) -> None:
     project = write_project(tmp_path, sites_extra="[sites.run]\nparallel = 2\n")
@@ -260,8 +244,3 @@ def test_a_failed_calibration_reopens_its_session_and_fresh_opens_a_new_one(
     run_plan(project, only=(calibration_case,), fresh=True)
     assert "--resume" not in seen(project, calibration_case)["flags"]
     assert _sessions(project) == [calibration_case, f"{calibration_case}.v2"]
-
-
-def _stored(project: Path):
-
-    return read_plan(project)

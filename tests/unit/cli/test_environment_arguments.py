@@ -32,7 +32,6 @@ ENVIRONMENT_COMMANDS: tuple[tuple[str, ...], ...] = (
 
 
 def _arguments(**values: object) -> SimpleNamespace:
-    """Return the argparse namespace the three options produce, with the defaults."""
     space = SimpleNamespace(credentials=None, allow_host=[], max_download_bytes=None)
     for key, value in values.items():
         setattr(space, key, value)

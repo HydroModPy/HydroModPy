@@ -234,7 +234,7 @@ def test_nearest_to_keeps_one_station(install, name, target, expected):
 
 @pytest.mark.fast
 @pytest.mark.parametrize("name", ["piezometry", "water_quality"])
-def test_nearest_to_without_any_coordinates_returns_empty(install, name):
+def test_nearest_to_without_coordinates(install, name):
     sid = STATION_ID[name]
     install(name, {}, {sid: _data(2)})
     assert _fetch(name, station_ids=[sid], nearest_to=IN_A) == []
@@ -242,7 +242,7 @@ def test_nearest_to_without_any_coordinates_returns_empty(install, name):
 
 @pytest.mark.fast
 @pytest.mark.parametrize("name", ["piezometry", "hydrometry"])
-def test_closed_station_is_dropped_only_when_observations_are_required(install, monkeypatch, name):
+def test_closed_station_needs_observations(install, monkeypatch, name):
     key = "date_debut_mesure" if name == "piezometry" else "date_ouverture_station"
     end_key = "date_fin_mesure" if name == "piezometry" else "date_fermeture_station"
     spec = SPECS[name]
@@ -259,9 +259,7 @@ def test_closed_station_is_dropped_only_when_observations_are_required(install, 
     assert _ids(_fetch(name, bbox=BBOX, require_observations=False)) == [sid]
 
 
-# --------------------------------------------------------------------------- #
-# The four classes behind the data-source port
-# --------------------------------------------------------------------------- #
+# The four classes behind the data-source port.
 
 OUT = Path("out")
 """A request's out_dir: the Hub'Eau sources declare they never write one."""
@@ -309,7 +307,7 @@ SECTION_FIELD_CALLS = {
 
 @pytest.mark.fast
 @pytest.mark.parametrize("name", ALL)
-def test_each_client_is_a_class_of_the_port(name):
+def test_clients_follow_the_port(name):
     source = _class(name)(**SPECS[name].base)
     assert missing_source_members(source) == ()
     assert isinstance(source, DataSource)
@@ -326,7 +324,7 @@ def test_each_client_is_a_class_of_the_port(name):
 
 @pytest.mark.fast
 @pytest.mark.parametrize("name", ALL)
-def test_two_selectors_are_refused_before_the_provider(install, name):
+def test_two_selectors_refused(install, name):
     sid = STATION_ID[name]
     world = install(name, {sid: IN_A}, {sid: _data(2)})
     both = FetchRequest(
@@ -342,7 +340,7 @@ def test_two_selectors_are_refused_before_the_provider(install, name):
 
 @pytest.mark.fast
 @pytest.mark.parametrize("name", ALL)
-def test_a_request_without_a_period_is_refused(install, name):
+def test_missing_period_refused(install, name):
     sid = STATION_ID[name]
     install(name, {sid: IN_A}, {sid: _data(2)})
     request = FetchRequest(out_dir=OUT, station_ids=(sid,))
@@ -352,7 +350,7 @@ def test_a_request_without_a_period_is_refused(install, name):
 
 @pytest.mark.fast
 @pytest.mark.parametrize("name", ALL)
-def test_a_section_binds_the_constructor_and_serves_the_station(install, name):
+def test_section_builds_a_source(install, name):
     sid = STATION_ID[name]
     install(name, {sid: IN_A}, {sid: _data(2)})
     model_name, section_kwargs = SECTION_MODELS[name]
@@ -367,7 +365,7 @@ def test_a_section_binds_the_constructor_and_serves_the_station(install, name):
 
 @pytest.mark.fast
 @pytest.mark.parametrize("name", ["piezometry", "water_quality"])
-def test_the_constructor_takes_the_nearest_point_the_manager_resolves(install, name):
+def test_constructor_nearest_point(install, name):
     near, far = STATION_ID[name], STATION_ID[name][:-1] + "2"
     install(name, {near: IN_A, far: IN_B}, {near: _data(2), far: _data(2)})
     source = _class(name)(**SPECS[name].base, nearest_to=IN_A)
@@ -376,7 +374,7 @@ def test_the_constructor_takes_the_nearest_point_the_manager_resolves(install, n
 
 
 @pytest.mark.fast
-def test_code_departement_reaches_the_discovery_of_an_extent_request(install):
+def test_department_reaches_discovery(install):
     world = install("intermittency", {"S1": IN_A}, {"S1": _data(2)})
     source = _class("intermittency")(code_departement=["35"])
     records = list(source.fetch(_extent_request()).points)
@@ -386,7 +384,7 @@ def test_code_departement_reaches_the_discovery_of_an_extent_request(install):
 
 
 @pytest.mark.fast
-def test_piezometry_depth_product_reads_the_depth_column(install):
+def test_piezometry_depth_product(install):
     world = install("piezometry", {"B": IN_A}, {})
     world.spec = SimpleNamespace(
         **{
@@ -403,7 +401,7 @@ def test_piezometry_depth_product_reads_the_depth_column(install):
 
 
 @pytest.mark.fast
-def test_piezometry_location_falls_back_to_direct_fields(monkeypatch):
+def test_piezometer_location_fallback(monkeypatch):
     rows = {"data": [{"longitude_station": -1.5, "latitude_station": 47.5, "nom_commune": "X"}]}
     mod = _mod("piezometry")
     monkeypatch.setattr(mod, "get_json", lambda *a, **k: rows)
@@ -416,7 +414,7 @@ def test_piezometry_location_falls_back_to_direct_fields(monkeypatch):
 
 
 @pytest.mark.fast
-def test_piezometry_chronicle_without_date_column_is_empty(monkeypatch):
+def test_chronicle_without_date_is_empty(monkeypatch):
     mod = _mod("piezometry")
     monkeypatch.setattr(mod, "get_json", lambda *a, **k: {"data": [{"niveau_nappe_eau": 1.0}]})
     assert mod._download_chronicles("B", "level", START, END, client=HTTPClient()).empty
@@ -425,7 +423,7 @@ def test_piezometry_chronicle_without_date_column_is_empty(monkeypatch):
 
 
 @pytest.mark.fast
-def test_intermittency_maps_codes_and_drops_impossible_observations(install):
+def test_intermittency_code_mapping(install):
     world = install("intermittency", {"S1": IN_A}, {})
     codes = ["1", "1a", "1f", "2", "3", "4", "zz"]
     world.spec = SimpleNamespace(
@@ -468,7 +466,7 @@ def test_intermittency_department_discovery_and_frozen_station(monkeypatch):
 
 
 @pytest.mark.fast
-def test_intermittency_only_impossible_observations_gives_no_record(install):
+def test_intermittency_no_valid_observation(install):
     world = install("intermittency", {"S1": IN_A}, {"S1": _data(2)})
     world.spec = SimpleNamespace(
         **{
@@ -499,7 +497,7 @@ def test_hydrometry_unit_conversion_by_product(install, product, variable, unit,
 
 
 @pytest.mark.fast
-def test_hydrometry_site_code_gets_the_sensor_suffix(install):
+def test_hydrometry_sensor_suffix(install):
     world = install("hydrometry", {"J0000000" + "01": IN_A}, {"J000000001": _data(1)})
     (rec,) = _mod("hydrometry").fetch(product="QmnJ", station_ids=[" J0000000 "], **_window({}))
     assert rec.station_id == "J000000001"
@@ -507,7 +505,7 @@ def test_hydrometry_site_code_gets_the_sensor_suffix(install):
 
 
 @pytest.mark.fast
-def test_hydrometry_long_period_is_downloaded_in_chunks(install, monkeypatch):
+def test_hydrometry_period_chunks(install, monkeypatch):
     mod = _mod("hydrometry")
     monkeypatch.setattr(mod.time, "sleep", lambda _s: None)
     world = install("hydrometry", {"J000000001": IN_A}, {"J000000001": [("2020-01-01", 5.0)]})
@@ -528,7 +526,7 @@ def test_hydrometry_max_stations_counts_kept_stations(install):
 
 
 @pytest.mark.fast
-def test_water_quality_parameters_filter_and_one_record_per_parameter(install):
+def test_water_quality_parameter_filter(install):
     world = install("water_quality", {"W1": IN_A}, {})
     world.spec = SimpleNamespace(
         **{
@@ -564,7 +562,7 @@ def test_water_quality_parameters_filter_and_one_record_per_parameter(install):
 
 
 @pytest.mark.fast
-def test_water_quality_groundwater_uses_bss_params_and_data_coordinates(monkeypatch):
+def test_water_quality_groundwater_sites(monkeypatch):
     mod = _mod("water_quality")
     calls = []
 
@@ -603,7 +601,7 @@ def test_water_quality_groundwater_uses_bss_params_and_data_coordinates(monkeypa
 
 
 @pytest.mark.fast
-def test_water_quality_discovery_dedupes_and_normalization_rejects_bad_columns(monkeypatch):
+def test_water_quality_discovery_and_columns(monkeypatch):
     import pandas as pd
 
     mod = _mod("water_quality")
@@ -644,7 +642,7 @@ def test_hubeau_products_table():
         )
 
 
-def test_hubeau_division_matches_the_old_bit_pattern():
+def test_division_keeps_float_bits():
     """A division by the table divisor writes the exact float the old code wrote.
 
     ``/ 1000.0`` and ``* 1e-3`` do not give the same float for about 13% of
@@ -672,7 +670,7 @@ def test_hubeau_config_product_validation():
     assert cfg.product == "QIXM"
 
 
-def test_hubeau_hydrometry_all_named_dropped_raises_data_source_error(monkeypatch):
+def test_all_named_stations_dropped(monkeypatch):
     import hydromodpy.data.variables.hydrometry.apis.hubeau as hb
     from hydromodpy.core.exceptions import DataSourceError
 

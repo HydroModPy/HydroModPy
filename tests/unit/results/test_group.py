@@ -104,7 +104,7 @@ def scored(tmp_path):
     return catalog, ids
 
 
-def test_the_metric_columns_are_named_by_metric_and_carry_the_window(scored) -> None:
+def test_metric_columns(scored) -> None:
     catalog, ids = scored
     frame = RunSet(list(ids.values()), catalog).metrics
 
@@ -131,7 +131,7 @@ def test_the_metric_columns_are_named_by_metric_and_carry_the_window(scored) -> 
     ("metric", "best", "worst"),
     [("nse", "b", "c"), ("rmse", "b", "c"), ("pbias", "b", "c")],
 )
-def test_best_and_worst_follow_the_metric(scored, metric, best, worst) -> None:
+def test_best_and_worst(scored, metric, best, worst) -> None:
     catalog, ids = scored
     group = RunSet(list(ids.values()), catalog)
 
@@ -139,7 +139,7 @@ def test_best_and_worst_follow_the_metric(scored, metric, best, worst) -> None:
     assert group.worst(metric).sim_id == ids[worst]
 
 
-def test_sort_by_orders_the_raw_value(scored) -> None:
+def test_sort_by_raw_value(scored) -> None:
     catalog, ids = scored
     group = RunSet(list(ids.values()), catalog)
 
@@ -147,7 +147,7 @@ def test_sort_by_orders_the_raw_value(scored) -> None:
     assert group.sort_by("nse", ascending=False).sim_ids == [ids["b"], ids["a"], ids["c"]]
 
 
-def test_runs_scored_on_different_windows_are_not_ranked_together(scored, tmp_path) -> None:
+def test_mixed_windows_are_refused(scored, tmp_path) -> None:
     catalog, ids = scored
     other = DateWindow(start=date(2010, 1, 1), end=date(2012, 12, 31))
     late = _seal(catalog, tmp_path, "e", 5, _metrics({"nse": 0.99}, other))
@@ -158,15 +158,26 @@ def test_runs_scored_on_different_windows_are_not_ranked_together(scored, tmp_pa
     assert group.best("nse", mixed_windows=True).sim_id == late
 
 
-def test_an_unranked_metric_and_an_absent_one_are_refused(scored) -> None:
+REFUSALS = [
+    pytest.param(
+        "bias_of_the_day", UnrankedMetricError, "no declared direction", id="no direction"
+    ),
+    pytest.param("log_nse", UnrankedMetricError, "write 'nse_log'", id="retired name"),
+    pytest.param("kge", KeyError, "kge", id="metric not stored"),
+]
+
+
+@pytest.mark.parametrize(("metric", "error", "match"), REFUSALS)
+def test_refusals(scored, metric, error, match) -> None:
     catalog, ids = scored
     group = RunSet(list(ids.values()), catalog)
 
-    with pytest.raises(UnrankedMetricError, match="no declared direction"):
-        group.best("bias_of_the_day")
-    with pytest.raises(UnrankedMetricError, match="write 'nse_log'"):
-        group.best("log_nse")
-    with pytest.raises(KeyError, match="kge"):
-        group.best("kge")
+    with pytest.raises(error, match=match):
+        group.best(metric)
+
+
+def test_an_empty_group_has_no_best(scored) -> None:
+    catalog, _ = scored
+
     with pytest.raises(ValueError, match="Empty group"):
         RunSet([], catalog).best("nse")

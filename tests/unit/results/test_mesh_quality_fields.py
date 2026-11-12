@@ -79,7 +79,7 @@ def _store(
     return store
 
 
-def test_the_area_and_the_neighbour_ratio_follow_the_widths(tmp_path):
+def test_area_and_neighbour_ratio(tmp_path):
     store = _store(tmp_path / "fields.zarr", _grid())
 
     area = mesh_quality_values(store.root, "mesh_cell_area")
@@ -91,7 +91,7 @@ def test_the_area_and_the_neighbour_ratio_follow_the_widths(tmp_path):
     store.close()
 
 
-def test_a_centre_off_its_centroid_shows_in_the_offset_and_the_angles(tmp_path):
+def test_centre_offset_and_angles(tmp_path):
     store = _store(tmp_path / "fields.zarr", _grid(shift_first_centre=(3.0, 4.0)))
 
     offset = mesh_quality_values(store.root, "mesh_center_offset")
@@ -109,7 +109,7 @@ def test_a_centre_off_its_centroid_shows_in_the_offset_and_the_angles(tmp_path):
     store.close()
 
 
-def test_a_centre_off_its_centroid_moves_the_crossing_off_the_face_middle(tmp_path):
+def test_bisection_offset(tmp_path):
     store = _store(tmp_path / "fields.zarr", _grid(shift_first_centre=(3.0, 4.0)))
 
     offset = mesh_quality_values(store.root, "mesh_bisection_offset")
@@ -121,7 +121,7 @@ def test_a_centre_off_its_centroid_moves_the_crossing_off_the_face_middle(tmp_pa
     store.close()
 
 
-def test_the_cells_of_a_grid_have_right_angles_and_no_concavity(tmp_path):
+def test_grid_right_angles(tmp_path):
     store = _store(tmp_path / "fields.zarr", _grid())
 
     np.testing.assert_allclose(mesh_quality_values(store.root, "mesh_min_angle"), 90.0)
@@ -130,7 +130,7 @@ def test_the_cells_of_a_grid_have_right_angles_and_no_concavity(tmp_path):
     store.close()
 
 
-def test_an_l_shaped_cell_has_a_reflex_corner_of_270_degrees(tmp_path):
+def test_l_shaped_cell(tmp_path):
     corners = np.array(
         [[0, 0], [2, 0], [2, 1], [1, 1], [1, 2], [0, 2], [2, 2]], dtype=float
     ) * 10.0 + [350_000.0, 6_780_000.0]
@@ -152,7 +152,7 @@ def test_an_l_shaped_cell_has_a_reflex_corner_of_270_degrees(tmp_path):
     store.close()
 
 
-def test_a_face_shorter_than_the_qa_threshold_is_left_out_of_the_angles(tmp_path):
+def test_short_faces_left_out(tmp_path):
     cell_mesh = _grid(shift_first_centre=(3.0, 4.0))
     store = _store(tmp_path / "fields.zarr", cell_mesh, qa={"min_face_length_m": 15.0})
 
@@ -163,7 +163,7 @@ def test_a_face_shorter_than_the_qa_threshold_is_left_out_of_the_angles(tmp_path
     store.close()
 
 
-def test_a_store_without_cell_centres_serves_the_geometry_fields_only(tmp_path):
+def test_store_without_cell_centres(tmp_path):
     store = _store(tmp_path / "fields.zarr", _grid(), layout=False)
 
     assert available_virtual_fields(store.root) == [
@@ -183,7 +183,7 @@ def test_a_store_without_cell_centres_serves_the_geometry_fields_only(tmp_path):
     store.close()
 
 
-def test_the_fields_are_static_and_read_whatever_the_step(tmp_path):
+def test_fields_are_static(tmp_path):
     store = _store(tmp_path / "fields.zarr", _grid(shift_first_centre=(3.0, 4.0)))
 
     once = derive_field_slice(store, "sim", "mesh_center_offset", 0)
@@ -198,7 +198,7 @@ def test_the_fields_are_static_and_read_whatever_the_step(tmp_path):
     store.close()
 
 
-def test_the_per_cell_extremes_of_a_voronoi_dual_are_the_qa_extremes(tmp_path):
+def test_voronoi_dual_matches_qa(tmp_path):
     cell_mesh = bundle_dual("stream_depletion_glover_balmer_tri_refined_well")
     qa = cell_mesh.qa
     store = _store(tmp_path / "fields.zarr", cell_mesh, qa=qa.as_dict())

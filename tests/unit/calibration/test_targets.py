@@ -1,4 +1,9 @@
-"""Tests of `targets`."""
+"""Catalog of the quantities a calibration can search, read from a resolved configuration.
+
+A leaf is offered only when its field carries a `Calibrable` annotation. A target
+gives its dotted path, its current value, its unit (mm/day, m/s, day, ...) and the
+physical range it is checked against.
+"""
 
 from __future__ import annotations
 
@@ -32,62 +37,139 @@ from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from tests.unit.calibration._factories import _Project
 
-# From test_a_field_declares_itself_calibrable.py
-# The annotation had no reachable field to sit on, so it annotated nothing.
-#
-# ``Calibrable`` and the walk that collects it were written, tested, and returned an
-# empty dictionary on every configuration in the repository. The reason was a layer
-# rule, not an oversight: the annotation lived in ``calibration/``, which ``model``
-# and ``catchment`` are forbidden to import, so no hydraulic property could carry it.
-#
-# Moved into the kernel, any layer that declares a field can say what a search
-# would need to know about it. The scalar value of a homogeneous field parameter is
-# the first and most obvious one: it is the target every calibration in the
-# repository writes to.
 
-
-def _annotation(model: type, field: str) -> Calibrable | None:
+def annotation_of(model: type, field: str) -> Calibrable | None:
     extra = model.model_fields[field].json_schema_extra or {}
     found = extra.get("calibrable") if isinstance(extra, dict) else None
     return found if isinstance(found, Calibrable) else None
 
 
-class TestTheAnnotationIsReachable:
-    def test_it_lives_in_the_kernel(self) -> None:
-        """So physics and spatial can carry it without breaking the layer matrix."""
-        assert Calibrable.__module__ == "hydromodpy.core.config_kit.calibrable"
-
-    def test_there_is_one_class_and_not_two(self) -> None:
-        assert reexported is Calibrable
-
-
-class TestWhatIsAnnotated:
-    def test_a_homogeneous_field_value_declares_itself(self) -> None:
-        found = _annotation(FieldHomogeneousSection, "value")
-
-        assert found is not None
-
-    def test_it_declares_the_space_to_search_in(self) -> None:
-        found = _annotation(FieldHomogeneousSection, "value")
-
-        assert found is not None
-        assert found.search_space == "log"
-        assert found.sampling == "log_uniform"
-
-    def test_it_leaves_the_range_to_the_site(self) -> None:
-        """A conductivity range is a property of the catchment, not of the schema."""
-        found = _annotation(FieldHomogeneousSection, "value")
-
-        assert found is not None
-        assert found.bounds is None
+def config_with(tmp_path, **flow: object):
+    return HydroModPyConfig(
+        workflow={"mode": "simulation"},
+        workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
+        geographic=GeographicConfig(source_mode="synthetic"),
+        flow=FlowConfig(**flow),
+    )
 
 
-# From test_recharge_target_units.py
-# The recharge rate a search moves is read in the unit the file declares.
+@pytest.fixture
+def cfg(tmp_path):
+    return config_with(
+        tmp_path,
+        param_list=["K", "Sy"],
+        param={
+            "K": {"field": {"id": "K", "kind": "homogeneous", "unit": "m/s", "value": 1e-5}},
+            "Sy": {"field": {"id": "Sy", "kind": "homogeneous", "unit": "-", "value": 0.1}},
+        },
+    )
+
+
+def config_with_k_written_as(tmp_path, *, value: object, unit: str | None = None):
+    field: dict[str, object] = {"id": "K", "kind": "homogeneous", "value": value}
+    if unit is not None:
+        field["unit"] = unit
+    return config_with(tmp_path, param_list=["K"], param={"K": {"field": field}})
+
+
+def soil_project() -> _Project:
+    soil = SoilReservoirConfig(ru=150.0)
+    recharge = FlowRechargeConfig(soil=soil)
+    sinks_sources = FlowSinksSourcesConfig(recharge=recharge)
+    flow = FlowConfig.homogeneous(K=1e-4).model_copy(update={"sinks_sources": sinks_sources})
+    return _Project(flow)
+
+
+def vertical_profile_project(**vertical_profile: object) -> _Project:
+    flow = FlowConfig.model_validate(
+        {
+            "flow_regime": "steady",
+            "param_list": ["K", "Sy"],
+            "param": {
+                "K": {
+                    "field": {"id": "K", "kind": "homogeneous", "unit": "m/s", "value": 1e-4},
+                    "field_vertical_profile": vertical_profile or None,
+                },
+                "Sy": {"field": {"id": "Sy", "kind": "homogeneous", "unit": "-", "value": 0.1}},
+            },
+        }
+    )
+    return _Project(flow)
+
+
+class _Reach(HydroModelBase):
+    # A declared quantity next to an undeclared numeric sibling.
+    manning: Annotated[float, Profile.USER] = Field(
+        default=0.03, json_schema_extra=field_metadata(calibrable=Calibrable(units="s/m^(1/3)"))
+    )
+    min_slope: Annotated[float, Profile.USER] = Field(default=1e-4)
+
+
+class _SinksSources(HydroModelBase):
+    reaches: Annotated[dict[str, _Reach], Profile.USER] = Field(default_factory=dict)
+
+
+class _Flow(HydroModelBase):
+    sinks_sources: Annotated[_SinksSources, Profile.USER] = Field(default_factory=_SinksSources)
+
+
+class _BarrierOptions(HydroModelBase):
+    # Backend option that a declared conductivity entry settles.
+    bedleak: Annotated[float, Profile.EXPERT] = Field(
+        default=12.0,
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                search_space="log",
+                sampling="log_uniform",
+                units="1/day",
+                excluded_by=("flow.param.Kv",),
+            ),
+            unit="-",
+        ),
+    )
+    floor: Annotated[float, Profile.USER] = Field(default=2.0)
+
+
+class _ParamInFiles(HydroModelBase):
+    Kv: Annotated[float, Profile.USER] = Field(default=1e-4)
+
+
+class _FlowInFiles(HydroModelBase):
+    param: Annotated[dict[str, _ParamInFiles], Profile.USER] = Field(
+        default_factory=lambda: {"Kv": _ParamInFiles()}
+    )
+
+
+def leaky_barrier_solver() -> SimpleNamespace:
+    return SimpleNamespace(backend_name="leaky_barrier", options_of=lambda name: _BarrierOptions())
+
+
+def test_annotation_lives_in_the_kernel() -> None:
+    # Physics and spatial layers carry it without breaking the layer matrix.
+    assert Calibrable.__module__ == "hydromodpy.core.config_kit.calibrable"
+
+
+def test_one_calibrable_class() -> None:
+    assert reexported is Calibrable
+
+
+# A conductivity range belongs to the catchment, so the schema leaves bounds empty.
+HOMOGENEOUS_VALUE = [
+    pytest.param("search_space", "log", id="search space"),
+    pytest.param("sampling", "log_uniform", id="sampling"),
+    pytest.param("bounds", None, id="range left to the site"),
+]
+
+
+@pytest.mark.parametrize(("attribute", "expected"), HOMOGENEOUS_VALUE)
+def test_homogeneous_value_annotation(attribute: str, expected: object) -> None:
+    found = annotation_of(FieldHomogeneousSection, "value")
+
+    assert getattr(found, attribute) == expected
 
 
 @pytest.mark.parametrize("units", ["mm/day", "m/day"])
-def test_recharge_target_reads_the_unit_of_the_recharge_block(units: str) -> None:
+def test_recharge_target_unit(units: str) -> None:
     cfg = HydroModPyConfig.model_validate(
         {
             "workflow": {"mode": "simulation"},
@@ -111,324 +193,85 @@ def test_recharge_target_reads_the_unit_of_the_recharge_block(units: str) -> Non
     assert found["flow.sinks_sources.recharge.values"].units == units
 
 
-# From test_the_catalogue_is_declared_not_guessed.py
-# The catalog reads a declaration, it does not guess from a name and a type.
-#
-# A leaf used to be offered when it was a real number, showed to Profile.USER, and
-# its name was absent from a hand-written blocklist. That blocklist could go stale
-# without anything failing, and it was: ``min_slope`` and ``min_thickness`` are scheme and geometry knobs that still surfaced as
-# calibratable. The gate here is that a leaf enters the catalog only when its
-# field carries a :class:`~hydromodpy.core.config_kit.calibrable.Calibrable`
-# annotation, whatever its name.
+def test_target_carries_the_current_value(cfg) -> None:
+    target = targets_by_path(calibration_targets(cfg))["flow.param.K.field.value"]
+
+    assert target.current == pytest.approx(1e-5)
+    assert target.instance == "K"
 
 
-class _Reach(HydroModelBase):
-    """A declared quantity next to an undeclared numeric sibling."""
+def test_target_unit_from_sibling(cfg) -> None:
+    target = targets_by_path(calibration_targets(cfg))["flow.param.K.field.value"]
 
-    manning: Annotated[float, Profile.USER] = Field(
-        default=0.03, json_schema_extra=field_metadata(calibrable=Calibrable(units="s/m^(1/3)"))
-    )
-    min_slope: Annotated[float, Profile.USER] = Field(default=1e-4)
+    assert target.units == "m/s"
 
 
-class _SinksSources(HydroModelBase):
-    reaches: Annotated[dict[str, _Reach], Profile.USER] = Field(default_factory=dict)
+# A value in one string is the same declaration as a number with a sibling unit.
+WRITTEN_K = [
+    pytest.param(1e-4, "m/s", id="number with a sibling unit"),
+    pytest.param("1e-4 m/s", None, id="number and unit in one string"),
+]
 
 
-class _Flow(HydroModelBase):
-    sinks_sources: Annotated[_SinksSources, Profile.USER] = Field(default_factory=_SinksSources)
+@pytest.mark.parametrize(("value", "unit"), WRITTEN_K)
+def test_k_written_two_ways(tmp_path, value: object, unit: str | None) -> None:
+    cfg = config_with_k_written_as(tmp_path, value=value, unit=unit)
+
+    found = targets_by_path(calibration_targets(cfg))
+
+    assert found["flow.param.K.field.value"].current == pytest.approx(1e-4)
 
 
-def _project__catalogue_declared() -> _Project:
-    return _Project(_Flow(sinks_sources=_SinksSources(reaches={"r1": _Reach()})))
+def test_string_value_fills_unit(tmp_path) -> None:
+    field = config_with_k_written_as(tmp_path, value="1e-4 m/s").flow.param["K"].field
+
+    assert field.value == pytest.approx(1e-4)
+    assert field.unit == "m/s"
 
 
-# From test_the_catalogue_of_targets.py
-# What a project can calibrate has to be answerable without reading the code.
-#
-# A parameter is declared by a dotted path into the configuration, and until now
-# finding a valid one meant knowing the Pydantic tree by heart. The question a
-# hydrogeologist actually asks is the other way round: what does THIS model expose
-# that I could search over, what is it worth now, and in what unit.
-#
-# The catalog answers from the resolved configuration, so it lists the
-# boundaries this project declares and the parameters it actually carries, not a
-# hand-written inventory that drifts.
+def test_soil_target_units() -> None:
+    by_name = targets_by_name(calibration_targets(soil_project()))
+
+    units = {
+        "soil.ru": "mm",
+        "soil.alpha": "-",
+        "soil.kc": "-",
+        "soil.impervious_fraction": "-",
+        "soil.bypass_fraction": "-",
+        "soil.transit_time": "day",
+    }
+    assert {name: by_name[name].units for name in units} == units
 
 
-def _config(tmp_path, **flow: object):
-    return HydroModPyConfig(
-        workflow={"mode": "simulation"},
-        workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
-        geographic=GeographicConfig(source_mode="synthetic"),
-        flow=FlowConfig(**flow),
-    )
+# A leaf under the id "K" must read its own range, not the conductivity range in m/s.
+VERTICAL_PROFILE = [
+    pytest.param(
+        {"kind": "exponential", "characteristic_depth": 30.0},
+        ("K.characteristic_depth", "characteristic_depth", "m", (0.1, 1000.0), 30.0),
+        id="characteristic depth",
+    ),
+    pytest.param(
+        {"kind": "exponential", "characteristic_depth": 30.0, "min_factor": 0.2},
+        ("K.min_factor", "min_factor", "-", (1e-6, 1.0), 0.2),
+        id="minimum factor",
+    ),
+]
 
 
-@pytest.fixture
-def cfg(tmp_path):
-    return _config(
-        tmp_path,
-        param_list=["K", "Sy"],
-        param={
-            "K": {"field": {"id": "K", "kind": "homogeneous", "unit": "m/s", "value": 1e-5}},
-            "Sy": {"field": {"id": "Sy", "kind": "homogeneous", "unit": "-", "value": 0.1}},
-        },
-    )
+@pytest.mark.parametrize(("profile", "expected"), VERTICAL_PROFILE)
+def test_vertical_profile_own_range(profile: dict, expected: tuple) -> None:
+    name, registry_id, units, bounds, current = expected
+
+    by_name = targets_by_name(calibration_targets(vertical_profile_project(**profile)))
+
+    target = by_name[name]
+    assert target.registry_id == registry_id
+    assert target.units == units
+    assert target.physical_bounds == bounds
+    assert target.current == pytest.approx(current)
 
 
-class TestWhatItLists:
-    def test_a_target_carries_what_the_value_is_now(self, cfg) -> None:
-        target = targets_by_path(calibration_targets(cfg))["flow.param.K.field.value"]
-
-        assert target.current == pytest.approx(1e-5)
-        assert target.instance == "K"
-
-    def test_a_target_carries_the_unit_its_neighbour_declares(self, cfg) -> None:
-        target = targets_by_path(calibration_targets(cfg))["flow.param.K.field.value"]
-
-        assert target.units == "m/s"
-
-
-# From test_the_catalogue_sees_a_value_written_with_its_unit.py
-# A field value can be written two ways in TOML, and the catalog sees only one.
-#
-# ``[flow.param.K.field] value = 1e-4`` with a sibling ``unit = "m/s"`` and
-# ``value = "1e-4 m/s"`` in one string are the same declaration. A hydrogeologist
-# reads both the same way; the catalog does not.
-#
-# ``_is_a_physical_number`` in ``hydromodpy/calibration/targets.py`` requires
-# ``isinstance(value, Real)``, so a string value is filtered out of the walk
-# before it ever gets a name. Nothing coerces it earlier:
-# ``_validate_value`` in ``hydromodpy/core/config_kit/field_param/sections.py``
-# keeps a string value as a string, unlike ``_coerce_boundary_value_and_units``
-# in ``hydromodpy/model/boundaries/boundary_conditions.py`` (used for
-# ``[flow.bc.<id>]``), which already splits a string into a float plus its unit
-# before Pydantic sees it as the ``value`` field.
-#
-# Concretely: ``examples/projects/01_calibration/project.toml`` writes
-# ``value = "1e-4 m/s"`` under ``[flow.param.K.field]``, so its ``K`` cannot be
-# named ``[calibration.parameters.K]`` at all today, while the very same
-# spelling under ``[flow.bc.east_side]`` is coerced and does get a target.
-#
-# Investigation for this test (readers of a homogeneous field's ``.value``
-# across ``hydromodpy/``, and whether each survives ``.value`` becoming a plain
-# float with the unit moved to the sibling ``unit``):
-#
-# - ``hydromodpy/core/config_kit/field_param/config.py:94-100``
-#   (``FieldParamConfig._enforce_physical_bounds``). Today it only runs
-#   ``validate_physical_value`` when ``self.field.value`` is already
-#   ``(int, float)`` and skips the check for a string, by its own admission
-#   ("string payloads carry their own unit and are handled by lower-level unit
-#   resolution"). Coercion survives this reader: it simply starts validating
-#   what used to be silently skipped.
-#
-# - ``hydromodpy/model/properties/field_param.py`` (``FieldParam.__init__`` ->
-#   ``_convert_scalar_payload_to_si``, ~L204-230) via
-#   ``hydromodpy/core/units/scalar.py:parse_scalar_and_unit``. This is the
-#   terminal reader that turns a field into SI values for the solver. It
-#   already accepts either a bare number or a ``"<number> <unit>"`` string
-#   (``parse_scalar_and_unit`` documents both forms), so it survives unchanged
-#   either way; the fix would only make its input always the bare-number branch.
-#
-# - ``hydromodpy/core/config_kit/field_param/config.py:80-91``
-#   (``ResolvedFieldParam._validate_value``). An exact duplicate of the
-#   section validator above, reached through a *second*, independent
-#   production entry point:
-#   ``hydromodpy/model/properties/field_param_io.py`` builds its merged
-#   payload straight from a raw TOML section mapping and calls
-#   ``validate_resolved_field_param_data`` directly, without ever going
-#   through ``FieldHomogeneousSection`` / ``core/config_kit/field_param/sections.py``. That
-#   path is used by the mesh/geology demo cases
-#   (``tools/cases/``, ``hydromodpy/mesh/*/examples/*``), not by the
-#   project ``[flow.param.*]`` pipeline the calibration catalog walks, so it
-#   does not affect the catalog either way. But fixing only
-#   ``core/config_kit/field_param/sections.py`` would leave this duplicate validator
-#   accepting an un-coerced string, i.e. the asymmetry would move one level
-#   down instead of closing. Coercing survives this reader (it never sees a
-#   string it didn't already accept), but a full fix costs a second file, kept
-#   in lockstep with the first.
-#
-# - ``hydromodpy/calibration/optim/parameters.py:377-395``
-#   (``_apply_resolved`` / ``set_by_path`` / ``_get_by_path``), used by the
-#   legacy path-based ``[calibration.parameters.<name>] path = "..."`` form.
-#   ``mode="replace"`` always ``setattr``s a plain ``float(value)``: it
-#   survives regardless of ``.value``'s prior type. ``mode="scale"`` reads the
-#   current value with ``_get_by_path`` and calls ``float(base)`` on it: today
-#   this *already breaks* for a string field ("1e-4 m/s") --
-#   ``float("1e-4 m/s")`` raises and the calibration setup fails with "requires
-#   a numeric base value ... got '1e-4 m/s'". Coercing ``.value`` to a plain
-#   float fixes this latent bug as a side effect, it does not create a new one.
-#
-# - ``hydromodpy/model/toml_examples.py`` renders TOML examples for
-#   ``[flow.param.<id>.field]`` but never sets a ``value`` key, so it is
-#   unaffected either way.
-#
-# No reader was found that requires ``.value`` to stay a string (no
-# ``.split()``, no ``isinstance(..., str)`` branch whose *absence* would raise,
-# no string-specific formatting). The only cost of coercing is the duplicate
-# validator in ``core/config_kit/field_param/config.py``, and coercing also fixes an
-# existing crash in scale-mode calibration through the legacy path form.
-#
-# Decision applied: both validators now coerce ``value = "<number> <unit>"``
-# into a plain float, filling a missing sibling ``unit`` or refusing one that
-# disagrees, through the shared ``coerce_scalar_value_with_unit`` helper (which
-# itself reuses ``parse_scalar_and_unit``, the same primitive
-# ``boundary_conditions.py`` builds on for ``[flow.bc.*]``).
-
-
-def _config_with_k_written_as(tmp_path, *, value: object, unit: str | None = None):
-    field: dict[str, object] = {"id": "K", "kind": "homogeneous", "value": value}
-    if unit is not None:
-        field["unit"] = unit
-    return _config(tmp_path, param_list=["K"], param={"K": {"field": field}})
-
-
-class TestTheNumericFormIsSeen:
-    """The control case: number plus sibling unit, the form the catalog supports."""
-
-    def test_a_number_with_a_sibling_unit_reaches_the_catalogue(self, tmp_path) -> None:
-        cfg = _config_with_k_written_as(tmp_path, value=1e-4, unit="m/s")
-
-        found = targets_by_path(calibration_targets(cfg))
-
-        assert "flow.param.K.field.value" in found
-        assert found["flow.param.K.field.value"].current == pytest.approx(1e-4)
-
-
-class TestTheStringFormIsInvisible:
-    """The former asymmetry: same physical declaration, one string away, now closed."""
-
-    def test_a_number_with_its_unit_in_one_string_also_reaches_the_catalogue(
-        self, tmp_path
-    ) -> None:
-        cfg = _config_with_k_written_as(tmp_path, value="1e-4 m/s")
-
-        found = targets_by_path(calibration_targets(cfg))
-
-        assert "flow.param.K.field.value" in found
-        assert found["flow.param.K.field.value"].current == pytest.approx(1e-4)
-
-    def test_the_string_form_fills_a_missing_sibling_unit(self, tmp_path) -> None:
-        cfg = _config_with_k_written_as(tmp_path, value="1e-4 m/s")
-
-        field = cfg.flow.param["K"].field
-        assert field.value == pytest.approx(1e-4)
-        assert field.unit == "m/s"
-
-
-class TestAConflictingUnitIsRefused:
-    """Two answers to one question: the schema must pick neither, and raise."""
-
-    def test_a_string_unit_contradicting_the_sibling_unit_is_refused(self, tmp_path) -> None:
-        with pytest.raises(Exception, match="conflict"):
-            _config_with_k_written_as(tmp_path, value="1e-4 m/s", unit="m/day")
-
-
-# From test_the_soil_capacity_is_offered_to_the_calibration_as_soil_ru.py
-# The soil reservoir offers six named targets to a calibration.
-#
-# Each carries the unit its own field declares, not the ``mm/day`` its
-# ``FlowRechargeConfig`` parent declares for the recharge rate it replaces.
-# ``impervious_fraction`` is a fraction of the area, not a knob of the numerical
-# scheme, and is offered the same way ``bypass_fraction`` is: no default range,
-# since it belongs to the site.
-
-
-def _project() -> _Project:
-    soil = SoilReservoirConfig(ru=150.0)
-    recharge = FlowRechargeConfig(soil=soil)
-    sinks_sources = FlowSinksSourcesConfig(recharge=recharge)
-    flow = FlowConfig.homogeneous(K=1e-4).model_copy(update={"sinks_sources": sinks_sources})
-    return _Project(flow)
-
-
-def test_the_soil_reservoir_offers_six_named_targets_with_their_own_units() -> None:
-    by_name = targets_by_name(calibration_targets(_project()))
-
-    assert by_name["soil.ru"].units == "mm"
-    assert by_name["soil.alpha"].units == "-"
-    assert by_name["soil.kc"].units == "-"
-    assert by_name["soil.impervious_fraction"].units == "-"
-    assert by_name["soil.bypass_fraction"].units == "-"
-    assert by_name["soil.transit_time"].units == "day"
-
-
-# From test_the_transit_time_does_not_borrow_a_conductivity_range.py
-# A soil leaf named like a hydraulic property does not borrow its range.
-#
-# ``PHYSICAL_BOUNDS`` already knows ``"t"`` (transmissivity), and a bare leaf
-# lookup would have handed ``soil.transit_time`` that range instead of the one a
-# soil delay actually respects. ``_REGISTRY_ID_BY_PATH`` binds each soil path to
-# its own ``soil_*`` key, never found by the bare leaf name.
-
-
-# From test_the_vertical_profile_characteristic_depth_is_calibrable.py
-# The vertical profile's characteristic_depth and min_factor are calibrable.
-#
-# ``flow.param.<id>.field_vertical_profile`` sits under a dict keyed by the
-# parameter id ("K", "Sy", ...), so ``_registry_id_for`` sees that id as the
-# walk's ``instance``. A param id of "K" or "Sy" is also a ``PHYSICAL_BOUNDS``
-# key for the conductivity or the specific yield themselves: without a leaf-first
-# rule for a leaf that is not its instance's headline quantity, a depth bound
-# declared in meters would be faced with a conductivity range in m/s and refused
-# on a unit mismatch that has nothing to do with the value.
-
-
-def _project__vertical_profile(**vertical_profile: object) -> _Project:
-    flow = FlowConfig.model_validate(
-        {
-            "flow_regime": "steady",
-            "param_list": ["K", "Sy"],
-            "param": {
-                "K": {
-                    "field": {"id": "K", "kind": "homogeneous", "unit": "m/s", "value": 1e-4},
-                    "field_vertical_profile": vertical_profile or None,
-                },
-                "Sy": {"field": {"id": "Sy", "kind": "homogeneous", "unit": "-", "value": 0.1}},
-            },
-        }
-    )
-    return _Project(flow)
-
-
-def test_characteristic_depth_reads_its_own_range_not_k() -> None:
-    by_name = targets_by_name(
-        calibration_targets(
-            _project__vertical_profile(kind="exponential", characteristic_depth=30.0)
-        )
-    )
-
-    target = by_name["K.characteristic_depth"]
-    assert target.registry_id == "characteristic_depth"
-    assert target.registry_id != "k"
-    assert target.units == "m"
-    assert target.physical_bounds == (0.1, 1000.0)
-    assert target.current == pytest.approx(30.0)
-
-
-def test_min_factor_reads_its_own_range_not_k() -> None:
-    by_name = targets_by_name(
-        calibration_targets(
-            _project__vertical_profile(
-                kind="exponential", characteristic_depth=30.0, min_factor=0.2
-            )
-        )
-    )
-
-    target = by_name["K.min_factor"]
-    assert target.registry_id == "min_factor"
-    assert target.units == "-"
-    assert target.physical_bounds == (1e-6, 1.0)
-    assert target.current == pytest.approx(0.2)
-
-
-# The recharge factor, the rate of a well and the vertical anisotropy.
-def _well(units: str) -> dict:
-    return {"location": {"kind": "cell", "cell": [0, 0, 0]}, "flux": -0.01, "units": units}
-
-
-def test_a_signed_range_leaves_a_search_that_is_not_logarithmic_as_declared() -> None:
+def test_signed_range_search() -> None:
     plain = Calibrable(bounds=(-1.0, 1.0))
     log = Calibrable(bounds=(-1.0, 1.0), search_space="log", sampling="log_uniform")
 
@@ -437,126 +280,74 @@ def test_a_signed_range_leaves_a_search_that_is_not_logarithmic_as_declared() ->
     assert (signed.search_space, signed.sampling) == ("identity", "uniform")
 
 
-@pytest.mark.parametrize(("named", "read"), [("1/day", "1/day"), ("  ", "1/s"), (3, "1/s")])
-def test_a_leaf_is_read_in_the_unit_it_names_else_in_the_default_of_its_annotation(
-    named: object, read: str
-) -> None:
+@pytest.mark.parametrize(
+    ("named", "read"),
+    [
+        pytest.param("1/day", "1/day", id="unit named"),
+        pytest.param("  ", "1/s", id="blank name"),
+        pytest.param(3, "1/s", id="not a string"),
+    ],
+)
+def test_leaf_unit_or_default(named: object, read: str) -> None:
     declared = Calibrable(units="1/s", unit_field="bedleak_unit")
 
     assert _unit_the_leaf_is_read_in(SimpleNamespace(bedleak_unit=named), declared) == read
 
 
-def test_a_unit_the_registry_cannot_convert_gets_no_range() -> None:
+def test_unknown_unit_no_range() -> None:
     assert _physical_bounds_for("a.b", "K", "value", units="m/day") == (8.64e-10, 8640000.0)
     assert _physical_bounds_for("a.b", "K", "value", units="furlong") is None
 
 
-# From test_the_catalogue_walks_the_options_of_the_backend_that_runs.py
-# The options table of a backend holds what a search can move on that backend.
-#
-# Until the walk read the table of the backend that runs, an option declared
-# calibrable was reachable only through a hand-written row in this module, which
-# named the backend and could go stale like any hand-written list. The walk keeps
-# a field of the table that carries a ``Calibrable``, whatever its profile,
-# because a table of options is expert by nature and the annotation is the
-# backend author's explicit choice.
+def test_backend_option_unit() -> None:
+    solver = leaky_barrier_solver()
+
+    target = targets_by_name(calibration_targets(SimpleNamespace(solver=solver, flow=_Flow())))[
+        "bedleak"
+    ]
+
+    assert (target.path, target.current, target.units) == (
+        "solver.leaky_barrier.bedleak",
+        12.0,
+        "1/day",
+    )
+    assert target.calibrable is not None
 
 
-class TestTheOptionsTableOfTheBackendThatRuns:
-    """What the table of the backend that runs offers to a search."""
+def test_excluded_option_dropped() -> None:
+    # The Kv a file declares settles the conductivity, so bedleak leaves.
+    solver = leaky_barrier_solver()
 
-    def test_an_option_excluding_a_declared_entry_is_left_out(self) -> None:
-        """A field that keeps itself out of the way of a declared one is not a target."""
+    names = targets_by_name(
+        calibration_targets(SimpleNamespace(solver=solver, flow=_FlowInFiles()))
+    )
 
-        class _BarrierOptions(HydroModelBase):
-            bedleak: Annotated[float, Profile.EXPERT] = Field(
-                default=12.0,
-                json_schema_extra=field_metadata(
-                    calibrable=Calibrable(
-                        search_space="log",
-                        sampling="log_uniform",
-                        units="1/day",
-                        excluded_by=("flow.param.Kv",),
-                    ),
-                    unit="-",
-                ),
+    assert "bedleak" not in names
+
+
+def test_linear_reservoir_time_constant(tmp_path) -> None:
+    # The backend requires time_constant, as days or as a string carrying its unit.
+    cfg = config_with(tmp_path, param={}).model_copy(
+        update={
+            "solver": SolverConfig.model_validate(
+                {"backend": "linear_reservoir", "linear_reservoir": {"time_constant": "30 days"}}
             )
-            floor: Annotated[float, Profile.USER] = Field(default=2.0)
+        }
+    )
 
-        solver = SimpleNamespace(
-            backend_name="leaky_barrier",
-            options_of=lambda name: _BarrierOptions(),
-        )
+    target = targets_by_name(calibration_targets(cfg))["time_constant"]
 
-        target = targets_by_name(calibration_targets(SimpleNamespace(solver=solver, flow=_Flow())))[
-            "bedleak"
-        ]
+    assert target.path == "solver.linear_reservoir.time_constant"
+    assert (target.current, target.units) == (30.0, "day")
+    assert (target.calibrable.search_space, target.calibrable.sampling) == ("log", "log_uniform")
 
-        assert (target.path, target.current, target.units) == (
-            "solver.leaky_barrier.bedleak",
-            12.0,
-            "1/day",
-        )
-        assert target.calibrable is not None
 
-    def test_an_option_excluding_an_entry_the_file_declares_is_dropped(self) -> None:
-        """The Kv a file declares settles the conductivity, so ``bedleak`` leaves."""
+REFUSALS = [
+    pytest.param("1e-4 m/s", "m/day", "conflict", id="string unit against sibling unit"),
+]
 
-        class _BarrierOptions(HydroModelBase):
-            bedleak: Annotated[float, Profile.EXPERT] = Field(
-                default=12.0,
-                json_schema_extra=field_metadata(
-                    calibrable=Calibrable(
-                        search_space="log",
-                        sampling="log_uniform",
-                        units="1/day",
-                        excluded_by=("flow.param.Kv",),
-                    ),
-                    unit="-",
-                ),
-            )
 
-        class _ParamInFiles(HydroModelBase):
-            Kv: Annotated[float, Profile.USER] = Field(default=1e-4)
-
-        class _FlowInFiles(HydroModelBase):
-            param: Annotated[dict[str, _ParamInFiles], Profile.USER] = Field(
-                default_factory=lambda: {"Kv": _ParamInFiles()}
-            )
-
-        solver = SimpleNamespace(
-            backend_name="leaky_barrier",
-            options_of=lambda name: _BarrierOptions(),
-        )
-        names = targets_by_name(
-            calibration_targets(SimpleNamespace(solver=solver, flow=_FlowInFiles()))
-        )
-
-        assert "bedleak" not in names
-
-    def test_the_time_constant_of_the_linear_reservoir_is_listed(self, tmp_path) -> None:
-        """The shipped global backend offers its one parameter under its field name.
-
-        ``time_constant`` is required when a file runs this backend, so a valid
-        configuration carries it as a number of days or as a string carrying its
-        unit, and the walk lists what the configuration holds.
-        """
-        cfg = _config(tmp_path, param={}).model_copy(
-            update={
-                "solver": SolverConfig.model_validate(
-                    {
-                        "backend": "linear_reservoir",
-                        "linear_reservoir": {"time_constant": "30 days"},
-                    }
-                )
-            }
-        )
-
-        target = targets_by_name(calibration_targets(cfg))["time_constant"]
-
-        assert target.path == "solver.linear_reservoir.time_constant"
-        assert (target.current, target.units) == (30.0, "day")
-        assert (target.calibrable.search_space, target.calibrable.sampling) == (
-            "log",
-            "log_uniform",
-        )
+@pytest.mark.parametrize(("value", "unit", "message"), REFUSALS)
+def test_refusals(tmp_path, value: str, unit: str, message: str) -> None:
+    with pytest.raises(Exception, match=message):
+        config_with_k_written_as(tmp_path, value=value, unit=unit)

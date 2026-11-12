@@ -1,3 +1,5 @@
+"""Triangle heads (m) of a uniform strip averaged onto a structured grid."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,7 +12,7 @@ from validation_cases.shared.boussinesq_uniform_strip import (
 )
 
 
-def _fake_strip_model(workspace: Path) -> SimpleNamespace:
+def strip_model(workspace: Path) -> SimpleNamespace:
     mesh = SimpleNamespace(
         x_min_m=0.0,
         x_max_m=2.0,
@@ -33,11 +35,10 @@ def _fake_strip_model(workspace: Path) -> SimpleNamespace:
     return SimpleNamespace(state=state, mesh=mesh, full_path=workspace)
 
 
-def test_uniform_strip_aggregation_returns_fields_without_postprocess_files(
-    tmp_path: Path,
-) -> None:
-    model = _fake_strip_model(tmp_path)
-
+def test_aggregation_returns_fields_without_files(tmp_path):
+    model = strip_model(tmp_path)
+    # Last step is 2, 4, 6, 8 m. Two columns average cell pairs (3, 7 m) and the top
+    # is 10 m then 12 m, so the depth is top minus head.
     fields = aggregate_triangle_history_to_structured_fields(model, nx=2, ny=1)
 
     assert not (tmp_path / "_postprocess").exists()

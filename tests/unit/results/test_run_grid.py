@@ -1,3 +1,9 @@
+"""A run read as a grid: cell size, catchment mask, DEM, parameters, outlet and kept criterion inputs.
+
+The synthetic run is a 5 x 4 raster of 50 m cells whose inner 3 x 2 cells are
+the catchment (DEM 100 m, nodata -9999 outside).
+"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -5,6 +11,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.model.forcing.recharge_rates import CRITERION_MEAN_RECHARGE_ATTR
+from hydromodpy.results.run import descent
 from hydromodpy.results.run.tables import global_parameters
 from hydromodpy.results.run.view import Run
 from tests._helpers.run_builders import RunBuilder, runs
@@ -74,229 +81,206 @@ def _register_sim(
     return sid
 
 
-class TestGrid:
-    def test_grid_is_cached(self, runs):
-        sid = _register_sim(runs)
-        run = Run(sid, runs.reader())
-        assert run.grid is run.grid
-
-    def test_grid_raises_on_missing_metadata(self, runs):
-        sid = _register_sim(runs, with_metadata=False)
-        run = Run(sid, runs.reader())
-        with pytest.raises(RuntimeError, match="Grid metadata incomplete"):
-            _ = run.grid
-
-
-class TestCatchmentMask:
-    def test_mask_is_cached(self, runs):
-        sid = _register_sim(runs)
-        run = Run(sid, runs.reader())
-        assert run.catchment_mask is run.catchment_mask
-
-    def test_mask_area_consistency(self, runs):
-        sid = _register_sim(runs, dem_res=50.0, nrow=5, ncol=4)
-        run = Run(sid, runs.reader())
-        mask_area = int(run.catchment_mask.sum()) * run.grid.cell_size**2
-        assert mask_area == (3 * 2) * 2500.0
-
-
-class TestCatchmentMaskFromTheStoredBasin:
-    @staticmethod
-    def _store_basin(runs, sid, cells, n=20, rule="near_point"):
-        descent_zeros = np.zeros(n, dtype=bool)
-        basin = descent_zeros.copy()
-        basin[cells] = True
-        sz = runs.store(sid).open_zarr(sid)
-        try:
-            sz.write_descent(
-                receiver=np.full(n, -1, dtype=np.int64),
-                surface=np.zeros(n),
-                base_level=descent_zeros,
-                constant_head=descent_zeros,
-                raised=descent_zeros,
-                channel=descent_zeros,
-                pinned=descent_zeros,
-                attrs={},
-                basin=basin,
-                basin_attrs={"descent_outlet": cells[0], "basin_rule": rule},
-            )
-        finally:
-            sz.close()
-
-    def test_mask_is_the_stored_basin_one_value_per_face(self, runs, caplog):
-        sid = _register_sim(runs, nrow=5, ncol=4)
-        self._store_basin(runs, sid, [6, 7, 10])
-
-        with caplog.at_level("INFO"):
-            mask = Run(sid, runs.reader()).catchment_mask
-
-        assert mask.shape == (20,)
-        assert mask.dtype == bool
-        assert np.flatnonzero(mask).tolist() == [6, 7, 10]
-        assert not mask.flags.writeable
-        assert "predates the stored basin" not in caplog.text
-
-    def test_the_largest_basin_of_a_synthetic_domain_is_no_catchment(self, runs, caplog):
-        sid = _register_sim(runs, nrow=5, ncol=4)
-        self._store_basin(runs, sid, [6, 7, 10], rule="largest_basin")
-
-        with caplog.at_level("INFO"):
-            mask = Run(sid, runs.reader()).catchment_mask
-
-        assert mask.shape == (5, 4)
-        assert "no catchment" in caplog.text
-        assert "'dem_raster'" in caplog.text
-
-    def test_mask_is_cached(self, runs):
-        sid = _register_sim(runs)
-        self._store_basin(runs, sid, [6])
-        run = Run(sid, runs.reader())
-        assert run.catchment_mask is run.catchment_mask
-
-
-class TestDem:
-    def test_dem_masks_nodata_to_nan(self, runs):
-        sid = _register_sim(runs, nrow=5, ncol=4)
-        run = Run(sid, runs.reader())
-        dem = run.dem
-
-        assert dem.dtype == np.float64
-        assert dem.shape == (5, 4)
-        nan_cells = np.isnan(dem)
-        valid_cells = ~nan_cells
-        expected_valid = np.zeros((5, 4), dtype=bool)
-        expected_valid[1:-1, 1:-1] = True
-        np.testing.assert_array_equal(valid_cells, expected_valid)
-        assert np.all(dem[valid_cells] == 100.0)
-
-    def test_dem_is_cached(self, runs):
-        sid = _register_sim(runs)
-        run = Run(sid, runs.reader())
-        assert run.dem is run.dem
-
-
-class TestFields:
-    def _register_with_fields(
-        self,
-        runs,
-        *,
-        nrow=5,
-        ncol=4,
-        n_timesteps=3,
-        variable="head",
-    ):
-        sid = _register_sim(
-            runs,
-            nrow=nrow,
-            ncol=ncol,
-            n_timesteps=n_timesteps,
+def _store_basin(runs, sid, cells, n=20, rule="near_point"):
+    none = np.zeros(n, dtype=bool)
+    basin = none.copy()
+    basin[cells] = True
+    sz = runs.store(sid).open_zarr(sid)
+    try:
+        sz.write_descent(
+            receiver=np.full(n, -1, dtype=np.int64),
+            surface=np.zeros(n),
+            base_level=none,
+            constant_head=none,
+            raised=none,
+            channel=none,
+            pinned=none,
+            attrs={},
+            basin=basin,
+            basin_attrs={"descent_outlet": cells[0], "basin_rule": rule},
         )
-        sz = runs.store(sid).open_zarr(sid)
-        n_cells = nrow * ncol
-        for t in range(n_timesteps):
-            values = np.arange(
-                t * n_cells,
-                (t + 1) * n_cells,
-                dtype="float64",
-            )
-            sz.write_field(variable, t, values, n_timesteps=n_timesteps)
-        return sid
-
-    def test_xarray_batch_shape(self, runs):
-        sid = self._register_with_fields(runs, nrow=5, ncol=4, n_timesteps=3)
-        run = Run(sid, runs.reader())
-        ds = run.array.to_xarray_batch(("head",))
-        assert "head" in ds.data_vars
-        assert ds["head"].dims == ("time", "layer", "cell")
-        assert ds["head"].shape == (3, 1, 20)
-
-    def test_xarray_batch_values_match_field(self, runs):
-        sid = self._register_with_fields(runs, nrow=5, ncol=4, n_timesteps=3)
-        run = Run(sid, runs.reader())
-        ds = run.array.to_xarray_batch(("head",))
-        for t in range(3):
-            frame = np.asarray(run.field("head", time=t)).ravel()
-            np.testing.assert_array_equal(ds["head"].isel(time=t, layer=0).values, frame)
+    finally:
+        sz.close()
 
 
-class TestParams:
-    def test_params_returns_global_scalars(self, runs):
-        sid = _register_sim(runs)
-        runs.store(sid).write_parameters(
-            sid, [{"param_name": "K", "value": 5e-5}, {"param_name": "Sy", "value": 0.05}]
+def _keep_criterion_inputs(runs, sid, *, open_water=(), outline=None, recharge=None, n=20):
+    water = np.zeros(n, dtype=bool)
+    water[list(open_water)] = True
+    sz = runs.store(sid).open_zarr(sid)
+    try:
+        sz.write_criterion_cells(
+            open_water=water, catchment_cells=None if outline is None else np.asarray(outline)
         )
-        run = Run(sid, runs.reader())
-        assert global_parameters(run) == {"K": 5e-5, "Sy": 0.05}
+        if recharge is not None:
+            sz.write_forcing_attrs({CRITERION_MEAN_RECHARGE_ATTR: recharge})
+    finally:
+        sz.close()
 
 
-class TestOutlet:
-    def test_outlet_returns_xy(self, runs):
-        sid = _register_sim(runs)
-        runs.store(sid).write_geographic_metadata(
-            sid,
-            {"x_outlet": "300500.0", "y_outlet": "6795000.0"},
-        )
-        run = Run(sid, runs.reader())
-        assert run.outlet == (300500.0, 6795000.0)
+def test_grid_is_cached(runs):
+    run = Run(_register_sim(runs), runs.reader())
 
-    def test_outlet_missing_raises(self, runs):
-        sid = _register_sim(runs)
-        run = Run(sid, runs.reader())
-        with pytest.raises(RuntimeError, match="Outlet coordinates missing"):
-            _ = run.outlet
+    assert run.grid is run.grid
 
 
-class TestTheCriterionInputsTheRunKept:
-    """The run holds what the stream criterion read, and its descent reads it back alone."""
+def test_grid_needs_its_metadata(runs):
+    run = Run(_register_sim(runs, with_metadata=False), runs.reader())
 
-    @staticmethod
-    def _keep(runs, sid, *, open_water=(), outline=None, recharge=None, n=20):
-        water = np.zeros(n, dtype=bool)
-        water[list(open_water)] = True
-        sz = runs.store(sid).open_zarr(sid)
-        try:
-            sz.write_criterion_cells(
-                open_water=water, catchment_cells=None if outline is None else np.asarray(outline)
-            )
-            if recharge is not None:
-                sz.write_forcing_attrs({CRITERION_MEAN_RECHARGE_ATTR: recharge})
-        finally:
-            sz.close()
+    with pytest.raises(RuntimeError, match="Grid metadata incomplete"):
+        _ = run.grid
 
-    def test_a_run_that_kept_none_gives_none(self, runs):
-        sid = _register_sim(runs, nrow=5, ncol=4)
 
-        holder = Run(sid, runs.reader()).descent
+def test_mask_is_cached(runs):
+    run = Run(_register_sim(runs), runs.reader())
 
-        assert holder.open_water() is None
-        assert holder.catchment_cells() is None
-        assert holder.criterion_recharge() is None
+    assert run.catchment_mask is run.catchment_mask
 
-    def test_a_run_without_an_outline_has_open_water_alone(self, runs):
-        sid = _register_sim(runs, nrow=5, ncol=4)
-        self._keep(runs, sid, open_water=[1])
 
-        holder = Run(sid, runs.reader()).descent
+def test_mask_area(runs):
+    run = Run(_register_sim(runs, dem_res=50.0, nrow=5, ncol=4), runs.reader())
 
-        assert holder.open_water() is not None
-        assert holder.catchment_cells() is None
+    mask_area = int(run.catchment_mask.sum()) * run.grid.cell_size**2
 
-    def test_the_recharge_is_the_number_the_run_kept(self, runs):
-        sid = _register_sim(runs, nrow=5, ncol=4)
-        self._keep(runs, sid, recharge=1.25e-8)
+    assert mask_area == (3 * 2) * 2500.0  # 3 x 2 cells of 50 m x 50 m
 
-        assert Run(sid, runs.reader()).descent.criterion_recharge() == pytest.approx(1.25e-8)
 
-    def test_each_input_is_read_once_and_without_loading_d(self, runs, monkeypatch):
-        sid = _register_sim(runs, nrow=5, ncol=4)
-        self._keep(runs, sid, open_water=[1], recharge=1.0e-8)
-        holder = Run(sid, runs.reader()).descent
-        from hydromodpy.results.run import descent as module
+def test_mask_is_the_stored_basin(runs, caplog):
+    sid = _register_sim(runs, nrow=5, ncol=4)
+    _store_basin(runs, sid, [6, 7, 10])
 
-        first = holder.open_water()
-        monkeypatch.setattr(
-            module, "read_open_water", lambda run: pytest.fail("the mask was read twice")
-        )
+    with caplog.at_level("INFO"):
+        mask = Run(sid, runs.reader()).catchment_mask
 
-        assert holder.open_water() is first
-        assert holder.criterion_recharge() == pytest.approx(1.0e-8)
+    assert mask.shape == (20,)
+    assert mask.dtype == bool
+    assert np.flatnonzero(mask).tolist() == [6, 7, 10]
+    assert not mask.flags.writeable
+    assert "predates the stored basin" not in caplog.text
+
+
+def test_the_largest_basin_is_no_catchment(runs, caplog):
+    sid = _register_sim(runs, nrow=5, ncol=4)
+    _store_basin(runs, sid, [6, 7, 10], rule="largest_basin")
+
+    with caplog.at_level("INFO"):
+        mask = Run(sid, runs.reader()).catchment_mask
+
+    assert mask.shape == (5, 4)
+    assert "no catchment" in caplog.text
+    assert "'dem_raster'" in caplog.text
+
+
+def test_stored_basin_mask_is_cached(runs):
+    sid = _register_sim(runs)
+    _store_basin(runs, sid, [6])
+    run = Run(sid, runs.reader())
+
+    assert run.catchment_mask is run.catchment_mask
+
+
+def test_dem_masks_nodata_to_nan(runs):
+    dem = Run(_register_sim(runs, nrow=5, ncol=4), runs.reader()).dem
+
+    expected_valid = np.zeros((5, 4), dtype=bool)
+    expected_valid[1:-1, 1:-1] = True
+    assert dem.dtype == np.float64
+    assert dem.shape == (5, 4)
+    np.testing.assert_array_equal(~np.isnan(dem), expected_valid)
+    assert np.all(dem[expected_valid] == 100.0)
+
+
+def test_dem_is_cached(runs):
+    run = Run(_register_sim(runs), runs.reader())
+
+    assert run.dem is run.dem
+
+
+@pytest.fixture
+def run_with_heads(runs):
+    nrow, ncol, n_steps = 5, 4, 3
+    sid = _register_sim(runs, nrow=nrow, ncol=ncol, n_timesteps=n_steps)
+    sz = runs.store(sid).open_zarr(sid)
+    n_cells = nrow * ncol
+    for step in range(n_steps):
+        values = np.arange(step * n_cells, (step + 1) * n_cells, dtype="float64")
+        sz.write_field("head", step, values, n_timesteps=n_steps)
+    return Run(sid, runs.reader())
+
+
+def test_xarray_batch_shape(run_with_heads):
+    ds = run_with_heads.array.to_xarray_batch(("head",))
+
+    assert "head" in ds.data_vars
+    assert ds["head"].dims == ("time", "layer", "cell")
+    assert ds["head"].shape == (3, 1, 20)
+
+
+def test_xarray_batch_matches_field(run_with_heads):
+    ds = run_with_heads.array.to_xarray_batch(("head",))
+
+    for step in range(3):
+        frame = np.asarray(run_with_heads.field("head", time=step)).ravel()
+        np.testing.assert_array_equal(ds["head"].isel(time=step, layer=0).values, frame)
+
+
+def test_params_are_the_global_scalars(runs):
+    sid = _register_sim(runs)
+    runs.store(sid).write_parameters(
+        sid, [{"param_name": "K", "value": 5e-5}, {"param_name": "Sy", "value": 0.05}]
+    )
+
+    assert global_parameters(Run(sid, runs.reader())) == {"K": 5e-5, "Sy": 0.05}
+
+
+def test_outlet_is_xy(runs):
+    sid = _register_sim(runs)
+    runs.store(sid).write_geographic_metadata(
+        sid, {"x_outlet": "300500.0", "y_outlet": "6795000.0"}
+    )
+
+    assert Run(sid, runs.reader()).outlet == (300500.0, 6795000.0)
+
+
+def test_outlet_is_missing(runs):
+    run = Run(_register_sim(runs), runs.reader())
+
+    with pytest.raises(RuntimeError, match="Outlet coordinates missing"):
+        _ = run.outlet
+
+
+def test_a_run_that_kept_no_criterion_input(runs):
+    holder = Run(_register_sim(runs, nrow=5, ncol=4), runs.reader()).descent
+
+    assert holder.open_water() is None
+    assert holder.catchment_cells() is None
+    assert holder.criterion_recharge() is None
+
+
+def test_open_water_without_an_outline(runs):
+    sid = _register_sim(runs, nrow=5, ncol=4)
+    _keep_criterion_inputs(runs, sid, open_water=[1])
+
+    holder = Run(sid, runs.reader()).descent
+
+    assert holder.open_water() is not None
+    assert holder.catchment_cells() is None
+
+
+def test_criterion_recharge_is_the_kept_number(runs):
+    sid = _register_sim(runs, nrow=5, ncol=4)
+    _keep_criterion_inputs(runs, sid, recharge=1.25e-8)
+
+    assert Run(sid, runs.reader()).descent.criterion_recharge() == pytest.approx(1.25e-8)
+
+
+def test_each_criterion_input_is_read_once(runs, monkeypatch):
+    sid = _register_sim(runs, nrow=5, ncol=4)
+    _keep_criterion_inputs(runs, sid, open_water=[1], recharge=1.0e-8)
+    holder = Run(sid, runs.reader()).descent
+    first = holder.open_water()
+    monkeypatch.setattr(
+        descent, "read_open_water", lambda run: pytest.fail("the mask was read twice")
+    )
+
+    assert holder.open_water() is first
+    assert holder.criterion_recharge() == pytest.approx(1.0e-8)

@@ -24,9 +24,7 @@ def project(tmp_path: Path) -> Path:
     return root
 
 
-def test_disk_lists_the_runs_and_the_sessions_without_an_index(
-    monkeypatch, capsys, project: Path
-) -> None:
+def test_disk_listing(monkeypatch, capsys, project: Path) -> None:
     code = run_hmp(monkeypatch, "ls", "--disk", "-w", str(project), "--format", "json")
 
     document = json.loads(capsys.readouterr().out)
@@ -42,7 +40,7 @@ def test_disk_lists_the_runs_and_the_sessions_without_an_index(
     assert rows["beta"]["status"] == "failed"
 
 
-def test_disk_says_so_when_the_project_holds_nothing(monkeypatch, capsys, tmp_path: Path) -> None:
+def test_disk_listing_of_an_empty_project(monkeypatch, capsys, tmp_path: Path) -> None:
     root = make_project(tmp_path / "empty")
 
     code = run_hmp(monkeypatch, "ls", "--disk", "-w", str(root))
@@ -51,16 +49,14 @@ def test_disk_says_so_when_the_project_holds_nothing(monkeypatch, capsys, tmp_pa
     assert "(no run or session under" in capsys.readouterr().out
 
 
-def test_without_an_index_the_listing_names_the_reading_of_the_directories(
-    monkeypatch, capsys, project: Path
-) -> None:
+def test_no_index_names_the_disk_flag(monkeypatch, capsys, project: Path) -> None:
     code = run_hmp(monkeypatch, "ls", "-w", str(project))
 
     assert code == 10
     assert "hmp ls --disk" in capsys.readouterr().err
 
 
-def test_plan_says_where_each_case_stands(monkeypatch, capsys, tmp_path: Path) -> None:
+def test_plan_listing(monkeypatch, capsys, tmp_path: Path) -> None:
     root = write_sites_project(tmp_path)
     assert run_hmp(monkeypatch, "project", "plan", str(root)) == 0
     capsys.readouterr()
@@ -76,7 +72,7 @@ def test_plan_says_where_each_case_stands(monkeypatch, capsys, tmp_path: Path) -
     assert data["counts"] == {"planned": 4}
 
 
-def test_plan_takes_a_stale_age_in_minutes(monkeypatch, capsys, tmp_path: Path) -> None:
+def test_plan_stale_minutes(monkeypatch, capsys, tmp_path: Path) -> None:
     root = write_sites_project(tmp_path)
     assert run_hmp(monkeypatch, "project", "plan", str(root)) == 0
     capsys.readouterr()

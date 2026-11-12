@@ -27,7 +27,7 @@ ACCEPTED_RULES = (
 )
 
 
-def test_the_accepted_rules_are_every_head_rule_kind() -> None:
+def test_head_rule_kinds() -> None:
     assert tuple(kind for kind, _ in ACCEPTED_RULES) == HEAD_RULE_KINDS
 
 
@@ -46,9 +46,7 @@ REFUSED_RULES = (
     REFUSED_RULES,
     ids=[f"{k}-{v}" for k, v, _ in REFUSED_RULES],
 )
-def test_a_head_rule_refuses_a_kind_or_value_it_cannot_resolve(
-    kind: str, value_m: float | None, message: str
-) -> None:
+def test_head_rule_refusals(kind: str, value_m: float | None, message: str) -> None:
     with pytest.raises(ValueError, match=message):
         HeadRule(kind, value_m)
 
@@ -70,7 +68,7 @@ def test_every_state_is_frozen(state: object, field: str) -> None:
         setattr(state, field, None)
 
 
-def test_the_five_states_are_listed_once() -> None:
+def test_five_states_listed() -> None:
     assert [cls.__name__ for cls in INITIAL_STATE_TYPES] == [
         "HeadRule",
         "SteadyStart",
@@ -92,13 +90,11 @@ DEFAULT_STRATEGIES = (
     DEFAULT_STRATEGIES,
     ids=[type(s).__name__ for s, _ in DEFAULT_STRATEGIES],
 )
-def test_a_start_without_a_strategy_takes_the_toml_defaults(
-    strategy: object, expected: object
-) -> None:
+def test_default_strategies(strategy: object, expected: object) -> None:
     assert strategy == expected
 
 
-def test_the_steady_strategy_keeps_its_field_order_for_the_failure_report() -> None:
+def test_steady_strategy_field_order() -> None:
     """The stationary failure report writes the strategy as a mapping, field by field."""
     strategy = SteadyStateStrategy(source="prescribed", recharge_statistic=None, rate_m_s=1e-8)
 
@@ -110,13 +106,7 @@ def test_the_steady_strategy_keeps_its_field_order_for_the_failure_report() -> N
     }
 
 
-HEAD_STATES = (
-    lambda head: PriorState(head, {"lake": 4.0}, "store.zarr", "run.v1"),
-    lambda head: SolvedState(head, "modflow6"),
-)
-
-
-def test_a_prior_state_refuses_a_head_that_is_not_layers_by_cells() -> None:
+def test_prior_head_shape() -> None:
     with pytest.raises(ValueError, match=r"\(nlay, ncpl\)"):
         PriorState(np.zeros(3), {}, "store.zarr")
 
@@ -142,7 +132,7 @@ STAGED_STATES = (
     STAGED_STATES,
     ids=["prior reaches", "prior no reach", "solved lakes", "solved no lake"],
 )
-def test_a_state_holds_its_stages_read_only_and_pickles_them(build, member, expected) -> None:
+def test_stages_read_only_and_pickled(build, member, expected) -> None:
     import pickle
 
     state = build()
@@ -158,7 +148,7 @@ def test_a_state_holds_its_stages_read_only_and_pickles_them(build, member, expe
 
 
 @pytest.mark.parametrize("start", [SteadyStart, CyclicStart], ids=["steady", "cyclic"])
-def test_a_computed_start_carries_the_whole_simulation_only_in_a_chain(start) -> None:
+def test_start_over_chain(start) -> None:
     whole = object()
 
     assert start().over is None

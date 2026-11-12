@@ -60,7 +60,7 @@ CASES = {
 
 
 @pytest.mark.parametrize(("candidate", "tolerance", "expected"), CASES.values(), ids=list(CASES))
-def test_matched_plus_missing_is_the_reference_length(candidate, tolerance, expected) -> None:
+def test_length_comparison(candidate, tolerance, expected) -> None:
     c = compare_hydrographic_networks(_gdf([KM]), _gdf(candidate), tolerance_m=tolerance)
     assert c.reference_total_length_m == pytest.approx(1000.0)
     assert c.matched_reference_length_m + c.missing_reference_length_m == pytest.approx(1000.0)
@@ -81,7 +81,7 @@ def test_matched_plus_missing_is_the_reference_length(candidate, tolerance, expe
     ],
     ids=["degrees", "metres labelled in degrees"],
 )
-def test_the_candidate_is_measured_in_the_crs_of_the_reference(candidate, coverage) -> None:
+def test_candidate_crs(candidate, coverage) -> None:
     comparison = compare_hydrographic_networks(_gdf([KM]), candidate, tolerance_m=100.0)
     assert "2154" in comparison.crs
     assert comparison.reference_coverage_ratio == pytest.approx(coverage)
@@ -91,7 +91,7 @@ def test_the_candidate_is_measured_in_the_crs_of_the_reference(candidate, covera
         assert comparison.candidate_match_ratio == pytest.approx(1.0)
 
 
-def test_two_networks_of_the_contract_are_read_from_their_vectors(tmp_path) -> None:
+def test_network_read_from_vector(tmp_path) -> None:
     path = write_features(tmp_path / "streams.shp", [KM])
     reference = HydrographicNetwork(role="reference", source_kind="file", vector_path=path)
     comparison = compare_hydrographic_networks(reference, _gdf([KM]), tolerance_m=1.0)
@@ -107,7 +107,7 @@ def test_two_networks_of_the_contract_are_read_from_their_vectors(tmp_path) -> N
     ],
     ids=["negative tolerance", "network without vector", "not a network"],
 )
-def test_a_comparison_that_cannot_be_measured_is_refused(reference, error, reason) -> None:
+def test_refusals(reference, error, reason) -> None:
     tolerance = -1.0 if reason == "tolerance" else 1.0
     with pytest.raises(error, match=reason):
         compare_hydrographic_networks(reference, _gdf([KM]), tolerance_m=tolerance)

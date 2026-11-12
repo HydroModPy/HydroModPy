@@ -8,6 +8,7 @@ directory is. A run that never completed has no seal and says so.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -18,16 +19,9 @@ from hydromodpy.results.validity_rules import RULE_VERSION
 from tests._helpers.run_records import SIM_ID, SITE, WINDOW, make_record
 
 
-class _Directories:
+def directories(dirs: dict[str, Path]) -> SimpleNamespace:
     """A catalog handle that only knows where each run lives."""
-
-    closed = False
-
-    def __init__(self, dirs: dict[str, Path]) -> None:
-        self._dirs = dirs
-
-    def run_dir_for(self, sim_id: str) -> Path:
-        return self._dirs[sim_id]
+    return SimpleNamespace(closed=False, run_dir_for=lambda sim_id: dirs[sim_id])
 
 
 @pytest.fixture(autouse=True)
@@ -43,11 +37,10 @@ def _sealed(tmp_path: Path, **overrides) -> Run:
     run_dir = tmp_path / record.run.rel_dir
     run_dir.mkdir(parents=True)
     record.write(run_dir)
-    return Run(record.run.sim_id, _Directories({record.run.sim_id: run_dir}))
+    return Run(record.run.sim_id, directories({record.run.sim_id: run_dir}))
 
 
-def test_a_run_opened_on_its_directory_answers_with_the_words_of_the_cli(tmp_path) -> None:
-    """``site``, ``checks``, ``inputs``, ``label()`` from the seal, with no index (D9)."""
+def test_open_run_dir(tmp_path) -> None:
     from hydromodpy.results.run.view import open_run_dir
 
     sealed = _sealed(tmp_path)
@@ -62,7 +55,7 @@ def test_a_run_opened_on_its_directory_answers_with_the_words_of_the_cli(tmp_pat
     assert run.figures == []
 
 
-def test_exports_and_figures_are_the_files_their_ledger_records(tmp_path) -> None:
+def test_exports_and_figures(tmp_path) -> None:
     from datetime import UTC, datetime
 
     from hydromodpy.core.io.file_digest import sha256_of
@@ -93,7 +86,7 @@ def test_exports_and_figures_are_the_files_their_ledger_records(tmp_path) -> Non
     assert run.figures == [run.dir / "figures" / "piezometric_map.png"]
 
 
-def test_a_run_directory_that_never_completed_is_not_opened_alone(tmp_path) -> None:
+def test_unsealed_dir_refused(tmp_path) -> None:
     from hydromodpy.results.run.view import open_run_dir
 
     run_dir = tmp_path / "runs" / "J0014010-base"
@@ -103,7 +96,7 @@ def test_a_run_directory_that_never_completed_is_not_opened_alone(tmp_path) -> N
         open_run_dir(run_dir)
 
 
-def test_a_run_reads_its_checks_and_its_label_of_the_day(tmp_path) -> None:
+def test_checks_and_label(tmp_path) -> None:
     run = _sealed(tmp_path)
 
     assert run.record.checks.budget_pct == pytest.approx(0.8)
@@ -113,10 +106,10 @@ def test_a_run_reads_its_checks_and_its_label_of_the_day(tmp_path) -> None:
     assert label.rule_version == RULE_VERSION
 
 
-def test_a_run_that_never_completed_has_no_seal(tmp_path) -> None:
+def test_unsealed_run_has_no_record(tmp_path) -> None:
     run_dir = tmp_path / "runs" / "J0014010-base"
     run_dir.mkdir(parents=True)
-    run = Run(SIM_ID, _Directories({SIM_ID: run_dir}))
+    run = Run(SIM_ID, directories({SIM_ID: run_dir}))
 
     with pytest.raises(RunNotSealedError, match="never completed"):
         _ = run.record

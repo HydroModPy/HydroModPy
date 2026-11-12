@@ -32,7 +32,7 @@ def _on_disk(calls: list[str]) -> SimpleNamespace:
 
 
 @pytest.mark.parametrize("raster_api", [_in_memory, _on_disk], ids=["in memory", "on disk"])
-def test_the_clip_is_written_with_its_nodata_and_the_project_crs(tmp_path, raster_api) -> None:
+def test_clip_nodata_and_crs(tmp_path, raster_api) -> None:
     calls: list[str] = []
     backend = SimpleNamespace(raster=raster_api(calls))
     out = clip_dem_to_box_buffer(

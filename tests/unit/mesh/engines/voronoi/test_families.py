@@ -31,8 +31,6 @@ DOMAIN = box(X0, Y0, X0 + 400.0, Y0 + 300.0)
 ON_LINE_M = 1.0e-3
 """The gate G2 puts a pair face within 1 mm of its segment ends."""
 
-SIDES = ("west", "east", "south", "north")
-
 
 def line(*points: tuple[float, float]) -> LineString:
     """A line given in meters from the domain corner."""
@@ -74,13 +72,6 @@ def rows_of(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
     return np.flatnonzero(cell_mesh.face_rows(family))
 
 
-def side_of(line_: LineString, points: np.ndarray) -> np.ndarray:
-    """Cross product sign of each point against the first-to-last chord of a straight line."""
-    coords = shapely.get_coordinates(line_)
-    tangent, reach = coords[-1] - coords[0], points - coords[0]
-    return tangent[0] * reach[:, 1] - tangent[1] * reach[:, 0]
-
-
 def assert_faces_on_lines(cell_mesh: PlanarCellMesh, request: MeshRequest, family: str) -> None:
     """Every row of a face family lies on its request lines within 1 mm."""
     table = cell_mesh.face_families
@@ -104,7 +95,7 @@ def crossing() -> tuple[MeshRequest, PlanarCellMesh]:
     return request, VoronoiMeshEngine().build(request)
 
 
-def test_a_river_crossing_a_contact_runs_through_the_pair() -> None:
+def test_river_crossing_a_contact() -> None:
     request, cell_mesh = crossing()
     (chain,) = cell_mesh.chains("rivers")
     table = cell_mesh.face_families
@@ -126,7 +117,7 @@ def test_a_river_crossing_a_contact_runs_through_the_pair() -> None:
 
 
 @pytest.mark.parametrize("vertical_end, degree", [(150.0, 3), (20.0, 4)], ids=["t", "x"])
-def test_t_and_x_junctions_keep_every_segment(vertical_end: float, degree: int) -> None:
+def test_t_and_x_junctions(vertical_end: float, degree: int) -> None:
     request = request_of(
         contact(line((50.0, 150.0), (350.0, 150.0)), line((200.0, 280.0), (200.0, vertical_end)))
     )
@@ -144,28 +135,28 @@ def test_t_and_x_junctions_keep_every_segment(vertical_end: float, degree: int) 
     assert_faces_on_lines(cell_mesh, request, "geology")
 
 
-def test_a_free_end_face_runs_to_the_end() -> None:
+def test_free_end_face() -> None:
     cell_mesh = build(contact(line((100.0, 150.0), (300.0, 150.0))))
     geology = cell_mesh.qa.families["geology"]
     assert geology["covered_length_rel"] == pytest.approx(1.0, abs=1e-9)
     assert geology["mixed_cells"] == 0.0
 
 
-def test_a_free_end_whose_tip_left_the_domain_is_not_counted_as_followed() -> None:
+def test_free_end_tip_outside_the_domain() -> None:
     geology = build(contact(line((200.0, 60.0), (200.0, 295.0)))).qa.families["geology"]
     assert geology["free_ends"] == 1.0
     assert geology["conformal_length_share"] < 1.0
     assert geology["covered_length_rel"] < 1.0
 
 
-def test_a_hole_touching_the_outer_ring_stops_at_gate_g4_and_says_why() -> None:
+def test_g4_hole_touching_the_outer_ring() -> None:
     diamond = [(X0 + x, Y0 + y) for x, y in ((100, 0), (180, 60), (100, 120), (20, 60))]
     pinched = Polygon(DOMAIN.exterior.coords, holes=[diamond])
     with pytest.raises(MeshGenerationError, match=r"G4.*touching another ring"):
         build(domain=pinched)
 
 
-def test_a_contact_ending_on_the_boundary_reaches_it() -> None:
+def test_contact_ending_on_the_boundary() -> None:
     request = request_of(contact(line((200.0, 0.0), (200.0, 200.0))))
     cell_mesh = VoronoiMeshEngine().build(request)
     geology = cell_mesh.qa.families["geology"]
@@ -174,7 +165,7 @@ def test_a_contact_ending_on_the_boundary_reaches_it() -> None:
     assert_faces_on_lines(cell_mesh, request, "geology")
 
 
-def test_a_lake_ring_with_a_sharp_turn_is_one_closed_face() -> None:
+def test_lake_ring_with_a_sharp_turn() -> None:
     ring = line((100.0, 100.0), (300.0, 100.0), (260.0, 200.0), (150.0, 230.0), (100.0, 100.0))
     request = request_of(LineFamilySpec("lakes", "face", (ring,), closed=True))
     cell_mesh = VoronoiMeshEngine().build(request)
@@ -188,12 +179,12 @@ ROUND = shapely.Point(X0 + 200.0, Y0 + 150.0).buffer(140.0, 32)
 """A round catchment: no edge of its ring lies on a side of its box."""
 
 
-def test_a_round_catchment_names_its_lines_and_no_box_side() -> None:
+def test_round_catchment_names_its_lines() -> None:
     cell_mesh = build(contact(line((100.0, 150.0), (300.0, 150.0))), domain=ROUND)
     assert cell_mesh.face_families.names == ("geology",)
 
 
-def test_a_round_catchment_without_lines_has_no_face_family() -> None:
+def test_round_catchment_without_lines() -> None:
     assert build(domain=ROUND).face_families is None
 
 
@@ -211,14 +202,8 @@ def interior_rows(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
     )
 
 
-def cell_pairs(rows: np.ndarray) -> list[tuple[int, int]]:
-    return [tuple(pair) for pair in np.sort(rows[:, :2], axis=1).tolist()]
-
-
 @OFFSETS
-def test_the_wall_faces_lie_on_the_wall_line(
-    offset: float, walled_reservoir_mesh: WallMesh
-) -> None:
+def test_wall_faces_on_the_line(offset: float, walled_reservoir_mesh: WallMesh) -> None:
     _, request, cell_mesh = walled_reservoir_mesh(offset)
     rows = interior_rows(cell_mesh, BARRIER_FAMILY)
     nodes = shapely.points(vertices_of(cell_mesh)[rows[:, 2:].ravel()])

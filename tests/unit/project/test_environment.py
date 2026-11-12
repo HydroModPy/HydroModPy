@@ -51,14 +51,14 @@ def _write(path: Path, body: str = GOOD, mode: int = 0o600) -> Path:
     return path
 
 
-def test_check_accepts_a_project_under_the_roots_the_call_named(
+def test_check_accepts_named_roots(
     tmp_path: Path, state_home: Path, roots: dict[str, Path]
 ) -> None:
     environment = Environment(bounds=Bounds(allowed_roots=(tmp_path,)))
     environment.check(project_root=roots["project"], workspace_root=roots["workspace"])
 
 
-def test_check_refuses_a_project_outside_the_roots(
+def test_check_refuses_outside_roots(
     tmp_path: Path, state_home: Path, roots: dict[str, Path]
 ) -> None:
     elsewhere = tmp_path / "other-project"
@@ -71,10 +71,9 @@ def test_check_refuses_a_project_outside_the_roots(
     assert str(elsewhere) in message
 
 
-def test_a_file_named_and_absent_is_refused_as_a_configuration(
+def test_named_absent_file_refused(
     tmp_path: Path, state_home: Path, roots: dict[str, Path]
 ) -> None:
-    """Named by the caller, a missing file stops the verb, never FileNotFound."""
     missing = tmp_path / "elsewhere.toml"
     environment = Environment(credentials=missing)
     with pytest.raises(CredentialsError) as raised:
@@ -86,10 +85,9 @@ def test_a_file_named_and_absent_is_refused_as_a_configuration(
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX modes")
-def test_check_reads_the_file_once_and_only_outside_the_root(
+def test_credentials_outside_project_only(
     tmp_path: Path, state_home: Path, roots: dict[str, Path]
 ) -> None:
-    """A readable file is read here; a file under the project is refused."""
     inside = _write(roots["project"] / "credentials.toml")
     environment = Environment(credentials=inside)
     with pytest.raises(CredentialsError, match="outside every project and workspace"):
@@ -101,18 +99,14 @@ def test_check_reads_the_file_once_and_only_outside_the_root(
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX modes")
-def test_a_file_readable_by_others_is_refused_before_any_step(
-    tmp_path: Path, state_home: Path, roots: dict[str, Path]
-) -> None:
+def test_loose_mode_refused(tmp_path: Path, state_home: Path, roots: dict[str, Path]) -> None:
     loose = _write(tmp_path / "loose.toml", mode=0o644)
     environment = Environment(credentials=loose)
     with pytest.raises(CredentialsError, match="chmod 600"):
         environment.check(project_root=roots["project"], workspace_root=roots["workspace"])
 
 
-def test_the_repr_carries_the_paths_and_never_a_secret(
-    tmp_path: Path, state_home: Path, roots: dict[str, Path]
-) -> None:
+def test_repr_hides_secret(tmp_path: Path, state_home: Path, roots: dict[str, Path]) -> None:
     outside = _write(tmp_path / "credentials-depot.toml")
     environment = Environment(credentials=outside)
     rendered = repr(environment)
@@ -120,9 +114,8 @@ def test_the_repr_carries_the_paths_and_never_a_secret(
     assert "s3cr3t-hunter2" not in rendered
 
 
-def test_an_environment_without_a_file_reads_nothing(
+def test_no_file_reads_nothing(
     roots: dict[str, Path],
 ) -> None:
-    """The server's no-credentials call: nothing at all is read."""
     environment = Environment(credentials=None)
     environment.check(project_root=roots["project"], workspace_root=roots["workspace"])

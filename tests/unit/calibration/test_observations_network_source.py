@@ -1,4 +1,9 @@
-"""Tests of `observations.network_source`."""
+"""Resolution of an observed stream network: from the data layer or from a file.
+
+A network output names its map either as the network the data layer loaded and
+clipped (`data.hydrography`) or as a file. The map is cut to the catchment outline
+(m) and refused, with its source named, when it holds no line or only polygons.
+"""
 
 from __future__ import annotations
 
@@ -11,9 +16,6 @@ from shapely.geometry import LineString, Polygon
 
 from hydromodpy.calibration.config_network import CalibOutputNetwork
 from hydromodpy.calibration.config_outputs import validate_calib_output
-from hydromodpy.calibration.metrics import solver_extract as _solver_extract
-from hydromodpy.calibration.metrics.solver_extract import extract_outputs
-from hydromodpy.calibration.observations.network_geometry import network_maps_from_run
 from hydromodpy.calibration.observations.network_source import (
     ObservedNetwork,
     UnresolvedObservedNetwork,
@@ -22,36 +24,25 @@ from hydromodpy.calibration.observations.network_source import (
     unresolved_observed_networks,
 )
 from hydromodpy.calibration.observations.observed_network import observed_network_mask
-from hydromodpy.core.contracts.observables import ObservableResult
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,
     CELL_SIZE,
     FIRST_OBSERVED_ROW,
-    N_CELLS,
     N_COLS,
     N_ROWS,
-    build_bench,
-    simulated_network,
 )
-from tests.unit.calibration._factories_scoring import adapter_result, make_trial_ctx
-
-# From test_an_observed_network_reaches_what_the_project_declares.py
-# An observed network resolves from what the output names, or refuses by naming why.
-#
-# Two sources: the network the data layer loaded and clipped, and an explicit
-# file. Three refusals: the in-memory source can be absent, and either source
-# can resolve to nothing or to polygons instead of lines.
-
+from tests.unit.calibration._factories_scoring import make_trial_ctx
 
 CRS = "EPSG:2154"
+SQUARE = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])
 
 
-def _output(**overrides):
+def network_output(**overrides):
     return validate_calib_output({"support": "network", **overrides})
 
 
-def _network(vector_path=None, crs="EPSG:2154"):
+def data_network(vector_path=None):
     """A fake `HydrographicNetwork`: reads back whatever `write` last stored."""
     state = {"gdf": None}
 
@@ -59,320 +50,206 @@ def _network(vector_path=None, crs="EPSG:2154"):
         state["gdf"] = gdf
 
     return SimpleNamespace(
-        vector_path=vector_path,
-        crs=crs,
-        read_vector=lambda: state["gdf"],
-        _write=write,
+        vector_path=vector_path, crs=CRS, read_vector=lambda: state["gdf"], _write=write
     )
 
 
-def _run_ctx(*, reference=None):
+def run_ctx_with(*, reference=None):
     networks = SimpleNamespace(reference=reference)
     geographic_features = SimpleNamespace(hydrographic_networks=networks)
     setup = SimpleNamespace(geographic_features=geographic_features)
     return SimpleNamespace(state=SimpleNamespace(setup=setup))
 
 
-def _lines_gdf():
-    return gpd.GeoDataFrame(
-        geometry=[LineString([(0, 0), (1, 1)]), LineString([(1, 1), (2, 2)])], crs=CRS
+def write_lines(path, *lines):
+    gpd.GeoDataFrame(geometry=list(lines), crs=CRS).to_file(path, driver="GPKG")
+    return path
+
+
+def catchment_ctx(tmp_path, *, reference=None):
+    """A run whose delineated catchment is the square of 10 m."""
+    mask = write_lines(tmp_path / "watershed.gpkg", SQUARE)
+    run_ctx = run_ctx_with(reference=reference)
+    run_ctx.state.setup.geographic = SimpleNamespace(watershed_shp=str(mask))
+    return run_ctx
+
+
+def streams_file(tmp_path):
+    return write_lines(tmp_path / "streams.gpkg", LineString([(5, 5), (5, 20)]))
+
+
+def cut(run_ctx, output):
+    return cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
+
+
+def test_file_is_cut_and_names_the_outline(tmp_path):
+    run_ctx = catchment_ctx(tmp_path)
+    output = network_output(map={"complete": str(streams_file(tmp_path))})
+
+    result = cut(run_ctx, output)
+
+    assert result.clipped is True
+    assert result.geometry.total_bounds[3] == pytest.approx(10.0)
+    assert result.cut_outline.equals(SQUARE)
+
+
+def test_file_and_data_layer_draw_the_same_map(tmp_path):
+    reference = data_network(vector_path="/data/streams.shp")
+    run_ctx = catchment_ctx(tmp_path, reference=reference)
+    path = streams_file(tmp_path)
+    from_file = cut(run_ctx, network_output(map={"complete": str(path)}))
+    reference._write(gpd.clip(gpd.read_file(path), SQUARE))
+
+    from_data = cut(run_ctx, network_output(map={"complete": "data.hydrography"}))
+
+    assert from_file.clipped and from_data.clipped
+    assert from_file.geometry.geometry.iloc[0].equals(from_data.geometry.geometry.iloc[0])
+    assert from_data.cut_outline.equals(from_file.cut_outline)
+
+
+def test_line_touching_the_outline_keeps_its_lines_and_no_point(tmp_path):
+    run_ctx = catchment_ctx(tmp_path)
+    path = write_lines(
+        tmp_path / "touching.gpkg",
+        LineString([(10, 5), (20, 5)]),
+        LineString([(10, 2), (12, 5), (10, 8), (5, 8)]),
+    )
+
+    result = cut(run_ctx, network_output(map={"complete": str(path)}))
+
+    assert set(result.geometry.geom_type) <= {"LineString", "MultiLineString"}
+    assert result.geometry.geometry.length.sum() == pytest.approx(5.0)
+
+
+def test_clip_off_keeps_the_file_whole(tmp_path):
+    run_ctx = catchment_ctx(tmp_path)
+    output = network_output(
+        map={"complete": str(streams_file(tmp_path)), "clip_to_catchment": False}
+    )
+
+    kept = cut(run_ctx, output)
+
+    assert kept.clipped is False
+    assert kept.cut_outline is None
+    assert kept.geometry.total_bounds[3] == pytest.approx(20.0)
+
+
+def sealed_output():
+    return CalibOutputNetwork.model_validate(
+        {"support": "network", "map": {"permanent": "p.gpkg", "calibrate_on": "permanent"}},
+        context={"validation_context": "snapshot"},
     )
 
 
-def _polygon_gdf():
-    return gpd.GeoDataFrame(geometry=[Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])], crs=CRS)
+def data_hydrography_output():
+    return network_output(map={"complete": "data.hydrography"})
 
 
-def _empty_gdf():
-    return gpd.GeoDataFrame(geometry=[], crs=CRS)
+def empty_data_ctx():
+    network = data_network()
+    network._write(gpd.GeoDataFrame(geometry=[], crs=CRS))
+    return run_ctx_with(reference=network)
 
 
-class TestTheCutToTheCatchment:
-    """A file and the network the data layer loaded draw one map, from one mask."""
-
-    def _with_a_mask(self, tmp_path, *, reference=None):
-        mask = tmp_path / "watershed.gpkg"
-        square = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])
-        gpd.GeoDataFrame(geometry=[square], crs=CRS).to_file(mask, driver="GPKG")
-        run_ctx = _run_ctx(reference=reference)
-        run_ctx.state.setup.geographic = SimpleNamespace(watershed_shp=str(mask))
-        return run_ctx, square
-
-    def _file(self, tmp_path):
-        path = tmp_path / "streams.gpkg"
-        line = LineString([(5, 5), (5, 20)])
-        gpd.GeoDataFrame(geometry=[line], crs=CRS).to_file(path, driver="GPKG")
-        return path
-
-    def test_a_file_is_cut_and_names_the_outline(self, tmp_path) -> None:
-        run_ctx, square = self._with_a_mask(tmp_path)
-        output = _output(map={"complete": str(self._file(tmp_path))})
-
-        cut = cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
-
-        assert cut.clipped is True
-        assert cut.geometry.total_bounds[3] == pytest.approx(10.0)
-        assert cut.cut_outline.equals(square)
-
-    def test_the_two_routes_draw_the_same_map(self, tmp_path) -> None:
-        reference = _network(vector_path="/data/streams.shp")
-        run_ctx, _ = self._with_a_mask(tmp_path, reference=reference)
-        whole = gpd.read_file(self._file(tmp_path))
-        output_file = _output(map={"complete": str(self._file(tmp_path))})
-        from_file = cut_to_the_catchment(
-            run_ctx, resolve_observed_network(run_ctx, output_file), output_file
-        )
-        reference._write(gpd.clip(whole, Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])))
-        output_data = _output(map={"complete": "data.hydrography"})
-
-        from_data = cut_to_the_catchment(
-            run_ctx, resolve_observed_network(run_ctx, output_data), output_data
-        )
-
-        assert from_file.clipped and from_data.clipped
-        assert from_file.geometry.geometry.iloc[0].equals(from_data.geometry.geometry.iloc[0])
-        assert from_data.cut_outline.equals(from_file.cut_outline)
-
-    def test_a_line_that_touches_the_outline_keeps_its_lines_and_no_point(self, tmp_path) -> None:
-        run_ctx, _ = self._with_a_mask(tmp_path)
-        path = tmp_path / "touching.gpkg"
-        lines = [LineString([(10, 5), (20, 5)]), LineString([(10, 2), (12, 5), (10, 8), (5, 8)])]
-        gpd.GeoDataFrame(geometry=lines, crs=CRS).to_file(path, driver="GPKG")
-        output = _output(map={"complete": str(path)})
-
-        cut = cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
-
-        assert set(cut.geometry.geom_type) <= {"LineString", "MultiLineString"}
-        assert cut.geometry.geometry.length.sum() == pytest.approx(5.0)
-
-    def test_false_keeps_the_file_whole_and_every_end(self, tmp_path) -> None:
-        run_ctx, _ = self._with_a_mask(tmp_path)
-        output = _output(map={"complete": str(self._file(tmp_path)), "clip_to_catchment": False})
-
-        kept = cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
-
-        assert kept.clipped is False
-        assert kept.cut_outline is None
-        assert kept.geometry.total_bounds[3] == pytest.approx(20.0)
-
-    def test_a_map_out_of_the_catchment_is_refused_by_name(self, tmp_path) -> None:
-        run_ctx, _ = self._with_a_mask(tmp_path)
-        path = tmp_path / "away.gpkg"
-        line = LineString([(50, 50), (60, 60)])
-        gpd.GeoDataFrame(geometry=[line], crs=CRS).to_file(path, driver="GPKG")
-        output = _output(map={"complete": str(path)})
-
-        with pytest.raises(UnresolvedObservedNetwork, match="no line inside the catchment"):
-            cut_to_the_catchment(run_ctx, resolve_observed_network(run_ctx, output), output)
+def polygon_data_ctx():
+    network = data_network()
+    network._write(gpd.GeoDataFrame(geometry=[SQUARE], crs=CRS))
+    return run_ctx_with(reference=network)
 
 
-class TestTheRefusals:
-    def test_data_hydrography_named_with_no_reference_network(self) -> None:
-        run_ctx = _run_ctx(reference=None)
-        output = _output(map={"complete": "data.hydrography"})
-
-        with pytest.raises(UnresolvedObservedNetwork, match=r"data\.hydrography\.sources"):
-            resolve_observed_network(run_ctx, output)
-
-    def test_a_sealed_output_with_no_complete_map_is_refused_by_name(self) -> None:
-        output = CalibOutputNetwork.model_validate(
-            {"support": "network", "map": {"permanent": "p.gpkg", "calibrate_on": "permanent"}},
-            context={"validation_context": "snapshot"},
-        )
-
-        with pytest.raises(UnresolvedObservedNetwork, match="no complete map"):
-            resolve_observed_network(_run_ctx(), output)
-
-    def test_a_resolved_geometry_with_no_line_is_refused_by_source(self) -> None:
-        network = _network()
-        network._write(_empty_gdf())
-        run_ctx = _run_ctx(reference=network)
-        output = _output(map={"complete": "data.hydrography"})
-
-        with pytest.raises(UnresolvedObservedNetwork) as excinfo:
-            resolve_observed_network(run_ctx, output)
-        message = str(excinfo.value)
-        assert "data.hydrography" in message
-        assert "no line" in message
-
-    def test_a_resolved_polygon_is_refused_by_name(self) -> None:
-        network = _network()
-        network._write(_polygon_gdf())
-        run_ctx = _run_ctx(reference=network)
-        output = _output(map={"complete": "data.hydrography"})
-
-        with pytest.raises(UnresolvedObservedNetwork) as excinfo:
-            resolve_observed_network(run_ctx, output)
-        message = str(excinfo.value)
-        assert "data.hydrography" in message
-        assert "Polygon" in message
+REFUSALS = [
+    pytest.param(
+        run_ctx_with(reference=None),
+        data_hydrography_output(),
+        ["data.hydrography.sources"],
+        id="no reference network",
+    ),
+    pytest.param(
+        run_ctx_with(), sealed_output(), ["no complete map"], id="sealed output without a map"
+    ),
+    pytest.param(
+        empty_data_ctx(),
+        data_hydrography_output(),
+        ["data.hydrography", "no line"],
+        id="geometry with no line",
+    ),
+    pytest.param(
+        polygon_data_ctx(),
+        data_hydrography_output(),
+        ["data.hydrography", "Polygon"],
+        id="polygons",
+    ),
+]
 
 
-class TestTheReportingTwin:
-    def _calibration(self, **outputs):
-        # A bare holder of real `CalibOutputNetwork` instances: the function
-        # under test reads only `.outputs`, and going through
-        # `CalibrationConfig.model_validate` would require pairing every
-        # network output with an objective block, which is a different guard.
-        return SimpleNamespace(outputs=outputs)
+@pytest.mark.parametrize(("run_ctx", "output", "fragments"), REFUSALS)
+def test_refusals(run_ctx, output, fragments):
+    with pytest.raises(UnresolvedObservedNetwork) as excinfo:
+        resolve_observed_network(run_ctx, output)
 
-    def _project(self, *, hydrography_sources=None):
-        hydrography = None
-        if hydrography_sources is not None:
-            hydrography = SimpleNamespace(sources=hydrography_sources)
-        return SimpleNamespace(
-            data=SimpleNamespace(hydrography=hydrography),
-        )
-
-    def test_a_declared_source_the_project_carries_is_left_alone(self) -> None:
-        calibration = self._calibration(net=_output(map={"complete": "data.hydrography"}))
-        project = self._project(hydrography_sources=[SimpleNamespace(source="osm")])
-
-        assert unresolved_observed_networks(calibration, project) == {}
-
-    def test_data_hydrography_named_with_no_section_is_reported(self) -> None:
-        calibration = self._calibration(net=_output(map={"complete": "data.hydrography"}))
-        project = self._project(hydrography_sources=None)
-
-        refused = unresolved_observed_networks(calibration, project)
-
-        assert set(refused) == {"net"}
-        assert "data.hydrography.sources" in refused["net"]
+    for fragment in fragments:
+        assert fragment in str(excinfo.value)
 
 
-class TestTheMinimalMapsReportingTwin:
-    """Same static check, for ``map.permanent`` rather than ``map.complete``.
+def test_map_out_of_the_catchment_is_refused(tmp_path):
+    run_ctx = catchment_ctx(tmp_path)
+    path = write_lines(tmp_path / "away.gpkg", LineString([(50, 50), (60, 60)]))
 
-    A run's ``reference_permanent`` role can only be known once the geographic
-    pipeline has read the source, so the reporting twin here still cannot see a
-    source that declares no permanence column (a custom file, OSM): it only
-    catches a ``map.permanent = "data.hydrography"`` with no
-    ``[[data.hydrography.sources]]`` at all, the same parity
-    ``unresolved_observed_networks`` gives the maximal map.
-    """
-
-    def _calibration(self, **outputs):
-        return SimpleNamespace(outputs=outputs)
-
-    def _project(self, *, hydrography_sources=None):
-        hydrography = None
-        if hydrography_sources is not None:
-            hydrography = SimpleNamespace(sources=hydrography_sources)
-        return SimpleNamespace(data=SimpleNamespace(hydrography=hydrography))
+    with pytest.raises(UnresolvedObservedNetwork, match="no line inside the catchment"):
+        cut(run_ctx, network_output(map={"complete": str(path)}))
 
 
-# From test_the_criterion_scores_the_network_it_was_given.py
-# The network criterion scores the geometry it was handed, never a path.
-#
-# Two routes feed the same mask projection: the network the data layer already
-# loaded (clipped), and an explicit file (not clipped). This file checks the
-# wiring rather than the resolution logic itself, which
-# ``test_observations_network_source.py`` already
-# covers: that ``observed_network_mask`` reads an already-resolved
-# ``ObservedNetwork`` and never a path, that ``network_maps_from_run`` resolves once
-# per trial and threads the same resolution into the mask and into the trial
-# diagnostics.
+def reporting_inputs(hydrography_sources=None):
+    # `unresolved_observed_networks` reads only `.outputs`, so a bare holder of real
+    # outputs is enough. A full config would need an objective block for each one.
+    calibration = SimpleNamespace(outputs={"net": data_hydrography_output()})
+    hydrography = None
+    if hydrography_sources is not None:
+        hydrography = SimpleNamespace(sources=hydrography_sources)
+    project = SimpleNamespace(data=SimpleNamespace(hydrography=hydrography))
+    return calibration, project
 
 
-def _valley_axis_line() -> LineString:
-    """The talweg of the V-valley bench, as the mapped network would trace it."""
-    return LineString(
-        [
-            ((AXIS_COL + 0.5) * CELL_SIZE, (row + 0.5) * CELL_SIZE)
-            for row in range(FIRST_OBSERVED_ROW, N_ROWS)
-        ]
+def test_declared_source_the_project_carries_is_left_alone():
+    calibration, project = reporting_inputs([SimpleNamespace(source="osm")])
+
+    assert unresolved_observed_networks(calibration, project) == {}
+
+
+def test_data_hydrography_with_no_section_is_reported():
+    refused = unresolved_observed_networks(*reporting_inputs(None))
+
+    assert set(refused) == {"net"}
+    assert "data.hydrography.sources" in refused["net"]
+
+
+# The mask is built from the geometry handed over, never from a path.
+
+AXIS_LINE = LineString(
+    [
+        ((AXIS_COL + 0.5) * CELL_SIZE, (row + 0.5) * CELL_SIZE)
+        for row in range(FIRST_OBSERVED_ROW, N_ROWS)
+    ]
+)
+
+UNDRAWABLE = [
+    pytest.param(
+        gpd.GeoDataFrame(geometry=[AXIS_LINE], crs=CRS).iloc[:0],
+        CRS,
+        "holds no feature",
+        id="empty",
+    ),
+    pytest.param(gpd.GeoDataFrame(geometry=[AXIS_LINE]), None, "declares no CRS", id="no crs"),
+]
+
+
+@pytest.mark.parametrize(("geometry", "crs", "message"), UNDRAWABLE)
+def test_geometry_that_cannot_be_drawn_is_refused(bench, geometry, crs, message):
+    resolved = ObservedNetwork(
+        source="path", geometry=geometry, crs=crs, clipped=False, path="whatever.gpkg"
     )
+    vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
+    run_ctx = make_trial_ctx(bench, networks={"reference": None})
 
-
-def _maximal_map(run_ctx, output):
-    """The geometry, the resolution and the projection of the one map declared."""
-    maps = network_maps_from_run(run_ctx, output)
-    return maps.maximal, maps.maximal_source, maps.maximal_projection
-
-
-def _lines_gdf__criterion_scores() -> gpd.GeoDataFrame:
-    return gpd.GeoDataFrame(geometry=[_valley_axis_line()], crs=CRS)
-
-
-def _fake_hydrographic_network(gdf, *, path: str = "/fake/network.gpkg", crs: str = CRS):
-    """A `HydrographicNetwork` stand-in: hands back an in-memory GeoDataFrame."""
-    return SimpleNamespace(vector_path=path, crs=crs, read_vector=lambda: gdf)
-
-
-def _fake_run_ctx(bench, *, reference=None):
-    return make_trial_ctx(bench, networks={"reference": reference})
-
-
-def _route(bench, tmp_path, route, **network):
-    """A run context and output reading the valley axis through one of the two routes."""
-    gdf = _lines_gdf__criterion_scores()
-    if route == "path":
-        path = tmp_path / "streams.gpkg"
-        gdf.to_file(path, driver="GPKG")
-        return _fake_run_ctx(bench), _network_output(map={"complete": str(path)})
-    run_ctx = _fake_run_ctx(bench, reference=_fake_hydrographic_network(gdf, **network))
-    return run_ctx, _network_output(map={"complete": route})
-
-
-def _network_output(**overrides):
-    return validate_calib_output(
-        {
-            "support": "network",
-            "model": {"neighbours": "D8", "seepage_threshold": 0.0},
-            **overrides,
-        }
-    )
-
-
-class TestTheMaskIsBuiltFromTheHandedGeometry:
-    @pytest.mark.parametrize(
-        ("geometry", "crs", "match"),
-        [
-            pytest.param(
-                _lines_gdf__criterion_scores().iloc[:0], CRS, "holds no feature", id="empty"
-            ),
-            pytest.param(
-                gpd.GeoDataFrame(geometry=[_valley_axis_line()]),
-                None,
-                "declares no CRS",
-                id="no-crs",
-            ),
-        ],
-    )
-    def test_a_resolved_geometry_that_cannot_be_drawn_is_refused(
-        self, bench, geometry, crs, match
-    ) -> None:
-        resolved = ObservedNetwork(
-            source="path",
-            geometry=geometry,
-            crs=crs,
-            clipped=False,
-            path="whatever.gpkg",
-        )
-        vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
-        planar_mesh = SimpleNamespace(vertices=vertices)
-
-        with pytest.raises(ValueError, match=match):
-            observed_network_mask(_fake_run_ctx(bench), resolved, planar_mesh, connectivity)
-
-
-class _ReleaseAdapter:
-    """Returns the bench pattern as a per-cell release flux, for extract_outputs."""
-
-    def __init__(self, threshold: float) -> None:
-        self.threshold = threshold
-
-    def observables(self, ctx, requests, *, time_index=None):
-        del ctx, time_index
-        pattern = simulated_network(build_bench(), self.threshold)
-        return {
-            request.id: adapter_result(request.id, np.where(pattern, 1e-06, 0.0), "m3 s-1")
-            for request in requests
-        }
-
-
-def _extract_diagnostics(monkeypatch, run_ctx, output) -> dict[str, float]:
-    adapter = _ReleaseAdapter(200.0)
-    monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda ctx: (adapter, run_ctx))
-    extracted = extract_outputs(run_ctx, {"net": output})
-    return extracted.diagnostics
+    with pytest.raises(ValueError, match=message):
+        observed_network_mask(run_ctx, resolved, SimpleNamespace(vertices=vertices), connectivity)

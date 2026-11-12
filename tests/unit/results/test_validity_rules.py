@@ -24,7 +24,6 @@ from hydromodpy.results.validity_rules import (
     run_quantities,
 )
 from hydromodpy.schema.changes import REGISTER, Bug, read
-from hydromodpy.schema.sources import source_entry
 from tests._helpers.run_records import WINDOW, make_calibrated_by, make_checks
 
 CURRENT = "2.0.0a5"
@@ -38,18 +37,23 @@ def _promoted(status: str, window: DateWindow | None = None, **overrides) -> Che
     return make_checks(calibrated_by=make_calibrated_by(window, status=status), **overrides)
 
 
-def test_a_non_fatal_failure_does_not_touch_the_label():
-    checks = _promoted("completed", validities=[Validity("coverage", False, 0.3, "thin", False)])
-    assert label_for(checks, hydromodpy_version=CURRENT, issues=()).label == "calibrated"
+LABELS = [
+    pytest.param(
+        _promoted("completed", validities=[Validity("coverage", False, 0.3, "thin", False)]),
+        "calibrated",
+        id="non-fatal failure on a promoted run",
+    ),
+    pytest.param(Checks(), "exploratory", id="no window"),
+    pytest.param(Checks(score_window=WINDOW, n_samples=0), "exploratory", id="no sample"),
+]
 
 
-def test_exploratory_without_a_window_or_without_samples():
-    assert label_for(Checks(), hydromodpy_version=CURRENT, issues=()).label == "exploratory"
-    thin = Checks(score_window=WINDOW, n_samples=0)
-    assert label_for(thin, hydromodpy_version=CURRENT, issues=()).label == "exploratory"
+@pytest.mark.parametrize(("checks", "label"), LABELS)
+def test_label_of_a_run(checks, label):
+    assert label_for(checks, hydromodpy_version=CURRENT, issues=()).label == label
 
 
-def test_the_shipped_register_holds_the_three_real_issues_with_valid_specifiers():
+def test_shipped_register_issues():
     by_id = {issue.id: issue for issue in REGISTER.bugs}
     for known in (
         "discharge_scores_before_period_alignment",
@@ -61,14 +65,6 @@ def test_the_shipped_register_holds_the_three_real_issues_with_valid_specifiers(
         SpecifierSet(issue.versions)
 
 
-def _a_known_token(token: str, allowed: set[str]) -> bool:
-    """A source token names a registered source: ``source@<section>_<slug>``."""
-    if token.startswith("source@"):
-        _section, _, slug = token.removeprefix("source@").partition("_")
-        return source_entry(slug) is not None
-    return token in allowed
-
-
 _BAD_BUGS = {
     "a bad id": ('id = "Bad Id"', "id must match"),
     "a commit that is no sha": ('commit = "not-a-sha"', "commit must be a hex sha"),
@@ -78,7 +74,7 @@ _BAD_BUGS = {
 
 
 @pytest.mark.parametrize(("change", "fault"), _BAD_BUGS.values(), ids=_BAD_BUGS.keys())
-def test_an_issue_with_a_bad_field_is_refused(change: str, fault: str):
+def test_refused_issue_fields(change: str, fault: str):
     fields = {
         "id": 'id = "x"',
         "commit": 'commit = "abc1234"',
@@ -91,31 +87,6 @@ def test_an_issue_with_a_bad_field_is_refused(change: str, fault: str):
     )
     with pytest.raises(ValueError, match=fault):
         read(text)
-
-
-SOURCE_CONFIGS = {
-    "a Hub'Eau gauge": (
-        '[[data.hydrometry.sources]]\nsource = "hubeau"\n',
-        ("source@hydrometry_hubeau",),
-    ),
-    "two sections, one source twice": (
-        '[[data.dem.sources]]\nsource = "file"\npath = "a.tif"\n'
-        '[[data.dem.sources]]\nsource = "file"\npath = "b.tif"\n'
-        '[[data.hydrometry.sources]]\nsource = "hubeau"\n',
-        ("source@dem_file", "source@hydrometry_hubeau"),
-    ),
-    "no source": ("[data]\ntypes = []\n", ()),
-    "no data": ('[simulation]\nname = "x"\n', ()),
-}
-
-
-HUBEAU_BUG = Bug(
-    id="hubeau_x",
-    since="2.1.0",
-    versions="<2.1.0",
-    quantities=("source@hydrometry_hubeau",),
-    text="Hub'Eau read the wrong series.",
-)
 
 
 LAKE = "[flow.sinks_sources.lakes.pond]\nstage = 1.0\n"
@@ -132,7 +103,7 @@ CYCLIC = '[flow.ic.h]\nkind = "spinup_cyclic"\n'
         ("[simulation]\n", ()),
     ],
 )
-def test_a_start_token_names_only_the_starts_a_fix_moved(config, tokens):
+def test_start_tokens(config, tokens):
     assert declared_start_tokens(config) == tokens
 
 
@@ -228,9 +199,7 @@ RULE_3 = {
 @pytest.mark.parametrize(
     ("checks", "promoted", "regime", "expected"), RULE_3.values(), ids=RULE_3.keys()
 )
-def test_rule_3_calibrates_a_promoted_run_only_on_a_scored_window(
-    checks, promoted, regime, expected
-):
+def test_rule_3_labels(checks, promoted, regime, expected):
     fields = dict(checks)
     if promoted is not None:
         fields.setdefault("calibrated_by", make_calibrated_by(**promoted))
@@ -240,12 +209,12 @@ def test_rule_3_calibrates_a_promoted_run_only_on_a_scored_window(
     assert (result.label, _codes(result)) == expected
 
 
-def test_a_reason_with_an_unknown_code_is_refused():
+def test_unknown_reason_code_is_refused():
     with pytest.raises(ValueError, match="no_such_code"):
         Reason.of("no_such_code")
 
 
-def test_every_reason_code_is_one_a_label_can_give():
+def test_every_reason_code_is_reachable():
     issue = Bug(id="x", since="2.0.0", versions="<3", quantities=("heads@modflow6",), text="d")
     fatal = [Validity("water_budget", False, 12.0, "no", True)]
     cases = [

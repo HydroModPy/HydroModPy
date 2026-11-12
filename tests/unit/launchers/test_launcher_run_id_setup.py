@@ -1,4 +1,7 @@
-"""Unit tests for workflow setup step run_id and domain support handling."""
+"""The workflow setup step: the run id and the declared zone supports of the domain.
+
+The workspace, the catchment delineation and the domain are replaced by small
+stand-ins, so only the step's own logic runs."""
 
 from __future__ import annotations
 
@@ -9,145 +12,117 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.run_state import WorkflowContext
-from hydromodpy.core.state.scratch import preprocessing_dir
+from hydromodpy.core.state.scratch import preprocessing_dir, scratch_dir_for
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.workflow.steps.setup import step_setup
 
-from ._launcher_run_id_builders import (
-    _DummyDomain,
-    _DummyGeographic,
-    _DummyWorkspace,
-    _patch_launcher_deps,
-    _standard_geographic_cfg,
-)
 
-PREPROCESSING_DIR = preprocessing_dir(Path())
+class DummyWorkspace:
+    def __init__(self, config) -> None:
+        self.config = config
+        self.project_root = Path("workspace")
+        self.solver_scratch_folder = scratch_dir_for(self.project_root)
 
 
-def test_run_setup_defaults_run_id_when_name_empty(monkeypatch) -> None:
-    _patch_launcher_deps(monkeypatch)
+class DummyGeographic:
+    def __init__(self, config, workspace, **_ignored) -> None:
+        self.config = config
+        self.workspace = workspace
 
-    cfg = SimpleNamespace(
-        workspace=SimpleNamespace(),
-        geographic=_standard_geographic_cfg(),
-        domain=DomainConfig(),
-        simulation=SimpleNamespace(name=""),
-    )
-    run_state = WorkflowContext(
-        cfg=cfg,
-        config_path=Path("config.toml"),
-        raw_toml={},
-    )
+    def get_domain_surface_topo(self):
+        return SimpleNamespace(support=object())
 
-    step_setup(run_state)
-
-    assert run_state.setup.run_id == "config"  # derived from config.toml stem
-
-
-def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.WorkspaceLayout",
-        _DummyWorkspace,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.CatchmentDelineation",
-        _DummyGeographic,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.model.domain.build.Domain",
-        _DummyDomain,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.apply_catchment_zones_to_domain",
-        lambda **kwargs: None,
-    )
-
-    cfg = SimpleNamespace(
-        workspace=SimpleNamespace(),
-        geographic=_standard_geographic_cfg(),
-        domain=DomainConfig(),
-        simulation=SimpleNamespace(name="test"),
-    )
-    run_state = WorkflowContext(
-        cfg=cfg,
-        config_path=Path("config.toml"),
-        raw_toml={},
-    )
-
-    def _ensure_flow(state) -> None:
-        state.setup.flow = SimpleNamespace(
-            parameters={
-                "K": SimpleNamespace(
-                    is_heterogeneous=True,
-                    field_spatial_id="field_geology",
-                )
-            }
+    def get_domain_geographic_context(self):
+        return SimpleNamespace(
+            surface_topo=self.get_domain_surface_topo(),
+            watershed_shp="watershed.shp",
+            catchment_area_km2=1.0,
+            kind="from_outlet_coord",
+            x_outlet=1.0,
+            y_outlet=2.0,
+            watershed_box_buff_dem="watershed_box_buff_dem.tif",
+            box_buff_shp="watershed_box_buff.shp",
+            zone_kind="catchment",
         )
 
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.ensure_flow",
-        _ensure_flow,
+
+class DummyDomain:
+    def __init__(self, config, surface_topo, **_ignored) -> None:
+        self.config = config
+        self.surface_topo = surface_topo
+
+
+def no_flow(state) -> None:
+    pass
+
+
+def geology_flow(state) -> None:
+    state.setup.flow = SimpleNamespace(
+        parameters={"K": SimpleNamespace(is_heterogeneous=True, field_spatial_id="field_geology")}
     )
+
+
+def skip_zones(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "hydromodpy.workflow.steps.setup.apply_catchment_zones_to_domain", lambda **kwargs: None
+    )
+
+
+def a_state(name: str) -> WorkflowContext:
+    cfg = SimpleNamespace(
+        workspace=SimpleNamespace(),
+        geographic=SimpleNamespace(uses_synthetic_geographic=lambda: False),
+        domain=DomainConfig(),
+        simulation=SimpleNamespace(name=name),
+    )
+    return WorkflowContext(cfg=cfg, config_path=Path("config.toml"), raw_toml={})
+
+
+def patch_setup(monkeypatch, ensure_flow) -> None:
+    # build_domain is patched one module deeper than the step, because it holds the
+    # copy of the declared section the tests assert on.
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.WorkspaceLayout", DummyWorkspace)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.CatchmentDelineation", DummyGeographic)
+    monkeypatch.setattr("hydromodpy.model.domain.build.Domain", DummyDomain)
+    monkeypatch.setattr("hydromodpy.workflow.steps.setup.ensure_flow", ensure_flow)
+
+
+def test_run_id_from_config_stem(monkeypatch) -> None:
+    patch_setup(monkeypatch, no_flow)
+    state = a_state(name="")
+
+    step_setup(state)
+
+    assert state.setup.run_id == "config"
+
+
+def test_geology_support_declared(monkeypatch) -> None:
+    patch_setup(monkeypatch, geology_flow)
+    skip_zones(monkeypatch)
+    state = a_state(name="test")
 
     step_setup(
-        run_state,
+        state,
         requested_spatial_support_ids=("field_geology",),
-        requested_domain_supports={
-            "field_geology": SimpleNamespace(kind="geology"),
-        },
+        requested_domain_supports={"field_geology": SimpleNamespace(kind="geology")},
     )
 
-    assert run_state.setup.domain.config.zone_ids == ["catchment", "geology", "field_geology"]
+    assert state.setup.domain.config.zone_ids == ["catchment", "geology", "field_geology"]
 
 
-def test_run_setup_rejects_heterogeneous_flow_when_support_is_undeclared(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.WorkspaceLayout",
-        _DummyWorkspace,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.CatchmentDelineation",
-        _DummyGeographic,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.model.domain.build.Domain",
-        _DummyDomain,
-    )
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.apply_catchment_zones_to_domain",
-        lambda **kwargs: None,
-    )
-
-    cfg = SimpleNamespace(
-        workspace=SimpleNamespace(),
-        geographic=_standard_geographic_cfg(),
-        domain=DomainConfig(),
-        simulation=SimpleNamespace(name="test"),
-    )
-    run_state = WorkflowContext(
-        cfg=cfg,
-        config_path=Path("config.toml"),
-        raw_toml={},
-    )
-
-    def _ensure_flow(state) -> None:
-        state.setup.flow = SimpleNamespace(
-            parameters={
-                "K": SimpleNamespace(
-                    is_heterogeneous=True,
-                    field_spatial_id="field_geology",
-                )
-            }
-        )
-
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.setup.ensure_flow",
-        _ensure_flow,
-    )
+def test_refusal_without_declared_support(monkeypatch) -> None:
+    patch_setup(monkeypatch, geology_flow)
+    skip_zones(monkeypatch)
 
     with pytest.raises(ConfigError, match="domain.supports"):
         step_setup(
-            run_state,
+            a_state(name="test"),
             requested_spatial_support_ids=("field_geology",),
             requested_domain_supports={},
         )
+
+
+def test_preprocessing_under_scratch() -> None:
+    root = Path("workspace")
+
+    assert preprocessing_dir(root).parent == scratch_dir_for(root)

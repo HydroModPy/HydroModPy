@@ -23,12 +23,12 @@ pytestmark = pytest.mark.fast
 
 
 def _plane(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """A recharge that rises to the east and to the north."""
+    # A recharge that rises to the east and to the north.
     return 1.0 + 0.02 * x + 0.01 * y
 
 
 def _targets(nrow: int = 3, ncol: int = 4) -> tuple[np.ndarray, np.ndarray]:
-    """Centers of 10 m cells inside the 0-40 m square, as ``(nrow, ncol)`` arrays."""
+    # Centers of 10 m cells inside the 0-40 m square, as (nrow, ncol) arrays.
     cells = fc.centres(nrow, ncol).reshape(nrow, ncol, 2)
     return cells[..., 0], cells[..., 1]
 
@@ -49,13 +49,13 @@ def test_a_centre_grid_refuses_area(interpolate):
 
 
 @pytest.mark.parametrize("method", ["nearest", "linear", "idw"])
-def test_a_uniform_raster_stays_uniform_under_every_method(method):
+def test_uniform_raster_stays_uniform(method):
     result = fc.fields_on_cells([fc.static_field(3, 4, 5.0)], 3, 4, method=method)
     assert result[0].shape == (12,)
     np.testing.assert_allclose(result[0], 5.0 * fc.MM_DAY_TO_M_S, rtol=1e-4)
 
 
-def test_linear_reproduces_a_plane_read_on_a_finer_raster_slice_by_slice():
+def test_linear_raster_reproduces_plane():
     x = np.arange(-2.5, 45.0, 5.0)  # 5 m pixels over the cells and a margin
     y = np.arange(-2.5, 35.0, 5.0)[::-1]
     raster = _plane(x[None, :], y[:, None])
@@ -71,7 +71,7 @@ def test_linear_reproduces_a_plane_read_on_a_finer_raster_slice_by_slice():
     np.testing.assert_allclose(stack[1], 3.0 * _plane(target_x, target_y), rtol=1e-10)
 
 
-def test_linear_reproduces_a_plane_between_stations_and_takes_the_nearest_outside():
+def test_linear_stations_reproduce_plane():
     # Three stations span a triangle over the west of the cells; the east ones lie outside.
     xs, ys = np.array([0.0, 25.0, 0.0]), np.array([0.0, 0.0, 30.0])
     target_x, target_y = _targets()
@@ -87,7 +87,7 @@ def test_linear_reproduces_a_plane_between_stations_and_takes_the_nearest_outsid
     np.testing.assert_array_equal(result[~inside], nearest[~inside])
 
 
-def test_idw_rises_between_two_stations_and_takes_the_value_on_a_station_without_a_warning():
+def test_idw_between_two_stations():
     west, far_east, near_east = (fc.station(*args) for args in (("W", 5.0, 5.0, 10.0), ("E", 45.0, 5.0, 20.0), ("E", 25.0, 5.0, 20.0)))  # fmt: skip
 
     rates = fc.points_on_cells([west, far_east], 1, 5, method="idw")[0]
@@ -126,7 +126,7 @@ def test_idw_of_equidistant_or_single_stations(stations, targets, expected):
     ),
     power=st.floats(0.5, 4.0),
 )
-def test_idw_stays_between_the_lowest_and_the_highest_station(stations, power):
+def test_idw_stays_within_station_range(stations, power):
     xyv = np.asarray(stations, dtype=float)
     result = interpolate_points_to_grid(*xyv.T, *_targets(), 3, 4, "idw", idw_power=power)
     tolerance = 1e-9 * max(1.0, float(np.abs(xyv[:, 2]).max()))
@@ -134,7 +134,7 @@ def test_idw_stays_between_the_lowest_and_the_highest_station(stations, power):
     assert np.all(result <= xyv[:, 2].max() + tolerance)
 
 
-def test_two_dimensional_source_coordinates_are_read_as_pixel_centres():
+def test_2d_coordinates_are_pixel_centres():
     x, y = np.array([5.0, 15.0, 25.0, 35.0]), np.array([25.0, 15.0, 5.0])
     raster = _plane(x[None, :], y[:, None])
     xx, yy = np.meshgrid(x, y, indexing="xy")
@@ -148,7 +148,7 @@ def test_two_dimensional_source_coordinates_are_read_as_pixel_centres():
     np.testing.assert_array_equal(from_axes, raster)
 
 
-def test_a_stack_on_the_target_grid_comes_back_unchanged_and_an_empty_one_empty():
+def test_stack_on_target_grid_unchanged():
     target_x, target_y = _targets()
     stack = np.stack([_plane(target_x, target_y), 2.0 * _plane(target_x, target_y)])
 
@@ -161,7 +161,7 @@ def test_a_stack_on_the_target_grid_comes_back_unchanged_and_an_empty_one_empty(
     assert empty.shape == (0, 3, 4)
 
 
-def test_a_stack_whose_nodata_moves_is_read_slice_by_slice():
+def test_stack_nodata_read_per_slice():
     x, y = np.array([0.0, 20.0, 40.0]), np.array([30.0, 0.0])
     first = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
     second = 10.0 * first
@@ -193,5 +193,5 @@ _VALUES = np.arange(12.0).reshape(3, 4)
     ],
     ids=["mixed-axes-raster", "mixed-axes-stack", "no-finite-raster", "no-finite-station"],
 )  # fmt: skip
-def test_a_source_that_places_no_pixel_gives_its_mean_or_zero(interpolate, expected):
+def test_unplaceable_source_mean_or_zero(interpolate, expected):
     np.testing.assert_array_equal(interpolate(), expected)

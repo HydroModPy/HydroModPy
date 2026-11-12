@@ -1,4 +1,4 @@
-"""Unit tests of the options of the linear reservoir backend."""
+"""Options of the linear reservoir: the time constant is read in days."""
 
 from __future__ import annotations
 

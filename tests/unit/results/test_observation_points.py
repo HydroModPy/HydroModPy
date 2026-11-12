@@ -1,4 +1,8 @@
-"""Declared observation points are run artifacts, so a rebuilt index keeps them."""
+"""Declared observation points are run artifacts, so a rebuilt index keeps them.
+
+The run has 2 cells of 1 m by 1 m, 2 layers of 5 m and 2 time steps. A point is sampled
+at its x, y (m) in the layer given or at the depth given (m).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,7 @@ import pytest
 
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.run import observation_points
 from hydromodpy.results.run.observation_points import sample_observation_points
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
@@ -85,13 +90,6 @@ def project(tmp_path):
     return root, sid
 
 
-def _points(root):
-    with Catalog(root) as catalog:
-        return catalog.backend.query(
-            "SELECT station_id, cell_id, layer FROM observation_points ORDER BY station_id"
-        )
-
-
 def _series(root):
     with Catalog(root) as catalog:
         return catalog.backend.query(
@@ -100,73 +98,67 @@ def _series(root):
         )
 
 
-class TestSampling:
-    def test_the_run_exposes_its_points(self, project):
-        root, sid = project
-        with Catalog(root) as catalog:
-            frame = catalog[sid].probe.declared
-        assert frame["station_id"].tolist() == ["piezo_a", "piezo_b"]
-
-    def test_a_point_outside_the_mesh_is_skipped_not_fatal(self, tmp_path):
-        root = tmp_path / "outside"
-        with _open_run(root, "probe_run") as store:
-            written = sample_observation_points(
-                store,
-                store.sim_id,
-                [
-                    {
-                        "id": "far",
-                        "x": 99.0,
-                        "y": 99.0,
-                        "layer": None,
-                        "depth": None,
-                        "variables": ["head"],
-                    }
-                ],
-            )
-        assert written == 0
-
-    @pytest.mark.parametrize(
-        ("unnamed_first", "expected"),
-        [(True, {"obs:piezo_b"}), (False, {"obs:piezo_a", "obs:piezo_b"})],
-        ids=["first point has no descriptor", "every point has one"],
-    )
-    def test_a_variable_without_descriptor_skips_only_its_point(
-        self, tmp_path, monkeypatch, unnamed_first, expected
-    ):
-        import hydromodpy.results.run.observation_points as module
-
-        real = module.read_point
-
-        def read(run, variables, request):
-            frame = real(run, variables, request)
-            if unnamed_first and request.label == "piezo_a":
-                frame["variable"] = "a_name_no_descriptor_holds"
-            return frame
-
-        monkeypatch.setattr(module, "read_point", read)
-        root = tmp_path / "unnamed"
-        store = _open_run(root, "probe_run")
-        sample_observation_points(store, store.sim_id, DECLARATIONS)
-        seal_completed(store)
-        rebuild_index(root)
-        assert set(_series(root)["station_id"]) == expected
-
-    def test_no_declaration_writes_nothing(self, tmp_path):
-        root = tmp_path / "empty"
-        with _open_run(root, "probe_run") as store:
-            assert sample_observation_points(store, store.sim_id, []) == 0
+def test_run_exposes_its_points(project):
+    root, sid = project
+    with Catalog(root) as catalog:
+        frame = catalog[sid].probe.declared
+    assert frame["station_id"].tolist() == ["piezo_a", "piezo_b"]
 
 
-class TestConfigSection:
-    def test_layer_and_depth_are_exclusive(self):
-        with pytest.raises(ValueError, match="keep one"):
-            ObservationConfig.model_validate(
-                {"points": [{"id": "p", "x": 1.0, "y": 2.0, "layer": 0, "depth": 3.0}]}
-            )
+def test_point_outside_the_mesh_is_skipped(tmp_path):
+    far = {"id": "far", "x": 99.0, "y": 99.0, "layer": None, "depth": None, "variables": ["head"]}
+    with _open_run(tmp_path / "outside", "probe_run") as store:
+        written = sample_observation_points(store, store.sim_id, [far])
+    assert written == 0
 
-    def test_duplicate_ids_are_refused(self):
-        with pytest.raises(ValueError, match="Duplicate"):
-            ObservationConfig.model_validate(
-                {"points": [{"id": "p", "x": 1.0, "y": 2.0}, {"id": "p", "x": 3.0, "y": 4.0}]}
-            )
+
+UNNAMED = [
+    pytest.param(True, {"obs:piezo_b"}, id="first point has no descriptor"),
+    pytest.param(False, {"obs:piezo_a", "obs:piezo_b"}, id="every point has one"),
+]
+
+
+@pytest.mark.parametrize(("unnamed_first", "expected"), UNNAMED)
+def test_variable_without_descriptor_skips_its_point(
+    tmp_path, monkeypatch, unnamed_first, expected
+):
+    real = observation_points.read_point
+
+    def read(run, variables, request):
+        frame = real(run, variables, request)
+        if unnamed_first and request.label == "piezo_a":
+            frame["variable"] = "a_name_no_descriptor_holds"
+        return frame
+
+    monkeypatch.setattr(observation_points, "read_point", read)
+    root = tmp_path / "unnamed"
+    store = _open_run(root, "probe_run")
+    sample_observation_points(store, store.sim_id, DECLARATIONS)
+    seal_completed(store)
+    rebuild_index(root)
+    assert set(_series(root)["station_id"]) == expected
+
+
+def test_no_declaration_writes_nothing(tmp_path):
+    with _open_run(tmp_path / "empty", "probe_run") as store:
+        assert sample_observation_points(store, store.sim_id, []) == 0
+
+
+CONFIG_REFUSALS = [
+    pytest.param(
+        [{"id": "p", "x": 1.0, "y": 2.0, "layer": 0, "depth": 3.0}],
+        "keep one",
+        id="layer and depth",
+    ),
+    pytest.param(
+        [{"id": "p", "x": 1.0, "y": 2.0}, {"id": "p", "x": 3.0, "y": 4.0}],
+        "Duplicate",
+        id="duplicate ids",
+    ),
+]
+
+
+@pytest.mark.parametrize(("points", "match"), CONFIG_REFUSALS)
+def test_config_refusals(points, match):
+    with pytest.raises(ValueError, match=match):
+        ObservationConfig.model_validate({"points": points})

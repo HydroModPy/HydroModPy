@@ -82,7 +82,7 @@ def _visible_flags(parser: argparse.ArgumentParser) -> set[str]:
 
 
 @pytest.mark.parametrize("verb", sorted(LEAVES))
-def test_a_verb_follows_the_grammar(verb: str) -> None:
+def test_verb_grammar(verb: str) -> None:
     flags = _visible_flags(LEAVES[verb])
     assert "-w" in flags and "--workspace" in flags
     assert not GONE_FLAGS & flags
@@ -95,7 +95,6 @@ def test_a_verb_follows_the_grammar(verb: str) -> None:
 
 
 def _emitted_verbs() -> set[str]:
-    """Return the first string of every ``emit(args, "<verb>", ...)`` under ``cli/commands``."""
     found: set[str] = set()
     for path in COMMANDS_DIR.rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
@@ -104,7 +103,7 @@ def _emitted_verbs() -> set[str]:
     return found
 
 
-def test_each_declared_output_is_written_by_a_verb_that_exists() -> None:
+def test_declared_outputs() -> None:
     declared = {output.verb for output in OUTPUTS}
     assert declared == _emitted_verbs()
     stable = {verb for verb in LEAVES if not verb.startswith("dev ")} - WRITES_A_DOCUMENT
@@ -112,7 +111,7 @@ def test_each_declared_output_is_written_by_a_verb_that_exists() -> None:
     assert len({output.schema for output in OUTPUTS}) == len(OUTPUTS)
 
 
-def test_no_command_writes_a_machine_format_by_itself() -> None:
+def test_no_hand_written_format() -> None:
     forbidden = {"dumps", "to_json", "to_csv", "DictWriter"}
     # The JSON Schema `hmp config schema` prints is the document itself.
     offenders = [
@@ -127,7 +126,7 @@ def test_no_command_writes_a_machine_format_by_itself() -> None:
 
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
-    """A project of a workspace, holding one sealed run named ``demo``, indexed."""
+    # A project of a workspace, holding one sealed run named demo, indexed.
     root = tmp_path / "workspace" / "projects" / "demo_project"
     seal_demo_run(root)
     (tmp_path / "workspace" / "data").mkdir()
@@ -159,7 +158,7 @@ READ_VERBS = (
 
 
 @pytest.mark.parametrize(("verb", "words"), READ_VERBS, ids=[row[0] for row in READ_VERBS])
-def test_json_is_one_envelope_with_its_schema(project: Path, verb: str, words: list[str]) -> None:
+def test_json_envelope(project: Path, verb: str, words: list[str]) -> None:
     on_the_workspace = verb in ("project list", "site ls", "data ls")
     where = project.parent.parent if on_the_workspace else project
     # A row whose words start with the command names the whole command line itself.
@@ -179,7 +178,7 @@ def test_json_is_one_envelope_with_its_schema(project: Path, verb: str, words: l
 
 
 @pytest.mark.parametrize("words", [["project", "list"], ["workspace", "list"], ["site", "ls"]])
-def test_an_empty_listing_is_an_empty_document(tmp_path: Path, words: list[str]) -> None:
+def test_empty_listing(tmp_path: Path, words: list[str]) -> None:
     (tmp_path / "projects").mkdir()
     (tmp_path / "data").mkdir()
     verb = " ".join(words)
@@ -192,7 +191,7 @@ def test_an_empty_listing_is_an_empty_document(tmp_path: Path, words: list[str])
     assert next(csv.reader(io.StringIO(as_csv.stdout))) == list(output_of(verb).fields)
 
 
-def test_w_is_read_before_the_verb_and_the_one_after_it_wins(project: Path) -> None:
+def test_workspace_flag_position(project: Path) -> None:
     before = CliRunner().invoke(["-w", str(project), "ls", "--format", "json"])
     assert [row["name"] for row in json.loads(before.stdout)["data"]] == [RUN_NAME]
 
@@ -200,7 +199,7 @@ def test_w_is_read_before_the_verb_and_the_one_after_it_wins(project: Path) -> N
     assert both.exit_code == 0, both.stderr
 
 
-def test_emit_holds_what_is_declared_and_writes_strict_json(capsys, tmp_path: Path) -> None:
+def test_emit_strict_json(capsys, tmp_path: Path) -> None:
     args = argparse.Namespace(format="json")
     emit(args, "catalog note", {"rel_dir": tmp_path, "text": math.nan, "extra": 1})
     assert json.loads(capsys.readouterr().out)["data"] == {"rel_dir": str(tmp_path), "text": None}
@@ -224,11 +223,11 @@ def test_emit_holds_what_is_declared_and_writes_strict_json(capsys, tmp_path: Pa
         ({"a": (1, {float("nan")})}, {"a": [1, [None]]}),
     ],
 )
-def test_plain_leaves_nothing_json_refuses(value: object, expected: object) -> None:
+def test_plain(value: object, expected: object) -> None:
     assert plain(value) == expected
 
 
-def test_csv_writes_the_rows_or_key_value_lines(capsys) -> None:
+def test_csv(capsys) -> None:
     args = argparse.Namespace(format="csv")
     emit(args, "project list", [{"name": "a", "run_tomls": ["x.toml", "y.toml"]}])
     assert capsys.readouterr().out.splitlines() == [
@@ -239,7 +238,7 @@ def test_csv_writes_the_rows_or_key_value_lines(capsys) -> None:
     assert capsys.readouterr().out.splitlines() == ["key,value", "path,/p"]
 
 
-def test_nothing_printed_while_a_verb_works_reaches_stdout(capfd) -> None:
+def test_library_prints_go_to_stderr(capfd) -> None:
     args = argparse.Namespace(format="json")
 
     with stdout_for_a_program(args):
@@ -252,7 +251,7 @@ def test_nothing_printed_while_a_verb_works_reaches_stdout(capfd) -> None:
     assert "a library that prints" in captured.err and "a solver that prints" in captured.err
 
 
-def test_a_failure_prints_its_code_and_under_json_its_envelope(tmp_path: Path) -> None:
+def test_failure_code_and_envelope(tmp_path: Path) -> None:
     missing = str(tmp_path / "absent.toml")
 
     table = CliRunner().invoke(["run", missing])
@@ -268,9 +267,7 @@ def test_a_failure_prints_its_code_and_under_json_its_envelope(tmp_path: Path) -
     assert missing in document["data"]["detail"]
 
 
-def test_a_result_already_written_is_not_followed_by_an_error_document(
-    project: Path, tmp_path: Path
-) -> None:
+def test_no_error_after_a_result(project: Path, tmp_path: Path) -> None:
     copy = tmp_path / "copy"
     assert CliRunner().invoke(["publish", RUN_NAME, "--to", str(copy), "-w", str(project)]).ok
     (copy / "added.txt").write_text("not in PUBLICATION.json", encoding="utf-8")
@@ -283,7 +280,7 @@ def test_a_result_already_written_is_not_followed_by_an_error_document(
     assert any("added.txt" in line for line in document["data"]["problems"])
 
 
-def test_a_dry_run_of_a_file_is_a_document_too(tmp_path: Path) -> None:
+def test_dry_run_document(tmp_path: Path) -> None:
     file = tmp_path / "run.toml"
     file.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
 
@@ -295,20 +292,20 @@ def test_a_dry_run_of_a_file_is_a_document_too(tmp_path: Path) -> None:
     assert data["result"]["steps"]
 
 
-def test_a_mistake_on_the_command_line_carries_a_code_too() -> None:
+def test_usage_error_code() -> None:
     result = CliRunner().invoke(["ls", "--format", "yaml"])
     assert result.exit_code == EXIT_USAGE
     assert "HMPY.E001: " in result.stderr and "invalid choice" in result.stderr
 
 
-def test_an_interruption_exits_130_and_carries_no_code(capsys) -> None:
+def test_interruption(capsys) -> None:
     with pytest.raises(SystemExit) as stopped:
         fail(KeyboardInterrupt())
     assert stopped.value.code == 130
     assert capsys.readouterr().err == "Interrupted.\n"
 
 
-def test_the_code_of_a_step_is_the_code_of_its_cause() -> None:
+def test_error_code_of_a_step() -> None:
     wrapped = StepError("step", cause=SolverDivergedError("diverged"))
     assert error_code(wrapped) == SolverDivergedError.code
     assert error_code(FileNotFoundError("x")) == NothingThereError.code
@@ -337,7 +334,7 @@ def _calibrate(monkeypatch, tmp_path: Path, report: CalibrationReport, *flags: s
     return CliRunner().invoke(["calibrate", str(config), "--format", "json", *flags])
 
 
-def test_calibrate_writes_a_payload_its_schema_describes(monkeypatch, tmp_path: Path) -> None:
+def test_calibrate_payload(monkeypatch, tmp_path: Path) -> None:
     phase_report = _report(best_cost=float("nan"))
     from hydromodpy.calibration.report import PhaseRun
 
@@ -358,9 +355,7 @@ def test_calibrate_writes_a_payload_its_schema_describes(monkeypatch, tmp_path: 
     assert output_of("calibrate").experimental
 
 
-def test_calibrate_writes_the_payload_of_a_session_read_from_disk(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_calibrate_payload_from_disk(monkeypatch, tmp_path: Path) -> None:
     import jsonschema
 
     from hydromodpy import schema
@@ -403,9 +398,7 @@ def test_calibrate_writes_the_payload_of_a_session_read_from_disk(
     assert data["session_dir"] == str(directory)
 
 
-def test_an_unfinished_session_keeps_its_result_and_its_exit_code(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_unfinished_session(monkeypatch, tmp_path: Path) -> None:
     report = _report(extra={"promotion_failures": ["trial 1: no space left"]})
 
     result = _calibrate(monkeypatch, tmp_path, report)
@@ -415,7 +408,7 @@ def test_an_unfinished_session_keeps_its_result_and_its_exit_code(
     assert "trial 1: no space left" in result.stderr
 
 
-def test_a_preview_changes_nothing_and_y_does(project: Path) -> None:
+def test_preview_and_apply(project: Path) -> None:
     (project / "runs" / "second").mkdir(parents=True)
     run_dir = project / "runs" / RUN_NAME
 
@@ -437,7 +430,7 @@ def test_a_preview_changes_nothing_and_y_does(project: Path) -> None:
     assert not run_dir.exists()
 
 
-def test_a_removal_without_y_is_refused_when_nobody_can_answer(project: Path) -> None:
+def test_removal_without_y(project: Path) -> None:
     result = CliRunner().invoke(["catalog", "trash", "--empty", "-w", str(project)])
     assert result.exit_code == EXIT_USAGE
     assert "-y" in result.stderr
@@ -467,9 +460,7 @@ MISMATCH = SimpleNamespace(kind="missing", variable="dem", source="ign", station
     ],
     ids=["mismatch", "mismatch strict", "match", "schema changed", "schema changed strict"],
 )
-def test_data_lock_check_reports_each_mismatch_and_exits_on_the_validation_code(
-    monkeypatch, result: dict, flags: list[str], code: int, said: str
-) -> None:
+def test_data_lock_check(monkeypatch, result: dict, flags: list[str], code: int, said: str) -> None:
     calls: dict[str, object] = {}
 
     def fake_verify(workspace, *, project, lockfile, strict):
@@ -485,7 +476,7 @@ def test_data_lock_check_reports_each_mismatch_and_exits_on_the_validation_code(
     assert calls["strict"] is bool(flags)
 
 
-def test_data_lock_check_json_is_one_envelope(monkeypatch) -> None:
+def test_data_lock_check_json(monkeypatch) -> None:
     monkeypatch.setattr(
         "hydromodpy.project.data_cache.verify_data_lock", lambda *a, **k: _checked([])
     )
@@ -501,19 +492,19 @@ def test_data_lock_check_json_is_one_envelope(monkeypatch) -> None:
     ("flags", "said"),
     [(["--strict"], "--strict goes with --check"), (["--lockfile", "x"], "--lockfile goes with")],
 )
-def test_data_lock_refuses_a_check_option_when_it_writes(flags: list[str], said: str) -> None:
+def test_data_lock_check_options(flags: list[str], said: str) -> None:
     result = CliRunner().invoke(["data", "lock", *flags])
     assert result.exit_code == EXIT_USAGE
     assert said in result.stderr
 
 
-def test_data_lock_check_refuses_a_destination() -> None:
+def test_data_lock_check_destination() -> None:
     result = CliRunner().invoke(["data", "lock", "--check", "--to", "x.lock"])
     assert result.exit_code == EXIT_USAGE
     assert "--lockfile" in result.stderr
 
 
-def test_data_lock_writes_and_names_the_configurations_it_could_not_lock(monkeypatch) -> None:
+def test_data_lock_writes(monkeypatch) -> None:
     written = DataLock(
         path=Path("hydromodpy.lock"),
         inputs=3,
@@ -532,7 +523,7 @@ def test_data_lock_writes_and_names_the_configurations_it_could_not_lock(monkeyp
     assert data["refused_configs"] == [{"path": "configs/bad.toml", "reason": "no [workflow]"}]
 
 
-def test_config_check_says_which_workspace_the_file_resolves_to(project: Path) -> None:
+def test_check_workspace_names(project: Path) -> None:
     file = project / "run.toml"
     file.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
 
@@ -542,7 +533,7 @@ def test_config_check_says_which_workspace_the_file_resolves_to(project: Path) -
     assert {"workspace", "catalog_path", "data_dir", "runs_dir"} <= set(names)
 
 
-def test_config_check_machine_output_is_ok_diagnostics_and_workspace(project: Path) -> None:
+def test_check_payload(project: Path) -> None:
     file = project / "run.toml"
     file.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
 
@@ -555,7 +546,7 @@ def test_config_check_machine_output_is_ok_diagnostics_and_workspace(project: Pa
     assert {"pointer", "code", "severity", "phrase", "msg"} <= set(data["diagnostics"][0])
 
 
-def test_a_cache_row_is_counted_and_kept_under_dry_run(tmp_path: Path) -> None:
+def test_cache_dry_run(tmp_path: Path) -> None:
     (tmp_path / "data" / "dem").mkdir(parents=True)
     (tmp_path / "projects").mkdir()
     served = tmp_path / "data" / "dem" / "dem_ign_a.tif"
@@ -617,7 +608,6 @@ max_cycles = 3
 
 
 def _disk_state(root: Path) -> dict[str, tuple[int, int]]:
-    """Return every file and directory under *root* with its size and modification time."""
     state = {}
     for path in sorted(root.rglob("*")):
         info = path.stat()
@@ -628,9 +618,7 @@ def _disk_state(root: Path) -> dict[str, tuple[int, int]]:
     return state
 
 
-def test_every_verb_that_writes_has_a_dry_run_that_changes_nothing(
-    project: Path, tmp_path: Path
-) -> None:
+def test_dry_runs_change_nothing(project: Path, tmp_path: Path) -> None:
     workspace = project.parent.parent
     other = tmp_path / "other"
     (other / "data").mkdir(parents=True)
@@ -679,10 +667,6 @@ def test_every_verb_that_writes_has_a_dry_run_that_changes_nothing(
     assert "+[solver.modflow6.runtime]" in table.stdout
 
 
-# --- test_replay_says_which_run_it_wrote_and_what_its_values_did ---
-# ``hmp replay`` writes the class its seal carries, under one envelope.
-
-
 def _replay_payload(**overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
         "ref": "runs/probe.v2",
@@ -702,11 +686,11 @@ def _replay_payload(**overrides: object) -> dict[str, object]:
     return payload
 
 
-def test_replay_declares_the_class_it_found_in_its_envelope() -> None:
+def test_replay_fields() -> None:
     assert set(output_of("replay").fields) == set(_replay_payload())
 
 
-def test_replay_prints_that_every_value_reproduced(capsys) -> None:
+def test_replay_print_reproduced(capsys) -> None:
     from hydromodpy.cli.commands.replay import _print
 
     _print(_replay_payload())
@@ -718,7 +702,7 @@ def test_replay_prints_that_every_value_reproduced(capsys) -> None:
     ]
 
 
-def test_replay_prints_what_moved_and_the_changes_it_crossed(capsys) -> None:
+def test_replay_print_deviation(capsys) -> None:
     from hydromodpy.cli.commands.replay import _print
 
     _print(
@@ -740,7 +724,7 @@ def test_replay_prints_what_moved_and_the_changes_it_crossed(capsys) -> None:
     assert lines[2] == "  changes: changes.toml#E71"
 
 
-def test_replay_with_no_comparison_says_the_source_keeps_no_basis(capsys) -> None:
+def test_replay_print_no_comparison(capsys) -> None:
     from hydromodpy.cli.commands.replay import _print
 
     _print(_replay_payload(**{"class": None, "basis": None}))
@@ -760,11 +744,11 @@ def test_replay_with_no_comparison_says_the_source_keeps_no_basis(capsys) -> Non
         ("text", "text"),
     ],
 )
-def test_a_table_cell_is_text_with_a_date_to_the_second(value: object, text: str) -> None:
+def test_table_cell(value: object, text: str) -> None:
     assert table_cell(value) == text
 
 
-def test_a_table_takes_its_columns_from_the_declaration_and_pads_them(capsys) -> None:
+def test_table_columns(capsys) -> None:
     rows = [{"site": "a", "label": "long label", "gauge": None, "x_outlet": 1.25}]
 
     print_table("site ls", rows, ("site", "label", "gauge", "x_outlet"))
@@ -773,7 +757,7 @@ def test_a_table_takes_its_columns_from_the_declaration_and_pads_them(capsys) ->
     assert lines == ["site  label       gauge  x_outlet", "a     long label         1.2"]
 
 
-def test_a_table_of_a_listing_reads_the_fields_and_one_of_an_object_the_row_fields(capsys) -> None:
+def test_table_header(capsys) -> None:
     print_table("site ls", [{}])
     header = capsys.readouterr().out.splitlines()[0].split()
     assert tuple(header) == output_of("site ls").fields
@@ -783,7 +767,7 @@ def test_a_table_of_a_listing_reads_the_fields_and_one_of_an_object_the_row_fiel
     assert tuple(header) == output_of("ls plan").row_fields
 
 
-def test_the_columns_of_the_commands_that_list_are_the_declared_ones() -> None:
+def test_declared_columns() -> None:
     from hydromodpy.cli.commands.project.log import CSV_COLUMNS
 
     assert CSV_COLUMNS == tuple(f for f in output_of("project log").fields if f != "log_tail")

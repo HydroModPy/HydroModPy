@@ -72,7 +72,7 @@ def _staircase_u() -> Polygon:
     )
 
 
-def test_an_orphan_piece_gets_a_boundary_seed_and_the_area_closes() -> None:
+def test_orphan_piece_boundary_seed() -> None:
     world = _staircase_u()
     frame = local_frame(world)
     domain = frame.to_local(world)
@@ -90,7 +90,7 @@ def test_an_orphan_piece_gets_a_boundary_seed_and_the_area_closes() -> None:
     assert abs(shapely.area(tess.cells).sum() - domain.area) <= 1e-9 * domain.area
 
 
-def test_a_hole_inside_one_cell_gets_seeds_on_its_ring() -> None:
+def test_hole_inside_one_cell() -> None:
     hole = box(X0 + 20.0, Y0 + 20.0, X0 + 22.0, Y0 + 22.0)
     world = Polygon(box(X0, Y0, X0 + 100.0, Y0 + 100.0).exterior.coords, [hole.exterior.coords])
     frame = local_frame(world)
@@ -116,7 +116,7 @@ def test_coincident_seeds_raise() -> None:
         voronoi_cells(seeds, domain, voronoi_envelope(domain, 10.0))
 
 
-def test_vertices_closer_than_a_millimetre_across_a_key_boundary_merge() -> None:
+def test_close_vertices_merge() -> None:
     frame = local_frame(box(0.0, 0.0, 1.0, 1.0))
     below, above = 10.0 + 0.4 * VERTEX_MERGE_M, 10.0 + 0.6 * VERTEX_MERGE_M
     cells = np.array(
@@ -130,21 +130,19 @@ def test_vertices_closer_than_a_millimetre_across_a_key_boundary_merge() -> None
     assert set(topology.rings[0].tolist()) & set(topology.rings[1].tolist()) == {1, 2}
 
 
-def test_a_frame_wider_than_the_vertex_key_is_refused() -> None:
+def test_frame_wider_than_the_vertex_key() -> None:
     frame = LocalFrame((0.0, 0.0))
     far = shapely.box(2.2e6, 0.0, 2.2e6 + 10.0, 10.0)
     with pytest.raises(MeshGenerationError, match=r"2\^31 mm"):
         cell_topology(np.array([box(0, 0, 10, 10), far]), frame)
 
 
-def test_a_ring_left_with_two_corners_is_a_gate_fault() -> None:
+def test_g5_ring_with_two_corners() -> None:
     frame = local_frame(box(0.0, 0.0, 1.0, 1.0))
     sliver = shapely.Polygon([(0, 0), (5e-4, 0), (0, 5e-4)])
     with pytest.raises(MeshGenerationError, match="G5"):
         cell_topology(np.array([box(0, 0, 10, -10), sliver]), frame)
 
-
-# -- the Voronoi mesh of a set of seeds ----------------------------------------
 
 _DOMAIN = Polygon([(0.0, 0.0), (1000.0, 0.0), (1000.0, 1000.0), (0.0, 1000.0)])
 
@@ -161,7 +159,7 @@ def _cell_polygons(mesh: HydroMesh) -> list[Polygon]:
     return [Polygon(vertices[row[row >= 0]]) for row in mesh.flat_connectivity]
 
 
-def test_voronoi_cells_tile_the_domain_without_gaps_or_overlap() -> None:
+def test_cells_tile_the_domain() -> None:
     mesh = voronoi_planar_mesh(_jittered_seeds(), _DOMAIN)
     cells = _cell_polygons(mesh)
     union = shapely.union_all(cells)
@@ -171,7 +169,7 @@ def test_voronoi_cells_tile_the_domain_without_gaps_or_overlap() -> None:
     assert all(abs(c.area - c.convex_hull.area) < 1e-6 for c in cells)
 
 
-def test_a_domain_far_from_the_origin_keeps_one_cell_per_seed() -> None:
+def test_domain_far_from_the_origin() -> None:
     # Qhull on Lambert-93 coordinates gave two identical cells for seeds a few meters apart.
     origin = np.array([350_000.0, 6_800_000.0])
     axis = np.arange(2.5, 100.0, 5.0)
@@ -192,36 +190,33 @@ def test_a_domain_far_from_the_origin_keeps_one_cell_per_seed() -> None:
 
 
 def test_two_coincident_seeds_are_refused() -> None:
-    from hydromodpy.core.exceptions import MeshGenerationError
-
     seeds = np.array([[10.0, 10.0], [10.0, 10.0], [60.0, 60.0]])
     with pytest.raises(MeshGenerationError):
         voronoi_planar_mesh(seeds, Polygon([(0, 0), (100, 0), (100, 100), (0, 100)]))
 
 
-def test_the_disv_export_writes_the_seeds_of_a_voronoi_mesh_as_its_cell_centres() -> None:
+def test_disv_export_uses_the_seeds() -> None:
     seeds = _jittered_seeds()
     mesh = voronoi_planar_mesh(seeds, _DOMAIN)
     assert mesh.cell_types == (CellType.POLYGON,)
-    centers = seeds
     kw = to_flopy_disv_args(mesh, top=10.0, botm=np.zeros((1, mesh.n_cells)), centers=seeds)
     assert kw["ncpl"] == mesh.n_cells
     # cell2d row = [ic, xc, yc, ncvert, *nodes]; xc/yc must equal the generator seed,
     # not the polygon vertex-mean centroid (exact perpendicular-bisector orthogonality).
-    for row, seed in zip(kw["cell2d"], centers, strict=True):
+    for row, seed in zip(kw["cell2d"], seeds, strict=True):
         assert row[1] == pytest.approx(float(seed[0]))
         assert row[2] == pytest.approx(float(seed[1]))
         assert row[3] == len(row) - 4 >= 3  # ncvert matches the listed node count
 
 
-def test_seeds_given_in_three_dimensions_are_refused() -> None:
+def test_three_dimensional_seeds() -> None:
     seeds = np.c_[_jittered_seeds(), np.zeros(len(_jittered_seeds()))]
 
     with pytest.raises(ValueError, match=r"seeds must have shape \(n, 2\)"):
         voronoi_planar_mesh(seeds, _DOMAIN)
 
 
-def test_a_seed_whose_cell_only_touches_the_domain_is_refused() -> None:
+def test_seed_cell_touching_the_domain() -> None:
     """The cell of the last seed meets the square along its east side only, a line of no area."""
     seeds = np.array([[25.0, 50.0], [75.0, 50.0], [125.0, 50.0]])
 

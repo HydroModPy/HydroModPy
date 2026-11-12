@@ -51,7 +51,7 @@ Quick access
      - ``hydromodpy.solver.boussinesq.forcing``
      - Prescribed-head support and drainage operator resolution.
    * - Which tests cover the registry contract?
-     - ``tests/unit/model/boundaries/test_flow_boundary_registry.py``
+     - ``tests/unit/model/boundaries/test_boundary_condition_registry.py``
      - Registry ids, backend support, bundle behavior, and Flow integration.
 
 Code map

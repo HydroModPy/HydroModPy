@@ -63,7 +63,7 @@ def _normalized(declared: object) -> object:
     return GeographicConfig.from_outlet(x=1.0, y=2.0, buff_area=declared).buff_area
 
 
-def test_a_disk_is_solved_to_the_centimetre() -> None:
+def test_disk_buffer_distance() -> None:
     disk = Point(0.0, 0.0).buffer(3000.0, quad_segs=512)
     distance = buffer_distance_for_area_increase(disk, 0.10)
     assert distance == pytest.approx(3000.0 * (math.sqrt(1.1) - 1.0), abs=0.01)
@@ -71,7 +71,7 @@ def test_a_disk_is_solved_to_the_centimetre() -> None:
 
 @pytest.mark.parametrize("name", sorted(SHAPES))
 @pytest.mark.parametrize("fraction", [0.10, 0.20])
-def test_every_shape_gets_the_area_it_declares(name: str, fraction: float) -> None:
+def test_buffer_area_increase(name: str, fraction: float) -> None:
     shape = SHAPES[name]
     distance = buffer_distance_for_area_increase(shape, fraction)
     assert buffer_area_increase(shape, distance) == pytest.approx(fraction, abs=1.0e-4)
@@ -84,7 +84,7 @@ def test_every_shape_gets_the_area_it_declares(name: str, fraction: float) -> No
     ("geometry", "fraction", "reason"),
     [(Polygon(), 0.1, "no area to enlarge"), (SHAPES["square"], 0.0, "must be > 0")],
 )
-def test_an_increase_that_cannot_be_solved_is_refused(geometry, fraction, reason) -> None:
+def test_refused_increase(geometry, fraction, reason) -> None:
     with pytest.raises(ValueError, match=reason):
         buffer_distance_for_area_increase(geometry, fraction)
 
@@ -102,7 +102,7 @@ def test_an_increase_that_cannot_be_solved_is_refused(geometry, fraction, reason
         ("113 m", 75.0, "distance", 150.0),
     ],
 )  # fmt: skip
-def test_a_declared_buffer_draws_its_rule_snapped_to_the_dem_grid(
+def test_declared_buffer_rules(
     nancon_square, tmp_path, declared, resolution, rule, expected
 ) -> None:
     """The declared form goes through the config, then the domain is drawn on the square."""
@@ -116,7 +116,7 @@ def test_a_declared_buffer_draws_its_rule_snapped_to_the_dem_grid(
         assert unsnapped == pytest.approx(expected, abs=0.01)
 
 
-def test_a_bare_number_and_its_explicit_form_draw_the_same_domain(nancon_square, tmp_path) -> None:
+def test_bare_number_equals_explicit_form(nancon_square, tmp_path) -> None:
     """The migration writes ``10`` as ``"10% of sqrt(area)"`` and no distance moves."""
     for resolution in (None, 75.0):
         bare = derive_catchment_domain(
@@ -133,16 +133,14 @@ def test_a_bare_number_and_its_explicit_form_draw_the_same_domain(nancon_square,
         assert explicit.buffer_area_increase == bare.buffer_area_increase
 
 
-def test_a_sealed_bare_distance_string_and_a_dem_on_disk_read_as_metres_and_cells(
-    nancon_square, tmp_path
-) -> None:
+def test_bare_distance_string_with_dem_on_disk(nancon_square, tmp_path) -> None:
     dem = write_geotiff(tmp_path / "dem.tif", [[1.0]], cell=75.0)
     products = derive_catchment_domain(nancon_square, tmp_path, buff_area="141.4", dem_path=dem)
     assert products.buffer_distance_m == 150.0
 
 
 @pytest.mark.parametrize("declared", ["0%", "-5 m", "", "   ", 0, -3.0])
-def test_the_config_refuses_a_buffer_with_no_margin(declared: object) -> None:
+def test_refused_empty_buffer(declared: object) -> None:
     with pytest.raises(ValidationError):
         _normalized(declared)
 
@@ -152,7 +150,7 @@ def _bounds(path: str) -> tuple[float, ...]:
 
 
 @pytest.mark.parametrize(("buff_area", "distance"), [(20.0, 200.0), ("150.0 m", 150.0)])
-def test_the_box_and_the_buffered_box_frame_the_catchment(tmp_path, buff_area, distance) -> None:
+def test_box_and_buffered_box(tmp_path, buff_area, distance) -> None:
     catchment = write_features(tmp_path / "watershed.shp", [box(0.0, 0.0, 1000.0, 1000.0)])
     products = derive_catchment_domain(
         catchment, tmp_path / "out", buff_area=buff_area, dem_resolution=10.0
@@ -165,7 +163,7 @@ def test_the_box_and_the_buffered_box_frame_the_catchment(tmp_path, buff_area, d
     assert _bounds(products.watershed_box_buff_shp) == pytest.approx(framed, abs=1e-6)
 
 
-def test_the_products_say_how_the_margin_was_chosen(tmp_path: Path) -> None:
+def test_products_record_the_margin(tmp_path: Path) -> None:
     shape = SHAPES["l_shape"]
     catchment = write_features(tmp_path / "watershed.shp", [shape])
     products = derive_catchment_domain(
@@ -196,16 +194,14 @@ def _catchment(tmp_path: Path, geometries: list, crs: str = "EPSG:2154") -> Path
     ],
     ids=["missing", "empty", "degrees", "no area", "zero resolution", "not a length"],
 )  # fmt: skip
-def test_a_catchment_that_cannot_be_buffered_is_refused(
-    tmp_path, make, options, error, reason
-) -> None:
+def test_refusals(tmp_path, make, options, error, reason) -> None:
     with pytest.raises(error, match=reason):
         derive_catchment_domain(
             make(tmp_path), tmp_path / "out", **{"buff_area": "10 m", **options}
         )
 
 
-def test_the_delineation_shows_the_declared_margin_and_what_it_drew() -> None:
+def test_buffer_label() -> None:
     """The margin is a declared rule and a drawn distance, never an area in m2."""
     drawn = SimpleNamespace(buff_area="10%", buffer_distance_m=150.0, buffer_area_increase=0.106)
     unrecorded = SimpleNamespace(buff_area="10%", buffer_distance_m=None, buffer_area_increase=None)
@@ -228,9 +224,7 @@ def test_the_delineation_shows_the_declared_margin_and_what_it_drew() -> None:
     ],
     ids=["no-column", "column-within-1%", "text-column", "stale-column", "stale-in-two-rows"],
 )
-def test_the_catchment_area_is_the_geometry_and_a_stale_area_column_is_a_warning(
-    tmp_path, caplog, geometries, columns, stale
-) -> None:
+def test_catchment_area_and_stale_column(tmp_path, caplog, geometries, columns, stale) -> None:
     path = write_features(tmp_path / "watershed.shp", geometries, **columns)
     with caplog.at_level(logging.WARNING):
         assert compute_catchment_area_km2(path) == pytest.approx(2.0)
@@ -242,7 +236,7 @@ def test_the_catchment_area_is_the_geometry_and_a_stale_area_column_is_a_warning
         assert all(word in message for word in (str(path), *stale))
 
 
-def test_the_catchment_area_is_the_one_the_domain_uses_and_degrees_are_refused(tmp_path) -> None:
+def test_catchment_area_refusals(tmp_path) -> None:
     parts = write_features(tmp_path / "two.shp", [box(0, 0, 1e3, 1e3), box(2e3, 0, 3e3, 3e3)])
     domain = derive_catchment_domain(parts, tmp_path / "out", buff_area="10 m")
     assert compute_catchment_area_km2(parts) == pytest.approx(domain.catchment_area_km2)

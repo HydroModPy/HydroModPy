@@ -72,13 +72,13 @@ def test_export_keeps_every_variable_listed(payload: Path, tmp_path: Path) -> No
     assert set(pd.read_csv(target)["variable"]) == {"head", "discharge"}
 
 
-def test_export_without_rows_writes_header_only(payload: Path, tmp_path: Path) -> None:
+def test_no_rows_header_only(payload: Path, tmp_path: Path) -> None:
     target = tmp_path / "empty.csv"
     export_csv(payload, "missing-sim", target, identity=_ID)
     assert target.read_text().splitlines() == [_HEADER]
 
 
-def test_the_budget_names_each_period_it_covers(tmp_path: Path) -> None:
+def test_budget_names_periods(tmp_path: Path) -> None:
     budget = pd.DataFrame(
         {
             "sim_id": ["s"] * 3,
@@ -102,7 +102,7 @@ def test_the_budget_names_each_period_it_covers(tmp_path: Path) -> None:
     assert set(frame["site"]) == {"nancon"}
 
 
-def test_a_run_without_series_writes_the_header_only(tmp_path: Path) -> None:
+def test_missing_series_header_only(tmp_path: Path) -> None:
     target = tmp_path / "none.csv"
     export_csv(tmp_path / "missing.parquet", "s1", target, identity=_ID)
     assert target.read_text().splitlines() == [_HEADER]

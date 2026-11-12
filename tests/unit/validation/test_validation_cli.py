@@ -1,3 +1,5 @@
+"""Command line of one validation case: solver choice, timeout, output root and figure."""
+
 from __future__ import annotations
 
 import os
@@ -9,11 +11,8 @@ import pytest
 from validation_cases.shared.cli import run_case_main
 
 
-def test_run_case_main_passes_solver_to_supported_case(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    captured: dict[str, object] = {}
+def test_solver_reaches_a_supported_case(tmp_path, capsys):
+    captured = {}
 
     def _run_comparison(*, caller_file, timeout, solver=None):
         captured["caller_file"] = caller_file
@@ -50,7 +49,7 @@ def test_run_case_main_passes_solver_to_supported_case(
     assert "Solver: modflow6" in stdout
 
 
-def test_run_case_main_rejects_solver_for_unsupported_case(tmp_path: Path) -> None:
+def test_solver_refused_for_unsupported_case(tmp_path):
     def _run_comparison(*, caller_file, timeout):
         del caller_file, timeout
         return SimpleNamespace(
@@ -73,10 +72,7 @@ def test_run_case_main_rejects_solver_for_unsupported_case(tmp_path: Path) -> No
     assert exc_info.value.code == 2
 
 
-def test_run_case_main_applies_output_root_override(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_output_root_is_set_during_the_run(tmp_path, monkeypatch):
     monkeypatch.delenv("HMP_OUT_PATH", raising=False)
 
     def _run_comparison(*, caller_file, timeout, solver=None):

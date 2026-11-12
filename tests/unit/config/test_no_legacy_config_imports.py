@@ -1,3 +1,8 @@
+"""No source file uses the retired import paths of the configuration.
+
+The package, the tests and the docs import the root configuration from ``hydromodpy.config``.
+"""
+
 from __future__ import annotations
 
 import os

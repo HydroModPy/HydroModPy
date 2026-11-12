@@ -61,24 +61,24 @@ def _write(path: Path, text: str) -> Path:
     return path
 
 
-def test_a_windows_path_in_a_basic_string_is_repaired(tmp_path: Path) -> None:
+def test_a_windows_path_is_repaired(tmp_path: Path) -> None:
     path = _write(tmp_path / "a.toml", 'dem_path = "C:\\data\\dem.tif"\nname = "x"\n')
     assert read_toml(path) == {"dem_path": "C:\\data\\dem.tif", "name": "x"}
 
 
-def test_a_syntax_error_that_is_not_a_path_is_raised(tmp_path: Path) -> None:
+def test_a_real_syntax_error_is_raised(tmp_path: Path) -> None:
     path = _write(tmp_path / "a.toml", 'name = "a\\qb"\n')
     with pytest.raises(Exception, match="escape|Invalid"):
         read_toml(path)
 
 
-def test_a_base_config_that_is_not_a_string_is_refused(tmp_path: Path) -> None:
+def test_bad_base_config_refused(tmp_path: Path) -> None:
     path = _write(tmp_path / "a.toml", "base_config = 3\n")
     with pytest.raises(TypeError, match="base_config must be a TOML string"):
         read_toml_chain(path, root=None)
 
 
-def test_overlays_cli_and_env_win_in_that_order(tmp_path: Path) -> None:
+def test_overlay_cli_env_order(tmp_path: Path) -> None:
     main = read_toml_chain(
         _write(tmp_path / "main.toml", "x = 'file'\ny = 'file'\nz = 'file'\n"), root=None
     )
@@ -102,27 +102,23 @@ class _Model(BaseModel):
     flow: _Flow = _Flow()
 
 
-def test_validate_toml_migrates_through_the_root(tmp_path: Path) -> None:
+def test_validate_toml_migrates(tmp_path: Path) -> None:
     path = _write(tmp_path / "c.toml", 'legacy = "x"\n')
     assert validate_toml(_Doc, path, root=_migrating_root([])).current == "x"
 
 
-@pytest.mark.parametrize(
-    ("section", "expected"),
-    [("flow", 4.0), ("absent.deeper", 1.0), ("flow.k", 1.0)],
-)
-def test_validate_toml_reads_a_section_and_falls_back_to_defaults(
-    tmp_path: Path, section: str, expected: float
-) -> None:
+def test_validate_toml_reads_a_section(tmp_path: Path) -> None:
     path = _write(tmp_path / "c.toml", "[flow]\nk = 4.0\n")
-    model = _Flow if section == "flow" else _Model
-    result = validate_toml(model, path, root=None, section=section)
-    assert (result.k if model is _Flow else result.flow.k) == expected
+    assert validate_toml(_Flow, path, root=None, section="flow").k == 4.0
 
 
-def test_validate_toml_lets_the_resolver_replace_the_model_with_the_project_root(
-    tmp_path: Path,
-) -> None:
+@pytest.mark.parametrize("section", ["absent.deeper", "flow.k"])
+def test_validate_toml_falls_back_to_defaults(tmp_path: Path, section: str) -> None:
+    path = _write(tmp_path / "c.toml", "[flow]\nk = 4.0\n")
+    assert validate_toml(_Model, path, root=None, section=section).flow.k == 1.0
+
+
+def test_the_resolver_may_replace_the_model(tmp_path: Path) -> None:
     _write(tmp_path / "project.toml", "")
     path = _write(tmp_path / "sub" / "c.toml", "[flow]\nk = 2.0\n")
     seen: list[Path] = []

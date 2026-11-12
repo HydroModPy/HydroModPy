@@ -40,7 +40,7 @@ def _engine_of_index(project_root: Path, sim_id: str) -> tuple:
 
 @pytest.fixture
 def library_run(tmp_path) -> Iterator[tuple[RunStore, Path, Path]]:
-    """A run whose engine is the shared library, still open."""
+    # A run whose engine is the shared library, still open.
     lib = tmp_path / "libmf6.so"
     lib.write_bytes(b"pretend shared library")
     project_root = tmp_path / "project"
@@ -58,7 +58,7 @@ def library_run(tmp_path) -> Iterator[tuple[RunStore, Path, Path]]:
     store.close()
 
 
-def test_provenance_names_the_library_and_the_api_mode(library_run) -> None:
+def test_library_engine_in_provenance(library_run) -> None:
     store, lib, _ = library_run
     solver = _solver(store)
 
@@ -69,8 +69,8 @@ def test_provenance_names_the_library_and_the_api_mode(library_run) -> None:
     assert solver["binary_sha256"], "the library must be fingerprinted like an executable"
 
 
-def test_a_library_engine_survives_the_post_run_executable_refinement(library_run) -> None:
-    """The model still exposes ``exe``; refining from it would rewrite history."""
+def test_library_engine_ignores_the_executable_refinement(library_run) -> None:
+    # The model still exposes exe, and refining from it would rewrite history.
     store, lib, _ = library_run
     before = _solver(store)
 
@@ -80,7 +80,7 @@ def test_a_library_engine_survives_the_post_run_executable_refinement(library_ru
     assert before["binary_path"] == str(lib)
 
 
-def test_an_executable_engine_still_accepts_the_refinement(tmp_path) -> None:
+def test_executable_engine_takes_the_refinement(tmp_path) -> None:
     exe = tmp_path / "mf6_custom"
     exe.write_bytes(b"pretend executable")
     with open_run_store(tmp_path / "project", "engine_run", n_cells=8, n_layers=1) as store:
@@ -97,8 +97,8 @@ def test_an_executable_engine_still_accepts_the_refinement(tmp_path) -> None:
     assert solver["engine"] == "executable"
 
 
-def test_the_engine_block_survives_an_index_rebuild(library_run) -> None:
-    """The index is rebuildable, so the engine must live in the run directory."""
+def test_engine_survives_an_index_rebuild(library_run) -> None:
+    # The index is rebuildable, so the engine must live in the run directory.
     store, _, project_root = library_run
     sid = store.sim_id
     seal_completed(store)
@@ -112,7 +112,7 @@ def test_the_engine_block_survives_an_index_rebuild(library_run) -> None:
     assert _engine_of_index(project_root, sid) == expected
 
 
-def test_provenance_json_on_disk_carries_the_engine(library_run) -> None:
+def test_engine_in_provenance_json(library_run) -> None:
     store, _, _root = library_run
     run_dir = store.run_dir
     seal_completed(store)
@@ -137,9 +137,7 @@ def test_provenance_json_on_disk_carries_the_engine(library_run) -> None:
         ),
     ],
 )
-def test_the_image_is_sealed_only_inside_an_image(
-    library_run, monkeypatch, image, expected
-) -> None:
+def test_image_is_sealed_only_inside_an_image(library_run, monkeypatch, image, expected) -> None:
     store, _, _ = library_run
     monkeypatch.setenv("HMP_IMAGE_TAG", image.get("tag", ""))
     if "digest" in image:

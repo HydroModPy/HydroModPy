@@ -72,6 +72,14 @@ RULE_CASES = (
 )
 
 
+@pytest.mark.parametrize(
+    ("case", "initial", "expected"), RULE_CASES, ids=[case for case, _, _ in RULE_CASES]
+)
+def test_a_start_gives_its_head_rule(case, initial, expected) -> None:
+    del case
+    assert head_rule_of(initial) == expected
+
+
 REFUSED = (
     ("prior state", PriorState(np.zeros((1, 3)), {}, "store.zarr"), "PriorState holds"),
     ("solved state", SolvedState(np.zeros((1, 3)), "modflow6"), "SolvedState holds"),
@@ -92,14 +100,6 @@ def test_a_state_that_holds_its_head_is_not_a_rule(case, initial, message) -> No
 def test_a_restart_on_another_mesh_is_refused(nlay: int, ncpl: int) -> None:
     with pytest.raises(ValueError, match=r"restart_from: prior head shape \(2, 3\) does not match"):
         restart_start_heads(np.zeros((2, 3)), nlay=nlay, ncpl=ncpl, top=np.zeros(ncpl))
-
-
-BOUND_CASES = (
-    ("inside", np.array([5.0, 6.0, 7.0]), True, 0, 0, 0),
-    ("above", np.array([11.0, 6.0, 7.0]), False, 0, 1, 0),
-    ("below", np.array([5.0, 0.5, 7.0]), False, 1, 0, 0),
-    ("not finite", np.array([5.0, np.nan, 7.0]), False, 0, 0, 1),
-)
 
 
 def test_the_bounds_summary_gives_the_largest_gaps() -> None:
@@ -150,6 +150,21 @@ STAGE_CASES = (
     ("at the tolerance", {"lake": 10.0}, {"lake": 10.01}, True),
     ("a lake drifts", {"lake": 10.0, "pond": 3.0}, {"lake": 10.0, "pond": 3.2}, False),
 )
+
+
+@pytest.mark.parametrize(
+    ("case", "previous", "current", "expected"), STAGE_CASES, ids=[case[0] for case in STAGE_CASES]
+)
+def test_two_cycles_settle_on_their_lake_stages(case, previous, current, expected) -> None:
+    del case
+    settled = cycles_have_settled(
+        np.zeros(3),
+        np.zeros(3),
+        tol_head_m=0.01,
+        previous_stages=previous,
+        current_stages=current,
+    )
+    assert settled is expected
 
 
 def test_two_cycles_with_different_lakes_are_refused() -> None:

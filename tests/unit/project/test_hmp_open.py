@@ -10,13 +10,12 @@ from tests._helpers.run_builders import runs
 __all__ = ["runs"]
 
 
-class TestHmpOpen:
-    def test_open_returns_the_project_whose_store_reads_the_index(self, runs):
-        sid = runs.open().sim_id
-        runs.catalog()
-        runs.close_catalog()
+def test_open_gives_a_project_whose_store_reads_the_index(runs):
+    sim_id = runs.open().sim_id
+    runs.catalog()
+    runs.close_catalog()
 
-        with api.open(runs.project_root) as proj:
-            assert isinstance(proj, Project)
-            assert isinstance(proj.store, Catalog)
-            assert list(proj.store.simulations["sim_id"].astype(str)) == [sid]
+    with api.open(runs.project_root) as proj:
+        assert isinstance(proj, Project)
+        assert isinstance(proj.store, Catalog)
+        assert list(proj.store.simulations["sim_id"].astype(str)) == [sim_id]

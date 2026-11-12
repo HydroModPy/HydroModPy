@@ -30,7 +30,7 @@ def recorded(monkeypatch, tmp_path) -> list[str]:
     return seen
 
 
-def test_the_data_requests_run_in_file_order_and_the_views_wait(recorded, tmp_path) -> None:
+def test_requests_in_file_order(recorded, tmp_path) -> None:
     requests = load_export_requests(
         [
             {"variables": "discharge"},
@@ -45,7 +45,7 @@ def test_the_data_requests_run_in_file_order_and_the_views_wait(recorded, tmp_pa
     assert written == [tmp_path / "discharge.csv", tmp_path / "budget.csv"]
 
 
-def test_a_failed_request_does_not_stop_the_next_one(recorded) -> None:
+def test_failure_does_not_stop_the_next(recorded) -> None:
     requests = load_export_requests([{"variables": "head"}, {"variables": "discharge"}])
 
     with pytest.raises(ExportError, match=r"export request 1 \(variables = head\)"):

@@ -1,9 +1,9 @@
-"""Format-level behavior of the exporters, reached through ``export_run``.
+"""Format of the files ``export_run`` writes: NetCDF, GeoTIFF, GeoPackage and Shapefile.
 
-Each test writes one request to an exact ``file`` under the exports of the run:
-the format follows its extension. The run is written by its store, sealed and
-indexed; a test that adds data writes it the same way. What a request writes
-by default, by kind and by date, is pinned in
+Each test writes one request to an exact ``file`` under the exports of the run,
+and the format follows its extension. Coordinates are in meters of the run CRS
+(EPSG:2154) unless a request asks for another one. What a request writes by default,
+by kind and by date, is pinned in
 ``tests/unit/results/test_an_export_request_writes_what_it_names.py``.
 """
 
@@ -12,16 +12,22 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
+import rasterio
 import xarray as xr
 from pydantic import ValidationError
+from pyproj import CRS, Transformer
+from rasterio.enums import Resampling
 
 from hydromodpy.core.exceptions import ExportError
+from hydromodpy.results import field_registry
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.exporters.export_spec import ExportRequest
+from hydromodpy.results.exporters.geotiff import _resampling_for
 from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
@@ -72,7 +78,7 @@ def _export(run: _Run, sid: str, **request: Any) -> Path:
 
 @pytest.fixture
 def catalog_with_data(tmp_path):
-    """A catalog with one simulation containing mesh, head field, and timeseries."""
+    """One run with a 6-triangle mesh, a head field on 2 layers, and a discharge series."""
     project = tmp_path / "workspace"
     n_cells, n_layers, n_ts = 6, 2, 3
     c = open_run_store(
@@ -132,106 +138,121 @@ def catalog_with_data(tmp_path):
     yield run, sid, run.exports
 
 
-class TestNetCDFExport:
-    def test_a_file_for_qgis_names_one_layer(self, catalog_with_data):
-        # MDAL, what QGIS reads a mesh with, binds a dataset to the face
-        # dimension and ignores an array carrying a third one.
-        catalog, sid, exports = catalog_with_data
-        out = exports / "one.nc"
-        _export(catalog, sid, variables="head", file=out, layer=1)
-        ds = xr.open_dataset(out, decode_times=False)
-        assert ds["head"].dims == ("time", "n_face")
-        assert int(ds["layer"]) == 1
-        whole = exports / "whole.nc"
-        _export(catalog, sid, variables="head", file=whole)
-        with xr.open_dataset(whole, decode_times=False) as every:
-            np.testing.assert_array_equal(ds["head"].values, every["head"].sel(layer=1).values)
+def test_a_netcdf_for_qgis_names_one_layer(catalog_with_data):
+    # MDAL, what QGIS reads a mesh with, binds a dataset to the face
+    # dimension and ignores an array carrying a third one.
+    catalog, sid, exports = catalog_with_data
+    out = exports / "one.nc"
+    _export(catalog, sid, variables="head", file=out, layer=1)
+    ds = xr.open_dataset(out, decode_times=False)
+    assert ds["head"].dims == ("time", "n_face")
+    assert int(ds["layer"]) == 1
+    whole = exports / "whole.nc"
+    _export(catalog, sid, variables="head", file=whole)
+    with xr.open_dataset(whole, decode_times=False) as every:
+        np.testing.assert_array_equal(ds["head"].values, every["head"].sel(layer=1).values)
+    ds.close()
+
+
+def test_a_geotiff_holds_its_nodata_value(catalog_with_data):
+    catalog, sid, exports = catalog_with_data
+    out = exports / "nodata.tif"
+    _export(catalog, sid, variables="head", file=out, time=0, layer=0, nodata=-1.0)
+
+    with rasterio.open(str(out)) as src:
+        assert src.nodata == -1.0
+
+
+def test_a_geotiff_resolution_left_out_follows_the_mesh(catalog_with_data):
+    catalog, sid, exports = catalog_with_data
+    out = exports / "auto.tif"
+
+    assert _export(catalog, sid, variables="head", file=out, time=0, layer=0).exists()
+
+
+REFUSED_REQUESTS = [
+    pytest.param(
+        {"file": "top.tif", "time": 0},
+        ValueError,
+        "holds 2 layers and a GeoTIFF holds one",
+        id="geotiff without a layer",
+    ),
+    pytest.param(
+        {"file": "cells.shp", "time": 0},
+        ValueError,
+        "Write layer = 0",
+        id="shapefile without a layer",
+    ),
+    pytest.param(
+        {"file": "cells.gpkg", "time": 0}, ValueError, "Write layer = 0", id="gpkg without a layer"
+    ),
+    pytest.param(
+        {"file": "out.pq", "format": "parquet"}, ValidationError, "format", id="unknown format"
+    ),
+    pytest.param(
+        {"file": "missing.nc", "variables": "nonexistent_field"},
+        ExportError,
+        "no run can export 'nonexistent_field'",
+        id="a name no run holds",
+    ),
+]
+
+
+def test_an_unknown_format_is_refused_before_any_io(catalog_with_data):
+    _catalog, _sid, exports = catalog_with_data
+
+    # The absolute file is refused too, so both errors are raised at construction.
+    with pytest.raises(ValidationError):
+        ExportRequest(variables="head", format="parquet", file=exports / "out.pq")
+
+
+@pytest.mark.parametrize(("request_fields", "error", "message"), REFUSED_REQUESTS)
+def test_refused_requests(catalog_with_data, request_fields, error, message):
+    catalog, sid, exports = catalog_with_data
+    fields = {"variables": "head"} | request_fields
+    fields["file"] = exports / fields["file"]
+
+    with pytest.raises(error, match=message):
+        _export(catalog, sid, **fields)
+
+
+def test_netcdf_crs_is_restated_the_way_mdal_reads_it(catalog_with_data):
+    catalog, sid, exports = catalog_with_data
+    catalog.write_crs(sid, crs_wkt=CRS.from_epsg(2154).to_wkt(), epsg_code=2154)
+
+    out = exports / "crs.nc"
+    _export(catalog, sid, variables="head", file=out)
+
+    ds = xr.open_dataset(out, decode_times=False)
+    try:
+        # The CF grid mapping stays, and carries WKT2 as it should.
+        assert ds["crs"].attrs["crs_wkt"].startswith("PROJCRS[")
+        # MDAL looks this variable up by name and parses WKT1 only: handed
+        # WKT2 it keeps no CRS at all and QGIS draws the mesh nowhere near
+        # the catchment.
+        mdal = ds["projected_coordinate_system"].attrs
+        assert mdal["epsg"] == 2154
+        assert mdal["wkt"].startswith("PROJCS[")
+    finally:
         ds.close()
 
 
-class TestGeoTIFFExport:
-    def test_a_nodata_value_is_written_in_the_file(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "nodata.tif"
-        _export(catalog, sid, variables="head", file=out, time=0, layer=0, nodata=-1.0)
-        import rasterio
+def test_a_failed_export_leaves_the_previous_file_alone(catalog_with_data, monkeypatch):
+    catalog, sid, exports = catalog_with_data
+    out = exports / "kept.nc"
+    _export(catalog, sid, variables="head", file=out)
+    before = out.read_bytes()
 
-        with rasterio.open(str(out)) as src:
-            assert src.nodata == -1.0
+    def fail_midway(self, path, *args, **kwargs):
+        Path(path).write_bytes(b"half a file")
+        raise OSError("no space left on device")
 
-    def test_a_resolution_left_out_follows_the_mesh(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "auto.tif"
-        assert _export(catalog, sid, variables="head", file=out, time=0, layer=0).exists()
-
-    def test_a_field_of_several_layers_needs_a_layer(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        with pytest.raises(ValueError, match="holds 2 layers and a GeoTIFF holds one"):
-            _export(catalog, sid, variables="head", file=exports / "top.tif", time=0)
-
-
-class TestShapefileExport:
-    @pytest.mark.parametrize("suffix", [".shp", ".gpkg"])
-    def test_a_field_of_several_layers_needs_a_layer(self, catalog_with_data, suffix):
-        catalog, sid, exports = catalog_with_data
-        with pytest.raises(ValueError, match="Write layer = 0"):
-            _export(catalog, sid, variables="head", file=exports / f"cells{suffix}", time=0)
-
-
-class TestExportErrors:
-    def test_unknown_format(self, catalog_with_data):
-        _catalog, _sid, exports = catalog_with_data
-        # An unknown format is rejected at request construction, before any I/O.
-        with pytest.raises(ValidationError):
-            ExportRequest(variables="head", format="parquet", file=exports / "out.pq")
-
-    def test_a_name_no_run_holds_is_refused(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        with pytest.raises(ExportError, match="no run can export 'nonexistent_field'"):
-            _export(catalog, sid, variables="nonexistent_field", file=exports / "missing.nc")
-
-
-class TestNetCDFForQgis:
-    """What MDAL, the driver QGIS reads a mesh with, needs to find in the file."""
-
-    def test_crs_is_restated_the_way_mdal_reads_it(self, catalog_with_data):
-        from pyproj import CRS
-
-        catalog, sid, exports = catalog_with_data
-        catalog.write_crs(sid, crs_wkt=CRS.from_epsg(2154).to_wkt(), epsg_code=2154)
-
-        out = exports / "crs.nc"
+    monkeypatch.setattr(xr.Dataset, "to_netcdf", fail_midway)
+    with pytest.raises(OSError):
         _export(catalog, sid, variables="head", file=out)
 
-        ds = xr.open_dataset(out, decode_times=False)
-        try:
-            # The CF grid mapping stays, and carries WKT2 as it should.
-            assert ds["crs"].attrs["crs_wkt"].startswith("PROJCRS[")
-            # MDAL looks this variable up by name and parses WKT1 only: handed
-            # WKT2 it keeps no CRS at all and QGIS draws the mesh nowhere near
-            # the catchment.
-            mdal = ds["projected_coordinate_system"].attrs
-            assert mdal["epsg"] == 2154
-            assert mdal["wkt"].startswith("PROJCS[")
-        finally:
-            ds.close()
-
-    def test_a_failed_export_leaves_the_previous_file_alone(self, catalog_with_data, monkeypatch):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "kept.nc"
-        _export(catalog, sid, variables="head", file=out)
-        before = out.read_bytes()
-
-        def fail_midway(self, path, *args, **kwargs):
-            Path(path).write_bytes(b"half a file")
-            raise OSError("no space left on device")
-
-        monkeypatch.setattr(xr.Dataset, "to_netcdf", fail_midway)
-        with pytest.raises(OSError):
-            _export(catalog, sid, variables="head", file=out)
-
-        assert out.read_bytes() == before
-        assert not (exports / "kept.nc.tmp").exists()
+    assert out.read_bytes() == before
+    assert not (exports / "kept.nc.tmp").exists()
 
 
 @pytest.fixture
@@ -280,85 +301,74 @@ def _lonlat_envelope(bounds: tuple[float, float, float, float]) -> tuple[float, 
     different corner from the southernmost one, so the envelope is not
     the transform of (xmin, ymin) and (xmax, ymax).
     """
-    from pyproj import Transformer
-
     xmin, ymin, xmax, ymax = bounds
     to_wgs84 = Transformer.from_crs("EPSG:2154", "EPSG:4326", always_xy=True)
     lons, lats = to_wgs84.transform([xmin, xmin, xmax, xmax], [ymin, ymax, ymin, ymax])
     return min(lons), min(lats), max(lons), max(lats)
 
 
-class TestExportReprojection:
-    """'crs' reprojects the export; it used to only relabel it."""
+# 'crs' reprojects the export. It used to only relabel it.
 
-    def test_a_raster_without_a_crs_keeps_the_native_grid(self, catalog_on_lambert93):
-        import rasterio
 
-        catalog, sid, exports, bounds = catalog_on_lambert93
-        out = exports / "native.tif"
-        _export(catalog, sid, variables="head", file=out, time=0, resolution=100.0)
+def test_raster_keeps_the_native_grid(catalog_on_lambert93):
+    catalog, sid, exports, bounds = catalog_on_lambert93
+    out = exports / "native.tif"
+    _export(catalog, sid, variables="head", file=out, time=0, resolution=100.0)
 
-        with rasterio.open(str(out)) as src:
-            assert src.crs.to_epsg() == 2154
-            assert tuple(src.bounds) == pytest.approx(bounds)
+    with rasterio.open(str(out)) as src:
+        assert src.crs.to_epsg() == 2154
+        assert tuple(src.bounds) == pytest.approx(bounds)
 
-    def test_a_raster_asked_for_another_crs_is_warped_not_relabelled(self, catalog_on_lambert93):
-        import rasterio
 
-        catalog, sid, exports, bounds = catalog_on_lambert93
-        out = exports / "wgs84.tif"
-        _export(catalog, sid, variables="head", file=out, time=0, resolution=100.0, crs="EPSG:4326")
+def test_raster_is_warped_to_another_crs(catalog_on_lambert93):
+    catalog, sid, exports, bounds = catalog_on_lambert93
+    out = exports / "wgs84.tif"
+    _export(catalog, sid, variables="head", file=out, time=0, resolution=100.0, crs="EPSG:4326")
 
-        lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
-        with rasterio.open(str(out)) as src:
-            assert src.crs.to_epsg() == 4326
-            # A relabelled file would still carry meter bounds near 385000.
-            assert src.bounds.left == pytest.approx(lon_min, abs=1e-3)
-            assert src.bounds.right == pytest.approx(lon_max, abs=1e-3)
-            assert src.bounds.bottom == pytest.approx(lat_min, abs=1e-3)
-            assert src.bounds.top == pytest.approx(lat_max, abs=1e-3)
-            assert src.res[0] < 1.0  # degrees, not meters
-            valid = src.read(1)[src.read(1) != -9999.0]
-            # Bilinear interpolates, it does not extrapolate: the warped field
-            # stays inside the range of the four cell values.
-            assert valid.min() == pytest.approx(12.5, abs=1e-9)
-            assert valid.max() == pytest.approx(19.0, abs=1e-9)
+    lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
+    with rasterio.open(str(out)) as src:
+        assert src.crs.to_epsg() == 4326
+        # A relabelled file would still carry meter bounds near 385000.
+        assert src.bounds.left == pytest.approx(lon_min, abs=1e-3)
+        assert src.bounds.right == pytest.approx(lon_max, abs=1e-3)
+        assert src.bounds.bottom == pytest.approx(lat_min, abs=1e-3)
+        assert src.bounds.top == pytest.approx(lat_max, abs=1e-3)
+        assert src.res[0] < 1.0  # degrees, not meters
+        valid = src.read(1)[src.read(1) != -9999.0]
+        # Bilinear interpolates, it does not extrapolate: the warped field
+        # stays inside the range of the four cell values.
+        assert valid.min() == pytest.approx(12.5, abs=1e-9)
+        assert valid.max() == pytest.approx(19.0, abs=1e-9)
 
-    def test_a_vector_asked_for_another_crs_is_reprojected(self, catalog_on_lambert93):
-        import geopandas as gpd
 
-        catalog, sid, exports, bounds = catalog_on_lambert93
-        out = exports / "cells_wgs84.gpkg"
-        _export(catalog, sid, variables="head", file=out, time=0, crs="EPSG:4326")
+def test_vector_is_reprojected(catalog_on_lambert93):
+    catalog, sid, exports, bounds = catalog_on_lambert93
+    out = exports / "cells_wgs84.gpkg"
+    _export(catalog, sid, variables="head", file=out, time=0, crs="EPSG:4326")
 
-        gdf = gpd.read_file(str(out))
-        lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
-        assert gdf.crs.to_epsg() == 4326
-        assert len(gdf) == 4
-        assert gdf.total_bounds == pytest.approx([lon_min, lat_min, lon_max, lat_max], abs=1e-9)
+    gdf = gpd.read_file(str(out))
+    lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
+    assert gdf.crs.to_epsg() == 4326
+    assert len(gdf) == 4
+    assert gdf.total_bounds == pytest.approx([lon_min, lat_min, lon_max, lat_max], abs=1e-9)
 
-    def test_a_vector_without_a_crs_keeps_the_native_geometries(self, catalog_on_lambert93):
-        import geopandas as gpd
 
-        catalog, sid, exports, bounds = catalog_on_lambert93
-        out = exports / "cells_native.gpkg"
-        _export(catalog, sid, variables="head", file=out, time=0)
+def test_vector_keeps_the_native_geometries(catalog_on_lambert93):
+    catalog, sid, exports, bounds = catalog_on_lambert93
+    out = exports / "cells_native.gpkg"
+    _export(catalog, sid, variables="head", file=out, time=0)
 
-        gdf = gpd.read_file(str(out))
-        assert gdf.crs.to_epsg() == 2154
-        assert gdf.total_bounds == pytest.approx(bounds)
+    gdf = gpd.read_file(str(out))
+    assert gdf.crs.to_epsg() == 2154
+    assert gdf.total_bounds == pytest.approx(bounds)
 
-    def test_the_resampling_rule_splits_masks_from_continuous_fields(self):
-        from rasterio.enums import Resampling
 
-        from hydromodpy.results import field_registry
-        from hydromodpy.results.exporters.geotiff import _resampling_for
-
-        mask = field_registry.get("seepage_mask")
-        head = field_registry.get("head")
-        assert _resampling_for(mask, np.array([0.0, 1.0, 1.0])) is Resampling.nearest
-        assert _resampling_for(head, np.array([12.5, 14.25])) is Resampling.bilinear
-        # Dimensionless but fractional: a storage coefficient is not a class code.
-        porosity = field_registry.get("porosity")
-        assert _resampling_for(porosity, np.array([0.1, 0.25])) is Resampling.bilinear
-        assert _resampling_for(head, np.array([np.nan, np.nan])) is Resampling.nearest
+def test_resampling_splits_masks_from_continuous_fields():
+    mask = field_registry.get("seepage_mask")
+    head = field_registry.get("head")
+    assert _resampling_for(mask, np.array([0.0, 1.0, 1.0])) is Resampling.nearest
+    assert _resampling_for(head, np.array([12.5, 14.25])) is Resampling.bilinear
+    # Dimensionless but fractional: a storage coefficient is not a class code.
+    porosity = field_registry.get("porosity")
+    assert _resampling_for(porosity, np.array([0.1, 0.25])) is Resampling.bilinear
+    assert _resampling_for(head, np.array([np.nan, np.nan])) is Resampling.nearest

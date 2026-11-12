@@ -1,4 +1,4 @@
-"""What a replay reads of the run it repeats: its inputs, its drift, its producer.
+"""What a replay checks in the sealed run it repeats: input files (sha256), config drift, producer.
 
 The directories are written here, so each case is the record it names. The real
 replay, with a solver and a moved default, is in
@@ -62,18 +62,16 @@ def _write_record(run_dir: Path, data: bytes, *, declared: tuple[TrackedInput, .
 @pytest.mark.parametrize(
     ("name", "found"),
     [
-        ("config.toml", True),
-        ("run_demo.toml", False),
+        pytest.param("config.toml", True, id="record beside it"),
+        pytest.param("run_demo.toml", False, id="other file name"),
     ],
 )
-def test_a_frozen_file_is_a_run_when_its_record_sits_beside_it(
-    tmp_path: Path, name: str, found: bool
-) -> None:
+def test_sealed_run_of_a_file(tmp_path: Path, name: str, found: bool) -> None:
     _project, run_dir, _forcing = _workspace(tmp_path)
     assert (replay_checks.sealed_run_of(run_dir / name) == run_dir) is found
 
 
-def test_a_config_toml_without_a_record_is_no_run(tmp_path: Path) -> None:
+def test_config_without_record_is_no_run(tmp_path: Path) -> None:
     (tmp_path / "config.toml").write_text("", encoding="utf-8")
     assert replay_checks.sealed_run_of(tmp_path / "config.toml") is None
 
@@ -101,7 +99,7 @@ def _with_sealed_mesh(run_dir: Path) -> None:
     path.write_text(json.dumps(document), encoding="utf-8")
 
 
-def test_a_run_with_a_sealed_mesh_still_has_its_api_inputs_intact(tmp_path: Path) -> None:
+def test_sealed_mesh_keeps_api_inputs_intact(tmp_path: Path) -> None:
     project, run_dir, _forcing = _workspace(tmp_path)
     _with_sealed_mesh(run_dir)
 
@@ -109,7 +107,7 @@ def test_a_run_with_a_sealed_mesh_still_has_its_api_inputs_intact(tmp_path: Path
     replay_checks.check_replay_inputs(run_dir, project_root=project)
 
 
-def test_a_changed_input_is_refused_naming_the_file_and_both_digests(tmp_path: Path) -> None:
+def test_changed_input_names_both_digests(tmp_path: Path) -> None:
     project, run_dir, forcing = _workspace(tmp_path)
     sealed = _sha(forcing.read_bytes())
     forcing.write_bytes(b"date,value\n2020-01-01,1\n")
@@ -123,7 +121,7 @@ def test_a_changed_input_is_refused_naming_the_file_and_both_digests(tmp_path: P
     assert _sha(forcing.read_bytes()) in text
 
 
-def test_a_missing_input_is_refused_naming_where_it_was_looked_for(tmp_path: Path) -> None:
+def test_missing_input_names_its_path(tmp_path: Path) -> None:
     project, run_dir, forcing = _workspace(tmp_path)
     forcing.unlink()
 
@@ -131,7 +129,7 @@ def test_a_missing_input_is_refused_naming_where_it_was_looked_for(tmp_path: Pat
         replay_checks.check_replay_inputs(run_dir, project_root=project)
 
 
-def test_a_file_added_beside_an_input_is_no_other_input_and_a_gone_folder_is_refused(
+def test_tracked_folder_inputs(
     tmp_path: Path,
 ) -> None:
     from hydromodpy.results.storage.digests import sha256_directory
@@ -174,7 +172,7 @@ def _locked(tmp_path: Path, input_entry: InputEntry) -> tuple[Path, object]:
     return run_dir, pins
 
 
-def test_a_user_file_is_pinned_at_its_path_under_the_project(tmp_path: Path) -> None:
+def test_user_file_pin(tmp_path: Path) -> None:
     _project, run_dir, forcing = _workspace(tmp_path)
     pins = replay_checks.locked_inputs_of(
         run_dir, project_root=run_dir.parent.parent, data_dir=run_dir.parent.parent.parent / "data"
@@ -185,7 +183,7 @@ def test_a_user_file_is_pinned_at_its_path_under_the_project(tmp_path: Path) -> 
     assert pins.inputs[0].sha256 == _sha(forcing.read_bytes())
 
 
-def test_a_cache_row_is_pinned_by_its_path_under_the_data_folder(tmp_path: Path) -> None:
+def test_cache_row_pin(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     row = workspace / "data" / "hydro" / "J1.parquet"
     row.parent.mkdir(parents=True)
@@ -209,7 +207,7 @@ def test_a_cache_row_is_pinned_by_its_path_under_the_data_folder(tmp_path: Path)
     assert pins.path == run_dir / "inputs.json"
 
 
-def test_a_published_copy_pins_nothing_and_an_unreadable_record_pins_nothing(
+def test_no_pin_without_a_readable_record(
     tmp_path: Path,
 ) -> None:
     _project, run_dir, _forcing = _workspace(tmp_path)
@@ -222,7 +220,7 @@ def test_a_published_copy_pins_nothing_and_an_unreadable_record_pins_nothing(
     assert replay_checks.locked_inputs_of(run_dir, project_root=project, data_dir=data) is None
 
 
-def test_no_source_run_records_no_drift() -> None:
+def test_no_source_run_no_drift() -> None:
     assert replay_checks.warn_config_drift(None, None) == {}
 
 
@@ -251,12 +249,12 @@ def _provenance(
     return provenance
 
 
-def test_the_same_producer_says_nothing(tmp_path: Path) -> None:
+def test_same_producer(tmp_path: Path) -> None:
     sealed = _provenance(tmp_path)
     assert replay_checks.producer_differences(tmp_path, sealed) == {}
 
 
-def test_another_solver_binary_is_named_with_both_versions(tmp_path: Path) -> None:
+def test_another_solver_binary(tmp_path: Path) -> None:
     _provenance(tmp_path)
     found = RunProvenance(
         sim_id="r",
@@ -269,7 +267,7 @@ def test_another_solver_binary_is_named_with_both_versions(tmp_path: Path) -> No
     assert differences["solver.binary_sha256"] == ProducerSide(sealed="sealed", found="here")
 
 
-def test_a_package_or_the_tool_at_another_version_is_named_by_its_dotted_path(
+def test_another_package_version(
     tmp_path: Path,
 ) -> None:
     _provenance(tmp_path, packages={"numpy": "2.1.0"})
@@ -283,20 +281,22 @@ def test_a_package_or_the_tool_at_another_version_is_named_by_its_dotted_path(
     assert set(differences) == {"tool.version", "packages.numpy"}
 
 
+IMAGE_A = {"tag": "2.1.0", "digest": "sha256:a"}
+IMAGE_B = {"tag": "2.1.0", "digest": "sha256:b"}
+
+
 @pytest.mark.parametrize(
     ("sealed", "found", "named"),
     [
-        (None, None, False),
-        ({"tag": "2.1.0", "digest": "sha256:a"}, {"tag": "2.1.0", "digest": "sha256:a"}, False),
-        ({"tag": "2.1.0", "digest": "sha256:a"}, {"tag": "2.1.0", "digest": "sha256:b"}, True),
-        (None, {"tag": "2.1.0", "digest": "sha256:b"}, True),
-        ({"tag": "2.1.0", "digest": "sha256:a"}, None, True),
-        ({"tag": "2.1.0"}, {"tag": "2.2.0"}, False),
+        pytest.param(None, None, False, id="no image"),
+        pytest.param(IMAGE_A, IMAGE_A, False, id="same digest"),
+        pytest.param(IMAGE_A, IMAGE_B, True, id="other digest"),
+        pytest.param(None, IMAGE_B, True, id="image only now"),
+        pytest.param(IMAGE_A, None, True, id="image only then"),
+        pytest.param({"tag": "2.1.0"}, {"tag": "2.2.0"}, False, id="tags without digest"),
     ],
 )
-def test_another_image_digest_is_named_in_the_lineage(
-    tmp_path: Path, sealed: dict | None, found: dict | None, named: bool
-) -> None:
+def test_image_digest(tmp_path: Path, sealed: dict | None, found: dict | None, named: bool) -> None:
     _provenance(tmp_path, image=sealed)
     current = RunProvenance(
         sim_id="r",
@@ -307,16 +307,11 @@ def test_another_image_digest_is_named_in_the_lineage(
 
     differences = replay_checks.producer_differences(tmp_path, current)
 
-    assert set(differences) == ({"image.digest"} if named else set())
-    if named:
-        assert differences["image.digest"] == ProducerSide(
-            sealed=(sealed or {}).get("digest"), found=(found or {}).get("digest")
-        )
+    digests = ProducerSide(sealed=(sealed or {}).get("digest"), found=(found or {}).get("digest"))
+    assert differences == ({"image.digest": digests} if named else {})
 
 
-def test_the_warning_names_the_keys_and_says_the_numbers_can_differ(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_warning_names_the_keys(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     differences = {
         "solver.version": ProducerSide(sealed="mf6: 6.6.3", found="mf6: 6.7.0"),
     }
@@ -327,9 +322,7 @@ def test_the_warning_names_the_keys_and_says_the_numbers_can_differ(
     assert "The numbers can differ." in text
 
 
-def test_an_identical_producer_warns_about_nothing(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_identical_producer_is_silent(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING):
         replay_checks.warn_producer_differences(tmp_path / "probe", {})
     assert caplog.text == ""

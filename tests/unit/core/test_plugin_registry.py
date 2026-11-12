@@ -155,12 +155,7 @@ def _install_plugin(
     )
 
 
-# --------------------------------------------------------------------------- #
-# Built-in engines and registration
-# --------------------------------------------------------------------------- #
-
-
-def test_an_engine_built_from_a_positional_only_argument_is_refused(clean, spec: _Spec) -> None:
+def test_positional_only_option_refused(clean, spec: _Spec) -> None:
     def init(self: object, option: object, /) -> None:
         self.option = option  # type: ignore[attr-defined]
 
@@ -170,21 +165,14 @@ def test_an_engine_built_from_a_positional_only_argument_is_refused(clean, spec:
         clean.create("test-positional", option=object())
 
 
-# --------------------------------------------------------------------------- #
-# Plugins of the entry-point group
-# --------------------------------------------------------------------------- #
-
-
-def test_a_plugin_resolves_by_name_before_any_listing(
-    monkeypatch: pytest.MonkeyPatch, spec: _Spec
-) -> None:
+def test_plugin_resolves_by_name(monkeypatch: pytest.MonkeyPatch, spec: _Spec) -> None:
     _install_plugin(monkeypatch, spec, "test-conforming", spec.base)
 
     assert spec.registry.get("test-conforming") is spec.base
     assert "test-conforming" in spec.registry.names()
 
 
-def test_the_plugin_group_is_scanned_once(monkeypatch: pytest.MonkeyPatch, spec: _Spec) -> None:
+def test_plugin_group_scanned_once(monkeypatch: pytest.MonkeyPatch, spec: _Spec) -> None:
     _install_plugin(monkeypatch, spec, "test-conforming", spec.base)
     registry = spec.registry
 
@@ -195,9 +183,7 @@ def test_the_plugin_group_is_scanned_once(monkeypatch: pytest.MonkeyPatch, spec:
     assert registry.load_plugins(force=True) == 1
 
 
-def test_a_plugin_named_after_an_engine_registered_by_hand_keeps_the_first(
-    monkeypatch: pytest.MonkeyPatch, spec: _Spec
-) -> None:
+def test_first_registration_wins(monkeypatch: pytest.MonkeyPatch, spec: _Spec) -> None:
     late = _variant(spec, "test-conforming")
     _install_plugin(monkeypatch, spec, "test-conforming", late)
     spec.registry.register(spec.base)
@@ -217,7 +203,7 @@ def test_a_plugin_named_after_an_engine_registered_by_hand_keeps_the_first(
     ],
     ids=["builtin_name", "name_is_not_engine_id", "not_the_port", "empty_name", "load_fails"],
 )
-def test_a_plugin_that_cannot_serve_its_name_is_ignored_with_a_warning(
+def test_unusable_plugin_is_ignored(
     monkeypatch: pytest.MonkeyPatch,
     warnings: pytest.LogCaptureFixture,
     spec: _Spec,
@@ -241,7 +227,7 @@ def test_a_plugin_that_cannot_serve_its_name_is_ignored_with_a_warning(
     assert registry.names() == registry.names(shipped_only=True)
 
 
-def test_unreadable_distribution_metadata_registers_no_plugin_and_keeps_the_builtins(
+def test_unreadable_metadata_keeps_builtins(
     monkeypatch: pytest.MonkeyPatch, warnings: pytest.LogCaptureFixture, spec: _Spec
 ) -> None:
     def unreadable(group: str) -> list[object]:
@@ -255,11 +241,6 @@ def test_unreadable_distribution_metadata_registers_no_plugin_and_keeps_the_buil
     assert spec.module.ENTRY_POINT_GROUP in warnings.text
     assert set(spec.registry.names()) >= set(spec.builtin_ids)
     assert spec.registry.get(spec.builtin_ids[0]) is not None
-
-
-# --------------------------------------------------------------------------- #
-# What only a mesh engine declares
-# --------------------------------------------------------------------------- #
 
 
 class _WithoutCapabilities(_MeshEngine):
@@ -285,7 +266,7 @@ class _WithoutVersion(_MeshEngine):
         (_WithoutVersion, "engine_version"),
     ],
 )
-def test_a_mesh_engine_without_a_version_or_capabilities_is_refused_by_name(
+def test_mesh_engine_refusals(
     monkeypatch: pytest.MonkeyPatch, engine_cls: type, named: str
 ) -> None:
     _isolate(monkeypatch, _SPECS["mesh"], loaded=True, entry_points=None)
@@ -294,9 +275,7 @@ def test_a_mesh_engine_without_a_version_or_capabilities_is_refused_by_name(
         mesh_registry.mesh_engines.register(engine_cls)
 
 
-# --------------------------------------------------------------------------- #
 # A key of two attributes
-# --------------------------------------------------------------------------- #
 
 PAIR_GROUP = "hydromodpy.test.pair"
 
@@ -331,7 +310,7 @@ def pairs(monkeypatch: pytest.MonkeyPatch) -> PluginRegistry:
     )
 
 
-def test_a_registry_without_a_default_refuses_a_lookup_without_a_name(
+def test_lookup_needs_a_name(
     pairs: PluginRegistry,
 ) -> None:
     pairs.register(_backend("flow", "a"))
@@ -343,49 +322,11 @@ def test_a_registry_without_a_default_refuses_a_lookup_without_a_name(
         pairs.get(None)
 
 
-def test_a_builtin_whose_class_declares_another_key_is_refused(pairs: PluginRegistry) -> None:
+def test_builtin_with_other_key_refused(pairs: PluginRegistry) -> None:
     pairs.builtin_paths["flow_regular"] = "hydromodpy.mesh.engines.regular.engine:RegularMeshEngine"
 
     with pytest.raises(SolverInputError, match="declares process_type, name = None, None"):
         pairs.get("flow", "regular")
-
-
-# The refusal of a name nothing serves -----------------------------------------
-
-_NAMES = ("modflow_nwt", "boussinesq", "modflow6")
-
-CHECK_CASES = (
-    ("a served name", "modflow6", _NAMES, None, None),
-    (
-        "an absent name, the names sorted",
-        "nope",
-        _NAMES,
-        None,
-        "solver.backend names 'nope', and this installation serves boussinesq, modflow6, "
-        "modflow_nwt.",
-    ),
-    (
-        "nothing served",
-        "nope",
-        (),
-        None,
-        "solver.backend names 'nope', and this installation serves none.",
-    ),
-    (
-        "the group sentence",
-        "nope",
-        _NAMES,
-        "hydromodpy.solver",
-        "this installation serves boussinesq, modflow6, modflow_nwt. A third-party one joins "
-        "that list through the 'hydromodpy.solver' entry-point group, without a patch to "
-        "HydroModPy.",
-    ),
-)
-
-
-# --------------------------------------------------------------------------- #
-# What the engine gained for the figure and export registries
-# --------------------------------------------------------------------------- #
 
 
 def _figure_named(name: str) -> type:
@@ -435,8 +376,8 @@ def _declare(monkeypatch: pytest.MonkeyPatch, *entries: _StubEntryPoint) -> Plug
     return registry
 
 
-def test_a_registry_without_a_group_scans_nothing_and_names_no_group(monkeypatch) -> None:
-    """A closed surface takes no plugin, and its refusal does not offer one."""
+def test_registry_without_group(monkeypatch) -> None:
+    # A closed surface takes no plugin, and its refusal does not offer one.
     scans: list[str] = []
     monkeypatch.setattr(plugin_registry, "entry_points", lambda group: scans.append(group) or [])
     plain = PluginRegistry(
@@ -458,11 +399,10 @@ def test_a_registry_without_a_group_scans_nothing_and_names_no_group(monkeypatch
     assert "entry-point" not in str(raised.value)
 
 
-def test_an_entry_point_that_cannot_be_imported_is_refused_with_its_target_and_reason(
+def test_unimportable_entry_point(
     monkeypatch: pytest.MonkeyPatch,
     warnings: pytest.LogCaptureFixture,
 ) -> None:
-    """The name is not served in silence: the refusal names what to put on sys.path."""
     broken = _StubEntryPoint(
         "hydrograph_amazon",
         "hydromodpy_figures.rivers:AmazonFigure",
@@ -481,10 +421,9 @@ def test_an_entry_point_that_cannot_be_imported_is_refused_with_its_target_and_r
     assert "Put the package that provides it on sys.path." in message
 
 
-def test_two_distributions_that_declare_the_same_target_are_one_plugin(
+def test_duplicate_target_is_one_plugin(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A checkout installed twice, or a test probe beside it, joins the list once."""
     cls = _figure_named("hydrograph_amazon")
     twice = _StubEntryPoint("hydrograph_amazon", "hydromodpy_figures.rivers:AmazonFigure", cls)
     registry = _declare(monkeypatch, twice, twice)
@@ -494,10 +433,9 @@ def test_two_distributions_that_declare_the_same_target_are_one_plugin(
     assert registry.get("hydrograph_amazon") is cls
 
 
-def test_two_entry_points_that_disagree_are_refused_naming_both(
+def test_disagreeing_entry_points(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A name two entry points claim is served by neither, in silence of none."""
     first = _StubEntryPoint(
         "hydrograph_amazon", "figures.a:Amazon", _figure_named("hydrograph_amazon")
     )

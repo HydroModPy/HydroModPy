@@ -1,18 +1,9 @@
-"""Installing a shared package into a workspace: what lands, what is refused, and why.
+"""Install of a shared package (run or project) into another workspace.
 
-A colleague shares a sealed run or a whole project. Its package holds the
-files the run read (a DEM, discharge series), the station rows that locate
-the gauges, a file a provider delivered, and the site. Installing it into
-another workspace follows three rules the tests below read out loud:
-
-* identical bytes already there cost nothing, an absent file is copied with
-  its sidecar;
-* every conflict (same path with other bytes, a station declared with another
-  position, a data cache key served by other bytes, a site with another
-  outlet) is collected, named, and refused as a whole: nothing is written;
-* a delivered file whose sidecar lacks its row of the data cache gets it from
-  the cache table of the package;
-* ``dry_run`` runs every check and reports what a real install would do.
+The package holds the files a run read, the station rows of the gauges, files a
+provider delivered and the site. Identical bytes cost nothing, an absent file is
+copied with its sidecar, and every conflict is collected and refused as a whole
+before anything is written. ``dry_run`` reports what a real install would do.
 """
 
 from __future__ import annotations
@@ -125,10 +116,7 @@ def _project_package(tmp_path: Path, *extras: str) -> Path:
     )
 
 
-# --- share -> install round trip ---------------------------------------------------
-
-
-def test_files_names_a_file_the_index_does_not_list(tmp_path) -> None:
+def test_unlisted_file_refused(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     unlisted = dataclasses.replace(read_index(folder).files[0], dest="data/dem/unlisted.tif")
@@ -139,7 +127,7 @@ def test_files_names_a_file_the_index_does_not_list(tmp_path) -> None:
     assert not (workspace / "data" / "dem").exists()
 
 
-def test_installing_twice_the_second_time_changes_nothing(tmp_path) -> None:
+def test_second_install_changes_nothing(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     _install(folder, workspace)
@@ -154,7 +142,7 @@ def test_installing_twice_the_second_time_changes_nothing(tmp_path) -> None:
     assert _snapshot(workspace) == before
 
 
-def test_a_dry_run_reports_what_would_land_and_writes_nothing(tmp_path) -> None:
+def test_dry_run_reports_and_writes_nothing(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     kept = workspace / "data" / "dem" / "dem.tif"
@@ -173,10 +161,7 @@ def test_a_dry_run_reports_what_would_land_and_writes_nothing(tmp_path) -> None:
     assert not (workspace / "data" / FORMER_CACHE_DATABASE).exists()
 
 
-# --- the table of conflicts, named before anything is written -------------------------
-
-
-def test_a_data_cache_key_served_by_other_bytes_is_refused_by_name(tmp_path) -> None:
+def test_cache_key_with_other_bytes_refused(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     theirs = workspace / "data" / "hydrometry" / "hydrometry_hubeau_J0014010_theirs.csv"
@@ -195,7 +180,7 @@ def test_a_data_cache_key_served_by_other_bytes_is_refused_by_name(tmp_path) -> 
     assert not (workspace / f"data/hydrometry/{HUBEAU_FILE}").exists()
 
 
-def test_a_data_cache_key_served_by_the_same_bytes_elsewhere_is_left_alone(tmp_path) -> None:
+def test_cache_key_with_same_bytes_left_alone(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     same = workspace / "data" / "hydrometry" / "hydrometry_hubeau_J0014010_other_name.csv"
@@ -210,7 +195,7 @@ def test_a_data_cache_key_served_by_the_same_bytes_elsewhere_is_left_alone(tmp_p
     assert report.cache_registered == []
 
 
-def test_a_data_cache_entry_at_the_destination_itself_is_registered_again(tmp_path) -> None:
+def test_cache_entry_at_destination_registered(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     _install(folder, workspace)
@@ -220,7 +205,7 @@ def test_a_data_cache_entry_at_the_destination_itself_is_registered_again(tmp_pa
     assert report.cache_registered == [f"data/hydrometry/{HUBEAU_FILE}"]
 
 
-def test_an_empty_row_for_the_station_does_not_block_the_install(tmp_path) -> None:
+def test_empty_station_row_does_not_block(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     hydrometry = workspace / "data" / "hydrometry"
@@ -236,7 +221,7 @@ def test_an_empty_row_for_the_station_does_not_block_the_install(tmp_path) -> No
     assert not empty.with_name(empty.name + ".json").exists()
 
 
-def test_a_sidecar_without_the_row_is_completed_from_the_cache_table(tmp_path) -> None:
+def test_sidecar_row_completed_from_cache(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     index = read_index(folder)
@@ -264,29 +249,32 @@ def test_a_sidecar_without_the_row_is_completed_from_the_cache_table(tmp_path) -
 
 
 @pytest.mark.parametrize(
-    ("held", "refused"),
+    "held",
     [
-        pytest.param(None, False, id="same-outlet"),
-        pytest.param(dict(x_outlet=None, y_outlet=None), False, id="no-outlet-declared"),
-        pytest.param(dict(x_outlet=0.0, y_outlet=0.0), True, id="far-outlet"),
+        pytest.param("same", id="same outlet"),
+        pytest.param({"x_outlet": None, "y_outlet": None}, id="no outlet declared"),
     ],
 )
-def test_a_site_name_the_catalog_holds_is_refused_only_with_another_outlet(
-    tmp_path, held, refused
-) -> None:
+def test_held_site_name_is_kept(tmp_path, held) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     shared_site = _site_of(folder)
-    if held is None:
+    if held == "same":
         held = {"x_outlet": shared_site.x_outlet, "y_outlet": shared_site.y_outlet}
     write_catalog(workspace, [SiteRow(site=shared_site.site, crs=shared_site.crs, **held)])
 
-    if refused:
-        with pytest.raises(PayloadConflictError, match=f"site {shared_site.site}"):
-            _install(folder, workspace)
-    else:
-        report = _install(folder, workspace)
-        assert report.sites_added == []
+    assert _install(folder, workspace).sites_added == []
+
+
+def test_site_with_other_outlet_refused(tmp_path) -> None:
+    folder = _shared_run_folder(tmp_path)
+    workspace, _ = _colleague(tmp_path)
+    shared_site = _site_of(folder)
+    far = SiteRow(site=shared_site.site, crs=shared_site.crs, x_outlet=0.0, y_outlet=0.0)
+    write_catalog(workspace, [far])
+
+    with pytest.raises(PayloadConflictError, match=f"site {shared_site.site}"):
+        _install(folder, workspace)
 
 
 def _site_of(folder: Path) -> SiteRow:
@@ -294,7 +282,7 @@ def _site_of(folder: Path) -> SiteRow:
     return site
 
 
-def test_a_site_whose_outlet_is_next_to_another_name_is_refused(tmp_path) -> None:
+def test_outlet_under_another_name_refused(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     shared_site = _site_of(folder)
@@ -316,10 +304,7 @@ def test_a_site_whose_outlet_is_next_to_another_name_is_refused(tmp_path) -> Non
     assert [row.site for row in read_catalog(workspace)] == ["a_neighbour"]
 
 
-# --- a package that does not hold its bytes ------------------------------------------
-
-
-def test_a_blob_with_another_digest_refuses_the_install(tmp_path) -> None:
+def test_blob_with_other_digest_refused(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     dem = next(item for item in read_index(folder).files if item.dest == DEM)
@@ -329,7 +314,7 @@ def test_a_blob_with_another_digest_refuses_the_install(tmp_path) -> None:
         _install(folder, workspace)
 
 
-def test_a_missing_sidecar_blob_refuses_the_install(tmp_path) -> None:
+def test_missing_sidecar_blob_refused(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
     (item,) = [i for i in read_index(folder).files if i.sidecar_sha256 is not None]
@@ -341,10 +326,7 @@ def test_a_missing_sidecar_blob_refuses_the_install(tmp_path) -> None:
         _install(folder, workspace)
 
 
-# --- import_run -------------------------------------------------------------------------
-
-
-def test_import_run_dry_run_checks_everything_and_writes_nothing(tmp_path) -> None:
+def test_import_run_dry_run(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, project = _colleague(tmp_path)
     before = _snapshot(workspace)
@@ -357,10 +339,7 @@ def test_import_run_dry_run_checks_everything_and_writes_nothing(tmp_path) -> No
     assert not (project / "runs").exists()
 
 
-# --- import_project ---------------------------------------------------------------------
-
-
-def test_import_project_dry_run_lists_the_runs_and_writes_nothing(tmp_path) -> None:
+def test_import_project_dry_run(tmp_path) -> None:
     package = _project_package(tmp_path, "runs")
     workspace, _ = _colleague(tmp_path)
     before = _snapshot(workspace)
@@ -373,7 +352,7 @@ def test_import_project_dry_run_lists_the_runs_and_writes_nothing(tmp_path) -> N
     assert _snapshot(workspace) == before
 
 
-def test_import_project_dry_run_still_refuses_a_name_already_taken(tmp_path) -> None:
+def test_dry_run_refuses_taken_name(tmp_path) -> None:
     package = _project_package(tmp_path)
     workspace = tmp_path / "colleague"
     make_workspace(workspace, project="nancon")
@@ -382,17 +361,14 @@ def test_import_project_dry_run_still_refuses_a_name_already_taken(tmp_path) -> 
         import_project(package, workspace, dry_run=True)
 
 
-# --- every error raised to the user by import_project -----------------------------------
-
-
-def test_a_package_that_does_not_exist_is_reported(tmp_path) -> None:
+def test_absent_package_reported(tmp_path) -> None:
     workspace, _ = _colleague(tmp_path)
 
     with pytest.raises(FileNotFoundError, match="No project package"):
         import_project(tmp_path / "absent.tar", workspace)
 
 
-def test_a_folder_without_publication_json_was_not_written_by_hmp(tmp_path) -> None:
+def test_folder_without_publication_refused(tmp_path) -> None:
     workspace, _ = _colleague(tmp_path)
     stray = tmp_path / "stray"
     (stray / "one").mkdir(parents=True)
@@ -404,7 +380,7 @@ def test_a_folder_without_publication_json_was_not_written_by_hmp(tmp_path) -> N
     assert not list((workspace / ".hmp").glob("import-*"))
 
 
-def test_a_published_run_is_no_project_package(tmp_path) -> None:
+def test_run_copy_is_no_project_package(tmp_path) -> None:
     folder = _shared_run_folder(tmp_path)
     workspace, _ = _colleague(tmp_path)
 
@@ -412,7 +388,7 @@ def test_a_published_run_is_no_project_package(tmp_path) -> None:
         import_project(folder, workspace)
 
 
-def test_a_package_with_a_changed_file_is_refused_with_its_name(tmp_path) -> None:
+def test_changed_package_file_refused(tmp_path) -> None:
     package = _project_package(tmp_path)
     unpacked = tmp_path / "unpacked"
     with tarfile.open(package) as archive:
@@ -426,7 +402,7 @@ def test_a_package_with_a_changed_file_is_refused_with_its_name(tmp_path) -> Non
     assert not (workspace / "projects" / "nancon").exists()
 
 
-def test_a_name_already_taken_is_refused_unless_name_gives_another(tmp_path) -> None:
+def test_taken_name_needs_another_name(tmp_path) -> None:
     package = _project_package(tmp_path)
     workspace = tmp_path / "colleague"
     make_workspace(workspace, project="nancon")
@@ -437,7 +413,7 @@ def test_a_name_already_taken_is_refused_unless_name_gives_another(tmp_path) -> 
     assert import_project(package, workspace, name="nancon_lab").project_dir.is_dir()
 
 
-def test_a_conflict_in_the_data_leaves_no_project_and_no_staging_folder(tmp_path) -> None:
+def test_data_conflict_leaves_nothing(tmp_path) -> None:
     package = _project_package(tmp_path)
     workspace, _ = _colleague(tmp_path)
     (workspace / "data" / "dem").mkdir(parents=True)
@@ -449,9 +425,6 @@ def test_a_conflict_in_the_data_leaves_no_project_and_no_staging_folder(tmp_path
     assert not (workspace / "projects" / "nancon").exists()
     assert not list((workspace / "projects").glob(".*import*"))
     assert not list((workspace / ".hmp").glob("import-*"))
-
-
-# --- the mesh products of a package ---------------------------------------------------
 
 
 def _mesh_member(copy: Path, name: str, kind: str | None) -> None:
@@ -476,7 +449,7 @@ def _mesh_member(copy: Path, name: str, kind: str | None) -> None:
         pytest.param("c" * 64, None, False, "skipped", id="no-meta"),
     ],
 )
-def test_a_mesh_member_is_installed_counted_or_skipped(tmp_path, name, kind, seed, bucket) -> None:
+def test_mesh_member_bucket(tmp_path, name, kind, seed, bucket) -> None:
     copy = tmp_path / "package"
     _mesh_member(copy, name, kind)
     store_root = tmp_path / "store"
@@ -501,7 +474,7 @@ def test_a_mesh_member_is_installed_counted_or_skipped(tmp_path, name, kind, see
         assert not store_root.exists()
 
 
-def test_the_mesh_cache_of_a_legacy_package_is_counted_and_never_installed(tmp_path) -> None:
+def test_legacy_mesh_cache_counted_only(tmp_path) -> None:
     copy = tmp_path / "package"
     for name in ("entry_one", "entry_two"):
         entry = copy / "mesh_cache" / name

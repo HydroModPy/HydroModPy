@@ -49,26 +49,26 @@ def test_a_pit_is_raised_to_its_spill_level() -> None:
     assert report.max_fill == pytest.approx(3.0 + DEFAULT_EPSILON_M)
 
 
-class TestRefused:
-    def test_no_outlet_at_all(self) -> None:
-        with pytest.raises(ValueError, match="no finite outlet"):
-            fill_depressions_on_graph(np.zeros(4), _chain(4), np.zeros(4, dtype=bool))
+REFUSALS = [
+    pytest.param(np.zeros(4), 4, np.zeros(4, bool), "no finite outlet", id="no outlet"),
+    pytest.param(
+        np.array([1.0, np.nan]), 2, np.array([False, True]), "no finite outlet", id="nan outlet"
+    ),
+    pytest.param(np.zeros(4), 4, np.zeros(3, bool), "the outlet mask holds", id="short mask"),
+    pytest.param(
+        np.zeros(4),
+        3,
+        np.array([True, False, False, False]),
+        "the adjacency holds",
+        id="short adjacency",
+    ),
+]
 
-    def test_an_outlet_that_is_not_a_finite_cell(self) -> None:
-        values = np.array([1.0, np.nan])
-        outlets = np.array([False, True])
-        with pytest.raises(ValueError, match="no finite outlet"):
-            fill_depressions_on_graph(values, _chain(2), outlets)
 
-    def test_a_mask_of_the_wrong_length(self) -> None:
-        with pytest.raises(ValueError, match="the outlet mask holds"):
-            fill_depressions_on_graph(np.zeros(4), _chain(4), np.zeros(3, dtype=bool))
-
-    def test_an_adjacency_of_the_wrong_length(self) -> None:
-        outlets = np.zeros(4, dtype=bool)
-        outlets[0] = True
-        with pytest.raises(ValueError, match="the adjacency holds"):
-            fill_depressions_on_graph(np.zeros(4), _chain(3), outlets)
+@pytest.mark.parametrize(("values", "n_adjacent", "outlets", "message"), REFUSALS)
+def test_refusals(values, n_adjacent, outlets, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        fill_depressions_on_graph(values, _chain(n_adjacent), outlets)
 
 
 def _grid_adjacency(n_rows: int, n_cols: int) -> list[set[int]]:

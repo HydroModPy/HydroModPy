@@ -28,7 +28,7 @@ def _road():
     return bench.structures(("road", bench.road_along(ROW)))
 
 
-def test_a_crossings_file_is_notched_and_its_report_and_footprint_written(tmp_path) -> None:
+def test_notch_report_and_footprint(tmp_path) -> None:
     project = bench_project(tmp_path, _road())
     setup = project.setup
     assert notch_lowered_pixels(setup) == 0
@@ -59,7 +59,7 @@ def test_a_crossings_file_is_notched_and_its_report_and_footprint_written(tmp_pa
     ids=["no path", "missing file", "no crs"],
 )
 @pytest.mark.filterwarnings("ignore:'crs' was not provided")
-def test_a_crossings_file_that_cannot_be_placed_is_refused(tmp_path, path, error, reason) -> None:
+def test_refusals(tmp_path, path, error, reason) -> None:
     project = bench_project(tmp_path, None)
     if path == "no_crs.gpkg":
         _road().set_crs(None, allow_override=True).to_file(tmp_path / path, driver="GPKG")
@@ -68,7 +68,7 @@ def test_a_crossings_file_that_cannot_be_placed_is_refused(tmp_path, path, error
         ground_dem_from_config(project.config, project.setup, channel=project.channel)
 
 
-def test_a_declared_lake_on_the_chain_stops_the_notch_read_from_the_config(tmp_path) -> None:
+def test_lake_stops_the_notch(tmp_path) -> None:
     lake = box(bench.x_of(bench.AXIS - 4), bench.y_of(ROW - 1), bench.x_of(bench.AXIS + 4), 199.0)
     lakes = write_features(tmp_path / "data" / "lake_geometry" / "lakes.gpkg", [lake])
     project = bench_project(tmp_path, _road(), lakes=Path(lakes.name))
@@ -78,7 +78,7 @@ def test_a_declared_lake_on_the_chain_stops_the_notch_read_from_the_config(tmp_p
 
 
 @pytest.mark.parametrize("prune", [False, True])
-def test_the_first_channel_is_the_pruned_stream_raster_when_pruning(tmp_path, prune) -> None:
+def test_first_pass_channel(tmp_path, prune) -> None:
     project = bench_project(tmp_path, None, prune=prune)
     flow = SimpleNamespace(direc="d8.tif", acc="acc.tif")
     river = SimpleNamespace(hydrographic_network_generated_shp="river_network.shp")

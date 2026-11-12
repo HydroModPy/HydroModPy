@@ -1,46 +1,22 @@
-"""The river trace a mesh follows, from geometries, from a vector file or from the network."""
+"""The river trace a mesh follows, from geometries or from the network."""
 
 import geopandas as gpd
 import pytest
-from shapely.geometry import GeometryCollection, LineString, MultiLineString, Point, box
+from shapely.geometry import GeometryCollection, LineString, MultiLineString, Point
 
 from hydromodpy.catchment.algorithms.river_mesh_trace import (
     RiverMeshTrace,
     build_river_mesh_trace_from_network_gdf,
 )
-from tests._helpers.geographic_cases import write_features
 
 
-def test_river_mesh_trace_from_geometries_computes_metrics():
+def test_trace_metrics():
     lines = [LineString([(0, 0), (1, 0)]), MultiLineString([[(1, 0), (2, 0)], [(2, 0), (2, 1)]])]
     trace = RiverMeshTrace.from_geometries(
         source_kind="file", crs_wkt="EPSG:2154", geometries=lines
     )
     assert (trace.segment_count, len(trace.lines)) == (3, 3)
     assert trace.total_length_m == pytest.approx(3.0)
-
-
-def _rivers(tmp_path, geometries=None, crs="EPSG:2154"):
-    lines = [LineString([(0, 0), (10, 0)])] if geometries is None else geometries
-    return write_features(tmp_path / "rivers.shp", lines, crs=crs)
-
-
-def _clip(tmp_path, geometries, crs="EPSG:2154"):
-    return write_features(tmp_path / "clip.shp", geometries, crs=crs)
-
-
-# fmt: off
-NO_TRACE = {
-    "missing vector": (lambda t: t / "missing.shp", lambda t: None, FileNotFoundError, None),
-    "no crs anywhere": (lambda t: _rivers(t, crs=None), lambda t: None, ValueError, "has no CRS and no target CRS"),
-    "missing clip": (_rivers, lambda t: t / "gone.shp", FileNotFoundError, None),
-    "clip without crs": (_rivers, lambda t: _clip(t, [box(0, 0, 1, 1)], crs=None), ValueError, "Clip polygon has no CRS"),
-    "empty vector": (lambda t: _rivers(t, []), lambda t: None, None, None),
-    "empty clip": (_rivers, lambda t: _clip(t, []), None, None),
-    "clip away from the lines": (_rivers, lambda t: _clip(t, [box(50, 50, 60, 60)]), None, None),
-    "no line in the vector": (lambda t: _rivers(t, [Point(0, 0).buffer(1)]), lambda t: None, None, None),
-}
-# fmt: on
 
 
 @pytest.mark.parametrize(
@@ -52,13 +28,13 @@ NO_TRACE = {
         ({"lines": (Point(0.0, 0.0),)}, "only LineString or MultiLineString"),
     ],
 )
-def test_a_trace_refuses_what_a_mesh_cannot_follow(members: dict, reason: str):
+def test_refusals(members: dict, reason: str):
     trace = dict(source_kind="file", crs_wkt="EPSG:2154", lines=(LineString([(0, 0), (1, 0)]),))
     with pytest.raises((ValueError, TypeError), match=reason):
         RiverMeshTrace(**{**trace, **members})
 
 
-def test_the_network_gives_its_lines_and_drops_what_is_not_a_line():
+def test_lines_of_a_network():
     network = gpd.GeoDataFrame(
         geometry=[
             LineString([(0.0, 0.0), (100.0, 0.0)]),
@@ -75,7 +51,7 @@ def test_the_network_gives_its_lines_and_drops_what_is_not_a_line():
     assert "2154" in trace.crs_wkt or "Lambert-93" in trace.crs_wkt
 
 
-def test_a_network_without_crs_takes_the_one_it_is_given():
+def test_crs_given_to_a_bare_network():
     network = gpd.GeoDataFrame(geometry=[LineString([(0.0, 0.0), (10.0, 0.0)])], crs=None)
     trace = build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs="EPSG:2154")
     assert "Lambert-93" in trace.crs_wkt
@@ -90,7 +66,7 @@ def test_a_network_without_crs_takes_the_one_it_is_given():
     ],
     ids=["empty network", "no crs anywhere", "no line"],
 )
-def test_a_network_that_gives_no_line_gives_no_trace(geometry, network_crs, crs):
+def test_no_line_no_trace(geometry, network_crs, crs):
     geometries = [] if geometry is None else [geometry]
     network = gpd.GeoDataFrame(geometry=geometries, crs=crs)
     trace = build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=network_crs)

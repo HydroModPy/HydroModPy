@@ -1,4 +1,11 @@
-"""Tests of `preflight`."""
+"""Static checks of a calibration, run before the first solve.
+
+The preflight reads the file and its project, and reports every fault at once as a
+finding with a path, a severity and a detail. It covers parameter paths and bounds
+(parameter units, scale factors), search budgets (trials), engine limits, network
+extents (durations, converted by the run timestep), stage windows (dates), the
+published method lines, and the gate every launch passes.
+"""
 
 from __future__ import annotations
 
@@ -33,9 +40,6 @@ from hydromodpy.calibration.optim.parameters import (
     ParameterSpace,
     apply_parameter_to_config,
 )
-from hydromodpy.project.trial_pipeline import fill_trial_pipeline
-
-fill_trial_pipeline()
 from hydromodpy.calibration.preflight import (
     _check_bounds_against_physics,
     _check_the_budgets,
@@ -43,7 +47,6 @@ from hydromodpy.calibration.preflight import (
 )
 from hydromodpy.calibration.runners import document, search, staged_report, staged_runner
 from hydromodpy.calibration.runners.document import load_toml_calibration
-from hydromodpy.catchment.stream_network.extent import parse_extent_duration
 from hydromodpy.cli.exit_codes import EXIT_CONFIG
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.diagnostic import Diagnostic
@@ -52,13 +55,13 @@ from hydromodpy.core.time.window import nominal_step_days
 from hydromodpy.display.figures.network_extent_bounds_map import extents_from_run
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.project.facade import Project
+from hydromodpy.project.trial_pipeline import fill_trial_pipeline
 from hydromodpy.results.derive.stream_network.criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_network.run_extent import (
     network_extents_from_run,
     run_step_days,
 )
 from tests._helpers.cli_runner import CliRunner
-from tests._helpers.sealed_runs import sealed_search
 from tests._helpers.transient_network_run import transient_run
 from tests.unit.calibration._factories_config import (
     PROCESS,
@@ -72,15 +75,7 @@ from tests.unit.calibration._factories_config import (
     write_calibration,
 )
 
-# From test_a_network_estimator_names_its_network_output.py
-# A network estimator on the single-metric route must name its network output.
-#
-# A search with no block reads only the output its ``variable`` names. A file
-# with ``objective = "distance_gap"``, the default ``variable = "head"`` and a
-# network output beside it loads, and the runner guards count that output as
-# scored. The extractor never reads it: it takes the station route on ``head``
-# and stops at the first trial. Preflight refuses it, and does not blame an
-# extent table on an output the search never scores.
+fill_trial_pipeline()
 
 
 _PARAMETERS = """
@@ -134,7 +129,7 @@ def _refused(findings) -> list:
     return [item for item in findings if "names none this file declares" in item.detail]
 
 
-def test_a_steady_run_is_not_blamed_on_an_extent_it_never_reads(tmp_path) -> None:
+def test_steady_run_not_blamed_on_extent(tmp_path) -> None:
     doc = _whole_file(tmp_path, variable=None, regime="steady")
 
     findings = preflight_of(tmp_path, doc)
@@ -143,7 +138,7 @@ def test_a_steady_run_is_not_blamed_on_an_extent_it_never_reads(tmp_path) -> Non
     assert [item for item in findings if "extent table" in item.detail] == []
 
 
-def test_a_single_metric_phase_on_a_station_variable_is_refused(tmp_path) -> None:
+def test_single_metric_phase_on_a_station_variable(tmp_path) -> None:
     findings = preflight_of(tmp_path, _one_phase(tmp_path, variable="head"))
 
     [refused] = _refused(findings)
@@ -152,25 +147,13 @@ def test_a_single_metric_phase_on_a_station_variable_is_refused(tmp_path) -> Non
 
 
 @pytest.mark.parametrize("route", ["whole_file", "phase"])
-def test_a_variable_naming_the_network_output_is_no_finding(tmp_path, route: str) -> None:
+def test_variable_naming_the_network_output(tmp_path, route: str) -> None:
     if route == "whole_file":
         doc = _whole_file(tmp_path, variable="net")
     else:
         doc = _one_phase(tmp_path, variable="net")
 
     assert _refused(preflight_of(tmp_path, doc)) == []
-
-
-# From test_a_path_outside_the_catalogue_warns.py
-# A ``path`` outside the catalog warns, since it is the documented way out.
-#
-# ``hmp config targets`` lists what a project exposes, and a parameter that
-# writes its own ``path`` reaches any value the configuration carries: the
-# resolution lets it through and the trial writes it. The preflight refused
-# every such path all the same, so ``hmp check`` refused what the
-# launch accepted, and now that every launch runs the preflight it would have
-# refused the launch too. It warns instead. A path that names no field of the
-# configuration is still refused, naming the segment that is wrong.
 
 
 _FILE = """
@@ -191,7 +174,7 @@ def _outside(tmp_path: Path, path: str) -> Path:
     )
 
 
-def test_a_value_the_configuration_carries_outside_the_catalogue_warns(tmp_path) -> None:
+def test_path_outside_the_catalogue_warns(tmp_path) -> None:
     (finding,) = run_preflight(_outside(tmp_path, _OUTSIDE))
 
     assert finding.severity == "warning"
@@ -200,7 +183,7 @@ def test_a_value_the_configuration_carries_outside_the_catalogue_warns(tmp_path)
     assert "hmp config targets" in finding.detail
 
 
-def test_the_launch_goes_on_and_says_it_once(tmp_path, prepared, caplog) -> None:
+def test_launch_warns_once_and_goes_on(tmp_path, prepared, caplog) -> None:
     with caplog.at_level(logging.WARNING), pytest.raises(_Prepared):
         hmp.calibrate(_outside(tmp_path, _OUTSIDE))
 
@@ -208,22 +191,11 @@ def test_the_launch_goes_on_and_says_it_once(tmp_path, prepared, caplog) -> None
     assert len(said) == 1
 
 
-def test_a_path_that_names_no_field_is_still_refused(tmp_path) -> None:
+def test_path_naming_no_field_is_refused(tmp_path) -> None:
     (finding,) = run_preflight(_outside(tmp_path, "solver.modflow6.runtime.no_such_option"))
 
     assert finding.severity == "error"
     assert "no_such_option" in finding.detail
-
-
-# From test_a_sweep_cut_short_by_its_budget_is_refused.py
-# A grid or a Latin hypercube cut short by its budget is refused before any solve.
-#
-# Both engines stopped on their budget, so a sweep that ``max_trials`` cut short
-# closed ``converged`` and a staged calibration froze its best point. A grid cut
-# short visits only the first slice of its first parameter, and a Latin hypercube
-# cut short loses the one point per stratum it is drawn for. Both count their
-# design before the first solve, so the budget is judged against it, by the
-# engine and by ``hmp check``, and the search converges on its last point.
 
 
 def _space() -> ParameterSpace:
@@ -256,7 +228,7 @@ def _search(optimizer, max_trials: int | str, calls: list[int]) -> CalibrationEn
 
 
 @pytest.mark.parametrize("make", [_grid, _lhs])
-def test_a_budget_below_the_design_is_refused_before_the_first_solve(make) -> None:
+def test_engine_refuses_budget_below_design(make) -> None:
     calls: list[int] = []
 
     with pytest.raises(OptimizerError, match="max_trials = 4 is below the 9 evaluations"):
@@ -269,9 +241,7 @@ def test_a_budget_below_the_design_is_refused_before_the_first_solve(make) -> No
     ("make", "rule"), [(_grid, "every grid point"), (_lhs, "every design point")]
 )
 @pytest.mark.parametrize("max_trials", [9, 20, "auto"])
-def test_a_budget_that_covers_the_design_converges_on_its_last_point(
-    make, rule: str, max_trials: int | str
-) -> None:
+def test_budget_covering_design_converges(make, rule: str, max_trials: int | str) -> None:
     calls: list[int] = []
 
     session = _search(make(), max_trials, calls).run()
@@ -303,7 +273,7 @@ def _config(method: str, max_trials: int | str, options: dict) -> CalibrationCon
         ("lhs", {"n_samples": 9}),
     ],
 )
-def test_the_preflight_refuses_a_budget_below_the_design(method: str, options: dict) -> None:
+def test_preflight_refuses_budget_below_design(method: str, options: dict) -> None:
     findings = _check_the_budgets(_config(method, 4, options))
 
     assert [finding.severity for finding in findings] == ["error"]
@@ -311,20 +281,8 @@ def test_the_preflight_refuses_a_budget_below_the_design(method: str, options: d
 
 
 @pytest.mark.parametrize("max_trials", [9, "auto"])
-def test_the_preflight_passes_a_budget_that_covers_the_design(max_trials: int | str) -> None:
+def test_preflight_passes_budget_covering_design(max_trials: int | str) -> None:
     assert _check_the_budgets(_config("lhs", max_trials, {"n_samples": 9})) == []
-
-
-# From test_engine_traits.py
-# An engine says what it can be handed, before the search is built.
-#
-# A bisection refuses a two-parameter space, refuses a parameter that is not
-# searched in log10, and reads a signed residual the criterion has to publish. All
-# three refusals live in its constructor, which is right and late: a staged
-# calibration builds phase two's optimizer when phase two starts, after phase one
-# has spent its whole solve budget on a run that was never going to finish.
-#
-# The engine now declares the same three facts, and preflight reads them.
 
 
 _TWO_LOG_PARAMS = """
@@ -346,125 +304,103 @@ batch_size = 4
 """
 
 
-class TestWhatPreflightCatches:
-    @pytest.mark.parametrize(
-        ("doc", "said"),
-        [
-            pytest.param(
-                '[calibration]\nmethod = "bisection"\n' + _TWO_LOG_PARAMS,
-                ["bisection", "K, Sy"],
-                id="a_root_search_over_two_parameters",
-            ),
-            pytest.param(
-                """
-                [calibration]
-                method = "bisection"
-                variable = "discharge"
-                objective = "nse_log"
-                @KB
-                """,
-                ["signed residual", "nse_log"],
-                id="a_metric_with_no_residual",
-            ),
-            pytest.param(
-                # One block publishes the residual, the other does not: every block must.
-                """
-                [calibration]
-                method = "bisection"
-                @KB
-                @NETROOT
-                @GAP
-                [[calibration.objective_blocks]]
-                name = "level"
-                metric = "distance_mean"
-                uses_outputs = ["net"]
-                """,
-                ["signed residual", "distance_mean"],
-                id="a_residual_block_beside_a_metric_without_one",
-            ),
-            pytest.param(
-                # The only search space written in this file: the field declares 'log', so
-                # a linear parameter has to say so, and what the file states wins.
-                """
-                [calibration]
-                method = "bisection"
-                [calibration.parameters.K]
-                bounds = [1e-7, 1e-3]
-                search_space = "identity"
-                @NETROOT
-                @GAP
-                """,
-                ["search space"],
-                id="a_linear_parameter",
-            ),
-            pytest.param(
-                '[calibration]\nmethod = "gradient_descent_by_hand"\n@KB',
-                ["gradient_descent_by_hand", "this installation serves"],
-                id="a_method_nobody_registered",
-            ),
-            pytest.param(
-                '[calibration]\nmethod = "lhs"\n@KB\nsampling = "normal"',
-                ["lhs cannot draw", "'K'"],
-                id="a_normal_sampling_the_design_cannot_stratify",
-            ),
-        ],
-    )
-    def test_a_root_search_the_engine_cannot_run_is_refused(self, tmp_path, doc, said) -> None:
-        findings = preflight_of(tmp_path, doc)
+@pytest.mark.parametrize(
+    ("doc", "said"),
+    [
+        pytest.param(
+            '[calibration]\nmethod = "bisection"\n' + _TWO_LOG_PARAMS,
+            ["bisection", "K, Sy"],
+            id="a_root_search_over_two_parameters",
+        ),
+        pytest.param(
+            """
+            [calibration]
+            method = "bisection"
+            variable = "discharge"
+            objective = "nse_log"
+            @KB
+            """,
+            ["signed residual", "nse_log"],
+            id="a_metric_with_no_residual",
+        ),
+        pytest.param(
+            # One block publishes the residual, the other does not: every block must.
+            """
+            [calibration]
+            method = "bisection"
+            @KB
+            @NETROOT
+            @GAP
+            [[calibration.objective_blocks]]
+            name = "level"
+            metric = "distance_mean"
+            uses_outputs = ["net"]
+            """,
+            ["signed residual", "distance_mean"],
+            id="a_residual_block_beside_a_metric_without_one",
+        ),
+        pytest.param(
+            # The only search space written in this file: the field declares 'log', so
+            # a linear parameter has to say so, and what the file states wins.
+            """
+            [calibration]
+            method = "bisection"
+            [calibration.parameters.K]
+            bounds = [1e-7, 1e-3]
+            search_space = "identity"
+            @NETROOT
+            @GAP
+            """,
+            ["search space"],
+            id="a_linear_parameter",
+        ),
+        pytest.param(
+            '[calibration]\nmethod = "gradient_descent_by_hand"\n@KB',
+            ["gradient_descent_by_hand", "this installation serves"],
+            id="a_method_nobody_registered",
+        ),
+        pytest.param(
+            '[calibration]\nmethod = "lhs"\n@KB\nsampling = "normal"',
+            ["lhs cannot draw", "'K'"],
+            id="a_normal_sampling_the_design_cannot_stratify",
+        ),
+    ],
+)
+def test_root_search_engine_cannot_run(tmp_path, doc, said) -> None:
+    findings = preflight_of(tmp_path, doc)
 
-        for word in said:
-            assert word in messages(findings)
-
-    @pytest.mark.parametrize(
-        ("method", "options", "parallel", "said"),
-        [
-            pytest.param("cma_es", "", 8, "beyond 6", id="cma_es_default_population"),
-            pytest.param("cma_es", "popsize = 3", 4, "beyond 3", id="cma_es_own_population"),
-            pytest.param("cma_es", "popsize = 3", 3, None, id="cma_es_width_used_whole"),
-            pytest.param("scipy_nelder_mead", "", 8, "beyond 4", id="nelder_mead_four_points"),
-            pytest.param("scipy_nelder_mead", "", 4, None, id="nelder_mead_width_used_whole"),
-            pytest.param("scipy_de", "", 20, "beyond 15", id="differential_evolution_population"),
-            pytest.param("scipy_de", "popsize = 2", 5, None, id="de_population_of_five_at_least"),
-            pytest.param("bisection", "", 8, None, id="root_search_no_cap"),
-        ],
-    )
-    def test_a_width_beyond_what_the_method_can_use_is_a_warning(
-        self, tmp_path, method, options, parallel, said
-    ) -> None:
-        doc = f'[calibration]\nmethod = "{method}"\nparallel = {parallel}\n@KB\n@NETROOT\n@GAP'
-        if options:
-            doc += f"\n[calibration.method_options]\n{options}"
-        text = messages(preflight_of(tmp_path, doc))
-
-        assert ("buys nothing" in text) is (said is not None)
-        if said is not None:
-            assert said in text and "0.5 GiB and 3.3 s to start" in text
+    for word in said:
+        assert word in messages(findings)
 
 
-# From test_extent_rules_are_durations.py
-# The two extent rules of a network output are durations, converted by the run's timestep.
-#
-# ``maximal_flowing_steps`` and ``minimal_dry_steps`` counted timesteps, so the
-# same file meant a day on a daily run and a month on a monthly one. Now the
-# output writes ``flowing_at_least`` and ``dry_at_most`` ("30 d",
-# "1 month") and the run counts its own timesteps: a flowing duration is rounded
-# up to whole steps (at least one), a dry one down (at least none). A key renamed
-# is refused with the new name, the doctor rewrites the file as ``N`` times the
-# ``[simulation.time]`` step, and a sealed run config still reads.
+@pytest.mark.parametrize(
+    ("method", "options", "parallel", "said"),
+    [
+        pytest.param("cma_es", "", 8, "beyond 6", id="cma_es_default_population"),
+        pytest.param("cma_es", "popsize = 3", 4, "beyond 3", id="cma_es_own_population"),
+        pytest.param("cma_es", "popsize = 3", 3, None, id="cma_es_width_used_whole"),
+        pytest.param("scipy_nelder_mead", "", 8, "beyond 4", id="nelder_mead_four_points"),
+        pytest.param("scipy_nelder_mead", "", 4, None, id="nelder_mead_width_used_whole"),
+        pytest.param("scipy_de", "", 20, "beyond 15", id="differential_evolution_population"),
+        pytest.param("scipy_de", "popsize = 2", 5, None, id="de_population_of_five_at_least"),
+        pytest.param("bisection", "", 8, None, id="root_search_no_cap"),
+    ],
+)
+def test_width_beyond_the_method_warns(tmp_path, method, options, parallel, said) -> None:
+    doc = f'[calibration]\nmethod = "{method}"\nparallel = {parallel}\n@KB\n@NETROOT\n@GAP'
+    if options:
+        doc += f"\n[calibration.method_options]\n{options}"
+    text = messages(preflight_of(tmp_path, doc))
+
+    assert ("buys nothing" in text) is (said is not None)
+    if said is not None:
+        assert said in text and "0.5 GiB and 3.3 s to start" in text
 
 
-DAY = nominal_step_days(1, "day")
 MONTH = nominal_step_days(1, "month")
 
 
-def _days(text: str) -> float:
-    return parse_extent_duration(text)
-
-
-# -- the file ----------------------------------------------------------------
-
-
-def test_a_duration_is_read_with_its_unit() -> None:
+def test_duration_read_with_its_unit() -> None:
     extent = CalibNetworkExtent(flowing_at_least="1 month", dry_at_most="0 d")
 
     assert (extent.flowing_at_least, extent.dry_at_most) == ("1 month", "0 d")
@@ -480,15 +416,12 @@ def test_a_duration_is_read_with_its_unit() -> None:
         ("dry_at_most", "2 m", "not compatible"),
     ],
 )
-def test_a_duration_without_a_unit_or_out_of_range_is_refused(field, value, reason) -> None:
+def test_duration_refusals(field, value, reason) -> None:
     with pytest.raises(ValidationError, match=reason):
         CalibNetworkExtent(**{field: value})
 
 
-# -- the conversion ----------------------------------------------------------
-
-
-def test_a_timestep_is_the_step_of_the_time_window_of_the_run() -> None:
+def test_timestep_of_the_run_window() -> None:
     window = SimpleNamespace(step_value=2, step_unit="month")
     ctx = SimpleNamespace(setup=SimpleNamespace(time_grid=SimpleNamespace(window=window)))
 
@@ -496,12 +429,11 @@ def test_a_timestep_is_the_step_of_the_time_window_of_the_run() -> None:
     assert context_step_days(SimpleNamespace()) is None
 
 
-# -- a stored run ------------------------------------------------------------
 def _steps(extents) -> tuple[int, int]:
     return extents.maximal_flowing_steps, extents.minimal_dry_steps
 
 
-def test_a_stored_monthly_run_counts_its_extents_in_its_own_timesteps() -> None:
+def test_stored_run_counts_extents_in_timesteps() -> None:
     run = transient_run()
 
     assert run_step_days(run) == pytest.approx(MONTH)
@@ -511,7 +443,7 @@ def test_a_stored_monthly_run_counts_its_extents_in_its_own_timesteps() -> None:
     assert _steps(network_extents_from_run(run, minimal_dry_duration="45 d")) == (1, 1)
 
 
-def test_a_stored_run_that_sealed_no_timestep_is_refused_by_name() -> None:
+def test_stored_run_without_timestep() -> None:
     run = transient_run()
     run.config_snapshot = {"simulation": {"time": {}}}
 
@@ -519,71 +451,12 @@ def test_a_stored_run_that_sealed_no_timestep_is_refused_by_name() -> None:
         network_extents_from_run(run)
 
 
-def test_a_rule_longer_than_the_year_is_refused_with_both_durations() -> None:
+def test_rule_longer_than_a_year() -> None:
     with pytest.raises(ValueError, match="maximal_flowing_duration = '13 months'"):
         network_extents_from_run(transient_run(), maximal_flowing_duration="13 months")
 
 
-def _sealed(extent: dict, *, step: dict | None = None) -> SimpleNamespace:
-    time = {"step_value": 1, "step_unit": "month"} if step is None else step
-    return SimpleNamespace(
-        sim_id="sim-x",
-        config_snapshot={"simulation": {"time": time}},
-        dir=sealed_search(
-            {
-                "outputs": {
-                    "net": {
-                        "support": "network",
-                        "observed_network": "data.hydrography",
-                        "extent": extent,
-                    }
-                }
-            }
-        ),
-    )
-
-
-# -- a file of a pre-release -------------------------------------------------
-# A count of time steps under the extent of a network output is a key only a
-# pre-release of 2.0 wrote. This version refuses it with every such key and writes
-# nothing.
-NO_REWRITE = "This version does not rewrite the file."
-
-OLD_FILE = """\
-[simulation.time]
-start_datetime = "2000-01-01"
-end_datetime = "2002-12-31"
-step_value = 1
-step_unit = "month"
-
-[calibration.outputs.seepage_network]
-support = "network"
-observed_network = "data.hydrography"
-
-[calibration.outputs.seepage_network.extent]
-maximal_flowing_steps = 2  # two months at least
-minimal_dry_steps = 1
-year_quorum = 1.0
-
-[display.overrides.network_extent_bounds_map]
-maximal_flowing_steps = 3
-
-[[calibration.phases]]
-name = "K"
-parameters = ["K"]
-
-[calibration.phases.overrides]
-"display.overrides.network_extent_bounds_map.minimal_dry_steps" = 0
-"""
-
-
-# -- a sealed run ------------------------------------------------------------
-
-
-# -- the figure --------------------------------------------------------------
-
-
-def test_the_note_of_the_figure_says_the_duration_and_the_timesteps_it_made() -> None:
+def test_figure_note_durations_and_steps() -> None:
     run = transient_run()
     settings = network_criterion_settings(run)
 
@@ -595,7 +468,7 @@ def test_the_note_of_the_figure_says_the_duration_and_the_timesteps_it_made() ->
     assert (extents.minimal_dry_duration, extents.minimal_dry_steps) == ("1 month", 1)
 
 
-def test_the_preflight_refuses_a_duration_the_timestep_cannot_read(monkeypatch) -> None:
+def test_duration_the_timestep_cannot_read(monkeypatch) -> None:
     config = SimpleNamespace(
         simulation=SimpleNamespace(time=SimpleNamespace(step_value=1, step_unit="day"))
     )
@@ -615,26 +488,6 @@ def test_the_preflight_refuses_a_duration_the_timestep_cannot_read(monkeypatch) 
 
     extent.flowing_at_least = "30 d"
     assert preflight_network.check_the_extent_durations_fit_the_timestep(object(), {}) == []
-
-
-# From test_preflight.py
-# Everything a calibration needs, checked before the first solve.
-#
-# A calibration is hours of solver time. Until now every check fired where it sat:
-# a missing stream geometry when the criterion first ran, a typo in a parameter
-# path at the first trial, a phase that cannot describe a runnable calibration
-# when its turn came, after the phases before it had spent their whole budget.
-# Each one cost the run that had already happened.
-#
-# Preflight runs the static checks together, before anything solves, and reports
-# every problem rather than the first: a file with three mistakes takes one pass
-# to fix instead of three overnight runs.
-
-
-_GOOD = """
-@GRID4
-@KLOG
-"""
 
 
 _PHASES = """
@@ -701,14 +554,14 @@ depends_on = "{depends}"
         ),
     ],
 )
-def test_a_fault_is_named(tmp_path, doc: str, said: list[str]) -> None:
+def test_fault_is_named(tmp_path, doc: str, said: list[str]) -> None:
     findings = preflight_of(tmp_path, doc)
 
     for word in said:
         assert word in messages(findings)
 
 
-def test_three_mistakes_come_back_together(tmp_path) -> None:
+def test_three_mistakes_together(tmp_path) -> None:
     doc = (
         "@GRID\n[calibration.parameters.Kh]\nbounds = [1e-3, 1e-7]\n"
         'path = "flow.param.Kh.field.value"\n@GHOST'
@@ -717,54 +570,47 @@ def test_three_mistakes_come_back_together(tmp_path) -> None:
     assert len(preflight_of(tmp_path, doc)) >= 3
 
 
-class TestRegimes:
-    """A steady window the run cannot read is found without solving."""
+# A steady window the run cannot read is found without solving.
 
-    _REGIME = """
-    @GRID
-    @KLOG
-    [[calibration.phases]]
-    name = "k_steady"
-    method = "grid"
-    parameters = ["K"]
-    regime = "steady"
-    {window}
-    """
-
-    def test_a_window_given_backwards_is_one_finding_on_its_phase(self, tmp_path) -> None:
-        window = 'steady_window = { start = "2000-12-31", end = "2000-01-01" }'
-
-        findings = preflight_of(tmp_path, self._REGIME.format(window=window))
-
-        assert len(findings) == 1
-        assert findings[0].path == "calibration.phases"
-        assert findings[0].detail.startswith("'k_steady': ")
-        assert "not a forward window" in findings[0].detail
+_STEADY_PHASE = """
+@GRID
+@KLOG
+[[calibration.phases]]
+name = "k_steady"
+method = "grid"
+parameters = ["K"]
+regime = "steady"
+{window}
+"""
 
 
-class TestAFileThatWillNotLoad:
-    def test_a_file_without_a_calibration_section_says_so(self, tmp_path) -> None:
-        path = write_calibration(tmp_path, name="plain.toml")
+def test_backwards_steady_window(tmp_path) -> None:
+    window = 'steady_window = { start = "2000-12-31", end = "2000-01-01" }'
 
-        findings = run_preflight(path)
+    findings = preflight_of(tmp_path, _STEADY_PHASE.format(window=window))
 
-        assert "calibration" in messages(findings)
+    assert len(findings) == 1
+    assert findings[0].path == "calibration.phases"
+    assert findings[0].detail.startswith("'k_steady': ")
+    assert "not a forward window" in findings[0].detail
 
 
-def test_a_linearized_width_on_a_document_that_can_carry_one_is_not_refused(tmp_path) -> None:
+def test_file_without_calibration_section(tmp_path) -> None:
+    path = write_calibration(tmp_path, name="plain.toml")
+
+    findings = run_preflight(path)
+
+    assert "calibration" in messages(findings)
+
+
+def test_linearized_width_accepted(tmp_path) -> None:
     # A presence: nothing at all is wrong with this document.
     assert preflight_of(tmp_path, '@GRID4\nvariable = "gauge"\n@UNC\n@KLOG\n@GAUGE\n') == []
 
 
-class TestALinearizedWidthOnAPhaseThatNamesNeitherOutputsNorBlocks:
-    """A phase naming nothing reads every declared output (``_phase_config``'s
-
-    own default), not only what some OTHER phase's block happens to read. A
-    resolved, non-empty block list is not the same fact as this phase having
-    named one, and only the latter narrows the outputs this phase scores.
-    """
-
-    _DOC = """
+# A phase that names neither outputs nor blocks reads every declared output, not only
+# what another phase's block reads. Only a name written on the phase narrows its outputs.
+UNNAMED_PHASE_DOC = """
 @GRID4
 @UNC
 @KLOG
@@ -787,27 +633,15 @@ method_options = { points_per_dim = 2 }
 parameters = ["K"]
 """
 
-    def test_an_output_no_block_reads_still_counts_when_the_phase_names_nothing(
-        self, tmp_path
-    ) -> None:
-        findings = preflight_of(tmp_path, self._DOC)
 
-        assert findings == []
+def test_unnamed_phase_reads_every_output(tmp_path) -> None:
+    assert preflight_of(tmp_path, UNNAMED_PHASE_DOC) == []
 
 
-class TestASingleMetricPhaseAlongsideAGloballyObservedOutput:
-    """The document DOES name a station -- on its global output -- while the
-
-    single-metric phase still gets no width. ``_phase_config`` empties a
-    single-metric phase's ``outputs`` unconditionally, so what the rest of the
-    file declares on ``gauge`` is irrelevant to ``p1``; the message must not
-    read as if the document had never named a station anywhere.
-
-    ``p2`` scores ``b1``, which reads ``gauge`` and its declared station: it
-    gets no finding, proving the document as a whole is not at fault.
-    """
-
-    _DOC = """
+# The document names a station on its global output, but the single-metric phase p1
+# inherits no outputs, so the message must not say no station is named anywhere.
+# Phase p2 scores b1, which reads the gauge: no finding, so the document is not at fault.
+SINGLE_METRIC_DOC = """
 @GRID4
 @UNC
 @KLOG
@@ -835,85 +669,82 @@ parameters = ["K"]
 objective_blocks = ["b1"]
 """
 
-    def test_p1_is_refused_without_claiming_the_document_never_named_a_station(
-        self, tmp_path
-    ) -> None:
-        # Asserted on a presence, not an absence. An absence passes under the
-        # mutation that matters here -- dropping the single-metric branch and
-        # emitting the generic detail, which says "no output names a station"
-        # on a document that names one, and which contains neither the old
-        # false clause nor anything else these assertions would catch.
-        findings = preflight_of(tmp_path, self._DOC)
 
-        p1 = [
-            item
-            for item in findings
-            if item.path == "calibration.phases" and item.detail.startswith("'p1': ")
-        ]
-        assert len(p1) == 1
-        assert "inherits none of the calibration's outputs" in p1[0].detail
-        assert "_phase_config" in p1[0].detail
-        assert "schema forbids naming a station" not in p1[0].detail
-        assert "cost_profile" in p1[0].detail
+def test_single_metric_phase_is_refused(tmp_path) -> None:
+    # Asserted on a presence, because an absence passes when the single-metric branch is
+    # dropped and the generic detail is emitted.
+    findings = preflight_of(tmp_path, SINGLE_METRIC_DOC)
 
-    def test_p2_is_not_named_because_its_block_reads_the_named_station(self, tmp_path) -> None:
-        findings = preflight_of(tmp_path, self._DOC)
-
-        assert [
-            item
-            for item in findings
-            if item.path == "calibration.phases" and item.detail.startswith("'p2': ")
-        ] == []
+    p1 = [
+        item
+        for item in findings
+        if item.path == "calibration.phases" and item.detail.startswith("'p1': ")
+    ]
+    assert len(p1) == 1
+    assert "inherits none of the calibration's outputs" in p1[0].detail
+    assert "_phase_config" in p1[0].detail
+    assert "schema forbids naming a station" not in p1[0].detail
+    assert "cost_profile" in p1[0].detail
 
 
-class TestTheNetworkCriterionIsNotAskedToPickARidge:
-    """A network-only objective that moves two parameters returns one point of a ridge."""
+def test_phase_reading_the_named_station_is_not_refused(tmp_path) -> None:
+    findings = preflight_of(tmp_path, SINGLE_METRIC_DOC)
 
-    _TWO_PARAMS = """
-    @GRID
-    @K
-    @SY
-    @NET
-    @GAP
-    """
+    assert [
+        item
+        for item in findings
+        if item.path == "calibration.phases" and item.detail.startswith("'p2': ")
+    ] == []
 
-    @pytest.mark.parametrize(
-        "doc",
-        [
-            pytest.param("@GRID\n@K\n@NET\n@GAP", id="one_parameter_on_a_network_only_objective"),
-            pytest.param(
-                """
-                @GRID
-                @K
-                @SY
-                @NET
-                @GAUGE
-                [[calibration.objective_blocks]]
-                name = "gap"
-                metric = "distance_gap"
-                uses_outputs = ["net", "gauge"]
-                """,
-                id="two_parameters_on_a_mixed_objective",
-            ),
-            pytest.param(
-                """
-                @GRID
-                @K
-                @SY
-                @NET
-                @GAP
-                [[calibration.phases]]
-                name = "one"
-                method = "grid"
-                parameters = ["K"]
-                objective_blocks = ["gap"]
-                """,
-                id="a_phase_that_freezes_down_to_one_parameter",
-            ),
-        ],
-    )
-    def test_a_well_posed_search_is_not_warned(self, tmp_path, doc: str) -> None:
-        assert "ridge" not in messages(preflight_of(tmp_path, doc))
+
+# A network-only objective that moves two parameters returns one point of a ridge.
+
+_TWO_PARAMS = """
+@GRID
+@K
+@SY
+@NET
+@GAP
+"""
+
+
+@pytest.mark.parametrize(
+    "doc",
+    [
+        pytest.param("@GRID\n@K\n@NET\n@GAP", id="one_parameter_on_a_network_only_objective"),
+        pytest.param(
+            """
+            @GRID
+            @K
+            @SY
+            @NET
+            @GAUGE
+            [[calibration.objective_blocks]]
+            name = "gap"
+            metric = "distance_gap"
+            uses_outputs = ["net", "gauge"]
+            """,
+            id="two_parameters_on_a_mixed_objective",
+        ),
+        pytest.param(
+            """
+            @GRID
+            @K
+            @SY
+            @NET
+            @GAP
+            [[calibration.phases]]
+            name = "one"
+            method = "grid"
+            parameters = ["K"]
+            objective_blocks = ["gap"]
+            """,
+            id="a_phase_that_freezes_down_to_one_parameter",
+        ),
+    ],
+)
+def test_well_posed_search_no_ridge(tmp_path, doc: str) -> None:
+    assert "ridge" not in messages(preflight_of(tmp_path, doc))
 
 
 _MEAN = """
@@ -951,7 +782,7 @@ def _factor_beside(regime: str, moved: str, scored: str = "@NETROOT\n@GAP") -> s
         (sinks_project(recharge=FlowRechargeConfig(values=1.0)), False, None),
     ],
 )
-def test_the_recharge_factor_needs_a_rate_that_nothing_else_moves(project, values, said) -> None:
+def test_recharge_factor_needs_a_free_rate(project, values, said) -> None:
     parameters = {"recharge.factor": {"path": "flow.sinks_sources.recharge.factor"}}
     if values:
         parameters["recharge.values"] = {"path": "flow.sinks_sources.recharge.values"}
@@ -995,37 +826,38 @@ def _two_bounds(tmp_path: Path, method: str, moved: str, weights: str = "0.5") -
         (_factor_beside("steady", "@K\n", "@GAUGE\n@NETROOT\n@GAP"), None, _RIDGE),
     ],
 )
-def test_what_a_search_of_the_network_may_not_do(tmp_path, doc, severity, said) -> None:
+def test_network_search_limits(tmp_path, doc, severity, said) -> None:
     findings = preflight_of(tmp_path, doc(tmp_path) if callable(doc) else doc)
 
     named = [finding.severity for finding in findings if said in finding.detail]
     assert named == ([severity] if severity else [])
 
 
-class TestTheNetworkSearchCanTrustItsReleasePackages:
-    """SFR and LAK build their own conductance, never derived from K."""
+# SFR and LAK build their own conductance, never derived from K.
 
-    _SFR = """
-    [flow.sinks_sources.sfr.net]
-    @GRID
-    @K
-    @NET
-    @GAP
-    """
+_SFR_DOC = """
+[flow.sinks_sources.sfr.net]
+@GRID
+@K
+@NET
+@GAP
+"""
 
-    def test_an_active_sfr_moving_k_is_named(self, tmp_path) -> None:
-        findings = preflight_of(tmp_path, self._SFR)
 
-        named = [item for item in findings if "SFR" in item.detail]
-        assert len(named) == 1
-        assert named[0].severity == "error"
-        assert named[0].path == "calibration"
-        assert "future work" in named[0].detail
+def test_active_sfr_moving_k(tmp_path) -> None:
+    findings = preflight_of(tmp_path, _SFR_DOC)
 
-    def test_an_active_lake_moving_k_is_named(self, tmp_path) -> None:
-        doc = self._SFR.replace("sfr.net]", "lakes.lac0]\ninitial_stage = 1.0\nbedleak = 0.1")
+    named = [item for item in findings if "SFR" in item.detail]
+    assert len(named) == 1
+    assert named[0].severity == "error"
+    assert named[0].path == "calibration"
+    assert "future work" in named[0].detail
 
-        assert "LAK" in messages(preflight_of(tmp_path, doc))
+
+def test_active_lake_moving_k(tmp_path) -> None:
+    doc = _SFR_DOC.replace("sfr.net]", "lakes.lac0]\ninitial_stage = 1.0\nbedleak = 0.1")
+
+    assert "LAK" in messages(preflight_of(tmp_path, doc))
 
 
 _GAUGED = """
@@ -1042,97 +874,85 @@ uses_outputs = ["hydrograph"]
 """
 
 
-class TestTheObservedStationIsLoaded:
-    def test_a_station_no_source_lists_is_named(self, tmp_path) -> None:
-        doc = (
-            """
-            [data]
-            types = ["hydrometry"]
-
-            [[data.hydrometry.sources]]
-            source = "file"
-            path = "inputs/hydrometry"
-            station_ids = ["OTHER"]
-            """
-            + _GAUGED
-        )
-        findings = preflight_of(tmp_path, doc)
-
-        named = [item for item in findings if "GAUGE" in item.detail]
-        assert len(named) == 1
-        assert named[0].path == "calibration.outputs.hydrograph"
-        assert "Listed: OTHER" in named[0].detail
-
-
-class TestTheWindowBoundsHoldsADateOfTheRun:
-    def test_a_window_after_the_run_is_named(self, tmp_path) -> None:
-        doc = _GAUGED + '\n[calibration.window]\nstart = "2010-01-01"\n'
-        findings = preflight_of(tmp_path, doc)
-
-        named = [item for item in findings if "holds no date of the run" in item.detail]
-        assert len(named) == 1
-        assert named[0].severity == "error"
-        assert "2010-01-01" in named[0].detail
-
-
-class TestASamplerScoredOnAnotherMetricThanItsLikelihood:
-    def _doc(self, metric: str) -> str:
-        return f"""
-        [calibration]
-        method = "da_mh_gp"
-
-        [calibration.parameters.K]
-        bounds = [1e-7, 1e-3]
-        path = "flow.param.K.field.value"
-
-        [calibration.outputs.hydrograph]
-        support = "point"
-        variable = "discharge"
-        observes = "GAUGE"
-
-        [[calibration.objective_blocks]]
-        name = "hydrograph"
-        metric = "{metric}"
-        uses_outputs = ["hydrograph"]
+def test_station_no_source_lists(tmp_path) -> None:
+    doc = (
         """
+        [data]
+        types = ["hydrometry"]
 
-    def test_an_efficiency_score_is_warned(self, tmp_path) -> None:
-        findings = preflight_of(tmp_path, self._doc("nse"))
+        [[data.hydrometry.sources]]
+        source = "file"
+        path = "inputs/hydrometry"
+        station_ids = ["OTHER"]
+        """
+        + _GAUGED
+    )
+    findings = preflight_of(tmp_path, doc)
 
-        named = [item for item in findings if "reads its cost as rmse" in item.detail]
-        assert len(named) == 1
-        assert named[0].severity == "warning"
-
-
-# From test_scale_bounds_are_factors.py
-# The bounds of ``mode = "scale"`` are factors, faced with nothing physical.
-#
-# A scale multiplies the base value of the file, so ``[0.5, 2]`` on a specific
-# yield says "half to twice". The bounds were faced with the physical ceiling of
-# the property as if they were its values, and ``Sy`` scaled by ``[0.5, 2]`` was
-# refused, "upper bound 2.0 outside [0.0001, 0.5]", while the product the run
-# writes is checked anyway.
+    named = [item for item in findings if "GAUGE" in item.detail]
+    assert len(named) == 1
+    assert named[0].path == "calibration.outputs.hydrograph"
+    assert "Listed: OTHER" in named[0].detail
 
 
-def _space__scale_bounds(mode: str) -> ParameterSpace:
+def test_window_after_the_run(tmp_path) -> None:
+    doc = _GAUGED + '\n[calibration.window]\nstart = "2010-01-01"\n'
+    findings = preflight_of(tmp_path, doc)
+
+    named = [item for item in findings if "holds no date of the run" in item.detail]
+    assert len(named) == 1
+    assert named[0].severity == "error"
+    assert "2010-01-01" in named[0].detail
+
+
+def _doc(metric: str) -> str:
+    return f"""
+    [calibration]
+    method = "da_mh_gp"
+
+    [calibration.parameters.K]
+    bounds = [1e-7, 1e-3]
+    path = "flow.param.K.field.value"
+
+    [calibration.outputs.hydrograph]
+    support = "point"
+    variable = "discharge"
+    observes = "GAUGE"
+
+    [[calibration.objective_blocks]]
+    name = "hydrograph"
+    metric = "{metric}"
+    uses_outputs = ["hydrograph"]
+    """
+
+
+def test_efficiency_score_on_a_sampler(tmp_path) -> None:
+    findings = preflight_of(tmp_path, _doc("nse"))
+
+    named = [item for item in findings if "reads its cost as rmse" in item.detail]
+    assert len(named) == 1
+    assert named[0].severity == "warning"
+
+
+def _scaled_space(mode: str) -> ParameterSpace:
     return ParameterSpace.from_toml_mapping(
         {"Sy": {"bounds": [0.5, 2.0], "mode": mode, "path": "flow.sy"}}
     )
 
 
-def test_a_scale_of_half_to_twice_is_accepted() -> None:
-    (parameter,) = _space__scale_bounds("scale").parameters
+def test_scale_bounds_accepted() -> None:
+    (parameter,) = _scaled_space("scale").parameters
 
     assert (parameter.lower, parameter.upper, parameter.mode) == (0.5, 2.0, "scale")
 
 
-def test_the_same_bounds_as_values_are_still_refused() -> None:
+def test_scale_bounds_as_values_refused() -> None:
     with pytest.raises(ValueError, match="upper bound 2.0"):
-        _space__scale_bounds("replace")
+        _scaled_space("replace")
 
 
-def test_the_product_is_still_faced_with_the_ceiling() -> None:
-    (parameter,) = _space__scale_bounds("scale").parameters
+def test_scaled_product_meets_the_ceiling() -> None:
+    (parameter,) = _scaled_space("scale").parameters
     cfg = SimpleNamespace(flow=SimpleNamespace(sy=0.3))
 
     apply_parameter_to_config(cfg, parameter, 1.5)
@@ -1141,13 +961,13 @@ def test_the_product_is_still_faced_with_the_ceiling() -> None:
         apply_parameter_to_config(cfg, parameter, 2.0)
 
 
-def test_the_check_says_nothing_of_a_scale() -> None:
+def test_check_silent_on_a_scale() -> None:
     decl = SimpleNamespace(mode="scale", units=None, search_space="identity")
 
     assert _check_bounds_against_physics("calibration.parameters.Sy", "Sy", decl, [0.5, 2.0]) == []
 
 
-PROJECT__scale_bounds = """\
+SCALE_PROJECT = """\
 [site]
 name = "p"
 
@@ -1189,26 +1009,16 @@ mode = "scale"
 """
 
 
-def test_a_scale_on_a_catalogue_name_loads(tmp_path) -> None:
+def test_scale_on_a_catalogue_name_loads(tmp_path) -> None:
     (tmp_path / "data" / "dem").mkdir(parents=True)
     (tmp_path / "data" / "dem" / "DEM.tif").write_bytes(b"x")
     project = tmp_path / "projects" / "p"
     project.mkdir(parents=True)
-    (project / "project.toml").write_text(PROJECT__scale_bounds, encoding="utf-8")
+    (project / "project.toml").write_text(SCALE_PROJECT, encoding="utf-8")
 
     cfg = HydroModPyConfig.from_toml(project / "project.toml")
 
     assert cfg.calibration.parameters["Sy"].bounds == [0.5, 2.0]
-
-
-# From test_the_precision_reaches_the_stages.py
-# The precision has to travel from the TOML to the engine that stops on it.
-#
-# Two routes reach an optimizer, the protocol writing stages and a file writing
-# them by hand, and both funnel through one build site. What is gated here is the
-# journey: a precision declared on a protocol stage has to arrive on the phase, and
-# one that no engine can honor has to be refused before the first solve rather
-# than when that phase finally starts.
 
 
 _HEAD = """
@@ -1225,7 +1035,7 @@ step_unit = "day"
 station_ids = ["G1"]
 """
 
-_PARAMETERS__precision_reaches = """
+_PRECISION_PARAMETERS = """
 [calibration.parameters.K]
 bounds = [1e-8, 1e-2]
 search_space = "log"
@@ -1245,7 +1055,7 @@ map.complete = "network.gpkg"
 
 def _loaded(tmp_path: Path, calibration: str, *, network: bool = True):
     path = tmp_path / "precision.toml"
-    tail = _PARAMETERS__precision_reaches + (_NETWORK_OUTPUT if network else "")
+    tail = _PRECISION_PARAMETERS + (_NETWORK_OUTPUT if network else "")
     path.write_text(toml_doc(_HEAD + calibration + tail), encoding="utf-8")
     (tmp_path / "network.gpkg").write_bytes(b"")
     return load_toml_calibration(path)
@@ -1285,9 +1095,7 @@ def _loaded(tmp_path: Path, calibration: str, *, network: bool = True):
     ],
     ids=["an_engine_cannot_stop_on_it", "said_twice"],
 )
-def test_a_precision_that_cannot_be_kept_is_refused_before_the_first_solve(
-    tmp_path: Path, doc: str, said: str
-) -> None:
+def test_precision_that_cannot_be_kept(tmp_path: Path, doc: str, said: str) -> None:
     cfg, _raw = _loaded(tmp_path, doc, network=False)
     findings = _findings_for(cfg, tmp_path)
     assert any(said in finding.detail for finding in findings)
@@ -1302,7 +1110,7 @@ def _findings_for(calibration, tmp_path: Path):
     return preflight_calibration(config, source=tmp_path / "precision.toml")
 
 
-def test_a_precision_a_nelder_mead_stage_can_honour_passes_the_preflight(tmp_path: Path) -> None:
+def test_precision_nelder_mead_can_honour(tmp_path: Path) -> None:
     cfg, _raw = _loaded(
         tmp_path,
         """
@@ -1317,9 +1125,7 @@ def test_a_precision_a_nelder_mead_stage_can_honour_passes_the_preflight(tmp_pat
 
 
 @pytest.mark.parametrize("precision", [0.0, -0.1])
-def test_a_precision_that_is_not_positive_is_refused_at_load(
-    tmp_path: Path, precision: float
-) -> None:
+def test_precision_not_positive(tmp_path: Path, precision: float) -> None:
     with pytest.raises(ConfigError, match="greater than 0"):
         _loaded(
             tmp_path,
@@ -1331,23 +1137,10 @@ def test_a_precision_that_is_not_positive_is_refused_at_load(
         )
 
 
-# From test_the_preflight_runs_at_every_launch.py
-# The preflight runs at the start of every launch, on the document the launch runs.
-#
-# ``hmp check`` was the only caller of the preflight. ``hmp calibrate``,
-# ``hmp run``, ``--dry-run`` and the API went straight to the preparation of the
-# model, so a file the check refused was launched anyway, and refused only when
-# the faulty part was reached, sometimes after hours of solves. Every launch now
-# passes one gate first, on the effective document (``--set``, ``--overlay`` and
-# ``HMP_SET_*`` written in, the protocol expanded) and phase by phase, with the
-# overrides of each phase. Its errors stop the launch on the config code before
-# anything is prepared, its warnings print once.
-
-
 _REPO = Path(__file__).resolve().parents[3]
 _EXAMPLE_21 = _REPO / "examples/projects/21_nancon_network_calibration/auto_sfr_drn.toml"
 
-_PARAMETERS__preflight_runs = """
+_LAUNCH_PARAMETERS = """
 @GRID4
 @KLOG
 """
@@ -1367,7 +1160,7 @@ max_trials = 4
 """
 
 # A network output whose geometry is there: the file passes the preflight.
-_NETWORK__preflight_runs = """
+_LAUNCH_NETWORK = """
 [calibration.parameters.Sy]
 bounds = [1e-3, 0.3]
 path = "flow.param.Sy.field.value"
@@ -1377,6 +1170,10 @@ support = "network"
 map.complete = "here.gpkg"
 @GAP
 """
+
+
+# The banner prints once per process, so these tests share a worker and the run order is fixed.
+LAUNCH_CLI = pytest.mark.xdist_group("launch cli")
 
 
 class _Prepared(RuntimeError):
@@ -1397,122 +1194,126 @@ def prepared(monkeypatch) -> list[str]:
     return reached
 
 
-def _write__preflight_runs(tmp_path: Path, *sections: str, name: str = "calib.toml") -> Path:
+def _write_launch_file(tmp_path: Path, *sections: str, name: str = "calib.toml") -> Path:
     path = write_calibration(tmp_path, *sections, base=PROJECT_BASE + PROCESS, name=name)
     (tmp_path / "here.gpkg").write_text("", encoding="utf-8")
     return path
 
 
-def _refused__preflight_runs(tmp_path: Path, *, phased: bool = False) -> Path:
-    return _write__preflight_runs(
-        tmp_path, _PARAMETERS__preflight_runs, _GHOST_BLOCK, *((_PHASE,) if phased else ())
+def _refused_file(tmp_path: Path, *, phased: bool = False) -> Path:
+    return _write_launch_file(
+        tmp_path, _LAUNCH_PARAMETERS, _GHOST_BLOCK, *((_PHASE,) if phased else ())
     )
 
 
-class TestEveryLaunchPathRunsIt:
-    """Each launch refuses the ghost block before the model is prepared."""
+# Each launch refuses the ghost block before the model is prepared.
 
-    @pytest.mark.parametrize("phased", [False, True], ids=["one_search", "phases"])
-    def test_hmp_calibrate_dry_run(self, tmp_path, prepared, phased: bool) -> None:
-        result = CliRunner().invoke(
-            ["calibrate", str(_refused__preflight_runs(tmp_path, phased=phased)), "--dry-run"]
-        )
 
-        assert result.exit_code == EXIT_CONFIG, result.output
-        assert "ghost" in result.stderr
-        assert "session:" not in result.stderr
+@LAUNCH_CLI
+@pytest.mark.parametrize("phased", [False, True], ids=["one_search", "phases"])
+def test_calibrate_dry_run_refuses(tmp_path, prepared, phased: bool) -> None:
+    result = CliRunner().invoke(
+        ["calibrate", str(_refused_file(tmp_path, phased=phased)), "--dry-run"]
+    )
 
-    def test_hmp_run_in_calibration_mode(self, tmp_path, prepared) -> None:
-        result = CliRunner().invoke(["run", str(_refused__preflight_runs(tmp_path))])
+    assert result.exit_code == EXIT_CONFIG, result.output
+    assert "ghost" in result.stderr
+    assert "session:" not in result.stderr
 
-        assert result.exit_code == EXIT_CONFIG, result.output
-        assert "ghost" in result.stderr
-        assert prepared == []
 
-    def test_hmp_run_dry_run_in_calibration_mode(self, tmp_path, prepared) -> None:
-        result = CliRunner().invoke(["run", str(_refused__preflight_runs(tmp_path)), "--dry-run"])
+@LAUNCH_CLI
+def test_run_refuses(tmp_path, prepared) -> None:
+    result = CliRunner().invoke(["run", str(_refused_file(tmp_path))])
 
-        assert result.exit_code == EXIT_CONFIG, result.output
-        assert "ghost" in result.stderr
+    assert result.exit_code == EXIT_CONFIG, result.output
+    assert "ghost" in result.stderr
+    assert prepared == []
 
-    def test_project_calibrate_on_a_file(self, tmp_path, prepared) -> None:
-        path = _refused__preflight_runs(tmp_path)
-        with Project(path, headless=True) as project, pytest.raises(ConfigError, match="ghost"):
-            project.calibrate(config_path=path)
-        assert prepared == []
 
-    def test_project_calibrate_on_its_own_configuration(self, tmp_path, prepared) -> None:
-        config = HydroModPyConfig.from_toml(_refused__preflight_runs(tmp_path))
+@LAUNCH_CLI
+def test_run_dry_run_refuses(tmp_path, prepared) -> None:
+    result = CliRunner().invoke(["run", str(_refused_file(tmp_path)), "--dry-run"])
 
+    assert result.exit_code == EXIT_CONFIG, result.output
+    assert "ghost" in result.stderr
+
+
+def test_project_calibrate_file_refuses(tmp_path, prepared) -> None:
+    path = _refused_file(tmp_path)
+    with Project(path, headless=True) as project, pytest.raises(ConfigError, match="ghost"):
+        project.calibrate(config_path=path)
+    assert prepared == []
+
+
+def test_project_calibrate_config_refuses(tmp_path, prepared) -> None:
+    config = HydroModPyConfig.from_toml(_refused_file(tmp_path))
+
+    with pytest.raises(ConfigError, match="ghost"):
+        hmp.calibrate(config)
+    assert prepared == []
+
+
+def test_project_calibrate_python_refuses(tmp_path, prepared) -> None:
+    with Project(_write_launch_file(tmp_path), headless=True) as project:
         with pytest.raises(ConfigError, match="ghost"):
-            hmp.calibrate(config)
-        assert prepared == []
-
-    def test_project_calibrate_in_python_mode(self, tmp_path, prepared) -> None:
-        with Project(_write__preflight_runs(tmp_path), headless=True) as project:
-            with pytest.raises(ConfigError, match="ghost"):
-                project.calibrate(
-                    parameters={"K": {"bounds": [1e-7, 1e-3]}},
-                    objective_blocks=[{"name": "gap", "metric": "rmse", "uses_outputs": ["ghost"]}],
-                )
-        assert prepared == []
-
-    def test_a_file_that_passes_reaches_the_preparation(self, tmp_path, prepared) -> None:
-        with pytest.raises(_Prepared):
-            hmp.calibrate(
-                _write__preflight_runs(
-                    tmp_path, _PARAMETERS__preflight_runs, _NETWORK__preflight_runs
-                )
+            project.calibrate(
+                parameters={"K": {"bounds": [1e-7, 1e-3]}},
+                objective_blocks=[{"name": "gap", "metric": "rmse", "uses_outputs": ["ghost"]}],
             )
-        assert prepared == ["calib.toml"]
+    assert prepared == []
 
 
-class TestTheEffectiveDocument:
-    """What the launch runs is what is checked: overrides and overlays included."""
+def test_good_file_reaches_preparation(tmp_path, prepared) -> None:
+    with pytest.raises(_Prepared):
+        hmp.calibrate(_write_launch_file(tmp_path, _LAUNCH_PARAMETERS, _LAUNCH_NETWORK))
+    assert prepared == ["calib.toml"]
 
-    def test_a_set_that_breaks_the_file_is_refused(self, tmp_path, prepared) -> None:
-        path = _write__preflight_runs(
-            tmp_path, _PARAMETERS__preflight_runs, _NETWORK__preflight_runs
-        )
 
-        result = CliRunner().invoke(
-            [
-                "calibrate",
-                str(path),
-                "--set",
-                'calibration.outputs.net.map.complete="nowhere.gpkg"',
-            ]
-        )
+# What the launch runs is what is checked: overrides and overlays included.
 
-        assert result.exit_code == EXIT_CONFIG, result.output
-        assert "nowhere.gpkg" in result.stderr
-        assert prepared == []
 
-    def test_an_environment_override_is_checked(self, tmp_path, prepared, monkeypatch) -> None:
-        path = _write__preflight_runs(
-            tmp_path, _PARAMETERS__preflight_runs, _NETWORK__preflight_runs
-        )
-        monkeypatch.setenv("HMP_SET_calibration__outputs__net__map__complete", "nowhere.gpkg")
+@LAUNCH_CLI
+def test_set_override_is_checked(tmp_path, prepared) -> None:
+    path = _write_launch_file(tmp_path, _LAUNCH_PARAMETERS, _LAUNCH_NETWORK)
 
-        result = CliRunner().invoke(["calibrate", str(path), "--dry-run"])
+    result = CliRunner().invoke(
+        [
+            "calibrate",
+            str(path),
+            "--set",
+            'calibration.outputs.net.map.complete="nowhere.gpkg"',
+        ]
+    )
 
-        assert result.exit_code == EXIT_CONFIG, result.output
-        assert "nowhere.gpkg" in result.stderr
+    assert result.exit_code == EXIT_CONFIG, result.output
+    assert "nowhere.gpkg" in result.stderr
+    assert prepared == []
 
-    def test_an_overlay_is_checked(self, tmp_path, prepared) -> None:
-        path = _write__preflight_runs(
-            tmp_path, _PARAMETERS__preflight_runs, _NETWORK__preflight_runs
-        )
-        overlay = tmp_path / "broken.toml"
-        overlay.write_text(
-            '[calibration.outputs.net]\nmap.complete = "nowhere.gpkg"\n', encoding="utf-8"
-        )
 
-        result = CliRunner().invoke(["run", str(path), "--overlay", str(overlay)])
+@LAUNCH_CLI
+def test_environment_override_is_checked(tmp_path, prepared, monkeypatch) -> None:
+    path = _write_launch_file(tmp_path, _LAUNCH_PARAMETERS, _LAUNCH_NETWORK)
+    monkeypatch.setenv("HMP_SET_calibration__outputs__net__map__complete", "nowhere.gpkg")
 
-        assert result.exit_code == EXIT_CONFIG, result.output
-        assert "nowhere.gpkg" in result.stderr
-        assert prepared == []
+    result = CliRunner().invoke(["calibrate", str(path), "--dry-run"])
+
+    assert result.exit_code == EXIT_CONFIG, result.output
+    assert "nowhere.gpkg" in result.stderr
+
+
+@LAUNCH_CLI
+def test_overlay_is_checked(tmp_path, prepared) -> None:
+    path = _write_launch_file(tmp_path, _LAUNCH_PARAMETERS, _LAUNCH_NETWORK)
+    overlay = tmp_path / "broken.toml"
+    overlay.write_text(
+        '[calibration.outputs.net]\nmap.complete = "nowhere.gpkg"\n', encoding="utf-8"
+    )
+
+    result = CliRunner().invoke(["run", str(path), "--overlay", str(overlay)])
+
+    assert result.exit_code == EXIT_CONFIG, result.output
+    assert "nowhere.gpkg" in result.stderr
+    assert prepared == []
 
 
 @pytest.fixture(scope="module")
@@ -1526,25 +1327,23 @@ def config() -> HydroModPyConfig:
         return HydroModPyConfig.from_toml(_EXAMPLE_21)
 
 
-class TestExample21:
-    """Its first phase turns the SFR reaches off in its own overrides.
-
-    The preflight read the project's base ``flow.active_bc``, where SFR is on,
-    and refused the K-moving network search of that phase, which runs without
-    it. Each phase is now checked with its overrides written in.
-    """
-
-    def test_it_is_not_refused(self, config) -> None:
-        errors = [
-            finding
-            for finding in preflight_calibration(config, source=_EXAMPLE_21)
-            if finding.severity == "error"
-        ]
-
-        assert errors == []
+# Its first phase turns the SFR reaches off in its own overrides.
+#
+# The preflight read the project's base ``flow.active_bc``, where SFR is on,
+# and refused the K-moving network search of that phase, which runs without
+# it. Each phase is now checked with its overrides written in.
 
 
-# -- the published method a file runs, as the check says it ------------------
+def test_example_21_not_refused(config) -> None:
+    errors = [
+        finding
+        for finding in preflight_calibration(config, source=_EXAMPLE_21)
+        if finding.severity == "error"
+    ]
+
+    assert errors == []
+
+
 _PROTOCOL_SECTION = """
 [calibration]
 protocol = {{ name = "matching_hydrographic_network"{options} }}
@@ -1562,7 +1361,7 @@ def _protocol_cfg(tmp_path: Path, options: str = ""):
     return HydroModPyConfig.from_toml(path)
 
 
-def test_the_lines_of_a_method_name_its_departures_and_the_options_moved_off_its_recipe(
+def test_protocol_lines(
     tmp_path: Path,
 ) -> None:
     window = 'window = { start = "2001-01-01", end = "2002-12-31" }'
@@ -1601,7 +1400,7 @@ def test_the_lines_of_a_method_name_its_departures_and_the_options_moved_off_its
         (None, False),
     ],
 )
-def test_a_backend_the_method_was_never_run_on_is_named(tmp_path: Path, backend, named) -> None:
+def test_untested_backend_is_named(tmp_path: Path, backend, named) -> None:
     cfg = _protocol_cfg(tmp_path)
     shown = SimpleNamespace(
         calibration=cfg.calibration,
@@ -1629,9 +1428,7 @@ def test_a_backend_the_method_was_never_run_on_is_named(tmp_path: Path, backend,
         ("calib.toml", "calib.toml", "bad"),
     ],
 )
-def test_a_finding_is_a_diagnostic_of_the_calibration_preflight(
-    where: str, path: str, detail: str
-) -> None:
+def test_finding_is_a_diagnostic(where: str, path: str, detail: str) -> None:
     found = preflight_report.finding("error", where, "bad")
 
     assert found == Diagnostic(
@@ -1639,16 +1436,14 @@ def test_a_finding_is_a_diagnostic_of_the_calibration_preflight(
     )
 
 
-def test_a_finding_prints_as_one_line() -> None:
+def test_finding_line() -> None:
     assert (
         preflight_report.finding("error", "[calibration]", "bad").line()
         == "ERROR   calibration: bad"
     )
 
 
-def test_the_launch_says_once_what_it_warns_of_and_where_it_leaves_the_paper(
-    tmp_path: Path, monkeypatch, caplog
-) -> None:
+def test_launch_logs_warnings_once(tmp_path: Path, monkeypatch, caplog) -> None:
     cfg = _protocol_cfg(tmp_path)
     warning = preflight_report.finding("warning", "[calibration]", "twice written")
     monkeypatch.setattr(preflight, "preflight_calibration", lambda *_a, **_k: [warning, warning])
@@ -1663,11 +1458,11 @@ def test_the_launch_says_once_what_it_warns_of_and_where_it_leaves_the_paper(
 @pytest.mark.parametrize(
     ("value", "shown"), [(None, "unset"), (3, "3"), ("auto", "'auto'")], ids=str
 )
-def test_an_option_is_shown_as_the_file_wrote_it(value: object, shown: str) -> None:
+def test_option_rendering(value: object, shown: str) -> None:
     assert preflight_report._rendered(value) == shown
 
 
-def test_a_file_without_calibration_compares_nothing_and_a_search_without_table_adds_no_block(
+def test_comparison_lines(
     monkeypatch,
 ) -> None:
     assert preflight_report.comparison_lines(SimpleNamespace(), Path("calib.toml")) == []
@@ -1689,7 +1484,7 @@ def test_a_file_without_calibration_compares_nothing_and_a_search_without_table_
         ({"a": {"x": 1}}, "a.c.d", "no 'c' under a, which holds x"),
     ],
 )
-def test_a_path_is_walked_through_mappings_and_a_last_key_may_be_new(config, path, said) -> None:
+def test_path_walk(config, path, said) -> None:
     assert preflight._no_field_on_the_way(config, path) == said
 
 
@@ -1706,7 +1501,7 @@ def test_a_path_is_walked_through_mappings_and_a_last_key_may_be_new(config, pat
         ("foo", {"units": None, "mode": "scale"}, [0.0, 1.0], None),
     ],
 )
-def test_bounds_are_faced_with_the_physics_and_the_log_space(name, decl, bounds, said) -> None:
+def test_bounds_against_physics(name, decl, bounds, said) -> None:
     declared = SimpleNamespace(**{"mode": "replace", "search_space": "identity", **decl})
 
     found = preflight._check_bounds_against_physics("w", name, declared, bounds)
@@ -1714,7 +1509,7 @@ def test_bounds_are_faced_with_the_physics_and_the_log_space(name, decl, bounds,
     assert (found[0].detail if found else None) is None if said is None else said in found[0].detail
 
 
-def test_a_regime_read_from_a_file_that_cannot_be_read_is_refused_by_name(tmp_path: Path) -> None:
+def test_unreadable_file_for_a_regime(tmp_path: Path) -> None:
     phase = SimpleNamespace(name="k", regime="steady")
     calibration = SimpleNamespace(phases=[phase])
 
@@ -1725,7 +1520,7 @@ def test_a_regime_read_from_a_file_that_cannot_be_read_is_refused_by_name(tmp_pa
     ]
 
 
-def test_a_phase_regime_that_cannot_be_read_leaves_its_search_on_the_file_as_it_is(
+def test_unreadable_phase_regime(
     tmp_path: Path,
 ) -> None:
     phase = SimpleNamespace(name="k", regime="steady", steady_window=None, overrides=None)
@@ -1738,7 +1533,7 @@ def test_a_phase_regime_that_cannot_be_read_leaves_its_search_on_the_file_as_it_
     assert (searched, found) == ({"k": config}, [])
 
 
-def test_a_configuration_held_in_memory_is_its_own_raw_document(tmp_path: Path) -> None:
+def test_in_memory_raw_document(tmp_path: Path) -> None:
     held = SimpleNamespace(model_dump=lambda **_kw: {"flow": {}})
 
     assert preflight_searches.raw_document(held, tmp_path / "gone.toml") == {"flow": {}}
@@ -1775,15 +1570,11 @@ def test_a_configuration_held_in_memory_is_its_own_raw_document(tmp_path: Path) 
     ],
     ids=["two_blocks_of_one_name", "restarts_of_a_search_they_cannot_move"],
 )
-def test_a_declaration_that_cannot_run_as_written_is_refused(
-    tmp_path: Path, doc: str, said: str
-) -> None:
+def test_declaration_refusals(tmp_path: Path, doc: str, said: str) -> None:
     assert said in messages(preflight_of(tmp_path, doc))
 
 
-_UNOBSERVED = TestALinearizedWidthOnAPhaseThatNamesNeitherOutputsNorBlocks._DOC.replace(
-    "@GAUGE\n", ""
-)
+_UNOBSERVED = UNNAMED_PHASE_DOC.replace("@GAUGE\n", "")
 
 
 @pytest.mark.parametrize(
@@ -1791,11 +1582,11 @@ _UNOBSERVED = TestALinearizedWidthOnAPhaseThatNamesNeitherOutputsNorBlocks._DOC.
     [_UNOBSERVED.split("[[calibration.phases]]")[0], _UNOBSERVED + 'outputs = ["other"]'],
     ids=["section", "phase_outputs"],
 )
-def test_a_width_taken_from_outputs_no_station_names_is_refused(tmp_path: Path, doc: str) -> None:
+def test_width_from_unobserved_outputs(tmp_path: Path, doc: str) -> None:
     assert "no output names a station to be compared" in messages(preflight_of(tmp_path, doc))
 
 
-def test_a_budget_the_counting_cannot_read_is_left_to_the_checks_that_refuse_its_inputs(
+def test_unreadable_budget_is_left_alone(
     monkeypatch,
 ) -> None:
     def _unreadable(*_args):
@@ -1806,13 +1597,13 @@ def test_a_budget_the_counting_cannot_read_is_left_to_the_checks_that_refuse_its
     assert preflight._check_the_budgets(_config("grid", 2, {})) == []
 
 
-def test_a_root_search_on_a_parameter_without_two_bounds_has_no_nominal_count() -> None:
+def test_no_nominal_count_without_two_bounds() -> None:
     calibration = SimpleNamespace(parameters={})
 
     assert preflight._counted_budget(calibration, None, "bisection", ["K"], None, {}) is None
 
 
-def test_a_backend_that_cannot_serve_an_output_is_named_once(tmp_path: Path, monkeypatch) -> None:
+def test_unserved_output_named_once(tmp_path: Path, monkeypatch) -> None:
     cfg = HydroModPyConfig.from_toml(write_calibration(tmp_path, "@GRID4\n@KLOG\n@NETROOT\n@GAP"))
     unserved = SimpleNamespace(name="release_flux", is_servable_now=False, reason="no flux")
     adapter = SimpleNamespace(declared_observables=lambda _active: [unserved])
@@ -1827,15 +1618,13 @@ def test_a_backend_that_cannot_serve_an_output_is_named_once(tmp_path: Path, mon
     ] == [("calibration.outputs.net", True)]
 
 
-def test_a_backend_no_adapter_is_registered_for_serves_nothing() -> None:
+def test_backend_without_adapter() -> None:
     unknown = SimpleNamespace(solver=SimpleNamespace(backend_name="nope"))
 
     assert preflight._flow_adapter_for(unknown) is None
 
 
-def test_an_extent_the_timestep_cannot_read_is_left_to_the_refusal_of_its_own_check(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_unreadable_extent_is_left_alone(tmp_path: Path, monkeypatch) -> None:
     cfg = HydroModPyConfig.from_toml(write_calibration(tmp_path, "@GRID4\n@KLOG\n@NETROOT\n@GAP"))
     odd = SimpleNamespace(flowing_at_least="soon", dry_at_most="1 d")
     monkeypatch.setattr(preflight_network, "_extents_scored_by", lambda *_a: [("net", odd)])
@@ -1846,9 +1635,7 @@ def test_an_extent_the_timestep_cannot_read_is_left_to_the_refusal_of_its_own_ch
     )
 
 
-def test_a_steady_phase_that_cannot_be_dated_and_a_grid_that_cannot_be_read_date_nothing(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_undatable_search_edges(tmp_path: Path, monkeypatch) -> None:
     steady = SimpleNamespace(regime="steady")
     where = tmp_path / "gone.toml"
     held: list = []
@@ -1874,7 +1661,7 @@ def test_a_steady_phase_that_cannot_be_dated_and_a_grid_that_cannot_be_read_date
     assert preflight_network._search_edges(SimpleNamespace(), None, where, []) is None
 
 
-def test_two_parameters_that_move_no_declared_output_form_no_ridge(tmp_path: Path) -> None:
+def test_no_ridge_without_a_declared_output(tmp_path: Path) -> None:
     assert preflight_of(tmp_path, "@GRID\n@KLOG\n@SY") == []
 
 
@@ -1928,9 +1715,7 @@ _MONO, _PHASE_S = ("calibration", ""), ("calibration.phases", "'s': ")
         ),
     ],
 )
-def test_an_engine_finding_names_its_severity_and_its_search(
-    tmp_path, doc, severity, key, said
-) -> None:
+def test_engine_findings(tmp_path, doc, severity, key, said) -> None:
     path, head = key
     found = [f for f in preflight_of(tmp_path, doc) if said in f.detail]
 
@@ -1938,7 +1723,7 @@ def test_an_engine_finding_names_its_severity_and_its_search(
     assert found[0].detail.startswith(head)
 
 
-def test_an_engine_refuses_an_unregistered_method_on_constructed_config() -> None:
+def test_unregistered_method_on_constructed_config() -> None:
     config = CalibrationConfig.model_construct(
         method="nope",
         parameters={"K": {"bounds": [1e-7, 1e-3]}},
@@ -1949,7 +1734,7 @@ def test_an_engine_refuses_an_unregistered_method_on_constructed_config() -> Non
     assert [(f.severity, f.path) for f in found] == [("error", "calibration")]
 
 
-def test_a_serial_engine_asked_for_two_workers_can_use_one(tmp_path, monkeypatch) -> None:
+def test_serial_engine_asked_for_workers(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         BisectionAdapter, "traits", replace(BisectionAdapter.traits, supports_parallel=False)
     )
@@ -1961,7 +1746,7 @@ def test_a_serial_engine_asked_for_two_workers_can_use_one(tmp_path, monkeypatch
     assert "can use 1 solves at once, so parallel = 2" in found[0].detail
 
 
-def test_a_phase_that_scores_the_gauge_alone_closes_one_root_whatever_the_file_declares(
+def test_gauge_phase_closes_one_root(
     tmp_path,
 ) -> None:
     phase = (

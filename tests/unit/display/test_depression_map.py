@@ -1,30 +1,11 @@
-"""What the depression map says, on a mesh whose two answers are known apart.
+"""Depression map (cells raised by a priority flood, in m) on a known mesh.
 
-The bug this file guards against is a map that showed one thing and named it
-another, so the fixture is built to hold the two things at once and keep them
-far apart.
-
-The mesh is a ``9 x 5`` grid carrying TWO parallel V-valleys, one closing on
-column 2 and one on column 6, separated by a ridge on column 4. Every cell
-descends to the southern edge of the grid, so the surface has no closed
-depression anywhere: a priority flood seeded on every escape must change
-nothing. The delineated catchment covers the western valley alone, so its
-outlet is the southern end of column 2, and a flood seeded on that ONE cell has
-to raise the whole eastern valley over the ridge before a distance to it
-exists. Fifteen of the forty-five cells, a third of the mesh, none of them in a
-depression.
-
-Digging one interior cell of the western flank below its neighbors adds the
-only real depression on the page. Its spill level is written down here: the
-lowest neighbor of that cell, which is not the same cell under a
-four-neighbor graph as under an eight-neighbor one.
-
-Two variants of that surface carry the rest of the answers. A second and deeper
-pit dug in the eastern valley puts one depression inside the catchment and one
-outside it, which is what a color scale is read against. A catchment stopping
-one row short of the southern edge makes the dug cell its low point, so the
-outlet is interior and sits in a depression itself: on the Nancon it does, and
-a flood that seeded the outlet reported that depression away.
+The mesh is a 9 x 5 grid of 100 m cells with two parallel V-valleys (columns 2
+and 6) split by a ridge on column 4. Every cell descends to the southern edge,
+so the surface holds no closed depression. The catchment covers the western
+valley, so a flood seeded on its outlet must raise the whole eastern valley
+before a distance to it exists. Digging cells below their neighbors adds known
+pits, and their spill levels are written down below.
 """
 
 from __future__ import annotations
@@ -227,12 +208,7 @@ def _labelled(ax, label: str):
     return next((item for item in ax.collections if str(item.get_label()) == label), None)
 
 
-# --------------------------------------------------------------------------- #
-# the mesh the tests are written on
-# --------------------------------------------------------------------------- #
-
-
-def test_the_fixture_holds_two_basins_and_one_outlet() -> None:
+def test_fixture_has_two_basins() -> None:
     # Everything below reads as a property only if this holds: the eastern
     # valley closes on a cell that is not the outlet, and the outlet is the
     # unique low point of the delineated catchment.
@@ -245,7 +221,7 @@ def test_the_fixture_holds_two_basins_and_one_outlet() -> None:
     assert not surface.catchment[eastern_floor]
 
 
-def test_an_inactive_column_moves_the_edge_of_the_domain(mpl) -> None:
+def test_inactive_column_moves_domain_edge(mpl) -> None:
     # The edge is where the ACTIVE mesh stops, not where the array does: a
     # buffered box with a nodata margin would otherwise seed its flood outside
     # the model and call every real depression an escape.
@@ -261,19 +237,11 @@ def test_an_inactive_column_moves_the_edge_of_the_domain(mpl) -> None:
     assert np.flatnonzero(depression_fill(surface).closed.raised).tolist() == [PIT_CELL]
 
     fig, ax = mpl.subplots()
-    try:
-        DepressionMap().render(run, ax)
-        assert f"{INACTIVE_LABEL} ({NY} cells)" in legend_labels(ax)
-    finally:
-        mpl.close(fig)
+    DepressionMap().render(run, ax)
+    assert f"{INACTIVE_LABEL} ({NY} cells)" in legend_labels(ax)
 
 
-# --------------------------------------------------------------------------- #
-# what the two floods are, and what separates them
-# --------------------------------------------------------------------------- #
-
-
-def test_a_surface_that_gets_out_everywhere_holds_no_depression() -> None:
+def test_free_draining_surface_has_no_depression() -> None:
     fill = depression_fill(routing_surface_from_run(basin_run()))
 
     assert int(fill.closed.raised.sum()) == 0
@@ -284,7 +252,7 @@ def test_a_surface_that_gets_out_everywhere_holds_no_depression() -> None:
     ("diagonal", "spill_m"),
     [(False, EDGE_SPILL_M), (True, NODE_SPILL_M)],
 )
-def test_the_dug_cell_is_raised_onto_its_lowest_neighbour(diagonal: bool, spill_m: float) -> None:
+def test_dug_cell_raised_to_spill(diagonal: bool, spill_m: float) -> None:
     run = basin_run(topography=pitted_topography())
 
     fill = depression_fill(routing_surface_from_run(run, diagonal_neighbors=diagonal))
@@ -296,7 +264,7 @@ def test_the_dug_cell_is_raised_onto_its_lowest_neighbour(diagonal: bool, spill_
     )
 
 
-def test_the_outlet_falls_back_to_the_mesh_when_the_run_carries_no_catchment() -> None:
+def test_outlet_falls_back_to_mesh() -> None:
     run = basin_run(topography=pitted_topography())
     run.geographic = lambda feature: (_ for _ in ()).throw(KeyError(feature))
 
@@ -307,12 +275,7 @@ def test_the_outlet_falls_back_to_the_mesh_when_the_run_carries_no_catchment() -
     assert surface.outlet == int(np.argmin(pitted_topography()))
 
 
-# --------------------------------------------------------------------------- #
-# what the map draws
-# --------------------------------------------------------------------------- #
-
-
-def test_the_default_map_paints_the_depression_and_not_the_other_basin(mpl) -> None:
+def test_map_paints_only_the_pit(mpl) -> None:
     # The regression this figure was rewritten for: the eastern valley used to
     # be painted as raised, on a map titled "depressions", and it holds none.
     fig, ax = mpl.subplots()
@@ -321,80 +284,56 @@ def test_the_default_map_paints_the_depression_and_not_the_other_basin(mpl) -> N
     # pit spills over a diagonal saddle, lower than its cardinal one.
     DepressionMap().render(basin_run(topography=pitted_topography()), ax, diagonal_neighbors=False)
 
-    try:
-        raised = _labelled(ax, READINGS[DEPRESSIONS].raised_label)
-        assert raised is not None
-        assert drawn_cells(raised) == [PIT_CELL]
-        assert raised.get_array().tolist() == pytest.approx(
-            [EDGE_SPILL_M + DEFAULT_EPSILON_M - PIT_ELEVATION_M]
-        )
-        drains = _labelled(ax, READINGS[DEPRESSIONS].drains_label)
-        assert set(EASTERN_CELLS) <= set(drawn_cells(drains))
-    finally:
-        mpl.close(fig)
+    raised = _labelled(ax, READINGS[DEPRESSIONS].raised_label)
+    assert raised is not None
+    assert drawn_cells(raised) == [PIT_CELL]
+    assert raised.get_array().tolist() == pytest.approx(
+        [EDGE_SPILL_M + DEFAULT_EPSILON_M - PIT_ELEVATION_M]
+    )
+    drains = _labelled(ax, READINGS[DEPRESSIONS].drains_label)
+    assert set(EASTERN_CELLS) <= set(drawn_cells(drains))
 
 
-def test_the_map_draws_no_depth_layer_on_a_surface_that_holds_no_pit(mpl) -> None:
+def test_no_pit_draws_no_depth_layer(mpl) -> None:
     fig, ax = mpl.subplots()
 
     DepressionMap().render(basin_run(), ax)
 
-    try:
-        assert _labelled(ax, READINGS[DEPRESSIONS].raised_label) is None
-        assert "no closed depression" in legend_note(ax)
-        assert not fig.axes[1:], "an empty scale must not print a colorbar"
-    finally:
-        mpl.close(fig)
+    assert _labelled(ax, READINGS[DEPRESSIONS].raised_label) is None
+    assert "no closed depression" in legend_note(ax)
+    assert not fig.axes[1:], "an empty scale must not print a colorbar"
 
 
-def test_the_outlet_is_marked_where_the_flood_was_seeded(mpl) -> None:
+def test_outlet_marked_at_flood_seed(mpl) -> None:
     fig, ax = mpl.subplots()
 
     DepressionMap().render(basin_run(topography=pitted_topography()), ax)
 
-    try:
-        stars = [line for line in ax.lines if line.get_marker() == "*"]
-        assert len(stars) == 1
-        surface = routing_surface_from_run(basin_run(topography=pitted_topography()))
-        expected = surface.centroids[surface.outlet]
-        assert stars[0].get_xdata()[0] == pytest.approx(expected[0])
-        assert stars[0].get_ydata()[0] == pytest.approx(expected[1])
-    finally:
-        mpl.close(fig)
-
-
-# --------------------------------------------------------------------------- #
-# the note, which is what keeps the two readings apart
-# --------------------------------------------------------------------------- #
+    stars = [line for line in ax.lines if line.get_marker() == "*"]
+    assert len(stars) == 1
+    surface = routing_surface_from_run(basin_run(topography=pitted_topography()))
+    expected = surface.centroids[surface.outlet]
+    assert stars[0].get_xdata()[0] == pytest.approx(expected[0])
+    assert stars[0].get_ydata()[0] == pytest.approx(expected[1])
 
 
 @pytest.mark.parametrize(
     ("shows", "expected"),
     [(DEPRESSIONS, "24 cells on the edge of the active mesh"), (UNREACHABLE, "the active mesh")],
 )
-def test_the_note_names_the_mesh_when_the_run_carries_no_catchment(
-    mpl, shows: str, expected: str
-) -> None:
+def test_note_names_mesh_without_catchment(mpl, shows: str, expected: str) -> None:
     fig, ax = mpl.subplots()
     run = basin_run(topography=pitted_topography())
     run.geographic = lambda feature: (_ for _ in ()).throw(KeyError(feature))
 
     DepressionMap().render(run, ax, shows=shows)
 
-    try:
-        note = legend_note(ax)
-        assert expected in note
-        assert "catchment" not in note, "no catchment was delineated, so none may be named"
-    finally:
-        mpl.close(fig)
+    note = legend_note(ax)
+    assert expected in note
+    assert "catchment" not in note, "no catchment was delineated, so none may be named"
 
 
-# --------------------------------------------------------------------------- #
-# the color scale
-# --------------------------------------------------------------------------- #
-
-
-def test_the_unreachable_scale_is_set_by_the_fills_inside_the_catchment(mpl) -> None:
+def test_unreachable_scale_uses_catchment(mpl) -> None:
     """Outside it the mesh holds whole basins flooded over a ridge.
 
     A percentile over the whole mesh is set by those, and the meter-scale pit
@@ -412,18 +351,13 @@ def test_the_unreachable_scale_is_set_by_the_fills_inside_the_catchment(mpl) -> 
         diagonal_neighbors=False,
     )
 
-    try:
-        raised = _labelled(ax, READINGS[UNREACHABLE].raised_label)
-        assert max(raised.get_array().tolist()) > 30.0
-        assert raised.get_clim()[1] == pytest.approx(
-            EDGE_SPILL_M + DEFAULT_EPSILON_M - PIT_ELEVATION_M
-        )
-        assert raised.colorbar.extend == "max", "the scale is cut, so the arrow is not decoration"
-    finally:
-        mpl.close(fig)
+    raised = _labelled(ax, READINGS[UNREACHABLE].raised_label)
+    assert max(raised.get_array().tolist()) > 30.0
+    assert raised.get_clim()[1] == pytest.approx(EDGE_SPILL_M + DEFAULT_EPSILON_M - PIT_ELEVATION_M)
+    assert raised.colorbar.extend == "max", "the scale is cut, so the arrow is not decoration"
 
 
-def test_the_depression_scale_is_stretched_over_the_pits_of_the_whole_mesh(mpl) -> None:
+def test_depression_scale_uses_whole_mesh(mpl) -> None:
     """The closed flood raises pits, never a basin, so no lobe can set the scale.
 
     Restricting it to the catchment would leave every pit outside the catchment
@@ -435,18 +369,15 @@ def test_the_depression_scale_is_stretched_over_the_pits_of_the_whole_mesh(mpl) 
     run = basin_run(topography=two_pit_topography())
     DepressionMap().render(run, ax, clip_percentile=100.0)
 
-    try:
-        raised = _labelled(ax, READINGS[DEPRESSIONS].raised_label)
-        assert drawn_cells(raised) == sorted([PIT_CELL, EAST_PIT_CELL])
-        assert raised.get_clim()[1] == pytest.approx(
-            EAST_PIT_SPILL_M + DEFAULT_EPSILON_M - EAST_PIT_ELEVATION_M
-        )
-        assert raised.colorbar.extend == "neither", "nothing is cut, so no arrow is drawn"
-    finally:
-        mpl.close(fig)
+    raised = _labelled(ax, READINGS[DEPRESSIONS].raised_label)
+    assert drawn_cells(raised) == sorted([PIT_CELL, EAST_PIT_CELL])
+    assert raised.get_clim()[1] == pytest.approx(
+        EAST_PIT_SPILL_M + DEFAULT_EPSILON_M - EAST_PIT_ELEVATION_M
+    )
+    assert raised.colorbar.extend == "neither", "nothing is cut, so no arrow is drawn"
 
 
-def test_the_unreachable_scale_falls_back_to_the_mesh_when_no_pit_is_inside(mpl) -> None:
+def test_unreachable_scale_falls_back(mpl) -> None:
     """An empty subset would leave the ramp with nothing to stretch over."""
     fig, ax = mpl.subplots()
 
@@ -458,26 +389,12 @@ def test_the_unreachable_scale_falls_back_to_the_mesh_when_no_pit_is_inside(mpl)
 
     DepressionMap().render(run, ax, shows=UNREACHABLE, clip_percentile=100.0)
 
-    try:
-        raised = _labelled(ax, READINGS[UNREACHABLE].raised_label)
-        assert PIT_CELL in drawn_cells(raised), "the only pit, and it is outside the catchment"
-        assert raised.get_clim()[1] == pytest.approx(max(raised.get_array().tolist()))
-    finally:
-        mpl.close(fig)
+    raised = _labelled(ax, READINGS[UNREACHABLE].raised_label)
+    assert PIT_CELL in drawn_cells(raised), "the only pit, and it is outside the catchment"
+    assert raised.get_clim()[1] == pytest.approx(max(raised.get_array().tolist()))
 
 
-def test_a_banned_colormap_is_refused_by_name(mpl) -> None:
-    """The global ``[display].cmap`` reaches this figure like any other."""
-    fig, ax = mpl.subplots()
-
-    try:
-        with pytest.raises(ValueError, match="banned"):
-            DepressionMap().render(basin_run(topography=pitted_topography()), ax, cmap="jet")
-    finally:
-        mpl.close(fig)
-
-
-def test_a_raised_cell_stays_separable_from_a_cell_that_drains(mpl) -> None:
+def test_raised_cell_stands_out(mpl) -> None:
     # The background is a flat gray and the depth runs light to dark, so the
     # shallow end has to print lighter than the background and the deep end
     # darker. Sat inside that range, a fill would vanish on a grayscale print.
@@ -495,17 +412,7 @@ def test_a_raised_cell_stays_separable_from_a_cell_that_drains(mpl) -> None:
     )
 
 
-# --------------------------------------------------------------------------- #
-# what the figure refuses, and how it is asked for
-# --------------------------------------------------------------------------- #
-
-
-def test_a_reading_that_does_not_exist_is_refused_by_name() -> None:
-    with pytest.raises(ValueError, match="shows must be one of"):
-        reading_for("pits")
-
-
-def test_it_names_what_it_needs_when_the_run_kept_no_mesh_top() -> None:
+def test_missing_mesh_top_named() -> None:
     run = comparison_run()
     run.mesh.topography = None
 
@@ -516,13 +423,20 @@ def test_it_names_what_it_needs_when_the_run_kept_no_mesh_top() -> None:
     assert reason.endswith("route on")
 
 
-def test_a_percentile_outside_the_scale_is_refused(mpl) -> None:
-    fig, ax = mpl.subplots()
+REFUSALS = [
+    pytest.param({"cmap": "jet"}, "banned", id="banned colormap"),
+    pytest.param({"clip_percentile": 0.0}, "clip_percentile", id="percentile outside the scale"),
+]
 
-    try:
-        with pytest.raises(ValueError, match="clip_percentile"):
-            DepressionMap().render(
-                basin_run(topography=pitted_topography()), ax, clip_percentile=0.0
-            )
-    finally:
-        mpl.close(fig)
+
+@pytest.mark.parametrize(("kwargs", "message"), REFUSALS)
+def test_refusals(mpl, kwargs, message) -> None:
+    _, ax = mpl.subplots()
+
+    with pytest.raises(ValueError, match=message):
+        DepressionMap().render(basin_run(topography=pitted_topography()), ax, **kwargs)
+
+
+def test_unknown_reading_refused() -> None:
+    with pytest.raises(ValueError, match="shows must be one of"):
+        reading_for("pits")

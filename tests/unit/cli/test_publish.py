@@ -1,4 +1,4 @@
-"""``hmp publish``: every sealed run and the summary at once, a copy that says how to replay it.
+"""``hmp publish``: copies sealed runs and the summary, and says how to replay the copy.
 
 A copy takes its results and its inputs by default and ``--without`` leaves one
 out; ``--with`` goes with ``--package`` only. ``hmp publish .`` leaves a replay
@@ -31,7 +31,7 @@ def _invoke(*args: str):
     return CliRunner().invoke(["publish", *args])
 
 
-def test_a_refused_summary_leaves_no_run_copy_behind(tmp_path: Path) -> None:
+def test_refused_summary_leaves_no_copy(tmp_path: Path) -> None:
     project = make_project(tmp_path)
     run_dir = make_sealed_run(project)
     make_summary(project, error_message="ok", parquet_error=f"{project}/runs/a/mfsim.lst")
@@ -46,7 +46,7 @@ def test_a_refused_summary_leaves_no_run_copy_behind(tmp_path: Path) -> None:
 
 
 def _demo_project(tmp_path: Path, *, config: bool = True) -> Path:
-    """A project with one sealed run ``demo``, indexed, with its frozen config or without it."""
+    # One sealed run demo, indexed, with its frozen config or without it.
     root = tmp_path / "project"
     run_dir, _ = seal_demo_run(root)
     if config:
@@ -54,7 +54,7 @@ def _demo_project(tmp_path: Path, *, config: bool = True) -> Path:
     return root
 
 
-def test_a_copy_with_its_inputs_says_how_to_replay_it(tmp_path: Path) -> None:
+def test_copy_says_how_to_replay(tmp_path: Path) -> None:
     project = _demo_project(tmp_path)
     into = tmp_path / "copy"
 
@@ -74,7 +74,7 @@ def test_a_copy_with_its_inputs_says_how_to_replay_it(tmp_path: Path) -> None:
     assert f"sealed with HydroModPy {sealed['identity']['hydromodpy_version']}" in result.stderr
 
 
-def test_a_run_without_a_frozen_config_has_no_line_to_replay_it(tmp_path: Path) -> None:
+def test_no_replay_line_without_config(tmp_path: Path) -> None:
     project = _demo_project(tmp_path, config=False)
     (project / "runs" / DEMO_RUN / "config.toml").unlink(missing_ok=True)
 
@@ -86,7 +86,7 @@ def test_a_run_without_a_frozen_config_has_no_line_to_replay_it(tmp_path: Path) 
     assert json.loads(result.stdout)["data"]["next"] is None
 
 
-def test_an_input_the_run_derived_in_its_scratch_is_named_as_such(tmp_path: Path) -> None:
+def test_scratch_product_is_named(tmp_path: Path) -> None:
     project = _demo_project(tmp_path)
     run_dir = project / "runs" / DEMO_RUN
     inputs = json.loads((run_dir / "inputs.json").read_text(encoding="utf-8"))
@@ -116,9 +116,7 @@ def test_an_input_the_run_derived_in_its_scratch_is_named_as_such(tmp_path: Path
         pytest.param("inputs", {"fields.zarr"}, {"inputs", "INSTALL.toml"}, id="inputs"),
     ],
 )
-def test_without_leaves_one_part_out_of_a_copy(
-    tmp_path: Path, without: str, present: set[str], absent: set[str]
-) -> None:
+def test_without(tmp_path: Path, without: str, present: set[str], absent: set[str]) -> None:
     project = _demo_project(tmp_path)
     into = tmp_path / "copy"
 
@@ -142,9 +140,7 @@ PACKAGE_WITHOUT_REFUSAL = (
 
 
 @pytest.mark.parametrize("extra", ["results", "inputs", "runs"])
-def test_with_on_a_copy_is_refused_with_a_sentence_that_names_without(
-    tmp_path: Path, extra: str
-) -> None:
+def test_with_on_a_copy(tmp_path: Path, extra: str) -> None:
     project = _demo_project(tmp_path)
 
     result = _invoke(DEMO_RUN, "--to", str(tmp_path / "c"), "--with", extra, "-w", str(project))
@@ -154,7 +150,7 @@ def test_with_on_a_copy_is_refused_with_a_sentence_that_names_without(
     assert not (tmp_path / "c").exists()
 
 
-def test_without_on_a_package_is_refused(tmp_path: Path) -> None:
+def test_without_on_a_package(tmp_path: Path) -> None:
     project = _demo_project(tmp_path)
 
     result = _invoke(
@@ -166,7 +162,7 @@ def test_without_on_a_package_is_refused(tmp_path: Path) -> None:
     assert not (tmp_path / "p.tar").exists()
 
 
-def test_a_package_takes_what_with_names(tmp_path: Path) -> None:
+def test_package_with(tmp_path: Path) -> None:
     project = _demo_project(tmp_path)
 
     result = _invoke(
@@ -177,7 +173,7 @@ def test_a_package_takes_what_with_names(tmp_path: Path) -> None:
     assert (tmp_path / "p.tar").is_file()
 
 
-def test_the_extras_of_a_copy_and_of_a_package_do_not_mix(tmp_path: Path) -> None:
+def test_copy_and_package_extras(tmp_path: Path) -> None:
     project = _demo_project(tmp_path)
 
     package = _invoke(
@@ -190,7 +186,7 @@ def test_the_extras_of_a_copy_and_of_a_package_do_not_mix(tmp_path: Path) -> Non
     assert "--public" in public.stderr
 
 
-def test_the_project_copy_names_the_replay_it_left_out(tmp_path: Path) -> None:
+def test_replay_left_out(tmp_path: Path) -> None:
     project = make_project(tmp_path)
     run_dir = make_sealed_run(project)
     shutil.copytree(run_dir, project / "runs" / "source")

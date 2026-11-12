@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import copy
+import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pytest
 
+import hydromodpy.results.record.request_identity as identity
 from hydromodpy.model.initial.state import PriorState
 from hydromodpy.results.record.request_identity import (
     REQUEST_EXCLUDED,
@@ -41,33 +43,16 @@ INPUTS = {input_role("dem", 0): ("a" * 64, "raw"), input_role("recharge", 0): ("
 EDITION = "2.0"
 
 
-def _changed(path: str, value: Any) -> dict[str, Any]:
-    document = copy.deepcopy(DOCUMENT)
-    *parents, leaf = path.split(".")
-    holder: Any = document
-    for part in parents:
-        holder = holder[int(part)] if isinstance(holder, list) else holder.setdefault(part, {})
-    holder[leaf] = value
-    return document
-
-
 def _id(document: dict[str, Any] = DOCUMENT, inputs=INPUTS, **keywords: Any) -> str:
     keywords.setdefault("edition", EDITION)
     return request_id(document, inputs, **keywords)
 
 
-def _delivered(address: str) -> dict[str, Any]:
-    """Return the document with one export block that delivers *address*."""
-    document = copy.deepcopy(DOCUMENT)
-    document["export"][0]["deliver_to"] = [address]
-    return document
-
-
-def test_the_excluded_keys_are_the_table_of_the_module() -> None:
+def test_excluded_keys() -> None:
     assert REQUEST_EXCLUDED == ("workspace", "workflow", "simulation.name")
 
 
-def test_a_state_for_a_key_the_document_lacks_is_refused() -> None:
+def test_state_for_an_absent_key_is_refused() -> None:
     with pytest.raises(KeyError, match="no earlier run"):
         _id(source_states={RESTART_KEY: "7" * 64})
 
@@ -104,7 +89,7 @@ HEAD = np.array([[1.0, np.nan, -0.0], [2.0, 3.0, 4.0]])
         pytest.param(_state(HEAD, {"l1": 5.0}, reaches={0: 3.0}), False, id="a reach stage"),
     ],
 )
-def test_a_prior_state_is_hashed_by_what_a_run_reads(other: PriorState, same: bool) -> None:
+def test_prior_state_digest(other: PriorState, same: bool) -> None:
     assert (prior_state_digest(other) == prior_state_digest(_state(HEAD, {"l1": 5.0}))) is same
 
 
@@ -120,17 +105,14 @@ REACHES = {0: 3.0, 1: 2.5}
         pytest.param(_state(HEAD, {}, reaches={0: 3.0}), False, id="one reach fewer"),
     ],
 )
-def test_the_reach_stages_and_their_numbers_count(other: PriorState, same: bool) -> None:
+def test_reach_stages_in_the_digest(other: PriorState, same: bool) -> None:
     assert (
         prior_state_digest(other) == prior_state_digest(_state(HEAD, {}, reaches=REACHES))
     ) is same
 
 
-def test_a_state_without_reach_stages_keeps_the_digest_it_had() -> None:
-    """The digest of restarts of a pre-release, written out here, so their request_id does not move."""
-    import hashlib
-    import json
-
+def test_digest_without_reach_stages() -> None:
+    # The digest of restarts of a pre-release, written out so their request_id does not move.
     state = _state(HEAD, {"l1": 5.0})
     before = hashlib.sha256()
     before.update(json.dumps(["l1"]).encode("utf-8"))
@@ -151,7 +133,7 @@ def _key(**changes: Any) -> str:
     return solution_key(_id(), **keywords)
 
 
-def test_the_solution_key_moves_with_what_computes(tmp_path: Path) -> None:
+def test_solution_key(tmp_path: Path) -> None:
     binary = tmp_path / "mf6"
     binary.write_bytes(b"one build")
     with_binary = _key(binaries={"modflow6": binary})
@@ -165,11 +147,7 @@ def test_the_solution_key_moves_with_what_computes(tmp_path: Path) -> None:
     assert _key(binaries={"modflow6": None}) == _key(binaries={"modflow6": tmp_path / "absent"})
 
 
-def test_a_binary_is_read_once_while_it_is_unchanged(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import hydromodpy.results.record.request_identity as identity
-
+def test_binary_is_read_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     binary = tmp_path / "libmf6.so"
     binary.write_bytes(b"x" * 1000)
     first = binary_digest(binary)

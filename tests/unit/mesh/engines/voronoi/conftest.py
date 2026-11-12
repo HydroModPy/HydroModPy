@@ -80,12 +80,6 @@ def reservoir_request() -> Callable[..., MeshRequest]:
 
 
 @pytest.fixture
-def walled_reservoir() -> Callable[[float], tuple[SnappedWall, MeshRequest]]:
-    """Return the wall snapped to the dam shore at an offset and the request it gives."""
-    return _walled
-
-
-@pytest.fixture
 def walled_reservoir_mesh() -> Callable[[float], tuple[SnappedWall, MeshRequest, PlanarCellMesh]]:
     """Return the wall, the request and the voronoi mesh of the reservoir at an offset."""
     return _walled_mesh

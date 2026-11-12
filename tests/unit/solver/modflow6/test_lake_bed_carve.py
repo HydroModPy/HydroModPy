@@ -30,8 +30,8 @@ from tests._helpers.lake_bed_cases import (
 MARNAGE = {"dynamic_area": True, "reconcile_to_abacus": False}
 
 
-def _assert_valid_columns(carved, *, min_thickness: float = 0.0) -> None:
-    """Every column is a prism on the fixed base, each layer at least the floor."""
+def assert_valid_columns(carved, *, min_thickness: float = 0.0) -> None:
+    # Every column is a prism on the fixed base, each layer at least the floor.
     for cid in CELLS:
         col = carved.botm[:, cid]
         thickness = np.concatenate(([carved.top[cid]], col[:-1])) - col
@@ -39,7 +39,7 @@ def _assert_valid_columns(carved, *, min_thickness: float = 0.0) -> None:
         assert col[-1] == BASE
 
 
-def test_carve_reconciles_to_abacus_keeps_valid_columns_and_builds_a_valid_disv(tmp_path) -> None:
+def test_carve_reconciles_to_abacus(tmp_path) -> None:
     import flopy
 
     mesh = stack_mesh()
@@ -47,7 +47,7 @@ def test_carve_reconciles_to_abacus_keeps_valid_columns_and_builds_a_valid_disv(
 
     assert np.allclose(carved.top, TOP)  # top untouched, frozen source mesh intact
     assert np.allclose(mesh.botm, stack_mesh().botm)
-    _assert_valid_columns(carved)
+    assert_valid_columns(carved)
 
     recon = model._lake_bed_reconstruction["lac0"]
     bed, area = recon["bed_by_cell"], recon["area_by_cell"]
@@ -79,8 +79,8 @@ def test_carve_reconciles_to_abacus_keeps_valid_columns_and_builds_a_valid_disv(
     assert np.all(botm < tops)
 
 
-def test_record_holds_the_carved_bed_when_the_clamp_bites(tmp_path, caplog) -> None:
-    """A ``min_thickness`` that bites clamps the bed; the record follows the grid and says so."""
+def test_record_follows_clamped_bed(tmp_path, caplog) -> None:
+    # A min_thickness that bites clamps the bed. The record follows the grid and warns.
     with caplog.at_level("WARNING"):
         model, carved = carve(tmp_path, bowl_bed(), min_thickness=25.0, reconcile_to_abacus=False)
     recon = model._lake_bed_reconstruction["lac0"]
@@ -93,23 +93,23 @@ def test_record_holds_the_carved_bed_when_the_clamp_bites(tmp_path, caplog) -> N
         assert recon["bed_by_cell"][cid] == pytest.approx(expected, abs=1e-9)
 
 
-def test_marnage_record_holds_the_clamped_top(tmp_path) -> None:
-    """In active-littoral mode the recorded bed is the cell top MF6 wets and dries."""
+def test_marnage_record_is_cell_top(tmp_path) -> None:
+    # In active-littoral mode the recorded bed is the cell top MF6 wets and dries.
     model, carved = carve(tmp_path, bowl_bed(), min_thickness=25.0, **MARNAGE)
     bed = model._lake_bed_reconstruction["lac0"]["bed_by_cell"]
     for cid in CELLS:
         assert bed[cid] == pytest.approx(carved.top[cid], abs=1e-9)
 
 
-def test_marnage_top_follows_a_bed_that_reaches_the_terrain(tmp_path) -> None:
-    """In active-littoral mode the top is the bed, so the terrain ceiling reserves no thickness."""
+def test_marnage_top_follows_bed(tmp_path) -> None:
+    # In active-littoral mode the top is the bed, so the terrain ceiling reserves no thickness.
     model, carved = carve(tmp_path, TOP, min_thickness=5.0, **MARNAGE)
     assert np.allclose(carved.top, TOP)
     assert model._lake_bed_reconstruction["lac0"]["diagnostics"]["bed_clamp_shift_max"] == 0.0
-    _assert_valid_columns(carved, min_thickness=5.0)
+    assert_valid_columns(carved, min_thickness=5.0)
 
 
-def test_carve_is_noop_without_bed_reconstruction() -> None:
+def test_no_reconstruction_no_carve() -> None:
     model = lake_model({"bedleak": 1.0e-6, "occupied_layers": 1})
     mesh = stack_mesh()
     carved = carve_lake_bed(
@@ -119,11 +119,8 @@ def test_carve_is_noop_without_bed_reconstruction() -> None:
     assert not hasattr(model, "_lake_bed_reconstruction")
 
 
-# A layer stack with pass-through cells
-
-
-def _vertical_tops(model, carved) -> set[float]:
-    """Top of the cell each VERTICAL connection leaks into, the floor MODFLOW 6 gives it."""
+def vertical_tops(model, carved) -> set[float]:
+    # Top of the cell each VERTICAL connection leaks into, the floor MODFLOW 6 gives it.
     occupied = model._lake_occupied_layers_by_cell["lac0"]
     masked = apply_lake_idomain_mask(
         carved, lake_cell_ids_by_lake={"lac0": CELLS}, occupied_layers_by_cell={"lac0": occupied}
@@ -146,11 +143,9 @@ def _vertical_tops(model, carved) -> set[float]:
         # A pinched top layer becomes the lake cap.
         ([TOP, 80.0, BASE], [-1, 1, 1], 95.0, 1, [95.0, None, None]),
     ],
-    ids=["pass_through_under_the_bed", "bed_under_the_pinch", "pinched_top_is_the_cap"],
+    ids=["pass-through under the bed", "bed under the pinch", "pinched top is the cap"],
 )
-def test_a_pinched_stack_puts_the_first_active_top_on_the_bed(
-    tmp_path, botm, idomain, bed, occupied, cap_bottom
-) -> None:
+def test_pinched_stack_top_on_bed(tmp_path, botm, idomain, bed, occupied, cap_bottom) -> None:
     mesh = stack_mesh(botm, idomain)
     model, carved = carve(tmp_path, bed, mesh=mesh, reconcile_to_abacus=False)
     for layer, expected in enumerate(cap_bottom):
@@ -159,17 +154,17 @@ def test_a_pinched_stack_puts_the_first_active_top_on_the_bed(
     assert carved.botm[occupied, 0] < bed or idomain[occupied] == -1
     assert set(model._lake_occupied_layers_by_cell["lac0"].values()) == {occupied}
     assert model._lake_bed_reconstruction["lac0"]["bed_by_cell"][0] == pytest.approx(bed)
-    assert _vertical_tops(model, carved) == {bed}
+    assert vertical_tops(model, carved) == {bed}
     check_layer_interfaces(carved.top, carved.botm, carved.idomain)
 
 
-def test_a_column_pinched_out_under_its_top_layer_is_refused(tmp_path) -> None:
+def test_refusals(tmp_path) -> None:
     mesh = stack_mesh([BASE, BASE, BASE], [1, -1, -1])
     with pytest.raises(ValueError, match=r"lakes\.lac0 bed_reconstruction: column 0 has no layer"):
         carve(tmp_path, 95.0, mesh=mesh, reconcile_to_abacus=False)
 
 
-def test_a_marnage_bed_keeps_a_pinched_top_layer_flat(tmp_path) -> None:
+def test_marnage_pinched_top_flat(tmp_path) -> None:
     _model, carved = carve(
         tmp_path, 95.0, mesh=stack_mesh([TOP, 80.0, BASE], [-1, 1, 1]), **MARNAGE
     )

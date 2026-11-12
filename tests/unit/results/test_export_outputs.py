@@ -1,10 +1,15 @@
-"""Tests of export outputs."""
+"""Files written by an export of a sealed run: rasters, netCDF, vectors, CSV, mesh layers.
+
+Each block builds a small run on four or twelve Lambert-93 cells (coordinates in m),
+exports it, and opens the file as a reader would. Units are those of the stored fields.
+"""
 
 from __future__ import annotations
 
 import dataclasses
 import json
 import re
+import sqlite3
 import warnings
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -21,6 +26,7 @@ import shapely
 import xarray as xr
 import xugrid as xu
 import zarr
+from pydantic import ValidationError
 from pyproj import CRS
 from shapely.geometry import LineString, box
 
@@ -108,7 +114,7 @@ def store_path(tmp_path: Path) -> Path:
     return path
 
 
-def test_xarray_opens_the_group_with_its_nodata_axes_and_crs(store_path: Path):
+def test_xarray_opens_the_raster_group(store_path: Path):
     ds = xr.open_zarr(store_path, group="geographic", consolidated=False, decode_coords="all")
     dem = ds["watershed_dem"]
 
@@ -119,7 +125,7 @@ def test_xarray_opens_the_group_with_its_nodata_axes_and_crs(store_path: Path):
     assert CRS.from_cf(dem["watershed_dem_crs"].attrs).to_epsg() == 2154
 
 
-def test_only_the_rasters_are_offered_for_export(store_path: Path, tmp_path: Path):
+def test_stored_rasters_are_exportable(store_path: Path, tmp_path: Path):
     class _Store:
         def open_zarr(self, _sim_id):
             return SimulationZarr(store_path)
@@ -146,9 +152,7 @@ def test_only_the_rasters_are_offered_for_export(store_path: Path, tmp_path: Pat
     ],
     ids=["degrees", "integer"],
 )
-def test_the_axes_take_the_unit_of_the_crs_and_an_integer_keeps_its_nodata(
-    tmp_path: Path, values, transform, crs, units
-):
+def test_raster_axes_and_nodata(tmp_path: Path, values, transform, crs, units):
     path = tmp_path / "fields.zarr"
     with SimulationZarr.create(path, n_cells=4, n_layers=1) as sz:
         sz.write_geographic_raster("grid", values, transform=transform, crs=crs, nodata=-1)
@@ -196,7 +200,7 @@ def _seal(store: RunStore) -> dict:
     return dict(zarr.open_group(str(store.fields_path), mode="r").attrs)
 
 
-def test_the_workspace_toml_identity_is_stamped(tmp_path: Path) -> None:
+def test_workspace_identity_is_stamped(tmp_path: Path) -> None:
     write_workspace_toml(
         tmp_path, project_name="ws", creator_name="Ada Lovelace", creator_email="a@b.c"
     )
@@ -239,7 +243,7 @@ def store(tmp_path, monkeypatch):
         yield opened
 
 
-def test_the_data_requests_write_under_the_run_without_the_index(store) -> None:
+def test_requests_need_no_index(store) -> None:
     requests = load_export_requests(
         [
             {"variables": "watershed"},
@@ -311,7 +315,7 @@ def storage_run(tmp_path):
         yield catalog, sid, run_dir / "exports"
 
 
-def test_the_run_lists_and_reads_the_storage_term(storage_run) -> None:
+def test_storage_term_is_listed(storage_run) -> None:
     catalog, sid, _exports = storage_run
     run = catalog[sid]
     assert "storage_sy" in run.array.list_fields()
@@ -319,7 +323,7 @@ def test_the_run_lists_and_reads_the_storage_term(storage_run) -> None:
     np.testing.assert_allclose(run.field("storage_sy", time=1, layer=0), STORAGE_SY[1, 0])
 
 
-def test_the_storage_term_exports_to_netcdf(storage_run) -> None:
+def test_storage_term_to_netcdf(storage_run) -> None:
     catalog, sid, exports = storage_run
     written = export_run(catalog, sid, ExportRequest(variables="storage_sy"))
     assert written == [exports / "storage_sy.nc"]
@@ -328,9 +332,7 @@ def test_the_storage_term_exports_to_netcdf(storage_run) -> None:
         np.testing.assert_allclose(ds["storage_sy"].values.reshape(3, 1, 4), STORAGE_SY)
 
 
-def test_the_storage_term_exports_to_geotiff(storage_run) -> None:
-    import rasterio
-
+def test_storage_term_to_geotiff(storage_run) -> None:
     catalog, sid, exports = storage_run
     written = export_run(
         catalog, sid, ExportRequest(variables="storage_sy", time="2000-02-15", format="geotiff")
@@ -340,7 +342,7 @@ def test_the_storage_term_exports_to_geotiff(storage_run) -> None:
         assert np.nanmax(src.read(1)) == pytest.approx(STORAGE_SY[1, 0].max())
 
 
-def test_all_includes_the_storage_term(storage_run) -> None:
+def test_all_includes_storage(storage_run) -> None:
     catalog, sid, _exports = storage_run
     (written,) = export_run(catalog, sid, ExportRequest(variables="all"))
     with xr.open_dataset(written) as ds:
@@ -405,7 +407,7 @@ def _open_mesh_group(path: Path) -> tuple[xr.Dataset, xu.Ugrid2d]:
 
 
 @MESHES
-def test_xugrid_opens_the_stored_mesh_group_with_its_crs(tmp_path, build):
+def test_xugrid_opens_the_mesh(tmp_path, build):
     cell_mesh = build()
     dataset, grid = _open_mesh_group(_store(tmp_path / "fields.zarr", cell_mesh))
 
@@ -418,7 +420,7 @@ def test_xugrid_opens_the_stored_mesh_group_with_its_crs(tmp_path, build):
 
 
 @MESHES
-def test_the_netcdf_export_carries_the_model_centres_and_the_crs(tmp_path, build):
+def test_netcdf_keeps_centres_and_crs(tmp_path, build):
     cell_mesh = build()
     fields = _store(tmp_path / "fields.zarr", cell_mesh)
     path = export_netcdf(fields, "ugrid-test", ["topography"], tmp_path / "mesh.nc")
@@ -434,7 +436,7 @@ def test_the_netcdf_export_carries_the_model_centres_and_the_crs(tmp_path, build
     assert exported.obj["face_x"].attrs["standard_name"] == "projection_x_coordinate"
 
 
-def test_a_store_without_centres_exports_the_vertex_mean(tmp_path):
+def test_vertex_mean_without_centres(tmp_path):
     cell_mesh = _regular()
     store = SimulationZarr.create(tmp_path / "fields.zarr", n_cells=cell_mesh.n_cells, n_layers=1)
     xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)
@@ -447,7 +449,7 @@ def test_a_store_without_centres_exports_the_vertex_mean(tmp_path):
         assert "node_z" not in exported
 
 
-def test_export_netcdf_called_alone_writes_a_mapping_attribute_as_json(tmp_path):
+def test_netcdf_attributes_as_json(tmp_path):
     cell_mesh = _regular()
     store = SimulationZarr(_store(tmp_path / "fields.zarr", cell_mesh))
     identity = {"sim_id": "a-run", "case_id": "a-case"}
@@ -496,7 +498,6 @@ def _sealed(tmp_path: Path, config: str | None) -> Path:
 # the gauged discharge from October 1999, the delineated catchment and the
 # mapped network as vector layers, the DEM as a raster layer, and the water
 # budget. Every file lands under ``runs/demo/exports/``.
-X0, Y0, STEP = 385000.0, 6814000.0, 500.0
 
 
 @pytest.fixture
@@ -578,9 +579,7 @@ def _names(paths: list[Path]) -> list[str]:
     return sorted(path.name for path in paths)
 
 
-def test_a_field_at_one_date_is_one_geotiff_named_by_the_date(dated_run) -> None:
-    import rasterio
-
+def test_field_at_one_date(dated_run) -> None:
     catalog, sid, exports = dated_run
     written = export_run(catalog, sid, ExportRequest(variables="head", time="2000-02-15"))
     assert written == [exports / "head_2000-02-15.tif"]
@@ -590,13 +589,13 @@ def test_a_field_at_one_date_is_one_geotiff_named_by_the_date(dated_run) -> None
         assert src.tags()["HMP_PERIOD"] == "2000-02"
 
 
-def test_a_one_instant_format_over_the_whole_run_writes_one_file_per_period(dated_run) -> None:
+def test_one_file_per_period(dated_run) -> None:
     catalog, sid, _exports = dated_run
     written = export_run(catalog, sid, ExportRequest(variables="head", format="geotiff"))
     assert _names(written) == ["head_2000-01.tif", "head_2000-02.tif", "head_2000-03.tif"]
 
 
-def test_a_file_that_takes_the_name_of_the_run_is_refused_before_it_is_written(
+def test_file_name_taken_twice(
     dated_run,
 ) -> None:
     catalog, sid, exports = dated_run
@@ -611,7 +610,7 @@ def test_a_file_that_takes_the_name_of_the_run_is_refused_before_it_is_written(
         assert {"head", "watertable_depth"} <= set(ds.data_vars)
 
 
-def test_all_in_one_format_writes_every_data_that_format_holds(dated_run) -> None:
+def test_all_in_one_format(dated_run) -> None:
     catalog, sid, _exports = dated_run
     written = export_run(
         catalog, sid, ExportRequest(variables="all", time="2000-03-01", format="geotiff")
@@ -625,7 +624,7 @@ def test_all_in_one_format_writes_every_data_that_format_holds(dated_run) -> Non
     ]
 
 
-def test_a_vector_layer_is_written_as_a_shapefile_and_reprojected(dated_run) -> None:
+def test_shapefile_reprojected(dated_run) -> None:
     catalog, sid, exports = dated_run
     written = export_run(
         catalog,
@@ -640,9 +639,7 @@ def test_a_vector_layer_is_written_as_a_shapefile_and_reprojected(dated_run) -> 
     assert layer.total_bounds[0] == pytest.approx(-1.6, abs=2.0)
 
 
-def test_the_dem_is_warped_to_the_crs_and_resolution_asked(dated_run) -> None:
-    import rasterio
-
+def test_dem_warped(dated_run) -> None:
     catalog, sid, exports = dated_run
     (dem,) = export_run(
         catalog, sid, ExportRequest(variables="watershed_dem", file="dem_50m.tif", resolution=50)
@@ -657,7 +654,7 @@ def test_the_dem_is_warped_to_the_crs_and_resolution_asked(dated_run) -> None:
         assert src.crs.to_epsg() == 4326
 
 
-def test_the_budget_is_a_csv_naming_each_period(dated_run) -> None:
+def test_budget_csv_names_periods(dated_run) -> None:
     catalog, sid, exports = dated_run
     (written,) = export_run(catalog, sid, ExportRequest(variables="budget", time="2000-02-10"))
     assert written == exports / "budget_2000-02-10.csv"
@@ -679,7 +676,7 @@ def test_the_budget_is_a_csv_naming_each_period(dated_run) -> None:
     assert frame["period_end"].tolist() == ["2000-03-01 00:00:00"]
 
 
-def test_a_metadata_view_is_written_beside_the_seal(dated_run) -> None:
+def test_metadata_view(dated_run) -> None:
     """The RO-Crate view of the wheel renders the seal, beside it or under exports/.
 
     ``stac`` and ``prov`` live in hydromodpy_annex now: a metadata view without
@@ -697,9 +694,7 @@ def test_a_metadata_view_is_written_beside_the_seal(dated_run) -> None:
     assert lineage.is_file()
 
 
-def test_the_simulated_network_is_exported_by_date_and_over_the_run(dated_run, monkeypatch) -> None:
-    import rasterio
-
+def test_simulated_network(dated_run, monkeypatch) -> None:
     catalog, sid, exports = dated_run
     flowing = {0: [1.0, 0.0, 0.0, 0.0], 1: [1.0, 1.0, 0.0, 0.0], 2: [1.0, 1.0, 1.0, 0.0]}
     asked: list[list[int]] = []
@@ -736,16 +731,14 @@ def test_the_simulated_network_is_exported_by_date_and_over_the_run(dated_run, m
     assert asked == [[1], [2], [0, 1, 2]]
 
 
-def test_a_run_without_the_network_says_why_it_cannot_export_it(dated_run) -> None:
-    from hydromodpy.core.exceptions import ExportError
-
+def test_network_unavailable(dated_run) -> None:
     catalog, sid, _exports = dated_run
     with pytest.raises(ExportError, match="no per-cell release_flux"):
         export_run(catalog, sid, ExportRequest(variables="simulated_active_network", time="last"))
 
 
 @pytest.mark.parametrize("fmt", ["netcdf", "geotiff"])
-def test_two_dates_that_read_one_period_are_refused_in_every_format(dated_run, fmt: str) -> None:
+def test_two_dates_one_period(dated_run, fmt: str) -> None:
     catalog, sid, exports = dated_run
     request = ExportRequest(variables="head", time=["2000-01-10", "2000-01-20"], format=fmt)
 
@@ -755,18 +748,15 @@ def test_two_dates_that_read_one_period_are_refused_in_every_format(dated_run, f
     assert not exports.exists() or not any(exports.iterdir())
 
 
-def test_an_empty_time_list_is_refused_before_any_file(dated_run) -> None:
-    from pydantic import ValidationError
-
+def test_empty_time_list(dated_run) -> None:
     catalog, sid, exports = dated_run
     with pytest.raises(ValidationError, match="names no instant"):
         catalog[sid].export("discharge", time=[])
     assert not exports.exists() or not any(exports.iterdir())
 
 
-def test_a_selection_of_no_period_is_an_export_error(dated_run, monkeypatch) -> None:
+def test_selection_of_no_period(dated_run, monkeypatch) -> None:
     """A series asked over no period says so, never as a SQL syntax error."""
-    from hydromodpy.core.exceptions import ExportError
     from hydromodpy.results.run.periods import RunPeriods
 
     catalog, sid, _exports = dated_run
@@ -824,7 +814,7 @@ def _identity(run_dir: Path) -> Identity:
 
 
 @pytest.mark.parametrize("key", sorted(REQUESTS))
-def test_each_export_format_carries_the_block(exported, key) -> None:
+def test_identity_in_each_format(exported, key) -> None:
     run_dir, written, _figures = exported
     assert written[key]
     for path in written[key]:
@@ -834,9 +824,7 @@ def test_each_export_format_carries_the_block(exported, key) -> None:
         assert found.case_id == RUN_NAME
 
 
-def test_a_geopackage_holds_the_block_in_its_metadata_table(exported) -> None:
-    import sqlite3
-
+def test_geopackage_identity(exported) -> None:
     run_dir, written, _figures = exported
     (gpkg,) = written["geopackage_layer"]
     assert not gpkg.with_name(gpkg.name + ".meta.json").exists()
@@ -845,7 +833,7 @@ def test_a_geopackage_holds_the_block_in_its_metadata_table(exported) -> None:
     assert Identity.from_json(payload).sim_id == _sim_id(run_dir)
 
 
-def test_every_csv_row_names_its_site_and_case(exported) -> None:
+def test_csv_site_and_case(exported) -> None:
     run_dir, written, _figures = exported
     for path in written["csv"] + written["budget_csv"]:
         frame = pd.read_csv(path)
@@ -853,7 +841,7 @@ def test_every_csv_row_names_its_site_and_case(exported) -> None:
         assert set(frame["case_id"]) == {RUN_NAME}
 
 
-def test_the_field_store_and_the_tables_carry_the_block(exported) -> None:
+def test_identity_in_store_and_tables(exported) -> None:
     run_dir, _written, _figures = exported
     assert _identity(run_dir).sim_id == _sim_id(run_dir)
     tables = sorted((run_dir / "tables.parquet").glob("*.parquet"))
@@ -874,7 +862,7 @@ Z_INTERFACES = np.array([0.0, -10.0])
 LAMBERT = CRS.from_epsg(2154).to_wkt()
 
 
-STAMPS_2 = pd.to_datetime(["2000-02-01", "2000-03-01"])
+MESH_STAMPS = pd.to_datetime(["2000-02-01", "2000-03-01"])
 
 
 def _grid(*, lake_face: bool = True) -> PlanarCellMesh:
@@ -898,7 +886,7 @@ def _grid(*, lake_face: bool = True) -> PlanarCellMesh:
     return dataclasses.replace(base, cell_chains=(chain,), face_families=table, crs_wkt=LAMBERT)
 
 
-def _seal_2(
+def _seal_mesh_run(
     project: Path,
     name: str,
     cell_mesh: PlanarCellMesh,
@@ -923,8 +911,8 @@ def _seal_2(
         time_unit="month",
     )
     sid = store.sim_id
-    store.write_time(sid, STAMPS_2.values.astype("datetime64[s]").astype("int64"))
-    _write(store, sid, cell_mesh, layout=layout)
+    store.write_time(sid, MESH_STAMPS.values.astype("datetime64[s]").astype("int64"))
+    _write_mesh_run(store, sid, cell_mesh, layout=layout)
     if before_seal is not None:
         before_seal(store, sid)
     seal_completed(store)
@@ -932,7 +920,9 @@ def _seal_2(
     return sid
 
 
-def _write(store: RunStore, sid: str, cell_mesh: PlanarCellMesh, *, layout: bool = True) -> None:
+def _write_mesh_run(
+    store: RunStore, sid: str, cell_mesh: PlanarCellMesh, *, layout: bool = True
+) -> None:
     xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)
     store.write_mesh(
         sid,
@@ -956,8 +946,8 @@ def _write(store: RunStore, sid: str, cell_mesh: PlanarCellMesh, *, layout: bool
 def runs(project: Path) -> dict[str, str]:
     """A run of the current layout, ``demo``, and one sealed before it, ``legacy``."""
     return {
-        "new": _seal_2(project, "demo", _grid()),
-        "old": _seal_2(project, "legacy", _grid(), layout=False),
+        "new": _seal_mesh_run(project, "demo", _grid()),
+        "old": _seal_mesh_run(project, "legacy", _grid(), layout=False),
     }
 
 
@@ -981,7 +971,7 @@ def _exports(catalog: Catalog, sid: str) -> Path:
     return catalog.run_dir_for(sid) / "exports"
 
 
-def test_a_shapefile_holds_one_layer_per_file(catalog, new_run):
+def test_shapefile_one_layer_per_file(catalog, new_run):
     written = export_run(
         catalog, new_run, ExportRequest(variables=["mesh_cells", "mesh_seeds"], format="shapefile")
     )
@@ -989,7 +979,7 @@ def test_a_shapefile_holds_one_layer_per_file(catalog, new_run):
     assert sorted(path.name for path in written) == ["mesh_cells.shp", "mesh_seeds.shp"]
 
 
-def test_the_cells_carry_their_area_families_and_quality(catalog, new_run):
+def test_mesh_cells_layer(catalog, new_run):
     (path,) = export_run(catalog, new_run, ExportRequest(variables="mesh_cells"))
 
     cells = gpd.read_file(path, layer="mesh_cells")
@@ -1012,7 +1002,7 @@ def test_the_cells_carry_their_area_families_and_quality(catalog, new_run):
     assert "in_basin" not in cells
 
 
-def test_the_cells_say_which_ones_the_basin_of_d_holds(project):
+def test_mesh_cells_basin(project):
     n_cells = _grid().n_cells
     basin = np.zeros(n_cells, dtype=bool)
     basin[[4, 5, 8]] = True
@@ -1045,7 +1035,7 @@ def test_the_cells_say_which_ones_the_basin_of_d_holds(project):
         finally:
             zarr_store.close()
 
-    sid = _seal_2(project, "basin", _grid(), before_seal=write_descent)
+    sid = _seal_mesh_run(project, "basin", _grid(), before_seal=write_descent)
     with Catalog(project) as catalog:
         (path,) = export_run(catalog, sid, ExportRequest(variables="mesh_cells"))
 
@@ -1054,7 +1044,7 @@ def test_the_cells_say_which_ones_the_basin_of_d_holds(project):
     np.testing.assert_array_equal(cells["catchment_fraction"].to_numpy(), fraction)
 
 
-def test_a_seed_sits_on_the_solver_centre_and_names_its_families(catalog, new_run):
+def test_mesh_seeds_layer(catalog, new_run):
     (path,) = export_run(catalog, new_run, ExportRequest(variables="mesh_seeds"))
 
     seeds = gpd.read_file(path, layer="mesh_seeds")
@@ -1070,7 +1060,7 @@ def test_a_seed_sits_on_the_solver_centre_and_names_its_families(catalog, new_ru
     assert seeds["families"].fillna("").tolist() == expected
 
 
-def test_a_family_face_is_the_segment_between_its_two_nodes(catalog, new_run):
+def test_family_face_layer(catalog, new_run):
     (path,) = export_run(catalog, new_run, ExportRequest(variables="mesh_family_faces"))
 
     faces = gpd.read_file(path, layer="mesh_family_faces")
@@ -1083,10 +1073,10 @@ def test_a_family_face_is_the_segment_between_its_two_nodes(catalog, new_run):
     assert shapely.get_coordinates(row.geometry)[:, 1].std() == pytest.approx(0.0)
 
 
-def test_a_ragged_mesh_keeps_every_cell_as_a_valid_polygon(project):
+def test_ragged_mesh_cells(project):
     cell_mesh = bundle_dual(BUNDLE)
     cell_mesh = dataclasses.replace(cell_mesh, crs_wkt=LAMBERT)
-    sid = _seal_2(project, "ragged", cell_mesh)
+    sid = _seal_mesh_run(project, "ragged", cell_mesh)
     with Catalog(project) as catalog:
         (path,) = export_run(catalog, sid, ExportRequest(variables="mesh_cells"))
         cells = gpd.read_file(path, layer="mesh_cells")
@@ -1099,7 +1089,7 @@ def test_a_ragged_mesh_keeps_every_cell_as_a_valid_polygon(project):
     assert "family_boundary_west" in families
 
 
-def test_a_mesh_without_a_crs_holds_no_mesh_layer_and_says_why(catalog, old_run):
+def test_mesh_without_crs(catalog, old_run):
     held = list_exportable(catalog[old_run])
 
     assert not set(MESH_LAYERS) & set(held)
@@ -1110,8 +1100,8 @@ def test_a_mesh_without_a_crs_holds_no_mesh_layer_and_says_why(catalog, old_run)
         export_mesh_layers(catalog, old_run, ["mesh_cells"], Path("unused.gpkg"))
 
 
-def test_a_run_with_no_face_family_has_no_family_faces_layer(project):
-    sid = _seal_2(project, "no_face", _grid(lake_face=False))
+def test_no_family_faces_layer(project):
+    sid = _seal_mesh_run(project, "no_face", _grid(lake_face=False))
 
     with Catalog(project) as catalog:
         assert available_mesh_layers(catalog, sid) == ["mesh_cells", "mesh_seeds"]
@@ -1120,7 +1110,7 @@ def test_a_run_with_no_face_family_has_no_family_faces_layer(project):
             export_run(catalog, sid, ExportRequest(variables="mesh_family_faces"))
 
 
-def test_variables_all_writes_the_layers_a_run_holds(catalog, new_run):
+def test_all_writes_mesh_layers(catalog, new_run):
     names = list_exportable(catalog[new_run])
     assert all(names[name] is ExportKind.vector for name in MESH_LAYERS)
 
@@ -1135,7 +1125,7 @@ def test_variables_all_writes_the_layers_a_run_holds(catalog, new_run):
     assert sorted(pyogrio.list_layers(mesh_file)[:, 0]) == sorted(MESH_LAYERS)
 
 
-def test_a_quality_field_exports_once_in_a_netcdf(catalog, new_run):
+def test_quality_field_netcdf(catalog, new_run):
     names = list_exportable(catalog[new_run])
     assert names["mesh_cell_area"] is ExportKind.field
 

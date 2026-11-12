@@ -24,7 +24,7 @@ def _sampler(size: float | np.ndarray = 10.0) -> SizeSampler:
     return SizeSampler(SizeField(values, grid), local_frame(DOMAIN))
 
 
-def test_a_domain_saturated_by_its_constraints_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_saturated_domain(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(free_seeds, "MAX_DRAW_BLOCKS", 2)
     h = _sampler(10.0)
     domain = h.frame.to_local(DOMAIN)
@@ -34,7 +34,7 @@ def test_a_domain_saturated_by_its_constraints_raises(monkeypatch: pytest.Monkey
         )
 
 
-def test_no_free_seed_asked_gives_none() -> None:
+def test_no_free_seed() -> None:
     h = _sampler(10.0)
     seeds = sample_free_seeds(
         np.random.default_rng(0), h, h.frame.to_local(DOMAIN), np.empty((0, 2)), [], 0
@@ -42,21 +42,21 @@ def test_no_free_seed_asked_gives_none() -> None:
     assert seeds.shape == (0, 2)
 
 
-def test_morton_order_of_no_point_is_empty() -> None:
+def test_morton_order_of_no_point() -> None:
     assert morton_order(np.empty((0, 2))).size == 0
 
 
-def test_points_farther_apart_than_the_morton_key_reaches_are_refused() -> None:
+def test_morton_span_refused() -> None:
     with pytest.raises(MeshGenerationError, match="span more than"):
         morton_order(np.array([[0.0, 0.0], [5000.0, 0.0]]), step=1.0e-6)
 
 
-def test_a_disk_set_needs_one_radius_per_centre() -> None:
+def test_disk_set_radius_per_centre() -> None:
     with pytest.raises(ValueError, match="one radius per centre"):
         DiskSet(np.zeros((2, 2)), np.array([1.0]))
 
 
-def test_a_disk_set_projects_a_point_onto_the_circle_of_its_disk() -> None:
+def test_disk_set_projection() -> None:
     disks = DiskSet(np.array([[0.0, 0.0], [10.0, 0.0]]), np.array([2.0, 1.0]))
     points = np.array([[1.0, 0.0], [0.0, 0.0], [5.0, 5.0]])
     previous = np.array([[3.0, 0.0], [0.0, -4.0], [5.0, 5.0]])

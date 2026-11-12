@@ -34,7 +34,7 @@ def _zones(tmp_path: Path, **options):
     )
 
 
-def test_the_core_lies_inside_the_ring_inside_the_domain_and_the_rest_is_outside(tmp_path):
+def test_zone_codes(tmp_path):
     products = _zones(tmp_path, zone_codes_tif_path=tmp_path / "out" / "zones.tif")
     # Without an output path the zones stay in memory.
     assert _zones(tmp_path / "memory").zone_codes_tif is None
@@ -53,7 +53,7 @@ def test_the_core_lies_inside_the_ring_inside_the_domain_and_the_rest_is_outside
 
 
 @pytest.mark.parametrize("missing", ["gone.shp", "empty.shp"])
-def test_a_zone_polygon_file_missing_or_empty_is_refused(tmp_path, missing):
+def test_refusals(tmp_path, missing):
     reference = write_geotiff(tmp_path / "reference.tif", np.ones((2, 2)))
     if missing == "empty.shp":
         write_features(tmp_path / missing, [])

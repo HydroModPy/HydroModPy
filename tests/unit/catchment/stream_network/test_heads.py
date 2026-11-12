@@ -34,31 +34,7 @@ def _axis_head() -> HeadCandidates:
     return candidates([(centre(2, AXIS), centre(N_ROWS - 1, AXIS))])
 
 
-def test_a_forced_cell_does_not_save_a_map_whose_heads_are_all_lost() -> None:
-    # No cell drains 1 km2 on this valley: the free end is lost, the map is refused.
-    heads = replace(_axis_head(), forced_cells=np.asarray([HILLSIDE]))
-
-    with pytest.raises(ValueError, match="every one of the 1 head"):
-        valley_geometry(heads, min_drained_area_m2=1.0e6)
-
-
-def test_a_forced_cell_does_not_save_a_map_whose_ends_all_drain_more_than_their_reach() -> None:
-    # The head sits below the other end of its reach: it drains more, so it is no head.
-    inverted = candidates([(centre(N_ROWS - 1, AXIS), centre(2, AXIS))])
-    heads = replace(inverted, forced_cells=np.asarray([HILLSIDE]))
-
-    with pytest.raises(ValueError, match="drains more than the other end"):
-        valley_geometry(heads)
-
-
-def test_a_map_with_no_free_end_is_refused_whatever_its_forced_cells() -> None:
-    heads = replace(candidates([]), forced_cells=np.asarray([HILLSIDE]))
-
-    with pytest.raises(ValueError, match="holds no free end"):
-        valley_geometry(heads)
-
-
-def test_a_forced_cell_off_the_mesh_is_dropped() -> None:
+def test_forced_cell_off_the_mesh_is_dropped() -> None:
     heads = replace(_axis_head(), forced_cells=np.asarray([HILLSIDE, -1, 10**6]))
 
     geometry = valley_geometry(heads)
@@ -67,7 +43,7 @@ def test_a_forced_cell_off_the_mesh_is_dropped() -> None:
     assert geometry.heads.forced_cell.tolist() == [HILLSIDE]
 
 
-def test_a_forced_cell_off_the_graph_is_logged(caplog: pytest.LogCaptureFixture) -> None:
+def test_forced_cell_off_the_graph_is_logged(caplog: pytest.LogCaptureFixture) -> None:
     heads = replace(_axis_head(), forced_cells=np.asarray([HILLSIDE, 10**6]))
 
     with caplog.at_level("INFO", logger="hydromodpy.catchment.stream_network.heads"):
@@ -76,12 +52,7 @@ def test_a_forced_cell_off_the_graph_is_logged(caplog: pytest.LogCaptureFixture)
     assert "1 of 2 forced head(s) dropped" in caplog.text
 
 
-def test_no_free_end_and_no_forced_cell_still_refuses() -> None:
-    with pytest.raises(ValueError, match="draws no stream from its heads"):
-        valley_geometry(candidates([]))
-
-
-def test_a_free_downstream_end_is_not_a_head() -> None:
+def test_downstream_end_is_not_a_head() -> None:
     head, outlet_end = centre(5, AXIS), centre(N_ROWS - 1, AXIS)
     # Listed outlet first, as a line digitized against the flow would be.
     heads = candidates([(outlet_end, head), (head, outlet_end)])
@@ -93,7 +64,7 @@ def test_a_free_downstream_end_is_not_a_head() -> None:
     np.testing.assert_allclose(geometry.heads.head_xy, [head])
 
 
-def test_a_head_farther_than_the_radius_is_lost() -> None:
+def test_head_beyond_the_radius_is_lost() -> None:
     junction = centre(15, AXIS)
     # The second head lies 200 m west of the domain, past any 100 m landing.
     heads = candidates([(centre(5, AXIS), junction), ((-200.0, 155.0), junction)])
@@ -109,7 +80,7 @@ def test_a_head_farther_than_the_radius_is_lost() -> None:
     assert not geometry.observed[cell(15, 0)]
 
 
-def test_a_lost_head_warns_once_with_what_to_check(
+def test_lost_head_warns_once(
     caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(stream_geometry, "_heads_lost_warned", False)
@@ -130,7 +101,7 @@ def test_a_lost_head_warns_once_with_what_to_check(
     assert "map.heads.radius" in warned[0]
 
 
-def test_a_head_lands_on_the_nearest_cell_draining_enough() -> None:
+def test_head_lands_on_draining_cell() -> None:
     # Row 5 of the axis drains 36 cells; 0.0049 km2 is 49 cells, row 6.
     heads = candidates([(centre(5, AXIS), centre(15, AXIS))])
 
@@ -142,7 +113,7 @@ def test_a_head_lands_on_the_nearest_cell_draining_enough() -> None:
     assert not geometry.observed[cell(5, AXIS)]
 
 
-def test_a_source_both_maps_draw_is_one_head() -> None:
+def test_shared_source_is_one_head() -> None:
     shared, other = centre(5, AXIS), centre(8, AXIS + 4)
     outlet_end = centre(N_ROWS - 1, AXIS)
     maximal = candidates([(shared, outlet_end), (other, outlet_end)])
@@ -154,7 +125,7 @@ def test_a_source_both_maps_draw_is_one_head() -> None:
     np.testing.assert_allclose(union.head_xy, [shared, other])
 
 
-def test_a_tie_between_both_ends_keeps_the_head() -> None:
+def test_tie_between_ends_keeps_the_head() -> None:
     head, reach_end = centre(N_ROWS - 3, AXIS + 2), centre(N_ROWS - 2, AXIS + 1)
 
     geometry = valley_geometry(candidates([(head, reach_end)]), snap_radius_m=50.0)
@@ -164,14 +135,7 @@ def test_a_tie_between_both_ends_keeps_the_head() -> None:
     assert geometry.observed[cell(N_ROWS - 1, AXIS)]
 
 
-def test_a_map_with_only_a_downstream_end_raises() -> None:
-    heads = candidates([(centre(N_ROWS - 1, AXIS), centre(5, AXIS))])
-
-    with pytest.raises(ValueError, match="1 free end"):
-        valley_geometry(heads)
-
-
-def test_the_geometry_takes_exactly_one_map() -> None:
+def test_geometry_takes_one_map() -> None:
     with pytest.raises(ValueError, match="exactly one"):
         build_network_geometry(
             topography=[1.0],
@@ -181,3 +145,37 @@ def test_the_geometry_takes_exactly_one_map() -> None:
             mean_recharge_m_s=0.0,
             tau_specific_ratio=0.0,
         )
+
+
+# The head sits below the other end of its reach, so it drains more and is no head.
+INVERTED = candidates([(centre(N_ROWS - 1, AXIS), centre(2, AXIS))])
+
+# (heads, valley options, the message). No cell drains 1 km2 on this valley.
+REFUSED_MAPS = [
+    pytest.param(
+        replace(_axis_head(), forced_cells=np.asarray([HILLSIDE])),
+        {"min_drained_area_m2": 1.0e6},
+        "every one of the 1 head",
+        id="forced cell, every head lost",
+    ),
+    pytest.param(
+        replace(INVERTED, forced_cells=np.asarray([HILLSIDE])),
+        {},
+        "drains more than the other end",
+        id="forced cell, ends drain more than their reach",
+    ),
+    pytest.param(
+        replace(candidates([]), forced_cells=np.asarray([HILLSIDE])),
+        {},
+        "holds no free end",
+        id="forced cell, no free end",
+    ),
+    pytest.param(candidates([]), {}, "draws no stream from its heads", id="nothing at all"),
+    pytest.param(INVERTED, {}, "1 free end", id="only a downstream end"),
+]
+
+
+@pytest.mark.parametrize(("heads", "options", "match"), REFUSED_MAPS)
+def test_refusals(heads, options, match) -> None:
+    with pytest.raises(ValueError, match=match):
+        valley_geometry(heads, **options)

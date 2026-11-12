@@ -1,4 +1,12 @@
-"""The export step, the scratch cleanup and the seal."""
+"""The export step, the scratch cleanup, the exports after the seal and the seal step.
+
+The step cleans the scratch of the run. Solver files kept under ``keep_solver_files`` move
+into ``runs/<run>/solver/``, an entry the seal never inventories, because the close of a
+sealed attempt removes ``<run>/.hmp/``. Data requests and metadata views (STAC, RO-Crate,
+PROV) are written after the seal under ``runs/<run>/exports/``. The preprocessing tree is
+a rebuildable cache, dropped at the end of whoever owns the session. A replay seals its
+values classed against its source run.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +25,7 @@ import hydromodpy.workflow.steps.run_outputs as post_run_module
 from hydromodpy.calibration.runners.session_scope import release_session_scratch
 from hydromodpy.catchment.preprocess.preprocessing_cleanup import cleanup_stable_folder
 from hydromodpy.core.budget.terms import BudgetKeep
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.scratch import PREPROCESSING_DIRNAME
 from hydromodpy.model.domain.domain_config import DomainConfig
@@ -26,6 +34,7 @@ from hydromodpy.results.exporters.export_spec import load_export_requests
 from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.ledger import Ledger
 from hydromodpy.results.outcome import read_outcome
+from hydromodpy.results.storage import scratch as scratch_module
 from hydromodpy.results.storage.attempt import claim_run_directory
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
@@ -35,6 +44,7 @@ from hydromodpy.results.storage.contract import (
 )
 from hydromodpy.results.storage.run_profile import read_profile
 from hydromodpy.schema.lineage import Lineage
+from hydromodpy.solver.base.plan import ProcessRun, RunSlot, SimulationPlan, SolverRun
 from hydromodpy.workflow.state import PipelineState
 from hydromodpy.workflow.steps.export import step_cleanup_preprocessing, step_cleanup_scratch
 from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
@@ -42,26 +52,7 @@ from hydromodpy.workflow.steps.prepare_solver.facts import collect_effective_con
 from tests._helpers.run_records import make_record
 
 
-@pytest.fixture
-def sealed(tmp_path):
-    """Return a factory of contexts naming a sealed run directory."""
-    from tests._helpers.run_records import make_record
-
-    def make(*, duration_s: float | None = 42.0, nse: float | None = 0.4567) -> SimpleNamespace:
-        record = make_record()
-        run = record.run.model_copy(update={"name": "nancon_step1", "duration_s": duration_s})
-        score = None if nse is None else record.score.model_copy(update={"value": nse})
-        run_dir = tmp_path / "runs" / "nancon_step1"
-        run_dir.mkdir(parents=True, exist_ok=True)
-        make_record(run=run, score=score).write(run_dir)
-        return SimpleNamespace(
-            sim_id="0123456789abcdef", run_dir=run_dir, attempt=1, cfg=SimpleNamespace(export=[])
-        )
-
-    return make
-
-
-def test_an_uncatalogued_run_skips_store_work_but_cleans_scratch(monkeypatch) -> None:
+def test_uncatalogued_run_cleans_scratch_only(monkeypatch) -> None:
     calls: list[tuple[str, object, bool | None]] = []
 
     def fake_cleanup(ctx, *, keep_solver_files: bool, spare=()) -> None:
@@ -92,12 +83,12 @@ def _refuse_the_store(_contract_ctx):
     raise AssertionError("this run must not open its store")
 
 
-def test_export_step_requires_context() -> None:
+def test_step_needs_a_context() -> None:
     with pytest.raises(ConfigError, match="requires 'ctx'"):
         export_module.ExportStep().run(PipelineState(run_id="run-1", data={}))
 
 
-def test_export_artifacts_filters_to_existing_workspace_relative_paths(tmp_path: Path) -> None:
+def test_artifacts_are_existing_project_relative_paths(tmp_path: Path) -> None:
     project_root = tmp_path / "project"
     export_path = project_root / "exports" / "head.parquet"
     duplicate = project_root / "exports" / "head.parquet"
@@ -128,34 +119,8 @@ def _recap_lines(caplog) -> list[str]:
     ]
 
 
-# --- test_cleanup_pipeline ---
-# What ``[geographic] write_intermediates`` keeps, and what ``keep`` means.
-#
-# The preprocessing tree is a rebuildable cache, dropped at the end of whoever
-# owns the session. Two different reasons keep it: the user asked for the
-# rasters on disk, or a multi-run session is still reading them.
-
-
-def _ctx(geographic: object, *, write_intermediates: bool) -> SimpleNamespace:
-    return SimpleNamespace(
-        cfg=SimpleNamespace(geographic=SimpleNamespace(write_intermediates=write_intermediates)),
-        setup=SimpleNamespace(workspace=None, geographic=geographic),
-    )
-
-
-# --- test_kept_solver_files_outlive_the_seal ---
-# Solver files kept under ``keep_solver_files`` move into ``runs/<run>/solver/``.
-#
-# The scratch of an attempt is ``<run>/.hmp/scratch/``, and the close of a
-# sealed attempt removes ``<run>/.hmp/``. A solver folder left there would die
-# with it, so the export step moves it into the run, an entry the seal never
-# inventories. Without the flag the folder goes; a run without a directory keeps
-# its scratch in place; the preprocessing tree and a folder another run owns
-# stay where they are.
-
-
 def _kept_ctx(run_dir: Path, *, persisted: bool = True) -> SimpleNamespace:
-    """A run whose attempt works in ``<run>/.hmp/scratch`` with one model folder."""
+    # The attempt works in <run>/.hmp/scratch with one model folder.
     scratch = run_dir / ".hmp" / "scratch"
     (scratch / "model_a").mkdir(parents=True)
     (scratch / "model_a" / "model_a.disv").write_text("disv", encoding="utf-8")
@@ -169,7 +134,7 @@ def _kept_ctx(run_dir: Path, *, persisted: bool = True) -> SimpleNamespace:
     )
 
 
-def test_the_solver_entry_is_declared_and_never_inventoried() -> None:
+def test_solver_entry_is_never_inventoried() -> None:
     assert RUN_SOLVER_DIRNAME == "solver"
     assert RUN_SOLVER_DIRNAME in ALLOWED_RUN_ENTRIES
     assert RUN_SOLVER_DIRNAME in UNSEALED_RUN_ENTRIES
@@ -187,7 +152,7 @@ def test_kept_solver_folders_move_into_the_run(tmp_path: Path) -> None:
     assert (run_dir / ".hmp" / "scratch" / PREPROCESSING_DIRNAME).is_dir()
 
 
-def test_a_resumed_run_replaces_the_folder_it_kept_before(tmp_path: Path) -> None:
+def test_resume_replaces_the_kept_folder(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs" / "demo"
     stale = run_dir / RUN_SOLVER_DIRNAME / "model_a"
     stale.mkdir(parents=True)
@@ -199,7 +164,7 @@ def test_a_resumed_run_replaces_the_folder_it_kept_before(tmp_path: Path) -> Non
     assert sorted(path.name for path in stale.iterdir()) == ["model_a.disv"]
 
 
-def test_a_run_without_a_directory_keeps_its_scratch_in_place(tmp_path: Path) -> None:
+def test_run_without_a_directory_keeps_its_scratch(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs" / "demo"
     ctx = _kept_ctx(run_dir, persisted=False)
 
@@ -209,7 +174,7 @@ def test_a_run_without_a_directory_keeps_its_scratch_in_place(tmp_path: Path) ->
     assert not (run_dir / RUN_SOLVER_DIRNAME).exists()
 
 
-def test_a_folder_another_run_owns_stays_in_the_scratch(tmp_path: Path) -> None:
+def test_spared_folder_stays_in_the_scratch(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs" / "demo"
     ctx = _kept_ctx(run_dir)
     owned = run_dir / ".hmp" / "scratch" / "model_a"
@@ -218,18 +183,6 @@ def test_a_folder_another_run_owns_stays_in_the_scratch(tmp_path: Path) -> None:
 
     assert (owned / "model_a.disv").is_file()
     assert not (run_dir / RUN_SOLVER_DIRNAME).exists()
-
-
-# --- test_the_exports_follow_the_seal ---
-# The data requests and the metadata views are both written after the seal.
-#
-# The export step only cleans. A data request (a field, a series, a layer)
-# reads the sealed run through a store opened on its directory, as hmp export
-# does, so its file carries the label of the day. A metadata view (STAC,
-# RO-Crate, PROV) renders the seal from the directory alone. Every file lands
-# under ``runs/<run>/exports/`` and the console says how many files were
-# written and where. An export that fails leaves the run sealed and names
-# hmp export.
 
 
 def _requests_ctx(run_dir: Path, requests) -> SimpleNamespace:
@@ -250,11 +203,9 @@ def _requests_ctx(run_dir: Path, requests) -> SimpleNamespace:
 
 
 @pytest.mark.parametrize("keep", [False, True])
-def test_the_export_step_cleans_each_solver_run_under_the_retention_of_the_run(
+def test_cleanup_per_solver_run_under_the_retention(
     monkeypatch, tmp_path: Path, keep: bool
 ) -> None:
-    from hydromodpy.solver.base.plan import ProcessRun, RunSlot, SimulationPlan, SolverRun
-
     mesh = ProcessRun(id="mesh::c", process_id="mesh", process_type="mesh", solver="c")
     flow = ProcessRun(id="flow::m", process_id="flow", process_type="flow", solver="m")
     solved = SolverRun(slot=RunSlot(tmp_path, "island"), output_dir=tmp_path / "island")
@@ -314,7 +265,7 @@ def _fake_sealed_store(monkeypatch, opened: list) -> None:
     monkeypatch.setattr(export_module, "sealed_run_store", fake_store)
 
 
-def test_the_exports_are_written_after_the_seal(monkeypatch, tmp_path: Path, caplog) -> None:
+def test_exports_are_written_after_the_seal(monkeypatch, tmp_path: Path, caplog) -> None:
     run_dir, record = _sealed_run_dir(tmp_path)
     requests = load_export_requests(_HEAD_AND_CRATE)
     opened: list[Path] = []
@@ -356,7 +307,7 @@ def test_the_exports_are_written_after_the_seal(monkeypatch, tmp_path: Path, cap
         pytest.param(_HEAD_AND_CRATE, "result", True, id="a result run writes its data"),
     ],
 )
-def test_the_store_opens_only_for_a_data_request_of_a_run_that_renders(
+def test_store_opens_only_for_data_of_a_rendering_run(
     monkeypatch, tmp_path: Path, requests, level, opens_the_store
 ) -> None:
     run_dir, _record = _sealed_run_dir(tmp_path)
@@ -371,11 +322,7 @@ def test_the_store_opens_only_for_a_data_request_of_a_run_that_renders(
     assert bool(opened) is opens_the_store
 
 
-def test_an_export_that_fails_after_the_seal_names_hmp_export(
-    monkeypatch, tmp_path: Path, caplog
-) -> None:
-    from hydromodpy.core.exceptions import ExportError
-
+def test_failed_export_names_hmp_export(monkeypatch, tmp_path: Path, caplog) -> None:
     run_dir, record = _sealed_run_dir(tmp_path)
     requests = load_export_requests(_HEAD_AND_CRATE)
     _fake_sealed_store(monkeypatch, [])
@@ -400,19 +347,8 @@ def test_an_export_that_fails_after_the_seal_names_hmp_export(
     assert _recap_lines(caplog) == []
 
 
-# --- test_preprocessing_scratch_lifecycle ---
-# Lifetime of ``.hmp/scratch/_preprocessing``.
-#
-# The tree holds the corrected DEM and the flow rasters: hundreds of MB, written
-# once and then ingested into the project store. Every trial of a calibration
-# session reads it, so no trial may delete it; but only a *promoted* run reaches
-# the export step that normally does, so a session that promotes nothing used to
-# leave the whole tree behind.
-
-
 @pytest.fixture
 def preprocessing_tree(tmp_path):
-    """A populated ``_preprocessing`` tree and the geographic object naming it."""
     stable = tmp_path / ".hmp" / "scratch" / "_preprocessing"
     (stable / "geographic").mkdir(parents=True)
     (stable / "demcorrecflow").mkdir(parents=True)
@@ -446,33 +382,32 @@ def _trial_ctx(geographic: object, *, write_intermediates: bool = False) -> Simp
     )
 
 
-def test_cleanup_is_idempotent(preprocessing_tree) -> None:
+def test_preprocessing_cleanup_is_idempotent(preprocessing_tree) -> None:
     _, geographic = preprocessing_tree
     cleanup_stable_folder(geographic)
 
     assert cleanup_stable_folder(geographic) == 0
 
 
-def test_export_step_without_geographic_does_nothing() -> None:
+def test_no_geographic_no_preprocessing_cleanup() -> None:
     assert step_cleanup_preprocessing(_preprocessing_ctx(None)) == 0
 
 
-def test_the_export_step_reads_keep_preprocessing_from_the_state(preprocessing_tree) -> None:
-    """``Project.simulate`` sets the flag; the run must not drop what it borrows."""
-    from hydromodpy.workflow.state import PipelineState
-    from hydromodpy.workflow.steps.export import ExportStep
-
+def test_keep_preprocessing_flag(preprocessing_tree) -> None:
+    # Project.simulate sets the flag; the run must not drop what it borrows.
     stable, geographic = preprocessing_tree
     ctx = _preprocessing_ctx(geographic)
 
-    ExportStep().run(PipelineState(run_id="sweep", data={"ctx": ctx, "keep_preprocessing": True}))
+    export_module.ExportStep().run(
+        PipelineState(run_id="sweep", data={"ctx": ctx, "keep_preprocessing": True})
+    )
     assert stable.is_dir()
 
-    ExportStep().run(PipelineState(run_id="single", data={"ctx": ctx}))
+    export_module.ExportStep().run(PipelineState(run_id="single", data={"ctx": ctx}))
     assert not stable.exists()
 
 
-def test_a_session_that_promotes_nothing_still_drops_the_tree(preprocessing_tree) -> None:
+def test_session_without_promotion_drops_the_tree(preprocessing_tree) -> None:
     stable, geographic = preprocessing_tree
 
     release_session_scratch(_trial_ctx(geographic))
@@ -480,8 +415,8 @@ def test_a_session_that_promotes_nothing_still_drops_the_tree(preprocessing_tree
     assert not stable.exists()
 
 
-def test_a_session_cleanup_failure_never_propagates(monkeypatch, preprocessing_tree) -> None:
-    """It runs in a ``finally``: raising there would mask the real error."""
+def test_session_cleanup_failure_is_silent(monkeypatch, preprocessing_tree) -> None:
+    # It runs in a finally: raising there would mask the real error.
     _, geographic = preprocessing_tree
 
     def boom(*_args, **_kwargs):
@@ -493,15 +428,6 @@ def test_a_session_cleanup_failure_never_propagates(monkeypatch, preprocessing_t
     release_session_scratch(_trial_ctx(geographic))
 
 
-# --- test_store_handle_lifecycle ---
-# The run directory is bound once, by the step that opens the run.
-#
-# ``bind_run_directory`` reads the identity of the attempt off the outcome of
-# the directory it is handed, or claims the directory of the case when it is
-# handed none; the facts of the attempt are built from the context, written by
-# the store that opens on them, and no handle survives the step.
-
-
 def _scratch_ctx(scratch: Path) -> SimpleNamespace:
     return SimpleNamespace(
         setup=SimpleNamespace(
@@ -510,11 +436,7 @@ def _scratch_ctx(scratch: Path) -> SimpleNamespace:
     )
 
 
-def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: Path) -> None:
-    from hydromodpy.core.exceptions import ExportError
-    from hydromodpy.results.storage import scratch as scratch_module
-    from hydromodpy.workflow.steps import export as export_module
-
+def test_scratch_cleanup_failure_is_raised(monkeypatch, tmp_path: Path) -> None:
     scratch = tmp_path / ".solver_scratch"
     (scratch / "sim-0001").mkdir(parents=True)
 
@@ -527,10 +449,7 @@ def test_step_cleanup_scratch_raises_on_cleanup_failure(monkeypatch, tmp_path: P
         export_module.step_cleanup_scratch(_scratch_ctx(scratch))
 
 
-def test_step_cleanup_scratch_retries_after_releasing_handles(monkeypatch, tmp_path: Path) -> None:
-    from hydromodpy.results.storage import scratch as scratch_module
-    from hydromodpy.workflow.steps import export as export_module
-
+def test_scratch_cleanup_retries_after_releasing_handles(monkeypatch, tmp_path: Path) -> None:
     scratch = tmp_path / ".solver_scratch"
     run_dir = scratch / "sim-0001"
     run_dir.mkdir(parents=True)
@@ -562,10 +481,8 @@ def test_step_cleanup_scratch_retries_after_releasing_handles(monkeypatch, tmp_p
     assert not run_dir.exists()
 
 
-def test_step_cleanup_scratch_spares_the_folders_another_promotion_owns(tmp_path: Path) -> None:
-    """A calibration keeps trial solver folders for their own promotion."""
-    from hydromodpy.workflow.steps import export as export_module
-
+def test_scratch_cleanup_spares_promoted_folders(tmp_path: Path) -> None:
+    # A calibration keeps trial solver folders for their own promotion.
     scratch = tmp_path / ".solver_scratch"
     promoted = scratch / "run_trial000001"
     kept = scratch / "run_trial000002"
@@ -580,9 +497,7 @@ def test_step_cleanup_scratch_spares_the_folders_another_promotion_owns(tmp_path
     assert not shared.exists()
 
 
-def test_step_drop_empty_scratch_only_removes_an_empty_folder(tmp_path: Path) -> None:
-    from hydromodpy.workflow.steps import export as export_module
-
+def test_empty_scratch_only_is_dropped(tmp_path: Path) -> None:
     scratch = tmp_path / ".solver_scratch"
     kept = scratch / "_preprocessing"
     kept.mkdir(parents=True)
@@ -593,11 +508,6 @@ def test_step_drop_empty_scratch_only_removes_an_empty_folder(tmp_path: Path) ->
     kept.rmdir()
     export_module.step_drop_empty_scratch(_scratch_ctx(scratch))
     assert not scratch.exists()
-
-
-# --- test_the_seal_of_a_replay_carries_the_class_it_found ---
-# The seal step of a replay classes the values of the new run against its source
-# before it writes the seal; every other run seals without a source.
 
 
 @contextmanager
@@ -623,7 +533,7 @@ def _seal_ctx(tmp_path: Path, *, strict: bool | None, replay_of: Path | None) ->
         (None, False),
     ],
 )
-def test_the_seal_of_a_replay_classes_the_values_before_it_seals(
+def test_replay_seal_classes_the_values(
     tmp_path: Path, monkeypatch, strict: bool | None, expected: bool
 ) -> None:
     store, seen = object(), {}
@@ -650,7 +560,7 @@ def test_the_seal_of_a_replay_classes_the_values_before_it_seals(
     assert advanced.step_index == 14
 
 
-def test_the_lineage_of_a_copy_and_that_of_a_run_both_say_replay(
+def test_source_kind_of_a_copy_and_of_a_run(
     tmp_path: Path,
 ) -> None:
     copy = tmp_path / "copies" / "probe"

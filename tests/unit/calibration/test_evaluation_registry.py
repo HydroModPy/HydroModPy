@@ -1,4 +1,9 @@
-"""Tests of `evaluation.registry`."""
+"""The registry of trial evaluators, the thing that turns a parameter sample into a cost.
+
+A search runs on any registered evaluator without preparing a HydroModPy model.
+What needs the model (promotion, a validation window, phases, a linearized width) is
+refused, and the ask/tell engine names no evaluator.
+"""
 
 from __future__ import annotations
 
@@ -16,37 +21,8 @@ from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 from hydromodpy.calibration.runners.search import run_calibration_core
 from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
-from hydromodpy.calibration.runners.state import (
-    build_cache_context,
-    override_paths,
-    space_from_config,
-)
+from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.core.exceptions import CalibrationError
-
-# From test_trial_evaluator_registry.py
-# What turns a parameter sample into a cost is named, not imported.
-#
-# Before evaluators were named at all, the production calibration path built one
-# evaluator and could be nothing else. The ask/tell loop has always taken any
-# callable -- eight construction sites of this repository already pass one that
-# is not the pipeline -- and the scored-forward route is gone with it, folded
-# into the solver backends of 2.0.0. The one published injection point besides
-# the pipeline evaluator, a metric function, applies after the solve, over a
-# context the pipeline has already produced: it changes how a run is scored,
-# never what runs.
-#
-# Five gates, and they answer different questions.
-#
-# 1. The registry itself: what it resolves, what it refuses, and what it binds.
-# 2. At the document: a file naming an evaluator this installation cannot serve is
-#    refused while the TOML is read, with the list of what it does serve.
-# 3. Behavioral, end to end: a registered evaluator that runs no HydroModPy model
-#    drives a whole search through ``run_calibration_core``, and the preparation of
-#    a trial context is never paid for.
-# 4. What is refused rather than silently wrong: promotion, a linearized width and
-#    a staged protocol all need the model the evaluator replaced.
-# 5. Derived from the source: the ask/tell engine names no evaluator, and the two
-#    functions that launch a pipeline trial are the two that are allowed to.
 
 pytestmark = pytest.mark.fast
 
@@ -127,125 +103,66 @@ def _document(path: Path, max_trials: int, tail: str = "", options: bool = True)
     return path
 
 
-#
-
-
-# --------------------------------------------------------------------------
-# 1. The registry
-# --------------------------------------------------------------------------
-
-
-# --------------------------------------------------------------------------
-# 2. At the document
-# --------------------------------------------------------------------------
-
-
-# --------------------------------------------------------------------------
-# 3. A whole search on an evaluator that runs no HydroModPy model
-# --------------------------------------------------------------------------
-class TestASearchRunsOnANamedEvaluator:
-    def test_the_loop_finds_the_optimum_of_a_model_hydromodpy_never_ran(
-        self, registered_quadratic, tmp_path
-    ) -> None:
-
-        cfg = _config(evaluator="test_quadratic")
-        report = run_calibration_core(
-            cfg,
-            None,
-            persistence=_session(tmp_path),
-            space=space_from_config(cfg),
-            project_root=tmp_path,
-        ).to_dict()
-
-        assert report["n_trials"] == 5
-        # Five grid points over [1e-6, 1e-2]; the third sits within 1e-6 of the
-        # target the evaluator was built with.
-        assert report["best_parameters"]["k"] == pytest.approx(5e-3, abs=1e-5)
-        assert report["best_cost"] < 1e-11
-
-    @staticmethod
-    def _cache_context(evaluator: str | None) -> dict:
-        cfg = _config(evaluator=evaluator)
-        return build_cache_context(
-            cfg=cfg,
-            trial_ctx=None,
-            space=space_from_config(cfg),
-            override_paths=override_paths(cfg),
-            objective_entrypoint=None,
-        )
-
-
-# --------------------------------------------------------------------------
-# 4. What is refused rather than silently wrong
-# --------------------------------------------------------------------------
-class TestWhatNeedsTheModelIsRefusedNotFaked:
-    def test_promotion_is_refused_before_the_search_not_after_it(
-        self, registered_quadratic, tmp_path
-    ) -> None:
-
-        cfg = _config(evaluator="test_quadratic", save_runs="best_n", save_best_n=1)
-        with pytest.raises(CalibrationError) as excinfo:
-            run_calibration_core(
-                cfg,
-                None,
-                persistence=_session(tmp_path),
-                space=space_from_config(cfg),
-                project_root=tmp_path,
-            )
-
-        assert "save_runs" in str(excinfo.value)
-
-    @pytest.mark.parametrize(
-        ("options", "metric_fn"),
-        [({"evaluator": "test_quadratic"}, None), ({}, lambda *_, **__: (0.0, {}))],
-        ids=["another_evaluator", "a_metric_function"],
+def run_core(cfg, tmp_path, **extra):
+    return run_calibration_core(
+        cfg,
+        None,
+        persistence=_session(tmp_path),
+        space=space_from_config(cfg),
+        project_root=tmp_path,
+        **extra,
     )
-    def test_a_validation_window_nothing_would_score_is_refused(
-        self, registered_quadratic, tmp_path, options, metric_fn
-    ) -> None:
-        cfg = _config(
-            window={"end": "2001-12-31"},
-            validation_window={"start": "2002-01-01", "end": "2002-12-31"},
-            **options,
-        )
-        with pytest.raises(CalibrationError, match="validation_window"):
-            run_calibration_core(
-                cfg,
-                None,
-                persistence=_session(tmp_path),
-                space=space_from_config(cfg),
-                project_root=tmp_path,
-                metric_fn=metric_fn,
-            )
-
-    def test_a_staged_protocol_is_refused_because_a_freeze_would_reach_nothing(
-        self, registered_quadratic, tmp_path
-    ) -> None:
-        document = _document(tmp_path / "staged.toml", 2, options=False)
-
-        with pytest.raises(CalibrationError) as excinfo:
-            run_staged_calibration(document)
-
-        assert "phases" in str(excinfo.value)
-
-    def test_a_linearized_width_is_refused_because_there_is_nothing_to_perturb(
-        self, registered_quadratic, tmp_path
-    ) -> None:
-        document = _document(
-            tmp_path / "linearized.toml",
-            3,
-            tail='[calibration.uncertainty]\nmethod = "linearized"\nperturbation = 0.01\n',
-        )
-
-        with pytest.raises(CalibrationError) as excinfo:
-            run_calibration_cli(document, project="test")
-
-        assert "linearized" in str(excinfo.value)
 
 
-# --------------------------------------------------------------------------
-# 5. Derived from the source
-# --------------------------------------------------------------------------
+def test_search_finds_the_optimum_without_a_model(registered_quadratic, tmp_path) -> None:
+    report = run_core(_config(evaluator="test_quadratic"), tmp_path).to_dict()
+
+    assert report["n_trials"] == 5
+    # Five grid points over [1e-6, 1e-2]; the third sits within 1e-6 of the target.
+    assert report["best_parameters"]["k"] == pytest.approx(5e-3, abs=1e-5)
+    assert report["best_cost"] < 1e-11
+
+
+def test_promotion_is_refused_before_the_search(registered_quadratic, tmp_path) -> None:
+    cfg = _config(evaluator="test_quadratic", save_runs="best_n", save_best_n=1)
+
+    with pytest.raises(CalibrationError, match="save_runs"):
+        run_core(cfg, tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("options", "metric_fn"),
+    [({"evaluator": "test_quadratic"}, None), ({}, lambda *_, **__: (0.0, {}))],
+    ids=["another evaluator", "a metric function"],
+)
+def test_validation_window_nothing_scores_is_refused(
+    registered_quadratic, tmp_path, options, metric_fn
+) -> None:
+    cfg = _config(
+        window={"end": "2001-12-31"},
+        validation_window={"start": "2002-01-01", "end": "2002-12-31"},
+        **options,
+    )
+
+    with pytest.raises(CalibrationError, match="validation_window"):
+        run_core(cfg, tmp_path, metric_fn=metric_fn)
+
+
+def test_staged_protocol_is_refused(registered_quadratic, tmp_path) -> None:
+    document = _document(tmp_path / "staged.toml", 2, options=False)
+
+    with pytest.raises(CalibrationError, match="phases"):
+        run_staged_calibration(document)
+
+
+def test_linearized_width_is_refused(registered_quadratic, tmp_path) -> None:
+    tail = '[calibration.uncertainty]\nmethod = "linearized"\nperturbation = 0.01\n'
+    document = _document(tmp_path / "linearized.toml", 3, tail=tail)
+
+    with pytest.raises(CalibrationError, match="linearized"):
+        run_calibration_cli(document, project="test")
+
+
 LAUNCHERS_ALLOWED_TO_RUN_A_PIPELINE_TRIAL = {
     # The evaluator the registry resolves for "hydromodpy_pipeline". This is the
     # one the ask/tell loop reaches, and the only one.
@@ -287,20 +204,17 @@ def _functions_calling(name: str) -> set[str]:
     return callers
 
 
-class TestNothingReHardwiresTheChoiceOfEvaluator:
-    def test_only_the_two_named_launchers_run_a_pipeline_trial(self) -> None:
-        assert _functions_calling("run_trial_light") == (LAUNCHERS_ALLOWED_TO_RUN_A_PIPELINE_TRIAL)
+def test_only_two_launchers_run_a_pipeline_trial() -> None:
+    assert _functions_calling("run_trial_light") == LAUNCHERS_ALLOWED_TO_RUN_A_PIPELINE_TRIAL
 
-    def test_the_ask_tell_engine_names_no_evaluator(self) -> None:
-        """The loop must not learn what an evaluator id is. That is the contract."""
 
-        source = inspect.getsource(engine)
+def test_engine_names_no_evaluator() -> None:
+    source = inspect.getsource(engine)
 
-        assert "evaluator_id" not in source
-        assert "evaluation.registry" not in source
-        assert "hydromodpy_pipeline" not in source
+    assert "evaluator_id" not in source
+    assert "evaluation.registry" not in source
+    assert "hydromodpy_pipeline" not in source
 
-    def test_the_in_tree_evaluator_is_built_by_the_registry_and_by_nobody_else(self) -> None:
-        constructions = _functions_calling("PipelineTrialEvaluator")
 
-        assert constructions == set()
+def test_pipeline_evaluator_is_built_by_the_registry_only() -> None:
+    assert _functions_calling("PipelineTrialEvaluator") == set()

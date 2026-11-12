@@ -92,7 +92,7 @@ def _layer(path: Path, *geometries, crs: str | None = "EPSG:2154") -> Path:
     return path
 
 
-def test_the_zone_holds_the_pixels_less_than_the_threshold_above_the_thalweg() -> None:
+def test_stream_height_zone() -> None:
     (zone,) = _zones(_HAND, criteria=_criteria())
 
     assert isinstance(zone.region, PixelRegion)
@@ -103,12 +103,7 @@ def test_the_zone_holds_the_pixels_less_than_the_threshold_above_the_thalweg() -
     assert zone.cell_size_m == _HAND["cell_size"] and zone.ramp_m == 2.0 * _HAND["cell_size"]
 
 
-def test_a_zone_on_the_height_above_the_stream_without_a_network_is_refused() -> None:
-    with pytest.raises(MeshRequestError, match=r"\[geographic.river_network\]"):
-        _zones(_HAND, criteria=_criteria(streams=False))
-
-
-def test_the_zone_of_a_run_holds_the_cells_where_its_field_passed_the_threshold() -> None:
+def test_run_field_zone() -> None:
     (shallow,) = _zones(_RUN_ZONE, criteria=_criteria())
     (deep,) = _zones({**_RUN_ZONE, "below": None, "above": 5.0}, criteria=_criteria())
 
@@ -117,12 +112,21 @@ def test_the_zone_of_a_run_holds_the_cells_where_its_field_passed_the_threshold(
     assert deep.region.mask[:, 50:].all() and not deep.region.mask[:, :50].any()
 
 
-def test_a_zone_of_a_run_the_mesh_step_did_not_read_is_refused() -> None:
-    with pytest.raises(MeshRequestError, match="read no such field"):
-        _zones({**_RUN_ZONE, "run": "other"}, criteria=_criteria())
+CRITERIA_REFUSALS = [
+    pytest.param(
+        _HAND, False, r"\[geographic.river_network\]", id="stream height without a network"
+    ),
+    pytest.param({**_RUN_ZONE, "run": "other"}, True, "read no such field", id="run not read"),
+]
 
 
-def test_a_threshold_nothing_passes_gives_an_empty_zone_and_a_warning(
+@pytest.mark.parametrize(("table", "streams", "message"), CRITERIA_REFUSALS)
+def test_criteria_refusals(table, streams, message) -> None:
+    with pytest.raises(MeshRequestError, match=message):
+        _zones(table, criteria=_criteria(streams=streams))
+
+
+def test_empty_zone_warns(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     nowhere = {**_RUN_ZONE, "below": 0.1}
@@ -135,8 +139,8 @@ def test_a_threshold_nothing_passes_gives_an_empty_zone_and_a_warning(
     assert any(zone.label in record.getMessage() for record in caplog.records)
 
 
-def test_without_criteria_a_zone_drawn_by_a_threshold_is_left_out(tmp_path: Path) -> None:
-    """An engine that does not grade its cells reads no field: only the layer zone stays."""
+def test_no_criteria_keeps_layer_zone(tmp_path: Path) -> None:
+    # An engine that does not grade its cells reads no field: only the layer zone stays.
     path = _layer(tmp_path / "zone.geojson", box(600.0, 600.0, 700.0, 700.0))
 
     zones = _zones(_HAND, {"path": str(path), "cell_size": 15.0}, criteria=None)
@@ -145,7 +149,7 @@ def test_without_criteria_a_zone_drawn_by_a_threshold_is_left_out(tmp_path: Path
     assert zone.label == RefinementZoneConfig(path=path, cell_size=15.0).describe()
 
 
-def test_the_zone_file_is_read_wherever_it_lies(tmp_path: Path) -> None:
+def test_layer_lookup_folders(tmp_path: Path) -> None:
     geometries = (box(600.0, 600.0, 700.0, 700.0), LineString([(100.0, 100.0), (200.0, 300.0)]))
     source = _layer(tmp_path / "data" / "refinement_zone" / "zones.geojson", *geometries)
     shutil.copy(source, tmp_path / "copy.geojson")
@@ -167,10 +171,8 @@ def test_the_zone_file_is_read_wherever_it_lies(tmp_path: Path) -> None:
 
 
 @pytest.mark.filterwarnings("ignore:'crs' was not provided")
-def test_a_layer_with_no_crs_is_read_in_the_project_crs_with_a_warning(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    """A GeoJSON always reads as WGS 84, so the layer is a GeoPackage."""
+def test_layer_without_crs(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    # A GeoJSON always reads as WGS 84, so the layer is a GeoPackage.
     path = _layer(tmp_path / "zones.gpkg", box(600.0, 600.0, 700.0, 700.0), crs=None)
 
     with caplog.at_level("WARNING", logger="hydromodpy.mesh.planning.refinement_zones"):
@@ -180,7 +182,7 @@ def test_a_layer_with_no_crs_is_read_in_the_project_crs_with_a_warning(
     assert [str(path) in record.getMessage() for record in caplog.records] == [True]
 
 
-def test_a_layer_with_no_geometry_is_refused(tmp_path: Path) -> None:
+def test_layer_without_geometry(tmp_path: Path) -> None:
     path = tmp_path / "empty.geojson"
     gpd.GeoDataFrame(geometry=[None], crs="EPSG:2154").to_file(path, driver="GeoJSON")
 
@@ -188,7 +190,7 @@ def test_a_layer_with_no_geometry_is_refused(tmp_path: Path) -> None:
         _zones({"path": str(path), "cell_size": 15.0}, criteria=None)
 
 
-def test_a_layer_of_polygons_without_area_is_refused(tmp_path: Path) -> None:
+def test_layer_without_area(tmp_path: Path) -> None:
     flat = [Polygon([(600.0, y), (700.0, y), (650.0, y)]) for y in (600.0, 700.0)]
     path = _layer(tmp_path / "flat.gpkg", *flat)
 
@@ -197,9 +199,7 @@ def test_a_layer_of_polygons_without_area_is_refused(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("data_dir", [True, False], ids=["data directory", "no directory"])
-def test_a_zone_file_found_nowhere_is_named_where_it_was_first_looked_for(
-    tmp_path: Path, data_dir: bool
-) -> None:
+def test_missing_layer_named(tmp_path: Path, data_dir: bool) -> None:
     first = tmp_path / "data" / "refinement_zone" / "missing.gpkg" if data_dir else "missing.gpkg"
 
     with pytest.raises(DataSourceError, match=str(first)):
@@ -210,7 +210,7 @@ def test_a_zone_file_found_nowhere_is_named_where_it_was_first_looked_for(
         )
 
 
-def test_the_threshold_is_passed_at_some_time_step_and_never_on_an_undefined_cell() -> None:
+def test_envelope_passing() -> None:
     envelope = dataclasses.replace(
         _envelope(), minimum=np.array([np.nan, 0.2]), maximum=np.array([np.nan, 0.9])
     )
@@ -224,10 +224,10 @@ def test_the_threshold_is_passed_at_some_time_step_and_never_on_an_undefined_cel
     [([0.5], [4.0]), ([0.5, 3.0], [4.0]), ([0.5, 3.0, 1.0], [4.0, 6.0, 2.0])],
     ids=["one value", "maxima short", "one value too many"],
 )
-def test_extremes_that_do_not_hold_one_value_per_cell_are_refused(minimum, maximum) -> None:
+def test_extremes_length_refused(minimum, maximum) -> None:
     with pytest.raises(MeshRequestError, match="for 2 cells"):
         dataclasses.replace(_envelope(), minimum=np.array(minimum), maximum=np.array(maximum))
 
 
-def test_no_cell_selected_marks_no_pixel() -> None:
+def test_no_cell_no_pixel() -> None:
     assert not cells_on_grid(_VERTICES, _HALVES, np.array([False, False]), _GRID).any()

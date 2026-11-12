@@ -224,7 +224,7 @@ def build_from_section(source_cls: type, section: object, **resolved: object) ->
     configuration of an out-of-tree source is the ``installed`` member of a
     data request, whose ``options`` reach its constructor.
 
-    ``tests/unit/data/variables/hydrography/test_hydrography_source_binding.py`` pins, per built-in
+    ``tests/unit/data/variables/hydrography/test_api_source.py`` pins, per built-in
     source, which fields of a section this binds: the one place a silent
     mis-binding could hide.
 

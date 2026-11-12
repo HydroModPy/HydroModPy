@@ -1,3 +1,10 @@
+"""Recharge (m/s per cell) bound from the flow config, and its stress-period payload.
+
+Recharge comes as a rate per period, flat over the cells of a DISV grid. Lake cells
+get none, since LAK carries rainfall and open-water evaporation itself. A long
+chronicle goes to binary files named RCHA, and the stack must not stay in memory.
+"""
+
 from __future__ import annotations
 
 import gc
@@ -21,15 +28,19 @@ from hydromodpy.solver.modflow6.builders.recharge import (
     RECHARGE_BINARY_MIN_PERIODS,
     _shared_forcing_dir,
     bind_recharge_from_flow,
+    build_evt_stress_period_data,
     externalize_recharge_spd,
+    mask_recharge_on_lake_cells,
     recharge_to_spd,
     resolve_deferred_heterogeneous_recharge,
 )
+from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow6.support.steady_initial_conditions import auxiliary_slot
 from tests._helpers.mf6_toy_models import (
     toy_model,
     two_triangle_model,
 )
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _make_recharge_point_record(
@@ -57,7 +68,7 @@ def _make_recharge_point_record(
     )
 
 
-def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
+def test_recharge_from_flow_config() -> None:
     model = toy_model()
     model.inputs = replace(
         model.inputs,
@@ -78,23 +89,38 @@ def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
     assert np.allclose(spd[1], 0.3e-3 / 86400.0)
 
 
-def test_modflow6_rejects_nonfinite_direct_recharge() -> None:
+REFUSALS = [
+    pytest.param(
+        np.asarray([1.0e-8, np.nan], dtype=float),
+        bind_recharge_from_flow,
+        "model.recharge",
+        id="nonfinite direct recharge",
+    ),
+    pytest.param(
+        np.asarray([1.0e-8, 2.0e-8, 3.0e-8], dtype=float),
+        recharge_to_spd,
+        "sequence length",
+        id="sequence of the wrong length",
+    ),
+    pytest.param(
+        {0: np.full(6, 1.0e-8, dtype=float)},
+        recharge_to_spd,
+        r"gives no rate for period\(s\) \[1\]",
+        id="mapping without a period",
+    ),
+]
+
+
+@pytest.mark.parametrize(("recharge", "call", "message"), REFUSALS)
+def test_refusals(recharge, call, message) -> None:
     model = toy_model()
-    model.recharge = np.asarray([1.0e-8, np.nan], dtype=float)
+    model.recharge = recharge
 
-    with pytest.raises(ValueError, match="model.recharge"):
-        bind_recharge_from_flow(model)
-
-
-def test_modflow6_rejects_bad_recharge_flat_shape() -> None:
-    model = toy_model()
-    model.recharge = np.asarray([1.0e-8, 2.0e-8, 3.0e-8], dtype=float)
-
-    with pytest.raises(ValueError, match="sequence length"):
-        recharge_to_spd(model)
+    with pytest.raises(ValueError, match=message):
+        call(model)
 
 
-def test_modflow6_single_period_recharge_sequence_uses_first_clim() -> None:
+def test_single_period_sequence_uses_first_clim() -> None:
     model = toy_model()
     model.nper = 1
     model.first_clim = "mean"
@@ -105,15 +131,7 @@ def test_modflow6_single_period_recharge_sequence_uses_first_clim() -> None:
     assert np.allclose(spd[0], 2.0e-8)
 
 
-def test_modflow6_rejects_missing_recharge_mapping_period() -> None:
-    model = toy_model()
-    model.recharge = {0: np.full(6, 1.0e-8, dtype=float)}
-
-    with pytest.raises(ValueError, match=r"gives no rate for period\(s\) \[1\]"):
-        recharge_to_spd(model)
-
-
-def test_modflow6_resolves_point_recharge_on_unstructured_runtime_mesh() -> None:
+def test_point_recharge_on_a_triangle_mesh() -> None:
     model = two_triangle_model()
     point = _make_recharge_point_record(
         station_id="R1",
@@ -145,7 +163,7 @@ def test_modflow6_resolves_point_recharge_on_unstructured_runtime_mesh() -> None
     )
 
 
-def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:
+def test_zero_recharge_when_inactive() -> None:
     model = toy_model()
     model.inputs = replace(model.inputs, active_sinks_sources=())
 
@@ -218,9 +236,7 @@ SHARED_FORCING_CASES = (
     SHARED_FORCING_CASES,
     ids=[case for case, _, _ in SHARED_FORCING_CASES],
 )
-def test_the_recharge_folder_is_the_one_the_slot_names(
-    case: str, model: SimpleNamespace, expected: str | None
-) -> None:
+def test_recharge_folder(case: str, model: SimpleNamespace, expected: str | None) -> None:
     del case
     assert _shared_forcing_dir(model) == expected
 
@@ -232,18 +248,15 @@ def test_the_recharge_folder_is_the_one_the_slot_names(
 # this change) it must still name files ``*.rcha.<k>.bin`` / ``rcha_<digest>.<k>.bin``
 # and write the ``RECHARGE`` header, byte for byte.
 
-_NCPL = 4
+
+def recharge_stack(n_cells: int, n_periods: int) -> dict[int, np.ndarray]:
+    return {kper: np.full(n_cells, 1.0e-8 * (kper + 1)) for kper in range(n_periods)}
 
 
-_NPER = RECHARGE_BINARY_MIN_PERIODS + 2
-
-
-def _stack() -> dict[int, np.ndarray]:
-    return {kper: np.full(_NCPL, 1.0e-8 * (kper + 1)) for kper in range(_NPER)}
-
-
-def test_the_default_package_names_local_files_rcha() -> None:
-    payload = externalize_recharge_spd(_stack(), basename="m")
+def test_default_package_names_files_rcha() -> None:
+    payload = externalize_recharge_spd(
+        recharge_stack(4, RECHARGE_BINARY_MIN_PERIODS + 2), basename="m"
+    )
 
     for kper, record in payload.items():
         assert record["filename"] == f"m.rcha.{kper}.bin"
@@ -258,18 +271,13 @@ def test_the_default_package_names_local_files_rcha() -> None:
 # concurrent trial. It used to be ``model.rch_spd``, an attribute nothing in the
 # package ever read.
 
-N_CELLS = 32
-
-
 N_PERIODS = RECHARGE_BINARY_MIN_PERIODS + 4
 
 
-def _stack_3() -> dict[int, np.ndarray]:
-    return {kper: np.full(N_CELLS, 1e-8 * (kper + 1), dtype="float64") for kper in range(N_PERIODS)}
-
-
-def test_the_shared_payload_hands_filenames_and_not_the_arrays(tmp_path) -> None:
-    payload = externalize_recharge_spd(_stack_3(), basename="m", shared_dir=tmp_path)
+def test_shared_payload_holds_filenames_only(tmp_path) -> None:
+    payload = externalize_recharge_spd(
+        recharge_stack(32, N_PERIODS), basename="m", shared_dir=tmp_path
+    )
 
     assert set(payload) == set(range(N_PERIODS))
     for record in payload.values():
@@ -277,8 +285,8 @@ def test_the_shared_payload_hands_filenames_and_not_the_arrays(tmp_path) -> None
         assert "data" not in record, "the array travels to FloPy and stays alive with it"
 
 
-def test_nothing_in_the_payload_keeps_the_stack_alive(tmp_path) -> None:
-    spd = _stack_3()
+def test_payload_does_not_keep_the_stack_alive(tmp_path) -> None:
+    spd = recharge_stack(32, N_PERIODS)
     watchers = {kper: weakref.ref(arr) for kper, arr in spd.items()}
 
     payload = externalize_recharge_spd(spd, basename="m", shared_dir=tmp_path)
@@ -290,7 +298,7 @@ def test_nothing_in_the_payload_keeps_the_stack_alive(tmp_path) -> None:
     assert len(payload) == N_PERIODS
 
 
-def test_the_model_never_carries_the_stack_as_an_attribute() -> None:
+def test_model_does_not_carry_the_stack() -> None:
     # The retention this module exists for. `rch_spd` had no reader anywhere in
     # the package, so re-introducing the attribute is the regression to catch.
     import inspect
@@ -311,3 +319,49 @@ def test_the_model_never_carries_the_stack_as_an_attribute() -> None:
         f"the recharge stack is back on the model ({offenders}); it holds 3.31 GB per "
         "trial on a daily five-year chronicle and nothing reads it"
     )
+
+
+def test_recharge_is_zeroed_on_lake_cells_only() -> None:
+    spd = {0: np.full(6, 1.0e-8), 1: np.full(6, 2.0e-8)}
+
+    masked = mask_recharge_on_lake_cells(spd, lake_cell_ids=[1, 4])
+
+    for kper, rate in ((0, 1.0e-8), (1, 2.0e-8)):
+        np.testing.assert_array_equal(masked[kper], [rate, 0.0, rate, rate, 0.0, rate])
+
+
+def test_no_lake_leaves_the_recharge_unchanged() -> None:
+    masked = mask_recharge_on_lake_cells({0: np.full(4, 3.0e-8)}, lake_cell_ids=[])
+
+    assert np.all(masked[0] == 3.0e-8)
+
+
+EVT_CASES = [
+    pytest.param([2, 4], {0, 1, 3, 5}, id="lake cells carry no EVT"),
+    pytest.param(None, set(range(6)), id="every cell without lake cells"),
+]
+
+
+@pytest.mark.parametrize(("lake_cell_ids", "cells_with_evt"), EVT_CASES)
+def test_evt_records_skip_lake_cells(lake_cell_ids, cells_with_evt) -> None:
+    mesh = solver_mesh_from_structured_arrays(
+        nrow=2,
+        ncol=3,
+        top=np.full((2, 3), 10.0),
+        botm=np.stack([np.full((2, 3), 5.0), np.full((2, 3), 0.0)]),
+    )
+    model = SimpleNamespace(
+        ncpl=6,
+        nper=1,
+        modflow_config=_coerce_modflow6_config(None),
+        _evt_rate_payload={0: 1.0e-8},  # uniform routed deficit, m/s
+    )
+    no_cells = np.zeros(mesh.n_cells, dtype=bool)
+    # lake_cell_ids is passed explicitly so the masking does not depend on build order.
+    extra = {} if lake_cell_ids is None else {"lake_cell_ids": lake_cell_ids}
+
+    evt_spd = build_evt_stress_period_data(
+        model, mesh, ocean_support_mask=no_cells, stream_support_mask=no_cells, **extra
+    )
+
+    assert {int(entry[1]) for entry in evt_spd[0]} == cells_with_evt

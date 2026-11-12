@@ -1,36 +1,25 @@
-"""The facts of the run."""
+"""Facts of a run: its primary solver, its mesh (hash, bbox, cells), its period and its artifact paths."""
 
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from pydantic import BaseModel, ConfigDict
 
 import hydromodpy.workflow.steps.prepare_solver.facts as facts_module
 from hydromodpy.core.exceptions import PipelineError
-from hydromodpy.core.site.config import SiteConfig
-from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME, RUNS_DIRNAME
+from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.model.domain.domain_config import DomainConfig
-from hydromodpy.results.catalog.registration import reserve_version_dirname
-from hydromodpy.results.outcome import read_outcome
-from hydromodpy.results.storage.attempt import claim_run_directory
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, TABLES_DIRNAME
-from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-from hydromodpy.schema.lineage import Lineage
-from hydromodpy.workflow.steps.prepare_solver import prepare as prepare_module
-from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
 from tests._helpers.cell_meshes import cell_mesh_of
 from tests.unit.workflow.steps.prepare_solver._helpers import square_and_pentagon
 
 
-class _DumpableConfig:
+class DumpableConfig:
     def __init__(self, payload: dict[str, object]) -> None:
         self._payload = payload
         self.flow = SimpleNamespace(flow_regime="transient")
@@ -48,32 +37,31 @@ class _DumpableConfig:
         return dict(self._payload)
 
 
-def test_primary_solver_skips_mesh_runs_and_uses_first_solver_backed_run() -> None:
+PRIMARY_RUNS = [
+    pytest.param(
+        [("mesh", "catchment"), ("flow", "modflow6"), ("transport", "mt3dms")],
+        ("flow", "modflow6"),
+        id="first solver run",
+    ),
+    pytest.param([("mesh", "catchment")], ("mesh", "catchment"), id="mesh only"),
+]
+
+
+@pytest.mark.parametrize(("runs", "primary"), PRIMARY_RUNS)
+def test_primary_run(runs, primary) -> None:
     plan = SimpleNamespace(
-        runs=(
-            SimpleNamespace(process_type="mesh", solver="catchment"),
-            SimpleNamespace(process_type="flow", solver="modflow6"),
-            SimpleNamespace(process_type="transport", solver="mt3dms"),
-        )
+        runs=tuple(SimpleNamespace(process_type=kind, solver=solver) for kind, solver in runs)
     )
 
-    assert facts_module.primary_run_for_simulation(plan) == ("flow", "modflow6")
+    assert facts_module.primary_run_for_simulation(plan) == primary
 
 
-def test_primary_solver_uses_mesh_solver_for_mesh_only_plan() -> None:
-    plan = SimpleNamespace(runs=(SimpleNamespace(process_type="mesh", solver="catchment"),))
-
-    assert facts_module.primary_run_for_simulation(plan) == ("mesh", "catchment")
-
-
-def test_primary_solver_rejects_empty_plan() -> None:
+def test_primary_run_of_an_empty_plan_is_refused() -> None:
     with pytest.raises(PipelineError, match="SimulationPlan has no runs"):
         facts_module.primary_run_for_simulation(SimpleNamespace(runs=()))
 
 
-def test_collect_run_facts_collects_mesh_time_and_simulation_metadata(
-    tmp_path: Path,
-) -> None:
+def test_run_facts_of_a_triangle_mesh(tmp_path: Path) -> None:
     points = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 3.0], [0.0, 3.0]], dtype=np.float64)
     connectivity = np.array([[0, 1, 2], [0, 2, 3]], dtype=np.int64)
     cell_mesh = cell_mesh_of(
@@ -88,7 +76,7 @@ def test_collect_run_facts_collects_mesh_time_and_simulation_metadata(
     }
     ctx = SimpleNamespace(
         config_path=tmp_path / "config.toml",
-        cfg=_DumpableConfig(cfg_payload),
+        cfg=DumpableConfig(cfg_payload),
         setup=SimpleNamespace(
             cell_mesh=cell_mesh,
             time_grid=SimpleNamespace(boundaries=("2020-01-01", "2020-01-02", "2020-01-03")),
@@ -119,9 +107,7 @@ def test_collect_run_facts_collects_mesh_time_and_simulation_metadata(
     assert "site" not in facts
 
 
-def test_store_sim_artifacts_returns_existing_project_relative_run_paths(
-    tmp_path: Path,
-) -> None:
+def test_artifacts_are_project_relative_paths(tmp_path: Path) -> None:
     project_root = tmp_path / "project"
     run_dir = project_root / RUNS_DIRNAME / "demo_run"
     fields_path = run_dir / FIELDS_STORE_NAME
@@ -143,7 +129,7 @@ def test_store_sim_artifacts_returns_existing_project_relative_run_paths(
     )
 
 
-def test_store_sim_artifacts_ignores_missing_and_external_paths(tmp_path: Path) -> None:
+def test_artifacts_skip_missing_and_external_paths(tmp_path: Path) -> None:
     project_root = tmp_path / "project"
     external = tmp_path / "external" / FIELDS_STORE_NAME
     external.mkdir(parents=True)
@@ -159,71 +145,12 @@ def test_store_sim_artifacts_ignores_missing_and_external_paths(tmp_path: Path) 
     assert facts_module.store_sim_artifacts(ctx, "sim-123", store=store) == ()
 
 
-# --- test_the_seal_names_the_gauge_the_run_used ---
-# The ``site`` block of the seal names the gauge the run was compared to.
-#
-# ``[site] gauge`` when it is declared; else the single hydrometric station the
-# run loaded; with none or several, no gauge.
-
-
-def _ctx(site: SiteConfig, stations: tuple[str, ...]) -> SimpleNamespace:
-    catchment = SimpleNamespace(kind="from_outlet_coord", x_outlet=1.0, y_outlet=2.0)
-    hydrometry = SimpleNamespace(points=[SimpleNamespace(station_id=s) for s in stations])
-    return SimpleNamespace(
-        cfg=SimpleNamespace(
-            site=site,
-            geographic=SimpleNamespace(catchment=catchment, crs_project="EPSG:2154"),
-        ),
-        loaded_data=SimpleNamespace(hydrometry=hydrometry),
-    )
-
-
-# --- test_store_handle_lifecycle ---
-# The run directory is bound once, by the step that opens the run.
-#
-# ``bind_run_directory`` reads the identity of the attempt off the outcome of
-# the directory it is handed, or claims the directory of the case when it is
-# handed none; the facts of the attempt are built from the context, written by
-# the store that opens on them, and no handle survives the step.
-
-
-class _Results(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    keep_solver_files: bool = True
-    budget_keep: str = "all"
-
-
-class _Simulation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    results: _Results = _Results()
-
-
-class _Workflow(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    mode: str = "auto"
-
-
-class _RunConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    workflow: _Workflow = _Workflow()
-    domain: DomainConfig = DomainConfig()
-    simulation: _Simulation = _Simulation()
-
-
-# --- test_a_ragged_mesh_registers_and_persists ---
-# A polygon mesh (a Voronoi dual) registers and persists like a triangle mesh.
-#
-# Its connectivity is a tuple of rows of different lengths: the registration hash
-# and the Zarr writer both need the ``-1`` padded rectangular rows instead.
-
+# A polygon mesh (a Voronoi dual) has rows of different lengths. The registration hash needs
+# the rectangular rows padded with -1.
 PADDED = np.array([[0, 1, 2, 3, -1], [1, 4, 5, 6, 2]])
 
 
-def _ragged_ctx(
+def polygon_ctx(
     cell_mesh: object, z_interfaces: tuple[float, ...] = (0.0, -10.0)
 ) -> SimpleNamespace:
     return SimpleNamespace(
@@ -244,10 +171,10 @@ def _ragged_ctx(
     )
 
 
-def test_the_registration_hashes_the_padded_rows_of_a_polygon_mesh() -> None:
+def test_run_facts_of_a_polygon_mesh() -> None:
     cell_mesh = cell_mesh_of(square_and_pentagon())
 
-    facts = facts_module.collect_run_facts(_ragged_ctx(cell_mesh))
+    facts = facts_module.collect_run_facts(polygon_ctx(cell_mesh))
 
     expected = hashlib.sha256(
         cell_mesh.mesh.vertices.tobytes() + PADDED.astype(np.int32).tobytes()

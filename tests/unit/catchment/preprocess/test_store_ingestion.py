@@ -53,7 +53,7 @@ def _line(path: Path, *, crs: str | None) -> Path:
     return write_features(path, [LineString([(0, 0), (10, 0)])], crs=crs)
 
 
-def test_a_run_read_from_disk_reaches_the_store_and_its_tree_is_dropped(tmp_path) -> None:
+def test_run_reaches_the_store(tmp_path) -> None:
     stable = tmp_path / "stable"
     geographic_path, correcflow = stable / "geographic", stable / "correcflow"
     correcflow.mkdir(parents=True)
@@ -87,7 +87,7 @@ def test_a_run_read_from_disk_reaches_the_store_and_its_tree_is_dropped(tmp_path
     assert not stable.exists()
 
 
-def test_a_raster_that_declares_no_nodata_lands_with_the_nodata_of_the_dem(tmp_path) -> None:
+def test_raster_without_nodata(tmp_path) -> None:
     """One sentinel for the geographic group, the -9999 the DEM beside it carries."""
     dem = write_geotiff(tmp_path / "dem.tif", DEM, origin=(10.0, 20.0), cell=5.0, nodata=-9999.0)
     fill = write_geotiff(tmp_path / "fill.tif", DEM, nodata=None)
@@ -106,9 +106,7 @@ def _broken_features():
     "where",
     ["river_products", "generated_network", "derived_rivers", "epsg", "broken_features", "nowhere"],
 )
-def test_the_generated_network_is_found_and_given_a_crs_wherever_the_runtime_keeps_it(
-    where, tmp_path
-) -> None:
+def test_generated_network_crs(where, tmp_path) -> None:
     network = str(_line(tmp_path / "net.shp", crs=None))
     rivers = SimpleNamespace(hydrographic_network_generated_shp=network, network_crs=LAMBERT)
     derived = {
@@ -132,7 +130,7 @@ def test_the_generated_network_is_found_and_given_a_crs_wherever_the_runtime_kee
     assert store.features[NETWORK].crs == (None if where == "nowhere" else LAMBERT)
 
 
-def test_a_runtime_without_a_network_writes_none_and_without_a_run_id_nothing(tmp_path) -> None:
+def test_nothing_to_write(tmp_path) -> None:
     empty = tmp_path / "empty.gpkg"
     gpd.GeoDataFrame(geometry=[], crs=LAMBERT).to_file(empty, driver="GPKG")
     for geographic in (
@@ -147,7 +145,7 @@ def test_a_runtime_without_a_network_writes_none_and_without_a_run_id_nothing(tm
 
 
 @pytest.mark.parametrize("method", ["fill", "capped_breach"])
-def test_the_run_metadata_records_the_capped_breach_limits_and_what_they_produced(method) -> None:
+def test_capped_breach_metadata(method) -> None:
     geographic = SimpleNamespace(
         dem_correc_type=method, capped_breach=None, _flow_products=capped_breach_flow_products()
     )
@@ -161,7 +159,7 @@ def test_the_run_metadata_records_the_capped_breach_limits_and_what_they_produce
     assert written["capped_breach_realised_cells_raised"] == "12"
 
 
-def test_the_preprocessing_tree_is_dropped_with_its_empty_scratch_folders(tmp_path) -> None:
+def test_preprocessing_cleanup(tmp_path) -> None:
     scratch = tmp_path / ".hmp" / "scratch"
     stable = scratch / "run" / "_preprocessing"
     (stable / "demcorrecflow").mkdir(parents=True)

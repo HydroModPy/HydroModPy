@@ -59,7 +59,7 @@ def _extract(tmp_path: Path, accumulation, *, x=10.0, y=20.0, snap_dist=50, **op
     )
 
 
-def test_the_flat_layout_is_the_one_geographic_paths_publish() -> None:
+def test_flat_layout() -> None:
     """The names are the contract: every golden in the tree reads them."""
     assert CATCHMENT_LAYOUT.per_outlet_directory is False
     assert (CATCHMENT_LAYOUT.mask_name, CATCHMENT_LAYOUT.boundary_name) == (
@@ -99,7 +99,7 @@ def _empty_polygon(backend, monkeypatch) -> None:
     ],
     ids=["empty snapped outlet", "names the keys to change", "empty watershed polygon"],
 )
-def test_an_empty_snap_or_catchment_is_refused(monkeypatch, tmp_path, spoil, error, reason):
+def test_refusals(monkeypatch, tmp_path, spoil, error, reason):
     for module in ("hydromodpy.catchment.terrain.whitebox_engine", POINT):
         monkeypatch.setattr(f"{module}.ensure_crs", lambda *a, **k: None)
     backend = FakeWhiteboxBackend()
@@ -122,9 +122,7 @@ MOVED = "Outlet moved 131 m (limit 150 m) onto the flow network, from (389286, 6
     [(130.54, logging.WARNING, MOVED), (75.0, logging.INFO, None)],
     ids=["long snap warns in one sentence", "short snap stays below the console"],
 )
-def test_the_snap_is_said_in_one_line_at_a_level_set_by_its_length(
-    monkeypatch, tmp_path, caplog, distance_m, level, message
-) -> None:
+def test_snap_log_line(monkeypatch, tmp_path, caplog, distance_m, level, message) -> None:
     found = SimpleNamespace(
         mask_path=tmp_path / "watershed.tif",
         boundary_path=tmp_path / "watershed.shp",
@@ -156,16 +154,14 @@ def test_the_snap_is_said_in_one_line_at_a_level_set_by_its_length(
         ("window", 100.0, "stream_threshold_cells"),
     ],
 )
-def test_a_snap_method_and_a_threshold_that_do_not_go_together_are_refused_first(
-    tmp_path, method, threshold, reason
-) -> None:
+def test_refused_snap_and_threshold(tmp_path, method, threshold, reason) -> None:
     with pytest.raises(ValueError, match=reason):
         _extract(
             tmp_path, fake_accumulation(), snap_method=method, stream_threshold_cells=threshold
         )
 
 
-def test_a_given_polygon_is_copied_without_its_duplicate_columns(tmp_path) -> None:
+def test_given_polygon_copied(tmp_path) -> None:
     source = write_features(tmp_path / "given.shp", [box(0.0, 0.0, 100.0, 50.0)], name=["bv"])
     written = extract_catchment_from_polygon(
         polyg_shp_path=source, output_shp_path=tmp_path / "geo" / "watershed.shp"
@@ -179,14 +175,14 @@ def test_a_given_polygon_is_copied_without_its_duplicate_columns(tmp_path) -> No
         )
 
 
-def test_the_surface_reads_the_dem_it_is_given(tmp_path) -> None:
+def test_surface_reads_the_dem(tmp_path) -> None:
     dem = write_geotiff(tmp_path / "dem.tif", np.arange(6.0).reshape(2, 3), cell=10.0)
     assert build_surface_topo_from_dem(dem).name == "surface_topo"
     with pytest.raises(FileNotFoundError, match="DEM not found"):
         build_surface_topo_from_dem(tmp_path / "gone.tif")
 
 
-def test_a_shapefile_is_written_back_with_each_column_once(tmp_path, monkeypatch) -> None:
+def test_shapefile_columns_once(tmp_path, monkeypatch) -> None:
     frame = gpd.GeoDataFrame({"code": ["a", "b"]}, geometry=[Point(0, 0), Point(1, 1)], crs=LAMBERT)
     doubled = pd.concat([frame[["code"]], frame], axis=1)
     monkeypatch.setattr(gpd, "read_file", lambda path: gpd.GeoDataFrame(doubled))
@@ -273,7 +269,7 @@ def _delineate(engine, accumulation, out, *, snap, outlet=None):
     return catchment, np.unique(np.nonzero(read_band(catchment.mask_path) == 1)[1])
 
 
-def test_the_window_snap_jumps_onto_the_larger_neighbour(engine, products) -> None:
+def test_window_snap(engine, products) -> None:
     """The failure the Jenson snap exists for, measured."""
     _directions, accumulation, _streams, out = products
     catchment, columns = _delineate(engine, accumulation, out, snap="window")
@@ -282,9 +278,7 @@ def test_the_window_snap_jumps_onto_the_larger_neighbour(engine, products) -> No
     assert columns.min() > LAST_SMALL_COLUMN
 
 
-def test_the_jenson_snap_stays_on_the_nearest_stream_and_reads_no_accumulation(
-    engine, products
-) -> None:
+def test_jenson_snap(engine, products) -> None:
     """A transformed accumulation is not read, so the window snap's refusals do not apply."""
     directions, accumulation, streams, out = products
     transformed = engine.flow_accumulation(
@@ -299,7 +293,7 @@ def test_the_jenson_snap_stays_on_the_nearest_stream_and_reads_no_accumulation(
     assert columns.max() <= LAST_SMALL_COLUMN
 
 
-def test_a_snap_the_engine_cannot_honour_is_refused(engine, products) -> None:
+def test_refused_snap(engine, products) -> None:
     """Never delineate from a hillside cell: the catchment would be a few cells."""
     directions, accumulation, streams, out = products
     far_from_both = Outlet(outlet_id="far", x=_centre_x(28), y=_centre_y(OUTLET_ROW))
@@ -351,7 +345,7 @@ def _terrain_key(config, method: str = "fill") -> str:
     )
 
 
-def test_the_config_takes_the_window_snap_by_default_and_reads_the_terrain_key() -> None:
+def test_config_defaults() -> None:
     window = _outlet_config()
     jenson = _outlet_config("jenson", river_network={"threshold_area_km2": 0.5})
     assert (window.snap_method, jenson.snap_method) == ("window", "jenson")
@@ -366,7 +360,7 @@ def test_the_config_takes_the_window_snap_by_default_and_reads_the_terrain_key()
     assert _terrain_key(window) != _terrain_key(window, "breach")
 
 
-def test_the_pipeline_snaps_onto_the_network_its_river_section_draws(tmp_path) -> None:
+def test_pipeline_snap_on_network(tmp_path) -> None:
     """The threshold is read in km2 and turned into cells on the grid of the routing."""
     paths = build_geographic_paths(tmp_path / "geographic_run")
     flow = build_regional_flow_products(
@@ -387,7 +381,7 @@ def test_the_pipeline_snaps_onto_the_network_its_river_section_draws(tmp_path) -
 
 
 @pytest.mark.allow_subprocess
-def test_a_basin_above_the_ln_float32_bound_is_delineated_not_refused(tmp_path) -> None:
+def test_basin_above_float32_bound(tmp_path) -> None:
     """The accumulation is stored as ln in float32, which cannot order counts above
     1 049 558 cells, so the snap window is ranked on raw counts."""
     size = 1100  # 1.21 M cells, above the float32 ln bound.

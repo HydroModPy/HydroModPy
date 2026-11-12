@@ -14,24 +14,23 @@ import json
 import pytest
 
 from hydromodpy.core import exceptions as exc_module
-from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import Category, HydroModPyError
 
 EXPORTED = tuple(getattr(exc_module, name) for name in exc_module.__all__ if name != "Category")
 
 
-def test_every_exported_name_is_a_hydromodpy_error_or_the_category() -> None:
+def test_exports_are_hydromodpy_errors() -> None:
     assert "Category" in exc_module.__all__
     for cls in EXPORTED:
         assert issubclass(cls, HydroModPyError), cls
 
 
-def test_every_exported_class_declares_its_own_code_or_inherits_one() -> None:
+def test_exports_have_a_code() -> None:
     for cls in EXPORTED:
         assert cls.code.startswith("HMPY.E"), cls
 
 
-def test_the_problem_object_carries_the_run_context_only_when_it_has_one() -> None:
+def test_run_context_in_problem_object() -> None:
     bare = HydroModPyError("no context").to_dict()
     assert "sim_id" not in bare
     assert "run_id" not in bare
@@ -41,7 +40,7 @@ def test_the_problem_object_carries_the_run_context_only_when_it_has_one() -> No
     assert placed["run_id"] == "r1"
 
 
-def test_every_exported_class_renders_a_problem_object_from_one_argument() -> None:
+def test_exports_render_from_one_argument() -> None:
     """A reader serializes whatever it caught. A class whose ``__init__`` needs
     more than a message would raise inside the failure handler."""
     for cls in EXPORTED:
@@ -54,8 +53,7 @@ def test_every_exported_class_renders_a_problem_object_from_one_argument() -> No
         json.dumps(payload)
 
 
-# The category of each class: said once, on the class that owns it.
-
+# Classes that say their category themselves. The others inherit it.
 OWN_CATEGORY: dict[str, Category] = {
     "HydroModPyError": Category.GENERIC,
     "CommandUsageError": Category.USAGE,
@@ -78,10 +76,9 @@ OWN_CATEGORY: dict[str, Category] = {
     "ImportConflictError": Category.WRITE_CONFLICT,
     "SchemaVersionMismatchError": Category.SCHEMA_MISMATCH,
 }
-"""The classes of ``core.exceptions`` that say their category; the others inherit it."""
 
 
-def test_the_categories_are_the_sixteen_of_the_exit_codes() -> None:
+def test_sixteen_categories() -> None:
     assert [member.value for member in Category] == [
         "generic",
         "usage",
@@ -103,14 +100,14 @@ def test_the_categories_are_the_sixteen_of_the_exit_codes() -> None:
 
 
 @pytest.mark.parametrize(("name", "category"), sorted(OWN_CATEGORY.items()))
-def test_a_class_says_its_own_category(name: str, category: Category) -> None:
+def test_own_category(name: str, category: Category) -> None:
     cls = getattr(exc_module, name)
     assert "category" in vars(cls)
     assert cls.category is category
 
 
 @pytest.mark.parametrize("cls", EXPORTED, ids=lambda cls: cls.__name__)
-def test_every_other_class_inherits_the_category_of_its_first_parent_of_ours(
+def test_inherited_category(
     cls: type[HydroModPyError],
 ) -> None:
     if cls.__name__ in OWN_CATEGORY:
@@ -140,29 +137,14 @@ def test_every_other_class_inherits_the_category_of_its_first_parent_of_ours(
         ),
     ],
 )
-def test_a_class_of_results_carries_the_category_of_its_exit_code(
-    path: str, category: Category
-) -> None:
+def test_results_error_categories(path: str, category: Category) -> None:
     import importlib
 
     module, _, name = path.rpartition(".")
     assert getattr(importlib.import_module(module), name).category is category
 
 
-def test_a_class_that_is_also_a_file_not_found_error_is_not_found() -> None:
-    """Two parents of different categories: the class says the one of its exit code."""
+def test_job_input_not_found_category() -> None:
+    # Two parents of different categories: the class says the one of its exit code.
     assert issubclass(exc_module.JobInputNotFoundError, exc_module.DataError)
     assert exc_module.JobInputNotFoundError.category is Category.NOT_FOUND
-
-
-# ---------------------------------------------------------------------------
-# The diagnostics a refusal carries
-# ---------------------------------------------------------------------------
-
-LAKE = Diagnostic(
-    "",
-    "incompatible",
-    "error",
-    detail="solver.backend = 'modflow_nwt' does not honor flow.sinks_sources.lakes",
-)
-SITE = Diagnostic("site.name", "to_fill", "error", detail="Field required", error_type="missing")

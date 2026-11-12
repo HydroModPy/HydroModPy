@@ -6,9 +6,7 @@ reported catchment discharge of the Nancon by 67 per cent above what its own
 water balance allowed.
 
 A stamp is the END of its period, as the solvers write it: January 2000 of a
-monthly run is stamped 2000-02-01. These tests used to read a stamp as the
-center of a period reaching halfway to its neighbors; they were rewritten when
-that reading was found to compare January with mid-December to mid-January.
+monthly run is stamped 2000-02-01.
 """
 
 from __future__ import annotations
@@ -45,7 +43,7 @@ def _day_number(start: str, days: int) -> pd.Series:
 MONTH_ENDS_2000 = pd.date_range("2000-02-01", "2001-01-01", freq="MS")
 
 
-def test_a_monthly_run_reads_the_calendar_month_its_stamp_closes() -> None:
+def test_monthly_mean() -> None:
     # Daily values equal to the day number since 2000-01-01. The mean over a
     # month is the mean of its first and last day numbers, in closed form.
     # January is days 0..30, February of the leap year 2000 is days 31..59.
@@ -62,7 +60,7 @@ def test_a_monthly_run_reads_the_calendar_month_its_stamp_closes() -> None:
     assert out.iloc[1] == pytest.approx(45.0)
 
 
-def test_the_window_start_and_the_inferred_start_agree_on_a_regular_run() -> None:
+def test_inferred_start_matches_given() -> None:
     daily = _day_number("2000-01-01", 366)
 
     inferred = period_mean_on_index(daily, MONTH_ENDS_2000)
@@ -71,7 +69,7 @@ def test_the_window_start_and_the_inferred_start_agree_on_a_regular_run() -> Non
     assert inferred.tolist() == pytest.approx(given.tolist(), abs=1e-12)
 
 
-def test_a_leap_february_holds_its_twenty_ninth_day() -> None:
+def test_leap_february() -> None:
     # 29 on 29 February, zero elsewhere. February 2000 has 29 days, so its
     # mean is exactly 1; January and March stay zero.
     values = np.zeros(91)
@@ -83,7 +81,7 @@ def test_a_leap_february_holds_its_twenty_ninth_day() -> None:
     assert out.tolist() == pytest.approx([0.0, 1.0, 0.0])
 
 
-def test_one_stamp_without_a_start_averages_the_whole_series() -> None:
+def test_single_stamp_mean() -> None:
     daily = _daily("2000-01-01", 366, np.linspace(0.0, 2.0, 366))
 
     out = period_mean_on_index(daily, pd.DatetimeIndex(["2001-01-01"]))
@@ -92,7 +90,7 @@ def test_one_stamp_without_a_start_averages_the_whole_series() -> None:
     assert len(out) == 1
 
 
-def test_a_period_with_no_sample_is_a_gap_not_a_zero() -> None:
+def test_missing_period_is_nan() -> None:
     # A forcing that does not cover the run is something the caller has to see.
     daily = _daily("2000-01-01", 31, np.ones(31))
     stamps = pd.DatetimeIndex(["2000-02-01", "2000-03-01", "2000-04-01"])
@@ -113,7 +111,7 @@ def test_an_empty_forcing_is_all_gaps() -> None:
     assert list(out.index) == list(stamps)
 
 
-def test_a_naive_index_and_an_aware_forcing_still_align() -> None:
+def test_naive_and_aware_align() -> None:
     daily = _daily("2000-01-01", 31, np.ones(31)).tz_localize("UTC")
 
     out = period_mean_on_index(daily, pd.DatetimeIndex(["2000-02-01", "2000-03-01"]))
@@ -131,20 +129,14 @@ def test_a_millisecond_index_from_parquet_aligns() -> None:
     assert out.iloc[0] == pytest.approx(1.0)
 
 
-def test_a_start_after_the_first_stamp_is_refused() -> None:
+def test_start_after_stamp_refused() -> None:
     with pytest.raises(ValueError, match="not before its end stamp"):
         period_edges(pd.DatetimeIndex(["2000-02-01"]), start="2000-02-01")
 
 
 RUNOFF_AREA_M2 = 86.4e6
-
-
 TWO_THEN_FIVE = _daily("2000-01-01", 20, [2.0] * 10 + [5.0] * 10)
-
-
 STAMP_11 = pd.Timestamp("2000-01-11")
-
-
 STAMP_21 = pd.Timestamp("2000-01-21")
 
 
@@ -164,7 +156,7 @@ STAMP_21 = pd.Timestamp("2000-01-21")
         (pd.DatetimeIndex([]), STAMP_11, []),
     ],
 )
-def test_a_runoff_becomes_a_discharge_on_the_periods(index, start, expected) -> None:
+def test_runoff_on_periods(index, start, expected) -> None:
     out = runoff_m3_s_on_index(TWO_THEN_FIVE, index, area_m2=RUNOFF_AREA_M2, start=start)
 
     assert out.index.equals(index)
@@ -172,12 +164,12 @@ def test_a_runoff_becomes_a_discharge_on_the_periods(index, start, expected) -> 
 
 
 @pytest.mark.parametrize("area_m2", [0.0, -1.0])
-def test_a_runoff_without_a_positive_area_is_refused(area_m2) -> None:
+def test_runoff_area_refused(area_m2) -> None:
     with pytest.raises(ValueError, match=f"must be positive, got {area_m2} m2"):
         runoff_m3_s_on_index(TWO_THEN_FIVE, [STAMP_11], area_m2=area_m2)
 
 
-def test_a_runoff_over_less_than_a_square_metre_is_still_a_discharge() -> None:
+def test_runoff_on_half_square_metre() -> None:
     out = runoff_m3_s_on_index(TWO_THEN_FIVE, [STAMP_21], area_m2=0.5, start=STAMP_11)
 
     np.testing.assert_allclose(out.to_numpy(), [5.0 * 1e-3 * 0.5 / 86400.0], rtol=1e-12)
@@ -195,9 +187,7 @@ _RUNOFF_UNITS = [
 
 
 @pytest.mark.parametrize(("depth_mm_day", "area_m2", "expected_m3_s"), _RUNOFF_UNITS)
-def test_a_runoff_in_mm_per_day_is_a_discharge_in_m3_per_second(
-    depth_mm_day, area_m2, expected_m3_s
-) -> None:
+def test_runoff_units(depth_mm_day, area_m2, expected_m3_s) -> None:
     forcing = _daily("2000-01-01", 20, [depth_mm_day] * 20)
 
     out = runoff_m3_s_on_index(forcing, [STAMP_21], area_m2=area_m2, start=STAMP_11)
@@ -205,17 +195,14 @@ def test_a_runoff_in_mm_per_day_is_a_discharge_in_m3_per_second(
     np.testing.assert_allclose(out.to_numpy(), [expected_m3_s], rtol=1e-12, atol=0.0)
 
 
-def test_the_edges_of_nothing_or_of_one_stamp_without_start_are_refused():
+def test_period_edges_refusals():
     with pytest.raises(ValueError, match="empty index"):
         period_edges(pd.DatetimeIndex([]))
     with pytest.raises(ValueError, match="single stamp"):
         period_edges(pd.to_datetime(["2020-02-01"]))
 
 
-_STAMPS = pd.date_range("2020-01-02", "2020-01-10", freq="D")  # end stamps, period i = day i
-
-
-def test_a_period_that_cannot_be_placed_is_outside_a_window_with_a_start():
+def test_unplaced_period_in_window():
     one = pd.to_datetime(["2020-02-01"])
     assert not periods_in_window(one, method="mean", start="2020-01-01").any()
     assert periods_in_window(
@@ -224,7 +211,7 @@ def test_a_period_that_cannot_be_placed_is_outside_a_window_with_a_start():
     assert periods_in_window(one, method="mean").all()
 
 
-def test_the_fallback_with_no_period_is_empty_and_with_an_uneven_fit_splits_evenly():
+def test_period_end_stamps():
     assert len(period_end_stamps("2000-01-01", "2000-02-01", 0)) == 0
     ends = period_end_stamps("2000-01-01", "2000-01-11", 5, step_unit="day")
     assert (ends[1:] - ends[:-1]).unique().tolist() == [pd.Timedelta(days=2)]
@@ -241,14 +228,14 @@ def test_the_fallback_with_no_period_is_empty_and_with_an_uneven_fit_splits_even
     ],
     ids=["two-samples", "regular-months", "gap-keeps-month", "irregular-days"],
 )
-def test_the_step_of_a_chronicle_is_its_calendar_frequency_or_median_spacing(stamps, expected):
+def test_observation_step(stamps, expected):
     assert observation_step(pd.to_datetime(stamps)) == expected
 
 
 _ENDS = pd.date_range("2020-01-02", "2020-01-06", freq="D")
 
 
-def test_a_monthly_observation_holds_over_the_days_it_stands_for_and_a_gap_stays_nan():
+def test_monthly_observation_held():
     obs = pd.Series([10.0, 30.0], index=pd.to_datetime(["2020-01-01", "2020-03-01"]))
     obs.loc[pd.Timestamp("2020-02-01")] = 20.0
     obs = obs.sort_index()
@@ -260,7 +247,7 @@ def test_a_monthly_observation_holds_over_the_days_it_stands_for_and_a_gap_stays
     assert out.dropna().between(10.0, 30.0).all()
 
 
-def test_one_period_without_start_takes_the_whole_chronicle_only_when_it_reaches_the_stamp():
+def test_single_period_chronicle():
     obs = _daily("2020-01-01", 4, [1, 2, 3, 6])
     reaches = period_value_on_index(obs, pd.to_datetime(["2020-01-05"]))
     assert reaches.iloc[0] == pytest.approx(3.0)
@@ -268,13 +255,13 @@ def test_one_period_without_start_takes_the_whole_chronicle_only_when_it_reaches
     assert too_old.isna().all()
 
 
-def test_an_empty_chronicle_is_all_gaps_for_every_rule():
+def test_empty_chronicle():
     empty = pd.Series([], dtype=float, index=pd.DatetimeIndex([]))
     for rule in (period_value_on_index, period_point_on_index):
         assert rule(empty, _ENDS).isna().all()
 
 
-def test_a_state_finer_than_the_run_is_averaged_around_the_stamp():
+def test_fine_state_averaged():
     # hourly state read at a daily stamp: mean of the samples within +-12 h
     hours = pd.date_range("2020-01-01", "2020-01-04", freq="h", inclusive="left")
     obs = pd.Series(np.arange(len(hours), dtype=float), index=hours)
@@ -283,7 +270,7 @@ def test_a_state_finer_than_the_run_is_averaged_around_the_stamp():
     assert out.iloc[0] == pytest.approx(np.arange(12, 36).mean())
 
 
-def test_a_state_as_coarse_as_the_run_takes_the_nearest_sample_within_tolerance():
+def test_coarse_state_nearest():
     obs = pd.Series([1.0, 2.0], index=pd.to_datetime(["2020-01-01", "2020-01-03"]))
     stamps = pd.DatetimeIndex(["2020-01-02", "2020-01-03 06:00", "2020-01-04 12:00"])
     out = period_point_on_index(obs, stamps)
@@ -294,7 +281,7 @@ def test_a_state_as_coarse_as_the_run_takes_the_nearest_sample_within_tolerance(
     assert wide.iloc[2] == 2.0
 
 
-def test_a_single_stamp_is_read_with_the_spacing_of_the_chronicle():
+def test_single_stamp_point():
     obs = pd.Series([1.0, 2.0], index=pd.to_datetime(["2020-01-01", "2020-01-03"]))
     assert period_point_on_index(obs, pd.to_datetime(["2020-01-03"])).iloc[0] == 2.0
     single = pd.Series([4.0], index=pd.to_datetime(["2020-01-01"]))
@@ -302,7 +289,7 @@ def test_a_single_stamp_is_read_with_the_spacing_of_the_chronicle():
     assert np.isnan(period_point_on_index(single, pd.to_datetime(["2020-01-02"])).iloc[0])
 
 
-def test_observed_on_periods_chooses_the_rule_by_time_method():
+def test_observed_on_periods():
     obs = _daily("2020-01-01", 5, [1, 2, 3, 4, 5])
     mean = observed_on_periods(obs, _ENDS, method="mean")
     point = observed_on_periods(obs, _ENDS, method="point")
@@ -310,22 +297,3 @@ def test_observed_on_periods_chooses_the_rule_by_time_method():
     assert point.tolist() == [2, 3, 4, 5, 5]
     with pytest.raises(ValueError):
         observed_on_periods(obs, _ENDS, method="median")
-
-
-# A window of days keeps a period when it holds the whole period, a state at its stamp.
-#
-# The run and the calibration session read the same declared window. The run
-# kept a mean over a period when the whole period ``[s, e)`` lay inside it; the
-# session kept a pair when its END stamp did, so it scored the period before the
-# window and lost the last one (N1 of the audit of 2026-10-20). One rule now
-# serves both, written once in ``core/time``.
-
-
-FIRST_PERIOD = pd.Timestamp("2000-01-01")
-
-
-STAMPS = pd.date_range("2000-02-01", "2003-01-01", freq="MS")
-
-
-def _kept(mask: np.ndarray, stamps: pd.DatetimeIndex = STAMPS) -> pd.DatetimeIndex:
-    return stamps[np.asarray(mask, dtype=bool)]

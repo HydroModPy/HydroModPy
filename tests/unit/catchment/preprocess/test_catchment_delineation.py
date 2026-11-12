@@ -31,9 +31,7 @@ def outlet(tmp_path, monkeypatch) -> CatchmentDelineation:
     return delineate_on_fake_backend(tmp_path, monkeypatch, OUTLET_CATCHMENT)
 
 
-def test_the_runtime_object_pickles_after_a_build_through_a_local_terrain_supply(
-    tmp_path, monkeypatch
-) -> None:
+def test_pickle_after_a_local_terrain_supply(tmp_path, monkeypatch) -> None:
     # A parallel calibration pickles the trial context, this object included.
     asked = []
 
@@ -48,7 +46,7 @@ def test_the_runtime_object_pickles_after_a_build_through_a_local_terrain_supply
     assert copy.dem_path == built.dem_path
 
 
-def test_a_missing_dem_stops_the_delineation_early(tmp_path: Path) -> None:
+def test_missing_dem(tmp_path: Path) -> None:
     config = GeographicConfig(
         catchment=polygon_catchment(tmp_path),
         crs_project=LAMBERT,
@@ -62,7 +60,7 @@ def test_a_missing_dem_stops_the_delineation_early(tmp_path: Path) -> None:
         )
 
 
-def test_a_polygon_delineation_hands_the_domain_its_supports(tmp_path, monkeypatch) -> None:
+def test_polygon_delineation_supports(tmp_path, monkeypatch) -> None:
     geo = delineate_on_fake_backend(tmp_path, monkeypatch, polygon_catchment(tmp_path))
     supports = ("watershed_shp", "watershed_box_shp", "box_buff", "watershed_box_buff_dem")
     for name in (*supports, "watershed_dem", "watershed_contour_tif"):
@@ -86,7 +84,7 @@ def test_a_polygon_delineation_hands_the_domain_its_supports(tmp_path, monkeypat
     assert float(features.catchment_area_km2) == pytest.approx(float(geo.catch_area))
 
 
-def test_an_outlet_delineation_writes_its_files_and_reads_the_dem_metadata_once(outlet) -> None:
+def test_outlet_delineation_files(outlet) -> None:
     folder = Path(outlet.geographic_path)
     for path in (folder / "outlet.shp", folder / "outlet_snap.shp"):
         assert path.exists(), path
@@ -101,9 +99,7 @@ def test_an_outlet_delineation_writes_its_files_and_reads_the_dem_metadata_once(
     assert outlet.build_georeferencing() == georef
 
 
-def test_a_runtime_without_its_buffered_box_is_refused_and_a_bare_network_path_is_read(
-    outlet, tmp_path
-) -> None:
+def test_runtime_without_buffered_box(outlet, tmp_path) -> None:
     outlet._river_network_products = None
     outlet.hydrographic_network_generated_shp = ""
     assert outlet.get_geographic_derived_features().rivers.enabled is False
@@ -120,9 +116,7 @@ def test_a_runtime_without_its_buffered_box_is_refused_and_a_bare_network_path_i
         (None, None, None, "&mdash;"),
     ],
 )
-def test_the_notebook_view_names_the_declared_margin_and_what_it_drew(
-    outlet, buff_area, distance, increase, label
-) -> None:
+def test_notebook_view(outlet, buff_area, distance, increase, label) -> None:
     outlet.buff_area = buff_area
     outlet.buffer_distance_m = distance
     outlet.buffer_area_increase = increase
@@ -133,7 +127,7 @@ def test_the_notebook_view_names_the_declared_margin_and_what_it_drew(
     assert "<td>&mdash;</td>" in html  # the outlet, unset
 
 
-def test_the_runtime_object_carries_the_engine_the_document_named(tmp_path, monkeypatch) -> None:
+def test_terrain_engine(tmp_path, monkeypatch) -> None:
     """A solver reads the engine off the runtime object, which copies a list of attributes."""
     monkeypatch.setattr(CatchmentDelineation, "processing", lambda self, terrain=None: None)
     engine_id = registry.terrain_engines.names(shipped_only=True)[0]

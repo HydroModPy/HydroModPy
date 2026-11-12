@@ -458,7 +458,7 @@ def _is_local(value: object) -> bool:
 def test_the_only_hosts_it_contacts_are_the_ones_it_declares(tmp_path):
     """``reaches_network`` is empty. A resolved host is caught by name, a hardcoded address by
     address, and a child process by its executable. The gate name is pinned in
-    ``tests/unit/schema/test_capability_egress_gates.py``."""
+    ``tests/unit/schema/test_capability.py``."""
     seen = tmp_path / "seen.json"
     job = _staged(tmp_path, _request(tmp_path))
     script = NETWORK_SPIES + RUN_JOB + (

@@ -1,4 +1,4 @@
-"""Where a delivery goes: the syntax of ``deliver_to``, its refusals, and an address."""
+"""Where a delivery goes: the syntax of ``deliver_to`` (local path, UNC share, ftp, ftps, sftp) and its refusals."""
 
 from __future__ import annotations
 
@@ -79,6 +79,15 @@ ACCEPTED = [
 ]
 
 
+@pytest.mark.parametrize(("text", "scheme", "host", "port", "path", "folder"), ACCEPTED)
+def test_accepted_destinations(text, scheme, host, port, path, folder) -> None:
+    destination = parse_destination(text)
+
+    assert destination.text == text
+    assert (destination.scheme, destination.host, destination.port) == (scheme, host, port)
+    assert (destination.path, destination.folder) == (path, folder)
+
+
 REFUSED = [
     pytest.param(
         "livrables/nancon",
@@ -134,6 +143,6 @@ REFUSED = [
 
 
 @pytest.mark.parametrize(("text", "phrase"), REFUSED)
-def test_a_refused_destination_says_what_to_write(text: str, phrase: str) -> None:
+def test_refusals(text: str, phrase: str) -> None:
     with pytest.raises(ValueError, match=re.escape(phrase)):
         parse_destination(text)

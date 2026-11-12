@@ -1,4 +1,4 @@
-"""Persisting the forcings of the run."""
+"""``step_persist_forcings`` writes the forcings of a run (mm/day, m3/s) into its Zarr store and tables."""
 
 from __future__ import annotations
 
@@ -6,14 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
-import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 import xarray as xr
-from pydantic import BaseModel, ConfigDict
-from shapely.geometry import LineString, box
 
 from hydromodpy.catchment.algorithms.derived_features import (
     GeographicBoundaryFeatures,
@@ -22,27 +19,17 @@ from hydromodpy.catchment.algorithms.derived_features import (
 from hydromodpy.catchment.algorithms.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
     HydrographicNetwork,
     HydrographicNetworks,
 )
 from hydromodpy.catchment.preprocess.store_ingestion import persist_geographic_to_store
 from hydromodpy.core.exceptions import DataContractViolation
-from hydromodpy.core.state.layout import PROJECT_MARKER_FILENAME
 from hydromodpy.core.state.run_state import LoadedDataContext
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.model.forcing.soil_config import SoilReservoirConfig
 from hydromodpy.model.soil.kernel import SoilParameters, full_soil, run_soil_balance
-from hydromodpy.results.catalog.registration import reserve_version_dirname
-from hydromodpy.results.outcome import read_outcome
-from hydromodpy.results.storage.attempt import claim_run_directory
-from hydromodpy.schema.lineage import Lineage
-from hydromodpy.workflow.steps.data import apply_structural_updates_from_data
-from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
-from hydromodpy.workflow.steps.prepare_solver.facts import collect_effective_config_snapshot
 from hydromodpy.workflow.steps.prepare_solver.forcings import step_persist_forcings
 from tests._helpers.run_stores import open_run_store
 from tests.unit.workflow.steps._helpers import (
@@ -50,9 +37,6 @@ from tests.unit.workflow.steps._helpers import (
     write_network_vector,
     write_watershed,
 )
-
-# --- test_persist_watershed_forcing ---
-# step_persist_forcings: watershed-mean station series for gridded forcings.
 
 
 @dataclass
@@ -88,7 +72,7 @@ def _ctx(sid: str, loaded: _Loaded) -> SimpleNamespace:
     return SimpleNamespace(sim_id=sid, loaded_data=loaded)
 
 
-def test_gridded_runoff_persists_watershed_mean(tmp_path):
+def test_gridded_runoff_watershed_mean(tmp_path):
     times = pd.date_range("2020-01-01", periods=3, freq="D")
     frames = np.arange(12, dtype="float64").reshape(3, 2, 2)
     loaded = _Loaded(runoff=LoadResult(fields=[_runoff_field_record(frames, times)]))
@@ -110,7 +94,7 @@ def test_gridded_runoff_persists_watershed_mean(tmp_path):
             sz.close()
 
 
-def test_station_backed_runoff_skips_watershed_mean(tmp_path):
+def test_station_runoff_has_no_watershed_mean(tmp_path):
     # Point records already persist per station; no _watershed duplicate.
     times = pd.date_range("2020-01-01", periods=3, freq="D")
     df = pd.DataFrame({"datetime": times, "value": [1.0, 2.0, 3.0]})
@@ -139,7 +123,7 @@ def test_station_backed_runoff_skips_watershed_mean(tmp_path):
             sz.close()
 
 
-def test_a_refused_reduction_stops_the_persist_step(tmp_path):
+def test_refused_reduction_stops_the_step(tmp_path):
     # A runoff day without any valid pixel has no watershed mean: the step
     # refuses it by name instead of persisting the run without it.
     times = pd.date_range("2020-01-01", periods=2, freq="D")
@@ -153,7 +137,7 @@ def test_a_refused_reduction_stops_the_persist_step(tmp_path):
 
 
 @pytest.mark.parametrize(("factor", "means"), [(1.0, [1.5, 5.5, 9.5]), (2.0, [3.0, 11.0, 19.0])])
-def test_the_run_keeps_the_recharge_it_solved(tmp_path, factor, means):
+def test_recharge_kept_with_its_factor(tmp_path, factor, means):
     times = pd.date_range("2020-01-01", periods=3, freq="D")
     frames = np.arange(12, dtype="float64").reshape(3, 2, 2)
     record = _runoff_field_record(frames, times, variable="recharge")
@@ -174,29 +158,15 @@ def test_the_run_keeps_the_recharge_it_solved(tmp_path, factor, means):
             sz.close()
 
 
-# --- test_a_soil_run_persists_its_recharge_where_sim2_would ---
-# In soil mode, ``step_persist_forcings`` writes where a SIM2 run would.
-
-_N_DAYS = 4
-
-
-_N_COLUMNS = 2
-
-
-_X = np.array([0.0, 100.0])
-
-
-@dataclass
-class _SoilLoaded:
-    recharge: object | None = None
-    runoff: object | None = None
-    precipitation: object | None = None
+N_DAYS = 4
+N_COLUMNS = 2
+X = np.array([0.0, 100.0])  # m
 
 
 def _field_record(variable: str, values: np.ndarray, days: np.ndarray) -> LoadResult:
     ds = xr.Dataset(
-        {variable: (("time", "y", "x"), values.reshape(_N_DAYS, 1, _N_COLUMNS))},
-        coords={"time": days, "y": [0.0], "x": _X},
+        {variable: (("time", "y", "x"), values.reshape(N_DAYS, 1, N_COLUMNS))},
+        coords={"time": days, "y": [0.0], "x": X},
     )
     return LoadResult(
         fields=[
@@ -217,8 +187,8 @@ def _field_record(variable: str, values: np.ndarray, days: np.ndarray) -> LoadRe
 
 def _make_soil() -> SimpleNamespace:
     rng = np.random.default_rng(0)
-    precipitation = rng.uniform(0.0, 10.0, size=(_N_DAYS, _N_COLUMNS))
-    etp = np.full((_N_DAYS, _N_COLUMNS), 2.0)
+    precipitation = rng.uniform(0.0, 10.0, size=(N_DAYS, N_COLUMNS))
+    etp = np.full((N_DAYS, N_COLUMNS), 2.0)
     params = SoilParameters(
         ru_mm=np.array([120.0, 150.0]),
         alpha=0.6,
@@ -228,16 +198,16 @@ def _make_soil() -> SimpleNamespace:
         transit_time_days=0.0,
     )
     fluxes = run_soil_balance(precipitation, etp, params, full_soil(params))
-    days = pd.date_range("2020-01-01", periods=_N_DAYS, freq="D").values.astype("datetime64[ns]")
+    days = pd.date_range("2020-01-01", periods=N_DAYS, freq="D").values.astype("datetime64[ns]")
     years = days.astype("datetime64[Y]").astype(int) + 1970
 
     columns = SimpleNamespace(
         cell_index=np.array([0, 1], dtype="int32"),
-        class_index=np.zeros(_N_COLUMNS, dtype="int32"),
-        x=_X,
-        y=np.zeros(_N_COLUMNS),
-        cell_fraction=np.ones(_N_COLUMNS),
-        basin_weight=np.full(_N_COLUMNS, 1.0 / _N_COLUMNS),
+        class_index=np.zeros(N_COLUMNS, dtype="int32"),
+        x=X,
+        y=np.zeros(N_COLUMNS),
+        cell_fraction=np.ones(N_COLUMNS),
+        basin_weight=np.full(N_COLUMNS, 1.0 / N_COLUMNS),
     )
     return SimpleNamespace(
         recharge=_field_record("recharge", fluxes.recharge, days),
@@ -257,15 +227,18 @@ def _make_soil() -> SimpleNamespace:
     )
 
 
-def test_the_gridded_recharge_lands_where_sim2_would(tmp_path):
-    soil = _make_soil()
-    ctx = SimpleNamespace(
+def soil_ctx() -> SimpleNamespace:
+    return SimpleNamespace(
         sim_id=None,
-        loaded_data=_SoilLoaded(),
-        setup=SimpleNamespace(soil_forcings=soil),
+        loaded_data=_Loaded(),
+        setup=SimpleNamespace(soil_forcings=_make_soil()),
     )
 
-    with open_run_store(tmp_path / "ws", n_cells=_N_COLUMNS, n_timesteps=_N_DAYS) as catalog:
+
+def test_soil_recharge_lands_like_sim2(tmp_path):
+    ctx = soil_ctx()
+
+    with open_run_store(tmp_path / "ws", n_cells=N_COLUMNS, n_timesteps=N_DAYS) as catalog:
         sid = catalog.sim_id
         ctx.sim_id = sid
         step_persist_forcings(ctx, store=catalog)
@@ -281,15 +254,10 @@ def test_the_gridded_recharge_lands_where_sim2_would(tmp_path):
             sz.close()
 
 
-def test_the_soil_budget_view_has_a_row_per_column_and_year_plus_the_basin(tmp_path):
-    soil = _make_soil()
-    ctx = SimpleNamespace(
-        sim_id=None,
-        loaded_data=_SoilLoaded(),
-        setup=SimpleNamespace(soil_forcings=soil),
-    )
+def test_soil_budget_rows(tmp_path):
+    ctx = soil_ctx()
 
-    with open_run_store(tmp_path / "ws", n_cells=_N_COLUMNS, n_timesteps=_N_DAYS) as catalog:
+    with open_run_store(tmp_path / "ws", n_cells=N_COLUMNS, n_timesteps=N_DAYS) as catalog:
         sid = catalog.sim_id
         ctx.sim_id = sid
         step_persist_forcings(ctx, store=catalog)
@@ -301,13 +269,9 @@ def test_the_soil_budget_view_has_a_row_per_column_and_year_plus_the_basin(tmp_p
         assert set(table.column("column_id").to_pylist()) == {"0.0", "1.0", "catchment"}
 
 
-def test_nothing_is_written_without_a_sim_id():
-    soil = _make_soil()
-    ctx = SimpleNamespace(
-        sim_id=None, loaded_data=_SoilLoaded(), setup=SimpleNamespace(soil_forcings=soil)
-    )
-    # No store call should be reachable: step_persist_forcings returns at once.
-    step_persist_forcings(ctx, store=None)
+def test_no_sim_id_writes_nothing():
+    # No store call is reachable: the step returns at once.
+    step_persist_forcings(soil_ctx(), store=None)
 
 
 class _FakeZarr:
@@ -343,7 +307,7 @@ class _FakeStore:
         self.metadata.update(metadata)
 
 
-def test_step_persist_forcings_writes_reference_network_feature(tmp_path: Path):
+def test_reference_network_feature(tmp_path: Path):
     streams_path = write_network_vector(tmp_path / "streams.shp")
     watershed_path = write_watershed(tmp_path / "watershed.shp")
     reference = HydrographicNetwork(
@@ -380,7 +344,7 @@ def test_step_persist_forcings_writes_reference_network_feature(tmp_path: Path):
     assert HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME in store.feature_names
 
 
-def test_persist_geographic_to_store_writes_generated_network_canonical_name(tmp_path: Path):
+def test_generated_network_canonical_name(tmp_path: Path):
     network_path = write_network_vector(tmp_path / "river_network.shp")
     watershed_path = write_watershed(tmp_path / "watershed.shp")
     generated = HydrographicNetwork(
@@ -413,20 +377,6 @@ def test_persist_geographic_to_store_writes_generated_network_canonical_name(tmp
     assert "river_network" not in store.feature_names
 
 
-# --- test_store_handle_lifecycle ---
-# The run directory is bound once, by the step that opens the run.
-#
-# ``bind_run_directory`` reads the identity of the attempt off the outcome of
-# the directory it is handed, or claims the directory of the case when it is
-# handed none; the facts of the attempt are built from the context, written by
-# the store that opens on them, and no handle survives the step.
-
-
-@dataclass
-class _LoadedForcings:
-    recharge: object | None = None
-
-
 class _ClosableZarr:
     def __init__(self) -> None:
         self.close_calls = 0
@@ -435,11 +385,9 @@ class _ClosableZarr:
         self.close_calls += 1
 
 
-def test_step_persist_forcings_closes_zarr_when_no_forcings() -> None:
-    from hydromodpy.workflow.steps.prepare_solver.forcings import step_persist_forcings
-
+def test_zarr_closed_without_forcings() -> None:
     fake_zarr = _ClosableZarr()
-    ctx = SimpleNamespace(sim_id="sim-123", loaded_data=_LoadedForcings())
+    ctx = SimpleNamespace(sim_id="sim-123", loaded_data=_Loaded())
 
     step_persist_forcings(ctx, store=SimpleNamespace(open_zarr=lambda _sim_id: fake_zarr))
 

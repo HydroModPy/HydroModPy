@@ -1,4 +1,9 @@
-"""The parameter figures and the conditioning impact map."""
+"""Parameter map and section: aquifer properties (K in m/s, Sy, angles in degrees) per layer.
+
+A run is a row of four square cells over three layers 10 m thick. The figures
+draw only what the run was given. K is shared on one log scale with K22 and K33,
+and the tensor angles use their own linear or cyclic scale.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +13,6 @@ import numpy as np
 import pytest
 
 from hydromodpy.display.figure import FigureNotApplicable
-from hydromodpy.display.figures.conditioning_impact_map import ConditioningImpactMap
 from hydromodpy.display.figures.parameter_map import ParameterMap
 from hydromodpy.display.figures.parameter_section import (
     ParameterSection,
@@ -16,59 +20,24 @@ from hydromodpy.display.figures.parameter_section import (
     _resolve_variables,
 )
 
-# The parameter figures draw what the run was given, and only that.
-#
-# A property left out of ``param_list`` still reaches the solver as zero. The
-# section must not open a color scale around it, because a flat panel with a
-# ramp beside it reads as a measured uniformity rather than as an absence.
-#
-# The K tensor fields (K22, K33 and the three angles) are drawn like the other
-# properties. The conductivities share one log scale, so a K33 a decade under K
-# is a darker panel and not a second copy of the K panel.
-
 N_CELLS = 4
-
-
 N_LAYERS = 3
-
-
+# One decade lost per layer, two decades in all, so a log ramp.
 K_PER_LAYER = (1.0e-4, 1.0e-5, 1.0e-6)
-
-
-"""Conductivity decaying by a decade per layer: two decades, so a log ramp."""
-
-
+# One uniform value, no decade to span, so a linear ramp.
 SY_VALUE = 0.05
 
-
-"""One uniform specific yield: no decade to span, so a linear ramp."""
-
-
 K22 = "hydraulic_conductivity_k22"
-
-
 K33 = "hydraulic_conductivity_k33"
-
-
 ANGLE1 = "conductivity_tensor_angle1"
-
-
 ANGLE2 = "conductivity_tensor_angle2"
-
-
 ANGLE3 = "conductivity_tensor_angle3"
-
-
+# A turn read from east towards north, stored with the sign the user wrote.
 ANGLE1_STORED = (-90.0, 0.0, 90.0, 180.0)
-
-
-"""A turn read from east towards north, stored with the sign the user wrote."""
-
-
 ANGLE2_PER_LAYER = (0.0, 10.0, 20.0)
 
 
-class _Run:
+class Run:
     """A row of square cells over three layers of uniform thickness."""
 
     sim_id = "sim-parameter"
@@ -76,9 +45,8 @@ class _Run:
     n_timesteps = 1
 
     def __init__(self, *, with_storage: bool = True, with_tensor: bool = False) -> None:
-        top = np.full(N_CELLS, 100.0)
         self._fields = {
-            "topography": top,
+            "topography": np.full(N_CELLS, 100.0),
             "layer_thickness": np.full((N_LAYERS, N_CELLS), 10.0),
             "hydraulic_conductivity": np.repeat(np.asarray(K_PER_LAYER)[:, None], N_CELLS, axis=1),
             "specific_yield": np.full((N_LAYERS, N_CELLS), SY_VALUE),
@@ -111,24 +79,21 @@ class _Run:
         return self._fields[variable]
 
 
-def _axes():
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    return plt.subplots()[1]
+def norm_name(artist) -> str:
+    return type(artist.norm).__name__
 
 
-def test_a_run_carrying_no_property_at_all_is_refused_by_name() -> None:
-    with pytest.raises(ValueError, match="is set in this run"):
-        _resolve_variables(_Run(with_storage=False), ["specific_yield"])
+def panel_norms(fig, count: int) -> list:
+    """The color scale of the first ``count`` panels, before their color bars."""
+    return [ax.collections[0].norm for ax in fig.axes[:count]]
 
 
-def test_the_quad_corners_bound_every_sample_and_every_layer() -> None:
+def test_quad_corners() -> None:
     distance = np.asarray([0.5, 1.5, 2.5, 3.5])
     interfaces = np.vstack([np.full(N_CELLS, 100.0 - 10.0 * k) for k in range(N_LAYERS + 1)])
+
     x_edges, y_edges = _quad_edges(distance, interfaces)
+
     assert x_edges.shape == (N_LAYERS + 1, N_CELLS + 1)
     assert y_edges.shape == (N_LAYERS + 1, N_CELLS + 1)
     assert x_edges[0, 0] == pytest.approx(0.0)
@@ -137,50 +102,40 @@ def test_the_quad_corners_bound_every_sample_and_every_layer() -> None:
     assert y_edges[-1, 0] == pytest.approx(70.0)
 
 
-def test_the_section_gives_each_layer_the_value_that_layer_was_given() -> None:
-    ax = _axes()
-    ParameterSection().render(_Run(), ax)
+def test_section_layer_values(mpl) -> None:
+    ax = mpl.subplots()[1]
+
+    ParameterSection().render(Run(), ax)
+
     drawn = np.asarray(ax.collections[0].get_array())
     assert drawn.shape[0] == N_LAYERS
     for layer, expected in enumerate(K_PER_LAYER):
-        row = drawn[layer]
-        assert np.nanmax(row) == pytest.approx(expected)
-        assert np.nanmin(row) == pytest.approx(expected)
+        assert np.nanmax(drawn[layer]) == pytest.approx(expected)
+        assert np.nanmin(drawn[layer]) == pytest.approx(expected)
 
 
-def test_a_uniform_property_gets_its_value_in_the_title_and_no_ramp() -> None:
-    ax = _axes()
-    ParameterSection().render(_Run(), ax, variable="specific_yield")
-    assert type(ax.collections[0].norm).__name__ != "LogNorm"
+def test_uniform_property_in_title(mpl) -> None:
+    ax = mpl.subplots()[1]
+
+    ParameterSection().render(Run(), ax, variable="specific_yield")
+
+    assert norm_name(ax.collections[0]) != "LogNorm"
     assert "uniform" in ax.get_title()
     assert f"{SY_VALUE:.3g}" in ax.get_title()
     assert ax.figure.axes == [ax]
 
 
-def test_the_map_draws_the_layer_it_was_asked_for() -> None:
-    ax = _axes()
-    ParameterMap().render(_Run(), ax, layer=2, overlays=())
+def test_map_layer(mpl) -> None:
+    ax = mpl.subplots()[1]
+
+    ParameterMap().render(Run(), ax, layer=2, overlays=())
+
     drawn = np.asarray(ax.collections[0].get_array())
     assert drawn == pytest.approx(np.full(N_CELLS, K_PER_LAYER[2]))
 
 
-def test_the_map_refuses_a_layer_the_mesh_does_not_have() -> None:
-    with pytest.raises(ValueError, match="outside the 3 layer"):
-        ParameterMap().render(_Run(), _axes(), layer=9, overlays=())
-
-
-def test_the_map_refuses_a_variable_that_is_not_an_aquifer_property() -> None:
-    with pytest.raises(ValueError, match="not an aquifer property"):
-        ParameterMap().render(_Run(), _axes(), variable="head", overlays=())
-
-
-def _panel_norms(fig, count: int) -> list:
-    """The color scale of the first ``count`` panels, before their color bars."""
-    return [ax.collections[0].norm for ax in fig.axes[:count]]
-
-
-def test_a_default_section_adds_the_tensor_fields_the_run_set() -> None:
-    assert _resolve_variables(_Run(with_tensor=True), None) == [
+def test_default_section_variables() -> None:
+    assert _resolve_variables(Run(with_tensor=True), None) == [
         "hydraulic_conductivity",
         K22,
         K33,
@@ -190,56 +145,67 @@ def test_a_default_section_adds_the_tensor_fields_the_run_set() -> None:
     ]
 
 
-def test_a_k33_equal_to_k_is_not_drawn_unless_it_is_asked_for() -> None:
-    run = _Run(with_tensor=True)
+def test_k33_equal_to_k() -> None:
+    run = Run(with_tensor=True)
     run._fields[K33] = run._fields["hydraulic_conductivity"].copy()
+
     assert K33 not in _resolve_variables(run, None)
     assert _resolve_variables(run, [K33]) == [K33]
 
 
-def test_the_three_conductivities_share_one_log_scale() -> None:
+def test_three_conductivities_share_one_log_scale(mpl) -> None:
     fig = ParameterSection().plot(
-        _Run(with_tensor=True), variables=["hydraulic_conductivity", K22, K33]
+        Run(with_tensor=True), variables=["hydraulic_conductivity", K22, K33]
     )
-    norms = _panel_norms(fig, 3)
+
+    norms = panel_norms(fig, 3)
+
     assert {type(norm).__name__ for norm in norms} == {"LogNorm"}
     for norm in norms:
         assert norm.vmin == pytest.approx(K_PER_LAYER[2] / 10.0)
         assert norm.vmax == pytest.approx(K_PER_LAYER[0])
 
 
-def test_a_conductivity_keeps_its_own_range_beside_a_storage_panel() -> None:
-    fig = ParameterSection().plot(_Run(with_tensor=True), variables=[K33, "specific_yield"])
-    k33_norm, sy_norm = _panel_norms(fig, 2)
+def test_conductivity_range_beside_storage(mpl) -> None:
+    fig = ParameterSection().plot(Run(with_tensor=True), variables=[K33, "specific_yield"])
+
+    k33_norm, sy_norm = panel_norms(fig, 2)
+
     assert type(k33_norm).__name__ == "LogNorm"
     assert k33_norm.vmin == pytest.approx(K_PER_LAYER[2] / 10.0)
     assert type(sy_norm).__name__ != "LogNorm"
 
 
-def test_the_map_draws_k33_on_a_log_scale_with_its_own_values() -> None:
-    ax = _axes()
-    run = _Run(with_tensor=True)
+def test_map_draws_k33_on_a_log_scale(mpl) -> None:
+    ax = mpl.subplots()[1]
+    run = Run(with_tensor=True)
     across = np.logspace(-4.0, -7.0, N_CELLS)
     run._fields[K33] = np.tile(across, (N_LAYERS, 1))
+
     ParameterMap().render(run, ax, variable=K33, layer=1, overlays=())
+
     collection = ax.collections[0]
-    assert type(collection.norm).__name__ == "LogNorm"
+    assert norm_name(collection) == "LogNorm"
     assert np.asarray(collection.get_array()) == pytest.approx(across)
     assert "K33" in ax.get_title()
     assert "(m s-1)" in ax.figure.axes[1].get_ylabel()
 
 
-@pytest.mark.parametrize("figure", ["map", "section"])
-def test_the_first_angle_is_a_turn_on_a_cyclic_scale_said_in_its_label(figure: str) -> None:
-    ax = _axes()
-    run = _Run(with_tensor=True)
-    if figure == "map":
-        ParameterMap().render(run, ax, variable=ANGLE1, layer=0, overlays=())
-    else:
-        ParameterSection().render(run, ax, variable=ANGLE1)
+@pytest.mark.parametrize(
+    ("figure", "kwargs"),
+    [
+        pytest.param(ParameterMap, {"layer": 0, "overlays": ()}, id="map"),
+        pytest.param(ParameterSection, {}, id="section"),
+    ],
+)
+def test_first_angle_cyclic_scale(mpl, figure, kwargs) -> None:
+    ax = mpl.subplots()[1]
+
+    figure().render(Run(with_tensor=True), ax, variable=ANGLE1, **kwargs)
+
     collection = ax.collections[0]
     assert collection.cmap.name == "twilight"
-    assert type(collection.norm).__name__ == "Normalize"
+    assert norm_name(collection) == "Normalize"
     assert (collection.norm.vmin, collection.norm.vmax) == (0.0, 360.0)
     drawn = np.asarray(collection.get_array()).ravel()
     assert set(np.round(drawn[np.isfinite(drawn)], 6)) == {a % 360.0 for a in ANGLE1_STORED}
@@ -249,12 +215,14 @@ def test_the_first_angle_is_a_turn_on_a_cyclic_scale_said_in_its_label(figure: s
     assert list(colorbar.get_yticks()) == [0.0, 90.0, 180.0, 270.0, 360.0]
 
 
-@pytest.mark.parametrize("force", [None, True])
-def test_the_second_angle_is_linear_in_degrees_even_when_a_log_is_forced(force) -> None:
-    ax = _axes()
-    ParameterSection().render(_Run(with_tensor=True), ax, variable=ANGLE2, log=force)
+@pytest.mark.parametrize("force_log", [None, True])
+def test_second_angle_linear(mpl, force_log) -> None:
+    ax = mpl.subplots()[1]
+
+    ParameterSection().render(Run(with_tensor=True), ax, variable=ANGLE2, log=force_log)
+
     collection = ax.collections[0]
-    assert type(collection.norm).__name__ == "Normalize"
+    assert norm_name(collection) == "Normalize"
     assert collection.cmap.name == "viridis"
     assert np.nanmax(np.asarray(collection.get_array())) == pytest.approx(max(ANGLE2_PER_LAYER))
     label = ax.figure.axes[1].get_ylabel()
@@ -262,31 +230,34 @@ def test_the_second_angle_is_linear_in_degrees_even_when_a_log_is_forced(force) 
     assert "(degree)" in label
 
 
-def test_an_explicit_colormap_wins_over_the_cyclic_one() -> None:
-    ax = _axes()
+def test_explicit_colormap_wins(mpl) -> None:
+    ax = mpl.subplots()[1]
+
     ParameterMap().render(
-        _Run(with_tensor=True), ax, variable=ANGLE1, layer=0, cmap="cividis", overlays=()
+        Run(with_tensor=True), ax, variable=ANGLE1, layer=0, cmap="cividis", overlays=()
     )
+
     assert ax.collections[0].cmap.name == "cividis"
 
 
 @pytest.mark.parametrize("variable", [K22, K33, ANGLE1, ANGLE2, ANGLE3])
-def test_a_field_the_run_does_not_hold_is_said_not_drawn(variable: str) -> None:
-    import matplotlib.pyplot as plt
+def test_missing_field_not_drawn(mpl, variable) -> None:
+    run = Run()
+    message = f"{variable!r} is not in this run"
+    before = len(mpl.get_fignums())
 
-    run = _Run()
-    before = plt.get_fignums()
-    with pytest.raises(FigureNotApplicable, match=f"{variable!r} is not in this run"):
-        ParameterMap().render(run, _axes(), variable=variable, overlays=())
-    with pytest.raises(FigureNotApplicable, match=f"{variable!r} is not in this run"):
-        ParameterSection().render(run, _axes(), variable=variable)
-    with pytest.raises(FigureNotApplicable, match=f"{variable!r} is not in this run"):
+    with pytest.raises(FigureNotApplicable, match=message):
+        ParameterMap().render(run, mpl.subplots()[1], variable=variable, overlays=())
+    with pytest.raises(FigureNotApplicable, match=message):
+        ParameterSection().render(run, mpl.subplots()[1], variable=variable)
+    with pytest.raises(FigureNotApplicable, match=message):
         ParameterSection().plot(run, variables=["hydraulic_conductivity", variable])
-    assert len(plt.get_fignums()) == len(before) + 2
-    plt.close("all")
+
+    # Only the two figures the test opened itself stay open.
+    assert len(mpl.get_fignums()) == before + 2
 
 
-def test_a_batch_skips_a_map_of_a_tensor_field_the_run_lacks(tmp_path) -> None:
+def test_batch_skips_missing_tensor(tmp_path) -> None:
     import hydromodpy.display.runs as runs
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
@@ -304,101 +275,32 @@ def test_a_batch_skips_a_map_of_a_tensor_field_the_run_lacks(tmp_path) -> None:
         output_dir=RUN_FIGURES_DIRNAME,
         figures=["parameter_map"],
     )
-    report = runs.render_figures_for_run(_Run(), config, output_dir=tmp_path)
+
+    report = runs.render_figures_for_run(Run(), config, output_dir=tmp_path)
+
     assert report.rendered == ()
     assert [skipped.name for skipped in report.skipped] == ["parameter_map"]
     assert f"{K22!r} is not in this run" in report.skipped[0].reason
 
 
-def test_the_section_refuses_a_variable_that_is_not_an_aquifer_property() -> None:
+# Each row is the keywords of ParameterMap.render and the start of the message.
+MAP_REFUSALS = [
+    pytest.param({"layer": 9}, "outside the 3 layer", id="layer the mesh lacks"),
+    pytest.param({"variable": "head"}, "not an aquifer property", id="not an aquifer property"),
+]
+
+
+@pytest.mark.parametrize(("kwargs", "message"), MAP_REFUSALS)
+def test_map_refusals(mpl, kwargs, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        ParameterMap().render(Run(), mpl.subplots()[1], overlays=(), **kwargs)
+
+
+def test_section_refuses_non_property() -> None:
     with pytest.raises(ValueError, match="not an aquifer property"):
-        ParameterSection().plot(_Run(), variables=["head"])
+        ParameterSection().plot(Run(), variables=["head"])
 
 
-# Unit tests for the two-run top difference figure.
-
-_VERTS = np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [2.0, 0.0], [2.0, 1.0]])
-
-
-_CONN = np.asarray([[0, 1, 2, 3], [1, 4, 5, 2]], dtype=int)
-
-
-def _run(tops, sim_id: str = "sim") -> SimpleNamespace:
-    mesh = SimpleNamespace(
-        vertices=_VERTS,
-        face_node_connectivity=_CONN,
-        z_interfaces=np.asarray([0.0, -10.0]),
-        topography=None if tops is None else np.asarray(tops, dtype=float),
-    )
-    return SimpleNamespace(mesh=mesh, sim_id=sim_id)
-
-
-def _ax():
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    return plt.subplots()
-
-
-def test_two_runs_on_one_mesh_render_their_top_difference() -> None:
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run([12.0, 10.0])
-    ref = _run([10.0, 10.0], sim_id="ref")  # cell 0 raised +2, cell 1 unchanged
-    fig, ax = _ax()
-    try:
-        ConditioningImpactMap().render(sim, ax, reference=ref, clip_percentile=100.0)
-        coll = ax.collections[0]
-        np.testing.assert_allclose(coll.get_array(), [2.0, 0.0])
-        assert coll.get_clim() == (-2.0, 2.0)
-        assert "50% of cells" in ax.get_title()
-    finally:
-        plt.close(fig)
-
-
-def test_a_run_without_reference_is_skipped_with_a_sentence() -> None:
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    fig, ax = _ax()
-    try:
-        with pytest.raises(FigureNotApplicable, match=r"reference=<run>"):
-            ConditioningImpactMap().render(_run([1.0, 2.0]), ax, reference=None)
-    finally:
-        plt.close(fig)
-
-
-def test_a_run_without_mesh_topography_is_unavailable() -> None:
-    assert "no mesh topography" in ConditioningImpactMap().unavailable_reason(_run(None))
-
-
-def test_reference_run_on_another_mesh_is_rejected() -> None:
-    pytest.importorskip("matplotlib")
-    import matplotlib.pyplot as plt
-
-    sim = _run([1.0, 2.0])
-    ref = _run([1.0, 2.0, 3.0], sim_id="ref")  # 3 cells
-    fig, ax = _ax()
-    try:
-        with pytest.raises(ValueError, match="meshes differ"):
-            ConditioningImpactMap().render(sim, ax, reference=ref)
-    finally:
-        plt.close(fig)
-
-
-def test_a_skipped_figure_leaves_no_matplotlib_figure_open() -> None:
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    plt.close("all")
-
-    with pytest.raises(FigureNotApplicable):
-        ConditioningImpactMap().plot(_run([1.0, 2.0]))
-
-    assert plt.get_fignums() == []
+def test_run_without_property_refused() -> None:
+    with pytest.raises(ValueError, match="is set in this run"):
+        _resolve_variables(Run(with_storage=False), ["specific_yield"])

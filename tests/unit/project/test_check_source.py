@@ -59,13 +59,13 @@ def _summary(found: list[Diagnostic]) -> list[tuple[str, str, str]]:
 
 
 @pytest.mark.parametrize("source", [3, None, b"run.toml", ["run.toml"]])
-def test_a_source_that_is_neither_a_path_nor_a_mapping_is_refused(source: object) -> None:
+def test_other_sources_refused(source: object) -> None:
     with pytest.raises(TypeError, match="path or a mapping"):
         check(source)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("given", [{}, {"flow": {"flow_regime": "steady"}}], ids=["empty", "draft"])
-def test_a_document_without_a_base_is_refused_as_the_loader_refuses_it(given: dict) -> None:
+def test_document_without_base(given: dict) -> None:
     from hydromodpy.config.loading import MEMORY_NEEDS_BASE
 
     [found] = check(given)
@@ -86,19 +86,19 @@ def test_a_document_without_a_base_is_refused_as_the_loader_refuses_it(given: di
     ],
     ids=["syntax", "cycle", "missing parent"],
 )
-def test_a_file_that_cannot_be_read_is_one_diagnostic(tmp_path: Path, text: str, code: str) -> None:
+def test_unreadable_file(tmp_path: Path, text: str, code: str) -> None:
     [found] = check(_write(tmp_path, text))
 
     assert (found.path, found.code, found.severity) == ("", code, "error")
 
 
-def test_a_missing_file_is_a_diagnostic_of_the_chain(tmp_path: Path) -> None:
+def test_missing_file(tmp_path: Path) -> None:
     [found] = check(tmp_path / "absent.toml")
 
     assert found.code == "bad_chain"
 
 
-def test_a_project_root_written_in_a_file_is_refused_at_its_key(tmp_path: Path) -> None:
+def test_project_root_in_file(tmp_path: Path) -> None:
     path = _write(tmp_path, f'[workspace]\nproject_root = "{tmp_path.as_posix()}"\n')
 
     found = [item for item in check(path) if item.parts == ("workspace", "project_root")]
@@ -107,7 +107,7 @@ def test_a_project_root_written_in_a_file_is_refused_at_its_key(tmp_path: Path) 
     assert "not a key of a file" in found[0].detail
 
 
-def test_an_old_form_of_a_parent_is_told_under_the_parent(tmp_path: Path) -> None:
+def test_old_key_in_parent(tmp_path: Path) -> None:
     parent = _write(tmp_path, "[modflownwt]\nheadtol = 1e-6\n", "project.toml")
     child = _write(tmp_path, 'base_config = "project.toml"\n')
 
@@ -118,9 +118,7 @@ def test_an_old_form_of_a_parent_is_told_under_the_parent(tmp_path: Path) -> Non
     assert told[0].path == "modflownwt"
 
 
-def test_a_check_that_fails_unexpectedly_is_a_finding_not_a_crash(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_unexpected_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def fail(*args: object, **kwargs: object) -> None:
         raise RuntimeError("the disk went away")
 
@@ -144,9 +142,7 @@ def _preflight_that_says(monkeypatch: pytest.MonkeyPatch, calls: list[Path]) -> 
     monkeypatch.setattr("hydromodpy.calibration.preflight.preflight_calibration", preflight)
 
 
-def test_a_sites_project_reads_the_inputs_of_its_cases_once_each(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_sites_project_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from tests.unit.project.launch.test_plan import write_sites_project
 
     seen: list[dict[str, object]] = []

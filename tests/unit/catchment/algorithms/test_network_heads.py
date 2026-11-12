@@ -26,13 +26,13 @@ def _sorted_pairs(candidates) -> list[tuple[tuple[float, float], tuple[float, fl
     )
 
 
-def test_the_map_is_sampled_every_step_along_its_lines() -> None:
+def test_sampling_step() -> None:
     lines = [LineString([(0.0, 0.0), (0.0, 100.0)])]
     candidates = network_head_candidates(lines, mesh_crs=CRS, geometry_crs=CRS, sample_step_m=10.0)
     np.testing.assert_allclose(candidates.map_points_xy[:, 1], np.arange(0.0, 101.0, 10.0))
 
 
-def test_a_t_junction_without_a_shared_vertex_is_noded() -> None:
+def test_t_junction_is_noded() -> None:
     lines = [LineString([(0.0, 0.0), (100.0, 0.0)]), LineString([(50.0, 80.0), (50.0, 0.0)])]
     candidates = network_head_candidates(lines, mesh_crs=CRS, geometry_crs=CRS)
     heads = sorted(tuple(map(float, head)) for head in candidates.head_xy)
@@ -40,17 +40,17 @@ def test_a_t_junction_without_a_shared_vertex_is_noded() -> None:
     assert {tuple(map(float, end)) for end in candidates.reach_end_xy} == {(50.0, 0.0)}
 
 
-class TestAnEndOfTheCutIsNoHead:
-    OUTLINE = Polygon([(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)])
+OUTLINE = Polygon([(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)])
 
-    def test_a_free_end_on_the_outline_is_left_out_and_counted(self) -> None:
-        lines = [LineString([(50.0, 50.0), (100.0, 50.0)])]
-        candidates = network_head_candidates(
-            lines, mesh_crs=CRS, geometry_crs=CRS, cut_outline=self.OUTLINE, cut_crs=CRS
-        )
 
-        assert _sorted_pairs(candidates) == [((50.0, 50.0), (100.0, 50.0))]
-        assert candidates.n_cut_ends == 1
+def test_free_end_on_the_cut_outline() -> None:
+    lines = [LineString([(50.0, 50.0), (100.0, 50.0)])]
+    candidates = network_head_candidates(
+        lines, mesh_crs=CRS, geometry_crs=CRS, cut_outline=OUTLINE, cut_crs=CRS
+    )
+
+    assert _sorted_pairs(candidates) == [((50.0, 50.0), (100.0, 50.0))]
+    assert candidates.n_cut_ends == 1
 
 
 @pytest.mark.parametrize(
@@ -67,26 +67,26 @@ class TestAnEndOfTheCutIsNoHead:
     ],
     ids=["a reach meeting a ring ends at a junction", "a lollipop has one free end"],
 )
-def test_a_ring_or_a_loop_has_no_free_end(lines, heads) -> None:
+def test_ring_and_loop_free_ends(lines, heads) -> None:
     candidates = network_head_candidates(lines, mesh_crs=CRS, geometry_crs=CRS)
     np.testing.assert_allclose(candidates.head_xy, heads)
 
 
-def test_a_map_without_a_line_has_no_candidate() -> None:
+def test_empty_map() -> None:
     candidates = network_head_candidates([LineString()], mesh_crs=CRS, geometry_crs=CRS)
     assert candidates.n_candidates == 0
     assert candidates.map_points_xy.shape == (0, 2)
 
 
 @pytest.mark.parametrize("step", [0.0, -10.0, float("nan")])
-def test_a_sampling_step_that_is_not_positive_is_refused(step: float) -> None:
+def test_refused_step(step: float) -> None:
     with pytest.raises(ValueError, match="sample_step_m must be positive"):
         network_head_candidates(
             [LineString([(0, 0), (1, 0)])], mesh_crs=CRS, geometry_crs=CRS, sample_step_m=step
         )
 
 
-def test_a_point_layer_is_not_a_network_and_an_areal_feature_not_a_line() -> None:
+def test_refused_geometry() -> None:
     with pytest.raises(ValueError, match="rasterizes lines; got a Point"):
         network_head_candidates([Point(0.0, 0.0)], mesh_crs=CRS, geometry_crs=CRS)
     with pytest.raises(ValueError, match="rasterizes lines; got a Polygon"):
@@ -105,7 +105,7 @@ def test_a_point_layer_is_not_a_network_and_an_areal_feature_not_a_line() -> Non
     ],
     ids=["points_not_pairs", "ends_not_paired", "forced_cells_not_a_list"],
 )
-def test_head_candidates_refuse_a_shape_that_does_not_pair(fields, message) -> None:
+def test_refused_shapes(fields, message) -> None:
     base = {
         "head_xy": np.zeros((1, 2)),
         "reach_end_xy": np.zeros((1, 2)),

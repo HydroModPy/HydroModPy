@@ -1,4 +1,7 @@
-"""Unit tests for the MODFLOW 6 PRT integration contracts."""
+"""MODFLOW 6 PRT: release cells, control times in model units, and the track files.
+
+Track times are written in the time unit of the flow model and come back in days.
+"""
 
 from __future__ import annotations
 
@@ -38,7 +41,7 @@ class _Store:
         return _ZarrHandle(self.root / f"{sim_id}.zarr")
 
 
-def test_modflow6_prt_upstream_nonriver_release_excludes_stream_cells() -> None:
+def test_upstream_release_excludes_stream_cells() -> None:
     flow_model = SimpleNamespace(
         solver_mesh=SimpleNamespace(
             top=np.array([1.0, 5.0, 10.0, 9.0, 8.0, 7.0]),
@@ -57,7 +60,7 @@ def test_modflow6_prt_upstream_nonriver_release_excludes_stream_cells() -> None:
     assert prt._select_release_cells().tolist() == [3]
 
 
-def test_modflow6_prt_domain_nonriver_release_spreads_cells() -> None:
+def test_domain_release_spreads_cells() -> None:
     flow_model = SimpleNamespace(
         solver_mesh=SimpleNamespace(
             top=np.ones(7, dtype=float),
@@ -89,7 +92,7 @@ def test_modflow6_prt_domain_nonriver_release_spreads_cells() -> None:
     assert 6 in selected
 
 
-def test_modflow6_prt_extractor_writes_vectorized_particles(tmp_path: Path) -> None:
+def test_extractor_writes_vectorized_particles(tmp_path: Path) -> None:
     output_dir = tmp_path / "solver"
     output_dir.mkdir()
     # Track times below are days, so the run has to say so: an undeclared unit
@@ -131,7 +134,7 @@ def test_modflow6_prt_extractor_writes_vectorized_particles(tmp_path: Path) -> N
     assert np.allclose(status[1], [1.0, 2.0, 2.0])
 
 
-def test_modflow6_prt_track_csv_reader_can_feed_reports_directly(tmp_path: Path) -> None:
+def test_track_csv_reader(tmp_path: Path) -> None:
     csv_path = tmp_path / "case_prt.trk.csv"
     csv_path.write_text(
         "\n".join(
@@ -157,14 +160,10 @@ def test_modflow6_prt_track_csv_reader_can_feed_reports_directly(tmp_path: Path)
     assert arrays.source_file == csv_path
 
 
-def test_modflow6_prt_converts_day_controls_to_model_seconds(tmp_path: Path) -> None:
+def write_prt_model(tmp_path: Path, *, time_units: str, perlen: float, options: dict) -> None:
+    """Write the PRT files of one 10 x 10 m cell, flow model in the given time units."""
     sim = flopy.mf6.MFSimulation(sim_name="sim", sim_ws=str(tmp_path), exe_name="mf6")
-    flopy.mf6.ModflowTdis(
-        sim,
-        nper=1,
-        perioddata=[(86400.0, 1, 1.0)],
-        time_units="SECONDS",
-    )
+    flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(perlen, 1, 1.0)], time_units=time_units)
     gwf = flopy.mf6.ModflowGwf(sim, modelname="flow", save_flows=True)
     ims = flopy.mf6.ModflowIms(sim, filename="flow.ims")
     sim.register_ims_package(ims, [gwf.name])
@@ -199,22 +198,22 @@ def test_modflow6_prt_converts_day_controls_to_model_seconds(tmp_path: Path) -> 
         model_name="flow",
         exe="mf6",
     )
-    prt = Modflow6Prt(
-        make_model(),
-        flow_model,
-        str(tmp_path),
-        "flow",
-        options={
-            "release_zone": "domain",
-            "max_particles": 1,
-            "release_times": [1.0],
-            "track_times": [2.0],
-            "stop_time": 3.0,
-            "stop_travel_time": 4.0,
-        },
-    )
+    prt = Modflow6Prt(make_model(), flow_model, str(tmp_path), "flow", options=options)
     prt.pre_processing()
     prt.processing(write_model=True, run_model=False, verbose=False)
+
+
+def test_prt_converts_day_controls_to_model_seconds(tmp_path: Path) -> None:
+    options = {
+        "release_zone": "domain",
+        "max_particles": 1,
+        "release_times": [1.0],
+        "track_times": [2.0],
+        "stop_time": 3.0,
+        "stop_travel_time": 4.0,
+    }
+
+    write_prt_model(tmp_path, time_units="SECONDS", perlen=86400.0, options=options)
 
     prp_text = (tmp_path / "flow_prt.prp").read_text(encoding="utf-8")
     oc_text = (tmp_path / "flow_prt.oc").read_text(encoding="utf-8")
@@ -224,72 +223,23 @@ def test_modflow6_prt_converts_day_controls_to_model_seconds(tmp_path: Path) -> 
     assert "1.72800000E+05" in oc_text
 
 
-def test_modflow6_prt_generates_regular_track_times(tmp_path: Path) -> None:
-    sim = flopy.mf6.MFSimulation(sim_name="sim", sim_ws=str(tmp_path), exe_name="mf6")
-    flopy.mf6.ModflowTdis(
-        sim,
-        nper=1,
-        perioddata=[(30.0, 1, 1.0)],
-        time_units="DAYS",
-    )
-    gwf = flopy.mf6.ModflowGwf(sim, modelname="flow", save_flows=True)
-    ims = flopy.mf6.ModflowIms(sim, filename="flow.ims")
-    sim.register_ims_package(ims, [gwf.name])
-    hydro_mesh = HydroMesh(
-        vertices=np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]),
-        cell_blocks=(CellBlock(CellType.QUADRILATERAL, np.array([[0, 1, 2, 3]], dtype=int)),),
-    )
-    solver_mesh = solver_mesh_from(
-        hydro_mesh,
-        top=np.array([1.0]),
-        botm=np.array([[0.0]]),
-        inactive_mask=np.array([[False]]),
-    )
-    flopy.mf6.ModflowGwfdisv(
-        gwf,
-        nlay=1,
-        **solver_mesh.to_disv_kwargs(),
-        idomain=np.array([[1]]),
-        xorigin=0.0,
-        yorigin=0.0,
-    )
-    flow_model = SimpleNamespace(
-        sim=sim,
-        gwf=gwf,
-        ims=ims,
-        tdis=sim.tdis,
-        solver_mesh=solver_mesh,
-        open_water_cell_ids=[],
-        nlay=1,
-        ncpl=1,
-        sy=np.array([[0.25]]),
-        model_name="flow",
-        exe="mf6",
-    )
-    prt = Modflow6Prt(
-        make_model(),
-        flow_model,
-        str(tmp_path),
-        "flow",
-        options={
-            "release_zone": "domain",
-            "max_particles": 1,
-            "release_times": [0.0],
-            "track_time_step": 10.0,
-            "stop_time": 30.0,
-        },
-    )
-    prt.pre_processing()
-    prt.processing(write_model=True, run_model=False, verbose=False)
+def test_prt_generates_regular_track_times(tmp_path: Path) -> None:
+    options = {
+        "release_zone": "domain",
+        "max_particles": 1,
+        "release_times": [0.0],
+        "track_time_step": 10.0,
+        "stop_time": 30.0,
+    }
+
+    write_prt_model(tmp_path, time_units="DAYS", perlen=30.0, options=options)
 
     oc_text = (tmp_path / "flow_prt.oc").read_text(encoding="utf-8")
-    assert "0.00000000" in oc_text
-    assert "10.00000000" in oc_text
-    assert "20.00000000" in oc_text
-    assert "30.00000000" in oc_text
+    for time in ("0.00000000", "10.00000000", "20.00000000", "30.00000000"):
+        assert time in oc_text
 
 
-def test_modflow6_prt_extractor_converts_model_seconds_to_days(tmp_path: Path) -> None:
+def test_extractor_converts_seconds_to_days(tmp_path: Path) -> None:
     output_dir = tmp_path / "solver"
     output_dir.mkdir()
     (output_dir / "case.tdis").write_text(
@@ -322,7 +272,7 @@ def test_modflow6_prt_extractor_converts_model_seconds_to_days(tmp_path: Path) -
     assert attrs["time_units"] == "days"
 
 
-def test_particle_tracks_reader_supports_vectorized_layout(tmp_path: Path) -> None:
+def test_particle_tracks_reader(tmp_path: Path) -> None:
     store = _Store(tmp_path / "catalog", "sim_b")
     handle = store.open_zarr("sim_b")
     try:

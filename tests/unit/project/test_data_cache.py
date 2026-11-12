@@ -77,13 +77,7 @@ def _workspace(tmp_path: Path) -> tuple[Path, Path]:
     return workspace, project
 
 
-# -- where the data folder is ------------------------------------------------------
-
-
-# -- the digests a prune keeps -------------------------------------------------------
-
-
-def test_the_digests_of_every_project_run_trial_and_lockfile_are_cited(tmp_path: Path) -> None:
+def test_cited_digests(tmp_path: Path) -> None:
     workspace, demo = _workspace(tmp_path)
     other = _project(workspace / "projects" / "other")
     _sealed(demo / "runs" / "first", "a" * 64, None)
@@ -97,7 +91,7 @@ def test_the_digests_of_every_project_run_trial_and_lockfile_are_cited(tmp_path:
     assert cited == {"a" * 64, "b" * 64, "c" * 64, sha256_of(kept)}
 
 
-def test_a_project_that_is_its_own_workspace_cites_its_runs(tmp_path: Path) -> None:
+def test_project_as_workspace(tmp_path: Path) -> None:
     alone = _project(tmp_path / "alone")
     _sealed(alone / "runs" / "r", "d" * 64)
     assert cited_input_digests(alone) == {"d" * 64}
@@ -110,7 +104,7 @@ _UNREADABLE = {
 
 
 @pytest.mark.parametrize(("what", "said"), _UNREADABLE.values(), ids=_UNREADABLE.keys())
-def test_what_cannot_be_read_refuses_the_prune(tmp_path: Path, what: str, said: str) -> None:
+def test_unreadable_refuses_prune(tmp_path: Path, what: str, said: str) -> None:
     workspace, demo = _workspace(tmp_path)
     fetched = _fetched(workspace / "data", "U.csv", "uncited")
     if what == "run":
@@ -126,7 +120,7 @@ def test_what_cannot_be_read_refuses_the_prune(tmp_path: Path, what: str, said: 
     assert fetched.exists()
 
 
-def test_prune_keeps_an_old_cited_file_names_it_and_spares_the_young_rows(
+def test_prune_keeps_cited_files(
     tmp_path: Path,
 ) -> None:
     workspace, demo = _workspace(tmp_path)
@@ -158,7 +152,7 @@ def _empty_answer(data_root: Path, station: str, *, days_old: float) -> Path:
     return path
 
 
-def test_prune_keeps_an_old_empty_answer_a_lockfile_pins(tmp_path: Path) -> None:
+def test_prune_keeps_pinned_empty(tmp_path: Path) -> None:
     """An empty answer has no digest, so the lockfile pins it by its path."""
     workspace, demo = _workspace(tmp_path)
     data = workspace / "data"
@@ -174,7 +168,7 @@ def test_prune_keeps_an_old_empty_answer_a_lockfile_pins(tmp_path: Path) -> None
     assert [row.path for row in CacheIndex(data).rows()] == [pinned]
 
 
-def test_a_dry_prune_removes_nothing(tmp_path: Path) -> None:
+def test_dry_prune(tmp_path: Path) -> None:
     workspace, _demo = _workspace(tmp_path)
     data = workspace / "data"
     files = [_fetched(data, f"{name}.csv", name) for name in ("A", "B")]
@@ -184,9 +178,6 @@ def test_a_dry_prune_removes_nothing(tmp_path: Path) -> None:
 
     assert report.dry_run and sorted(report.removed) == sorted(files)
     assert sorted(path.name for path in data.rglob("*")) == before
-
-
-# -- user files of the configurations ------------------------------------------------
 
 
 def _config_reading(path: Path) -> SimpleNamespace:
@@ -200,9 +191,7 @@ def _config_reading(path: Path) -> SimpleNamespace:
     )
 
 
-def test_each_declared_user_file_is_listed_and_hashed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_user_files_listed_hashed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     workspace, demo = _workspace(tmp_path)
     folder = demo / "inputs" / "dem"
     folder.mkdir(parents=True)
@@ -229,9 +218,7 @@ def test_each_declared_user_file_is_listed_and_hashed(
     assert [(p.name, why) for p, why in refused] == [("broken.toml", "does not parse")]
 
 
-def test_lock_data_pins_the_cache_and_the_user_files(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_lock_pins_cache_and_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     workspace, demo = _workspace(tmp_path)
     _fetched(workspace / "data", "A.csv", "a")
     mine = demo / "inputs" / "dem.tif"
@@ -249,9 +236,7 @@ def test_lock_data_pins_the_cache_and_the_user_files(
     assert verify_data_lock(project=str(demo), strict=True)["ok"] is False
 
 
-def test_the_cases_of_the_current_plan_of_a_sites_project_lock_their_user_files(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_sites_plan_user_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A ``[sites]`` project.toml is not loaded alone; the cases of its plan stand for it."""
     import pandas as pd
 
@@ -299,12 +284,7 @@ def test_the_cases_of_the_current_plan_of_a_sites_project_lock_their_user_files(
     assert [base for _source, base in seen] == [demo.resolve(), demo.resolve()]
 
 
-# -- the addresses of lock and check ----------------------------------------------
-
-
-def test_check_accepts_an_explicit_lockfile_from_anywhere(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_explicit_lockfile_verifies(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """``--lockfile`` plus ``-w`` names both addresses, so no project is needed."""
     workspace, demo = _workspace(tmp_path)
     _fetched(workspace / "data", "A.csv", "a")
@@ -316,10 +296,7 @@ def test_check_accepts_an_explicit_lockfile_from_anywhere(
         verify_data_lock(str(workspace))
 
 
-def test_lock_outside_any_workspace_and_without_files_raises(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The verb raises; turning that into an exit code is the command's job."""
+def test_lock_outside_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     orphan = tmp_path / "orphan"
     orphan.mkdir()
     monkeypatch.chdir(orphan)
@@ -328,7 +305,7 @@ def test_lock_outside_any_workspace_and_without_files_raises(
         lock_data(output=str(orphan / "custom.lock"))
 
 
-def test_an_explicit_project_wins_over_the_lockfile_folder(tmp_path: Path) -> None:
+def test_project_wins_over_lockfile(tmp_path: Path) -> None:
     workspace, demo = _workspace(tmp_path)
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
@@ -341,16 +318,14 @@ def test_an_explicit_project_wins_over_the_lockfile_folder(tmp_path: Path) -> No
     assert unnamed == elsewhere.resolve()
 
 
-def test_a_frozen_run_needs_the_lockfile_and_names_the_way_to_write_it(tmp_path: Path) -> None:
+def test_frozen_needs_lockfile(tmp_path: Path) -> None:
     _workspace_root, demo = _workspace(tmp_path)
 
     with pytest.raises(FrozenVerificationError, match="hmp data lock"):
         verify_frozen_inputs(demo)
 
 
-def test_a_frozen_run_reads_the_lockfile_it_is_given_and_names_the_first_drift(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_frozen_names_first_drift(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     workspace, demo = _workspace(tmp_path)
     _fetched(workspace / "data", "A.csv", "a")
     mine = demo / "inputs" / "dem.tif"

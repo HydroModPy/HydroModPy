@@ -33,7 +33,7 @@ def lake_notes(cell_mesh: PlanarCellMesh) -> list[str]:
     return [note for note in cell_mesh.qa.notes if note.startswith("lakes:")]
 
 
-def test_an_arm_narrower_than_a_cell_leaves_the_shore_open_and_the_mesh_says_so() -> None:
+def test_arm_narrower_than_a_cell() -> None:
     cell_mesh = lake_mesh(BODY.union(ARM))
     covered = cell_mesh.qa.families["lakes"]["covered_length_rel"]
     (note,) = lake_notes(cell_mesh)

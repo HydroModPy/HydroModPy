@@ -23,6 +23,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.results.exporters.export_spec import ExportKind
+from hydromodpy.results.exporters.vocabulary import SIMULATED_SERIES, export_kind
 from hydromodpy.solver.modflow6.builders.lake_obs import build_lake_obs_spec
 from hydromodpy.solver.modflow6.extractors import lake as lake_extractor
 from hydromodpy.solver.modflow6.extractors.lake import (
@@ -313,3 +315,39 @@ def test_a_sidecar_that_names_the_old_storage_quantity_is_refused(tmp_path: Path
         build_lake_records(
             old_spec, obs_path, times=[_SECONDS_PER_STEP], seconds_per_time_unit=_SECONDS_PER_STEP
         )
+
+
+def test_mover_obs_only_with_a_mover() -> None:
+    # The to-mvr and from-mvr obs are valid only once LAK advertises MOVER, so they
+    # appear exactly when a transfer is requested.
+    conn = [
+        {"lake_index": 0, "lake_id": "lac0", "n_conn": 1, "vertical_iconns": [0]},
+        {"lake_index": 1, "lake_id": "lac1", "n_conn": 1, "vertical_iconns": [0]},
+    ]
+    outlets = [[0, 0, -1, "WEIR", 87.0, 30.0, 0.0, 0.0]]
+
+    _, without = build_lake_obs_spec(
+        stem="m", lake_conn_info=conn, outlets=outlets, has_mover=False
+    )
+    _, with_mover = build_lake_obs_spec(
+        stem="m", lake_conn_info=conn, outlets=outlets, has_mover=True
+    )
+
+    assert not any(e["quantity"] in {"to_mvr", "from_mvr"} for e in without["entries"])
+    quantities = {e["quantity"] for e in with_mover["entries"]}
+    assert {"from_mvr", "to_mvr"} <= quantities  # from_mvr per lake, to_mvr per outlet
+
+
+def test_every_lake_series_is_an_export_name() -> None:
+    # outlet_inflow and the cutoff wall flow were written by the extractor but missing
+    # from the export vocabulary, so the [[export]] check refused them as a typo.
+    written = (
+        lake_extractor._STATE_QUANTITIES
+        | lake_extractor._RATE_QUANTITIES
+        | {lake_extractor.CUTOFF_WALL_FLOW}
+    ) - {"lak_connection"}
+
+    assert written - set(SIMULATED_SERIES) == set()
+    assert export_kind("outlet_inflow") is ExportKind.series
+    assert export_kind("cutoff_wall_flow") is ExportKind.series
+    assert export_kind("seepage_under_dam") is None

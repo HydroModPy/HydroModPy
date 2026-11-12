@@ -95,7 +95,7 @@ _TRIANGLE = MeshConfig(
 )
 
 
-def test_a_graded_engine_gets_a_size_field_and_resampled_lines(tmp_path: Path) -> None:
+def test_graded_engine_request(tmp_path: Path) -> None:
     request = plan_mesh_request(_TRIANGLE, _inputs(tmp_path))
     assert [family.name for family in request.lines] == [
         "geology",
@@ -120,7 +120,7 @@ def test_a_graded_engine_gets_a_size_field_and_resampled_lines(tmp_path: Path) -
     assert request.family("lakes").closed is True
 
 
-def test_the_regular_engine_gets_raw_lines_and_no_size_field(tmp_path: Path) -> None:
+def test_regular_engine_request(tmp_path: Path) -> None:
     inputs = _inputs(tmp_path)
     request = plan_mesh_request(MeshConfig(engine="regular", regular={"shape": [60, 40]}), inputs)
     assert request.size_field is None
@@ -132,7 +132,7 @@ def test_the_regular_engine_gets_raw_lines_and_no_size_field(tmp_path: Path) -> 
     assert plain.options == {} and plain.nominal_size_m == 50.0
 
 
-def test_a_family_whose_lines_all_lie_off_the_domain_is_left_out() -> None:
+def test_lines_off_domain_left_out() -> None:
     far = 5000.0
     inputs = planning_inputs(
         grid_spec(10, 10, 100.0),
@@ -153,7 +153,7 @@ def test_a_family_whose_lines_all_lie_off_the_domain_is_left_out() -> None:
     assert plan_mesh_request(cfg, inputs).lines == ()
 
 
-def test_a_voronoi_mesh_follows_no_shore_when_its_lakes_lie_off_the_domain() -> None:
+def test_lakes_off_domain_no_shore() -> None:
     # The arm, narrower than two cells, would give a note on a lake the mesh follows.
     lake = box(1200.0, 200.0, 1600.0, 600.0).union(box(1600.0, 390.0, 1900.0, 410.0))
     inputs = planning_inputs(
@@ -169,7 +169,7 @@ def test_a_voronoi_mesh_follows_no_shore_when_its_lakes_lie_off_the_domain() -> 
     assert not any("the faces follow lake" in note for note in request.notes)
 
 
-def test_a_triangulation_read_is_meshed_as_it_is(tmp_path: Path) -> None:
+def test_input_triangulation_request(tmp_path: Path) -> None:
     triangulation = InputTriangulation(
         vertices=np.array([[0.0, 0.0], [800.0, 0.0], [800.0, 900.0], [0.0, 900.0]]),
         triangles=np.array([[0, 1, 2], [0, 2, 3]]),
@@ -184,7 +184,7 @@ def test_a_triangulation_read_is_meshed_as_it_is(tmp_path: Path) -> None:
     assert request.family("rivers").lines[0].coords[-1][0] == pytest.approx(800.0)
 
 
-def test_the_lloyd_tolerance_reaches_the_generated_voronoi_engine_only(tmp_path: Path) -> None:
+def test_lloyd_tolerance_option(tmp_path: Path) -> None:
     inputs = _inputs(tmp_path)
     generated = MeshConfig(engine="voronoi", voronoi={"lloyd_tolerance": 0.05})
 
@@ -199,9 +199,7 @@ _ARM_LAKE = Polygon(
 )
 
 
-def test_the_size_holds_two_cells_across_a_narrow_lake_arm_unless_gap_cells_is_zero(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_gap_cells_in_narrow_arm(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     sized: list[list] = []
     terms_of = size_terms.gap_terms
 
@@ -226,13 +224,13 @@ def test_the_size_holds_two_cells_across_a_narrow_lake_arm_unless_gap_cells_is_z
     assert not any(note.startswith("gaps: ") for note in off.notes)
 
 
-def test_less_than_one_cell_across_a_gap_is_refused() -> None:
+def test_gap_cells_below_one_refused() -> None:
     with pytest.raises(ValueError, match="less than one cell across a gap"):
         MeshConfig(engine="voronoi", gap_cells=0.5)
 
 
-def test_a_structure_drawn_as_a_polygon_is_refined_on_its_own_area(tmp_path: Path) -> None:
-    """A point or a line is widened by its buffer; a polygon already is a zone."""
+def test_polygon_structure_refined(tmp_path: Path) -> None:
+    # A point or a line is widened by its buffer; a polygon already is a zone.
     sill = box(600.0, 300.0, 700.0, 350.0)
     inputs = dataclasses.replace(
         _inputs(tmp_path), lake_structures=(LakeStructure("sill", "a-b", sill, 12.0, 30.0),)
@@ -245,8 +243,8 @@ def test_a_structure_drawn_as_a_polygon_is_refined_on_its_own_area(tmp_path: Pat
     assert sizes[1] > 12.0
 
 
-def test_the_interior_size_refines_the_whole_lake(tmp_path: Path) -> None:
-    """The shore term alone leaves the center of a lake coarser than the interior size."""
+def test_interior_size_refines_lake(tmp_path: Path) -> None:
+    # The shore term alone leaves the center of a lake coarser than the interior size.
     interior = _TRIANGLE.model_copy(
         update={"lake_refinement": LakeRefinementConfig(cell_size=20.0, interior_size=30.0)}
     )
@@ -294,7 +292,7 @@ def _zone_note(request, index: int) -> str:
     return note
 
 
-def test_the_size_field_refines_a_zone_of_pixels_and_grows_away_from_it() -> None:
+def test_pixel_zone_refines_field() -> None:
     request = plan_mesh_request(_voronoi(), _zone_inputs(_valley_floor()))
 
     field = request.size_field
@@ -308,7 +306,7 @@ def test_the_size_field_refines_a_zone_of_pixels_and_grows_away_from_it() -> Non
     assert f"{share:.1f} %" in _zone_note(request, 0)
 
 
-def test_a_zone_that_selects_no_pixel_refines_nothing_and_says_so() -> None:
+def test_empty_zone_noted() -> None:
     request = plan_mesh_request(
         _voronoi(), _zone_inputs(_valley_floor(empty=True), source_run=_SIM_ID)
     )
@@ -319,7 +317,7 @@ def test_a_zone_that_selects_no_pixel_refines_nothing_and_says_so() -> None:
     assert _zone_note(request, 0)
 
 
-def test_an_ungraded_engine_leaves_the_refinement_zones_out() -> None:
+def test_ungraded_engine_drops_zones() -> None:
     config = MeshConfig(
         engine="regular",
         cell_size=80.0,
@@ -333,7 +331,7 @@ def test_an_ungraded_engine_leaves_the_refinement_zones_out() -> None:
     assert config.engine in note and "refinement_zone" in note
 
 
-def test_a_zone_without_a_catchment_counts_its_share_of_the_domain() -> None:
+def test_zone_share_of_domain() -> None:
     inputs = dataclasses.replace(_zone_inputs(_valley_floor()), watershed=None, synthetic=True)
 
     request = plan_mesh_request(_voronoi(), inputs)
@@ -344,19 +342,6 @@ def test_a_zone_without_a_catchment_counts_its_share_of_the_domain() -> None:
 # A lumped engine meshes the catchment as one cell, so the request carries the
 # catchment outline for it, and for no other engine.
 
-_BASE_HASHES = {
-    ("regular", False): "454e757c1ad7f453d1cc6e63787fafbbb0fdde61bb320ae883eda2da708998f6",
-    ("regular", True): "454e757c1ad7f453d1cc6e63787fafbbb0fdde61bb320ae883eda2da708998f6",
-    ("triangle", False): "a6d560cfbc91429bf2e4ffb4806576c1e2e68394870f88a1758ae6f95d01888a",
-    ("triangle", True): "13f0012bd8947cb26fdb5e4a7e26839dd4359600ba228ea856cc1a2b5c50daa9",
-    ("voronoi", False): "7893f6449937567d1028ca983cc31b0aac8d1e0f1b77e6566b5b3dc66393d882",
-    ("voronoi", True): "1648f0a61a9f8650e6b85e2d96a06a2dc5e768521e88c441d5612c1e4929833e",
-}
-"""Hashes of the planned requests at bcd98022e, before the request had a catchment.
-
-The key is the engine and whether the support is real, with ``_CATCHMENT`` delineated.
-"""
-
 
 def _support(*, real: bool) -> PlanningInputs:
     if real:
@@ -364,7 +349,7 @@ def _support(*, real: bool) -> PlanningInputs:
     return planning_inputs(_GRID)
 
 
-def test_a_lumped_engine_gets_the_delineated_catchment_and_not_the_domain() -> None:
+def test_lumped_engine_catchment() -> None:
     request = plan_mesh_request(MeshConfig(engine="catchment"), _support(real=True))
 
     assert request.catchment is not None
@@ -374,7 +359,7 @@ def test_a_lumped_engine_gets_the_delineated_catchment_and_not_the_domain() -> N
     assert CatchmentMeshEngine().build(request).geometry.areas.tolist() == [_CATCHMENT.area]
 
 
-def test_a_lumped_engine_on_a_synthetic_support_gets_the_domain() -> None:
+def test_lumped_engine_synthetic_domain() -> None:
     inputs = _support(real=False)
 
     request = plan_mesh_request(MeshConfig(engine="catchment"), inputs)
@@ -382,7 +367,7 @@ def test_a_lumped_engine_on_a_synthetic_support_gets_the_domain() -> None:
     assert request.catchment is not None and request.catchment.equals(inputs.domain)
 
 
-def test_a_lumped_engine_on_a_real_support_without_a_catchment_is_refused() -> None:
+def test_lumped_engine_needs_catchment() -> None:
     inputs = planning_inputs(_GRID, synthetic=False)
 
     with pytest.raises(MeshRequestError, match="no delineated catchment polygon"):

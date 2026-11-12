@@ -1,4 +1,7 @@
-"""``hmp run``: what it says before, during and after a run, and how it refuses a live case."""
+"""``hmp run``: what it says around a run, and how it refuses a case that is already running.
+
+The solver is never played. A live case is one with a fresh heartbeat on this host.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +25,7 @@ from ._hmp import run_main as _run
 
 
 @pytest.mark.fast
-def test_overview_recap_names_the_page_and_the_figures(tmp_path, monkeypatch, capsys):
+def test_overview_recap(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     figures = tmp_path / "runs" / "overview" / "figures"
     summary = {
@@ -42,9 +45,7 @@ def test_overview_recap_names_the_page_and_the_figures(tmp_path, monkeypatch, ca
     ]
 
 
-def test_a_head_only_window_prints_one_line_and_exits_zero(
-    monkeypatch, tmp_path: Path, capsys
-) -> None:
+def test_head_only_window(monkeypatch, tmp_path: Path, capsys) -> None:
     config = tmp_path / "run.toml"
     config.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
     # A window that stops before the model keeps no run: the runner gives nothing back.
@@ -57,9 +58,7 @@ def test_a_head_only_window_prints_one_line_and_exits_zero(
     assert not (tmp_path / "runs").exists()
 
 
-def test_a_window_that_reaches_the_model_phase_says_nothing_of_it(
-    monkeypatch, tmp_path: Path, capsys
-) -> None:
+def test_window_reaching_the_model(monkeypatch, tmp_path: Path, capsys) -> None:
     config = tmp_path / "run.toml"
     config.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
     monkeypatch.setattr("hydromodpy.project.dispatch.workflow.run_simulation", lambda *a, **k: None)
@@ -70,7 +69,7 @@ def test_a_window_that_reaches_the_model_phase_says_nothing_of_it(
     assert HEAD_ONLY_MESSAGE not in capsys.readouterr().err
 
 
-def test_until_on_an_overview_file_keeps_the_generic_text(monkeypatch, tmp_path, capsys) -> None:
+def test_until_on_an_overview(monkeypatch, tmp_path, capsys) -> None:
     config_path = tmp_path / "overview.toml"
     config_path.write_text('[workflow]\nmode = "overview"\n', encoding="utf-8")
 
@@ -84,13 +83,10 @@ def test_until_on_an_overview_file_keeps_the_generic_text(monkeypatch, tmp_path,
     assert "workflow.mode=simulation" not in err
 
 
-CASE = "declared_name"
+CASE = "declared_name"  # [simulation] name of the project TOML, which names the case
 
 
-"""``[simulation] name`` of the project TOML, which names the case."""
-
-
-def test_a_second_hmp_run_on_a_live_case_is_refused_and_leaves_it_running(
+def test_live_case_is_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     config_path = tmp_path / "project.toml"
@@ -130,7 +126,7 @@ def test_a_second_hmp_run_on_a_live_case_is_refused_and_leaves_it_running(
     assert [entry.name for entry in (tmp_path / "runs").iterdir()] == [CASE], "no .v2"
 
 
-def test_the_index_is_built_after_the_worker_when_the_project_has_none(tmp_path: Path) -> None:
+def test_index_built_after_the_worker(tmp_path: Path) -> None:
     from hydromodpy.core.state.layout import catalog_path_for
     from tests._helpers.sealed_runs import make_project, seal_run
 
@@ -143,7 +139,7 @@ def test_the_index_is_built_after_the_worker_when_the_project_has_none(tmp_path:
     assert catalog_path_for(project).is_file()
 
 
-def test_a_failing_index_never_fails_the_run(monkeypatch, tmp_path: Path, caplog) -> None:
+def test_failing_index(monkeypatch, tmp_path: Path, caplog) -> None:
     from tests._helpers.sealed_runs import make_project, seal_run
 
     project = make_project(tmp_path / "ws")
@@ -167,9 +163,7 @@ def _sealed_config(folder: Path) -> Path:
     return folder / "config.toml"
 
 
-def test_frozen_on_the_config_of_a_sealed_run_names_the_replay_verb(
-    monkeypatch, tmp_path: Path, capsys
-) -> None:
+def test_frozen_on_a_sealed_config(monkeypatch, tmp_path: Path, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     config = _sealed_config(tmp_path / "runs" / "probe")
 
@@ -183,9 +177,7 @@ def test_frozen_on_the_config_of_a_sealed_run_names_the_replay_verb(
     assert "hmp replay runs/probe" in err
 
 
-def test_frozen_on_an_ordinary_config_is_no_replay_and_is_let_through(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_frozen_on_an_ordinary_config(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
     config = tmp_path / "run.toml"
     config.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")

@@ -41,7 +41,7 @@ from hydromodpy.results.storage.run_profile import Profile, ProfileLine, write_p
 from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 from tests._helpers.sealed_runs import WINDOW, seal_run, write_attempt, write_session_dir
 from tests._helpers.session_documents import calibration_window
-from tests.unit.api.test_project_reads_a_campaign import _campaign
+from tests.unit.api.test_facade import _campaign
 
 OTHER_WINDOW = DateWindow(start=date(2010, 1, 1), end=date(2014, 12, 31))
 
@@ -192,7 +192,7 @@ def campaign(tmp_path: Path) -> Path:
     return root
 
 
-def test_by_case_holds_every_planned_case_with_its_status(campaign: Path) -> None:
+def test_by_case_table(campaign: Path) -> None:
     collect_project(campaign)
 
     by_case = pd.read_parquet(campaign / "summary" / "by_case.parquet").set_index("case_id")
@@ -219,7 +219,7 @@ def test_by_case_holds_every_planned_case_with_its_status(campaign: Path) -> Non
     assert len(csv_rows) == 5
 
 
-def test_by_site_keeps_the_best_calibrated_case(campaign: Path) -> None:
+def test_by_site_best_case(campaign: Path) -> None:
     collect_project(campaign)
 
     by_site = pd.read_parquet(campaign / "summary" / "by_site.parquet").set_index("site")
@@ -234,7 +234,7 @@ def test_by_site_keeps_the_best_calibrated_case(campaign: Path) -> None:
     assert by_site.loc["J0014010", "crs"] == "EPSG:2154"
 
 
-def test_the_objective_of_the_session_sits_beside_the_nse(campaign: Path) -> None:
+def test_session_objective_beside_nse(campaign: Path) -> None:
     collect_project(campaign)
 
     by_site = pd.read_parquet(campaign / "summary" / "by_site.parquet").set_index("site")
@@ -246,7 +246,7 @@ def test_the_objective_of_the_session_sits_beside_the_nse(campaign: Path) -> Non
     assert row["calibrated_by_window_start"] == "2016-01-01"
 
 
-def test_the_latest_version_of_a_case_is_the_one_collected(tmp_path: Path) -> None:
+def test_latest_version_is_collected(tmp_path: Path) -> None:
     root = _project(tmp_path)
     _seal(root, "J0014010", "base", nse=0.40)
     _seal(
@@ -269,7 +269,7 @@ def test_the_latest_version_of_a_case_is_the_one_collected(tmp_path: Path) -> No
     assert row["overrides"] == "flow.param.K.field.value=2e-05"
 
 
-def test_scores_on_two_windows_are_not_ranked_without_the_flag(tmp_path: Path) -> None:
+def test_mixed_windows_need_flag(tmp_path: Path) -> None:
     root = _project(tmp_path, summary_extra='best = "any"')
     _seal(root, "J0014010", "base", nse=0.81)
     _seal(root, "J0170000", "base", nse=0.55, window=OTHER_WINDOW)
@@ -287,7 +287,7 @@ def test_scores_on_two_windows_are_not_ranked_without_the_flag(tmp_path: Path) -
     assert by_site.loc["J0014010", "score_window_start"] == "2016-01-01"
 
 
-def test_a_column_no_manifest_has_is_refused_with_its_neighbours(tmp_path: Path) -> None:
+def test_unknown_column_refused(tmp_path: Path) -> None:
     root = _project(tmp_path)
     toml = (root / "project.toml").read_text(encoding="utf-8")
     (root / "project.toml").write_text(
@@ -299,7 +299,7 @@ def test_a_column_no_manifest_has_is_refused_with_its_neighbours(tmp_path: Path)
         collect_project(root)
 
 
-def test_write_sites_writes_the_sites_as_a_site_table(campaign: Path) -> None:
+def test_write_sites_table(campaign: Path) -> None:
     paths = collect_project(campaign, write_sites=True)
 
     assert paths.catalog == campaign / "summary" / "catalog.csv"
@@ -314,7 +314,7 @@ def test_write_sites_writes_the_sites_as_a_site_table(campaign: Path) -> None:
     assert rows[2].x_outlet is None
 
 
-def test_sites_export_speaks_the_words_of_export(tmp_path: Path) -> None:
+def test_sites_exports(tmp_path: Path) -> None:
     exports = """\
 [[sites.export]]
 table = "by_site"
@@ -360,16 +360,7 @@ format = "csv"
     assert by_file["by_site.csv"].options == {"table": "by_site"}
 
 
-def test_a_format_a_table_cannot_take_is_refused(tmp_path: Path) -> None:
-    root = _project(tmp_path, exports='[[sites.export]]\ntable = "by_case"\nformat = "gpkg"\n')
-    _seal(root, "J0014010", "base", nse=0.81)
-
-    with pytest.raises(SummaryError, match="gpkg"):
-        collect_project(root)
-    assert not (root / "summary").exists()
-
-
-def test_the_cohort_figures_are_drawn_and_recorded(tmp_path: Path) -> None:
+def test_cohort_figures(tmp_path: Path) -> None:
     root = _project(
         tmp_path,
         summary_extra=('best = "any"\nfigures = ["map", "distribution"]\nvariables = ["K", "nse"]'),
@@ -395,15 +386,6 @@ def test_the_cohort_figures_are_drawn_and_recorded(tmp_path: Path) -> None:
     assert "../figures/map_K.png" in page
 
 
-def test_a_figure_of_a_run_is_refused_in_the_summary(tmp_path: Path) -> None:
-    root = _project(tmp_path, summary_extra='figures = ["piezometric_map"]')
-    _seal(root, "J0014010", "base", nse=0.81)
-
-    with pytest.raises(SummaryError, match="distribution, map"):
-        collect_project(root)
-    assert not (root / "summary").exists()
-
-
 def test_a_second_collect_keeps_the_comparisons(campaign: Path) -> None:
     compare = campaign / "summary" / "report" / "compare" / "a-vs-b"
     compare.mkdir(parents=True)
@@ -418,7 +400,7 @@ def test_a_second_collect_keeps_the_comparisons(campaign: Path) -> None:
     )
 
 
-def test_a_project_without_sites_is_collected_with_the_defaults(tmp_path: Path) -> None:
+def test_project_without_sites(tmp_path: Path) -> None:
     root = tmp_path / "nancon"
     root.mkdir()
     (root / "project.toml").write_text('[site]\nname = "nancon"\n', encoding="utf-8")
@@ -435,15 +417,7 @@ def test_a_project_without_sites_is_collected_with_the_defaults(tmp_path: Path) 
     assert pd.isna(by_site.loc[0, "best_case"])
 
 
-def test_an_unknown_figure_is_refused_with_the_cohort_ones(tmp_path: Path) -> None:
-    root = _project(tmp_path, summary_extra='figures = ["histogram"]')
-    _seal(root, "J0014010", "base", nse=0.81)
-
-    with pytest.raises(SummaryError, match="histogram"):
-        collect_project(root)
-
-
-def test_a_manifest_this_version_cannot_read_stops_the_collect_by_name(tmp_path: Path) -> None:
+def test_unreadable_manifest_stops(tmp_path: Path) -> None:
     root = _project(tmp_path)
     run_dir = _seal(root, "J0014010", "base", nse=0.81)
     collect_project(root)
@@ -456,7 +430,7 @@ def test_a_manifest_this_version_cannot_read_stops_the_collect_by_name(tmp_path:
     assert "do not read under HydroModPy" in str(refused.value)
 
 
-def test_a_figure_the_cohort_cannot_give_is_named_and_the_others_drawn(tmp_path: Path) -> None:
+def test_skipped_figure_is_named(tmp_path: Path) -> None:
     root = _project(
         tmp_path,
         summary_extra='best = "any"\nfigures = ["distribution"]\nvariables = ["K", "kge"]',
@@ -471,9 +445,7 @@ def test_a_figure_the_cohort_cannot_give_is_named_and_the_others_drawn(tmp_path:
     assert "distribution of kge" in paths.report.read_text(encoding="utf-8")
 
 
-def test_a_collect_that_stops_keeps_the_figures_of_the_last_one(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_failed_collect_keeps_figures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _project(
         tmp_path, summary_extra='best = "any"\nfigures = ["distribution"]\nvariables = ["K"]'
     )
@@ -493,7 +465,7 @@ def test_a_collect_that_stops_keeps_the_figures_of_the_last_one(
     assert [path.name for path in (root / "summary").iterdir() if path.name.startswith(".")] == []
 
 
-def test_the_mesh_the_solve_time_and_the_place_are_read_from_the_seal(tmp_path: Path) -> None:
+def test_mesh_time_place_from_seal(tmp_path: Path) -> None:
     root = _project(tmp_path, summary_extra='best = "any"')
     run_dir = _seal(root, "J0014010", "base", nse=0.81)
     record = RunRecord.read(run_dir)
@@ -530,7 +502,8 @@ def test_the_mesh_the_solve_time_and_the_place_are_read_from_the_seal(tmp_path: 
     assert (site["snapped_x"], site["snapped_y"]) == (389175.0, 6816450.0)
 
 
-def test_the_solve_time_is_read_from_the_profile_before_the_seal(tmp_path: Path) -> None:
+def _run_with_sealed_solve_time(tmp_path: Path) -> tuple[Path, Path]:
+    """One run whose seal says the flow solve took 26.3 s."""
     root = _project(tmp_path, summary_extra='best = "any"')
     run_dir = _seal(root, "J0014010", "base", nse=0.81)
     record = RunRecord.read(run_dir)
@@ -541,38 +514,33 @@ def test_the_solve_time_is_read_from_the_profile_before_the_seal(tmp_path: Path)
         value=26.3,
     )
     record.model_copy(update={"metrics": [*record.metrics, sealed]}).write(run_dir)
-    started = datetime(2026, 11, 10, 9, 0, tzinfo=UTC)
-    solves = [
-        ProfileLine(kind="solve", name=name, attempt=1, started_at=started, duration_s=seconds)
-        for name, seconds in (("flow_main::modflow6", 12.5), ("transport::modpath", 40.0))
-    ]
-    write_profile(run_dir, Profile(lines=solves))
+    return root, run_dir
+
+
+STARTED = datetime(2026, 11, 10, 9, 0, tzinfo=UTC)
+PROFILE_SOLVES = [
+    ProfileLine(kind="solve", name=name, attempt=1, started_at=STARTED, duration_s=seconds)
+    for name, seconds in (("flow_main::modflow6", 12.5), ("transport::modpath", 40.0))
+]
+
+SOLVE_TIMES = [
+    pytest.param(Profile(lines=PROFILE_SOLVES), 12.5, id="profile first"),  # flow line, s
+    pytest.param(Profile(), 26.3, id="profile without a solve line"),  # the seal, s
+]
+
+
+@pytest.mark.parametrize(("profile", "solve_time_s"), SOLVE_TIMES)
+def test_solve_time(tmp_path: Path, profile: Profile, solve_time_s: float) -> None:
+    root, run_dir = _run_with_sealed_solve_time(tmp_path)
+    write_profile(run_dir, profile)
 
     paths = collect_project(root)
 
     case = pd.read_parquet(paths.by_case).iloc[0]
-    assert case["flow_solve_time_s"] == pytest.approx(12.5)
+    assert case["flow_solve_time_s"] == pytest.approx(solve_time_s)
 
 
-def test_a_profile_without_a_solve_line_leaves_the_seal_row(tmp_path: Path) -> None:
-    root = _project(tmp_path, summary_extra='best = "any"')
-    run_dir = _seal(root, "J0014010", "base", nse=0.81)
-    record = RunRecord.read(run_dir)
-    sealed = MetricRow(
-        station="flow_main::modflow6",
-        variable="runtime",
-        metric="flow_solve_time_seconds",
-        value=26.3,
-    )
-    record.model_copy(update={"metrics": [*record.metrics, sealed]}).write(run_dir)
-    write_profile(run_dir, Profile())
-
-    paths = collect_project(root)
-
-    assert pd.read_parquet(paths.by_case).iloc[0]["flow_solve_time_s"] == pytest.approx(26.3)
-
-
-def test_a_calibration_row_takes_the_time_of_its_session(tmp_path: Path) -> None:
+def test_calibration_row_session_time(tmp_path: Path) -> None:
     root = _project(tmp_path, summary_extra='best = "any"')
     _seal(root, "J0014010", "calage", nse=0.62, calibrated=True)
     started = datetime(2026, 10, 1, 8, 0, tzinfo=UTC)
@@ -590,7 +558,7 @@ def test_a_calibration_row_takes_the_time_of_its_session(tmp_path: Path) -> None
     assert row["duration_s"] == pytest.approx(3600.0)
 
 
-def test_a_failed_case_names_its_paths_from_the_project_root(tmp_path: Path) -> None:
+def test_failed_case_relative_paths(tmp_path: Path) -> None:
     root = _project(tmp_path)
     _plan(root, ["J0014010-base"])
     write_attempt(
@@ -624,7 +592,7 @@ k_mid = "project.toml"
 """
 
 
-def test_by_case_names_every_parameter_and_the_set_of_its_recipe(tmp_path: Path) -> None:
+def test_by_case_parameters(tmp_path: Path) -> None:
     root = tmp_path / "comparison"
     root.mkdir()
     (root / "project.toml").write_text(RECIPES_TOML, encoding="utf-8")
@@ -653,7 +621,7 @@ def test_by_case_names_every_parameter_and_the_set_of_its_recipe(tmp_path: Path)
     assert pd.isna(by_case.loc["nancon-k_mid", "overrides"])
 
 
-def test_a_site_without_a_scored_run_says_why_it_has_no_best_case(tmp_path: Path) -> None:
+def test_site_without_scored_run(tmp_path: Path) -> None:
     root = _project(tmp_path, summary_extra='best = "any"')
     seal_run(
         root,
@@ -677,48 +645,44 @@ def test_a_site_without_a_scored_run_says_why_it_has_no_best_case(tmp_path: Path
     assert pd.isna(by_site.loc["J0170000", "best_reason"])
 
 
-RANKING_PROJECT_TOML = """\
-[sites]
-table = "sites.csv"
-
-[sites.summary]
-{summary}
-best = "any"
-"""
-
-
-def _two_cases(tmp_path: Path, summary: str) -> Path:
-    """One site, a case better by nse (``base``) and a case better by kge (``wide``)."""
-    root = tmp_path / "bretagne_k"
-    root.mkdir()
-    (root / "project.toml").write_text(
-        RANKING_PROJECT_TOML.format(summary=summary), encoding="utf-8"
-    )
-    _plan(root, ["J0014010-base", "J0014010-wide"])
-    _seal(root, "J0014010", "base", nse=0.80, kge=0.50)
-    _seal(root, "J0014010", "wide", nse=0.60, kge=0.90)
-    return root
+COLLECT_REFUSALS = [
+    pytest.param(
+        {"exports": '[[sites.export]]\ntable = "by_case"\nformat = "gpkg"\n'},
+        "gpkg",
+        id="format a table cannot take",
+    ),
+    pytest.param(
+        {"summary_extra": 'figures = ["piezometric_map"]'},
+        "distribution, map",
+        id="figure of a run",
+    ),
+    pytest.param({"summary_extra": 'figures = ["histogram"]'}, "histogram", id="unknown figure"),
+]
 
 
-def _best_case(root: Path) -> str:
-    collect_project(root)
-    by_site = pd.read_parquet(root / "summary" / "by_site.parquet").set_index("site")
-    return str(by_site.loc["J0014010", "best_case"])
+@pytest.mark.parametrize(("project_options", "match"), COLLECT_REFUSALS)
+def test_collect_refusals(tmp_path: Path, project_options: dict, match: str) -> None:
+    root = _project(tmp_path, **project_options)
+    _seal(root, "J0014010", "base", nse=0.81)
+
+    with pytest.raises(SummaryError, match=match):
+        collect_project(root)
+    assert not (root / "summary").exists()
 
 
-def test_rank_by_must_be_a_metric_the_rule_writes() -> None:
-    with pytest.raises(ValidationError, match="rank_by"):
-        SitesConfig.model_validate({"summary": {"rank_by": "kling"}})
+SUMMARY_REFUSALS = [
+    pytest.param({"rank_by": "kling"}, "rank_by", id="rank_by not a metric of the rule"),
+    pytest.param(
+        {"metrics": ["nse"], "rank_by": "rmse"}, "rank_by.*metrics", id="rank_by not summarised"
+    ),
+    pytest.param({"metrics": ["nse", "bogus"]}, "bogus.*nse, kge", id="unknown summary metric"),
+]
 
 
-def test_rank_by_must_be_a_column_of_the_summary() -> None:
-    with pytest.raises(ValidationError, match="rank_by.*metrics"):
-        SitesConfig.model_validate({"summary": {"metrics": ["nse"], "rank_by": "rmse"}})
-
-
-def test_a_summary_metric_must_be_a_metric_the_rule_writes() -> None:
-    with pytest.raises(ValidationError, match="bogus.*nse, kge"):
-        SitesConfig.model_validate({"summary": {"metrics": ["nse", "bogus"]}})
+@pytest.mark.parametrize(("summary", "match"), SUMMARY_REFUSALS)
+def test_summary_refusals(summary: dict, match: str) -> None:
+    with pytest.raises(ValidationError, match=match):
+        SitesConfig.model_validate({"summary": summary})
 
 
 CALIBRATION_WINDOWS = calibration_window(date(2010, 1, 1), date(2014, 12, 31))
@@ -761,12 +725,12 @@ def _evaluated_campaign(tmp_path: Path) -> tuple[Path, str]:
 
 
 @pytest.mark.fast
-def test_the_calibrated_labels_are_calibrated_and_evaluated() -> None:
+def test_calibrated_labels() -> None:
     assert set(CALIBRATED_LABELS) == {"calibrated", "evaluated"}
 
 
 @pytest.mark.fast
-def test_project_best_keeps_an_evaluated_run(tmp_path: Path) -> None:
+def test_best_run_is_evaluated(tmp_path: Path) -> None:
     project, evaluated = _evaluated_campaign(tmp_path)
 
     with hmp.open(project) as proj:
@@ -780,7 +744,7 @@ def test_project_best_keeps_an_evaluated_run(tmp_path: Path) -> None:
 
 
 @pytest.mark.fast
-def test_the_site_summary_keeps_an_evaluated_case(tmp_path: Path) -> None:
+def test_site_summary_evaluated_case(tmp_path: Path) -> None:
     project, _ = _evaluated_campaign(tmp_path)
 
     collect_project(project)

@@ -1,4 +1,9 @@
-"""The hydrographic network comparison figure and its background."""
+"""Hydrographic network figures drawn on a 1 km reference stream, with coordinates in m (EPSG:2154).
+
+The reference runs 1000 m. The candidate follows it for 700 m and adds a 300 m
+reach 100 m away, so the comparison has matched, missing and extra parts.
+Maps color each cell by its topography under every solver.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +11,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import geopandas as gpd
-import matplotlib
 import numpy as np
 import pytest
 from shapely.geometry import LineString, box
@@ -17,8 +21,11 @@ from hydromodpy.catchment.algorithms.hydrographic_network_comparison import (
 from hydromodpy.display.figure_registry import get
 from hydromodpy.display.figures.hydrographic_network import plot_topography_background
 
+VERTICES = np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [2.0, 0.0], [2.0, 1.0]])
+CONNECTIVITY = np.asarray([[0, 1, 2, 3], [1, 4, 5, 2]], dtype=int)
 
-class _StubRun:
+
+class StubRun:
     sim_id = "11111111-2222-3333-4444-555555555555"
     name = "nancon"
 
@@ -57,48 +64,7 @@ class _StubRun:
         raise KeyError(feature_name)
 
 
-def test_hydrographic_network_comparison_figure_renders(tmp_path: Path) -> None:
-    matplotlib.use("Agg", force=True)
-    fig = get("hydrographic_network_comparison")
-    out = tmp_path / "hydrographic_network_comparison.png"
-
-    rendered = fig.plot(_StubRun(), save_path=out, tolerance_m=50.0)
-
-    assert rendered is not None
-    assert len(rendered.axes) == 4
-    assert out.exists()
-
-
-def test_hydrographic_network_role_figures_render(tmp_path: Path) -> None:
-    matplotlib.use("Agg", force=True)
-    stub = _StubRun()
-
-    for figure_name in ("hydrographic_network_reference", "hydrographic_network_generated"):
-        fig = get(figure_name)
-        out = tmp_path / f"{figure_name}.png"
-        rendered = fig.plot(stub, save_path=out)
-        assert rendered is not None
-        assert len(rendered.axes) == 1
-        assert out.exists()
-
-
-def test_hydrographic_network_difference_role_figures_render(tmp_path: Path) -> None:
-    matplotlib.use("Agg", force=True)
-    stub = _StubRun()
-
-    for figure_name in (
-        "hydrographic_network_reference_missing_only",
-        "hydrographic_network_generated_extra_only",
-    ):
-        fig = get(figure_name)
-        out = tmp_path / f"{figure_name}.png"
-        rendered = fig.plot(stub, save_path=out)
-        assert rendered is not None
-        assert len(rendered.axes) == 1
-        assert out.exists()
-
-
-class _PermanenceStubRun(_StubRun):
+class PermanenceStubRun(StubRun):
     """A run whose map holds 1 km of permanent and 0.5 km of intermittent reaches."""
 
     def __init__(self, *, with_permanent: bool = True) -> None:
@@ -124,10 +90,50 @@ class _PermanenceStubRun(_StubRun):
         return super().hydrographic_network(role)
 
 
-def test_permanence_figure_splits_the_map_into_its_two_bounds(tmp_path: Path) -> None:
-    matplotlib.use("Agg", force=True)
+def mesh_run(*, topography, z_interfaces) -> SimpleNamespace:
+    mesh = SimpleNamespace(
+        vertices=VERTICES,
+        face_node_connectivity=CONNECTIVITY,
+        z_interfaces=np.asarray(z_interfaces, dtype=float),
+        topography=None if topography is None else np.asarray(topography, dtype=float),
+    )
+    return SimpleNamespace(mesh=mesh)
+
+
+def test_comparison_figure(mpl, tmp_path: Path) -> None:
+    out = tmp_path / "hydrographic_network_comparison.png"
+
+    rendered = get("hydrographic_network_comparison").plot(
+        StubRun(), save_path=out, tolerance_m=50.0
+    )
+
+    assert rendered is not None
+    assert len(rendered.axes) == 4
+    assert out.exists()
+
+
+ONE_MAP_FIGURES = [
+    pytest.param("hydrographic_network_reference", id="reference"),
+    pytest.param("hydrographic_network_generated", id="generated"),
+    pytest.param("hydrographic_network_reference_missing_only", id="reference missing only"),
+    pytest.param("hydrographic_network_generated_extra_only", id="generated extra only"),
+]
+
+
+@pytest.mark.parametrize("figure_name", ONE_MAP_FIGURES)
+def test_one_map_figures(mpl, tmp_path: Path, figure_name: str) -> None:
+    out = tmp_path / f"{figure_name}.png"
+
+    rendered = get(figure_name).plot(StubRun(), save_path=out)
+
+    assert rendered is not None
+    assert len(rendered.axes) == 1
+    assert out.exists()
+
+
+def test_permanence_legend(mpl, tmp_path: Path) -> None:
     fig = get("hydrographic_network_permanence")
-    stub = _PermanenceStubRun()
+    stub = PermanenceStubRun()
     assert fig.unavailable_reason(stub) is None
 
     rendered = fig.plot(stub, save_path=tmp_path / "permanence.png")
@@ -143,52 +149,28 @@ def test_permanence_figure_splits_the_map_into_its_two_bounds(tmp_path: Path) ->
     assert "permanent: 1.00 km, 1 reaches" in note
 
 
-def test_permanence_figure_names_a_source_without_permanence() -> None:
+def test_permanence_needs_its_source() -> None:
     reason = get("hydrographic_network_permanence").unavailable_reason(
-        _PermanenceStubRun(with_permanent=False)
+        PermanenceStubRun(with_permanent=False)
     )
+
     assert reason is not None
     assert "reference_permanent" in reason
 
 
-# The network maps color each cell by its topography, under every solver.
-
-_VERTS = np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [2.0, 0.0], [2.0, 1.0]])
-
-
-_CONN = np.asarray([[0, 1, 2, 3], [1, 4, 5, 2]], dtype=int)
-
-
-def _run(*, topography, z_interfaces) -> SimpleNamespace:
-    mesh = SimpleNamespace(
-        vertices=_VERTS,
-        face_node_connectivity=_CONN,
-        z_interfaces=np.asarray(z_interfaces, dtype=float),
-        topography=None if topography is None else np.asarray(topography, dtype=float),
-    )
-    return SimpleNamespace(mesh=mesh)
-
-
-@pytest.fixture
-def ax():
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    fig, axes = plt.subplots()
-    yield axes
-    plt.close(fig)
-
-
-def test_a_modflow_run_draws_its_topography_not_its_layer_column(ax) -> None:
+def test_topography_of_a_layer_column(mpl) -> None:
     # MODFLOW stores z_interfaces as one column of n_layers + 1 values.
-    run = _run(topography=[12.0, 10.0], z_interfaces=[12.0, 5.0, -10.0])
+    run = mesh_run(topography=[12.0, 10.0], z_interfaces=[12.0, 5.0, -10.0])
+    fig, ax = mpl.subplots()
+
     plot_topography_background(ax, run)
+
     np.testing.assert_allclose(ax.collections[0].get_array(), [12.0, 10.0])
 
 
-def test_a_run_without_topography_draws_nothing(ax) -> None:
-    plot_topography_background(ax, _run(topography=None, z_interfaces=[12.0, -10.0]))
+def test_no_topography(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    plot_topography_background(ax, mesh_run(topography=None, z_interfaces=[12.0, -10.0]))
+
     assert not ax.collections

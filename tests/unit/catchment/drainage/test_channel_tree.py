@@ -37,9 +37,6 @@ ACCUMULATION = "dem_acc_cells.tif"
 _CODE_OF_STEP = {step: code for code, step in D8_WBT_OFFSETS.items()}
 
 
-# -- The rasters a run reads -------------------------------------------------
-
-
 def _write(path: Path, data: np.ndarray) -> None:
     import rasterio
 
@@ -83,9 +80,6 @@ def test_a_link_raster_older_than_the_stream_raster_is_not_the_network(tmp_path:
 
     assert active_channel_raster(tmp_path) == str(tmp_path / STREAMS)
     assert channel_rasters_for_run(_geographic(tmp_path)).link == str(tmp_path / STREAMS)
-
-
-# -- The window around the mesh ------------------------------------------------
 
 
 def test_the_tree_is_read_on_a_window_around_the_mesh(tmp_path: Path) -> None:
@@ -137,9 +131,6 @@ def test_the_tree_is_read_on_a_window_around_the_mesh(tmp_path: Path) -> None:
         )
 
 
-# -- The projection of A onto the cells ---------------------------------------
-
-
 def _tree(shape: tuple[int, int], path: list[tuple[int, int]]) -> ChannelTree:
     """A raster tree along ``path`` (raster rows from the north), accumulation growing down it."""
     link = np.zeros(shape, dtype=bool)
@@ -159,10 +150,6 @@ def _tree(shape: tuple[int, int], path: list[tuple[int, int]]) -> ChannelTree:
 def _grid_labels(nrow: int, ncol: int) -> np.ndarray:
     """One cell per pixel, numbered row after row from the north, like a structured mesh."""
     return np.arange(nrow * ncol, dtype=np.int32).reshape(nrow, ncol)
-
-
-def _cell(ncol: int, raster_row: int, col: int) -> int:
-    return raster_row * ncol + col
 
 
 def _project(tree, labels, *, routable=None, lake_of=None):
@@ -198,29 +185,6 @@ def test_the_exits_and_the_masks_must_describe_the_same_cells() -> None:
         pin_channel(exits, routable=np.ones(15, bool), lake_of=np.full(16, -1))
     with pytest.raises(ValueError, match="one entry per cell"):
         ChannelExits(np.zeros(3, bool), np.zeros(4, int), np.zeros(3, bool))
-
-
-def _brick_labels(nrow: int, n_bricks: int) -> np.ndarray:
-    """Pixel numbers of rows of 2 x 1 bricks, every other row shifted by half a brick.
-
-    One pixel is one metre, so a brick is two pixels wide. Mesh row 0 is the south
-    row and raster row 0 the north one. A brick of a shifted row meets the bricks
-    of the next row by a face only, like the cells of a Voronoi mesh.
-    """
-    width = 2 * n_bricks
-    labels = np.zeros((nrow, width), dtype=np.int32)
-    number = 0
-    for mesh_row in range(nrow):
-        edges = (
-            list(range(0, width + 1, 2)) if mesh_row % 2 == 0 else [0, *range(1, width, 2), width]
-        )
-        for x0, x1 in zip(edges[:-1], edges[1:], strict=True):
-            labels[nrow - 1 - mesh_row, x0:x1] = number
-            number += 1
-    return labels
-
-
-# -- The two stages against the one stage they replace -------------------------
 
 
 def _one_stage_projection(tree, labels, *, routable, lake_of):

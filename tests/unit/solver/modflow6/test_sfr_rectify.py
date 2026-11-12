@@ -1,4 +1,9 @@
-"""Unit tests for the mesh-native SFR channel re-derivation (SFD trace)."""
+"""SFR reaches re-traced on the mesh along the receivers of the descent D.
+
+A channel is a chain of mesh cells, each cell draining to a face neighbour. The
+trace ends on a lake shore, drops one-cell streams and demotes parallel stubs.
+Cell numbers are positions on a line or a grid, top elevations are in m.
+"""
 
 from __future__ import annotations
 
@@ -57,7 +62,7 @@ def _rectify(records, top, adj, receiver, *, lakes=None, spillway=frozenset(), n
     )
 
 
-def test_a_shore_cell_ends_terminal_to_its_lake() -> None:
+def test_shore_cell_ends_at_its_lake() -> None:
     top, adj, receiver = _chain(6)
     nodes, _ = _rectify([_Rec(0, (0, 2))], top, adj, receiver, lakes={5: 1})
     terminal = [nd["cellid"][1] for nd in nodes if nd["is_terminal_to_lake"]]
@@ -65,7 +70,7 @@ def test_a_shore_cell_ends_terminal_to_its_lake() -> None:
     assert 5 not in {nd["cellid"][1] for nd in nodes}
 
 
-def test_a_cycle_in_the_receiver_raises() -> None:
+def test_cycle_in_the_receiver_is_refused() -> None:
     _, adj, _ = _chain(4)
     top = np.array([100.0, 99.0, 98.0, 97.0])
     receiver = np.array([1, 2, 0, -1])
@@ -73,7 +78,7 @@ def test_a_cycle_in_the_receiver_raises() -> None:
         _rectify([_Rec(0, (0, 0))], top, adj, receiver)
 
 
-def test_a_spillway_walk_onto_a_lake_adds_no_reach(caplog) -> None:
+def test_spillway_walk_onto_a_lake(caplog) -> None:
     # The dam toe at cell 1 descends onto the lake cell 2: nothing is added, and the
     # walk is reported by its seed. The delineated seed at cell 4 is untouched.
     top, adj, receiver = _chain(6)
@@ -92,7 +97,7 @@ def test_a_spillway_walk_onto_a_lake_adds_no_reach(caplog) -> None:
     assert any("spillway seed cell 1" in rec.getMessage() for rec in caplog.records)
 
 
-def test_a_spillway_walk_merges_into_the_channel() -> None:
+def test_spillway_walk_joins_the_channel() -> None:
     # Toe at cell 1 walks 1 -> 2 and joins the channel traced from the seed at cell 3.
     top, adj, receiver = _chain(6)
     nodes, edges = _rectify(
@@ -109,42 +114,23 @@ def test_a_spillway_walk_merges_into_the_channel() -> None:
     assert len(edges) == len(nodes) - 1
 
 
-def _grid(nrow: int, ncol: int, top_of):
-    n = nrow * ncol
-    top = np.array([top_of(i // ncol, i % ncol) for i in range(n)], dtype=float)
-    adj: list[set[int]] = [set() for _ in range(n)]
-    for r in range(nrow):
-        for c in range(ncol):
-            i = r * ncol + c
-            if c + 1 < ncol:
-                adj[i].add(i + 1)
-                adj[i + 1].add(i)
-            if r + 1 < nrow:
-                adj[i].add(i + ncol)
-                adj[i + ncol].add(i)
-    receiver = np.array([i + 1 if (i % ncol) + 1 < ncol else -1 for i in range(n)])
-    return top, adj, receiver, n
+# Main stem 0 -> 1 -> 2 -> 3 and a stub cell 4 flowing into cell 2.
+STUB_DOWNSTREAM = {0: 1, 1: 2, 2: 3, 3: None, 4: 2}
+
+PRUNES = [
+    # The stub sits beside cell 1, a reach carrying more upstream: it is demoted.
+    pytest.param([{1}, {0, 2, 4}, {1, 3, 4}, {2}, {1, 2}], {0, 1, 2, 3}, id="parallel stub"),
+    # The stub only touches its own downstream: it heads a distinct channel and stays.
+    pytest.param([{1}, {0, 2}, {1, 3, 4}, {2}, {2}], {0, 1, 2, 3, 4}, id="lone stub"),
+]
 
 
-def test_prune_demotes_a_low_order_parallel_stub() -> None:
-    # Main stem 0->1->2->3; a stub cell 4 flows into cell 2 and sits beside cell 1 (a
-    # reach carrying more upstream). The stub is demoted, the main stem is untouched.
-    downstream = {0: 1, 1: 2, 2: 3, 3: None, 4: 2}
-    adj = [{1}, {0, 2, 4}, {1, 3, 4}, {2}, {1, 2}]
-    kept = _prune_parallel_stub_cells(downstream, adj, max_stub_upstream=2)
-    assert kept == {0, 1, 2, 3}  # cell 4 demoted, headwater 0 kept
+@pytest.mark.parametrize(("adjacency", "kept"), PRUNES)
+def test_prune_of_a_low_order_stub(adjacency, kept) -> None:
+    assert _prune_parallel_stub_cells(STUB_DOWNSTREAM, adjacency, max_stub_upstream=2) == kept
 
 
-def test_prune_keeps_a_stub_with_no_bigger_neighbour() -> None:
-    # Same graph but cell 4 only touches its own downstream (cell 2): it heads a distinct
-    # channel, not a redundant thread, so it stays SFR.
-    downstream = {0: 1, 1: 2, 2: 3, 3: None, 4: 2}
-    adj = [{1}, {0, 2}, {1, 3, 4}, {2}, {2}]
-    kept = _prune_parallel_stub_cells(downstream, adj, max_stub_upstream=2)
-    assert kept == {0, 1, 2, 3, 4}
-
-
-def test_lone_single_cell_component_is_dropped() -> None:
+def test_lone_one_cell_stream_is_dropped() -> None:
     # Seed 2 traces a 3-cell channel to the lake at cell 5; seed 1 sits against the lake
     # at cell 0 and forms a lone one-cell "stream". With min_component_cells=2 the lone
     # reach is dropped (it becomes routed DRN), leaving only the real channel.
@@ -154,7 +140,7 @@ def test_lone_single_cell_component_is_dropped() -> None:
     assert cells == [2, 3, 4]  # lone reach at cell 1 dropped
 
 
-def test_empty_records_return_no_channel() -> None:
+def test_no_cell_gives_no_channel() -> None:
     top, adj, receiver = _chain(4)
     nodes, edges = _rectify([_Rec(0, None)], top, adj, receiver, lakes={3: 1})
     assert nodes == [] or all(nd["cellid"] is None for nd in nodes)
@@ -176,7 +162,7 @@ def _faces(nrow: int, ncol: int) -> list[set[int]]:
     return faces
 
 
-def test_a_lone_staircase_channel_keeps_every_cell() -> None:
+def test_staircase_channel_keeps_every_cell() -> None:
     # One staircase channel of 11 cells, no braid. On D8 a head cell neighbors its
     # downstream's downstream, which would read as a bigger parallel channel and
     # demote the head; on shared faces the whole channel stays.

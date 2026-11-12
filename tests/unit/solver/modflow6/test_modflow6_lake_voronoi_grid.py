@@ -1,28 +1,10 @@
-"""The LAK CONNECTIONDATA builder on an irregular (non-rectangular) DISV grid.
+"""The LAK builder on irregular DISV grids, a jittered triangle mesh and a Voronoi mesh.
 
-``builders/lake.py`` builds CONNECTIONDATA from the mesh geometry, so its math
-must hold on non-uniform polygon cells, not only on a unit grid. Two irregular
-meshes exercise that:
-
-* an irregular *triangular* mesh (jittered Delaunay) driven through the
-  production ``build_lake_connectiondata``. Every HORIZONTAL row is
-  checked against the true shared-edge length (``connwidth``) and the exact
-  perpendicular distance from the neighbor centroid to that edge (``connlen``);
-* a genuinely mixed-polygon *Voronoi* DISV (coarse background plus a refined
-  cluster around the lake) built with ``flopy.utils.cvfdutil``. The production
-  ``resolve_lake_cells`` intersects the lake polygon with the Voronoi cells,
-  and MF6 runs one period to confirm the package converges on the irregular
-  mesh.
-
-The point is the geometry is correct on non-uniform polygon cells. The lake
-polygon is intersected with the mesh, CONNECTIONDATA is built, and the
-invariants under test mirror the unit-grid case:
-
-* ``connwidth`` equals the true shared-edge length and ``connlen > 0`` (the
-  centroid-to-edge perpendicular half-distance);
-* HORIZONTAL connections only target active, non-lake neighbors;
-* exactly one VERTICAL per lake column to the first active cell below;
-* lake cells become ``idomain = 0``.
+The geometry must hold on non-uniform polygon cells (lengths in m). On the triangles
+every HORIZONTAL row is checked against the true shared-edge length (connwidth) and
+the perpendicular distance from the neighbour centroid to that edge (connlen). On
+the Voronoi mesh the lake cells and their overlap areas are resolved, and MF6 runs
+one period to confirm LAK converges.
 """
 
 from __future__ import annotations
@@ -54,11 +36,6 @@ _DOMAIN = 100.0
 _LAKE_POLYGON = Polygon([(40.0, 40.0), (60.0, 40.0), (60.0, 60.0), (40.0, 60.0)])
 _TOP = 100.0
 _BOTM = (90.0, 50.0)
-
-
-# --------------------------------------------------------------------------- #
-# Irregular triangular SolverMesh (drives the production builder).
-# --------------------------------------------------------------------------- #
 
 
 def _irregular_triangular_mesh() -> tuple[np.ndarray, np.ndarray]:
@@ -240,9 +217,7 @@ def test_connwidth_and_connlen_match_true_geometry() -> None:
     assert len(connwidths) > 1
 
 
-# --------------------------------------------------------------------------- #
-# Mixed-polygon Voronoi DISV (resolve_lake_cells + MF6 convergence).
-# --------------------------------------------------------------------------- #
+# A mixed-polygon Voronoi DISV, for resolve_lake_cells and one MF6 run.
 
 
 def _voronoi_disv_gridprops() -> dict:

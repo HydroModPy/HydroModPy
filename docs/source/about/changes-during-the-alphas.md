@@ -675,7 +675,7 @@ None. No metric value changes.
   `hmp project new | list | show | delete`, `hmp replay <ref> --into DIR` (a published copy and the
   command that replays it), `hmp catalog show` prints the README and the annotations of a run;
   every verb that takes a workspace offers `-w` and none falls back on `~/hydromodpy`;
-  `tests/unit/cli/test_cli_surface_matches_the_target.py` lists the verbs of the target.
+  `tests/unit/cli/test_main.py` lists the verbs of the target.
 - The overview mode runs through the attempt protocol: `runs/<name>/` claimed, `outcome.json`,
   heartbeat, frozen `config.toml`, a `RunRecord` without solver tables (`solver = "overview"`),
   README, `.vN` on a second overview.
@@ -5371,7 +5371,7 @@ No number moves for a file written under current names. A chain or an overlay th
 - `hmp doctor` now reports the Parquet layout health (orphan directories,
   leftover legacy tables, per-sim Parquet counts).
 - Unit tests covering atomic Parquet writes, view semantics, and 8-worker
-  concurrent writes (`tests/unit/results/test_parquet_lakehouse.py`).
+  concurrent writes (`tests/unit/results/test_parquet_views.py`).
 - ~130 new calibration tests across `tests/unit/calibration/`,
   `tests/unit/test_calibration_cli.py`, and
   `tests/regression/fast/calibration/` (including the Brutsaert golden

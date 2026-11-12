@@ -46,7 +46,7 @@ def _store(
     vertices: np.ndarray | None = None,
     rows: np.ndarray | None = None,
 ) -> str:
-    """Write the ``head`` and ``mesh/`` groups a prior run leaves, from ``cell_mesh``."""
+    # The head and mesh/ groups a prior run leaves.
     root = zarr.open(str(path), mode="w")
     root["head"] = np.arange(cell_mesh.n_cells, dtype=float).reshape(1, 1, -1)
     xy = cell_mesh.mesh.vertices[:, :2] if vertices is None else vertices
@@ -61,8 +61,8 @@ def _store(
     return str(path)
 
 
-def test_the_same_shift_in_x_is_not(tmp_path: Path) -> None:
-    """The step at 3.5e5 m is 1e-3 m, so a millimeter in x is a vertex that moved."""
+def test_a_millimeter_shift_in_x_is_refused(tmp_path: Path) -> None:
+    # The rounding step at 3.5e5 m is 1e-3 m, so a millimeter in x is a vertex that moved.
     mesh = _mesh()
     nudged = mesh.mesh.vertices[:, :2].copy()
     nudged[:, 0] += 0.001
@@ -70,7 +70,7 @@ def test_the_same_shift_in_x_is_not(tmp_path: Path) -> None:
         verify_restart_mesh(_store(tmp_path / "prior.zarr", mesh, vertices=nudged), mesh)
 
 
-def test_two_cells_swapped_are_refused(tmp_path: Path) -> None:
+def test_swapped_cells_are_refused(tmp_path: Path) -> None:
     mesh = _mesh()
     rows = mesh.geometry.padded_connectivity.copy()
     rows[[1, 2]] = rows[[2, 1]]
@@ -80,7 +80,7 @@ def test_two_cells_swapped_are_refused(tmp_path: Path) -> None:
         verify_restart_mesh(prior, mesh)
 
 
-def test_another_cell_count_is_refused(tmp_path: Path) -> None:
+def test_other_cell_count_is_refused(tmp_path: Path) -> None:
     prior = _store(tmp_path / "prior.zarr", _mesh())
     other = regular_cell_mesh(xmin=_XMIN, ymin=_YMIN, dx=100.0, dy=100.0, nrow=2, ncol=4)
 
@@ -88,9 +88,7 @@ def test_another_cell_count_is_refused(tmp_path: Path) -> None:
         verify_restart_mesh(prior, other)
 
 
-def test_a_store_without_a_mesh_keeps_the_cell_count_rule_and_warns(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_a_store_without_a_mesh_warns(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     prior = tmp_path / "prior.zarr"
     zarr.open(str(prior), mode="w")["head"] = np.zeros((1, 1, 6))
     with caplog.at_level(logging.WARNING):
@@ -104,7 +102,7 @@ def _write_heads(path: Path, head: np.ndarray) -> str:
     return str(path)
 
 
-def test_a_prior_state_carries_what_the_store_holds(tmp_path: Path) -> None:
+def test_prior_state_of_a_store(tmp_path: Path) -> None:
     mesh = _mesh()
     path = _store(tmp_path / "prior.zarr", mesh)
     root = zarr.open(path, mode="r+")
@@ -121,14 +119,18 @@ def test_a_prior_state_carries_what_the_store_holds(tmp_path: Path) -> None:
     assert not state.head.flags.writeable
 
 
-@pytest.mark.parametrize(
-    ("reader", "label"),
-    [
-        pytest.param(read_final_head, "read_final_head", id="the spin-up read"),
-        pytest.param(lambda path: read_prior_state(path, _mesh()), "restart_from", id="a restart"),
-    ],
-)
-def test_a_store_without_heads_is_refused_by_name(tmp_path: Path, reader, label: str) -> None:
+def read_restart(path):
+    return read_prior_state(path, _mesh())
+
+
+NO_HEADS = [
+    pytest.param(read_final_head, "read_final_head", id="the spin-up read"),
+    pytest.param(read_restart, "restart_from", id="a restart"),
+]
+
+
+@pytest.mark.parametrize(("reader", "label"), NO_HEADS)
+def test_a_store_without_heads_is_refused(tmp_path: Path, reader, label: str) -> None:
     path = tmp_path / "prior.zarr"
     zarr.open(str(path), mode="w")["other"] = np.zeros(3)
 
@@ -136,8 +138,7 @@ def test_a_store_without_heads_is_refused_by_name(tmp_path: Path, reader, label:
         reader(str(path))
 
 
-def test_read_restart_lake_stages_roundtrip_raw_zarr(tmp_path: Path) -> None:
-    """The reader parses the ``lake_state_final`` group written by the store."""
+def test_lake_stages_of_a_store(tmp_path: Path) -> None:
     path = tmp_path / "prior.zarr"
     root = zarr.open(str(path), mode="w")
     grp = root.require_group("lake_state_final")
@@ -148,8 +149,8 @@ def test_read_restart_lake_stages_roundtrip_raw_zarr(tmp_path: Path) -> None:
     assert stages == {"forebay": pytest.approx(86.9), "sill": pytest.approx(74.2)}
 
 
-def test_read_restart_lake_stages_length_mismatch_returns_empty(tmp_path: Path) -> None:
-    """A corrupt group (ids vs stages length mismatch) is refused, not guessed."""
+def test_lake_stages_with_a_length_mismatch(tmp_path: Path) -> None:
+    # A corrupt group (ids and stages of different length) gives nothing, it is not guessed.
     path = tmp_path / "prior.zarr"
     root = zarr.open(str(path), mode="w")
     grp = root.require_group("lake_state_final")
@@ -158,20 +159,18 @@ def test_read_restart_lake_stages_length_mismatch_returns_empty(tmp_path: Path) 
     assert read_restart_lake_stages(str(path)) == {}
 
 
-# A run that wrote final_state/ -----------------------------------------------
-
+# Heads that the compact precision would round, NaN on one inactive cell.
 EXACT = np.array([[100.0 + 1e-9, 101.0 + 2e-9, np.nan, 103.0, 104.0, 105.0]])
-"""Heads that the compact precision would round, NaN on one inactive cell."""
 
 
 def _compact(values: np.ndarray) -> np.ndarray:
-    """The head as fields.zarr keeps it under the compact precision, 2^-17 apart."""
+    # The head as fields.zarr keeps it under the compact precision, 2^-17 apart.
     step = 2.0**-17
     return np.round(values / step) * step
 
 
 def _run(tmp_path: Path, *, final: bool = True, fields: bool = True) -> Path:
-    """A run folder with its field store, rounded, and its exact final state."""
+    # A run folder with its rounded field store and its exact final state.
     run = tmp_path / "runs" / "island_w1"
     run.mkdir(parents=True)
     if fields:
@@ -194,7 +193,7 @@ def _run(tmp_path: Path, *, final: bool = True, fields: bool = True) -> Path:
     return run
 
 
-def test_a_compact_run_gives_back_its_exact_head_only_through_final_state(tmp_path: Path) -> None:
+def test_exact_head_comes_from_final_state(tmp_path: Path) -> None:
     run = _run(tmp_path)
     rounded = _compact(EXACT)
 
@@ -203,7 +202,7 @@ def test_a_compact_run_gives_back_its_exact_head_only_through_final_state(tmp_pa
     np.testing.assert_array_equal(read_final_head(str(run)), EXACT)
 
 
-def test_the_lake_stages_of_a_run_come_from_its_final_state(tmp_path: Path) -> None:
+def test_lake_stages_come_from_final_state(tmp_path: Path) -> None:
     run = _run(tmp_path)
 
     assert read_restart_lake_stages(str(run / "fields.zarr")) == {"forebay": 13.95991694769827}
@@ -212,7 +211,7 @@ def test_the_lake_stages_of_a_run_come_from_its_final_state(tmp_path: Path) -> N
     }
 
 
-def test_a_final_state_is_not_read_from_another_mesh(tmp_path: Path) -> None:
+def test_final_state_on_another_mesh_is_refused(tmp_path: Path) -> None:
     run = _run(tmp_path)
     other = regular_cell_mesh(xmin=_XMIN, ymin=_YMIN, dx=100.0, dy=100.0, nrow=3, ncol=2)
 
@@ -220,9 +219,7 @@ def test_a_final_state_is_not_read_from_another_mesh(tmp_path: Path) -> None:
         read_prior_state(str(run / "final_state"), other)
 
 
-def test_a_final_state_alone_keeps_the_cell_count_rule_and_warns(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_a_final_state_alone_warns(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     run = _run(tmp_path, fields=False)
 
     with caplog.at_level(logging.WARNING):
@@ -232,7 +229,7 @@ def test_a_final_state_alone_keeps_the_cell_count_rule_and_warns(
     np.testing.assert_array_equal(state.head, EXACT)
 
 
-def test_the_state_read_for_an_identity_skips_the_mesh_and_matches_the_restart(
+def test_prior_state_at_matches_the_restart(
     tmp_path: Path,
 ) -> None:
     run = _run(tmp_path)
@@ -245,7 +242,7 @@ def test_the_state_read_for_an_identity_skips_the_mesh_and_matches_the_restart(
     assert unchecked.path == checked.path
 
 
-def test_a_run_with_nothing_to_read_is_refused(tmp_path: Path) -> None:
+def test_a_run_with_nothing_to_read(tmp_path: Path) -> None:
     run = tmp_path / "runs" / "empty"
     run.mkdir(parents=True)
 

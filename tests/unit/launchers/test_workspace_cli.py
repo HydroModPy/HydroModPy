@@ -1,4 +1,5 @@
-"""Unit tests for ``hmp workspace`` CLI commands."""
+"""The ``hmp workspace clean`` command: a dry run by default, and with ``--yes`` it
+trashes the runs and deletes the caches while the source data stays."""
 
 from __future__ import annotations
 
@@ -41,7 +42,7 @@ def _seed_workspace(root: Path) -> None:
     scratch_dir_for(project).mkdir(parents=True, exist_ok=True)
 
 
-def test_workspace_clean_dry_run_keeps_files(monkeypatch, tmp_path: Path, capsys) -> None:
+def test_dry_run_keeps_files(monkeypatch, tmp_path: Path, capsys) -> None:
     _seed_workspace(tmp_path)
     monkeypatch.setattr(
         "sys.argv",
@@ -58,10 +59,7 @@ def test_workspace_clean_dry_run_keeps_files(monkeypatch, tmp_path: Path, capsys
     assert (tmp_path / "data" / FORMER_CACHE_DATABASE).exists()
 
 
-def test_workspace_clean_all_trashes_the_runs_and_deletes_the_caches(
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
+def test_clean_all(monkeypatch, tmp_path: Path) -> None:
     _seed_workspace(tmp_path)
     monkeypatch.setattr(
         "sys.argv",
@@ -85,8 +83,7 @@ def test_workspace_clean_all_trashes_the_runs_and_deletes_the_caches(
     assert (tmp_path / "data" / "source" / "keep.csv").exists()
 
 
-def test_workspace_clean_requires_group(monkeypatch, tmp_path: Path) -> None:
-    tmp_path.mkdir(exist_ok=True)
+def test_clean_needs_a_group(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         "sys.argv",
         ["hmp", "workspace", "clean", "--workspace", str(tmp_path), "--yes"],

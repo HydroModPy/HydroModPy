@@ -11,7 +11,6 @@ its boundary edges.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import meshio
@@ -71,21 +70,17 @@ $EndElements
 """
 
 
-def _write(path: Path, *, names: bool, header: str = "2.2 0 8") -> Path:
-    path.write_text(
-        f"$MeshFormat\n{header}\n$EndMeshFormat\n" + (_NAMES if names else "") + _BODY,
-        encoding="utf-8",
-    )
+def _msh_text(*, names: bool = True, header: str | None = "2.2 0 8", body: str = _BODY) -> str:
+    head = f"$MeshFormat\n{header}\n$EndMeshFormat\n" if header else ""
+    return head + (_NAMES if names else "") + body
+
+
+def _write(path: Path) -> Path:
+    path.write_text(_msh_text(), encoding="utf-8")
     return path
 
 
-def test_a_binary_or_newer_file_is_refused(tmp_path: Path) -> None:
-    path = _write(tmp_path / "mesh.msh", names=True, header="4.1 0 8")
-    with pytest.raises(MeshRequestError, match="only ASCII format 2.2"):
-        read_input_triangulation(path)
-
-
-def test_a_binary_file_of_format_2_2_is_refused(tmp_path: Path) -> None:
+def test_binary_format_refused(tmp_path: Path) -> None:
     triangle = HydroMesh(
         vertices=np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]),
         cell_blocks=(CellBlock(CellType.TRIANGLE, [[0, 1, 2]]),),
@@ -96,15 +91,15 @@ def test_a_binary_file_of_format_2_2_is_refused(tmp_path: Path) -> None:
         read_input_triangulation(path)
 
 
-def test_the_domain_is_the_outline_of_the_triangles(tmp_path: Path) -> None:
-    triangulation = read_input_triangulation(_write(tmp_path / "mesh.msh", names=True))
+def test_domain_is_triangle_outline(tmp_path: Path) -> None:
+    triangulation = read_input_triangulation(_write(tmp_path / "mesh.msh"))
     domain = domain_polygon_of(triangulation)
     assert domain.area == pytest.approx(10_000.0)
     assert domain.bounds == (0.0, 0.0, 100.0, 100.0)
 
 
 @pytest.mark.skipif(not _GALLERY_MSH.exists(), reason="gallery mesh not in this checkout")
-def test_a_gallery_mesh_reads_in_the_reader_order() -> None:
+def test_gallery_mesh_reader_order() -> None:
     triangulation = read_input_triangulation(_GALLERY_MSH)
     reference = read_gmsh_2d_mesh(_GALLERY_MSH, cell_type="triangle")
     np.testing.assert_array_equal(triangulation.vertices, reference.points_xy)
@@ -131,7 +126,7 @@ _T_TRIANGLES = np.array([[0, 1, 2], [0, 2, 3], [3, 4, 5], [4, 6, 5], [4, 2, 6]])
 
 
 def _square(*, duplicate: bool = False) -> tuple[np.ndarray, np.ndarray]:
-    """Four triangles around a center node; ``duplicate`` gives the last two their own center."""
+    # Four triangles around a center node; duplicate gives the last two their own center.
     vertices = [[0.0, 0.0], [100.0, 0.0], [100.0, 100.0], [0.0, 100.0], [50.0, 50.0]]
     triangles = [[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]]
     if duplicate:
@@ -140,12 +135,12 @@ def _square(*, duplicate: bool = False) -> tuple[np.ndarray, np.ndarray]:
     return np.array(vertices), np.array(triangles)
 
 
-def test_a_t_junction_is_refused_with_its_coordinates() -> None:
+def test_t_junction_refused() -> None:
     with pytest.raises(MeshRequestError, match=r"T-junctions\), at \(50\.000, 50\.000\)"):
         check_triangulation(_T_VERTICES, _T_TRIANGLES, source="t-mesh")
 
 
-def test_duplicate_vertices_are_reported_and_kept(caplog) -> None:
+def test_duplicate_vertices_reported(caplog) -> None:
     vertices, triangles = _square(duplicate=True)
     with caplog.at_level("WARNING"):
         check_triangulation(vertices, triangles, source="cracked")
@@ -153,48 +148,64 @@ def test_duplicate_vertices_are_reported_and_kept(caplog) -> None:
     assert "(50.000, 50.000)" in caplog.text
 
 
-def test_the_reader_runs_the_check(tmp_path: Path) -> None:
+def _t_mesh_body() -> str:
     nodes = "\n".join(f"{i + 1} {x} {y} 0" for i, (x, y) in enumerate(_T_VERTICES.tolist()))
     elements = "\n".join(
         f"{i + 1} 2 2 1 1 {a + 1} {b + 1} {c + 1}" for i, (a, b, c) in enumerate(_T_TRIANGLES)
     )
-    path = tmp_path / "t.msh"
-    path.write_text(
-        "$MeshFormat\n2.2 0 8\n$EndMeshFormat\n"
+    return (
         f"$Nodes\n{len(_T_VERTICES)}\n{nodes}\n$EndNodes\n"
-        f"$Elements\n{len(_T_TRIANGLES)}\n{elements}\n$EndElements\n",
-        encoding="utf-8",
+        f"$Elements\n{len(_T_TRIANGLES)}\n{elements}\n$EndElements\n"
     )
-    with pytest.raises(MeshRequestError, match="T-junction"):
-        read_input_triangulation(path)
 
 
-@pytest.mark.parametrize(
-    ("text", "message"),
-    [
-        (_BODY.split("$Elements")[0], "does not contain supported 2D cell blocks"),
-        ("", "must expose at least x and y"),
-        (
-            "$Elements" + _BODY.split("$Elements")[1],
-            "through meshio or the ASCII Gmsh fallback: Missing Gmsh section '$Nodes'",
-        ),
-    ],
-    ids=["no elements", "no section", "elements without nodes"],
-)
-def test_a_file_whose_sections_are_incomplete_is_refused(
-    tmp_path: Path, text: str, message: str
-) -> None:
+_BEFORE_ELEMENTS, _FROM_ELEMENTS = _BODY.split("$Elements")
+_GMSH_PREFIX = "cannot be read as a triangulation: .*"
+
+REFUSED_FILES = [
+    pytest.param(_msh_text(header="4.1 0 8"), "only ASCII format 2.2", id="newer format"),
+    pytest.param(
+        _msh_text(names=False, header=None, body=_NAMES + _BODY),
+        r"has no \$MeshFormat section",
+        id="no format section",
+    ),
+    pytest.param(
+        _msh_text(names=False, body=_BEFORE_ELEMENTS),
+        _GMSH_PREFIX + "does not contain supported 2D cell blocks",
+        id="no elements",
+    ),
+    pytest.param(
+        _msh_text(names=False, body=""),
+        _GMSH_PREFIX + "must expose at least x and y",
+        id="no section",
+    ),
+    pytest.param(
+        _msh_text(names=False, body="$Elements" + _FROM_ELEMENTS),
+        _GMSH_PREFIX + "through meshio or the ASCII Gmsh fallback: Missing Gmsh section '\\$Nodes'",
+        id="elements without nodes",
+    ),
+    pytest.param(
+        _msh_text().replace("1 1 2 8 1 40 10", "1 1 0 40 10"),
+        "through meshio or the ASCII Gmsh fallback: .*contiguous node ids starting at 1",
+        id="node ids not contiguous",
+    ),
+    pytest.param(
+        _msh_text(names=False, body=_t_mesh_body()), "T-junction", id="t-junction in the file"
+    ),
+]
+
+
+@pytest.mark.parametrize(("text", "message"), REFUSED_FILES)
+def test_refused_files(tmp_path: Path, text: str, message: str) -> None:
     path = tmp_path / "mesh.msh"
-    path.write_text(f"$MeshFormat\n2.2 0 8\n$EndMeshFormat\n{text}", encoding="utf-8")
+    path.write_text(text, encoding="utf-8")
 
-    with pytest.raises(
-        MeshRequestError, match=f"cannot be read as a triangulation: .*{re.escape(message)}"
-    ):
+    with pytest.raises(MeshRequestError, match=message):
         read_input_triangulation(path)
 
 
-def test_the_fallback_names_a_missing_elements_section(tmp_path: Path, monkeypatch) -> None:
-    """meshio reads a file without ``$Elements``; the fallback, when it reads, names the section."""
+def test_fallback_names_missing_elements(tmp_path: Path, monkeypatch) -> None:
+    # meshio reads a file without $Elements, so meshio is made to fail and the fallback names it.
     path = tmp_path / "mesh.msh"
     nodes = "$Nodes\n3\n1 0 0 0\n2 1 0 0\n3 0 1 0\n$EndNodes\n"
     path.write_text(f"$MeshFormat\n2.2 0 8\n$EndMeshFormat\n{nodes}", encoding="utf-8")
@@ -211,27 +222,6 @@ def test_the_fallback_names_a_missing_elements_section(tmp_path: Path, monkeypat
         read_input_triangulation(path)
 
 
-def test_a_file_without_a_format_section_is_refused(tmp_path: Path) -> None:
-    path = tmp_path / "mesh.msh"
-    path.write_text(_NAMES + _BODY, encoding="utf-8")
-
-    with pytest.raises(MeshRequestError, match=r"has no \$MeshFormat section"):
-        read_input_triangulation(path)
-
-
-def test_a_file_neither_reader_reads_is_refused_with_the_reason(tmp_path: Path) -> None:
-    path = _write(tmp_path / "mesh.msh", names=True)
-    path.write_text(path.read_text().replace("1 1 2 8 1 40 10", "1 1 0 40 10"), encoding="utf-8")
-
-    with pytest.raises(
-        MeshRequestError,
-        match="through meshio or the ASCII Gmsh fallback: .*contiguous node ids starting at 1",
-    ):
-        read_input_triangulation(path)
-
-
-# -- outline of a mesh ---------------------------------------------------------
-
 _DOMAIN = Polygon([(0.0, 0.0), (1000.0, 0.0), (1000.0, 1000.0), (0.0, 1000.0)])
 
 
@@ -242,7 +232,7 @@ def _jittered_seeds(n_side: int = 12) -> np.ndarray:
     return np.c_[xx.ravel(), yy.ravel()] + rng.uniform(-25.0, 25.0, (n_side * n_side, 2))
 
 
-def test_the_outline_of_a_mesh_keeps_the_hole_of_its_domain() -> None:
+def test_outline_keeps_hole() -> None:
     hole = Polygon([(400.0, 400.0), (600.0, 400.0), (600.0, 600.0), (400.0, 600.0)])
     domain = _DOMAIN.difference(hole)
     seeds = _jittered_seeds()
@@ -255,8 +245,8 @@ def test_the_outline_of_a_mesh_keeps_the_hole_of_its_domain() -> None:
     assert outline.area == pytest.approx(derive_geometry(mesh).areas.sum(), rel=1e-9)
 
 
-def test_a_mesh_without_a_boundary_edge_has_no_outline() -> None:
-    """Every edge of a triangle written twice is shared by two cells, so none bounds the mesh."""
+def test_no_boundary_no_outline() -> None:
+    # Every edge of a triangle written twice is shared by two cells, so none bounds the mesh.
     vertices = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
     doubled = HydroMesh(
         vertices=vertices,

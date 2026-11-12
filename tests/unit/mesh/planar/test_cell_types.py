@@ -6,15 +6,6 @@ import pytest
 
 from hydromodpy.mesh.planar.cell_types import CellType
 
-FIXED = {
-    # cell type: nodes, dimension, meshio name
-    CellType.TRIANGLE: (3, 2, "triangle"),
-    CellType.QUADRILATERAL: (4, 2, "quad"),
-    CellType.WEDGE: (6, 3, "wedge"),
-    CellType.HEXAHEDRON: (8, 3, "hexahedron"),
-}
-
-
 KNOWN_NAMES = [
     ("triangle", CellType.TRIANGLE),
     ("quadrilateral", CellType.QUADRILATERAL),

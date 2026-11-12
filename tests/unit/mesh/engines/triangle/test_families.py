@@ -63,19 +63,6 @@ def _square(*lines: LineFamilySpec) -> MeshRequest:
     return mesh_request(grid_over(SQUARE, 100.0), nominal_size_m=50.0, lines=lines)
 
 
-def _three_zones() -> MeshRequest:
-    """Zones a (north-west), b (north-east) and c (south), parted by three contacts."""
-    contacts = (
-        LineString([(X0 + 500, Y0 + 500), (X0 + 500, Y0 + 1000)]),
-        LineString([(X0, Y0 + 500), (X0 + 500, Y0 + 500)]),
-        LineString([(X0 + 500, Y0 + 500), (X0 + 1000, Y0 + 500)]),
-    )
-    return _square(
-        LineFamilySpec("rivers", "cell", (RIVER,)),
-        LineFamilySpec("geology", "face", contacts, ("a", "a", "b"), ("b", "c", "c")),
-    )
-
-
 def _rows(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
     table = cell_mesh.face_families
     rows = cell_mesh.face_rows(family)
@@ -91,41 +78,8 @@ def _read(request: MeshRequest, edge_labels: dict[str, np.ndarray], *, lines=())
     return dataclasses.replace(request, lines=lines, input_triangulation=triangulation)
 
 
-def _fed_back(request: MeshRequest, labels: bool) -> tuple[MeshRequest, PlanarCellMesh]:
-    """The triangulation of *request* handed back as an input, with or without its groups."""
-    triangulated = triangulate_request(request)
-    generated = TriangleMeshEngine().assemble(triangulated)
-    edge_labels = {}
-    if labels:
-        geology = triangulated.families.get("geology")
-        pairs = np.column_stack([geology.node_a, geology.node_b])
-        edge_labels = {
-            "river::trace": _rows(generated, "rivers"),
-            "interface::a::b": pairs[geology.line == 0],
-            "interface::a::c": pairs[geology.line == 1],
-            "interface::b::c": pairs[geology.line == 2],
-        }
-    triangulation = InputTriangulation(
-        generated.mesh.vertices, np.asarray(generated.mesh.flat_connectivity), edge_labels
-    )
-    read = dataclasses.replace(
-        request, lines=() if labels else request.lines, input_triangulation=triangulation
-    )
-    return read, generated
-
-
-def _zone_of_cells(cell_mesh: PlanarCellMesh) -> np.ndarray:
-    names = np.asarray(cell_mesh.zone_names + ("",))
-    return names[np.where(cell_mesh.cell_zone >= 0, cell_mesh.cell_zone, len(names) - 1)]
-
-
-# --------------------------------------------------------------------------- #
-# Families of a generated triangulation
-# --------------------------------------------------------------------------- #
-
-
 @needs_gmsh
-def test_the_rows_of_a_line_run_along_it_end_to_end() -> None:
+def test_rows_run_along_the_line() -> None:
     cell_mesh = TriangleMeshEngine().build(_square())
     vertices = cell_mesh.mesh.vertices
     rows = _rows(cell_mesh, "geology")
@@ -139,7 +93,7 @@ def test_the_rows_of_a_line_run_along_it_end_to_end() -> None:
 
 
 @needs_gmsh
-def test_a_line_with_no_edge_has_no_vertex() -> None:
+def test_line_without_edge_has_no_vertex() -> None:
     triangulated = triangulate_request(_square())
     contact = triangulated.families.get("geology")
 
@@ -147,14 +101,9 @@ def test_a_line_with_no_edge_has_no_vertex() -> None:
     assert contact.line_vertices(len(_square().family("geology").lines)).size == 0
 
 
-# --------------------------------------------------------------------------- #
-# Families of a read triangulation
-# --------------------------------------------------------------------------- #
-
-
 @needs_gmsh
-def test_a_boundary_group_keeps_its_boundary_edges_and_names_the_edges_it_leaves_out() -> None:
-    """A .msh group of the outlet holds the south side and one interior edge drawn by mistake."""
+def test_boundary_group_of_a_msh() -> None:
+    # A .msh group of the outlet holds the south side and one interior edge drawn by mistake.
     plain = _square(LineFamilySpec("rivers", "cell", (RIVER,)))
     triangulated = triangulate_request(plain)
     geometry = triangulated.geometry
@@ -185,7 +134,7 @@ def test_a_boundary_group_keeps_its_boundary_edges_and_names_the_edges_it_leaves
 
 
 @needs_gmsh
-def test_an_empty_group_of_a_read_triangulation_gives_no_family() -> None:
+def test_empty_group_gives_no_family() -> None:
     plain = _square(LineFamilySpec("geology", "face", (CONTACT,), ("west_unit",), ("east_unit",)))
 
     cell_mesh = TriangleMeshEngine().build(
@@ -197,8 +146,8 @@ def test_an_empty_group_of_a_read_triangulation_gives_no_family() -> None:
 
 
 @needs_gmsh
-def test_a_unit_that_borders_one_contact_takes_its_name_from_the_unit_across_it() -> None:
-    """Three strips a, b and c: only b borders two groups, so a and c are named from b."""
+def test_unit_named_from_the_unit_across() -> None:
+    # Three strips a, b and c. Only b borders two groups, so a and c are named from b.
     contacts = (
         LineString([(X0 + 350, Y0), (X0 + 350, Y0 + 1000)]),
         LineString([(X0 + 650, Y0), (X0 + 650, Y0 + 1000)]),
@@ -225,7 +174,7 @@ def test_a_unit_that_borders_one_contact_takes_its_name_from_the_unit_across_it(
 
 
 @needs_gmsh
-def test_an_edge_group_that_is_not_made_of_triangle_edges_is_refused() -> None:
+def test_refusals() -> None:
     plain = _square(LineFamilySpec("rivers", "cell", (RIVER,)))
     vertices = triangulate_request(plain).mesh.vertices
     corners = [int(np.argmin(vertices.sum(axis=1))), int(np.argmax(vertices.sum(axis=1)))]
@@ -233,10 +182,6 @@ def test_an_edge_group_that_is_not_made_of_triangle_edges_is_refused() -> None:
     with pytest.raises(MeshGenerationError, match="is not a triangle edge"):
         TriangleMeshEngine().build(_read(plain, {"river::diagonal": np.array([corners])}))
 
-
-# --------------------------------------------------------------------------- #
-# The barrier family around a cutoff wall, wings included
-# --------------------------------------------------------------------------- #
 
 ON_LINE_M = 1.0e-3
 """A face node within 1 mm of the wall lies on it."""
@@ -309,14 +254,9 @@ def _node_gap(cell_mesh: PlanarCellMesh, rows: np.ndarray, line: LineString) -> 
     return float(shapely.distance(shapely.points(vertices[rows[:, 2:].ravel()]), line).max())
 
 
-def _midpoints(cell_mesh: PlanarCellMesh, rows: np.ndarray) -> np.ndarray:
-    vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
-    return 0.5 * (vertices[rows[:, 2]] + vertices[rows[:, 3]])
-
-
 @needs_gmsh
 @pytest.mark.parametrize("offset", [12.0, -30.0], ids=["gap_12_m", "crossing"])
-def test_the_wall_faces_lie_on_the_wall_line(offset: float) -> None:
+def test_wall_faces_on_the_line(offset: float) -> None:
     _, request, cell_mesh = _walled(offset)
     line = request.family(BARRIER_FAMILY).lines[0]
     rows = _interior_rows(cell_mesh, BARRIER_FAMILY)
@@ -329,7 +269,7 @@ def test_the_wall_faces_lie_on_the_wall_line(offset: float) -> None:
 
 @needs_gmsh
 @pytest.mark.parametrize("angle", [90.0, 30.0, 15.0])
-def test_a_river_crosses_the_barrier_once_between_two_chain_cells(angle: float) -> None:
+def test_river_crosses_barrier_once(angle: float) -> None:
     barrier, river = _river_crossing(angle)
     request = _planned((barrier,), river=river)
     cell_mesh = registry.mesh_engines.create("triangle").build(request)
@@ -348,41 +288,13 @@ def test_a_river_crosses_the_barrier_once_between_two_chain_cells(angle: float) 
     assert _node_gap(cell_mesh, _interior_rows(cell_mesh, BARRIER_FAMILY), barrier) < ON_LINE_M
 
 
-# --------------------------------------------------------------------------- #
-# The fan around a vertex, which joins the cells of a chain
-# --------------------------------------------------------------------------- #
-
 _FAN_VERTICES = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.5, 0.5]])
 _FAN_TRIANGLES = np.array([[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]])
 """A square cut into four triangles around its center, vertex 4."""
 
 
-def test_the_fan_around_a_corner_of_the_domain_stops_at_the_boundary() -> None:
+def test_fan_stops_at_the_boundary() -> None:
     lookup = edge_lookup(_FAN_VERTICES, _FAN_TRIANGLES)
     start = int(lookup.cell_left_of(np.array([4]), np.array([0]))[0])
 
     assert lookup.fan(start, 0, 3) == []
-
-
-# --------------------------------------------------------------------------- #
-# The sides of the vertex box
-# --------------------------------------------------------------------------- #
-
-
-def _lattice(nx: int, ny: int, step: float) -> tuple[np.ndarray, np.ndarray]:
-    """An nx by ny vertex lattice from the Lambert-93 origin, two triangles per square.
-
-    Vertices are numbered row by row from the south-west corner.
-    """
-    vertices = np.array(
-        [(X0 + step * i, Y0 + step * j) for j in range(ny) for i in range(nx)], dtype=float
-    )
-    triangles = []
-    for j in range(ny - 1):
-        for i in range(nx - 1):
-            south_west, south_east = j * nx + i, j * nx + i + 1
-            triangles += [
-                (south_west, south_east, south_east + nx),
-                (south_west, south_east + nx, south_west + nx),
-            ]
-    return vertices, np.asarray(triangles, dtype=np.int64)

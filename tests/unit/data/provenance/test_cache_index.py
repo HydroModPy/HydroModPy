@@ -67,10 +67,7 @@ def _record(index: CacheIndex, relative: str, **fields: object) -> CacheRow:
     return index.record(path, variable=variable, source=source, **fields)
 
 
-# -- record and rows ----------------------------------------------------------
-
-
-def test_two_records_of_one_station_leave_one_row(data_root: Path) -> None:
+def test_one_row_per_station(data_root: Path) -> None:
     index = CacheIndex(data_root)
     first = _record(index, "hydrometry/h_src_A_2020.csv", station_id="A")
     second = _record(index, "hydrometry/h_src_A_2021.csv", station_id="A", body=b"longer")
@@ -80,12 +77,12 @@ def test_two_records_of_one_station_leave_one_row(data_root: Path) -> None:
     assert scan(data_root).rows == (second,)
 
 
-def test_a_record_of_a_missing_file_is_refused(data_root: Path) -> None:
+def test_missing_file_is_refused(data_root: Path) -> None:
     with pytest.raises(DataCacheError, match="not a file"):
         CacheIndex(data_root).record(data_root / "dem" / "gone.tif", variable="dem", source="ign")
 
 
-def test_a_file_outside_the_data_folder_is_refused(data_root: Path, tmp_path: Path) -> None:
+def test_outside_file_is_refused(data_root: Path, tmp_path: Path) -> None:
     # The user cache of the machine is no data folder: nothing is cached there.
     elsewhere = tmp_path / "user-cache" / "dem" / "dem.tif"
     elsewhere.parent.mkdir(parents=True)
@@ -94,7 +91,7 @@ def test_a_file_outside_the_data_folder_is_refused(data_root: Path, tmp_path: Pa
         CacheIndex(data_root).record(elsewhere, variable="dem", source="ign")
 
 
-def test_an_index_without_a_data_folder_finds_nothing_and_writes_nothing(tmp_path: Path) -> None:
+def test_index_without_data_folder(tmp_path: Path) -> None:
     index = CacheIndex(None)
     path = tmp_path / "dem.tif"
     path.write_bytes(b"tif")
@@ -103,8 +100,6 @@ def test_an_index_without_a_data_folder_finds_nothing_and_writes_nothing(tmp_pat
     with pytest.raises(DataCacheError, match="no data folder"):
         index.record(path, variable="dem", source="ign")
 
-
-# -- find -----------------------------------------------------------------------
 
 _FINDS = {
     "by station": ({"station_id": "A"}, True),
@@ -146,14 +141,14 @@ def test_find_answers_with_a_superset(data_root: Path, ask: dict, found: bool) -
     assert (index.find("hydrometry", source, **ask) is not None) is found
 
 
-def test_a_row_without_a_period_answers_a_search_without_one(data_root: Path) -> None:
+def test_row_without_period(data_root: Path) -> None:
     index = CacheIndex(data_root)
     _record(index, "dem/d.tif", bbox=BOX)
     assert index.find("dem", "src") is not None
     assert index.find("dem", "src", date_start="2020-01-01") is None
 
 
-def test_an_empty_row_answers_its_station_and_its_window_only(data_root: Path) -> None:
+def test_empty_row_scope(data_root: Path) -> None:
     index = CacheIndex(data_root)
     folder = data_root / "hydrometry"
     folder.mkdir()
@@ -180,13 +175,7 @@ def test_an_empty_row_answers_its_station_and_its_window_only(data_root: Path) -
     )
 
 
-# -- paths ------------------------------------------------------------------------
-
-
-# -- forget, orphans, subsume ---------------------------------------------------------
-
-
-def test_orphans_leave_and_rows_with_files_stay(data_root: Path) -> None:
+def test_forget_orphans(data_root: Path) -> None:
     index = CacheIndex(data_root)
     kept = _record(index, "hydrometry/kept.csv", station_id="K")
     gone = _record(index, "hydrometry/gone.csv", station_id="G")
@@ -199,7 +188,7 @@ def test_orphans_leave_and_rows_with_files_stay(data_root: Path) -> None:
     assert CacheIndex(data_root).rows() == [kept]
 
 
-def test_forgetting_orphans_leaves_user_files(data_root: Path) -> None:
+def test_orphans_spare_user_files(data_root: Path) -> None:
     user = _file(data_root, "hydrometry/mine.csv")
     sidecar_path_for(user).write_text('{"source": "file", "sha256": "' + "0" * 64 + '"}')
     assert CacheIndex(data_root).forget_orphans() == []
@@ -227,9 +216,7 @@ _SUBSUMED = {
 
 
 @pytest.mark.parametrize(("box", "fields", "gone"), _SUBSUMED.values(), ids=_SUBSUMED.keys())
-def test_subsume_removes_the_grids_the_kept_one_contains(
-    data_root: Path, box: tuple, fields: dict, gone: bool
-) -> None:
+def test_subsume_contained_grids(data_root: Path, box: tuple, fields: dict, gone: bool) -> None:
     index = CacheIndex(data_root)
     fields = {"date_start": "2000-01-01", "date_end": "2020-12-31", **fields}
     other = _record(index, "recharge/small.nc", bbox=box, body=b"small", **fields)
@@ -244,7 +231,7 @@ def test_subsume_removes_the_grids_the_kept_one_contains(
     assert keep.path.exists()
 
 
-def test_a_kept_row_without_a_box_subsumes_nothing(data_root: Path) -> None:
+def test_row_without_box_subsumes_nothing(data_root: Path) -> None:
     index = CacheIndex(data_root)
     other = _record(index, "recharge/small.nc", bbox=(1, 1, 2, 2))
     keep = _record(index, "recharge/nobox.nc", body=b"other")
@@ -252,8 +239,8 @@ def test_a_kept_row_without_a_box_subsumes_nothing(data_root: Path) -> None:
     assert other.path.exists()
 
 
-def test_subsume_leaves_a_grid_another_process_wrote_after_it_opened(data_root: Path) -> None:
-    """A sibling prepare child may still read the grid it has just written."""
+def test_subsume_spares_a_newer_grid(data_root: Path) -> None:
+    # A sibling process may still read a grid it wrote after this index opened.
     index = CacheIndex(data_root)
     other = _record(CacheIndex(data_root), "recharge/small.nc", bbox=(1, 1, 2, 2))
     later = time.time_ns() + 10**9
@@ -271,10 +258,7 @@ def test_subsume_leaves_a_grid_another_process_wrote_after_it_opened(data_root: 
     assert not other.path.exists()
 
 
-# -- freshness --------------------------------------------------------------------------
-
-
-def test_a_file_copied_later_with_the_same_bytes_is_fresh(data_root: Path) -> None:
+def test_copied_file_is_fresh(data_root: Path) -> None:
     index = CacheIndex(data_root)
     row = _record(index, "dem/d.tif")
     later = time.time() + 60
@@ -282,7 +266,7 @@ def test_a_file_copied_later_with_the_same_bytes_is_fresh(data_root: Path) -> No
     assert not index.is_stale(row)
 
 
-def test_a_file_rewritten_later_with_the_same_size_is_stale(data_root: Path) -> None:
+def test_rewritten_file_is_stale(data_root: Path) -> None:
     index = CacheIndex(data_root)
     row = _record(index, "dem/d.tif")
     row.path.write_bytes(b"atad")
@@ -291,7 +275,7 @@ def test_a_file_rewritten_later_with_the_same_size_is_stale(data_root: Path) -> 
     assert index.is_stale(row)
 
 
-def test_a_missing_file_is_stale_and_an_empty_row_never(data_root: Path) -> None:
+def test_missing_file_is_stale(data_root: Path) -> None:
     index = CacheIndex(data_root)
     row = _record(index, "dem/d.tif")
     row.path.unlink()
@@ -307,10 +291,6 @@ def test_a_missing_file_is_stale_and_an_empty_row_never(data_root: Path) -> None
     assert not index.is_stale(empty)
 
 
-# -- what the cache deletes ---------------------------------------------------------------
-
-
-# -- the station and grid variables read back their own writes ----------------------------
 # These cases run through the variables of hydromodpy/data/families, which take
 # the index of their store as ``index``.
 
@@ -345,7 +325,7 @@ def _station_record(station: str, start: str, end: str) -> PointRecord:
     )
 
 
-def test_a_station_download_is_read_back_from_the_cache(data_root: Path) -> None:
+def test_station_cache_round_trip(data_root: Path) -> None:
     index = CacheIndex(data_root)
     variable = _Stations(config=None, index=index, data_dir=data_root / "hydrometry")
     record = _station_record("X1", "2020-01-01", "2020-01-03")
@@ -363,7 +343,7 @@ def test_a_station_download_is_read_back_from_the_cache(data_root: Path) -> None
     assert cached.file_path.name.startswith("hydrometry_hubeau_X1_")
 
 
-def test_a_grid_download_is_read_back_from_the_cache(data_root: Path) -> None:
+def test_grid_cache_round_trip(data_root: Path) -> None:
     bbox = (0.0, 0.0, 1.0, 1.0)
     grid = xr.Dataset(
         {"recharge": (("y", "x"), np.ones((2, 2)))}, coords={"y": [0, 1], "x": [0, 1]}
@@ -394,7 +374,7 @@ def test_a_grid_download_is_read_back_from_the_cache(data_root: Path) -> None:
     assert record.metadata["source_path"] == str(stored)
 
 
-def test_a_river_network_download_is_read_back_from_the_cache(data_root: Path) -> None:
+def test_network_cache_round_trip(data_root: Path) -> None:
     import geopandas as gpd
     from shapely.geometry import LineString
 
@@ -413,7 +393,6 @@ def test_a_river_network_download_is_read_back_from_the_cache(data_root: Path) -
     assert len(cached) == 1
 
 
-# -- a frozen run never downloads a gap ----------------------------------------------------
 # The missing days used to be fetched, merged into the cached chronicle and
 # written under a new name, which deleted the file the lockfile pins.
 
@@ -462,7 +441,7 @@ def frozen_project(
     return workspace, workspace / "data" / "hydrometry", read_locked_inputs(project)
 
 
-def test_a_longer_period_is_refused_before_the_download(
+def test_frozen_longer_period_refused(
     frozen_project: tuple[Path, Path, LockedInputs],
 ) -> None:
     workspace, data_dir, locked = frozen_project
@@ -478,7 +457,7 @@ def test_a_longer_period_is_refused_before_the_download(
     assert sorted(p.name for p in data_dir.iterdir()) == before
 
 
-def test_a_search_by_extent_is_refused_before_the_download(
+def test_frozen_extent_search_refused(
     frozen_project: tuple[Path, Path, LockedInputs],
 ) -> None:
     workspace, _, locked = frozen_project
@@ -489,7 +468,7 @@ def test_a_search_by_extent_is_refused_before_the_download(
         variable._fetch_with_station_cache(cfg, _no_download, source_name="hubeau")
 
 
-def test_a_covered_period_is_served_from_the_cache(
+def test_frozen_covered_period_served(
     frozen_project: tuple[Path, Path, LockedInputs],
 ) -> None:
     workspace, _, locked = frozen_project
@@ -521,8 +500,7 @@ def _short_station_project(tmp_path: Path, window: tuple[datetime, datetime] | N
     return project
 
 
-def test_an_empty_gap_is_asked_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A gap the provider has nothing for is recorded as asked, then never asked again."""
+def test_empty_gap_asked_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     project = _short_station_project(tmp_path, window=(datetime(2000, 1, 1), datetime(2000, 1, 30)))
     workspace = project.parent.parent
@@ -540,7 +518,7 @@ def test_an_empty_gap_is_asked_once(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert asked == [(datetime(2000, 1, 31), datetime(2000, 1, 31))]
 
 
-def test_an_empty_station_answers_for_its_window_only(tmp_path: Path) -> None:
+def test_empty_station_window(tmp_path: Path) -> None:
     (tmp_path / "data" / "d").mkdir(parents=True)
     january = (datetime(2000, 1, 1), datetime(2000, 1, 31))
     variable = _Stations(
@@ -558,9 +536,6 @@ def test_an_empty_station_answers_for_its_window_only(tmp_path: Path) -> None:
     assert not variable._is_empty_sentinel("hubeau", "B")
 
 
-# -- the lockfile of a frozen run travels as an argument ---------------------------------
-
-
 def _lockfile_pinning_nothing(tmp_path: Path) -> LockedInputs:
     project = tmp_path / "project"
     project.mkdir()
@@ -568,7 +543,7 @@ def _lockfile_pinning_nothing(tmp_path: Path) -> LockedInputs:
     return read_locked_inputs(project)
 
 
-def test_an_index_is_not_frozen_unless_it_is_handed_a_lockfile(tmp_path: Path) -> None:
+def test_frozen_only_with_a_lockfile(tmp_path: Path) -> None:
     locked = _lockfile_pinning_nothing(tmp_path)
     frozen_index = CacheIndex(tmp_path / "data", locked=locked)
     free_index = CacheIndex(tmp_path / "data")
@@ -579,9 +554,7 @@ def test_an_index_is_not_frozen_unless_it_is_handed_a_lockfile(tmp_path: Path) -
     assert frozen_index.locked is locked and free_index.locked is None
 
 
-def test_the_index_a_url_source_builds_carries_the_lockfile(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_url_source_carries_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     locked = _lockfile_pinning_nothing(tmp_path)
 
     def fake_download(url, dest, **kwargs):

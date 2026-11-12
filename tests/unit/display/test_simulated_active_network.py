@@ -1,0 +1,258 @@
+"""Map of the drainage cells a routed flux keeps active, and the share of steps each cell flows.
+
+The figure draws a per-cell mask on the grid of ``_network_comparison_run``
+(CELL_M metres wide). The persistence share is a fraction of the timesteps (-).
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from hydromodpy.display.figures._stream_comparison import GROUND_COLOR
+from hydromodpy.display.figures.simulated_active_network import (
+    ACTIVE_COLOR,
+    SimulatedActiveNetworkMap,
+    flowing_persistence,
+)
+from hydromodpy.results.derive import views
+from tests._helpers.sealed_runs import sealed_search
+from tests._helpers.transient_network_run import (
+    HEAD,
+    HILLSLOPE,
+    MIDDLE,
+    N_STEPS,
+    OUTLET,
+    transient_run,
+)
+
+from ._network_comparison_run import (
+    CELL_M,
+    NX,
+    NY,
+    cell,
+    comparison_run,
+    drawn_cells,
+    legend_labels,
+    legend_note,
+)
+
+# The reduction of a field to a mask is tested where it lives. These tests hand the
+# figure a mask that is known cell by cell and read what the page says. A test can
+# narrow the watershed of the grid to a couple of columns.
+
+# Two cells of the middle column and one on the far eastern flank.
+ACTIVE_CELLS = (cell(2, 0), cell(2, 1), cell(4, 2))
+
+# Named by the persistence tests that draw a field cut, not the criterion's flowing.
+FIELD = "drain_accumulation_flux"
+
+
+@pytest.fixture
+def masked(monkeypatch):
+    """Drive the figure with a mask that is known before it is drawn."""
+
+    def install(
+        values: np.ndarray,
+        *,
+        mode: str = "last",
+        label: str = "steady active cells",
+    ) -> None:
+        monkeypatch.setattr(views, "cell_field_active_mask", lambda *_a, **_k: values)
+        monkeypatch.setattr(views, "resolve_cell_field_active_mode", lambda *_a, **_k: mode)
+        monkeypatch.setattr(views, "cell_field_active_mode_label", lambda *_a, **_k: label)
+
+    return install
+
+
+def _binary_mask(active=ACTIVE_CELLS) -> np.ndarray:
+    values = np.zeros(NX * NY, dtype="float64")
+    values[list(active)] = 1.0
+    return values
+
+
+def _layer(ax, label: str):
+    return next(item for item in ax.collections if str(item.get_label()) == label)
+
+
+def test_active_cells_drawn_wide(mpl, masked) -> None:
+    from matplotlib.colors import to_rgba
+
+    masked(_binary_mask())
+    fig, ax = mpl.subplots()
+
+    SimulatedActiveNetworkMap().render(comparison_run(), ax)
+
+    active = _layer(ax, "active network")
+    assert float(active.get_linewidth()[0]) > 0.0
+    edge = tuple(np.asarray(active.get_edgecolor()).reshape(-1))
+    assert edge == pytest.approx(to_rgba(ACTIVE_COLOR))
+    ground = _layer(ax, "modelled, not active")
+    assert float(ground.get_linewidth()[0]) == 0.0
+    assert tuple(np.asarray(ground.get_facecolor()).reshape(-1)) == pytest.approx(
+        to_rgba(GROUND_COLOR)
+    )
+
+
+def test_never_active_cell_is_ground(mpl, masked) -> None:
+    # A sequential ramp is darkest at zero, so cells that never carried water
+    # covered the page and the network vanished into its own background. The
+    # ground is its own collection under the ramp rather than a color of it,
+    # because a mapped collection carries one weight for all its cells and the
+    # weight the network needs would widen the ground over the network.
+    from matplotlib.colors import to_rgba
+
+    fraction = np.zeros(NX * NY, dtype="float64")
+    fraction[list(ACTIVE_CELLS)] = 0.75
+    masked(fraction, mode="persistence", label="persistence >= 0.5")
+    fig, ax = mpl.subplots()
+
+    SimulatedActiveNetworkMap().render(comparison_run(), ax, variable=FIELD)
+
+    field = next(item for item in ax.collections if item.get_array() is not None)
+    drawn = np.asarray(field.get_array(), dtype="float64")
+    assert np.isnan(drawn[cell(0, 0)]), "a cell active at no step carries no value"
+    assert drawn[cell(2, 0)] == pytest.approx(0.75)
+    assert field.get_cmap()(np.nan)[3] == 0.0, (
+        "the ramp leaves the ground to the collection under it"
+    )
+    assert float(field.get_linewidth()[0]) > 0.0
+
+    ground = _layer(ax, "never active")
+    assert ground.get_zorder() < field.get_zorder()
+    assert float(ground.get_linewidth()[0]) == 0.0, (
+        "the ground may not widen over the network it exists to set off"
+    )
+    assert tuple(np.asarray(ground.get_facecolor()).reshape(-1)) == pytest.approx(
+        to_rgba(GROUND_COLOR)
+    )
+    assert drawn_cells(ground) == sorted(
+        index for index in range(NX * NY) if index not in ACTIVE_CELLS
+    )
+    assert f"never active ({NX * NY - len(ACTIVE_CELLS)} cells)" in legend_labels(ax)
+
+
+def test_map_opens_on_catchment(mpl, masked) -> None:
+    masked(_binary_mask())
+    fig, ax = mpl.subplots()
+
+    SimulatedActiveNetworkMap().render(comparison_run(catchment_columns=[0, 1]), ax)
+
+    assert ax.get_xlim()[1] < 3 * CELL_M
+    assert "frame: the delineated catchment" in legend_note(ax)
+
+
+def test_cells_outside_frame_counted(mpl, masked) -> None:
+    # This network is not bounded by the catchment: the routed flux keeps
+    # cells active outside it. A crop that drops some has to name them, or
+    # the count in the legend contradicts what the reader can see.
+    masked(_binary_mask())
+    fig, ax = mpl.subplots()
+
+    SimulatedActiveNetworkMap().render(comparison_run(catchment_columns=[0, 1]), ax)
+
+    assert "outside this frame: 3 cells of the active network" in legend_note(ax)
+    assert "active network (3 cells)" in legend_labels(ax)
+
+
+# The persistence of the active-network map counts the cells the criterion calls flowing.
+#
+# The run is the monthly V-valley of :mod:`tests._helpers.transient_network_run`,
+# 27 monthly steps: the whole axis flows in the 13 winter months, the outlet
+# alone in the 14 others at two litres per second. With the default visible flow
+# of 1 L/s the outlet flows at every step and the two upper axis cells at 13 of
+# 27. A field cut on ``drain_accumulation_flux`` would read another network, so the
+# map draws the criterion's count unless a caller names a field, and a run the
+# criterion graph cannot be rebuilt on falls back to the field and says why.
+
+# Winter months between January 2001 and March 2003.
+WINTER_STEPS = 13
+
+
+def _sealed(visible_flow: str) -> dict:
+    """A search whose one network output scored two bounds at ``visible_flow``."""
+    return {
+        "outputs": {
+            "streams": {
+                "support": "network",
+                "model": {
+                    "seepage_threshold": 1.0e-4,
+                    "extent": {"visible_flow": visible_flow},
+                },
+                "map": {"complete": "data.hydrography"},
+            }
+        }
+    }
+
+
+def _drawn_share(ax) -> np.ndarray:
+    field = next(item for item in ax.collections if item.get_array() is not None)
+    return np.asarray(field.get_array(), dtype="float64")
+
+
+def test_share_of_timesteps() -> None:
+    flowing, reason = flowing_persistence(transient_run())
+
+    assert reason is None
+    assert flowing.share[OUTLET] == pytest.approx(1.0)
+    assert flowing.share[MIDDLE] == pytest.approx(WINTER_STEPS / N_STEPS)
+    assert flowing.share[HEAD] == pytest.approx(WINTER_STEPS / N_STEPS)
+    assert flowing.share[HILLSLOPE] == 0.0
+
+
+def test_map_draws_criterion_share(mpl) -> None:
+    fig, ax = mpl.subplots()
+    SimulatedActiveNetworkMap().render(transient_run(), ax, mode="persistence")
+
+    drawn = _drawn_share(ax)
+    assert drawn[OUTLET] == pytest.approx(1.0)
+    assert drawn[HEAD] == pytest.approx(WINTER_STEPS / N_STEPS)
+    assert np.isnan(drawn[HILLSLOPE]), "a cell that never flows is ground"
+    assert "flowing persistence" in ax.get_title()
+    note = legend_note(ax)
+    assert "a cell counts as seepage above 0.01 % of its recharge" in note
+    assert "a cell downstream of seepage flows from 1 L/s" in note
+    assert "tau" not in note
+    assert "the share of the timesteps each cell flows, drawn uncut" in note
+    assert "criterion settings: the defaults, this run sealed no network output" in note
+    assert "drain_accumulation_flux" not in note
+
+
+def test_sealed_visible_flow_cuts_outlet(mpl) -> None:
+    """At 5 L/s the two-litre summer outlet no longer flows: 13 of 27 steps."""
+    run = transient_run()
+    run.dir = sealed_search(_sealed("5 L/s"))
+    fig, ax = mpl.subplots()
+    SimulatedActiveNetworkMap().render(run, ax, mode="persistence")
+
+    assert _drawn_share(ax)[OUTLET] == pytest.approx(WINTER_STEPS / N_STEPS)
+    note = legend_note(ax)
+    assert "flows from 5 L/s" in note
+    assert "criterion settings: calibration output 'streams'" in note
+
+
+def test_named_field_drawn(mpl, monkeypatch) -> None:
+    fraction = np.full(NX * NY, 0.25)
+    monkeypatch.setattr(views, "cell_field_active_mask", lambda *_a, **_k: fraction)
+    fig, ax = mpl.subplots()
+    SimulatedActiveNetworkMap().render(
+        transient_run(), ax, mode="persistence", variable="drain_accumulation_flux"
+    )
+
+    assert "active persistence" in ax.get_title()
+    note = legend_note(ax)
+    assert "active where drain_accumulation_flux > 0" in note
+    assert "not the criterion" not in note
+
+
+def test_fallback_to_field_with_reason(mpl, monkeypatch) -> None:
+    run = transient_run()
+    run.has_field = lambda variable, **_: variable in {"drain_accumulation_flux", "topography"}
+    fraction = np.full(NX * NY, 0.25)
+    monkeypatch.setattr(views, "cell_field_active_mask", lambda *_a, **_k: fraction)
+    fig, ax = mpl.subplots()
+    SimulatedActiveNetworkMap().render(run, ax, mode="persistence")
+
+    note = legend_note(ax)
+    assert "active where drain_accumulation_flux > 0" in note
+    assert "not the criterion's flowing cells: run has no per-cell release_flux" in note

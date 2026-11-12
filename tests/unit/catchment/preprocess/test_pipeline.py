@@ -104,9 +104,7 @@ def _ground_run(root: Path, monkeypatch, raw: np.ndarray, supply=None, **section
     return config, terrain, context
 
 
-def test_a_declared_crossing_is_notched_delineated_again_and_reported(
-    tmp_path, monkeypatch, caplog
-) -> None:
+def test_crossing_is_notched_and_reported(tmp_path, monkeypatch, caplog) -> None:
     raw = _embanked()
     passes: list[bool] = []
 
@@ -144,9 +142,7 @@ def test_a_declared_crossing_is_notched_delineated_again_and_reported(
     ) == (170.0, 30.0, 170.0)
 
 
-def test_a_notch_that_lowers_nothing_does_not_delineate_again_and_logs_once(
-    tmp_path, monkeypatch, caplog
-) -> None:
+def test_notch_that_lowers_nothing(tmp_path, monkeypatch, caplog) -> None:
     with caplog.at_level("INFO"):
         _, terrain, _ = _ground_run(tmp_path, monkeypatch, bench.valley(), **_crossings(tmp_path))
     ground = str(correcflow_dir(tmp_path) / GROUND_FILENAME)
@@ -159,7 +155,7 @@ def test_a_notch_that_lowers_nothing_does_not_delineate_again_and_logs_once(
     assert len(_logged(caplog, "Crossing notch")) == 1
 
 
-def test_a_dem_domain_covers_the_valid_pixels_of_the_dem(tmp_path, monkeypatch) -> None:
+def test_dem_domain_covers_valid_pixels(tmp_path, monkeypatch) -> None:
     raw = bench.valley()
     raw[:3, :3] = -9999.0
     tmp_path.mkdir(exist_ok=True)
@@ -176,9 +172,7 @@ def test_a_dem_domain_covers_the_valid_pixels_of_the_dem(tmp_path, monkeypatch) 
     ("method", "limits"),
     [("breach", None), ("capped_breach", CappedBreach(max_depth_m=0.8, max_distance_m=100.0))],
 )
-def test_the_flow_step_gets_the_limits_and_an_empty_catchment_is_not_retried_with_a_fill(
-    method, limits, tmp_path, monkeypatch
-) -> None:
+def test_flow_step_limits_and_empty_catchment(method, limits, tmp_path, monkeypatch) -> None:
     sections = (
         {} if limits is None else {"capped_breach": {"max_depth": 0.8, "max_distance": 100.0}}
     )
@@ -201,7 +195,7 @@ def test_the_flow_step_gets_the_limits_and_an_empty_catchment_is_not_retried_wit
     assert calls[0]["capped_breach"] == limits
 
 
-def test_one_build_delineates_the_catchment_once(tmp_path, monkeypatch) -> None:
+def test_catchment_delineated_once(tmp_path, monkeypatch) -> None:
     delineations: list[object] = []
     delineate = runtime_pipeline.build_standard_catchment
 
@@ -235,9 +229,7 @@ def _unmeasurable_map(case: str, root: Path) -> Path:
 
 
 @pytest.mark.parametrize("case", ["outside", "no_crs", "missing"])
-def test_a_map_that_cannot_be_measured_is_a_warning_and_does_not_stop_the_geographic_step(
-    case, tmp_path, monkeypatch, caplog
-) -> None:
+def test_unmeasurable_map_warns(case, tmp_path, monkeypatch, caplog) -> None:
     watershed = tmp_path / "watershed.shp"
     gpd.GeoDataFrame(geometry=[LineString([(0, 0), (1, 1)]).buffer(1000.0)], crs=bench.CRS).to_file(
         watershed
@@ -267,7 +259,7 @@ def test_a_map_that_cannot_be_measured_is_a_warning_and_does_not_stop_the_geogra
     assert not _journal(tmp_path).exists()
 
 
-def test_a_missing_custom_file_is_a_warning_in_the_resolver(tmp_path, caplog) -> None:
+def test_missing_map_file_warns(tmp_path, caplog) -> None:
     from hydromodpy.data.variables.hydrography.resolver import resolve_network_map_path
 
     source = SimpleNamespace(source="file", path="absent.gpkg")
@@ -278,9 +270,7 @@ def test_a_missing_custom_file_is_a_warning_in_the_resolver(tmp_path, caplog) ->
     assert "path not found" in caplog.text
 
 
-def test_the_journal_follows_the_map_whether_the_terrain_is_built_or_read(
-    tmp_path, monkeypatch
-) -> None:
+def test_journal_follows_the_map(tmp_path, monkeypatch) -> None:
     channel = _plant(tmp_path / "channel.gpkg", CHANNEL)
     config = bench_config(tmp_path, river_network=BENCH_RIVER)
     built: dict[str, object] = {}
@@ -319,9 +309,7 @@ def test_the_journal_follows_the_map_whether_the_terrain_is_built_or_read(
     [((4, 1), 1), ((0, 0), 0), (None, 0)],
     ids=["cells_without_descent", "none_left", "a_raw_dem"],
 )
-def test_the_undrained_cells_of_a_product_are_warned_and_recorded(
-    tmp_path, monkeypatch, caplog, counts, warned
-) -> None:
+def test_undrained_cells(tmp_path, monkeypatch, caplog, counts, warned) -> None:
     config = bench_config(tmp_path)
     undrained = None if counts is None else UndrainedCells(*counts)
 
@@ -364,9 +352,7 @@ def _clip_path(root: Path) -> Path:
     return geographic_dir(root) / "watershed_box_buff_dem.tif"
 
 
-def test_the_notch_footprint_is_a_gap_the_weir_a_cut_and_both_are_reported(
-    tmp_path, monkeypatch, caplog
-) -> None:
+def test_notch_gap_and_weir_cut(tmp_path, monkeypatch, caplog) -> None:
     structures = _crossings(
         tmp_path,
         ("road", bench.road_along(ROAD_ROW)),
@@ -385,9 +371,7 @@ def test_the_notch_footprint_is_a_gap_the_weir_a_cut_and_both_are_reported(
     assert "1 gap(s), 1 cut(s)" in lines[0]
 
 
-def test_every_extent_of_the_top_the_sfr_bed_and_a_triangle_mesh_read_one_regularised_ground(
-    tmp_path, monkeypatch
-) -> None:
+def test_one_regularised_ground(tmp_path, monkeypatch) -> None:
     config = _bed_config(tmp_path, regularize=True)
     terrain, _, top = _bed_run(tmp_path, monkeypatch, config)
     cached = runtime_pipeline.build_geographic_runtime_context(
@@ -452,9 +436,7 @@ def test_every_extent_of_the_top_the_sfr_bed_and_a_triangle_mesh_read_one_regula
     np.testing.assert_allclose(mesh_top, [top[row, col], top[row, col - 4]], atol=1e-4)
 
 
-def test_a_float64_ground_above_2048_m_with_nothing_notched_has_no_gap(
-    tmp_path, monkeypatch
-) -> None:
+def test_float64_ground_has_no_gap(tmp_path, monkeypatch) -> None:
     # float32 rounds a level above 2048 m by more than 1e-4 m, so a footprint read
     # off the difference of the two grounds would flag pixels the notch never moved.
     fraction = np.linspace(0.0, 1.0e-3, bench.N * bench.N).reshape(bench.N, bench.N)

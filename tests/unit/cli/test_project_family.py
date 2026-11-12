@@ -1,8 +1,8 @@
-"""Tests for the ``hmp project`` actions O5 owns: new, list, delete, promote, prune, and ``hmp show`` of a project.
+"""The ``hmp project`` family: new, list, delete, show, promote, prune, log, collect, array and verify.
 
-``promote`` and ``prune`` are driven through their own module, registered on
-a local parser, so the test does not depend on the order of ``ACTIONS``;
-``test_cli_surface_matches_the_target.py`` checks the family registers them."""
+The actions promote, prune, collect and array run through their own module on a local
+parser, so a test does not depend on the order of ``ACTIONS``.
+"""
 
 from __future__ import annotations
 
@@ -50,7 +50,6 @@ from ._hmp import run_main as _run
 
 
 def _run_action(module, argv: list[str]) -> int:
-    """Parse ``argv`` with the action alone and run it the way ``main`` does."""
     parser = argparse.ArgumentParser(prog="hmp project")
     module.register(parser.add_subparsers(dest="action"))
     try:
@@ -74,7 +73,7 @@ def _make_workspace(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def outside(tmp_path, monkeypatch) -> Path:
-    """A current directory no workspace holds, with no HMP_WORKSPACE."""
+    # A current directory no workspace holds, with no HMP_WORKSPACE.
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     directory = tmp_path / "elsewhere"
     directory.mkdir()
@@ -82,13 +81,13 @@ def outside(tmp_path, monkeypatch) -> Path:
     return directory
 
 
-def test_project_new_scaffolds_project(monkeypatch, tmp_path) -> None:
+def test_new(monkeypatch, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     assert _run(monkeypatch, ["hmp", "project", "new", "demo", "-w", str(workspace)]) == 0
     assert (workspace / "projects" / "demo").is_dir()
 
 
-def test_project_new_finds_the_workspace_above_the_cwd(monkeypatch, tmp_path) -> None:
+def test_new_finds_the_workspace(monkeypatch, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     monkeypatch.chdir(workspace / "projects")
@@ -96,7 +95,7 @@ def test_project_new_finds_the_workspace_above_the_cwd(monkeypatch, tmp_path) ->
     assert (workspace / "projects" / "demo").is_dir()
 
 
-def test_project_list_empty_workspace(monkeypatch, capsys, tmp_path) -> None:
+def test_list_empty_workspace(monkeypatch, capsys, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     assert _run(monkeypatch, ["hmp", "project", "list", "-w", str(workspace)]) == 0
     assert "no projects" in capsys.readouterr().out.lower()
@@ -111,9 +110,7 @@ def test_project_list_empty_workspace(monkeypatch, capsys, tmp_path) -> None:
         ["hmp", "project", "delete", "demo", "-y"],
     ],
 )
-def test_without_a_workspace_the_verb_stops_and_names_w(
-    monkeypatch, capsys, tmp_path, outside, argv
-) -> None:
+def test_no_workspace(monkeypatch, capsys, tmp_path, outside, argv) -> None:
     from hydromodpy.data.workspace import scaffold
 
     home_workspace = _make_workspace(tmp_path / "home")
@@ -127,7 +124,7 @@ def test_without_a_workspace_the_verb_stops_and_names_w(
     assert (home_workspace / "projects" / "demo").is_dir()
 
 
-def test_show_project_by_name_prints_the_runs_by_status(monkeypatch, capsys, tmp_path) -> None:
+def test_show_by_name(monkeypatch, capsys, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     project = make_project(workspace / "projects" / "demo")
     seal_run(project, "alpha")
@@ -138,7 +135,7 @@ def test_show_project_by_name_prints_the_runs_by_status(monkeypatch, capsys, tmp
     assert "missing (hmp catalog reindex builds it)" in out
 
 
-def test_show_project_dot_reads_the_project_of_the_cwd(monkeypatch, capsys, tmp_path) -> None:
+def test_show_dot(monkeypatch, capsys, tmp_path) -> None:
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     workspace = _make_workspace(tmp_path)
     project = make_project(workspace / "projects" / "demo")
@@ -151,16 +148,14 @@ def test_show_project_dot_reads_the_project_of_the_cwd(monkeypatch, capsys, tmp_
     assert "runs     : 1 (completed 1)" in out
 
 
-def test_show_project_a_path_without_a_project_is_refused_by_name(
-    monkeypatch, capsys, outside
-) -> None:
+def test_show_outside_a_project(monkeypatch, capsys, outside) -> None:
     code = _run(monkeypatch, ["hmp", "show", "."])
 
     assert code == 10
     assert f"No project.toml at or above {outside.resolve()}" in capsys.readouterr().err
 
 
-def test_project_delete_removes_project_directory(monkeypatch, tmp_path) -> None:
+def test_delete(monkeypatch, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     project_dir = workspace / "projects" / "demo"
     project_dir.mkdir(parents=True)
@@ -171,7 +166,7 @@ def test_project_delete_removes_project_directory(monkeypatch, tmp_path) -> None
     assert not project_dir.exists()
 
 
-def test_project_delete_refuses_without_yes_in_non_tty(monkeypatch, tmp_path) -> None:
+def test_delete_without_yes(monkeypatch, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     project_dir = workspace / "projects" / "demo"
     project_dir.mkdir(parents=True)
@@ -181,9 +176,7 @@ def test_project_delete_refuses_without_yes_in_non_tty(monkeypatch, tmp_path) ->
     assert project_dir.exists()
 
 
-def test_project_delete_refuses_a_project_with_a_running_attempt(
-    monkeypatch, capsys, tmp_path
-) -> None:
+def test_delete_with_running_attempt(monkeypatch, capsys, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     project = make_project(workspace / "projects" / "demo")
     write_attempt(project, "runs/busy", status="running", heartbeat_age_s=1)
@@ -205,7 +198,7 @@ def _calibrated_project(tmp_path: Path, *, kept: tuple[int, ...]) -> Path:
     return project
 
 
-def test_promote_moves_a_kept_trial_to_runs(capsys, tmp_path) -> None:
+def test_promote(capsys, tmp_path) -> None:
     project = _calibrated_project(tmp_path, kept=(1,))
 
     code = _run_action(
@@ -221,7 +214,7 @@ def test_promote_moves_a_kept_trial_to_runs(capsys, tmp_path) -> None:
     assert "runs/k_low" in capsys.readouterr().out
 
 
-def test_promote_without_a_trial_lists_the_best_ones(capsys, tmp_path) -> None:
+def test_promote_lists_the_best(capsys, tmp_path) -> None:
     project = _calibrated_project(tmp_path, kept=())
 
     code = _run_action(promote, ["promote", "calibration", "-w", str(project)])
@@ -236,7 +229,7 @@ def test_promote_without_a_trial_lists_the_best_ones(capsys, tmp_path) -> None:
     assert not (project / "runs").exists()
 
 
-def test_promote_from_inside_the_project(monkeypatch, tmp_path) -> None:
+def test_promote_from_the_project(monkeypatch, tmp_path) -> None:
     project = _calibrated_project(tmp_path, kept=(1,))
     monkeypatch.chdir(project / "sessions")
 
@@ -244,9 +237,7 @@ def test_promote_from_inside_the_project(monkeypatch, tmp_path) -> None:
     assert (project / "runs" / "calibration" / "manifest.json").is_file()
 
 
-def test_promote_a_trial_the_session_never_journaled_exits_as_a_calibration_error(
-    capsys, tmp_path
-) -> None:
+def test_promote_unjournaled_trial(capsys, tmp_path) -> None:
     project = _calibrated_project(tmp_path, kept=())
 
     code = _run_action(promote, ["promote", "calibration", "--trial", "9", "-w", str(project)])
@@ -256,7 +247,7 @@ def test_promote_a_trial_the_session_never_journaled_exits_as_a_calibration_erro
     assert not (project / "runs").exists()
 
 
-def test_promote_an_unknown_case_names_the_sessions(capsys, tmp_path) -> None:
+def test_promote_unknown_case(capsys, tmp_path) -> None:
     project = _calibrated_project(tmp_path, kept=())
 
     code = _run_action(promote, ["promote", "nowhere", "--trial", "1", "-w", str(project)])
@@ -265,12 +256,12 @@ def test_promote_an_unknown_case_names_the_sessions(capsys, tmp_path) -> None:
     assert "calibration" in capsys.readouterr().err
 
 
-def test_promote_outside_a_project_exits_not_found(capsys, outside) -> None:
+def test_promote_outside_a_project(capsys, outside) -> None:
     assert _run_action(promote, ["promote", "calibration", "--trial", "1"]) == 10
     assert "project.toml" in capsys.readouterr().err
 
 
-def test_prune_keeps_the_best_and_trashes_the_others(capsys, tmp_path) -> None:
+def test_prune(capsys, tmp_path) -> None:
     project = _calibrated_project(tmp_path, kept=(1, 2, 3))
 
     code = _run_action(prune, ["prune", "calibration", "--keep", "best", "-w", str(project), "-y"])
@@ -286,7 +277,7 @@ def test_prune_keeps_the_best_and_trashes_the_others(capsys, tmp_path) -> None:
     assert "moved 2 trial(s)" in capsys.readouterr().out
 
 
-def test_prune_refuses_without_yes_in_non_tty(tmp_path) -> None:
+def test_prune_without_yes(tmp_path) -> None:
     project = _calibrated_project(tmp_path, kept=(1, 3))
 
     assert _run_action(prune, ["prune", "calibration", "-w", str(project)]) == 2
@@ -317,7 +308,7 @@ def _args(project: Path, fmt: str) -> argparse.Namespace:
     )
 
 
-def test_csv_is_one_row_per_event(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_log_csv(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     project = _journalled_project(tmp_path)
 
     log.run(_args(project, "csv"))
@@ -330,7 +321,7 @@ def test_csv_is_one_row_per_event(tmp_path: Path, capsys: pytest.CaptureFixture[
     assert rows[0]["case_id"] == ""
 
 
-def test_json_stays_the_events(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_log_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     project = _journalled_project(tmp_path)
 
     log.run(_args(project, "json"))
@@ -350,9 +341,7 @@ def _invoke_array(argv: list[str]) -> int:
     return 0
 
 
-def test_the_action_writes_the_job_and_prints_the_submission(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_array_writes_the_job(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     root = tmp_path / "p"
     planned_project(root, threads=2)
 
@@ -368,7 +357,7 @@ def test_the_action_writes_the_job_and_prints_the_submission(
     assert "3 case(s)" in out and "Not verified on a cluster" in out
 
 
-def test_the_project_file_names_its_project(tmp_path: Path) -> None:
+def test_array_takes_project_toml(tmp_path: Path) -> None:
     root = tmp_path / "p"
     planned_project(root)
 
@@ -376,9 +365,7 @@ def test_the_project_file_names_its_project(tmp_path: Path) -> None:
     assert (root / "jobs").is_dir()
 
 
-def test_errors_leave_through_typed_exit_codes(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_array_exit_codes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     unplanned = tmp_path / "unplanned"
     unplanned.mkdir()
     assert _invoke_array([str(unplanned), "--scheduler", "slurm"]) == EXIT_NOT_FOUND
@@ -406,14 +393,14 @@ def _collect_project(tmp_path: Path) -> Path:
     return root
 
 
-def test_the_action_carries_the_four_symbols_of_a_family_action() -> None:
+def test_collect_symbols() -> None:
     assert collect.NAME == "collect"
     assert collect.HELP
     assert callable(collect.register)
     assert callable(collect.run)
 
 
-def test_collect_writes_the_summary_of_the_project(tmp_path, capsys) -> None:
+def test_collect_summary(tmp_path, capsys) -> None:
     root = _collect_project(tmp_path)
     seal_run(root, "a-base", project="bretagne", site="a", recipe="base", nse=0.6)
 
@@ -427,7 +414,7 @@ def test_collect_writes_the_summary_of_the_project(tmp_path, capsys) -> None:
     assert (root / "summary" / "catalog.csv").is_file()
 
 
-def test_mixed_windows_exit_with_the_validation_code(tmp_path, capsys) -> None:
+def test_collect_mixed_windows(tmp_path, capsys) -> None:
     root = _collect_project(tmp_path)
     seal_run(root, "a-base", project="bretagne", site="a", recipe="base", nse=0.6)
     seal_run(
@@ -450,7 +437,7 @@ def test_mixed_windows_exit_with_the_validation_code(tmp_path, capsys) -> None:
     assert (root / "summary" / "by_site.parquet").is_file()
 
 
-def test_a_folder_outside_any_project_is_not_found(tmp_path) -> None:
+def test_collect_outside_a_project(tmp_path) -> None:
     lonely = tmp_path / "lonely"
     lonely.mkdir()
 
@@ -460,7 +447,7 @@ def test_a_folder_outside_any_project_is_not_found(tmp_path) -> None:
     assert exit_code_for(missing.value) == EXIT_NOT_FOUND
 
 
-def test_a_figure_not_drawn_is_named_on_stderr(tmp_path, capsys) -> None:
+def test_collect_figure_not_drawn(tmp_path, capsys) -> None:
     root = _collect_project(tmp_path)
     (root / "project.toml").write_text(
         '[sites]\ntable = "sites.csv"\n\n[sites.summary]\nbest = "any"\nmetrics = ["nse", "kge"]\n'
@@ -489,7 +476,7 @@ def _published(tmp_path: Path) -> Path:
     return destination
 
 
-def test_a_project_copy_is_verified_through_its_own_publication(tmp_path: Path) -> None:
+def test_verify_project_copy(tmp_path: Path) -> None:
     destination = _published(tmp_path)
 
     result = _invoke_publish("--verify", str(destination))
@@ -499,7 +486,7 @@ def test_a_project_copy_is_verified_through_its_own_publication(tmp_path: Path) 
     assert "every file matches PUBLICATION.json" in result.stderr
 
 
-def test_a_removed_member_is_named(tmp_path: Path) -> None:
+def test_verify_removed_member(tmp_path: Path) -> None:
     destination = _published(tmp_path)
     shutil.rmtree(destination / RUN_NAME)
 
@@ -509,7 +496,7 @@ def test_a_removed_member_is_named(tmp_path: Path) -> None:
     assert f"{RUN_NAME}: missing" in result.stdout
 
 
-def test_a_changed_file_names_its_member(tmp_path: Path) -> None:
+def test_verify_changed_file(tmp_path: Path) -> None:
     destination = _published(tmp_path)
     (destination / "summary" / "by_case.csv").write_text("changed\n", encoding="utf-8")
     (destination / "notes.txt").write_text("added by hand\n", encoding="utf-8")
@@ -522,7 +509,7 @@ def test_a_changed_file_names_its_member(tmp_path: Path) -> None:
     assert f"{RUN_NAME}/" not in result.stdout
 
 
-def test_a_folder_of_copies_without_the_project_publication_is_verified(tmp_path: Path) -> None:
+def test_verify_folder_of_copies(tmp_path: Path) -> None:
     destination = _published(tmp_path)
     (destination / "PUBLICATION.json").unlink()
     (destination / "notes.txt").write_text("added by hand\n", encoding="utf-8")
@@ -535,7 +522,7 @@ def test_a_folder_of_copies_without_the_project_publication_is_verified(tmp_path
     assert f"{RUN_NAME}/" not in result.stdout
 
 
-def test_a_folder_without_any_copy_is_refused_by_name(tmp_path: Path) -> None:
+def test_verify_empty_folder(tmp_path: Path) -> None:
     empty = tmp_path / "empty"
     empty.mkdir()
 

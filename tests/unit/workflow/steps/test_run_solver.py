@@ -1,4 +1,7 @@
-"""The run-solver step executes the plan through its launcher, with or without a run store."""
+"""The run-solver step executes the plan through its launcher, with or without a run store.
+
+With a store it records the metrics, the solver output folders and the solve lines of
+the profile (durations in s). On a resume it rebuilds the solver runs from the facts."""
 
 from __future__ import annotations
 
@@ -71,7 +74,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> _Store:
     return fake
 
 
-def test_run_with_a_store_records_metrics_dirs_and_what_the_model_says(
+def test_run_records_metrics_dirs_and_model_says(
     monkeypatch: pytest.MonkeyPatch, store: _Store, tmp_path: Path
 ) -> None:
     run_a = SimpleNamespace(id=7)
@@ -107,7 +110,7 @@ def test_run_with_a_store_records_metrics_dirs_and_what_the_model_says(
     assert refreshed == [store]
 
 
-def test_the_solve_line_of_the_profile_comes_from_the_solve_time_of_each_run(
+def test_profile_solve_lines(
     monkeypatch: pytest.MonkeyPatch, store: _Store, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(
@@ -137,13 +140,7 @@ def test_the_solve_line_of_the_profile_comes_from_the_solve_time_of_each_run(
     assert lines[1].started_at - lines[0].started_at == timedelta(seconds=2.5)
 
 
-LIGHT_SOLVES: tuple[tuple[str, bool, str], ...] = (
-    ("a built run", False, "no"),
-    ("a rerun", True, "rerun"),
-)
-
-
-def test_run_builds_the_default_runner_without_a_launcher(
+def test_default_runner_without_a_launcher(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import hydromodpy.solver.base.runner as runner_mod
@@ -154,17 +151,19 @@ def test_run_builds_the_default_runner_without_a_launcher(
     assert len(built.calls) == 1
 
 
-def test_run_without_ctx_raises() -> None:
-    with pytest.raises(ConfigError, match="requires 'ctx'"):
-        RunSolverStep(launcher=_Launcher()).run(_state())
+RUN_REFUSALS = [
+    pytest.param({}, "requires 'ctx'", id="no context"),
+    pytest.param({"ctx": _ctx(persisted=False, plan=None)}, "simulation_plan", id="no plan"),
+]
 
 
-def test_run_without_a_simulation_plan_raises() -> None:
-    with pytest.raises(ConfigError, match="simulation_plan"):
-        RunSolverStep(launcher=_Launcher()).run(_state(ctx=_ctx(persisted=False, plan=None)))
+@pytest.mark.parametrize(("data", "message"), RUN_REFUSALS)
+def test_run_refusals(data, message) -> None:
+    with pytest.raises(ConfigError, match=message):
+        RunSolverStep(launcher=_Launcher()).run(_state(**data))
 
 
-def test_artifacts_is_empty_without_ctx_or_persistence_or_ids() -> None:
+def test_no_artifacts_without_a_stored_run() -> None:
     step = RunSolverStep()
     assert step.artifacts(_state()) == ()
     assert step.artifacts(_state(ctx=_ctx(persisted=False))) == ()
@@ -174,9 +173,7 @@ def test_artifacts_is_empty_without_ctx_or_persistence_or_ids() -> None:
     assert step.artifacts(_state(ctx=_ctx(persisted=True, run_dir=None))) == ()
 
 
-def test_artifacts_reads_the_paths_the_store_produced(
-    monkeypatch: pytest.MonkeyPatch, store: _Store
-) -> None:
+def test_artifacts_from_the_store(monkeypatch: pytest.MonkeyPatch, store: _Store) -> None:
     ctx = _ctx(persisted=True)
     monkeypatch.setattr(
         facts_mod,
@@ -186,7 +183,7 @@ def test_artifacts_reads_the_paths_the_store_produced(
     assert RunSolverStep().artifacts(_state(ctx=ctx)) == ("runs/sim-1/fields.zarr",)
 
 
-def test_rebuild_state_without_ctx_raises() -> None:
+def test_rebuild_needs_a_context() -> None:
     with pytest.raises(ConfigError, match="rebuild_state requires 'ctx'"):
         RunSolverStep().rebuild_state(prior_state=_state(), workspace=Path("."), run_id="r")
 
@@ -202,7 +199,7 @@ MESH = ProcessRun(id="mesh::catchment", process_id="mesh", process_type="mesh", 
 FLOW = ProcessRun(id="flow::fake", process_id="flow", process_type="flow", solver="fake")
 
 
-def test_rebuild_state_reads_the_output_dirs_from_the_facts(
+def test_rebuild_reads_output_dirs_from_facts(
     monkeypatch: pytest.MonkeyPatch, store: _Store, isolated_solvers
 ) -> None:
     isolated_solvers.solvers.register(fake_adapter("fake"))
@@ -226,9 +223,7 @@ def test_rebuild_state_reads_the_output_dirs_from_the_facts(
     assert run.model == "the model of the run"
 
 
-def test_a_resumed_flow_run_gets_the_options_the_runner_would_have_given_it(
-    store: _Store, isolated_solvers
-) -> None:
+def test_resumed_flow_run_gets_its_options(store: _Store, isolated_solvers) -> None:
     class _Table(BaseModel):
         pass
 

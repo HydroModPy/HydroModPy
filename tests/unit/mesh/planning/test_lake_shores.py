@@ -22,7 +22,6 @@ from shapely.geometry import LineString, Polygon, box
 from hydromodpy.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.mesh.engines.voronoi.from_seeds import CLOSED_SHORE_SHARE
 from hydromodpy.mesh.mesh_config import MeshConfig
-from hydromodpy.mesh.planning import families
 from hydromodpy.mesh.planning.inputs import PlanningInputs
 from hydromodpy.mesh.planning.lake_shores import (
     LAKE_SHORE_SHARE,
@@ -39,7 +38,6 @@ X0, Y0 = L93_ORIGIN
 _DOMAIN = box(X0, Y0, X0 + 1600.0, Y0 + 1000.0)
 _GRID = grid_over(_DOMAIN, 10.0)
 _BODY = box(X0 + 400.0, Y0 + 350.0, X0 + 1100.0, Y0 + 650.0)
-_ARM = box(X0 + 1100.0, Y0 + 494.0, X0 + 1400.0, Y0 + 506.0)
 _RIVER = LineString([(X0, Y0 + 480.0), (X0 + 1600.0, Y0 + 520.0)])
 _CONFIG = MeshConfig(
     engine="voronoi", cell_size=60.0, river_cell_size=30.0, lake_refinement={"cell_size": 30.0}
@@ -56,19 +54,6 @@ def _inputs(lake: Polygon, *, river: bool = False, barriers=()) -> PlanningInput
     )
 
 
-@pytest.fixture
-def followed(monkeypatch: pytest.MonkeyPatch) -> list[FollowedShores]:
-    """The shores the planner picks, in order, as it computed them."""
-    picked: list[FollowedShores] = []
-
-    def record(*args: object, **kwargs: object) -> FollowedShores:
-        picked.append(followed_lake_shores(*args, **kwargs))
-        return picked[-1]
-
-    monkeypatch.setattr(families, "followed_lake_shores", record)
-    return picked
-
-
 def _build(inputs: PlanningInputs, config: MeshConfig = _CONFIG):
     request = plan_mesh_request(config, inputs)
     return request, VoronoiMeshEngine().build(request)
@@ -78,7 +63,7 @@ def _family(request, name: str):
     return next(family for family in request.lines if family.name == name)
 
 
-def test_a_wall_wing_of_a_few_metres_is_left_out_and_the_wall_stays_on_the_shore() -> None:
+def test_wall_wing_left_out() -> None:
     top = Y0 + 650.0
     wall = LineString(
         [
@@ -100,15 +85,15 @@ def test_a_wall_wing_of_a_few_metres_is_left_out_and_the_wall_stays_on_the_shore
 
 _CELL = 30.0
 _RADIUS = LAKE_SHORE_SHARE * _CELL
+# Two parts drawn apart lie two radii apart, less the sag of buffers drawn with few segments.
 _APART = 0.95 * 2.0 * _RADIUS
-"""Two parts drawn apart lie two radii apart, less the sag of buffers drawn with few segments."""
 
 
 def _shores(*lakes: Polygon) -> FollowedShores:
     return followed_lake_shores(lakes, lambda xy: np.full(len(xy), _CELL), finest=_CELL)
 
 
-def test_a_later_lake_closer_than_the_smoothing_gives_up_the_strip_next_to_the_earlier() -> None:
+def test_close_later_lake_gives_way() -> None:
     first, second = box(0.0, 0.0, 200.0, 200.0), box(220.0, 0.0, 420.0, 200.0)
 
     shores = _shores(first, second)
@@ -118,8 +103,8 @@ def test_a_later_lake_closer_than_the_smoothing_gives_up_the_strip_next_to_the_e
     assert shores.polygons[1].distance(shores.polygons[0]) >= _APART
 
 
-def test_two_lobes_that_meet_at_a_corner_are_drawn_apart() -> None:
-    """A thin strip joins two square lobes 6 m apart at their corners: the smaller lobe gives way."""
+def test_corner_lobes_drawn_apart() -> None:
+    # A thin strip joins two square lobes 6 m apart at their corners: the smaller one gives way.
     gap = 6.0
     lake = shapely.union_all(
         [
@@ -136,8 +121,8 @@ def test_two_lobes_that_meet_at_a_corner_are_drawn_apart() -> None:
     assert parts[0].distance(parts[1]) >= _APART
 
 
-def test_a_lake_narrower_than_the_smoothing_keeps_its_own_outline() -> None:
-    """Its smoothed outline vanishes, so it neither changes nor pushes the next lake away."""
+def test_narrow_lake_keeps_outline() -> None:
+    # Its smoothed outline vanishes, so it neither changes nor pushes the next lake away.
     thin, wide = box(0.0, 0.0, 500.0, 10.0), box(0.0, 30.0, 300.0, 330.0)
 
     shores = _shores(thin, wide)
@@ -147,8 +132,8 @@ def test_a_lake_narrower_than_the_smoothing_keeps_its_own_outline() -> None:
     assert shores.polygons[1].equals(wide)
 
 
-def test_a_small_lobe_near_a_large_one_gives_way_to_it_whole() -> None:
-    """Thin strips join three lobes: the small one lies within reach of a large one and goes."""
+def test_small_lobe_gives_way() -> None:
+    # Thin strips join three lobes: the small one lies within reach of a large one and goes.
     large = box(0.0, 0.0, 200.0, 200.0)
     far = box(500.0, 0.0, 650.0, 150.0)
     small = box(206.0, 206.0, 246.0, 246.0)

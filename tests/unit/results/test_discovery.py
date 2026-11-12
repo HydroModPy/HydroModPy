@@ -100,18 +100,18 @@ def _make_dir(project: Path, rel_dir: str) -> Path:
     return path
 
 
-def test_a_path_that_is_no_result_directory_says_which_forms_exist() -> None:
+def test_path_outside_the_results() -> None:
     with pytest.raises(SimulationNotFoundError, match="runs/<name>, sessions/<name>"):
         reference_rel_dir("figures/x")
 
 
-def test_the_index_answers_a_directory_name_by_rel_dir(index: Catalog) -> None:
+def test_index_resolves_a_name(index: Catalog) -> None:
     assert index.resolve("nancon_monthly") == MONTHLY
     assert index.resolve("nancon_monthly.v2") == MONTHLY_V2
     assert index.resolve("runs/J0014010-base") == BASE
 
 
-def test_a_hex_word_that_is_a_name_and_an_id_prefix_is_ambiguous(project: Path) -> None:
+def test_hex_name_is_ambiguous(project: Path) -> None:
     other = "beef1234-0000-4000-8000-000000000009"
     _seal(project, "J0014010-other", other, site="J0014010", day=5, nse=0.5)
     index_new_runs(project)
@@ -120,7 +120,7 @@ def test_a_hex_word_that_is_a_name_and_an_id_prefix_is_ambiguous(project: Path) 
     assert {key for key, _ in caught.value.candidates} == {other, HEX_NAMED}
 
 
-def test_best_reads_the_metric_scored_under_the_rule_not_any_station(index: Catalog) -> None:
+def test_best_reads_the_rule_metric(index: Catalog) -> None:
     # The lake row (0.95) carries no rule version: it never ranks a run as best.
     assert index.resolve("@best:nse", site="nancon") == MONTHLY
     assert index.resolve("@worst:nse", site="nancon") == MONTHLY_V2
@@ -131,7 +131,7 @@ def test_best_reads_the_metric_scored_under_the_rule_not_any_station(index: Cata
     assert index.resolve("@best:nse", mixed_windows=True) == MONTHLY
 
 
-def test_a_selector_narrows_to_one_site(index: Catalog) -> None:
+def test_selector_on_one_site(index: Catalog) -> None:
     assert index.resolve("@best:nse", site="J0014010") == BASE
     assert index.resolve("@last", site="J0014010") == BASE
     assert index.resolve("@last") == HEX_NAMED
@@ -141,19 +141,19 @@ def test_a_selector_narrows_to_one_site(index: Catalog) -> None:
         index.resolve("@last", site="nowhere")
 
 
-def test_an_unknown_name_suggests_the_closest_directories(index: Catalog) -> None:
+def test_unknown_name_suggests(index: Catalog) -> None:
     with pytest.raises(SimulationNotFoundError, match="nancon_monthly"):
         index.resolve("nancon_montly")
 
 
-def test_a_selector_without_an_index_says_how_to_build_one(tmp_path: Path) -> None:
+def test_selector_without_an_index(tmp_path: Path) -> None:
     project = tmp_path / "p"
     project.mkdir()
     with pytest.raises(SimulationNotFoundError, match="hmp catalog reindex"):
         resolve_rel_dir(project, "@best:nse")
 
 
-def test_the_trash_answers_by_its_listing_name_or_by_the_directory(tmp_path: Path) -> None:
+def test_trash_resolution(tmp_path: Path) -> None:
     project = tmp_path / "p"
     _make_dir(project, "runs/nancon_daily")
     trashed = trash_run(project, "runs/nancon_daily", now=AT)
@@ -167,7 +167,7 @@ def test_the_trash_answers_by_its_listing_name_or_by_the_directory(tmp_path: Pat
         resolve_trashed(project, "nancon_monthly")
 
 
-def test_the_tree_asks_the_index_for_a_selector_and_an_id(project: Path) -> None:
+def test_tree_asks_the_index(project: Path) -> None:
     assert resolve_rel_dir(project, "@last") == "runs/beef1234"
     assert resolve_rel_dir(project, "@best:nse", site="nancon") == "runs/nancon_monthly"
     assert resolve_rel_dir(project, "@best:nse", site="J0014010") == "runs/J0014010-base"
@@ -179,7 +179,7 @@ def test_the_tree_asks_the_index_for_a_selector_and_an_id(project: Path) -> None
         resolve_rel_dir(project, "@running", site="J0014010")
 
 
-def test_a_directory_name_that_is_also_an_id_prefix_is_refused_by_the_tree(
+def test_tree_refuses_ambiguous_name(
     project: Path,
 ) -> None:
     (project / RUNS_DIRNAME / "2222").mkdir()

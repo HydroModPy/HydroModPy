@@ -57,7 +57,7 @@ def _fit_column(top, channel, d8, transform, **kwargs):
     )
 
 
-def test_the_fit_moves_the_channel_alone_leaves_no_rise_and_keeps_the_mean_of_the_bed() -> None:
+def test_fit_moves_the_channel_only() -> None:
     top, channel, d8 = _valley()
     out, report = _fit_column(top, channel, d8, TRANSFORM, min_slope=MIN_SLOPE)
     moved = out != top
@@ -79,7 +79,7 @@ def test_the_fit_moves_the_channel_alone_leaves_no_rise_and_keeps_the_mean_of_th
     assert abs(report.mean_bias_m) < 0.01
 
 
-def test_the_tree_has_one_root_joins_the_tributary_and_a_diagonal_is_a_longer_edge() -> None:
+def test_pixel_tree() -> None:
     _, channel, d8 = _valley()
     corner, pointer = np.zeros((3, 3), dtype=bool), np.zeros((3, 3), dtype=int)
     corner[0, 0] = corner[1, 1] = True
@@ -95,7 +95,7 @@ def test_the_tree_has_one_root_joins_the_tributary_and_a_diagonal_is_a_longer_ed
     assert diagonal.edge_length[first] == pytest.approx(RES * np.sqrt(2.0))
 
 
-def test_a_bump_at_the_junction_is_reported_as_a_confluence_block() -> None:
+def test_confluence_block_report() -> None:
     top, channel, d8 = _valley(sd=0.0)
     top[JUNCTION, AXIS] += 1.0
     _, report = _fit_column(top, channel, d8, TRANSFORM, min_slope=MIN_SLOPE)
@@ -139,7 +139,7 @@ BED = [10.0 - 0.25 * i for i in range(11)]
 EMBANKMENT = 5
 
 
-def test_a_notch_footprint_pixel_is_a_gap_that_follows_its_measured_neighbours() -> None:
+def test_notch_pixel_is_a_gap() -> None:
     values = list(BED)
     values[EMBANKMENT] += 1.5  # what the cap of the notch left of the embankment
     top, channel, d8, transform = _column(values)
@@ -175,7 +175,7 @@ def _weirs(transform, *, dx: float = 0.0):
     ids=["at the crest", "within the radius", "beyond the radius", "in a declared lake", "two on one pixel"],
 )
 # fmt: on
-def test_a_declared_weir_cuts_once_only_on_the_channel_and_outside_a_lake(make, lake, cuts, skipped):
+def test_weir_cut(make, lake, cuts, skipped):
     top, channel, d8, transform = _column(WEIR_REACH)
     rows = len(WEIR_REACH)
     lakes = [box(0.0, (rows - WEIR - 2) * RES, 3 * RES, (rows - WEIR) * RES)] if lake else []
@@ -204,7 +204,7 @@ DAM_REACH = [POND_LEVEL] * POND + [CREST_LEVEL] + [VALLEY - 0.1 * i for i in ran
 
 
 @pytest.mark.parametrize("snapped", [CREST, CREST - 1], ids=["crest", "pond-side foot"])
-def test_a_dam_snapped_to_its_crest_or_its_foot_leaves_the_pond_untouched(snapped) -> None:
+def test_dam_leaves_the_pond_untouched(snapped) -> None:
     top, channel, d8, transform = _column(DAM_REACH)
     dam = [("dam", "barrage", 10.0, _point(transform, snapped))]
     uncut, _ = _fit_column(top, channel, d8, transform)
@@ -224,7 +224,7 @@ LAKE_REACH = (
 )
 
 
-def test_a_declared_lake_keeps_its_surface_and_cuts_the_tree() -> None:
+def test_lake_keeps_its_surface() -> None:
     top, channel, d8, transform = _column(LAKE_REACH)
     rows = len(LAKE_REACH)
     lake = box(0.0, (rows - LAKE_ROWS.stop) * RES, 3 * RES, (rows - LAKE_ROWS.start) * RES)
@@ -237,7 +237,7 @@ def test_a_declared_lake_keeps_its_surface_and_cuts_the_tree() -> None:
     assert report.rises_after_fit == 0
 
 
-def test_a_tree_with_no_channel_pixel_leaves_the_top_alone() -> None:
+def test_no_channel_pixel() -> None:
     top, channel, d8, transform = _column(BED)
     out, report = _fit_column(top, np.zeros_like(channel), d8, transform)
     np.testing.assert_array_equal(out, top)
@@ -256,7 +256,7 @@ GRID = from_origin(0.0, 10_000.0, 10.0, 10.0)  # 1000 x 1000 pixels of 10 m
     ],
     ids=["inside", "margin widens", "off the grid"],
 )
-def test_the_bed_fit_reads_the_channel_inside_the_domain_window(bounds, margin, kept) -> None:
+def test_domain_window(bounds, margin, kept) -> None:
     channel = np.ones((1000, 1000), dtype=bool)
     window = restrict_to_window(channel, GRID, bounds, margin_m=margin)
     assert window.sum() == kept
@@ -266,9 +266,7 @@ def test_the_bed_fit_reads_the_channel_inside_the_domain_window(bounds, margin, 
     assert WINDOW_MARGIN_M > 0
 
 
-
-
-def test_the_regularised_ground_differs_from_the_notched_one_on_the_channel_only(tmp_path):
+def test_regularised_ground_on_the_channel_only(tmp_path):
     weir = Point(bench.x_of(bench.AXIS), bench.y_of(4))
     crossings = bench.structures(("road", bench.road_along(10)), ("weir", weir))
     crossings["name"] = ["", "moulin"]
@@ -333,7 +331,7 @@ def _no_channel(project, tmp_path):
     ids=["misaligned raster", "other cell size", "no kind", "no crs", "no channel", "no file"],
 )
 @pytest.mark.filterwarnings("ignore:'crs' was not provided")
-def test_an_input_the_fit_cannot_place_on_the_ground_is_refused(
+def test_refusals(
     tmp_path, spoil, error, reason
 ) -> None:
     project = bench_project(tmp_path, None)
@@ -345,7 +343,7 @@ def test_an_input_the_fit_cannot_place_on_the_ground_is_refused(
         )
 
 
-def test_without_a_crossings_file_no_barrier_cuts_the_tree(tmp_path) -> None:
+def test_no_crossings_file_no_cut(tmp_path) -> None:
     project = bench_project(tmp_path, None, prune=True)
     project.config.crossings.enabled = False
     link = bench.write_raster(tmp_path / "link.tif", project.valley.streams.astype("float32"))

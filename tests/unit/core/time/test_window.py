@@ -83,7 +83,7 @@ def _window(start, end, step_value, step_unit, policy="error"):
         (7, " day ", (7, "day")),
     ],
 )
-def test_a_step_is_read_as_a_count_and_a_canonical_unit(value, unit, expected):
+def test_step_spec(value, unit, expected):
     assert parse_step_spec(value, unit) == expected
 
 
@@ -101,7 +101,7 @@ def test_a_step_is_read_as_a_count_and_a_canonical_unit(value, unit, expected):
         ("2 days", "month", "conflicts with simulation.time.step_unit"),
     ],
 )
-def test_a_bad_step_is_refused_with_the_reason(value, unit, match):
+def test_bad_step_refusals(value, unit, match):
     with pytest.raises(ValueError, match=match):
         parse_step_spec(value, unit)
 
@@ -110,11 +110,11 @@ def test_a_bad_step_is_refused_with_the_reason(value, unit, match):
     ("value", "unit", "days"),
     [(1, "day", 1.0), (6, "hour", 0.25), (1, "month", 30.4375), (1, "year", 365.25)],
 )
-def test_the_nominal_step_length_is_in_days(value, unit, days):
+def test_nominal_step_days(value, unit, days):
     assert nominal_step_days(value, unit) == pytest.approx(days)
 
 
-def test_no_time_section_means_no_window_no_grid_no_dates():
+def test_no_time_section():
     cfg = SimpleNamespace(simulation=SimpleNamespace())
     assert resolve_simulation_time_window(cfg) is None
     assert resolve_simulation_time_grid(cfg) is None
@@ -132,23 +132,23 @@ def test_no_time_section_means_no_window_no_grid_no_dates():
         ({"policy": "sometimes"}, "coverage_policy must be one of"),
     ],
 )
-def test_a_bad_window_is_refused_with_the_reason(kwargs, match):
+def test_bad_window_refusals(kwargs, match):
     with pytest.raises(ValueError, match=match):
         resolve_simulation_time_window(_cfg(**kwargs))
 
 
-def test_the_dates_of_a_bad_window_are_none_unless_strict():
+def test_dates_of_a_bad_window():
     cfg = _cfg(start="2020-02-01", end="2020-01-01")
     assert resolve_simulation_time_window_dates(cfg, strict=False) is None
     with pytest.raises(ValueError):
         resolve_simulation_time_window_dates(cfg)
 
 
-def test_the_dates_of_a_good_window_are_iso_strings():
+def test_dates_are_iso_strings():
     assert resolve_simulation_time_window_dates(_cfg()) == ("2020-01-01", "2020-01-10")
 
 
-def test_the_period_lengths_sum_to_the_window_and_follow_the_calendar():
+def test_monthly_period_lengths():
     grid = resolve_simulation_time_grid(_cfg("2020-01-01", "2020-12-31", 1, "month", substeps=3))
     assert grid.nper == 12
     assert grid.nstp_per_period == 3
@@ -158,12 +158,12 @@ def test_the_period_lengths_sum_to_the_window_and_follow_the_calendar():
     assert grid.period_ends_exclusive[-1] == pd.Timestamp("2021-01-01")
 
 
-def test_a_window_that_ends_before_it_starts_has_no_boundaries():
+def test_reversed_window_refused():
     with pytest.raises(ValueError, match="greater than or equal"):
         build_simulation_time_boundaries(_window("2020-02-01", "2020-01-01", 1, "day"))
 
 
-def test_explicit_period_bounds_replace_the_cut_and_joined_gaps_are_kept():
+def test_explicit_period_bounds():
     window = ResolvedSimulationTimeWindow(
         start=pd.Timestamp("2020-01-01"),
         end=pd.Timestamp("2020-01-10"),
@@ -196,19 +196,19 @@ def test_explicit_period_bounds_replace_the_cut_and_joined_gaps_are_kept():
         ("year", "end", "2YE"),
     ],
 )
-def test_the_pandas_alias_follows_unit_and_anchor(unit, anchor, alias):
+def test_pandas_frequency_alias(unit, anchor, alias):
     window = _window("2020-01-01", "2020-12-31", 2, unit)
     assert simulation_time_pandas_frequency(window, anchor=anchor) == alias
 
 
-def test_a_frequency_anchor_must_be_start_or_end():
+def test_bad_anchor_refused():
     with pytest.raises(ValueError, match="anchor must be"):
         simulation_time_pandas_frequency(
             _window("2020-01-01", "2020-01-02", 1, "day"), anchor="mid"
         )
 
 
-def test_an_unknown_unit_has_no_frequency_and_no_boundaries():
+def test_unknown_unit_refused():
     window = _window("2020-01-01", "2020-01-02", 1, "week")
     with pytest.raises(ValueError, match="Unsupported"):
         simulation_time_pandas_frequency(window)
@@ -217,7 +217,7 @@ def test_an_unknown_unit_has_no_frequency_and_no_boundaries():
 
 
 @pytest.mark.parametrize("step_value", [1, 3, 10], ids=["short", "not-fitting", "whole-window"])
-def test_a_steady_run_has_one_period_over_the_whole_window(step_value):
+def test_steady_single_period(step_value):
     grid = resolve_simulation_time_grid(
         _cfg("2020-01-01", "2020-01-10", step_value, "day", regime="steady")
     )
@@ -236,11 +236,11 @@ def test_a_steady_run_has_one_period_over_the_whole_window(step_value):
         (({"kind": "transport"},), False),
     ],
 )
-def test_a_flow_process_is_found_in_any_container_and_spelling(processes, expected):
+def test_flow_process_found(processes, expected):
     assert has_flow_simulation_process(_cfg(processes=processes)) is expected
 
 
-def test_a_steady_flow_run_may_omit_the_time_section():
+def test_steady_without_time_section():
     cfg = SimpleNamespace(
         simulation=SimpleNamespace(process=[{"kind": "flow"}]),
         flow=SimpleNamespace(flow_regime="steady"),
@@ -261,7 +261,7 @@ def test_a_steady_flow_run_may_omit_the_time_section():
         SimpleNamespace(flow_regime="transient"),
     ],
 )
-def test_a_transient_flow_run_without_time_section_is_refused(flow):
+def test_transient_needs_time_section(flow):
     cfg = SimpleNamespace(simulation=SimpleNamespace(process=[{"kind": "flow"}]))
     if flow is not None:
         cfg.flow = flow
@@ -277,7 +277,7 @@ def _series(index, values=None):
     return pd.Series(values if values is not None else [1.0] * len(index), index=index)
 
 
-def test_a_window_that_is_absent_or_ignored_checks_nothing():
+def test_coverage_check_skipped():
     validate_recharge_coverage(None, None)
     validate_recharge_coverage(None, _window("2020-01-01", "2020-01-04", 1, "day", "ignore"))
 
@@ -293,30 +293,30 @@ def test_a_window_that_is_absent_or_ignored_checks_nothing():
     ],
     ids=["missing", "empty-frame", "not-a-series", "index-not-datetime", "empty-series"],
 )
-def test_an_unusable_recharge_is_refused_under_error_and_warned_under_warn(recharge):
+def test_unusable_recharge_policy(recharge):
     with pytest.raises(ValueError, match="Recharge coverage check"):
         validate_recharge_coverage(recharge, _WIN)
     with pytest.warns(UserWarning, match="Recharge coverage check"):
         validate_recharge_coverage(recharge, _window("2020-01-01", "2020-01-04", 1, "day", "warn"))
 
 
-def test_a_dataframe_uses_its_first_column_and_unsorted_input_is_sorted():
+def test_recharge_frame_accepted():
     frame = _series(["2020-01-03", "2020-01-01", "2020-01-02", "2020-01-04"]).to_frame()
     validate_recharge_coverage(frame, _WIN)
 
 
-def test_a_string_index_that_reads_as_dates_is_accepted():
+def test_recharge_string_index():
     s = pd.Series([1.0] * 4, index=["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-04"])
     validate_recharge_coverage(s, _WIN)
 
 
-def test_a_record_that_stops_before_the_window_is_refused_and_a_longer_one_accepted():
+def test_recharge_record_length():
     with pytest.raises(ValueError, match="does not cover"):
         validate_recharge_coverage(_series(["2019-12-01", "2019-12-02"]), _WIN)
     validate_recharge_coverage(_series(pd.date_range("2019-12-01", "2020-02-01")), _WIN)
 
 
-def test_a_nan_inside_the_window_is_refused_but_one_outside_is_not():
+def test_recharge_nan_in_window():
     days = pd.date_range("2019-12-30", "2020-01-06")
     inside = _series(days, [1.0] * len(days))
     inside.loc["2020-01-02"] = float("nan")
@@ -327,22 +327,7 @@ def test_a_nan_inside_the_window_is_refused_but_one_outside_is_not():
     validate_recharge_coverage(outside, _WIN)
 
 
-# Both step_value callers share one refusal rule.
-#
-# ``SimulationTimeConfig`` (Pydantic validation at config load) and
-# ``resolve_simulation_time_window`` (the launcher window helper) must reject
-# the same bad ``step_value``/``step_unit`` inputs with the same message, since
-# both delegate to ``reject_invalid_step_value_spec``.
-
-
-_SHARED_REFUSALS = [
-    (-5, None, "must be a positive integer"),
-    (0, "day", "must be a positive integer"),
-    (1, None, "has no unit"),
-]
-
-
-def test_shared_rule_rejects_a_boolean_step_value_before_the_missing_unit_check() -> None:
+def test_boolean_step_refused() -> None:
     """Pydantic coerces a bare bool to int before validation, so this edge only
     reaches ``reject_invalid_step_value_spec`` untouched through the window
     helper's plain-object callers; exercise the shared function directly.
@@ -374,22 +359,17 @@ STARTS = (
 
 
 @pytest.mark.parametrize(("case", "grid", "expected"), STARTS, ids=[c[0] for c in STARTS])
-def test_the_start_of_a_run_is_read_on_its_time_grid(
-    case: str, grid: object, expected: str | None
-) -> None:
+def test_start_of_a_grid(case: str, grid: object, expected: str | None) -> None:
     del case
 
     assert time_grid_start(grid) == expected
-
-
-# Windows of a chain ---------------------------------------------------------
 
 
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [("6 months", (6, "month")), ("1 year", (1, "year")), ("30 days", (30, "day"))],
 )
-def test_a_window_length_is_a_count_and_a_unit(raw, expected):
+def test_window_length_spec(raw, expected):
     assert parse_window_length(raw) == expected
 
 
@@ -404,7 +384,7 @@ def test_a_window_length_is_a_count_and_a_unit(raw, expected):
     ],
     ids=["bare text", "bare number", "fraction", "zero", "weeks"],
 )
-def test_a_bad_window_length_is_refused_with_its_key(raw, match):
+def test_bad_window_length_refusals(raw, match):
     with pytest.raises(ValueError, match=match) as raised:
         parse_window_length(raw)
     assert "simulation.time.window_length" in str(raised.value)
@@ -426,7 +406,7 @@ def _monthly(start="2020-01-01", end="2020-12-31"):
     ],
     ids=["two halves", "short last", "exact year", "longer than the run", "daily", "daily one"],
 )
-def test_a_grid_is_cut_into_windows_that_end_on_period_ends(grid, length, periods):
+def test_chain_windows(grid, length, periods):
     resolved = _monthly() if grid == "monthly" else resolve_simulation_time_grid(_cfg())
     windows = chain_windows(resolved, length)
 
@@ -440,7 +420,7 @@ def test_a_grid_is_cut_into_windows_that_end_on_period_ends(grid, length, period
     assert sum(one.nper for one in windows) == resolved.nper
 
 
-def test_a_window_edge_inside_a_period_is_refused_with_the_two_period_ends():
+def test_window_edge_inside_period():
     weekly = resolve_simulation_time_grid(_cfg("2020-01-01", "2020-03-24", 7, "day"))
 
     with pytest.raises(ConfigError) as raised:
@@ -457,12 +437,12 @@ def test_a_window_edge_inside_a_period_is_refused_with_the_two_period_ends():
     [None, ResolvedSteadySimulationTimeGrid()],
     ids=["no time section", "steady"],
 )
-def test_a_run_without_periods_has_no_window(grid):
+def test_no_periods_to_cut(grid):
     with pytest.raises(ConfigError, match="no \\[simulation.time\\] periods to cut"):
         chain_windows(grid, "6 months")
 
 
-def test_the_dates_of_a_window_are_its_own_and_the_last_keeps_the_user_end():
+def test_window_dates():
     whole = _monthly()
     first, last = (window_grid(whole, one) for one in chain_windows(whole, "6 months"))
 
@@ -471,7 +451,7 @@ def test_the_dates_of_a_window_are_its_own_and_the_last_keeps_the_user_end():
     assert first.window.period_bounds is None and last.window.period_bounds is None
 
 
-def test_a_window_of_explicit_periods_keeps_them():
+def test_window_keeps_explicit_periods():
     """Periods written out in the whole grid stay written out in the window."""
     whole = _monthly()
     explicit = dataclasses.replace(

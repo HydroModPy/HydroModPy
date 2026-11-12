@@ -36,9 +36,9 @@ class _Root(HydroModelBase):
     tags: list[str] = []
 
 
-def test_sections_come_in_declaration_order() -> None:
+def test_sections_in_order() -> None:
     assert list(registry.root_sections(_Root)) == ["flow", "mesh", "export", "stations"]
 
 
-def test_an_array_of_tables_is_told_from_a_single_table() -> None:
+def test_repeated_sections() -> None:
     assert registry.repeated_root_sections(_Root) == frozenset({"export", "stations"})

@@ -24,7 +24,7 @@ LIMITS = CappedBreach(max_depth_m=1.0, max_distance_m=50.0)
     ("method", "limits", "expected"),
     [("fill", None, "fill"), ("breach", None, "breach"), ("capped_breach", LIMITS, LIMITS)],
 )
-def test_each_correction_names_one_method_of_the_port(method, limits, expected) -> None:
+def test_conditioning_method(method, limits, expected) -> None:
     assert conditioning_method(method, limits) == expected
     assert corrected_dem_name(method).endswith(".tif")
 
@@ -37,7 +37,7 @@ def test_each_correction_names_one_method_of_the_port(method, limits, expected) 
         ("fill", LIMITS, "which has none"),
     ],
 )
-def test_a_correction_and_limits_that_do_not_go_together_are_refused(method, limits, reason):
+def test_refusals(method, limits, reason):
     with pytest.raises(ValueError, match=reason):
         conditioning_method(method, limits)
     if method == "carve":
@@ -45,7 +45,7 @@ def test_a_correction_and_limits_that_do_not_go_together_are_refused(method, lim
             corrected_dem_name(method)
 
 
-def test_an_accumulation_that_can_already_rank_the_window_is_kept(tmp_path) -> None:
+def test_rankable_accumulation_is_kept(tmp_path) -> None:
     raw = fake_accumulation(transform="none")
     missing = fake_accumulation(acc=tmp_path / "gone.tif")
     small = fake_accumulation(acc=write_geotiff(tmp_path / "acc.tif", np.log(np.ones((3, 3)))))
@@ -72,13 +72,13 @@ def _terrain_request(**overrides) -> TerrainRequest:
     return TerrainRequest(**facts)
 
 
-def test_a_capped_breach_enters_the_request_processing() -> None:
+def test_capped_breach_in_request() -> None:
     processing = _terrain_request(method="capped_breach", capped_breach=LIMITS).processing()
 
     assert processing["capped_breach"] == {"max_depth_m": 1.0, "max_distance_m": 50.0}
 
 
-def test_a_provided_dem_is_routed_without_a_conditioning_pass(tmp_path) -> None:
+def test_provided_dem_is_not_conditioned(tmp_path) -> None:
     rows, cols = np.mgrid[0:12, 0:12]
     dem = write_geotiff(tmp_path / "dem.tif", (50.0 - rows - 0.5 * cols).astype("float32"))
 

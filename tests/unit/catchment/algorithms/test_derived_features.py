@@ -38,7 +38,7 @@ def _features(watershed: str = "watershed.shp", **fields) -> GeographicDerivedFe
     )
 
 
-def test_attaching_the_reference_attaches_its_permanent_part(tmp_path: Path) -> None:
+def test_attach_reference_network(tmp_path: Path) -> None:
     full = write_lines(tmp_path / "streams.shp", 3)
     permanent = write_lines(tmp_path / "streams_permanent.shp", 1)
     watershed = write_features(tmp_path / "watershed.shp", [box(0.0, -50.0, 1000.0, 400.0)])
@@ -54,7 +54,7 @@ def test_attaching_the_reference_attaches_its_permanent_part(tmp_path: Path) -> 
     assert attach_reference_hydrographic_network(features, None) is features
 
 
-def test_the_domain_view_and_its_lift_carry_the_same_boundaries_and_outlet() -> None:
+def test_domain_view_round_trip() -> None:
     features = _features(
         catchment_area_km2=3.5,
         catch_def="from_outlet_coord",
@@ -102,7 +102,7 @@ VIEW = _features(catch_def="dem").to_domain_geographic_context()
         "nothing",
     ],
 )
-def test_the_bundle_is_found_on_whatever_runtime_object_carries_it(given, found) -> None:
+def test_bundle_lookup(given, found) -> None:
     bundle = coerce_geographic_derived_features(**given)
     if isinstance(found, str):
         assert bundle.catch_def == found
@@ -110,7 +110,7 @@ def test_the_bundle_is_found_on_whatever_runtime_object_carries_it(given, found)
         assert bundle is found
 
 
-def test_the_river_trace_is_read_on_the_bundle_when_the_network_drew_one() -> None:
+def test_river_trace_lookup() -> None:
     trace = RiverMeshTrace.from_geometries(
         source_kind="geographic_generated",
         crs_wkt="EPSG:2154",

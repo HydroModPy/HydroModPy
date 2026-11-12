@@ -1,11 +1,8 @@
 """A mesh request is frozen data, and its hash names exactly what it asks for.
 
-The hash moves with every member and with the earlier runs the size field
-read. A request that reads no run keeps the hash the code gave it before the
-runs were hashed, so the meshes cached for every existing project stay valid.
-A request without a catchment outline keeps its hash the same way.
-A request refuses what no engine can mesh, with a message that names the
-member; the type of a member is its annotation's, not the request's. A size field is sampled bilinearly between its pixel centers.
+Lengths are in meters, in the CRS of the grid. The hash moves with every member.
+A request refuses what no engine can mesh, with a message that names the member.
+A size field is sampled bilinearly between its pixel centers.
 """
 
 from __future__ import annotations
@@ -72,10 +69,6 @@ def _request(**overrides: object) -> MeshRequest:
     return mesh_request(members.pop("grid", _GRID), **members)
 
 
-HASH_WITHOUT_RUNS = "5e5315bbed593615f48b1fd3fe18637a5afffe674fef6914f0e606274e36a1f6"
-"""The hash of :func:`_request_without_runs` computed with the request of 7d3eeb5f0, which hashed no run."""
-
-
 def _request_without_runs(**overrides: object) -> MeshRequest:
     members: dict[str, object] = {
         "nominal_size_m": 20.0,
@@ -88,14 +81,14 @@ def _request_without_runs(**overrides: object) -> MeshRequest:
     return mesh_request(_GRID, **members)
 
 
-def test_the_grid_transform_puts_row_0_north() -> None:
+def test_grid_transform_puts_row_0_north() -> None:
     grid = _GRID
 
     assert grid.transform * (0, 0) == (grid.xmin, grid.ymax)
     assert grid.transform * (grid.ncol, grid.nrow) == pytest.approx((grid.xmax, grid.ymin))
 
 
-def test_the_request_error_is_a_mesh_error() -> None:
+def test_request_error_is_a_mesh_error() -> None:
     assert issubclass(MeshRequestError, MeshError)
 
 
@@ -167,23 +160,17 @@ def _variants() -> dict[str, MeshRequest]:
 
 
 @pytest.mark.parametrize("member", sorted(_variants()))
-def test_the_hash_moves_with_every_member(member: str) -> None:
+def test_hash_moves_with_every_member(member: str) -> None:
     assert _variants()[member].canonical_hash() != _request().canonical_hash()
 
 
-def test_every_variant_hashes_differently_from_the_others() -> None:
+def test_variants_hash_apart() -> None:
     hashes = [request.canonical_hash() for request in _variants().values()]
 
     assert len(set(hashes)) == len(hashes)
 
 
-HASH_WITHOUT_A_CATCHMENT = "5f80505aea4c05f1edf81e35368962a2f6e5f1b2a54a2b67ebb4256587d57ba9"
-"""The hash of ``mesh_request()`` computed with the request of bcd98022e, which had no catchment."""
-
-_CATCHMENT = Polygon([(100.0, 100.0), (900.0, 150.0), (850.0, 900.0), (150.0, 800.0)])
-
-
-def test_the_options_are_read_only_json() -> None:
+def test_options_are_read_only_json() -> None:
     request = _request(options={"shape": [5, 10], "nested": {"b": 1, "a": np.float64(0.5)}})
 
     assert request.options["shape"] == (5, 10)
@@ -321,14 +308,14 @@ _REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
 
 
 @pytest.mark.parametrize("case", list(_REFUSALS))
-def test_a_request_that_cannot_be_meshed_is_refused(case: str) -> None:
+def test_refusals(case: str) -> None:
     build, message = _REFUSALS[case]
 
     with pytest.raises(MeshRequestError, match=message):
         build()
 
 
-def test_bilinear_sampling_is_exact_on_a_plane() -> None:
+def test_bilinear_sampling_on_a_plane() -> None:
     grid = grid_spec(8, 12, 10.0, xmin=1000.0, ymin=5000.0)
     rows, cols = np.mgrid[0:8, 0:12]
     x = grid.xmin + (cols + 0.5) * grid.dx

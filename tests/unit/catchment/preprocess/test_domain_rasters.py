@@ -79,7 +79,7 @@ def _build(tmp_path: Path, *, box: int, buffer: int, watershed: int):
     return paths, products
 
 
-def test_rasters_of_one_shape_keep_the_clip_of_their_own_polygon(tmp_path: Path) -> None:
+def test_rasters_of_one_shape(tmp_path: Path) -> None:
     paths, products = _build(tmp_path, box=5, buffer=5, watershed=5)
 
     assert products.watershed_dem == paths.watershed_dem
@@ -97,9 +97,7 @@ def test_rasters_of_one_shape_keep_the_clip_of_their_own_polygon(tmp_path: Path)
         ("watershed_direc", "watershed_box_buff_direc"),
     ],
 )
-def test_rasters_of_diverging_shapes_are_written_again_on_the_box_grid(
-    tmp_path: Path, clipped: str, box: str
-) -> None:
+def test_rasters_of_diverging_shapes(tmp_path: Path, clipped: str, box: str) -> None:
     paths, _ = _build(tmp_path, box=6, buffer=5, watershed=4)
 
     assert _shape(getattr(paths, clipped)) == (6, 6)

@@ -1,4 +1,4 @@
-"""The table of ``show`` (``hydromodpy/project/show.py``): one case per line, and ``render``."""
+"""The table of ``show``: what each line reads, how it is saved, and ``render``."""
 
 from __future__ import annotations
 
@@ -51,14 +51,11 @@ def _recorder(monkeypatch: pytest.MonkeyPatch, target: str, value: Any = None) -
     return calls
 
 
-# The table and the names made from it
-
-
-def test_show_what_is_made_from_the_keys_of_the_table() -> None:
+def test_show_what_keys() -> None:
     assert get_args(show.ShowWhat) == tuple(show.SHOWN)
 
 
-def test_the_overloads_of_the_verb_name_each_line_once() -> None:
+def test_overloads_name_each_line() -> None:
     named: list[str] = []
     for overload in typing.get_overloads(api.show):
         hints = typing.get_type_hints(
@@ -82,22 +79,19 @@ def test_the_overloads_of_the_verb_name_each_line_once() -> None:
         ("report", ("run", "session")),
     ],
 )
-def test_each_line_reads_its_subjects(what: str, subjects: tuple[str, ...]) -> None:
+def test_subjects_of_a_line(what: str, subjects: tuple[str, ...]) -> None:
     assert show.SHOWN[what].subjects == subjects
 
 
 @pytest.mark.parametrize(
     ("cls", "kind"), [(Run, "run"), (Session, "session"), (RunSet, "set"), (Project, "project")]
 )
-def test_the_kind_of_a_subject(cls: type, kind: str) -> None:
+def test_kind_of_a_subject(cls: type, kind: str) -> None:
     assert show.kind_of(_bare(cls)) == kind
     assert show.kind_of(3) == "int"
 
 
-# summary
-
-
-def test_the_summary_of_a_sealed_run_the_index_has_not_met_is_read(tmp_path: Path, run_at) -> None:
+def test_summary_of_an_unindexed_run(tmp_path: Path, run_at) -> None:
     project = make_project(tmp_path / "p")
     seal_run(project, "base")
     index_new_runs(project)
@@ -109,9 +103,7 @@ def test_the_summary_of_a_sealed_run_the_index_has_not_met_is_read(tmp_path: Pat
     assert (said["sim_id"], said["name"]) == (sim_id, "later")
 
 
-def test_the_summary_of_a_run_out_of_any_project_is_read_from_its_folder(
-    tmp_path: Path, run_at
-) -> None:
+def test_summary_of_a_loose_run(tmp_path: Path, run_at) -> None:
     folder = tmp_path / "copy"
     folder.mkdir()
     run = run_at(folder, "abc")
@@ -122,12 +114,7 @@ def test_the_summary_of_a_run_out_of_any_project_is_read_from_its_folder(
     assert said["profile"]["present"] is False
 
 
-# profile, table, field, series
-
-
-def test_the_profile_of_a_run_and_of_a_session(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at
-) -> None:
+def test_profile(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at) -> None:
     calls = _recorder(monkeypatch, "hydromodpy.results.catalog.listing.profile_of_run", {"a": 1})
     frame = pd.DataFrame({"step": ["solve"]})
     monkeypatch.setattr(Session, "profile", lambda self: frame)
@@ -138,19 +125,19 @@ def test_the_profile_of_a_run_and_of_a_session(
 
 
 @pytest.mark.parametrize("what", ["table", "field", "series"])
-def test_a_line_that_reads_by_name_needs_the_name(what: str) -> None:
+def test_name_is_needed(what: str) -> None:
     with pytest.raises(CommandUsageError, match="needs name="):
         show.shown(_bare(Run), what, {})
 
 
 @pytest.mark.parametrize("cls", [Run, Session, RunSet])
-def test_a_table_is_read_by_the_object(monkeypatch: pytest.MonkeyPatch, cls: type) -> None:
+def test_table_read_by_object(monkeypatch: pytest.MonkeyPatch, cls: type) -> None:
     monkeypatch.setattr(cls, "table", lambda self, name: f"table {name}", raising=False)
     assert show.shown(_bare(cls), "table", {"name": "budget"}) == "table budget"
 
 
 @pytest.mark.parametrize("what", ["field", "series"])
-def test_a_field_and_a_series_are_read_by_the_run(monkeypatch: pytest.MonkeyPatch, what) -> None:
+def test_field_and_series(monkeypatch: pytest.MonkeyPatch, what) -> None:
     asked: list = []
     monkeypatch.setattr(
         Run, "read", lambda self, name, **kw: asked.append((name, kw)) or "data", raising=False
@@ -161,12 +148,7 @@ def test_a_field_and_a_series_are_read_by_the_run(monkeypatch: pytest.MonkeyPatc
     assert asked == [("head", {"time": -1, "layer": 0, "sel": None, "bbox": None})]
 
 
-# point and rank
-
-
-def test_a_point_is_read_in_the_project_of_the_run(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at
-) -> None:
+def test_point_of_a_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at) -> None:
     project = make_project(tmp_path / "p")
     seal_run(project, "base")
     calls = _recorder(monkeypatch, "hydromodpy.results.catalog.listing.point_simulations", "f")
@@ -186,19 +168,14 @@ def test_a_point_is_read_in_the_project_of_the_run(
         show.shown(run, "point", {"name": "head", "point": {"z": 1.0}})
 
 
-def test_a_point_of_a_run_out_of_any_project_is_refused(tmp_path: Path, run_at) -> None:
+def test_point_needs_a_project(tmp_path: Path, run_at) -> None:
     folder = tmp_path / "copy"
     folder.mkdir()
     with pytest.raises(NothingThereError, match="sits in no project"):
         show.shown(run_at(folder), "point", {"name": "head"})
 
 
-# figure, report and render
-
-
-def test_render_draws_a_figure_and_gives_the_file_it_saved(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at
-) -> None:
+def test_render(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at) -> None:
     calls = _recorder(monkeypatch, "hydromodpy.display.runs.render_figure", "figure")
     run = run_at(tmp_path / "runs" / "base")
 
@@ -214,9 +191,7 @@ def test_render_draws_a_figure_and_gives_the_file_it_saved(
     assert calls[3][1]["cmap"] == "x"
 
 
-def test_the_report_of_a_run_and_of_a_session(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at
-) -> None:
+def test_report(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at) -> None:
     runs = _recorder(monkeypatch, "hydromodpy.project.report.report_run", tmp_path / "r.html")
     sessions = _recorder(
         monkeypatch, "hydromodpy.project.report.report_session", tmp_path / "s.html"
@@ -233,10 +208,7 @@ def test_the_report_of_a_run_and_of_a_session(
         show.render(_bare(RunSet), REPORT, {})
 
 
-# What a save writes
-
-
-def test_a_save_writes_what_was_read_by_its_suffix(tmp_path: Path) -> None:
+def test_write_shown_by_suffix(tmp_path: Path) -> None:
     frame = pd.DataFrame({"a": [1, 2]})
     field = xr.DataArray([1.0, 2.0], dims=["x"], name="head")
 
@@ -250,9 +222,7 @@ def test_a_save_writes_what_was_read_by_its_suffix(tmp_path: Path) -> None:
         show.write_shown(frame, tmp_path / "t.png")
 
 
-def test_show_with_save_writes_a_table_and_leaves_a_figure_to_render(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_show_with_save(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(Run, "table", lambda self, name: pd.DataFrame({"a": [1]}), raising=False)
     drawn = _recorder(monkeypatch, "hydromodpy.project.show.render", tmp_path / "f.png")
 
@@ -264,12 +234,7 @@ def test_show_with_save_writes_a_table_and_leaves_a_figure_to_render(
     assert drawn[0][0][2]["save"] == tmp_path / "f.png"
 
 
-# show_target: what a reference names, read from the directories
-
-
-def test_a_name_that_is_nothing_is_refused_unless_it_is_a_project_of_the_workspace(
-    tmp_path: Path,
-) -> None:
+def test_show_target(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     (workspace / "data").mkdir(parents=True)
     (workspace / "workspace.toml").write_text("[workspace]\n", encoding="utf-8")

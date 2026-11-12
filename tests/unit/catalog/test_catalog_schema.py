@@ -1,4 +1,5 @@
-"""Schema discovery of the reader, and the data cache of a workspace read by its sidecars."""
+"""The catalog reader over a sealed project: objects and a frame for runs, and a description of its tables,
+columns, metrics (NSE, dimensionless) and stations."""
 
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ def project(tmp_path: Path) -> tuple[Path, str]:
     return root, sid
 
 
-def test_the_reader_answers_with_objects_and_a_frame(project) -> None:
+def test_find_returns_a_run_set(project) -> None:
     root, sid = project
     with Catalog(root) as cat:
         group = cat.find(solver="modflow6")
@@ -32,7 +33,7 @@ def test_the_reader_answers_with_objects_and_a_frame(project) -> None:
         assert cat[sid].project == "naizin"
 
 
-def test_find_unknown_filter_lists_valid_keys(project) -> None:
+def test_find_refuses_unknown_filter(project) -> None:
     root, _sid = project
     with Catalog(root) as cat:
         with pytest.raises(ValueError, match="Unknown filter"):
@@ -51,7 +52,7 @@ def test_schema_discovery(project) -> None:
         assert cat.variables()
 
 
-def test_describe_is_human_readable(project) -> None:
+def test_describe(project) -> None:
     root, _sid = project
     with Catalog(root) as cat:
         text = cat.describe()

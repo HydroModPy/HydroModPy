@@ -1,4 +1,8 @@
-"""``workspace.toml`` template generator + Pydantic loader tests."""
+"""Writer and loader of ``workspace.toml``, the file that marks a workspace root.
+
+The file holds the workspace name, its contact, and the minimum HydroModPy version
+that may open it. The loader refuses a newer minimum and any unknown block.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +25,28 @@ from hydromodpy.core.workspace.workspace_toml import (
 )
 
 
-def test_write_workspace_toml_idempotent(tmp_path: Path):
+def scaffold_workspace(tmp_path: Path, minimum: str | None = None) -> Path:
+    ws = tmp_path / "ws"
+    write_workspace_toml(
+        ws,
+        project_name="lab",
+        creator_name="Alice",
+        creator_email="alice@example.com",
+        created_at="2026-05-12T00:00:00+00:00",
+    )
+    if minimum is not None:
+        target = ws / WORKSPACE_TOML_FILENAME
+        target.write_text(
+            target.read_text(encoding="utf-8").replace(
+                f'hydromodpy_version_min = "{WORKSPACE_VERSION_MIN}"',
+                f'hydromodpy_version_min = "{minimum}"',
+            ),
+            encoding="utf-8",
+        )
+    return ws
+
+
+def test_write_is_idempotent(tmp_path: Path):
     target_dir = tmp_path / "ws"
     first = write_workspace_toml(
         target_dir,
@@ -42,29 +67,19 @@ def test_write_workspace_toml_idempotent(tmp_path: Path):
     assert second.read_text(encoding="utf-8") == first_content
 
 
-@pytest.mark.parametrize(
-    ("minimum", "installed", "opens"),
-    [
-        (WORKSPACE_VERSION_MIN, "2.0.0", True),
-        (WORKSPACE_VERSION_MIN, "2.0.0a5", True),
-        (WORKSPACE_VERSION_MIN, "2.3.1", True),
-        ("2.1.0", "2.1.0rc1", True),
-        ("2.1.0", "2.0.9", False),
-        ("3.0.0", "2.9.0", False),
-    ],
-)
-def test_the_minimum_version_is_compared_with_the_installed_one(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, minimum: str, installed: str, opens: bool
-):
-    ws = _scaffold_workspace(tmp_path)
-    target = ws / WORKSPACE_TOML_FILENAME
-    target.write_text(
-        target.read_text(encoding="utf-8").replace(
-            f'hydromodpy_version_min = "{WORKSPACE_VERSION_MIN}"',
-            f'hydromodpy_version_min = "{minimum}"',
-        ),
-        encoding="utf-8",
-    )
+VERSIONS = [
+    pytest.param(WORKSPACE_VERSION_MIN, "2.0.0", True, id="current minimum, same version"),
+    pytest.param(WORKSPACE_VERSION_MIN, "2.0.0a5", True, id="prerelease of the minimum"),
+    pytest.param(WORKSPACE_VERSION_MIN, "2.3.1", True, id="newer install"),
+    pytest.param("2.1.0", "2.1.0rc1", True, id="release candidate opens"),
+    pytest.param("2.1.0", "2.0.9", False, id="install too old"),
+    pytest.param("3.0.0", "2.9.0", False, id="next major"),
+]
+
+
+@pytest.mark.parametrize(("minimum", "installed", "opens"), VERSIONS)
+def test_minimum_version_check(tmp_path, monkeypatch, minimum, installed, opens):
+    ws = scaffold_workspace(tmp_path, minimum)
     monkeypatch.setattr(workspace_toml, "HYDROMODPY_VERSION", installed)
 
     if opens:
@@ -75,69 +90,28 @@ def test_the_minimum_version_is_compared_with_the_installed_one(
     assert minimum in str(refused.value) and installed in str(refused.value)
 
 
-@pytest.mark.parametrize(
-    "build",
-    [
-        lambda ws: WorkspaceConfig(project_root=ws / "projects" / "p"),
-        lambda ws: refuse_a_newer_workspace(ws),
-    ],
-    ids=["a config of a project", "a command on the workspace"],
-)
-def test_a_workspace_that_asks_for_more_is_refused_before_any_work(tmp_path: Path, build):
-    ws = _scaffold_workspace(tmp_path)
+def test_newer_workspace_is_refused_in_a_config(tmp_path: Path):
+    ws = scaffold_workspace(tmp_path, "99.0.0")
     (ws / "projects" / "p").mkdir(parents=True)
     (ws / "data").mkdir()
-    target = ws / WORKSPACE_TOML_FILENAME
-    target.write_text(
-        target.read_text(encoding="utf-8").replace(
-            f'hydromodpy_version_min = "{WORKSPACE_VERSION_MIN}"',
-            'hydromodpy_version_min = "99.0.0"',
-        ),
-        encoding="utf-8",
-    )
-
     with pytest.raises(SchemaVersionMismatchError, match="99.0.0"):
-        build(ws)
+        WorkspaceConfig(project_root=ws / "projects" / "p")
 
 
-def test_a_minimum_that_is_no_version_is_refused(tmp_path: Path):
-    ws = _scaffold_workspace(tmp_path)
-    target = ws / WORKSPACE_TOML_FILENAME
-    target.write_text(
-        target.read_text(encoding="utf-8").replace(
-            f'hydromodpy_version_min = "{WORKSPACE_VERSION_MIN}"',
-            'hydromodpy_version_min = "soon"',
-        ),
-        encoding="utf-8",
-    )
+def test_newer_workspace_is_refused_by_a_command(tmp_path: Path):
+    ws = scaffold_workspace(tmp_path, "99.0.0")
+    with pytest.raises(SchemaVersionMismatchError, match="99.0.0"):
+        refuse_a_newer_workspace(ws)
+
+
+def test_minimum_that_is_no_version_is_refused(tmp_path: Path):
+    ws = scaffold_workspace(tmp_path, "soon")
     with pytest.raises(ValidationError, match="not a version"):
         load_workspace_toml(ws)
 
 
-def test_template_constant_is_exported():
-    assert "[workspace]" in DEFAULT_WORKSPACE_TOML_TEMPLATE
-    assert "{project_name}" in DEFAULT_WORKSPACE_TOML_TEMPLATE
-
-
-# ---------------------------------------------------------------------------
-# Pydantic validation at load
-# ---------------------------------------------------------------------------
-
-
-def _scaffold_workspace(tmp_path: Path) -> Path:
-    ws = tmp_path / "ws"
-    write_workspace_toml(
-        ws,
-        project_name="lab",
-        creator_name="Alice",
-        creator_email="alice@example.com",
-        created_at="2026-05-12T00:00:00+00:00",
-    )
-    return ws
-
-
-def test_load_workspace_toml_rejects_unknown_top_level_block(tmp_path: Path):
-    ws = _scaffold_workspace(tmp_path)
+def test_unknown_top_level_block_is_refused(tmp_path: Path):
+    ws = scaffold_workspace(tmp_path)
     toml_path = ws / WORKSPACE_TOML_FILENAME
     toml_path.write_text(
         toml_path.read_text(encoding="utf-8") + '\n[unexpected]\nfoo = "bar"\n',
@@ -147,15 +121,21 @@ def test_load_workspace_toml_rejects_unknown_top_level_block(tmp_path: Path):
         load_workspace_toml(ws)
 
 
-def test_load_roundtrip_preserves_content(tmp_path: Path):
-    ws = _scaffold_workspace(tmp_path)
+def test_missing_file_is_refused(tmp_path: Path):
+    with pytest.raises(FileNotFoundError):
+        load_workspace_toml(tmp_path / "absent")
+
+
+def test_template_has_its_placeholders():
+    assert "[workspace]" in DEFAULT_WORKSPACE_TOML_TEMPLATE
+    assert "{project_name}" in DEFAULT_WORKSPACE_TOML_TEMPLATE
+
+
+def test_rewrite_keeps_the_content(tmp_path: Path):
+    ws = scaffold_workspace(tmp_path)
     first = load_workspace_toml(ws)
-    # Re-write the same file (no force, idempotent) then reload.
     write_workspace_toml(
-        ws,
-        project_name="lab",
-        creator_name="Alice",
-        creator_email="alice@example.com",
+        ws, project_name="lab", creator_name="Alice", creator_email="alice@example.com"
     )
     second = load_workspace_toml(ws)
     assert first.workspace.name == second.workspace.name
@@ -164,13 +144,7 @@ def test_load_roundtrip_preserves_content(tmp_path: Path):
     assert first.workspace.team.members == second.workspace.team.members
 
 
-def test_load_workspace_toml_missing_file_raises(tmp_path: Path):
-    with pytest.raises(FileNotFoundError):
-        load_workspace_toml(tmp_path / "absent")
-
-
-def test_workspace_toml_model_frozen():
-    """The validated model is immutable (frozen=True)."""
+def test_model_is_frozen():
     parsed = WorkspaceToml.model_validate(
         {
             "workspace": {

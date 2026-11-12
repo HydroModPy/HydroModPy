@@ -1,4 +1,9 @@
-"""Tests of `runners.cli_runner`."""
+"""Calibration runners from the command line down to the session on disk.
+
+A calibration file is read, searched trial by trial with a stand-in or closed-form
+evaluator, and its session (journal, phases, outcome) is closed with a status.
+Costs are unitless, K is in m/s, windows are calendar dates.
+"""
 
 from __future__ import annotations
 
@@ -31,8 +36,7 @@ from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics import composite
 from hydromodpy.calibration.optim import engine as engine_mod
 from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
-from hydromodpy.calibration.optim.cache import ParamsHashCache
-from hydromodpy.calibration.optim.cache import params_hash as params_hash__resumed_session
+from hydromodpy.calibration.optim.cache import ParamsHashCache, params_hash
 from hydromodpy.calibration.optim.cost_margin import IntervalWidth, ParameterInterval
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
@@ -123,41 +127,7 @@ from tests.unit.calibration._factories_runners import (
 )
 from tests.unit.calibration._factories_search import result_of
 
-# Every search here runs real trials, so the module asks for the trial pipeline
-# the way a session would: filled once by the project package, before the first
-# trial forks.
 pytestmark = pytest.mark.usefixtures("ensure_bootstrap")
-
-# From test_a_calibration_file_takes_the_user_migration.py
-# A calibration file goes through the migration of user files when it is read: a table
-# the register moves is read under its new name and warns, a key only a pre-release wrote
-# is refused.
-
-
-_TOML = """\
-[calibration]
-method = "grid"
-objective = "nse"
-
-[calibration.parameters.K]
-bounds = [1e-8, 1e-2]
-search_space = "log"
-
-[modflow6]
-sgrid = {}
-"""
-
-
-# From test_a_calibration_that_names_no_method.py
-# A calibration that names no method gets the one its criteria call for.
-#
-# A phase, or a calibration run in one stage, that does not write ``method`` runs
-# ``bisection`` when it moves one parameter in log space and every one of its
-# blocks is signed: the answer is then a zero to find. Every other search runs
-# ``scipy_nelder_mead``, a cost to minimize. A written method is kept as written.
-#
-# No solver runs. The choice is read off the configuration, the listing off the
-# CLI, and the one run goes through the closed-form ``analytic_bowl`` evaluator.
 
 
 STAGED = """
@@ -225,24 +195,9 @@ parameters = ["K"]
 objective_blocks = ["network"]
 """
 
-EXPECTED = {
-    "k_gap": ("bisection", "one log parameter, signed criterion"),
-    "k_sy_gap": ("scipy_nelder_mead", "signed criterion on 2 parameters, cost to minimise"),
-    "k_nse_log": ("scipy_nelder_mead", "cost to minimise"),
-    "sy_gap": ("scipy_nelder_mead", "signed criterion, Sy not in log space, cost to minimise"),
-    "k_mixed": ("scipy_nelder_mead", "cost to minimise"),
-    "k_written": ("grid", None),
-}
-
-
-@pytest.fixture
-def staged(tmp_path: Path) -> CalibrationConfig:
-    cfg, _raw = load_toml_calibration(write_document(tmp_path, STAGED))
-    return cfg
-
 
 @pytest.mark.fast
-def test_list_phases_names_the_reason(tmp_path, capsys) -> None:
+def test_list_phases_gives_reason(tmp_path, capsys) -> None:
     path = write_document(tmp_path, STAGED)
     calibrate_cmd.run(
         argparse.Namespace(config=path, check=False, list_phases=True, phase=None, profile=None)
@@ -266,9 +221,7 @@ def test_list_phases_names_the_reason(tmp_path, capsys) -> None:
 
 
 @pytest.mark.fast
-def test_list_phases_names_the_method_of_a_file_without_phases(tmp_path, capsys) -> None:
-    """A file without phases still runs one search, so the listing names its method."""
-
+def test_list_phases_without_phases(tmp_path, capsys) -> None:
     path = write_document(tmp_path, SINGLE_STAGE)
     calibrate_cmd.run(
         argparse.Namespace(config=path, check=False, list_phases=True, phase=None, profile=None)
@@ -279,7 +232,7 @@ def test_list_phases_names_the_method_of_a_file_without_phases(tmp_path, capsys)
 
 
 @pytest.mark.fast
-def test_method_options_without_a_method_are_refused() -> None:
+def test_method_options_need_method() -> None:
     with pytest.raises(ValidationError, match="phase 'p' gives method_options and no method"):
         CalibrationConfig.model_validate(
             {
@@ -307,8 +260,7 @@ path = "flow.param.K.field.value"
 
 
 @pytest.mark.fast
-def test_a_single_stage_calibration_with_no_method_runs_the_chosen_one(tmp_path) -> None:
-    """One log parameter scored on ``objective`` (nse), which is not signed: a minimiser."""
+def test_single_stage_picks_method(tmp_path) -> None:
     path = write_document(tmp_path, SINGLE_STAGE)
 
     report = run_calibration_cli(path, workspace=tmp_path)
@@ -342,26 +294,6 @@ kind = "homogeneous"
 unit = "m/s"
 value = 6.4e-5
 """
-
-BARE_K_ON_THE_GAP = toml_doc(
-    """
-    base_config = "project.toml"
-    @KB
-    @NET
-    @GAP
-    """
-)
-
-
-# From test_a_failed_perturbed_run_leaves_no_width.py
-# A perturbed run that fails leaves the answer without a linearized width.
-#
-# ``linearized`` takes one run per parameter around the answer, then the answer
-# itself. A run that fails, or that a water-budget rejection marks failed, used
-# to leave the vector of the run before it in place: the Jacobian took a stale
-# column, or the first failure raised a bare ``KeyError`` that lost the search
-# already paid for. The width is now withheld, with the reason, and the
-# calibrated values stand.
 
 
 ANSWER = {"K": 2.0, "Sy": 0.5}
@@ -414,9 +346,9 @@ def _runs(fail_when, *, scores_before_failing: bool):
         (lambda values: values["Sy"] != ANSWER["Sy"], True),
         (lambda values: True, False),
     ],
-    ids=["failed_run", "failed_after_scoring", "first_run_failing_keeps_the_search"],
+    ids=["failed run", "failed after scoring", "first run failing keeps the search"],
 )
-def test_a_failed_perturbed_run_leaves_the_answer_without_width(
+def test_failed_perturbed_run_gives_no_width(
     monkeypatch, caplog, fail_when, scores_before_failing
 ) -> None:
     monkeypatch.setattr(composite, "build_paired_vector_capture", _capture)
@@ -444,7 +376,7 @@ def test_a_failed_perturbed_run_leaves_the_answer_without_width(
     ("method", "parallel", "width"),
     [("scipy_de", 3, 3), ("optuna", 2, 2), ("scipy_nelder_mead", 3, None)],
 )
-def test_the_width_reaches_the_engines_that_take_it(method, parallel, width) -> None:
+def test_width_reaches_parallel_engines(method, parallel, width) -> None:
     cfg = make_config(method=method, parallel=parallel)
 
     kwargs = _engine_kwargs(cfg, space_from_config(cfg), start_at=None)
@@ -453,9 +385,9 @@ def test_the_width_reaches_the_engines_that_take_it(method, parallel, width) -> 
 
 
 @pytest.mark.parametrize(
-    ("restarts", "indices"), [(None, [0]), (3, [0, 1, 2])], ids=["one_search", "three_restarts"]
+    ("restarts", "indices"), [(None, [0]), (3, [0, 1, 2])], ids=["one search", "three restarts"]
 )
-def test_restarts_run_on_one_pool_that_the_search_closes(monkeypatch, restarts, indices) -> None:
+def test_restarts_share_one_pool(monkeypatch, restarts, indices) -> None:
     pools: list = []
     seen: list = []
 
@@ -502,14 +434,6 @@ def test_restarts_run_on_one_pool_that_the_search_closes(monkeypatch, restarts, 
     assert recorded == [(PhaseContext().name, {"seed": cfg.seed})]
 
 
-# From test_a_patch_release_keeps_the_cache.py
-# A release that touches no computing code keeps ``--resume`` and the trial cache.
-#
-# The key of a trial reads the code itself, one digest per layer, and never the
-# release number. So a new version string, or an edit of a docstring, moves nothing,
-# and an edit of the code that computes is refused by name.
-
-
 DOCUMENT = """
 [simulation]
 name = "patch"
@@ -536,30 +460,8 @@ def _search(root: Path, *, resume: bool = False) -> CalibrationPersistence:
     return CalibrationPersistence(root / "sessions" / "patch")
 
 
-def _edited_layer(tmp_path: Path, layer: str, edit: tuple[str, str]) -> dict[str, str]:
-    """Return the fingerprint of a copy of the package with one edit in one file of *layer*."""
-    package = Path(state.__file__).resolve().parents[2]
-    copy = tmp_path / "package"
-    shutil.copytree(
-        package / layer, copy / layer, ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
-    )
-    target = copy / layer / "report.py"
-    source = target.read_text(encoding="utf-8")
-    assert edit[0] in source
-    target.write_text(source.replace(edit[0], edit[1], 1), encoding="utf-8")
-    clear_fingerprint_cache()
-    edited = fingerprint_tree(copy, [layer])
-    clear_fingerprint_cache()
-    return {**code_fingerprint(), **edited}
-
-
-def _copy_as_shipped(tmp_path: Path, layer: str) -> dict[str, str]:
-    """Return the fingerprint of an untouched copy: the path of a file enters by its name."""
-    return _edited_layer(tmp_path / "plain", layer, ("Calibration", "Calibration"))
-
-
 @pytest.mark.fast
-def test_a_resume_after_a_docstring_edit_keeps_its_trials(
+def test_resume_after_docstring_edit_uses_cache(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     first = _search(tmp_path)
@@ -573,34 +475,13 @@ def test_a_resume_after_a_docstring_edit_keeps_its_trials(
 
 
 @pytest.mark.fast
-def test_a_resume_after_a_change_of_the_computing_code_names_the_layer(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_resume_after_code_change_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _search(tmp_path)
     moved = {**code_fingerprint(), "solver": "another digest"}
     monkeypatch.setattr(state, "code_fingerprint", lambda: moved)
 
     with pytest.raises(CalibrationError, match=r"code\.solver changed since they ran"):
         _search(tmp_path, resume=True)
-
-
-def _section(extra: str = "") -> CalibrationConfig:
-    return CalibrationConfig.model_validate(
-        {
-            "parameters": {"a": {"bounds": [1e-6, 1e-2], "path": "flow.param.K.field.value"}},
-            "method": "grid",
-            **({"objective": extra} if extra else {}),
-        }
-    )
-
-
-def _key(cfg: CalibrationConfig) -> dict[str, object]:
-    space = ParameterSpace.from_toml_mapping(
-        {name: decl.model_dump(exclude_none=True) for name, decl in cfg.parameters.items()}
-    )
-    return build_cache_context(
-        cfg=cfg, trial_ctx=None, space=space, override_paths={}, objective_entrypoint=None
-    )
 
 
 _DATES = {"start_datetime": "2000-01-01", "end_datetime": "2000-12-31"}
@@ -618,7 +499,7 @@ _DATES = {"start_datetime": "2000-01-01", "end_datetime": "2000-12-31"}
         (FieldHomogeneousSection, {"value": "1e-5 m/s"}, {"value": "1e-5 cm/s"}),
     ],
 )
-def test_a_unit_written_inside_a_value_stays_in_what_the_file_wrote(
+def test_value_unit_stays_as_written(
     model: type, first: dict[str, str], second: dict[str, str]
 ) -> None:
     dumps = [
@@ -626,17 +507,6 @@ def test_a_unit_written_inside_a_value_stays_in_what_the_file_wrote(
         for doc in (first, second)
     ]
     assert dumps[0] != dumps[1]
-
-
-# From test_a_resumed_session_keeps_one_cost.py
-# A reopened session adds trials only under the cost that scored its journal.
-#
-# ``--resume`` and ``--phase`` reopen ``sessions/<case>`` and keep its trials, and
-# the best trial of a phase is chosen over every line of it. A document changed
-# in what moves a cost would let a trial scored the old way win under the new
-# one, so the search refuses to start. A session that another live process of
-# this host still writes is refused too, since both would number their trials
-# alike.
 
 
 PHASE = PhaseContext(name="steady_k")
@@ -649,91 +519,77 @@ def _journal(
 ) -> None:
     metadata: dict[str, Any] = {"parameters": {"K": {"value": k}}}
     if context is not None:
-        metadata["params_hash"] = params_hash__resumed_session({"K": k}, context=context)
+        metadata["params_hash"] = params_hash({"K": k}, context=context)
     journal_trial(persistence, 1, k=k, phase=phase, metadata=metadata)
 
 
-class TestTheCostOfAReopenedPhase:
-    def test_a_trial_without_fingerprint_is_reported_not_refused(self, tmp_path, caplog) -> None:
-        persistence = make_session(tmp_path)
-        _journal(persistence, 1e-5, context=None)
+def test_trial_without_fingerprint_warns(tmp_path, caplog) -> None:
+    persistence = make_session(tmp_path)
+    _journal(persistence, 1e-5, context=None)
 
-        with caplog.at_level(logging.WARNING):
-            refuse_a_phase_another_cost_scored(persistence, PHASE.name, SCORED_NOW)
+    with caplog.at_level(logging.WARNING):
+        refuse_a_phase_another_cost_scored(persistence, PHASE.name, SCORED_NOW)
 
-        assert "recorded no fingerprint" in caplog.text
+    assert "recorded no fingerprint" in caplog.text
 
 
-class TestAWriterStillAlive:
-    def _claimed_by(self, persistence: CalibrationPersistence, pid: int) -> None:
-        outcome = read_outcome(persistence.directory)
-        assert outcome is not None
-        write_outcome(
-            persistence.directory,
-            outcome.model_copy(update={"pid": pid, "host": socket.gethostname()}),
+def _claimed_by(persistence: CalibrationPersistence, pid: int) -> None:
+    outcome = read_outcome(persistence.directory)
+    assert outcome is not None
+    write_outcome(
+        persistence.directory,
+        outcome.model_copy(update={"pid": pid, "host": socket.gethostname()}),
+    )
+
+
+def test_live_writer_blocks_resume(tmp_path) -> None:
+    persistence = make_session(tmp_path)
+    _claimed_by(persistence, os.getppid())
+
+    with pytest.raises(CalibrationError, match="still written by process"):
+        CalibrationPersistence(persistence.directory).resume_session()
+
+
+def test_dead_writer_allows_resume(tmp_path, monkeypatch) -> None:
+    persistence = make_session(tmp_path)
+    _claimed_by(persistence, os.getppid())
+    monkeypatch.setattr(host_module, "process_is_alive", lambda pid: False)
+
+    descriptor = CalibrationPersistence(persistence.directory).resume_session()
+
+    assert descriptor.status == "running"
+
+
+def test_own_process_resumes(tmp_path) -> None:
+    persistence = make_session(tmp_path)
+
+    descriptor = CalibrationPersistence(persistence.directory).resume_session()
+
+    assert descriptor.status == "running"
+
+
+def test_refused_resume_keeps_files(tmp_path, monkeypatch) -> None:
+    persistence = make_session(tmp_path)
+    _journal(persistence, 1e-5, context=SCORED_BEFORE, phase=PhaseContext(name=DEFAULT_PHASE))
+    persistence.finalize_session(status="completed", best=None)
+    files = [persistence.directory / "session.json", persistence.directory / "outcome.json"]
+    before = [path.read_bytes() for path in files]
+    monkeypatch.setattr(session_scope, "build_cache_context", lambda **_: SCORED_NOW)
+    monkeypatch.setattr(session_scope, "resolve_override_paths", lambda _cfg: {})
+
+    with pytest.raises(CalibrationError, match="does not score the same way"):
+        session_scope.open_calibration_session(
+            tmp_path,
+            "calage",
+            resume=True,
+            raw={},
+            cfg=SimpleNamespace(),
+            space=None,
+            trial_ctx=None,
+            project=None,
         )
 
-    def test_a_session_another_live_process_writes_is_not_resumed(self, tmp_path) -> None:
-        persistence = make_session(tmp_path)
-        self._claimed_by(persistence, os.getppid())
-
-        with pytest.raises(CalibrationError, match="still written by process"):
-            CalibrationPersistence(persistence.directory).resume_session()
-
-    def test_a_session_whose_writer_is_gone_is_resumed(self, tmp_path, monkeypatch) -> None:
-        persistence = make_session(tmp_path)
-        self._claimed_by(persistence, os.getppid())
-        monkeypatch.setattr(host_module, "process_is_alive", lambda pid: False)
-
-        descriptor = CalibrationPersistence(persistence.directory).resume_session()
-
-        assert descriptor.status == "running"
-
-    def test_this_process_resumes_its_own_session(self, tmp_path) -> None:
-        persistence = make_session(tmp_path)
-
-        descriptor = CalibrationPersistence(persistence.directory).resume_session()
-
-        assert descriptor.status == "running"
-
-
-class TestARefusalWritesNothing:
-    def test_a_refused_resume_leaves_the_session_files_as_they_were(
-        self, tmp_path, monkeypatch
-    ) -> None:
-
-        persistence = make_session(tmp_path)
-        _journal(persistence, 1e-5, context=SCORED_BEFORE, phase=PhaseContext(name=DEFAULT_PHASE))
-        persistence.finalize_session(status="completed", best=None)
-        files = [persistence.directory / "session.json", persistence.directory / "outcome.json"]
-        before = [path.read_bytes() for path in files]
-        monkeypatch.setattr(session_scope, "build_cache_context", lambda **_: SCORED_NOW)
-        monkeypatch.setattr(session_scope, "resolve_override_paths", lambda _cfg: {})
-
-        with pytest.raises(CalibrationError, match="does not score the same way"):
-            session_scope.open_calibration_session(
-                tmp_path,
-                "calage",
-                resume=True,
-                raw={},
-                cfg=SimpleNamespace(),
-                space=None,
-                trial_ctx=None,
-                project=None,
-            )
-
-        assert [path.read_bytes() for path in files] == before
-
-
-# From test_a_session_freezes_what_its_search_read.py
-# The frozen document of a session reads the files its search read, and names its window.
-#
-# ``sessions/<case>/config.toml`` is the base of a promotion after the fact,
-# which has to hash the model the search hashed. A geometry path is anchored to
-# the file that declares it; read from two folders deeper, a bare filename found
-# nothing, stayed relative, and moved the hash of every trial. The window the
-# session scored its cost on closes an open bound with the declared period
-# and reads the last phase of a staged calibration.
+    assert [path.read_bytes() for path in files] == before
 
 
 CASE = """\
@@ -775,7 +631,7 @@ def _case(tmp_path: Path, text: str = CASE) -> Path:
     return path
 
 
-def test_the_frozen_document_finds_the_map_the_search_read(tmp_path) -> None:
+def test_frozen_document_keeps_map(tmp_path) -> None:
     path = _case(tmp_path)
     cfg, raw = load_toml_calibration(path)
     session_dir = path.parent / "sessions" / "calage"
@@ -790,7 +646,7 @@ def test_the_frozen_document_finds_the_map_the_search_read(tmp_path) -> None:
     assert str(tmp_path) not in frozen.read_text(encoding="utf-8")
 
 
-def test_the_validation_window_comes_second_on_a_search_it_is_scored_on(tmp_path) -> None:
+def test_search_windows(tmp_path) -> None:
     dated = CASE.replace(
         'support = "network"\nmap.complete = "net.gpkg"\n',
         'support = "point"\nvariable = "discharge"\nobserves = "J1"\n',
@@ -820,18 +676,7 @@ def test_the_validation_window_comes_second_on_a_search_it_is_scored_on(tmp_path
     )
 
 
-def test_a_count_of_skipped_samples_is_refused_with_the_way_out(tmp_path) -> None:
-    path = _case(
-        tmp_path, CASE.replace("max_trials = 3\n", "max_trials = 3\nwarmup_periods = 12\n")
-    )
-
-    with pytest.raises(
-        ConfigError, match=r"holds calibration\.warmup_periods, written by a pre-release"
-    ):
-        load_toml_calibration(path)
-
-
-def test_a_staged_calibration_names_the_window_of_its_last_phase(tmp_path) -> None:
+def test_staged_window_is_last_phase(tmp_path) -> None:
     staged = CASE + (
         "\n[calibration.parameters.Sy]\n"
         "bounds = [0.01, 0.3]\n"
@@ -853,15 +698,6 @@ def test_a_staged_calibration_names_the_window_of_its_last_phase(tmp_path) -> No
     cfg, raw = load_toml_calibration(_case(tmp_path, staged))
 
     assert search_windows(cfg, raw) == calibration_window(date(2001, 6, 1), date(2002, 12, 31))
-
-
-# From test_a_staged_session_names_the_objective_of_its_kept_value.py
-# A staged session names the objective its kept value is a cost of.
-#
-# ``session.json`` of a two-stage calibration wrote ``cost_name =
-# "distance_gap + nse_log"``, every block of every stage joined, while its value
-# and its window are those of the last stage, scored on ``nse_log`` alone. The
-# promoted run inherits the name. It now names what the last stage scores.
 
 
 _PARAMETERS = {
@@ -892,34 +728,12 @@ def _staged(last: dict) -> CalibrationConfig:
     )
 
 
-def test_a_last_stage_on_the_single_metric_route_names_its_objective() -> None:
+def test_session_cost_name() -> None:
     cfg = _staged({"variable": "gauge", "objective": "kge"})
 
     assert session_cost_name(cfg) == "kge"
 
 
-# From test_calibration_cli.py
-# Unit tests for :mod:`hydromodpy.calibration.runners.cli_runner`.
-#
-# Exercises the end-to-end wiring of ``run_calibration_cli`` without
-# touching MODFLOW: ``prepare_trials`` and ``promote_prepared_trial`` are
-# monkey-patched to return deterministic stubs, and a custom ``metric_fn``
-# is injected so each trial returns a closed-form objective. This lets us
-# verify:
-#
-# - the session is written under ``sessions/<case>/`` and closed with its status,
-# - ``save_runs`` modes (``"none"`` / ``"best_n"`` / ``"all"``) promote the
-#   expected number of trials, to the directories the target names,
-# - the promoted runs are linked back into ``trials.jsonl``,
-# - the ``ParamsHashCache`` preloads the trials of an earlier session,
-# - the ``objective="module.path:fn"`` escape hatch resolves and invokes
-#   the user-supplied callable,
-# - an interrupted or failed search closes its session with the right status.
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 TOML_TEMPLATE = """\
 [workspace]
 root = "{workspace}"
@@ -953,9 +767,7 @@ path = "flow.param.K.field.value"
 """
 
 
-def _write__calibration_cli(
-    tmp_path: Path, *, save_runs: str, name: str = "run_calibration_k"
-) -> Path:
+def _write_search_toml(tmp_path: Path, *, save_runs: str, name: str = "run_calibration_k") -> Path:
     ws = tmp_path / "ws"
     ws.mkdir(exist_ok=True)
     toml = tmp_path / f"{name}.toml"
@@ -968,7 +780,7 @@ def _write__calibration_cli(
 
 @pytest.fixture
 def calib_toml(tmp_path: Path) -> Path:
-    return _write__calibration_cli(tmp_path, save_runs="best_n")
+    return _write_search_toml(tmp_path, save_runs="best_n")
 
 
 def _the_session(project: Path):
@@ -982,99 +794,82 @@ def run(calib_toml, fake_pipeline, quadratic_metric):
     return lambda **kwargs: run_calibration_cli(calib_toml, metric_fn=quadratic_metric, **kwargs)
 
 
-def _dry_run(calib_toml: Path) -> dict:
-    return describe_dry_run(
-        load_toml_calibration(calib_toml)[0], calib_toml, workspace=calib_toml.parent
+def test_second_run_takes_next_version(run):
+    run()
+    summary = run()
+
+    assert summary.session_dir.name == "toy.v2"
+    assert summary.best_rel_dir == "runs/toy.v2"
+
+
+@pytest.mark.parametrize(
+    ("text", "match"),
+    [
+        ("[simulation]\nname = 'nope'\n", "No \\[calibration\\] section"),
+        (
+            '[calibration]\nmethod = "grid"\nmax_trials = 3\nobjective = "nse"\n'
+            'variable = "discharge"\n\n[calibration.parameters.K]\nbounds = [1e-6, 1e-3]\n',
+            "must declare a 'path'",
+        ),
+    ],
+    ids=["missing calibration section", "parameters without path"],
+)
+def test_unreadable_file_refused(tmp_path, fake_pipeline, text, match):
+    with pytest.raises(ValueError, match=match):
+        run_calibration_cli(write_document(tmp_path, text, "bad.toml"))
+
+
+def test_preload_ignores_unscoped_hashes(tmp_path):
+    make_session(
+        tmp_path,
+        "old",
+        costs=tuple(
+            {"cost": float(n), "components": {"rmse": float(n)}, "metadata": {"params_hash": h}}
+            for n, h in ((1, "legacyhash"), (2, "v2:scopedhash"))
+        ),
+        project="p",
+        cost_name="rmse",
+        bounds={},
     )
 
+    cache = ParamsHashCache()
+    n_preloaded = state.preload_hash_cache(tmp_path, cache)
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-class TestRunCalibrationCli:
-    # The file writes [simulation] name = "toy" itself, so the case is "toy" (D3).
-
-    def test_a_second_run_of_the_file_takes_the_next_version(self, run):
-        run()
-        summary = run()
-
-        assert summary.session_dir.name == "toy.v2"
-        assert summary.best_rel_dir == "runs/toy.v2"
-
-    @pytest.mark.parametrize(
-        ("text", "match"),
-        [
-            ("[simulation]\nname = 'nope'\n", "No \\[calibration\\] section"),
-            (
-                '[calibration]\nmethod = "grid"\nmax_trials = 3\nobjective = "nse"\n'
-                'variable = "discharge"\n\n[calibration.parameters.K]\nbounds = [1e-6, 1e-3]\n',
-                "must declare a 'path'",
-            ),
-        ],
-        ids=["missing_calibration_section", "parameters_without_path"],
-    )
-    def test_a_file_the_run_cannot_read_raises(self, tmp_path, fake_pipeline, text, match):
-        with pytest.raises(ValueError, match=match):
-            run_calibration_cli(write_document(tmp_path, text, "bad.toml"))
+    assert n_preloaded == 1
+    assert "legacyhash" not in cache
+    assert "v2:scopedhash" in cache
 
 
-class TestCachePreload:
-    def test_preload_ignores_unscoped_hashes(self, tmp_path):
-        make_session(
-            tmp_path,
-            "old",
-            costs=tuple(
-                {"cost": float(n), "components": {"rmse": float(n)}, "metadata": {"params_hash": h}}
-                for n, h in ((1, "legacyhash"), (2, "v2:scopedhash"))
-            ),
-            project="p",
-            cost_name="rmse",
-            bounds={},
-        )
+def test_objective_entry_point_runs(calib_toml, fake_pipeline, monkeypatch):
+    calls: list[dict] = []
 
-        cache = ParamsHashCache()
-        n_preloaded = state.preload_hash_cache(tmp_path, cache)
+    def my_metric(ctx, *, objective, variable):
+        calls.append({"objective": objective, "variable": variable})
+        return float(abs(ctx.cfg.flow.param.K.field.value - 1e-4)), {}
 
-        assert n_preloaded == 1
-        assert "legacyhash" not in cache
-        assert "v2:scopedhash" in cache
+    monkeypatch.setitem(sys.modules, "test_calib_metric_mod", SimpleNamespace(my_metric=my_metric))
+
+    summary = run_calibration_cli(calib_toml, objective="test_calib_metric_mod:my_metric")
+    assert summary.n_trials == 5
+    assert len(calls) == 5
+    assert all(c["variable"] == "discharge" for c in calls)
 
 
-class TestObjectiveEscapeHatch:
-    def test_module_fn_spec_is_loaded_and_invoked(self, calib_toml, fake_pipeline, monkeypatch):
-        calls: list[dict] = []
-
-        def my_metric(ctx, *, objective, variable):
-            calls.append({"objective": objective, "variable": variable})
-            return float(abs(ctx.cfg.flow.param.K.field.value - 1e-4)), {}
-
-        monkeypatch.setitem(
-            sys.modules, "test_calib_metric_mod", SimpleNamespace(my_metric=my_metric)
-        )
-
-        summary = run_calibration_cli(calib_toml, objective="test_calib_metric_mod:my_metric")
-        assert summary.n_trials == 5
-        assert len(calls) == 5
-        assert all(c["variable"] == "discharge" for c in calls)
-
-
-def test_no_default_evaluator_is_exported():
-    """The user-facing path must not use the mock."""
+def test_no_default_evaluator():
     for module in (cli_runner, document, search, session_scope):
         assert not hasattr(module, "_default_evaluator")
 
 
-class TestConfigOverridePaths:
-    @staticmethod
-    def _config(**parameters) -> CalibrationConfig:
-        return CalibrationConfig.model_validate(
-            {"method": "grid", "max_trials": 5, "objective": "nse", "variable": "discharge"}
-            | {"parameters": parameters}
-        )
+def _config(**parameters) -> CalibrationConfig:
+    return CalibrationConfig.model_validate(
+        {"method": "grid", "max_trials": 5, "objective": "nse", "variable": "discharge"}
+        | {"parameters": parameters}
+    )
 
-    def test_all_parameters_missing_path_raises(self):
-        with pytest.raises(ValueError, match="must declare a 'path'"):
-            state.override_paths(self._config(K={"bounds": [1e-6, 1e-3]}))
+
+def test_missing_path_refused():
+    with pytest.raises(ValueError, match="must declare a 'path'"):
+        state.override_paths(_config(K={"bounds": [1e-6, 1e-3]}))
 
 
 def _fail_engine(monkeypatch, error: BaseException) -> None:
@@ -1095,194 +890,151 @@ def _cut_after_two_trials(monkeypatch) -> None:
     monkeypatch.setattr(engine_mod.CalibrationEngine, "_run_until", _cut)
 
 
-class TestSessionLifecycle:
-    """No zombie ``running`` session on disk: failures and aborts close it."""
+@pytest.mark.parametrize(
+    ("error", "status", "message"),
+    [
+        (RuntimeError("boom from engine"), "failed", "boom from engine"),
+        (KeyboardInterrupt(), "aborted", "SIGINT"),
+        (TerminationRequested("signal 15"), "aborted", "SIGTERM"),
+        (
+            StopRequested("stop requested at 2026-11-10T09:30:00+00:00"),
+            "aborted",
+            "stop requested at 2026-11-10T09:30:00+00:00",
+        ),
+    ],
+    ids=[
+        "engine failure marks session failed",
+        "keyboard interrupt marks session aborted",
+        "sigterm marks session aborted",
+        "stop request marks session aborted with its date",
+    ],
+)
+def test_engine_error_closes_session(
+    calib_toml, fake_pipeline, monkeypatch, error, status, message
+):
+    _fail_engine(monkeypatch, error)
 
-    @pytest.mark.parametrize(
-        ("error", "status", "message"),
-        [
-            (RuntimeError("boom from engine"), "failed", "boom from engine"),
-            (KeyboardInterrupt(), "aborted", "SIGINT"),
-            (TerminationRequested("signal 15"), "aborted", "SIGTERM"),
-            (
-                StopRequested("stop requested at 2026-11-10T09:30:00+00:00"),
-                "aborted",
-                "stop requested at 2026-11-10T09:30:00+00:00",
-            ),
-        ],
-        ids=[
-            "engine_failure_marks_session_failed",
-            "keyboard_interrupt_marks_session_aborted",
-            "sigterm_marks_session_aborted",
-            "stop_request_marks_session_aborted_with_its_date",
-        ],
-    )
-    def test_an_error_of_the_engine_closes_the_session(
-        self, calib_toml, fake_pipeline, monkeypatch, error, status, message
-    ):
-        _fail_engine(monkeypatch, error)
+    with pytest.raises(type(error)):
+        run_calibration_cli(calib_toml)
 
-        with pytest.raises(type(error)):
-            run_calibration_cli(calib_toml)
+    descriptor = read_session(_the_session(calib_toml.parent))
+    assert (descriptor.status, descriptor.error_message) == (status, message)
+    outcome = read_outcome(_the_session(calib_toml.parent))
+    assert outcome is not None and outcome.status == status
 
-        descriptor = read_session(_the_session(calib_toml.parent))
-        assert (descriptor.status, descriptor.error_message) == (status, message)
-        outcome = read_outcome(_the_session(calib_toml.parent))
-        assert outcome is not None and outcome.status == status
 
-    @staticmethod
-    def _metric(ctx, *, objective, variable):
+def _metric(ctx, *, objective, variable):
+    return (math.log10(ctx.cfg.flow.param.K.field.value) - math.log10(1e-4)) ** 2, {}
+
+
+def test_stop_flag_then_resume(calib_toml, fake_pipeline):
+    seen: list[int] = []
+
+    def stop_after_two(ctx, *, objective, variable):
+        seen.append(len(seen) + 1)
+        if len(seen) == 2:
+            request_stop(_the_session(calib_toml.parent))
         return (math.log10(ctx.cfg.flow.param.K.field.value) - math.log10(1e-4)) ** 2, {}
 
-    def test_a_stop_flag_ends_the_search_between_two_trials_and_a_resume_answers_it(
-        self, calib_toml, fake_pipeline
-    ):
-        """The flag of the session is read before each ask; reopening removes it."""
-        seen: list[int] = []
+    with pytest.raises(StopRequested):
+        run_calibration_cli(calib_toml, metric_fn=stop_after_two)
 
-        def stop_after_two(ctx, *, objective, variable):
-            seen.append(len(seen) + 1)
-            if len(seen) == 2:
-                request_stop(_the_session(calib_toml.parent))
-            return (math.log10(ctx.cfg.flow.param.K.field.value) - math.log10(1e-4)) ** 2, {}
+    session_dir = _the_session(calib_toml.parent)
+    descriptor = read_session(session_dir)
+    assert descriptor.status == "aborted"
+    assert (descriptor.error_message or "").startswith("stop requested at ")
+    assert len(read_trials(session_dir)) == 2
+    assert stop_flag_for(session_dir).is_file()
 
-        with pytest.raises(StopRequested):
-            run_calibration_cli(calib_toml, metric_fn=stop_after_two)
+    report = run_calibration_cli(calib_toml, metric_fn=_metric, resume=True)
 
-        session_dir = _the_session(calib_toml.parent)
-        descriptor = read_session(session_dir)
-        assert descriptor.status == "aborted"
-        assert (descriptor.error_message or "").startswith("stop requested at ")
-        assert len(read_trials(session_dir)) == 2
-        assert stop_flag_for(session_dir).is_file()
-
-        report = run_calibration_cli(calib_toml, metric_fn=self._metric, resume=True)
-
-        assert not stop_flag_for(session_dir).exists()
-        assert read_session(session_dir).status == "completed"
-        assert report.n_trials == 5
-
-    def test_a_termination_promotes_the_best_trial_from_its_kept_solve(
-        self, calib_toml, fake_pipeline, monkeypatch
-    ):
-        """After the pointer is written, the pointed trial is promoted from its kept solve."""
-        _cut_after_two_trials(monkeypatch)
-        monkeypatch.setattr(
-            TrialSolveRetention,
-            "take",
-            lambda self, trial_id: (KeptSolve(trial_id=int(trial_id), cost=0.0, folders=()), None),
-        )
-
-        with pytest.raises(TerminationRequested):
-            run_calibration_cli(calib_toml, metric_fn=self._metric)
-
-        session_dir = _the_session(calib_toml.parent)
-        descriptor = read_session(session_dir)
-        assert descriptor.status == "aborted"
-        (call,) = fake_pipeline
-        assert call["run_dir"] == calib_toml.parent / "runs" / "toy"
-        assert call["lineage"].kind == "promoted"
-        assert call["calibrated_by"].session_status == "aborted"
-        assert call["lineage"].trial == descriptor.best.trial
-        run = descriptor.only_run
-        assert (run.sim_id, run.rel_dir) == (call["sim_id"], "runs/toy")
-        line = {t.trial: t for t in read_trials(session_dir)}[descriptor.best.trial].only_case
-        assert (line.sim_id, line.rel_dir) == (call["sim_id"], "runs/toy")
-
-    def test_the_abort_writes_its_pointer_in_under_a_second(self, tmp_path):
-        """The pointer of a long session is written before any signal can follow."""
-        persistence = make_session(tmp_path, "long", project="p", bounds={})
-        for index, name in enumerate(("steady_k", "transient_sy", "transient_n")):
-            context = PhaseContext(name, index, 0)
-            persistence.start_phase(context, frozen={})
-            for trial_id in range(300):
-                journal_trial(persistence, trial_id, float(trial_id), k=1e-5, phase=context)
-            if index < 2:
-                persistence.finish_phase(
-                    name, status="completed", best=None, widths={name: ParameterWidth(sigma=1.5)}
-                )
-
-        started = time.perf_counter()
-        pointed = abort_session(persistence, phase="transient_n", error="SIGTERM")
-        elapsed = time.perf_counter() - started
-
-        assert elapsed < 1.0, f"the abort took {elapsed:.2f} s"
-        assert pointed == "transient_sy", "the last completed phase, not the cut one"
-        descriptor = read_session(persistence.directory)
-        assert descriptor.status == "aborted"
-        assert descriptor.best is not None and descriptor.best.trial == 301
-        assert read_phase(persistence.directory, "transient_n").status == "aborted"
-        assert read_phase(persistence.directory, "transient_sy").status == "completed"
-        # The closed phases keep their widths in the session that the abort rewrites.
-        assert descriptor.widths == {
-            "steady_k": ParameterWidth(sigma=1.5),
-            "transient_sy": ParameterWidth(sigma=1.5),
-        }
-
-    def test_all_iterations_crashed_stops_and_marks_failed(self, calib_toml, fake_pipeline):
-        """A search that cannot score anything is refused, not run to its budget."""
-
-        def crashing_metric(ctx, *, objective, variable):
-            raise RuntimeError("metric blew up")
-
-        with pytest.raises(EveryTrialFailedError, match="metric blew up"):
-            run_calibration_cli(calib_toml, metric_fn=crashing_metric)
-
-        session_dir = _the_session(calib_toml.parent)
-        assert read_session(session_dir).status == "failed"
-        assert len(read_trials(session_dir)) == 5
+    assert not stop_flag_for(session_dir).exists()
+    assert read_session(session_dir).status == "completed"
+    assert report.n_trials == 5
 
 
-class TestTheProjectDefaults:
-    _SITE = '[site]\nname = "nancon"\ngauge = "NANCON"\n\n'
-    _SEARCH = (
-        '[calibration]\nmethod = "grid"\nmax_trials = 2\n{extra}\n'
-        '[calibration.parameters.K]\nbounds = [1e-6, 1e-3]\npath = "flow.param.K.field.value"\n'
+def test_termination_promotes_best_trial(calib_toml, fake_pipeline, monkeypatch):
+    _cut_after_two_trials(monkeypatch)
+    monkeypatch.setattr(
+        TrialSolveRetention,
+        "take",
+        lambda self, trial_id: (KeptSolve(trial_id=int(trial_id), cost=0.0, folders=()), None),
     )
 
-    def test_a_station_key_is_refused_for_the_gauge(self, tmp_path):
-        text = self._SITE + self._SEARCH.format(extra='observed_station_id = "OTHER"')
+    with pytest.raises(TerminationRequested):
+        run_calibration_cli(calib_toml, metric_fn=_metric)
 
-        with pytest.raises(
-            ConfigError, match=r"holds calibration\.observed_station_id, written by a pre-release"
-        ):
-            load_toml_calibration(write_document(tmp_path, text, "calage.toml"))
-
-
-# From test_calibration_toml_errors_name_the_file.py
-# A broken calibration TOML must be repairable from its own error message.
-#
-# The people who run a calibration read TOML, not Python. A raw Pydantic
-# ``ValidationError`` reaching the terminal gives them the model class names, the
-# nested field the validator happened to build, and a link to the pydantic error
-# reference: nothing that says which line of which file to open.
-#
-# ``core/toml_io/error_locator`` already maps a validation error back to a file and
-# a line. It had no call site on this path, so the config load raised raw.
+    session_dir = _the_session(calib_toml.parent)
+    descriptor = read_session(session_dir)
+    assert descriptor.status == "aborted"
+    (call,) = fake_pipeline
+    assert call["run_dir"] == calib_toml.parent / "runs" / "toy"
+    assert call["lineage"].kind == "promoted"
+    assert call["calibrated_by"].session_status == "aborted"
+    assert call["lineage"].trial == descriptor.best.trial
+    run = descriptor.only_run
+    assert (run.sim_id, run.rel_dir) == (call["sim_id"], "runs/toy")
+    line = {t.trial: t for t in read_trials(session_dir)}[descriptor.best.trial].only_case
+    assert (line.sim_id, line.rel_dir) == (call["sim_id"], "runs/toy")
 
 
-_BROKEN = """\
-[calibration]
-method = "grid"
-objective = "nse_lo"
+def test_abort_is_fast(tmp_path):
+    persistence = make_session(tmp_path, "long", project="p", bounds={})
+    for index, name in enumerate(("steady_k", "transient_sy", "transient_n")):
+        context = PhaseContext(name, index, 0)
+        persistence.start_phase(context, frozen={})
+        for trial_id in range(300):
+            journal_trial(persistence, trial_id, float(trial_id), k=1e-5, phase=context)
+        if index < 2:
+            persistence.finish_phase(
+                name, status="completed", best=None, widths={name: ParameterWidth(sigma=1.5)}
+            )
 
-[calibration.parameters.K]
-bounds = [1e-8, 1e-2]
-search_space = "log"
-"""
+    started = time.perf_counter()
+    pointed = abort_session(persistence, phase="transient_n", error="SIGTERM")
+    elapsed = time.perf_counter() - started
+
+    assert elapsed < 1.0, f"the abort took {elapsed:.2f} s"
+    assert pointed == "transient_sy", "the last completed phase, not the cut one"
+    descriptor = read_session(persistence.directory)
+    assert descriptor.status == "aborted"
+    assert descriptor.best is not None and descriptor.best.trial == 301
+    assert read_phase(persistence.directory, "transient_n").status == "aborted"
+    assert read_phase(persistence.directory, "transient_sy").status == "completed"
+    # The closed phases keep their widths in the session that the abort rewrites.
+    assert descriptor.widths == {
+        "steady_k": ParameterWidth(sigma=1.5),
+        "transient_sy": ParameterWidth(sigma=1.5),
+    }
 
 
-# From test_cli_dispatch.py
-# Tests for CLI dispatch of the enriched [calibration] schema.
-#
-# Covers Phase 7 of the calibration integration: ``hmp run`` routes a TOML
-# with a rich ``[calibration]`` block (parameters + outputs + objective
-# blocks) through the standard workflow dispatch without raising and the
-# resolved workflow is ``"calibration"``.
+def test_every_trial_crashing_fails(calib_toml, fake_pipeline):
+    def crashing_metric(ctx, *, objective, variable):
+        raise RuntimeError("metric blew up")
+
+    with pytest.raises(EveryTrialFailedError, match="metric blew up"):
+        run_calibration_cli(calib_toml, metric_fn=crashing_metric)
+
+    session_dir = _the_session(calib_toml.parent)
+    assert read_session(session_dir).status == "failed"
+    assert len(read_trials(session_dir)) == 5
 
 
-def _write_rich_calibration_toml(path: Path) -> Path:
-    content = """
+PRE_RELEASE_KEYS = [
+    pytest.param("warmup_periods = 12", "warmup_periods", id="skipped samples"),
+    pytest.param('observed_station_id = "OTHER"', "observed_station_id", id="station key"),
+]
+
+
+@pytest.mark.parametrize(("line", "key"), PRE_RELEASE_KEYS)
+def test_pre_release_keys_refused(tmp_path, line, key) -> None:
+    path = _case(tmp_path, CASE.replace("max_trials = 3\n", f"max_trials = 3\n{line}\n"))
+
+    with pytest.raises(ConfigError, match=rf"holds calibration\.{key}, written by a pre-release"):
+        load_toml_calibration(path)
+
+
+RICH_CALIBRATION = """
 [workflow]
 mode = "calibration"
 
@@ -1311,31 +1063,32 @@ metric = "rmse"
 weight = 1.0
 uses_outputs = ["head_A"]
 """
-    path.write_text(content, encoding="utf-8")
-    return path
 
 
-class TestDispatchCalibrationEnriched:
-    def test_calibration_is_a_known_workflow(self):
-        assert "calibration" in KNOWN_WORKFLOWS
+def test_calibration_is_known_workflow() -> None:
+    assert "calibration" in KNOWN_WORKFLOWS
 
-    def test_rich_toml_resolves_to_calibration(self, tmp_path: Path):
-        path = _write_rich_calibration_toml(tmp_path / "calib.toml")
-        resolved = resolve_workflow(path, cli_workflow=None)
-        assert resolved == "calibration"
 
-    def test_toml_without_workflow_field_follows_its_sections(self, tmp_path: Path):
-        path = tmp_path / "no_workflow.toml"
-        path.write_text("[calibration]\nmethod = 'grid'\n", encoding="utf-8")
+WORKFLOW_FILES = [
+    pytest.param(RICH_CALIBRATION, id="declared mode"),
+    pytest.param("[calibration]\nmethod = 'grid'\n", id="calibration section only"),
+]
 
-        assert resolve_workflow(path, cli_workflow=None) == "calibration"
 
-    def test_a_retired_mode_names_its_replacement(self, tmp_path: Path):
-        path = tmp_path / "old.toml"
-        path.write_text('[workflow]\nmode = "comparison"\n', encoding="utf-8")
+@pytest.mark.parametrize("text", WORKFLOW_FILES)
+def test_workflow_resolves_to_calibration(tmp_path, text) -> None:
+    path = tmp_path / "calib.toml"
+    path.write_text(text, encoding="utf-8")
 
-        with pytest.raises(WorkflowUnknownError, match="hmp diff"):
-            resolve_workflow(path, cli_workflow=None)
+    assert resolve_workflow(path, cli_workflow=None) == "calibration"
+
+
+def test_retired_mode_names_replacement(tmp_path: Path):
+    path = tmp_path / "old.toml"
+    path.write_text('[workflow]\nmode = "comparison"\n', encoding="utf-8")
+
+    with pytest.raises(WorkflowUnknownError, match="hmp diff"):
+        resolve_workflow(path, cli_workflow=None)
 
 
 @pytest.fixture
@@ -1360,77 +1113,48 @@ def bowl(tmp_path: Path) -> Path:
     return write_document(tmp_path, text)
 
 
-class TestObjectiveEntryPointIsNotAMetricName:
-    """``objective=`` is a ``module.path:fn`` entry point, never a metric name.
+def test_bare_metric_name_refused(bowl: Path):
+    # The value is deliberately one no fixed part of the message could
+    # contain. Matching on "kge" would pass on a refusal that never echoes
+    # what it was handed, as long as the static text happened to list the
+    # known metric names -- and the property this class exists for is that
+    # the refusal NAMES the value.
+    with pytest.raises(CalibrationError) as excinfo:
+        run_calibration_cli(bowl, objective="nse_seasonal_v2")
 
-    D230 refuses a call that renames a metric extractor's route by naming
-    both the built and the requested pair. The same principle applies here:
-    a call that writes ``objective="kge"`` believing it selects a metric
-    must be refused, naming the value it wrote, rather than silently
-    calibrating on whatever ``[calibration] objective`` already declares.
-    """
-
-    def test_a_bare_metric_name_is_refused(self, bowl: Path):
-        # The value is deliberately one no fixed part of the message could
-        # contain. Matching on "kge" would pass on a refusal that never echoes
-        # what it was handed, as long as the static text happened to list the
-        # known metric names -- and the property this class exists for is that
-        # the refusal NAMES the value.
-        with pytest.raises(CalibrationError) as excinfo:
-            run_calibration_cli(bowl, objective="nse_seasonal_v2")
-
-        message = str(excinfo.value)
-        assert "objective='nse_seasonal_v2'" in message
-        assert "module.path:callable" in message
-        assert "[calibration]" in message
-        assert "objective_blocks" in message
-
-    def test_a_staged_run_that_reuses_every_phase_still_refuses(self, bowl: Path):
-        """The reuse branch returns before the search, so the guard cannot live there.
-
-        Under ``--resume`` a staged run can hand back a full report without
-        ever reaching the search the check used to sit in -- and the value
-        reaches the reuse fingerprint regardless.
-        """
-        phase = (
-            '\n[[calibration.phases]]\nname = "one"\nmethod = "grid"\nmax_trials = 2\n'
-            'parameters = ["K"]\nvariable = "discharge"\nobjective = "nse"\n'
-        )
-        bowl.write_text(bowl.read_text(encoding="utf-8") + phase, encoding="utf-8")
-
-        with pytest.raises(CalibrationError) as excinfo:
-            run_staged_calibration(bowl, objective="nse_seasonal_v2", resume=True)
-
-        assert "objective='nse_seasonal_v2'" in str(excinfo.value)
-
-    def test_a_well_formed_entry_point_is_not_refused(self, bowl: Path, monkeypatch):
-        """A genuine ``module.path:fn`` spec must still resolve, not be caught by the guard."""
-
-        def _metric(ctx, *, objective, variable):
-            return 0.5, {}
-
-        monkeypatch.setitem(
-            sys.modules, "test_cli_dispatch_metric_mod", SimpleNamespace(my_metric=_metric)
-        )
-
-        summary = run_calibration_cli(bowl, objective="test_cli_dispatch_metric_mod:my_metric")
-        assert summary.n_trials > 0
+    message = str(excinfo.value)
+    assert "objective='nse_seasonal_v2'" in message
+    assert "module.path:callable" in message
+    assert "[calibration]" in message
+    assert "objective_blocks" in message
 
 
-# From test_each_phase_lists_the_window_it_scores_on.py
-# ``--list-phases``, ``--dry-run`` and ``hmp check`` say what each phase scores on.
-#
-# They listed the metric and the station of each phase, never its window, nor
-# ``[metrics] window``, the one the run is scored on and the default of a
-# transient phase. The window showed only when its author copied it into the
-# phase description. Each phase now prints the window it scores on, and the
-# check prints ``[metrics] window`` too.
+def test_staged_reuse_refuses_metric_name(bowl: Path):
+    phase = (
+        '\n[[calibration.phases]]\nname = "one"\nmethod = "grid"\nmax_trials = 2\n'
+        'parameters = ["K"]\nvariable = "discharge"\nobjective = "nse"\n'
+    )
+    bowl.write_text(bowl.read_text(encoding="utf-8") + phase, encoding="utf-8")
+
+    with pytest.raises(CalibrationError) as excinfo:
+        run_staged_calibration(bowl, objective="nse_seasonal_v2", resume=True)
+
+    assert "objective='nse_seasonal_v2'" in str(excinfo.value)
 
 
-EXAMPLE_04 = Path("examples/projects/04_streamflow_intermittence_in_transient")
+def test_entry_point_is_accepted(bowl: Path, monkeypatch):
+    def _metric(ctx, *, objective, variable):
+        return 0.5, {}
+
+    monkeypatch.setitem(
+        sys.modules, "test_cli_dispatch_metric_mod", SimpleNamespace(my_metric=_metric)
+    )
+
+    summary = run_calibration_cli(bowl, objective="test_cli_dispatch_metric_mod:my_metric")
+    assert summary.n_trials > 0
 
 
-def _staged__each_phase() -> CalibrationConfig:
+def _two_phase_config() -> CalibrationConfig:
     return CalibrationConfig.model_validate(
         {
             "parameters": {
@@ -1456,9 +1180,9 @@ def _staged__each_phase() -> CalibrationConfig:
     )
 
 
-def test_the_check_names_the_run_window_and_each_phase_s(tmp_path: Path) -> None:
+def test_check_names_windows(tmp_path: Path) -> None:
     cfg = SimpleNamespace(
-        calibration=_staged__each_phase(),
+        calibration=_two_phase_config(),
         metrics=MetricsConfig.model_validate(
             {"window": {"start": "2016-01-01", "end": "2020-12-31"}}
         ),
@@ -1469,15 +1193,6 @@ def test_the_check_names_the_run_window_and_each_phase_s(tmp_path: Path) -> None
     assert lines[0] == "[metrics] window: 2016-01-01 to 2020-12-31, the window the run is scored on"
     assert "  scores on: no window, all of the run" in lines
     assert "  scores on: window 2016-01-01 to 2020-12-31" in lines
-
-
-# From test_eq4_is_read_at_the_returned_trial.py
-# Eq. 4 is read once, on the trial the search returns.
-#
-# The paper reads ``r_optim <= 2`` at the optimum ("At this point", HESS 27,
-# p. 3225). A trial on the way to the root is not the result, so every trial
-# keeps ``r_optim`` and its validity length as components and only the report
-# qualifies the answer. The bound is a length: ``D_optim <= validity_length_m``.
 
 
 def _network(**overrides):
@@ -1502,14 +1217,14 @@ def _components(
     }
 
 
-def test_strict_mode_raises_a_calibration_error_on_the_returned_trial() -> None:
+def test_strict_verdict_raises() -> None:
     output = _network(verdict={"on_invalid": "error"})
 
     with pytest.raises(CalibrationError, match="exceeds the validity length 150 m"):
         r_optim_verdict_extra({"net": output}, _components(5.31))
 
 
-def test_an_empty_network_at_the_returned_trial_is_not_qualified() -> None:
+def test_empty_network_verdict() -> None:
     extra = r_optim_verdict_extra({"net": _network()}, _components(math.nan))
 
     verdict = extra["r_optim_verdict"]["net"]
@@ -1519,27 +1234,6 @@ def test_an_empty_network_at_the_returned_trial_is_not_qualified() -> None:
         r_optim_verdict_extra(
             {"net": _network(verdict={"on_invalid": "error"})}, _components(math.nan)
         )
-
-
-class _StrictFirstPhase(FakeRunner):
-    """The first phase fails Eq. 4 in strict mode, after its session is saved."""
-
-    def run_calibration_core(self, cfg, trial_ctx, **kwargs):
-        report = super().run_calibration_core(cfg, trial_ctx, **kwargs)
-        if len(self.calls) == 1:
-            raise CalibrationError("r_optim = 5.31 exceeds the bound 2")
-        return report
-
-
-# From test_first_trial_pairing.py
-# What the first trial paired against an observed record, once per phase.
-#
-# ``ObservableScorer.score`` (``metrics/observable_scoring.py``) writes
-# ``<name>.n_paired`` and ``<name>.date_start`` / ``<name>.date_end`` into every
-# trial's components. ``_first_trial_pairing`` reads them off the first entry of
-# a phase's history rather than recomputed trial to trial: the pairing a search
-# follows is set before the first candidate is scored and does not change
-# after it.
 
 
 def _paired(name: str, n: float, start: date | None = None, end: date | None = None) -> dict:
@@ -1558,7 +1252,7 @@ def _paired(name: str, n: float, start: date | None = None, end: date | None = N
         pytest.param(
             [_paired("q", 3.0, date(2001, 1, 2), date(2001, 1, 4)), _paired("q", 5.0)],
             {"q": {"n_paired": 3, "start": "2001-01-02", "end": "2001-01-04"}},
-            id="reads_the_first_trial_not_a_later_one",
+            id="reads the first trial not a later one",
         ),
         pytest.param(
             [
@@ -1569,71 +1263,20 @@ def _paired(name: str, n: float, start: date | None = None, end: date | None = N
                 "outlet": {"n_paired": 2, "start": "2001-01-01", "end": "2001-01-02"},
                 "piezo": {"n_paired": 4, "start": "2000-06-01", "end": "2000-06-04"},
             },
-            id="one_entry_per_output",
+            id="one entry per output",
         ),
-        pytest.param([{"flow.raw_cost": 1.0}], None, id="none_without_a_paired_output"),
-        pytest.param([], None, id="none_for_empty_history"),
-        pytest.param([_paired("q", 7.0)], {"q": {"n_paired": 7}}, id="count_without_dates"),
+        pytest.param([{"flow.raw_cost": 1.0}], None, id="none without a paired output"),
+        pytest.param([], None, id="none for empty history"),
+        pytest.param([_paired("q", 7.0)], {"q": {"n_paired": 7}}, id="count without dates"),
     ],
 )
-def test_the_first_trial_pairing(history, expected) -> None:
+def test_first_trial_pairing(history, expected) -> None:
     results = [
         result_of(ParamSuggestion(trial_id=index, values={}), 0.1, components=item)
         for index, item in enumerate(history)
     ]
 
     assert _first_trial_pairing(results) == expected
-
-
-# ---------------------------------------------------------------------------
-# End to end: a full run through run_calibration_cli reads the first trial,
-# not a later one -- no solver, a custom evaluator stands in for the model.
-# ---------------------------------------------------------------------------
-class _FirstTrialProbe:
-    """Reports a different pairing on every trial: the report must keep the first."""
-
-    evaluator_id = "test_first_trial_probe"
-    needs_prepared_model = False
-    calls = 0
-
-    def evaluate(self, request: TrialRequest) -> TrialOutcome:
-        _FirstTrialProbe.calls += 1
-        first = _FirstTrialProbe.calls == 1
-        n = 3 if first else 30
-        end = date(2001, 1, 3) if first else date(2001, 2, 1)
-        return TrialOutcome(
-            cost=float(request.values["K"]),
-            status="completed",
-            duration_s=0.0,
-            components={
-                "q.n_paired": float(n),
-                "q.date_start": float(date(2001, 1, 1).toordinal()),
-                "q.date_end": float(end.toordinal()),
-            },
-        )
-
-
-PROBE_TOML = toml_doc(
-    """
-    [calibration]
-    method = "grid"
-    max_trials = 3
-    evaluator = "test_first_trial_probe"
-    use_cache = false
-    method_options = { points_per_dim = 3 }
-    @KLOG
-    @NET
-    @GAP
-    """
-)
-
-
-# From test_persistence.py
-# The journal of a session is written as the search goes, and read back whole.
-#
-# No index anywhere: ``CalibrationPersistence`` writes ``session.json``,
-# ``outcome.json``, ``trials.jsonl`` and ``phases/<phase>/session.json`` under
-# one session directory, and reads them back for the promotion and the report.
 
 
 def _open(tmp_path: Path, name: str = "calage") -> CalibrationPersistence:
@@ -1652,138 +1295,87 @@ ROOTS = {
 }
 
 
-class TestTheRootSearchOutlivesTheRun:
-    """A root search's bracket and two roots are kept in ``session.json``."""
+def test_descriptor_keeps_two_roots(tmp_path) -> None:
+    persistence = _open(tmp_path)
 
-    def test_the_descriptor_keeps_the_two_roots(self, tmp_path) -> None:
-        persistence = _open(tmp_path)
+    persistence.finalize_session(status="completed", best=None, root_search={"roots": ROOTS})
 
-        persistence.finalize_session(status="completed", best=None, root_search={"roots": ROOTS})
-
-        assert read_session(persistence.directory).root_search == {"roots": ROOTS}
-        payload = json.loads((persistence.directory / "session.json").read_text())
-        assert payload["root_search"]["roots"]["minimal"]["k_star"] == pytest.approx(3.0e-6)
-
-    def test_the_close_of_a_search_hands_the_roots_of_its_report_to_the_descriptor(
-        self, tmp_path
-    ) -> None:
-        persistence = _open(tmp_path)
-        journal_trial(persistence, 1, 0.4)
-        report = make_report(
-            method="bisection",
-            best_cost=0.4,
-            duration_s=1.0,
-            workspace=tmp_path,
-            session_dir=persistence.directory,
-            extra={"search_status": "completed", "bracket": {"low": 1.0}, "roots": ROOTS},
-        )
-
-        promote_and_close(
-            cfg=CalibrationConfig(save_runs="none"),
-            trial_ctx=None,
-            persistence=persistence,
-            project_root=tmp_path,
-            report=report,
-            phase="main",
-            status="completed",
-        )
-
-        descriptor = read_session(persistence.directory)
-        assert descriptor.status == "completed"
-        assert descriptor.root_search == {"bracket": {"low": 1.0}, "roots": ROOTS}
+    assert read_session(persistence.directory).root_search == {"roots": ROOTS}
+    payload = json.loads((persistence.directory / "session.json").read_text())
+    assert payload["root_search"]["roots"]["minimal"]["k_star"] == pytest.approx(3.0e-6)
 
 
-class TestWhatIsReadBack:
-    def test_the_detail_decides_what_a_line_carries(self, tmp_path) -> None:
-        persistence = _open(tmp_path)
-        fields = {"components": {"rmse": 0.4}, "metadata": {"block_costs": {"head": 0.5}}}
+def test_close_hands_roots_to_descriptor(tmp_path) -> None:
+    persistence = _open(tmp_path)
+    journal_trial(persistence, 1, 0.4)
+    report = make_report(
+        method="bisection",
+        best_cost=0.4,
+        duration_s=1.0,
+        workspace=tmp_path,
+        session_dir=persistence.directory,
+        extra={"search_status": "completed", "bracket": {"low": 1.0}, "roots": ROOTS},
+    )
 
-        none, full, summary = (
-            journal_trial(persistence, number, 0.4, detail=detail, **fields).only_case
-            for number, detail in ((1, "none"), (2, "full"), (3, "summary"))
-        )
+    promote_and_close(
+        cfg=CalibrationConfig(save_runs="none"),
+        trial_ctx=None,
+        persistence=persistence,
+        project_root=tmp_path,
+        report=report,
+        phase="main",
+        status="completed",
+    )
 
-        assert (none.components, none.detail) == ({}, {})
-        assert full.components == {"rmse": 0.4}
-        assert full.detail == {"block_costs": {"head": 0.5}}
-        assert (summary.components, summary.detail) == ({"rmse": 0.4}, {})
-
-
-class TestTheFixesOfTheReview:
-    def test_a_cut_last_line_is_dropped_before_the_next_append(self, tmp_path) -> None:
-        persistence = _open(tmp_path)
-        journal_trial(persistence, 1, 0.4)
-        journal_trial(persistence, 2, 0.3, k=2e-4)
-        journal = trials_path(persistence.directory)
-        journal.write_bytes(journal.read_bytes()[:-30])
-        persistence.finalize_session(status="aborted", best=None, error="cut")
-
-        reopened = CalibrationPersistence(persistence.directory)
-        reopened.resume_session()
-        journal_trial(reopened, 2, 0.2, k=3e-4)
-
-        assert [line.trial for line in read_trials(persistence.directory)] == [1, 2]
-
-    def test_a_session_whose_case_is_not_among_its_cases_is_refused_untouched(
-        self, tmp_path
-    ) -> None:
-        persistence = _open(tmp_path)
-        persistence.finalize_session(status="completed", best=None)
-        descriptor = read_session(persistence.directory)
-        write_session(persistence.directory, descriptor.model_copy(update={"case_id": "joint"}))
-        before = (persistence.directory / "session.json").read_bytes()
-
-        with pytest.raises(CalibrationError, match="joint"):
-            CalibrationPersistence(persistence.directory).resume_session()
-
-        assert (persistence.directory / "session.json").read_bytes() == before
+    descriptor = read_session(persistence.directory)
+    assert descriptor.status == "completed"
+    assert descriptor.root_search == {"bracket": {"low": 1.0}, "roots": ROOTS}
 
 
-# From test_protocol_reaches_the_loaders.py
-# Naming a protocol has to change the run, not just the file.
-#
-# The expansion is written on the whole document, so it has to happen where the
-# document is read. Both routes read one: the project loader and the calibration
-# CLI. A protocol that reached neither would validate, persist, and calibrate
-# nothing at all.
+def test_detail_sets_line_content(tmp_path) -> None:
+    persistence = _open(tmp_path)
+    fields = {"components": {"rmse": 0.4}, "metadata": {"block_costs": {"head": 0.5}}}
+
+    none, full, summary = (
+        journal_trial(persistence, number, 0.4, detail=detail, **fields).only_case
+        for number, detail in ((1, "none"), (2, "full"), (3, "summary"))
+    )
+
+    assert (none.components, none.detail) == ({}, {})
+    assert full.components == {"rmse": 0.4}
+    assert full.detail == {"block_costs": {"head": 0.5}}
+    assert (summary.components, summary.detail) == ({"rmse": 0.4}, {})
 
 
-_TOML__protocol_reaches = textwrap.dedent(
-    """
-    [workspace]
-    name = "protocol_probe"
+def test_cut_journal_line_dropped(tmp_path) -> None:
+    persistence = _open(tmp_path)
+    journal_trial(persistence, 1, 0.4)
+    journal_trial(persistence, 2, 0.3, k=2e-4)
+    journal = trials_path(persistence.directory)
+    journal.write_bytes(journal.read_bytes()[:-30])
+    persistence.finalize_session(status="aborted", best=None, error="cut")
 
-    [simulation.time]
-    start_datetime = "2000-01-01"
-    end_datetime = "2000-12-31"
-    step_value = 1
-    step_unit = "day"
+    reopened = CalibrationPersistence(persistence.directory)
+    reopened.resume_session()
+    journal_trial(reopened, 2, 0.2, k=3e-4)
 
-    [calibration]
-    protocol = "matching_hydrographic_network"
-
-    [calibration.parameters.K]
-    bounds = [1e-8, 1e-2]
-    search_space = "log"
-    units = "m/s"
-
-    [calibration.parameters.Sy]
-    bounds = [1e-4, 0.5]
-    search_space = "log"
-    units = "-"
-
-    [calibration.outputs.seepage_network]
-    support = "network"
-    map.complete = "network.gpkg"
-
-    [[data.hydrometry.sources]]
-    station_ids = ["G1"]
-    """
-)
+    assert [line.trial for line in read_trials(persistence.directory)] == [1, 2]
 
 
-def test_a_protocol_that_nothing_expanded_is_refused_rather_than_ignored() -> None:
-    """Validating [calibration] alone cannot see the window the stages need."""
+def test_unknown_case_refused(tmp_path) -> None:
+    persistence = _open(tmp_path)
+    persistence.finalize_session(status="completed", best=None)
+    descriptor = read_session(persistence.directory)
+    write_session(persistence.directory, descriptor.model_copy(update={"case_id": "joint"}))
+    before = (persistence.directory / "session.json").read_bytes()
+
+    with pytest.raises(CalibrationError, match="joint"):
+        CalibrationPersistence(persistence.directory).resume_session()
+
+    assert (persistence.directory / "session.json").read_bytes() == before
+
+
+def test_unexpanded_protocol_refused() -> None:
     with pytest.raises(ValueError, match="protocol"):
         CalibrationConfig.model_validate(
             {
@@ -1793,26 +1385,11 @@ def test_a_protocol_that_nothing_expanded_is_refused_rather_than_ignored() -> No
         )
 
 
-def test_the_report_carries_the_protocol_it_followed() -> None:
+def test_report_carries_protocol() -> None:
     summary = make_report(protocol=protocol_record("matching_hydrographic_network")).to_dict()
 
     assert summary["protocol"]["name"] == "matching_hydrographic_network"
     assert summary["protocol"]["references"]
-
-
-# From test_runner_decomposition.py
-# Smoke tests that lock the runner.py decomposition.
-#
-# The legacy ``hydromodpy.calibration.runner`` god-module has been split into:
-#
-# - ``cli_runner``     CLI entry; ``search`` holds ``run_calibration_core``.
-# - ``programmatic_runner``  ``Project.calibrate`` entry.
-# - ``promotion``    promotion of the kept trials to runs.
-# - ``state``      cache preload, fingerprinting.
-#
-# These tests guarantee each sub-module imports independently and exposes the
-# expected public callables. The legacy ``runner`` module must be gone so
-# nothing keeps pointing at the old location.
 
 
 @pytest.mark.parametrize(
@@ -1844,29 +1421,15 @@ def test_the_report_carries_the_protocol_it_followed() -> None:
         ("persistence", ["CalibrationPersistence"]),
     ],
 )
-def test_a_module_exposes_its_public_callables(module: str, names: list[str]) -> None:
+def test_public_callables(module: str, names: list[str]) -> None:
     loaded = importlib.import_module(f"hydromodpy.calibration.{module}")
 
     assert all(callable(getattr(loaded, name)) for name in names)
 
 
-def test_legacy_runner_module_is_gone() -> None:
+def test_legacy_runner_gone() -> None:
     with pytest.raises(ModuleNotFoundError):
         importlib.import_module("hydromodpy.calibration.runner")
-
-
-# From test_stream_geometry_resolution.py
-# Where a calibration output looks for its mapped stream network.
-#
-# A path in a TOML is relative to that TOML, the way ``base_config`` is, and a
-# bare filename falls back to ``<project>/data/hydrography/`` like every other
-# data path of a project. Read against the working directory instead, the run
-# depended on where it was launched from and failed on a path that is right.
-#
-# The anchoring is done where the CLI, the staged and the programmatic routes
-# converge, so a configuration built in memory gets it too. That is what the
-# in-memory test below covers; the TOML-route test beside it guards the older
-# anchoring in ``load_toml_calibration``, which is a different site.
 
 
 _PROJECT_NETWORK = b"the network the project declares"
@@ -1895,7 +1458,7 @@ uses_outputs = ["net"]
 
 
 @pytest.fixture
-def project__stream_geometry(tmp_path: Path) -> Path:
+def project_with_network(tmp_path: Path) -> Path:
     """A project holding its network where the convention puts it."""
     geometry = tmp_path / "data" / "hydrography" / "streams.gpkg"
     geometry.parent.mkdir(parents=True)
@@ -1905,8 +1468,8 @@ def project__stream_geometry(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def _load(project__stream_geometry: Path, declared: str, *, at: str = "configs") -> str | None:
-    path = project__stream_geometry / at / "calibration.toml"
+def _load(project_with_network: Path, declared: str, *, at: str = "configs") -> str | None:
+    path = project_with_network / at / "calibration.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(TOML.format(declared=declared), encoding="utf-8")
     cfg, _raw = load_toml_calibration(path)
@@ -1914,10 +1477,10 @@ def _load(project__stream_geometry: Path, declared: str, *, at: str = "configs")
     return None if resolved is None else str(resolved)
 
 
-def test_an_absolute_path_is_left_alone(project__stream_geometry: Path) -> None:
-    declared = (project__stream_geometry / "data" / "hydrography" / "streams.gpkg").resolve()
+def test_absolute_path_kept(project_with_network: Path) -> None:
+    declared = (project_with_network / "data" / "hydrography" / "streams.gpkg").resolve()
     # The field is a Path: Windows spells it with backslashes, the same file.
-    assert Path(_load(project__stream_geometry, declared.as_posix())) == declared
+    assert Path(_load(project_with_network, declared.as_posix())) == declared
 
 
 @pytest.fixture
@@ -1973,8 +1536,8 @@ def _in_memory_config(declared: str) -> CalibrationConfig:
     )
 
 
-def test_a_route_that_never_reads_a_toml_still_anchors_the_network(
-    project__stream_geometry: Path, decoy: Path, monkeypatch: pytest.MonkeyPatch
+def test_in_memory_config_anchors_network(
+    project_with_network: Path, decoy: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Python and embedded modes build the config in memory and reach the runner
     # without going through the TOML loader. Anchoring only there left them
@@ -1984,7 +1547,7 @@ def test_a_route_that_never_reads_a_toml_still_anchors_the_network(
     monkeypatch.chdir(decoy)
     # The cache preload is the first thing the core touches after anchoring.
     monkeypatch.setattr(search, "preload_hash_cache", _halt)
-    session_dir = project__stream_geometry / "sessions" / "calage"
+    session_dir = project_with_network / "sessions" / "calage"
     session_dir.mkdir(parents=True)
 
     with pytest.raises(_Halt):
@@ -1993,21 +1556,11 @@ def test_a_route_that_never_reads_a_toml_still_anchors_the_network(
             None,
             persistence=CalibrationPersistence(session_dir),
             space=space_from_config(cfg),
-            project_root=project__stream_geometry,
-            cfg_path=project__stream_geometry / "project.toml",
+            project_root=project_with_network,
+            cfg_path=project_with_network / "project.toml",
         )
 
     assert Path(cfg.outputs["net"].map.complete).read_bytes() == _PROJECT_NETWORK
-
-
-# From test_the_minimal_map_and_the_extent_are_checked_before_the_run.py
-# The minimal map and the extent table, checked before the first solve.
-#
-# The minimal map is a file the TOML names, anchored on that TOML like the
-# maximal one, and refused by preflight when it is not there. An extent table
-# reads the timesteps of a transient run; on a search that runs steady, the
-# criterion would refuse it at the first trial, after the phases before it had
-# spent their budget.
 
 
 _MAPS = """
@@ -2069,99 +1622,81 @@ def _outputs(maximal: str, minimal: str, *, extent: bool) -> str:
     return _MAPS.format(maximal=maximal, minimal=minimal, calibrate_on=role, extent=table)
 
 
-class TestTheExtentTable:
-    def _one_search(self, tmp_path: Path, *, regime: str | None, extent: bool) -> str:
-        maximal, minimal = _maps(tmp_path)
-        flow = f'[flow]\nflow_regime = "{regime}"\n' if regime else ""
-        return _ONE_SEARCH.format(flow=flow) + _outputs(
-            maximal.as_posix(), minimal.as_posix(), extent=extent
-        )
+def _one_search(tmp_path: Path, *, regime: str | None, extent: bool) -> str:
+    maximal, minimal = _maps(tmp_path)
+    flow = f'[flow]\nflow_regime = "{regime}"\n' if regime else ""
+    return _ONE_SEARCH.format(flow=flow) + _outputs(
+        maximal.as_posix(), minimal.as_posix(), extent=extent
+    )
 
-    def _two_phases(
-        self, tmp_path: Path, *, regime: str, single_metric: bool, extent: bool = True
-    ) -> str:
-        maximal, minimal = _maps(tmp_path)
-        route = 'variable = "net"\nobjective = "distance_gap"' if single_metric else ""
-        route = route or 'objective_blocks = ["gap"]'
-        return _TWO_PHASES.replace("REGIME", regime).replace("SINGLE_METRIC", route) + _outputs(
-            maximal.as_posix(), minimal.as_posix(), extent=extent
-        )
 
-    @pytest.mark.parametrize("single_metric", [False, True])
-    def test_a_steady_phase_scoring_an_extent_is_refused(
-        self, tmp_path, single_metric: bool
-    ) -> None:
-        doc = self._two_phases(tmp_path, regime="steady", single_metric=single_metric)
+def _two_phases(tmp_path: Path, *, regime: str, single_metric: bool, extent: bool = True) -> str:
+    maximal, minimal = _maps(tmp_path)
+    route = 'variable = "net"\nobjective = "distance_gap"' if single_metric else ""
+    route = route or 'objective_blocks = ["gap"]'
+    return _TWO_PHASES.replace("REGIME", regime).replace("SINGLE_METRIC", route) + _outputs(
+        maximal.as_posix(), minimal.as_posix(), extent=extent
+    )
 
-        findings = preflight_of(tmp_path, doc)
 
-        refused = [item for item in findings if "extent table" in item.detail]
-        # Only the steady phase is named; the transient one reads the extent.
-        assert len(refused) == 1
-        assert refused[0].path == "calibration.outputs.net"
-        assert "'k_network'" in refused[0].detail
+@pytest.mark.parametrize("single_metric", [False, True])
+def test_steady_extent_refused(tmp_path, single_metric: bool) -> None:
+    doc = _two_phases(tmp_path, regime="steady", single_metric=single_metric)
 
-    def test_a_steady_phase_through_its_overrides_is_refused(self, tmp_path) -> None:
-        doc = self._two_phases(tmp_path, regime="transient", single_metric=False).replace(
-            'regime = "transient"', 'overrides = { "flow.flow_regime" = "steady" }'
-        )
+    findings = preflight_of(tmp_path, doc)
 
-        findings = preflight_of(tmp_path, doc)
+    refused = [item for item in findings if "extent table" in item.detail]
+    # Only the steady phase is named; the transient one reads the extent.
+    assert len(refused) == 1
+    assert refused[0].path == "calibration.outputs.net"
+    assert "'k_network'" in refused[0].detail
 
-        refused = [item for item in findings if "extent table" in item.detail]
-        assert len(refused) == 1
-        assert "'k_network'" in refused[0].detail
+
+def test_steady_override_extent_refused(tmp_path) -> None:
+    doc = _two_phases(tmp_path, regime="transient", single_metric=False).replace(
+        'regime = "transient"', 'overrides = { "flow.flow_regime" = "steady" }'
+    )
+
+    findings = preflight_of(tmp_path, doc)
+
+    refused = [item for item in findings if "extent table" in item.detail]
+    assert len(refused) == 1
+    assert "'k_network'" in refused[0].detail
 
 
 _PERMANENT_SOURCE = 'map.permanent = "data.hydrography"\nmap.calibrate_on = "permanent"'
 
 
-class TestTheMinimalObservedNetworkSource:
-    """``map.permanent = "data.hydrography"`` is checked as statically as the
-    maximal map: a project declaring it with no ``[[data.hydrography.sources]]``
-    at all is refused at preflight, not at the first trial's
-    ``resolve_minimal_network`` call.
+_DOC = toml_doc(
     """
-
-    _DOC = toml_doc(
-        """
-        [calibration]
-        method = "grid"
-        @K
-        [calibration.outputs.net]
-        support = "network"
-        map.complete = "MAXIMAL"
-        MINIMAL
-        @GAP
-        """
-    )
-
-    def _doc(self, tmp_path: Path, *, minimal: str) -> str:
-        maximal = tmp_path / "streams.gpkg"
-        maximal.write_bytes(b"maximal")
-        return self._DOC.replace("MAXIMAL", maximal.as_posix()).replace("MINIMAL", minimal)
-
-    def test_a_minimal_source_with_no_hydrography_section_is_named(self, tmp_path) -> None:
-        doc = self._doc(tmp_path, minimal=_PERMANENT_SOURCE)
-
-        findings = preflight_of(tmp_path, doc)
-
-        named = [item for item in findings if "map.permanent" in item.detail]
-        assert len(named) == 1
-        assert named[0].severity == "error"
-        assert named[0].path == "calibration.outputs.net"
-        assert "data.hydrography.sources" in named[0].detail
+    [calibration]
+    method = "grid"
+    @K
+    [calibration.outputs.net]
+    support = "network"
+    map.complete = "MAXIMAL"
+    MINIMAL
+    @GAP
+    """
+)
 
 
-# From test_the_prepared_model_is_checked_before_the_session.py
-# What only the prepared model shows is checked once, right after the preparation.
-#
-# Three checks need the configuration the pipeline was prepared from: a bound
-# the field refuses, and the drain and release-package conductances a network
-# search relies on. They ran at the top of every search, so once per restart,
-# after the session had been reserved: a refused search left a failed session
-# behind. They now run once per preparation, before the session is reserved, on
-# every route.
+def _doc(tmp_path: Path, *, minimal: str) -> str:
+    maximal = tmp_path / "streams.gpkg"
+    maximal.write_bytes(b"maximal")
+    return _DOC.replace("MAXIMAL", maximal.as_posix()).replace("MINIMAL", minimal)
+
+
+def test_permanent_source_needs_hydrography(tmp_path) -> None:
+    doc = _doc(tmp_path, minimal=_PERMANENT_SOURCE)
+
+    findings = preflight_of(tmp_path, doc)
+
+    named = [item for item in findings if "map.permanent" in item.detail]
+    assert len(named) == 1
+    assert named[0].severity == "error"
+    assert named[0].path == "calibration.outputs.net"
+    assert "data.hydrography.sources" in named[0].detail
 
 
 _FILE = (
@@ -2203,7 +1738,7 @@ def prepared(monkeypatch) -> list[str]:
     return reached
 
 
-def test_the_answer_of_a_search_is_the_trial_it_names_else_the_best_of_the_journal(
+def test_answered_best(
     tmp_path,
 ) -> None:
     persistence = _open(tmp_path)
@@ -2222,7 +1757,7 @@ def test_the_answer_of_a_search_is_the_trial_it_names_else_the_best_of_the_journ
     assert (nothing, none_scored) == (None, [])
 
 
-def _write__prepared_model(tmp_path: Path, *extra: str) -> Path:
+def _write_search_file(tmp_path: Path, *extra: str) -> Path:
     path = tmp_path / "calib.toml"
     path.write_text(_FILE + "".join(textwrap.dedent(item) for item in extra), encoding="utf-8")
     (tmp_path / "streams.gpkg").write_text("", encoding="utf-8")
@@ -2234,24 +1769,24 @@ def _sessions(tmp_path: Path) -> list[str]:
     return sorted(path.name for path in root.iterdir()) if root.is_dir() else []
 
 
-def test_a_search_without_phases_is_refused_before_its_session(tmp_path, prepared) -> None:
+def test_search_refused_before_session(tmp_path, prepared) -> None:
     with pytest.raises(ObjectiveError, match=r"flow\.bc\.drainage\.value"):
-        run_calibration_cli(_write__prepared_model(tmp_path))
+        run_calibration_cli(_write_search_file(tmp_path))
 
     assert prepared == ["calib.toml"]
     assert _sessions(tmp_path) == []
 
 
-def test_a_phase_is_refused_before_the_session(tmp_path, prepared) -> None:
+def test_phase_refused_before_session(tmp_path, prepared) -> None:
     with pytest.raises(ObjectiveError, match=r"flow\.bc\.drainage\.value"):
-        run_staged_calibration(_write__prepared_model(tmp_path, _PHASE))
+        run_staged_calibration(_write_search_file(tmp_path, _PHASE))
 
     assert prepared == ["calib.toml"]
     assert _sessions(tmp_path) == []
 
 
-def test_a_search_from_python_is_refused_before_its_session(tmp_path, prepared) -> None:
-    path = _write__prepared_model(tmp_path)
+def test_python_search_refused_before_session(tmp_path, prepared) -> None:
+    path = _write_search_file(tmp_path)
     with Project(path, headless=True) as project:
         with pytest.raises(ObjectiveError, match=r"flow\.bc\.drainage\.value"):
             project.calibrate(
@@ -2264,18 +1799,6 @@ def test_a_search_from_python_is_refused_before_its_session(tmp_path, prepared) 
 
     assert prepared == ["calib.toml"]
     assert _sessions(tmp_path) == []
-
-
-# From test_the_report_says_what_it_calibrated.py
-# Two things a calibration run knows and used to keep to itself.
-#
-# A stream-network stage that moves K identifies the ratio K/R, never K alone.
-# The report publishes that ratio with the other derived values of the paper's
-# Table 1, and only for that search: the criterion can drive any parameter.
-#
-# And a value that closed on a search bound is the best point of a search that
-# was forbidden to look further, not a value the trials converged onto. That
-# used to be an informational line, indistinguishable from an ordinary interval.
 
 
 def _interval(*, reaches_lower: bool = False, reaches_upper: bool = False) -> ParameterInterval:
@@ -2315,112 +1838,107 @@ def _ratios(components=None, **overrides):
     return network_ratios_extra(**(arguments | overrides))
 
 
-class TestTheRechargeBesideK:
-    def test_the_line_of_k_gives_the_window_of_its_recharge(self) -> None:
-        time = SimpleNamespace(start_datetime="2000-01-01", end_datetime="2002-12-31T00:00:00")
-        trial_ctx = SimpleNamespace(base_cfg=SimpleNamespace(simulation=SimpleNamespace(time=time)))
+def test_k_over_r_window() -> None:
+    time = SimpleNamespace(start_datetime="2000-01-01", end_datetime="2002-12-31T00:00:00")
+    trial_ctx = SimpleNamespace(base_cfg=SimpleNamespace(simulation=SimpleNamespace(time=time)))
 
-        extra = _ratios(trial_ctx=trial_ctx)
+    extra = _ratios(trial_ctx=trial_ctx)
 
-        assert "m/s over 2000-01-01 to 2002-12-31 on output" in extra["k_over_r_note"]
-        assert extra["r_mean_window"] == {"start": "2000-01-01", "end": "2002-12-31"}
-
-
-class TestPaperRatios:
-    def test_every_ratio_of_table_1_for_a_conductivity_search(self) -> None:
-        extra = _ratios({**R_MEAN, "network.d_sat_m": 12.0, "network.d_sat_over_d": 0.4})
-
-        k_over_r = 5.0e-4 / 2.0e-8
-        assert extra["k_over_r"] == k_over_r
-        assert extra["k_optim_m_s"] == 5.0e-4
-        assert extra["d_sat_m"] == 12.0
-        assert extra["t_over_r_m"] == k_over_r * 12.0
-        assert extra["t_optim_m2_s"] == 5.0e-4 * 12.0
-        assert extra["d_sat_over_d"] == 0.4
-        assert "t_over_r" in extra["k_over_r_note"]
-        assert "full" not in extra["k_over_r_note"]
-
-    def test_a_nearly_full_aquifer_is_said(self) -> None:
-        extra = _ratios({**R_MEAN, "network.d_sat_m": 27.0, "network.d_sat_over_d": 0.9})
-
-        assert "90% full" in extra["k_over_r_note"]
-
-    def test_the_conductivity_is_read_in_its_declared_unit(self) -> None:
-        extra = _ratios(space=_space(units="m/d"))
-
-        assert extra["k_optim_m_s"] == pytest.approx(5.0e-4 / 86400.0)
-
-    def test_the_field_unit_is_the_one_the_model_reads(self) -> None:
-        field = SimpleNamespace(unit="m/d")
-        param = {"K": SimpleNamespace(field=field)}
-        trial_ctx = SimpleNamespace(base_cfg=SimpleNamespace(flow=SimpleNamespace(param=param)))
-
-        extra = _ratios(space=_space(units="m/s"), trial_ctx=trial_ctx)
-
-        assert extra["k_optim_m_s"] == pytest.approx(5.0e-4 / 86400.0)
-
-    def test_a_dry_catchment_is_a_value_not_a_gap(self) -> None:
-        extra = _ratios({**R_MEAN, "network.d_sat_m": 0.0})
-
-        assert extra["d_sat_m"] == 0.0
-        assert extra["t_optim_m2_s"] == 0.0
-
-    def test_a_unit_that_is_not_a_conductivity_warns_after_the_run(self, caplog) -> None:
-        # The session is already saved when the report is assembled, so a
-        # wrong unit costs the ratios and never the run.
-        with caplog.at_level(logging.WARNING):
-            extra = _ratios(space=_space(units="-"))
-
-        assert extra == {}
-        assert "No K/R in the report" in caplog.text
-
-    @pytest.mark.parametrize(
-        "overrides",
-        [
-            # The criterion drives any parameter. A thickness divided by R is not K/R.
-            {"space": _space(path="domain.depth_model.thickness")},
-            {"space": _space(mode="scale")},
-            {"network_outputs": ()},
-            {"components": {"network.alpha_obs_closure": 0.9}},
-            {"best_parameters": None},
-            {"best_parameters": {"K": 5.0e-4, "Sy": 0.1}},
-        ],
-        ids=[
-            "another_parameter",
-            "a_multiplier",
-            "no_network_output",
-            "no_r_mean",
-            "no_best_parameters",
-            "more_than_one_parameter",
-        ],
-    )
-    def test_the_ratios_are_absent(self, overrides) -> None:
-        assert _ratios(**overrides) == {}
+    assert "m/s over 2000-01-01 to 2002-12-31 on output" in extra["k_over_r_note"]
+    assert extra["r_mean_window"] == {"start": "2000-01-01", "end": "2002-12-31"}
 
 
-class TestBoundWarning:
-    def test_a_value_inside_its_bounds_is_not_said_to_have_reached_one(self, caplog) -> None:
-        with caplog.at_level(logging.WARNING):
-            log_parameter_interval(
-                _interval(reaches_upper=True),
-                result_of(ParamSuggestion(trial_id=0, values={}), 0.123),
-            )
+def test_k_over_r_ratios() -> None:
+    extra = _ratios({**R_MEAN, "network.d_sat_m": 12.0, "network.d_sat_over_d": 0.4})
 
-        assert "Sy = 0.005: the trials within 0.1 of the best run to the upper" in caplog.text
-        assert "reached" not in caplog.text
+    k_over_r = 5.0e-4 / 2.0e-8
+    assert extra["k_over_r"] == k_over_r
+    assert extra["k_optim_m_s"] == 5.0e-4
+    assert extra["d_sat_m"] == 12.0
+    assert extra["t_over_r_m"] == k_over_r * 12.0
+    assert extra["t_optim_m2_s"] == 5.0e-4 * 12.0
+    assert extra["d_sat_over_d"] == 0.4
+    assert "t_over_r" in extra["k_over_r_note"]
+    assert "full" not in extra["k_over_r_note"]
 
 
-# From test_the_uncertainty_is_declared.py
-# How wide the answer is, said in the file rather than hardcoded.
-#
-# The interval reported beside a calibrated value was five per cent of the best
-# cost, always. That is a fine default for an efficiency score and meaningless for
-# a criterion solved at zero: five per cent of zero is zero, so a stream-network
-# calibration got no interval at all and nothing said which line would give it
-# one.
-#
-# The block declares it. The calibrated value never moves; only what is reported
-# beside it does.
+def test_nearly_full_aquifer_said() -> None:
+    extra = _ratios({**R_MEAN, "network.d_sat_m": 27.0, "network.d_sat_over_d": 0.9})
+
+    assert "90% full" in extra["k_over_r_note"]
+
+
+def model_with_k_unit(unit):
+    param = {"K": SimpleNamespace(field=SimpleNamespace(unit=unit))}
+    return SimpleNamespace(base_cfg=SimpleNamespace(flow=SimpleNamespace(param=param)))
+
+
+K_UNITS = [
+    pytest.param({"space": _space(units="m/d")}, id="unit declared by the search"),
+    pytest.param(
+        {"space": _space(units="m/s"), "trial_ctx": model_with_k_unit("m/d")},
+        id="unit of the model field",
+    ),
+]
+
+
+@pytest.mark.parametrize("overrides", K_UNITS)
+def test_k_read_in_its_unit(overrides) -> None:
+    extra = _ratios(**overrides)
+
+    np.testing.assert_allclose(extra["k_optim_m_s"], 5.0e-4 / 86400.0)  # m/d to m/s
+
+
+def test_dry_catchment_ratios() -> None:
+    extra = _ratios({**R_MEAN, "network.d_sat_m": 0.0})
+
+    assert extra["d_sat_m"] == 0.0
+    assert extra["t_optim_m2_s"] == 0.0
+
+
+def test_wrong_unit_warns(caplog) -> None:
+    # The session is already saved when the report is assembled, so a
+    # wrong unit costs the ratios and never the run.
+    with caplog.at_level(logging.WARNING):
+        extra = _ratios(space=_space(units="-"))
+
+    assert extra == {}
+    assert "No K/R in the report" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        # The criterion drives any parameter. A thickness divided by R is not K/R.
+        {"space": _space(path="domain.depth_model.thickness")},
+        {"space": _space(mode="scale")},
+        {"network_outputs": ()},
+        {"components": {"network.alpha_obs_closure": 0.9}},
+        {"best_parameters": None},
+        {"best_parameters": {"K": 5.0e-4, "Sy": 0.1}},
+    ],
+    ids=[
+        "another parameter",
+        "a multiplier",
+        "no network output",
+        "no r mean",
+        "no best parameters",
+        "more than one parameter",
+    ],
+)
+def test_ratios_absent(overrides) -> None:
+    assert _ratios(**overrides) == {}
+
+
+def test_interval_bound_wording(caplog) -> None:
+    with caplog.at_level(logging.WARNING):
+        log_parameter_interval(
+            _interval(reaches_upper=True),
+            result_of(ParamSuggestion(trial_id=0, values={}), 0.123),
+        )
+
+    assert "Sy = 0.005: the trials within 0.1 of the best run to the upper" in caplog.text
+    assert "reached" not in caplog.text
 
 
 _SPACE = ParameterSpace.from_toml_mapping(
@@ -2433,28 +1951,19 @@ def _trace(pairs: list[tuple[float, float]]) -> list[dict[str, object]]:
 
 
 _SHARP = _trace([(1.0, 10.0), (2.0, 1.0), (3.0, 1.02), (4.0, 9.0), (5.0, 30.0)])
-_AT_ZERO = _trace([(1.0, 40.0), (2.0, 0.0), (3.0, 12.0), (4.0, 30.0)])
 
 
-class TestWhatTheRunReports:
-    def test_the_declared_width_is_the_one_used(self) -> None:
-        decl = make_config(uncertainty={"cost_margin": "0.1%"}).interval_width_for()
+def test_declared_width_used() -> None:
+    decl = make_config(uncertainty={"cost_margin": "0.1%"}).interval_width_for()
 
-        (interval,) = margin_intervals_or_none(_SHARP, ["K"], _SPACE, decl)
+    (interval,) = margin_intervals_or_none(_SHARP, ["K"], _SPACE, decl)
 
-        assert interval.margin == pytest.approx(0.001)
-        assert interval.lower == interval.upper == 2.0
-
-
-# From test_validity_length_is_declared_in_metres.py
-# ``verdict.validity_length`` on a network output: "auto" or a positive length.
-#
-# ``roptim_max`` is gone from the schema: a file that still carries it loads
-# through the config migration, never through the model.
+    assert interval.margin == pytest.approx(0.001)
+    assert interval.lower == interval.upper == 2.0
 
 
 @pytest.mark.parametrize(("declared", "metres"), [("150 m", 150.0), ("0.3 km", 300.0), (75, 75.0)])
-def test_a_length_is_read_in_metres(declared: object, metres: float) -> None:
+def test_length_read_in_metres(declared: object, metres: float) -> None:
     output = _network(verdict={"validity_length": declared})
 
     assert float(output.verdict.validity_length.to("m").magnitude) == pytest.approx(metres)
@@ -2462,29 +1971,9 @@ def test_a_length_is_read_in_metres(declared: object, metres: float) -> None:
 
 
 @pytest.mark.parametrize("declared", ["0 m", "-10 m", "2 s", "two cells"])
-def test_a_length_that_is_not_one_is_refused(declared: str) -> None:
+def test_bad_length_refused(declared: str) -> None:
     with pytest.raises(ValidationError):
         _network(verdict={"validity_length": declared})
-
-
-_CALIBRATION = toml_doc(
-    """
-    [calibration]
-    method = "bisection"
-    @KLOG
-    @GAP
-    [calibration.outputs.net]
-    support = "network"
-    map.complete = "streams.gpkg"
-    roptim_max = VALUE
-    """
-)
-
-
-def _calibration_file(tmp_path, value: str):
-    path = tmp_path / "calibration.toml"
-    path.write_text(_CALIBRATION.replace("VALUE", value), encoding="utf-8")
-    return path
 
 
 @pytest.mark.parametrize(
@@ -2499,14 +1988,14 @@ def _calibration_file(tmp_path, value: str):
         (-0.4, False),
     ],
 )
-def test_two_roots_more_than_half_a_decade_apart_are_warned_about(delta, warned, caplog) -> None:
+def test_distant_roots_warn(delta, warned, caplog) -> None:
     with caplog.at_level(logging.WARNING):
         search_record._log_the_two_roots({**ROOTS, "delta_log10": delta})
 
     assert ("satisfies neither map" in caplog.text) is warned
 
 
-def test_the_two_roots_line_names_the_parameter_and_the_values(caplog) -> None:
+def test_two_roots_line(caplog) -> None:
     with caplog.at_level(logging.INFO):
         search_record._log_the_two_roots(ROOTS)
     assert "returned K = 2.4e-05" in caplog.text
@@ -2522,7 +2011,7 @@ def test_the_two_roots_line_names_the_parameter_and_the_values(caplog) -> None:
     assert "lie 1.82 decades apart" in caplog.text
 
 
-def test_a_width_keeps_the_pairs_it_belongs_to_and_the_restarts_it_spans() -> None:
+def test_parameter_widths() -> None:
     report = SimpleNamespace(
         best_parameters={"K": 1e-5, "Sy": 0.1, "R": 0.3},
         parameter_uncertainty=[SimpleNamespace(parameter="K", sigma=2e-6)],
@@ -2554,9 +2043,7 @@ def _width(margin, kind="absolute", on_distances=False) -> IntervalWidth:
         (_width(-1.0), _SHARP, "margin must not be negative"),
     ],
 )
-def test_a_width_that_cannot_be_read_gives_no_interval_and_says_why(
-    width, trace, message, caplog
-) -> None:
+def test_unreadable_width_warns(width, trace, message, caplog) -> None:
     with caplog.at_level("WARNING"):
         assert margin_intervals_or_none(trace, ["K"], _SPACE, width) == []
 
@@ -2564,7 +2051,7 @@ def test_a_width_that_cannot_be_read_gives_no_interval_and_says_why(
 
 
 @pytest.mark.parametrize(("root", "expected"), [(None, []), ("interval", ["interval"])])
-def test_a_root_search_reads_its_interval_on_its_own_curve(root, expected) -> None:
+def test_root_search_interval(root, expected) -> None:
     search = Mock(spec=BisectionAdapter)
     search.root_interval.return_value = root
 
@@ -2574,7 +2061,7 @@ def test_a_root_search_reads_its_interval_on_its_own_curve(root, expected) -> No
     search.root_interval.assert_called_once_with(margin=25.0, kind="absolute")
 
 
-def test_the_mesh_cell_is_the_first_finite_one_a_trial_measured() -> None:
+def test_mesh_cell_first_finite() -> None:
     def trial(components):
         return EvaluationResult(trial_id=1, sim_id=None, cost=1.0, components=components)
 
@@ -2633,7 +2120,7 @@ def _attach(report, parallel=1, observed=(2.1, 2.4, 2.9)):
 
 
 @pytest.mark.parametrize("parallel", [1, 3])
-def test_the_width_of_a_line_fit_is_its_first_order_covariance(monkeypatch, parallel) -> None:
+def test_line_fit_width(monkeypatch, parallel) -> None:
     monkeypatch.setattr(composite, "build_paired_vector_capture", _line_capture((2.1, 2.4, 2.9)))
     monkeypatch.setattr(
         trial, "run_trial_light", _runs(lambda values: False, scores_before_failing=False)
@@ -2660,9 +2147,7 @@ def test_the_width_of_a_line_fit_is_its_first_order_covariance(monkeypatch, para
         ((2.1, 2.4, 2.9), {}, "No candidate was scored"),
     ],
 )
-def test_a_fit_without_freedom_or_without_an_answer_keeps_the_report(
-    monkeypatch, caplog, observed, answer, message
-) -> None:
+def test_fit_without_freedom_keeps_report(monkeypatch, caplog, observed, answer, message) -> None:
     monkeypatch.setattr(composite, "build_paired_vector_capture", _line_capture(observed))
     monkeypatch.setattr(
         trial, "run_trial_light", _runs(lambda values: False, scores_before_failing=False)
@@ -2675,7 +2160,7 @@ def test_a_fit_without_freedom_or_without_an_answer_keeps_the_report(
     assert __import__("re").search(message, caplog.text)
 
 
-def test_a_document_that_cannot_carry_a_width_keeps_the_report(monkeypatch, caplog) -> None:
+def test_no_station_keeps_report(monkeypatch, caplog) -> None:
     def refuse(**options):
         raise search.UncertaintyNotAvailableError("the outputs name no station")
 
@@ -2688,7 +2173,7 @@ def test_a_document_that_cannot_carry_a_width_keeps_the_report(monkeypatch, capl
     assert "No width is reported: the outputs name no station" in caplog.text
 
 
-def test_a_search_that_scored_nothing_has_failed() -> None:
+def test_empty_search_failed() -> None:
     assert session_scope.search_status(SimpleNamespace(history=[])) == "failed"
 
 
@@ -2701,7 +2186,7 @@ def _bisection(**records) -> Mock:
     return search
 
 
-def test_a_search_that_closed_two_roots_says_it_reports_no_interval(caplog) -> None:
+def test_two_roots_no_interval(caplog) -> None:
     two, one = (
         SimpleNamespace(optimizer=_bisection(roots=2)),
         SimpleNamespace(optimizer=_bisection()),
@@ -2716,7 +2201,7 @@ def test_a_search_that_closed_two_roots_says_it_reports_no_interval(caplog) -> N
     assert caplog.text.count("No interval of trials is reported") == 1
 
 
-def test_the_search_outcome_logs_the_two_roots_it_closed(monkeypatch) -> None:
+def test_outcome_logs_two_roots(monkeypatch) -> None:
     seen = []
     monkeypatch.setattr(search_record, "_log_the_two_roots", seen.append)
     session = SimpleNamespace(
@@ -2735,9 +2220,7 @@ def test_the_search_outcome_logs_the_two_roots_it_closed(monkeypatch) -> None:
     assert seen == [{"delta_log10": 0.1}]
 
 
-def test_the_scratch_of_a_session_is_kept_on_demand_and_a_failed_cleanup_is_only_logged(
-    monkeypatch, caplog
-) -> None:
+def test_session_scratch_release(monkeypatch, caplog) -> None:
     from hydromodpy.catchment.preprocess import preprocessing_cleanup
 
     calls = []
@@ -2763,7 +2246,7 @@ def test_the_scratch_of_a_session_is_kept_on_demand_and_a_failed_cleanup_is_only
     assert "Could not remove the calibration session scratch" in caplog.text
 
 
-def test_a_phase_whose_trials_carry_no_block_cost_has_no_fractions() -> None:
+def test_no_block_cost_fractions() -> None:
     blocks = [SimpleNamespace(name="a", weight=1.0), SimpleNamespace(name="b", weight=1.0)]
     cfg = SimpleNamespace(objective_blocks=blocks)
     done = EvaluationResult(trial_id=1, sim_id=None, cost=1.0, components={})
@@ -2771,7 +2254,7 @@ def test_a_phase_whose_trials_carry_no_block_cost_has_no_fractions() -> None:
     assert search.phase_cost_block_fractions(cfg, [done], done) is None
 
 
-def test_a_default_the_project_refuses_is_reported_with_the_file(monkeypatch, tmp_path) -> None:
+def test_project_default_error_names_file(monkeypatch, tmp_path) -> None:
     def refuse(table, **kwargs):
         raise ConfigError("the gauge is unknown")
 
@@ -2782,9 +2265,7 @@ def test_a_default_the_project_refuses_is_reported_with_the_file(monkeypatch, tm
         document._with_project_defaults({"calibration": {}}, path)
 
 
-def test_a_name_the_project_does_not_carry_stops_the_load_and_any_other_failure_does_not(
-    monkeypatch, tmp_path
-) -> None:
+def test_unresolved_parameter_name(monkeypatch, tmp_path) -> None:
     from hydromodpy.calibration.parameter_resolution import UnresolvedParameterName
 
     cfg = SimpleNamespace(parameters={"K": object()})
@@ -2801,8 +2282,7 @@ def test_a_name_the_project_does_not_carry_stops_the_load_and_any_other_failure_
         document._resolve_parameter_names(cfg, tmp_path)
 
 
-def test_a_bare_input_name_stops_the_load(monkeypatch, tmp_path) -> None:
-    """A path this version refuses is named, not left to fail later on a missing 'path'."""
+def test_bare_input_name_stops_load(monkeypatch, tmp_path) -> None:
     from hydromodpy.core.toml_io.paths import BareInputNameError
 
     cfg = SimpleNamespace(parameters={"K": object()})

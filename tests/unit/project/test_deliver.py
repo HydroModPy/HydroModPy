@@ -83,10 +83,6 @@ _UNC_PHRASE = (
     else "does not exist or cannot be written"
 )
 
-# --------------------------------------------------------------------------- #
-# Helpers
-# --------------------------------------------------------------------------- #
-
 
 def _request(**fields: Any) -> ExportRequest:
     """Return the export block a test delivers, one variable by default."""
@@ -221,12 +217,7 @@ def _sftp_root(root: Path) -> Path:
     return server
 
 
-# --------------------------------------------------------------------------- #
-# The registries and the numbers
-# --------------------------------------------------------------------------- #
-
-
-def test_the_registries_cover_every_scheme() -> None:
+def test_registries_cover_schemes() -> None:
     schemes = set(DELIVERY_SCHEMES) | {LOCAL_SCHEME}
     assert set(PUSHERS) == schemes
     assert set(PROBES) == schemes
@@ -234,15 +225,10 @@ def test_the_registries_cover_every_scheme() -> None:
     assert all(callable(probe) for probe in PROBES.values())
 
 
-def test_the_attempts_and_the_part_name_are_the_contract() -> None:
+def test_delivery_constants() -> None:
     assert DELIVERY_ATTEMPTS == 3
     assert RETRY_DELAYS_S == (1.0, 2.0)
     assert PART_SUFFIX == ".part"
-
-
-# --------------------------------------------------------------------------- #
-# preflight, the table of refusals
-# --------------------------------------------------------------------------- #
 
 
 def _host_not_allowed(
@@ -462,7 +448,7 @@ def test_preflight_refusals(
     assert exit_code_for(caught.value) == code
 
 
-def test_the_advised_prefix_carries_the_port(tmp_path: Path, ftp_depot: tuple[int, Path]) -> None:
+def test_advised_prefix_has_port(tmp_path: Path, ftp_depot: tuple[int, Path]) -> None:
     port, _root = ftp_depot
     project = _project(tmp_path)
     requests, environment = _no_block_answers(tmp_path, port, project)
@@ -473,7 +459,7 @@ def test_the_advised_prefix_carries_the_port(tmp_path: Path, ftp_depot: tuple[in
     assert f'prefix = "ftp://127.0.0.1:{port}/"' in str(caught.value)
 
 
-def test_preflight_accepts_a_local_folder_and_a_local_file(tmp_path: Path) -> None:
+def test_preflight_accepts_local_targets(tmp_path: Path) -> None:
     depot = tmp_path / "depot"
     depot.mkdir()
     requests = [
@@ -484,7 +470,7 @@ def test_preflight_accepts_a_local_folder_and_a_local_file(tmp_path: Path) -> No
     preflight(requests, Environment(), project_root=_project(tmp_path))
 
 
-def test_preflight_warns_once_per_clear_ftp_destination(
+def test_clear_ftp_warns_once(
     tmp_path: Path, ftp_depot: tuple[int, Path], caplog: pytest.LogCaptureFixture
 ) -> None:
     port, _root = ftp_depot
@@ -504,12 +490,7 @@ def test_preflight_warns_once_per_clear_ftp_destination(
     assert "ftp://127.0.0.1 sends its password in clear" in told[0].message
 
 
-# --------------------------------------------------------------------------- #
-# A local destination
-# --------------------------------------------------------------------------- #
-
-
-def test_deliver_run_copies_into_a_local_folder(tmp_path: Path) -> None:
+def test_copy_to_local_folder(tmp_path: Path) -> None:
     depot = tmp_path / "depot"
     depot.mkdir()
     request = _request(deliver_to=[str(depot) + "/"])
@@ -532,7 +513,7 @@ def test_deliver_run_copies_into_a_local_folder(tmp_path: Path) -> None:
     assert _no_parts(depot)
 
 
-def test_deliver_run_copies_to_one_local_file(tmp_path: Path) -> None:
+def test_copy_to_local_file(tmp_path: Path) -> None:
     depot = tmp_path / "depot"
     depot.mkdir()
     target = depot / "one.tif"
@@ -549,7 +530,7 @@ def test_deliver_run_copies_to_one_local_file(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(os.name == "nt", reason="a POSIX symbolic link")
-def test_a_local_file_that_is_a_symbolic_link_is_replaced_itself(tmp_path: Path) -> None:
+def test_symlink_target_is_replaced(tmp_path: Path) -> None:
     pointed = tmp_path / "elsewhere" / "kept.tif"
     pointed.parent.mkdir()
     pointed.write_bytes(b"kept")
@@ -568,7 +549,7 @@ def test_a_local_file_that_is_a_symbolic_link_is_replaced_itself(tmp_path: Path)
     assert _no_parts(depot)
 
 
-def test_the_pairs_follow_the_block_the_file_and_the_destination_order(tmp_path: Path) -> None:
+def test_pairs_follow_destination_order(tmp_path: Path) -> None:
     first = tmp_path / "first"
     second = tmp_path / "second"
     first.mkdir()
@@ -590,9 +571,7 @@ def test_the_pairs_follow_the_block_the_file_and_the_destination_order(tmp_path:
     assert (second / "a.tif").read_bytes() == b"a"
 
 
-def test_a_block_that_wrote_no_file_warns_and_delivers_nothing(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_block_without_file_warns(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     depot = tmp_path / "depot"
     depot.mkdir()
     written = _request(deliver_to=[str(depot) + "/"])
@@ -609,9 +588,7 @@ def test_a_block_that_wrote_no_file_warns_and_delivers_nothing(
     assert list(depot.iterdir()) == []
 
 
-def test_a_source_file_gone_gives_a_failed_line(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_missing_source_fails(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     depot = tmp_path / "depot"
     depot.mkdir()
     request = _request(deliver_to=[str(depot) + "/"])
@@ -631,11 +608,6 @@ def test_a_source_file_gone_gives_a_failed_line(
     assert list(depot.iterdir()) == []
 
 
-# --------------------------------------------------------------------------- #
-# ftp
-# --------------------------------------------------------------------------- #
-
-
 def _ftp_environment(root: Path, port: int) -> Environment:
     """Return the environment of a delivery to the test server."""
     return Environment(
@@ -652,9 +624,7 @@ def _ftp_environment(root: Path, port: int) -> Environment:
         pytest.param(3, "failed", 3, id="three-refusals"),
     ],
 )
-def test_deliver_run_pushes_over_ftp(
-    tmp_path: Path, fail_stor: int, state: str, attempts: int
-) -> None:
+def test_ftp_push_retries(tmp_path: Path, fail_stor: int, state: str, attempts: int) -> None:
     server_root = tmp_path / "srv"
     (server_root / "depot").mkdir(parents=True)
     with ftp_server(server_root, fail_stor=fail_stor) as port:
@@ -678,7 +648,7 @@ def test_deliver_run_pushes_over_ftp(
         assert _no_parts(server_root)
 
 
-def test_deliver_run_renames_onto_an_existing_file_by_deleting_it_first(
+def test_ftp_overwrites_existing_file(
     tmp_path: Path,
 ) -> None:
     server_root = tmp_path / "srv"
@@ -701,7 +671,7 @@ def test_deliver_run_renames_onto_an_existing_file_by_deleting_it_first(
         assert (depot / "head_last.tif").read_bytes() == HEAD
 
 
-def test_an_ftp_folder_destination_names_one_file(tmp_path: Path) -> None:
+def test_ftp_single_file_name(tmp_path: Path) -> None:
     server_root = tmp_path / "srv"
     (server_root / "depot").mkdir(parents=True)
     with ftp_server(server_root) as port:
@@ -719,13 +689,8 @@ def test_an_ftp_folder_destination_names_one_file(tmp_path: Path) -> None:
         assert not (server_root / "depot" / "head_last.tif").exists()
 
 
-# --------------------------------------------------------------------------- #
-# ftps
-# --------------------------------------------------------------------------- #
-
-
 @pytest.mark.allow_subprocess
-def test_ftps_probes_and_pushes_under_explicit_tls(tmp_path: Path) -> None:
+def test_ftps_push_under_tls(tmp_path: Path) -> None:
     server_context = server_tls(*self_signed(tmp_path))
     client_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     client_context.check_hostname = False
@@ -774,7 +739,7 @@ def _ftps_attempt(
 
 
 @pytest.mark.allow_subprocess
-def test_ftps_refuses_a_self_signed_certificate_by_default(tmp_path: Path) -> None:
+def test_ftps_refuses_self_signed(tmp_path: Path) -> None:
     tls = server_tls(*self_signed(tmp_path))
 
     probed, pushed, commands, server_root = _ftps_attempt(tmp_path, tls)
@@ -785,7 +750,7 @@ def test_ftps_refuses_a_self_signed_certificate_by_default(tmp_path: Path) -> No
     assert list((server_root / "depot").iterdir()) == []
 
 
-def test_ftps_never_falls_back_to_clear_ftp(tmp_path: Path) -> None:
+def test_ftps_never_falls_back(tmp_path: Path) -> None:
     probed, pushed, commands, server_root = _ftps_attempt(tmp_path, None)
 
     assert "does not answer" in str(probed)
@@ -793,11 +758,6 @@ def test_ftps_never_falls_back_to_clear_ftp(tmp_path: Path) -> None:
     assert commands.count("AUTH") == 2
     assert "PASS" not in commands and "STOR" not in commands
     assert list((server_root / "depot").iterdir()) == []
-
-
-# --------------------------------------------------------------------------- #
-# sftp, against a stand-in paramiko
-# --------------------------------------------------------------------------- #
 
 
 class _FakeSFTP:
@@ -897,7 +857,7 @@ def _fake_paramiko(root: Path, *, refusal: str | None = None) -> types.ModuleTyp
     return module
 
 
-def test_deliver_run_pushes_over_sftp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sftp_push(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     server_root = _sftp_root(tmp_path)
     monkeypatch.setitem(sys.modules, "paramiko", _fake_paramiko(server_root))
     credentials = _sftp_credentials(tmp_path, _fingerprint_of(FINGERPRINT_KEY))
@@ -917,9 +877,7 @@ def test_deliver_run_pushes_over_sftp(tmp_path: Path, monkeypatch: pytest.Monkey
     assert _no_parts(server_root)
 
 
-def test_deliver_run_refuses_another_server_fingerprint(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_sftp_wrong_fingerprint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     server_root = _sftp_root(tmp_path)
     monkeypatch.setitem(sys.modules, "paramiko", _fake_paramiko(server_root))
     credentials = _sftp_credentials(tmp_path, "not-the-key-the-server-shows")
@@ -939,9 +897,7 @@ def test_deliver_run_refuses_another_server_fingerprint(
     assert not (server_root / "depot" / "head_last.tif").exists()
 
 
-def test_sftp_authenticates_with_an_ed25519_key(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_sftp_ed25519_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     server_root = _sftp_root(tmp_path)
     monkeypatch.setitem(sys.modules, "paramiko", _fake_paramiko(server_root))
     key_file = tmp_path / "home" / "id_ed25519"
@@ -968,11 +924,6 @@ def test_sftp_authenticates_with_an_ed25519_key(
     assert (server_root / "depot" / "head_last.tif").read_bytes() == HEAD
 
 
-# --------------------------------------------------------------------------- #
-# Resume
-# --------------------------------------------------------------------------- #
-
-
 def _pending_run(tmp_path: Path, address: str) -> Path:
     """Write a sealed run whose one file has a pending line to *address*."""
     request = _request(deliver_to=[address])
@@ -985,9 +936,7 @@ def _pending_run(tmp_path: Path, address: str) -> Path:
     return run_dir
 
 
-def test_deliver_pending_refuses_a_host_off_the_allowed_hosts(
-    tmp_path: Path, ftp_depot: tuple[int, Path]
-) -> None:
+def test_pending_refuses_host(tmp_path: Path, ftp_depot: tuple[int, Path]) -> None:
     port, server_root = ftp_depot
     address = f"ftp://127.0.0.1:{port}/depot/"
     run_dir = _pending_run(tmp_path, address)
@@ -1003,9 +952,7 @@ def test_deliver_pending_refuses_a_host_off_the_allowed_hosts(
     assert list((server_root / "depot").iterdir()) == []
 
 
-def test_deliver_pending_refuses_a_private_address_not_named(
-    tmp_path: Path, ftp_depot: tuple[int, Path]
-) -> None:
+def test_pending_refuses_private_address(tmp_path: Path, ftp_depot: tuple[int, Path]) -> None:
     port, server_root = ftp_depot
     address = f"ftp://127.0.0.1:{port}/depot/"
     run_dir = _pending_run(tmp_path, address)
@@ -1018,7 +965,7 @@ def test_deliver_pending_refuses_a_private_address_not_named(
     assert list((server_root / "depot").iterdir()) == []
 
 
-def test_deliver_pending_refuses_a_folder_outside_the_roots(tmp_path: Path) -> None:
+def test_pending_refuses_folder(tmp_path: Path) -> None:
     depot = tmp_path / "depot"
     depot.mkdir()
     run_dir = _pending_run(tmp_path, str(depot) + "/")
@@ -1032,7 +979,7 @@ def test_deliver_pending_refuses_a_folder_outside_the_roots(tmp_path: Path) -> N
     assert list(depot.iterdir()) == []
 
 
-def test_deliver_pending_warns_of_a_clear_ftp_password(
+def test_pending_warns_clear_ftp(
     tmp_path: Path, ftp_depot: tuple[int, Path], caplog: pytest.LogCaptureFixture
 ) -> None:
     port, server_root = ftp_depot
@@ -1052,7 +999,7 @@ def test_deliver_pending_warns_of_a_clear_ftp_password(
     assert (server_root / "depot" / "head_last.tif").read_bytes() == HEAD
 
 
-def test_deliver_pending_pushes_a_pair_a_pending_line_names(tmp_path: Path) -> None:
+def test_pending_pushes_listed_pair(tmp_path: Path) -> None:
     depot = tmp_path / "depot"
     depot.mkdir()
     target = str(depot) + "/head_last.tif"
@@ -1072,7 +1019,7 @@ def test_deliver_pending_pushes_a_pair_a_pending_line_names(tmp_path: Path) -> N
     assert _states(run_dir) == ["pending", "pending", "delivered"]
 
 
-def test_deliver_pending_leaves_a_delivered_pair_of_the_same_bytes(tmp_path: Path) -> None:
+def test_pending_skips_delivered_pair(tmp_path: Path) -> None:
     depot = tmp_path / "depot"
     depot.mkdir()
     target = str(depot) + "/head_last.tif"
@@ -1092,7 +1039,7 @@ def test_deliver_pending_leaves_a_delivered_pair_of_the_same_bytes(tmp_path: Pat
     assert _states(run_dir) == ["delivered"]
 
 
-def test_deliver_pending_pushes_a_delivered_pair_whose_bytes_changed(tmp_path: Path) -> None:
+def test_pending_repushes_changed_bytes(tmp_path: Path) -> None:
     depot = tmp_path / "depot"
     depot.mkdir()
     target = str(depot) + "/head_last.tif"
@@ -1113,7 +1060,7 @@ def test_deliver_pending_pushes_a_delivered_pair_whose_bytes_changed(tmp_path: P
     assert last.sha256 == hashlib.sha256(HEAD).hexdigest()
 
 
-def test_deliver_pending_pushes_a_pair_known_only_by_its_lines(tmp_path: Path) -> None:
+def test_pending_pushes_pair_from_lines(tmp_path: Path) -> None:
     depot = tmp_path / "depot"
     depot.mkdir()
     target = str(depot) + "/head_last.tif"
@@ -1131,21 +1078,14 @@ def test_deliver_pending_pushes_a_pair_known_only_by_its_lines(tmp_path: Path) -
     assert (depot / "head_last.tif").read_bytes() == HEAD
 
 
-def test_deliver_pending_refuses_a_run_without_a_seal(tmp_path: Path) -> None:
+def test_pending_needs_a_seal(tmp_path: Path) -> None:
     run_dir = _make_run(tmp_path, None, {"head_last.tif": HEAD}, sealed=False)
 
     with pytest.raises(ExportError, match="only a sealed run is delivered"):
         deliver_pending(run_dir, Environment(), project_root=_project(tmp_path), delays=(0, 0))
 
 
-# --------------------------------------------------------------------------- #
-# The secret
-# --------------------------------------------------------------------------- #
-
-
-def test_a_password_quoted_by_a_failure_never_reaches_a_line(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_password_never_reaches_a_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     server_root = _sftp_root(tmp_path)
     refusal = f"authentication refused the password {SECRET}"
     monkeypatch.setitem(sys.modules, "paramiko", _fake_paramiko(server_root, refusal=refusal))
@@ -1169,7 +1109,7 @@ def test_a_password_quoted_by_a_failure_never_reaches_a_line(
 
 
 @pytest.mark.parametrize("windows", [True, False])
-def test_the_path_pusher_writes_and_renames_through_the_native_io_path(
+def test_path_pusher_native_io(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, windows: bool
 ) -> None:
     """On Windows the ``.part`` copy, its rename and the size check use the long form; elsewhere

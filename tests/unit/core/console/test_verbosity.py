@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import io
-import logging
+import warnings
 
 import pytest
 from rich.console import Console
@@ -22,13 +22,9 @@ from hydromodpy.core.logging import (
 
 @pytest.fixture
 def console_output():
-    """Capture what the shared console prints, and restore the level after.
-
-    The console is put back before the level is, on purpose: restoring the
-    level rebuilds the console handler, and rebuilding it against the fake
-    terminal would leave a handler writing into this buffer for the rest of
-    the session.
-    """
+    # The console is put back before the level on purpose. Restoring the level
+    # rebuilds the console handler, and doing it against the fake terminal would
+    # leave a handler writing into this buffer for the rest of the session.
     buffer = io.StringIO()
     original = core_progress.console
     previous = current_verbosity()
@@ -41,7 +37,6 @@ def console_output():
 
 
 def _emit(level: str) -> None:
-    """Log one line of each kind at *level*."""
     set_verbosity(level)
     logger = get_logger("hydromodpy.test.verbosity")
     logger.debug("a debug line")
@@ -50,14 +45,14 @@ def _emit(level: str) -> None:
     logger.warning("a warning line")
 
 
-def test_debug_keeps_everything_with_its_origin(console_output):
+def test_debug_shows_origin(console_output):
     _emit("debug")
     text = console_output.getvalue()
     assert "a debug line" in text
     assert "hydromodpy.test.verbosity" in text
 
 
-def test_the_live_display_runs_at_normal_and_verbose(console_output):
+def test_live_display_levels(console_output):
     for level in ("normal", "verbose"):
         set_verbosity(level)
         with core_progress.phase(f"phase at {level}"):
@@ -71,9 +66,7 @@ def test_the_live_display_runs_at_normal_and_verbose(console_output):
     assert console_output.getvalue().count("✓") == buffer_before_quiet.count("✓")
 
 
-def test_a_third_party_deprecation_does_not_warn(console_output):
-    import warnings
-
+def test_third_party_deprecation_hidden(console_output):
     LogManager(mode="normal")
     warnings.warn_explicit(
         "shape assignment is deprecated",
@@ -84,9 +77,7 @@ def test_a_third_party_deprecation_does_not_warn(console_output):
     assert "shape assignment" not in console_output.getvalue()
 
 
-def test_a_third_party_runtime_warning_still_warns(console_output):
-    import warnings
-
+def test_third_party_runtime_warning_shown(console_output):
     LogManager(mode="normal")
     warnings.warn_explicit(
         "mean of empty slice",
@@ -97,13 +88,21 @@ def test_a_third_party_runtime_warning_still_warns(console_output):
     assert "mean of empty slice" in console_output.getvalue()
 
 
-def test_an_unknown_level_is_refused():
+def test_unknown_level():
     with pytest.raises(ValueError, match="quiet, normal, verbose, debug"):
         normalize_verbosity("loud")
 
 
-def test_the_environment_names_a_level(monkeypatch):
+def test_level_from_environment(monkeypatch):
     monkeypatch.setenv("HMP_VERBOSITY", "  DEBUG ")
     assert verbosity_from_env() == "debug"
     monkeypatch.delenv("HMP_VERBOSITY")
     assert verbosity_from_env() is None
+
+
+def test_a_repeated_warning_is_shown_once(console_output):
+    set_verbosity("normal")
+    logger = get_logger("hydromodpy.test.verbosity")
+    for _ in range(2):
+        logger.warning("same warning")
+    assert console_output.getvalue().count("same warning") == 1

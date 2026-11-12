@@ -1,3 +1,9 @@
+"""PETSc time-stepping variational-inequality runtime of Boussinesq, on one and three cells.
+
+Heads are in m between a bottom and a top obstacle, rates in m/s and time steps in s. A solve
+with ts_vi_steps_per_period equal to n must match n manual vi sub-steps.
+"""
+
 from __future__ import annotations
 
 import csv

@@ -198,10 +198,7 @@ def solved_run(tmp_path):
     return project, sim_id, author_entries
 
 
-# -- the run directory -------------------------------------------------------
-
-
-def test_run_writes_one_directory_named_after_the_run(solved_run):
+def test_run_directory_named_after_run(solved_run):
     project, _, _ = solved_run
 
     runs_dir = project / RUNS_DIRNAME
@@ -217,7 +214,7 @@ def test_run_writes_one_directory_named_after_the_run(solved_run):
     assert (run_dir / TABLES_DIRNAME).is_dir()
 
 
-def test_a_completed_run_carries_its_outcome_readme_inputs_and_logs(solved_run):
+def test_completed_run_entries(solved_run):
     project, _, _ = solved_run
     run_dir = project / RUNS_DIRNAME / RUN_NAME
 
@@ -227,7 +224,7 @@ def test_a_completed_run_carries_its_outcome_readme_inputs_and_logs(solved_run):
     assert (run_dir / RUN_LOGS_DIRNAME).is_dir()
 
 
-def test_the_whole_configuration_of_a_run_is_a_sealed_entry_of_its_directory(solved_run):
+def test_resolved_config_is_sealed(solved_run):
     assert RUN_RESOLVED_CONFIG_FILENAME in ALLOWED_RUN_ENTRIES
     assert RUN_RESOLVED_CONFIG_FILENAME not in UNSEALED_RUN_ENTRIES
     project, _sim_id, _author = solved_run
@@ -240,8 +237,7 @@ def test_the_whole_configuration_of_a_run_is_a_sealed_entry_of_its_directory(sol
     assert roles[RUN_RESOLVED_CONFIG_FILENAME] == "config_resolved"
 
 
-def test_the_request_of_a_run_is_kept_whole_and_never_sealed(solved_run):
-    """``request.json`` is the request as it came: an entry of the run outside the seal."""
+def test_request_kept_whole_unsealed(solved_run):
     assert RUN_REQUEST_FILENAME == "request.json"
     assert RUN_REQUEST_FILENAME in UNSEALED_RUN_ENTRIES
     project, _sim_id, _author = solved_run
@@ -263,8 +259,8 @@ def test_the_request_of_a_run_is_kept_whole_and_never_sealed(solved_run):
     }
 
 
-def test_a_request_from_a_file_writes_no_request_json(tmp_path):
-    """A TOML file says what it asked in ``config.toml``; only JSON and a mapping are written."""
+def test_file_request_writes_nothing(tmp_path):
+    # A TOML request is already in config.toml, so only JSON is written.
     run_dir = tmp_path / "run"
     run_dir.mkdir()
 
@@ -273,7 +269,7 @@ def test_a_request_from_a_file_writes_no_request_json(tmp_path):
     assert list(run_dir.iterdir()) == []
 
 
-def test_a_new_project_holds_its_inputs_and_configs_folders_and_nothing_else(tmp_path):
+def test_new_project_layout(tmp_path):
     project = create_project(tmp_path / "workspace", "nancon")
 
     assert (project / INPUTS_DIRNAME).is_dir()
@@ -281,15 +277,15 @@ def test_a_new_project_holds_its_inputs_and_configs_folders_and_nothing_else(tmp
     assert unexpected_project_entries(project) == set()
 
 
-def test_a_completed_run_keeps_no_internal_directory(solved_run):
-    """The state of the attempt (scratch, locks, checkpoints) is consumed by the seal."""
+def test_run_keeps_no_internal_directory(solved_run):
+    # The seal consumes the attempt state (scratch, locks, checkpoints).
     project, _, _ = solved_run
 
     assert not (project / RUNS_DIRNAME / RUN_NAME / INTERNAL_DIRNAME).exists()
 
 
-def test_the_final_state_is_sealed_and_the_profile_is_not(tmp_path):
-    """``final_state/`` is a result of the run; ``profile.json`` describes one machine."""
+def test_final_state_sealed_profile_not(tmp_path):
+    # final_state/ is a result of the run, profile.json describes one machine.
     assert FINAL_STATE_DIRNAME == "final_state"
     assert FINAL_STATE_DIRNAME in ALLOWED_RUN_ENTRIES
     assert FINAL_STATE_DIRNAME not in UNSEALED_RUN_ENTRIES
@@ -320,8 +316,7 @@ def test_the_final_state_is_sealed_and_the_profile_is_not(tmp_path):
     assert {entry.name for entry in run_dir.iterdir()} <= ALLOWED_RUN_ENTRIES
 
 
-def test_the_stop_flag_is_internal_and_leaves_with_the_seal(tmp_path):
-    """``.hmp/stop.json`` is state of the attempt, never a result: the seal removes it."""
+def test_stop_flag_removed_by_seal(tmp_path):
     project = tmp_path / "project"
     project.mkdir()
     (project / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
@@ -339,7 +334,7 @@ def test_the_stop_flag_is_internal_and_leaves_with_the_seal(tmp_path):
     assert STOP_FLAG_FILENAME not in ALLOWED_RUN_ENTRIES
 
 
-def test_the_field_store_and_the_manifest_say_what_budget_the_run_kept(solved_run):
+def test_kept_budget_recorded(solved_run):
     project, _, _ = solved_run
     run_dir = project / RUNS_DIRNAME / RUN_NAME
     root = zarr.open_group(str(run_dir / FIELDS_STORE_NAME), mode="r")
@@ -351,7 +346,7 @@ def test_the_field_store_and_the_manifest_say_what_budget_the_run_kept(solved_ru
     assert "derived" not in root
 
 
-def test_tabular_payloads_are_plain_parquet_files_in_one_directory(solved_run):
+def test_tables_are_plain_parquet(solved_run):
     project, _, _ = solved_run
 
     tables_dir = project / RUNS_DIRNAME / RUN_NAME / TABLES_DIRNAME
@@ -369,17 +364,14 @@ def test_tabular_payloads_are_plain_parquet_files_in_one_directory(solved_run):
     assert all((tables_dir / name).is_file() for name in payloads)
 
 
-# -- the project root --------------------------------------------------------
-
-
-def test_the_index_lives_under_the_internal_directory(solved_run):
+def test_index_under_internal_directory(solved_run):
     project, _, _ = solved_run
 
     assert (project / INTERNAL_DIRNAME / CATALOG_FILENAME).is_file()
     assert not (project / CATALOG_FILENAME).exists()
 
 
-def test_the_internal_directory_holds_only_rebuildable_entries(solved_run):
+def test_internal_entries_rebuildable(solved_run):
     project, _, _ = solved_run
 
     entries = {entry.name for entry in (project / INTERNAL_DIRNAME).iterdir()}
@@ -390,7 +382,7 @@ def test_the_internal_directory_holds_only_rebuildable_entries(solved_run):
     )
 
 
-def test_a_run_writes_nothing_outside_the_output_roots(solved_run):
+def test_run_writes_only_output_roots(solved_run):
     project, _, author_entries = solved_run
 
     written = {entry.name for entry in project.iterdir()} - author_entries
@@ -398,7 +390,7 @@ def test_a_run_writes_nothing_outside_the_output_roots(solved_run):
     assert written <= OUTPUT_ROOTS, f"outputs outside the output roots: {written - OUTPUT_ROOTS}"
 
 
-def test_project_root_grows_no_dumping_ground(solved_run):
+def test_no_dumping_ground(solved_run):
     project, _, _ = solved_run
 
     assert unexpected_project_entries(project) == set()
@@ -406,7 +398,7 @@ def test_project_root_grows_no_dumping_ground(solved_run):
         assert not (project / forbidden).exists(), f"removed layout entry reappeared: {forbidden}"
 
 
-def test_author_files_at_the_root_are_never_flagged(tmp_path):
+def test_author_files_not_flagged(tmp_path):
     for name in (
         PROJECT_MARKER_FILENAME,
         README_FILENAME,
@@ -425,20 +417,20 @@ def test_author_files_at_the_root_are_never_flagged(tmp_path):
 
 
 @pytest.mark.parametrize("name", sorted(FORBIDDEN_PROJECT_ENTRIES))
-def test_a_removed_entry_is_flagged(tmp_path, name):
+def test_removed_entry_flagged(tmp_path, name):
     (tmp_path / name).mkdir()
 
     assert unexpected_project_entries(tmp_path) == {name}
 
 
-def test_an_output_file_at_the_root_is_flagged(tmp_path):
+def test_root_output_flagged(tmp_path):
     (tmp_path / "heads.nc").write_bytes(b"")
     (tmp_path / "maps").mkdir()
 
     assert unexpected_project_entries(tmp_path) == {"heads.nc", "maps"}
 
 
-def test_no_output_path_carries_an_opaque_identifier(solved_run):
+def test_no_opaque_identifier_in_paths(solved_run):
     project, sim_id, _ = solved_run
 
     short_id = sim_id.replace("-", "")[:8]
@@ -451,7 +443,7 @@ def test_no_output_path_carries_an_opaque_identifier(solved_run):
     assert offenders == []
 
 
-def test_no_output_path_carries_a_container_suffix(solved_run):
+def test_no_container_suffix_in_paths(solved_run):
     project, _, _ = solved_run
 
     offenders = [
@@ -462,10 +454,7 @@ def test_no_output_path_carries_a_container_suffix(solved_run):
     assert offenders == []
 
 
-# -- payloads written after the seal ----------------------------------------
-
-
-def test_the_soil_budget_is_a_plain_parquet_file_of_the_run(solved_run):
+def test_soil_budget_is_plain_parquet(solved_run):
     project, sim_id, _ = solved_run
 
     assert "soil_budget" in PARQUET_VIEW_NAMES
@@ -507,8 +496,8 @@ def test_the_soil_budget_is_a_plain_parquet_file_of_the_run(solved_run):
     )
 
 
-def test_the_mesh_family_tables_are_plain_parquet_files_of_the_run(tmp_path):
-    """The mesh is persisted before the seal, as ``prepare_solver`` does it."""
+def test_mesh_tables_are_plain_parquet(tmp_path):
+    # The mesh is persisted before the seal, as prepare_solver does it.
     project = tmp_path / "project"
     project.mkdir()
     (project / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
@@ -553,17 +542,14 @@ def test_the_mesh_family_tables_are_plain_parquet_files_of_the_run(tmp_path):
     assert topology.attrs["node_coordinates"] == "node_x node_y"
 
 
-# -- the certified entries ---------------------------------------------------
-
-
-def test_the_allowed_entries_of_a_run_are_certified_unsealed_or_the_manifest():
+def test_allowed_entries_partition():
     assert CERTIFIED_RUN_ENTRIES | UNSEALED_RUN_ENTRIES | {"manifest.json"} == ALLOWED_RUN_ENTRIES
     assert not CERTIFIED_RUN_ENTRIES & UNSEALED_RUN_ENTRIES
     assert MESH_DIRNAME == "mesh"
     assert MESH_DIRNAME in CERTIFIED_RUN_ENTRIES
 
 
-def test_a_cited_mesh_product_is_sealed_under_the_run(tmp_path):
+def test_cited_mesh_is_sealed(tmp_path):
     import json
 
     from hydromodpy.mesh.stored import ARRAYS_FILENAME, DESCRIPTION_FILENAME

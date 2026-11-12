@@ -1,4 +1,9 @@
-"""The persistence helpers of the prepare-solver step."""
+"""Provenance of the inputs and the parameters table written by the prepare-solver step.
+
+A record of a known provider takes its licence from the registry of sources, a user file from
+its sidecar. Paths are relative to the workspace. Thickness (m) is calibrable, so a run writes
+the value it solved. Provenance rows reuse the digests of the data description.
+"""
 
 from __future__ import annotations
 
@@ -10,43 +15,27 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
-import numpy as np
 import pandas as pd
-import pytest
+import xarray as xr
 
+from hydromodpy.core.state.scratch import SCRATCH_ROOT_ENV
 from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY, FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.mesh.planar.cell_types import CellType
-from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.domain.domain_config import DomainConfig
 from hydromodpy.results.record.record import RunRecord
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.workflow.steps.data_description import (
-    SCHEMA_VERSION,
-    changed_sources,
     describe_loaded_data,
-    description_path,
-    iter_loaded_records,
-    read_data_description,
-    source_digests,
     write_data_description,
 )
-from hydromodpy.workflow.steps.prepare_solver import facts as facts_module
 from hydromodpy.workflow.steps.prepare_solver.prepare import (
     step_persist_params,
     step_write_provenance,
 )
 from tests._helpers.run_stores import open_run_store
 from tests.unit.workflow.steps._helpers import FakeLoadResult, FakeRecord
-
-# --- test_the_run_records_its_inputs ---
-# The provenance walk fills ``inputs.json``: provider, request, path, digest, licence.
-#
-# A loaded record of a known provider takes its licence from the registry of
-# sources; a user file takes it from its sidecar. The path is written relative
-# to the workspace, the digest is the one the load computed, and the entry
-# reaches the seal through the facts of the run.
 
 
 @dataclass
@@ -88,7 +77,7 @@ def _ctx(sim_id: str, loaded: _Loaded, workspace_root: Path) -> SimpleNamespace:
     )
 
 
-def test_the_inputs_reach_the_seal(tmp_path: Path) -> None:
+def test_inputs_reach_the_seal(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     csv = _series_file(workspace / "data" / "hydrometry" / "hubeau_J0014010.csv")
     loaded = _Loaded(
@@ -106,7 +95,7 @@ def test_the_inputs_reach_the_seal(tmp_path: Path) -> None:
     assert RunRecord.read(store.run_dir).inputs == record.inputs
 
 
-def test_a_record_written_twice_is_one_input(tmp_path: Path) -> None:
+def test_record_written_twice_is_one_input(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     csv = _series_file(workspace / "data" / "hydrometry" / "hubeau_J0014010.csv")
     record = _record(csv, source="hubeau", station="J0014010", variable="discharge")
@@ -118,9 +107,7 @@ def test_a_record_written_twice_is_one_input(tmp_path: Path) -> None:
         assert len(store.facts.inputs) == 1
 
 
-def test_a_product_of_the_run_scratch_is_no_input(tmp_path: Path, monkeypatch) -> None:
-    from hydromodpy.core.state.scratch import SCRATCH_ROOT_ENV
-
+def test_scratch_product_is_no_input(tmp_path: Path, monkeypatch) -> None:
     workspace = tmp_path / "ws"
     project = workspace / "projects" / "demo"
     monkeypatch.setenv(SCRATCH_ROOT_ENV, str(tmp_path / "scratch"))
@@ -147,14 +134,7 @@ def test_a_product_of_the_run_scratch_is_no_input(tmp_path: Path, monkeypatch) -
     assert providers == ["hubeau"]
 
 
-def test_a_network_read_from_its_sources_names_them_with_their_provider(
-    tmp_path: Path, monkeypatch
-) -> None:
-    import xarray as xr
-
-    from hydromodpy.core.state.scratch import SCRATCH_ROOT_ENV
-    from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY, FieldRecord
-
+def test_network_names_its_sources(tmp_path: Path, monkeypatch) -> None:
     workspace = tmp_path / "ws"
     project = workspace / "projects" / "demo"
     monkeypatch.setenv(SCRATCH_ROOT_ENV, str(tmp_path / "scratch"))
@@ -194,14 +174,6 @@ def test_a_network_read_from_its_sources_names_them_with_their_provider(
     assert entry.license == "etalab-2.0"
 
 
-# --- test_the_run_records_its_aquifer_thickness ---
-# A run writes the aquifer thickness it solved into its parameters table.
-#
-# The thickness is calibrable, so a trial that moved it has to say which value
-# it ran with. ``Domain`` keeps its depth model under ``config``; reading
-# ``domain.depth_model`` found nothing and the row was never written.
-
-
 class _Store:
     def __init__(self) -> None:
         self.written: list[dict] = []
@@ -222,7 +194,7 @@ def _persist(config: DomainConfig) -> list[dict]:
     return store.written
 
 
-def test_the_profiles_of_the_model_reach_the_parameters_table() -> None:
+def test_profiles_reach_parameters_table() -> None:
     profiles = {
         "K": SimpleNamespace(kind="homogeneous", value=5e-6, unit="m/s"),
         "Sy": SimpleNamespace(kind="geology", values_by_key={1: 0.1, 2: 0.2}, unit="-"),
@@ -256,7 +228,7 @@ def test_the_profiles_of_the_model_reach_the_parameters_table() -> None:
     ]
 
 
-def test_a_constant_thickness_reaches_the_parameters_table() -> None:
+def test_constant_thickness_row() -> None:
     rows = _persist(DomainConfig.with_thickness(30.0))
 
     assert rows == [
@@ -270,21 +242,12 @@ def test_a_constant_thickness_reaches_the_parameters_table() -> None:
     ]
 
 
-def test_a_flat_substratum_writes_no_thickness() -> None:
+def test_flat_substratum_no_thickness_row() -> None:
     config = DomainConfig.model_validate(
         {"depth_model": {"kind": "flat_substratum", "substratum_elevation": 0.0}}
     )
 
     assert _persist(config) == []
-
-
-# --- test_data_description ---
-# The document ``load_data`` writes, read back and compared.
-#
-# Two properties matter beyond the round-trip. A source that is a file carries the
-# digest of that file, so the document says which bytes the run consumed; and two
-# documents of the same run can be compared to name the variables whose source
-# moved, which is how a resume reports that it did not reload what it loaded.
 
 
 @dataclasses.dataclass
@@ -294,17 +257,9 @@ class _DigestLoaded:
     loaded_plan_types: tuple[str, ...] | None = None
 
 
-def test_the_provenance_rows_reuse_the_digest_the_load_computed(tmp_path: Path) -> None:
-    """Hashing a 500 MB DEM twice per run buys nothing, so it is read back.
-
-    The document below carries a digest the file does not have. A row that
-    shows it proves the second hash pass is gone; a row showing the real digest
-    would mean the file was hashed again.
-    """
-    import pandas as pd
-
-    from hydromodpy.workflow.steps.prepare_solver.prepare import step_write_provenance
-
+def test_provenance_reuses_the_load_digest(tmp_path: Path) -> None:
+    # Hashing a 500 MB DEM twice per run buys nothing. The description carries a digest the file
+    # does not have: a row that shows it proves the second hash pass is gone.
     source = tmp_path / "recharge.csv"
     source.write_bytes(b"real bytes")
     record = FakeRecord(
@@ -345,31 +300,3 @@ def test_the_provenance_rows_reuse_the_digest_the_load_computed(tmp_path: Path) 
     assert [row["source_sha256"] for row in rows] == ["0" * 64]
     assert rows[0]["variable"] == "recharge:recharge"
     assert [entry.sha256 for entry in inputs] == ["0" * 64], "the input carries the same digest"
-
-
-# --- test_a_ragged_mesh_registers_and_persists ---
-# A polygon mesh (a Voronoi dual) registers and persists like a triangle mesh.
-#
-# Its connectivity is a tuple of rows of different lengths: the registration hash
-# and the Zarr writer both need the ``-1`` padded rectangular rows instead.
-
-PADDED = np.array([[0, 1, 2, 3, -1], [1, 4, 5, 6, 2]])
-
-
-def _mesh_ctx(cell_mesh: object, z_interfaces: tuple[float, ...] = (0.0, -10.0)) -> SimpleNamespace:
-    return SimpleNamespace(
-        config_path=None,
-        cfg=SimpleNamespace(
-            flow=SimpleNamespace(flow_regime="steady"),
-            simulation=None,
-            geographic=SimpleNamespace(crs_project="EPSG:2154"),
-            site=None,
-            model_dump=lambda mode="json": {},
-        ),
-        setup=SimpleNamespace(
-            cell_mesh=cell_mesh,
-            mesh_summary=None,
-            time_grid=None,
-            domain=SimpleNamespace(z_interfaces=np.array(z_interfaces)),
-        ),
-    )

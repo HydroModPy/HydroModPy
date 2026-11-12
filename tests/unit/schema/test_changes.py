@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.schema.changes import REGISTER, Migration, outlived, read
+from hydromodpy.schema.changes import REGISTER, outlived, read
 
 HEAD = 'schema = "hydromodpy.changes.v1"\n'
 
@@ -17,7 +17,7 @@ DEFAULT = (
 MOVE = '[[migration]]\ndocument = "config"\nold = "a.b"\nnew = "a.c"\nsince = "2.1.0"\n'
 
 
-def test_the_shipped_register_reads_and_holds_every_table() -> None:
+def test_shipped_register() -> None:
     assert {bug.id for bug in REGISTER.bugs} >= {
         "discharge_scores_before_period_alignment",
         "voronoi_nwt_boussinesq_fixes_2026_10_09",
@@ -28,6 +28,7 @@ def test_the_shipped_register_reads_and_holds_every_table() -> None:
     assert len(ids) == len(set(ids))
 
 
+# fault name: (register text, the part of the message that names the fix)
 FAULTS = {
     "no schema": (BUG, "schema must be"),
     "an unknown top-level key": (HEAD + "other = 1\n", "unknown top-level key 'other'"),
@@ -120,48 +121,18 @@ FAULTS = {
 
 
 @pytest.mark.parametrize(("text", "fault"), FAULTS.values(), ids=FAULTS.keys())
-def test_a_faulty_register_is_refused_with_its_fault(text: str, fault: str) -> None:
+def test_register_refusals(text: str, fault: str) -> None:
     with pytest.raises(ValueError, match=fault):
         read(text)
 
 
-def test_every_fault_is_told_at_once() -> None:
+def test_all_faults_at_once() -> None:
     text = HEAD + BUG.replace('id = "b"', 'id = "B"') + MOVE + 'rule = "_f"\n'
 
     with pytest.raises(ValueError, match=r"2 fault\(s\)"):
         read(text)
 
 
-HITS = (
-    ("the first pre-release in the set, a quantity it touches", "2.0.0a1", ("metrics",), True),
-    ("the last pre-release in the set", "2.0.0rc1", ("metrics",), True),
-    ("a dev version before the first pre-release", "2.0.0.dev0", ("metrics",), False),
-    ("the dev version after the last pre-release", "2.0.0rc2.dev0", ("metrics",), False),
-    ("the version of the fix", "2.0.0", ("metrics",), False),
-    ("another quantity", "2.0.0a5", ("heads@modflow6",), False),
-    ("one quantity of several", "2.0.0a5", ("heads@modflow6", "metrics"), True),
-)
-
-
-DELAYS = (
-    ("2.3.0", "2.4.9", False),
-    ("2.3.0", "2.5.0a1", True),
-    ("2.3.0", "2.5.0", True),
-    ("2.3.0", "3.0.0", True),
-    ("2.0.0", "2.1.0rc1", False),
-    ("2.0.0", "2.1.0", False),
-    ("2.0.0", "2.2.0", True),
-    ("2.1.0", "2.2.5", False),
-)
-
-
-def test_a_version_that_does_not_parse_is_refused() -> None:
+def test_unparsable_version() -> None:
     with pytest.raises(ValueError, match="is not a version"):
         outlived("2.0.0", "two")
-
-
-SHAPES = (
-    (Migration(document="config", since="2.1.0", old="a", new="b"), "move"),
-    (Migration(document="config", since="2.1.0", old="a", instead="x"), "retire"),
-    (Migration(document="config", since="2.1.0", key="a", old_value=1, new_value=2), "value"),
-)

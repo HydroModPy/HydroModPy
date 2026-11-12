@@ -21,18 +21,18 @@ from hydromodpy.results.session.journal import read_trials
 from tests._helpers.windows_os import PatchedOs
 from tests.unit.calibration._factories_runners import make_session
 
-_REAL_REPLACE = os.replace
-_REAL_RENAME = os.rename
+REAL_REPLACE = os.replace
+REAL_RENAME = os.rename
 
 
-def _windows_replace(source, target, *args, **kwargs):
-    """``os.replace`` as Windows does it: a folder is never moved onto a folder."""
+def windows_replace(source, target, *args, **kwargs):
+    # A folder is never moved onto a folder.
     if Path(source).is_dir() and Path(target).is_dir():
         raise PermissionError(5, "Access is denied", str(target))
-    return _REAL_REPLACE(source, target, *args, **kwargs)
+    return REAL_REPLACE(source, target, *args, **kwargs)
 
 
-def _kept_trial(project: Path) -> tuple[CalibrationPersistence, Path]:
+def kept_trial(project: Path) -> tuple[CalibrationPersistence, Path]:
     """A session of two trials whose second one is kept under the session."""
     (project / "project.toml").write_text('[site]\nname = "nancon"\n', encoding="utf-8")
     persistence = make_session(project, costs=(0.9, 0.1))
@@ -42,20 +42,18 @@ def _kept_trial(project: Path) -> tuple[CalibrationPersistence, Path]:
     return persistence, kept
 
 
-def test_a_name_taken_in_between_stays_with_its_taker_and_the_trial_stays_kept(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    persistence, kept = _kept_trial(tmp_path)
+def test_name_taken_in_between(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    persistence, kept = kept_trial(tmp_path)
     target = tmp_path / "runs" / "k_low"
 
     def taken_in_between(source, destination, *args, **kwargs):
         if Path(destination) != target:
-            return _REAL_RENAME(source, destination, *args, **kwargs)
+            return REAL_RENAME(source, destination, *args, **kwargs)
         target.mkdir()
         (target / "theirs.txt").write_text("another process", encoding="utf-8")
         raise FileExistsError(183, "Cannot create a file when that file already exists")
 
-    patched = PatchedOs(name="nt", replace=_windows_replace, rename=taken_in_between)
+    patched = PatchedOs(name="nt", replace=windows_replace, rename=taken_in_between)
     monkeypatch.setattr(filesystem, "os", patched)
     monkeypatch.setattr(filesystem, "WINDOWS_PATH_LIMIT", 10**6)  # tmp_path is long
 

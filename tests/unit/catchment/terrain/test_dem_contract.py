@@ -35,55 +35,30 @@ def _header(**overrides) -> DemHeader:
     return DemHeader(**facts)
 
 
-# -- validate_dem, moved from the old data.schemas.dem ------------------------
-
-
-def test_dem_valid_numpy_dict():
-    dem = {
-        "data": np.ones((10, 10)) * 100.0,
-        "resolution": (25.0, 25.0),
-        "crs": "EPSG:2154",
-    }
+def test_a_numpy_dem_is_accepted() -> None:
+    dem = {"data": np.full((10, 10), 100.0), "resolution": (25.0, 25.0), "crs": "EPSG:2154"}
     out = validate_dem(dem)
     assert out["crs"] == "EPSG:2154"
     assert out["data"].shape == (10, 10)
 
 
-def test_dem_missing_crs_fails():
-    dem = {
-        "data": np.ones((10, 10)),
-        "resolution": 25.0,
-        "crs": None,
-    }
-    with pytest.raises(DataContractViolation):
-        validate_dem(dem)
+GOOD_DEM = {"data": np.ones((10, 10)), "resolution": 25.0, "crs": "EPSG:2154"}
+BAD_DEMS = [
+    pytest.param(GOOD_DEM | {"crs": None}, "no CRS declared", id="no crs"),
+    pytest.param(GOOD_DEM | {"resolution": 0.5}, "resolution", id="resolution out of range"),
+    pytest.param(
+        GOOD_DEM | {"data": np.full((3, 3), -10000.0)},
+        "elevation range",
+        id="elevation out of range",
+    ),
+]
 
 
-def test_dem_resolution_out_of_range_fails():
-    dem = {
-        "data": np.ones((10, 10)),
-        "resolution": 0.5,
-        "crs": "EPSG:2154",
-    }
-    with pytest.raises(DataContractViolation):
-        validate_dem(dem)
-
-
-def test_dem_elevation_out_of_range_fails():
-    dem = {
-        "data": np.full((3, 3), -10000.0),
-        "resolution": 25.0,
-        "crs": "EPSG:2154",
-    }
+@pytest.mark.parametrize(("dem", "says"), BAD_DEMS)
+def test_a_dem_out_of_contract_is_refused(dem, says) -> None:
     with pytest.raises(DataContractViolation) as refused:
         validate_dem(dem)
-    assert any("elevation range" in str(f) for f in refused.value.context["failures"])
-
-
-# -- read_dem_header -----------------------------------------------------------
-
-
-# -- check_dem_header ----------------------------------------------------------
+    assert any(says in str(f) for f in refused.value.context["failures"])
 
 
 @pytest.mark.parametrize(
@@ -129,9 +104,6 @@ def test_the_contract_bounds_can_be_tightened() -> None:
         check_dem_header(_header(), routing_res_m=10.0, contract=contract)
 
 
-# -- check_dem_outlet ----------------------------------------------------------
-
-
 def test_an_outlet_outside_the_raster_is_refused(tmp_path) -> None:
     path = write_geotiff(tmp_path / "dem.tif", np.ones((10, 10)), cell=25.0)
 
@@ -148,9 +120,6 @@ def test_an_outlet_on_a_nodata_cell_is_refused(tmp_path) -> None:
     with rasterio.open(path) as src, pytest.raises(DataContractViolation) as refused:
         check_dem_outlet(src, _header(), x=130.0, y=120.0)
     assert any("nodata cell" in str(f) for f in refused.value.context["failures"])
-
-
-# -- check_dem_values ----------------------------------------------------------
 
 
 def test_an_undeclared_sentinel_is_read_as_an_elevation_and_refused(tmp_path) -> None:

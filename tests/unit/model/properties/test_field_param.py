@@ -44,13 +44,13 @@ def _square(n_cells: int = 12, kind: str = "structured"):
     ids=["k-m-day", "k-mm-day", "k-inline", "ss-cm", "ss-inline", "sy-inline", "unknown-id",
          "kv-without-unit-is-bounded-in-m-s"],
 )  # fmt: skip
-def test_a_value_is_stored_in_its_si_unit(identifier, unit, value, si_unit, si_value):
+def test_value_stored_in_si(identifier, unit, value, si_unit, si_value):
     param = _homogeneous(value, identifier=identifier, unit=unit)
     assert param.unit == si_unit
     assert float(param.value) == pytest.approx(si_value)
 
 
-def test_per_zone_values_take_their_inline_units_and_the_profile():
+def test_per_zone_units_and_profile():
     profile = {"kind": "tabulated", "depths": [0.0, 20.0, 40.0], "factors": [1.0, 0.5, 0.25]}
     param = _per_zone({"granite": "10 m/day", "micaschists": "2 m/day"}, vertical_profile=profile)
     zones = np.array(["granite", "micaschists", "granite"], dtype=object)
@@ -84,12 +84,12 @@ def test_per_zone_values_take_their_inline_units_and_the_profile():
          "zone-value-of-another-quantity", "out-of-bounds", "out-of-bounds-in-its-unit",
          "out-of-bounds-without-a-default-unit", "zone-out-of-bounds"],
 )  # fmt: skip
-def test_a_parameter_that_cannot_hold_its_values_is_refused(kwargs, error, match):
+def test_refusals(kwargs, error, match):
     with pytest.raises(error, match=match):
         FieldParam(**({"identifier": "K", "kind": "homogeneous", "value": 1.0} | kwargs))
 
 
-def test_a_homogeneous_value_fills_points_zones_and_shapes():
+def test_homogeneous_fill():
     param = _homogeneous(4.0)
     x = np.zeros((2, 3))
 
@@ -102,7 +102,7 @@ def test_a_homogeneous_value_fills_points_zones_and_shapes():
         param.to_array(x=x, y=np.zeros(3))
 
 
-def test_zone_keys_read_as_text_whatever_their_number_type():
+def test_zone_keys_as_text():
     param = _per_zone({"1": 1.0, "1.5": 2.0, "a": 3.0})
 
     np.testing.assert_array_equal(param.map_zone_ids(np.array([1, 1.0, 1.5])), [1.0, 1.0, 2.0])
@@ -135,13 +135,13 @@ def test_zone_keys_read_as_text_whatever_their_number_type():
          "other-aggregation", "no-zone", "homogeneous-without-mesh", "depth-not-finite",
          "depth-above-the-ground", "depth-of-another-shape"],
 )  # fmt: skip
-def test_a_parameter_placed_without_its_zones_mesh_or_depth_is_refused(call, error, match):
+def test_placement_refusals(call, error, match):
     with pytest.raises(error, match=match):
         call(_per_zone())
 
 
 @pytest.mark.parametrize("key", ["mesh", "field_discretization"])
-def test_a_homogeneous_value_on_a_mesh_takes_its_profile(key):
+def test_homogeneous_on_mesh(key):
     mesh = _square()
     param = _homogeneous(7.25, vertical_profile={"kind": "exponential", "characteristic_depth": 30})
     target = {key: mesh if key == "mesh" else SimpleNamespace(mesh=mesh)}
@@ -164,7 +164,7 @@ def test_a_homogeneous_value_on_a_mesh_takes_its_profile(key):
       r"\(id='K'\) in the mesh cells at depth 20.0 m: [0-9]+ of 9 value\(s\) .* the first at index [0-9]+")],
     ids=["homogeneous-under-its-profile", "zone-under-its-profile"],
 )  # fmt: skip
-def test_a_cell_value_the_profile_takes_out_of_range_is_refused(param, match):
+def test_profile_out_of_range(param, match):
     target = two_zone_square().on_mesh(_square()) if param.is_heterogeneous else _square()
     with pytest.raises(PhysicalBoundsError, match=match):
         param.to_mesh_field(target, depth=20.0) if param.is_heterogeneous else param.to_mesh_field(
@@ -172,7 +172,7 @@ def test_a_cell_value_the_profile_takes_out_of_range_is_refused(param, match):
         )
 
 
-def test_zone_values_on_a_mesh_are_the_area_weighted_mean_of_the_zones():
+def test_zone_values_area_weighted():
     mesh = _square(20, "triangular_structured")
     field = two_zone_square()
     param = _per_zone()
@@ -192,7 +192,7 @@ def test_zone_values_on_a_mesh_are_the_area_weighted_mean_of_the_zones():
     np.testing.assert_allclose(param.to_array(zone_ids=zones), [[10.0, 2.0], [10.0, 10.0]])
 
 
-def test_a_value_table_that_misses_a_zone_is_refused():
+def test_missing_zone_refused():
     param = _per_zone({"granite": 1e-5})
     discretization = two_zone_square().on_mesh(_square(20, "triangular_structured"))
     with pytest.raises(ValueError, match=r"'K'.*micaschists.*'field_square'.*values_csv_file"):
@@ -207,7 +207,7 @@ def test_a_value_table_that_misses_a_zone_is_refused():
      _per_zone()],
     ids=["homogeneous", "per-zone"],
 )  # fmt: skip
-def test_a_parameter_comes_back_from_its_mapping(param):
+def test_mapping_round_trip(param):
     payload = param.as_dict()
     again = FieldParam.from_dict(payload)
 
@@ -219,7 +219,7 @@ def test_a_parameter_comes_back_from_its_mapping(param):
 
 
 @pytest.mark.xfail(strict=True, reason="as_dict writes the SI unit, from_dict loses the user unit")
-def test_a_parameter_from_its_mapping_keeps_the_unit_the_user_wrote():
+def test_mapping_keeps_user_unit():
     param = _homogeneous(1.0, unit="m/day")
     assert FieldParam.from_dict(param.as_dict()).original_unit == "m/day"
 
@@ -235,6 +235,6 @@ def test_a_parameter_from_its_mapping_keeps_the_unit_the_user_wrote():
         ({"id": "K", "kind": "heterogeneous", "values": {"a": 1.0}}, KeyError, "'field_spatial_id'"),
     ],
 )  # fmt: skip
-def test_a_mapping_without_its_keys_is_refused(config, error, match):
+def test_mapping_refusals(config, error, match):
     with pytest.raises(error, match=match):
         FieldParam.from_dict(config)

@@ -168,16 +168,7 @@ def _model_on(ctx) -> object:
     return model
 
 
-def _dual_polygon(ctx, cell: int) -> Polygon:
-    planar = ctx.solver_mesh.planar_mesh
-    row = planar.flat_connectivity[cell]
-    return Polygon(np.asarray(planar.vertices, dtype=float)[row[row >= 0], :2])
-
-
-POINTS = [(250.0, 250.0), (61.0, 433.0), (377.0, 120.0), (430.0, 470.0), (190.0, 300.0)]
-
-
-def test_side_boundaries_on_the_dual_take_the_dual_cells_of_the_side() -> None:
+def test_side_boundaries_take_the_dual_side_cells() -> None:
     ctx, _triangles, mesh, _bundle = _grid_context("voronoi")
     model = _model_on(ctx)
     model.inputs = replace(
@@ -201,9 +192,6 @@ def test_side_boundaries_on_the_dual_take_the_dual_cells_of_the_side() -> None:
     on_sides = np.flatnonzero(np.isclose(vertices[:, 0], 0.0) | np.isclose(vertices[:, 1], SIZE_M))
     # One dual cell per node, in node order: the side nodes are the side cells.
     assert cells == set(on_sides.tolist())
-
-
-SIDES = ("west_side", "east_side", "south_side", "north_side")
 
 
 def _square_dual(seeds: np.ndarray, size_m: float = 400.0) -> PlanarCellMesh:
@@ -247,28 +235,7 @@ def _square_dual(seeds: np.ndarray, size_m: float = 400.0) -> PlanarCellMesh:
     return replace(cell_mesh, face_families=table)
 
 
-def _sparse_side_seeds() -> np.ndarray:
-    """Return 8 nodes on the sides of a 400 m square (200 m apart) and a 50 m lattice inside.
-
-    The inner nodes 50 m from a side lie closer to it than the side nodes, so
-    their clipped cells reach the side.
-    """
-    on_sides = [(0, 0), (200, 0), (400, 0), (400, 200), (400, 400), (200, 400), (0, 400), (0, 200)]
-    inner = [(x, y) for x in range(50, 400, 50) for y in range(50, 400, 50)]
-    return np.asarray(on_sides + inner, dtype=float)
-
-
-def _expected_side_cells(seeds: np.ndarray, size_m: float = 400.0) -> dict[str, set[int]]:
-    x, y = seeds[:, 0], seeds[:, 1]
-    return {
-        "west_side": set(np.flatnonzero(x == 0.0).tolist()),
-        "east_side": set(np.flatnonzero(x == size_m).tolist()),
-        "south_side": set(np.flatnonzero(y == 0.0).tolist()),
-        "north_side": set(np.flatnonzero(y == size_m).tolist()),
-    }
-
-
-def test_a_side_with_no_centred_cell_keeps_the_cells_with_a_face_on_it(
+def test_side_without_centred_cell(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     seeds = np.asarray(

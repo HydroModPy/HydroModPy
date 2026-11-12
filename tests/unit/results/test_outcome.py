@@ -7,6 +7,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import ValidationError
 
+import hydromodpy.results.outcome as outcome_module
+import hydromodpy.results.storage.json_io as json_io
 from hydromodpy.results.heartbeat import Heartbeat, write_heartbeat
 from hydromodpy.results.outcome import (
     OUTCOME_SCHEMA,
@@ -16,6 +18,7 @@ from hydromodpy.results.outcome import (
     read_outcome,
     write_outcome,
 )
+from hydromodpy.results.retention import RetentionPolicy, plan_gc
 from hydromodpy.results.storage.contract import RUN_OUTCOME_FILENAME
 
 NOW = datetime(2026, 10, 14, 8, 2, 11, tzinfo=UTC)
@@ -49,9 +52,8 @@ def _outcome(status: str, **overrides) -> Outcome:
     return Outcome(**payload)
 
 
-def test_a_failed_write_keeps_the_previous_document(tmp_path, monkeypatch):
+def test_failed_write_keeps_previous(tmp_path, monkeypatch):
     write_outcome(tmp_path, _outcome("running"))
-    import hydromodpy.results.storage.json_io as json_io
 
     def refuse(source, target):
         raise OSError("disk full")
@@ -64,25 +66,24 @@ def test_a_failed_write_keeps_the_previous_document(tmp_path, monkeypatch):
     assert [p.name for p in tmp_path.iterdir()] == [RUN_OUTCOME_FILENAME]
 
 
-# Precedence of D5, case by case.
+REFUSALS = [
+    pytest.param(
+        "running", {"ended_at": NOW}, "running attempt has no ended_at", id="running, ended"
+    ),
+    pytest.param("failed", {"ended_at": None}, "carries its ended_at", id="failed, no end"),
+    pytest.param(
+        "completed",
+        {"error": OutcomeError(type="X", message="y")},
+        "completed attempt carries no error",
+        id="completed, with error",
+    ),
+]
 
 
-# Refusals, named.
-
-
-def test_a_running_attempt_cannot_have_ended():
-    with pytest.raises(ValidationError, match="running attempt has no ended_at"):
-        _outcome("running", ended_at=NOW)
-
-
-def test_a_finished_attempt_states_when_it_ended():
-    with pytest.raises(ValidationError, match="carries its ended_at"):
-        _outcome("failed", ended_at=None)
-
-
-def test_a_completed_attempt_carries_no_error():
-    with pytest.raises(ValidationError, match="completed attempt carries no error"):
-        _outcome("completed", error=OutcomeError(type="X", message="y"))
+@pytest.mark.parametrize(("status", "overrides", "match"), REFUSALS)
+def test_refusals(status, overrides, match):
+    with pytest.raises(ValidationError, match=match):
+        _outcome(status, **overrides)
 
 
 def test_another_schema_is_refused():
@@ -90,9 +91,7 @@ def test_another_schema_is_refused():
         Outcome.model_validate({**_outcome("running").model_dump(by_alias=True), "schema": "other"})
 
 
-def test_gc_does_not_close_a_silent_run_whose_death_is_not_proven(tmp_path):
-    from hydromodpy.results.retention import RetentionPolicy, plan_gc
-
+def test_gc_keeps_unproven_silent_run(tmp_path):
     run_dir = tmp_path / "runs" / "far"
     run_dir.mkdir(parents=True)
     write_outcome(run_dir, _outcome("running", host="another-host"))
@@ -106,11 +105,5 @@ def test_gc_does_not_close_a_silent_run_whose_death_is_not_proven(tmp_path):
     assert plan.stale_runs == ()
 
 
-# The request id is written once the inputs of the attempt are resolved. An outcome
-# without it reads, and the field round-trips.
-
-
-def test_death_is_proven_is_no_name_of_the_outcome_module():
-    import hydromodpy.results.outcome as outcome_module
-
+def test_death_is_proven_is_private():
     assert "death_is_proven" not in outcome_module.__all__

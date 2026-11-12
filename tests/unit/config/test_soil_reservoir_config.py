@@ -1,6 +1,14 @@
+"""Checks a project file must pass to run the soil reservoir of recharge.
+
+``[flow.sinks_sources.recharge.soil]`` (ru in mm) fills and empties day by day.
+It needs daily precipitation and ETP, a run of at least 52 weeks, and no other
+source of recharge or runoff. Rates of a plain recharge (mm/day) are checked here too.
+"""
+
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -27,289 +35,9 @@ from hydromodpy.model.boundaries.climate import (
     apply_recharge_load_result_to_flow,
 )
 
-SOIL_PROJECT_TOML = """
-[workflow]
-mode = "simulation"
-
-[workspace]
-
-[geographic]
-source_mode = "synthetic"
-crs_project = "EPSG:2154"
-
-[simulation]
-name = "soil_config_test"
-
-[simulation.time]
-start_datetime = "2015-01-01"
-end_datetime = "2020-12-31"
-step_value = "1 day"
-
-[[simulation.process]]
-id = "flow_main"
-kind = "flow"
-solvers = ["modflow6"]
-
-[data]
-types = ["precipitation", "etp"]
-
-[[data.precipitation.sources]]
-source = "sim2"
-extent = "watershed"
-
-[[data.etp.sources]]
-source = "sim2"
-extent = "watershed"
-
-[flow]
-first_period_steady = false
-
-[flow.ic]
-kind = "steady_state"
-
-[flow.bc.drainage]
-
-[flow.sinks_sources.etp]
-
-{recharge}
-[flow.sinks_sources.recharge.soil]
-ru = "150 mm"
-"""
-
-
-def _write(tmp_path: Path, recharge: str = "") -> Path:
-    config_path = tmp_path / "project.toml"
-    config_path.write_text(SOIL_PROJECT_TOML.format(recharge=recharge), encoding="utf-8")
-    return config_path
-
-
-def test_a_switched_off_recharge_is_refused(tmp_path: Path) -> None:
-    config_path = _write(tmp_path, "[flow.sinks_sources.recharge]\nenabled = false\n")
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        HydroModPyConfig.from_toml(config_path)
-
-    assert (
-        "[flow.sinks_sources.recharge.soil] computes a recharge and its table "
-        "says enabled = false, so MODFLOW would receive none: remove "
-        "enabled = false, or remove the soil section."
-    ) in str(excinfo.value)
-
-
-SOIL_PROJECT_TOML_2 = """
-[workflow]
-mode = "simulation"
-
-[workspace]
-
-[geographic]
-source_mode = "synthetic"
-crs_project = "EPSG:2154"
-
-[simulation]
-name = "soil_config_test"
-
-[simulation.time]
-start_datetime = "2015-01-01"
-end_datetime = "2020-12-31"
-step_value = "1 day"
-
-[[simulation.process]]
-id = "flow_main"
-kind = "flow"
-solvers = ["{solver}"]
-
-[data]
-types = ["precipitation", "etp"]
-
-[[data.precipitation.sources]]
-source = "sim2"
-extent = "watershed"
-
-[[data.etp.sources]]
-source = "sim2"
-extent = "watershed"
-
-[flow]
-first_period_steady = false
-
-[flow.ic]
-kind = "steady_state"
-
-[flow.sinks_sources.recharge.soil]
-ru = "150 mm"
-
-[flow.sinks_sources.etp]
-
-[flow.bc.drainage]
-"""
-
-
-def _write_2(tmp_path: Path, solver: str) -> Path:
-    config_path = tmp_path / "project.toml"
-    config_path.write_text(
-        SOIL_PROJECT_TOML_2.format(root=tmp_path.as_posix(), solver=solver),
-        encoding="utf-8",
-    )
-    return config_path
-
-
-SOIL_PROJECT_TOML_3 = """
-[workflow]
-mode = "simulation"
-
-[workspace]
-
-[geographic]
-source_mode = "synthetic"
-crs_project = "EPSG:2154"
-
-[simulation]
-name = "soil_config_test"
-
-[simulation.time]
-start_datetime = "2015-01-01"
-end_datetime = "2020-12-31"
-step_value = "1 day"
-
-[[simulation.process]]
-id = "flow_main"
-kind = "flow"
-solvers = ["modflow6"]
-
-[data]
-types = ["precipitation", "etp"]
-
-[[data.precipitation.sources]]
-source = "sim2"
-extent = "watershed"
-components = {components}
-
-[[data.etp.sources]]
-source = "sim2"
-extent = "watershed"
-
-[flow]
-first_period_steady = false
-
-[flow.ic]
-kind = "steady_state"
-
-[flow.sinks_sources.recharge.soil]
-ru = "150 mm"
-
-[flow.sinks_sources.etp]
-
-[flow.bc.drainage]
-"""
-
-
-def _write_3(tmp_path: Path, components: list[str]) -> Path:
-    config_path = tmp_path / "project.toml"
-    config_path.write_text(
-        SOIL_PROJECT_TOML_3.format(root=tmp_path.as_posix(), components=components),
-        encoding="utf-8",
-    )
-    return config_path
-
-
-@pytest.mark.parametrize("components", [["liquid"], ["liquid", "solid"]])
-def test_components_other_than_total_are_refused(tmp_path: Path, components: list[str]) -> None:
-    config_path = _write_3(tmp_path, components)
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        HydroModPyConfig.from_toml(config_path)
-
-    assert (
-        f"[data.precipitation] loads components = {components!r}, and the "
-        "soil reservoir takes one precipitation grid: two grids would be "
-        'averaged, not added. Write components = ["total"], which counts the '
-        "snow as rain."
-    ) in str(excinfo.value)
-
-
-SOIL_PROJECT_TOML_4 = """
-[workflow]
-mode = "simulation"
-
-[workspace]
-
-[geographic]
-source_mode = "synthetic"
-crs_project = "EPSG:2154"
-
-[simulation]
-name = "soil_config_test"
-
-[simulation.time]
-start_datetime = "2015-01-01"
-end_datetime = "2020-12-31"
-step_value = "1 day"
-
-[[simulation.process]]
-id = "flow_main"
-kind = "flow"
-solvers = ["modflow6"]
-
-[data]
-types = ["precipitation", "etp"]
-
-[[data.precipitation.sources]]
-source = "sim2"
-extent = "watershed"
-
-[[data.etp.sources]]
-source = "sim2"
-extent = "watershed"
-
-[flow]
-first_period_steady = {first_period_steady}
-
-[flow.ic]
-kind = "steady_state"
-
-[flow.bc.drainage]
-
-[flow.sinks_sources.etp]
-
-{soil_section}
-"""
-
-
-SOIL_SECTION = '[flow.sinks_sources.recharge.soil]\nru = "150 mm"\n'
-
-
-def _write_4(tmp_path: Path, *, first_period_steady: bool, soil_section: str) -> Path:
-    config_path = tmp_path / "project.toml"
-    config_path.write_text(
-        SOIL_PROJECT_TOML_4.format(
-            root=tmp_path.as_posix(),
-            first_period_steady=str(first_period_steady).lower(),
-            soil_section=soil_section,
-        ),
-        encoding="utf-8",
-    )
-    return config_path
-
-
-def test_a_soil_run_with_a_steady_first_period_is_refused(tmp_path: Path) -> None:
-    config_path = _write_4(tmp_path, first_period_steady=True, soil_section=SOIL_SECTION)
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        HydroModPyConfig.from_toml(config_path)
-
-    assert (
-        "[flow.sinks_sources.recharge.soil] sends each day's recharge to "
-        "MODFLOW, and flow.first_period_steady = true solves the first "
-        "stress period (1 day) as a steady state under that period's "
-        "recharge alone, zero after a dry day: the run would start from a "
-        "drained aquifer. Write first_period_steady = false under [flow] "
-        'and add [flow.ic] kind = "steady_state", which starts the run from '
-        "the steady state under the mean recharge of the whole run."
-    ) in str(excinfo.value)
-
-
-SOIL_PROJECT_TOML_5 = """
+# A daily run with SIM2 precipitation and ETP and a soil of 150 mm. Each hole
+# is one thing a case changes, the defaults give a file that loads.
+SOIL_TOML = """
 [workflow]
 mode = "simulation"
 
@@ -333,286 +61,178 @@ kind = "flow"
 solvers = ["modflow6"]
 
 [data]
-types = ["precipitation", "etp"]
-
-[[data.precipitation.sources]]
-source = "sim2"
-extent = "watershed"
-
-[[data.etp.sources]]
-source = "sim2"
-extent = "watershed"
-
+types = {data_types}
+{precipitation}{etp}{loaded}
 [flow]
-first_period_steady = false
+first_period_steady = {first_period_steady}
 
 [flow.ic]
 kind = "steady_state"
 
-[flow.sinks_sources.recharge.soil]
-ru = "150 mm"
-spinup = "{spinup}"
+[flow.bc.drainage]
 
 [flow.sinks_sources.etp]
 
-[flow.bc.drainage]
+{recharge_table}
+[flow.sinks_sources.recharge.soil]
+ru = "150 mm"
+{soil_keys}
+{after_soil}"""
+
+SIM2 = 'source = "sim2"\nextent = "watershed"\n'
+HOLES = {
+    "end_datetime": "2020-12-31",
+    "data_types": '["precipitation", "etp"]',
+    "precipitation": f"\n[[data.precipitation.sources]]\n{SIM2}",
+    "etp": f"\n[[data.etp.sources]]\n{SIM2}",
+    "loaded": "",
+    "first_period_steady": "false",
+    "recharge_table": "",
+    "soil_keys": "",
+    "after_soil": "",
+}
+
+LAKE = """
+[flow.sinks_sources.lakes.pond]
+bedleak = 1e-6
+initial_stage = "10 m"
 """
 
-
-def _write_5(tmp_path: Path, *, end_datetime: str, spinup: str) -> Path:
-    config_path = tmp_path / "project.toml"
-    config_path.write_text(
-        SOIL_PROJECT_TOML_5.format(
-            root=tmp_path.as_posix(), end_datetime=end_datetime, spinup=spinup
-        ),
-        encoding="utf-8",
-    )
-    return config_path
+# A type listed in data.types needs its section, or the file is refused before
+# the soil reservoir is looked at.
+LOADED_RECHARGE = f"\n[[data.recharge.sources]]\n{SIM2}"
+LOADED_RUNOFF = f"\n[[data.runoff.sources]]\n{SIM2}"
 
 
-def test_a_run_shorter_than_a_year_is_refused_by_name(tmp_path: Path) -> None:
-    # [2015-01-01, 2015-12-30) is 363 days.
-    config_path = _write_5(tmp_path, end_datetime="2015-12-29", spinup="first_year")
+def load_soil(tmp_path: Path, **holes: str) -> HydroModPyConfig:
+    path = tmp_path / "project.toml"
+    path.write_text(SOIL_TOML.format(**(HOLES | holes)), encoding="utf-8")
+    return HydroModPyConfig.from_toml(path)
 
-    with pytest.raises(ConfigValidationError) as excinfo:
-        HydroModPyConfig.from_toml(config_path)
 
-    assert (
+REFUSALS = [
+    pytest.param(
+        {"recharge_table": "[flow.sinks_sources.recharge]\nenabled = false\n"},
+        "[flow.sinks_sources.recharge.soil] computes a recharge and its table "
+        "says enabled = false, so MODFLOW would receive none: remove "
+        "enabled = false, or remove the soil section.",
+        id="recharge switched off",
+    ),
+    pytest.param(
+        {"precipitation": f'\n[[data.precipitation.sources]]\n{SIM2}components = ["liquid"]\n'},
+        "[data.precipitation] loads components = ['liquid'], and the "
+        "soil reservoir takes one precipitation grid: two grids would be "
+        'averaged, not added. Write components = ["total"], which counts the '
+        "snow as rain.",
+        id="liquid precipitation only",
+    ),
+    pytest.param(
+        {
+            "precipitation": f"\n[[data.precipitation.sources]]\n{SIM2}"
+            'components = ["liquid", "solid"]\n'
+        },
+        "[data.precipitation] loads components = ['liquid', 'solid'], and the "
+        "soil reservoir takes one precipitation grid: two grids would be "
+        'averaged, not added. Write components = ["total"], which counts the '
+        "snow as rain.",
+        id="liquid and solid precipitation",
+    ),
+    pytest.param(
+        {"first_period_steady": "true"},
+        "[flow.sinks_sources.recharge.soil] sends each day's recharge to "
+        "MODFLOW, and flow.first_period_steady = true solves the first "
+        "stress period (1 day) as a steady state under that period's "
+        "recharge alone, zero after a dry day: the run would start from a "
+        "drained aquifer. Write first_period_steady = false under [flow] "
+        'and add [flow.ic] kind = "steady_state", which starts the run from '
+        "the steady state under the mean recharge of the whole run.",
+        id="steady first period",
+    ),
+    pytest.param(
+        # [2015-01-01, 2015-12-30) is 363 days.
+        {"end_datetime": "2015-12-29", "soil_keys": 'spinup = "first_year"\n'},
         'spinup = "first_year" repeats the first 52 weeks (364 days) of the run, and '
         '[simulation.time] covers 363 days: write spinup = "none" under '
         "[flow.sinks_sources.recharge.soil] to start from a full soil, or "
-        "extend the run to 52 weeks at least."
-    ) in str(excinfo.value)
-
-
-# A soil reservoir names the forcing and the time window it cannot run without.
-#
-# ``[flow.sinks_sources.recharge.soil]`` fills and empties day by day: it needs
-# daily precipitation and ETP, and a ``[simulation.time]`` window to walk.
-
-
-SOIL_PROJECT_TOML_6 = """
-[workflow]
-mode = "simulation"
-
-[workspace]
-
-[geographic]
-source_mode = "synthetic"
-crs_project = "EPSG:2154"
-
-[simulation]
-name = "soil_config_test"
-
-{time_section}
-[[simulation.process]]
-id = "flow_main"
-kind = "flow"
-solvers = ["modflow6"]
-
-[data]
-types = {data_types}
-
-{precipitation_section}
-{etp_section}
-[flow]
-first_period_steady = false
-
-[flow.ic]
-kind = "steady_state"
-
-[flow.sinks_sources.recharge.soil]
-ru = "150 mm"
-
-[flow.sinks_sources.etp]
-
-[flow.bc.drainage]
-"""
-
-
-TIME_SECTION = (
-    "[simulation.time]\n"
-    'start_datetime = "2015-01-01"\n'
-    'end_datetime = "2020-12-31"\n'
-    'step_value = "1 day"\n\n'
-)
-
-
-PRECIPITATION_SECTION = '[[data.precipitation.sources]]\nsource = "sim2"\nextent = "watershed"\n\n'
-
-
-ETP_SECTION = '[[data.etp.sources]]\nsource = "sim2"\nextent = "watershed"\n\n'
-
-
-def _write_6(
-    tmp_path: Path,
-    *,
-    data_types: list[str],
-    time_section: str = TIME_SECTION,
-    precipitation_section: str = PRECIPITATION_SECTION,
-    etp_section: str = ETP_SECTION,
-) -> Path:
-    config_path = tmp_path / "project.toml"
-    config_path.write_text(
-        SOIL_PROJECT_TOML_6.format(
-            root=tmp_path.as_posix(),
-            data_types=data_types,
-            time_section=time_section,
-            precipitation_section=precipitation_section,
-            etp_section=etp_section,
-        ),
-        encoding="utf-8",
-    )
-    return config_path
-
-
-def test_no_precipitation_section_is_refused_by_name(tmp_path: Path) -> None:
-    config_path = _write_6(tmp_path, data_types=["etp"], precipitation_section="")
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        HydroModPyConfig.from_toml(config_path)
-
-    assert (
+        "extend the run to 52 weeks at least.",
+        id="run shorter than a year",
+    ),
+    pytest.param(
+        {"data_types": '["etp"]', "precipitation": ""},
         "[flow.sinks_sources.recharge.soil] fills the soil with daily "
         "precipitation, and no [data.precipitation] section says where to "
         "read it: add a [[data.precipitation.sources]] block, for example "
-        'source = "sim2" with extent = "watershed".'
-    ) in str(excinfo.value)
-
-
-def test_no_etp_section_is_refused_by_name(tmp_path: Path) -> None:
-    config_path = _write_6(tmp_path, data_types=["precipitation"], etp_section="")
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        HydroModPyConfig.from_toml(config_path)
-
-    assert (
+        'source = "sim2" with extent = "watershed".',
+        id="no precipitation",
+    ),
+    pytest.param(
+        {"data_types": '["precipitation"]', "etp": ""},
         "[flow.sinks_sources.recharge.soil] empties the soil with daily ETP, "
         "and no [data.etp] section says where to read it: add a "
         '[[data.etp.sources]] block, for example source = "sim2" with extent '
-        '= "watershed".'
-    ) in str(excinfo.value)
-
-
-# A soil reservoir and a loaded recharge or runoff would both reach the model.
-#
-# ``[flow.sinks_sources.recharge.soil]`` computes the recharge itself; a
-# ``[data.recharge]`` or ``[data.runoff]`` section loaded beside it would add,
-# or double-count, a flux the soil already produces. ``data.types`` is read as
-# declared here: neither family is ever inferred (``data/loading/planner.py``).
-
-
-SOIL_PROJECT_TOML_7 = """
-[workflow]
-mode = "simulation"
-
-[workspace]
-
-[geographic]
-source_mode = "synthetic"
-crs_project = "EPSG:2154"
-
-[simulation]
-name = "soil_config_test"
-
-[simulation.time]
-start_datetime = "2015-01-01"
-end_datetime = "2020-12-31"
-step_value = "1 day"
-
-[[simulation.process]]
-id = "flow_main"
-kind = "flow"
-solvers = ["modflow6"]
-
-[data]
-types = {data_types}
-
-[[data.precipitation.sources]]
-source = "sim2"
-extent = "watershed"
-
-[[data.etp.sources]]
-source = "sim2"
-extent = "watershed"
-{extra_sections}
-[flow]
-first_period_steady = false
-
-[flow.ic]
-kind = "steady_state"
-
-[flow.sinks_sources.recharge.soil]
-ru = "150 mm"
-
-[flow.sinks_sources.etp]
-
-[flow.bc.drainage]
-"""
-
-
-def _write_7(tmp_path: Path, data_types: list[str]) -> Path:
-    # A type listed in data.types needs its section, or the file is refused
-    # before the soil reservoir is looked at.
-    extra_sections = "".join(
-        f'\n[[data.{name}.sources]]\nsource = "sim2"\nextent = "watershed"\n'
-        for name in data_types
-        if name in ("recharge", "runoff")
-    )
-    config_path = tmp_path / "project.toml"
-    config_path.write_text(
-        SOIL_PROJECT_TOML_7.format(
-            root=tmp_path.as_posix(),
-            data_types=data_types,
-            extra_sections=extra_sections,
-        ),
-        encoding="utf-8",
-    )
-    return config_path
-
-
-def test_a_loaded_recharge_beside_the_soil_is_refused(tmp_path: Path) -> None:
-    config_path = _write_7(tmp_path, ["precipitation", "etp", "recharge"])
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        HydroModPyConfig.from_toml(config_path)
-
-    assert (
+        '= "watershed".',
+        id="no etp",
+    ),
+    pytest.param(
+        {"data_types": '["precipitation", "etp", "recharge"]', "loaded": LOADED_RECHARGE},
         "[flow.sinks_sources.recharge.soil] computes the recharge from the "
         "precipitation and the ETP, and data.types also loads one from "
         "[data.recharge]: the model would receive one and ignore the other. "
         'Remove "recharge" from data.types to keep the soil reservoir (and '
         "write recharge__delete = true under [data] if a base file declares "
         "it), or remove [flow.sinks_sources.recharge.soil] to use the loaded "
-        "recharge."
-    ) in str(excinfo.value)
-
-
-def test_a_loaded_runoff_beside_the_soil_is_refused(tmp_path: Path) -> None:
-    config_path = _write_7(tmp_path, ["precipitation", "etp", "runoff"])
-
-    with pytest.raises(ConfigValidationError) as excinfo:
-        HydroModPyConfig.from_toml(config_path)
-
-    assert (
+        "recharge.",
+        id="loaded recharge",
+    ),
+    pytest.param(
+        {"data_types": '["precipitation", "etp", "runoff"]', "loaded": LOADED_RUNOFF},
         "[data.runoff] loads a surface runoff that already takes its share of "
         "the rain the soil reservoir receives (SIM2 RUNC, for instance): the "
         "streams, the lakes and the gauged discharge would count that water "
         'twice. Remove "runoff" from data.types (and write runoff__delete = '
         "true under [data] if a base file declares it); in soil mode the water "
         "that seeps out of saturated ground reaches the streams through the "
-        "drains, and sealed ground through impervious_fraction."
-    ) in str(excinfo.value)
+        "drains, and sealed ground through impervious_fraction.",
+        id="loaded runoff",
+    ),
+    pytest.param(
+        {"after_soil": LAKE},
+        "[flow.sinks_sources.lakes] declares a lake with no stream network: in soil "
+        "mode the water that seeps out of the ground reaches a lake only through the "
+        "stream network, so the lake would receive none of it. Declare a "
+        "[flow.sinks_sources.sfr] network, or remove [flow.sinks_sources.recharge.soil] "
+        "and load [data.runoff] as before.",
+        id="lake without a network",
+    ),
+    pytest.param(
+        {"after_soil": LAKE + "[flow.sinks_sources.sfr.main]\nroute_drainage = false\n"},
+        "route_drainage = false with a lake",
+        id="lake with drainage not routed",
+    ),
+]
 
 
-# A rate written beside a loaded recharge, or beyond any rainfall, is refused.
-#
-# ``values`` beside ``[data.recharge]`` was dropped without a word, and a wrong unit
-# passed at 2392 mm/day. A recharge left out of ``active_sinks_sources`` gave zero and
-# said nothing.
+@pytest.mark.parametrize(("holes", "message"), REFUSALS)
+def test_refusals(tmp_path: Path, holes: dict[str, str], message: str) -> None:
+    with pytest.raises(ConfigValidationError, match=re.escape(message)):
+        load_soil(tmp_path, **holes)
 
 
-PROJECT_TOML = """
+def test_a_lake_with_a_network_loads(tmp_path: Path) -> None:
+    cfg = load_soil(tmp_path, after_soil=LAKE + "[flow.sinks_sources.sfr.main]\n")
+
+    assert {"lake", "sfr"} <= set(cfg.flow.active_bc)
+    assert cfg.flow.sinks_sources.sfr["main"].route_drainage is True
+
+
+def test_route_drainage_is_on_by_default() -> None:
+    from hydromodpy.model.sinks_sources.sfr import FlowReachNetworkConfig
+
+    assert FlowReachNetworkConfig.model_fields["route_drainage"].default is True
+
+
+# A plain recharge (no soil) over one year of monthly steps.
+RATE_TOML = """
 [workflow]
 mode = "simulation"
 
@@ -646,34 +266,49 @@ types = {data_types}
 {recharge}
 """
 
-
 LOADED = '["recharge"]', '[[data.recharge.sources]]\nsource = "synthetic"\nvalues = [1.0]\n'
-
-
 NOT_LOADED = "[]", ""
 
 
-def _load(tmp_path: Path, recharge: str, loaded: tuple[str, str]) -> HydroModPyConfig:
+def load_rate(tmp_path: Path, recharge: str, loaded: tuple[str, str]) -> HydroModPyConfig:
     path = tmp_path / "project.toml"
     path.write_text(
-        PROJECT_TOML.format(data_types=loaded[0], data_recharge=loaded[1], recharge=recharge),
+        RATE_TOML.format(data_types=loaded[0], data_recharge=loaded[1], recharge=recharge),
         encoding="utf-8",
     )
     return HydroModPyConfig.from_toml(path)
 
 
+RATE_REFUSALS = [
+    pytest.param(
+        "values = 7.0", LOADED, r"replaced by the series \[data.recharge\]", id="beside a series"
+    ),
+    pytest.param("values = 1500.0", NOT_LOADED, "beyond any daily rainfall", id="1500 mm/day"),
+    pytest.param(
+        'values = 2.0\nunits = "m/day"', NOT_LOADED, "beyond any daily rainfall", id="2 m/day"
+    ),
+    pytest.param(
+        'values = [1.0, 5e-5]\nunits = "m/s"',
+        NOT_LOADED,
+        "beyond any daily rainfall",
+        id="1 m/s in a list",
+    ),
+]
+
+
 @pytest.mark.fast
-def test_a_rate_beside_a_loaded_recharge_is_refused(tmp_path: Path) -> None:
-    with pytest.raises(ConfigValidationError, match=r"replaced by the series \[data.recharge\]"):
-        _load(tmp_path, "values = 7.0", LOADED)
+@pytest.mark.parametrize(("recharge", "loaded", "message"), RATE_REFUSALS)
+def test_rate_refusals(tmp_path: Path, recharge: str, loaded: tuple[str, str], message: str):
+    with pytest.raises(ConfigValidationError, match=message):
+        load_rate(tmp_path, recharge, loaded)
 
 
 @pytest.mark.fast
 @pytest.mark.parametrize(("loaded", "listed"), [(LOADED, False), (NOT_LOADED, True)])
-def test_the_targets_listing_drops_a_rate_the_run_replaces(
+def test_targets_drop_a_rate_the_run_replaces(
     tmp_path: Path, loaded: tuple[str, str], listed: bool, capsys
 ) -> None:
-    _load(tmp_path, "values = 0.0", loaded)
+    load_rate(tmp_path, "values = 0.0", loaded)
 
     config_cmd._cmd_config_targets(
         SimpleNamespace(config=tmp_path / "project.toml", json=True, file=tmp_path / "project.toml")
@@ -682,24 +317,7 @@ def test_the_targets_listing_drops_a_rate_the_run_replaces(
     assert (RECHARGE_VALUES_PATH in capsys.readouterr().out) is listed
 
 
-@pytest.mark.parametrize(
-    "recharge",
-    ["values = 1500.0", 'values = 2.0\nunits = "m/day"', 'values = [1.0, 5e-5]\nunits = "m/s"'],
-)
-def test_a_rate_beyond_any_rainfall_is_refused(tmp_path: Path, recharge: str) -> None:
-    with pytest.raises(ConfigValidationError, match="beyond any daily rainfall"):
-        _load(tmp_path, recharge, NOT_LOADED)
-
-
-def _flow(active: list[str]) -> SimpleNamespace:
-    return SimpleNamespace(
-        active_sinks_sources=active,
-        sinks_sources={},
-        set_recharge=lambda config: None,
-    )
-
-
-def _station(values: list[float]) -> SimpleNamespace:
+def station(values: list[float]) -> SimpleNamespace:
     frame = pd.DataFrame(
         {"datetime": pd.date_range("2000-01-01", periods=len(values)), "value": values}
     )
@@ -712,55 +330,44 @@ def _station(values: list[float]) -> SimpleNamespace:
 
 
 @pytest.mark.fast
-def test_the_peak_of_a_station_source_reads_its_values() -> None:
-    assert _peak_mm_day_of_a_recharge_source(_station([1.0, -3.0])) == pytest.approx(3.0)
+def test_peak_of_a_station_source() -> None:
+    assert _peak_mm_day_of_a_recharge_source(station([1.0, -3.0])) == pytest.approx(3.0)
 
 
 @pytest.mark.fast
-def test_a_recharge_left_out_of_the_active_list_is_said(caplog) -> None:
+def test_recharge_left_out_of_the_active_list_is_said(caplog) -> None:
+    flow = SimpleNamespace(
+        active_sinks_sources=["etp"], sinks_sources={}, set_recharge=lambda config: None
+    )
+
     with caplog.at_level(logging.WARNING, logger="hydromodpy.model.boundaries.climate"):
-        apply_recharge_load_result_to_flow(flow=_flow(["etp"]), recharge_result=_station([1.0]))
+        apply_recharge_load_result_to_flow(flow=flow, recharge_result=station([1.0]))
 
     assert any("receives no recharge" in r.getMessage() for r in caplog.records)
 
 
-# A soil capacity raster without a soil reservoir would never be read.
-#
-# ``[data.soil_capacity]`` spreads the ``ru`` of
-# ``[flow.sinks_sources.recharge.soil]`` over classes: without that section the
-# raster has nothing to spread and would be loaded for no reader.
-
-
-def _write_geotiff(path: Path) -> Path:
-    data = np.full((3, 4), 150.0, dtype="float32")
+def test_a_capacity_map_needs_a_soil_section(tmp_path: Path) -> None:
+    raster = tmp_path / "ru.tif"
     with rasterio.open(
-        str(path),
+        raster,
         "w",
         driver="GTiff",
-        height=data.shape[0],
-        width=data.shape[1],
+        height=3,
+        width=4,
         count=1,
         dtype="float32",
         crs="EPSG:2154",
         transform=from_origin(0.0, 100.0, 25.0, 25.0),
     ) as dst:
-        dst.write(data, 1)
-    return path
-
-
-def _base_kwargs(tmp_path: Path) -> dict:
-    return {
-        "workflow": {"mode": "simulation"},
-        "workspace": WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
-        "geographic": GeographicConfig(source_mode="synthetic"),
-    }
-
-
-def test_a_capacity_map_without_a_soil_section_is_rejected(tmp_path: Path) -> None:
-    raster = _write_geotiff(tmp_path / "ru.tif")
+        dst.write(np.full((3, 4), 150.0, dtype="float32"), 1)
     data = DataConfig(
         soil_capacity=SoilCapacityConfig(sources=[FileSoilCapacitySource(path=raster)])
     )
 
     with pytest.raises(ValidationError, match=r"\[data.soil_capacity\]"):
-        HydroModPyConfig(**_base_kwargs(tmp_path), data=data)
+        HydroModPyConfig(
+            workflow={"mode": "simulation"},
+            workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
+            geographic=GeographicConfig(source_mode="synthetic"),
+            data=data,
+        )

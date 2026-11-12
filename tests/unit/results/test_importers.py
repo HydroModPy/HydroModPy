@@ -1,4 +1,8 @@
-"""Tests for hydromodpy.results.importers, symmetric counterparts of exporters."""
+"""Importers read back what the exporters wrote: discharge series from CSV, fields from NetCDF and Zarr.
+
+The run has 6 cells, 2 layers and 3 time steps (head in m), and a recharge series
+of 10 daily values at the outlet (m s-1).
+"""
 
 from __future__ import annotations
 
@@ -22,7 +26,6 @@ from tests._helpers.run_stores import open_run_store
 
 @pytest.fixture
 def catalog_with_data(tmp_path):
-    """A catalog with mesh, head field, and a discharge timeseries."""
     project = tmp_path / "workspace"
     n_cells, n_layers, n_ts = 6, 2, 3
     c = open_run_store(
@@ -77,166 +80,171 @@ def catalog_with_data(tmp_path):
         yield catalog, sid, run_dir / "exports"
 
 
-class TestImportCSVTimeseries:
-    def test_roundtrip(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "ts.csv"
-        export_run(catalog, sid, ExportRequest(variables="recharge", file=out.name))
+CSV_HEADER = "site,case_id,datetime,station_id,variable,source,value,unit\n"
+CSV_COLUMNS = ["site", "case_id", "datetime", "station_id", "variable", "source", "value", "unit"]
 
-        df = import_csv_timeseries(out)
-        assert list(df.columns) == [
-            "site",
-            "case_id",
-            "datetime",
-            "station_id",
-            "variable",
-            "source",
-            "value",
-            "unit",
-        ]
-        assert len(df) == 10
-        assert df["station_id"].iloc[0] == "outlet"
-        assert df["variable"].iloc[0] == "recharge"
-        assert df["value"].dtype == np.float64
-        assert df["datetime"].dt.tz is not None
 
-    def test_filter_variable(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "ts.csv"
-        export_run(catalog, sid, ExportRequest(variables="recharge", file=out.name))
+def export_head_to_netcdf(catalog, sid, exports):
+    out = exports / "fields.nc"
+    export_run(catalog, sid, ExportRequest(variables="head", file=out.name))
+    return out
 
-        df = import_csv_timeseries(out, variable="recharge")
-        assert (df["variable"] == "recharge").all()
 
-    @pytest.mark.parametrize(
-        ("asked", "kept"),
-        [
-            (
-                None,
-                [("discharge", "simulated"), ("discharge", "observed"), ("nitrate", "observed")],
-            ),
-            ("discharge", [("discharge", "simulated")]),
-            ("discharge_obs", [("discharge", "observed")]),
-            ("nitrate_obs", [("nitrate", "observed")]),
-        ],
+def test_csv_roundtrip(catalog_with_data):
+    catalog, sid, exports = catalog_with_data
+    out = exports / "ts.csv"
+    export_run(catalog, sid, ExportRequest(variables="recharge", file=out.name))
+
+    df = import_csv_timeseries(out)
+
+    assert list(df.columns) == CSV_COLUMNS
+    assert len(df) == 10
+    assert df["station_id"].iloc[0] == "outlet"
+    assert df["variable"].iloc[0] == "recharge"
+    assert df["value"].dtype == np.float64
+    assert df["datetime"].dt.tz is not None
+
+
+def test_csv_filter_variable(catalog_with_data):
+    catalog, sid, exports = catalog_with_data
+    out = exports / "ts.csv"
+    export_run(catalog, sid, ExportRequest(variables="recharge", file=out.name))
+
+    df = import_csv_timeseries(out, variable="recharge")
+
+    assert (df["variable"] == "recharge").all()
+
+
+KEPT = [
+    pytest.param(
+        None,
+        [("discharge", "simulated"), ("discharge", "observed"), ("nitrate", "observed")],
+        id="all",
+    ),
+    pytest.param("discharge", [("discharge", "simulated")], id="simulated by its name"),
+    pytest.param("discharge_obs", [("discharge", "observed")], id="measurement by its name"),
+    pytest.param("nitrate_obs", [("nitrate", "observed")], id="other measurement"),
+]
+
+
+@pytest.mark.parametrize(("asked", "kept"), KEPT)
+def test_csv_measurement_and_series_by_name(tmp_path, asked, kept):
+    out = tmp_path / "ts.csv"
+    out.write_text(
+        CSV_HEADER + "n,n_run,2020-02-01,catchment,discharge,simulated,1.0,m3 s-1\n"
+        "n,n_run,2020-01-01,J001,discharge,observed,2.0,m3 s-1\n"
+        "n,n_run,2020-01-01,J001,nitrate,observed,3.0,mg L-1\n"
     )
-    def test_a_measurement_and_a_series_read_back_by_their_name(self, tmp_path, asked, kept):
-        out = tmp_path / "ts.csv"
-        out.write_text(
-            "site,case_id,datetime,station_id,variable,source,value,unit\n"
-            "n,n_run,2020-02-01,catchment,discharge,simulated,1.0,m3 s-1\n"
-            "n,n_run,2020-01-01,J001,discharge,observed,2.0,m3 s-1\n"
-            "n,n_run,2020-01-01,J001,nitrate,observed,3.0,mg L-1\n"
-        )
 
-        df = import_csv_timeseries(out, variable=asked)
+    df = import_csv_timeseries(out, variable=asked)
 
-        assert list(zip(df["variable"], df["source"], strict=True)) == kept
-
-    def test_a_source_the_exporter_never_writes_is_refused(self, tmp_path):
-        out = tmp_path / "ts.csv"
-        out.write_text(
-            "site,case_id,datetime,station_id,variable,source,value,unit\n"
-            "n,n_run,2020-01-01,outlet,discharge,modelled,1.0,m3 s-1\n"
-        )
-        with pytest.raises(ValueError, match="neither 'simulated' nor 'observed'"):
-            import_csv_timeseries(out)
-
-    def test_unknown_variable_raises(self, tmp_path):
-        out = tmp_path / "ts.csv"
-        out.write_text("site,case_id,datetime,station_id,variable,source,value,unit\n")
-        with pytest.raises(UnknownFieldError):
-            import_csv_timeseries(out, variable="not_a_field")
-
-    def test_unknown_variable_in_file_raises(self, tmp_path):
-        out = tmp_path / "ts.csv"
-        out.write_text(
-            "site,case_id,datetime,station_id,variable,source,value,unit\n"
-            "n,n_run,2020-01-01,outlet,bogus_variable,simulated,1.0,m\n"
-        )
-        with pytest.raises(UnknownFieldError):
-            import_csv_timeseries(out)
-
-    def test_missing_columns_raises(self, tmp_path):
-        out = tmp_path / "bad.csv"
-        out.write_text("a,b,c\n1,2,3\n")
-        with pytest.raises(ValueError, match="missing required columns"):
-            import_csv_timeseries(out)
-
-    def test_missing_file_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            import_csv_timeseries(tmp_path / "absent.csv")
-
-    def test_empty_file_returns_empty_frame(self, tmp_path):
-        out = tmp_path / "empty.csv"
-        out.write_text("site,case_id,datetime,station_id,variable,source,value,unit\n")
-        df = import_csv_timeseries(out)
-        assert df.empty
+    assert list(zip(df["variable"], df["source"], strict=True)) == kept
 
 
-class TestImportNetCDFFields:
-    def test_roundtrip_head(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "fields.nc"
-        export_run(catalog, sid, ExportRequest(variables="head", file=out.name))
+def test_csv_empty_file(tmp_path):
+    out = tmp_path / "empty.csv"
+    out.write_text(CSV_HEADER)
 
-        fields = import_netcdf_fields(out, ["head"])
-        assert "head" in fields
-        assert fields["head"].shape == (3, 2, 6)
-
-    def test_default_loads_registered_only(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "fields.nc"
-        export_run(catalog, sid, ExportRequest(variables="head", file=out.name))
-
-        fields = import_netcdf_fields(out)
-        assert "head" in fields
-        assert "node_x" not in fields
-
-    def test_timestep_subset(self, catalog_with_data):
-        catalog, sid, exports = catalog_with_data
-        out = exports / "fields.nc"
-        export_run(catalog, sid, ExportRequest(variables="head", file=out.name))
-
-        fields = import_netcdf_fields(out, ["head"], timesteps=[0, 2])
-        assert fields["head"].shape == (2, 2, 6)
-
-    def test_unknown_variable_raises(self, tmp_path):
-        with pytest.raises(UnknownFieldError):
-            import_netcdf_fields(tmp_path / "any.nc", ["not_a_field"])
-
-    def test_missing_file_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            import_netcdf_fields(tmp_path / "absent.nc", ["head"])
+    assert import_csv_timeseries(out).empty
 
 
-class TestImportZarrField:
-    def test_read_head(self, catalog_with_data):
-        catalog, sid, _ = catalog_with_data
-        zarr_path = catalog.fields_path_for(sid)
+def test_netcdf_roundtrip_head(catalog_with_data):
+    catalog, sid, exports = catalog_with_data
 
-        data = import_zarr_field(zarr_path, "head")
-        assert data.shape == (3, 2, 6)
+    fields = import_netcdf_fields(export_head_to_netcdf(catalog, sid, exports), ["head"])
 
-    def test_timestep_subset(self, catalog_with_data):
-        catalog, sid, _ = catalog_with_data
-        zarr_path = catalog.fields_path_for(sid)
+    assert fields["head"].shape == (3, 2, 6)
 
-        data = import_zarr_field(zarr_path, "head", timesteps=[1])
-        assert data.shape == (1, 2, 6)
 
-    def test_unknown_variable_raises(self, catalog_with_data):
-        catalog, sid, _ = catalog_with_data
-        zarr_path = catalog.fields_path_for(sid)
-        with pytest.raises(UnknownFieldError):
-            import_zarr_field(zarr_path, "not_a_field")
+def test_netcdf_default_loads_registered_only(catalog_with_data):
+    catalog, sid, exports = catalog_with_data
 
-    def test_missing_field_raises(self, catalog_with_data):
-        catalog, sid, _ = catalog_with_data
-        zarr_path = catalog.fields_path_for(sid)
-        with pytest.raises(KeyError, match="watertable_depth"):
-            import_zarr_field(zarr_path, "watertable_depth")
+    fields = import_netcdf_fields(export_head_to_netcdf(catalog, sid, exports))
 
-    def test_missing_store_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            import_zarr_field(tmp_path / "absent.zarr", "head")
+    assert "head" in fields
+    assert "node_x" not in fields
+
+
+def test_netcdf_timestep_subset(catalog_with_data):
+    catalog, sid, exports = catalog_with_data
+
+    out = export_head_to_netcdf(catalog, sid, exports)
+    fields = import_netcdf_fields(out, ["head"], timesteps=[0, 2])
+
+    assert fields["head"].shape == (2, 2, 6)
+
+
+ZARR_SHAPES = [
+    pytest.param(None, (3, 2, 6), id="all steps"),
+    pytest.param([1], (1, 2, 6), id="one step"),
+]
+
+
+@pytest.mark.parametrize(("timesteps", "shape"), ZARR_SHAPES)
+def test_zarr_read_head(catalog_with_data, timesteps, shape):
+    catalog, sid, _ = catalog_with_data
+
+    data = import_zarr_field(catalog.fields_path_for(sid), "head", timesteps=timesteps)
+
+    assert data.shape == shape
+
+
+ZARR_REFUSALS = [
+    pytest.param("not_a_field", UnknownFieldError, None, id="unknown variable"),
+    pytest.param("watertable_depth", KeyError, "watertable_depth", id="field not stored"),
+]
+
+
+@pytest.mark.parametrize(("variable", "error", "match"), ZARR_REFUSALS)
+def test_zarr_refusals(catalog_with_data, variable, error, match):
+    catalog, sid, _ = catalog_with_data
+
+    with pytest.raises(error, match=match):
+        import_zarr_field(catalog.fields_path_for(sid), variable)
+
+
+CSV_REFUSALS = [
+    pytest.param(
+        CSV_HEADER + "n,n_run,2020-01-01,outlet,discharge,modelled,1.0,m3 s-1\n",
+        None,
+        ValueError,
+        "neither 'simulated' nor 'observed'",
+        id="source the exporter never writes",
+    ),
+    pytest.param(CSV_HEADER, "not_a_field", UnknownFieldError, None, id="unknown variable asked"),
+    pytest.param(
+        CSV_HEADER + "n,n_run,2020-01-01,outlet,bogus_variable,simulated,1.0,m\n",
+        None,
+        UnknownFieldError,
+        None,
+        id="unknown variable in file",
+    ),
+    pytest.param("a,b,c\n1,2,3\n", None, ValueError, "missing required columns", id="columns"),
+]
+
+
+@pytest.mark.parametrize(("text", "variable", "error", "match"), CSV_REFUSALS)
+def test_csv_refusals(tmp_path, text, variable, error, match):
+    out = tmp_path / "ts.csv"
+    out.write_text(text)
+
+    with pytest.raises(error, match=match):
+        import_csv_timeseries(out, variable=variable)
+
+
+FILE_REFUSALS = [
+    pytest.param(import_csv_timeseries, "absent.csv", (), FileNotFoundError, id="csv missing"),
+    pytest.param(
+        import_netcdf_fields, "absent.nc", (["head"],), FileNotFoundError, id="netcdf missing"
+    ),
+    pytest.param(
+        import_netcdf_fields, "any.nc", (["not_a_field"],), UnknownFieldError, id="netcdf unknown"
+    ),
+    pytest.param(import_zarr_field, "absent.zarr", ("head",), FileNotFoundError, id="zarr missing"),
+]
+
+
+@pytest.mark.parametrize(("reader", "name", "args", "error"), FILE_REFUSALS)
+def test_file_refusals(tmp_path, reader, name, args, error):
+    with pytest.raises(error):
+        reader(tmp_path / name, *args)

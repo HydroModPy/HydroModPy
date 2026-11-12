@@ -30,7 +30,7 @@ from hydromodpy.mesh.planar.cell_types import CellType
 from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 
 
-def test_gmsh_mesh_data_rejects_mixed_cell_types_for_one_planar_mesh():
+def test_mixed_payload_has_no_cell_type():
     mesh_data = GmshMeshData(
         points_xy=np.array(
             [
@@ -51,7 +51,7 @@ def test_gmsh_mesh_data_rejects_mixed_cell_types_for_one_planar_mesh():
         _ = mesh_data.cell_type
 
 
-def test_meshio_roundtrip_and_mixed_selection(tmp_path):
+def test_meshio_roundtrip(tmp_path):
     points = np.array(
         [
             [0.0, 0.0, 0.0],
@@ -96,7 +96,7 @@ def _one_triangle() -> GmshMeshData:
     )
 
 
-def test_a_mesh_written_with_a_crs_gets_a_projection_file_read_back(tmp_path):
+def test_crs_projection_file_roundtrip(tmp_path):
     from pyproj import CRS
 
     path = write_gmsh_2d_mesh(tmp_path / "catchment.msh", _one_triangle(), crs="EPSG:2154")
@@ -111,7 +111,7 @@ def test_a_mesh_written_with_a_crs_gets_a_projection_file_read_back(tmp_path):
     assert read_gmsh_2d_mesh(again).crs_wkt == reread.crs_wkt
 
 
-def test_a_crs_pyproj_cannot_read_is_refused_before_the_mesh_is_written(tmp_path):
+def test_bad_crs_writes_nothing(tmp_path):
     from pyproj.exceptions import CRSError
 
     with pytest.raises(CRSError):
@@ -119,8 +119,6 @@ def test_a_crs_pyproj_cannot_read_is_refused_before_the_mesh_is_written(tmp_path
 
     assert not (tmp_path / "catchment.msh").exists()
 
-
-# -- the ASCII 2.2 fallback reader ---------------------------------------------
 
 NODES_22 = ["$Nodes", "5", "1 0 0 0", "2 1 0 0", "3 1 1 0", "4 0 1 0", "5 2 0 0", "$EndNodes"]
 
@@ -146,7 +144,7 @@ TRIANGLES = ["3 2 2 0 1 1 2 3", "4 2 2 0 1 1 3 4"]
 QUAD = "5 3 2 0 1 2 5 3 3"
 
 
-def test_a_msh22_file_meshio_refuses_is_read_by_the_ascii_fallback(tmp_path):
+def test_ascii_fallback_reads_msh22(tmp_path):
     path = _msh22(tmp_path, [POINT, EDGE, *TRIANGLES])
 
     mesh_data = read_gmsh_2d_mesh(path)
@@ -157,7 +155,7 @@ def test_a_msh22_file_meshio_refuses_is_read_by_the_ascii_fallback(tmp_path):
     assert mesh_data.source_path == path.resolve()
 
 
-def test_the_fallback_refuses_mixed_cells_unless_one_type_is_asked(tmp_path):
+def test_fallback_mixed_cells(tmp_path):
     quad = "5 3 2 0 1 2 5 3 4"
     path = _msh22(tmp_path, [*TRIANGLES, quad])
 
@@ -196,7 +194,7 @@ def test_the_fallback_refuses_mixed_cells_unless_one_type_is_asked(tmp_path):
         "no cell",
     ],
 )
-def test_a_corrupt_msh_file_names_what_both_readers_missed(tmp_path, elements, nodes, reason):
+def test_corrupt_msh_refusals(tmp_path, elements, nodes, reason):
     path = _msh22(tmp_path, elements, nodes=nodes)
 
     with pytest.raises(
@@ -205,7 +203,7 @@ def test_a_corrupt_msh_file_names_what_both_readers_missed(tmp_path, elements, n
         read_gmsh_2d_mesh(path)
 
 
-def test_the_fallback_reads_the_named_line_groups(tmp_path):
+def test_fallback_line_groups(tmp_path):
     names = ["$PhysicalNames", "2", '1 7 "river::1"', '2 9 "zone"', "$EndPhysicalNames"]
     river = ["6 1 2 7 1 1 3", "7 1 2 7 1 3 4", "8 1 2 8 1 4 1", "9 1 0 2 3"]
     path = _msh22(tmp_path, [*river, *TRIANGLES], nodes=[*names, *NODES_22])
@@ -217,7 +215,7 @@ def test_the_fallback_reads_the_named_line_groups(tmp_path):
     assert mesh_data.connectivity.tolist() == [[0, 1, 2], [0, 2, 3]]
 
 
-def test_a_file_meshio_cannot_read_and_not_a_msh_is_refused(tmp_path):
+def test_unreadable_file_refused(tmp_path):
     path = tmp_path / "mesh.vtu"
     path.write_text("not a mesh", encoding="utf-8")
 
@@ -225,42 +223,37 @@ def test_a_file_meshio_cannot_read_and_not_a_msh_is_refused(tmp_path):
         read_gmsh_2d_mesh(path)
 
 
-# -- the mesh payload ------------------------------------------------------------
-
-
-def test_an_unknown_cell_type_lists_the_names_it_takes():
+def test_unknown_cell_type_refused():
     with pytest.raises(
         ValueError, match="Unsupported planar cell type 'hexagon'. Allowed: .*quads"
     ):
         normalize_cell_type("hexagon")
 
 
+ONE_TRIANGLE = (GmshCellBlock(cell_type="triangle", connectivity=[[0, 1, 2]]),)
+
+
 @pytest.mark.parametrize(
     ("points", "blocks", "reason"),
     [
-        (np.zeros((3, 3)), "one triangle", "points_xy must have shape"),
-        (np.zeros((3, 2)), "none", "cell_blocks cannot be empty"),
-        (np.zeros((2, 2)), "one triangle", "outside points_xy"),
+        pytest.param(np.zeros((3, 3)), ONE_TRIANGLE, "points_xy must have shape", id="3d points"),
+        pytest.param(np.zeros((3, 2)), (), "cell_blocks cannot be empty", id="no block"),
+        pytest.param(np.zeros((2, 2)), ONE_TRIANGLE, "outside points_xy", id="node past points"),
     ],
 )
-def test_a_mesh_payload_checks_its_points_and_its_cells(points, blocks, reason):
-    cell_blocks = (
-        (GmshCellBlock(cell_type="triangle", connectivity=[[0, 1, 2]]),)
-        if blocks == "one triangle"
-        else ()
-    )
+def test_payload_refusals(points, blocks, reason):
     with pytest.raises(ValueError, match=reason):
-        GmshMeshData(points_xy=points, cell_blocks=cell_blocks)
+        GmshMeshData(points_xy=points, cell_blocks=blocks)
 
 
-def test_a_cell_block_checks_the_width_of_its_rows():
+def test_block_width_refused():
     with pytest.raises(
         ValueError, match=r"quadrilateral connectivity must have shape \(n_cells, 4\)"
     ):
         GmshCellBlock(cell_type="quad", connectivity=[[0, 1, 2]])
 
 
-def test_a_meshio_mesh_gives_its_supported_cells_only(tmp_path):
+def test_meshio_supported_cells(tmp_path):
     points = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
     lines_only = meshio.Mesh(points=points, cells=[("line", [[0, 1]])])
     flat = meshio.Mesh(points=points[:, :1], cells=[("triangle", [[0, 1, 2]])])
@@ -275,8 +268,6 @@ def test_a_meshio_mesh_gives_its_supported_cells_only(tmp_path):
     assert meshio_to_mesh_data(with_lines).n_cells == 1
     assert meshio_to_mesh_data(with_lines).n_nodes == 3
 
-
-# -- the named line groups ---------------------------------------------------------
 
 _LINES_22 = """$MeshFormat
 2.2 0 8
@@ -349,7 +340,7 @@ def _write_shared_names(tmp_path: Path, case: str) -> Path:
 
 @pytest.mark.parametrize("reader", ["meshio", "fallback"])
 @pytest.mark.parametrize("case", list(_SHARED_NAMES))
-def test_a_name_two_groups_share_keeps_the_lines_of_every_tag(tmp_path, monkeypatch, case, reader):
+def test_shared_name_keeps_all_tags(tmp_path, monkeypatch, case, reader):
     """The name of a line comes from the dimension-1 entries of ``$PhysicalNames``, by tag."""
     path = _write_shared_names(tmp_path, case)
     meshio.read(path)  # meshio reads the file, so the fallback runs only when forced
@@ -367,7 +358,7 @@ def test_a_name_two_groups_share_keeps_the_lines_of_every_tag(tmp_path, monkeypa
     }
 
 
-def test_a_meshio_mesh_names_its_lines_from_its_field_data():
+def test_meshio_line_names():
     mesh = meshio.Mesh(
         points=np.zeros((3, 3)),
         cells=[("line", [[0, 1], [1, 2]]), ("triangle", [[0, 1, 2]])],
@@ -380,7 +371,7 @@ def test_a_meshio_mesh_names_its_lines_from_its_field_data():
     assert {name: pairs.tolist() for name, pairs in line_groups.items()} == {"river": [[0, 1]]}
 
 
-def test_a_line_group_outside_the_nodes_is_refused():
+def test_line_group_outside_nodes():
     with pytest.raises(ValueError, match="line groups reference node indices outside"):
         GmshMeshData(
             points_xy=np.zeros((3, 2)),
@@ -389,10 +380,7 @@ def test_a_line_group_outside_the_nodes_is_refused():
         )
 
 
-# -- the format line ---------------------------------------------------------------
-
-
-def test_the_format_line_is_read_from_the_head_of_the_file(tmp_path):
+def test_msh_format_line(tmp_path):
     path = tmp_path / "square.msh"
     path.write_text("$Comments\nmade by hand\n$EndComments\n" + _LINES_22, encoding="utf-8")
     binary = write_gmsh_2d_mesh(tmp_path / "binary.msh", _one_triangle(), file_format="gmsh")
@@ -402,14 +390,11 @@ def test_the_format_line_is_read_from_the_head_of_the_file(tmp_path):
     assert msh_format(_msh22(tmp_path, TRIANGLES)) is None
 
 
-def test_a_format_section_left_empty_reads_as_no_format(tmp_path):
+def test_empty_format_section(tmp_path):
     path = tmp_path / "empty.msh"
     path.write_text("$MeshFormat\n\n", encoding="utf-8")
 
     assert msh_format(path) is None
-
-
-# -- a .msh file as a HydroMesh ----------------------------------------------------
 
 
 def _two_triangles() -> HydroMesh:
@@ -419,7 +404,7 @@ def _two_triangles() -> HydroMesh:
     )
 
 
-def test_a_hydro_mesh_written_as_msh_with_a_crs_gets_its_projection_file(tmp_path):
+def test_hydro_mesh_msh_with_crs(tmp_path):
     from pyproj import CRS
 
     path = write_msh(tmp_path / "mesh_2d.msh", _two_triangles(), crs="EPSG:2154")
@@ -447,6 +432,6 @@ def test_a_hydro_mesh_written_as_msh_with_a_crs_gets_its_projection_file(tmp_pat
     ],
     ids=["with a z", "polygons"],
 )
-def test_only_planar_triangles_and_quadrilaterals_are_written(tmp_path, mesh, reason):
+def test_write_refusals(tmp_path, mesh, reason):
     with pytest.raises(ValueError, match=reason):
         write_msh(tmp_path / "mesh.msh", mesh)

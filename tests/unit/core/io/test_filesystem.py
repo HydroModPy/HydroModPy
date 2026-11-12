@@ -23,22 +23,20 @@ from hydromodpy.core.io.filesystem import (
 from tests._helpers.windows_os import PatchedOs
 
 
-def test_the_size_of_a_file_is_its_bytes(tmp_path: Path) -> None:
+def test_size_of_a_file(tmp_path: Path) -> None:
     file = tmp_path / "a.bin"
     file.write_bytes(b"12345")
     assert path_size(file) == 5
 
 
-def test_the_size_of_a_folder_sums_its_files_and_skips_its_folders(tmp_path: Path) -> None:
+def test_size_of_a_folder(tmp_path: Path) -> None:
     (tmp_path / "sub").mkdir()
     (tmp_path / "a.bin").write_bytes(b"123")
     (tmp_path / "sub" / "b.bin").write_bytes(b"4567")
     assert path_size(tmp_path) == 7
 
 
-def test_a_file_removed_during_the_walk_is_skipped(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_file_removed_during_walk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "kept.bin").write_bytes(b"12")
     gone = tmp_path / "gone.bin"
     gone.write_bytes(b"345")
@@ -51,9 +49,6 @@ def test_a_file_removed_during_the_walk_is_skipped(
 
     monkeypatch.setattr(Path, "is_file", racing_is_file)
     assert path_size(tmp_path) == 2
-
-
-# --- The Windows bounds: project root, link, rename onto a reservation, retried removal.
 
 
 def _absolute_path_of(length: int) -> str:
@@ -70,7 +65,7 @@ def _refusal(path: str) -> str:
     )
 
 
-def test_the_budget_constants() -> None:
+def test_budget_constants() -> None:
     assert filesystem.WINDOWS_PATH_LIMIT == 259
     assert filesystem.PROJECT_TREE_DEPTH == 160
 
@@ -81,7 +76,7 @@ def test_the_budget_constants() -> None:
     [(98, True, False), (99, True, False), (100, True, True), (300, False, False)],
     ids=["98-windows", "99-windows", "100-windows", "300-linux"],
 )
-def test_a_project_root_is_bounded_on_windows_only(length, windows, refused) -> None:
+def test_project_root_bound(length, windows, refused) -> None:
     root = _absolute_path_of(length)
     if not refused:
         check_project_root(root, windows=windows)
@@ -92,7 +87,7 @@ def test_a_project_root_is_bounded_on_windows_only(length, windows, refused) -> 
 
 
 @pytest.mark.parametrize("link_refused", [False, True], ids=["link", "copy"])
-def test_a_present_target_is_never_overwritten(
+def test_present_target_kept(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, link_refused: bool
 ) -> None:
     if link_refused:
@@ -125,9 +120,7 @@ def _windows_replace(source, target):
     return os.replace(source, target)
 
 
-def test_a_refused_replace_removes_the_reservation_then_renames(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_refused_replace_then_rename(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(filesystem, "os", PatchedOs(name="nt", replace=_windows_replace))
     source, reserved = _trial(tmp_path)
     rename_onto_empty_dir(source, reserved)
@@ -135,9 +128,7 @@ def test_a_refused_replace_removes_the_reservation_then_renames(
     assert not source.exists()
 
 
-def test_a_name_taken_between_the_two_steps_raises_and_stays_its_owners(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_name_taken_between_steps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def rmdir_then_taken(path):
         os.rmdir(path)
         os.mkdir(path)
@@ -152,9 +143,7 @@ def test_a_name_taken_between_the_two_steps_raises_and_stays_its_owners(
     assert (source / "result.json").exists()
 
 
-def test_a_reservation_that_is_not_empty_raises_without_removal(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_full_reservation_kept(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(filesystem, "os", PatchedOs(name="nt", replace=_windows_replace))
     source, reserved = _trial(tmp_path)
     (reserved / "other.json").write_text("other", encoding="utf-8")
@@ -187,7 +176,7 @@ def _flaky(failures: int, then):
     ids=["free", "two-refusals", "six-refusals"],
 )
 @pytest.mark.parametrize("operation", ["unlink", "replace"])
-def test_a_file_in_use_is_retried_six_times_for_310_ms(
+def test_file_in_use_retries(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     operation: str,
@@ -222,9 +211,7 @@ def test_a_file_in_use_is_retried_six_times_for_310_ms(
     assert sum(waited) == pytest.approx(0.31 if raises else sum(sleeps))
 
 
-def test_a_windows_second_step_refused_twice_still_moves_the_folder(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_second_step_refused_twice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     waited: list[float] = []
     monkeypatch.setattr(filesystem.time, "sleep", waited.append)
     flaky, calls = _flaky(2, os.rename)
@@ -238,7 +225,7 @@ def test_a_windows_second_step_refused_twice_still_moves_the_folder(
 
 
 @pytest.mark.parametrize("operation", ["unlink", "replace", "folder"])
-def test_off_windows_a_refusal_is_raised_at_once(
+def test_off_windows_raises_at_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, operation: str
 ) -> None:
     waited: list[float] = []
@@ -267,15 +254,12 @@ def _is_empty(folder: Path) -> bool:
     return not any(folder.iterdir())
 
 
-def test_an_absent_file_is_removed_without_error(tmp_path: Path) -> None:
+def test_absent_file_unlink(tmp_path: Path) -> None:
     unlink_when_free(tmp_path / "missing.lock")
 
 
-# --- Real Windows cases, played by the weekly job on windows-latest.
-
-
 @pytest.mark.windows
-def test_windows_renames_onto_an_empty_reserved_folder(tmp_path: Path) -> None:
+def test_windows_rename_onto_empty(tmp_path: Path) -> None:
     source, reserved = _trial(tmp_path)
     with pytest.raises(OSError):
         os.replace(source, reserved)
@@ -294,7 +278,7 @@ def test_windows_links_on_ntfs(tmp_path: Path) -> None:
 
 
 @pytest.mark.windows
-def test_windows_prefixes_a_unc_path(tmp_path: Path) -> None:
+def test_windows_unc_prefix(tmp_path: Path) -> None:
     drive, tail = os.path.splitdrive(str(tmp_path))
     unc = f"\\\\localhost\\{drive[0]}$" + tail + "\\deep"
     value = native_io_path(unc)

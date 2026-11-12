@@ -1,4 +1,11 @@
-"""The matching hydrographic network card."""
+"""One-page card of a two-stage downslope-distance calibration.
+
+Stage 1 searches the ratio K/R (-) for a sign change of the signed distance gap
+(m) and closes a bracket. Stage 2 fits the storage parameter on its own metric.
+Two panels read the diagnostics of the returned trial, the validity of D_optim
+against its bound (m) and the counts of valid, excess and missing cells. The
+tests read panels, artists, annotations and refusals, never pixels.
+"""
 
 from __future__ import annotations
 
@@ -34,51 +41,22 @@ from tests._helpers.session_documents import trial_line
 from ._calibration_journal import journal_session
 from ._render_helpers import labelled_patch, rgba
 
-# The one-page card of a two-stage downslope-distance calibration.
-#
-# The card is driven exactly as a staged session drives it: one row per trial
-# in ``calibration_iterations``, each naming its phase, and one row per phase
-# of the session in ``calibration_sessions``. The tests read the panels, the artists, the
-# annotations and the refusals, never pixels.
-
 OUTPUT = "net"
-
-
 SESSION_ID = "s-cal"
-
-
 ROOT_PHASE = "root_search"
-
-
 STORAGE_PHASE = "storage"
-
 
 # The sweep of the sibling bracket figure: it changes sign once, then two
 # bisection steps close on [3.2e-05, 1e-04]. The end carrying the smaller
 # residual is 3.2e-05, and that is the trial every diagnostic is read at.
 ROOT_VALUES = [1e-5, 1e-3, 1e-4, 3.2e-5]
-
-
 ROOT_RESIDUALS = [300.0, -400.0, -120.0, 40.0]
-
-
 CLOSED_VALUE = 3.2e-5
-
-
 BRACKET = (3.2e-5, 1e-4)
-
-
 STORAGE_VALUES = [0.01, 0.05, 0.1]
-
-
 STORAGE_OBJECTIVES = [0.42, 0.11, 0.30]
 
-
-# --------------------------------------------------------------------------- #
-# the session a staged calibration writes
-# --------------------------------------------------------------------------- #
-
-
+# A trial at h_obs = 250 m: D_optim = 0.87 h_obs, bounded by the auto 2 h_obs.
 PUBLISHED = {
     "D_optim": 217.5,
     "r_optim": 0.87,
@@ -90,9 +68,6 @@ PUBLISHED = {
     "n_missing": 18.0,
     "h_obs": 250.0,
 }
-
-
-"""A trial at h_obs = 250 m: D_optim = 0.87 h_obs, bounded by the auto 2 h_obs."""
 
 
 def _criterion_diagnostics(mean_recharge: float) -> dict[str, float]:
@@ -232,11 +207,6 @@ def _single_phase_run(project: Path, **kwargs) -> Session:
     return _run(project, _root_rows(**kwargs), _sessions(staged=False))
 
 
-# --------------------------------------------------------------------------- #
-# reading the drawn card
-# --------------------------------------------------------------------------- #
-
-
 def _panel(fig, prefix: str):
     return next(ax for ax in fig.axes if str(ax.get_title()).startswith(prefix))
 
@@ -253,159 +223,112 @@ def _line(ax, prefix: str):
     return next(item for item in ax.lines if str(item.get_label()).startswith(prefix))
 
 
-# --------------------------------------------------------------------------- #
-# the grid
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# stage one: the value and the bracket
-# --------------------------------------------------------------------------- #
-
-
-def test_stage_one_reports_the_value_it_closed_on_and_the_bracket(mpl, tmp_path) -> None:
+def test_stage_one_value_and_bracket(mpl, tmp_path) -> None:
     fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
 
-    try:
-        ax = _panel(fig, "Stage 1")
-        assert ax.get_xscale() == "log"
-        assert ax.get_xlabel() == "K_over_R (-)"
-        assert "root search" in ax.get_title()
+    ax = _panel(fig, "Stage 1")
+    assert ax.get_xscale() == "log"
+    assert ax.get_xlabel() == "K_over_R (-)"
+    assert "root search" in ax.get_title()
 
-        marker = _line(ax, "K_over_R =")
-        assert marker.get_xdata()[0] == pytest.approx(CLOSED_VALUE)
-        bracket = labelled_patch(ax, "bracket")
-        assert bracket.get_x() == pytest.approx(BRACKET[0])
-        assert bracket.get_x() + bracket.get_width() == pytest.approx(BRACKET[1])
+    marker = _line(ax, "K_over_R =")
+    assert marker.get_xdata()[0] == pytest.approx(CLOSED_VALUE)
+    bracket = labelled_patch(ax, "bracket")
+    assert bracket.get_x() == pytest.approx(BRACKET[0])
+    assert bracket.get_x() + bracket.get_width() == pytest.approx(BRACKET[1])
 
-        note = _texts(ax)
-        assert f"{CLOSED_VALUE:.4g}" in note
-        assert f"[{BRACKET[0]:.4g}, {BRACKET[1]:.4g}]" in note
-        assert "factor 3.125" in note
-    finally:
-        mpl.close(fig)
+    note = _texts(ax)
+    assert f"{CLOSED_VALUE:.4g}" in note
+    assert f"[{BRACKET[0]:.4g}, {BRACKET[1]:.4g}]" in note
+    assert "factor 3.125" in note
 
 
-def test_stage_one_says_so_when_no_sign_change_was_sampled(mpl, tmp_path) -> None:
+def test_stage_one_without_sign_change(mpl, tmp_path) -> None:
     run = _staged_run(tmp_path, residuals=[300.0, 120.0, 80.0, 40.0])
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
-    try:
-        ax = _panel(fig, "Stage 1")
-        assert "no sign change" in _texts(ax)
-        assert not _has_patch(ax, "bracket")
-        assert not [line for line in ax.lines if str(line.get_label()).startswith("K_over_R =")]
-    finally:
-        mpl.close(fig)
+    ax = _panel(fig, "Stage 1")
+    assert "no sign change" in _texts(ax)
+    assert not _has_patch(ax, "bracket")
+    assert not [line for line in ax.lines if str(line.get_label()).startswith("K_over_R =")]
 
 
-def test_a_point_with_no_root_reports_no_calibrated_diagnostics(mpl, tmp_path) -> None:
+def test_no_root_no_diagnostics(mpl, tmp_path) -> None:
     # Reading the least-bad point as the answer would be a minimized mean
     # distance in disguise, so its r_optim and its counts are not the card's.
     run = _staged_run(tmp_path, residuals=[300.0, 120.0, 80.0, 40.0])
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
-    try:
-        assert "no root was closed" in _texts(_panel(fig, "Validity"))
-        assert "no root was closed" in _texts(_panel(fig, "Cells at the calibrated point"))
-        assert not _panel(fig, "Cells at the calibrated point").patches
-    finally:
-        mpl.close(fig)
+    assert "no root was closed" in _texts(_panel(fig, "Validity"))
+    assert "no root was closed" in _texts(_panel(fig, "Cells at the calibrated point"))
+    assert not _panel(fig, "Cells at the calibrated point").patches
 
 
-def test_stage_one_refuses_a_non_positive_ratio(mpl, tmp_path) -> None:
+def test_non_positive_ratio_refused(mpl, tmp_path) -> None:
     run = _staged_run(tmp_path, values=[0.0, 1e-3, 1e-4, 3.2e-5])
 
     with pytest.raises(ValueError, match="non-positive"):
         MatchingHydrographicNetworkCard().plot(run)
 
 
-# --------------------------------------------------------------------------- #
-# stage two: the storage value and its metric
-# --------------------------------------------------------------------------- #
-
-
-def test_stage_two_reports_the_storage_value_and_its_metric(mpl, tmp_path) -> None:
+def test_stage_two_value_and_metric(mpl, tmp_path) -> None:
     fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
 
-    try:
-        ax = _panel(fig, "Stage 2")
-        assert ax.get_xlabel() == "specific_yield (-)"
-        assert ax.get_ylabel() == "cost, nse (-)"
-        assert "storage" in ax.get_title()
+    ax = _panel(fig, "Stage 2")
+    assert ax.get_xlabel() == "specific_yield (-)"
+    assert ax.get_ylabel() == "cost, nse (-)"
+    assert "storage" in ax.get_title()
 
-        best = _line(ax, "specific_yield =")
-        assert best.get_xdata()[0] == pytest.approx(0.05)
-        note = _texts(ax)
-        assert "specific_yield = 0.05" in note
-        assert "cost (nse) = 0.11" in note
-    finally:
-        mpl.close(fig)
+    best = _line(ax, "specific_yield =")
+    assert best.get_xdata()[0] == pytest.approx(0.05)
+    note = _texts(ax)
+    assert "specific_yield = 0.05" in note
+    assert "cost (nse) = 0.11" in note
 
 
-def test_a_single_phase_session_still_draws_with_stage_two_marked_not_run(mpl, tmp_path) -> None:
+def test_single_phase_session(mpl, tmp_path) -> None:
     fig = MatchingHydrographicNetworkCard().plot(_single_phase_run(tmp_path))
 
-    try:
-        assert len(fig.axes) == 4
-        ax = _panel(fig, "Stage 2")
-        assert "not run" in ax.get_title()
-        assert "not run" in _texts(ax)
-        assert not ax.lines and not ax.collections
-        # The first stage is untouched by the absence of the second.
-        assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(
-            CLOSED_VALUE
-        )
-    finally:
-        mpl.close(fig)
+    assert len(fig.axes) == 4
+    ax = _panel(fig, "Stage 2")
+    assert "not run" in ax.get_title()
+    assert "not run" in _texts(ax)
+    assert not ax.lines and not ax.collections
+    # The first stage is untouched by the absence of the second.
+    assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(CLOSED_VALUE)
 
 
-def test_a_failed_storage_trial_is_counted_and_never_drawn_as_zero(mpl, tmp_path) -> None:
+def test_failed_storage_trial(mpl, tmp_path) -> None:
     run = _run(tmp_path, _root_rows() + _storage_rows(objectives=[0.42, 0.11, None]), _sessions())
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
-    try:
-        ax = _panel(fig, "Stage 2")
-        drawn = _line(ax, "trial").get_ydata()
-        assert len(drawn) == 3
-        assert pd.isna(drawn[2]), "a failed trial keeps its abscissa and carries no objective"
-        assert "1 of 3 trials failed" in _texts(ax)
-    finally:
-        mpl.close(fig)
+    ax = _panel(fig, "Stage 2")
+    drawn = _line(ax, "trial").get_ydata()
+    assert len(drawn) == 3
+    assert pd.isna(drawn[2]), "a failed trial keeps its abscissa and carries no objective"
+    assert "1 of 3 trials failed" in _texts(ax)
 
 
-# --------------------------------------------------------------------------- #
-# the validity indicator
-# --------------------------------------------------------------------------- #
-
-
-def test_the_validity_panel_shows_doptim_against_the_trial_validity_length(mpl, tmp_path) -> None:
-    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path))
-
-    try:
-        ax = _panel(fig, "Validity")
-        assert ax.get_xlabel() == "D_optim = (D_so + D_os) / 2 (m)"
-        bar = labelled_patch(ax, "D_optim")
-        assert bar.get_width() == pytest.approx(217.5)
-        assert bar.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[0])
-        bound = _line(ax, "bound")
-        assert bound.get_xdata()[0] == pytest.approx(500.0)
-        note = _texts(ax)
-        assert "D_optim = 217.5 m <= 500 m" in note
-        assert "within the validity bound" in note
-        assert "validity length: two cells, 2 h_obs" in note
-        assert "r_optim = D_optim / h_obs = 0.87, h_obs = 250 m" in note
-    finally:
-        mpl.close(fig)
-
-
-def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl, tmp_path) -> None:
-    run = _staged_run(
-        tmp_path,
-        diagnostics={
+# Each row is what a trial published, the bar and its bound, and what the note says.
+VALIDITY = [
+    pytest.param(
+        PUBLISHED,
+        217.5,
+        0,
+        500.0,
+        (
+            "D_optim = 217.5 m <= 500 m",
+            "within the validity bound",
+            "validity length: two cells, 2 h_obs",
+            "r_optim = D_optim / h_obs = 0.87, h_obs = 250 m",
+        ),
+        id="within two cells",
+    ),
+    pytest.param(
+        {
             **PUBLISHED,
             "D_optim": 2360.0,
             "r_optim": 9.44,
@@ -414,74 +337,62 @@ def test_a_breach_qualifies_the_value_and_never_withholds_it(mpl, tmp_path) -> N
             "n_excess": 210.0,
             "n_missing": 190.0,
         },
-    )
-
-    fig = MatchingHydrographicNetworkCard().plot(run)
-
-    try:
-        validity = _panel(fig, "Validity")
-        bar = labelled_patch(validity, "D_optim")
-        assert bar.get_width() == pytest.approx(2360.0)
-        assert bar.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[2])
-        note = _texts(validity)
-        assert "2360 m > 500 m" in note
-        assert "breached" in note
-        # The calibrated value stands: stage one is drawn exactly as before.
-        assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(
-            CLOSED_VALUE
-        )
-    finally:
-        mpl.close(fig)
-
-
-def test_a_widened_validity_length_is_the_bound_not_two_cells(mpl, tmp_path) -> None:
-    # r_optim = 2.4 breaks the paper's r_optim <= 2, but a declared positional
-    # accuracy of 400 m widened the trial's bound to 800 m: the trial is valid,
-    # and the card says so with the run's own verdict.
-    run = _staged_run(
-        tmp_path,
-        diagnostics={
+        2360.0,
+        2,
+        500.0,
+        ("2360 m > 500 m", "breached"),
+        id="breached, the value stands",
+    ),
+    pytest.param(
+        # r_optim = 2.4 breaks the paper's r_optim <= 2, but a declared positional
+        # accuracy of 400 m widened the trial's bound to 800 m. The trial is valid.
+        {
             **PUBLISHED,
             "D_optim": 600.0,
             "r_optim": 2.4,
             "validity_length_m": 800.0,
             "validity_length_provenance": 2.0,
         },
-    )
-
-    fig = MatchingHydrographicNetworkCard().plot(run)
-
-    try:
-        validity = _panel(fig, "Validity")
-        assert labelled_patch(validity, "D_optim").get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[0])
-        assert _line(validity, "bound").get_xdata()[0] == pytest.approx(800.0)
-        note = _texts(validity)
-        assert "600 m <= 800 m: within the validity bound" in note
-        assert "widened by the declared positional accuracy" in note
-        assert "r_optim = D_optim / h_obs = 2.4" in note
-    finally:
-        mpl.close(fig)
+        600.0,
+        0,
+        800.0,
+        (
+            "600 m <= 800 m: within the validity bound",
+            "widened by the declared positional accuracy",
+            "r_optim = D_optim / h_obs = 2.4",
+        ),
+        id="bound widened by the positional accuracy",
+    ),
+]
 
 
-def test_an_unpublished_validity_length_is_never_replaced_by_two_cells(mpl, tmp_path) -> None:
+@pytest.mark.parametrize(("diagnostics", "width", "color", "bound", "fragments"), VALIDITY)
+def test_validity_panel(mpl, tmp_path, diagnostics, width, color, bound, fragments) -> None:
+    fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path, diagnostics=diagnostics))
+
+    ax = _panel(fig, "Validity")
+    assert ax.get_xlabel() == "D_optim = (D_so + D_os) / 2 (m)"
+    bar = labelled_patch(ax, "D_optim")
+    assert bar.get_width() == pytest.approx(width)
+    assert bar.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[color])
+    assert _line(ax, "bound").get_xdata()[0] == pytest.approx(bound)
+    for fragment in fragments:
+        assert fragment in _texts(ax)
+    # The calibrated value is never withheld, so stage one reads as before.
+    assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(CLOSED_VALUE)
+
+
+def test_unpublished_validity_length(mpl, tmp_path) -> None:
     published = {key: value for key, value in PUBLISHED.items() if key != "validity_length_m"}
 
     fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path, diagnostics=published))
 
-    try:
-        ax = _panel(fig, "Validity")
-        assert not ax.patches
-        assert "validity length not published" in _texts(ax)
-    finally:
-        mpl.close(fig)
+    ax = _panel(fig, "Validity")
+    assert not ax.patches
+    assert "validity length not published" in _texts(ax)
 
 
-# --------------------------------------------------------------------------- #
-# the three classes
-# --------------------------------------------------------------------------- #
-
-
-def test_an_absent_count_is_named_absent_and_gets_no_bar(mpl, tmp_path) -> None:
+def test_absent_count_has_no_bar(mpl, tmp_path) -> None:
     run = _staged_run(
         tmp_path,
         diagnostics={"r_optim": 0.87, "r_optim_valid": 1.0, "n_valid": 120.0, "n_missing": 18.0},
@@ -489,22 +400,14 @@ def test_an_absent_count_is_named_absent_and_gets_no_bar(mpl, tmp_path) -> None:
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
-    try:
-        ax = _panel(fig, "Cells at the calibrated point")
-        drawn = {str(patch.get_label()).split(":")[0] for patch in ax.patches}
-        assert drawn == {"valid", "missing"}
-        assert "excess" in _texts(ax)
-        assert "not published" in _texts(ax)
-    finally:
-        mpl.close(fig)
+    ax = _panel(fig, "Cells at the calibrated point")
+    drawn = {str(patch.get_label()).split(":")[0] for patch in ax.patches}
+    assert drawn == {"valid", "missing"}
+    assert "excess" in _texts(ax)
+    assert "not published" in _texts(ax)
 
 
-# --------------------------------------------------------------------------- #
-# the recharge the ratio was measured against
-# --------------------------------------------------------------------------- #
-
-
-def test_a_recharge_the_session_published_is_read_from_the_trials(mpl, tmp_path) -> None:
+def test_recharge_read_from_trials(mpl, tmp_path) -> None:
     # The trial publishes what the criterion publishes, under the name the
     # criterion gives it, prefixed by the output the way a scored output is.
     published = {**PUBLISHED, **_criterion_diagnostics(4.5e-8)}
@@ -512,37 +415,19 @@ def test_a_recharge_the_session_published_is_read_from_the_trials(mpl, tmp_path)
 
     fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path, diagnostics=published))
 
-    try:
-        assert "4.5e-08" in _texts(_panel(fig, "Stage 1"))
-    finally:
-        mpl.close(fig)
+    assert "4.5e-08" in _texts(_panel(fig, "Stage 1"))
 
 
-# --------------------------------------------------------------------------- #
-# reaching the two phases
-# --------------------------------------------------------------------------- #
-
-
-def test_a_run_without_a_session_table_reads_its_trials_as_one_phase(mpl, tmp_path) -> None:
+def test_trials_without_session_table(mpl, tmp_path) -> None:
     run = _run(tmp_path, _root_rows(session_id=None), None)
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
-    try:
-        assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(
-            CLOSED_VALUE
-        )
-        assert "not run" in _panel(fig, "Stage 2").get_title()
-    finally:
-        mpl.close(fig)
+    assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(CLOSED_VALUE)
+    assert "not run" in _panel(fig, "Stage 2").get_title()
 
 
-# --------------------------------------------------------------------------- #
-# the gallery
-# --------------------------------------------------------------------------- #
-
-
-def test_a_session_that_journaled_no_trial_is_skipped_with_its_reason(tmp_path) -> None:
+def test_session_without_trial(tmp_path) -> None:
     barren = journal_session(tmp_path, [], name="plain")
 
     reason = MatchingHydrographicNetworkCard().unavailable_reason(barren)
@@ -552,27 +437,17 @@ def test_a_session_that_journaled_no_trial_is_skipped_with_its_reason(tmp_path) 
     assert MatchingHydrographicNetworkCard.spec.subject == "session"
 
 
-# --------------------------------------------------------------------------- #
-# two bounds in the cost: the keys the trial publishes are suffixed
-# --------------------------------------------------------------------------- #
-
 # The sweep closes K*_minimal on [3.2e-05, 1e-04] at 3.2e-05 and K*_maximal on
 # [3.2e-04, 1e-03] at 3.2e-04. The last trial is the solve at the combined
 # value, their geometric mean weighted 0.5 / 0.5: the trial the search
 # returns, where the run reads Eq. 4 on each bound.
 TWO_VALUES = [1e-5, 1e-4, 1e-3, 3.2e-5, 3.2e-4, 1.0119e-4]
-
-
 TWO_RESIDUALS = {
     "minimal": [200.0, -50.0, -300.0, 30.0, -120.0, -45.0],
     "maximal": [400.0, 150.0, -80.0, 250.0, 20.0, 140.0],
 }
-
-
 COMBINED_INDEX = 5
 COMBINED_TRIAL = COMBINED_INDEX + 1
-
-
 AT_THE_RETURNED_TRIAL = {
     "minimal": {
         "D_optim": 217.5,
@@ -595,11 +470,6 @@ AT_THE_RETURNED_TRIAL = {
         "n_missing": 60.0,
     },
 }
-
-
-"""What each bound publishes at the combined trial; every other trial carries 999."""
-
-
 ROOTS = {
     "parameter": "K_over_R",
     "minimal": {
@@ -625,9 +495,6 @@ ROOTS = {
     "combined_trial_id": COMBINED_TRIAL,
     "closed": True,
 }
-
-
-"""The ``extra["roots"]`` record of the report, as ``roots_record`` writes it."""
 
 
 def _two_bound_rows(*, weights: tuple[float, float] = (0.5, 0.5)) -> list[dict]:
@@ -658,103 +525,84 @@ def _two_bound_run(project: Path, *, best_trial: int | None = COMBINED_TRIAL, **
     return _run(project, _two_bound_rows(**kwargs), sessions, best_trial=best_trial)
 
 
-def test_two_bounds_draw_one_bracket_per_bound_from_the_trials(mpl, tmp_path) -> None:
+def test_two_bounds_brackets(mpl, tmp_path) -> None:
     fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path))
 
-    try:
-        ax = _panel(fig, "Stage 1")
-        assert "two bounds" in ax.get_title()
-        minimal = labelled_patch(ax, "bracket minimal")
-        assert minimal.get_x() == pytest.approx(3.2e-5)
-        assert minimal.get_x() + minimal.get_width() == pytest.approx(1e-4)
-        maximal = labelled_patch(ax, "bracket maximal")
-        assert maximal.get_x() == pytest.approx(3.2e-4)
-        assert maximal.get_x() + maximal.get_width() == pytest.approx(1e-3)
-        assert _line(ax, "K*_minimal").get_xdata()[0] == pytest.approx(3.2e-5)
-        assert _line(ax, "K*_maximal").get_xdata()[0] == pytest.approx(3.2e-4)
-        note = _texts(ax)
-        assert "roots record not passed" in note
-        assert "diagnostics read at the returned trial, K_over_R = 0.0001012" in note
-        assert "3e-08 m/s" in note
-    finally:
-        mpl.close(fig)
+    ax = _panel(fig, "Stage 1")
+    assert "two bounds" in ax.get_title()
+    minimal = labelled_patch(ax, "bracket minimal")
+    assert minimal.get_x() == pytest.approx(3.2e-5)
+    assert minimal.get_x() + minimal.get_width() == pytest.approx(1e-4)
+    maximal = labelled_patch(ax, "bracket maximal")
+    assert maximal.get_x() == pytest.approx(3.2e-4)
+    assert maximal.get_x() + maximal.get_width() == pytest.approx(1e-3)
+    assert _line(ax, "K*_minimal").get_xdata()[0] == pytest.approx(3.2e-5)
+    assert _line(ax, "K*_maximal").get_xdata()[0] == pytest.approx(3.2e-4)
+    note = _texts(ax)
+    assert "roots record not passed" in note
+    assert "diagnostics read at the returned trial, K_over_R = 0.0001012" in note
+    assert "3e-08 m/s" in note
 
 
-def test_two_bounds_write_the_roots_delta_and_the_combined_value_of_the_report(
-    mpl, tmp_path
-) -> None:
+def test_two_bounds_roots_record(mpl, tmp_path) -> None:
     fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path), roots=ROOTS)
 
-    try:
-        ax = _panel(fig, "Stage 1")
-        note = _texts(ax)
-        assert "K*_minimal = 3.2e-05, bracket [3.2e-05, 0.0001]" in note
-        assert "K*_maximal = 0.00032, bracket [0.00032, 0.001]" in note
-        assert "Delta = log10(K*_maximal / K*_minimal) = 1 decade(s)" in note
-        assert "combined K_over_R = 0.0001012, weighted geometric mean 0.5 / 0.5" in note
-        assert _line(ax, "K_over_R =").get_xdata()[0] == pytest.approx(1.0119e-4)
-        assert "roots record not passed" not in note
-    finally:
-        mpl.close(fig)
+    ax = _panel(fig, "Stage 1")
+    note = _texts(ax)
+    assert "K*_minimal = 3.2e-05, bracket [3.2e-05, 0.0001]" in note
+    assert "K*_maximal = 0.00032, bracket [0.00032, 0.001]" in note
+    assert "Delta = log10(K*_maximal / K*_minimal) = 1 decade(s)" in note
+    assert "combined K_over_R = 0.0001012, weighted geometric mean 0.5 / 0.5" in note
+    assert _line(ax, "K_over_R =").get_xdata()[0] == pytest.approx(1.0119e-4)
+    assert "roots record not passed" not in note
 
 
-def test_an_unsolved_combined_value_is_said_not_drawn(mpl, tmp_path) -> None:
+def test_unsolved_combined_value(mpl, tmp_path) -> None:
     roots = {**ROOTS, "value": None, "combined_trial_id": None, "closed": False}
 
     fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path), roots=roots)
 
-    try:
-        ax = _panel(fig, "Stage 1")
-        assert "combined value not solved" in _texts(ax)
-        assert not [line for line in ax.lines if str(line.get_label()).startswith("K_over_R =")]
-        # The session's best trial still says where the run read Eq. 4.
-        assert labelled_patch(
-            _panel(fig, "Validity"), "D_optim minimal"
-        ).get_width() == pytest.approx(217.5)
-    finally:
-        mpl.close(fig)
+    ax = _panel(fig, "Stage 1")
+    assert "combined value not solved" in _texts(ax)
+    assert not [line for line in ax.lines if str(line.get_label()).startswith("K_over_R =")]
+    # The session's best trial still says where the run read Eq. 4.
+    assert labelled_patch(_panel(fig, "Validity"), "D_optim minimal").get_width() == pytest.approx(
+        217.5
+    )
 
 
-def test_two_bounds_qualify_each_bound_at_the_returned_trial(mpl, tmp_path) -> None:
+def test_two_bounds_validity(mpl, tmp_path) -> None:
     fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path))
 
-    try:
-        ax = _panel(fig, "Validity")
-        assert [tick.get_text() for tick in ax.get_yticklabels()] == ["minimal", "maximal"]
-        minimal = labelled_patch(ax, "D_optim minimal")
-        maximal = labelled_patch(ax, "D_optim maximal")
-        assert minimal.get_width() == pytest.approx(217.5)
-        assert maximal.get_width() == pytest.approx(820.0)
-        assert minimal.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[0])
-        assert maximal.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[2])
-        assert _line(ax, "bound minimal").get_xdata()[0] == pytest.approx(500.0)
-        assert _line(ax, "bound maximal").get_xdata()[0] == pytest.approx(500.0)
-        note = _texts(ax)
-        assert "minimal (weight 0.5): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
-        assert "maximal (weight 0.5): D_optim = 820 m > 500 m, Eq. 4 fails" in note
-        assert "J_signed = -45 m, r_optim = 0.87, h_obs = 250 m, length: two cells, 2 h_obs" in note
-        assert "J_signed = 140 m, r_optim = 3.28, h_obs = 250 m" in note
-        assert "not published" not in note
-        assert "999" not in note
-    finally:
-        mpl.close(fig)
+    ax = _panel(fig, "Validity")
+    assert [tick.get_text() for tick in ax.get_yticklabels()] == ["minimal", "maximal"]
+    minimal = labelled_patch(ax, "D_optim minimal")
+    maximal = labelled_patch(ax, "D_optim maximal")
+    assert minimal.get_width() == pytest.approx(217.5)
+    assert maximal.get_width() == pytest.approx(820.0)
+    assert minimal.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[0])
+    assert maximal.get_facecolor() == rgba(HIGH_CONTRAST_TRIPLET[2])
+    assert _line(ax, "bound minimal").get_xdata()[0] == pytest.approx(500.0)
+    assert _line(ax, "bound maximal").get_xdata()[0] == pytest.approx(500.0)
+    note = _texts(ax)
+    assert "minimal (weight 0.5): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
+    assert "maximal (weight 0.5): D_optim = 820 m > 500 m, Eq. 4 fails" in note
+    assert "J_signed = -45 m, r_optim = 0.87, h_obs = 250 m, length: two cells, 2 h_obs" in note
+    assert "J_signed = 140 m, r_optim = 3.28, h_obs = 250 m" in note
+    assert "not published" not in note
+    assert "999" not in note
 
 
-def test_the_combined_trial_of_the_report_wins_over_the_session_best(mpl, tmp_path) -> None:
+def test_combined_trial_beats_best(mpl, tmp_path) -> None:
     fig = MatchingHydrographicNetworkCard().plot(
         _two_bound_run(tmp_path, best_trial=1), roots=ROOTS
     )
 
-    try:
-        validity = _panel(fig, "Validity")
-        assert labelled_patch(validity, "D_optim minimal").get_width() == pytest.approx(217.5)
-    finally:
-        mpl.close(fig)
+    validity = _panel(fig, "Validity")
+    assert labelled_patch(validity, "D_optim minimal").get_width() == pytest.approx(217.5)
 
 
-def test_a_run_drawn_on_its_own_reads_the_roots_and_the_returned_trial_from_the_journal(
-    mpl, tmp_path
-) -> None:
+def test_roots_read_from_journal(mpl, tmp_path) -> None:
     # The auto-render of [display].figures passes no roots record, and the
     # index keeps no best trial: the card read "roots record not passed" and
     # left both lower panels empty. The session journal holds both.
@@ -771,19 +619,16 @@ def test_a_run_drawn_on_its_own_reads_the_roots_and_the_returned_trial_from_the_
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
-    try:
-        note = _texts(_panel(fig, "Stage 1"))
-        assert "roots record not passed" not in note
-        assert "Delta = log10(K*_maximal / K*_minimal) = 1 decade(s)" in note
-        assert "combined K_over_R = 0.0001012, weighted geometric mean 0.5 / 0.5" in note
-        validity = _panel(fig, "Validity")
-        assert labelled_patch(validity, "D_optim minimal").get_width() == pytest.approx(217.5)
-        assert labelled_patch(validity, "D_optim maximal").get_width() == pytest.approx(820.0)
-        counts = _panel(fig, "Cells at the calibrated point")
-        assert counts.patches
-        assert "the returned trial is not known" not in _texts(counts)
-    finally:
-        mpl.close(fig)
+    note = _texts(_panel(fig, "Stage 1"))
+    assert "roots record not passed" not in note
+    assert "Delta = log10(K*_maximal / K*_minimal) = 1 decade(s)" in note
+    assert "combined K_over_R = 0.0001012, weighted geometric mean 0.5 / 0.5" in note
+    validity = _panel(fig, "Validity")
+    assert labelled_patch(validity, "D_optim minimal").get_width() == pytest.approx(217.5)
+    assert labelled_patch(validity, "D_optim maximal").get_width() == pytest.approx(820.0)
+    counts = _panel(fig, "Cells at the calibrated point")
+    assert counts.patches
+    assert "the returned trial is not known" not in _texts(counts)
 
 
 @pytest.mark.parametrize(
@@ -796,9 +641,7 @@ def test_a_run_drawn_on_its_own_reads_the_roots_and_the_returned_trial_from_the_
     ],
     ids=["journal-only", "journal-wins", "config-fallback", "undeclared"],
 )
-def test_the_axis_unit_is_read_from_the_journal_bounds_first(
-    mpl, tmp_path, config, bound_units, expected
-) -> None:
+def test_axis_unit(mpl, tmp_path, config, bound_units, expected) -> None:
     run = journal_session(
         tmp_path,
         _two_bound_rows(),
@@ -816,29 +659,18 @@ def test_the_axis_unit_is_read_from_the_journal_bounds_first(
 
     fig = MatchingHydrographicNetworkCard().plot(run)
 
-    try:
-        assert _panel(fig, "Stage 1").get_xlabel() == expected
-    finally:
-        mpl.close(fig)
+    assert _panel(fig, "Stage 1").get_xlabel() == expected
 
 
-def test_two_bounds_without_a_returned_trial_qualify_nothing(mpl, tmp_path) -> None:
+def test_two_bounds_without_returned_trial(mpl, tmp_path) -> None:
     fig = MatchingHydrographicNetworkCard().plot(_two_bound_run(tmp_path, best_trial=None))
 
-    try:
-        for title in ("Validity", "Cells at the calibrated point"):
-            ax = _panel(fig, title)
-            assert "the returned trial is not known" in _texts(ax)
-            assert not ax.patches
-        # The brackets are still proven by the trials.
-        assert _has_patch(_panel(fig, "Stage 1"), "bracket minimal")
-    finally:
-        mpl.close(fig)
-
-
-# --------------------------------------------------------------------------- #
-# one state with both maps: the maximal map is a validation
-# --------------------------------------------------------------------------- #
+    for title in ("Validity", "Cells at the calibrated point"):
+        ax = _panel(fig, title)
+        assert "the returned trial is not known" in _texts(ax)
+        assert not ax.patches
+    # The brackets are still proven by the trials.
+    assert _has_patch(_panel(fig, "Stage 1"), "bracket minimal")
 
 
 VALIDATION = {
@@ -863,35 +695,30 @@ def _with_validation() -> dict[str, float]:
     }
 
 
-def test_a_validation_map_is_drawn_beside_the_scored_map(mpl, tmp_path) -> None:
+def test_maximal_validation_map(mpl, tmp_path) -> None:
     fig = MatchingHydrographicNetworkCard().plot(
         _staged_run(tmp_path, diagnostics=_with_validation())
     )
 
-    try:
-        # One bound in the cost: the root search reads as it always did.
-        assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(
-            CLOSED_VALUE
-        )
-        ax = _panel(fig, "Validity")
-        assert labelled_patch(ax, "D_optim minimal").get_width() == pytest.approx(217.5)
-        assert labelled_patch(ax, "D_optim maximal").get_width() == pytest.approx(640.0)
-        note = _texts(ax)
-        assert "minimal (in the cost): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
-        assert (
-            "maximal (validation outside the cost): D_optim = 640 m > 500 m, "
-            "beyond the bound, no verdict" in note
-        )
-        assert "J_signed = -310 m, r_optim = 2.56" in note
-        counts = _panel(fig, "Cells at the calibrated point")
-        labels = {str(patch.get_label()) for patch in counts.patches}
-        assert any(label.endswith("maximal (210 cells)") for label in labels)
-        assert any(label.endswith("minimal (120 cells)") for label in labels)
-    finally:
-        mpl.close(fig)
+    # One bound in the cost: the root search reads as it always did.
+    assert _line(_panel(fig, "Stage 1"), "K_over_R =").get_xdata()[0] == pytest.approx(CLOSED_VALUE)
+    ax = _panel(fig, "Validity")
+    assert labelled_patch(ax, "D_optim minimal").get_width() == pytest.approx(217.5)
+    assert labelled_patch(ax, "D_optim maximal").get_width() == pytest.approx(640.0)
+    note = _texts(ax)
+    assert "minimal (in the cost): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
+    assert (
+        "maximal (validation outside the cost): D_optim = 640 m > 500 m, "
+        "beyond the bound, no verdict" in note
+    )
+    assert "J_signed = -310 m, r_optim = 2.56" in note
+    counts = _panel(fig, "Cells at the calibrated point")
+    labels = {str(patch.get_label()) for patch in counts.patches}
+    assert any(label.endswith("maximal (210 cells)") for label in labels)
+    assert any(label.endswith("minimal (120 cells)") for label in labels)
 
 
-def test_a_permanent_validation_is_drawn_beside_the_complete_map_in_the_cost(mpl, tmp_path) -> None:
+def test_minimal_validation_map(mpl, tmp_path) -> None:
     diagnostics = {
         **PUBLISHED,
         **{f"{key}_maximal": value for key, value in PUBLISHED.items()},
@@ -899,26 +726,18 @@ def test_a_permanent_validation_is_drawn_beside_the_complete_map_in_the_cost(mpl
     }
     fig = MatchingHydrographicNetworkCard().plot(_staged_run(tmp_path, diagnostics=diagnostics))
 
-    try:
-        ax = _panel(fig, "Validity")
-        assert labelled_patch(ax, "D_optim maximal").get_width() == pytest.approx(217.5)
-        assert labelled_patch(ax, "D_optim minimal").get_width() == pytest.approx(640.0)
-        note = _texts(ax)
-        assert "maximal (in the cost): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
-        assert (
-            "minimal (validation outside the cost): D_optim = 640 m > 500 m, "
-            "beyond the bound, no verdict" in note
-        )
-    finally:
-        mpl.close(fig)
+    ax = _panel(fig, "Validity")
+    assert labelled_patch(ax, "D_optim maximal").get_width() == pytest.approx(217.5)
+    assert labelled_patch(ax, "D_optim minimal").get_width() == pytest.approx(640.0)
+    note = _texts(ax)
+    assert "maximal (in the cost): D_optim = 217.5 m <= 500 m, Eq. 4 holds" in note
+    assert (
+        "minimal (validation outside the cost): D_optim = 640 m > 500 m, "
+        "beyond the bound, no verdict" in note
+    )
 
 
-# --------------------------------------------------------------------------- #
-# the names the card spells by hand, held to their producers
-# --------------------------------------------------------------------------- #
-
-
-def test_the_suffixes_the_card_reads_are_the_ones_the_criterion_writes() -> None:
+def test_suffixes_match_the_criterion() -> None:
     from hydromodpy.calibration.optim.adapters.bisection_adapter import ROOT_BOUNDS
     from hydromodpy.catchment.stream_network.cost import MAXIMAL_SUFFIX, MINIMAL_SUFFIX
     from hydromodpy.catchment.stream_network.cost import (
@@ -934,8 +753,6 @@ def test_the_suffixes_the_card_reads_are_the_ones_the_criterion_writes() -> None
     assert VALIDATION_SUFFIX == CRITERION_VALIDATION_SUFFIX
 
 
-# The card of a promoted run draws every phase of the session it comes from.
-#
 # A promoted run names its session, phase and trial in its seal. The session
 # journals the trials of every phase in ``sessions/<case>/trials.jsonl``. The
 # run promoted from the second phase of a protocol used to draw "Stage 1 -
@@ -945,17 +762,9 @@ def test_the_suffixes_the_card_reads_are_the_ones_the_criterion_writes() -> None
 # starts, names the second phase as the one that comes next.
 
 SESSION = uuid.uuid4().hex
-
-
 CASE = "nancon"
-
-
 STEADY, STORAGE = "steady_conductivity", "transient_storage"
-
-
 STARTED = datetime(2026, 9, 28, tzinfo=UTC)
-
-
 # The session config freezes both phases, each with the metric it scores on,
 # and the units of every parameter it moves.
 SESSION_CONFIG = """\
@@ -973,8 +782,6 @@ objective_blocks = [{ name = "steady_conductivity", metric = "distance_gap" }]
 name = "transient_storage"
 objective_blocks = [{ name = "transient_storage", metric = "nse_log" }]
 """
-
-
 SEARCH = {"phases": [{"name": STEADY}, {"name": STORAGE}]}
 
 
@@ -1055,7 +862,7 @@ def chain(tmp_path: Path) -> tuple[Path, str]:
     return project, steady_run
 
 
-def test_the_run_of_the_second_phase_draws_the_first_one(chain, mpl) -> None:
+def test_second_phase_run_draws_stage_one(chain, mpl) -> None:
     project, _ = chain
     _phase(project, STORAGE, 1)
     numbers = _trials(project, STORAGE, _storage_rows(session_id=SESSION), first=5)
@@ -1081,7 +888,7 @@ def test_the_run_of_the_second_phase_draws_the_first_one(chain, mpl) -> None:
         catalog.close()
 
 
-def test_the_run_of_the_first_phase_says_the_second_comes_next(chain, mpl) -> None:
+def test_first_phase_run_names_next_stage(chain, mpl) -> None:
     project, steady_run = chain
     catalog, run = _open(project, steady_run)
 

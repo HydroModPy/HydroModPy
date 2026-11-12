@@ -1,23 +1,34 @@
-"""The figure registry: catalog, renames, options, overrides and empty runs."""
+"""The figure registry: names, classes, kinds, options, overrides and empty runs.
+
+Each figure has a name, a class, a kind and the fields a run must carry before
+it can draw. A figure missing from the contract table fails, and so does a
+figure added to the registry without a row there. Options are keyword
+parameters of a figure's render or plot, and a config key a figure does not
+take is refused when the config loads.
+"""
 
 from __future__ import annotations
 
 import datetime
 import inspect
 import logging
+import pathlib
 import warnings
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
 from pydantic import ValidationError
 
+import hydromodpy.display.figures as figures_package
 from hydromodpy.display import figure_registry
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figure import (
     NOT_A_RUNSET_REASON,
     BaseFigure,
+    FigureNotApplicable,
     FigureSpec,
     options_of,
 )
@@ -28,17 +39,12 @@ from hydromodpy.display.figure_registry import (
     list_figures,
     names,
 )
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.display.figures import sfr_reach_timeseries
 from hydromodpy.display.figures.difference_map import DifferenceMap
 from hydromodpy.display.figures.piezometric_map import PiezometricMap
 from hydromodpy.display.figures.side_by_side_map import SideBySideMapFigure
 from hydromodpy.display.runs import figure_options_from_run, render_figure
 from hydromodpy.results.run.group import RunSet
-
-from .test_standard_figures import _Run
-
-# Unit tests for the figure registry and Figure protocol.
 
 EXPECTED_FIGURES = {
     "concentration_map",
@@ -58,466 +64,80 @@ EXPECTED_FIGURES = {
     "simulated_active_network_reference_overlay",
     "water_budget",
 }
-
-
-def test_all_expected_figures_registered():
-    assert EXPECTED_FIGURES.issubset(set(names()))
-
-
-def test_list_figures_returns_specs():
-    specs = list_figures()
-    assert len(specs) >= len(EXPECTED_FIGURES)
-    for spec in specs:
-        assert isinstance(spec, FigureSpec)
-        assert spec.name == spec.name.lower()
-
-
-def test_get_returns_a_base_figure():
-    fig = get("piezometric_map")
-    assert isinstance(fig, BaseFigure)
-    assert fig.spec.name == "piezometric_map"
-
-
-def test_get_unknown_name_raises():
-    with pytest.raises(KeyError):
-        get("not_a_real_figure")
-
-
-def test_every_figure_has_render_method():
-    for spec in list_figures():
-        fig = get(spec.name)
-        assert callable(getattr(fig, "render", None))
-        assert callable(getattr(fig, "plot", None))
-
-
-def test_spec_kind_is_valid():
-    valid = {
-        "spatial",
-        "section",
-        "timeseries",
-        "balance",
-        "particles",
-        "table",
-        "comparison",
-        "animation",
-    }
-    for spec in list_figures():
-        assert spec.kind in valid
-
-
-def test_get_returns_fresh_instances():
-    a = get("hydrograph")
-    b = get("hydrograph")
-    assert a is not b
-
-
-# Renaming a figure must not break the project files that list it.
-#
-# A figure name is written in ``[display].figures`` and validated against the
-# registry, so a rename is a hard refusal for every project that already asks for
-# it. Nothing said a figure used to be called something else, which is why a name
-# that says the wrong thing tends to keep it.
-#
-# The seam is the same one configuration keys use: the figure declares what it was
-# called, the old name still resolves, and using it warns with both names.
-
-
-def test_the_current_name_resolves_without_a_word() -> None:
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        assert (
-            figure_registry.resolve("matching_hydrographic_network_card")
-            == "matching_hydrographic_network_card"
-        )
-
-
-def test_the_former_name_still_resolves() -> None:
-    with pytest.warns(DeprecationWarning):
-        assert (
-            figure_registry.resolve("abherve_two_stage_card")
-            == "matching_hydrographic_network_card"
-        )
-
-
-def test_the_warning_names_both() -> None:
-    with pytest.warns(DeprecationWarning) as caught:
-        figure_registry.resolve("abherve_two_stage_card")
-
-    message = str(caught[0].message)
-    assert "abherve_two_stage_card" in message
-    assert "matching_hydrographic_network_card" in message
-
-
-def test_an_unknown_name_is_still_refused() -> None:
-    with pytest.raises(KeyError):
-        figure_registry.resolve("no_such_figure")
-
-
-def test_only_current_names_are_listed() -> None:
-    listed = set(figure_registry.names())
-
-    assert "matching_hydrographic_network_card" in listed
-    assert "abherve_two_stage_card" not in listed
-
-
-def test_getting_the_figure_by_its_former_name_returns_the_figure() -> None:
-    with pytest.warns(DeprecationWarning):
-        figure = figure_registry.get("abherve_two_stage_card")
-
-    assert figure.spec.name == "matching_hydrographic_network_card"
-
-
-def test_a_display_section_listing_the_former_name_loads_and_is_rewritten() -> None:
-    """Downstream sees one name, so nothing has to know about the other."""
-    with pytest.warns(DeprecationWarning):
-        cfg = DisplayConfig(figures=["abherve_two_stage_card"])
-
-    assert cfg.figures == ["matching_hydrographic_network_card"]
-
-
-def test_a_display_section_still_refuses_a_typo() -> None:
-    with pytest.raises(ValueError, match="unknown figure"):
-        DisplayConfig(figures=["abherve_two_stage_crad"])
-
-
-# Every figure option says what it does, and every figure takes a title.
-#
-# An option is a keyword parameter of a figure's ``render`` or ``plot``. Its
-# type, default, description and unit are declared on that parameter, and the
-# catalog of figures reads them from there. 63 of 70 figures had no word for
-# their options: this guards that none slips back.
-
-
-def _named_run(sim_id: str, name: str, values: list[float]) -> _Run:
-    """A run as the catalog serves it: a sim_id and a name, no ``id``."""
-    run = _Run(sim_id=sim_id, name=name, values=np.asarray(values))
-    del run.id
-    return run
-
-
-@pytest.mark.parametrize("name", [spec.name for spec in list_figures()])
-def test_every_option_of_every_figure_is_described(name: str) -> None:
-    options = options_of(type(get(name)))
-
-    assert {option.name for option in options} == set(figure_option_names(name))
-    undescribed = [option.name for option in options if not option.description.strip()]
-    assert not undescribed, f"{name}: options without a description: {undescribed}"
-    assert set(COMMON_OPTIONS) <= {option.name for option in options}
-
-
-def test_type_and_default_come_from_the_signature() -> None:
-    options = {option.name: option for option in options_of(DifferenceMap)}
-
-    assert options["cmap"].type == "str"
-    assert options["cmap"].default == "'RdBu_r'"
-    assert options["reference"].python_only
-    assert options["time"].type == 'date, "first" or "last"'
-    assert options["figsize"].unit == "in"
-
-
-def test_the_catalog_reads_the_declared_options() -> None:
-    from tools.docs.catalogs import figures
-
-    rows = {row["name"]: row for row in figures()}
-    tolerance = {o["name"]: o for o in rows["hydrographic_network_comparison"]["option_details"]}
-
-    assert tolerance["tolerance_m"]["unit"] == "m"
-    assert tolerance["tolerance_m"]["default"] == "50.0"
-    assert tolerance["tolerance_m"]["doc"]
-    assert all(o["doc"] for row in rows.values() for o in row["option_details"])
-
-
-def test_the_difference_map_names_both_runs_and_never_an_id(mpl) -> None:
-    run = _named_run("1f0c", "wet_year", [10.0, 12.0])
-    reference = _named_run("9b7e", "dry_year", [9.0, 11.0])
-    fig, ax = mpl.subplots()
-
-    DifferenceMap().render(run, ax, reference=reference, field="watertable_elevation")
-
-    title = ax.get_title()
-    assert "wet_year" in title
-    assert "dry_year" in title
-    assert "1f0c" not in title
-    assert "9b7e" not in title
-
-
-def test_a_comparison_without_a_reference_is_skipped_not_failed(mpl) -> None:
-    from hydromodpy.display.figure import FigureNotApplicable
-
-    run = _named_run("1f0c", "wet_year", [10.0, 12.0])
-    fig, ax = mpl.subplots()
-
-    with pytest.raises(FigureNotApplicable, match="reference"):
-        DifferenceMap().render(run, ax)
-    with pytest.raises(FigureNotApplicable, match="reference"):
-        SideBySideMapFigure().plot(run)
-
-
-def test_show_run_name_off_keeps_the_run_out_of_every_title(mpl) -> None:
-    run = _named_run("1f0c", "wet_year", [10.0, 12.0])
-    reference = _named_run("9b7e", "dry_year", [9.0, 11.0])
-
-    shown = PiezometricMap().plot(run)
-    hidden = PiezometricMap().plot(run, show_run_name=False)
-    pair = SideBySideMapFigure().plot(
-        run, reference=reference, field="watertable_elevation", show_run_name=False
-    )
-
-    assert "wet_year" in shown.axes[0].get_title()
-    assert "wet_year" not in hidden.axes[0].get_title()
-    assert "Water-table elevation" in hidden.axes[0].get_title()
-    titles = [axis.get_title() for axis in pair.axes if axis.get_title()]
-    assert titles == ["Run", "Reference"]
-
-
-def test_title_replaces_the_main_title_and_an_empty_one_removes_it(mpl) -> None:
-    run = _named_run("1f0c", "wet_year", [10.0, 12.0])
-    reference = _named_run("9b7e", "dry_year", [9.0, 11.0])
-
-    titled = PiezometricMap().plot(run, title="Water table, October 2002")
-    untitled = PiezometricMap().plot(run, title="")
-    pair = SideBySideMapFigure().plot(
-        run, reference=reference, field="watertable_elevation", title="Two runs"
-    )
-
-    assert titled.axes[0].get_title() == "Water table, October 2002"
-    assert untitled.axes[0].get_title() == ""
-    assert pair.get_suptitle() == "Two runs"
-
-
-def test_render_figure_accepts_the_common_options(mpl, tmp_path) -> None:
-    run = _named_run("1f0c", "wet_year", [10.0, 12.0])
-
-    fig = render_figure("piezometric_map", run, save=tmp_path, title="Heads", show_run_name=False)
-
-    assert fig.axes[0].get_title() == "Heads"
-    assert (tmp_path / "piezometric_map.png").is_file()
-
-
-# A key a figure does not take is refused when the config loads.
-#
-# Every figure ``render`` ends with a ``**`` parameter, so ``timstep = 33`` in
-# ``[display.overrides.seepage_map]`` used to pass ``hmp check`` and draw
-# the last step without a word. The accepted keys are read off the figure's own
-# ``plot`` and ``render`` signatures, so the check needs no second declaration
-# that could drift from the code.
-
-REGISTERED = sorted(names())
-
-
-@pytest.mark.parametrize("figure", REGISTERED)
-def test_every_key_a_figure_takes_loads(figure: str) -> None:
-    accepted = figure_option_names(figure)
-    assert "figsize" in accepted
-    assert "timestep" not in accepted
-    assert "dpi" not in accepted
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        config = DisplayConfig(overrides={figure: {key: None for key in accepted}})
-
-    assert set(config.overrides[figure]) == set(accepted)
-
-
-@pytest.mark.parametrize("figure", REGISTERED)
-def test_a_misspelt_key_is_refused_with_the_keys_the_figure_takes(figure: str) -> None:
-    with pytest.raises(ValidationError) as caught:
-        DisplayConfig(overrides={figure: {"timstep": 33}})
-
-    message = str(caught.value)
-    assert f"[display.overrides.{figure}] has no option 'timstep'" in message
-    assert ", ".join(sorted(figure_option_names(figure))) in message
-
-
-def test_the_figures_that_draw_one_instant_take_time() -> None:
-    instant = {name for name in REGISTERED if "time" in figure_option_names(name)}
-
-    assert {"seepage_map", "cross_section", "piezometric_map"} <= instant
-    assert "hydrograph" not in instant
-    with pytest.raises(ValidationError, match="hydrograph takes: figsize, log_y"):
-        DisplayConfig(overrides={"hydrograph": {"time": "last"}})
-
-
-def test_a_key_under_a_misplaced_table_header_is_refused() -> None:
-    # In TOML a table header swallows every key below it: `figures` written
-    # after [display.overrides.seepage_map] lands in that table.
-    with pytest.raises(ValidationError, match="has no option 'figures'"):
-        DisplayConfig(overrides={"seepage_map": {"figures": ["seepage_map"]}})
-
-
-@pytest.mark.parametrize(
+SPEC_KINDS = {
+    "spatial",
+    "section",
+    "timeseries",
+    "balance",
+    "particles",
     "table",
-    [
-        pytest.param({"timestep": 33, "orientation": "sn"}, id="the former key alone"),
-        # A base that writes time and a calibration phase override that still
-        # writes ".timestep" merge into one table holding both.
-        pytest.param({"time": "2002-10-15", "timestep": 0}, id="both spellings in one table"),
-    ],
+    "comparison",
+    "animation",
+}
+REGISTERED = sorted(names())
+WRITE_TOKENS = ("write_", "save_zarr", "to_zarr", "insert", "execute")
+# Figures drawn from Python with reference=<run>, which spec cannot say yet.
+NEEDS_A_REFERENCE_RUN = {"difference_map", "side_by_side"}
+# Figures that declare only a timeseries table and draw one family of series.
+SERIES_FIGURES = (
+    "ensemble_band",
+    "lake_stage_sim_obs",
+    "lake_volume_sim_obs",
+    "piezo_timeseries_sim_obs",
+    "sfr_longitudinal_profile",
+    "sfr_reach_network",
+    "sfr_reach_timeseries",
 )
-def test_the_former_timestep_key_is_refused_as_an_option_the_figure_does_not_take(
-    table: dict,
-) -> None:
-    # A file that writes it is refused earlier, by the loader, which names the key. A
-    # DisplayConfig built from a dict refuses it as any other key.
-    with pytest.raises(ValidationError) as caught:
-        DisplayConfig(overrides={"cross_section": table})
-
-    message = str(caught.value)
-    assert "[display.overrides.cross_section] has no option 'timestep'" in message
-    assert "time" in message
 
 
-@pytest.mark.parametrize(
-    ("value", "stored"),
-    [
-        ("2002-10-15", "2002-10-15"),
-        (datetime.date(2002, 10, 15), "2002-10-15"),
-        ("first", "first"),
-        ("LAST", "last"),
-        (33, 33),
-        (-1, -1),
-    ],
-)
-def test_a_time_takes_a_date_first_last_or_an_index(value, stored) -> None:
-    gallery = DisplayConfig(time=value)
-    figure = DisplayConfig(overrides={"seepage_map": {"time": value}})
+class TwoCellRun:
+    """Two square cells 1 m wide, carrying one water-table elevation (m) per cell."""
 
-    assert gallery.time == stored
-    assert figure.overrides["seepage_map"]["time"] == stored
+    n_timesteps = 3
+
+    def __init__(self, *, sim_id: str, name: str, values: list[float]) -> None:
+        self.sim_id = sim_id
+        self._sim_id = sim_id
+        self.name = name
+        self._values = np.asarray(values, dtype=float)
+        self.mesh = SimpleNamespace(
+            vertices=np.asarray(
+                [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [2, 0, 0], [2, 1, 0]], dtype=float
+            ),
+            face_node_connectivity=np.asarray([[0, 1, 2, 3], [1, 4, 5, 2]], dtype=int),
+        )
+
+    def field(self, variable: str, **kwargs) -> np.ndarray:
+        if variable == "watertable_elevation":
+            return self._values.copy()
+        raise KeyError(variable)
+
+    def has_field(self, variable: str, **kwargs) -> bool:
+        return variable == "watertable_elevation"
+
+    def has_table(self, table: str) -> bool:
+        return False
+
+    def _load_row(self) -> dict:
+        return {"crs_epsg": 2154}
+
+    @property
+    def time_index(self) -> pd.DatetimeIndex:
+        return pd.date_range("2020-01-01", periods=self.n_timesteps, freq="D")
+
+    def geographic(self, name: str):
+        raise KeyError(name)
 
 
-@pytest.mark.parametrize("value", ["yesterday", "October 2002", "2002-13-45", True, ["last"]])
-def test_a_time_of_another_shape_is_refused(value) -> None:
-    with pytest.raises(ValidationError, match="display.time"):
-        DisplayConfig(time=value)
-    with pytest.raises(ValidationError, match="display.overrides.seepage_map.time"):
-        DisplayConfig(overrides={"seepage_map": {"time": value}})
-
-
-class _SealedRun:
-    """A run as ``hmp show --figure`` reads it: the config snapshot it sealed."""
+class SealedRun:
+    """A run as ``hmp show --figure`` reads it, with the config snapshot it sealed."""
 
     def __init__(self, display: dict | None) -> None:
         full = DisplayConfig().model_dump(mode="json")
         self.config_snapshot = None if display is None else {"display": {**full, **display}}
 
 
-def test_a_redraw_takes_the_options_the_run_was_drawn_with() -> None:
-    run = _SealedRun({"time": "2002-10-15", "overrides": {"cross_section": {"orientation": "sn"}}})
-
-    assert figure_options_from_run(run, "cross_section") == {
-        "time": "2002-10-15",
-        "orientation": "sn",
-    }
-    # The schema default of cmap, spelled out by every snapshot, is not a choice.
-    assert figure_options_from_run(run, "hydrograph") == {}
-
-
-def test_a_redraw_keeps_a_cmap_the_run_chose() -> None:
-    run = _SealedRun({"cmap": "cividis"})
-
-    assert figure_options_from_run(run, "seepage_map") == {"cmap": "cividis"}
-
-
-def test_a_redraw_of_a_run_without_snapshot_takes_the_figure_defaults() -> None:
-    assert figure_options_from_run(_SealedRun(None), "seepage_map") == {}
-
-
-def test_a_redraw_of_a_snapshot_with_the_former_timestep_says_so_and_takes_the_defaults(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    run = _SealedRun({"overrides": {"seepage_map": {"timestep": 33}}})
-
-    with caplog.at_level(logging.WARNING):
-        assert figure_options_from_run(run, "seepage_map") == {}
-
-    assert "no longer loads" in caplog.text
-    assert "has no option 'timestep'" in caplog.text
-
-
-# Display figures are strictly read-only.
-#
-# A figure ``plot()`` call must never create a Zarr store, a DuckDB
-# connection, or any file outside the figure's own save target. This test
-# instantiates every registered figure class and confirms the catalog
-# contract exposes no write method that display code could call.
-
-_WRITE_TOKENS = (
-    "write_",
-    "save_zarr",
-    "to_zarr",
-    "insert",
-    "execute",
-)
-
-
-def test_all_registered_figures_can_be_instantiated() -> None:
-    for spec in list_figures():
-        fig = get_figure(spec.name)
-        assert fig is not None
-        assert fig.spec.name == spec.name
-
-
-def test_figures_do_not_call_zarr_write_apis() -> None:
-    """Static scan: no figure renders-with-side-effects.
-
-    We walk every figure's source file and confirm no line contains a
-    token that would indicate a write to the storage layer. Display code
-    reads via the ``Run`` interface only.
-    """
-    import hydromodpy.display.figures as pkg
-
-    pkg_path = pkg.__path__[0]
-    import pathlib
-
-    offenders: list[tuple[str, str, int]] = []
-    for path in pathlib.Path(pkg_path).glob("*.py"):
-        if path.name == "__init__.py":
-            continue
-        src = path.read_text(encoding="utf-8").splitlines()
-        for lineno, line in enumerate(src, start=1):
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                continue
-            for token in _WRITE_TOKENS:
-                if token in stripped.replace(" ", ""):
-                    offenders.append((path.name, stripped, lineno))
-    assert not offenders, "Figures must not call write APIs. Offending lines:\n" + "\n".join(
-        f"  {p}:{ln}: {txt}" for p, txt, ln in offenders
-    )
-
-
-def test_base_figure_plot_signature_is_readonly() -> None:
-    """The base plot() signature only exposes a save_path (a local file)."""
-    from hydromodpy.display.figure import BaseFigure
-
-    sig = inspect.signature(BaseFigure.plot)
-    params = set(sig.parameters)
-    assert "save_path" in params
-    # No mutating keyword: catalog/store/zarr/duckdb must NOT be in signature.
-    for banned in ("catalog", "store", "zarr", "duckdb", "connection"):
-        assert banned not in params, f"BaseFigure.plot must not accept a '{banned}' parameter."
-
-
-# Every registered figure refuses a run that lacks its data, with a sentence.
-#
-# A figure is offered only when the run has what it needs. On a run that holds
-# nothing, each figure answers through ``unavailable_reason``: never a crash from
-# inside ``render``, never a placeholder PNG. The one exception is a figure that
-# compares the run with a second one, which ``spec`` cannot declare yet: its
-# render refuses by naming the missing ``reference``.
-#
-# ``required_tables=("timeseries",)`` holds for any transient run, so a figure
-# that draws one family of series (stream reaches, a lake, a piezometer) also
-# checks that family, on a run whose table holds only the catchment discharge.
-
-NEEDS_A_REFERENCE_RUN = {"difference_map", "side_by_side"}
-
-
-"""Figures drawn from Python with ``reference=<run>``; ``spec`` cannot say so."""
-
-
-class _Store:
+class Store:
     """An opened Zarr store holding ``groups`` and the abacus of ``lakes``."""
 
     def __init__(self, groups: dict[str, dict], lakes: dict[str, dict]) -> None:
@@ -534,24 +154,24 @@ class _Store:
         return None
 
 
-class _Catalog:
+class Catalog:
     def __init__(self, groups: dict[str, dict], lakes: dict[str, dict]) -> None:
         self._groups = groups
         self._lakes = lakes
 
-    def open_zarr(self, sim_id: str) -> _Store:
-        return _Store(self._groups, self._lakes)
+    def open_zarr(self, sim_id: str) -> Store:
+        return Store(self._groups, self._lakes)
 
     def tables_dir_for(self, sim_id: str) -> Path:
         return Path("no-tables")
 
 
-class _EmptyRun:
+class EmptyRun:
     """A run that persisted nothing, answering the way a real one does.
 
-    Presence questions answer ``False``; a read of something absent raises the
-    ``KeyError`` a catalog raises for it. ``fields`` names what ``has_field``
-    reports as present, and ``groups`` what its store holds.
+    Presence questions answer False and a read of something absent raises the
+    KeyError a catalog raises. ``fields`` names what ``has_field`` reports as
+    present, and ``groups`` what its store holds.
     """
 
     sim_id = "00000000-0000-0000-0000-000000000000"
@@ -569,7 +189,7 @@ class _EmptyRun:
         lakes: dict | None = None,
     ) -> None:
         self._fields = fields
-        self._catalog = _Catalog(groups or {}, lakes or {})
+        self._catalog = Catalog(groups or {}, lakes or {})
 
     def has_field(self, variable: str, *, subgroup: str | None = None) -> bool:
         return subgroup is None and variable in self._fields
@@ -604,8 +224,8 @@ class _EmptyRun:
         raise KeyError(role)
 
 
-class _TransientRun(_EmptyRun):
-    """A transient run whose ``timeseries`` table holds the series of ``stations``.
+class TransientRun(EmptyRun):
+    """A transient run whose timeseries table holds the series of ``stations``.
 
     ``gauged`` holds the observed records, keyed by variable.
     """
@@ -633,9 +253,696 @@ class _TransientRun(_EmptyRun):
         return self._gauged[variable]
 
 
+class RunSetOf(RunSet):
+    """A RunSet over runs held in memory, with no catalog behind it."""
+
+    def __init__(self, runs: list) -> None:
+        self._runs = runs
+        self._sim_ids = [run.sim_id for run in runs]
+
+    def __iter__(self):
+        return iter(self._runs)
+
+
+# Figure name -> (fully qualified class, spec.kind, spec.required_fields).
+REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
+    "accumulation_map": (
+        "hydromodpy.display.figures.accumulation_map.AccumulationMap",
+        "spatial",
+        ("drain_accumulation_flux",),
+    ),
+    "bisection_bracket_trace": (
+        "hydromodpy.display.figures.bisection_bracket_trace.BisectionBracketTraceFigure",
+        "timeseries",
+        (),
+    ),
+    "boundary_package_map": (
+        "hydromodpy.display.figures.boundary_package_map.BoundaryPackageMap",
+        "spatial",
+        (),
+    ),
+    "calibration_convergence": (
+        "hydromodpy.display.figures.calibration_convergence.CalibrationConvergenceFigure",
+        "timeseries",
+        (),
+    ),
+    "calibration_landscape": (
+        "hydromodpy.display.figures.calibration_landscape.CalibrationLandscapeFigure",
+        "comparison",
+        (),
+    ),
+    "calibration_objective_surface": (
+        "hydromodpy.display.figures.calibration_objective_surface.CalibrationObjectiveSurfaceFigure",
+        "comparison",
+        (),
+    ),
+    "calibration_pairplot": (
+        "hydromodpy.display.figures.calibration_pairplot.CalibrationPairplotFigure",
+        "comparison",
+        (),
+    ),
+    "calibration_trial_distribution": (
+        "hydromodpy.display.figures.calibration_trial_distribution.CalibrationTrialDistributionFigure",
+        "comparison",
+        (),
+    ),
+    "calibration_progress": (
+        "hydromodpy.display.figures.calibration_progress.CalibrationProgressFigure",
+        "timeseries",
+        (),
+    ),
+    "calibration_trace": (
+        "hydromodpy.display.figures.calibration_trace.CalibrationTraceFigure",
+        "timeseries",
+        (),
+    ),
+    "concentration_map": (
+        "hydromodpy.display.figures.concentration_map.ConcentrationMap",
+        "spatial",
+        ("concentration",),
+    ),
+    "concentration_boxplot": (
+        "hydromodpy.display.figures.concentration_boxplot.ConcentrationBoxplot",
+        "timeseries",
+        ("concentration",),
+    ),
+    "conditioning_impact_map": (
+        "hydromodpy.display.figures.conditioning_impact_map.ConditioningImpactMap",
+        "comparison",
+        (),
+    ),
+    "cross_section": (
+        "hydromodpy.display.figures.cross_section.CrossSection",
+        "section",
+        ("watertable_elevation", "topography"),
+    ),
+    "depression_map": ("hydromodpy.display.figures.depression_map.DepressionMap", "spatial", ()),
+    "difference_map": ("hydromodpy.display.figures.difference_map.DifferenceMap", "comparison", ()),
+    "distribution": (
+        "hydromodpy.display.figures.cohort_distribution.CohortDistribution",
+        "table",
+        (),
+    ),
+    "downslope_distance_crossing": (
+        "hydromodpy.display.figures.downslope_distance_crossing.DownslopeDistanceCrossingFigure",
+        "timeseries",
+        (),
+    ),
+    "downslope_distance_map": (
+        "hydromodpy.display.figures.downslope_distance_map.DownslopeDistanceMap",
+        "spatial",
+        ("release_flux",),
+    ),
+    "duration_curve": (
+        "hydromodpy.display.figures.duration_curve.DurationCurveFigure",
+        "timeseries",
+        (),
+    ),
+    "ensemble_band": (
+        "hydromodpy.display.figures.ensemble_band.EnsembleBandFigure",
+        "comparison",
+        (),
+    ),
+    "flow_direction_map": (
+        "hydromodpy.display.figures.flow_direction_map.FlowDirectionMap",
+        "spatial",
+        (),
+    ),
+    "flow_intermittence_map": (
+        "hydromodpy.display.figures.flow_intermittence_map.FlowIntermittenceMap",
+        "spatial",
+        ("release_flux",),
+    ),
+    "flow_persistence_map": (
+        "hydromodpy.display.figures.flow_persistence_map.FlowPersistenceMap",
+        "spatial",
+        ("release_flux",),
+    ),
+    "flux_timeseries": ("hydromodpy.display.figures.flux_timeseries.FluxTimeseries", "balance", ()),
+    "hydrograph": ("hydromodpy.display.figures.hydrograph.Hydrograph", "timeseries", ()),
+    "hydrograph_log_nse": (
+        "hydromodpy.display.figures.hydrograph_log_nse.HydrographLogNseFigure",
+        "comparison",
+        (),
+    ),
+    "hydrograph_sim_obs": (
+        "hydromodpy.display.figures.hydrograph_sim_obs.HydrographSimObs",
+        "comparison",
+        (),
+    ),
+    "hydrographic_network_comparison": (
+        "hydromodpy.display.figures.hydrographic_network_comparison.HydrographicNetworkComparisonFigure",
+        "comparison",
+        (),
+    ),
+    "hydrographic_network_generated": (
+        "hydromodpy.display.figures.hydrographic_network.HydrographicNetworkGeneratedFigure",
+        "comparison",
+        (),
+    ),
+    "hydrographic_network_generated_extra_only": (
+        "hydromodpy.display.figures.hydrographic_network_comparison.HydrographicNetworkGeneratedExtraOnlyFigure",
+        "comparison",
+        (),
+    ),
+    "hydrographic_network_permanence": (
+        "hydromodpy.display.figures.hydrographic_network.HydrographicNetworkPermanenceFigure",
+        "comparison",
+        (),
+    ),
+    "hydrographic_network_reference": (
+        "hydromodpy.display.figures.hydrographic_network.HydrographicNetworkReferenceFigure",
+        "comparison",
+        (),
+    ),
+    "hydrographic_network_reference_missing_only": (
+        "hydromodpy.display.figures.hydrographic_network_comparison.HydrographicNetworkReferenceMissingOnlyFigure",
+        "comparison",
+        (),
+    ),
+    "lake_abacus_comparison": (
+        "hydromodpy.display.figures.lake_abacus_comparison.LakeAbacusComparison",
+        "comparison",
+        (),
+    ),
+    "lake_stage_sim_obs": (
+        "hydromodpy.display.figures.lake_level_sim_obs.LakeStageSimObs",
+        "comparison",
+        (),
+    ),
+    "lake_volume_sim_obs": (
+        "hydromodpy.display.figures.lake_level_sim_obs.LakeVolumeSimObs",
+        "comparison",
+        (),
+    ),
+    "map": (
+        "hydromodpy.display.figures.cohort_map.CohortMap",
+        "table",
+        (),
+    ),
+    "mass_balance_error": (
+        "hydromodpy.display.figures.mass_balance_error.MassBalanceError",
+        "balance",
+        (),
+    ),
+    "matching_hydrographic_network_card": (
+        "hydromodpy.display.figures.matching_hydrographic_network_card.MatchingHydrographicNetworkCard",
+        "comparison",
+        (),
+    ),
+    "mesh_map": ("hydromodpy.display.figures.mesh_map.MeshMap", "spatial", ("topography",)),
+    "network_extent_bounds_map": (
+        "hydromodpy.display.figures.network_extent_bounds_map.NetworkExtentBoundsMap",
+        "comparison",
+        ("release_flux",),
+    ),
+    "observed_network_heads_map": (
+        "hydromodpy.display.figures.observed_network_heads_map.ObservedNetworkHeadsMap",
+        "comparison",
+        ("release_flux",),
+    ),
+    "parameter_cost_profile": (
+        "hydromodpy.display.figures.parameter_cost_profile.ParameterCostProfileFigure",
+        "timeseries",
+        (),
+    ),
+    "parameter_map": (
+        "hydromodpy.display.figures.parameter_map.ParameterMap",
+        "spatial",
+        ("hydraulic_conductivity",),
+    ),
+    "parameter_section": (
+        "hydromodpy.display.figures.parameter_section.ParameterSection",
+        "section",
+        ("hydraulic_conductivity", "layer_thickness", "topography"),
+    ),
+    "particle_tracks": (
+        "hydromodpy.display.figures.particle_tracks.ParticleTracks",
+        "particles",
+        ("particles",),
+    ),
+    "piezo_timeseries_sim_obs": (
+        "hydromodpy.display.figures.piezo_timeseries_sim_obs.PiezoTimeseriesSimObs",
+        "comparison",
+        (),
+    ),
+    "piezometric_map": (
+        "hydromodpy.display.figures.piezometric_map.PiezometricMap",
+        "spatial",
+        ("watertable_elevation",),
+    ),
+    "piper_diagram": ("hydromodpy.display.figures.piper_diagram.PiperDiagramFigure", "table", ()),
+    "recession": ("hydromodpy.display.figures.recession.RecessionCurveFigure", "timeseries", ()),
+    "recession_power_law": (
+        "hydromodpy.display.figures.recession_power_law.RecessionPowerLaw",
+        "timeseries",
+        (),
+    ),
+    "recharge_map": (
+        "hydromodpy.display.figures.recharge_map.RechargeMap",
+        "spatial",
+        ("recharge",),
+    ),
+    "residence_time_distribution": (
+        "hydromodpy.display.figures.residence_time_distribution.ResidenceTimeDistribution",
+        "particles",
+        ("particles",),
+    ),
+    "residuals": ("hydromodpy.display.figures.residuals.Residuals", "comparison", ()),
+    "roptim_validity_chart": (
+        "hydromodpy.display.figures.roptim_validity_chart.RoptimValidityChart",
+        "comparison",
+        (),
+    ),
+    "scatter_one_to_one": (
+        "hydromodpy.display.figures.scatter_one_to_one.ScatterOneToOne",
+        "comparison",
+        (),
+    ),
+    "schoeller_diagram": (
+        "hydromodpy.display.figures.schoeller_diagram.SchoellerDiagramFigure",
+        "table",
+        (),
+    ),
+    "seasonal_boxplot": (
+        "hydromodpy.display.figures.seasonal_boxplot.SeasonalBoxplotFigure",
+        "timeseries",
+        (),
+    ),
+    "seepage_map": (
+        "hydromodpy.display.figures.seepage_map.SeepageMap",
+        "spatial",
+        ("seepage_mask",),
+    ),
+    "seepage_network_confusion_map": (
+        "hydromodpy.display.figures.seepage_network_confusion_map.SeepageNetworkConfusionMap",
+        "comparison",
+        ("release_flux",),
+    ),
+    "seepage_network_reference_overlay": (
+        "hydromodpy.display.figures.seepage_network_reference_overlay.SeepageNetworkReferenceOverlay",
+        "comparison",
+        ("release_flux",),
+    ),
+    "sfr_longitudinal_profile": (
+        "hydromodpy.display.figures.sfr_longitudinal_profile.SfrLongitudinalProfile",
+        "timeseries",
+        (),
+    ),
+    "sfr_reach_network": (
+        "hydromodpy.display.figures.sfr_reach_network.SfrReachNetwork",
+        "spatial",
+        (),
+    ),
+    "sfr_reach_timeseries": (
+        "hydromodpy.display.figures.sfr_reach_timeseries.SfrReachTimeseries",
+        "timeseries",
+        (),
+    ),
+    "side_by_side": (
+        "hydromodpy.display.figures.side_by_side_map.SideBySideMapFigure",
+        "comparison",
+        (),
+    ),
+    "simulated_active_network": (
+        "hydromodpy.display.figures.simulated_active_network.SimulatedActiveNetworkMap",
+        "spatial",
+        ("drain_accumulation_flux",),
+    ),
+    "simulated_active_network_reference_overlay": (
+        "hydromodpy.display.figures.simulated_active_network.SimulatedActiveNetworkReferenceOverlay",
+        "comparison",
+        ("drain_accumulation_flux",),
+    ),
+    "stiff_diagram": ("hydromodpy.display.figures.stiff_diagram.StiffDiagramFigure", "table", ()),
+    "water_budget": ("hydromodpy.display.figures.water_budget.WaterBudget", "balance", ()),
+    "watershed_id_card": (
+        "hydromodpy.display.figures.watershed_id_card.WatershedIdCardFigure",
+        "spatial",
+        (),
+    ),
+    "watertable_depth_map": (
+        "hydromodpy.display.figures.watertable_depth_map.WatertableDepthMap",
+        "spatial",
+        ("watertable_depth",),
+    ),
+}
+
+
+def test_registry_matches_contract() -> None:
+    registered = set(names())
+
+    assert registered, "the figure registry must not be empty"
+    assert registered == set(REGISTRY_CONTRACT), (
+        "registry and contract have drifted apart. "
+        f"registered but undeclared: {sorted(registered - set(REGISTRY_CONTRACT))}; "
+        f"declared but unregistered: {sorted(set(REGISTRY_CONTRACT) - registered)}"
+    )
+
+
+def test_expected_figures_registered() -> None:
+    assert EXPECTED_FIGURES.issubset(set(names()))
+
+
+def test_list_figures_returns_specs() -> None:
+    specs = list_figures()
+    assert len(specs) >= len(EXPECTED_FIGURES)
+    for spec in specs:
+        assert isinstance(spec, FigureSpec)
+        assert spec.name == spec.name.lower()
+
+
+@pytest.mark.parametrize("name", REGISTERED)
+def test_every_figure_is_well_formed(name: str) -> None:
+    figure = get(name)
+
+    assert figure.spec.name == name
+    assert figure.spec.kind in SPEC_KINDS
+    assert callable(getattr(figure, "render", None))
+    assert callable(getattr(figure, "plot", None))
+
+
+def test_get_returns_a_base_figure() -> None:
+    figure = get("piezometric_map")
+
+    assert isinstance(figure, BaseFigure)
+    assert figure.spec.name == "piezometric_map"
+    assert get("hydrograph") is not get("hydrograph")
+
+
+def test_get_unknown_name_raises() -> None:
+    with pytest.raises(KeyError):
+        get("not_a_real_figure")
+
+
+# A figure renamed in the registry keeps resolving under its former name.
+CURRENT_NAME = "matching_hydrographic_network_card"
+FORMER_NAME = "abherve_two_stage_card"
+
+
+def test_current_name_resolves_quietly() -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert figure_registry.resolve(CURRENT_NAME) == CURRENT_NAME
+
+
+def test_former_name_resolves_with_warning() -> None:
+    with pytest.warns(DeprecationWarning) as caught:
+        assert figure_registry.resolve(FORMER_NAME) == CURRENT_NAME
+
+    message = str(caught[0].message)
+    assert FORMER_NAME in message
+    assert CURRENT_NAME in message
+
+
+def test_former_name_gets_the_figure() -> None:
+    with pytest.warns(DeprecationWarning):
+        figure = figure_registry.get(FORMER_NAME)
+
+    assert figure.spec.name == CURRENT_NAME
+
+
+def test_only_current_names_are_listed() -> None:
+    listed = set(figure_registry.names())
+
+    assert CURRENT_NAME in listed
+    assert FORMER_NAME not in listed
+
+
+def test_config_rewrites_a_former_name() -> None:
+    # Downstream sees one name, so nothing has to know about the other.
+    with pytest.warns(DeprecationWarning):
+        cfg = DisplayConfig(figures=[FORMER_NAME])
+
+    assert cfg.figures == [CURRENT_NAME]
+
+
+def test_unknown_name_refused() -> None:
+    with pytest.raises(KeyError, match="no_such_figure"):
+        figure_registry.resolve("no_such_figure")
+    with pytest.raises(ValueError, match="unknown figure"):
+        DisplayConfig(figures=["abherve_two_stage_crad"])
+
+
+@pytest.mark.parametrize("name", REGISTERED)
+def test_every_option_is_described(name: str) -> None:
+    options = options_of(type(get(name)))
+
+    assert {option.name for option in options} == set(figure_option_names(name))
+    undescribed = [option.name for option in options if not option.description.strip()]
+    assert not undescribed, f"{name}: options without a description: {undescribed}"
+    assert set(COMMON_OPTIONS) <= {option.name for option in options}
+
+
+def test_type_and_default_from_signature() -> None:
+    options = {option.name: option for option in options_of(DifferenceMap)}
+
+    assert options["cmap"].type == "str"
+    assert options["cmap"].default == "'RdBu_r'"
+    assert options["reference"].python_only
+    assert options["time"].type == 'date, "first" or "last"'
+    assert options["figsize"].unit == "in"
+
+
+def test_catalog_reads_declared_options() -> None:
+    from tools.docs.catalogs import figures
+
+    rows = {row["name"]: row for row in figures()}
+    tolerance = {o["name"]: o for o in rows["hydrographic_network_comparison"]["option_details"]}
+
+    assert tolerance["tolerance_m"]["unit"] == "m"
+    assert tolerance["tolerance_m"]["default"] == "50.0"
+    assert tolerance["tolerance_m"]["doc"]
+    assert all(o["doc"] for row in rows.values() for o in row["option_details"])
+
+
+def two_cell_runs() -> tuple[TwoCellRun, TwoCellRun]:
+    """A run and a reference, with a sim_id and a name each."""
+    return (
+        TwoCellRun(sim_id="1f0c", name="wet_year", values=[10.0, 12.0]),
+        TwoCellRun(sim_id="9b7e", name="dry_year", values=[9.0, 11.0]),
+    )
+
+
+def test_difference_map_names_both_runs(mpl) -> None:
+    run, reference = two_cell_runs()
+    _, ax = mpl.subplots()
+
+    DifferenceMap().render(run, ax, reference=reference, field="watertable_elevation")
+
+    title = ax.get_title()
+    assert "wet_year" in title
+    assert "dry_year" in title
+    assert "1f0c" not in title
+    assert "9b7e" not in title
+
+
+def test_comparison_without_reference_skipped(mpl) -> None:
+    run, _ = two_cell_runs()
+    _, ax = mpl.subplots()
+
+    with pytest.raises(FigureNotApplicable, match="reference"):
+        DifferenceMap().render(run, ax)
+    with pytest.raises(FigureNotApplicable, match="reference"):
+        SideBySideMapFigure().plot(run)
+
+
+def test_show_run_name_off_hides_it(mpl) -> None:
+    run, reference = two_cell_runs()
+
+    shown = PiezometricMap().plot(run)
+    hidden = PiezometricMap().plot(run, show_run_name=False)
+    pair = SideBySideMapFigure().plot(
+        run, reference=reference, field="watertable_elevation", show_run_name=False
+    )
+
+    assert "wet_year" in shown.axes[0].get_title()
+    assert "wet_year" not in hidden.axes[0].get_title()
+    assert "Water-table elevation" in hidden.axes[0].get_title()
+    titles = [axis.get_title() for axis in pair.axes if axis.get_title()]
+    assert titles == ["Run", "Reference"]
+
+
+def test_title_replaces_main_title(mpl) -> None:
+    run, reference = two_cell_runs()
+
+    titled = PiezometricMap().plot(run, title="Water table, October 2002")
+    untitled = PiezometricMap().plot(run, title="")
+    pair = SideBySideMapFigure().plot(
+        run, reference=reference, field="watertable_elevation", title="Two runs"
+    )
+
+    assert titled.axes[0].get_title() == "Water table, October 2002"
+    assert untitled.axes[0].get_title() == ""
+    assert pair.get_suptitle() == "Two runs"
+
+
+def test_render_figure_takes_common_options(mpl, tmp_path) -> None:
+    run, _ = two_cell_runs()
+
+    fig = render_figure("piezometric_map", run, save=tmp_path, title="Heads", show_run_name=False)
+
+    assert fig.axes[0].get_title() == "Heads"
+    assert (tmp_path / "piezometric_map.png").is_file()
+
+
+# The accepted config keys are read off the figure's own plot and render signatures.
+
+
+@pytest.mark.parametrize("figure", REGISTERED)
+def test_every_key_a_figure_takes_loads(figure: str) -> None:
+    accepted = figure_option_names(figure)
+    assert "figsize" in accepted
+    assert "timestep" not in accepted
+    assert "dpi" not in accepted
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        config = DisplayConfig(overrides={figure: {key: None for key in accepted}})
+
+    assert set(config.overrides[figure]) == set(accepted)
+
+
+@pytest.mark.parametrize("figure", REGISTERED)
+def test_misspelt_key_names_the_keys_taken(figure: str) -> None:
+    with pytest.raises(ValidationError) as caught:
+        DisplayConfig(overrides={figure: {"timstep": 33}})
+
+    message = str(caught.value)
+    assert f"[display.overrides.{figure}] has no option 'timstep'" in message
+    assert ", ".join(sorted(figure_option_names(figure))) in message
+
+
+def test_instant_figures_take_time() -> None:
+    instant = {name for name in REGISTERED if "time" in figure_option_names(name)}
+
+    assert {"seepage_map", "cross_section", "piezometric_map"} <= instant
+    assert "hydrograph" not in instant
+    with pytest.raises(ValidationError, match="hydrograph takes: figsize, log_y"):
+        DisplayConfig(overrides={"hydrograph": {"time": "last"}})
+
+
+def test_key_under_wrong_table_refused() -> None:
+    # In TOML a table header swallows every key below it: `figures` written
+    # after [display.overrides.seepage_map] lands in that table.
+    with pytest.raises(ValidationError, match="has no option 'figures'"):
+        DisplayConfig(overrides={"seepage_map": {"figures": ["seepage_map"]}})
+
+
+FORMER_TIMESTEP_TABLES = [
+    pytest.param({"timestep": 33, "orientation": "sn"}, id="the former key alone"),
+    # A base that writes time and a calibration phase override that still
+    # writes ".timestep" merge into one table holding both.
+    pytest.param({"time": "2002-10-15", "timestep": 0}, id="both spellings in one table"),
+]
+
+
+@pytest.mark.parametrize("table", FORMER_TIMESTEP_TABLES)
+def test_former_timestep_key_refused(table: dict) -> None:
+    # A file that writes it is refused earlier, by the loader, which names the key.
+    # A DisplayConfig built from a dict refuses it as any other key.
+    with pytest.raises(ValidationError) as caught:
+        DisplayConfig(overrides={"cross_section": table})
+
+    message = str(caught.value)
+    assert "[display.overrides.cross_section] has no option 'timestep'" in message
+    assert "time" in message
+
+
+TIMES = [
+    pytest.param("2002-10-15", "2002-10-15", id="date string"),
+    pytest.param(datetime.date(2002, 10, 15), "2002-10-15", id="date"),
+    pytest.param("first", "first", id="first"),
+    pytest.param("LAST", "last", id="last in capitals"),
+    pytest.param(33, 33, id="index"),
+    pytest.param(-1, -1, id="negative index"),
+]
+
+
+@pytest.mark.parametrize(("value", "stored"), TIMES)
+def test_time_forms(value, stored) -> None:
+    gallery = DisplayConfig(time=value)
+    figure = DisplayConfig(overrides={"seepage_map": {"time": value}})
+
+    assert gallery.time == stored
+    assert figure.overrides["seepage_map"]["time"] == stored
+
+
+@pytest.mark.parametrize("value", ["yesterday", "October 2002", "2002-13-45", True, ["last"]])
+def test_time_of_another_shape_refused(value) -> None:
+    with pytest.raises(ValidationError, match="display.time"):
+        DisplayConfig(time=value)
+    with pytest.raises(ValidationError, match="display.overrides.seepage_map.time"):
+        DisplayConfig(overrides={"seepage_map": {"time": value}})
+
+
+def test_redraw_takes_sealed_options() -> None:
+    run = SealedRun({"time": "2002-10-15", "overrides": {"cross_section": {"orientation": "sn"}}})
+
+    assert figure_options_from_run(run, "cross_section") == {
+        "time": "2002-10-15",
+        "orientation": "sn",
+    }
+    # The schema default of cmap, spelled out by every snapshot, is not a choice.
+    assert figure_options_from_run(run, "hydrograph") == {}
+
+
+def test_redraw_keeps_chosen_cmap() -> None:
+    run = SealedRun({"cmap": "cividis"})
+
+    assert figure_options_from_run(run, "seepage_map") == {"cmap": "cividis"}
+
+
+def test_redraw_without_snapshot() -> None:
+    assert figure_options_from_run(SealedRun(None), "seepage_map") == {}
+
+
+def test_redraw_with_former_timestep(caplog) -> None:
+    run = SealedRun({"overrides": {"seepage_map": {"timestep": 33}}})
+
+    with caplog.at_level(logging.WARNING):
+        assert figure_options_from_run(run, "seepage_map") == {}
+
+    assert "no longer loads" in caplog.text
+    assert "has no option 'timestep'" in caplog.text
+
+
+# Figures are read-only. A plot never writes a Zarr store, a DuckDB connection
+# or a file outside its own save target.
+
+
+def test_figures_call_no_write_api() -> None:
+    offenders: list[tuple[str, str, int]] = []
+    for path in pathlib.Path(figures_package.__path__[0]).glob("*.py"):
+        if path.name == "__init__.py":
+            continue
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            for token in WRITE_TOKENS:
+                if token in stripped.replace(" ", ""):
+                    offenders.append((path.name, stripped, lineno))
+    assert not offenders, "Figures must not call write APIs. Offending lines:\n" + "\n".join(
+        f"  {p}:{ln}: {txt}" for p, txt, ln in offenders
+    )
+
+
+def test_plot_signature_is_readonly() -> None:
+    params = set(inspect.signature(BaseFigure.plot).parameters)
+
+    assert "save_path" in params
+    for banned in ("catalog", "store", "zarr", "duckdb", "connection"):
+        assert banned not in params, f"BaseFigure.plot must not accept a '{banned}' parameter."
+
+
+# On a run that holds nothing, each figure answers through unavailable_reason,
+# never with a crash inside render and never with a placeholder PNG.
+
+
 @pytest.mark.parametrize("name", sorted(set(names()) - NEEDS_A_REFERENCE_RUN))
-def test_a_figure_refuses_an_empty_run_with_a_sentence(name: str) -> None:
-    reason = get(name).unavailable_reason(_EmptyRun())
+def test_empty_run_gives_a_reason(name: str) -> None:
+    reason = get(name).unavailable_reason(EmptyRun())
 
     assert isinstance(reason, str) and reason.strip(), (
         f"figure '{name}' accepts a run that holds nothing, so it will crash or "
@@ -646,53 +953,35 @@ def test_a_figure_refuses_an_empty_run_with_a_sentence(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", sorted(NEEDS_A_REFERENCE_RUN))
-def test_a_figure_that_compares_two_runs_names_the_missing_reference(name: str, mpl) -> None:
+def test_comparison_names_missing_reference(name: str, mpl) -> None:
     _fig, ax = mpl.subplots()
 
     with pytest.raises(ValueError, match="reference"):
-        get(name).render(_EmptyRun(), ax)
+        get(name).render(EmptyRun(), ax)
 
 
-@pytest.mark.parametrize(
-    ("name", "reason"),
-    [
-        (
-            "particle_tracks",
-            "run holds no particle pathline: no particle moved from its release point",
-        ),
-        ("residence_time_distribution", "run holds no timed particle pathline"),
-    ],
-)
+PARTICLE_FIGURES = [
+    ("particle_tracks", "run holds no particle pathline: no particle moved from its release point"),
+    ("residence_time_distribution", "run holds no timed particle pathline"),
+]
+
+
+@pytest.mark.parametrize(("name", "reason"), PARTICLE_FIGURES)
 @pytest.mark.parametrize(
     "particles",
     [{}, {"x": np.array([[5.0], [3.0]]), "y": np.array([[5.0], [3.0]])}],
     ids=["empty group", "release points only"],
 )
-def test_particles_that_never_moved_are_not_a_pathline(name, reason, particles) -> None:
-    """``has_field("particles")`` answers yes for these runs, and the figures
-    used to raise from inside ``render``."""
-    run = _EmptyRun(fields=("particles",), groups={"particles": particles})
+def test_unmoved_particles_are_no_pathline(name, reason, particles) -> None:
+    # has_field("particles") answers yes for these runs.
+    run = EmptyRun(fields=("particles",), groups={"particles": particles})
 
     assert get(name).unavailable_reason(run) == reason
 
 
-SERIES_FIGURES = (
-    "ensemble_band",
-    "lake_stage_sim_obs",
-    "lake_volume_sim_obs",
-    "piezo_timeseries_sim_obs",
-    "sfr_longitudinal_profile",
-    "sfr_reach_network",
-    "sfr_reach_timeseries",
-)
-
-
-"""Figures that declare only a ``timeseries`` table and draw one family of series."""
-
-
 @pytest.mark.parametrize("name", SERIES_FIGURES)
-def test_a_figure_refuses_a_run_whose_series_are_not_its_own(name: str) -> None:
-    reason = get(name).unavailable_reason(_TransientRun())
+def test_run_without_series_gives_reason(name: str) -> None:
+    reason = get(name).unavailable_reason(TransientRun())
 
     assert isinstance(reason, str) and reason.strip(), (
         f"figure '{name}' accepts a transient run that holds none of its series; "
@@ -703,10 +992,8 @@ def test_a_figure_refuses_a_run_whose_series_are_not_its_own(name: str) -> None:
 @pytest.mark.parametrize(
     "name", ["sfr_longitudinal_profile", "sfr_reach_network", "sfr_reach_timeseries"]
 )
-def test_a_stream_reach_figure_applies_once_the_run_routed_its_reaches(
-    name: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    run = _TransientRun(stations={"downstream_flow": ["main:1", "main:2"]})
+def test_reach_figures_apply_when_routed(name: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    run = TransientRun(stations={"downstream_flow": ["main:1", "main:2"]})
     monkeypatch.setattr(
         sfr_reach_timeseries,
         "sfr_reach_links",
@@ -721,9 +1008,7 @@ def test_a_stream_reach_figure_applies_once_the_run_routed_its_reaches(
 @pytest.mark.parametrize(
     ("name", "variable"), [("lake_stage_sim_obs", "stage"), ("lake_volume_sim_obs", "volume")]
 )
-def test_a_lake_figure_applies_once_the_lake_is_simulated_and_gauged(
-    name: str, variable: str
-) -> None:
+def test_lake_figures_apply_when_gauged(name: str, variable: str) -> None:
     abacus = {"stage": [10.0, 12.0], "real_volume": [0.0, 5.0e6]}
     gauge = pd.DataFrame(
         {
@@ -733,8 +1018,8 @@ def test_a_lake_figure_applies_once_the_lake_is_simulated_and_gauged(
         }
     )
     lake = {"lakes": {"guerledan": abacus}}
-    simulated = _TransientRun(stations={variable: ["lake:guerledan"]}, **lake)
-    gauged = _TransientRun(
+    simulated = TransientRun(stations={variable: ["lake:guerledan"]}, **lake)
+    gauged = TransientRun(
         stations={variable: ["lake:guerledan"]}, gauged={"lake_level": gauge}, **lake
     )
 
@@ -742,8 +1027,8 @@ def test_a_lake_figure_applies_once_the_lake_is_simulated_and_gauged(
     assert get(name).unavailable_reason(gauged) is None
 
 
-def test_the_piezometer_figure_applies_to_head_series_and_asks_which_one(mpl) -> None:
-    run = _TransientRun(stations={"head": ["obs:P1"]})
+def test_piezometer_figure_asks_station(mpl) -> None:
+    run = TransientRun(stations={"head": ["obs:P1"]})
     figure = get("piezo_timeseries_sim_obs")
     _fig, ax = mpl.subplots()
 
@@ -752,25 +1037,8 @@ def test_the_piezometer_figure_applies_to_head_series_and_asks_which_one(mpl) ->
         figure.render(run, ax)
 
 
-class _RunSetOf(RunSet):
-    """A RunSet over runs held in memory, with no catalog behind it."""
+def test_ensemble_needs_a_run_set() -> None:
+    runs = [TransientRun(), TransientRun()]
 
-    def __init__(self, runs: list) -> None:
-        self._runs = runs
-        self._sim_ids = [run.sim_id for run in runs]
-
-    def __iter__(self):
-        return iter(self._runs)
-
-
-def test_the_ensemble_figure_applies_to_a_set_of_runs() -> None:
-    assert (
-        get("ensemble_band").unavailable_reason(_RunSetOf([_TransientRun(), _TransientRun()]))
-        is None
-    )
-
-
-def test_the_ensemble_figure_refuses_a_plain_list_of_runs() -> None:
-    reason = get("ensemble_band").unavailable_reason([_TransientRun(), _TransientRun()])
-
-    assert reason == NOT_A_RUNSET_REASON
+    assert get("ensemble_band").unavailable_reason(RunSetOf(runs)) is None
+    assert get("ensemble_band").unavailable_reason(runs) == NOT_A_RUNSET_REASON

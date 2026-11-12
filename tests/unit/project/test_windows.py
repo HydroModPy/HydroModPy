@@ -1,4 +1,7 @@
-"""The windows of a long run: their names, their grids, their sources and their order."""
+"""The windows of a long run cut into time windows (monthly steps).
+
+Each window has a name, a period grid, and starts from the final state of the one before.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +13,7 @@ from typing import Any
 
 import pytest
 
+import hydromodpy.project.dispatch.workflow as workflow
 from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.time.window import resolve_simulation_time_grid
 from hydromodpy.project import windows as windows_module
@@ -54,9 +58,6 @@ def _request(root: Path, **members: Any) -> RunRequest:
     return RunRequest(config=document, form="dict", **members)
 
 
-# --- names and grids ---
-
-
 @pytest.mark.parametrize(
     ("length", "window", "nper"),
     [
@@ -69,9 +70,7 @@ def _request(root: Path, **members: Any) -> RunRequest:
     ],
     ids=["no chain", "all", "first", "second", "short last", "longer than the run"],
 )
-def test_the_grid_of_a_run_is_the_whole_grid_or_the_grid_of_its_window(
-    length: str | None, window: Any, nper: int
-) -> None:
+def test_cut_grid(length: str | None, window: Any, nper: int) -> None:
     whole = resolve_simulation_time_grid(SimpleNamespace(simulation=SimpleNamespace(time=_time())))
     grid, chain = cut_grid(whole, _time(length, window))
     assert grid.nper == nper
@@ -80,18 +79,13 @@ def test_the_grid_of_a_run_is_the_whole_grid_or_the_grid_of_its_window(
         assert (chain.index, grid.boundaries[0]) == (window, whole.boundaries[chain.first_period])
 
 
-def test_a_window_that_does_not_exist_is_refused_with_the_number_of_windows() -> None:
+def test_cut_grid_refuses_past_the_last() -> None:
     whole = resolve_simulation_time_grid(SimpleNamespace(simulation=SimpleNamespace(time=_time())))
     with pytest.raises(ConfigError, match=r"window = 3 .*into 2 window\(s\)"):
         cut_grid(whole, _time("6 months", 3))
 
 
-# --- sources ---
-
-
-def test_a_window_without_a_sealed_window_before_it_is_refused_before_anything_runs(
-    tmp_path: Path,
-) -> None:
+def test_source_window_not_sealed(tmp_path: Path) -> None:
     with pytest.raises(
         ConfigError, match=r"window 3 starts from the final state of window 2; run window 2 first"
     ):
@@ -106,38 +100,42 @@ def test_a_window_without_a_sealed_window_before_it_is_refused_before_anything_r
         )
 
 
-@pytest.mark.parametrize(
-    ("recorded", "refused"),
-    [("rid-expected", False), ("rid-other", True), (None, True)],
-    ids=["same request", "another configuration", "no request id recorded"],
-)
-def test_a_source_played_with_another_request_is_refused(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recorded: str | None, refused: bool
-) -> None:
+def sealed_first_window(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recorded: str | None):
     run_dir, _ = seal_demo_run(tmp_path, "island_w1")
     if recorded is not None:
         record_request_id(run_dir, recorded)
     monkeypatch.setattr(windows_module, "_expected_request_id", lambda *a, **k: "rid-expected")
     asked = dict(
-        request=_request(tmp_path),
-        cfg=_cfg(tmp_path),
         base=tmp_path,
         environment=SimpleNamespace(),
         index=2,
         count=2,
         stem="island",
     )
+    return run_dir, asked
 
-    if refused:
-        with pytest.raises(ConfigError, match="was played with another configuration"):
-            window_source_for(asked.pop("request"), asked.pop("cfg"), **asked)
-        return
-    source = window_source_for(asked.pop("request"), asked.pop("cfg"), **asked)
+
+def test_source_request_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    run_dir, asked = sealed_first_window(tmp_path, monkeypatch, "rid-expected")
+
+    source = window_source_for(_request(tmp_path), _cfg(tmp_path), **asked)
+
     assert source.run_dir == run_dir
     assert source.sim_id == source_of(run_dir).sim_id
 
 
-# --- the chain ---
+@pytest.mark.parametrize(
+    "recorded",
+    ["rid-other", None],
+    ids=["another configuration", "no request id recorded"],
+)
+def test_source_played_with_another_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recorded: str | None
+) -> None:
+    _, asked = sealed_first_window(tmp_path, monkeypatch, recorded)
+
+    with pytest.raises(ConfigError, match="was played with another configuration"):
+        window_source_for(_request(tmp_path), _cfg(tmp_path), **asked)
 
 
 class _Play:
@@ -190,7 +188,7 @@ def _chain(tmp_path: Path, play: _Play, cfg: Any = None, **members: Any) -> RunO
     )
 
 
-def test_a_stop_in_a_window_ends_the_chain(tmp_path: Path) -> None:
+def test_stop_ends_the_chain(tmp_path: Path) -> None:
     play = _Play(tmp_path, stop_at="island_w1")
 
     with pytest.raises(KeyboardInterrupt, match="stop requested"):
@@ -199,9 +197,7 @@ def test_a_stop_in_a_window_ends_the_chain(tmp_path: Path) -> None:
     assert [name for name, *_ in play.calls] == ["island_w1"]
 
 
-def test_a_window_alone_after_a_missing_window_is_refused_and_nothing_is_played(
-    tmp_path: Path,
-) -> None:
+def test_window_after_a_missing_one(tmp_path: Path) -> None:
     play = _Play(tmp_path)
     with pytest.raises(ConfigError, match="run window 1 first"):
         run_windows(
@@ -214,14 +210,12 @@ def test_a_window_alone_after_a_missing_window_is_refused_and_nothing_is_played(
     assert play.calls == []
 
 
-def test_the_window_keys_are_written_in_the_document_and_not_set(tmp_path: Path) -> None:
+def test_window_keys_not_settable(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="--set cannot change simulation.time.window"):
         _chain(tmp_path, _Play(tmp_path), set={"simulation.time.window": 2})
 
 
-def test_a_chain_is_named_after_the_run_and_a_request_without_a_name_is_refused(
-    tmp_path: Path,
-) -> None:
+def test_chain_needs_a_name(tmp_path: Path) -> None:
     cfg = _cfg(tmp_path)
     cfg.simulation.name = None
     with pytest.raises(ConfigError, match="names none"):
@@ -234,9 +228,7 @@ def test_a_chain_is_named_after_the_run_and_a_request_without_a_name_is_refused(
         )
 
 
-def test_windows_already_sealed_are_told_once_each_but_the_last_is_left_to_the_caller(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_sealed_windows_are_announced(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO, logger="hydromodpy")
     play = _Play(tmp_path, identical={"island_w1", "island_w2"})
 
@@ -251,12 +243,7 @@ def test_windows_already_sealed_are_told_once_each_but_the_last_is_left_to_the_c
     assert announced == ["window 1 of 2: run island_w1", "window 2 of 2: run island_w2"]
 
 
-# --- resume ---
-
-
-def test_a_resume_continues_the_window_that_stopped_and_plays_the_others_plainly(
-    tmp_path: Path,
-) -> None:
+def test_resume_continues_stopped_window(tmp_path: Path) -> None:
     seal_demo_run(tmp_path, "island_w1")
     (tmp_path / "runs" / "island_w2").mkdir()
     play = _Play(tmp_path, identical={"island_w1"})
@@ -269,9 +256,7 @@ def test_a_resume_continues_the_window_that_stopped_and_plays_the_others_plainly
     ]
 
 
-def test_a_resume_with_no_window_to_continue_is_refused_and_nothing_is_played(
-    tmp_path: Path,
-) -> None:
+def test_resume_without_a_stopped_window(tmp_path: Path) -> None:
     seal_demo_run(tmp_path, "island_w1")
     seal_demo_run(tmp_path, "island_w2")
     play = _Play(tmp_path)
@@ -305,7 +290,7 @@ def test_a_resume_with_no_window_to_continue_is_refused_and_nothing_is_played(
         "no resume",
     ],
 )
-def test_a_resume_names_a_window_when_it_is_the_name_of_a_run_of_that_window(
+def test_named_window(
     tmp_path: Path, ref: str | None, count: int, run: str | None, named: Any
 ) -> None:
     if run is not None:
@@ -322,9 +307,7 @@ def _stopped_in_window_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pat
     return run_dir
 
 
-def test_a_resume_by_the_name_of_the_window_continues_it_from_the_window_before(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_resume_by_window_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     first = _stopped_in_window_2(tmp_path, monkeypatch)
     play = _Play(tmp_path)
 
@@ -333,9 +316,7 @@ def test_a_resume_by_the_name_of_the_window_continues_it_from_the_window_before(
     assert play.calls == [("island_w2", 2, first, "island_w2")]
 
 
-def test_a_resume_from_the_file_the_window_froze_goes_on_to_the_last_window(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_resume_from_frozen_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     first = _stopped_in_window_2(tmp_path, monkeypatch)
     frozen = tmp_path / "runs" / "island_w2" / "config.toml"
     frozen.write_text("", encoding="utf-8")
@@ -363,7 +344,7 @@ def test_a_resume_from_the_file_the_window_froze_goes_on_to_the_last_window(
     ],
     ids=["another window in the document", "a window sealed already"],
 )
-def test_a_resume_by_the_name_of_a_window_it_cannot_continue_is_refused(
+def test_resume_refusals(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, window: Any, sealed: bool, match: str
 ) -> None:
     _stopped_in_window_2(tmp_path, monkeypatch)
@@ -384,9 +365,7 @@ def test_a_resume_by_the_name_of_a_window_it_cannot_continue_is_refused(
     assert play.calls == []
 
 
-def test_the_source_check_applies_the_set_of_the_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_expected_request_id_applies_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     run_dir, _ = seal_demo_run(tmp_path, "island_w1")
     seen: dict[str, Any] = {}
 
@@ -424,44 +403,36 @@ def test_the_source_check_applies_the_set_of_the_request(
     assert seen == {"flow.param.K.field.value": 1e-5}
 
 
-@pytest.mark.parametrize(
-    ("row", "found"),
-    [
-        (None, None),
-        ("runs/island_w1/final_state", "island_w1"),
-        ("runs/island_w9/final_state", ConfigError),
-    ],
-    ids=["a window that started on its own", "the window before", "a source no longer there"],
-)
-def test_a_sealed_window_replays_from_the_source_its_inputs_name(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, row: str | None, found: Any
-) -> None:
+def two_sealed_windows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, row: str | None) -> Path:
     seal_demo_run(tmp_path, "island_w1")
     second, _ = seal_demo_run(tmp_path, "island_w2")
     rows = [InputEntry(variable="recharge", provider="file", path="data/recharge.csv")]
     if row is not None:
         rows.append(InputEntry(variable="initial_state", provider="run", path=row))
     monkeypatch.setattr(windows_module, "read_inputs", lambda run_dir: SimpleNamespace(inputs=rows))
-
-    if found is ConfigError:
-        with pytest.raises(ConfigError, match="started from runs/island_w9/final_state"):
-            recorded_window_source(second, tmp_path)
-        return
-    source = recorded_window_source(second, tmp_path)
-    if found is None:
-        assert source is None
-        return
-    assert source == source_of(tmp_path / "runs" / found)
+    return second
 
 
-# --- the verb routes a document that cuts its run ---
+def test_recorded_window_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    second = two_sealed_windows(tmp_path, monkeypatch, "runs/island_w1/final_state")
+
+    assert recorded_window_source(second, tmp_path) == source_of(tmp_path / "runs" / "island_w1")
 
 
-def test_the_worker_verb_plays_the_windows_of_a_document_that_cuts_its_run(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import hydromodpy.project.dispatch.workflow as workflow
+def test_recorded_window_source_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    second = two_sealed_windows(tmp_path, monkeypatch, None)
 
+    assert recorded_window_source(second, tmp_path) is None
+
+
+def test_recorded_window_source_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    second = two_sealed_windows(tmp_path, monkeypatch, "runs/island_w9/final_state")
+
+    with pytest.raises(ConfigError, match="started from runs/island_w9/final_state"):
+        recorded_window_source(second, tmp_path)
+
+
+def test_worker_plays_each_window(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     play = _Play(tmp_path)
     monkeypatch.setattr(workflow, "_checked_environment", lambda environment, root: environment)
     monkeypatch.setattr(workflow, "_loaded", lambda request, base: _cfg(tmp_path))
@@ -480,11 +451,7 @@ def test_the_worker_verb_plays_the_windows_of_a_document_that_cuts_its_run(
     assert last is not None and last.name == "island_w2"
 
 
-def test_the_worker_verb_counts_the_windows_with_the_set_of_the_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import hydromodpy.project.dispatch.workflow as workflow
-
+def test_worker_counts_windows_with_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     play = _Play(tmp_path)
     monkeypatch.setattr(workflow, "_checked_environment", lambda environment, root: environment)
     monkeypatch.setattr(workflow, "_loaded", lambda request, base: _cfg(tmp_path))
@@ -508,11 +475,7 @@ def test_the_worker_verb_counts_the_windows_with_the_set_of_the_request(
     assert [name for name, *_ in play.calls] == ["island_w1", "island_w2", "island_w3"]
 
 
-def test_the_worker_verb_replays_a_sealed_window_from_the_source_it_recorded(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import hydromodpy.project.dispatch.workflow as workflow
-
+def test_worker_replays_a_window(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[dict] = []
     replayed = tmp_path / "runs" / "island_w2"
     source = WindowSource(run_dir=tmp_path / "runs" / "island_w1", sim_id="sim")

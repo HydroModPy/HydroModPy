@@ -89,7 +89,7 @@ def _built(name: str) -> tuple[Polygon, MeshRequest, PlanarCellMesh]:
 
 
 @pytest.mark.parametrize("name", list(OUTLINES))
-def test_the_cell_has_the_area_of_the_exterior_ring(name: str) -> None:
+def test_cell_area(name: str) -> None:
     catchment, _, cell_mesh = _built(name)
     shell_m2 = Polygon(catchment.exterior).area
 
@@ -98,13 +98,13 @@ def test_the_cell_has_the_area_of_the_exterior_ring(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", list(OUTLINES))
-def test_the_ring_turns_counterclockwise(name: str) -> None:
+def test_ring_is_ccw(name: str) -> None:
     _, _, cell_mesh = _built(name)
 
     assert shapely.LinearRing(cell_mesh.mesh.vertices).is_ccw
 
 
-def test_the_cell_is_the_catchment_and_not_the_domain() -> None:
+def test_cell_is_the_catchment() -> None:
     """The domain of a real run may be the DEM rectangle; the cell is still the catchment."""
     catchment = _disk()
     request = _request(catchment)
@@ -153,7 +153,7 @@ REFUSALS: dict[str, tuple[Callable[[], MeshRequest], str]] = {
 
 
 @pytest.mark.parametrize("case", list(REFUSALS))
-def test_a_request_one_cell_cannot_hold_is_refused_by_name(case: str) -> None:
+def test_refusals(case: str) -> None:
     build, message = REFUSALS[case]
     request = build()
 

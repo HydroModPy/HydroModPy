@@ -1,4 +1,7 @@
-"""Unit tests of the flow adapter of the linear reservoir backend."""
+"""Flow adapter of the linear reservoir: what it declares, refuses and builds for one cell.
+
+The backend reads one cell, one recharge rate (m/s) and one time constant (days).
+"""
 
 from __future__ import annotations
 
@@ -19,16 +22,6 @@ from hydromodpy.solver.linear_reservoir.options import LinearReservoirOptions
 from tests._helpers.model_factory import make_model, one_cell_geometry, time_grid
 
 
-def _one_cell_model(**members: object) -> object:
-    """A `Model` of one cell, one daily period, the recharge the binder gives."""
-    return make_model(
-        geometry=one_cell_geometry(),
-        time=ModelTime(grid=time_grid(1.0), regime="transient", first_period_steady=False),
-        recharge=FlowRechargeConfig(units="m/s", values=[5.0e-8]),
-        **members,
-    )
-
-
 def _slot(tmp_path: object) -> RunSlot:
     return RunSlot(
         folder=tmp_path,
@@ -39,24 +32,19 @@ def _slot(tmp_path: object) -> RunSlot:
     )
 
 
-def test_the_declared_writes_are_the_two_tables_the_store_serves() -> None:
+def test_declared_writes() -> None:
     adapter = LinearReservoirFlowAdapter()
     assert adapter.writes == ("discharge", "reservoir_storage", "budgets")
 
 
-def test_the_declared_supports_carry_the_recharge_of_the_run() -> None:
+def test_declared_supports() -> None:
     adapter = LinearReservoirFlowAdapter()
     assert "recharge" in adapter.supports
     assert "steady_start" in adapter.supports
 
 
-def test_a_time_constant_read_in_days_and_in_a_written_unit_is_the_same() -> None:
-    assert LinearReservoirOptions(time_constant=30.0).time_constant == 30.0
-    assert LinearReservoirOptions(time_constant="30 days").time_constant == 30.0
-
-
-def test_a_mesh_of_two_cells_is_refused() -> None:
-    """The backend reads one cell; the mesh the factory gives in default holds six."""
+def test_refuses_a_mesh_of_several_cells() -> None:
+    # The default mesh of the factory holds six cells.
     adapter = LinearReservoirFlowAdapter()
     model = make_model()
     table = LinearReservoirOptions(time_constant=30.0)
@@ -64,8 +52,8 @@ def test_a_mesh_of_two_cells_is_refused() -> None:
         adapter.validate(model, table, _slot("/tmp/none"))  # noqa: S108
 
 
-def test_the_binder_hands_the_native_series_the_adapter_reads() -> None:
-    """`NativeSeries` carries one edge more than values, as the binder cuts it."""
+def test_pieces_of_a_native_series() -> None:
+    # A NativeSeries carries one edge more than values, as the binder cuts it.
     one_day = 86400.0
     starts = pd.date_range("2024-01-01", periods=21, freq="D")
     series = NativeSeries(starts=starts, values=np.full(20, 5.0e-8))
@@ -78,8 +66,8 @@ def test_the_binder_hands_the_native_series_the_adapter_reads() -> None:
     assert len(owners) == 20
 
 
-def test_a_steady_period_integrates_to_tau_r_and_ar(tmp_path) -> None:
-    """A period `Model.time` marks steady closes on `s = tau * R`, `Q = A * R`."""
+def test_steady_period_closes_on_tau_r(tmp_path) -> None:
+    # A steady period closes on s = tau * R and Q = A * R.
     model = make_model(
         geometry=one_cell_geometry(),
         time=ModelTime(grid=time_grid(1.0), regime="transient", first_period_steady=True),
@@ -99,7 +87,7 @@ def test_a_steady_period_integrates_to_tau_r_and_ar(tmp_path) -> None:
     assert released[-1] == pytest.approx(rate_per_s * 86400.0, rel=1e-12)
 
 
-def test_locate_cell_answers_the_one_cell_and_nothing_without_an_engine() -> None:
+def test_locate_cell() -> None:
     from types import SimpleNamespace
 
     adapter = LinearReservoirFlowAdapter()

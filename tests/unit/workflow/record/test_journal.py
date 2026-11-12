@@ -1,4 +1,4 @@
-"""The workflow journal."""
+"""The step journal of a run directory: one row per step, with a status and an outputs hash."""
 
 from __future__ import annotations
 
@@ -9,49 +9,28 @@ import pytest
 from hydromodpy.core.exceptions import JournalError
 from hydromodpy.workflow.record.journal import WorkflowJournal, WorkflowStepRow
 
-# --- test_journal ---
-# Unit tests for the step journal of a run directory.
-
 
 @pytest.fixture
 def journal(tmp_path: Path) -> WorkflowJournal:
     return WorkflowJournal(tmp_path)
 
 
-def test_finish_with_unknown_status_raises(journal: WorkflowJournal) -> None:
-    step_id = journal.start_step(
-        run_id="r1",
-        step_order=0,
-        step_name="resolve",
-        inputs_hash=None,
-    )
-    with pytest.raises(JournalError):
-        journal.finish_step(step_id=step_id, status="bogus")
-
-
-def test_finish_unknown_step_id_raises(journal: WorkflowJournal) -> None:
-    with pytest.raises(JournalError):
-        journal.finish_step(step_id="not-a-uuid", status="completed")
-
-
-def test_compute_outputs_hash_directory_changes_when_content_changes(tmp_path: Path) -> None:
-    workspace = tmp_path
-    folder = workspace / "store.zarr"
+def test_outputs_hash_follows_folder_content(tmp_path: Path) -> None:
+    folder = tmp_path / "store.zarr"
     folder.mkdir()
     (folder / "data.bin").write_bytes(b"hello")
-    h1 = WorkflowJournal.compute_outputs_hash(workspace, ("store.zarr",))
+    before = WorkflowJournal.compute_outputs_hash(tmp_path, ("store.zarr",))
     (folder / "data.bin").write_bytes(b"world")
-    h2 = WorkflowJournal.compute_outputs_hash(workspace, ("store.zarr",))
-    assert h1 != h2
+    after = WorkflowJournal.compute_outputs_hash(tmp_path, ("store.zarr",))
+    assert before != after
 
 
-def test_compute_outputs_hash_missing_path_still_hashes(tmp_path: Path) -> None:
-    h = WorkflowJournal.compute_outputs_hash(tmp_path, ("does/not/exist",))
-    assert isinstance(h, str)
-    assert len(h) == 64
+def test_outputs_hash_of_a_missing_path(tmp_path: Path) -> None:
+    digest = WorkflowJournal.compute_outputs_hash(tmp_path, ("does/not/exist",))
+    assert len(digest) == 64
 
 
-def test_row_dataclass_is_frozen() -> None:
+def test_row_is_frozen() -> None:
     row = WorkflowStepRow(
         step_id="s",
         run_id="r",
@@ -66,5 +45,13 @@ def test_row_dataclass_is_frozen() -> None:
         duration_s=None,
         error_message=None,
     )
-    with pytest.raises(Exception):
+    with pytest.raises(AttributeError):
         row.status = "completed"  # type: ignore[misc]
+
+
+def test_refusals(journal: WorkflowJournal) -> None:
+    step_id = journal.start_step(run_id="r1", step_order=0, step_name="resolve", inputs_hash=None)
+    with pytest.raises(JournalError):
+        journal.finish_step(step_id=step_id, status="bogus")
+    with pytest.raises(JournalError):
+        journal.finish_step(step_id="not-a-uuid", status="completed")

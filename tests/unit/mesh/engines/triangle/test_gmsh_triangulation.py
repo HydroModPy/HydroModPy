@@ -66,13 +66,8 @@ def _sized_square(size: float) -> MeshRequest:
     )
 
 
-# --------------------------------------------------------------------------- #
-# Lines embedded as mesh edges
-# --------------------------------------------------------------------------- #
-
-
 @needs_gmsh
-def test_the_faces_of_a_sized_request_follow_the_lines_its_triangles_embed() -> None:
+def test_faces_follow_the_embedded_lines() -> None:
     cell_mesh = TriangleMeshEngine().build(_sized_square(50.0))
     quality = cell_mesh.qa.families["geology"]
 
@@ -81,8 +76,8 @@ def test_the_faces_of_a_sized_request_follow_the_lines_its_triangles_embed() -> 
 
 
 @needs_gmsh
-def test_two_line_vertices_closer_than_a_millimetre_are_one_vertex() -> None:
-    """A digitizing double click leaves no edge of zero length along the river."""
+def test_close_line_vertices_merge() -> None:
+    # A digitizing double click leaves no edge of zero length along the river.
     doubled = LineString(
         [
             (X0 + 100, Y0 + 150),
@@ -100,9 +95,9 @@ def test_two_line_vertices_closer_than_a_millimetre_are_one_vertex() -> None:
 
 
 @needs_gmsh
-@pytest.mark.parametrize("downstream", [True, False], ids=["with_the_contact", "against_it"])
-def test_a_river_that_follows_a_contact_shares_its_edges(downstream: bool) -> None:
-    """The river runs on the contact x = 500 m from y = 300 m to y = 700 m."""
+@pytest.mark.parametrize("downstream", [True, False], ids=["with the contact", "against it"])
+def test_river_along_a_contact(downstream: bool) -> None:
+    # The river runs on the contact x = 500 m from y = 300 m to y = 700 m.
     contact = LineString([(X0 + 500, Y0), (X0 + 500, Y0 + 1000)])
     river = LineString(
         [(X0 + 200, Y0 + 100), (X0 + 500, Y0 + 300), (X0 + 500, Y0 + 700), (X0 + 800, Y0 + 900)]
@@ -130,53 +125,35 @@ def test_a_river_that_follows_a_contact_shares_its_edges(downstream: bool) -> No
     assert np.all(np.diff(along) > 0.0)
 
 
-# --------------------------------------------------------------------------- #
-# Refusals
-# --------------------------------------------------------------------------- #
+REFUSALS = [
+    pytest.param(
+        LineString([(X0 + 500, Y0 + 500), (X0 + 1500, Y0 + 500)]),
+        "line 0 of family 'rivers' leaves the mesh domain",
+        id="line out of the domain",
+    ),
+    pytest.param(
+        LineString([(X0 + 500, Y0 + 500), (X0 + 500.0004, Y0 + 500)]),
+        "line 0 of family 'rivers' is shorter than 1 mm",
+        id="line shorter than a millimetre",
+    ),
+]
 
 
 @needs_gmsh
-@pytest.mark.parametrize(
-    ("request_of", "message"),
-    [
-        (
-            lambda: _square(
-                LineFamilySpec(
-                    "rivers", "cell", (LineString([(X0 + 500, Y0 + 500), (X0 + 1500, Y0 + 500)]),)
-                )
-            ),
-            "line 0 of family 'rivers' leaves the mesh domain",
-        ),
-        (
-            lambda: _square(
-                LineFamilySpec(
-                    "rivers",
-                    "cell",
-                    (LineString([(X0 + 500, Y0 + 500), (X0 + 500.0004, Y0 + 500)]),),
-                )
-            ),
-            "line 0 of family 'rivers' is shorter than 1 mm",
-        ),
-    ],
-    ids=["line_out_of_the_domain", "line_shorter_than_a_millimetre"],
-)
-def test_a_request_gmsh_cannot_triangulate_is_refused(request_of, message: str) -> None:
+@pytest.mark.parametrize(("river", "message"), REFUSALS)
+def test_refusals(river: LineString, message: str) -> None:
+    request = _square(LineFamilySpec("rivers", "cell", (river,)))
     with pytest.raises(MeshRequestError, match=message):
-        TriangleMeshEngine().build(request_of())
+        TriangleMeshEngine().build(request)
 
 
-def test_without_gmsh_the_engine_says_to_install_the_mesh_extra(
+def test_missing_gmsh(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setitem(sys.modules, "gmsh", None)
 
     with pytest.raises(MeshError, match="install the 'mesh' extra"):
         triangulate(_square())
-
-
-# --------------------------------------------------------------------------- #
-# The size field handed to gmsh
-# --------------------------------------------------------------------------- #
 
 
 class _FieldApi:
@@ -212,10 +189,8 @@ def _handed_to_gmsh(
     return header, np.loadtxt(lines[3:], ndmin=2), api
 
 
-def test_a_size_field_too_large_for_gmsh_keeps_the_finest_size_of_each_block(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Five rows and three columns over two nodes at most: blocks of 3 x 3 pixels, the last one cut."""
+def test_size_field_block_minimum(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Five rows and three columns over two nodes at most: blocks of 3 x 3 pixels, the last one cut.
     monkeypatch.setattr(gmsh_triangulation, "_MAX_FIELD_NODES", 2)
     grid = grid_spec(5, 3, 10.0, xmin=X0, ymin=Y0)
     values = np.full((5, 3), 100.0)

@@ -247,6 +247,7 @@ def _channel_and_pins() -> tuple[np.ndarray, np.ndarray]:
 # filled surface puts every donor before its receiver, because every link of D
 # strictly descends on that surface.
 
+# A bowl: the middle cell is a pit of the top, deeper than its whole ring.
 PIT_TOP = np.array(
     [
         [9.0, 8.0, 7.0, 8.0],
@@ -255,9 +256,6 @@ PIT_TOP = np.array(
         [6.0, 5.0, 4.0, 5.0],
     ]
 )
-
-
-"""A bowl: the middle cell is a pit of the top, deeper than its whole ring."""
 
 
 def test_receivers_and_surface_of_different_sizes_are_refused() -> None:

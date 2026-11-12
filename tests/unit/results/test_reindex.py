@@ -1,4 +1,6 @@
-"""The index is a diff of the tree: what is on disk is what gets indexed, and only what moved is rewritten."""
+"""The catalog index is a diff of the tree: what is on disk is what gets indexed, only what moved
+is rewritten, and one writer at a time swaps the file. Sizes are in bytes, times in seconds.
+"""
 
 from __future__ import annotations
 
@@ -78,7 +80,7 @@ SESSION_ID = "sess0001"
 
 @pytest.fixture
 def project(tmp_path) -> Path:
-    """Two sealed runs, a failed attempt, a running one, a session with a promoted run and a kept trial."""
+    # Two sealed runs, a failed attempt, a running one, a session with a promoted run and a kept trial.
     root = make_project(tmp_path / "demo")
     seal_run(root, "alpha")
     seal_run(root, "beta", parameters={"K": 2e-5, "Sy": 0.02}, tags=("pinned",))
@@ -109,7 +111,7 @@ def _rows(root: Path, sql: str) -> list[tuple]:
 
 
 def _restamp(root: Path, key: str, value: str) -> None:
-    """Change one ``index_meta`` value of the published index, the way a pass writes it."""
+    # Change one index_meta value of the published index, the way a pass writes it.
     index_path = catalog_path_for(root)
     with index_lock(root) as lock:
         staging = new_staging(index_path, copy_of=index_path)
@@ -133,7 +135,7 @@ def _block_size(root: Path) -> int:
 
 
 def _hold_the_lock_from_another_process(root: Path) -> None:
-    """Write a fresh lock in the name of a live process of this host that is not this one."""
+    # A fresh lock in the name of a live process of this host that is not this one.
     path = index_lock_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -144,7 +146,7 @@ def _hold_the_lock_from_another_process(root: Path) -> None:
 
 @pytest.fixture
 def warnings_said(caplog: pytest.LogCaptureFixture) -> Iterator[pytest.LogCaptureFixture]:
-    """Let ``caplog`` see the ``hydromodpy`` warnings, which stop propagating by default."""
+    # caplog must see the hydromodpy warnings, which stop propagating by default.
     parent = get_logger("hydromodpy")
     propagate = parent.propagate
     parent.propagate = True
@@ -163,10 +165,7 @@ def _index_content(root: Path, tables: tuple[str, ...]) -> dict[str, list[str]]:
         }
 
 
-# -- the tree is the set of cases -------------------------------------------
-
-
-def test_every_result_directory_is_a_case_and_every_seal_a_run(project):
+def test_cases_and_runs_of_a_tree(project):
     report = rebuild_index(project)
 
     assert report.full
@@ -197,7 +196,7 @@ def test_every_result_directory_is_a_case_and_every_seal_a_run(project):
     ]
 
 
-def test_an_attempt_without_a_seal_is_indexed_from_its_outcome(project):
+def test_attempt_without_a_seal(project):
     rebuild_index(project)
 
     rows = _rows(
@@ -211,7 +210,7 @@ def test_an_attempt_without_a_seal_is_indexed_from_its_outcome(project):
     assert _rows(project, "SELECT rel_dir FROM simulations WHERE rel_dir = 'runs/gamma'") == []
 
 
-def test_a_stale_pulse_reads_as_stale(project):
+def test_stale_pulse(project):
     write_attempt(project, "runs/epsilon", status="running", heartbeat_age_s=3600)
 
     rebuild_index(project)
@@ -219,7 +218,7 @@ def test_a_stale_pulse_reads_as_stale(project):
     assert _rows(project, "SELECT status FROM cases WHERE rel_dir = 'runs/epsilon'") == [("stale",)]
 
 
-def test_a_directory_with_neither_outcome_nor_manifest_is_not_a_case(project):
+def test_directory_without_outcome_or_manifest(project):
     (runs_dir_for(project) / "scratch_only").mkdir()
     (runs_dir_for(project) / "scratch_only" / "note.txt").write_text("x")
 
@@ -229,7 +228,7 @@ def test_a_directory_with_neither_outcome_nor_manifest_is_not_a_case(project):
     assert report.skipped == ()
 
 
-def test_a_seal_without_its_index_row_is_reported(project):
+def test_seal_without_its_index_row(project):
     (runs_dir_for(project) / "beta" / TABLES_DIRNAME / "simulation.parquet").unlink()
 
     report = rebuild_index(project)
@@ -239,7 +238,7 @@ def test_a_seal_without_its_index_row_is_reported(project):
     assert "runs/beta" not in report.indexed
 
 
-def test_a_manifest_naming_another_run_is_refused(project):
+def test_manifest_of_another_run(project):
     beta = runs_dir_for(project) / "beta"
     alpha_manifest = (runs_dir_for(project) / "alpha" / RUN_MANIFEST_FILENAME).read_text()
     (beta / RUN_MANIFEST_FILENAME).write_text(alpha_manifest)
@@ -250,10 +249,7 @@ def test_a_manifest_naming_another_run_is_refused(project):
     assert "two identities" in report.skipped[0].reason
 
 
-# -- the label is computed at indexing ---------------------------------------
-
-
-def test_the_label_is_computed_and_dated_at_indexing(project):
+def test_label_at_indexing(project):
     rebuild_index(project)
 
     rows = _rows(project, "SELECT name, label, rule_version FROM simulations")
@@ -266,7 +262,7 @@ def test_the_label_is_computed_and_dated_at_indexing(project):
     assert _rows(project, "SELECT COUNT(*) FROM simulations WHERE label_date IS NULL") == [(0,)]
 
 
-def test_a_run_that_did_not_converge_is_labelled_failed(tmp_path):
+def test_label_of_a_diverged_run(tmp_path):
     root = make_project(tmp_path / "demo")
     seal_run(root, "diverged", converged=False)
 
@@ -277,7 +273,7 @@ def test_a_run_that_did_not_converge_is_labelled_failed(tmp_path):
     ]
 
 
-def test_a_known_issue_of_the_producing_version_declasses_the_run(tmp_path):
+def test_known_issue_declasses_the_run(tmp_path):
     root = make_project(tmp_path / "demo")
     seal_run(root, "old", hydromodpy_version="1.9.0")
 
@@ -288,10 +284,7 @@ def test_a_known_issue_of_the_producing_version_declasses_the_run(tmp_path):
     assert issues
 
 
-# -- sessions, sites, annotations --------------------------------------------
-
-
-def test_a_session_comes_back_with_its_trials_and_phases(project):
+def test_session_trials_and_phases(project):
     rebuild_index(project)
 
     assert _rows(
@@ -308,7 +301,7 @@ def test_a_session_comes_back_with_its_trials_and_phases(project):
     ]
 
 
-def test_a_session_comes_back_with_its_cases_and_the_cases_of_each_trial(project):
+def test_session_cases_and_trial_cases(project):
     rebuild_index(project)
 
     assert _rows(
@@ -324,7 +317,7 @@ def test_a_session_comes_back_with_its_cases_and_the_cases_of_each_trial(project
     ]
 
 
-def test_a_joint_session_names_no_single_site_or_run_in_cases(tmp_path):
+def test_joint_session(tmp_path):
     root = make_project(tmp_path / "demo")
     directory = root / "sessions" / "joint"
     directory.mkdir(parents=True)
@@ -353,7 +346,7 @@ def test_a_joint_session_names_no_single_site_or_run_in_cases(tmp_path):
     assert set(json.loads(windows)["calibration"]["by_case"]) == {"a", "b"}
 
 
-def test_a_session_with_a_trial_still_proposed_stays_in_the_index(tmp_path):
+def test_session_with_a_proposed_trial(tmp_path):
     # A stopped or running session journals trials that only have their
     # proposed line, with no started_at: they are not iterations yet.
     root = make_project(tmp_path / "demo")
@@ -367,7 +360,7 @@ def test_a_session_with_a_trial_still_proposed_stays_in_the_index(tmp_path):
     assert _rows(root, "SELECT trial FROM calibration_iterations ORDER BY trial") == [(1,), (2,)]
 
 
-def test_a_session_keeps_its_root_search_in_the_index(tmp_path):
+def test_session_root_search(tmp_path):
     root = make_project(tmp_path / "demo")
     closed_with = {"bracket": [1e-7, 1e-5], "roots": [2.1e-6, 2.3e-6]}
     write_session_dir(root, "bisect", session_id="bisect01", root_search=closed_with)
@@ -382,7 +375,7 @@ def test_a_session_keeps_its_root_search_in_the_index(tmp_path):
     ]
 
 
-def test_the_sites_table_counts_cases_and_sealed_runs(project):
+def test_sites_table(project):
     rebuild_index(project)
 
     assert _rows(project, "SELECT site, gauge, n_cases, n_runs FROM sites") == [
@@ -390,7 +383,7 @@ def test_the_sites_table_counts_cases_and_sealed_runs(project):
     ]
 
 
-def test_tags_and_notes_come_back_from_the_run_directory(project):
+def test_tags(project):
     rebuild_index(project)
 
     assert _rows(
@@ -399,7 +392,7 @@ def test_tags_and_notes_come_back_from_the_run_directory(project):
     ) == [("beta", "pinned")]
 
 
-def test_v_cases_joins_the_seal_to_every_case(project):
+def test_v_cases(project):
     rebuild_index(project)
 
     rows = _rows(project, "SELECT rel_dir, status, label, nse FROM v_cases")
@@ -408,7 +401,7 @@ def test_v_cases_joins_the_seal_to_every_case(project):
     assert ("sessions/calib", "completed", None, None) in rows
 
 
-def test_v_cases_carries_one_column_per_global_parameter(project):
+def test_v_cases_parameter_columns(project):
     seal_run(project, "odd", parameters={"K": 3e-5, "hk zone 1": 2.0, "status": 3.0})
 
     rebuild_index(project)
@@ -428,7 +421,7 @@ def test_v_cases_carries_one_column_per_global_parameter(project):
     ) == [("K",), ("hk zone 1",), ("status",)]
 
 
-def test_the_hundred_basins_query_runs_on_v_cases(project):
+def test_best_calibrated_run_per_site(project):
     seal_run(
         project,
         "calib_b",
@@ -450,10 +443,7 @@ def test_the_hundred_basins_query_runs_on_v_cases(project):
     assert rows == [("J0014010", "calib", 0.71, 1e-5), ("J0014020", "calib_b", 0.8, 4e-5)]
 
 
-# -- rebuilding twice describes the same project ----------------------------
-
-
-def test_two_rebuilds_produce_the_same_index(project):
+def test_two_rebuilds_agree(project):
     tables = (
         "simulations",
         "parameters",
@@ -473,10 +463,7 @@ def test_two_rebuilds_produce_the_same_index(project):
     assert _index_content(project, tables) == first
 
 
-# -- the incremental pass is a diff ------------------------------------------
-
-
-def test_a_tree_that_did_not_move_writes_nothing(project):
+def test_unchanged_tree_writes_nothing(project):
     rebuild_index(project)
     before = catalog_path_for(project).stat().st_ino
 
@@ -488,7 +475,7 @@ def test_a_tree_that_did_not_move_writes_nothing(project):
     assert index_is_current(project)
 
 
-def test_a_new_run_is_the_only_one_written(project):
+def test_new_run_is_the_only_one_written(project):
     rebuild_index(project)
     stamps = dict(_rows(project, "SELECT rel_dir, indexed_at FROM cases"))
     seal_run(project, "epsilon")
@@ -503,7 +490,7 @@ def test_a_new_run_is_the_only_one_written(project):
     assert "runs/epsilon" in after
 
 
-def test_a_renamed_directory_keeps_its_id_under_the_new_name(project):
+def test_renamed_directory(project):
     rebuild_index(project)
     (sim_id,) = _rows(
         project, "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE name = 'alpha'"
@@ -524,7 +511,7 @@ def test_a_renamed_directory_keeps_its_id_under_the_new_name(project):
     ]
 
 
-def test_a_retry_moves_the_previous_attempt_to_attempts(project):
+def test_retry_of_an_attempt(project):
     rebuild_index(project)
     gamma = runs_dir_for(project) / "gamma"
     first = json.loads((gamma / RUN_OUTCOME_FILENAME).read_text(encoding="utf-8"))
@@ -546,7 +533,7 @@ def test_a_retry_moves_the_previous_attempt_to_attempts(project):
     assert attempts[0][1] == first["attempt_id"]
 
 
-def test_a_directory_removed_from_disk_loses_its_rows(project):
+def test_removed_directory(project):
     rebuild_index(project)
     shutil.rmtree(runs_dir_for(project) / "beta")
 
@@ -562,7 +549,7 @@ def test_a_directory_removed_from_disk_loses_its_rows(project):
     assert _rows(project, "SELECT rel_dir FROM cases WHERE rel_dir = 'runs/beta'") == []
 
 
-def test_a_changed_annotation_is_picked_up(project):
+def test_changed_annotation(project):
     rebuild_index(project)
     alpha = runs_dir_for(project) / "alpha"
     (sim_id,) = _rows(
@@ -578,30 +565,22 @@ def test_a_changed_annotation_is_picked_up(project):
     ]
 
 
-def test_without_an_index_the_pass_is_a_full_rebuild(project):
+def test_pass_without_an_index(project):
     report = index_new_runs(project)
 
     assert report.full
     assert catalog_path_for(project).is_file()
 
 
-def test_an_index_of_another_schema_version_is_rebuilt_whole(project):
-    rebuild_index(project)
-    _restamp(project, META_SCHEMA_VERSION, "0")
-
-    report = index_new_runs(project)
-
-    assert report.full
-    assert _rows(
-        project, f"SELECT value FROM {INDEX_META_TABLE} WHERE key = '{META_SCHEMA_VERSION}'"
-    ) == [(INDEX_SCHEMA_VERSION,)]
-
-
 @pytest.mark.parametrize(
     ("key", "current"),
-    [(META_RULE_VERSION, RULE_VERSION), (META_KNOWN_ISSUES_DIGEST, known_issues_digest())],
+    [
+        pytest.param(META_SCHEMA_VERSION, INDEX_SCHEMA_VERSION, id="schema version"),
+        pytest.param(META_RULE_VERSION, RULE_VERSION, id="label rule version"),
+        pytest.param(META_KNOWN_ISSUES_DIGEST, known_issues_digest(), id="known issues"),
+    ],
 )
-def test_an_index_labelled_by_another_build_is_rebuilt_whole(project, key, current):
+def test_index_of_another_build_is_rebuilt(project, key, current):
     rebuild_index(project)
     _restamp(project, key, "other")
     assert not index_is_current(project)
@@ -614,7 +593,7 @@ def test_an_index_labelled_by_another_build_is_rebuilt_whole(project, key, curre
     ]
 
 
-def test_the_scan_keys_a_directory_by_its_seal_or_its_attempt(project):
+def test_scan_keys(project):
     entries = scan_tree(project)
 
     assert entries["runs/alpha"].key.startswith("sim:")
@@ -623,10 +602,7 @@ def test_the_scan_keys_a_directory_by_its_seal_or_its_attempt(project):
     assert entries["sessions/calib/trials/0002"].kind == "trial"
 
 
-# -- the reader builds what it needs ----------------------------------------
-
-
-def test_opening_a_project_builds_its_missing_index(tmp_path):
+def test_opening_builds_a_missing_index(tmp_path):
     root = make_project(tmp_path / "demo")
     seal_run(root, "alpha")
 
@@ -635,7 +611,7 @@ def test_opening_a_project_builds_its_missing_index(tmp_path):
     assert catalog_path_for(root).is_file()
 
 
-def test_the_reader_rebuilds_an_index_of_another_schema_version(project):
+def test_reader_rebuilds_an_old_index(project):
     rebuild_index(project)
     _restamp(project, META_SCHEMA_VERSION, "0")
 
@@ -646,10 +622,7 @@ def test_the_reader_rebuilds_an_index_of_another_schema_version(project):
     ) == [(INDEX_SCHEMA_VERSION,)]
 
 
-# -- the live index survives ------------------------------------------------
-
-
-def test_the_previous_index_survives_a_failed_publish(project, monkeypatch):
+def test_failed_publish_keeps_the_index(project, monkeypatch):
     rebuild_index(project)
     index_before = catalog_path_for(project).read_bytes()
 
@@ -666,7 +639,7 @@ def test_the_previous_index_survives_a_failed_publish(project, monkeypatch):
     assert not index_lock_path(project).exists()
 
 
-def test_a_reader_keeps_reading_across_the_swap(project, monkeypatch):
+def test_reader_across_the_swap(project, monkeypatch):
     rebuild_index(project)
     reader = Catalog(project)
 
@@ -689,7 +662,7 @@ def test_a_reader_keeps_reading_across_the_swap(project, monkeypatch):
         assert sorted(reopened.list_simulations()["name"]) == [*before, "epsilon"]
 
 
-def test_the_index_is_replaced_in_one_step(project):
+def test_index_replaced_in_one_step(project):
     rebuild_index(project)
     index_path = catalog_path_for(project)
     file_id_before = index_path.stat().st_ino
@@ -701,10 +674,7 @@ def test_the_index_is_replaced_in_one_step(project):
     assert list(index_path.parent.glob("*.rebuild-*")) == []
 
 
-# -- one writer at a time ---------------------------------------------------
-
-
-def test_a_pass_with_nothing_to_write_does_not_take_the_lock(project, monkeypatch):
+def test_no_lock_without_a_write(project, monkeypatch):
     rebuild_index(project)
 
     def _refuse(*_args, **_kwargs):
@@ -716,8 +686,8 @@ def test_a_pass_with_nothing_to_write_does_not_take_the_lock(project, monkeypatc
     assert not index_lock_path(project).exists()
 
 
-def test_two_passes_at_once_lose_no_run(project, monkeypatch):
-    """A slow pass holds the lock; the fast one waits, reads the diff again and adds its run."""
+def test_two_passes_at_once(project, monkeypatch):
+    # A slow pass holds the lock, the fast one waits, reads the diff again and adds its run.
     rebuild_index(project)
     seal_run(project, "slow")
     holding = threading.Event()
@@ -752,7 +722,7 @@ def test_two_passes_at_once_lose_no_run(project, monkeypatch):
     assert not index_lock_path(project).exists()
 
 
-def test_an_old_empty_lock_does_not_block_a_pass(project):
+def test_old_empty_lock(project):
     lock = index_lock_path(project)
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_bytes(b"")
@@ -768,9 +738,7 @@ def test_an_old_empty_lock_does_not_block_a_pass(project):
 
 
 @pytest.mark.parametrize("refresh", [reindex_if_indexed, index_after_run])
-def test_a_held_lock_costs_a_warning_on_the_quiet_paths(
-    project, monkeypatch, warnings_said, refresh
-):
+def test_held_lock_warns(project, monkeypatch, warnings_said, refresh):
     rebuild_index(project)
     seal_run(project, "epsilon")
     _hold_the_lock_from_another_process(project)
@@ -784,14 +752,14 @@ def test_a_held_lock_costs_a_warning_on_the_quiet_paths(
     assert not index_is_current(project)
 
 
-def test_index_after_run_builds_a_missing_index(project):
+def test_index_after_run_builds_an_index(project):
     report = index_after_run(project)
 
     assert report is not None and report.full
     assert index_is_current(project)
 
 
-def test_a_published_index_has_blocks_of_16_kib(project):
+def test_block_size(project):
     rebuild_index(project)
     assert _block_size(project) == HMP_DUCKDB_BLOCK_SIZE == 16384
 
@@ -800,10 +768,7 @@ def test_a_published_index_has_blocks_of_16_kib(project):
     assert _block_size(project) == 16384
 
 
-# -- what a case carries ------------------------------------------------------
-
-
-def test_cases_bytes_is_the_size_of_the_directory(project):
+def test_case_bytes(project):
     rebuild_index(project)
 
     rows = dict(_rows(project, "SELECT rel_dir, bytes FROM cases"))
@@ -813,9 +778,7 @@ def test_cases_bytes_is_the_size_of_the_directory(project):
     assert rows["sessions/calib"] == path_size_bytes(project / "sessions" / "calib")
 
 
-def test_bytes_after_figures_and_exports_match_a_reindex_from_scratch(project):
-    import time
-
+def test_bytes_after_figures_and_exports(project):
     run_dir = project / "runs" / "alpha"
     (run_dir / "figures").mkdir(exist_ok=True)
     index_new_runs(project)
@@ -833,7 +796,7 @@ def test_bytes_after_figures_and_exports_match_a_reindex_from_scratch(project):
     assert live["runs/alpha"] == path_size_bytes(run_dir)
 
 
-def test_a_purged_json_changes_the_stamp_of_a_run(project):
+def test_purged_json_changes_the_stamp(project):
     before = scan_tree(project)["runs/alpha"].mtime_ns
     purged = project / "runs" / "alpha" / RUN_PURGED_FILENAME
     purged.write_text("{}", encoding="utf-8")
@@ -843,7 +806,7 @@ def test_a_purged_json_changes_the_stamp_of_a_run(project):
     assert scan_tree(project)["runs/alpha"].mtime_ns > before
 
 
-def test_metrics_are_indexed_under_the_parquet_column_name(project):
+def test_metric_column_name(project):
     rebuild_index(project)
 
     connection = open_index(project)
@@ -855,8 +818,8 @@ def test_metrics_are_indexed_under_the_parquet_column_name(project):
     assert "metric_name" not in columns
 
 
-def test_the_two_identifiers_are_read_from_the_seal(project):
-    """Not from ``simulation.parquet``: the table carries neither column."""
+def test_identifiers_from_the_seal(project):
+    # Read from the seal, not from simulation.parquet, which carries neither column.
     seal_run(project, "alpha")
     rebuild_index(project)
 
@@ -872,8 +835,8 @@ def test_the_two_identifiers_are_read_from_the_seal(project):
     )
 
 
-def test_the_digest_follows_the_bugs_of_the_register(monkeypatch):
-    """A bug row added to the register changes the digest, so the index is relabelled."""
+def test_known_issues_digest(monkeypatch):
+    # A bug row added to the register changes the digest, so the index is relabelled.
     before = known_issues_digest()
     added = Bug(id="x", since="2.1.0", versions="<2.1.0", quantities=("metrics",), text="t")
     monkeypatch.setattr(indexer_module, "REGISTER", replace(REGISTER, bugs=(*REGISTER.bugs, added)))

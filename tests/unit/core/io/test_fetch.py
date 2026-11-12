@@ -1,4 +1,4 @@
-"""Unit tests for hydromodpy.core.io.fetch."""
+"""Pinned, bounded downloads: URL and host guards, redirects hop by hop, retries, byte ceiling."""
 
 from __future__ import annotations
 
@@ -22,15 +22,12 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.io.fetch import (
     DEFAULT_RETRY_STATUSES,
-    Fetched,
     HTTPClient,
-    ResolvedUrl,
     _parse_retry_after,
     download,
     fetch_pinned,
     guard_host,
     guard_url,
-    open_client,
     resolve_final_url,
 )
 from hydromodpy.core.runtime.bounds import Bounds
@@ -86,71 +83,36 @@ def _answering(monkeypatch: pytest.MonkeyPatch, client: HTTPClient, *answers: An
     return calls
 
 
-# ---------------------------------------------------------------------------
-# guard_url tests
-# ---------------------------------------------------------------------------
+GUARD_REFUSALS = [
+    pytest.param("ftp://example.com/file.tif", "scheme", id="ftp"),
+    pytest.param("file:///tmp/dem.tif", "scheme", id="file"),
+    pytest.param("javascript:alert(1)", "scheme", id="javascript"),
+    pytest.param("https://user:pass@example.com/data.tif", "credentials", id="user and password"),
+    pytest.param("https://admin@example.com/data.tif", "credentials", id="user only"),
+    pytest.param("https://example.com/data.tif?X-Amz-Signature=123", "signature", id="amz"),
+    pytest.param("https://example.com/data.tif?signature=abc", "signature", id="signature"),
+    pytest.param("https://example.com/data.tif?Token=secret", "signature", id="token"),
+    pytest.param("https://example.com/data.tif?SIG=xyz", "signature", id="sig"),
+]
 
 
-@pytest.mark.parametrize(
-    "url",
-    [
-        "ftp://example.com/file.tif",
-        "file:///tmp/dem.tif",
-        "javascript:alert(1)",
-    ],
-)
-def test_guard_url_refuses_non_http_schemes(url: str) -> None:
-    with pytest.raises(BoundsError, match="scheme"):
+@pytest.mark.parametrize(("url", "message"), GUARD_REFUSALS)
+def test_guard_url_refusals(url: str, message: str) -> None:
+    with pytest.raises(BoundsError, match=message):
         guard_url(url, resolve_dns=False)
 
 
-def test_guard_url_refuses_http_without_pinned_sha() -> None:
+def test_guard_url_http_needs_sha() -> None:
     with pytest.raises(BoundsError, match="http without a pinned sha256"):
         guard_url("http://example.com/data.tif", pinned=False, resolve_dns=False)
 
 
-@pytest.mark.parametrize(
-    "url",
-    [
-        "https://user:pass@example.com/data.tif",
-        "https://admin@example.com/data.tif",
-    ],
-)
-def test_guard_url_refuses_credentials(url: str) -> None:
-    with pytest.raises(BoundsError, match="credentials"):
-        guard_url(url, resolve_dns=False)
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "https://example.com/data.tif?X-Amz-Signature=123",
-        "https://example.com/data.tif?signature=abc",
-        "https://example.com/data.tif?Token=secret",
-        "https://example.com/data.tif?SIG=xyz",
-    ],
-)
-def test_guard_url_refuses_signature_query_parameters(url: str) -> None:
-    with pytest.raises(BoundsError, match="signature"):
-        guard_url(url, resolve_dns=False)
-
-
-# ---------------------------------------------------------------------------
-# guard_host tests
-# ---------------------------------------------------------------------------
-
-
-def test_guard_host_refuses_an_empty_host() -> None:
+def test_guard_host_empty() -> None:
     with pytest.raises(BoundsError, match="names no host"):
         guard_host("", Bounds(), what="delivery to nowhere")
 
 
-# ---------------------------------------------------------------------------
-# resolve_final_url and vsicurl_path tests
-# ---------------------------------------------------------------------------
-
-
-def test_resolve_final_url_refuses_private_ip_at_intermediate_hop(
+def test_resolve_refuses_private_hop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     r1 = _mock_response(302, headers={"Location": "https://intranet.local/data.tif"})
@@ -169,10 +131,10 @@ def test_resolve_final_url_refuses_private_ip_at_intermediate_hop(
         resolve_final_url("https://example.com/start", client=client)
 
 
-def test_resolve_final_url_follows_a_signed_release_target_at_the_hop(
+def test_resolve_keeps_signed_target(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A release target the server chose (GitHub, S3) keeps its query string."""
+    # A release target the server chose (GitHub, S3) keeps its query string.
     r1 = _mock_response(
         302,
         headers={"Location": "https://release-assets.example/23.0/linux.zip"},
@@ -194,10 +156,7 @@ def test_resolve_final_url_follows_a_signed_release_target_at_the_hop(
     assert resolved.content_length == 2048
 
 
-def test_resolve_final_url_refuses_too_many_redirects(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
-    )
+def test_resolve_refuses_redirect_loop(monkeypatch: pytest.MonkeyPatch) -> None:
     redirect = _mock_response(302, headers={"Location": "https://example.com/loop"})
     client = HTTPClient(max_retries=0)
     _answering(monkeypatch, client, redirect)
@@ -206,15 +165,9 @@ def test_resolve_final_url_refuses_too_many_redirects(monkeypatch: pytest.Monkey
         resolve_final_url("https://example.com/loop", client=client)
 
 
-# ---------------------------------------------------------------------------
-# HTTPClient redirect tests
-# ---------------------------------------------------------------------------
-
-
-def test_a_request_follows_a_signed_release_target_one_hop_at_a_time(
+def test_get_follows_signed_target(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A GitHub release hop carries a signed query string the server chose."""
     r1 = _mock_response(
         302, headers={"Location": "https://release-assets.example/23.0/linux.zip?sp=r&sig=beef"}
     )
@@ -228,7 +181,7 @@ def test_a_request_follows_a_signed_release_target_one_hop_at_a_time(
     assert resp.headers["Content-Length"] == "2048"
 
 
-def test_a_request_hop_outside_the_allowed_hosts_is_refused(
+def test_hop_outside_allowed_hosts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bounds = Bounds(allowed_hosts=frozenset({"example.com"}))
@@ -240,7 +193,7 @@ def test_a_request_hop_outside_the_allowed_hosts_is_refused(
         client.get("https://example.com/start")
 
 
-def test_a_request_hop_to_a_private_address_is_refused(
+def test_hop_to_private_address(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     r1 = _mock_response(302, headers={"Location": "https://intranet.local/asset"})
@@ -252,17 +205,7 @@ def test_a_request_hop_to_a_private_address_is_refused(
         client.get("https://example.com/start")
 
 
-# ---------------------------------------------------------------------------
-# download and fetch_pinned tests
-# ---------------------------------------------------------------------------
-
-
-def test_download_exceeding_max_bytes_is_refused(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(
-        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
-    )
+def test_download_over_ceiling(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(max_retries=0)
 
     # 2048 bytes of data
@@ -281,12 +224,7 @@ def test_download_exceeding_max_bytes_is_refused(
     assert not list(tmp_path.glob("**/*.part"))
 
 
-def test_download_reads_the_ceiling_of_the_client_bounds(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(
-        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
-    )
+def test_download_uses_client_ceiling(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(bounds=Bounds(max_download_bytes=4), max_retries=0)
 
     head_resp = _mock_response(200)
@@ -302,13 +240,8 @@ def test_download_reads_the_ceiling_of_the_client_bounds(
     assert not list(tmp_path.glob("**/*.part"))
 
 
-def test_download_refuses_a_get_that_answers_a_redirect(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A server whose GET answers 3xx hands no file, whatever its HEAD said."""
-    monkeypatch.setattr(
-        "socket.getaddrinfo", lambda _h, _p: [(2, 1, 6, "", ("93.184.216.34", 443))]
-    )
+def test_download_refuses_redirect(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A server whose GET answers 3xx hands no file, whatever its HEAD said.
     client = HTTPClient(max_retries=0)
 
     head_resp = _mock_response(200, headers={"Content-Length": "2048"})
@@ -324,7 +257,7 @@ def test_download_refuses_a_get_that_answers_a_redirect(
     assert not list(tmp_path.glob("**/*.part"))
 
 
-def test_fetch_pinned_serves_from_cache(tmp_path: Path) -> None:
+def test_fetch_pinned_from_cache(tmp_path: Path) -> None:
     dest = tmp_path / "asset"
     dest.write_bytes(PAYLOAD)
     assert (
@@ -335,7 +268,7 @@ def test_fetch_pinned_serves_from_cache(tmp_path: Path) -> None:
     )
 
 
-def test_fetch_pinned_corruption_removes_old(tmp_path: Path) -> None:
+def test_fetch_pinned_corruption(tmp_path: Path) -> None:
     dest = tmp_path / "asset"
     dest.write_bytes(b"corrupt")
     with pytest.raises(CacheCorruptionError) as exc:
@@ -346,12 +279,7 @@ def test_fetch_pinned_corruption_removes_old(tmp_path: Path) -> None:
     assert not dest.exists()
 
 
-# ---------------------------------------------------------------------------
-# HTTPClient tests (retained from test_http_client.py)
-# ---------------------------------------------------------------------------
-
-
-def test_get_json_retries_on_503(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_json_retries_503(monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(max_retries=2, backoff_base=0.0, backoff_cap=0.0)
     unavailable = _mock_response(503, headers={"Retry-After": "0"})
     success = _mock_response(200, json_data={"ok": True})
@@ -360,7 +288,7 @@ def test_get_json_retries_on_503(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(calls) == 2
 
 
-def test_get_json_honors_retry_after_http_date(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_json_retry_after_date(monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(max_retries=1, backoff_cap=0.1)
     future = datetime.now(UTC) + timedelta(seconds=0.05)
     unavailable = _mock_response(503, headers={"Retry-After": format_datetime(future)})
@@ -370,7 +298,7 @@ def test_get_json_honors_retry_after_http_date(monkeypatch: pytest.MonkeyPatch) 
     assert len(calls) == 2
 
 
-def test_get_json_raises_data_source_error_on_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_json_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(max_retries=0)
     resp = _mock_response(200)
     resp.json.side_effect = ValueError("invalid json")
@@ -379,9 +307,7 @@ def test_get_json_raises_data_source_error_on_invalid_json(monkeypatch: pytest.M
         client.get_json("https://x.example/api")
 
 
-def test_stream_hashes_content_and_writes_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_stream_hashes_and_writes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(max_retries=0)
     payload = b"abc" * 1024
     expected = hashlib.sha256(payload).hexdigest()
@@ -397,7 +323,7 @@ def test_stream_hashes_content_and_writes_file(
     assert dest.read_bytes() == payload
 
 
-def test_iter_bytes_yields_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_iter_bytes_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(max_retries=0)
     _answering(monkeypatch, client, _mock_response(200, content=b"chunk1chunk2"))
     chunks = list(client.iter_bytes("https://x.example/blob"))
@@ -414,7 +340,7 @@ def test_parse_retry_after() -> None:
     assert 8.0 <= parsed <= 12.0
 
 
-def test_a_dropped_connection_is_retried_then_reported_with_its_cause(
+def test_dropped_connection_retried(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = HTTPClient(max_retries=1, backoff_base=0.0, backoff_cap=0.0)
@@ -425,7 +351,7 @@ def test_a_dropped_connection_is_retried_then_reported_with_its_cause(
     assert "reset by peer" in str(caught.value)
 
 
-def test_a_connection_that_comes_back_gives_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_connection_comes_back(monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(max_retries=2, backoff_base=0.0, backoff_cap=0.0)
     _answering(
         monkeypatch, client, requests.Timeout("slow"), _mock_response(200, json_data={"v": 1})
@@ -433,18 +359,18 @@ def test_a_connection_that_comes_back_gives_the_answer(monkeypatch: pytest.Monke
     assert client.get_json("https://x.example/api") == {"v": 1}
 
 
-def test_a_user_agent_is_set_on_the_session() -> None:
+def test_user_agent_on_session() -> None:
     client = HTTPClient(user_agent="HydroModPy/test")
     assert client._session.headers["User-Agent"] == "HydroModPy/test"
 
 
-def test_the_session_does_not_read_the_environment() -> None:
+def test_session_ignores_environment() -> None:
     # Proxies, netrc credentials and CA overrides never reach the client.
     with HTTPClient() as client:
         assert client._session.trust_env is False
 
 
-def test_a_client_used_as_context_manager_closes_its_session(
+def test_context_manager_closes_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     closed: list[int] = []
@@ -460,7 +386,7 @@ class _Schema:
         self.id = payload["id"]
 
 
-def test_a_payload_is_handed_to_the_model_that_validates_it(
+def test_payload_goes_to_model(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = HTTPClient(max_retries=0)
@@ -468,7 +394,7 @@ def test_a_payload_is_handed_to_the_model_that_validates_it(
     assert client.get_json("https://x.example/a", model=_Schema).id == 7
 
 
-def test_a_payload_the_model_refuses_is_a_data_source_error(
+def test_model_refusal_is_source_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = HTTPClient(max_retries=0)
@@ -477,9 +403,7 @@ def test_a_payload_the_model_refuses_is_a_data_source_error(
         client.get_json("https://x.example/a", model=_Schema)
 
 
-def test_a_stream_error_status_is_refused_before_anything_is_written(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_stream_error_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(max_retries=0)
     _answering(monkeypatch, client, _mock_response(400))
     target = tmp_path / "out.bin"
@@ -488,14 +412,14 @@ def test_a_stream_error_status_is_refused_before_anything_is_written(
     assert not target.exists()
 
 
-def test_iter_bytes_refuses_an_error_status(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_iter_bytes_error_status(monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(max_retries=0)
     _answering(monkeypatch, client, _mock_response(403))
     with pytest.raises(NetworkError, match="403"):
         list(client.iter_bytes("https://x.example/f"))
 
 
-def test_stream_accepts_a_buffer(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_stream_to_buffer(monkeypatch: pytest.MonkeyPatch) -> None:
     client = HTTPClient(max_retries=0)
     payload = b"abc"
     _answering(monkeypatch, client, _mock_response(200, content=payload))
@@ -505,13 +429,7 @@ def test_stream_accepts_a_buffer(monkeypatch: pytest.MonkeyPatch) -> None:
     assert res.size == 3
 
 
-def test_a_connection_lost_in_the_body_is_a_network_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A body that breaks mid-read is a NetworkError naming its cause.
-
-    The streamed GET of the same shape alongside it: nothing is left behind.
-    """
+def test_connection_lost_in_body(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     broken = _mock_response(200, content=b"half of it")
     broken.iter_content = MagicMock(
         side_effect=requests.exceptions.ChunkedEncodingError("Connection broken")
@@ -526,6 +444,6 @@ def test_a_connection_lost_in_the_body_is_a_network_error(
     assert not list(tmp_path.glob("**/*.part"))
 
 
-def test_the_default_retry_statuses_hold_the_retryable_codes() -> None:
+def test_default_retry_statuses() -> None:
     assert 429 in DEFAULT_RETRY_STATUSES
     assert 503 in DEFAULT_RETRY_STATUSES

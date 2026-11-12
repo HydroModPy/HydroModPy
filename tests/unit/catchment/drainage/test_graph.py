@@ -198,40 +198,19 @@ def _build(*, diagonal_neighbors: bool, delineated_catchment: np.ndarray | None)
     )
 
 
-def _counting(
-    original: Callable[..., list[set[int]]],
-) -> tuple[dict[str, int], Callable[..., list[set[int]]]]:
-    """A wrapper that still does the real construction, but counts the calls."""
-    calls = {"n": 0}
+def test_a_disconnected_adjacency_strands_the_descent(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The metric must descend the graph the flood just used. The ramp has no
+    # depression, so a disconnected adjacency only matters to the metric. If the
+    # descent still reaches the whole catchment, the metric built its own graph.
+    catchment = np.ones(N_CELLS, dtype=bool)
+    baseline = _build(diagonal_neighbors=True, delineated_catchment=catchment)
+    assert baseline.frac_reachable_obs_raw == pytest.approx(1.0)
 
-    def wrapper(*args: object, **kwargs: object) -> list[set[int]]:
-        calls["n"] += 1
-        return original(*args, **kwargs)
+    def _disconnected(face_node_connectivity: np.ndarray, *, n_cells: int) -> list[set[int]]:
+        return [set() for _ in range(n_cells)]
 
-    return calls, wrapper
+    monkeypatch.setattr(stream_geometry_module, "shared_node_adjacency", _disconnected)
 
+    broken = _build(diagonal_neighbors=True, delineated_catchment=catchment)
 
-class TestTheGraphFollowsTheAdjacencyItWasGiven:
-    def test_a_disconnected_adjacency_strands_the_descent(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """The graph the metric descends must be the one the flood just used.
-
-        The ramp has no depression, so a disconnected adjacency changes nothing
-        for the flood: this isolates the one place left where the adjacency
-        can still matter, the metric. If the descent still reaches the whole
-        catchment despite it, the metric rebuilt its own, correct graph instead
-        of receiving this one, which is the bug this file pins.
-        """
-        catchment = np.ones(N_CELLS, dtype=bool)
-        baseline = _build(diagonal_neighbors=True, delineated_catchment=catchment)
-        assert baseline.frac_reachable_obs_raw == pytest.approx(1.0)
-
-        def _disconnected(face_node_connectivity: np.ndarray, *, n_cells: int) -> list[set[int]]:
-            return [set() for _ in range(n_cells)]
-
-        monkeypatch.setattr(stream_geometry_module, "shared_node_adjacency", _disconnected)
-
-        broken = _build(diagonal_neighbors=True, delineated_catchment=catchment)
-
-        assert broken.frac_reachable_obs_raw < 0.5
+    assert broken.frac_reachable_obs_raw < 0.5

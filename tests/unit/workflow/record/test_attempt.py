@@ -107,23 +107,27 @@ class _FailsAfterTheSeal:
 
 
 @pytest.mark.parametrize(
-    "error",
+    ("error", "raised_type"),
     [
-        pytest.param(DisplayError("run x is sealed; draw the figure again"), id="a figure"),
-        pytest.param(ExportError("run x is sealed; write the exports again"), id="an export"),
-        pytest.param(KeyboardInterrupt(), id="a stop while the figures draw"),
+        pytest.param(
+            DisplayError("run x is sealed; draw the figure again"), StepError, id="a figure"
+        ),
+        pytest.param(
+            ExportError("run x is sealed; write the exports again"), StepError, id="an export"
+        ),
+        pytest.param(KeyboardInterrupt(), KeyboardInterrupt, id="a stop while the figures draw"),
     ],
 )
-def test_a_render_that_fails_after_the_seal_leaves_the_run_sealed_and_completed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: BaseException
+def test_render_failure_after_the_seal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: BaseException, raised_type: type
 ) -> None:
     _refuse_the_index(monkeypatch)
     project = _project(tmp_path)
     seen: dict = {}
 
-    # The pipeline names the step that failed; the CLI exits by the category of the cause.
-    expected = KeyboardInterrupt if isinstance(error, KeyboardInterrupt) else StepError
-    with pytest.raises(expected) as raised:
+    # The pipeline wraps a failure in a StepError that names the step. The CLI exits by
+    # the category of its cause. A stop passes through unwrapped.
+    with pytest.raises(raised_type) as raised:
         with run_attempt(project, CASE, case_id=CASE, project="demo", site=None) as handle:
             _fill(project, handle.claim)
             ctx = _ctx(project, handle.run_dir, handle.claim.sim_id)
@@ -137,8 +141,7 @@ def test_a_render_that_fails_after_the_seal_leaves_the_run_sealed_and_completed(
                 heartbeat=handle.heartbeat,
             )
 
-    if expected is StepError:
-        assert raised.value.cause is error
+    assert getattr(raised.value, "cause", error) is error
     run_dir = handle.run_dir
     assert is_sealed(run_dir)
     outcome = read_outcome(run_dir)
@@ -159,7 +162,7 @@ class _AsksToStop:
         return state.advance(step_index=state.step_index + 1, step_name=self.name)
 
 
-def test_a_stop_asked_between_two_steps_closes_the_attempt_aborted_as_a_signal_would(
+def test_stop_between_two_steps_aborts(
     tmp_path: Path,
 ) -> None:
     project = _project(tmp_path)
@@ -184,14 +187,3 @@ def test_a_stop_asked_between_two_steps_closes_the_attempt_aborted_as_a_signal_w
     assert stop_flag_for(run_dir).is_file(), "the flag stays for the attempt that resumes"
     rows = WorkflowJournal(run_dir).list_steps(CASE)
     assert [(row.step_name, row.status) for row in rows] == [("asks_to_stop", "completed")]
-
-
-# A handle marked by withdraw() closes nothing: the pulse stops, the run log is
-# detached, and the claim is undone. That is how an identical run gives the
-# completed run back without leaving a directory.
-
-
-def _no_error():
-    from contextlib import nullcontext
-
-    return nullcontext()

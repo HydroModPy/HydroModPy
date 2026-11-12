@@ -65,55 +65,22 @@ _T_MAP = (
     ("b", box(0.0, 100.0, 100.0, 200.0)),
     ("c", box(100.0, 100.0, 200.0, 200.0)),
 )
-_X_MAP = (
-    ("a", box(0.0, 0.0, 100.0, 100.0)),
-    ("b", box(100.0, 0.0, 200.0, 100.0)),
-    ("c", box(0.0, 100.0, 100.0, 200.0)),
-    ("d", box(100.0, 100.0, 200.0, 200.0)),
+
+
+@pytest.mark.parametrize(
+    "source",
+    [{"path": "geology.tif"}, {"path": "g.dat", "kind": "raster"}],
+    ids=["by extension", "by kind"],
 )
-
-
-def _zone_on_side(line: LineString, zones: dict[str, Polygon], side: float) -> str:
-    """The zone a point just beside the first segment of *line* falls in."""
-    (x0, y0), (x1, y1) = line.coords[0], line.coords[1]
-    length = np.hypot(x1 - x0, y1 - y0)
-    probe = Point(
-        0.5 * (x0 + x1) - side * (y1 - y0) / length, 0.5 * (y0 + y1) + side * (x1 - x0) / length
-    )
-    return next(key for key, polygon in zones.items() if polygon.contains(probe))
-
-
-def _as_rows(contacts) -> list[tuple[str, str, tuple]]:
-    return [
-        (left, right, tuple(line.coords))
-        for line, left, right in zip(
-            contacts.lines, contacts.zone_left, contacts.zone_right, strict=True
-        )
-    ]
-
-
-def test_a_raster_source_has_no_contact_line() -> None:
-    assert (
-        geology_lines(
-            {"source": {"path": "geology.tif"}},
-            config_path=None,
-            crs_wkt=_L93,
-            read_vector=_refusing(),
-        )
-        is None
-    )
-    assert (
-        geology_lines(
-            {"source": {"path": "g.dat", "kind": "raster"}},
-            config_path=None,
-            crs_wkt=_L93,
-            read_vector=_refusing(),
-        )
-        is None
+def test_raster_has_no_contacts(source: dict) -> None:
+    contacts = geology_lines(
+        {"source": source}, config_path=None, crs_wkt=_L93, read_vector=_refusing()
     )
 
+    assert contacts is None
 
-def test_a_vector_source_reads_its_contacts(tmp_path) -> None:
+
+def test_vector_contacts(tmp_path) -> None:
     frame = gpd.GeoDataFrame(
         {"code": [3, 1, 2]},
         geometry=[polygon for _, polygon in _T_MAP],
@@ -131,7 +98,7 @@ def test_a_vector_source_reads_its_contacts(tmp_path) -> None:
     assert pairs == {("1", "3"), ("2", "3"), ("1", "2")}
 
 
-def test_a_map_in_another_crs_is_reprojected_to_the_project_crs(tmp_path) -> None:
+def test_map_reprojected(tmp_path) -> None:
     zones = [
         (code, translate(polygon, 350000.0, 6790000.0))
         for code, (_, polygon) in zip((3, 1, 2), _T_MAP)
@@ -156,7 +123,7 @@ def test_a_map_in_another_crs_is_reprojected_to_the_project_crs(tmp_path) -> Non
 _BOUNDS = (0.0, 0.0, 200.0, 100.0)
 
 
-def test_the_bands_of_a_support_meet_on_their_breaks() -> None:
+def test_band_contacts() -> None:
     support = GeneratedBandsSupportConfig(
         kind="generated_bands",
         coordinate_mode="absolute",
@@ -176,7 +143,7 @@ def test_the_bands_of_a_support_meet_on_their_breaks() -> None:
         assert line.coords[0][0] == west and line.length == 100.0
 
 
-def test_relative_breaks_are_shares_of_the_extent_along_the_axis() -> None:
+def test_relative_band_breaks() -> None:
     support = GeneratedBandsSupportConfig(
         kind="generated_bands", axis="y", breaks=[0.25], labels=["south", "north"]
     )
@@ -186,7 +153,7 @@ def test_relative_breaks_are_shares_of_the_extent_along_the_axis() -> None:
     assert line.length == 200.0
 
 
-def test_the_rings_of_a_support_are_circles_around_its_centre() -> None:
+def test_ring_contacts() -> None:
     support = GeneratedRingsSupportConfig(
         kind="generated_rings",
         coordinate_mode="absolute",
@@ -207,24 +174,24 @@ def test_the_rings_of_a_support_are_circles_around_its_centre() -> None:
         assert line.length == pytest.approx(2.0 * np.pi * radius, rel=1e-3)
 
 
-def test_relative_radii_are_shares_of_the_largest_inscribed_circle() -> None:
+def test_relative_ring_radii() -> None:
     support = GeneratedRingsSupportConfig(kind="generated_rings", radii=[0.5], labels=["in", "out"])
     (line,) = support_contacts(support, _BOUNDS).lines
 
     assert Point(100.0, 50.0).distance(line) == pytest.approx(25.0, abs=1e-2)
 
 
-def test_a_support_with_no_analytical_zones_has_no_contacts() -> None:
+def test_support_without_zones() -> None:
     assert support_contacts(object(), _BOUNDS) is None
 
 
-def test_a_map_with_no_polygon_has_no_contact() -> None:
+def test_map_without_polygon() -> None:
     contacts = contact_lines((("a", None), ("b", Polygon())))
 
     assert contacts == GeologyLines(lines=(), zone_left=(), zone_right=())
 
 
-def test_a_zone_inside_another_shares_no_contact() -> None:
+def test_nested_zones_no_contact() -> None:
     """Overlapping polygons share no boundary: no face can follow their contact."""
     contacts = contact_lines(
         (("a", box(0.0, 0.0, 300.0, 300.0)), ("b", box(100.0, 100.0, 200.0, 200.0)))
@@ -253,36 +220,43 @@ def _rings(**members: object) -> GeologyLines | None:
     return support_contacts(support, _BOUNDS)
 
 
+def _source_with_no_path(_tmp_path):
+    return geology_lines({"source": {}}, config_path=None, crs_wkt=_L93, read_vector=_refusing())
+
+
+def _zone_drawn_as_a_line(_tmp_path):
+    return contact_lines((("a", LineString([(0, 0), (1, 0)])),))
+
+
+def _band_break_outside_the_extent(_tmp_path):
+    support = GeneratedBandsSupportConfig(
+        kind="generated_bands", coordinate_mode="absolute", breaks=[250.0], labels=["a", "b"]
+    )
+    return support_contacts(support, _BOUNDS)
+
+
+def _ring_centre_outside_the_domain(_tmp_path):
+    return _rings(radii=[10.0], center_x=250.0, center_y=50.0)
+
+
+def _ring_wider_than_the_domain(_tmp_path):
+    return _rings(radii=[60.0])
+
+
 _REFUSALS = {
-    "source with no path": (
-        lambda _: geology_lines(
-            {"source": {}}, config_path=None, crs_wkt=_L93, read_vector=_refusing()
-        ),
-        "a geology support needs source.path",
-    ),
-    "zone drawn as a line": (
-        lambda _: contact_lines((("a", LineString([(0, 0), (1, 0)])),)),
-        "geology zone 'a' holds a LineString",
-    ),
+    "source with no path": (_source_with_no_path, "a geology support needs source.path"),
+    "zone drawn as a line": (_zone_drawn_as_a_line, "geology zone 'a' holds a LineString"),
     "map with no CRS": (_map_with_no_crs, "declares no CRS"),
     "band break outside the extent": (
-        lambda _: support_contacts(
-            GeneratedBandsSupportConfig(
-                kind="generated_bands",
-                coordinate_mode="absolute",
-                breaks=[250.0],
-                labels=["a", "b"],
-            ),
-            _BOUNDS,
-        ),
+        _band_break_outside_the_extent,
         r"breaks of the generated_bands support lie outside \(0.0, 200.0\)",
     ),
     "ring centre outside the domain": (
-        lambda _: _rings(radii=[10.0], center_x=250.0, center_y=50.0),
+        _ring_centre_outside_the_domain,
         "the centre of the generated_rings support lies outside its domain",
     ),
     "ring wider than the domain": (
-        lambda _: _rings(radii=[60.0]),
+        _ring_wider_than_the_domain,
         "must lie inside the largest circle around its centre",
     ),
 }
@@ -290,7 +264,7 @@ _REFUSALS = {
 
 @pytest.mark.filterwarnings("ignore:'crs' was not provided")
 @pytest.mark.parametrize("case", list(_REFUSALS))
-def test_a_geology_that_gives_no_contact_line_is_refused(case: str, tmp_path) -> None:
+def test_refusals(case: str, tmp_path) -> None:
     build, message = _REFUSALS[case]
 
     with pytest.raises(MeshRequestError, match=message):

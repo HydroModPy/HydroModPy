@@ -1,8 +1,9 @@
 """A key only a pre-release of 2.0 wrote is refused, with every such key.
 
 Each line of ``hydromodpy/config/prerelease_forms.txt`` is one case: the key written in
-a document of its own, which a load refuses with its path. The doctor of this version writes nothing on such a file, a sealed run that holds one is
-refused the same way, and ``--set`` is refused without a file to rewrite.
+a document of its own, which a load refuses with its path. The doctor of this version
+writes nothing on such a file. The model still says what replaces a retired section,
+which a Python caller and a sealed snapshot read.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from hydromodpy.config.config_migration import (
     PRERELEASE_FORMS,
@@ -19,6 +21,7 @@ from hydromodpy.config.config_migration import (
     migrate_config_doc,
     migrate_config_doc_on_load,
 )
+from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 
 NO_REWRITE = "This version does not rewrite the file."
@@ -510,3 +513,10 @@ def test_hmp_doctor_on_a_file_of_a_pre_release_says_the_way_out(
     assert path.read_text() == written
     captured = capsys.readouterr()
     assert NO_REWRITE in captured.out + captured.err
+
+
+def test_the_mesh_catchment_batch_section_stays_refused() -> None:
+    document = {"geographic": {"source_mode": "synthetic"}, "mesh_catchment_batch": {}}
+
+    with pytest.raises(ValidationError, match="no replacement"):
+        HydroModPyConfig.model_validate(document)

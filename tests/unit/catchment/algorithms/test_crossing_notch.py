@@ -71,7 +71,7 @@ def _cut(**options):
     return valley, *bench.notch(valley, crossings, **options)
 
 
-def test_the_embankment_pixel_on_the_channel_alone_falls_to_the_bed_and_is_reported() -> None:
+def test_embankment_cut_to_the_bed() -> None:
     valley, out, report = _cut()
     assert valley.dem[ROW, AXIS] == pytest.approx(bench.bed(ROW) + HEIGHT)
     assert out[ROW, AXIS] == pytest.approx(bench.bed(ROW))
@@ -83,7 +83,7 @@ def test_the_embankment_pixel_on_the_channel_alone_falls_to_the_bed_and_is_repor
     assert report.median_lowering_m == pytest.approx(HEIGHT)
 
 
-def test_a_bed_read_on_both_sides_follows_a_sloping_embankment_foot() -> None:
+def test_bed_on_both_sides() -> None:
     """The line joins the two bed levels, so a steeper reach is followed, not levelled."""
     valley, crossings = _road()
     valley.dem[ROW + 3, AXIS] -= 1.0
@@ -114,7 +114,7 @@ NOTCHED = {
 @pytest.mark.parametrize(
     ("case", "options", "row", "expected"), NOTCHED.values(), ids=list(NOTCHED)
 )
-def test_one_crossing_on_the_channel_is_cut_to_the_bed(case, options, row, expected) -> None:
+def test_one_crossing_cut(case, options, row, expected) -> None:
     valley, crossings = case()
     out, report = bench.notch(valley, crossings, **options)
     assert out[row, AXIS] == pytest.approx(bench.bed(row))
@@ -136,7 +136,7 @@ UNTOUCHED = {
 
 
 @pytest.mark.parametrize(("case", "options", "expected"), UNTOUCHED.values(), ids=list(UNTOUCHED))
-def test_a_structure_that_is_no_crossing_to_cut_leaves_the_ground_alone(case, options, expected):
+def test_no_crossing_no_cut(case, options, expected):
     valley, crossings = case()
     out, report = bench.notch(valley, crossings, **options)
     assert (out == valley.dem).all()
@@ -179,7 +179,7 @@ SKIPPED = {
 
 
 @pytest.mark.parametrize(("case", "options", "reason"), SKIPPED.values(), ids=list(SKIPPED))
-def test_a_crossing_that_cannot_be_cut_is_skipped_with_its_reason(case, options, reason) -> None:
+def test_skipped_crossings(case, options, reason) -> None:
     valley, crossings = case()
     out, report = bench.notch(valley, crossings, **options)
     assert np.array_equal(out, valley.dem)
@@ -187,7 +187,7 @@ def test_a_crossing_that_cannot_be_cut_is_skipped_with_its_reason(case, options,
     assert report.skipped_detail[0]["reason"] == reason
 
 
-def test_a_skip_on_a_dam_names_the_structure_and_its_meaning() -> None:
+def test_dam_skip_message() -> None:
     valley = _pond_behind_a_dam()
     road_and_dam = ("road", bench.road_along(ROW)), ("dam", bench.bridge_at(AXIS, ROW))
     out, report = bench.notch(valley, bench.structures(*road_and_dam), kinds=("road",))
@@ -199,7 +199,7 @@ def test_a_skip_on_a_dam_names_the_structure_and_its_meaning() -> None:
     assert (off.skipped_detail[0]["kind"], off.crossing_points) == ("bridge", {})
 
 
-def test_spans_that_do_not_settle_are_skipped_not_cut_against_a_wall(monkeypatch) -> None:
+def test_unsettled_spans_skipped(monkeypatch) -> None:
     monkeypatch.setattr(crossing_notch, "_MAX_PLAN_PASSES", 1)
     valley, crossings = _road(8, ("railway", bench.road_along(11)), rows=(8, 11))
     out, report = bench.notch(valley, crossings)
@@ -207,7 +207,7 @@ def test_spans_that_do_not_settle_are_skipped_not_cut_against_a_wall(monkeypatch
     assert report.skipped == {"no_bed_end": 2}
 
 
-def test_the_kinds_are_the_ones_of_the_data_variable() -> None:
+def test_kinds() -> None:
     from hydromodpy.data.variables.crossings.config import KINDS
 
     assert tuple(KINDS) == crossing_notch._KINDS
@@ -224,7 +224,7 @@ def test_the_kinds_are_the_ones_of_the_data_variable() -> None:
     ],
     ids=["unknown kind", "no kind column"],
 )
-def test_a_crossings_frame_the_data_variable_would_refuse_is_refused(frame, reason) -> None:
+def test_refusals(frame, reason) -> None:
     with pytest.raises(ValueError, match=reason):
         bench.notch(bench.build(embankment_rows=(ROW,), height=HEIGHT), frame())
 
@@ -239,9 +239,7 @@ def test_a_crossings_frame_the_data_variable_would_refuse_is_refused(frame, reas
     ],
     ids=["cap bites", "line lands on the cap", "cap above the embankment", "two over one pixel"],
 )
-def test_max_depth_bounds_the_lowering_and_a_bitten_pixel_is_reported(
-    height, cap, extra, lowering, capped
-) -> None:
+def test_max_depth(height, cap, extra, lowering, capped) -> None:
     """A road and a bridge at the same crossing lower the pixel once, to the cap at most."""
     valley, crossings = _road(ROW, *extra, height=height)
     out, report = bench.notch(valley, crossings, max_depth_m=cap)
@@ -263,7 +261,7 @@ def _forked(*, tributary_acc: float, main_acc: float = 2.0):
     return valley, bench.notch(valley, crossings, bed_reach_m=40.0, max_depth_m=30.0)[0]
 
 
-def test_upstream_the_walk_climbs_the_branch_that_drains_the_larger_area() -> None:
+def test_walk_climbs_the_larger_branch() -> None:
     valley, out = _forked(tributary_acc=50.0)
     # 13 (10 m), the junction row (20 m), then east along the tributary: 30 m and 40 m.
     z_down = bench.bed(14 + 4)
@@ -282,9 +280,7 @@ def test_upstream_the_walk_climbs_the_branch_that_drains_the_larger_area() -> No
     ],
     ids=["two roads far apart", "thirty metres apart", "one cell apart", "reach over both"],
 )
-def test_two_structures_are_two_notches_that_never_read_each_other_as_the_bed(
-    rows, second, options, notched
-) -> None:
+def test_two_notches_are_independent(rows, second, options, notched) -> None:
     valley, crossings = _road(rows[0], (second, bench.road_along(rows[1])), rows=rows)
     out, report = bench.notch(valley, crossings, **options)
     for row in rows:
@@ -295,7 +291,7 @@ def test_two_structures_are_two_notches_that_never_read_each_other_as_the_bed(
 
 
 @pytest.mark.parametrize("width", [4.0, 30.0, 60.0], ids=["below the cell size", "30 m", "60 m"])
-def test_a_notch_lowers_the_neighbours_across_the_embankment_only(width) -> None:
+def test_notch_width(width) -> None:
     valley, out, _ = _cut(notch_width_m=width, max_depth_m=5.0)
     rows, cols = np.nonzero(out != valley.dem)
     assert set(rows.tolist()) == {ROW}
@@ -312,7 +308,7 @@ RES5, N5, AXIS5, ROAD5 = 5.0, 61, 30, 30
 
 
 @pytest.mark.parametrize("width", [10.0, 20.0, 40.0])
-def test_on_a_five_metre_dem_the_embankment_falls_and_the_reach_ends_never_do(width) -> None:
+def test_five_metre_dem(width) -> None:
     """A 5 m DEM: banks 1 m above a concave bed, a 15 m embankment on three rows."""
     rows, cols = np.arange(N5)[:, None], np.arange(N5)[None, :]
     bed = 100.0 - 0.05 * rows + 0.0004 * rows**2

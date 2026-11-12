@@ -1,0 +1,104 @@
+"""``hmp workspace`` init, list and clean (clean --results goes through the trash)."""
+
+from __future__ import annotations
+
+import importlib
+import sys
+from pathlib import Path
+
+import pytest
+
+from ._hmp import run_main as _run
+
+
+def _load_main():
+    return importlib.import_module("hydromodpy.cli.main")
+
+
+def test_init(monkeypatch, tmp_path) -> None:
+    target = tmp_path / "fresh_ws"
+    monkeypatch.setattr(sys, "argv", ["hmp", "workspace", "init", "-w", str(target)])
+    _load_main().main()
+    assert target.is_dir()
+    assert (target / "projects").is_dir()
+    assert (target / "data").is_dir()
+
+
+def test_clean_needs_a_group(monkeypatch, capsys, tmp_path) -> None:
+    target = tmp_path / "ws"
+    target.mkdir()
+    (target / "data").mkdir()
+    code = _run(
+        monkeypatch,
+        ["hmp", "workspace", "clean", "--workspace", str(target)],
+    )
+    assert code == 14
+    err = capsys.readouterr().err
+    assert "group" in err.lower() or "--all" in err
+
+
+def _workspace_with_results(tmp_path: Path) -> tuple[Path, Path]:
+    from hydromodpy.results.catalog.indexer import rebuild_index
+    from tests._helpers.sealed_runs import make_project, seal_run, write_session_dir
+
+    workspace = tmp_path / "ws"
+    (workspace / "data").mkdir(parents=True)
+    project = make_project(workspace / "projects" / "demo")
+    seal_run(project, "alpha")
+    write_session_dir(project, "calibration", trials=2, best_trial=1)
+    rebuild_index(project)
+    return workspace, project
+
+
+def test_clean_results_to_trash(monkeypatch, capsys, tmp_path) -> None:
+    from hydromodpy.core.state.layout import catalog_path_for
+    from hydromodpy.results.catalog.registration import reserve_version_dirname
+    from hydromodpy.results.trash import list_trash
+
+    workspace, project = _workspace_with_results(tmp_path)
+
+    code = _run(monkeypatch, ["hmp", "workspace", "clean", "--results", "-w", str(workspace), "-y"])
+
+    assert code == 0
+    assert sorted(entry.rel_dir for entry in list_trash(project)) == [
+        "runs/alpha",
+        "sessions/calibration",
+    ]
+    assert list((project / "runs").iterdir()) == []
+    assert not catalog_path_for(project).exists()
+    assert reserve_version_dirname(project, "run", "alpha").name == "alpha.v2"
+
+
+def test_clean_results_dry_run(monkeypatch, capsys, tmp_path) -> None:
+    workspace, project = _workspace_with_results(tmp_path)
+
+    code = _run(monkeypatch, ["hmp", "workspace", "clean", "--results", "-w", str(workspace)])
+
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "Dry-run, would move 2 run(s) and session(s)" in out
+    assert (project / "runs" / "alpha").is_dir()
+    assert not (project / "trash").exists()
+
+
+def test_clean_results_while_running(monkeypatch, capsys, tmp_path) -> None:
+    from tests._helpers.sealed_runs import write_attempt
+
+    workspace, project = _workspace_with_results(tmp_path)
+    write_attempt(project, "runs/busy", status="running", heartbeat_age_s=1)
+
+    code = _run(monkeypatch, ["hmp", "workspace", "clean", "--results", "-w", str(workspace), "-y"])
+
+    assert code == 12
+    assert "runs/busy" in capsys.readouterr().err
+    assert (project / "runs" / "alpha").is_dir()
+    assert not (project / "trash").exists()
+
+
+def test_list(monkeypatch, capsys, tmp_path) -> None:
+    workspace, _project = _workspace_with_results(tmp_path)
+
+    code = _run(monkeypatch, ["hmp", "workspace", "list", "-w", str(workspace), "--format", "json"])
+
+    assert code == 0
+    assert "alpha" in capsys.readouterr().out

@@ -1,4 +1,7 @@
-"""The standard figures and the cohort table."""
+"""The standard figures of a run (series, maps, sections) on one stub run.
+
+The stub run is two square faces of side 1 m with a three-step daily record.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +11,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.display import figure_registry
-from hydromodpy.display.figures._cohort import wants_log
 from hydromodpy.display.figures.concentration_map import ConcentrationMap
 from hydromodpy.display.figures.cross_section import CrossSection
 from hydromodpy.display.figures.difference_map import DifferenceMap
@@ -26,10 +27,7 @@ from hydromodpy.display.figures.scatter_one_to_one import ScatterOneToOne
 from hydromodpy.display.figures.seasonal_boxplot import SeasonalBoxplotFigure
 from hydromodpy.display.figures.seepage_map import SeepageMap
 from hydromodpy.display.figures.side_by_side_map import SideBySideMapFigure
-from hydromodpy.display.figures.water_budget import WaterBudget, _budget_unit_label
 from hydromodpy.display.png_metadata import read_png_metadata
-
-# Behavioral coverage for standard display figures.
 
 
 class _Run:
@@ -132,7 +130,7 @@ class _Run:
         raise KeyError(name)
 
 
-def test_hydrograph_uses_station_series_and_log_axis(mpl) -> None:
+def test_hydrograph_log_axis(mpl) -> None:
     fig, ax = mpl.subplots()
 
     Hydrograph().render(_Run(), ax, log_y=True)
@@ -140,10 +138,9 @@ def test_hydrograph_uses_station_series_and_log_axis(mpl) -> None:
     assert ax.get_yscale() == "log"
     assert ax.lines[0].get_ydata().tolist() == [2.0, 1.5, 1.0, 2.5, 1.2, 0.8]
     assert "Hydrograph" in ax.get_title()
-    mpl.close(fig)
 
 
-def test_duration_curve_sorts_descending_and_uses_exceedance_probability(mpl) -> None:
+def test_duration_curve_exceedance(mpl) -> None:
     fig, ax = mpl.subplots()
 
     DurationCurveFigure().render(_Run(), ax, log_y=False)
@@ -153,10 +150,9 @@ def test_duration_curve_sorts_descending_and_uses_exceedance_probability(mpl) ->
     assert x_data[0] == pytest.approx(100.0 / 7.0)
     assert y_data.tolist() == [2.5, 2.0, 1.5, 1.2, 1.0, 0.8]
     assert ax.get_xlim() == (0.0, 100.0)
-    mpl.close(fig)
 
 
-def test_seasonal_boxplot_places_one_box_per_month(mpl) -> None:
+def test_seasonal_boxplot_months(mpl) -> None:
     fig, ax = mpl.subplots()
 
     SeasonalBoxplotFigure().render(_Run(), ax)
@@ -176,10 +172,9 @@ def test_seasonal_boxplot_places_one_box_per_month(mpl) -> None:
         "Dec",
     ]
     assert "Seasonal distribution" in ax.get_title()
-    mpl.close(fig)
 
 
-def test_recession_curve_extracts_only_decreasing_limbs(mpl) -> None:
+def test_recession_limbs(mpl) -> None:
     fig, ax = mpl.subplots()
 
     RecessionCurveFigure().render(_Run(), ax, min_length=3)
@@ -188,22 +183,9 @@ def test_recession_curve_extracts_only_decreasing_limbs(mpl) -> None:
     assert ax.lines[0].get_ydata().tolist() == [2.0, 1.5, 1.0]
     assert ax.lines[1].get_ydata().tolist() == [2.5, 1.2, 0.8]
     assert "(2 limbs)" in ax.get_title()
-    mpl.close(fig)
 
 
-def test_water_budget_groups_components_and_labels_units(mpl) -> None:
-    fig, ax = mpl.subplots()
-
-    WaterBudget().render(_Run(), ax)
-
-    assert "m3/s" in ax.get_ylabel()
-    assert _budget_unit_label(_Run().budget()) == "m3/s"
-    mixed = pd.DataFrame({"unit": ["m3/s", "m/day"]})
-    assert _budget_unit_label(mixed) == "mixed units"
-    mpl.close(fig)
-
-
-def test_sim_obs_figures_align_only_overlapping_samples(mpl, tmp_path) -> None:
+def test_sim_obs_overlap(mpl, tmp_path) -> None:
     run = _Run()
 
     fig, ax = mpl.subplots()
@@ -213,21 +195,18 @@ def test_sim_obs_figures_align_only_overlapping_samples(mpl, tmp_path) -> None:
     # closes its day; the days the record skips stay gaps instead of taking the
     # nearest sample, as they used to.
     assert ax.lines[1].get_ydata().tolist() == pytest.approx([1.5, 1.0, 2.0])
-    mpl.close(fig)
 
     fig, ax = mpl.subplots()
     ScatterOneToOne().render(run, ax)
     assert any("holds no score" in text.get_text() for text in ax.texts)
-    mpl.close(fig)
 
     path = tmp_path / "residuals.png"
     fig = Residuals().plot(run, bins=4, save_path=path)
     assert path.exists()
     assert len(fig.axes) == 2
-    mpl.close(fig)
 
 
-def test_sim_obs_figures_reject_missing_overlap(mpl) -> None:
+def test_sim_obs_no_overlap_refused(mpl) -> None:
     class _NoOverlapRun(_Run):
         def observed(self, variable: str, *, station: str = "catchment") -> pd.DataFrame:
             del variable, station
@@ -242,15 +221,13 @@ def test_sim_obs_figures_reject_missing_overlap(mpl) -> None:
     fig, ax = mpl.subplots()
     with pytest.raises(ValueError, match="No observed 'discharge' values overlap"):
         HydrographSimObs().render(_NoOverlapRun(), ax)
-    mpl.close(fig)
 
     fig, ax = mpl.subplots()
     with pytest.raises(ValueError, match="share no timestamp"):
         ScatterOneToOne().render(_NoOverlapRun(), ax)
-    mpl.close(fig)
 
 
-def test_ensemble_band_uses_quantiles_and_observed_overlay(mpl) -> None:
+def test_ensemble_band(mpl) -> None:
     fig, ax = mpl.subplots()
     members = [_Run(values=np.asarray([1.0, 2.0])), _Run(values=np.asarray([2.0, 3.0]))]
     observed = pd.Series([1.5, 1.4], index=pd.date_range("2020-01-01", periods=2))
@@ -261,10 +238,9 @@ def test_ensemble_band_uses_quantiles_and_observed_overlay(mpl) -> None:
     assert "2 runs" in ax.get_title()
     # The subject is a set of runs: the display layer refuses a single run.
     assert EnsembleBandFigure.spec.subject == "runset"
-    mpl.close(fig)
 
 
-def test_spatial_figures_render_face_collections_and_titles(mpl) -> None:
+def test_spatial_figures_titles(mpl) -> None:
     cases = [
         (PiezometricMap(), _Run(values=np.asarray([10.0, 12.0])), "Water-table elevation"),
         (RechargeMap(), _Run(values=np.asarray([3.0, 3.0])), "uniform"),
@@ -277,37 +253,32 @@ def test_spatial_figures_render_face_collections_and_titles(mpl) -> None:
         figure.render(run, ax)
         assert len(ax.collections) >= 1
         assert expected_title in ax.get_title()
-        mpl.close(fig)
 
     fig, ax = mpl.subplots()
     RechargeMap().render(_Run(values=np.asarray([3.0, 4.0])), ax)
     assert "uniform" not in ax.get_title()
-    mpl.close(fig)
 
 
-def test_comparison_maps_validate_reference_and_shared_ranges(mpl) -> None:
+def test_comparison_maps(mpl) -> None:
     run = _Run(sim_id="sim-a", values=np.asarray([10.0, 12.0]))
     reference = _Run(sim_id="sim-b", values=np.asarray([9.0, 11.0]))
 
     fig, ax = mpl.subplots()
     with pytest.raises(ValueError, match="reference"):
         DifferenceMap().render(run, ax)
-    mpl.close(fig)
 
     fig, ax = mpl.subplots()
     DifferenceMap().render(run, ax, reference=reference, field="watertable_elevation")
     assert ax.collections[0].get_array().tolist() == pytest.approx([1.0, 1.0])
-    mpl.close(fig)
 
     fig = SideBySideMapFigure().plot(run, reference=reference, field="watertable_elevation")
     data_axes = [axis for axis in fig.axes if axis.get_title()]
     assert len(data_axes) == 2
     assert data_axes[0].collections[0].get_clim() == (9.0, 12.0)
     assert data_axes[1].collections[0].get_clim() == (9.0, 12.0)
-    mpl.close(fig)
 
 
-def test_cross_section_samples_topography_and_watertable_along_a_line(mpl) -> None:
+def test_cross_section_lines(mpl) -> None:
     fig, ax = mpl.subplots()
 
     # The stub mesh spans x in [0, 2], y in [0, 1]; the section runs west to
@@ -323,10 +294,9 @@ def test_cross_section_samples_topography_and_watertable_along_a_line(mpl) -> No
     # everywhere and the two curves never cross.
     assert np.nanmin(topography - watertable) == pytest.approx(5.0)
     assert ax.get_xlabel() == "Distance along section (m)"
-    mpl.close(fig)
 
 
-def test_cross_section_marks_the_streambed_and_its_disconnection_threshold(mpl) -> None:
+def test_cross_section_streambed(mpl) -> None:
     # MODFLOW disconnects a reach at rtp minus the streambed thickness, meters
     # below the ground. A section that only draws the land surface cannot say
     # whether a reach is connected, so both elevations must reach the axes, and
@@ -350,19 +320,17 @@ def test_cross_section_marks_the_streambed_and_its_disconnection_threshold(mpl) 
     # Sample by sample: the threshold is one streambed thickness below the bed.
     assert np.allclose(bed[:, 0], threshold[:, 0])
     assert np.all(threshold[:, 1] < bed[:, 1])
-    mpl.close(fig)
 
 
-def test_cross_section_without_a_stream_network_draws_no_streambed(mpl) -> None:
+def test_cross_section_no_streambed(mpl) -> None:
     fig, ax = mpl.subplots()
     CrossSection().render(_Run(), ax, line=[0.0, 0.5, 2.0, 0.5])
     labels = [coll.get_label() for coll in ax.collections]
     assert "Streambed" not in labels
     assert "Disconnection threshold" not in labels
-    mpl.close(fig)
 
 
-def test_particle_tracks_draws_valid_tracks(monkeypatch, mpl) -> None:
+def test_particle_tracks(monkeypatch, mpl) -> None:
     import hydromodpy.display.figures.particle_tracks as module
 
     monkeypatch.setattr(
@@ -378,10 +346,9 @@ def test_particle_tracks_draws_valid_tracks(monkeypatch, mpl) -> None:
     segments = ax.collections[0].get_segments()
     assert segments[0][:, 0].tolist() == [0.0, 1.0]
     assert ax.get_aspect() == 1.0
-    mpl.close(fig)
 
 
-def test_base_figure_plot_writes_png_metadata(mpl, tmp_path) -> None:
+def test_png_metadata_period(mpl, tmp_path) -> None:
     # The metadata names the period the map drew, not the selector it was
     # asked with: a date the display resolved is a step here.
     run = _Run()
@@ -390,87 +357,17 @@ def test_base_figure_plot_writes_png_metadata(mpl, tmp_path) -> None:
 
     fig = PiezometricMap().plot(run, save_path=path, timestep=1)
 
-    try:
-        info = read_png_metadata(path)
-        assert info["sim_id"] == "sim-a"
-        assert info["time"] == "2020-01-02/2020-01-03"
-        assert info["crs_epsg"] == "2154"
-    finally:
-        mpl.close(fig)
+    info = read_png_metadata(path)
+    assert info["sim_id"] == "sim-a"
+    assert info["time"] == "2020-01-02/2020-01-03"
+    assert info["crs_epsg"] == "2154"
 
 
-def test_png_metadata_names_the_period_by_index_on_a_run_without_dates(mpl, tmp_path) -> None:
+def test_png_metadata_without_dates(mpl, tmp_path) -> None:
     run = _Run()
     run.periods = SimpleNamespace(edges=None)
     path = tmp_path / "piezometric_map.png"
 
     fig = PiezometricMap().plot(run, save_path=path, timestep=-1)
 
-    try:
-        assert read_png_metadata(path)["time"] == "period -1"
-    finally:
-        mpl.close(fig)
-
-
-# The cohort figures draw ``summary/by_site``, one row per site, never a run.
-
-
-def _table(**extra) -> pd.DataFrame:
-    frame = pd.DataFrame(
-        {
-            "site": ["J0014010", "J0170000", "J0200000"],
-            "K": [2e-5, 3e-7, None],
-            "nse": [0.8, 0.5, 0.3],
-            "x_outlet": [350000.0, 360000.0, 370000.0],
-            "y_outlet": [6800000.0, 6810000.0, 6820000.0],
-            "crs": ["EPSG:2154"] * 3,
-        }
-    )
-    return frame.assign(**extra)
-
-
-@pytest.mark.parametrize("name", ["map", "distribution"])
-def test_a_cohort_figure_refuses_a_run(name: str) -> None:
-    figure = figure_registry.get(name)
-
-    reason = figure.unavailable_reason(object())
-
-    assert reason is not None and "cohort table" in reason
-    assert figure.unavailable_reason(_table()) is None
-
-
-def test_the_map_colors_each_outlet_and_leaves_a_missing_value_hollow(mpl) -> None:
-    fig = figure_registry.get("map").plot(_table(), variable="K")
-    ax = fig.axes[0]
-
-    assert "K of the best case of each site (3 sites)" in ax.get_title()
-    assert ax.get_legend() is not None
-    assert [text.get_text() for text in ax.texts] == ["J0014010", "J0170000", "J0200000"]
-    assert ax.collections[0].norm.__class__.__name__ == "LogNorm"
-
-
-def test_the_map_refuses_outlets_in_two_crs(mpl) -> None:
-    table = _table(crs=["EPSG:2154", "EPSG:2154", "EPSG:4326"])
-
-    with pytest.raises(ValueError, match="2 CRS"):
-        figure_registry.get("map").plot(table, variable="nse")
-
-
-def test_the_distribution_counts_the_sites_without_a_value(mpl) -> None:
-    fig = figure_registry.get("distribution").plot(_table(), variable="K")
-    ax = fig.axes[0]
-
-    assert ax.get_title() == "K over 2 sites, 1 without a value"
-    assert ax.get_xscale() == "log"
-
-
-def test_an_unknown_column_names_the_columns_the_table_has(mpl) -> None:
-    with pytest.raises(ValueError, match="no column 'Sy'.*site"):
-        figure_registry.get("distribution").plot(_table(), variable="Sy")
-
-
-def test_a_log_scale_needs_positive_values_over_a_decade() -> None:
-    assert wants_log(np.array([1e-6, 1e-4]), None)
-    assert not wants_log(np.array([1e-5, 2e-5]), None)
-    assert not wants_log(np.array([-1.0, 10.0]), None)
-    assert wants_log(np.array([1.0, 2.0]), True)
+    assert read_png_metadata(path)["time"] == "period -1"

@@ -1,15 +1,12 @@
-"""Cyclic spin-up: convergence readers, delta metric, and the loop control flow.
+"""Cyclic spin-up: the change of head (m) and lake stage (m) between cycles, and the loop.
 
-The loop test drives ``run_spinup`` against a stub Project whose ``simulate``
-hands back pre-written synthetic Zarr stores, so the real driver logic (restart
-injection, delta computation, convergence stop) runs without a solver.
-
-The convergence of a spinup is measured on heads and on lake stages, and its result
-says what a non-converged antecedent is.
+The loop tests drive ``run_spinup`` on a stub project whose ``simulate`` hands back
+small Zarr stores written here, so the restart, the delta and the stop run without a solver.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,14 +14,21 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.model.flow_config import FlowConfig
 from hydromodpy.model.initial_config import FlowInitialConditions, SpinupConfig
-from hydromodpy.project.spinup import cycle_delta, lake_stage_delta, run_spinup
+from hydromodpy.project import api
+from hydromodpy.project.spinup import (
+    SpinupCycle,
+    SpinupResult,
+    cycle_delta,
+    lake_stage_delta,
+    run_spinup,
+)
 from hydromodpy.results.storage.final_state import FinalState, write_final_state
 
 
 def _write_cycle_zarr(path: Path, head: list, stages: dict[str, float] | None = None) -> str:
-    """Write a synthetic run Zarr with a head field and optional lake stages."""
     import zarr
 
     root = zarr.open(str(path), mode="w")
@@ -38,7 +42,7 @@ def _write_cycle_zarr(path: Path, head: list, stages: dict[str, float] | None = 
     return str(path)
 
 
-def test_cycle_delta_reports_linf_head_and_stage(tmp_path: Path) -> None:
+def test_cycle_delta(tmp_path: Path) -> None:
     prev = _write_cycle_zarr(tmp_path / "p.zarr", [[10.0, 10.0, 10.0]], {"lac0": 86.0})
     curr = _write_cycle_zarr(tmp_path / "q.zarr", [[10.2, 10.0, 10.0]], {"lac0": 86.05})
     d_head, d_stage = cycle_delta(prev, curr)
@@ -46,7 +50,7 @@ def test_cycle_delta_reports_linf_head_and_stage(tmp_path: Path) -> None:
     assert d_stage == pytest.approx(0.05)
 
 
-def test_cycle_delta_rejects_shape_change(tmp_path: Path) -> None:
+def test_cycle_delta_refuses_new_mesh(tmp_path: Path) -> None:
     a = _write_cycle_zarr(tmp_path / "a.zarr", [[5.0, 6.0, 7.0]])
     b = _write_cycle_zarr(tmp_path / "b.zarr", [[5.0, 6.0]])
     with pytest.raises(ValueError, match="mesh is not stable"):
@@ -54,7 +58,6 @@ def test_cycle_delta_rejects_shape_change(tmp_path: Path) -> None:
 
 
 def _run_with_final_state(folder: Path, stored: list, exact: list, stage: float) -> str:
-    """A run folder whose field store holds ``stored`` and whose ``final_state/`` holds ``exact``."""
     folder.mkdir()
     store = _write_cycle_zarr(folder / "fields.zarr", stored, {"lac0": stage + 1.0})
     write_final_state(
@@ -68,16 +71,16 @@ def _run_with_final_state(folder: Path, stored: list, exact: list, stage: float)
     return store
 
 
-def test_a_run_of_2_0_without_a_final_state_is_compared_on_its_field_store(tmp_path: Path) -> None:
+def test_cycle_delta_reads_final_state(tmp_path: Path) -> None:
     prev = _write_cycle_zarr(tmp_path / "old0.zarr", [[10.0, 10.0]], {"lac0": 86.0})
     curr = _run_with_final_state(tmp_path / "c1", [[10.5, 10.0]], [[10.75, 10.0]], 86.25)
-    # The first cycle has no final_state/, the second has: each is read as it is stored.
+    # The first cycle has no final_state/ and the second has: each is read as stored.
     d_head, d_stage = cycle_delta(prev, curr)
     assert (d_head, d_stage) == (0.75, 0.25)
 
 
 class _StubProject:
-    """Minimal Project stand-in: simulate() returns a pre-written cycle Zarr."""
+    """Project stand-in: simulate() returns a pre-written cycle Zarr."""
 
     def __init__(self, cfg, cycle_zarrs: list[str]) -> None:
         self.config = self._cfg = cfg
@@ -98,7 +101,6 @@ class _StubProject:
         return self
 
     def simulate(self, *, name: str):
-        # Record the restart_from and IC type the driver set for this cycle.
         self.simulated_restart_from.append(self.config.flow.restart_from)
         self.simulated_ic_type.append(self.config.flow.ic.h.kind)
         path = self._cycle_zarrs[self._i]
@@ -116,7 +118,7 @@ def _stub_config() -> SimpleNamespace:
     )
 
 
-def test_run_spinup_stops_at_max_cycles_without_converging(tmp_path: Path) -> None:
+def test_stops_at_max_cycles(tmp_path: Path) -> None:
     # Each cycle keeps moving by more than tol, so it never converges.
     zarrs = [
         _write_cycle_zarr(tmp_path / f"c{i}.zarr", [[float(i), 0.0]], {"lac0": 80.0 + i})
@@ -130,9 +132,8 @@ def test_run_spinup_stops_at_max_cycles_without_converging(tmp_path: Path) -> No
     assert result.restart_from == zarrs[2]
 
 
-def test_run_spinup_switches_steady_ic_to_top_on_restart(tmp_path: Path) -> None:
-    """Cycles >= 1 flip a steady_state IC to top so the steady pre-solve cannot
-    clobber the restarted heads; cycle 0 keeps the original steady IC."""
+def test_restart_switches_ic_to_top(tmp_path: Path) -> None:
+    # Cycles from 1 on use a top IC so the steady pre-solve cannot overwrite the restart heads.
     zarrs = [
         _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0]], {"lac0": 80.0}),
         _write_cycle_zarr(tmp_path / "c1.zarr", [[5.0, 5.0]], {"lac0": 86.0}),
@@ -151,9 +152,7 @@ def test_run_spinup_switches_steady_ic_to_top_on_restart(tmp_path: Path) -> None
     assert project.simulated_restart_from == [None, zarrs[0], zarrs[1]]
 
 
-def test_the_cycles_store_exact_heads_and_the_project_gets_its_precision_back(
-    tmp_path: Path,
-) -> None:
+def test_cycles_store_exact_heads(tmp_path: Path) -> None:
     zarrs = [
         _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0, 0.0]], {"lac0": 80.0}),
         _write_cycle_zarr(tmp_path / "c1.zarr", [[0.0, 0.0, 0.0]], {"lac0": 80.0}),
@@ -175,10 +174,7 @@ def test_the_cycles_store_exact_heads_and_the_project_gets_its_precision_back(
     assert cfg.simulation.results.persistence.field_precision == "compact"
 
 
-def test_spinup_refuses_a_sites_project(tmp_path: Path) -> None:
-    from hydromodpy.core.exceptions import ConfigError
-    from hydromodpy.project import api
-
+def test_refuses_a_sites_project(tmp_path: Path) -> None:
     project = tmp_path / "project.toml"
     project.write_text('[sites]\ntable = "sites.csv"\n\n[sites.recipes]\nbase = "base.toml"\n')
 
@@ -189,38 +185,29 @@ def test_spinup_refuses_a_sites_project(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("before", "after", "delta"),
     [
-        pytest.param({}, {}, 0.0, id="no-lake-at-all-is-a-change-of-zero"),
+        pytest.param({}, {}, 0.0, id="no lake"),
         pytest.param(
             {"cheze": 1.0},
             {"cheze": 1.25},
             pytest.approx(0.25),
-            id="a-shared-lake-gives-its-largest-change",
+            id="one shared lake",
         ),
         pytest.param(
             {"a": 1.0, "b": 5.0},
             {"a": 1.1, "b": 5.9},
             pytest.approx(0.9),
-            id="several-lakes-give-the-largest-of-them",
+            id="largest of several lakes",
         ),
-        pytest.param(
-            {"cheze": 1.0}, {}, None, id="a-lake-gone-in-the-second-cycle-is-no-comparison"
-        ),
-        pytest.param(
-            {}, {"cheze": 1.0}, None, id="a-lake-new-in-the-second-cycle-is-no-comparison"
-        ),
-        pytest.param({"a": 1.0}, {"b": 1.0}, None, id="two-cycles-naming-different-lakes"),
+        pytest.param({"cheze": 1.0}, {}, None, id="lake gone"),
+        pytest.param({}, {"cheze": 1.0}, None, id="lake new"),
+        pytest.param({"a": 1.0}, {"b": 1.0}, None, id="different lakes"),
     ],
 )
-def test_the_lake_stage_delta_is_the_largest_change_of_the_lakes_both_cycles_name(
-    before: dict[str, float], after: dict[str, float], delta: object
-) -> None:
+def test_lake_stage_delta(before: dict[str, float], after: dict[str, float], delta: object) -> None:
     assert lake_stage_delta(before, after) == delta
 
 
-def test_the_result_says_what_a_non_converged_antecedent_is(tmp_path) -> None:
-    """`--then-run` seeds production from the last cycle whether it settled or not."""
-    from hydromodpy.project.spinup import SpinupCycle, SpinupResult
-
+def test_warning_of_a_non_converged_antecedent() -> None:
     result = SpinupResult(
         converged=False,
         cycles=[SpinupCycle(0, "a", "a.zarr", None, None)],
@@ -232,11 +219,7 @@ def test_the_result_says_what_a_non_converged_antecedent_is(tmp_path) -> None:
 
 
 @pytest.mark.parametrize("converged", [True, False])
-def test_the_result_gives_its_json_form_with_the_warning_a_cli_prints(converged: bool) -> None:
-    import json
-
-    from hydromodpy.project.spinup import SpinupCycle, SpinupResult
-
+def test_result_json_form(converged: bool) -> None:
     result = SpinupResult(
         converged=converged,
         cycles=[SpinupCycle(0, "a", "a.zarr", None, None), SpinupCycle(1, "b", "b.zarr", 0.5, 0.0)],

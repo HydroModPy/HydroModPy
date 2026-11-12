@@ -1,4 +1,8 @@
-"""The level of a run, what it keeps, and the witness ``gc`` leaves on a trial."""
+"""The level of a run (research, result, publication), what it keeps, and the witness ``gc`` leaves.
+
+A kept trial is research, a promoted run is a result and a published copy is
+publication. The witness lists the entries ``gc`` removed from a trial, with sizes in bytes.
+"""
 
 from __future__ import annotations
 
@@ -16,91 +20,64 @@ from hydromodpy.solver.base.results_config import ResultsConfig
 EVERYTHING = BudgetKeep.everything()
 CONSUMERS = BudgetKeep.of_terms({"drain", "recharge"})
 
-LEVEL_CASES = (
-    ("no lineage", None, False, "result"),
-    ("a kept trial", Lineage(kind="trial"), False, "research"),
-    ("a promoted run", Lineage(kind="promoted"), False, "result"),
-    ("a rerun", Lineage(kind="rerun"), False, "result"),
-    ("a version", Lineage(kind="version"), False, "result"),
-    ("a replay", Lineage(kind="replay"), False, "result"),
-    ("a published copy", Lineage(kind="promoted"), True, "publication"),
-    ("a published trial", Lineage(kind="trial"), True, "publication"),
-)
+LEVELS_OF = [
+    pytest.param(None, False, "result", id="no lineage"),
+    pytest.param(Lineage(kind="trial"), False, "research", id="a kept trial"),
+    pytest.param(Lineage(kind="promoted"), False, "result", id="a promoted run"),
+    pytest.param(Lineage(kind="rerun"), False, "result", id="a rerun"),
+    pytest.param(Lineage(kind="version"), False, "result", id="a version"),
+    pytest.param(Lineage(kind="replay"), False, "result", id="a replay"),
+    pytest.param(Lineage(kind="promoted"), True, "publication", id="a published copy"),
+    pytest.param(Lineage(kind="trial"), True, "publication", id="a published trial"),
+]
 
 
-@pytest.mark.parametrize(
-    ("case", "lineage", "published", "level"), LEVEL_CASES, ids=[case for case, *_ in LEVEL_CASES]
-)
-def test_a_level_is_read_from_the_lineage(
-    case: str, lineage: Lineage | None, published: bool, level: str
-) -> None:
-    del case
-
+@pytest.mark.parametrize(("lineage", "published", "level"), LEVELS_OF)
+def test_level_of_a_lineage(lineage, published, level) -> None:
     assert level_of(lineage, published=published) == level
 
 
-AT_LEAST = tuple(
-    (level, wanted, LEVELS.index(level) >= LEVELS.index(wanted))
-    for level in LEVELS
-    for wanted in LEVELS
-)
-
-
-RENDERS = (("research", False), ("result", True), ("publication", True))
-
-
-RETENTION_KEYS = tuple(
-    (
-        f"{level}, solver files {solver_files}, face flows {face_flows}",
-        level,
-        solver_files,
-        face_flows,
-    )
-    for level in ("research", "result")
-    for solver_files in (False, True)
-    for face_flows in (False, True)
-)
-
-
-def test_the_per_cell_budget_of_a_kept_trial_holds_its_consumer_terms() -> None:
+def test_kept_trial_budget_terms() -> None:
     retention = Retention.of("research", ResultsConfig(), CONSUMERS)
 
     assert retention.budget.keeps("drain")
     assert not retention.budget.keeps("storage_ss")
 
 
-@pytest.mark.parametrize(
-    ("level", "sentence"),
-    [
-        ("publication", "a published copy is made by hmp publish"),
-        ("published", "A run level is one of"),
-        ("", "A run level is one of"),
-    ],
-    ids=["publication", "unknown", "empty"],
-)
-def test_a_retention_refuses_a_level_a_run_is_not_written_at(level: str, sentence: str) -> None:
+LEVEL_REFUSALS = [
+    pytest.param("publication", "a published copy is made by hmp publish", id="publication"),
+    pytest.param("published", "A run level is one of", id="unknown"),
+    pytest.param("", "A run level is one of", id="empty"),
+]
+
+
+@pytest.mark.parametrize(("level", "sentence"), LEVEL_REFUSALS)
+def test_refused_levels(level: str, sentence: str) -> None:
     with pytest.raises(ValueError, match=sentence):
         Retention.of(level, ResultsConfig(), EVERYTHING)
 
 
-@pytest.mark.parametrize(
-    ("members", "named"),
-    [
-        ({"level": "result", "budget": {"drain"}}, "budget"),
-        ({"level": "result", "budget": EVERYTHING, "solver_files": "yes"}, "solver_files"),
-        ({"level": "result", "budget": EVERYTHING, "face_flows": "yes"}, "face_flows"),
-        ({"level": 4, "budget": EVERYTHING}, "level"),
-        ({"level": "publication", "budget": EVERYTHING}, "a published copy"),
-    ],
-    ids=[
-        "a budget that is not a BudgetKeep",
-        "solver files that are not a bool",
-        "face flows that are not a bool",
-        "a level that is not a str",
-        "the publication level",
-    ],
-)
-def test_a_retention_refuses_a_member_of_the_wrong_type(members: dict, named: str) -> None:
+MEMBER_REFUSALS = [
+    pytest.param({"level": "result", "budget": {"drain"}}, "budget", id="budget not a BudgetKeep"),
+    pytest.param(
+        {"level": "result", "budget": EVERYTHING, "solver_files": "yes"},
+        "solver_files",
+        id="solver files not a bool",
+    ),
+    pytest.param(
+        {"level": "result", "budget": EVERYTHING, "face_flows": "yes"},
+        "face_flows",
+        id="face flows not a bool",
+    ),
+    pytest.param({"level": 4, "budget": EVERYTHING}, "level", id="level not a str"),
+    pytest.param(
+        {"level": "publication", "budget": EVERYTHING}, "a published copy", id="publication level"
+    ),
+]
+
+
+@pytest.mark.parametrize(("members", "named"), MEMBER_REFUSALS)
+def test_refused_members(members: dict, named: str) -> None:
     with pytest.raises((TypeError, ValueError), match=named):
         Retention(**members)
 
@@ -108,24 +85,29 @@ def test_a_retention_refuses_a_member_of_the_wrong_type(members: dict, named: st
 AT = datetime(2026, 11, 11, 8, 30, tzinfo=UTC)
 
 
-@pytest.mark.parametrize(
-    ("entries", "named"),
-    [
-        ({"fields.zarr": 1}, None),
-        ({"mesh": 1}, "names 'mesh', which gc never removes"),
-        ({"tables.parquet": 1}, "names 'tables.parquet', which gc never removes"),
-    ],
-    ids=["the fields", "the mesh a replay reads", "an entry gc never removes"],
-)
-def test_a_witness_names_only_what_gc_removes(entries: dict[str, int], named: str | None) -> None:
-    if named is None:
-        assert Purged(at=AT, entries=entries).entries == entries
-    else:
-        with pytest.raises(ValueError, match=named):
-            Purged(at=AT, entries=entries)
+def test_purged_entries() -> None:
+    entries = {"fields.zarr": 1}
+
+    assert Purged(at=AT, entries=entries).entries == entries
 
 
-def test_a_witness_of_another_schema_is_refused(tmp_path) -> None:
+PURGED_REFUSALS = [
+    pytest.param({"mesh": 1}, "names 'mesh', which gc never removes", id="the mesh a replay reads"),
+    pytest.param(
+        {"tables.parquet": 1},
+        "names 'tables.parquet', which gc never removes",
+        id="an entry gc never removes",
+    ),
+]
+
+
+@pytest.mark.parametrize(("entries", "named"), PURGED_REFUSALS)
+def test_purged_refusals(entries: dict[str, int], named: str) -> None:
+    with pytest.raises(ValueError, match=named):
+        Purged(at=AT, entries=entries)
+
+
+def test_purged_schema_refused(tmp_path) -> None:
     path = tmp_path / "purged.json"
     path.write_text(json.dumps({"schema": "hydromodpy.purged.v2", "at": AT.isoformat()}), "utf-8")
 

@@ -41,7 +41,7 @@ def _mask(vertices, connectivity, geometries, **kwargs) -> np.ndarray:
     )
 
 
-def test_empty_geometry_set_gives_an_empty_mask():
+def test_empty_geometry_set():
     vertices, connectivity = _quad_grid()
 
     mask = _mask(vertices, connectivity, [])
@@ -50,7 +50,7 @@ def test_empty_geometry_set_gives_an_empty_mask():
     assert not mask.any()
 
 
-def test_distance_widens_the_mask_and_leaves_the_input_geometry_alone():
+def test_distance_widens_the_mask():
     vertices, connectivity = _quad_grid()
     line = LineString([(150.0, 140.0), (150.0, 160.0)])
 
@@ -65,7 +65,7 @@ def test_distance_widens_the_mask_and_leaves_the_input_geometry_alone():
 
 
 @pytest.mark.parametrize("missing", ["mesh_crs", "geometry_crs"])
-def test_a_missing_crs_raises(missing):
+def test_missing_crs(missing):
     vertices, connectivity = _quad_grid()
     crs = {"mesh_crs": CRS, "geometry_crs": CRS, missing: None}
 
@@ -73,7 +73,7 @@ def test_a_missing_crs_raises(missing):
         _mask(vertices, connectivity, [LineString([(10.0, 10.0), (20.0, 20.0)])], **crs)
 
 
-def test_a_linework_would_lose_half_its_cells_under_the_centroid_rule():
+def test_touch_rule_for_linework():
     vertices, connectivity = _quad_grid()
     line = LineString([(10.0, 150.0), (290.0, 150.0)])
     assert _mask(vertices, connectivity, [line]).sum() == 3
@@ -84,14 +84,14 @@ def test_a_linework_would_lose_half_its_cells_under_the_centroid_rule():
     assert not _mask(vertices, connectivity, [off_centre], rule="centroid").any()
 
 
-def test_the_two_rules_cannot_be_combined():
+def test_rules_not_combined():
     vertices, connectivity = _quad_grid()
     polygon = Polygon([(100.0, 100.0), (200.0, 100.0), (200.0, 200.0), (100.0, 200.0)])
     with pytest.raises(ValueError, match="two different masks"):
         _mask(vertices, connectivity, [polygon], rule="centroid", distance_m=50.0)
 
 
-def test_an_unknown_rule_is_refused_by_name():
+def test_unknown_rule():
     vertices, connectivity = _quad_grid()
     with pytest.raises(ValueError, match="rule must be"):
         _mask(vertices, connectivity, [], rule="nearest")
@@ -106,7 +106,7 @@ def _fraction(vertices, connectivity, geometries, **kwargs) -> np.ndarray:
     )
 
 
-def test_inside_cells_weigh_one_outside_zero_and_cut_cells_their_share() -> None:
+def test_area_fraction_of_cut_cells() -> None:
     vertices, connectivity = _quad_grid()
     # Covers the left column, a quarter of the middle column, nothing on the right.
     polygon = box(0.0, 0.0, 125.0, 300.0)
@@ -116,7 +116,7 @@ def test_inside_cells_weigh_one_outside_zero_and_cut_cells_their_share() -> None
     np.testing.assert_allclose(fraction.reshape(3, 3), [[1.0, 0.25, 0.0]] * 3)
 
 
-def test_the_weighted_areas_sum_to_the_polygon_area_where_the_centroid_mask_does_not() -> None:
+def test_weighted_areas_sum_to_polygon() -> None:
     vertices, connectivity = _quad_grid(size=10.0, n=40, x0=-200.0, y0=-200.0)
     angles = np.linspace(0.0, 2.0 * np.pi, 400, endpoint=False)
     radius = 150.0 * (1.0 + 0.1 * np.sin(5.0 * angles))
@@ -136,7 +136,7 @@ def test_the_weighted_areas_sum_to_the_polygon_area_where_the_centroid_mask_does
     np.testing.assert_array_equal(fraction == 1.0, centroid & ~cut)
 
 
-def test_a_polygon_in_another_frame_is_projected_before_the_overlay() -> None:
+def test_polygon_in_another_crs() -> None:
     from pyproj import Transformer
 
     vertices, connectivity = _quad_grid(size=1000.0, n=2, x0=700000.0, y0=6600000.0)
@@ -149,7 +149,7 @@ def test_a_polygon_in_another_frame_is_projected_before_the_overlay() -> None:
     np.testing.assert_allclose(fraction, [1.0, 0.0, 1.0, 0.0], atol=1e-4)
 
 
-def test_a_degenerate_cell_and_an_empty_layer_weigh_nothing() -> None:
+def test_degenerate_cell_and_empty_layer() -> None:
     vertices, connectivity = _quad_grid(n=2)
     polygons = cell_polygons(vertices, connectivity)
     polygons[3] = None
@@ -163,14 +163,14 @@ def test_a_degenerate_cell_and_an_empty_layer_weigh_nothing() -> None:
     np.testing.assert_array_equal(empty, np.zeros(4))
 
 
-def test_a_missing_frame_is_refused_rather_than_guessed() -> None:
+def test_missing_mesh_crs() -> None:
     vertices, connectivity = _quad_grid(n=2)
 
     with pytest.raises(ValueError, match="explicit mesh_crs"):
         _fraction(vertices, connectivity, [box(0.0, 0.0, 50.0, 50.0)], mesh_crs=None)
 
 
-def test_a_mesh_with_no_usable_cell_reaches_nothing() -> None:
+def test_no_usable_cell() -> None:
     polygons = np.array([None, None], dtype=object)
     layer = [box(0.0, 0.0, 100.0, 100.0)]
 
@@ -195,7 +195,7 @@ def _star_polygons(draw) -> Polygon:
 
 @settings(max_examples=50, deadline=None, derandomize=True)
 @given(_star_polygons())
-def test_the_area_shares_sum_to_the_polygon_inside_the_mesh(polygon: Polygon) -> None:
+def test_area_shares_sum_to_polygon_inside(polygon: Polygon) -> None:
     fraction = cell_area_fraction(KM_POLYGONS, [polygon], mesh_crs=CRS, geometry_crs=CRS)
     inside = polygon.intersection(box(0.0, 0.0, 1000.0, 1000.0)).area
 

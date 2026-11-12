@@ -1,4 +1,7 @@
-"""WP7 - MODFLOW 6 GWT transport correctness (decay, scheme, IMS, steady sp0)."""
+"""The MF6 GWT transport model decays a solute, follows the flow solver complexity and starts steady.
+
+Rates are in 1/s for first order decay and in concentration per s for zero order decay.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +10,10 @@ from types import SimpleNamespace
 
 import flopy
 import numpy as np
+import pytest
 
+from hydromodpy.mesh.planar.cell_types import CellType
+from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.model.transport.transport_config import (
     ConcentrationTransportParametersConfig,
 )
@@ -18,7 +24,7 @@ from tests._helpers.model_factory import make_model
 from tests._helpers.solver_meshes import solver_mesh_from
 
 
-def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> Modflow6Transport:
+def build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> Modflow6Transport:
     ncpl = 3
     sim = flopy.mf6.MFSimulation(sim_name="sim", sim_ws=str(tmp_path), exe_name="mf6")
     flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)], time_units="seconds")
@@ -29,10 +35,6 @@ def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> 
         [[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]], dtype=float
     )
     conn = np.array([[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6]], dtype=int)
-    from hydromodpy.mesh.planar.cell_types import CellType
-    from hydromodpy.mesh.planar.hydro_mesh import CellBlock, HydroMesh
-    from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-
     mesh = solver_mesh_from(
         HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),)),
         top=np.full(ncpl, 10.0),
@@ -79,30 +81,35 @@ def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> 
     return solver
 
 
-def test_mst_zero_order_decay_activates(tmp_path) -> None:
-    solver = _build_gwt(tmp_path / "zero", {"react_order": 0, "rate_decay": 0.002, "porosity": 0.3})
-    assert bool(solver.mst.zero_order_decay.get_data()) is True
-    assert not solver.mst.first_order_decay.get_data()
-    np.testing.assert_allclose(np.asarray(solver.mst.decay.get_data()), 0.002)
+# (parameters, zero order decay flag, first order decay flag)
+DECAYS = [
+    pytest.param({"react_order": 0, "rate_decay": 0.002}, True, False, id="zero order"),
+    pytest.param({"react_order": 1, "rate_decay": 0.5}, False, True, id="first order"),
+    pytest.param({"react_order": None}, False, False, id="no decay"),
+]
 
-    first = _build_gwt(tmp_path / "first", {"react_order": 1, "rate_decay": 0.5, "porosity": 0.3})
-    assert bool(first.mst.first_order_decay.get_data()) is True
-    assert not first.mst.zero_order_decay.get_data()
 
-    none = _build_gwt(tmp_path / "none", {"react_order": None, "porosity": 0.3})
-    assert not none.mst.zero_order_decay.get_data()
-    assert not none.mst.first_order_decay.get_data()
+@pytest.mark.parametrize(("params", "zero_order", "first_order"), DECAYS)
+def test_decay_order(tmp_path, params, zero_order, first_order) -> None:
+    solver = build_gwt(tmp_path, params | {"porosity": 0.3})
+    assert bool(solver.mst.zero_order_decay.get_data()) is zero_order
+    assert bool(solver.mst.first_order_decay.get_data()) is first_order
+
+
+def test_decay_rate(tmp_path) -> None:
+    zero = build_gwt(tmp_path / "zero", {"react_order": 0, "rate_decay": 0.002, "porosity": 0.3})
+    np.testing.assert_allclose(np.asarray(zero.mst.decay.get_data()), 0.002)
+    none = build_gwt(tmp_path / "none", {"react_order": None, "porosity": 0.3})
     assert none.mst.decay.get_data() is None
 
 
-def test_gwt_ims_complexity_follows_flow_config(tmp_path) -> None:
-    simple = _build_gwt(tmp_path / "simple", {"porosity": 0.3}, complexity="SIMPLE")
-    assert str(simple.ims.complexity.get_data()).upper() == "SIMPLE"
-    moderate = _build_gwt(tmp_path / "moderate", {"porosity": 0.3}, complexity="MODERATE")
-    assert str(moderate.ims.complexity.get_data()).upper() == "MODERATE"
+@pytest.mark.parametrize("complexity", ["SIMPLE", "MODERATE"])
+def test_ims_complexity_follows_the_flow_config(tmp_path, complexity) -> None:
+    solver = build_gwt(tmp_path, {"porosity": 0.3}, complexity=complexity)
+    assert str(solver.ims.complexity.get_data()).upper() == complexity
 
 
-def test_build_crch_includes_sp0_when_fully_steady() -> None:
+def test_recharge_concentration_includes_period_zero() -> None:
     solver = object.__new__(Modflow6Transport)
     solver.sconc_input = 5.0
     solver.model_modflow = SimpleNamespace(nper=1, ncpl=4)
@@ -111,14 +118,14 @@ def test_build_crch_includes_sp0_when_fully_steady() -> None:
     np.testing.assert_allclose(crch[0], [5.0, 5.0, 5.0, 5.0])
 
 
-def test_normalize_sconc_input_keys_include_period_zero_single_period() -> None:
+def test_sconc_keys_include_period_zero() -> None:
     single = _normalize_sconc_input(0.05, nper=1, nrow=None, ncol=None, ncpl=3, structured=False)
     assert set(single) == {0}
     multi = _normalize_sconc_input(0.05, nper=5, nrow=None, ncol=None, ncpl=3, structured=False)
     assert set(multi) == {1, 2, 3, 4}
 
 
-def test_sp0_recharge_concentration_warning_emitted(monkeypatch) -> None:
+def test_period_zero_concentration_warning(monkeypatch) -> None:
     messages: list[str] = []
     monkeypatch.setattr(
         "hydromodpy.solver.modflow_common.runtime_arrays.logger.warning",

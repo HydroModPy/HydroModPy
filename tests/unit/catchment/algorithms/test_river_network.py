@@ -109,7 +109,7 @@ def _build(tmp_path: Path, config: RiverNetworkConfig, backend: object, **option
     ],
     ids=["area", "cells"],
 )
-def test_the_stream_threshold_is_a_count_of_cells(network, dem_res, cells) -> None:
+def test_threshold_in_cells(network, dem_res, cells) -> None:
     assert resolve_stream_threshold_cells(river_network=network, dem_res_m=dem_res) == cells
 
 
@@ -122,12 +122,12 @@ def test_the_stream_threshold_is_a_count_of_cells(network, dem_res, cells) -> No
     ],
     ids=["no cell size", "no area", "no cells"],
 )
-def test_a_threshold_that_names_no_count_is_refused(network, dem_res, reason) -> None:
+def test_refused_threshold(network, dem_res, reason) -> None:
     with pytest.raises(ValueError, match=reason):
         resolve_stream_threshold_cells(river_network=network, dem_res_m=dem_res)
 
 
-def test_the_full_network_is_pruned_ordered_linked_vectorised_and_summarised(tmp_path) -> None:
+def test_full_network_products(tmp_path) -> None:
     backend = RecordingBackend()
     result = _build(tmp_path, _config(prune_short_streams=True), backend, network_crs="EPSG:2154")
     full_and_clipped = [
@@ -156,7 +156,7 @@ def test_the_full_network_is_pruned_ordered_linked_vectorised_and_summarised(tmp
     assert summary["drainage_density_km_per_km2"] == pytest.approx(0.06 / 0.002)
 
 
-def test_an_empty_vector_removes_the_stale_shapefile_and_keeps_the_summary(tmp_path) -> None:
+def test_empty_vector_removes_stale_shapefile(tmp_path) -> None:
     backend = RecordingBackend(records=(), projection="EPSG:2154")
     stale = tmp_path / "geographic" / "river_network.shp"
     stale.parent.mkdir(parents=True)
@@ -172,6 +172,6 @@ def test_an_empty_vector_removes_the_stale_shapefile_and_keeps_the_summary(tmp_p
     assert (summary["segment_count"], summary["max_strahler_order"]) == (0, None)
 
 
-def test_a_backend_without_the_raster_tools_is_refused(tmp_path) -> None:
+def test_refused_backend(tmp_path) -> None:
     with pytest.raises(TypeError, match="delineation backend with raster APIs"):
         _build(tmp_path, _config(), SimpleNamespace(raster=None))

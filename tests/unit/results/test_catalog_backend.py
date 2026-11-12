@@ -1,10 +1,7 @@
-"""Unit tests for the :class:`DuckDBBackend` Protocol and the DuckDB adapter.
+"""The DuckDB adapter of the catalog index: reads, writes, transactions, and its refusals.
 
-The Protocol is structural; ``DuckDBBackend`` must satisfy it via
-``isinstance`` checks since the Protocol is ``runtime_checkable``. Each
-public method is exercised against a temporary DuckDB file so the suite
-catches regressions in parameter binding, transactions, and idempotent
-upserts.
+Each public method runs on a temporary DuckDB file, so parameter binding,
+commit, rollback and the upsert key checks are exercised for real.
 """
 
 from __future__ import annotations
@@ -24,30 +21,37 @@ def backend(tmp_path: Path) -> DuckDBBackend:
     b.close()
 
 
-def test_fetch_one_returns_row_tuple(backend: DuckDBBackend) -> None:
-    row = backend.fetch_one("SELECT 7, 'q'")
-    assert row == (7, "q")
+def test_fetch_one(backend: DuckDBBackend) -> None:
+    assert backend.fetch_one("SELECT 7, 'q'") == (7, "q")
 
 
-def test_insert_rejects_empty_row(backend: DuckDBBackend) -> None:
-    backend.execute("CREATE TABLE t (a INT)")
+REFUSALS = [
+    pytest.param("CREATE TABLE t (a INT)", "insert", ("t", {}), {}, id="insert of an empty row"),
+    pytest.param(
+        "CREATE TABLE t (a INT PRIMARY KEY, b VARCHAR)",
+        "upsert",
+        ("t", {"b": "only"}),
+        {"key_cols": ["a"]},
+        id="upsert without its key",
+    ),
+    pytest.param(
+        "CREATE TABLE t (a INT, b VARCHAR)",
+        "upsert",
+        ("t", {"a": 1, "b": "x"}),
+        {"key_cols": []},
+        id="upsert with no key columns",
+    ),
+]
+
+
+@pytest.mark.parametrize(("ddl", "method", "args", "kwargs"), REFUSALS)
+def test_refusals(backend: DuckDBBackend, ddl, method, args, kwargs) -> None:
+    backend.execute(ddl)
     with pytest.raises(ValueError):
-        backend.insert("t", {})
+        getattr(backend, method)(*args, **kwargs)
 
 
-def test_upsert_rejects_missing_key(backend: DuckDBBackend) -> None:
-    backend.execute("CREATE TABLE t (a INT PRIMARY KEY, b VARCHAR)")
-    with pytest.raises(ValueError):
-        backend.upsert("t", {"b": "only"}, key_cols=["a"])
-
-
-def test_upsert_rejects_empty_keys(backend: DuckDBBackend) -> None:
-    backend.execute("CREATE TABLE t (a INT, b VARCHAR)")
-    with pytest.raises(ValueError):
-        backend.upsert("t", {"a": 1, "b": "x"}, key_cols=[])
-
-
-def test_transaction_commit_persists(backend: DuckDBBackend) -> None:
+def test_transaction_commit(backend: DuckDBBackend) -> None:
     backend.execute("CREATE TABLE t (a INT)")
     with backend.transaction():
         backend.execute("INSERT INTO t VALUES (?)", [1])
@@ -56,7 +60,7 @@ def test_transaction_commit_persists(backend: DuckDBBackend) -> None:
     assert rows == [(1,), (2,)]
 
 
-def test_transaction_rollback_discards(backend: DuckDBBackend) -> None:
+def test_transaction_rollback(backend: DuckDBBackend) -> None:
     backend.execute("CREATE TABLE t (a INT)")
     with pytest.raises(RuntimeError):
         with backend.transaction():
@@ -66,7 +70,7 @@ def test_transaction_rollback_discards(backend: DuckDBBackend) -> None:
     assert rows == []
 
 
-def test_from_connection_does_not_close(tmp_path: Path) -> None:
+def test_from_connection_stays_open(tmp_path: Path) -> None:
     import duckdb
 
     conn = duckdb.connect(str(tmp_path / "c.duckdb"))
@@ -79,7 +83,7 @@ def test_from_connection_does_not_close(tmp_path: Path) -> None:
     conn.close()
 
 
-def test_query_with_dict_params(backend: DuckDBBackend) -> None:
+def test_query_with_named_params(backend: DuckDBBackend) -> None:
     backend.execute("CREATE TABLE t (a INT, b VARCHAR)")
     backend.execute("INSERT INTO t VALUES (?, ?)", [1, "u"])
     backend.execute("INSERT INTO t VALUES (?, ?)", [2, "v"])

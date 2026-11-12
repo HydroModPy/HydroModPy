@@ -29,7 +29,7 @@ def _config(**catchment) -> GeographicConfig:
     return outlet_config(x=450.0, y=550.0, catchment={"snap_dist": "150 m", **catchment})
 
 
-def test_prepare_geographic_run_reads_the_aggregated_dem_when_asked(tmp_path: Path) -> None:
+def test_aggregated_dem(tmp_path: Path) -> None:
     dem = _dem(tmp_path)
 
     def prepared(name: str, **catchment):
@@ -49,7 +49,7 @@ def test_prepare_geographic_run_reads_the_aggregated_dem_when_asked(tmp_path: Pa
     assert same.dem_path == str(dem)
 
 
-def test_a_given_polygon_is_the_catchment_and_its_domain_is_buffered_around_it(tmp_path) -> None:
+def test_polygon_catchment_and_buffered_domain(tmp_path) -> None:
     dem = _dem(tmp_path)
     polygon = write_features(tmp_path / "given.shp", [box(200.0, 200.0, 800.0, 800.0)])
     config = GeographicConfig.from_polygon(polygon, buff_area="100 m")
@@ -66,7 +66,7 @@ def test_a_given_polygon_is_the_catchment_and_its_domain_is_buffered_around_it(t
     assert domain.catchment_area_km2 == pytest.approx(0.36)
 
 
-def test_a_dem_driven_domain_has_no_catchment_to_build(tmp_path) -> None:
+def test_dem_domain_has_no_catchment(tmp_path) -> None:
     dem = _dem(tmp_path)
     config = GeographicConfig.from_dem()
     run = prepare_geographic_run(config=config, out_dir_path=tmp_path / "run", dem_path=dem)

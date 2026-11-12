@@ -8,7 +8,7 @@ from hydromodpy.model.boundaries.boundary_conditions import FlowBoundaryConditio
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 
 
-def test_the_examples_render_one_block_per_parameter_then_the_drain_and_the_recharge() -> None:
+def test_one_block_per_parameter_then_drain_and_recharge() -> None:
     calls: list[tuple[str, type, int, dict | None]] = []
 
     def renderer(

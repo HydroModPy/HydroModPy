@@ -1,4 +1,4 @@
-"""Unit tests for the generic file data source."""
+"""The generic file data source: bounds, missing paths and frozen mode against the lockfile."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from hydromodpy.data.source.file import DemFile
 from hydromodpy.data.source.port import FetchRequest
 
 
-def test_file_source_refuses_path_outside_allowed_roots(tmp_path: Path) -> None:
+def test_path_outside_allowed_roots(tmp_path: Path) -> None:
     allowed = tmp_path / "workspace"
     allowed.mkdir()
     outside = tmp_path / "secret" / "dem.tif"
@@ -29,16 +29,13 @@ def test_file_source_refuses_path_outside_allowed_roots(tmp_path: Path) -> None:
         source.fetch(req)
 
 
-def test_file_source_refuses_absent_path(tmp_path: Path) -> None:
+def test_absent_path(tmp_path: Path) -> None:
     absent = tmp_path / "nonexistent.tif"
     source = DemFile(path=absent)
     req = FetchRequest(out_dir=tmp_path / "out")
 
     with pytest.raises(FileNotFoundError, match=r"\[data\.dem\] file source path not found"):
         source.fetch(req)
-
-
-# -- frozen mode: a user file must be one the lockfile pins ---------------------------------
 
 
 @pytest.fixture
@@ -61,7 +58,7 @@ def frozen_project(tmp_path: Path) -> tuple[Path, lockfile.LockedInputs]:
     return inputs, lockfile.read_locked_inputs(project)
 
 
-def test_frozen_mode_serves_a_user_file_the_lockfile_pins(
+def test_frozen_serves_a_pinned_file(
     frozen_project: tuple[Path, lockfile.LockedInputs],
 ) -> None:
     inputs, locked = frozen_project
@@ -70,7 +67,7 @@ def test_frozen_mode_serves_a_user_file_the_lockfile_pins(
     assert [record.path.name for record in result.files] == ["dem.tif"]
 
 
-def test_frozen_mode_refuses_a_user_file_whose_bytes_changed(
+def test_frozen_refuses_changed_bytes(
     frozen_project: tuple[Path, lockfile.LockedInputs],
 ) -> None:
     inputs, locked = frozen_project

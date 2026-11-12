@@ -1,4 +1,4 @@
-"""Unit tests for hydromodpy.data.common.stations."""
+"""Report of the stations a source dropped: a warning, and an error when nothing is left."""
 
 from __future__ import annotations
 
@@ -7,12 +7,11 @@ import pytest
 from hydromodpy.data.common.stations import report_dropped
 
 
-def test_report_dropped_empty():
-    # When dropped is empty, no-op
+def test_nothing_dropped_is_silent():
     report_dropped("hydrometry", "hubeau", named=["A"], dropped=[], kept=["A"], reason="test")
 
 
-def test_report_dropped_all_named_no_raise_when_disabled():
+def test_all_named_stations_dropped_warns_when_not_raising():
     with pytest.warns(
         UserWarning, match="every named station of source 'hubeau' was dropped|2 station.*dropped"
     ):
@@ -27,8 +26,8 @@ def test_report_dropped_all_named_no_raise_when_disabled():
         )
 
 
-def test_report_dropped_search_dropped_all_warns_only():
-    # For a geographic search where named is None or empty, dropping all does not raise DataSourceError
+def test_a_search_that_drops_everything_only_warns():
+    # A geographic search names no station, so it never raises DataSourceError.
     with pytest.warns(UserWarning, match="No station of the search lies inside"):
         report_dropped(
             "hydrometry",

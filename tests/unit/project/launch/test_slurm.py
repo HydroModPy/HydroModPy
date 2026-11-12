@@ -47,7 +47,7 @@ def _planned(root: Path, **kwargs):
     return planned_project(root, cases=CASES, **kwargs)
 
 
-def test_the_job_holds_two_scripts_and_the_cases_of_the_plan(tmp_path: Path) -> None:
+def test_job_scripts_and_cases(tmp_path: Path) -> None:
     root = tmp_path / "bretagne"
     stored = _planned(root)
 
@@ -81,7 +81,7 @@ def test_a_job_directory_is_written_once(tmp_path: Path) -> None:
     assert not [p for p in (root / "jobs").iterdir() if p.name.startswith(".staging")]
 
 
-def test_a_later_plan_leaves_the_cases_of_a_waiting_job_alone(tmp_path: Path) -> None:
+def test_waiting_job_keeps_its_cases(tmp_path: Path) -> None:
     root = tmp_path / "p"
     _planned(root)
     job = write_slurm_array(root, stamp=STAMP)
@@ -103,7 +103,7 @@ def test_without_a_plan_nothing_is_written(tmp_path: Path) -> None:
     assert not (root / "jobs").exists()
 
 
-def test_a_plan_older_than_its_project_file_is_refused(tmp_path: Path) -> None:
+def test_stale_plan_refused(tmp_path: Path) -> None:
     root = tmp_path / "p"
     _planned(root)
     with (root / "project.toml").open("a") as handle:
@@ -134,7 +134,7 @@ def test_invalid_options_are_refused(tmp_path: Path, kwargs: dict, message: str)
     assert not (root / "jobs").exists()
 
 
-def test_a_stamp_and_a_project_path_are_checked(tmp_path: Path) -> None:
+def test_stamp_and_path_checked(tmp_path: Path) -> None:
     root = tmp_path / "p"
     _planned(root)
     with pytest.raises(JobUsageError, match="stamp"):
@@ -160,7 +160,7 @@ def _parsed(case: Path, flags: list[str]) -> argparse.Namespace:
     return run_command.register(subparsers).parse_args([str(case), *flags])
 
 
-def test_the_prepare_phase_stops_after_load_data(tmp_path: Path) -> None:
+def test_prepare_stops_after_load_data(tmp_path: Path) -> None:
     root, plan = _project(tmp_path)
 
     flags = task_flags(root, plan / "j001-base.toml", phase="prepare")
@@ -171,7 +171,7 @@ def test_the_prepare_phase_stops_after_load_data(tmp_path: Path) -> None:
     assert resolve_step_index(args.until_step, steps) < model_phase_index(steps)
 
 
-def test_a_calibration_case_is_prepared_as_a_simulation(tmp_path: Path) -> None:
+def test_calibration_prepared_as_simulation(tmp_path: Path) -> None:
     root, plan = _project(tmp_path)
 
     flags = task_flags(root, plan / f"{CALIBRATION}.toml", phase="prepare")
@@ -181,7 +181,7 @@ def test_a_calibration_case_is_prepared_as_a_simulation(tmp_path: Path) -> None:
     assert args.set_overrides == ["workflow.mode=simulation"]
 
 
-def test_a_first_solve_resumes_nothing_and_freezes_only_with_a_lock(tmp_path: Path) -> None:
+def test_first_solve_flags(tmp_path: Path) -> None:
     root, plan = _project(tmp_path)
     case = plan / "j001-base.toml"
 
@@ -190,7 +190,7 @@ def test_a_first_solve_resumes_nothing_and_freezes_only_with_a_lock(tmp_path: Pa
     assert task_flags(root, case, phase="solve") == ["--frozen"]
 
 
-def test_a_simulation_left_failed_resumes_in_place(tmp_path: Path) -> None:
+def test_failed_simulation_resumes(tmp_path: Path) -> None:
     root, plan = _project(tmp_path)
     (root / "hydromodpy.lock").write_text("pinned\n")
     claim = claim_run_directory(root, "j001-base", case_id="j001-base", project="p")
@@ -211,7 +211,7 @@ def test_a_calibration_never_takes_resume(tmp_path: Path) -> None:
     assert task_flags(root, plan / f"{CALIBRATION}.toml", phase="solve") == ["--frozen"]
 
 
-def test_a_case_outside_the_plan_or_a_bad_phase_is_refused(tmp_path: Path) -> None:
+def test_unknown_case_or_phase_refused(tmp_path: Path) -> None:
     root, plan = _project(tmp_path)
     stray = plan / "j999-base.toml"
     stray.write_text('[site]\nname = "j999"\n')
@@ -222,9 +222,7 @@ def test_a_case_outside_the_plan_or_a_bad_phase_is_refused(tmp_path: Path) -> No
         task_flags(root, plan / "j001-base.toml", phase="data")
 
 
-def test_the_lock_is_written_from_the_workspace_of_the_case(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_lock_from_case_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root, plan = _project(tmp_path)
     seen: dict[str, Path] = {}
 
@@ -261,7 +259,7 @@ def _claimed(tmp_path: Path, *, pid: int, host: str | None = None) -> tuple[Path
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_finish_task_reads_the_signal_and_the_tail_of_the_log(tmp_path: Path) -> None:
+def test_finish_task_reads_signal_and_log(tmp_path: Path) -> None:
     root, case_toml = _claimed(tmp_path, pid=dead_pid())
     log = tmp_path / "task.out"
     log.write_text("".join(f"line {i}\n" for i in range(100)))
@@ -275,7 +273,7 @@ def test_finish_task_reads_the_signal_and_the_tail_of_the_log(tmp_path: Path) ->
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_finish_task_leaves_a_live_or_foreign_worker_alone(tmp_path: Path) -> None:
+def test_finish_task_spares_live_worker(tmp_path: Path) -> None:
     root, case_toml = _claimed(tmp_path / "alive", pid=os.getpid())
     assert finish_task(root, case_toml, exit_code=1) is None
     outcome = read_outcome(root / "runs" / "j001-base")
@@ -291,7 +289,7 @@ def test_finish_task_leaves_a_live_or_foreign_worker_alone(tmp_path: Path) -> No
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_finish_task_without_a_run_directory_writes_nothing(tmp_path: Path) -> None:
+def test_finish_task_without_run(tmp_path: Path) -> None:
     root = tmp_path / "p"
     stored = _planned(root)
 
@@ -301,7 +299,7 @@ def test_finish_task_without_a_run_directory_writes_nothing(tmp_path: Path) -> N
 
 @pytest.mark.allow_subprocess
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
-def test_a_calibration_session_left_running_is_closed_too(tmp_path: Path) -> None:
+def test_running_session_is_closed(tmp_path: Path) -> None:
     root = tmp_path / "p"
     stored = _planned(root)
     session = root / "sessions" / "j003-calage"

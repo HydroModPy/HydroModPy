@@ -2,13 +2,15 @@
 
 The seepage raster of the flow run is derived from its heads. A head equal to ``hnoflo`` or ``hdry``
 is not a water table: the water table stands in the highest layer with a finite head, and a column
-with none seeps nowhere. The raster takes ``-9999`` as its own nodata.
+with none seeps nowhere. The raster takes ``-9999`` as its own nodata. Heads and land surface are
+in m, the drain band depth in m. The adapter hands its validated parameters to the engine.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import flopy
 import numpy as np
@@ -16,8 +18,11 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
+from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.model.transport.transport_config import ModpathParametersConfig
 from hydromodpy.solver.base.plan import RunSlot, SolverRun
 from hydromodpy.solver.modflow_nwt.modpath import modpath
+from tests.unit.solver.modflow_common.solver_runs import solved_run
 
 _HNOFLO = -9999.0
 _HDRY = -1.0e30
@@ -112,3 +117,60 @@ def test_a_drain_band_lets_the_water_table_seep_from_half_a_band_below_the_surfa
 ) -> None:
     assert _seepage(monkeypatch, tmp_path, [9.0, 5.0], 10.0, band=2.0) == 1.0
     assert _seepage(monkeypatch, tmp_path / "other", [8.9, 5.0], 10.0, band=2.0) == 0.0
+
+
+def flow_run_of(tmp_path: Path) -> SolverRun:
+    flow_model = SimpleNamespace(
+        model_name="island",
+        full_path=str(tmp_path / "island"),
+        solver_mesh=SimpleNamespace(nrow=10, ncol=10),
+    )
+    return solved_run(tmp_path / "island", solver_model=flow_model)
+
+
+def test_build_forwards_parameters_and_writes_the_seepage_clip(tmp_path: Path, monkeypatch) -> None:
+    recorded: dict[str, Any] = {}
+    clipped = []
+
+    class _FakeModpath:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            recorded["params"] = kwargs.get("params")
+            self.model_folder = kwargs.get("model_folder")
+            self.model_name = kwargs.get("model_name")
+            self.full_path = str(tmp_path / "island")
+
+        def pre_processing(self) -> None:
+            pass
+
+    monkeypatch.setattr(modpath, "Modpath", _FakeModpath)
+    monkeypatch.setattr(modpath, "_write_seepage_clip_raster", clipped.append)
+    options = ModpathParametersConfig(zone_partic="seepage_clip", track_dir="backward")
+    model = SimpleNamespace(geometry=SimpleNamespace(domain="DOMAIN", geographic="GEOGRAPHIC"))
+
+    modpath.ModpathTransportAdapter().build(
+        model, options, RunSlot(tmp_path, "island_mp"), (flow_run_of(tmp_path),)
+    )
+
+    assert recorded["params"]["track_dir"] == "backward"
+    assert recorded["params"]["zone_partic"] == "seepage_clip"
+    assert len(clipped) == 1
+
+
+def test_refusals(tmp_path: Path) -> None:
+    # A run name with spaces names its NWT files with underscores, and so its heads.
+    flow_dir = tmp_path / "Example 12 run"
+    flow_model = SimpleNamespace(
+        full_path=str(flow_dir), dem_watershed_path=str(tmp_path / "dem.tif")
+    )
+    followed = SolverRun(
+        slot=RunSlot(tmp_path, "Example 12 run"),
+        model=None,
+        options=None,
+        solver_model=flow_model,
+        output_dir=flow_dir,
+        written=True,
+        solved=True,
+    )
+
+    with pytest.raises(SolverInputError, match="Example_12_run.hds"):
+        modpath._write_seepage_clip_raster(followed)

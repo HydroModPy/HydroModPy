@@ -1,3 +1,10 @@
+"""Flow configuration payloads.
+
+Flow parameters and boundary conditions round-trip through JSON. The root schema holds
+no opaque dict. A flow barrier (HFB) has its hydraulic characteristic in 1/s from
+``hydchr`` or from ``k`` (m/s) over ``thickness`` (m).
+"""
+
 from __future__ import annotations
 
 import re
@@ -10,8 +17,6 @@ from hydromodpy.model.boundaries.boundary_conditions import DirichletBC, DrainBC
 from hydromodpy.model.flow_config import FlowConfig, FlowParam
 from hydromodpy.model.sinks_sources.container import FlowSinksSourcesConfig
 from hydromodpy.model.sinks_sources.flow_barrier import FlowBarrierConfig
-
-# Native Pydantic payload tests for flow parameters.
 
 
 def test_flow_param_native_round_trip_all_sections() -> None:
@@ -53,9 +58,6 @@ def test_flow_param_native_round_trip_all_sections() -> None:
     reloaded = FlowConfig.model_validate_json(cfg.model_dump_json())
 
     assert reloaded == cfg
-
-
-# Native Pydantic payload tests for flow boundary conditions.
 
 
 def test_flow_bc_native_round_trip_dirichlet_and_cauchy() -> None:
@@ -124,45 +126,6 @@ def _opaque_fields(model: type[BaseModel], section_path: str, seen: set[int]) ->
 def test_no_opaque_dicts_in_root_schema() -> None:
     opaque = _opaque_fields(HydroModPyConfig, "", {id(HydroModPyConfig)})
     assert set(opaque) - INTENTIONALLY_OPAQUE_PATHS == set()
-
-
-# A boundary, a sink or a source is active when its table is declared, unless it says so.
-#
-# No list names what a run builds. ``FlowConfig.active_bc`` and
-# ``FlowConfig.active_sinks_sources`` read the tables, and ``enabled = false`` keeps a
-# table in the file and builds nothing from it.
-
-
-WELL = {"flux": -0.01, "location": {"kind": "relative_xy", "x_rel": 0.5, "y_rel": 0.5}}
-
-
-LAKE = {"bedleak": 1e-6, "initial_stage": "10 m"}
-
-
-#: (table family, name, a declared table, the name the run lists for it)
-TABLES = [
-    ("bc", "drainage", {}, "drainage"),
-    ("sinks_sources", "recharge", {}, "recharge"),
-    ("sinks_sources", "etp", {}, "etp"),
-    ("sinks_sources", "wells", {"W1": WELL}, "wells"),
-    ("sinks_sources", "lakes", {"pond": LAKE}, "lake"),
-    ("sinks_sources", "sfr", {"main": {}}, "sfr"),
-]
-
-
-def _config(family: str, name: str, table: dict) -> FlowConfig:
-    return FlowConfig(**{family: {name: table}})
-
-
-def _listed(cfg: FlowConfig) -> list[str]:
-    return [*cfg.active_bc, *cfg.active_sinks_sources]
-
-
-def _switched_off(name: str, table: dict) -> dict:
-    """The same table with ``enabled = false``: on the table, or on each entry of a map."""
-    if name in {"wells", "lakes", "sfr"}:
-        return {key: {**entry, "enabled": False} for key, entry in table.items()}
-    return {**table, "enabled": False}
 
 
 # The FlowBarrierConfig HFB payload (general addon + lake cutoff wall).

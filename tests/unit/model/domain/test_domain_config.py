@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from hydromodpy.model.domain.domain_config import DomainConfig
 
-BANDS = {"kind": "generated_bands", "axis": "x", "breaks": [0.5], "labels": ["left", "right"]}
-RINGS = {"kind": "generated_rings", "radii": [0.4, 0.7], "labels": ["inner", "middle", "outer"]}
-
 
 def test_the_default_domain_is_a_constant_thickness_of_50_m_without_zones():
     cfg = DomainConfig()

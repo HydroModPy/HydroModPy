@@ -22,11 +22,11 @@ def _report() -> DoctorReport:
     )
 
 
-def test_to_dict_keeps_the_keys_and_their_order_of_the_old_dict() -> None:
+def test_report_key_order() -> None:
     assert list(_report().to_dict()) == ["python", "hydromodpy", "solvers", "optional"]
 
 
-def test_to_dict_is_json_and_carries_every_member() -> None:
+def test_report_json_form() -> None:
     document = json.loads(json.dumps(_report().to_dict()))
     assert document == {
         "python": "3.12.1",
@@ -36,7 +36,7 @@ def test_to_dict_is_json_and_carries_every_member() -> None:
     }
 
 
-def test_the_report_of_this_machine_names_every_solver_and_package() -> None:
+def test_report_of_this_machine() -> None:
     report = doctor_report()
     assert report.hydromodpy == __version__
     assert report.python.count(".") >= 1
@@ -48,12 +48,12 @@ def test_the_report_of_this_machine_names_every_solver_and_package() -> None:
     ("found", "expected"),
     [("/usr/bin/mf6", "/usr/bin/mf6"), (None, None)],
 )
-def test_a_solver_is_its_path_or_none(monkeypatch, found, expected) -> None:
+def test_solver_path_or_none(monkeypatch, found, expected) -> None:
     monkeypatch.setattr(doctor.shutil, "which", lambda name: found)
     assert set(doctor_report().solvers.values()) == {expected}
 
 
-def test_a_package_that_fails_to_import_is_none(monkeypatch) -> None:
+def test_failed_import_is_none(monkeypatch) -> None:
     real = doctor.importlib.import_module
 
     def import_module(name: str):
@@ -83,7 +83,7 @@ def _prt(monkeypatch, tmp_path, version):
         (("mf6: 6.4.1", (6, 4, 1)), "KO"),
     ],
 )
-def test_prt_needs_mf6_6_5_or_newer(monkeypatch, tmp_path, version, status) -> None:
+def test_prt_mf6_version_floor(monkeypatch, tmp_path, version, status) -> None:
     checks = _prt(monkeypatch, tmp_path, version)
 
     assert checks["prt:mf6"]["status"] == "OK"
@@ -93,14 +93,14 @@ def test_prt_needs_mf6_6_5_or_newer(monkeypatch, tmp_path, version, status) -> N
         assert "install-binaries" in checks["prt:mf6_version"]["hint"]
 
 
-def test_prt_warns_on_a_banner_with_no_version(monkeypatch, tmp_path) -> None:
+def test_prt_banner_without_version(monkeypatch, tmp_path) -> None:
     checks = _prt(monkeypatch, tmp_path, ("", None))
 
     assert checks["prt:mf6_version"]["status"] == "WARN"
     assert "empty" in checks["prt:mf6_version"]["detail"]
 
 
-def test_prt_reports_a_missing_mf6(monkeypatch) -> None:
+def test_prt_missing_mf6(monkeypatch) -> None:
     monkeypatch.setattr(doctor, "locate_mf6", lambda: None)
 
     checks = doctor.prt_checks()
@@ -113,7 +113,7 @@ def test_prt_reports_a_missing_mf6(monkeypatch) -> None:
     ("banner", "parsed"),
     [("mf6: 6.6.3 07/30/2025", (6, 6, 3)), ("no number here", None)],
 )
-def test_the_version_is_read_from_the_banner(monkeypatch, tmp_path, banner, parsed) -> None:
+def test_version_from_banner(monkeypatch, tmp_path, banner, parsed) -> None:
     class Done:
         stdout = banner
         stderr = ""
@@ -123,12 +123,12 @@ def test_the_version_is_read_from_the_banner(monkeypatch, tmp_path, banner, pars
     assert doctor.mf6_version(tmp_path / "mf6") == (banner, parsed)
 
 
-def test_the_required_and_the_optional_packages_make_the_packages() -> None:
+def test_package_lists() -> None:
     assert doctor.PACKAGES == doctor.REQUIRED_PACKAGES + doctor.OPTIONAL_PACKAGES
     assert set(doctor.SOLVER_BINARIES) == set(doctor.SOLVERS) - {"mf2005"}
 
 
-def test_the_report_of_hmp_doctor_has_a_row_for_each_package_and_solver(monkeypatch) -> None:
+def test_doctor_rows(monkeypatch) -> None:
     report = doctor.build_report(doctor_report().to_dict(), None, None)
     names = [row["name"] for row in report["checks"]]
 
@@ -144,26 +144,26 @@ def test_the_report_of_hmp_doctor_has_a_row_for_each_package_and_solver(monkeypa
     assert names[-1] == "workspace"
 
 
-def test_a_missing_workspace_is_a_warning_that_names_the_way_out() -> None:
+def test_missing_workspace_warns() -> None:
     rows = doctor.probe_workspace(None, None)
 
     assert [(row["name"], row["status"]) for row in rows] == [("workspace", "WARN")]
     assert "-w" in rows[0]["hint"]
 
 
-def test_a_path_that_is_there_is_ok_and_one_that_is_not_is_a_warning(tmp_path) -> None:
+def test_path_check(tmp_path) -> None:
     assert doctor.path_check("data_dir", tmp_path)["status"] == "OK"
     missing = doctor.path_check("data_dir", tmp_path / "absent")
     assert missing["status"] == "WARN"
     assert missing["detail"].endswith("(missing)")
 
 
-def test_the_checks_that_read_a_workspace_say_so_when_there_is_none() -> None:
+def test_checks_without_workspace() -> None:
     assert doctor.cross_catalog_checks(None)[0]["name"] == "cross_catalog:workspace"
     assert doctor.lifecycle_checks(None)[0]["name"] == "lifecycle:workspace"
 
 
-def test_a_data_folder_that_is_not_there_is_a_warning(tmp_path) -> None:
+def test_missing_data_folder_warns(tmp_path) -> None:
     row = doctor.data_cache_check(tmp_path / "data")
 
     assert (row["name"], row["status"]) == ("data_cache", "WARN")
