@@ -199,7 +199,7 @@ Lake cells leave both networks, because a line drawn across a lake is no stream 
 no hillslope seepage. So the map of a run shows the partition behind the score it reports. A run
 that kept no mean recharge cannot show a seepage threshold above zero, and a run that kept no cells
 of open water cannot be drawn. Both are refused with a sentence that says to replay the run with
-`hmp replay`, or to set `tau_specific_ratio = 0` for the first.
+`hmp replay`, or to set `seepage_threshold = 0` for the first.
 
 Calibrating on the map is not {term}`validating <validation>` against it. The agreement of a calibrated run with
 the map is what the calibration looked for.

@@ -178,8 +178,9 @@ Coding style
   :doc:`docstring-policy`.
 - Add a comment only when the reason is not obvious from the code.
 - File names are ``snake_case``, class names ``CamelCase``. Common suffixes:
-  ``Config``, ``Adapter``, ``Manager``, ``Builder``, ``Resolver``,
-  ``Optimizer``, ``Provider``, ``Backend``.
+  ``Config``, ``Adapter``, ``Builder``, ``Resolver``,
+  ``Optimizer``, ``Backend``. A module name never holds manager, handler,
+  provider, service or helper.
 - Reuse the helpers of ``hydromodpy/core/io/`` instead of repeating raster,
   folder or path logic.
 - The import layers are a contract: see :doc:`architecture/layered-architecture`.

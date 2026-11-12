@@ -266,8 +266,8 @@ PETSc only, and both keep the head as the only unknown.
   the adaptivity are set by the `ts_vi_*` keys listed below.
 
 A steady solve for the initial state of a `ts_vi_obstacle` run uses the regularized
-partition (`steady_state_initialization_surface_interaction_model` in
-`model/initial/heads.py`).
+partition (`steady_initialization_runtime` in
+`solver/boussinesq/solver_contract.py`).
 
 A file that chooses the experimental closure and cuts each period into substeps:
 

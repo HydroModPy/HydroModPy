@@ -152,7 +152,7 @@ A figure redrawn from a sealed run takes the same inputs as the trial: the solve
 open water, the outline and the mean recharge the run kept. Its numbers are the ones the trial
 scored. A run that kept no mean recharge is refused when the seepage threshold is above zero, with
 the sentence "This run kept no criterion mean recharge, so a seepage threshold cannot be read on
-it. Replay it with hmp replay, or set tau_specific_ratio = 0." A run that kept no `mesh/open_water`
+it. Replay it with hmp replay, or set seepage_threshold = 0." A run that kept no `mesh/open_water`
 is refused too, and told to replay.
 
 ## Where to go next

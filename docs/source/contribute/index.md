@@ -27,7 +27,7 @@ files, {doc}`Get started <../get-started/index>` and the
   imports, the packages, the storage layout and the subsystems.
 - **Documentation** ({doc}`documentation/index`): how this site is built, and
   how to write a field or a theory page.
-- **Project** ({doc}`project/index`): CI, tests, the V1 release contract, the
+- **Project** ({doc}`project/index`): CI, tests, the release contract, the
   environment variables and the roadmap.
 
 ```{toctree}

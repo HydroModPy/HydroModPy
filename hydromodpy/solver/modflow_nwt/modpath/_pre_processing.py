@@ -173,7 +173,7 @@ def attach_starting_locations(
         raise ConfigError(
             f"MODPATH injection raster {zone_partic} has shape {mask_dem.shape} but the "
             f"MODFLOW grid is ({nrow}, {ncol}). Provide "
-            "transport.modpath.parameters.zone_partic as a raster aligned on the solver "
+            "transport.modpath.zone_partic as a raster aligned on the solver "
             "grid, or set [mesh] cell_size to the DEM resolution."
         )
 

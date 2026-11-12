@@ -390,8 +390,8 @@ Pitfalls flagged by the layer matrix
   configures. Do not move it to ``config/``: ``config/`` is the root
   composition only.
 - ``config/`` is the one layer that composes the sections, so it imports the
-  layers that own them. Of the layers below it, only ``schema/`` and ``results/``
-  import ``config/``.
+  layers that own them. No layer below it imports ``config/``, and ``schema/``
+  and ``results/`` never read it.
 - The committed JSON Schema must stay in sync with the models. Re-run the
   export after every field addition.
 

@@ -238,7 +238,8 @@ Add an extra between brackets: `pip install "hydromodpy[ide,mesh]"`.
   export of the package and, from a checkout of the repository, the STAC and PROV views of the
   annex (`hmp export --as stac`), which declare no dependencies of their own.
 - `metrics`: `psutil`.
-- `all`: `calibration`, `mesh`, `mf6api`, `viz`, `fair` and `metrics`. The extras for people who work on HydroModPy itself are not in it.
+- `sftp`: `paramiko`.
+- `all`: `calibration`, `mesh`, `mf6api`, `viz`, `fair`, `metrics` and `sftp`. The extras for people who work on HydroModPy itself are not in it.
 
 The extras `test`, `performance`, `profiling`, `docs` and `dev` are for people who work on
 HydroModPy itself; see {doc}`../contribute/index`. The generated list, with the packages

@@ -9,7 +9,7 @@ import it, and CI installs it (``pip install -e validity_frame``) for the tests 
 Status
 ------
 
-It is outside the stable V1 public API and has no compatibility guarantee. It depends on no
+It is outside the stable public API and has no compatibility guarantee. It depends on no
 other framework and expects compatible objects through duck-typing. It must stay isolated from
 the modeling layers, and it is not a layer of ``layer_matrix.yaml``.
 

@@ -48,7 +48,7 @@ What to do, by failing test
    it in an issue first. An import under ``TYPE_CHECKING``, inside a function, or
    written as a string in a lazy-import table counts like any other. The same file
    fails when a package has no row in the matrix, a row has no package, a
-   tolerance names an unknown layer or repeats an allowed edge, or a package has no
+   row cites a row written below it, or a package has no
    page in :doc:`../packages/index`.
 
 ``test_layers.py``, the generated matrix page
@@ -125,9 +125,8 @@ When the contract is what is wrong
 ----------------------------------
 
 Sometimes the code is right and the contract is old. The contract files are
-``layer_matrix.yaml`` (rows, tolerances, exempt files) and the
-``*_layout.yaml`` files. Change them in a pull request of their own, with the
-reason in the tolerance entry, because a tolerance without a rationale fails
-review. Then regenerate the pages (``python -m tools.doc_contracts``) and update
-the page of the package whose rows moved, under "Inside the package". Never add a
-tolerance silently.
+``layer_matrix.yaml`` (rows, siblings and transitional edges) and the
+``*_layout.yaml`` files. Change them in a pull request of their own that says
+why. Then regenerate the pages (``python -m tools.doc_contracts``) and update
+the page of the package whose rows moved, under "Inside the package". Never add an
+edge silently.

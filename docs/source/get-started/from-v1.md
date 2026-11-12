@@ -33,7 +33,7 @@ move a finished study. For a new one, start from {doc}`index`.
 | `update_hk`, `update_sy` | `[flow.param.K.field]` and `[flow.param.Sy.field]`, with `kind`, `unit` and `value` |
 | `update_recharge` | `[flow.sinks_sources.recharge]`, and `recharge` in the `types` of `[data]` |
 | `update_sink_fill` | `sink_fill` in `[solver]` |
-| `update_input_particles(zone_partic=...)` | `zone_partic` in `[transport.modpath.parameters]` |
+| `update_input_particles(zone_partic=...)` | `zone_partic` in `[transport.modpath]` |
 | `update_model_name` | `name` in `[simulation]` |
 | `postprocessing_modflow(watertable_depth=True, ...)` | `figures` in `[display]` and `[[export]]` tables with `variables` |
 

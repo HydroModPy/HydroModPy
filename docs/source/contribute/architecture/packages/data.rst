@@ -121,7 +121,7 @@ registry of sources.
 builds ``FetchRequest(out_dir, station_ids=...)``, or the extent with the period the cache misses.
 A family of grids builds the extent in ``PROJECT_EXTENT_CRS`` with its period. ``file`` and
 ``url`` are registered classes of the port. The base class loads file sources through
-``load_file_source`` or ``load_file``, and a variable whose format takes real work overrides it or
+``load_file``, and a variable whose format takes real work overrides it or
 keeps a dedicated loader. The ``source`` field is a string checked against
 ``data_sources.names(section)`` while the file is read, so a name this installation does not serve
 is refused with the names it serves, and the JSON schema and the config reference publish the

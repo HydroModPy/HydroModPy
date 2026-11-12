@@ -187,15 +187,15 @@ Tests to add
 Update the docs
 ---------------
 
-Add the verb to :doc:`/reference/cli/index` (the canonical CLI
-inventory). If the verb has its own option ladder, expand it there.
+The page :doc:`/reference/cli/index` is generated from the command
+registry at every build, so it needs no edit.
 
 Pitfalls flagged by the layer matrix
 ------------------------------------
 
-- ``cli`` may import any stable production layer, plus ``catalog`` and
-  ``project``. It must not depend on experimental ``validity_frame``
-  tooling.
+- ``cli`` is the top row of the matrix. It may import every layer below
+  it, ``project`` included. It must not depend on experimental
+  ``validity_frame`` tooling.
 - Do not implement business logic inside the command file. The CLI
   is a thin dispatcher; logic belongs to the relevant package so
   unit tests can exercise it without subprocess overhead.

@@ -357,9 +357,8 @@ class HydroModPyConfig(HydroModelBase):
     transport: Annotated[TransportConfig, Profile.USER] = Field(
         default_factory=TransportConfig,
         description=(
-            "Transport process configuration, with solver-specific parameter "
-            "blocks under [transport.modpath.parameters], "
-            "[transport.mt3dms.parameters], and [transport.modflow6gwt.parameters]."
+            "Transport process configuration, with one parameter table per "
+            "transport, written [transport.<name>]."
         ),
     )
     simulation: Annotated[SimulationConfig, Profile.USER] = Field(

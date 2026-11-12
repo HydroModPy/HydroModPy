@@ -1439,7 +1439,7 @@ override the section-level ``variables``. ``ObservationConfig``
 ids and the vertical selector; the run samples the points at the end of
 extraction, while it still holds its fields
 (``workflow/steps/run_outputs.py``,
-``sample_declared_observation_points``). A declaration mistake is logged
+``sample_declared_points`` in ``results/run/observation_points.py``). A declaration mistake is logged
 and skipped: it must not lose a run whose results are already in.
 
 Both halves of a declared point are run artifacts. The series lands in
