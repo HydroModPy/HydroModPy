@@ -206,20 +206,22 @@ class Pipeline:
             journal.invalidate_from(state.run_id, start_order=0, reason="from_scratch")
 
         config_sha256 = _config_sha256_from_manifest(manifest)
-        state, prefix_hashes = self._rebuild_prefix(
-            state,
-            restart_index,
-            journal,
-            config_sha256=config_sha256,
-        )
-        return self._execute_suffix(
-            state,
-            restart_index,
-            journal=journal,
-            manifest=manifest,
-            heartbeat=heartbeat,
-            previous_hashes=prefix_hashes,
-        )
+        # The run recap of the seal is printed once the figures after it are drawn.
+        with progress.held_to_end():
+            state, prefix_hashes = self._rebuild_prefix(
+                state,
+                restart_index,
+                journal,
+                config_sha256=config_sha256,
+            )
+            return self._execute_suffix(
+                state,
+                restart_index,
+                journal=journal,
+                manifest=manifest,
+                heartbeat=heartbeat,
+                previous_hashes=prefix_hashes,
+            )
 
     def _open_profile(self, state: PipelineState) -> None:
         """Note the age of the process when this attempt began, in ``profile.json``."""

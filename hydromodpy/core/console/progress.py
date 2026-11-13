@@ -19,6 +19,8 @@ Vocabulary:
   nothing to show and is never drawn.
 - ``after_phase``: a line a step prints about its own outcome, held back
   until the phase has printed its checkmark.
+- ``at_end``: a line held back until the enclosing ``held_to_end`` block
+  closes, so the run recap comes after the last step of the pipeline.
 """
 
 from __future__ import annotations
@@ -344,6 +346,42 @@ def after_phase(callback: Callable[[], None]) -> None:
         callback()
 
 
+def at_end(callback: Callable[[], None]) -> None:
+    """Run ``callback`` when the open :func:`held_to_end` block closes.
+
+    The run recap must be the last thing a run prints, after the figures that
+    the steps after the seal draw. Outside such a block it behaves like
+    :func:`after_phase`.
+    """
+    held = getattr(_open_phases, "end", None)
+    if held is None:
+        after_phase(callback)
+    else:
+        held.append(callback)
+
+
+@contextmanager
+def held_to_end() -> Generator[None, None, None]:
+    """Keep the lines given to :func:`at_end` until the block closes.
+
+    A nested block adds to the outer one. When the block raises, the lines are
+    dropped, as a failed phase drops its own.
+    """
+    if getattr(_open_phases, "end", None) is not None:
+        yield
+        return
+    held: list[Callable[[], None]] = []
+    _open_phases.end = held
+    try:
+        yield
+    except BaseException:
+        logger.debug("block failed, %d line(s) held to its end dropped", len(held))
+        raise
+    finally:
+        _open_phases.end = None
+    _run_deferred(held)
+
+
 def _run_deferred(callbacks: list[Callable[[], None]]) -> None:
     for callback in callbacks:
         try:
@@ -536,7 +574,9 @@ __all__ = [
     "ConsoleLogHandler",
     "TaskHandle",
     "after_phase",
+    "at_end",
     "console",
+    "held_to_end",
     "make_console_handler",
     "phase",
     "set_console_mode",

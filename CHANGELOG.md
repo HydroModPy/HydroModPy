@@ -914,6 +914,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - A bisection search no longer stops with `TypeError` when a cut point whose solve failed is asked again and solves. Intervals from other curves are unchanged.
 - `manifest.json` gives the sha256 of `fields.zarr`, and `hmp doctor` reports a field store changed since the seal. A seal written before has none and still reads. The STAC and RO-Crate views give no checksum for the store, because it is a directory and not a file.
 - The matching card of a calibration now reads the unit of K from the session journal (`bounds.<name>.units`) before the session config, so its axis no longer shows `K (-)` when the journal says `m/s`.
+- `hmp run` ends on `Run completed` and `next:` again, after the figures it draws, as the Get started page says. The figure summary came after them. The Quick start check keeps `HMP_EXAMPLES_SOURCE`, so CI fetches example 04 from the checkout before the tag exists.
 
 ### Security
 

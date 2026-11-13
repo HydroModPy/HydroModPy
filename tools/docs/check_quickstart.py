@@ -7,7 +7,7 @@ The page ``docs/source/get-started/index.md`` lists the commands of the Quick
 start and shows how a run ends:
 
     Run completed: <name> [<id>] <n>s
-    next: hmp show <name> | hmp diff <name> <other> | hmp export <name> --list
+    next: hmp show <name> | hmp publish <name> --to <folder> | hmp export <name> --list
 
 This tool reads both from the page, so a change to the page is a change to the
 check. It runs each command after the ``pip install`` line, with ``HOME`` and
@@ -105,8 +105,11 @@ def expand(command: list[str], home: Path) -> list[str]:
     ]
 
 
-KEPT_HMP_VARIABLES = frozenset({"HMP_CACHE_HOME", "HMP_BIN"})
-"""The ``HMP_*`` variables the page commands inherit: caches, never user state."""
+KEPT_HMP_VARIABLES = frozenset({"HMP_CACHE_HOME", "HMP_BIN", "HMP_EXAMPLES_SOURCE"})
+"""The ``HMP_*`` variables the page commands inherit: caches and the example source, never user state.
+
+``HMP_EXAMPLES_SOURCE`` lets CI fetch the examples from the checkout before the tag exists.
+"""
 
 
 def scratch_env(workspace: Path) -> dict[str, str]:
@@ -116,8 +119,8 @@ def scratch_env(workspace: Path) -> dict[str, str]:
     index of runs) is scratch too: a run an earlier check left in it would answer
     "nothing to do" instead of ending as the page shows. A fresh user has no
     ``HMP_*`` variable: ``HMP_WORKSPACE`` would point the commands at a real
-    workspace, so none is passed on but the download cache and the solver folder
-    (``KEPT_HMP_VARIABLES``), which only save a download.
+    workspace, so none is passed on but the download cache, the solver folder and
+    the example source (``KEPT_HMP_VARIABLES``).
     """
     env = {
         key: value

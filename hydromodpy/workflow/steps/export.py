@@ -138,7 +138,7 @@ def step_after_seal(ctx: WorkflowContext) -> list[Path]:
             f"run {name} is sealed; write the exports again with hmp export {name}: {reasons}"
         ) from failures[0]
     lines = _run_epilogue_lines(ctx, run_dir=run_dir)
-    progress.after_phase(partial(_log_run_epilogue, lines))
+    progress.at_end(partial(_log_run_epilogue, lines))
     return written
 
 
