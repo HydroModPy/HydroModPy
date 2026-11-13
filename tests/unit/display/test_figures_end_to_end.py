@@ -12,6 +12,11 @@ from matplotlib.colors import to_rgba
 from matplotlib.figure import Figure
 
 from hydromodpy.core.exceptions import CommandUsageError
+from hydromodpy.display.frames.distribution import EXCEEDANCE_COLUMNS, HISTOGRAM_COLUMNS
+from hydromodpy.display.frames.groups import GROUPS_COLUMNS
+from hydromodpy.display.frames.map import MAP_COLUMNS
+from hydromodpy.display.frames.section import SECTION_COLUMNS
+from hydromodpy.display.frames.xy import XY_COLUMNS
 from hydromodpy.display.render import render
 from hydromodpy.display.request import (
     FRAMES,
@@ -20,55 +25,79 @@ from hydromodpy.display.request import (
     expand,
     shape_of,
 )
+from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.display.theme import get_theme
 from hydromodpy.project.show import project_theme
 from hydromodpy.results.field_registry import FIELD_REGISTRY, TIME_SERIES_REGISTRY
 from tests._helpers.run_builders import GAUGE
-from tests.unit.display._stored_run import RECHARGE_M3S, STEP
+from tests.unit.display._stored_run import AREAS, RECHARGE_M3S, X0, Y0
 
 HELD = (
     "head", "recharge", "drain", "topography", "watertable_elevation", "watertable_depth",
     "seepage_mask", "discharge",
 )  # fmt: skip
-STATION = {"discharge": GAUGE}
+LINE = [(X0 + 100.0, Y0 + 750.0), (X0 + 1700.0, Y0 + 750.0)]
+HISTOGRAM_OR_CURVE = (HISTOGRAM_COLUMNS, EXCEEDANCE_COLUMNS)
+COLUMNS = {
+    "map": (MAP_COLUMNS,),
+    "series": (("time", "variable", "station", "simulated"),),
+    "section": (SECTION_COLUMNS,),
+    "xy": (XY_COLUMNS,),
+    "distribution": HISTOGRAM_OR_CURVE,
+    "groups": (GROUPS_COLUMNS,),
+}
+NOT_DRAWN = {
+    ("topography", "series"), ("topography", "groups"), ("watertable_depth", "section"),
+    ("seepage_mask", "section"), ("seepage_mask", "distribution"),
+}  # fmt: skip
+# Pairs the shape accepts and the variable refuses: a static field has no series, a mask has
+# no layer axis and no values to bin.
 
 
 def _cases() -> list[tuple[str, str]]:
-    found = []
-    for name in HELD:
-        shape = shape_of(name)
-        for frame in ("map", "series"):
-            if shape in FRAMES[frame].shapes:
-                found.append((name, frame))
-            elif frame == "series" and name in FIELD_REGISTRY and FIELD_REGISTRY[name].timed:
-                found.append((name, frame))
-    return found
+    ready = [frame for frame, found in FRAMES.items() if found.ready]
+    return [
+        (name, frame)
+        for name in HELD
+        for frame in ready
+        if shape_of(name) in FRAMES[frame].shapes
+        or (frame == "series" and FIELD_REGISTRY.get(name) and FIELD_REGISTRY[name].timed)
+    ]
 
 
-def _fields(name: str, frame: str) -> dict:
-    if frame == "series":
-        return {"station": STATION.get(name, "zone:catchment")}
-    return {}
+def _request(name: str, frame: str) -> dict:
+    fields: dict = {"type": frame, "variable": [name]}
+    if frame in ("series", "distribution", "groups"):
+        fields["station"] = GAUGE if name == "discharge" else "zone:catchment"
+    if frame == "section":
+        fields["line"] = LINE
+    elif frame == "xy":
+        fields |= {"observed": True} if name == "discharge" else {"variable": [name, "topography"]}
+        fields["station"] = GAUGE if name == "discharge" else None
+    elif frame == "groups" and name != "seepage_mask":
+        fields |= {"reduce": "mean"} if name == "discharge" else {"by": "time"}
+    return {"name": "case", **fields}
 
 
 @pytest.mark.parametrize(("name", "frame"), _cases())
 def test_each_held_variable_draws_and_gives_its_table(stored_run, name, frame):
-    fields = _fields(name, frame)
-    tables = stored_run.figure_data(name, type=frame, **fields)
-    column = "value" if frame == "map" else "simulated"
+    request = _request(name, frame)
+    if (name, frame) in NOT_DRAWN:
+        with pytest.raises(FigureNotApplicable):
+            stored_run.figure_data(request=request)
+        return
+    tables = stored_run.figure_data(request=request)
     assert list(tables) == ["a"]
-    values = tables["a"][column].to_numpy(float)
-    assert np.isfinite(values).any()
-    if name == "head":
-        assert frame == "map" or np.isfinite(values).all()
-    figure = stored_run.figure(name, type=frame, **fields)
-    assert isinstance(figure, Figure)
-    assert figure.axes
+    assert tuple(tables["a"].columns) in COLUMNS[frame]
+    numbers = tables["a"].select_dtypes("number").to_numpy(float)
+    assert np.isfinite(numbers).any()
+    figure = stored_run.figure(request=request)
+    assert isinstance(figure, Figure) and figure.axes
 
 
 def test_a_recharge_flow_shows_in_mm_per_day(stored_run):
     table = stored_run.figure_data("recharge", time="last")["a"]
-    expected = RECHARGE_M3S * 1.3 / STEP**2 * 86400 * 1000
+    expected = RECHARGE_M3S * 1.3 / AREAS * 86400 * 1000
     assert table["value"].to_numpy() == pytest.approx(expected, rel=1e-4)
 
 

@@ -65,3 +65,19 @@ def test_class_colors_and_log():
 
 def test_only_flows_and_mass_fluxes_add_up_over_a_zone():
     assert {k for k, kind in QUANTITY_KINDS.items() if kind.extensive} == {"cell_flow", "mass_flux"}
+
+
+@pytest.mark.parametrize(
+    ("scale", "log", "values", "norm", "vmin", "vmax"),
+    [
+        ("diverging", False, [-2.0, 1.0], "TwoSlopeNorm", -2.0, 2.0),
+        ("sequential", True, [-1.0, 0.0, 5.0, 50.0], "LogNorm", 5.0, 50.0),
+        ("sequential", False, [3.0, 3.0], "Normalize", 3.0, 4.0),
+        ("sequential", False, [np.nan], "Normalize", 0.0, 1.0),
+    ],
+)
+def test_the_colour_norm_covers_the_values_and_never_collapses(
+    scale, log, values, norm, vmin, vmax
+):
+    found = variables.color_norm(scale, log, np.array(values))
+    assert (type(found).__name__, found.vmin, found.vmax) == (norm, vmin, vmax)

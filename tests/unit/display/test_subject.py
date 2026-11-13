@@ -9,7 +9,7 @@ import pytest
 from hydromodpy.display import subject as reads
 from hydromodpy.results.session.view import Session
 from tests._helpers.run_builders import GAUGE
-from tests.unit.display._stored_run import HEAD_TOP, N_CELLS, STAMPS, STARTS, STEP
+from tests.unit.display._stored_run import AREAS, HEAD_TOP, N_CELLS, STAMPS, STARTS
 
 ZONE = "zone:catchment"
 DAYS = np.array([31, 28, 31, 30]) * 86400.0
@@ -55,7 +55,9 @@ def test_the_zone_sums_a_flow_and_averages_a_state_by_area(stored_run):
     flow = reads.read_series(stored_run, "recharge", station=ZONE)
     np.testing.assert_allclose(flow, 8 * 2.0e-3 * (1 + 0.1 * np.arange(4)), rtol=1e-4)
     head = reads.read_series(stored_run, "head", station=ZONE)
-    np.testing.assert_allclose(head, HEAD_TOP[:8].mean() - 1.0 + np.arange(4))
+    np.testing.assert_allclose(
+        head, np.average(HEAD_TOP[:8], weights=AREAS[:8]) - 1.0 + np.arange(4)
+    )
 
 
 def test_a_flux_is_indexed_on_period_starts_and_a_state_on_period_ends(stored_run):
@@ -84,7 +86,7 @@ def test_budget_terms_and_mesh_view(stored_run):
     assert reads.read_budget(stored_run, station=ZONE) == ("recharge", "drain")
     mesh = reads.read_mesh(stored_run)
     assert mesh.faces.shape == (N_CELLS, 4) and mesh.n_layers == 2
-    np.testing.assert_allclose(mesh.areas, STEP**2)
+    np.testing.assert_allclose(mesh.areas, AREAS)
     assert mesh.zones["catchment"].sum() == 8 and mesh.zones["domain"].all()
 
 

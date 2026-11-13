@@ -15,6 +15,7 @@ are the whole contract between a subject and the drawing code.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import geopandas as gpd
 import numpy as np
@@ -22,7 +23,7 @@ import pandas as pd
 
 from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.core.time.instant import TIME_WORDS
-from hydromodpy.display.request import ZONE_PREFIX, ZONES, Instant
+from hydromodpy.display.request import PANEL_FIELDS, ZONE_PREFIX, ZONES, Instant, PanelRequest
 from hydromodpy.results.derive.time_alignment import (
     read_pair,
     run_period_edges,
@@ -47,6 +48,29 @@ class FigureNotApplicable(DisplayError, ValueError):
     """
 
 
+def refuse_fields(frame: str, panel: PanelRequest, used: tuple[str, ...]) -> None:
+    """Refuse a panel field that means nothing to ``frame``, naming the frame and the field.
+
+    ``used`` lists the fields the frame reads. A field is set when its value is not
+    None, False or an empty list. ``type`` and ``holes`` belong to every frame.
+    """
+    for field in PANEL_FIELDS:
+        if field not in used and field != "type" and _is_set(getattr(panel, field)):
+            raise FigureNotApplicable(
+                f"A {frame} panel does not take {field!r}. It takes: {', '.join(used)}."
+            )
+
+
+def _is_set(value: Any) -> bool:
+    return not (value is None or value is False or (isinstance(value, list) and not value))
+
+
+def refuse_set(frame: str, panel: PanelRequest, field: str, why: str) -> None:
+    """Refuse a field the frame lists but cannot read on this branch, with the reason."""
+    if _is_set(getattr(panel, field)):
+        raise FigureNotApplicable(f"A {frame} panel does not take {field!r} here: {why}.")
+
+
 @dataclass(frozen=True, slots=True)
 class MeshView:
     """The geometry a frame draws on, one row per mesh face.
@@ -54,7 +78,9 @@ class MeshView:
     ``faces`` holds node indices padded with -1, so cells may be mixed polygons.
     ``areas`` is in m2 and NaN for a face with fewer than three corners. ``zones``
     maps each name of ``request.ZONES`` to a boolean mask over the faces. ``outlet`` is the
-    outlet point in the mesh CRS, None when the run has none.
+    outlet point in the mesh CRS, None when the run has none. ``interfaces`` is float64
+    ``(n_layers + 1, n_faces)`` in m, row 0 the model top and row ``k + 1`` the bottom of
+    layer ``k``, None when the mesh holds none.
     """
 
     centres: np.ndarray
@@ -65,6 +91,7 @@ class MeshView:
     crs: str | None
     n_layers: int
     outlet: tuple[float, float] | None
+    interfaces: np.ndarray | None = None
 
 
 GEOGRAPHIC_ROLES = ("watershed", "barrier")
@@ -467,6 +494,8 @@ def read_mesh(run: Run) -> MeshView:
         outlet = tuple(float(value) for value in run.outlet)
     except RuntimeError:
         outlet = None
+    raw = getattr(mesh, "z_interfaces", None)
+    interfaces = None if raw is None else np.asarray(raw, dtype=float)
     return MeshView(
         centres=np.asarray(mesh.cell_centers(), dtype=float),
         vertices=vertices,
@@ -476,4 +505,5 @@ def read_mesh(run: Run) -> MeshView:
         crs=mesh.crs,
         n_layers=int(run.n_layers),
         outlet=outlet,
+        interfaces=interfaces,
     )

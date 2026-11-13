@@ -261,6 +261,13 @@ def note(ax: Any, text: str, theme: Theme, *, loc: str = "upper left") -> None:
     )
 
 
+def dropped_note(ax: Any, share: float, what: str, theme: Theme, loc: str = "upper right") -> None:
+    """Say how much of ``what`` a log axis leaves out, when it leaves some out."""
+    if share > 0:
+        text = f"Not shown: {share:.1%} of the {what} at or below zero"
+        note(ax, text, theme, loc=loc)
+
+
 def colorbar(
     fig: Figure, mappable: Any, ax: Any, theme: Theme, *, label: str, extend: str = "neither"
 ) -> Any:

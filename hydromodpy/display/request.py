@@ -100,6 +100,14 @@ class Frame:
     ready: bool = False
 
 
+_XY_SHAPES = (
+    SHAPE_TIME,
+    SHAPE_TIME_FACE,
+    SHAPE_TIME_LAYER_FACE,
+    SHAPE_LAYER_FACE,
+    SHAPE_FACE,
+)
+
 FRAMES: dict[str, Frame] = {
     "map": Frame(
         (SHAPE_TIME_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_LAYER_FACE, SHAPE_FACE),
@@ -107,15 +115,19 @@ FRAMES: dict[str, Frame] = {
         ready=True,
     ),
     "series": Frame((SHAPE_TIME,), ready=True),
-    "section": Frame(),
-    "xy": Frame(),
-    "distribution": Frame(),
-    "groups": Frame(),
+    "section": Frame(
+        (SHAPE_TIME_LAYER_FACE, SHAPE_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_FACE), ready=True
+    ),
+    "xy": Frame(_XY_SHAPES, ready=True),
+    "distribution": Frame(_XY_SHAPES, ready=True),
+    "groups": Frame(_XY_SHAPES, ready=True),
     "table": Frame(),
     "volume": Frame(),
 }
 TABLE = "table"
-MAP, SERIES = "map", "series"
+MAP, SERIES, GROUPS = "map", "series", "groups"
+GROUP_KEYS = ("month", "time", "run")
+"""The keys a groups panel splits its values by."""
 MAP_TABLE = "sfr_reaches"
 """The one table a map draws a column of, as lines from each reach to its downstream cell."""
 
@@ -275,11 +287,25 @@ class PanelFields(HydroModelBase):
         default=False, description="Cumulate along the ordered axis of the frame."
     )
 
+    @property
+    def window(self) -> tuple[Instant, Instant] | None:
+        """The two instants of a ``time`` pair, the window of a series, else None."""
+        if isinstance(self.time, list) and len(self.time) == 2:
+            return self.time[0], self.time[1]
+        return None
+
     @field_validator("type")
     @classmethod
     def _known_frame(cls, value: str | None) -> str | None:
         if value is not None and value not in FRAMES:
             raise ValueError(_closest(value, FRAMES, "frame"))
+        return value
+
+    @field_validator("by")
+    @classmethod
+    def _known_group_key(cls, value: str | None) -> str | None:
+        if value is not None and value not in GROUP_KEYS:
+            raise ValueError(_closest(value, GROUP_KEYS, "group key"))
         return value
 
     @field_validator("variable", "overlays", mode="before")
@@ -552,8 +578,10 @@ def _check_budget(panel: PanelRequest, where: str) -> None:
             f"{where}: variable = 'budget' is the cell terms summed over a zone. Write "
             "station = 'zone:catchment', or list the variables of a lake or a reach by name."
         )
-    if panel.type not in (None, SERIES):
-        raise ValueError(f"{where}: the budget is drawn by a series, not by type = {panel.type!r}.")
+    if panel.type not in (None, SERIES, GROUPS):
+        raise ValueError(
+            f"{where}: the budget is drawn by a series or by groups, not by type = {panel.type!r}."
+        )
 
 
 def _resolved_panel(panel: PanelRequest, where: str) -> PanelRequest:
@@ -633,7 +661,12 @@ def expand(request: FigureRequest, presets: Mapping[str, FigureRequest]) -> Reso
     return ResolvedFigure(
         stem=file_stem(request),
         panels=resolved,
-        width=figure["width"] or ("double" if len(resolved) > 1 or figure["facet"] else "single"),
+        width=figure["width"]
+        or (
+            "double"
+            if len(resolved) > 1 or figure["facet"] or any(p.type == "section" for p in resolved)
+            else "single"
+        ),
         when=figure["when"],
         engine=tuple(figure["engine"]),
         formats=tuple(figure["formats"]),

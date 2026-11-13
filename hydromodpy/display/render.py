@@ -121,7 +121,7 @@ def render(
     for ax, (key, panel, sub, module, found) in zip(axes, loaded, strict=True):
         with _panel(key):
             module.draw(ax, found, look)
-            for name in panel.overlays or ():
+            for name in (panel.overlays or ()) if panel.type == "map" else ():
                 OVERLAYS[name](ax, sub, look)
         if figure.facet:
             ax.set_title(key.split(":", 1)[1], **static.text_style(look))
@@ -194,9 +194,11 @@ def _facet_values(figure: ResolvedFigure, panel: PanelRequest, subject: Any) -> 
 
 def _cells(figure: ResolvedFigure, subject: Any) -> list[tuple[str, PanelRequest, Any]]:
     """Return one ``(key, panel, subject)`` per drawn panel, small multiples split."""
-    if isinstance(subject, RunSet) != (figure.facet == "run"):
+    by_run = all(panel.type == "groups" and panel.by == "run" for panel in figure.panels)
+    if isinstance(subject, RunSet) != (figure.facet == "run" or by_run):
         raise DisplayError(
-            "A set of runs is drawn with facet = 'run', and facet = 'run' needs a set of runs."
+            "A set of runs is drawn with facet = 'run' or with groups by = 'run', "
+            "and facet = 'run' needs a set of runs."
         )
     if isinstance(subject, Session):
         raise DisplayError("A session panel comes with the trial columns of a later lot.")

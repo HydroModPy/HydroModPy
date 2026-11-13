@@ -1,8 +1,9 @@
 """One small stored run for the figure tests, written the way the pipeline writes one.
 
-Twelve Lambert-93 cells of 500 m on a 3 by 4 grid, two layers, four monthly periods
+Twelve Lambert-93 cells on a 3 by 4 grid, 500 m wide and 500 m high except the last
+column, which is 1,000 m wide, so the cell areas are unequal. There are two layers, four monthly periods
 from January 2001. It holds a head, a recharge and a drain budget term as cell flows,
-a topography, a simulated discharge at the catchment and at one gauge, the observed
+a topography, a simulated discharge at the catchment and at one gauge, a rainfall series at that gauge, the observed
 discharge of that gauge, its scores and the descent basin of the catchment.
 """
 
@@ -26,8 +27,14 @@ from tests._helpers.run_builders import GAUGE, score
 from tests._helpers.run_stores import open_run_store
 
 NROW, NCOL, STEP = 3, 4, 500.0
+COLUMN_X = np.array([0.0, 500.0, 1000.0, 1500.0, 2500.0])
+"""Cell edges in x from the grid origin, m. The last column is twice as wide."""
+AREAS = np.tile(np.diff(COLUMN_X) * STEP, NROW)
+"""Area of each cell in m2, in cell order."""
 X0, Y0 = 385000.0, 6814000.0
 N_CELLS, N_LAYERS, N_PERIODS = NROW * NCOL, 2, 4
+ZONE_AREA = float(AREAS[: N_CELLS - NCOL].sum())
+"""Area of the catchment zone, the first two rows, in m2."""
 STARTS = pd.date_range("2001-01-01", periods=N_PERIODS, freq="MS")
 STAMPS = pd.date_range("2001-02-01", periods=N_PERIODS, freq="MS")
 HEAD_TOP = np.linspace(100.0, 111.0, N_CELLS)
@@ -51,7 +58,7 @@ def write_run(project: Path, name: str = "stored") -> str:
     )
     sid = store.sim_id
     verts = np.array(
-        [[X0 + i * STEP, Y0 + j * STEP] for j in range(NROW + 1) for i in range(NCOL + 1)], float
+        [[X0 + COLUMN_X[i], Y0 + j * STEP] for j in range(NROW + 1) for i in range(NCOL + 1)], float
     )
     faces = np.array(
         [
@@ -76,6 +83,7 @@ def write_run(project: Path, name: str = "stored") -> str:
     simulated = pd.Series([1.0, 2.0, 3.0, 2.5], index=STAMPS)
     store.write_timeseries(sid, "catchment", "discharge", simulated, unit="m3/s")
     store.write_timeseries(sid, GAUGE, "discharge", simulated, unit="m3/s")
+    store.write_timeseries(sid, GAUGE, "rainfall", 3.0 - simulated, unit="m3/s")
     store.write_timeseries(sid, GAUGE, "discharge", 1.1 * simulated, unit="m3/s", source=OBSERVED)
     score(store, 0.8)
     store.write_budgets(

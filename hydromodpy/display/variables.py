@@ -10,12 +10,16 @@ which must stay free of matplotlib. Nothing here reads a run.
 from __future__ import annotations
 
 import numpy as np
+from matplotlib.colors import BoundaryNorm, ListedColormap, LogNorm, Normalize, TwoSlopeNorm
 
 from hydromodpy.core.units.kinds import CATEGORICAL, QuantityKind, scale_of
 from hydromodpy.core.units.parse import convert_between_units
 from hydromodpy.display.request import descriptor
 from hydromodpy.display.theme import RAMPS, Theme, unit_text
 from hydromodpy.results.field_registry import kind_of, label_of
+
+FREQUENCY_LABEL = "Share of steps with a non-zero value"
+"""Axis label of ``reduce = "frequency"`` on every frame."""
 
 
 def kind(name: str) -> QuantityKind:
@@ -31,6 +35,12 @@ def label(name: str) -> str:
     """
     unit = unit_text(kind(name).display_unit)
     return f"{label_of(name)} ({unit})" if unit else label_of(name)
+
+
+def label_parts(name: str) -> tuple[str, str]:
+    """Return the label of ``name`` without its unit, and the display unit text."""
+    full = label(name)
+    return full.rpartition(" (")[0] or full, unit_text(kind(name).display_unit)
 
 
 def to_display(
@@ -91,3 +101,56 @@ def class_colors(name: str, theme: Theme) -> list[str]:
     """Return one colour per class of a categorical variable, in the order of its classes."""
     palette = theme.categorical
     return [palette[i % len(palette)] for i, _ in enumerate(descriptor(name).classes)]
+
+
+def color_norm(
+    scale_name: str,
+    log: bool,
+    values: np.ndarray,
+    limits: tuple[float, float] | None = None,
+) -> Normalize:
+    """Return the colour norm of a continuous scale for ``values``.
+
+    A diverging scale is centred on zero. A log scale starts at the smallest positive
+    value unless ``limits`` are given. Without ``limits`` the range of the finite
+    values is used, and a range of one value is widened so the ramp stays defined.
+    """
+    finite = values[np.isfinite(values)]
+    lo, hi = limits or ((float(finite.min()), float(finite.max())) if finite.size else (0.0, 1.0))
+    if scale_name == "diverging":
+        reach = max(abs(lo), abs(hi)) or 1.0
+        return TwoSlopeNorm(vcenter=0.0, vmin=-reach, vmax=reach)
+    if log:
+        positive = finite[finite > 0]
+        if limits is None:
+            lo = max(lo, float(positive.min()) if positive.size else 1.0)
+        return LogNorm(vmin=lo, vmax=max(hi, lo * 10))
+    return Normalize(vmin=lo, vmax=hi if hi > lo else lo + 1.0)
+
+
+def class_scale(
+    values: np.ndarray, classes: tuple[tuple[int, str], ...], theme: Theme
+) -> tuple[np.ndarray, ListedColormap, BoundaryNorm]:
+    """Return the class positions of ``values``, the class colormap and its boundary norm."""
+    known = np.array([value for value, _ in classes])
+    position = np.where(np.isin(values, known), np.searchsorted(known, values), np.nan)
+    palette = [theme.categorical[i % len(theme.categorical)] for i in range(len(known))]
+    return (
+        position,
+        ListedColormap(palette),
+        BoundaryNorm(np.arange(len(known) + 1) - 0.5, len(known)),
+    )
+
+
+def member_colors(names: list[str], theme: Theme) -> dict[str, str]:
+    """Return one palette colour per member of a list, in list order.
+
+    The stacked budget of a series and the budget bars of a groups panel both use it,
+    so a term has one colour in every frame.
+    """
+    return {n: theme.categorical[i % len(theme.categorical)] for i, n in enumerate(names)}
+
+
+def join_unit(head: str, unit: str) -> str:
+    """Return ``head (unit)``, or ``head`` alone for a dimensionless value."""
+    return f"{head} ({unit})" if unit else head

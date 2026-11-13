@@ -31,11 +31,16 @@ from hydromodpy.display.subject import (
     read_observed,
     read_period_seconds,
     read_series,
+    refuse_fields,
 )
 from hydromodpy.display.theme import Theme, unit_text
 from hydromodpy.results.field_registry import kind_of, label_of
 from hydromodpy.results.run.view import Run
 
+FIELDS = (
+    "variable", "time", "station", "observed", "scores", "scale", "stack", "reference",
+    "against", "cumulative",
+)  # fmt: skip
 SERIES_COLUMNS = ("time", "variable", "station", "simulated", "observed")
 
 
@@ -73,17 +78,25 @@ def _stations(panel: PanelRequest) -> list[str | None]:
     return [panel.station] if isinstance(panel.station, str) else list(panel.station)
 
 
-def _window(panel: PanelRequest) -> tuple[Any, Any] | None:
-    if isinstance(panel.time, list) and len(panel.time) == 2:
-        return panel.time[0], panel.time[1]
-    return None
+def zone_cells(mesh: Any, station: str | None) -> np.ndarray:
+    """Return the mask of the cells of a zone station, the catchment when unset."""
+    station = ZONE_PREFIX + "catchment" if station is None else station
+    if not station.startswith(ZONE_PREFIX):
+        raise FigureNotApplicable(f"{station!r} is not a zone, so it names no cells.")
+    return mesh.zones[station[len(ZONE_PREFIX) :]]
 
 
-def _zone_area(run: Run, station: str | None) -> float | None:
+def zone_area(run: Run, station: str | None) -> float | None:
+    """Return the area in m2 of the zone a station names, None for any other station."""
     if station is None or not station.startswith(ZONE_PREFIX):
         return None
     mesh = read_mesh(run)
-    return float(np.nansum(mesh.areas[mesh.zones[station[len(ZONE_PREFIX) :]]]))
+    return float(np.nansum(mesh.areas[zone_cells(mesh, station)]))
+
+
+def observed_on(run: Run, name: str, station: str | None, index: pd.Index) -> pd.Series:
+    """Return the observed record of a series on the periods of ``index``."""
+    return read_observed(run, name, station=station).reindex(index)
 
 
 def _convert(
@@ -105,8 +118,7 @@ def _convert(
 
 def _label(panel: PanelRequest, names: list[str]) -> str:
     first = names[0]
-    unit = unit_text(kind_of(first).display_unit)
-    head = variables.label(first).rpartition(" (")[0] or variables.label(first)
+    head, unit = variables.label_parts(first)
     if panel.cumulative:
         target = QUANTITY_KINDS[kind_of(first).cumulates_to]
         unit = unit_text(target.display_unit)
@@ -115,10 +127,15 @@ def _label(panel: PanelRequest, names: list[str]) -> str:
         head = "Budget terms" if BUDGET in (panel.variable or ()) else "Value"
     if panel.against == AGAINST_OBSERVED:
         head = "Residual, simulated minus observed"
-    return f"{head} ({unit})" if unit else head
+    return variables.join_unit(head, unit)
 
 
-def _scores(run: Run, keys: list[tuple[str, str | None]]) -> pd.DataFrame:
+def scores(run: Run, keys: list[tuple[str, str | None]]) -> pd.DataFrame:
+    """Return the rows of ``run.metrics`` for each variable and station of ``keys``.
+
+    The rows carry the scoring window in their ``window_start`` and ``window_end``
+    columns, which ``score_text`` writes after the numbers.
+    """
     metrics = run.metrics
     rows = []
     for name, station in keys:
@@ -151,11 +168,7 @@ def data(subject: Run, panel: PanelRequest) -> SeriesData:
     zone area of ``read_mesh``. ``cumulative`` sums along time and switches the
     kind to its ``cumulates_to``.
     """
-    if panel.reduce is not None or panel.change is not None:
-        raise FigureNotApplicable(
-            "A series keeps its time axis, so reduce and change do not apply to it. "
-            "Use a map to reduce over time or to draw a change."
-        )
+    refuse_fields("series", panel, FIELDS)
     if panel.cumulative:
         for name in panel.variable or ():
             if name != BUDGET and kind_of(name).cumulates_to is None:
@@ -169,14 +182,14 @@ def data(subject: Run, panel: PanelRequest) -> SeriesData:
     if not panel.variable:
         raise FigureNotApplicable("A series panel needs a variable.")
     against = panel.against == AGAINST_OBSERVED
-    window = _window(panel)
+    window = panel.window
     want_observed = panel.observed or against
     frames, keys = [], []
     for station in _stations(panel):
         names = []
         for name in panel.variable:
             names += read_budget(subject, station=station) if name == BUDGET else [name]
-        area = _zone_area(subject, station)
+        area = zone_area(subject, station)
         for name in dict.fromkeys(names):
             sim = read_series(subject, name, station=station, window=window)
             seconds = read_period_seconds(subject, sim.index) if panel.cumulative else None
@@ -190,13 +203,12 @@ def data(subject: Run, panel: PanelRequest) -> SeriesData:
             )
             if want_observed:
                 try:
-                    obs = read_observed(subject, name, station=station)
+                    obs = observed_on(subject, name, station, sim.index)
                 except FigureNotApplicable:
                     if against:
                         raise
                     # No record here: the panel then shows the simulation alone.
                 else:
-                    obs = obs.reindex(sim.index)
                     frame["observed"] = _convert(name, obs, area, seconds).to_numpy()
             if against:
                 frame["simulated"] = frame["simulated"] - frame["observed"]
@@ -216,7 +228,7 @@ def data(subject: Run, panel: PanelRequest) -> SeriesData:
         log=log,
         stack=panel.stack,
         references=_references(panel),
-        scores=_scores(subject, keys) if panel.scores else None,
+        scores=scores(subject, keys) if panel.scores else None,
         window=None if window is None else (table["time"].iloc[0], table["time"].iloc[-1]),
         residual=against,
     )
@@ -241,7 +253,8 @@ def _scored_window(scores: pd.DataFrame) -> str:
     return f"scored {str(starts[0])[:7]} to {str(ends[0])[:7]}"
 
 
-def _score_text(scores: pd.DataFrame, many: bool) -> str:
+def score_text(scores: pd.DataFrame, many: bool) -> str:
+    """Return the key scores of a table as one line, with the scoring window when it is single."""
     wanted = scores[scores["metric"].isin(KEY_SCORES)]
     parts = []
     for (name, _station, metric), rows in wanted.groupby(
@@ -257,9 +270,10 @@ def _score_text(scores: pd.DataFrame, many: bool) -> str:
 
 def _stacked(ax: Any, groups: list[Any], dates: bool, theme: Theme) -> None:
     """Stack bars of each period: inflows above zero, outflows below, one colour role per term."""
+    colors = variables.member_colors(list(dict.fromkeys(name for name, _, _ in groups)), theme)
     for sign in (1, -1):
         base = None
-        for i, (name, _station, rows) in enumerate(groups):
+        for name, _station, rows in groups:
             x = mdates.date2num(rows["time"]) if dates else rows["time"].to_numpy(dtype=float)
             width = np.append(np.diff(x), np.diff(x)[-1] if len(x) > 1 else 1.0)
             vals = np.nan_to_num(rows["simulated"].to_numpy(dtype=float))
@@ -267,7 +281,7 @@ def _stacked(ax: Any, groups: list[Any], dates: bool, theme: Theme) -> None:
             base = np.zeros_like(part) if base is None else base
             ax.bar(
                 x, part, width, bottom=base, align="edge", linewidth=0,
-                color=_color(i, True, theme),
+                color=colors[name],
                 label=label_of(name) if sign > 0 else None,
             )  # fmt: skip
             base = base + part
@@ -332,7 +346,7 @@ def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
         ax.set_xlabel("Period")
     static.style_axes(ax, theme, dates=dates)
     if data.scores is not None and len(data.scores):
-        text = _score_text(data.scores, many)
+        text = score_text(data.scores, many)
         if text:
             ax.set_title(text, loc="right", **static.text_style(theme))
     if ax.get_legend_handles_labels()[0]:

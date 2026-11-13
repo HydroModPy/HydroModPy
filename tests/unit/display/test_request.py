@@ -166,3 +166,8 @@ def test_a_draw_function_takes_station_and_time_at_figure_level():
     assert figure.draw_keywords == {"station": "lake:1", "time": "last"}
     with pytest.raises(ValueError, match="belong inside a panel"):
         FigureRequest(draw=draw, layer=1)
+
+
+def test_a_section_alone_is_drawn_at_double_width():
+    figure = expand(FigureRequest(variable=["head"], type="section"), {})
+    assert figure.width == "double"

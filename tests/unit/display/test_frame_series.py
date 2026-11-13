@@ -11,12 +11,11 @@ from hydromodpy.display.request import PanelRequest
 from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.display.theme import THEMES
 from tests._helpers.run_builders import GAUGE
-from tests.unit.display._stored_run import STEP
+from tests.unit.display._stored_run import ZONE_AREA
 
 THEME = THEMES["default"]
 ZONE = "zone:catchment"
 DAYS = np.array([31, 28, 31, 30]) * 86400.0
-ZONE_AREA = 8 * STEP**2
 
 
 def data(run, **panel):
@@ -63,7 +62,7 @@ def test_the_observed_record_is_a_column_and_against_is_the_difference(stored_ru
 
 def test_the_scores_come_from_the_metrics_with_their_window(stored_run):
     out = data(stored_run, variable="discharge", station=GAUGE, scores=True)
-    text = series._score_text(out.scores, many=False)
+    text = series.score_text(out.scores, many=False)
     assert text.startswith("NSE 0.80") and "scored 2020-01 to 2020-12" in text
 
 
@@ -79,7 +78,7 @@ def test_the_budget_is_the_kept_terms_over_a_zone(stored_run):
 
 REFUSED = [
     ({"variable": "head", "station": ZONE, "cumulative": True}, "cannot be cumulated"),
-    ({"variable": "discharge", "station": GAUGE, "reduce": "mean"}, "reduce and change"),
+    ({"variable": "discharge", "station": GAUGE, "reduce": "mean"}, "does not take 'reduce'"),
     ({"variable": "discharge", "station": GAUGE, "against": "other"}, "against 'observed'"),
     ({"variable": "discharge", "station": "catchment", "against": "observed"}, "no observation"),
 ]

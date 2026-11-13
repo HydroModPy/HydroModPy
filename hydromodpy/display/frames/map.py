@@ -15,7 +15,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from matplotlib.collections import LineCollection, PolyCollection
-from matplotlib.colors import BoundaryNorm, ListedColormap, LogNorm, Normalize, TwoSlopeNorm
 from matplotlib.ticker import MaxNLocator
 from matplotlib.tri import Triangulation
 from pyproj import CRS
@@ -35,6 +34,7 @@ from hydromodpy.display.subject import (
     read_field,
     read_mesh,
     read_table,
+    refuse_fields,
 )
 from hydromodpy.display.theme import Theme
 from hydromodpy.results.field_registry import BUDGET_GROUP, BUDGET_SIGN_RULE
@@ -42,6 +42,10 @@ from hydromodpy.results.run.view import Run
 
 MAP_COLUMNS = ("cell", "x", "y", "value")
 REACH_COLUMNS = (*MAP_COLUMNS, "x_down", "y_down")
+FIELDS = (
+    "variable", "time", "layer", "overlays", "bbox", "contours", "scale", "share", "reduce",
+    "change", "against",
+)  # fmt: skip
 LONG_EDGE = 2.2
 """A contour triangle with an edge longer than this many cell sizes is dropped."""
 
@@ -80,12 +84,16 @@ def _instants(subject: Run, panel: PanelRequest) -> list[int]:
     return list(range(int(subject.n_timesteps or 1)))
 
 
-def _stored(subject: Run, name: str, panel: PanelRequest) -> np.ndarray:
+def stored_field(subject: Run, name: str, panel: PanelRequest) -> np.ndarray:
     """Return the field of one run in the stored unit, after the time operation."""
     layer = panel.layer
     if panel.change is not None:
+        if panel.time is not None or panel.reduce is not None:
+            raise FigureNotApplicable("change replaces time and reduce, so give none of them.")
         first, last = (read_field(subject, name, time=t, layer=layer) for t in panel.change)
         return last - first
+    if isinstance(panel.time, list):
+        raise FigureNotApplicable("A field is read at one instant, not over a window of time.")
     time = "last" if panel.time is None else panel.time
     if panel.reduce is None:
         return read_field(subject, name, time=time, layer=layer)
@@ -141,6 +149,7 @@ def data(subject: Run, panel: PanelRequest) -> MapData:
     table depth. A signed variable whose finite values all have one sign is drawn on a
     sequential ramp, not on a ramp centred on zero.
     """
+    refuse_fields("map", panel, FIELDS)
     name = panel.variable[0]
     mesh = read_mesh(subject)
     difference = panel.change is not None or panel.against is not None
@@ -150,7 +159,7 @@ def data(subject: Run, panel: PanelRequest) -> MapData:
         label = name.split(COLUMN_SEPARATOR, 1)[1]
         scale = "diverging" if (table["value"] < 0).any() else "sequential"
         return MapData(table, mesh, name, label, scale, Theme().ramps[scale], log, False)
-    values = _stored(subject, name, panel)
+    values = stored_field(subject, name, panel)
     if panel.against == "observed":
         raise FigureNotApplicable(f"{name!r} has no observed field to subtract on a map.")
     if panel.against is not None:
@@ -172,7 +181,7 @@ def data(subject: Run, panel: PanelRequest) -> MapData:
         scale = "sequential"
     label = variables.label(name)
     if frequency:
-        label, scale = "Share of steps with a non-zero value", "sequential"
+        label, scale = variables.FREQUENCY_LABEL, "sequential"
     elif difference:
         label = f"{label[0].lower()}{label[1:]}" if label[1:2].islower() else label
         label = f"Change in {label}" if panel.change is not None else f"Difference in {label}"
@@ -207,38 +216,8 @@ def _ramp(data: MapData, theme: Theme) -> str:
     return variables.ramp(data.variable, theme) if registered else theme.ramps[data.scale]
 
 
-def _norm(data: MapData, values: np.ndarray) -> Normalize:
-    finite = values[np.isfinite(values)]
-    lo, hi = data.limits or (
-        (float(finite.min()), float(finite.max())) if finite.size else (0.0, 1.0)
-    )
-    if data.scale == "diverging":
-        reach = max(abs(lo), abs(hi)) or 1.0
-        return TwoSlopeNorm(vcenter=0.0, vmin=-reach, vmax=reach)
-    if data.log:
-        positive = finite[finite > 0]
-        floor = float(positive.min()) if positive.size else 1.0
-        lo = max(lo, floor) if data.limits is None else lo
-        return LogNorm(vmin=lo, vmax=max(hi, lo * 10))
-    return Normalize(vmin=lo, vmax=hi if hi > lo else lo + 1.0)
-
-
 def _polygons(mesh: MeshView, cells: np.ndarray) -> list[np.ndarray]:
     return [mesh.vertices[ring[ring >= 0]][:, :2] for ring in mesh.faces[cells]]
-
-
-def _classes(
-    data: MapData, values: np.ndarray, theme: Theme
-) -> tuple[np.ndarray, ListedColormap, BoundaryNorm]:
-    known = np.array([value for value, _ in data.classes])
-    position = np.searchsorted(known, values)
-    position = np.where(np.isin(values, known), position, np.nan)
-    palette = [theme.categorical[i % len(theme.categorical)] for i in range(len(known))]
-    return (
-        position,
-        ListedColormap(palette),
-        BoundaryNorm(np.arange(len(known) + 1) - 0.5, len(known)),
-    )
 
 
 def _isolines(ax: object, data: MapData, theme: Theme) -> None:
@@ -282,7 +261,8 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
     """
     table = data.table
     values = table["value"].to_numpy(dtype=float)
-    cmap, norm = _ramp(data, theme), _norm(data, values)
+    cmap = _ramp(data, theme)
+    norm = variables.color_norm(data.scale, data.log, values, data.limits)
     if "x_down" in table:
         segments = [
             [(r.x, r.y), (r.x_down, r.y_down)] for r in table.itertuples() if np.isfinite(r.x_down)
@@ -297,7 +277,7 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
         polygons = _polygons(data.mesh, table["cell"].to_numpy())
         shown = values
         if data.scale == "categorical":
-            shown, cmap, norm = _classes(data, values, theme)
+            shown, cmap, norm = variables.class_scale(values, data.classes, theme)
         artist = PolyCollection(
             polygons, array=np.ma.masked_invalid(shown), cmap=cmap, norm=norm,
             edgecolors="none", linewidths=0.0, antialiased=False,
