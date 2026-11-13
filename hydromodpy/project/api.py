@@ -38,6 +38,7 @@ from hydromodpy.project.launch.plan import PlanDraft
 from hydromodpy.project.request import (
     RunOutcome,
     RunRequest,
+    changed_document,
     held,
     is_a_path,
     refuse_a_calibration,
@@ -478,8 +479,10 @@ def calibrate(
     Parameters
     ----------
     source
-        A calibration TOML file, a document as a mapping or JSON text, or a
-        validated :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`.
+        A calibration TOML file, a document as a mapping or JSON text, a
+        validated :class:`~hydromodpy.config.hydromodpy_config.HydroModPyConfig`,
+        or a run request, whose ``set``, ``phase``, ``name``, ``resume``,
+        ``force`` and ``dry_run`` steer the call as the keywords do.
     base
         The folder the relative paths of the document are read from, and the
         project the sessions are written in.
@@ -536,6 +539,14 @@ def calibrate(
     from hydromodpy.core.exceptions import CalibrationError
     from hydromodpy.project.dispatch.workflow import no_such_phase
 
+    if isinstance(source, RunRequest):
+        # A request is read as the document it carries, with what it asks for.
+        request, source = source, changed_document(source)
+        phase = request.phase if phase is None else phase
+        case = request.name if case is None else case
+        dry_run = dry_run or request.dry_run
+        resume = resume or request.resume is not None
+        force = force or request.force
     in_memory = {
         "case": case,
         "method": method,

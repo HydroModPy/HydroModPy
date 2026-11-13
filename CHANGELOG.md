@@ -915,6 +915,7 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 - `manifest.json` gives the sha256 of `fields.zarr`, and `hmp doctor` reports a field store changed since the seal. A seal written before has none and still reads. The STAC and RO-Crate views give no checksum for the store, because it is a directory and not a file.
 - The matching card of a calibration now reads the unit of K from the session journal (`bounds.<name>.units`) before the session config, so its axis no longer shows `K (-)` when the journal says `m/s`.
 - `hmp run` ends on `Run completed` and `next:` again, after the figures it draws, as the Get started page says. The figure summary came after them. The Quick start check keeps `HMP_EXAMPLES_SOURCE`, so CI fetches example 04 from the checkout before the tag exists.
+- `hmp.calibrate` takes a run request, which it failed on with `'NoneType' object has no attribute 'model_dump'`, and reads its `set`, `phase`, `name`, `resume`, `force` and `dry_run` as the keywords. `PlanDraft.to_dict()` of a plan with no `[sites]` gives no `lines` where it failed with an `AttributeError`, so a `dry_run` of `hmp.run` answers over the HTTP server.
 
 ### Security
 
