@@ -276,25 +276,56 @@ class Session:
 
     def figure(
         self,
-        name: str,
+        name: str | None = None,
         *,
+        request: Mapping[str, Any] | None = None,
+        draw: Callable[..., Any] | None = None,
         save: str | Path | None = None,
         dpi: int | None = None,
+        theme: str | None = None,
+        engine: str | None = None,
         time: str | None = None,
         **options: Any,
     ) -> Figure | Path:
         """Draw the registered ``session`` figure *name* of this session.
 
         The arguments are those of :meth:`hydromodpy.results.run.view.Run.figure`.
+        A figure of another subject refuses the session.
 
         Raises
         ------
         hydromodpy.core.exceptions.CommandUsageError
             If the session was not opened by ``hydromodpy.open`` or a project.
         """
-        from hydromodpy.results.run.view import draw
+        from hydromodpy.results.run.view import figure_of
 
-        return draw(self, name, {**options, "save": save, "dpi": dpi, "time": time})
+        return figure_of(
+            self,
+            name,
+            request,
+            {
+                **options,
+                "draw": draw,
+                "save": save,
+                "dpi": dpi,
+                "theme": theme,
+                "engine": engine,
+                "time": time,
+            },
+        )
+
+    def figure_data(
+        self,
+        name: str | None = None,
+        *,
+        request: Mapping[str, Any] | None = None,
+        time: str | None = None,
+        **options: Any,
+    ) -> dict[str, Any]:
+        """Return the tables behind a figure of this session, as :meth:`Run.figure_data` does."""
+        from hydromodpy.results.run.view import figure_of
+
+        return figure_of(self, name, request, {**options, "time": time}, data=True)
 
     def show(self, what: str, **options: Any) -> Any:
         """Read one thing of this session: ``table``, ``profile``, ``figure`` or ``report``."""

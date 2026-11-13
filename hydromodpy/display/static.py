@@ -13,15 +13,22 @@ from typing import Any
 
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.colors import LogNorm
 from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
 from matplotlib.figure import Figure
-from matplotlib.ticker import AutoMinorLocator, FuncFormatter, ScalarFormatter
+from matplotlib.ticker import (
+    AutoMinorLocator,
+    FuncFormatter,
+    LogFormatterSciNotation,
+    MaxNLocator,
+    ScalarFormatter,
+)
 from matplotlib.transforms import offset_copy
 
-from hydromodpy.display.theme import WIDTHS_MM, Theme
+from hydromodpy.display.request import FORMATS, WIDTHS_MM
+from hydromodpy.display.theme import Theme
 
 MM = 1 / 25.4
-FORMATS = ("png", "svg", "pdf")
 PAD_IN = 3 / 72
 SPACE = 0.02
 
@@ -167,6 +174,8 @@ def map_axes(
         km_value = value / 1000
         return f"{km_value:.0f}" if abs(km_value - round(km_value)) < 1e-6 else f"{km_value:.1f}"
 
+    for axis, count in ((ax.xaxis, 5), (ax.yaxis, 3)):
+        axis.set_major_locator(MaxNLocator(nbins=count, steps=[1, 2, 5, 10]))
     for axis in (ax.xaxis, ax.yaxis):
         axis.set_major_formatter(FuncFormatter(km))
         axis.set_minor_locator(AutoMinorLocator(1))
@@ -273,7 +282,13 @@ def colorbar(
         color=theme.ink,
     )
     cb.ax.minorticks_off()
-    cb.formatter = TimesTenFormatter()
+    if isinstance(mappable.norm, LogNorm):
+        # Every tick of a log bar gets the same a x 10^b label, even below one decade.
+        cb.formatter = cb.minorformatter = LogFormatterSciNotation(
+            minor_thresholds=(np.inf, np.inf)
+        )
+    else:
+        cb.formatter = TimesTenFormatter()
     cb.update_ticks()
     cb.set_label(label, family=theme.family, size=theme.size, color=theme.ink)
     cb.ax.yaxis.label.set_math_fontfamily(theme.math_family)
@@ -281,16 +296,22 @@ def colorbar(
     return cb
 
 
+LEGEND_ROW_CHARS = 40
+"""A legend whose labels hold more characters than this is set on two columns."""
+
+
 def legend(ax: Any, theme: Theme) -> Any:
-    """Put the legend in one row above the axes, above the title when there is one."""
-    lift = theme.title_size + theme.title_pad + 2.0 if ax.get_title() else 2.0
+    """Put the legend in one row above the axes, right aligned, above the title when there is one."""
+    titled = any(ax.get_title(loc=loc) for loc in ("left", "center", "right"))
+    lift = theme.title_size + theme.title_pad + 2.0 if titled else 2.0
     anchor = offset_copy(ax.transAxes, fig=ax.figure, y=lift, units="points")
-    handles, _ = ax.get_legend_handles_labels()
+    handles, labels = ax.get_legend_handles_labels()
+    wide = sum(map(len, labels)) > LEGEND_ROW_CHARS
     leg = ax.legend(
-        loc="lower left",
-        bbox_to_anchor=(0.0, 1.0),
+        loc="lower right",
+        bbox_to_anchor=(1.0, 1.0),
         bbox_transform=anchor,
-        ncols=max(len(handles), 1),
+        ncols=2 if wide else max(len(handles), 1),
         frameon=True,
         fancybox=False,
         shadow=False,

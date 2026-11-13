@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import (
     OneParameter,
     Opt,
@@ -33,6 +33,7 @@ from hydromodpy.display.figures._calibration_session import (
 )
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, place_legend
+from hydromodpy.display.subject import FigureNotApplicable
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

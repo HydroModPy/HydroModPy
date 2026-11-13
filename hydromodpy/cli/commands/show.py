@@ -8,7 +8,8 @@ holds. A selector names another reading.
 - ``--profile`` where the time went.
 - ``--point`` one variable in one cell of one or several runs.
 - ``--rank METRIC`` the best runs of a project (``-n``, ``--worst``).
-- ``--figure NAME`` one registered figure (``--time``, ``--opt``).
+- ``--figure NAME`` one figure: a registered name, a variable or a preset
+  (``--time``, ``--opt``, ``--engine``, ``--data``).
 - ``--report`` the report of a run or of a session.
 - ``--table NAME`` one sealed table.
 
@@ -66,6 +67,8 @@ Examples:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
+    from hydromodpy.display.request import ENGINES
+
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
@@ -101,7 +104,9 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--figure",
         default=None,
         metavar="NAME",
-        help="Draw one figure, by the names 'hmp config figures' lists",
+        help=(
+            "Draw one figure: a name 'hmp config figures' lists, a registered variable or a preset"
+        ),
     )
     what.add_argument(
         "--report", action="store_true", help="Write the report of a run or of a session"
@@ -162,8 +167,24 @@ def register(subparsers) -> argparse.ArgumentParser:
         metavar="NAME=VALUE",
         dest="options",
         help=(
-            "Figure option, repeatable, as in [display.overrides]: a TOML value "
+            "Figure option, repeatable, as in [display.overrides], or a panel field "
+            "of a variable or a preset (station, layer, scale): a TOML value "
             '(false, 12, [8, 4], "text") or bare text'
+        ),
+    )
+    figure.add_argument(
+        "--engine",
+        choices=tuple(ENGINES),
+        default=None,
+        help="Engine of a variable or a preset figure (default: its own)",
+    )
+    figure.add_argument(
+        "--data",
+        default=None,
+        metavar="DIR",
+        help=(
+            "Write the tables behind a variable or a preset figure to DIR, one "
+            "<stem>_<key>.csv each, and draw nothing"
         ),
     )
 
@@ -235,6 +256,10 @@ def _refuse_a_selector_that_cannot_hold(args: argparse.Namespace, refs: list[str
     from hydromodpy.core.exceptions import CommandUsageError
 
     writes = args.figure is not None or args.point or args.table is not None
+    if args.data is not None and args.figure is None:
+        raise CommandUsageError("--data writes the tables of a figure: add --figure NAME.")
+    if args.data is not None and args.to:
+        raise CommandUsageError("--data writes a folder of tables: drop --to.")
     if args.to and not writes:
         raise CommandUsageError("--to writes a figure (--figure), a point (--point) or a table.")
     if args.point:
@@ -643,14 +668,23 @@ def _figure(args: argparse.Namespace, root: Path, target: Target) -> None:
     from hydromodpy.display.runs import figure_options_from_run, figures_dir_of, record_figure
     from hydromodpy.project.api import open as open_path
     from hydromodpy.project.api import show
+    from hydromodpy.project.show import project_presets, takes_request
 
     if target.kind == "project":
         raise CommandUsageError("--figure draws a run or a session: give one.")
+    subject = open_path(target.directory)
+    if takes_request(args.figure, project_presets(subject), {}):
+        _request_figure(args, target, subject)
+        return
+    if args.data is not None or args.engine is not None:
+        raise CommandUsageError(
+            "--data and --engine take a variable or a preset, not the figure "
+            f"{args.figure!r} of the old registry."
+        )
     try:
         options = parse_figure_options(args.figure, args.options) if args.options else {}
     except (KeyError, ValueError) as exc:
         refuse(str(exc).strip("'\""), EXIT_USAGE, cause=exc)
-    subject = open_path(target.directory)
     drawn: dict[str, Any] = {}
     figures_dir = figures_dir_of(target.directory)
     if target.kind == "run":
@@ -666,6 +700,59 @@ def _figure(args: argparse.Namespace, root: Path, target: Target) -> None:
     )
     if target.kind == "run" and save.parent.resolve() == figures_dir.resolve():
         record_figure(save, name=args.figure, options=drawn, sim=subject, figures_dir=figures_dir)
+    emit(
+        args,
+        "show figure",
+        {"path": written},
+        table=lambda: print(f"wrote {written}", file=sys.stderr),
+    )
+
+
+def _request_figure(args: argparse.Namespace, target: Target, subject: Any) -> None:
+    """Draw a variable or a preset, or write its tables with ``--data``."""
+    from pydantic import ValidationError
+
+    from hydromodpy.display.catalog_figures import parse_request_fields
+    from hydromodpy.display.runs import figures_dir_of
+    from hydromodpy.display.subject import FigureNotApplicable
+    from hydromodpy.project.api import show
+
+    try:
+        fields = parse_request_fields(args.options)
+    except ValueError as exc:
+        refuse(str(exc), EXIT_USAGE, cause=exc)
+    if args.time is not None:
+        fields["time"] = args.time
+    if args.engine is not None:
+        fields["engine"] = args.engine
+    try:
+        if args.data is not None:
+            folder = Path(args.data).expanduser().resolve()
+            paths = show(
+                subject,
+                what="figure",
+                name=args.figure,
+                options={**fields, "data": True, "data_dir": folder},
+            )
+            emit(
+                args,
+                "show figure data",
+                {"paths": [str(path) for path in paths]},
+                table=lambda: print(f"wrote {len(paths)} table(s) in {folder}", file=sys.stderr),
+            )
+            return
+        save = Path(args.to).expanduser().resolve() if args.to else figures_dir_of(target.directory)
+        if save.suffix != "":
+            save.parent.mkdir(parents=True, exist_ok=True)
+        written = show(subject, what="figure", name=args.figure, options=fields, save=save)
+    except FigureNotApplicable:
+        raise
+    except ValidationError as exc:
+        first = exc.errors()[0]
+        place = ".".join(str(item) for item in first["loc"])
+        refuse(f"{place}: {first['msg']}".strip(": "), EXIT_USAGE, cause=exc)
+    except ValueError as exc:
+        refuse(str(exc), EXIT_USAGE, cause=exc)
     emit(
         args,
         "show figure",

@@ -25,13 +25,7 @@ from pydantic import ValidationError
 import hydromodpy.display.figures as figures_package
 from hydromodpy.display import figure_registry
 from hydromodpy.display.config import DisplayConfig
-from hydromodpy.display.figure import (
-    NOT_A_RUNSET_REASON,
-    BaseFigure,
-    FigureNotApplicable,
-    FigureSpec,
-    options_of,
-)
+from hydromodpy.display.figure import NOT_A_RUNSET_REASON, BaseFigure, FigureSpec, options_of
 from hydromodpy.display.figure_options import COMMON_OPTIONS
 from hydromodpy.display.figure_registry import (
     figure_option_names,
@@ -44,6 +38,7 @@ from hydromodpy.display.figures.difference_map import DifferenceMap
 from hydromodpy.display.figures.piezometric_map import PiezometricMap
 from hydromodpy.display.figures.side_by_side_map import SideBySideMapFigure
 from hydromodpy.display.runs import figure_options_from_run, render_figure
+from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.results.run.group import RunSet
 
 EXPECTED_FIGURES = {

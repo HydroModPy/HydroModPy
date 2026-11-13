@@ -8,30 +8,41 @@
 # Rows are written lowest first: a row names only rows written above it, so
 # this table cannot allow a cycle.
 allowed:
+  "<init>":         []
+  request:          []
   figure_table:     []
   style:            []
   theme:            []
-  static:           [theme]
+  static:           [request, theme]
   maps:             []
   png_metadata:     []
   quicklook:        []
   figure_options:   []
+  presets:          [request]
+  subject:          [request]
+  variables:        [request, theme]
+  overlays:         ["<init>", request, subject, static, theme]
+  output:           ["<init>", request, static, theme, png_metadata]
+  frames:           ["<init>", request, subject, variables, static, theme]
+  render:           ["<init>", request, presets, frames, subject, overlays, static, theme]
   figure:           [png_metadata, figure_options]
   figure_registry:  [figure, figure_table]
-  figures:          [figure, figure_options, maps, style]
-  config:           [figure_registry, figure_table]
+  figures:          [figure, figure_options, maps, style, subject]
+  config:           [request, presets, theme, figure_registry, figure_table]
   cohort:           [figure_registry, figure_table, style]
   run_comparison:   [maps]
-  "<init>":         []
-  runs:             ["<init>", config, figure, figure_registry, figure_table, png_metadata, style]
+  runs:             ["<init>", config, figure, figure_registry, figure_table, png_metadata, style, request, presets, subject, output, render, theme]
   catalog_figures:  [figure_registry, figure_table, runs]
   overview:         [figure, style]
   report:           [config, figure_registry, figure_table, runs]
 
 # The registry imports hydromodpy.display.figures by name on first lookup, so
-# that importing the registry stays light. Only this file may name a module so.
+# that importing the registry stays light. The renderer imports a frame of
+# hydromodpy.display.frames by its name in request.FRAMES. Only these files may
+# name a module so.
 text_paths:
   - hydromodpy/display/figure_table.py
+  - hydromodpy/display/render.py
 
 # What another layer of hydromodpy may import from hydromodpy/display.
 public:
@@ -44,6 +55,11 @@ public:
   - hydromodpy.display.style
   - hydromodpy.display.theme
   - hydromodpy.display.static
+  - hydromodpy.display.request
+  - hydromodpy.display.presets
+  - hydromodpy.display.render
+  - hydromodpy.display.output
+  - hydromodpy.display.subject
   - hydromodpy.display.catalog_figures
   - hydromodpy.display.cohort
   - hydromodpy.display.run_comparison

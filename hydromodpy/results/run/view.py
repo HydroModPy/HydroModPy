@@ -125,14 +125,18 @@ if TYPE_CHECKING:
     from hydromodpy.results.session.view import Session
 
     Renderer: TypeAlias = Callable[
-        ["Run | Session | RunSet", str, Mapping[str, Any]], "Figure | Path"
+        ["Run | Session | RunSet", "str | Mapping[str, Any]", Mapping[str, Any]],
+        "Figure | Path | dict[str, Any]",
     ]
     """Draws a figure, or writes a report, of a run, a session or a set of runs.
 
-    It is given the subject, the figure name (``report`` for the report) and the
-    options, ``save`` and ``dpi`` among them. It gives the figure, or with ``save``
-    the file written. ``hydromodpy.open`` and a ``Project`` hand it to what they
-    open, the way they hand ``read_config``.
+    It is given the subject, what to draw and the options. What to draw is a figure
+    name (``report`` for the report), or a mapping that holds a request. The options
+    hold ``save``, ``dpi``, ``time``, ``theme``, ``engine``, ``draw`` (a Python
+    function) and the fields of the figure, and ``data`` when the tables are asked
+    for. It gives the figure, with ``save`` the file written, or with ``data`` a dict
+    of tables. ``hydromodpy.open`` and a ``Project`` hand it to what they open, the
+    way they hand ``read_config``.
     """
 
 REPORT: Final[str] = "report"
@@ -241,8 +245,12 @@ def project_root_of(run_dir: Path) -> tuple[Path, str] | None:
     return None
 
 
-def draw(subject: Any, name: str, options: Mapping[str, Any]) -> Figure | Path:
+def draw(
+    subject: Any, name: str | Mapping[str, Any], options: Mapping[str, Any]
+) -> Figure | Path | dict[str, Any]:
     """Draw figure *name* of *subject*, or write its report, with the renderer it was opened with.
+
+    *name* is a mapping when the figure is given as a request.
 
     The options that are ``None`` are left out, so the renderer applies its own
     defaults. A subject opened without a renderer refuses by saying how to open it.
@@ -256,6 +264,28 @@ def draw(subject: Any, name: str, options: Mapping[str, Any]) -> Figure | Path:
     return render(
         subject, name, {key: value for key, value in options.items() if value is not None}
     )
+
+
+def figure_of(
+    subject: Any,
+    name: str | None,
+    request: Mapping[str, Any] | None,
+    options: Mapping[str, Any],
+    *,
+    data: bool = False,
+) -> Figure | Path | dict[str, Any]:
+    """Draw what ``figure`` and ``figure_data`` are given, the same for a run, a set and a session.
+
+    *name* and *request* are two ways to say what to draw. A request may be left out
+    when *options* holds a ``draw`` function. With *data* the renderer is asked for
+    the tables, not the figure.
+    """
+    if name is not None and request is not None:
+        raise CommandUsageError("Give a figure name or a request, not both.")
+    if name is None and request is None and options.get("draw") is None:
+        raise CommandUsageError("Name a figure, give a request or give a draw function.")
+    target = name if name is not None else dict(request or {})
+    return draw(subject, target, {**options, "data": True} if data else options)
 
 
 def show_of(subject: Any, what: str, options: Mapping[str, Any], takes: tuple[str, ...]) -> Any:
@@ -665,10 +695,14 @@ class Run(
 
     def figure(
         self,
-        name: str,
+        name: str | None = None,
         *,
+        request: Mapping[str, Any] | None = None,
+        draw: Callable[..., Any] | None = None,
         save: str | Path | None = None,
         dpi: int | None = None,
+        theme: str | None = None,
+        engine: str | None = None,
         time: str | None = None,
         **options: Any,
     ) -> Figure | Path:
@@ -680,20 +714,35 @@ class Run(
         ``session`` figure draws the session that promoted it, and a run no
         session promoted is refused.
 
+        *name* may also be a registered variable (``"head"``) or a preset, which
+        draw through the request path. ``request`` is a request written as a
+        mapping, as one ``[[display.figure]]`` table. ``draw`` is a Python function
+        ``draw(subject, ax, theme)`` that draws on one axes.
+
         Parameters
         ----------
         name
-            Registered figure name, for example ``"piezometric_map"``.
+            Registered figure name, for example ``"piezometric_map"``, a variable
+            or a preset.
+        request
+            A request as a mapping, instead of *name*.
+        draw
+            A function that draws the figure, instead of *name*.
         save
             A file, or a folder that receives ``<name>.png``. With it the figure
             is written and its path comes back.
         dpi
             Resolution of the PNG. ``None`` takes 150.
+        theme
+            A theme of the request path. ``None`` takes the one of the run.
+        engine
+            The engine of the request path, ``static`` or ``interactive``.
         time
             The instant a figure that draws one shows: a date, ``"first"`` or
             ``"last"``. ``None`` leaves the figure its own default.
         **options
-            The options of the figure, as in ``[display.overrides]``.
+            The options of the figure, as in ``[display.overrides]``, or the fields
+            of a request.
 
         Raises
         ------
@@ -702,7 +751,35 @@ class Run(
         ValueError
             If an option is not one the figure takes, or the run lacks what it needs.
         """
-        return draw(self, name, {**options, "save": save, "dpi": dpi, "time": time})
+        return figure_of(
+            self,
+            name,
+            request,
+            {
+                **options,
+                "draw": draw,
+                "save": save,
+                "dpi": dpi,
+                "theme": theme,
+                "engine": engine,
+                "time": time,
+            },
+        )
+
+    def figure_data(
+        self,
+        name: str | None = None,
+        *,
+        request: Mapping[str, Any] | None = None,
+        time: str | None = None,
+        **options: Any,
+    ) -> dict[str, Any]:
+        """Return the tables behind a figure, keyed ``a``, ``b`` and ``a:<value>`` per small multiple.
+
+        It takes the arguments of :meth:`figure` that shape the data. Only the
+        request path gives tables, so *name* is a variable or a preset.
+        """
+        return figure_of(self, name, request, {**options, "time": time}, data=True)
 
     def show(self, what: str, **options: Any) -> Any:
         """Read one thing of this run: ``table``, ``field``, ``series``, ``profile``, ``figure`` or ``report``.

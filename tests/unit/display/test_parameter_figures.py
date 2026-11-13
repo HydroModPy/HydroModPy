@@ -12,13 +12,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.display.figure import FigureNotApplicable
 from hydromodpy.display.figures.parameter_map import ParameterMap
 from hydromodpy.display.figures.parameter_section import (
     ParameterSection,
     _quad_edges,
     _resolve_variables,
 )
+from hydromodpy.display.subject import FigureNotApplicable
 
 N_CELLS = 4
 N_LAYERS = 3

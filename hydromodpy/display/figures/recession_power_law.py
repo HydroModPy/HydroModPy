@@ -28,9 +28,10 @@ import numpy as np
 
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.quantities import SECONDS_PER_DAY
-from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, Station
 from hydromodpy.display.style import place_legend
+from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.results.derive.recession import (
     brutsaert_nieber_coefficient,
     budget_outflow_per_day,

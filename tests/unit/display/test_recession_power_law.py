@@ -11,8 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.display.figure import FigureNotApplicable
 from hydromodpy.display.figures.recession_power_law import RecessionPowerLaw
+from hydromodpy.display.subject import FigureNotApplicable
 
 
 def test_a_run_without_the_series_is_not_applicable(mpl) -> None:

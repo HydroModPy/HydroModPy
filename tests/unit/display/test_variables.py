@@ -1,0 +1,67 @@
+"""Label, unit, scale and ramp of a variable, from the registry and its quantity kind."""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from hydromodpy.core.units.kinds import QUANTITY_KINDS
+from hydromodpy.display import variables
+from hydromodpy.display.theme import get_theme
+from hydromodpy.results.field_registry import FIELD_REGISTRY
+
+THEME = get_theme("default")
+FLOW = "recharge"
+SIGNED = next(n for n, d in FIELD_REGISTRY.items() if d.quantity == "cell_flow" and d.sign is None)
+
+
+def test_a_label_carries_the_display_unit_and_a_class_has_none():
+    assert variables.label("head").startswith("Hydraulic head (")
+    assert "mm" in variables.label(FLOW) and "(" not in variables.label("seepage_mask")
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "area", "expected"),
+    [
+        ("hydraulic_conductivity", 1e-5, None, 1e-5),
+        (FLOW, 1e-3, 100.0, 1e-3 / 100.0 * 86400 * 1000),
+        (FLOW, 1e-3, 50.0, 1e-3 / 50.0 * 86400 * 1000),
+    ],
+)
+def test_to_display_numbers_and_nan(name, value, area, expected):
+    out = variables.to_display(name, np.array([value, np.nan]), area=area)
+    assert out[0] == pytest.approx(expected) and np.isnan(out[1])
+    with pytest.raises(ValueError, match="area"):
+        variables.to_display(FLOW, np.array([1.0]))
+
+
+@pytest.mark.parametrize(
+    ("name", "family", "ramp"),
+    [
+        ("seepage_mask", "categorical", ""),
+        (FLOW, "sequential", THEME.ramps["sequential"]),
+        (SIGNED, "diverging", THEME.quantity_ramps["cell_flow"]),
+        ("head", "sequential", THEME.quantity_ramps["head"]),
+        ("hydraulic_conductivity", "sequential", THEME.quantity_ramps["conductivity"]),
+    ],
+)
+def test_scale_and_ramp(name, family, ramp):
+    assert variables.scale(name) == family and variables.ramp(name, THEME) == ramp
+
+
+def test_a_diverging_quantity_on_a_sequential_scale_takes_the_scale_ramp(monkeypatch):
+    monkeypatch.setattr(variables, "scale", lambda name: "sequential")
+    assert variables.ramp(FLOW, THEME) == THEME.ramps["sequential"]
+
+
+def test_class_colors_and_log():
+    classes = len(FIELD_REGISTRY["seepage_mask"].classes)
+    assert variables.class_colors("seepage_mask", THEME) == list(THEME.categorical[:classes])
+    assert variables.is_log("hydraulic_conductivity") and not variables.is_log("head")
+    assert variables.is_log("head", "log") and not variables.is_log(
+        "hydraulic_conductivity", "linear"
+    )
+
+
+def test_only_flows_and_mass_fluxes_add_up_over_a_zone():
+    assert {k for k, kind in QUANTITY_KINDS.items() if kind.extensive} == {"cell_flow", "mass_flux"}

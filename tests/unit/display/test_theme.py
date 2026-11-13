@@ -7,6 +7,7 @@ from matplotlib import font_manager
 
 from hydromodpy.core.units.kinds import QUANTITY_KINDS
 from hydromodpy.display import theme as th
+from hydromodpy.display.request import WIDTHS_MM
 
 
 def test_every_theme_holds_the_same_roles_and_ramps() -> None:
@@ -46,7 +47,7 @@ def test_unit_text(unit: str, text: str) -> None:
 
 
 def test_widths_in_millimetres() -> None:
-    assert th.WIDTHS_MM == {"single": 85, "medium": 120, "double": 180}
+    assert WIDTHS_MM == {"single": 85, "medium": 120, "double": 180}
 
 
 def test_the_fallback_font_is_used_when_the_font_folder_is_empty(tmp_path) -> None:

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, new_subplots
+from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots
 from hydromodpy.display.figure_options import ObjectiveName, ParameterNames
 from hydromodpy.display.figures._trial_diagnostics import no_trial_reason, trial_table
+from hydromodpy.display.subject import FigureNotApplicable
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

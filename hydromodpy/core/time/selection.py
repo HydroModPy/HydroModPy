@@ -42,6 +42,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import ResultsError
+from hydromodpy.core.time.instant import TIME_WORDS
 from hydromodpy.core.time.period_aggregation import naive_timestamp
 
 __all__ = (
@@ -56,7 +57,6 @@ __all__ = (
 )
 
 _NO_DATES = 'this run has no dates; write "last"'
-_KEYWORDS = ("first", "last")
 # Spelled with a unit: ``pd.Timedelta(days=1)`` warns under the pinned NumPy.
 _ONE_DAY = pd.Timedelta(1, unit="D")
 
@@ -139,7 +139,7 @@ def _keyword(selector: Any) -> str | None:
     """Return ``"first"`` or ``"last"`` when ``selector`` spells one, else ``None``."""
     if isinstance(selector, str):
         word = selector.strip().lower()
-        if word in _KEYWORDS:
+        if word in TIME_WORDS:
             return word
     return None
 

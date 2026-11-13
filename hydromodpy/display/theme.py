@@ -1,4 +1,4 @@
-"""Publication theme: tokens, colour roles, ramps, widths and the unit text helper."""
+"""Publication theme: tokens, colour roles, ramps and the unit text helper."""
 
 from __future__ import annotations
 
@@ -38,8 +38,6 @@ def register_fonts(folder: Path = FONTS_DIR) -> str:
 
 
 _FAMILY = register_fonts()
-
-WIDTHS_MM = {"single": 85, "medium": 120, "double": 180}
 
 # Colours by meaning. A figure names a role and never writes a colour literal.
 # The first 26 come from the publication atlas. The others were added by its domains.

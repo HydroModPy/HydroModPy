@@ -104,6 +104,74 @@ def _render_figures_tracked(
     return list(report.written)
 
 
+def _render_requests(
+    run: Run,
+    display_cfg: DisplayConfig,
+    *,
+    output_dir: Path,
+    on_measure: Callable[[Measure], None] | None = None,
+    run_name: str | None = None,
+) -> list[Path]:
+    """Draw each ``[[display.figure]]`` of ``when = "end"``: one render and one write each.
+
+    A figure that does not apply to the run is logged and skipped, as an old figure
+    is. Any other failure follows ``on_error``, with the same sealed-run message.
+    """
+    if not display_cfg.figure:
+        return []
+    if not display_cfg.save:
+        logger.info(
+            "[display] save = false: the %d figure(s) are not drawn.", len(display_cfg.figure)
+        )
+        return []
+    from dataclasses import replace
+
+    from hydromodpy.display.output import write
+    from hydromodpy.display.presets import PRESETS
+    from hydromodpy.display.render import render
+    from hydromodpy.display.request import END, expand, file_stem
+    from hydromodpy.display.subject import FigureNotApplicable
+    from hydromodpy.display.theme import get_theme
+
+    presets = {**PRESETS, **display_cfg.presets}
+    theme = get_theme(display_cfg.theme_name)
+    if "dpi" in display_cfg.model_fields_set:
+        theme = replace(theme, dpi=display_cfg.dpi)
+    written: list[Path] = []
+    for request in progress.track(display_cfg.figure, "Rendering figures"):
+        stem = file_stem(request)
+        try:
+            figure = expand(request, presets)
+            if figure.when != END:
+                logger.info(
+                    "Figure %s is not drawn at the end of the run: when = %r comes in a later "
+                    "version.",
+                    stem,
+                    figure.when,
+                )
+                continue
+            with measured("figure", stem) as measure:
+                try:
+                    drawn = render(figure, run, theme=theme)
+                    written.extend(write(drawn, figure, run, output_dir, theme))
+                finally:
+                    if on_measure is not None:
+                        on_measure(measure)
+        except FigureNotApplicable as exc:
+            logger.info("Figure %s skipped: %s", stem, exc)
+        except Exception as exc:
+            if display_cfg.on_error != "raise":
+                logger.warning("Figure %s failed: %s", stem, exc)
+            elif run_name is None:
+                raise
+            else:
+                raise DisplayError(
+                    f"run {run_name} is sealed; draw the figure again with "
+                    f"hmp show {run_name} --figure {stem}: {exc}"
+                ) from exc
+    return written
+
+
 class DisplayStep:
     """Render the figures declared in ``[display].figures`` from the sealed run."""
 
@@ -165,7 +233,7 @@ class DisplayStep:
                 logger.debug("DisplayStep: no display config, no sim_id or no store, skipping")
             elif not renders(getattr(ctx, "level", None) or "result"):
                 logger.info("DisplayStep skipped: a kept calibration trial draws nothing")
-            elif not display_cfg.enabled or not display_cfg.figures:
+            elif not display_cfg.enabled or not (display_cfg.figures or display_cfg.figure):
                 # At info, not debug: a run that draws nothing looks exactly
                 # like a run whose figure list silently emptied, and the second
                 # one is a real accident. In TOML a table header swallows every
@@ -184,12 +252,20 @@ class DisplayStep:
                 with sealed_run_store(ctx) as store:
                     sim = Run(sim_id, store)
                     out_dir = figures_dir_of(run_dir)
+                    on_measure = partial(record_measure, ctx.run_dir, attempt=ctx.attempt)
                     rendered = _render_figures_tracked(
                         sim,
                         display_cfg,
                         output_dir=out_dir,
                         figure_names=list(display_cfg.figures),
-                        on_measure=partial(record_measure, ctx.run_dir, attempt=ctx.attempt),
+                        on_measure=on_measure,
+                        run_name=sealed_run_name(run_dir),
+                    )
+                    rendered += _render_requests(
+                        sim,
+                        display_cfg,
+                        output_dir=out_dir,
+                        on_measure=on_measure,
                         run_name=sealed_run_name(run_dir),
                     )
                 if rendered:

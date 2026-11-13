@@ -901,7 +901,11 @@ _UNSET = "not set"
 # new field that would move a number needs a [[default]] row instead of a line here.
 # The baseline is the tree prepared for the 2.0.0 tag, so the table is empty until a field
 # is added after the tag.
-NEW_FIELDS: dict[str, tuple[Any, str]] = {}
+NEW_FIELDS: dict[str, tuple[Any, str]] = {
+    "display.figure": ([], "an empty list draws no figure of the new path"),
+    "display.presets": ({}, "an empty table adds no preset"),
+    "display.theme": ("default", "the default theme is the one the key preset already gave"),
+}
 
 
 def _reviewed(path: str) -> tuple[Any, str] | None:

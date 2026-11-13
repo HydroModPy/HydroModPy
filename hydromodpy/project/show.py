@@ -29,6 +29,8 @@ from hydromodpy.results.session.view import Session
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
+    from hydromodpy.display.request import FigureRequest
+
 
 @dataclass(frozen=True, slots=True)
 class Shown:
@@ -129,7 +131,58 @@ def kind_of(subject: object) -> str:
     return type(subject).__name__
 
 
-def render(subject: Run | Session | RunSet, name: str, options: Mapping[str, Any]) -> Figure | Path:
+def _sealed_display(subject: Any) -> Any:
+    """Return the ``DisplayConfig`` a run was sealed with, or None for any other subject."""
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.display.runs import sealed_display_values
+
+    written = sealed_display_values(getattr(subject, "config_snapshot", None))
+    if written is None:
+        return None
+    try:
+        return DisplayConfig.model_validate(written)
+    except ValueError:
+        return None
+
+
+def project_presets(subject: Any) -> dict[str, FigureRequest]:
+    """Return the shipped presets, with the ``[display.presets]`` the run was drawn with.
+
+    A session or a set of runs holds no sealed ``[display]``, so it has the shipped ones.
+    """
+    from hydromodpy.display.presets import PRESETS
+
+    sealed = _sealed_display(subject)
+    return {**PRESETS, **({} if sealed is None else sealed.presets)}
+
+
+def project_theme(subject: Any) -> str:
+    """Return the theme a figure of *subject* takes when none is asked.
+
+    A run takes the ``theme`` of its sealed ``[display]``, else its former ``preset``. A
+    session or a set of runs has no sealed ``[display]`` and takes ``default``.
+    """
+    sealed = _sealed_display(subject)
+    return "default" if sealed is None else sealed.theme_name
+
+
+def takes_request(name: object, presets: Mapping[str, Any], options: Mapping[str, Any]) -> bool:
+    """Return whether the figure goes to the request path, else to the old registry.
+
+    A request given as a mapping, a ``draw`` function, a variable name or a preset
+    name go to the request path, and so does a name both paths know. Any other name
+    is a figure of the old registry.
+    """
+    from hydromodpy.display.request import BUDGET, is_registered
+
+    if isinstance(name, Mapping) or options.get("draw") is not None:
+        return True
+    return isinstance(name, str) and (name in presets or name == BUDGET or is_registered(name))
+
+
+def render(
+    subject: Run | Session | RunSet, name: str | Mapping[str, Any], options: Mapping[str, Any]
+) -> Figure | Path | dict[str, Any]:
     """Draw the figure *name* of *subject*, or write its report when *name* is ``report``.
 
     *options* holds ``save`` (a file, or a folder that receives ``<name>.png``),
@@ -138,21 +191,116 @@ def render(subject: Run | Session | RunSet, name: str, options: Mapping[str, Any
     written and its path comes back, else the figure itself. ``report`` takes
     the options of ``REPORT_OPTIONS`` for a run, and gives the first page of the
     report.
+
+    A variable, a preset, a request given as a mapping or a ``draw`` function go to
+    the request path (:func:`takes_request`). With ``data`` it gives the tables.
     """
     given = {key: value for key, value in options.items() if value is not None}
     if name == REPORT:
         return _report(subject, given)
+    if takes_request(name, project_presets(subject), given):
+        return _render_request(subject, name, given)
+    if given.pop("data", False):
+        raise CommandUsageError(
+            f"{name!r} is a figure of the old registry and gives no tables. "
+            "Ask for a variable or a preset."
+        )
     from hydromodpy.display.runs import render_figure
 
     save = given.pop("save", None)
     dpi = given.pop("dpi", None)
     # A set of runs has no directory; only a run stamps its identity on the PNG.
     run_dir = getattr(subject, "dir", None) if save is not None else None
-    drawn = render_figure(name, subject, save=save, dpi=dpi, run_dir=run_dir, **given)
+    try:
+        drawn = render_figure(name, subject, save=save, dpi=dpi, run_dir=run_dir, **given)
+    except KeyError as error:
+        if str(error).strip("'\"").startswith("unknown figure"):
+            raise _unknown_figure(name, project_presets(subject)) from None
+        raise
     if save is None:
         return drawn
     target = Path(save).expanduser()
     return target / f"{name}.png" if target.is_dir() else target
+
+
+def _unknown_figure(name: object, presets: Mapping[str, Any]) -> CommandUsageError:
+    """Return the refusal for a name no registry knows, with the closest variable, preset or old figure."""
+    import difflib
+
+    from hydromodpy.display.figure_registry import names
+    from hydromodpy.display.request import BUDGET
+    from hydromodpy.results.field_registry import FIELD_REGISTRY, TIME_SERIES_REGISTRY
+
+    known = [*FIELD_REGISTRY, *TIME_SERIES_REGISTRY, BUDGET, *presets, *names()]
+    close = difflib.get_close_matches(str(name), known, n=3)
+    hint = f" Did you mean {', '.join(close)}?" if close else ""
+    return CommandUsageError(
+        f"Unknown figure {name!r}.{hint} A figure is a variable, a preset or a figure "
+        "of the old registry."
+    )
+
+
+def _write_tables(tables: Mapping[str, Any], stem: str, folder: Path) -> list[Path]:
+    """Write each table of a figure as ``<folder>/<stem>_<key>.csv`` and return the paths."""
+    folder.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for key, table in tables.items():
+        path = folder / f"{stem}_{key.replace(':', '_').replace('/', '_')}.csv"
+        table.to_csv(path, index=False)
+        paths.append(path)
+    return paths
+
+
+def _render_request(
+    subject: Any, name: str | Mapping[str, Any], given: dict[str, Any]
+) -> Figure | Path | dict[str, Any]:
+    """Draw a request: expand it once, render it, and write it when ``save`` is given."""
+    from dataclasses import replace
+
+    from hydromodpy.display.output import write
+    from hydromodpy.display.render import render as render_figure
+    from hydromodpy.display.request import ENGINES, FORMATS, FigureRequest, expand, request_of
+    from hydromodpy.display.theme import get_theme
+
+    save = given.pop("save", None)
+    dpi = given.pop("dpi", None)
+    theme = given.pop("theme", None) or project_theme(subject)
+    engine = given.pop("engine", None)
+    data = bool(given.pop("data", False))
+    data_dir = given.pop("data_dir", None)
+    draw = given.pop("draw", None)
+    presets = project_presets(subject)
+    if isinstance(name, str):
+        if draw is not None:
+            raise CommandUsageError("Give a figure name or a draw function, not both.")
+        request = request_of(name, presets, **given)
+    else:
+        request = FigureRequest.model_validate(
+            {**name, **given, **({} if draw is None else {"draw": draw})}
+        )
+    if engine is not None and engine not in ENGINES:
+        raise CommandUsageError(f"engine={engine!r} is not one of {', '.join(ENGINES)}.")
+    figure = expand(request, presets)
+    if data:
+        tables = render_figure(figure, subject, theme=theme, engine=engine, data=True)
+        return tables if data_dir is None else _write_tables(tables, figure.stem, Path(data_dir))
+    chosen = get_theme(theme) if isinstance(theme, str) else theme
+    if dpi is not None:
+        chosen = replace(chosen or get_theme("default"), dpi=int(dpi))
+    drawn = render_figure(figure, subject, theme=chosen, engine=engine)
+    if save is None:
+        return drawn
+    target = Path(save).expanduser()
+    directory = target if target.is_dir() or target.suffix == "" else target.parent
+    if directory is not target:
+        suffix = target.suffix.lstrip(".").lower()
+        if suffix not in FORMATS:
+            raise CommandUsageError(
+                f"save = {str(save)!r}: a figure is written as {', '.join(FORMATS)}, not {suffix!r}."
+            )
+        figure = replace(figure, stem=target.stem, formats=(suffix,))
+    run = subject if isinstance(subject, Run) else None
+    return write(drawn, figure, run, directory, chosen or get_theme("default"))[0]
 
 
 def _report(subject: Any, options: Mapping[str, Any]) -> Path:

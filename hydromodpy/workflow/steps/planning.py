@@ -111,6 +111,16 @@ def step_configure_results(
                         _OVERLAY_FIELDS.get(overlay, ()),
                         f"overlay {overlay!r} of {figure_name!r}",
                     )
+            if display.figure:
+                from hydromodpy.display.presets import PRESETS
+                from hydromodpy.display.request import file_stem, required_variables
+
+                presets = {**PRESETS, **display.presets}
+                for figure_request in display.figure:
+                    _add(
+                        required_variables(figure_request, presets),
+                        f"figure {file_stem(figure_request)!r}",
+                    )
         for request in export_requests:
             _add(request.names, "[[export]]")
     if calibration is not None:

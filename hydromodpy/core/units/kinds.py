@@ -23,7 +23,7 @@ class QuantityKind:
     converts to the display unit. ``layers`` says how a layered variable is
     reduced to one value per cell on a map. ``isolines`` means a map draws
     contour lines by default. ``cumulates_to`` names the kind a running sum
-    over time gives.
+    over time gives. ``extensive`` means the values of cells add up over a zone.
     """
 
     stored_unit: str
@@ -37,6 +37,7 @@ class QuantityKind:
     drawable: bool = True
     isolines: bool = False
     cumulates_to: str | None = None
+    extensive: bool = False
 
     def __post_init__(self) -> None:
         if self.sign not in SIGNS:
@@ -52,7 +53,13 @@ QUANTITY_KINDS: dict[str, QuantityKind] = {
     "thickness": QuantityKind("m", "m", layers="sum"),
     "distance": QuantityKind("m", "m", layers=None),
     "cell_flow": QuantityKind(
-        "m3 s-1", "mm/day", sign="both", per_area=True, layers="sum", cumulates_to="depth"
+        "m3 s-1",
+        "mm/day",
+        sign="both",
+        per_area=True,
+        layers="sum",
+        cumulates_to="depth",
+        extensive=True,
     ),
     "flux_per_area": QuantityKind(
         "m s-1", "mm/day", sign="both", layers="sum", cumulates_to="depth"
@@ -65,7 +72,7 @@ QUANTITY_KINDS: dict[str, QuantityKind] = {
     "angle": QuantityKind("degree", "degree"),
     "azimuth": QuantityKind("degree", "degree", sign="both", cyclic=True),
     "concentration": QuantityKind("kg m-3", "mg/L"),
-    "mass_flux": QuantityKind("kg s-1", "g/day", layers="sum"),
+    "mass_flux": QuantityKind("kg s-1", "g/day", layers="sum", extensive=True),
     "volume": QuantityKind("m3", "m3", layers=None),
     "area": QuantityKind("m2", "m2", layers=None),
     "score": QuantityKind("1", "1", layers=None),

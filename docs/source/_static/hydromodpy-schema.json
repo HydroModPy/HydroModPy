@@ -5278,7 +5278,7 @@
         },
         "preset": {
           "default": "default",
-          "description": "Named theme applied before rendering any figure.",
+          "description": "Named theme applied before rendering any figure. Still read as the theme until it is removed. Write ``theme`` instead; writing both is refused.",
           "enum": [
             "default",
             "print",
@@ -5347,6 +5347,46 @@
           "type": "array",
           "x-hmp-profile": "user"
         },
+        "theme": {
+          "default": "default",
+          "description": "Named theme applied before rendering any figure: default, print or dark. Replaces the former ``preset`` key.",
+          "examples": [
+            "default"
+          ],
+          "title": "Theme",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "figure": {
+          "description": "Figures to draw, one ``[[display.figure]]`` table each. A figure names a variable or a preset, or lists panels, with the fields of a panel. ``when`` says when it is drawn (``end`` by default). Two figures that would write the same file are refused: give each one its own ``name``.",
+          "items": {
+            "$ref": "#/$defs/FigureRequest"
+          },
+          "title": "Figure",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "presets": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FigureRequest"
+          },
+          "description": "Your own presets, one ``[display.presets.NAME]`` table each, written like a figure. A figure then names one with ``preset = NAME``. A name of a shipped preset is refused.",
+          "title": "Presets",
+          "type": "object",
+          "x-hmp-profile": "user",
+          "patternProperties": {
+            "^.+__delete$": {
+              "const": true,
+              "description": "Remove the inherited key. Only the literal true is accepted."
+            },
+            "^.+__append$": {
+              "type": "array"
+            },
+            "^.+__merge$": {
+              "type": "array"
+            }
+          }
+        },
         "on_error": {
           "default": "warn",
           "description": "Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.",
@@ -5407,6 +5447,18 @@
         "^.+__delete$": {
           "const": true,
           "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^figure__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FigureRequest"
+          }
+        },
+        "^figure__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FigureRequest"
+          }
         },
         "^figures__append$": {
           "type": "array",
@@ -6770,6 +6822,700 @@
           "type": "array",
           "items": {
             "type": "number"
+          }
+        }
+      }
+    },
+    "FigureRequest": {
+      "additionalProperties": false,
+      "description": "One figure: a variable, a preset, a list of panels or a Python function.\n\nWith ``variable`` or ``preset`` the panel fields describe the one panel or fill\nthe holes of the preset. ``draw`` takes a Python callable\n``draw(subject, ax, theme)``. A TOML value is never callable, and a mapping that\ncarries ``draw`` is refused, so no file can name code. ``draw`` stays out of the\nJSON schema and of every dump, so a ledger never records it.",
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Frame of the panel. Unset, the natural frame of the variable.",
+          "title": "Type",
+          "x-hmp-profile": "user"
+        },
+        "variable": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Variable name or list. 'budget' is the budget terms the run kept. In a table panel, 'table.column' names.",
+          "title": "Variable",
+          "x-hmp-profile": "user"
+        },
+        "time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A date (YYYY-MM-DD), 'first', 'last', a period index, or a list of them. A date picks the period (start, end] that holds it. On a series, two values keep the periods whose start lies between them.",
+          "title": "Time",
+          "x-hmp-profile": "user"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Layer index from 0 at the top, or 'sum' over the layers.",
+          "title": "Layer",
+          "x-hmp-profile": "user"
+        },
+        "station": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A station of the run (lake:1, a reach, a gauge), or zone:catchment, zone:domain.",
+          "title": "Station",
+          "x-hmp-profile": "user"
+        },
+        "overlays": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Context layers drawn over a map or a section.",
+          "title": "Overlays",
+          "x-hmp-profile": "user"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Map window (xmin, ymin, xmax, ymax), in m in the mesh CRS.",
+          "title": "Bbox",
+          "x-hmp-profile": "user"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "items": {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Trace of a section, points (x, y) in m in the mesh CRS.",
+          "title": "Line",
+          "x-hmp-profile": "user"
+        },
+        "contours": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Draw isolines. Unset, the quantity decides.",
+          "title": "Contours",
+          "x-hmp-profile": "user"
+        },
+        "observed": {
+          "default": false,
+          "description": "Draw the observed record when it exists.",
+          "examples": [
+            false
+          ],
+          "title": "Observed",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "scores": {
+          "default": false,
+          "description": "Write the scores of the run on the panel.",
+          "examples": [
+            false
+          ],
+          "title": "Scores",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "log"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Value scale. Unset, the variable decides.",
+          "title": "Scale",
+          "x-hmp-profile": "user"
+        },
+        "stack": {
+          "default": false,
+          "description": "Stack the variables.",
+          "examples": [
+            false
+          ],
+          "title": "Stack",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Category key of a groups panel.",
+          "title": "By",
+          "x-hmp-profile": "user"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "one_to_one",
+                      "zero"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/ReferenceValue"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference lines: 'one_to_one', 'zero', or {value, label}.",
+          "title": "Reference",
+          "x-hmp-profile": "user"
+        },
+        "share": {
+          "default": false,
+          "description": "One colour norm for every small multiple.",
+          "examples": [
+            false
+          ],
+          "title": "Share",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "reduce": {
+          "anyOf": [
+            {
+              "enum": [
+                "mean",
+                "max",
+                "frequency"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reduce over time before drawing.",
+          "title": "Reduce",
+          "x-hmp-profile": "user"
+        },
+        "change": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Draw the change between two instants.",
+          "title": "Change",
+          "x-hmp-profile": "user"
+        },
+        "against": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Draw the difference to 'observed' or to another run by name.",
+          "title": "Against",
+          "x-hmp-profile": "user"
+        },
+        "cumulative": {
+          "default": false,
+          "description": "Cumulate along the ordered axis of the frame.",
+          "examples": [
+            false
+          ],
+          "title": "Cumulative",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "preset": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a preset.",
+          "title": "Preset",
+          "x-hmp-profile": "user"
+        },
+        "panels": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/PanelRequest"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The panels, in order.",
+          "title": "Panels",
+          "x-hmp-profile": "user"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "File name of the figure, no suffix.",
+          "title": "Name",
+          "x-hmp-profile": "user"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Title above the figure.",
+          "title": "Title",
+          "x-hmp-profile": "user"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Printed width: 'single', 'medium' or 'double' column. Unset, single for one panel, double for more panels or a facet.",
+          "title": "Width",
+          "x-hmp-profile": "user"
+        },
+        "facet": {
+          "anyOf": [
+            {
+              "enum": [
+                "time",
+                "run",
+                "variable",
+                "layer",
+                "parameter"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Repeat the one panel over this key.",
+          "title": "Facet",
+          "x-hmp-profile": "user"
+        },
+        "when": {
+          "default": "end",
+          "description": "When the figure is drawn: 'end', 'session', 'trial' or 'after:<step>'.",
+          "examples": [
+            "end"
+          ],
+          "title": "When",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "every": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "With when = 'trial', draw every this many trials.",
+          "title": "Every",
+          "x-hmp-profile": "user"
+        },
+        "engine": {
+          "description": "Engines.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Engine",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "formats": {
+          "description": "File formats.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Formats",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FigureRequest",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^bbox__append$": {
+          "type": "array"
+        },
+        "^bbox__merge$": {
+          "type": "array"
+        },
+        "^change__append$": {
+          "type": "array"
+        },
+        "^change__merge$": {
+          "type": "array"
+        },
+        "^engine__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^engine__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^formats__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^formats__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^line__append$": {
+          "type": "array",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          }
+        },
+        "^line__merge$": {
+          "type": "array",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          }
+        },
+        "^overlays__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^overlays__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^panels__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PanelRequest"
+          }
+        },
+        "^panels__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PanelRequest"
+          }
+        },
+        "^reference__append$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "one_to_one",
+                  "zero"
+                ],
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/ReferenceValue"
+              }
+            ]
+          }
+        },
+        "^reference__merge$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "one_to_one",
+                  "zero"
+                ],
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/ReferenceValue"
+              }
+            ]
+          }
+        },
+        "^station__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^time__append$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        },
+        "^time__merge$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        },
+        "^variable__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^variable__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       }
@@ -18549,6 +19295,556 @@
         }
       }
     },
+    "PanelRequest": {
+      "additionalProperties": false,
+      "description": "One panel of a figure, with the ``holes`` it leaves to the user when it is in a preset.",
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Frame of the panel. Unset, the natural frame of the variable.",
+          "title": "Type",
+          "x-hmp-profile": "user"
+        },
+        "variable": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Variable name or list. 'budget' is the budget terms the run kept. In a table panel, 'table.column' names.",
+          "title": "Variable",
+          "x-hmp-profile": "user"
+        },
+        "time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A date (YYYY-MM-DD), 'first', 'last', a period index, or a list of them. A date picks the period (start, end] that holds it. On a series, two values keep the periods whose start lies between them.",
+          "title": "Time",
+          "x-hmp-profile": "user"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Layer index from 0 at the top, or 'sum' over the layers.",
+          "title": "Layer",
+          "x-hmp-profile": "user"
+        },
+        "station": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A station of the run (lake:1, a reach, a gauge), or zone:catchment, zone:domain.",
+          "title": "Station",
+          "x-hmp-profile": "user"
+        },
+        "overlays": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Context layers drawn over a map or a section.",
+          "title": "Overlays",
+          "x-hmp-profile": "user"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Map window (xmin, ymin, xmax, ymax), in m in the mesh CRS.",
+          "title": "Bbox",
+          "x-hmp-profile": "user"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "items": {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Trace of a section, points (x, y) in m in the mesh CRS.",
+          "title": "Line",
+          "x-hmp-profile": "user"
+        },
+        "contours": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Draw isolines. Unset, the quantity decides.",
+          "title": "Contours",
+          "x-hmp-profile": "user"
+        },
+        "observed": {
+          "default": false,
+          "description": "Draw the observed record when it exists.",
+          "examples": [
+            false
+          ],
+          "title": "Observed",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "scores": {
+          "default": false,
+          "description": "Write the scores of the run on the panel.",
+          "examples": [
+            false
+          ],
+          "title": "Scores",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "log"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Value scale. Unset, the variable decides.",
+          "title": "Scale",
+          "x-hmp-profile": "user"
+        },
+        "stack": {
+          "default": false,
+          "description": "Stack the variables.",
+          "examples": [
+            false
+          ],
+          "title": "Stack",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Category key of a groups panel.",
+          "title": "By",
+          "x-hmp-profile": "user"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "one_to_one",
+                      "zero"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/ReferenceValue"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference lines: 'one_to_one', 'zero', or {value, label}.",
+          "title": "Reference",
+          "x-hmp-profile": "user"
+        },
+        "share": {
+          "default": false,
+          "description": "One colour norm for every small multiple.",
+          "examples": [
+            false
+          ],
+          "title": "Share",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "reduce": {
+          "anyOf": [
+            {
+              "enum": [
+                "mean",
+                "max",
+                "frequency"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reduce over time before drawing.",
+          "title": "Reduce",
+          "x-hmp-profile": "user"
+        },
+        "change": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Draw the change between two instants.",
+          "title": "Change",
+          "x-hmp-profile": "user"
+        },
+        "against": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Draw the difference to 'observed' or to another run by name.",
+          "title": "Against",
+          "x-hmp-profile": "user"
+        },
+        "cumulative": {
+          "default": false,
+          "description": "Cumulate along the ordered axis of the frame.",
+          "examples": [
+            false
+          ],
+          "title": "Cumulative",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "holes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "In a preset, the panel fields a user may give. The value written is the default.",
+          "title": "Holes",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "PanelRequest",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^bbox__append$": {
+          "type": "array"
+        },
+        "^bbox__merge$": {
+          "type": "array"
+        },
+        "^change__append$": {
+          "type": "array"
+        },
+        "^change__merge$": {
+          "type": "array"
+        },
+        "^holes__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^holes__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^line__append$": {
+          "type": "array",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          }
+        },
+        "^line__merge$": {
+          "type": "array",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          }
+        },
+        "^overlays__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^overlays__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^reference__append$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "one_to_one",
+                  "zero"
+                ],
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/ReferenceValue"
+              }
+            ]
+          }
+        },
+        "^reference__merge$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "enum": [
+                  "one_to_one",
+                  "zero"
+                ],
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/ReferenceValue"
+              }
+            ]
+          }
+        },
+        "^station__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^time__append$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        },
+        "^time__merge$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        },
+        "^variable__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^variable__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "PersistenceConfig": {
       "additionalProperties": false,
       "description": "Orthogonal switch governing every persistence sink.\n\nToggles are independent: disabling ``save_zarr`` does not silence the\ncatalog, and vice versa. ``save_catalog`` is the master switch for the\nproject DuckDB; when False, every write through\n:class:`Catalog` becomes a no-op.",
@@ -20575,6 +21871,36 @@
         }
       },
       "title": "RecipeSpec",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "ReferenceValue": {
+      "additionalProperties": false,
+      "description": "A horizontal reference line at ``value``, in the display unit, with its label.",
+      "properties": {
+        "value": {
+          "examples": [
+            1.0
+          ],
+          "title": "Value",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "label": {
+          "examples": [
+            "example"
+          ],
+          "title": "Label",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ReferenceValue",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {

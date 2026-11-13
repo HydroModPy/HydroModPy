@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.figure import FigureNotApplicable
 from hydromodpy.display.style import PREFERRED_CMAPS
+from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.results import field_registry
 
 if TYPE_CHECKING:

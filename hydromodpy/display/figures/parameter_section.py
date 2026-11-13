@@ -15,14 +15,7 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import (
-    BaseFigure,
-    FigureNotApplicable,
-    FigureSpec,
-    new_subplots,
-    run_label,
-    run_suffix,
-)
+from hydromodpy.display.figure import BaseFigure, FigureSpec, new_subplots, run_label, run_suffix
 from hydromodpy.display.figure_options import (
     CmapOrOwn,
     Opt,
@@ -46,6 +39,7 @@ from hydromodpy.display.figures._parameter_scale import (
     wrapped,
 )
 from hydromodpy.display.maps.transect import build_transect, layer_interfaces
+from hydromodpy.display.subject import FigureNotApplicable
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

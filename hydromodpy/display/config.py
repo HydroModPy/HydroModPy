@@ -11,56 +11,37 @@ persisted, not from a second layer of per-family booleans.
 
 from __future__ import annotations
 
-import datetime as _dt
 from collections.abc import Mapping
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.time.instant import TIME_FORMS, instant
+from hydromodpy.display.presets import PRESETS
+from hydromodpy.display.request import FigureRequest, check_stems, expand
+
+DEFAULT_THEME = "default"
 
 # What a figure option names an instant with.
 TIME_KEY = "time"
-_TIME_FORMS = 'a date (YYYY-MM-DD), "first" or "last"'
 
 
 def time_selector(value: Any, where: str) -> str | int | None:
     """Return a ``time`` value in the form the display resolves, or refuse it.
 
-    Only the shape is checked here. Whether the date falls inside the record
-    needs ``[simulation.time]``, which the validate step checks. A bare TOML
-    date reads as a ``date`` and is kept as its ISO text. An integer stays a
-    period index. One instant only: a list is refused.
+    The shape is checked by ``core.time.instant``. One instant only: a list is refused.
     """
     if value is None:
         return None
-    if isinstance(value, bool):
-        raise ValueError(f"{where} = {value!r} is not a time; write {_TIME_FORMS}.")
-    if isinstance(value, int):
-        return value
-    if isinstance(value, _dt.date):
-        return value.isoformat()
     if isinstance(value, list | tuple):
         raise ValueError(
             f"{where} = {list(value)!r}: a figure draws one instant, so write one "
-            f"value, {_TIME_FORMS}, not a list."
+            f"value, {TIME_FORMS}, not a list."
         )
-    if isinstance(value, str):
-        text = value.strip()
-        if text.lower() in ("first", "last"):
-            return text.lower()
-        if text[:1].isdigit():
-            import pandas as pd
-
-            try:
-                stamp = pd.Timestamp(text)
-            except (TypeError, ValueError):
-                stamp = None
-            if stamp is not None and not pd.isna(stamp):
-                return text
-    raise ValueError(f"{where} = {value!r} is not a time; write {_TIME_FORMS}.")
+    return instant(value, where)
 
 
 class DisplayConfig(HydroModelBase):
@@ -86,7 +67,10 @@ class DisplayConfig(HydroModelBase):
     )
     preset: Annotated[Literal["default", "print", "dark"], Profile.USER] = Field(
         default="default",
-        description="Named theme applied before rendering any figure.",
+        description=(
+            "Named theme applied before rendering any figure. Still read as the theme "
+            "until it is removed. Write ``theme`` instead; writing both is refused."
+        ),
         json_schema_extra={
             "value_docs": {
                 "default": (
@@ -139,6 +123,30 @@ class DisplayConfig(HydroModelBase):
             "and the run keeps the same data, so `hmp export <run> --regen figures` can draw them later."
         ),
     )
+    theme: Annotated[str, Profile.USER] = Field(
+        default=DEFAULT_THEME,
+        description=(
+            "Named theme applied before rendering any figure: default, print or dark. "
+            "Replaces the former ``preset`` key."
+        ),
+    )
+    figure: Annotated[list[FigureRequest], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "Figures to draw, one ``[[display.figure]]`` table each. A figure names a "
+            "variable or a preset, or lists panels, with the fields of a panel. "
+            "``when`` says when it is drawn (``end`` by default). Two figures that "
+            "would write the same file are refused: give each one its own ``name``."
+        ),
+    )
+    presets: Annotated[dict[str, FigureRequest], Profile.USER] = Field(
+        default_factory=dict,
+        description=(
+            "Your own presets, one ``[display.presets.NAME]`` table each, written like "
+            "a figure. A figure then names one with ``preset = NAME``. A name of a "
+            "shipped preset is refused."
+        ),
+    )
     on_error: Annotated[Literal["warn", "raise"], Profile.USER] = Field(
         default="warn",
         description=(
@@ -175,6 +183,48 @@ class DisplayConfig(HydroModelBase):
     @classmethod
     def _check_time_shape(cls, value: Any) -> Any:
         return time_selector(value, "display.time")
+
+    @field_validator("theme", mode="after")
+    @classmethod
+    def _check_theme(cls, value: str) -> str:
+        """Refuse a theme name unknown to the themes table.
+
+        The table lives in ``theme``, which loads matplotlib. The default needs no
+        look-up, so a config that keeps it loads without matplotlib.
+        """
+        if value != DEFAULT_THEME:
+            from hydromodpy.display.theme import get_theme
+
+            get_theme(value)
+        return value
+
+    @model_validator(mode="after")
+    def _check_figures_and_themes(self) -> DisplayConfig:
+        check_stems(self.figure)
+        shipped = sorted(set(self.presets) & set(PRESETS))
+        if shipped:
+            raise ValueError(
+                f"display.presets names the shipped preset {', '.join(shipped)}. "
+                "Give your preset another name."
+            )
+        if self.preset != DEFAULT_THEME and self.theme != DEFAULT_THEME:
+            raise ValueError(
+                "display.preset and display.theme are both written. Keep display.theme "
+                "and delete display.preset."
+            )
+        known = {**PRESETS, **self.presets}
+        for name, preset in self.presets.items():
+            if preset.preset is not None:
+                raise ValueError(f"Preset {name!r} names another preset; a preset is one request.")
+            expand(preset, known)
+        for figure in self.figure:
+            expand(figure, known)
+        return self
+
+    @property
+    def theme_name(self) -> str:
+        """The theme to draw with: ``theme``, else the former ``preset``."""
+        return self.theme if self.theme != DEFAULT_THEME else self.preset
 
     @field_validator("figures", "overrides", mode="after")
     @classmethod

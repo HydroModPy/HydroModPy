@@ -30,6 +30,8 @@ on. At a release, rename that section to `## [vX.Y.Z] - YYYY-MM-DD` and open a n
 
 ### Added
 
+- A figure is asked by the name of a variable: `run.figure("recharge")`, `run.figure("recharge", type="series", station="zone:catchment", cumulative=True)`. `[[display.figure]]` draws figures at the end of a run, and `[display.presets.NAME]` names a request of your own. `run.figure_data(...)` and `hmp show --figure NAME --data DIR` give the tables behind the figure, and `--engine` names the engine, but only `static` draws in this version.
+- `[display] theme` names the look of the figures (`default`, `print`, `dark`). It replaces `preset`, and writing both is refused. A figure drawn without `theme` takes the one of the `[display]` the run was sealed with.
 - `config.resolved.toml` writes `edition`, the set of defaults the run used, `"2.0"` today. A resolved file without it reads as edition 2.0. A file may write `edition` at its root, and a value this version does not serve is refused with the editions it serves.
 - The register of changes is listed on a generated page, `docs/source/reference/changes-register.md`, one table per kind of row.
 - `python -m tools.changes_changelog` writes the `Numbers` block of `CHANGELOG.md` between two comments from the register, and exits with 1 when the block differs.

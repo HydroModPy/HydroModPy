@@ -21,3 +21,11 @@ def mpl():
     yield plt
     plt.close("all")
     matplotlib.rcParams.update(saved)
+
+
+@pytest.fixture(scope="session")
+def stored_run(tmp_path_factory):
+    """One small sealed run read through the public API, shared by the figure tests."""
+    from tests.unit.display._stored_run import open_stored_run
+
+    return open_stored_run(tmp_path_factory.mktemp("stored_run") / "proj")

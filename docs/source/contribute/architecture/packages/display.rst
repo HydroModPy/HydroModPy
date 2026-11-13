@@ -70,3 +70,12 @@ drawing function in ``overview/panels.py`` and its line in ``PANEL_FILES``. A bl
 page is a function of ``report/pages.py``, and its words are a field of ``ReportTexts``. A read
 of a run that a figure needs goes in ``results``, never in ``display``. A new figure appears in
 the generated figure list at the next build.
+
+The request path draws a figure from the name of a variable. ``request.py`` holds the request and
+its checks and imports no plotting library. ``subject.py`` is the only module that reads a run,
+``variables.py`` converts to the display unit, and a frame of ``frames/`` has a ``data`` that returns
+a table and a ``draw`` that puts it on one axes. ``render.py`` draws the overlays of ``overlays.py``
+after the frame, and ``output.py`` writes the files and the ledger entry that
+``hmp export --regen figures`` replays. A new frame is a module of ``frames/`` named as its key of
+``request.FRAMES``, and a new context layer is a key of ``request.OVERLAY_FIELDS`` with the
+function of the same name in ``overlays.py``.
