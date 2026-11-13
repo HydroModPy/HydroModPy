@@ -72,11 +72,8 @@ guides imports a module that is neither listed nor in the facade.
 - ``hydromodpy.calibration.evaluation.port``: the trial evaluator port.
 - ``hydromodpy.calibration.optim.optimizer``: the base of a calibration method.
 - ``hydromodpy.calibration.optim.parameters``: ``ParameterSpace``.
-- ``hydromodpy.display.figure``: ``BaseFigure`` and ``FigureSpec``.
-- ``hydromodpy.display.figure_registry``: ``figures`` (the registry), ``get``,
-  ``resolve``, ``names``, ``figure_option_names``.
-- ``hydromodpy.display.figures.scalar_face_map``: the base of a map of one value per
-  face.
+- ``hydromodpy.display.request``: ``FigureRequest``, ``PanelRequest`` and ``SPECIALS``.
+- ``hydromodpy.display.presets``: ``PRESETS``.
 - ``hydromodpy.display.report.engine``: the report engine with no domain: ``Block``,
   ``Metric``, ``Picture``, ``Table``, ``Link``, ``Prose`` and ``write_pages``.
 - ``hydromodpy.results.run.view``: ``Run``.
@@ -307,19 +304,16 @@ does not repeat it. Pipelines are assembled by ``standard_steps`` in ``workflow/
 *Why:* testability and resume. A new workflow assembles steps without forking the
 orchestration layer.
 
-Figure registry
+Figure requests
 ~~~~~~~~~~~~~~~
 
-``hydromodpy/display/figure.py`` defines ``BaseFigure``, ``FigureSpec`` (static
-metadata: the fields and tables the figure reads). ``BaseFigure`` is the one figure type.
-A subclass implements ``render(sim, ax)``; the base builds the matplotlib
-figure, applies the style and saves, and takes the name of the figure from its
-``spec``. Concrete figures live in ``display/figures/`` and are listed by the
-generated table ``display/figure_table.py`` (``python -m tools.figure_table``),
-which ``display/figure_registry.py`` reads to answer a name, so resolving a
-name imports no figure module. ``run.figure("watertable_map")`` and the
-``[display]`` section call them by name. A figure reads a ``Run`` and never a
-solver file.
+``hydromodpy/display/request.py`` defines ``FigureRequest``, ``PanelRequest`` and
+``SPECIALS``. A figure is a request that names a variable, a preset, a list of panels or a
+special figure. ``render.py`` expands it against ``PRESETS`` of ``presets.py`` and draws each
+panel with a frame of ``display/frames/``. A special figure is a function of
+``display/special/`` listed in ``SPECIALS``. ``run.figure("watertable_depth")`` and the
+``[[display.figure]]`` tables ask for a figure by that request. A figure reads a ``Run`` and
+never a solver file.
 
 *Why:* on-demand rendering, consistent across families (:doc:`how-to/add-a-figure`).
 
@@ -332,9 +326,8 @@ key its members: the solver backends and the terrain, mesh and evaluator
 engines on their entry-point groups, the data sources on
 ``hydromodpy.data.source`` keyed by the section and the name of the class, the
 export formats on ``hydromodpy.export.format`` keyed by their name. The
-figures are the exception on purpose: they have no group, and their registry
-reads a table generated from the tree (``python -m tools.figure_table``), so a
-name is answered without importing a module. Every registry names the members
+figures are the exception on purpose: they have no group, and a frame, a preset or a special
+figure is added in the tree of ``hydromodpy/display/``. Every registry names the members
 it ships and the members the installation resolves, so a config field
 validated against it (:doc:`data-scopes`) refuses an unknown name with the
 names it serves.

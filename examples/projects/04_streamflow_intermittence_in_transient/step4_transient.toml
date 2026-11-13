@@ -50,18 +50,20 @@ station_ids = ["NANCON"]
 # October 2002, the driest month, then which cells flow and for how long:
 # the share of the three years each cell flows, and its class in 2002.
 [display]
-time = "2002-10-15"
-figures = [
-    "flux_timeseries",
-    "hydrograph_sim_obs",
-    "seepage_map",
-    "flow_persistence_map",
-    "flow_intermittence_map",
-]
+[[display.figure]]
+preset = "water_budget"
 
-# One hydrological year, the driest of the record.
-[display.overrides.flow_intermittence_map]
-cycle = "2002"
+[[display.figure]]
+preset = "hydrograph"
+
+[[display.figure]]
+variable = "seepage_mask"
+time = "2002-10-15"
+
+[[display.figure]]  # replaces flow_persistence_map, flow_intermittence_map
+variable = "simulated_active_network"
+reduce = "frequency"
+# cycle = "2002" has no equivalent: reduce = frequency reads the whole run
 
 # The exports of steps 1 and 2, now of a transient run: the GeoTIFFs hold
 # December 2002, the last month. Two blocks more for what a record adds.

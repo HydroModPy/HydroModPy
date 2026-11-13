@@ -82,4 +82,3 @@ first_clim = "mean"
 negative_to_evt = true
 
 [display]
-show = false

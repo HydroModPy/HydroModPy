@@ -46,7 +46,7 @@ cells are normal.
 {bdg-warning}`Indicative` **Look at:** the isolated blue cells, each a point where water leaves the aquifer.
 **Does not show:** any stream, which is drawn in the next step.
 
-The `seepage_map` of example 04, October 2002, the driest month of the series according to the
+The request `variable = "seepage_mask"` of example 04, October 2002, the driest month of the series according to the
 comments of the example file ({doc}`reading-results`).
 ```
 
@@ -83,7 +83,7 @@ computation, and the water budget fields stay untouched.
 {bdg-warning}`Indicative` **Look at:** the blue trunk and the orange upstream ends. **Does not show:** which
 reaches dry up in the field.
 
-The `flow_intermittence_map` of example 04, year 2002, from the calibrated run. Blue cells flow
+The request `variable = "simulated_active_network"` with `reduce = "frequency"` on example 04, year 2002, from the calibrated run. Blue cells flow
 every month of the year, orange cells some months, gray cells never.
 ```
 

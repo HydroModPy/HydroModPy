@@ -65,7 +65,11 @@ def export_geographic_feature(
             )
         gdf = gdf.to_crs(crs)
     if fmt == "geopackage":
-        gdf.to_file(str(output_path), driver=_DRIVERS[fmt], layer=name)
+        # GDAL takes a column named fid as the key of a GeoPackage and refuses one
+        # of floats, which a Shapefile saved by QGIS holds. The key gets its own name.
+        own_key = "fid" in {str(column).lower() for column in gdf.columns}
+        options = {"FID": "gpkg_fid"} if own_key else None
+        gdf.to_file(str(output_path), driver=_DRIVERS[fmt], layer=name, layer_options=options)
     else:
         gdf.to_file(str(output_path), driver=_DRIVERS[fmt])
     logger.info("Exported %s layer %s: %s (%d features)", fmt, name, output_path, len(gdf))

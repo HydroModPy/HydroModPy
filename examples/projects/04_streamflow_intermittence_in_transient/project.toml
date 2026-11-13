@@ -105,50 +105,71 @@ value = 1e-5
 on_error = "raise"
 # Every one-instant figure draws October 2002, the driest month of the record.
 # The default, the last period, is a December with a nearly full network.
-time = "2002-10-15"
 
-# The catchment, what enters and leaves it, the gauge, the water table, then
-# the five that answer which reaches dry up, when, and how far from the map.
-# `hmp show <name> --figure NAME` renders any other figure on demand,
-# network_extent_bounds_map among them: the yearly maximal and minimal
-# simulated extents against the map.
+# The catchment, what enters and leaves it, the gauge on a log axis, the water
+# table in a section and as depth, the seepage cells, then the share of the run
+# each reach is wet, the agreement with the mapped network and the distance to
+# the downslope crossing.
 #
-# hydrograph_log_nse draws the same series as hydrograph_sim_obs on the axis an
-# intermittent catchment is read on, and marks the window stage two scores.
-#
-# The five after the blank line only apply to a run the calibration promoted,
-# and skip themselves, with a reason, on a plain `hmp run`. calibration_progress
-# is the slide of the search: the value tried, the cost and what improves, run
-# after run.
-figures = [
-    "watershed_id_card",
-    "flux_timeseries",
-    "hydrograph_log_nse",
-    "cross_section",
-    "watertable_depth_map",
-    "seepage_map",
-    "flow_persistence_map",
-    "flow_intermittence_map",
-    "seepage_network_confusion_map",
-    "downslope_distance_map",
+# The three figures with when = "session" are drawn for a calibration session
+# only: the root search of the downslope distance, the parameter against the
+# cost, and calibration_progress, the slide of the search. A plain `hmp run`
+# does not draw them.
+[[display.figure]]
+preset = "watershed_id_card"
 
-    "downslope_distance_crossing",
-    "bisection_bracket_trace",
-    "parameter_cost_profile",
-    "matching_hydrographic_network_card",
-    "calibration_progress",
-]
+[[display.figure]]
+preset = "water_budget"
+
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
 
 # South to north through the outlet, so the section cuts the tributaries
 # across. The west-east default crosses the valley once, at the southern edge.
-[display.overrides.cross_section]
-orientation = "sn"
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+time = "2002-10-15"
+# orientation = "sn" has no equivalent: the line runs from the outlet
 
-# Persistence answers over the three years, intermittence classifies inside one
-# cycle. Both name their window in the title, so the cells that flowed in
-# 2000-2001 and never in 2002 read as a dry year.
-[display.overrides.flow_intermittence_map]
-cycle = "2002"
+[[display.figure]]
+variable = "watertable_depth"
+time = "2002-10-15"
+
+[[display.figure]]
+variable = "seepage_mask"
+time = "2002-10-15"
+
+[[display.figure]]  # replaces flow_persistence_map, flow_intermittence_map
+variable = "simulated_active_network"
+reduce = "frequency"
+# cycle = "2002" has no equivalent: reduce = frequency reads the whole run
+
+[[display.figure]]
+variable = "network_agreement"
+time = "2002-10-15"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+time = "2002-10-15"
+
+[[display.figure]]  # replaces downslope_distance_crossing, bisection_bracket_trace, matching_hydrographic_network_card
+preset = "root_search"
+when = "session"
+
+[[display.figure]]
+variable = ["trials.parameter", "trials.cost"]
+type = "xy"
+facet = "parameter"
+when = "session"
+
+[[display.figure]]
+preset = "calibration_progress"
+when = "session"
 
 # What each run writes to runs/<run>/exports/. The files based on this one inherit
 # the four blocks: a calibration writes them for every run it promotes.

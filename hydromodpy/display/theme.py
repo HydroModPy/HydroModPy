@@ -39,6 +39,9 @@ def register_fonts(folder: Path = FONTS_DIR) -> str:
 
 _FAMILY = register_fonts()
 
+CLASS_TINTS = (0.0, 0.45, 0.7)
+"""Shares of white mixed into the palette, one per pass over it, for more classes than colours."""
+
 # Colours by meaning. A figure names a role and never writes a colour literal.
 # The first 26 come from the publication atlas. The others were added by its domains.
 ROLES: dict[str, str] = {
@@ -46,6 +49,7 @@ ROLES: dict[str, str] = {
     "simulated": "#004488",
     "simulated_alt": "#BB5566",
     "reference_network": "#004488",
+    "network_on_relief": "#99DDFF",
     "generated_network": "#DDAA33",
     "valid": "#004488",
     "extra": "#DDAA33",
@@ -168,6 +172,26 @@ class Theme:
     def categorical(self) -> tuple[str, ...]:
         """The categorical palette of this theme, as hex codes."""
         return tuple(self.roles[name] for name in CATEGORICAL_ROLES)
+
+    def class_color(self, index: int) -> str:
+        """Return the colour of class ``index``: the palette, then lighter variants of it.
+
+        Each pass over the palette mixes its colours with white by the next share of
+        ``CLASS_TINTS``. Past the last pass the colours start again.
+        """
+        palette = self.categorical
+        tint = CLASS_TINTS[(index // len(palette)) % len(CLASS_TINTS)]
+        base = _rgb(palette[index % len(palette)])
+        return _hex(tuple(c + (1 - c) * tint for c in base))  # type: ignore[arg-type]
+
+    def class_colors(self, count: int) -> list[str]:
+        """Return ``count`` colours, all distinct up to ``len(categorical) * len(CLASS_TINTS)``."""
+        return [self.class_color(i) for i in range(count)]
+
+    def sharing_note(self, count: int) -> str:
+        """Return the sentence a legend adds when ``count`` classes outrun the distinct colours."""
+        shared = count - len(self.categorical) * len(CLASS_TINTS)
+        return f"{shared} classes share a colour with another" if shared > 0 else ""
 
 
 def _rgb(color: str) -> tuple[float, float, float]:

@@ -1,108 +1,108 @@
-2026-11-12 00:34:41,559 [INFO] [hydromodpy.core.console.progress] [progress:365] validate
-2026-11-12 00:34:41,562 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: validate (0.0s)
-2026-11-12 00:34:41,568 [INFO] [hydromodpy.core.console.progress] [progress:365] resolve
-2026-11-12 00:34:41,569 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: resolve (0.0s)
-2026-11-12 00:34:41,575 [INFO] [hydromodpy.core.console.progress] [progress:365] build_geographic
-2026-11-12 00:34:41,587 [DEBUG] [hydromodpy.warnings] [logging:382] PendingDeprecationWarning: Use `@` matmul instead of `*` mul operator for matrix multiplication (~/micromamba/envs/hmp_dev/lib/python3.13/site-packages/rasterio/transform.py:178)
-2026-11-12 00:34:41,808 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: build_geographic (0.2s)
-2026-11-12 00:34:41,831 [INFO] [hydromodpy.core.console.progress] [progress:365] load_data
-2026-11-12 00:34:41,845 [INFO] [hydromodpy.core.console.progress] [progress:430] Data families
-2026-11-12 00:34:41,845 [DEBUG] [hydromodpy.core.console.progress] [progress:399] Loading oceanic
-2026-11-12 00:34:41,859 [DEBUG] [hydromodpy.core.console.progress] [progress:410] done: Loading oceanic (0.0s)
-2026-11-12 00:34:41,859 [DEBUG] [hydromodpy.core.console.progress] [progress:442] done: Data families (0.0s)
-2026-11-12 00:34:41,867 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: load_data (0.0s)
-2026-11-12 00:34:41,876 [INFO] [hydromodpy.core.console.progress] [progress:365] build_mesh
-2026-11-12 00:34:41,941 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: build_mesh (0.1s)
-2026-11-12 00:34:41,951 [INFO] [hydromodpy.core.console.progress] [progress:365] setup_process
-2026-11-12 00:34:41,951 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: setup_process (0.0s)
-2026-11-12 00:34:41,960 [INFO] [hydromodpy.core.console.progress] [progress:365] prepare_solver
-2026-11-12 00:34:44,433 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:114] Ingested raster watershed_dem ((31, 31))
-2026-11-12 00:34:44,433 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:96] Skipping raster watershed_fill (no path)
-2026-11-12 00:34:44,555 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:129] Ingested feature watershed (1 rows)
-2026-11-12 00:34:44,585 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:129] Ingested feature watershed_box_buff (1 rows)
-2026-11-12 00:34:44,667 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:129] Ingested feature watershed_contour (1 rows)
-2026-11-12 00:34:44,667 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:163] Skipping river network (not found)
-2026-11-12 00:34:44,667 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:248] Ingested 6 geographic metadata entries
-2026-11-12 00:34:44,678 [DEBUG] [hydromodpy.workflow.steps.prepare_solver.prepare] [prepare:276] Wrote 1 provenance records for sim c6429802-16ad-4c1e-9152-79d395f817c3
-2026-11-12 00:34:44,722 [DEBUG] [hydromodpy.workflow.steps.prepare_solver.forcings] [forcings:322] Persisted 1 forcing datasets for sim c6429802-16ad-4c1e-9152-79d395f817c3
-2026-11-12 00:34:44,724 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: prepare_solver (2.8s)
-2026-11-12 00:34:44,745 [INFO] [hydromodpy.core.console.progress] [progress:365] run_solver
-2026-11-12 00:34:44,897 [DEBUG] [hydromodpy.model.properties.property_table] [property_table:346] Hydraulic conductivity mapped from flow.K
-2026-11-12 00:34:44,897 [DEBUG] [hydromodpy.model.properties.property_table] [property_table:346] Specific yield mapped from flow.Sy
-2026-11-12 00:34:44,898 [DEBUG] [hydromodpy.model.properties.property_table] [property_table:346] Specific storage mapped from flow.Ss
-2026-11-12 00:34:44,898 [WARNING] [hydromodpy.solver.modflow6.builders.solver_options] [solver_options:190] XT3D is set to off, but the model checks recommend on: triangle cells: the two-point flux between the vertex means of two triangles is not consistent, XT3D restores it. Keeping your setting; clear mf6_enable_xt3d (null) to follow the check.
-2026-11-12 00:34:44,898 [DEBUG] [hydromodpy.solver.modflow6.builders.solver_options] [solver_options:265] MF6 XT3D resolution: mode=explicit_off enabled=False structured=False
-2026-11-12 00:34:44,912 [INFO] [hydromodpy.solver.modflow_common.flow_directions] [flow_directions:67] The river network is off for this run: the descent D has no pinned cell and follows the steepest descent everywhere.
-2026-11-12 00:34:44,912 [INFO] [hydromodpy.catchment.drainage.distance] [distance:156] model.neighbours = 'D8' asks for a D8 descent, but the mesh has faces that are not quadrilaterals, where no cell has a diagonal. The descent walks shared edges, which on a Voronoi dual is the same graph.
-2026-11-12 00:34:44,921 [INFO] [hydromodpy.solver.modflow_common.flow_directions] [flow_directions:188] Descent D: 0 cell(s) raised on the routing copy of the top (max +0.00 m), 0 lake cell(s) flooded (max +0.00 m), 0 of 0 pinned channel cell(s) raised (max +0.00 m), adjacency by shared faces, 279 seed cell(s), 0 lake(s) traversed.
-2026-11-12 00:34:44,922 [INFO] [hydromodpy.solver.modflow_common.catchment_basin] [catchment_basin:228] Basin of D: 16 cells (0.014 km2), outlet cell 32 by rule largest_basin, seeded at the outlet: False.
-2026-11-12 00:34:44,923 [WARNING] [hydromodpy.solver.modflow_common.catchment_basin] [catchment_basin:340] Constant-head sinks of D: 264 constant-head cell(s) have no lower neighbour; 0.358 km2 drain into them and stay outside the basin.
-2026-11-12 00:34:45,003 [DEBUG] [hydromodpy.core.console.progress] [progress:399] Writing MODFLOW 6 input files
-2026-11-12 00:34:45,004 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96] writing simulation...
-2026-11-12 00:34:45,004 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]   writing simulation name file...
-2026-11-12 00:34:45,005 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]   writing simulation tdis package...
-2026-11-12 00:34:45,006 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]   writing solution package ims_gwf...
-2026-11-12 00:34:45,007 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]   writing model tri...
-2026-11-12 00:34:45,007 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing model name file...
-2026-11-12 00:34:45,008 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package disv...
-2026-11-12 00:34:45,053 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package ic...
-2026-11-12 00:34:45,056 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package npf...
-2026-11-12 00:34:45,061 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package sto...
-2026-11-12 00:34:45,066 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package rcha...
-2026-11-12 00:34:45,075 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package drn...
-2026-11-12 00:34:45,081 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96] INFORMATION: maxbound in ('', 'drn', 'dimensions') changed to 155 based on size of stress_period_data
-2026-11-12 00:34:45,100 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package chd_0...
-2026-11-12 00:34:45,105 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96] INFORMATION: maxbound in ('', 'chd', 'dimensions') changed to 279 based on size of stress_period_data
-2026-11-12 00:34:45,120 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package oc...
-2026-11-12 00:34:45,121 [DEBUG] [hydromodpy.core.console.progress] [progress:410] done: Writing MODFLOW 6 input files (0.1s)
-2026-11-12 00:34:45,122 [INFO] [hydromodpy.core.console.progress] [progress:430] Solving stress periods
-2026-11-12 00:34:45,122 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] FloPy is using the following executable to run the model: ../../../../../../cache/bin/mf6
-2026-11-12 00:34:45,124 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] MODFLOW 6
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] U.S. GEOLOGICAL SURVEY MODULAR HYDROLOGIC MODEL
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] VERSION 6.6.3 09/29/2025
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] MODFLOW 6 compiled Oct 07 2025 22:51:46 with Intel(R) Fortran Intel(R) 64
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Compiler Classic for applications running on Intel(R) 64, Version 2021.7.0
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Build 20220726_000000
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] This software has been approved for release by the U.S. Geological
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Survey (USGS). Although the software has been subjected to rigorous
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] review, the USGS reserves the right to update the software as needed
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] pursuant to further analysis and review. No warranty, expressed or
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] implied, is made by the USGS or the U.S. Government as to the
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] functionality of the software and related material nor shall the
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] fact of release constitute any such warranty. Furthermore, the
-2026-11-12 00:34:45,125 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] software is released on condition that neither the USGS nor the U.S.
-2026-11-12 00:34:45,127 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Government shall be held liable for any damages resulting from its
-2026-11-12 00:34:45,127 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] authorized or unauthorized use. Also refer to the USGS Water
-2026-11-12 00:34:45,127 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Resources Software User Rights Notice for complete use, copyright,
-2026-11-12 00:34:45,127 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] and distribution information.
-2026-11-12 00:34:45,127 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] MODFLOW runs in SEQUENTIAL mode
-2026-11-12 00:34:45,127 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Run start date and time (yyyy/mm/dd hh:mm:ss): 2026/11/12  0:34:45
-2026-11-12 00:34:45,127 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Writing simulation list file: mfsim.lst
-2026-11-12 00:34:45,127 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Using Simulation name file: mfsim.nam
-2026-11-12 00:34:45,243 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Run end date and time (yyyy/mm/dd hh:mm:ss): 2026/11/12  0:34:45
-2026-11-12 00:34:45,243 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Elapsed run time:  0.118 Seconds
-2026-11-12 00:34:45,243 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Normal termination of simulation.
-2026-11-12 00:34:45,245 [DEBUG] [hydromodpy.core.console.progress] [progress:442] done: Solving stress periods (0.1s)
-2026-11-12 00:34:45,398 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: run_solver (0.7s)
-2026-11-12 00:34:45,422 [INFO] [hydromodpy.core.console.progress] [progress:365] extract
-2026-11-12 00:34:45,503 [DEBUG] [hydromodpy.solver.modflow6.extractors.flow] [flow:308] Extracting MODFLOW 6 results: 3 timesteps, 1 layers, 434 cells
-2026-11-12 00:34:45,503 [INFO] [hydromodpy.core.console.progress] [progress:430] Extracting heads
-2026-11-12 00:34:45,523 [DEBUG] [hydromodpy.core.console.progress] [progress:442] done: Extracting heads (0.0s)
-2026-11-12 00:34:45,529 [INFO] [hydromodpy.core.console.progress] [progress:430] Extracting budget terms
-2026-11-12 00:34:45,531 [DEBUG] [hydromodpy.core.console.progress] [progress:442] done: Extracting budget terms (0.0s)
-2026-11-12 00:34:45,691 [INFO] [hydromodpy.solver.modflow6.extractors.grid_check] [grid_check:210] Run c6429802-16ad-4c1e-9152-79d395f817c3: the solved grid matches the stored mesh (largest vertex shift 0 m, 434 cells walked the other way).
-2026-11-12 00:34:45,928 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: extract (0.5s)
-2026-11-12 00:34:45,954 [INFO] [hydromodpy.core.console.progress] [progress:365] derive
-2026-11-12 00:34:46,179 [WARNING] [hydromodpy.results.derive.catchment_aggregation] [catchment_aggregation:365] Catchment timeseries for sim c6429802-16ad-4c1e-9152-79d395f817c3: the store declares no CRS, so the watershed cannot be placed on the mesh, so the series are summed over the whole active domain, which on a buffered grid takes in the neighbouring basins.
-2026-11-12 00:34:46,231 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: derive (0.3s)
-2026-11-12 00:34:46,240 [INFO] [hydromodpy.core.console.progress] [progress:365] export
-2026-11-12 00:34:46,254 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: export (0.0s)
-2026-11-12 00:34:46,279 [INFO] [hydromodpy.core.console.progress] [progress:365] seal
-2026-11-12 00:34:46,592 [WARNING] [hydromodpy.results.storage.sealing] [sealing:638] Runs of this workspace are sealed without creator_name, creator_institution and a known licence. Add creator_name = "..." and creator_institution = "..." under [workspace] in workspace.toml; a licence comes from the 'license' key of each input sidecar (<file>.json).
-2026-11-12 00:34:47,040 [INFO] [hydromodpy.workflow.steps.export] [export:423] Run tri sealed: <work>/project/runs/tri
-2026-11-12 00:34:47,188 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: seal (0.9s)
-2026-11-12 00:34:47,189 [INFO] [hydromodpy.workflow.steps.export] [export:185] Run completed: tri [c6429802] 8s
-2026-11-12 00:34:47,189 [INFO] [hydromodpy.workflow.steps.export] [export:186] next: hmp show tri | hmp publish tri --to <folder> | hmp export tri --list
-2026-11-12 00:34:47,198 [INFO] [hydromodpy.core.console.progress] [progress:365] display
-2026-11-12 00:34:47,222 [INFO] [hydromodpy.workflow.steps.display] [display:174] No figure rendered: [display] enabled = False, figures lists 0 name(s).
-2026-11-12 00:34:47,222 [DEBUG] [hydromodpy.core.console.progress] [progress:391] phase done: display (0.0s)
+2026-11-13 20:36:54,617 [INFO] [hydromodpy.core.console.progress] [progress:403] validate
+2026-11-13 20:36:54,619 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: validate (0.0s)
+2026-11-13 20:36:54,622 [INFO] [hydromodpy.core.console.progress] [progress:403] resolve
+2026-11-13 20:36:54,622 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: resolve (0.0s)
+2026-11-13 20:36:54,624 [INFO] [hydromodpy.core.console.progress] [progress:403] build_geographic
+2026-11-13 20:36:54,625 [DEBUG] [hydromodpy.warnings] [logging:382] PendingDeprecationWarning: Use `@` matmul instead of `*` mul operator for matrix multiplication (~/micromamba/envs/hmp_dev/lib/python3.13/site-packages/rasterio/transform.py:178)
+2026-11-13 20:36:54,693 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: build_geographic (0.1s)
+2026-11-13 20:36:54,699 [INFO] [hydromodpy.core.console.progress] [progress:403] load_data
+2026-11-13 20:36:54,700 [INFO] [hydromodpy.core.console.progress] [progress:468] Data families
+2026-11-13 20:36:54,700 [DEBUG] [hydromodpy.core.console.progress] [progress:437] Loading oceanic
+2026-11-13 20:36:54,704 [DEBUG] [hydromodpy.core.console.progress] [progress:448] done: Loading oceanic (0.0s)
+2026-11-13 20:36:54,704 [DEBUG] [hydromodpy.core.console.progress] [progress:480] done: Data families (0.0s)
+2026-11-13 20:36:54,706 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: load_data (0.0s)
+2026-11-13 20:36:54,709 [INFO] [hydromodpy.core.console.progress] [progress:403] build_mesh
+2026-11-13 20:36:54,737 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: build_mesh (0.0s)
+2026-11-13 20:36:54,740 [INFO] [hydromodpy.core.console.progress] [progress:403] setup_process
+2026-11-13 20:36:54,740 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: setup_process (0.0s)
+2026-11-13 20:36:54,744 [INFO] [hydromodpy.core.console.progress] [progress:403] prepare_solver
+2026-11-13 20:36:55,389 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:114] Ingested raster watershed_dem ((31, 31))
+2026-11-13 20:36:55,389 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:96] Skipping raster watershed_fill (no path)
+2026-11-13 20:36:55,430 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:129] Ingested feature watershed (1 rows)
+2026-11-13 20:36:55,441 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:129] Ingested feature watershed_box_buff (1 rows)
+2026-11-13 20:36:55,453 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:129] Ingested feature watershed_contour (1 rows)
+2026-11-13 20:36:55,453 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:163] Skipping river network (not found)
+2026-11-13 20:36:55,453 [DEBUG] [hydromodpy.catchment.preprocess.store_ingestion] [store_ingestion:248] Ingested 6 geographic metadata entries
+2026-11-13 20:36:55,455 [DEBUG] [hydromodpy.workflow.steps.prepare_solver.prepare] [prepare:276] Wrote 1 provenance records for sim c824d709-5928-4b87-9ccb-5e7850a40259
+2026-11-13 20:36:55,472 [DEBUG] [hydromodpy.workflow.steps.prepare_solver.forcings] [forcings:322] Persisted 1 forcing datasets for sim c824d709-5928-4b87-9ccb-5e7850a40259
+2026-11-13 20:36:55,473 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: prepare_solver (0.7s)
+2026-11-13 20:36:55,479 [INFO] [hydromodpy.core.console.progress] [progress:403] run_solver
+2026-11-13 20:36:55,554 [DEBUG] [hydromodpy.model.properties.property_table] [property_table:346] Hydraulic conductivity mapped from flow.K
+2026-11-13 20:36:55,554 [DEBUG] [hydromodpy.model.properties.property_table] [property_table:346] Specific yield mapped from flow.Sy
+2026-11-13 20:36:55,555 [DEBUG] [hydromodpy.model.properties.property_table] [property_table:346] Specific storage mapped from flow.Ss
+2026-11-13 20:36:55,555 [WARNING] [hydromodpy.solver.modflow6.builders.solver_options] [solver_options:190] XT3D is set to off, but the model checks recommend on: triangle cells: the two-point flux between the vertex means of two triangles is not consistent, XT3D restores it. Keeping your setting; clear mf6_enable_xt3d (null) to follow the check.
+2026-11-13 20:36:55,555 [DEBUG] [hydromodpy.solver.modflow6.builders.solver_options] [solver_options:265] MF6 XT3D resolution: mode=explicit_off enabled=False structured=False
+2026-11-13 20:36:55,564 [INFO] [hydromodpy.solver.modflow_common.flow_directions] [flow_directions:67] The river network is off for this run: the descent D has no pinned cell and follows the steepest descent everywhere.
+2026-11-13 20:36:55,564 [INFO] [hydromodpy.catchment.drainage.distance] [distance:156] model.neighbours = 'D8' asks for a D8 descent, but the mesh has faces that are not quadrilaterals, where no cell has a diagonal. The descent walks shared edges, which on a Voronoi dual is the same graph.
+2026-11-13 20:36:55,567 [INFO] [hydromodpy.solver.modflow_common.flow_directions] [flow_directions:188] Descent D: 0 cell(s) raised on the routing copy of the top (max +0.00 m), 0 lake cell(s) flooded (max +0.00 m), 0 of 0 pinned channel cell(s) raised (max +0.00 m), adjacency by shared faces, 279 seed cell(s), 0 lake(s) traversed.
+2026-11-13 20:36:55,567 [INFO] [hydromodpy.solver.modflow_common.catchment_basin] [catchment_basin:228] Basin of D: 16 cells (0.014 km2), outlet cell 32 by rule largest_basin, seeded at the outlet: False.
+2026-11-13 20:36:55,568 [WARNING] [hydromodpy.solver.modflow_common.catchment_basin] [catchment_basin:340] Constant-head sinks of D: 264 constant-head cell(s) have no lower neighbour; 0.358 km2 drain into them and stay outside the basin.
+2026-11-13 20:36:55,611 [DEBUG] [hydromodpy.core.console.progress] [progress:437] Writing MODFLOW 6 input files
+2026-11-13 20:36:55,611 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96] writing simulation...
+2026-11-13 20:36:55,611 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]   writing simulation name file...
+2026-11-13 20:36:55,612 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]   writing simulation tdis package...
+2026-11-13 20:36:55,612 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]   writing solution package ims_gwf...
+2026-11-13 20:36:55,613 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]   writing model tri...
+2026-11-13 20:36:55,613 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing model name file...
+2026-11-13 20:36:55,613 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package disv...
+2026-11-13 20:36:55,637 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package ic...
+2026-11-13 20:36:55,638 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package npf...
+2026-11-13 20:36:55,641 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package sto...
+2026-11-13 20:36:55,643 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package rcha...
+2026-11-13 20:36:55,647 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package drn...
+2026-11-13 20:36:55,651 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96] INFORMATION: maxbound in ('', 'drn', 'dimensions') changed to 155 based on size of stress_period_data
+2026-11-13 20:36:55,660 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package chd_0...
+2026-11-13 20:36:55,662 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96] INFORMATION: maxbound in ('', 'chd', 'dimensions') changed to 279 based on size of stress_period_data
+2026-11-13 20:36:55,669 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:96]     writing package oc...
+2026-11-13 20:36:55,669 [DEBUG] [hydromodpy.core.console.progress] [progress:448] done: Writing MODFLOW 6 input files (0.1s)
+2026-11-13 20:36:55,670 [INFO] [hydromodpy.core.console.progress] [progress:468] Solving stress periods
+2026-11-13 20:36:55,670 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] FloPy is using the following executable to run the model: ../../../../../../cache/bin/mf6
+2026-11-13 20:36:55,671 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] MODFLOW 6
+2026-11-13 20:36:55,671 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] U.S. GEOLOGICAL SURVEY MODULAR HYDROLOGIC MODEL
+2026-11-13 20:36:55,671 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] VERSION 6.6.3 09/29/2025
+2026-11-13 20:36:55,671 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] MODFLOW 6 compiled Oct 07 2025 22:51:46 with Intel(R) Fortran Intel(R) 64
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Compiler Classic for applications running on Intel(R) 64, Version 2021.7.0
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Build 20220726_000000
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] This software has been approved for release by the U.S. Geological
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Survey (USGS). Although the software has been subjected to rigorous
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] review, the USGS reserves the right to update the software as needed
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] pursuant to further analysis and review. No warranty, expressed or
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] implied, is made by the USGS or the U.S. Government as to the
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] functionality of the software and related material nor shall the
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] fact of release constitute any such warranty. Furthermore, the
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] software is released on condition that neither the USGS nor the U.S.
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Government shall be held liable for any damages resulting from its
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] authorized or unauthorized use. Also refer to the USGS Water
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Resources Software User Rights Notice for complete use, copyright,
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] and distribution information.
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] MODFLOW runs in SEQUENTIAL mode
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Run start date and time (yyyy/mm/dd hh:mm:ss): 2026/11/13 20:36:55
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Writing simulation list file: mfsim.lst
+2026-11-13 20:36:55,672 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Using Simulation name file: mfsim.nam
+2026-11-13 20:36:55,708 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Run end date and time (yyyy/mm/dd hh:mm:ss): 2026/11/13 20:36:55
+2026-11-13 20:36:55,708 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Elapsed run time:  0.037 Seconds
+2026-11-13 20:36:55,708 [DEBUG] [hydromodpy.solver.modflow_common.progress] [progress:48] Normal termination of simulation.
+2026-11-13 20:36:55,709 [DEBUG] [hydromodpy.core.console.progress] [progress:480] done: Solving stress periods (0.0s)
+2026-11-13 20:36:55,773 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: run_solver (0.3s)
+2026-11-13 20:36:55,781 [INFO] [hydromodpy.core.console.progress] [progress:403] extract
+2026-11-13 20:36:55,805 [DEBUG] [hydromodpy.solver.modflow6.extractors.flow] [flow:308] Extracting MODFLOW 6 results: 3 timesteps, 1 layers, 434 cells
+2026-11-13 20:36:55,806 [INFO] [hydromodpy.core.console.progress] [progress:468] Extracting heads
+2026-11-13 20:36:55,811 [DEBUG] [hydromodpy.core.console.progress] [progress:480] done: Extracting heads (0.0s)
+2026-11-13 20:36:55,813 [INFO] [hydromodpy.core.console.progress] [progress:468] Extracting budget terms
+2026-11-13 20:36:55,814 [DEBUG] [hydromodpy.core.console.progress] [progress:480] done: Extracting budget terms (0.0s)
+2026-11-13 20:36:55,872 [INFO] [hydromodpy.solver.modflow6.extractors.grid_check] [grid_check:210] Run c824d709-5928-4b87-9ccb-5e7850a40259: the solved grid matches the stored mesh (largest vertex shift 0 m, 434 cells walked the other way).
+2026-11-13 20:36:55,948 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: extract (0.2s)
+2026-11-13 20:36:55,958 [INFO] [hydromodpy.core.console.progress] [progress:403] derive
+2026-11-13 20:36:56,000 [WARNING] [hydromodpy.results.derive.catchment_aggregation] [catchment_aggregation:365] Catchment timeseries for sim c824d709-5928-4b87-9ccb-5e7850a40259: the store declares no CRS, so the watershed cannot be placed on the mesh, so the series are summed over the whole active domain, which on a buffered grid takes in the neighbouring basins.
+2026-11-13 20:36:56,020 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: derive (0.1s)
+2026-11-13 20:36:56,024 [INFO] [hydromodpy.core.console.progress] [progress:403] export
+2026-11-13 20:36:56,028 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: export (0.0s)
+2026-11-13 20:36:56,031 [INFO] [hydromodpy.core.console.progress] [progress:403] seal
+2026-11-13 20:36:56,108 [WARNING] [hydromodpy.results.storage.sealing] [sealing:638] Runs of this workspace are sealed without creator_name, creator_institution and a known licence. Add creator_name = "..." and creator_institution = "..." under [workspace] in workspace.toml; a licence comes from the 'license' key of each input sidecar (<file>.json).
+2026-11-13 20:36:56,225 [INFO] [hydromodpy.workflow.steps.export] [export:423] Run tri sealed: <work>/project/runs/tri
+2026-11-13 20:36:56,263 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: seal (0.2s)
+2026-11-13 20:36:56,267 [INFO] [hydromodpy.core.console.progress] [progress:403] display
+2026-11-13 20:36:56,286 [INFO] [hydromodpy.workflow.steps.display] [display:163] No figure rendered: [display] enabled = False, 0 [[display.figure]] table(s).
+2026-11-13 20:36:56,287 [DEBUG] [hydromodpy.core.console.progress] [progress:429] phase done: display (0.0s)
+2026-11-13 20:36:56,288 [INFO] [hydromodpy.workflow.steps.export] [export:185] Run completed: tri [c824d709] 3s
+2026-11-13 20:36:56,288 [INFO] [hydromodpy.workflow.steps.export] [export:186] next: hmp show tri | hmp publish tri --to <folder> | hmp export tri --list

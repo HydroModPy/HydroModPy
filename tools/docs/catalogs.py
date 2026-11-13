@@ -1,9 +1,8 @@
-"""Catalogs of the reference: solvers, figures and data sources.
+"""Catalogs of the reference: solvers, data sources, outputs and figure requests.
 
 Each one is read from a registry of the code, never typed in a page:
 
 - solvers: ``hydromodpy.solver.base.registry`` (the attributes each backend declares);
-- figures: ``hydromodpy.display`` (``FigureSpec``, the figure classes, their options);
 - figure requests: ``tools.docs.figure_requests`` (the request models, the frames, the
   quantities, the variables, the presets and the overlays of the new figure path);
 - outputs of a run: ``hydromodpy.results.field_registry`` (field arrays and time series);
@@ -78,85 +77,6 @@ def solvers(nodes: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
             }
         )
     return rows
-
-
-def parse_parameters(doc: str | None) -> dict[str, tuple[str, str]]:
-    """The Parameters section of a numpydoc docstring: name -> (type, description)."""
-    from tools.docs.api_registry import section_body
-
-    out: dict[str, tuple[str, str]] = {}
-    current: list[str] = []
-    kind = ""
-    desc: list[str] = []
-
-    def flush() -> None:
-        for name in current:
-            out[name] = (kind, " ".join(desc).strip())
-
-    for line in section_body(doc, "Parameters").splitlines():
-        if line and not line.startswith((" ", "\t")):
-            flush()
-            head, _, kind = line.partition(":")
-            current = [n.strip() for n in head.split(",") if n.strip()]
-            kind = kind.strip()
-            desc = []
-        elif line.strip():
-            desc.append(line.strip())
-    flush()
-    return out
-
-
-def option_details(cls: type) -> list[dict[str, Any]]:
-    """Type, default, unit and description of each option a figure class accepts.
-
-    All of it is declared on the parameter that takes the option, read by
-    :func:`hydromodpy.display.figure.options_of`.
-    """
-    from hydromodpy.display.figure import options_of
-
-    return [
-        {
-            "name": o.name,
-            "type": o.type,
-            "default": o.default,
-            "unit": o.unit,
-            "doc": o.description,
-            "python_only": o.python_only,
-        }
-        for o in options_of(cls)
-    ]
-
-
-def figures() -> list[dict[str, Any]]:
-    """One row per registered figure, with what it needs and the options it takes."""
-    from hydromodpy.display.figure import BaseFigure
-    from hydromodpy.display.figure_registry import figure_option_names, get, list_figures
-
-    rows = []
-    for spec in list_figures():
-        cls = type(get(spec.name))
-        rows.append(
-            {
-                "name": spec.name,
-                "title": spec.title,
-                "kind": spec.kind,
-                "former_names": list(spec.former_names),
-                "required_fields": list(spec.required_fields),
-                "optional_fields": list(spec.optional_fields),
-                "required_tables": list(spec.required_tables),
-                "options": sorted(figure_option_names(spec.name)),
-                "option_details": option_details(cls),
-                "summary": _first_paragraph(inspect.getdoc(cls)),
-                "own_availability_rule": cls.unavailable_reason
-                is not BaseFigure.unavailable_reason,
-                "availability_rule": _first_paragraph(inspect.getdoc(cls.unavailable_reason))
-                if cls.unavailable_reason is not BaseFigure.unavailable_reason
-                else "",
-                "default_figsize": list(spec.default_figsize),
-                "source": f"{cls.__module__}.{cls.__qualname__}",
-            }
-        )
-    return sorted(rows, key=lambda r: (r["kind"], r["name"]))
 
 
 # Fields the page lays out itself. Any other field of a source entry or of its
@@ -304,7 +224,6 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
     sources = data_sources(nodes)
     return {
         "solvers": solvers(nodes),
-        "figures": figures(),
         "data_sources": sources,
         "providers": providers(sources),
         "outputs": outputs(),

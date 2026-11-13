@@ -32,7 +32,8 @@ def _merge(monkeypatch, table, rows):
         monkeypatch.setitem(table, key, row)
 
 
-def test_case_1_a_variable_by_its_name(stored_run):
+def test_case_1_a_variable_by_its_name(stored_run, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     # example: variable
     figure = stored_run.figure("head", time="last", layer=0, title="Head at the end")
     figure.savefig("head.png")
@@ -76,7 +77,7 @@ def test_case_3_a_column_of_a_table(stored_run, monkeypatch):
     name = "simulation.budget_pct"
     request = {"type": "table", "variable": [name]}
     with pytest.raises(ValueError, match=r"has no row in COLUMN_REGISTRY \(results/field_registry"):
-        stored_run.figure_data(request=request)
+        stored_run.figure(request=request, data=True)
     written = {
         # example: column
         "simulation.budget_pct": ColumnDescriptor("percent", "Budget error"),
@@ -84,7 +85,7 @@ def test_case_3_a_column_of_a_table(stored_run, monkeypatch):
     }
     _merge(monkeypatch, registry.COLUMN_REGISTRY, written)
     gate.test_column_row_names_a_schema_column(name)
-    label = stored_run.figure_data(request=request)["a"]["label"].iloc[0]
+    label = stored_run.figure(request=request, data=True)["a"]["label"].iloc[0]
     assert label.startswith("Budget error")
 
 
@@ -163,5 +164,5 @@ def test_case_5_a_plain_matplotlib_function(stored_run):
     assert len(figure.axes[0].lines) == 1 and figure.axes[0].collections
     with pytest.raises(ValueError, match="draw takes a Python function and is never written"):
         FigureRequest.model_validate({"draw": "discharge_against_recharge"})
-    with pytest.raises(ValueError, match=r"takes no keyword beyond subject.*time cannot be given"):
+    with pytest.raises(ValueError, match="takes no option time"):
         expand(FigureRequest(draw=discharge_against_recharge, time="last"), PRESETS)

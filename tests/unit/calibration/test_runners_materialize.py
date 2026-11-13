@@ -122,10 +122,10 @@ def test_extra_sections_are_merged(base_config_path, tmp_path):
         space=k_space(),
         out_dir=tmp_path / "candidates",
         candidate_label="no_display",
-        extra_sections={"display": {"enabled": False, "show": False}},
+        extra_sections={"display": {"enabled": False, "theme": "print"}},
     )
 
-    assert read_overlay(overlay_path)["display"] == {"enabled": False, "show": False}
+    assert read_overlay(overlay_path)["display"] == {"enabled": False, "theme": "print"}
 
 
 def test_overlay_names_the_simulation(base_config_path, tmp_path):

@@ -47,7 +47,7 @@ TEXT_KINDS = frozenset({"import_module", "lazy_map"})
 SEEN_PARTS = {
     "data": {"contracts", "families", "variables", "loading", "provenance"},
     "calibration": {"optim", "runners", "config", "criteria", "metrics"},
-    "display": {"figures", "figure", "figure_registry", "maps", "runs", "report"},
+    "display": {"frames", "special", "request", "render", "runs", "report"},
     "solver": {"base", "modflow6", "modflow_nwt", "boussinesq", "modflow_common"},
     "mesh": {"planar", "cells", "engines", "planning", "io"},
     "catchment": {"terrain", "delineation", "drainage", "algorithms", "synthetic", "preprocess"},
@@ -443,14 +443,18 @@ def test_calibration_reaches_solver_only_through_generic_ports() -> None:
 # -- hydromodpy/display -----------------------------------------------------------
 
 
-def test_the_display_registry_names_only_the_figures_package() -> None:
-    """The dotted paths written as text are the built-in figures."""
-    from hydromodpy.display.figure_table import FIGURES
+def test_the_display_text_paths_are_the_frames_and_the_specials() -> None:
+    """The dotted paths written as text are the frames of ``request.FRAMES`` and the
+    modules of ``request.SPECIALS``."""
+    from hydromodpy.display.request import FRAMES, SPECIALS
 
-    builtins = {path.split(":", 1)[0] for path in FIGURES.values()}
+    builtins = {f"hydromodpy.display.frames.{name}" for name in FRAMES} | {
+        f"hydromodpy.display.special.{name}" for name in SPECIALS
+    }
     offenders = _text_edges_outside_the_builtins("display", builtins)
     assert not offenders, (
-        "a text path names a module that is not a built-in figure:\n  " + "\n  ".join(offenders)
+        "a text path names a module that is neither a frame nor a special figure:\n  "
+        + "\n  ".join(offenders)
     )
 
 

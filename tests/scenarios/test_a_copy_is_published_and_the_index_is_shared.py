@@ -144,6 +144,11 @@ def test_a_copy_is_published_and_the_index_is_shared(
     frozen = tmp_path / "frozen"
     shutil.copytree(FROZEN, frozen)
     demo_project = frozen / "projects" / "example"
+    # The frozen demo seals its value digests, so the copy drops them as a pre-release seal.
+    sealed = demo_project / "runs" / "demo" / "manifest.json"
+    manifest = json.loads(sealed.read_text(encoding="utf-8"))
+    del manifest["values"]
+    sealed.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     demo_light = tmp_path / "demo_light"
     demo_copy = _hmp(
         demo_project,

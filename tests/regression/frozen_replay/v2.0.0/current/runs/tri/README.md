@@ -1,6 +1,6 @@
 # tri
 
-Run `tri` of project `project`, sim_id `c6429802-16ad-4c1e-9152-79d395f817c3`, attempt 1, status **completed**.
+Run `tri` of project `project`, sim_id `c824d709-5928-4b87-9ccb-5e7850a40259`, attempt 1, status **completed**.
 
 ## Site
 
@@ -14,12 +14,12 @@ Run `tri` of project `project`, sim_id `c6429802-16ad-4c1e-9152-79d395f817c3`, a
 ## Version
 
 - HydroModPy 2.0.0, solver `modflow6`, mesh engine `triangle`
-- code reproducible: unknown
-- solution key: `8ffa7c94abf4117ff270d3c216abc0495c7ff51bf448a99379dddb2d3f4f8fd1`
+- code reproducible: no
+- solution key: `75223fe505f7264ae0106928d9a0425bf635491e5fa97559e0f6c1d94bfa3f87`
 
 ## Checks
 
-- water budget 0 % (no threshold declared)
+- water budget 0.00105824 % (no threshold declared)
 - converged: unknown
 
 ## Label
@@ -39,7 +39,7 @@ No window declared: no score.
 
 ## Cost of a replay
 
-A replay of this run computes 11 steps in 4.6 s, 0.1 s of it in the solve, and needs up to 483 MiB of memory.
+A replay of this run computes 11 steps in 1.4 s, 0.0 s of it in the solve, and needs up to 504 MiB of memory.
 The times come from `profile.json`, measured on the machine that ran it.
 
 ## Where is what
@@ -50,4 +50,4 @@ The times come from `profile.json`, measured on the machine that ran it.
 - `figures/`, `exports/`, `report/`: derived, each with its ledger; `logs/`: diagnostics
 
 ---
-sha256(manifest.json) = ed7827635d147f3f52c7b6d85e1ce0f4b86e861515a610462afad0fe100d02b5
+sha256(manifest.json) = 43487aa30d2b0d63542a1a25c8815a6a6bef4887e51ca005e7f4709d91109354

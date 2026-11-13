@@ -4,7 +4,7 @@ A frame module reads from top to bottom and holds three things.
 
 ``data(subject, panel) -> <Frame>Data`` reads through ``display.subject`` only,
 converts to the display unit through ``display.variables``, and returns a frozen
-dataclass whose ``table`` is a plain pandas DataFrame. ``figure_data`` hands that
+dataclass whose ``table`` is a plain pandas DataFrame. ``figure(..., data=True)`` hands that
 table to a user, and a test compares its numbers. ``panel`` is a resolved
 ``PanelRequest``: ``type`` set, holes filled, and for a map one variable and one
 instant, since ``render`` splits small multiples before it calls ``data``.

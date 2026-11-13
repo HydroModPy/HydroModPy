@@ -1,5 +1,4 @@
 """Unit parsing and formatting helpers.
 
-Lazy facade. Lightweight imports such as ``hydromodpy.core.units.labels``
-do not require loading the full Pint stack.
+Lazy facade: a light import does not load the full Pint stack.
 """

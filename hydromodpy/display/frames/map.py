@@ -15,12 +15,13 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from matplotlib.collections import LineCollection, PolyCollection
+from matplotlib.colors import to_hex
 from matplotlib.ticker import MaxNLocator
 from matplotlib.tri import Triangulation
 from pyproj import CRS
 from pyproj.exceptions import CRSError
 
-from hydromodpy.display import static, variables
+from hydromodpy.display import interactive, static, variables
 from hydromodpy.display.request import (
     COLUMN_SEPARATOR,
     MAP_TABLE,
@@ -288,7 +289,7 @@ def _isolines(ax: object, data: MapData, theme: Theme) -> None:
         text.set(**static.text_style(theme))
 
 
-def _crs_name(crs: str | None) -> str:
+def crs_name(crs: str | None) -> str:
     """Return a short name of the CRS for the axis labels, ``Lambert-93`` for RGF93 Lambert-93."""
     if not crs:
         return "mesh CRS"
@@ -338,7 +339,7 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
     ax.add_collection(artist)
     margin = 0.0 if "x_down" not in table else 0.05 * max(box[2] - box[0], box[3] - box[1])
     extent = (box[0] - margin, box[1] - margin, box[2] + margin, box[3] + margin)
-    static.map_axes(ax, theme, extent=extent, crs=_crs_name(data.mesh.crs))
+    static.map_axes(ax, theme, extent=extent, crs=crs_name(data.mesh.crs))
     if data.contours:
         _isolines(ax, data, theme)
     if data.scale == "categorical":
@@ -353,3 +354,85 @@ def draw(ax: object, data: MapData, theme: Theme) -> None:
         ax.set_title(
             textwrap.fill(BUDGET_SIGN_RULE, 42), loc="right", **static.text_style(theme, small=True)
         )
+
+
+# ---------------------------------------------------------------- interactive
+def interactive_color(data: MapData, theme: Theme) -> tuple[np.ndarray, dict]:
+    """Return the intensity of each row of the table and the colour keywords of a plotly trace.
+
+    The limits, the centre of a diverging scale, the classes and the label are those of the
+    static figure. A log scale is drawn on the log10 of the values, with the ticks written
+    back in the unit. A row that cannot take a colour has NaN intensity.
+    """
+    values = data.table["value"].to_numpy(dtype=float)
+    label = {"text": interactive.plain(textwrap.fill(data.label, LABEL_WIDTH).replace("\n", "<br>")), "side": "right"}  # fmt: skip
+    if data.scale == "categorical":
+        shown, cmap, _ = variables.class_scale(values, data.classes, theme)
+        n = len(data.classes)
+        colors = [to_hex(cmap(i)) for i in range(n)]
+        bar = {"title": label, "tickvals": list(range(n)), "ticktext": [name for _, name in data.classes]}  # fmt: skip
+        keys = {"colorscale": interactive.class_colorscale(colors), "cmin": -0.5, "cmax": n - 0.5}
+        return shown, {**keys, "colorbar": bar}
+    norm = variables.color_norm(data.scale, data.log, values, data.limits)
+    low, high = norm.vmin, norm.vmax
+    keys = {"colorscale": interactive.colorscale(_ramp(data, theme))}
+    if data.log:
+        shown = np.where(values > 0, np.log10(np.where(values > 0, values, 1.0)), np.nan)
+        low, high = np.log10(low), np.log10(high)
+        ticks = np.linspace(low, high, 5)
+        bar = {"title": label, "tickvals": ticks, "ticktext": [f"{10**t:.3g}" for t in ticks]}
+    else:
+        shown, bar = values, {"title": label}
+    if data.scale == "diverging":
+        keys["cmid"] = 0.0
+    return shown, {**keys, "cmin": low, "cmax": high, "colorbar": bar}
+
+
+def hover_text(data: MapData) -> np.ndarray:
+    """Return the hover text of each row of the table: the cell and its value or class name."""
+    names = dict(data.classes)
+    return np.array(
+        [
+            f"cell {c}: {names.get(int(v), v) if names else format(v, '.4g')}"
+            for c, v in zip(data.table["cell"], data.table["value"], strict=True)
+        ],
+        dtype=object,
+    )
+
+
+def draw_interactive(data: MapData, theme: Theme) -> tuple[list, dict]:
+    """Return the cells as one plotly ``Mesh3d`` seen from above, and the scene settings.
+
+    Each cell is a fan of triangles with its own vertices, so a hover names the cell and its
+    value. Cells without a value are left out. The overlays a map takes by default (outline,
+    outlet, scale bar) are not drawn. A table of reaches is refused, and so is a
+    mesh of more cells than ``interactive.MAX_CELLS``.
+    """
+    import plotly.graph_objects as go
+
+    if "x_down" in data.table:
+        raise FigureNotApplicable("The reaches of a table are drawn by the static engine only.")
+    shown, colors = interactive_color(data, theme)
+    kept = np.isfinite(shown)
+    interactive.refuse_large(int(kept.sum()))
+    table = data.table[kept]
+    x, y, triangles, k = interactive.fan(data.mesh, table["cell"].to_numpy())
+    mesh = go.Mesh3d(
+        x=x.astype("float32"), y=y.astype("float32"), z=np.zeros(len(x), "float32"),
+        i=triangles[:, 0].astype("int32"), j=triangles[:, 1].astype("int32"),
+        k=triangles[:, 2].astype("int32"), intensity=np.repeat(shown[kept], k).astype("float32"),
+        text=np.repeat(hover_text(data)[kept], k), hoverinfo="text", flatshading=True, **colors,
+    )  # fmt: skip
+    crs = crs_name(data.mesh.crs)
+    span = (x.max() - x.min(), y.max() - y.min())
+    axis = {"showgrid": False, "showspikes": False}
+    scene = {
+        "aspectmode": "manual",
+        "aspectratio": {"x": span[0] / max(span), "y": span[1] / max(span), "z": 0.01},
+        "camera": {"eye": {"x": 0, "y": 0, "z": 2}, "up": {"x": 0, "y": 1, "z": 0}, "projection": {"type": "orthographic"}},  # fmt: skip
+        "xaxis": {**axis, "title": f"x ({crs}, m)"},
+        "yaxis": {**axis, "title": f"y ({crs}, m)"},
+        "zaxis": {"visible": False, "range": [-1, 1]},
+        "dragmode": "pan",
+    }  # fmt: skip
+    return [mesh], {"scene": scene}

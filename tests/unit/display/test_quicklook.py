@@ -139,6 +139,23 @@ def test_show_small_series_skips_lttb_in_auto_mode(monkeypatch, mpl) -> None:
     assert line.get_marker() == "o"
 
 
+def test_show_refuses_a_per_cell_field_and_names_run_figure(mpl) -> None:
+    xr = pytest.importorskip("xarray")
+    per_cell = xr.DataArray(np.zeros(5), dims=("cell",), name="head")
+
+    with pytest.raises(TypeError, match=r'run\.figure\("head"\)'):
+        viz.show(per_cell)
+
+
+def test_show_draws_a_two_dimensional_regular_array(mpl) -> None:
+    xr = pytest.importorskip("xarray")
+    grid = xr.DataArray(np.ones((3, 4)), dims=("y", "x"), name="head")
+
+    fig = viz.show(grid, downsample="none")
+
+    assert fig.axes[0].images[0].get_array().shape == (3, 4)
+
+
 def test_show_raster_keeps_values_and_names_the_crs(mpl) -> None:
     xr = pytest.importorskip("xarray")
     data = np.asarray([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])

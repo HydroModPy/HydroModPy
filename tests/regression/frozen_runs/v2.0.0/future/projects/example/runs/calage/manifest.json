@@ -1,9 +1,320 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 4,
+  "profile": "run",
+  "sealed_at": "2026-11-13T20:46:44.595529Z",
+  "lineage": {
+    "parent_sim_id": null,
+    "session_id": "2473cfc06b9943a1b59b0c180ac9db26",
+    "phase": "k_grid",
+    "trial": 2,
+    "kind": "promoted",
+    "overrides": {},
+    "drift": {},
+    "parent_hint": "sessions/calage",
+    "replay": null,
+    "from_a_later_version": {
+      "kept": true,
+      "note": "written by a later 2.x"
+    }
+  },
+  "artifacts": [
+    {
+      "path": "manifest.json",
+      "role": "manifest",
+      "format": "json",
+      "bytes": null,
+      "sha256": null,
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "config.resolved.toml",
+      "role": "config_resolved",
+      "format": "toml",
+      "bytes": 5024,
+      "sha256": "930d37b30ea8a0413e773e4116a5bf260c722843bbdf28095b0b363c928e0998",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "config.toml",
+      "role": "config",
+      "format": "toml",
+      "bytes": 1399,
+      "sha256": "2ef53ed066d8bf866bb05dc3bb482975d75bc8dd790ca544de0981181a56de10",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "fields.zarr",
+      "role": "fields",
+      "format": "zarr",
+      "bytes": 121817,
+      "sha256": "2f1a501a85aea08b3e053ad10e28acf385d739d9e274451817156931243640cd",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "final_state",
+      "role": "final_state",
+      "format": "zarr",
+      "bytes": 2012,
+      "sha256": "8c52f621e06cc2690f82a34537b718d5fbe6face466ba9e7fd79c972892cedf1",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "inputs.json",
+      "role": "inputs",
+      "format": "json",
+      "bytes": 516,
+      "sha256": "b1b7a66c819be4f3778c58345d313b17f4b8bc359305c5e2b7353ae616822699",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "mesh",
+      "role": "mesh",
+      "format": "directory",
+      "bytes": 36868,
+      "sha256": "a4f7c7c63c13c061a0c4203a8d53369e2927651f17832dee120fbc6961e1d479",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "products.json",
+      "role": "products",
+      "format": "json",
+      "bytes": 368,
+      "sha256": "e0c0270ebf90c8375dcbb0fac89c7307013e89e97321da5ad561bd757c06a39f",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "provenance.json",
+      "role": "provenance",
+      "format": "json",
+      "bytes": 12183,
+      "sha256": "6408d011d1b7f175c73841107cd6a9d561b277b53e9dd4f5e894b03ec2268d4d",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "tables.parquet/budgets.parquet",
+      "role": "table:budgets",
+      "format": "parquet",
+      "bytes": 6232,
+      "sha256": "9b3ea1b65795de5490a176d40a999ccfda5ec3a74a766833cb8b859e2a67a02c",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "tables.parquet/geographic_watershed.parquet",
+      "role": "table:geographic_watershed",
+      "format": "parquet",
+      "bytes": 15686,
+      "sha256": "19bf5c51af3cb967fb043622ee2170146e7c82abeb860e7032e2eec7afbf4d98",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "tables.parquet/geographic_watershed_box_buff.parquet",
+      "role": "table:geographic_watershed_box_buff",
+      "format": "parquet",
+      "bytes": 15707,
+      "sha256": "d29b0f251a3429f792ef71a562cbf4e860f58284712565d164d58af92201144a",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "tables.parquet/geographic_watershed_contour.parquet",
+      "role": "table:geographic_watershed_contour",
+      "format": "parquet",
+      "bytes": 15703,
+      "sha256": "e2b50e6c3e4796b83c531f468ca926ca7fdb9de1f860ee6081111038ecba3cbf",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "tables.parquet/mass_balance.parquet",
+      "role": "table:mass_balance",
+      "format": "parquet",
+      "bytes": 6849,
+      "sha256": "7b7c1c6511096dc9185d4a39225505db032e7f0922607bbee9c6268e2efe9471",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "tables.parquet/mesh_face_families.parquet",
+      "role": "table:mesh_face_families",
+      "format": "parquet",
+      "bytes": 8385,
+      "sha256": "e1df91083c29574b25651df788f1c4630fa353cb409585323731f64bec128bf6",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "tables.parquet/metrics.parquet",
+      "role": "table:metrics",
+      "format": "parquet",
+      "bytes": 8281,
+      "sha256": "7edb6aec16587b7b80855be67ccf1592350876cc4686023636005cb3165e7e54",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "tables.parquet/parameters.parquet",
+      "role": "table:parameters",
+      "format": "parquet",
+      "bytes": 7984,
+      "sha256": "b3101f9108ef604dac4bb4116c1bab5e999471a2cd42ac1cf03a90db8fb6874a",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "tables.parquet/simulation.parquet",
+      "role": "table:simulation",
+      "format": "parquet",
+      "bytes": 33733,
+      "sha256": "ecf4b97bc3c5c5a9ac4b0f63ecea2b42cf97e69b1cec643dfa95965ec4b6a4ff",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    },
+    {
+      "path": "tables.parquet/timeseries.parquet",
+      "role": "table:timeseries",
+      "format": "parquet",
+      "bytes": 6804,
+      "sha256": "795ca8b2c351b4a1528c24616f2380aa454a5540d60090901e28722e73af7c05",
+      "media_type": null,
+      "from_a_later_version": {
+        "kept": true,
+        "note": "written by a later 2.x"
+      }
+    }
+  ],
+  "values": {
+    "rule": "values/1",
+    "digests": {
+      "fields/budget/constant_head": "591249f31a2323fd09fa01c37840bfc2d2762304978da456e04118593f63cd69",
+      "fields/budget/drain": "79762e2450121d52f32cf415235f3d5f4593e01cf20b90a3ecc982fbe655fdcd",
+      "fields/budget/recharge": "3e3ea3bace87ddf89e11c40c45980cdb25c6ccd84fd643a7ea6c122433ed2b8a",
+      "fields/crs": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/face": "eea20f576aae7db158fad01eec7ae00712c88d3c93b4840ee5ba5bd042b1ec15",
+      "fields/geographic/watershed_dem": "84840fe362ddd9a7d0b567c2f26c41c138c5a0ba210f017941f4592515b15213",
+      "fields/geographic/watershed_dem_crs": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/geographic/watershed_dem_x": "dd6071ffa62d70b5c1598d94e12c0bb3fa1eff7fa9ee6dd20ce59a95d4f50281",
+      "fields/geographic/watershed_dem_y": "b7cdfe96d657b13ceb71c32f9715aceb70dd26ec5f4fe6ddb0cc199a4d561d8c",
+      "fields/head": "a76c52cc8d466866b29fb1cb8da85e884bda9bd68a5c40011d2f2c807072ff9c",
+      "fields/layer": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "fields/mesh/crs": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/mesh/descent_base_level": "22394536f0a4708093a3c4277ff2a0cec9b3f1531c32e296e2e8b362d953d2ac",
+      "fields/mesh/descent_basin": "92c04a26997b9c74341a4c3f0f97162073a1794e828be154c22918f5ae86f03a",
+      "fields/mesh/descent_channel": "2859f881b53332cfaf0834a6868b8a39932b076614e2bd0245f7f2f68b2f28db",
+      "fields/mesh/descent_constant_head": "2859f881b53332cfaf0834a6868b8a39932b076614e2bd0245f7f2f68b2f28db",
+      "fields/mesh/descent_dam_foot": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/mesh/descent_pinned": "2859f881b53332cfaf0834a6868b8a39932b076614e2bd0245f7f2f68b2f28db",
+      "fields/mesh/descent_raised": "2859f881b53332cfaf0834a6868b8a39932b076614e2bd0245f7f2f68b2f28db",
+      "fields/mesh/descent_receiver": "09acf37b1a89b1bae539048bb5dbfcef91132c411c04be92032f991ff5c5de0a",
+      "fields/mesh/descent_surface": "5305e21fc2657d498bfc95bf68a51ef7fa3b6a57ba319f76c244454cd60ee739",
+      "fields/mesh/edge_face_connectivity": "0f402dd4b615e8a51e520474f1d6a6b9f62488d8368c42938394caef62dd0a48",
+      "fields/mesh/edge_family": "b825f22273cb5f0b99fd81585b227ef68622e07843c9a4c367f07834f1db2202",
+      "fields/mesh/edge_node_connectivity": "786e7f18a796180c25726ab5c65395a70a63c7d5a16625324b2a31d2fc9a6707",
+      "fields/mesh/face_family": "d4125593f785e0a06715ba102a0ca13b1d0e18715f0baa1a6d19253f6189a6da",
+      "fields/mesh/face_node_connectivity": "8cab36ca981b9164f90de184469458240e8c2a218c08e060fa5b648c93399708",
+      "fields/mesh/face_x": "3badf41f72fe0f7e582b00e52ce5275d8a00d74ba45fb521e7e24ead20aa53e4",
+      "fields/mesh/face_y": "a83fec20d6f1d78f5c3b8bc0f07184056f57d3425663f08a7650babe9a359170",
+      "fields/mesh/idomain": "970d688930a48a172031f794766729a59542ec972c5d59dcb45ca86c970b447a",
+      "fields/mesh/layer_thickness": "2f66f1185eb67daa4ebf1849c19c5114f2dc03d1b4a72ad2c909b6852cc9e078",
+      "fields/mesh/node_x": "394a596021cb318e743b9e44cd23a3045a86576acc727ba08ee874ae3c3e62ca",
+      "fields/mesh/node_y": "55399fb523da1675761adf3b103a56f92567fa832309f9b85828ceb1d939516d",
+      "fields/mesh/open_water": "2859f881b53332cfaf0834a6868b8a39932b076614e2bd0245f7f2f68b2f28db",
+      "fields/mesh/topography": "3b40dbdb4111bc80a47af00c8738ca54d0c79036c74ffac47787a85d7b7f2f5e",
+      "fields/mesh/topology": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/mesh/vertices": "11b751cd8a877a67855c1451a2c4743bede1921243752ca1254ff3df04ecd5e2",
+      "fields/mesh/z_interfaces": "576ebc0bac7741ab1e8a28799536da995544ea18c3cfe21a95980e9a7ed55c5f",
+      "fields/quantization_info": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/time": "846172a5c3cf7a03086d5404c770d10942d071e45309dc3965085a0683b9f8f4",
+      "final_state/head": "bf59b20c39bcdd65581941cc4e1897c63052953dc483d0c28ed483fa76c6465f",
+      "final_state/lake_stage": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "tables/budgets/flux_in": "f40edf91ed12136051e2b56172181a8cd856dd2a83e0d7c4a4d38c3d45faeb54",
+      "tables/budgets/flux_out": "95ab7c2d95e4d7527be20ec92b695d7a697f830bccee57a32598c0e14ebe1af0",
+      "tables/mass_balance/percent_error": "694215dd67438c375ce28a7807dba593b5f5d76358b928e9a96f37d31eda0c36",
+      "tables/mass_balance/storage_in": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "tables/mass_balance/storage_out": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "tables/mass_balance/total_in": "9956a353d0cb6cea8e02e8aed9b783ea4e43374929af2d4191e656c3d4c9f10e",
+      "tables/mass_balance/total_out": "8d431b9243dff37e293f9811a7842ee8761791e0614147170c58f30272670906",
+      "tables/metrics/value": "4b0aba52880c063bff1b637f2931b1023926cf668b7a3b3dc5761cdc3179cf11",
+      "tables/parameters/value": "bde366176d3cb22d804323e3f03fab63ea53182b46efdbb83315b3c6891a6a65",
+      "tables/simulation/bbox_xmax": "dce2e957880678aeb46e993220eb4c2a9dd215821110c144285496a915968701",
+      "tables/simulation/bbox_xmin": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "tables/simulation/bbox_ymax": "dce2e957880678aeb46e993220eb4c2a9dd215821110c144285496a915968701",
+      "tables/simulation/bbox_ymin": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "tables/simulation/budget_pct": "59e27b9894fd344a3f78c158150b7a4b9b7fac17ce8cdf6191b6633126300e1f",
+      "tables/simulation/budget_threshold_pct": "183f84c545e9c6a4249bd212cefb242a56546a9c927998a567b8ca420d61d7c1",
+      "tables/simulation/calibrated_by_cost": "cebbf9b2e18b512226d0d5987cbe19c40d95ddfd6e8dc3b2d1553b4a811a37e0",
+      "tables/simulation/nse": "183f84c545e9c6a4249bd212cefb242a56546a9c927998a567b8ca420d61d7c1",
+      "tables/simulation/obs_coverage": "183f84c545e9c6a4249bd212cefb242a56546a9c927998a567b8ca420d61d7c1",
+      "tables/timeseries/value": "0ff9518a7e908f2f05852507b8852523e659b9b23a5ee5b439b0f0926357ae5a"
+    }
+  },
   "derive_rule_version": "1",
-  "sealed_at": "2026-11-03T10:07:40.048302Z",
   "run": {
-    "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
+    "sim_id": "eab9575d-5f50-476e-953a-26a85ad30cfe",
     "name": "calage",
     "name_stem": "calage",
     "version": 1,
@@ -13,14 +324,14 @@
     "recipe": null,
     "rel_dir": "runs/calage",
     "attempt": 1,
-    "attempt_id": "5c7e405b08034ccaa5b2e160a2a17fa1",
+    "attempt_id": "fb8bfbfbc5684128bf35350ec5e65bb2",
     "solver": "modflow_nwt",
     "solver_category": "distributed",
     "flow_regime": "steady",
-    "created_at": "2026-11-03T10:07:38.080919Z",
-    "started_at": "2026-11-03T10:07:38.080919Z",
-    "ended_at": "2026-11-03T10:07:39.834956Z",
-    "duration_s": 1.754037,
+    "created_at": "2026-11-13T20:46:42.796861Z",
+    "started_at": "2026-11-13T20:46:42.796861Z",
+    "ended_at": "2026-11-13T20:46:44.595529Z",
+    "duration_s": 1.798668,
     "description": "K on three values, scored on one head of the demo.",
     "scientific_objective": null,
     "contact_email": null,
@@ -72,22 +383,7 @@
   },
   "config": {
     "file": "config.toml",
-    "hash": "638c10dec44fbb06e6f77376e2772d3332b06bcbea02f2c29a45e8a3782e6087",
     "source": "calage.toml",
-    "from_a_later_version": {
-      "kept": true,
-      "note": "written by a later 2.x"
-    }
-  },
-  "lineage": {
-    "parent_sim_id": null,
-    "session_id": "15ed6e9bfc5e44558cf3537f3faa6f33",
-    "phase": "k_grid",
-    "trial": 2,
-    "kind": "promoted",
-    "overrides": {},
-    "drift": {},
-    "parent_hint": "sessions/calage",
     "from_a_later_version": {
       "kept": true,
       "note": "written by a later 2.x"
@@ -97,9 +393,11 @@
     "site": null,
     "site_fingerprint": null,
     "case_id": "calage",
-    "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
-    "attempt_id": "5c7e405b08034ccaa5b2e160a2a17fa1",
-    "config_hash": "638c10dec44fbb06e6f77376e2772d3332b06bcbea02f2c29a45e8a3782e6087",
+    "sim_id": "eab9575d-5f50-476e-953a-26a85ad30cfe",
+    "attempt_id": "fb8bfbfbc5684128bf35350ec5e65bb2",
+    "solution_key": null,
+    "request_id": null,
+    "solver": "modflow_nwt",
     "mesh_hash": "48ebc775bacafd4e10f0f6a134360eba6a97bd4eb8961401c1a19da71d0e4083",
     "period": {
       "start": "2000-01-01",
@@ -113,8 +411,8 @@
     "label": null,
     "label_date": null,
     "rule_version": null,
-    "hydromodpy_version": "2.0.0rc1",
-    "code_reproducible": null,
+    "hydromodpy_version": "2.0.0",
+    "code_reproducible": false,
     "from_a_later_version": {
       "kept": true,
       "note": "written by a later 2.x"
@@ -122,14 +420,14 @@
   },
   "checks": {
     "schema": "hydromodpy.checks.v2",
-    "budget_pct": 0.05999999865889549,
+    "budget_pct": 0.064392561771918,
     "budget_threshold_pct": null,
     "converged": true,
     "obs_coverage": null,
     "score_window": null,
     "n_samples": 0,
     "calibrated_by": {
-      "session_id": "15ed6e9bfc5e44558cf3537f3faa6f33",
+      "session_id": "2473cfc06b9943a1b59b0c180ac9db26",
       "phase": "k_grid",
       "trial": 2,
       "session_status": "completed",
@@ -137,195 +435,25 @@
       "stopping_rule": "every grid point",
       "metric": "rmse",
       "cost": 0.002899322509765767,
-      "windows": {}
+      "validation_cost": null,
+      "windows": {},
+      "rule": "2",
+      "components": {
+        "heads.raw_cost": 0.002899322509765767,
+        "heads.normalized_cost": 0.002899322509765767,
+        "heads.reference_scale": 20.91,
+        "heads.n_values": 1.0
+      }
     },
     "validities": [],
     "bounds_hit": [],
-    "code_reproducible": null,
+    "code_reproducible": false,
     "from_a_later_version": {
       "kept": true,
       "note": "written by a later 2.x"
     }
   },
   "inputs": [],
-  "artifacts": [
-    {
-      "path": "manifest.json",
-      "role": "manifest",
-      "format": "json",
-      "bytes": null,
-      "sha256": null,
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "config.resolved.toml",
-      "role": "config_resolved",
-      "format": "toml",
-      "bytes": 6775,
-      "sha256": "4c367a9011caedb97c6210f407761beba6afef40ae1b272ace188e7bcd03cf08",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "config.toml",
-      "role": "config",
-      "format": "toml",
-      "bytes": 1395,
-      "sha256": "eee84977318fc5d5608c3335686a5de83492b53326f240d46d526e7d29213b77",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "fields.zarr",
-      "role": "fields",
-      "format": "zarr",
-      "bytes": 120092,
-      "sha256": null,
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "inputs.json",
-      "role": "other",
-      "format": "json",
-      "bytes": 195,
-      "sha256": "af210093953e9c6b04595aa238a181d741c8db849cc84f8913da0df7aaf4dc9a",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "provenance.json",
-      "role": "provenance",
-      "format": "json",
-      "bytes": 12153,
-      "sha256": "2bf747f9afb15cbb4f0c8dc5648fd9572a4422bb0ffa18e220aee88e8ae6ee02",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "tables.parquet/budgets.parquet",
-      "role": "table:budgets",
-      "format": "parquet",
-      "bytes": 6505,
-      "sha256": "300a13296fc7c42cdf6508baade9dec3d5e7a3d8008cae2d42aab052722b8f81",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "tables.parquet/geographic_watershed.parquet",
-      "role": "table:geographic_watershed",
-      "format": "parquet",
-      "bytes": 15959,
-      "sha256": "d1343fecc344e6638e4213362ddf01d215dd466c8ce1562f288f5589797a0197",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "tables.parquet/geographic_watershed_box_buff.parquet",
-      "role": "table:geographic_watershed_box_buff",
-      "format": "parquet",
-      "bytes": 15980,
-      "sha256": "15a1f0f5824be1700f335602eca1b8374b091a886e5fde9203986f0e94fea75f",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "tables.parquet/geographic_watershed_contour.parquet",
-      "role": "table:geographic_watershed_contour",
-      "format": "parquet",
-      "bytes": 15972,
-      "sha256": "c6c4a02981ea94fd7799078c543dadf36793a40fb5146e3397a9a2c3365fca08",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "tables.parquet/mass_balance.parquet",
-      "role": "table:mass_balance",
-      "format": "parquet",
-      "bytes": 7122,
-      "sha256": "418d65601996d56785a62bdd5cb20181adad832449e80ef90c2da5867697a5de",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "tables.parquet/mesh_face_families.parquet",
-      "role": "table:mesh_face_families",
-      "format": "parquet",
-      "bytes": 8654,
-      "sha256": "3187e59552266759d1613edba5e37760fba859419452df9f4b28d86d2524af9a",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "tables.parquet/metrics.parquet",
-      "role": "table:metrics",
-      "format": "parquet",
-      "bytes": 8588,
-      "sha256": "89a02fd71ae970c62b5380588e6bfdfd17cd35c256a4aec0aba163599f01301c",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "tables.parquet/parameters.parquet",
-      "role": "table:parameters",
-      "format": "parquet",
-      "bytes": 8257,
-      "sha256": "7165471bd2ec16e278cde5dafaf7723336d8992ac8ebd897ecb8d7e936dbfdc1",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "tables.parquet/simulation.parquet",
-      "role": "table:simulation",
-      "format": "parquet",
-      "bytes": 34569,
-      "sha256": "71ac4557915951e5c6ae38b1d3509e9896e7d1da0c1fd52c6a99039dad59b230",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
-    {
-      "path": "tables.parquet/timeseries.parquet",
-      "role": "table:timeseries",
-      "format": "parquet",
-      "bytes": 7077,
-      "sha256": "37650e3590e16a3ade8ec1055bf5eb8930eebc534d4db34688c6f66f532ba3cf",
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    }
-  ],
   "parameters": [
     {
       "name": "K",
@@ -368,24 +496,6 @@
     }
   ],
   "metrics": [
-    {
-      "station": "flow_main::modflow_nwt",
-      "variable": "runtime",
-      "metric": "flow_solve_time_seconds",
-      "value": 0.02672968409024179,
-      "window_name": null,
-      "window_role": null,
-      "window_start": null,
-      "window_end": null,
-      "n_samples": null,
-      "n_clipped": null,
-      "n_sim_nan": null,
-      "metric_rule_version": null,
-      "from_a_later_version": {
-        "kept": true,
-        "note": "written by a later 2.x"
-      }
-    },
     {
       "station": "flow_main::modflow_nwt",
       "variable": "runtime",

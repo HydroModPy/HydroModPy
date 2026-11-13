@@ -43,5 +43,3 @@ enabled = false
 
 [display]
 enabled = true
-show = false
-save = true

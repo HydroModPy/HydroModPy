@@ -14,6 +14,9 @@ import pytest
 
 from hydromodpy.display.overview import report
 from hydromodpy.display.overview.report import _piezo_altitude_hlines, _records_to_timeseries_df
+from hydromodpy.display.theme import get_theme
+
+THEME = get_theme("default")
 
 
 def record(
@@ -79,11 +82,12 @@ def test_piezometer_ground_lines() -> None:
             record("P1", altitude="42.5"),
             record("P2", altitude="bad"),
             SimpleNamespace(station_id="P3", location=None),
-        ]
+        ],
+        THEME,
     )
 
     assert hlines == [
-        {"y": 42.5, "label": "P1 ground (42.5 m)", "color": "darkred", "linestyle": "--"}
+        {"y": 42.5, "label": "P1 ground (42.5 m)", "color": THEME.categorical[0], "linestyle": "--"}
     ]
 
 
@@ -161,7 +165,7 @@ def test_station_points_by_group() -> None:
         ),
     )
 
-    points = report._build_station_points(loaded_data)
+    points = report._build_station_points(loaded_data, THEME)
 
     assert [(point["label"], point["marker"], point["group"]) for point in points] == [
         ("H1", "o", "Hydrometry"),
@@ -171,7 +175,7 @@ def test_station_points_by_group() -> None:
     ]
 
 
-def test_report_writes_enabled_panels(tmp_path, mpl) -> None:
+def test_report_writes_enabled_panels(tmp_path) -> None:
     loaded_data = SimpleNamespace(
         hydrometry=SimpleNamespace(
             points=[record("H1", values=[2.0, 3.0], dates=["2020-01-01", "2020-01-02"])]

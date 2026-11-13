@@ -20,6 +20,13 @@ def test_every_theme_holds_the_same_roles_and_ramps() -> None:
         assert len(theme.categorical) == len(th.CATEGORICAL_ROLES)
 
 
+@pytest.mark.parametrize("count", [12, 30])
+def test_n_classes_get_n_colours_and_a_legend_says_when_they_run_out(count) -> None:
+    theme = th.get_theme("default")
+    assert len(set(theme.class_colors(count))) == count and not theme.sharing_note(count)
+    assert "5 classes share" in theme.sharing_note(35)
+
+
 def test_quantity_ramps_name_only_known_quantities() -> None:
     for theme in th.THEMES.values():
         assert set(theme.quantity_ramps) <= set(QUANTITY_KINDS)

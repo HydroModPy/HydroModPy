@@ -110,6 +110,7 @@ def comparison_run(
         vertices=vertices,
         face_node_connectivity=faces,
         topography=surface,
+        z_interfaces=np.stack([surface, surface - 10.0]),
         crs=CRS,
         cell_centers=lambda: centres,
     )

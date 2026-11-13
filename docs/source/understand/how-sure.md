@@ -43,7 +43,7 @@ A narrow range has two possible causes. The parameter may be well constrained, o
 never have tried far from the best value. The range alone does not tell which.
 
 **An ensemble band.** When you run the same model many times with different parameters or
-inputs, the `ensemble_band` figure draws the median of the runs and a band between two
+inputs, the `ensemble_band` preset draws the median of the runs and a band between two
 percentiles of them. The wider the band, the less the runs agree. It shows the spread of the
 runs that you chose to make, so it is a lower bound of the doubt, not a full measure of it. The
 {term}`ensemble` is only as varied as you made it.

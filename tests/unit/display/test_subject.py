@@ -28,7 +28,6 @@ REFUSED = [
     (reads.read_series, ("head",), {"station": "zone:nowhere"}, "names no zone"),
     (reads.read_observed, ("discharge",), {"station": ZONE}, "no observed record"),
     (reads.read_observed, ("discharge",), {"station": "catchment"}, "no observation"),
-    (reads.read_budget, (), {"station": GAUGE}, "summed over a zone"),
     (reads.read_table, ("nothing",), {}, "holds no table"),
 ]
 
@@ -83,7 +82,7 @@ def test_observed_sits_on_the_index_of_the_simulation(stored_run):
 
 
 def test_budget_terms_and_mesh_view(stored_run):
-    assert reads.read_budget(stored_run, station=ZONE) == ("recharge", "drain")
+    assert reads.read_budget(stored_run) == ("recharge", "drain")
     mesh = reads.read_mesh(stored_run)
     assert mesh.faces.shape == (N_CELLS, 4) and mesh.n_layers == 2
     np.testing.assert_allclose(mesh.areas, AREAS)

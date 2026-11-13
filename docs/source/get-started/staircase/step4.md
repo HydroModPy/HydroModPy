@@ -88,16 +88,15 @@ in full, because a list replaces the parent's.
 
 ## What you get
 
-Five figures. The instant of the one-instant figures comes from {toml}`display.time`, here
+Four figures. The seepage figure writes its instant in {toml}`display.figure.time`, here
 15 October 2002, the driest month according to the file.
 
-| Figure | What it shows |
+| Request | What it shows |
 |---|---|
-| `flux_timeseries` | The components of the water balance through time, inflows positive and outflows negative |
-| `hydrograph_sim_obs` | The simulated discharge against the gauged one |
-| `seepage_map` | The seepage cells of October 2002 |
-| `flow_persistence_map` | The share of the three years each cell flows: dark where the channel ran all year, pale where it ran only at the wettest steps |
-| `flow_intermittence_map` | One calendar year, 2002 (`cycle = "2002"`): each cell is perennial, intermittent or dry |
+| `preset = "water_budget"` | The components of the water balance through time, inflows positive and outflows negative |
+| `preset = "hydrograph"` | The simulated discharge against the gauged one |
+| `variable = "seepage_mask"`, `time = "2002-10-15"` | The seepage cells of October 2002 |
+| `variable = "simulated_active_network"`, `reduce = "frequency"` | The share of the three years each cell flows: dark where the channel ran all year, pale where it ran only at the wettest steps |
 
 Six export blocks write seven files in `runs/nancon_step4_transient/exports/`: the five files of
 the inherited blocks, now of a transient run (the GeoTIFFs hold December 2002, the last
@@ -114,7 +113,7 @@ month), and two more.
 simulation.time.start_datetime
 simulation.time.end_datetime
 flow.param.Ss.field.value
-display.time
+display.figure.time
 ```
 
 The time step is not written: {toml}`simulation.time.step_value` defaults to {default}`simulation.time.step_value`.

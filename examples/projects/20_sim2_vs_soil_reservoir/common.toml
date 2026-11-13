@@ -88,4 +88,5 @@ value = 1e-5
 
 [display]
 on_error = "warn"
-figures = ["hydrograph_sim_obs"]
+[[display.figure]]
+preset = "hydrograph"

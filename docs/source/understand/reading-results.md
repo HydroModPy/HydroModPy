@@ -45,7 +45,7 @@ one:
 {bdg-warning}`Indicative` **Look at:** where the water table is close to the ground (dark) and where it is deep
 (pale). **Does not show:** a measured level, or any depth beyond the 30 m of the model.
 
-`watertable_depth_map`, October 2002. Color bar: "Depth of the water table below land surface (m)".
+Request `variable = "watertable_depth"`, October 2002. Color bar: "Depth of the water table below land surface (m)".
 ```
 
 **What the map shows.** The distance between the ground and the top of the {term}`water table`,
@@ -84,7 +84,7 @@ validated.
 {bdg-warning}`Indicative` **Look at:** the blue cells, where the water table reaches the ground and water
 comes out. **Does not show:** streams, or how much water comes out of a cell.
 
-`seepage_map`, October 2002. Legend: "seepage (112 cells)", "no seepage (11,376 cells)".
+Request `variable = "seepage_mask"`, October 2002. Legend: "seepage (112 cells)", "no seepage (11,376 cells)".
 ```
 
 **What the map shows.** The cells where the water table reaches or exceeds the ground surface,
@@ -118,7 +118,7 @@ spring or a seep is compared with it in the example.
 {bdg-info}`Calibrated` **Look at:** how much yellow and red remain around the dark blue. **Does not show:**
 which of the two networks is right, or the months other than October.
 
-`seepage_network_confusion_map`, October 2002. Dark blue "valid" (297 cells), yellow "excess" (62), red "missing" (174).
+Request `variable = "network_agreement"`, October 2002. Dark blue "valid" (297 cells), yellow "excess" (62), red "missing" (174).
 ```
 
 **What the map shows.** Each cell belongs to a single class:
@@ -146,7 +146,7 @@ two errors that cancel each other: the map shows it.
 {bdg-info}`Calibrated` **Look at:** the cells far from the mapped network, in the darker classes. **Does not show:**
 whether the mapped network itself is complete.
 
-`downslope_distance_map`, October 2002. Distance traveled downslope by each simulated cell before it reaches the mapped network: 0 to 75 m (299 cells), 75 to 500 m (54), 500 to 1000 m (10), more than 1000 m (0).
+Request `variable = "downslope_distance"` with `scale = "log"`, October 2002. Distance traveled downslope by each simulated cell before it reaches the mapped network. The image shows four classes: 0 to 75 m (299 cells), 75 to 500 m (54), 500 to 1000 m (10), more than 1000 m (0).
 ```
 
 The second map no longer counts the cells that coincide: it measures how far each one is off. A
@@ -183,7 +183,7 @@ peer reviewed (Abhervé et al., 2023).
 {bdg-warning}`Indicative` **Look at:** the dark cells that flow almost all the time and the light ones that flow
 only in the wettest months. **Does not show:** the discharge of a reach, or any year-to-year change.
 
-`flow_persistence_map`, January 2000 to December 2002. Color bar: "Timesteps flowing (%)". Title: 772 cells ever flowing in the 36 months.
+Request `variable = "simulated_active_network"` with `reduce = "frequency"`, January 2000 to December 2002. Color bar: "Timesteps flowing (%)". Title: 772 cells ever flowing in the 36 months.
 ```
 
 **What the map shows.** For each cell, the share of the 36 months during which it flows (the
@@ -197,7 +197,7 @@ never.
 {bdg-warning}`Indicative` **Look at:** the orange stream heads, which dry up first, and the blue trunk that keeps
 flowing. **Does not show:** which reaches really dry up in the field.
 
-`flow_intermittence_map`, year 2002. Blue "perennial" (336 cells), orange "intermittent" (128), gray "dry" (11,024).
+Request `variable = "simulated_active_network"` with `reduce = "frequency"`, year 2002. Blue "perennial" (336 cells), orange "intermittent" (128), gray "dry" (11,024).
 ```
 
 The second map classes each cell over a single calendar year (2002): *perennial* if it flows all
@@ -235,7 +235,7 @@ and intermittent is a model output, not verified.
 {bdg-info}`Calibrated` **Look at:** whether the blue line follows the black dashes in season and in volume, in the
 gray window. **Does not show:** daily discharge, or a period the calibration has not used.
 
-`hydrograph_log_nse`. Blue line: total simulated discharge. Black dashes: discharge observed at the NANCON station. Gray area: scoring window, 24 of the 36 months. Logarithmic vertical axis, in m³/s.
+Request `preset = "hydrograph"` with `scale = "log"`. Blue line: total simulated discharge. Black dashes: discharge observed at the NANCON station. Gray area: scoring window, 24 of the 36 months. Logarithmic vertical axis, in m³/s.
 ```
 
 **What the curve shows.** The monthly discharge at the {term}`outlet`, simulated and measured at
@@ -288,7 +288,7 @@ period. The example holds no test on a period or a catchment that the calibratio
 exceeds drainage, and the summer months, when drainage continues alone. **Does not show:** the
 change in storage, or the water outside the delineated catchment.
 
-`flux_timeseries`. Blue: recharge, which enters the aquifer. Red: drainage, which leaves it. In m³/s, over the delineated catchment. Title: "positive = into the aquifer".
+Request `preset = "water_budget"`. Blue: recharge, which enters the aquifer. Red: drainage, which leaves it. In m³/s, over the delineated catchment. Title: "positive = into the aquifer".
 ```
 
 **What the curve shows.** The two fluxes that cross the aquifer, month by month: {term}`recharge`
@@ -307,9 +307,9 @@ storage is not plotted: it is the difference between the two curves. Together th
 
 **Pitfalls.**
 
-- *m³/s, not mm.* The figure can also be plotted as a water depth, which is easier to compare
-  with rainfall: see the options of `flux_timeseries` in the
-  {doc}`catalog of figures <../reference/figures>`. As a depth, the figure divides each line by
+- *m³/s and mm.* The image above gives each line in m³/s. The `water_budget` preset gives each
+  line as a water depth in mm per day, which is easier to compare with rainfall, as set out in the
+  {doc}`figure requests <../reference/figure-requests>`. As a depth, the figure divides each line by
   the area of its own zone: the whole cells of the catchment for the `catchment` line, and the
   active domain for the line of the domain. The axis names the zone. Here the recharge of the
   catchment line, 0.71 m³/s over 64.8 km², and the recharge of the domain line, 1.31 m³/s over
@@ -317,7 +317,7 @@ storage is not plotted: it is the difference between the two curves. Together th
 - *The catchment and not the domain.* The model extends beyond the catchment
   (a margin of 10% more area); the figure says
   "frame: the delineated catchment".
-- *The `water_budget` bar chart has another use:* it adds up the flows stored at each time step:
+- *The bar panel of the `water_budget` preset has another use:* it adds up the flows stored at each time step:
   it is a sum of flows, not a volume.
 
 **Reliability.** Two things to tell apart. The *closure* of the budget is a numerical check: the
@@ -330,16 +330,16 @@ with another estimate.
 
 A report made with HydroModPy can contain figures that example 04 does not use. The reading
 rules below hold for any run. Each figure has an entry in the
-{doc}`catalog of figures <../reference/figures>`.
+{doc}`figure requests <../reference/figure-requests>`.
 
 | Figure | How to read it | Take care |
 |---|---|---|
-| Water-table elevation (`piezometric_map`) | Elevation of the water table at one time step, in the same datum as the ground. Water flows from high to low, across the lines of equal height. | It is the head of the model, not a measurement, unless the report overlays measured levels. |
-| Piezometric head, simulated against observed (`piezo_timeseries_sim_obs`) | The simulated level at one well, against the level measured there, time step after time step. | A model can follow the season and miss the level by meters: look at both. Check that the well was not used to calibrate. |
-| Flow-duration curve (`duration_curve`) | The flow on the vertical axis, and on the horizontal axis the share of time during which that flow is exceeded. The left end is the floods, the right end the low flows. | It forgets the order of events: two very different years can give the same curve. |
-| Simulated against observed scatter (`scatter_one_to_one`) and residuals (`residuals`) | Each dot is one time step. On the 1:1 line the model is exact. The residuals are the simulated value minus the observed one. | A residual that has a pattern, such as always positive in winter, shows a missing process. A random residual is the best case. |
-| Mass-balance closure error (`mass_balance_error`) | The gap between what the solver put in and took out, in percent, time step by step. It should stay small and steady. | It checks the arithmetic of the solver only. A small error means the solver converged, not that the model is right (label Numerical check). |
-| Ensemble envelope (`ensemble_band`) | The median of a set of runs and a band between two percentiles. The wider the band, the less the runs agree. | The band shows the spread of the runs you made. It is not a full measure of the uncertainty ({doc}`how-sure`). |
+| Water-table elevation (`variable = "watertable_elevation"`) | Elevation of the water table at one time step, in the same datum as the ground. Water flows from high to low, across the lines of equal height. | It is the head of the model, not a measurement, unless the report overlays measured levels. |
+| Piezometric head, simulated against observed (`preset = "hydrograph"` with `variable = "head"`) | The simulated level at one well, against the level measured there, time step after time step. | A model can follow the season and miss the level by meters: look at both. Check that the well was not used to calibrate. |
+| Flow-duration curve (`variable = "discharge"`, `type = "distribution"`, `cumulative = true`) | The flow on the vertical axis, and on the horizontal axis the share of time during which that flow is exceeded. The left end is the floods, the right end the low flows. | It forgets the order of events: two very different years can give the same curve. |
+| Simulated against observed scatter (`variable = "discharge"`, `type = "xy"`, `observed = true`) and residuals (`preset = "residuals"`) | Each dot is one time step. On the 1:1 line the model is exact. The residuals are the simulated value minus the observed one. | A residual that has a pattern, such as always positive in winter, shows a missing process. A random residual is the best case. |
+| Mass-balance closure error (`variable = "mass_balance.percent_error"`, `type = "series"`) | The gap between what the solver put in and took out, in percent, time step by step. It should stay small and steady. | It checks the arithmetic of the solver only. A small error means the solver converged, not that the model is right (label Numerical check). |
+| Ensemble envelope (`preset = "ensemble_band"`) | The median of a set of runs and a band between two percentiles. The wider the band, the less the runs agree. | The band shows the spread of the runs you made. It is not a full measure of the uncertainty ({doc}`how-sure`). |
 
 ## Where these figures come from
 
@@ -350,8 +350,8 @@ run promoted from trial 8 of the second calibration stage: K = 7.96e-5 m/s, then
 Sy = 0.045. The mapped network is placed on the grid by the default `heads` rule, as described
 under {ref}`reading-network`.
 
-The images are redrawn from the stored run, the way `hmp show --figure` draws them, for instance
-`hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure seepage_map`. The titles
+The images are drawn from the stored run, the way `hmp show --figure` draws them, for instance
+`hmp show nancon_intermittence_mf6_calibrated_transient_storage --figure seepage_mask`. The titles
 carry no run name, and the legends are in English. The repository keeps, for every image, the run,
 the command and the option that made it, in `tools/docs/figures/figures.toml`.
 
@@ -360,7 +360,7 @@ theme. The dark version recolors the background, the texts and the light grays, 
 dry cells of the intermittence map and the ground of the seepage map.
 
 To draw a figure of an existing run again, at another date, see the
-{doc}`catalog of figures <../reference/figures>` and {doc}`hmp show <../reference/cli/show>`.
+{doc}`figure requests <../reference/figure-requests>` and {doc}`hmp show <../reference/cli/show>`.
 
 ## Going further
 

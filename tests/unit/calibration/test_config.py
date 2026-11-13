@@ -48,7 +48,6 @@ from hydromodpy.core.scoring.cost_margin import parse_cost_margin
 from hydromodpy.core.scoring.stream_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.site.config import GaugeConflictError
 from hydromodpy.core.time.window import nominal_step_days
-from hydromodpy.display.figures.depression_map import DepressionMap
 from hydromodpy.results.derive.stream_network.comparison import network_comparison_from_run
 from hydromodpy.results.derive.stream_network.routing_surface import routing_surface_from_run
 from hydromodpy.results.metric_rule import MetricsWindow
@@ -739,7 +738,6 @@ def test_shared_default_is_d8() -> None:
         build_downslope_metric,
         network_comparison_from_run,
         routing_surface_from_run,
-        DepressionMap.render,
     ],
     ids=lambda function: function.__qualname__,
 )

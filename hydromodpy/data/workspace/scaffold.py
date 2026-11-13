@@ -331,8 +331,20 @@ units = "mm/day"
 # only needs the mesh and the steady-state head field, so it renders on the
 # synthetic demo with no observation data. "hmp config figures" shows every
 # registered figure and what result each one needs.
-figures = ["mesh_map", "piezometric_map", "watertable_depth_map", "water_budget"]
 on_error = "warn"  # log a figure that fails to render and keep going
+
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+preset = "water_budget"
 
 [[export]]
 # Writes the head as a GeoTIFF under runs/<run>/exports/, so the first result

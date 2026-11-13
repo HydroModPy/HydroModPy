@@ -88,7 +88,7 @@ def test_step_decides_the_budget_when_planning_did_not(monkeypatch, tmp_path) ->
     ctx = uncomputed_context(
         tmp_path,
         ResultsConfig(keep_per_cell_budget=False),
-        DisplayConfig(figures=["recharge_map"]),
+        DisplayConfig(figure=[{"variable": "recharge"}]),
     )
 
     ExtractStep().run(PipelineState(run_id="rid", data={"ctx": ctx}))

@@ -285,8 +285,9 @@ class Session:
         theme: str | None = None,
         engine: str | None = None,
         time: str | None = None,
+        data: bool = False,
         **options: Any,
-    ) -> Figure | Path:
+    ) -> Figure | Path | dict[str, Any]:
         """Draw the registered ``session`` figure *name* of this session.
 
         The arguments are those of :meth:`hydromodpy.results.run.view.Run.figure`.
@@ -312,20 +313,8 @@ class Session:
                 "engine": engine,
                 "time": time,
             },
+            data=data,
         )
-
-    def figure_data(
-        self,
-        name: str | None = None,
-        *,
-        request: Mapping[str, Any] | None = None,
-        time: str | None = None,
-        **options: Any,
-    ) -> dict[str, Any]:
-        """Return the tables behind a figure of this session, as :meth:`Run.figure_data` does."""
-        from hydromodpy.results.run.view import figure_of
-
-        return figure_of(self, name, request, {**options, "time": time}, data=True)
 
     def show(self, what: str, **options: Any) -> Any:
         """Read one thing of this session: ``table``, ``profile``, ``figure`` or ``report``."""

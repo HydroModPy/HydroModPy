@@ -72,8 +72,10 @@ FROZEN_RUN_TABLES = """
 variables = "discharge"
 
 [display]
-figures = ["water_budget"]
 dpi = 40
+
+[[display.figure]]
+preset = "water_budget"
 """
 
 CALIBRATION_TOML = """\
@@ -149,6 +151,9 @@ FUTURE_KEYS: Mapping[str, tuple[str, ...]] = {
     "annotations.json": ("",),
     "index.json": FUTURE_KEYS_OF_A_LEDGER,
     "session.json": FUTURE_KEYS_OF_A_SESSION,
+    "products.json": ("", "products.*"),
+    "profile.json": ("", "lines.*"),
+    "mesh.json": ("",),
 }
 FUTURE_KEYS_OF_A_META = ("", "identity", "identity.period")
 FUTURE_KEYS_OF_A_TRIAL = ("", "params.*", "cases.*")
@@ -285,7 +290,7 @@ def _write_the_future_copy(workspace: Path) -> None:
     """Add to each stored file of a copy what a later 2.x could add without a new version."""
     project = workspace / PROJECT
     for path in sorted(project.rglob("*.json")):
-        if "fields.zarr" not in path.parts:
+        if path.name != "zarr.json":  # the metadata of a Zarr store is not a run document
             _add_keys_to_a_document(path)
     for path in sorted(project.rglob("trials.jsonl")):
         _add_keys_to_a_journal(path)
@@ -301,7 +306,7 @@ def _add_keys_to_a_document(path: Path) -> None:
     if path.name.endswith(".meta.json"):
         where = FUTURE_KEYS_OF_A_META
     else:
-        where = FUTURE_KEYS[path.name]
+        where = FUTURE_KEYS.get(path.name, ("",))  # a document without a row gets a root key
     for dotted in where:
         for node in _nodes_at(payload, dotted):
             node[FUTURE_KEY] = dict(FUTURE_VALUE)

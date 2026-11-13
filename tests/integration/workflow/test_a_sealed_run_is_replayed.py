@@ -463,7 +463,7 @@ def test_a_display_choice_of_the_launch_changes_no_identity_and_no_sealed_config
     with hmp.Project(demo / "run_demo.toml") as drawn:
         reference = drawn.simulate(name="drawn").dir
     with hmp.Project(demo / "run_demo.toml", **launch) as quiet:
-        assert quiet.config.display.save is True
+        assert quiet.config.display.dpi == 300
         run_dir = quiet.simulate(name="quiet").dir
 
     assert _key(run_dir) == _key(reference)

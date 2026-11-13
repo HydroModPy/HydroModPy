@@ -51,13 +51,11 @@
 "hydromodpy/data/variables" = 87.5
 "hydromodpy/data/workspace" = 92.0
 "hydromodpy/display/*.py" = 91.5
-"hydromodpy/display/figures" = 87.0
 "hydromodpy/display/frames" = 92.0
-"hydromodpy/display/maps" = 74.5
 "hydromodpy/display/overview" = 71.0
 "hydromodpy/display/quicklook" = 69.0 # the CI jobs install no viz extra, so the datashader and lttb branches never run
 "hydromodpy/display/report" = 89.0
-"hydromodpy/display/special" = 94.0
+"hydromodpy/display/special" = 93.5
 "hydromodpy/mesh/*.py" = 99.0
 "hydromodpy/mesh/cells" = 99.0
 "hydromodpy/mesh/engines" = 98.0

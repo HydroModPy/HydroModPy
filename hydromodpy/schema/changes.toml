@@ -524,6 +524,13 @@ versions = ">=2.0.0a1,<=2.0.0rc1"
 quantities = ["fluxes@modflow6"]
 text = "The solute mass_balance of a MODFLOW 6 GWT run left storage_in and storage_out at 0 and copied the discrepancy rounded to 0.01 %. They now hold the STORAGE terms of the listing, and the discrepancy is recomputed from IN - OUT. On example 09 (Naizin) the January row reads storage_in 0.0390 kg/s and percent_error -1.3e-6 % instead of 0 and -0.00."
 
+[[bug]]
+id = "modpath_tracks_in_grid_coordinates"
+since = "2.0.0"
+versions = ">=2.0.0a1,<=2.0.0rc1"
+quantities = ["fluxes@modflow_nwt"]
+text = "MODPATH pathlines and endpoints were stored in the coordinates of the grid, counted from its lower left corner, while the mesh and the MODFLOW 6 PRT tracks are in the CRS of the project. The corner is now added back: on example 00 (Aber) every x moves by 150562.5 m and every y by 6856762.5 m, and the tracks lie on the catchment. Travel times do not change."
+
 [[recipe]]
 id = "recharge_forcing_is_a_rate"
 since = "2.0.0"
@@ -823,7 +830,21 @@ id = "catchment_report_reads_a_sealed_run"
 since = "2.0.0"
 effect = "refusal"
 quantities = []
-text = "hmp report catchment reads a sealed run, and an overview run of the same site for the context panels, with the options --preset research or management, --lang, --station and --strict. The report is written by one engine that replaces the two block renderers, in two presets. The research preset writes a Method block first, then the page at three levels with the figures the preset names, all registered figures, and report.json, which replaces block_report_manifest.json and block_report_postflight.json and lists each figure with its file or null and the required figures that are missing. The figures the run did not draw are drawn from the [display] it sealed. The management preset writes one page, report/sheet-en or report/sheet-fr, with the label and its reasons, the method text, three figures, the headline score of each station and the inputs with a warning for each one whose licence is undetermined. A report TOML, with its [report] and [layout] tables, and the flags --run-overview, --run-simulation, --context-only, --report-only, --stream-run-logs and --strict-figure-postflight are refused with a sentence that names hmp run and hmp report catchment RUN. The preset generic is gone. The variable HMP_OVERVIEW_HTML_REVIEW_LEVELS is gone and the pages of the levels are always written. No value of a result changes."
+text = "hmp report catchment reads a sealed run, and an overview run of the same site for the context panels, with the options --preset research or management, --station and --strict. The report is written by one engine that replaces the two block renderers, in two presets. The research preset writes a Method block first, then the page at three levels with the figures the preset names, all registered figures, and report.json, which replaces block_report_manifest.json and block_report_postflight.json and lists each figure with its file or null and the required figures that are missing. The figures the run did not draw are drawn from the [display] it sealed. The management preset writes one page, report/sheet/index.html, in English, with the label and its reasons, the method text, three figures, the headline score of each station and the inputs with a warning for each one whose licence is undetermined. A report TOML, with its [report] and [layout] tables, and the flags --run-overview, --run-simulation, --context-only, --report-only, --stream-run-logs and --strict-figure-postflight are refused with a sentence that names hmp run and hmp report catchment RUN. The preset generic is gone. The variable HMP_OVERVIEW_HTML_REVIEW_LEVELS is gone and the pages of the levels are always written. No value of a result changes."
+
+[[recipe]]
+id = "report_draws_named_requests"
+since = "2.0.0"
+effect = "layout"
+quantities = []
+text = "The report of a run draws 15 figures and the report of a session 4, each one from a figure request, with new file stems under runs/<run>/figures/ and sessions/<session>/figures/. Three pairs of former figures are merged, and report.json lists the stems of the required figures that are missing. The ledger figures/index.json records the producer display:figure with the request, instead of display:<name>. A figure the run cannot feed, such as generated_network on a run with no generated network, is not drawn and the log gives the reason. hmp show --report no longer takes --lang and refuses it with the call that replaces it. The sheet of the management preset is written to report/sheet/. The images of the overview, of a cohort and of a comparison take the theme look. No value of a result changes."
+
+[[recipe]]
+id = "config_figures_lists_what_can_be_drawn"
+since = "2.0.0"
+effect = "layout"
+quantities = []
+text = "hmp config figures prints one row per name that can be drawn (kind, frame, label, unit, detail and status), with the schema hmp.config.figures.v3 in JSON. --kind keeps one of frame, preset, special or variable, and --run marks what a given run can draw. The rows of the former schema (name, description) are gone. No value of a result changes."
 
 [[recipe]]
 id = "overview_keeps_its_inventory"
@@ -955,3 +976,68 @@ since = "2.0.0"
 effect = "identity"
 quantities = []
 text = "Every cache key of a calibration changes once, so the trials of a session of a pre-release are solved again."
+
+[[migration]]
+document = "config"
+old = "display.figures"
+instead = "Write one [[display.figure]] table per figure, with variable = \"<name>\" or preset = \"<name>\". The page \"Figure requests\" lists what replaces each former figure name, and hmp config figures lists the variables and presets."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.overrides"
+instead = "Write the options in the [[display.figure]] table of that figure, as panel fields (time, layer, scale, overlays, station)."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.preset"
+instead = "Write theme = \"<name>\" (default, print or dark)."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.cmap"
+instead = "Each variable takes the colour ramp of its quantity. Delete the line."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.backend"
+instead = "Figures are drawn on their own canvas, without pyplot. Delete the line. engine = [\"interactive\"] in a [[display.figure]] asks for the interactive engine."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.show"
+instead = "No window opens at the end of a run. Delete the line, and draw a figure in Python with run.figure(...) to see it."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.save"
+instead = "Every [[display.figure]] is written under runs/<run>/figures/. Delete the line. formats chooses the files, enabled = false draws nothing."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.time"
+instead = "Write time in each [[display.figure]] that draws one instant, for example time = \"2002-10-15\"."
+since = "2.0.0"
+
+[[default]]
+id = "display_dpi_300"
+since = "2.0.0"
+edition = "2.0"
+key = "display.dpi"
+old = 150
+new = 300
+quantities = []
+text = "With edition 2.0, display.dpi defaults to 300 instead of 150. The figure files are larger, no number of a run moves."
+
+[[recipe]]
+id = "old_figure_ledger_entries_skipped"
+since = "2.0.0"
+effect = "refusal"
+quantities = []
+text = "hmp export --regen figures skips a figure that figures/index.json records from a figure of a pre-release, with the command that draws it now, and draws the other entries. It used to redraw it from its old options."

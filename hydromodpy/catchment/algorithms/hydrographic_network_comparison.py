@@ -4,7 +4,7 @@ This module compares two line networks on a projected support and exposes:
 
 - length-based summary metrics,
 - tolerance-based matched / missing / extra segments,
-- a lightweight payload directly reusable by display figures.
+- a lightweight payload directly reusable by figures.
 """
 
 from __future__ import annotations

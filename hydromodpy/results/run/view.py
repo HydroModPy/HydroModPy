@@ -142,7 +142,8 @@ if TYPE_CHECKING:
 REPORT: Final[str] = "report"
 """The name a renderer reads as the report of its subject, never as a figure."""
 
-REPORT_OPTIONS: Final[tuple[str, ...]] = ("preset", "lang", "station", "strict", "overview_dir")
+
+REPORT_OPTIONS: Final[tuple[str, ...]] = ("preset", "station", "strict", "overview_dir")
 """The options a report of a run takes, beside ``save``."""
 
 _WORKSPACE_OUTPUT_KEYS: tuple[str, ...] = ("catalog_path", "runs_dir")
@@ -274,7 +275,7 @@ def figure_of(
     *,
     data: bool = False,
 ) -> Figure | Path | dict[str, Any]:
-    """Draw what ``figure`` and ``figure_data`` are given, the same for a run, a set and a session.
+    """Draw what ``figure`` is given, the same for a run, a set and a session.
 
     *name* and *request* are two ways to say what to draw. A request may be left out
     when *options* holds a ``draw`` function. With *data* the renderer is asked for
@@ -286,6 +287,14 @@ def figure_of(
         raise CommandUsageError("Name a figure, give a request or give a draw function.")
     target = name if name is not None else dict(request or {})
     return draw(subject, target, {**options, "data": True} if data else options)
+
+
+def refuse_lang(options: Mapping[str, Any]) -> None:
+    """Refuse ``lang`` for a report, which has one language."""
+    if options.get("lang") is not None:
+        raise CommandUsageError(
+            "The report has one language, so lang is gone. Ask for it without lang."
+        )
 
 
 def show_of(subject: Any, what: str, options: Mapping[str, Any], takes: tuple[str, ...]) -> Any:
@@ -309,6 +318,7 @@ def show_of(subject: Any, what: str, options: Mapping[str, Any], takes: tuple[st
 
         return profile_of_run(subject.dir)
     if what == REPORT:
+        refuse_lang(options)
         keys = (*REPORT_OPTIONS, "save")
         return draw(subject, REPORT, {key: options.get(key) for key in keys})
     name = options.get("name")
@@ -704,26 +714,19 @@ class Run(
         theme: str | None = None,
         engine: str | None = None,
         time: str | None = None,
+        data: bool = False,
         **options: Any,
-    ) -> Figure | Path:
-        """Draw the registered figure *name* of this run, the same as ``[display].figures``.
+    ) -> Figure | Path | dict[str, Any]:
+        """Draw the variable or preset *name* of this run.
 
-        The names are those of :func:`hydromodpy.display.figure_registry.list_figures`, and the
-        options are the figure's own. The run's ``[display]`` is not applied. A
-        figure declares its subject: a ``run`` figure draws this run, a
-        ``session`` figure draws the session that promoted it, and a run no
-        session promoted is refused.
-
-        *name* may also be a registered variable (``"head"``) or a preset, which
-        draw through the request path. ``request`` is a request written as a
+        The run's ``[display]`` is not applied. ``request`` is a request written as a
         mapping, as one ``[[display.figure]]`` table. ``draw`` is a Python function
         ``draw(subject, ax, theme)`` that draws on one axes.
 
         Parameters
         ----------
         name
-            Registered figure name, for example ``"piezometric_map"``, a variable
-            or a preset.
+            A variable (``"head"``) or a preset.
         request
             A request as a mapping, instead of *name*.
         draw
@@ -740,16 +743,18 @@ class Run(
         time
             The instant a figure that draws one shows: a date, ``"first"`` or
             ``"last"``. ``None`` leaves the figure its own default.
+        data
+            With it the tables behind the figure come back, keyed ``a``, ``b`` and
+            ``a:<value>`` per small multiple, and nothing is drawn.
         **options
-            The options of the figure, as in ``[display.overrides]``, or the fields
-            of a request.
+            The fields of a request.
 
         Raises
         ------
         hydromodpy.core.exceptions.CommandUsageError
             If the run was not opened by ``hydromodpy.open`` or a project.
         ValueError
-            If an option is not one the figure takes, or the run lacks what it needs.
+            If a field is not one the request takes, or the run lacks what it needs.
         """
         return figure_of(
             self,
@@ -764,29 +769,15 @@ class Run(
                 "engine": engine,
                 "time": time,
             },
+            data=data,
         )
-
-    def figure_data(
-        self,
-        name: str | None = None,
-        *,
-        request: Mapping[str, Any] | None = None,
-        time: str | None = None,
-        **options: Any,
-    ) -> dict[str, Any]:
-        """Return the tables behind a figure, keyed ``a``, ``b`` and ``a:<value>`` per small multiple.
-
-        It takes the arguments of :meth:`figure` that shape the data. Only the
-        request path gives tables, so *name* is a variable or a preset.
-        """
-        return figure_of(self, name, request, {**options, "time": time}, data=True)
 
     def show(self, what: str, **options: Any) -> Any:
         """Read one thing of this run: ``table``, ``field``, ``series``, ``profile``, ``figure`` or ``report``.
 
         It is the method of what ``hydromodpy.show`` reads for a run: ``name`` is
         the table, variable or figure, ``time``, ``layer``, ``sel`` and ``bbox``
-        steer a field, and ``preset``, ``lang``, ``station`` and ``strict`` steer
+        steer a field, and ``preset``, ``station`` and ``strict`` steer
         a report.
         """
         return show_of(self, what, options, RUN_SHOWS)

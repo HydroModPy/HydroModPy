@@ -323,41 +323,101 @@ start = "1995-01-01"
 
 [display]
 enabled = true
-preset = "default"
-show = false
-save = true
 on_error = "warn"
 
-figures = [
-    "watershed_id_card",
-    "mesh_map",
-    "boundary_package_map",
-    "depression_map",
-    "flow_direction_map",
+[[display.figure]]
+preset = "watershed_id_card"
 
-    "hydrograph_sim_obs",
-    "hydrograph_log_nse",
-    "hydrograph",
-    "duration_curve",
-    "recession",
-    "seasonal_boxplot",
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
 
-    "water_budget",
-    "flux_timeseries",
+[[display.figure]]
+variable = "package_cells"
 
-    "piezometric_map",
-    "watertable_depth_map",
-    "seepage_map",
-    "recharge_map",
-    "simulated_active_network",
-    "accumulation_map",
+[[display.figure]]
+variable = "depression_fill_depth"
+scale = "log"
 
-    "downslope_distance_map",
-    "downslope_distance_crossing",
-    "seepage_network_reference_overlay",
-    "seepage_network_confusion_map",
-    "parameter_cost_profile",
-    "calibration_convergence",
-    "calibration_trace",
-    "matching_hydrographic_network_card",
-]
+[[display.figure]]
+preset = "flow_directions"
+
+[[display.figure]]  # replaces hydrograph_sim_obs, hydrograph
+preset = "hydrograph"
+
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
+
+[[display.figure]]
+variable = "discharge"
+type = "distribution"
+cumulative = true
+name = "duration_curve"
+
+[[display.figure]]
+preset = "recession"
+
+[[display.figure]]
+variable = "discharge"
+type = "groups"
+by = "month"
+observed = true
+name = "seasonal_boxplot"
+
+[[display.figure]]  # replaces water_budget, flux_timeseries
+preset = "water_budget"
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
+name = "seepage_map"
+
+[[display.figure]]
+variable = "recharge"
+layer = "sum"
+
+[[display.figure]]
+variable = "simulated_active_network"
+
+[[display.figure]]
+variable = "drain_accumulation_flux"
+scale = "log"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+
+[[display.figure]]  # replaces downslope_distance_crossing, matching_hydrographic_network_card
+preset = "root_search"
+when = "session"
+
+[[display.figure]]
+variable = "seepage_mask"
+overlays = ["relief", "network"]
+name = "seepage_network_reference_overlay"
+
+[[display.figure]]
+variable = "network_agreement"
+
+[[display.figure]]
+variable = ["trials.parameter", "trials.cost"]
+type = "xy"
+facet = "parameter"
+when = "session"
+
+[[display.figure]]
+preset = "calibration_progress"
+when = "session"
+
+[[display.figure]]
+variable = "trials.parameter"
+type = "series"
+facet = "parameter"
+when = "session"

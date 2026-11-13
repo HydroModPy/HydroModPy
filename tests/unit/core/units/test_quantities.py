@@ -13,7 +13,6 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.units import quantities as q
-from hydromodpy.core.units.labels import axis_label, format_length_from_m
 from hydromodpy.core.units.time import (
     TIME_CANONICAL_UNITS,
     cf_time_axis_seconds,

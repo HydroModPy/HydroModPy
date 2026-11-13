@@ -10,7 +10,8 @@ about its content:
 - the quantities: ``QUANTITY_KINDS``;
 - the variables: the four registries of ``results/field_registry.py``;
 - the presets: ``display.presets.PRESETS``, and the special figures: ``display.request.SPECIALS``;
-- the overlays: ``OVERLAY_FIELDS`` and ``display.overlays.OVERLAYS``.
+- the overlays: ``OVERLAY_FIELDS`` and ``display.overlays.OVERLAYS``;
+- the former figure names: ``display/retired_figures.toml``.
 
 Usage: python -m tools.docs.figure_requests OUT.json
 """
@@ -72,7 +73,7 @@ def _default_text(info: FieldInfo) -> str:
 
 def _accepted(name: str, info: FieldInfo) -> list[str]:
     """The values a field takes, from the table its validator reads, else from its type."""
-    from hydromodpy.core.pipeline_steps import STEP_NAMES
+    from hydromodpy.core.pipeline_steps import FIGURE_STEPS
     from hydromodpy.core.units.kinds import LAYER_REDUCTIONS
     from hydromodpy.display import request as rq
     from hydromodpy.display.presets import PRESETS
@@ -84,7 +85,7 @@ def _accepted(name: str, info: FieldInfo) -> list[str]:
         "layer": [w for w in LAYER_REDUCTIONS if w is not None],
         "station": [rq.ZONE_PREFIX + z for z in rq.ZONES],
         "width": [f"{key} ({mm} mm)" for key, mm in rq.WIDTHS_MM.items()],
-        "when": [*(k for k in rq.WHEN if k != rq.AFTER), f"{rq.AFTER}<step>"],
+        "when": [*rq.WHEN[:-1], f"{rq.AFTER}<step>"],
         "engine": list(rq.ENGINES),
         "formats": list(rq.FORMATS),
         "holes": list(rq.PANEL_FIELDS),
@@ -92,7 +93,7 @@ def _accepted(name: str, info: FieldInfo) -> list[str]:
         "preset": list(PRESETS),
     }
     if name == "when":
-        tables["when"].append(f"with <step> one of {', '.join(STEP_NAMES)}")
+        tables["when"].append(f"with <step> one of {', '.join(FIGURE_STEPS)}")
     return tables.get(name) or _literals(info.annotation)
 
 
@@ -131,13 +132,11 @@ def frames() -> list[dict[str, Any]]:
 
     rows = []
     for name, frame in FRAMES.items():
-        doc = ""
-        if frame.ready:
-            doc = _first_line(importlib.import_module(f"hydromodpy.display.frames.{name}").__doc__)
+        doc = _first_line(importlib.import_module(f"hydromodpy.display.frames.{name}").__doc__)
         rows.append(
             {
                 "name": name,
-                "ready": frame.ready,
+                "ready": True,
                 "shapes": list(frame.shapes),
                 "overlays": list(frame.overlays),
                 "summary": doc,
@@ -148,7 +147,7 @@ def frames() -> list[dict[str, Any]]:
 
 def vocabularies() -> list[dict[str, Any]]:
     """The closed values that are not frames: engines, when, widths, formats, zones, keys."""
-    from hydromodpy.core.pipeline_steps import STEP_NAMES
+    from hydromodpy.core.pipeline_steps import FIGURE_STEPS
     from hydromodpy.display import request as rq
     from hydromodpy.display.theme import THEMES
 
@@ -156,8 +155,8 @@ def vocabularies() -> list[dict[str, Any]]:
         {
             "name": "engine",
             "values": [
-                {"value": k, "note": ", ".join(e.formats), "ready": e.ready}
-                for k, e in rq.ENGINES.items()
+                {"value": k, "note": ", ".join(formats), "ready": True}
+                for k, formats in rq.ENGINES.items()
             ],
         },
         {
@@ -165,10 +164,10 @@ def vocabularies() -> list[dict[str, Any]]:
             "values": [
                 {
                     "value": f"{k}<step>" if k == rq.AFTER else k,
-                    "note": ", ".join(STEP_NAMES) if k == rq.AFTER else "",
-                    "ready": v,
+                    "note": ", ".join(FIGURE_STEPS) if k == rq.AFTER else "",
+                    "ready": True,
                 }
-                for k, v in rq.WHEN.items()
+                for k in rq.WHEN
             ],
         },
         {
@@ -276,7 +275,7 @@ def _trial_columns() -> list[dict[str, Any]]:
 
     forms = {
         "cost": "Cost of each completed trial.",
-        rq.PARAMETER_TOKEN: "Each searched parameter in turn, with facet = 'parameter'.",
+        rq.PARAMETER_TOKEN: "Each searched parameter in turn.",
         "<parameter name>": "Value of one searched parameter.",
     }
     return [
@@ -380,6 +379,18 @@ def overlays() -> list[dict[str, Any]]:
     ]
 
 
+def retired() -> list[dict[str, str]]:
+    """One row per former figure name: what to write and what the new form loses."""
+    from hydromodpy.display.request import retired_forms, retired_table
+
+    rows = []
+    for name, row in retired_table().items():
+        forms = retired_forms(name)
+        write = " and ".join(f"[[display.figure]] {t}" for t, _ in forms) or row["none"]
+        rows.append({"name": name, "write": write, "lost": row.get("lost", "")})
+    return rows
+
+
 def build() -> dict[str, Any]:
     return {
         "fields": fields(),
@@ -390,6 +401,7 @@ def build() -> dict[str, Any]:
         "presets": presets(),
         "specials": specials(),
         "overlays": overlays(),
+        "retired": retired(),
     }
 
 

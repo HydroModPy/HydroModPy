@@ -188,8 +188,7 @@ two minor versions. In one change:
    then reads the old name with a warning, and ``hmp doctor --fix-config`` rewrites the
    file and the files it inherits. The same row also covers the dotted paths that name
    the key, such as the ``overrides`` of a calibration phase, ``--set``, ``HMP_SET_*``
-   and the keys of ``[sites.bind]``. A figure option is a row with the scope
-   ``display.overrides.{*}``.
+   and the keys of ``[sites.bind]``.
 2. List the old key in the ``model_refused_keys`` of the model, so a config built in
    Python is told what to write. Under ``[calibration]``, ``renamed_to(old, new,
    meaning)`` of ``hydromodpy/calibration/config_terms.py`` writes that sentence.

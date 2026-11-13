@@ -2,7 +2,7 @@
 
 Every key is written with its value, so a key differs on replay only when a default moved, the file
 changed, or a rule that derives a value changed. The frozen runs ``demo`` and ``calage`` were sealed
-by a pre-release of 2.0 and must not drift where a table only moved. Lengths are in m, K in m/s.
+by 2.0 and must not drift on replay. Lengths are in m, K in m/s.
 """
 
 from __future__ import annotations
@@ -285,21 +285,11 @@ FROZEN_CALAGE = (
     / "tests/regression/frozen_runs/v2.0.0/current/projects/example/runs/calage"
 )
 
-NEW_AT_DEFAULT = {
-    "flow.sinks_sources.recharge.factor": 1.0,
-    "simulation.results.keep_face_flows": False,
-    "simulation.time.window": "all",
-    "workspace.products_cap_mb": 5000,
-}
-"""What these copies do not write and a replay holds at its default, measured once.
+NEW_AT_DEFAULT: dict = {}
+"""What these copies do not write and a replay holds at its default.
 
-The recharge factor came after these runs were sealed by a pre-release,
-and its default reproduces the old computation. ``config_drift`` gave it as
-the one drift before a key absent from the sealed file counted for none. The cap of the
-product store came later and moves no number, and so did ``keep_face_flows``, whose default
-writes no face flow. A file of a pre-release of 2.0 writes no window key, and
-the default of ``simulation.time.window`` plays the run in one piece. The default of
-``window_length`` is ``None``, which is not counted.
+2.0 writes every key with its value, so a replay of these copies finds none.
+``NEW_KEYS`` above covers a key a sealed file does not write.
 """
 
 COPIED = ("config.toml", "config.resolved.toml")
@@ -350,9 +340,9 @@ def _new_at_default(run: Path) -> dict:
 def test_sealed_document_tables(demo: Path) -> None:
     sealed = tomllib.loads((demo / "config.resolved.toml").read_text(encoding="utf-8"))
 
-    assert {"modflow6", "modflownwt"} <= set(sealed)
-    assert "runtime" in sealed["flow"]
-    assert sealed["solver"]["backend"] == {"kind": "modflow_nwt"}
+    # Since 2.0 the tables of the running solver sit under its name in [solver].
+    assert sealed["solver"]["backend"] == "modflow_nwt"
+    assert {"nwt", "dis", "bas", "upw", "oc"} <= set(sealed["solver"]["modflow_nwt"]["runtime"])
 
 
 @pytest.mark.parametrize("name", ["demo", "calage"])

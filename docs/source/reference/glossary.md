@@ -77,7 +77,7 @@ criterion
 depth to water table
   Distance between the ground and the top of the {term}`water table`, in meters, never negative.
 
-  *Figure:* `watertable_depth_map`, in {toml}`display.figures`.
+  *Figure:* `variable = "watertable_depth"`, in {toml}`display.figure`.
 
 diagnostic
   A number that you read to describe a result, put in a report or use to compare two runs. It

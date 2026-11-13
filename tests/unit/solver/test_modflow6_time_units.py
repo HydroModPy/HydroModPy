@@ -19,6 +19,7 @@ import pytest
 import zarr
 
 from hydromodpy.core.budget.terms import BudgetKeep
+from hydromodpy.core.exceptions import SolverError
 from hydromodpy.core.time.window import SIMULATION_TIME_UNIT
 from hydromodpy.core.units.time import to_modflow_itmuni
 from hydromodpy.model.domain.geometry import CatchmentGeometry
@@ -545,6 +546,8 @@ def test_modpath_stores_tracking_unit(tmp_path, monkeypatch):
 
     particle = np.zeros(2, dtype=[("x", "f8"), ("y", "f8"), ("z", "f8"), ("time", "f8")])
     particle["time"] = [0.0, 172800.0]
+    particle["x"] = [0.0, 75.0]
+    particle["y"] = [10.0, 20.0]
 
     class FakePathlineFile:
         def __init__(self, path):
@@ -556,16 +559,35 @@ def test_modpath_stores_tracking_unit(tmp_path, monkeypatch):
     monkeypatch.setattr("flopy.utils.PathlineFile", FakePathlineFile)
     store = ZarrStore(tmp_path / "catalog")
 
-    ModpathOutputAdapter().extract(solved_run(output_dir), store, keep_all)
+    # MODPATH counts x and y from the lower left corner of the flow grid.
+    mesh = SimpleNamespace(xoffset=150562.5, yoffset=6856762.5)
+    modpath = SimpleNamespace(model_modflow=SimpleNamespace(solver_mesh=mesh))
+    ModpathOutputAdapter().extract(solved_run(output_dir, solver_model=modpath), store, keep_all)
 
     handle = store.open_zarr("sim_mp")
     time = np.asarray(handle.root["particles/time"])
+    x = np.asarray(handle.root["particles/x"])
+    y = np.asarray(handle.root["particles/y"])
     attrs = dict(handle.root["particles"].attrs)
     handle.close()
 
     # A NWT run built in seconds: 172800 s is 2 days, not 172800 days.
     assert attrs["time_units"] == TRACKING_TIME_UNIT
     np.testing.assert_allclose(time[0], [0.0, 2.0])
+    # The store holds the coordinates of the mesh, as the PRT extractor writes them.
+    np.testing.assert_allclose(x[0], [150562.5, 150637.5])
+    np.testing.assert_allclose(y[0], [6856772.5, 6856782.5])
+
+
+def test_modpath_without_its_flow_grid_is_refused(tmp_path):
+    output_dir = tmp_path / "solver"
+    output_dir.mkdir()
+    (output_dir / "flow.dis").write_text(
+        dis_text(to_modflow_itmuni(SIMULATION_TIME_UNIT)), encoding="utf-8"
+    )
+
+    with pytest.raises(SolverError, match="no flow grid"):
+        ModpathOutputAdapter().extract(solved_run(output_dir), ZarrStore(tmp_path / "c"), keep_all)
 
 
 @pytest.mark.regression

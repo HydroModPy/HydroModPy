@@ -13,10 +13,10 @@ import re
 import sys
 from pathlib import Path
 
-from hydromodpy.display.style import BANNED_CMAPS
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 HMP_ROOT = REPO_ROOT / "hydromodpy"
+
+BANNED_CMAPS = frozenset({"jet", "rainbow", "hsv", "nipy_spectral", "gist_rainbow"})
 
 # ``crs="EPSG:2154"``, ``crs='EPSG:2154'`` and ``epsg=2154`` keyword arguments.
 HARDCODE_PATTERNS = (
@@ -67,8 +67,6 @@ def test_no_banned_cmap_literal() -> None:
     offending: list[tuple[str, int, str]] = []
     for path in display_files():
         relative = path.relative_to(REPO_ROOT).as_posix()
-        if relative == "hydromodpy/display/style.py":  # it declares the banned list
-            continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and node.value in BANNED_CMAPS:

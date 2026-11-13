@@ -1002,7 +1002,7 @@ def class_page(c: dict) -> str:
 
 
 def python_index(verbs: list[str], results: list[dict]) -> str:
-    fig = A.get("session_figure") or "flux_timeseries"
+    fig = A.get("session_figure") or "water_budget"
     lines = [
         HEADER,
         "",
@@ -1019,7 +1019,7 @@ def python_index(verbs: list[str], results: list[dict]) -> str:
         "",
         'run = hmp.run("path/to/config.toml").open()   # simulate, then open the Run',
         'head = run.read("head")           # an xarray.DataArray',
-        f'run.figure("{fig}")   # draw one registered figure',
+        f'run.figure("{fig}")   # draw a shipped preset',
         "",
         'proj = hmp.open("path/to/project")     # reopen the project later, read only',
         'run = proj["baseline"]                 # one of its runs, by name',
@@ -1474,7 +1474,7 @@ def on_html_page_context(app, pagename, templatename, context, doctree) -> None:
         context["body"] = fix_signature_lists(context["body"])
     if pagename.startswith("reference/") and not pagename.startswith("reference/parameters"):
         app.add_css_file("css/hmp-reference.css")
-    if pagename in ("reference/figures", "reference/data-sources", "reference/solvers"):
+    if pagename in ("reference/figure-requests", "reference/data-sources", "reference/solvers"):
         app.add_js_file("js/hmp-reference.js", defer="defer")
 
 

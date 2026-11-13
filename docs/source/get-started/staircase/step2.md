@@ -84,14 +84,14 @@ step 1: {ref}`they are explained there <staircase-warnings>`.
 
 ## What you get
 
-{toml}`display.figures` is a list, so step 2 replaces step 1's list. Four figures:
+The {toml}`[[display.figure]] blocks|display.figure` of step 2 replace step 1's blocks. Four figures:
 
-| Figure | What it shows |
+| Request | What it shows |
 |---|---|
-| `watershed_id_card` | As in step 1 |
-| `hydrographic_network_reference` | The mapped network alone |
-| `seepage_network_confusion_map` | Three classes: *valid* where the two networks share a cell, *excess* where only the model has a stream, *missing* where only the map has one |
-| `downslope_distance_map` | How far each simulated cell must descend before it reaches the mapped network, in four classes: 0 to 75 m, 75 to 500 m, 500 to 1000 m, and more than 1000 m |
+| `preset = "watershed_id_card"` | As in step 1 |
+| `variable = "topography"`, `overlays = ["relief", "network"]` | The relief with the mapped network |
+| `variable = "network_agreement"` | Three classes: *valid* where the two networks share a cell, *excess* where only the model has a stream, *missing* where only the map has one |
+| `variable = "downslope_distance"`, `scale = "log"` | How far each simulated cell must descend before it reaches the mapped network, on a logarithmic colour ramp |
 
 Step 1's three exports are inherited. `[[export__append]]` adds a fourth block: the mapped
 network, as a GeoPackage. Five files land in `runs/nancon_step2_local/exports/`.

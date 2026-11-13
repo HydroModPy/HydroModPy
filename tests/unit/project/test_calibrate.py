@@ -9,7 +9,12 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.project.calibrate import CalibrationPlan, calibration_plan, route_calibration
+from hydromodpy.project.calibrate import (
+    CalibrationPlan,
+    calibration_plan,
+    route_calibration,
+    write_session_reports,
+)
 
 pytestmark = pytest.mark.fast
 
@@ -163,3 +168,21 @@ def test_plan_of_held_config(monkeypatch, tmp_path: Path) -> None:
     assert other["version"] == next_version_dirname(tmp_path, "other")
     assert other["run_dir"] == run_dir_rel(other["version"])
     assert preflighted == [source, source]
+
+
+@pytest.mark.parametrize(("enabled", "count"), [(True, 1), (False, 0)])
+def test_session_figures_follow_display(tmp_path: Path, enabled: bool, count: int) -> None:
+    from tests.unit.display._calibration_journal import journal_session
+
+    rows = [{"trial": n, "cost": 1.0 / n, "parameters": {"K": 1e-4 * n}} for n in (1, 2, 3)]
+    session = journal_session(tmp_path, rows)
+    figure = {"variable": "trials.cost", "type": "series", "when": "session"}
+    (session.dir / "config.toml").write_text(
+        f"[display]\nenabled = {str(enabled).lower()}\n"
+        f'[[display.figure]]\nvariable = "{figure["variable"]}"\n'
+        f'type = "{figure["type"]}"\nwhen = "{figure["when"]}"\n',
+        encoding="utf-8",
+    )
+    result = SimpleNamespace(session_dir=session.dir, phases=())
+    assert write_session_reports(result, report=False) is result
+    assert len(list((session.dir / "figures").glob("*.png"))) == count

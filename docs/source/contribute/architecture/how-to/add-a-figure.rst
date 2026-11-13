@@ -63,7 +63,7 @@ the default.
    :end-before: # end of example
    :dedent: 4
 
-Run the file, then draw the preset by its name, or with
+Draw the preset by its name, or with
 ``hmp show RUN --figure head_and_flow --opt time=first``.
 
 .. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
@@ -71,12 +71,11 @@ Run the file, then draw the preset by its name, or with
    :end-before: # end of example
    :dedent: 4
 
-A run keeps the ``[display]`` table of the file it was made with and reads its presets from
-that copy only. A preset added to the file afterwards is unknown to a run that already
-exists. Run the file again to get a new run, or give the panels as above. The shipped
-presets are in ``hydromodpy/display/presets.py``. For a run made before the preset, the
-answer is ``Unknown figure 'head_and_flow'. Did you mean ...? A figure is a variable, a
-preset or a figure of the old registry.``
+A preset is a way of looking at a run, so a run that already exists finds a preset
+written afterwards in a TOML file of its project. A name the run was sealed with keeps its
+sealed definition, so an old figure is drawn again the same. The shipped presets are in
+``hydromodpy/display/presets.py``. A name that is no variable and no preset is refused with
+``Unknown figure 'head_and_flow'. Did you mean ...? A figure is a variable or a preset.``
 
 Add a variable
 --------------

@@ -223,7 +223,7 @@ hmp config	command
 hmp config figures	command
 hmp config figures --debug	nargs=0
 hmp config figures --format	choices=['csv', 'json', 'table'] default='table'
-hmp config figures --kind	
+hmp config figures --kind	choices=['frame', 'preset', 'special', 'variable']
 hmp config figures --quiet,-q	nargs=0
 hmp config figures --run	
 hmp config figures --verbose,-v	nargs=0
@@ -560,7 +560,6 @@ hmp show --engine	choices=['interactive', 'static']
 hmp show --figure	
 hmp show --format	choices=['csv', 'json', 'table'] default='table'
 hmp show --label	
-hmp show --lang	choices=['en', 'fr']
 hmp show --layer	
 hmp show --limit,-n	
 hmp show --mixed-windows	nargs=0

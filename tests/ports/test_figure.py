@@ -1,57 +1,61 @@
-"""The figure port, played on every figure the registry serves.
+"""The figure port, played on every name the request path serves.
 
-The contract is the one the batch renderer relies on: when
-``unavailable_reason(subject)`` says nothing, ``plot(subject)`` draws, or
-raises ``FigureNotApplicable`` with a sentence, which the renderer turns into
-a skipped figure with that reason. Any other exception is a defect, because a
-run that asks ``on_error = "raise"`` stops on it.
+The contract is the one the batch renderer relies on: a request expands and renders, or is
+refused with a sentence (``ValueError`` of ``expand``, ``DisplayError`` or
+``FigureNotApplicable`` of ``render``), which the renderer turns into a skipped figure with
+that reason. Any other exception is a defect, because a run that asks
+``on_error = "raise"`` stops on it.
 
-The subjects are the frozen example of a pre-release, copied out of the tree: the
-runs ``demo`` and ``calage``, the session ``calage`` and the ``RunSet`` of the
-project. Each figure meets each subject once. A figure the example cannot draw
-is named with its reasons, never dropped. Figures of transport and of lakes
-find no such run in the example, so they are counted refused here and drawn
-by none of these subjects.
+The subjects are the frozen example, copied out of the tree: the runs ``demo`` and
+``calage``, the session ``calage`` and the ``RunSet`` of the project. Each name meets each
+subject once: every preset and special, every drawable variable, the budget, the columns
+of the tables and the ``trials.*`` columns of the session. A name the example cannot draw
+is named with its reasons, never dropped. Figures of transport and of lakes find no such
+run in the example, so they are refused here and drawn by none of these subjects.
 """
 
 from __future__ import annotations
 
 import shutil
 from collections.abc import Iterator
-from dataclasses import dataclass
-from pathlib import Path
+from dataclasses import dataclass, replace
 from typing import Any
 
 import pytest
 
-from hydromodpy.display.figure_registry import figures
-from hydromodpy.display.figure_registry import get as figure
-from hydromodpy.display.subject import FigureNotApplicable
+from hydromodpy.core.exceptions import DisplayError
+from hydromodpy.display.presets import PRESETS
+from hydromodpy.display.render import render
+from hydromodpy.display.request import BUDGET, expand, request_of
+from hydromodpy.display.theme import get_theme
+from hydromodpy.results.field_registry import (
+    COLUMN_REGISTRY,
+    FIELD_REGISTRY,
+    REBUILT_FIELDS,
+    TIME_SERIES_REGISTRY,
+    kind_of,
+)
 
 from ._installed_probe import REPO_ROOT
 
-EXAMPLE = (
-    REPO_ROOT
-    / "tests"
-    / "regression"
-    / "frozen_runs"
-    / "v2.0.0"
-    / "current"
-    / "projects"
-    / "example"
-)
+EXAMPLE = REPO_ROOT / "tests/regression/frozen_runs/v2.0.0/current/projects/example"
 
-DRAWN_FLOOR = 21
-"""Distinct figures the example draws, measured at 21 on 72 figures, in about 4 s."""
+DRAWN_FLOOR = 34
+"""Distinct names the example draws, measured at 34 on 129 names on 2026-11-13."""
 
-FIGURE_NAMES = tuple(figures.names())
+VARIABLES = [
+    name
+    for name in (*FIELD_REGISTRY, *REBUILT_FIELDS, *TIME_SERIES_REGISTRY)
+    if kind_of(name).drawable
+]
+NAMES = (*PRESETS, *VARIABLES, BUDGET, *COLUMN_REGISTRY)
+THEME = replace(get_theme("default"), dpi=40)
 
 
 @dataclass(frozen=True)
 class Outcome:
-    """What one figure did with one subject: ``drawn``, ``refused`` or ``defect``."""
+    """What one name did with one subject: ``drawn``, ``refused`` or ``defect``."""
 
-    subject: str
     kind: str
     detail: str = ""
 
@@ -73,63 +77,57 @@ def subjects(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, Any
         }
 
 
-@pytest.fixture(scope="module")
-def outcomes(subjects: dict[str, Any]) -> dict[str, list[Outcome]]:
-    """Each figure played on each subject, once for the file."""
+def _play(name: str, subject: Any) -> Outcome:
     import matplotlib.pyplot as plt
 
-    played: dict[str, list[Outcome]] = {}
-    for name in FIGURE_NAMES:
-        fig = figure(name)
-        rows = played.setdefault(name, [])
-        for label, subject in subjects.items():
-            reason = fig.unavailable_reason(subject)
-            if reason is not None:
-                rows.append(Outcome(label, "refused", reason))
-                continue
-            try:
-                drawn = fig.plot(subject, dpi=40)
-            except FigureNotApplicable as exc:
-                rows.append(Outcome(label, "refused", str(exc)))
-            except Exception as exc:
-                rows.append(Outcome(label, "defect", f"{type(exc).__name__}: {exc}"))
-            else:
-                plt.close(drawn)
-                rows.append(Outcome(label, "drawn"))
-            finally:
-                plt.close("all")
-    return played
+    fields = {"type": "distribution"} if name.startswith("trials.") else {}
+    fields = {"type": "table"} if name in COLUMN_REGISTRY else fields
+    fields = {"station": "zone:catchment"} if name == BUDGET else fields
+    try:
+        figure = expand(request_of(name, PRESETS, **fields), PRESETS)
+    except ValueError as exc:
+        return Outcome("refused", str(exc))
+    try:
+        drawn = render(figure, subject, theme=THEME)
+    except DisplayError as exc:
+        return Outcome("refused", str(exc))
+    except Exception as exc:
+        return Outcome("defect", f"{type(exc).__name__}: {exc}")
+    finally:
+        plt.close("all")
+    plt.close(drawn)
+    return Outcome("drawn")
 
 
-def test_the_cases_are_the_figures_of_the_registry() -> None:
-    assert sorted(FIGURE_NAMES) == sorted(figures.names())
+@pytest.fixture(scope="module")
+def outcomes(subjects: dict[str, Any]) -> dict[str, dict[str, Outcome]]:
+    """Each name played on each subject, once for the file."""
+    names = [*NAMES, *(f"trials.{c}" for c in subjects["session_calage"].trials.columns)]
+    return {name: {label: _play(name, s) for label, s in subjects.items()} for name in names}
 
 
-@pytest.mark.parametrize("name", FIGURE_NAMES)
-def test_an_accepted_subject_is_drawn_or_refused_with_a_sentence(
-    name: str, outcomes: dict[str, list[Outcome]]
+def test_every_name_is_drawn_or_refused_with_a_sentence(
+    outcomes: dict[str, dict[str, Outcome]],
 ) -> None:
-    rows = outcomes[name]
-    defects = [row for row in rows if row.kind == "defect"]
+    rows = [
+        (name, label, row) for name, subject in outcomes.items() for label, row in subject.items()
+    ]
 
-    assert len(rows) == 4
-    assert defects == []
-    assert all(row.detail.strip() for row in rows if row.kind == "refused")
+    assert len(rows) == 4 * len(outcomes)
+    assert [(n, label, r.detail) for n, label, r in rows if r.kind == "defect"] == []
+    assert all(r.detail.strip() for _, _, r in rows if r.kind == "refused")
 
 
 def test_the_example_draws_its_floor_and_names_what_it_refuses(
-    outcomes: dict[str, list[Outcome]],
+    outcomes: dict[str, dict[str, Outcome]],
 ) -> None:
-    """Every figure is drawn at least once, or refused on every subject with its reasons."""
-    drawn = sorted(name for name, rows in outcomes.items() if any(r.kind == "drawn" for r in rows))
+    """Every name is drawn at least once, or refused on every subject with its reasons."""
+    drawn = {n for n, rows in outcomes.items() if any(r.kind == "drawn" for r in rows.values())}
     never = {
-        name: sorted({row.detail for row in rows})
-        for name, rows in outcomes.items()
-        if name not in drawn
+        n: sorted({r.detail for r in rows.values()})
+        for n, rows in outcomes.items()
+        if n not in drawn
     }
 
     assert len(drawn) >= DRAWN_FLOOR, never
-    assert all(row.kind == "refused" and row.detail for name in never for row in outcomes[name]), (
-        never
-    )
-    assert set(drawn) | set(never) == set(FIGURE_NAMES)
+    assert all(r.kind == "refused" and r.detail for n in never for r in outcomes[n].values()), never

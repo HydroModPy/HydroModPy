@@ -243,6 +243,7 @@ hmp report render --workspace	2.0.0
 hmp report render -q	2.0.0
 hmp report render -v	2.0.0
 hmp report render -w	2.0.0
+hmp show --lang	2.0.0
 hmp viz	2.0.0
 hmp viz list	2.0.0
 hmp viz list --debug	2.0.0

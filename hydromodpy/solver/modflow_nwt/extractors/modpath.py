@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import SolverError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.storage.kept import Retention
 from hydromodpy.solver.base.plan import SolverRun
@@ -31,7 +32,9 @@ class ModpathOutputAdapter:
 
     Stores pathline data as Zarr arrays under the ``particles/`` subgroup:
     x, y, z, time - each shaped ``(n_particles, max_steps)`` with NaN
-    padding for particles that terminate early.
+    padding for particles that terminate early. MODPATH counts x and y from
+    the lower left corner of the grid, so the corner is added back: the store
+    holds the coordinates of the mesh, as the MODFLOW 6 PRT extractor does.
     """
 
     process_type = "transport"
@@ -49,18 +52,23 @@ class ModpathOutputAdapter:
         # model name the DIS file is not read, and the unit falls back to the
         # launcher unit, which is the ITMUNI that NWT always writes.
         to_tracking_unit = factor_to_tracking_unit(resolve_solver_time_unit(solver_output_dir, ""))
+        origin = _grid_origin(solver_run)
 
         pth_files = list(solver_output_dir.glob("*.mppth")) + list(
             solver_output_dir.glob("*pathline*")
         )
         if pth_files:
-            self._extract_pathlines(sim_id, store, pth_files[0], to_tracking_unit=to_tracking_unit)
+            self._extract_pathlines(
+                sim_id, store, pth_files[0], origin=origin, to_tracking_unit=to_tracking_unit
+            )
 
         ept_files = list(solver_output_dir.glob("*.mpend")) + list(
             solver_output_dir.glob("*endpoint*")
         )
         if ept_files:
-            self._extract_endpoints(sim_id, store, ept_files[0], to_tracking_unit=to_tracking_unit)
+            self._extract_endpoints(
+                sim_id, store, ept_files[0], origin=origin, to_tracking_unit=to_tracking_unit
+            )
 
     def _extract_pathlines(
         self,
@@ -68,6 +76,7 @@ class ModpathOutputAdapter:
         store: Any,
         pth_path: Path,
         *,
+        origin: tuple[float, float],
         to_tracking_unit: float,
     ) -> None:
         """Read pathline file and write x/y/z/time arrays to Zarr."""
@@ -90,8 +99,8 @@ class ModpathOutputAdapter:
 
         for i, particle in enumerate(all_data):
             n = len(particle)
-            x[i, :n] = particle["x"]
-            y[i, :n] = particle["y"]
+            x[i, :n] = particle["x"] + origin[0]
+            y[i, :n] = particle["y"] + origin[1]
             z[i, :n] = particle["z"]
             t[i, :n] = np.asarray(particle["time"], dtype="float64") * to_tracking_unit
 
@@ -126,6 +135,7 @@ class ModpathOutputAdapter:
         store: Any,
         ept_path: Path,
         *,
+        origin: tuple[float, float],
         to_tracking_unit: float,
     ) -> None:
         """Read endpoint file and write as a single-step pathline."""
@@ -142,8 +152,8 @@ class ModpathOutputAdapter:
         try:
             particles_grp = sz.root.require_group("particles")
             for name, values in (
-                ("endpoint_x", all_data["x0"].astype("float64")),
-                ("endpoint_y", all_data["y0"].astype("float64")),
+                ("endpoint_x", all_data["x0"].astype("float64") + origin[0]),
+                ("endpoint_y", all_data["y0"].astype("float64") + origin[1]),
                 ("endpoint_z", all_data["z0"].astype("float64")),
                 ("endpoint_time", all_data["time"].astype("float64") * to_tracking_unit),
             ):
@@ -157,3 +167,16 @@ class ModpathOutputAdapter:
             sz.close()
 
         logger.info("Extracted %d endpoints for sim %s", len(all_data), sim_id)
+
+
+def _grid_origin(solver_run: SolverRun) -> tuple[float, float]:
+    """Return the lower left corner of the flow grid, which MODPATH counts x and y from."""
+    flow = getattr(solver_run.solver_model, "model_modflow", None)
+    mesh = getattr(flow, "solver_mesh", None)
+    if mesh is None:
+        raise SolverError(
+            "The MODPATH run holds no flow grid, so its local coordinates cannot be placed "
+            "on the mesh. Extract the pathlines right after the solve, before the solver "
+            "model is released."
+        )
+    return float(mesh.xoffset), float(mesh.yoffset)

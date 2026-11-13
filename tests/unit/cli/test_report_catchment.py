@@ -45,7 +45,9 @@ def written(monkeypatch, tmp_path: Path) -> dict:
         captured.update(run_dir=run_dir, **options)
         out = tmp_path / "report"
         out.mkdir(exist_ok=True)
-        (out / "report.json").write_text(json.dumps({"missing": ["seepage_map"]}), encoding="utf-8")
+        (out / "report.json").write_text(
+            json.dumps({"missing": ["seepage_mask"]}), encoding="utf-8"
+        )
         return out / "index.html"
 
     monkeypatch.setattr("hydromodpy.project.report.report_run", fake_report_run)
@@ -65,7 +67,7 @@ def test_report_of_a_run_directory(written, capsys, tmp_path) -> None:
     out = capsys.readouterr().out
     assert f"html_report={tmp_path / 'report' / 'index.html'}" in out
     assert f"report_json={tmp_path / 'report' / 'report.json'}" in out
-    assert "missing=seepage_map" in out
+    assert "missing=seepage_mask" in out
 
 
 def test_report_options(written, tmp_path) -> None:
@@ -83,8 +85,6 @@ def test_report_options(written, tmp_path) -> None:
             str(overview),
             "--preset",
             "management",
-            "--lang",
-            "fr",
             "--station",
             "J0014010",
             "--strict",
@@ -92,7 +92,6 @@ def test_report_options(written, tmp_path) -> None:
     )
 
     assert written["preset"] == "management"
-    assert written["lang"] == "fr"
     assert written["overview_dir"] == overview.resolve()
     assert written["station"] == "J0014010"
     assert written["strict"] is True
@@ -107,7 +106,7 @@ def test_report_json(written, capsys, tmp_path) -> None:
     document = json.loads(capsys.readouterr().out)
     assert document["schema"] == "hmp.show.report.v2"
     assert set(document["data"]) == {"html_report", "report_json", "missing"}
-    assert document["data"]["missing"] == ["seepage_map"]
+    assert document["data"]["missing"] == ["seepage_mask"]
 
 
 @pytest.mark.parametrize("table", ["[report]\nname = 'x'\n", "[layout]\nname = 'x'\n"])

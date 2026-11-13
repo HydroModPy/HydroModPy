@@ -10,8 +10,17 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.display import figure_registry
-from hydromodpy.display.figures._cohort import wants_log
+from hydromodpy.display import cohort, static
+from hydromodpy.display.cohort import draw_distribution, draw_map, wants_log
+from hydromodpy.display.theme import THEMES
+
+THEME = THEMES["default"]
+
+
+def drawn(draw, table, variable):
+    fig = static.new_figure(THEME)
+    draw(table, variable, fig.axes[0], THEME)
+    return fig, fig.axes[0]
 
 
 def site_table(**extra) -> pd.DataFrame:
@@ -28,20 +37,14 @@ def site_table(**extra) -> pd.DataFrame:
     return frame.assign(**extra)
 
 
-@pytest.mark.parametrize("name", ["map", "distribution"])
-def test_refuses_a_run(name):
-    figure = figure_registry.get(name)
-
-    reason = figure.unavailable_reason(object())
-
-    assert reason is not None and "cohort table" in reason
-    assert figure.unavailable_reason(site_table()) is None
+@pytest.mark.parametrize("draw", [draw_map, draw_distribution])
+def test_refuses_a_run(draw):
+    with pytest.raises(ValueError, match="cohort table"):
+        drawn(draw, object(), "nse")
 
 
 def test_map_outlets(mpl):
-    fig = figure_registry.get("map").plot(site_table(), variable="K")
-    ax = fig.axes[0]
-
+    _, ax = drawn(draw_map, site_table(), "K")
     assert "K of the best case of each site (3 sites)" in ax.get_title()
     assert ax.get_legend() is not None
     assert [text.get_text() for text in ax.texts] == ["J0014010", "J0170000", "J0200000"]
@@ -49,11 +52,17 @@ def test_map_outlets(mpl):
 
 
 def test_distribution_counts_missing(mpl):
-    fig = figure_registry.get("distribution").plot(site_table(), variable="K")
-    ax = fig.axes[0]
-
+    _, ax = drawn(draw_distribution, site_table(), "K")
     assert ax.get_title() == "K over 2 sites, 1 without a value"
     assert ax.get_xscale() == "log"
+
+
+def test_a_summary_writes_a_png_and_skips_a_refused_figure(mpl, tmp_path):
+    written, skipped = cohort.draw_cohort_figures(site_table(), ["map"], ["nse", "Sy"], tmp_path)
+
+    assert [path.name for path in written] == ["map_nse.png"] and written[0].exists()
+    assert "map of Sy: the cohort table has no column 'Sy'" in skipped[0]
+    assert "display.figures.map" in (tmp_path / "index.json").read_text()
 
 
 WANTS_LOG = [
@@ -85,4 +94,4 @@ REFUSALS = [
 @pytest.mark.parametrize(("name", "table", "variable", "message"), REFUSALS)
 def test_refusals(mpl, name, table, variable, message):
     with pytest.raises(ValueError, match=message):
-        figure_registry.get(name).plot(table, variable=variable)
+        drawn(cohort.COHORT_FIGURES[name].draw, table, variable)

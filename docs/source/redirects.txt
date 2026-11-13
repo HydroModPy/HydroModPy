@@ -123,7 +123,7 @@ user_guide/data/index.rst                                reference/data-sources
 user_guide/data/provider-replay-cases.rst                contribute/architecture/how-to/add-a-data-source
 user_guide/data/retrieval-workflow.rst                   reference/data-sources
 user_guide/data/runs-and-figures.rst                     reference/data-sources
-user_guide/figures.rst                                   reference/figures
+user_guide/figures.rst                                   reference/figure-requests
 user_guide/index.rst                                     get-started/index
 user_guide/initialization.rst                            reference/parameters/flow/ic
 user_guide/modflow6-flow-barrier.rst                     reference/parameters/flow/sinks_sources/flow_barriers
@@ -345,10 +345,10 @@ api/generated/hydromodpy.display                                  reference/pyth
 api/generated/hydromodpy.display.BaseFigure                       reference/python/hmp-show
 api/generated/hydromodpy.display.Figure                           reference/python/hmp-show
 api/generated/hydromodpy.display.FigureSpec                       reference/python/hmp-show
-api/generated/hydromodpy.display.get                              reference/figures
-api/generated/hydromodpy.display.list_figures                     reference/figures
-api/generated/hydromodpy.display.names                            reference/figures
-api/generated/hydromodpy.display.register                         reference/figures
+api/generated/hydromodpy.display.get                              reference/figure-requests
+api/generated/hydromodpy.display.list_figures                     reference/figure-requests
+api/generated/hydromodpy.display.names                            reference/figure-requests
+api/generated/hydromodpy.display.register                         reference/figure-requests
 api/generated/hydromodpy.doctor                                   reference/python/hmp-doctor
 api/generated/hydromodpy.export                                   reference/python/hmp-export
 api/generated/hydromodpy.index                                    reference/python/hmp-open
@@ -436,7 +436,7 @@ _modules/hydromodpy/data/managers/plan                              reference/py
 _modules/hydromodpy/data/managers/planner                           reference/python/index
 _modules/hydromodpy/data/request/engine                             reference/python/index
 _modules/hydromodpy/display/figure                                  reference/python/hmp-show
-_modules/hydromodpy/display/figure_registry                         reference/figures
+_modules/hydromodpy/display/figure_registry                         reference/figure-requests
 _modules/hydromodpy/physics/base/process_spatial                    reference/python/index
 _modules/hydromodpy/physics/flow/flow                               reference/parameters/flow/index
 _modules/hydromodpy/physics/flow/regime                             reference/python/index
@@ -466,7 +466,7 @@ _modules/hydromodpy/spatial/surface_sampling                        reference/py
 _modules/index                                                      reference/python/index
 
 # Capability gallery (retired)
-capability_gallery/all_cases.rst                                                                         reference/figures
+capability_gallery/all_cases.rst                                                                         reference/figure-requests
 capability_gallery/calibration.rst                                                                       reference/calibration-methods
 capability_gallery/calibration_data_rich_no_uncertainty.rst                                              understand/how-sure
 capability_gallery/calibration_uncertain_less_data.rst                                                   understand/how-sure
@@ -497,13 +497,13 @@ capability_gallery/cases/ex12_multi_simulation_moderate.rst                     
 capability_gallery/cases/ex12_multi_simulation_moderate_causes.rst                                       reference/cli/show
 capability_gallery/cases/example12_map_simulation_comparison.rst                                         reference/cli/show
 capability_gallery/cases/example12_mf6_vs_nwt_different_meshes_demonstrative.rst                         theory/solvers
-capability_gallery/cases/geographic_bdtopage_hydrography_overlay.rst                                     reference/figures
-capability_gallery/cases/geographic_nancon_identity_card.rst                                             reference/figures
-capability_gallery/cases/geographic_nancon_observed_timeseries.rst                                       reference/figures
-capability_gallery/cases/geographic_watershed_overview.rst                                               reference/figures
+capability_gallery/cases/geographic_bdtopage_hydrography_overlay.rst                                     reference/figure-requests
+capability_gallery/cases/geographic_nancon_identity_card.rst                                             reference/figure-requests
+capability_gallery/cases/geographic_nancon_observed_timeseries.rst                                       reference/figure-requests
+capability_gallery/cases/geographic_watershed_overview.rst                                               reference/figure-requests
 capability_gallery/cases/geometry_constraints_canut.rst                                                  theory/mesh
 capability_gallery/cases/geometry_indicators_canut.rst                                                   theory/mesh
-capability_gallery/cases/geometry_topography_canut.rst                                                   reference/figures
+capability_gallery/cases/geometry_topography_canut.rst                                                   reference/figure-requests
 capability_gallery/cases/headwater_100km2_outlet_2_mf6_transient_reference.rst                           reference/parameters/sites
 capability_gallery/cases/hydraulic_conductivity_depth_dependence.rst                                     reference/parameters/flow/param
 capability_gallery/cases/hydraulic_conductivity_geology_transfer_brittany.rst                            theory/solvers/field-to-cell-parameter-transfer
@@ -559,10 +559,10 @@ capability_gallery/cases/site_08_natural_n1_10km2_mf6_bouss.rst                 
 capability_gallery/cases/surface_interaction_no_seepage_code_comparison.rst                              theory/validation
 capability_gallery/cases/surface_interaction_ramp_code_comparison.rst                                    theory/validation
 capability_gallery/code_comparison.rst                                                                   theory/validation
-capability_gallery/geographic.rst                                                                        reference/figures
-capability_gallery/geometry.rst                                                                          reference/figures
+capability_gallery/geographic.rst                                                                        reference/figure-requests
+capability_gallery/geometry.rst                                                                          reference/figure-requests
 capability_gallery/hydraulic_properties.rst                                                              reference/parameters/flow/param
-capability_gallery/index.rst                                                                             reference/figures
+capability_gallery/index.rst                                                                             reference/figure-requests
 capability_gallery/mesh.rst                                                                              theory/mesh
 capability_gallery/simulation.rst                                                                        get-started/staircase/index
 capability_gallery/simulation_comparison.rst                                                             reference/cli/show
@@ -571,7 +571,7 @@ capability_gallery/validation.rst                                               
 # Generated pages of the references, retired with their section, command or object.
 # A name without extension: the build wrote the page, no source file was deleted.
 reference/parameters/analysis/batch               get-started/many-catchments
-reference/parameters/analysis/capability_gallery  reference/figures
+reference/parameters/analysis/capability_gallery  reference/figure-requests
 reference/parameters/analysis/comparison          reference/cli/show
 reference/parameters/analysis/index               reference/cli/show
 reference/parameters/hydrometry                   reference/parameters/data/hydrometry
@@ -619,3 +619,4 @@ contribute/architecture/spatial_support/hydrographic-network-uml-diagrams.rst   
 contribute/architecture/data_loading/index.rst                                                   contribute/architecture/packages/data
 contribute/architecture/field/index.rst                                                          contribute/architecture/packages/model
 about/changes-during-the-alphas.md                about/changelog
+reference/figures.md                              reference/figure-requests

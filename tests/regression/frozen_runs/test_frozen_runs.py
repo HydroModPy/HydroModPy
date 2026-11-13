@@ -51,8 +51,11 @@ FUTURE_KEY = "from_a_later_version"
 FUTURE_FILL = 7.0
 """The value of the extra array of the future copy."""
 
-SIZE_LIMIT_BYTES = 700_000
-"""One copy stays a few hundred kB: the demo, the promoted run and the session."""
+SIZE_LIMIT_BYTES = 800_000
+"""One copy stays a few hundred kB: the demo, the promoted run and the session.
+
+The sealed mesh, the final state and the profile of each run brought the future copy
+from 600 kB to 706 kB, and the limit keeps the same margin of about 100 kB."""
 
 RUNS = {
     "demo": ("demo", "exploratory"),
@@ -177,7 +180,9 @@ def test_a_run_reads_back_with_its_values(project: Path, name: str) -> None:
     assert run.parameters["value"].to_dict() == expected["parameters"]
     assert run.label().label == label
     assert run.checks.budget_pct == expected["budget_pct"]
-    assert run.inputs == []
+    assert [(entry.variable, entry.provider, entry.path) for entry in run.inputs] == [
+        ("mesh", "store", "mesh")
+    ]
     assert run.tags == (expected["tags"] or None)
     assert [note.text for note in read_annotations(run.dir).notes] == expected["notes"]
     assert all(run.has_table(table) for table in expected["tables"])

@@ -421,75 +421,161 @@ end = "2001-12-31"
 
 [display]
 enabled = true
-preset = "default"
-show = false
-save = true
 on_error = "warn"
 
 
 
-# Sept figures du registre sont volontairement ABSENTES de cette liste,
+# Quatre figures de preset sont volontairement ABSENTES de cette liste,
 # parce qu'aucune valeur de TOML ne peut les rendre possibles, mesure faite :
-#   residuals, scatter_one_to_one  le simule vit sous la station `catchment`
-#                                  et l'observe sous `NANCON` ; elles exigent
+#   residuals                      le simule vit sous la station `catchment`
+#                                  et l'observe sous `NANCON` ; il exige
 #                                  les deux sous LE MEME nom de station.
 #   ensemble_band                  attend un RunSet, donc plusieurs runs.
-#   roptim_validity_chart          compare plusieurs sites, un run en tient un.
-#   calibration_landscape,         demandent deux parametres dans UNE session ;
-#   calibration_objective_surface, chaque etage n'en echantillonne qu'un, c'est
-#   calibration_pairplot           le principe meme de l'etagement.
-#   conditioning_impact_map        compare deux runs sur le meme maillage
-#                                  (`reference=<run>`) ; un seul run ici.
+#   calibration_landscape          demande deux parametres dans UNE session ;
+#                                  chaque etage n'en echantillonne qu'un, c'est
+#                                  le principe meme de l'etagement.
+#   comparaison avec un autre run  variable = "topography" et against = "<run>" ;
+#                                  un seul run ici.
 
-figures = [
-    # -- Identite du bassin et maillage --
-    "watershed_id_card",
-    "mesh_map",
-    "boundary_package_map",
-    "depression_map",
-    "flow_direction_map",
+[[display.figure]]
+preset = "watershed_id_card"
 
-    # -- Debit simule contre observe --
-    "hydrograph_sim_obs",
-    "hydrograph_log_nse",
-    "hydrograph",
-    "duration_curve",
-    "recession",
-    "seasonal_boxplot",
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+name = "mesh_map"
 
-    # -- Bilan --
-    "water_budget",
-    "flux_timeseries",
+[[display.figure]]
+variable = "package_cells"
 
-    # -- Le reseau SFR lui-meme --
-    "sfr_reach_network",
-    "sfr_longitudinal_profile",
-    "sfr_reach_timeseries",
+[[display.figure]]
+variable = "depression_fill_depth"
+scale = "log"
 
-    # -- Cartes de nappe et de suintement --
-    "piezometric_map",
-    "watertable_depth_map",
-    "seepage_map",
-    "recharge_map",
-    "cross_section",
-    "accumulation_map",
+[[display.figure]]
+preset = "flow_directions"
 
-    # -- Reseau simule contre reseau cartographie --
-    "simulated_active_network",
-    "simulated_active_network_reference_overlay",
-    "seepage_network_reference_overlay",
-    "seepage_network_confusion_map",
-    "downslope_distance_map",
-    "hydrographic_network_reference",
-    "hydrographic_network_generated",
-    "hydrographic_network_comparison",
+[[display.figure]]  # replaces hydrograph_sim_obs, hydrograph
+preset = "hydrograph"
 
-    # -- Diagnostic de la calibration elle-meme --
-    "matching_hydrographic_network_card",
-    "bisection_bracket_trace",
-    "downslope_distance_crossing",
-    "parameter_cost_profile",
-    "calibration_convergence",
-    "calibration_trace",
-    "calibration_trial_distribution",
-]
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
+
+[[display.figure]]
+variable = "discharge"
+type = "distribution"
+cumulative = true
+name = "duration_curve"
+
+[[display.figure]]
+preset = "recession"
+
+[[display.figure]]
+variable = "discharge"
+type = "groups"
+by = "month"
+observed = true
+name = "seasonal_boxplot"
+
+[[display.figure]]  # replaces water_budget, flux_timeseries
+preset = "water_budget"
+
+[[display.figure]]
+variable = "sfr_reaches.strahler"
+type = "map"
+
+[[display.figure]]
+variable = "streambed_top"
+
+[[display.figure]]
+preset = "sfr_longitudinal_profile"
+
+[[display.figure]]
+variable = "downstream_flow"
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
+name = "seepage_map"
+
+[[display.figure]]
+variable = "recharge"
+layer = "sum"
+
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+
+[[display.figure]]
+variable = "drain_accumulation_flux"
+scale = "log"
+
+[[display.figure]]
+variable = "simulated_active_network"
+name = "simulated_active_network"
+
+[[display.figure]]
+variable = "simulated_active_network"
+overlays = ["relief", "network"]
+name = "simulated_active_network_reference_overlay"
+
+[[display.figure]]
+variable = "seepage_mask"
+overlays = ["relief", "network"]
+name = "seepage_network_reference_overlay"
+
+[[display.figure]]
+variable = "network_agreement"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+name = "hydrographic_network_reference"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "generated_network"]
+name = "hydrographic_network_generated"
+
+[[display.figure]]
+preset = "network_comparison"
+
+[[display.figure]]  # replaces matching_hydrographic_network_card, bisection_bracket_trace, downslope_distance_crossing
+preset = "root_search"
+when = "session"
+
+[[display.figure]]
+variable = ["trials.parameter", "trials.cost"]
+type = "xy"
+facet = "parameter"
+when = "session"
+
+[[display.figure]]
+preset = "calibration_progress"
+when = "session"
+
+[[display.figure]]
+variable = "trials.parameter"
+type = "series"
+facet = "parameter"
+when = "session"
+name = "calibration_trace"
+
+[[display.figure]]
+variable = "trials.parameter"
+type = "distribution"
+facet = "parameter"
+when = "session"
+name = "calibration_trial_distribution"

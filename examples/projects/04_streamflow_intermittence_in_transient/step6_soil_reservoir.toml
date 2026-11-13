@@ -86,28 +86,47 @@ ru = "150 mm"
 [display]
 on_error = "warn"
 # One-instant figures draw September 2019, the end of a dry summer.
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+preset = "water_budget"
+
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
+
+[[display.figure]]
+preset = "hydrograph"
+
+[[display.figure]]
+variable = "discharge"
+type = "distribution"
+cumulative = true
+
+[[display.figure]]
+preset = "recession"
+
+[[display.figure]]
+variable = "watertable_depth"
 time = "2019-09-15"
-figures = [
-    "watershed_id_card",
-    "flux_timeseries",
-    "hydrograph_log_nse",
-    "hydrograph_sim_obs",
-    "duration_curve",
-    "recession",
-    "watertable_depth_map",
-    "seepage_map",
-    "cross_section",
-    "flow_persistence_map",
-    "flow_intermittence_map",
-]
 
 # The seepage of February 2020, near the largest saturated extent.
-[display.overrides.seepage_map]
+[[display.figure]]
+variable = "seepage_mask"
 time = "2020-02-15"
 
-# One hydrological year inside the run.
-[display.overrides.flow_intermittence_map]
-cycle = "2019"
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+time = "2019-09-15"
+
+[[display.figure]]  # replaces flow_persistence_map, flow_intermittence_map
+variable = "simulated_active_network"
+reduce = "frequency"
+# cycle = "2019" has no equivalent: reduce = frequency reads the whole run
 
 # What the run writes to runs/nancon_soil_reservoir_daily/exports/.
 

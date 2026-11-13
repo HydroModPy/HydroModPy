@@ -28,6 +28,7 @@ from hydromodpy.cli.conventions import (
 from hydromodpy.cli.exit_codes import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USAGE, refuse
 from hydromodpy.cli.output import emit
 from hydromodpy.cli.refs import base_named_by_w
+from hydromodpy.display.catalog_figures import KINDS
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.targets import CalibrationTarget
@@ -73,16 +74,19 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     fig = sub.add_parser(
         "figures",
-        help="List the figure names accepted by [display].figures",
+        help="List the variables, presets, special figures and frames a figure is drawn from",
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
-        epilog="Examples:\n  hmp config figures\n  hmp config figures --kind balance",
+        epilog=(
+            "Examples:\n  hmp config figures\n  hmp config figures --kind preset\n"
+            "  hmp config figures --run RUN --kind variable"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     fig.add_argument(
         "--kind",
         default=None,
-        metavar="KIND",
-        help="Only list figures of this kind (spatial, section, timeseries, ...)",
+        choices=KINDS,
+        help="Only list rows of this kind",
     )
     fig.add_argument(
         "--run",
@@ -90,7 +94,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         default=None,
         metavar="SIM_REF",
         help=(
-            "Say for each figure whether this run supports it, or why not "
+            "Say what this run holds of each variable and preset "
             "(sim_id, unique prefix, name or @-selector)"
         ),
     )
@@ -370,71 +374,46 @@ def _cmd_config_resolve(args: argparse.Namespace) -> None:
     sys.stdout.write(dumps(payload))
 
 
+LINE_WIDTH = 110
+
+
+def _fit(text: str, room: int) -> str:
+    """Cut ``text`` to ``room`` characters: a list loses its tail and says how many went."""
+    if len(text) <= room:
+        return text
+    if ", " in text:
+        items = text.split(", ")
+        for kept in range(len(items) - 1, 0, -1):
+            cut = f"{', '.join(items[:kept])}, ... (+{len(items) - kept})"
+            if len(cut) <= room:
+                return cut
+    return text[: max(room - 3, 0)] + "..."
+
+
 def _cmd_config_figures(args: argparse.Namespace) -> None:
-    """List the registered figures and their requirements, or what a run supports."""
-    if args.sim_ref is not None:
-        _figures_for_run(args)
-        return
-    from hydromodpy.display.figure_registry import list_figures
+    """List what a figure can be asked by, and what a run holds of it."""
+    from hydromodpy.display.catalog_figures import figure_listing
+    from hydromodpy.project.show import project_presets
 
-    specs = [spec for spec in list_figures() if args.kind in (None, spec.kind)]
-
-    def table() -> None:
-        for spec in specs:
-            requirements = []
-            if spec.required_fields:
-                requirements.append("fields " + ", ".join(spec.required_fields))
-            if spec.required_tables:
-                requirements.append("tables " + ", ".join(spec.required_tables))
-            needs = "; ".join(requirements) or "no declared requirement"
-            print(f"{spec.name:44s} {spec.kind:11s} {spec.subject:8s} {needs}")
-        print(f"\n{len(specs)} figure(s)")
-
-    emit(
-        args,
-        "config figures",
-        [
-            {
-                "name": spec.name,
-                "kind": spec.kind,
-                "subject": spec.subject,
-                "required_fields": list(spec.required_fields),
-                "required_tables": list(spec.required_tables),
-            }
-            for spec in specs
-        ],
-        table=table,
-    )
-
-
-def _figures_for_run(args: argparse.Namespace) -> None:
-    from hydromodpy.display.catalog_figures import figure_availability
-
-    rows = figure_availability(args.sim_ref, workspace=args.workspace)
-    rows = [(spec, reason) for spec, reason in rows if args.kind in (None, spec.kind)]
+    rows = figure_listing(args.sim_ref, workspace=args.workspace, presets_of=project_presets)
+    rows = [row for row in rows if args.kind in (None, row["kind"])]
 
     def table() -> None:
-        for spec, reason in rows:
-            state = "available" if reason is None else reason
-            print(f"{spec.name:44s} {spec.kind:11s} {spec.subject:8s} {state}")
-        supported = sum(reason is None for _, reason in rows)
-        print(f"\n{len(rows)} figure(s), {supported} available for {args.sim_ref}")
+        for row in rows:
+            what = (
+                f"{row['label']} [{row['unit']}]" if row["unit"] else row["label"] or row["detail"]
+            )
+            head = f"{row['name']:30s} {row['kind']:9s} {row['frame']:20s} "
+            state = f"  ({_fit(row['status'], 34)})" if row["status"] else ""
+            print(head + _fit(what, LINE_WIDTH - len(head) - len(state)) + state)
+        counts = ", ".join(
+            f"{sum(row['kind'] == kind for row in rows)} {kind}(s)"
+            for kind in KINDS
+            if args.kind in (None, kind)
+        )
+        print(f"\n{counts}" + ("" if args.sim_ref is None else f" for {args.sim_ref}"))
 
-    emit(
-        args,
-        "config figures run",
-        [
-            {
-                "name": spec.name,
-                "kind": spec.kind,
-                "subject": spec.subject,
-                "available": reason is None,
-                "reason": reason,
-            }
-            for spec, reason in rows
-        ],
-        table=table,
-    )
+    emit(args, "config figures", rows, table=table)
 
 
 def _cmd_config_schema(args: argparse.Namespace) -> None:

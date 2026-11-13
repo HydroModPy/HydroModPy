@@ -108,26 +108,49 @@ depends_on = "transient_conductivity"
 [calibration.phases.window]
 start = "2001-01-01"
 
-# The two maps first, then the extents each phase scored, the hydrograph and
-# the seepage of October 2002. The last four only apply to a run the
-# calibration promoted; the bracket trace reads the K phase only.
+# The catchment and the topography with the network first, then the agreement
+# with the mapped network, the hydrograph and the seepage cells. The last three
+# figures, with when = "session", are drawn for a calibration session only.
 [display]
-figures = [
-    "watershed_id_card",
-    "hydrographic_network_permanence",
-    "network_extent_bounds_map",
-    "hydrograph_log_nse",
-    "seepage_map",
-    "flow_persistence_map",
-    "flow_intermittence_map",
-    "seepage_network_confusion_map",
-    "downslope_distance_map",
+[[display.figure]]
+preset = "watershed_id_card"
 
-    "calibration_progress",
-    "bisection_bracket_trace",
-    "parameter_cost_profile",
-    "matching_hydrographic_network_card",
-]
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+
+[[display.figure]]  # replaces network_extent_bounds_map, seepage_network_confusion_map
+variable = "network_agreement"
+
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
+
+[[display.figure]]
+variable = "seepage_mask"
+
+[[display.figure]]  # replaces flow_persistence_map, flow_intermittence_map
+variable = "simulated_active_network"
+reduce = "frequency"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+
+[[display.figure]]
+preset = "calibration_progress"
+when = "session"
+
+[[display.figure]]  # replaces bisection_bracket_trace, matching_hydrographic_network_card
+preset = "root_search"
+when = "session"
+
+[[display.figure]]
+variable = ["trials.parameter", "trials.cost"]
+type = "xy"
+facet = "parameter"
+when = "session"
 
 # The four exports of project.toml, where the network is all BD Topage
 # reaches, plus the permanent reaches, the minimal map.

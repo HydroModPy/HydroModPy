@@ -72,18 +72,25 @@ values = 0.78
 # surface, a section through the outlet, and what enters and leaves.
 [display]
 on_error = "raise"
-figures = [
-    "watershed_id_card",
-    "watertable_depth_map",
-    "seepage_map",
-    "cross_section",
-    "water_budget",
-]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
 
 # South to north through the outlet, so the section cuts the tributaries
 # across. The west-east default crosses the valley once, at the southern edge.
-[display.overrides.cross_section]
-orientation = "sn"
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+# orientation = "sn" has no equivalent: the line runs from the outlet
+
+[[display.figure]]
+preset = "water_budget"
 
 # What the run writes to runs/nancon_step1_minimal/exports/. A block says what
 # (variables) and when (time); the format follows the data. The next steps

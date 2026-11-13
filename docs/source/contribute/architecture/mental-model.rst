@@ -203,8 +203,8 @@ it as a vector feature. What HydroModPy computes from the
 ``drain_accumulation_flux`` field are lazy views of the run: ``run.drainage_density()``,
 ``run.persistence()``, ``run.cell_field_active_mask()``,
 ``run.cell_field_active_metrics()``, ``run.cell_field_network_overlap_metrics()``
-and ``run.cell_field_network_distance_metrics()``, and the figures
-``simulated_active_network`` and ``simulated_active_network_reference_overlay``.
+and ``run.cell_field_network_distance_metrics()``, and the figure of the variable
+``simulated_active_network``.
 They live in ``hydromodpy.results.derive.views`` and read fields, mesh geometry
 and the stored roles without changing the catalog.
 :doc:`engines/stream-network-support` states

@@ -1,0 +1,98 @@
+{
+  "schema": "hydromodpy.profile.v1",
+  "process_age_s": {
+    "1": 7.025457143783569
+  },
+  "lines": [
+    {
+      "kind": "step",
+      "name": "prepare_solver",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:42.796496+00:00",
+      "duration_s": 1.3201486509060487,
+      "max_rss_mb": 439.75390625,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "solve",
+      "name": "flow_main::modflow_nwt",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:44.123786+00:00",
+      "duration_s": 0.014449810958467424,
+      "max_rss_mb": 440.67578125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "run_solver",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:44.123584+00:00",
+      "duration_s": 0.06010873499326408,
+      "max_rss_mb": 440.86328125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "extract",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:44.189312+00:00",
+      "duration_s": 0.2836611170787364,
+      "max_rss_mb": 442.58203125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "derive",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:44.478620+00:00",
+      "duration_s": 0.10444248502608389,
+      "max_rss_mb": 442.76953125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "export",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:44.586920+00:00",
+      "duration_s": 0.0035406789975240827,
+      "max_rss_mb": 442.76953125,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "export",
+      "name": "views",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:45.017414+00:00",
+      "duration_s": 0.003977866959758103,
+      "max_rss_mb": 444.71875,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "seal",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:44.593823+00:00",
+      "duration_s": 0.4299139679642394,
+      "max_rss_mb": 444.71875,
+      "reused": "no",
+      "key": null
+    },
+    {
+      "kind": "step",
+      "name": "display",
+      "attempt": 1,
+      "started_at": "2026-11-13T20:46:45.027655+00:00",
+      "duration_s": 0.055718687013722956,
+      "max_rss_mb": 446.30859375,
+      "reused": "no",
+      "key": null
+    }
+  ]
+}

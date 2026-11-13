@@ -111,11 +111,6 @@ rows:
   scope: <module>
   class: import
   why: a filter bounded by category, message and module, set once when the module is imported
-- file: hydromodpy/display/style.py
-  site: rc_context
-  scope: themed
-  class: lock
-  why: the style of one render, set and given back under RENDER_LOCK
 - file: hydromodpy/results/run/array.py
   site: global
   scope: _optional_dask_array

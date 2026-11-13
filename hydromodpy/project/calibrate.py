@@ -327,7 +327,7 @@ def calibrate_a_file(
         # Same descent for the search of a calibration without phases: its trials
         # load their data under the bounds of the call, never through os.environ.
         result = run_calibration_cli(target, bounds=route.environment.bounds, **options)
-    return write_session_reports(result) if report else result
+    return write_session_reports(result, report=report)
 
 
 def calibrate_project(
@@ -411,14 +411,14 @@ def calibrate_project(
         )
     else:
         result = run(_declared_calibration(proj, parameters, python_mode, phase=phase))
-    return write_session_reports(result) if report and not dry_run else result
+    return result if dry_run else write_session_reports(result, report=report)
 
 
-def write_session_reports(result: Any) -> Any:
-    """Write the report of each session directory of a finished calibration, and return it.
+def write_session_reports(result: Any, *, report: bool = True) -> Any:
+    """Write the report (if *report*) and the session figures of each session directory.
 
-    The directories are the one of ``result`` and the one of each phase. A report is a
-    render: one that fails warns and does not fail the calibration.
+    The figures come last, so a figure of the user wins over the report's. A render that
+    fails warns and does not fail the calibration.
     """
     from hydromodpy.project.report import report_session
     from hydromodpy.results.session.descriptor import session_descriptor_path
@@ -435,10 +435,45 @@ def write_session_reports(result: Any) -> Any:
         if not session_descriptor_path(directory).is_file():
             continue
         try:
-            report_session(directory)
+            if report:
+                report_session(directory)
+            draw_session_figures(directory)
         except Exception as exc:  # a render never fails a finished search
             logger.warning("session report of %s not written: %s", directory.name, exc)
     return result
+
+
+def draw_session_figures(session_dir: Path) -> Any:
+    """Draw the ``when = "session"`` figures of the frozen ``[display]`` into ``figures/``."""
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.display.presets import PRESETS
+    from hydromodpy.display.request import SESSION
+    from hydromodpy.display.runs import (
+        FigureRenderReport,
+        display_theme,
+        draw_requests,
+        log_render_summary,
+    )
+    from hydromodpy.results.session.view import Session
+    from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
+
+    session = Session(session_dir)
+    section = session.config.get("display")
+    cfg = None if section is None else DisplayConfig.model_validate(section)
+    if cfg is None or not cfg.enabled:
+        return FigureRenderReport()
+    folder = Path(session_dir) / RUN_FIGURES_DIRNAME
+    report = draw_requests(
+        session,
+        cfg.figure,
+        presets={**PRESETS, **cfg.presets},
+        theme=display_theme(cfg),
+        output_dir=folder,
+        on_error=cfg.on_error,
+        when=SESSION,
+    )
+    log_render_summary(report, destination=folder)
+    return report
 
 
 def _identical_session(proj: Project, case: str | None):

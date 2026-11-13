@@ -1,4 +1,4 @@
-"""Regression test for calibration diagnostics and figure rendering.
+"""Regression test for calibration diagnostics.
 
 Runs :func:`validation_cases.calibration.recession_hillslope_aquifer.experiment.calibrate_brutsaert`
 for each runnable method, builds a synthetic iteration trace matching the
@@ -8,10 +8,6 @@ for each runnable method, builds a synthetic iteration trace matching the
    sane matrix (diagonal = 1, symmetric, finite).
 2. :func:`hydromodpy.calibration.optim.diagnostics.convergence_rate` yields a finite
    improvement rate.
-3. Each of the five registered calibration figures (``calibration_convergence``,
-   ``calibration_trace``, ``calibration_landscape``, ``calibration_trial_distribution``,
-   ``calibration_pairplot``, ``calibration_objective_surface``) renders a PNG
-   via its public ``plot()`` when given a ``Run``-shaped stub.
 """
 
 from __future__ import annotations
@@ -20,11 +16,6 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-
-import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
@@ -35,7 +26,6 @@ from hydromodpy.calibration.optim.diagnostics import (  # noqa: E402
     parameter_correlation,
 )
 from hydromodpy.core.scoring.metrics import kge as _kge_metric  # noqa: E402
-from hydromodpy.display.figure_registry import get as get_figure  # noqa: E402
 from validation_cases.calibration.recession_hillslope_aquifer.experiment import (  # noqa: E402
     _DEFAULT_CHRONICLE_TEST,
     BaseflowConfig,
@@ -48,18 +38,7 @@ GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "calibration_brutsaert_methods_golden.json"
 )
 RUNNABLE_METHODS = ("grid_search", "random_search", "scipy_nelder_mead")
-FIGURE_NAMES = (
-    "calibration_convergence",
-    "calibration_trace",
-    "calibration_landscape",
-    "calibration_trial_distribution",
-    "calibration_pairplot",
-    "calibration_objective_surface",
-)
 BOUNDS = {"K": (1.0e-5, 1.0e-3), "Sy": (0.20, 0.35)}
-
-# Figures that don't auto-filter meta columns need explicit ``parameters=``.
-_FIGURE_KWARGS: dict[str, dict] = {"calibration_pairplot": {"parameters": ["K", "Sy"]}}
 
 
 def _kge_cost(observed: np.ndarray, simulated: np.ndarray) -> float:
@@ -141,25 +120,6 @@ def _build_iteration_trace(
     return rows
 
 
-class _RunStub:
-    """Minimal ``Run``-shaped adapter for figure rendering tests."""
-
-    def __init__(self, session_id: str, iterations: list[dict]) -> None:
-        self.sim_id = session_id
-        self.name = f"brutsaert-{session_id}"
-        self.calibration_iterations = iterations
-
-    @property
-    def trials(self) -> pd.DataFrame:
-        """The journal of the session, one row per trial, as ``Session.trials`` gives it."""
-        return pd.DataFrame(self.calibration_iterations)
-
-    def timeseries(self, variable: str, station: str) -> pd.DataFrame:  # noqa: ARG002
-        values = [row["cost"] for row in self.calibration_iterations]
-        idx = pd.date_range("2024-01-01", periods=len(values), freq="D", name="datetime")
-        return pd.DataFrame({variable: values}, index=idx)
-
-
 @pytest.fixture(scope="module")
 def _sample_trace(_simulator, _chronicle, _golden) -> list[dict]:
     """Single deterministic trace reused for the figure-rendering sweep."""
@@ -170,128 +130,6 @@ def _sample_trace(_simulator, _chronicle, _golden) -> list[dict]:
         q_observed=_chronicle["q_observed"],
         seed=11,
     )
-
-
-def _trace_arrays(trace: list[dict]) -> dict[str, np.ndarray]:
-    """Flatten a trace into the arrays a figure's drawn data is checked against."""
-    return {
-        "K": np.array([row["K"] for row in trace], dtype=float),
-        "Sy": np.array([row["Sy"] for row in trace], dtype=float),
-        "cost": np.array([row["cost"] for row in trace], dtype=float),
-        "objective": np.array([row["objective"] for row in trace], dtype=float),
-    }
-
-
-def _series(ax, index: int = 0) -> np.ndarray:
-    """Return the y-data of the ``index``-th line drawn on ``ax``."""
-    return np.asarray(ax.get_lines()[index].get_ydata(), dtype=float)
-
-
-def _scatter(ax, size: int):
-    """Return the PathCollection on ``ax`` whose point count is ``size``.
-
-    An axis can carry several collections (a colorbar's QuadMesh, a
-    single-point "best" marker); the trials scatter is the PathCollection
-    whose offsets count matches the number of trials fed in.
-    """
-    for collection in ax.collections:
-        if type(collection).__name__ != "PathCollection":
-            continue
-        if np.asarray(collection.get_offsets()).shape[0] == size:
-            return collection
-    raise AssertionError(f"no PathCollection with {size} points found on {ax}")
-
-
-def _check_convergence_figure(fig, arrays: dict[str, np.ndarray]) -> None:
-    """calibration_convergence: raw + best-so-far series must match the trace."""
-    ax = fig.axes[0]
-    lines = ax.get_lines()
-    assert len(lines) == 2, "expected a raw objective series and a best-so-far series"
-    np.testing.assert_allclose(_series(ax, 0), arrays["objective"])
-    np.testing.assert_allclose(_series(ax, 1), np.minimum.accumulate(arrays["objective"]))
-    assert ax.get_xlabel() == "Iteration"
-    assert ax.get_ylabel() == "cost"
-
-
-def _check_trace_figure(fig, arrays: dict[str, np.ndarray]) -> None:
-    """calibration_trace: one panel per parameter plus the objective, in order."""
-    axes = fig.axes
-    assert len(axes) == 3, "expected a K panel, a Sy panel and an objective panel"
-    for ax, key in zip(axes, ("K", "Sy", "cost"), strict=True):
-        np.testing.assert_allclose(_series(ax), arrays[key])
-        assert ax.get_ylabel() == key
-    assert axes[-1].get_xlabel() == "Iteration"
-
-
-def _check_landscape_figure(fig, arrays: dict[str, np.ndarray]) -> None:
-    """calibration_landscape (2 params): scatter of (K, Sy) colored by objective."""
-    ax = fig.axes[0]
-    scatter = _scatter(ax, arrays["K"].size)
-    offsets = np.asarray(scatter.get_offsets())
-    np.testing.assert_allclose(offsets[:, 0], arrays["K"])
-    np.testing.assert_allclose(offsets[:, 1], arrays["Sy"])
-    np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["cost"])
-    assert ax.get_xlabel() == "K"
-    assert ax.get_ylabel() == "Sy"
-
-
-def _check_posterior_figure(fig, arrays: dict[str, np.ndarray]) -> None:
-    """calibration_trial_distribution: one histogram per parameter, spanning its values."""
-    checked = 0
-    for ax in fig.axes:
-        key = ax.get_xlabel()
-        if key not in ("K", "Sy"):
-            continue
-        checked += 1
-        assert sum(patch.get_height() for patch in ax.patches) == pytest.approx(arrays[key].size)
-        lo = min(patch.get_x() for patch in ax.patches)
-        hi = max(patch.get_x() + patch.get_width() for patch in ax.patches)
-        assert lo <= arrays[key].min() and hi >= arrays[key].max()
-    assert checked == 2, "expected a K histogram and a Sy histogram"
-
-
-def _check_pairplot_figure(fig, arrays: dict[str, np.ndarray]) -> None:
-    """calibration_pairplot: 2x2 grid, diagonal histograms and off-diagonal scatters."""
-    names = ("K", "Sy")
-    axes = np.asarray(fig.axes).reshape(2, 2)
-    for i, pi in enumerate(names):
-        for j, pj in enumerate(names):
-            ax = axes[i, j]
-            if i == j:
-                heights = sum(patch.get_height() for patch in ax.patches)
-                assert heights == pytest.approx(arrays[pi].size)
-                continue
-            scatter = _scatter(ax, arrays["K"].size)
-            offsets = np.asarray(scatter.get_offsets())
-            np.testing.assert_allclose(offsets[:, 0], arrays[pj])
-            np.testing.assert_allclose(offsets[:, 1], arrays[pi])
-            np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["cost"])
-
-
-def _check_objective_surface_figure(fig, arrays: dict[str, np.ndarray]) -> None:
-    """calibration_objective_surface: evaluated points and the best marker."""
-    ax = fig.axes[0]
-    scatter = _scatter(ax, arrays["K"].size)
-    offsets = np.asarray(scatter.get_offsets())
-    np.testing.assert_allclose(offsets[:, 0], arrays["K"])
-    np.testing.assert_allclose(offsets[:, 1], arrays["Sy"])
-    np.testing.assert_allclose(np.asarray(scatter.get_array()), arrays["cost"])
-    best = int(np.argmin(arrays["cost"]))
-    marker = _scatter(ax, 1)
-    marker_xy = np.asarray(marker.get_offsets())[0]
-    assert marker_xy == pytest.approx((arrays["K"][best], arrays["Sy"][best]))
-    assert ax.get_xlabel() == "K"
-    assert ax.get_ylabel() == "Sy"
-
-
-_FIGURE_CHECKS = {
-    "calibration_convergence": _check_convergence_figure,
-    "calibration_trace": _check_trace_figure,
-    "calibration_landscape": _check_landscape_figure,
-    "calibration_trial_distribution": _check_posterior_figure,
-    "calibration_pairplot": _check_pairplot_figure,
-    "calibration_objective_surface": _check_objective_surface_figure,
-}
 
 
 # ---------------------------------------------------------------------------
@@ -333,31 +171,6 @@ def test_calibrate_brutsaert_runs_and_yields_valid_diagnostics(
     assert np.isfinite(rate["slope"])
     assert np.isfinite(rate["intercept"])
     assert rate["n_points"] >= 2.0
-
-
-# ---------------------------------------------------------------------------
-# Figure rendering (5 + 1 calibration figures)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("figure_name", FIGURE_NAMES)
-def test_calibration_figure_renders_png(
-    figure_name: str,
-    _sample_trace: list[dict],
-    tmp_path: Path,
-) -> None:
-    stub = _RunStub(session_id="grid_search-session", iterations=_sample_trace)
-    out_path = tmp_path / f"{figure_name}.png"
-    try:
-        fig = get_figure(figure_name).plot(
-            stub, save_path=out_path, **_FIGURE_KWARGS.get(figure_name, {})
-        )
-        # A blank axes with only a title would also write a PNG, so the real
-        # check is on the Figure's data, not on the file it was saved to.
-        _FIGURE_CHECKS[figure_name](fig, _trace_arrays(_sample_trace))
-    finally:
-        plt.close("all")
-    assert out_path.exists(), f"{figure_name} did not write {out_path}"
 
 
 def test_iterations_dataframe_roundtrip(_sample_trace: list[dict]) -> None:

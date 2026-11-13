@@ -160,10 +160,10 @@ def test_every_module_of_hydromodpy_has_a_first_docstring_line() -> None:
             assert row["summary"], f"{package}/{row['path']}"
 
 
-def test_the_port_table_holds_the_nine_registries_of_the_code() -> None:
+def test_the_port_table_holds_the_eight_registries_of_the_code() -> None:
     rows = C.port_table(ROOT, imports={})
-    assert len(rows) == 9
-    assert len({r["registry"] for r in rows}) == 9
+    assert len(rows) == 8
+    assert len({r["registry"] for r in rows}) == 8
     for row in rows:
         assert row["kind"], row["registry"]
         assert row["names"], row["registry"]
@@ -171,8 +171,8 @@ def test_the_port_table_holds_the_nine_registries_of_the_code() -> None:
     solvers = next(r for r in rows if r["registry"].endswith(".registry.solvers"))
     assert {"flow_modflow6", "flow_boussinesq"} <= set(solvers["names"])
     assert solvers["group"] == "hydromodpy.solver"
-    figures = next(r for r in rows if r["registry"].endswith(".figures"))
-    assert figures["group"] is None
+    evaluators = next(r for r in rows if r["registry"].endswith(".evaluators"))
+    assert evaluators["names"]
 
 
 def test_the_port_table_finds_the_readme_of_the_port_and_the_tests_that_import_it() -> None:

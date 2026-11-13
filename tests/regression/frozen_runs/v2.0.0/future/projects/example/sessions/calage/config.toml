@@ -1,3 +1,5 @@
+edition = "2.0"
+
 [geographic]
 source_mode = "synthetic"
 crs_project = "EPSG:2154"
@@ -45,10 +47,10 @@ values = 0.8
 units = "mm/day"
 
 [display]
-figures = [
-    "water_budget",
-]
 on_error = "warn"
+figure = [
+    { preset = "water_budget" },
+]
 dpi = 40
 enabled = false
 
@@ -66,10 +68,10 @@ step_value = "1 year"
 
 [[simulation.process]]
 id = "flow_main"
+kind = "flow"
 solvers = [
     "modflow_nwt",
 ]
-kind = "flow"
 
 [calibration]
 save_runs = "best_n"

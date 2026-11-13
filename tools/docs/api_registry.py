@@ -802,11 +802,10 @@ def produced_by(
 
 
 def session_figure() -> str:
-    """A registered figure to show in the minimal session."""
-    from hydromodpy.display.figure_registry import list_figures
+    """A shipped preset to show in the minimal session."""
+    from hydromodpy.display.presets import PRESETS
 
-    names = [spec.name for spec in list_figures()]
-    return "flux_timeseries" if "flux_timeseries" in names else names[0]
+    return "water_budget" if "water_budget" in PRESETS else next(iter(PRESETS))
 
 
 def read_rules() -> list[str]:

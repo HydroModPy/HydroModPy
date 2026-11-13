@@ -1,31 +1,31 @@
 {
   "provenance_version": 2,
-  "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
+  "sim_id": "eab9575d-5f50-476e-953a-26a85ad30cfe",
   "tool": {
     "name": "hydromodpy",
-    "version": "2.0.0rc1",
+    "version": "2.0.0",
     "code_fingerprint": {
-      "core": "c2b16d2ab5b89b86c40011541a5199275c7902a79691e92d06c2f39d763de117",
-      "config": "b8ef6e17e440026c7c8400dac6e8e12f46f09e87f03cc06fe82fa94a4e3dd81f",
-      "physics": "0ff5c99edf0b356033d64aad09d7d78a1d6fd7ed4694cb4b9d471496ee4d5c10",
-      "data": "cfb0c287a390ec58fdc2da10402a17131c43c8beb4f613d0b137f8840cc63c4f",
-      "spatial": "f1cacd2f527c3506ffa2d535d10da0afc7760d32611e872a00239641846fb90f",
-      "simulation": "e6b939c07c5aa610eb6ad801e96ab93623f800fb6635d3b23da05edbf783c5a9",
-      "solver": "83b76e2aa0280d9a8dbd5e192c1f9f576b087eb9a1257468f4d6a16569844dc9",
-      "results": "f69210f74ec3bf4878031356af90aea35e55c72046ff8691b42477727ab5bb26",
-      "workflow": "2eb8095e3910989de3c9d37d08a967674e74aa90fa9fdda39356aaec5680647f"
+      "core": "fee0c31463cf5575f10408c07779a4a02fb533b6d4c9cbed93429cb1f6e55111",
+      "config": "b7300fc1aceff7c14fc4fbb00f4c45243830d61b61c42a9b1923f6545011656f",
+      "model": "0115172e8787446f4585868d3b65cef2cc77eb4e2666c58e1b4bccd41021bfd9",
+      "data": "6a0103ac5ab4485edf6d22137967ba544b8ca241f3b935bc02ee7dd152f9855f",
+      "catchment": "fc11bbb7cf2edda6766cc3e8f143944cb4da965fb85808a75eef32116da361de",
+      "mesh": "4a1592f92f38799e723b27a414b586f3e5732436063df950540e95863ad35b10",
+      "solver": "9083200cc9f29b98fa55ed7c33f70bd85413cdf11a97080479078a6a4e4b57fe",
+      "results": "ad1805b3a4e4f6b69a7019cee784d930689d01ec87c539364ec0c781323db46a",
+      "workflow": "a62aea22ba06f7eeb61a4293fbe4b06509b567763fd804d09b27ac77b3553834"
     }
   },
   "git": {
-    "commit": null,
-    "dirty": null,
+    "commit": "d178b99c0fe3908c0ef9c890ba90ce6022b72a97",
+    "dirty": true,
     "project_commit": null
   },
   "python": {
     "version": "3.13.15"
   },
   "platform": {
-    "platform": "Linux-7.2.8-9-omarchy-x86_64-with-glibc2.44",
+    "platform": "Linux-7.2.15-1-omarchy-x86_64-with-glibc2.44",
     "hostname": "frozen",
     "user": "frozen",
     "cpu": {
@@ -35,7 +35,7 @@
       "arch": "X86_64",
       "bits": 64,
       "count": 22,
-      "hz_advertised_friendly": "2.1002 GHz"
+      "hz_advertised_friendly": "2.0000 GHz"
     },
     "memory_gb": 66.81
   },
@@ -66,9 +66,9 @@
     "options": null
   },
   "timing": {
-    "started_at": "2026-11-03T10:07:38.080919+00:00",
-    "ended_at": "2026-11-03T10:07:39.834956+00:00",
-    "duration_s": 1.754037
+    "started_at": "2026-11-13T20:46:42.796861+00:00",
+    "ended_at": "2026-11-13T20:46:44.595529+00:00",
+    "duration_s": 1.798668
   },
   "environment": {
     "conda_env_hash": null,

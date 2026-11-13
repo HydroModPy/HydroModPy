@@ -76,4 +76,11 @@ values = 0.78
 
 [flow.bc.drainage]
 [display]
-figures = ["watertable_depth_map", "seepage_map", "water_budget"]
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
+
+[[display.figure]]
+preset = "water_budget"

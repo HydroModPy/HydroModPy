@@ -130,7 +130,7 @@ def _variable_rows(run: Run, panel: PanelRequest) -> list[tuple]:
     """One bar per variable: its series reduced over time, weighted by period length."""
     names: list[str] = []
     for name in panel.variable:
-        names += read_budget(run, station=panel.station) if name == BUDGET else [name]
+        names += read_budget(run) if name == BUDGET else [name]
     rows = []
     for name in dict.fromkeys(names):
         values, seconds = _series(run, name, panel)

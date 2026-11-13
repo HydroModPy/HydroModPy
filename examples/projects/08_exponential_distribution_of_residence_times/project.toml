@@ -102,11 +102,23 @@ stop_time = 200000.0
 release_times = [0.0]
 [display]
 on_error = "raise"
-figures = [
-    "mesh_map",
-    "piezometric_map",
-    "cross_section",
-    "particle_tracks",
-    "residence_time_distribution",
-    "water_budget",
-]
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+
+[[display.figure]]
+preset = "particle_tracks"
+
+[[display.figure]]
+preset = "residence_time_distribution"
+
+[[display.figure]]
+preset = "water_budget"

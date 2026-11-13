@@ -94,5 +94,3 @@ negative_to_evt = true
 
 [display]
 enabled = true
-show = false
-save = true

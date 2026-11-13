@@ -83,18 +83,17 @@ solvers = [
     "modflow_nwt",
 ]
 
-[solver.backend]
-kind = "modflow_nwt"
-
-[modflownwt]
-
-[modflow6]
+[solver]
+backend = "modflow_nwt"
 
 [display]
 dpi = 40
-figures = [
-    "water_budget",
-]
 on_error = "warn"
+
+[[display.figure]]
+preset = "water_budget"
+formats = [
+    "png",
+]
 
 [observation]

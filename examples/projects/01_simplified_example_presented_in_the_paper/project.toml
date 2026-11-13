@@ -112,23 +112,42 @@ mf6_ims_complexity = "MODERATE"
 # Five layers thickening with depth.
 [display]
 on_error = "raise"
-figures = [
-    "watershed_id_card",
-    "mesh_map",
-    "piezometric_map",
-    "watertable_depth_map",
-    "seepage_map",
-    "particle_tracks",
-    "residence_time_distribution",
-    "cross_section",
-    "parameter_section",
-    "simulated_active_network",
-    "water_budget",
-]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
+
+[[display.figure]]
+preset = "particle_tracks"
+
+[[display.figure]]
+preset = "residence_time_distribution"
 
 # The paper section runs west to east through the catchment.
-[display.overrides.cross_section]
-orientation = "we"
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+# orientation = "we" has no equivalent: the line runs from the outlet
 
-[display.overrides.parameter_section]
-orientation = "we"
+[[display.figure]]
+variable = "hydraulic_conductivity"
+type = "section"
+# orientation = "we" has no equivalent: the line runs from the outlet
+
+[[display.figure]]
+variable = "simulated_active_network"
+
+[[display.figure]]
+preset = "water_budget"

@@ -24,4 +24,7 @@ They are frozen: a name here never changes its meaning, and ``outcome.step`` is 
 vocabulary, so a later version may add a step and a reader keeps what it does not know.
 ``tools/surface_snapshot.py`` holds the list and a test holds it against the pipeline."""
 
-__all__ = ["STEP_NAMES"]
+FIGURE_STEPS: tuple[str, ...] = STEP_NAMES[STEP_NAMES.index("extract") : STEP_NAMES.index("seal")]
+"""The steps a figure can follow with ``when = "after:<step>"``: their results are on disk."""
+
+__all__ = ["FIGURE_STEPS", "STEP_NAMES"]

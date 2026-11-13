@@ -2,43 +2,38 @@
 
 A figure is a short list of panels. A panel names a frame and the variables it
 receives. A request names one variable, a preset, a list of panels or a Python
-function. ``expand`` turns it into its panels with every hole filled, and nothing
-here reads a run.
-
-A preset is a request whose panels list their ``holes``: the panel fields a user may
-give at the figure level. The value a preset writes in a hole is its default.
-
-Each closed vocabulary is written once, here or below this module: ``FRAMES``,
-``ENGINES``, ``WHEN``, ``WIDTHS_MM``, ``FORMATS``, ``ZONES`` and ``OVERLAY_FIELDS``
-here, ``LAYER_REDUCTIONS`` in ``core/units/kinds.py`` and ``STEP_NAMES`` in
-``core/pipeline_steps.py``. ``theme``, ``static``, ``subject`` and ``overlays`` read
-them from here. A value that no engine draws yet is accepted here, and ``render`` refuses it
-in a sentence that says so.
-
-``SPECIALS`` is the table of facts of the special figures: the kind of subject each one
-reads, its width, its keywords and what it reads. The modules of ``display/special`` hold
-the drawing only, and ``render`` imports one by its name when it draws.
-
-The configuration imports this module at every load, so it reads only the standard
-library, pydantic, ``hydromodpy.core`` and ``results/field_registry.py``: no
-matplotlib, no pandas, no run reader.
+function, and ``expand`` turns it into its panels with every hole filled. A preset
+lists the ``holes`` of its panels, the fields a user may give, and writes their default.
+Each closed vocabulary is written once, here or in ``core``. Nothing here reads a run.
 """
 
 from __future__ import annotations
 
 import difflib
+import functools
 import inspect
+import json
 import re
+import tomllib
+from collections import Counter
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from importlib import resources
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, ValidationError, field_validator, model_validator
-from pydantic.json_schema import SkipJsonSchema
+from pydantic import (
+    BeforeValidator,
+    Field,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
+from pydantic.json_schema import SkipJsonSchema, WithJsonSchema
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
-from hydromodpy.core.pipeline_steps import STEP_NAMES
+from hydromodpy.core.pipeline_steps import FIGURE_STEPS
 from hydromodpy.core.time.instant import instant
 from hydromodpy.core.units.kinds import LAYER_REDUCTIONS
 from hydromodpy.results.field_registry import (
@@ -82,8 +77,7 @@ OVERLAY_FIELDS: dict[str, tuple[str, ...]] = {
     "scale_bar": (),
     "mesh": (),
 }
-"""Context layers a map or a section may draw, and the registered fields each one reads.
-``overlays.py`` holds one function per name."""
+"""Context layers a map or a section may draw, and the registered fields each one reads."""
 
 Instant = str | int
 """One instant: an ISO date, ``"first"``, ``"last"`` or a period index (negative from the end)."""
@@ -100,18 +94,20 @@ PARAMETER_TOKEN = "parameter"
 """``trials.parameter`` stands for each searched parameter, which ``facet = "parameter"`` fills."""
 
 
+STATIC, INTERACTIVE = "static", "interactive"
+
+
 @dataclass(frozen=True, slots=True)
 class Frame:
-    """One frame, drawn by the module ``hydromodpy.display.frames.<name>``.
+    """One frame, drawn by ``hydromodpy.display.frames.<name>``.
 
-    ``shapes`` are the registry shapes whose natural frame this is, the first frame
-    in table order winning. ``overlays`` are drawn when a panel names none. ``ready``
-    is false until the module of the frame exists.
+    ``shapes`` are the registry shapes it is the natural frame of, the first frame in
+    table order winning. ``overlays`` are drawn when a panel names none.
     """
 
     shapes: tuple[str, ...] = ()
     overlays: tuple[str, ...] = ()
-    ready: bool = False
+    engines: tuple[str, ...] = (STATIC,)
 
 
 _XY_SHAPES = (
@@ -126,17 +122,15 @@ FRAMES: dict[str, Frame] = {
     "map": Frame(
         (SHAPE_TIME_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_LAYER_FACE, SHAPE_FACE),
         ("outline", "outlet", "scale_bar"),
-        ready=True,
+        engines=(STATIC, INTERACTIVE),
     ),
-    "series": Frame((SHAPE_TIME,), ready=True),
-    "section": Frame(
-        (SHAPE_TIME_LAYER_FACE, SHAPE_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_FACE), ready=True
-    ),
-    "xy": Frame(_XY_SHAPES, ready=True),
-    "distribution": Frame(_XY_SHAPES, ready=True),
-    "groups": Frame(_XY_SHAPES, ready=True),
-    "table": Frame(ready=True),
-    "volume": Frame(),
+    "series": Frame((SHAPE_TIME,), engines=(STATIC, INTERACTIVE)),
+    "section": Frame((SHAPE_TIME_LAYER_FACE, SHAPE_LAYER_FACE, SHAPE_TIME_FACE, SHAPE_FACE)),
+    "xy": Frame(_XY_SHAPES),
+    "distribution": Frame(_XY_SHAPES),
+    "groups": Frame(_XY_SHAPES),
+    "table": Frame(),
+    "volume": Frame(engines=(INTERACTIVE,)),
 }
 TABLE = "table"
 MAP, SERIES, GROUPS = "map", "series", "groups"
@@ -148,23 +142,12 @@ MAP_TABLE = "sfr_reaches"
 """The one table a map draws a column of, as lines from each reach to its downstream cell."""
 
 
-@dataclass(frozen=True, slots=True)
-class Engine:
-    """One drawing engine: the file formats it writes and whether it draws yet."""
+ENGINES = {STATIC: FORMATS, INTERACTIVE: ("html",)}
+"""The drawing engines and the file formats each one writes."""
 
-    formats: tuple[str, ...]
-    ready: bool = False
-
-
-STATIC, INTERACTIVE = "static", "interactive"
-ENGINES: dict[str, Engine] = {
-    STATIC: Engine(FORMATS, ready=True),
-    INTERACTIVE: Engine(("html",)),
-}
-
-END, SESSION, TRIAL, AFTER = "end", "session", "trial", "after:"
-WHEN: dict[str, bool] = {END: True, SESSION: False, TRIAL: False, AFTER: False}
-"""When a figure is drawn, and whether it is drawn then yet. ``after:`` takes a step."""
+END, SESSION, AFTER = "end", "session", "after:"
+WHEN = (END, SESSION, AFTER)
+"""When a figure is drawn. ``after:`` takes a step of ``FIGURE_STEPS``."""
 
 AGAINST_OBSERVED = "observed"
 DRAW_KEYWORDS = ("station", "time")
@@ -173,12 +156,7 @@ DRAW_KEYWORDS = ("station", "time")
 
 @dataclass(frozen=True, slots=True)
 class Special:
-    """The facts of one special figure, drawn by ``hydromodpy.display.special.<name>``.
-
-    ``subject`` is ``run``, ``session`` or ``runset``. ``width`` is the printed width when
-    the request gives none. ``keywords`` are the ``DRAW_KEYWORDS`` its ``draw`` declares.
-    ``variables`` and ``tables`` are what it reads, so that the run planner keeps them.
-    """
+    """The facts of one special figure, drawn by ``hydromodpy.display.special.<name>``."""
 
     subject: str
     width: str | None = None
@@ -244,11 +222,48 @@ def unknown_column(name: str) -> str:
     )
 
 
-def unknown_variable(name: str) -> str:
-    """Return the refusal sentence for a variable no registry knows, with the closest names."""
-    known = [*FIELD_REGISTRY, *REBUILT_FIELDS, *TIME_SERIES_REGISTRY, BUDGET]
+@functools.cache
+def retired_table() -> dict[str, dict[str, Any]]:
+    """Read the table of the former figure names once."""
+    text = resources.files("hydromodpy.display").joinpath("retired_figures.toml").read_text("utf-8")
+    return tomllib.loads(text)
+
+
+def retired_forms(name: str) -> list[tuple[str, str]]:
+    """Return the (TOML pairs, Python call) of each form that replaces a former name."""
+    forms = retired_table()[name].get("figure", [])
+    out = []
+    for form in [forms] if isinstance(forms, dict) else forms:
+        lead = "variable" if "variable" in form else "preset"
+        rest = [f"{k}={json.dumps(v)}" for k, v in form.items() if k != lead]
+        toml = ", ".join(f"{k} = {json.dumps(v)}" for k, v in form.items())
+        out.append((toml, f"run.figure({', '.join([json.dumps(form[lead]), *rest])})"))
+    return out
+
+
+def retired(name: str) -> str | None:
+    """Return the sentence for a figure name of a pre-release, or None for any other name."""
+    row = retired_table().get(name)
+    if row is None:
+        return None
+    text = f"{name!r} was a figure of a pre-release."
+    if "none" in row:
+        return f"{text} {row['none']}"
+    forms = retired_forms(name)
+    write = " and ".join(f"[[display.figure]] {t}" for t, _ in forms)
+    text += f" Write {write}, or {' and '.join(c for _, c in forms)}."
+    return text + (f" Lost: {row['lost']}" if "lost" in row else "")
+
+
+def unknown_variable(name: str, presets: Iterable[str] = ()) -> str:
+    """Return the refusal for a variable no registry knows. With ``presets``, it is a figure name."""
+    if (former := retired(name)) is not None:
+        return former
+    known = [*FIELD_REGISTRY, *REBUILT_FIELDS, *TIME_SERIES_REGISTRY, BUDGET, *presets]
     close = difflib.get_close_matches(name, known, n=3)
     hint = f" Did you mean {', '.join(close)}?" if close else ""
+    if presets:
+        return f"Unknown figure {name!r}.{hint} A figure is a variable or a preset."
     return (
         f"Unknown variable {name!r}.{hint} A variable is a name of the field or series "
         "registry (results/field_registry.py), 'budget', or a 'table.column' in a table panel."
@@ -257,24 +272,14 @@ def unknown_variable(name: str) -> str:
 
 def descriptor(name: str) -> FieldDescriptor | TimeSeriesDescriptor | ColumnDescriptor:
     """Return the descriptor of a field, a rebuilt field, a table column or a series, series first."""
-    if name in TIME_SERIES_REGISTRY:
-        return TIME_SERIES_REGISTRY[name]
-    if name in FIELD_REGISTRY:
-        return FIELD_REGISTRY[name]
-    if name in REBUILT_FIELDS:
-        return REBUILT_FIELDS[name]
-    if name in COLUMN_REGISTRY:
-        return COLUMN_REGISTRY[name]
+    for registry in (TIME_SERIES_REGISTRY, FIELD_REGISTRY, REBUILT_FIELDS, COLUMN_REGISTRY):
+        if name in registry:
+            return registry[name]
     raise ValueError(unknown_variable(name))
 
 
 def shape_of(name: str) -> str:
-    """Return the registry shape of ``name``, which decides its natural frame.
-
-    ``budget`` takes the shape of its terms. A table column has no shape, so it is
-    refused here and needs a ``type``.
-    An ``index`` kind is never drawn and is refused too.
-    """
+    """Return the registry shape of ``name``. A table column and an index kind are refused."""
     if name == BUDGET:
         return SHAPE_TIME_LAYER_FACE
     if is_column(name):
@@ -290,6 +295,11 @@ def shape_of(name: str) -> str:
 
 def _listed(value: Any) -> Any:
     return [value] if isinstance(value, str) else value
+
+
+_ONE_OR_SEVERAL = {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]}
+Names = Annotated[list[str], BeforeValidator(_listed), WithJsonSchema(_ONE_OR_SEVERAL)]
+"""One name or a list of names. A single name is read as a list of one."""
 
 
 class ReferenceValue(HydroModelBase):
@@ -308,7 +318,7 @@ class PanelFields(HydroModelBase):
     type: str | None = Field(
         default=None, description="Frame of the panel. Unset, the natural frame of the variable."
     )
-    variable: list[str] | None = Field(
+    variable: Names | None = Field(
         default=None,
         description="Variable name or list. 'budget' is the budget terms the run kept. In a "
         "table panel, 'table.column' names.",
@@ -327,7 +337,7 @@ class PanelFields(HydroModelBase):
         description="A station of the run (lake:1, a reach, a gauge), or zone:catchment, "
         "zone:domain.",
     )
-    overlays: list[str] | None = Field(
+    overlays: Names | None = Field(
         default=None, description="Context layers drawn over a map or a section."
     )
     bbox: tuple[float, float, float, float] | None = Field(
@@ -387,31 +397,15 @@ class PanelFields(HydroModelBase):
             return self.time[0], self.time[1]
         return None
 
-    @field_validator("type")
+    @field_validator(
+        "type", "by", "overlays", "holes", "special", "width", "engine", check_fields=False
+    )
     @classmethod
-    def _known_frame(cls, value: str | None) -> str | None:
-        if value is not None and value not in FRAMES:
-            raise ValueError(_closest(value, FRAMES, "frame"))
-        return value
-
-    @field_validator("by")
-    @classmethod
-    def _known_group_key(cls, value: str | None) -> str | None:
-        if value is not None and value not in GROUP_KEYS:
-            raise ValueError(_closest(value, GROUP_KEYS, "group key"))
-        return value
-
-    @field_validator("variable", "overlays", mode="before")
-    @classmethod
-    def _as_list(cls, value: Any) -> Any:
-        return _listed(value)
-
-    @field_validator("overlays")
-    @classmethod
-    def _known_overlays(cls, value: list[str] | None) -> list[str] | None:
-        for name in value or ():
-            if name not in OVERLAY_FIELDS:
-                raise ValueError(_closest(name, OVERLAY_FIELDS, "overlay"))
+    def _known_word(cls, value: Any, info: ValidationInfo) -> Any:
+        known, what = VOCABULARIES[info.field_name]
+        for word in _listed(value) or ():
+            if word not in known:
+                raise ValueError(_closest(word, known, what))
         return value
 
     @field_validator("time", mode="before")
@@ -434,9 +428,9 @@ class PanelFields(HydroModelBase):
     @classmethod
     def _layer_shape(cls, value: Any) -> Any:
         words = [word for word in LAYER_REDUCTIONS if word is not None]
-        if isinstance(value, str) and value not in words:
-            raise ValueError(f"layer = {value!r}: write a layer index or one of {words}.")
-        if isinstance(value, bool) or (isinstance(value, int) and value < 0):
+        if (isinstance(value, str) and value not in words) or (
+            isinstance(value, bool) or (isinstance(value, int) and value < 0)
+        ):
             raise ValueError(f"layer = {value!r}: write a layer index or one of {words}.")
         return value
 
@@ -465,40 +459,32 @@ class PanelFields(HydroModelBase):
 
 
 PANEL_FIELDS = tuple(PanelFields.model_fields)
+VOCABULARIES = {
+    "type": (FRAMES, "frame"),
+    "by": (GROUP_KEYS, "group key"),
+    "overlays": (OVERLAY_FIELDS, "overlay"),
+    "holes": (PANEL_FIELDS, "panel field"),
+    "special": (SPECIALS, "special figure"),
+    "width": (WIDTHS_MM, "width"),
+    "engine": (ENGINES, "engine"),
+}
+"""The closed words each field accepts, and what one is called in a refusal."""
 
 
 class PanelRequest(PanelFields):
     """One panel of a figure, with the ``holes`` it leaves to the user when it is in a preset."""
 
-    holes: list[str] | None = Field(
+    holes: Names | None = Field(
         default=None,
         description="In a preset, the panel fields a user may give. The value written is "
         "the default.",
     )
 
-    @field_validator("holes", mode="before")
-    @classmethod
-    def _holes_as_list(cls, value: Any) -> Any:
-        return _listed(value)
-
-    @field_validator("holes")
-    @classmethod
-    def _known_holes(cls, value: list[str] | None) -> list[str] | None:
-        for name in value or ():
-            if name not in PANEL_FIELDS:
-                raise ValueError(_closest(name, PANEL_FIELDS, "panel field"))
-        return value
-
 
 class FigureRequest(PanelFields):
     """One figure: a variable, a preset, a list of panels or a Python function.
 
-    With ``variable`` or ``preset`` the panel fields describe the one panel or fill
-    the holes of the preset. ``draw`` takes a Python callable
-    ``draw(subject, ax, theme)``. A TOML value is never callable, and a mapping that
-    carries ``draw`` is refused, so no file can name code. ``draw`` stays out of the
-    JSON schema and of every dump, so a ledger never records it. ``special`` names a row
-    of ``SPECIALS``, which only a shipped preset carries.
+    ``draw`` and ``special`` stay out of the schema and of every dump, so no file names code.
     """
 
     preset: str | None = Field(
@@ -541,19 +527,13 @@ class FigureRequest(PanelFields):
     )
     when: str = Field(
         default=END,
-        description="When the figure is drawn: 'end', 'session', 'trial' or 'after:<step>'.",
+        description="When the figure is drawn: 'end', 'session' or 'after:<step>'.",
     )
-    every: int | None = Field(
-        default=None,
-        ge=1,
-        description="With when = 'trial', draw every this many trials.",
-        json_schema_extra=field_metadata(unit="trials"),
-    )
-    engine: list[str] = Field(
+    engine: Names = Field(
         default_factory=lambda: [STATIC],
         description="Drawing engines to use for the figure, one file per engine.",
     )
-    formats: list[str] = Field(
+    formats: Names = Field(
         default_factory=lambda: ["png"],
         description="File formats written for the figure, such as png or svg.",
     )
@@ -568,20 +548,6 @@ class FigureRequest(PanelFields):
             )
         return value
 
-    @field_validator("special")
-    @classmethod
-    def _known_special(cls, value: str | None) -> str | None:
-        if value is not None and value not in SPECIALS:
-            raise ValueError(_closest(value, SPECIALS, "special figure"))
-        return value
-
-    @field_validator("width")
-    @classmethod
-    def _known_width(cls, value: str | None) -> str | None:
-        if value is not None and value not in WIDTHS_MM:
-            raise ValueError(_closest(value, WIDTHS_MM, "width"))
-        return value
-
     @field_validator("name")
     @classmethod
     def _file_name(cls, value: str | None) -> str | None:
@@ -594,23 +560,10 @@ class FigureRequest(PanelFields):
     def _known_when(cls, value: str) -> str:
         if value.startswith(AFTER):
             step = value[len(AFTER) :]
-            if step not in STEP_NAMES:
-                raise ValueError(f"when = {value!r}: " + _closest(step, STEP_NAMES, "step"))
-        elif value not in WHEN:
-            raise ValueError(_closest(value, [*WHEN][:-1] + [AFTER + "<step>"], "when value"))
-        return value
-
-    @field_validator("engine", "formats", mode="before")
-    @classmethod
-    def _as_list_too(cls, value: Any) -> Any:
-        return _listed(value)
-
-    @field_validator("engine")
-    @classmethod
-    def _known_engines(cls, value: list[str]) -> list[str]:
-        for name in value:
-            if name not in ENGINES:
-                raise ValueError(_closest(name, ENGINES, "engine"))
+            if step not in FIGURE_STEPS:
+                raise ValueError(f"when = {value!r}: " + _closest(step, FIGURE_STEPS, "step"))
+        elif value not in WHEN[:-1]:
+            raise ValueError(_closest(value, [*WHEN[:-1], AFTER + "<step>"], "when value"))
         return value
 
     @model_validator(mode="after")
@@ -632,9 +585,9 @@ class FigureRequest(PanelFields):
             )
         if self.facet and self.panels is not None and len(self.panels) > 1:
             raise ValueError("facet repeats one panel; a figure of several panels cannot take it.")
-        if self.every is not None and self.when != TRIAL:
-            raise ValueError("every counts trials; write it with when = 'trial'.")
-        allowed = [fmt for name in self.engine for fmt in ENGINES[name].formats]
+        allowed = [fmt for name in self.engine for fmt in ENGINES[name]]
+        if "formats" not in self.model_fields_set:
+            self.formats = [ENGINES[name][0] for name in self.engine]
         for fmt in self.formats:
             if fmt not in allowed:
                 raise ValueError(
@@ -658,14 +611,13 @@ class ResolvedFigure:
     formats: tuple[str, ...]
     title: str | None = None
     facet: str | None = None
-    every: int | None = None
     preset: str | None = None
     draw: Callable[..., Any] | None = None
     special: str | None = None
     draw_keywords: Mapping[str, Any] = field(default_factory=dict)
 
 
-FIGURE_FIELDS = ("name", "title", "width", "facet", "when", "every", "engine", "formats")
+FIGURE_FIELDS = ("name", "title", "width", "facet", "when", "engine", "formats")
 
 
 OLD_OPTIONS: dict[str, tuple[str, str] | None] = {
@@ -678,8 +630,7 @@ OLD_OPTIONS: dict[str, tuple[str, str] | None] = {
     "show_run_name": None,
     "show_model": None,
 }
-"""Options of the figures that kept their name, and what replaces each one: the field that
-takes its place and how to write it, or None when nothing does."""
+"""Old options of the figures that kept their name: the field that replaces each, or None."""
 
 
 def no_option(name: str, unknown: list[str], accepted: Iterable[str]) -> str:
@@ -698,6 +649,20 @@ def no_option(name: str, unknown: list[str], accepted: Iterable[str]) -> str:
     return text
 
 
+def keywords_of(base: FigureRequest | None) -> tuple[str, ...]:
+    """Return the panel fields a figure accepts at the figure level, ``base`` being its preset."""
+    if base is None:
+        return PANEL_FIELDS
+    if base.special is not None:
+        return SPECIALS[base.special].keywords
+    if base.draw is not None:
+        declared = inspect.signature(base.draw).parameters
+        if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in declared.values()):
+            return DRAW_KEYWORDS
+        return tuple(key for key in DRAW_KEYWORDS if key in declared)
+    return tuple(dict.fromkeys(h for p in base.panels or () for h in p.holes or ()))
+
+
 def request_of(name: str, presets: Mapping[str, FigureRequest], **fields: Any) -> FigureRequest:
     """Return the request a bare name gives: a preset when ``presets`` holds it, else a variable."""
     key = "preset" if name in presets else "variable"
@@ -708,16 +673,7 @@ def request_of(name: str, presets: Mapping[str, FigureRequest], **fields: Any) -
         if not unknown:
             raise
         base = presets[name] if key == "preset" else None
-        if base is None:
-            accepted = PANEL_FIELDS
-        elif base.special is not None:
-            accepted = SPECIALS[base.special].keywords
-        elif base.draw is not None:
-            declared = inspect.signature(base.draw).parameters
-            accepted = tuple(key for key in DRAW_KEYWORDS if key in declared)
-        else:
-            accepted = tuple(dict.fromkeys(h for p in base.panels or () for h in p.holes or ()))
-        raise ValueError(no_option(name, unknown, accepted)) from None
+        raise ValueError(no_option(name, unknown, keywords_of(base))) from None
 
 
 def natural_frame(names: list[str]) -> str:
@@ -754,16 +710,6 @@ def _check_column(panel: PanelRequest, name: str, where: str) -> None:
         raise ValueError(f"{where}: {unknown_column(name)}")
 
 
-def _check_variables(panel: PanelRequest, where: str) -> None:
-    for name in panel.variable or ():
-        if is_column(name):
-            _check_column(panel, name, where)
-        elif panel.type == TABLE:
-            raise ValueError(f"{where}: a table panel takes 'table.column' names, not {name!r}.")
-        elif name != BUDGET:
-            shape_of(name)
-
-
 def _check_budget(panel: PanelRequest, where: str) -> None:
     """Refuse a budget that is not a series over a zone: the terms are summed over cells."""
     stations = [panel.station] if isinstance(panel.station, str) else panel.station or []
@@ -786,7 +732,13 @@ def _resolved_panel(panel: PanelRequest, where: str) -> PanelRequest:
         _check_budget(panel, where)
     frame = panel.type or (SERIES if BUDGET in panel.variable else natural_frame(panel.variable))
     resolved = panel.model_copy(update={"type": frame, "holes": None})
-    _check_variables(resolved, where)
+    for name in resolved.variable or ():
+        if is_column(name):
+            _check_column(resolved, name, where)
+        elif frame == TABLE:
+            raise ValueError(f"{where}: a table panel takes 'table.column' names, not {name!r}.")
+        elif name != BUDGET:
+            shape_of(name)
     if resolved.overlays is None:
         resolved = resolved.model_copy(update={"overlays": list(FRAMES[frame].overlays)})
     return resolved
@@ -812,13 +764,7 @@ def _filled(base: FigureRequest, preset: str, given: dict[str, Any]) -> list[Pan
 
 
 def expand(request: FigureRequest, presets: Mapping[str, FigureRequest]) -> ResolvedFigure:
-    """Return the figure a request asks for, its panels resolved in order.
-
-    A preset gives its panels, the user fills their holes, and the figure fields the
-    user wrote win over those of the preset. A panel without ``type`` takes the
-    natural frame of its variables, and a map without ``overlays`` the frame default.
-    Each refusal names what is wrong and what to write.
-    """
+    """Return the figure a request asks for. The user fills the holes of a preset and wins."""
     base, preset, given = request, None, _given(request)
     if request.preset is not None:
         preset = request.preset
@@ -831,30 +777,12 @@ def expand(request: FigureRequest, presets: Mapping[str, FigureRequest]) -> Reso
     figure.update(
         {key: getattr(request, key) for key in FIGURE_FIELDS if key in request.model_fields_set}
     )
-    draw, special, keywords, panels = base.draw, base.special, {}, []
-    if special is not None:
-        wrong = [key for key in given if key not in SPECIALS[special].keywords]
+    keywords, panels = {}, []
+    if base.special is not None or base.draw is not None:
+        accepted = keywords_of(base)
+        wrong = [key for key in given if key not in accepted]
         if wrong:
-            raise ValueError(no_option(preset or special, wrong, SPECIALS[special].keywords))
-        keywords = given
-    elif draw is not None:
-        extra = [key for key in given if key not in DRAW_KEYWORDS]
-        if extra:
-            raise ValueError(
-                f"{preset or 'This figure'!r} is drawn by a function and takes only "
-                f"{', '.join(DRAW_KEYWORDS)}, not {', '.join(extra)}."
-            )
-        declared = inspect.signature(draw).parameters
-        if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in declared.values()):
-            declared = dict.fromkeys(DRAW_KEYWORDS)
-        ignored = [key for key in given if key not in declared]
-        if ignored:
-            takes = ", ".join(key for key in DRAW_KEYWORDS if key in declared) or "no keyword"
-            raise ValueError(
-                f"The function of {preset or 'this figure'!r} takes {takes} beyond subject, "
-                f"ax and theme, so {', '.join(ignored)} cannot be given. Add the keyword to "
-                "the function or drop the option."
-            )
+            raise ValueError(no_option(preset or base.special or "this figure", wrong, accepted))
         keywords = given
     elif preset is not None:
         panels = _filled(base, preset, given)
@@ -883,10 +811,9 @@ def expand(request: FigureRequest, presets: Mapping[str, FigureRequest]) -> Reso
         formats=tuple(figure["formats"]),
         title=figure["title"],
         facet=figure["facet"],
-        every=figure["every"],
         preset=preset,
-        draw=draw,
-        special=special,
+        draw=base.draw,
+        special=base.special,
         draw_keywords=keywords,
     )
 
@@ -916,10 +843,7 @@ def file_stem(request: FigureRequest) -> str:
 
 def check_stems(requests: Iterable[FigureRequest]) -> None:
     """Refuse two requests of one list that would write the same file."""
-    seen: dict[str, int] = {}
-    for request in requests:
-        stem = file_stem(request)
-        seen[stem] = seen.get(stem, 0) + 1
+    seen = Counter(file_stem(request) for request in requests)
     twice = sorted(stem for stem, count in seen.items() if count > 1)
     if twice:
         raise ValueError(
@@ -927,15 +851,19 @@ def check_stems(requests: Iterable[FigureRequest]) -> None:
         )
 
 
-def required_variables(
-    request: FigureRequest, presets: Mapping[str, FigureRequest]
-) -> tuple[str, ...]:
-    """Return the registered variables a request reads, overlay fields included, sorted.
+def budget_terms() -> tuple[str, ...]:
+    """Return the per-cell budget terms of an aquifer, the ones ``budget`` draws."""
+    return tuple(
+        name
+        for name, field in FIELD_REGISTRY.items()
+        if field.zarr_path.startswith(BUDGET_GROUP) and name not in NOT_AQUIFER_TERMS
+    )
 
-    The run planner keeps these. ``budget`` adds every per-cell budget term of an
-    aquifer. A special figure declares what its row of ``SPECIALS`` lists, and a figure
-    drawn by a Python function declares nothing.
-    """
+
+def required_variables(
+    request: FigureRequest, presets: Mapping[str, FigureRequest], *, terms: bool = True
+) -> tuple[str, ...]:
+    """Return the sorted variables the run planner keeps for a request, overlay fields included."""
     names: set[str] = set()
     figure = expand(request, presets)
     if figure.special is not None:
@@ -943,28 +871,19 @@ def required_variables(
     for panel in figure.panels:
         names.update(name for name in panel.variable or () if is_registered(name))
         if BUDGET in (panel.variable or ()):
-            names.update(
-                name
-                for name, field in FIELD_REGISTRY.items()
-                if field.zarr_path.startswith(BUDGET_GROUP) and name not in NOT_AQUIFER_TERMS
-            )
+            names.update(budget_terms() if terms else (BUDGET,))
         for overlay in panel.overlays or ():
             names.update(OVERLAY_FIELDS[overlay])
     return tuple(sorted(names))
 
 
 def replay_request(figure: ResolvedFigure) -> FigureRequest:
-    """Return the request that draws ``figure`` again, as the ledger records it.
-
-    A figure drawn by a function replays through its preset. A function given in
-    Python without a preset has no record to replay and is refused.
-    """
+    """Return the request that draws ``figure`` again, as the ledger records it."""
     common = {
         "name": figure.stem,
         "title": figure.title,
         "width": figure.width,
         "when": figure.when,
-        "every": figure.every,
         "engine": list(figure.engine),
         "formats": list(figure.formats),
     }

@@ -14,7 +14,6 @@ from hydromodpy.catchment.algorithms.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
 )
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.results.run.view import Run
 from tests._helpers.run_builders import runs
 
@@ -49,7 +48,6 @@ def test_reference_network_accessor(runs):
     assert sim.has_hydrographic_network("reference") is True
     assert sim.has_hydrographic_network("generated") is False
     assert sim.available_hydrographic_network_roles() == ["reference"]
-    assert get_figure("hydrographic_network_reference").unavailable_reason(sim) is None
     contract = sim.hydrographic_network_naming("reference")
     assert contract["canonical_feature_name"] == HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME
     assert contract["default_vector_filename"] == "streams.shp"
@@ -66,14 +64,6 @@ def test_comparison_of_the_two_roles(runs):
     assert metrics["comparison_id"] == "demo"
     assert metrics["reference_total_length_m"] == pytest.approx(1000.0)
     assert metrics["candidate_total_length_m"] == pytest.approx(800.0)
-    for figure in (
-        "hydrographic_network_reference",
-        "hydrographic_network_generated",
-        "hydrographic_network_comparison",
-        "hydrographic_network_reference_missing_only",
-        "hydrographic_network_generated_extra_only",
-    ):
-        assert get_figure(figure).unavailable_reason(sim) is None
     generated_contract = sim.hydrographic_network_naming("generated")
     assert (
         generated_contract["canonical_feature_name"] == HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME

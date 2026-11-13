@@ -12,7 +12,6 @@ import pytest
 
 import hydromodpy as hmp
 from hydromodpy.core.exceptions import DisplayError
-from hydromodpy.display import figure_registry
 from hydromodpy.display.presets import PRESETS
 from hydromodpy.display.request import (
     DRAW_KEYWORDS,
@@ -22,7 +21,6 @@ from hydromodpy.display.request import (
     expand,
     is_registered,
 )
-from hydromodpy.project.show import takes_request
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.stream_network import cell_fields
 from hydromodpy.results.run.group import RunSet
@@ -85,7 +83,7 @@ def test_a_panel_preset_draws_the_stored_run(stored_run, name, monkeypatch):
 
 
 def test_a_hole_is_filled_and_a_field_that_is_no_hole_is_refused(stored_run):
-    tables = stored_run.figure_data("hydrograph", variable="discharge", station=GAUGE)
+    tables = stored_run.figure("hydrograph", variable="discharge", station=GAUGE, data=True)
     assert set(tables) == {"a", "b"}
     with pytest.raises(ValueError, match="no hole 'layer'"):
         stored_run.figure("hydrograph", layer=1)
@@ -98,12 +96,7 @@ def test_a_hole_is_filled_and_a_field_that_is_no_hole_is_refused(stored_run):
     ):
         stored_run.figure("sfr_longitudinal_profile", station="x")
     with pytest.raises(DisplayError, match="special figure.*no table of numbers"):
-        stored_run.figure_data("recession")
-
-
-@pytest.mark.parametrize("name", ["hydrograph", "recession"])
-def test_a_name_both_paths_know_draws_the_preset_by_door_and_the_registered_figure_by_key(name):
-    assert takes_request(name, PRESETS, {}) and figure_registry.get(name).spec.name == name
+        stored_run.figure("recession", data=True)
 
 
 def test_specials_are_reached_by_name_on_a_run_a_session_and_a_set(tmp_path):

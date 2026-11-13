@@ -215,7 +215,7 @@ shape = [30, 30]
 nlay = 2
 
 [display]
-show = false
+enabled = false
 """
 
 

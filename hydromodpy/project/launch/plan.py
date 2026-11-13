@@ -110,7 +110,7 @@ CATALOG_BIND = {
     "geographic.catchment.y_outlet": "y_outlet",
 }
 """How the fixed columns of the workspace site catalog reach a case."""
-EXTRA_SITE_SCOPED = ("display.overrides.cross_section",)
+EXTRA_SITE_SCOPED = ("display.figure[].line",)
 SCRATCH_PER_KEPT_SOLVE_GIB = (0.6, 4.8)
 """Scratch one kept solve takes, low and high, as measured on the example 04."""
 CALIBRATION_PARALLEL_CEILING = 8

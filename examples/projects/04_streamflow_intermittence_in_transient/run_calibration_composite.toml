@@ -70,25 +70,52 @@ start = "2001-01-01"
 # K alone. The cost profile and the distance crossing read K here, each trial
 # at its own Sy. The exports are those of project.toml.
 [display]
-figures = [
-    "watershed_id_card",
-    "flux_timeseries",
-    "hydrograph_log_nse",
-    "scatter_one_to_one",
-    "watertable_depth_map",
-    "seepage_map",
-    "flow_persistence_map",
-    "flow_intermittence_map",
-    "seepage_network_confusion_map",
-    "downslope_distance_map",
+[[display.figure]]
+preset = "watershed_id_card"
 
-    "calibration_progress",
-    "parameter_cost_profile",
-    "downslope_distance_crossing",
-]
+[[display.figure]]
+preset = "water_budget"
 
-[display.overrides.parameter_cost_profile]
-parameter = "K"
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
 
-[display.overrides.downslope_distance_crossing]
-parameter = "K"
+[[display.figure]]
+variable = "discharge"
+type = "xy"
+observed = true
+reference = ["one_to_one"]
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
+
+[[display.figure]]  # replaces flow_persistence_map, flow_intermittence_map
+variable = "simulated_active_network"
+reduce = "frequency"
+
+[[display.figure]]
+variable = "network_agreement"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+
+[[display.figure]]
+preset = "calibration_progress"
+when = "session"
+
+[[display.figure]]
+variable = ["trials.parameter", "trials.cost"]
+type = "xy"
+facet = "parameter"
+when = "session"
+# parameter = "K" has no equivalent: the new request has no such field
+
+[[display.figure]]
+preset = "root_search"
+when = "session"
+# parameter = "K" has no equivalent: the new request has no such field

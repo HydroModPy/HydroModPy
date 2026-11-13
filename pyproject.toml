@@ -222,8 +222,9 @@ hydromodpy = ["py.typed"]
 # The SLURM job templates of `hmp campaign array`, read by importlib.resources.
 "hydromodpy.project.launch.templates" = ["*.sh"]
 "hydromodpy.catchment.administrative" = ["*.gpkg"]
-# TeX Gyre Heros and its licence, registered by display/theme.py.
-"hydromodpy.display" = ["fonts/*.ttf", "fonts/*.txt"]
+# TeX Gyre Heros and its licence, registered by display/theme.py, and the table
+# of the former figure names, read by display/request.py.
+"hydromodpy.display" = ["fonts/*.ttf", "fonts/*.txt", "retired_figures.toml"]
 # The curated CF v85 standard-name list is read at runtime by cf_validation.py.
 "hydromodpy.results.zarr_store.data" = ["*.txt"]
 

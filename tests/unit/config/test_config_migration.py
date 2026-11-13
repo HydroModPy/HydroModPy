@@ -221,8 +221,8 @@ since = "3.0.0"
 
 [[migration]]
 document = "config"
-old = "display.overrides.{*}.shade_before"
-new = "display.overrides.{*}.cmap"
+old = "display.presets.{*}.shade_before"
+new = "display.presets.{*}.cmap"
 since = "3.0.0"
 
 [[migration]]
@@ -262,7 +262,7 @@ CELL, OPTION, FILL, OUTLET = (
     next(row for row in RENAMES.migrations if row.old == old)
     for old in (
         "mesh.size_before",
-        "display.overrides.{*}.shade_before",
+        "display.presets.{*}.shade_before",
         "solver.fill_before",
         "geographic.outlet_before",
     )
@@ -427,11 +427,11 @@ def test_doctor_stuck_value(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 def test_doctor_keeps_comment(tmp_path: Path) -> None:
     path = tmp_path / "project.toml"
     path.write_text(
-        '[display.overrides.map]\nfirst = 1\nshade_before = "a"  # the map\nlast = 2\n',
+        '[display.presets.map]\nfirst = 1\nshade_before = "a"  # the map\nlast = 2\n',
         encoding="utf-8",
     )
 
-    assert _doctor(path) == ["display.overrides.map.shade_before -> cmap"]
+    assert _doctor(path) == ["display.presets.map.shade_before -> cmap"]
 
     lines = path.read_text(encoding="utf-8").splitlines()
     assert [line.split(" ")[0] for line in lines[1:]] == ["first", "cmap", "last"]
@@ -679,8 +679,8 @@ PLACES = [
         id="a table that changes place",
     ),
     pytest.param(
-        {"display": {"overrides": {"seepage_map": {"shade_before": "a"}}}},
-        {"display": {"overrides": {"seepage_map": {"cmap": "a"}}}},
+        {"display": {"presets": {"seepage_map": {"shade_before": "a"}}}},
+        {"display": {"presets": {"seepage_map": {"cmap": "a"}}}},
         id="a figure option",
     ),
     pytest.param(
@@ -692,8 +692,8 @@ PLACES = [
         id="a phase override under a moved table",
     ),
     pytest.param(
-        _phase({"display.overrides.seepage_map.shade_before": "a"}),
-        _phase({"display.overrides.seepage_map.cmap": "a"}),
+        _phase({"display.presets.seepage_map.shade_before": "a"}),
+        _phase({"display.presets.seepage_map.cmap": "a"}),
         id="a phase override of a figure",
     ),
     pytest.param(
@@ -751,7 +751,7 @@ def test_row_reaches_the_helpers() -> None:
     assert moved("mesh.size_before") == "mesh.cell_size"
     assert moved("solver.fill_before") == "flow.fill_after"
     assert moved("geographic.outlet_before.x") == "site.outlet_after.x"
-    assert moved("display.overrides.a_map.shade_before") == "display.overrides.a_map.cmap"
+    assert moved("display.presets.a_map.shade_before") == "display.presets.a_map.cmap"
     assert moved("mesh.size_before__delete") == "mesh.cell_size__delete"
     assert moved("mesh.cell_size") == "mesh.cell_size"
     assert CELL in {moved_path.row for moved_path in moved_paths(register=RENAMES)}

@@ -124,6 +124,7 @@ def write_pages(
     rendered: date,
     preset: str = "",
     words: Mapping[str, str] | None = None,
+    reasons: Mapping[str, str] | None = None,
 ) -> Path:
     """Write the pages of a report under ``out`` and return its ``index.html``.
 
@@ -131,7 +132,8 @@ def write_pages(
     ``review/{compact,standard,audit,by_block}/index.html``. ``levels=False``
     writes ``index.html`` alone. The figures are copied under ``figures/`` and
     ``report.json`` lists each figure with its file, or ``null`` when it is
-    missing, and the required figures that are missing. ``words`` replaces the
+    missing. ``missing`` maps each required figure that is missing, and each figure named in
+    ``reasons``, to its reason, else to a plain statement. ``words`` replaces the
     words of the page frame (:data:`WORDS`). The engine removes only the figures
     it copied on a former call, never a file someone else put in ``figures/``.
     """
@@ -159,7 +161,7 @@ def write_pages(
     index.write_text(
         _page(head, blocks, "standard", out, pages, copied, "standard"), encoding="utf-8"
     )
-    _write_report_json(out, pictures, copied, head, preset)
+    _write_report_json(out, pictures, copied, head, preset, reasons or {})
     return index
 
 
@@ -214,7 +216,12 @@ def _copy_pictures(
 
 
 def _write_report_json(
-    out: Path, pictures: Sequence[Picture], copied: Mapping[str, Path], head: _Head, preset: str
+    out: Path,
+    pictures: Sequence[Picture],
+    copied: Mapping[str, Path],
+    head: _Head,
+    preset: str,
+    reasons: Mapping[str, str],
 ) -> None:
     written = sorted({t.name for s, t in copied.items() if Path(s).resolve() != t.resolve()})
     figures = {
@@ -232,7 +239,11 @@ def _write_report_json(
         "label": head.label,
         "rendered": head.rendered.isoformat(),
         "figures": figures,
-        "missing": sorted({p.id for p in pictures if p.required and not p.ok}),
+        "missing": {
+            p.id: reasons.get(p.id, "the figure was not drawn")
+            for p in sorted(pictures, key=lambda p: p.id)
+            if not p.ok and (p.required or p.id in reasons)
+        },
         "copied": written,
     }
     (out / "report.json").write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")

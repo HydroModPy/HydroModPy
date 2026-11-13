@@ -106,8 +106,8 @@ whatever their lengths. Three suffixes on a key change this rule for that key.
 |---|---|
 | a table the parent also has | both tables, merged key by key down to the leaves |
 | a number, a string, a boolean | the child's value |
-| a list of values, `figures = [...]` | the child's list, which **replaces** the parent's |
-| `figures__append = [...]` | the parent's list, then the child's items |
+| a list of values, `variables = [...]` | the child's list, which **replaces** the parent's |
+| `figure__append = [...]` | the parent's list, then the child's items |
 | `key__delete = true` | the parent's key or table removed, with all that is under it |
 | `[[x]]` blocks | the child's blocks, which **replace** the parent's, whatever their number |
 | `[[x__append]]` | the parent's blocks, then the child's |
@@ -130,7 +130,7 @@ base_config = "base.toml"
 value = 1e-4                    # kind and unit are inherited
 
 [display]
-figures__append = ["duration_curve"]
+figure__append = [{ variable = "discharge", type = "distribution", cumulative = true }]
 
 [[export__append]]
 variables = "watershed_dem"
@@ -301,7 +301,8 @@ of {toml}`export.period`. A table with `start` and `end` is the form of
 
 ```{hmp-toml}
 :caption: instants and windows, validated on step 4
-[display]
+[[display.figure]]
+variable = "watertable_depth"
 time = "2002-10-15"
 
 [[export__append]]
@@ -350,7 +351,6 @@ match a name written elsewhere.
 | {toml}`domain.supports.<name>` | a name you choose | `field_spatial_id` of the parameters that use it, and {toml}`data.geology.id` for a geology support |
 | {toml}`calibration.parameters.<name>` | `K`, `Sy`, `Ss`, `thickness` or `drainage` resolve to their target; any other name needs `path` | `parameters` of a calibration phase |
 | {toml}`calibration.outputs.<name>` | a name you choose | `uses_outputs` of an objective block, `outputs` of a phase |
-| `[display.overrides.<figure>]`, see {toml}`display.overrides` | the name of a registered figure | `hmp config figures` prints the names; another name is refused with the list |
 
 One name can appear in three places. Here a support called `geology_zones` is declared,
 filled from a geology file, and used by K:

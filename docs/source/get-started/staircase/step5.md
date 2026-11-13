@@ -113,9 +113,9 @@ By default it holds the results, the final state, the DEM, the GeoPackage and th
 `hmp catalog import nancon.tar` installs them in another workspace
 ({doc}`../share-a-simulation`).
 
-Eight figures, drawn from the same data: `watershed_id_card`, `flux_timeseries`,
-`hydrograph_sim_obs`, `watertable_depth_map`, `seepage_map`, `seepage_network_confusion_map`,
-`downslope_distance_map` and `flow_persistence_map`.
+Eight figures, drawn from the same data: the presets `watershed_id_card`, `water_budget` and
+`hydrograph`, and the variables `watertable_depth`, `seepage_mask`, `network_agreement`,
+`downslope_distance` and `simulated_active_network`.
 
 Once a run exists you can also ask for files without editing the TOML, for example
 `hmp export nancon_step5_export head watertable_depth --time 2002-10-15`.

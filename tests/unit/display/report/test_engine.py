@@ -97,7 +97,7 @@ def test_a_file_the_engine_did_not_write_stays_in_figures(tmp_path):
     assert theirs.is_file()
     assert other.is_file()
     report = json.loads((out / "report.json").read_text())
-    assert report["missing"] == []
+    assert report["missing"] == {}
     assert report["figures"]["t"]["file"] == "drawn_by_the_caller.png"
 
 

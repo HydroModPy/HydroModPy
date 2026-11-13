@@ -59,6 +59,4 @@ freq = "MS"
 
 [display]
 enabled = true
-show = false
-save = true
 dpi = 300

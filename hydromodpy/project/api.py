@@ -1033,7 +1033,8 @@ def show(
     best runs on ``metric`` at ``station``, the worst with ``best=False``;
     ``figure`` (run, session, set) the figure ``name`` with ``dpi``, ``time`` and
     the figure's ``options``; ``report`` (run, session) the report, with
-    ``preset``, ``lang``, ``station``, ``strict``.
+    ``preset``, ``station``, ``strict``. The report has one language, so ``lang`` is
+    refused with the form that replaced it.
 
     A bare name that a session and a run both carry is read as the session for
     ``summary``, and as the run for the other values of ``what``. ``runs/<name>``

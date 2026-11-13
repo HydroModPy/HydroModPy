@@ -640,21 +640,20 @@ def _time_selectors(cfg: object) -> list[tuple[str, str, Any]]:
 
     ``kind`` is ``"instant"`` for one selector, ``"dates"`` for a list of them
     and ``"period"`` for a ``(start, end)`` pair. The ``[[export]]`` blocks give
-    ``time`` and ``period``; ``[display]`` gives ``time``, and so can the options
-    of each figure under ``[display.overrides.<figure>]``.
+    ``time`` and ``period``; a ``[[display.figure]]`` gives ``time`` when it is one
+    date, at the figure level or in a panel.
     """
     selectors: list[tuple[str, str, Any]] = []
     for index, request in enumerate(getattr(cfg, "export", None) or ()):
         selectors.append((f"export[{index}].time", "dates", request.times))
         if request.period is not None:
             selectors.append((f"export[{index}].period", "period", request.period))
-    display = getattr(cfg, "display", None)
-    display_time = getattr(display, "time", None)
-    if display_time is not None:
-        selectors.append(("display.time", "instant", display_time))
-    for figure, options in (getattr(display, "overrides", None) or {}).items():
-        if isinstance(options, dict) and options.get("time") is not None:
-            selectors.append((f"display.overrides.{figure}.time", "instant", options["time"]))
+    for index, figure in enumerate(getattr(getattr(cfg, "display", None), "figure", None) or ()):
+        for where, panel in [(f"display.figure[{index}]", figure)] + [
+            (f"display.figure[{index}].panels[{n}]", p) for n, p in enumerate(figure.panels or ())
+        ]:
+            if panel.time is not None and not isinstance(panel.time, list):
+                selectors.append((f"{where}.time", "instant", panel.time))
     return selectors
 
 

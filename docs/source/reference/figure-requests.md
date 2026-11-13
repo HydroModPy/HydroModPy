@@ -57,3 +57,10 @@ An overlay is a context layer on a map or a section.
 
 ```{hmp-figure-requests} overlays
 ```
+
+## Former figure names
+
+A figure name of a pre-release is refused with the request that replaces it.
+
+```{hmp-figure-requests} retired
+```

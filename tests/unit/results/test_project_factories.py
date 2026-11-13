@@ -165,13 +165,13 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
         config_snapshot={"workflow": {"mode": "simulation"}},
     )
 
-    child = Project.rerun(parent, name="derived", set={"display.save": False})
+    child = Project.rerun(parent, name="derived", set={"display.theme": "print"})
 
     assert child.sim_id == "child"
     assert stub_project_phases["config"] is cfg
     assert captured["snapshot"] == {"workflow": {"mode": "simulation"}}
-    assert captured["changes"] == {"display.save": False}
+    assert captured["changes"] == {"display.theme": "print"}
     assert captured["name"] == "derived"
     assert captured["parent_sim_id"] == "parent"
     assert captured["lineage"].kind == "rerun"
-    assert captured["lineage"].overrides == {"display.save": False}
+    assert captured["lineage"].overrides == {"display.theme": "print"}

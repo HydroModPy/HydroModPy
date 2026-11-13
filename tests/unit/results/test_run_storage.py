@@ -68,8 +68,10 @@ from hydromodpy.data.provenance.lockfile import (
     write_lockfile,
 )
 from hydromodpy.data.provenance.sidecars import Sidecar
-from hydromodpy.display.config import DisplayConfig
-from hydromodpy.display.runs import figures_dir_of, regen_figures, render_figures_for_run
+from hydromodpy.display.presets import PRESETS
+from hydromodpy.display.request import FigureRequest
+from hydromodpy.display.runs import draw_requests, figures_dir_of, regen_figures
+from hydromodpy.display.theme import get_theme
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, PlanarCellMesh
 from hydromodpy.project.launch.lease import LEASE_SCHEMA, acquire_lease, lease_path, read_lease
 from hydromodpy.project.launch.plan import case_is_done, running_cases
@@ -1614,8 +1616,12 @@ def test_figure_ledger_replays(tmp_path) -> None:
     figures = figures_dir_of(run_dir)
     with Catalog(tmp_path / "project") as catalog:
         run = catalog[sim_id]
-        report = render_figures_for_run(
-            run, DisplayConfig(figures=["water_budget"]), output_dir=figures
+        report = draw_requests(
+            run,
+            [FigureRequest(variable="head")],
+            presets=PRESETS,
+            theme=get_theme("default"),
+            output_dir=figures,
         )
         assert report.written
         recorded = _entries(figures)

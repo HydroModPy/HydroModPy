@@ -1,6 +1,6 @@
 {
   "demo": {
-    "sim_id": "5e78a478-2c73-4398-a089-721c0648c59a",
+    "sim_id": "72bf0eb5-2be2-46ae-8734-b9488dbdc0e2",
     "name": "demo",
     "project": "example",
     "solver": "modflow_nwt",
@@ -15,7 +15,7 @@
       "n_timesteps": 1,
       "time_unit": "year"
     },
-    "budget_pct": 0.05999999865889549,
+    "budget_pct": 0.064392561771918,
     "parameters": {
       "K": 0.0001,
       "Sy": 0.12,
@@ -29,7 +29,8 @@
       "kind": null,
       "overrides": {},
       "drift": {},
-      "parent_hint": null
+      "parent_hint": null,
+      "replay": null
     },
     "head": {
       "shape": [
@@ -126,7 +127,7 @@
         "quantity": "water",
         "total_in": 0.0092593003064394,
         "total_out": 0.009265200234949589,
-        "percent_error": -0.05999999865889549
+        "percent_error": -0.064392561771918
       }
     ],
     "parameters_table": [
@@ -147,12 +148,6 @@
       }
     ],
     "metrics": [
-      {
-        "station_id": "flow_main::modflow_nwt",
-        "variable": "runtime",
-        "metric": "flow_solve_time_seconds",
-        "value": 0.026686207856982946
-      },
       {
         "station_id": "flow_main::modflow_nwt",
         "variable": "runtime",
@@ -202,7 +197,7 @@
     ]
   },
   "calibrated_run": {
-    "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
+    "sim_id": "eab9575d-5f50-476e-953a-26a85ad30cfe",
     "name": "calage",
     "project": "example",
     "solver": "modflow_nwt",
@@ -217,7 +212,7 @@
       "n_timesteps": 1,
       "time_unit": "day"
     },
-    "budget_pct": 0.05999999865889549,
+    "budget_pct": 0.064392561771918,
     "parameters": {
       "K": 0.0001,
       "Sy": 0.12,
@@ -225,13 +220,14 @@
     },
     "lineage": {
       "parent_sim_id": null,
-      "session_id": "15ed6e9bfc5e44558cf3537f3faa6f33",
+      "session_id": "2473cfc06b9943a1b59b0c180ac9db26",
       "phase": "k_grid",
       "trial": 2,
       "kind": "promoted",
       "overrides": {},
       "drift": {},
-      "parent_hint": "sessions/calage"
+      "parent_hint": "sessions/calage",
+      "replay": null
     },
     "head": {
       "shape": [
@@ -328,7 +324,7 @@
         "quantity": "water",
         "total_in": 0.0092593003064394,
         "total_out": 0.009265200234949589,
-        "percent_error": -0.05999999865889549
+        "percent_error": -0.064392561771918
       }
     ],
     "parameters_table": [
@@ -349,12 +345,6 @@
       }
     ],
     "metrics": [
-      {
-        "station_id": "flow_main::modflow_nwt",
-        "variable": "runtime",
-        "metric": "flow_solve_time_seconds",
-        "value": 0.02672968409024179
-      },
       {
         "station_id": "flow_main::modflow_nwt",
         "variable": "runtime",
@@ -396,7 +386,7 @@
     "figures": []
   },
   "session": {
-    "session_id": "15ed6e9bfc5e44558cf3537f3faa6f33",
+    "session_id": "2473cfc06b9943a1b59b0c180ac9db26",
     "case_id": "calage",
     "status": "completed",
     "method": "grid",
@@ -409,7 +399,7 @@
       },
       "cases": {
         "calage": {
-          "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
+          "sim_id": "eab9575d-5f50-476e-953a-26a85ad30cfe",
           "rel_dir": "runs/calage",
           "cost": 0.002899322509765767
         }
@@ -446,7 +436,7 @@
         "cost": 0.002899322509765767,
         "status": "completed",
         "phase": "k_grid",
-        "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2"
+        "sim_id": "eab9575d-5f50-476e-953a-26a85ad30cfe"
       },
       {
         "trial": 3,
@@ -459,7 +449,7 @@
     ]
   },
   "digests": {
-    "current": "eebb18539331e0f3ed09a5058d845d782479bfb0de85bc67ceadfb7a26e6a8af",
-    "future": "4ccc250ad269ea13db55020e49f07b1c6343689f8ad46733a81d2bd811359e23"
+    "current": "80733c2c86180bee073c6fbf823e8b9325622ef6d7a0fe51721d0acb690a6347",
+    "future": "a636ffbbb2ec0f170ad52429b23dffe87af7ad567902676c16cb1797bd09f1df"
   }
 }

@@ -26,12 +26,19 @@ station_ids = ["NANCON"]
 # confusion map says which cells agree, the distance map how far each
 # simulated cell descends before it reaches the map.
 [display]
-figures = [
-    "watershed_id_card",
-    "hydrographic_network_reference",
-    "seepage_network_confusion_map",
-    "downslope_distance_map",
-]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+
+[[display.figure]]
+variable = "network_agreement"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
 
 # Step 1's three exports, plus the mapped network as a GeoPackage.
 # `__append` adds a block to the inherited ones.

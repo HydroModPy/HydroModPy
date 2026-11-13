@@ -117,14 +117,13 @@ def test_the_real_set_holds_the_packages_the_registries_and_the_backends() -> No
     assert len(got) == 28
 
 
-def test_the_real_registries_are_the_nine_of_the_code() -> None:
+def test_the_real_registries_are_the_eight_of_the_code() -> None:
     names = sorted(ref.name for ref in check_readmes.plugin_registries(ROOT))
     assert names == [
         "data_sources",
         "evaluators",
         "export_formats",
         "extractors",
-        "figures",
         "mesh_engines",
         "optimizers",
         "solvers",
