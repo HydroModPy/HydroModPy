@@ -39,7 +39,9 @@ from tests._helpers.run_stores import RUN_NAME, seal_demo_run
 def fake_ctx(
     *, enabled: bool, figures: list[str], project_root: Path, catalogued: bool = False
 ) -> SimpleNamespace:
-    display = SimpleNamespace(enabled=enabled, figures=figures, save=True, dpi=150)
+    display = SimpleNamespace(
+        enabled=enabled, figures=figures, figure=[], presets={}, save=True, dpi=150
+    )
     cfg = SimpleNamespace(
         display=display,
         simulation=SimpleNamespace(

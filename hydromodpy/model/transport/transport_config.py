@@ -227,7 +227,9 @@ class Modflow6PrtParametersConfig(HydroModelBase):
     release_zone: Annotated[str, Profile.USER] = Field(
         default="domain",
         description=(
-            "Cells particles are released from: 'domain' (every active cell), "
+            "Columns particles are released from, one particle per column, in its top "
+            "active layer at local_z where the recharge enters: 'domain' (every active "
+            "column), "
             "'domain_nonriver' (the same without river cells), 'upstream' (the highest "
             "cells), 'upstream_nonriver', 'river', 'outlet' (the lowest cells), or "
             "'custom' (the cells particle_cell_ids lists)."

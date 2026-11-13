@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.units.quantities import SECONDS_PER_DAY
+from hydromodpy.core.units.quantities import DAYS_PER_YEAR, SECONDS_PER_DAY
 from hydromodpy.core.units.time import factor_to_seconds
 
 if TYPE_CHECKING:
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 __all__ = [
     "PARTICLE_COLUMNS",
     "has_particle_tracks",
+    "moving_tracks",
     "particle_frame",
     "particle_time_to_days",
     "particle_travel_years",
@@ -30,8 +31,6 @@ __all__ = [
 
 PARTICLE_COLUMNS: tuple[str, ...] = ("particle", "step", "x", "y", "z", "time_days")
 """Columns of :func:`particle_frame` every run gives; ``status`` and ``reason`` follow when stored."""
-
-_DAYS_PER_YEAR = 365.25
 
 
 def has_particle_tracks(run: Run, *, timed: bool = False) -> bool:
@@ -173,16 +172,24 @@ def travel_time(track: np.ndarray) -> float:
     return float(abs(finite[-1] - finite[0]))
 
 
-def particle_travel_years(run: Run) -> np.ndarray:
-    """Return the travel time of every tracked particle, in years.
+def moving_tracks(run: Run) -> tuple[list[np.ndarray], np.ndarray]:
+    """Return the pathline of each particle that moved and its travel time in years.
 
-    Particles the tracker could not time (a single stored step, a NaN clock)
-    and particles that never left their release point are dropped: they carry
-    no residence time, and a zero would sit at minus infinity on a log axis.
+    A pathline is the ``(n_steps, 4)`` array of :func:`read_particle_tracks`. A particle the
+    tracker could not time (a NaN clock) and a particle that never left its release point
+    are dropped: they carry no residence time, and a zero would sit at minus infinity on a
+    log axis.
     """
     to_days = particle_time_to_days(run)
-    times = np.array(
-        [travel_time(track) * to_days / _DAYS_PER_YEAR for track in read_particle_tracks(run)],
-        dtype="float64",
-    )
-    return times[np.isfinite(times) & (times > 0.0)]
+    tracks, years = [], []
+    for track in read_particle_tracks(run):
+        span = travel_time(track) * to_days / DAYS_PER_YEAR
+        if np.isfinite(span) and span > 0.0:
+            tracks.append(track)
+            years.append(span)
+    return tracks, np.asarray(years, dtype="float64")
+
+
+def particle_travel_years(run: Run) -> np.ndarray:
+    """Return the travel time of every tracked particle that moved, in years."""
+    return moving_tracks(run)[1]

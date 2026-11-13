@@ -34,7 +34,7 @@ Cross-refs
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Final
 
 import pandas as pd
@@ -473,10 +473,14 @@ class RunSet:
 
     def figure(
         self,
-        name: str,
+        name: str | None = None,
         *,
+        request: Mapping[str, Any] | None = None,
+        draw: Callable[..., Any] | None = None,
         save: str | Path | None = None,
         dpi: int | None = None,
+        theme: str | None = None,
+        engine: str | None = None,
         time: str | None = None,
         **options: Any,
     ) -> Figure | Path:
@@ -490,9 +494,35 @@ class RunSet:
         hydromodpy.core.exceptions.CommandUsageError
             If the set was not opened by ``hydromodpy.open`` or a project.
         """
-        from hydromodpy.results.run.view import draw
+        from hydromodpy.results.run.view import figure_of
 
-        return draw(self, name, {**options, "save": save, "dpi": dpi, "time": time})
+        return figure_of(
+            self,
+            name,
+            request,
+            {
+                **options,
+                "draw": draw,
+                "save": save,
+                "dpi": dpi,
+                "theme": theme,
+                "engine": engine,
+                "time": time,
+            },
+        )
+
+    def figure_data(
+        self,
+        name: str | None = None,
+        *,
+        request: Mapping[str, Any] | None = None,
+        time: str | None = None,
+        **options: Any,
+    ) -> dict[str, Any]:
+        """Return the tables behind a figure of this set, as :meth:`Run.figure_data` does."""
+        from hydromodpy.results.run.view import figure_of
+
+        return figure_of(self, name, request, {**options, "time": time}, data=True)
 
     def show(self, what: str, **options: Any) -> Any:
         """Read one thing of this set: ``table`` or ``figure``."""

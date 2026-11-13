@@ -71,6 +71,26 @@ def concentration_array(root: Any) -> Any:
     return node[species[0]]
 
 
+def stored_field_array(root: Any, zarr_path: str) -> Any:
+    """Resolve a registry ``zarr_path`` to its stored array, or ``None`` when absent.
+
+    The concentration goes through :func:`concentration_array`, because its
+    path names a group of solutes and not an array. Several solutes under it
+    raise the ``KeyError`` that names them.
+    """
+    if zarr_path == CONCENTRATION_FIELD:
+        if root.get(CONCENTRATION_FIELD) is None:
+            return None
+        return concentration_array(root)
+    node = root
+    for part in zarr_path.split("/"):
+        getter = getattr(node, "get", None)
+        node = getter(part) if getter is not None else None
+        if node is None:
+            return None
+    return node
+
+
 def _optional_dask_array():
     """Return ``dask.array`` when installed, otherwise ``None``.
 
@@ -400,5 +420,6 @@ __all__ = [
     "set_drain_band_depth",
     "set_geographic_fingerprint",
     "step_range_bounds",
+    "stored_field_array",
     "to_xarray",
 ]

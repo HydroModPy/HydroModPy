@@ -109,6 +109,15 @@ def test_ims_complexity_follows_the_flow_config(tmp_path, complexity) -> None:
     assert str(solver.ims.complexity.get_data()).upper() == complexity
 
 
+def test_concentration_is_saved_once_per_period(tmp_path) -> None:
+    # One slice per stress period, at its last step, as the flow saves its head:
+    # with ALL a period of five steps wrote five slices and slice k was not period k.
+    solver = build_gwt(tmp_path, {"porosity": 0.3})
+    records = solver.oc.saverecord.get_data(0)
+    saved = {str(row[0]).upper(): str(row[1]).upper() for row in records}
+    assert saved["CONCENTRATION"] == "LAST"
+
+
 def test_recharge_concentration_includes_period_zero() -> None:
     solver = object.__new__(Modflow6Transport)
     solver.sconc_input = 5.0

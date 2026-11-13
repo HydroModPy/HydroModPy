@@ -12,7 +12,7 @@ so a reader can tell a term that was dropped from one that is simply zero.
 ``BudgetKeep`` and ``kept_budget`` say which terms a store kept, so a run that dropped
 the full budget still tells what it can rebuild. ``TERM_FAMILIES`` names the terms a
 reader sums for one name, ``storage`` for ``storage_ss`` and ``storage_sy``. A derived
-field that needs a new term adds a row to the table behind ``budget_terms_for``.
+field that needs a new term adds a row to ``FIELD_TERMS``, the table behind ``budget_terms_for``.
 """
 
 from __future__ import annotations
@@ -156,10 +156,26 @@ def kept_budget(root: Any) -> KeptBudget | None:
 
 _SEEPAGE_MASK_TERMS = (SURFACE_EXCESS_TERM,)
 
-_FIELD_TERMS: dict[str, tuple[str, ...]] = {
+#: The boundary packages a cell can exchange water with, in the order of their
+#: code in ``package_cells``: the code of a package is its place here plus one,
+#: and a cell touched by two packages at one step takes the code after the last.
+ACTING_PACKAGES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("well", ("well",)),
+    ("drain", (*DRAIN_BUDGET_KEYS, *DRN_TO_MVR_KEYS)),
+    ("general head", ("general_head",)),
+    ("river", ("river",)),
+    ("stream", ("stream",)),
+    ("lake", ("lake",)),
+    ("constant head", ("constant_head", STREAM_CONSTANT_HEAD_BUDGET)),
+)
+
+FIELD_TERMS: dict[str, tuple[str, ...]] = {
     "release_flux": (*RELEASE_BUDGET_KEYS, "recharge"),
     "release_accumulation_flux": (*RELEASE_BUDGET_KEYS, "recharge"),
     "simulated_active_network": (*RELEASE_BUDGET_KEYS, "recharge"),
+    "network_agreement": (*RELEASE_BUDGET_KEYS, "recharge"),
+    "downslope_distance": (*RELEASE_BUDGET_KEYS, "recharge"),
+    "package_cells": tuple(term for _, terms in ACTING_PACKAGES for term in terms),
     "drain_accumulation_flux": (*DRAIN_BUDGET_KEYS, *DRN_TO_MVR_KEYS),
     "outflow_drain": (*DRAIN_BUDGET_KEYS, *DRN_TO_MVR_KEYS),
     "budget_flux_per_area": ("drain", "recharge"),
@@ -168,12 +184,13 @@ _FIELD_TERMS: dict[str, tuple[str, ...]] = {
     "mass_seepage": (*DRAIN_BUDGET_KEYS, *_SEEPAGE_MASK_TERMS),
     "mass_seepage_running_sum": (*DRAIN_BUDGET_KEYS, *_SEEPAGE_MASK_TERMS),
 }
+"""One row per derived field: the per-cell budget terms a run must keep to rebuild it."""
 
 
 def budget_terms_for(field: str) -> tuple[str, ...]:
     """Return the sorted per-cell budget terms a field reads."""
-    if field in _FIELD_TERMS:
-        return tuple(sorted(set(_FIELD_TERMS[field])))
+    if field in FIELD_TERMS:
+        return tuple(sorted(set(FIELD_TERMS[field])))
     if field in PER_CELL_BUDGET_TERMS:
         return (field,)
     return ()
@@ -185,8 +202,10 @@ def budget_terms_for_fields(fields: Iterable[str]) -> tuple[str, ...]:
 
 
 __all__ = [
+    "ACTING_PACKAGES",
     "BUDGET_KEPT_TERMS_ATTR",
     "BUDGET_POLICY_ATTR",
+    "FIELD_TERMS",
     "PER_CELL_BUDGET_TERMS",
     "POLICY_ALL",
     "POLICY_CONSUMERS",

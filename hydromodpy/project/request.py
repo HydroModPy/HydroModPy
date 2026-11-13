@@ -476,7 +476,7 @@ def workflow_of(request: RunRequest) -> WorkflowName:
 
     The declared ``workflow.mode`` wins, else the sections say it.
     """
-    document = _with_changes(request.config, request.set)
+    document = changed_document(request)
     declared = extract_workflow_field(document)
     if declared is not None:
         return check_workflow_name(declared)
@@ -591,9 +591,10 @@ def _refuse_combinations(request: RunRequest) -> None:
             raise ConfigError(message)
 
 
-def _with_changes(document: Mapping[str, Any], changes: Mapping[str, Any]) -> dict[str, Any]:
-    changed = copy.deepcopy(dict(document))
-    for dotted, value in changes.items():
+def changed_document(request: RunRequest) -> dict[str, Any]:
+    """Return the document of *request* with its ``set`` applied, the request left as it is."""
+    changed = copy.deepcopy(dict(request.config))
+    for dotted, value in request.set.items():
         assign(changed, dotted, value)
     return changed
 

@@ -243,11 +243,14 @@ class Modflow6Transport:
             exgmnamea=self.gwf.name,
             exgmnameb=self.gwt.name,
         )
+        # One concentration slice per stress period, at its last step, as the
+        # flow saves its head: the store holds n_timesteps slices of each field.
+        # ALL wrote every sub-step, so slice k was no longer period k.
         self.oc = flopy.mf6.ModflowGwtoc(
             self.gwt,
             concentration_filerecord=f"{self.model_name_mt}.ucn",
             budget_filerecord=f"{self.model_name_mt}.cbc",
-            saverecord=[("CONCENTRATION", "ALL"), ("BUDGET", "ALL")],
+            saverecord=[("CONCENTRATION", "LAST"), ("BUDGET", "ALL")],
         )
 
     def processing(self, write_model: bool = True, run_model: bool = False, verbose: bool = True):

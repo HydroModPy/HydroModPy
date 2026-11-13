@@ -7,6 +7,7 @@ period, and a managed transfer is held at zero on the steady warm-up.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -220,10 +221,14 @@ def test_steady_stage_hold(tmp_path: Path) -> None:
     assert [0, "status", "ACTIVE"] in rows[1]
 
 
-def test_no_stage_hold_without_opt_in_or_steady(tmp_path: Path) -> None:
+def test_no_stage_hold_without_opt_in_or_steady(tmp_path: Path, caplog) -> None:
     model, _, _ = daily_inflow(tmp_path, 4, "inline", steady_first=True)
-    rows, _ = build_lake_period_data(model, lakes={"lac0": {"initial_stage": 81.82}})
+    with caplog.at_level(logging.WARNING):
+        rows, _ = build_lake_period_data(model, lakes={"lac0": {"initial_stage": 81.82}})
     assert not has_status_row(rows)
+    # The steady solve overrides initial_stage, and the build says so.
+    assert "only its first guess" in caplog.text
+    assert "81.82" in caplog.text
 
     model.steady = (False,) * model.nper
     rows, _ = build_lake_period_data(

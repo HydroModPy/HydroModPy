@@ -1,151 +1,189 @@
 Add a figure
 ============
 
-Figures live in ``hydromodpy.display``. Each one is a ``BaseFigure`` subclass that
-carries its ``spec``, in a public module of ``display/figures/``. The list of shipped
-figures is generated, see :doc:`/reference/figures`, and ``hmp config figures`` prints
-it too. The modules of the package and its import rules are on :doc:`../packages/display`.
+A figure is a request. It names a variable, a preset or a list of panels, in TOML
+(``[[display.figure]]``), in Python (``run.figure(...)``) or on the command line
+(``hmp show RUN --figure NAME``). A variable is a named quantity of a run, such as ``head``
+or ``discharge``. A run is one finished simulation read from disk, for example
+``hmp.open(project_dir).store["name"]``. A panel is one plot of a figure, drawn by a frame,
+a module of ``hydromodpy/display/frames/`` for one kind of plot such as a map or a time
+series. A preset is a named list of panels.
 
-Files to create
----------------
+Each example is a block of ``tests/unit/display/test_add_a_figure.py``, which runs on a
+small stored run, and each case ends with the answer the package gives when its last step
+is missing. Four commands serve the page, from the root of the repository.
 
-A new figure called ``my_figure`` needs one file and one regenerated file.
+- ``run.figure(...)`` returns a matplotlib ``Figure``. Save it with
+  ``figure.savefig("name.png")``, or from a shell with ``hmp show RUN --figure NAME --to name.png``.
+- Run a script with ``PYTHONPATH=. python script.py``. A script puts its own folder first
+  on the import path, so an editable install from another clone may answer instead. Check
+  with ``python -c "import hydromodpy; print(hydromodpy.__file__)"``, which must print a
+  path inside this checkout.
+- List the variables with the command below (options: :doc:`/reference/figure-requests`).
+- Guard the tables with ``python -m pytest tests/unit/results/test_field_registry_kinds.py
+  tests/unit/display -q``.
 
-.. code-block:: text
+.. code-block:: bash
 
-   hydromodpy/display/figures/my_figure.py
-   hydromodpy/display/figure_table.py   regenerated, never edited
+   python -c "from hydromodpy.results import field_registry as r; \
+   print(*r.all_names(), *r.REBUILT_FIELDS, *r.COLUMN_REGISTRY, sep='\n')"
 
-The module name must not start with ``_``. That is where helpers shared by several
-figures live, and the generated table covers only the public modules.
+Draw a variable that exists
+---------------------------
 
-A map of one value per mesh face needs no ``render``. It subclasses ``ScalarFaceMap``
-and declares the field, like this real figure.
+Nothing to write. Give the name and the options of a panel as keywords. The frame follows
+the shape of the variable, the set of axes of its values: a field over time and cells is a
+map, a series over time is a line.
 
-.. literalinclude:: /../../hydromodpy/display/figures/piezometric_map.py
-   :pyobject: PiezometricMap
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: variable
+   :end-before: # end of example
+   :dedent: 4
 
-Any other figure is a ``BaseFigure`` with a ``render`` that draws on the axes it gets.
+In a shell it is ``hmp show RUN --figure head --opt time=last --opt layer=0``. A misspelt
+name ends with ``Unknown figure 'hed'. Did you mean head?``
 
-.. code-block:: python
+Write a composition of panels
+-----------------------------
 
-   from matplotlib.axes import Axes
+In Python a composition is a list of panels given as ``request``, and it needs no file.
 
-   from hydromodpy.display.figure import BaseFigure, FigureSpec
-   from hydromodpy.results.run.view import Run
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: panels
+   :end-before: # end of example
+   :dedent: 4
 
+To keep it under a name, write a preset in the TOML file you run, the one next to
+``project.toml`` that ``hmp run`` reads, as the table ``[display.presets.NAME]``. A panel
+lists its ``holes``, the fields a figure may fill, and the value written in the panel is
+the default.
 
-   class MyFigure(BaseFigure):
-       spec = FigureSpec(
-           name="my_figure",
-           title="My figure",
-           kind="spatial",
-           required_fields=("head",),
-       )
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: toml
+   :end-before: # end of example
+   :dedent: 4
 
-       def render(self, subject: Run, ax: Axes, **opts) -> Axes:
-           head = subject.field("head", time=opts.get("timestep", -1))
-           im = ax.imshow(head, origin="lower")
-           ax.set_title(self.spec.title)
-           ax.figure.colorbar(im, ax=ax, label="head [m]")
-           return ax
+Run the file, then draw the preset by its name, or with
+``hmp show RUN --figure head_and_flow --opt time=first``.
 
-Contract
---------
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: preset
+   :end-before: # end of example
+   :dedent: 4
 
-The figure exposes a ``FigureSpec`` and a ``render`` method. Nothing registers it by
-hand, because ``BaseFigure.__init_subclass__`` takes its name from the ``spec``.
+A run keeps the ``[display]`` table of the file it was made with and reads its presets from
+that copy only. A preset added to the file afterwards is unknown to a run that already
+exists. Run the file again to get a new run, or give the panels as above. The shipped
+presets are in ``hydromodpy/display/presets.py``. For a run made before the preset, the
+answer is ``Unknown figure 'head_and_flow'. Did you mean ...? A figure is a variable, a
+preset or a figure of the old registry.``
 
-.. literalinclude:: /../../hydromodpy/display/figure.py
-   :pyobject: FigureSpec
+Add a variable
+--------------
 
-``kind`` is the plotting family, so it says how the figure is drawn and not which
-hydrological domain it serves. It takes one value of ``FigureKind``.
+A registry is a Python dict of ``hydromodpy/results/field_registry.py`` that figures read.
+A column of a table is one row of ``COLUMN_REGISTRY``, keyed ``table.column``. The column
+must exist in ``TABLE_SCHEMAS`` of ``hydromodpy/results/storage/parquet_schemas.py``. The
+row holds a quantity, the kind of value, which decides the display unit and the colours (see
+the last case), and a label. The unit comes from the schema. Write the line inside the
+dict. ``ColumnDescriptor`` is defined just above it, so there is nothing to import.
 
-.. literalinclude:: /../../hydromodpy/display/figure.py
-   :start-at: FigureKind = Literal[
-   :end-at: ]
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: column
+   :end-before: # end of example
+   :dedent: 8
 
-``hmp config figures --kind <kind>`` filters on it.
+The gate, ``tests/unit/results/test_field_registry_kinds.py``, checks every row of the
+registries. The quantity must exist, the label has at most 40 characters, and the unit
+converts to the display unit. Without the row, a table panel ends with ``the panel:
+'simulation.budget_pct' has no row in COLUMN_REGISTRY (results/field_registry.py). Known
+columns of 'simulation': ... Add a row 'simulation.budget_pct' there``.
 
-``subject`` says what the figure draws. ``"run"`` is the default, ``"session"`` is a
-calibration session and ``"runset"`` is a set of runs. ``render``, ``plot`` and
-``unavailable_reason`` receive the object the subject names, which ``display/runs.py``
-resolves once. A session figure asked on a run receives ``Session.of_run(run)`` and the
-option ``promoted=run``, and a run that no session promoted is refused. A figure that
-compares a run with a reference stays a ``"run"`` figure and takes ``reference=``.
+A cell field rebuilt at read time is not stored. A function computes it when a figure asks,
+one row of values per time step. Here each cell gets its recharge minus the mean of the
+cells. It takes four steps.
 
-``BaseFigure.plot`` creates the subplots with ``default_figsize``, calls ``render`` and,
-when asked, saves the PNG with its provenance. ``unavailable_reason`` decides before
-whether the figure applies to a run. ``[display].figures`` skips a figure that it
-refuses, and ``hmp show --figure`` and ``Run.figure`` refuse it with the same sentence.
-When it returns ``None``, ``render`` draws, or raises ``FigureNotApplicable`` with a
-sentence for what only the data shows, such as a run with no observation. Any other
-exception is a defect.
+1. In ``hydromodpy/results/field_registry.py``, add its descriptor, the record of its
+   name, label, quantity, stored unit and shape, inside ``REBUILT_FIELDS``. The stored unit
+   is the unit of the arrays, the one of the quantity. ``_rebuilt`` and ``SHAPE_TIME_FACE``
+   (one value per time and cell) are in that file.
 
-Required fields and tables
---------------------------
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: descriptor
+   :end-before: # end of example
+   :dedent: 8
 
-The registry checks these before it reads the disk.
+2. In ``hydromodpy/results/derive/stream_network/cell_fields.py``, add the rows function
+   above ``REBUILT_FIELD_ROWS``. It takes the run and a list of time step numbers.
+   ``run.field("recharge", time=step)`` gives an array of layers by cells.
 
-- ``required_fields`` are the Zarr dataset names that ``Run.field(...)`` must load. A
-  missing one makes the figure unavailable, and the gallery says which field is absent.
-- ``optional_fields`` are read when they are there. They are turned on for a run that
-  asks for the figure, but their absence does not make it unavailable. The figure then
-  refuses in its own words.
-- ``required_tables`` are the Parquet-backed tables (``timeseries``, ``budgets``,
-  ``mass_balance``).
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: rows function
+   :end-before: # end of example
+   :dedent: 4
 
-A need that ``spec`` cannot express (a network, a DEM raster, a lake or a piezometer)
-goes into an ``unavailable_reason`` override that calls the base first and returns a
-sentence. ``render`` may then assume the data is there. See
-``figures/lake_abacus_comparison.py``. ``hmp config figures --run <sim_id>`` prints,
-for each figure, whether the run supports it or why not.
+3. In the same file, add the row inside ``REBUILT_FIELD_ROWS``, where ``RebuiltField`` is
+   defined. The second argument says why a run cannot serve the field, or returns ``None``.
 
-Register
---------
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: rows row
+   :end-before: # end of example
+   :dedent: 8
 
-The figure port has no entry-point group. The public module is the membership, and
-``python -m tools.figure_table`` regenerates ``hydromodpy/display/figure_table.py``,
-which the registry reads. A test regenerates it in memory and fails while the file is
-stale. The table holds literals only, so answering a name, a former name or the options
-of a figure loads no figure module. The general mechanism is in :doc:`plug-into-a-port`.
+4. If the rows function reads budget terms, the per-cell flows of the solver, add a row
+   inside ``FIELD_TERMS`` of ``hydromodpy/core/budget/terms.py``, so that a run keeps them.
 
-To rename a figure, change ``spec.name``, put the old name in ``spec.former_names`` and
-regenerate the table. Project files with the old name still load, with a warning.
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: terms row
+   :end-before: # end of example
+   :dedent: 8
 
-Once in the table, the figure is reachable from ``hmp show <sim_ref> --figure my_figure``,
-``hmp export <sim_ref> --regen figures`` and the TOML below.
+Then ``run.figure("recharge_anomaly", time="last")`` draws it, and the gate checks the
+descriptor. With the descriptor and no row of ``REBUILT_FIELD_ROWS``, the read ends with
+``Rebuilt field 'recharge_anomaly' has no row in REBUILT_FIELD_ROWS
+(hydromodpy/results/derive/stream_network/cell_fields.py). Add one.``
 
-.. code-block:: toml
+Add a quantity
+--------------
 
-   # not checked: my_figure is the placeholder figure of this recipe
-   [display]
-   figures = ["piezometric_map", "water_budget", "my_figure"]
+A quantity is one row of ``QUANTITY_KINDS`` in ``hydromodpy/core/units/kinds.py``, where
+``QuantityKind`` is defined. It says the stored unit, the display unit a figure shows, the
+sign, the log scale, how layers are reduced and what a running sum gives. Stored in ``1``
+and shown in ``%``, this row multiplies the values by 100 on a figure.
 
-Test
-----
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: quantity
+   :end-before: # end of example
+   :dedent: 8
 
-- ``python -m tools.figure_table``, then the freshness test.
-- ``tests/unit/display/test_figure_registry.py`` runs on every figure and fails when
-  one accepts a run that holds nothing.
-- ``tests/ports/test_figure.py`` plays every figure on the runs, the session and the
-  run set of the frozen example, and fails on anything but ``FigureNotApplicable``.
-- A unit test under ``tests/unit/display/`` on a synthetic ``Run`` fixture, which
-  asserts a non-empty axes.
+No test lists the quantities, so none needs an edit. The gate checks that the stored unit
+converts to the display unit, and that every variable of the quantity has the stored unit
+and a label of at most 40 characters. A variable that names a quantity with no row ends
+with ``Quantity 'share' has no row in QUANTITY_KINDS (hydromodpy/core/units/kinds.py). Add
+one.``
 
-Layer boundaries
-----------------
+Draw what the frames cannot
+---------------------------
 
-``display`` reads only ``core`` and ``results``, see :doc:`../generated/layers`. Inside
-it, a shared tool never imports ``figures/``, and
-``tests/unit/architecture/display_layout.yaml`` lists who may import whom. Reach the data
-through ``Run`` (``run.field``, ``run.timeseries``, ``run.budget``) or a function of
-``results`` that takes the run, never through raw Zarr or DuckDB calls.
+A figure no frame draws is a plain matplotlib function ``draw(subject, ax, theme)``, given
+as ``run.figure(draw=my_function)``. The subject is the run, a session (the record of one
+calibration) or a set of runs. The theme is the frozen set of colours, widths and fonts of
+``hydromodpy/display/theme.py``, and a colour of it is ``theme.roles["name"]``.
+``read_series`` returns a pandas ``Series`` of the variable at a station (a gauge, a lake, a
+reach, or ``zone:catchment`` for the sum over the catchment). Its values are in the stored
+unit, and its index is the start of each period of the run.
 
-See also
---------
+.. literalinclude:: /../../tests/unit/display/test_add_a_figure.py
+   :start-after: # example: draw
+   :end-before: # end of example
+   :dedent: 4
 
-- :doc:`../packages/display` for the figure registry.
-- :doc:`add-an-exporter` if the output is a file format and not a matplotlib figure.
-- :doc:`/understand/reading-results` for the user-facing figure catalog.
+The imports are ``from hydromodpy.display import static`` and
+``from hydromodpy.display.subject import read_series``. ``static`` is the matplotlib
+engine of ``hydromodpy/display/static.py``. Its helpers (``line_style``, ``text_style``,
+``style_axes``, ``note``, ``colorbar``, ``legend``, ``map_axes``) give the look of the
+other figures. The keywords ``station`` and ``time`` are filled when the signature
+declares them. A file never names the function, so a TOML file reaches it only through a
+preset that carries it, a module of ``hydromodpy/display/special/``. A TOML ``draw`` ends
+with ``draw takes a Python function and is never written in a file. To draw a figure from a
+function in a TOML file, name the preset that carries it.``

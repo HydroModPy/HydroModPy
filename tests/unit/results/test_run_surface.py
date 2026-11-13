@@ -1,6 +1,6 @@
 """Surface-area guard for :class:`hydromodpy.results.run.view.Run`.
 
-CLAUDE.md caps any class at 50 public methods. ``Run`` accumulated 65+
+The public surface of ``Run`` is capped. ``Run`` accumulated 65+
 entries through mixins until P8 removed the per-cell mixin and the
 ``run.at`` / ``run.fields`` duplicates. This test fails if the surface
 regresses.

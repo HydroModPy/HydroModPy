@@ -796,7 +796,11 @@ def build_lake_period_data(
     ts_series: list[Ts6Series] = []
     for lake_index, (lake_id, definition) in enumerate(lakes.items()):
         _emit_steady_stage_hold_rows(
-            model, lake_index=lake_index, definition=definition, period_rows=period_rows
+            model,
+            lake_index=lake_index,
+            lake_id=lake_id,
+            definition=definition,
+            period_rows=period_rows,
         )
         for keyword in _RATE_FORCINGS:
             _emit_forcing_rows(

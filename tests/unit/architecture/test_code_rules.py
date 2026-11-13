@@ -1,4 +1,4 @@
-"""The code rules of CLAUDE.md that a reader of the tree can check on the syntax alone.
+"""The code rules of the repository that a reader can check on the syntax alone.
 
 One function per rule, each reading every module of ``hydromodpy/``:
 

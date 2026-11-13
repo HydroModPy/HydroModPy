@@ -57,13 +57,38 @@ def _rates_value(block: str, label: str) -> float | None:
     return None
 
 
+def _storage_rates(block: str) -> tuple[float, float]:
+    """Return the storage rates of one budget block, released then stored.
+
+    The block lists the IN terms, then the OUT terms under an ``OUT:`` line,
+    with the same labels on both sides. A ``STORAGE-`` term (aqueous, sorbed)
+    under IN is mass the storage releases, under OUT mass it takes, the
+    convention of the water balance.
+    """
+    totals = [0.0, 0.0]
+    side = 0
+    for line in block.splitlines():
+        if line.strip().startswith("OUT:"):
+            side = 1
+            continue
+        label = line.split("=", 1)[0].strip()
+        if label.startswith("STORAGE-"):
+            floats = _FLOAT_RE.findall(line.split("=", 1)[1])
+            if floats:
+                totals[side] += float(floats[-1])
+    return totals[0], totals[1]
+
+
 def parse_gwt_mass_balance(lst_path: Path) -> list[dict]:
     """Return one solute mass-balance record per GWT output time.
 
     Each record carries ``timestep`` (0-based output index, aligned with the
-    concentration slices), ``total_in``/``total_out`` (kg/s) and ``percent_error``
-    (dimensionless). Returns an empty list when the file is absent or has no
-    mass-budget block.
+    concentration slices), ``total_in``/``total_out`` and
+    ``storage_in``/``storage_out`` (kg/s), and ``percent_error``
+    (dimensionless). The totals hold the storage, so they are equal up to the
+    discrepancy. The discrepancy is recomputed from ``IN - OUT``, because the
+    listing prints its own column rounded to 0.01 %. Returns an empty list when
+    the file is absent or has no mass-budget block.
     """
     if not lst_path.is_file():
         return []
@@ -76,11 +101,18 @@ def parse_gwt_mass_balance(lst_path: Path) -> list[dict]:
         percent_error = _rates_value(block, "PERCENT DISCREPANCY")
         if total_in is None and total_out is None and percent_error is None:
             continue
+        in_minus_out = _rates_value(block, "IN - OUT")
+        if in_minus_out is not None and total_in is not None and total_out is not None:
+            half_sum = 0.5 * (total_in + total_out)
+            percent_error = 100.0 * in_minus_out / half_sum if half_sum != 0.0 else 0.0
+        storage_in, storage_out = _storage_rates(block)
         records.append(
             {
                 "timestep": idx,
                 "total_in": total_in,
                 "total_out": total_out,
+                "storage_in": storage_in,
+                "storage_out": storage_out,
                 "percent_error": percent_error,
             }
         )

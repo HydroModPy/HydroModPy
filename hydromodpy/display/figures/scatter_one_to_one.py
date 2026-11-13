@@ -13,10 +13,11 @@ import numpy as np
 
 from hydromodpy.core.scope import CATCHMENT
 from hydromodpy.core.units.labels import axis_label, station_label
-from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import ObservedStation, Station, Variable
 from hydromodpy.display.figures._observed import observed_series
 from hydromodpy.display.figures._run_score import run_score
+from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
     normalize_datetime_series,

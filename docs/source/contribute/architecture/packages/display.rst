@@ -70,3 +70,29 @@ drawing function in ``overview/panels.py`` and its line in ``PANEL_FILES``. A bl
 page is a function of ``report/pages.py``, and its words are a field of ``ReportTexts``. A read
 of a run that a figure needs goes in ``results``, never in ``display``. A new figure appears in
 the generated figure list at the next build.
+
+The request path draws a figure from the name of a variable. ``request.py`` holds the request and
+its checks and imports no plotting library. ``subject.py`` is the only module that reads a run,
+``variables.py`` converts to the display unit, and a frame of ``frames/`` has a ``data`` that returns
+a table and a ``draw`` that puts it on one axes. ``render.py`` draws the overlays of ``overlays.py``
+after the frame, and ``output.py`` writes the files and the ledger entry that
+``hmp export --regen figures`` replays. The frames are ``map``, ``series``, ``section``, ``xy``,
+``distribution``, ``groups`` and ``table``. A table column is a name of ``COLUMN_REGISTRY``, and a
+session is drawn by ``series``, ``xy`` and ``distribution`` from its ``trials.<column>`` names. A
+map panel that gives a run name to ``against`` subtracts that run, which ``render`` receives
+resolved. A frame lists the panel fields it reads in ``FIELDS`` and refuses the others by
+name through ``subject.refuse_fields``, so a new panel field cannot be ignored without a test
+failing. The colour norm and the colours of a budget term are written once in ``variables.py``,
+the scores of a run and the area of a zone once in ``frames/series.py``. A new frame is a module of
+``frames/`` named as its key of ``request.FRAMES``, and a new context layer is a key of ``request.OVERLAY_FIELDS`` with the
+function of the same name in ``overlays.py``.
+
+A special figure is a function ``draw(subject, ax, theme)`` that draws one axes for a case no frame
+expresses, such as a fit, a matching of two networks or the trace of a root search. It lives in a
+module of ``special/`` that also holds ``SUBJECT`` (``run``, ``session`` or ``runset``) and may
+hold ``WIDTH``. The function may take the keywords ``station`` and ``time``, and without them it
+reads the station the run scored. ``presets.py`` lists the modules, so each one is a preset named as
+its module, and ``render`` refuses a subject of another kind, except a run given to a session figure,
+which stands for the session that promoted it. ``special/records.py`` holds the reads that several of
+them share and draws nothing. The list is closed at twelve, and a thirteenth figure is a frame, a
+variable or a preset first.

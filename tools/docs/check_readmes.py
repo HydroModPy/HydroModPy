@@ -1,4 +1,4 @@
-"""Check the README files of the repository against rule 17 of CLAUDE.md.
+"""Check the README files of the repository against the README rule.
 
 Usage: python -m tools.docs.check_readmes
 

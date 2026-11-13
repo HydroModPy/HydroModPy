@@ -424,6 +424,7 @@ OUTPUTS: tuple[Output, ...] = (
     ),
     _rows("config figures run", "name", "kind", "subject", "available", "reason", version=2),
     _object("show figure", "path"),
+    _object("show figure data", "paths"),
     # Configuration
     _object(
         "check",

@@ -22,9 +22,10 @@ from hydromodpy.core.console.progress import MILESTONE_KEY
 from hydromodpy.core.state.layout import RUNS_DIRNAME
 from hydromodpy.display import runs
 from hydromodpy.display.config import DisplayConfig
-from hydromodpy.display.figure import FigureNotApplicable, FigureSpec
+from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figures._trial_diagnostics import TrialTable
 from hydromodpy.display.runs import render_figure, render_figures_for_run
+from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.config_flags import no_surface_exit_reason

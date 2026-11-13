@@ -8,6 +8,7 @@ directory alone, never the index. Nothing here runs a solver.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -321,3 +322,27 @@ def test_dry_run_plan_of_a_window(tmp_path: Path) -> None:
     ]
     assert draft.cases[0].config_hash
     assert draft.sites_config is None
+    assert draft.to_dict() == {"lines": [], "warnings": [], "errors": []}
+
+
+def test_calibrate_reads_a_request_as_its_document(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict = {}
+
+    def held(source, base):
+        seen["source"] = source
+        return "config"
+
+    def plan(target, **kwargs):
+        seen["target"] = target
+        return SimpleNamespace(phases=[{"name": "steady_k"}])
+
+    monkeypatch.setattr(api, "held", held)
+    monkeypatch.setattr("hydromodpy.project.calibrate.calibration_plan", plan)
+    document = {"workflow": {"mode": "calibration"}, "simulation": {"name": "a"}}
+    request = request_of(document, set={"simulation.name": "b"}, phase="steady_k", dry_run=True)
+
+    assert api.calibrate(request, base=tmp_path).phases == [{"name": "steady_k"}]
+    assert seen["source"]["simulation"] == {"name": "b"}
+    assert seen["target"] == "config"

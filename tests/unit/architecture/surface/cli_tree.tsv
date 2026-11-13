@@ -552,9 +552,11 @@ hmp run --workspace,-w
 hmp run <config>	nargs=?
 hmp show	command
 hmp show --cell	
+hmp show --data	
 hmp show --debug	nargs=0
 hmp show --depth	
 hmp show --detail	nargs=0
+hmp show --engine	choices=['interactive', 'static']
 hmp show --figure	
 hmp show --format	choices=['csv', 'json', 'table'] default='table'
 hmp show --label	

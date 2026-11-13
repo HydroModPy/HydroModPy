@@ -24,9 +24,9 @@ from typing import Any
 
 import pytest
 
-from hydromodpy.display.figure import FigureNotApplicable
 from hydromodpy.display.figure_registry import figures
 from hydromodpy.display.figure_registry import get as figure
+from hydromodpy.display.subject import FigureNotApplicable
 
 from ._installed_probe import REPO_ROOT
 

@@ -79,8 +79,9 @@ when it is given no backend. So a third-party engine needs nothing of HydroModPy
 module. Second, ``drainage/`` reads ``terrain/`` and ``algorithms/``, and ``terrain/`` and
 ``preprocess/`` do not read it, because they work on D8 pixels before the mesh exists. Third,
 ``algorithms/`` reads no configuration of the pipeline, so a module there takes the config it
-needs as an argument. Fourth, ``stream_network/`` is a science folder under rule 6. The imports it
-still needs outside numpy and one neighbour are listed in ``ALLOWED_OUTSIDE`` of
+needs as an argument. Fourth, ``stream_network/`` is a science folder, so a module there may import
+only numpy and one neighbour of its folder. The imports it still needs beyond that are listed in
+``ALLOWED_OUTSIDE`` of
 ``tests/unit/architecture/test_science_module_imports.py``, and that table can only shrink.
 
 Where to add what

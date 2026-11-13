@@ -59,6 +59,13 @@ Every data section and the sources it accepts, by section or by provider, with p
 Every figure a run can draw, what it reads, when it can be drawn and the options it takes.
 :::
 
+:::{grid-item-card} Figure requests
+:link: figure-requests
+:link-type: doc
+
+The fields of a figure and of a panel, the frames, quantities, variables, presets and overlays a request names.
+:::
+
 :::{grid-item-card} Solvers
 :link: solvers
 :link-type: doc
@@ -106,6 +113,7 @@ cli/index
 outputs
 data-sources
 figures
+figure-requests
 solvers
 calibration-methods
 glossary

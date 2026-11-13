@@ -13,9 +13,10 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import ObjectiveName, Opt
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, no_trial_reason, trial_table
+from hydromodpy.display.subject import FigureNotApplicable
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

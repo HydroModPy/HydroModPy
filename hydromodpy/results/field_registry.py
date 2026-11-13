@@ -18,7 +18,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from hydromodpy.core.budget.terms import ACTING_PACKAGES
 from hydromodpy.core.exceptions import UnknownFieldError
+from hydromodpy.core.units.kinds import SIGNS, QuantityKind, kind_row
 
 # Supported shape literals, exposed as constants so callers don't have to
 # remember the exact strings. These are CF / UGRID shape signatures.
@@ -113,6 +115,17 @@ class FieldDescriptor:
     description:
         Free-form description used as fallback when the CF long_name is
         insufficient.
+    quantity:
+        Name of the quantity kind (key of ``QUANTITY_KINDS``), which gives the
+        display unit and the colour scale. Figures read it, no store holds it.
+    label:
+        Short axis label of two to four words.
+    sign, log:
+        Override the sign and the log scale of the kind when set.
+    observed:
+        Name of the observed record that matches this variable.
+    classes:
+        Value and name of each class of a categorical variable.
     """
 
     public_name: str
@@ -121,6 +134,8 @@ class FieldDescriptor:
     long_name: str
     units: str
     shape: str
+    quantity: str
+    label: str
     cell_methods: str = "time: point area: mean"
     grid_mapping: str = "crs"
     derived_by: str = "core"
@@ -128,6 +143,14 @@ class FieldDescriptor:
     csdms_standard_name: str = ""
     valid_min: float | None = None
     valid_max: float | None = None
+    sign: str | None = None
+    log: bool | None = None
+    observed: str | None = None
+    classes: tuple[tuple[int, str], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.sign is not None and self.sign not in SIGNS:
+            raise ValueError(f"{self.public_name}: sign must be one of {SIGNS}, got {self.sign!r}")
 
     @property
     def timed(self) -> bool:
@@ -163,9 +186,19 @@ class TimeSeriesDescriptor:
     public_name: str
     long_name: str
     units: str
+    quantity: str
+    label: str
     shape: str = SHAPE_TIME
     standard_name: str = ""
     description: str = ""
+    sign: str | None = None
+    log: bool | None = None
+    observed: str | None = None
+    classes: tuple[tuple[int, str], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.sign is not None and self.sign not in SIGNS:
+            raise ValueError(f"{self.public_name}: sign must be one of {SIGNS}, got {self.sign!r}")
 
 
 BUDGET_SIGN_RULE = "positive enters the aquifer, negative leaves it"
@@ -184,6 +217,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     # when CF is empty.
     "head": FieldDescriptor(
         public_name="head",
+        quantity="head",
+        label="Hydraulic head",
         zarr_path="head",
         standard_name="",
         csdms_standard_name="subsurface_water__hydraulic_head",
@@ -195,6 +230,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "concentration": FieldDescriptor(
         public_name="concentration",
+        quantity="concentration",
+        label="Concentration",
         zarr_path="concentration",
         standard_name="",
         csdms_standard_name="subsurface_water__mass_concentration",
@@ -212,6 +249,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     # -- Connection geometry and flow (written by solver adapters) ------------
     FACE_FLOW: FieldDescriptor(
         public_name=FACE_FLOW,
+        quantity="flow",
+        label="Face flow",
+        sign="both",
         zarr_path=FACE_FLOW,
         standard_name="",
         csdms_standard_name="subsurface_water__volume_flux",
@@ -226,6 +266,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     CONNECTION_CELLS: FieldDescriptor(
         public_name=CONNECTION_CELLS,
+        quantity="index",
+        label="Connection cells",
         zarr_path=CONNECTION_CELLS,
         standard_name="",
         csdms_standard_name="model_grid_cell__index",
@@ -241,6 +283,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     # -- Derived watertable variables (core postprocess) ---------------------
     "watertable_elevation": FieldDescriptor(
         public_name="watertable_elevation",
+        quantity="head",
+        label="Water-table elevation",
         zarr_path="derived/watertable_elevation",
         standard_name="",
         csdms_standard_name="subsurface_water_top_surface__elevation",
@@ -252,6 +296,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "watertable_depth": FieldDescriptor(
         public_name="watertable_depth",
+        quantity="depth",
+        label="Water-table depth",
         zarr_path="derived/watertable_depth",
         # CF v85: water_table_depth, canonical units m.
         standard_name="water_table_depth",
@@ -265,6 +311,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "seepage_mask": FieldDescriptor(
         public_name="seepage_mask",
+        quantity="category",
+        label="Seepage mask",
+        classes=((0, "no seepage"), (1, "seepage")),
         zarr_path="derived/seepage_mask",
         standard_name="",
         csdms_standard_name="subsurface_water__seepage_binary_indicator",
@@ -279,6 +328,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     # -- Budget fluxes (written from solver budget output) -------------------
     "recharge": FieldDescriptor(
         public_name="recharge",
+        quantity="cell_flow",
+        label="Recharge",
+        sign="positive",
         zarr_path="budget/recharge",
         standard_name="",
         csdms_standard_name="subsurface_water__recharge_volume_flux",
@@ -290,6 +342,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "drain": FieldDescriptor(
         public_name="drain",
+        quantity="cell_flow",
+        label="Drain flow",
+        sign="negative",
         zarr_path="budget/drain",
         standard_name="",
         csdms_standard_name="subsurface_water__drain_volume_flux",
@@ -301,6 +356,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "drain_to_mover": FieldDescriptor(
         public_name="drain_to_mover",
+        quantity="cell_flow",
+        label="Drain to mover",
+        sign="negative",
         zarr_path="budget/drain_to_mover",
         standard_name="",
         csdms_standard_name="subsurface_water__drain_volume_flux",
@@ -312,6 +370,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "storage": FieldDescriptor(
         public_name="storage",
+        quantity="cell_flow",
+        label="Storage flow",
         zarr_path="budget/storage",
         standard_name="",
         csdms_standard_name="subsurface_water__storage_volume_flux",
@@ -323,6 +383,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "storage_ss": FieldDescriptor(
         public_name="storage_ss",
+        quantity="cell_flow",
+        label="Elastic storage flow",
         zarr_path="budget/storage_ss",
         standard_name="",
         csdms_standard_name="subsurface_water__specific_storage_volume_flux",
@@ -334,6 +396,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "storage_sy": FieldDescriptor(
         public_name="storage_sy",
+        quantity="cell_flow",
+        label="Yield storage flow",
         zarr_path="budget/storage_sy",
         standard_name="",
         csdms_standard_name="subsurface_water__specific_yield_volume_flux",
@@ -345,6 +409,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "evapotranspiration": FieldDescriptor(
         public_name="evapotranspiration",
+        quantity="cell_flow",
+        label="Evapotranspiration",
+        sign="negative",
         zarr_path="budget/evapotranspiration",
         standard_name="",
         csdms_standard_name="subsurface_water__evapotranspiration_volume_flux",
@@ -356,6 +423,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "general_head": FieldDescriptor(
         public_name="general_head",
+        quantity="cell_flow",
+        label="General-head flow",
         zarr_path="budget/general_head",
         standard_name="",
         csdms_standard_name="subsurface_water__general_head_volume_flux",
@@ -367,6 +436,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "lake_to_mover": FieldDescriptor(
         public_name="lake_to_mover",
+        quantity="cell_flow",
+        label="Lake to mover",
         zarr_path="budget/lake_to_mover",
         standard_name="",
         csdms_standard_name="subsurface_water__lake_to_mover_volume_flux",
@@ -378,6 +449,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "stream_to_mover": FieldDescriptor(
         public_name="stream_to_mover",
+        quantity="cell_flow",
+        label="Stream to mover",
         zarr_path="budget/stream_to_mover",
         standard_name="",
         csdms_standard_name="subsurface_water__stream_to_mover_volume_flux",
@@ -389,6 +462,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "mover": FieldDescriptor(
         public_name="mover",
+        quantity="cell_flow",
+        label="Mover flow",
         zarr_path="budget/mover",
         standard_name="",
         csdms_standard_name="subsurface_water__mover_volume_flux",
@@ -400,6 +475,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "outflow_drain": FieldDescriptor(
         public_name="outflow_drain",
+        quantity="cell_flow",
+        label="Drain outflow",
+        sign="positive",
         zarr_path="derived/outflow_drain",
         standard_name="",
         csdms_standard_name="subsurface_water__outflow_volume_flux",
@@ -411,6 +489,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "release_flux": FieldDescriptor(
         public_name="release_flux",
+        quantity="cell_flow",
+        label="Release flux",
+        sign="positive",
         zarr_path="derived/release_flux",
         standard_name="",
         csdms_standard_name="subsurface_water__release_volume_flux",
@@ -422,6 +503,10 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "drain_accumulation_flux": FieldDescriptor(
         public_name="drain_accumulation_flux",
+        quantity="flow",
+        label="Accumulated drain flow",
+        sign="positive",
+        log=True,
         zarr_path="derived/drain_accumulation_flux",
         standard_name="",
         csdms_standard_name="subsurface_water__accumulation_volume_flux",
@@ -433,6 +518,10 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "release_accumulation_flux": FieldDescriptor(
         public_name="release_accumulation_flux",
+        quantity="flow",
+        label="Accumulated release flow",
+        sign="positive",
+        log=True,
         zarr_path="derived/release_accumulation_flux",
         standard_name="",
         csdms_standard_name="subsurface_water__release_accumulation_volume_flux",
@@ -444,6 +533,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "budget_flux_per_area": FieldDescriptor(
         public_name="budget_flux_per_area",
+        quantity="flux_per_area",
+        label="Budget flux per area",
         zarr_path="derived/budget_flux_per_area",
         standard_name="",
         csdms_standard_name="subsurface_water__budget_unit_area_volume_flux",
@@ -455,6 +546,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "concentration_seepage": FieldDescriptor(
         public_name="concentration_seepage",
+        quantity="concentration",
+        label="Seepage concentration",
         zarr_path="derived/concentration_seepage",
         standard_name="",
         csdms_standard_name="subsurface_water__seepage_mass_concentration",
@@ -467,6 +560,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "mass_seepage": FieldDescriptor(
         public_name="mass_seepage",
+        quantity="mass_flux",
+        label="Seepage mass flux",
         zarr_path="derived/mass_seepage",
         standard_name="",
         csdms_standard_name="subsurface_water__seepage_mass_flux",
@@ -478,6 +573,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "mass_seepage_running_sum": FieldDescriptor(
         public_name="mass_seepage_running_sum",
+        quantity="mass_flux",
+        label="Cumulated seepage mass flux",
         zarr_path="derived/mass_seepage_running_sum",
         standard_name="",
         csdms_standard_name="subsurface_water__seepage_accumulated_mass_flux",
@@ -489,6 +586,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "river": FieldDescriptor(
         public_name="river",
+        quantity="cell_flow",
+        label="River leakage",
         zarr_path="budget/river",
         standard_name="",
         csdms_standard_name="subsurface_water__river_exchange_volume_flux",
@@ -500,6 +599,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "well": FieldDescriptor(
         public_name="well",
+        quantity="cell_flow",
+        label="Well flow",
         zarr_path="budget/well",
         standard_name="",
         csdms_standard_name="subsurface_water__well_volume_flux",
@@ -511,6 +612,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "stream": FieldDescriptor(
         public_name="stream",
+        quantity="cell_flow",
+        label="Stream leakage",
         zarr_path="budget/stream",
         standard_name="",
         csdms_standard_name="subsurface_water__stream_exchange_volume_flux",
@@ -522,6 +625,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "lake": FieldDescriptor(
         public_name="lake",
+        quantity="cell_flow",
+        label="Lake leakage",
         zarr_path="budget/lake",
         standard_name="",
         csdms_standard_name="subsurface_water__lake_exchange_volume_flux",
@@ -533,6 +638,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "constant_head": FieldDescriptor(
         public_name="constant_head",
+        quantity="cell_flow",
+        label="Constant-head flow",
         zarr_path="budget/constant_head",
         standard_name="",
         csdms_standard_name="subsurface_water__constant_head_volume_flux",
@@ -544,6 +651,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "constant_head_stream": FieldDescriptor(
         public_name="constant_head_stream",
+        quantity="cell_flow",
+        label="Stream constant-head flow",
         zarr_path="budget/constant_head_stream",
         standard_name="",
         csdms_standard_name="subsurface_water__stream_constant_head_volume_flux",
@@ -558,6 +667,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "surface_excess": FieldDescriptor(
         public_name="surface_excess",
+        quantity="cell_flow",
+        label="Surface excess",
+        sign="negative",
         zarr_path="budget/surface_excess",
         standard_name="",
         csdms_standard_name="land_surface__saturation_excess_volume_flux",
@@ -570,6 +682,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     # -- Static inputs (geology, geometry) -----------------------------------
     "topography": FieldDescriptor(
         public_name="topography",
+        quantity="elevation",
+        label="Land surface elevation",
         zarr_path="mesh/topography",
         # CF v85: surface_altitude, canonical units m.
         standard_name="surface_altitude",
@@ -582,6 +696,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "streambed_top": FieldDescriptor(
         public_name="streambed_top",
+        quantity="elevation",
+        label="Streambed top",
         zarr_path="mesh/streambed_top",
         standard_name="altitude",
         csdms_standard_name="channel_bottom_water-sediment__elevation",
@@ -593,6 +709,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "streambed_connection": FieldDescriptor(
         public_name="streambed_connection",
+        quantity="elevation",
+        label="Streambed disconnection head",
         zarr_path="mesh/streambed_connection",
         standard_name="altitude",
         csdms_standard_name="channel_bottom_water-sediment__elevation",
@@ -607,6 +725,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "layer_thickness": FieldDescriptor(
         public_name="layer_thickness",
+        quantity="thickness",
+        label="Layer thickness",
         zarr_path="mesh/layer_thickness",
         # CF v85: cell_thickness.
         standard_name="cell_thickness",
@@ -620,6 +740,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "idomain": FieldDescriptor(
         public_name="idomain",
+        quantity="category",
+        label="Cell activity",
+        classes=((-1, "pass-through"), (0, "inactive"), (1, "active")),
         zarr_path="mesh/idomain",
         standard_name="",
         csdms_standard_name="subsurface_layer__activity_indicator",
@@ -633,6 +756,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "hydraulic_conductivity": FieldDescriptor(
         public_name="hydraulic_conductivity",
+        quantity="conductivity",
+        label="Hydraulic conductivity",
         zarr_path="derived/hydraulic_conductivity",
         standard_name="",
         csdms_standard_name="subsurface_water__hydraulic_conductivity",
@@ -645,6 +770,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "hydraulic_conductivity_k22": FieldDescriptor(
         public_name="hydraulic_conductivity_k22",
+        quantity="conductivity",
+        label="Conductivity K22",
         zarr_path="derived/hydraulic_conductivity_k22",
         standard_name="",
         csdms_standard_name="subsurface_water__hydraulic_conductivity_second_axis",
@@ -657,6 +784,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "hydraulic_conductivity_k33": FieldDescriptor(
         public_name="hydraulic_conductivity_k33",
+        quantity="conductivity",
+        label="Conductivity K33",
         zarr_path="derived/hydraulic_conductivity_k33",
         standard_name="",
         csdms_standard_name="subsurface_water__hydraulic_conductivity_third_axis",
@@ -672,6 +801,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "conductivity_tensor_angle1": FieldDescriptor(
         public_name="conductivity_tensor_angle1",
+        quantity="azimuth",
+        label="K tensor angle 1",
         zarr_path="derived/conductivity_tensor_angle1",
         standard_name="",
         csdms_standard_name="subsurface_water__hydraulic_conductivity_tensor_angle1",
@@ -683,6 +814,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "conductivity_tensor_angle2": FieldDescriptor(
         public_name="conductivity_tensor_angle2",
+        quantity="angle",
+        sign="both",
+        label="K tensor angle 2",
         zarr_path="derived/conductivity_tensor_angle2",
         standard_name="",
         csdms_standard_name="subsurface_water__hydraulic_conductivity_tensor_angle2",
@@ -694,6 +828,9 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "conductivity_tensor_angle3": FieldDescriptor(
         public_name="conductivity_tensor_angle3",
+        quantity="angle",
+        sign="both",
+        label="K tensor angle 3",
         zarr_path="derived/conductivity_tensor_angle3",
         standard_name="",
         csdms_standard_name="subsurface_water__hydraulic_conductivity_tensor_angle3",
@@ -705,6 +842,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "specific_yield": FieldDescriptor(
         public_name="specific_yield",
+        quantity="fraction",
+        label="Specific yield",
         zarr_path="derived/specific_yield",
         standard_name="",
         csdms_standard_name="subsurface_water__specific_yield",
@@ -718,6 +857,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "specific_storage": FieldDescriptor(
         public_name="specific_storage",
+        quantity="specific_storage",
+        label="Specific storage",
         zarr_path="derived/specific_storage",
         standard_name="",
         csdms_standard_name="subsurface_water__specific_storage_coefficient",
@@ -730,6 +871,8 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
     ),
     "porosity": FieldDescriptor(
         public_name="porosity",
+        quantity="fraction",
+        label="Effective porosity",
         zarr_path="derived/porosity",
         standard_name="",
         csdms_standard_name="subsurface_water__effective_porosity",
@@ -753,104 +896,149 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
     # refuses a simulated series that no descriptor holds.
     "discharge": TimeSeriesDescriptor(
         public_name="discharge",
+        quantity="flow",
+        label="Catchment discharge",
+        observed="discharge",
         long_name="Water leaving the aquifer, summed over the catchment",
         units="m3 s-1",
         standard_name="water_volume_transport_in_river_channel",
     ),
     "well_pumping": TimeSeriesDescriptor(
         public_name="well_pumping",
+        quantity="flow",
+        label="Well pumping",
         long_name="Well pumping, summed over the catchment",
         units="m3 s-1",
     ),
     "reservoir_storage": TimeSeriesDescriptor(
         public_name="reservoir_storage",
+        quantity="thickness",
+        label="Reservoir storage depth",
         long_name="Depth of water stored in the lumped reservoir of the catchment",
         units="m",
     ),
     # Lake states (the lake station is ``lake:<id>``).
     "stage": TimeSeriesDescriptor(
         public_name="stage",
+        quantity="head",
+        label="Stage",
         long_name="Water level of a lake or a stream reach",
         units="m",
     ),
     "volume": TimeSeriesDescriptor(
         public_name="volume",
+        quantity="volume",
+        label="Lake volume",
         long_name="Water volume held by the lake",
         units="m3",
     ),
     "surface_area": TimeSeriesDescriptor(
         public_name="surface_area",
+        quantity="area",
+        label="Lake surface area",
         long_name="Surface of the free water of the lake",
         units="m2",
     ),
     # Lake rates, positive into the lake, an outflow positive out of it.
     "gwf_exchange": TimeSeriesDescriptor(
         public_name="gwf_exchange",
+        quantity="flow",
+        label="Aquifer-lake exchange",
+        sign="both",
         long_name="Water the aquifer gives the lake through its bed",
         units="m3 s-1",
     ),
     "lake_bed_vertical_exchange": TimeSeriesDescriptor(
         public_name="lake_bed_vertical_exchange",
+        quantity="flow",
+        sign="both",
+        label="Lake-bed exchange",
         long_name="Vertical exchange through the lake bed",
         units="m3 s-1",
     ),
     "rainfall": TimeSeriesDescriptor(
         public_name="rainfall",
+        quantity="flow",
+        label="Lake rainfall",
         long_name="Rainfall on the free water of the lake",
         units="m3 s-1",
     ),
     "evaporation": TimeSeriesDescriptor(
         public_name="evaporation",
+        quantity="flow",
+        label="Lake evaporation",
         long_name="Evaporation from the free water of the lake",
         units="m3 s-1",
     ),
     "runoff": TimeSeriesDescriptor(
         public_name="runoff",
+        quantity="flow",
+        label="Runoff inflow",
         long_name="Inland runoff the lake or the reach receives",
         units="m3 s-1",
     ),
     "inflow": TimeSeriesDescriptor(
         public_name="inflow",
+        quantity="flow",
+        label="Lake inflow",
         long_name="Inflow declared for the lake",
         units="m3 s-1",
     ),
     "withdrawal": TimeSeriesDescriptor(
         public_name="withdrawal",
+        quantity="flow",
+        label="Lake withdrawal",
         long_name="Water withdrawn from the lake",
         units="m3 s-1",
     ),
     "ext_outflow": TimeSeriesDescriptor(
         public_name="ext_outflow",
+        quantity="flow",
+        label="External outflow",
         long_name="Outflow the lake or the reach gives outside the model",
         units="m3 s-1",
     ),
     "outlet": TimeSeriesDescriptor(
         public_name="outlet",
+        quantity="flow",
+        label="Outlet outflow",
         long_name="Outflow routed through the lake outlet",
         units="m3 s-1",
     ),
     "outlet_inflow": TimeSeriesDescriptor(
         public_name="outlet_inflow",
+        quantity="flow",
+        label="Outlet inflow",
         long_name="Water the outlet of the lake receives from it",
         units="m3 s-1",
     ),
     "to_mvr": TimeSeriesDescriptor(
         public_name="to_mvr",
+        quantity="flow",
+        label="Flow to mover",
         long_name="Water forwarded to a mover by the lake or the reach",
         units="m3 s-1",
     ),
     "from_mvr": TimeSeriesDescriptor(
         public_name="from_mvr",
+        quantity="flow",
+        label="Flow from mover",
         long_name="Water received from a mover by the lake or the reach",
         units="m3 s-1",
     ),
     "lak_connection": TimeSeriesDescriptor(
         public_name="lak_connection",
+        quantity="flow",
+        label="Lake-lake exchange",
+        sign="both",
         long_name="Exchange between two connected lakes",
         units="m3 s-1",
     ),
     "lake_storage": TimeSeriesDescriptor(
         public_name="lake_storage",
+        quantity="flow",
+        label="Lake storage flow",
+        sign="both",
         long_name=(
             "Storage term of the lake water balance, negative when the lake volume "
             "rises and positive when it falls, the sign of the MODFLOW 6 LAK storage "
@@ -860,6 +1048,9 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
     ),
     "cutoff_wall_flow": TimeSeriesDescriptor(
         public_name="cutoff_wall_flow",
+        quantity="flow",
+        label="Cutoff-wall flow",
+        sign="both",
         long_name=(
             "Flow through the cutoff wall of a lake, positive from the lake side to "
             "the downstream side"
@@ -871,6 +1062,9 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
     # station and variable.
     "groundwater_level": TimeSeriesDescriptor(
         public_name="groundwater_level",
+        quantity="head",
+        label="Groundwater level",
+        observed="groundwater_level",
         long_name=(
             "Simulated series at a station whose observed record is a groundwater "
             "level, written under the name of that record"
@@ -879,6 +1073,9 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
     ),
     "groundwater_depth": TimeSeriesDescriptor(
         public_name="groundwater_depth",
+        quantity="depth",
+        label="Groundwater depth",
+        observed="groundwater_depth",
         long_name=(
             "Simulated head at a station whose observed record is a groundwater "
             "depth, written under the name of that record"
@@ -887,6 +1084,8 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
     ),
     "water_level": TimeSeriesDescriptor(
         public_name="water_level",
+        quantity="flow",
+        label="Discharge at stage gauge",
         long_name=(
             "Simulated discharge at a stage gauge, a station whose observed record "
             "is a river water level, written under the name of that record"
@@ -895,6 +1094,9 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
     ),
     "lake_level": TimeSeriesDescriptor(
         public_name="lake_level",
+        quantity="head",
+        label="Lake level",
+        observed="lake_level",
         long_name=(
             "Simulated series at a station whose observed record is a lake level, "
             "written under the name of that record"
@@ -904,25 +1106,158 @@ TIME_SERIES_REGISTRY: dict[str, TimeSeriesDescriptor] = {
     # Stream reach states and rates (the reach station is ``<network>:<number>``).
     "depth": TimeSeriesDescriptor(
         public_name="depth",
+        quantity="depth",
+        label="Reach water depth",
         long_name="Water depth of a stream reach",
         units="m",
     ),
     "downstream_flow": TimeSeriesDescriptor(
         public_name="downstream_flow",
+        quantity="flow",
+        label="Downstream flow",
         long_name="Flow a downstream reach receives from this one",
         units="m3 s-1",
     ),
     "ext_inflow": TimeSeriesDescriptor(
         public_name="ext_inflow",
+        quantity="flow",
+        label="External inflow",
         long_name="Inflow the reach reads from outside the model",
         units="m3 s-1",
     ),
     "gw_exchange": TimeSeriesDescriptor(
         public_name="gw_exchange",
+        quantity="flow",
+        label="Aquifer-reach exchange",
+        sign="both",
         long_name="Water exchanged between the aquifer and the reach",
         units="m3 s-1",
     ),
 }
+
+
+def _rebuilt(
+    name: str,
+    label: str,
+    quantity: str,
+    units: str,
+    shape: str,
+    long_name: str,
+    *,
+    cell_methods: str = "time: mean area: point",
+    classes: tuple[tuple[int, str], ...] = (),
+    sign: str | None = None,
+    valid_range: tuple[float, float] | None = None,
+) -> FieldDescriptor:
+    return FieldDescriptor(
+        public_name=name,
+        zarr_path=f"derived/{name}",
+        standard_name="",
+        quantity=quantity,
+        label=label,
+        classes=classes,
+        long_name=long_name,
+        units=units,
+        shape=shape,
+        cell_methods=cell_methods,
+        derived_by="core",
+        sign=sign,
+        valid_min=None if valid_range is None else valid_range[0],
+        valid_max=None if valid_range is None else valid_range[1],
+    )
+
+
+REBUILT_FIELDS: dict[str, FieldDescriptor] = {
+    "simulated_active_network": _rebuilt(
+        "simulated_active_network",
+        "Simulated network",
+        "category",
+        "1",
+        SHAPE_TIME_FACE,
+        "Simulated stream network: 1 where the network criterion counts the cell as flowing",
+        cell_methods="time: point area: maximum",
+        classes=((0, "dry"), (1, "flowing")),
+        valid_range=(0.0, 1.0),
+    ),
+    "network_agreement": _rebuilt(
+        "network_agreement",
+        "Network agreement",
+        "category",
+        "1",
+        SHAPE_TIME_FACE,
+        "Agreement of the simulated and the mapped stream network on the cells the run scores, "
+        "the simulated network following the closure with no visible flow, unlike "
+        "simulated_active_network",
+        classes=(
+            (0, "no stream"),
+            (1, "simulated and mapped"),
+            (2, "simulated only"),
+            (3, "mapped only"),
+        ),
+    ),
+    "downslope_distance": _rebuilt(
+        "downslope_distance",
+        "Downslope distance",
+        "distance",
+        "m",
+        SHAPE_TIME_FACE,
+        "Descent length to the mapped network or to the simulated network where the two differ, "
+        "the simulated network following the closure with no visible flow, unlike "
+        "simulated_active_network",
+    ),
+    "package_cells": _rebuilt(
+        "package_cells",
+        "Boundary package",
+        "category",
+        "1",
+        SHAPE_TIME_FACE,
+        "Boundary package whose budget term is non-zero in the cell at the step, "
+        "the higher code when two act",
+        cell_methods="time: point area: point",
+        classes=(
+            (0, "no exchange"),
+            *((code, name) for code, (name, _) in enumerate(ACTING_PACKAGES, start=1)),
+            (len(ACTING_PACKAGES) + 1, "several"),
+        ),
+    ),
+    "depression_fill_depth": _rebuilt(
+        "depression_fill_depth",
+        "Depression fill depth",
+        "depth",
+        "m",
+        SHAPE_FACE,
+        "Depth the closed depression flood adds to the mesh top",
+        cell_methods="time: point area: point",
+    ),
+}
+"""Fields rebuilt from a run at read time and never stored.
+
+They are not in ``FIELD_REGISTRY``, which lists what a store can hold."""
+
+
+@dataclass(frozen=True, slots=True)
+class ColumnDescriptor:
+    """Quantity kind and short label of one column of a Parquet table.
+
+    The unit is not held here. It is read from the schema of the table.
+    """
+
+    quantity: str
+    label: str
+
+
+COLUMN_REGISTRY: dict[str, ColumnDescriptor] = {
+    "mass_balance.percent_error": ColumnDescriptor("percent", "Mass-balance error"),
+    "sfr_reaches.strahler": ColumnDescriptor("category", "Strahler order"),
+    "simulation.solver": ColumnDescriptor("category", "Solver"),
+    "simulation.flow_regime": ColumnDescriptor("category", "Regime"),
+    "simulation.period_start": ColumnDescriptor("category", "Start"),
+    "simulation.period_end": ColumnDescriptor("category", "End (exclusive)"),
+    "simulation.n_timesteps": ColumnDescriptor("index", "Time steps"),
+    "simulation.n_cells": ColumnDescriptor("index", "Model cells"),
+    "simulation.n_layers": ColumnDescriptor("index", "Layers"),
+}
+"""One row per table column a figure may draw, keyed ``table.column``."""
 
 
 def get(name: str) -> FieldDescriptor:
@@ -936,6 +1271,27 @@ def get(name: str) -> FieldDescriptor:
         return FIELD_REGISTRY[name]
     except KeyError:
         raise UnknownFieldError(name, FIELD_REGISTRY.keys()) from None
+
+
+def _descriptor_of(name: str) -> FieldDescriptor | TimeSeriesDescriptor | ColumnDescriptor:
+    """Return the series, field, rebuilt field or column descriptor of ``name``."""
+    if name in TIME_SERIES_REGISTRY:
+        return TIME_SERIES_REGISTRY[name]
+    if name in REBUILT_FIELDS and name not in FIELD_REGISTRY:
+        return REBUILT_FIELDS[name]
+    if name in COLUMN_REGISTRY:
+        return COLUMN_REGISTRY[name]
+    return get(name)
+
+
+def kind_of(name: str) -> QuantityKind:
+    """Return the quantity kind of a field, a series or a column."""
+    return kind_row(_descriptor_of(name).quantity)
+
+
+def label_of(name: str) -> str:
+    """Return the short axis label of a field, a series or a column."""
+    return _descriptor_of(name).label
 
 
 def has(name: str) -> bool:
@@ -1079,7 +1435,12 @@ __all__ = [
     "TIME_SERIES_REGISTRY",
     "TimeSeriesDescriptor",
     "FIELD_REGISTRY",
+    "COLUMN_REGISTRY",
+    "REBUILT_FIELDS",
+    "ColumnDescriptor",
     "get",
+    "kind_of",
+    "label_of",
     "per_array_dimensions",
     "static_field_dimensions",
     "timed_field_dimensions",

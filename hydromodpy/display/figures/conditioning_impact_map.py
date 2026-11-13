@@ -6,9 +6,10 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Cmap, Opt, ReferenceRun
 from hydromodpy.display.maps.ugrid import render_face_field
+from hydromodpy.display.subject import FigureNotApplicable
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

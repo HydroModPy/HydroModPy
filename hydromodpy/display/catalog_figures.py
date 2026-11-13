@@ -119,6 +119,27 @@ def parse_figure_options(figure: str, items: Sequence[str]) -> dict[str, Any]:
     return options
 
 
+def parse_request_fields(items: Sequence[str]) -> dict[str, Any]:
+    """Read ``NAME=VALUE`` items into the fields of a figure request.
+
+    A value is a TOML value (``12``, ``[8, 4]``, ``"text"``, ``false``), else the
+    bare text. The request model checks the names and the types when it is built.
+    """
+    import tomllib
+
+    fields: dict[str, Any] = {}
+    for item in items:
+        name, sep, raw = str(item).partition("=")
+        name = name.strip()
+        if not sep or not name:
+            raise ValueError(f"--opt {item!r}: write NAME=VALUE, as in --opt station=lake:1.")
+        try:
+            fields[name] = tomllib.loads(f"value = {raw}")["value"]
+        except tomllib.TOMLDecodeError:
+            fields[name] = raw
+    return fields
+
+
 def _typed_option(figure: str, name: str, raw: str, annotation: Any) -> Any:
     """One ``--opt`` value, read as TOML then checked against the option type."""
     import tomllib

@@ -14,6 +14,7 @@ from hydromodpy.results.derive.recession import (
     SECONDS_PER_DAY,
     brutsaert_nieber_coefficient,
     budget_outflow_per_day,
+    fit_recession,
     recession_cloud,
 )
 
@@ -38,6 +39,21 @@ def test_an_exponential_recession_gives_a_rate_proportional_to_the_discharge() -
 
     assert flow.size == 29
     assert np.allclose(rate / flow, rate[0] / flow[0])
+
+
+def test_the_fit_returns_the_coefficient_and_exponent_of_a_known_recession() -> None:
+    a, b = 0.02, 1.5
+    flow = [10.0]
+    for _ in range(80):  # integrate -dQ/dt = a Q^b by small steps of one day
+        flow.append(flow[-1] - a * flow[-1] ** b)
+    series = pd.Series(flow, index=np.arange(81.0))
+
+    law = fit_recession(series)
+
+    assert law is not None
+    assert law[1] == pytest.approx(b, abs=0.08)
+    assert law[0] == pytest.approx(a, rel=0.25)
+    assert fit_recession(series.iloc[:3]) is None
 
 
 def test_a_rising_limb_and_the_skipped_head_carry_no_recession() -> None:

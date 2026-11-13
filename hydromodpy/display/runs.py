@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.console.progress import MILESTONE
+from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.portable import display_path
 from hydromodpy.core.time.selection import TimeSelectionError
@@ -47,20 +48,21 @@ from hydromodpy.display.figure import (
     NOT_A_SESSION_REASON,
     NOT_PROMOTED_REASON,
     PROMOTED_OPTION,
-    FigureNotApplicable,
 )
 from hydromodpy.display.figure_registry import get as _get_figure
 from hydromodpy.display.figure_registry import list_figures as _list_figures
 from hydromodpy.display.figure_table import FORMER_NAMES
+from hydromodpy.display.output import PRODUCER, PRODUCER_PREFIX
 from hydromodpy.display.png_metadata import stamp_png_identity
 from hydromodpy.display.style import Theme, themed
+from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.results.derive.config_flags import (
     missing_field_explanation,
     no_surface_exit_reason,
 )
+from hydromodpy.results.derive.time_alignment import run_period
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.ledger import Ledger, record_derived_file
-from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.record.label import identity_of_run_dir
 from hydromodpy.results.run.group import RunSet
 from hydromodpy.results.session.view import Session
@@ -75,7 +77,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-FIGURE_PRODUCER_PREFIX = "display:"
 """What a figure ledger entry names as producer, followed by the figure name."""
 
 
@@ -476,25 +477,7 @@ def figure_identity(sim: Run, run_dir: Path) -> Identity | None:
     identity = identity_of_run_dir(run_dir)
     if identity is None or identity.period is not None:
         return identity
-    return identity.model_copy(update={"period": _period_of(sim)})
-
-
-def _period_of(sim: Run) -> DateWindow | None:
-    """Return the simulated period of a run from its time grid; ``None`` when it has none.
-
-    A run-shaped object without a time grid (the calibration report draws
-    from a session journal) has no period.
-    """
-    periods = getattr(sim, "periods", None)
-    if periods is None:
-        return None
-    try:
-        edges = periods.edges
-    except (RuntimeError, KeyError, ValueError, OSError):
-        return None
-    if edges is None or len(edges) < 2:
-        return None
-    return DateWindow(start=edges[0].date(), end=edges[-1].date())
+    return identity.model_copy(update={"period": run_period(sim)})
 
 
 def record_figure(
@@ -513,7 +496,7 @@ def record_figure(
     record_derived_file(
         figures_dir,
         path,
-        producer=f"{FIGURE_PRODUCER_PREFIX}{name}",
+        producer=f"{PRODUCER_PREFIX}{name}",
         options=options,
         identity=identity,
     )
@@ -601,6 +584,27 @@ def figures_dir_of(run_dir: Path) -> Path:
     return Path(run_dir) / RUN_FIGURES_DIRNAME
 
 
+def _regen_request(entry: Any, sim: Run, figures_dir: Path, dpi: int) -> None:
+    """Draw again the figure of a ``display:figure`` entry, from the request and theme it recorded."""
+    from dataclasses import replace
+
+    from hydromodpy.display.output import THEME_KEY, request_from_ledger, write
+    from hydromodpy.display.presets import PRESETS
+    from hydromodpy.display.render import render
+    from hydromodpy.display.request import FORMATS, expand
+    from hydromodpy.display.theme import get_theme
+
+    theme = replace(get_theme(entry.options.get(THEME_KEY, "default")), dpi=dpi)
+    figure = expand(request_from_ledger(entry.options), PRESETS)
+    suffix = Path(entry.file).suffix.lstrip(".")
+    figure = replace(
+        figure,
+        stem=Path(entry.file).stem,
+        formats=(suffix,) if suffix in FORMATS else figure.formats,
+    )
+    write(render(figure, sim, theme=theme), figure, sim, figures_dir, theme)
+
+
 def regen_figures(sim: Run, run_dir: Path, *, dpi: int = 150) -> FigureRenderReport:
     """Draw again every figure ``figures/index.json`` of a run records.
 
@@ -611,7 +615,7 @@ def regen_figures(sim: Run, run_dir: Path, *, dpi: int = 150) -> FigureRenderRep
     entries = [
         entry
         for entry in Ledger.read(figures_dir).entries
-        if entry.producer.startswith(FIGURE_PRODUCER_PREFIX)
+        if entry.producer.startswith(PRODUCER_PREFIX)
     ]
     if not entries:
         raise ValueError(
@@ -624,8 +628,17 @@ def regen_figures(sim: Run, run_dir: Path, *, dpi: int = 150) -> FigureRenderRep
     session_of = _memoised_session_of()
     with rendering():
         for entry in entries:
-            name = entry.producer.removeprefix(FIGURE_PRODUCER_PREFIX)
+            name = entry.producer.removeprefix(PRODUCER_PREFIX)
             target = figures_dir / entry.file
+            if entry.producer == PRODUCER:
+                try:
+                    _regen_request(entry, sim, figures_dir, dpi)
+                except (DisplayError, ValueError) as error:
+                    skipped.append(SkippedFigure(name=target.stem, reason=str(error)))
+                    continue
+                rendered.append(target.stem)
+                written.append(target)
+                continue
             fig = _get_figure(name)
             options = dict(entry.options)
             subject = _subject_for(fig, sim, session_of=session_of)
@@ -640,7 +653,12 @@ def regen_figures(sim: Run, run_dir: Path, *, dpi: int = 150) -> FigureRenderRep
             rendered.append(name)
             written.append(target)
     return FigureRenderReport(
-        requested=tuple(entry.producer.removeprefix(FIGURE_PRODUCER_PREFIX) for entry in entries),
+        requested=tuple(
+            Path(entry.file).stem
+            if entry.producer == PRODUCER
+            else entry.producer.removeprefix(PRODUCER_PREFIX)
+            for entry in entries
+        ),
         rendered=tuple(rendered),
         written=tuple(written),
         skipped=tuple(skipped),
@@ -685,7 +703,7 @@ def render_figures_for_run(
 
     shown = display_cfg.show and _backend_is_interactive(display_cfg)
     drawn: list[MplFigure] = []
-    with rendering(display_cfg.preset):
+    with rendering(display_cfg.theme_name):
         session_of = _memoised_session_of()
         for name in wanted:
             fig = _get_figure(name)

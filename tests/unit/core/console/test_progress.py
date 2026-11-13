@@ -287,6 +287,39 @@ def test_after_phase_dropped_on_failure(live_console):
     assert seen == ["later"]
 
 
+def test_at_end_after_every_later_phase(live_console):
+    # The run recap of the seal comes after the figures drawn by the next step.
+    seen: list[str] = []
+    with core_progress.held_to_end():
+        with core_progress.phase("seal"):
+            core_progress.at_end(lambda: seen.append("recap"))
+        with core_progress.phase("display"):
+            seen.append("figures")
+        with core_progress.held_to_end():
+            seen.append("nested")
+        assert seen == ["figures", "nested"]
+    assert seen == ["figures", "nested", "recap"]
+
+
+def test_at_end_outside_a_hold_waits_for_the_phase(live_console):
+    seen: list[str] = []
+    with core_progress.phase("seal"):
+        core_progress.at_end(lambda: seen.append("recap"))
+        assert seen == []
+    assert seen == ["recap"]
+
+
+def test_at_end_dropped_on_failure(live_console):
+    seen: list[str] = []
+    with pytest.raises(RuntimeError):
+        with core_progress.held_to_end():
+            core_progress.at_end(lambda: seen.append("recap"))
+            raise RuntimeError("a figure failed")
+    assert seen == []
+    core_progress.at_end(lambda: seen.append("later"))
+    assert seen == ["later"]
+
+
 def test_failing_deferred_line(live_console):
     def broken() -> None:
         raise ValueError("boom")

@@ -18,7 +18,8 @@ from hydromodpy.core.time.time_method import (
     TimeMethod,
     time_method_from_cell_methods,
 )
-from hydromodpy.results.field_registry import FIELD_REGISTRY
+from hydromodpy.results.field_registry import FIELD_REGISTRY, TIME_SERIES_REGISTRY
+from hydromodpy.results.metric_rule import DateWindow
 
 
 def solver_time_index(catalog: Any, sim_id: Any, n_timesteps: int) -> pd.DatetimeIndex | None:
@@ -135,6 +136,14 @@ def run_period_edges(run: Any) -> pd.DatetimeIndex | None:
     return period_edges(stamps)
 
 
+def run_period(run: Any) -> DateWindow | None:
+    """Return the simulated period of a run as a date window, or None when it has no dates."""
+    edges = run_period_edges(run)
+    if edges is None:
+        return None
+    return DateWindow(start=edges[0].date(), end=edges[-1].date())
+
+
 def observed_on_simulation_index(
     observed: pd.Series,
     simulation_index: pd.DatetimeIndex,
@@ -229,11 +238,52 @@ def simulated_nan_stamps(
     return grid[sim.isna().to_numpy() & covered]
 
 
+def read_pair(run: Any, variable: str, *, station: str | None = None) -> pd.DataFrame:
+    """Return the simulated series of ``variable`` and its observed record on one index.
+
+    The index is the one of ``run.timeseries(variable, station=station)``, the end
+    stamps of the periods. Columns are ``simulated`` and ``observed``, float64,
+    in the stored unit, and ``observed`` is NaN for a period without observation.
+    The observed family is the ``observed`` fact of the descriptor, else
+    ``variable``. The time method is the one of ``variable`` and the first period
+    start is the one of the run.
+
+    Raises what ``run.timeseries`` and ``run.observed`` raise when a record is
+    missing, and ``ValueError`` when ``station`` is None and the record holds
+    several stations.
+    """
+    simulated = run.timeseries(variable, station=station).astype(float)
+    found = TIME_SERIES_REGISTRY.get(variable) or FIELD_REGISTRY.get(variable)
+    family = (found.observed if found is not None else None) or variable
+    raw = run.observed(family, station=station)
+    stations = sorted({str(name) for name in raw["station_id"]})
+    if station is None and len(stations) > 1:
+        raise ValueError(
+            f"The {family!r} record of run {run.name!r} holds several stations "
+            f"({', '.join(stations)}); name one."
+        )
+    record = pd.Series(
+        raw["value"].to_numpy(float), index=pd.DatetimeIndex(raw["datetime"])
+    ).sort_index()
+    paired = align_observed_simulated(
+        record,
+        simulated,
+        method=time_method_for(variable),
+        start=run_period_start(run, simulated.index),
+        dropna=False,
+    )
+    return pd.DataFrame(
+        {"simulated": simulated, "observed": paired["obs"].reindex(simulated.index)}
+    )
+
+
 __all__ = [
     "align_observed_simulated",
     "first_period_start",
     "normalize_datetime_series",
     "observed_on_simulation_index",
+    "read_pair",
+    "run_period_edges",
     "run_period_start",
     "simulated_nan_stamps",
     "time_method_for",

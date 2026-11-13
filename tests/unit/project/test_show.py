@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import typing
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, get_args
 
 import pandas as pd
@@ -189,6 +190,19 @@ def test_render(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at) -> None
     assert calls[1][1]["run_dir"] == tmp_path / "runs" / "base"
     assert show.shown(run, "figure", {"name": "head_map", "options": {"cmap": "x"}}) == "figure"
     assert calls[3][1]["cmap"] == "x"
+
+
+def test_against_names_a_run_of_the_same_project(monkeypatch, tmp_path: Path, run_at) -> None:
+    other = SimpleNamespace(name="other", dir=tmp_path / "runs" / "other")
+    project = SimpleNamespace(runs=lambda: [other])
+    monkeypatch.setattr("hydromodpy.project.facade.open_project", lambda root: project)
+    drawn = _recorder(monkeypatch, "hydromodpy.display.render.render", {})
+    run = run_at(tmp_path / "runs" / "base")
+
+    show.render(run, "head", {"against": "other", "data": True})
+    assert drawn[0][1]["runs"] == {"other": other}
+    with pytest.raises(CommandUsageError, match="no run of the project. Runs: other"):
+        show.render(run, "head", {"against": "nope", "data": True})
 
 
 def test_report(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at) -> None:

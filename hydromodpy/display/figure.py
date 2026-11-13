@@ -25,7 +25,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
-from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.display.figure_options import (
     COMMON_OPTIONS,
     Figsize,
@@ -116,18 +115,6 @@ FigureKind = Literal[
     "comparison",
     "animation",
 ]
-
-
-class FigureNotApplicable(DisplayError, ValueError):
-    """Raised by a figure that finds, while reading the run, that it does not apply.
-
-    :meth:`BaseFigure.unavailable_reason` refuses a run before drawing, from
-    the run alone. Some refusals depend on the options too: a figure that
-    reads one calibrated parameter applies to a session that sampled two once
-    ``parameter`` names one. Such a figure raises this instead, and the batch
-    renderer skips it with the message as its reason, as it skips an
-    unavailable figure, whatever ``on_error`` says.
-    """
 
 
 @dataclass(frozen=True, slots=True)

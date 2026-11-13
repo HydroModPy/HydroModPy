@@ -11,8 +11,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.display.figure import FigureNotApplicable
 from hydromodpy.display.figures.conditioning_impact_map import ConditioningImpactMap
+from hydromodpy.display.subject import FigureNotApplicable
 
 # Two square cells side by side.
 VERTICES = np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [2.0, 0.0], [2.0, 1.0]])

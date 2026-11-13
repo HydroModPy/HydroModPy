@@ -46,7 +46,6 @@ __pypackages__/
 .vscode/
 .idea/
 .claude/
-CLAUDE.md
 .codex
 GEMINI.md
 .agents

@@ -594,8 +594,9 @@ class Modflow6OutputAdapter:
 
         MF6 splits storage into specific storage (STO-SS, confined) and specific
         yield (STO-SY, unconfined); total storage flux = STO-SS + STO-SY. Totals
-        and storage scale to m3/s like the budget fluxes; PERCENT_DISCREPANCY is
-        unitless and must not be scaled.
+        and storage scale to m3/s like the budget fluxes. The discrepancy is
+        recomputed from IN-OUT, the listing prints its own column rounded to
+        0.01 %.
 
         The build prints the budget of every time step. ``stamp_keys`` are the
         0-based ``(kstp, kper)`` of the saved heads: each stamp takes the mean
@@ -621,7 +622,6 @@ class Modflow6OutputAdapter:
                         "storage_out": _budget_field(row, names, "STO-SS_OUT")
                         + _budget_field(row, names, "STO-SY_OUT"),
                         "in_minus_out": _budget_field(row, names, "IN-OUT"),
-                        "percent_error": _budget_field(row, names, "PERCENT_DISCREPANCY"),
                     }
                     for row in inc
                 ]

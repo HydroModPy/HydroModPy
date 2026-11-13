@@ -84,12 +84,16 @@ def test_the_commands_see_only_what_a_fresh_user_has(tmp_path: Path, monkeypatch
     monkeypatch.setenv("HMP_STATE_HOME", "/home/someone/.local/state/hydromodpy")
     monkeypatch.setenv("HMP_CACHE_HOME", "/cache")
     monkeypatch.setenv("HMP_BIN", "/bin-folder")
+    monkeypatch.setenv("HMP_EXAMPLES_SOURCE", "/checkout")
     env = qs.scratch_env(tmp_path)
     assert {key for key in env if key.startswith("HMP_")} == {
         "HMP_CACHE_HOME",
         "HMP_BIN",
+        "HMP_EXAMPLES_SOURCE",
         "HMP_STATE_HOME",
     }
+    # Before the tag exists, CI fetches the examples from the checkout.
+    assert env["HMP_EXAMPLES_SOURCE"] == "/checkout"
     assert env["HMP_STATE_HOME"].startswith(str(tmp_path))
     assert env["HMP_CACHE_HOME"] == "/cache"
     assert env["HMP_BIN"] == "/bin-folder"

@@ -535,8 +535,9 @@ class PlanDraft:
         The ``lines`` are those ``hmp run --dry-run`` prints for a ``[sites]``
         project, so a draft without ``[sites]`` has none to give.
         """
+        lines = [] if self.sites_config is None else dry_run_lines(self, plan_budget(self))
         return {
-            "lines": dry_run_lines(self, plan_budget(self)),
+            "lines": lines,
             "warnings": group_issues(self.warnings),
             "errors": group_issues(self.errors),
         }

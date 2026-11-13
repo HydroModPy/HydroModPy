@@ -163,8 +163,8 @@ class RunTimeseriesMixin:
                 stations = [CATCHMENT]
             if len(stations) > 1:
                 raise KeyError(
-                    f"Variable '{variable}' has multiple stations ({', '.join(stations)}); "
-                    "pass station= explicitly."
+                    f"Variable '{variable}' has {len(stations)} stations "
+                    f"({_station_families(stations)}); pass station= explicitly."
                 )
             station = stations[0]
         result = read_run_table(
@@ -302,11 +302,22 @@ class RunTimeseriesMixin:
         Length matches ``run.n_timesteps``. Each stamp is the END of its
         period, as the solvers write it. The solver's CF ``/time`` axis is read
         first; without it the stamps are rebuilt from the ``period_start``,
-        ``period_end`` and ``time_unit`` the run states about itself. Raises
-        if the bounds are missing or the simulation has no timesteps.
+        ``period_end`` and ``time_unit`` the run states about itself. A steady
+        run without ``[simulation.time]`` records no step count and holds one
+        state: its index is the one stamp the solver wrote on its axis, a
+        clock with no calendar that starts at 1970-01-01, so every reader gets
+        one stamp per stored state. Raises if the bounds are missing or a transient
+        simulation has no timesteps.
         """
         row = self._load_row()
         n = row.get("n_timesteps")
+        if n is None and row.get("flow_regime") == "steady":
+            idx = solver_time_index(self._catalog, self._sim_id, 1)
+            if idx is not None:
+                return idx.tz_localize(None) if idx.tz is not None else idx
+            raise RuntimeError(
+                f"Steady simulation '{self._sim_id}' has no dates and no stored time axis."
+            )
         if n is None:
             raise RuntimeError(
                 f"Simulation '{self._sim_id}' has no n_timesteps recorded (is it completed?)"
@@ -329,10 +340,28 @@ class RunTimeseriesMixin:
         )
 
     def recharge_forcing(self) -> pd.Series:
-        """Lazy input recharge forcing per stress period."""
+        """Input recharge rate of the model domain per stress period, in m/s."""
         from hydromodpy.results.derive import views
 
         return views.recharge_forcing(self)
+
+
+def _station_families(stations: list[str]) -> str:
+    """Name the stations of a variable by family, as ``148 like reach:1; lake:a``.
+
+    A stream package names every reach, so a list of all of them hides the
+    one station a reader wanted, a lake beside 148 reaches for instance.
+    """
+    families: dict[str, list[str]] = {}
+    for station in stations:
+        families.setdefault(station.split(":", 1)[0] if ":" in station else "", []).append(station)
+    parts = []
+    for members in families.values():
+        if len(members) <= 3:
+            parts.append(", ".join(members))
+        else:
+            parts.append(f"{len(members)} like {members[0]}")
+    return "; ".join(parts)
 
 
 def _naive_utc(values: pd.Series) -> pd.DatetimeIndex:

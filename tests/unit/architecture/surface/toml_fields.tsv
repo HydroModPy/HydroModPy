@@ -657,12 +657,125 @@ display.backend	Literal['agg', 'qt5agg', 'auto']	'auto'	stable
 display.cmap	str	'viridis'	stable
 display.dpi	int	150	stable
 display.enabled	bool	True	stable
+display.figure	list[table]	[]	stable
+display.figure.against	str | None	None	stable
+display.figure.bbox	tuple[float, float, float, float] | None	None	stable
+display.figure.by	str | None	None	stable
+display.figure.change	tuple[str | int, str | int] | None	None	stable
+display.figure.contours	bool | None	None	stable
+display.figure.cumulative	bool	False	stable
+display.figure.engine	list[str]	['static']	stable
+display.figure.every	int | None	None	stable
+display.figure.facet	Literal['time', 'run', 'variable', 'layer', 'parameter'] | None	None	stable
+display.figure.formats	list[str]	['png']	stable
+display.figure.layer	int | str | None	None	stable
+display.figure.line	list[tuple[float, float]] | None	None	stable
+display.figure.name	str | None	None	stable
+display.figure.observed	bool	False	stable
+display.figure.overlays	list[str] | None	None	stable
+display.figure.panels	list[table] | None	None	stable
+display.figure.panels.against	str | None	None	stable
+display.figure.panels.bbox	tuple[float, float, float, float] | None	None	stable
+display.figure.panels.by	str | None	None	stable
+display.figure.panels.change	tuple[str | int, str | int] | None	None	stable
+display.figure.panels.contours	bool | None	None	stable
+display.figure.panels.cumulative	bool	False	stable
+display.figure.panels.holes	list[str] | None	None	stable
+display.figure.panels.layer	int | str | None	None	stable
+display.figure.panels.line	list[tuple[float, float]] | None	None	stable
+display.figure.panels.observed	bool	False	stable
+display.figure.panels.overlays	list[str] | None	None	stable
+display.figure.panels.reduce	Literal['mean', 'max', 'frequency'] | None	None	stable
+display.figure.panels.reference	list[Literal['one_to_one', 'zero'] | table] | None	None	stable
+display.figure.panels.reference.label	str	<required>	stable
+display.figure.panels.reference.value	float	<required>	stable
+display.figure.panels.scale	Literal['linear', 'log'] | None	None	stable
+display.figure.panels.scores	bool	False	stable
+display.figure.panels.share	bool	False	stable
+display.figure.panels.stack	bool	False	stable
+display.figure.panels.station	str | list[str] | None	None	stable
+display.figure.panels.time	str | int | list[str | int] | None	None	stable
+display.figure.panels.type	str | None	None	stable
+display.figure.panels.variable	list[str] | None	None	stable
+display.figure.preset	str | None	None	stable
+display.figure.reduce	Literal['mean', 'max', 'frequency'] | None	None	stable
+display.figure.reference	list[Literal['one_to_one', 'zero'] | table] | None	None	stable
+display.figure.reference.label	str	<required>	stable
+display.figure.reference.value	float	<required>	stable
+display.figure.scale	Literal['linear', 'log'] | None	None	stable
+display.figure.scores	bool	False	stable
+display.figure.share	bool	False	stable
+display.figure.stack	bool	False	stable
+display.figure.station	str | list[str] | None	None	stable
+display.figure.time	str | int | list[str | int] | None	None	stable
+display.figure.title	str | None	None	stable
+display.figure.type	str | None	None	stable
+display.figure.variable	list[str] | None	None	stable
+display.figure.when	str	'end'	stable
+display.figure.width	str | None	None	stable
 display.figures	list[str]	[]	stable
 display.on_error	Literal['warn', 'raise']	'warn'	stable
 display.overrides	dict[str, dict]	{}	stable
 display.preset	Literal['default', 'print', 'dark']	'default'	stable
+display.presets	dict[str, table]	{}	stable
+display.presets.against	str | None	None	stable
+display.presets.bbox	tuple[float, float, float, float] | None	None	stable
+display.presets.by	str | None	None	stable
+display.presets.change	tuple[str | int, str | int] | None	None	stable
+display.presets.contours	bool | None	None	stable
+display.presets.cumulative	bool	False	stable
+display.presets.engine	list[str]	['static']	stable
+display.presets.every	int | None	None	stable
+display.presets.facet	Literal['time', 'run', 'variable', 'layer', 'parameter'] | None	None	stable
+display.presets.formats	list[str]	['png']	stable
+display.presets.layer	int | str | None	None	stable
+display.presets.line	list[tuple[float, float]] | None	None	stable
+display.presets.name	str | None	None	stable
+display.presets.observed	bool	False	stable
+display.presets.overlays	list[str] | None	None	stable
+display.presets.panels	list[table] | None	None	stable
+display.presets.panels.against	str | None	None	stable
+display.presets.panels.bbox	tuple[float, float, float, float] | None	None	stable
+display.presets.panels.by	str | None	None	stable
+display.presets.panels.change	tuple[str | int, str | int] | None	None	stable
+display.presets.panels.contours	bool | None	None	stable
+display.presets.panels.cumulative	bool	False	stable
+display.presets.panels.holes	list[str] | None	None	stable
+display.presets.panels.layer	int | str | None	None	stable
+display.presets.panels.line	list[tuple[float, float]] | None	None	stable
+display.presets.panels.observed	bool	False	stable
+display.presets.panels.overlays	list[str] | None	None	stable
+display.presets.panels.reduce	Literal['mean', 'max', 'frequency'] | None	None	stable
+display.presets.panels.reference	list[Literal['one_to_one', 'zero'] | table] | None	None	stable
+display.presets.panels.reference.label	str	<required>	stable
+display.presets.panels.reference.value	float	<required>	stable
+display.presets.panels.scale	Literal['linear', 'log'] | None	None	stable
+display.presets.panels.scores	bool	False	stable
+display.presets.panels.share	bool	False	stable
+display.presets.panels.stack	bool	False	stable
+display.presets.panels.station	str | list[str] | None	None	stable
+display.presets.panels.time	str | int | list[str | int] | None	None	stable
+display.presets.panels.type	str | None	None	stable
+display.presets.panels.variable	list[str] | None	None	stable
+display.presets.preset	str | None	None	stable
+display.presets.reduce	Literal['mean', 'max', 'frequency'] | None	None	stable
+display.presets.reference	list[Literal['one_to_one', 'zero'] | table] | None	None	stable
+display.presets.reference.label	str	<required>	stable
+display.presets.reference.value	float	<required>	stable
+display.presets.scale	Literal['linear', 'log'] | None	None	stable
+display.presets.scores	bool	False	stable
+display.presets.share	bool	False	stable
+display.presets.stack	bool	False	stable
+display.presets.station	str | list[str] | None	None	stable
+display.presets.time	str | int | list[str | int] | None	None	stable
+display.presets.title	str | None	None	stable
+display.presets.type	str | None	None	stable
+display.presets.variable	list[str] | None	None	stable
+display.presets.when	str	'end'	stable
+display.presets.width	str | None	None	stable
 display.save	bool	True	stable
 display.show	bool	False	stable
+display.theme	str	'default'	stable
 display.time	str | int | None	None	stable
 domain	table	<table>	stable
 domain.depth_model	table	<table>	stable
