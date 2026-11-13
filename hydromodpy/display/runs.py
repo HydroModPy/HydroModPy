@@ -43,6 +43,7 @@ from hydromodpy.display.request import (
 from hydromodpy.display.subject import FigureNotApplicable
 from hydromodpy.display.theme import get_theme
 from hydromodpy.results.ledger import Ledger
+from hydromodpy.results.session.view import Session
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 if TYPE_CHECKING:
@@ -184,7 +185,7 @@ def display_theme(display_cfg: DisplayConfig) -> Theme:
 
 
 def draw_requests(
-    run: Run,
+    subject: Run | Session,
     requests: Sequence[FigureRequest],
     *,
     presets: Mapping[str, FigureRequest],
@@ -192,13 +193,16 @@ def draw_requests(
     output_dir: Path,
     on_error: str = "warn",
     on_measure: Callable[[Measure], None] | None = None,
+    when: str = END,
 ) -> FigureRenderReport:
-    """Draw each request of ``when = "end"``: one expand, one render and one write each.
+    """Draw each request whose ``when`` is the given one: one expand, one render and one write each.
 
-    A figure that does not apply to the run is skipped with its reason. Any other
-    failure is logged and skipped, or raised when ``on_error`` is ``raise``. A request
-    drawn at another time is left out of the report.
+    The subject is a run, possibly not sealed yet, or a session. A session figure is
+    written without a ledger entry. A figure that does not apply to the subject is
+    skipped with its reason. Any other failure is logged and skipped, or raised when
+    ``on_error`` is ``raise``. A request drawn at another time is left out of the report.
     """
+    run = None if isinstance(subject, Session) else subject
     rendered: list[str] = []
     written: list[Path] = []
     skipped: list[SkippedFigure] = []
@@ -207,9 +211,9 @@ def draw_requests(
         stem = file_stem(request)
         try:
             figure = expand(request, presets)
-            if figure.when != END:
+            if figure.when != when:
                 logger.info(
-                    "Figure %s is not drawn at the end of the run: when = %r is drawn at that time.",
+                    "Figure %s is not drawn now: when = %r is drawn at that time.",
                     stem,
                     figure.when,
                 )
@@ -217,7 +221,9 @@ def draw_requests(
             requested.append(stem)
             with measured("figure", stem) as measure:
                 try:
-                    paths = write(render(figure, run, theme=theme), figure, run, output_dir, theme)
+                    paths = write(
+                        render(figure, subject, theme=theme), figure, run, output_dir, theme
+                    )
                 finally:
                     if on_measure is not None:
                         on_measure(measure)

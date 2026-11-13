@@ -41,7 +41,7 @@ The import rules are in ``tests/unit/architecture/display_layout.yaml`` and the 
 :doc:`layers page <../generated/layers>`. Outside the package, ``display`` imports only ``core``
 and ``results``, and ``calibration`` does not import ``display``. Inside, only ``render.py`` names
 a frame or a special figure as text, by its key in ``request.FRAMES`` or ``request.SPECIALS``.
-A read of a run that a figure needs goes in ``results``, never in ``display``. A panel of the
+``display`` draws a session or an unsealed run that ``project`` and ``workflow`` open, and opens neither. A read of a run that a figure needs goes in ``results``, never in ``display``. A panel of the
 overview is a boolean of ``OverviewPanelsConfig``, its drawing function in ``overview/panels.py``
 and its line in ``PANEL_FILES``. A block of a report page is a function of ``report/pages.py``,
 and its words are a field of ``ReportTexts``.

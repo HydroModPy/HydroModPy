@@ -387,3 +387,20 @@ def test_cohort_in_threads_reaches_the_collector() -> None:
         Pipeline(steps).run(PipelineState(run_id="r", data={}))
     assert sorted(line.name for line in lines) == ["left", "right"]
     assert any(step.thread != threading.current_thread().name for step in steps)
+
+
+@pytest.mark.parametrize(("with_run_dir", "expected"), [(True, ["a", "b"]), (False, [])])
+def test_figures_are_drawn_after_each_executed_step(
+    monkeypatch, tmp_path: Path, with_run_dir, expected
+) -> None:
+    drawn: list[str] = []
+    monkeypatch.setattr(
+        "hydromodpy.workflow.steps.display.draw_after",
+        lambda _state, step: drawn.append(step) or [],
+    )
+    steps = [Persistent("a"), Persistent("b")]
+    pipeline = Pipeline(steps, workspace=tmp_path, run_dir=tmp_path if with_run_dir else None)
+
+    pipeline.run(initial_state(tmp_path, "figs"))
+
+    assert drawn == expected

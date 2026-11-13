@@ -602,7 +602,7 @@ def regenerate(directory: Path = SNAPSHOT_DIR) -> list[str]:
         "rewrites it, or mark the key experimental first if it was never promised and has never "
         "been stable."
         for path in removed
-        if migration_for(path) is None and (promised or retire_row_for(path) is None)
+        if migration_for(path) is None
     ]
     refused += [
         f"{name}: this public name left and nothing keeps it working. Add an entry with its "

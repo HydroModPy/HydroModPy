@@ -73,7 +73,7 @@ def _default_text(info: FieldInfo) -> str:
 
 def _accepted(name: str, info: FieldInfo) -> list[str]:
     """The values a field takes, from the table its validator reads, else from its type."""
-    from hydromodpy.core.pipeline_steps import STEP_NAMES
+    from hydromodpy.core.pipeline_steps import FIGURE_STEPS
     from hydromodpy.core.units.kinds import LAYER_REDUCTIONS
     from hydromodpy.display import request as rq
     from hydromodpy.display.presets import PRESETS
@@ -85,7 +85,7 @@ def _accepted(name: str, info: FieldInfo) -> list[str]:
         "layer": [w for w in LAYER_REDUCTIONS if w is not None],
         "station": [rq.ZONE_PREFIX + z for z in rq.ZONES],
         "width": [f"{key} ({mm} mm)" for key, mm in rq.WIDTHS_MM.items()],
-        "when": [*(k for k in rq.WHEN if k != rq.AFTER), f"{rq.AFTER}<step>"],
+        "when": [*rq.WHEN[:-1], f"{rq.AFTER}<step>"],
         "engine": list(rq.ENGINES),
         "formats": list(rq.FORMATS),
         "holes": list(rq.PANEL_FIELDS),
@@ -93,7 +93,7 @@ def _accepted(name: str, info: FieldInfo) -> list[str]:
         "preset": list(PRESETS),
     }
     if name == "when":
-        tables["when"].append(f"with <step> one of {', '.join(STEP_NAMES)}")
+        tables["when"].append(f"with <step> one of {', '.join(FIGURE_STEPS)}")
     return tables.get(name) or _literals(info.annotation)
 
 
@@ -149,7 +149,7 @@ def frames() -> list[dict[str, Any]]:
 
 def vocabularies() -> list[dict[str, Any]]:
     """The closed values that are not frames: engines, when, widths, formats, zones, keys."""
-    from hydromodpy.core.pipeline_steps import STEP_NAMES
+    from hydromodpy.core.pipeline_steps import FIGURE_STEPS
     from hydromodpy.display import request as rq
     from hydromodpy.display.theme import THEMES
 
@@ -166,10 +166,10 @@ def vocabularies() -> list[dict[str, Any]]:
             "values": [
                 {
                     "value": f"{k}<step>" if k == rq.AFTER else k,
-                    "note": ", ".join(STEP_NAMES) if k == rq.AFTER else "",
-                    "ready": v,
+                    "note": ", ".join(FIGURE_STEPS) if k == rq.AFTER else "",
+                    "ready": True,
                 }
-                for k, v in rq.WHEN.items()
+                for k in rq.WHEN
             ],
         },
         {

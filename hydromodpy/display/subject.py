@@ -7,9 +7,7 @@ raises ``FigureNotApplicable`` when the thing is absent, with a sentence that sa
 what is missing and what the subject holds instead.
 
 Values come back in the stored unit of the variable. ``variables.to_display``
-converts them. A later version gives these functions a second family of
-implementations for the state of a running simulation, so the signatures below
-are the whole contract between a subject and the drawing code.
+converts them.
 """
 
 from __future__ import annotations

@@ -58,7 +58,6 @@ def test_data_tables_are_keyed_by_panel_and_by_facet_value(stored_run):
     ("fields", "word"),
     [
         ({"panels": [PanelRequest(type="volume", variable="head")]}, "volume"),
-        ({"variable": "head", "when": "session"}, "session"),
         ({"panels": [PanelRequest(type="series", variable="head", layer=0)]}, "shape"),
     ],
 )

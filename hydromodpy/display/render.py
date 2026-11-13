@@ -24,7 +24,6 @@ from hydromodpy.display import frames, interactive, special, static
 from hydromodpy.display.overlays import OVERLAYS
 from hydromodpy.display.presets import PRESETS
 from hydromodpy.display.request import (
-    AFTER,
     ENGINES,
     FRAMES,
     INTERACTIVE,
@@ -33,7 +32,6 @@ from hydromodpy.display.request import (
     STATIC,
     TRIAL_FRAMES,
     TRIALS,
-    WHEN,
     ZONE_PREFIX,
     FigureRequest,
     PanelRequest,
@@ -121,8 +119,7 @@ def render(
     refuse ``data = True`` because a drawn function gives no tables.
 
     Refuses with ``DisplayError`` naming what is missing: a frame whose
-    ``Frame.ready`` is false, an engine whose ``Engine.ready`` is false, a ``when``
-    whose ``WHEN`` value is false, a subject the frame does not read. Any read that
+    ``Frame.ready`` is false, an engine whose ``Engine.ready`` is false, a subject the frame does not read. Any read that
     fails raises ``FigureNotApplicable`` with the panel letter in its message, and
     the whole figure is refused.
     """
@@ -230,10 +227,6 @@ def _check_ready(figure: ResolvedFigure, engine: str, *, tables: bool = False) -
                 f"{figure.stem!r} is drawn by a function, so it has the static engine only. "
                 f"The {engine} engine draws the frames {', '.join(drawn_by)}."
             )
-    when = AFTER if figure.when.startswith(AFTER) else figure.when
-    if not WHEN[when]:
-        ready = [name for name, drawn in WHEN.items() if drawn]
-        raise _not_drawn("moment", figure.when, f"Use when = {ready[0]!r}.")
     for panel in figure.panels:
         frame = FRAMES[panel.type]
         if not frame.ready:

@@ -460,6 +460,11 @@ class Pipeline:
                     else manifest.with_state(state, self.steps, self.workspace)
                 )
                 manifest.write_atomic(self.run_dir)
+                # Imported here: steps/display.py imports this module.
+                from hydromodpy.workflow.steps.display import draw_after
+
+                for idx in pending:
+                    draw_after(state, step_name(self.steps[idx]))
         return state
 
     def _cohort_layout(self) -> tuple[tuple[int, ...], ...]:

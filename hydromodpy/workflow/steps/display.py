@@ -37,9 +37,11 @@ from typing import TYPE_CHECKING, ClassVar
 from hydromodpy.core.console import progress
 from hydromodpy.core.exceptions import ConfigError, DisplayError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.pipeline_steps import FIGURE_STEPS
 from hydromodpy.core.runtime.stopwatch import Measure
+from hydromodpy.display.request import AFTER
 from hydromodpy.results.storage.kept import renders
-from hydromodpy.workflow.record.run_store import run_is_persisted
+from hydromodpy.workflow.record.run_store import run_is_persisted, run_store
 from hydromodpy.workflow.runner import record_measure
 from hydromodpy.workflow.state import PipelineState
 
@@ -96,6 +98,64 @@ def _render_requests(
     return written
 
 
+def _display_config(state: PipelineState) -> DisplayConfig | None:
+    """Return the ``[display]`` section when this run draws figures, else None and say why."""
+    ctx = state.get("ctx")
+    if state.get("skip_display"):
+        logger.info("DisplayStep skipped (skip_display=True)")
+        return None
+    display_cfg = getattr(ctx.cfg, "display", None)
+    if display_cfg is None or getattr(ctx, "sim_id", None) is None or not run_is_persisted(ctx):
+        logger.debug("DisplayStep: no display config, no sim_id or no store, skipping")
+        return None
+    if not renders(getattr(ctx, "level", None) or "result"):
+        logger.info("DisplayStep skipped: a kept calibration trial draws nothing")
+        return None
+    if not display_cfg.enabled or not display_cfg.figure:
+        # At info, not debug: a run that draws nothing looks exactly like a
+        # run whose figure list silently emptied.
+        logger.info(
+            "No figure rendered: [display] enabled = %s, %d [[display.figure]] table(s).",
+            display_cfg.enabled,
+            len(display_cfg.figure),
+        )
+        return None
+    return display_cfg
+
+
+def draw_after(state: PipelineState, step: str) -> list[Path]:
+    """Draw the figures of ``when = "after:<step>"`` from the run as written so far.
+
+    Only a step of ``FIGURE_STEPS`` has its results on disk, so any other step returns
+    at once without opening the store. The run is not sealed yet, so a figure never
+    fails it: ``on_error`` is always ``warn``, and ``hmp show`` draws the figure again.
+    """
+    ctx = state.get("ctx")
+    when = AFTER + step
+    asked = getattr(getattr(getattr(ctx, "cfg", None), "display", None), "figure", None) or ()
+    if step not in FIGURE_STEPS or not any(getattr(r, "when", None) == when for r in asked):
+        return []
+    display_cfg = _display_config(state)
+    if display_cfg is None:
+        return []
+    from hydromodpy.display.presets import PRESETS
+    from hydromodpy.display.runs import display_theme, draw_requests, figures_dir_of
+    from hydromodpy.results.run.view import Run
+
+    with run_store(ctx) as store:
+        report = draw_requests(
+            Run(ctx.sim_id, store),
+            display_cfg.figure,
+            presets={**PRESETS, **display_cfg.presets},
+            theme=display_theme(display_cfg),
+            output_dir=figures_dir_of(Path(ctx.run_dir)),
+            on_error="warn",
+            on_measure=partial(record_measure, ctx.run_dir, attempt=ctx.attempt),
+            when=when,
+        )
+    return list(report.written)
+
+
 class DisplayStep:
     """Draw the figures declared in ``[[display.figure]]`` from the sealed run."""
 
@@ -147,46 +207,25 @@ class DisplayStep:
             raise ConfigError("DisplayStep requires 'ctx' in state.data")
 
         rendered: list = []
+        display_cfg = _display_config(state)
+        if display_cfg is not None:
+            from hydromodpy.results.run.view import Run
+            from hydromodpy.workflow.steps.export import sealed_run_name, sealed_run_store
 
-        if state.get("skip_display"):
-            logger.info("DisplayStep skipped (skip_display=True)")
-        else:
-            display_cfg = getattr(ctx.cfg, "display", None)
-            sim_id = getattr(ctx, "sim_id", None)
-            if display_cfg is None or sim_id is None or not run_is_persisted(ctx):
-                logger.debug("DisplayStep: no display config, no sim_id or no store, skipping")
-            elif not renders(getattr(ctx, "level", None) or "result"):
-                logger.info("DisplayStep skipped: a kept calibration trial draws nothing")
-            elif not display_cfg.enabled or not display_cfg.figure:
-                # At info, not debug: a run that draws nothing looks exactly like a
-                # run whose figure list silently emptied.
-                logger.info(
-                    "No figure rendered: [display] enabled = %s, %d [[display.figure]] table(s).",
-                    display_cfg.enabled,
-                    len(display_cfg.figure),
+            run_dir = Path(ctx.run_dir)
+            with sealed_run_store(ctx) as store:
+                sim = Run(ctx.sim_id, store)
+                out_dir = figures_dir_of(run_dir)
+                on_measure = partial(record_measure, ctx.run_dir, attempt=ctx.attempt)
+                rendered = _render_requests(
+                    sim,
+                    display_cfg,
+                    output_dir=out_dir,
+                    on_measure=on_measure,
+                    run_name=sealed_run_name(run_dir),
                 )
-            else:
-                from hydromodpy.results.run.view import Run
-                from hydromodpy.workflow.steps.export import sealed_run_name, sealed_run_store
-
-                run_dir = Path(ctx.run_dir)
-                with sealed_run_store(ctx) as store:
-                    sim = Run(sim_id, store)
-                    out_dir = figures_dir_of(run_dir)
-                    on_measure = partial(record_measure, ctx.run_dir, attempt=ctx.attempt)
-                    rendered = _render_requests(
-                        sim,
-                        display_cfg,
-                        output_dir=out_dir,
-                        on_measure=on_measure,
-                        run_name=sealed_run_name(run_dir),
-                    )
-                if rendered:
-                    logger.debug(
-                        "DisplayStep rendered %d figure(s) in %s",
-                        len(rendered),
-                        out_dir,
-                    )
+            if rendered:
+                logger.debug("DisplayStep rendered %d figure(s) in %s", len(rendered), out_dir)
 
         return state.advance(
             step_index=state.step_index + 1,

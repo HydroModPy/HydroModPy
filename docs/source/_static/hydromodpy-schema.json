@@ -7190,28 +7190,12 @@
         },
         "when": {
           "default": "end",
-          "description": "When the figure is drawn: 'end', 'session', 'trial' or 'after:<step>'.",
+          "description": "When the figure is drawn: 'end', 'session' or 'after:<step>'.",
           "examples": [
             "end"
           ],
           "title": "When",
           "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "every": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "With when = 'trial', draw every this many trials.",
-          "title": "Every",
-          "unit": "trials",
           "x-hmp-profile": "user"
         },
         "engine": {

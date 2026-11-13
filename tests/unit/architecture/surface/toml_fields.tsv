@@ -663,7 +663,6 @@ display.figure.change	tuple[str | int, str | int] | None	None	stable
 display.figure.contours	bool | None	None	stable
 display.figure.cumulative	bool	False	stable
 display.figure.engine	list[str]	['static']	stable
-display.figure.every	int | None	None	stable
 display.figure.facet	Literal['time', 'run', 'variable', 'layer', 'parameter'] | None	None	stable
 display.figure.formats	list[str]	['png']	stable
 display.figure.layer	int | str | None	None	stable
@@ -720,7 +719,6 @@ display.presets.change	tuple[str | int, str | int] | None	None	stable
 display.presets.contours	bool | None	None	stable
 display.presets.cumulative	bool	False	stable
 display.presets.engine	list[str]	['static']	stable
-display.presets.every	int | None	None	stable
 display.presets.facet	Literal['time', 'run', 'variable', 'layer', 'parameter'] | None	None	stable
 display.presets.formats	list[str]	['png']	stable
 display.presets.layer	int | str | None	None	stable

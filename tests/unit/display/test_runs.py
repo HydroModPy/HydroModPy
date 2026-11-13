@@ -113,6 +113,32 @@ def test_draw_requests_names_what_it_drew_and_what_it_skipped(stored_run, tmp_pa
     assert [(item.name, item.actionable) for item in report.skipped] == [("c", False)]
 
 
+def test_draw_requests_draws_the_requests_of_its_moment(stored_run, tmp_path):
+    requests = _requests(
+        {"variable": "head", "name": "a"},
+        {"variable": "head", "name": "b", "when": "after:derive"},
+    )
+
+    report = _draw_requests(stored_run, requests, tmp_path, when="after:derive")
+
+    assert report.rendered == ("b",)
+
+
+def test_draw_requests_draws_a_session_without_a_ledger(tmp_path):
+    from tests.unit.display._calibration_journal import journal_session
+
+    rows = [{"trial": 1, "cost": 1.0, "parameters": {"K": {"value": 1e-5}}}]
+    session = journal_session(tmp_path, rows)
+    requests = _requests(
+        {"variable": "trials.cost", "type": "series", "name": "t", "when": "session"}
+    )
+
+    report = _draw_requests(session, requests, tmp_path / "figs", when="session")
+
+    assert report.rendered == ("t",)
+    assert not (tmp_path / "figs" / "index.json").exists()
+
+
 def test_draw_requests_follows_on_error(stored_run, tmp_path, monkeypatch):
     def broken(*_args, **_keywords):
         raise RuntimeError("boom")

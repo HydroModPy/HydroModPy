@@ -18,6 +18,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import hydromodpy.display.runs as display_runs
+import hydromodpy.workflow.steps.display as display_steps
 import hydromodpy.workflow.steps.export as export_step_module
 from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.core.state.layout import runs_dir_for
@@ -27,7 +28,7 @@ from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.ledger import Ledger
 from hydromodpy.results.record.manifest import is_sealed
 from hydromodpy.workflow.state import PipelineState
-from hydromodpy.workflow.steps.display import DisplayStep
+from hydromodpy.workflow.steps.display import DisplayStep, draw_after
 from tests._helpers.run_stores import RUN_NAME, seal_demo_run
 
 
@@ -188,3 +189,40 @@ def test_failing_figure_under_warn_is_skipped(monkeypatch, sealed) -> None:
 
     assert final.get("rendered_figures") == []
     assert is_sealed(run_dir)
+
+
+def after_ctx(tmp_path: Path) -> SimpleNamespace:
+    figures = [
+        {"variable": "head", "name": "early", "when": "after:extract"},
+        {"variable": "head", "name": "mid", "when": "after:derive"},
+        {"variable": "head", "name": "late"},
+    ]
+    ctx = fake_ctx(enabled=True, figures=figures, project_root=tmp_path, catalogued=True)
+    ctx.cfg.display = DisplayConfig(figure=figures, on_error="raise")
+    return ctx
+
+
+def test_draw_after_draws_only_its_step(monkeypatch, tmp_path) -> None:
+    ctx = after_ctx(tmp_path)
+    handle = MagicMock()
+
+    @contextmanager
+    def fake_store(_ctx):
+        yield handle
+
+    monkeypatch.setattr(display_steps, "run_store", fake_store)
+    renderer = MagicMock(return_value=SimpleNamespace(written=[Path("mid.png")]))
+    monkeypatch.setattr(display_runs, "draw_requests", renderer)
+    state = PipelineState(run_id="r", data={"ctx": ctx})
+
+    assert draw_after(state, "derive") == [Path("mid.png")]
+    assert renderer.call_args.kwargs["when"] == "after:derive"
+    assert renderer.call_args.kwargs["on_error"] == "warn"
+    renderer.reset_mock()
+    assert draw_after(state, "build_mesh") == []
+    assert draw_after(state, "export") == []
+    assert (
+        draw_after(PipelineState(run_id="r", data={"ctx": ctx, "skip_display": True}), "derive")
+        == []
+    )
+    renderer.assert_not_called()

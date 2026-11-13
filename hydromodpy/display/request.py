@@ -10,7 +10,7 @@ give at the figure level. The value a preset writes in a hole is its default.
 
 Each closed vocabulary is written once, here or below this module: ``FRAMES``,
 ``ENGINES``, ``WHEN``, ``WIDTHS_MM``, ``FORMATS``, ``ZONES`` and ``OVERLAY_FIELDS``
-here, ``LAYER_REDUCTIONS`` in ``core/units/kinds.py`` and ``STEP_NAMES`` in
+here, ``LAYER_REDUCTIONS`` in ``core/units/kinds.py`` and ``FIGURE_STEPS`` in
 ``core/pipeline_steps.py``. ``theme``, ``static``, ``subject`` and ``overlays`` read
 them from here. A value that no engine draws yet is accepted here, and ``render`` refuses it
 in a sentence that says so.
@@ -42,7 +42,7 @@ from pydantic.json_schema import SkipJsonSchema, WithJsonSchema
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
-from hydromodpy.core.pipeline_steps import STEP_NAMES
+from hydromodpy.core.pipeline_steps import FIGURE_STEPS
 from hydromodpy.core.time.instant import instant
 from hydromodpy.core.units.kinds import LAYER_REDUCTIONS
 from hydromodpy.results.field_registry import (
@@ -172,9 +172,9 @@ ENGINES: dict[str, Engine] = {
     INTERACTIVE: Engine(("html",), ready=True),
 }
 
-END, SESSION, TRIAL, AFTER = "end", "session", "trial", "after:"
-WHEN: dict[str, bool] = {END: True, SESSION: False, TRIAL: False, AFTER: False}
-"""When a figure is drawn, and whether it is drawn then yet. ``after:`` takes a step."""
+END, SESSION, AFTER = "end", "session", "after:"
+WHEN = (END, SESSION, AFTER)
+"""When a figure is drawn. ``after:`` takes a step of ``FIGURE_STEPS``."""
 
 AGAINST_OBSERVED = "observed"
 DRAW_KEYWORDS = ("station", "time")
@@ -586,13 +586,7 @@ class FigureRequest(PanelFields):
     )
     when: str = Field(
         default=END,
-        description="When the figure is drawn: 'end', 'session', 'trial' or 'after:<step>'.",
-    )
-    every: int | None = Field(
-        default=None,
-        ge=1,
-        description="With when = 'trial', draw every this many trials.",
-        json_schema_extra=field_metadata(unit="trials"),
+        description="When the figure is drawn: 'end', 'session' or 'after:<step>'.",
     )
     engine: Names = Field(
         default_factory=lambda: [STATIC],
@@ -639,10 +633,10 @@ class FigureRequest(PanelFields):
     def _known_when(cls, value: str) -> str:
         if value.startswith(AFTER):
             step = value[len(AFTER) :]
-            if step not in STEP_NAMES:
-                raise ValueError(f"when = {value!r}: " + _closest(step, STEP_NAMES, "step"))
-        elif value not in WHEN:
-            raise ValueError(_closest(value, [*WHEN][:-1] + [AFTER + "<step>"], "when value"))
+            if step not in FIGURE_STEPS:
+                raise ValueError(f"when = {value!r}: " + _closest(step, FIGURE_STEPS, "step"))
+        elif value not in WHEN[:-1]:
+            raise ValueError(_closest(value, [*WHEN[:-1], AFTER + "<step>"], "when value"))
         return value
 
     @field_validator("engine")
@@ -672,8 +666,6 @@ class FigureRequest(PanelFields):
             )
         if self.facet and self.panels is not None and len(self.panels) > 1:
             raise ValueError("facet repeats one panel; a figure of several panels cannot take it.")
-        if self.every is not None and self.when != TRIAL:
-            raise ValueError("every counts trials; write it with when = 'trial'.")
         allowed = [fmt for name in self.engine for fmt in ENGINES[name].formats]
         if "formats" not in self.model_fields_set:
             self.formats = [ENGINES[name].formats[0] for name in self.engine]
@@ -700,14 +692,13 @@ class ResolvedFigure:
     formats: tuple[str, ...]
     title: str | None = None
     facet: str | None = None
-    every: int | None = None
     preset: str | None = None
     draw: Callable[..., Any] | None = None
     special: str | None = None
     draw_keywords: Mapping[str, Any] = field(default_factory=dict)
 
 
-FIGURE_FIELDS = ("name", "title", "width", "facet", "when", "every", "engine", "formats")
+FIGURE_FIELDS = ("name", "title", "width", "facet", "when", "engine", "formats")
 
 
 OLD_OPTIONS: dict[str, tuple[str, str] | None] = {
@@ -925,7 +916,6 @@ def expand(request: FigureRequest, presets: Mapping[str, FigureRequest]) -> Reso
         formats=tuple(figure["formats"]),
         title=figure["title"],
         facet=figure["facet"],
-        every=figure["every"],
         preset=preset,
         draw=draw,
         special=special,
@@ -1011,7 +1001,6 @@ def replay_request(figure: ResolvedFigure) -> FigureRequest:
         "title": figure.title,
         "width": figure.width,
         "when": figure.when,
-        "every": figure.every,
         "engine": list(figure.engine),
         "formats": list(figure.formats),
     }
