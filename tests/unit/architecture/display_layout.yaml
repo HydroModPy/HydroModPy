@@ -10,6 +10,8 @@
 allowed:
   figure_table:     []
   style:            []
+  theme:            []
+  static:           [theme]
   maps:             []
   png_metadata:     []
   quicklook:        []
@@ -40,6 +42,8 @@ public:
   - hydromodpy.display.figure_table
   - hydromodpy.display.runs
   - hydromodpy.display.style
+  - hydromodpy.display.theme
+  - hydromodpy.display.static
   - hydromodpy.display.catalog_figures
   - hydromodpy.display.cohort
   - hydromodpy.display.run_comparison
