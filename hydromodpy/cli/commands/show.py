@@ -678,8 +678,8 @@ def _figure(args: argparse.Namespace, root: Path, target: Target) -> None:
         return
     if args.data is not None or args.engine is not None:
         raise CommandUsageError(
-            "--data and --engine take a variable or a preset, not the figure "
-            f"{args.figure!r} of the old registry."
+            "--data and --engine take a variable or a preset, not the registered figure "
+            f"{args.figure!r}."
         )
     try:
         options = parse_figure_options(args.figure, args.options) if args.options else {}

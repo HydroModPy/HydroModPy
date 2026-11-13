@@ -90,7 +90,7 @@ def test_a_draw_function_gets_only_the_keywords_it_declares(stored_run):
         )
         assert len(door.render(drawn, stored_run).axes) == 1
     assert seen == {"station": "g1", "time": "last"}
-    with pytest.raises(DisplayError, match="no tables"):
+    with pytest.raises(DisplayError, match="no table of numbers"):
         door.render(FigureRequest(draw=few), stored_run, data=True)
 
 

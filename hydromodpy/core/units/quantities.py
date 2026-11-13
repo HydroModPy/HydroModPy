@@ -28,6 +28,7 @@ import numpy as np
 from hydromodpy.core.units.scalar import canonical_unit_token, parse_scalar_and_unit
 
 SECONDS_PER_DAY = 86400.0
+DAYS_PER_YEAR = 365.25
 _MIN, _H, _DAY = 60.0, 3600.0, SECONDS_PER_DAY
 
 # quantity: (label, text after "convert to" in errors, {unit: (factor, aliases)})
@@ -51,7 +52,7 @@ QUANTITIES: dict[str, tuple[str, str, dict[str, tuple[float, str]]]] = {
             "minutes": (_MIN, "m min mins minute"),
             "hours": (_H, "h hr hrs hour"),
             "days": (_DAY, "d day"),
-            "years": (365.25 * _DAY, "y yr yrs year"),
+            "years": (DAYS_PER_YEAR * _DAY, "y yr yrs year"),
         },
     ),
     "hydraulic_conductivity": (

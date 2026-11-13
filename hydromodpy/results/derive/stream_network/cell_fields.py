@@ -250,10 +250,20 @@ REBUILT_FIELD_ROWS: dict[str, RebuiltField] = {
 """One row per field of ``REBUILT_FIELDS``, which holds its descriptor."""
 
 
+def _rebuilt_row(name: str) -> RebuiltField:
+    try:
+        return REBUILT_FIELD_ROWS[name]
+    except KeyError:
+        raise KeyError(
+            f"Rebuilt field {name!r} has no row in REBUILT_FIELD_ROWS "
+            "(hydromodpy/results/derive/stream_network/cell_fields.py). Add one."
+        ) from None
+
+
 def rebuilt_unavailable(run: Any, name: str) -> str | None:
     """Return why ``run`` cannot serve the rebuilt field ``name``, None when it can."""
     return _MEMO.get_or_build(
-        run, ("unavailable", name), lambda: REBUILT_FIELD_ROWS[name].unavailable(run)
+        run, ("unavailable", name), lambda: _rebuilt_row(name).unavailable(run)
     )
 
 
@@ -269,4 +279,4 @@ def rebuilt_rows(run: Any, name: str, steps: Sequence[int]) -> np.ndarray:
     reason = rebuilt_unavailable(run, name)
     if reason is not None:
         raise ValueError(f"{name} is not available for this run: {reason}.")
-    return REBUILT_FIELD_ROWS[name].rows(run, steps)
+    return _rebuilt_row(name).rows(run, steps)

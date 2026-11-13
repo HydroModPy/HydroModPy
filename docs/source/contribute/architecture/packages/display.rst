@@ -86,3 +86,13 @@ failing. The colour norm and the colours of a budget term are written once in ``
 the scores of a run and the area of a zone once in ``frames/series.py``. A new frame is a module of
 ``frames/`` named as its key of ``request.FRAMES``, and a new context layer is a key of ``request.OVERLAY_FIELDS`` with the
 function of the same name in ``overlays.py``.
+
+A special figure is a function ``draw(subject, ax, theme)`` that draws one axes for a case no frame
+expresses, such as a fit, a matching of two networks or the trace of a root search. It lives in a
+module of ``special/`` that also holds ``SUBJECT`` (``run``, ``session`` or ``runset``) and may
+hold ``WIDTH``. The function may take the keywords ``station`` and ``time``, and without them it
+reads the station the run scored. ``presets.py`` lists the modules, so each one is a preset named as
+its module, and ``render`` refuses a subject of another kind, except a run given to a session figure,
+which stands for the session that promoted it. ``special/records.py`` holds the reads that several of
+them share and draws nothing. The list is closed at twelve, and a thirteenth figure is a frame, a
+variable or a preset first.

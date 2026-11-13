@@ -144,8 +144,7 @@ def _render_requests(
             figure = expand(request, presets)
             if figure.when != END:
                 logger.info(
-                    "Figure %s is not drawn at the end of the run: when = %r comes in a later "
-                    "version.",
+                    "Figure %s is not drawn at the end of the run: when = %r is not drawn yet.",
                     stem,
                     figure.when,
                 )

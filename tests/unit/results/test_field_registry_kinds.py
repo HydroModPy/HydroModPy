@@ -8,6 +8,7 @@ from hydromodpy.core.units.kinds import QUANTITY_KINDS, SCALES, SIGNS, QuantityK
 from hydromodpy.core.units.parse import convert_between_units
 from hydromodpy.results import field_registry as registry
 from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
+from hydromodpy.results.derive.stream_network.cell_fields import REBUILT_FIELD_ROWS
 from hydromodpy.results.exporters.vocabulary import OBSERVED_VARIABLES
 from hydromodpy.results.storage.parquet_schemas import TABLE_SCHEMAS, column_unit
 
@@ -33,13 +34,7 @@ CF_ATTRIBUTE_KEYS = {
 }
 
 
-def test_kind_names():
-    assert set(QUANTITY_KINDS) == {
-        "head", "elevation", "depth", "thickness", "cell_flow", "flux_per_area", "flow",
-        "conductivity", "fraction", "ratio", "specific_storage", "angle", "azimuth",
-        "concentration", "mass_flux", "volume", "area", "category", "index",
-        "distance", "score", "percent",
-    }  # fmt: skip
+def test_cumulates_to_names_a_quantity():
     cumulated = {kind.cumulates_to for kind in QUANTITY_KINDS.values()} - {None}
     assert cumulated <= set(QUANTITY_KINDS)
 
@@ -124,10 +119,7 @@ def test_column_row_names_a_schema_column(key):
 
 
 def test_rebuilt_fields_stay_out_of_the_stored_registry():
-    assert set(registry.REBUILT_FIELDS) == {
-        "simulated_active_network", "network_agreement", "downslope_distance",
-        "depression_fill_depth", "package_cells",
-    }  # fmt: skip
+    assert set(registry.REBUILT_FIELDS) == set(REBUILT_FIELD_ROWS)
     assert not set(registry.REBUILT_FIELDS) & set(registry.FIELD_REGISTRY)
     assert registry.kind_of("network_agreement").categorical
     assert registry.label_of("downslope_distance") == "Downslope distance"

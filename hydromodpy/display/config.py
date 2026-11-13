@@ -21,7 +21,7 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.time.instant import TIME_FORMS, instant
 from hydromodpy.display.presets import PRESETS
-from hydromodpy.display.request import FigureRequest, check_stems, expand
+from hydromodpy.display.request import FigureRequest, check_stems, expand, named
 
 DEFAULT_THEME = "default"
 
@@ -201,19 +201,22 @@ class DisplayConfig(HydroModelBase):
     @model_validator(mode="after")
     def _check_figures_and_themes(self) -> DisplayConfig:
         check_stems(self.figure)
+        if self.preset != DEFAULT_THEME and self.theme != DEFAULT_THEME:
+            raise ValueError(
+                "display.preset and display.theme are both written. Keep display.theme "
+                "and delete display.preset."
+            )
+        if not (self.figure or self.presets):
+            return self
         shipped = sorted(set(self.presets) & set(PRESETS))
         if shipped:
             raise ValueError(
                 f"display.presets names the shipped preset {', '.join(shipped)}. "
                 "Give your preset another name."
             )
-        if self.preset != DEFAULT_THEME and self.theme != DEFAULT_THEME:
-            raise ValueError(
-                "display.preset and display.theme are both written. Keep display.theme "
-                "and delete display.preset."
-            )
-        known = {**PRESETS, **self.presets}
-        for name, preset in self.presets.items():
+        own = named(self.presets)
+        known = {**PRESETS, **own}
+        for name, preset in own.items():
             if preset.preset is not None:
                 raise ValueError(f"Preset {name!r} names another preset; a preset is one request.")
             expand(preset, known)

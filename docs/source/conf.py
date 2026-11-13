@@ -467,6 +467,7 @@ html_theme_options = {
             "reference/changes-register",
             "reference/data-sources",
             "reference/figures",
+            "reference/figure-requests",
             "reference/solvers",
             "reference/cli/**",
         )

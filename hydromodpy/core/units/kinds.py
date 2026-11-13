@@ -82,6 +82,17 @@ QUANTITY_KINDS: dict[str, QuantityKind] = {
 }
 
 
+def kind_row(quantity: str) -> QuantityKind:
+    """Return the row of ``QUANTITY_KINDS`` for ``quantity``, or refuse with the file to open."""
+    try:
+        return QUANTITY_KINDS[quantity]
+    except KeyError:
+        raise KeyError(
+            f"Quantity {quantity!r} has no row in QUANTITY_KINDS "
+            "(hydromodpy/core/units/kinds.py). Add one."
+        ) from None
+
+
 def scale_of(kind: QuantityKind, sign: str | None = None) -> str:
     """Return the colour scale family of a kind, with an optional sign override."""
     if kind.categorical:

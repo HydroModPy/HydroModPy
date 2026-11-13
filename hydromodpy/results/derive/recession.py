@@ -32,11 +32,15 @@ __all__ = [
     "BOUSSINESQ_LATE_TIME_CONSTANT",
     "brutsaert_nieber_coefficient",
     "budget_outflow_per_day",
+    "fit_recession",
     "recession_cloud",
 ]
 
 BOUSSINESQ_LATE_TIME_CONSTANT = 4.804
 """Brutsaert-Nieber coefficient of the late-time non-linear Boussinesq solution."""
+
+MIN_FIT_POINTS = 3
+"""Fewest falling steps that make a fit of ``-dQ/dt = a Q^b``."""
 
 
 def brutsaert_nieber_coefficient(
@@ -105,3 +109,20 @@ def recession_cloud(discharge: pd.Series, *, skip: int = 0) -> tuple[np.ndarray,
     mid = 0.5 * (values[:-1] + values[1:])
     keep = np.isfinite(rate) & np.isfinite(mid) & (rate < 0.0) & (mid > 0.0)
     return mid[keep], -rate[keep]
+
+
+def fit_recession(discharge: pd.Series, *, skip: int = 0) -> tuple[float, float] | None:
+    """Return ``(a, b)`` of ``-dQ/dt = a Q^b`` fitted on the falling limbs of ``discharge``.
+
+    The limbs are those of ``recession_cloud``: the step difference where the
+    discharge falls, with ``skip`` values dropped at the head. The fit is a least
+    squares line of ``log(-dQ/dt)`` against ``log(Q)``, so ``b`` is its slope and
+    ``a`` the exponential of its intercept. ``a`` is in the unit of the series and
+    of its time axis (days). The result is None when fewer than ``MIN_FIT_POINTS``
+    steps fall, since a line through two points says nothing of a law.
+    """
+    flow, rate = recession_cloud(discharge, skip=skip)
+    if flow.size < MIN_FIT_POINTS:
+        return None
+    slope, intercept = np.polyfit(np.log(flow), np.log(rate), 1)
+    return float(np.exp(intercept)), float(slope)

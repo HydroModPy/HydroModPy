@@ -12,8 +12,12 @@ Each closed vocabulary is written once, here or below this module: ``FRAMES``,
 ``ENGINES``, ``WHEN``, ``WIDTHS_MM``, ``FORMATS``, ``ZONES`` and ``OVERLAY_FIELDS``
 here, ``LAYER_REDUCTIONS`` in ``core/units/kinds.py`` and ``STEP_NAMES`` in
 ``core/pipeline_steps.py``. ``theme``, ``static``, ``subject`` and ``overlays`` read
-them from here. A value whose drawing comes in a later version is accepted here,
-and ``render`` refuses it.
+them from here. A value that no engine draws yet is accepted here, and ``render`` refuses it
+in a sentence that says so.
+
+``SPECIALS`` is the table of facts of the special figures: the kind of subject each one
+reads, its width, its keywords and what it reads. The modules of ``display/special`` hold
+the drawing only, and ``render`` imports one by its name when it draws.
 
 The configuration imports this module at every load, so it reads only the standard
 library, pydantic, ``hydromodpy.core`` and ``results/field_registry.py``: no
@@ -23,15 +27,17 @@ matplotlib, no pandas, no run reader.
 from __future__ import annotations
 
 import difflib
+import inspect
 import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.pipeline_steps import STEP_NAMES
 from hydromodpy.core.time.instant import instant
 from hydromodpy.core.units.kinds import LAYER_REDUCTIONS
@@ -158,11 +164,48 @@ ENGINES: dict[str, Engine] = {
 
 END, SESSION, TRIAL, AFTER = "end", "session", "trial", "after:"
 WHEN: dict[str, bool] = {END: True, SESSION: False, TRIAL: False, AFTER: False}
-"""When a figure is drawn, and whether this version draws it then. ``after:`` takes a step."""
+"""When a figure is drawn, and whether it is drawn then yet. ``after:`` takes a step."""
 
 AGAINST_OBSERVED = "observed"
 DRAW_KEYWORDS = ("station", "time")
 """The panel fields a figure drawn by a function receives, when its signature declares them."""
+
+
+@dataclass(frozen=True, slots=True)
+class Special:
+    """The facts of one special figure, drawn by ``hydromodpy.display.special.<name>``.
+
+    ``subject`` is ``run``, ``session`` or ``runset``. ``width`` is the printed width when
+    the request gives none. ``keywords`` are the ``DRAW_KEYWORDS`` its ``draw`` declares.
+    ``variables`` and ``tables`` are what it reads, so that the run planner keeps them.
+    """
+
+    subject: str
+    width: str | None = None
+    keywords: tuple[str, ...] = ()
+    variables: tuple[str, ...] = ()
+    tables: tuple[str, ...] = ()
+
+
+SPECIALS: dict[str, Special] = {
+    "calibration_landscape": Special("session", "double", tables=("trials", "bounds")),
+    "calibration_progress": Special("session", "double", tables=("trials",)),
+    "ensemble_band": Special("runset", "double", ("station",), ("discharge",)),
+    "flow_directions": Special("run", "double", variables=("topography",)),
+    "lake_abacus_comparison": Special("run", None, ("station",)),
+    "network_comparison": Special("run", "double"),
+    "observed_network_heads": Special("run", "double"),
+    "particle_tracks": Special("run", "double"),
+    "recession": Special(
+        "run", "medium", ("station",), ("discharge", "hydraulic_conductivity", "specific_yield")
+    ),
+    "residence_time_distribution": Special("run", variables=("head",)),
+    "root_search": Special("session", tables=("trials",)),
+    "sfr_longitudinal_profile": Special(
+        "run", "double", ("time",), ("head",), ("sfr_reaches", "timeseries")
+    ),
+}
+"""The twelve special figures, keyed by the name of their module. The table is closed."""
 
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$")
 
@@ -252,8 +295,11 @@ def _listed(value: Any) -> Any:
 class ReferenceValue(HydroModelBase):
     """A horizontal reference line at ``value``, in the display unit, with its label."""
 
-    value: float
-    label: str
+    value: float = Field(
+        description="Value of the line, in the display unit of the variable.",
+        json_schema_extra=field_metadata(unit="display unit"),
+    )
+    label: str = Field(description="Text written next to the line.")
 
 
 class PanelFields(HydroModelBase):
@@ -296,16 +342,33 @@ class PanelFields(HydroModelBase):
     observed: bool = Field(default=False, description="Draw the observed record when it exists.")
     scores: bool = Field(default=False, description="Write the scores of the run on the panel.")
     scale: Literal["linear", "log"] | None = Field(
-        default=None, description="Value scale. Unset, the variable decides."
+        default=None,
+        description="Value scale. Unset, the variable decides.",
+        json_schema_extra=field_metadata(
+            value_docs={
+                "linear": "Values are placed on an even scale.",
+                "log": "Values are placed on a logarithmic scale, for positive values.",
+            }
+        ),
     )
-    stack: bool = Field(default=False, description="Stack the variables.")
+    stack: bool = Field(
+        default=False, description="Stack the variables one over the other, in the order given."
+    )
     by: str | None = Field(default=None, description="Category key of a groups panel.")
     reference: list[Literal["one_to_one", "zero"] | ReferenceValue] | None = Field(
         default=None, description="Reference lines: 'one_to_one', 'zero', or {value, label}."
     )
     share: bool = Field(default=False, description="One colour norm for every small multiple.")
     reduce: Literal["mean", "max", "frequency"] | None = Field(
-        default=None, description="Reduce over time before drawing."
+        default=None,
+        description="Reduce over time before drawing. Unset, the time asked for is drawn.",
+        json_schema_extra=field_metadata(
+            value_docs={
+                "mean": "Draws the mean over time.",
+                "max": "Draws the largest value over time.",
+                "frequency": "Draws the share of time steps where the value is set.",
+            }
+        ),
     )
     change: tuple[Instant, Instant] | None = Field(
         default=None, description="Draw the change between two instants."
@@ -434,31 +497,66 @@ class FigureRequest(PanelFields):
     the holes of the preset. ``draw`` takes a Python callable
     ``draw(subject, ax, theme)``. A TOML value is never callable, and a mapping that
     carries ``draw`` is refused, so no file can name code. ``draw`` stays out of the
-    JSON schema and of every dump, so a ledger never records it.
+    JSON schema and of every dump, so a ledger never records it. ``special`` names a row
+    of ``SPECIALS``, which only a shipped preset carries.
     """
 
-    preset: str | None = Field(default=None, description="Name of a preset.")
+    preset: str | None = Field(
+        default=None, description="Name of a shipped preset or of one of your own presets."
+    )
     panels: list[PanelRequest] | None = Field(default=None, description="The panels, in order.")
-    draw: SkipJsonSchema[Callable[..., Any] | None] = Field(default=None, exclude=True)
+    draw: SkipJsonSchema[Callable[..., Any] | None] = Field(
+        default=None,
+        exclude=True,
+        description="Python function that draws the figure, draw(subject, ax, theme). Never "
+        "written in a file.",
+    )
+    special: SkipJsonSchema[str | None] = Field(
+        default=None,
+        exclude=True,
+        description="Name of a special figure of SPECIALS. A preset carries it, so a file "
+        "names the preset and never code.",
+    )
     name: str | None = Field(default=None, description="File name of the figure, no suffix.")
-    title: str | None = Field(default=None, description="Title above the figure.")
+    title: str | None = Field(
+        default=None, description="Title written above the whole figure. Unset, none is written."
+    )
     width: str | None = Field(
         default=None,
         description="Printed width: 'single', 'medium' or 'double' column. Unset, single for "
         "one panel, double for more panels or a facet.",
     )
     facet: Literal["time", "run", "variable", "layer", "parameter"] | None = Field(
-        default=None, description="Repeat the one panel over this key."
+        default=None,
+        description="Repeat the one panel over this key.",
+        json_schema_extra=field_metadata(
+            value_docs={
+                "time": "One small panel for each instant of the list given in time.",
+                "run": "One small panel for each run of the set.",
+                "variable": "One small panel for each variable of the panel.",
+                "layer": "One small panel for each layer of the mesh.",
+                "parameter": "One small panel for each searched parameter of a session.",
+            }
+        ),
     )
     when: str = Field(
         default=END,
         description="When the figure is drawn: 'end', 'session', 'trial' or 'after:<step>'.",
     )
     every: int | None = Field(
-        default=None, ge=1, description="With when = 'trial', draw every this many trials."
+        default=None,
+        ge=1,
+        description="With when = 'trial', draw every this many trials.",
+        json_schema_extra=field_metadata(unit="trials"),
     )
-    engine: list[str] = Field(default_factory=lambda: [STATIC], description="Engines.")
-    formats: list[str] = Field(default_factory=lambda: ["png"], description="File formats.")
+    engine: list[str] = Field(
+        default_factory=lambda: [STATIC],
+        description="Drawing engines to use for the figure, one file per engine.",
+    )
+    formats: list[str] = Field(
+        default_factory=lambda: ["png"],
+        description="File formats written for the figure, such as png or svg.",
+    )
 
     @field_validator("draw", mode="before")
     @classmethod
@@ -468,6 +566,13 @@ class FigureRequest(PanelFields):
                 "draw takes a Python function and is never written in a file. To draw "
                 "a figure from a function in a TOML file, name the preset that carries it."
             )
+        return value
+
+    @field_validator("special")
+    @classmethod
+    def _known_special(cls, value: str | None) -> str | None:
+        if value is not None and value not in SPECIALS:
+            raise ValueError(_closest(value, SPECIALS, "special figure"))
         return value
 
     @field_validator("width")
@@ -510,15 +615,17 @@ class FigureRequest(PanelFields):
 
     @model_validator(mode="after")
     def _one_kind(self) -> FigureRequest:
-        given = [key for key in ("preset", "panels", "draw") if getattr(self, key) is not None]
+        given = [
+            key for key in ("preset", "panels", "draw", "special") if getattr(self, key) is not None
+        ]
         if len(given) > 1:
             raise ValueError(f"Write one of preset, panels or draw, not {' and '.join(given)}.")
         if not given and not self.variable:
             raise ValueError("A figure needs a variable, a preset, panels or draw.")
         written = [key for key in PANEL_FIELDS if key in self.model_fields_set]
-        if given == ["draw"]:
+        if given in (["draw"], ["special"]):
             written = [key for key in written if key not in DRAW_KEYWORDS]
-        if given and given[0] in ("panels", "draw") and written:
+        if given and given[0] in ("panels", "draw", "special") and written:
             raise ValueError(
                 f"{', '.join(written)} belong inside a panel when the figure is given by "
                 f"{given[0]}; move them into each panel."
@@ -534,7 +641,7 @@ class FigureRequest(PanelFields):
                     f"Format {fmt!r} is not written by the engines {self.engine}. "
                     f"They write: {', '.join(allowed)}."
                 )
-        if self.draw is not None and self.engine != [STATIC]:
+        if (self.draw or self.special) and self.engine != [STATIC]:
             raise ValueError("A figure drawn by a function has the static engine only.")
         return self
 
@@ -554,16 +661,63 @@ class ResolvedFigure:
     every: int | None = None
     preset: str | None = None
     draw: Callable[..., Any] | None = None
+    special: str | None = None
     draw_keywords: Mapping[str, Any] = field(default_factory=dict)
 
 
 FIGURE_FIELDS = ("name", "title", "width", "facet", "when", "every", "engine", "formats")
 
 
+OLD_OPTIONS: dict[str, tuple[str, str] | None] = {
+    "log": ("scale", 'scale = "log"'),
+    "log_y": ("scale", 'scale = "log"'),
+    "figsize": ("width", 'width = "single", "medium" or "double"'),
+    "lake_id": ("station", 'station = "lake:<id>"'),
+    "observed_station": ("station", "station = <name>"),
+    "variable": ("variable", "variable = <name>"),
+    "show_run_name": None,
+    "show_model": None,
+}
+"""Options of the figures that kept their name, and what replaces each one: the field that
+takes its place and how to write it, or None when nothing does."""
+
+
+def no_option(name: str, unknown: list[str], accepted: Iterable[str]) -> str:
+    """Return the refusal of options a figure does not take, with what replaces each old one."""
+    accepted = tuple(accepted)
+    words = ", ".join((*accepted, *FIGURE_FIELDS))
+    text = f"{name!r} takes no option {', '.join(unknown)}. It accepts {words}."
+    for key in unknown:
+        if key not in OLD_OPTIONS:
+            continue
+        new = OLD_OPTIONS[key]
+        if new is not None and (new[0] in accepted or new[0] in FIGURE_FIELDS):
+            text += f" To replace {key}, write {new[1]}."
+        else:
+            text += f" The option {key} has no equivalent here."
+    return text
+
+
 def request_of(name: str, presets: Mapping[str, FigureRequest], **fields: Any) -> FigureRequest:
     """Return the request a bare name gives: a preset when ``presets`` holds it, else a variable."""
     key = "preset" if name in presets else "variable"
-    return FigureRequest.model_validate({key: name, **fields})
+    try:
+        return FigureRequest.model_validate({key: name, **fields})
+    except ValidationError as error:
+        unknown = [str(e["loc"][0]) for e in error.errors() if e["type"] == "extra_forbidden"]
+        if not unknown:
+            raise
+        base = presets[name] if key == "preset" else None
+        if base is None:
+            accepted = PANEL_FIELDS
+        elif base.special is not None:
+            accepted = SPECIALS[base.special].keywords
+        elif base.draw is not None:
+            declared = inspect.signature(base.draw).parameters
+            accepted = tuple(key for key in DRAW_KEYWORDS if key in declared)
+        else:
+            accepted = tuple(dict.fromkeys(h for p in base.panels or () for h in p.holes or ()))
+        raise ValueError(no_option(name, unknown, accepted)) from None
 
 
 def natural_frame(names: list[str]) -> str:
@@ -677,13 +831,29 @@ def expand(request: FigureRequest, presets: Mapping[str, FigureRequest]) -> Reso
     figure.update(
         {key: getattr(request, key) for key in FIGURE_FIELDS if key in request.model_fields_set}
     )
-    draw, keywords, panels = base.draw, {}, []
-    if draw is not None:
+    draw, special, keywords, panels = base.draw, base.special, {}, []
+    if special is not None:
+        wrong = [key for key in given if key not in SPECIALS[special].keywords]
+        if wrong:
+            raise ValueError(no_option(preset or special, wrong, SPECIALS[special].keywords))
+        keywords = given
+    elif draw is not None:
         extra = [key for key in given if key not in DRAW_KEYWORDS]
         if extra:
             raise ValueError(
-                f"Preset {preset!r} draws one fixed figure and takes only "
+                f"{preset or 'This figure'!r} is drawn by a function and takes only "
                 f"{', '.join(DRAW_KEYWORDS)}, not {', '.join(extra)}."
+            )
+        declared = inspect.signature(draw).parameters
+        if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in declared.values()):
+            declared = dict.fromkeys(DRAW_KEYWORDS)
+        ignored = [key for key in given if key not in declared]
+        if ignored:
+            takes = ", ".join(key for key in DRAW_KEYWORDS if key in declared) or "no keyword"
+            raise ValueError(
+                f"The function of {preset or 'this figure'!r} takes {takes} beyond subject, "
+                f"ax and theme, so {', '.join(ignored)} cannot be given. Add the keyword to "
+                "the function or drop the option."
             )
         keywords = given
     elif preset is not None:
@@ -716,8 +886,17 @@ def expand(request: FigureRequest, presets: Mapping[str, FigureRequest]) -> Reso
         every=figure["every"],
         preset=preset,
         draw=draw,
+        special=special,
         draw_keywords=keywords,
     )
+
+
+def named(presets: Mapping[str, FigureRequest]) -> dict[str, FigureRequest]:
+    """Return the presets with the key of each one as its name, unless it writes a name."""
+    return {
+        key: request if request.name else request.model_copy(update={"name": key})
+        for key, request in presets.items()
+    }
 
 
 def file_stem(request: FigureRequest) -> str:
@@ -728,6 +907,8 @@ def file_stem(request: FigureRequest) -> str:
         return request.preset
     if request.variable:
         return "-".join(name.replace(COLUMN_SEPARATOR, "_") for name in request.variable)
+    if request.special is not None:
+        return request.special
     if request.draw is not None:
         return request.draw.__name__
     raise ValueError("A figure given by panels needs a name; write name = '<file name>'.")
@@ -752,10 +933,14 @@ def required_variables(
     """Return the registered variables a request reads, overlay fields included, sorted.
 
     The run planner keeps these. ``budget`` adds every per-cell budget term of an
-    aquifer. A figure drawn by a function declares nothing here.
+    aquifer. A special figure declares what its row of ``SPECIALS`` lists, and a figure
+    drawn by a Python function declares nothing.
     """
     names: set[str] = set()
-    for panel in expand(request, presets).panels:
+    figure = expand(request, presets)
+    if figure.special is not None:
+        names.update(name for name in SPECIALS[figure.special].variables if is_registered(name))
+    for panel in figure.panels:
         names.update(name for name in panel.variable or () if is_registered(name))
         if BUDGET in (panel.variable or ()):
             names.update(
@@ -783,7 +968,7 @@ def replay_request(figure: ResolvedFigure) -> FigureRequest:
         "engine": list(figure.engine),
         "formats": list(figure.formats),
     }
-    if figure.draw is not None:
+    if figure.draw is not None or figure.special is not None:
         if figure.preset is None:
             raise ValueError(
                 f"{figure.stem!r} was drawn by a Python function; draw it again in Python."

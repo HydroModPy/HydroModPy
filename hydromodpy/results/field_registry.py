@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 from hydromodpy.core.budget.terms import ACTING_PACKAGES
 from hydromodpy.core.exceptions import UnknownFieldError
-from hydromodpy.core.units.kinds import QUANTITY_KINDS, SIGNS, QuantityKind
+from hydromodpy.core.units.kinds import SIGNS, QuantityKind, kind_row
 
 # Supported shape literals, exposed as constants so callers don't have to
 # remember the exact strings. These are CF / UGRID shape signatures.
@@ -1286,7 +1286,7 @@ def _descriptor_of(name: str) -> FieldDescriptor | TimeSeriesDescriptor | Column
 
 def kind_of(name: str) -> QuantityKind:
     """Return the quantity kind of a field, a series or a column."""
-    return QUANTITY_KINDS[_descriptor_of(name).quantity]
+    return kind_row(_descriptor_of(name).quantity)
 
 
 def label_of(name: str) -> str:

@@ -20,7 +20,7 @@ import pandas as pd
 from matplotlib.figure import Figure
 
 from hydromodpy.core.exceptions import DisplayError
-from hydromodpy.display import frames, static
+from hydromodpy.display import frames, special, static
 from hydromodpy.display.overlays import OVERLAYS
 from hydromodpy.display.presets import PRESETS
 from hydromodpy.display.request import (
@@ -28,6 +28,7 @@ from hydromodpy.display.request import (
     ENGINES,
     FRAMES,
     PARAMETER_TOKEN,
+    SPECIALS,
     TRIAL_FRAMES,
     TRIALS,
     WHEN,
@@ -87,7 +88,7 @@ def render(
     Small multiples: ``facet = "time"`` repeats the panel per instant of its
     ``time`` list, ``"variable"`` per name, ``"layer"`` per layer of ``read_mesh``,
     ``"run"`` per run of a ``RunSet``. A ``RunSet`` subject requires
-    ``facet = "run"`` in this version.
+    ``facet = "run"``.
 
     ``against = "<run name>"`` on a map subtracts a reference run. A ``RunSet`` holds it, the
     member called so by ``name`` or by directory, and draws one map per other member. A
@@ -104,8 +105,10 @@ def render(
 
     ``draw``: calls ``request.draw(subject, ax, theme)`` on one axes of a static
     figure, adding ``station`` and ``time`` from ``draw_keywords`` when the
-    function's signature declares them. It returns the figure, and refuses
-    ``data = True`` because a function gives no tables.
+    function's signature declares them. A special figure does the same with the ``draw``
+    of the module ``hydromodpy.display.special.<name>``, imported when it draws, after
+    the row of ``SPECIALS`` has checked the kind of subject. Both return the figure, and
+    refuse ``data = True`` because a drawn function gives no tables.
 
     Refuses with ``DisplayError`` naming what is missing: a frame whose
     ``Frame.ready`` is false, an engine whose ``Engine.ready`` is false, a ``when``
@@ -118,11 +121,12 @@ def render(
         figure = expand(request, PRESETS if presets is None else presets)
     look = theme if isinstance(theme, Theme) else get_theme(theme or "default")
     _check_ready(figure, engine or figure.engine[0])
-    if figure.draw is not None:
+    if figure.draw is not None or figure.special is not None:
         if data:
+            what = "a special figure" if figure.special else "a figure drawn by a function"
             raise DisplayError(
-                f"{figure.stem!r} is drawn by a function, which gives no tables. "
-                "Ask for the figure, not its data."
+                f"{figure.stem!r} is {what}, and it gives no table of numbers. "
+                "Ask for the figure itself."
             )
         return _draw_function(figure, subject, look)
     cells = _cells(figure, subject, runs or {})
@@ -167,26 +171,25 @@ def _panel(key: str) -> Iterator[None]:
         raise FigureNotApplicable(f"Panel {key}: {error}") from error
 
 
-def _not_ready(what: str, name: str, table: str) -> DisplayError:
-    return DisplayError(
-        f"The {what} {name!r} is accepted by the request but not drawn in this version. "
-        f"Its code comes in a later lot of the figure work, and its flag in {table} "
-        "is false until then."
-    )
+def _not_drawn(what: str, name: str, instead: str) -> DisplayError:
+    return DisplayError(f"The {what} {name!r} is not available. {instead}")
 
 
 def _check_ready(figure: ResolvedFigure, engine: str) -> None:
     if engine not in ENGINES:
         raise DisplayError(f"Unknown engine {engine!r}. Known engines: {', '.join(ENGINES)}.")
     if not ENGINES[engine].ready:
-        raise _not_ready("engine", engine, "request.ENGINES")
+        ready = [name for name, known in ENGINES.items() if known.ready]
+        raise _not_drawn("engine", engine, f"Use engine = {ready[0]!r}.")
     when = AFTER if figure.when.startswith(AFTER) else figure.when
     if not WHEN[when]:
-        raise _not_ready("moment", figure.when, "request.WHEN")
+        ready = [name for name, drawn in WHEN.items() if drawn]
+        raise _not_drawn("moment", figure.when, f"Use when = {ready[0]!r}.")
     for panel in figure.panels:
         frame = FRAMES[panel.type]
         if not frame.ready:
-            raise _not_ready("frame", panel.type, "request.FRAMES")
+            ready = [name for name, known in FRAMES.items() if known.ready]
+            raise _not_drawn("frame", panel.type, f"Use type = one of {', '.join(ready)}.")
         stations = [panel.station] if isinstance(panel.station, str) else panel.station or []
         zone = any(str(station).startswith(ZONE_PREFIX) for station in stations)
         for name in panel.variable or ():
@@ -200,7 +203,15 @@ def _check_ready(figure: ResolvedFigure, engine: str) -> None:
 
 
 def _frame_module(panel: PanelRequest) -> ModuleType:
-    return importlib.import_module(f"{frames.__name__}.{panel.type}")
+    try:
+        return importlib.import_module(f"{frames.__name__}.{panel.type}")
+    except ModuleNotFoundError as error:
+        if error.name != f"{frames.__name__}.{panel.type}":
+            raise
+        raise ModuleNotFoundError(
+            f"Frame {panel.type!r} has no module in hydromodpy/display/frames/. Add one.",
+            name=error.name,
+        ) from None
 
 
 def _facet_values(figure: ResolvedFigure, panel: PanelRequest, subject: Any) -> list[Any]:
@@ -222,7 +233,7 @@ def _facet_values(figure: ResolvedFigure, panel: PanelRequest, subject: Any) -> 
         if not names:
             raise FigureNotApplicable("The session holds no searched parameter.")
         return names
-    raise _not_ready("facet", figure.facet, "the frames of the later lots")
+    raise _not_drawn("facet", figure.facet, "Write another facet or none.")
 
 
 def _check_subject(figure: ResolvedFigure, subject: Any) -> None:
@@ -365,15 +376,51 @@ def _share_limits(loaded: list[tuple]) -> list[tuple]:
     return shared
 
 
+SUBJECTS = {"run": Run, "session": Session, "runset": RunSet}
+"""The kinds of subject a special figure may read, as ``SPECIALS`` names them."""
+
+
+def _special_module(name: str) -> ModuleType:
+    return importlib.import_module(f"{special.__name__}.{name}")
+
+
+def _subject_of_special(figure: ResolvedFigure, subject: Any) -> Any:
+    """Return the subject a special figure draws, refusing a kind it does not read.
+
+    The row of ``SPECIALS`` gives the kind. A run given to a session figure stands for
+    the session that promoted it. A function written in Python takes any subject.
+    """
+    kind = SPECIALS[figure.special].subject
+    if isinstance(subject, SUBJECTS[kind]):
+        return subject
+    if kind == "session" and isinstance(subject, Run):
+        session = Session.of_run(subject)
+        if session is not None:
+            return session
+        raise DisplayError(
+            f"{figure.stem!r} draws a calibration session, and the run {subject.name!r} "
+            "was not promoted by one. Pass a Session."
+        )
+    given = next(name for name, cls in SUBJECTS.items() if isinstance(subject, cls))
+    raise DisplayError(
+        f"{figure.stem!r} draws a {kind}, not a {given}. Pass a {SUBJECTS[kind].__name__}."
+    )
+
+
 def _draw_function(figure: ResolvedFigure, subject: Any, theme: Theme) -> Figure:
-    declared = inspect.signature(figure.draw).parameters
+    if figure.special is not None:
+        subject = _subject_of_special(figure, subject)
+        draw = _special_module(figure.special).draw
+    else:
+        draw = figure.draw
+    declared = inspect.signature(draw).parameters
     takes_all = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in declared.values())
     keywords = {
         key: value for key, value in figure.draw_keywords.items() if takes_all or key in declared
     }
     fig = static.new_figure(theme, width=figure.width)
     with _panel("a"):
-        figure.draw(subject, fig.axes[0], theme, **keywords)
+        draw(subject, fig.axes[0], theme, **keywords)
     if figure.title:
         fig.suptitle(figure.title, **static.text_style(theme, small=False))
     return fig

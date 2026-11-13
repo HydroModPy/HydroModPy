@@ -282,6 +282,15 @@ def mesh(ax: Any, subject: Run, theme: Theme) -> None:
     )
 
 
+def _overlay(name: str) -> Callable[[Any, Run, Theme], None]:
+    try:
+        return globals()[name]
+    except KeyError:
+        raise KeyError(
+            f"Overlay {name!r} has no function in hydromodpy/display/overlays.py. Add one."
+        ) from None
+
+
 OVERLAYS: dict[str, Callable[[Any, Run, Theme], None]] = {
-    name: globals()[name] for name in OVERLAY_FIELDS
+    name: _overlay(name) for name in OVERLAY_FIELDS
 }

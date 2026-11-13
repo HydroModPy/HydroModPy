@@ -4,6 +4,8 @@ Each one is read from a registry of the code, never typed in a page:
 
 - solvers: ``hydromodpy.solver.base.registry`` (the attributes each backend declares);
 - figures: ``hydromodpy.display`` (``FigureSpec``, the figure classes, their options);
+- figure requests: ``tools.docs.figure_requests`` (the request models, the frames, the
+  quantities, the variables, the presets and the overlays of the new figure path);
 - outputs of a run: ``hydromodpy.results.field_registry`` (field arrays and time series);
 - data sources: the ``source`` keys of the ``[data.<variable>]`` sections in the
   field registry, joined with ``hydromodpy.schema.sources`` (publisher, licence, hosts).
@@ -20,6 +22,8 @@ import json
 import re
 from pathlib import Path
 from typing import Any
+
+from tools.docs import figure_requests
 
 
 def _first_paragraph(doc: str | None) -> str:
@@ -304,6 +308,7 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "data_sources": sources,
         "providers": providers(sources),
         "outputs": outputs(),
+        "figure_requests": figure_requests.build(),
     }
 
 

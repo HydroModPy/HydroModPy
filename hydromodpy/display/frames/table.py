@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.units.kinds import QUANTITY_KINDS
+from hydromodpy.core.units.kinds import kind_row
 from hydromodpy.core.units.parse import convert_between_units
 from hydromodpy.display import static
 from hydromodpy.display.request import (
@@ -98,7 +98,7 @@ def data(subject: Run, panel: PanelRequest) -> TableData:
         label = COLUMN_REGISTRY[name].label
         stored = column_unit(table_name, column)
         if stored and isinstance(value, np.float64):
-            kind = QUANTITY_KINDS[COLUMN_REGISTRY[name].quantity]
+            kind = kind_row(COLUMN_REGISTRY[name].quantity)
             value = np.float64(
                 convert_between_units(float(value), from_unit=stored, to_unit=kind.display_unit)
             )

@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import DisplayError
+from hydromodpy.core.fields.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.core.time.instant import TIME_WORDS
 from hydromodpy.display.request import (
     COLUMN_SEPARATOR,
@@ -108,10 +109,6 @@ class MeshView:
 GEOGRAPHIC_ROLES = ("watershed", "barrier")
 """Persisted vector layers of a run an overlay draws, besides the hydrographic networks."""
 
-DRY_LIMIT = 1.0e20
-"""A stored magnitude from this value up is a solver dry or inactive marker, read as NaN."""
-
-
 MAX_LISTED = 10
 
 
@@ -132,7 +129,7 @@ def _cube(values: np.ndarray, dims: tuple[str, ...]) -> np.ndarray:
     for axis, name in enumerate(("time", "layer", "cell")):
         if name not in order:
             cube = np.expand_dims(cube, axis)
-    return np.where(np.abs(cube) >= DRY_LIMIT, np.nan, cube)
+    return np.where(np.abs(cube) >= SENTINEL_ABS_THRESHOLD, np.nan, cube)
 
 
 def _layer_rule(variable: str, layer: int | str | None, run: Run, n_layers: int) -> int | str:
@@ -669,7 +666,7 @@ def read_mesh(run: Run) -> MeshView:
     """
     try:
         mesh = run.mesh
-    except RuntimeError as error:
+    except (RuntimeError, KeyError) as error:
         raise _refuse(run, f"it has no mesh to draw ({error}).") from error
     vertices = np.asarray(mesh.vertices, dtype=float)[:, :2]
     faces = np.asarray(mesh.face_node_connectivity, dtype=int)

@@ -298,3 +298,27 @@ def test_the_text_card_says_a_site_scoped_key_varies_by_site(registry: dict) -> 
         sys.path.remove(str(ext))
     assert "varies by site" in hmp_card.render_text("geographic.catchment.x_outlet", registry)
     assert "varies by site" not in hmp_card.render_text("simulation.time.start_datetime", registry)
+
+
+def test_figure_requests_list_every_frame_quantity_variable_and_preset() -> None:
+    from hydromodpy.core.units.kinds import QUANTITY_KINDS
+    from hydromodpy.display.presets import PRESETS
+    from hydromodpy.display.request import FRAMES, SPECIALS, FigureRequest, PanelFields
+    from hydromodpy.results import field_registry as reg
+    from tools.docs import figure_requests
+
+    out = figure_requests.build()
+    assert [r["name"] for r in out["frames"]] == list(FRAMES)
+    assert [r["name"] for r in out["quantities"]] == list(QUANTITY_KINDS)
+    shown = {r["name"] for group in out["variables"] for r in group["rows"]}
+    registries = (reg.FIELD_REGISTRY, reg.TIME_SERIES_REGISTRY, reg.REBUILT_FIELDS)
+    assert shown >= {*(n for r in registries for n in r), *reg.COLUMN_REGISTRY}
+    assert {"trials.cost", "trials.parameter"} <= shown
+    assert [g["rows"] for g in out["variables"] if g["registry"] == "Budget terms"][0]
+    assert {r["name"] for r in out["specials"]} == set(SPECIALS)
+    assert [r["keywords"] for r in out["specials"] if r["name"] == "recession"] == [["station"]]
+    assert {r["name"] for r in out["presets"] + out["specials"]} == set(PRESETS)
+    assert {r["name"] for r in out["fields"]["panel"]} == set(PanelFields.model_fields)
+    assert {r["name"] for r in out["fields"]["figure"]} >= {"preset", "panels", "when"}
+    assert FigureRequest.model_fields.keys() >= {r["name"] for r in out["fields"]["figure"]}
+    assert all(r["description"] for r in out["fields"]["panel"])

@@ -1,8 +1,8 @@
 """Series frame: values along an ordered axis, the time of a run.
 
 It draws one line per variable and station, the observed record over the
-simulated one, stacked areas, reference lines and the scores of the run. Trial
-numbers on the axis come with the session columns of a later lot.
+simulated one, stacked areas, reference lines and the scores of the run. The
+trial columns of a session are drawn against the number of the trial.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import MaxNLocator
 
-from hydromodpy.core.units.kinds import QUANTITY_KINDS
+from hydromodpy.core.units.kinds import kind_row
 from hydromodpy.core.units.parse import convert_between_units
 from hydromodpy.display import static, variables
 from hydromodpy.display.request import (
@@ -127,7 +127,7 @@ def _convert(
     total[np.isnan(raw)] = np.nan
     if kind.per_area:
         total = total / area
-    target = QUANTITY_KINDS[kind.cumulates_to]
+    target = kind_row(kind.cumulates_to)
     factor = convert_between_units(1.0, from_unit=target.stored_unit, to_unit=target.display_unit)
     return pd.Series(total * factor, index=values.index)
 
@@ -136,7 +136,7 @@ def _label(panel: PanelRequest, names: list[str]) -> str:
     first = names[0]
     head, unit = variables.label_parts(first)
     if panel.cumulative:
-        target = QUANTITY_KINDS[kind_of(first).cumulates_to]
+        target = kind_row(kind_of(first).cumulates_to)
         unit = unit_text(target.display_unit)
         head = f"Cumulative {head[:1].lower() + head[1:]}"
     elif len(names) > 1:
@@ -317,8 +317,12 @@ def _scored_window(scores: pd.DataFrame) -> str:
     return f"scored {str(starts[0])[:7]} to {str(ends[0])[:7]}"
 
 
-def score_text(scores: pd.DataFrame, many: bool) -> str:
-    """Return the key scores of a table as one line, with the scoring window when it is single."""
+def score_text(scores: pd.DataFrame, many: bool, window: bool = True) -> str:
+    """Return the key scores of a table as one line, with the scoring window when it is single.
+
+    A panel on dates leaves the window out and writes it under the axis, where it cannot
+    run into the panel letter.
+    """
     wanted = scores[scores["metric"].isin(KEY_SCORES)]
     parts = []
     for (name, _station, metric), rows in wanted.groupby(
@@ -328,8 +332,8 @@ def score_text(scores: pd.DataFrame, many: bool) -> str:
         if np.isfinite(value):
             prefix = f"{name} " if many else ""
             parts.append(f"{prefix}{metric.upper()} {value:.2f}")
-    window = _scored_window(wanted) if parts else ""
-    return "   ".join([*parts, f"({window})"] if window else parts)
+    scored = _scored_window(wanted) if parts and window else ""
+    return "   ".join([*parts, f"({scored})"] if scored else parts)
 
 
 def _stacked(ax: Any, groups: list[Any], dates: bool, theme: Theme) -> None:
@@ -351,6 +355,19 @@ def _stacked(ax: Any, groups: list[Any], dates: bool, theme: Theme) -> None:
             base = base + part
     if dates:
         ax.xaxis_date()
+
+
+OBSERVED_LINE_FROM = 200
+"""An observed record with more points than this is drawn as a thin line, else as markers."""
+
+
+def draw_observed(ax: Any, x: Any, y: Any, theme: Theme) -> None:
+    """Draw the observed record: a thin line when it is long, else dots."""
+    style = static.line_style(theme, "observed")
+    if len(y) > OBSERVED_LINE_FROM:
+        ax.plot(x, y, label="observed", zorder=4, **{**style, "linewidth": theme.line_width})
+    else:
+        ax.plot(x, y, label="observed", zorder=4, linestyle="none", marker="o", markersize=2.5, markerfacecolor=style["color"], markeredgewidth=0, color=style["color"])  # fmt: skip
 
 
 def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
@@ -396,17 +413,7 @@ def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
         ax.axhline(0, color=theme.ink, linewidth=theme.line_width, zorder=3)
     if "observed" in table:
         seen = table.dropna(subset=["observed"])
-        style = static.line_style(theme, "observed")
-        if len(seen) > 200:
-            ax.plot(
-                seen["time"],
-                seen["observed"],
-                label="observed",
-                zorder=4,
-                **{**style, "linewidth": theme.line_width},
-            )
-        else:
-            ax.plot(seen["time"], seen["observed"], label="observed", zorder=4, linestyle="none", marker="o", markersize=2.5, markerfacecolor=style["color"], markeredgewidth=0, color=style["color"])  # fmt: skip
+        draw_observed(ax, seen["time"], seen["observed"], theme)
     for value, text in data.references:
         ax.axhline(value, color=theme.roles["bounds"], linewidth=theme.line_width, linestyle="--", label=None if text == "zero" else text, zorder=3)  # fmt: skip
     ax.set_ylabel(data.label)
@@ -416,8 +423,11 @@ def draw(ax: Any, data: SeriesData, theme: Theme) -> None:
     if trials:
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     if data.scores is not None and len(data.scores):
-        text = score_text(data.scores, many)
+        text = score_text(data.scores, many, window=not dates)
         if text:
             ax.set_title(text, loc="right", **static.text_style(theme))
+        if dates and text:
+            window = _scored_window(data.scores[data.scores["metric"].isin(KEY_SCORES)])
+            ax.set_xlabel(window.capitalize(), **static.text_style(theme))
     if ax.get_legend_handles_labels()[0]:
         static.legend(ax, theme)

@@ -167,11 +167,14 @@ def project_theme(subject: Any) -> str:
 
 
 def takes_request(name: object, presets: Mapping[str, Any], options: Mapping[str, Any]) -> bool:
-    """Return whether the figure goes to the request path, else to the old registry.
+    """Return whether the figure goes to the request path, else to the registered figures.
 
     A request given as a mapping, a ``draw`` function, a variable name, a table column
-    or a preset name go to the request path, and so does a name both paths know. Any other name
-    is a figure of the old registry.
+    or a preset name go to the request path, and so does a name both paths know. So
+    ``run.figure(name)``, ``session.figure(name)`` and ``hmp show --figure name`` draw the
+    preset, not the registered figure of that name. The key ``[display].figures = [name]``
+    is the other way in and keeps drawing the registered figure. Any other name is a
+    registered figure.
     """
     from hydromodpy.display.request import BUDGET, is_column, is_registered
 
@@ -204,8 +207,7 @@ def render(
         return _render_request(subject, name, given)
     if given.pop("data", False):
         raise CommandUsageError(
-            f"{name!r} is a figure of the old registry and gives no tables. "
-            "Ask for a variable or a preset."
+            f"{name!r} is a registered figure and gives no tables. Ask for a variable or a preset."
         )
     from hydromodpy.display.runs import render_figure
 
@@ -226,7 +228,7 @@ def render(
 
 
 def _unknown_figure(name: object, presets: Mapping[str, Any]) -> CommandUsageError:
-    """Return the refusal for a name no registry knows, with the closest variable, preset or old figure."""
+    """Return the refusal for a name that is no variable, preset or registered figure."""
     import difflib
 
     from hydromodpy.display.figure_registry import names
@@ -237,8 +239,7 @@ def _unknown_figure(name: object, presets: Mapping[str, Any]) -> CommandUsageErr
     close = difflib.get_close_matches(str(name), known, n=3)
     hint = f" Did you mean {', '.join(close)}?" if close else ""
     return CommandUsageError(
-        f"Unknown figure {name!r}.{hint} A figure is a variable, a preset or a figure "
-        "of the old registry."
+        f"Unknown figure {name!r}.{hint} It is not a variable, a preset or a registered figure."
     )
 
 

@@ -30,7 +30,7 @@ REFUSED = [
     ({"figure": [{"variable": "recharge"}, {"variable": "recharge"}]}, "recharge"),
     ({"theme": "neon"}, "neon"),
     ({"figure": [{"variable": "heed"}]}, "Did you mean head"),
-    ({"figure": [{"preset": "nothing"}]}, "No preset is defined yet"),
+    ({"figure": [{"preset": "nothing"}]}, "Unknown preset"),
     ({"presets": {"a": {"variable": "head"}, "b": {"preset": "a"}}}, "names another preset"),
     ({"presets": {"a": {"variable": "budget"}}}, "summed over a zone"),
 ]

@@ -481,9 +481,185 @@ class OutputsDirective(SphinxDirective):
         return [H.raw("".join(parts))]
 
 
+# ---------------------------------------------------------------- figure requests
+
+
+def html_table(head: list[str], rows: list[list[str]]) -> str:
+    """A table whose cells are already HTML."""
+    th = "".join(f"<th>{esc(h)}</th>" for h in head)
+    body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>" for row in rows)
+    return (
+        f'<div class="hmp-matrix-wrap"><table class="api-t"><thead><tr>{th}</tr></thead>'
+        f"<tbody>{body}</tbody></table></div>"
+    )
+
+
+def code(text) -> str:
+    return f"<code>{esc(text)}</code>" if text not in ("", None) else ""
+
+
+def request_fields(data: dict, builder, doc: str) -> list[str]:
+    parts = []
+    for key, title in (
+        ("figure", "Fields of a figure"),
+        ("panel", "Fields of a panel"),
+        ("preset_panel", "Field a panel of a preset adds"),
+    ):
+        rows = [
+            [
+                code(r["name"]),
+                code(r["type"]),
+                code(r["default"]),
+                H.inline_md(r["description"], builder, doc) if r["description"] else "",
+                code_list(r["accepted"]) if r["accepted"] else "",
+            ]
+            for r in data["fields"][key]
+        ]
+        parts.append(f"<h3>{esc(title)}</h3>")
+        parts.append(html_table(["Field", "Type", "Default", "What it does", "Accepted"], rows))
+    return parts
+
+
+def request_frames(data: dict) -> list[str]:
+    rows = [
+        [
+            code(r["name"]),
+            esc(r["summary"]) or '<span class="hmp-muted">not drawn yet</span>',
+            code_list(r["shapes"]),
+            code_list(r["overlays"]),
+        ]
+        for r in data["frames"]
+    ]
+    return [html_table(["Frame", "What it draws", "Shapes it takes", "Overlays by default"], rows)]
+
+
+def request_vocabularies(data: dict) -> list[str]:
+    rows = []
+    for group in data["vocabularies"]:
+        values = " ".join(
+            f"{code(v['value'])}"
+            + (f" {esc(v['note'])}" if v["note"] else "")
+            + ("" if v["ready"] else ' <span class="hmp-muted">(not drawn yet)</span>')
+            for v in group["values"]
+        )
+        rows.append([esc(group["name"]), values])
+    return [html_table(["Closed value", "Accepted"], rows)]
+
+
+def request_quantities(data: dict) -> list[str]:
+    head = ["Quantity", "Stored in", "Shown in", "Sign", "Scale", "Log", "Layers", "Running sum"]
+    rows = [
+        [
+            code(r["name"]),
+            code(r["stored_unit"]),
+            code(r["display_unit"]),
+            esc(r["sign"]),
+            esc(r["scale"]),
+            "yes" if r["log"] else "",
+            esc(r["layers"]),
+            code(r["cumulates_to"]),
+        ]
+        for r in data["quantities"]
+    ]
+    return [html_table(head, rows)]
+
+
+def request_variables(data: dict) -> list[str]:
+    parts = []
+    for group in data["variables"]:
+        rows = [
+            [
+                code(r["name"]),
+                esc(r["label"]),
+                code(r["unit"]),
+                code(r["quantity"]),
+                code(r["frame"]),
+            ]
+            for r in group["rows"]
+        ]
+        parts.append(f"<h3>{esc(group['registry'])}</h3>")
+        parts.append(html_table(["Name", "Label", "Unit", "Quantity", "Natural frame"], rows))
+    return parts
+
+
+def request_presets(data: dict) -> list[str]:
+    rows = []
+    for r in data["presets"]:
+        panels = "".join(
+            f"<li>{code(p['frame'])} "
+            + ", ".join(f"{esc(k)} = {code(v)}" for k, v in p["written"].items())
+            + (f"<div>Holes {code_list(p['holes'])}</div>" if p["holes"] else "")
+            + "</li>"
+            for p in r["panels"]
+        )
+        rows.append([code(r["name"]), esc(r["width"]), f"<ol>{panels}</ol>"])
+    return [html_table(["Preset", "Width", "Panels it expands to"], rows)]
+
+
+def request_specials(data: dict) -> list[str]:
+    rows = [
+        [
+            code(r["name"]),
+            code(r["subject"]),
+            esc(r["width"]),
+            code_list(r["keywords"]),
+            code_list(r["reads"]),
+            esc(r["summary"]),
+        ]
+        for r in data["specials"]
+    ]
+    head = ["Special figure", "Subject", "Width", "Takes", "Reads", "What it draws"]
+    return [html_table(head, rows)]
+
+
+def request_overlays(data: dict, builder, doc: str) -> list[str]:
+    rows = [
+        [
+            code(r["name"]),
+            code_list(r["reads"]),
+            code_list(r["default_in"]),
+            H.inline_md(r["summary"], builder, doc) if r["summary"] else "",
+        ]
+        for r in data["overlays"]
+    ]
+    return [html_table(["Overlay", "Reads the field", "On by default in", "What it draws"], rows)]
+
+
+class FigureRequestsDirective(SphinxDirective):
+    """One table of the figure request reference, read from the code of the request path."""
+
+    required_arguments = 1
+    SECTIONS = (
+        "fields",
+        "frames",
+        "vocabularies",
+        "quantities",
+        "variables",
+        "presets",
+        "specials",
+        "overlays",
+    )
+
+    def run(self):
+        section = self.arguments[0]
+        if section not in self.SECTIONS:
+            raise self.error(f"hmp-figure-requests takes one of {', '.join(self.SECTIONS)}")
+        data = DATA.get("figure_requests")
+        if not data:
+            return missing("figure requests")
+        builder, doc = H.current_builder(), self.env.docname
+        write = globals()[f"request_{section}"]
+        if section in ("fields", "overlays"):
+            parts = write(data, builder, doc)
+        else:
+            parts = write(data)
+        return [H.raw("".join(parts))]
+
+
 def setup_catalogs(app) -> None:
     app.connect("builder-inited", lambda a: load(Path(a.srcdir)))
     app.add_directive("hmp-solvers", SolversDirective)
     app.add_directive("hmp-figures", FiguresDirective)
     app.add_directive("hmp-data-sources", DataSourcesDirective)
     app.add_directive("hmp-outputs", OutputsDirective)
+    app.add_directive("hmp-figure-requests", FigureRequestsDirective)
