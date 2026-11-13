@@ -77,8 +77,8 @@ The soil reservoir
 ~~~~~~~~~~~~~~~~~~
 
 The daily soil reservoir makes a recharge from the weather before the groundwater solve.
-``soil/kernel.py`` holds the arithmetic, one function per equation with its reference. It follows
-rule 6, so it needs only numpy and reads from top to bottom. The rest sits in ``forcing/``
+``soil/kernel.py`` holds the arithmetic, one function per equation with its reference. It is a
+science module, so it needs only numpy and reads from top to bottom. The rest sits in ``forcing/``
 (``soil_*.py``) because it reads the records that a project loads, through ``contracts.py``, so
 nothing here imports ``data``. ``soil_forcing.compute_soil_forcings`` runs the kernel day by day.
 The soil applies to MODFLOW 6 only. The PyHELP recharge model sits in
@@ -90,9 +90,10 @@ Boundaries of the package
 The model never imports ``data``, ``results`` or ``solver``. It sees loaded data through the
 ``LoadResultProto`` and ``FieldRecordProto`` of ``contracts.py``. Inside the package,
 ``boundaries/`` reads ``flow.py`` for annotations only, and this is the one cycle. ``soil/`` and
-``initial/`` follow rule 6, and ``tests/unit/architecture/test_science_module_imports.py`` holds
-it. Nothing in ``properties/`` imports ``domain/``, and the mesh never imports this package. The
-import table is the generated page :doc:`../generated/layers`.
+``initial/`` are science folders, where a module may import only numpy and one neighbour of its
+folder, and ``tests/unit/architecture/test_science_module_imports.py`` holds it. Nothing in
+``properties/`` imports ``domain/``, and the mesh never imports this package. The import table is
+the generated page :doc:`../generated/layers`.
 
 Where to add what
 ~~~~~~~~~~~~~~~~~

@@ -17,7 +17,7 @@ Run it
 To run one rule, name the file and select the test with ``-k``. Most rules live in
 ``test_layers.py`` (who reads whom), ``test_run_path.py`` (what the path of a run reads and
 writes), ``test_surfaces.py`` (what is public and held) and ``test_code_rules.py`` (the
-numbered rules of the repository ``CLAUDE.md``). The test name of the first failure says
+code rules that the syntax alone can check). The test name of the first failure says
 which rule broke.
 
 What to do, by failing test
