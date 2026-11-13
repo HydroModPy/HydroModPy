@@ -33,13 +33,19 @@ station_ids = ["J001401001"]
 # The BD Topage network, all reaches then the permanent class, then the
 # simulated seepage against all reaches.
 [display]
-figures = [
-    "watershed_id_card",
-    "hydrographic_network_reference",
-    "hydrographic_network_permanence",
-    "seepage_network_confusion_map",
-    "downslope_distance_map",
-]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]  # replaces hydrographic_network_reference, hydrographic_network_permanence
+variable = "topography"
+overlays = ["relief", "network"]
+
+[[display.figure]]
+variable = "network_agreement"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
 
 # Step 2's exports, where the network is now all BD Topage reaches, plus the
 # permanent reaches as a GeoPackage of their own.

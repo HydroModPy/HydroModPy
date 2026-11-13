@@ -15,10 +15,10 @@ from matplotlib.figure import Figure
 
 from hydromodpy.core.exceptions import DisplayError
 from hydromodpy.display import interactive, static
-from hydromodpy.display.png_metadata import stamp_png_identity
 from hydromodpy.display.request import FORMATS, FigureRequest, ResolvedFigure, replay_request
 from hydromodpy.display.theme import Theme
 from hydromodpy.results.derive.time_alignment import run_period
+from hydromodpy.results.identity import PNG_IDENTITY_KEY, Identity
 from hydromodpy.results.ledger import record_derived_file
 from hydromodpy.results.record.label import identity_of_run_dir
 from hydromodpy.results.run.view import Run
@@ -29,6 +29,44 @@ PRODUCER = f"{PRODUCER_PREFIX}figure"
 REQUEST_KEY = "request"
 PRESET_KEY = "preset"
 THEME_KEY = "theme"
+FOOTER_COLOR = (90, 90, 90)
+"""Gray of the identity footer text."""
+
+
+def stamp_png_identity(path: str | Path, identity: Identity) -> Path:
+    """Pose the identity block in a saved PNG: a visible footer and a text chunk.
+
+    The footer is a strip under the image that reads ``Identity.footer_text``. The
+    block goes to the text chunk ``PNG_IDENTITY_KEY``, beside the chunks the file
+    holds. A PNG that already carries the chunk keeps its footer, so stamping twice
+    never stacks two strips.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+    from PIL.PngImagePlugin import PngInfo
+
+    target = Path(path)
+    with Image.open(target) as opened:
+        chunks = {str(key): str(value) for key, value in getattr(opened, "text", {}).items()}
+        image = opened.copy()
+    if PNG_IDENTITY_KEY not in chunks:
+        text = identity.footer_text()
+        width, height = image.size
+        size = max(10, min(18, width // 90))
+        font = ImageFont.load_default(size=size)
+        mode = "RGBA" if image.mode in ("RGBA", "LA", "P") else "RGB"
+        white = (255, 255, 255, 255) if mode == "RGBA" else (255, 255, 255)
+        framed = Image.new(mode, (width, height + size * 2), white)
+        framed.paste(image.convert(mode), (0, 0))
+        draw = ImageDraw.Draw(framed)
+        left = max(4, (width - draw.textlength(text, font=font)) / 2)
+        draw.text((left, height + size // 2), text, fill=FOOTER_COLOR, font=font)
+        image = framed
+    chunks.update(identity.as_png_metadata())
+    info = PngInfo()
+    for key, value in chunks.items():
+        info.add_text(key, value)
+    image.save(target, format="PNG", pnginfo=info, optimize=False)
+    return target
 
 
 def ledger_options(figure: ResolvedFigure, theme: str = "default") -> dict[str, Any]:
@@ -82,7 +120,7 @@ def write(
     formats=figure.formats)``. When ``run`` is given and ``directory`` is its
     ``figures/`` folder, each PNG gets the identity of
     ``results.record.label.identity_of_run_dir`` with the run period, stamped by
-    ``png_metadata.stamp_png_identity``, and each file one entry through
+    ``stamp_png_identity``, and each file one entry through
     ``results.ledger.record_derived_file(directory, path, producer=PRODUCER,
     options=ledger_options(figure), identity=...)``. Without a run (a session or a
     set of runs, or a folder that is not a run directory), files are written and not

@@ -141,23 +141,49 @@ mf6_ims_complexity = "MODERATE"
 
 [display]
 on_error = "raise"
-figures = [
-    "mesh_map",
-    "parameter_map",
-    "recharge_map",
-    "piezometric_map",
-    "watertable_depth_map",
-    "seepage_map",
-    "piezo_timeseries_sim_obs",
-    "cross_section",
-    "flux_timeseries",
-    "water_budget",
-    "mass_balance_error",
-]
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+
+[[display.figure]]
+variable = "hydraulic_conductivity"
+facet = "layer"
+
+[[display.figure]]
+variable = "recharge"
+layer = "sum"
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
 
 # The simulated series is written under the observation point, the measured one
 # under the station of the piezometry family, and the two name the quantity
 # differently: the figure is told both.
-[display.overrides.piezo_timeseries_sim_obs]
+[[display.figure]]
+preset = "hydrograph"
+variable = "head"
 station = "obs:GOUVILLE_F4"
-observed_variable = "groundwater_level"
+# observed_variable = "groundwater_level" has no equivalent: read_pair pairs the record
+
+[[display.figure]]
+preset = "residuals"
+variable = "head"
+station = "obs:GOUVILLE_F4"
+
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+
+[[display.figure]]  # replaces flux_timeseries, water_budget
+preset = "water_budget"
+
+[[display.figure]]
+variable = "mass_balance.percent_error"
+type = "series"

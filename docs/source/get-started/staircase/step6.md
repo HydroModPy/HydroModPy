@@ -113,20 +113,19 @@ the failure is the one of {doc}`step 3 <step3>`, with the SIM2 source in the mes
 
 ## What you get
 
-Eleven figures. The one-instant figures draw 15 September 2019, the end of a dry summer,
-except `seepage_map`, which draws 15 February 2020, near the largest saturated extent.
+Ten figures. The one-instant figures draw 15 September 2019, the end of a dry summer,
+except the seepage figure, which draws 15 February 2020, near the largest saturated extent.
 
-| Figure | What it shows |
+| Request | What it shows |
 |---|---|
-| `watershed_id_card` | As in step 1 |
-| `flux_timeseries` | The water balance through time, with the soil recharge and the water table evaporation among the components |
-| `hydrograph_sim_obs` | Simulated and gauged discharge |
-| `hydrograph_log_nse` | The discharge on a log axis, which weighs the recessions. The scored years, 2016 to 2020, are shaded, 2015 being the spin-up |
-| `duration_curve` | The flow-duration curve at the gauge: the share of time each discharge is exceeded |
-| `recession` | The recession limbs extracted from the discharge series |
-| `watertable_depth_map`, `seepage_map`, `cross_section` | As in step 1, for the dates above |
-| `flow_persistence_map` | The share of the run each cell flows |
-| `flow_intermittence_map` | Perennial, intermittent or dry cells over the hydrological year 2019 |
+| `preset = "watershed_id_card"` | As in step 1 |
+| `preset = "water_budget"` | The water balance through time, with the soil recharge and the water table evaporation among the components |
+| `preset = "hydrograph"` | Simulated and gauged discharge |
+| `preset = "hydrograph"`, `scale = "log"` | The discharge on a log axis, which weighs the recessions. The scored years, 2016 to 2020, are shaded, 2015 being the spin-up |
+| `variable = "discharge"`, `type = "distribution"`, `cumulative = true` | The flow-duration curve at the gauge: the share of time each discharge is exceeded |
+| `preset = "recession"` | The recession limbs extracted from the discharge series |
+| `variable = "watertable_depth"`, `variable = "seepage_mask"`, and a `type = "section"` of `watertable_elevation` | As in step 1, for the dates above |
+| `variable = "simulated_active_network"`, `reduce = "frequency"` | The share of the run each cell flows |
 
 Four export blocks write six files in `runs/nancon_soil_reservoir_daily/exports/`: the catchment
 and the mapped network (two GeoPackages), the water table and the seepage cells of

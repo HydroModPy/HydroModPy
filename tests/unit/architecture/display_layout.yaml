@@ -10,51 +10,37 @@
 allowed:
   "<init>":         []
   request:          []
-  figure_table:     []
-  style:            []
   theme:            []
   static:           [request, theme]
-  maps:             []
-  png_metadata:     []
   quicklook:        []
-  figure_options:   []
   subject:          [request, theme]
   interactive:      [subject, theme]
   variables:        [request, theme]
   overlays:         ["<init>", request, subject, static, theme]
-  output:           ["<init>", request, interactive, static, theme, png_metadata]
+  output:           ["<init>", request, interactive, static, theme]
   frames:           ["<init>", request, subject, variables, interactive, static, theme]
   special:          ["<init>", frames, subject, variables, overlays, static, theme]
   presets:          [request]
   render:           ["<init>", request, presets, frames, special, subject, overlays, interactive, static, theme]
-  figure:           [png_metadata, figure_options]
-  figure_registry:  [figure, figure_table]
-  figures:          [figure, figure_options, maps, style, subject]
-  config:           [request, presets, theme, figure_registry, figure_table]
+  config:           [request, presets, theme]
   cohort:           ["<init>", theme]
   run_comparison:   ["<init>", frames, subject, variables, static, theme]
-  runs:             ["<init>", config, figure, figure_registry, figure_table, png_metadata, style, request, presets, subject, output, render, theme]
-  catalog_figures:  [figure_registry, request, presets, runs]
+  runs:             ["<init>", config, request, presets, subject, output, render, theme]
+  catalog_figures:  [request, presets, runs]
   overview:         ["<init>", theme]
   report:           [config, presets, request, runs]
 
-# The registry imports hydromodpy.display.figures by name on first lookup, so
-# that importing the registry stays light. The renderer imports a frame of
-# hydromodpy.display.frames by its name in request.FRAMES. Only these files may
-# name a module so.
+# The renderer imports a frame of hydromodpy.display.frames by its name in
+# request.FRAMES and a special figure of hydromodpy.display.special by its name
+# in request.SPECIALS. Only this file may name a module so.
 text_paths:
-  - hydromodpy/display/figure_table.py
   - hydromodpy/display/render.py
 
 # What another layer of hydromodpy may import from hydromodpy/display.
 public:
   - hydromodpy.display
   - hydromodpy.display.config
-  - hydromodpy.display.figure
-  - hydromodpy.display.figure_registry
-  - hydromodpy.display.figure_table
   - hydromodpy.display.runs
-  - hydromodpy.display.style
   - hydromodpy.display.theme
   - hydromodpy.display.static
   - hydromodpy.display.request
@@ -66,12 +52,8 @@ public:
   - hydromodpy.display.cohort
   - hydromodpy.display.run_comparison
   - hydromodpy.display.quicklook.viz
-  - hydromodpy.display.maps.axes
-  - hydromodpy.display.maps.ugrid
-  - hydromodpy.display.maps.geo
   - hydromodpy.display.overview
   - hydromodpy.display.overview.config
   - hydromodpy.display.overview.location
   - hydromodpy.display.overview.report
   - hydromodpy.display.report.*
-  - hydromodpy.display.figures.lake_level_fit

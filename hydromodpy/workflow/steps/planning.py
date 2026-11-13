@@ -44,12 +44,6 @@ def step_build_plan(ctx: WorkflowContext, *, name: str) -> SimulationPlan:
 # ---------------------------------------------------------------------------
 
 
-# Overlays of ``[display.overrides.<figure>] overlays`` that read a field.
-_OVERLAY_FIELDS: dict[str, tuple[str, ...]] = {
-    "seepage": ("seepage_mask",),
-    "wells": ("well",),
-}
-
 # What a calibration output support asks the backend for, beyond its variable.
 _CALIBRATION_FIELDS_BY_SUPPORT: dict[str, tuple[str, ...]] = {
     "network": ("release_flux",),
@@ -101,16 +95,6 @@ def step_configure_results(
 
     if level != "research":
         if display_active and display.enabled:
-            import hydromodpy.display.figure_registry as figure_registry
-
-            for figure_name in display.figures:
-                spec = figure_registry.get(figure_name).spec
-                _add((*spec.required_fields, *spec.optional_fields), f"figure {figure_name!r}")
-                for overlay in _requested_overlays(display, figure_name):
-                    _add(
-                        _OVERLAY_FIELDS.get(overlay, ()),
-                        f"overlay {overlay!r} of {figure_name!r}",
-                    )
             if display.figure:
                 from hydromodpy.display.presets import PRESETS
                 from hydromodpy.display.request import file_stem, required_variables
@@ -161,17 +145,6 @@ def step_configure_results(
         described,
     )
     return keep
-
-
-def _requested_overlays(display: DisplayConfig, figure_name: str) -> tuple[str, ...]:
-    """Return the overlays ``[display.overrides.<figure>]`` asks a figure for."""
-    options = display.overrides.get(figure_name) or {}
-    overlays = options.get("overlays") if isinstance(options, dict) else None
-    if overlays is None:
-        return ()
-    if isinstance(overlays, str):
-        return (overlays,)
-    return tuple(str(name) for name in overlays)
 
 
 def _plan_has_surface_excess(plan: SimulationPlan) -> bool:

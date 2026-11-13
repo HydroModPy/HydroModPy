@@ -39,7 +39,10 @@ Sy.value = 0.02
 
 # A trial needs neither every figure nor the exports. Replace the whole list:
 # an append on the list would escape the validation.
-cfg.display.figures = ["hydrograph_log_nse", "seepage_map"]
+cfg.display.figure = [
+    {"preset": "hydrograph", "scale": "log", "name": "hydrograph_log"},
+    {"variable": "seepage_mask"},
+]
 cfg.export = []
 
 # The full config of the run is kept in runs/<run name>/config.toml.

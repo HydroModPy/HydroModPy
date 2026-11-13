@@ -3,29 +3,58 @@
   "entries": [
     {
       "file": "water_budget.png",
-      "producer": "display:water_budget",
-      "options": {},
-      "hydromodpy_version": "2.0.0rc1",
-      "at": "2026-11-03T10:07:27.482331Z",
-      "sha256": "c7e1cfa7952fc673edf644c72b9a67542262613d441b5adea52daf5574690eb8",
+      "producer": "display:figure",
+      "options": {
+        "request": {
+          "panels": [
+            {
+              "type": "series",
+              "variable": [
+                "budget"
+              ],
+              "station": "zone:catchment",
+              "overlays": [],
+              "stack": true
+            },
+            {
+              "type": "groups",
+              "variable": [
+                "budget"
+              ],
+              "station": "zone:catchment",
+              "overlays": [],
+              "reduce": "mean"
+            }
+          ],
+          "name": "water_budget",
+          "width": "double"
+        },
+        "preset": "water_budget",
+        "theme": "default"
+      },
+      "hydromodpy_version": "2.0.0",
+      "at": "2026-11-13T20:46:34.903079Z",
+      "sha256": "db96b594d5dae52939b7a3b1c77d2b4be4c7a9e47017c1f6f58385f4589a4042",
       "identity": {
         "site": null,
         "site_fingerprint": null,
         "case_id": "demo",
-        "sim_id": "5e78a478-2c73-4398-a089-721c0648c59a",
-        "attempt_id": "8829cb02633d4fbe8390fe7beba2e5bd",
-        "config_hash": "1101419a5a5b899a432f6c24e02b957aeed2923271299d886342272fc7bac403",
+        "sim_id": "72bf0eb5-2be2-46ae-8734-b9488dbdc0e2",
+        "attempt_id": "eb3561bab257429eb45d3246778b9af0",
+        "solution_key": "30c3c077506de4bed08e5d3838b1f0524efe39de6879dd182fec6c3d512b44bc",
+        "request_id": "a534da08b514c68cf76ca8e5b8ed632dd14ffbf3fd19cd1daae4d5fa04f4e7c1",
+        "solver": "modflow_nwt",
         "mesh_hash": "48ebc775bacafd4e10f0f6a134360eba6a97bd4eb8961401c1a19da71d0e4083",
         "period": {
           "start": "2000-01-01",
           "end": "2001-01-01"
         },
         "score_window": null,
-        "label": null,
-        "label_date": null,
-        "rule_version": null,
-        "hydromodpy_version": "2.0.0rc1",
-        "code_reproducible": null
+        "label": "exploratory",
+        "label_date": "2026-11-13",
+        "rule_version": "3",
+        "hydromodpy_version": "2.0.0",
+        "code_reproducible": false
       }
     }
   ]

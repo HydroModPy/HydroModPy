@@ -8,7 +8,6 @@ import pytest
 
 from hydromodpy.results.session.journal import append_trial
 from tests._helpers.cli_runner import CliRunner
-from tests._helpers.one_run_catalog import Figure
 from tests._helpers.sealed_runs import make_project, seal_run, write_session_dir
 from tests._helpers.session_documents import trial_line
 
@@ -118,15 +117,6 @@ def _png(path: Path) -> Path:
     return path
 
 
-class PngFigure(Figure):
-    # The helper figure, drawing a PNG that reads back.
-
-    def plot(self, sim, *, save_path: Path, **opts: object) -> str:
-        self.saved.append(save_path)
-        _png(save_path)
-        return "figure"
-
-
 @pytest.fixture
 def figure_project(tmp_path: Path) -> Path:
     root = make_project(tmp_path / "demo")
@@ -139,7 +129,7 @@ def test_figure_reaches_the_verb(monkeypatch, figure_project: Path) -> None:
 
     def verb(ref, **kwargs):
         seen.update(kwargs, ref=ref)
-        return _png(Path(kwargs["save"]))
+        return _png(Path(kwargs["save"]) / "head.png")
 
     monkeypatch.setattr("hydromodpy.project.api.show", verb)
 
@@ -148,7 +138,7 @@ def test_figure_reaches_the_verb(monkeypatch, figure_project: Path) -> None:
             "show",
             "alpha",
             "--figure",
-            "seepage_map",
+            "head",
             "--time",
             "2002-10-15",
             "-w",
@@ -158,46 +148,9 @@ def test_figure_reaches_the_verb(monkeypatch, figure_project: Path) -> None:
 
     assert result.exit_code == 0, result.stderr
     assert seen["what"] == "figure"
-    assert seen["name"] == "seepage_map"
-    assert seen["time"] == "2002-10-15"
-    assert Path(seen["save"]) == figure_project / "runs" / "alpha" / "figures" / "seepage_map.png"
-
-
-def test_figure_names_its_file(monkeypatch, figure_project: Path, tmp_path: Path) -> None:
-    figure = PngFigure()
-    monkeypatch.setattr("hydromodpy.display.runs._get_figure", lambda name: figure)
-
-    result = CliRunner().invoke(
-        [
-            "show",
-            "alpha",
-            "--figure",
-            "head_map",
-            "--to",
-            str(tmp_path / "head"),
-            "-w",
-            str(figure_project),
-        ]
-    )
-
-    assert result.exit_code == 0, result.stderr
-    assert f"wrote {tmp_path / 'head.png'}" in result.stderr
-    assert figure.saved == [tmp_path / "head.png"]
-
-
-def test_figure_the_run_cannot_feed(monkeypatch, figure_project: Path) -> None:
-    figure = Figure(reason="missing result field(s): watertable_depth")
-    monkeypatch.setattr("hydromodpy.display.runs._get_figure", lambda name: figure)
-
-    result = CliRunner().invoke(
-        ["show", "alpha", "--figure", "head_map", "-w", str(figure_project)]
-    )
-
-    assert result.exit_code == 1
-    assert (
-        "figure 'head_map' does not apply to this run: missing result field(s): watertable_depth"
-    ) in result.stderr
-    assert figure.saved == []
+    assert seen["name"] == "head"
+    assert seen["options"] == {"time": "2002-10-15"}
+    assert Path(seen["save"]) == figure_project / "runs" / "alpha" / "figures"
 
 
 def test_figure_refuses_the_project(figure_project: Path) -> None:

@@ -148,28 +148,51 @@ mf6_ims_complexity = "COMPLEX"
 # waits for.
 [display]
 on_error = "raise"
-figures = [
-    "watershed_id_card",
-    "mesh_map",
-    "piezometric_map",
-    "watertable_depth_map",
-    "seepage_map",
-    "concentration_map",
-    "concentration_boxplot",
-    "hydrographic_network_reference",
-    "simulated_active_network",
-    "hydrograph",
-    "flux_timeseries",
-    "water_budget",
-    "mass_balance_error",
-]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+name = "mesh_map"
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
 
 # The end of the drought, when the concentration pattern is most contrasted.
-[display.overrides.concentration_map]
+[[display.figure]]
+variable = "concentration"
+layer = 0
 time = 9
+name = "concentration_map"
 
-# mg/L rather than kg/m3, and the 50 mg/L the recharge brings in as reference.
-[display.overrides.concentration_boxplot]
-scale = 1000.0
-units = "mg/L"
-reference = 50.0
+# Concentration over the whole run, one box per time, in kg/m3.
+[[display.figure]]
+variable = "concentration"
+type = "groups"
+by = "time"
+name = "concentration_boxplot"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+name = "hydrographic_network_reference"
+
+[[display.figure]]
+variable = "simulated_active_network"
+
+[[display.figure]]
+preset = "hydrograph"
+
+[[display.figure]]  # replaces flux_timeseries, water_budget
+preset = "water_budget"
+
+[[display.figure]]
+variable = "mass_balance.percent_error"
+type = "series"

@@ -384,7 +384,7 @@ def test_draw_nothing_when_all_exist(tmp_path, draw_spy):
     assert draw_spy == []
 
 
-@pytest.mark.parametrize(("dpi", "expected"), [(220, 220), ("not a number", 150)])
+@pytest.mark.parametrize(("dpi", "expected"), [(220, 220), ("not a number", 300)])
 def test_sealed_display_keeps_chosen_or_falls_back(dpi, expected):
     run = SimpleNamespace(config_snapshot={"display": {"dpi": dpi}})
     assert pages._sealed_display(run).dpi == expected

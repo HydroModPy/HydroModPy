@@ -120,9 +120,9 @@ the largest basin of a synthetic domain, reads the active domain instead and log
 is finite. ``catchment_mean`` and ``budget_over`` weigh each face by its area inside the
 catchment polygon (:doc:`/theory/mesh`).
 
-The figures ``simulated_active_network`` and ``simulated_active_network_reference_overlay`` draw
-the mask and its overlay. Both are cell maps and need ``drain_accumulation_flux`` and a plottable
-mesh. A comparison writes the overlap and the distance of each run in ``network.csv``
+The variable ``simulated_active_network`` draws the mask, and ``overlays = ["relief", "network"]``
+adds the mapped network over it. The figure is a cell map and needs ``drain_accumulation_flux`` and
+a plottable mesh. A comparison writes the overlap and the distance of each run in ``network.csv``
 (:doc:`toml-to-solver`).
 
 Words and rules to keep

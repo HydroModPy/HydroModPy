@@ -53,7 +53,7 @@ The first command lists every problem of the file at once. The second prints eac
 
 ## Read the result
 
-The calibration card shows both stages. Stage one shows the evaluations of K and the bracket the bisection closed on. Stage two shows the cost of each Sy. The lower panels give the validity of the network agreement, $D_{optim}$ against its bound, and the cells that are valid, in excess or missing at the calibrated point.
+The `root_search` preset, asked with `when = "session"`, draws the calibration card of both stages. Stage one shows the evaluations of K and the bracket the bisection closed on. Stage two shows the cost of each Sy. The lower panels give the validity of the network agreement, $D_{optim}$ against its bound, and the cells that are valid, in excess or missing at the calibrated point.
 
 ```{image} /_static/figures/calibrate/matching_hydrographic_network_card.webp
 :alt: Four panels. The K trials close on a bracket around 8e-5 m/s, the Sy trials have a minimum cost near 0.043, the mean distance is under its bound, and the cells are split into valid, excess and missing.

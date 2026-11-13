@@ -16,13 +16,17 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.display.png_metadata import read_png_metadata
+from hydromodpy.results.identity import read_identity_from
 from tests.scenarios.factory import island_files
 from tests.scenarios.launcher import Scenario, play
 
 SESSION = "calage_sy.v2"
 """The run of ``hmp run`` took the name, so the session of the calibration is its second version."""
-FIGURES = ("watershed_id_card", "seepage_map", "flux_timeseries")
+FIGURES = (
+    ("preset", "watershed_id_card"),
+    ("variable", "seepage_mask"),
+    ("preset", "water_budget"),
+)
 NEEDS_A_GAUGE_OR_A_NETWORK = {
     "cross_section",
     "downslope_distance",
@@ -64,7 +68,8 @@ def _files() -> dict[str, str]:
     files = dict(island_files("calage_sy"))
     files["project.toml"] = files["project.toml"].replace(
         "[display]\nenabled = false",
-        f"[display]\nenabled = true\nfigures = {list(FIGURES)!r}".replace("'", '"'),
+        "[display]\nenabled = true\n"
+        + "".join(f'\n[[display.figure]]\n{key} = "{name}"\n' for key, name in FIGURES),
         1,
     )
     files["data/piezometry/piezometry_custom_LOC.csv"] = SECOND_STATION_LOC
@@ -96,12 +101,13 @@ def test_the_figures_of_a_run_carry_the_label_of_the_seal(played) -> None:
     drawn = sorted((root / "runs" / "calage_sy" / "figures").glob("*.png"))
 
     # The report draws more figures here, after the three the run asked for.
-    assert set(FIGURES) <= {path.stem for path in drawn}
+    assert {name for _, name in FIGURES} <= {path.stem for path in drawn}
     for path in drawn:
-        identity = json.loads(read_png_metadata(path)["hydromodpy.identity"])
-        assert identity.get("label"), path.name
-        assert identity.get("rule_version"), path.name
-        assert identity.get("label_date"), path.name
+        identity = read_identity_from(path)
+        assert identity is not None, path.name
+        assert identity.label, path.name
+        assert identity.rule_version, path.name
+        assert identity.label_date, path.name
 
 
 def test_the_research_report_lists_what_it_misses_and_names_the_figures_of_the_run(played) -> None:

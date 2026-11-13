@@ -101,18 +101,14 @@ def test_loader_refusals(tmp_path: Path, body: str, match: str) -> None:
 
 def test_display_times_are_read(tmp_path: Path) -> None:
     body = """\
-        [display]
+        [[display.figure]]
+        variable = "head"
         time = "1999-12-31"
-
-        [display.overrides.seepage_map]
-        time = "2004-01-01"
         """
     with pytest.raises(ConfigError) as err:
         _load(tmp_path, body, grid=MONTHLY)
 
-    message = str(err.value)
-    assert "display.time: 1999-12-31 is outside" in message
-    assert "display.overrides.seepage_map.time: 2004-01-01 is outside" in message
+    assert "display.figure[0].time: 1999-12-31 is outside" in str(err.value)
 
 
 def test_step_meets_loader_refusals(tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 # calage
 
-Run `calage` of project `example`, sim_id `5e9559c0-d954-4ba2-84a4-3bcc0a2629a2`, attempt 1, status **completed**.
+Run `calage` of project `example`, sim_id `eab9575d-5f50-476e-953a-26a85ad30cfe`, attempt 1, status **completed**.
 
 ## Site
 
@@ -12,21 +12,21 @@ No site declared.
 
 ## Version
 
-- HydroModPy 2.0.0rc1, solver `modflow_nwt`, mesh engine `regular`
-- code reproducible: unknown
-- configuration hash: `638c10dec44fbb06e6f77376e2772d3332b06bcbea02f2c29a45e8a3782e6087`
+- HydroModPy 2.0.0, solver `modflow_nwt`, mesh engine `regular`
+- code reproducible: no
+- solution key: `none`
 
 ## Checks
 
-- water budget 0.06 % (no threshold declared)
+- water budget 0.0643926 % (no threshold declared)
 - converged: yes
-- promoted by session `15ed6e9bfc5e44558cf3537f3faa6f33` (phase k_grid, trial 2, session completed)
+- promoted by session `2473cfc06b9943a1b59b0c180ac9db26` (phase k_grid, trial 2, session completed)
 - its search exhausted its plan (every grid point solved), converged
 
 ## Label
 
-**calibrated** under rules 2.
-- promoted by session 15ed6e9bfc5e44558cf3537f3faa6f33, completed
+**calibrated** under rules 3.
+- promoted by session 2473cfc06b9943a1b59b0c180ac9db26, completed
 
 ## Score
 
@@ -35,7 +35,18 @@ No window declared: no score.
 ## Lineage
 
 - promoted of `sessions/calage`
-- session `15ed6e9bfc5e44558cf3537f3faa6f33`, phase k_grid, trial 2
+- session `2473cfc06b9943a1b59b0c180ac9db26`, phase k_grid, trial 2
+
+## What this run does not give
+
+- A change in time: the run is one steady state.
+- The flow between two cells. Set `keep_face_flows = true` under `[simulation.results]` to keep it.
+- A residence time: the run has no particle tracking.
+
+## Cost of a replay
+
+A replay of this run computes 5 steps in 1.8 s, 0.0 s of it in the solve, and needs up to 443 MiB of memory.
+The times come from `profile.json`, measured on the machine that ran it.
 
 ## Where is what
 
@@ -45,4 +56,4 @@ No window declared: no score.
 - `figures/`, `exports/`, `report/`: derived, each with its ledger; `logs/`: diagnostics
 
 ---
-sha256(manifest.json) = 13cb1b26b836688c67bffb268faad524c121dfd4ae9a0849e1511c0616caf789
+sha256(manifest.json) = 71f98652a1bcd93fc5ed028054ff4eed476c1a7c219e380c25a04cafe46f1c54

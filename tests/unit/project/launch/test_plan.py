@@ -429,35 +429,34 @@ def test_precedence_of_layers(tmp_path: Path) -> None:
     assert [_k(case) for case in forced.cases] == pytest.approx([4e-5] * len(forced.cases))
 
 
+MASKED_CROSSINGS = (
+    '[data.crossings]\nmask_path = "inputs/mask.shp"\n[[data.crossings.sources]]\nsource = "roe"\n'
+)
+
+
 def test_literal_site_key_refused(tmp_path: Path) -> None:
-    project = write_sites_project(
-        tmp_path, extra='[display.overrides.cross_section]\norientation = "sn"\n'
-    )
+    project = write_sites_project(tmp_path, extra=MASKED_CROSSINGS)
 
     draft = expand_plan(project, project / "project.toml")
 
     lines = group_issues(draft.errors)
     assert len(lines) == 1
     assert lines[0].startswith("4 cases: site scoped key(s) hold a literal value")
-    assert "display.overrides.cross_section" in lines[0]
+    assert "data.crossings.mask_path" in lines[0]
     assert draft.cases == ()
 
     # Written per site, the same key is accepted.
     project_toml = project / "project.toml"
     project_toml.write_text(
-        project_toml.read_text(encoding="utf-8").replace(
-            '[display.overrides.cross_section]\norientation = "sn"\n', ""
-        ),
+        project_toml.read_text(encoding="utf-8").replace(MASKED_CROSSINGS, ""),
         encoding="utf-8",
     )
-    (project / "site_overrides" / "nancon.toml").write_text(
-        '[display.overrides.cross_section]\norientation = "sn"\n', encoding="utf-8"
-    )
+    (project / "site_overrides" / "nancon.toml").write_text(MASKED_CROSSINGS, encoding="utf-8")
     accepted = expand_plan(project, project_toml)
     assert not accepted.errors, group_issues(accepted.errors)
-    assert lookup(_case(accepted, "nancon-base").document, "display.overrides.cross_section") == {
-        "orientation": "sn"
-    }
+    assert lookup(_case(accepted, "nancon-base").document, "data.crossings.mask_path") == (
+        "inputs/mask.shp"
+    )
 
 
 def test_outlet_in_base_is_literal(tmp_path: Path) -> None:

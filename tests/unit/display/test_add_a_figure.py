@@ -77,7 +77,7 @@ def test_case_3_a_column_of_a_table(stored_run, monkeypatch):
     name = "simulation.budget_pct"
     request = {"type": "table", "variable": [name]}
     with pytest.raises(ValueError, match=r"has no row in COLUMN_REGISTRY \(results/field_registry"):
-        stored_run.figure_data(request=request)
+        stored_run.figure(request=request, data=True)
     written = {
         # example: column
         "simulation.budget_pct": ColumnDescriptor("percent", "Budget error"),
@@ -85,7 +85,7 @@ def test_case_3_a_column_of_a_table(stored_run, monkeypatch):
     }
     _merge(monkeypatch, registry.COLUMN_REGISTRY, written)
     gate.test_column_row_names_a_schema_column(name)
-    label = stored_run.figure_data(request=request)["a"]["label"].iloc[0]
+    label = stored_run.figure(request=request, data=True)["a"]["label"].iloc[0]
     assert label.startswith("Budget error")
 
 

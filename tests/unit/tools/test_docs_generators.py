@@ -100,11 +100,10 @@ def test_every_test_file_sits_in_a_folder_the_index_names_as_a_tier() -> None:
     assert {info["tier"] for info in index["imports"].values()} <= set(tests_index.TIERS)
 
 
-def test_the_catalogs_read_the_solver_figure_and_source_registries(registry: dict) -> None:
+def test_the_catalogs_read_the_solver_and_source_registries(registry: dict) -> None:
     result = catalogs.build(registry["nodes"])
     pairs = {(row["process"], row["solver"]) for row in result["solvers"]}
     assert ("flow", "modflow6") in pairs
-    assert len(result["figures"]) > 20
     dem = next(row for row in result["data_sources"] if row["variable"] == "dem")
     assert {"file", "url", "ign_geoplateforme_dem"} <= {s["value"] for s in dem["sources"]}
 

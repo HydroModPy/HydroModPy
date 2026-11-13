@@ -115,8 +115,8 @@ TWO_EXPORTS = '[[export]]\nvariables = "discharge"\n\n[[export]]\nvariables = ["
 REFUSALS = [
     pytest.param("not = [valid", "Invalid TOML syntax:", id="invalid toml"),
     pytest.param(
-        SIMULATION + '[display]\ntime = "2005-01-01"\n',
-        "display.time: 2005-01-01 is outside the record",
+        SIMULATION + '[[display.figure]]\nvariable = "head"\ntime = "2005-01-01"\n',
+        "display.figure[0].time: 2005-01-01 is outside the record",
         id="date outside the record",
     ),
     pytest.param(

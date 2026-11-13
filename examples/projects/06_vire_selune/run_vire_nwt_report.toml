@@ -19,19 +19,38 @@ compute_strahler_order = true
 compute_stream_links = true
 
 [display]
-show = false
-save = true
-figures = [
-  "watershed_id_card",
-  "piezometric_map",
-  "water_budget",
-  "hydrograph",
-  "recharge_map",
-  "seepage_map",
-  "hydrographic_network_reference",
-  "hydrographic_network_generated",
-  "hydrographic_network_comparison",
-  "hydrographic_network_reference_missing_only",
-  "hydrographic_network_generated_extra_only",
-  "simulated_active_network_reference_overlay",
-]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+preset = "water_budget"
+
+[[display.figure]]
+preset = "hydrograph"
+
+[[display.figure]]
+variable = "recharge"
+layer = "sum"
+
+[[display.figure]]
+variable = "seepage_mask"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+name = "hydrographic_network_reference"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "generated_network"]
+name = "hydrographic_network_generated"
+
+[[display.figure]]  # replaces hydrographic_network_comparison, hydrographic_network_reference_missing_only, hydrographic_network_generated_extra_only
+preset = "network_comparison"
+
+[[display.figure]]
+variable = "simulated_active_network"
+overlays = ["relief", "network"]

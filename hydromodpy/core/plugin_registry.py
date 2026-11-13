@@ -5,8 +5,7 @@ module: ``solvers`` and ``extractors`` in ``solver/base/registry.py``,
 ``data_sources`` in ``data/source/registry.py``, ``evaluators`` in
 ``calibration/evaluation/registry.py``, ``mesh_engines`` in
 ``mesh/registry.py``, ``terrain_engines`` in ``catchment/terrain/registry.py``,
-``export_formats`` in ``results/exporters/registry.py`` and ``figures`` in
-``display/figure_registry.py``. They resolve a name the same way: an in-tree
+and ``export_formats`` in ``results/exporters/registry.py``. They resolve a name the same way: an in-tree
 declaration imported on first lookup, then one scan of an entry-point group for
 the out-of-tree surface, or no scan at all when the surface declares no group.
 Only the noun, the id attributes, the group and the port members differ, so they

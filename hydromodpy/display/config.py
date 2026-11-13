@@ -1,47 +1,24 @@
 """Pydantic schema for the ``[display]`` TOML section.
 
-Each value defaults to a non-interactive, save-enabled mode that is
-safe for CI.
-
-A run renders exactly the figures listed in ``figures``. Whether one of
-them applies is decided from the figure's own declared requirements
-(:class:`hydromodpy.display.figure.FigureSpec`) against what the run
-persisted, not from a second layer of per-family booleans.
+A run draws the figures listed in ``[[display.figure]]``, each one a request that
+names a variable, a preset or panels. ``theme`` sets the look of every figure and
+``presets`` holds the user's own presets.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.time.instant import TIME_FORMS, instant
 from hydromodpy.display.presets import PRESETS
 from hydromodpy.display.request import FigureRequest, check_stems, expand, named
 
 DEFAULT_THEME = "default"
-
-# What a figure option names an instant with.
-TIME_KEY = "time"
-
-
-def time_selector(value: Any, where: str) -> str | int | None:
-    """Return a ``time`` value in the form the display resolves, or refuse it.
-
-    The shape is checked by ``core.time.instant``. One instant only: a list is refused.
-    """
-    if value is None:
-        return None
-    if isinstance(value, list | tuple):
-        raise ValueError(
-            f"{where} = {list(value)!r}: a figure draws one instant, so write one "
-            f"value, {TIME_FORMS}, not a list."
-        )
-    return instant(value, where)
 
 
 class DisplayConfig(HydroModelBase):
@@ -58,77 +35,15 @@ class DisplayConfig(HydroModelBase):
         default=True,
         description="Master switch. When False, no figure is rendered or saved.",
     )
-    backend: Annotated[Literal["agg", "qt5agg", "auto"], Profile.DEV] = Field(
-        default="auto",
-        description=(
-            "Matplotlib backend. 'auto' selects Agg in headless mode and a "
-            "GUI backend when ``show`` is enabled."
-        ),
-    )
-    preset: Annotated[Literal["default", "print", "dark"], Profile.USER] = Field(
-        default="default",
-        description=(
-            "Named theme applied before rendering any figure. Still read as the theme "
-            "until it is removed. Write ``theme`` instead; writing both is refused."
-        ),
-        json_schema_extra={
-            "value_docs": {
-                "default": (
-                    "Uses a colorful sans-serif palette on a white background, for screen viewing."
-                ),
-                "print": ("Uses a grayscale serif palette sized for black-and-white print output."),
-                "dark": ("Uses a bright palette on a dark background, for dark-themed displays."),
-            }
-        },
-    )
-    show: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Open an interactive window via ``matplotlib.pyplot.show``.",
-    )
-    save: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description=(
-            "Write rendered figures to disk, under figures/ of the run directory "
-            "(runs/<run>/figures/), each one recorded in figures/index.json."
-        ),
-    )
     dpi: Annotated[int, Profile.DEV] = Field(
-        default=150,
+        default=300,
         ge=1,
         description="DPI used when saving raster figures.",
         json_schema_extra=field_metadata(unit="dpi"),
     )
-    cmap: Annotated[str, Profile.USER] = Field(
-        default="viridis",
-        description=(
-            "Force ONE colormap onto every spatial figure. Writing it at all is the "
-            "decision, not the value: each figure otherwise picks a scale suited to "
-            "what it shows, reversed for a depth, diverging for a difference, discrete "
-            "for an indicator, and this replaces all of them. Writing the default "
-            "spelled out is therefore NOT a no-op, unlike everywhere else. Leave it "
-            "out unless one scale for everything is what you want."
-        ),
-    )
-    figures: Annotated[list[str], Profile.USER] = Field(
-        default_factory=list,
-        description=(
-            "Names of registered figures to auto-render at the end of "
-            "`hmp run`, written to runs/<run>/figures/ and recorded in "
-            "figures/index.json, which `hmp export <run> --regen figures` replays. Every name must "
-            "exist in the figure registry; list them with `hmp config figures`. "
-            "A figure whose requirements the run does not meet is skipped "
-            "with an explicit reason. Empty list disables auto-rendering. "
-            "Disable per-run via `hmp run --no-display` or for an entire "
-            "Python Project via `Project(..., no_display=True)`: nothing is drawn then, "
-            "and the run keeps the same data, so `hmp export <run> --regen figures` can draw them later."
-        ),
-    )
     theme: Annotated[str, Profile.USER] = Field(
         default=DEFAULT_THEME,
-        description=(
-            "Named theme applied before rendering any figure: default, print or dark. "
-            "Replaces the former ``preset`` key."
-        ),
+        description=("Named theme applied before rendering any figure: default, print or dark."),
     )
     figure: Annotated[list[FigureRequest], Profile.USER] = Field(
         default_factory=list,
@@ -156,33 +71,6 @@ class DisplayConfig(HydroModelBase):
             "a broken figure cannot pass unnoticed."
         ),
     )
-    time: Annotated[str | int | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "The instant every figure that draws one instant shows: a date "
-            '("2002-10-15"), "first" or "last". Each such figure draws the stress '
-            "period that holds the date, so the same date names the same month on a "
-            "monthly, a daily or a one-period steady run. A `time` in "
-            "`[display.overrides.<figure>]` wins over it. Unset, each figure picks its "
-            "own instant: the last period, or for the stream-network maps the state "
-            "their calibration criterion read. A date outside a run skips the figure "
-            "with the reason."
-        ),
-    )
-    overrides: Annotated[dict[str, dict], Profile.USER] = Field(
-        default_factory=dict,
-        description=(
-            "Per-figure options, keyed by figure name "
-            "(e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``). "
-            "A key the figure does not take is refused at load, with the list of "
-            "the keys it takes. A figure that draws one instant takes `time`."
-        ),
-    )
-
-    @field_validator("time", mode="before")
-    @classmethod
-    def _check_time_shape(cls, value: Any) -> Any:
-        return time_selector(value, "display.time")
 
     @field_validator("theme", mode="after")
     @classmethod
@@ -201,11 +89,6 @@ class DisplayConfig(HydroModelBase):
     @model_validator(mode="after")
     def _check_figures_and_themes(self) -> DisplayConfig:
         check_stems(self.figure)
-        if self.preset != DEFAULT_THEME and self.theme != DEFAULT_THEME:
-            raise ValueError(
-                "display.preset and display.theme are both written. Keep display.theme "
-                "and delete display.preset."
-            )
         if not (self.figure or self.presets):
             return self
         shipped = sorted(set(self.presets) & set(PRESETS))
@@ -223,68 +106,3 @@ class DisplayConfig(HydroModelBase):
         for figure in self.figure:
             expand(figure, known)
         return self
-
-    @property
-    def theme_name(self) -> str:
-        """The theme to draw with: ``theme``, else the former ``preset``."""
-        return self.theme if self.theme != DEFAULT_THEME else self.preset
-
-    @field_validator("figures", "overrides", mode="after")
-    @classmethod
-    def _validate_figure_names(cls, value, info):
-        """Reject figure names that are not in the registry.
-
-        Catching the typo here (config load) instead of at render time is
-        what makes a project TOML self-checking: `hmp check` fails
-        loudly rather than a run silently producing one figure less.
-        """
-        from hydromodpy.display.figure_registry import names, resolve
-
-        known = set(names())
-        current: dict[str, str] = {}
-        unknown: list[str] = []
-        for name in value:
-            try:
-                # A name a figure used to carry resolves to the current one and
-                # warns; downstream then only ever sees one spelling.
-                current[name] = resolve(name)
-            except KeyError:
-                unknown.append(name)
-        if unknown:
-            raise ValueError(
-                f"display.{info.field_name} references unknown figure(s): "
-                f"{', '.join(sorted(unknown))}. Registered figures: {', '.join(sorted(known))}"
-            )
-        if isinstance(value, dict):
-            return _checked_options({current[name]: options for name, options in value.items()})
-        return [current[name] for name in value]
-
-
-def _checked_options(overrides: dict[str, dict]) -> dict[str, dict]:
-    """Refuse a key a figure does not take, and check the shape of each ``time``.
-
-    Every figure ``render`` ends with a ``**`` parameter, so a misspelt key
-    would otherwise be swallowed and the figure drawn with its default.
-    """
-    from hydromodpy.display.figure_registry import figure_option_names
-
-    problems: list[str] = []
-    checked: dict[str, dict] = {}
-    for figure, options in overrides.items():
-        accepted = figure_option_names(figure)
-        unknown = sorted(str(key) for key in options if key not in accepted)
-        if unknown:
-            problems.append(
-                f"[display.overrides.{figure}] has no option {', '.join(map(repr, unknown))}; "
-                f"{figure} takes: {', '.join(sorted(accepted))}."
-            )
-            continue
-        options = dict(options)
-        if TIME_KEY in options:
-            options[TIME_KEY] = time_selector(
-                options[TIME_KEY], f"display.overrides.{figure}.{TIME_KEY}"
-            )
-        checked[figure] = options
-    if problems:
-        raise ValueError(" ".join(problems))
-    return checked

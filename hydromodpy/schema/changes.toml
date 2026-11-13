@@ -969,3 +969,68 @@ since = "2.0.0"
 effect = "identity"
 quantities = []
 text = "Every cache key of a calibration changes once, so the trials of a session of a pre-release are solved again."
+
+[[migration]]
+document = "config"
+old = "display.figures"
+instead = "Write one [[display.figure]] table per figure, with variable = \"<name>\" or preset = \"<name>\". The page \"Figure requests\" lists what replaces each former figure name, and hmp config figures lists the variables and presets."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.overrides"
+instead = "Write the options in the [[display.figure]] table of that figure, as panel fields (time, layer, scale, overlays, station)."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.preset"
+instead = "Write theme = \"<name>\" (default, print or dark)."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.cmap"
+instead = "Each variable takes the colour ramp of its quantity. Delete the line."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.backend"
+instead = "Figures are drawn on their own canvas, without pyplot. Delete the line. engine = [\"interactive\"] in a [[display.figure]] asks for the interactive engine."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.show"
+instead = "No window opens at the end of a run. Delete the line, and draw a figure in Python with run.figure(...) to see it."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.save"
+instead = "Every [[display.figure]] is written under runs/<run>/figures/. Delete the line. formats chooses the files, enabled = false draws nothing."
+since = "2.0.0"
+
+[[migration]]
+document = "config"
+old = "display.time"
+instead = "Write time in each [[display.figure]] that draws one instant, for example time = \"2002-10-15\"."
+since = "2.0.0"
+
+[[default]]
+id = "display_dpi_300"
+since = "2.0.0"
+edition = "2.0"
+key = "display.dpi"
+old = 150
+new = 300
+quantities = []
+text = "With edition 2.0, display.dpi defaults to 300 instead of 150. The figure files are larger, no number of a run moves."
+
+[[recipe]]
+id = "old_figure_ledger_entries_skipped"
+since = "2.0.0"
+effect = "refusal"
+quantities = []
+text = "hmp export --regen figures skips a figure that figures/index.json records from a figure of a pre-release, with the command that draws it now, and draws the other entries. It used to redraw it from its old options."

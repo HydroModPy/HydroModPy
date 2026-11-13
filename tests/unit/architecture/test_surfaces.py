@@ -420,7 +420,6 @@ def test_only_a_row_that_rewrites_counts_as_a_migration(
         ("calibration.max_trials", False, False),
         # A line of one value covers no key: the key stays with its other values.
         ("simulation.if_exists", False, False),
-        ("display.figures", False, False),
         ("geographic.catchment.buff_area", False, False),
         # A line of the tables under a key covers what lies below it, not the key.
         ("export.variables", False, False),

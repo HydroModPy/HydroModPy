@@ -177,19 +177,22 @@ def test_point_needs_a_project(tmp_path: Path, run_at) -> None:
 
 
 def test_render(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, run_at) -> None:
-    calls = _recorder(monkeypatch, "hydromodpy.display.runs.render_figure", "figure")
+    drawn = _recorder(monkeypatch, "hydromodpy.display.render.render", "figure")
+    written = _recorder(monkeypatch, "hydromodpy.display.output.write", [tmp_path / "head.png"])
     run = run_at(tmp_path / "runs" / "base")
 
-    assert show.render(run, "head_map", {"dpi": None, "time": "last"}) == "figure"
-    assert show.render(run, "head_map", {"save": tmp_path}) == tmp_path / "head_map.png"
-    assert show.render(run, "head_map", {"save": tmp_path / "x.png"}) == tmp_path / "x.png"
-    assert calls[0] == (
-        ("head_map", run),
-        {"save": None, "dpi": None, "run_dir": None, "time": "last"},
-    )
-    assert calls[1][1]["run_dir"] == tmp_path / "runs" / "base"
-    assert show.shown(run, "figure", {"name": "head_map", "options": {"cmap": "x"}}) == "figure"
-    assert calls[3][1]["cmap"] == "x"
+    assert show.render(run, "head", {"dpi": None, "time": "last"}) == "figure"
+    assert show.render(run, "head", {"save": tmp_path}) == tmp_path / "head.png"
+    assert show.shown(run, "figure", {"name": "head", "options": {"layer": 1}}) == "figure"
+    assert drawn[0][0][1] is run and len(written) == 1 and written[0][0][3] == tmp_path
+    assert drawn[2][0][0].panels[0].layer == 1
+
+
+def test_a_former_figure_name_is_refused_with_what_replaces_it(tmp_path: Path, run_at) -> None:
+    run = run_at(tmp_path / "runs" / "base")
+
+    with pytest.raises(CommandUsageError, match="was a figure of a pre-release"):
+        show.render(run, "piezometric_map", {})
 
 
 def test_against_names_a_run_of_the_same_project(monkeypatch, tmp_path: Path, run_at) -> None:
@@ -297,7 +300,7 @@ def test_a_preset_written_wrongly_blocks_only_its_own_name(tmp_path: Path, run_a
 
 @pytest.mark.parametrize("ask", [lambda r: r.show("report", lang="fr"), lambda r: api.show(r, what="report", lang="fr")])  # fmt: skip
 def test_the_report_has_no_lang(tmp_path: Path, run_at, ask) -> None:
-    with pytest.raises(CommandUsageError, match="hmp show --lang is gone. Write: hmp show RUN"):
+    with pytest.raises(CommandUsageError, match="one language, so lang is gone"):
         ask(run_at(tmp_path / "runs" / "base"))
 
 
@@ -321,18 +324,6 @@ def test_a_run_outside_a_project_has_shipped_and_sealed_presets(
 
     assert {"mine", "hydrograph"} <= set(show.project_presets(run))
     assert "later" not in show.project_presets(run)
-
-
-def test_an_unknown_figure_says_where_presets_are_looked_up(tmp_path: Path, run_at) -> None:
-    _written(tmp_path, later="discharge")
-    run = run_at(tmp_path / "runs" / "base")
-
-    with pytest.raises(
-        CommandUsageError, match=r"Unknown figure 'nope'.*looked up in the shipped"
-    ) as error:
-        show.render(run, "nope", {})
-
-    assert "project.toml" in str(error.value)
 
 
 @pytest.mark.parametrize(

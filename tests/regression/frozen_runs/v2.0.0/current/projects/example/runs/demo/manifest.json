@@ -1,9 +1,240 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 4,
+  "profile": "run",
+  "sealed_at": "2026-11-13T20:46:32.666821Z",
+  "lineage": {
+    "parent_sim_id": null,
+    "session_id": null,
+    "phase": null,
+    "trial": null,
+    "kind": null,
+    "overrides": {},
+    "drift": {},
+    "parent_hint": null,
+    "replay": null
+  },
+  "artifacts": [
+    {
+      "path": "manifest.json",
+      "role": "manifest",
+      "format": "json",
+      "bytes": null,
+      "sha256": null,
+      "media_type": null
+    },
+    {
+      "path": "config.resolved.toml",
+      "role": "config_resolved",
+      "format": "toml",
+      "bytes": 4413,
+      "sha256": "5e6e9f92510b5c62862f1cb41d50957a331a6147f66cf2d388b7191e99dc8f94",
+      "media_type": null
+    },
+    {
+      "path": "config.toml",
+      "role": "config",
+      "format": "toml",
+      "bytes": 1426,
+      "sha256": "fff26a612159cccbd82694a5d7bcbbb4b437723100acb9f0a2005af9e4cc167b",
+      "media_type": null
+    },
+    {
+      "path": "fields.zarr",
+      "role": "fields",
+      "format": "zarr",
+      "bytes": 118232,
+      "sha256": "1bc47aa9ef7eebb82b8f66d17b7b3125b6b23aaf99994fde0e5ad787357d5fac",
+      "media_type": null
+    },
+    {
+      "path": "final_state",
+      "role": "final_state",
+      "format": "zarr",
+      "bytes": 2012,
+      "sha256": "8c52f621e06cc2690f82a34537b718d5fbe6face466ba9e7fd79c972892cedf1",
+      "media_type": null
+    },
+    {
+      "path": "inputs.json",
+      "role": "inputs",
+      "format": "json",
+      "bytes": 428,
+      "sha256": "33201cd645f8e205e66e789548a67285e9d6bea90cff9c46e4b6788a01e1723b",
+      "media_type": null
+    },
+    {
+      "path": "mesh",
+      "role": "mesh",
+      "format": "directory",
+      "bytes": 36157,
+      "sha256": "a4f7c7c63c13c061a0c4203a8d53369e2927651f17832dee120fbc6961e1d479",
+      "media_type": null
+    },
+    {
+      "path": "products.json",
+      "role": "products",
+      "format": "json",
+      "bytes": 144,
+      "sha256": "e0c0270ebf90c8375dcbb0fac89c7307013e89e97321da5ad561bd757c06a39f",
+      "media_type": null
+    },
+    {
+      "path": "provenance.json",
+      "role": "provenance",
+      "format": "json",
+      "bytes": 11519,
+      "sha256": "de192aed11c306ff424a714d5cab419ab46fb8b125d3178a75c1ee5da8679133",
+      "media_type": null
+    },
+    {
+      "path": "tables.parquet/budgets.parquet",
+      "role": "table:budgets",
+      "format": "parquet",
+      "bytes": 6153,
+      "sha256": "2c5df4ed5321edf9a1e8c0873bd6081a92e57cb13216f200e4fc0498aa675083",
+      "media_type": null
+    },
+    {
+      "path": "tables.parquet/geographic_watershed.parquet",
+      "role": "table:geographic_watershed",
+      "format": "parquet",
+      "bytes": 15539,
+      "sha256": "ee2018665208ab0f2f4180275374da5a09815f8de66c7aa0c666c0ad6c7c55d7",
+      "media_type": null
+    },
+    {
+      "path": "tables.parquet/geographic_watershed_box_buff.parquet",
+      "role": "table:geographic_watershed_box_buff",
+      "format": "parquet",
+      "bytes": 15556,
+      "sha256": "cf84cc9e34a6140e8f594245c3f3921de9d2fae6c25dca09d2c78202fc47ece9",
+      "media_type": null
+    },
+    {
+      "path": "tables.parquet/geographic_watershed_contour.parquet",
+      "role": "table:geographic_watershed_contour",
+      "format": "parquet",
+      "bytes": 15540,
+      "sha256": "086c59d55a7625535a9b5b7671432ed949af0cae585ffe1c4a509b22f5a3ff22",
+      "media_type": null
+    },
+    {
+      "path": "tables.parquet/mass_balance.parquet",
+      "role": "table:mass_balance",
+      "format": "parquet",
+      "bytes": 6773,
+      "sha256": "9ddc8cfc85de18f32442849ca989358037b55ba540394a6191c823ca148f5b4e",
+      "media_type": null
+    },
+    {
+      "path": "tables.parquet/mesh_face_families.parquet",
+      "role": "table:mesh_face_families",
+      "format": "parquet",
+      "bytes": 8094,
+      "sha256": "fa1f56519c67c30ac7f0342b842d73ee4708a013575d5c99e7b5c77ddd026628",
+      "media_type": null
+    },
+    {
+      "path": "tables.parquet/metrics.parquet",
+      "role": "table:metrics",
+      "format": "parquet",
+      "bytes": 8202,
+      "sha256": "1a3743c4aef7323c2252b83fc66c027103c39ba83f84c56b848725da649848aa",
+      "media_type": null
+    },
+    {
+      "path": "tables.parquet/parameters.parquet",
+      "role": "table:parameters",
+      "format": "parquet",
+      "bytes": 7867,
+      "sha256": "9fd321f0c120c09ca2f50e83abcef6878803dcdd1ce495ff3195ebb0d2e1076c",
+      "media_type": null
+    },
+    {
+      "path": "tables.parquet/simulation.parquet",
+      "role": "table:simulation",
+      "format": "parquet",
+      "bytes": 32994,
+      "sha256": "a779c918aa61cd503f5e70e43240e4e47593dc49f513945c215a5c1572550cfb",
+      "media_type": null
+    },
+    {
+      "path": "tables.parquet/timeseries.parquet",
+      "role": "table:timeseries",
+      "format": "parquet",
+      "bytes": 6736,
+      "sha256": "6bc33d6145595df4719a8b30ab6189a86623be3a3336a8437fe31b922d4c578e",
+      "media_type": null
+    }
+  ],
+  "values": {
+    "rule": "values/1",
+    "digests": {
+      "fields/budget/constant_head": "591249f31a2323fd09fa01c37840bfc2d2762304978da456e04118593f63cd69",
+      "fields/budget/drain": "79762e2450121d52f32cf415235f3d5f4593e01cf20b90a3ecc982fbe655fdcd",
+      "fields/budget/recharge": "3e3ea3bace87ddf89e11c40c45980cdb25c6ccd84fd643a7ea6c122433ed2b8a",
+      "fields/crs": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/face": "eea20f576aae7db158fad01eec7ae00712c88d3c93b4840ee5ba5bd042b1ec15",
+      "fields/geographic/watershed_dem": "84840fe362ddd9a7d0b567c2f26c41c138c5a0ba210f017941f4592515b15213",
+      "fields/geographic/watershed_dem_crs": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/geographic/watershed_dem_x": "dd6071ffa62d70b5c1598d94e12c0bb3fa1eff7fa9ee6dd20ce59a95d4f50281",
+      "fields/geographic/watershed_dem_y": "b7cdfe96d657b13ceb71c32f9715aceb70dd26ec5f4fe6ddb0cc199a4d561d8c",
+      "fields/head": "a76c52cc8d466866b29fb1cb8da85e884bda9bd68a5c40011d2f2c807072ff9c",
+      "fields/layer": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "fields/mesh/crs": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/mesh/descent_base_level": "22394536f0a4708093a3c4277ff2a0cec9b3f1531c32e296e2e8b362d953d2ac",
+      "fields/mesh/descent_basin": "92c04a26997b9c74341a4c3f0f97162073a1794e828be154c22918f5ae86f03a",
+      "fields/mesh/descent_channel": "2859f881b53332cfaf0834a6868b8a39932b076614e2bd0245f7f2f68b2f28db",
+      "fields/mesh/descent_constant_head": "2859f881b53332cfaf0834a6868b8a39932b076614e2bd0245f7f2f68b2f28db",
+      "fields/mesh/descent_dam_foot": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/mesh/descent_pinned": "2859f881b53332cfaf0834a6868b8a39932b076614e2bd0245f7f2f68b2f28db",
+      "fields/mesh/descent_raised": "2859f881b53332cfaf0834a6868b8a39932b076614e2bd0245f7f2f68b2f28db",
+      "fields/mesh/descent_receiver": "09acf37b1a89b1bae539048bb5dbfcef91132c411c04be92032f991ff5c5de0a",
+      "fields/mesh/descent_surface": "5305e21fc2657d498bfc95bf68a51ef7fa3b6a57ba319f76c244454cd60ee739",
+      "fields/mesh/edge_face_connectivity": "0f402dd4b615e8a51e520474f1d6a6b9f62488d8368c42938394caef62dd0a48",
+      "fields/mesh/edge_family": "b825f22273cb5f0b99fd81585b227ef68622e07843c9a4c367f07834f1db2202",
+      "fields/mesh/edge_node_connectivity": "786e7f18a796180c25726ab5c65395a70a63c7d5a16625324b2a31d2fc9a6707",
+      "fields/mesh/face_family": "d4125593f785e0a06715ba102a0ca13b1d0e18715f0baa1a6d19253f6189a6da",
+      "fields/mesh/face_node_connectivity": "8cab36ca981b9164f90de184469458240e8c2a218c08e060fa5b648c93399708",
+      "fields/mesh/face_x": "3badf41f72fe0f7e582b00e52ce5275d8a00d74ba45fb521e7e24ead20aa53e4",
+      "fields/mesh/face_y": "a83fec20d6f1d78f5c3b8bc0f07184056f57d3425663f08a7650babe9a359170",
+      "fields/mesh/idomain": "970d688930a48a172031f794766729a59542ec972c5d59dcb45ca86c970b447a",
+      "fields/mesh/layer_thickness": "2f66f1185eb67daa4ebf1849c19c5114f2dc03d1b4a72ad2c909b6852cc9e078",
+      "fields/mesh/node_x": "394a596021cb318e743b9e44cd23a3045a86576acc727ba08ee874ae3c3e62ca",
+      "fields/mesh/node_y": "55399fb523da1675761adf3b103a56f92567fa832309f9b85828ceb1d939516d",
+      "fields/mesh/open_water": "2859f881b53332cfaf0834a6868b8a39932b076614e2bd0245f7f2f68b2f28db",
+      "fields/mesh/topography": "3b40dbdb4111bc80a47af00c8738ca54d0c79036c74ffac47787a85d7b7f2f5e",
+      "fields/mesh/topology": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/mesh/vertices": "11b751cd8a877a67855c1451a2c4743bede1921243752ca1254ff3df04ecd5e2",
+      "fields/mesh/z_interfaces": "576ebc0bac7741ab1e8a28799536da995544ea18c3cfe21a95980e9a7ed55c5f",
+      "fields/quantization_info": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "fields/time": "846172a5c3cf7a03086d5404c770d10942d071e45309dc3965085a0683b9f8f4",
+      "final_state/head": "bf59b20c39bcdd65581941cc4e1897c63052953dc483d0c28ed483fa76c6465f",
+      "final_state/lake_stage": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
+      "tables/budgets/flux_in": "f40edf91ed12136051e2b56172181a8cd856dd2a83e0d7c4a4d38c3d45faeb54",
+      "tables/budgets/flux_out": "95ab7c2d95e4d7527be20ec92b695d7a697f830bccee57a32598c0e14ebe1af0",
+      "tables/mass_balance/percent_error": "694215dd67438c375ce28a7807dba593b5f5d76358b928e9a96f37d31eda0c36",
+      "tables/mass_balance/storage_in": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "tables/mass_balance/storage_out": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "tables/mass_balance/total_in": "9956a353d0cb6cea8e02e8aed9b783ea4e43374929af2d4191e656c3d4c9f10e",
+      "tables/mass_balance/total_out": "8d431b9243dff37e293f9811a7842ee8761791e0614147170c58f30272670906",
+      "tables/metrics/value": "4b0aba52880c063bff1b637f2931b1023926cf668b7a3b3dc5761cdc3179cf11",
+      "tables/parameters/value": "bde366176d3cb22d804323e3f03fab63ea53182b46efdbb83315b3c6891a6a65",
+      "tables/simulation/bbox_xmax": "dce2e957880678aeb46e993220eb4c2a9dd215821110c144285496a915968701",
+      "tables/simulation/bbox_xmin": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "tables/simulation/bbox_ymax": "dce2e957880678aeb46e993220eb4c2a9dd215821110c144285496a915968701",
+      "tables/simulation/bbox_ymin": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "tables/simulation/budget_pct": "59e27b9894fd344a3f78c158150b7a4b9b7fac17ce8cdf6191b6633126300e1f",
+      "tables/simulation/budget_threshold_pct": "183f84c545e9c6a4249bd212cefb242a56546a9c927998a567b8ca420d61d7c1",
+      "tables/simulation/calibrated_by_cost": "183f84c545e9c6a4249bd212cefb242a56546a9c927998a567b8ca420d61d7c1",
+      "tables/simulation/nse": "183f84c545e9c6a4249bd212cefb242a56546a9c927998a567b8ca420d61d7c1",
+      "tables/simulation/obs_coverage": "183f84c545e9c6a4249bd212cefb242a56546a9c927998a567b8ca420d61d7c1",
+      "tables/timeseries/value": "0ff9518a7e908f2f05852507b8852523e659b9b23a5ee5b439b0f0926357ae5a"
+    }
+  },
   "derive_rule_version": "1",
-  "sealed_at": "2026-11-03T10:07:27.883891Z",
   "run": {
-    "sim_id": "5e78a478-2c73-4398-a089-721c0648c59a",
+    "sim_id": "72bf0eb5-2be2-46ae-8734-b9488dbdc0e2",
     "name": "demo",
     "name_stem": "demo",
     "version": 1,
@@ -13,14 +244,14 @@
     "recipe": null,
     "rel_dir": "runs/demo",
     "attempt": 1,
-    "attempt_id": "8829cb02633d4fbe8390fe7beba2e5bd",
+    "attempt_id": "eb3561bab257429eb45d3246778b9af0",
     "solver": "modflow_nwt",
     "solver_category": "distributed",
     "flow_regime": "steady",
-    "created_at": "2026-11-03T10:07:25.134339Z",
-    "started_at": "2026-11-03T10:07:25.134339Z",
-    "ended_at": "2026-11-03T10:07:27.723041Z",
-    "duration_s": 2.588702,
+    "created_at": "2026-11-13T20:46:30.199096Z",
+    "started_at": "2026-11-13T20:46:30.199096Z",
+    "ended_at": "2026-11-13T20:46:32.666821Z",
+    "duration_s": 2.467725,
     "description": "Scaffolded synthetic steady-flow run under a uniform recharge.",
     "scientific_objective": null,
     "contact_email": null,
@@ -60,26 +291,17 @@
   },
   "config": {
     "file": "config.toml",
-    "hash": "1101419a5a5b899a432f6c24e02b957aeed2923271299d886342272fc7bac403",
     "source": "run_demo.toml"
-  },
-  "lineage": {
-    "parent_sim_id": null,
-    "session_id": null,
-    "phase": null,
-    "trial": null,
-    "kind": null,
-    "overrides": {},
-    "drift": {},
-    "parent_hint": null
   },
   "identity": {
     "site": null,
     "site_fingerprint": null,
     "case_id": "demo",
-    "sim_id": "5e78a478-2c73-4398-a089-721c0648c59a",
-    "attempt_id": "8829cb02633d4fbe8390fe7beba2e5bd",
-    "config_hash": "1101419a5a5b899a432f6c24e02b957aeed2923271299d886342272fc7bac403",
+    "sim_id": "72bf0eb5-2be2-46ae-8734-b9488dbdc0e2",
+    "attempt_id": "eb3561bab257429eb45d3246778b9af0",
+    "solution_key": "30c3c077506de4bed08e5d3838b1f0524efe39de6879dd182fec6c3d512b44bc",
+    "request_id": "a534da08b514c68cf76ca8e5b8ed632dd14ffbf3fd19cd1daae4d5fa04f4e7c1",
+    "solver": "modflow_nwt",
     "mesh_hash": "48ebc775bacafd4e10f0f6a134360eba6a97bd4eb8961401c1a19da71d0e4083",
     "period": {
       "start": "2000-01-01",
@@ -89,12 +311,12 @@
     "label": null,
     "label_date": null,
     "rule_version": null,
-    "hydromodpy_version": "2.0.0rc1",
-    "code_reproducible": null
+    "hydromodpy_version": "2.0.0",
+    "code_reproducible": false
   },
   "checks": {
     "schema": "hydromodpy.checks.v2",
-    "budget_pct": 0.05999999865889549,
+    "budget_pct": 0.064392561771918,
     "budget_threshold_pct": null,
     "converged": null,
     "obs_coverage": null,
@@ -103,123 +325,9 @@
     "calibrated_by": null,
     "validities": [],
     "bounds_hit": [],
-    "code_reproducible": null
+    "code_reproducible": false
   },
   "inputs": [],
-  "artifacts": [
-    {
-      "path": "manifest.json",
-      "role": "manifest",
-      "format": "json",
-      "bytes": null,
-      "sha256": null
-    },
-    {
-      "path": "config.resolved.toml",
-      "role": "config_resolved",
-      "format": "toml",
-      "bytes": 6164,
-      "sha256": "44bb9f2668d6b4e04f3dd68ce8e9698ed286ec4fd36262fcfeaa98a603d3a11a"
-    },
-    {
-      "path": "config.toml",
-      "role": "config",
-      "format": "toml",
-      "bytes": 1422,
-      "sha256": "c06228df723619eef8ea05a8aae33355f590f15796608fb475e126b241162e1b"
-    },
-    {
-      "path": "fields.zarr",
-      "role": "fields",
-      "format": "zarr",
-      "bytes": 116383,
-      "sha256": null
-    },
-    {
-      "path": "inputs.json",
-      "role": "other",
-      "format": "json",
-      "bytes": 107,
-      "sha256": "96a48403e6919a59d8bc12fe6474c079b4a85242972b2c3bd38ca3c838e3e231"
-    },
-    {
-      "path": "provenance.json",
-      "role": "provenance",
-      "format": "json",
-      "bytes": 11489,
-      "sha256": "fd1daa93d93244aaffed62e5da9c3c6313976342409329031beff96d79870d27"
-    },
-    {
-      "path": "tables.parquet/budgets.parquet",
-      "role": "table:budgets",
-      "format": "parquet",
-      "bytes": 6130,
-      "sha256": "fb704370c1755090f52aaa0a7c5d611af4622c3daf3f0667b62dd992eaa0a4f0"
-    },
-    {
-      "path": "tables.parquet/geographic_watershed.parquet",
-      "role": "table:geographic_watershed",
-      "format": "parquet",
-      "bytes": 15516,
-      "sha256": "d458d66c0ced10c53f2d9801082b666e18a83bc907d21623f506653df1a60757"
-    },
-    {
-      "path": "tables.parquet/geographic_watershed_box_buff.parquet",
-      "role": "table:geographic_watershed_box_buff",
-      "format": "parquet",
-      "bytes": 15533,
-      "sha256": "0b4372e34ec7e89fa00acc27ead7a84c1d7edb8575a780f1d49b846922d7f30a"
-    },
-    {
-      "path": "tables.parquet/geographic_watershed_contour.parquet",
-      "role": "table:geographic_watershed_contour",
-      "format": "parquet",
-      "bytes": 15517,
-      "sha256": "3dc9567b3f1e6d076ee1d80b9f3fd2f080171fceccdc8c82f686f36e71133465"
-    },
-    {
-      "path": "tables.parquet/mass_balance.parquet",
-      "role": "table:mass_balance",
-      "format": "parquet",
-      "bytes": 6750,
-      "sha256": "5ca211190e5cc5e49513778ad08a84dfe3d8ef7171e8dd0646398092ba162f00"
-    },
-    {
-      "path": "tables.parquet/mesh_face_families.parquet",
-      "role": "table:mesh_face_families",
-      "format": "parquet",
-      "bytes": 8071,
-      "sha256": "04d4f5776bc8d300d31c91f9883be3ab9deb27f519f4790565fe73a2f5134d32"
-    },
-    {
-      "path": "tables.parquet/metrics.parquet",
-      "role": "table:metrics",
-      "format": "parquet",
-      "bytes": 8203,
-      "sha256": "326a59f825478c95574486c2e084bdf2b3e62ca6bed5264b08521901327e085b"
-    },
-    {
-      "path": "tables.parquet/parameters.parquet",
-      "role": "table:parameters",
-      "format": "parquet",
-      "bytes": 7844,
-      "sha256": "6b4b2de8592f0d0f3dc90a7723ec9f09c673895d901a1d371eae145ced288254"
-    },
-    {
-      "path": "tables.parquet/simulation.parquet",
-      "role": "table:simulation",
-      "format": "parquet",
-      "bytes": 33538,
-      "sha256": "65acee75d1412f776abdda037d21cc9cbac27581a3954d6f790d953e81675172"
-    },
-    {
-      "path": "tables.parquet/timeseries.parquet",
-      "role": "table:timeseries",
-      "format": "parquet",
-      "bytes": 6713,
-      "sha256": "8d2df499e7d83a463ff6cba8d686817c489bf351ab2014b9b4dd731b8e57f94a"
-    }
-  ],
   "parameters": [
     {
       "name": "K",
@@ -250,20 +358,6 @@
     }
   ],
   "metrics": [
-    {
-      "station": "flow_main::modflow_nwt",
-      "variable": "runtime",
-      "metric": "flow_solve_time_seconds",
-      "value": 0.026686207856982946,
-      "window_name": null,
-      "window_role": null,
-      "window_start": null,
-      "window_end": null,
-      "n_samples": null,
-      "n_clipped": null,
-      "n_sim_nan": null,
-      "metric_rule_version": null
-    },
     {
       "station": "flow_main::modflow_nwt",
       "variable": "runtime",

@@ -142,32 +142,49 @@ mf6_ims_complexity = "MODERATE"
 # An example must not silently degrade: a figure that applies but fails is an
 # error here, where the default only warns.
 on_error = "raise"
-figures = [
-    "watershed_id_card",
-    "mesh_map",
-    "recharge_map",
-    "piezometric_map",
-    "watertable_depth_map",
-    "seepage_map",
-    "flow_persistence_map",
-    "flow_intermittence_map",
-    "particle_tracks",
-    "residence_time_distribution",
-    "cross_section",
-    "flux_timeseries",
-    "water_budget",
-]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+
+[[display.figure]]
+variable = "recharge"
+layer = "sum"
+
+[[display.figure]]
+variable = "watertable_elevation"
 
 # The first period, January, is the one the two wells pump hardest in.
-[display.overrides.watertable_depth_map]
+[[display.figure]]
+variable = "watertable_depth"
 time = 0
-overlays = ["watershed", "seepage", "particles", "wells", "outlet"]
+overlays = ["outline", "wells", "outlet"]
+# The seepage cells and the particles are drawn by their own figures.
+
+[[display.figure]]
+variable = "seepage_mask"
+
+[[display.figure]]  # replaces flow_persistence_map, flow_intermittence_map
+variable = "simulated_active_network"
+reduce = "frequency"
+
+[[display.figure]]
+preset = "particle_tracks"
+
+[[display.figure]]
+preset = "residence_time_distribution"
 
 # South-to-north section through the two pumping wells, same period.
-[display.overrides.cross_section]
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
 time = 0
-orientation = "sn"
-through = [152687.5, 6857800.0]
+# orientation = "sn" has no equivalent: the line runs from the outlet
+# through = [152687.5, 6857800.0] has no equivalent: the new request has no such field
 
-[display.overrides.flux_timeseries]
-units = "mm/period"
+[[display.figure]]  # replaces flux_timeseries, water_budget
+preset = "water_budget"
+# units = "mm/period" has no equivalent: the new request has no such field

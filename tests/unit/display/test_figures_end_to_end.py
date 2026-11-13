@@ -84,9 +84,9 @@ def test_each_held_variable_draws_and_gives_its_table(stored_run, name, frame):
     request = _request(name, frame)
     if (name, frame) in NOT_DRAWN:
         with pytest.raises(FigureNotApplicable):
-            stored_run.figure_data(request=request)
+            stored_run.figure(request=request, data=True)
         return
-    tables = stored_run.figure_data(request=request)
+    tables = stored_run.figure(request=request, data=True)
     assert list(tables) == ["a"]
     assert tuple(tables["a"].columns) in COLUMNS[frame]
     numbers = tables["a"].select_dtypes("number").to_numpy(float)
@@ -96,7 +96,7 @@ def test_each_held_variable_draws_and_gives_its_table(stored_run, name, frame):
 
 
 def test_a_recharge_flow_shows_in_mm_per_day(stored_run):
-    table = stored_run.figure_data("recharge", time="last")["a"]
+    table = stored_run.figure("recharge", time="last", data=True)["a"]
     expected = RECHARGE_M3S * 1.3 / AREAS * 86400 * 1000
     assert table["value"].to_numpy() == pytest.approx(expected, rel=1e-4)
 

@@ -22,6 +22,26 @@ CHAIN = FROZEN_DOCUMENTS / "current" / "chain" / "01-first"
 PUBLICATION = FROZEN_DOCUMENTS / "current" / "publication"
 
 
+def pre_release(run_dir: Path, tmp_path: Path) -> Path:
+    """Copy the manifest and the export sidecar of *run_dir* in the form 2.0.0rc1 wrote."""
+    out = tmp_path / run_dir.name
+    sidecar = run_dir / "exports" / "discharge.csv.meta.json"
+    (out / "exports").mkdir(parents=True)
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    manifest.update(manifest_version=3, config={**manifest["config"], "hash": "x"})
+    del manifest["values"], manifest["profile"]
+    documents = [(out / "manifest.json", manifest)]
+    if sidecar.is_file():
+        documents.append((out / "exports" / sidecar.name, json.loads(sidecar.read_text("utf-8"))))
+    for path, document in documents:
+        identity = document.get("identity", {})
+        for key in ("solution_key", "request_id", "solver"):
+            identity.pop(key, None)
+        identity["config_hash"] = "x"
+        path.write_text(json.dumps(document), encoding="utf-8")
+    return out
+
+
 @pytest.mark.parametrize(
     ("payload", "expected"),
     [
@@ -83,10 +103,10 @@ def test_each_manifest_row_converts_a_version_3_seal(payload, expected):
     ("run_dir", "expected_key"),
     [(DEMO, "demo"), (CALAGE, "calibrated_run")],
 )
-def test_a_frozen_run_of_a_pre_release_reads_as_a_version_4_seal(run_dir, expected_key):
+def test_a_frozen_run_of_a_pre_release_reads_as_a_version_4_seal(run_dir, expected_key, tmp_path):
     expected = EXPECTED[expected_key]
 
-    seal = read_seal(run_dir)
+    seal = read_seal(pre_release(run_dir, tmp_path))
 
     assert seal.manifest_version == 4 and seal.profile == "run"
     assert seal.values is None
@@ -101,12 +121,14 @@ def test_a_frozen_run_of_a_pre_release_reads_as_a_version_4_seal(run_dir, expect
     assert "config_hash" not in seal.identity.model_dump()
 
 
-def test_the_retired_key_stays_in_the_manifest_the_file_holds():
-    assert "config_hash" in read_manifest(DEMO)["identity"]
+def test_the_retired_key_stays_in_the_manifest_the_file_holds(tmp_path):
+    assert "config_hash" in read_manifest(pre_release(DEMO, tmp_path))["identity"]
 
 
-def test_the_identity_sidecar_of_a_pre_release_reads_without_its_hash():
-    identity = read_identity_from(DEMO / "exports" / "discharge.csv.meta.json")
+def test_the_identity_sidecar_of_a_pre_release_reads_without_its_hash(tmp_path):
+    identity = read_identity_from(
+        pre_release(DEMO, tmp_path) / "exports" / "discharge.csv.meta.json"
+    )
 
     assert identity is not None
     assert identity.sim_id == EXPECTED["demo"]["sim_id"]

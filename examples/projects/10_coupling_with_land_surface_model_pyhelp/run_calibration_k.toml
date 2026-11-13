@@ -81,12 +81,30 @@ sweep_points = 7
 
 [display]
 on_error = "raise"
-figures = [
-    "seepage_map",
-    "simulated_active_network_reference_overlay",
-    "downslope_distance_map",
-    "seepage_network_confusion_map",
-    "matching_hydrographic_network_card",
-    "parameter_cost_profile",
-    "calibration_convergence",
-]
+[[display.figure]]
+variable = "seepage_mask"
+
+[[display.figure]]
+variable = "simulated_active_network"
+overlays = ["relief", "network"]
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+
+[[display.figure]]
+variable = "network_agreement"
+
+[[display.figure]]
+preset = "root_search"
+when = "session"
+
+[[display.figure]]
+variable = ["trials.parameter", "trials.cost"]
+type = "xy"
+facet = "parameter"
+when = "session"
+
+[[display.figure]]
+preset = "calibration_progress"
+when = "session"

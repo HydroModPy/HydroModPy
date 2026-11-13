@@ -166,8 +166,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         metavar="NAME=VALUE",
         dest="options",
         help=(
-            "Figure option, repeatable, as in [display.overrides], or a panel field "
-            "of a variable or a preset (station, layer, scale): a TOML value "
+            "Request field of a variable or a preset, repeatable (station, layer, scale): "
+            "a TOML value "
             '(false, 12, [8, 4], "text") or bare text'
         ),
     )
@@ -659,60 +659,19 @@ def _day(value: object) -> str:
 
 
 def _figure(args: argparse.Namespace, root: Path, target: Target) -> None:
+    """Draw a variable or a preset, or write its tables with ``--data``."""
+    from pydantic import ValidationError
+
     from hydromodpy.core.exceptions import CommandUsageError
-    from hydromodpy.display.catalog_figures import parse_figure_options
-    from hydromodpy.display.runs import figure_options_from_run, figures_dir_of, record_figure
+    from hydromodpy.display.catalog_figures import parse_request_fields
+    from hydromodpy.display.runs import figures_dir_of
+    from hydromodpy.display.subject import FigureNotApplicable
     from hydromodpy.project.api import open as open_path
     from hydromodpy.project.api import show
-    from hydromodpy.project.show import project_presets, takes_request
 
     if target.kind == "project":
         raise CommandUsageError("--figure draws a run or a session: give one.")
     subject = open_path(target.directory)
-    if takes_request(args.figure, project_presets(subject), {}):
-        _request_figure(args, target, subject)
-        return
-    if args.data is not None or args.engine is not None:
-        raise CommandUsageError(
-            "--data and --engine take a variable or a preset, not the registered figure "
-            f"{args.figure!r}."
-        )
-    try:
-        options = parse_figure_options(args.figure, args.options) if args.options else {}
-    except (KeyError, ValueError) as exc:
-        refuse(str(exc).strip("'\""), EXIT_USAGE, cause=exc)
-    drawn: dict[str, Any] = {}
-    figures_dir = figures_dir_of(target.directory)
-    if target.kind == "run":
-        # The figure takes the options the run's own [display] gave it, as it was drawn.
-        drawn.update(figure_options_from_run(subject, args.figure))
-    drawn.update(options)
-    save = Path(args.to).expanduser().resolve() if args.to else figures_dir / f"{args.figure}.png"
-    if save.suffix == "":
-        save = save.with_suffix(".png")
-    save.parent.mkdir(parents=True, exist_ok=True)
-    written = show(
-        subject, what="figure", name=args.figure, time=args.time, options=drawn, save=save
-    )
-    if target.kind == "run" and save.parent.resolve() == figures_dir.resolve():
-        record_figure(save, name=args.figure, options=drawn, sim=subject, figures_dir=figures_dir)
-    emit(
-        args,
-        "show figure",
-        {"path": written},
-        table=lambda: print(f"wrote {written}", file=sys.stderr),
-    )
-
-
-def _request_figure(args: argparse.Namespace, target: Target, subject: Any) -> None:
-    """Draw a variable or a preset, or write its tables with ``--data``."""
-    from pydantic import ValidationError
-
-    from hydromodpy.display.catalog_figures import parse_request_fields
-    from hydromodpy.display.runs import figures_dir_of
-    from hydromodpy.display.subject import FigureNotApplicable
-    from hydromodpy.project.api import show
-
     try:
         fields = parse_request_fields(args.options)
     except ValueError as exc:

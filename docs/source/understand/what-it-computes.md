@@ -11,7 +11,7 @@ technical term links to the {doc}`glossary </reference/glossary>`.
 {bdg-warning}`Indicative` **Look at:** the blue trunk that flows all year and the orange ends that dry up first.
 **Does not show:** which reaches dry up in the field, or any other year.
 
-`flow_intermittence_map`, year 2002, demonstration model of example 04.
+Request `variable = "simulated_active_network"` with `reduce = "frequency"`, year 2002, demonstration model of example 04.
 ```
 
 1. HydroModPy computes, for a whole catchment and for each month, the level of the

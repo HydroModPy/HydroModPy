@@ -147,7 +147,6 @@ PRERELEASE_KEYS: dict[str, tuple[str, ...]] = {
         "flow.active_sinks_sources",
         "flow.bc.drainage.kind",
         "simulation.if_exists",
-        "display.figures",
         'calibration.phases[0].overrides."flow.active_bc"',
         'calibration.phases[1].overrides."flow.active_bc"',
     ),
@@ -194,7 +193,6 @@ PRERELEASE_KEYS: dict[str, tuple[str, ...]] = {
         "data.hydrography.sources[0].typename",
         "flow.bc.drainage.kind",
         "simulation.if_exists",
-        "display.figures",
     ),
     "v2.0.0a1/21_nancon_network_calibration/ref_example04.toml": (
         "calibration.protocol.steady_engine_options",

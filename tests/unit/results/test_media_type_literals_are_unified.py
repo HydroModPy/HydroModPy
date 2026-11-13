@@ -68,7 +68,7 @@ EXPECTED_MEDIA_TYPES: dict[str, str] = {
 # package), not at a fraction of it: the largest single sub-package holds
 # about 220, so a floor set low enough to tolerate an anchor that collapsed
 # onto one of them would tolerate losing everything else too.
-MINIMUM_SCANNED_FILES = 1300
+MINIMUM_SCANNED_FILES = 1250
 
 
 def _is_allowlisted(path: Path, literal: str) -> bool:

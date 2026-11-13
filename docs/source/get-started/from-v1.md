@@ -35,7 +35,7 @@ move a finished study. For a new one, start from {doc}`index`.
 | `update_sink_fill` | `sink_fill` in `[solver]` |
 | `update_input_particles(zone_partic=...)` | `zone_partic` in `[transport.modpath]` |
 | `update_model_name` | `name` in `[simulation]` |
-| `postprocessing_modflow(watertable_depth=True, ...)` | `figures` in `[display]` and `[[export]]` tables with `variables` |
+| `postprocessing_modflow(watertable_depth=True, ...)` | `[[display.figure]]` and `[[export]]` tables with `variables` |
 
 A table of a process now carries `kind` where an alpha release of version 2 used `type`. If an
 old file does not load, `hmp doctor --fix-config` rewrites the renamed keys and says what it
@@ -48,7 +48,7 @@ changed. The generated reference lists every key: {doc}`../reference/parameters/
 | Edit the paths at the top of a script | `hmp workspace init`, then `hmp example add 04` |
 | `preprocessing_modflow` and `processing_modflow` | `hmp run project/step.toml` |
 | `postprocessing_modflow` and `postprocessing_netcdf` | `hmp export <run> --list`, then `hmp export <run> ...` |
-| Plot functions of `visualization_results` | `hmp show <run> --figure NAME`, and the `figures` list of `[display]` |
+| Plot functions of `visualization_results` | `hmp show <run> --figure NAME`, and the `[[display.figure]]` tables |
 | Reload a pickle of models | `hmp ls`, `hmp show <run>` and `run.read(...)` in Python |
 | Calibration scripts | `hmp calibrate file.toml`, see {doc}`../reference/cli/calibrate` |
 | Copy a folder of results to a colleague | `hmp publish <run> --to <folder>` |

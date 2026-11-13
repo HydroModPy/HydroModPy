@@ -15,7 +15,7 @@ host and its date, taken back when that process died on this host or after
 Format
 ------
 ``{"schema": "hydromodpy.ledger.v1", "entries": [{"file": "heads.png",
-"producer": "display.figures.heads", "options": {...}, "hydromodpy_version":
+"producer": "display:figure", "options": {...}, "hydromodpy_version":
 "2.0.0a5", "at": "<UTC instant>", "sha256": "...", "identity": {...}}]}``.
 ``file`` is relative to the directory of the ledger. Appending an entry for a
 file the ledger already names replaces it: one file, one entry.

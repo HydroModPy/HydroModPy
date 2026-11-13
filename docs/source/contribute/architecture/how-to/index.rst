@@ -61,7 +61,7 @@ Extend the code
       :link: add-a-figure
       :link-type: doc
 
-      A named figure for ``Run.figure`` and the ``[display]`` section.
+      A variable, a preset or a panel for ``Run.figure`` and the ``[[display.figure]]`` tables.
 
    .. grid-item-card:: Add a block HTML report
       :link: add-a-block-html-report

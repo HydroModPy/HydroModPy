@@ -1,43 +1,37 @@
-"""Render every figure the documentation shows, from example 04 and the synthetic demo.
+"""Render every figure the documentation shows, from example 04.
 
 The documentation pictures are outputs of the code, never hand-made. This script
 runs the example in a scratch workspace, redraws the figures of the stored runs
-and writes them as WebP under ``docs/source/_static/figures/``. It also writes
-the manifest ``tools/docs/figures/figures.toml``: for every image, the run, the
-figure, its options, the command that makes it and the page that shows it.
+and writes them as WebP under ``docs/source/_static/figures/``. The manifest
+``tools/docs/figures/figures.toml`` lists every image: the run, the figure request,
+the command that makes the run, the command that draws the figure again and the
+pages that show it. The script reads the requests from it and writes the sizes back.
 
 Stages (``--stage``), each one idempotent:
 
 ``runs``
     Bootstrap the workspace (``hmp workspace init``, ``hmp example add 04``),
     then run the staircase steps, the frozen reference, the two solver copies
-    of the reference, the two-stage calibration and the two synthetic demo
-    runs. A run that already exists in the project catalog is
-    not run again.
+    of the reference and the two-stage calibration. A run that already exists
+    in the project catalog is not run again.
     Steps 3 and 6 and the calibration need the network on their first run.
 ``figures``
-    Redraw the figures from the stored runs (Understand, staircase, solvers,
-    calibrate, catalog) and write the manifest. The group ``targets`` writes the
-    output of ``hmp config targets`` that the calibration guide quotes.
+    Draw each manifest row with ``run.figure(request=..., theme=...)`` and write the
+    manifest. The group ``targets`` writes the output of ``hmp config targets``
+    that the calibration guide quotes.
 
-The ``solvers`` group compares the two solvers on the same file: two copies of
-the reference, one solved by MODFLOW 6 and one by MODFLOW-NWT, both storing
-their fields at full precision. The default compact storage keeps 16 mantissa
-bits, a step of 1 to 2 mm at the heads of this catchment, larger than the gap
-between the solvers. The script writes both copies into the scratch project
-(``run_mf6_exact.toml``, ``run_nwt_exact.toml``); the example ships no such
-file. Their figures keep the run names in their titles, since the names tell
-the solvers apart.
+The ``solvers`` group draws the same figure from two copies of the reference, one
+solved by MODFLOW 6 and one by MODFLOW-NWT, both storing their fields at full
+precision. The default compact storage keeps 16 mantissa bits, a step of 1 to 2 mm
+at the heads of this catchment, larger than the gap between the solvers. The script
+writes both copies into the scratch project (``run_mf6_exact.toml``,
+``run_nwt_exact.toml``); the example ships no such file.
 
 Run it from anywhere, never with the workspace inside the repository::
 
     python tools/docs/figures/render_ex04_figures.py --workspace ~/scratch/figures --cores 2
 
-Figures are drawn through ``hydromodpy.display.runs.render_figure``, the path
-of ``hmp show --figure``. The theme is the ``[display] preset`` of the figure API:
-``default`` for the light variant and ``dark`` for the dark one. Every figure
-is drawn with ``show_run_name = false``: a page shows a figure, not a dated
-run, so no title names the run it came from.
+The theme is ``default`` for the light variant and ``dark`` for the dark one.
 """
 
 from __future__ import annotations
@@ -45,11 +39,12 @@ from __future__ import annotations
 import argparse
 import io
 import os
+import shlex
 import subprocess
 import sys
 import tomllib
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -62,7 +57,6 @@ MANIFEST = Path(__file__).with_name("figures.toml")
 EXAMPLE_ID = "04"
 EXAMPLE_DIR = "04_streamflow_intermittence_in_transient"
 BUDGET_BYTES = 150 * 1024
-THUMB_WIDTH = 320
 DPI = 150
 
 # -- the runs ------------------------------------------------------------------
@@ -115,82 +109,7 @@ CALIBRATION = RunSpec(
     needs_network=False,
     note="two stages, K on the mapped network then Sy on the gauge",
 )
-# The run the calibration promotes: the one the Understand pages describe.
-CALIBRATED_RUNS = ("nancon_intermittence_mf6_calibrated",)
-
-
-# -- what is drawn -------------------------------------------------------------
-
-UNDERSTAND_FIGURES = (
-    "watertable_depth_map",
-    "seepage_map",
-    "seepage_network_confusion_map",
-    "downslope_distance_map",
-    "flow_persistence_map",
-    "flow_intermittence_map",
-    "hydrograph_log_nse",
-    "flux_timeseries",
-)
-
-# The figure that stands for a step on the staircase index and in the step page.
-STEP_KEY_FIGURE = {
-    1: "watertable_depth_map",
-    2: "seepage_network_confusion_map",
-    3: "hydrographic_network_permanence",
-    4: "flow_intermittence_map",
-    5: "watertable_depth_map",
-    6: "flux_timeseries",
-}
-
-# The calibrate group: the figures of the calibration guide, drawn from the promoted run.
-CALIBRATE_FIGURES = ("matching_hydrographic_network_card",)
 TARGETS_TXT = OUT_ROOT / "calibrate" / "targets.txt"
-
-# The solvers group: each solver copy on its own, then the NWT copy against the MF6 one.
-SOLVER_PAGE = "theory/validation.md"
-SOLVER_EACH = ("hydrograph_sim_obs",)
-SOLVER_PAIR = ("side_by_side", "difference_map")
-
-# Demo figures that compare two runs: the second run is the reference.
-DEMO_COMPARISON_FIGURES = ("difference_map", "side_by_side", "conditioning_impact_map")
-DEMO_CANDIDATES = (
-    "conditioning_impact_map",
-    "cross_section",
-    "depression_map",
-    "difference_map",
-    "flow_direction_map",
-    "flux_timeseries",
-    "mass_balance_error",
-    "mesh_map",
-    "piezometric_map",
-    "seepage_map",
-    "side_by_side",
-    "water_budget",
-    "watershed_id_card",
-    "watertable_depth_map",
-)
-
-
-@dataclass
-class Entry:
-    """One image of the manifest."""
-
-    kind: str
-    figure: str
-    path: str
-    theme: str
-    run: str = ""
-    config: str = ""
-    step: int | None = None
-    key: bool = False
-    pages: list[str] = field(default_factory=list)
-    options: dict[str, Any] = field(default_factory=dict)
-    command: str = ""
-    redraw: str = ""
-    width: int = 0
-    height: int = 0
-    bytes: int = 0
-    reference_run: str = ""
 
 
 # -- shell helpers -------------------------------------------------------------
@@ -244,23 +163,6 @@ def bootstrap_workspace(workspace: Path, cores: int) -> None:
         hmp(["example", "add", EXAMPLE_ID, "-w", str(workspace)], cwd=workspace, cores=cores)
 
 
-def demo_variant(demo: Path) -> Path:
-    """Write the second demo run, the reference of the comparisons.
-
-    K is three times higher and the slope steeper, so the heads and the tops differ.
-    """
-    target = demo / "run_demo_k3.toml"
-    target.write_text(
-        'base_config = "run_demo.toml"\n\n[simulation]\nname = "demo_k3"\n'
-        'description = "The demo with a K three times higher and a steeper slope."\n\n'
-        '[flow.param.K.field]\nkind = "homogeneous"\nvalue = "3.0e-4 m/s"\n\n'
-        '[geographic.synthetic.topography]\nkind = "linear"\nbase_elevation = 20.0\n'
-        "right_to_left_amplitude = 9.0\n",
-        encoding="utf-8",
-    )
-    return target
-
-
 def solver_variant(project: Path, spec: RunSpec) -> Path:
     """Write a copy of the reference that stores its fields at full precision.
 
@@ -300,25 +202,13 @@ def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
             cwd=project,
             cores=cores,
         )
-    demo = workspace / "projects" / "example"
-    if only and "demo" not in only:
-        return
-    done = _existing_runs(demo)
-    if "demo" not in done:
-        hmp(["run", "run_demo.toml"], cwd=demo, cores=cores)
-    if "demo_k3" not in done:
-        hmp(["run", demo_variant(demo).name], cwd=demo, cores=cores)
 
 
 # -- stage 2: drawing ----------------------------------------------------------
 
 
 def run_names_left(fig, names: Iterable[str]) -> list[str]:
-    """Return the texts of ``fig`` that still name a run, which should be none.
-
-    ``show_run_name = false`` keeps the run out of every title; a text found
-    here is a figure that writes the run some other way.
-    """
+    """Return the texts of ``fig`` that still name a run, which should be none."""
     from matplotlib.text import Text
 
     names = [n for n in names if n]
@@ -329,14 +219,11 @@ def run_names_left(fig, names: Iterable[str]) -> list[str]:
     ]
 
 
-def to_webp(png: bytes, *, width: int | None = None) -> tuple[bytes, tuple[int, int]]:
+def to_webp(png: bytes) -> tuple[bytes, tuple[int, int]]:
     """Encode a PNG as WebP within the byte budget: lossless first, then lossy, then smaller."""
     from PIL import Image
 
     image = Image.open(io.BytesIO(png)).convert("RGB")
-    if width is not None and image.width > width:
-        height = round(image.height * width / image.width)
-        image = image.resize((width, height), Image.Resampling.LANCZOS)
     scale = 1.0
     while True:
         current = image
@@ -355,337 +242,6 @@ def to_webp(png: bytes, *, width: int | None = None) -> tuple[bytes, tuple[int, 
         scale *= 0.85
 
 
-class Drawer:
-    """Open the project catalog once and draw figures from its runs."""
-
-    def __init__(self, project: Path) -> None:
-        from hydromodpy.results.catalog.facade import Catalog
-
-        self.catalog = Catalog(project)
-        self.project = project
-        self._runs: dict[str, Any] = {}
-        self.leftovers: list[tuple[str, str]] = []
-
-    def close(self) -> None:
-        self.catalog.close()
-
-    def run(self, name: str):
-        if name not in self._runs:
-            try:
-                self._runs[name] = self.catalog[self.catalog.resolve(name)]
-            except Exception:
-                self._runs[name] = None
-        return self._runs[name]
-
-    def can_draw(self, name: str, figure: str, **extra) -> str | None:
-        """Return why ``figure`` cannot be drawn from run ``name``, or None.
-
-        The subject is resolved as ``render_figure`` resolves it: a session figure
-        reads the session that promoted the run.
-        """
-        from hydromodpy.display.runs import _get_figure, _reason_for, _subject_for
-
-        sim = self.run(name)
-        if sim is None:
-            return f"run {name} does not exist"
-        fig = _get_figure(figure)
-        return _reason_for(fig, _subject_for(fig, sim))
-
-    def draw(
-        self,
-        name: str,
-        figure: str,
-        *,
-        dark: bool,
-        reference: str | None = None,
-        width: int | None = None,
-        show_run_name: bool = False,
-    ) -> tuple[bytes, tuple[int, int], dict[str, Any]]:
-        from hydromodpy.display.runs import (
-            figure_options_from_run,
-            render_figure,
-            rendering,
-        )
-
-        sim = self.run(name)
-        options = dict(figure_options_from_run(sim, figure))
-        shown = dict(options)
-        if reference is not None:
-            options["reference"] = self.run(reference)
-        with rendering("dark" if dark else "default"):
-            fig = render_figure(figure, sim, show_run_name=show_run_name, **options)
-            if not show_run_name:
-                runs = [sim] + ([options["reference"]] if "reference" in options else [])
-                known = [t for r in runs for t in (r.name, str(r.sim_id), str(r.sim_id)[:8])]
-                left = run_names_left(fig, known)
-                self.leftovers += [(f"{name}/{figure}", text) for text in left]
-            buffer = io.BytesIO()
-            fig.savefig(buffer, format="png", dpi=DPI, bbox_inches="tight")
-        data, size = to_webp(buffer.getvalue(), width=width)
-        return data, size, shown
-
-
-def write(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-
-
-def theme_name(dark: bool) -> str:
-    return "dark" if dark else "light"
-
-
-def suffix(dark: bool) -> str:
-    return "-dark" if dark else ""
-
-
-def viz_command(
-    run: str,
-    figure: str,
-    options: dict[str, Any],
-    *,
-    reference: str | None = None,
-    show_run_name: bool = False,
-) -> str:
-    """The command that redraws a figure as this script draws it.
-
-    ``hmp show --figure`` takes one run: a figure that compares two is redrawn in Python.
-    """
-    if reference:
-        return f'<run {run}>.figure("{figure}", reference=<run {reference}>)'
-    when = options.get("time")
-    tail = f" --time {when}" if when else ""
-    hide = "" if show_run_name else " --opt show_run_name=false"
-    return f"hmp show {run} --figure {figure}{tail}{hide}"
-
-
-def pages_citing(directory: str, needle: str) -> list[str]:
-    pages = []
-    for page in sorted((DOCS_SOURCE / directory).rglob("*.md")):
-        if needle in page.read_text(encoding="utf-8"):
-            pages.append(str(page.relative_to(DOCS_SOURCE)))
-    return pages
-
-
-def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
-    project = workspace / "projects" / EXAMPLE_DIR
-    entries: list[Entry] = []
-    drawer = Drawer(project)
-    run_spec = {spec.run: spec for spec in (*STEPS, REFERENCE, *SOLVER_RUNS)}
-    run_spec.update({name: CALIBRATION for name in CALIBRATED_RUNS})
-
-    def emit(
-        kind: str,
-        figure: str,
-        run: str,
-        rel: str,
-        *,
-        dark: bool,
-        step: int | None = None,
-        key: bool = False,
-        pages: list[str] | None = None,
-        width: int | None = None,
-        reference: str | None = None,
-        show_run_name: bool = False,
-    ) -> None:
-        data, size, options = drawer.draw(
-            run,
-            figure,
-            dark=dark,
-            reference=reference,
-            width=width,
-            show_run_name=show_run_name,
-        )
-        path = OUT_ROOT / f"{rel}{suffix(dark)}.webp"
-        write(path, data)
-        spec = run_spec.get(run)
-        toml = spec.toml if spec else ""
-        command = spec.command if spec else ""
-        if dark and command:
-            command += " --set display.preset=dark"
-        entries.append(
-            Entry(
-                kind=kind,
-                figure=figure,
-                path=str(path.relative_to(ROOT)),
-                theme=theme_name(dark),
-                run=run,
-                config=toml,
-                step=step,
-                key=key,
-                pages=pages or [],
-                options={k: v for k, v in options.items() if k != "reference"},
-                command=command,
-                redraw=viz_command(
-                    run, figure, options, reference=reference, show_run_name=show_run_name
-                ),
-                width=size[0],
-                height=size[1],
-                bytes=len(data),
-                reference_run=reference or "",
-            )
-        )
-        print(
-            f"  {path.relative_to(ROOT)}  {size[0]}x{size[1]}  {len(data) / 1024:.0f} KB",
-            flush=True,
-        )
-
-    def wanted(group: str) -> bool:
-        return not only or group in only
-
-    calibrated = next((n for n in CALIBRATED_RUNS if drawer.run(n) is not None), None)
-
-    if wanted("understand") and calibrated:
-        print("understand", flush=True)
-        for figure in UNDERSTAND_FIGURES:
-            pages = pages_citing("understand", f"img/ex04_{figure}.png")
-            for dark in (False, True):
-                emit(
-                    "understand",
-                    figure,
-                    calibrated,
-                    f"understand/ex04_{figure}",
-                    dark=dark,
-                    pages=pages,
-                )
-
-    if wanted("staircase"):
-        print("staircase", flush=True)
-        for spec in STEPS:
-            sim = drawer.run(spec.run)
-            if sim is None:
-                print(f"  step {spec.step}: run {spec.run} missing, skipped", flush=True)
-                continue
-            figures = list(sim.config_snapshot.get("display", {}).get("figures", []))
-            page = f"get-started/staircase/step{spec.step}.md"
-            for figure in figures:
-                reason = drawer.can_draw(spec.run, figure)
-                if reason:
-                    print(f"  step {spec.step} {figure}: skipped, {reason}", flush=True)
-                    continue
-                is_key = figure == STEP_KEY_FIGURE[spec.step]
-                for dark in (False, True) if is_key else (False,):
-                    emit(
-                        "staircase",
-                        figure,
-                        spec.run,
-                        f"staircase/step{spec.step}/{figure}",
-                        dark=dark,
-                        step=spec.step,
-                        key=is_key,
-                        pages=[page, "get-started/staircase/index.md"] if is_key else [page],
-                    )
-
-    if wanted("calibrate"):
-        print("calibrate", flush=True)
-        for figure in CALIBRATE_FIGURES:
-            run = next((n for n in CALIBRATED_RUNS if drawer.can_draw(n, figure) is None), None)
-            if run is None:
-                print(f"  {figure}: no calibrated run can draw it, skipped", flush=True)
-                continue
-            for dark in (False, True):
-                emit(
-                    "calibrate",
-                    figure,
-                    run,
-                    f"calibrate/{figure}",
-                    dark=dark,
-                    pages=["get-started/calibrate-k.md"],
-                )
-
-    if wanted("solvers"):
-        print("solvers", flush=True)
-        jobs = [(figure, spec.run, None) for spec in SOLVER_RUNS for figure in SOLVER_EACH]
-        jobs += [(figure, SOLVER_NWT.run, SOLVER_MF6.run) for figure in SOLVER_PAIR]
-        for figure, run, reference in jobs:
-            if drawer.run(run) is None or (reference and drawer.run(reference) is None):
-                print(f"  {figure}: run {run} or {reference} missing, skipped", flush=True)
-                continue
-            rel = f"solvers/{figure}" if reference else f"solvers/{run}_{figure}"
-            for dark in (False, True):
-                emit(
-                    "solvers",
-                    figure,
-                    run,
-                    rel,
-                    dark=dark,
-                    pages=[SOLVER_PAGE],
-                    reference=reference,
-                    show_run_name=True,
-                )
-
-    drawer.close()
-    if drawer.leftovers:
-        print("run name still in a figure text:", drawer.leftovers, flush=True)
-    return entries
-
-
-def stage_targets(workspace: Path) -> None:
-    """Write what ``hmp config targets`` prints for the calibration file of the example."""
-    project = workspace / "projects" / EXAMPLE_DIR
-    command = [sys.executable, "-m", "hydromodpy", "config", "targets", CALIBRATION.toml]
-    done = subprocess.run(
-        command, cwd=project, env=_env(1), capture_output=True, text=True, check=True
-    )
-    write(TARGETS_TXT, done.stdout.encode())
-    print(f"  {TARGETS_TXT.relative_to(ROOT)}", flush=True)
-
-
-def stage_catalog(workspace: Path) -> list[Entry]:
-    """Draw the thumbnails of the figure catalog from the synthetic demo of ``workspace init``."""
-    from hydromodpy.display.figure_registry import names
-
-    demo = workspace / "projects" / "example"
-    drawer = Drawer(demo)
-    entries: list[Entry] = []
-    registered = set(names())
-    print("catalog", flush=True)
-    for figure in DEMO_CANDIDATES:
-        if figure not in registered:
-            continue
-        reference = "demo_k3" if figure in DEMO_COMPARISON_FIGURES else None
-        if drawer.can_draw("demo", figure) is not None:
-            print(f"  {figure}: the demo cannot draw it, skipped", flush=True)
-            continue
-        for dark in (False, True):
-            try:
-                data, size, options = drawer.draw(
-                    "demo", figure, dark=dark, reference=reference, width=THUMB_WIDTH
-                )
-            except Exception as exc:
-                print(f"  {figure}: failed, {str(exc)[:90]}", flush=True)
-                break
-            path = OUT_ROOT / "catalog" / f"{figure}{suffix(dark)}.webp"
-            write(path, data)
-            entries.append(
-                Entry(
-                    kind="catalog",
-                    figure=figure,
-                    path=str(path.relative_to(ROOT)),
-                    theme=theme_name(dark),
-                    run="demo",
-                    config="run_demo.toml",
-                    pages=["reference/figures.md"],
-                    options=options,
-                    command="hmp run run_demo.toml"
-                    + (" --set display.preset=dark" if dark else ""),
-                    redraw=viz_command("demo", figure, {}),
-                    width=size[0],
-                    height=size[1],
-                    bytes=len(data),
-                    reference_run=reference or "",
-                )
-            )
-            print(
-                f"  {path.relative_to(ROOT)}  {size[0]}x{size[1]}  {len(data) / 1024:.0f} KB",
-                flush=True,
-            )
-    drawer.close()
-    return entries
-
-
-# -- manifest ------------------------------------------------------------------
-
-
 def _toml_value(value: Any) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
@@ -700,44 +256,82 @@ def _toml_value(value: Any) -> str:
     return _toml_value(str(value))
 
 
-def entry_row(e: Entry) -> dict[str, Any]:
-    """Return the manifest row of one image, in the order the file writes it."""
-    row: dict[str, Any] = {
-        "name": e.figure,
-        "path": e.path,
-        "kind": e.kind,
-        "theme": e.theme,
-    }
-    if e.step is not None:
-        row["step"] = e.step
-        row["key"] = e.key
-    row["run"] = e.run
-    if e.reference_run:
-        row["reference_run"] = e.reference_run
-    row["config"] = e.config
-    row["command"] = e.command
-    row["redraw"] = e.redraw
-    row["pages"] = e.pages
-    if e.options:
-        row["options"] = e.options
-    row.update(width=e.width, height=e.height, bytes=e.bytes)
-    return row
+def redraw_command(subject: str, request: dict[str, Any]) -> str:
+    """The command that draws a request again from a stored run or session."""
+    fields = dict(request)
+    name = fields.pop("preset", None) or fields.pop("variable")
+    when = fields.pop("time", None)
+    parts = ["hmp show", subject, "--figure", name]
+    if when:
+        parts += ["--time", str(when)]
+    parts += [f"--opt {shlex.quote(f'{k}={_toml_value(v)}')}" for k, v in fields.items()]
+    return " ".join(parts)
 
 
-def write_manifest(entries: list[Entry]) -> None:
-    """Write the manifest. A partial run replaces the rows of its own paths and keeps the rest."""
+def stage_figures(workspace: Path, only: set[str]) -> list[dict[str, Any]]:
+    """Draw every manifest row of the groups asked, and return the rows with their new sizes."""
+    import hydromodpy
+    from hydromodpy.display.presets import PRESETS
+    from hydromodpy.display.request import FigureRequest, expand
+
+    rows = tomllib.loads(MANIFEST.read_text(encoding="utf-8"))["figure"]
+    project = hydromodpy.open(workspace / "projects" / EXAMPLE_DIR)
+    leftovers: list[tuple[str, str]] = []
+    for row in rows:
+        if only and row["kind"] not in only:
+            continue
+        path = ROOT / row["path"]
+        try:
+            run = project[row["run"]]
+        except Exception as exc:  # the run was never played: the row keeps its old image
+            print(f"  {row['path']}: run {row['run']} missing, skipped ({exc})", flush=True)
+            continue
+        request = row["request"]
+        subject, name = run, row["run"]
+        if expand(FigureRequest.model_validate(request), PRESETS).when == "session":
+            name = list(project.sessions)[-1]
+            subject = project.sessions[name]
+        fig = subject.figure(request=request, theme="dark" if row["theme"] == "dark" else "default")
+        known = [run.name, str(run.sim_id), str(run.sim_id)[:8]]
+        leftovers += [(row["path"], text) for text in run_names_left(fig, known)]
+        buffer = io.BytesIO()
+        fig.savefig(buffer, format="png", dpi=DPI, bbox_inches="tight")
+        data, size = to_webp(buffer.getvalue())
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        row.update(
+            redraw=redraw_command(name, request), width=size[0], height=size[1], bytes=len(data)
+        )
+        print(f"  {row['path']}  {size[0]}x{size[1]}  {len(data) / 1024:.0f} KB", flush=True)
+    if leftovers:
+        print("run name still in a figure text:", leftovers, flush=True)
+    return rows
+
+
+def stage_targets(workspace: Path) -> None:
+    """Write what ``hmp config targets`` prints for the calibration file of the example."""
+    project = workspace / "projects" / EXAMPLE_DIR
+    command = [sys.executable, "-m", "hydromodpy", "config", "targets", CALIBRATION.toml]
+    done = subprocess.run(
+        command, cwd=project, env=_env(1), capture_output=True, text=True, check=True
+    )
+    TARGETS_TXT.parent.mkdir(parents=True, exist_ok=True)
+    TARGETS_TXT.write_bytes(done.stdout.encode())
+    print(f"  {TARGETS_TXT.relative_to(ROOT)}", flush=True)
+
+
+# -- manifest ------------------------------------------------------------------
+
+
+def write_manifest(rows: list[dict[str, Any]]) -> None:
+    """Write the manifest, one ``[[figure]]`` per image, and check that it loads."""
     import hydromodpy
 
-    rows = {e.path: entry_row(e) for e in entries}
-    if MANIFEST.is_file():
-        for old in tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("figure", []):
-            if old["path"] not in rows and (ROOT / old["path"]).is_file():
-                rows[old["path"]] = old
     lines = [
-        "# Manifest of the documentation figures, written by render_ex04_figures.py.",
-        "# Do not edit by hand: run the script. One [[figure]] per image.",
+        "# Manifest of the documentation figures, read and written by render_ex04_figures.py.",
+        "# One [[figure]] per image. `request` is the figure request, drawn with run.figure.",
         "# `command` makes the run, `redraw` draws the figure again from the stored run.",
-        '# A dark image is the same figure drawn with [display] preset = "dark".',
+        '# A dark image is the same request drawn with the theme "dark".',
         "",
         "[meta]",
         f'generated = "{date.today().isoformat()}"',
@@ -745,16 +339,14 @@ def write_manifest(entries: list[Entry]) -> None:
         f'example = "{EXAMPLE_ID}"',
         f'script = "{Path(__file__).resolve().relative_to(ROOT)}"',
         f"budget_bytes = {BUDGET_BYTES}",
-        f"thumbnail_width = {THUMB_WIDTH}",
         "",
     ]
-    order = {"understand": 0, "staircase": 1, "solvers": 2, "calibrate": 3, "catalog": 4}
-    for row in sorted(rows.values(), key=lambda r: (order[r["kind"]], r.get("step", 0), r["path"])):
+    for row in rows:
         lines.append("[[figure]]")
         lines += [f"{key} = {_toml_value(value)}" for key, value in row.items()]
         lines.append("")
     MANIFEST.write_text("\n".join(lines), encoding="utf-8")
-    tomllib.loads(MANIFEST.read_text(encoding="utf-8"))  # the manifest must load
+    tomllib.loads(MANIFEST.read_text(encoding="utf-8"))
     print(f"manifest: {MANIFEST.relative_to(ROOT)}, {len(rows)} images", flush=True)
 
 
@@ -772,8 +364,8 @@ def main(argv: list[str] | None = None) -> int:
         "--only",
         default="",
         help=(
-            "comma list: runs (step1..step6, reference, solver_mf6, solver_nwt, calibrated, demo); "
-            "figures (understand, staircase, solvers, calibrate, targets, catalog)"
+            "comma list: runs (step1..step6, reference, solver_mf6, solver_nwt, calibrated); "
+            "figures (understand, staircase, solvers, calibrate, targets)"
         ),
     )
     args = parser.parse_args(argv)
@@ -786,12 +378,10 @@ def main(argv: list[str] | None = None) -> int:
         stage_runs(workspace, args.cores, only)
     if args.stage in ("figures", "all"):
         os.environ.setdefault("MPLBACKEND", "Agg")
-        entries = stage_figures(workspace, only)
+        rows = stage_figures(workspace, only)
         if not only or "targets" in only:
             stage_targets(workspace)
-        if not only or "catalog" in only:
-            entries += stage_catalog(workspace)
-        write_manifest(entries)
+        write_manifest(rows)
     return 0
 
 

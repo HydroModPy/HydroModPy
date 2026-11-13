@@ -437,6 +437,14 @@ def migration_for(path: str) -> Migration | None:
     return None
 
 
+def retire_row_for(path: str) -> Migration | None:
+    """Return the ``retire`` row that refuses a TOML path and says what to write instead."""
+    for row in migrations_of("config"):
+        if row.shape == "retire" and row.rule is None and _covers(_config_path(str(row.old)), path):
+            return row
+    return None
+
+
 def prerelease_form_for(path: str) -> Any | None:
     """Return the form of ``prerelease_forms.txt`` that refuses a TOML path, or ``None``.
 
@@ -461,10 +469,10 @@ def toml_entry_for(path: str) -> Any | None:
     """Return what keeps a removed TOML key answered: a row of the register or a refusal.
 
     The ledger of removed keys holds rewrites and refusals. A rewrite is a row of the
-    register, a refusal is a line of ``prerelease_forms.txt``, and it stays until that
-    list leaves.
+    register. A refusal is a ``retire`` row, or a line of ``prerelease_forms.txt`` that
+    stays until that list leaves.
     """
-    return migration_for(path) or prerelease_form_for(path)
+    return migration_for(path) or retire_row_for(path) or prerelease_form_for(path)
 
 
 def _is_stable(rows: Iterable[str]) -> bool:
@@ -594,7 +602,7 @@ def regenerate(directory: Path = SNAPSHOT_DIR) -> list[str]:
         "rewrites it, or mark the key experimental first if it was never promised and has never "
         "been stable."
         for path in removed
-        if migration_for(path) is None
+        if migration_for(path) is None and (promised or retire_row_for(path) is None)
     ]
     refused += [
         f"{name}: this public name left and nothing keeps it working. Add an entry with its "

@@ -82,8 +82,13 @@ parallel = 2
 
 [display]
 on_error = "warn"
+
+[[display.figure]]
+preset = "hydrograph"
+
+[[display.figure]]
+variable = "head"
 time = "2000-10-15"
-figures = ["hydrograph_sim_obs", "seepage_map", "flux_timeseries", "parameter_cost_profile"]
 """
 
 # Columns that name the run or the moment it was written, never its numbers.

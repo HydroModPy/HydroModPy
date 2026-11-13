@@ -653,9 +653,7 @@ data.wind.sources.source_unit	str | None	None	stable
 data.wind.sources.station_ids	list[str] | None	None	stable
 data.wind.sources.url	str | None	None	stable
 display	table	<table>	stable
-display.backend	Literal['agg', 'qt5agg', 'auto']	'auto'	stable
-display.cmap	str	'viridis'	stable
-display.dpi	int	150	stable
+display.dpi	int	300	stable
 display.enabled	bool	True	stable
 display.figure	list[table]	[]	stable
 display.figure.against	str | None	None	stable
@@ -713,10 +711,7 @@ display.figure.type	str | None	None	stable
 display.figure.variable	list[str] | None	None	stable
 display.figure.when	str	'end'	stable
 display.figure.width	str | None	None	stable
-display.figures	list[str]	[]	stable
 display.on_error	Literal['warn', 'raise']	'warn'	stable
-display.overrides	dict[str, dict]	{}	stable
-display.preset	Literal['default', 'print', 'dark']	'default'	stable
 display.presets	dict[str, table]	{}	stable
 display.presets.against	str | None	None	stable
 display.presets.bbox	tuple[float, float, float, float] | None	None	stable
@@ -773,10 +768,7 @@ display.presets.type	str | None	None	stable
 display.presets.variable	list[str] | None	None	stable
 display.presets.when	str	'end'	stable
 display.presets.width	str | None	None	stable
-display.save	bool	True	stable
-display.show	bool	False	stable
 display.theme	str	'default'	stable
-display.time	str | int | None	None	stable
 domain	table	<table>	stable
 domain.depth_model	table	<table>	stable
 domain.depth_model.kind	Literal['constant_thickness']	'constant_thickness'	stable

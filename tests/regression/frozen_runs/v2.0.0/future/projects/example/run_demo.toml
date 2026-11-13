@@ -23,12 +23,14 @@ step_value = "1 year"
 
 [[simulation.process]]
 id = "flow_main"
-type = "flow"
+kind = "flow"
 solvers = ["modflow_nwt"]
 
 [[export]]
 variables = "discharge"
 
 [display]
-figures = ["water_budget"]
 dpi = 40
+
+[[display.figure]]
+preset = "water_budget"

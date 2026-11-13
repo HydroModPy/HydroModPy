@@ -259,16 +259,12 @@ min_thickness_m = 0.1
 
 [display]
 enabled = false
-backend = "auto"
-preset = "default"
-show = false
-save = true
-dpi = 150
-cmap = "viridis"
-figures = []
+dpi = 300
+theme = "default"
+figure = []
 on_error = "warn"
 
-[display.overrides]
+[display.presets]
 
 [observation]
 points = []

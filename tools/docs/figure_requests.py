@@ -10,7 +10,8 @@ about its content:
 - the quantities: ``QUANTITY_KINDS``;
 - the variables: the four registries of ``results/field_registry.py``;
 - the presets: ``display.presets.PRESETS``, and the special figures: ``display.request.SPECIALS``;
-- the overlays: ``OVERLAY_FIELDS`` and ``display.overlays.OVERLAYS``.
+- the overlays: ``OVERLAY_FIELDS`` and ``display.overlays.OVERLAYS``;
+- the former figure names: ``display/retired_figures.toml``.
 
 Usage: python -m tools.docs.figure_requests OUT.json
 """
@@ -380,6 +381,18 @@ def overlays() -> list[dict[str, Any]]:
     ]
 
 
+def retired() -> list[dict[str, str]]:
+    """One row per former figure name: what to write and what the new form loses."""
+    from hydromodpy.display.request import retired_forms, retired_table
+
+    rows = []
+    for name, row in retired_table().items():
+        forms = retired_forms(name)
+        write = " and ".join(f"[[display.figure]] {t}" for t, _ in forms) or row["none"]
+        rows.append({"name": name, "write": write, "lost": row.get("lost", "")})
+    return rows
+
+
 def build() -> dict[str, Any]:
     return {
         "fields": fields(),
@@ -390,6 +403,7 @@ def build() -> dict[str, Any]:
         "presets": presets(),
         "specials": specials(),
         "overlays": overlays(),
+        "retired": retired(),
     }
 
 

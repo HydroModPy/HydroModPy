@@ -1,7 +1,7 @@
 """The planning step decides which per-cell budget terms a run keeps.
 
 A run keeps its whole budget unless the config says that only some consumers read it.
-The consumers are the figures and their overlays, the exports, the calibration
+The consumers are the figures, the exports, the calibration
 outputs, the observation points and a solver that reads the seepage mask.
 """
 
@@ -31,7 +31,7 @@ def plan_of(solver: str) -> SimulationPlan:
 FLOW_ONLY = plan_of("modflow6")
 BOUSSINESQ = plan_of("boussinesq")
 CONSUMERS = ResultsConfig(keep_per_cell_budget=False)
-NO_FIGURES = DisplayConfig(figures=[])
+NO_FIGURES = DisplayConfig(figure=[])
 
 
 def keep_for(
@@ -82,11 +82,7 @@ def observation(*variables: str, point_variables: list[str] | None = None) -> Ob
 DRAIN_CELL_OUTPUT = SimpleNamespace(
     outputs={"drain_cell": SimpleNamespace(support="cell", variable="drain")}
 )
-RECHARGE_MAP = DisplayConfig(figures=["recharge_map"])
-PIEZOMETRIC_WITH_OVERLAYS = DisplayConfig(
-    figures=["piezometric_map"],
-    overrides={"piezometric_map": {"overlays": ["watershed", "wells", "seepage"]}},
-)
+RECHARGE_MAP = DisplayConfig(figure=[{"variable": "recharge"}])
 
 # Each row is the keyword arguments of one run and the budget it keeps.
 KEPT_BUDGETS = [
@@ -135,11 +131,6 @@ KEPT_TERMS = [
         id="kept trial keeps the seepage mask of a surface excess solver",
     ),
     pytest.param(
-        {"display": PIEZOMETRIC_WITH_OVERLAYS},
-        {"well", *budget_terms_for("seepage_mask")},
-        id="overlays asked in the overrides",
-    ),
-    pytest.param(
         {"exports": [{"variables": ["release_flux"]}, {"variables": "recharge"}]},
         frozenset(budget_terms_for("release_flux")),
         id="export names",
@@ -149,16 +140,14 @@ KEPT_TERMS = [
     pytest.param({"plan": BOUSSINESQ}, {"surface_excess"}, id="surface excess solver"),
     pytest.param(
         {
-            "display": DisplayConfig(
-                figures=["recharge_map"], overrides={"recharge_map": {"overlays": ["wells"]}}
-            ),
+            "display": RECHARGE_MAP,
             "display_active": False,
         },
         frozenset(),
-        id="no display drops figures and overlays",
+        id="no display drops figures",
     ),
     pytest.param(
-        {"display": DisplayConfig(enabled=False, figures=["recharge_map"])},
+        {"display": DisplayConfig(enabled=False, figure=[{"variable": "recharge"}])},
         frozenset(),
         id="disabled display drops figures",
     ),
@@ -170,22 +159,8 @@ def test_kept_terms(kwargs, terms) -> None:
     assert keep_for(**kwargs).terms == terms
 
 
-def test_the_active_network_figure_keeps_the_network_criterion_terms() -> None:
-    # The persistence mode reads release_flux, whatever its required field says.
-    import hydromodpy.display.figure_registry as figure_registry
-
-    spec = figure_registry.get("simulated_active_network").spec
-    assert spec.required_fields == ("drain_accumulation_flux",)
-    assert "release_flux" in spec.optional_fields
-
-    keep = keep_for(display=DisplayConfig(figures=["simulated_active_network"]))
-
-    assert keep.terms >= frozenset(budget_terms_for("drain_accumulation_flux"))
-    assert keep.terms >= frozenset(budget_terms_for("release_flux"))
-
-
 def test_default_keeps_the_whole_budget_and_says_nothing() -> None:
-    every_consumer = DisplayConfig(figures=["recharge_map", "simulated_active_network"])
+    every_consumer = DisplayConfig(figure=[{"variable": "recharge"}, {"variable": "head"}])
 
     keep, records = keep_with_log(
         results=ResultsConfig(), display=every_consumer, exports=[{"variables": "drain"}]

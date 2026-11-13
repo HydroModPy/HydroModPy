@@ -114,24 +114,35 @@ value = "0.0 m"
 [flow.sinks_sources.recharge]
 [display]
 on_error = "raise"
-figures = [
-    "mesh_map",
-    "piezometric_map",
-    "cross_section",
-    "water_budget",
-    "mass_balance_error",
-    "recession_power_law",
-]
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+
+[[display.figure]]
+preset = "water_budget"
+
+[[display.figure]]
+variable = "mass_balance.percent_error"
+type = "series"
 
 # The fixed head is not a stream in the catchment sense, so no discharge series
 # is aggregated: the recession is read in the budget itself. The analytical
 # coefficient comes from K = 0.33 m/day, Sy, the 20 m stream reach and the
 # 20000 m2 of the single flank it drains.
-[display.overrides.recession_power_law]
-component = "constant_head"
-k = 0.33
-porosity = 0.01
-stream_length = 20.0
-area = 20000.0
-sides = 1
-skip = 3
+[[display.figure]]
+preset = "recession"
+# component = "constant_head" has no equivalent: the new request has no such field
+# k = 0.33 has no equivalent: the new request has no such field
+# porosity = 0.01 has no equivalent: the new request has no such field
+# stream_length = 20.0 has no equivalent: the new request has no such field
+# area = 20000.0 has no equivalent: the new request has no such field
+# sides = 1 has no equivalent: the new request has no such field
+# skip = 3 has no equivalent: the new request has no such field

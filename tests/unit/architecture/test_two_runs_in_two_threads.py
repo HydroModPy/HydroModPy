@@ -1,15 +1,14 @@
 """Two runs in two threads of one process change nothing the other run reads (rule 15).
 
-A child process writes two basin projects of different recharge, each with one
-figure of its run, and notes the state of the process: the environment, the
-working directory, the matplotlib backend and ``rcParams``, the handlers of the
-``hydromodpy`` logger, the warning filters and the SIGTERM handler. It plays both
-projects by ``hydromodpy.run`` in two threads, after a first run of a third
-project has imported what a run imports, while a third thread notes the
-environment and ``rcParams`` every 10 ms with the render lock held, then plays
-both again one after the other. Four runs must seal, no state may change, no
-``run.log`` may name the other run, and each run of the threads must hold the
-values of its twin played alone. The global backend needs no solver binary.
+A cold child process writes two basin projects of different recharge, each with one
+figure of the request path, and notes the state of the process: the environment, the
+working directory, the matplotlib backend (read without resolving it) and ``rcParams``,
+the font files, the handlers of the ``hydromodpy`` logger, the warning filters and the
+SIGTERM handler. The child imports no ``hydromodpy`` submodule before the threads start.
+It plays both projects by ``hydromodpy.run`` in two threads while a third thread notes
+the environment and ``rcParams`` every 10 ms with no lock, then plays both again. Four runs must seal, no state may change,
+the font list may only gain the files ``display/theme.py`` registers, no ``run.log`` may
+name the other run, and each run of the threads must hold the values of its twin.
 """
 
 from __future__ import annotations
@@ -19,13 +18,17 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.display.theme import FONT_FILES
 from tests.scenarios.factory import basin_files
 from tests.scenarios.launcher import isolated_env, play_script
 
 pytestmark = [pytest.mark.scenario, pytest.mark.allow_subprocess, pytest.mark.timeout(600)]
 
-FIGURE = "hydrograph"
-"""A figure of the generated name table that a run of the global backend draws."""
+FIGURE = "discharge"
+"""A series the request path draws in each lumped run, which has no mesh for a map."""
+
+PRELOADED = ("flopy", "geopandas", "pandera", "pyogrio", "pyproj", "zarr")
+"""Libraries that write the environment on import, loaded before the threads."""
 
 EXEMPT = ("hydromodpy.config.check",)
 """The one module whose catch_warnings block is transitional (process_state.yaml, E61)."""
@@ -36,35 +39,32 @@ import logging
 import os
 import signal
 import threading
+import sys
 import time
 import warnings
+from importlib import import_module
 from pathlib import Path
 
 import matplotlib
+from matplotlib import font_manager
 
+for name in {PRELOADED!r}:
+    import_module(name)
 import hydromodpy
-from hydromodpy.display.style import RENDER_LOCK
-from hydromodpy.results.record.values import stored_value_digests
 
+assert not any(m.startswith("hydromodpy.display") for m in sys.modules), "display is loaded"
 ROOT = Path.cwd()
 NAMES = ("basin_a", "basin_b")
-
-# A first run imports what a run imports, so what a library sets when it is
-# imported is part of the state the runs must keep.
-hydromodpy.run(ROOT / "warm" / "project.toml")
-
-# Before Python 3.14 catch_warnings is not safe across threads, so a library
-# that uses it in two runs at once can leave a filter behind. The filters are
-# therefore judged by who writes them: no module of hydromodpy may.
+# catch_warnings is not safe across threads before Python 3.14, so the filters are
+# judged by who writes them: no function of hydromodpy may (an import may).
 WRITERS = []
 EXEMPT = {set(EXEMPT)!r}
 
 
 def caller():
-    import sys
-
-    module = sys._getframe(2).f_globals.get("__name__", "")
-    if module.startswith("hydromodpy") and module not in EXEMPT:
+    frame = sys._getframe(2)
+    module = frame.f_globals.get("__name__", "")
+    if module.startswith("hydromodpy") and module not in EXEMPT and frame.f_code.co_name != "<module>":
         WRITERS.append(module)
 
 
@@ -90,17 +90,16 @@ warnings.catch_warnings.__enter__ = enter
 
 
 def rc():
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        return {{key: repr(value) for key, value in matplotlib.rcParams.items()}}
+    return {{key: repr(value) for key, value in dict.items(matplotlib.rcParams)}}
 
 
 def state():
     return {{
         "environ": dict(os.environ),
         "cwd": os.getcwd(),
-        "backend": matplotlib.get_backend(),
+        "backend": repr(matplotlib.rcParams._get_backend_or_none()),
         "rc": rc(),
+        "fonts": sorted({{Path(f.fname).name for f in font_manager.fontManager.ttflist}}),
         "handlers": [repr(h) for h in logging.getLogger("hydromodpy").handlers],
         "filters": [repr(entry) for entry in warnings.filters],
         "sigterm": repr(signal.getsignal(signal.SIGTERM)),
@@ -113,9 +112,8 @@ seen, errors, done = [], [], threading.Event()
 
 def watch():
     while not done.is_set():
-        with RENDER_LOCK:
-            if dict(os.environ) != before["environ"] or rc() != before["rc"]:
-                seen.append(time.monotonic())
+        if dict(os.environ) != before["environ"] or rc() != before["rc"]:
+            seen.append(time.monotonic())
         time.sleep(0.01)
 
 
@@ -141,12 +139,9 @@ for name in NAMES:
 after = state()
 
 
-def logged(name):
-    path = ROOT / name / "runs" / name / "logs" / "run.log"
-    return path.read_text(encoding="utf-8") if path.is_file() else None
-
-
 def digests(folder):
+    from hydromodpy.results.record.values import stored_value_digests
+
     return {{key: str(value) for key, value in stored_value_digests(folder).digests.items()}}
 
 
@@ -156,14 +151,15 @@ report = {{
     "changed": sorted(
         key
         for key in before
-        if key != "filters" and (before[key] != after_threads[key] or before[key] != after[key])
+        if key not in ("filters", "fonts") and (before[key] != after_threads[key] or before[key] != after[key])
     ),
+    "fonts_lost": sorted(set(before["fonts"]) - set(after["fonts"])),
+    "fonts_gained": sorted(set(after["fonts"]) - set(before["fonts"])),
     "writers": sorted(set(WRITERS)),
-    "filters_left": sorted(set(after["filters"]) - set(before["filters"])),
     "runs": sorted(
         str(path.relative_to(ROOT)) for name in NAMES for path in (ROOT / name / "runs").iterdir()
     ),
-    "logs": {{name: logged(name) for name in NAMES}},
+    "logs": {{name: (ROOT / name / "runs" / name / "logs" / "run.log").read_text() for name in NAMES}},
     "twins": {{
         name: digests(ROOT / name / "runs" / name) == digests(ROOT / name / "runs" / f"{{name}}.v2")
         for name in NAMES
@@ -183,7 +179,10 @@ def _project(name: str, recharge: float) -> str:
     for old, new in (
         ('[simulation]\nname = "basin"', f'[simulation]\nname = "{name}"'),
         ("values = [1.5]", f"values = [{recharge}]"),
-        ("[display]\nenabled = false", f'[display]\nenabled = true\nfigures = ["{FIGURE}"]'),
+        (
+            "[display]\nenabled = false",
+            f'[display]\nenabled = true\n\n[[display.figure]]\nvariable = "{FIGURE}"',
+        ),
     ):
         assert old in text, old
         text = text.replace(old, new)
@@ -196,7 +195,6 @@ def test_two_runs_in_two_threads_keep_the_process_as_it_was(tmp_path: Path) -> N
     files = {
         "basin_a/project.toml": _project("basin_a", 1.5),
         "basin_b/project.toml": _project("basin_b", 3.0),
-        "warm/project.toml": _project("warm", 1.0),
     }
 
     played = play_script("two_threads", files, SCRIPT, tmp_path / "play", env, cache)
@@ -211,6 +209,8 @@ def test_two_runs_in_two_threads_keep_the_process_as_it_was(tmp_path: Path) -> N
         "basin_b/runs/basin_b.v2",
     ]
     assert report["changed"] == []
+    assert report["fonts_lost"] == []
+    assert set(report["fonts_gained"]) <= set(FONT_FILES), report["fonts_gained"]
     assert report["changed_while_running"] == 0
     for name, other in (("basin_a", "basin_b"), ("basin_b", "basin_a")):
         log = report["logs"][name]

@@ -72,15 +72,15 @@ does nothing, unless you edited it: see {ref}`the rerun note <staircase-rerun>`.
 
 ## What you get
 
-Five figures, in `runs/nancon_step1_minimal/figures/`, listed by {toml}`display.figures`:
+Five figures, in `runs/nancon_step1_minimal/figures/`, one for each {toml}`[[display.figure]] block|display.figure`:
 
-| Figure | What it shows |
+| Request | What it shows |
 |---|---|
-| `watershed_id_card` | The topography, the outlet, and a table of facts: what was modeled, where, over which period, on which grid |
-| `watertable_depth_map` | The depth of the water table below the land surface, in meters |
-| `seepage_map` | The cells where the water table reaches the surface, a yes or no for each cell |
-| `cross_section` | The land surface, the water table and the seepage segments along a line. Here the line runs south to north through the outlet, so it cuts the tributaries across |
-| `water_budget` | One bar per component of the budget, inflow and outflow |
+| `preset = "watershed_id_card"` | The topography, the outlet, and a table of facts: what was modeled, where, over which period, on which grid |
+| `variable = "watertable_depth"` | The depth of the water table below the land surface, in meters |
+| `variable = "seepage_mask"` | The cells where the water table reaches the surface, a yes or no for each cell |
+| `variable = "watertable_elevation"`, `type = "section"` | The land surface, the water table and the seepage segments along a line. Here the line runs south to north through the outlet, so it cuts the tributaries across |
+| `preset = "water_budget"` | One bar per component of the budget, inflow and outflow |
 
 Three {toml}`[[export]] blocks|export` write four files, in `runs/nancon_step1_minimal/exports/`:
 

@@ -185,3 +185,14 @@ def test_a_line_of_a_pre_release_is_refused_naming_its_file_and_line(tmp_path):
         SchemaVersionMismatchError, match=r"trials\.jsonl:1 holds .*written by a pre-release"
     ):
         read_trials(tmp_path)
+
+
+def test_a_v2_line_of_a_pre_release_reads_as_finished(tmp_path):
+    append_trial(tmp_path, _line(1, "steady_k"))
+    path = trials_path(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    del payload["event"]
+    path.write_text(json.dumps({**payload, "schema": "hydromodpy.trial.v2"}) + "\n", "utf-8")
+
+    assert [(line.trial, line.event) for line in read_trials(tmp_path)] == [(1, "finished")]
+    assert path.read_text(encoding="utf-8").count("hydromodpy.trial.v2") == 1

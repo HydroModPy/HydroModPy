@@ -1,6 +1,6 @@
 # Figure requests
 
-Every table on this page is read from the code of the figure path when the site is built. To draw one, see {doc}`../contribute/architecture/how-to/add-a-figure`. The figures named by the key `[display].figures` are on {doc}`figures`.
+Every table on this page is read from the code of the figure path when the site is built. To draw one, see {doc}`../contribute/architecture/how-to/add-a-figure`.
 
 ## Fields
 
@@ -56,4 +56,11 @@ A special figure is a preset drawn by a function, and it takes no panel.
 An overlay is a context layer on a map or a section.
 
 ```{hmp-figure-requests} overlays
+```
+
+## Former figure names
+
+A figure name of a pre-release is refused with the request that replaces it.
+
+```{hmp-figure-requests} retired
 ```

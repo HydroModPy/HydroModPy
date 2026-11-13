@@ -5261,66 +5261,11 @@
           "type": "boolean",
           "x-hmp-profile": "user"
         },
-        "backend": {
-          "default": "auto",
-          "description": "Matplotlib backend. 'auto' selects Agg in headless mode and a GUI backend when ``show`` is enabled.",
-          "enum": [
-            "agg",
-            "qt5agg",
-            "auto"
-          ],
-          "examples": [
-            "agg"
-          ],
-          "title": "Backend",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "preset": {
-          "default": "default",
-          "description": "Named theme applied before rendering any figure. Still read as the theme until it is removed. Write ``theme`` instead; writing both is refused.",
-          "enum": [
-            "default",
-            "print",
-            "dark"
-          ],
-          "examples": [
-            "default"
-          ],
-          "title": "Preset",
-          "type": "string",
-          "value_docs": {
-            "dark": "Uses a bright palette on a dark background, for dark-themed displays.",
-            "default": "Uses a colorful sans-serif palette on a white background, for screen viewing.",
-            "print": "Uses a grayscale serif palette sized for black-and-white print output."
-          },
-          "x-hmp-profile": "user"
-        },
-        "show": {
-          "default": false,
-          "description": "Open an interactive window via ``matplotlib.pyplot.show``.",
-          "examples": [
-            false
-          ],
-          "title": "Show",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "save": {
-          "default": true,
-          "description": "Write rendered figures to disk, under figures/ of the run directory (runs/<run>/figures/), each one recorded in figures/index.json.",
-          "examples": [
-            true
-          ],
-          "title": "Save",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
         "dpi": {
-          "default": 150,
+          "default": 300,
           "description": "DPI used when saving raster figures.",
           "examples": [
-            150
+            300
           ],
           "minimum": 1,
           "title": "Dpi",
@@ -5328,28 +5273,9 @@
           "unit": "dpi",
           "x-hmp-profile": "dev"
         },
-        "cmap": {
-          "default": "viridis",
-          "description": "Force ONE colormap onto every spatial figure. Writing it at all is the decision, not the value: each figure otherwise picks a scale suited to what it shows, reversed for a depth, diverging for a difference, discrete for an indicator, and this replaces all of them. Writing the default spelled out is therefore NOT a no-op, unlike everywhere else. Leave it out unless one scale for everything is what you want.",
-          "examples": [
-            "viridis"
-          ],
-          "title": "Cmap",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "figures": {
-          "description": "Names of registered figures to auto-render at the end of `hmp run`, written to runs/<run>/figures/ and recorded in figures/index.json, which `hmp export <run> --regen figures` replays. Every name must exist in the figure registry; list them with `hmp config figures`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`: nothing is drawn then, and the run keeps the same data, so `hmp export <run> --regen figures` can draw them later.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Figures",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
         "theme": {
           "default": "default",
-          "description": "Named theme applied before rendering any figure: default, print or dark. Replaces the former ``preset`` key.",
+          "description": "Named theme applied before rendering any figure: default, print or dark.",
           "examples": [
             "default"
           ],
@@ -5400,45 +5326,6 @@
           "title": "On Error",
           "type": "string",
           "x-hmp-profile": "user"
-        },
-        "time": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The instant every figure that draws one instant shows: a date (\"2002-10-15\"), \"first\" or \"last\". Each such figure draws the stress period that holds the date, so the same date names the same month on a monthly, a daily or a one-period steady run. A `time` in `[display.overrides.<figure>]` wins over it. Unset, each figure picks its own instant: the last period, or for the stream-network maps the state their calibration criterion read. A date outside a run skips the figure with the reason.",
-          "title": "Time",
-          "x-hmp-profile": "user"
-        },
-        "overrides": {
-          "additionalProperties": {
-            "additionalProperties": true,
-            "type": "object"
-          },
-          "description": "Per-figure options, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``). A key the figure does not take is refused at load, with the list of the keys it takes. A figure that draws one instant takes `time`.",
-          "title": "Overrides",
-          "type": "object",
-          "x-hmp-profile": "user",
-          "patternProperties": {
-            "^.+__delete$": {
-              "const": true,
-              "description": "Remove the inherited key. Only the literal true is accepted."
-            },
-            "^.+__append$": {
-              "type": "array"
-            },
-            "^.+__merge$": {
-              "type": "array"
-            }
-          }
         }
       },
       "title": "DisplayConfig",
@@ -5458,18 +5345,6 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/FigureRequest"
-          }
-        },
-        "^figures__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^figures__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
           }
         }
       }
@@ -6828,7 +6703,7 @@
     },
     "FigureRequest": {
       "additionalProperties": false,
-      "description": "One figure: a variable, a preset, a list of panels or a Python function.\n\nWith ``variable`` or ``preset`` the panel fields describe the one panel or fill\nthe holes of the preset. ``draw`` takes a Python callable\n``draw(subject, ax, theme)``. A TOML value is never callable, and a mapping that\ncarries ``draw`` is refused, so no file can name code. ``draw`` stays out of the\nJSON schema and of every dump, so a ledger never records it.",
+      "description": "One figure: a variable, a preset, a list of panels or a Python function.\n\nWith ``variable`` or ``preset`` the panel fields describe the one panel or fill\nthe holes of the preset. ``draw`` takes a Python callable\n``draw(subject, ax, theme)``. A TOML value is never callable, and a mapping that\ncarries ``draw`` is refused, so no file can name code. ``draw`` stays out of the\nJSON schema and of every dump, so a ledger never records it. ``special`` names a row\nof ``SPECIALS``, which only a shipped preset carries.",
       "properties": {
         "type": {
           "anyOf": [
@@ -6846,6 +6721,9 @@
         },
         "variable": {
           "anyOf": [
+            {
+              "type": "string"
+            },
             {
               "items": {
                 "type": "string"
@@ -6930,6 +6808,9 @@
         },
         "overlays": {
           "anyOf": [
+            {
+              "type": "string"
+            },
             {
               "items": {
                 "type": "string"
@@ -7052,11 +6933,15 @@
           "default": null,
           "description": "Value scale. Unset, the variable decides.",
           "title": "Scale",
+          "value_docs": {
+            "linear": "Values are placed on an even scale.",
+            "log": "Values are placed on a logarithmic scale, for positive values."
+          },
           "x-hmp-profile": "user"
         },
         "stack": {
           "default": false,
-          "description": "Stack the variables.",
+          "description": "Stack the variables one over the other, in the order given.",
           "examples": [
             false
           ],
@@ -7131,8 +7016,13 @@
             }
           ],
           "default": null,
-          "description": "Reduce over time before drawing.",
+          "description": "Reduce over time before drawing. Unset, the time asked for is drawn.",
           "title": "Reduce",
+          "value_docs": {
+            "frequency": "Draws the share of time steps where the value is set.",
+            "max": "Draws the largest value over time.",
+            "mean": "Draws the mean over time."
+          },
           "x-hmp-profile": "user"
         },
         "change": {
@@ -7207,7 +7097,7 @@
             }
           ],
           "default": null,
-          "description": "Name of a preset.",
+          "description": "Name of a shipped preset or of one of your own presets.",
           "title": "Preset",
           "x-hmp-profile": "user"
         },
@@ -7252,7 +7142,7 @@
             }
           ],
           "default": null,
-          "description": "Title above the figure.",
+          "description": "Title written above the whole figure. Unset, none is written.",
           "title": "Title",
           "x-hmp-profile": "user"
         },
@@ -7289,6 +7179,13 @@
           "default": null,
           "description": "Repeat the one panel over this key.",
           "title": "Facet",
+          "value_docs": {
+            "layer": "One small panel for each layer of the mesh.",
+            "parameter": "One small panel for each searched parameter of a session.",
+            "run": "One small panel for each run of the set.",
+            "time": "One small panel for each instant of the list given in time.",
+            "variable": "One small panel for each variable of the panel."
+          },
           "x-hmp-profile": "user"
         },
         "when": {
@@ -7314,24 +7211,39 @@
           "default": null,
           "description": "With when = 'trial', draw every this many trials.",
           "title": "Every",
+          "unit": "trials",
           "x-hmp-profile": "user"
         },
         "engine": {
-          "description": "Engines.",
-          "items": {
-            "type": "string"
-          },
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Drawing engines to use for the figure, one file per engine.",
           "title": "Engine",
-          "type": "array",
           "x-hmp-profile": "user"
         },
         "formats": {
-          "description": "File formats.",
-          "items": {
-            "type": "string"
-          },
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "File formats written for the figure, such as png or svg.",
           "title": "Formats",
-          "type": "array",
           "x-hmp-profile": "user"
         }
       },
@@ -19316,6 +19228,9 @@
         "variable": {
           "anyOf": [
             {
+              "type": "string"
+            },
+            {
               "items": {
                 "type": "string"
               },
@@ -19399,6 +19314,9 @@
         },
         "overlays": {
           "anyOf": [
+            {
+              "type": "string"
+            },
             {
               "items": {
                 "type": "string"
@@ -19521,11 +19439,15 @@
           "default": null,
           "description": "Value scale. Unset, the variable decides.",
           "title": "Scale",
+          "value_docs": {
+            "linear": "Values are placed on an even scale.",
+            "log": "Values are placed on a logarithmic scale, for positive values."
+          },
           "x-hmp-profile": "user"
         },
         "stack": {
           "default": false,
-          "description": "Stack the variables.",
+          "description": "Stack the variables one over the other, in the order given.",
           "examples": [
             false
           ],
@@ -19600,8 +19522,13 @@
             }
           ],
           "default": null,
-          "description": "Reduce over time before drawing.",
+          "description": "Reduce over time before drawing. Unset, the time asked for is drawn.",
           "title": "Reduce",
+          "value_docs": {
+            "frequency": "Draws the share of time steps where the value is set.",
+            "max": "Draws the largest value over time.",
+            "mean": "Draws the mean over time."
+          },
           "x-hmp-profile": "user"
         },
         "change": {
@@ -19668,6 +19595,9 @@
         },
         "holes": {
           "anyOf": [
+            {
+              "type": "string"
+            },
             {
               "items": {
                 "type": "string"
@@ -21884,14 +21814,17 @@
       "description": "A horizontal reference line at ``value``, in the display unit, with its label.",
       "properties": {
         "value": {
+          "description": "Value of the line, in the display unit of the variable.",
           "examples": [
             1.0
           ],
           "title": "Value",
           "type": "number",
+          "unit": "display unit",
           "x-hmp-profile": "user"
         },
         "label": {
+          "description": "Text written next to the line.",
           "examples": [
             "example"
           ],

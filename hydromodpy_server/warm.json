@@ -131,37 +131,15 @@
  },
  "display": {
   "on_error": "warn",
-  "time": "2019-09-15",
-  "figures": [
-   "watershed_id_card",
-   "hydrographic_network_permanence",
-   "hydrograph_log_nse",
-   "hydrograph_sim_obs",
-   "duration_curve",
-   "recession",
-   "flux_timeseries",
-   "watertable_depth_map",
-   "seepage_map",
-   "cross_section",
-   "network_extent_bounds_map",
-   "flow_persistence_map",
-   "flow_intermittence_map",
-   "seepage_network_confusion_map",
-   "downslope_distance_map",
-   "parameter_cost_profile",
-   "calibration_progress"
-  ],
-  "overrides": {
-   "cross_section": {
-    "orientation": "sn"
-   },
-   "flow_intermittence_map": {
-    "cycle": "2019"
-   },
-   "seepage_map": {
-    "time": "2020-02-15"
-   }
-  }
+  "figure": [
+   {"preset": "watershed_id_card"},
+   {"preset": "hydrograph"},
+   {"preset": "residuals"},
+   {"preset": "water_budget"},
+   {"preset": "network_expansion"},
+   {"preset": "calibration_progress"},
+   {"variable": "head", "time": "2019-09-15"}
+  ]
  },
  "workflow": {
   "mode": "calibration"

@@ -105,13 +105,12 @@ def test_the_calibration_recipe_alone_runs_on_every_site() -> None:
     assert sorted(cases) == ["canut-calibration", "nancon-calibration"]
 
 
-def test_a_site_override_reaches_the_cases_of_its_site_only() -> None:
-    for case in _cases(EXAMPLE_19).values():
-        overrides = case.document.get("display", {}).get("overrides", {})
-        if case.site == "nancon":
-            assert overrides["cross_section"] == {"orientation": "sn"}
-        else:
-            assert "cross_section" not in overrides
+def test_the_site_file_of_the_nancon_sets_no_value() -> None:
+    """The section runs from the outlet of each site, so no site needs its own figure."""
+    figures = {
+        name: case.document["display"]["figure"] for name, case in _cases(EXAMPLE_19).items()
+    }
+    assert len({repr(listed) for listed in figures.values()}) == 1
 
 
 def test_the_summary_and_its_exports_are_declared() -> None:

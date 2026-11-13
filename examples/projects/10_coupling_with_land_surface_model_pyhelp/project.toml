@@ -100,16 +100,45 @@ mf6_ims_complexity = "COMPLEX"
 
 [display]
 on_error = "raise"
-figures = [
-    "watershed_id_card",
-    "mesh_map",
-    "recharge_map",
-    "piezometric_map",
-    "watertable_depth_map",
-    "seepage_map",
-    "hydrographic_network_reference",
-    "simulated_active_network",
-    "simulated_active_network_reference_overlay",
-    "cross_section",
-    "water_budget",
-]
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+name = "mesh_map"
+
+[[display.figure]]
+variable = "recharge"
+layer = "sum"
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+name = "hydrographic_network_reference"
+
+[[display.figure]]
+variable = "simulated_active_network"
+name = "simulated_active_network"
+
+[[display.figure]]
+variable = "simulated_active_network"
+overlays = ["relief", "network"]
+name = "simulated_active_network_reference_overlay"
+
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+
+[[display.figure]]
+preset = "water_budget"

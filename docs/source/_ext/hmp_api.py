@@ -1474,7 +1474,7 @@ def on_html_page_context(app, pagename, templatename, context, doctree) -> None:
         context["body"] = fix_signature_lists(context["body"])
     if pagename.startswith("reference/") and not pagename.startswith("reference/parameters"):
         app.add_css_file("css/hmp-reference.css")
-    if pagename in ("reference/figures", "reference/data-sources", "reference/solvers"):
+    if pagename in ("reference/figure-requests", "reference/data-sources", "reference/solvers"):
         app.add_js_file("js/hmp-reference.js", defer="defer")
 
 

@@ -1,4 +1,12 @@
 calibration.forward_model	2.0.0
+display.backend	2.0.0
+display.cmap	2.0.0
+display.figures	2.0.0
+display.overrides	2.0.0
+display.preset	2.0.0
+display.save	2.0.0
+display.show	2.0.0
+display.time	2.0.0
 flow.active_bc	2.0.0
 flow.active_sinks_sources	2.0.0
 flow.bc.forcing.mode	2.0.0

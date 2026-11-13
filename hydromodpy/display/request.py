@@ -27,14 +27,18 @@ matplotlib, no pandas, no run reader.
 from __future__ import annotations
 
 import difflib
+import functools
 import inspect
+import json
 import re
+import tomllib
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from importlib import resources
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, ValidationError, field_validator, model_validator
-from pydantic.json_schema import SkipJsonSchema
+from pydantic import BeforeValidator, Field, ValidationError, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema, WithJsonSchema
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -250,11 +254,51 @@ def unknown_column(name: str) -> str:
     )
 
 
-def unknown_variable(name: str) -> str:
-    """Return the refusal sentence for a variable no registry knows, with the closest names."""
-    known = [*FIELD_REGISTRY, *REBUILT_FIELDS, *TIME_SERIES_REGISTRY, BUDGET]
+@functools.cache
+def retired_table() -> dict[str, dict[str, Any]]:
+    """Read the table of the former figure names once."""
+    text = resources.files("hydromodpy.display").joinpath("retired_figures.toml").read_text("utf-8")
+    return tomllib.loads(text)
+
+
+def retired_forms(name: str) -> list[tuple[str, str]]:
+    """Return the (TOML pairs, Python call) of each form that replaces a former name."""
+    forms = retired_table()[name].get("figure", [])
+    out = []
+    for form in [forms] if isinstance(forms, dict) else forms:
+        lead = "variable" if "variable" in form else "preset"
+        rest = [f"{k}={json.dumps(v)}" for k, v in form.items() if k != lead]
+        toml = ", ".join(f"{k} = {json.dumps(v)}" for k, v in form.items())
+        out.append((toml, f"run.figure({', '.join([json.dumps(form[lead]), *rest])})"))
+    return out
+
+
+def retired(name: str) -> str | None:
+    """Return the sentence for a figure name of a pre-release, or None for any other name."""
+    row = retired_table().get(name)
+    if row is None:
+        return None
+    text = f"{name!r} was a figure of a pre-release."
+    if "none" in row:
+        return f"{text} {row['none']}"
+    forms = retired_forms(name)
+    write = " and ".join(f"[[display.figure]] {t}" for t, _ in forms)
+    text += f" Write {write}, or {' and '.join(c for _, c in forms)}."
+    return text + (f" Lost: {row['lost']}" if "lost" in row else "")
+
+
+def unknown_variable(name: str, presets: Iterable[str] = ()) -> str:
+    """Return the refusal sentence for a variable no registry knows, with the closest names.
+
+    With ``presets``, the name was given as a figure, so a preset is a close name too.
+    """
+    if (former := retired(name)) is not None:
+        return former
+    known = [*FIELD_REGISTRY, *REBUILT_FIELDS, *TIME_SERIES_REGISTRY, BUDGET, *presets]
     close = difflib.get_close_matches(name, known, n=3)
     hint = f" Did you mean {', '.join(close)}?" if close else ""
+    if presets:
+        return f"Unknown figure {name!r}.{hint} A figure is a variable or a preset."
     return (
         f"Unknown variable {name!r}.{hint} A variable is a name of the field or series "
         "registry (results/field_registry.py), 'budget', or a 'table.column' in a table panel."
@@ -298,6 +342,11 @@ def _listed(value: Any) -> Any:
     return [value] if isinstance(value, str) else value
 
 
+_ONE_OR_SEVERAL = {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]}
+Names = Annotated[list[str], BeforeValidator(_listed), WithJsonSchema(_ONE_OR_SEVERAL)]
+"""One name or a list of names. A single name is read as a list of one."""
+
+
 class ReferenceValue(HydroModelBase):
     """A horizontal reference line at ``value``, in the display unit, with its label."""
 
@@ -314,7 +363,7 @@ class PanelFields(HydroModelBase):
     type: str | None = Field(
         default=None, description="Frame of the panel. Unset, the natural frame of the variable."
     )
-    variable: list[str] | None = Field(
+    variable: Names | None = Field(
         default=None,
         description="Variable name or list. 'budget' is the budget terms the run kept. In a "
         "table panel, 'table.column' names.",
@@ -333,7 +382,7 @@ class PanelFields(HydroModelBase):
         description="A station of the run (lake:1, a reach, a gauge), or zone:catchment, "
         "zone:domain.",
     )
-    overlays: list[str] | None = Field(
+    overlays: Names | None = Field(
         default=None, description="Context layers drawn over a map or a section."
     )
     bbox: tuple[float, float, float, float] | None = Field(
@@ -407,11 +456,6 @@ class PanelFields(HydroModelBase):
             raise ValueError(_closest(value, GROUP_KEYS, "group key"))
         return value
 
-    @field_validator("variable", "overlays", mode="before")
-    @classmethod
-    def _as_list(cls, value: Any) -> Any:
-        return _listed(value)
-
     @field_validator("overlays")
     @classmethod
     def _known_overlays(cls, value: list[str] | None) -> list[str] | None:
@@ -476,16 +520,11 @@ PANEL_FIELDS = tuple(PanelFields.model_fields)
 class PanelRequest(PanelFields):
     """One panel of a figure, with the ``holes`` it leaves to the user when it is in a preset."""
 
-    holes: list[str] | None = Field(
+    holes: Names | None = Field(
         default=None,
         description="In a preset, the panel fields a user may give. The value written is "
         "the default.",
     )
-
-    @field_validator("holes", mode="before")
-    @classmethod
-    def _holes_as_list(cls, value: Any) -> Any:
-        return _listed(value)
 
     @field_validator("holes")
     @classmethod
@@ -555,11 +594,11 @@ class FigureRequest(PanelFields):
         description="With when = 'trial', draw every this many trials.",
         json_schema_extra=field_metadata(unit="trials"),
     )
-    engine: list[str] = Field(
+    engine: Names = Field(
         default_factory=lambda: [STATIC],
         description="Drawing engines to use for the figure, one file per engine.",
     )
-    formats: list[str] = Field(
+    formats: Names = Field(
         default_factory=lambda: ["png"],
         description="File formats written for the figure, such as png or svg.",
     )
@@ -605,11 +644,6 @@ class FigureRequest(PanelFields):
         elif value not in WHEN:
             raise ValueError(_closest(value, [*WHEN][:-1] + [AFTER + "<step>"], "when value"))
         return value
-
-    @field_validator("engine", "formats", mode="before")
-    @classmethod
-    def _as_list_too(cls, value: Any) -> Any:
-        return _listed(value)
 
     @field_validator("engine")
     @classmethod

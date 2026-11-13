@@ -52,13 +52,6 @@ Every field array and every time series a run stores, with its path, unit and di
 Every data section and the sources it accepts, by section or by provider, with publisher and licence.
 :::
 
-:::{grid-item-card} Figures
-:link: figures
-:link-type: doc
-
-Every figure a run can draw, what it reads, when it can be drawn and the options it takes.
-:::
-
 :::{grid-item-card} Figure requests
 :link: figure-requests
 :link-type: doc
@@ -112,7 +105,6 @@ cli/index
 
 outputs
 data-sources
-figures
 figure-requests
 solvers
 calibration-methods

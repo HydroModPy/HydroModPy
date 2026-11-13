@@ -42,7 +42,9 @@ result = {
     "draft": said(hmp.check(draft, partial=True, base=base)),
     "whole": said(hmp.check(document, base=base)),
     "no_base": said(hmp.check(document)),
-    "figures": sorted(m for m in sys.modules if m.startswith("hydromodpy.display.figures")),
+    "figures": sorted(
+        m for m in sys.modules if m.startswith(("hydromodpy.display.frames", "hydromodpy.display.special"))
+    ),
 }
 Path("check.json").write_text(json.dumps(result), encoding="utf-8")
 """

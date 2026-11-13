@@ -1,6 +1,6 @@
 {
   "schema": "hydromodpy.phase.v2",
-  "phase_id": "a743876afadf4f6a999649332d1ee424",
+  "phase_id": "5775b0fb289741e6bb22ceec8a44f2e4",
   "name": "k_grid",
   "index": 0,
   "status": "completed",
@@ -13,7 +13,7 @@
     },
     "cases": {
       "calage": {
-        "sim_id": "5e9559c0-d954-4ba2-84a4-3bcc0a2629a2",
+        "sim_id": "eab9575d-5f50-476e-953a-26a85ad30cfe",
         "rel_dir": "runs/calage",
         "cost": 0.002899322509765767
       }
@@ -24,7 +24,24 @@
   "cost_label": "rmse",
   "windows": {},
   "scored": [],
-  "widths": {},
+  "widths": {
+    "K": {
+      "interval": {
+        "lower": 0.0001,
+        "upper": 0.0001,
+        "margin": 0.05,
+        "kind": "relative",
+        "threshold": 0.0030442886352540556,
+        "n_within": 1,
+        "n_trials": 3,
+        "lower_end": "open",
+        "upper_end": "open"
+      },
+      "sigma": null,
+      "restarts": null,
+      "correlated": {}
+    }
+  },
   "stop_state": "plan_exhausted",
   "stopping_rule": "every grid point",
   "stop_note": null

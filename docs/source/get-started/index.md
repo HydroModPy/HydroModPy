@@ -42,7 +42,7 @@ Run completed: nancon_step1_minimal [3fd2f8e3] 19s
 next: hmp show nancon_step1_minimal | hmp publish nancon_step1_minimal --to <folder> | hmp export nancon_step1_minimal --list
 ```
 
-The figure of that run is `watertable_depth_map`, in `runs/nancon_step1_minimal/figures/`:
+The figure of that run is the map of the variable `watertable_depth`, in `runs/nancon_step1_minimal/figures/`:
 the depth of the water table below the land surface, from 0 m (dark) to 30 m, which is the
 thickness of the model.
 

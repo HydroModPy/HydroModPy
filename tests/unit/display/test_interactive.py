@@ -27,7 +27,7 @@ def values_of(trace, per_cell: int = 4) -> np.ndarray:
 
 @pytest.mark.parametrize("name", ["head", "topography"])
 def test_a_map_trace_holds_the_value_of_each_cell_and_the_static_scale(stored_run, name):
-    table = stored_run.figure_data(name, time="last")["a"]
+    table = stored_run.figure(name, time="last", data=True)["a"]
     trace = stored_run.figure(name, time="last", engine="interactive").data[0]
     np.testing.assert_allclose(values_of(trace), table["value"], rtol=1e-6)
     assert list(trace.text[::4]) == [f"cell {c}: {v:.4g}" for c, v in zip(table["cell"], table["value"])]  # fmt: skip
@@ -38,7 +38,7 @@ def test_a_map_trace_holds_the_value_of_each_cell_and_the_static_scale(stored_ru
 
 
 def test_a_series_holds_the_simulated_values_and_the_observed_points(stored_run):
-    table = stored_run.figure_data("discharge", **SERIES)["a"]
+    table = stored_run.figure("discharge", **SERIES, data=True)["a"]
     simulated, observed = stored_run.figure("discharge", engine="interactive", **SERIES).data
     np.testing.assert_allclose(simulated.y, table["simulated"])
     seen = table.dropna(subset=["observed"])
@@ -50,11 +50,13 @@ def test_a_stacked_budget_draws_one_bar_per_term(stored_run):
     request = {"variable": "budget", "station": "zone:catchment", "stack": True}
     traces = stored_run.figure("budget", engine="interactive", **request).data
     assert {trace.type for trace in traces} == {"bar"}
-    assert len(traces) == len(stored_run.figure_data("budget", **request)["a"]["variable"].unique())
+    assert len(traces) == len(
+        stored_run.figure("budget", **request, data=True)["a"]["variable"].unique()
+    )
 
 
 def test_the_block_has_a_top_per_cell_the_walls_and_one_row_per_cell(stored_run):
-    table = stored_run.figure_data("head", type="volume")["a"]
+    table = stored_run.figure("head", type="volume", data=True)["a"]
     assert list(table.columns) == ["cell", "x", "y", "top", "bottom", "value"]
     assert len(table) == CELLS
     assert (table["top"] > table["bottom"]).all()
@@ -129,7 +131,7 @@ def test_the_interactive_map_refuses_what_only_the_static_engine_draws(stored_ru
 @pytest.mark.parametrize(("layer", "top", "bottom"), [(None, 120, 0), (0, 120, 60), (1, 60, 0)])
 def test_the_block_is_the_layer_asked_or_the_whole_column(stored_run, layer, top, bottom):
     kept = {} if layer is None else {"layer": layer}
-    table = stored_run.figure_data("head", type="volume", **kept)["a"]
+    table = stored_run.figure("head", type="volume", **kept, data=True)["a"]
     assert (set(table["top"]), set(table["bottom"])) == ({top}, {bottom})
     ground, walls = stored_run.figure("head", type="volume", engine="interactive", **kept).data
     assert (len(ground.i), max(ground.z), min(walls.z)) == (TOP_TRIANGLES, top, bottom)

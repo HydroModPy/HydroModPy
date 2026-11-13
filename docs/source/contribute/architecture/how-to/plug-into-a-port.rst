@@ -85,9 +85,9 @@ Steps for a new class
    registry, never over a list written in ``tests/``, so an installed plugin meets the same
    cases as a built-in one.
 
-The figure port has no entry-point group. A figure is a ``BaseFigure`` subclass in a
-public module of ``hydromodpy/display/figures/``, and the generated table
-``figure_table.py``, rewritten by ``python -m tools.figure_table``, is its registration.
+The figure port has no entry-point group. A figure is a request. A new kind of plot is a
+frame in ``hydromodpy/display/frames/``, and a new named request is a preset of
+``hydromodpy/display/presets.py``.
 
 The two closed tables
 ---------------------

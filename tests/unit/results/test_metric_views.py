@@ -103,14 +103,6 @@ def test_series_criterion_cost(metric: str) -> None:
     assert result.cost == pytest.approx(cost_of(metric, result.diagnostics["score"]))
 
 
-def test_figures_use_the_sense_table() -> None:
-    from hydromodpy.display.figures import _calibration_session
-
-    assert not hasattr(_calibration_session, "EFFICIENCIES")
-    for metric in _calibration_session.METRIC_LABELS:
-        assert metric in METRIC_SENSE
-
-
 # Two stations or two variables of one run stay in separate rows, each with its window and n.
 STATION = "J0014010"
 

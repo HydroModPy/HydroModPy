@@ -1,7 +1,7 @@
 {
   "manifest_version": 4,
   "profile": "run",
-  "sealed_at": "2026-11-12T00:34:46.286708Z",
+  "sealed_at": "2026-11-13T20:36:56.032161Z",
   "lineage": {
     "parent_sim_id": null,
     "session_id": null,
@@ -26,8 +26,8 @@
       "path": "config.resolved.toml",
       "role": "config_resolved",
       "format": "toml",
-      "bytes": 4953,
-      "sha256": "5f01660d0f709522f871d4e6929de2cb21339b4a5844d55ac3194a27b11ba67c",
+      "bytes": 4890,
+      "sha256": "4cedaeb6ae2b9547bea1819d399a5978fbd3c20fa171c7dd1917f7fc7c1aa984",
       "media_type": null
     },
     {
@@ -42,8 +42,8 @@
       "path": "fields.zarr",
       "role": "fields",
       "format": "zarr",
-      "bytes": 157785,
-      "sha256": "4cb0d5517f40eba22b6b80a20c23b1e17caf0981fa76786d9d9e05ccdcb0e653",
+      "bytes": 157906,
+      "sha256": "ddbdecadacc33a47c583ed4e692efff397878722842138d9082d423c33e34ddf",
       "media_type": null
     },
     {
@@ -59,7 +59,7 @@
       "role": "inputs",
       "format": "json",
       "bytes": 428,
-      "sha256": "829da876a87fdc985935240491e89eed5902e4c59c8d3d0282c684fdf25bb046",
+      "sha256": "da001e78ec449606b76e06c2a126426451f08969eaf51ba776f74fcab22ae059",
       "media_type": null
     },
     {
@@ -75,103 +75,103 @@
       "role": "products",
       "format": "json",
       "bytes": 144,
-      "sha256": "135aa5c903c74b386374a40e2fac648b9e8b5f9a15084bb2790453f385dc3ae7",
+      "sha256": "29aee58acd22d469eb8014210975f3f14db5fcac6268db1286b998f638bee4b9",
       "media_type": null
     },
     {
       "path": "provenance.json",
       "role": "provenance",
       "format": "json",
-      "bytes": 10732,
-      "sha256": "d69ecf0566710df952f042ebfeca1b4c851ae7e0d9312d033f87bae7e9901331",
+      "bytes": 10770,
+      "sha256": "4c69abeb567af59644983f42de2279aadd11474fcff6fb9ce7eac557da8b10fe",
       "media_type": null
     },
     {
       "path": "tables.parquet/budgets.parquet",
       "role": "table:budgets",
       "format": "parquet",
-      "bytes": 6137,
-      "sha256": "4701da984e8dc965072c6cf1345f6eeb5f868613039b23d19ab81f2ef22e9a89",
+      "bytes": 6138,
+      "sha256": "06960654e253e848f46c186d67a09dee9bad830d4f93ef135795552cfd1e109f",
       "media_type": null
     },
     {
       "path": "tables.parquet/geographic_watershed.parquet",
       "role": "table:geographic_watershed",
       "format": "parquet",
-      "bytes": 15362,
-      "sha256": "e9e1d43ab6cb2f553376b882ceba17ef8d58353a4e42f21d70c0e524dcf088eb",
+      "bytes": 15363,
+      "sha256": "3af25d108154ea8f21d29b9f73db4e7a1c030fd1adf9773a5d62d4921e48980a",
       "media_type": null
     },
     {
       "path": "tables.parquet/geographic_watershed_box_buff.parquet",
       "role": "table:geographic_watershed_box_buff",
       "format": "parquet",
-      "bytes": 15379,
-      "sha256": "86f30ce0d0ce79b9ea3524c718f0fd223a4e0fa600105ae0b57974a1e2df5b4f",
+      "bytes": 15380,
+      "sha256": "51f2cfd7cc415bc89d50d0e605aac59eb6bfe789dfbb4441f829c683bf318439",
       "media_type": null
     },
     {
       "path": "tables.parquet/geographic_watershed_contour.parquet",
       "role": "table:geographic_watershed_contour",
       "format": "parquet",
-      "bytes": 15363,
-      "sha256": "01a9eb3aa3fe611af9391b6eda26693a46cbd3eee3f12f5f6ae47f89b0d344af",
+      "bytes": 15364,
+      "sha256": "94537f26fcefbe2d7fe0d72a4abb9bf744d7572d4afed872e29e2d3d3e34af71",
       "media_type": null
     },
     {
       "path": "tables.parquet/mass_balance.parquet",
       "role": "table:mass_balance",
       "format": "parquet",
-      "bytes": 6666,
-      "sha256": "bd0a5699af32a2fd6879efe90d6c75bf32dcdc8563d5f1e4c87f3b3e0ce5b472",
+      "bytes": 6677,
+      "sha256": "3022edece82bfd448e8e72cad6ece9cf947b16096e9851f98d1355c2cfca683d",
       "media_type": null
     },
     {
       "path": "tables.parquet/mesh_face_families.parquet",
       "role": "table:mesh_face_families",
       "format": "parquet",
-      "bytes": 7322,
-      "sha256": "7c21313d9ba423abe2f57da5238f5e6a95ca65b3e59f9e26b31f1adb4dc9a9d6",
+      "bytes": 7323,
+      "sha256": "4a1a30180fe0d920ae3d561dbe614ce805f2a56e5dbe429c71b689a310a67a97",
       "media_type": null
     },
     {
       "path": "tables.parquet/metrics.parquet",
       "role": "table:metrics",
       "format": "parquet",
-      "bytes": 8011,
-      "sha256": "cf5e26c396b72580f3277be6eed3f100d97f2e1b4d2039bdf9e15ff9e99a7d4d",
+      "bytes": 8012,
+      "sha256": "2f61fb62816d4d260209810807e6bd6c2bd69388597958bc426814fdac864cd8",
       "media_type": null
     },
     {
       "path": "tables.parquet/parameters.parquet",
       "role": "table:parameters",
       "format": "parquet",
-      "bytes": 7863,
-      "sha256": "30277e8587b1ac98d19e41038ed55fa25bc42971ce71994c7579e9bcefd3ae8c",
+      "bytes": 7864,
+      "sha256": "0cdb1839ec84fc0c7988ed88db3f90c31f0ed6cdccc8f055d6af4147a76d2ac3",
       "media_type": null
     },
     {
       "path": "tables.parquet/provenance.parquet",
       "role": "table:provenance",
       "format": "parquet",
-      "bytes": 8438,
-      "sha256": "061332f4a973a423abd26172e96a2db238acdbaf607af75d62d6d8cdc11c1e2b",
+      "bytes": 8439,
+      "sha256": "38c30d45d1191c7452005b340b81047a2647ec416644f60a17e9f79cd6b67db0",
       "media_type": null
     },
     {
       "path": "tables.parquet/simulation.parquet",
       "role": "table:simulation",
       "format": "parquet",
-      "bytes": 32771,
-      "sha256": "4ea879f2ccfc26f448c2196ae14dfabecd9a138871f89735bac493df65d1cf3f",
+      "bytes": 32789,
+      "sha256": "b243b22591be906b024c115496f50f95e917033769c6f024b095b08f4c890bd2",
       "media_type": null
     },
     {
       "path": "tables.parquet/timeseries.parquet",
       "role": "table:timeseries",
       "format": "parquet",
-      "bytes": 6611,
-      "sha256": "911242b86b2b4bb64a223b46af2197e7522d106dd1a377e75de593e20887ecc3",
+      "bytes": 6612,
+      "sha256": "7e61ed1755dbb95e548e494bf959ed7c6494159460bbd8f67b858dd55657790a",
       "media_type": null
     }
   ],
@@ -226,7 +226,7 @@
       "final_state/lake_stage": "cf278b34a23c9501fb6efea1ad3d7c764dae3d746347643950b1ad1406221340",
       "tables/budgets/flux_in": "417a259f2f188716883609b90ccd001e5898c10ada6c4e3bbe72b02c3d397530",
       "tables/budgets/flux_out": "1ce3e49014733ff5f79401e3660cd73e34d2f095226492b120baf5da92174627",
-      "tables/mass_balance/percent_error": "8a8c874334a9494f5342e5292aab36f151ceb5c4e2f353f01dfee57daf874426",
+      "tables/mass_balance/percent_error": "70ac54dfe69a93b0c52d31a15d3ce7bc774033d00fe19a8bc1078efa5f3ff58f",
       "tables/mass_balance/storage_in": "3bad76b289f1608302b9bd876acee2dc0528d8f8ca2ab9dd4e662348e63937be",
       "tables/mass_balance/storage_out": "4b97369d301e264a461bae1a36a892f01ddb5d7ee211ad97c358a5d9cdb24cac",
       "tables/mass_balance/total_in": "be2c6f5d18f58832e14ce554164f2117eb26040831bfc335dcfc967bf3cc26e6",
@@ -237,7 +237,7 @@
       "tables/simulation/bbox_xmin": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
       "tables/simulation/bbox_ymax": "a30cb6ffdc797095c891230e050c5be2b6e2b2f27e5c5ebb23e684b78e58cdbb",
       "tables/simulation/bbox_ymin": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
-      "tables/simulation/budget_pct": "51ae2ca64fbe0abbe27b937e80d39c76c23d8509bf244d16fa10fff6261b703c",
+      "tables/simulation/budget_pct": "c8d3972364030fe47a2f5bb7292fb049706a1cfa4be31361f7bd1e35e3b69824",
       "tables/simulation/budget_threshold_pct": "183f84c545e9c6a4249bd212cefb242a56546a9c927998a567b8ca420d61d7c1",
       "tables/simulation/calibrated_by_cost": "183f84c545e9c6a4249bd212cefb242a56546a9c927998a567b8ca420d61d7c1",
       "tables/simulation/nse": "183f84c545e9c6a4249bd212cefb242a56546a9c927998a567b8ca420d61d7c1",
@@ -247,7 +247,7 @@
   },
   "derive_rule_version": "1",
   "run": {
-    "sim_id": "c6429802-16ad-4c1e-9152-79d395f817c3",
+    "sim_id": "c824d709-5928-4b87-9ccb-5e7850a40259",
     "name": "tri",
     "name_stem": "tri",
     "version": 1,
@@ -257,14 +257,14 @@
     "recipe": null,
     "rel_dir": "runs/tri",
     "attempt": 1,
-    "attempt_id": "29a4461c49ec471797a73c45159ffb90",
+    "attempt_id": "7c33ed25664048d3b7322751e93f747e",
     "solver": "modflow6",
     "solver_category": "distributed",
     "flow_regime": "transient",
-    "created_at": "2026-11-12T00:34:37.853861Z",
-    "started_at": "2026-11-12T00:34:37.853861Z",
-    "ended_at": "2026-11-12T00:34:46.286708Z",
-    "duration_s": 8.432847,
+    "created_at": "2026-11-13T20:36:53.088866Z",
+    "started_at": "2026-11-13T20:36:53.088866Z",
+    "ended_at": "2026-11-13T20:36:56.032161Z",
+    "duration_s": 2.943295,
     "description": null,
     "scientific_objective": null,
     "contact_email": null,
@@ -322,9 +322,9 @@
     "site": "island",
     "site_fingerprint": "03e3fd0b3f288d43",
     "case_id": "tri",
-    "sim_id": "c6429802-16ad-4c1e-9152-79d395f817c3",
-    "attempt_id": "29a4461c49ec471797a73c45159ffb90",
-    "solution_key": "8ffa7c94abf4117ff270d3c216abc0495c7ff51bf448a99379dddb2d3f4f8fd1",
+    "sim_id": "c824d709-5928-4b87-9ccb-5e7850a40259",
+    "attempt_id": "7c33ed25664048d3b7322751e93f747e",
+    "solution_key": "75223fe505f7264ae0106928d9a0425bf635491e5fa97559e0f6c1d94bfa3f87",
     "request_id": "cd4e2a7cf89536eebb3b84f9d9ad2e41e00c89a9e2c32557851e123359678534",
     "solver": "modflow6",
     "mesh_hash": "71c6cb52161d38a3abe599eeb736f42c30f49a367be5c270c7d260afd4b55d28",
@@ -337,11 +337,11 @@
     "label_date": null,
     "rule_version": null,
     "hydromodpy_version": "2.0.0",
-    "code_reproducible": null
+    "code_reproducible": false
   },
   "checks": {
     "schema": "hydromodpy.checks.v2",
-    "budget_pct": 0.0,
+    "budget_pct": 0.0010582421602209997,
     "budget_threshold_pct": null,
     "converged": null,
     "obs_coverage": null,
@@ -350,7 +350,7 @@
     "calibrated_by": null,
     "validities": [],
     "bounds_hit": [],
-    "code_reproducible": null
+    "code_reproducible": false
   },
   "inputs": [],
   "parameters": [

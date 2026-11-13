@@ -1,6 +1,6 @@
 # demo
 
-Run `demo` of project `example`, sim_id `5e78a478-2c73-4398-a089-721c0648c59a`, attempt 1, status **completed**.
+Run `demo` of project `example`, sim_id `72bf0eb5-2be2-46ae-8734-b9488dbdc0e2`, attempt 1, status **completed**.
 
 ## Site
 
@@ -12,23 +12,34 @@ No site declared.
 
 ## Version
 
-- HydroModPy 2.0.0rc1, solver `modflow_nwt`, mesh engine `regular`
-- code reproducible: unknown
-- configuration hash: `1101419a5a5b899a432f6c24e02b957aeed2923271299d886342272fc7bac403`
+- HydroModPy 2.0.0, solver `modflow_nwt`, mesh engine `regular`
+- code reproducible: no
+- solution key: `30c3c077506de4bed08e5d3838b1f0524efe39de6879dd182fec6c3d512b44bc`
 
 ## Checks
 
-- water budget 0.06 % (no threshold declared)
+- water budget 0.0643926 % (no threshold declared)
 - converged: unknown
 
 ## Label
 
-**exploratory** under rules 2.
+**exploratory** under rules 3.
 - no score window
 
 ## Score
 
 No window declared: no score.
+
+## What this run does not give
+
+- A change in time: the run is one steady state.
+- The flow between two cells. Set `keep_face_flows = true` under `[simulation.results]` to keep it.
+- A residence time: the run has no particle tracking.
+
+## Cost of a replay
+
+A replay of this run computes 11 steps in 2.1 s, 0.0 s of it in the solve, and needs up to 440 MiB of memory.
+The times come from `profile.json`, measured on the machine that ran it.
 
 ## Where is what
 
@@ -38,4 +49,4 @@ No window declared: no score.
 - `figures/`, `exports/`, `report/`: derived, each with its ledger; `logs/`: diagnostics
 
 ---
-sha256(manifest.json) = 7edc84395509363caabdcf74c22d8b76137b796236901798820726ce00420ec6
+sha256(manifest.json) = e626de8ed00f7f2ea968a9cb93d2914c22ccd9c743c027810ccf1dcbd0147933

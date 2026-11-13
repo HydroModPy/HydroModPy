@@ -433,13 +433,150 @@ min_thickness_m = 0.1 # Minimum layer-0 thickness (m) kept after zonal top lower
 
 [display]
 enabled = true
-backend = "auto" # Matplotlib backend. 'auto' selects Agg in headless mode and a GUI backend when ``show`` is enabled.
-preset = "default" # Named theme applied before rendering any figure.
-show = false
-save = true
 dpi = 150 # DPI used when saving raster figures.
-figures = ["watershed_id_card", "mesh_map", "boundary_package_map", "depression_map", "flow_direction_map", "hydrograph_sim_obs", "hydrograph_log_nse", "hydrograph", "duration_curve", "recession", "seasonal_boxplot", "water_budget", "flux_timeseries", "sfr_reach_network", "sfr_longitudinal_profile", "sfr_reach_timeseries", "piezometric_map", "watertable_depth_map", "seepage_map", "recharge_map", "cross_section", "accumulation_map", "simulated_active_network", "simulated_active_network_reference_overlay", "seepage_network_reference_overlay", "seepage_network_confusion_map", "downslope_distance_map", "hydrographic_network_reference", "hydrographic_network_generated", "hydrographic_network_comparison", "matching_hydrographic_network_card", "bisection_bracket_trace", "downslope_distance_crossing", "parameter_cost_profile", "calibration_convergence", "calibration_trace", "calibration_trial_distribution"] # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp config figures`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
 on_error = "warn" # Behavior when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.
+[[display.figure]]
+preset = "watershed_id_card"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["mesh", "outline", "outlet"]
+name = "mesh_map"
+
+[[display.figure]]
+variable = "package_cells"
+
+[[display.figure]]
+variable = "depression_fill_depth"
+scale = "log"
+
+[[display.figure]]
+preset = "flow_directions"
+
+[[display.figure]]  # replaces hydrograph_sim_obs, hydrograph
+preset = "hydrograph"
+
+[[display.figure]]
+preset = "hydrograph"
+scale = "log"
+name = "hydrograph_log"
+
+[[display.figure]]
+variable = "discharge"
+type = "distribution"
+cumulative = true
+name = "duration_curve"
+
+[[display.figure]]
+preset = "recession"
+
+[[display.figure]]
+variable = "discharge"
+type = "groups"
+by = "month"
+observed = true
+name = "seasonal_boxplot"
+
+[[display.figure]]  # replaces water_budget, flux_timeseries
+preset = "water_budget"
+
+[[display.figure]]
+variable = "sfr_reaches.strahler"
+type = "map"
+
+[[display.figure]]
+variable = "streambed_top"
+
+[[display.figure]]
+preset = "sfr_longitudinal_profile"
+
+[[display.figure]]
+variable = "downstream_flow"
+
+[[display.figure]]
+variable = "watertable_elevation"
+
+[[display.figure]]
+variable = "watertable_depth"
+
+[[display.figure]]
+variable = "seepage_mask"
+name = "seepage_map"
+
+[[display.figure]]
+variable = "recharge"
+layer = "sum"
+
+[[display.figure]]
+variable = "watertable_elevation"
+type = "section"
+name = "cross_section"
+
+[[display.figure]]
+variable = "drain_accumulation_flux"
+scale = "log"
+
+[[display.figure]]
+variable = "simulated_active_network"
+name = "simulated_active_network"
+
+[[display.figure]]
+variable = "simulated_active_network"
+overlays = ["relief", "network"]
+name = "simulated_active_network_reference_overlay"
+
+[[display.figure]]
+variable = "seepage_mask"
+overlays = ["relief", "network"]
+name = "seepage_network_reference_overlay"
+
+[[display.figure]]
+variable = "network_agreement"
+
+[[display.figure]]
+variable = "downslope_distance"
+scale = "log"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "network"]
+name = "hydrographic_network_reference"
+
+[[display.figure]]
+variable = "topography"
+overlays = ["relief", "generated_network"]
+name = "hydrographic_network_generated"
+
+[[display.figure]]
+preset = "network_comparison"
+
+[[display.figure]]  # replaces matching_hydrographic_network_card, bisection_bracket_trace, downslope_distance_crossing
+preset = "root_search"
+when = "session"
+
+[[display.figure]]
+variable = ["trials.parameter", "trials.cost"]
+type = "xy"
+facet = "parameter"
+when = "session"
+
+[[display.figure]]
+preset = "calibration_progress"
+when = "session"
+
+[[display.figure]]
+variable = "trials.parameter"
+type = "series"
+facet = "parameter"
+when = "session"
+name = "calibration_trace"
+
+[[display.figure]]
+variable = "trials.parameter"
+type = "distribution"
+facet = "parameter"
+when = "session"
+name = "calibration_trial_distribution"
 
 [observation]
 points = [] # Observation points sampled once the run has produced its fields.

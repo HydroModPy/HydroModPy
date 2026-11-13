@@ -1,24 +1,24 @@
 {
   "provenance_version": 2,
-  "sim_id": "c6429802-16ad-4c1e-9152-79d395f817c3",
+  "sim_id": "c824d709-5928-4b87-9ccb-5e7850a40259",
   "tool": {
     "name": "hydromodpy",
     "version": "2.0.0",
     "code_fingerprint": {
-      "core": "ea7b3daac5cde5e75cb961f865b89b0c6bb8921aaefc76e3815e5bd63ac4413e",
-      "config": "a7cd3a78e902d9ef8bb1f8455f98181a3d4dab03bad77eff462c16abdd16dfe7",
-      "model": "923a3e77b153611e5b5b07af006a8898ed2176f53542c77fc27bc53463aaaf67",
-      "data": "50b498e4726880797ecd5acc3b4895745956955c7d34b7fa6bedbbadb22c92b0",
-      "catchment": "2fc77702736cf3f00e560b75d4efd1f090f51eaae565bd284142ba085497118d",
+      "core": "fee0c31463cf5575f10408c07779a4a02fb533b6d4c9cbed93429cb1f6e55111",
+      "config": "b7300fc1aceff7c14fc4fbb00f4c45243830d61b61c42a9b1923f6545011656f",
+      "model": "0115172e8787446f4585868d3b65cef2cc77eb4e2666c58e1b4bccd41021bfd9",
+      "data": "6a0103ac5ab4485edf6d22137967ba544b8ca241f3b935bc02ee7dd152f9855f",
+      "catchment": "fc11bbb7cf2edda6766cc3e8f143944cb4da965fb85808a75eef32116da361de",
       "mesh": "4a1592f92f38799e723b27a414b586f3e5732436063df950540e95863ad35b10",
-      "solver": "d8591c237d142935d6afcc5c79415b8e107d0626054fa067bdbeb13c3ddffbcc",
-      "results": "dcc692ec74e152b86ffb65f18d26b7429ad74a1c1d73a33495a177689a4ce352",
-      "workflow": "39059cab8be04b310db819946793d6e5c145e1d4f630444d620f4e7d07e078db"
+      "solver": "9083200cc9f29b98fa55ed7c33f70bd85413cdf11a97080479078a6a4e4b57fe",
+      "results": "f0c5f33c26e8e0826f3127b6597cb8c91a273e39522888d0e71a187454cade32",
+      "workflow": "a62aea22ba06f7eeb61a4293fbe4b06509b567763fd804d09b27ac77b3553834"
     }
   },
   "git": {
-    "commit": null,
-    "dirty": null,
+    "commit": "d178b99c0fe3908c0ef9c890ba90ce6022b72a97",
+    "dirty": true,
     "project_commit": null
   },
   "python": {
@@ -35,7 +35,7 @@
       "arch": "X86_64",
       "bits": 64,
       "count": 22,
-      "hz_advertised_friendly": "1.7000 GHz"
+      "hz_advertised_friendly": "1.5913 GHz"
     },
     "memory_gb": 66.81
   },
@@ -70,9 +70,9 @@
     }
   },
   "timing": {
-    "started_at": "2026-11-12T00:34:37.853861+00:00",
-    "ended_at": "2026-11-12T00:34:46.286708+00:00",
-    "duration_s": 8.432847
+    "started_at": "2026-11-13T20:36:53.088866+00:00",
+    "ended_at": "2026-11-13T20:36:56.032161+00:00",
+    "duration_s": 2.943295
   },
   "environment": {
     "conda_env_hash": null,

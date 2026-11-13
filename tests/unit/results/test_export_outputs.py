@@ -36,8 +36,10 @@ from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.core.tracking.input_file import TrackedFileEntry
 from hydromodpy.core.workspace.workspace_toml import write_workspace_toml
-from hydromodpy.display.config import DisplayConfig
-from hydromodpy.display.runs import figures_dir_of, render_figures_for_run
+from hydromodpy.display.presets import PRESETS
+from hydromodpy.display.request import FigureRequest
+from hydromodpy.display.runs import draw_requests, figures_dir_of
+from hydromodpy.display.theme import get_theme
 from hydromodpy.mesh.planar.planar_cell_mesh import CellChain, FaceFamilyTable, PlanarCellMesh
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.indexer import rebuild_index
@@ -785,9 +787,11 @@ def exported(tmp_path_factory) -> tuple[Path, dict[str, list[Path]], list[Path]]
     with Catalog(project) as catalog:
         for key, payload in REQUESTS.items():
             written[key] = export_run(catalog, sim_id, ExportRequest.model_validate(payload))
-        report = render_figures_for_run(
+        report = draw_requests(
             catalog[sim_id],
-            DisplayConfig(figures=["water_budget"]),
+            [FigureRequest(variable="head")],
+            presets=PRESETS,
+            theme=get_theme("default"),
             output_dir=figures_dir_of(run_dir),
         )
     return run_dir, written, list(report.written)

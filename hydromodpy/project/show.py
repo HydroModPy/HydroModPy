@@ -216,20 +216,6 @@ def _written_presets(root: Path) -> WrittenPresets:
     return found
 
 
-def preset_places(subject: Any) -> str:
-    """Return the sentence that says where the presets of *subject* are looked up."""
-    places = ["the shipped presets"]
-    if isinstance(subject, Run):
-        places.append("the [display.presets] the run was sealed with")
-        located = project_root_of(subject.dir)
-        if located is not None:
-            files = ", ".join(path.name for path in project_toml_files(located[0])) or "no file"
-            places.append(
-                f"the [display.presets] of the project files now ({files} in {located[0]})"
-            )
-    return "Presets are looked up in " + ", then ".join(places) + "."
-
-
 def project_presets(subject: Any) -> WrittenPresets:
     """Return the presets *subject* can draw, the last source winning for a name.
 
@@ -254,30 +240,11 @@ def project_presets(subject: Any) -> WrittenPresets:
 def project_theme(subject: Any) -> str:
     """Return the theme a figure of *subject* takes when none is asked.
 
-    A run takes the ``theme`` of its sealed ``[display]``, else its former ``preset``. A
+    A run takes the ``theme`` of its sealed ``[display]``. A
     session or a set of runs has no sealed ``[display]`` and takes ``default``.
     """
     sealed = _sealed_display(subject)
-    return "default" if sealed is None else sealed.theme_name
-
-
-def takes_request(name: object, presets: Mapping[str, Any], options: Mapping[str, Any]) -> bool:
-    """Return whether the figure goes to the request path, else to the registered figures.
-
-    A request given as a mapping, a ``draw`` function, a variable name, a table column
-    or a preset name go to the request path, and so does a name both paths know. So
-    ``run.figure(name)``, ``session.figure(name)`` and ``hmp show --figure name`` draw the
-    preset, not the registered figure of that name. The key ``[display].figures = [name]``
-    is the other way in and keeps drawing the registered figure. Any other name is a
-    registered figure.
-    """
-    from hydromodpy.display.request import BUDGET, is_column, is_registered
-
-    if isinstance(name, Mapping) or options.get("draw") is not None:
-        return True
-    return isinstance(name, str) and (
-        name in presets or name == BUDGET or is_column(name) or is_registered(name)
-    )
+    return "default" if sealed is None else sealed.theme
 
 
 def render(
@@ -286,57 +253,18 @@ def render(
     """Draw the figure *name* of *subject*, or write its report when *name* is ``report``.
 
     *options* holds ``save`` (a file, or a folder that receives ``<name>.png``),
-    ``dpi``, ``time`` and the figure's own options. A figure drawn without
-    ``dpi`` keeps the resolution of the figure itself. With ``save`` the figure is
-    written and its path comes back, else the figure itself. ``report`` takes
-    the options of ``REPORT_OPTIONS`` for a run, and gives the first page of the
-    report.
+    ``dpi``, ``time`` and the request fields. With ``save`` the figure is written and
+    its path comes back, else the figure itself. ``report`` takes the options of
+    ``REPORT_OPTIONS`` for a run, and gives the first page of the report.
 
     A variable, a preset, a request given as a mapping or a ``draw`` function go to
-    the request path (:func:`takes_request`). With ``data`` it gives the tables.
+    the request path, which refuses a name it does not know. With ``data`` it gives
+    the tables.
     """
     given = {key: value for key, value in options.items() if value is not None}
     if name == REPORT:
         return _report(subject, given)
-    if takes_request(name, project_presets(subject), given):
-        return _render_request(subject, name, given)
-    if given.pop("data", False):
-        raise CommandUsageError(
-            f"{name!r} is a registered figure and gives no tables. Ask for a variable or a preset."
-        )
-    from hydromodpy.display.runs import render_figure
-
-    save = given.pop("save", None)
-    dpi = given.pop("dpi", None)
-    # A set of runs has no directory; only a run stamps its identity on the PNG.
-    run_dir = getattr(subject, "dir", None) if save is not None else None
-    try:
-        drawn = render_figure(name, subject, save=save, dpi=dpi, run_dir=run_dir, **given)
-    except KeyError as error:
-        if str(error).strip("'\"").startswith("unknown figure"):
-            raise _unknown_figure(name, project_presets(subject), preset_places(subject)) from None
-        raise
-    if save is None:
-        return drawn
-    target = Path(save).expanduser()
-    return target / f"{name}.png" if target.is_dir() else target
-
-
-def _unknown_figure(name: object, presets: Mapping[str, Any], places: str) -> CommandUsageError:
-    """Return the refusal for a name that is no variable, preset or registered figure."""
-    import difflib
-
-    from hydromodpy.display.figure_registry import names
-    from hydromodpy.display.request import BUDGET
-    from hydromodpy.results.field_registry import FIELD_REGISTRY, TIME_SERIES_REGISTRY
-
-    known = [*FIELD_REGISTRY, *TIME_SERIES_REGISTRY, BUDGET, *presets, *names()]
-    close = difflib.get_close_matches(str(name), known, n=3)
-    hint = f" Did you mean {', '.join(close)}?" if close else ""
-    return CommandUsageError(
-        f"Unknown figure {name!r}.{hint} It is not a variable, a preset or a registered figure. "
-        f"{places}"
-    )
+    return _render_request(subject, name, given)
 
 
 def _write_tables(tables: Mapping[str, Any], stem: str, folder: Path) -> list[Path]:
@@ -405,7 +333,17 @@ def _render_request(
 
     from hydromodpy.display.output import write
     from hydromodpy.display.render import render as render_figure
-    from hydromodpy.display.request import ENGINES, STATIC, FigureRequest, expand, request_of
+    from hydromodpy.display.request import (
+        BUDGET,
+        ENGINES,
+        STATIC,
+        FigureRequest,
+        expand,
+        is_column,
+        is_registered,
+        request_of,
+        unknown_variable,
+    )
     from hydromodpy.display.theme import get_theme
 
     save = given.pop("save", None)
@@ -419,6 +357,8 @@ def _render_request(
     if isinstance(name, str):
         if draw is not None:
             raise CommandUsageError("Give a figure name or a draw function, not both.")
+        if not (name in presets or is_registered(name) or is_column(name) or name == BUDGET):
+            raise CommandUsageError(unknown_variable(name, presets))
         request = request_of(name, presets, **given)
     else:
         request = FigureRequest.model_validate(

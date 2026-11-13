@@ -9,7 +9,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.display.figure_registry import get as get_figure
 from hydromodpy.results.run.view import Run
 from tests._helpers.run_builders import MISSING_SIM_ID, populate, runs
 
@@ -72,17 +71,6 @@ def test_field_shape(runs):
     result = Run(sid, runs.catalog()).field("head", time=1)
 
     assert result.shape == (2, 20)
-
-
-def test_a_figure_needing_a_missing_table_is_unavailable(runs):
-    # A figure is available when the run meets its declared requirements.
-    sid = runs.open(n_cells=10, n_layers=1, flow_regime="steady").sim_id
-    sim = Run(sid, runs.catalog())
-
-    reason = get_figure("water_budget").unavailable_reason(sim)
-
-    assert reason is not None
-    assert "budgets" in reason
 
 
 def test_the_name_of_a_missing_run_is_refused(runs):

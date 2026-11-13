@@ -52,7 +52,6 @@ from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.diagnostic import Diagnostic
 from hydromodpy.core.exceptions import ConfigError, OptimizerError
 from hydromodpy.core.time.window import nominal_step_days
-from hydromodpy.display.figures.network_extent_bounds_map import extents_from_run
 from hydromodpy.model.sinks_sources.recharge import FlowRechargeConfig
 from hydromodpy.project.facade import Project
 from hydromodpy.project.trial_pipeline import fill_trial_pipeline
@@ -454,18 +453,6 @@ def test_stored_run_without_timestep() -> None:
 def test_rule_longer_than_a_year() -> None:
     with pytest.raises(ValueError, match="maximal_flowing_duration = '13 months'"):
         network_extents_from_run(transient_run(), maximal_flowing_duration="13 months")
-
-
-def test_figure_note_durations_and_steps() -> None:
-    run = transient_run()
-    settings = network_criterion_settings(run)
-
-    extents = extents_from_run(
-        run, settings, maximal_flowing_duration="45 d", minimal_dry_duration="1 month"
-    )
-
-    assert (extents.maximal_flowing_duration, extents.maximal_flowing_steps) == ("45 d", 2)
-    assert (extents.minimal_dry_duration, extents.minimal_dry_steps) == ("1 month", 1)
 
 
 def test_duration_the_timestep_cannot_read(monkeypatch) -> None:

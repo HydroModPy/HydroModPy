@@ -83,13 +83,12 @@ the three years that step 4 simulates.
 
 ## What you get
 
-| Figure | What it shows |
+| Request | What it shows |
 |---|---|
-| `watershed_id_card` | As in step 1 |
-| `hydrographic_network_reference` | Every BD Topage reach |
-| `hydrographic_network_permanence` | Two maps of the network: all the mapped reaches, and only those that flow all year |
-| `seepage_network_confusion_map` | As in step 2, against every reach of BD Topage |
-| `downslope_distance_map` | As in step 2 |
+| `preset = "watershed_id_card"` | As in step 1 |
+| `variable = "topography"`, `overlays = ["relief", "network"]` | The relief with every BD Topage reach |
+| `variable = "network_agreement"` | As in step 2, against every reach of BD Topage |
+| `variable = "downslope_distance"`, `scale = "log"` | As in step 2 |
 
 The exports are step 2's four, plus the permanent reaches as a GeoPackage of their own:
 six files in `runs/nancon_step3_api/exports/`.

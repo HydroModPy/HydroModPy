@@ -23,10 +23,9 @@ from hydromodpy.workflow.steps import planning
 ACCEPTED = [
     {"figure": [{"variable": "recharge"}], "presets": {"mine": {"variable": "recharge"}}},
     {"theme": "default", "figure": [{"variable": "head", "name": "a"}, {"variable": "head"}]},
-    {"preset": "dark"},
+    {"theme": "dark"},
 ]
 REFUSED = [
-    ({"preset": "dark", "theme": "print"}, "display.theme"),
     ({"figure": [{"variable": "recharge"}, {"variable": "recharge"}]}, "recharge"),
     ({"theme": "neon"}, "neon"),
     ({"figure": [{"variable": "heed"}]}, "Did you mean head"),
@@ -38,7 +37,7 @@ REFUSED = [
 
 @pytest.mark.parametrize("section", ACCEPTED)
 def test_config_loads(section):
-    assert DisplayConfig.model_validate(section).theme_name in ("default", "dark")
+    assert DisplayConfig.model_validate(section).theme in ("default", "dark")
 
 
 @pytest.mark.parametrize(("section", "named"), REFUSED)
@@ -64,9 +63,9 @@ def args(**fields):
 
 def test_the_cli_draws_a_variable_and_writes_its_tables(stored_run, tmp_path, capsys):
     target = SimpleNamespace(directory=stored_run.dir, kind="run")
-    cli._request_figure(args(options=["layer=1"], to=str(tmp_path / "h.png")), target, stored_run)
+    cli._figure(args(options=["layer=1"], to=str(tmp_path / "h.png")), None, target)
     assert (tmp_path / "h.png").exists()
-    cli._request_figure(args(data=str(tmp_path / "d"), options=["time=-1"]), target, stored_run)
+    cli._figure(args(data=str(tmp_path / "d"), options=["time=-1"]), None, target)
     assert [p.name for p in (tmp_path / "d").iterdir()] == ["head_a.csv"]
 
 
@@ -76,7 +75,7 @@ def test_the_cli_draws_a_variable_and_writes_its_tables(stored_run, tmp_path, ca
 def test_a_bad_option_is_a_usage_error_in_one_line(stored_run, options, capsys):
     target = SimpleNamespace(directory=stored_run.dir, kind="run")
     with pytest.raises(SystemExit) as error:
-        cli._request_figure(args(options=options), target, stored_run)
+        cli._figure(args(options=options), None, target)
     assert (
         error.value.code == cli.EXIT_USAGE
         and len(capsys.readouterr().err.strip().splitlines()) == 1
@@ -90,14 +89,13 @@ def test_a_save_that_is_not_a_figure_format_is_refused(stored_run, tmp_path):
 
 BATCH = [
     ({"figure": [{"variable": "head", "name": "a"}]}, ["a.png"]),
-    ({"figure": [{"variable": "head", "name": "a"}], "save": False}, []),
     ({"figure": [{"variable": "head", "name": "a", "when": "session"}]}, []),
     ({"figure": [{"variable": "head", "name": "a"}], "dpi": 40}, ["a.png"]),
 ]
 
 
 @pytest.mark.parametrize(("section", "files"), BATCH)
-def test_the_end_of_run_batch_honours_save_dpi_and_when(stored_run, tmp_path, section, files):
+def test_the_end_of_run_batch_honours_dpi_and_when(stored_run, tmp_path, section, files):
     config = DisplayConfig.model_validate(section)
     batch._render_requests(stored_run, config, output_dir=tmp_path)
     assert sorted(p.name for p in tmp_path.glob("*.png")) == files

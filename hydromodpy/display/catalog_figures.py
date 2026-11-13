@@ -2,8 +2,8 @@
 
 The work behind ``hmp config figures`` and ``hmp show --figure``: list the presets, the
 special figures, the frames and the variables of the new path, and mark what a run holds.
-Draw again every figure a run recorded, and read ``--opt NAME=VALUE`` items into typed
-figure options or request fields.
+Draw again every figure a run recorded, and read ``--opt NAME=VALUE`` items into request
+fields.
 """
 
 from __future__ import annotations
@@ -56,44 +56,6 @@ def regen_figures(sim_ref: str, *, workspace: Any = None) -> list[Path]:
     return list(report.written)
 
 
-def parse_figure_options(figure: str, items: Sequence[str]) -> dict[str, Any]:
-    """Read ``NAME=VALUE`` items into the options of ``figure``, typed as it declares them.
-
-    A value is read as a TOML value first, as ``[display.overrides]`` writes
-    it: ``false``, ``12``, ``1e-4``, ``[8, 5]``, ``"text"``. A value that is
-    not one is the bare text, so ``title=Water table`` needs no quotes, and
-    ``title=`` is the empty string, which removes the title. The value is then
-    checked against the type of the option. Raises ``ValueError`` for an item
-    without ``=``, an option the figure does not take, or a value of the wrong
-    type, naming what the figure takes. An option that takes a Python object,
-    such as another run, is refused with the ``Run.figure`` call that sets it.
-    """
-    from hydromodpy.display.figure_registry import (
-        figure_option_types,
-        figure_python_only_options,
-    )
-
-    types = figure_option_types(figure)
-    python_only = figure_python_only_options(figure)
-    options: dict[str, Any] = {}
-    for item in items:
-        name, sep, raw = str(item).partition("=")
-        name = name.strip()
-        if not sep or not name:
-            raise ValueError(f"--opt {item!r}: write NAME=VALUE, as in --opt show_run_name=false.")
-        if name not in types:
-            raise ValueError(
-                f"figure '{figure}' has no option '{name}'; it takes: {', '.join(sorted(types))}."
-            )
-        if name in python_only:
-            raise ValueError(
-                f"figure '{figure}', option '{name}' takes a Python object: "
-                f"pass it to run.figure('{figure}', {name}=...)."
-            )
-        options[name] = _typed_option(figure, name, raw, types[name])
-    return options
-
-
 def parse_request_fields(items: Sequence[str]) -> dict[str, Any]:
     """Read ``NAME=VALUE`` items into the fields of a figure request.
 
@@ -113,29 +75,6 @@ def parse_request_fields(items: Sequence[str]) -> dict[str, Any]:
         except tomllib.TOMLDecodeError:
             fields[name] = raw
     return fields
-
-
-def _typed_option(figure: str, name: str, raw: str, annotation: Any) -> Any:
-    """One ``--opt`` value, read as TOML then checked against the option type."""
-    import tomllib
-
-    from pydantic import TypeAdapter, ValidationError
-
-    try:
-        candidates: list[Any] = [tomllib.loads(f"value = {raw}")["value"], raw]
-    except tomllib.TOMLDecodeError:
-        candidates = [raw]
-    if annotation is None:
-        return candidates[0]
-    adapter = TypeAdapter(annotation)
-    last_error: ValidationError | None = None
-    for candidate in candidates:
-        try:
-            return adapter.validate_python(candidate)
-        except ValidationError as exc:
-            last_error = exc
-    reason = last_error.errors()[0]["msg"] if last_error is not None else "invalid value"
-    raise ValueError(f"figure '{figure}', option '{name}' = {raw!r}: {reason}.")
 
 
 def figure_listing(

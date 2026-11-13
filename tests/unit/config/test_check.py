@@ -433,11 +433,11 @@ def test_display_check_imports_no_figure_module(tmp_path: Path) -> None:
         import sys
         from hydromodpy.config.check import check
         found = check(
-            {{"geographic": {SYNTHETIC!r}, "display": {{"figures": ["hydrograph"]}}}},
+            {{"geographic": {SYNTHETIC!r}, "display": {{"figure": [{{"variable": "head"}}]}}}},
             base={str(tmp_path)!r},
         )
         assert [d for d in found if d.severity != "warning"] == [], found
-        loaded = [name for name in sys.modules if name.startswith("hydromodpy.display.figures.")]
+        loaded = [name for name in sys.modules if name.startswith(("hydromodpy.display.frames.", "hydromodpy.display.special."))]
         assert loaded == [], loaded
         """
     )

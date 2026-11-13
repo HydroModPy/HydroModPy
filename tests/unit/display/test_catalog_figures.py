@@ -87,34 +87,3 @@ def test_listing_reads_the_presets_of_the_run(monkeypatch, tmp_path) -> None:
     rows = catalog_figures.figure_listing("abc", workspace=tmp_path, presets_of=lambda run: own)
 
     assert [row["name"] for row in rows if row["kind"] == "preset"] == ["mine"]
-
-
-OPTIONS = [
-    pytest.param(
-        ["show_run_name=false", "title=Depth to water", "figsize=[6, 5]", "vmax=30"],
-        {"show_run_name": False, "title": "Depth to water", "figsize": (6.0, 5.0), "vmax": 30.0},
-        id="typed by the option",
-    ),
-    pytest.param(['title="true"'], {"title": "true"}, id="quoted text stays text"),
-]
-
-
-@pytest.mark.parametrize(("items", "expected"), OPTIONS)
-def test_options_take_the_type_of_the_option(items, expected) -> None:
-    assert catalog_figures.parse_figure_options("watertable_depth_map", items) == expected
-
-
-REFUSALS = [
-    pytest.param("watertable_depth_map", "show_run_name=maybe", "valid boolean", id="bad boolean"),
-    pytest.param(
-        "watertable_depth_map", "color=red", "has no option 'color'; it takes:", id="unknown option"
-    ),
-    pytest.param("watertable_depth_map", "title", "write NAME=VALUE", id="no value"),
-    pytest.param("difference_map", "reference=other_run", "takes a Python object", id="object"),
-]
-
-
-@pytest.mark.parametrize(("figure", "item", "message"), REFUSALS)
-def test_refusals(figure, item, message) -> None:
-    with pytest.raises(ValueError, match=message):
-        catalog_figures.parse_figure_options(figure, [item])

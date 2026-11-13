@@ -48,7 +48,7 @@ from hydromodpy.data.sites.catalog import read_catalog
 from hydromodpy.results.export.publish import verify
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
 from hydromodpy.results.publication import PUBLISHED_REMEDY, read_publication, read_published
-from hydromodpy.results.session.journal import read_trials
+from hydromodpy.results.session.journal import TRIAL_SCHEMA, read_trials
 from hydromodpy.results.session.trial_series import read_trial_series
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import read_versioned
@@ -323,7 +323,7 @@ def _copy_of_the_journal_session(copy: str, tmp_path: Path) -> Path:
 
 @pytest.mark.parametrize("copy", RUN_COPIES)
 def test_a_2_0_journal_reads_as_finished_trials(copy: str, tmp_path: Path) -> None:
-    """A line of the journal of the corpus has no event and reads as ``finished``, without rewrite."""
+    """The journal of the corpus reads as scored trials, the promoted one linked, without rewrite."""
     expected = json.loads((FROZEN_RUNS / "expected.json").read_text(encoding="utf-8"))["session"]
     session = _copy_of_the_journal_session(copy, tmp_path)
     before = (session / "trials.jsonl").read_bytes()
@@ -331,21 +331,26 @@ def test_a_2_0_journal_reads_as_finished_trials(copy: str, tmp_path: Path) -> No
     assert [t.trial for t in trials] == [row["trial"] for row in expected["trials"]]
     assert [t.cost for t in trials] == [row["cost"] for row in expected["trials"]]
     assert [t.phase for t in trials] == [row["phase"] for row in expected["trials"]]
-    assert {t.event for t in trials} == {"finished"}
+    best = expected["best"]["trial"]
+    linked = expected["best"]["cases"]["calage"]
+    assert {t.trial: t.event for t in trials if t.event != "finished"} == {best: "linked"}
+    assert [(c.sim_id, c.rel_dir) for c in trials[best - 1].cases.values()] == [
+        (linked["sim_id"], linked["rel_dir"])
+    ]
     assert all(t.status == "completed" for t in trials)
     cases = [case for trial in trials for case in trial.cases.values()]
     assert cases
-    assert all(case.rule is None and case.window is None for case in cases)
-    assert all(t.profile == [] for t in trials)
+    assert all(case.rule is not None and case.window is not None for case in cases)
+    assert all(t.profile for t in trials)
     assert (session / "trials.jsonl").read_bytes() == before, "a read rewrote the journal"
 
 
 def test_the_frozen_journals_are_untouched_by_the_reader() -> None:
-    """The reader runs on copies, so the corpus keeps the bytes the first freeze wrote."""
+    """The reader runs on copies, so the corpus keeps the bytes the freeze wrote."""
     for copy in RUN_COPIES:
         path = FROZEN_RUNS / copy / "projects" / "example" / "sessions" / "calage" / "trials.jsonl"
         schemas = {json.loads(line)["schema"] for line in path.read_text("utf-8").splitlines()}
-        assert schemas == {"hydromodpy.trial.v2"}
+        assert schemas == {TRIAL_SCHEMA}
 
 
 def test_trial_series_files_of_2_0_0_carry_no_version_key(corpus: Path) -> None:
