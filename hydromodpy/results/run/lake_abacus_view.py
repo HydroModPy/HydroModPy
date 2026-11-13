@@ -1,7 +1,7 @@
 """Read the persisted lake abacus comparison for a run.
 
 A module-level view (not a ``Run`` method, to keep the ``Run`` public surface
-under the CLAUDE.md cap) that opens the per-sim Zarr and returns the reference vs
+under its cap) that opens the per-sim Zarr and returns the reference vs
 simulated abacus arrays a lake used during ``bed_reconstruction``.
 """
 

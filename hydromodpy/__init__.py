@@ -19,7 +19,7 @@ from hydromodpy.core.io.proj_bootstrap import bootstrap_proj as _bootstrap_proj
 _bootstrap_proj()
 
 # Public API facade. This is the single allowed exception to the "no aliases / no
-# re-exports" rule in CLAUDE.md: the verbs and the objects of hydromodpy.project.api
+# re-exports" rule of the repository: the verbs and the objects of hydromodpy.project.api
 # are reached here on purpose, through the lazy table.
 from hydromodpy._lazy import KEPT_EXCEPTIONS as _KEPT_EXCEPTIONS  # noqa: E402
 from hydromodpy._lazy import KEPT_READERS as _KEPT_READERS  # noqa: E402
